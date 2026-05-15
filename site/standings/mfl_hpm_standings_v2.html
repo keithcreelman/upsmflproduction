@@ -28,7 +28,12 @@
     html, body {
       margin: 0;
       padding: 0;
-      background: var(--bg);
+      /* transparent page background so the standings module inherits
+         the parent MFL chrome (matches the clean look of Rookie Draft
+         Hub / Player Stats / Overview). Individual cards still have
+         their own painted backgrounds (.card, .era-detail-card, etc).
+         Keith 2026-05-15. */
+      background: transparent;
       color: var(--text);
       font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
       min-height: 100vh;
