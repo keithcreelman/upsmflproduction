@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>UPS Dynasty League</title>
+  <meta http-equiv="x-ua-compatible" content="ie=edge" />
+  <meta name="theme-color" content="#0e1320" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #0e1320;
+      color: #e8edf5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+    }
+    .wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      letter-spacing: 0.02em;
+    }
+    .sub {
+      color: #8a97ad;
+      font-size: 13px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .opts {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 320px;
+    }
+    .opt {
+      padding: 14px 18px;
+      background: #141a26;
+      border: 1px solid #2a3446;
+      border-radius: 10px;
+      color: #e8edf5;
+      text-decoration: none;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 600;
+      transition: border-color 120ms;
+    }
+    .opt.primary {
+      background: #5b8dff;
+      border-color: #5b8dff;
+      color: #0e1320;
+    }
+    .opt:hover, .opt:active {
+      border-color: #5b8dff;
+    }
+    .opt .small {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      margin-top: 4px;
+      opacity: 0.75;
+    }
+    .auto {
+      font-size: 11px;
+      color: #8a97ad;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>UPS Dynasty League</h1>
+    <div class="sub">Salary cap dynasty fantasy football</div>
+    <div class="opts">
+      <a id="opt-app" class="opt primary" href="./m/">Open UPS Mobile App<span class="small">Mobile-first contracts + lineup + trades</span></a>
+      <a id="opt-desktop" class="opt" href="https://www48.myfantasyleague.com/2026/home/74598">Open Desktop Site<span class="small">Full MFL site with all features</span></a>
+    </div>
+    <div class="auto" id="auto-msg"></div>
+  </div>
+
+  <script>
+    // Detect mobile UA — phones + small tablets. iPad in desktop mode
+    // identifies as Macintosh; we treat genuine iOS/Android as mobile.
+    // Users can still tap "Open Desktop Site" to override.
+    (function () {
+      var ua = navigator.userAgent || "";
+      var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua) ||
+                     (window.matchMedia && window.matchMedia("(max-width: 768px)").matches);
+      // Preserve any league/year override the user came in with.
+      var qs = window.location.search || "";
+      if (qs) {
+        document.getElementById("opt-app").href = "./m/" + qs;
+      }
+      if (isMobile) {
+        // Auto-redirect after a brief moment so the user can override.
+        // Storing a flag in sessionStorage lets the user bounce back to
+        // this landing without an immediate re-redirect loop.
+        if (!sessionStorage.getItem("ups_landing_overridden")) {
+          var msg = document.getElementById("auto-msg");
+          msg.textContent = "Detected a phone — opening mobile app in 2s…";
+          setTimeout(function () {
+            window.location.replace("./m/" + qs);
+          }, 2000);
+        }
+      }
+      // Mark override if user explicitly chose desktop
+      document.getElementById("opt-desktop").addEventListener("click", function () {
+        try { sessionStorage.setItem("ups_landing_overridden", "1"); } catch (e) {}
+      });
+    })();
+  </script>
+</body>
+</html>

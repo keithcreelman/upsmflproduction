@@ -803,6 +803,74 @@
   </div>
 </footer>
 
+<!-- ============================================================ -->
+<!-- Switch to App View — floating button, mobile viewport only.   -->
+<!-- Lets users on the MFL desktop site (rendered on phone) jump   -->
+<!-- to the UPS Mobile App. Keith 2026-05-16: "need a button only  -->
+<!-- visible in mobile to switch to app view."                     -->
+<!-- ============================================================ -->
+<style>
+  #ups-switch-app-btn {
+    display: none; /* shown only by the @media query below on small viewports */
+    position: fixed;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 10000;
+    padding: 10px 14px;
+    background: #5b8dff;
+    color: #0e1320;
+    border: none;
+    border-radius: 999px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    text-decoration: none;
+    text-align: center;
+    line-height: 1.2;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  #ups-switch-app-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  }
+  #ups-switch-app-btn .ups-switch-app-icon {
+    margin-right: 4px;
+  }
+  @media (max-width: 768px) {
+    #ups-switch-app-btn {
+      display: inline-flex;
+      align-items: center;
+    }
+  }
+</style>
+<a id="ups-switch-app-btn"
+   href="https://keithcreelman.github.io/upsmflproduction/m/"
+   aria-label="Switch to UPS Mobile App view">
+  <span class="ups-switch-app-icon" aria-hidden="true">📱</span><span>Switch to App View</span>
+</a>
+<script>
+  (function () {
+    // Preserve league + year context when jumping to the mobile app so
+    // the user lands on the same league they were viewing.
+    try {
+      var btn = document.getElementById("ups-switch-app-btn");
+      if (!btn) return;
+      // MFL URLs follow https://www48.myfantasyleague.com/<YEAR>/home/<LEAGUE_ID>
+      var m = (window.location.pathname || "").match(/\/(\d{4})\/[a-zA-Z_]+\/(\d{4,6})/);
+      var year = m ? m[1] : "2026";
+      var league = m ? m[2] : "74598";
+      btn.href = "https://keithcreelman.github.io/upsmflproduction/m/?L=" +
+        encodeURIComponent(league) + "&YEAR=" + encodeURIComponent(year);
+    } catch (e) {
+      // Silent — button still links to /m/ root.
+    }
+  })();
+</script>
+
 <!------------------------------------------------------>
 <!------------------ End #20 - Footer ------------------>
 <!------------------------------------------------------>
