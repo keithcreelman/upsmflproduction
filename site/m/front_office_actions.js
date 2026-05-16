@@ -266,18 +266,33 @@
   // Inputs come from app.js state — never reach into roster_workbench
   // internals. The tag tracking + submissions JSON is fetched in app.js.
 
-  function trackedTaggedPlayerForFranchiseSide(tagSubmissions, fid, side) {
+  function trackedTaggedPlayerForFranchiseSide(tagSubmissions, fid, side, currentSeason) {
     // Mirror of trackedTaggedPlayerForFranchiseSide: scan submissions for
     // a tag submitted by this franchise on this side that hasn't been
     // untagged. We don't have the full state graph mobile-side; treat any
-    // submission with action="tag" and the matching side/fid as active
-    // unless explicitly superseded by a later "untag" for the same player.
+    // submission with action="tag" and the matching side/fid/season as
+    // active unless explicitly superseded by a later "untag" for the same
+    // player.
+    //
+    // CRITICAL: filter by season. tag_submissions.json is append-only
+    // across years — without the season check, last year's tags surface
+    // as currently active. (Audit 2026-05-16: Lamar Jackson was tagged
+    // 2025 by Real Deal Creel and was incorrectly showing as a 2026 tag
+    // even though he's not on any 2026 roster.)
     if (!Array.isArray(tagSubmissions) || !fid) return null;
     var normalizedSide = normalizeTagSideValue(side);
+    var seasonStr = currentSeason ? String(currentSeason) : "";
     var byPid = {};
     tagSubmissions.forEach(function (row) {
       if (!row) return;
       if (pad4(row.franchise_id) !== pad4(fid)) return;
+      // Season filter — only honor submissions matching the current
+      // season. Treat missing season as "current" for backward compat
+      // with any rows that haven't been re-stamped with explicit season.
+      if (seasonStr) {
+        var rowSeason = String(row.season || row.year || "");
+        if (rowSeason && rowSeason !== seasonStr) return;
+      }
       var rowSide = normalizeTagSideValue(row.tag_side || row.side);
       if (rowSide && normalizedSide && rowSide !== normalizedSide) return;
       var pid = String(row.player_id || "").replace(/\D/g, "");
@@ -312,11 +327,12 @@
     return false;
   }
 
-  function activeTaggedPlayerForTeam(rosterRows, side, tagSubmissions, fid, tagTracking) {
+  function activeTaggedPlayerForTeam(rosterRows, side, tagSubmissions, fid, tagTracking, currentSeason) {
     // Roster-first: a player on this team with type="TAG" and matching side
     // is the active tag, UNLESS isStaleTagFromPriorSeason flags it as a
     // leftover from a prior season (in which case the slot is open).
-    // Fallback: scan tag submissions for an unaccompanied "tag" record.
+    // Fallback: scan tag submissions for an unaccompanied "tag" record
+    // — gated by currentSeason so prior-year tags don't surface.
     var normalizedSide = normalizeTagSideValue(side) || "OFFENSE";
     var list = Array.isArray(rosterRows) ? rosterRows : [];
     for (var i = 0; i < list.length; i++) {
@@ -328,7 +344,7 @@
       if (isStaleTagFromPriorSeason(p, tagTracking)) continue;
       return p;
     }
-    return trackedTaggedPlayerForFranchiseSide(tagSubmissions, fid, normalizedSide);
+    return trackedTaggedPlayerForFranchiseSide(tagSubmissions, fid, normalizedSide, currentSeason);
   }
 
   // Given the viewer's roster + tag tracking data, decide what tag action
@@ -345,6 +361,7 @@
     var rosterRowsWithPos = args.rosterRowsWithPos || [];  // [{id, position, contractStatus}, ...]
     var tagTracking = args.tagTracking || [];
     var tagSubmissions = args.tagSubmissions || [];
+    var currentSeason = args.currentSeason || "";
     if (!rosterRow || !fid) return { kind: "none", reason: "no_player_or_team" };
 
     var pid = String(rosterRow.id).replace(/\D/g, "");
@@ -369,7 +386,7 @@
     // back to position-derived side for safety.
     var side = normalizeTagSideValue(planRow.tag_side || planRow.side) ||
                getTagSideFromPos(planRow.position);
-    var active = activeTaggedPlayerForTeam(rosterRowsWithPos, side, tagSubmissions, fid, tagTracking);
+    var active = activeTaggedPlayerForTeam(rosterRowsWithPos, side, tagSubmissions, fid, tagTracking, currentSeason);
     var activePid = active ? String(active.id || active.player_id || "").replace(/\D/g, "") : "";
 
     if (activePid && activePid === pid) return { kind: "untag", row: planRow };
