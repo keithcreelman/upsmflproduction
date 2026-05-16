@@ -105,6 +105,16 @@ These are known drifts where mobile, desktop, and worker disagree. Every entry h
 - **Mobile** (`trackedTaggedPlayerForFranchiseSide`): **FIXED 2026-05-16** to filter by `currentSeason`. Was missing the filter → Lamar Jackson's 2025 tag from Real Deal Creel surfaced as a 2026 tag.
 - **Status**: mobile fixed; desktop has its own (different) filter. Acceptable.
 
+### 2.9 — Optimistic tag/untag UI updates (mirror mobile on desktop)
+
+- **Mobile** (2026-05-16): `DATA.pushOptimisticTagSubmission(entry)` pushes a synthetic submission row into `state.tagSubmissions` AND a sidecar `state.optimisticTagSubmissions` that survives `reloadData()` overwrites. Wired into all four tag/untag success paths (`views/tagging.js` + `player_sheet.js handleTagSubmit` / `handleUntagSubmit`). On reload, the merge logic drops any optimistic entry whose `(player_id, season, submission_kind)` is now present in the canonical JSON — so optimistic entries quietly dissolve when the ETL catches up.
+- **Desktop**: has the SHAPE of an optimistic layer (`LOCAL_TAG_SUBMISSIONS_KEY = "ccc_tag_submissions_v1"`, `loadLocalTagSubmissionStore`, `saveLocalTagSubmissionStore`, `removeTagSubmissionFromLocalStore`) but both load and save are gutted to `localStorage.removeItem(...)` no-ops at [roster_workbench.js:2701-2712](site/rosters/roster_workbench.js:2701). Effectively desktop has NO optimistic layer; it relies on the post-submit MFL salaries refresh being fast enough that the roster-row scan picks up `contractStatus="TAG"` before the user notices.
+- **Race that bit Keith 2026-05-16**: Tagged Malik Willis on mobile. Discord confirmed. MFL salaries export was lagging on propagation. Mobile (pre-fix) showed both tag slots Open + Malik in the Eligible list because BOTH the JSON (ETL-regenerated on a schedule) AND the MFL roster (laggy) were stale. Optimistic update fixed it for mobile.
+- **Required desktop fix** (cross-codebase, Keith 2026-05-16 — "we'll need to fix desktop"):
+  1. Replace the gutted `loadLocalTagSubmissionStore` / `saveLocalTagSubmissionStore` with real `localStorage` reads/writes (or scrap the localStorage layer and use in-memory state like mobile — desktop's full-page reloads mean localStorage IS the right backing store for desktop).
+  2. After `submitTagPlanSelection` / `submitUntagPlayer` success, push an optimistic entry matching the mobile shape (`{ season, franchise_id, player_id, side, tag_side, submission_kind, submitted_at_utc }`).
+  3. After `loadTagPlanData()` succeeds, drop ratified optimistic entries — same merge predicate mobile uses: `(player_id, season, submission_kind)` in canonical → drop optimistic.
+
 ### 2.8 — Lineup audit trail + DM-based notification (Keith 2026-05-16)
 
 - **Current state**: lineup submissions are written to MFL but skip BOTH D1 audit and Discord (this used to be tracked as "parity by design"). The desktop site also skips them. Reason historically: weekly lineup churn would flood the contract-activity channel and bloat audit tables.
@@ -126,7 +136,7 @@ These are known drifts where mobile, desktop, and worker disagree. Every entry h
 
 | Date | What | Why | When to re-converge |
 |---|---|---|---|
-| _(none currently — mobile is in lock-step with desktop)_ | | | |
+| 2026-05-16 | Mobile has optimistic tag/untag updates (`state.optimisticTagSubmissions` sidecar that survives `reloadData()`); desktop's localStorage layer is gutted to no-op | Keith hit the race after tagging Malik Willis on mobile — both `tag_submissions.json` (ETL-regenerated) AND the MFL salaries export were stale post-submit. Mobile's optimistic layer is the correct fix; desktop has the same race but currently no mitigation. | When the desktop fix described in §2.9 lands. |
 
 ### Lesson: the 6G.2 false-alarm (2026-05-16)
 
