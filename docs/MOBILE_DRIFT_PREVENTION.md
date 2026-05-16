@@ -190,8 +190,30 @@ Each agent fetches real data (worker URLs above), compares against canonical rul
 - **Calvin Johnson comp pick** automation: §D2.6 awards comp picks for tier-1 retired players. Currently 100% commissioner-side. Should the worker compute eligibility automatically?
 - **Pre-2019 contract era handling**: drop penalty formula differs (see `mfl_pre2019_no_low_tcv_1k_rule.md`). Worker handles via era branch; clients don't. Affects HISTORICAL display only, not new submissions.
 - **Trade cap-money 50% rule**: confirmed enforced on desktop trade workbench. Mobile defers to desktop (no offer creation). Worker enforcement?
+- **Taxi player salary display** (Keith 2026-05-16): MFL nulls `salary`/`contractYear`/`contractStatus`/`contractInfo` for taxi players in both the rosters and salaries exports — even with `TAXI=ALL`. Verified against pid 16212 (LA taxi). To show a $5K taxi player as `$5K` instead of `$0`, we need a UPS-side salary-history table populated either from pre-taxi snapshots (worker writes on taxi-promotion event) or by reconstructing from draft-slot for rookie taxi players. Cross-codebase work; not done.
+- **Mobile as default landing page** (Keith 2026-05-16): need to detect mobile user-agent at the GitHub Pages root and either redirect to `/m/` or add a banner "Switch to App View" only visible on the desktop site's mobile rendering. Needs a small JS snippet on the desktop landing.
 
 When you have an answer, update this section and migrate the resolution into §2 or §3.
+
+## §7 — Submit-path wiring (Keith 2026-05-16)
+
+Confirmation table of every mobile-originating action and whether it hits all four canonical targets:
+
+| Mobile action | MFL write | D1 audit | Discord post | Cap-penalty cron |
+|---|---|---|---|---|
+| Drop | ✓ `import?TYPE=taxi` (worker) | ✓ `salary_change_log` | ✓ via hourly cap-penalty cron | ✓ deduped by ledger_key |
+| On the Block (add/remove/note) | ✓ `import?TYPE=tradeBait` | ✓ `ups_trade_bait_notes` | ✓ OTB war-room channel | n/a |
+| Tag | ✓ `load_player` + `commish-contract-update` | ✓ `ups_tag_submissions` + `ups_tag_master` | ✓ contract-activity channel | n/a |
+| Untag | ✓ `commish-contract-update` | ✓ tag tables | ✓ contract-activity channel | n/a |
+| Extension | ✓ `import?TYPE=salaries` via `/offer-extension` | ✓ `ups_extension_submissions` + `ups_extension_master` | ✓ contract-activity channel | n/a |
+| Restructure | ✓ `import?TYPE=salaries` via `/offer-restructure` | ✓ `salary_change_log` | ✓ contract-activity channel | n/a |
+| Submit Lineup | ✓ `import?TYPE=lineup` (`/api/submit-lineup`) | ✗ no audit (parity with desktop — by design) | ✗ no announcement (parity — by design) | n/a |
+| Draft Pick | ✓ `import?TYPE=draftResults` | ✓ `draft_audit` | ✓ live/test draft channel | n/a |
+| Trade Accept/Decline/Cancel | ✓ via `runDirectProposal` | ✓ trade audit tables | ✓ trade channel (live, fires on accept) | n/a (cap settlement separate) |
+
+**Discriminator:** every mobile payload sends `source: "ups-mobile-*"` in the audit body. Desktop sends `source: "front-office-*"`. Worker handler reads either and routes identically — same MFL writes, same D1 rows, same Discord. The `source` field is purely forensic.
+
+**Lineup deliberately skips audit + Discord** to match desktop behavior — lineup changes happen frequently (every week) and would spam every channel.
 
 ## Pointer: when in doubt
 

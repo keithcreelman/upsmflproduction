@@ -308,8 +308,7 @@
         contractActions.forEach(function (a) {
           if (!a.eligible) return;
           html += '<button class="btn-act ' + a.css + '" data-act="ccc" data-ccc-action="' +
-            U.escapeHtml(a.key) + '">' + U.escapeHtml(a.label) +
-            ' <span class="pn">(open desktop)</span></button>';
+            U.escapeHtml(a.key) + '">' + U.escapeHtml(a.label) + '</button>';
         });
         html += '</div>';
       }
@@ -444,7 +443,7 @@
     if (!body) return;
     if (!options || !options.length) {
       if (sub) sub.textContent = "No extension previews available for this player.";
-      body.innerHTML = '<div class="ups-m-sheet-empty">No options. Try the desktop Front Office for manual extension.</div>';
+      body.innerHTML = '<div class="ups-m-sheet-empty">No extension options available for this player.</div>';
       return;
     }
     if (sub) sub.textContent = "Pick the option to submit. Writes to MFL on confirm.";
@@ -873,10 +872,20 @@
     });
   }
 
-  // U6 helper — given a cap-charge delta in current-year dollars, return
-  // a single-line preview of the post-action cap state. Reuses computeCap
-  // for the baseline so the numbers match the cap card on the Contracts
-  // tab exactly. Returns "" if cap state isn't available (no viewer fid).
+  // U6 helper — given a current-year cap-charge delta, append a
+  // post-action cap state preview to the confirm body so the user
+  // sees the consequence before tapping submit. Uses computeCap so the
+  // numbers match the Contracts cap card exactly.
+  //
+  // Labels:
+  //   "This-year cap change" = how this action shifts the current cap line
+  //                            (Drop: penalty − current salary;
+  //                             Extension/Restructure: new Y1 − current Y1)
+  //   "Cap after this action" = total committed after the change
+  //   "Room left"             = $300K − cap after  (negative = over cap)
+  //   "%"                     = cap after / $300K cap ceiling
+  //
+  // Uses fmtUsdPrecise so a $1.5K penalty shows as "$1.5K" not "$2K".
   function capPreviewLine(deltaUsd) {
     var s = window.UPS_MOBILE.state;
     if (!s.viewerFranchiseId || !DATA.computeCap) return "";
@@ -887,9 +896,9 @@
     var newPct = Math.round((newTotal / cap.capAmount) * 100);
     var sign = (deltaUsd > 0) ? "+" : (deltaUsd < 0 ? "−" : "");
     var absDelta = Math.abs(deltaUsd || 0);
-    return "\n\nCap delta: " + sign + U.fmtUsd(absDelta) +
-      "\nCap after: " + U.fmtUsd(newTotal) + " · room " + U.fmtUsd(newRoom) +
-      " (" + newPct + "%)";
+    return "\n\nThis-year cap change: " + sign + U.fmtUsdPrecise(absDelta) +
+      "\nCap after this action: " + U.fmtUsdPrecise(newTotal) +
+      "\nRoom left: " + U.fmtUsdPrecise(newRoom) + " (" + newPct + "% of $300K cap)";
   }
 
   function handleDrop(pid, name, rosterRow, btn) {
@@ -897,7 +906,7 @@
     var penaltyLine = "";
     if (penalty && typeof penalty.amount === "number") {
       penaltyLine = penalty.amount > 0
-        ? "\nEstimated cap penalty: " + U.fmtUsd(penalty.amount)
+        ? "\nEstimated cap penalty: " + U.fmtUsdPrecise(penalty.amount)
         : "\nNo dead-cap penalty.";
     } else {
       penaltyLine = "\nCap penalty: unknown (pre-2019 or unparseable contract).";
