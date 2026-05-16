@@ -35,7 +35,7 @@
     return raw;
   }
 
-  function statusBadges(rosterRow, otbIds) {
+  function statusBadges(rosterRow, otbIds, fid) {
     // Contract-type badge (e.g. BL, Rookie) is already rendered as a
     // typed chip in the chips row, so we intentionally skip it here to
     // avoid the duplicate Keith called out (BL/BL, Rookie/Rookie).
@@ -48,7 +48,20 @@
     if (/taxi/i.test(status)) out.push('<span class="badge tx">Taxi</span>');
     if (/ir|injured/i.test(status)) out.push('<span class="badge ir">IR</span>');
     if (otbIds && otbIds.has(String(rosterRow.id))) out.push('<span class="badge otb">On Block</span>');
-    if (cy === 1) out.push('<span class="badge ext">Ext Eligible</span>');
+    // "Ext Eligible" requires more than cy===1 — desktop's rosterContractEligibility
+    // gates on tag status + "no further extensions" + rookie-option state, and
+    // RULE-EXT-003 blocks the SAME UPS franchise from extending twice. Without
+    // this gate, tagged players (Trevor Lawrence on LH) and already-extended-by-
+    // current-owner players show false-positive eligibility badges.
+    var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
+    if (FOA && FOA.extensionAvailableFor) {
+      if (FOA.extensionAvailableFor(rosterRow, fid).ok) {
+        out.push('<span class="badge ext">Ext Eligible</span>');
+      }
+    } else if (cy === 1) {
+      // Fallback only if the actions mirror failed to load — shouldn't happen.
+      out.push('<span class="badge ext">Ext Eligible</span>');
+    }
     return out.join(" ");
   }
 
@@ -85,7 +98,7 @@
       '</div>';
   }
 
-  function renderRoster(rosterRows) {
+  function renderRoster(rosterRows, fid) {
     if (!rosterRows.length) return '<div class="ups-m-stub"><div>No roster found.</div></div>';
     var otbIds = DATA.getMyTradeBaitIds();
     // Group by position using MFL players export
@@ -159,7 +172,7 @@
           (yr > 0 ? '<span class="chip">YR ' + yr + '</span>' : ''),
           (tcv ? '<span class="chip">TCV ' + U.fmtUsd(tcv) + '</span>' : ''),
           (typeRaw ? '<span class="chip type">' + U.escapeHtml(typeRaw) + '</span>' : ''),
-          statusBadges(r, otbIds)
+          statusBadges(r, otbIds, fid)
         ].filter(Boolean).join(" ");
         html += '' +
           '<div class="ups-m-player-row rich" data-pid="' + U.escapeHtml(r.id) + '">' +
@@ -208,7 +221,7 @@
     mount.innerHTML =
       subTabs("contracts") +
       renderCapCard(cap) +
-      renderRoster(roster);
+      renderRoster(roster, fid);
     bindRowClicks(mount);
   }
 

@@ -331,14 +331,15 @@
 
   // Adapt a mobile rosterRow to the desktop "player" shape for the
   // baseline helpers (which read .special, .salary, .years).
-  function adaptRosterRow(rosterRow) {
+  function adaptRosterRow(rosterRow, fid) {
     if (!rosterRow) return null;
     return {
       id: rosterRow.id,
       years: rosterRow.contractYear,
       salary: rosterRow.salary,
       special: rosterRow.contractInfo,
-      type: rosterRow.contractStatus
+      type: rosterRow.contractStatus,
+      fid: fid || rosterRow.fid || rosterRow.franchise_id || ""
     };
   }
 

@@ -128,6 +128,133 @@
     };
   }
 
+  // ── Extension blocking (RULE-EXT-003) ───────────────────────────────
+  // Verbatim mirror of roster_workbench.js:1168-1288. The "Ext:" segment
+  // in contractInfo lists UPS FRANCHISES (Long Haulers, HammerTime 🔨 ⏰,
+  // Gride, etc.) that previously extended the player. A franchise cannot
+  // extend the same player twice; different franchises CAN each extend.
+  // Mobile's omission of these helpers was leaking the rule — a player
+  // already extended by the current owner was showing as eligible.
+  //
+  // CRITICAL: normalizeIdentityToken MUST preserve non-ASCII codepoints
+  // because HammerTime's official abbrev IS the literal emoji "🔨 ⏰".
+  // Stripping non-ASCII collapses it to "" and silently disables the
+  // block (CJ Stroud regression filed 2026-04-22 fixed by this preservation).
+
+  function parseExtensionHistoryTokens(contractInfo) {
+    var info = safeStr(contractInfo);
+    if (!info) return [];
+    var match = info.match(/(?:^|\|)\s*Ext:\s*([^|]+)/i);
+    if (!match || !safeStr(match[1])) return [];
+    return safeStr(match[1])
+      .split(/[,/;&]|\band\b/i)
+      .map(function (token) { return safeStr(token); })
+      .filter(Boolean);
+  }
+
+  function normalizeIdentityToken(token) {
+    var s = safeStr(token).toLowerCase();
+    var out = "";
+    for (var i = 0; i < s.length; i += 1) {
+      var c = s.charCodeAt(i);
+      if (c <= 0x7F) {
+        // ASCII: keep only letters (lowercased) and digits.
+        if ((c >= 0x30 && c <= 0x39) || (c >= 0x61 && c <= 0x7A)) {
+          out += s.charAt(i);
+        }
+        // else: ASCII whitespace / punctuation → drop
+      } else {
+        // Non-ASCII (emojis in supplementary plane → surrogate pairs;
+        // accented letters; CJK; etc.): preserve verbatim so emoji
+        // abbrevs like "🔨 ⏰" survive normalization intact.
+        out += s.charAt(i);
+      }
+    }
+    return out;
+  }
+
+  function teamIdentityTokenMap(team) {
+    var map = Object.create(null);
+
+    function add(raw) {
+      var text = safeStr(raw);
+      if (!text) return;
+      var normalized = normalizeIdentityToken(text);
+      if (normalized) map[normalized] = true;
+      var parts = text.split(/[\s/,&().-]+/);
+      for (var i = 0; i < parts.length; i += 1) {
+        var token = normalizeIdentityToken(parts[i]);
+        if (!token) continue;
+        map[token] = true;
+        if (token.length >= 5 && /ers$/.test(token)) {
+          map[token.slice(0, -3)] = true;
+        }
+        if (token.length >= 5 && /s$/.test(token)) {
+          map[token.slice(0, -1)] = true;
+        }
+      }
+    }
+
+    add(team && team.name);
+    add(team && team.abbrev);
+    return map;
+  }
+
+  function lastExtensionIdentityToken(contractInfo) {
+    var tokens = parseExtensionHistoryTokens(contractInfo);
+    if (!tokens.length) return "";
+    return normalizeIdentityToken(tokens[tokens.length - 1]);
+  }
+
+  function identityTokenMatchesTeam(token, team) {
+    var normalized = normalizeIdentityToken(token);
+    if (!normalized) return false;
+    var identity = teamIdentityTokenMap(team);
+    if (identity[normalized]) return true;
+    var keys = Object.keys(identity);
+    for (var i = 0; i < keys.length; i += 1) {
+      var key = keys[i];
+      if (!key) continue;
+      if (normalized.length >= 4 && key.indexOf(normalized) === 0) return true;
+      if (key.length >= 4 && normalized.indexOf(key) === 0) return true;
+    }
+    return false;
+  }
+
+  // Mobile equivalent of findTeamById(player.fid). Reads from
+  // window.UPS_MOBILE.data.findFranchiseById which queries state.franchises.
+  function findTeamForPlayer(player) {
+    if (!player) return null;
+    var fid = player.fid;
+    if (!fid) return null;
+    var lookup = window.UPS_MOBILE && window.UPS_MOBILE.data && window.UPS_MOBILE.data.findFranchiseById;
+    if (!lookup) return null;
+    return lookup(fid);
+  }
+
+  function extensionBlockedByCurrentOwner(player) {
+    if (!player) return false;
+    var team = findTeamForPlayer(player);
+    if (!team) return false;
+    var playerToken = lastExtensionIdentityToken(player.special || player.contract_info || "");
+    if (identityTokenMatchesTeam(playerToken, team)) return true;
+    return false;
+  }
+
+  function extensionBlockedByHistory(player) {
+    // RULE-EXT-003 (2026-04-18): a player can be extended by multiple
+    // DIFFERENT UPS franchises. Only the SAME franchise is blocked from
+    // extending twice. extensionBlockedByCurrentOwner handles that case.
+    // Always returns false; the gate is entirely in BlockedByCurrentOwner.
+    return false;
+  }
+
+  function extensionBlockedReason(player) {
+    if (!extensionBlockedByCurrentOwner(player)) return "";
+    var team = findTeamForPlayer(player);
+    return safeStr(team && team.name || "This franchise") + " has already extended this player. A player can't be extended twice by the same team.";
+  }
+
   // ── Tag eligibility (matches Front Office) ──────────────────────────
   // Front Office gates Tag/Untag on TWO signals:
   //   1. There's a row in tag_tracking.json for this player (the league
@@ -282,7 +409,7 @@
   // with the eligibility helpers above. Mobile state stores roster rows
   // with MFL field names (contractYear → years, contractInfo → special,
   // contractStatus → type).
-  function eligibilityForRosterRow(rosterRow) {
+  function eligibilityForRosterRow(rosterRow, fid) {
     if (!rosterRow) {
       return { extensionEligible: false, rookieOptionEligible: false, restructureEligible: false };
     }
@@ -291,9 +418,38 @@
       years: rosterRow.contractYear,
       salary: rosterRow.salary,
       special: rosterRow.contractInfo,
-      type: rosterRow.contractStatus
+      type: rosterRow.contractStatus,
+      fid: fid || rosterRow.fid || rosterRow.franchise_id || ""
     };
     return rosterContractEligibility(adapted);
+  }
+
+  // The SINGLE gate every caller should use to decide whether to show an
+  // extension affordance for a player. Runs the base eligibility check
+  // AND the RULE-EXT-003 block check. Returns:
+  //   { ok: bool, reason: string }
+  // - ok=true when eligible AND not blocked
+  // - reason populated when ok=false to allow UI to show the explanation
+  //   (e.g. "HammerTime 🔨 ⏰ has already extended this player.")
+  function extensionAvailableFor(rosterRow, fid) {
+    if (!rosterRow) return { ok: false, reason: "" };
+    var adapted = {
+      id: rosterRow.id,
+      years: rosterRow.contractYear,
+      salary: rosterRow.salary,
+      special: rosterRow.contractInfo,
+      type: rosterRow.contractStatus,
+      fid: fid || rosterRow.fid || rosterRow.franchise_id || ""
+    };
+    var base = rosterContractEligibility(adapted);
+    if (!base.extensionEligible) return { ok: false, reason: "" };
+    if (extensionBlockedByCurrentOwner(adapted)) {
+      return { ok: false, reason: extensionBlockedReason(adapted) };
+    }
+    if (extensionBlockedByHistory(adapted)) {
+      return { ok: false, reason: "Extension blocked by history." };
+    }
+    return { ok: true, reason: "" };
   }
 
   window.UPS_FRONT_OFFICE_ACTIONS = {
@@ -303,6 +459,15 @@
     rookieOptionActionEligible: rookieOptionActionEligible,
     rosterContractEligibility: rosterContractEligibility,
     eligibilityForRosterRow: eligibilityForRosterRow,
+    extensionAvailableFor: extensionAvailableFor,
+    extensionBlockedByCurrentOwner: extensionBlockedByCurrentOwner,
+    extensionBlockedByHistory: extensionBlockedByHistory,
+    extensionBlockedReason: extensionBlockedReason,
+    parseExtensionHistoryTokens: parseExtensionHistoryTokens,
+    normalizeIdentityToken: normalizeIdentityToken,
+    teamIdentityTokenMap: teamIdentityTokenMap,
+    lastExtensionIdentityToken: lastExtensionIdentityToken,
+    identityTokenMatchesTeam: identityTokenMatchesTeam,
     buildContractCenterActionUrl: buildContractCenterActionUrl,
     normalizeTagSideValue: normalizeTagSideValue,
     getTagSideFromPos: getTagSideFromPos,
