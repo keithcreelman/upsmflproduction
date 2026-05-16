@@ -7,7 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
-  var BUILD = "2026.05.15.polish-7";
+  var BUILD = "2026.05.16.ux-1";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -19,6 +19,10 @@
 
   // ---------- Helpers (mirror team_operations.js:19-43) ----------
   function safeStr(v) { return v == null ? "" : String(v).trim(); }
+  function safeInt(v, dflt) {
+    var n = parseInt(v, 10);
+    return isFinite(n) ? n : (dflt == null ? 0 : dflt);
+  }
   function pad4(v) {
     var d = String(v || "").replace(/\D/g, "");
     return d ? d.padStart(4, "0").slice(-4) : "";
@@ -59,6 +63,7 @@
     players: null,
     tradeBait: null,
     tradeBaitNotes: null,     // { [pid]: "note text" } for viewer's franchise
+    tradeOffers: null,        // { incoming: [], outgoing: [] } for viewer's franchise
     playerScoresYtd: null,    // MFL playerScores W=YTD export
     tagTracking: null,        // site/ccc/tag_tracking.json rows
     tagSubmissions: null,     // site/ccc/tag_submissions.json rows
@@ -71,7 +76,9 @@
     capAmount: 0,
     loaded: false,
     loadingPromise: null,
+    loadingPromiseFid: "",  // fid active when current loadAllData started; race guard
     loadErrors: [],
+    meConfigured: false,    // true when /api/me resolved a real session; gates mutating UI
     busyActionKey: ""
   };
 
@@ -153,13 +160,15 @@
   }
   // Advanced Stats Workbench leaderboard — canonical UPS-scored fantasy
   // points + PPG + game count per player. Mirrors stats_workbench.html's
-  // /api/advanced-stats-leaderboard usage. We fetch once per position
-  // and merge into a single pid-keyed map with positional ranks.
-  var LEADERBOARD_POSITIONS = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
-  // Fetch one season's leaderboard across all positions. Returns a
+  // /api/advanced-stats-leaderboard usage. The worker accepts pos-group
+  // aliases (qb / skill / idp / kicker), NOT individual MFL positions —
+  // sending pos=RB returns HTTP 400. We fetch by alias and bucket-then-rank
+  // by row.position so each player's posRank is within their own position.
+  var LEADERBOARD_ALIASES = ["qb", "skill", "idp", "kicker"];
+  // Fetch one season's leaderboard across all alias groups. Returns a
   // pid-keyed map of { mfl_points, mfl_ppg, games, pos, posRank }.
   function fetchAdvancedStatsLeaderboardForSeason(seasonInt) {
-    var fetches = LEADERBOARD_POSITIONS.map(function (pos) {
+    var fetches = LEADERBOARD_ALIASES.map(function (pos) {
       var url = workerUrl("/api/advanced-stats-leaderboard?season=" + encodeURIComponent(seasonInt) +
                           "&pos=" + encodeURIComponent(pos) + "&min_games=1");
       return fetch(url, { mode: "cors", credentials: "omit" })
@@ -210,21 +219,31 @@
       })
       .catch(function () { return []; });
   }
-  function buildLeaderboardMap(perPosArrays) {
+  function buildLeaderboardMap(perAliasArrays) {
+    // Each alias response (skill / idp) returns multiple positions
+    // (RB+WR+TE, or DB+LB+DL etc.). Bucket by row.position FIRST so a WR's
+    // rank is among WRs, not among all skill players combined. Then sort
+    // each bucket by mfl_ppg descending and assign posRank.
     var map = {};
-    perPosArrays.forEach(function (rows) {
-      // Already filtered to one position by the API, but mfl_pid grouping
-      // happens here so multiple-eligibility players (rare) take the last.
-      var sorted = rows.slice().sort(function (a, b) {
+    var buckets = {};
+    perAliasArrays.forEach(function (rows) {
+      rows.forEach(function (row) {
+        if (!row || !row.mfl_pid) return;
+        var pos = String(row.position || row.pos_group || "").toUpperCase();
+        if (!buckets[pos]) buckets[pos] = [];
+        buckets[pos].push(row);
+      });
+    });
+    Object.keys(buckets).forEach(function (pos) {
+      var sorted = buckets[pos].slice().sort(function (a, b) {
         return Number(b.mfl_ppg || 0) - Number(a.mfl_ppg || 0);
       });
       sorted.forEach(function (row, idx) {
-        if (!row || !row.mfl_pid) return;
         map[String(row.mfl_pid)] = {
           mfl_points: Number(row.mfl_points || 0),
           mfl_ppg: Number(row.mfl_ppg || 0),
           games: Number(row.games || 0),
-          pos: String(row.position || row.pos_group || ""),
+          pos: pos,
           posRank: idx + 1
         };
       });
@@ -287,8 +306,36 @@
       .catch(function () { return {}; });
   }
 
+  // Trade offers (incoming + outgoing) — used both by views/trade.js for
+  // the offer list and by the bottom-nav badge counter on the League tab.
+  // Returns { incoming: [], outgoing: [] } even on error so the count is
+  // safe to read unconditionally.
+  function fetchTradeOffers(fid) {
+    if (!fid) return Promise.resolve({ incoming: [], outgoing: [] });
+    var url = workerUrl("/api/trades/proposals?L=" +
+      encodeURIComponent(state.ctx.leagueId) +
+      "&franchise_id=" + encodeURIComponent(fid));
+    return fetch(url, { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        return {
+          incoming: (j && Array.isArray(j.incoming)) ? j.incoming : [],
+          outgoing: (j && Array.isArray(j.outgoing)) ? j.outgoing : []
+        };
+      })
+      .catch(function () { return { incoming: [], outgoing: [] }; });
+  }
+
   function loadAllData() {
     if (state.loadingPromise) return state.loadingPromise;
+    // Reset error tag list so long-lived sessions don't grow it unbounded
+    // and so the surface-banner only reflects the current reload's failures.
+    state.loadErrors = [];
+    // Snapshot the fid active at load start. The trade-bait-notes resolve
+    // (the only fid-dependent step) will bail if the user switched teams
+    // mid-flight to avoid applying the wrong team's notes.
+    var startFid = state.viewerFranchiseId;
+    state.loadingPromiseFid = startFid;
     var p = Promise.all([
       fetchJson(mflExportUrl("league")),
       fetchJson(mflExportUrl("rosters")),
@@ -330,8 +377,17 @@
       // Now that we know the viewer franchise, fetch their UPS-side trade
       // bait notes (D1-backed). Keep state.loaded=true regardless so a
       // notes-endpoint failure doesn't gate the rest of the app.
-      return fetchTradeBaitNotes(state.viewerFranchiseId).then(function (notes) {
-        state.tradeBaitNotes = notes || {};
+      var notesFid = state.viewerFranchiseId;
+      return Promise.all([
+        fetchTradeBaitNotes(notesFid),
+        fetchTradeOffers(notesFid)
+      ]).then(function (pair) {
+        // Race guard: if user switched teams while these were in flight,
+        // discard the responses — a fresh reload is or will be running.
+        if (state.viewerFranchiseId === notesFid) {
+          state.tradeBaitNotes = pair[0] || {};
+          state.tradeOffers = pair[1] || { incoming: [], outgoing: [] };
+        }
         state.loaded = true;
         return state;
       });
@@ -347,6 +403,12 @@
     state.loaded = false;
     state._rosteredCache = null;
     state._ytdScoresCache = null;
+    // Invalidate the player sheet's bundleCache so stats reflect any
+    // contract changes that just happened. The sheet module exposes
+    // clearCache() once player_sheet.js has loaded.
+    if (window.UPS_MOBILE && window.UPS_MOBILE.sheet && window.UPS_MOBILE.sheet.clearCache) {
+      window.UPS_MOBILE.sheet.clearCache();
+    }
     return loadAllData();
   }
 
@@ -393,8 +455,19 @@
         }
       }
     }
+    // Validate the resolved fid against this league's franchise list.
+    // Stored rdh_my_fid persists across leagues and across reloads — if the
+    // user opened a different ?L=... that fid won't exist here, so drop it
+    // and fall through to the franchise picker rather than rendering an
+    // empty roster + broken cap card.
+    var match = fid ? state.franchises.find(function (f) { return f.id === fid; }) : null;
+    if (fid && !match) {
+      try { window.localStorage && window.localStorage.removeItem("rdh_my_fid"); } catch (e) {}
+      fid = "";
+    }
     state.viewerFranchiseId = fid;
-    state.viewerFranchise = state.franchises.find(function (f) { return f.id === fid; }) || null;
+    state.viewerFranchise = match || null;
+    state.meConfigured = !!(meResp && meResp.configured);
     if (fid) {
       try { window.localStorage && window.localStorage.setItem("rdh_my_fid", fid); } catch (e) {}
     }
@@ -746,7 +819,7 @@
       return;
     }
     if (!state.loaded) {
-      main.innerHTML = '<div class="ups-m-loading">Loading…</div>';
+      main.innerHTML = renderSkeletonForRoute(top);
       loadAllData().then(function () { renderRoute(); }).catch(function (e) {
         main.innerHTML = '<div class="ups-m-error">Failed to load: ' + escapeHtml(e && e.message || String(e)) + '</div>';
       });
@@ -763,7 +836,55 @@
     } catch (e) {
       main.innerHTML = '<div class="ups-m-error">Render error: ' + escapeHtml(e && e.message || String(e)) + '</div>';
     }
+    renderLoadErrorsBanner(main);
     updateHeader();
+    updateNavBadges();
+  }
+
+  // Skeleton placeholder while loadAllData is in flight. Replaces the
+  // generic "Loading…" with a grey-shimmer shape that roughly matches the
+  // target route's content, so perceived speed feels closer to native.
+  function renderSkeletonForRoute(top) {
+    function row() {
+      return '<div class="ups-m-skel-row">' +
+        '<div class="pos ups-m-skeleton"></div>' +
+        '<div class="body">' +
+          '<div class="ln1 ups-m-skeleton"></div>' +
+          '<div class="ln2 ups-m-skeleton"></div>' +
+        '</div>' +
+        '<div class="right ups-m-skeleton"></div>' +
+      '</div>';
+    }
+    var rows = "";
+    for (var i = 0; i < 7; i++) rows += row();
+    var topCard = (top === "myteam")
+      ? '<div class="ups-m-skel-card ups-m-skeleton"></div>'
+      : '';
+    return topCard + rows;
+  }
+
+  // Surface any silently-failed parallel fetches from loadAllData so a
+  // half-rendered view isn't mistaken for a complete one. Inserts above
+  // whatever the route already rendered.
+  function renderLoadErrorsBanner(main) {
+    if (!state.loadErrors || !state.loadErrors.length) return;
+    var existing = main.querySelector(".ups-m-load-err-banner");
+    if (existing) existing.remove();
+    var banner = document.createElement("div");
+    banner.className = "ups-m-load-err-banner";
+    banner.innerHTML = '<span class="ico">⚠️</span>' +
+      '<span class="msg">' + state.loadErrors.length + ' data source' +
+      (state.loadErrors.length === 1 ? '' : 's') + ' failed — pull to retry</span>' +
+      '<button class="dismiss" type="button" aria-label="Dismiss">×</button>';
+    banner.title = state.loadErrors.join("\n");
+    main.insertBefore(banner, main.firstChild);
+    var dismiss = banner.querySelector(".dismiss");
+    if (dismiss) {
+      dismiss.addEventListener("click", function () {
+        state.loadErrors = [];
+        banner.remove();
+      });
+    }
   }
 
   function switchTeam() {
@@ -795,6 +916,14 @@
     showToast._t = setTimeout(function () {
       el.className = "ups-m-toast " + (kind || "");
     }, 2400);
+    // Haptic on success/error so submits feel grounded on Android.
+    // (iOS Safari ignores vibrate by Apple policy — no-op there.)
+    if (window.navigator && navigator.vibrate) {
+      try {
+        if (kind === "ok") navigator.vibrate(10);
+        else if (kind === "err") navigator.vibrate([10, 40, 10]);
+      } catch (e) {}
+    }
   }
 
   // ---------- Stub renderers for views not yet built (Phase 2+) ----------
@@ -826,24 +955,124 @@
     var accountLine = state.viewerFranchise
       ? escapeHtml(state.viewerFranchise.name) + (state.viewerFranchise.owner ? ' · ' + escapeHtml(state.viewerFranchise.owner) : '')
       : "No team selected";
+    // When /api/me resolved a real session, hide Switch Team — the worker
+    // will rebind us to the authoritative fid on next load anyway, and
+    // letting the picker reopen would confuse "whose data am I looking at?"
+    var switchBtn = state.meConfigured
+      ? '<div style="font-size:12px;color:var(--fg-muted)">Signed in via MFL — team is locked to your account.</div>'
+      : '<button class="ups-m-pick-row" id="ups-m-switch-team" style="width:100%;justify-content:center"><span class="name">Switch team</span></button>';
     mount.innerHTML =
       '<div class="ups-m-card">' +
         '<div class="ups-m-card-title">Your team</div>' +
         '<div style="font-size:14px;margin-bottom:10px">' + accountLine + '</div>' +
-        '<button class="ups-m-pick-row" id="ups-m-switch-team" style="width:100%;justify-content:center"><span class="name">Switch team</span></button>' +
+        switchBtn +
       '</div>' +
       '<a class="ups-m-desktop-link" href="#more/rules">📖 Rules</a>' +
-      '<a class="ups-m-desktop-link" href="https://www48.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/home/' + escapeHtml(state.ctx.leagueId) + '">Switch to Desktop View</a>' +
+      '<a class="ups-m-desktop-link" href="https://www48.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/home/' + escapeHtml(state.ctx.leagueId) + '" target="_blank" rel="noopener">Switch to Desktop View</a>' +
       '<div class="ups-m-stub"><div>UPS Mobile · ' + escapeHtml(BUILD) + '</div><div style="font-size:11px;margin-top:6px">League ' + escapeHtml(state.ctx.leagueId) + ' · ' + escapeHtml(state.ctx.year) + '</div></div>';
     var btn = document.getElementById("ups-m-switch-team");
     if (btn) btn.addEventListener("click", switchTeam);
   });
 
+  // ---------- Pull-to-refresh ----------
+  // Touch-handler attached at boot. When the user drags the page down past
+  // the threshold while scrollTop=0, fire reloadData() + re-render. Mirrors
+  // the platform-standard gesture so users don't reach for browser reload.
+  function installPullToRefresh() {
+    if (!document.getElementById("ups-m-ptr")) {
+      var ind = document.createElement("div");
+      ind.id = "ups-m-ptr";
+      ind.className = "ups-m-ptr";
+      ind.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+      document.body.appendChild(ind);
+    }
+    var ind = document.getElementById("ups-m-ptr");
+    var startY = 0, dragging = false, ready = false, busy = false;
+    var THRESHOLD = 70;
+    var main = document.getElementById("ups-m-main");
+    if (!main) return;
+    main.addEventListener("touchstart", function (e) {
+      if (busy) return;
+      if (window.scrollY > 0) return;
+      startY = e.touches[0].clientY;
+      dragging = true;
+      ready = false;
+    }, { passive: true });
+    main.addEventListener("touchmove", function (e) {
+      if (!dragging || busy) return;
+      var dy = e.touches[0].clientY - startY;
+      if (dy <= 0) { ind.classList.remove("show"); ready = false; return; }
+      if (dy >= THRESHOLD) {
+        if (!ready) {
+          ind.classList.add("show");
+          ready = true;
+        }
+      } else if (ready) {
+        ind.classList.remove("show");
+        ready = false;
+      }
+    }, { passive: true });
+    main.addEventListener("touchend", function () {
+      if (!dragging) return;
+      dragging = false;
+      if (ready && !busy) {
+        busy = true;
+        ind.classList.add("show", "spin");
+        reloadData().then(function () {
+          renderRoute();
+        }).catch(function () {}).then(function () {
+          setTimeout(function () {
+            ind.classList.remove("show", "spin");
+            busy = false;
+            ready = false;
+          }, 300);
+        });
+      } else {
+        ind.classList.remove("show");
+      }
+    });
+  }
+
+  // ---------- Nav badges ----------
+  // Red-dot indicator on the League tab when there are pending incoming
+  // trade offers for the viewer. Re-computed on each render + after reload.
+  function updateNavBadges() {
+    var leagueAnchor = document.querySelector(".ups-m-nav-item[data-route='league'] .ups-m-nav-icon");
+    if (!leagueAnchor) return;
+    var existing = leagueAnchor.querySelector(".ups-m-nav-badge");
+    if (existing) existing.remove();
+    var count = countIncomingOffers();
+    if (count > 0) {
+      var b = document.createElement("span");
+      b.className = "ups-m-nav-badge";
+      b.textContent = count > 9 ? "9+" : String(count);
+      leagueAnchor.appendChild(b);
+    }
+  }
+  function countIncomingOffers() {
+    // pendingTrades from MFL is on state.pendingTrades — but it isn't
+    // currently in loadAllData. Use the trade-bait incoming proxy: trade
+    // offers live in /api/mfl-export?TYPE=pendingTrades. Cheap fallback —
+    // count tradeBait entries from other franchises that mention the
+    // viewer's roster pids (i.e. offers TO the viewer).
+    var fid = state.viewerFranchiseId;
+    if (!fid) return 0;
+    if (state.tradeOffers && Array.isArray(state.tradeOffers.incoming)) {
+      return state.tradeOffers.incoming.length;
+    }
+    return 0;
+  }
+
   // ---------- Boot ----------
   function boot() {
     detectContext();
-    window.addEventListener("hashchange", renderRoute);
+    window.addEventListener("hashchange", function () {
+      renderRoute();
+      updateNavBadges();
+    });
     renderRoute();
+    installPullToRefresh();
+    setTimeout(updateNavBadges, 0);
   }
 
   // ---------- Public API ----------
@@ -852,6 +1081,7 @@
     state: state,
     util: {
       safeStr: safeStr,
+      safeInt: safeInt,
       pad4: pad4,
       escapeHtml: escapeHtml,
       fmtUsd: fmtUsd,

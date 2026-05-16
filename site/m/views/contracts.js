@@ -40,7 +40,9 @@
     // typed chip in the chips row, so we intentionally skip it here to
     // avoid the duplicate Keith called out (BL/BL, Rookie/Rookie).
     var out = [];
-    var cy = parseInt(rosterRow.contractYear, 10);
+    // safeInt guards against null/undefined contractYear so the strict
+    // === 0 / === 1 comparisons can't silently fail on NaN.
+    var cy = U.safeInt(rosterRow.contractYear, -1);
     var status = U.safeStr(rosterRow.status);
     if (cy === 0) out.push('<span class="badge exp">Expired</span>');
     if (/taxi/i.test(status)) out.push('<span class="badge tx">Taxi</span>');
@@ -143,8 +145,8 @@
         var name = nameFor(p) || ("Player " + r.id);
         var team = U.safeStr(p && p.team);
         var ct = parseCT(r.contractInfo);
-        var cy = parseInt(r.contractYear, 10);
-        var yr = isFinite(cy) ? cy : 0;
+        var cy = U.safeInt(r.contractYear, 0);
+        var yr = cy;
         var cl = ct.cl || yr;  // fall back to cy when CL token absent
         var tcv = ct.tcv;
         var typeRaw = U.safeStr(r.contractStatus);

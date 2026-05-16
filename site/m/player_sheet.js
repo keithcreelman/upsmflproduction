@@ -508,7 +508,7 @@
     if (!FOR) return;
     var rosterRow = footerState.rosterRow;
     var adapted = FOR.adaptRosterRow(rosterRow);
-    var cy = parseInt(rosterRow && rosterRow.contractYear, 10) || 0;
+    var cy = U.safeInt(rosterRow && rosterRow.contractYear, 0);
     var years = cy >= 3 ? 3 : 2;
     var baseline = FOR.restructureBaselineForPlayer(adapted, years);
     restructureState = {
@@ -913,6 +913,10 @@
 
   window.UPS_MOBILE.sheet = {
     open: open,
-    close: close
+    close: close,
+    // Called from app.js reloadData() so contract changes mid-session
+    // (extension/restructure/drop) don't serve stale /api/player-bundle
+    // responses on the next open.
+    clearCache: function () { bundleCache = {}; }
   };
 })();
