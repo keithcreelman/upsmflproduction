@@ -42,8 +42,9 @@
              '" href="#league/' + href + '">' + label + '</a>';
     }
     return '<div class="ups-m-subtabs">' +
-      tab("rosters", "Rosters", "rosters") +
       tab("standings", "Standings", "standings") +
+      tab("rosters", "Rosters", "rosters") +
+      tab("trade", "Trade", "trade") +
       tab("otb", "On the Block", "otb") +
       tab("draft", "Draft", "draft") +
       '</div>';
@@ -129,125 +130,137 @@
   }
 
   // ---------- Standings sub-view ----------
-  function loadStandings() {
-    if (state.standings || state.standingsLoading) return;
-    state.standingsLoading = true;
-    fetch(API.workerUrl("/api/standings?year=" + encodeURIComponent(M.state.ctx.year)), { mode: "cors", credentials: "omit" })
+  // Multi-year standings — mirrors the desktop Standings Module's "final
+  // finish" table. Cached per year on view.state.standingsByYear so
+  // switching years doesn't refetch.
+  state.standingsByYear = state.standingsByYear || {};
+  state.standingsYear = state.standingsYear || null;
+
+  function loadStandingsForYear(year) {
+    var y = String(year);
+    if (state.standingsByYear[y] || (state.standingsLoading === y)) return Promise.resolve();
+    state.standingsLoading = y;
+    return fetch(API.workerUrl("/api/standings?year=" + encodeURIComponent(y)), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (resp) {
-        state.standings = resp || { rows: [] };
-      }).catch(function () {
-        state.standings = { rows: [], error: "fetch failed" };
-      }).then(function () {
-        state.standingsLoading = false;
-        renderRoute();
-      });
+      .then(function (resp) { state.standingsByYear[y] = resp || { rows: [] }; })
+      .catch(function () { state.standingsByYear[y] = { rows: [], error: "fetch failed" }; })
+      .then(function () { state.standingsLoading = null; renderRoute(); });
+  }
+
+  function availableYears() {
+    var cur = parseInt(M.state.ctx.year, 10) || (new Date().getUTCFullYear());
+    // UPS league started in 2012 per memory. Show every year through current.
+    var out = [];
+    for (var y = cur; y >= 2012; y--) out.push(y);
+    return out;
+  }
+
+  function fmtPct(v) {
+    var n = Number(v || 0);
+    if (!isFinite(n)) return ".000";
+    return n.toFixed(3).replace(/^0\./, ".");
+  }
+  function fmtPts(v) {
+    var n = Number(v || 0);
+    return isFinite(n) ? n.toFixed(1) : "—";
+  }
+  function isDivWinner(row) {
+    // Several flag aliases — be defensive.
+    return !!(row && (row._isDivLeader || row.is_div_winner ||
+              row.division_winner || row.divisional_winner));
   }
 
   function renderStandings(mount) {
-    if (!state.standings) {
-      loadStandings();
+    var year = state.standingsYear || M.state.ctx.year;
+    var y = String(year);
+    if (!state.standingsByYear[y]) {
+      loadStandingsForYear(year);
       mount.innerHTML = subTabs("standings") +
+        renderYearPicker(year) +
         '<div class="ups-m-loading">Loading standings…</div>';
+      bindYearPicker(mount);
       return;
     }
-    var rows = (state.standings.rows || []).slice();
+    var rows = (state.standingsByYear[y].rows || []).slice();
     if (!rows.length) {
       mount.innerHTML = subTabs("standings") +
-        '<div class="ups-m-stub"><div>No standings data yet for ' + U.escapeHtml(M.state.ctx.year) + '.</div></div>';
+        renderYearPicker(year) +
+        '<div class="ups-m-stub"><div>No standings data for ' + U.escapeHtml(y) + '.</div></div>';
+      bindYearPicker(mount);
       return;
     }
-    // Group by division
-    var byDiv = {};
-    rows.forEach(function (r) {
-      var key = r.division_name || ("Div " + (r.division != null ? r.division : "?"));
-      if (!byDiv[key]) byDiv[key] = [];
-      byDiv[key].push(r);
-    });
-    function fmtPct(v) {
-      var n = Number(v || 0);
-      if (!isFinite(n)) return ".000";
-      return n.toFixed(3).replace(/^0\./, ".");
-    }
-    function fmtPts(v) {
-      var n = Number(v || 0);
-      return isFinite(n) ? n.toFixed(1) : "—";
-    }
-    function divisionTable(divName, divRows) {
-      divRows.sort(function (a, b) {
-        var d = Number(b.h2h_pct || 0) - Number(a.h2h_pct || 0);
-        if (d !== 0) return d;
-        return Number(b.pf || 0) - Number(a.pf || 0);
-      });
-      var trs = divRows.map(function (r) {
-        var name = U.safeStr(r.franchise_name) || ("F" + r.franchise_id);
-        return '<tr>' +
-          '<td class="team">' + U.escapeHtml(name) + '</td>' +
-          '<td>' + (r.h2h_w || 0) + '-' + (r.h2h_l || 0) + (r.h2h_t ? "-" + r.h2h_t : "") + '</td>' +
-          '<td>' + fmtPct(r.h2h_pct) + '</td>' +
-          '<td>' + fmtPts(r.pf) + '</td>' +
-          '<td>' + fmtPts(r.pa) + '</td>' +
-        '</tr>';
-      }).join("");
-      return '<div class="ups-m-card">' +
-        '<div class="ups-m-card-title">' + U.escapeHtml(divName) + '</div>' +
-        '<table class="ups-m-standings-table">' +
-          '<thead><tr><th class="team">Team</th><th>W-L</th><th>Pct</th><th>PF</th><th>PA</th></tr></thead>' +
-          '<tbody>' + trs + '</tbody>' +
-        '</table>' +
-      '</div>';
-    }
-    // Overall seed table — sort by div_w then h2h_pct then pf
+
+    // Sort: division winners first by h2h%, then everyone else by h2h%
+    // → pf. Mirrors desktop's final-finish ordering.
     rows.sort(function (a, b) {
-      // 1) division leaders first
-      var aLead = a._isDivLeader ? 0 : 1;
-      var bLead = b._isDivLeader ? 0 : 1;
-      if (aLead !== bLead) return aLead - bLead;
+      var aw = isDivWinner(a) ? 0 : 1;
+      var bw = isDivWinner(b) ? 0 : 1;
+      if (aw !== bw) return aw - bw;
       var d = Number(b.h2h_pct || 0) - Number(a.h2h_pct || 0);
       if (d !== 0) return d;
       return Number(b.pf || 0) - Number(a.pf || 0);
     });
-    var seedTrs = rows.map(function (r, i) {
+
+    var trs = rows.map(function (r, i) {
       var name = U.safeStr(r.franchise_name) || ("F" + r.franchise_id);
-      return '<tr>' +
-        '<td>' + (i + 1) + '</td>' +
-        '<td class="team">' + U.escapeHtml(name) + '</td>' +
+      var winner = isDivWinner(r);
+      return '<tr' + (winner ? ' class="div-winner"' : '') + '>' +
+        '<td class="rank">' + (i + 1) + '</td>' +
+        '<td class="team">' + (winner ? '<span class="div-crown" title="Division Winner">👑</span> ' : '') + U.escapeHtml(name) + '</td>' +
         '<td>' + (r.h2h_w || 0) + '-' + (r.h2h_l || 0) + (r.h2h_t ? "-" + r.h2h_t : "") + '</td>' +
+        '<td>' + fmtPct(r.h2h_pct) + '</td>' +
+        '<td>' + fmtPct(r.allplay_pct) + '</td>' +
         '<td>' + fmtPts(r.pf) + '</td>' +
       '</tr>';
     }).join("");
 
-    var html = subTabs("standings");
-    Object.keys(byDiv).sort().forEach(function (d) {
-      html += divisionTable(d, byDiv[d]);
-    });
-    html += '<div class="ups-m-card">' +
-      '<div class="ups-m-card-title">Overall · Projected seed</div>' +
-      '<table class="ups-m-standings-table">' +
-        '<thead><tr><th>#</th><th class="team">Team</th><th>W-L</th><th>PF</th></tr></thead>' +
-        '<tbody>' + seedTrs + '</tbody>' +
-      '</table>' +
-    '</div>';
+    var html = subTabs("standings") +
+      renderYearPicker(year) +
+      '<div class="ups-m-card">' +
+        '<div class="ups-m-card-title">' + U.escapeHtml(y) + ' · Final Standings</div>' +
+        '<table class="ups-m-standings-table">' +
+          '<thead><tr><th>#</th><th class="team">Team</th><th>W-L</th><th>H2H%</th><th>AP%</th><th>PF</th></tr></thead>' +
+          '<tbody>' + trs + '</tbody>' +
+        '</table>' +
+        '<div class="ups-m-standings-legend">👑 division winner · AP% = All-Play %</div>' +
+      '</div>';
     mount.innerHTML = html;
+    bindYearPicker(mount);
+  }
+
+  function renderYearPicker(currentYear) {
+    var years = availableYears();
+    var opts = years.map(function (y) {
+      return '<option value="' + y + '"' + (String(y) === String(currentYear) ? " selected" : "") + '>' + y + '</option>';
+    }).join("");
+    return '<div class="ups-m-league-pick">' +
+      '<label>Season</label>' +
+      '<select id="ups-m-standings-year">' + opts + '</select>' +
+    '</div>';
+  }
+  function bindYearPicker(mount) {
+    var sel = mount.querySelector("#ups-m-standings-year");
+    if (sel) sel.addEventListener("change", function (e) {
+      state.standingsYear = e.target.value;
+      renderRoute();
+    });
   }
 
   // ---------- On the Block sub-view ----------
   function renderOtb(mount) {
-    var tb = M.state.tradeBait;
+    // Parsing delegated to DATA.tradeBaitEntries (handles the canonical
+    // tradeBaits.tradeBait shape + inExchangeFor field).
+    var raw = (DATA.tradeBaitEntries && DATA.tradeBaitEntries()) || [];
     var entries = [];
-    if (tb && (tb.tradeBait || tb.franchise || tb)) {
-      var root = tb.tradeBait || tb;
-      var raw = U.asArray(root.franchise || root.tradeBait || []);
-      raw.forEach(function (e) {
-        if (!e) return;
-        var fid = U.pad4(e.franchise_id || e.id || "");
-        var ids = U.safeStr(e.willGiveUp || e.will_give_up || "");
-        var pids = ids.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
-        var lookingFor = U.safeStr(e.willTake || e.willTakeText || e.WILL_TAKE_TEXT || "");
-        if (!pids.length) return;
-        entries.push({ fid: fid, pids: pids, lookingFor: lookingFor });
-      });
-    }
+    raw.forEach(function (e) {
+      if (!e) return;
+      var fid = U.pad4(e.franchise_id || e.id || "");
+      var csv = U.safeStr(e.willGiveUp || e.will_give_up || "");
+      var tokens = csv.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+      var lookingFor = U.safeStr(e.inExchangeFor || e.willTake || e.willTakeText || e.WILL_TAKE_TEXT || "");
+      if (!tokens.length) return;
+      entries.push({ fid: fid, tokens: tokens, lookingFor: lookingFor });
+    });
 
     if (!entries.length) {
       mount.innerHTML = subTabs("otb") +
@@ -255,8 +268,15 @@
       return;
     }
 
-    // Group by franchise
-    entries.sort(function (a, b) { return a.fid.localeCompare(b.fid); });
+    // Group by franchise (already grouped by export shape, but enforce
+    // a stable visual order: viewer's team first, then alpha).
+    var viewerFid = M.state.viewerFranchiseId;
+    entries.sort(function (a, b) {
+      if (a.fid === viewerFid && b.fid !== viewerFid) return -1;
+      if (b.fid === viewerFid && a.fid !== viewerFid) return 1;
+      return franchiseName(a.fid).localeCompare(franchiseName(b.fid));
+    });
+
     var html = subTabs("otb");
     entries.forEach(function (e) {
       html += '<div class="ups-m-card">' +
@@ -265,25 +285,36 @@
         html += '<div class="ups-m-otb-lookingfor"><span class="lbl">Wants:</span> ' +
           U.escapeHtml(e.lookingFor) + '</div>';
       }
-      e.pids.forEach(function (pid) {
-        var p = DATA.playerById(pid);
-        var name = nameFor(p) || ("Player " + pid);
-        var pos = U.safeStr(p && p.position).toUpperCase();
-        var team = U.safeStr(p && p.team);
-        html += '<button class="ups-m-otb-row" data-pid="' + U.escapeHtml(pid) + '">' +
-          '<div class="body">' +
-            '<div class="name">' + U.escapeHtml(name) + '</div>' +
-            '<div class="sub">' +
-              (pos ? '<span>' + U.escapeHtml(pos) + '</span>' : '') +
-              (team ? '<span>' + U.escapeHtml(team) + '</span>' : '') +
+      e.tokens.forEach(function (token) {
+        var isPlayer = token.indexOf("DP_") !== 0 && token.indexOf("FP_") !== 0 && token.indexOf("BB_") !== 0;
+        var label = DATA.describeTradeBaitToken(token);
+        if (isPlayer) {
+          var p = DATA.playerById(token);
+          var pos = U.safeStr(p && p.position).toUpperCase();
+          var team = U.safeStr(p && p.team);
+          html += '<button class="ups-m-otb-row" data-pid="' + U.escapeHtml(token) + '">' +
+            '<div class="body">' +
+              '<div class="name">' + U.escapeHtml(label) + '</div>' +
+              '<div class="sub">' +
+                (pos ? '<span>' + U.escapeHtml(pos) + '</span>' : '') +
+                (team ? '<span>' + U.escapeHtml(team) + '</span>' : '') +
+              '</div>' +
             '</div>' +
-          '</div>' +
-        '</button>';
+          '</button>';
+        } else {
+          // Draft pick or BB$ — not tappable
+          html += '<div class="ups-m-otb-row" style="cursor:default;-webkit-tap-highlight-color:transparent">' +
+            '<div class="body">' +
+              '<div class="name">' + U.escapeHtml(label) + '</div>' +
+              '<div class="sub"><span>Pick / BB</span></div>' +
+            '</div>' +
+          '</div>';
+        }
       });
       html += '</div>';
     });
     mount.innerHTML = html;
-    var rows = mount.querySelectorAll(".ups-m-otb-row");
+    var rows = mount.querySelectorAll(".ups-m-otb-row[data-pid]");
     for (var i = 0; i < rows.length; i++) {
       rows[i].addEventListener("click", function () {
         var pid = this.getAttribute("data-pid");
@@ -295,13 +326,16 @@
   function renderRoute() { M.route.renderRoute(); }
 
   function render(mount, subParts) {
-    var sub = (subParts && subParts[0]) || "rosters";
-    if (sub === "standings") return renderStandings(mount);
+    var sub = (subParts && subParts[0]) || "standings";
+    if (sub === "rosters") return renderRosters(mount);
     if (sub === "otb") return renderOtb(mount);
+    if (sub === "trade" && M.tradeView && M.tradeView.render) {
+      return M.tradeView.render(mount);
+    }
     if (sub === "draft" && M.draftView && M.draftView.render) {
       return M.draftView.render(mount);
     }
-    return renderRosters(mount);
+    return renderStandings(mount);
   }
 
   M.route.registerView("league", render);

@@ -67,6 +67,7 @@
     advancedStatsByYear: null, // { [year]: { [pid]: { mfl_points, mfl_ppg, games, pos, posRank } } }
     rookieProspects: null,     // site/rookies/rookie_prospects_<year>.json rows
     draftResults: null,        // /api/mfl-export?TYPE=draftResults
+    leagueEvents: null,        // /api/league-events?season=<year>&from=today (UPS deadline calendar)
     capAmount: 0,
     loaded: false,
     loadingPromise: null,
@@ -294,7 +295,7 @@
       fetchJson(mflExportUrl("salaries")),
       fetchJson(mflExportUrl("salaryAdjustments")),
       fetchJson(mflExportUrl("players", { DETAILS: 1 })),
-      fetchJson(mflExportUrl("tradeBait")),
+      fetchJson(mflExportUrl("tradeBait", { INCLUDE_DRAFT_PICKS: 1 })),
       fetchJson(mflExportUrl("playerScores", { W: "YTD" })).catch(function () { return null; }),
       fetchTagTracking(),
       fetchTagSubmissions(),
@@ -302,6 +303,8 @@
       fetchAdvancedStatsLeaderboard(state.ctx.year),
       fetchRookieProspects(state.ctx.year),
       fetchJson(mflExportUrl("draftResults")),
+      fetch(workerUrl("/api/league-events?season=" + encodeURIComponent(state.ctx.year) + "&from=today&limit=30"))
+        .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetchMe()
     ]).then(function (results) {
       state.league = results[0];
@@ -321,8 +324,9 @@
       state.advancedStatsByPid = state.advancedStatsByYear[curYearInt] || {};
       state.rookieProspects = results[11] || [];
       state.draftResults = results[12] || null;
+      state.leagueEvents = results[13] || null;
       parseLeague();
-      resolveViewerFranchise(results[13]);
+      resolveViewerFranchise(results[14]);
       // Now that we know the viewer franchise, fetch their UPS-side trade
       // bait notes (D1-backed). Keep state.loaded=true regardless so a
       // notes-endpoint failure doesn't gate the rest of the app.
@@ -409,23 +413,39 @@
   }
 
   // ---------- Trade Bait helpers ----------
+  // Canonical MFL shape (verified 2026-05-15):
+  //   { tradeBaits: { tradeBait: [{ franchise_id, willGiveUp, inExchangeFor, timestamp }, ...] } }
+  // willGiveUp is a CSV that can include:
+  //   - player IDs (e.g. "13113")
+  //   - DP_RR_PP for current-year picks (round-1, pick-1 from MFL convention)
+  //   - FP_FFFF_YYYY_R for future picks (franchise, year, round)
+  //   - BB_NN for blind-bid dollars
+  function _tradeBaitEntries() {
+    if (!state.tradeBait) return [];
+    // Be defensive about both pluralized and singular root keys, since some
+    // MFL endpoints return the data wrapped differently across years.
+    var t = state.tradeBait;
+    var root = (t.tradeBaits && t.tradeBaits.tradeBait) ||
+               (t.tradeBait && t.tradeBait.tradeBait) ||
+               (t.tradeBait) ||
+               t;
+    return asArray(root);
+  }
   function getMyTradeBaitIds() {
-    // MFL tradeBait export shape: { tradeBait: { tradeBait: [{ franchise_id, willGiveUp, willTake/... }, ...] } }
-    // or singular tradeBait if only one franchise has it. Return Set of pids
-    // belonging to viewer's franchise.
+    // Returns Set of player-id-only entries (excludes draft picks + BB$).
     var ids = new Set();
     var fid = state.viewerFranchiseId;
-    if (!fid || !state.tradeBait) return ids;
-    var root = state.tradeBait.tradeBait || state.tradeBait;
-    var entries = asArray(root && (root.tradeBait || root.franchise || root));
-    entries.forEach(function (e) {
+    if (!fid) return ids;
+    _tradeBaitEntries().forEach(function (e) {
       if (!e) return;
-      var rowFid = pad4(e.franchise_id || e.id || "");
-      if (rowFid !== fid) return;
-      var ids_csv = safeStr(e.willGiveUp || e.will_give_up || "");
-      ids_csv.split(",").forEach(function (id) {
+      if (pad4(e.franchise_id || e.id || "") !== fid) return;
+      var csv = safeStr(e.willGiveUp || e.will_give_up || "");
+      csv.split(",").forEach(function (id) {
         var t = id.trim();
-        if (t) ids.add(t);
+        // Skip draft pick + blind-bid tokens — they're not real player IDs.
+        if (t && t.indexOf("DP_") !== 0 && t.indexOf("FP_") !== 0 && t.indexOf("BB_") !== 0) {
+          ids.add(t);
+        }
       });
     });
     return ids;
@@ -469,17 +489,50 @@
 
   function getMyTradeBaitLookingFor() {
     var fid = state.viewerFranchiseId;
-    if (!fid || !state.tradeBait) return "";
-    var root = state.tradeBait.tradeBait || state.tradeBait;
-    var entries = asArray(root && (root.tradeBait || root.franchise || root));
+    if (!fid) return "";
+    var entries = _tradeBaitEntries();
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i];
       if (!e) continue;
       if (pad4(e.franchise_id || e.id || "") === fid) {
-        return safeStr(e.willTake || e.willTakeText || e.WILL_TAKE_TEXT || e.lookingFor || "");
+        // MFL field is `inExchangeFor`; older legacy aliases kept as fallbacks.
+        return safeStr(e.inExchangeFor || e.willTake || e.willTakeText || e.WILL_TAKE_TEXT || e.lookingFor || "");
       }
     }
     return "";
+  }
+
+  // Format a willGiveUp token for display:
+  //   "13113"               → player name (looked up)
+  //   "DP_02_05"            → "2026 R3.06" (MFL uses round-1/pick-1)
+  //   "FP_0005_2027_2"      → "2027 R2 (from 0005)"
+  //   "BB_10"               → "$10 BB$"
+  function describeTradeBaitToken(token, year) {
+    var t = safeStr(token);
+    if (!t) return "";
+    if (t.indexOf("DP_") === 0) {
+      var parts = t.split("_");
+      var r = parseInt(parts[1], 10) + 1;
+      var p = parseInt(parts[2], 10) + 1;
+      return safeStr(year) + " R" + r + (isFinite(p) ? "." + (p < 10 ? "0" : "") + p : "");
+    }
+    if (t.indexOf("FP_") === 0) {
+      var p2 = t.split("_");
+      // FP_FFFF_YYYY_R — round IS actual round here.
+      return p2[2] + " R" + p2[3] + " (from " + p2[1] + ")";
+    }
+    if (t.indexOf("BB_") === 0) {
+      return "$" + t.slice(3) + " BB$";
+    }
+    // Player ID — look up name.
+    var p = playerById(t);
+    if (!p) return "Player " + t;
+    var raw = safeStr(p.name);
+    if (raw.indexOf(",") >= 0) {
+      var nameParts = raw.split(",");
+      return ((nameParts[1] || "").trim() + " " + (nameParts[0] || "").trim()).trim();
+    }
+    return raw;
   }
 
   // ---------- Submit actions (mirror desktop endpoints exactly) ----------
@@ -843,7 +896,11 @@
         }
         return state.advancedStatsByPid || {};
       },
-      getRookieProspects: function () { return state.rookieProspects || []; }
+      getRookieProspects: function () { return state.rookieProspects || []; },
+      tradeBaitEntries: function () { return _tradeBaitEntries(); },
+      describeTradeBaitToken: function (token) {
+        return describeTradeBaitToken(token, state.ctx && state.ctx.year);
+      }
     },
     actions: {
       submitDrop: submitDrop,

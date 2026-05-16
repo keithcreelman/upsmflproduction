@@ -165,8 +165,10 @@
             (r.posRank > 0 ? '<span>#' + r.posRank + ' ' + U.escapeHtml(r.group) + '</span>' : '') +
           '</div>' +
         '</div>' +
-        '<button class="ups-m-fa-add" data-act="add" data-pid="' + U.escapeHtml(r.id) + '">Add</button>' +
       '</div>';
+      // Add button removed per Keith 2026-05-15 — FA acquisition stays on
+      // desktop for now. The drop sheet flow (handleAddDropConfirm) is
+      // still wired for future use; just no UI entry from mobile yet.
     });
     if (rows.length > capped.length) {
       html += '<div class="ups-m-fa-more">Showing top ' + capped.length + ' of ' + rows.length + ' — refine your search to see more.</div>';
@@ -323,18 +325,9 @@
     }
     var rows = mount.querySelectorAll(".ups-m-fa-row");
     for (var k = 0; k < rows.length; k++) {
-      rows[k].addEventListener("click", function (e) {
-        if (e.target.classList.contains("ups-m-fa-add")) return; // Add button handles itself
+      rows[k].addEventListener("click", function () {
         var pid = this.getAttribute("data-pid");
         if (pid && M.sheet) M.sheet.open(pid);
-      });
-    }
-    var adds = mount.querySelectorAll(".ups-m-fa-add");
-    for (var m = 0; m < adds.length; m++) {
-      adds[m].addEventListener("click", function (e) {
-        e.stopPropagation();
-        var pid = this.getAttribute("data-pid");
-        if (pid) openDropSheet(pid);
       });
     }
   }

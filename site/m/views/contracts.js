@@ -104,6 +104,32 @@
       if (!seen[p]) ordered.push(p);
     });
 
+    // Parse contractInfo for CL / TCV (years remaining = cy directly).
+    // Reuse the FO penalty mirror's helpers so the values match what the
+    // desktop Roster Workbench renders.
+    var FO_PENALTY = window.UPS_FRONT_OFFICE;
+    function parseCT(infoStr) {
+      var out = { cl: 0, tcv: 0 };
+      var s = String(infoStr || "");
+      var m = s.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i);
+      if (m) out.cl = parseInt(m[1], 10) || 0;
+      var mm = s.match(/(?:^|\|)\s*TCV\s+([^|]+)/i);
+      if (mm) {
+        var raw = String(mm[1]).trim().replace(/[$,]/g, "");
+        var mult = /K$/i.test(raw) ? 1000 : (/M$/i.test(raw) ? 1000000 : 1);
+        raw = raw.replace(/[KM]$/i, "");
+        var n = Number(raw);
+        if (isFinite(n)) out.tcv = Math.round(n * mult);
+      }
+      return out;
+    }
+    function nflLogoUrl(team) {
+      var t = U.safeStr(team).toLowerCase();
+      if (!t || t.length < 2 || t.length > 4) return "";
+      // ESPN team logos — small and cached. Public CDN, CORS-friendly.
+      return "https://a.espncdn.com/i/teamlogos/nfl/500/" + t + ".png";
+    }
+
     var html = '<div class="ups-m-player-list">';
     ordered.forEach(function (pos) {
       var list = byPos[pos].slice().sort(function (a, b) {
@@ -115,21 +141,33 @@
         var p = entry.player;
         var name = nameFor(p) || ("Player " + r.id);
         var team = U.safeStr(p && p.team);
-        var cy = U.safeStr(r.contractYear);
-        var cyLabel = cy === "0" ? "expired" : (cy ? cy + "yr" : "—");
+        var ct = parseCT(r.contractInfo);
+        var cy = parseInt(r.contractYear, 10);
+        var yr = isFinite(cy) ? cy : 0;
+        var cl = ct.cl || yr;  // fall back to cy when CL token absent
+        var tcv = ct.tcv;
+        var typeRaw = U.safeStr(r.contractStatus);
+        var logo = nflLogoUrl(team);
+        var chips = [
+          (cl ? '<span class="chip">CL ' + cl + '</span>' : ''),
+          '<span class="chip">YR ' + (yr === 0 ? "exp" : yr) + '</span>',
+          (tcv ? '<span class="chip">TCV ' + U.fmtUsd(tcv) + '</span>' : ''),
+          (typeRaw ? '<span class="chip type">' + U.escapeHtml(typeRaw) + '</span>' : ''),
+          statusBadges(r, otbIds)
+        ].filter(Boolean).join(" ");
         html += '' +
-          '<div class="ups-m-player-row" data-pid="' + U.escapeHtml(r.id) + '">' +
+          '<div class="ups-m-player-row rich" data-pid="' + U.escapeHtml(r.id) + '">' +
             '<div class="pos ' + posClass(pos) + '">' + U.escapeHtml(pos) + '</div>' +
             '<div class="body">' +
-              '<div class="name">' + U.escapeHtml(name) + '</div>' +
-              '<div class="sub">' +
-                (team ? '<span>' + U.escapeHtml(team) + '</span>' : '') +
-                statusBadges(r, otbIds) +
+              '<div class="name">' +
+                (logo ? '<img class="ups-m-nfl-logo" src="' + U.escapeHtml(logo) + '" alt="" onerror="this.style.display=\'none\'" />' : '') +
+                U.escapeHtml(name) +
+                (team ? '<span class="nfl-team">' + U.escapeHtml(team) + '</span>' : '') +
               '</div>' +
+              '<div class="sub chips-row">' + chips + '</div>' +
             '</div>' +
             '<div class="right">' +
               '<div class="salary">' + U.fmtUsd(r.salary) + '</div>' +
-              '<div class="cy">' + U.escapeHtml(cyLabel) + '</div>' +
             '</div>' +
           '</div>';
       });

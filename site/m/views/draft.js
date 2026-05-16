@@ -18,7 +18,7 @@
   var M = window.UPS_MOBILE;
   var U = M.util;
 
-  var view = { mode: "picks", posFilter: "ALL", teamFilter: "ALL" };
+  var view = { mode: "picks", posFilter: "ALL", teamFilter: "ALL", query: "", _debounceTimer: null };
   var POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
   var POS_GROUP = { DT: "DL", DE: "DL", LB: "LB", CB: "DB", S: "DB" };
 
@@ -127,7 +127,10 @@
         btn("available", "Available") +
       '</div>' +
       (view.mode === "available"
-        ? '<div class="ups-m-pos-chips" style="margin-top:8px">' +
+        ? '<input type="search" id="ups-m-draft-search" class="ups-m-players-search" ' +
+            'style="margin-top:8px" placeholder="Search by name or college…" ' +
+            'autocomplete="off" autocorrect="off" value="' + U.escapeHtml(view.query) + '" />' +
+          '<div class="ups-m-pos-chips" style="margin-top:8px">' +
           POSITIONS.map(function (p) {
             return '<button class="ups-m-pos-chip' + (view.posFilter === p ? " on" : "") +
               '" data-pos="' + p + '">' + (p === "ALL" ? "All" : p) + '</button>';
@@ -220,6 +223,13 @@
         return group === view.posFilter;
       });
     }
+    var q = U.safeStr(view.query).toLowerCase();
+    if (q) {
+      available = available.filter(function (r) {
+        var hay = (nameFor(r) + " " + U.safeStr(r.college) + " " + U.safeStr(r.team) + " " + U.safeStr(r.position)).toLowerCase();
+        return hay.indexOf(q) !== -1;
+      });
+    }
     // Sort by consensus_rank when available (from rookie_prospects JSON),
     // otherwise fall back to NFL draft slot.
     available.sort(function (a, b) {
@@ -255,12 +265,10 @@
       html += '<div class="ups-m-draft-clock you">' +
         '<strong>You\'re on the clock</strong> · pick ' + U.escapeHtml(clockLabel) +
         '</div>';
-    } else if (onClock) {
-      html += '<div class="ups-m-draft-clock">' +
-        'On the clock: ' + U.escapeHtml(franchiseName(onClock.franchise_id)) +
-        ' · pick ' + U.escapeHtml(clockLabel) +
-        '</div>';
     }
+    // Generic "On the clock: TEAM" banner removed per Keith — nobody is on
+    // the clock until the actual draft starts; the only meaningful banner
+    // is "You're on the clock" when it's the viewer's pick.
     html += '</div>';
 
     available.forEach(function (r) {
@@ -317,6 +325,23 @@
       posBtns[j].addEventListener("click", function () {
         view.posFilter = this.getAttribute("data-pos");
         M.route.renderRoute();
+      });
+    }
+    var searchEl = document.getElementById("ups-m-draft-search");
+    if (searchEl) {
+      searchEl.addEventListener("input", function (e) {
+        var val = e.target.value;
+        clearTimeout(view._debounceTimer);
+        view._debounceTimer = setTimeout(function () {
+          view.query = val;
+          M.route.renderRoute();
+          // Re-focus after re-render
+          var s = document.getElementById("ups-m-draft-search");
+          if (s) {
+            s.focus();
+            try { s.setSelectionRange(val.length, val.length); } catch (e) {}
+          }
+        }, 200);
       });
     }
     // Pick button — intercept BEFORE the row click handler.
@@ -389,6 +414,63 @@
     });
   }
 
+  // Find the rookie draft kickoff date from /api/league-events.
+  // Returns a Date or null. Cached on view so we don't refetch.
+  var _draftDateCache = null;
+  function draftKickoffDate() {
+    if (_draftDateCache !== null) return _draftDateCache;
+    var events = (M.state && M.state.leagueEvents && M.state.leagueEvents.events) || [];
+    for (var i = 0; i < events.length; i++) {
+      var e = events[i];
+      if (e && (e.event === "ups_rookie_draft" || e.event === "rookie_draft")) {
+        // Date strings are YYYY-MM-DD UTC. Anchor to noon ET for display.
+        var d = new Date(e.date + "T16:00:00Z");
+        if (!isNaN(d.getTime())) { _draftDateCache = d; return d; }
+      }
+    }
+    _draftDateCache = false;
+    return null;
+  }
+  function renderCountdown(picks) {
+    var madeCount = picks.filter(function (p) { return p.player_id; }).length;
+    var liveDraft = madeCount > 0 && madeCount < picks.length;
+    if (liveDraft) {
+      return '<div class="ups-m-draft-countdown live">' +
+        '<div class="lbl">Draft is LIVE</div>' +
+        '<div class="val">' + madeCount + ' / ' + picks.length + ' picks made</div>' +
+      '</div>';
+    }
+    if (madeCount === picks.length && picks.length > 0) {
+      return '<div class="ups-m-draft-countdown">' +
+        '<div class="lbl">Draft Complete</div>' +
+        '<div class="val">' + picks.length + ' picks</div>' +
+      '</div>';
+    }
+    var kickoff = draftKickoffDate();
+    if (!kickoff) return "";
+    var ms = kickoff.getTime() - Date.now();
+    if (ms <= 0) {
+      return '<div class="ups-m-draft-countdown live">' +
+        '<div class="lbl">Draft kicks off any moment</div>' +
+        '<div class="val">' + kickoff.toLocaleString() + '</div>' +
+      '</div>';
+    }
+    var days = Math.floor(ms / 86400000);
+    var hrs = Math.floor((ms % 86400000) / 3600000);
+    var mins = Math.floor((ms % 3600000) / 60000);
+    var parts = [];
+    if (days) parts.push(days + "d");
+    if (days < 7) parts.push(hrs + "h");
+    if (days < 2) parts.push(mins + "m");
+    return '<div class="ups-m-draft-countdown">' +
+      '<div class="lbl">Rookie Draft in</div>' +
+      '<div class="val">' + U.escapeHtml(parts.join(" ")) + '</div>' +
+      '<div class="lbl" style="margin-top:4px;text-transform:none;letter-spacing:0">' +
+        kickoff.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) +
+      '</div>' +
+    '</div>';
+  }
+
   function render(mount) {
     var picks = buildPicks();
     var rookies = buildRookiePool();
@@ -396,7 +478,7 @@
     if (view.mode === "teams") body = renderByTeam(picks);
     else if (view.mode === "available") body = renderAvailable(picks, rookies);
     else body = renderPicksList(picks);
-    mount.innerHTML = subTabs("draft") + renderToolbar() + body;
+    mount.innerHTML = subTabs("draft") + renderToolbar() + renderCountdown(picks) + body;
     bind(mount);
   }
 
