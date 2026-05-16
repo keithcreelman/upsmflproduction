@@ -178,6 +178,11 @@
       if (resp.ok) {
         M.ui.showToast("Done ✓", "ok");
         state.offers = null;
+        // Reload everything: trade actions can mutate roster + cap, and we
+        // need fresh trade offers + nav badge count.
+        if (M.actions && M.actions.reloadData) {
+          return M.actions.reloadData().then(function () { M.route.renderRoute(); });
+        }
         return loadOffers().then(function () { M.route.renderRoute(); });
       }
       var err = (resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status);
@@ -188,7 +193,13 @@
   }
 
   function render(mount) {
-    if (!state.offers && !state.loading) {
+    // Pre-load: loadAllData fetches trade offers as part of its
+    // post-franchise-resolve step, so the badge on the League nav can
+    // appear before the user navigates here. Always prefer the global
+    // M.state.tradeOffers copy so reloadData() bust-invalidates the cache.
+    if (M.state.tradeOffers) {
+      state.offers = M.state.tradeOffers;
+    } else if (!state.offers && !state.loading) {
       loadOffers().then(function () { M.route.renderRoute(); });
       mount.innerHTML = subTabs("trade") + '<div class="ups-m-loading">Loading offers…</div>';
       return;

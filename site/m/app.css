@@ -117,8 +117,81 @@ body { min-height: 100vh; }
   transition: color 120ms;
 }
 .ups-m-nav-item.active { color: var(--accent); }
-.ups-m-nav-icon { font-size: 20px; line-height: 1; }
+.ups-m-nav-icon {
+  font-size: 20px;
+  line-height: 1;
+  position: relative;
+}
 .ups-m-nav-label { font-size: 11px; }
+/* Pending-offers badge on a nav icon — red dot top-right with optional count. */
+.ups-m-nav-icon .ups-m-nav-badge {
+  position: absolute;
+  top: -4px;
+  right: -10px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* ----- Skeleton loaders (shown during initial load instead of "Loading…") ----- */
+@keyframes ups-m-shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+.ups-m-skeleton {
+  background: linear-gradient(90deg, var(--bg-elev) 0%, var(--bg-elev2) 50%, var(--bg-elev) 100%);
+  background-size: 200px 100%;
+  background-repeat: no-repeat;
+  animation: ups-m-shimmer 1.2s infinite linear;
+  border-radius: 6px;
+}
+.ups-m-skel-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 60px;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.ups-m-skel-row .pos { height: 28px; border-radius: 6px; }
+.ups-m-skel-row .body { display: flex; flex-direction: column; gap: 6px; }
+.ups-m-skel-row .body .ln1 { height: 14px; width: 60%; }
+.ups-m-skel-row .body .ln2 { height: 10px; width: 80%; }
+.ups-m-skel-row .right { height: 18px; }
+.ups-m-skel-card { height: 110px; margin: 12px; }
+
+/* ----- Pull-to-refresh indicator ----- */
+.ups-m-ptr {
+  position: fixed;
+  left: 50%;
+  top: calc(var(--hdr-h) + var(--safe-top) + 4px);
+  transform: translate(-50%, -120%);
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background: var(--bg-elev2);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: 18px;
+  z-index: 25;
+  transition: transform 200ms;
+  pointer-events: none;
+}
+.ups-m-ptr.show { transform: translate(-50%, 0); }
+.ups-m-ptr.spin svg { animation: ups-m-ptr-spin 700ms linear infinite; }
+@keyframes ups-m-ptr-spin {
+  to { transform: rotate(360deg); }
+}
 
 /* ----- Sub-tabs (used by My Team and League) ----- */
 .ups-m-subtabs {
@@ -227,14 +300,23 @@ body { min-height: 100vh; }
 
 /* ----- Position group headers ----- */
 .ups-m-pos-group {
-  margin: 16px 0 4px;
-  padding: 0 16px;
+  margin: 0;
+  padding: 8px 16px;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.1em;
   color: var(--fg-muted);
   text-transform: uppercase;
+  /* Stick under the page header + sub-tabs so the user always knows
+     which position group they're scrolling through on a long roster. */
+  position: sticky;
+  top: calc(var(--hdr-h) + var(--safe-top) + 40px);
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  z-index: 5;
 }
+.ups-m-pos-group:first-child { border-top: 0; }
 
 /* ----- Player rows (Contracts view) ----- */
 .ups-m-player-list {
@@ -367,6 +449,31 @@ body { min-height: 100vh; }
 }
 .ups-m-toast.err { border-color: var(--danger); color: var(--danger); }
 .ups-m-toast.ok { border-color: var(--ok); color: var(--ok); }
+
+/* ----- Load-error banner (surfaces silent fetch failures) ----- */
+.ups-m-load-err-banner {
+  margin: 8px 12px 12px;
+  padding: 10px 12px;
+  background: rgba(255, 184, 107, 0.10);
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+  color: var(--warn);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ups-m-load-err-banner .ico { font-size: 14px; flex: 0 0 auto; }
+.ups-m-load-err-banner .msg { flex: 1 1 auto; }
+.ups-m-load-err-banner .dismiss {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  color: var(--warn);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+}
 
 /* ----- Lineup view ----- */
 .ups-m-lineup-status-card {
