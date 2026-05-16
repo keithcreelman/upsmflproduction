@@ -222,6 +222,35 @@ Agent G: §6G cross-section caps + lineup + MYM + rookie option + trade
 
 Each agent fetches real data (worker URLs above), compares against canonical rules, reports drift. The audit takes ~15 minutes and surfaces every drift before users hit it.
 
+## §5.1 — Live backlog (Keith 2026-05-16 review pass — MobileNotesV1)
+
+Discrete items from Keith's mobile-app review (`docs/Misc Notes/MobileNotesV1/`). Rows marked **FIXED** landed in the PR alongside this doc update.
+
+### Worker / Discord
+
+- **FIXED — Extension Discord AAV** — was showing `TCV ÷ years` (e.g. Trey Benson Ext1 showed `11K AAV` = `22K / 2`); now shows the per-year breakdown (`6K, 16K AAV`) when the contract has >1 year. Tags still show single-value AAV. Source: `buildContractActivityDiscordEmbed` in `worker/src/index.js` ~14750. Fix uses `summary.pairs` (already computed for the Breakdown field) instead of `resolvedAav`.
+
+### Mobile UX (pending)
+
+- **Drop UX when owner-drops are disabled by league setting** — Keith tried to Drop Emanuel Wilson; MFL correctly rejected server-side (the league has owners-can't-drop enabled in commish admin) but mobile didn't surface why. Needs:
+  - Worker endpoint `/api/league-rules?L=…&YEAR=…` returning `{ owner_drops_allowed, owner_trades_allowed, … }` — derived from a UPS-side rule registry (MFL's league export doesn't expose these per-franchise permissions).
+  - Mobile: on app boot, fetch league rules; gate the Drop button + show "Drops are commish-only in this league" instead of allowing the failed attempt.
+  - Same pattern should cover other locked-down transactions (trade-accept-only-by-commish, etc.).
+- **Expired player drop shows `−$1K` cap change instead of `$0`** — Emanuel Wilson is expiring (`cy=0`). The penalty estimator correctly returns `$0` dead-cap, but the cap delta computation (`new_salary − current_salary` = `0 − 1000` = `−1000`) shows up as `−$1K` cap change. For expiring players the cap delta should be **$0** — they were already going off the cap at season end. Affects BOTH desktop + mobile cap preview. Cross-codebase fix: detect `cy === 0` and force delta to 0.
+- **OTB Remove / Update / Add to Block buttons broken** — None render or perform per Keith. Need to retest after recent merges; likely a regression. Source: `site/m/player_sheet.js` OTB save/remove handlers + worker `/api/submit-trade-bait-note`.
+- **Refresh icon does nothing** — Visible in header but no handler. Either wire it to `M.actions.reloadData()` OR remove the icon.
+- **Intermittent mobile timeout / blank load** — Sometimes app loads to a blank state without the loading indicator clearing. Likely a `loadAllData()` race where one of the 14 parallel fetches hangs past the 10s timeout. Add per-fetch hard timeout + a visible "data sources timed out — pull to retry" banner.
+- **Tre Harris + Isaac Tesla incorrectly showing as Expired** — Both are 2025-draft rookies (first NFL season). Their displayed `cy=0` is wrong; rookies should have `cy=3` per §A1.4. Verify whether MFL data is wrong or the parser misreads, then route accordingly.
+
+### Cross-codebase (pending)
+
+- **Taxi salaries on the Rosters page (NOT just My Team → Taxi)** — Already wired on the Taxi subtab via §A1.4 derivation (PR #199). Same logic needs to extend to Rosters → Team Detail when rendering taxi-status players. Source: `site/m/views/league.js renderRosterCards`.
+- **Standings owner-change footnotes** — Mid-season transfers (e.g. 2024 "Main Event Mafia" → "Long Haulers") should annotate historical standings rows. Same for franchise renames + new teams. Requires a UPS-side ownership-history table.
+- **Championship title count per owner** — Champion row should denote "🏆 League Champion · 3rd title". Data lives in `champions_panels.json title_leaders[].titles` + `years` (already loaded for trophy badge).
+- **Expiring Salary column on Salary Summary** — Sum `r.salary` where `cy=1` per franchise. Important for FA Auction prep.
+- **MYM rule discussion** — Open thread per Keith. Flagged for `league_context_v1.md` follow-up.
+- **Tag salary floor for WW players** — `league_context_v1.md §C8` should explicitly state: WW-acquired players being tagged use the lowest tier salary (`$1K`) as the tag floor, regardless of current salary. Not documented in §C8 today; tag salary calc may not honor it.
+
 ## §6 — Open questions / known unknowns
 
 - **MYM 4-per-season enforcement**: nowhere in code. Honor system. Should it be worker-enforced?

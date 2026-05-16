@@ -14737,6 +14737,15 @@ export default {
         const gtd = kind === "tag"
           ? Math.round(Math.max(0, resolvedAav) * 0.75)
           : parseContractGuaranteeValue(contractInfo);
+        // Per-year salary list for the AAV display on multi-year contracts.
+        // Keith 2026-05-16: Trey Benson Ext showed "11K AAV" (TCV÷years) but
+        // should show "6K, 16K AAV" — the per-year breakdown. The single
+        // mathematical-average AAV is misleading for loaded contracts; the
+        // comma list matches how the mobile app + roster workbench label it.
+        // Tags stay single-value (always 1 year).
+        const perYearAavDisplay = (kind !== "tag" && summary.pairs.length > 1)
+          ? summary.pairs.map((p) => formatContractK(safeInt(p.salary, 0))).join(", ")
+          : formatContractK(resolvedAav);
         const termsParts = isPreseasonTradeExtension
           ? [
               yearsLabel,
@@ -14745,7 +14754,7 @@ export default {
           : [
               yearsLabel,
               `${formatContractK(salary)} Salary`,
-              `${formatContractK(resolvedAav)} AAV`,
+              `${perYearAavDisplay} AAV`,
               `${formatContractK(resolvedTcv)} TCV`,
             ];
         if (gtd > 0) termsParts.push(`${formatContractK(gtd)} GTD`);
