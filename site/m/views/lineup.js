@@ -92,6 +92,7 @@
     return '<div class="ups-m-subtabs">' +
       tab("contracts", "Contracts", "contracts") +
       tab("lineup", "Lineup", "lineup") +
+      tab("taxi", "Taxi", "taxi") +
       tab("tagging", "Tagging", "tagging") +
       '</div>';
   }

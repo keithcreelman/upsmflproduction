@@ -63,51 +63,170 @@
     '</div>';
   }
 
+  // Helpers shared with the My Team Contracts view — parse contractInfo
+  // for CL + TCV tokens, build NFL ESPN logo URL, classify position for
+  // colored pos badges. Mirrors `parseCT` / `nflLogoUrl` / `posClass`
+  // from views/contracts.js so any team's roster renders identically to
+  // the viewer's own My Team page.
+  function parseCT(infoStr) {
+    var out = { cl: 0, tcv: 0 };
+    var s = String(infoStr || "");
+    var m = s.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i);
+    if (m) out.cl = parseInt(m[1], 10) || 0;
+    var mm = s.match(/(?:^|\|)\s*TCV\s+([^|]+)/i);
+    if (mm) {
+      var raw = String(mm[1]).trim().replace(/[$,]/g, "");
+      var mult = /K$/i.test(raw) ? 1000 : (/M$/i.test(raw) ? 1000000 : 1);
+      raw = raw.replace(/[KM]$/i, "");
+      var n = Number(raw);
+      if (isFinite(n)) out.tcv = Math.round(n * mult);
+    }
+    return out;
+  }
+  function nflLogoUrl(team) {
+    var t = U.safeStr(team).toLowerCase();
+    if (!t || t.length < 2 || t.length > 4) return "";
+    return "https://a.espncdn.com/i/teamlogos/nfl/500/" + t + ".png";
+  }
+  function posClass(pos) {
+    var p = (pos || "").toUpperCase();
+    if (p === "QB") return "qb";
+    if (p === "RB") return "rb";
+    if (p === "WR") return "wr";
+    if (p === "TE") return "te";
+    if (p === "PK") return "pk";
+    if (p === "DEF" || p === "DEFENSE") return "def";
+    if (p === "DL" || p === "DE" || p === "DT") return "dl";
+    if (p === "LB" || p === "ILB" || p === "OLB") return "lb";
+    if (p === "DB" || p === "CB" || p === "S" || p === "SAF") return "db";
+    return "";
+  }
+
+  // Team-header card — shows franchise icon + name + owner. Anchors the
+  // detail view so it's clear which team you're looking at when drilling
+  // in from the Salary Summary.
+  function renderTeamHeader(franchise) {
+    if (!franchise) return "";
+    var icon = U.safeStr(franchise.icon || franchise.logo);
+    var owner = U.safeStr(franchise.owner);
+    return '<div class="ups-m-team-header">' +
+      (icon ? '<img class="ups-m-team-icon" src="' + U.escapeHtml(icon) + '" alt="" onerror="this.style.display=\'none\'" />' : '') +
+      '<div class="ups-m-team-header-text">' +
+        '<div class="ups-m-team-header-name">' + U.escapeHtml(franchise.name || ("Franchise " + franchise.id)) + '</div>' +
+        (owner ? '<div class="ups-m-team-header-owner">' + U.escapeHtml(owner) + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
+  // Re-render of the My Team Contracts cap card, scoped to any franchise
+  // so other-team detail views show the same cap context as your own.
+  function renderTeamCapCard(fid) {
+    var cap = DATA.computeCap(fid);
+    if (!cap || !cap.capAmount) return "";
+    var pct = cap.pct;
+    var overCap = cap.capRoom < 0;
+    var capRoomClass = overCap ? "danger" : (pct >= 95 ? "warn" : "ok");
+    var adjLine = "";
+    if (cap.adjustmentTotal !== 0) {
+      var sign = cap.adjustmentTotal > 0 ? "+" : "−";
+      adjLine = '<span class="chip">Adj ' + sign + U.fmtUsd(Math.abs(cap.adjustmentTotal)) + '</span>';
+    }
+    return '' +
+      '<div class="ups-m-cap-card">' +
+        '<div class="ups-m-cap-grid">' +
+          '<div class="ups-m-cap-kv">' +
+            '<div class="lbl">Cap Used</div>' +
+            '<div class="val">' + U.fmtUsd(cap.capTotal) + '</div>' +
+          '</div>' +
+          '<div class="ups-m-cap-kv">' +
+            '<div class="lbl">Cap Room</div>' +
+            '<div class="val ' + capRoomClass + '">' + U.fmtUsd(cap.capRoom) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="ups-m-cap-bar"><div class="ups-m-cap-bar-fill ' + (overCap ? "over" : "") + '" style="width:' + pct + '%"></div></div>' +
+        '<div class="ups-m-cap-foot">' +
+          '<span class="chip">' + pct + '% used</span>' +
+          '<span class="chip">Cap ' + U.fmtUsd(cap.capAmount) + '</span>' +
+          '<span class="chip">' + cap.rosterCount + ' roster · ' + cap.activeCount + ' active</span>' +
+          (cap.irCount ? '<span class="chip">' + cap.irCount + ' IR · ' + U.fmtUsd(cap.irSalaryFull) + ' @50%</span>' : '') +
+          (cap.taxiCount ? '<span class="chip">' + cap.taxiCount + ' Taxi · ' + U.fmtUsd(cap.taxiSalary) + ' off-cap</span>' : '') +
+          adjLine +
+        '</div>' +
+      '</div>';
+  }
+
   function renderRosterCards(fid) {
     var rows = DATA.getRosterFor(fid);
     if (!rows.length) {
       return '<div class="ups-m-stub"><div>No roster data.</div></div>';
     }
+    var franchise = (M.state.franchises || []).find(function (f) { return f.id === fid; });
     var byPos = {};
     rows.forEach(function (r) {
       var p = DATA.playerById(r.id);
-      var rawPos = U.safeStr(p && p.position).toUpperCase();
-      var group = POS_GROUP_FOR[rawPos] || rawPos || "Other";
-      if (!byPos[group]) byPos[group] = [];
-      byPos[group].push({ row: r, player: p, pos: rawPos });
+      var pos = U.safeStr(p && p.position).toUpperCase() || "Other";
+      if (!byPos[pos]) byPos[pos] = [];
+      byPos[pos].push({ row: r, player: p });
     });
     var seen = {};
     var ordered = [];
     POS_ORDER.forEach(function (p) { if (byPos[p]) { ordered.push(p); seen[p] = true; } });
     Object.keys(byPos).sort().forEach(function (p) { if (!seen[p]) ordered.push(p); });
 
-    var html = '<div class="ups-m-player-list">';
-    ordered.forEach(function (group) {
-      var list = byPos[group].slice().sort(function (a, b) {
+    var listHtml = '<div class="ups-m-player-list">';
+    ordered.forEach(function (pos) {
+      var list = byPos[pos].slice().sort(function (a, b) {
         return Number(b.row.salary || 0) - Number(a.row.salary || 0);
       });
-      html += '<div class="ups-m-pos-group">' + U.escapeHtml(group) + ' · ' + list.length + '</div>';
+      listHtml += '<div class="ups-m-pos-group">' + U.escapeHtml(pos) + ' · ' + list.length + '</div>';
       list.forEach(function (entry) {
         var r = entry.row;
-        var name = nameFor(entry.player) || ("Player " + r.id);
-        var team = U.safeStr(entry.player && entry.player.team);
-        var cy = U.safeStr(r.contractYear);
-        var cyLabel = cy === "0" ? "expired" : (cy ? cy + "yr" : "—");
-        html += '<div class="ups-m-player-row" data-pid="' + U.escapeHtml(r.id) + '">' +
-          '<div class="pos">' + U.escapeHtml(entry.pos || group) + '</div>' +
-          '<div class="body">' +
-            '<div class="name">' + U.escapeHtml(name) + '</div>' +
-            '<div class="sub">' + (team ? '<span>' + U.escapeHtml(team) + '</span>' : '') + '</div>' +
-          '</div>' +
-          '<div class="right">' +
-            '<div class="salary">' + U.fmtUsd(r.salary) + '</div>' +
-            '<div class="cy">' + U.escapeHtml(cyLabel) + '</div>' +
-          '</div>' +
-        '</div>';
+        var p = entry.player;
+        var name = nameFor(p) || ("Player " + r.id);
+        var team = U.safeStr(p && p.team);
+        var ct = parseCT(r.contractInfo);
+        var cy = U.safeInt(r.contractYear, 0);
+        var yr = cy;
+        var cl = ct.cl || yr;
+        var tcv = ct.tcv;
+        var typeRaw = U.safeStr(r.contractStatus);
+        var logo = nflLogoUrl(team);
+        // Status badges — limited subset for the league/rosters context.
+        // We DON'T render the viewer-specific "On Block" badge here since
+        // OTB is per-franchise (only the viewer's OTB list applies). The
+        // CL/YR/TCV/Type chips remain identical to My Team Contracts.
+        var status = U.safeStr(r.status);
+        var statusBits = [];
+        if (cy === 0) statusBits.push('<span class="badge exp">Expired</span>');
+        if (/taxi/i.test(status)) statusBits.push('<span class="badge tx">Taxi</span>');
+        if (/ir|injured/i.test(status)) statusBits.push('<span class="badge ir">IR</span>');
+        var chips = [
+          (cl ? '<span class="chip">CL ' + cl + '</span>' : ''),
+          (yr > 0 ? '<span class="chip">YR ' + yr + '</span>' : ''),
+          (tcv ? '<span class="chip">TCV ' + U.fmtUsd(tcv) + '</span>' : ''),
+          (typeRaw ? '<span class="chip type">' + U.escapeHtml(typeRaw) + '</span>' : ''),
+          statusBits.join(" ")
+        ].filter(Boolean).join(" ");
+        listHtml += '' +
+          '<div class="ups-m-player-row rich" data-pid="' + U.escapeHtml(r.id) + '">' +
+            '<div class="pos ' + posClass(pos) + '">' + U.escapeHtml(pos) + '</div>' +
+            '<div class="body">' +
+              '<div class="name">' +
+                (logo ? '<img class="ups-m-nfl-logo" src="' + U.escapeHtml(logo) + '" alt="" onerror="this.style.display=\'none\'" />' : '') +
+                U.escapeHtml(name) +
+                (team ? '<span class="nfl-team">' + U.escapeHtml(team) + '</span>' : '') +
+              '</div>' +
+              '<div class="sub chips-row">' + chips + '</div>' +
+            '</div>' +
+            '<div class="right">' +
+              '<div class="salary">' + U.fmtUsd(r.salary) + '</div>' +
+            '</div>' +
+          '</div>';
       });
     });
-    html += '</div>';
-    return html;
+    listHtml += '</div>';
+
+    return renderTeamHeader(franchise) + renderTeamCapCard(fid) + listHtml;
   }
 
   // Two views for the Rosters tab:
@@ -260,6 +379,7 @@
   // switching years doesn't refetch.
   state.standingsByYear = state.standingsByYear || {};
   state.standingsYear = state.standingsYear || null;
+  state.championsByYear = state.championsByYear || null; // pid → year-of-title map; loaded lazily
 
   function loadStandingsForYear(year) {
     var y = String(year);
@@ -272,12 +392,52 @@
       .then(function () { state.standingsLoading = null; renderRoute(); });
   }
 
+  // Lazy-load the champions panel JSON for trophy badges. Maps:
+  //   { [year]: { franchise_id, franchise, title_number, icon } }
+  // Returns a cached promise so concurrent renders don't double-fetch.
+  function loadChampions() {
+    if (state.championsByYear) return Promise.resolve(state.championsByYear);
+    if (state._championsLoading) return state._championsLoading;
+    state._championsLoading = fetch("/upsmflproduction/champions_panels.json", { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var map = {};
+        var rec = (j && j.recent_winners) || [];
+        rec.forEach(function (w) {
+          if (w && w.year != null) map[String(w.year)] = w;
+        });
+        state.championsByYear = map;
+        return map;
+      })
+      .catch(function () {
+        state.championsByYear = {};
+        return {};
+      })
+      .then(function (m) { state._championsLoading = null; renderRoute(); return m; });
+    return state._championsLoading;
+  }
+
   function availableYears() {
     var cur = parseInt(M.state.ctx.year, 10) || (new Date().getUTCFullYear());
     // UPS league started in 2012 per memory. Show every year through current.
     var out = [];
     for (var y = cur; y >= 2012; y--) out.push(y);
     return out;
+  }
+
+  // Default year resolver: prefer the current cap-year UNLESS its
+  // standings response has zero rows (preseason / no data), in which
+  // case fall back to the prior year. Auto-flips once 2026 has real
+  // data without any code change. Manual selection via the year
+  // dropdown still overrides.
+  function defaultStandingsYear() {
+    var cur = parseInt(M.state.ctx.year, 10) || (new Date().getUTCFullYear());
+    var curKey = String(cur);
+    var curResp = state.standingsByYear[curKey];
+    if (curResp && Array.isArray(curResp.rows) && curResp.rows.length > 0) return cur;
+    // Prior year — assume it has data (UPS started 2012, every prior
+    // year has a completed regular season).
+    return cur - 1;
   }
 
   function fmtPct(v) {
@@ -290,13 +450,32 @@
     return isFinite(n) ? n.toFixed(1) : "—";
   }
   function isDivWinner(row) {
-    // Several flag aliases — be defensive.
-    return !!(row && (row._isDivLeader || row.is_div_winner ||
-              row.division_winner || row.divisional_winner));
+    // Several flag aliases — be defensive. The worker returns
+    // `is_division_leader` (2026-05-16 verified against /api/standings).
+    return !!(row && (row.is_division_leader || row._isDivLeader ||
+              row.is_div_winner || row.division_winner || row.divisional_winner));
+  }
+  function isChampion(row, year) {
+    var champs = state.championsByYear || {};
+    var c = champs[String(year)];
+    if (!c) return false;
+    return U.pad4(c.franchise_id) === U.pad4(row && row.franchise_id);
   }
 
   function renderStandings(mount) {
-    var year = state.standingsYear || M.state.ctx.year;
+    // Lazy-load champion panels (trophy badges).
+    if (!state.championsByYear && !state._championsLoading) loadChampions();
+
+    // Default year resolution. If user manually picked a year (state.standingsYear),
+    // honor it. Otherwise resolve from data — fall back to prior year when
+    // the current cap-year has no rows. Kicks off a fetch of the current
+    // year so the resolver has data to inspect on the next render.
+    var curYear = parseInt(M.state.ctx.year, 10) || (new Date().getUTCFullYear());
+    var curKey = String(curYear);
+    if (!state.standingsByYear[curKey]) {
+      loadStandingsForYear(curYear);
+    }
+    var year = state.standingsYear || defaultStandingsYear();
     var y = String(year);
     if (!state.standingsByYear[y]) {
       loadStandingsForYear(year);
@@ -329,9 +508,16 @@
     var trs = rows.map(function (r, i) {
       var name = U.safeStr(r.franchise_name) || ("F" + r.franchise_id);
       var winner = isDivWinner(r);
-      return '<tr' + (winner ? ' class="div-winner"' : '') + '>' +
+      var champ = isChampion(r, year);
+      // Champion's row gets a gold-tinted class on top of the div-winner
+      // class so styling layers cleanly.
+      var rowClass = (champ ? "champion" : "") + (winner ? " div-winner" : "");
+      var badges = "";
+      if (champ) badges += '<span class="div-crown" title="League Champion">🏆</span> ';
+      if (winner) badges += '<span class="div-crown" title="Division Winner">👑</span> ';
+      return '<tr class="' + rowClass + '">' +
         '<td class="rank">' + (i + 1) + '</td>' +
-        '<td class="team">' + (winner ? '<span class="div-crown" title="Division Winner">👑</span> ' : '') + U.escapeHtml(name) + '</td>' +
+        '<td class="team">' + badges + U.escapeHtml(name) + '</td>' +
         '<td>' + (r.h2h_w || 0) + '-' + (r.h2h_l || 0) + (r.h2h_t ? "-" + r.h2h_t : "") + '</td>' +
         '<td>' + fmtPct(r.h2h_pct) + '</td>' +
         '<td>' + fmtPct(r.allplay_pct) + '</td>' +
@@ -347,7 +533,7 @@
           '<thead><tr><th>#</th><th class="team">Team</th><th>W-L</th><th>H2H%</th><th>AP%</th><th>PF</th></tr></thead>' +
           '<tbody>' + trs + '</tbody>' +
         '</table>' +
-        '<div class="ups-m-standings-legend">👑 division winner · AP% = All-Play %</div>' +
+        '<div class="ups-m-standings-legend">🏆 league champion · 👑 division winner · AP% = All-Play %</div>' +
       '</div>';
     mount.innerHTML = html;
     bindYearPicker(mount);
