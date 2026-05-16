@@ -7,7 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
-  var BUILD = "2026.05.16.taxi-precision";
+  var BUILD = "2026.05.16.taxi-derived";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -38,6 +38,97 @@
     if (Math.abs(x) >= 1000) return "$" + Math.round(x / 1000) + "K";
     return "$" + Math.round(x);
   }
+  // Rookie salary derivation — verbatim from league_context_v1.md §A1.4.
+  // Returns the per-year salary for a given UPS draft pick. Flat across
+  // all 3 contract years; option-year salary for 1st-rounders is computed
+  // separately (Y3 + $5K per §C6).
+  //
+  // §A1.4 table:
+  //   1.01           → $15K
+  //   1.02 – 1.12    → decrements by $1K per slot, floor $5K
+  //                    (1.02 = $14K, 1.03 = $13K, ..., 1.11 = $5K, 1.12 = $5K)
+  //   2.01 – 2.12    → $5K  (TCV $15K)
+  //   3.01 – 5.12    → $2K  (TCV $6K)
+  //   6.01 – 6.12    → $1K  (TCV $3K, IDP only)
+  function rookieSalaryForPick(round, pick) {
+    var r = parseInt(round, 10);
+    var p = parseInt(pick, 10);
+    if (!isFinite(r) || !isFinite(p) || r < 1 || p < 1) return 0;
+    if (r === 1) {
+      // 1.01 = $15K; each subsequent slot drops $1K; floor at $5K.
+      var sal = 15000 - (p - 1) * 1000;
+      return Math.max(5000, sal);
+    }
+    if (r === 2) return 5000;
+    if (r >= 3 && r <= 5) return 2000;
+    if (r === 6) return 1000;
+    return 0;
+  }
+
+  // Parse a roster row's `drafted` field. MFL stores UPS draft slot for
+  // players the franchise selected directly ("R.PP (YYYY)"), trade
+  // origination ("Trade (YYYY)"), or FA acquisition ("FA (YYYY)").
+  // Returns { round, pick, year } when parseable as a direct pick,
+  // { tradeYear } for trade-acquired, or null otherwise.
+  function parseDraftedField(s) {
+    var str = safeStr(s);
+    if (!str) return null;
+    var m = str.match(/^(\d+)\.(\d+)\s*\((\d{4})\)/);
+    if (m) {
+      return { round: parseInt(m[1], 10), pick: parseInt(m[2], 10), year: parseInt(m[3], 10) };
+    }
+    var t = str.match(/^Trade\s*\((\d{4})\)/i);
+    if (t) return { tradeYear: parseInt(t[1], 10) };
+    return null;
+  }
+
+  // Derive the contracted salary for a taxi player. MFL strips the
+  // salary field for taxi-status players in both rosters + salaries
+  // exports (verified 2026-05-16 against pid 16212), so we fall back
+  // to the rookie salary table when the player's draft slot is known.
+  //
+  // Two derivation paths:
+  //   1. `drafted: "R.PP (YYYY)"` → direct parse of own franchise's pick
+  //   2. `drafted: "Trade (YYYY)"` → look up the player in the historical
+  //      draft index (past 3 years of draftResults across all franchises)
+  //      to find the original UPS draft slot. Per §A1.4 the salary is
+  //      identical regardless of which franchise made the original pick.
+  function deriveTaxiSalary(rosterRow) {
+    if (!rosterRow) return { ok: false, salary: 0, reason: "no_row" };
+    var parsed = parseDraftedField(rosterRow.drafted);
+    if (parsed && parsed.round && parsed.pick) {
+      var sal = rookieSalaryForPick(parsed.round, parsed.pick);
+      return {
+        ok: sal > 0,
+        salary: sal,
+        round: parsed.round,
+        pick: parsed.pick,
+        year: parsed.year,
+        source: "rookie-table-direct"
+      };
+    }
+    // Trade-acquired or unknown origin — consult the historical draft
+    // index keyed by player_id.
+    var pid = String(rosterRow.id || "");
+    var idx = state.historicalDraftByPid || {};
+    if (pid && idx[pid]) {
+      var hit = idx[pid];
+      var sal2 = rookieSalaryForPick(hit.round, hit.pick);
+      return {
+        ok: sal2 > 0,
+        salary: sal2,
+        round: hit.round,
+        pick: hit.pick,
+        year: hit.year,
+        source: "rookie-table-historical"
+      };
+    }
+    if (parsed && parsed.tradeYear) {
+      return { ok: false, salary: 0, reason: "trade_acquired_unfound", tradeYear: parsed.tradeYear };
+    }
+    return { ok: false, salary: 0, reason: "unknown_origin" };
+  }
+
   // Precise USD — preserves sub-$1K resolution so a $1,500 penalty
   // displays as "$1.5K" instead of being rounded to "$2K". Used by
   // the drop/extension/restructure confirm modals where the difference
@@ -86,6 +177,7 @@
     advancedStatsLatestYear: 0, // most recent season with rows; equals ctx.year during the season, ctx.year-1 in offseason
     rookieProspects: null,     // site/rookies/rookie_prospects_<year>.json rows
     draftResults: null,        // /api/mfl-export?TYPE=draftResults
+    historicalDraftByPid: null, // { [pid]: { year, round, pick } } — past 3 years for taxi salary derivation
     leagueEvents: null,        // /api/league-events?season=<year>&from=today (UPS deadline calendar)
     capAmount: 0,
     loaded: false,
@@ -117,10 +209,13 @@
 
   // ---------- Data fetch ----------
   function mflExportUrl(type, extra) {
+    return mflExportUrlForYear(type, state.ctx.year, extra);
+  }
+  function mflExportUrlForYear(type, year, extra) {
     var url = workerUrl("/api/mfl-export") +
       "?TYPE=" + encodeURIComponent(type) +
       "&L=" + encodeURIComponent(state.ctx.leagueId) +
-      "&YEAR=" + encodeURIComponent(state.ctx.year) +
+      "&YEAR=" + encodeURIComponent(year) +
       "&JSON=1";
     if (extra && typeof extra === "object") {
       for (var k in extra) {
@@ -130,6 +225,48 @@
       }
     }
     return url;
+  }
+
+  // Build pid → { year, round, pick } from a draftResults JSON response.
+  function indexDraftPicks(draftResults, year) {
+    var out = {};
+    if (!draftResults) return out;
+    var unit = draftResults.draftResults && draftResults.draftResults.draftUnit;
+    if (Array.isArray(unit)) unit = unit[0];
+    var picks = unit && unit.draftPick ? unit.draftPick : [];
+    if (!Array.isArray(picks)) picks = [picks];
+    picks.forEach(function (pk) {
+      if (!pk || !pk.player) return;
+      out[String(pk.player)] = {
+        year: year,
+        round: parseInt(pk.round, 10),
+        pick: parseInt(pk.pick, 10)
+      };
+    });
+    return out;
+  }
+
+  // Build the historical pid→pick map by fetching past 3 years of
+  // draftResults (the taxi-eligibility window) and merging. Used to
+  // derive salary for trade-acquired taxi players whose `drafted` field
+  // only carries the trade year, not the original pick.
+  function fetchHistoricalDraftIndex(curYear) {
+    var seasonInt = parseInt(curYear, 10) || (new Date().getUTCFullYear());
+    var years = [seasonInt, seasonInt - 1, seasonInt - 2, seasonInt - 3];
+    var fetches = years.map(function (y) {
+      return fetchJson(mflExportUrlForYear("draftResults", y))
+        .then(function (j) { return indexDraftPicks(j, y); })
+        .catch(function () { return {}; });
+    });
+    return Promise.all(fetches).then(function (maps) {
+      // Merge — later years overwrite earlier, but a pid only appears
+      // in ONE year's draftResults so this is effectively a union.
+      var merged = {};
+      maps.forEach(function (m) {
+        Object.keys(m).forEach(function (pid) { merged[pid] = m[pid]; });
+      });
+      return merged;
+    });
   }
 
   function fetchJson(url) {
@@ -370,7 +507,8 @@
       fetchJson(mflExportUrl("draftResults")),
       fetch(workerUrl("/api/league-events?season=" + encodeURIComponent(state.ctx.year) + "&from=today&limit=30"))
         .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      fetchMe()
+      fetchMe(),
+      fetchHistoricalDraftIndex(state.ctx.year)
     ]).then(function (results) {
       state.league = results[0];
       state.rosters = results[1];
@@ -396,6 +534,7 @@
       state.rookieProspects = results[11] || [];
       state.draftResults = results[12] || null;
       state.leagueEvents = results[13] || null;
+      state.historicalDraftByPid = results[15] || {};
       parseLeague();
       resolveViewerFranchise(results[14]);
       // Now that we know the viewer franchise, fetch their UPS-side trade
@@ -1202,6 +1341,9 @@
       getAdjustmentTotalFor: getAdjustmentTotalFor,
       computeCap: computeCap,
       contractLimitsFor: contractLimitsFor,
+      rookieSalaryForPick: rookieSalaryForPick,
+      parseDraftedField: parseDraftedField,
+      deriveTaxiSalary: deriveTaxiSalary,
       // Drop-penalty + contract math: delegated entirely to
       // window.UPS_FRONT_OFFICE (site/m/front_office_penalty.js).
       // Callers that need contract math should use UPS_FRONT_OFFICE.* directly

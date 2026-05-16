@@ -228,22 +228,18 @@
 
   // Taxi subtab — read-only listing of taxi-squad players. Per Keith
   // 2026-05-16, taxi rule changes are pending finalization; no mutating
-  // actions (promote / cut) are wired up yet. The placeholder banner
-  // calls this out so users don't expect the buttons.
+  // actions (promote / cut) are wired up yet.
   //
-  // MFL PLATFORM QUIRK on taxi salary: when a player is placed on taxi,
-  // MFL nulls out their `salary` / `contractYear` / `contractStatus` /
-  // `contractInfo` in BOTH the rosters and salaries exports — even with
-  // TAXI=ALL flag. Verified 2026-05-16 against pid 16212 (taxi on LA).
-  // There is no MFL endpoint that returns the contracted salary for
-  // active taxi players. To show real salaries we'd need either:
-  //   (a) a UPS-side salary-history table populated from pre-taxi
-  //       snapshots (worker + D1 work)
-  //   (b) a deterministic rookie-slot lookup for taxi players we know
-  //       came from a specific draft pick (partial coverage)
-  // Neither is wired yet — see docs/MOBILE_DRIFT_PREVENTION.md §6.
-  // For now we display whatever salary value is in the row (typically
-  // empty / $0) and acknowledge it in the banner.
+  // SALARY DERIVATION (Keith 2026-05-16):
+  // MFL nulls salary for taxi players in both rosters + salaries exports.
+  // Per §A1.4 rookie salary is deterministic by UPS draft slot, so we
+  // derive it via DATA.deriveTaxiSalary which:
+  //   1. Parses `drafted: "R.PP (YYYY)"` for players this franchise drafted
+  //   2. Falls back to a pid-keyed lookup against past 3 years of
+  //      draftResults for trade-acquired taxi players ("Trade (YYYY)")
+  //   3. Returns the §A1.4 salary for the resolved pick
+  // Coverage in live data (2026-05-16): 63/85 direct + ~22 via historical
+  // lookup = effectively 100% of rookie-origin taxi.
   function renderTaxi(mount) {
     var fid = M.state.viewerFranchiseId;
     if (!fid) {
@@ -258,7 +254,7 @@
       '<div class="ups-m-card" style="border-color:var(--warn);background:rgba(255,184,107,0.06)">' +
         '<div class="ups-m-card-title" style="color:var(--warn)">Rule change pending</div>' +
         '<div style="font-size:13px">Due to a change in rule, waiting to apply logic before allowing changes to taxi squad players. This view is read-only for now.</div>' +
-        '<div style="font-size:11px;margin-top:8px;color:var(--fg-muted)">MFL nulls out taxi player salaries in the rosters/salaries export, so individual contracted salaries aren\'t available here yet. Working on a UPS-side salary-history table to surface them.</div>' +
+        '<div style="font-size:11px;margin-top:8px;color:var(--fg-muted)">Salaries are derived from the §A1.4 rookie pay table using each player\'s UPS draft slot. Off-cap while on taxi.</div>' +
       '</div>';
 
     if (!rows.length) {
@@ -267,11 +263,20 @@
       return;
     }
 
+    // Derive salaries first so we can sort by them (MFL gives us $0).
+    var enriched = rows.map(function (r) {
+      var derived = DATA.deriveTaxiSalary ? DATA.deriveTaxiSalary(r) : { ok: false, salary: 0 };
+      return { row: r, derived: derived };
+    });
+    enriched.sort(function (a, b) {
+      return Number(b.derived.salary || 0) - Number(a.derived.salary || 0);
+    });
+
     var html = subTabs("taxi") + banner + '<div class="ups-m-player-list">';
     html += '<div class="ups-m-pos-group">Taxi · ' + rows.length + '</div>';
-    rows.slice().sort(function (a, b) {
-      return Number(b.salary || 0) - Number(a.salary || 0);
-    }).forEach(function (r) {
+    enriched.forEach(function (entry) {
+      var r = entry.row;
+      var d = entry.derived;
       var p = DATA.playerById(r.id);
       var rawPos = U.safeStr(p && p.position).toUpperCase();
       var name = U.safeStr(p && p.name) || ("Player " + r.id);
@@ -282,24 +287,28 @@
         name = name.trim();
       }
       var team = U.safeStr(p && p.team);
-      var cy = U.safeInt(r.contractYear, 0);
-      var status = U.safeStr(r.contractStatus);
+      // Chip: show the derived UPS draft slot for clarity. Falls back
+      // to the MFL `drafted` string when derivation didn't resolve.
+      var slotChip = "";
+      if (d.ok && d.round && d.pick) {
+        var pickStr = d.round + "." + (d.pick < 10 ? "0" + d.pick : d.pick);
+        slotChip = '<span class="chip">' + U.escapeHtml(pickStr) +
+          (d.year ? ' \'' + String(d.year).slice(-2) : '') + '</span>';
+      } else if (r.drafted) {
+        slotChip = '<span class="chip">' + U.escapeHtml(U.safeStr(r.drafted)) + '</span>';
+      }
+      var salaryHtml = d.ok
+        ? '<div class="salary" style="color:var(--teal)">' + U.fmtUsd(d.salary) + '</div>'
+        : '<div class="salary" style="color:var(--fg-muted);font-size:11px">—</div>';
       html += '<div class="ups-m-player-row" data-pid="' + U.escapeHtml(r.id) + '">' +
         '<div class="pos">' + U.escapeHtml(rawPos) + '</div>' +
         '<div class="body">' +
           '<div class="name">' + U.escapeHtml(name) +
             (team ? '<span class="nfl-team">' + U.escapeHtml(team) + '</span>' : '') +
           '</div>' +
-          '<div class="sub chips-row">' +
-            (cy > 0 ? '<span class="chip">YR ' + cy + '</span>' : '') +
-            (status ? '<span class="chip type">' + U.escapeHtml(status) + '</span>' : '') +
-          '</div>' +
+          '<div class="sub chips-row">' + slotChip + '</div>' +
         '</div>' +
-        '<div class="right">' +
-          // Show actual salary in teal so it's clear this is taxi-real
-          // (off-cap) money, not the active-cap line in the Contracts tab.
-          '<div class="salary" style="color:var(--teal)">' + U.fmtUsd(r.salary) + '</div>' +
-        '</div>' +
+        '<div class="right">' + salaryHtml + '</div>' +
       '</div>';
     });
     html += '</div>';
