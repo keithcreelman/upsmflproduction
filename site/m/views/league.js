@@ -380,6 +380,7 @@
   state.standingsByYear = state.standingsByYear || {};
   state.standingsYear = state.standingsYear || null;
   state.championsByYear = state.championsByYear || null; // pid → year-of-title map; loaded lazily
+  state.finalFinishByYear = state.finalFinishByYear || null; // { [year]: { [fid]: final_finish } }
 
   function loadStandingsForYear(year) {
     var y = String(year);
@@ -390,6 +391,38 @@
       .then(function (resp) { state.standingsByYear[y] = resp || { rows: [] }; })
       .catch(function () { state.standingsByYear[y] = { rows: [], error: "fetch failed" }; })
       .then(function () { state.standingsLoading = null; renderRoute(); });
+  }
+
+  // Lazy-load /api/historical-finishes — the END-OF-SEASON ranking
+  // (final_finish 1=champion, 12=toilet bowl) which is what determines
+  // next-season draft order. Per Keith 2026-05-16: standings on mobile
+  // should sort by this, NOT by regular-season h2h%/pf.
+  // Canonical data source: src_final_standings D1 table populated from
+  // metadata_finalstandings (see worker/migrations/0033_final_standings.sql).
+  // Cached as { [year]: { [fid]: final_finish } }.
+  function loadFinalFinishes() {
+    if (state.finalFinishByYear) return Promise.resolve(state.finalFinishByYear);
+    if (state._finalFinishLoading) return state._finalFinishLoading;
+    state._finalFinishLoading = fetch(API.workerUrl("/api/historical-finishes"), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var map = {};
+        var rows = (j && j.rows) || [];
+        rows.forEach(function (row) {
+          if (!row || row.season == null || !row.franchise_id) return;
+          var y = String(row.season);
+          if (!map[y]) map[y] = {};
+          map[y][U.pad4(row.franchise_id)] = parseInt(row.final_finish, 10) || 0;
+        });
+        state.finalFinishByYear = map;
+        return map;
+      })
+      .catch(function () {
+        state.finalFinishByYear = {};
+        return {};
+      })
+      .then(function (m) { state._finalFinishLoading = null; renderRoute(); return m; });
+    return state._finalFinishLoading;
   }
 
   // Lazy-load the champions panel JSON for trophy badges. Maps:
@@ -465,6 +498,8 @@
   function renderStandings(mount) {
     // Lazy-load champion panels (trophy badges).
     if (!state.championsByYear && !state._championsLoading) loadChampions();
+    // Lazy-load final-finish data (end-of-season draft order).
+    if (!state.finalFinishByYear && !state._finalFinishLoading) loadFinalFinishes();
 
     // Default year resolution. If user manually picked a year (state.standingsYear),
     // honor it. Otherwise resolve from data — fall back to prior year when
@@ -494,9 +529,29 @@
       return;
     }
 
-    // Sort: division winners first by h2h%, then everyone else by h2h%
-    // → pf. Mirrors desktop's final-finish ordering.
+    // PRIMARY SORT: end-of-season draft order (final_finish). Per Keith
+    // 2026-05-16: standings should show the END finish, not regular-
+    // season standings. Sources from /api/historical-finishes which
+    // mirrors src_final_standings.final_finish (1 = champion, 12 = toilet
+    // bowl champion). This IS the next-season draft order.
+    //
+    // FALLBACK: when final_finish is unavailable (current season pre-
+    // playoffs, or any year missing from the table), sort by div-winner
+    // then h2h% → pf so the table still reads correctly.
+    var finishMap = (state.finalFinishByYear || {})[y] || {};
+    var hasFinishData = Object.keys(finishMap).length > 0;
+    rows.forEach(function (r) {
+      r._finalFinish = finishMap[U.pad4(r.franchise_id)] || 0;
+    });
     rows.sort(function (a, b) {
+      if (hasFinishData) {
+        // Both have final_finish → straight ascending. Zero/missing
+        // values go to the bottom.
+        var af = a._finalFinish || 999;
+        var bf = b._finalFinish || 999;
+        if (af !== bf) return af - bf;
+      }
+      // Fallback ordering when finish data isn't present.
       var aw = isDivWinner(a) ? 0 : 1;
       var bw = isDivWinner(b) ? 0 : 1;
       if (aw !== bw) return aw - bw;
@@ -515,8 +570,12 @@
       var badges = "";
       if (champ) badges += '<span class="div-crown" title="League Champion">🏆</span> ';
       if (winner) badges += '<span class="div-crown" title="Division Winner">👑</span> ';
+      // Rank column shows the END-OF-SEASON FINISH when available
+      // (1-12, where 1 = champion). Falls back to display order when
+      // finish data isn't present (current season pre-playoffs).
+      var rankDisplay = r._finalFinish > 0 ? r._finalFinish : (i + 1);
       return '<tr class="' + rowClass + '">' +
-        '<td class="rank">' + (i + 1) + '</td>' +
+        '<td class="rank">' + rankDisplay + '</td>' +
         '<td class="team">' + badges + U.escapeHtml(name) + '</td>' +
         '<td>' + (r.h2h_w || 0) + '-' + (r.h2h_l || 0) + (r.h2h_t ? "-" + r.h2h_t : "") + '</td>' +
         '<td>' + fmtPct(r.h2h_pct) + '</td>' +
@@ -524,6 +583,10 @@
         '<td>' + fmtPts(r.pf) + '</td>' +
       '</tr>';
     }).join("");
+
+    var orderingNote = hasFinishData
+      ? 'Ordered by end-of-season finish (next-season draft order).'
+      : 'Ordered by H2H% then PF — playoff results not in yet.';
 
     var html = subTabs("standings") +
       renderYearPicker(year) +
@@ -533,7 +596,7 @@
           '<thead><tr><th>#</th><th class="team">Team</th><th>W-L</th><th>H2H%</th><th>AP%</th><th>PF</th></tr></thead>' +
           '<tbody>' + trs + '</tbody>' +
         '</table>' +
-        '<div class="ups-m-standings-legend">🏆 league champion · 👑 division winner · AP% = All-Play %</div>' +
+        '<div class="ups-m-standings-legend">🏆 league champion · 👑 division winner · AP% = All-Play %<br>' + U.escapeHtml(orderingNote) + '</div>' +
       '</div>';
     mount.innerHTML = html;
     bindYearPicker(mount);
