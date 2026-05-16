@@ -25268,7 +25268,54 @@ export default {
           gif_url: "",
           gif_query: "",
         };
-        if (looksOk && anyChanged) {
+        // Untag suppression (Keith 2026-05-16):
+        // - DO NOT post untag to any contract activity channel
+        // - DM the commish with "UnTagged: <player>" instead
+        // The audit row + ups_tag_master DELETE above already capture
+        // the state change; this just changes the notification surface.
+        if (isUntagAction && looksOk && anyChanged) {
+          const commishDmUserId = safeStr(env.COMMISH_DISCORD_USER_ID || "").replace(/\D/g, "");
+          if (commishDmUserId && dryRunFlag !== 1) {
+            try {
+              const untagSidePart = (function () {
+                const s = String(body.prior_tag_side || body.tag_side || body.side || "").trim().toUpperCase();
+                if (!s) return "";
+                if (/^O/.test(s)) return " (Offense)";
+                if (/^D/.test(s)) return " (Defense)";
+                return ` (${s})`;
+              })();
+              const dmRes = await sendDiscordDmEmbed({
+                userId: commishDmUserId,
+                content: `**UnTagged:** ${playerName || ("Player " + playerId)} — ${franchiseName || ("Franchise " + franchiseId)}${untagSidePart}`,
+                embeds: [],
+              });
+              contractDiscord = {
+                ok: !!dmRes.ok,
+                skipped: false,
+                status: dmRes.status || 0,
+                delivery_target: "dm:commish",
+                gif_url: "",
+                gif_query: "",
+                error: dmRes.ok ? "" : (dmRes.error || "untag_dm_failed"),
+              };
+            } catch (e) {
+              contractDiscord = {
+                ok: false, skipped: false, status: 0, delivery_target: "dm:commish",
+                gif_url: "", gif_query: "",
+                error: `untag_dm_exception: ${e?.message || String(e)}`,
+              };
+            }
+          } else {
+            // No commish ID configured OR dry run — skip silently so
+            // the user flow doesn't break.
+            contractDiscord = {
+              ok: true, skipped: true, status: 0,
+              delivery_target: dryRunFlag === 1 ? "dry-run-skipped" : "dm:not-configured",
+              gif_url: "", gif_query: "",
+              error: dryRunFlag === 1 ? "" : "missing_commish_discord_user_id",
+            };
+          }
+        } else if (looksOk && anyChanged) {
           try {
             contractDiscord = await sendDiscordContractActivity({
               activityType,
