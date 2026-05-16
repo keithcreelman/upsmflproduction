@@ -7,7 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
-  var BUILD = "2026.05.16.limits";
+  var BUILD = "2026.05.16.tag-season";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -551,22 +551,28 @@
     });
     return ids;
   }
-  // Roster-level contract limits — verbatim mirror of desktop's
-  // contractLimitSummaryForPlayers (roster_workbench.js:814-830). Returns
-  // counts that map to §6G canonical caps:
+  // Roster-level contract limits per §6G canonical caps:
   //   loaded ≤ 5 (FL/BL combined: MYAC + Ext2 + Restructure)
   //   threeYearNonRookie ≤ 6 (excludes rookie 3-yr deals)
-  // Neither desktop nor mobile BLOCKS submission on these caps — they're
-  // displayed as warning chips so owners + commish can see breaches. The
-  // audit-driven catch (2026-05-16) is that mobile previously omitted the
-  // chips entirely; this helper enables them.
+  //
+  // INTENTIONAL DIVERGENCE FROM DESKTOP (2026-05-16):
+  // Desktop's contractLimitSummaryForPlayers (roster_workbench.js:814)
+  // counts `player.years === 3`, which is years REMAINING. That returns 0
+  // during the offseason because no contract is at "year 1 of 3" right
+  // now — a 3-year deal signed in 2024 currently has years=1, not 3.
+  // The CANONICAL rule is about contract LENGTH, not remaining years.
+  // We parse the "CL N" token from contractInfo (the literal contract
+  // length) so the chip accurately reflects real-data violations like
+  // franchise 0012 (Hawks) currently holding 9 three-year contracts.
+  // Desktop has the same bug — flagged for cross-codebase fix in
+  // docs/MOBILE_DRIFT_PREVENTION.md §3.
   function contractLimitsFor(fid) {
     var rows = getRosterFor(fid);
     var threeYearNonRookie = 0;
     var loaded = 0;
     rows.forEach(function (r) {
       if (!r) return;
-      var cy = safeStr(r.contractYear);
+      var info = safeStr(r.contractInfo);
       var t = safeStr(r.contractStatus).toLowerCase().replace(/[^a-z0-9]/g, "");
       var isRookie = t.indexOf("rookie") !== -1 || t === "r" || /^r-/.test(t);
       var isLoaded =
@@ -574,14 +580,10 @@
         t === "bl" ||
         t.indexOf("frontloaded") !== -1 ||
         t.indexOf("backloaded") !== -1;
-      // Desktop's check is `player.years === 3` — mobile rosterRow uses
-      // contractYear (years REMAINING). The intent matches: a 3-year
-      // contract has years==3 at signing, year-1 has years==2, etc.
-      // For the cap we count contracts that ARE 3-year length — i.e.
-      // contractYear == 3 (remaining) on the year they were signed. The
-      // canonical desktop check is contractYear === 3 at the moment of
-      // counting; that matches our reading.
-      if (parseInt(cy, 10) === 3 && !isRookie) threeYearNonRookie += 1;
+      // Parse "CL N" token — the contract's full length, not years remaining.
+      var clMatch = info.match(/CL\s*(\d+)/i);
+      var contractLength = clMatch ? safeInt(clMatch[1], 0) : 0;
+      if (contractLength === 3 && !isRookie) threeYearNonRookie += 1;
       if (isLoaded) loaded += 1;
     });
     return { loaded: loaded, threeYearNonRookie: threeYearNonRookie };

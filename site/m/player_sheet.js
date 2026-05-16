@@ -259,7 +259,8 @@
         fid: s2.viewerFranchiseId,
         rosterRowsWithPos: teamRowsWithPos,
         tagTracking: s2.tagTracking || [],
-        tagSubmissions: s2.tagSubmissions || []
+        tagSubmissions: s2.tagSubmissions || [],
+        currentSeason: s2.ctx && s2.ctx.year
       });
     }
     var tagEligible = (tagAction.kind === "tag" || tagAction.kind === "untag");
@@ -719,7 +720,8 @@
       fid: s.viewerFranchiseId,
       rosterRowsWithPos: teamRows,
       tagTracking: s.tagTracking || [],
-      tagSubmissions: s.tagSubmissions || []
+      tagSubmissions: s.tagSubmissions || [],
+      currentSeason: s.ctx && s.ctx.year
     });
     if (action.kind !== "tag" || !action.row) {
       window.UPS_MOBILE.ui.showToast("This player isn't in the tag plan.", "err");
@@ -774,7 +776,8 @@
       fid: s.viewerFranchiseId,
       rosterRowsWithPos: teamRows,
       tagTracking: s.tagTracking || [],
-      tagSubmissions: s.tagSubmissions || []
+      tagSubmissions: s.tagSubmissions || [],
+      currentSeason: s.ctx && s.ctx.year
     });
     if (action.kind !== "untag" || !action.row) {
       window.UPS_MOBILE.ui.showToast("This player isn't currently tagged.", "err");

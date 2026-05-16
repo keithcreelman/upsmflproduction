@@ -66,8 +66,9 @@
     if (!FOA) return { OFFENSE: null, DEFENSE: null };
     var rows = teamRosterRowsWithPos(fid);
     var tracking = M.state.tagTracking || [];
-    var off = FOA.activeTaggedPlayerForTeam(rows, "OFFENSE", M.state.tagSubmissions || [], fid, tracking);
-    var def = FOA.activeTaggedPlayerForTeam(rows, "DEFENSE", M.state.tagSubmissions || [], fid, tracking);
+    var curYear = M.state.ctx && M.state.ctx.year;
+    var off = FOA.activeTaggedPlayerForTeam(rows, "OFFENSE", M.state.tagSubmissions || [], fid, tracking, curYear);
+    var def = FOA.activeTaggedPlayerForTeam(rows, "DEFENSE", M.state.tagSubmissions || [], fid, tracking, curYear);
     return { OFFENSE: off || null, DEFENSE: def || null };
   }
 
@@ -136,7 +137,8 @@
         fid: fid,
         rosterRowsWithPos: rosterRowsWithPos,
         tagTracking: tagTracking,
-        tagSubmissions: tagSubmissions
+        tagSubmissions: tagSubmissions,
+        currentSeason: M.state.ctx && M.state.ctx.year
       });
       var side = U.escapeHtml(U.safeStr(row.tag_side || row.side));
       var displaySide = /OFFENSE|^OFF$/i.test(side) ? "Offense" :
@@ -190,7 +192,8 @@
       fid: s.viewerFranchiseId,
       rosterRowsWithPos: rosterRowsWithPos,
       tagTracking: s.tagTracking || [],
-      tagSubmissions: s.tagSubmissions || []
+      tagSubmissions: s.tagSubmissions || [],
+      currentSeason: s.ctx && s.ctx.year
     });
 
     if (act === "tag" && action.kind === "tag" && action.row) {
