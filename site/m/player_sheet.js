@@ -821,6 +821,23 @@
     }).then(function (resp) {
       setBusy(btn, false);
       if (resp.ok) {
+        // Optimistic — tag_submissions.json regenerates on a schedule
+        // so the slot would otherwise show "Open" until the next ETL.
+        if (DATA.pushOptimisticTagSubmission) {
+          DATA.pushOptimisticTagSubmission({
+            season: String(s.ctx.year),
+            franchise_id: U.pad4(s.viewerFranchiseId),
+            franchise_name: s.viewerFranchise && s.viewerFranchise.name || "",
+            player_id: U.safeStr(row.player_id || footerState.pid),
+            player_name: U.safeStr(row.player_name || footerState.name),
+            pos: U.safeStr(row.position),
+            side: U.safeStr(row.tag_side || row.side).toUpperCase(),
+            tag_side: U.safeStr(row.tag_side || row.side).toUpperCase(),
+            tag_salary: FOT.effectiveTagSalaryForRow(row),
+            submitted_at_utc: new Date().toISOString(),
+            submission_kind: "tag"
+          });
+        }
         window.UPS_MOBILE.ui.showToast((row.player_name || footerState.name) + " tagged ✓", "ok");
         return window.UPS_MOBILE.actions.reloadData().then(function () {
           window.UPS_MOBILE.route.renderRoute();
@@ -884,6 +901,22 @@
       if (!resp.ok) {
         window.UPS_MOBILE.ui.showToast("Untag failed: " + (resp.error || "unknown error"), "err");
         return;
+      }
+      // Optimistic untag — the slot frees up immediately rather than
+      // waiting on the ETL JSON regen.
+      if (DATA.pushOptimisticTagSubmission) {
+        DATA.pushOptimisticTagSubmission({
+          season: String(s.ctx.year),
+          franchise_id: U.pad4(s.viewerFranchiseId),
+          franchise_name: s.viewerFranchise && s.viewerFranchise.name || "",
+          player_id: U.safeStr(footerState.pid),
+          player_name: playerLabel,
+          pos: U.safeStr(player && player.position),
+          side: U.safeStr(row.tag_side || row.side).toUpperCase(),
+          tag_side: U.safeStr(row.tag_side || row.side).toUpperCase(),
+          submitted_at_utc: new Date().toISOString(),
+          submission_kind: "untag"
+        });
       }
       if (resp.unloadFailed) {
         window.UPS_MOBILE.ui.showToast(playerLabel + " untagged — manual drop needed (unload failed)", "err");

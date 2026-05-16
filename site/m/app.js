@@ -7,7 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
-  var BUILD = "2026.05.16.tag-history";
+  var BUILD = "2026.05.16.optimistic-tag";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -171,6 +171,7 @@
     playerScoresYtd: null,    // MFL playerScores W=YTD export
     tagTracking: null,        // site/ccc/tag_tracking.json rows
     tagSubmissions: null,     // site/ccc/tag_submissions.json rows
+    optimisticTagSubmissions: null, // pending tag/untag pushes that survive reloadData() until ETL JSON confirms them
     salaryAdjustmentReport: null, // site/reports/salary_adjustments/<year>.json — overlays the MFL feed
     advancedStatsByPid: null,  // map for the most recent year with real leaderboard data (FA browser display)
     advancedStatsByYear: null, // { [year]: { [pid]: { mfl_points, mfl_ppg, games, pos, posRank } } }
@@ -518,7 +519,27 @@
       state.tradeBait = results[5];
       state.playerScoresYtd = results[6];
       state.tagTracking = results[7] || [];
-      state.tagSubmissions = results[8] || [];
+      // Merge: canonical JSON rows + any unratified optimistic entries.
+      // An optimistic entry is "ratified" when the canonical list shows
+      // the same (player_id, season, submission_kind); after that we
+      // drop the optimistic copy. Until then it lives alongside.
+      var canonical = results[8] || [];
+      var pending = Array.isArray(state.optimisticTagSubmissions) ? state.optimisticTagSubmissions : [];
+      var canonKey = {};
+      canonical.forEach(function (r) {
+        if (!r) return;
+        var k = String(r.player_id || "") + "|" + String(r.season || r.year || "") + "|" +
+                String(r.submission_kind || r.kind || "tag").toLowerCase();
+        canonKey[k] = true;
+      });
+      var stillPending = [];
+      pending.forEach(function (r) {
+        var k = String(r.player_id || "") + "|" + String(r.season || r.year || "") + "|" +
+                String(r.submission_kind || r.kind || "tag").toLowerCase();
+        if (!canonKey[k]) stillPending.push(r);
+      });
+      state.optimisticTagSubmissions = stillPending;
+      state.tagSubmissions = canonical.concat(stillPending);
       state.salaryAdjustmentReport = results[9] || [];
       // results[10] is now { byYear, latestYearWithData } from the
       // expanded leaderboard fetcher. Older callers (FA browser) read
@@ -1344,6 +1365,22 @@
       rookieSalaryForPick: rookieSalaryForPick,
       parseDraftedField: parseDraftedField,
       deriveTaxiSalary: deriveTaxiSalary,
+      // Optimistic-update helpers — after a successful tag/untag the
+      // static tag_submissions.json (ETL-regenerated on a schedule) AND
+      // MFL salaries export are stale for ~minutes. Without this the UI
+      // shows "Open" slot / "Tag" button even though we JUST submitted.
+      // Pushes a synthetic row into BOTH the live state.tagSubmissions
+      // (for the immediate render after this call) AND a sidecar list
+      // (state.optimisticTagSubmissions) that survives reloadData()
+      // overwrites until the canonical JSON confirms the change.
+      pushOptimisticTagSubmission: function (entry) {
+        if (!entry) return;
+        entry.__optimistic = 1;
+        if (!Array.isArray(state.tagSubmissions)) state.tagSubmissions = [];
+        if (!Array.isArray(state.optimisticTagSubmissions)) state.optimisticTagSubmissions = [];
+        state.tagSubmissions.push(entry);
+        state.optimisticTagSubmissions.push(entry);
+      },
       // Drop-penalty + contract math: delegated entirely to
       // window.UPS_FRONT_OFFICE (site/m/front_office_penalty.js).
       // Callers that need contract math should use UPS_FRONT_OFFICE.* directly
