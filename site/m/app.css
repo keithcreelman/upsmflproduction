@@ -167,6 +167,40 @@ body { min-height: 100vh; }
 .ups-m-skel-row .right { height: 18px; }
 .ups-m-skel-card { height: 110px; margin: 12px; }
 
+/* ----- Team header card (Rosters → Team Detail) ----- */
+.ups-m-team-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px;
+  padding: 12px 14px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.ups-m-team-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--bg-elev2);
+  flex: 0 0 auto;
+}
+.ups-m-team-header-text { flex: 1 1 auto; min-width: 0; }
+.ups-m-team-header-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ups-m-team-header-owner {
+  font-size: 12px;
+  color: var(--fg-muted);
+  margin-top: 2px;
+}
+
 /* ----- Salary Summary (Rosters → Summary mode) ----- */
 .ups-m-segctl {
   display: flex;
@@ -1072,6 +1106,11 @@ button.ups-m-busy::before,
 .ups-m-standings-table td.rank { text-align: center; font-weight: 700; color: var(--fg-muted); }
 .ups-m-standings-table tr.div-winner td { background: rgba(206, 147, 216, 0.08); }
 .ups-m-standings-table tr.div-winner .div-crown { font-size: 12px; }
+/* Champion row — gold tint layered ON TOP of any div-winner styling.
+   Cell order matters: champion is set first in className so the rule
+   below wins via specificity + later-in-stylesheet ordering. */
+.ups-m-standings-table tr.champion td { background: rgba(255, 215, 0, 0.10); }
+.ups-m-standings-table tr.champion td.team { font-weight: 700; }
 .ups-m-standings-legend {
   margin-top: 6px;
   font-size: 10px;
