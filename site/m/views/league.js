@@ -110,11 +110,116 @@
     return html;
   }
 
+  // Two views for the Rosters tab:
+  //   "summary" — league-wide cap summary, one row per team
+  //   "team"    — individual roster detail (existing)
+  state.rostersMode = state.rostersMode || "summary";
+
+  function renderRostersModeToggle() {
+    var modes = [
+      { key: "summary", label: "Salary Summary" },
+      { key: "team", label: "Team Detail" }
+    ];
+    return '<div class="ups-m-segctl">' + modes.map(function (m) {
+      return '<button class="ups-m-segctl-btn' + (state.rostersMode === m.key ? " on" : "") +
+        '" data-mode="' + m.key + '">' + m.label + '</button>';
+    }).join("") + '</div>';
+  }
+
+  // League-wide salary summary — one row per franchise. Numbers come from
+  // the verbatim Front Office cap mirror (DATA.computeCap), so the values
+  // match the cap card on each team's own Contracts page exactly.
+  function renderSalarySummary() {
+    var franchises = (M.state.franchises || []).slice();
+    var rows = franchises.map(function (f) {
+      var cap = DATA.computeCap(f.id) || {};
+      return {
+        fid: f.id,
+        name: f.name,
+        capTotal: cap.capTotal || 0,
+        capRoom: cap.capRoom || 0,
+        capAmount: cap.capAmount || 0,
+        pct: cap.pct || 0,
+        rosterCount: cap.rosterCount || 0,
+        activeCount: cap.activeCount || 0,
+        irCount: cap.irCount || 0,
+        taxiCount: cap.taxiCount || 0,
+        adjustmentTotal: cap.adjustmentTotal || 0
+      };
+    });
+    // Sort: viewer first, then by cap used descending so over-cap teams
+    // float to the top.
+    var viewerFid = M.state.viewerFranchiseId;
+    rows.sort(function (a, b) {
+      if (a.fid === viewerFid && b.fid !== viewerFid) return -1;
+      if (b.fid === viewerFid && a.fid !== viewerFid) return 1;
+      return b.capTotal - a.capTotal;
+    });
+
+    if (!rows.length) {
+      return '<div class="ups-m-stub"><div>No franchise data.</div></div>';
+    }
+
+    var html = '<div class="ups-m-salsum">' +
+      '<div class="ups-m-salsum-head">' +
+        '<div class="team">Team</div>' +
+        '<div class="num">Used</div>' +
+        '<div class="num">Room</div>' +
+        '<div class="num">%</div>' +
+        '<div class="num">Ros</div>' +
+      '</div>';
+    rows.forEach(function (r) {
+      var overCap = r.capRoom < 0;
+      var roomClass = overCap ? "danger" : (r.pct >= 95 ? "warn" : "ok");
+      var isMe = r.fid === viewerFid;
+      html += '<div class="ups-m-salsum-row' + (isMe ? " me" : "") + '" data-fid="' + U.escapeHtml(r.fid) + '">' +
+        '<div class="team">' + U.escapeHtml(r.name) +
+          (r.irCount ? ' <span class="tag ir">' + r.irCount + ' IR</span>' : '') +
+          (r.taxiCount ? ' <span class="tag tx">' + r.taxiCount + ' TX</span>' : '') +
+          (r.adjustmentTotal ? ' <span class="tag adj">Adj ' + (r.adjustmentTotal > 0 ? "+" : "−") +
+            U.fmtUsd(Math.abs(r.adjustmentTotal)) + '</span>' : '') +
+        '</div>' +
+        '<div class="num">' + U.fmtUsd(r.capTotal) + '</div>' +
+        '<div class="num ' + roomClass + '">' + U.fmtUsd(r.capRoom) + '</div>' +
+        '<div class="num">' + r.pct + '%</div>' +
+        '<div class="num">' + r.activeCount + '/' + r.rosterCount + '</div>' +
+      '</div>';
+    });
+    html += '</div>' +
+      '<div class="ups-m-salsum-foot">' +
+        'Cap ceiling ' + U.fmtUsd(rows[0].capAmount) + ' · tap a team to view their roster' +
+      '</div>';
+    return html;
+  }
+
   function renderRosters(mount) {
     if (!state.selectedFid) {
       state.selectedFid = M.state.viewerFranchiseId || ((M.state.franchises || [])[0] || {}).id;
     }
-    mount.innerHTML = subTabs("rosters") + renderFranchiseDropdown() + renderRosterCards(state.selectedFid);
+    var body = state.rostersMode === "summary"
+      ? renderSalarySummary()
+      : (renderFranchiseDropdown() + renderRosterCards(state.selectedFid));
+    mount.innerHTML = subTabs("rosters") + renderRostersModeToggle() + body;
+    // Mode toggle
+    var modeBtns = mount.querySelectorAll(".ups-m-segctl-btn");
+    for (var i = 0; i < modeBtns.length; i++) {
+      modeBtns[i].addEventListener("click", function () {
+        state.rostersMode = this.getAttribute("data-mode");
+        renderRoute();
+      });
+    }
+    if (state.rostersMode === "summary") {
+      // Tap a salary-summary row → drill into that team's detail view.
+      var sumRows = mount.querySelectorAll(".ups-m-salsum-row[data-fid]");
+      for (var j = 0; j < sumRows.length; j++) {
+        sumRows[j].addEventListener("click", function () {
+          state.selectedFid = U.pad4(this.getAttribute("data-fid"));
+          state.rostersMode = "team";
+          renderRoute();
+        });
+      }
+      return;
+    }
     var sel = document.getElementById("ups-m-league-fid");
     if (sel) sel.addEventListener("change", function (e) {
       state.selectedFid = U.pad4(e.target.value);
@@ -286,35 +391,29 @@
           U.escapeHtml(e.lookingFor) + '</div>';
       }
       e.tokens.forEach(function (token) {
+        // Keith 2026-05-16 — drop DP_/FP_/BB_ tokens entirely. Picks and
+        // blind-bid dollars in trade bait are noise: the player rows are
+        // the actionable items; pick clutter just makes the list longer.
         var isPlayer = token.indexOf("DP_") !== 0 && token.indexOf("FP_") !== 0 && token.indexOf("BB_") !== 0;
+        if (!isPlayer) return;
         var label = DATA.describeTradeBaitToken(token);
-        if (isPlayer) {
-          var p = DATA.playerById(token);
-          var pos = U.safeStr(p && p.position).toUpperCase();
-          var team = U.safeStr(p && p.team);
-          // Click → open Trade War Room with this player pre-set on the
-          // OTHER team's side (keith 2026-05-15). data-fid carries the
-          // OTB-posting franchise so the URL builder can pin twb_right_team.
-          html += '<button class="ups-m-otb-row" data-pid="' + U.escapeHtml(token) +
-            '" data-fid="' + U.escapeHtml(e.fid) + '">' +
-            '<div class="body">' +
-              '<div class="name">' + U.escapeHtml(label) + '</div>' +
-              '<div class="sub">' +
-                (pos ? '<span>' + U.escapeHtml(pos) + '</span>' : '') +
-                (team ? '<span>' + U.escapeHtml(team) + '</span>' : '') +
-                '<span class="muted">tap to trade →</span>' +
-              '</div>' +
+        var p = DATA.playerById(token);
+        var pos = U.safeStr(p && p.position).toUpperCase();
+        var team = U.safeStr(p && p.team);
+        // Click → open Trade War Room with this player pre-set on the
+        // OTHER team's side (keith 2026-05-15). data-fid carries the
+        // OTB-posting franchise so the URL builder can pin twb_right_team.
+        html += '<button class="ups-m-otb-row" data-pid="' + U.escapeHtml(token) +
+          '" data-fid="' + U.escapeHtml(e.fid) + '">' +
+          '<div class="body">' +
+            '<div class="name">' + U.escapeHtml(label) + '</div>' +
+            '<div class="sub">' +
+              (pos ? '<span>' + U.escapeHtml(pos) + '</span>' : '') +
+              (team ? '<span>' + U.escapeHtml(team) + '</span>' : '') +
+              '<span class="muted">tap to trade →</span>' +
             '</div>' +
-          '</button>';
-        } else {
-          // Draft pick or BB$ — not tappable
-          html += '<div class="ups-m-otb-row" style="cursor:default;-webkit-tap-highlight-color:transparent">' +
-            '<div class="body">' +
-              '<div class="name">' + U.escapeHtml(label) + '</div>' +
-              '<div class="sub"><span>Pick / BB</span></div>' +
-            '</div>' +
-          '</div>';
-        }
+          '</div>' +
+        '</button>';
       });
       html += '</div>';
     });

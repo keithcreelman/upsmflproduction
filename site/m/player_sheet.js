@@ -228,8 +228,19 @@
     // tag plan (site/ccc/tag_tracking.json) + per-team-side conflict scan
     // — matches Front Office exactly.
     var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
-    var elig = FOA ? FOA.eligibilityForRosterRow(rosterRow) :
+    var viewerFid = window.UPS_MOBILE.state.viewerFranchiseId;
+    // extensionAvailableFor combines the base eligibility check with the
+    // RULE-EXT-003 block (SAME UPS franchise cannot extend twice). Catches
+    // tagged players (status indexOf("tag") !== -1 → Trevor Lawrence) AND
+    // already-extended-by-current-owner players (CJ Stroud on HammerTime
+    // with "Ext: 🔨 ⏰" in contractInfo).
+    var elig = FOA ? FOA.eligibilityForRosterRow(rosterRow, viewerFid) :
                { extensionEligible: false, rookieOptionEligible: false, restructureEligible: false };
+    var extAvail = FOA && FOA.extensionAvailableFor
+      ? FOA.extensionAvailableFor(rosterRow, viewerFid)
+      : { ok: elig.extensionEligible, reason: "" };
+    elig.extensionEligible = !!extAvail.ok;
+    elig.extensionBlockedReason = extAvail.reason;
     var tagAction = { kind: "none" };
     if (FOA) {
       // Build a roster-row list with position attached (player.position

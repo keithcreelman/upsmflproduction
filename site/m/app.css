@@ -167,6 +167,98 @@ body { min-height: 100vh; }
 .ups-m-skel-row .right { height: 18px; }
 .ups-m-skel-card { height: 110px; margin: 12px; }
 
+/* ----- Salary Summary (Rosters → Summary mode) ----- */
+.ups-m-segctl {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--bg);
+}
+.ups-m-segctl-btn {
+  flex: 1 1 0;
+  padding: 8px 10px;
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-segctl-btn.on {
+  background: var(--bg-elev2);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.ups-m-salsum {
+  margin: 0 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.ups-m-salsum-head,
+.ups-m-salsum-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) 56px 56px 36px 44px;
+  gap: 6px;
+  padding: 8px 10px;
+  align-items: center;
+  font-size: 12px;
+}
+.ups-m-salsum-head {
+  background: var(--bg-elev2);
+  color: var(--fg-muted);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+.ups-m-salsum-row {
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-salsum-row:active { background: var(--bg-elev2); }
+.ups-m-salsum-row.me { background: rgba(91, 141, 255, 0.06); }
+.ups-m-salsum-row .team {
+  font-weight: 600;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ups-m-salsum-row .team .tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 4px;
+  background: var(--bg-elev2);
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.ups-m-salsum-row .team .tag.ir { color: var(--danger); }
+.ups-m-salsum-row .team .tag.tx { color: var(--teal); }
+.ups-m-salsum-row .team .tag.adj { color: var(--warn); }
+.ups-m-salsum-row .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+.ups-m-salsum-row .num.ok { color: var(--ok); }
+.ups-m-salsum-row .num.warn { color: var(--warn); }
+.ups-m-salsum-row .num.danger { color: var(--danger); }
+.ups-m-salsum-foot {
+  margin: 8px 12px 12px;
+  font-size: 11px;
+  color: var(--fg-muted);
+  text-align: center;
+}
+
 /* ----- Submit-busy state (U4) ----- */
 /* Applied to .ups-m-sheet-foot .btn and .btn-act via setSubmitButtonsBusy.
    While the "…ing" toast is showing, the button is disabled + dimmed +

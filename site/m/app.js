@@ -7,7 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
-  var BUILD = "2026.05.16.ux-2";
+  var BUILD = "2026.05.16.ext-block";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -431,11 +431,28 @@
       return {
         id: pad4(f.id),
         name: safeStr(f.name),
+        // abbrev is REQUIRED for the extension-block helpers — teamIdentityTokenMap
+        // reads team.name AND team.abbrev to build the matching token set. For
+        // HammerTime, abbrev is the emoji "🔨 ⏰" which IS the literal Ext: token
+        // appearing in contractInfo, so omitting it leaks RULE-EXT-003.
+        abbrev: safeStr(f.abbrev),
         icon: safeStr(f.icon),
         logo: safeStr(f.logo),
         owner: safeStr(f.owner_name)
       };
     });
+  }
+
+  // findFranchiseById — mobile equivalent of desktop's findTeamById.
+  // Used by extensionBlockedByCurrentOwner to resolve player.fid to the
+  // current owning franchise's identity tokens.
+  function findFranchiseById(fid) {
+    var id = pad4(fid);
+    if (!id) return null;
+    for (var i = 0; i < state.franchises.length; i += 1) {
+      if (pad4(state.franchises[i] && state.franchises[i].id) === id) return state.franchises[i];
+    }
+    return null;
   }
 
   function resolveViewerFranchise(meResp) {
@@ -1135,6 +1152,7 @@
     data: {
       playerById: playerById,
       getRosterFor: getRosterFor,
+      findFranchiseById: findFranchiseById,
       getAdjustmentTotalFor: getAdjustmentTotalFor,
       computeCap: computeCap,
       // Drop-penalty + contract math: delegated entirely to

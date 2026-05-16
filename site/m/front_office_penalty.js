@@ -380,7 +380,7 @@
   // Mobile-specific adapter: mobile state stores roster rows with MFL field
   // names (contractYear, contractInfo, contractStatus, status). Desktop's
   // calc expects (years, special, type, isTaxi). This translates.
-  function adaptRosterRow(rosterRow) {
+  function adaptRosterRow(rosterRow, fid) {
     if (!rosterRow) return null;
     return {
       id: rosterRow.id,
@@ -389,7 +389,13 @@
       special: rosterRow.contractInfo,                     // → player.special
       type: rosterRow.contractStatus,                      // → player.type
       isTaxi: /taxi/i.test(String(rosterRow.status || "")),// → player.isTaxi
-      isIr: /ir|injured/i.test(String(rosterRow.status || ""))
+      isIr: /ir|injured/i.test(String(rosterRow.status || "")),
+      // fid is REQUIRED by extensionBlockedByCurrentOwner so it can
+      // resolve the current owning franchise via findFranchiseById.
+      // Caller must pass viewerFranchiseId (or row.franchise_id when
+      // browsing another team's roster) — adapter doesn't infer it
+      // because rosterRow itself doesn't carry the owning fid.
+      fid: fid || rosterRow.fid || rosterRow.franchise_id || ""
     };
   }
 
