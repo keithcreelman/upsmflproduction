@@ -7,7 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
-  var BUILD = "2026.05.16.ux-1";
+  var BUILD = "2026.05.16.ux-2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -68,8 +68,9 @@
     tagTracking: null,        // site/ccc/tag_tracking.json rows
     tagSubmissions: null,     // site/ccc/tag_submissions.json rows
     salaryAdjustmentReport: null, // site/reports/salary_adjustments/<year>.json — overlays the MFL feed
-    advancedStatsByPid: null,  // back-compat alias for advancedStatsByYear[curYear]
+    advancedStatsByPid: null,  // map for the most recent year with real leaderboard data (FA browser display)
     advancedStatsByYear: null, // { [year]: { [pid]: { mfl_points, mfl_ppg, games, pos, posRank } } }
+    advancedStatsLatestYear: 0, // most recent season with rows; equals ctx.year during the season, ctx.year-1 in offseason
     rookieProspects: null,     // site/rookies/rookie_prospects_<year>.json rows
     draftResults: null,        // /api/mfl-export?TYPE=draftResults
     leagueEvents: null,        // /api/league-events?season=<year>&from=today (UPS deadline calendar)
@@ -179,13 +180,20 @@
     return Promise.all(fetches).then(buildLeaderboardMap);
   }
 
-  // Fetch the last 3 seasons in parallel (curYear + 2 prior) so the
-  // player sheet's year-by-year table has real games/pts/PPG/rank for
-  // each year instead of zeros. Returns:
-  //   { [year]: pidMap }
+  // Fetch a 4-year window of leaderboards (curYear + 3 prior) so the player
+  // sheet's year-by-year table has real games/pts/PPG/rank for the last 3
+  // real seasons even during the offseason when curYear has no rows yet.
+  //
+  // Returns { byYear: { [year]: pidMap }, latestYearWithData: <int> }.
+  // - byYear preserves per-year keys verbatim (no silent aliasing — earlier
+  //   versions copied byYear[curYear] = byYear[curYear-1] in preseason,
+  //   which caused the player sheet to render two identical rows. See the
+  //   2026-05-16 bug fix.)
+  // - latestYearWithData lets the FA browser fall back to prior-season
+  //   ranks without conflating years.
   function fetchAdvancedStatsLeaderboard(year) {
     var seasonInt = parseInt(year, 10) || (new Date().getUTCFullYear());
-    var years = [seasonInt, seasonInt - 1, seasonInt - 2];
+    var years = [seasonInt, seasonInt - 1, seasonInt - 2, seasonInt - 3];
     var fetches = years.map(function (y) {
       return fetchAdvancedStatsLeaderboardForSeason(y).then(function (m) {
         return { year: y, map: m };
@@ -194,14 +202,11 @@
     return Promise.all(fetches).then(function (results) {
       var byYear = {};
       results.forEach(function (r) { byYear[r.year] = r.map; });
-      // Auto-fallback: if curYear has zero rows (preseason), use prior year
-      // for the "current" map alias so FA browser / player sheet still
-      // display meaningful ranks.
-      if (byYear[seasonInt] && Object.keys(byYear[seasonInt]).length === 0
-          && byYear[seasonInt - 1] && Object.keys(byYear[seasonInt - 1]).length > 0) {
-        byYear[seasonInt] = byYear[seasonInt - 1];
+      var latest = seasonInt;
+      while (latest >= seasonInt - 3 && (!byYear[latest] || Object.keys(byYear[latest]).length === 0)) {
+        latest--;
       }
-      return byYear;
+      return { byYear: byYear, latestYearWithData: latest };
     });
   }
 
@@ -364,11 +369,17 @@
       state.tagTracking = results[7] || [];
       state.tagSubmissions = results[8] || [];
       state.salaryAdjustmentReport = results[9] || [];
-      state.advancedStatsByYear = results[10] || {};
-      // Back-compat alias — current-year map keyed by pid (used by FA
-      // browser and the player sheet's old getAdvancedStatsFor entry).
-      var curYearInt = parseInt(state.ctx.year, 10) || (new Date().getUTCFullYear());
-      state.advancedStatsByPid = state.advancedStatsByYear[curYearInt] || {};
+      // results[10] is now { byYear, latestYearWithData } from the
+      // expanded leaderboard fetcher. Older callers (FA browser) read
+      // state.advancedStatsByPid which points at the latest year that
+      // actually has data — so the FA list still shows meaningful PPG
+      // ranks during the offseason without conflating year labels.
+      var leaderboardResult = results[10] || { byYear: {}, latestYearWithData: 0 };
+      state.advancedStatsByYear = leaderboardResult.byYear || {};
+      state.advancedStatsLatestYear = leaderboardResult.latestYearWithData || 0;
+      state.advancedStatsByPid = state.advancedStatsLatestYear
+        ? (state.advancedStatsByYear[state.advancedStatsLatestYear] || {})
+        : {};
       state.rookieProspects = results[11] || [];
       state.draftResults = results[12] || null;
       state.leagueEvents = results[13] || null;
@@ -924,6 +935,32 @@
         else if (kind === "err") navigator.vibrate([10, 40, 10]);
       } catch (e) {}
     }
+    // U4 — submit-button busy state. When the "…ing" toast fires (kind=info),
+    // disable every visible sheet-footer submit button so a double-tap can't
+    // fire a duplicate write while the network round-trip is in flight.
+    // Re-enable on kind=ok or kind=err. Safety timer guarantees we never
+    // strand a stuck-disabled UI longer than 8s.
+    if (kind === "info") {
+      setSubmitButtonsBusy(true);
+      clearTimeout(showToast._busyTimer);
+      showToast._busyTimer = setTimeout(function () { setSubmitButtonsBusy(false); }, 8000);
+    } else if (kind === "ok" || kind === "err") {
+      clearTimeout(showToast._busyTimer);
+      setSubmitButtonsBusy(false);
+    }
+  }
+
+  function setSubmitButtonsBusy(busy) {
+    // Targets all submit-style buttons in any open sheet, plus inline
+    // confirm buttons on the trade tab (.btn-act). disabled+aria-busy
+    // + a CSS class for the spinner.
+    var sel = ".ups-m-sheet-foot .btn, .btn-act, .ups-m-pick-row.ups-m-busy-target";
+    var btns = document.querySelectorAll(sel);
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].disabled = !!busy;
+      btns[i].setAttribute("aria-busy", busy ? "true" : "false");
+      btns[i].classList.toggle("ups-m-busy", !!busy);
+    }
   }
 
   // ---------- Stub renderers for views not yet built (Phase 2+) ----------
@@ -1126,6 +1163,7 @@
         }
         return state.advancedStatsByPid || {};
       },
+      getAdvancedStatsLatestYear: function () { return state.advancedStatsLatestYear || 0; },
       getRookieProspects: function () { return state.rookieProspects || []; },
       tradeBaitEntries: function () { return _tradeBaitEntries(); },
       describeTradeBaitToken: function (token) {

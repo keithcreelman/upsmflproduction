@@ -117,8 +117,16 @@
     // Wire real ranks later via the advanced-stats-leaderboard endpoint.
     var ctx = window.UPS_MOBILE.state.ctx;
     var curYear = Number(ctx.year) || (new Date().getUTCFullYear());
-    var years = [curYear, curYear - 1, curYear - 2];
-    ctx.curYearForLeaderboard = curYear;
+    // Seed the year window from the latest year with REAL data, not the
+    // calendar year. In the NFL offseason ctx.year flips to N before any
+    // games have been played, and showing a "2026" row before any 2026
+    // games exist duplicates 2025 data into it. latestYearWithData (set
+    // by app.js fetchAdvancedStatsLeaderboard) points at the most recent
+    // year whose leaderboard returned rows.
+    var getLatest = window.UPS_MOBILE.data.getAdvancedStatsLatestYear;
+    var anchor = (getLatest && getLatest()) || curYear;
+    var years = [anchor, anchor - 1, anchor - 2];
+    ctx.curYearForLeaderboard = anchor;
 
     var careerByYear = {};
     if (bundle && Array.isArray(bundle.career_summary)) {
@@ -456,10 +464,17 @@
     var FOX = window.UPS_FRONT_OFFICE_EXT;
     var s = window.UPS_MOBILE.state;
     var rosterRow = footerState.rosterRow;
+    // U6 — cap impact preview. Extension changes the current-year salary
+    // to option.salaryToSend; the delta vs the existing rosterRow.salary
+    // is what shifts the cap.
+    var newSal = Number(option && option.salaryToSend) || 0;
+    var curSal = Number(rosterRow && rosterRow.salary) || 0;
+    var capLine = capPreviewLine(newSal - curSal);
     var msg = "Submit extension for " + footerState.name + "?\n\n" +
               FOX.extensionActionLabel(option) + "\n" +
-              FOX.extensionOptionSummary(option) + "\n\n" +
-              "This writes to MFL and cannot be undone from the app.";
+              FOX.extensionOptionSummary(option) +
+              capLine +
+              "\n\nThis writes to MFL and cannot be undone from the app.";
     if (!window.confirm(msg)) return;
 
     var body = document.getElementById("ups-m-ext-body");
@@ -626,6 +641,10 @@
   }
 
   function confirmAndSubmitRestructure(calc) {
+    // U6 — cap impact preview. Restructure swaps the current-year salary
+    // for calc.y1; the delta vs the existing rosterRow.salary is the cap shift.
+    var curSal = Number(footerState.rosterRow && footerState.rosterRow.salary) || 0;
+    var capLine = capPreviewLine(Number(calc.y1) - curSal);
     var msg = "Submit restructure for " + footerState.name + "?\n\n" +
               "Years: " + calc.years + "\n" +
               "Year 1: " + U.fmtUsd(calc.y1) + "\n" +
@@ -633,7 +652,8 @@
               (calc.years >= 3 ? "Year 3: " + U.fmtUsd(calc.y3) + "\n" : "") +
               "TCV: " + U.fmtUsd(calc.tcv) + "\n" +
               "AAV: " + U.fmtUsd(calc.aav) + "\n" +
-              "GTD: " + U.fmtUsd(calc.gtd);
+              "GTD: " + U.fmtUsd(calc.gtd) +
+              capLine;
     if (!window.confirm(msg)) return;
     var body = document.getElementById("ups-m-rstr-body");
     if (body) body.innerHTML = '<div class="ups-m-sheet-loading">Submitting…</div>';
@@ -839,6 +859,25 @@
     });
   }
 
+  // U6 helper — given a cap-charge delta in current-year dollars, return
+  // a single-line preview of the post-action cap state. Reuses computeCap
+  // for the baseline so the numbers match the cap card on the Contracts
+  // tab exactly. Returns "" if cap state isn't available (no viewer fid).
+  function capPreviewLine(deltaUsd) {
+    var s = window.UPS_MOBILE.state;
+    if (!s.viewerFranchiseId || !DATA.computeCap) return "";
+    var cap = DATA.computeCap(s.viewerFranchiseId);
+    if (!cap || !cap.capAmount) return "";
+    var newTotal = (cap.capTotal || 0) + (deltaUsd || 0);
+    var newRoom = (cap.capAmount || 0) - newTotal;
+    var newPct = Math.round((newTotal / cap.capAmount) * 100);
+    var sign = (deltaUsd > 0) ? "+" : (deltaUsd < 0 ? "−" : "");
+    var absDelta = Math.abs(deltaUsd || 0);
+    return "\n\nCap delta: " + sign + U.fmtUsd(absDelta) +
+      "\nCap after: " + U.fmtUsd(newTotal) + " · room " + U.fmtUsd(newRoom) +
+      " (" + newPct + "%)";
+  }
+
   function handleDrop(pid, name, rosterRow, btn) {
     var penalty = DATA.dropPenaltyFor(rosterRow, window.UPS_MOBILE.state.ctx.year);
     var penaltyLine = "";
@@ -849,7 +888,13 @@
     } else {
       penaltyLine = "\nCap penalty: unknown (pre-2019 or unparseable contract).";
     }
-    if (!window.confirm("Drop " + name + "?" + penaltyLine + "\n\nThis writes to MFL and cannot be undone from the app.")) return;
+    // U6 — cap impact preview: show user the post-drop cap state before
+    // they commit. Drop removes the live salary and replaces it with the
+    // dead-cap penalty, so the net delta is (penalty - currentSalary).
+    var penaltyAmt = (penalty && typeof penalty.amount === "number") ? penalty.amount : 0;
+    var curSalary = Number(rosterRow && rosterRow.salary) || 0;
+    var capLine = capPreviewLine(penaltyAmt - curSalary);
+    if (!window.confirm("Drop " + name + "?" + penaltyLine + capLine + "\n\nThis writes to MFL and cannot be undone from the app.")) return;
     setBusy(btn, true, "Dropping…");
     ACT.submitDrop(pid, name).then(function (resp) {
       return ACT.reloadData().then(function () {

@@ -167,6 +167,33 @@ body { min-height: 100vh; }
 .ups-m-skel-row .right { height: 18px; }
 .ups-m-skel-card { height: 110px; margin: 12px; }
 
+/* ----- Submit-busy state (U4) ----- */
+/* Applied to .ups-m-sheet-foot .btn and .btn-act via setSubmitButtonsBusy.
+   While the "…ing" toast is showing, the button is disabled + dimmed +
+   gets a leading spinner so double-taps can't fire a duplicate write. */
+button.ups-m-busy,
+.ups-m-busy {
+  opacity: 0.55;
+  cursor: progress !important;
+  position: relative;
+}
+button.ups-m-busy::before,
+.ups-m-busy::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ups-m-busy-spin 700ms linear infinite;
+}
+@keyframes ups-m-busy-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ----- Pull-to-refresh indicator ----- */
 .ups-m-ptr {
   position: fixed;
