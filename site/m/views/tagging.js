@@ -219,6 +219,23 @@
         commishOverride: false
       }).then(function (resp) {
         if (resp.ok) {
+          // Optimistic push so the slot updates before tag_submissions.json
+          // regenerates (otherwise the UI would still say "Open").
+          if (M.data.pushOptimisticTagSubmission) {
+            M.data.pushOptimisticTagSubmission({
+              season: String(s.ctx.year),
+              franchise_id: U.pad4(s.viewerFranchiseId),
+              franchise_name: (s.viewerFranchise && s.viewerFranchise.name) || "",
+              player_id: U.safeStr(row.player_id),
+              player_name: U.safeStr(row.player_name),
+              pos: U.safeStr(row.position),
+              side: U.safeStr(row.tag_side || row.side).toUpperCase(),
+              tag_side: U.safeStr(row.tag_side || row.side).toUpperCase(),
+              tag_salary: salary,
+              submitted_at_utc: new Date().toISOString(),
+              submission_kind: "tag"
+            });
+          }
           M.ui.showToast(row.player_name + " tagged ✓", "ok");
           return M.actions.reloadData().then(function () { M.route.renderRoute(); });
         }
@@ -251,6 +268,23 @@
         if (!resp.ok) {
           M.ui.showToast("Untag failed: " + (resp.error || "unknown"), "err");
           return;
+        }
+        // Optimistic: push an "untag" submission so the per-side scanner
+        // sees it ahead of MFL/JSON catching up. trackedTaggedPlayer
+        // returns null when the latest entry for a pid is kind=untag.
+        if (M.data.pushOptimisticTagSubmission) {
+          M.data.pushOptimisticTagSubmission({
+            season: String(s.ctx.year),
+            franchise_id: U.pad4(s.viewerFranchiseId),
+            franchise_name: s.viewerFranchise && s.viewerFranchise.name || "",
+            player_id: U.safeStr(pid),
+            player_name: U.safeStr((player && player.name) || urow.player_name),
+            pos: U.safeStr((player && player.position) || urow.position),
+            side: U.safeStr(urow.tag_side || urow.side).toUpperCase(),
+            tag_side: U.safeStr(urow.tag_side || urow.side).toUpperCase(),
+            submitted_at_utc: new Date().toISOString(),
+            submission_kind: "untag"
+          });
         }
         if (resp.unloadFailed) {
           M.ui.showToast(urow.player_name + " untagged — manual drop needed (unload failed)", "err");
