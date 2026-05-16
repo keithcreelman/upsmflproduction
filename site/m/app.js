@@ -7,7 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
-  var BUILD = "2026.05.16.auto-auth";
+  var BUILD = "2026.05.16.ux-batch";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -1259,10 +1259,36 @@
         switchBtn +
       '</div>' +
       '<a class="ups-m-desktop-link" href="#more/rules">📖 Rules</a>' +
+      // Explicit refresh button (Keith MobileNotesV1: previously the only
+      // refresh affordance was the pull-to-refresh gesture, which Keith
+      // noted "doesn't do anything" — likely because it's only visible
+      // mid-pull. This button reloads everything via reloadData().
+      '<button class="ups-m-desktop-link" id="ups-m-refresh-data" style="width:100%;cursor:pointer;background:none;font-size:14px">🔄 Refresh data</button>' +
       '<a class="ups-m-desktop-link" href="https://www48.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/home/' + escapeHtml(state.ctx.leagueId) + '" target="_blank" rel="noopener">Switch to Desktop View</a>' +
       '<div class="ups-m-stub"><div>UPS Mobile · ' + escapeHtml(BUILD) + '</div><div style="font-size:11px;margin-top:6px">League ' + escapeHtml(state.ctx.leagueId) + ' · ' + escapeHtml(state.ctx.year) + '</div></div>';
     var btn = document.getElementById("ups-m-switch-team");
     if (btn) btn.addEventListener("click", switchTeam);
+    var refreshBtn = document.getElementById("ups-m-refresh-data");
+    if (refreshBtn) {
+      refreshBtn.addEventListener("click", function () {
+        refreshBtn.disabled = true;
+        var originalText = refreshBtn.textContent;
+        refreshBtn.textContent = "Refreshing…";
+        reloadData().then(function () {
+          refreshBtn.textContent = "✓ Refreshed";
+          renderRoute();
+          setTimeout(function () {
+            if (document.getElementById("ups-m-refresh-data")) {
+              document.getElementById("ups-m-refresh-data").textContent = originalText;
+              document.getElementById("ups-m-refresh-data").disabled = false;
+            }
+          }, 1200);
+        }).catch(function () {
+          refreshBtn.textContent = "Refresh failed — try again";
+          refreshBtn.disabled = false;
+        });
+      });
+    }
   });
 
   // ---------- Pull-to-refresh ----------

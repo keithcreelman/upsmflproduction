@@ -1029,9 +1029,17 @@
     // U6 — cap impact preview: show user the post-drop cap state before
     // they commit. Drop removes the live salary and replaces it with the
     // dead-cap penalty, so the net delta is (penalty - currentSalary).
+    //
+    // EXCEPT for EXPIRED players (cy=0): they were already coming off
+    // the cap at season end. Dropping an expiring player frees nothing
+    // new — cap delta is $0. Keith MobileNotesV1: "-1 cap charge doesn't
+    // make sense for a player that's expiring. He should count for $0
+    // this year since he's expiring."
     var penaltyAmt = (penalty && typeof penalty.amount === "number") ? penalty.amount : 0;
     var curSalary = Number(rosterRow && rosterRow.salary) || 0;
-    var capLine = capPreviewLine(penaltyAmt - curSalary);
+    var cyRem = U.safeInt(rosterRow && rosterRow.contractYear, -1);
+    var capDelta = cyRem === 0 ? 0 : (penaltyAmt - curSalary);
+    var capLine = capPreviewLine(capDelta);
     if (!window.confirm("Drop " + name + "?" + penaltyLine + capLine + "\n\nThis writes to MFL and cannot be undone from the app.")) return;
     setBusy(btn, true, "Dropping…");
     ACT.submitDrop(pid, name).then(function (resp) {
