@@ -228,8 +228,11 @@
       });
     } else if (act === "untag" && action.kind === "untag" && action.row) {
       var urow = action.row;
-      if (!window.confirm("Untag " + urow.player_name + "?\n\n" +
-          "Restore: " + U.safeStr(urow.contract_status) + " at " + U.fmtUsd(urow.salary))) return;
+      // Same flow as player_sheet handleUntagSubmit: untag + chain drop
+      // so the player comes off the roster (Keith 2026-05-16).
+      if (!window.confirm("Untag and remove " + urow.player_name + " from roster?\n\n" +
+          "This reverts the tag contract AND drops the player. Pre-FA-Auction tag cuts are $0 cap penalty.\n\n" +
+          "Sends a DM to the commish (no channel post).")) return;
       var player = M.data.playerById(pid);
       M.ui.showToast("Untagging…", "info");
       FOT.submitUntag({
@@ -245,11 +248,20 @@
         dryRun: false,
         commishOverride: false
       }).then(function (resp) {
-        if (resp.ok) {
-          M.ui.showToast(urow.player_name + " untagged ✓", "ok");
-          return M.actions.reloadData().then(function () { M.route.renderRoute(); });
+        if (!resp.ok) {
+          M.ui.showToast("Untag failed: " + (resp.error || "unknown"), "err");
+          return;
         }
-        M.ui.showToast("Untag failed: " + (resp.error || "unknown"), "err");
+        M.ui.showToast("Untagged. Dropping " + urow.player_name + "…", "info");
+        var ACT = M.actions;
+        return ACT.submitDrop(pid, urow.player_name).then(function (dropResp) {
+          if (dropResp && dropResp.ok !== false) {
+            M.ui.showToast(urow.player_name + " untagged + dropped ✓", "ok");
+          } else {
+            M.ui.showToast("Untagged ✓ but drop failed — " + (dropResp && dropResp.error || "try again"), "err");
+          }
+          return M.actions.reloadData().then(function () { M.route.renderRoute(); });
+        });
       }).catch(function (err) {
         M.ui.showToast("Untag failed: " + (err && err.message || err), "err");
       });

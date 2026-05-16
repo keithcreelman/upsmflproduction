@@ -783,9 +783,16 @@
       return;
     }
     var row = action.row;
-    if (!window.confirm("Untag " + (row.player_name || footerState.name) + "?\n\n" +
-        "Restore: " + U.safeStr(row.contract_status) + " at " + U.fmtUsd(row.salary) + "\n" +
-        "(Removes the tag and reverts the contract.)")) return;
+    var playerLabel = row.player_name || footerState.name;
+    // Per Keith 2026-05-16: untag is "I changed my mind, I don't want them"
+    // — so the player should come off the roster, not just have the tag
+    // reverted. We run the standard untag (which restores prior contract)
+    // then chain a drop. The pre-FA-auction tag-cut rule (league_context
+    // §C8 + §D2.5) gives the player a $0 cap penalty when this fires
+    // before Aug 1 — so no surprise dead money.
+    if (!window.confirm("Untag and remove " + playerLabel + " from roster?\n\n" +
+        "This reverts the tag contract AND drops the player. Pre-FA-Auction tag cuts are $0 cap penalty.\n\n" +
+        "Sends a DM to the commish (no channel post).")) return;
 
     var player = window.UPS_MOBILE.data.playerById(footerState.pid);
     var btn = document.querySelector('[data-ccc-action="untag"]');
@@ -803,15 +810,30 @@
       dryRun: false,
       commishOverride: false
     }).then(function (resp) {
-      setBusy(btn, false);
-      if (resp.ok) {
-        window.UPS_MOBILE.ui.showToast((row.player_name || footerState.name) + " untagged ✓", "ok");
+      if (!resp.ok) {
+        setBusy(btn, false);
+        window.UPS_MOBILE.ui.showToast("Untag failed: " + (resp.error || "unknown error"), "err");
+        return;
+      }
+      // Chain the drop. ACT.submitDrop POSTs the same /api/mfl-export
+      // TYPE=taxi endpoint the desktop Drop button uses. The tag-cut-
+      // pre-auction rule in front_office_penalty.js will compute $0
+      // penalty since the player is currently type=TAG and now < Aug 1.
+      window.UPS_MOBILE.ui.showToast("Untagged. Dropping " + playerLabel + "…", "info");
+      return ACT.submitDrop(footerState.pid, playerLabel).then(function (dropResp) {
+        setBusy(btn, false);
+        if (dropResp && dropResp.ok !== false) {
+          window.UPS_MOBILE.ui.showToast(playerLabel + " untagged + dropped ✓", "ok");
+        } else {
+          // Untag succeeded, drop failed — surface clearly. Owner
+          // can re-attempt the drop from the player sheet.
+          window.UPS_MOBILE.ui.showToast("Untagged ✓ but drop failed — " + (dropResp && dropResp.error || "try again"), "err");
+        }
         return window.UPS_MOBILE.actions.reloadData().then(function () {
           window.UPS_MOBILE.route.renderRoute();
           close();
         });
-      }
-      window.UPS_MOBILE.ui.showToast("Untag failed: " + (resp.error || "unknown error"), "err");
+      });
     }).catch(function (err) {
       setBusy(btn, false);
       window.UPS_MOBILE.ui.showToast("Untag failed: " + (err && err.message || err), "err");

@@ -86,6 +86,17 @@ These are known drifts where mobile, desktop, and worker disagree. Every entry h
 - **All three codebases**: no date enforcement. Extension submission accepted any time of year if `cy=1`.
 - **Required fix**: add `acquisition_date` to extension preview records; client gates submit on `now ∈ window`; worker validates.
 
+### 2.8a — Untag = untag + drop (Keith 2026-05-16)
+
+- **Old behavior**: untag only restored the prior contract; player stayed on the roster. Keith hit this on DESKTOP — untagged Willis but Willis was still on his team.
+- **Canonical interpretation (Keith)**: untag means "I changed my mind, don't want this player." So untag should:
+  1. Revert the tag contract (existing behavior)
+  2. **Drop the player** (cut them — pre-FA-auction = $0 penalty per league_context §C8 + §D2.5)
+  3. **DM the commish** with "UnTagged: <player>" (NOT a channel post)
+- **Mobile** (2026-05-16): FIXED. `player_sheet.js handleUntagSubmit` and `views/tagging.js` untag both chain `submitDrop` after a successful `submitUntag` and surface a unified toast.
+- **Worker** (2026-05-16): FIXED. The `/commish-contract-update` handler now detects `submission_kind === "untag"` and routes the Discord output to `env.COMMISH_DISCORD_USER_ID` as a DM with content `UnTagged: <player> — <franchise> (Side)` — no channel post. Audit row + `ups_tag_master` DELETE still fire.
+- **Desktop** (NOT FIXED — cross-codebase work): the desktop Roster Workbench untag button does NOT chain a drop. Keith confirmed seeing this with Willis. Mirror the mobile fix in `site/rosters/roster_workbench.js submitUntagPlayer` so desktop behaves identically.
+
 ### 2.7 — Tag submission season filter
 
 - **Canonical**: a tag is for a specific SEASON. Tags from prior seasons should not surface as currently active.
