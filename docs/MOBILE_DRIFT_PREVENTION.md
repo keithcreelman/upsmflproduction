@@ -94,6 +94,23 @@ These are known drifts where mobile, desktop, and worker disagree. Every entry h
 - **Mobile** (`trackedTaggedPlayerForFranchiseSide`): **FIXED 2026-05-16** to filter by `currentSeason`. Was missing the filter → Lamar Jackson's 2025 tag from Real Deal Creel surfaced as a 2026 tag.
 - **Status**: mobile fixed; desktop has its own (different) filter. Acceptable.
 
+### 2.8 — Lineup audit trail + DM-based notification (Keith 2026-05-16)
+
+- **Current state**: lineup submissions are written to MFL but skip BOTH D1 audit and Discord (this used to be tracked as "parity by design"). The desktop site also skips them. Reason historically: weekly lineup churn would flood the contract-activity channel and bloat audit tables.
+- **Keith's call (2026-05-16)**: this is the wrong shape. We should:
+  1. Write every lineup submission to D1 for validation + cross-reference against MFL data. If MFL doesn't carry an authoritative copy, our D1 row IS the record of truth. Without it we can't catch missed lineups, late edits, or compliance issues.
+  2. Replace the "broadcast to contract-activity" approach with **Discord DMs**:
+     - Submitter gets an acknowledgement DM ("Your lineup for Week N is locked")
+     - The submitter's **weekly opponent(s)** get a DM notification ("X has set their lineup")
+     - NO channel post — keeps the contract-activity channel clean.
+- **Why this works**: DMs scale linearly with active matchups (one to submitter, one to opponent), so the volume is bounded; meanwhile every action is traceable in D1.
+- **Required work** (parked for later — explicit "save for later" from Keith):
+  - **Worker**: add audit write in the `/api/submit-lineup` handler — new D1 table `ups_lineup_submissions` (or extend `salary_change_log` with a kind column) capturing `franchise_id`, `season`, `week`, `starters[]`, `submitted_at_utc`, `source` (`ups-mobile-*` vs `front-office-*`).
+  - **Worker**: send DM via Discord bot to submitter's discord_id + each opponent's discord_id (lookup needs a `franchise_id → discord_user_id` map — verify what's stored where).
+  - **Worker**: schedule-aware — only the most-relevant opponent per week (MFL's `schedule` export).
+  - **Doc**: once shipped, update §7 below and remove the "parity by design" note from the lineup row.
+- **Generalize**: while we're at it, audit every submission path. If any other action is currently NOT written to D1, fix it — the principle is "every submission is recorded for x-reference vs MFL." Lineup is the most obvious gap; others may exist.
+
 ## §3 — INTENTIONAL DIVERGENCES (mobile currently differs from desktop)
 
 | Date | What | Why | When to re-converge |
@@ -207,13 +224,13 @@ Confirmation table of every mobile-originating action and whether it hits all fo
 | Untag | ✓ `commish-contract-update` | ✓ tag tables | ✓ contract-activity channel | n/a |
 | Extension | ✓ `import?TYPE=salaries` via `/offer-extension` | ✓ `ups_extension_submissions` + `ups_extension_master` | ✓ contract-activity channel | n/a |
 | Restructure | ✓ `import?TYPE=salaries` via `/offer-restructure` | ✓ `salary_change_log` | ✓ contract-activity channel | n/a |
-| Submit Lineup | ✓ `import?TYPE=lineup` (`/api/submit-lineup`) | ✗ no audit (parity with desktop — by design) | ✗ no announcement (parity — by design) | n/a |
+| Submit Lineup | ✓ `import?TYPE=lineup` (`/api/submit-lineup`) | ✗ no audit **(planned: add D1 audit — see §2.8)** | ✗ no announcement **(planned: replace with DMs to submitter + weekly opponent — see §2.8)** | n/a |
 | Draft Pick | ✓ `import?TYPE=draftResults` | ✓ `draft_audit` | ✓ live/test draft channel | n/a |
 | Trade Accept/Decline/Cancel | ✓ via `runDirectProposal` | ✓ trade audit tables | ✓ trade channel (live, fires on accept) | n/a (cap settlement separate) |
 
 **Discriminator:** every mobile payload sends `source: "ups-mobile-*"` in the audit body. Desktop sends `source: "front-office-*"`. Worker handler reads either and routes identically — same MFL writes, same D1 rows, same Discord. The `source` field is purely forensic.
 
-**Lineup deliberately skips audit + Discord** to match desktop behavior — lineup changes happen frequently (every week) and would spam every channel.
+**Lineup currently skips audit + Discord** — historically rationalized as "parity by design" with desktop. **Keith retired that rationale on 2026-05-16**: every submission should be written to D1 for x-reference vs MFL, and lineup notifications should fan out as Discord DMs (submitter + weekly opponent) instead of channel posts. See §2.8 for the full migration plan. Currently parked; ship later.
 
 ## Pointer: when in doubt
 
