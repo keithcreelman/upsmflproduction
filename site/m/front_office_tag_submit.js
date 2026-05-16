@@ -256,15 +256,57 @@
     });
   }
 
+  // Mirror of desktop submitUntagPlayer (roster_workbench.js:11307). Two
+  // steps:
+  //   1. POST /commish-contract-update to revert the contract status from
+  //      TAG back to whatever it was before the tag was applied.
+  //   2. POST /roster-workbench/action with action=unload_player so the
+  //      player comes off the active roster. This is what Keith saw on
+  //      desktop working: untag = revert contract + unload. Without
+  //      step 2 the player stays rostered with the restored contract.
   function submitUntag(args) {
     var workerBase = String(args.workerBase || "").replace(/\/+$/, "");
     var contractUrl = workerBase + "/commish-contract-update?L=" +
       encodeURIComponent(args.leagueId) + "&YEAR=" + encodeURIComponent(args.year);
+    var actionUrl = workerBase + "/roster-workbench/action";
     var payload = buildUntagContractPayload(args);
     if (!payload) return Promise.resolve({ ok: false, error: "Missing prior contract data — cannot untag." });
     return postContractUpdate(contractUrl, payload).then(function (resp) {
-      if (resp.ok) return { ok: true, status: resp.status, body: resp.body, payload: payload };
-      return { ok: false, status: resp.status, body: resp.body, error: (resp.body && resp.body.error) || ("HTTP " + resp.status) };
+      if (!resp.ok) {
+        return { ok: false, status: resp.status, body: resp.body, error: (resp.body && resp.body.error) || ("HTTP " + resp.status) };
+      }
+      // Step 2 — unload the player off active. Mirrors desktop
+      // submitWorkerRosterAction("unload_player", fid, pid).
+      return postJson(actionUrl, {
+        action: "unload_player",
+        league_id: args.leagueId,
+        season: args.year,
+        franchise_id: pad4(args.fid),
+        player_id: safeStr(args.pid)
+      }).then(function (unloadResp) {
+        // unload_player may report skipped/idempotent on rosters where
+        // the player was already off active — treat as success either way.
+        // The contract revert is the load-bearing step; this is cleanup.
+        return {
+          ok: true,
+          status: resp.status,
+          body: resp.body,
+          payload: payload,
+          unload: unloadResp
+        };
+      }).catch(function (err) {
+        // Contract reverted, unload failed — surface so the caller can
+        // tell the user to manually drop. Desktop has the same fallback.
+        return {
+          ok: true,
+          contractRestored: true,
+          unloadFailed: true,
+          unloadError: err && err.message || String(err),
+          status: resp.status,
+          body: resp.body,
+          payload: payload
+        };
+      });
     });
   }
 
