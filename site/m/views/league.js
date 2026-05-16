@@ -177,11 +177,11 @@
       var overCap = r.capRoom < 0;
       var roomClass = overCap ? "danger" : (r.pct >= 95 ? "warn" : "ok");
       var isMe = r.fid === viewerFid;
-      // §6G compliance chips — turn red when over the canonical cap.
-      // Currently NEITHER desktop nor mobile blocks submission on these;
-      // they're warnings only. Surfacing them on mobile so commish + owners
-      // can spot real-data violations like the 3-year cap breaches the
-      // 2026-05-16 audit found (franchises with 8-9 three-year contracts).
+      // §6G compliance chips. The 3Y cap counts contracts with years
+      // REMAINING == 3 (fresh MYACs in the current cycle), so it's
+      // typically 0 outside the post-auction → contract-deadline window;
+      // only render when > 0 to avoid noise. Loaded counts FL/BL contracts
+      // year-round so we render it whenever non-zero. Red when over cap.
       var loadedOver = r.loaded > 5;
       var threeYrOver = r.threeYearNonRookie > 6;
       var limitChips = '';

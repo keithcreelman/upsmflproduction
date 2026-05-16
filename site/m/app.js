@@ -7,7 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
-  var BUILD = "2026.05.16.tag-season";
+  var BUILD = "2026.05.16.tag-season-fix2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -551,28 +551,25 @@
     });
     return ids;
   }
-  // Roster-level contract limits per §6G canonical caps:
+  // Roster-level contract limits — verbatim mirror of desktop's
+  // contractLimitSummaryForPlayers (roster_workbench.js:814-830). Per §6G:
   //   loaded ≤ 5 (FL/BL combined: MYAC + Ext2 + Restructure)
   //   threeYearNonRookie ≤ 6 (excludes rookie 3-yr deals)
   //
-  // INTENTIONAL DIVERGENCE FROM DESKTOP (2026-05-16):
-  // Desktop's contractLimitSummaryForPlayers (roster_workbench.js:814)
-  // counts `player.years === 3`, which is years REMAINING. That returns 0
-  // during the offseason because no contract is at "year 1 of 3" right
-  // now — a 3-year deal signed in 2024 currently has years=1, not 3.
-  // The CANONICAL rule is about contract LENGTH, not remaining years.
-  // We parse the "CL N" token from contractInfo (the literal contract
-  // length) so the chip accurately reflects real-data violations like
-  // franchise 0012 (Hawks) currently holding 9 three-year contracts.
-  // Desktop has the same bug — flagged for cross-codebase fix in
-  // docs/MOBILE_DRIFT_PREVENTION.md §3.
+  // Per Keith 2026-05-16: the 3-year cap counts contracts with YEARS
+  // REMAINING == 3 (i.e. newly-signed 3-year MYACs that haven't played
+  // a year yet), not original contract length. A 3-year MYAC signed in
+  // 2025 has years=2 going into 2026 and stops counting. Pre-FA-auction
+  // in any given year the count is always 0 (no fresh 3-year deals yet).
+  // This is the intended behavior — the cap exists to throttle MYAC
+  // submissions in a single window, not to count every multi-year deal
+  // in the league's history.
   function contractLimitsFor(fid) {
     var rows = getRosterFor(fid);
     var threeYearNonRookie = 0;
     var loaded = 0;
     rows.forEach(function (r) {
       if (!r) return;
-      var info = safeStr(r.contractInfo);
       var t = safeStr(r.contractStatus).toLowerCase().replace(/[^a-z0-9]/g, "");
       var isRookie = t.indexOf("rookie") !== -1 || t === "r" || /^r-/.test(t);
       var isLoaded =
@@ -580,10 +577,7 @@
         t === "bl" ||
         t.indexOf("frontloaded") !== -1 ||
         t.indexOf("backloaded") !== -1;
-      // Parse "CL N" token — the contract's full length, not years remaining.
-      var clMatch = info.match(/CL\s*(\d+)/i);
-      var contractLength = clMatch ? safeInt(clMatch[1], 0) : 0;
-      if (contractLength === 3 && !isRookie) threeYearNonRookie += 1;
+      if (safeInt(r.contractYear, 0) === 3 && !isRookie) threeYearNonRookie += 1;
       if (isLoaded) loaded += 1;
     });
     return { loaded: loaded, threeYearNonRookie: threeYearNonRookie };

@@ -66,15 +66,7 @@ These are known drifts where mobile, desktop, and worker disagree. Every entry h
 - **Drift impact**: standard formula can produce $0 or sub-$1K when canonical demands $1K floor.
 - **Required fix**: copy `multi_year_low_tcv_penalty` gate from worker into BOTH client codebases as a pre-formula short-circuit.
 
-### 2.4 — 6G.2 three-year contract count uses wrong field
-
-- **Canonical** (`docs/league_context_v1.md` §6G.2): max 6 three-year CONTRACTS per roster (excludes rookies). A "3-year contract" means CL=3 — the contract's full length, regardless of which year a player is currently in.
-- **Desktop** (`roster_workbench.js:814-830` `contractLimitSummaryForPlayers`): counts `player.years === 3` (years REMAINING) ✗
-- **Mobile** (`site/m/app.js contractLimitsFor`): **FIXED 2026-05-16** to parse `CL N` token from `contractInfo`. INTENTIONAL DIVERGENCE — mobile is correct, desktop still wrong.
-- **Drift impact**: desktop's chip currently shows `3Y 0/6` for every team in offseason because no contract has cy=3 right now; mobile correctly shows the 8/8/9 violations for franchises 0006/0009/0012.
-- **Required fix**: replace `player.years === 3` with `contractLengthForPlayer(player) === 3` on desktop to converge. The helper already exists in desktop at `roster_workbench.js:1631`.
-
-### 2.5 — §6G compliance is display-only, never blocks
+### 2.4 — §6G compliance is display-only, never blocks
 
 - **Canonical**: §6G caps are HARD rules (max 5 loaded, max 6 three-year, max 4 MYM/season, max 3 restructure/season).
 - **Desktop**: displays chips, doesn't block submission. Worker accepts over-cap submissions.
@@ -82,19 +74,19 @@ These are known drifts where mobile, desktop, and worker disagree. Every entry h
 - **Worker**: no enforcement.
 - **Required fix**: choose ONE — either worker-side enforcement (POST handlers count current usage and reject over-cap) OR client-side disabled-submit. The "warning chip + accept" pattern means real violations land silently. Live data already shows three franchises over the 3-year cap.
 
-### 2.6 — Offseason restructure window (§C5.1.b)
+### 2.5 — Offseason restructure window (§C5.1.b)
 
 - **Canonical**: restructures are OFFSEASON ONLY. Mid-season restructures BANNED.
 - **All three codebases**: no enforcement, pure honor system.
 - **Required fix**: worker route should reject restructure submissions if `now < season_end OR now > sept_contract_deadline`.
 
-### 2.7 — In-season extension windows (§C4.7)
+### 2.6 — In-season extension windows (§C4.7)
 
 - **Canonical**: 4-week window for in-season trade-acquired final-year players; 14-28 day window for WW/FCFS pickups (days 1-14 are MYM-only, 15-28 are extension-only).
 - **All three codebases**: no date enforcement. Extension submission accepted any time of year if `cy=1`.
 - **Required fix**: add `acquisition_date` to extension preview records; client gates submit on `now ∈ window`; worker validates.
 
-### 2.8 — Tag submission season filter
+### 2.7 — Tag submission season filter
 
 - **Canonical**: a tag is for a specific SEASON. Tags from prior seasons should not surface as currently active.
 - **Worker**: writes `ups_tag_submissions` with explicit `season`. ✓
@@ -106,7 +98,17 @@ These are known drifts where mobile, desktop, and worker disagree. Every entry h
 
 | Date | What | Why | When to re-converge |
 |---|---|---|---|
-| 2026-05-16 | `contractLimitsFor` parses CL from `contractInfo` instead of using `player.years` | Desktop bug returns 0 for every team in offseason; mobile shows real violations | When §2.4 desktop fix lands |
+| _(none currently — mobile is in lock-step with desktop)_ | | | |
+
+### Lesson: the 6G.2 false-alarm (2026-05-16)
+
+During the 2026-05-16 audit I (Claude) initially flagged the 3-year contract count as a desktop bug because the chip showed `0/6` for every team while my parse of `CL=3` from `contractInfo` showed 8/8/9 for some teams. I "fixed" mobile to count by `CL` length, called it an intentional divergence, and shipped.
+
+**Keith corrected this:** the canonical rule is "max 6 active 3-year contracts" meaning **years remaining = 3** — i.e. freshly-signed 3-year MYACs that haven't played a year yet. A 3-year deal signed in 2025 has `years=2` heading into 2026 and stops counting. Pre-FA-auction in any given year the count is always 0 because no fresh 3-year deals exist yet. This is why Keith said "impossible currently."
+
+The fix-that-wasn't-a-bug was reverted. Desktop's `safeInt(player.years, 0) === 3` IS canonical.
+
+**Takeaway for future drift hunts:** when a rule produces a "surprising" count in the offseason, read the rule again before "fixing" it. Counts that look "wrong" often reflect the natural rollover of contracts as years tick down, which IS the intended throttle. Always confirm with Keith before declaring an intentional divergence.
 
 ## §4 — Process: how to add a new feature without creating drift
 
