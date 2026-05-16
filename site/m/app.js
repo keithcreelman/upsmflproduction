@@ -7,7 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
-  var BUILD = "2026.05.16.tag-season-fix2";
+  var BUILD = "2026.05.16.taxi-precision";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -36,6 +36,19 @@
     var x = Number(n || 0);
     if (!isFinite(x)) return "$0";
     if (Math.abs(x) >= 1000) return "$" + Math.round(x / 1000) + "K";
+    return "$" + Math.round(x);
+  }
+  // Precise USD — preserves sub-$1K resolution so a $1,500 penalty
+  // displays as "$1.5K" instead of being rounded to "$2K". Used by
+  // the drop/extension/restructure confirm modals where the difference
+  // between $1K and $2K is material.
+  function fmtUsdPrecise(n) {
+    var x = Number(n || 0);
+    if (!isFinite(x)) return "$0";
+    var abs = Math.abs(x);
+    if (abs >= 10000) return "$" + Math.round(x / 1000) + "K";
+    if (abs >= 1000) return "$" + (Math.round(x / 100) / 10) + "K";
+    if (abs >= 100) return "$" + (Math.round(x / 100) / 10) + "K";
     return "$" + Math.round(x);
   }
   function asArray(v) {
@@ -1171,6 +1184,7 @@
       pad4: pad4,
       escapeHtml: escapeHtml,
       fmtUsd: fmtUsd,
+      fmtUsdPrecise: fmtUsdPrecise,
       asArray: asArray,
       readCookie: readCookie
     },

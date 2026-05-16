@@ -202,6 +202,7 @@
     return '<div class="ups-m-subtabs">' +
       tab("contracts", "Contracts", "contracts") +
       tab("lineup", "Lineup", "lineup") +
+      tab("taxi", "Taxi", "taxi") +
       tab("tagging", "Tagging", "tagging") +
       '</div>';
   }
@@ -222,6 +223,87 @@
       subTabs("contracts") +
       renderCapCard(cap) +
       renderRoster(roster, fid);
+    bindRowClicks(mount);
+  }
+
+  // Taxi subtab — read-only listing of taxi-squad players. Per Keith
+  // 2026-05-16, taxi rule changes are pending finalization; no mutating
+  // actions (promote / cut) are wired up yet. The placeholder banner
+  // calls this out so users don't expect the buttons.
+  //
+  // MFL PLATFORM QUIRK on taxi salary: when a player is placed on taxi,
+  // MFL nulls out their `salary` / `contractYear` / `contractStatus` /
+  // `contractInfo` in BOTH the rosters and salaries exports — even with
+  // TAXI=ALL flag. Verified 2026-05-16 against pid 16212 (taxi on LA).
+  // There is no MFL endpoint that returns the contracted salary for
+  // active taxi players. To show real salaries we'd need either:
+  //   (a) a UPS-side salary-history table populated from pre-taxi
+  //       snapshots (worker + D1 work)
+  //   (b) a deterministic rookie-slot lookup for taxi players we know
+  //       came from a specific draft pick (partial coverage)
+  // Neither is wired yet — see docs/MOBILE_DRIFT_PREVENTION.md §6.
+  // For now we display whatever salary value is in the row (typically
+  // empty / $0) and acknowledge it in the banner.
+  function renderTaxi(mount) {
+    var fid = M.state.viewerFranchiseId;
+    if (!fid) {
+      mount.innerHTML = subTabs("taxi") +
+        '<div class="ups-m-stub"><h3>Sign in to MFL</h3><div>We couldn\'t resolve your franchise.</div></div>';
+      return;
+    }
+    var rows = DATA.getRosterFor(fid).filter(function (r) {
+      return /taxi/i.test(U.safeStr(r.status));
+    });
+    var banner =
+      '<div class="ups-m-card" style="border-color:var(--warn);background:rgba(255,184,107,0.06)">' +
+        '<div class="ups-m-card-title" style="color:var(--warn)">Rule change pending</div>' +
+        '<div style="font-size:13px">Due to a change in rule, waiting to apply logic before allowing changes to taxi squad players. This view is read-only for now.</div>' +
+        '<div style="font-size:11px;margin-top:8px;color:var(--fg-muted)">MFL nulls out taxi player salaries in the rosters/salaries export, so individual contracted salaries aren\'t available here yet. Working on a UPS-side salary-history table to surface them.</div>' +
+      '</div>';
+
+    if (!rows.length) {
+      mount.innerHTML = subTabs("taxi") + banner +
+        '<div class="ups-m-stub"><div>No players on taxi.</div></div>';
+      return;
+    }
+
+    var html = subTabs("taxi") + banner + '<div class="ups-m-player-list">';
+    html += '<div class="ups-m-pos-group">Taxi · ' + rows.length + '</div>';
+    rows.slice().sort(function (a, b) {
+      return Number(b.salary || 0) - Number(a.salary || 0);
+    }).forEach(function (r) {
+      var p = DATA.playerById(r.id);
+      var rawPos = U.safeStr(p && p.position).toUpperCase();
+      var name = U.safeStr(p && p.name) || ("Player " + r.id);
+      // Re-orient "Last, First" → "First Last"
+      if (name.indexOf(",") >= 0) {
+        var parts = name.split(",");
+        name = (parts[1] || "").trim() + " " + (parts[0] || "").trim();
+        name = name.trim();
+      }
+      var team = U.safeStr(p && p.team);
+      var cy = U.safeInt(r.contractYear, 0);
+      var status = U.safeStr(r.contractStatus);
+      html += '<div class="ups-m-player-row" data-pid="' + U.escapeHtml(r.id) + '">' +
+        '<div class="pos">' + U.escapeHtml(rawPos) + '</div>' +
+        '<div class="body">' +
+          '<div class="name">' + U.escapeHtml(name) +
+            (team ? '<span class="nfl-team">' + U.escapeHtml(team) + '</span>' : '') +
+          '</div>' +
+          '<div class="sub chips-row">' +
+            (cy > 0 ? '<span class="chip">YR ' + cy + '</span>' : '') +
+            (status ? '<span class="chip type">' + U.escapeHtml(status) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="right">' +
+          // Show actual salary in teal so it's clear this is taxi-real
+          // (off-cap) money, not the active-cap line in the Contracts tab.
+          '<div class="salary" style="color:var(--teal)">' + U.fmtUsd(r.salary) + '</div>' +
+        '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+    mount.innerHTML = html;
     bindRowClicks(mount);
   }
 
@@ -253,6 +335,7 @@
   function render(mount, subParts) {
     var sub = (subParts && subParts[0]) || "contracts";
     if (sub === "lineup") return renderLineupStub(mount);
+    if (sub === "taxi") return renderTaxi(mount);
     if (sub === "tagging" && M.taggingView && M.taggingView.render) {
       return M.taggingView.render(mount);
     }
