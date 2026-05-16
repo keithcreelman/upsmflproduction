@@ -129,10 +129,13 @@
   // League-wide salary summary — one row per franchise. Numbers come from
   // the verbatim Front Office cap mirror (DATA.computeCap), so the values
   // match the cap card on each team's own Contracts page exactly.
+  // Contract-limit chips (Loaded N/5, 3Y N/6) mirror desktop's
+  // §6G compliance warnings — see contractLimitsFor in app.js.
   function renderSalarySummary() {
     var franchises = (M.state.franchises || []).slice();
     var rows = franchises.map(function (f) {
       var cap = DATA.computeCap(f.id) || {};
+      var limits = DATA.contractLimitsFor ? DATA.contractLimitsFor(f.id) : { loaded: 0, threeYearNonRookie: 0 };
       return {
         fid: f.id,
         name: f.name,
@@ -144,7 +147,9 @@
         activeCount: cap.activeCount || 0,
         irCount: cap.irCount || 0,
         taxiCount: cap.taxiCount || 0,
-        adjustmentTotal: cap.adjustmentTotal || 0
+        adjustmentTotal: cap.adjustmentTotal || 0,
+        loaded: limits.loaded,
+        threeYearNonRookie: limits.threeYearNonRookie
       };
     });
     // Sort: viewer first, then by cap used descending so over-cap teams
@@ -172,12 +177,27 @@
       var overCap = r.capRoom < 0;
       var roomClass = overCap ? "danger" : (r.pct >= 95 ? "warn" : "ok");
       var isMe = r.fid === viewerFid;
+      // §6G compliance chips — turn red when over the canonical cap.
+      // Currently NEITHER desktop nor mobile blocks submission on these;
+      // they're warnings only. Surfacing them on mobile so commish + owners
+      // can spot real-data violations like the 3-year cap breaches the
+      // 2026-05-16 audit found (franchises with 8-9 three-year contracts).
+      var loadedOver = r.loaded > 5;
+      var threeYrOver = r.threeYearNonRookie > 6;
+      var limitChips = '';
+      if (r.loaded > 0) {
+        limitChips += ' <span class="tag ' + (loadedOver ? "danger" : "neutral") + '">Loaded ' + r.loaded + '/5</span>';
+      }
+      if (r.threeYearNonRookie > 0) {
+        limitChips += ' <span class="tag ' + (threeYrOver ? "danger" : "neutral") + '">3Y ' + r.threeYearNonRookie + '/6</span>';
+      }
       html += '<div class="ups-m-salsum-row' + (isMe ? " me" : "") + '" data-fid="' + U.escapeHtml(r.fid) + '">' +
         '<div class="team">' + U.escapeHtml(r.name) +
           (r.irCount ? ' <span class="tag ir">' + r.irCount + ' IR</span>' : '') +
           (r.taxiCount ? ' <span class="tag tx">' + r.taxiCount + ' TX</span>' : '') +
           (r.adjustmentTotal ? ' <span class="tag adj">Adj ' + (r.adjustmentTotal > 0 ? "+" : "−") +
             U.fmtUsd(Math.abs(r.adjustmentTotal)) + '</span>' : '') +
+          limitChips +
         '</div>' +
         '<div class="num">' + U.fmtUsd(r.capTotal) + '</div>' +
         '<div class="num ' + roomClass + '">' + U.fmtUsd(r.capRoom) + '</div>' +

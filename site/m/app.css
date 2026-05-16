@@ -244,6 +244,11 @@ body { min-height: 100vh; }
 .ups-m-salsum-row .team .tag.ir { color: var(--danger); }
 .ups-m-salsum-row .team .tag.tx { color: var(--teal); }
 .ups-m-salsum-row .team .tag.adj { color: var(--warn); }
+.ups-m-salsum-row .team .tag.neutral { color: var(--fg-muted); }
+.ups-m-salsum-row .team .tag.danger {
+  color: #fff;
+  background: var(--danger);
+}
 .ups-m-salsum-row .num {
   text-align: right;
   font-variant-numeric: tabular-nums;

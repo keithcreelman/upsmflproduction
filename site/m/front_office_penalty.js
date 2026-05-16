@@ -228,6 +228,23 @@
     if (yr <= 0) return null;
     return new Date(yr, 11, 31, 23, 59, 59, 999);
   }
+  // !!! TABLED CROSS-CODEBASE MIGRATION — DO NOT FIX IN MOBILE-ONLY PATCH !!!
+  // Canonical rule (league_context_v1.md §6B, effective 2026-05-08) is
+  // PER-WEEK pro-rated earning: earned = (completed_eligible_weeks /
+  // total_eligible_weeks) × year's salary, with the denominator anchored
+  // to the acquisition week (17 for auction, 18-W for week-W pickups).
+  // This function uses LEGACY 2019-era calendar-quarter milestones,
+  // matching the same legacy code in roster_workbench.js:1777 verbatim.
+  //
+  // The worker DOES use per-week math (worker/src/lib/cap_penalty.js
+  // earnedPerWeek) for actual cap charges. So this function's output is
+  // a CLIENT-SIDE PREVIEW that drifts from what the worker will charge
+  // by roughly $1-3K depending on drop week.
+  //
+  // Audit (2026-05-16) confirmed: drift is in BOTH desktop + mobile,
+  // tabled by Keith via memory project_ww_penalty_prorate_migration.md.
+  // Mobile must NOT diverge from desktop on this — fix cross-codebase or
+  // not at all. See worker/src/lib/cap_penalty.js for the canonical model.
   function proratedEarnedForDrop(season, amount, dropDate) {
     var yr = safeInt(season, 0);
     var salary = Math.max(0, safeInt(amount, 0));
@@ -350,6 +367,15 @@
         accrued: accrued, earned: earned
       };
     }
+    // !!! TABLED CROSS-CODEBASE MIGRATION — DO NOT FIX MOBILE-ONLY !!!
+    // Canonical rule (league_context_v1.md §D1.4, effective 2026-05-08)
+    // RETIRED the flat 35% WW rule. WW $5K+ pickups now use the same
+    // 75% × TCV − earned formula as auction contracts, with per-week
+    // pro-rated earning anchored to the acquisition week.
+    // This 35% short-circuit is LEGACY, matching roster_workbench.js:1896
+    // verbatim. The worker uses canonical math; this is preview-only drift.
+    // Tabled by Keith per memory project_ww_penalty_prorate_migration.md.
+    // Mobile must not diverge from desktop — fix cross-codebase or skip.
     if (isLikelyWaiverPickup(player) && contractLength === 1 && currentYearSalary >= 5000) {
       var waiverAmount = Math.round(currentYearSalary * 0.35);
       return {
