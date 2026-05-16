@@ -7,7 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
-  var BUILD = "2026.05.16.ext-block";
+  var BUILD = "2026.05.16.limits";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -551,6 +551,42 @@
     });
     return ids;
   }
+  // Roster-level contract limits — verbatim mirror of desktop's
+  // contractLimitSummaryForPlayers (roster_workbench.js:814-830). Returns
+  // counts that map to §6G canonical caps:
+  //   loaded ≤ 5 (FL/BL combined: MYAC + Ext2 + Restructure)
+  //   threeYearNonRookie ≤ 6 (excludes rookie 3-yr deals)
+  // Neither desktop nor mobile BLOCKS submission on these caps — they're
+  // displayed as warning chips so owners + commish can see breaches. The
+  // audit-driven catch (2026-05-16) is that mobile previously omitted the
+  // chips entirely; this helper enables them.
+  function contractLimitsFor(fid) {
+    var rows = getRosterFor(fid);
+    var threeYearNonRookie = 0;
+    var loaded = 0;
+    rows.forEach(function (r) {
+      if (!r) return;
+      var cy = safeStr(r.contractYear);
+      var t = safeStr(r.contractStatus).toLowerCase().replace(/[^a-z0-9]/g, "");
+      var isRookie = t.indexOf("rookie") !== -1 || t === "r" || /^r-/.test(t);
+      var isLoaded =
+        t === "fl" ||
+        t === "bl" ||
+        t.indexOf("frontloaded") !== -1 ||
+        t.indexOf("backloaded") !== -1;
+      // Desktop's check is `player.years === 3` — mobile rosterRow uses
+      // contractYear (years REMAINING). The intent matches: a 3-year
+      // contract has years==3 at signing, year-1 has years==2, etc.
+      // For the cap we count contracts that ARE 3-year length — i.e.
+      // contractYear == 3 (remaining) on the year they were signed. The
+      // canonical desktop check is contractYear === 3 at the moment of
+      // counting; that matches our reading.
+      if (parseInt(cy, 10) === 3 && !isRookie) threeYearNonRookie += 1;
+      if (isLoaded) loaded += 1;
+    });
+    return { loaded: loaded, threeYearNonRookie: threeYearNonRookie };
+  }
+
   // Build a Set of all pids on ANY franchise's roster (used to identify FAs).
   // Cached on state to avoid re-scanning roster export on every render.
   function getAllRosteredPids() {
@@ -1155,6 +1191,7 @@
       findFranchiseById: findFranchiseById,
       getAdjustmentTotalFor: getAdjustmentTotalFor,
       computeCap: computeCap,
+      contractLimitsFor: contractLimitsFor,
       // Drop-penalty + contract math: delegated entirely to
       // window.UPS_FRONT_OFFICE (site/m/front_office_penalty.js).
       // Callers that need contract math should use UPS_FRONT_OFFICE.* directly

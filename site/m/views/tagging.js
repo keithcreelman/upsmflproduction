@@ -65,8 +65,9 @@
     var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
     if (!FOA) return { OFFENSE: null, DEFENSE: null };
     var rows = teamRosterRowsWithPos(fid);
-    var off = FOA.activeTaggedPlayerForTeam(rows, "OFFENSE", M.state.tagSubmissions || [], fid);
-    var def = FOA.activeTaggedPlayerForTeam(rows, "DEFENSE", M.state.tagSubmissions || [], fid);
+    var tracking = M.state.tagTracking || [];
+    var off = FOA.activeTaggedPlayerForTeam(rows, "OFFENSE", M.state.tagSubmissions || [], fid, tracking);
+    var def = FOA.activeTaggedPlayerForTeam(rows, "DEFENSE", M.state.tagSubmissions || [], fid, tracking);
     return { OFFENSE: off || null, DEFENSE: def || null };
   }
 

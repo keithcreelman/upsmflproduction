@@ -293,11 +293,30 @@
     return null;
   }
 
-  function activeTaggedPlayerForTeam(rosterRows, side, tagSubmissions, fid) {
+  // Stale-tag filter ported from roster_workbench.js:7132. A roster row
+  // with type=TAG is "stale" if tag_tracking has a row for this player
+  // with tag_prev_season=1 — meaning the tag is left over from a prior
+  // season and shouldn't count as occupying the current-season slot.
+  // Without this filter, mobile reported false-positive slot conflicts
+  // (Locked button) for the same player desktop showed as taggable.
+  function isStaleTagFromPriorSeason(rosterRow, tagTracking) {
+    if (!rosterRow) return false;
+    var pid = safeStr(rosterRow.id || rosterRow.player_id).replace(/\D/g, "");
+    if (!pid) return false;
+    var rows = Array.isArray(tagTracking) ? tagTracking : [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i] || {};
+      if (safeStr(row.player_id).replace(/\D/g, "") !== pid) continue;
+      if (safeInt(row.tag_prev_season, 0)) return true;
+    }
+    return false;
+  }
+
+  function activeTaggedPlayerForTeam(rosterRows, side, tagSubmissions, fid, tagTracking) {
     // Roster-first: a player on this team with type="TAG" and matching side
-    // is the active tag (unless stale from a prior season — Front Office
-    // checks via isStaleTagFromPriorSeason which needs more state; mobile
-    // falls back to "if it's on roster as TAG, treat as active").
+    // is the active tag, UNLESS isStaleTagFromPriorSeason flags it as a
+    // leftover from a prior season (in which case the slot is open).
+    // Fallback: scan tag submissions for an unaccompanied "tag" record.
     var normalizedSide = normalizeTagSideValue(side) || "OFFENSE";
     var list = Array.isArray(rosterRows) ? rosterRows : [];
     for (var i = 0; i < list.length; i++) {
@@ -306,6 +325,7 @@
       if (safeStr(p.contractStatus).toUpperCase() !== "TAG") continue;
       var pos = safeStr(p.position || p.positionGroup).toUpperCase();
       if ((getTagSideFromPos(pos) || "OFFENSE") !== normalizedSide) continue;
+      if (isStaleTagFromPriorSeason(p, tagTracking)) continue;
       return p;
     }
     return trackedTaggedPlayerForFranchiseSide(tagSubmissions, fid, normalizedSide);
@@ -349,7 +369,7 @@
     // back to position-derived side for safety.
     var side = normalizeTagSideValue(planRow.tag_side || planRow.side) ||
                getTagSideFromPos(planRow.position);
-    var active = activeTaggedPlayerForTeam(rosterRowsWithPos, side, tagSubmissions, fid);
+    var active = activeTaggedPlayerForTeam(rosterRowsWithPos, side, tagSubmissions, fid, tagTracking);
     var activePid = active ? String(active.id || active.player_id || "").replace(/\D/g, "") : "";
 
     if (activePid && activePid === pid) return { kind: "untag", row: planRow };
