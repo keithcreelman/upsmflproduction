@@ -179,10 +179,14 @@ body { min-height: 100vh; }
   border-radius: 10px;
 }
 .ups-m-team-icon {
-  width: 44px;
-  height: 44px;
+  /* MFL franchise icons are often horizontal banners (e.g. wordmarks),
+     not squares. Cropping to a 44x44 square cuts off the brand text.
+     Use a wider aspect with `object-fit: contain` so banner-style icons
+     show fully; square icons just letterbox naturally. */
+  width: 88px;
+  height: 56px;
   border-radius: 8px;
-  object-fit: cover;
+  object-fit: contain;
   background: var(--bg-elev2);
   flex: 0 0 auto;
 }
