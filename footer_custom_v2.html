@@ -854,8 +854,21 @@
 </a>
 <script>
   (function () {
-    // Preserve league + year context when jumping to the mobile app so
-    // the user lands on the same league they were viewing.
+    // Preserve league + year + MFL identity when jumping to the mobile
+    // app so the user lands on the same league AND auto-authenticates
+    // without needing the franchise picker.
+    //
+    // MFL_USER_ID is set by MFL on myfantasyleague.com login. Since this
+    // footer is INJECTED INTO MFL'S OWN PAGES via the customFooter
+    // mechanism, our document.cookie read is same-origin and grabs the
+    // real MFL_USER_ID. We forward it as ?MFL_USER_ID=... so the mobile
+    // app can stash it in localStorage and pass it to /api/me — the
+    // Cloudflare worker uses it to resolve which franchise this user
+    // owns via the MFL myleagues lookup.
+    function readCookie(name) {
+      var m = document.cookie.match(new RegExp("(?:^|;\\s*)" + name + "=([^;]+)"));
+      return m ? decodeURIComponent(m[1]) : "";
+    }
     try {
       var btn = document.getElementById("ups-switch-app-btn");
       if (!btn) return;
@@ -863,8 +876,10 @@
       var m = (window.location.pathname || "").match(/\/(\d{4})\/[a-zA-Z_]+\/(\d{4,6})/);
       var year = m ? m[1] : "2026";
       var league = m ? m[2] : "74598";
-      btn.href = "https://keithcreelman.github.io/upsmflproduction/m/?L=" +
-        encodeURIComponent(league) + "&YEAR=" + encodeURIComponent(year);
+      var mflUserId = readCookie("MFL_USER_ID");
+      var qs = "?L=" + encodeURIComponent(league) + "&YEAR=" + encodeURIComponent(year);
+      if (mflUserId) qs += "&MFL_USER_ID=" + encodeURIComponent(mflUserId);
+      btn.href = "https://keithcreelman.github.io/upsmflproduction/m/" + qs;
     } catch (e) {
       // Silent — button still links to /m/ root.
     }
