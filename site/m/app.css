@@ -239,8 +239,8 @@ body { min-height: 100vh; }
 .ups-m-salsum-head,
 .ups-m-salsum-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) 56px 56px 36px 44px;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1.4fr) 54px 54px 50px 36px 44px;
+  gap: 5px;
   padding: 8px 10px;
   align-items: center;
   font-size: 12px;
@@ -1115,6 +1115,19 @@ button.ups-m-busy::before,
    below wins via specificity + later-in-stylesheet ordering. */
 .ups-m-standings-table tr.champion td { background: rgba(255, 215, 0, 0.10); }
 .ups-m-standings-table tr.champion td.team { font-weight: 700; }
+.ups-m-standings-table .title-num {
+  display: inline-block;
+  margin-left: 2px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffe7a1;
+  background: rgba(255, 215, 0, 0.18);
+  border: 1px solid rgba(255, 215, 0, 0.35);
+  border-radius: 4px;
+  vertical-align: 1px;
+  letter-spacing: 0.02em;
+}
 .ups-m-standings-legend {
   margin-top: 6px;
   font-size: 10px;

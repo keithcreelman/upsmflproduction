@@ -196,9 +196,10 @@
         // OTB is per-franchise (only the viewer's OTB list applies). The
         // CL/YR/TCV/Type chips remain identical to My Team Contracts.
         var status = U.safeStr(r.status);
+        var isTaxi = /taxi/i.test(status);
         var statusBits = [];
         if (cy === 0) statusBits.push('<span class="badge exp">Expired</span>');
-        if (/taxi/i.test(status)) statusBits.push('<span class="badge tx">Taxi</span>');
+        if (isTaxi) statusBits.push('<span class="badge tx">Taxi</span>');
         if (/ir|injured/i.test(status)) statusBits.push('<span class="badge ir">IR</span>');
         var chips = [
           (cl ? '<span class="chip">CL ' + cl + '</span>' : ''),
@@ -207,6 +208,22 @@
           (typeRaw ? '<span class="chip type">' + U.escapeHtml(typeRaw) + '</span>' : ''),
           statusBits.join(" ")
         ].filter(Boolean).join(" ");
+        // Taxi salary derivation: MFL strips salary from taxi players in
+        // the rosters export (verified 2026-05-16). Use the §A1.4 rookie
+        // pay table via DATA.deriveTaxiSalary for taxi rows. For active /
+        // IR rows, the MFL row.salary is authoritative.
+        var displaySalary = Number(r.salary || 0);
+        var salaryColor = "";
+        if (isTaxi && DATA.deriveTaxiSalary) {
+          var derived = DATA.deriveTaxiSalary(r);
+          if (derived && derived.ok) {
+            displaySalary = derived.salary;
+            salaryColor = "var(--teal)";  // teal = derived/off-cap
+          }
+        }
+        var salaryHtml = (isTaxi && salaryColor)
+          ? '<div class="salary" style="color:' + salaryColor + '">' + U.fmtUsd(displaySalary) + '</div>'
+          : '<div class="salary">' + U.fmtUsd(displaySalary) + '</div>';
         listHtml += '' +
           '<div class="ups-m-player-row rich" data-pid="' + U.escapeHtml(r.id) + '">' +
             '<div class="pos ' + posClass(pos) + '">' + U.escapeHtml(pos) + '</div>' +
@@ -218,8 +235,7 @@
               '</div>' +
               '<div class="sub chips-row">' + chips + '</div>' +
             '</div>' +
-            '<div class="right">' +
-              '<div class="salary">' + U.fmtUsd(r.salary) + '</div>' +
+            '<div class="right">' + salaryHtml +
             '</div>' +
           '</div>';
       });
@@ -250,6 +266,22 @@
   // match the cap card on each team's own Contracts page exactly.
   // Contract-limit chips (Loaded N/5, 3Y N/6) mirror desktop's
   // §6G compliance warnings — see contractLimitsFor in app.js.
+  // Sum salary for expiring (cy=1) players on a franchise — useful for
+  // FA Auction prep ("how much cap am I freeing up by not extending?").
+  // Keith MobileNotesV1: "Add a column for Expiring Salary in the
+  // summary roster tables."
+  function expiringSalaryFor(fid) {
+    var rows = DATA.getRosterFor ? DATA.getRosterFor(fid) : [];
+    var total = 0;
+    rows.forEach(function (r) {
+      if (!r) return;
+      if (U.safeInt(r.contractYear, 0) === 1) {
+        total += Number(r.salary || 0);
+      }
+    });
+    return total;
+  }
+
   function renderSalarySummary() {
     var franchises = (M.state.franchises || []).slice();
     var rows = franchises.map(function (f) {
@@ -268,7 +300,8 @@
         taxiCount: cap.taxiCount || 0,
         adjustmentTotal: cap.adjustmentTotal || 0,
         loaded: limits.loaded,
-        threeYearNonRookie: limits.threeYearNonRookie
+        threeYearNonRookie: limits.threeYearNonRookie,
+        expiring: expiringSalaryFor(f.id)
       };
     });
     // Sort: viewer first, then by cap used descending so over-cap teams
@@ -289,6 +322,7 @@
         '<div class="team">Team</div>' +
         '<div class="num">Used</div>' +
         '<div class="num">Room</div>' +
+        '<div class="num">Exp</div>' +
         '<div class="num">%</div>' +
         '<div class="num">Ros</div>' +
       '</div>';
@@ -320,6 +354,7 @@
         '</div>' +
         '<div class="num">' + U.fmtUsd(r.capTotal) + '</div>' +
         '<div class="num ' + roomClass + '">' + U.fmtUsd(r.capRoom) + '</div>' +
+        '<div class="num">' + (r.expiring > 0 ? U.fmtUsd(r.expiring) : '—') + '</div>' +
         '<div class="num">' + r.pct + '%</div>' +
         '<div class="num">' + r.activeCount + '/' + r.rosterCount + '</div>' +
       '</div>';
@@ -494,6 +529,22 @@
     if (!c) return false;
     return U.pad4(c.franchise_id) === U.pad4(row && row.franchise_id);
   }
+  // Champion title number for this franchise as of this season — pulls
+  // from champions_panels.json `recent_winners[].title_number` which
+  // counts cumulative titles for that owner. e.g. Pure Greatness winning
+  // 2025 with title_number=1 means it's their 1st championship.
+  function championTitleNumber(row, year) {
+    var champs = state.championsByYear || {};
+    var c = champs[String(year)];
+    if (!c || U.pad4(c.franchise_id) !== U.pad4(row && row.franchise_id)) return 0;
+    return parseInt(c.title_number, 10) || 0;
+  }
+  function ordinal(n) {
+    if (!n) return "";
+    var s = ["th", "st", "nd", "rd"];
+    var v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
 
   function renderStandings(mount) {
     // Lazy-load champion panels (trophy badges).
@@ -568,7 +619,13 @@
       // class so styling layers cleanly.
       var rowClass = (champ ? "champion" : "") + (winner ? " div-winner" : "");
       var badges = "";
-      if (champ) badges += '<span class="div-crown" title="League Champion">🏆</span> ';
+      if (champ) {
+        // Title count shown after the trophy: "🏆 3rd title" etc. Pulled
+        // from champions_panels.json title_number for that year row.
+        var titleN = championTitleNumber(r, year);
+        var titleSuffix = titleN > 0 ? ' <span class="title-num">' + ordinal(titleN) + ' title</span>' : '';
+        badges += '<span class="div-crown" title="League Champion">🏆</span>' + titleSuffix + ' ';
+      }
       if (winner) badges += '<span class="div-crown" title="Division Winner">👑</span> ';
       // Rank column shows the END-OF-SEASON FINISH when available
       // (1-12, where 1 = champion). Falls back to display order when
