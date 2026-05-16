@@ -468,6 +468,38 @@
   // - ok=true when eligible AND not blocked
   // - reason populated when ok=false to allow UI to show the explanation
   //   (e.g. "HammerTime 🔨 ⏰ has already extended this player.")
+  // Was-tagged-this-season check. Per league_context §C8.2:
+  //   "Once tagged, player CANNOT be extended OR MYM'd by ANY team
+  //    in the year tagged. Exception: if cut BEFORE FA Auction starts,
+  //    tag is nullified and normal rules resume."
+  //
+  // A reverted-but-not-cut player still counts as TAGGED for this rule.
+  // The check scans state.tagSubmissions for any "tag" action this
+  // season matching the player_id. If found, extension is blocked.
+  //
+  // (The "if cut before auction" exception requires the player to no
+  // longer be on the franchise's roster — we deliberately don't try to
+  // detect that here because if a player WAS cut they aren't being
+  // rendered as an extension candidate anyway.)
+  function wasTaggedThisSeason(playerId, currentSeason) {
+    var s = window.UPS_MOBILE && window.UPS_MOBILE.state;
+    var subs = (s && s.tagSubmissions) || [];
+    if (!Array.isArray(subs)) return false;
+    var pid = String(playerId || "").replace(/\D/g, "");
+    var seasonStr = currentSeason != null ? String(currentSeason) : "";
+    for (var i = 0; i < subs.length; i++) {
+      var row = subs[i] || {};
+      if (String(row.player_id || "").replace(/\D/g, "") !== pid) continue;
+      if (seasonStr) {
+        var rowSeason = String(row.season || row.year || "");
+        if (rowSeason && rowSeason !== seasonStr) continue;
+      }
+      var kind = String(row.submission_kind || row.kind || "tag").toLowerCase();
+      if (kind === "tag") return true;
+    }
+    return false;
+  }
+
   function extensionAvailableFor(rosterRow, fid) {
     if (!rosterRow) return { ok: false, reason: "" };
     var adapted = {
@@ -480,6 +512,13 @@
     };
     var base = rosterContractEligibility(adapted);
     if (!base.extensionEligible) return { ok: false, reason: "" };
+    // §C8.2 — a player TAGGED this season (even one who was untagged
+    // back to their prior contract) cannot be extended this season.
+    var s = window.UPS_MOBILE && window.UPS_MOBILE.state;
+    var curSeason = s && s.ctx && s.ctx.year;
+    if (wasTaggedThisSeason(rosterRow.id, curSeason)) {
+      return { ok: false, reason: "Tagged this season — extension blocked (§C8.2)." };
+    }
     if (extensionBlockedByCurrentOwner(adapted)) {
       return { ok: false, reason: extensionBlockedReason(adapted) };
     }

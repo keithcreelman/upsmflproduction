@@ -313,6 +313,34 @@
         html += '</div>';
       }
 
+      // Partial-untag recovery: a player who was TAGGED this season but
+      // whose contractStatus is no longer "TAG" got partway through an
+      // untag — the contract revert succeeded but the unload step didn't
+      // fire. The data state is "still on roster with prior contract."
+      // Expose a one-tap cleanup that just calls unload_player (no
+      // additional contract update, no cap penalty). This is the Malik
+      // Willis case from 2026-05-16.
+      var subs = (window.UPS_MOBILE.state.tagSubmissions) || [];
+      var curYear = window.UPS_MOBILE.state.ctx && window.UPS_MOBILE.state.ctx.year;
+      var pidDigits = String(rosterRow.id || "").replace(/\D/g, "");
+      var hadTagThisSeason = false;
+      for (var ti = 0; ti < subs.length; ti++) {
+        var sub = subs[ti] || {};
+        if (String(sub.player_id || "").replace(/\D/g, "") !== pidDigits) continue;
+        if (curYear && String(sub.season || sub.year || "") && String(sub.season || sub.year) !== String(curYear)) continue;
+        var k = String(sub.submission_kind || sub.kind || "tag").toLowerCase();
+        if (k === "tag") { hadTagThisSeason = true; break; }
+      }
+      var currentlyTagged = U.safeStr(rosterRow.contractStatus).toUpperCase() === "TAG";
+      if (hadTagThisSeason && !currentlyTagged) {
+        html += '<div class="ups-m-sheet-actions">' +
+          '<button class="btn-act drop" data-act="unload-cleanup" ' +
+            'title="Was tagged this season but unload step didn\'t complete. Tap to remove from active roster (no penalty).">' +
+            '⚠ Complete untag (cleanup)' +
+          '</button>' +
+        '</div>';
+      }
+
       if (onBlock && existingNote) {
         html += '<div class="ups-m-otb-note-display"><span class="lbl">Note:</span> ' + U.escapeHtml(existingNote) + '</div>';
       }
@@ -357,12 +385,57 @@
     if (save) save.addEventListener("click", function () { handleOTBSave(save); });
     if (remove) remove.addEventListener("click", function () { handleOTBRemove(remove); });
     if (drop) drop.addEventListener("click", function () { handleDrop(footerState.pid, footerState.name, footerState.rosterRow, drop); });
+    var unloadCleanup = foot.querySelector('[data-act="unload-cleanup"]');
+    if (unloadCleanup) unloadCleanup.addEventListener("click", function () {
+      handleUnloadCleanup(unloadCleanup);
+    });
     var cccButtons = foot.querySelectorAll('[data-act="ccc"]');
     for (var ci = 0; ci < cccButtons.length; ci++) {
       cccButtons[ci].addEventListener("click", function () {
         handleCccAction(this.getAttribute("data-ccc-action"));
       });
     }
+  }
+
+  // Recovery for the partial-untag case. Calls /roster-workbench/action
+  // with unload_player only — no contract update (the contract was
+  // already reverted by the original untag) and no cap penalty (this is
+  // cleanup of a previously incomplete action).
+  function handleUnloadCleanup(btn) {
+    var s = window.UPS_MOBILE.state;
+    var name = footerState.name || "this player";
+    if (!window.confirm("Complete the untag for " + name + "?\n\n" +
+      "This removes them from your active roster. No cap penalty — the contract was already reverted by the earlier untag.")) return;
+    setBusy(btn, true, "Unloading…");
+    var url = window.UPS_MOBILE.api.workerBase() + "/roster-workbench/action";
+    fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "unload_player",
+        league_id: s.ctx.leagueId,
+        season: s.ctx.year,
+        franchise_id: U.pad4(s.viewerFranchiseId),
+        player_id: U.safeStr(footerState.pid)
+      })
+    }).then(function (r) {
+      return r.json().then(function (b) { return { ok: r.ok, status: r.status, body: b }; });
+    }).then(function (resp) {
+      setBusy(btn, false);
+      if (resp.ok) {
+        window.UPS_MOBILE.ui.showToast(name + " removed ✓", "ok");
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
+      var err = (resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status);
+      window.UPS_MOBILE.ui.showToast("Cleanup failed: " + err, "err");
+    }).catch(function (err) {
+      setBusy(btn, false);
+      window.UPS_MOBILE.ui.showToast("Cleanup failed: " + (err && err.message || err), "err");
+    });
   }
 
   // All contract actions run in-app via the verbatim Front Office mirrors.
@@ -784,15 +857,12 @@
     }
     var row = action.row;
     var playerLabel = row.player_name || footerState.name;
-    // Per Keith 2026-05-16: untag is "I changed my mind, I don't want them"
-    // — so the player should come off the roster, not just have the tag
-    // reverted. We run the standard untag (which restores prior contract)
-    // then chain a drop. The pre-FA-auction tag-cut rule (league_context
-    // §C8 + §D2.5) gives the player a $0 cap penalty when this fires
-    // before Aug 1 — so no surprise dead money.
-    if (!window.confirm("Untag and remove " + playerLabel + " from roster?\n\n" +
-        "This reverts the tag contract AND drops the player. Pre-FA-Auction tag cuts are $0 cap penalty.\n\n" +
-        "Sends a DM to the commish (no channel post).")) return;
+    // Untag = revert contract + unload from active (matches desktop
+    // submitUntagPlayer roster_workbench.js:11307). The unload step is
+    // baked into FOT.submitUntag so callers get both in one call.
+    if (!window.confirm("Untag " + playerLabel + "?\n\n" +
+        "Restore: " + U.safeStr(row.contract_status) + " at " + U.fmtUsd(row.salary) + "\n" +
+        "Then remove from roster.")) return;
 
     var player = window.UPS_MOBILE.data.playerById(footerState.pid);
     var btn = document.querySelector('[data-ccc-action="untag"]');
@@ -810,29 +880,19 @@
       dryRun: false,
       commishOverride: false
     }).then(function (resp) {
+      setBusy(btn, false);
       if (!resp.ok) {
-        setBusy(btn, false);
         window.UPS_MOBILE.ui.showToast("Untag failed: " + (resp.error || "unknown error"), "err");
         return;
       }
-      // Chain the drop. ACT.submitDrop POSTs the same /api/mfl-export
-      // TYPE=taxi endpoint the desktop Drop button uses. The tag-cut-
-      // pre-auction rule in front_office_penalty.js will compute $0
-      // penalty since the player is currently type=TAG and now < Aug 1.
-      window.UPS_MOBILE.ui.showToast("Untagged. Dropping " + playerLabel + "…", "info");
-      return ACT.submitDrop(footerState.pid, playerLabel).then(function (dropResp) {
-        setBusy(btn, false);
-        if (dropResp && dropResp.ok !== false) {
-          window.UPS_MOBILE.ui.showToast(playerLabel + " untagged + dropped ✓", "ok");
-        } else {
-          // Untag succeeded, drop failed — surface clearly. Owner
-          // can re-attempt the drop from the player sheet.
-          window.UPS_MOBILE.ui.showToast("Untagged ✓ but drop failed — " + (dropResp && dropResp.error || "try again"), "err");
-        }
-        return window.UPS_MOBILE.actions.reloadData().then(function () {
-          window.UPS_MOBILE.route.renderRoute();
-          close();
-        });
+      if (resp.unloadFailed) {
+        window.UPS_MOBILE.ui.showToast(playerLabel + " untagged — manual drop needed (unload failed)", "err");
+      } else {
+        window.UPS_MOBILE.ui.showToast(playerLabel + " untagged ✓", "ok");
+      }
+      return window.UPS_MOBILE.actions.reloadData().then(function () {
+        window.UPS_MOBILE.route.renderRoute();
+        close();
       });
     }).catch(function (err) {
       setBusy(btn, false);
