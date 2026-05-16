@@ -7,7 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
-  var BUILD = "2026.05.16.optimistic-tag";
+  var BUILD = "2026.05.16.auto-auth";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -206,6 +206,25 @@
     if (fidQs) {
       try { window.localStorage && window.localStorage.setItem("rdh_my_fid", pad4(fidQs)); } catch (e) {}
     }
+    // MFL identity bootstrap (Keith 2026-05-16: "shouldn't need to pick
+    // franchise — should auto-auth"). The Switch-to-App-View button on
+    // the desktop MFL site reads document.cookie["MFL_USER_ID"] (same-
+    // origin from myfantasyleague.com) and forwards it here as a URL
+    // param. We persist it in localStorage so subsequent visits skip
+    // the picker too. fetchMe() forwards it to /api/me which resolves
+    // the owning franchise via MFL's myleagues lookup.
+    var mflUserIdQs = qs.get("MFL_USER_ID") || qs.get("mfl_user_id");
+    if (mflUserIdQs) {
+      try {
+        window.localStorage && window.localStorage.setItem("ups_mfl_user_id", String(mflUserIdQs));
+      } catch (e) {}
+    }
+  }
+  function getStoredMflUserId() {
+    try {
+      var v = window.localStorage && window.localStorage.getItem("ups_mfl_user_id");
+      return v ? String(v) : "";
+    } catch (e) { return ""; }
   }
 
   // ---------- Data fetch ----------
@@ -290,9 +309,20 @@
   }
 
   function fetchMe() {
-    // /api/me — viewer franchise resolution via MFL_USER_ID cookie.
-    // Same endpoint team_operations.js uses for the same purpose.
-    return fetch(workerUrl("/api/me"), { credentials: "include", mode: "cors" })
+    // /api/me — viewer franchise resolution. Two paths:
+    //   1. MFL_USER_ID cookie on the WORKER'S domain (auto-set when
+    //      desktop hubs bootstrap via _rdhSetCookie). Browser sends it
+    //      via credentials:include.
+    //   2. MFL_USER_ID URL param — used by the mobile bootstrap when the
+    //      Switch-to-App-View button on the desktop site forwarded it
+    //      from MFL's same-origin cookie. Persisted to localStorage so
+    //      subsequent visits don't need to re-bootstrap.
+    // Either path resolves to franchise_id + franchise_name via
+    // _rdhDetectFranchise on the worker side.
+    var url = workerUrl("/api/me");
+    var stored = getStoredMflUserId();
+    if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
+    return fetch(url, { credentials: "include", mode: "cors" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .catch(function () { return null; });
   }
@@ -1007,10 +1037,12 @@
   }
 
   function renderFranchisePicker(main) {
-    // Shown when no viewer franchise can be resolved (the common case when
-    // the mobile site is hit directly on github.io — MFL cookies are
-    // cross-origin and unreadable). User picks once; the fid persists in
-    // localStorage (same key team_operations.js uses).
+    // Shown ONLY when /api/me couldn't resolve a franchise (no
+    // MFL_USER_ID forwarded via the Switch-to-App-View button on the
+    // desktop site, and no MFL session cookie on the worker domain).
+    // The clean path is: log into MFL → tap "Switch to App View" → land
+    // here pre-authenticated. This picker is the fallback for cold
+    // visits that bypassed the desktop entry.
     var opts = state.franchises.map(function (f) {
       return '<button class="ups-m-pick-row" data-fid="' + escapeHtml(f.id) + '">' +
         '<span class="num">' + escapeHtml(f.id) + '</span>' +
@@ -1022,7 +1054,7 @@
       '<div class="ups-m-card">' +
         '<div class="ups-m-card-title">Choose your team</div>' +
         '<div style="font-size:12px;color:var(--fg-muted);margin-bottom:10px">' +
-        'We can\'t read MFL\'s session from this device. Pick your franchise once — we\'ll remember it.' +
+        'For automatic sign-in, open the UPS site on MFL while logged in and tap the "📱 Switch to App View" button. Or pick your franchise once below — we\'ll remember it.' +
         '</div>' +
         '<div class="ups-m-pick-list">' + opts + '</div>' +
       '</div>';
