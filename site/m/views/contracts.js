@@ -36,16 +36,17 @@
   }
 
   function statusBadges(rosterRow, otbIds) {
+    // Contract-type badge (e.g. BL, Rookie) is already rendered as a
+    // typed chip in the chips row, so we intentionally skip it here to
+    // avoid the duplicate Keith called out (BL/BL, Rookie/Rookie).
     var out = [];
     var cy = parseInt(rosterRow.contractYear, 10);
     var status = U.safeStr(rosterRow.status);
-    var contractStatus = U.safeStr(rosterRow.contractStatus);
     if (cy === 0) out.push('<span class="badge exp">Expired</span>');
     if (/taxi/i.test(status)) out.push('<span class="badge tx">Taxi</span>');
     if (/ir|injured/i.test(status)) out.push('<span class="badge ir">IR</span>');
     if (otbIds && otbIds.has(String(rosterRow.id))) out.push('<span class="badge otb">On Block</span>');
     if (cy === 1) out.push('<span class="badge ext">Ext Eligible</span>');
-    if (contractStatus) out.push('<span class="badge">' + U.escapeHtml(contractStatus) + '</span>');
     return out.join(" ");
   }
 
@@ -148,9 +149,12 @@
         var tcv = ct.tcv;
         var typeRaw = U.safeStr(r.contractStatus);
         var logo = nflLogoUrl(team);
+        // Skip YR chip when expired — the EXPIRED badge below already
+        // conveys it, and "YR 0" is more useful than "YR exp" when
+        // someone genuinely has 0 years remaining (the Keith call out).
         var chips = [
           (cl ? '<span class="chip">CL ' + cl + '</span>' : ''),
-          '<span class="chip">YR ' + (yr === 0 ? "exp" : yr) + '</span>',
+          (yr > 0 ? '<span class="chip">YR ' + yr + '</span>' : ''),
           (tcv ? '<span class="chip">TCV ' + U.fmtUsd(tcv) + '</span>' : ''),
           (typeRaw ? '<span class="chip type">' + U.escapeHtml(typeRaw) + '</span>' : ''),
           statusBadges(r, otbIds)

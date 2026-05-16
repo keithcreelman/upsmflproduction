@@ -549,13 +549,14 @@
     if (ov) ov.remove();
     document.body.style.overflow = "";
   }
+  // Restructure renderer — builds the sheet ONCE, then per-keystroke
+  // calls updateRestructurePreview() to refresh derived spans / error
+  // line / submit button state IN PLACE. Keeps focus on the input.
   function renderRestructureSheet() {
     ensureRstrMount();
     var body = document.getElementById("ups-m-rstr-body");
-    var FOR = window.UPS_FRONT_OFFICE_RSTR;
     if (!body) return;
     var s = restructureState;
-    var calc = FOR.restructureCalc({ years: s.years, tcv: s.tcv, y1: s.y1, y2: s.y2 });
     var minY1 = Math.ceil((s.tcv * 0.2) / 1000) * 1000;
     body.innerHTML = '' +
       '<div class="ups-m-rstr-summary">' +
@@ -573,30 +574,55 @@
       '</div>' : '') +
       '<div class="ups-m-rstr-derived">' +
         (s.years === 2
-          ? '<div class="row"><span class="lbl">Year 2 (auto):</span> <span class="val">' + U.fmtUsd(s.tcv - s.y1) + '</span></div>'
-          : '<div class="row"><span class="lbl">Year 3 (auto):</span> <span class="val">' + U.fmtUsd(s.tcv - s.y1 - s.y2) + '</span></div>') +
-        '<div class="row"><span class="lbl">AAV:</span> <span class="val">' + U.fmtUsd(calc.aav) + '</span></div>' +
-        (calc.ok ? '<div class="row"><span class="lbl">GTD:</span> <span class="val">' + U.fmtUsd(calc.gtd) + '</span></div>' : '') +
+          ? '<div class="row"><span class="lbl">Year 2 (auto):</span> <span class="val" id="ups-m-rstr-y2auto">—</span></div>'
+          : '<div class="row"><span class="lbl">Year 3 (auto):</span> <span class="val" id="ups-m-rstr-y3auto">—</span></div>') +
+        '<div class="row"><span class="lbl">AAV:</span> <span class="val" id="ups-m-rstr-aav">—</span></div>' +
+        '<div class="row"><span class="lbl">GTD:</span> <span class="val" id="ups-m-rstr-gtd">—</span></div>' +
       '</div>' +
-      (calc.ok
-        ? '<div class="ups-m-rstr-ok">Ready to submit.</div>'
-        : '<div class="ups-m-rstr-err">' + U.escapeHtml(calc.error || "") + '</div>') +
-      '<button class="btn-act otb on" id="ups-m-rstr-submit" ' + (calc.ok ? "" : "disabled") + ' style="width:100%;margin-top:12px">' +
+      '<div id="ups-m-rstr-status"></div>' +
+      '<button class="btn-act otb on" id="ups-m-rstr-submit" style="width:100%;margin-top:12px">' +
         'Submit Restructure' +
       '</button>';
 
     var y1Inp = document.getElementById("ups-m-rstr-y1");
     if (y1Inp) y1Inp.addEventListener("input", function (e) {
       restructureState.y1 = parseInt(e.target.value, 10) || 0;
-      renderRestructureSheet();
+      updateRestructurePreview();
     });
     var y2Inp = document.getElementById("ups-m-rstr-y2");
     if (y2Inp) y2Inp.addEventListener("input", function (e) {
       restructureState.y2 = parseInt(e.target.value, 10) || 0;
-      renderRestructureSheet();
+      updateRestructurePreview();
     });
     var submit = document.getElementById("ups-m-rstr-submit");
-    if (submit && calc.ok) submit.addEventListener("click", function () { confirmAndSubmitRestructure(calc); });
+    if (submit) submit.addEventListener("click", function () {
+      var FOR = window.UPS_FRONT_OFFICE_RSTR;
+      var calc = FOR.restructureCalc({
+        years: restructureState.years, tcv: restructureState.tcv,
+        y1: restructureState.y1, y2: restructureState.y2
+      });
+      if (calc.ok) confirmAndSubmitRestructure(calc);
+    });
+    updateRestructurePreview();
+  }
+
+  function updateRestructurePreview() {
+    var FOR = window.UPS_FRONT_OFFICE_RSTR;
+    var s = restructureState;
+    var calc = FOR.restructureCalc({ years: s.years, tcv: s.tcv, y1: s.y1, y2: s.y2 });
+    function setText(id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; }
+    if (s.years === 2) setText("ups-m-rstr-y2auto", U.fmtUsd(s.tcv - s.y1));
+    else setText("ups-m-rstr-y3auto", U.fmtUsd(s.tcv - s.y1 - s.y2));
+    setText("ups-m-rstr-aav", U.fmtUsd(calc.aav));
+    setText("ups-m-rstr-gtd", calc.ok ? U.fmtUsd(calc.gtd) : "—");
+    var status = document.getElementById("ups-m-rstr-status");
+    if (status) {
+      status.innerHTML = calc.ok
+        ? '<div class="ups-m-rstr-ok">Ready to submit.</div>'
+        : '<div class="ups-m-rstr-err">' + window.UPS_MOBILE.util.escapeHtml(calc.error || "") + '</div>';
+    }
+    var submit = document.getElementById("ups-m-rstr-submit");
+    if (submit) submit.disabled = !calc.ok;
   }
 
   function confirmAndSubmitRestructure(calc) {

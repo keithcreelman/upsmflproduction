@@ -292,12 +292,17 @@
           var p = DATA.playerById(token);
           var pos = U.safeStr(p && p.position).toUpperCase();
           var team = U.safeStr(p && p.team);
-          html += '<button class="ups-m-otb-row" data-pid="' + U.escapeHtml(token) + '">' +
+          // Click → open Trade War Room with this player pre-set on the
+          // OTHER team's side (keith 2026-05-15). data-fid carries the
+          // OTB-posting franchise so the URL builder can pin twb_right_team.
+          html += '<button class="ups-m-otb-row" data-pid="' + U.escapeHtml(token) +
+            '" data-fid="' + U.escapeHtml(e.fid) + '">' +
             '<div class="body">' +
               '<div class="name">' + U.escapeHtml(label) + '</div>' +
               '<div class="sub">' +
                 (pos ? '<span>' + U.escapeHtml(pos) + '</span>' : '') +
                 (team ? '<span>' + U.escapeHtml(team) + '</span>' : '') +
+                '<span class="muted">tap to trade →</span>' +
               '</div>' +
             '</div>' +
           '</button>';
@@ -318,7 +323,28 @@
     for (var i = 0; i < rows.length; i++) {
       rows[i].addEventListener("click", function () {
         var pid = this.getAttribute("data-pid");
-        if (pid && M.sheet) M.sheet.open(pid);
+        var partnerFid = this.getAttribute("data-fid");
+        if (!pid) return;
+        // Build the desktop Trade War Room URL with the player + partner
+        // pre-selected on the right side. Matches buildTradeModuleUrl in
+        // site/rosters/roster_workbench.js:7245.
+        var viewerFid = U.pad4(M.state.viewerFranchiseId || "");
+        var ctx = M.state.ctx;
+        var base = "https://www48.myfantasyleague.com/" +
+          encodeURIComponent(ctx.year) + "/home/" +
+          encodeURIComponent(ctx.leagueId);
+        var qs = "MODULE=MESSAGE6%3DN";
+        var hashParams = [
+          "twb_player_id=" + encodeURIComponent(pid),
+          "twb_team_id=" + encodeURIComponent(U.pad4(partnerFid))
+        ];
+        if (viewerFid) hashParams.push("twb_left_team=" + encodeURIComponent(viewerFid));
+        if (partnerFid) {
+          hashParams.push("twb_right_team=" + encodeURIComponent(U.pad4(partnerFid)));
+          hashParams.push("twb_side=partner");
+        }
+        var url = base + "?" + qs + "#" + hashParams.join("&");
+        window.open(url, "_blank");
       });
     }
   }
