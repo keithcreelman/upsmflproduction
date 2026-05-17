@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-05-17 00:55:04",
+    "generated_at": "2026-05-17 13:07:30",
     "source": "contract-activity-log",
-    "count": 14,
+    "count": 15,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "f18fa382885f96922d6e0a46",
+      "submission_id": "f18fa382885f96922d6e0a46",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0011",
+      "franchise_name": "Cleon Ca$h",
+      "player_id": "16161",
+      "player_name": "Robinson, Bijan",
+      "position": "RB",
+      "salary": 35000,
+      "contract_year": 2,
+      "contract_status": "EXT2",
+      "contract_info": "CL 2|TCV 70K|AAV 35K|Y1-35K, Y2-35K|Ext: Cash|GTD: 52.5K",
+      "tcv": 70000,
+      "aav": 35000,
+      "guaranteed": 52500,
+      "submitted_at_utc": "2026-05-17T13:07:19.177Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1505557336096505978",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "e7210f69ab5dadc7a6f4c9a0",
       "submission_id": "e7210f69ab5dadc7a6f4c9a0",
