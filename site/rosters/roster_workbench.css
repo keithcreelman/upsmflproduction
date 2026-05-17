@@ -1094,6 +1094,15 @@
   color: #dff8ea;
 }
 
+/* Permanently promoted from taxi (4th call-up). Canon §B2:
+   normal cut penalties apply going forward; cap-free cut no longer
+   available. Use a muted neutral so it doesn't read as "active state". */
+.rwb-tag.is-taxi-perm {
+  border-color: rgba(180, 180, 180, 0.5);
+  background: rgba(180, 180, 180, 0.18);
+  color: #dadada;
+}
+
 /* ── News-flag icon (next to player name) ──────────────────────────
    Surfaces injuries / headlines without forcing the user to open the
    profile. Depth-chart-only items are explicitly excluded server-side
