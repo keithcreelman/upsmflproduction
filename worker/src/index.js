@@ -174,6 +174,36 @@ export default {
       console.error(`[scheduled hourly] hall overdue-close dispatch failed: ${e && e.message}`);
     }
 
+    // Taxi call-up confirmations (canon §B2 + tracker Q20). Walks
+    // pending=1 rows in ups_taxi_callups; confirms or clears against
+    // MFL weeklyresults. Runs once per hour at the 13:05 UTC firing —
+    // ~Mon 9:05 AM ET, after Sunday games + MNF have finished. Cheap
+    // when no pending rows exist.
+    try {
+      const nowUtcTaxi = new Date();
+      const isPostMnfHour = nowUtcTaxi.getUTCHours() === 13;
+      if (isPostMnfHour && env.UPS_MFL_DB) {
+        ctx.waitUntil((async () => {
+          try {
+            const leagueId = String(env.UPS_LEAGUE_ID || env.L || "74598");
+            const season = String(env.UPS_SEASON || new Date().getUTCFullYear());
+            const internalUrl =
+              `https://upsmflproduction.keith-creelman.workers.dev/api/taxi-callups/confirm`;
+            // Just call our own endpoint to keep the logic in one place.
+            await fetch(internalUrl, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ league_id: leagueId, season: season }),
+            });
+          } catch (e) {
+            console.error(`[scheduled hourly] taxi-callups confirm failed: ${e && e.message}`);
+          }
+        })());
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] taxi-callups confirm dispatch failed: ${e && e.message}`);
+    }
+
     // News warmer (Keith 2026-05-15) — pre-fetch the 6 upstream RSS /
     // JSON sources that /api/player-news fans out to so the Cloudflare
     // edge cache stays hot for the next hour. Without this, the FIRST
@@ -418,6 +448,7 @@ export default {
         path !== "/api/me" &&
         path !== "/api/settings" &&
         path !== "/api/taxi-callups" &&
+        path !== "/api/taxi-callups/confirm" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         !path.startsWith("/api/trades/proposals") &&
@@ -2527,19 +2558,25 @@ export default {
         const playerIds = playerIdsParam
           ? playerIdsParam.split(",").map((id) => id.trim().replace(/\D/g, "")).filter(Boolean)
           : null;
+        // Q20: "used" counts confirmed call-ups only (pending=0). Pending
+        // rows surface separately so the UI can show "Taxi · N/3 (1
+        // pending)" when an owner clicked promote but the NFL week
+        // hasn't certified yet. canon §B2.
+        const selectClause =
+          `SELECT player_id,
+                  SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                  AS used,
+                  SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)            AS pending_count,
+                  MAX(became_permanent)                                                         AS permanent
+             FROM ups_taxi_callups`;
         const out = {};
         try {
-          let stmt;
           if (playerIds && playerIds.length) {
             const chunkSize = 500;
             for (let i = 0; i < playerIds.length; i += chunkSize) {
               const chunk = playerIds.slice(i, i + chunkSize);
               const placeholders = chunk.map(() => "?").join(",");
               const rows = await env.UPS_MFL_DB.prepare(
-                `SELECT player_id,
-                        COUNT(*)              AS used,
-                        MAX(became_permanent) AS permanent
-                   FROM ups_taxi_callups
+                `${selectClause}
                   WHERE player_id IN (${placeholders})
                   GROUP BY player_id`
               ).bind(...chunk).all();
@@ -2548,17 +2585,15 @@ export default {
                 if (!pid) continue;
                 out[pid] = {
                   used: Number(row?.used || 0),
+                  pending: Number(row?.pending_count || 0),
                   max: 3,
                   permanent_promotion: Number(row?.permanent || 0) === 1,
                 };
               }
             }
           } else {
-            stmt = await env.UPS_MFL_DB.prepare(
-              `SELECT player_id,
-                      COUNT(*)              AS used,
-                      MAX(became_permanent) AS permanent
-                 FROM ups_taxi_callups
+            const stmt = await env.UPS_MFL_DB.prepare(
+              `${selectClause}
                 GROUP BY player_id`
             ).all();
             for (const row of stmt?.results || []) {
@@ -2566,6 +2601,7 @@ export default {
               if (!pid) continue;
               out[pid] = {
                 used: Number(row?.used || 0),
+                pending: Number(row?.pending_count || 0),
                 max: 3,
                 permanent_promotion: Number(row?.permanent || 0) === 1,
               };
@@ -2575,6 +2611,173 @@ export default {
           return jsonOut(200, { ok: false, error: e?.message || String(e), players: {} });
         }
         return jsonOut(200, { ok: true, players: out });
+      }
+
+      // ── POST /api/taxi-callups/confirm — confirm pending call-ups against weeklyresults ──
+      // Canon §B2: "Active for the week" = player was on active roster
+      // (or IR) at lineup-lock AND appears in that week's weeklyresults.
+      // Q20 (tracker): pending=1 rows in ups_taxi_callups represent
+      // owner clicks awaiting NFL-week certification. This endpoint
+      // walks them, fetches weeklyresults for the relevant week, and:
+      //   - Player appears in active lineup that week → flip pending=0,
+      //     compute callup_index, flip became_permanent if index >= 4.
+      //   - Player was demoted before the week locked OR doesn't appear
+      //     in weeklyresults → DELETE the row (call-up didn't count).
+      //
+      // Idempotent. Safe to re-run. Triggered manually for now; auto-
+      // cron wiring is a follow-up.
+      //
+      // Body (all optional):
+      //   { league_id, season, week } — limit scope. Defaults to current.
+      //   { dry_run: true } — diagnostic only; no D1 writes.
+      if (path === "/api/taxi-callups/confirm" && request.method === "POST") {
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const scopeLeagueId = safeStr(body?.league_id || L || "");
+        const scopeSeason = safeStr(body?.season || YEAR || "");
+        const scopeWeek = body?.week != null ? Number(body.week) : null;
+        const dryRun = body?.dry_run === true || body?.dry_run === 1;
+        if (!scopeLeagueId || !scopeSeason) {
+          return jsonOut(400, { ok: false, error: "league_id + season required" });
+        }
+        const out = { ok: true, dry_run: dryRun, confirmed: [], cleared: [], skipped: [], errors: [] };
+        try {
+          const params = [scopeSeason];
+          let weekClause = "";
+          if (scopeWeek != null && Number.isFinite(scopeWeek)) {
+            weekClause = " AND (nfl_week IS NULL OR nfl_week = ?)";
+            params.push(scopeWeek);
+          }
+          const pending = await env.UPS_MFL_DB.prepare(
+            `SELECT id, league_id, season, franchise_id, player_id, nfl_week,
+                    called_up_at, demoted_at
+               FROM ups_taxi_callups
+              WHERE pending = 1 AND season = ?${weekClause}
+              ORDER BY called_up_at ASC`
+          ).bind(...params).all();
+          const rowsArr = pending?.results || [];
+          // Cache weeklyresults per (season, week) to avoid refetching.
+          const wkCache = {};
+          const fetchWeekly = async (season, week) => {
+            const key = `${season}|${week}`;
+            if (wkCache[key]) return wkCache[key];
+            try {
+              const url = `https://api.myfantasyleague.com/${encodeURIComponent(season)}/export?TYPE=weeklyResults&L=${encodeURIComponent(scopeLeagueId)}&W=${encodeURIComponent(week)}&JSON=1`;
+              const r = await fetch(url, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 60 } });
+              if (!r.ok) { wkCache[key] = null; return null; }
+              const j = await r.json();
+              wkCache[key] = j;
+              return j;
+            } catch (_) {
+              wkCache[key] = null;
+              return null;
+            }
+          };
+          const wasActiveForWeek = (weekJson, franchiseId, playerId) => {
+            if (!weekJson) return null; // unknown — skip
+            const wr = weekJson.weeklyResults || weekJson;
+            const franchiseList = asArray(wr.franchise || wr.matchup?.franchise || []);
+            for (const fr of franchiseList) {
+              const fid = padFranchiseId(fr?.id);
+              if (fid !== franchiseId) continue;
+              const players = asArray(fr.player || fr.starters?.player || []);
+              for (const p of players) {
+                const pid = String(p?.id || "").replace(/\D/g, "");
+                if (pid === playerId) return true;
+              }
+              return false;
+            }
+            return null; // franchise not in payload — unknown
+          };
+          for (const row of rowsArr) {
+            const rid = row.id;
+            const rPlayerId = String(row.player_id || "");
+            const rFranchiseId = padFranchiseId(row.franchise_id);
+            // If demoted_at is set, the owner demoted before the NFL
+            // week could confirm. Delete the row — call-up didn't count.
+            if (row.demoted_at) {
+              if (!dryRun) {
+                try {
+                  await env.UPS_MFL_DB.prepare(`DELETE FROM ups_taxi_callups WHERE id = ?`).bind(rid).run();
+                } catch (e) {
+                  out.errors.push({ id: rid, reason: "delete_failed", detail: e?.message || String(e) });
+                  continue;
+                }
+              }
+              out.cleared.push({ id: rid, player_id: rPlayerId, franchise_id: rFranchiseId, reason: "demoted_before_confirmation" });
+              continue;
+            }
+            // Determine which NFL week to check. Use the row's nfl_week
+            // if set; otherwise infer from called_up_at (next NFL week
+            // after that timestamp — out of scope for this PR; for now,
+            // skip rows with no week and let a future enhancement infer).
+            let weekToCheck = row.nfl_week != null ? Number(row.nfl_week) : null;
+            if (weekToCheck == null || !Number.isFinite(weekToCheck) || weekToCheck <= 0) {
+              out.skipped.push({ id: rid, player_id: rPlayerId, reason: "no_nfl_week_recorded" });
+              continue;
+            }
+            const wkJson = await fetchWeekly(row.season, weekToCheck);
+            const isActive = wasActiveForWeek(wkJson, rFranchiseId, rPlayerId);
+            if (isActive === null) {
+              out.skipped.push({ id: rid, player_id: rPlayerId, week: weekToCheck, reason: "weeklyresults_unknown" });
+              continue;
+            }
+            if (!isActive) {
+              if (!dryRun) {
+                try {
+                  await env.UPS_MFL_DB.prepare(`DELETE FROM ups_taxi_callups WHERE id = ?`).bind(rid).run();
+                } catch (e) {
+                  out.errors.push({ id: rid, reason: "delete_failed", detail: e?.message || String(e) });
+                  continue;
+                }
+              }
+              out.cleared.push({ id: rid, player_id: rPlayerId, week: weekToCheck, reason: "not_active_for_week" });
+              continue;
+            }
+            // Player was active for the week — confirm. callup_index =
+            // max confirmed index + 1; became_permanent on 4th.
+            const indexRow = await env.UPS_MFL_DB.prepare(
+              `SELECT COALESCE(MAX(callup_index), 0) AS max_idx
+                 FROM ups_taxi_callups
+                WHERE player_id = ? AND pending = 0`
+            ).bind(rPlayerId).first();
+            const nextIndex = Number(indexRow?.max_idx || 0) + 1;
+            const newPermanent = nextIndex >= 4 ? 1 : 0;
+            if (!dryRun) {
+              try {
+                await env.UPS_MFL_DB.prepare(
+                  `UPDATE ups_taxi_callups
+                      SET pending = 0,
+                          callup_index = ?,
+                          became_permanent = ?
+                    WHERE id = ?`
+                ).bind(nextIndex, newPermanent, rid).run();
+              } catch (e) {
+                out.errors.push({ id: rid, reason: "confirm_update_failed", detail: e?.message || String(e) });
+                continue;
+              }
+            }
+            out.confirmed.push({
+              id: rid,
+              player_id: rPlayerId,
+              week: weekToCheck,
+              callup_index: nextIndex,
+              became_permanent: newPermanent === 1,
+            });
+          }
+          out.totals = {
+            confirmed: out.confirmed.length,
+            cleared: out.cleared.length,
+            skipped: out.skipped.length,
+            errors: out.errors.length,
+            inspected: rowsArr.length,
+          };
+        } catch (e) {
+          out.ok = false;
+          out.error = e?.message || String(e);
+        }
+        return jsonOut(out.ok ? 200 : 500, out);
       }
 
       // ── POST /api/settings — accept MFL_USER_ID, look up franchise via myleagues ──
@@ -21903,10 +22106,15 @@ export default {
             for (let i = 0; i < ids.length; i += chunkSize) {
               const chunk = ids.slice(i, i + chunkSize);
               const placeholders = chunk.map(() => "?").join(",");
+              // Q20: split confirmed (pending=0) vs pending (pending=1
+              // and demoted_at IS NULL) so the chip can show
+              // "Taxi · N/3 (M pending)" while NFL weeklyresults
+              // is still pending.
               const rows = await env.UPS_MFL_DB.prepare(
                 `SELECT player_id,
-                        COUNT(*)                            AS used,
-                        MAX(became_permanent)               AS permanent
+                        SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                AS used,
+                        SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)          AS pending_count,
+                        MAX(became_permanent)                                                       AS permanent
                    FROM ups_taxi_callups
                   WHERE player_id IN (${placeholders})
                   GROUP BY player_id`
@@ -21916,6 +22124,7 @@ export default {
                 if (!pid) continue;
                 taxiCallupsByPlayer[pid] = {
                   used: Number(row?.used || 0),
+                  pending: Number(row?.pending_count || 0),
                   max: 3,
                   permanent_promotion: Number(row?.permanent || 0) === 1,
                 };
@@ -22030,6 +22239,7 @@ export default {
                 espn_id: safeStr(pMeta?.espn_id || ""),
                 extension_previews: extensionPreviewsByPlayer[playerId] || [],
                 taxi_callups_used: taxiCallup ? taxiCallup.used : 0,
+                taxi_callups_pending: taxiCallup ? (taxiCallup.pending || 0) : 0,
                 taxi_callups_max: 3,
                 taxi_permanent_promotion: !!(taxiCallup && taxiCallup.permanent_promotion),
               };
@@ -24376,60 +24586,80 @@ export default {
           }
         }
 
-        // Taxi call-up counter increment (canon §B2 + tracker Q10).
-        // UPS-owned: MFL doesn't enforce the 3-call-up budget. Each
-        // promote_taxi burns one of the player's lifetime-window 3 call-ups.
-        // The 4th activation flips the row's became_permanent=1, and from
-        // then on demote-to-taxi must be rejected (see Q10 demote-side
-        // follow-up). The counter sums all ups_taxi_callups rows for the
-        // player — canon §B2's window scope is "3-year taxi-eligibility
-        // window" but we sum all rows since taxi eligibility ends after
-        // the window anyway (no legitimate post-window call-up should
-        // exist).
+        // Taxi call-up state machine (canon §B2 + tracker Q20).
+        // Per canon: a call-up counts toward the 3-call-up budget ONLY
+        // when the player is "active for the week" (on active roster +
+        // appears in weeklyresults). A promote-then-immediate-demote
+        // inside the same NFL week does NOT count.
+        //
+        // State machine:
+        //   pending=1, demoted_at=NULL          — just promoted, awaiting weeklyresults
+        //   pending=1, demoted_at!=NULL         — demoted before confirmation; cron will mark cleared
+        //   pending=0, demoted_at=NULL          — confirmed, on active roster
+        //   pending=0, demoted_at!=NULL         — confirmed (counted), later demoted back to taxi
+        //
+        // The "used" counter visible to owners = COUNT WHERE pending=0.
+        // Pending rows are reported separately so owners see their action
+        // landed even before the NFL week confirms.
+        //
+        // confirmedCount + pendingCount is computed pre-insert so we can
+        // surface a forward-looking "this would be your Nth call-up if
+        // confirmed" hint.
         let taxiCallupRecord = null;
         if (action === "promote_taxi" && verification.ok && env.UPS_MFL_DB) {
           try {
             const countRow = await env.UPS_MFL_DB.prepare(
-              `SELECT COUNT(*) AS n FROM ups_taxi_callups WHERE player_id = ?`
+              `SELECT
+                  SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS confirmed,
+                  SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END) AS pending_open,
+                  MAX(became_permanent) AS permanent
+                 FROM ups_taxi_callups WHERE player_id = ?`
             ).bind(playerId).first();
-            const priorCount = Number(countRow?.n || 0);
-            const callupIndex = priorCount + 1;
-            const becamePermanent = callupIndex >= 4 ? 1 : 0;
+            const confirmedCount = Number(countRow?.confirmed || 0);
+            const pendingOpenCount = Number(countRow?.pending_open || 0);
+            const isAlreadyPermanent = Number(countRow?.permanent || 0) === 1;
+            const tentativeIndex = confirmedCount + pendingOpenCount + 1;
             const nflWeek = Number(body?.nfl_week || body?.nflWeek || url.searchParams.get("nfl_week") || 0) || null;
+            // Insert as PENDING. The cron-confirmation job will flip
+            // pending=0 + set callup_index + flip became_permanent on
+            // the 4th confirmation. Until then this row is "owner
+            // clicked promote but the NFL week hasn't certified it."
             await env.UPS_MFL_DB.prepare(
               `INSERT INTO ups_taxi_callups
                  (league_id, season, franchise_id, player_id, nfl_week,
-                  callup_index, became_permanent, source, acting_user_id,
-                  raw_payload_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                  callup_index, became_permanent, pending,
+                  source, acting_user_id, raw_payload_json)
+               VALUES (?, ?, ?, ?, ?, NULL, 0, 1, ?, ?, ?)`
             ).bind(
               leagueId,
               season,
               franchiseId,
               playerId,
               nflWeek,
-              callupIndex,
-              becamePermanent,
               "worker:promote_taxi",
               String(body?.acting_user_id || body?.actingUserId || "") || null,
               JSON.stringify(body || {})
             ).run();
             taxiCallupRecord = {
-              callup_index: callupIndex,
-              used: callupIndex,
+              tentative_callup_index: tentativeIndex,
+              used: confirmedCount,
+              pending: pendingOpenCount + 1,
               max: 3,
-              became_permanent: becamePermanent === 1,
+              became_permanent: isAlreadyPermanent,
+              note: "pending NFL weeklyresults confirmation",
             };
           } catch (e) {
-            console.warn("[taxi-callup] D1 increment failed:", e?.message || String(e));
+            console.warn("[taxi-callup] D1 pending insert failed:", e?.message || String(e));
           }
         }
 
-        // Taxi call-up demote close-out (canon §B2 + tracker Q10 follow-up).
+        // Taxi call-up demote close-out (canon §B2 + tracker Q10 / Q20).
         // When a demote-to-taxi succeeds, mark the most recent open call-up
-        // row's demoted_at timestamp so the row is "closed" — the call-up
-        // is now bounded in time. Leaves other rows (older closed call-ups)
-        // untouched. No-op when no open row exists.
+        // row's demoted_at timestamp. If that row is still pending=1,
+        // the cron will see the demoted_at + skip confirmation → the
+        // call-up correctly never counts toward the budget. If the row
+        // is pending=0 (already confirmed for an earlier NFL week), it
+        // stays counted — demoting AFTER confirmation doesn't refund.
         if (action === "demote_taxi" && verification.ok && env.UPS_MFL_DB) {
           try {
             await env.UPS_MFL_DB.prepare(
