@@ -5058,6 +5058,26 @@ export default {
           }
         } catch (_) {}
 
+        // R6 IDP-only hard block (league_context_v1.md §A1 Round 6, 2025+).
+        // Round 6 picks must be IDP. League precedent: non-IDP R6 selections
+        // have been reversed AND the pick forfeited as a penalty. Block here
+        // before any MFL write or sim response so the owner sees the reason.
+        if (onClockRound === 6) {
+          const R6_BLOCKED_POSITIONS = new Set(["QB", "RB", "WR", "TE", "PK", "PN"]);
+          const upperPos = safeStr(playerPos).toUpperCase();
+          if (upperPos && R6_BLOCKED_POSITIONS.has(upperPos)) {
+            return jsonOut(400, {
+              ok: false,
+              error: "Round 6 picks are IDP-only (2025+). Per league precedent, non-IDP R6 selections have been reversed AND the pick forfeited as a penalty.",
+              code: "R6_IDP_ONLY",
+              round: onClockRound,
+              player_id: playerId,
+              player_name: playerName,
+              player_position: upperPos,
+            });
+          }
+        }
+
         const fname = await _rdhFranchiseName(fid);
         const slotLabel = (onClockRound != null && onClockSlot != null)
           ? `R${onClockRound}.${String(onClockSlot).padStart(2, "0")}`
