@@ -18619,6 +18619,78 @@ export default {
             return jsonOut(500, { ok: false, error: "Missing MFL owner session for direct MFL submission" });
           }
 
+          // Q6 worker-side backstop for the trade cap-money 50% rule
+          // (canon §A6 + tracker AUDIT_FOLLOWUP_TRACKERS.md Q6).
+          // Client at site/trades/trade_workbench.js:4218 enforces
+          // floor(sumNonTaxiSalary/2000), but a curl / non-desktop caller
+          // could bypass. We resolve live non-taxi salary per side from
+          // the rosters export and reject any side whose traded_salary_
+          // adjustment_k exceeds half the summed selected non-taxi salary.
+          try {
+            const tradesRostersRes = await mflExportJsonWithRetryAsViewer(
+              season, leagueId, "rosters", {}, { useCookie: true }
+            );
+            if (tradesRostersRes.ok) {
+              const liveSalaryByFp = {};
+              const liveTaxiByFp = {};
+              const franchises = asArray(
+                tradesRostersRes.data?.rosters?.franchise ||
+                tradesRostersRes.data?.rosters?.franchises
+              ).filter(Boolean);
+              for (const fr of franchises) {
+                const fid = padFranchiseId(fr?.id || fr?.franchise_id);
+                if (!fid) continue;
+                for (const pl of asArray(fr?.player || fr?.players)) {
+                  const pid = String(pl?.id || "").replace(/\D/g, "");
+                  if (!pid) continue;
+                  const key = `${fid}|${pid}`;
+                  liveSalaryByFp[key] = Number(pl?.salary) || 0;
+                  liveTaxiByFp[key] = String(pl?.status || "").toUpperCase().includes("TAXI");
+                }
+              }
+              for (const team of asArray(payload?.teams)) {
+                const fidSide = padFranchiseId(team?.franchise_id);
+                const tradedK = Number(team?.traded_salary_adjustment_k || 0);
+                if (!fidSide || tradedK <= 0) continue;
+                let sumNonTaxiDollars = 0;
+                for (const a of asArray(team?.selected_assets)) {
+                  if (safeStr(a?.type).toUpperCase() !== "PLAYER") continue;
+                  const pid = String(a?.player_id || "").replace(/\D/g, "");
+                  if (!pid) continue;
+                  const key = `${fidSide}|${pid}`;
+                  if (liveTaxiByFp[key]) continue;
+                  // Prefer live salary lookup; fall back to client-
+                  // supplied salary if the player isn't in the live
+                  // roster snapshot (e.g., post-trade race).
+                  const livePay = liveSalaryByFp[key];
+                  const fallback = Number(a?.salary) || 0;
+                  sumNonTaxiDollars += (livePay > 0 ? livePay : fallback);
+                }
+                const maxK = Math.floor(sumNonTaxiDollars / 2000);
+                if (tradedK > maxK) {
+                  return jsonOut(400, {
+                    ok: false,
+                    error_type: "trade_cap_money_50pct_violation",
+                    error:
+                      `Trade cap-money on franchise ${fidSide} ` +
+                      `(${tradedK}K) exceeds the 50%-of-summed-non-taxi-` +
+                      `salary rule (max ${maxK}K). Canon §A6.`,
+                    code: "TRADE_CAP_MONEY_50PCT",
+                    franchise_id: fidSide,
+                    traded_salary_adjustment_k: tradedK,
+                    max_allowed_k: maxK,
+                    sum_non_taxi_salary_dollars: sumNonTaxiDollars,
+                  });
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("[trade-cap-50pct] backstop check failed:", e?.message || String(e));
+            // Fail-open: don't block legitimate submits if the lookup
+            // crashes. The client-side check + commish manual review
+            // remain in place.
+          }
+
           const proposalAssets = buildTradeProposalAssetLists(payload);
           const willGiveUp = proposalAssets.willGiveUp;
           const willReceive = proposalAssets.willReceive;
