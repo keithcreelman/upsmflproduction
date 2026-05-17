@@ -417,6 +417,7 @@ export default {
         path !== "/api/trade-bait-notes" &&
         path !== "/api/me" &&
         path !== "/api/settings" &&
+        path !== "/api/taxi-callups" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         !path.startsWith("/api/trades/proposals") &&
@@ -2508,6 +2509,72 @@ export default {
           franchise_name,
           is_commish: commishFids.includes(franchise_id),
         });
+      }
+
+      // ── GET /api/taxi-callups — per-player taxi call-up counts ──
+      // Canon §B2 + tracker Q10 follow-up. Mobile fetches MFL rosters
+      // directly via /api/mfl-export, not the worker /roster-workbench
+      // payload — so the mobile UI needs a dedicated endpoint to surface
+      // the call-up counter. Returns one entry per player with at least
+      // one row in ups_taxi_callups; players with zero call-ups are
+      // omitted so the client knows the chip is "default state".
+      // Optional ?player_ids=... filter (CSV) for narrower fetches.
+      if (path === "/api/taxi-callups" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) {
+          return jsonOut(200, { ok: true, players: {} });
+        }
+        const playerIdsParam = safeStr(url.searchParams.get("player_ids") || "");
+        const playerIds = playerIdsParam
+          ? playerIdsParam.split(",").map((id) => id.trim().replace(/\D/g, "")).filter(Boolean)
+          : null;
+        const out = {};
+        try {
+          let stmt;
+          if (playerIds && playerIds.length) {
+            const chunkSize = 500;
+            for (let i = 0; i < playerIds.length; i += chunkSize) {
+              const chunk = playerIds.slice(i, i + chunkSize);
+              const placeholders = chunk.map(() => "?").join(",");
+              const rows = await env.UPS_MFL_DB.prepare(
+                `SELECT player_id,
+                        COUNT(*)              AS used,
+                        MAX(became_permanent) AS permanent
+                   FROM ups_taxi_callups
+                  WHERE player_id IN (${placeholders})
+                  GROUP BY player_id`
+              ).bind(...chunk).all();
+              for (const row of rows?.results || []) {
+                const pid = String(row?.player_id || "");
+                if (!pid) continue;
+                out[pid] = {
+                  used: Number(row?.used || 0),
+                  max: 3,
+                  permanent_promotion: Number(row?.permanent || 0) === 1,
+                };
+              }
+            }
+          } else {
+            stmt = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id,
+                      COUNT(*)              AS used,
+                      MAX(became_permanent) AS permanent
+                 FROM ups_taxi_callups
+                GROUP BY player_id`
+            ).all();
+            for (const row of stmt?.results || []) {
+              const pid = String(row?.player_id || "");
+              if (!pid) continue;
+              out[pid] = {
+                used: Number(row?.used || 0),
+                max: 3,
+                permanent_promotion: Number(row?.permanent || 0) === 1,
+              };
+            }
+          }
+        } catch (e) {
+          return jsonOut(200, { ok: false, error: e?.message || String(e), players: {} });
+        }
+        return jsonOut(200, { ok: true, players: out });
       }
 
       // ── POST /api/settings — accept MFL_USER_ID, look up franchise via myleagues ──
@@ -23883,6 +23950,28 @@ export default {
               gate: r1Gate,
             });
           }
+          // Permanent-promotion guard (canon §B2 + tracker Q10 follow-up).
+          // Once a player's 4th taxi call-up has flipped them to permanent
+          // promotion, they can never return to taxi. Reject the demote
+          // before any MFL write.
+          if (env.UPS_MFL_DB) {
+            try {
+              const permRow = await env.UPS_MFL_DB.prepare(
+                `SELECT MAX(became_permanent) AS permanent FROM ups_taxi_callups WHERE player_id = ?`
+              ).bind(playerId).first();
+              if (Number(permRow?.permanent || 0) === 1) {
+                return jsonOut(400, {
+                  ok: false,
+                  error: "Player has been permanently promoted off taxi (4th call-up) — cannot return to taxi (league_context_v1.md §B2).",
+                  code: "TAXI_PERMANENTLY_PROMOTED",
+                  player_id: playerId,
+                  franchise_id: franchiseId,
+                });
+              }
+            } catch (e) {
+              console.warn("[taxi-callup] D1 permanent-promotion lookup failed:", e?.message || String(e));
+            }
+          }
         }
 
         if (isMembershipRosterAction) {
@@ -24152,6 +24241,28 @@ export default {
             };
           } catch (e) {
             console.warn("[taxi-callup] D1 increment failed:", e?.message || String(e));
+          }
+        }
+
+        // Taxi call-up demote close-out (canon §B2 + tracker Q10 follow-up).
+        // When a demote-to-taxi succeeds, mark the most recent open call-up
+        // row's demoted_at timestamp so the row is "closed" — the call-up
+        // is now bounded in time. Leaves other rows (older closed call-ups)
+        // untouched. No-op when no open row exists.
+        if (action === "demote_taxi" && verification.ok && env.UPS_MFL_DB) {
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `UPDATE ups_taxi_callups
+                  SET demoted_at = datetime('now')
+                WHERE id = (
+                  SELECT id FROM ups_taxi_callups
+                   WHERE player_id = ? AND demoted_at IS NULL
+                   ORDER BY called_up_at DESC
+                   LIMIT 1
+                )`
+            ).bind(playerId).run();
+          } catch (e) {
+            console.warn("[taxi-callup] D1 demoted_at update failed:", e?.message || String(e));
           }
         }
 

@@ -539,7 +539,14 @@
       fetch(workerUrl("/api/league-events?season=" + encodeURIComponent(state.ctx.year) + "&from=today&limit=30"))
         .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetchMe(),
-      fetchHistoricalDraftIndex(state.ctx.year)
+      fetchHistoricalDraftIndex(state.ctx.year),
+      // Taxi call-up counter (canon §B2 + tracker Q10). One row per
+      // player-with-callups; empty entries (used=0) are omitted by the
+      // worker. Failure → empty object → chips render as plain "Taxi"
+      // (no degradation).
+      fetch(workerUrl("/api/taxi-callups"))
+        .then(function (r) { return r.ok ? r.json() : { players: {} }; })
+        .catch(function () { return { players: {} }; })
     ]).then(function (results) {
       state.league = results[0];
       state.rosters = results[1];
@@ -586,6 +593,8 @@
       state.draftResults = results[12] || null;
       state.leagueEvents = results[13] || null;
       state.historicalDraftByPid = results[15] || {};
+      var taxiCallupsResp = results[16] || { players: {} };
+      state.taxiCallupsByPid = (taxiCallupsResp && taxiCallupsResp.players) || {};
       parseLeague();
       resolveViewerFranchise(results[14]);
       // Now that we know the viewer franchise, fetch their UPS-side trade
@@ -1423,6 +1432,14 @@
       rookieSalaryForPick: rookieSalaryForPick,
       parseDraftedField: parseDraftedField,
       deriveTaxiSalary: deriveTaxiSalary,
+      // Taxi call-up counter lookup (canon §B2 + tracker Q10). Returns
+      // { used, max, permanent_promotion } or null if no call-ups have
+      // been recorded for the player. Views use this to render the
+      // "Taxi · N/3" chip + the "Promoted" indicator.
+      taxiCallupsFor: function (playerId) {
+        var map = state.taxiCallupsByPid || {};
+        return map[String(playerId)] || null;
+      },
       // Optimistic-update helpers — after a successful tag/untag the
       // static tag_submissions.json (ETL-regenerated on a schedule) AND
       // MFL salaries export are stale for ~minutes. Without this the UI
