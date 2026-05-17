@@ -24677,21 +24677,68 @@ export default {
           }
         }
 
+        // Q19 fix (Keith 2026-05-17): when the post-import verification
+        // shows the player's status didn't change, the action did NOT
+        // actually land on MFL — even though the import request itself
+        // returned 200. Examples: off-season taxi promotes, MFL gating
+        // rules, silent auth rejections. Return 502 with verification
+        // detail so the UI can surface the actual failure instead of
+        // the previous "claims success" UX where 200 + ok:true was
+        // returned regardless of verification.
+        const promotedToPermanent = action === "promote_taxi" &&
+          taxiCallupRecord && taxiCallupRecord.became_permanent;
+        const successMessage = action === "activate_ir"
+          ? "Player activated from IR in MFL."
+          : (action === "drop_player"
+            ? "Player dropped in MFL."
+            : (action === "demote_taxi"
+              ? "Player demoted to taxi in MFL."
+              : (promotedToPermanent
+                ? "Player promoted from taxi (4th activation — now permanently promoted)."
+                : "Player promoted from taxi in MFL.")));
+
+        if (!verification.ok) {
+          // Common cause for taxi promote/demote: MFL gates the action
+          // (off-season, contract-deadline state, etc.) — the import
+          // returns 200 but the roster doesn't change. Surface a hint
+          // when we recognize the off-season case so the owner has
+          // something actionable.
+          const offSeasonHint =
+            (action === "promote_taxi" || action === "demote_taxi") &&
+            verification.reason === "player_status_did_not_change"
+              ? " Taxi promote/demote may be blocked by MFL during the off-season or contract-deadline window — try again once the next NFL week is live, or contact the commish to override via MFL UI."
+              : "";
+          return jsonOut(502, {
+            ok: false,
+            action,
+            player_id: playerId,
+            franchise_id: franchiseId,
+            used_franchise_id: usedFranchiseId,
+            error:
+              `MFL did not apply the ${action} action — ` +
+              (verification.reason || "verification failed") + "." +
+              offSeasonHint,
+            error_code: "MFL_WRITE_NOT_VERIFIED",
+            verification,
+            // Echo back the worker's MFL request + response so the
+            // commish can inspect what MFL actually saw. The upstream
+            // preview is truncated to 1200 chars by postMflImportForm.
+            response: {
+              upstream_status: importRes.status,
+              upstream_preview: importRes.upstreamPreview,
+              target_import_url: importRes.targetImportUrl,
+              form_fields: importRes.formFields,
+            },
+          });
+        }
+
         return jsonOut(200, {
           ok: true,
           action,
           player_id: playerId,
           franchise_id: franchiseId,
           used_franchise_id: usedFranchiseId,
-          message: action === "activate_ir"
-            ? "Player activated from IR in MFL."
-            : (action === "drop_player"
-              ? "Player dropped in MFL."
-              : (action === "demote_taxi"
-                ? "Player demoted to taxi in MFL."
-                : (taxiCallupRecord && taxiCallupRecord.became_permanent
-                  ? "Player promoted from taxi (4th activation — now permanently promoted)."
-                  : "Player promoted from taxi in MFL."))),
+          message: successMessage,
           verification,
           taxi_callup: taxiCallupRecord,
           response: {
