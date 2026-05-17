@@ -4516,7 +4516,12 @@
       // the worker payload predates the schema.
       taxiCallupsUsed: safeInt(p.taxi_callups_used || p.taxiCallupsUsed, 0),
       taxiCallupsMax: safeInt(p.taxi_callups_max || p.taxiCallupsMax || 3, 3),
-      taxiPermanentPromotion: !!(p.taxi_permanent_promotion || p.taxiPermanentPromotion)
+      taxiPermanentPromotion: !!(p.taxi_permanent_promotion || p.taxiPermanentPromotion),
+      // espn_id from MFL TYPE=players&DETAILS=1; powers high-res
+      // headshot rendering in the player modal (~350×254 ESPN PNG
+      // vs MFL's pixelated 110×110 _thumb.jpg). Empty when the player
+      // has no ESPN mapping.
+      espnId: safeStr(p.espn_id || p.espnId || "")
     });
   }
 
@@ -7587,11 +7592,22 @@
       }
       var modalAav = displayAavForPlayer(player);
       var photoPid = safeStr(player.id).replace(/\D/g, "");
-      var photoUrl = photoPid ? "https://www48.myfantasyleague.com/player_photos_2014/" + photoPid + "_thumb.jpg" : "";
+      var photoEspn = safeStr(player.espnId).replace(/\D/g, "");
+      // Photo fallback chain — high-res first (canon: player_profile_master.js
+      // buildPhotoChain). ESPN headshot is ~350×254 transparent-bg PNG;
+      // MFL _thumb is 110×110 (pixelated when displayed at 110px on retina).
+      // Skip ESPN if espn_id missing; placeholder rendered on final error.
+      var photoChain = [];
+      if (photoEspn) photoChain.push("https://a.espncdn.com/i/headshots/nfl/players/full/" + photoEspn + ".png");
+      if (photoPid) photoChain.push("https://www48.myfantasyleague.com/player_photos_2014/" + photoPid + "_thumb.jpg");
+      var photoOnError = photoChain.length > 1
+        ? "(function(img,urls){var i=0;img.onerror=function(){i++;if(i<urls.length){img.src=urls[i];}else{img.replaceWith(Object.assign(document.createElement('div'),{className:'upm-player-photo upm-player-photo-placeholder'}));}};})(this," + JSON.stringify(photoChain).replace(/"/g, "&quot;") + ")"
+        : "this.replaceWith(Object.assign(document.createElement('div'), {className:'upm-player-photo upm-player-photo-placeholder'}))";
+      var photoUrl = photoChain[0] || "";
       var playerHeaderHtml =
         '<div class="rwb-modal-player upm-player-header">' +
           (photoUrl
-            ? '<img class="upm-player-photo" src="' + escapeHtml(photoUrl) + '" alt="' + escapeHtml(player.name) + '" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'), {className:\'upm-player-photo upm-player-photo-placeholder\'}))">'
+            ? '<img class="upm-player-photo" src="' + escapeHtml(photoUrl) + '" alt="' + escapeHtml(player.name) + '" onerror="' + photoOnError + '">'
             : '<div class="upm-player-photo upm-player-photo-placeholder"></div>') +
           '<div class="upm-player-header-text">' +
             '<div class="rwb-modal-player-main">' +
