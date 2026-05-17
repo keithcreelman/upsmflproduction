@@ -2347,6 +2347,76 @@ export default {
         else if (r === 6) aav = 1;
         return { aav, tcv: aav * length, length, optionYearSalary: r === 1 ? aav + 5 : null };
       };
+
+      // R1 active-only demote-to-taxi gate (league_context_v1.md §A1 Round 1
+      // + AUDIT_FOLLOWUP_TRACKERS.md Q12). Returns { isR1Rookie, contractStatus,
+      // draftRound, reason }. Fail-open: if either lookup fails or the player
+      // can't be found in rosters / recent draftResults, returns isR1Rookie=false
+      // so legitimate demotes aren't blocked by a transient MFL miss.
+      const _checkR1RookieDemoteGate = async (season, leagueId, playerId) => {
+        const result = { isR1Rookie: false, contractStatus: "", draftRound: null, reason: "default_allow" };
+        if (!season || !leagueId || !playerId) {
+          result.reason = "missing_inputs";
+          return result;
+        }
+        try {
+          const r = await fetch(
+            `https://www48.myfantasyleague.com/${season}/export?TYPE=rosters&L=${leagueId}&JSON=1`,
+            { cf: { cacheTtl: 60, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker" } }
+          );
+          if (r.ok) {
+            const data = await r.json();
+            let franchises = data?.rosters?.franchise || [];
+            if (!Array.isArray(franchises)) franchises = [franchises];
+            outerRoster: for (const f of franchises) {
+              let players = f?.player || [];
+              if (!Array.isArray(players)) players = [players];
+              for (const p of players) {
+                if (safeStr(p?.id) === playerId) {
+                  result.contractStatus = safeStr(p?.contractStatus || "");
+                  break outerRoster;
+                }
+              }
+            }
+          }
+        } catch (_) {}
+        if (!/rookie/i.test(result.contractStatus)) {
+          result.reason = "not_rookie_contract";
+          return result;
+        }
+        const currentYear = parseInt(season, 10) || new Date().getUTCFullYear();
+        for (let y = currentYear; y >= currentYear - 4 && result.draftRound === null; y -= 1) {
+          try {
+            const r = await fetch(
+              `https://www48.myfantasyleague.com/${y}/export?TYPE=draftResults&L=${leagueId}&JSON=1`,
+              { cf: { cacheTtl: 3600, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker" } }
+            );
+            if (!r.ok) continue;
+            const data = await r.json();
+            let units = data?.draftResults?.draftUnit || [];
+            if (!Array.isArray(units)) units = [units];
+            outerDraft: for (const u of units) {
+              let picks = u.draftPick || u.pick || [];
+              if (!Array.isArray(picks)) picks = [picks];
+              for (const dp of picks) {
+                if (safeStr(dp.player) === playerId) {
+                  result.draftRound = parseInt(dp.round, 10) || null;
+                  break outerDraft;
+                }
+              }
+            }
+          } catch (_) {}
+        }
+        if (result.draftRound === 1) {
+          result.isR1Rookie = true;
+          result.reason = "r1_rookie_on_rookie_contract";
+        } else if (result.draftRound !== null) {
+          result.reason = `not_r1_drafted_round_${result.draftRound}`;
+        } else {
+          result.reason = "draft_round_not_found";
+        }
+        return result;
+      };
       // Detect MFL franchise for a session cookie via TYPE=myleagues. Mirror
       // of pipelines/etl/scripts/rookie_draft_bridge.py:_detect_mfl_user_from_cookie.
       //
@@ -23724,11 +23794,32 @@ export default {
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id/L" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing season/YEAR" });
         if (!playerId) return jsonOut(400, { ok: false, error: "Missing player_id" });
-        const isImportRosterAction = action === "promote_taxi" || action === "activate_ir" || action === "drop_player";
+        const isImportRosterAction = action === "promote_taxi" || action === "activate_ir" || action === "drop_player" || action === "demote_taxi";
         const isMembershipRosterAction = action === "load_player" || action === "unload_player";
 
         if (!isImportRosterAction && !isMembershipRosterAction) {
           return jsonOut(400, { ok: false, error: "Unsupported roster action" });
+        }
+
+        // R1 active-only block (league_context_v1.md §A1 Round 1 + tracker Q12).
+        // R1 rookies must stay on the active roster; reject any demote-to-taxi
+        // for a player on a Rookie contract whose draft round is 1. Lookup
+        // searches the current rosters payload for the contractStatus + the
+        // last 4 seasons of draftResults for the draft round. If we can't
+        // conclusively determine round, we allow the action (fail-open) so
+        // legitimate demotes of older rookies aren't blocked by a bad lookup.
+        if (action === "demote_taxi") {
+          const r1Gate = await _checkR1RookieDemoteGate(season, leagueId, playerId);
+          if (r1Gate.isR1Rookie) {
+            return jsonOut(400, {
+              ok: false,
+              error: "Round 1 rookies must stay on the active roster — taxi demotion not permitted (league_context_v1.md §A1 Round 1).",
+              code: "R1_ACTIVE_ONLY",
+              player_id: playerId,
+              franchise_id: franchiseId,
+              gate: r1Gate,
+            });
+          }
         }
 
         if (isMembershipRosterAction) {
@@ -23852,6 +23943,8 @@ export default {
           importFields.ACTIVATE = playerId;
         } else if (action === "drop_player") {
           importFields.DROP = playerId;
+        } else if (action === "demote_taxi") {
+          importFields.DEMOTE = playerId;
         } else {
           importFields.PROMOTE = playerId;
         }
@@ -23932,7 +24025,7 @@ export default {
             const status = safeStr(located.status);
             const expectedOk = action === "activate_ir"
               ? !status.includes("IR")
-              : !status.includes("TAXI");
+              : (action === "demote_taxi" ? status.includes("TAXI") : !status.includes("TAXI"));
             verification = {
               ok: expectedOk,
               reason: expectedOk ? "" : "player_status_did_not_change",
@@ -23958,7 +24051,11 @@ export default {
           used_franchise_id: usedFranchiseId,
           message: action === "activate_ir"
             ? "Player activated from IR in MFL."
-            : (action === "drop_player" ? "Player dropped in MFL." : "Player promoted from taxi in MFL."),
+            : (action === "drop_player"
+              ? "Player dropped in MFL."
+              : (action === "demote_taxi"
+                ? "Player demoted to taxi in MFL."
+                : "Player promoted from taxi in MFL.")),
           verification,
           response: {
             upstream_status: importRes.status,
