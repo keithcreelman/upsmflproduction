@@ -11122,6 +11122,16 @@ export default {
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;");
 
+      // Redact the commish APIKEY in diagnostic surfaces so 502 / log
+      // payloads never leak the secret to clients or browsers.
+      const redactSecretsInFormFields = (fields) => {
+        const out = { ...(fields || {}) };
+        if (out.APIKEY) out.APIKEY = "***REDACTED***";
+        return out;
+      };
+      const redactApiKeyInUrl = (urlStr) =>
+        String(urlStr || "").replace(/([?&]APIKEY=)[^&]+/i, "$1***REDACTED***");
+
       const looksLikeMflImportError = (text) => {
         const lowered = safeStr(text).toLowerCase();
         if (!lowered) return false;
@@ -11267,6 +11277,18 @@ export default {
           if (!s) continue;
           form.set(k, s);
         }
+        // Q19 fix (Keith 2026-05-17): cookie-only auth silently no-ops
+        // for commissioner-level imports like TYPE=taxi_squad. MFL
+        // accepts the form (HTTP 200, empty body) but doesn't apply the
+        // change. Adding the commish APIKEY makes the write land. The
+        // rookie-draft endpoint already does this via APIKEY in the URL
+        // (`/api/pick`); centralize the pattern here so every import
+        // path inherits it. Skip if `requestOptions.skipApiKey === true`
+        // for cases that explicitly want cookie-only.
+        const apiKey = safeStr(env.MFL_APIKEY || "");
+        if (apiKey && !form.has("APIKEY") && requestOptions.skipApiKey !== true) {
+          form.set("APIKEY", apiKey);
+        }
         const targetImportUrl = await resolveMflImportTargetUrl(season, probeFields || formFields);
         const method = safeStr(requestOptions.method || "POST").toUpperCase() === "GET" ? "GET" : "POST";
         let requestUrl = targetImportUrl;
@@ -11303,8 +11325,8 @@ export default {
             status: 0,
             text: "",
             upstreamPreview: "",
-            targetImportUrl: requestUrl,
-            formFields: Object.fromEntries(form.entries()),
+            targetImportUrl: redactApiKeyInUrl(requestUrl),
+            formFields: redactSecretsInFormFields(Object.fromEntries(form.entries())),
             error: `fetch_failed: ${e?.message || String(e)}`,
           };
         }
@@ -11322,8 +11344,8 @@ export default {
           status: res.status,
           text,
           upstreamPreview: String(text || "").slice(0, 1200),
-          targetImportUrl: requestUrl,
-          formFields: Object.fromEntries(form.entries()),
+          targetImportUrl: redactApiKeyInUrl(requestUrl),
+          formFields: redactSecretsInFormFields(Object.fromEntries(form.entries())),
           error: requestOk ? "" : (payloadErr || `MFL import failed (HTTP ${res.status})`),
         };
       };
@@ -11407,8 +11429,8 @@ export default {
             status: 0,
             text: "",
             upstreamPreview: "",
-            targetImportUrl: requestUrl,
-            formFields: Object.fromEntries(form.entries()),
+            targetImportUrl: redactApiKeyInUrl(requestUrl),
+            formFields: redactSecretsInFormFields(Object.fromEntries(form.entries())),
             error: `fetch_failed: ${e?.message || String(e)}`,
           };
         }
@@ -11426,8 +11448,8 @@ export default {
           status: res.status,
           text,
           upstreamPreview: String(text || "").slice(0, 1200),
-          targetImportUrl: requestUrl,
-          formFields: Object.fromEntries(form.entries()),
+          targetImportUrl: redactApiKeyInUrl(requestUrl),
+          formFields: redactSecretsInFormFields(Object.fromEntries(form.entries())),
           error: requestOk ? "" : (payloadErr || `MFL import failed (HTTP ${res.status})`),
         };
       };
