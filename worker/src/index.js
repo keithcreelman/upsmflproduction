@@ -24923,6 +24923,30 @@ export default {
 
         const preCheck = await readPlayer(Date.now() - 1);
 
+        // Extension FL/BL suffix normalization (canon §C4.3 + tracker Q2).
+        // Defense-in-depth backstop: if the client posted plain `EXT2` but
+        // the contractInfo Y-array is loaded (Y[cy-1] ≠ Y[cy]), append the
+        // correct suffix here before MFL writes. Owners don't set this
+        // manually — the suffix follows the salary math. Flat Y arrays
+        // (Y[cy-1] = Y[cy]) stay as plain EXT2 per §C4.3.
+        if (isExtensionSubmission && /^EXT2$/i.test(contractStatus)) {
+          const cy = Number(contractYear) || 0;
+          const yMap = {};
+          const yIter = String(contractInfo || "").matchAll(/Y(\d+)\s*-\s*(\d+)/gi);
+          for (const m of yIter) {
+            const idx = Number(m[1]) || 0;
+            const amt = Number(m[2]) || 0;
+            if (idx > 0 && amt > 0) yMap[idx] = amt;
+          }
+          if (cy >= 2 && yMap[cy] && yMap[cy - 1]) {
+            const y2nd = yMap[cy - 1];
+            const yLast = yMap[cy];
+            if (y2nd > yLast) contractStatus = "EXT2-FL";
+            else if (y2nd < yLast) contractStatus = "EXT2-BL";
+            // Flat (y2nd === yLast) stays as plain EXT2.
+          }
+        }
+
         const importAttempts = [];
         const statusAttempts = contractStatus
           ? [contractStatus]

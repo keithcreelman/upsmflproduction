@@ -1022,6 +1022,36 @@
     return raw;
   }
 
+  // Auto-derive the FL/BL contractStatus suffix for a 2-year extension
+  // (canon §C4.3). Per Keith 2026-05-15:
+  //   "1-year extension: FL/BL NOT allowed."
+  //   "2-year extension: -FL when Y1 > Y2; -BL when Y1 < Y2; flat = no suffix."
+  // Y1 / Y2 here are the EXTENSION YEARS (the last two slots in the
+  // full contract year-salary array), not the leading currently-
+  // remaining year. Owners don't set the suffix manually — derive it
+  // from the per-year salaries at submit time.
+  function deriveExtensionLoadingSuffix(yearsToAdd, yearSalariesByIndex, contractLength) {
+    if (safeInt(yearsToAdd, 0) !== 2) return "";
+    var len = Math.max(0, safeInt(contractLength, 0));
+    if (len < 2) return "";
+    var y2nd = safeInt(yearSalariesByIndex && yearSalariesByIndex[len - 1], 0);
+    var yLast = safeInt(yearSalariesByIndex && yearSalariesByIndex[len], 0);
+    if (y2nd <= 0 || yLast <= 0) return "";
+    if (y2nd > yLast) return "-FL";
+    if (y2nd < yLast) return "-BL";
+    return "";
+  }
+
+  function applyExtensionLoadingSuffix(contractStatus, suffix) {
+    var status = safeStr(contractStatus).toUpperCase();
+    if (!status) return contractStatus;
+    if (status.indexOf("-FL") !== -1 || status.indexOf("-BL") !== -1) return status;
+    if (status !== "EXT2") return status;
+    var clean = safeStr(suffix).toUpperCase();
+    if (clean !== "-FL" && clean !== "-BL") return status;
+    return status + clean;
+  }
+
   function extensionOptionKey(row) {
     var explicit = safeStr(row && (row.optionKey || row.option_key));
     if (explicit) return explicit;
@@ -10850,6 +10880,19 @@
     var season = safeStr(state.ctx && state.ctx.year);
     var moveKey = "extend:" + safeStr(player.id) + ":" + safeStr(option.optionKey);
     var commishOverride = viewerCanManageAnyRoster() && !isOwnRosterPlayer(player);
+    // Auto-derive FL/BL suffix for 2-year extensions from the per-year
+    // salary array (canon §C4.3). Owners don't set this manually; the
+    // suffix follows the math. Y1=Y2 → no suffix.
+    var yearValuesAtSubmit = parseContractYearValues(option && option.contractInfo);
+    var loadingSuffix = deriveExtensionLoadingSuffix(
+      option && option.yearsToAdd,
+      yearValuesAtSubmit,
+      option && option.contractLength
+    );
+    var derivedContractStatus = applyExtensionLoadingSuffix(
+      option && option.contractStatus,
+      loadingSuffix
+    );
     var payload = {
       L: leagueId,
       YEAR: season,
@@ -10874,7 +10917,7 @@
       // Discord breakdown year mis-mapping fixed in PR #180; this fixes the
       // value at the SOURCE so MFL stores the right cy.
       contract_year: Math.max(0, safeInt(option.contractLength, 0)),
-      contract_status: safeStr(option.contractStatus),
+      contract_status: derivedContractStatus,
       contract_info: safeStr(option.contractInfo),
       // Snapshot the pre-extension contract so the worker's
       // ups_extension_submissions audit row has a before/after
