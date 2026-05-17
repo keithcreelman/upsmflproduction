@@ -21669,6 +21669,45 @@ export default {
         for (const fr of leagueFranchises) {
           franchiseMetaById[fr.franchise_id] = fr;
         }
+
+        // Taxi call-up counter (canon §B2 + tracker Q10). Lookup count
+        // of recorded promote_taxi events per player across the league.
+        // Counts include all entries (we're not strictly filtering by
+        // the 3-year taxi-eligibility window — eligibility ends after
+        // the window anyway, so a 4th post-window call-up shouldn't
+        // exist; if it does, surface it as already-permanent).
+        const taxiCallupsByPlayer = {};
+        if (env.UPS_MFL_DB && allPlayerIds && allPlayerIds.length) {
+          try {
+            // SQLite has a 999-parameter limit; chunk the IN list to be safe.
+            const chunkSize = 500;
+            const ids = Array.from(new Set(allPlayerIds.map((id) => String(id || "").replace(/\D/g, "")).filter(Boolean)));
+            for (let i = 0; i < ids.length; i += chunkSize) {
+              const chunk = ids.slice(i, i + chunkSize);
+              const placeholders = chunk.map(() => "?").join(",");
+              const rows = await env.UPS_MFL_DB.prepare(
+                `SELECT player_id,
+                        COUNT(*)                            AS used,
+                        MAX(became_permanent)               AS permanent
+                   FROM ups_taxi_callups
+                  WHERE player_id IN (${placeholders})
+                  GROUP BY player_id`
+              ).bind(...chunk).all();
+              for (const row of rows?.results || []) {
+                const pid = String(row?.player_id || "");
+                if (!pid) continue;
+                taxiCallupsByPlayer[pid] = {
+                  used: Number(row?.used || 0),
+                  max: 3,
+                  permanent_promotion: Number(row?.permanent || 0) === 1,
+                };
+              }
+            }
+          } catch (e) {
+            console.warn("[taxi-callup] D1 lookup failed:", e?.message || String(e));
+          }
+        }
+
         const extRowsNormalized = remapExtensionPreviewRowsToCurrentOwners(
           extRes.rows || [],
           rosterAssetsByFranchise,
@@ -21723,6 +21762,7 @@ export default {
               const status = statusRaw || (asset?.taxi ? "TAXI_SQUAD" : "ROSTER");
               const isTaxi = status.includes("TAXI");
               const isIr = status.includes("IR");
+              const taxiCallup = taxiCallupsByPlayer[playerId] || null;
               return {
                 id: playerId,
                 order: idx,
@@ -21741,6 +21781,9 @@ export default {
                 is_taxi: isTaxi,
                 is_ir: isIr,
                 extension_previews: extensionPreviewsByPlayer[playerId] || [],
+                taxi_callups_used: taxiCallup ? taxiCallup.used : 0,
+                taxi_callups_max: 3,
+                taxi_permanent_promotion: !!(taxiCallup && taxiCallup.permanent_promotion),
               };
             });
 
@@ -24063,6 +24106,55 @@ export default {
           }
         }
 
+        // Taxi call-up counter increment (canon §B2 + tracker Q10).
+        // UPS-owned: MFL doesn't enforce the 3-call-up budget. Each
+        // promote_taxi burns one of the player's lifetime-window 3 call-ups.
+        // The 4th activation flips the row's became_permanent=1, and from
+        // then on demote-to-taxi must be rejected (see Q10 demote-side
+        // follow-up). The counter sums all ups_taxi_callups rows for the
+        // player — canon §B2's window scope is "3-year taxi-eligibility
+        // window" but we sum all rows since taxi eligibility ends after
+        // the window anyway (no legitimate post-window call-up should
+        // exist).
+        let taxiCallupRecord = null;
+        if (action === "promote_taxi" && verification.ok && env.UPS_MFL_DB) {
+          try {
+            const countRow = await env.UPS_MFL_DB.prepare(
+              `SELECT COUNT(*) AS n FROM ups_taxi_callups WHERE player_id = ?`
+            ).bind(playerId).first();
+            const priorCount = Number(countRow?.n || 0);
+            const callupIndex = priorCount + 1;
+            const becamePermanent = callupIndex >= 4 ? 1 : 0;
+            const nflWeek = Number(body?.nfl_week || body?.nflWeek || url.searchParams.get("nfl_week") || 0) || null;
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_taxi_callups
+                 (league_id, season, franchise_id, player_id, nfl_week,
+                  callup_index, became_permanent, source, acting_user_id,
+                  raw_payload_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              leagueId,
+              season,
+              franchiseId,
+              playerId,
+              nflWeek,
+              callupIndex,
+              becamePermanent,
+              "worker:promote_taxi",
+              String(body?.acting_user_id || body?.actingUserId || "") || null,
+              JSON.stringify(body || {})
+            ).run();
+            taxiCallupRecord = {
+              callup_index: callupIndex,
+              used: callupIndex,
+              max: 3,
+              became_permanent: becamePermanent === 1,
+            };
+          } catch (e) {
+            console.warn("[taxi-callup] D1 increment failed:", e?.message || String(e));
+          }
+        }
+
         return jsonOut(200, {
           ok: true,
           action,
@@ -24075,8 +24167,11 @@ export default {
               ? "Player dropped in MFL."
               : (action === "demote_taxi"
                 ? "Player demoted to taxi in MFL."
-                : "Player promoted from taxi in MFL.")),
+                : (taxiCallupRecord && taxiCallupRecord.became_permanent
+                  ? "Player promoted from taxi (4th activation — now permanently promoted)."
+                  : "Player promoted from taxi in MFL."))),
           verification,
+          taxi_callup: taxiCallupRecord,
           response: {
             upstream_status: importRes.status,
             upstream_preview: importRes.upstreamPreview,

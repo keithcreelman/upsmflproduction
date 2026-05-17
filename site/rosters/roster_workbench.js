@@ -4510,7 +4510,13 @@
       isIr: isIr,
       pointsByYear: Object.create(null),
       pointsCumulative: 0,
-      extensionPreviews: p.extension_previews || p.extensionPreviews || []
+      extensionPreviews: p.extension_previews || p.extensionPreviews || [],
+      // Taxi call-up counter (canon §B2 + tracker Q10). Surfaced by the
+      // worker per player from ups_taxi_callups; defaults to 0/3 when
+      // the worker payload predates the schema.
+      taxiCallupsUsed: safeInt(p.taxi_callups_used || p.taxiCallupsUsed, 0),
+      taxiCallupsMax: safeInt(p.taxi_callups_max || p.taxiCallupsMax || 3, 3),
+      taxiPermanentPromotion: !!(p.taxi_permanent_promotion || p.taxiPermanentPromotion)
     });
   }
 
@@ -8907,7 +8913,23 @@
     for (var j = 0; j < group.players.length; j += 1) {
       var p = group.players[j];
       var tags = [];
-      if (p.isTaxi) tags.push('<span class="rwb-tag is-taxi">Taxi</span>');
+      if (p.isTaxi) {
+        var taxiLabel = "Taxi";
+        var used = safeInt(p.taxiCallupsUsed, 0);
+        var max = safeInt(p.taxiCallupsMax, 3) || 3;
+        // Canon §B2: 3 call-ups across the player's taxi-eligibility window.
+        // Only render the counter when at least one call-up has been used —
+        // unused budgets are the default state and the chip just adds noise.
+        if (used > 0 && !p.taxiPermanentPromotion) {
+          taxiLabel = "Taxi · " + used + "/" + max;
+        }
+        tags.push('<span class="rwb-tag is-taxi">' + escapeHtml(taxiLabel) + '</span>');
+      } else if (p.taxiPermanentPromotion) {
+        // Player was permanently promoted off taxi (4th call-up) — surface
+        // a single-shot indicator so owners know the cap-free-cut window
+        // is gone for this player.
+        tags.push('<span class="rwb-tag is-taxi-perm">Promoted</span>');
+      }
       if (p.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
       var contractLength = contractLengthForPlayer(p);
       var totalContractValue = totalContractValueForPlayer(p);
