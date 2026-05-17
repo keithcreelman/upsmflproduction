@@ -25204,6 +25204,80 @@ export default {
           }
         }
 
+        // Restructure D1 audit row (league_context_v1.md §C5 + tracker Q14).
+        // Fires when isRestructure === true and the salary import actually
+        // changed something. Parallels the extension audit above:
+        // ups_restructure_submissions captures every restructure submission
+        // forensically (before/after year salary arrays, TCV, raw payload).
+        // No master table on this side — restructures don't change
+        // canonical contract identity the way an extension does; the
+        // current-state mirror is just the rosters/salaries payload.
+        if (looksOk && anyChanged && isRestructure && env.UPS_MFL_DB) {
+          const priorInfo = String(body.prior_contract_info || body.priorContractInfo || "").trim();
+          const newInfo = String(contractInfo || "").trim();
+          const matchInt = (str, re) => {
+            const m = String(str || "").match(re);
+            return m ? Number(String(m[1]).replace(/[^\d]/g, "")) : null;
+          };
+          // Parse per-year salaries out of contractInfo strings of the
+          // shape "...|Y1-10000, Y2-40000|...". Returns JSON array string
+          // or null if no per-year breakdown present.
+          const parseYearSalaries = (info) => {
+            if (!info) return null;
+            const matches = String(info).match(/Y\d+\s*-\s*\d+/gi);
+            if (!matches || !matches.length) return null;
+            const arr = matches.map((tok) => {
+              const m = tok.match(/Y(\d+)\s*-\s*(\d+)/i);
+              return m ? { year: Number(m[1]), salary: Number(m[2]) } : null;
+            }).filter(Boolean);
+            arr.sort((a, b) => a.year - b.year);
+            return JSON.stringify(arr.map((x) => x.salary));
+          };
+          const newTcv = matchInt(newInfo, /TCV\s*(\d+(?:[.,]?\d+)*)/i);
+          const newAav = matchInt(newInfo, /AAV\s*(\d+(?:[.,]?\d+)*)/i);
+          const priorCyInt = Number(body.prior_contract_year || body.priorContractYear || 0) || null;
+
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_restructure_submissions
+                 (league_id, season, franchise_id, player_id, player_name, position,
+                  prior_contract_status, prior_salary, prior_contract_year, prior_contract_info,
+                  prior_year_salaries_json,
+                  new_contract_status, new_salary, new_contract_year, new_contract_info,
+                  new_year_salaries_json,
+                  tcv_usd, new_aav,
+                  source, acting_user_id, raw_payload_json, submitted_at_utc, dry_run)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              leagueId,
+              year,
+              franchiseId,
+              playerId,
+              playerName,
+              position,
+              String(body.prior_contract_status || body.priorContractStatus || "") || null,
+              body.prior_salary != null ? Number(body.prior_salary) : null,
+              priorCyInt,
+              priorInfo || null,
+              parseYearSalaries(priorInfo),
+              statusUsed || contractStatus || null,
+              salary ? Number(salary) : null,
+              contractYear ? Number(contractYear) : null,
+              newInfo || null,
+              parseYearSalaries(newInfo),
+              newTcv,
+              newAav,
+              sourceTag || "worker-offer-restructure",
+              String(body.acting_user_id || body.actingUserId || "") || null,
+              JSON.stringify(body),
+              submittedAtUtc || new Date().toISOString(),
+              dryRunFlag
+            ).run();
+          } catch (e) {
+            console.warn("[restructure-audit] D1 insert failed:", e?.message || String(e));
+          }
+        }
+
         const shouldDispatchSubmissionLog = !isManualContractUpdate || isExtensionSubmission;
         let logDispatch = {
           ok: false,
