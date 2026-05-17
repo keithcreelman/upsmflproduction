@@ -550,6 +550,7 @@ button.ups-m-busy::before,
 }
 .ups-m-player-row .sub .badge.ir { color: var(--warn); border-color: rgba(255,184,107,0.4); }
 .ups-m-player-row .sub .badge.tx { color: var(--teal); border-color: rgba(45,212,191,0.4); }
+.ups-m-player-row .sub .badge.tx-perm { color: #bdbdbd; border-color: rgba(180,180,180,0.4); }
 .ups-m-player-row .sub .badge.exp { color: var(--danger); border-color: rgba(255,107,107,0.4); }
 .ups-m-player-row .sub .badge.otb {
   color: var(--teal);

@@ -45,7 +45,24 @@
     var cy = U.safeInt(rosterRow.contractYear, -1);
     var status = U.safeStr(rosterRow.status);
     if (cy === 0) out.push('<span class="badge exp">Expired</span>');
-    if (/taxi/i.test(status)) out.push('<span class="badge tx">Taxi</span>');
+    // Taxi badge with call-up counter (canon §B2 + tracker Q10).
+    // Renders "Taxi · N/3" when N > 0; plain "Taxi" otherwise.
+    // Permanently-promoted players (4th call-up) aren't on taxi anymore,
+    // but if the underlying status somehow still says TAXI, prefer the
+    // explicit "Promoted" surface so the owner knows cap-free-cut is
+    // gone. (Defensive — should be unreachable in practice.)
+    if (/taxi/i.test(status)) {
+      var callup = DATA.taxiCallupsFor && DATA.taxiCallupsFor(rosterRow.id);
+      var used = callup ? U.safeInt(callup.used, 0) : 0;
+      var max = callup ? U.safeInt(callup.max, 3) || 3 : 3;
+      if (callup && callup.permanent_promotion) {
+        out.push('<span class="badge tx-perm">Promoted</span>');
+      } else if (used > 0) {
+        out.push('<span class="badge tx">Taxi · ' + used + '/' + max + '</span>');
+      } else {
+        out.push('<span class="badge tx">Taxi</span>');
+      }
+    }
     if (/ir|injured/i.test(status)) out.push('<span class="badge ir">IR</span>');
     if (otbIds && otbIds.has(String(rosterRow.id))) out.push('<span class="badge otb">On Block</span>');
     // "Ext Eligible" requires more than cy===1 — desktop's rosterContractEligibility
