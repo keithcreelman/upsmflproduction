@@ -3407,7 +3407,7 @@ export default {
                LEFT JOIN src_franchises f
                  ON f.season = s.season AND f.franchise_id = s.franchise_id
               WHERE s.season = ?
-              ORDER BY s.h2h_pct DESC, s.allplay_pct DESC, s.pf DESC`
+              ORDER BY s.allplay_pct DESC, s.h2h_pct DESC, s.pf DESC`
           ).bind(yr).all();
           const metaRs = await db.prepare(
             `SELECT season, league_id, mfl_server, last_regular_season_week,
@@ -3628,17 +3628,20 @@ export default {
             }
           }
 
-          // 2) Wild card pool: non-division-winners sorted by AP% → PF → overall_pct.
-          //    Top 2 become wild cards. (League tiebreaker doc:
-          //    All-Play → Overall → Total Points → H2H — but for WC the
-          //    legacy code uses AP% → PF → overall_pct, which we mirror.)
+          // 2) Wild card pool: non-division-winners sorted by canon §F.1
+          //    playoff-seeding tiebreaker: AP% → Overall → PF → (pairwise
+          //    H2H not computable here). `h2h_pct` in src_standings is the
+          //    overall regular-season record despite the column name —
+          //    the schema's "h2h" prefix predates the Overall/H2H split
+          //    introduced in §F.1. Aligned with the standings-page sort
+          //    above so all three §F-related sites use the same ladder.
           const wcPool = rawRows
             .filter((r) => !divisionWinnerIds.has(String(r.franchise_id)))
             .slice()
             .sort((a, b) =>
               cmpDesc(a.allplay_pct, b.allplay_pct) ||
-              cmpDesc(a.pf, b.pf) ||
               cmpDesc(a.h2h_pct, b.h2h_pct) ||
+              cmpDesc(a.pf, b.pf) ||
               cmpText(a.franchise_name, b.franchise_name)
             );
           const wildCards = wcPool.slice(0, 2);
