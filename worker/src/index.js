@@ -3473,8 +3473,7 @@ export default {
                FROM src_standings s
                LEFT JOIN src_franchises f
                  ON f.season = s.season AND f.franchise_id = s.franchise_id
-              WHERE s.season = ?
-              ORDER BY s.allplay_pct DESC, s.h2h_pct DESC, s.pf DESC`
+              WHERE s.season = ?`
           ).bind(yr).all();
           const metaRs = await db.prepare(
             `SELECT season, league_id, mfl_server, last_regular_season_week,
@@ -3526,10 +3525,75 @@ export default {
             if (!byDiv.has(k)) byDiv.set(k, []);
             byDiv.get(k).push(r);
           }
+          const divisionWinnerIds = new Set();
           for (const [, group] of byDiv.entries()) {
             group.sort(sortFn);
-            group.forEach((r, i) => { r.is_division_leader = (i === 0); r.division_rank = i + 1; });
+            group.forEach((r, i) => {
+              r.is_division_leader = (i === 0);
+              r.division_rank = i + 1;
+              if (i === 0) divisionWinnerIds.add(String(r.franchise_id));
+            });
           }
+
+          // Playoff-seed annotation (canon §F.1 + revised standings-sort
+          // direction Keith 2026-05-17): the standings page mirrors the
+          // playoff bracket — division winners always make the field;
+          // seeds 1-2 = top 2 DW by AP%; seeds 3-6 = remaining 2 DW + 2
+          // wild cards interleaved by AP%; non-playoff teams sort by AP%
+          // among themselves. Mirrors the seeding chain in /api/playoff-bracket.
+          const cmpDesc3 = (a, b) => (Number(b || 0) - Number(a || 0));
+          const cmpName3 = (a, b) => String(a || "").localeCompare(String(b || ""));
+          const seedTiebreak = (a, b) =>
+            cmpDesc3(a.allplay_pct, b.allplay_pct) ||
+            cmpDesc3(a.pf, b.pf) ||
+            cmpDesc3(a.h2h_pct, b.h2h_pct) ||
+            cmpName3(a.franchise_name, b.franchise_name);
+
+          const divWinners = rows
+            .filter((r) => divisionWinnerIds.has(String(r.franchise_id)))
+            .slice()
+            .sort(seedTiebreak);
+          const topTwoDW = divWinners.slice(0, 2);
+          const remainingDW = divWinners.slice(2);
+
+          const wildCardPool = rows
+            .filter((r) => !divisionWinnerIds.has(String(r.franchise_id)))
+            .slice()
+            .sort(seedTiebreak);
+          const wildCards = wildCardPool.slice(0, 2);
+          const wildCardIds = new Set(wildCards.map((r) => String(r.franchise_id)));
+
+          const seeds3to6 = [...remainingDW, ...wildCards].sort(seedTiebreak);
+          const nonPlayoff = wildCardPool.slice(2);
+
+          topTwoDW.forEach((r, i) => {
+            r.playoff_seed = i + 1;
+            r.playoff_status = "bye";
+            r.is_wild_card = false;
+          });
+          seeds3to6.forEach((r, i) => {
+            r.playoff_seed = i + 3;
+            r.playoff_status = wildCardIds.has(String(r.franchise_id)) ? "wild_card" : "division_winner";
+            r.is_wild_card = wildCardIds.has(String(r.franchise_id));
+          });
+          nonPlayoff.forEach((r) => {
+            r.playoff_seed = null;
+            r.playoff_status = "non_playoff";
+            r.is_wild_card = false;
+          });
+
+          // Final sort for the standings page: playoff seeds 1-6 in order,
+          // then non-playoff teams by AP% → PF → H2H. Matches what the
+          // bracket renders so the standings page is self-consistent.
+          rows.sort((a, b) => {
+            const sa = a.playoff_seed;
+            const sb = b.playoff_seed;
+            if (sa != null && sb != null) return sa - sb;
+            if (sa != null) return -1;
+            if (sb != null) return 1;
+            return seedTiebreak(a, b);
+          });
+
           // Season-complete heuristic: any Week 17 playoff row in src_schedule.
           let seasonComplete = false;
           try {
