@@ -1325,10 +1325,17 @@
     return teamName.split(/\s+/)[0];
   }
 
-  function synthesizeExtensionOption(player, yearsToAdd) {
+  function synthesizeExtensionOption(player, yearsToAdd, loadingChoice) {
     if (!player) return null;
     var years = safeInt(yearsToAdd, 0);
     if (years !== 1 && years !== 2) return null;
+    // Loading choice (canon §C4.3): 1yr extensions are always flat (canon
+    // forbids FL/BL on 1yr). 2yr extensions allow Flat / Front-load /
+    // Back-load. Canonical FL/BL split = 20%/80% per the LaPorta worked
+    // example (Y1-$10K / Y2-$40K with $50K TCV).
+    var loading = safeStr(loadingChoice).toUpperCase();
+    if (loading !== "FL" && loading !== "BL") loading = "NONE";
+    if (years === 1) loading = "NONE";
 
     var currentYears = Math.max(0, safeInt(player && player.years, 0));
     var currentSalary = Math.max(1000, roundToK(safeInt(player && player.salary, 0)));
@@ -1354,13 +1361,37 @@
       if (!hasOwner) existingOwners.push(ownerToken);
     }
 
+    // Distribute the extension-years salary based on loading.
+    // FL: first ext year = 80%, second ext year = 20% of extension TCV.
+    // BL: first ext year = 20%, second ext year = 80%.
+    // Flat: both = futureSalary (i.e., 50%/50% of extension TCV).
+    // Always rounded to $1K. Canon §C4.3 + LaPorta example (2026-05-15).
+    var extensionTotal = futureSalary * years;
+    var extYearSalaries = [];
+    if (years === 2 && loading === "FL") {
+      var fl1 = Math.max(1000, roundToK(Math.round(extensionTotal * 0.8)));
+      extYearSalaries = [fl1, extensionTotal - fl1];
+    } else if (years === 2 && loading === "BL") {
+      var bl1 = Math.max(1000, roundToK(Math.round(extensionTotal * 0.2)));
+      extYearSalaries = [bl1, extensionTotal - bl1];
+    } else {
+      for (var ey = 0; ey < years; ey += 1) extYearSalaries.push(futureSalary);
+    }
+
     var yearParts = [];
     for (var idx = 1; idx <= totalLength; idx += 1) {
-      yearParts.push("Y" + idx + "-" + formatContractK(idx <= currentYears ? currentSalary : futureSalary));
+      var yearSalary = idx <= currentYears
+        ? currentSalary
+        : extYearSalaries[idx - currentYears - 1];
+      yearParts.push("Y" + idx + "-" + formatContractK(yearSalary));
     }
-    var tcv = currentSalary * currentYears + futureSalary * years;
+    var tcv = currentSalary * currentYears + extensionTotal;
     var gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - currentSalary);
     var aavDisplay = formatContractK(currentSalary) + ", " + formatContractK(futureSalary);
+    var contractStatusBase = "EXT" + years;
+    var contractStatusWithSuffix = loading === "FL"
+      ? contractStatusBase + "-FL"
+      : (loading === "BL" ? contractStatusBase + "-BL" : contractStatusBase);
     var contractInfo =
       "CL " + totalLength +
       "|TCV " + formatContractK(tcv) +
@@ -1368,18 +1399,23 @@
       "|" + yearParts.join(", ") +
       "|GTD: " + formatContractK(gtd);
     if (existingOwners.length) contractInfo += "|Ext: " + existingOwners.join(", ");
+    // Salary-to-send is the FIRST extension year's salary — that's
+    // what MFL's import wants as the Y1 of the new contract's
+    // extension portion. For Flat both ext years are equal; for FL
+    // it's the higher value; for BL it's the lower.
+    var salaryToSend = extYearSalaries[0] || futureSalary;
 
     return {
-      optionKey: [String(years), "NONE", "EXT" + years, contractInfo].join("|"),
+      optionKey: [String(years), loading, contractStatusWithSuffix, contractInfo].join("|"),
       yearsToAdd: years,
-      loadedIndicator: "NONE",
+      loadedIndicator: loading,
       contractLength: totalLength,
-      contractStatus: "EXT" + years,
+      contractStatus: contractStatusWithSuffix,
       contractInfo: contractInfo,
       currentAav: currentSalary,
       futureAav: futureSalary,
       tcv: tcv,
-      salaryToSend: futureSalary,
+      salaryToSend: salaryToSend,
       synthesized: true
     };
   }
@@ -1389,10 +1425,17 @@
     var contractEligibility = rosterContractEligibility(player);
     if (!contractEligibility.extensionEligible || extensionBlockedByCurrentOwner(player) || extensionBlockedByHistory(player)) return [];
     var out = [];
-    for (var years = 1; years <= 2; years += 1) {
-      var option = synthesizeExtensionOption(player, years);
-      if (option) out.push(option);
-    }
+    // 1yr extension — always flat per canon §C4.3 (FL/BL not allowed).
+    var opt1 = synthesizeExtensionOption(player, 1, "NONE");
+    if (opt1) out.push(opt1);
+    // 2yr extension — three variants per canon §C4.3: Flat, Front-load
+    // (Y1 > Y2), Back-load (Y1 < Y2). Owner picks at submit time.
+    var opt2Flat = synthesizeExtensionOption(player, 2, "NONE");
+    if (opt2Flat) out.push(opt2Flat);
+    var opt2FL = synthesizeExtensionOption(player, 2, "FL");
+    if (opt2FL) out.push(opt2FL);
+    var opt2BL = synthesizeExtensionOption(player, 2, "BL");
+    if (opt2BL) out.push(opt2BL);
     return out;
   }
 
