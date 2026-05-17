@@ -95,6 +95,7 @@ There are **7 entry paths**. Each creates a different default contract and const
 
 - **Eligibility:** any player MFL classifies as an NFL rookie that year.
 - **Round 1** — must stay on **active roster**. NOT taxi-eligible. **3-year contract**.
+  - **Enforcement intent (Keith, 2026-05-16 review session):** the demote-to-taxi endpoint must **reject any R1 → taxi demotion request**. Tracker: see `AUDIT_FOLLOWUP_TRACKERS.md` (Q12 tracker).
   - **1st-Round Rookie Option** (effective 2025 draft+): a 4th option year tacked on.
     - **Option-year salary = original Year 3 salary + $5,000.** ($5K = half of the +$10K Schedule 1 extension cost.) Simple formula, not a multiplier.
     - **Decision deadline:** September contract deadline of the player's **final original-contract season** (same as a normal extension decision window). E.g., a 2025 1st-rounder's option must be decided by Sept 2027.
@@ -102,6 +103,8 @@ There are **7 entry paths**. Each creates a different default contract and const
     - **If NOT exercised:** player is treated like any other expired rookie (extension deadline before the May Rookie Draft, otherwise → Expired Rookie Auction).
 - **Rounds 2–5** — 3-year contract, **taxi-squad eligible for first 3 LEAGUE years** (NOT NFL service time — see B2). Can stay on active roster instead.
 - **Round 6 (UPDATED 2025+)** — Must be used to select **IDP only**. **Kickers and Punters are NOT eligible** (the prior PK/PN expansion was reversed in 2025). Pick is **NOT tradeable** (forces every team to make at least one IDP selection per year). Player can be traded after the pick is made. 3-year contract. Random draft order.
+  - **Historical precedent (Keith, 2026-05-16 review session):** a team **has previously violated this rule** by submitting a non-IDP R6 pick. The league response was: **commissioner reversed the pick AND the team lost the pick as a penalty** (no replacement selection awarded). Treat as binding precedent — owners are on notice.
+  - **Enforcement intent:** worker-side hard block at `/api/pick` (or the equivalent rookie-draft submit endpoint) — reject any R6 submission whose `player.position` is in `{QB, RB, WR, TE, PK, PN}`. Tracker: see `AUDIT_FOLLOWUP_TRACKERS.md` (Q11 tracker).
 - **Salaries (extracted v3 — flat across all 3 contract years):**
 
 | Slot | Y1 (=Y2=Y3) | 3yr TCV | Notes |
@@ -230,6 +233,10 @@ A rostered player is always in exactly one of three states.
 - **Size:** 27 (min, at close of auction) – 30 (max, after contract deadline).
 - **Auction window:** 27 (close min) – 35 (max).
 - Player counts against active roster size, contributes salary fully toward cap, can start.
+- **Enforcement model (Keith, 2026-05-16 review session):**
+  - **27-active minimum applies ONLY at end of auction**, AND the team must be able to **start a complete lineup** at that moment (per the lineup spec in §B/§S). Not continuously enforced through the season — owners can drop below 27 mid-season; the floor is only re-checked at auction close.
+  - **30-active maximum (post-contract-deadline) is enforced via MFL settings** (Keith maintains in MFL config). No UPS worker-side enforcement — MFL blocks adds that would push a team over 30 once the deadline passes.
+  - **UPS-side safeguarding** (auction-close compliance cron, complete-lineup pre-flight at auction close, 30-max display chips) is **parked** for the broader auction tooling discussion — see `CROSS_CODEBASE_ALIGNMENT.md §4.1` (Auction Room scope).
 
 ### B2. Taxi Squad (UPDATED 2026-05-08)
 - **Size:** Max 10 players, min 1 IDP.
@@ -243,11 +250,16 @@ A rostered player is always in exactly one of three states.
   - **On the 4th activation, the call-up becomes permanent.** From that point forward, the player is treated as fully promoted — taxi eligibility ends, normal cut penalties apply, and the player can never re-enter the taxi squad. (See T2.4 for the transactional details.)
   - "Active for the week" definition: the player was on the active roster (or on IR) at the time rosters and lineups locked for that NFL week, and appears in that week's weekly results. Putting a called-up player on IR does NOT avoid burning the week.
   - Every owner's call-up usage is tracked and visible — eligibility is auditable. Source of truth: roster snapshots; the bot can answer "how many weeks has [player] been activated?" any time.
+  - **Counter scope (Keith, 2026-05-16 review session — re-confirmation):** the 3-call-up budget is a **TOTAL across the player's entire taxi-eligibility window** (the 3-year window from B2 above), **NOT per-season**. A player who burns 2 call-ups in Year 1 has only 1 left across the remainder of their taxi-eligible career; a 4th activation at any point triggers permanent promotion.
+  - **Implementation ownership (UPS, not MFL):** this is a **self-imposed UPS rule**. MFL does not enforce the 3-week budget. UPS owns: (a) a persistent counter per `(player_id, franchise_id)` tracked across the 3-year window, (b) worker increment logic on each call-up submit, (c) auto-promotion blocking on the 4th activation, (d) UI display of remaining call-ups on the taxi pane. Implementation tracker: see `AUDIT_FOLLOWUP_TRACKERS.md` (Q10 tracker).
 - **Cut economics:**
   - **Taxi-squad players never *permanently* promoted (≤3 temporary call-ups) can still be cut cap-free.** Temporary call-ups do NOT trigger the "permanently promoted" flag, so cap-free cut remains available between activations and after a player returns to taxi.
   - **Once permanently promoted (4th activation OR an MYAC/extension/restructure that explicitly promotes), normal cut penalties apply going forward.**
 - **Demotion deadline:** contract deadline date. Mid-season trade-acquired rookies: planned automation will auto-demote (or owner-choice on trade).
 - **3-year clock end:** when a player's 3 league years on taxi expire, they're treated like any other expired rookie. If extended → promoted to active. If not → Expired Rookie Auction. **League years, not NFL years.**
+- **Tracking source of truth (Keith, 2026-05-16 review session):** **MFL natively handles taxi eligibility** — MFL knows which players are taxi-eligible based on their draft and contract metadata. UPS does NOT maintain a parallel D1 tracking table for the 3-year window itself.
+  - **Derivation path when UPS needs to compute eligibility independently (e.g., for a UI gate or a synthetic warning):** pull `players.draft_year` from the MFL `TYPE=players` payload, compute `league_years_elapsed = current_league_year − draft_year`, and gate taxi-eligibility at `league_years_elapsed < 3` AND `draft_round >= 2`.
+  - The taxi-eligible flag in MFL roster payloads is the authoritative source. The derivation above is only for UPS-side preview displays where the MFL flag isn't already in hand.
 
 ### B3. Injured Reserve (IR)
 - **Eligibility:**
@@ -255,7 +267,7 @@ A rostered player is always in exactly one of three states.
   - COVID-19 IR (legacy)
   - **Holdouts**
   - **Suspended players** (special handling, see below)
-- **Cap relief:** **50%** of salary refunded while on IR.
+- **Cap relief:** **50%** of salary refunded while on IR. (E.g., a player at $20K salary becomes a $10K cap hit while on IR.) **Live verification deferred (Keith, 2026-05-16 review session):** no player is currently on IR, so the worker + client code paths haven't been live-traced against this rule. Follow-up tracker filed in `AUDIT_FOLLOWUP_TRACKERS.md` (Q5) — verify the next time a UPS player IRs.
 - **Roster impact:** IR players do NOT count against active roster max.
 - **No team-side IR limit.** MFL setting is set very high — effectively unlimited.
 - **IR + guarantee earning:** confirmed — earning continues on Oct/Nov/Dec checkpoints while on IR.
@@ -334,6 +346,7 @@ These are transactions you can do TO a player who's already on your roster. Defi
 - **Counts toward 5-loaded-contracts roster cap.**
 - **Standalone restructure allowed:** legacy 2014 rule (must accompany extension) is dead. Restructure on its own is fine.
 - **Per-team annual limit: 3 restructures per season per team.** (Distinct from the 5-loaded-contract roster cap.)
+- **D1 audit trail intent (Keith, 2026-05-16 review session):** restructure submissions currently dispatch a `log-restructure-submission` event but lack a dedicated D1 audit table parallel to `ups_tag_history` and `ups_extension_history`. A new D1 table — suggested name `ups_restructure_submissions` (or `ups_restructure_history`) — should be added to capture every restructure submission's `franchise_id`, `player_id`, `original_year_salaries`, `restructured_year_salaries`, `source`, `submitted_at`. Wire the existing event handler to write into it. Tracker: see `AUDIT_FOLLOWUP_TRACKERS.md` (Q14 tracker).
 
 ### C6. 1st-Round Rookie Option (effective 2025+)
 - See A1 for full mechanics. Reproducing key facts:
@@ -348,6 +361,9 @@ These are transactions you can do TO a player who's already on your roster. Defi
 
 ### C8. Tags (UPDATED 2025) — STILL ACTIVE
 - **Updated structure:** **1 Offense tag + 1 Defense/ST tag** per team per year (no longer the legacy Franchise/Transition naming).
+- **Tag side assignment by position (Keith, 2026-05-16 review session):**
+  - **OFFENSE tag side:** QB, RB, WR, TE.
+  - **DEFENSE/ST tag side:** DL, LB, DB, **PK, PN**. PK (kicker) and PN (punter) belong on the **DEFENSE/ST** side — they count against the single Defense/ST tag, not Offense. Code grouping (anything outside QB/RB/WR/TE → DEFENSE) matches this rule.
 - **Mechanics:** Live in the codebase — see `pipelines/etl/scripts/build_tag_tracking.py` and `build_tag_submissions_json.py`. **Read the code, not the rulebook**, for current tag behavior. Tier formulas open for review (Keith wants to revisit the math).
 - **Eligibility window:** Tag candidates are players whose contract is set to expire heading into the upcoming season (i.e., 1 year remaining at end of prior season → 0 years remaining heading into next season). Eligibility is computed from the **prior-season ending roster**.
 - **Tagged player constraints (CONFIRMED 2026-04-28):**
@@ -357,6 +373,10 @@ These are transactions you can do TO a player who's already on your roster. Defi
   - **Once tagged, the player CANNOT be extended OR MYM'd by ANY team — period.** No 1-year tag → re-extension path. The tagged year is a 1-year contract; **the player MUST enter next summer's FA Auction**. The team that tagged them retains the player for that one season only (no extension option afterward).
   - **Exception:** if cut **before FA Auction starts**, normal rules resume — they're treated like any other free agent.
 - **Tag salary fallback (unranked players):** `max(lowest-tier salary for the position, prior-season AAV × 1.10 rounded up to $1K)`.
+- **WW players + tag salary — current behavior + proposed rule (Keith, 2026-05-16 review session):**
+  - **NOT a confirmed rule yet.** A proposed rule of "treat prior WW salary as the lowest tier ($1K floor) when computing a tag's `prior AAV × 1.10` bump" exists but **must be formally proposed via the league's rule-proposal pipeline** before becoming canon. Do **not** modify tag salary calculations to enforce this until passage.
+  - **Current behavior already partially implements the spirit of the proposal:** `pipelines/etl/scripts/build_tag_tracking.py:436-457` — `should_use_prior_aav()` **explicitly blocks** `WW`, `WAIVER`, `FA`, `FREE`, `BL` contracts from contributing to the `prior_aav_map` consumed by tag salary calc. A WW-rostered player therefore falls back to the tier-based base bid (or, no-tier fallback, `max(1000, salary_or_prior)`) without their WW salary acting as a `× 1.10` bump floor. This is documented here so future audits don't mistake the absence of a `prior AAV × 1.10` bump on WW players for a bug.
+  - **After Keith's formal rule proposal lands** (vote + passage), update §C8 to incorporate the rule explicitly and reconcile the code (the existing `blocked` set may be sufficient, or a new `$1K floor` clamp may be needed depending on the proposal text).
 
 ---
 
@@ -374,7 +394,7 @@ These are transactions you can do TO a player who's already on your roster. Defi
   - Apply % to **the year's actual salary** (not AAV). See Section 6.B for the canonical formula and worked examples.
 - **What does NOT change** *(carried forward unchanged from prior rule)*:
   - Total cap hit over a contract's life is unchanged — only the *timing* of when salary is earned is now pro-rated.
-  - **WW pickups under $4K** remain cap-penalty-free if dropped (see D2 + Bot Grounding appendix).
+  - **WW pickups with salary ≤ $4K** remain cap-penalty-free if dropped (see D2 + Bot Grounding appendix). Equivalent to the worker's `< $5K` integer boundary in `worker/src/lib/cap_penalty.js`.
   - **Multi-year contracts where TCV < $5K** still carry the **fixed $1K penalty** if dropped with more than 1 year remaining (see Bot Grounding appendix).
   - All cap penalties are **rounded based on the SUM of penalties accrued**, not per-penalty.
 - **Penalty timing (3 buckets — unchanged):**
@@ -1300,6 +1320,23 @@ Implications for narrative / analytics code:
 - **Never describe a team's seed using regular-season wins.** Use `all_play_pct` from `src_standings` plus the "must win division for top 2" rule.
 - For the "Who was the #N seed in season Y?" question: rank `src_standings` rows by (is_div_winner DESC for top 2, then all_play_pct DESC). Top 2 picks are the two division winners with the highest AP%; seeds 3..N then rank purely by AP% with division-winner status only ensuring playoff entry, not seed position.
 
+## F.2 Division-champ tiebreaker vs UPS playoff-seeding tiebreaker — DO NOT CONFLATE (Keith, 2026-05-16 review session)
+
+There are **two distinct tiebreaker concepts** in UPS standings. Owner-facing narration and code review must keep them straight.
+
+| Concept | Where the rule lives | What it ranks | Tiebreaker chain |
+|---|---|---|---|
+| **Division-champ tiebreaker** | **MFL setting** (`lg.standingsSort` from `TYPE=league` API) — changes year-to-year | Teams **within a division** — picks the division winner | Year-specific. Example: 2011 = `PCT,DIVPCT,PTS,H2H,PWR`; 2014+ = `PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR`. Authoritative source = current MFL settings, not this doc. |
+| **UPS playoff-seeding tiebreaker** | **UPS canon** — §F.1 above | Wild-card pool + seeds 3–6 across the league | AP% → Overall → Points For → H2H (UPS-custom, stable across years) |
+
+**Code separation in the worker** (`worker/src/index.js`):
+- Line 3262-3285: fetches `lg.standingsSort` from MFL `TYPE=league` and stores on the league record.
+- Lines 3362-3382 + 3383: `sortFnFromStandingsSort()` parses MFL `standingsSort` and applies it to **division-leader selection only**.
+- Lines 3567-3572: wild-card pool sorted `AP% → PF → H2H` per §F.1 (UPS playoff seeding).
+- Line 3339: `ORDER BY s.h2h_pct DESC, s.allplay_pct DESC, s.pf DESC` — this is the **full league standings page** ordering, not division-leader or playoff-seed logic. The mismatch flagged in audit `CROSS_CODEBASE_ALIGNMENT.md §3.4` was against the wrong canon — the §F.1 chain is for **playoff seeding**, not for the full standings page sort. Whether the standings-page sort should match §F.1 is a separate UX question and is filed as a follow-up in `AUDIT_FOLLOWUP_TRACKERS.md`.
+
+**Bot guidance:** when asked "who wins division X tiebreaker", read MFL `standingsSort` for the year in question and apply that chain. When asked "who gets the #N seed", apply §F.1 (UPS canon).
+
 ## G. STILL-OPEN ITEMS for Section 3.5
 
 1. **2026 division composition** — locks at draft night. Backfill `src_franchises` 2026 rows once MFL publishes.
@@ -1604,13 +1641,15 @@ The bid sheet's math depends on getting cap mechanics right. This section enumer
 - **Tagged salaries count** as active roster salary against the ceiling. Tagged players ARE on the active roster — no separate accounting.
 - **Taxi salaries do NOT count** — taxi is off-cap entirely.
 - **IR cap relief reduces the count** — 50% of IR'd player's salary refunds against the ceiling.
+- **Enforcement model (Keith, 2026-05-16 review session):** the **$300K ceiling is enforced natively by MFL** at write-time — submissions that would push a team over cap fail at the MFL boundary. **UPS provides advisory warnings** on preview surfaces (Trade War Room, FA Auction tools, roster workbench cap chips) when a planned action would push a team over cap. **No UPS worker-side hard block** — the worker trusts the MFL ceiling enforcement.
 
 ### A2. Cap floor = $260,000
 
-- **Soft floor.** Must be hit at SOME timestamp during the FA Auction window (touch-and-go counts) **OR** by the September contract deadline.
+- **Soft floor.** Must be hit by **end of the FA Auction window OR by the Roster Contract Deadline (September contract deadline), whichever comes later** (Keith, 2026-05-16 review session). Touch-and-go during the auction also counts — once the floor is touched at any timestamp in the window, compliance is satisfied.
 - Failing both = out of compliance → cap penalty.
 - **Touch-and-go example (corrected v10):** team hits $270K mid-auction, then a $40K player goes IR. **IR refund = 50% × $40K = $20K**, so committed salary drops to **$250K** (still < $260K, but the team had touched $260K earlier so they're compliant for floor purposes).
 - **Front-loading contracts OR restructuring** is the explicit tool to satisfy the floor when an owner is light on commitments.
+- **Enforcement:** no UPS worker-side hard block today. Compliance is checked at end of the window via the cap-penalty audit path. Auction-tooling enhancements that would surface a floor warning earlier are parked (see Auction Room scope in `CROSS_CODEBASE_ALIGNMENT.md §4.1`).
 
 ### A3. Future direction (parked — Open Items A1.4 + A2.4)
 Whether to keep, eliminate, or reform the auction roster lock + cap floor mechanic — Keith is reviewing.
@@ -1796,8 +1835,8 @@ The umbrella term is **cap adjustment** for things that move the cap. "Cap penal
 | Trade salary cash | ± | Trade event (paired adjustment — see E1) |
 | IR cap relief | + | Player on IR (50% of salary refunded for duration on IR) |
 | Manual commissioner adjustment | ± | One-off corrections |
-| ❓ Late dues fine | − | $3K per week late — **flagged for review** (Keith v10): may be real-dollar fine, not cap impact |
-| ❓ Missed nomination fine | − | Auction nomination missed (escalates from $3K) — **flagged for review** same as above |
+| ❓ Late dues fine | − | $3K per week late — **legacy — pending overhaul discussion** (Keith, 2026-05-16). Cash-vs-cap treatment undecided pending broader framework overhaul. Do NOT implement either model until Keith reopens the discussion. |
+| ❓ Missed nomination fine | − | Auction nomination missed (escalates from $3K) — **legacy — pending overhaul discussion** (Keith, 2026-05-16), same as Late dues fine. |
 
 > **Removed in v10:** Logo change fee — that was real dollars (and now $0 since AI). Not a cap adjustment.
 
@@ -1813,6 +1852,10 @@ All adjustments stored in MFL via `salary_adjustments` (commissioner import `TYP
 - **Multi-player trade:** max cap-money sent = 50% of the SUM of all traded-away player salaries (Keith v10 confirmed).
 - Cannot send only money — must include at least one non-salary asset (player or pick).
 - Recorded as paired `salary_adjustment` rows: NEGATIVE for the team shedding cap, POSITIVE for the team acquiring cap.
+- **Enforcement (UPS-owned — Keith, 2026-05-16 review session):** this is NOT an MFL-enforced rule. UPS owns the enforcement. **The Trade War Room enforces it client-side today:**
+  - Max calculation: `site/trades/trade_workbench.js:4220` — `getTradeSalaryMaxK(teamId)` returns `floor(selectedNonTaxiSalary / 2000)` (i.e., half the sum of selected non-taxi traded-away player salaries, in $K).
+  - Validation: `site/trades/trade_workbench.js:5237-5238` — flags "Left/Right traded salary exceeds max" if either side's cap-money slider exceeds its computed max.
+  - **Worker-side backstop is not yet implemented.** Future trade-submit endpoint should re-validate using the same formula to harden against client bypass.
 
 ### E2. Player contract transfer
 - Contract goes with the player as-is. No re-negotiation at trade time.
@@ -2266,8 +2309,9 @@ These are corrections + clarifications fed back from solo-test of the AI explain
 
 ### Cap-penalty-free pickups (preserved by 2026-05-08 salary-depreciation rule)
 
-- **Players picked up via Waiver Wire (WW) for under $4K are cap-penalty-free if dropped.** No cap penalty applies regardless of when in the season they're dropped.
+- **Players picked up via Waiver Wire (WW) with salary ≤ $4K are cap-penalty-free if dropped.** No cap penalty applies regardless of when in the season they're dropped.
 - This carve-out is preserved under the new true-pro-rated earning model (effective 2026-05-08).
+- **Boundary phrasing (Keith, 2026-05-16 review session):** the rule is **"WW salary ≤ $4K is cap-free"**. The worker implementation in `worker/src/lib/cap_penalty.js:49-54` uses `< $5K` — these are equivalent for the integer-dollar amounts UPS uses ($1K bid increments). Either phrasing is correct; prefer "≤ $4K" in owner-facing narration and `< $5K` in code reviews.
 
 ### Multi-year low-TCV penalty (preserved by 2026-05-08 salary-depreciation rule)
 
