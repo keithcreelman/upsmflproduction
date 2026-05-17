@@ -1071,10 +1071,31 @@
     var name = fmtPlayerName(player && player.name);
     var pos = U.safeStr(player && player.position);
     var team = U.safeStr(player && player.team);
+    var espnId = U.safeStr(player && (player.espn_id || player.espnId)).replace(/\D/g, "");
+    var photoPid = U.safeStr(pid).replace(/\D/g, "");
+
+    // Photo fallback chain — ESPN high-res (350×254 PNG) → MFL thumb
+    // (110×110, pixelated) → placeholder. Mirrors the desktop modal
+    // chain in site/rosters/roster_workbench.js.
+    var photoChain = [];
+    if (espnId) photoChain.push("https://a.espncdn.com/i/headshots/nfl/players/full/" + espnId + ".png");
+    if (photoPid) photoChain.push("https://www48.myfantasyleague.com/player_photos_2014/" + photoPid + "_thumb.jpg");
+    var photoUrl = photoChain[0] || "";
+    var photoOnError = photoChain.length > 1
+      ? "(function(img,urls){var i=0;img.onerror=function(){i++;if(i<urls.length){img.src=urls[i];}else{img.replaceWith(Object.assign(document.createElement('div'),{className:'ups-m-sheet-photo-placeholder'}));}};})(this," + JSON.stringify(photoChain).replace(/"/g, "&quot;") + ")"
+      : "this.replaceWith(Object.assign(document.createElement('div'),{className:'ups-m-sheet-photo-placeholder'}))";
+    var photoHtml = photoUrl
+      ? '<img class="ups-m-sheet-photo" src="' + U.escapeHtml(photoUrl) + '" alt="' + U.escapeHtml(name || pid) + '" onerror="' + photoOnError + '">'
+      : '<div class="ups-m-sheet-photo-placeholder"></div>';
 
     head.innerHTML =
-      '<div class="name">' + (U.escapeHtml(name) || ('Player ' + U.escapeHtml(pid))) + '</div>' +
-      '<div class="sub">' + U.escapeHtml(pos) + (team ? ' · ' + U.escapeHtml(team) : '') + '</div>';
+      '<div class="ups-m-sheet-head-row">' +
+        photoHtml +
+        '<div class="ups-m-sheet-head-text">' +
+          '<div class="name">' + (U.escapeHtml(name) || ('Player ' + U.escapeHtml(pid))) + '</div>' +
+          '<div class="sub">' + U.escapeHtml(pos) + (team ? ' · ' + U.escapeHtml(team) : '') + '</div>' +
+        '</div>' +
+      '</div>';
 
     var rosterRow = opts.rosterRow || (findRosterRowAcrossLeague(pid) || {}).row || null;
     var ownsPlayer = isOwnRoster(pid);

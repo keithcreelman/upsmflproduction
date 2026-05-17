@@ -6981,6 +6981,11 @@ export default {
             draft_year: safeInt(p?.draft_year || p?.draftYear, 0),
             draft_round: safeInt(p?.draft_round || p?.draftRound, 0),
             draft_pick: safeInt(p?.draft_pick || p?.draftPick, 0),
+            // espn_id surfaces from MFL TYPE=players&DETAILS=1 for every
+            // rostered NFL player. Used by the client to render the
+            // high-res ESPN headshot (~350×254 PNG) instead of MFL's
+            // pixelated 110×110 _thumb.jpg.
+            espn_id: safeStr(p?.espn_id || p?.espnId),
           };
         }
         return byId;
@@ -22022,6 +22027,7 @@ export default {
                 status,
                 is_taxi: isTaxi,
                 is_ir: isIr,
+                espn_id: safeStr(pMeta?.espn_id || ""),
                 extension_previews: extensionPreviewsByPlayer[playerId] || [],
                 taxi_callups_used: taxiCallup ? taxiCallup.used : 0,
                 taxi_callups_max: 3,
