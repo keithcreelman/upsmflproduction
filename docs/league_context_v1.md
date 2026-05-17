@@ -1322,20 +1322,22 @@ Implications for narrative / analytics code:
 
 ## F.2 Division-champ tiebreaker vs UPS playoff-seeding tiebreaker — DO NOT CONFLATE (Keith, 2026-05-16 review session)
 
-There are **two distinct tiebreaker concepts** in UPS standings. Owner-facing narration and code review must keep them straight.
+There are **three distinct ranking sites** in UPS standings code. Owner-facing narration and code review must keep them straight.
 
 | Concept | Where the rule lives | What it ranks | Tiebreaker chain |
 |---|---|---|---|
 | **Division-champ tiebreaker** | **MFL setting** (`lg.standingsSort` from `TYPE=league` API) — changes year-to-year | Teams **within a division** — picks the division winner | Year-specific. Example: 2011 = `PCT,DIVPCT,PTS,H2H,PWR`; 2014+ = `PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR`. Authoritative source = current MFL settings, not this doc. |
 | **UPS playoff-seeding tiebreaker** | **UPS canon** — §F.1 above | Wild-card pool + seeds 3–6 across the league | AP% → Overall → Points For → H2H (UPS-custom, stable across years) |
+| **Standings-page visual sort** | **UPS canon** — same as playoff seeding (Keith 2026-05-17, Option A approved) | Full league standings page | AP% → Overall → Points For (pairwise H2H not computable here) |
 
 **Code separation in the worker** (`worker/src/index.js`):
-- Line 3262-3285: fetches `lg.standingsSort` from MFL `TYPE=league` and stores on the league record.
-- Lines 3362-3382 + 3383: `sortFnFromStandingsSort()` parses MFL `standingsSort` and applies it to **division-leader selection only**.
-- Lines 3567-3572: wild-card pool sorted `AP% → PF → H2H` per §F.1 (UPS playoff seeding).
-- Line 3339: `ORDER BY s.h2h_pct DESC, s.allplay_pct DESC, s.pf DESC` — this is the **full league standings page** ordering, not division-leader or playoff-seed logic. The mismatch flagged in audit `CROSS_CODEBASE_ALIGNMENT.md §3.4` was against the wrong canon — the §F.1 chain is for **playoff seeding**, not for the full standings page sort. Whether the standings-page sort should match §F.1 is a separate UX question and is filed as a follow-up in `AUDIT_FOLLOWUP_TRACKERS.md`.
+- Fetches `lg.standingsSort` from MFL `TYPE=league` and stores on the league record.
+- `sortFnFromStandingsSort()` parses MFL `standingsSort` and applies it to **division-leader selection only**.
+- Wild-card pool sort and the full standings-page `ORDER BY` both use canon §F.1: `AP% → Overall → PF`.
 
-**Bot guidance:** when asked "who wins division X tiebreaker", read MFL `standingsSort` for the year in question and apply that chain. When asked "who gets the #N seed", apply §F.1 (UPS canon).
+**Schema note — `h2h_pct` is the Overall record.** In `src_standings` the columns `h2h_w / h2h_l / h2h_pct` represent each team's overall regular-season record, NOT pairwise head-to-head. The "h2h" prefix predates the §F.1 Overall/H2H split. The pairwise H2H step in §F.1's chain isn't computable from `src_standings` alone (needs schedule data) and is dropped from in-memory comparators in favor of the franchise-name fallback.
+
+**Bot guidance:** when asked "who wins division X tiebreaker", read MFL `standingsSort` for the year in question and apply that chain. When asked "who gets the #N seed" or "who's #N on the standings page", apply §F.1 (UPS canon).
 
 ## G. STILL-OPEN ITEMS for Section 3.5
 
