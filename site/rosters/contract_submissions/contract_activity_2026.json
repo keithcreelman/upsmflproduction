@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-05-16 17:30:35",
+    "generated_at": "2026-05-17 00:55:04",
     "source": "contract-activity-log",
-    "count": 13,
+    "count": 14,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "e7210f69ab5dadc7a6f4c9a0",
+      "submission_id": "e7210f69ab5dadc7a6f4c9a0",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Tag",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0004",
+      "franchise_name": "Pure Greatness",
+      "player_id": "13198",
+      "player_name": "Garrett, Myles",
+      "position": "DE",
+      "salary": 10000,
+      "contract_year": 1,
+      "contract_status": "TAG",
+      "contract_info": "CL 1| TCV 10K| AAV 10K| GTD 7.5K| Tag| Tier 1| Formula: Avg Top 1-6 DL AAV | 10% salary floor (rounded up)",
+      "tcv": 10000,
+      "aav": 10000,
+      "guaranteed": 7500,
+      "submitted_at_utc": "2026-05-17T00:54:52.020Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "dm",
+      "discord_channel_id": "1228915749364564032",
+      "discord_message_id": "1505373014550773881",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "ebcee53288d9a226e7c79863",
       "submission_id": "ebcee53288d9a226e7c79863",
