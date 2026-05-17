@@ -289,6 +289,33 @@
         '<button class="btn-act drop" data-act="drop">Drop' + penaltyLabel + '</button>' +
       '</div>';
 
+      // Promote / Demote from Taxi (canon §B2 + Q10/Q18). Surfaces only
+      // when applicable: Promote for players currently on taxi; Demote
+      // for non-taxi non-IR players on a Rookie contract who haven't
+      // been permanently promoted yet. The worker enforces all real
+      // rules (R1-rookie block per Q12, became_permanent=1 block per Q10
+      // follow-up); this UI is the entry point for the action.
+      var rrStatus = U.safeStr(rosterRow && rosterRow.status).toUpperCase();
+      var rrIsTaxi = rrStatus.indexOf("TAXI") !== -1;
+      var rrIsIr = rrStatus.indexOf("IR") !== -1;
+      var rrContractStatus = U.safeStr(rosterRow && rosterRow.contractStatus);
+      var isRookieContract = /rookie/i.test(rrContractStatus);
+      // Check the call-up count to decide if the Demote button is even
+      // worth showing — a permanently-promoted player can't return to
+      // taxi (Q10 follow-up PR #221 enforces this server-side).
+      var taxiInfo = DATA.taxiCallupsFor ? DATA.taxiCallupsFor(pid) : null;
+      var isPermanentlyPromoted = !!(taxiInfo && taxiInfo.permanent_promotion);
+      var canDemote = !rrIsTaxi && !rrIsIr && isRookieContract && !isPermanentlyPromoted;
+      if (rrIsTaxi) {
+        html += '<div class="ups-m-sheet-actions">' +
+          '<button class="btn-act ext" data-act="promote-taxi">Promote from Taxi</button>' +
+        '</div>';
+      } else if (canDemote) {
+        html += '<div class="ups-m-sheet-actions">' +
+          '<button class="btn-act rstr" data-act="demote-taxi">Demote to Taxi</button>' +
+        '</div>';
+      }
+
       // Contract-action grid: Extension / Rookie Option / Restructure /
       // Tag — eligibility comes from the FO mirror. Each button opens the
       // desktop Contract Command Center pre-targeted at this player + action.
@@ -389,12 +416,69 @@
     if (unloadCleanup) unloadCleanup.addEventListener("click", function () {
       handleUnloadCleanup(unloadCleanup);
     });
+    var promoteTaxi = foot.querySelector('[data-act="promote-taxi"]');
+    if (promoteTaxi) promoteTaxi.addEventListener("click", function () {
+      handleTaxiRosterMove("promote_taxi", promoteTaxi);
+    });
+    var demoteTaxi = foot.querySelector('[data-act="demote-taxi"]');
+    if (demoteTaxi) demoteTaxi.addEventListener("click", function () {
+      handleTaxiRosterMove("demote_taxi", demoteTaxi);
+    });
     var cccButtons = foot.querySelectorAll('[data-act="ccc"]');
     for (var ci = 0; ci < cccButtons.length; ci++) {
       cccButtons[ci].addEventListener("click", function () {
         handleCccAction(this.getAttribute("data-ccc-action"));
       });
     }
+  }
+
+  // Taxi promote / demote — mobile mirror of desktop Roster Workbench's
+  // taxi roster moves. Posts to /roster-workbench/action with action=
+  // "promote_taxi" or "demote_taxi". Worker enforces all the real rules
+  // (R1-rookie block per Q12, became_permanent block per Q10 follow-up,
+  // verification-honored failure per Q19). UI shows the worker's error
+  // message directly so off-season blocks + permanent-promotion blocks
+  // are visible to the owner.
+  function handleTaxiRosterMove(action, btn) {
+    var s = window.UPS_MOBILE.state;
+    var name = footerState.name || "this player";
+    var verb = action === "promote_taxi" ? "promote from taxi" : "demote to taxi";
+    var verbCap = action === "promote_taxi" ? "Promote" : "Demote";
+    if (!window.confirm(verbCap + " " + name + "?")) return;
+    setBusy(btn, true, verbCap + "ing…");
+    var url = window.UPS_MOBILE.api.workerBase() + "/roster-workbench/action";
+    fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: action,
+        league_id: s.ctx.leagueId,
+        season: s.ctx.year,
+        franchise_id: U.pad4(s.viewerFranchiseId),
+        player_id: U.safeStr(footerState.pid)
+      })
+    }).then(function (r) {
+      return r.json().then(function (b) { return { ok: r.ok, status: r.status, body: b }; });
+    }).then(function (resp) {
+      setBusy(btn, false);
+      if (resp.ok && resp.body && resp.body.ok) {
+        var msg = U.safeStr(resp.body.message) || (verbCap + " complete");
+        window.UPS_MOBILE.ui.showToast(msg, "ok");
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
+      // Q19: worker returns 502 + verification.ok=false when MFL didn't
+      // actually apply the action (off-season gate, permanent-promotion
+      // block, etc.). Surface the error message directly.
+      var err = (resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status);
+      window.UPS_MOBILE.ui.showToast(verbCap + " failed: " + err, "err");
+    }).catch(function (err) {
+      setBusy(btn, false);
+      window.UPS_MOBILE.ui.showToast(verbCap + " failed: " + (err && err.message || err), "err");
+    });
   }
 
   // Recovery for the partial-untag case. Calls /roster-workbench/action
