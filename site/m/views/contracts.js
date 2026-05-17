@@ -54,11 +54,16 @@
     if (/taxi/i.test(status)) {
       var callup = DATA.taxiCallupsFor && DATA.taxiCallupsFor(rosterRow.id);
       var used = callup ? U.safeInt(callup.used, 0) : 0;
+      var pending = callup ? U.safeInt(callup.pending, 0) : 0;
       var max = callup ? U.safeInt(callup.max, 3) || 3 : 3;
       if (callup && callup.permanent_promotion) {
         out.push('<span class="badge tx-perm">Promoted</span>');
-      } else if (used > 0) {
-        out.push('<span class="badge tx">Taxi · ' + used + '/' + max + '</span>');
+      } else if (used > 0 || pending > 0) {
+        // Q20: pending call-ups (owner clicked promote but NFL week
+        // hasn't certified yet) shown alongside the confirmed count.
+        var label = "Taxi · " + used + "/" + max;
+        if (pending > 0) label += " + " + pending + " pending";
+        out.push('<span class="badge tx">' + label + '</span>');
       } else {
         out.push('<span class="badge tx">Taxi</span>');
       }

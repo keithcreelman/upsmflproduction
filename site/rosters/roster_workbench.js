@@ -4515,6 +4515,7 @@
       // worker per player from ups_taxi_callups; defaults to 0/3 when
       // the worker payload predates the schema.
       taxiCallupsUsed: safeInt(p.taxi_callups_used || p.taxiCallupsUsed, 0),
+      taxiCallupsPending: safeInt(p.taxi_callups_pending || p.taxiCallupsPending, 0),
       taxiCallupsMax: safeInt(p.taxi_callups_max || p.taxiCallupsMax || 3, 3),
       taxiPermanentPromotion: !!(p.taxi_permanent_promotion || p.taxiPermanentPromotion),
       // espn_id from MFL TYPE=players&DETAILS=1; powers high-res
@@ -8932,12 +8933,16 @@
       if (p.isTaxi) {
         var taxiLabel = "Taxi";
         var used = safeInt(p.taxiCallupsUsed, 0);
+        var pending = safeInt(p.taxiCallupsPending, 0);
         var max = safeInt(p.taxiCallupsMax, 3) || 3;
         // Canon §B2: 3 call-ups across the player's taxi-eligibility window.
-        // Only render the counter when at least one call-up has been used —
-        // unused budgets are the default state and the chip just adds noise.
-        if (used > 0 && !p.taxiPermanentPromotion) {
+        // Render counter when at least one call-up has been used OR a
+        // pending call-up is in flight (Q20). Pending count is shown
+        // separately so owners see their click took effect even before
+        // the NFL week locks ("Taxi · 1/3 + 1 pending").
+        if ((used > 0 || pending > 0) && !p.taxiPermanentPromotion) {
           taxiLabel = "Taxi · " + used + "/" + max;
+          if (pending > 0) taxiLabel += " + " + pending + " pending";
         }
         tags.push('<span class="rwb-tag is-taxi">' + escapeHtml(taxiLabel) + '</span>');
       } else if (p.taxiPermanentPromotion) {
