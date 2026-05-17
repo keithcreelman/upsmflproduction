@@ -1,6 +1,6 @@
 # Cross-Codebase Alignment
 
-**Last updated:** 2026-05-16
+**Last updated:** 2026-05-16 (post-§6 disposition pass — Keith review session)
 **Owner:** Keith Creelman
 **Status:** Living document — update before every multi-codebase PR.
 
@@ -286,6 +286,31 @@ Anytime mobile/desktop intentionally diverges (because a fix can't ship cross-co
 ## §6 — Open questions / clarifications needed from Keith
 
 When the audit hit something ambiguous in `league_context_v1.md`, the question lands here. Keith answers; the answer goes back into `league_context_v1.md` as a clarifying paragraph; the row gets resolved.
+
+**Status legend:** ✅ Resolved (canon updated) · 🔵 Follow-up (canon updated + implementation tracker filed) · 🟡 Parked (no canon change; deferred or pending discussion)
+
+**Disposition (Keith, 2026-05-16 review session — captured in this doc-update PR):**
+
+| # | Topic | Status | Resolution pointer |
+|---|---|---|---|
+| Q1 | WW cap-free boundary | ✅ Resolved | Code `< $5K` is correct; rule phrasing is "WW salary ≤ $4K is cap-free" (equivalent for integer dollars). → `league_context_v1.md §D1` + Bot Grounding appendix ("Cap-penalty-free pickups") updated. |
+| Q2 | Ext2 FL/BL suffix auto-derivation | 🔵 Follow-up | Canon is correct; code missing the auto-derive step across desktop + mobile + any other extension submitters. Doc unchanged. → tracker `AUDIT_FOLLOWUP_TRACKERS.md` Q2. |
+| Q3 | PK/PN tag side | ✅ Resolved | PK/PN belong on the **DEFENSE/ST** side; code grouping is correct. → `league_context_v1.md §C8` (new explicit assignment paragraph). |
+| Q4 | Cap ceiling + floor enforcement | ✅ Resolved + 🟡 Parked (impl) | $300K ceiling: MFL-native + UPS advisory warnings, no worker block. $260K floor: deadline extended to "end of auction OR Roster Contract Deadline, whichever comes later." → `league_context_v1.md §6.A1` + `§6.A2` updated. Auction-tooling floor warnings parked under §4.1. |
+| Q5 | IR 50% relief — verify live | 🔵 Follow-up | Rule confirmed ($20K player → $10K cap hit on IR). Live verification deferred (no player currently on IR). → `league_context_v1.md §B3` notes deferral; tracker `AUDIT_FOLLOWUP_TRACKERS.md` Q5. |
+| Q6 | Trade cap-money 50% rule | ✅ Resolved | UPS-owned (not MFL-enforced). Trade War Room already enforces client-side: `site/trades/trade_workbench.js:4220` (max calc) + `:5237-5238` (validation). Worker-side backstop is a follow-up. → `league_context_v1.md §6.E1` cites file:line. Tracker `AUDIT_FOLLOWUP_TRACKERS.md` Q6 (worker backstop). |
+| Q7 | 27-active minimum + 30-max post-deadline | ✅ Resolved + 🟡 Parked (impl) | 27-min only at end of auction + complete-lineup requirement. 30-max via MFL settings (no UPS code). Safeguarding parked for auction tooling. → `league_context_v1.md §B1` updated. |
+| Q8 | Standings tiebreaker | ✅ Resolved + 🔵 Follow-up | Two distinct concepts. Division-champ tiebreaker = MFL setting (`lg.standingsSort`, year-specific). UPS playoff seeding = canon §F.1 (AP% → PF → H2H). Worker `index.js:3339` is the full-standings-page sort, separate from both. → `league_context_v1.md §F.2` added (separation + code-pointer table). Tracker `AUDIT_FOLLOWUP_TRACKERS.md` Q8 (verify current MFL `standingsSort` + decide whether standings-page sort should align). |
+| Q9 | Taxi 3-year clock tracking | ✅ Resolved | MFL native + derivation path from `players.draft_year`. → `league_context_v1.md §B2` updated. |
+| Q10 | Taxi call-up counter + auto-promotion | 🔵 Follow-up | UPS-owned, 3 total across the 3-year window (NOT per-season), 4th = permanent. Counter + worker increment + auto-promotion block + UI to build. → `league_context_v1.md §B2` updated. Tracker `AUDIT_FOLLOWUP_TRACKERS.md` Q10. |
+| Q11 | Round 6 IDP-only validation | 🔵 Follow-up | Greenlit on worker-side hard block at `/api/pick`. Historical precedent captured: reversed + pick lost as penalty. → `league_context_v1.md §A1 Round 6` updated. Tracker `AUDIT_FOLLOWUP_TRACKERS.md` Q11. |
+| Q12 | Round 1 active-only lock | 🔵 Follow-up | Greenlit on demote endpoint rejecting R1 → taxi. → `league_context_v1.md §A1 Round 1` updated. Tracker `AUDIT_FOLLOWUP_TRACKERS.md` Q12. |
+| Q13 | Tag WW players → $1K floor | 🟡 Parked (rule proposal) | NOT confirmed; Keith to propose via league pipeline. Existing partial implementation found: `build_tag_tracking.py:436-457` blocks WW from `prior_aav_map`. → `league_context_v1.md §C8` documents current behavior + proposal status. Tracker `AUDIT_FOLLOWUP_TRACKERS.md` Q13 (rule-proposal). |
+| Q14 | Restructure D1 audit table | 🔵 Follow-up | Add `ups_restructure_submissions` (or `ups_restructure_history`); wire existing `log-restructure-submission` event. → `league_context_v1.md §C5` updated. Tracker `AUDIT_FOLLOWUP_TRACKERS.md` Q14. |
+| Q15 | Late dues + missed-nomination fines | 🟡 Parked | Legacy — pending overhaul discussion. Cash-vs-cap treatment undecided. Do NOT implement either model. → `league_context_v1.md §6.D` marks legacy + parked. |
+| Q16 | Auction Room scope | 🟡 Parked | Scope undecided; Keith will circle back. §4 context preserved. No canon change. |
+
+### §6.1 — Original audit questions (kept for traceability)
 
 | # | Topic | Question | Audit source |
 |---|---|---|---|
