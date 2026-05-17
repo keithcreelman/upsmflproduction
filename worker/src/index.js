@@ -6974,6 +6974,13 @@ export default {
             nfl_team: safeStr(p?.team || p?.nfl_team),
             position: safeStr(p?.position || p?.pos).toUpperCase(),
             injury: firstTruthy(p?.injury_status, p?.injuryStatus, p?.status),
+            // draft_year captured so the worker can synthesize taxi-contract
+            // fallbacks for players where MFL suppresses contractYear /
+            // contractInfo (canon §A1 — 3yr rookie deals). Mirror of
+            // site/rosters/roster_workbench.js repairTaxiContractFallbacks.
+            draft_year: safeInt(p?.draft_year || p?.draftYear, 0),
+            draft_round: safeInt(p?.draft_round || p?.draftRound, 0),
+            draft_pick: safeInt(p?.draft_pick || p?.draftPick, 0),
           };
         }
         return byId;
@@ -21883,19 +21890,48 @@ export default {
               const pMeta = playersById[playerId] || {};
               const overlay = salaryByPlayer[playerId] || null;
               const salary = overlay && overlay.salary != null ? safeInt(overlay.salary, 0) : safeInt(asset?.salary, 0);
-              const years = overlay && overlay.contractYear != null
+              let years = overlay && overlay.contractYear != null
                 ? safeInt(overlay.contractYear, 0)
                 : (asset?.years == null ? 0 : safeInt(asset?.years, 0));
               const type = safeStr(overlay?.contractStatus || asset?.contract_type || "");
-              const specialRaw = safeStr(overlay?.contractInfo || asset?.contract_info || "");
-              const special = normalizeContractInfoForDisplay(specialRaw, years, priorSalaryByPlayer[playerId] || null);
-              const aavValues = parseContractAavValues(special);
-              const aav = aavValues.length ? safeInt(aavValues[0], 0) : 0;
+              let specialRaw = safeStr(overlay?.contractInfo || asset?.contract_info || "");
               const nflTeam = safeStr(pMeta?.nfl_team || "").toUpperCase();
               const statusRaw = safeStr(asset?.roster_status || "").toUpperCase();
               const status = statusRaw || (asset?.taxi ? "TAXI_SQUAD" : "ROSTER");
               const isTaxi = status.includes("TAXI");
               const isIr = status.includes("IR");
+
+              // Taxi-contract fallback (mirror of site/rosters/roster_workbench.js
+              // repairTaxiContractFallbacks). MFL suppresses contractYear /
+              // contractInfo for TAXI-squad players in its API payload; without
+              // this fallback Tre Harris, Isaac TeSlaa, and ~20 other 2024-2025
+              // rookies surface as "expired" (years=0). Compute years from
+              // draft_year per canon §A1 (3yr rookie deals); synthesize a flat
+              // Y-array contractInfo string when salary is known.
+              if (isTaxi) {
+                const draftYear = safeInt(pMeta?.draft_year, 0);
+                const currentSeason = parseInt(season, 10) || 0;
+                if (years <= 0 && draftYear > 0 && currentSeason > 0) {
+                  years = Math.max(0, 3 - Math.max(0, currentSeason - draftYear));
+                }
+                if (years > 0 && salary > 0 && (!specialRaw || specialRaw === "-")) {
+                  const sK = Math.max(1, Math.round(salary / 1000));
+                  const yearParts = [];
+                  for (let yi = 1; yi <= years; yi += 1) {
+                    yearParts.push(`Y${yi}-${sK}K`);
+                  }
+                  specialRaw =
+                    `CL ${years}|TCV ${sK * years}K|AAV ${sK}K|` + yearParts.join(", ");
+                }
+              }
+
+              const special = normalizeContractInfoForDisplay(specialRaw, years, priorSalaryByPlayer[playerId] || null);
+              const aavValues = parseContractAavValues(special);
+              let aav = aavValues.length ? safeInt(aavValues[0], 0) : 0;
+              // Final aav fallback for taxi players: if aav still 0 but salary > 0,
+              // mirror desktop's `if (salary > 0 && aav <= 0) aav = salary` repair.
+              if (isTaxi && aav <= 0 && salary > 0) aav = salary;
+
               const taxiCallup = taxiCallupsByPlayer[playerId] || null;
               return {
                 id: playerId,

@@ -492,6 +492,64 @@
       .catch(function () { return {}; });
   }
 
+  // Taxi-contract repair (canon §A1; mirror of desktop's
+  // repairTaxiContractFallbacks in site/rosters/roster_workbench.js).
+  //
+  // MFL's API suppresses contract metadata (contractYear, contractStatus,
+  // contractInfo) for TAXI-squad players. Without a fallback, taxi
+  // rookies surface as "expired" (contractYear=0). This walks the
+  // rosters payload, looks up each taxi player's draft_year in the
+  // players export, and infers years remaining on their 3yr rookie
+  // contract. Synthesizes a flat Y-array contractInfo string when
+  // salary is known so the contracts view has something to render.
+  //
+  // Mutates rostersPayload in place — all downstream consumers
+  // (front_office_cap.js, contracts view, etc.) benefit.
+  function repairTaxiContractsInPlace(rostersPayload, playersPayload, currentSeason) {
+    if (!rostersPayload || !rostersPayload.rosters) return;
+    if (!playersPayload || !playersPayload.players) return;
+    var seasonInt = parseInt(currentSeason, 10) || 0;
+    if (seasonInt <= 0) return;
+    var draftYearById = {};
+    asArray(playersPayload.players.player).forEach(function (p) {
+      if (!p || p.id == null) return;
+      var dy = parseInt(p.draft_year || p.draftYear, 10);
+      if (!isNaN(dy) && dy > 0) draftYearById[String(p.id)] = dy;
+    });
+    asArray(rostersPayload.rosters.franchise).forEach(function (fr) {
+      asArray(fr && fr.player).forEach(function (p) {
+        if (!p || p.id == null) return;
+        var status = String(p.status || "").toUpperCase();
+        if (status.indexOf("TAXI") === -1) return;
+        var cy = parseInt(p.contractYear, 10);
+        var hasYear = !isNaN(cy) && cy > 0;
+        var dy = draftYearById[String(p.id)];
+        var yearsRemaining = hasYear
+          ? cy
+          : (dy ? Math.max(0, 3 - Math.max(0, seasonInt - dy)) : 0);
+        if (!hasYear && yearsRemaining > 0) {
+          p.contractYear = String(yearsRemaining);
+        }
+        if (!p.contractStatus) {
+          p.contractStatus = "Rookie";
+        }
+        var salaryNum = parseInt(p.salary, 10) || 0;
+        if (yearsRemaining > 0 && salaryNum > 0 && (!p.contractInfo || p.contractInfo === "-")) {
+          var sK = Math.max(1, Math.round(salaryNum / 1000));
+          var yearParts = [];
+          for (var i = 1; i <= yearsRemaining; i += 1) {
+            yearParts.push("Y" + i + "-" + sK + "K");
+          }
+          p.contractInfo =
+            "CL " + yearsRemaining +
+            "|TCV " + (sK * yearsRemaining) + "K" +
+            "|AAV " + sK + "K" +
+            "|" + yearParts.join(", ");
+        }
+      });
+    });
+  }
+
   // Trade offers (incoming + outgoing) — used both by views/trade.js for
   // the offer list and by the bottom-nav badge counter on the League tab.
   // Returns { incoming: [], outgoing: [] } even on error so the count is
@@ -553,6 +611,14 @@
       state.salaries = results[2];
       state.salaryAdjustments = results[3];
       state.players = results[4];
+      // Taxi-contract fallback (mirror of
+      // site/rosters/roster_workbench.js repairTaxiContractFallbacks).
+      // MFL suppresses contractYear / contractInfo for TAXI-squad
+      // players in its rosters payload; without this fallback Tre
+      // Harris, Isaac TeSlaa, and ~20 other 2024-2025 rookies surface
+      // as "expired" (contractYear=0). Compute years remaining from
+      // draft_year per canon §A1 (3yr rookie deals).
+      repairTaxiContractsInPlace(state.rosters, state.players, state.ctx.year);
       state.tradeBait = results[5];
       state.playerScoresYtd = results[6];
       state.tagTracking = results[7] || [];
