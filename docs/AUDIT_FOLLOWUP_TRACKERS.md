@@ -13,28 +13,21 @@
 
 ## Trackers
 
-### Q2 — Ext2 FL/BL suffix auto-derivation ⏳
+### Q2 — Ext2 FL/BL suffix auto-derivation ✅ (PR #217, merged 2026-05-17)
 
 **Canon:** `docs/league_context_v1.md §C4.3` ("the extension submitter should **auto-derive** the `-FL` / `-BL` suffix from the per-year salary array").
 
-**Gap:** Desktop's `playerExtensionOptions` (`site/rosters/roster_workbench.js`) leaves `contractStatus` as plain `EXT2` regardless of Y1/Y2 distribution. Mobile mirror has the same gap.
+**Shipped:** desktop `deriveExtensionLoadingSuffix` + `applyExtensionLoadingSuffix` helpers in `site/rosters/roster_workbench.js` wired into `submitExtensionUpdate`; worker `/commish-contract-update` has defense-in-depth normalization. Algorithm: 2-yr extension → compare `yMap[cy-1]` vs `yMap[cy]` (the extension years); Y1>Y2 → `-FL`, Y1<Y2 → `-BL`, flat → plain `EXT2`. Mobile has no extension submitter today; when it lands, it should call the same helpers.
 
-**Work:**
-- Add a `deriveExtensionLoadingSuffix(years, year_salaries)` helper that returns `"-FL"` (Y1 > Y2), `"-BL"` (Y1 < Y2), or `""` (Y1 = Y2).
-- Apply in:
-  - Desktop: `site/rosters/roster_workbench.js submitExtensionUpdate`.
-  - Mobile: `site/m/front_office_extend_submit.js`.
-  - Any other extension submit path (search worker too in case it normalizes there).
-- Worker should also normalize/validate the suffix on `/commish-contract-update` for `submission_kind=extension`.
-- Test cases: `[10, 40]` → `-BL`; `[40, 10]` → `-FL`; `[25, 25]` → no suffix.
-
-**Out of scope:** historical backfill of pre-fix EXT2 contracts (handle separately if needed).
+**Open:** historical backfill of pre-fix EXT2 contracts (not addressed; handle separately if a count-by-loading audit surfaces missed BL contracts).
 
 ---
 
-### Q5 — IR 50% cap relief live verification ⏳
+### Q5 — IR 50% cap relief live verification 🟡 (Deferred — no eligible player, PR #219)
 
 **Canon:** `docs/league_context_v1.md §B3` — "$20K salary → $10K cap hit while on IR." Live-trace deferred per Keith 2026-05-16 (no current UPS player on IR).
+
+**Status:** doc-only deferral note in [docs/Q5_IR_50_PERCENT_RELIEF_DEFERRED.md](Q5_IR_50_PERCENT_RELIEF_DEFERRED.md). Reopen the moment a UPS player IRs.
 
 **Work (do the next time a UPS player IRs):**
 1. Note the player's salary pre-IR.
@@ -63,75 +56,49 @@
 
 ---
 
-### Q8 — Standings tiebreaker follow-ups 🔵 (investigation + possible code-fix)
+### Q8 — Standings tiebreaker follow-ups 🚧 (Option A approved, PR #220 in flight)
 
-**Canon:** `docs/league_context_v1.md §F.2` (added 2026-05-16) separates the two concepts. See also §F.1.
+**Canon:** `docs/league_context_v1.md §F.2` (added 2026-05-16, updated 2026-05-17 to record Option A as canon). See also §F.1.
 
-**Sub-tasks:**
+**Decision (Keith 2026-05-17):** Option A approved — standings-page sort matches §F.1 playoff-seeding ladder.
 
-1. **Verify current MFL `standingsSort`** for the active season.
-   - Pull `TYPE=league` from MFL API for the current `league_id`.
-   - Capture the `standingsSort` string verbatim (e.g., `PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR`).
-   - Add it to `league_context_v1.md §F.2` (or a season-by-season table if the value has drifted).
+**Shipped (pending #220 merge):**
+- Recommendation doc: PR #216 → [docs/Q8_STANDINGS_SORT_RECOMMENDATION.md](Q8_STANDINGS_SORT_RECOMMENDATION.md).
+- Code fix: PR #220 — `worker/src/index.js:3410` `ORDER BY s.allplay_pct DESC, s.h2h_pct DESC, s.pf DESC`; wild-card pool sort at `:3635` aligned to AP% → Overall → PF; canon §F.2 updated with the standings-page-sort row + a load-bearing schema note (`s.h2h_pct` is the overall record despite the column name).
 
-2. **Decide standings-page sort.** `worker/src/index.js:3339` uses `ORDER BY s.h2h_pct DESC, s.allplay_pct DESC, s.pf DESC` for the full league standings page. This is **neither** the division-leader logic (which uses `standingsSort`) **nor** the playoff-seeding logic (AP% → PF → H2H per §F.1).
-   - Question for Keith: should the standings-page sort align with §F.1 (AP% → PF → H2H), with the year's MFL `standingsSort`, or remain as-is?
-   - If alignment is wanted, file a code-fix PR.
-
-**Out of scope:** the division-leader code path and the wild-card pool code path are both correct against canon as documented in §F.2.
+**Open sub-task:** verify current MFL `standingsSort` and capture it season-by-season if drift surfaces. Not blocking the main fix.
 
 ---
 
-### Q10 — Taxi call-up counter + auto-promotion (UPS-owned) ⏳
+### Q10 — Taxi call-up counter + auto-promotion (UPS-owned) ✅ (PRs #218 + #221, merged 2026-05-17)
 
 **Canon:** `docs/league_context_v1.md §B2` (UPDATED 2026-05-08, re-confirmed 2026-05-16). 3 total call-ups across the 3-year taxi-eligibility window (NOT per-season). 4th = permanent promotion.
 
-**Work (UPS owns end-to-end; MFL does not enforce):**
+**Shipped:**
+- **PR #218** — migration `0048_taxi_callups.sql` + worker increment on `/roster-workbench/action` `promote_taxi` + `/roster-workbench` GET payload exposing `taxi_callups_used / taxi_callups_max / taxi_permanent_promotion` per player + desktop UI ("Taxi · N/3" chip, "Promoted" tag once permanent).
+- **PR #221** — demote-side `became_permanent` guard (rejects demote_taxi with `TAXI_PERMANENTLY_PROMOTED`); `demoted_at` close-out on successful demote; new `GET /api/taxi-callups` endpoint; mobile UI for the counter (`site/m/views/contracts.js` + `M.data.taxiCallupsFor`).
 
-1. **Schema:** new D1 table `ups_taxi_callups`:
-   - `(franchise_id, player_id, season, nfl_week, called_up_at, demoted_at NULL, became_permanent INT DEFAULT 0)`.
-   - Plus a `ups_taxi_callup_counts` materialized view or derived query for `(franchise_id, player_id) → total_callups_in_window`.
-
-2. **Worker increment:** on `/api/promote-from-taxi` (or wherever the call-up submit lives), look up the player's draft_year + current season → compute 3-year-window bounds → query `ups_taxi_callups` for total_in_window → reject if already 3 AND the new call-up would be the 4th (and instead route as permanent promotion).
-
-3. **Auto-promotion path:** the 4th activation auto-flips the player to permanently promoted. Update `players.permanent_promotion_at` (or equivalent) so the cap-free-cut path stops applying.
-
-4. **Demote logic:** on demote-to-taxi before next week's lock, set `demoted_at` on the open row.
-
-5. **UI:** taxi pane shows `Used N / 3` per player with a remaining-call-ups chip.
-
-**Test cases:**
-- Player called up 3 times in Year 1 → 4th call-up auto-promotes.
-- Player called up 1× in Y1, 1× in Y2, 1× in Y3 → 4th call-up at any point auto-promotes (counter is cumulative).
-- Player called up + demoted within same week → still counts 1 toward budget (per "active for the week" definition in B2).
+**Test cases:** see PR descriptions. Live-test path: click "Promote From Taxi" on a desktop player row → row flips to "Taxi · 1/3" after refresh. 4th promote on the same player → "Promoted" badge + future `demote_taxi` rejected.
 
 ---
 
-### Q11 — Round 6 IDP-only worker block ⏳
+### Q11 — Round 6 IDP-only worker block ✅ (PR #213, merged 2026-05-17)
 
 **Canon:** `docs/league_context_v1.md §A1 Round 6` (updated 2026-05-16 with historical precedent).
 
-**Work:**
-- Find rookie-draft pick submit endpoint (likely `worker/src/index.js` — search for `/api/pick` or draft submit handler).
-- Add: if `round === 6` AND `player.position` ∈ `{QB, RB, WR, TE, PK, PN}` → reject with a 400 + actionable error message.
-- Mirror UI gate in:
-  - Desktop rookie-draft UI (find via `site/draft/*` or similar).
-  - Mobile rookie-draft UI (find via `site/m/*`).
-- Add an integration test asserting rejection of a known-bad R6 pick.
+**Shipped:** worker `/api/pick` rejects R6 selections whose `player.position` ∈ `{QB, RB, WR, TE, PK, PN}` with HTTP 400 `R6_IDP_ONLY`. Error message surfaces the historical-precedent penalty (commissioner reverses + team forfeits the pick). Applies before both sim and live MFL write paths.
 
-**Historical precedent for the rejection message:** "Round 6 picks are IDP-only (2025+). Per league precedent, non-IDP R6 selections have been reversed AND the pick forfeited as a penalty."
+**Open:** live-test once the 2026 rookie draft happens (Memorial Day Sunday 2026-05-24). No UI gate added — the desktop/mobile draft UI submits through `/api/pick`; worker block is the binding gate.
 
 ---
 
-### Q12 — Round 1 active-only lock (demote-to-taxi reject) ⏳
+### Q12 — Round 1 active-only lock (demote-to-taxi reject) ✅ (PR #214, merged 2026-05-17)
 
 **Canon:** `docs/league_context_v1.md §A1 Round 1` (updated 2026-05-16).
 
-**Work:**
-- Find demote-to-taxi worker endpoint.
-- Lookup: `player.draft_round === 1` AND `player.is_rookie_contract` (or equivalent) → reject demotion with 400.
-- Mirror UI gate (desktop + mobile).
-- Integration test for known-bad demotion.
+**Shipped:** new `demote_taxi` action added to `/roster-workbench/action` (sibling of `promote_taxi` / `activate_ir` / `drop_player`), gated by `_checkR1RookieDemoteGate` helper. Helper does rosters + draftResults lookups across last 4 seasons; rejects with HTTP 400 `R1_ACTIVE_ONLY` on positive R1 + Rookie-contract match. Fail-open if either lookup misses so transient MFL hiccups don't break legitimate non-R1 demotes.
+
+**Open:** no UI gate added — desktop/mobile UI currently exposes no demote button; worker block is the future-proof backstop.
 
 ---
 
@@ -151,32 +118,13 @@
 
 ---
 
-### Q14 — Restructure D1 audit table ⏳
+### Q14 — Restructure D1 audit table ✅ (PR #215, merged 2026-05-17)
 
 **Canon:** `docs/league_context_v1.md §C5` (updated 2026-05-16).
 
-**Work:**
-1. New migration `worker/migrations/00NN_ups_restructure_submissions.sql`:
-   ```sql
-   CREATE TABLE ups_restructure_submissions (
-     id INTEGER PRIMARY KEY AUTOINCREMENT,
-     league_id TEXT NOT NULL,
-     season INTEGER NOT NULL,
-     franchise_id TEXT NOT NULL,
-     player_id TEXT NOT NULL,
-     original_year_salaries TEXT NOT NULL,   -- JSON array
-     restructured_year_salaries TEXT NOT NULL, -- JSON array
-     tcv_usd INTEGER,
-     source TEXT,                              -- 'desktop' | 'mobile' | 'commish'
-     submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
-     submitted_by_fid TEXT
-   );
-   CREATE INDEX idx_restructure_franchise_season ON ups_restructure_submissions(franchise_id, season);
-   CREATE INDEX idx_restructure_player_season ON ups_restructure_submissions(player_id, season);
-   ```
-2. Wire the existing `log-restructure-submission` event handler to INSERT a row.
-3. Add a master table mirror if `ups_extension_history` / `ups_tag_history` follow that pattern.
-4. Backfill question: is there a prior history of restructures to load from old event logs? Decide separately.
+**Shipped:** migration `0047_restructure_submissions.sql` (mirrors `ups_extension_submissions` shape, with restructure-specific JSON-array per-year salary columns + TCV/AAV). Worker `/commish-contract-update` + `/offer-restructure` INSERTs a row when `isRestructure && looksOk && anyChanged`. No master table on this side — restructures don't change contract identity the way an extension does; current-state mirror remains the rosters/salaries payload.
+
+**Open:** historical restructure backfill from old event logs (PR description flagged this as a separate decision — needs Keith's call).
 
 ---
 
@@ -191,4 +139,14 @@
 
 ## Done
 
-(none yet — populate as trackers ship)
+| Tracker | PR(s) | Merge date |
+|---|---|---|
+| Q2 — Ext2 FL/BL suffix auto-derivation | [#217](https://github.com/keithcreelman/upsmflproduction/pull/217) | 2026-05-17 |
+| Q10 — Taxi call-up counter | [#218](https://github.com/keithcreelman/upsmflproduction/pull/218), [#221](https://github.com/keithcreelman/upsmflproduction/pull/221) | 2026-05-17 |
+| Q11 — R6 IDP-only worker block | [#213](https://github.com/keithcreelman/upsmflproduction/pull/213) | 2026-05-17 |
+| Q12 — R1 active-only demote rejection | [#214](https://github.com/keithcreelman/upsmflproduction/pull/214) | 2026-05-17 |
+| Q14 — Restructure D1 audit table | [#215](https://github.com/keithcreelman/upsmflproduction/pull/215) | 2026-05-17 |
+
+**In flight:** Q8 standings sort code fix — [#220](https://github.com/keithcreelman/upsmflproduction/pull/220) (Option A approved by Keith 2026-05-17; pending merge).
+
+**Deferred:** Q5 IR 50% relief — see [docs/Q5_IR_50_PERCENT_RELIEF_DEFERRED.md](Q5_IR_50_PERCENT_RELIEF_DEFERRED.md).
