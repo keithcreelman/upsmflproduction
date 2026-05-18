@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-05-17 16:52:45",
+    "generated_at": "2026-05-18 13:30:58",
     "source": "contract-activity-log",
-    "count": 16,
+    "count": 17,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "0ba3054cf68ea9ff4ecda173",
+      "submission_id": "0ba3054cf68ea9ff4ecda173",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "player_id": "16803",
+      "player_name": "Blake Watson",
+      "position": "RB",
+      "salary": 8000,
+      "contract_year": 3,
+      "contract_status": "EXT2-BL",
+      "contract_info": "CL 3|TCV 41K|AAV 1K, 20K|Y1-1K, Y2-8K, Y3-32K|GTD: 30.8K|Ext: RealDeal",
+      "tcv": 41000,
+      "aav": 0,
+      "guaranteed": 30800,
+      "submitted_at_utc": "2026-05-18T13:30:43.106Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1505925612697817129",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "49c3cfe593590a4c5130dc99",
       "submission_id": "49c3cfe593590a4c5130dc99",
