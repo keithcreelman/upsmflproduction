@@ -69,13 +69,11 @@
       if (permanentlyPromoted) {
         out.push('<span class="badge tx-perm">Promoted</span>');
       } else if (isTaxiNow) {
-        if (used > 0 || pending > 0) {
-          var label = "Taxi · " + used + "/" + max;
-          if (pending > 0) label += " + " + pending + " pending";
-          out.push('<span class="badge tx">' + label + '</span>');
-        } else {
-          out.push('<span class="badge tx">Taxi</span>');
-        }
+        // Canon §B2 — always show the counter on taxi players (Keith
+        // 2026-05-18) so the remaining budget is visible at a glance.
+        var label = "Taxi · " + used + "/" + max;
+        if (pending > 0) label += " + " + pending + " pending";
+        out.push('<span class="badge tx">' + label + '</span>');
       } else if (taxiEligibleNow) {
         var eligLabel = "Taxi-Elig · " + used + "/" + max;
         if (pending > 0) eligLabel += " + " + pending + " pending";
