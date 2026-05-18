@@ -6656,33 +6656,12 @@ export default {
       const sessionByApiKey = !!commishApiKey && !!browserApiKey && browserApiKey === commishApiKey;
       const sessionKnown = !!browserCookieValue || (!!commishApiKey && !!browserApiKey);
       const sessionMatch = sessionByCookie || sessionByApiKey;
-      // Cookie URL-encoding fix (Q19 — Keith 2026-05-17). MFL session
-      // tokens are base64 strings that may contain `+`, `/`, `=`. Per
-      // MFL docs we MUST URL-escape these in the Cookie header value,
-      // otherwise MFL's parser sees the bare `=` as a key/value separator
-      // and truncates the value to the substring before the first `=`.
-      // Symptom: silent auth failure — READ endpoints work because they
-      // tolerate missing auth, WRITE endpoints (TYPE=taxi_squad,
-      // TYPE=salaries, etc.) silently 200/empty-body the request and
-      // never apply the change. Matches the _rdhMflCookieValue pattern
-      // used in /api/me + other paths that authenticate correctly.
-      const stripCookieName = (v) => {
-        const s = String(v == null ? "" : v).trim();
-        if (!s) return "";
-        const m = s.match(/^MFL_USER_ID=(.*)$/);
-        return m ? m[1] : s;
-      };
-      const buildMflCookieHeader = (raw) => {
-        const val = stripCookieName(raw);
-        if (!val) return "";
-        // If the value still contains `=`, it's likely already URL-encoded
-        // or is a multi-cookie string — pass through. Otherwise encode.
-        return val.includes("%")
-          ? `MFL_USER_ID=${val}`
-          : `MFL_USER_ID=${encodeURIComponent(val)}`;
-      };
-      const cookieHeader = buildMflCookieHeader(cookie);
-      const browserCookieHeader = buildMflCookieHeader(browserCookieValue);
+      const cookieHeader = cookie
+        ? (cookie.includes("=") ? cookie : `MFL_USER_ID=${cookie}`)
+        : "";
+      const browserCookieHeader = browserCookieValue
+        ? `MFL_USER_ID=${browserCookieValue}`
+        : "";
       const viewerCookieHeader = browserCookieHeader || cookieHeader;
 
       const getLeagueAdminState = async (leagueId, year) => {
@@ -11300,25 +11279,19 @@ export default {
         }
         const targetImportUrl = await resolveMflImportTargetUrl(season, probeFields || formFields);
         const method = safeStr(requestOptions.method || "POST").toUpperCase() === "GET" ? "GET" : "POST";
-        // Q19 fix iteration 3 (Keith 2026-05-17, docs-anchored).
-        // Per MFL import API docs, TYPE=taxi_squad is "Access restricted
-        // to league owners. Commissioner can impersonate owner using
-        // FRANCHISE_ID parameter." There is NO APIKEY auth path for this
-        // TYPE — only the commish session COOKIE + FRANCHISE_ID. PR #232/
-        // #233 putting APIKEY in the URL forced MFL to use APIKEY-only
-        // auth, which doesn't have taxi-squad permissions → silent 200.
-        //
-        // Don't inject APIKEY here. Each caller that needs APIKEY (e.g.,
-        // /api/pick for draftResults — a commish-restricted TYPE) sets
-        // it in the URL directly. The cookie URL-encoding fix above
-        // (buildMflCookieHeader) is what actually unblocks taxi_squad +
-        // any other owner-restricted import.
-        //
-        // JSON=1 is harmless to add — surfaces a structured response
-        // body when MFL has one to give, no behavior change otherwise.
+        // Q19 fix iteration 2 (Keith 2026-05-17): APIKEY needs to be in
+        // the URL query string + JSON=1 needs to be in the URL too, to
+        // match the working /api/pick pattern. Putting APIKEY in the
+        // POST body alone caused MFL to silently 200/empty-body the
+        // request without applying the change. Putting it in the URL
+        // matches what MFL accepts for commissioner-level imports.
         let requestUrl = targetImportUrl;
+        const apiKey = safeStr(env.MFL_APIKEY || "");
         try {
           const u = new URL(targetImportUrl);
+          if (apiKey && requestOptions.skipApiKey !== true && !u.searchParams.has("APIKEY")) {
+            u.searchParams.set("APIKEY", apiKey);
+          }
           if (!u.searchParams.has("JSON")) u.searchParams.set("JSON", "1");
           if (method === "GET") {
             for (const [k, v] of form.entries()) u.searchParams.set(k, v);
