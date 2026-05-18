@@ -2562,11 +2562,16 @@ export default {
         // rows surface separately so the UI can show "Taxi · N/3 (1
         // pending)" when an owner clicked promote but the NFL week
         // hasn't certified yet. canon §B2.
+        // `permanent` is derived from total confirmed callups, not from
+        // MAX(became_permanent), so multi-year + multi-franchise totals
+        // aggregate correctly. Per canon §B2: "On the 4th activation,
+        // the call-up becomes permanent." Total weeks across the 3-year
+        // window — not weeks in a single season.
         const selectClause =
           `SELECT player_id,
                   SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                  AS used,
                   SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)            AS pending_count,
-                  MAX(became_permanent)                                                         AS permanent
+                  (SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) >= 4)                           AS permanent
              FROM ups_taxi_callups`;
         const out = {};
         try {
@@ -22174,7 +22179,7 @@ export default {
                 `SELECT player_id,
                         SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                AS used,
                         SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)          AS pending_count,
-                        MAX(became_permanent)                                                       AS permanent
+                        (SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) >= 4)                         AS permanent
                    FROM ups_taxi_callups
                   WHERE player_id IN (${placeholders})
                   GROUP BY player_id`
@@ -24434,10 +24439,14 @@ export default {
           // before any MFL write.
           if (env.UPS_MFL_DB) {
             try {
+              // Total confirmed (pending=0) callups across the 3yr window.
+              // Per canon §B2: 4+ = permanent promotion. Derived from row
+              // count, not the per-row became_permanent flag, so multi-
+              // year totals aggregate correctly.
               const permRow = await env.UPS_MFL_DB.prepare(
-                `SELECT MAX(became_permanent) AS permanent FROM ups_taxi_callups WHERE player_id = ?`
+                `SELECT SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used FROM ups_taxi_callups WHERE player_id = ?`
               ).bind(playerId).first();
-              if (Number(permRow?.permanent || 0) === 1) {
+              if (Number(permRow?.used || 0) >= 4) {
                 return jsonOut(400, {
                   ok: false,
                   error: "Player has been permanently promoted off taxi (4th call-up) — cannot return to taxi (league_context_v1.md §B2).",
@@ -24719,7 +24728,7 @@ export default {
               `SELECT
                   SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS confirmed,
                   SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END) AS pending_open,
-                  MAX(became_permanent) AS permanent
+                  (SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) >= 4) AS permanent
                  FROM ups_taxi_callups WHERE player_id = ?`
             ).bind(playerId).first();
             const confirmedCount = Number(countRow?.confirmed || 0);
