@@ -1919,7 +1919,13 @@
     if ((m = s.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i))) out.length = parseInt(m[1], 10) || 0;
     if ((m = s.match(/(?:^|\|)\s*AAV\s+([^|]+)/i))) out.aav = tops_parseContractMoney(m[1]);
     if ((m = s.match(/(?:^|\|)\s*GTD\s*:?\s*([^|]+)/i))) out.gtd = tops_parseContractMoney(m[1]);
-    var yearRe = /(?:^|\|)\s*Y(\d+)\s*[=:]\s*([^|]+)/gi;
+    // Y-token regex matches the dash format used in UPS contractInfo
+    // (e.g. "Y1-10K, Y2-40K"). Front Office uses the same shape via
+    // parseContractYearValues at roster_workbench.js:1677. Fix
+    // 2026-05-18 — was previously looking for "Y1=" or "Y1:" which
+    // never appeared in production, so yearVals was always empty and
+    // tops_earnedToDate always returned 0 → wrong $11K penalty.
+    var yearRe = /Y(\d+)\s*-\s*([0-9]+(?:\.[0-9]+)?K?)/gi;
     while ((m = yearRe.exec(s))) {
       var idx = parseInt(m[1], 10);
       if (idx > 0) out.yearVals[idx] = tops_parseContractMoney(m[2]);
@@ -1935,13 +1941,44 @@
     return 0;
   }
   function tops_earnedToDate(sal) {
+    // Canon §D1: prior-year salaries are 100% earned post-rollover.
+    // `contractYear` from MFL is YEARS REMAINING (cy=1 = last year).
+    // current-year-index = length - cy + 1. Earned years = 1..idx-1.
+    //
+    // Fix 2026-05-18 — was using `cy` as if it were the year index
+    // (off-by-direction). For Coleman R2.1 2024 with cy=1, the old
+    // loop ran 0 times → earned=0 → cap penalty = $11.25K (wrong).
+    // Correct: idx=3, sum Y1+Y2 = $10K → penalty = $1,250.
     var info = tops_parseContractInfo(sal && sal.contractInfo);
-    var cy = parseInt(sal && sal.contractYear, 10) || 1;
+    var cy = parseInt(sal && sal.contractYear, 10) || 0; // years remaining
+    var len = info.length;
+    if (len <= 0 || cy <= 0) return 0;
+    var contractYearIdx = Math.max(1, len - cy + 1);
+    // Sum explicit Y-values for years 1..idx-1.
     var earned = 0;
-    for (var i = 1; i < cy; i++) {
-      earned += info.yearVals[i] || 0;
+    var hasYearVals = false;
+    for (var i = 1; i < contractYearIdx; i++) {
+      if (info.yearVals[i] > 0) {
+        earned += info.yearVals[i];
+        hasYearVals = true;
+      }
     }
-    return earned;
+    if (hasYearVals) return earned;
+    // Fallback when contractInfo lacks Y-tokens (most rookie contracts
+    // store only "CL N| TCV M| AAV K" — no per-year breakdown). Front
+    // Office handles this at roster_workbench.js:1808-1810: when in
+    // final year (idx >= length), earned = TCV - currentYearSalary.
+    if (contractYearIdx >= len && info.tcv > 0) {
+      var currentSal = Math.max(0, parseInt(sal && sal.salary, 10) || 0);
+      return Math.max(0, info.tcv - currentSal);
+    }
+    // For non-final-year players without Y-tokens, assume even split:
+    // each prior year earned = TCV / length.
+    if (info.tcv > 0 && len > 0) {
+      var perYear = Math.round(info.tcv / len);
+      return perYear * (contractYearIdx - 1);
+    }
+    return 0;
   }
   function tops_dropPenalty(sal) {
     // Modern UPS rule: cap penalty on cut = (TCV × 75%) − Earned. Floor 0.
