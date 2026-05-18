@@ -2684,7 +2684,8 @@ export default {
                 if (!pid) continue;
                 const rnd = parseInt(dp.round, 10) || 0;
                 const pk = parseInt(dp.pick, 10) || 0;
-                const fid = padFranchiseId(dp.franchise);
+                const fidDigits = String(dp.franchise == null ? "" : dp.franchise).replace(/\D/g, "");
+                const fid = fidDigits ? fidDigits.padStart(4, "0").slice(-4) : "";
                 const ts = dp.timestamp ? new Date(Number(dp.timestamp) * 1000).toISOString() : null;
                 seasonReport.fetched += 1;
                 batch.push(upsertStmt.bind(pid, yr, rnd, pk, fid || null, ts, "mfl-draftResults"));
