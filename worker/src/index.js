@@ -22252,41 +22252,32 @@ export default {
         // the window anyway, so a 4th post-window call-up shouldn't
         // exist; if it does, surface it as already-permanent).
         const taxiCallupsByPlayer = {};
-        if (env.UPS_MFL_DB && allPlayerIds && allPlayerIds.length) {
+        if (env.UPS_MFL_DB) {
           try {
-            // D1 caps bound parameters at 100 per prepared statement —
-            // chunk well under that. Previously 500 silently returned
-            // 0 rows when a full league roster (~360 ids) went into a
-            // single bind, surfaced by Kyle Williams' 2025-W17 callup
-            // not rendering on the workbench chip.
-            const chunkSize = 80;
-            const ids = Array.from(new Set(allPlayerIds.map((id) => String(id || "").replace(/\D/g, "")).filter(Boolean)));
-            for (let i = 0; i < ids.length; i += chunkSize) {
-              const chunk = ids.slice(i, i + chunkSize);
-              const placeholders = chunk.map(() => "?").join(",");
-              // Q20: split confirmed (pending=0) vs pending (pending=1
-              // and demoted_at IS NULL) so the chip can show
-              // "Taxi · N/3 (M pending)" while NFL weeklyresults
-              // is still pending.
-              const rows = await env.UPS_MFL_DB.prepare(
-                `SELECT player_id,
-                        SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                AS used,
-                        SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)          AS pending_count,
-                        (SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) >= 4)                         AS permanent
-                   FROM ups_taxi_callups
-                  WHERE player_id IN (${placeholders})
-                  GROUP BY player_id`
-              ).bind(...chunk).all();
-              for (const row of rows?.results || []) {
-                const pid = String(row?.player_id || "");
-                if (!pid) continue;
-                taxiCallupsByPlayer[pid] = {
-                  used: Number(row?.used || 0),
-                  pending: Number(row?.pending_count || 0),
-                  max: 3,
-                  permanent_promotion: Number(row?.permanent || 0) === 1,
-                };
-              }
+            // ups_taxi_callups is small (~84 rows after backfill) — fetch
+            // all and filter in worker. Previous chunked IN-with-binds
+            // version silently returned 0 rows for the full-league
+            // workbench load (Kyle Williams 2025-W17 callup didn't
+            // render), and dropping chunkSize from 500 to 80 didn't
+            // fix it — root cause was the bound-IN behavior, so we
+            // sidestep it entirely.
+            const rows = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id,
+                      SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                AS used,
+                      SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)          AS pending_count,
+                      (SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) >= 4)                         AS permanent
+                 FROM ups_taxi_callups
+                GROUP BY player_id`
+            ).all();
+            for (const row of rows?.results || []) {
+              const pid = String(row?.player_id || "");
+              if (!pid) continue;
+              taxiCallupsByPlayer[pid] = {
+                used: Number(row?.used || 0),
+                pending: Number(row?.pending_count || 0),
+                max: 3,
+                permanent_promotion: Number(row?.permanent || 0) === 1,
+              };
             }
           } catch (e) {
             console.warn("[taxi-callup] D1 lookup failed:", e?.message || String(e));
