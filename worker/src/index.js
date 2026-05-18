@@ -22209,17 +22209,26 @@ export default {
               const isTaxi = status.includes("TAXI");
               const isIr = status.includes("IR");
 
-              // Taxi-contract fallback (mirror of site/rosters/roster_workbench.js
+              // Rookie-contract fallback (mirror of site/rosters/roster_workbench.js
               // repairTaxiContractFallbacks). MFL suppresses contractYear /
-              // contractInfo for TAXI-squad players in its API payload; without
-              // this fallback Tre Harris, Isaac TeSlaa, and ~20 other 2024-2025
-              // rookies surface as "expired" (years=0). Compute years from
-              // draft_year per canon §A1 (3yr rookie deals); synthesize a flat
-              // Y-array contractInfo string when salary is known.
-              if (isTaxi) {
-                const draftYear = safeInt(pMeta?.draft_year, 0);
-                const currentSeason = parseInt(season, 10) || 0;
-                if (years <= 0 && draftYear > 0 && currentSeason > 0) {
+              // contractInfo for TAXI-squad players AND can leave them empty
+              // even after PROMOTE (taxi→active) since the structured contract
+              // metadata isn't restored. Without this fallback Tre Harris,
+              // Isaac TeSlaa, just-promoted Blake Watson, etc. surface as
+              // "expired" (years=0). Compute years from draft_year per canon
+              // §A1 (3yr rookie deals); synthesize a flat Y-array contractInfo
+              // string when salary is known.
+              //
+              // Apply whenever the player has empty contract data AND is in
+              // their rookie window (drafted ≤ 3 league years ago) — not
+              // just for taxi status.
+              const draftYear = safeInt(pMeta?.draft_year, 0);
+              const currentSeason = parseInt(season, 10) || 0;
+              const inRookieWindow =
+                draftYear > 0 && currentSeason > 0 && (currentSeason - draftYear) < 3;
+              const contractDataMissing = years <= 0 || !specialRaw || specialRaw === "-";
+              if (contractDataMissing && inRookieWindow) {
+                if (years <= 0) {
                   years = Math.max(0, 3 - Math.max(0, currentSeason - draftYear));
                 }
                 if (years > 0 && salary > 0 && (!specialRaw || specialRaw === "-")) {
@@ -22236,9 +22245,18 @@ export default {
               const special = normalizeContractInfoForDisplay(specialRaw, years, priorSalaryByPlayer[playerId] || null);
               const aavValues = parseContractAavValues(special);
               let aav = aavValues.length ? safeInt(aavValues[0], 0) : 0;
-              // Final aav fallback for taxi players: if aav still 0 but salary > 0,
-              // mirror desktop's `if (salary > 0 && aav <= 0) aav = salary` repair.
-              if (isTaxi && aav <= 0 && salary > 0) aav = salary;
+              // aav fallback for rookies with empty data: if aav still 0 but
+              // salary > 0, surface the salary as aav (same as desktop repair).
+              if (inRookieWindow && aav <= 0 && salary > 0) aav = salary;
+
+              // Taxi-eligibility flag (canon §A1 + §B2). Round 2-5 rookies
+              // are taxi-eligible for their first 3 league years. R1 rookies
+              // are NOT (Q12 enforces). Used by client to show the
+              // "Taxi · N/3" eligibility chip on non-taxi players who still
+              // have call-up budget remaining (Keith 2026-05-18).
+              const draftRound = safeInt(pMeta?.draft_round, 0);
+              const isTaxiEligible =
+                inRookieWindow && draftRound >= 2 && draftRound <= 5;
 
               const taxiCallup = taxiCallupsByPlayer[playerId] || null;
               return {
@@ -22264,6 +22282,7 @@ export default {
                 taxi_callups_pending: taxiCallup ? (taxiCallup.pending || 0) : 0,
                 taxi_callups_max: 3,
                 taxi_permanent_promotion: !!(taxiCallup && taxiCallup.permanent_promotion),
+                taxi_eligible: isTaxiEligible,
               };
             });
 

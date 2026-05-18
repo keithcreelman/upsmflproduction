@@ -4561,6 +4561,10 @@
       taxiCallupsPending: safeInt(p.taxi_callups_pending || p.taxiCallupsPending, 0),
       taxiCallupsMax: safeInt(p.taxi_callups_max || p.taxiCallupsMax || 3, 3),
       taxiPermanentPromotion: !!(p.taxi_permanent_promotion || p.taxiPermanentPromotion),
+      // Taxi-eligibility flag (canon §A1 R2-5 + §B2 3yr window). Drives
+      // visibility of the Demote To Taxi button + the "Taxi · N/3"
+      // eligibility chip on non-taxi rookies.
+      taxiEligible: !!(p.taxi_eligible || p.taxiEligible),
       // espn_id from MFL TYPE=players&DETAILS=1; powers high-res
       // headshot rendering in the player modal (~350×254 ESPN PNG
       // vs MFL's pixelated 110×110 _thumb.jpg). Empty when the player
@@ -7582,6 +7586,14 @@
           actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="promote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Promote From Taxi</button>'
           );
+        } else if (!player.isIr && player.taxiEligible && !player.taxiPermanentPromotion) {
+          // Demote to Taxi — appears for taxi-eligible non-taxi players
+          // (R2-5 rookies in their 3-year window) who haven't been
+          // permanently promoted. Worker enforces real rules: R1 blocked
+          // (Q12), permanently-promoted blocked (Q10 follow-up).
+          actionsRowAbove.push(
+            '<button type="button" class="rwb-modal-action" data-action="demote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Demote to Taxi</button>'
+          );
         }
         actionsRowAbove.push(
           '<button type="button" class="rwb-modal-action" data-action="drop-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Drop</button>'
@@ -8993,6 +9005,16 @@
         // a single-shot indicator so owners know the cap-free-cut window
         // is gone for this player.
         tags.push('<span class="rwb-tag is-taxi-perm">Promoted</span>');
+      } else if (p.taxiEligible) {
+        // Active-roster rookie who is still taxi-eligible (Keith 2026-05-18):
+        // show the call-up budget so owners can see how many call-ups they
+        // can still spend on this player. Default state "Taxi · 0/3".
+        var usedE = safeInt(p.taxiCallupsUsed, 0);
+        var pendingE = safeInt(p.taxiCallupsPending, 0);
+        var maxE = safeInt(p.taxiCallupsMax, 3) || 3;
+        var eligLabel = "Taxi-Elig · " + usedE + "/" + maxE;
+        if (pendingE > 0) eligLabel += " + " + pendingE + " pending";
+        tags.push('<span class="rwb-tag is-taxi">' + escapeHtml(eligLabel) + '</span>');
       }
       if (p.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
       var contractLength = contractLengthForPlayer(p);
@@ -11865,7 +11887,7 @@
       return;
     }
 
-    var rosterMoveBtn = target.closest("[data-action='activate-ir-player'],[data-action='promote-taxi-player'],[data-action='drop-player']");
+    var rosterMoveBtn = target.closest("[data-action='activate-ir-player'],[data-action='promote-taxi-player'],[data-action='demote-taxi-player'],[data-action='drop-player']");
     if (rosterMoveBtn) {
       if (state.busyActionKey) return;
       var actionName = safeStr(rosterMoveBtn.getAttribute("data-action"));
@@ -11877,7 +11899,9 @@
       if (!canManageRosterPlayer(playerRecord.player)) return;
       var move = actionName === "activate-ir-player"
         ? "activate_ir"
-        : (actionName === "promote-taxi-player" ? "promote_taxi" : "drop_player");
+        : (actionName === "promote-taxi-player"
+          ? "promote_taxi"
+          : (actionName === "demote-taxi-player" ? "demote_taxi" : "drop_player"));
       submitRosterMove(
         move,
         playerRecord.player.id,

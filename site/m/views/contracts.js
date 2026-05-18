@@ -51,21 +51,35 @@
     // but if the underlying status somehow still says TAXI, prefer the
     // explicit "Promoted" surface so the owner knows cap-free-cut is
     // gone. (Defensive — should be unreachable in practice.)
-    if (/taxi/i.test(status)) {
-      var callup = DATA.taxiCallupsFor && DATA.taxiCallupsFor(rosterRow.id);
+    var callup = DATA.taxiCallupsFor && DATA.taxiCallupsFor(rosterRow.id);
+    var isTaxiNow = /taxi/i.test(status);
+    var permanentlyPromoted = !!(callup && callup.permanent_promotion);
+    // Taxi-eligibility (Keith 2026-05-18): show the call-up budget chip
+    // on active-roster rookies who are still in the 3-year window so
+    // owners can see how many call-ups remain. Match canon §A1 / §B2:
+    // drafted R2-5, season - draft_year < 3.
+    var taxiEligibleNow = false;
+    if (!isTaxiNow && !permanentlyPromoted && DATA.isTaxiEligibleFor) {
+      taxiEligibleNow = !!DATA.isTaxiEligibleFor(rosterRow.id);
+    }
+    if (isTaxiNow || taxiEligibleNow || permanentlyPromoted) {
       var used = callup ? U.safeInt(callup.used, 0) : 0;
       var pending = callup ? U.safeInt(callup.pending, 0) : 0;
       var max = callup ? U.safeInt(callup.max, 3) || 3 : 3;
-      if (callup && callup.permanent_promotion) {
+      if (permanentlyPromoted) {
         out.push('<span class="badge tx-perm">Promoted</span>');
-      } else if (used > 0 || pending > 0) {
-        // Q20: pending call-ups (owner clicked promote but NFL week
-        // hasn't certified yet) shown alongside the confirmed count.
-        var label = "Taxi · " + used + "/" + max;
-        if (pending > 0) label += " + " + pending + " pending";
-        out.push('<span class="badge tx">' + label + '</span>');
-      } else {
-        out.push('<span class="badge tx">Taxi</span>');
+      } else if (isTaxiNow) {
+        if (used > 0 || pending > 0) {
+          var label = "Taxi · " + used + "/" + max;
+          if (pending > 0) label += " + " + pending + " pending";
+          out.push('<span class="badge tx">' + label + '</span>');
+        } else {
+          out.push('<span class="badge tx">Taxi</span>');
+        }
+      } else if (taxiEligibleNow) {
+        var eligLabel = "Taxi-Elig · " + used + "/" + max;
+        if (pending > 0) eligLabel += " + " + pending + " pending";
+        out.push('<span class="badge tx">' + eligLabel + '</span>');
       }
     }
     if (/ir|injured/i.test(status)) out.push('<span class="badge ir">IR</span>');

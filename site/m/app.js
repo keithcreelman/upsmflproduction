@@ -519,14 +519,20 @@
     asArray(rostersPayload.rosters.franchise).forEach(function (fr) {
       asArray(fr && fr.player).forEach(function (p) {
         if (!p || p.id == null) return;
-        var status = String(p.status || "").toUpperCase();
-        if (status.indexOf("TAXI") === -1) return;
+        var dy = draftYearById[String(p.id)];
+        // Apply whenever the player has empty contract data AND is in
+        // their rookie window — covers both taxi players (MFL suppresses)
+        // and just-promoted rookies (MFL doesn't restore contract data
+        // on TAXI→ROSTER). Keith 2026-05-18.
+        var inRookieWindow = !!dy && (seasonInt - dy) < 3;
+        if (!inRookieWindow) return;
         var cy = parseInt(p.contractYear, 10);
         var hasYear = !isNaN(cy) && cy > 0;
-        var dy = draftYearById[String(p.id)];
+        var hasInfo = !!(p.contractInfo && p.contractInfo !== "-");
+        if (hasYear && hasInfo) return; // MFL data is complete; skip.
         var yearsRemaining = hasYear
           ? cy
-          : (dy ? Math.max(0, 3 - Math.max(0, seasonInt - dy)) : 0);
+          : Math.max(0, 3 - Math.max(0, seasonInt - dy));
         if (!hasYear && yearsRemaining > 0) {
           p.contractYear = String(yearsRemaining);
         }
@@ -534,7 +540,7 @@
           p.contractStatus = "Rookie";
         }
         var salaryNum = parseInt(p.salary, 10) || 0;
-        if (yearsRemaining > 0 && salaryNum > 0 && (!p.contractInfo || p.contractInfo === "-")) {
+        if (yearsRemaining > 0 && salaryNum > 0 && !hasInfo) {
           var sK = Math.max(1, Math.round(salaryNum / 1000));
           var yearParts = [];
           for (var i = 1; i <= yearsRemaining; i += 1) {
@@ -1516,6 +1522,25 @@
       taxiCallupsFor: function (playerId) {
         var map = state.taxiCallupsByPid || {};
         return map[String(playerId)] || null;
+      },
+      // Taxi-eligibility check (canon §A1 R2-5 + §B2 3yr window).
+      // Returns true if the player is in their taxi-eligibility window:
+      // drafted R2-5, within 3 league years of their draft, and not
+      // permanently promoted. Used to gate the eligibility chip on
+      // active-roster rookies + the Demote button.
+      isTaxiEligibleFor: function (playerId) {
+        var pid = String(playerId || "");
+        if (!pid) return false;
+        var callup = (state.taxiCallupsByPid || {})[pid];
+        if (callup && callup.permanent_promotion) return false;
+        var player = playerById(pid);
+        if (!player) return false;
+        var draftYear = parseInt(player.draft_year || player.draftYear, 10);
+        var draftRound = parseInt(player.draft_round || player.draftRound, 10);
+        var currentSeason = parseInt(state.ctx && state.ctx.year, 10);
+        if (!draftYear || !currentSeason) return false;
+        if (!draftRound || draftRound < 2 || draftRound > 5) return false;
+        return (currentSeason - draftYear) < 3;
       },
       // Optimistic-update helpers — after a successful tag/untag the
       // static tag_submissions.json (ETL-regenerated on a schedule) AND
