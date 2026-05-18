@@ -22113,6 +22113,44 @@ export default {
           franchiseMetaById[fr.franchise_id] = fr;
         }
 
+        // UPS Rookie Draft pick lookup (canon §A1 — taxi eligibility is
+        // gated on UPS DRAFT round, not NFL draft round).
+        // Fetches the last 3 UPS Rookie Draft years' results and builds
+        // a { player_id → { ups_round, ups_pick, ups_year } } map.
+        // Used below for the `taxi_eligible` flag.
+        const upsDraftByPlayer = {};
+        try {
+          const seasonInt = parseInt(season, 10) || 0;
+          if (seasonInt > 0) {
+            for (let y = seasonInt; y > seasonInt - 3 && y > 0; y -= 1) {
+              const dRes = await fetch(
+                `https://api.myfantasyleague.com/${y}/export?TYPE=draftResults&L=${encodeURIComponent(leagueId)}&JSON=1`,
+                { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 600 } }
+              );
+              if (!dRes.ok) continue;
+              const dData = await dRes.json();
+              let units = dData?.draftResults?.draftUnit || [];
+              if (!Array.isArray(units)) units = [units];
+              for (const u of units) {
+                let picks = u.draftPick || u.pick || [];
+                if (!Array.isArray(picks)) picks = [picks];
+                for (const dp of picks) {
+                  const pid = String(dp.player || "").replace(/\D/g, "");
+                  if (!pid) continue;
+                  if (upsDraftByPlayer[pid]) continue; // earlier (more recent) entry wins
+                  upsDraftByPlayer[pid] = {
+                    ups_round: parseInt(dp.round, 10) || 0,
+                    ups_pick: parseInt(dp.pick, 10) || 0,
+                    ups_year: y,
+                  };
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[ups-draft] lookup failed:", e?.message || String(e));
+        }
+
         // Taxi call-up counter (canon §B2 + tracker Q10). Lookup count
         // of recorded promote_taxi events per player across the league.
         // Counts include all entries (we're not strictly filtering by
@@ -22251,12 +22289,18 @@ export default {
 
               // Taxi-eligibility flag (canon §A1 + §B2). Round 2-5 rookies
               // are taxi-eligible for their first 3 league years. R1 rookies
-              // are NOT (Q12 enforces). Used by client to show the
-              // "Taxi · N/3" eligibility chip on non-taxi players who still
-              // have call-up budget remaining (Keith 2026-05-18).
-              const draftRound = safeInt(pMeta?.draft_round, 0);
+              // are NOT (Q12 enforces). KEY: must use UPS Rookie Draft round,
+              // NOT NFL draft round (MFL TYPE=players returns NFL data).
+              // E.g., Blake Watson has NFL draft_round=null (UDFA) but UPS
+              // R5.11 → taxi-eligible. Trey Benson has NFL R3 but UPS R1.10
+              // → NOT taxi-eligible. Bug fix Keith 2026-05-18.
+              const upsDraft = upsDraftByPlayer[playerId];
+              const upsRound = upsDraft ? upsDraft.ups_round : 0;
+              const upsYear = upsDraft ? upsDraft.ups_year : 0;
+              const inUpsWindow =
+                upsYear > 0 && currentSeason > 0 && (currentSeason - upsYear) < 3;
               const isTaxiEligible =
-                inRookieWindow && draftRound >= 2 && draftRound <= 5;
+                inUpsWindow && upsRound >= 2 && upsRound <= 5;
 
               const taxiCallup = taxiCallupsByPlayer[playerId] || null;
               return {
@@ -22283,6 +22327,8 @@ export default {
                 taxi_callups_max: 3,
                 taxi_permanent_promotion: !!(taxiCallup && taxiCallup.permanent_promotion),
                 taxi_eligible: isTaxiEligible,
+                ups_draft_round: upsRound || null,
+                ups_draft_year: upsYear || null,
               };
             });
 
