@@ -24515,25 +24515,45 @@ export default {
         }
         if (franchiseId) importFields.FRANCHISE_ID = franchiseId;
 
-        let importRes = await postMflImportForm(season, importFields, importFields);
-        if (!importRes.requestOk) {
-          const getRes = await postMflImportForm(season, importFields, importFields, { method: "GET" });
-          if (getRes.requestOk) importRes = getRes;
+        // Q19 fix (Keith 2026-05-17): TYPE=taxi_squad / TYPE=ir are
+        // "Access restricted to league owners" per MFL docs. Commish can
+        // impersonate via FRANCHISE_ID parameter, BUT the auth must be a
+        // valid OWNER (or commish) SESSION COOKIE — not the worker's
+        // env.MFL_COOKIE (which has been passing through to MFL bare,
+        // pre-encoding, and silently failing on writes).
+        //
+        // Mirror the working Trade Proposal pattern (line 19120):
+        //   postMflImportFormForCookie(viewerCookieHeader, ...) with
+        //   { method: "GET" }. viewerCookieHeader is the BROWSER user's
+        //   MFL_USER_ID forwarded from the client via ?MFL_USER_ID=...
+        //   query param (same wire as /trade-offers/proposals POST).
+        //
+        // Require viewerCookieHeader to exist — same gate as line 18919.
+        // Without it we'd fall back to env.MFL_COOKIE which is the
+        // silent-no-op path we've been chasing.
+        if (!viewerCookieHeader) {
+          return jsonOut(401, {
+            ok: false,
+            error: "Missing MFL owner session — refresh the page so the client forwards your MFL_USER_ID, then retry.",
+            error_code: "MISSING_VIEWER_COOKIE",
+          });
         }
+        let importRes = await postMflImportFormForCookie(
+          viewerCookieHeader, season, importFields, importFields, { method: "GET" }
+        );
         let usedFranchiseId = !!safeStr(importFields.FRANCHISE_ID);
         if (!importRes.requestOk && usedFranchiseId) {
+          // Mirror tradeProposal's impersonation-lockout retry: if commish
+          // impersonation via FRANCHISE_ID is rejected, try without
+          // (only works when the viewer IS the franchise owner).
           const retryFields = { ...importFields };
           delete retryFields.FRANCHISE_ID;
-          const retryRes = await postMflImportForm(season, retryFields, retryFields);
+          const retryRes = await postMflImportFormForCookie(
+            viewerCookieHeader, season, retryFields, retryFields, { method: "GET" }
+          );
           if (retryRes.requestOk) {
             importRes = retryRes;
             usedFranchiseId = false;
-          } else {
-            const retryGetRes = await postMflImportForm(season, retryFields, retryFields, { method: "GET" });
-            if (retryGetRes.requestOk) {
-              importRes = retryGetRes;
-              usedFranchiseId = false;
-            }
           }
         }
 
