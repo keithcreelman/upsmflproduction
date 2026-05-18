@@ -441,7 +441,33 @@
     var name = footerState.name || "this player";
     var verb = action === "promote_taxi" ? "promote from taxi" : "demote to taxi";
     var verbCap = action === "promote_taxi" ? "Promote" : "Demote";
-    if (!window.confirm(verbCap + " " + name + "?")) return;
+    // Canon §B2 context so owners see the rule before clicking.
+    var pid = footerState.pid;
+    var callup = (DATA.taxiCallupsFor && DATA.taxiCallupsFor(pid)) || null;
+    var used = callup ? U.safeInt(callup.used, 0) : 0;
+    var pending = callup ? U.safeInt(callup.pending, 0) : 0;
+    var max = callup ? (U.safeInt(callup.max, 3) || 3) : 3;
+    var totalSpent = used + pending;
+    var ctx = "";
+    if (action === "promote_taxi") {
+      var aboutToBeNth = totalSpent + 1;
+      if (aboutToBeNth >= max + 1) {
+        ctx =
+          "\n\n⚠ This will be call-up #" + aboutToBeNth + " of a 3-call-up budget." +
+          "\nCanon §B2: 4th call-up = PERMANENT PROMOTION." +
+          "\nPlayer will no longer be cap-free cut after this NFL week locks.";
+      } else {
+        ctx =
+          "\n\nCall-ups used: " + used + " of " + max + (pending > 0 ? " (+" + pending + " pending)" : "") + "." +
+          "\nEach NFL week the player is active on your roster burns 1 call-up." +
+          "\nDemoting before the next NFL week locks DOES NOT count.";
+      }
+    } else {
+      ctx =
+        "\n\nDemoting before the next NFL week locks does NOT burn a call-up. " +
+        "Pending call-ups awaiting confirmation will be cleared on the next weeklyresults sweep.";
+    }
+    if (!window.confirm(verbCap + " " + name + "?" + ctx)) return;
     setBusy(btn, true, verbCap + "ing…");
     // Forward viewer's MFL_USER_ID via query param — required for
     // owner-restricted writes (taxi_squad). Without this the worker
