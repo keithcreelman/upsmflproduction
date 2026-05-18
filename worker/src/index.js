@@ -25512,6 +25512,23 @@ export default {
           return 0;
         })();
 
+        // silence_discord flag (Keith 2026-05-18) — for manual contract
+        // reverts where the MFL change must land but Discord must NOT
+        // post. Same wire as /api/pick + /api/trade. Honored at the
+        // Discord-dispatch site below (line ~26313+).
+        const silenceDiscordFlag = (() => {
+          const truthy = (v) => {
+            const s = String(v == null ? "" : v).trim().toLowerCase();
+            return s === "1" || s === "true" || s === "yes" || s === "y";
+          };
+          if (truthy(body.silence_discord) || truthy(body.silenceDiscord)) return true;
+          try {
+            const qs = url.searchParams;
+            if (truthy(qs.get("silence_discord") || qs.get("SILENCE_DISCORD"))) return true;
+          } catch (_) {}
+          return false;
+        })();
+
         const providedSubmissionId = String(body.submission_id || body.submissionId || "").trim();
         const submissionId =
           providedSubmissionId ||
@@ -26310,6 +26327,18 @@ export default {
               error: dryRunFlag === 1 ? "" : "missing_commish_discord_user_id",
             };
           }
+        } else if (looksOk && anyChanged && silenceDiscordFlag) {
+          // silence_discord flag set — caller wants the MFL change but
+          // NO Discord post (e.g., manual reverts / commish backfill).
+          contractDiscord = {
+            ok: true,
+            skipped: true,
+            status: 0,
+            delivery_target: "silenced",
+            gif_url: "",
+            gif_query: "",
+            error: "",
+          };
         } else if (looksOk && anyChanged) {
           try {
             contractDiscord = await sendDiscordContractActivity({
