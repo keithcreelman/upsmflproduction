@@ -298,14 +298,11 @@
       var rrStatus = U.safeStr(rosterRow && rosterRow.status).toUpperCase();
       var rrIsTaxi = rrStatus.indexOf("TAXI") !== -1;
       var rrIsIr = rrStatus.indexOf("IR") !== -1;
-      var rrContractStatus = U.safeStr(rosterRow && rosterRow.contractStatus);
-      var isRookieContract = /rookie/i.test(rrContractStatus);
-      // Check the call-up count to decide if the Demote button is even
-      // worth showing — a permanently-promoted player can't return to
-      // taxi (Q10 follow-up PR #221 enforces this server-side).
-      var taxiInfo = DATA.taxiCallupsFor ? DATA.taxiCallupsFor(pid) : null;
-      var isPermanentlyPromoted = !!(taxiInfo && taxiInfo.permanent_promotion);
-      var canDemote = !rrIsTaxi && !rrIsIr && isRookieContract && !isPermanentlyPromoted;
+      // Demote-eligibility — use the canonical isTaxiEligibleFor helper
+      // (canon §A1 R2-5 + §B2 3yr window). Replaces the rough
+      // /rookie/i contractStatus check which would show Demote for R1
+      // rookies (worker would reject per Q12, but cleaner to hide it).
+      var canDemote = !rrIsTaxi && !rrIsIr && (DATA.isTaxiEligibleFor ? DATA.isTaxiEligibleFor(pid) : false);
       if (rrIsTaxi) {
         html += '<div class="ups-m-sheet-actions">' +
           '<button class="btn-act ext" data-act="promote-taxi">Promote from Taxi</button>' +
