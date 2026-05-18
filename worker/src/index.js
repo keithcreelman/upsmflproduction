@@ -11277,29 +11277,29 @@ export default {
           if (!s) continue;
           form.set(k, s);
         }
-        // Q19 fix (Keith 2026-05-17): cookie-only auth silently no-ops
-        // for commissioner-level imports like TYPE=taxi_squad. MFL
-        // accepts the form (HTTP 200, empty body) but doesn't apply the
-        // change. Adding the commish APIKEY makes the write land. The
-        // rookie-draft endpoint already does this via APIKEY in the URL
-        // (`/api/pick`); centralize the pattern here so every import
-        // path inherits it. Skip if `requestOptions.skipApiKey === true`
-        // for cases that explicitly want cookie-only.
-        const apiKey = safeStr(env.MFL_APIKEY || "");
-        if (apiKey && !form.has("APIKEY") && requestOptions.skipApiKey !== true) {
-          form.set("APIKEY", apiKey);
-        }
         const targetImportUrl = await resolveMflImportTargetUrl(season, probeFields || formFields);
         const method = safeStr(requestOptions.method || "POST").toUpperCase() === "GET" ? "GET" : "POST";
+        // Q19 fix iteration 2 (Keith 2026-05-17): APIKEY needs to be in
+        // the URL query string + JSON=1 needs to be in the URL too, to
+        // match the working /api/pick pattern. Putting APIKEY in the
+        // POST body alone caused MFL to silently 200/empty-body the
+        // request without applying the change. Putting it in the URL
+        // matches what MFL accepts for commissioner-level imports.
         let requestUrl = targetImportUrl;
-        if (method === "GET") {
-          try {
-            const u = new URL(targetImportUrl);
-            for (const [k, v] of form.entries()) u.searchParams.set(k, v);
-            requestUrl = u.toString();
-          } catch (_) {
-            requestUrl = targetImportUrl;
+        const apiKey = safeStr(env.MFL_APIKEY || "");
+        try {
+          const u = new URL(targetImportUrl);
+          if (apiKey && requestOptions.skipApiKey !== true && !u.searchParams.has("APIKEY")) {
+            u.searchParams.set("APIKEY", apiKey);
           }
+          if (!u.searchParams.has("JSON")) u.searchParams.set("JSON", "1");
+          if (method === "GET") {
+            for (const [k, v] of form.entries()) u.searchParams.set(k, v);
+          }
+          requestUrl = u.toString();
+        } catch (_) {
+          // Fall back to the raw target URL if parsing fails.
+          requestUrl = targetImportUrl;
         }
         let res;
         let text = "";
