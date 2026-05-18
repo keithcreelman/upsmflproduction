@@ -2577,7 +2577,11 @@ export default {
         const out = {};
         try {
           if (playerIds && playerIds.length) {
-            const chunkSize = 500;
+            // D1 caps bound parameters at 100 per prepared statement —
+            // chunk well under that to be safe. Previously 500 silently
+            // returned 0 rows when callers passed >100 ids (workbench bug
+            // surfaced by Kyle Williams 2025-W17 callup not rendering).
+            const chunkSize = 80;
             for (let i = 0; i < playerIds.length; i += chunkSize) {
               const chunk = playerIds.slice(i, i + chunkSize);
               const placeholders = chunk.map(() => "?").join(",");
@@ -22250,8 +22254,12 @@ export default {
         const taxiCallupsByPlayer = {};
         if (env.UPS_MFL_DB && allPlayerIds && allPlayerIds.length) {
           try {
-            // SQLite has a 999-parameter limit; chunk the IN list to be safe.
-            const chunkSize = 500;
+            // D1 caps bound parameters at 100 per prepared statement —
+            // chunk well under that. Previously 500 silently returned
+            // 0 rows when a full league roster (~360 ids) went into a
+            // single bind, surfaced by Kyle Williams' 2025-W17 callup
+            // not rendering on the workbench chip.
+            const chunkSize = 80;
             const ids = Array.from(new Set(allPlayerIds.map((id) => String(id || "").replace(/\D/g, "")).filter(Boolean)));
             for (let i = 0; i < ids.length; i += chunkSize) {
               const chunk = ids.slice(i, i + chunkSize);
