@@ -446,7 +446,13 @@
     var verbCap = action === "promote_taxi" ? "Promote" : "Demote";
     if (!window.confirm(verbCap + " " + name + "?")) return;
     setBusy(btn, true, verbCap + "ing…");
+    // Forward viewer's MFL_USER_ID via query param — required for
+    // owner-restricted writes (taxi_squad). Without this the worker
+    // can only use env.MFL_COOKIE (commish) which silently no-ops.
     var url = window.UPS_MOBILE.api.workerBase() + "/roster-workbench/action";
+    var getStored = window.UPS_MOBILE.api.getStoredMflUserId;
+    var stored = getStored ? getStored() : "";
+    if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
     fetch(url, {
       method: "POST",
       credentials: "include",
@@ -492,6 +498,9 @@
       "This removes them from your active roster. No cap penalty — the contract was already reverted by the earlier untag.")) return;
     setBusy(btn, true, "Unloading…");
     var url = window.UPS_MOBILE.api.workerBase() + "/roster-workbench/action";
+    var getStored = window.UPS_MOBILE.api.getStoredMflUserId;
+    var stored = getStored ? getStored() : "";
+    if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
     fetch(url, {
       method: "POST",
       credentials: "include",

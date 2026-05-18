@@ -10924,7 +10924,13 @@
     if (options.closeModal !== false) closePlayerActionModal();
     renderTeams();
 
-    return fetchJsonPost(resolveWorkerActionEndpoint(), {
+    // Forward viewer's MFL_USER_ID via query param so the worker has the
+    // browser-session cookie for owner-restricted imports (taxi_squad,
+    // ir, drop_player). Without this, the worker can only use env.MFL_COOKIE
+    // (commish) which silently no-ops for owner-restricted writes. Same
+    // pattern Trade Workbench uses for /api/trades/proposals.
+    var rosterActionUrl = appendViewerSessionQuery(resolveWorkerActionEndpoint()).toString();
+    return fetchJsonPost(rosterActionUrl, {
       action: move,
       league_id: state.ctx && state.ctx.leagueId,
       season: state.ctx && state.ctx.year,
@@ -10943,7 +10949,8 @@
   }
 
   function submitWorkerRosterAction(action, franchiseId, playerId) {
-    return fetchJsonPost(resolveWorkerActionEndpoint(), {
+    var rosterActionUrl = appendViewerSessionQuery(resolveWorkerActionEndpoint()).toString();
+    return fetchJsonPost(rosterActionUrl, {
       action: action,
       league_id: state.ctx && state.ctx.leagueId,
       season: state.ctx && state.ctx.year,

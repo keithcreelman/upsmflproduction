@@ -974,7 +974,13 @@
     if (!fid) return Promise.reject(new Error("No franchise"));
     if (state.busyActionKey) return Promise.reject(new Error("Another action is in progress"));
     state.busyActionKey = "drop:" + playerId;
+    // Forward viewer's MFL_USER_ID via query param — required for
+    // owner-restricted writes (drop_player, taxi_squad, ir). Without
+    // this the worker can only use env.MFL_COOKIE (commish) which
+    // silently no-ops. Same pattern desktop uses via appendViewerSessionQuery.
     var url = workerUrl("/roster-workbench/action");
+    var stored = getStoredMflUserId();
+    if (stored) url += (url.indexOf("?") >= 0 ? "&" : "?") + "MFL_USER_ID=" + encodeURIComponent(stored);
     return postJson(url, {
       action: "drop_player",
       league_id: state.ctx.leagueId,
@@ -1486,7 +1492,12 @@
       workerUrl: workerUrl,
       mflExportUrl: mflExportUrl,
       fetchJson: fetchJson,
-      loadAllData: loadAllData
+      loadAllData: loadAllData,
+      // Returns the viewer's MFL_USER_ID for URL-param forwarding on
+      // owner-restricted worker writes. Stored in localStorage by the
+      // mobile bootstrap (set from ?MFL_USER_ID= URL param when the
+      // user clicks "Switch to App View" on the MFL site).
+      getStoredMflUserId: getStoredMflUserId
     },
     data: {
       playerById: playerById,
