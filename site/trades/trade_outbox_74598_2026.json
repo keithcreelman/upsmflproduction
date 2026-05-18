@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-12T00:45:57.829Z",
-    "row_count": 56,
+    "updated_at": "2026-05-18T14:58:13.513Z",
+    "row_count": 57,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -10634,6 +10634,198 @@
       "season": "2026",
       "updated_ts": "2026-05-12T00:45:57.723Z",
       "id": "56"
+    },
+    {
+      "created_ts": "2026-05-18T14:58:13.360Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0006",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "<salary_adjustments><salary_adjustment franchise_id=\"0005\" amount=\"-22000\" explanation=\"UPS traded salary settlement (trade_2026): net -22K\"/><salary_adjustment franchise_id=\"0006\" amount=\"22000\" explanation=\"UPS traded salary settlement (trade_2026): net +22K\"/></salary_adjustments>",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-18T14:58:12.760Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "player:16186",
+                "type": "PLAYER",
+                "player_id": "16186",
+                "player_name": "Addison, Jordan",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "MIN",
+                "salary": 17000,
+                "years": 1,
+                "contract_type": "Veteran",
+                "contract_info": "CL 2| TCV 24K| AAV 17K| Ext: LH",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "player:16619",
+                "type": "PLAYER",
+                "player_id": "16619",
+                "player_name": "Franklin, Troy",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "DEN",
+                "salary": 5000,
+                "years": 1,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 15K| AAV 5K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 11,
+            "selected_non_taxi_salary_dollars": 22000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "selected_assets": [
+              {
+                "asset_id": "player:12626",
+                "type": "PLAYER",
+                "player_id": "12626",
+                "player_name": "Henry, Derrick",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "BAL",
+                "salary": 44000,
+                "years": 1,
+                "contract_type": "BL",
+                "contract_info": "CL 2| TCV 94K| AAV 44K|Y1-50 Y2-44| Ext: LH",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 22000,
+            "traded_salary_adjustment_k": 22,
+            "traded_salary_adjustment_max_k": 22,
+            "selected_non_taxi_salary_dollars": 44000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0006"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 187000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 22000,
+            "incoming_dollars": 44000,
+            "salary_trade_adjustment_dollars": -22000,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 187000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 11,
+            "net_trade_salary_k": -22,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 103950,
+            "available_salary_after_dollars": 103950,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 283000,
+            "salary_adjustment_total_dollars": 3500,
+            "outgoing_dollars": 44000,
+            "incoming_dollars": 22000,
+            "salary_trade_adjustment_dollars": 22000,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 283000,
+            "trade_salary_adjustment_k": 22,
+            "trade_salary_adjustment_max_k": 22,
+            "net_trade_salary_k": 22,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 13500,
+            "available_salary_after_dollars": 13500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "The Long Haulers",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 187000,
+              "left_after_dollars": 187000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 296000,
+              "right_after_dollars": 296000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 304000,
+              "left_after_dollars": 326000,
+              "left_change_dollars": 22000,
+              "right_before_dollars": 225000,
+              "right_after_dollars": 203000,
+              "right_change_dollars": -22000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 75000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 57000,
+              "right_after_dollars": 57000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "",
+      "payload_hash": "8eb08a0075997dccd30f55fcec0eb8e37eca8922f35a12a62ad79ba1513f44a3",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-18T14:58:13.360Z",
+      "id": "57"
     }
   ]
 }
