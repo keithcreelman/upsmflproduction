@@ -449,6 +449,7 @@ export default {
         path !== "/api/settings" &&
         path !== "/api/taxi-callups" &&
         path !== "/api/taxi-callups/confirm" &&
+        path !== "/admin/sync-ups-draft-picks" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         !path.startsWith("/api/trades/proposals") &&
@@ -2616,6 +2617,90 @@ export default {
           return jsonOut(200, { ok: false, error: e?.message || String(e), players: {} });
         }
         return jsonOut(200, { ok: true, players: out });
+      }
+
+      // ── POST /admin/sync-ups-draft-picks — refresh D1 cache of UPS Rookie Draft picks ──
+      // Issue #244 part B: instead of fetching MFL TYPE=draftResults
+      // inline at every /roster-workbench load (the #238/#243 CPU
+      // blowup), maintain a D1 mirror in ups_draft_picks and read from
+      // it on the hot path.
+      //
+      // Auth: X-MFL-APIKEY header must match env.MFL_APIKEY. Body:
+      // { seasons: [2024, 2025, 2026] }. Defaults to current season +
+      // previous 2.
+      //
+      // Idempotent — uses ON CONFLICT(player_id, season) DO UPDATE.
+      // Run after each UPS Rookie Draft, or whenever picks change.
+      // Eventual cron will call this nightly during the offseason.
+      if (path === "/admin/sync-ups-draft-picks" && request.method === "POST") {
+        const expectedKey = safeStr(env.MFL_APIKEY || "");
+        const providedKey = safeStr(request.headers.get("X-MFL-APIKEY") || url.searchParams.get("key") || "");
+        if (!expectedKey || providedKey !== expectedKey) {
+          return jsonOut(401, { ok: false, error: "unauthorized — provide X-MFL-APIKEY header" });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const currentYr = parseInt(YEAR, 10) || new Date().getUTCFullYear();
+        const seasonsRequested = Array.isArray(body?.seasons) && body.seasons.length
+          ? body.seasons.map((s) => parseInt(s, 10)).filter((s) => Number.isFinite(s) && s >= 2010 && s <= 2099)
+          : [currentYr, currentYr - 1, currentYr - 2];
+        const leagueIdSync = safeStr(body?.league_id || L || "");
+        if (!leagueIdSync) return jsonOut(400, { ok: false, error: "league_id required" });
+        const out = { ok: true, seasons: {} };
+        for (const yr of seasonsRequested) {
+          const seasonReport = { fetched: 0, upserted: 0, errors: [] };
+          try {
+            const dRes = await fetch(
+              `https://api.myfantasyleague.com/${yr}/export?TYPE=draftResults&L=${encodeURIComponent(leagueIdSync)}&JSON=1`,
+              { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 60 } }
+            );
+            if (!dRes.ok) {
+              seasonReport.errors.push(`mfl_fetch_failed: HTTP ${dRes.status}`);
+              out.seasons[yr] = seasonReport;
+              continue;
+            }
+            const dData = await dRes.json();
+            let units = dData?.draftResults?.draftUnit || [];
+            if (!Array.isArray(units)) units = [units];
+            const upsertStmt = env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_draft_picks
+                 (player_id, season, round, pick, franchise_id, drafted_at, source, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+               ON CONFLICT(player_id, season) DO UPDATE SET
+                 round = excluded.round,
+                 pick = excluded.pick,
+                 franchise_id = excluded.franchise_id,
+                 drafted_at = excluded.drafted_at,
+                 source = excluded.source,
+                 updated_at = datetime('now')`
+            );
+            const batch = [];
+            for (const u of units) {
+              let picks = u.draftPick || u.pick || [];
+              if (!Array.isArray(picks)) picks = [picks];
+              for (const dp of picks) {
+                const pid = String(dp.player || "").replace(/\D/g, "");
+                if (!pid) continue;
+                const rnd = parseInt(dp.round, 10) || 0;
+                const pk = parseInt(dp.pick, 10) || 0;
+                const fid = padFranchiseId(dp.franchise);
+                const ts = dp.timestamp ? new Date(Number(dp.timestamp) * 1000).toISOString() : null;
+                seasonReport.fetched += 1;
+                batch.push(upsertStmt.bind(pid, yr, rnd, pk, fid || null, ts, "mfl-draftResults"));
+              }
+            }
+            if (batch.length) {
+              const results = await env.UPS_MFL_DB.batch(batch);
+              seasonReport.upserted = batch.length;
+            }
+            out.seasons[yr] = seasonReport;
+          } catch (e) {
+            seasonReport.errors.push(e?.message || String(e));
+            out.seasons[yr] = seasonReport;
+          }
+        }
+        return jsonOut(200, out);
       }
 
       // ── POST /api/taxi-callups/confirm — confirm pending call-ups against weeklyresults ──
@@ -22120,40 +22205,39 @@ export default {
 
         // UPS Rookie Draft pick lookup (canon §A1 — taxi eligibility is
         // gated on UPS DRAFT round, not NFL draft round).
-        // Fetches the last 3 UPS Rookie Draft years' results and builds
-        // a { player_id → { ups_round, ups_pick, ups_year } } map.
-        // Used below for the `taxi_eligible` flag.
+        // Reads from D1's ups_draft_picks cache (populated by the
+        // POST /admin/sync-ups-draft-picks endpoint and, eventually, a
+        // nightly cron). Earlier inline MFL fetches were the cause of
+        // the CPU blowup hotfixed in PR #243; this D1 lookup is the
+        // permanent fix (issue #244 — Audit Phase 2A).
         const upsDraftByPlayer = {};
-        try {
-          const seasonInt = parseInt(season, 10) || 0;
-          if (seasonInt > 0) {
-            for (let y = seasonInt; y > seasonInt - 3 && y > 0; y -= 1) {
-              const dRes = await fetch(
-                `https://api.myfantasyleague.com/${y}/export?TYPE=draftResults&L=${encodeURIComponent(leagueId)}&JSON=1`,
-                { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 600 } }
-              );
-              if (!dRes.ok) continue;
-              const dData = await dRes.json();
-              let units = dData?.draftResults?.draftUnit || [];
-              if (!Array.isArray(units)) units = [units];
-              for (const u of units) {
-                let picks = u.draftPick || u.pick || [];
-                if (!Array.isArray(picks)) picks = [picks];
-                for (const dp of picks) {
-                  const pid = String(dp.player || "").replace(/\D/g, "");
-                  if (!pid) continue;
-                  if (upsDraftByPlayer[pid]) continue; // earlier (more recent) entry wins
-                  upsDraftByPlayer[pid] = {
-                    ups_round: parseInt(dp.round, 10) || 0,
-                    ups_pick: parseInt(dp.pick, 10) || 0,
-                    ups_year: y,
-                  };
-                }
+        if (env.UPS_MFL_DB) {
+          try {
+            const seasonInt = parseInt(season, 10) || 0;
+            if (seasonInt > 0) {
+              const rows = await env.UPS_MFL_DB.prepare(
+                `SELECT player_id, season, round, pick
+                   FROM ups_draft_picks
+                  WHERE season <= ? AND season > ?`
+              ).bind(seasonInt, seasonInt - 3).all();
+              for (const row of rows?.results || []) {
+                const pid = String(row?.player_id || "").replace(/\D/g, "");
+                if (!pid) continue;
+                const existing = upsDraftByPlayer[pid];
+                const yr = parseInt(row?.season, 10) || 0;
+                // most-recent-year wins (matches prior MFL-loop semantics
+                // which iterated newest→oldest and skipped duplicates)
+                if (existing && existing.ups_year >= yr) continue;
+                upsDraftByPlayer[pid] = {
+                  ups_round: parseInt(row?.round, 10) || 0,
+                  ups_pick: parseInt(row?.pick, 10) || 0,
+                  ups_year: yr,
+                };
               }
             }
+          } catch (e) {
+            console.warn("[ups-draft-d1] lookup failed:", e?.message || String(e));
           }
-        } catch (e) {
-          console.warn("[ups-draft] lookup failed:", e?.message || String(e));
         }
 
         // Taxi call-up counter (canon §B2 + tracker Q10). Lookup count
