@@ -118,7 +118,13 @@
     if ((m = s.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i))) out.length = parseInt(m[1], 10) || 0;
     if ((m = s.match(/(?:^|\|)\s*AAV\s+([^|]+)/i))) out.aav = parseContractMoney(m[1]);
     if ((m = s.match(/(?:^|\|)\s*GTD\s*:?\s*([^|]+)/i))) out.gtd = parseContractMoney(m[1]);
-    var yearRe = /(?:^|\|)\s*Y(\d+)\s*[=:]\s*([^|]+)/gi;
+    // Y-token regex matches the dash format UPS contractInfo uses
+    // ("Y1-10K, Y2-40K"). Front Office parser at
+    // roster_workbench.js:1677 uses the same shape. Fix 2026-05-18 —
+    // was looking for "Y1=" / "Y1:" which never appeared in production,
+    // so yearVals was always empty and earnedToDate returned 0 → cap
+    // penalty showed full 75% guarantee with no earned subtraction.
+    var yearRe = /Y(\d+)\s*-\s*([0-9]+(?:\.[0-9]+)?K?)/gi;
     while ((m = yearRe.exec(s))) {
       var idx = parseInt(m[1], 10);
       if (idx > 0) out.yearVals[idx] = parseContractMoney(m[2]);
@@ -146,10 +152,30 @@
     // years already played = total length minus years remaining.
     var played = Math.max(0, len - cy);
     var earned = 0;
+    var hasYearVals = false;
     for (var i = 1; i <= played; i++) {
-      earned += info.yearVals[i] || 0;
+      if (info.yearVals[i] > 0) {
+        earned += info.yearVals[i];
+        hasYearVals = true;
+      }
     }
-    return earned;
+    if (hasYearVals) return earned;
+    // Fallback when contractInfo lacks Y-tokens (Coleman R2.1 2024
+    // has "CL 3| TCV 15K| AAV 5K" — no per-year breakdown). Front
+    // Office handles this at roster_workbench.js:1808-1810: in final
+    // year (played + cy >= length and cy === 1), earned = TCV -
+    // currentYearSalary. For non-final-year rookies without
+    // per-year breakdown, assume even split (perYear = TCV / length).
+    if (len <= 0) return 0;
+    if (cy === 1 && info.tcv > 0) {
+      var currentSal = Math.max(0, parseInt(sal && sal.salary, 10) || 0);
+      return Math.max(0, info.tcv - currentSal);
+    }
+    if (info.tcv > 0 && played > 0) {
+      var perYear = Math.round(info.tcv / len);
+      return perYear * played;
+    }
+    return 0;
   }
   // Era-aware cap penalty. Modern formula (2019+): (TCV × 75%) − Earned.
   // Pre-2019: per project memory + league_context_v1.md, cap hits are
