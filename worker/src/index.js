@@ -22115,19 +22115,31 @@ export default {
 
         // UPS Rookie Draft pick lookup (canon §A1 — taxi eligibility is
         // gated on UPS DRAFT round, not NFL draft round).
-        // Fetches the last 3 UPS Rookie Draft years' results and builds
-        // a { player_id → { ups_round, ups_pick, ups_year } } map.
-        // Used below for the `taxi_eligible` flag.
+        //
+        // HOTFIX 2026-05-18: the original implementation fetched 3 years
+        // of UPS draftResults inline + JSON.parsed each, exceeding the
+        // Cloudflare Worker CPU budget on every /roster-workbench load.
+        // Symptom: "Worker exceeded CPU time limit" in wrangler tail; UI
+        // shows "Worker API failed (Load failed)".
+        //
+        // Reduced to a SINGLE fetch for the current year only AND wrapped
+        // in Promise.race against a soft 4s timeout. If it's slow or
+        // missing, we just skip with empty map (taxi_eligible falls back
+        // to false; Demote button hides). Followup tracker: backfill UPS
+        // draft map nightly into D1 + read from cache, then re-extend to
+        // 3-year window.
         const upsDraftByPlayer = {};
         try {
           const seasonInt = parseInt(season, 10) || 0;
           if (seasonInt > 0) {
-            for (let y = seasonInt; y > seasonInt - 3 && y > 0; y -= 1) {
-              const dRes = await fetch(
-                `https://api.myfantasyleague.com/${y}/export?TYPE=draftResults&L=${encodeURIComponent(leagueId)}&JSON=1`,
-                { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 600 } }
-              );
-              if (!dRes.ok) continue;
+            const dRes = await Promise.race([
+              fetch(
+                `https://api.myfantasyleague.com/${seasonInt}/export?TYPE=draftResults&L=${encodeURIComponent(leagueId)}&JSON=1`,
+                { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 3600 } }
+              ),
+              new Promise((resolve) => setTimeout(() => resolve({ ok: false, timedOut: true }), 4000)),
+            ]);
+            if (dRes && dRes.ok && !dRes.timedOut) {
               const dData = await dRes.json();
               let units = dData?.draftResults?.draftUnit || [];
               if (!Array.isArray(units)) units = [units];
@@ -22137,11 +22149,10 @@ export default {
                 for (const dp of picks) {
                   const pid = String(dp.player || "").replace(/\D/g, "");
                   if (!pid) continue;
-                  if (upsDraftByPlayer[pid]) continue; // earlier (more recent) entry wins
                   upsDraftByPlayer[pid] = {
                     ups_round: parseInt(dp.round, 10) || 0,
                     ups_pick: parseInt(dp.pick, 10) || 0,
-                    ups_year: y,
+                    ups_year: seasonInt,
                   };
                 }
               }
