@@ -10927,15 +10927,56 @@
 
   function submitRosterMove(move, playerId, franchiseId, playerName, options) {
     options = options || {};
-    var moveKey = move === "activate_ir" ? "ir:" + playerId : (move === "drop_player" ? "drop:" + playerId : "taxi:" + playerId);
+    var moveKey = move === "activate_ir"
+      ? "ir:" + playerId
+      : (move === "drop_player"
+        ? "drop:" + playerId
+        : (move === "demote_taxi"
+          ? "demote:" + playerId
+          : "taxi:" + playerId));
     var verb = move === "activate_ir"
       ? "activate from IR"
-      : (move === "drop_player" ? "drop" : "promote from taxi");
+      : (move === "drop_player"
+        ? "drop"
+        : (move === "demote_taxi" ? "demote to taxi" : "promote from taxi"));
     var penaltyText = "";
     if (move === "drop_player" && options.dropPenalty) {
       penaltyText = "\n\nEstimated cap penalty: " + money(options.dropPenalty.amount) + "\n" + safeStr(options.dropPenalty.note);
     }
-    if (!window.confirm("Confirm " + verb + " for " + safeStr(playerName) + "?" + penaltyText)) return;
+    // Canon §B2 context for taxi promote/demote so owners know the rule
+    // before they burn a call-up. Counter values come from the worker
+    // payload (taxi_callups_used + pending + max).
+    var taxiContextText = "";
+    if (move === "promote_taxi" || move === "demote_taxi") {
+      var record = options.playerRecord || findPlayerRecord(pad4(franchiseId), safeStr(playerId));
+      var p = record && record.player;
+      var used = safeInt(p && p.taxiCallupsUsed, 0);
+      var pending = safeInt(p && p.taxiCallupsPending, 0);
+      var max = safeInt(p && p.taxiCallupsMax, 3) || 3;
+      var totalSpent = used + pending;
+      var remaining = Math.max(0, max - totalSpent);
+      if (move === "promote_taxi") {
+        var aboutToBeNth = totalSpent + 1;
+        if (aboutToBeNth >= max + 1) {
+          taxiContextText =
+            "\n\n⚠ This will be call-up #" + aboutToBeNth + " of a 3-call-up budget." +
+            "\nCanon §B2: 4th call-up = PERMANENT PROMOTION." +
+            "\nPlayer will no longer be cap-free cut after this NFL week locks.";
+        } else {
+          taxiContextText =
+            "\n\nCall-ups used: " + used + " of " + max + (pending > 0 ? " (+" + pending + " pending)" : "") + "." +
+            "\nCanon §B2: each NFL week the player is active on your roster burns 1 call-up." +
+            "\nDemoting before the next NFL week locks DOES NOT count.";
+        }
+      } else {
+        // demote_taxi
+        taxiContextText =
+          "\n\nCanon §B2: demoting before the next NFL week locks does NOT" +
+          "\nburn a call-up. Pending call-ups awaiting confirmation will be" +
+          "\nautomatically cleared on the next weeklyresults sweep.";
+      }
+    }
+    if (!window.confirm("Confirm " + verb + " for " + safeStr(playerName) + "?" + penaltyText + taxiContextText)) return;
 
     state.busyActionKey = moveKey;
     setFlash("success", "Submitting " + safeStr(playerName) + " to MFL...");
