@@ -434,6 +434,7 @@ export default {
         path !== "/api/advanced-stats-leaderboard" &&
         path !== "/api/advanced-stats-player-weekly" &&
         path !== "/api/mfl-league-state" &&
+        path !== "/api/auction/era-eligible" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
@@ -925,6 +926,331 @@ export default {
           });
         } catch (e) {
           console.error("[mfl-league-state] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/era-eligible ----------
+      // Returns the players currently eligible for the Expired Rookie Auction.
+      // Eligibility per league_context_v1.md §A3:
+      //   contract_type='Rookie' AND contractYear=0
+      // (R1-option-declined + taxi-3yr-clock-expired both land here by
+      // construction — no special-case logic.)
+      //
+      // Source: MFL rosters API (contract overlay) + MFL TYPE=players for
+      // name/position/team, + MFL TYPE=league for franchise names.
+      //
+      // Response shape:
+      //   {
+      //     season, league_id, generated_at,
+      //     extension_deadline_iso,
+      //     players: [{
+      //       player_id, name, position, nfl_team, age,
+      //       prior_owner_fid, prior_owner,
+      //       rookie_slot,            // null today (D1 lookup deferred)
+      //       y3_salary,              // current salary on the expired rookie deal
+      //       contract_status,        // raw MFL contractStatus
+      //       eligibility_reason,
+      //       deadline_iso,
+      //       current_bid,            // 0 until ups_auction_lots is wired
+      //       current_high_bidder,    // null until lots wired
+      //       your_proxy_bid,         // 0 until lots wired
+      //       nominate_blocked,       // false today (gate is in /api/auction/nominate, not here)
+      //       nominate_block_reason
+      //     }]
+      //   }
+      if (path === "/api/auction/era-eligible" && request.method === "GET") {
+        const year = url.searchParams.get("YEAR") || new Date().getUTCFullYear();
+        const leagueId = url.searchParams.get("L") || "74598";
+        try {
+          const [leagueRes, rostersRes, playersRes] = await Promise.all([
+            fetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`,
+              { cf: { cacheTtl: 300 } }),
+            fetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1`,
+              { cf: { cacheTtl: 60 } }),
+            fetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=players&JSON=1`,
+              { cf: { cacheTtl: 86400 } }),
+          ]);
+          const lj = await leagueRes.json().catch(() => ({}));
+          const rj = await rostersRes.json().catch(() => ({}));
+          const pj = await playersRes.json().catch(() => ({}));
+
+          const pad4 = (fid) => {
+            let s = String(fid || "");
+            while (s.length < 4) s = "0" + s;
+            return s.slice(0, 4);
+          };
+
+          // Franchise id → display name
+          const fidToName = {};
+          const franchiseList = lj?.league?.franchises?.franchise || [];
+          for (const f of franchiseList) fidToName[pad4(f.id)] = String(f.name || ("Team " + f.id));
+
+          // Player id → {name, position, team, age}
+          const pidIdx = new Map();
+          let plist = pj?.players?.player || [];
+          if (!Array.isArray(plist)) plist = [plist];
+          for (const p of plist) {
+            const pid = String(p.id || "");
+            if (!pid) continue;
+            // MFL stores "Last, First" — flip for display.
+            let name = String(p.name || "");
+            if (name.includes(",")) name = name.split(",").reverse().map((s) => s.trim()).join(" ");
+            // Derive age from birthdate if MFL provides it
+            let age = null;
+            if (p.birthdate) {
+              const bd = Number(p.birthdate);
+              if (Number.isFinite(bd) && bd > 0) {
+                const years = (Date.now() / 1000 - bd) / (365.25 * 86400);
+                age = Math.floor(years);
+              }
+            }
+            pidIdx.set(pid, {
+              name,
+              position: String(p.position || "").toUpperCase(),
+              team: String(p.team || "").toUpperCase(),
+              age,
+            });
+          }
+
+          // Walk rosters to collect two kinds of ERA candidates:
+          //   (a) Active-roster rookie+cy=0 — final year just ended.
+          //   (b) Empty-contract rookie (active OR taxi) whose 3-league-year
+          //       clock has run out. MFL populates contractStatus/cy/salary
+          //       while the rookie deal is alive (e.g. cy=1 in the final
+          //       year) and WIPES those fields on rollover (cy=1 → 0 →
+          //       expired). So empty contractStatus + 3-yr-clock-cutoff
+          //       passed = expired rookie regardless of taxi/active status.
+          //       (Includes promoted-off-taxi-but-not-extended like Jalen
+          //       Carter 2026.) Per §B2: "3-year clock end: when a player's
+          //       3 league years on taxi expire, they're treated like any
+          //       other expired rookie."
+          //
+          // For BOTH paths, the original UPS rookie draft slot is recoverable
+          // from MFL `TYPE=draftResults` for the draft year — the `drafted`
+          // field on rosters loses the slot info once the player is traded
+          // ("Trade (YEAR)" instead of "R.PP (YEAR)"). We resolve the slot
+          // by joining against draftResults for each candidate's original
+          // draft year. Rookie salary is then DERIVED from §A1's schedule
+          // (Y1=Y2=Y3 flat — 1.01=$15K stepping by $1K to 1.10=$6K, 1.11+
+          // and R2 flat $5K, R3-R5 $2K, R6 $1K) — MFL no longer surfaces it
+          // for expired contracts.
+          const seasonInt = Number(year);
+          const taxiClockExpiredCutoff = seasonInt - 3;
+          // (original_draft_year ≤ cutoff → 3 league years complete → expired)
+
+          // Origin sub-type derivation from MFL's `drafted` field. The
+          // field encodes acquisition path:
+          //   "2.10 (2023)"          → UPS rookie draft slot
+          //   "BB $1,000 (2023)"     → blind-bid waiver win (WW-Rookie path)
+          //   "FCFS (2025)"          → first-come-first-serve waiver
+          //   "Auction $2,000 (2025)" → FA Auction win
+          //   "Trade (2024)"         → trade-acquired (original origin lost)
+          //
+          // Distinguishing WW (1-year, never MYM'd) from MYM-Rookie (per §C3)
+          // for BB/FCFS pickups: WW contracts are 1 year by default. If the
+          // pickup year is ≥ 2 years before the current season, the contract
+          // had to be MYM'd to survive — so the player is MYM-Rookie. If the
+          // pickup year is current-1, the 1-year deal just expired without
+          // MYM — so the player is WW.
+          function deriveOrigin(drafted, seasonInt) {
+            if (!drafted) return null;
+            if (/^\d+\.\d+\s+\(\d{4}\)$/.test(drafted)) return "Rookie Draft";
+            const bb = drafted.match(/^(?:BB|FCFS)\b.*\((\d{4})\)$/i);
+            if (bb) {
+              const yr = Number(bb[1]);
+              return (yr <= seasonInt - 2) ? "MYM-Rookie" : "WW";
+            }
+            if (/^Auction\b.*\(\d{4}\)$/i.test(drafted)) return "Rookie - FA Auction";
+            if (/^Trade\s+\(\d{4}\)$/i.test(drafted)) return "Trade";
+            return null;
+          }
+
+          // Salary schedule per league_context_v1.md §A1 — flat Y1=Y2=Y3.
+          function rookieSalaryK(round, pick) {
+            const r = Number(round);
+            const pk = Number(pick);
+            if (!Number.isFinite(r) || !Number.isFinite(pk)) return null;
+            if (r === 1) {
+              if (pk >= 1 && pk <= 10) return 16 - pk; // 1.01=$15K → 1.10=$6K
+              if (pk >= 11 && pk <= 12) return 5;
+              return null;
+            }
+            if (r === 2) return 5;
+            if (r >= 3 && r <= 5) return 2;
+            if (r === 6) return 1;
+            return null;
+          }
+
+          // Single pass: classify every player on every roster.
+          const candidates = []; // { pid, fid, ownerName, drafted_field, path: 'active_cy0' | 'empty_expired', mfl_salary_dollars, slot_year_from_field, needs_nfl_lookup }
+          const rosterList = rj?.rosters?.franchise || [];
+          for (const f of rosterList) {
+            const fid = pad4(f.id);
+            const ownerName = fidToName[fid] || ("Team " + fid);
+            let arr = f.player || [];
+            if (!Array.isArray(arr)) arr = [arr];
+            for (const p of arr) {
+              if (!p || !p.id) continue;
+              const pid = String(p.id);
+              const status = String(p.contractStatus || "");
+              const cyRaw = p.contractYear;
+              const cy = (cyRaw === "" || cyRaw == null) ? null : Number(cyRaw);
+              const drafted = String(p.drafted || "");
+              const slotMatch = drafted.match(/^\d+\.\d+\s+\((\d{4})\)$/);
+              const tradeMatch = drafted.match(/^Trade\s+\((\d{4})\)$/i);
+              const slotYearFromField = slotMatch ? Number(slotMatch[1]) : null;
+
+              const isActiveCy0Rookie = (cy === 0 && /rookie/i.test(status));
+              const isEmptyContract = (status === "" && (cy === null || cy === 0));
+
+              if (!isActiveCy0Rookie && !isEmptyContract) continue;
+
+              candidates.push({
+                pid, fid, ownerName,
+                drafted_field: drafted,
+                path: isActiveCy0Rookie ? "active_cy0" : "empty_expired",
+                mfl_salary_dollars: Number(p.salary) || 0,
+                slot_year_from_field: slotYearFromField,
+                needs_nfl_lookup: !slotMatch && !!tradeMatch,
+              });
+            }
+          }
+
+          // For trade-acquired candidates (no slot-year in `drafted` field),
+          // resolve the NFL draft year via TYPE=players&DETAILS=1 — that's
+          // our best proxy for the original UPS rookie draft year.
+          const needsLookupPids = candidates.filter((c) => c.needs_nfl_lookup).map((c) => c.pid);
+          const pidToNflDraftYear = new Map();
+          if (needsLookupPids.length > 0) {
+            try {
+              const detailRes = await fetch(
+                `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=players&DETAILS=1&PLAYERS=${encodeURIComponent(needsLookupPids.join(","))}&JSON=1`,
+                { cf: { cacheTtl: 86400 } }
+              );
+              const dj = await detailRes.json().catch(() => ({}));
+              let dlist = dj?.players?.player || [];
+              if (!Array.isArray(dlist)) dlist = [dlist];
+              for (const d of dlist) {
+                const dpid = String(d.id || "");
+                const dy = Number(d.draft_year);
+                if (dpid && Number.isFinite(dy) && dy > 0) pidToNflDraftYear.set(dpid, dy);
+              }
+            } catch (e) {
+              console.error("[auction/era-eligible] DETAILS=1 lookup failed:", e);
+            }
+          }
+
+          // Resolve each candidate's best-known original draft year.
+          for (const c of candidates) {
+            c.original_draft_year = c.slot_year_from_field
+              || pidToNflDraftYear.get(c.pid)
+              || null;
+          }
+
+          // Filter empty-contract candidates by 3-yr-clock cutoff. Active
+          // cy=0 candidates pass through unconditionally (the rule already
+          // identified them as expired).
+          const survivors = candidates.filter((c) => {
+            if (c.path === "active_cy0") return true;
+            return c.original_draft_year != null && c.original_draft_year <= taxiClockExpiredCutoff;
+          });
+
+          // Resolve original rookie draft slot via MFL TYPE=draftResults
+          // for each unique survivor draft year. Build pid → { round, pick, label, year }.
+          const draftYears = Array.from(new Set(survivors.map((c) => c.original_draft_year).filter(Boolean)));
+          const pidToPick = new Map();
+          await Promise.all(draftYears.map(async (dy) => {
+            try {
+              const drRes = await fetch(
+                `https://www48.myfantasyleague.com/${encodeURIComponent(dy)}/export?TYPE=draftResults&L=${encodeURIComponent(leagueId)}&JSON=1`,
+                { cf: { cacheTtl: 86400 } }
+              );
+              const drJson = await drRes.json().catch(() => ({}));
+              let units = drJson?.draftResults?.draftUnit || [];
+              if (!Array.isArray(units)) units = [units];
+              for (const u of units) {
+                let picks = u.draftPick || [];
+                if (!Array.isArray(picks)) picks = [picks];
+                for (const pk of picks) {
+                  const ppid = String(pk.player || "");
+                  if (!ppid) continue;
+                  const rd = String(pk.round || "").padStart(2, "0");
+                  const pp = String(pk.pick || "").padStart(2, "0");
+                  pidToPick.set(ppid, {
+                    year: dy,
+                    round: Number(pk.round),
+                    pick: Number(pk.pick),
+                    label: `${rd}.${pp} (${dy})`,
+                  });
+                }
+              }
+            } catch (e) {
+              console.error(`[auction/era-eligible] draftResults ${dy} fetch failed:`, e);
+            }
+          }));
+
+          // Emit final players[].
+          const players = [];
+          for (const c of survivors) {
+            const meta = pidIdx.get(c.pid) || { name: "Player #" + c.pid, position: "", team: "", age: null };
+            const draftPick = pidToPick.get(c.pid) || null;
+            const rookieSlot = draftPick ? draftPick.label : (c.slot_year_from_field ? c.drafted_field : null);
+            const derivedSalK = draftPick ? rookieSalaryK(draftPick.round, draftPick.pick) : null;
+            // For active cy=0, MFL has the live salary in dollars — convert
+            // to $K. For empty-contract, MFL is empty so use the derived
+            // value from the schedule. If draftResults couldn't resolve a
+            // pick (e.g. dispersal/WW-Rookie), fall back to MFL salary.
+            let y3K;
+            if (c.path === "active_cy0") {
+              y3K = Math.round(c.mfl_salary_dollars / 1000) || derivedSalK || 0;
+            } else {
+              y3K = derivedSalK != null ? derivedSalK : 0;
+            }
+            // Origin priority: if we resolved the player's UPS rookie draft
+            // slot, the contract origin IS the rookie draft (any "Trade
+            // (YEAR)" in the `drafted` field is just the acquisition path,
+            // not the contract origin). Fall back to drafted-field parsing
+            // for players not found in any draftResults.
+            const origin = draftPick
+              ? "Rookie Draft"
+              : deriveOrigin(c.drafted_field, seasonInt);
+            players.push({
+              player_id: c.pid,
+              name: meta.name,
+              position: meta.position,
+              nfl_team: meta.team,
+              age: meta.age,
+              prior_owner_fid: c.fid,
+              prior_owner: c.ownerName,
+              rookie_slot: rookieSlot,
+              y3_salary: y3K,
+              contract_status: c.path === "active_cy0" ? "Rookie" : "Rookie (expired)",
+              origin_label: origin,           // "Rookie" | "MYM-Rookie" | "WW" | "Rookie - FA Auction" | "Trade" | null
+              drafted_field_raw: c.drafted_field,  // for debugging client-side
+              eligibility_reason: c.path === "active_cy0"
+                ? "Rookie contract expired (contractYear=0); no extension submitted."
+                : `3-year rookie clock expired (drafted ${c.original_draft_year}; MFL wiped contract fields on rollover).`,
+              deadline_iso: null,
+              season: seasonInt,
+              current_bid: 0,
+              current_high_bidder: null,
+              your_proxy_bid: 0,
+              nominate_blocked: false,
+              nominate_block_reason: null,
+            });
+          }
+
+          return jsonOut(200, {
+            season: Number(year),
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            extension_deadline_iso: null,
+            players,
+            count: players.length,
+          });
+        } catch (e) {
+          console.error("[auction/era-eligible] failed:", e);
           return jsonOut(500, { error: String(e && e.message || e) });
         }
       }

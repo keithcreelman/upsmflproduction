@@ -2946,14 +2946,20 @@
     //   • { id, label, module }                   → direct link to a MESSAGEnn
     //   • { id, label, children: [{label,href|module}…] } → dropdown submenu
     //
-    // Order + grouping (Keith 2026-05-15):
+    // Order + grouping (Keith 2026-05-15, Auction Hub added 2026-05-18):
     //   Overview → Front Office → Trade War Room → Rookie Draft Hub
-    //   → Standings → Player Stats → Player Acquisition ▾ → Game Day ▾
+    //   → Auction Hub → Standings → Player Stats
+    //   → Player Acquisition ▾ → Game Day ▾
     var TABS = [
       { id: "overview",     label: "Overview",       module: "MESSAGE11" },
       { id: "front-office", label: "Front Office",   module: "MESSAGE7"  },
       { id: "trade-room",   label: "Trade War Room", module: "MESSAGE6=N" },
       { id: "rookie-hub",   label: "Rookie Draft Hub", module: "MESSAGE12" },
+      // Auction Hub (added 2026-05-18, MVP: Expired Rookie Pool tab).
+      // Requires an MFL MESSAGE14 page hosting:
+      //   <div id="auctionHubMount"></div>
+      //   <script src="https://keithcreelman.github.io/upsmflproduction/auction/mfl_hpm_embed_loader.js"></script>
+      { id: "auction-hub",  label: "Auction Hub",    module: "MESSAGE14" },
       { id: "standings",    label: "Standings",      module: "MESSAGE4"  },
       { id: "player-stats", label: "Player Stats",   module: "MESSAGE13" },
       { id: "acquisition",  label: "Player Acquisition", children: [

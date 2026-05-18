@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auction Hub — UPS League</title>
+<link rel="stylesheet" href="auction_hub.css?v=2026.05.18.v0.1.0">
+</head>
+<body>
+<header class="ah-header">
+  <h1>Auction Hub <span class="subtitle">UPS League 74598 · 2026</span>
+    <button id="ah-version-badge" class="ah-version-badge" title="Click for module changelog">Loading…</button>
+  </h1>
+  <div class="meta" id="ah-meta">Loading…</div>
+</header>
+
+<nav class="ah-tabs" id="ah-tabs">
+  <button data-tab="era" class="active">Expired Rookie Pool</button>
+  <button data-tab="fa" disabled title="Coming soon">FA Auction Pool</button>
+  <button data-tab="nominations" disabled title="Coming soon">Nominations</button>
+  <button data-tab="warroom" disabled title="Coming soon">Cap &amp; Roster War Room</button>
+  <button data-tab="history" disabled title="Coming soon">Bid History</button>
+  <button data-tab="rules" disabled title="Coming soon">Rules &amp; Calendar</button>
+</nav>
+
+<main class="ah-main">
+  <!-- ── EXPIRED ROOKIE POOL ─────────────────────────────────────── -->
+  <section class="ah-section active" data-section="era">
+    <div class="ah-context-banner">
+      <strong>Expired Rookie Auction (ERA)</strong> — players whose rookie contract expired
+      (<code>contract_type='Rookie'</code> AND <code>contractYear=0</code>) and were not extended by the
+      rookie extension deadline (Thu before Memorial Day weekend). Starting bid <strong>$1K</strong>,
+      36-hour lock window, $1K bid increments. Each owner may submit
+      <strong>1 nomination per 12-hour rolling window</strong>. Forced retention through FA Auction close.
+      <div class="meta" id="era-context-meta">Eligibility deadline: loading…</div>
+    </div>
+
+    <div class="ah-filters" id="era-filters">
+      <label>
+        <span>Position</span>
+        <div class="ah-pos-chips" id="era-pos-chips">
+          <button type="button" class="ah-pos-chip active" data-pos="ALL">All</button>
+          <button type="button" class="ah-pos-chip" data-pos="QB">QB</button>
+          <button type="button" class="ah-pos-chip" data-pos="RB">RB</button>
+          <button type="button" class="ah-pos-chip" data-pos="WR">WR</button>
+          <button type="button" class="ah-pos-chip" data-pos="TE">TE</button>
+          <button type="button" class="ah-pos-chip" data-pos="PK">PK</button>
+          <button type="button" class="ah-pos-chip" data-pos="PN">PN</button>
+          <button type="button" class="ah-pos-chip" data-pos="IDP">IDP</button>
+        </div>
+      </label>
+      <label>
+        <span>Prior Owner</span>
+        <select id="era-filter-owner"><option value="">All</option></select>
+      </label>
+      <span class="ah-filters-summary" id="era-filters-summary">— eligible</span>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>ERA-Eligible Players</h2>
+        <span class="small" id="era-table-summary">Loading…</span>
+      </div>
+      <table class="ah-table" id="era-table">
+        <thead>
+          <tr>
+            <th data-sort="name">Player</th>
+            <th data-sort="position">Pos</th>
+            <th data-sort="nfl_team" class="col-md">NFL</th>
+            <th data-sort="age" class="num col-lo">Age</th>
+            <th data-sort="prior_owner" class="col-md">Prior Owner</th>
+            <th data-sort="rookie_slot" class="col-lo">Rookie Slot</th>
+            <th data-sort="origin_label">Origin</th>
+            <th data-sort="y3_salary" class="num">Rookie Salary</th>
+            <th data-sort="current_bid" class="num col-md">Current Bid</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="era-tbody">
+          <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px;">Loading eligible players…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── FA AUCTION POOL (placeholder) ────────────────────────────── -->
+  <section class="ah-section" data-section="fa">
+    <div class="ah-placeholder">
+      <strong>FA Auction Pool — coming soon</strong>
+      Last weekend of July. Expired Veterans, dropped players, and untagged FA pool. 24-hour lock, $1K increments, 2 nominations / 24h.
+    </div>
+  </section>
+
+  <!-- ── NOMINATIONS (placeholder) ────────────────────────────────── -->
+  <section class="ah-section" data-section="nominations">
+    <div class="ah-placeholder">
+      <strong>Nominations — coming soon</strong>
+      Live cross-cut feed for ERA + FA Auction. Per-owner cadence enforcement (ERA: 1 / 12h rolling; FA: 2 / 24h).
+    </div>
+  </section>
+
+  <!-- ── WAR ROOM (placeholder) ───────────────────────────────────── -->
+  <section class="ah-section" data-section="warroom">
+    <div class="ah-placeholder">
+      <strong>Cap &amp; Roster War Room — coming soon</strong>
+      Per-owner cap state, loaded-contract counter (X/5), cut-then-rebid blocklist, roster-min/max tracking.
+    </div>
+  </section>
+
+  <!-- ── BID HISTORY (placeholder) ────────────────────────────────── -->
+  <section class="ah-section" data-section="history">
+    <div class="ah-placeholder">
+      <strong>Bid History — coming soon</strong>
+      Reads from <code>transactions_auction</code>. Filter by auction_type, season, franchise, player.
+    </div>
+  </section>
+
+  <!-- ── RULES &amp; CALENDAR (placeholder) ─────────────────────────── -->
+  <section class="ah-section" data-section="rules">
+    <div class="ah-placeholder">
+      <strong>Rules &amp; Calendar — coming soon</strong>
+      Renders the §A2 + §A3 rules from <code>league_context_v1.md</code> with the season-relative dates resolved.
+    </div>
+  </section>
+</main>
+
+<script src="auction_hub.js?v=2026.05.18.v0.1.0"></script>
+</body>
+</html>

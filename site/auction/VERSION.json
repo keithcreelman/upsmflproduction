@@ -1,0 +1,42 @@
+{
+  "version": "0.1.0",
+  "released": "2026-05-18",
+  "label": "v0.1.0 — Auction Hub MVP scaffold + Expired Rookie Pool table",
+  "description": "Initial auction module. Tab strip with Expired Rookie Pool populated; FA Auction Pool, Nominations, Cap & Roster War Room, Bid History, and Rules & Calendar are placeholder tabs for future PRs.",
+  "scope": {
+    "this_release": [
+      "Expired Rookie Pool table (eligibility: contract_type='Rookie' AND contractYear=0)",
+      "Filters: position chips, prior owner, min Y3 salary, search",
+      "Sortable columns (Player / Pos / NFL / Age / Prior Owner / Rookie Slot / Y3 / Current Bid)",
+      "Nominate-action hover popover: current high bid, your proxy bid, cap delta @ $1K/$5K/$10K (informational — offseason has no $300K ceiling per league_context §6.A1)",
+      "Why-eligible tooltip per row"
+    ],
+    "deferred": [
+      "Nominate / bid worker endpoints (parked in CROSS_CODEBASE_ALIGNMENT §4.1)",
+      "FA Auction Pool tab",
+      "Nominations live feed (12h rolling cadence enforcement on submit)",
+      "Cap & Roster War Room (loaded-contract counter, cut-then-rebid blocklist)",
+      "Bid History tab (reads transactions_auction)",
+      "Rules & Calendar tab (renders §A2 + §A3)"
+    ]
+  },
+  "canon_references": {
+    "league_context_v1.md": ["§A2", "§A3", "§C2"],
+    "rules_added_with_this_release": [
+      "§A3 ERA nomination cadence: 1 nomination / 12-hour rolling window per franchise (Keith 2026-05-18)",
+      "§A3 ERA AAV escalator computed off winning bid (Keith 2026-05-18)",
+      "§A3 Forced retention pinned to FA_Auction.close_at (Keith 2026-05-18)",
+      "§A3 No missed-nomination fine for ERA",
+      "§A2 Cut-then-rebid prohibition: machine-enforceable rule spec",
+      "§C2 5-loaded-contracts cap: enforcement at contract-load time, hard block"
+    ]
+  },
+  "changes": [
+    {
+      "version": "0.1.0",
+      "date": "2026-05-18",
+      "type": "feat",
+      "summary": "Initial scaffold + Expired Rookie Pool table. Look-and-feel mirrors Rookie Draft Hub (dark theme, tab strip, sortable table)."
+    }
+  ]
+}
