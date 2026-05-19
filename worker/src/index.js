@@ -23472,14 +23472,22 @@ export default {
         // required (a single shared cookie bounces on the first csetup
         // call — MFL invalidates the commish context somehow).
         const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-        const PACE_MS = 1500;
+        // 3s pacing — 1.5s wasn't enough to keep MFL's throttle from
+        // triggering after ~5-8 franchises. The throttle isn't a
+        // home-page redirect; MFL returns the form page WITHOUT a form
+        // (parses as "commissioner_access_required" via fallback check).
+        const PACE_MS = 3000;
 
-        // Single retry on bounce — MFL's throttle is touchy but usually
-        // clears within 5s. More retries burn subrequests fast and don't
-        // help (we proved this earlier — bounces aren't deterministically
-        // recoverable in fewer than ~5s anyway).
-        const isBounceToHome = (res) =>
-          !!res && !res.ok && String(res.preview || "").includes("Home Page | MyFantasyLeague");
+        // Retry on either MFL throttle signature:
+        //   - Home-page bounce (full redirect to MFL home)
+        //   - commissioner_access_required (form page minus the form)
+        // Both clear after ~5s. One retry max — more burns subrequests
+        // without helping.
+        const isRetriable = (res) =>
+          !!res && !res.ok && (
+            String(res.preview || "").includes("Home Page | MyFantasyLeague") ||
+            res.error === "commissioner_access_required"
+          );
         const loadFormOnce = async (franchiseId) => {
           const cookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
           const formRes = await fetchLoadRostFormForCookie(cookieHeader, season, targetLeagueId, franchiseId);
@@ -23490,7 +23498,7 @@ export default {
           const franchiseId = franchiseIds[i];
           if (i > 0) await sleep(PACE_MS);
           let { cookieHeader: franchiseCookieHeader, formRes } = await loadFormOnce(franchiseId);
-          if (!formRes.ok && isBounceToHome(formRes)) {
+          if (isRetriable(formRes)) {
             await sleep(5000);
             ({ cookieHeader: franchiseCookieHeader, formRes } = await loadFormOnce(franchiseId));
           }
