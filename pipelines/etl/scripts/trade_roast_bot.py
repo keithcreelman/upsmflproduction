@@ -41,15 +41,37 @@ TEST_CHANNEL_ID = 1089538054236160010
 HURTS_TRADE_TS = 1775772921
 POLL_INTERVAL_SECONDS = 300  # 5 minutes
 
-# Bot token — supply via DISCORD_BOT_TOKEN env var. The previously
-# hardcoded literal was flagged by GitHub push-protection and has been
-# scrubbed; rotate a new token in the Discord developer portal and
-# export it before running the script.
-BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
+# Bot token — preferred location is the macOS Keychain. To store it once:
+#   security add-generic-password -a "$USER" -s "discord_bot_token" -w
+# (prompts for the value; never echoes to shell history).
+# DISCORD_BOT_TOKEN env var is also honored as a fallback.
+import subprocess
+
+
+def _get_discord_bot_token() -> str:
+    env_token = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
+    if env_token:
+        return env_token
+    try:
+        result = subprocess.run(
+            ["security", "find-generic-password",
+             "-a", os.environ.get("USER", ""),
+             "-s", "discord_bot_token", "-w"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return ""
+
+
+BOT_TOKEN = _get_discord_bot_token()
 if not BOT_TOKEN:
     raise SystemExit(
-        "DISCORD_BOT_TOKEN env var is required — the previously-committed "
-        "token was public for a moment and must be rotated before use."
+        "Discord bot token not found. Store it in Keychain once:\n"
+        "  security add-generic-password -a \"$USER\" -s \"discord_bot_token\" -w\n"
+        "Or set the DISCORD_BOT_TOKEN env var."
     )
 
 # Track posted roasts: {discord_message_id: context_text}

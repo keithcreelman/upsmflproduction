@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.keith.mfl.roast-bot-watchdog</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/keithcreelman/.venvs/ups-roast-bot/bin/python3</string>
+    <string>/Users/keithcreelman/Code/MFL/upsmflproduction/.claude/worktrees/exciting-tharp-235716/pipelines/etl/scripts/roast_bot_watchdog.py</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/keithcreelman/Code/MFL/upsmflproduction/.claude/worktrees/exciting-tharp-235716/pipelines/etl/scripts</string>
+
+  <!-- Run every 5 minutes. -->
+  <key>StartInterval</key>
+  <integer>300</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- COMMISH_DISCORD_USER_ID is the commish's Discord user ID (not a
+       secret). The bot token is NOT stored here; the watchdog pulls it
+       from macOS Keychain at runtime. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>COMMISH_DISCORD_USER_ID</key>
+    <string>621530026831118346,1057654821638897715</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/roast_bot_watchdog.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/roast_bot_watchdog.err.log</string>
+</dict>
+</plist>
