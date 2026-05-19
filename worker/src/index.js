@@ -23438,6 +23438,20 @@ export default {
         const season = safeStr(body?.season || body?.YEAR || url.searchParams.get("YEAR") || YEAR || "");
         const sourceLeagueId = safeStr(body?.source_league_id || body?.sourceLeagueId || url.searchParams.get("SOURCE_L") || "74598");
         const targetLeagueId = safeStr(body?.target_league_id || body?.targetLeagueId || url.searchParams.get("TARGET_L") || "25625");
+
+        // Hard guardrail: never let this endpoint write to production
+        // (L=74598). If a typo or misconfig ever pointed target at prod,
+        // the sync would overwrite real rosters/salaries with whatever
+        // the source league looks like at that moment. Reject loudly.
+        const PRODUCTION_LEAGUE_ID = "74598";
+        if (targetLeagueId === PRODUCTION_LEAGUE_ID) {
+          return jsonOut(403, {
+            ok: false,
+            error: "refused_target_is_production",
+            message: "target_league_id=74598 is the production UPS league. This endpoint refuses to write to production under any circumstance. Use a non-production league_id (e.g. 25625 for test).",
+            target_league_id_received: targetLeagueId,
+          });
+        }
         // Chunking support — MFL throttles commish operations at the account
         // level (cookie regeneration doesn't reset the counter), so a single
         // worker invocation can only process ~8 franchises before hitting
@@ -23628,11 +23642,17 @@ export default {
         }
         const salaryCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
         const salaryXml = buildSalaryImportXmlFromRows(salaryRows);
+        // APPEND=0 → REPLACE all salary rows (previously APPEND=1 only
+        // added new players and silently skipped existing ones, which
+        // left the test league's contract years stuck on the prior
+        // season's state — visible as cy/contractYear being off-by-one
+        // vs source on every player). Safe because the guardrail above
+        // rejects target_league_id=74598; we'll never replace prod.
         const salaryImportRes = await postMflImportFormForCookie(
           salaryCookieHeader,
           season,
-          { TYPE: "salaries", L: targetLeagueId, APPEND: "1", DATA: salaryXml },
-          { TYPE: "salaries", L: targetLeagueId, APPEND: "1" }
+          { TYPE: "salaries", L: targetLeagueId, APPEND: "0", DATA: salaryXml },
+          { TYPE: "salaries", L: targetLeagueId, APPEND: "0" }
         );
         if (!salaryImportRes.requestOk) {
           return jsonOut(502, {
