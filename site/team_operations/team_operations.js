@@ -1897,40 +1897,22 @@
   // profile but is intentionally lighter than Front Office's 4-tab modal —
   // owners on My Team need quick context, not the full editing surface.
   // For anything more, the modal links out to the Front Office page.
-  // ── Contract helpers (mirror Front Office's parsers so My Team can
-  //    render the same Bio metrics: TCV / AAV / SALARY / YRS REMAIN /
-  //    EARNED TO DATE / CAP PENALTY / ACQUIRE DATE / HOW ACQUIRED). ──
-  function tops_parseContractMoney(token) {
-    var s = String(token || "").trim().toUpperCase();
-    if (!s) return 0;
-    s = s.replace(/[$,]/g, "");
-    var mult = 1;
-    if (/K$/.test(s)) { mult = 1000; s = s.slice(0, -1); }
-    else if (/M$/.test(s)) { mult = 1000000; s = s.slice(0, -1); }
-    var n = Number(s);
-    return Number.isFinite(n) ? Math.round(n * mult) : 0;
+  // ── Contract helpers — delegate to the shared cap-math module
+  //    (site/shared/cap_math.js, loaded by mfl_hpm_embed_loader.js).
+  //    Issue #244 Phase 2B: previously inline; the inline regex bug
+  //    that produced Coleman's wrong $11K cap-penalty was fixed in
+  //    PR #240, but kept drifting from the Front Office canonical.
+  //    Now there's one source of truth; the inline copies here are
+  //    just thin wrappers preserving the tops_* names.
+  function tops_capMath() {
+    return (typeof window !== "undefined" && window.UPS_CAP_MATH) || null;
   }
   function tops_parseContractInfo(info) {
-    var s = String(info || "");
-    var out = { tcv: 0, length: 0, yearVals: {}, aav: 0, gtd: 0 };
-    if (!s) return out;
-    var m;
-    if ((m = s.match(/(?:^|\|)\s*TCV\s+([^|]+)/i))) out.tcv = tops_parseContractMoney(m[1]);
-    if ((m = s.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i))) out.length = parseInt(m[1], 10) || 0;
-    if ((m = s.match(/(?:^|\|)\s*AAV\s+([^|]+)/i))) out.aav = tops_parseContractMoney(m[1]);
-    if ((m = s.match(/(?:^|\|)\s*GTD\s*:?\s*([^|]+)/i))) out.gtd = tops_parseContractMoney(m[1]);
-    // Y-token regex matches the dash format used in UPS contractInfo
-    // (e.g. "Y1-10K, Y2-40K"). Front Office uses the same shape via
-    // parseContractYearValues at roster_workbench.js:1677. Fix
-    // 2026-05-18 — was previously looking for "Y1=" or "Y1:" which
-    // never appeared in production, so yearVals was always empty and
-    // tops_earnedToDate always returned 0 → wrong $11K penalty.
-    var yearRe = /Y(\d+)\s*-\s*([0-9]+(?:\.[0-9]+)?K?)/gi;
-    while ((m = yearRe.exec(s))) {
-      var idx = parseInt(m[1], 10);
-      if (idx > 0) out.yearVals[idx] = tops_parseContractMoney(m[2]);
-    }
-    return out;
+    var m = tops_capMath();
+    if (m) return m.parseContractInfo(info);
+    // Fail-soft if cap_math.js failed to load: return an empty shape
+    // so callers don't NPE. The UI degrades to "—" rather than wrong.
+    return { tcv: 0, length: 0, yearVals: {}, aav: 0, gtd: 0 };
   }
   function tops_yearsRemain(sal) {
     var info = tops_parseContractInfo(sal && sal.contractInfo);
@@ -1941,52 +1923,12 @@
     return 0;
   }
   function tops_earnedToDate(sal) {
-    // Canon §D1: prior-year salaries are 100% earned post-rollover.
-    // `contractYear` from MFL is YEARS REMAINING (cy=1 = last year).
-    // current-year-index = length - cy + 1. Earned years = 1..idx-1.
-    //
-    // Fix 2026-05-18 — was using `cy` as if it were the year index
-    // (off-by-direction). For Coleman R2.1 2024 with cy=1, the old
-    // loop ran 0 times → earned=0 → cap penalty = $11.25K (wrong).
-    // Correct: idx=3, sum Y1+Y2 = $10K → penalty = $1,250.
-    var info = tops_parseContractInfo(sal && sal.contractInfo);
-    var cy = parseInt(sal && sal.contractYear, 10) || 0; // years remaining
-    var len = info.length;
-    if (len <= 0 || cy <= 0) return 0;
-    var contractYearIdx = Math.max(1, len - cy + 1);
-    // Sum explicit Y-values for years 1..idx-1.
-    var earned = 0;
-    var hasYearVals = false;
-    for (var i = 1; i < contractYearIdx; i++) {
-      if (info.yearVals[i] > 0) {
-        earned += info.yearVals[i];
-        hasYearVals = true;
-      }
-    }
-    if (hasYearVals) return earned;
-    // Fallback when contractInfo lacks Y-tokens (most rookie contracts
-    // store only "CL N| TCV M| AAV K" — no per-year breakdown). Front
-    // Office handles this at roster_workbench.js:1808-1810: when in
-    // final year (idx >= length), earned = TCV - currentYearSalary.
-    if (contractYearIdx >= len && info.tcv > 0) {
-      var currentSal = Math.max(0, parseInt(sal && sal.salary, 10) || 0);
-      return Math.max(0, info.tcv - currentSal);
-    }
-    // For non-final-year players without Y-tokens, assume even split:
-    // each prior year earned = TCV / length.
-    if (info.tcv > 0 && len > 0) {
-      var perYear = Math.round(info.tcv / len);
-      return perYear * (contractYearIdx - 1);
-    }
-    return 0;
+    var m = tops_capMath();
+    return m ? m.earnedToDate(sal) : 0;
   }
   function tops_dropPenalty(sal) {
-    // Modern UPS rule: cap penalty on cut = (TCV × 75%) − Earned. Floor 0.
-    var info = tops_parseContractInfo(sal && sal.contractInfo);
-    var tcv = info.tcv;
-    if (!tcv) return 0;
-    var earned = tops_earnedToDate(sal);
-    return Math.max(0, Math.round(tcv * 0.75) - earned);
+    var m = tops_capMath();
+    return m ? (m.dropPenalty(sal) || 0) : 0;
   }
   function tops_findAcquisition(pid) {
     // Walk transactions for the most recent acquisition of this player by
