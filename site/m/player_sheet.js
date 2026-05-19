@@ -451,14 +451,18 @@
     var ctx = "";
     if (action === "promote_taxi") {
       var aboutToBeNth = totalSpent + 1;
+      var usedLine =
+        "\n\nCall-ups used: " + used + " of " + max +
+        (pending > 0 ? " (+" + pending + " pending)" : "") + ".";
       if (aboutToBeNth >= max + 1) {
         ctx =
-          "\n\n⚠ This will be call-up #" + aboutToBeNth + " of a 3-call-up budget." +
+          usedLine +
+          "\n⚠ This will be call-up #" + aboutToBeNth + " of a " + max + "-call-up budget." +
           "\nCanon §B2: 4th call-up = PERMANENT PROMOTION." +
           "\nPlayer will no longer be cap-free cut after this NFL week locks.";
       } else {
         ctx =
-          "\n\nCall-ups used: " + used + " of " + max + (pending > 0 ? " (+" + pending + " pending)" : "") + "." +
+          usedLine +
           "\nEach NFL week the player is active on your roster burns 1 call-up." +
           "\nDemoting before the next NFL week locks DOES NOT count.";
       }
