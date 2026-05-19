@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-05-19 18:31:38",
+    "generated_at": "2026-05-19 18:34:13",
     "source": "contract-activity-log",
-    "count": 19,
+    "count": 20,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "0fa8671944afb30a0ea9bbf3",
+      "submission_id": "0fa8671944afb30a0ea9bbf3",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Tag",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "player_id": "13130",
+      "player_name": "McCaffrey, Christian",
+      "position": "RB",
+      "salary": 62000,
+      "contract_year": 1,
+      "contract_status": "TAG",
+      "contract_info": "CL 1| TCV 62K| AAV 62K| GTD 62K| Tag| Tier 1| Formula: Avg Top 1-4 RB AAV | 10% salary floor (rounded up)",
+      "tcv": 62000,
+      "aav": 62000,
+      "guaranteed": 62000,
+      "submitted_at_utc": "2026-05-19T18:33:53.563Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "dry-run-skipped",
+      "discord_channel_id": "",
+      "discord_message_id": "",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "267d93804e9cf3ecb71504da",
       "submission_id": "267d93804e9cf3ecb71504da",
