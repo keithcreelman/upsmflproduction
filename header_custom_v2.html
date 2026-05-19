@@ -2879,6 +2879,115 @@
 </script>
 
 <script>
+  // UPS Hub Container — generic auto-bootstrap for the shared MFL MESSAGE
+  // slot that hosts our newer hubs (Auction Hub etc.). Mirrors the
+  // MESSAGE7 / MESSAGE11 pattern: header detects the MODULE + ?hub= param,
+  // creates a mount div, and injects the matching embed loader directly.
+  //
+  // Why this exists: every new hub used to need its own MFL MESSAGE page
+  // (MESSAGE12 = Rookie Draft Hub, MESSAGE14 was reserved for Auction
+  // Hub, etc.) — each carrying a SHA-pinned loader stub that had to be
+  // updated on every release. Routing through ONE container with the
+  // header doing the dispatching means:
+  //   1. MFL MESSAGE19 body stays empty forever (single comment line).
+  //   2. Adding a new hub = add 1 line to the HUBS registry below.
+  //   3. SHA bumps only touch the header, never any MESSAGE body.
+  //
+  // MESSAGE19 is used because MESSAGE20 is the league footer; MFL caps
+  // custom messages at 20. Anything earlier (MESSAGE2 = old CCC link,
+  // MESSAGE4 = Standings, etc.) is already in use.
+  (function () {
+    var BUILD = "2026-05-19.1";
+    if (window.__ups_hub_container_autoload === BUILD) return;
+    window.__ups_hub_container_autoload = BUILD;
+
+    // Registry — add new hubs here. Each entry needs the mount id the
+    // hub's embed loader looks for + the loader URL on GitHub Pages.
+    var HUBS = {
+      "auction-hub": {
+        mountId: "auctionHubMount",
+        loaderUrl: "https://keithcreelman.github.io/upsmflproduction/auction/mfl_hpm_embed_loader.js"
+      }
+      // Future:
+      //   "front-office-v2": { mountId: "..." , loaderUrl: "..." },
+      //   "trade-war-room":  { mountId: "..." , loaderUrl: "..." },
+    };
+
+    // The MFL MESSAGE slot reserved as the hub container. Change here +
+    // in TABS (look for "MESSAGE19&hub=") if it ever has to move.
+    var CONTAINER_MODULE = "MESSAGE19";
+
+    function safeUpper(v) { return String(v == null ? "" : v).trim().toUpperCase(); }
+    function safeLower(v) { return String(v == null ? "" : v).trim().toLowerCase(); }
+
+    function readContext() {
+      try {
+        var u = new URL(window.location.href);
+        return {
+          module: safeUpper(u.searchParams.get("MODULE") || ""),
+          hub: safeLower(u.searchParams.get("hub") || "")
+        };
+      } catch (e) { return { module: "", hub: "" }; }
+    }
+
+    function ensureMount(mountId) {
+      var existing = document.getElementById(mountId);
+      if (existing) return existing;
+      var mount = document.createElement("div");
+      mount.id = mountId;
+      var anchor =
+        document.querySelector(".ups-hotlinks-shell") ||
+        document.getElementById("container-wrap") ||
+        document.body;
+      if (anchor && anchor.parentNode && anchor !== document.body) {
+        anchor.parentNode.insertBefore(mount, anchor.nextSibling);
+      } else {
+        document.body.appendChild(mount);
+      }
+      return mount;
+    }
+
+    function showError(msg) {
+      var mount = ensureMount("upsHubContainerError");
+      mount.style.cssText = "padding:24px;margin:16px;color:#f88;background:#141a26;border:1px solid #2a3446;border-radius:8px;font-family:-apple-system,sans-serif;";
+      mount.innerHTML = "<strong>UPS Hub Container</strong><br>" + msg;
+    }
+
+    function injectLoader(loaderUrl) {
+      // Guard: don't double-inject if the user clicks between hubs
+      // without a full page reload (browsers may keep the iframe alive).
+      if (document.querySelector('script[data-ups-hub-loader="' + loaderUrl + '"]')) return;
+      var s = document.createElement("script");
+      s.setAttribute("data-ups-hub-loader", loaderUrl);
+      s.src = loaderUrl + (loaderUrl.indexOf("?") === -1 ? "?" : "&") +
+        "v=" + encodeURIComponent(String(Date.now()));
+      s.async = true;
+      (document.body || document.documentElement).appendChild(s);
+    }
+
+    function bootIfApplicable() {
+      var ctx = readContext();
+      if (!/^MESSAGE19\b/.test(ctx.module)) return;
+      if (!ctx.hub) {
+        return showError("Missing <code>?hub=</code> parameter. Registered hubs: <code>" + Object.keys(HUBS).join("</code>, <code>") + "</code>.");
+      }
+      var entry = HUBS[ctx.hub];
+      if (!entry) {
+        return showError("Unknown hub: <code>" + ctx.hub.replace(/[<>&"]/g, "") + "</code>. Registered hubs: <code>" + Object.keys(HUBS).join("</code>, <code>") + "</code>.");
+      }
+      ensureMount(entry.mountId);
+      injectLoader(entry.loaderUrl);
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bootIfApplicable);
+    } else {
+      bootIfApplicable();
+    }
+  })();
+</script>
+
+<script>
   // Team Ops persistent sub-nav.
   //
   // Renders a 5-link strip (Overview / Front Office / Player Stats /
