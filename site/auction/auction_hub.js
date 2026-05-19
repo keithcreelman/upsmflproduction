@@ -33,6 +33,21 @@
       return r.json();
     });
 
+  // ── League ID resolution ────────────────────────────────────────────
+  // The embed loader injects window.UPS_AUCTION_HUB_LEAGUE_ID from the
+  // MFL URL (e.g. /2026/home/25625/... → "25625"). When viewed standalone
+  // (not iframed), falls back to ?L= query param, then production.
+  function _leagueId() {
+    try {
+      if (window.UPS_AUCTION_HUB_LEAGUE_ID) return String(window.UPS_AUCTION_HUB_LEAGUE_ID).replace(/\D/g, "") || "74598";
+      const u = new URL(window.location.href);
+      const fromQuery = String(u.searchParams.get("L") || "").replace(/\D/g, "");
+      if (fromQuery) return fromQuery;
+    } catch (e) {}
+    return "74598";
+  }
+  const LEAGUE_ID = _leagueId();
+
   // ── HPM franchise injection (MFL-only signal of who is viewing) ────
   // The auction loader injects window.UPS_AUCTION_HUB_FRANCHISE_ID before
   // the iframe renders — that's the most trustworthy "who is viewing".
@@ -94,6 +109,15 @@
   // BOOTSTRAP
   // ════════════════════════════════════════════════════════════════════
   async function init() {
+    // Reflect the active league in the header subtitle so test-league
+    // sessions visibly differ from production.
+    const subtitle = document.getElementById("ah-subtitle");
+    if (subtitle) {
+      const isTest = LEAGUE_ID !== "74598";
+      subtitle.textContent = `${isTest ? "TEST" : "UPS"} League ${LEAGUE_ID} · ${new Date().getUTCFullYear()}`;
+      if (isTest) subtitle.style.color = "var(--warn)";
+    }
+
     setupTabs();
     setupFilters();
     setupSorting();
@@ -115,7 +139,7 @@
 
   async function loadMe() {
     const hpmFid = _hpmFranchiseId();
-    const qs = "?L=74598" + (hpmFid ? "&franchise_id=" + hpmFid : "");
+    const qs = "?L=" + LEAGUE_ID + (hpmFid ? "&franchise_id=" + hpmFid : "");
     try {
       const r = await fetch(apiUrl("/api/me") + qs, { cache: "no-store" });
       STATE.me = r.ok ? await r.json() : { configured: false };
@@ -135,7 +159,7 @@
     const season = new Date().getUTCFullYear();
     const tbody = $("#era-tbody");
     try {
-      const data = await fetchJSON(apiUrl("/api/auction/era-eligible") + "?L=74598&YEAR=" + season);
+      const data = await fetchJSON(apiUrl("/api/auction/era-eligible") + "?L=" + LEAGUE_ID + "&YEAR=" + season);
       STATE.era = data;
     } catch (e) {
       console.error("[auction-hub] era-eligible fetch failed:", e);
@@ -311,7 +335,7 @@
     const whyTooltip = `${why}${deadline}`;
 
     const mflProfileUrl = p.player_id
-      ? `https://www.myfantasyleague.com/${p.season || new Date().getUTCFullYear()}/options?L=74598&O=04&P=${encodeURIComponent(p.player_id)}`
+      ? `https://www.myfantasyleague.com/${p.season || new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=04&P=${encodeURIComponent(p.player_id)}`
       : null;
 
     const playerCell = mflProfileUrl
