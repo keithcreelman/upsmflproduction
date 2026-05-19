@@ -2065,12 +2065,14 @@
   }
 
   function tagPriorAavSubtext(row) {
+    // Canon §C8: AAV-only display (Keith 2026-05-19). Removed
+    // prior_salary_week1 from the MAX to align with the tag-formula
+    // fix in effectiveTagSalaryForRow above.
     var season = safeStr(row && row.prior_basis_season) || safeStr(state.tagData && state.tagData.sourceSeason);
     var amount = Math.max(
       safeInt(row && row.prior_aav_week1, 0),
       safeInt(row && row.prior_aav, 0),
-      safeInt(row && row.aav, 0),
-      safeInt(row && row.prior_salary_week1, 0)
+      safeInt(row && row.aav, 0)
     );
     var label = season ? (season + " AAV") : "Prior AAV";
     return label + ": " + (amount > 0 ? formatContractK(amount) : "—");
@@ -2847,24 +2849,32 @@
   }
 
   function effectiveTagSalaryForRow(row) {
+    // CANON §C8: the 10% floor is grounded in AAV only — never
+    // current/prior salary (Keith 2026-05-19). Including salary in the
+    // MAX inflates the tag for back-loaded contracts (Mahomes BL Y2
+    // $68K → tag $75K instead of canonical $60K). Same fix applied to
+    // the FO v2 port. tag_base_bid is the tier bid (AAV-ranked);
+    // tag_salary in the row is the precomputed (formerly buggy) value
+    // and is NOT used as input — we use it only as a min-floor below
+    // for back-compat with rows that lack tag_base_bid.
     var ref = row || {};
-    var baseBid = safeInt(ref.tag_salary, 0);
-    var floorBase = Math.max(
+    var baseBid = safeInt(ref.tag_base_bid, 0) || safeInt(ref.tag_salary, 0);
+    var aavFloor = Math.max(
       safeInt(ref.prior_aav_week1, 0),
-      safeInt(ref.prior_salary_week1, 0),
-      safeInt(ref.aav, 0),
-      safeInt(ref.salary, 0)
+      safeInt(ref.aav, 0)
     );
-    var bumpFloor = floorBase > 0 ? Math.ceil((floorBase * 1.1) / 1000) * 1000 : 0;
+    var bumpFloor = aavFloor > 0 ? Math.ceil((aavFloor * 1.1) / 1000) * 1000 : 0;
     return Math.max(baseBid, bumpFloor);
   }
 
   function effectiveTagFormulaForRow(row) {
-    var formula = safeStr(row && row.tag_formula);
-    var baseBid = safeInt(row && row.tag_salary, 0);
+    // Strip the JSON's "10% salary floor" suffix because the formula
+    // is now AAV-only — the suffix label was misleading.
+    var formula = safeStr(row && row.tag_formula).replace(/\s*\|\s*10% salary floor[^|]*$/i, "");
+    var baseBid = safeInt(row && row.tag_base_bid, 0) || safeInt(row && row.tag_salary, 0);
     var effectiveBid = effectiveTagSalaryForRow(row);
-    if (effectiveBid > baseBid && formula.toLowerCase().indexOf("10%") === -1) {
-      formula += (formula ? " | " : "") + "10% salary floor (rounded up)";
+    if (effectiveBid > baseBid) {
+      formula += (formula ? " | " : "") + "10% AAV floor (rounded up to $1K)";
     }
     return formula;
   }
@@ -7101,9 +7111,11 @@
       items.sort(function (a, b) {
         var pointsDelta = safeNum(b.points_total, 0) - safeNum(a.points_total, 0);
         if (Math.abs(pointsDelta) > 0.0001) return pointsDelta;
-        var salaryDelta = Math.max(safeInt(b.prior_aav_week1, 0), safeInt(b.prior_salary_week1, 0)) -
-          Math.max(safeInt(a.prior_aav_week1, 0), safeInt(a.prior_salary_week1, 0));
-        if (salaryDelta !== 0) return salaryDelta;
+        // AAV-only tiebreaker per canon (Keith 2026-05-19) — was MAX
+        // of (prior_aav_week1, prior_salary_week1).
+        var aavDelta = Math.max(safeInt(b.prior_aav_week1, 0), safeInt(b.aav, 0)) -
+          Math.max(safeInt(a.prior_aav_week1, 0), safeInt(a.aav, 0));
+        if (aavDelta !== 0) return aavDelta;
         return compareText(a.player_name, b.player_name);
       });
 
@@ -10185,11 +10197,12 @@
           var player = rankedPlayers[p] || {};
           var rank = safeInt(player.pos_rank, 0);
           if (rank < minRank || rank > maxRank) continue;
+          // AAV-only per canon §C8 (Keith 2026-05-19). Dropped salary +
+          // prior_salary from the MAX so the tier base bid reflects
+          // canonical AAV, not the higher of AAV vs back-loaded salary.
           var projectedAav = Math.max(
             safeInt(player.prior_aav_week1, 0),
-            safeInt(player.prior_salary_week1, 0),
-            safeInt(player.aav, 0),
-            safeInt(player.salary, 0)
+            safeInt(player.aav, 0)
           );
           total += projectedAav;
           nextPlayers.push({
