@@ -171,7 +171,13 @@
     "hpm-reports": "/hpm-reports.html",
     "hpm-draft-hub": "/hpm-draft-hub.html",
     "hpm-myteam": "/hpm-myteam.html",
-    "hpm-stats-workbench": "/hpm-stats-workbench.html"
+    "hpm-stats-workbench": "/hpm-stats-workbench.html",
+    // Generic hub container (2026-05-19): single MFL MESSAGE page (test:
+    // MESSAGE20) dispatches to per-hub partials via ?hub=<name>. Lets new
+    // hubs ship without an MFL admin step per hub — only `hpm-hub-router`
+    // and the per-hub partial below need to be registered here.
+    "hpm-hub-router": "/hpm-hub-router.html",
+    "hpm-auction-hub": "/hpm-auction-hub.html"
   };
 
   function safeStr(value) {

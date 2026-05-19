@@ -2927,6 +2927,15 @@
     else if (/^MESSAGE13\b/.test(ctx.module)) activeId = "player-stats";
     else if (/^MESSAGE6\b/.test(ctx.module)) activeId = "trade-room";
     else if (/^MESSAGE4\b/.test(ctx.module)) activeId = "standings";
+    else if (/^MESSAGE12\b/.test(ctx.module)) activeId = "rookie-hub";
+    // Generic hub container — currently only auction-hub. When more hubs
+    // route through MESSAGE20, switch on the `hub` query param value.
+    else if (/^MESSAGE20\b/.test(ctx.module)) {
+      try {
+        var qhub = new URL(window.location.href).searchParams.get("hub") || "";
+        if (qhub === "auction-hub") activeId = "auction-hub";
+      } catch (e) {}
+    }
     // Any other MODULE → no active highlight, but we still render the
     // strip so the user can navigate away.
     else activeId = "";
@@ -2956,10 +2965,13 @@
       { id: "trade-room",   label: "Trade War Room", module: "MESSAGE6=N" },
       { id: "rookie-hub",   label: "Rookie Draft Hub", module: "MESSAGE12" },
       // Auction Hub (added 2026-05-18, MVP: Expired Rookie Pool tab).
-      // Requires an MFL MESSAGE14 page hosting:
-      //   <div id="auctionHubMount"></div>
-      //   <script src="https://keithcreelman.github.io/upsmflproduction/auction/mfl_hpm_embed_loader.js"></script>
-      { id: "auction-hub",  label: "Auction Hub",    module: "MESSAGE14" },
+      // Routed through the generic UPS hub container (test: MESSAGE20)
+      // with ?hub=auction-hub — see site/hpm-hub-router.html. The MESSAGE
+      // page only needs the standard loader.js stub with
+      // data-ups-partial="hpm-hub-router"; the router dispatches based on
+      // the `hub` query param. This lets new hubs ship without an MFL
+      // admin step per hub.
+      { id: "auction-hub",  label: "Auction Hub",    module: "MESSAGE20&hub=auction-hub" },
       { id: "standings",    label: "Standings",      module: "MESSAGE4"  },
       { id: "player-stats", label: "Player Stats",   module: "MESSAGE13" },
       { id: "acquisition",  label: "Player Acquisition", children: [

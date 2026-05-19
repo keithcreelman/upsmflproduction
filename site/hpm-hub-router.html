@@ -1,0 +1,77 @@
+<!--
+  UPS Hub Router — generic dispatcher for the single shared MFL MESSAGE
+  container (test: MESSAGE20). Reads `?hub=<name>` from the URL and pulls
+  in the matching per-hub partial (hpm-<name>.html).
+
+  Why this exists:
+    MFL only allows ~20 custom MESSAGE pages, and each new in-app module
+    historically needed its own. Routing through ONE container lets us
+    add hubs forever without an MFL admin step per hub — every new hub
+    only needs a TABS entry in header_custom_v2.html + an hpm-<name>.html
+    partial registered in site/loader.js PARTIAL_MAP.
+
+  Allowlist: explicit so an arbitrary `?hub=` value can't request an
+  unrelated partial. Add new hubs here as they ship.
+-->
+<div id="upsHubRouterMount"></div>
+<script>
+  (function () {
+    var ALLOWED = {
+      "auction-hub": "/hpm-auction-hub.html",
+      "draft-hub":   "/hpm-draft-hub.html",
+      "myteam":      "/hpm-myteam.html",
+      "stats-workbench": "/hpm-stats-workbench.html",
+      "reports":     "/hpm-reports.html",
+      "standings":   "/hpm-standings.html",
+      "mcm":         "/hpm-mcm.html",
+      "issue-report": "/hpm-issue-report.html"
+    };
+
+    var mount = document.getElementById("upsHubRouterMount");
+    function fail(msg) {
+      mount.innerHTML =
+        '<div style="padding:24px;color:#f88;background:#141a26;border:1px solid #2a3446;border-radius:8px;font-family:-apple-system,sans-serif;">' +
+        '<strong>UPS Hub Router</strong><br>' + msg + '</div>';
+    }
+
+    var url;
+    try { url = new URL(window.location.href); } catch (e) { return fail("Could not parse URL."); }
+    var hub = (url.searchParams.get("hub") || "").toLowerCase().trim();
+    if (!hub) {
+      return fail("Missing <code>?hub=</code> parameter. Allowed: " + Object.keys(ALLOWED).join(", "));
+    }
+    var path = ALLOWED[hub];
+    if (!path) {
+      return fail("Unknown hub: <code>" + hub.replace(/[<>&"]/g, "") + "</code>. Allowed: " + Object.keys(ALLOWED).join(", "));
+    }
+
+    var sha = window.UPS_RELEASE_SHA || "main";
+    var fetchUrl = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
+      encodeURIComponent(sha) + path + "?v=" + encodeURIComponent(sha);
+
+    fetch(fetchUrl, { cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status + " fetching " + path);
+        return r.text();
+      })
+      .then(function (html) {
+        mount.innerHTML = html;
+        // innerHTML doesn't execute <script> tags — clone + replace each
+        // one so its body runs and any external src= fetches kick off.
+        var scripts = mount.querySelectorAll("script");
+        for (var i = 0; i < scripts.length; i++) {
+          var old = scripts[i];
+          var s = document.createElement("script");
+          for (var j = 0; j < old.attributes.length; j++) {
+            var a = old.attributes[j];
+            s.setAttribute(a.name, a.value);
+          }
+          s.textContent = old.textContent || "";
+          old.parentNode.replaceChild(s, old);
+        }
+      })
+      .catch(function (err) {
+        fail("Failed to load <code>" + path.replace(/[<>&"]/g, "") + "</code>: " + String(err && err.message || err).replace(/[<>&"]/g, ""));
+      });
+  })();
+</script>
