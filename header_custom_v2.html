@@ -2902,16 +2902,30 @@
     window.__ups_hub_container_autoload = BUILD;
 
     // Registry — add new hubs here. Each entry needs the mount id the
-    // hub's embed loader looks for + the loader URL on GitHub Pages.
+    // hub's embed loader looks for + the path (relative to repo root)
+    // of the loader script.
+    //
+    // The path is resolved against jsDelivr at window.UPS_RELEASE_SHA so
+    // the loader always matches the SHA the header itself was loaded
+    // from. This keeps feature-branch testing working without requiring
+    // a main merge or GitHub Pages publish — jsDelivr serves any commit
+    // SHA on demand. (GitHub Pages only serves main, so loaders that
+    // hardcode pages URLs 404 from feature branches.)
     var HUBS = {
       "auction-hub": {
         mountId: "auctionHubMount",
-        loaderUrl: "https://keithcreelman.github.io/upsmflproduction/auction/mfl_hpm_embed_loader.js"
+        loaderPath: "/site/auction/mfl_hpm_embed_loader.js"
       }
       // Future:
-      //   "front-office-v2": { mountId: "..." , loaderUrl: "..." },
-      //   "trade-war-room":  { mountId: "..." , loaderUrl: "..." },
+      //   "front-office-v2": { mountId: "..." , loaderPath: "/site/rosters/v2/mfl_hpm_embed_loader.js" },
+      //   "trade-war-room":  { mountId: "..." , loaderPath: "/site/trades/mfl_hpm_embed_loader.js" },
     };
+
+    function resolveLoaderUrl(path) {
+      var sha = String(window.UPS_RELEASE_SHA || "main").trim() || "main";
+      return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
+        encodeURIComponent(sha) + path + "?v=" + encodeURIComponent(sha);
+    }
 
     // The MFL MESSAGE slot reserved as the hub container. Change here +
     // in TABS (look for "MESSAGE19&hub=") if it ever has to move.
@@ -2953,14 +2967,14 @@
       mount.innerHTML = "<strong>UPS Hub Container</strong><br>" + msg;
     }
 
-    function injectLoader(loaderUrl) {
+    function injectLoader(loaderPath) {
+      var loaderUrl = resolveLoaderUrl(loaderPath);
       // Guard: don't double-inject if the user clicks between hubs
       // without a full page reload (browsers may keep the iframe alive).
-      if (document.querySelector('script[data-ups-hub-loader="' + loaderUrl + '"]')) return;
+      if (document.querySelector('script[data-ups-hub-loader="' + loaderPath + '"]')) return;
       var s = document.createElement("script");
-      s.setAttribute("data-ups-hub-loader", loaderUrl);
-      s.src = loaderUrl + (loaderUrl.indexOf("?") === -1 ? "?" : "&") +
-        "v=" + encodeURIComponent(String(Date.now()));
+      s.setAttribute("data-ups-hub-loader", loaderPath);
+      s.src = loaderUrl;
       s.async = true;
       (document.body || document.documentElement).appendChild(s);
     }
@@ -2976,7 +2990,7 @@
         return showError("Unknown hub: <code>" + ctx.hub.replace(/[<>&"]/g, "") + "</code>. Registered hubs: <code>" + Object.keys(HUBS).join("</code>, <code>") + "</code>.");
       }
       ensureMount(entry.mountId);
-      injectLoader(entry.loaderUrl);
+      injectLoader(entry.loaderPath);
     }
 
     if (document.readyState === "loading") {

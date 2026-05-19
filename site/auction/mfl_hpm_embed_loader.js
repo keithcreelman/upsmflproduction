@@ -67,7 +67,12 @@
   const IS_COMMISH = detectIsCommish();
 
   const SHA = safeStr(window.UPS_AUCTION_HUB_RELEASE_SHA || window.UPS_RELEASE_SHA) || "main";
-  const ASSET_BASE = "https://keithcreelman.github.io/upsmflproduction/auction/";
+  // Resolve assets through jsDelivr so feature-branch SHAs work without
+  // a main merge. GitHub Pages only serves main; jsDelivr serves any
+  // commit on demand. Same pattern as header_custom_v2.html's hub
+  // container auto-bootstrap.
+  const ASSET_BASE = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
+    encodeURIComponent(SHA) + "/site/auction/";
   const HTML_URL = ASSET_BASE + "auction_hub.html?v=" + encodeURIComponent(SHA);
   const API_BASE = safeStr(window.UPS_AUCTION_HUB_API_BASE) || "https://upsmflproduction.keith-creelman.workers.dev";
 
