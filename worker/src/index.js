@@ -11935,14 +11935,23 @@ export default {
         if (resp.status < 200 || resp.status >= 400) {
           return { ok: false, status: resp.status, error: "load_roster_page_failed", pageUrl, preview: resp.text.slice(0, 800) };
         }
+        // Try to parse the form first. If it parses, we have access —
+        // the "Commissioner Access Required" check was a false positive
+        // here (the phrase appears in some boilerplate on the actual
+        // form page, e.g. inside meta tags / footer text, so a naive
+        // substring match was rejecting valid responses).
+        const parsed = parseLoadRostForm(resp.text, resp.url || pageUrl);
+        if (parsed) {
+          return { ok: true, status: resp.status, pageUrl, ...parsed };
+        }
+        // No form found — now distinguish access-denied from generic
+        // not-found. The legit MFL denial page renders the phrase in
+        // body content (not just metadata), but to keep this robust we
+        // just report what we know.
         if (String(resp.text || "").includes("Commissioner Access Required")) {
           return { ok: false, status: resp.status, error: "commissioner_access_required", pageUrl, preview: resp.text.slice(0, 800) };
         }
-        const parsed = parseLoadRostForm(resp.text, resp.url || pageUrl);
-        if (!parsed) {
-          return { ok: false, status: resp.status, error: "load_roster_form_not_found", pageUrl, preview: resp.text.slice(0, 800) };
-        }
-        return { ok: true, status: resp.status, pageUrl, ...parsed };
+        return { ok: false, status: resp.status, error: "load_roster_form_not_found", pageUrl, preview: resp.text.slice(0, 800) };
       };
 
       const postLoadRostFormForCookie = async (cookieHeaderOverride, form, desiredRosterIds) => {
