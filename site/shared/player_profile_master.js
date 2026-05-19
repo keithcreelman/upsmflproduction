@@ -98,45 +98,24 @@
     return p;
   }
 
-  // ── Contract parsing (mirrors team_operations.js helpers) ───────────────
-  function parseContractMoney(token) {
-    var s = String(token || "").trim().toUpperCase();
-    if (!s) return 0;
-    s = s.replace(/[$,]/g, "");
-    var mult = 1;
-    if (/K$/.test(s)) { mult = 1000; s = s.slice(0, -1); }
-    else if (/M$/.test(s)) { mult = 1000000; s = s.slice(0, -1); }
-    var n = Number(s);
-    return isFinite(n) ? Math.round(n * mult) : 0;
+  // ── Contract parsing — delegates to site/shared/cap_math.js (loaded
+  //    by mfl_hpm_embed_loader.js BEFORE this module). Issue #244 Phase 2B:
+  //    these used to be inline copies. Master modal keeps the
+  //    pre-2019 era gate (returns null so the UI renders "—" rather
+  //    than a wrong modern-formula number); team_operations doesn't
+  //    use that gate.
+  function capMath() {
+    return (typeof window !== "undefined" && window.UPS_CAP_MATH) || null;
   }
   function parseContractInfo(info) {
-    var s = String(info || "");
-    var out = { tcv: 0, length: 0, yearVals: {}, aav: 0, gtd: 0 };
-    if (!s) return out;
-    var m;
-    if ((m = s.match(/(?:^|\|)\s*TCV\s+([^|]+)/i))) out.tcv = parseContractMoney(m[1]);
-    if ((m = s.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i))) out.length = parseInt(m[1], 10) || 0;
-    if ((m = s.match(/(?:^|\|)\s*AAV\s+([^|]+)/i))) out.aav = parseContractMoney(m[1]);
-    if ((m = s.match(/(?:^|\|)\s*GTD\s*:?\s*([^|]+)/i))) out.gtd = parseContractMoney(m[1]);
-    // Y-token regex matches the dash format UPS contractInfo uses
-    // ("Y1-10K, Y2-40K"). Front Office parser at
-    // roster_workbench.js:1677 uses the same shape. Fix 2026-05-18 —
-    // was looking for "Y1=" / "Y1:" which never appeared in production,
-    // so yearVals was always empty and earnedToDate returned 0 → cap
-    // penalty showed full 75% guarantee with no earned subtraction.
-    var yearRe = /Y(\d+)\s*-\s*([0-9]+(?:\.[0-9]+)?K?)/gi;
-    while ((m = yearRe.exec(s))) {
-      var idx = parseInt(m[1], 10);
-      if (idx > 0) out.yearVals[idx] = parseContractMoney(m[2]);
-    }
-    return out;
+    var m = capMath();
+    if (m) return m.parseContractInfo(info);
+    return { tcv: 0, length: 0, yearVals: {}, aav: 0, gtd: 0 };
   }
   // MFL's salaries-export `contractYear` field is YEARS REMAINING
   // (not years played). cy=1 means LAST year of contract; cy=0 means
   // expired. Verified 2026-05-14 by sampling 15 multi-year vets in
-  // UPS L=74598 — cy ranges 0..2 for 3-yr deals, never 3. Same
-  // convention as src_contracts.contract_year in D1 (already
-  // documented in the D1 fallback path below).
+  // UPS L=74598. Same convention as src_contracts.contract_year in D1.
   function yearsRemain(sal, info) {
     info = info || parseContractInfo(sal && sal.contractInfo);
     var cy = parseInt(sal && sal.contractYear, 10) || 0;
@@ -146,50 +125,13 @@
     return 0;
   }
   function earnedToDate(sal, info) {
-    info = info || parseContractInfo(sal && sal.contractInfo);
-    var len = info.length || 0;
-    var cy = parseInt(sal && sal.contractYear, 10) || 0;
-    // years already played = total length minus years remaining.
-    var played = Math.max(0, len - cy);
-    var earned = 0;
-    var hasYearVals = false;
-    for (var i = 1; i <= played; i++) {
-      if (info.yearVals[i] > 0) {
-        earned += info.yearVals[i];
-        hasYearVals = true;
-      }
-    }
-    if (hasYearVals) return earned;
-    // Fallback when contractInfo lacks Y-tokens (Coleman R2.1 2024
-    // has "CL 3| TCV 15K| AAV 5K" — no per-year breakdown). Front
-    // Office handles this at roster_workbench.js:1808-1810: in final
-    // year (played + cy >= length and cy === 1), earned = TCV -
-    // currentYearSalary. For non-final-year rookies without
-    // per-year breakdown, assume even split (perYear = TCV / length).
-    if (len <= 0) return 0;
-    if (cy === 1 && info.tcv > 0) {
-      var currentSal = Math.max(0, parseInt(sal && sal.salary, 10) || 0);
-      return Math.max(0, info.tcv - currentSal);
-    }
-    if (info.tcv > 0 && played > 0) {
-      var perYear = Math.round(info.tcv / len);
-      return perYear * played;
-    }
-    return 0;
+    var m = capMath();
+    return m ? m.earnedToDate(sal, info) : 0;
   }
-  // Era-aware cap penalty. Modern formula (2019+): (TCV × 75%) − Earned.
-  // Pre-2019: per project memory + league_context_v1.md, cap hits are
-  // materially smaller than the modern guarantee. Without a fully
-  // codified pre-2019 formula we suppress the number ("—") so a
-  // wrong figure can't leak into the UI.
   function dropPenalty(sal, info, season) {
-    info = info || parseContractInfo(sal && sal.contractInfo);
-    var tcv = info.tcv;
-    if (!tcv) return null;
-    var seasonNum = Number(season) || (new Date().getFullYear());
-    if (seasonNum < 2019) return null;
-    var earned = earnedToDate(sal, info);
-    return Math.max(0, Math.round(tcv * 0.75) - earned);
+    var m = capMath();
+    if (!m) return null;
+    return m.dropPenalty(sal, { season: season, suppressPreEra2019: true });
   }
   function findAcquisition(pid, transactions, viewerFranchiseId) {
     var pidStr = String(pid);

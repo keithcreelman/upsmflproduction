@@ -147,24 +147,16 @@
       if (!seen[p]) ordered.push(p);
     });
 
-    // Parse contractInfo for CL / TCV (years remaining = cy directly).
-    // Reuse the FO penalty mirror's helpers so the values match what the
-    // desktop Roster Workbench renders.
-    var FO_PENALTY = window.UPS_FRONT_OFFICE;
+    // Parse contractInfo for CL / TCV. Delegates to the shared
+    // cap-math module (issue #244 Phase 2B). Falls back to a 0/0
+    // shape if the module hasn't loaded.
     function parseCT(infoStr) {
-      var out = { cl: 0, tcv: 0 };
-      var s = String(infoStr || "");
-      var m = s.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i);
-      if (m) out.cl = parseInt(m[1], 10) || 0;
-      var mm = s.match(/(?:^|\|)\s*TCV\s+([^|]+)/i);
-      if (mm) {
-        var raw = String(mm[1]).trim().replace(/[$,]/g, "");
-        var mult = /K$/i.test(raw) ? 1000 : (/M$/i.test(raw) ? 1000000 : 1);
-        raw = raw.replace(/[KM]$/i, "");
-        var n = Number(raw);
-        if (isFinite(n)) out.tcv = Math.round(n * mult);
+      var cm = (typeof window !== "undefined" && window.UPS_CAP_MATH) || null;
+      if (cm) {
+        var info = cm.parseContractInfo(infoStr);
+        return { cl: info.length || 0, tcv: info.tcv || 0 };
       }
-      return out;
+      return { cl: 0, tcv: 0 };
     }
     function nflLogoUrl(team) {
       var t = U.safeStr(team).toLowerCase();

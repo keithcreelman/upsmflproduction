@@ -167,24 +167,31 @@
     cssCandidates.push("https://keithcreelman.github.io/upsmflproduction/team_operations/team_operations.css?v=" + cacheKey);
     jsCandidates.push("https://keithcreelman.github.io/upsmflproduction/team_operations/team_operations.js?v=" + cacheKey);
 
+    // Shared cap-math module (issue #244 Phase 2B). Loaded BEFORE the
+    // player-profile master + team_operations so window.UPS_CAP_MATH is
+    // available when their consumers first run. Fail-soft: callers
+    // null-check the global.
+    var sharedBase = base ? base.replace(/team_operations\/+$/, "shared/") : "";
+    var capMathCandidates = [];
+    if (sharedBase) capMathCandidates.push(sharedBase + "cap_math.js?v=" + cacheKey);
+    capMathCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/cap_math.js?v=" + cacheKey);
+
     // Unified player-profile modal (v1.7.43+). Load BEFORE team_operations.js
     // so window.UPS_openPlayerProfile is available when the hub's
     // openPlayerProfileModal first runs. Fail-soft: if neither candidate
     // resolves, team_operations.js falls back to its inline legacy modal.
     var masterCandidates = [];
-    if (base) {
-      // base ends with /team_operations/; sibling path is /shared/.
-      try {
-        var sharedBase = base.replace(/team_operations\/+$/, "shared/");
-        masterCandidates.push(sharedBase + "player_profile_master.js?v=" + cacheKey);
-      } catch (e) {}
+    if (sharedBase) {
+      masterCandidates.push(sharedBase + "player_profile_master.js?v=" + cacheKey);
     }
     masterCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=" + cacheKey);
-    injectScript(masterCandidates, function () {
-      // Load team_operations.js whether or not the master loaded;
-      // the hub's wrapper handles fallback.
-      injectCssCandidates(cssCandidates);
-      injectScript(jsCandidates, function () {});
+    injectScript(capMathCandidates, function () {
+      injectScript(masterCandidates, function () {
+        // Load team_operations.js whether or not the master loaded;
+        // the hub's wrapper handles fallback.
+        injectCssCandidates(cssCandidates);
+        injectScript(jsCandidates, function () {});
+      });
     });
   }
 
