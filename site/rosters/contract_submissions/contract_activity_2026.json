@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-05-18 18:19:16",
+    "generated_at": "2026-05-19 18:31:38",
     "source": "contract-activity-log",
-    "count": 18,
+    "count": 19,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "267d93804e9cf3ecb71504da",
+      "submission_id": "267d93804e9cf3ecb71504da",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Tag",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0012",
+      "franchise_name": "Hawks",
+      "player_id": "13116",
+      "player_name": "Mahomes, Patrick",
+      "position": "QB",
+      "salary": 60000,
+      "contract_year": 1,
+      "contract_status": "TAG",
+      "contract_info": "CL 1|TCV 60K|AAV 60K|Y1-60K|GTD: 60K|TAG (Off) T2",
+      "tcv": 60000,
+      "aav": 60000,
+      "guaranteed": 60000,
+      "submitted_at_utc": "2026-05-19T18:31:22.094Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "1089538054236160010",
+      "discord_message_id": "1506363665459183768",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "75acb6dba37bc362b9f7b1e9",
       "submission_id": "75acb6dba37bc362b9f7b1e9",
