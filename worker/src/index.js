@@ -23413,8 +23413,17 @@ export default {
         } catch (_) {
           body = {};
         }
-        if (!!commishApiKey && !sessionByApiKey) {
-          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for test sync." });
+        // Auth: accept EITHER the global COMMISH_API_KEY (legacy callers
+        // — crons, internal scripts) OR a dedicated TEST_SYNC_API_KEY
+        // that's independent of any MFL per-league key. The dedicated
+        // key keeps the test-sync curl out of the same auth domain as
+        // production crons and lets Keith rotate it freely without
+        // touching MFL's per-league API keys (Keith 2026-05-19).
+        const testSyncApiKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const testSyncMatch = !!testSyncApiKey && !!browserApiKey && browserApiKey === testSyncApiKey;
+        const anyKeyConfigured = !!commishApiKey || !!testSyncApiKey;
+        if (anyKeyConfigured && !sessionByApiKey && !testSyncMatch) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY or TEST_SYNC_API_KEY is required for test sync." });
         }
 
         const season = safeStr(body?.season || body?.YEAR || url.searchParams.get("YEAR") || YEAR || "");
