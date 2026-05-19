@@ -8996,11 +8996,6 @@
         var taxiLabel = "Taxi · " + used + "/" + max;
         if (pending > 0) taxiLabel += " + " + pending + " pending";
         tags.push('<span class="rwb-tag is-taxi">' + escapeHtml(taxiLabel) + '</span>');
-      } else if (p.taxiPermanentPromotion) {
-        // Player was permanently promoted off taxi (4th call-up) — surface
-        // a single-shot indicator so owners know the cap-free-cut window
-        // is gone for this player.
-        tags.push('<span class="rwb-tag is-taxi-perm">Promoted</span>');
       } else if (p.taxiEligible) {
         // Active-roster rookie who is still taxi-eligible (Keith 2026-05-18):
         // show the call-up budget so owners can see how many call-ups they
@@ -10957,14 +10952,17 @@
       var remaining = Math.max(0, max - totalSpent);
       if (move === "promote_taxi") {
         var aboutToBeNth = totalSpent + 1;
+        var usedLine = "\n\nCall-ups used: " + used + " of " + max +
+          (pending > 0 ? " (+" + pending + " pending)" : "") + ".";
         if (aboutToBeNth >= max + 1) {
           taxiContextText =
-            "\n\n⚠ This will be call-up #" + aboutToBeNth + " of a 3-call-up budget." +
+            usedLine +
+            "\n⚠ This will be call-up #" + aboutToBeNth + " of a " + max + "-call-up budget." +
             "\nCanon §B2: 4th call-up = PERMANENT PROMOTION." +
             "\nPlayer will no longer be cap-free cut after this NFL week locks.";
         } else {
           taxiContextText =
-            "\n\nCall-ups used: " + used + " of " + max + (pending > 0 ? " (+" + pending + " pending)" : "") + "." +
+            usedLine +
             "\nCanon §B2: each NFL week the player is active on your roster burns 1 call-up." +
             "\nDemoting before the next NFL week locks DOES NOT count.";
         }
