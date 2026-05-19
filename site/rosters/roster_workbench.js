@@ -2803,6 +2803,12 @@
       points_total: safeNum(row.points_total, 0),
       pos_rank: safeInt(row.pos_rank, 0),
       tag_tier: safeInt(row.tag_tier, 0),
+      // tag_base_bid = the tier's canonical base (avg AAV of its rank
+      // band). effectiveTagSalaryForRow uses this as the floor; without
+      // it the formula falls back to the JSON's precomputed (buggy)
+      // tag_salary and we don't actually fix anything. Keith 2026-05-19:
+      // Mahomes was still showing $75K post-fix because this was missing.
+      tag_base_bid: safeInt(row.tag_base_bid, 0),
       tag_salary: safeInt(row.tag_salary || row.tag_bid || row.salary, 0),
       tag_formula: safeStr(row.tag_formula),
       is_tag_eligible: safeInt(row.is_tag_eligible, 0),
