@@ -23457,36 +23457,27 @@ export default {
         const rosterSyncResults = [];
 
         // MFL silently throttles bursts of commish operations — without
-        // pacing, runs failed mid-loop at varying franchises (Keith 2026-05-19:
-        // 0006 then 0008 on successive attempts) with MFL returning its
-        // home page HTML instead of the LOADROST form. Wait between
-        // iterations + retry-on-bounce to ride out the throttle window.
+        // pacing, runs failed mid-loop with MFL returning its home page
+        // HTML instead of the LOADROST form. Wait between iterations to
+        // ride out the throttle window. Keep a SINGLE commish cookie for
+        // the whole run (BECOME=0000 grants commish rights to edit any
+        // franchise — re-becoming per franchise burned ~24 subrequests
+        // for no functional benefit and pushed us against Cloudflare's
+        // per-invocation subrequest cap).
         const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-        const PACE_MS = 1500;        // delay between franchises
-        const RETRY_DELAY_MS = 4000; // backoff after a bounce
-        const MAX_RETRIES = 3;
-        const isBounceToHome = (res) =>
-          !!res && !res.ok && String(res.preview || "").includes("Home Page | MyFantasyLeague");
-        const loadFormWithRetry = async (franchiseId) => {
-          for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-            const cookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
-            const res = await fetchLoadRostFormForCookie(cookieHeader, season, targetLeagueId, franchiseId);
-            if (res.ok) return { cookieHeader, formRes: res, attempts: attempt + 1 };
-            if (!isBounceToHome(res) || attempt === MAX_RETRIES - 1) return { cookieHeader, formRes: res, attempts: attempt + 1 };
-            await sleep(RETRY_DELAY_MS * (attempt + 1));
-          }
-        };
+        const PACE_MS = 1500;
+        const franchiseCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
 
         for (let i = 0; i < franchiseIds.length; i++) {
           const franchiseId = franchiseIds[i];
           if (i > 0) await sleep(PACE_MS);
-          const { cookieHeader: franchiseCookieHeader, formRes, attempts: loadAttempts } = await loadFormWithRetry(franchiseId);
+          const formRes = await fetchLoadRostFormForCookie(franchiseCookieHeader, season, targetLeagueId, franchiseId);
           if (!formRes.ok) {
             return jsonOut(502, {
               ok: false,
               error: "Failed to load target roster form",
               franchise_id: franchiseId,
-              attempts: loadAttempts,
+              progress: { roster_sync_completed: rosterSyncResults.length, of: franchiseIds.length },
               details: formRes,
             });
           }
@@ -23520,14 +23511,15 @@ export default {
         }
 
         const taxiIrResults = [];
+        // Reuse the same commish cookie established above — no need to
+        // re-BECOME per franchise (see roster-loop comment).
         for (let i = 0; i < franchiseIds.length; i++) {
           const franchiseId = franchiseIds[i];
-          if (i > 0) await sleep(PACE_MS);
           const sourceRows = sourceByFranchise[franchiseId] || [];
           const taxiIds = sourceRows.filter((row) => safeStr(row.status).includes("TAXI")).map((row) => row.player_id);
           const irIds = sourceRows.filter((row) => safeStr(row.status).includes("IR")).map((row) => row.player_id);
           if (!taxiIds.length && !irIds.length) continue;
-          const franchiseCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
+          if (i > 0) await sleep(PACE_MS);
           if (taxiIds.length) {
             const taxiRes = await postMflImportFormForCookie(
               franchiseCookieHeader,
@@ -23575,10 +23567,9 @@ export default {
             contract_info: safeStr(player?.contractInfo || ""),
           });
         }
-        const salaryCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
         const salaryXml = buildSalaryImportXmlFromRows(salaryRows);
         const salaryImportRes = await postMflImportFormForCookie(
-          salaryCookieHeader,
+          franchiseCookieHeader,
           season,
           { TYPE: "salaries", L: targetLeagueId, APPEND: "1", DATA: salaryXml },
           { TYPE: "salaries", L: targetLeagueId, APPEND: "1" }
@@ -23591,9 +23582,8 @@ export default {
           });
         }
 
-        const verifyCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
-        const verifyRostersRes = await mflExportJsonForCookie(verifyCookieHeader, season, targetLeagueId, "rosters", {}, { useCookie: true });
-        const verifySalariesRes = await mflExportJsonForCookie(verifyCookieHeader, season, targetLeagueId, "salaries", {}, { useCookie: true });
+        const verifyRostersRes = await mflExportJsonForCookie(franchiseCookieHeader, season, targetLeagueId, "rosters", {}, { useCookie: true });
+        const verifySalariesRes = await mflExportJsonForCookie(franchiseCookieHeader, season, targetLeagueId, "salaries", {}, { useCookie: true });
         if (!verifyRostersRes.ok || !verifySalariesRes.ok) {
           return jsonOut(502, {
             ok: false,
