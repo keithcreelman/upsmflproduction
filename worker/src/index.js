@@ -23438,6 +23438,16 @@ export default {
         const season = safeStr(body?.season || body?.YEAR || url.searchParams.get("YEAR") || YEAR || "");
         const sourceLeagueId = safeStr(body?.source_league_id || body?.sourceLeagueId || url.searchParams.get("SOURCE_L") || "74598");
         const targetLeagueId = safeStr(body?.target_league_id || body?.targetLeagueId || url.searchParams.get("TARGET_L") || "25625");
+        // Chunking support — MFL throttles commish operations at the account
+        // level (cookie regeneration doesn't reset the counter), so a single
+        // worker invocation can only process ~8 franchises before hitting
+        // the limit. `franchises` body param filters which franchises get
+        // synced this run; `skip_salary` skips the salary import + verify
+        // tail so chunks before the last one don't import partial data.
+        const filterFranchises = Array.isArray(body?.franchises)
+          ? body.franchises.map((f) => String(f || "").padStart(4, "0")).filter(Boolean)
+          : null;
+        const skipSalary = !!body?.skip_salary;
         const targetCookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE || "");
         const targetCookieHeaderBase = targetCookieRaw
           ? (targetCookieRaw.includes("=") ? targetCookieRaw : `MFL_USER_ID=${targetCookieRaw}`)
@@ -23462,7 +23472,10 @@ export default {
         }
 
         const sourceByFranchise = rosterRowsByFranchiseFromRostersPayload(sourceRostersRes.data);
-        const franchiseIds = Object.keys(sourceByFranchise).sort();
+        const allFranchiseIds = Object.keys(sourceByFranchise).sort();
+        const franchiseIds = filterFranchises
+          ? allFranchiseIds.filter((f) => filterFranchises.includes(f))
+          : allFranchiseIds;
         const rosterSyncResults = [];
 
         // MFL throttles bursts of commish operations — without pacing,
@@ -23583,6 +23596,23 @@ export default {
             }
             taxiIrResults.push({ franchise_id: franchiseId, type: "ir", count: irIds.length, status: irRes.status });
           }
+        }
+
+        // Skip the salary import + verify tail when running a partial
+        // chunk — caller will trigger it in a final standalone curl with
+        // skip_salary:false (and either empty franchises or omitted).
+        if (skipSalary) {
+          return jsonOut(200, {
+            ok: true,
+            partial: true,
+            season,
+            source_league_id: sourceLeagueId,
+            target_league_id: targetLeagueId,
+            processed_franchises: franchiseIds,
+            roster_sync: rosterSyncResults,
+            status_sync: taxiIrResults,
+            note: "skip_salary=true — call again with skip_salary:false (and no franchises) to import salaries + verify.",
+          });
         }
 
         const salaryRows = [];
