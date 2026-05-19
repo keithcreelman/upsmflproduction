@@ -23654,7 +23654,25 @@ export default {
           });
         }
         const verifiedByFranchise = rosterRowsByFranchiseFromRostersPayload(verifyRostersRes.data);
-        const salaryByPlayerVerified = parseSalaryRows(verifySalariesRes.data);
+        // Local salary-row parser — the parseSalaryRows in another handler
+        // is closure-scoped and not visible here. Keep all players (no
+        // contractYear>0 filter) so cy=0 expired rookies still verify.
+        const parseSalaryRowsLocal = (payload) => {
+          const out = {};
+          const rows = asArray(payload?.salaries?.leagueUnit?.player || payload?.salaries?.leagueunit?.player).filter(Boolean);
+          for (const row of rows) {
+            const pid = String(row?.id || "").replace(/\D/g, "");
+            if (!pid || pid === "0000") continue;
+            out[pid] = {
+              salary: safeStr(row?.salary || ""),
+              contractYear: safeStr(row?.contractYear || ""),
+              contractStatus: safeStr(row?.contractStatus || ""),
+              contractInfo: safeStr(row?.contractInfo || ""),
+            };
+          }
+          return out;
+        };
+        const salaryByPlayerVerified = parseSalaryRowsLocal(verifySalariesRes.data);
         for (const franchiseId of Object.keys(verifiedByFranchise)) {
           verifiedByFranchise[franchiseId] = (verifiedByFranchise[franchiseId] || []).map((row) => {
             const salaryRow = salaryByPlayerVerified[row.player_id] || {};
