@@ -23474,11 +23474,26 @@ export default {
         const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const PACE_MS = 1500;
 
+        // Single retry on bounce — MFL's throttle is touchy but usually
+        // clears within 5s. More retries burn subrequests fast and don't
+        // help (we proved this earlier — bounces aren't deterministically
+        // recoverable in fewer than ~5s anyway).
+        const isBounceToHome = (res) =>
+          !!res && !res.ok && String(res.preview || "").includes("Home Page | MyFantasyLeague");
+        const loadFormOnce = async (franchiseId) => {
+          const cookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
+          const formRes = await fetchLoadRostFormForCookie(cookieHeader, season, targetLeagueId, franchiseId);
+          return { cookieHeader, formRes };
+        };
+
         for (let i = 0; i < franchiseIds.length; i++) {
           const franchiseId = franchiseIds[i];
           if (i > 0) await sleep(PACE_MS);
-          const franchiseCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
-          const formRes = await fetchLoadRostFormForCookie(franchiseCookieHeader, season, targetLeagueId, franchiseId);
+          let { cookieHeader: franchiseCookieHeader, formRes } = await loadFormOnce(franchiseId);
+          if (!formRes.ok && isBounceToHome(formRes)) {
+            await sleep(5000);
+            ({ cookieHeader: franchiseCookieHeader, formRes } = await loadFormOnce(franchiseId));
+          }
           if (!formRes.ok) {
             return jsonOut(502, {
               ok: false,
