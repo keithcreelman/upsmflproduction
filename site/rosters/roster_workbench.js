@@ -555,34 +555,37 @@
     return status === "r" || status.indexOf("r-") === 0 || status.indexOf("rookie") !== -1;
   }
 
-  // taxiDemoteLikelyForbidden — client-side §B2 guard. Returns true when
-  // the player has almost certainly used at least one call-up that the
-  // worker hasn't tracked (rule-transition cohort: Devin Neal, Kyle
-  // Williams, others promoted before 2026-05-08 rule + backfill missed
-  // them). Conservative: an active rookie acquired in a prior season
-  // has been on the roster across a locked NFL week, which under
-  // canon §B2 burns a call-up. Block demote until the worker fixes
-  // taxi_callups_used / taxi_permanent_promotion for these players.
+  // taxiDemoteLikelyForbidden — client-side §B2 guard for the
+  // rule-transition cohort. The §B2 "3 call-ups → permanent" rule
+  // landed on 2026-05-08; any player who was on an active roster
+  // BEFORE the 2026 season is grandfathered into permanent-promotion
+  // because they used call-ups that pre-dated the tracking system
+  // (PR #246 backfill didn't catch the full cohort — Devin Neal,
+  // Kyle Williams, etc.).
   //
-  // Returns false (allow demote) when:
-  //   - worker explicitly says 0 call-ups used AND
-  //   - player was acquired in the CURRENT season (fresh draft pick
-  //     that's never crossed a week boundary)
+  // Rule (Keith 2026-05-19): if active AND acquired before season
+  // 2026 → block demote. Worker's taxi_callups_used + pending also
+  // honored as a definitive signal.
+  //
+  // SUNSET: this guard can be deleted in 2028. The youngest
+  // grandfathered cohort is the 2025 rookie draft (acquisition_year
+  // = 2025). Their 3-year taxi window expires after the 2027 season,
+  // so by the 2028 season none of them are taxi-eligible at all and
+  // the demote button is already hidden by the upstream taxiEligible
+  // check.
+  var TAXI_RULE_EFFECTIVE_SEASON = 2026;
   function taxiDemoteLikelyForbidden(player) {
     if (!player) return false;
     var usedOrPending = safeInt(player.taxiCallupsUsed, 0) + safeInt(player.taxiCallupsPending, 0);
     if (usedOrPending > 0) return true;     // worker says they've burned ≥1
-    // Heuristic: parse acquisition year from "<round>.<slot> (YYYY)" or
-    // similar pattern; if it's before current season AND they're a
-    // rookie-type, block.
-    var current = currentYearInt();
     var acq = safeStr(player.acquisitionText || "");
     var m = acq.match(/\((\d{4})\)\s*$/);
     if (!m) return false;                    // unknown acquisition window → trust worker
     var acquiredYear = safeInt(m[1], 0);
-    if (acquiredYear <= 0 || acquiredYear >= current) return false; // this-season draftee
+    if (acquiredYear <= 0) return false;
+    if (acquiredYear >= TAXI_RULE_EFFECTIVE_SEASON) return false;   // post-rule join, worker is authoritative
     if (!rookieLikeContractStatus(player.type)) return false;       // veterans not in scope
-    return true;                              // active rookie from a prior season → likely locked
+    return true;                              // pre-rule active rookie → grandfathered permanent
   }
 
   function rosterContractEligibility(player) {
