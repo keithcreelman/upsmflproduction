@@ -10400,6 +10400,489 @@
   })();
 </script>
 
+<style id="ups-picker-drawer-style">
+  /* ── Phase C: Side-mount Player Picker Drawer (O=43) ──────────────────
+     Replaces MFL's inline picker on the auction nomination form with a
+     right-mounted slide-in drawer styled like the Front Office MPM.
+     Hides MFL's row list + filters when the drawer trigger is present;
+     keeps the form fields (#sel_pid + submit) live so the drawer can
+     hook into the existing wiring by triggering the original "Add"
+     button click on the selected player. */
+
+  /* Hide MFL's inline picker once we know the drawer trigger rendered.
+     Triggered by adding .ups-picker-drawer-active to the body. */
+  body.ups-picker-drawer-active.ah-body-fallback,  /* fallback no-op selector */
+  body[id^="body_options_43"].ups-picker-drawer-active .add-player-container,
+  body[id^="body_options_43"].ups-picker-drawer-active select#picker_filt_nfl,
+  body[id^="body_options_43"].ups-picker-drawer-active select#position-filter,
+  body[id^="body_options_43"].ups-picker-drawer-active form#AddDropForm > div[class*="filter"] {
+    display: none !important;
+  }
+
+  /* Trigger button — sits where the inline picker filter row used to be */
+  .ups-picker-trigger {
+    display: block !important;
+    width: 100%;
+    background: var(--ups-btn-bg, #1f4d93);
+    color: var(--ups-btn-text, #ffffff);
+    border: 1px solid var(--ups-btn-border, #4a75b7);
+    border-radius: 4px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    margin: 16px 0;
+    letter-spacing: 0.02em;
+    transition: filter 120ms;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .ups-picker-trigger:hover { filter: brightness(1.15); }
+  .ups-picker-trigger .ups-picker-trigger-count {
+    margin-left: 8px;
+    opacity: 0.85;
+    font-weight: 500;
+    font-size: 12px;
+  }
+
+  /* Backdrop — dims the page behind the drawer */
+  .ups-picker-backdrop {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.55);
+    opacity: 0; pointer-events: none;
+    transition: opacity 220ms ease;
+    z-index: 99998;
+  }
+  .ups-picker-backdrop.ups-picker-open { opacity: 1; pointer-events: auto; }
+
+  /* Drawer itself — fixed right rail */
+  .ups-picker-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: min(440px, 100vw);
+    background: var(--ups-bg, #0b1220);
+    border-left: 1px solid var(--ups-border, #27476f);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
+    transform: translateX(100%);
+    transition: transform 250ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    z-index: 99999;
+    display: flex; flex-direction: column;
+    color: var(--ups-text, #e8effa);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .ups-picker-drawer.ups-picker-open { transform: translateX(0); }
+
+  .ups-picker-header {
+    flex: 0 0 auto;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--ups-border, #27476f);
+    background: var(--ups-surface, #111b2e);
+  }
+  .ups-picker-header-row {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .ups-picker-title {
+    font-size: 16px; font-weight: 700;
+    letter-spacing: 0.3px;
+    color: var(--ups-text, #e8effa);
+    margin: 0;
+  }
+  .ups-picker-close {
+    background: transparent;
+    border: 0;
+    color: var(--ups-muted, #9fb3d1);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+    transition: color 120ms;
+  }
+  .ups-picker-close:hover { color: var(--ups-text, #e8effa); }
+
+  .ups-picker-search {
+    width: 100%;
+    background: var(--ups-surface-alt, #16253f);
+    color: var(--ups-text, #e8effa);
+    border: 1px solid var(--ups-border, #27476f);
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    margin-top: 4px;
+  }
+  .ups-picker-search:focus {
+    outline: none;
+    border-color: var(--ups-accent, #f0c465);
+    box-shadow: 0 0 0 2px rgba(240, 196, 101, 0.18);
+  }
+
+  .ups-picker-chips {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    margin-top: 8px;
+  }
+  .ups-picker-chip {
+    background: var(--ups-surface-alt, #16253f);
+    color: var(--ups-muted, #9fb3d1);
+    border: 1px solid var(--ups-border, #27476f);
+    border-radius: 10px;
+    padding: 3px 10px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    font-family: inherit;
+    transition: background 120ms, color 120ms, border-color 120ms;
+  }
+  .ups-picker-chip:hover { color: var(--ups-text, #e8effa); }
+  .ups-picker-chip.active {
+    background: var(--ups-accent, #f0c465);
+    color: var(--ups-accent-ink, #102a55);
+    border-color: var(--ups-accent, #f0c465);
+  }
+
+  .ups-picker-meta {
+    margin-top: 8px;
+    color: var(--ups-muted, #9fb3d1);
+    font-size: 11px;
+  }
+
+  .ups-picker-list {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .ups-picker-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--ups-td-border, #203a5d);
+    cursor: pointer;
+    background: var(--ups-row-odd, #111f35);
+    transition: background 100ms;
+  }
+  .ups-picker-row:nth-child(even) { background: var(--ups-row-even, #0f1b30); }
+  .ups-picker-row:hover { background: var(--ups-surface-alt, #16253f); }
+  .ups-picker-row-pos {
+    flex: 0 0 36px;
+    text-align: center;
+    background: var(--ups-th-bg, #152742);
+    color: var(--ups-accent, #f0c465);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    padding: 4px 0;
+    border-radius: 3px;
+  }
+  .ups-picker-row-img {
+    flex: 0 0 40px;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 1px solid var(--ups-border, #27476f);
+    background: var(--ups-surface, #111b2e);
+  }
+  .ups-picker-row-img img { width: 100%; height: 100%; object-fit: cover; }
+  .ups-picker-row-body { flex: 1; min-width: 0; }
+  .ups-picker-row-name {
+    color: var(--ups-text, #e8effa);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .ups-picker-row-meta {
+    color: var(--ups-muted, #9fb3d1);
+    font-size: 11px;
+    margin-top: 2px;
+  }
+  .ups-picker-row-cta {
+    flex: 0 0 auto;
+    background: transparent;
+    color: var(--ups-accent, #f0c465);
+    border: 1px solid var(--ups-accent, #f0c465);
+    border-radius: 3px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .ups-picker-row-cta:hover {
+    background: var(--ups-accent, #f0c465);
+    color: var(--ups-accent-ink, #102a55);
+  }
+
+  .ups-picker-empty {
+    padding: 32px 20px;
+    text-align: center;
+    color: var(--ups-muted, #9fb3d1);
+    font-size: 12px;
+  }
+</style>
+
+<script>
+  // ─── Phase C: Side-mount Player Picker Drawer (O=43) ───────────────────
+  // Replaces MFL's inline picker on the auction nomination form with a
+  // right-mounted slide-in drawer. Reads available players from the
+  // already-rendered `.add-drop-player-row` elements (TOS-rendered) so
+  // we don't reinvent MFL's available-FA filtering logic. On player click
+  // we trigger the original "Add" button click → the existing form
+  // wiring writes #sel_pid → user submits the form normally.
+  //
+  // Scoped strictly to body_options_43. Fail-soft: if .add-player-container
+  // doesn't render, the drawer doesn't activate and MFL's inline picker
+  // stays visible.
+  (function () {
+    if (!document.body || !/^body_options_43/.test(document.body.id || "")) {
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function () {
+          if (/^body_options_43/.test(document.body.id || "")) initPickerDrawer();
+        });
+      }
+      return;
+    }
+    initPickerDrawer();
+
+    function initPickerDrawer() {
+      // Wait for TOS to render its picker rows. Poll up to 20s.
+      var attempts = 0;
+      var maxAttempts = 40;  // 40 × 500ms = 20s
+      var interval = setInterval(function () {
+        attempts += 1;
+        var container = document.querySelector(".add-player-container");
+        var rowCount = container ? container.querySelectorAll(".add-drop-player-row").length : 0;
+        if (rowCount > 0) {
+          clearInterval(interval);
+          mountDrawer();
+        } else if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          console.log("[ups-picker] TOS picker rows never rendered — drawer not mounted, MFL inline picker stays");
+        }
+      }, 500);
+    }
+
+    function mountDrawer() {
+      // Build drawer DOM
+      var backdrop = document.createElement("div");
+      backdrop.className = "ups-picker-backdrop";
+
+      var drawer = document.createElement("div");
+      drawer.className = "ups-picker-drawer";
+      drawer.innerHTML =
+        '<div class="ups-picker-header">' +
+          '<div class="ups-picker-header-row">' +
+            '<h2 class="ups-picker-title">Select Player to Auction</h2>' +
+            '<button type="button" class="ups-picker-close" aria-label="Close">×</button>' +
+          '</div>' +
+          '<input type="search" class="ups-picker-search" placeholder="Search by name…" />' +
+          '<div class="ups-picker-chips" data-chip-group="pos">' +
+            '<button type="button" class="ups-picker-chip active" data-pos="ALL">All</button>' +
+            '<button type="button" class="ups-picker-chip" data-pos="QB">QB</button>' +
+            '<button type="button" class="ups-picker-chip" data-pos="RB">RB</button>' +
+            '<button type="button" class="ups-picker-chip" data-pos="WR">WR</button>' +
+            '<button type="button" class="ups-picker-chip" data-pos="TE">TE</button>' +
+            '<button type="button" class="ups-picker-chip" data-pos="K">K</button>' +
+            '<button type="button" class="ups-picker-chip" data-pos="PN">PN</button>' +
+            '<button type="button" class="ups-picker-chip" data-pos="IDP">IDP</button>' +
+          '</div>' +
+          '<div class="ups-picker-meta" data-meta="count">…</div>' +
+        '</div>' +
+        '<div class="ups-picker-list" data-list></div>';
+
+      document.body.appendChild(backdrop);
+      document.body.appendChild(drawer);
+
+      // Trigger button — placed at the top of the inline picker section so it
+      // sits where the user expects "go pick a player" to be.
+      var trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "ups-picker-trigger";
+      trigger.innerHTML = 'Open Player Picker <span class="ups-picker-trigger-count" data-trigger-count></span>';
+
+      var anchor = document.querySelector(".add-player-container");
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(trigger, anchor);
+      }
+      // Hide MFL's inline picker now that the drawer is mounted.
+      document.body.classList.add("ups-picker-drawer-active");
+
+      // Wire interactions
+      var searchEl = drawer.querySelector(".ups-picker-search");
+      var listEl = drawer.querySelector("[data-list]");
+      var metaEl = drawer.querySelector('[data-meta="count"]');
+      var triggerCountEl = trigger.querySelector("[data-trigger-count]");
+      var chipsEl = drawer.querySelector('[data-chip-group="pos"]');
+
+      var STATE = { search: "", pos: "ALL" };
+
+      function readPlayers() {
+        // Read TOS-rendered rows.
+        var rows = Array.from(document.querySelectorAll(".add-player-container .add-drop-player-row"));
+        return rows.map(function (row) {
+          var pid = row.getAttribute("data-player-id") || "";
+          var posEl = row.querySelector(".player-pos");
+          var pos = posEl ? (posEl.textContent || "").trim().toUpperCase() : "";
+          var imgEl = row.querySelector(".player-img-wrapper img, img");
+          var imgSrc = imgEl ? imgEl.src : "";
+          var nameEl = row.querySelector(".player-info strong, .player-info b, .player-info");
+          var name = nameEl ? (nameEl.textContent || "").trim() : "";
+          var teamEl = row.querySelector(".player-info small");
+          var teamMeta = teamEl ? (teamEl.textContent || "").trim() : "";
+          // Find the "Add" button so we can trigger it on click
+          var addBtn = Array.from(row.querySelectorAll("button")).find(function (b) {
+            var t = (b.textContent || "").trim().toLowerCase();
+            return t === "add" || t === "deselect";
+          });
+          return {
+            player_id: pid,
+            name: name || ("Player #" + pid),
+            pos: pos,
+            team_meta: teamMeta,
+            img: imgSrc,
+            addBtnEl: addBtn,
+            rowEl: row,
+          };
+        }).filter(function (p) { return p.player_id; });
+      }
+
+      function posBucket(pos) {
+        // IDP umbrella: DL/LB/DB/S/CB/DT/DE/OL
+        if (!pos) return "UNK";
+        if (["QB","RB","WR","TE","K","PK","PN","P"].indexOf(pos) !== -1) return pos === "PK" ? "K" : (pos === "P" ? "PN" : pos);
+        return "IDP";
+      }
+
+      function renderList() {
+        var players = readPlayers();
+        var q = STATE.search.toLowerCase();
+        var posFilter = STATE.pos;
+        var filtered = players.filter(function (p) {
+          if (q && p.name.toLowerCase().indexOf(q) === -1) return false;
+          if (posFilter !== "ALL" && posBucket(p.pos) !== posFilter) return false;
+          return true;
+        });
+        // Sort by name (alpha)
+        filtered.sort(function (a, b) { return a.name.localeCompare(b.name); });
+
+        if (triggerCountEl) triggerCountEl.textContent = "(" + players.length + " available)";
+        if (metaEl) {
+          metaEl.textContent = filtered.length + " of " + players.length + " players" +
+            (q ? ' matching "' + q + '"' : '') +
+            (posFilter !== "ALL" ? " · " + posFilter : "");
+        }
+
+        if (filtered.length === 0) {
+          listEl.innerHTML = '<div class="ups-picker-empty">No players match the current filter.</div>';
+          return;
+        }
+
+        listEl.innerHTML = filtered.map(function (p) {
+          return '<div class="ups-picker-row" data-picker-pid="' + escapeAttr(p.player_id) + '">' +
+            '<div class="ups-picker-row-pos">' + escapeText(p.pos || "—") + '</div>' +
+            '<div class="ups-picker-row-img">' +
+              (p.img ? '<img src="' + escapeAttr(p.img) + '" alt="" onerror="this.style.display=\'none\'">' : "") +
+            '</div>' +
+            '<div class="ups-picker-row-body">' +
+              '<div class="ups-picker-row-name">' + escapeText(p.name) + '</div>' +
+              '<div class="ups-picker-row-meta">' + escapeText(p.team_meta || "") + '</div>' +
+            '</div>' +
+            '<button type="button" class="ups-picker-row-cta">Add</button>' +
+          '</div>';
+        }).join("");
+      }
+
+      function escapeText(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+      function escapeAttr(s) {
+        return escapeText(s).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+      }
+
+      // Open / close drawer
+      function openDrawer() {
+        renderList();
+        backdrop.classList.add("ups-picker-open");
+        drawer.classList.add("ups-picker-open");
+        setTimeout(function () {
+          if (searchEl) searchEl.focus();
+        }, 280);
+      }
+      function closeDrawer() {
+        backdrop.classList.remove("ups-picker-open");
+        drawer.classList.remove("ups-picker-open");
+      }
+
+      trigger.addEventListener("click", openDrawer);
+      backdrop.addEventListener("click", closeDrawer);
+      drawer.querySelector(".ups-picker-close").addEventListener("click", closeDrawer);
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && drawer.classList.contains("ups-picker-open")) closeDrawer();
+      });
+
+      // Search (debounced)
+      var searchDebounce;
+      searchEl.addEventListener("input", function () {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(function () {
+          STATE.search = searchEl.value || "";
+          renderList();
+        }, 150);
+      });
+
+      // Position chips
+      chipsEl.addEventListener("click", function (e) {
+        var btn = e.target.closest(".ups-picker-chip");
+        if (!btn) return;
+        STATE.pos = btn.getAttribute("data-pos") || "ALL";
+        chipsEl.querySelectorAll(".ups-picker-chip").forEach(function (c) {
+          c.classList.toggle("active", c === btn);
+        });
+        renderList();
+      });
+
+      // Row click → trigger underlying MFL/TOS Add button
+      listEl.addEventListener("click", function (e) {
+        var row = e.target.closest(".ups-picker-row");
+        if (!row) return;
+        var pid = row.getAttribute("data-picker-pid");
+        if (!pid) return;
+        var players = readPlayers();
+        var match = players.find(function (p) { return p.player_id === pid; });
+        if (match && match.addBtnEl) {
+          try { match.addBtnEl.click(); }
+          catch (err) { console.log("[ups-picker] add-button click threw:", err); }
+        } else {
+          // Fallback: set the hidden input directly. The user will still need to
+          // submit the form, but this at least gets PLAYER_PICK set.
+          var sel = document.getElementById("sel_pid");
+          if (sel) sel.value = pid;
+        }
+        closeDrawer();
+      });
+
+      // Re-render when MFL/TOS injects more rows later (e.g. filter change
+      // from the still-mounted-but-hidden MFL filter selects, or pagination)
+      var anchor2 = document.querySelector(".add-player-container");
+      if (anchor2 && window.MutationObserver) {
+        var obs = new MutationObserver(function () {
+          if (drawer.classList.contains("ups-picker-open")) renderList();
+          else {
+            // Update trigger count even when closed
+            var players = readPlayers();
+            if (triggerCountEl) triggerCountEl.textContent = "(" + players.length + " available)";
+          }
+        });
+        obs.observe(anchor2, { childList: true, subtree: true });
+        setTimeout(function () { try { obs.disconnect(); } catch (e) {} }, 5 * 60 * 1000);
+      }
+
+      // Initial trigger count
+      var initialPlayers = readPlayers();
+      if (triggerCountEl) triggerCountEl.textContent = "(" + initialPlayers.length + " available)";
+    }
+  })();
+</script>
+
 <script>
   // ─── Auction Bid (O=43) quick-bid buttons — Phase 4.3 ───────────────────
   // Inject +$1K / +$5K / +$10K buttons next to each bid input on MFL's
