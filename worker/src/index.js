@@ -499,24 +499,46 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     prevFidByLot.set(lot, ev.fid);
   }
 
-  // ── GIF picker for marquee events (nom + won) ──
-  // Per-team-roast-bot brand: marquee Discord posts get a player-specific
-  // GIF appended. Skips forced_increase + overtake to avoid spam.
-  // No GIF if Giphy returns no player-specific match (per commish: better
-  // no GIF than a wrong one).
+  // ── GIF picker — per-event-kind query strategy ──
+  // Nom + Won  → celebration GIFs. Require last-name match (don't post
+  //              wrong-player celebrations; commish rule: no GIF beats
+  //              wrong GIF).
+  // Forced Increase → "ugh / annoyed / eye-roll" vibe. Try player+vibe
+  //                   first; fall back to generic reaction GIFs.
+  // Overtake → "come on man / really" vibe. Same fallback chain.
   async function pickAuctionGifForPlayer(playerInfo, eventKind) {
     const apiKey = String(env.GIPHY_API_KEY || "").trim();
-    if (!apiKey || !playerInfo || !playerInfo.name) return "";
-    const name = flipName(playerInfo.name);
-    const last = name.split(/\s+/).pop().toLowerCase();
-    if (!last || last.length < 3) return "";
-    const queryBase = eventKind === "nom" ? "hype" : "celebration";
-    const queries = [
-      `${name} touchdown`,
-      `${name} ${queryBase}`,
-      `${name} nfl`,
-    ];
+    if (!apiKey) return "";
+
+    const name = playerInfo && playerInfo.name ? flipName(playerInfo.name) : "";
+    const last = name ? name.split(/\s+/).pop().toLowerCase() : "";
+    const hasPlayer = !!last && last.length >= 3;
+
+    // Per-kind query + match strategy
+    let queries;
+    let strictLastNameMatch;
+    if (eventKind === "nom") {
+      queries = hasPlayer ? [`${name} touchdown`, `${name} hype`, `${name} nfl`] : [];
+      strictLastNameMatch = true;   // celebration GIFs MUST be the right player
+    } else if (eventKind === "won") {
+      queries = hasPlayer ? [`${name} celebration`, `${name} touchdown`, `${name} nfl`] : [];
+      strictLastNameMatch = true;   // ditto
+    } else if (eventKind === "forced_increase") {
+      // Player-specific first, then generic reaction fallbacks
+      queries = (hasPlayer ? [`${name} ugh`, `${name} angry`] : [])
+        .concat(["eye roll reaction", "facepalm reaction", "sigh reaction", "ugh"]);
+      strictLastNameMatch = false;  // generic reactions are the point
+    } else if (eventKind === "overtake") {
+      queries = (hasPlayer ? [`${name} reaction`] : [])
+        .concat(["come on man reaction", "are you kidding me", "really reaction", "stop it reaction"]);
+      strictLastNameMatch = false;
+    } else {
+      return "";
+    }
+    if (queries.length === 0) return "";
+
     for (const q of queries) {
+      const isPlayerQuery = hasPlayer && q.startsWith(name);
       try {
         const u = new URL("https://api.giphy.com/v1/gifs/search");
         u.searchParams.set("api_key", apiKey);
@@ -530,11 +552,16 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
         if (!r.ok) continue;
         const j = await r.json();
         const rows = Array.isArray(j?.data) ? j.data : [];
-        // Require LAST NAME match in title/slug to avoid wrong-player GIFs
-        const matches = rows.filter((row) => {
-          const haystack = String((row?.title || "") + " " + (row?.slug || "")).toLowerCase();
-          return haystack.includes(last);
-        });
+        // Filter: if this is a player-specific query AND strict mode,
+        // require last-name match in title/slug. For generic reaction
+        // queries (forced_increase / overtake fallbacks), any result is OK.
+        const requireMatch = strictLastNameMatch || isPlayerQuery;
+        const matches = requireMatch
+          ? rows.filter((row) => {
+              const hay = String((row?.title || "") + " " + (row?.slug || "")).toLowerCase();
+              return last && hay.includes(last);
+            })
+          : rows;
         if (matches.length === 0) continue;
         const pick = matches[Math.floor(Math.random() * matches.length)];
         const url =
@@ -573,9 +600,12 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
       default:
         text = `💰  ${franchise} bid ${bid} on ${player}`;
     }
-    // GIF picker only fires for nom + won (marquee events); other kinds
-    // get text-only to keep the channel readable during long bid wars.
-    const wantGif = ev._obs_kind === "nom" || ev._obs_kind === "won";
+    // All four observer-kinds get GIFs:
+    //   nom        → player celebration
+    //   forced_increase → "ugh / eye roll" reaction
+    //   overtake   → "come on man" reaction
+    //   won        → player celebration
+    const wantGif = ["nom", "forced_increase", "overtake", "won"].includes(ev._obs_kind);
     return { text, want_gif: wantGif, ev };
   });
 
