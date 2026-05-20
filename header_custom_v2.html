@@ -9405,6 +9405,48 @@
   body a:not([class]):not([style*="color"]):focus {
     color: var(--ups-link-hover, #1a4290) !important;
   }
+
+  /* Text contrast — MFL renders hint/help/note text in faded grays
+     (#888-ish) that work on white but disappear on UPS dark theme.
+     This is a broad sweep of common text-bearing elements that
+     EXCLUDES anything with a UPS-prefixed class or inline color.
+     Same exclusion pattern as the link rule above. UPS components
+     keep their own colors because their class selectors win on the
+     specific elements that need it.
+
+     Coverage: td, th, div, span, p, label, li, dt, dd — covers most
+     MFL form/report layouts. Excludes nav-style elements (because
+     those typically have classes) and anything with inline styling. */
+  body td:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body th:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body div:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body span:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body p:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body label:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body li:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body dt:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body dd:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]) {
+    color: var(--ups-text, #e8edf5) !important;
+  }
+
+  /* Catch the specific class names MFL uses for hint/help boxes —
+     these tend to carry inline color via stylesheet rules that
+     would still win over the broad rule above. Force-override
+     every common name + their descendants. */
+  body .hint, body .hint *,
+  body .note, body .note *,
+  body .help, body .help *,
+  body .help_text, body .help_text *,
+  body .helpbox, body .helpbox *,
+  body .helphint, body .helphint *,
+  body .formhint, body .formhint *,
+  body [class*="hint"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]),
+  body [class*="hint"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]) *,
+  body [class*="note"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]),
+  body [class*="note"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]) * {
+    color: var(--ups-text, #e8edf5) !important;
+    opacity: 1 !important;
+  }
 </style>
 
 <script>
