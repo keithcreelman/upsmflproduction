@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-20T19:17:51.227Z",
+    "updated_at": "2026-05-20T19:17:52.679Z",
     "row_count": 58,
     "source": "worker-trade-outbox"
   },
@@ -11045,14 +11045,14 @@
         },
         "comment": "If you want to roll me getting 2.01 into an Amon-Ra/Shough deal instead, then let's getting cooking today."
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:58\nUPS_PAYLOAD_HASH:1602b1d517052bdbfcbb0786ca0da09fc62ed57ceb1cb11fd66be8b92fa66196\n[UPS_TWB_INTENT_END]",
       "payload_hash": "1602b1d517052bdbfcbb0786ca0da09fc62ed57ceb1cb11fd66be8b92fa66196",
       "status": "PENDING",
       "mfl_post_response_snip": "",
       "mfl_verify_response_snip": "",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-05-20T19:17:51.017Z",
+      "updated_ts": "2026-05-20T19:17:52.550Z",
       "id": "58"
     }
   ]
