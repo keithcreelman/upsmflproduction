@@ -173,6 +173,15 @@ async function processAuctionPoll(env) {
   let newBids = 0;
   let newWins = 0;
 
+  // Discord narrator queue — capture freshly-inserted bids/wins for
+  // post-recompute narration. Filtered to bids within the last hour
+  // so first-deploy catch-up polls don't spam Discord with weeks of
+  // historical activity. Set AUCTION_DISCORD_NARRATOR=0 to disable.
+  const NARRATE_LOOKBACK_SEC = 3600;
+  const narrateCutoffUnix = Math.floor(Date.now() / 1000) - NARRATE_LOOKBACK_SEC;
+  const narrateEnabled = String(env.AUCTION_DISCORD_NARRATOR ?? "1").trim() !== "0";
+  const narrateQueue = [];
+
   // ── Ingest AUCTION_INIT + AUCTION_BID ──
   // Both go into ups_auction_bids. The `note` column tags INIT events
   // as "[nomination]" prepended so downstream queries can identify
@@ -191,7 +200,18 @@ async function processAuctionPoll(env) {
          (lot_id, season, league_id, player_id, fid, bid_k, bid_at_unix, note, raw_transaction)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(lot_id, season, leagueId, p.player_id, p.fid, p.bid_k, p.bid_at_unix, taggedNote, p.raw_transaction).run();
-    if (ins.meta?.changes > 0) newBids++;
+    if (ins.meta?.changes > 0) {
+      newBids++;
+      if (narrateEnabled && p.bid_at_unix >= narrateCutoffUnix) {
+        narrateQueue.push({
+          kind: ev.kind,               // "init" | "bid"
+          fid: p.fid,
+          player_id: p.player_id,
+          bid_k: p.bid_k,
+          bid_at_unix: p.bid_at_unix,
+        });
+      }
+    }
   }
 
   // ── Recompute lot state from accumulated bids ──
@@ -271,7 +291,29 @@ async function processAuctionPoll(env) {
           SET status = 'won', winner_fid = ?, won_at_unix = ?, updated_at_utc = datetime('now')
         WHERE lot_id = ? AND status != 'won'`
     ).bind(p.fid, p.bid_at_unix, lot_id).run();
-    if (res.meta?.changes > 0) newWins++;
+    if (res.meta?.changes > 0) {
+      newWins++;
+      if (narrateEnabled && p.bid_at_unix >= narrateCutoffUnix) {
+        narrateQueue.push({
+          kind: "won",
+          fid: p.fid,
+          player_id: p.player_id,
+          bid_k: p.bid_k,
+          bid_at_unix: p.bid_at_unix,
+        });
+      }
+    }
+  }
+
+  // ── Discord narration ──
+  // Fires AFTER all DB writes so messages reflect canonical state.
+  // Fail-soft: any error here is logged but doesn't break the poll.
+  if (narrateQueue.length > 0) {
+    try {
+      await narrateAuctionEvents(env, season, leagueId, narrateQueue);
+    } catch (e) {
+      console.log("[auction-narrator] error:", String(e?.message || e));
+    }
   }
 
   const activeLots = await db.prepare(
@@ -279,6 +321,144 @@ async function processAuctionPoll(env) {
   ).bind(season, leagueId).first();
 
   return { new_bids: newBids, new_wins: newWins, active_lots: Number(activeLots?.n || 0) };
+}
+
+// ── Discord auction narrator ──────────────────────────────────────────
+// Posts each fresh auction event (nomination / overtake bid / win) to
+// the auction Discord channel. Called from processAuctionPoll after
+// all D1 writes complete.
+//
+// Channel selection (in priority order):
+//   1. DISCORD_AUCTION_CHANNEL_ID (dedicated, if Keith creates one)
+//   2. DISCORD_DRAFT_CHANNEL_ID   (draft-adjacent; current fallback)
+//
+// Disable entirely with AUCTION_DISCORD_NARRATOR=0.
+//
+// Rate limit: ~250ms between posts. Discord allows 5/5s per channel;
+// keeping well under that floor.
+async function narrateAuctionEvents(env, season, leagueId, queue) {
+  if (!queue || queue.length === 0) return;
+  const botToken = String(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "").trim();
+  if (!botToken) {
+    console.log("[auction-narrator] DISCORD_BOT_TOKEN missing — skipping");
+    return;
+  }
+  const channelId = String(
+    env.DISCORD_AUCTION_CHANNEL_ID || env.DISCORD_DRAFT_CHANNEL_ID || ""
+  ).replace(/\D/g, "");
+  if (!channelId) {
+    console.log("[auction-narrator] no DISCORD_*_CHANNEL_ID configured — skipping");
+    return;
+  }
+
+  // Sort oldest → newest so narration reads in chronological order.
+  queue.sort((a, b) => a.bid_at_unix - b.bid_at_unix);
+
+  // Collect unique player + franchise IDs for batched lookups.
+  const pidSet = new Set();
+  const fidSet = new Set();
+  for (const ev of queue) {
+    if (ev.player_id) pidSet.add(ev.player_id);
+    if (ev.fid) fidSet.add(ev.fid);
+  }
+
+  // Fetch league + players in parallel.
+  const apiKey = String(env.MFL_APIKEY || "").trim();
+  const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+  const pidList = [...pidSet].join(",");
+
+  let leagueJson = {};
+  let playersJson = {};
+  try {
+    const [lr, pr] = await Promise.all([
+      fetch(`https://www48.myfantasyleague.com/${season}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+        { cf: { cacheTtl: 300, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
+      fetch(`https://www48.myfantasyleague.com/${season}/export?TYPE=players&L=${leagueId}&PLAYERS=${encodeURIComponent(pidList)}&JSON=1`,
+        { cf: { cacheTtl: 86400, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
+    ]);
+    leagueJson = lr || {};
+    playersJson = pr || {};
+  } catch (e) {
+    console.log("[auction-narrator] meta-fetch failed:", String(e?.message || e));
+  }
+
+  // fid → franchise name
+  const fidToName = {};
+  const flist = leagueJson?.league?.franchises?.franchise || [];
+  const farr = Array.isArray(flist) ? flist : [flist];
+  for (const f of farr) {
+    const id = String(f.id || "").padStart(4, "0");
+    if (id) fidToName[id] = String(f.name || ("Team " + id));
+  }
+
+  // pid → { name, position, team }
+  const pidToInfo = {};
+  const plist = playersJson?.players?.player || [];
+  const parr = Array.isArray(plist) ? plist : [plist];
+  for (const p of parr) {
+    const id = String(p.id || "");
+    if (!id) continue;
+    pidToInfo[id] = {
+      name: String(p.name || ""),
+      position: String(p.position || ""),
+      team: String(p.team || ""),
+    };
+  }
+
+  // Format "Last, First" → "First Last" for readability
+  const flipName = (n) => {
+    if (!n || !n.includes(",")) return n || "";
+    const [last, first] = n.split(",").map((s) => s.trim());
+    return `${first} ${last}`.trim();
+  };
+
+  const fmtPlayer = (pid) => {
+    const info = pidToInfo[pid];
+    if (!info) return `Player ${pid}`;
+    const name = flipName(info.name);
+    const meta = [info.position, info.team].filter(Boolean).join(" · ");
+    return meta ? `**${name}** (${meta})` : `**${name}**`;
+  };
+  const fmtFranchise = (fid) => fidToName[fid] || `Team ${fid}`;
+  const fmtBid = (k) => `**$${Number(k || 0).toLocaleString("en-US")}K**`;
+
+  // Build messages
+  const messages = queue.map((ev) => {
+    const player = fmtPlayer(ev.player_id);
+    const franchise = `**${fmtFranchise(ev.fid)}**`;
+    const bid = fmtBid(ev.bid_k);
+    if (ev.kind === "init") {
+      return `🆕  ${franchise} nominated ${player} — opening at ${bid}`;
+    } else if (ev.kind === "won") {
+      return `🏆  ${franchise} **won** ${player} for ${bid}`;
+    } else {
+      return `💰  ${franchise} bid ${bid} on ${player}`;
+    }
+  });
+
+  // Post sequentially with a small delay between posts.
+  for (let i = 0; i < messages.length; i += 1) {
+    const content = messages[i].slice(0, 1900);
+    try {
+      const r = await fetch(
+        `https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+        }
+      );
+      if (!r.ok) {
+        const body = await r.text().catch(() => "");
+        console.log(`[auction-narrator] post failed ${r.status}: ${body.slice(0, 200)}`);
+      }
+    } catch (e) {
+      console.log("[auction-narrator] post threw:", String(e?.message || e));
+    }
+    if (i < messages.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
 }
 
 export default {
@@ -1514,10 +1694,48 @@ export default {
             const t = mt[0];
             if (/auction|bid|nominat|proxy/i.test(t)) auctionTables.push(t.slice(0, 3000));
           }
+          // Pull a few specific things by regex so we don't have to
+          // ship the whole 183KB body back.
+          const bodyTagMatch = body.match(/<body[\s\S]{0,500}?>/i);
+          const allHintTexts = [];
+          const hintRe = /<[^>]*>(?:[^<]{0,5}<[^>]*>){0,3}\s*(?:<b>)?Hint:?(?:<\/b>)?[^<]{0,300}/gi;
+          let h;
+          while ((h = hintRe.exec(body)) && allHintTexts.length < 30) {
+            allHintTexts.push(h[0].slice(0, 400));
+          }
+          // Also grab every TR/TD/SPAN with "Hint" text inside
+          const hintRowsRe = /<(?:tr|td|div|span)[^>]*>[\s\S]{0,800}?Hint:[\s\S]{0,600}?<\/(?:tr|td|div|span)>/gi;
+          const hintRows = [];
+          let hr;
+          while ((hr = hintRowsRe.exec(body)) && hintRows.length < 15) {
+            hintRows.push(hr[0].slice(0, 1000));
+          }
+          // Any class attribute on the elements wrapping hint text
+          const hintClassesRe = /class="([^"]{0,200})"[^>]*>[\s\S]{0,300}?Hint:/g;
+          const hintClasses = new Set();
+          let hc;
+          while ((hc = hintClassesRe.exec(body)) && hintClasses.size < 30) {
+            hintClasses.add(hc[1]);
+          }
+          // Search for `Hint:` text occurrences with ~300 chars of context BEFORE each so we
+          // see the wrapping element. Helps when the regexes above miss.
+          const hintContextRe = /[\s\S]{200}Hint:[\s\S]{200}/g;
+          const hintContexts = [];
+          let hctx;
+          while ((hctx = hintContextRe.exec(body)) && hintContexts.length < 6) {
+            hintContexts.push(hctx[0]);
+            // Advance to avoid overlapping matches
+            hintContextRe.lastIndex = hctx.index + 400;
+          }
+
           return jsonOut(200, {
             url: pageUrl,
             http_status: res.status,
             body_length: body.length,
+            body_tag: bodyTagMatch ? bodyTagMatch[0] : "(no body tag found)",
+            hint_contexts: hintContexts,
+            hint_wrapper_classes: [...hintClasses],
+            hint_rows_sample: hintRows.slice(0, 5),
             interesting_matches: matches,
             player_context: playerContext,
             auction_tables: auctionTables,
