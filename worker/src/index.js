@@ -823,6 +823,7 @@ export default {
         path !== "/api/auction/bid-history" &&
         path !== "/api/auction/compliance" &&
         path !== "/api/auction/cut-rebid-blocks" &&
+        path !== "/api/auction/nomination-status" &&
         path !== "/admin/auction/probe-o43" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
@@ -2233,6 +2234,149 @@ export default {
           });
         } catch (e) {
           console.error("[auction/compliance] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/nomination-status ----------
+      // Per-franchise nomination cadence tracker. Returns last nomination
+      // timestamp + when the next nomination is allowed per the relevant
+      // cadence rule.
+      //
+      // Cadence rules (league_context_v1.md):
+      //   ERA (§A3):  1 nomination / 12-hour rolling window per franchise
+      //   FA Auction (§A1): 2 nominations / 24-hour rolling window
+      //
+      // Data source: ups_auction_bids WHERE note LIKE '[nomination]%'.
+      // The auction-poll cron tags AUCTION_INIT bids that way; this
+      // endpoint reads them directly out of D1.
+      //
+      // V1 distinguishes ERA vs FA via a heuristic on the active lots:
+      //   - If most/all lots have "rookie expired" semantics (covered by
+      //     /api/auction/era-eligible), assume current auction is ERA.
+      //   - When FA Auction starts in July, the auction_kind hint will
+      //     flip — for now, we just expose both cadence projections so
+      //     the Hub can pick which to display.
+      //
+      // Query params:
+      //   L     (optional, default 74598)
+      //   YEAR  (optional, default current UTC year)
+      if (path === "/api/auction/nomination-status" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) return jsonOut(500, { error: "D1 binding UPS_MFL_DB missing" });
+        const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const nowUnix = Math.floor(Date.now() / 1000);
+        const ERA_COOLDOWN_SEC = 12 * 3600;
+        const FA_WINDOW_SEC    = 24 * 3600;
+        const FA_MAX_IN_WINDOW = 2;
+
+        try {
+          // Pull every nomination event (tagged "[nomination]" by the poll)
+          const { results: noms } = await env.UPS_MFL_DB.prepare(
+            `SELECT fid, bid_at_unix, player_id
+               FROM ups_auction_bids
+              WHERE season = ? AND league_id = ?
+                AND note LIKE '[nomination]%'
+              ORDER BY bid_at_unix ASC`
+          ).bind(year, leagueId).all();
+
+          // Fetch league for franchise names
+          const apiKey = String(env.MFL_APIKEY || "").trim();
+          const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+          const leagueRes = await fetch(
+            `https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+            { cf: { cacheTtl: 300 } }
+          ).then((r) => r.json()).catch(() => ({}));
+          const fidToName = {};
+          const flist = leagueRes?.league?.franchises?.franchise || [];
+          const farr = Array.isArray(flist) ? flist : [flist];
+          for (const f of farr) {
+            const id = String(f.id || "").padStart(4, "0");
+            if (id) fidToName[id] = String(f.name || ("Team " + id));
+          }
+          // Ensure all 12 franchises represented even if they haven't nominated
+          const allFids = Object.keys(fidToName).filter((f) => f !== "0000");
+
+          // Bucket nominations per fid
+          const nomsByFid = {};
+          for (const n of (noms || [])) {
+            const fid = String(n.fid || "").padStart(4, "0");
+            if (!fid) continue;
+            if (!nomsByFid[fid]) nomsByFid[fid] = [];
+            nomsByFid[fid].push({ at_unix: Number(n.bid_at_unix), player_id: String(n.player_id) });
+          }
+
+          const franchises = (allFids.length > 0 ? allFids : Object.keys(nomsByFid)).map((fid) => {
+            const list = nomsByFid[fid] || [];
+            const last = list.length > 0 ? list[list.length - 1] : null;
+
+            // ERA: next allowed = last + 12h
+            const era_next_at_unix = last ? last.at_unix + ERA_COOLDOWN_SEC : nowUnix;
+            const era_can_nominate_now = era_next_at_unix <= nowUnix;
+            const era_seconds_remaining = Math.max(0, era_next_at_unix - nowUnix);
+
+            // FA: count in last 24h
+            const fa_window_start = nowUnix - FA_WINDOW_SEC;
+            const inFaWindow = list.filter((n) => n.at_unix >= fa_window_start);
+            const fa_used = inFaWindow.length;
+            const fa_remaining = Math.max(0, FA_MAX_IN_WINDOW - fa_used);
+            // FA next-allowed: when oldest-in-window expires (if at cap), otherwise now
+            let fa_next_at_unix = nowUnix;
+            if (fa_used >= FA_MAX_IN_WINDOW) {
+              const oldest = inFaWindow[0];
+              fa_next_at_unix = oldest.at_unix + FA_WINDOW_SEC;
+            }
+            const fa_can_nominate_now = fa_remaining > 0;
+            const fa_seconds_remaining = Math.max(0, fa_next_at_unix - nowUnix);
+
+            return {
+              fid,
+              franchise_name: fidToName[fid] || ("Team " + fid),
+              total_nominations: list.length,
+              last_nomination_at_unix: last ? last.at_unix : null,
+              last_nomination_at_iso: last ? new Date(last.at_unix * 1000).toISOString() : null,
+              last_nomination_player_id: last ? last.player_id : null,
+              era: {
+                cooldown_sec: ERA_COOLDOWN_SEC,
+                can_nominate_now: era_can_nominate_now,
+                next_allowed_at_unix: era_next_at_unix,
+                next_allowed_at_iso: new Date(era_next_at_unix * 1000).toISOString(),
+                seconds_until_next: era_seconds_remaining,
+              },
+              fa_auction: {
+                window_sec: FA_WINDOW_SEC,
+                max_in_window: FA_MAX_IN_WINDOW,
+                used_in_window: fa_used,
+                remaining: fa_remaining,
+                can_nominate_now: fa_can_nominate_now,
+                next_allowed_at_unix: fa_next_at_unix,
+                next_allowed_at_iso: new Date(fa_next_at_unix * 1000).toISOString(),
+                seconds_until_next: fa_seconds_remaining,
+              },
+            };
+          });
+
+          // Sort by last_nomination_at desc (most recent activity first), then fid
+          franchises.sort((a, b) => {
+            const at = a.last_nomination_at_unix || 0;
+            const bt = b.last_nomination_at_unix || 0;
+            return (bt - at) || a.fid.localeCompare(b.fid);
+          });
+
+          return jsonOut(200, {
+            season: year,
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            now_unix: nowUnix,
+            rules: {
+              era: "league_context_v1.md §A3 — 1 nomination per 12-hour rolling window",
+              fa_auction: "league_context_v1.md §A1 — 2 nominations per 24-hour rolling window",
+            },
+            franchise_count: franchises.length,
+            franchises,
+          });
+        } catch (e) {
+          console.error("[auction/nomination-status] failed:", e);
           return jsonOut(500, { error: String(e && e.message || e) });
         }
       }
