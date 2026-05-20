@@ -10443,6 +10443,50 @@
     font-weight: 500;
     font-size: 12px;
   }
+  /* "Selected: Player Name — click to change" trigger state */
+  .ups-picker-trigger.ups-picker-trigger-selected {
+    background: var(--ups-success, #25c37d);
+    color: #08240f;
+    border-color: var(--ups-success, #25c37d);
+  }
+  .ups-picker-trigger-check {
+    margin-right: 6px;
+    font-weight: 900;
+  }
+  .ups-picker-trigger-change {
+    margin-left: 8px;
+    opacity: 0.78;
+    font-weight: 500;
+    font-size: 12px;
+    font-style: italic;
+  }
+
+  /* Drawer row in the "currently selected" state — soft success tint
+     so the picked player floats visually distinct at the top of the
+     list. CTA flips Add → Clear. */
+  .ups-picker-row.ups-picker-row-selected {
+    background: rgba(37, 195, 125, 0.10) !important;
+    border-bottom-color: rgba(37, 195, 125, 0.30) !important;
+  }
+  .ups-picker-row.ups-picker-row-selected:hover {
+    background: rgba(37, 195, 125, 0.18) !important;
+  }
+  .ups-picker-row-selected-badge {
+    margin-left: 8px;
+    color: var(--ups-success, #25c37d);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .ups-picker-row.ups-picker-row-selected .ups-picker-row-cta {
+    color: var(--ups-warning, #d33642);
+    border-color: var(--ups-warning, #d33642);
+  }
+  .ups-picker-row.ups-picker-row-selected .ups-picker-row-cta:hover {
+    background: var(--ups-warning, #d33642);
+    color: var(--ups-accent-ink, #102a55);
+  }
 
   /* Backdrop — dims the page behind the drawer */
   .ups-picker-backdrop {
@@ -10692,11 +10736,15 @@
       document.body.appendChild(drawer);
 
       // Trigger button — placed at the top of the inline picker section so it
-      // sits where the user expects "go pick a player" to be.
+      // sits where the user expects "go pick a player" to be. Text shifts
+      // between "no selection" and "currently selected" states (see
+      // updateTriggerLabel below).
       var trigger = document.createElement("button");
       trigger.type = "button";
       trigger.className = "ups-picker-trigger";
-      trigger.innerHTML = 'Open Player Picker <span class="ups-picker-trigger-count" data-trigger-count></span>';
+      // Initial content set by updateTriggerLabel() after the function is
+      // defined below.
+      trigger.innerHTML = '<span data-trigger-content>Loading…</span>';
 
       var anchor = document.querySelector(".add-player-container");
       if (anchor && anchor.parentNode) {
@@ -10709,10 +10757,48 @@
       var searchEl = drawer.querySelector(".ups-picker-search");
       var listEl = drawer.querySelector("[data-list]");
       var metaEl = drawer.querySelector('[data-meta="count"]');
-      var triggerCountEl = trigger.querySelector("[data-trigger-count]");
+      var triggerContentEl = trigger.querySelector("[data-trigger-content]");
       var chipsEl = drawer.querySelector('[data-chip-group="pos"]');
 
       var STATE = { search: "", pos: "ALL" };
+
+      // Find MFL's currently-selected player row (if any). TOS marks
+      // selected rows with .selected-player and the row carries
+      // data-player-id; we mirror that into our drawer's state.
+      function getSelectedPid() {
+        var row = document.querySelector(
+          ".add-player-container .add-drop-player-row.selected-player"
+        );
+        return row ? (row.getAttribute("data-player-id") || "") : "";
+      }
+      function findPlayerByPid(pid) {
+        if (!pid) return null;
+        var all = readPlayers();
+        return all.find(function (p) { return p.player_id === String(pid); }) || null;
+      }
+
+      // Trigger label reflects current selection state. With nothing
+      // selected the user sees "Select a player for nomination (N available)";
+      // once a player is chosen the label flips to "✓ Selected: Player
+      // Name — click to change".
+      function updateTriggerLabel() {
+        var pid = getSelectedPid();
+        var players = readPlayers();
+        if (pid) {
+          var p = findPlayerByPid(pid);
+          var label = p ? p.name : ("Player " + pid);
+          triggerContentEl.innerHTML =
+            '<span class="ups-picker-trigger-check">✓</span> ' +
+            '<strong>' + escapeText(label) + '</strong>' +
+            '<span class="ups-picker-trigger-change">— click to change</span>';
+          trigger.classList.add("ups-picker-trigger-selected");
+        } else {
+          triggerContentEl.innerHTML =
+            'Select a player for nomination ' +
+            '<span class="ups-picker-trigger-count">(' + players.length + ' available)</span>';
+          trigger.classList.remove("ups-picker-trigger-selected");
+        }
+      }
 
       function readPlayers() {
         // Read TOS-rendered rows.
@@ -10753,6 +10839,7 @@
 
       function renderList() {
         var players = readPlayers();
+        var selectedPid = getSelectedPid();
         var q = STATE.search.toLowerCase();
         var posFilter = STATE.pos;
         var filtered = players.filter(function (p) {
@@ -10760,14 +10847,19 @@
           if (posFilter !== "ALL" && posBucket(p.pos) !== posFilter) return false;
           return true;
         });
-        // Sort by name (alpha)
-        filtered.sort(function (a, b) { return a.name.localeCompare(b.name); });
+        // Sort by name (alpha); selected player floats to top
+        filtered.sort(function (a, b) {
+          if (a.player_id === selectedPid) return -1;
+          if (b.player_id === selectedPid) return 1;
+          return a.name.localeCompare(b.name);
+        });
 
-        if (triggerCountEl) triggerCountEl.textContent = "(" + players.length + " available)";
         if (metaEl) {
+          var selBit = selectedPid ? " · 1 selected" : "";
           metaEl.textContent = filtered.length + " of " + players.length + " players" +
             (q ? ' matching "' + q + '"' : '') +
-            (posFilter !== "ALL" ? " · " + posFilter : "");
+            (posFilter !== "ALL" ? " · " + posFilter : "") +
+            selBit;
         }
 
         if (filtered.length === 0) {
@@ -10776,16 +10868,22 @@
         }
 
         listEl.innerHTML = filtered.map(function (p) {
-          return '<div class="ups-picker-row" data-picker-pid="' + escapeAttr(p.player_id) + '">' +
+          var isSelected = p.player_id === selectedPid;
+          return '<div class="ups-picker-row' + (isSelected ? ' ups-picker-row-selected' : '') +
+              '" data-picker-pid="' + escapeAttr(p.player_id) + '">' +
             '<div class="ups-picker-row-pos">' + escapeText(p.pos || "—") + '</div>' +
             '<div class="ups-picker-row-img">' +
               (p.img ? '<img src="' + escapeAttr(p.img) + '" alt="" onerror="this.style.display=\'none\'">' : "") +
             '</div>' +
             '<div class="ups-picker-row-body">' +
-              '<div class="ups-picker-row-name">' + escapeText(p.name) + '</div>' +
+              '<div class="ups-picker-row-name">' + escapeText(p.name) +
+                (isSelected ? ' <span class="ups-picker-row-selected-badge">✓ Selected</span>' : '') +
+              '</div>' +
               '<div class="ups-picker-row-meta">' + escapeText(p.team_meta || "") + '</div>' +
             '</div>' +
-            '<button type="button" class="ups-picker-row-cta">Add</button>' +
+            '<button type="button" class="ups-picker-row-cta">' +
+              (isSelected ? "Clear" : "Select") +
+            '</button>' +
           '</div>';
         }).join("");
       }
@@ -10840,45 +10938,96 @@
         renderList();
       });
 
-      // Row click → trigger underlying MFL/TOS Add button
+      // Row click → atomic deselect-old + select-new.
+      // User doesn't see "Deselect" mode — clicking any player simply
+      // becomes the new selection. Clicking the currently-selected
+      // player clears the selection (acts as "Clear").
       listEl.addEventListener("click", function (e) {
         var row = e.target.closest(".ups-picker-row");
         if (!row) return;
-        var pid = row.getAttribute("data-picker-pid");
-        if (!pid) return;
-        var players = readPlayers();
-        var match = players.find(function (p) { return p.player_id === pid; });
-        if (match && match.addBtnEl) {
-          try { match.addBtnEl.click(); }
+        var clickedPid = row.getAttribute("data-picker-pid");
+        if (!clickedPid) return;
+
+        var currentPid = getSelectedPid();
+
+        // 1) Clear any existing selection first (if there is one, and it
+        //    isn't the same row the user just clicked — that case is
+        //    handled in step 2).
+        if (currentPid && currentPid !== clickedPid) {
+          var oldRow = document.querySelector(
+            '.add-player-container .add-drop-player-row[data-player-id="' + cssAttrEscape(currentPid) + '"]'
+          );
+          if (oldRow) {
+            var oldBtn = findRowButton(oldRow, /deselect|clear/i)
+                       || findRowButton(oldRow, /add/i);  // fallback
+            if (oldBtn) { try { oldBtn.click(); } catch (err) {} }
+          }
+        }
+
+        // 2) If user clicked the currently-selected player, treat as
+        //    "Clear" — TOS's Deselect button handles this.
+        if (currentPid && currentPid === clickedPid) {
+          var sameRow = document.querySelector(
+            '.add-player-container .add-drop-player-row[data-player-id="' + cssAttrEscape(clickedPid) + '"]'
+          );
+          var clearBtn = sameRow ? findRowButton(sameRow, /deselect|clear/i) : null;
+          if (clearBtn) { try { clearBtn.click(); } catch (err) {} }
+          renderList();
+          updateTriggerLabel();
+          return;  // stay open so user can pick someone new
+        }
+
+        // 3) Select the new player.
+        var newRow = document.querySelector(
+          '.add-player-container .add-drop-player-row[data-player-id="' + cssAttrEscape(clickedPid) + '"]'
+        );
+        var addBtn = newRow ? findRowButton(newRow, /^\s*add\s*$/i) : null;
+        if (addBtn) {
+          try { addBtn.click(); }
           catch (err) { console.log("[ups-picker] add-button click threw:", err); }
         } else {
-          // Fallback: set the hidden input directly. The user will still need to
-          // submit the form, but this at least gets PLAYER_PICK set.
+          // Fallback: set the hidden input directly. Selection state in
+          // MFL may not reflect, but PLAYER_PICK is at least populated.
           var sel = document.getElementById("sel_pid");
-          if (sel) sel.value = pid;
+          if (sel) sel.value = clickedPid;
         }
+        // 4) Update UI state. Closing the drawer after a successful pick
+        //    so the user can move to bid entry.
+        renderList();
+        updateTriggerLabel();
         closeDrawer();
       });
 
-      // Re-render when MFL/TOS injects more rows later (e.g. filter change
-      // from the still-mounted-but-hidden MFL filter selects, or pagination)
+      function findRowButton(row, textRegex) {
+        var buttons = Array.from(row.querySelectorAll("button"));
+        return buttons.find(function (b) {
+          return textRegex.test(String(b.textContent || "").trim());
+        });
+      }
+      function cssAttrEscape(s) {
+        return String(s || "").replace(/(["\\])/g, "\\$1");
+      }
+
+      // Re-render when MFL/TOS injects more rows later OR the .selected-player
+      // class toggles (e.g., the user makes a selection some other way, or
+      // initial state finishes loading).
       var anchor2 = document.querySelector(".add-player-container");
       if (anchor2 && window.MutationObserver) {
         var obs = new MutationObserver(function () {
           if (drawer.classList.contains("ups-picker-open")) renderList();
-          else {
-            // Update trigger count even when closed
-            var players = readPlayers();
-            if (triggerCountEl) triggerCountEl.textContent = "(" + players.length + " available)";
-          }
+          updateTriggerLabel();
         });
-        obs.observe(anchor2, { childList: true, subtree: true });
+        obs.observe(anchor2, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["class"],
+        });
         setTimeout(function () { try { obs.disconnect(); } catch (e) {} }, 5 * 60 * 1000);
       }
 
-      // Initial trigger count
-      var initialPlayers = readPlayers();
-      if (triggerCountEl) triggerCountEl.textContent = "(" + initialPlayers.length + " available)";
+      // Initial trigger label (will read selected state from MFL DOM)
+      updateTriggerLabel();
     }
   })();
 </script>

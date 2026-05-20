@@ -651,13 +651,19 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     }
   }
 
-  async function postToDiscord(targetChannelId, content) {
+  async function postToDiscord(targetChannelId, content, gifUrl) {
+    const body = { content, allowed_mentions: { parse: [] } };
+    // Use the embeds.image.url field so the GIF renders without the raw
+    // URL appearing as text in the message body.
+    if (gifUrl) {
+      body.embeds = [{ image: { url: gifUrl } }];
+    }
     return fetch(
       `https://discord.com/api/v10/channels/${encodeURIComponent(targetChannelId)}/messages`,
       {
         method: "POST",
         headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+        body: JSON.stringify(body),
       }
     );
   }
@@ -684,9 +690,9 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     const lotId = `${season}|${leagueId}|${ev.player_id}`;
 
     let content = msg.text.slice(0, 1900);
+    let gifUrl = "";
     if (msg.want_gif) {
-      const gifUrl = await pickAuctionGifForPlayer(pidToInfo[ev.player_id], ev._obs_kind);
-      if (gifUrl) content = (content + "\n" + gifUrl).slice(0, 1900);
+      gifUrl = await pickAuctionGifForPlayer(pidToInfo[ev.player_id], ev._obs_kind);
     }
 
     // Resolve target: thread for non-nom events; channel for nom (and
@@ -709,7 +715,7 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
 
     let postedMessageId = "";
     try {
-      const r = await postToDiscord(targetChannelId, content);
+      const r = await postToDiscord(targetChannelId, content, gifUrl);
       if (!r.ok) {
         const body = await r.text().catch(() => "");
         console.log(`[auction-narrator] post failed ${r.status} to ${targetChannelId}: ${body.slice(0, 200)}`);
