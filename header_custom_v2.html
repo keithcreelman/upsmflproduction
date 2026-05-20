@@ -9463,7 +9463,200 @@
     opacity: 1 !important;
     text-shadow: none !important;
   }
+
+  /* ─────────────────────────────────────────────────────────────────
+   * Auction Bid page (O=43) — UPS dark-theme cleanup (Phase 4.1)
+   *
+   * MFL's auction page ships with the legacy light theme that clashes
+   * with the UPS dark hub. Restyles the .report tables, inputs, and
+   * submit button to match the Auction Hub. Doesn't hide any blocks
+   * (Financial Status, Hint boxes, etc.) — those are useful in
+   * context; just makes them readable.
+   * ───────────────────────────────────────────────────────────────── */
+  body[id^="body_options_43"] {
+    background: var(--ups-bg, #0b0f18) !important;
+    color: var(--ups-text, #e8edf5) !important;
+  }
+  body[id^="body_options_43"] .pagebody,
+  body[id^="body_options_43"] #options_43 {
+    background: var(--ups-bg, #0b0f18) !important;
+    color: var(--ups-text, #e8edf5) !important;
+  }
+  body[id^="body_options_43"] table.report,
+  body[id^="body_options_43"] table.report.nocaption {
+    background: var(--ups-surface, #141a26) !important;
+    border: 1px solid var(--ups-border, #2a3446) !important;
+    border-radius: 8px !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    overflow: hidden !important;
+    margin-bottom: 16px !important;
+  }
+  body[id^="body_options_43"] table.report th,
+  body[id^="body_options_43"] table.report thead th {
+    background: var(--ups-surface-alt, #1a2230) !important;
+    color: var(--ups-muted, #8a97ad) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    font-size: 11px !important;
+    padding: 10px !important;
+    border-bottom: 1px solid var(--ups-border, #2a3446) !important;
+    font-weight: 500 !important;
+  }
+  body[id^="body_options_43"] table.report th a {
+    color: var(--ups-muted, #8a97ad) !important;
+    text-decoration: none !important;
+  }
+  body[id^="body_options_43"] table.report th a:hover {
+    color: var(--ups-accent, #5b8dff) !important;
+  }
+  body[id^="body_options_43"] table.report td,
+  body[id^="body_options_43"] table.report tr.oddtablerow td,
+  body[id^="body_options_43"] table.report tr.eventablerow td {
+    background: transparent !important;
+    color: var(--ups-text, #e8edf5) !important;
+    padding: 10px !important;
+    border-bottom: 1px solid var(--ups-border, #2a3446) !important;
+  }
+  body[id^="body_options_43"] table.report tr:hover td {
+    background: var(--ups-surface-alt, #1a2230) !important;
+  }
+  body[id^="body_options_43"] table.report caption {
+    background: var(--ups-surface-alt, #1a2230) !important;
+    color: var(--ups-text, #e8edf5) !important;
+    padding: 12px 16px !important;
+    font-weight: 600 !important;
+    text-align: left !important;
+    border: 1px solid var(--ups-border, #2a3446) !important;
+    border-bottom: none !important;
+    border-radius: 8px 8px 0 0 !important;
+  }
+  body[id^="body_options_43"] td.salary {
+    font-variant-numeric: tabular-nums !important;
+    font-weight: 600 !important;
+    color: var(--ups-text, #e8edf5) !important;
+  }
+  body[id^="body_options_43"] input[type="text"],
+  body[id^="body_options_43"] input[type="number"],
+  body[id^="body_options_43"] textarea {
+    background: var(--ups-surface-alt, #1a2230) !important;
+    color: var(--ups-text, #e8edf5) !important;
+    border: 1px solid var(--ups-border, #2a3446) !important;
+    padding: 6px 10px !important;
+    border-radius: 4px !important;
+    font-family: inherit !important;
+  }
+  body[id^="body_options_43"] input[type="text"]:focus,
+  body[id^="body_options_43"] input[type="number"]:focus,
+  body[id^="body_options_43"] textarea:focus {
+    outline: none !important;
+    border-color: var(--ups-accent, #5b8dff) !important;
+  }
+  body[id^="body_options_43"] input[type="submit"] {
+    background: var(--ups-accent, #5b8dff) !important;
+    color: white !important;
+    border: 0 !important;
+    padding: 8px 16px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+  }
+  body[id^="body_options_43"] input[type="submit"]:hover {
+    filter: brightness(1.15) !important;
+  }
+  /* Quick-bid buttons (Phase 4.3) injected via JS — pre-style here so
+     they appear correctly the moment the JS adds them. */
+  body[id^="body_options_43"] .ups-quickbid-btn {
+    background: var(--ups-surface-alt, #1a2230) !important;
+    color: var(--ups-accent, #5b8dff) !important;
+    border: 1px solid var(--ups-accent, #5b8dff) !important;
+    padding: 4px 10px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    margin-left: 4px !important;
+    font-family: inherit !important;
+  }
+  body[id^="body_options_43"] .ups-quickbid-btn:hover {
+    background: var(--ups-accent, #5b8dff) !important;
+    color: white !important;
+  }
 </style>
+
+<script>
+  // ─── Auction Bid (O=43) quick-bid buttons — Phase 4.3 ───────────────────
+  // Inject +$1K / +$5K / +$10K buttons next to each bid input on MFL's
+  // O=43 page. Reads the current high bid from the `onblur="validateBid(
+  // this, NNNN)"` attribute MFL bakes into each input, then a button
+  // click sets the input value to (current_high + delta).
+  //
+  // No "Match Proxy" — Keith opted out (proxy data isn't on the page
+  // anyway unless viewer is the high bidder).
+  // No "Max Affordable" yet — Keith wants that for FA Auction where the
+  // $300K cap matters; ERA has no cap so delta-only buttons are enough.
+  (function () {
+    var BUILD = "2026-05-20.1";
+    if (window.__ups_quickbid_o43_autoload === BUILD) return;
+    window.__ups_quickbid_o43_autoload = BUILD;
+
+    function onO43() {
+      var bodyId = String((document.body && document.body.id) || "");
+      return /^body_options_43/.test(bodyId);
+    }
+
+    function injectButtons() {
+      if (!onO43()) return;
+      // Each bid input is <input name="<playerId>" onblur="validateBid(this, NNNN)">
+      var inputs = document.querySelectorAll('input[onblur*="validateBid"]');
+      inputs.forEach(function (input) {
+        if (input.dataset.upsQuickbid === "1") return; // already wired
+        var onblur = String(input.getAttribute("onblur") || "");
+        var m = onblur.match(/validateBid\(this\s*,\s*(\d+)/);
+        var currentHigh = m ? Number(m[1]) : 0;
+        if (!currentHigh) return; // skip the "Opening bid" input (current=0)
+        input.dataset.upsQuickbid = "1";
+
+        var wrap = document.createElement("span");
+        wrap.style.cssText = "white-space:nowrap; display:inline-block; margin-left:4px;";
+        [1000, 5000, 10000].forEach(function (delta) {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "ups-quickbid-btn";
+          btn.textContent = "+$" + (delta / 1000) + "K";
+          btn.title = "Set bid to current high ($" + currentHigh.toLocaleString() +
+                      ") + $" + delta.toLocaleString();
+          btn.addEventListener("click", function (e) {
+            e.preventDefault();
+            // If user already typed something, increment from their value;
+            // otherwise from current high.
+            var existing = Number(String(input.value || "").replace(/[^\d]/g, "")) || currentHigh;
+            // If existing < currentHigh (stale value), bump base to current high.
+            if (existing < currentHigh) existing = currentHigh;
+            input.value = String(existing + delta);
+            // Trigger MFL's validation so it can re-check the bid is valid.
+            try { input.dispatchEvent(new Event("blur", { bubbles: true })); } catch (_) {}
+            input.focus();
+          });
+          wrap.appendChild(btn);
+        });
+        // Insert directly after the input (same TD cell).
+        if (input.parentNode) input.parentNode.insertBefore(wrap, input.nextSibling);
+      });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", injectButtons);
+    } else {
+      injectButtons();
+    }
+    // MFL doesn't reload the whole page when sorting / paginating —
+    // the auction table can be re-rendered in place. Re-scan every
+    // few seconds so any new bid inputs added dynamically get buttons.
+    setInterval(injectButtons, 3000);
+  })();
+</script>
 
 <script>
   // ─── UPS menu cleanup (header_custom_v2) ────────────────────────────────
