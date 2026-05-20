@@ -9583,6 +9583,101 @@
     background: var(--ups-accent, #5b8dff) !important;
     color: white !important;
   }
+
+  /* ─────────────────────────────────────────────────────────────────
+   * MFL native-page styling gap fillers (2026-05-20)
+   *
+   * Catches 7 patterns identified by a league-wide audit (Explore
+   * agent covered 12 public MFL pages + the captured Commish-Tools
+   * dump). These are classes our universal text-color sweep doesn't
+   * reach because they carry explicit background/color rules from
+   * MFL's stylesheet at higher specificity.
+   *
+   * Audit source: Lineups O=07 (cap rows + injury), Auction O=43 +
+   * Taxi O=98 (form labels + buttons), report-style pages (footers).
+   *
+   * Same exclusion mask as the rest of the universal block so no
+   * UPS-injected component class gets touched.
+   * ───────────────────────────────────────────────────────────────── */
+
+  /* Salary summary rows (Lineups O=07) — show totals at table bottom */
+  body tr.salary_cap_row:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]),
+  body tr.total_salary_row:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]),
+  body tr.cap_room_available_row:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]) {
+    background: var(--ups-surface-alt, #1a2230) !important;
+    color: var(--ups-text, #e8edf5) !important;
+  }
+  body tr.salary_cap_row td:not([class*="ups-"]),
+  body tr.total_salary_row td:not([class*="ups-"]),
+  body tr.cap_room_available_row td:not([class*="ups-"]) {
+    background: transparent !important;
+    color: var(--ups-text, #e8edf5) !important;
+    border-bottom: 1px solid var(--ups-border, #2a3446) !important;
+  }
+
+  /* Injury status indicator (Lineups O=07) — was washed grey on dark */
+  body .injurystatus:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]) {
+    color: var(--ups-text, #e8edf5) !important;
+    opacity: 1 !important;
+  }
+
+  /* Form labels (Auction O=43, Taxi O=98, generic forms) */
+  body label.inputlabel:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]),
+  body .inputlabel:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]) {
+    color: var(--ups-text, #e8edf5) !important;
+    display: block !important;
+    margin-bottom: 4px !important;
+    font-weight: 500 !important;
+  }
+
+  /* Form button containers — covers any form on any MFL page that uses
+     the standard `<td class="form_buttons">` wrapper, not just O=43 */
+  body td.form_buttons:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]) {
+    background: transparent !important;
+    color: var(--ups-text, #e8edf5) !important;
+  }
+  body .form_buttons input[type="submit"],
+  body .form_buttons button {
+    background: var(--ups-accent, #5b8dff) !important;
+    color: white !important;
+    border: 1px solid var(--ups-accent, #5b8dff) !important;
+    padding: 6px 12px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+  }
+  body .form_buttons input[type="submit"]:hover,
+  body .form_buttons button:hover {
+    filter: brightness(1.15) !important;
+  }
+
+  /* Report footer rows (totals row at bottom of report-style tables) */
+  body tr.reportfooter:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]) {
+    background: var(--ups-surface-alt, #1a2230) !important;
+  }
+  body tr.reportfooter td:not([class*="ups-"]) {
+    color: var(--ups-muted, #8a97ad) !important;
+    font-weight: 600 !important;
+    border-top: 2px solid var(--ups-border, #2a3446) !important;
+    border-bottom: none !important;
+  }
+
+  /* Generic form controls on non-O=43 pages — radios, checkboxes,
+     selects. accent-color sets the radio/checkbox tick color too. */
+  body input[type="radio"]:not([class*="ups-"]):not([class*="ah-"]),
+  body input[type="checkbox"]:not([class*="ups-"]):not([class*="ah-"]),
+  body select:not([class*="ups-"]):not([class*="ah-"]) {
+    accent-color: var(--ups-accent, #5b8dff) !important;
+    background: var(--ups-surface-alt, #1a2230) !important;
+    color: var(--ups-text, #e8edf5) !important;
+    border: 1px solid var(--ups-border, #2a3446) !important;
+    border-radius: 3px !important;
+  }
+  body select:not([class*="ups-"]):not([class*="ah-"]) option {
+    background: var(--ups-bg, #0b0f18) !important;
+    color: var(--ups-text, #e8edf5) !important;
+  }
 </style>
 
 <script>
