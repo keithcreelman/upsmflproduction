@@ -499,28 +499,101 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     prevFidByLot.set(lot, ev.fid);
   }
 
-  // Build messages
+  // ── GIF picker for marquee events (nom + won) ──
+  // Per-team-roast-bot brand: marquee Discord posts get a player-specific
+  // GIF appended. Skips forced_increase + overtake to avoid spam.
+  // No GIF if Giphy returns no player-specific match (per commish: better
+  // no GIF than a wrong one).
+  async function pickAuctionGifForPlayer(playerInfo, eventKind) {
+    const apiKey = String(env.GIPHY_API_KEY || "").trim();
+    if (!apiKey || !playerInfo || !playerInfo.name) return "";
+    const name = flipName(playerInfo.name);
+    const last = name.split(/\s+/).pop().toLowerCase();
+    if (!last || last.length < 3) return "";
+    const queryBase = eventKind === "nom" ? "hype" : "celebration";
+    const queries = [
+      `${name} touchdown`,
+      `${name} ${queryBase}`,
+      `${name} nfl`,
+    ];
+    for (const q of queries) {
+      try {
+        const u = new URL("https://api.giphy.com/v1/gifs/search");
+        u.searchParams.set("api_key", apiKey);
+        u.searchParams.set("q", q);
+        u.searchParams.set("limit", "25");
+        u.searchParams.set("lang", "en");
+        const r = await fetch(u.toString(), {
+          headers: { "User-Agent": "ups-auction-narrator" },
+          cf: { cacheTtl: 600, cacheEverything: false },
+        });
+        if (!r.ok) continue;
+        const j = await r.json();
+        const rows = Array.isArray(j?.data) ? j.data : [];
+        // Require LAST NAME match in title/slug to avoid wrong-player GIFs
+        const matches = rows.filter((row) => {
+          const haystack = String((row?.title || "") + " " + (row?.slug || "")).toLowerCase();
+          return haystack.includes(last);
+        });
+        if (matches.length === 0) continue;
+        const pick = matches[Math.floor(Math.random() * matches.length)];
+        const url =
+          pick?.images?.original?.url ||
+          pick?.images?.downsized_large?.url ||
+          pick?.images?.fixed_height?.url ||
+          pick?.url || "";
+        if (url) return String(url);
+      } catch (e) {
+        console.log("[auction-narrator] giphy lookup failed:", e?.message || e);
+      }
+    }
+    return "";
+  }
+
+  // Build messages — text first; we attach GIFs in the post loop so we
+  // can `await` Giphy without serializing the message-building phase.
   const messages = queue.map((ev) => {
     const player = fmtPlayer(ev.player_id);
     const franchise = `**${fmtFranchise(ev.fid)}**`;
     const bid = fmtBid(ev.bid_k);
+    let text;
     switch (ev._obs_kind) {
       case "nom":
-        return `🆕  ${franchise} **nominated** ${player} — opening at ${bid}`;
+        text = `🆕  ${franchise} **nominated** ${player} — opening at ${bid}`;
+        break;
       case "won":
-        return `🏆  ${franchise} **won** ${player} for ${bid}`;
+        text = `🏆  ${franchise} **won** ${player} for ${bid}`;
+        break;
       case "forced_increase":
-        return `⬆  ${franchise} **Forced Increase** to ${bid} on ${player}`;
+        text = `⬆  ${franchise} **Forced Increase** to ${bid} on ${player}`;
+        break;
       case "overtake":
-        return `💰  ${franchise} **Overtake** at ${bid} on ${player}`;
+        text = `💰  ${franchise} **Overtake** at ${bid} on ${player}`;
+        break;
       default:
-        return `💰  ${franchise} bid ${bid} on ${player}`;
+        text = `💰  ${franchise} bid ${bid} on ${player}`;
     }
+    // GIF picker only fires for nom + won (marquee events); other kinds
+    // get text-only to keep the channel readable during long bid wars.
+    const wantGif = ev._obs_kind === "nom" || ev._obs_kind === "won";
+    return { text, want_gif: wantGif, ev };
   });
 
-  // Post sequentially with a small delay between posts.
+  // Post sequentially with a small delay between posts. GIF lookup for
+  // marquee events happens just-in-time so we don't block the queue if
+  // Giphy is slow.
   for (let i = 0; i < messages.length; i += 1) {
-    const content = messages[i].slice(0, 1900);
+    const msg = messages[i];
+    let content = msg.text.slice(0, 1900);
+    let gifUrl = "";
+    if (msg.want_gif) {
+      gifUrl = await pickAuctionGifForPlayer(pidToInfo[msg.ev.player_id], msg.ev._obs_kind);
+      if (gifUrl) {
+        // Discord auto-embeds raw image URLs in message content. Newline
+        // separation keeps the text readable + the GIF below.
+        content = (content + "\n" + gifUrl).slice(0, 1900);
+      }
+    }
     try {
       const r = await fetch(
         `https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages`,
