@@ -10014,8 +10014,25 @@
     border-left: 3px solid var(--ups-success, #25c37d) !important;
     padding-left: calc(var(--ups-row-pad-left, 8px) - 3px) !important;
   }
-  body[id^="body_options_43"] .add-drop-player-row:hover {
+  body[id^="body_options_43"] .add-drop-player-row:hover,
+  body[id^="body_options_43"] form .add-drop-player-row:hover,
+  body[id^="body_options_43"] .add-drop-player-row.hover,
+  body[id^="body_options_43"] .add-drop-player-row.is-hovered,
+  body[id^="body_options_43"] .add-drop-player-row[class*="hover"] {
     background: var(--ups-surface-alt, #16253f) !important;
+    background-color: var(--ups-surface-alt, #16253f) !important;
+  }
+  /* Defensive — defeat any inline background TOS adds to the row on
+     mouseover/select. Specificity-via-attribute selector beats
+     external !important rules; pairing with our own !important lets us
+     win against TOS's inline style. */
+  body[id^="body_options_43"] .add-drop-player-row[style*="background"] {
+    background: var(--ups-row-odd, #111f35) !important;
+    background-color: var(--ups-row-odd, #111f35) !important;
+  }
+  body[id^="body_options_43"] .add-drop-player-row.selected-player[style*="background"] {
+    background: var(--ups-surface-alt, #16253f) !important;
+    background-color: var(--ups-surface-alt, #16253f) !important;
   }
   /* All text inside the picker row inherits the light text token —
      defeats whatever inline color TOS may apply to player names
@@ -10036,6 +10053,27 @@
     border: 1px solid var(--ups-border, #27476f) !important;
     border-radius: 50% !important;
     overflow: hidden !important;
+  }
+
+  /* Lock-status legend (#locked-msg) — TOS renders the "[L] Locked: ...
+     # Locked: Global ... * Locked: Recently Dropped" key below the
+     picker. Element has no class hooks; target by ID. Inherits page
+     default #000 on dark background → unreadable without an override. */
+  body[id^="body_options_43"] #locked-msg,
+  body[id^="body_options_43"] #locked-msg * {
+    color: var(--ups-text, #e8effa) !important;
+  }
+  body[id^="body_options_43"] #locked-msg b {
+    color: var(--ups-accent, #f0c465) !important;
+    font-weight: 700 !important;
+  }
+  body[id^="body_options_43"] #locked-msg a {
+    color: var(--ups-link, #8ec4ff) !important;
+    text-decoration: none !important;
+  }
+  body[id^="body_options_43"] #locked-msg a:hover {
+    color: var(--ups-link-hover, #c0deff) !important;
+    text-decoration: underline !important;
   }
 
   /* Player picker table */
