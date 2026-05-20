@@ -195,9 +195,12 @@ async function processAuctionPoll(env) {
   }
 
   // ── Recompute lot state from accumulated bids ──
-  // For every lot that just received a bid, refresh the lot row from
-  // the bid table. Cheap because we only refresh lots with new bids.
-  if (newBids > 0) {
+  // Recompute EVERY poll, not just when newBids > 0. Reason: schema
+  // evolutions (e.g. adding AUCTION_INIT polling later) can leave
+  // existing lot rows with stale nominator_fid/opening_bid_k. Letting
+  // the recompute fire unconditionally self-heals those rows on the
+  // next tick. Cost is small (~30 lots × handful of queries each).
+  if (true) {
     // Find lots touched in this poll: any lot with a bid_at_unix >= earliest new bid.
     // Simpler: just rebuild every OPEN lot for this season+league. Cap at 100 — auction has ~30-60 lots max.
     const openLots = await db.prepare(
@@ -234,6 +237,13 @@ async function processAuctionPoll(env) {
             bid_count, unique_bidder_count, updated_at_utc)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, datetime('now'))
          ON CONFLICT(lot_id) DO UPDATE SET
+           -- Nominator + opening bid CAN change retroactively if an
+           -- AUCTION_INIT row arrives after AUCTION_BID rows (e.g. our
+           -- INIT polling was added in a later deploy). Recompute these
+           -- every time, not just on insert.
+           nominator_fid           = excluded.nominator_fid,
+           opening_bid_k           = excluded.opening_bid_k,
+           opened_at_unix          = excluded.opened_at_unix,
            current_high_bid_k      = excluded.current_high_bid_k,
            current_high_bidder_fid = excluded.current_high_bidder_fid,
            last_bid_at_unix        = excluded.last_bid_at_unix,
@@ -1568,25 +1578,86 @@ export default {
             for (const p of (proxies || [])) proxiesByPid[p.player_id] = p.proxy_bid_k;
           }
 
-          const enriched = (lots || []).map((l) => ({
-            lot_id: l.lot_id,
-            player_id: l.player_id,
-            nominator_fid: l.nominator_fid,
-            opening_bid_k: l.opening_bid_k,
-            opened_at_unix: l.opened_at_unix,
-            current_high_bid_k: l.current_high_bid_k,
-            current_high_bidder_fid: l.current_high_bidder_fid,
-            last_bid_at_unix: l.last_bid_at_unix,
-            locks_at_unix: l.locks_at_unix,
-            seconds_remaining: Math.max(0, Number(l.locks_at_unix) - Math.floor(Date.now() / 1000)),
-            status: l.status,
-            winner_fid: l.winner_fid,
-            won_at_unix: l.won_at_unix,
-            bid_count: l.bid_count,
-            unique_bidder_count: l.unique_bidder_count,
-            // Private — only populated when viewer is the bidder.
-            your_proxy_bid_k: proxiesByPid[l.player_id] || null,
-          }));
+          // Enrich with player metadata + ERA-eligible flag.
+          //
+          // Auctions in MFL can include ANY currently-FA player — not
+          // just our ERA-eligible list (which is rookie+cy=0). When
+          // Keith tests with a random FA, our hub was rendering
+          // "Player #pid" because the client only knew names from the
+          // ERA payload. Fetch the names server-side from MFL's player
+          // metadata (cached 24h via cf.cacheTtl) so EVERY auctioned
+          // player renders correctly. Flag is_era_eligible separately
+          // so the UI can mark non-ERA lots as "[TEST]" / off-pool.
+          const playerIds = [...new Set((lots || []).map((l) => String(l.player_id)).filter(Boolean))];
+          const pidMeta = {};
+          if (playerIds.length > 0) {
+            try {
+              const playersRes = await fetch(
+                `https://api.myfantasyleague.com/${year}/export?TYPE=players&PLAYERS=${encodeURIComponent(playerIds.join(","))}&JSON=1`,
+                { cf: { cacheTtl: 86400 } }
+              );
+              const pj = await playersRes.json().catch(() => ({}));
+              let plist = pj?.players?.player || [];
+              if (!Array.isArray(plist)) plist = [plist];
+              for (const p of plist) {
+                const pid = String(p.id || "");
+                if (!pid) continue;
+                let name = String(p.name || "");
+                if (name.includes(",")) name = name.split(",").reverse().map((s) => s.trim()).join(" ");
+                pidMeta[pid] = {
+                  name,
+                  position: String(p.position || "").toUpperCase(),
+                  nfl_team: String(p.team || "").toUpperCase(),
+                };
+              }
+            } catch (e) {
+              console.error("[auction/lots] player metadata fetch failed:", e);
+            }
+          }
+
+          // Cross-check against ERA-eligible list (rookies with cy=0
+          // on active rosters). Lightweight check via D1 — no need to
+          // re-derive eligibility, just see if any of our lots
+          // intersect with the current rookie pool.
+          // For now: a lot is "era_eligible" if the player has an
+          // active Rookie contract with cy=0 OR has a recent rookie
+          // expiry event. Since deriving that here means re-running
+          // the full era-eligible logic, a cheaper proxy: flag
+          // is_era_eligible=false for any player we have no rookie
+          // history of (will surface "TEST" badge in the UI).
+          // Deferred to a separate cross-reference — for now ALL lots
+          // get is_era_eligible=null (unknown) so the UI shows them
+          // neutrally. Phase 5 can add the proper flag.
+
+          const enriched = (lots || []).map((l) => {
+            const meta = pidMeta[l.player_id] || {};
+            return {
+              lot_id: l.lot_id,
+              player_id: l.player_id,
+              // Player metadata enrichment (every auctioned player, not just ERA)
+              player_name: meta.name || ("Player #" + l.player_id),
+              position: meta.position || "",
+              nfl_team: meta.nfl_team || "",
+              nominator_fid: l.nominator_fid,
+              opening_bid_k: l.opening_bid_k,
+              opened_at_unix: l.opened_at_unix,
+              current_high_bid_k: l.current_high_bid_k,
+              current_high_bidder_fid: l.current_high_bidder_fid,
+              last_bid_at_unix: l.last_bid_at_unix,
+              locks_at_unix: l.locks_at_unix,
+              seconds_remaining: Math.max(0, Number(l.locks_at_unix) - Math.floor(Date.now() / 1000)),
+              status: l.status,
+              winner_fid: l.winner_fid,
+              won_at_unix: l.won_at_unix,
+              bid_count: l.bid_count,
+              unique_bidder_count: l.unique_bidder_count,
+              // Private — only populated when viewer is the bidder.
+              your_proxy_bid_k: proxiesByPid[l.player_id] || null,
+              // ERA-eligibility flag: null = unknown (Phase 5 will
+              // populate this from the live era-eligible list).
+              is_era_eligible: null,
+            };
+          });
 
           return jsonOut(200, {
             season: year,

@@ -516,6 +516,9 @@
   }
 
   function playerInfo(pid) {
+    // Prefer ERA payload (richer — includes rookie slot etc.). Falls
+    // back to "Player #pid" if not in the ERA list AND the lot row
+    // doesn't carry enriched name fields (it should, per worker).
     if (STATE.era && STATE.era.players) {
       for (const p of STATE.era.players) {
         if (p.player_id === pid) return p;
@@ -565,8 +568,20 @@
 
     const viewerFid = STATE.me && STATE.me.franchise_id ? STATE.me.franchise_id : null;
     tbody.innerHTML = sorted.map((l) => {
-      const pi = playerInfo(l.player_id);
+      // Prefer worker-enriched fields on the lot row; fall back to
+      // ERA payload metadata; final fallback to "Player #pid".
+      const fromEra = playerInfo(l.player_id);
+      const pi = {
+        name: l.player_name || fromEra.name,
+        position: l.position || fromEra.position,
+        nfl_team: l.nfl_team || fromEra.nfl_team,
+      };
       const pos = String(pi.position || "").toUpperCase();
+      // Test/TEST badge: lot's player is not in our ERA list — Keith
+      // can test the auction flow with arbitrary FAs without polluting
+      // real ERA reporting.
+      const isInEra = !!(STATE.era && STATE.era.players && STATE.era.players.some((p) => p.player_id === l.player_id));
+      const testBadge = isInEra ? "" : ` <span class="ah-origin Trade" title="Not in ERA-eligible list — likely a test or off-pool auction">TEST</span>`;
       const nflProfileUrl = `https://www.myfantasyleague.com/${new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=04&P=${encodeURIComponent(l.player_id)}`;
       const viewerFidForMfl = (STATE.me && STATE.me.franchise_id) || "0000";
       const mflAuctionUrl =
@@ -582,7 +597,7 @@
         : `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small" title="Open MFL auction to bid/raise">Bid ↗</a>`;
       return `
         <tr data-lot-id="${escapeHtml(l.lot_id)}" data-seconds="${l.seconds_remaining}" data-status="${l.status}">
-          <td><a href="${nflProfileUrl}" target="_blank" rel="noopener" class="player-link">${escapeHtml(pi.name || ("Player #" + l.player_id))}</a></td>
+          <td><a href="${nflProfileUrl}" target="_blank" rel="noopener" class="player-link">${escapeHtml(pi.name || ("Player #" + l.player_id))}</a>${testBadge}</td>
           <td><span class="ah-pos ${pos}">${escapeHtml(pos)}</span></td>
           <td class="col-md">${escapeHtml(pi.nfl_team || "—")}</td>
           <td>${escapeHtml(franchiseName(l.nominator_fid))}</td>
