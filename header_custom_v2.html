@@ -6808,6 +6808,44 @@
      pinned URL when shipping a new version of mfl_cache.js. -->
 <script src="https://keithcreelman.github.io/upsmflproduction/shared/mfl_cache.js?v=2026-05-20-stage1"></script>
 
+<!-- UPSReveal: anti-flicker double-RAF helper. Stage 2 of tos_removal_plan.md.
+     Pure utility; consumers (rosters fork, etc.) import via window.UPSReveal. -->
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/reveal.js?v=2026-05-20-stage2"></script>
+
+<!-- Stage 3: native mini-boxscore port (gated behind a flag — TOS's bundled
+     mini-boxscore in header.js drives #MFLBoxWrapper until Stage 5 flips this
+     to true AND sets load_mini_boxscore=false. Loading the source dormant here
+     so the file is cached + parsed before the cutover. -->
+<script>
+  if (typeof window.UPS_USE_NATIVE_MINI_BOXSCORE === "undefined") {
+    window.UPS_USE_NATIVE_MINI_BOXSCORE = false;
+  }
+</script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/mini_boxscore.js?v=2026-05-20-stage3"></script>
+
+<!-- Stage 4: native player popup. Bridges MFL's player-link clicks to our
+     existing UPS_openPlayerProfile (player_profile_master.js, 2373 lines).
+     Gated by UPS_USE_NATIVE_PLAYER_POPUP — while false, TOS's header.js popup
+     keeps working. Stage 5 flips this true AND sets load_popup=false. The
+     bridge ALSO loads player_profile_master.js so UPS_openPlayerProfile is
+     available before the click handler can fire. -->
+<script>
+  if (typeof window.UPS_USE_NATIVE_PLAYER_POPUP === "undefined") {
+    window.UPS_USE_NATIVE_PLAYER_POPUP = false;
+  }
+</script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=2026-05-20-stage4"></script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_popup_bridge.js?v=2026-05-20-stage4"></script>
+
+<!-- Stage 6: small native ports — mobile menu, module collapse, playoff bracket
+     polish. Additive; the corresponding TOS toggles (load_mobileMenu_script,
+     load_moduleExpand_script) stay true in HPM #20 until Stage 6 cutover
+     flips them off. Owner Activity hook was DELETED outright per §5 Q6
+     (no #tab202 references in our HPMs). -->
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/mobile_menu.js?v=2026-05-20-stage6"></script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/module_collapse.js?v=2026-05-20-stage6"></script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/playoff_bracket_polish.js?v=2026-05-20-stage6"></script>
+
 <script src="https://www.mflscripts.com/mfl-apps/global/header.js?v=1.60"></script>
 <style id="ups-marquee-style">
   .ups-marquee-shell {
@@ -7292,7 +7330,15 @@
   banner.style.display = "flex";
 })();
 </script>
-<link rel="stylesheet" type="text/css" href="https://www.mflscripts.com/mfl-apps/global/css/300x50-icons.css">
+<!-- Stage 8 of tos_removal_plan.md: self-host the franchise-icon layout CSS
+     and explicitly link Font Awesome Free (cdnjs) so we don't silently depend
+     on TOS's header.js/light.css to provide either. FA Free 6.5.2 covers every
+     fa-* icon we actually use (audit at port time: 14 icons, all in Free).
+     fa-square-left/right in mini_boxscore.js were swapped to fa-square-caret-*
+     for Free compatibility. Self-hosted 300x50-icons.css is verbatim from
+     mflscripts.com — pure layout rules, no embedded image URLs. -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="stylesheet" type="text/css" href="https://keithcreelman.github.io/upsmflproduction/shared/css/300x50-icons.css?v=2026-05-20-stage8">
 
 <style id="ups-theme-postload-overrides">
   /* Home / CCC pages: prevent horizontal overflow from shifting the entire
