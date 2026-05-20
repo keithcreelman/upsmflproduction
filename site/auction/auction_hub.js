@@ -376,9 +376,16 @@
 
     // Nomination eligibility — when next allowed (server-side enforcement
     // canonical; client just hints if the rule is reachable).
+    // Nominate button — UPS-side nominate endpoint is parked in
+    // CROSS_CODEBASE_ALIGNMENT §4.1. Until built, deep-link to MFL's
+    // native auction page so the button is at least functional.
+    // MFL auction nomination lives at /<year>/options?L=<league>&O=21
+    // (TYPE=21 is "auction"). Opens in a new tab so the hub view
+    // is preserved.
     const nominateEligible = !p.nominate_blocked;
+    const mflAuctionUrl = `https://www.myfantasyleague.com/${p.season || new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=21`;
     const nominateBtn = nominateEligible
-      ? `<button type="button" class="btn small ah-nominate-btn" data-pid="${escapeHtml(p.player_id)}" disabled title="Nomination endpoint not wired yet">Nominate</button>`
+      ? `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small ah-nominate-btn" data-pid="${escapeHtml(p.player_id)}" title="Opens MFL's native auction page in a new tab. UPS-side nominate endpoint is parked (see CROSS_CODEBASE_ALIGNMENT §4.1).">Nominate ↗</a>`
       : `<button type="button" class="btn small secondary" disabled title="${escapeHtml(p.nominate_block_reason || "Nomination blocked")}">Blocked</button>`;
 
     const origin = p.origin_label || "Unknown";

@@ -9432,7 +9432,17 @@
   /* Catch the specific class names MFL uses for hint/help boxes —
      these tend to carry inline color via stylesheet rules that
      would still win over the broad rule above. Force-override
-     every common name + their descendants. */
+     every common name + their descendants.
+
+     CONFIRMED MFL MARKUP (from a 2026-05-20 inspection of the
+     auction-settings page):
+       <tr id="row_hint_AUCTION_TYPE">
+         <td class="tdalert tdalert-info-table">
+           <span><b>Hint:</b> Changing these values...</span>
+         </td>
+       </tr>
+     The .tdalert / .tdalert-info-table + the row_hint_ id attribute
+     give us two reliable signals to target. */
   body .hint, body .hint *,
   body .note, body .note *,
   body .help, body .help *,
@@ -9440,12 +9450,18 @@
   body .helpbox, body .helpbox *,
   body .helphint, body .helphint *,
   body .formhint, body .formhint *,
+  body .tdalert, body .tdalert *,
+  body .tdalert-info-table, body .tdalert-info-table *,
+  body tr[id^="row_hint_"], body tr[id^="row_hint_"] *,
   body [class*="hint"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]),
   body [class*="hint"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]) *,
   body [class*="note"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]),
-  body [class*="note"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]) * {
+  body [class*="note"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]) *,
+  body [class*="tdalert"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]),
+  body [class*="tdalert"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]) * {
     color: var(--ups-text, #e8edf5) !important;
     opacity: 1 !important;
+    text-shadow: none !important;
   }
 </style>
 
