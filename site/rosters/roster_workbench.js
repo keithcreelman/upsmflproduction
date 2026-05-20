@@ -555,6 +555,36 @@
     return status === "r" || status.indexOf("r-") === 0 || status.indexOf("rookie") !== -1;
   }
 
+  // taxiDemoteLikelyForbidden — client-side §B2 guard. Returns true when
+  // the player has almost certainly used at least one call-up that the
+  // worker hasn't tracked (rule-transition cohort: Devin Neal, Kyle
+  // Williams, others promoted before 2026-05-08 rule + backfill missed
+  // them). Conservative: an active rookie acquired in a prior season
+  // has been on the roster across a locked NFL week, which under
+  // canon §B2 burns a call-up. Block demote until the worker fixes
+  // taxi_callups_used / taxi_permanent_promotion for these players.
+  //
+  // Returns false (allow demote) when:
+  //   - worker explicitly says 0 call-ups used AND
+  //   - player was acquired in the CURRENT season (fresh draft pick
+  //     that's never crossed a week boundary)
+  function taxiDemoteLikelyForbidden(player) {
+    if (!player) return false;
+    var usedOrPending = safeInt(player.taxiCallupsUsed, 0) + safeInt(player.taxiCallupsPending, 0);
+    if (usedOrPending > 0) return true;     // worker says they've burned ≥1
+    // Heuristic: parse acquisition year from "<round>.<slot> (YYYY)" or
+    // similar pattern; if it's before current season AND they're a
+    // rookie-type, block.
+    var current = currentYearInt();
+    var acq = safeStr(player.acquisitionText || "");
+    var m = acq.match(/\((\d{4})\)\s*$/);
+    if (!m) return false;                    // unknown acquisition window → trust worker
+    var acquiredYear = safeInt(m[1], 0);
+    if (acquiredYear <= 0 || acquiredYear >= current) return false; // this-season draftee
+    if (!rookieLikeContractStatus(player.type)) return false;       // veterans not in scope
+    return true;                              // active rookie from a prior season → likely locked
+  }
+
   function rosterContractEligibility(player) {
     var years = Math.max(0, safeInt(player && player.years, 0));
     var salary = safeInt(player && player.salary, 0);
@@ -7604,11 +7634,21 @@
           actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="promote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Promote From Taxi</button>'
           );
-        } else if (!player.isIr && player.taxiEligible && !player.taxiPermanentPromotion) {
+        } else if (!player.isIr && player.taxiEligible && !player.taxiPermanentPromotion && !taxiDemoteLikelyForbidden(player)) {
           // Demote to Taxi — appears for taxi-eligible non-taxi players
           // (R2-5 rookies in their 3-year window) who haven't been
           // permanently promoted. Worker enforces real rules: R1 blocked
           // (Q12), permanently-promoted blocked (Q10 follow-up).
+          //
+          // Keith 2026-05-19: Devin Neal + Kyle Williams were promoted
+          // BEFORE the §B2 3-call-ups-then-permanent rule landed on
+          // 2026-05-08, and the backfill in PR #246 didn't catch them
+          // — worker still reports taxi_callups_used=0 + taxi_permanent
+          // _promotion=false, so the button was showing on rule-locked
+          // players. The taxiDemoteLikelyForbidden() guard adds a
+          // conservative client-side check (active rookie acquired in
+          // a prior season → almost certainly burned ≥1 call-up across
+          // the season boundary → block).
           actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="demote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Demote to Taxi</button>'
           );
