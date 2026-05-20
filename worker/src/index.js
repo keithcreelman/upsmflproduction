@@ -2277,17 +2277,26 @@ export default {
         const apiKey = String(env.MFL_APIKEY || "").trim();
         const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
 
-        // Offseason window: Feb 1 → now (approximate; deadline TBD per §A2).
+        // Offseason window: Feb 1 → min(now, Aug 1 of YEAR). Capping the
+        // end at Aug 1 prevents historical lookbacks (YEAR=2024 etc.) from
+        // bleeding into the following NFL season's in-season drops, which
+        // aren't subject to §A2 (different rule applies).
         const offseasonStartUnix = Math.floor(new Date(`${year}-02-01T00:00:00Z`).getTime() / 1000);
+        const offseasonEndUnix   = Math.floor(new Date(`${year}-08-01T00:00:00Z`).getTime() / 1000);
         const nowUnix = Math.floor(Date.now() / 1000);
+        const windowEndUnix = Math.min(nowUnix, offseasonEndUnix);
 
         try {
+          // Franchise names always fetched from CURRENT year (historical
+          // years may return an empty league.franchises payload). MFL
+          // franchise IDs are stable so this is safe.
+          const currentYear = new Date().getUTCFullYear();
           const [txRes, salariesRes, leagueRes] = await Promise.all([
             fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=transactions&L=${leagueId}&TRANS_TYPE=FREE_AGENT&JSON=1${apiQs}`,
               { cf: { cacheTtl: 60 } }).then((r) => r.json()).catch(() => ({})),
             fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=salaries&L=${leagueId}&JSON=1${apiQs}`,
               { cf: { cacheTtl: 60 } }).then((r) => r.json()).catch(() => ({})),
-            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+            fetch(`https://www48.myfantasyleague.com/${currentYear}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
               { cf: { cacheTtl: 300 } }).then((r) => r.json()).catch(() => ({})),
           ]);
 
@@ -2328,7 +2337,7 @@ export default {
             const fid = String(tx?.franchise || "").padStart(4, "0");
             if (!fid || fid === "0000") continue;
             const ts = Number(tx?.timestamp || 0);
-            if (ts < offseasonStartUnix || ts > nowUnix) continue;
+            if (ts < offseasonStartUnix || ts > windowEndUnix) continue;
 
             const raw = String(tx?.transaction || "");
             const parts = raw.split("|");
@@ -2451,9 +2460,9 @@ export default {
             generated_at: new Date().toISOString(),
             window: {
               offseason_start_iso: new Date(offseasonStartUnix * 1000).toISOString(),
-              evaluated_through_iso: new Date(nowUnix * 1000).toISOString(),
+              evaluated_through_iso: new Date(windowEndUnix * 1000).toISOString(),
               cut_deadline_iso: null,  // §A2 deadline TBD — set when canon pins it down
-              cut_deadline_note: "FA Auction Cut Deadline not yet finalized in canon §A2; using offseason-start → now as the v1 window.",
+              cut_deadline_note: "FA Auction Cut Deadline not yet finalized in canon §A2; using offseason window (Feb 1 → min(now, Aug 1)) as v1 approximation.",
             },
             canon_rule: "league_context_v1.md §A2 — block when cut.season = current AND prior_years_remaining ≥ 1 AND timestamp < cut_deadline AND prior_contract_type != Tag",
             franchise_filter: filterFid || null,
