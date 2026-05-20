@@ -609,37 +609,143 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     return { text, want_gif: wantGif, ev };
   });
 
+  // ── Per-lot Discord thread routing ──
+  // On Nom: post message to MAIN CHANNEL, create a Discord thread from
+  //         that message, persist the thread_id in ups_auction_lots.
+  // On Forced Increase / Overtake / Won: look up the lot's saved
+  //         thread_id and post INTO the thread (Discord threads are
+  //         addressable as channels via /channels/{thread_id}/messages).
+  // Fallback: if a lot has no saved thread_id (e.g., catch-up narration
+  //         after a deploy, or thread creation failed), post to the
+  //         main channel so the event still surfaces.
+  //
+  // discord_message_id = the parent message anchoring the thread
+  // discord_thread_id  = the thread itself (addressable as a channel)
+  // discord_channel_id = parent channel (test vs prod tracking)
+  async function getLotDiscord(lotId) {
+    if (!db) return null;
+    try {
+      const r = await db.prepare(
+        `SELECT discord_thread_id, discord_message_id, discord_channel_id
+           FROM ups_auction_lots WHERE lot_id = ?`
+      ).bind(lotId).first();
+      return r || null;
+    } catch (e) {
+      console.log("[auction-narrator] getLotDiscord failed:", e?.message || e);
+      return null;
+    }
+  }
+  async function saveLotDiscord(lotId, threadId, messageId, postedChannelId) {
+    if (!db) return;
+    try {
+      await db.prepare(
+        `UPDATE ups_auction_lots
+            SET discord_thread_id = COALESCE(discord_thread_id, ?),
+                discord_message_id = COALESCE(discord_message_id, ?),
+                discord_channel_id = COALESCE(discord_channel_id, ?),
+                updated_at_utc = datetime('now')
+          WHERE lot_id = ?`
+      ).bind(threadId, messageId, postedChannelId, lotId).run();
+    } catch (e) {
+      console.log("[auction-narrator] saveLotDiscord failed:", e?.message || e);
+    }
+  }
+
+  async function postToDiscord(targetChannelId, content) {
+    return fetch(
+      `https://discord.com/api/v10/channels/${encodeURIComponent(targetChannelId)}/messages`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+      }
+    );
+  }
+  async function createThreadOnMessage(parentChannelId, messageId, name) {
+    return fetch(
+      `https://discord.com/api/v10/channels/${encodeURIComponent(parentChannelId)}/messages/${encodeURIComponent(messageId)}/threads`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: String(name || "Lot").slice(0, 100),
+          auto_archive_duration: 1440,  // 24h — archives gracefully after auction
+        }),
+      }
+    );
+  }
+
   // Post sequentially with a small delay between posts. GIF lookup for
   // marquee events happens just-in-time so we don't block the queue if
   // Giphy is slow.
   for (let i = 0; i < messages.length; i += 1) {
     const msg = messages[i];
+    const ev = msg.ev;
+    const lotId = `${season}|${leagueId}|${ev.player_id}`;
+
     let content = msg.text.slice(0, 1900);
-    let gifUrl = "";
     if (msg.want_gif) {
-      gifUrl = await pickAuctionGifForPlayer(pidToInfo[msg.ev.player_id], msg.ev._obs_kind);
-      if (gifUrl) {
-        // Discord auto-embeds raw image URLs in message content. Newline
-        // separation keeps the text readable + the GIF below.
-        content = (content + "\n" + gifUrl).slice(0, 1900);
+      const gifUrl = await pickAuctionGifForPlayer(pidToInfo[ev.player_id], ev._obs_kind);
+      if (gifUrl) content = (content + "\n" + gifUrl).slice(0, 1900);
+    }
+
+    // Resolve target: thread for non-nom events; channel for nom (and
+    // for any fallback when thread isn't yet known).
+    let targetChannelId = channelId;
+    let createThreadAfter = false;
+    if (ev._obs_kind === "nom") {
+      // Always go to main channel; we'll create a thread on this message.
+      targetChannelId = channelId;
+      createThreadAfter = true;
+    } else {
+      const existing = await getLotDiscord(lotId);
+      if (existing && existing.discord_thread_id) {
+        targetChannelId = String(existing.discord_thread_id);
+      } else {
+        // No thread yet (catch-up narration); post to channel as fallback.
+        targetChannelId = channelId;
       }
     }
+
+    let postedMessageId = "";
     try {
-      const r = await fetch(
-        `https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
-        }
-      );
+      const r = await postToDiscord(targetChannelId, content);
       if (!r.ok) {
         const body = await r.text().catch(() => "");
-        console.log(`[auction-narrator] post failed ${r.status}: ${body.slice(0, 200)}`);
+        console.log(`[auction-narrator] post failed ${r.status} to ${targetChannelId}: ${body.slice(0, 200)}`);
+      } else {
+        const j = await r.json().catch(() => ({}));
+        postedMessageId = String(j?.id || "");
       }
     } catch (e) {
       console.log("[auction-narrator] post threw:", String(e?.message || e));
     }
+
+    // If this was a nomination, create the per-lot thread now and save it.
+    if (createThreadAfter && postedMessageId) {
+      const pInfo = pidToInfo[ev.player_id];
+      const playerNameForThread = pInfo ? flipName(pInfo.name) : `Player ${ev.player_id}`;
+      const posMeta = pInfo ? [pInfo.position, pInfo.team].filter(Boolean).join(" · ") : "";
+      const threadName = posMeta
+        ? `Auction · ${playerNameForThread} (${posMeta})`
+        : `Auction · ${playerNameForThread}`;
+      try {
+        const tr = await createThreadOnMessage(channelId, postedMessageId, threadName);
+        if (tr.ok) {
+          const tj = await tr.json().catch(() => ({}));
+          const threadId = String(tj?.id || "");
+          if (threadId) {
+            await saveLotDiscord(lotId, threadId, postedMessageId, channelId);
+          }
+        } else {
+          const body = await tr.text().catch(() => "");
+          console.log(`[auction-narrator] thread create failed ${tr.status}: ${body.slice(0, 200)}`);
+        }
+      } catch (e) {
+        console.log("[auction-narrator] thread create threw:", String(e?.message || e));
+      }
+    }
+
     if (i < messages.length - 1) {
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
