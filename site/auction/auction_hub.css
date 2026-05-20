@@ -197,16 +197,48 @@ main.ah-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .ah-why:hover { color: var(--accent); border-color: var(--accent); }
 
 /* Buttons */
-.btn {
-  background: var(--accent); color: white; border: 0;
-  padding: 6px 12px; border-radius: 4px;
-  font-size: 12px; font-weight: 500; cursor: pointer;
+/* Buttons — also covers <a class="btn"> via !important on color/decoration
+   since anchor styles otherwise leak through. Boosted weight (700) + size
+   (13px) + letter-spacing for legibility against the accent background. */
+.btn,
+a.btn {
+  background: var(--accent);
+  color: #fff !important;
+  border: 0;
+  padding: 7px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
   font-family: inherit;
+  text-decoration: none !important;
+  display: inline-block;
+  line-height: 1.2;
 }
-.btn:hover { filter: brightness(1.1); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn.secondary { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); }
-.btn.small { padding: 4px 8px; font-size: 11px; }
+.btn:hover,
+a.btn:hover {
+  filter: brightness(1.15);
+  text-decoration: none !important;
+}
+.btn:disabled,
+a.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+}
+.btn.secondary,
+a.btn.secondary {
+  background: var(--panel-alt);
+  color: var(--text) !important;
+  border: 1px solid var(--accent);
+}
+.btn.small,
+a.btn.small {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
 
 /* Nominate popover (hover-over) */
 .ah-nominate-wrap { position: relative; display: inline-block; }
