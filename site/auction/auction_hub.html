@@ -162,8 +162,21 @@
         <h2>Cap &amp; Roster Compliance</h2>
         <span class="small" id="warroom-compliance-summary">—</span>
       </div>
+      <div class="ah-warroom-league-banner" id="warroom-compliance-banner" style="display:none;"></div>
       <div class="ah-warroom-grid" id="warroom-compliance-grid">
         <div class="ah-placeholder">Loading franchise compliance…</div>
+      </div>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Nomination Cadence</h2>
+        <span class="small">
+          ERA: 1 / 12h rolling (§A3) · FA Auction: 2 / 24h rolling (§A1)
+        </span>
+      </div>
+      <div class="ah-warroom-grid" id="warroom-nominations-grid">
+        <div class="ah-placeholder">Loading nomination cadence…</div>
       </div>
     </div>
 
@@ -181,8 +194,13 @@
   <!-- ── BID HISTORY ──────────────────────────────────────────────── -->
   <section class="ah-section" data-section="history">
     <div class="ah-context-banner">
-      <strong>Bid History</strong> — chronological feed from <code>ups_auction_bids</code>
-      (populated every 5 minutes by the auction poll cron).
+      <strong>Bid History</strong> — chronological feed from <code>ups_auction_bids</code>,
+      grouped by lot. Latest bid surfaces; click to expand the full sequence.
+      <span class="ah-legend">
+        <span class="ah-legend-item">🆕 Nomination</span>
+        <span class="ah-legend-item">💰 Bid</span>
+        <span class="ah-legend-item ah-help" title="MFL's auto-bidder. When you submit a hidden proxy max, MFL bids up to that amount in $1K increments on your behalf when overtaken. Each auto-step shows here as a proxy walk.">🤖 Proxy walk <span class="ah-help-q">ⓘ</span></span>
+      </span>
       <div class="meta" id="history-meta">Click the tab to load.</div>
     </div>
 

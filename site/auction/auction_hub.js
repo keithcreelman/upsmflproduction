@@ -224,14 +224,17 @@
     const blocksSummary = $("#warroom-blocks-summary");
     if (metaEl) metaEl.textContent = "Loading…";
     try {
-      const [compliance, blocks] = await Promise.all([
+      const [compliance, blocks, nomStatus] = await Promise.all([
         fetchJSON(apiUrl("/api/auction/compliance") + qs),
         fetchJSON(apiUrl("/api/auction/cut-rebid-blocks") + qs),
+        fetchJSON(apiUrl("/api/auction/nomination-status") + qs).catch(() => null),
       ]);
       STATE.compliance = compliance;
       STATE.cutRebidBlocks = blocks;
+      STATE.nominationStatus = nomStatus;
       renderCompliance();
       renderCutRebidBlocks();
+      renderNominationStatus();
       if (complianceSummary) {
         complianceSummary.textContent =
           (compliance.total_warnings || 0) + " warning" +
@@ -277,6 +280,7 @@
 
   function renderCompliance() {
     const grid = $("#warroom-compliance-grid");
+    const banner = $("#warroom-compliance-banner");
     if (!grid) return;
     const data = STATE.compliance || {};
     const rows = data.franchises || [];
@@ -284,9 +288,38 @@
       grid.innerHTML = `<div class="ah-placeholder">No franchise data available.</div>`;
       return;
     }
+    // League-wide banner — surface only the ACTIONABLE collective signal.
+    // §6.A2 cap floor is a "by auction close" advisory; emitting it per-card
+    // for every franchise before auction is noise. Show one league-wide line.
+    if (banner) {
+      const underFloorCount = rows.filter((f) => f.cap_floor_status === "below").length;
+      const overCeilCount = rows.filter((f) => f.cap_ceiling_status === "over").length;
+      const underMinCount = rows.filter((f) => f.active_status === "below_27").length;
+      const t = (data.thresholds || {});
+      const parts = [];
+      if (underFloorCount > 0) {
+        parts.push(`${underFloorCount}/${rows.length} franchises currently under the $${t.cap_floor_k || 260}K floor — expected pre-auction, must be hit by FA Auction close (§6.A2)`);
+      }
+      if (overCeilCount > 0) {
+        parts.push(`<strong style="color:var(--err);">${overCeilCount} OVER the $${t.cap_ceiling_k || 300}K ceiling</strong> — must be resolved before auction (§6.A1)`);
+      }
+      if (underMinCount > 0) {
+        parts.push(`${underMinCount} franchises under ${t.active_min || 27}-active minimum — must be hit at auction close (§B1)`);
+      }
+      banner.innerHTML = parts.length === 0
+        ? `<span style="color:var(--ok);">All franchises compliant against current thresholds.</span>`
+        : parts.join(" · ");
+      banner.style.display = "";
+    }
     grid.innerHTML = rows.map((f) => {
-      const sev = (f.warnings || []).some((w) => w.severity === "error") ? "error"
-                : (f.warnings || []).length > 0 ? "warning"
+      // Filter out the per-franchise cap-floor advisory — universal pre-auction
+      // and rolled up into the banner above. Keep ceiling-breach + active-min
+      // warnings inline because those are franchise-specific signals.
+      const visibleWarnings = (f.warnings || []).filter(
+        (w) => w.code !== "cap_floor_advisory"
+      );
+      const sev = visibleWarnings.some((w) => w.severity === "error") ? "error"
+                : visibleWarnings.length > 0 ? "warning"
                 : "ok";
       const sevLabel = sev === "error" ? "OVER CEILING" : sev === "warning" ? "ADVISORY" : "OK";
       return `
@@ -309,15 +342,73 @@
             <div><span class="ah-stat-label">Adjustments</span>
               <span class="ah-stat-val">$${f.adjustments_k}K</span></div>
           </div>
-          ${(f.warnings || []).length > 0 ? `
+          ${visibleWarnings.length > 0 ? `
             <ul class="ah-warroom-warns">
-              ${f.warnings.map((w) => `
+              ${visibleWarnings.map((w) => `
                 <li class="ah-warn-${w.severity}">${escapeHtml(w.message)}</li>
               `).join("")}
             </ul>
           ` : ""}
         </div>`;
     }).join("");
+  }
+
+  function renderNominationStatus() {
+    const grid = $("#warroom-nominations-grid");
+    if (!grid) return;
+    const data = STATE.nominationStatus || {};
+    const rows = data.franchises || [];
+    if (rows.length === 0) {
+      grid.innerHTML = `<div class="ah-placeholder">No nomination activity yet this season.</div>`;
+      return;
+    }
+    const nowUnix = data.now_unix || Math.floor(Date.now() / 1000);
+    grid.innerHTML = rows.map((f) => {
+      const era = f.era || {};
+      const fa = f.fa_auction || {};
+      const eraStatus = era.can_nominate_now
+        ? `<span class="ah-nom-ready">Can nominate now</span>`
+        : `<span class="ah-nom-cooldown">Next: ${countdownLabel(era.seconds_until_next)}</span>`;
+      const faStatus = fa.can_nominate_now
+        ? `<span class="ah-nom-ready">${fa.remaining} of ${fa.max_in_window} left</span>`
+        : `<span class="ah-nom-cooldown">Next: ${countdownLabel(fa.seconds_until_next)}</span>`;
+      const lastLabel = f.last_nomination_at_iso
+        ? formatBidWhen(f.last_nomination_at_unix)
+        : "never";
+      return `
+        <div class="ah-warroom-card">
+          <div class="ah-warroom-card-head">
+            <div class="ah-warroom-fname">${escapeHtml(f.franchise_name)}</div>
+            <div class="ah-warroom-sev">${f.total_nominations} total</div>
+          </div>
+          <div class="ah-nom-rows">
+            <div class="ah-nom-row">
+              <span class="ah-nom-label">ERA (1 / 12h)</span>
+              ${eraStatus}
+            </div>
+            <div class="ah-nom-row">
+              <span class="ah-nom-label">FA Auction (2 / 24h)</span>
+              ${faStatus}
+            </div>
+            <div class="ah-nom-row ah-nom-row-meta">
+              <span class="ah-nom-label">Last nomination</span>
+              <span class="ah-stat-val">${lastLabel}</span>
+            </div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  function countdownLabel(secs) {
+    if (!secs || secs <= 0) return "now";
+    if (secs < 60) return Math.floor(secs) + "s";
+    if (secs < 3600) return Math.floor(secs / 60) + "m";
+    if (secs < 86400) {
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    }
+    return Math.floor(secs / 86400) + "d";
   }
 
   function renderCutRebidBlocks() {
@@ -441,44 +532,97 @@
     if (fFilter) bids = bids.filter((b) => b.fid === fFilter);
     if (kFilter) bids = bids.filter((b) => b.kind === kFilter);
 
-    // Newest first for the feed
-    bids.sort((a, b) => (b.bid_at_unix || 0) - (a.bid_at_unix || 0));
-
-    if (countEl) countEl.textContent = bids.length + " event" + (bids.length === 1 ? "" : "s");
-
     if (bids.length === 0) {
+      if (countEl) countEl.textContent = "0 events";
       feed.innerHTML = `<div class="ah-placeholder">No bids match the current filters.</div>`;
       return;
     }
 
-    feed.innerHTML = `<ul class="ah-bid-feed">` +
-      bids.map((b) => {
+    // Thread view — group by lot_id (= same player lot). Newest activity
+    // surfaces the thread; click to expand the full bid sequence inside.
+    const threadsByLot = new Map();
+    for (const b of bids) {
+      const key = b.lot_id || String(b.player_id);
+      if (!threadsByLot.has(key)) threadsByLot.set(key, []);
+      threadsByLot.get(key).push(b);
+    }
+    // Each thread sorted chronologically inside; threads themselves sorted by
+    // latest-event timestamp desc (most recently active lot first).
+    const threads = [...threadsByLot.values()].map((arr) => {
+      arr.sort((a, b) => (a.bid_at_unix || 0) - (b.bid_at_unix || 0));
+      return arr;
+    });
+    threads.sort((a, b) => {
+      const aLatest = a[a.length - 1]?.bid_at_unix || 0;
+      const bLatest = b[b.length - 1]?.bid_at_unix || 0;
+      return bLatest - aLatest;
+    });
+
+    if (countEl) {
+      const evCount = bids.length;
+      const lotCount = threads.length;
+      countEl.textContent = evCount + " event" + (evCount === 1 ? "" : "s") +
+        " across " + lotCount + " lot" + (lotCount === 1 ? "" : "s");
+    }
+
+    feed.innerHTML = threads.map((thread) => {
+      const latest = thread[thread.length - 1];
+      const opening = thread.find((b) => b.is_nomination) || thread[0];
+      const expandable = thread.length > 1;
+      const proxyWalkCount = thread.filter((b) => b.kind === "proxy_walk").length;
+      const summaryIcon = latest.kind === "nomination" ? "🆕"
+                       : latest.kind === "proxy_walk" ? "🤖"
+                       : "💰";
+      const summaryKindLabel = latest.kind === "nomination" ? "NOMINATION"
+                            : latest.kind === "proxy_walk" ? "PROXY WALK"
+                            : "BID";
+
+      const expandedRows = thread.map((b, i) => {
+        const isLast = i === thread.length - 1;
         const icon = b.kind === "nomination" ? "🆕"
                   : b.kind === "proxy_walk" ? "🤖"
                   : "💰";
-        const kindLabel = b.kind === "nomination" ? "NOMINATION"
-                       : b.kind === "proxy_walk" ? "PROXY WALK"
-                       : "BID";
+        const kindLabel = b.kind === "nomination" ? "Nominated"
+                       : b.kind === "proxy_walk" ? "Proxy walk"
+                       : "Bid";
         return `
-          <li class="ah-bid-event ah-bid-${b.kind}">
-            <div class="ah-bid-icon">${icon}</div>
+          <div class="ah-thread-step ${isLast ? "ah-thread-step-latest" : ""}">
+            <div class="ah-thread-icon">${icon}</div>
+            <div class="ah-thread-step-body">
+              <div class="ah-thread-step-head">
+                <span class="ah-thread-step-action">${escapeHtml(kindLabel)}</span>
+                <strong class="ah-thread-step-team">${escapeHtml(b.franchise_name || "")}</strong>
+                <span class="ah-thread-step-amount">$${b.bid_k}K</span>
+                <span class="ah-thread-step-when">${formatBidWhen(b.bid_at_unix)}</span>
+              </div>
+              ${b.note ? `<div class="ah-thread-step-note">${escapeHtml(b.note)}</div>` : ""}
+            </div>
+          </div>`;
+      }).join("");
+
+      return `
+        <details class="ah-bid-thread ah-bid-${latest.kind}" ${expandable ? "" : "open"}>
+          <summary class="ah-bid-thread-summary">
+            <span class="ah-bid-icon">${summaryIcon}</span>
             <div class="ah-bid-body">
               <div class="ah-bid-head">
-                <strong>${escapeHtml(b.franchise_name || "")}</strong>
-                <span class="ah-bid-kind">${kindLabel}</span>
-                <span class="ah-bid-amount">$${b.bid_k}K</span>
+                <strong>${escapeHtml(latest.franchise_name || "")}</strong>
+                <span class="ah-bid-kind">${summaryKindLabel}</span>
+                <span class="ah-bid-amount">$${latest.bid_k}K</span>
               </div>
               <div class="ah-bid-meta">
-                <span class="ah-bid-player">${escapeHtml(b.player_name || "")}</span>
-                ${b.position ? ` · ${escapeHtml(b.position)}` : ""}
-                ${b.nfl_team ? ` · ${escapeHtml(b.nfl_team)}` : ""}
-                <span class="ah-bid-when">${formatBidWhen(b.bid_at_unix)}</span>
+                <span class="ah-bid-player">${escapeHtml(latest.player_name || "")}</span>
+                ${latest.position ? ` · ${escapeHtml(latest.position)}` : ""}
+                ${latest.nfl_team ? ` · ${escapeHtml(latest.nfl_team)}` : ""}
+                ${expandable ? `<span class="ah-thread-count">· ${thread.length} bids${proxyWalkCount > 0 ? ` · ${proxyWalkCount} proxy walk${proxyWalkCount === 1 ? "" : "s"}` : ""}</span>` : ""}
+                <span class="ah-bid-when">${formatBidWhen(latest.bid_at_unix)}</span>
               </div>
-              ${b.note ? `<div class="ah-bid-note">${escapeHtml(b.note)}</div>` : ""}
             </div>
-          </li>`;
-      }).join("") +
-      `</ul>`;
+            ${expandable ? `<span class="ah-thread-toggle" aria-hidden="true">▾</span>` : ""}
+          </summary>
+          ${expandable ? `<div class="ah-thread-steps">${expandedRows}</div>` : ""}
+        </details>`;
+    }).join("");
   }
 
   function formatBidWhen(unix) {

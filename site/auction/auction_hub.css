@@ -411,3 +411,166 @@ a.btn.small {
   font-size: 10px; color: var(--muted);
   font-family: -apple-system, BlinkMacSystemFont, monospace;
 }
+
+/* ── War Room league-wide compliance banner ──────────────────────────
+   Rolls up universal pre-auction signals (cap floor, active min) into
+   one league-level line so per-franchise cards stay clean. */
+.ah-warroom-league-banner {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--warn);
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.ah-warroom-league-banner strong { color: var(--err); }
+
+/* ── Nomination cadence rows inside War Room cards ──────────────────── */
+.ah-nom-rows {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-top: 4px;
+}
+.ah-nom-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 3px 0;
+  font-size: 12px;
+}
+.ah-nom-row-meta {
+  border-top: 1px solid var(--border);
+  padding-top: 6px; margin-top: 2px;
+  font-size: 11px;
+}
+.ah-nom-label { color: var(--muted); }
+.ah-nom-ready {
+  color: var(--ok);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.ah-nom-cooldown {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* ── Bid History legend chips (in context banner) ───────────────────── */
+.ah-legend {
+  display: inline-flex; gap: 10px;
+  margin-left: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.ah-legend-item {
+  color: var(--muted);
+  font-size: 11px;
+}
+.ah-help {
+  cursor: help;
+  border-bottom: 1px dotted var(--muted);
+}
+.ah-help:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.ah-help-q { font-size: 10px; opacity: 0.6; margin-left: 2px; }
+
+/* ── Bid History thread view ─────────────────────────────────────────
+   Each lot collapses into one summary row showing the latest bid +
+   thread length. Click to expand the chronological step list. */
+.ah-bid-thread {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 4px;
+  overflow: hidden;
+  transition: background 100ms;
+}
+.ah-bid-thread.ah-bid-nomination { border-left: 3px solid var(--ok); }
+.ah-bid-thread.ah-bid-proxy_walk { border-left: 3px solid #c084fc; }
+.ah-bid-thread.ah-bid-bid        { border-left: 3px solid var(--accent); }
+.ah-bid-thread:hover { background: var(--panel); }
+
+/* Override default browser disclosure marker for cleaner UI */
+.ah-bid-thread-summary {
+  display: flex; gap: 12px; align-items: center;
+  padding: 8px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+.ah-bid-thread-summary::-webkit-details-marker { display: none; }
+.ah-bid-thread-summary::marker { display: none; }
+
+.ah-thread-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 14px;
+  transition: transform 150ms;
+  user-select: none;
+}
+.ah-bid-thread[open] .ah-thread-toggle { transform: rotate(180deg); }
+
+.ah-thread-count {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ah-thread-steps {
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  padding: 4px 10px 8px 10px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ah-thread-step {
+  display: flex; gap: 10px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  position: relative;
+}
+.ah-thread-step:not(.ah-thread-step-latest) { opacity: 0.7; }
+.ah-thread-step-latest {
+  background: rgba(91, 141, 255, 0.06);
+}
+/* Vertical thread spine */
+.ah-thread-steps .ah-thread-step::before {
+  content: "";
+  position: absolute;
+  left: 22px; top: -2px; bottom: -2px;
+  width: 1px;
+  background: var(--border);
+}
+.ah-thread-steps .ah-thread-step:first-child::before { top: 50%; }
+.ah-thread-steps .ah-thread-step:last-child::before { bottom: 50%; }
+.ah-thread-icon {
+  flex-shrink: 0;
+  width: 24px; text-align: center;
+  position: relative; z-index: 1;
+  background: var(--panel);
+  font-size: 13px;
+}
+.ah-thread-step-body { flex: 1; min-width: 0; }
+.ah-thread-step-head {
+  display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
+}
+.ah-thread-step-action {
+  color: var(--muted); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.ah-thread-step-team { color: var(--text); font-size: 12px; }
+.ah-thread-step-amount {
+  color: var(--accent); font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ah-thread-step-when {
+  margin-left: auto;
+  color: var(--muted); font-size: 10px;
+}
+.ah-thread-step-note {
+  margin-top: 2px;
+  font-family: -apple-system, BlinkMacSystemFont, monospace;
+  color: var(--muted);
+  font-size: 10px;
+}
