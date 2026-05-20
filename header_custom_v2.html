@@ -9983,6 +9983,61 @@
     max-height: 480px !important;
   }
 
+  /* ─────────────────────────────────────────────────────────────────
+   * TOS .add-drop-player-row picker rows (2026-05-20)
+   *
+   * theeohiostate's footer.js renders the player picker as
+   * <div class="add-drop-player-row oddtablerow selected-player">
+   * instead of the bare table rows MFL ships. Their selected state
+   * is rgba(60, 179, 0, 0.1) (pale green wash) — readable on light
+   * theme but unreadable on dark. Repaint dark + use a green LEFT
+   * BORDER as the "selected" indicator so the semantic stays.
+   *
+   * Classes come from mflscripts.com — confirmed by the
+   * "https://www.mflscripts.com/playerImages_80x107/" img src.
+   * ───────────────────────────────────────────────────────────────── */
+  body[id^="body_options_43"] .add-drop-player-row {
+    background: var(--ups-row-odd, #111f35) !important;
+    color: var(--ups-text, #e8effa) !important;
+    border-bottom: 1px solid var(--ups-td-border, #203a5d) !important;
+  }
+  body[id^="body_options_43"] .add-drop-player-row.eventablerow {
+    background: var(--ups-row-even, #0f1b30) !important;
+  }
+  body[id^="body_options_43"] .add-drop-player-row.oddtablerow {
+    background: var(--ups-row-odd, #111f35) !important;
+  }
+  /* Selected state — keep green semantic via 3px left border, paint
+     row dark so the player name stays readable. */
+  body[id^="body_options_43"] .add-drop-player-row.selected-player {
+    background: var(--ups-surface-alt, #16253f) !important;
+    border-left: 3px solid var(--ups-success, #25c37d) !important;
+    padding-left: calc(var(--ups-row-pad-left, 8px) - 3px) !important;
+  }
+  body[id^="body_options_43"] .add-drop-player-row:hover {
+    background: var(--ups-surface-alt, #16253f) !important;
+  }
+  /* All text inside the picker row inherits the light text token —
+     defeats whatever inline color TOS may apply to player names
+     under the now-dark surface. */
+  body[id^="body_options_43"] .add-drop-player-row,
+  body[id^="body_options_43"] .add-drop-player-row * {
+    color: var(--ups-text, #e8effa) !important;
+  }
+  /* TOS marks projection-points cells with weak grey — bump to muted
+     so the value stays visible on dark. */
+  body[id^="body_options_43"] .add-drop-player-row [class*="proj"],
+  body[id^="body_options_43"] .add-drop-player-row [class*="rank"],
+  body[id^="body_options_43"] .add-drop-player-row [class*="bye"] {
+    color: var(--ups-muted, #9fb3d1) !important;
+  }
+  /* Helmet image wrappers — round + thin border to match avatar treatment */
+  body[id^="body_options_43"] .add-drop-player-row .player-img-wrapper-clippler {
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-radius: 50% !important;
+    overflow: hidden !important;
+  }
+
   /* Player picker table */
   body[id^="body_options_43"] table.pickerbox {
     background: var(--ups-surface, #111b2e) !important;
