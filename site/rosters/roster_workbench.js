@@ -9057,17 +9057,20 @@
         var taxiLabel = "Taxi · " + used + "/" + max;
         if (pending > 0) taxiLabel += " + " + pending + " pending";
         tags.push('<span class="rwb-tag is-taxi">' + escapeHtml(taxiLabel) + '</span>');
-      } else if (p.taxiEligible) {
-        // Active-roster rookie who is still taxi-eligible (Keith 2026-05-18):
-        // show the call-up budget so owners can see how many call-ups they
-        // can still spend on this player. Default state "Taxi · 0/3".
-        var usedE = safeInt(p.taxiCallupsUsed, 0);
-        var pendingE = safeInt(p.taxiCallupsPending, 0);
-        var maxE = safeInt(p.taxiCallupsMax, 3) || 3;
-        var eligLabel = "Taxi-Elig · " + usedE + "/" + maxE;
-        if (pendingE > 0) eligLabel += " + " + pendingE + " pending";
-        tags.push('<span class="rwb-tag is-taxi">' + escapeHtml(eligLabel) + '</span>');
+      } else if (p.taxiPermanentPromotion) {
+        // Player was permanently promoted off taxi (4th call-up) — surface
+        // a single-shot indicator so owners know the cap-free-cut window
+        // is gone for this player.
+        tags.push('<span class="rwb-tag is-taxi-perm">Promoted</span>');
       }
+      // (Was: "Taxi-Elig · N/3" chip for active-roster rookies. Removed
+      // 2026-05-19 — the worker's taxi_callups_used field is unreliable
+      // for the rule-transition cohort (Devin Neal, Kyle Williams,
+      // others promoted before 2026-05-08 + missed by PR #246 backfill).
+      // The chip was misleading owners into thinking they had unused
+      // call-ups when in reality the players are grandfathered permanent.
+      // Restore when worker data is trustworthy across the full cohort
+      // — paired with the TAXI_RULE_EFFECTIVE_SEASON sunset in 2028.)
       if (p.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
       var contractLength = contractLengthForPlayer(p);
       var totalContractValue = totalContractValueForPlayer(p);
