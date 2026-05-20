@@ -821,6 +821,7 @@ export default {
         path !== "/api/auction/era-eligible" &&
         path !== "/api/auction/lots" &&
         path !== "/api/auction/bid-history" &&
+        path !== "/api/auction/compliance" &&
         path !== "/admin/auction/probe-o43" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
@@ -2034,6 +2035,201 @@ export default {
           });
         } catch (e) {
           console.error("[auction/bid-history] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/compliance ----------
+      // Per-franchise rule-compliance snapshot for the war-room
+      // dashboard. Returns cap floor/ceiling status + active-count
+      // status per league_context_v1.md §6.A1, §6.A2, §B1.
+      //
+      // V1 surface (this commit):
+      //   - cap_spent_k, cap_room_k, cap_total_k
+      //   - cap_floor_status: 'below' | 'at_or_above' (260K threshold)
+      //   - cap_ceiling_status: 'over' | 'at_or_below' (300K threshold)
+      //   - active_count, active_status: 'below_27' | 'at_or_above_27'
+      //   - warnings: array of { severity, code, message }
+      //
+      // V2 (deferred — needs detailed contract-info parsing):
+      //   - loaded_count (FL/BL) vs 5 max (§6G)
+      //   - threeyr_count (cy=3) vs 6 max (§6G, per Keith 2026-05-16)
+      //   - IR 50% relief (§B3)
+      //
+      // Query params:
+      //   L     (optional, default 74598)
+      //   YEAR  (optional, default current UTC year)
+      if (path === "/api/auction/compliance" && request.method === "GET") {
+        const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const apiKey = String(env.MFL_APIKEY || "").trim();
+        const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+
+        // Canonical thresholds per league_context_v1.md
+        const CAP_FLOOR_K = 260;
+        const CAP_CEILING_K = 300;
+        const ACTIVE_MIN = 27;
+        const ACTIVE_MAX_POST_DEADLINE = 30;
+
+        try {
+          const [leagueRes, rostersRes, adjRes] = await Promise.all([
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 300 } }).then((r) => r.json()).catch(() => ({})),
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=rosters&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 60 } }).then((r) => r.json()).catch(() => ({})),
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=salaryAdjustments&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 300 } }).then((r) => r.json()).catch(() => ({})),
+          ]);
+
+          // Cap total — auctionStartAmount takes priority during auction
+          // window (§6.A1: $300K ceiling applies FA Auction → season end).
+          const leagueRoot = leagueRes?.league || {};
+          const capDollars =
+            Number(leagueRoot.auctionStartAmount) ||
+            Number(leagueRoot.salaryCapAmount) ||
+            Number(leagueRoot.salary_cap_amount) ||
+            CAP_CEILING_K * 1000;
+          const capTotalK = Math.round(capDollars / 1000);
+
+          // Franchise name lookup
+          const fidToName = {};
+          const flist = leagueRoot?.franchises?.franchise || [];
+          const farr = Array.isArray(flist) ? flist : [flist];
+          for (const f of farr) {
+            const id = String(f.id || "").padStart(4, "0");
+            if (id) fidToName[id] = String(f.name || ("Team " + id));
+          }
+
+          // Salary adjustments per franchise (sum)
+          const adjByFid = {};
+          let adjRows = adjRes?.salaryAdjustments?.salaryAdjustment ||
+                        adjRes?.salaryAdjustments ||
+                        [];
+          if (!Array.isArray(adjRows)) adjRows = [adjRows];
+          for (const r of adjRows) {
+            const fid = String(r?.franchise_id || r?.franchise || "").padStart(4, "0");
+            if (!fid || fid === "0000") continue;
+            const amt = Number(r?.amount || 0);
+            adjByFid[fid] = (adjByFid[fid] || 0) + amt;
+          }
+
+          // Rosters → per-franchise cap_spent + active_count
+          const franchiseRows = rostersRes?.rosters?.franchise || [];
+          const fArr = Array.isArray(franchiseRows) ? franchiseRows : [franchiseRows];
+          const perFranchise = [];
+
+          for (const fr of fArr) {
+            const fid = String(fr?.id || "").padStart(4, "0");
+            if (!fid || fid === "0000") continue;
+            let players = fr?.player || [];
+            if (!Array.isArray(players)) players = [players];
+
+            let capSpentDollars = 0;
+            let activeCount = 0;
+            let taxiCount = 0;
+            let irCount = 0;
+
+            for (const p of players) {
+              const status = String(p?.status || "").toUpperCase();
+              const salaryDollars = Math.round(Number(p?.salary || 0) * 1000); // MFL salary field is in dollars-as-thousands ($K)
+              const isTaxi = status === "TAXI_SQUAD" || status === "TAXI" || /TAXI/i.test(status);
+              const isIR  = status === "INJURED_RESERVE" || status === "IR" || /INJURED/i.test(status);
+              if (isTaxi) {
+                taxiCount += 1;
+                // Taxi is OFF cap per §6.E — skip from cap_spent
+              } else if (isIR) {
+                irCount += 1;
+                // §B3 IR 50% relief — TODO v2: half-rate. For v1, full rate (conservative).
+                capSpentDollars += salaryDollars;
+                activeCount += 1;  // IR still counts toward "rostered active" per MFL convention
+              } else {
+                activeCount += 1;
+                capSpentDollars += salaryDollars;
+              }
+            }
+
+            const adjDollars = adjByFid[fid] || 0;
+            capSpentDollars += adjDollars;
+            const capSpentK = Math.round(capSpentDollars / 1000);
+            const capRoomK = capTotalK - capSpentK;
+
+            const warnings = [];
+            // §6.A1 ceiling — $300K during auction window
+            if (capSpentK > CAP_CEILING_K) {
+              warnings.push({
+                severity: "error",
+                code: "cap_ceiling_breach",
+                message: `Cap spent $${capSpentK}K — exceeds ceiling by $${capSpentK - CAP_CEILING_K}K`,
+              });
+            }
+            // §6.A2 floor — $260K by end of auction OR Roster Contract Deadline
+            if (capSpentK < CAP_FLOOR_K) {
+              warnings.push({
+                severity: "warning",
+                code: "cap_floor_advisory",
+                message: `Cap spent $${capSpentK}K — under floor by $${CAP_FLOOR_K - capSpentK}K. Must hit $${CAP_FLOOR_K}K by auction close or Roster Contract Deadline.`,
+              });
+            }
+            // §B1 active-min — 27 by end of auction
+            if (activeCount < ACTIVE_MIN) {
+              warnings.push({
+                severity: "warning",
+                code: "active_min_advisory",
+                message: `Active roster ${activeCount} — under ${ACTIVE_MIN}-min by ${ACTIVE_MIN - activeCount}. Must hit ${ACTIVE_MIN} at auction close.`,
+              });
+            }
+            // §B1 active-max — 30 post-deadline (advisory only mid-auction)
+            if (activeCount > ACTIVE_MAX_POST_DEADLINE) {
+              warnings.push({
+                severity: "warning",
+                code: "active_max_advisory",
+                message: `Active roster ${activeCount} — over ${ACTIVE_MAX_POST_DEADLINE}-max by ${activeCount - ACTIVE_MAX_POST_DEADLINE}. Must be ≤${ACTIVE_MAX_POST_DEADLINE} post-deadline.`,
+              });
+            }
+
+            perFranchise.push({
+              fid,
+              franchise_name: fidToName[fid] || ("Team " + fid),
+              cap_total_k: capTotalK,
+              cap_spent_k: capSpentK,
+              cap_room_k: capRoomK,
+              cap_floor_k: CAP_FLOOR_K,
+              cap_ceiling_k: CAP_CEILING_K,
+              cap_floor_status: capSpentK < CAP_FLOOR_K ? "below" : "at_or_above",
+              cap_ceiling_status: capSpentK > CAP_CEILING_K ? "over" : "at_or_below",
+              active_count: activeCount,
+              taxi_count: taxiCount,
+              ir_count: irCount,
+              active_min: ACTIVE_MIN,
+              active_max: ACTIVE_MAX_POST_DEADLINE,
+              active_status: activeCount < ACTIVE_MIN ? "below_27" : (activeCount > ACTIVE_MAX_POST_DEADLINE ? "over_30" : "at_or_above_27"),
+              adjustments_k: Math.round((adjByFid[fid] || 0) / 1000),
+              warnings,
+              warning_count: warnings.length,
+            });
+          }
+
+          // Sort by warning count desc, then by fid asc — most-at-risk first
+          perFranchise.sort((a, b) => (b.warning_count - a.warning_count) || a.fid.localeCompare(b.fid));
+
+          return jsonOut(200, {
+            season: year,
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            thresholds: {
+              cap_floor_k: CAP_FLOOR_K,
+              cap_ceiling_k: CAP_CEILING_K,
+              active_min: ACTIVE_MIN,
+              active_max_post_deadline: ACTIVE_MAX_POST_DEADLINE,
+            },
+            cap_total_k: capTotalK,
+            franchise_count: perFranchise.length,
+            total_warnings: perFranchise.reduce((sum, f) => sum + f.warning_count, 0),
+            franchises: perFranchise,
+            notes: "V1: loaded-contract (FL/BL) + 3-year (cy=3) checks deferred — need detailed contractInfo parsing. IR uses full-rate (§B3 50% relief deferred to V2).",
+          });
+        } catch (e) {
+          console.error("[auction/compliance] failed:", e);
           return jsonOut(500, { error: String(e && e.message || e) });
         }
       }
