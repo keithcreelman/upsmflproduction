@@ -317,11 +317,12 @@
       banner.style.display = "";
     }
     grid.innerHTML = rows.map((f) => {
-      // Filter out the per-franchise cap-floor advisory — universal pre-auction
-      // and rolled up into the banner above. Keep ceiling-breach + active-min
-      // warnings inline because those are franchise-specific signals.
+      // Filter out the universal pre-auction advisories — cap floor +
+      // active-min — both rolled up into the league banner above. Keep
+      // ceiling-breach + active-MAX warnings inline because those are
+      // franchise-specific (someone going OVER limits, not under).
       const visibleWarnings = (f.warnings || []).filter(
-        (w) => w.code !== "cap_floor_advisory"
+        (w) => w.code !== "cap_floor_advisory" && w.code !== "active_min_advisory"
       );
       const sev = visibleWarnings.some((w) => w.severity === "error") ? "error"
                 : visibleWarnings.length > 0 ? "warning"
@@ -689,7 +690,7 @@
                 <span class="ah-thread-step-action">${escapeHtml(kindLabel)}</span>
                 <strong class="ah-thread-step-team">${escapeHtml(b.franchise_name || "")}</strong>
                 <span class="ah-thread-step-amount">$${b.bid_k}K</span>
-                <span class="ah-thread-step-when">${formatBidWhen(b.bid_at_unix)}</span>
+                <span class="ah-thread-step-when" title="${escapeHtml(formatBidWhen(b.bid_at_unix))}">${escapeHtml(formatBidWhenET(b.bid_at_unix))}</span>
               </div>
               ${b.note ? `<div class="ah-thread-step-note">${escapeHtml(b.note)}</div>` : ""}
             </div>
@@ -729,6 +730,29 @@
     if (diffSec < 3600) return Math.floor(diffSec / 60) + "m ago";
     if (diffSec < 86400) return Math.floor(diffSec / 3600) + "h ago";
     return new Date(ms).toLocaleDateString();
+  }
+
+  // Absolute Eastern-time timestamp to the second. Used on thread-step
+  // rows (the expanded bid sequence) so auctioneers can pin down exact
+  // moments without doing relative-time math. Format: "May 20, 2:35:17 PM ET"
+  function formatBidWhenET(unix) {
+    if (!unix) return "";
+    const ms = Number(unix) * 1000;
+    try {
+      const datePart = new Date(ms).toLocaleString("en-US", {
+        timeZone: "America/New_York",
+        month: "short", day: "numeric",
+      });
+      const timePart = new Date(ms).toLocaleString("en-US", {
+        timeZone: "America/New_York",
+        hour: "numeric", minute: "2-digit", second: "2-digit",
+        hour12: true,
+      });
+      return `${datePart}, ${timePart} ET`;
+    } catch (e) {
+      // Fallback if Intl/timeZone unsupported — just dump ISO.
+      return new Date(ms).toISOString();
+    }
   }
 
   // ════════════════════════════════════════════════════════════════════

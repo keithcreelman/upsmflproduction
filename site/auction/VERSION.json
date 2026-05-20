@@ -1,7 +1,7 @@
 {
-  "version": "0.4.0",
+  "version": "0.4.1",
   "released": "2026-05-20",
-  "label": "v0.4.0 — Bid Activity card (positions + FA/ERA toggle)",
+  "label": "v0.4.1 — UI polish: roll up active-min noise + ET-to-the-second bid thread timestamps",
   "description": "Adds per-franchise bid aggregation card to War Room: counts of bids placed + unique players bid on + position breakdown + ERA-vs-FA classification + total $K bid. Toggle: All / ERA only / FA only.",
   "scope": {
     "this_release": [
@@ -20,7 +20,7 @@
     "league_context_v1.md": ["§6.A1", "§6.A2", "§B1", "§A1", "§A2", "§A3"]
   },
   "changes": [
-    { "version": "0.4.0", "date": "2026-05-20", "type": "feat",
+    { "version": "0.4.1", "date": "2026-05-20", "type": "feat",
       "summary": "Bid Activity card with positions + FA/ERA toggle." },
     { "version": "0.3.0", "date": "2026-05-20", "type": "feat",
       "summary": "Nomination tracker + thread bid history + War Room signal-vs-noise pass." },
