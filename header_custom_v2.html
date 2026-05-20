@@ -8,6 +8,15 @@
 <link rel="shortcut icon" href="https://www.mflscripts.com/ImageDirectory/script-images/favicon.ico" type="image/x-icon">
 
 <script>
+  /* UPS_RELEASE_SHA — single source of truth for every UPS-owned asset on
+     this HPM. Pinned via cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@<SHA>.
+     Bump THIS ONE LINE on every deploy; all consumers (Stage 1-6 loader at
+     ~line 6803, Stage 8 CSS loader at ~line 7338, loader.js bootstrap at
+     ~line 1937, CCC at ~line 2347, team_ops at ~line 2540) read this global. */
+  window.UPS_RELEASE_SHA = "8f9bb0a"; /* ← deploy: bump to new commit SHA */
+</script>
+
+<script>
   // Legacy global safety guards (custom tabs removed; keep no-op shims to avoid hard crashes).
   (function () {
     function noop() {}
@@ -6800,52 +6809,49 @@
   var deactivate_all_offseason = false;
 </script>
 
-<!-- MFLCache: three-tier cache (memory → IDB → localStorage) + BroadcastChannel
-     cross-tab + stampede locks + stale-while-revalidate + MFL /export 429 guard.
-     Must run BEFORE the TOS header.js below so the fetch wrapper is installed
-     before any TOS export call fires. Replaces the previous inline 429-guard
-     block; see docs/mfl_native/tos_removal_plan.md §3 Stage 1. Cache-bust the
-     pinned URL when shipping a new version of mfl_cache.js. -->
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/mfl_cache.js?v=2026-05-20-stage1"></script>
+<!-- ─── Stages 1-6 of tos_removal_plan.md ────────────────────────────────────
+     SHA-pinned via window.UPS_RELEASE_SHA (declared at top of HPM #1).
+     document.write blocks the parser so every UPS script executes BEFORE the
+     static TOS header.js below. MFLCache must come first — it installs the
+     MFL /export 429-guard fetch wrapper that TOS will rely on.
 
-<!-- UPSReveal: anti-flicker double-RAF helper. Stage 2 of tos_removal_plan.md.
-     Pure utility; consumers (rosters fork, etc.) import via window.UPSReveal. -->
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/reveal.js?v=2026-05-20-stage2"></script>
+     Gating: UPS_USE_NATIVE_MINI_BOXSCORE + UPS_USE_NATIVE_PLAYER_POPUP both
+     default false → TOS's bundled mini-boxscore / popup keep driving the page
+     until Stage 5 cutover flips them true (and also sets load_mini_boxscore=
+     false / load_popup=false in TOS's HPM #20 toggles to prevent dueling
+     listeners).
 
-<!-- Stage 3: native mini-boxscore port (gated behind a flag — TOS's bundled
-     mini-boxscore in header.js drives #MFLBoxWrapper until Stage 5 flips this
-     to true AND sets load_mini_boxscore=false. Loading the source dormant here
-     so the file is cached + parsed before the cutover. -->
+     Manifest order is load-bearing:
+       1. mfl_cache.js              MUST be first (installs fetch wrapper)
+       2. reveal.js                 utility, no runtime dependencies
+       3. mini_boxscore.js          dormant; flag-gated
+       4. player_profile_master.js  exposes UPS_openPlayerProfile (consumed by 5)
+       5. player_popup_bridge.js    dormant; flag-gated; depends on (4)
+       6. mobile_menu.js            additive
+       7. module_collapse.js        additive
+       8. playoff_bracket_polish.js additive
+       9. (static below) TOS header.js                                       -->
 <script>
-  if (typeof window.UPS_USE_NATIVE_MINI_BOXSCORE === "undefined") {
-    window.UPS_USE_NATIVE_MINI_BOXSCORE = false;
-  }
+  (function () {
+    var sha = String(window.UPS_RELEASE_SHA || "8f9bb0a").trim() || "8f9bb0a";
+    var base = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + sha;
+    if (typeof window.UPS_USE_NATIVE_MINI_BOXSCORE === "undefined") window.UPS_USE_NATIVE_MINI_BOXSCORE = false;
+    if (typeof window.UPS_USE_NATIVE_PLAYER_POPUP === "undefined") window.UPS_USE_NATIVE_PLAYER_POPUP = false;
+    var manifest = [
+      "/site/shared/mfl_cache.js",
+      "/site/shared/reveal.js",
+      "/site/shared/mini_boxscore.js",
+      "/site/shared/player_profile_master.js",
+      "/site/shared/player_popup_bridge.js",
+      "/site/shared/mobile_menu.js",
+      "/site/shared/module_collapse.js",
+      "/site/shared/playoff_bracket_polish.js"
+    ];
+    for (var i = 0; i < manifest.length; i += 1) {
+      document.write('<script src="' + base + manifest[i] + '"><\/script>');
+    }
+  })();
 </script>
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/mini_boxscore.js?v=2026-05-20-stage3"></script>
-
-<!-- Stage 4: native player popup. Bridges MFL's player-link clicks to our
-     existing UPS_openPlayerProfile (player_profile_master.js, 2373 lines).
-     Gated by UPS_USE_NATIVE_PLAYER_POPUP — while false, TOS's header.js popup
-     keeps working. Stage 5 flips this true AND sets load_popup=false. The
-     bridge ALSO loads player_profile_master.js so UPS_openPlayerProfile is
-     available before the click handler can fire. -->
-<script>
-  if (typeof window.UPS_USE_NATIVE_PLAYER_POPUP === "undefined") {
-    window.UPS_USE_NATIVE_PLAYER_POPUP = false;
-  }
-</script>
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=2026-05-20-stage4"></script>
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_popup_bridge.js?v=2026-05-20-stage4"></script>
-
-<!-- Stage 6: small native ports — mobile menu, module collapse, playoff bracket
-     polish. Additive; the corresponding TOS toggles (load_mobileMenu_script,
-     load_moduleExpand_script) stay true in HPM #20 until Stage 6 cutover
-     flips them off. Owner Activity hook was DELETED outright per §5 Q6
-     (no #tab202 references in our HPMs). -->
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/mobile_menu.js?v=2026-05-20-stage6"></script>
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/module_collapse.js?v=2026-05-20-stage6"></script>
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/playoff_bracket_polish.js?v=2026-05-20-stage6"></script>
-
 <script src="https://www.mflscripts.com/mfl-apps/global/header.js?v=1.60"></script>
 <style id="ups-marquee-style">
   .ups-marquee-shell {
@@ -7330,15 +7336,23 @@
   banner.style.display = "flex";
 })();
 </script>
-<!-- Stage 8 of tos_removal_plan.md: self-host the franchise-icon layout CSS
-     and explicitly link Font Awesome Free (cdnjs) so we don't silently depend
-     on TOS's header.js/light.css to provide either. FA Free 6.5.2 covers every
-     fa-* icon we actually use (audit at port time: 14 icons, all in Free).
-     fa-square-left/right in mini_boxscore.js were swapped to fa-square-caret-*
-     for Free compatibility. Self-hosted 300x50-icons.css is verbatim from
-     mflscripts.com — pure layout rules, no embedded image URLs. -->
+<!-- ─── Stage 8 of tos_removal_plan.md ───────────────────────────────────────
+     Font Awesome Free (cdnjs, SRI-pinned) replaces the implicit FA Pro that
+     TOS's header.js/light.css used to provide. All 14 fa-* icons we use are
+     in FA Free; fa-square-left/right in mini_boxscore.js were swapped to
+     fa-square-caret-* at port time for Free compatibility.
+
+     300x50-icons.css (franchise-icon layout rules — pure layout, no embedded
+     URLs) is self-hosted via the same UPS_RELEASE_SHA jsdelivr pinning the
+     scripts use. document.write so we don't depend on a separate cache-bust
+     query that needs bumping. -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" type="text/css" href="https://keithcreelman.github.io/upsmflproduction/shared/css/300x50-icons.css?v=2026-05-20-stage8">
+<script>
+  (function () {
+    var sha = String(window.UPS_RELEASE_SHA || "8f9bb0a").trim() || "8f9bb0a";
+    document.write('<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@' + sha + '/site/shared/css/300x50-icons.css">');
+  })();
+</script>
 
 <style id="ups-theme-postload-overrides">
   /* Home / CCC pages: prevent horizontal overflow from shifting the entire
