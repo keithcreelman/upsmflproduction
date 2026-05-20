@@ -9686,6 +9686,120 @@
     margin: 4px 0 !important;
   }
 
+  /* ─────────────────────────────────────────────────────────────────
+   * Phase A — white-gap closure + visual feel match to .ah-* hub
+   * 2026-05-20.
+   *
+   * White gaps were leaking through because MFL wraps content in
+   * <form>, <p>, and unclassed <div>/<span> blocks whose default
+   * white background showed through between our styled .report
+   * tables. Solution: paint every block-level descendant that doesn't
+   * already have an explicit background — and tighten typography to
+   * the auction hub treatment (system font 14px, uppercase muted
+   * sub-captions, 8px container radii).
+   * ───────────────────────────────────────────────────────────────── */
+
+  /* html + body — guarantee no white leak ever, including the
+     overflow zone past the page bottom. */
+  html:has(body[id^="body_options_43"]),
+  body[id^="body_options_43"] {
+    background: var(--ups-bg, #0b1220) !important;
+  }
+
+  /* Every block-level wrapper MFL emits between sections. Painting
+     transparent inherits the body's dark — but also explicitly setting
+     --ups-bg covers any element whose parent isn't body (e.g. a div
+     in a div). Excludes our themed classes so we don't repaint cards. */
+  body[id^="body_options_43"] form,
+  body[id^="body_options_43"] fieldset,
+  body[id^="body_options_43"] > div:not(.myfantasyleague_menu),
+  body[id^="body_options_43"] .pagebody > p,
+  body[id^="body_options_43"] .pagebody > div:not(.report):not(.alert):not(.alert-info-body):not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]) {
+    background: var(--ups-bg, #0b1220) !important;
+    color: var(--ups-text, #e8effa) !important;
+  }
+
+  /* <p> tags on O=43 — tighten margin so consecutive blocks don't
+     leave a tall stripe; paragraph text inherits surface dark. */
+  body[id^="body_options_43"] p {
+    background: transparent !important;
+    color: var(--ups-text, #e8effa) !important;
+    margin: 8px 0 !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Empty <p>/<br> wrappers MFL leaves between sections show as
+     blank stripes; squash to zero height when they have no text. */
+  body[id^="body_options_43"] p:empty,
+  body[id^="body_options_43"] br + br {
+    display: none !important;
+  }
+
+  /* Section captions (the "START AUCTIONING…" / "SELECT A PLAYER…"
+     rows) — already get .report > caption styling above. Tighten
+     a notch to match .ah-card h2 (uppercase, muted, 13px). */
+  body[id^="body_options_43"] table.report caption {
+    background: var(--ups-caption-bg, linear-gradient(135deg, #0f1728 0%, #1c3359 60%, #204f73 100%)) !important;
+    color: var(--ups-text, #e8effa) !important;
+    padding: 12px 16px !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    border-bottom: 1px solid var(--ups-border, #27476f) !important;
+    caption-side: top !important;
+    text-align: left !important;
+    border-radius: 8px 8px 0 0 !important;
+  }
+
+  /* MFL's secondary section header (e.g. "Select A Player Before
+     Submitting Auction Bid") often lives in a <td> as a row spanning
+     the table width. Style it as a sub-caption strip. */
+  body[id^="body_options_43"] table.report tr.eventablerow td[colspan]:first-child:only-child,
+  body[id^="body_options_43"] table.report tr.oddtablerow td[colspan]:first-child:only-child {
+    background: var(--ups-th-bg, #152742) !important;
+    color: var(--ups-muted, #9fb3d1) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    padding: 8px 16px !important;
+  }
+
+  /* Make the report tables share .ah-card's exact 16px outer rhythm so
+     stacked tables align with the auction hub iframe living above
+     them. */
+  body[id^="body_options_43"] table.report {
+    margin: 0 0 16px !important;
+    width: 100% !important;
+    max-width: 1400px !important;
+  }
+
+  /* Body typography matches .ah-main: system font, 14px, 1.5 leading.
+     Existing rule sets the family on the body wrapper; add size +
+     leading explicitly to override MFL's defaults. */
+  body[id^="body_options_43"],
+  body[id^="body_options_43"] td,
+  body[id^="body_options_43"] th {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+  }
+  body[id^="body_options_43"] table.report th {
+    font-size: 11px !important;
+  }
+  body[id^="body_options_43"] table.report td {
+    font-size: 13px !important;
+  }
+
+  /* Cells that wrap form inputs (e.g. Opening Bid, Comments) — kill
+     the alt-row striping in those contexts so the input doesn't
+     sit on a different shade than its label. */
+  body[id^="body_options_43"] table.report tr:has(input[type="text"]) td,
+  body[id^="body_options_43"] table.report tr:has(textarea) td,
+  body[id^="body_options_43"] table.report tr:has(select) td {
+    background: var(--ups-surface, #111b2e) !important;
+  }
+
   /* Form inputs / selects / textareas */
   body[id^="body_options_43"] input[type="text"],
   body[id^="body_options_43"] input[type="password"],
