@@ -9464,124 +9464,368 @@
     text-shadow: none !important;
   }
 
-  /* ─────────────────────────────────────────────────────────────────
-   * Auction Bid page (O=43) — UPS dark-theme cleanup (Phase 4.1)
+  /* ═══════════════════════════════════════════════════════════════════
+   * Auction Bid (O=43) — comprehensive UPS dark-theme overlay v2
    *
-   * MFL's auction page ships with the legacy light theme that clashes
-   * with the UPS dark hub. Restyles the .report tables, inputs, and
-   * submit button to match the Auction Hub. Doesn't hide any blocks
-   * (Financial Status, Hint boxes, etc.) — those are useful in
-   * context; just makes them readable.
-   * ───────────────────────────────────────────────────────────────── */
-  body[id^="body_options_43"] {
-    background: var(--ups-bg, #0b0f18) !important;
-    color: var(--ups-text, #e8edf5) !important;
-  }
+   * Replaces the earlier Phase 4.1 block (which used wrong CSS var
+   * names — `--ups-accent` is GOLD #f0c465, not blue). v2 uses the
+   * actual outer-page vars defined in :root: --ups-btn-bg (blue
+   * buttons), --ups-th-bg (table headers), --ups-row-odd/even (row
+   * alternation), --ups-caption-bg (table captions).
+   *
+   * Targets: page chrome, all .report tables, .reportnavigation
+   * (THE hint container — was completely unstyled), form inputs +
+   * submits + buttons, player picker, status indicators.
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Page chrome */
+  body[id^="body_options_43"],
   body[id^="body_options_43"] .pagebody,
-  body[id^="body_options_43"] #options_43 {
-    background: var(--ups-bg, #0b0f18) !important;
-    color: var(--ups-text, #e8edf5) !important;
+  body[id^="body_options_43"] #options_43,
+  body[id^="body_options_43"] #container-wrap {
+    background: var(--ups-bg, #0b1220) !important;
+    color: var(--ups-text, #e8effa) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   }
-  body[id^="body_options_43"] table.report,
-  body[id^="body_options_43"] table.report.nocaption {
-    background: var(--ups-surface, #141a26) !important;
-    border: 1px solid var(--ups-border, #2a3446) !important;
+  body[id^="body_options_43"] table.pageheader {
+    background: var(--ups-surface, #111b2e) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-radius: 6px !important;
+    margin-bottom: 16px !important;
+  }
+  body[id^="body_options_43"] .brandlogo,
+  body[id^="body_options_43"] .pagetitle,
+  body[id^="body_options_43"] .welcome,
+  body[id^="body_options_43"] .bannerimage {
+    background: var(--ups-surface, #111b2e) !important;
+    color: var(--ups-text, #e8effa) !important;
+    border: none !important;
+  }
+  body[id^="body_options_43"] .pagetitle h1 {
+    color: var(--ups-text, #e8effa) !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    margin: 0 !important;
+  }
+  body[id^="body_options_43"] .welcome a {
+    color: var(--ups-link, #8ec4ff) !important;
+    text-decoration: none !important;
+  }
+  body[id^="body_options_43"] .welcome a:hover {
+    color: var(--ups-link-hover, #c0deff) !important;
+    text-decoration: underline !important;
+  }
+
+  /* All .report tables — financial summary, auction state, picker */
+  body[id^="body_options_43"] table.report {
+    background: var(--ups-surface, #111b2e) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
     border-radius: 8px !important;
     border-collapse: separate !important;
     border-spacing: 0 !important;
     overflow: hidden !important;
-    margin-bottom: 16px !important;
+    margin: 12px 0 16px !important;
+    color: var(--ups-text, #e8effa) !important;
+  }
+  body[id^="body_options_43"] table.report caption {
+    background: var(--ups-caption-bg, linear-gradient(135deg, #0f1728 0%, #1c3359 60%, #204f73 100%)) !important;
+    color: var(--ups-text, #e8effa) !important;
+    padding: 12px 16px !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    border-bottom: 1px solid var(--ups-border, #27476f) !important;
+    caption-side: top !important;
+    text-align: left !important;
   }
   body[id^="body_options_43"] table.report th,
   body[id^="body_options_43"] table.report thead th {
-    background: var(--ups-surface-alt, #1a2230) !important;
-    color: var(--ups-muted, #8a97ad) !important;
+    background: var(--ups-th-bg, #152742) !important;
+    color: var(--ups-muted, #9fb3d1) !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
+    letter-spacing: 0.4px !important;
     font-size: 11px !important;
-    padding: 10px !important;
-    border-bottom: 1px solid var(--ups-border, #2a3446) !important;
-    font-weight: 500 !important;
+    font-weight: 600 !important;
+    padding: 10px 12px !important;
+    border-bottom: 1px solid var(--ups-border, #27476f) !important;
+    text-align: left !important;
   }
   body[id^="body_options_43"] table.report th a {
-    color: var(--ups-muted, #8a97ad) !important;
+    color: var(--ups-muted, #9fb3d1) !important;
     text-decoration: none !important;
   }
   body[id^="body_options_43"] table.report th a:hover {
-    color: var(--ups-accent, #5b8dff) !important;
+    color: var(--ups-link, #8ec4ff) !important;
   }
-  body[id^="body_options_43"] table.report td,
-  body[id^="body_options_43"] table.report tr.oddtablerow td,
-  body[id^="body_options_43"] table.report tr.eventablerow td {
+  body[id^="body_options_43"] table.report tr.oddtablerow {
+    background: var(--ups-row-odd, #111f35) !important;
+  }
+  body[id^="body_options_43"] table.report tr.eventablerow {
+    background: var(--ups-row-even, #0f1b30) !important;
+  }
+  body[id^="body_options_43"] table.report tr:hover {
+    background: var(--ups-surface-alt, #16253f) !important;
+  }
+  body[id^="body_options_43"] table.report td {
     background: transparent !important;
-    color: var(--ups-text, #e8edf5) !important;
-    padding: 10px !important;
-    border-bottom: 1px solid var(--ups-border, #2a3446) !important;
+    color: var(--ups-text, #e8effa) !important;
+    padding: 10px 12px !important;
+    border-bottom: 1px solid var(--ups-td-border, #203a5d) !important;
+    font-size: 13px !important;
   }
-  body[id^="body_options_43"] table.report tr:hover td {
-    background: var(--ups-surface-alt, #1a2230) !important;
+  body[id^="body_options_43"] table.report td a {
+    color: var(--ups-link, #8ec4ff) !important;
+    text-decoration: none !important;
   }
-  body[id^="body_options_43"] table.report caption {
-    background: var(--ups-surface-alt, #1a2230) !important;
-    color: var(--ups-text, #e8edf5) !important;
-    padding: 12px 16px !important;
-    font-weight: 600 !important;
-    text-align: left !important;
-    border: 1px solid var(--ups-border, #2a3446) !important;
-    border-bottom: none !important;
-    border-radius: 8px 8px 0 0 !important;
+  body[id^="body_options_43"] table.report td a:hover {
+    color: var(--ups-link-hover, #c0deff) !important;
+    text-decoration: underline !important;
   }
   body[id^="body_options_43"] td.salary {
     font-variant-numeric: tabular-nums !important;
-    font-weight: 600 !important;
-    color: var(--ups-text, #e8edf5) !important;
+    font-weight: 700 !important;
+    color: var(--ups-text, #e8effa) !important;
+    text-align: right !important;
   }
-  body[id^="body_options_43"] input[type="text"],
-  body[id^="body_options_43"] input[type="number"],
-  body[id^="body_options_43"] textarea {
-    background: var(--ups-surface-alt, #1a2230) !important;
-    color: var(--ups-text, #e8edf5) !important;
-    border: 1px solid var(--ups-border, #2a3446) !important;
-    padding: 6px 10px !important;
+
+  /* THE CRITICAL FIX — .reportnavigation is MFL's hint container.
+     Was completely unstyled before so the text rendered invisible
+     against the dark theme. Now a proper info-box with the "Hint:"
+     label highlighted in gold. */
+  body[id^="body_options_43"] .reportnavigation {
+    display: block !important;
+    padding: 10px 14px !important;
+    margin: 8px 0 !important;
+    background: var(--ups-surface, #111b2e) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-left: 3px solid var(--ups-accent, #f0c465) !important;
     border-radius: 4px !important;
+    color: var(--ups-text, #e8effa) !important;
+    font-size: 12px !important;
+    line-height: 1.6 !important;
+  }
+  body[id^="body_options_43"] .reportnavigationheader {
+    display: inline !important;
+    color: var(--ups-accent, #f0c465) !important;
+    font-weight: 700 !important;
+    margin-right: 6px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    font-size: 11px !important;
+  }
+  body[id^="body_options_43"] .reportnavigation b,
+  body[id^="body_options_43"] .reportnavigation strong {
+    color: var(--ups-text, #e8effa) !important;
+    font-weight: 700 !important;
+  }
+  body[id^="body_options_43"] .reportnavigation .warning {
+    color: var(--ups-warning, #d33642) !important;
+    background: rgba(211, 54, 66, 0.12) !important;
+    padding: 1px 5px !important;
+    border-radius: 3px !important;
+    font-weight: 600 !important;
+  }
+  /* Hint inside a TD — slightly tighter margins */
+  body[id^="body_options_43"] td .reportnavigation,
+  body[id^="body_options_43"] tr .reportnavigation {
+    margin: 4px 0 !important;
+  }
+
+  /* Form inputs / selects / textareas */
+  body[id^="body_options_43"] input[type="text"],
+  body[id^="body_options_43"] input[type="password"],
+  body[id^="body_options_43"] input[type="email"],
+  body[id^="body_options_43"] input[type="number"],
+  body[id^="body_options_43"] select,
+  body[id^="body_options_43"] textarea {
+    background: var(--ups-surface-alt, #16253f) !important;
+    color: var(--ups-text, #e8effa) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-radius: 4px !important;
+    padding: 6px 10px !important;
+    font-size: 13px !important;
     font-family: inherit !important;
   }
   body[id^="body_options_43"] input[type="text"]:focus,
+  body[id^="body_options_43"] input[type="password"]:focus,
+  body[id^="body_options_43"] input[type="email"]:focus,
   body[id^="body_options_43"] input[type="number"]:focus,
+  body[id^="body_options_43"] select:focus,
   body[id^="body_options_43"] textarea:focus {
     outline: none !important;
-    border-color: var(--ups-accent, #5b8dff) !important;
+    border-color: var(--ups-accent, #f0c465) !important;
+    box-shadow: 0 0 0 2px rgba(240, 196, 101, 0.18) !important;
   }
-  body[id^="body_options_43"] input[type="submit"] {
-    background: var(--ups-accent, #5b8dff) !important;
-    color: white !important;
-    border: 0 !important;
+  body[id^="body_options_43"] textarea {
+    resize: vertical !important;
+  }
+  body[id^="body_options_43"] .inputlabel {
+    color: var(--ups-muted, #9fb3d1) !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    display: block !important;
+    margin-bottom: 4px !important;
+    font-weight: 500 !important;
+  }
+
+  /* Submit / button — uses the UPS button blue, not the gold accent.
+     CRITICAL: this is the bid-submit button. Don't break visibility. */
+  body[id^="body_options_43"] input[type="submit"],
+  body[id^="body_options_43"] button[type="submit"],
+  body[id^="body_options_43"] input[type="button"],
+  body[id^="body_options_43"] button:not(.ups-quickbid-btn) {
+    background: var(--ups-btn-bg, #1f4d93) !important;
+    color: var(--ups-btn-text, #ffffff) !important;
+    border: 1px solid var(--ups-btn-border, #4a75b7) !important;
     padding: 8px 16px !important;
     border-radius: 4px !important;
     cursor: pointer !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
     font-size: 13px !important;
+    font-family: inherit !important;
+    letter-spacing: 0.02em !important;
+    transition: filter 120ms !important;
   }
-  body[id^="body_options_43"] input[type="submit"]:hover {
+  body[id^="body_options_43"] input[type="submit"]:hover,
+  body[id^="body_options_43"] button[type="submit"]:hover,
+  body[id^="body_options_43"] input[type="button"]:hover,
+  body[id^="body_options_43"] button:not(.ups-quickbid-btn):hover {
     filter: brightness(1.15) !important;
   }
-  /* Quick-bid buttons (Phase 4.3) injected via JS — pre-style here so
-     they appear correctly the moment the JS adds them. */
+  body[id^="body_options_43"] input[type="submit"]:disabled,
+  body[id^="body_options_43"] button:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    filter: none !important;
+  }
+  body[id^="body_options_43"] .form_buttons {
+    background: var(--ups-surface, #111b2e) !important;
+    padding: 12px !important;
+    text-align: center !important;
+  }
+
+  /* Quick-bid buttons (Phase 4.3) — outlined gold accent, distinct
+     from the main submit blue. Pre-styled here so they appear the
+     moment the JS injects them. */
   body[id^="body_options_43"] .ups-quickbid-btn {
-    background: var(--ups-surface-alt, #1a2230) !important;
-    color: var(--ups-accent, #5b8dff) !important;
-    border: 1px solid var(--ups-accent, #5b8dff) !important;
+    background: transparent !important;
+    color: var(--ups-accent, #f0c465) !important;
+    border: 1px solid var(--ups-accent, #f0c465) !important;
     padding: 4px 10px !important;
     border-radius: 4px !important;
     cursor: pointer !important;
     font-size: 11px !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
     margin-left: 4px !important;
     font-family: inherit !important;
   }
   body[id^="body_options_43"] .ups-quickbid-btn:hover {
-    background: var(--ups-accent, #5b8dff) !important;
-    color: white !important;
+    background: var(--ups-accent, #f0c465) !important;
+    color: var(--ups-accent-ink, #102a55) !important;
+  }
+
+  /* Status indicators */
+  body[id^="body_options_43"] .warning:not(.reportnavigation .warning) {
+    color: var(--ups-warning, #d33642) !important;
+    font-weight: 600 !important;
+  }
+  body[id^="body_options_43"] .positive,
+  body[id^="body_options_43"] .success {
+    color: var(--ups-success, #25c37d) !important;
+    font-weight: 600 !important;
+  }
+  body[id^="body_options_43"] .negative,
+  body[id^="body_options_43"] .error {
+    color: var(--ups-danger, #e36572) !important;
+    font-weight: 600 !important;
+  }
+  body[id^="body_options_43"] .injurystatus {
+    color: var(--ups-warning, #d33642) !important;
+    font-weight: 700 !important;
+  }
+
+  /* Player picker table */
+  body[id^="body_options_43"] table.pickerbox {
+    background: var(--ups-surface, #111b2e) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    color: var(--ups-text, #e8effa) !important;
+  }
+  body[id^="body_options_43"] table.pickerbox th {
+    background: var(--ups-th-bg, #152742) !important;
+    color: var(--ups-muted, #9fb3d1) !important;
+    border-bottom: 1px solid var(--ups-border, #27476f) !important;
+    padding: 8px 10px !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+  }
+  body[id^="body_options_43"] table.pickerbox td {
+    padding: 6px 8px !important;
+    color: var(--ups-text, #e8effa) !important;
+    border-bottom: 1px solid var(--ups-td-border, #203a5d) !important;
+  }
+  body[id^="body_options_43"] table.pickerbox tr:hover {
+    background: var(--ups-surface-alt, #16253f) !important;
+  }
+  body[id^="body_options_43"] table.pickerbox a {
+    color: var(--ups-link, #8ec4ff) !important;
+    text-decoration: none !important;
+  }
+  body[id^="body_options_43"] table.pickerbox a:hover {
+    color: var(--ups-link-hover, #c0deff) !important;
+    text-decoration: underline !important;
+  }
+  /* Scrollable container around the picker */
+  body[id^="body_options_43"] div[style*="overflow: auto"] {
+    border-color: var(--ups-border, #27476f) !important;
+    background: var(--ups-surface, #111b2e) !important;
+  }
+
+  /* Player position pills (.position_qb, .position_rb, etc.) */
+  body[id^="body_options_43"] a[class^="position_"],
+  body[id^="body_options_43"] [class^="position_"] {
+    color: var(--ups-link, #8ec4ff) !important;
+    font-weight: 600 !important;
+  }
+
+  /* Franchise badge cell — restraining oversized icons */
+  body[id^="body_options_43"] .franchiseicon {
+    max-width: 32px !important;
+    height: auto !important;
+    border-radius: 4px !important;
+    vertical-align: middle !important;
+  }
+  body[id^="body_options_43"] [class^="franchise_"] {
+    color: var(--ups-link, #8ec4ff) !important;
+  }
+
+  /* Typography niceties */
+  body[id^="body_options_43"] p,
+  body[id^="body_options_43"] span,
+  body[id^="body_options_43"] label,
+  body[id^="body_options_43"] td,
+  body[id^="body_options_43"] li {
+    color: var(--ups-text, #e8effa);
+  }
+  body[id^="body_options_43"] b,
+  body[id^="body_options_43"] strong {
+    color: var(--ups-report-strong, #ffffff) !important;
+    font-weight: 700 !important;
+  }
+  body[id^="body_options_43"] i,
+  body[id^="body_options_43"] em {
+    color: var(--ups-muted, #9fb3d1) !important;
+  }
+  body[id^="body_options_43"] h1,
+  body[id^="body_options_43"] h2,
+  body[id^="body_options_43"] h3 {
+    color: var(--ups-text, #e8effa) !important;
+  }
+  body[id^="body_options_43"] hr {
+    border: none !important;
+    border-top: 1px solid var(--ups-border, #27476f) !important;
+    margin: 12px 0 !important;
   }
 
   /* ─────────────────────────────────────────────────────────────────
