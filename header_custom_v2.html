@@ -10559,6 +10559,44 @@
     box-shadow: 0 0 0 2px rgba(240, 196, 101, 0.18);
   }
 
+  .ups-picker-sort-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 8px;
+  }
+  .ups-picker-sort-label {
+    color: var(--ups-muted, #9fb3d1);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 600;
+  }
+  .ups-picker-sort {
+    flex: 1;
+    background: var(--ups-surface-alt, #16253f);
+    color: var(--ups-text, #e8effa);
+    border: 1px solid var(--ups-border, #27476f);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .ups-picker-sort:focus {
+    outline: none;
+    border-color: var(--ups-accent, #f0c465);
+  }
+
+  .ups-picker-row-supmeta {
+    margin-top: 3px;
+    color: var(--ups-accent, #f0c465);
+    font-size: 10px;
+    letter-spacing: 0.2px;
+  }
+  .ups-picker-row-supmeta strong {
+    color: var(--ups-text, #e8effa);
+    font-weight: 700;
+  }
+
   .ups-picker-chips {
     display: flex; flex-wrap: wrap; gap: 4px;
     margin-top: 8px;
@@ -10718,6 +10756,16 @@
             '<button type="button" class="ups-picker-close" aria-label="Close">×</button>' +
           '</div>' +
           '<input type="search" class="ups-picker-search" placeholder="Search by name…" />' +
+          '<div class="ups-picker-sort-row">' +
+            '<label class="ups-picker-sort-label">Sort by</label>' +
+            '<select class="ups-picker-sort" data-sort>' +
+              '<option value="name">Name (A→Z)</option>' +
+              '<option value="pos">Position</option>' +
+              '<option value="points_rank">Points Rank (1 first)</option>' +
+              '<option value="ppg_rank">PPG Rank (1 first)</option>' +
+              '<option value="proj_pts">Proj Points (high first)</option>' +
+            '</select>' +
+          '</div>' +
           '<div class="ups-picker-chips" data-chip-group="pos">' +
             '<button type="button" class="ups-picker-chip active" data-pos="ALL">All</button>' +
             '<button type="button" class="ups-picker-chip" data-pos="QB">QB</button>' +
@@ -10760,7 +10808,7 @@
       var triggerContentEl = trigger.querySelector("[data-trigger-content]");
       var chipsEl = drawer.querySelector('[data-chip-group="pos"]');
 
-      var STATE = { search: "", pos: "ALL" };
+      var STATE = { search: "", pos: "ALL", sort: "name" };
 
       // Find MFL's currently-selected player row (if any). TOS marks
       // selected rows with .selected-player and the row carries
@@ -10813,6 +10861,26 @@
           var name = nameEl ? (nameEl.textContent || "").trim() : "";
           var teamEl = row.querySelector(".player-info small");
           var teamMeta = teamEl ? (teamEl.textContent || "").trim() : "";
+          // Parse Points Rank + PPG Rank from the team-meta string.
+          // TOS format: "TEAM • Bye: N • Rank: M" or "TEAM • Rank: M • PPG: P"
+          // Match permissively — "rank", "rk", "ppg" with or without colons.
+          var pointsRank = null;
+          var ppgRank = null;
+          var m;
+          if ((m = /(?:^|[^a-z])(?:points\s*rank|rank|rk)\s*[:#]?\s*(\d+)/i.exec(teamMeta))) {
+            pointsRank = parseInt(m[1], 10) || null;
+          }
+          if ((m = /(?:^|[^a-z])(?:ppg\s*rank|ppg\s*rk|ppg)\s*[:#]?\s*(\d+(?:\.\d+)?)/i.exec(teamMeta))) {
+            ppgRank = parseFloat(m[1]) || null;
+          }
+          // Extract projected points (if any) from the .player-wproj column.
+          var projPts = null;
+          var projEl = row.querySelector(".player-wproj");
+          if (projEl) {
+            var projText = (projEl.textContent || "").replace(/PROJ\s*PTS?/gi, "").trim();
+            var projNum = parseFloat(projText.replace(/[^0-9.\-]/g, ""));
+            if (!isNaN(projNum)) projPts = projNum;
+          }
           // Find the "Add" button so we can trigger it on click
           var addBtn = Array.from(row.querySelectorAll("button")).find(function (b) {
             var t = (b.textContent || "").trim().toLowerCase();
@@ -10824,6 +10892,9 @@
             pos: pos,
             team_meta: teamMeta,
             img: imgSrc,
+            points_rank: pointsRank,
+            ppg_rank: ppgRank,
+            proj_pts: projPts,
             addBtnEl: addBtn,
             rowEl: row,
           };
@@ -10847,10 +10918,36 @@
           if (posFilter !== "ALL" && posBucket(p.pos) !== posFilter) return false;
           return true;
         });
-        // Sort by name (alpha); selected player floats to top
+        // Selected player floats to top; then secondary sort per STATE.sort.
+        var sortKey = STATE.sort || "name";
         filtered.sort(function (a, b) {
           if (a.player_id === selectedPid) return -1;
           if (b.player_id === selectedPid) return 1;
+          if (sortKey === "pos") {
+            return (a.pos || "").localeCompare(b.pos || "") ||
+                   a.name.localeCompare(b.name);
+          }
+          if (sortKey === "points_rank") {
+            // Rank ascending (1 first); nulls last
+            var ar = (a.points_rank == null) ? Infinity : a.points_rank;
+            var br = (b.points_rank == null) ? Infinity : b.points_rank;
+            if (ar !== br) return ar - br;
+            return a.name.localeCompare(b.name);
+          }
+          if (sortKey === "ppg_rank") {
+            var ap = (a.ppg_rank == null) ? Infinity : a.ppg_rank;
+            var bp = (b.ppg_rank == null) ? Infinity : b.ppg_rank;
+            if (ap !== bp) return ap - bp;
+            return a.name.localeCompare(b.name);
+          }
+          if (sortKey === "proj_pts") {
+            // Proj points descending (high first); nulls last
+            var ax = (a.proj_pts == null) ? -Infinity : a.proj_pts;
+            var bx = (b.proj_pts == null) ? -Infinity : b.proj_pts;
+            if (ax !== bx) return bx - ax;
+            return a.name.localeCompare(b.name);
+          }
+          // default: name A→Z
           return a.name.localeCompare(b.name);
         });
 
@@ -10869,6 +10966,22 @@
 
         listEl.innerHTML = filtered.map(function (p) {
           var isSelected = p.player_id === selectedPid;
+          // Build supplementary meta line emphasizing whichever sort key
+          // is currently active so the user sees WHY the order is what it
+          // is. Defaults to the original team-meta string.
+          var supMetaBits = [];
+          if (STATE.sort === "points_rank" && p.points_rank != null) {
+            supMetaBits.push('Points Rank <strong>#' + p.points_rank + '</strong>');
+          }
+          if (STATE.sort === "ppg_rank" && p.ppg_rank != null) {
+            supMetaBits.push('PPG Rank <strong>#' + p.ppg_rank + '</strong>');
+          }
+          if (STATE.sort === "proj_pts" && p.proj_pts != null) {
+            supMetaBits.push('Proj <strong>' + p.proj_pts + '</strong>');
+          }
+          var supMeta = supMetaBits.length > 0
+            ? '<div class="ups-picker-row-supmeta">' + supMetaBits.join(" · ") + '</div>'
+            : '';
           return '<div class="ups-picker-row' + (isSelected ? ' ups-picker-row-selected' : '') +
               '" data-picker-pid="' + escapeAttr(p.player_id) + '">' +
             '<div class="ups-picker-row-pos">' + escapeText(p.pos || "—") + '</div>' +
@@ -10880,6 +10993,7 @@
                 (isSelected ? ' <span class="ups-picker-row-selected-badge">✓ Selected</span>' : '') +
               '</div>' +
               '<div class="ups-picker-row-meta">' + escapeText(p.team_meta || "") + '</div>' +
+              supMeta +
             '</div>' +
             '<button type="button" class="ups-picker-row-cta">' +
               (isSelected ? "Clear" : "Select") +
@@ -10926,6 +11040,15 @@
           renderList();
         }, 150);
       });
+
+      // Sort dropdown
+      var sortEl = drawer.querySelector("[data-sort]");
+      if (sortEl) {
+        sortEl.addEventListener("change", function () {
+          STATE.sort = sortEl.value || "name";
+          renderList();
+        });
+      }
 
       // Position chips
       chipsEl.addEventListener("click", function (e) {
