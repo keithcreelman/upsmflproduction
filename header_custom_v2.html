@@ -9355,99 +9355,54 @@
     padding-bottom: 10rem !important;
     box-sizing: border-box;
   }
-  /* Ticket-reply + options + csetup forms specifically — give the
-     SUBMIT button its own scroll-margin so it always lands above the
-     champion footer when focused or scrolled into view. Applies to
-     desktop AND mobile.
-     csetup added 2026-05-20 after Keith reported FCONTACT page
-     clipping the Save button below the viewport. Same pattern as
-     my_tickets and options. */
-  body[id^="body_my_tickets"],
-  body[id^="body_options_"],
-  body[id^="body_csetup"],
-  body#body_commissioner_setup {
-    padding-bottom: 6rem !important;
-  }
-  body[id^="body_my_tickets"] form,
-  body[id^="body_my_tickets"] table,
-  body[id^="body_options_"] form,
-  body[id^="body_options_"] table,
-  body[id^="body_csetup"] form,
-  body[id^="body_csetup"] table,
-  body#body_commissioner_setup form,
-  body#body_commissioner_setup table {
+  /* ─────────────────────────────────────────────────────────────────
+   * UNIVERSAL native-MFL scroll safety + link contrast (2026-05-20)
+   *
+   * Previously we enumerated body IDs (body_my_tickets, body_options_,
+   * body_csetup, body_commissioner_setup, ...) and missed pages every
+   * time MFL added new ones. Switched to body-level + class-aware
+   * selectors so EVERY native MFL page is covered automatically.
+   *
+   * Risk analysis (why this is safe to apply universally):
+   *   - Extra body padding-bottom on a UPS hub iframe = a small blank
+   *     strip below the content. Harmless; iframe height beacon
+   *     handles auto-sizing.
+   *   - a:not([class]) excludes ALL UPS-injected components (CCC
+   *     pills, hub buttons, .ah-*, .rdh-*, .btn) by virtue of those
+   *     having class attributes. Only MFL's bare <a href> links match.
+   * ───────────────────────────────────────────────────────────────── */
+
+  /* Scroll safety — every page gets enough bottom padding to clear
+     the UPS hero/champion footer. Submit buttons get extra
+     scroll-margin so focus-scrolling parks them above the fold. */
+  body {
     padding-bottom: 8rem !important;
   }
-  body[id^="body_my_tickets"] input[type="submit"],
-  body[id^="body_my_tickets"] button[type="submit"],
-  body[id^="body_options_"]  input[type="submit"],
-  body[id^="body_options_"]  button[type="submit"],
-  body[id^="body_csetup"]    input[type="submit"],
-  body[id^="body_csetup"]    button[type="submit"],
-  body#body_commissioner_setup input[type="submit"],
-  body#body_commissioner_setup button[type="submit"] {
-    scroll-margin-bottom: 12rem;
-    margin-bottom: 2rem;
+  body input[type="submit"],
+  body button[type="submit"],
+  body input[type="image"][src*="submit"],
+  body input[name="SUBMIT"],
+  body .ups-submit,
+  body [class*="submit"] {
+    scroll-margin-bottom: 12rem !important;
   }
-  /* Mobile Safari: 100vh includes the URL bar's expandable region —
-     content sized to 100vh gets clipped behind the URL bar. 100dvh
-     uses the dynamic viewport (URL bar excluded) so content always
-     fits. Also add safe-area inset for notch / home-indicator. */
   @media (max-width: 980px) {
-    html, body {
-      min-height: 100dvh !important;
-    }
     body {
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8rem) !important;
-    }
-    body[id^="body_my_tickets"] form,
-    body[id^="body_my_tickets"] table,
-    body[id^="body_options_"] form,
-    body[id^="body_options_"] table,
-    body[id^="body_csetup"] form,
-    body[id^="body_csetup"] table,
-    body#body_commissioner_setup form,
-    body#body_commissioner_setup table {
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8rem) !important;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10rem) !important;
     }
   }
 
-  /* ─────────────────────────────────────────────────────────────────
-   * Native-MFL link contrast fix (added 2026-05-20)
-   *
-   * MFL renders "Continue With:" navigation + other inline links on
-   * post-submit pages with a very-light text color over a near-white
-   * background — unreadable against the UPS dark theme. The existing
-   * upsLinkContrastFix in site/loader.js uses :where() (specificity 0)
-   * which any MFL declaration beats.
-   *
-   * This rule is scoped to native MFL body IDs and uses normal
-   * specificity so it actually wins. Excludes anything with a class
-   * (CCC pills, hub buttons, etc.) so we don't accidentally restyle
-   * UPS-injected components.
-   * ───────────────────────────────────────────────────────────────── */
-  body[id^="body_csetup"] a:not([class]):not([style*="color"]),
-  body[id^="body_csetup"] a:not([class]):not([style*="color"]):visited,
-  body#body_commissioner_setup a:not([class]):not([style*="color"]),
-  body#body_commissioner_setup a:not([class]):not([style*="color"]):visited,
-  body[id^="body_my_tickets"] a:not([class]):not([style*="color"]),
-  body[id^="body_my_tickets"] a:not([class]):not([style*="color"]):visited,
-  body[id^="body_options_"] a:not([class]):not([style*="color"]),
-  body[id^="body_options_"] a:not([class]):not([style*="color"]):visited,
-  body[id^="body_all_reports"] a:not([class]):not([style*="color"]),
-  body[id^="body_all_reports"] a:not([class]):not([style*="color"]):visited,
-  body[id^="body_player_profile"] a:not([class]):not([style*="color"]),
-  body[id^="body_player_profile"] a:not([class]):not([style*="color"]):visited {
+  /* Link contrast — any unstyled MFL link (no class, no inline color)
+     gets the UPS link color + bold + underline. UPS components all
+     have class attributes so they're naturally excluded. */
+  body a:not([class]):not([style*="color"]),
+  body a:not([class]):not([style*="color"]):visited {
     color: var(--ups-link, #2960c1) !important;
     font-weight: 700 !important;
     text-decoration: underline !important;
   }
-  body[id^="body_csetup"] a:not([class]):not([style*="color"]):hover,
-  body#body_commissioner_setup a:not([class]):not([style*="color"]):hover,
-  body[id^="body_my_tickets"] a:not([class]):not([style*="color"]):hover,
-  body[id^="body_options_"] a:not([class]):not([style*="color"]):hover,
-  body[id^="body_all_reports"] a:not([class]):not([style*="color"]):hover,
-  body[id^="body_player_profile"] a:not([class]):not([style*="color"]):hover {
+  body a:not([class]):not([style*="color"]):hover,
+  body a:not([class]):not([style*="color"]):focus {
     color: var(--ups-link-hover, #1a4290) !important;
   }
 </style>
