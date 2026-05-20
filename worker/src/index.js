@@ -630,6 +630,7 @@ export default {
         path !== "/api/mfl-league-state" &&
         path !== "/api/auction/era-eligible" &&
         path !== "/api/auction/lots" &&
+        path !== "/admin/auction/probe-o43" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
@@ -1447,6 +1448,73 @@ export default {
         } catch (e) {
           console.error("[auction/era-eligible] failed:", e);
           return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- DIAGNOSTIC: GET /admin/auction/probe-o43 ----------
+      // One-shot: fetches MFL's O=43 nomination page using MFL_COOKIE
+      // and returns the HTML body so we can identify where proxy bid
+      // data lives (hidden inputs, inline JSON, JS vars). Delete this
+      // endpoint after the proxy-detection question is answered.
+      // Commish-gated.
+      if (path === "/admin/auction/probe-o43" && request.method === "GET") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
+        if (!authOk) {
+          return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+        }
+        const mflCookie = String(env.MFL_COOKIE || "").trim();
+        if (!mflCookie) return jsonOut(500, { error: "MFL_COOKIE secret missing" });
+        const year = url.searchParams.get("YEAR") || new Date().getUTCFullYear();
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const franchise = String(url.searchParams.get("FRANCHISE") || "0000");
+        const playerId = String(url.searchParams.get("PLAYER_ID") || "");
+        const pageUrl = `https://www48.myfantasyleague.com/${year}/options?LEAGUE_ID=${leagueId}&FRANCHISE=${franchise}&O=43${playerId ? "&PLAYER_ID=" + playerId : ""}`;
+        const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+        try {
+          const res = await fetch(pageUrl, {
+            headers: { Cookie: cookieHeader, "User-Agent": "ups-auction-probe" },
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          const body = await res.text();
+          // Highlight likely proxy-data locations:
+          const matches = {
+            proxy_mentions: (body.match(/proxy[^<>"\s]{0,40}/gi) || []).slice(0, 20),
+            max_bid_mentions: (body.match(/(?:max|hidden|secret)[_\s-]*bid[^<>"\s]{0,40}/gi) || []).slice(0, 20),
+            hidden_input_names: (body.match(/<input[^>]*type=["']hidden["'][^>]*name=["']([^"']+)["']/gi) || []).slice(0, 30),
+            json_blocks: (body.match(/var\s+\w+\s*=\s*\{[^;]{0,500}\};/g) || []).slice(0, 5),
+            inline_proxy_vars: (body.match(/(?:var|let|const)\s+\w*[Pp]roxy\w*[^;]{0,200};/g) || []).slice(0, 10),
+          };
+          // Find the section containing player 13447 if specified.
+          let playerContext = null;
+          if (playerId) {
+            const pid = playerId;
+            const idx = body.indexOf(pid);
+            if (idx > 0) {
+              playerContext = body.slice(Math.max(0, idx - 1000), Math.min(body.length, idx + 2000));
+            }
+          }
+          // Also extract <table> sections that look like auction state.
+          const auctionTables = [];
+          const tableRe = /<table[^>]*>[\s\S]*?<\/table>/gi;
+          let mt;
+          while ((mt = tableRe.exec(body)) !== null && auctionTables.length < 5) {
+            const t = mt[0];
+            if (/auction|bid|nominat|proxy/i.test(t)) auctionTables.push(t.slice(0, 3000));
+          }
+          return jsonOut(200, {
+            url: pageUrl,
+            http_status: res.status,
+            body_length: body.length,
+            interesting_matches: matches,
+            player_context: playerContext,
+            auction_tables: auctionTables,
+            body_preview: body.slice(0, 2000),
+          });
+        } catch (e) {
+          return jsonOut(502, { error: String(e?.message || e), url: pageUrl });
         }
       }
 
