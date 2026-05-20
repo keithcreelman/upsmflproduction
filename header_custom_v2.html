@@ -9914,6 +9914,75 @@
     font-weight: 700 !important;
   }
 
+  /* ─────────────────────────────────────────────────────────────────
+   * Phase B-lite — inline player picker (2026-05-20)
+   *
+   * O=43's auction-nominate form (form#AddDropForm) is an inline
+   * searchable table of ~1000+ players. Each row has a small <Add>
+   * button; clicking writes player_id into the hidden #sel_pid input
+   * (name="PLAYER_PICK") and submits. There's NO popup — the whole
+   * picker is rendered inline. Style it to feel like an .ah-card so
+   * it visually matches the auction-hub iframe rendered above it.
+   *
+   * Full side-mount drawer pivot is deferred to a separate scoped
+   * session (Phase C) — needs MFL player feed + search + on-pick
+   * animation work that doesn't fit a CSS-only pass.
+   * ───────────────────────────────────────────────────────────────── */
+  body[id^="body_options_43"] form#AddDropForm {
+    background: var(--ups-surface, #111b2e) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-radius: 8px !important;
+    padding: 16px !important;
+    margin: 0 0 16px !important;
+    color: var(--ups-text, #e8effa) !important;
+  }
+  body[id^="body_options_43"] form#AddDropForm select#picker_filt_nfl,
+  body[id^="body_options_43"] form#AddDropForm select#position-filter {
+    min-width: 120px !important;
+    margin-right: 6px !important;
+    margin-bottom: 6px !important;
+  }
+  /* The hundreds of <button>Add</button> rows in the picker table.
+     Compact, gold-outline so they stand out from MFL's submit blue. */
+  body[id^="body_options_43"] form#AddDropForm button:not([type="submit"]) {
+    background: transparent !important;
+    color: var(--ups-accent, #f0c465) !important;
+    border: 1px solid var(--ups-accent, #f0c465) !important;
+    padding: 3px 10px !important;
+    border-radius: 3px !important;
+    cursor: pointer !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    font-family: inherit !important;
+    letter-spacing: 0.02em !important;
+    line-height: 1.4 !important;
+    text-transform: uppercase !important;
+    transition: background 100ms, color 100ms !important;
+  }
+  body[id^="body_options_43"] form#AddDropForm button:not([type="submit"]):hover {
+    background: var(--ups-accent, #f0c465) !important;
+    color: var(--ups-accent-ink, #102a55) !important;
+  }
+  body[id^="body_options_43"] form#AddDropForm button:not([type="submit"]):disabled {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+  }
+  /* Inner picker table rows — tighten so 1000 players don't push the
+     page height into the moon. */
+  body[id^="body_options_43"] form#AddDropForm table.report td,
+  body[id^="body_options_43"] form#AddDropForm table.report th {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+  }
+  /* When the picker scrolls in a container with inline overflow style,
+     normalize the chrome. */
+  body[id^="body_options_43"] form#AddDropForm div[style*="overflow"] {
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-radius: 6px !important;
+    background: var(--ups-surface, #111b2e) !important;
+    max-height: 480px !important;
+  }
+
   /* Player picker table */
   body[id^="body_options_43"] table.pickerbox {
     background: var(--ups-surface, #111b2e) !important;
