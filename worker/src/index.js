@@ -820,6 +820,7 @@ export default {
         path !== "/api/mfl-league-state" &&
         path !== "/api/auction/era-eligible" &&
         path !== "/api/auction/lots" &&
+        path !== "/api/auction/bid-history" &&
         path !== "/admin/auction/probe-o43" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
@@ -1887,6 +1888,152 @@ export default {
           });
         } catch (e) {
           console.error("[auction/lots] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/bid-history ----------
+      // Returns chronological bid sequence for a single lot OR for ALL
+      // lots since a timestamp (war-room live feed mode).
+      //
+      // Backing data: ups_auction_bids — fully populated by the */5
+      // poll. Includes AUCTION_INIT (nominations, prefixed "[nomination]"
+      // in the note column) and every overtake bid. Pure D1 read, no
+      // MFL fetch — fast.
+      //
+      // Privacy: all bids are PUBLIC. Proxy LIMITS are still hidden
+      // (those live in ups_auction_proxy_bids and require the owner's
+      // own franchise_id to surface — handled by /api/auction/lots).
+      //
+      // Query params:
+      //   L          (optional, default 74598)
+      //   YEAR       (optional, default current UTC year)
+      //   player_id  (optional) — narrow to one lot
+      //   since      (optional, unix seconds) — only bids at/after this
+      //              timestamp; ideal for war-room polling
+      //   limit      (optional, default 200, max 1000)
+      if (path === "/api/auction/bid-history" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) {
+          return jsonOut(500, { error: "D1 binding UPS_MFL_DB missing" });
+        }
+        const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const playerId = String(url.searchParams.get("player_id") || "").replace(/\D/g, "");
+        const sinceUnix = Math.max(0, Number(url.searchParams.get("since") || 0));
+        const limit = Math.min(1000, Math.max(1, Number(url.searchParams.get("limit") || 200)));
+
+        try {
+          let sql = `SELECT bid_id, lot_id, player_id, fid, bid_k, bid_at_unix, note
+                       FROM ups_auction_bids
+                      WHERE season = ? AND league_id = ?`;
+          const args = [year, leagueId];
+          if (playerId) {
+            sql += ` AND player_id = ?`;
+            args.push(playerId);
+          }
+          if (sinceUnix > 0) {
+            sql += ` AND bid_at_unix >= ?`;
+            args.push(sinceUnix);
+          }
+          sql += ` ORDER BY bid_at_unix ASC, bid_id ASC LIMIT ?`;
+          args.push(limit);
+          const { results: bids } = await env.UPS_MFL_DB.prepare(sql).bind(...args).all();
+
+          // Enrich franchise + player names. Two parallel fetches.
+          const fidSet = new Set();
+          const pidSet = new Set();
+          for (const b of (bids || [])) {
+            if (b.fid) fidSet.add(b.fid);
+            if (b.player_id) pidSet.add(String(b.player_id));
+          }
+
+          const fidToName = {};
+          const pidToInfo = {};
+          if (fidSet.size > 0 || pidSet.size > 0) {
+            try {
+              const apiKey = String(env.MFL_APIKEY || "").trim();
+              const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+              const fetchTasks = [];
+              if (fidSet.size > 0) {
+                fetchTasks.push(
+                  fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+                    { cf: { cacheTtl: 300 } }).then((r) => r.json()).catch(() => ({}))
+                );
+              } else {
+                fetchTasks.push(Promise.resolve({}));
+              }
+              if (pidSet.size > 0) {
+                const pidList = [...pidSet].join(",");
+                fetchTasks.push(
+                  fetch(`https://api.myfantasyleague.com/${year}/export?TYPE=players&PLAYERS=${encodeURIComponent(pidList)}&JSON=1`,
+                    { cf: { cacheTtl: 86400 } }).then((r) => r.json()).catch(() => ({}))
+                );
+              } else {
+                fetchTasks.push(Promise.resolve({}));
+              }
+              const [lj, pj] = await Promise.all(fetchTasks);
+              const flist = lj?.league?.franchises?.franchise || [];
+              const farr = Array.isArray(flist) ? flist : [flist];
+              for (const f of farr) {
+                const id = String(f.id || "").padStart(4, "0");
+                if (id) fidToName[id] = String(f.name || ("Team " + id));
+              }
+              let plist = pj?.players?.player || [];
+              if (!Array.isArray(plist)) plist = [plist];
+              for (const p of plist) {
+                const id = String(p.id || "");
+                if (!id) continue;
+                let name = String(p.name || "");
+                if (name.includes(",")) name = name.split(",").reverse().map((s) => s.trim()).join(" ");
+                pidToInfo[id] = {
+                  name,
+                  position: String(p.position || "").toUpperCase(),
+                  nfl_team: String(p.team || "").toUpperCase(),
+                };
+              }
+            } catch (e) {
+              console.error("[auction/bid-history] meta enrichment failed:", e);
+            }
+          }
+
+          const enriched = (bids || []).map((b) => {
+            const noteStr = b.note ? String(b.note) : "";
+            const isNomination = noteStr.startsWith("[nomination]");
+            const isProxyWalk = /proxy/i.test(noteStr);
+            const pInfo = pidToInfo[String(b.player_id)] || {};
+            return {
+              bid_id: b.bid_id,
+              lot_id: b.lot_id,
+              player_id: b.player_id,
+              player_name: pInfo.name || ("Player #" + b.player_id),
+              position: pInfo.position || "",
+              nfl_team: pInfo.nfl_team || "",
+              fid: b.fid,
+              franchise_name: fidToName[b.fid] || ("Team " + b.fid),
+              bid_k: b.bid_k,
+              bid_at_unix: b.bid_at_unix,
+              bid_at_iso: new Date(Number(b.bid_at_unix) * 1000).toISOString(),
+              note: noteStr || null,
+              is_nomination: isNomination,
+              is_proxy_walk: isProxyWalk,
+              kind: isNomination ? "nomination" : (isProxyWalk ? "proxy_walk" : "bid"),
+            };
+          });
+
+          return jsonOut(200, {
+            season: year,
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            filters: {
+              player_id: playerId || null,
+              since_unix: sinceUnix || null,
+              limit,
+            },
+            count: enriched.length,
+            bids: enriched,
+          });
+        } catch (e) {
+          console.error("[auction/bid-history] failed:", e);
           return jsonOut(500, { error: String(e && e.message || e) });
         }
       }
