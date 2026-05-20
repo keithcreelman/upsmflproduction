@@ -7586,7 +7586,91 @@
   banner.style.display = "flex";
 })();
 </script>
-<link rel="stylesheet" type="text/css" href="https://www.mflscripts.com/mfl-apps/global/css/300x50-icons.css">
+<!-- 2026-05-20: removed TOS 300x50-icons.css — its rules were fighting
+     our O=43 overrides. TOS *JS* still runs (player picker, etc.)
+     and a runtime defender below disables any <style> blocks TOS
+     injects via JS. See ups-tos-css-defender block. -->
+
+<script id="ups-tos-css-defender">
+  // Disable any TOS-origin <style> elements injected at runtime by
+  // mflscripts.com scripts. Their CSS sets pale-green hover/selected
+  // states + light backgrounds that fight our dark-theme overrides
+  // on O=43 and elsewhere. We keep TOS JS (picker still works) but
+  // kill any stylesheet they ship.
+  //
+  // Signatures we treat as "TOS-origin" (any one match disables):
+  //   - textContent contains ".add-drop-player-row" / "mflscripts" /
+  //     "selected-player" / "alert-info-body"
+  //   - attribute data-mflscripts or data-tos
+  //   - id starting with "mfl-app-"
+  (function () {
+    function isTosStyle(node) {
+      if (!node || node.tagName !== "STYLE") return false;
+      if (node.hasAttribute("data-mflscripts") || node.hasAttribute("data-tos")) return true;
+      var id = String(node.id || "");
+      if (id.indexOf("mfl-app-") === 0) return true;
+      if (id.indexOf("ups-") === 0) return false; // never touch our own
+      var t = String(node.textContent || "");
+      if (!t) return false;
+      return (
+        t.indexOf(".add-drop-player-row") !== -1 ||
+        t.indexOf("mflscripts") !== -1 ||
+        t.indexOf("selected-player") !== -1 ||
+        t.indexOf(".alert-info-body") !== -1
+      );
+    }
+    function isTosLink(node) {
+      if (!node || node.tagName !== "LINK") return false;
+      if (String(node.rel || "").indexOf("stylesheet") === -1) return false;
+      var href = String(node.href || "");
+      return href.indexOf("mflscripts.com") !== -1;
+    }
+    function disableNode(node) {
+      try {
+        if (node.tagName === "STYLE") {
+          // Empty + disable so any future re-enable still has no rules.
+          node.textContent = "";
+          node.disabled = true;
+        } else if (node.tagName === "LINK") {
+          node.disabled = true;
+          // Remove from DOM so subsequent recalc skips it entirely.
+          if (node.parentNode) node.parentNode.removeChild(node);
+        }
+      } catch (e) {}
+    }
+    function sweep(root) {
+      var scope = root || document;
+      scope.querySelectorAll("style").forEach(function (s) { if (isTosStyle(s)) disableNode(s); });
+      scope.querySelectorAll('link[rel*="stylesheet"]').forEach(function (l) { if (isTosLink(l)) disableNode(l); });
+    }
+    // Initial sweep — handle anything inlined in the static HTML.
+    sweep(document);
+    // Observer — catch anything TOS adds after we run.
+    if (typeof MutationObserver === "function") {
+      var obs = new MutationObserver(function (records) {
+        for (var i = 0; i < records.length; i += 1) {
+          var added = records[i].addedNodes;
+          for (var j = 0; j < added.length; j += 1) {
+            var n = added[j];
+            if (!n || n.nodeType !== 1) continue;
+            if (n.tagName === "STYLE" && isTosStyle(n)) disableNode(n);
+            else if (n.tagName === "LINK" && isTosLink(n)) disableNode(n);
+            else if (n.querySelectorAll) sweep(n);
+          }
+        }
+      });
+      obs.observe(document.documentElement, { childList: true, subtree: true });
+      // Stop observing after 30s — TOS scripts finish their CSS injection
+      // well before that, and we don't want a persistent observer.
+      setTimeout(function () { try { obs.disconnect(); } catch (e) {} }, 30000);
+    }
+    // Final belt-and-suspenders sweep on DOMContentLoaded + load.
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", function () { sweep(document); });
+    }
+    window.addEventListener("load", function () { sweep(document); });
+  })();
+</script>
 
 <style id="ups-theme-postload-overrides">
   /* Home / CCC pages: prevent horizontal overflow from shifting the entire
@@ -10057,11 +10141,22 @@
 
   /* Lock-status legend (#locked-msg) — TOS renders the "[L] Locked: ...
      # Locked: Global ... * Locked: Recently Dropped" key below the
-     picker. Element has no class hooks; target by ID. Inherits page
-     default #000 on dark background → unreadable without an override. */
-  body[id^="body_options_43"] #locked-msg,
+     picker. Paint our OWN background + text so we're not at the
+     mercy of TOS or MFL's parent colors. */
+  body[id^="body_options_43"] #locked-msg {
+    display: block !important;
+    background: var(--ups-surface, #111b2e) !important;
+    color: var(--ups-text, #e8effa) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-radius: 6px !important;
+    padding: 10px 14px !important;
+    margin: 8px 0 12px !important;
+    font-size: 12px !important;
+    line-height: 1.6 !important;
+  }
   body[id^="body_options_43"] #locked-msg * {
     color: var(--ups-text, #e8effa) !important;
+    background: transparent !important;
   }
   body[id^="body_options_43"] #locked-msg b {
     color: var(--ups-accent, #f0c465) !important;
