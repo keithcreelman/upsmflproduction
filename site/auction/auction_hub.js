@@ -198,8 +198,297 @@
         STATE.activeTab = tab;
         $$("#ah-tabs button").forEach((b) => b.classList.toggle("active", b === btn));
         $$(".ah-section").forEach((s) => s.classList.toggle("active", s.dataset.section === tab));
+        // Lazy-load tab data on first activation
+        if (tab === "warroom" && !STATE.warroomLoaded) {
+          STATE.warroomLoaded = true;
+          loadWarRoom();
+        } else if (tab === "history" && !STATE.historyLoaded) {
+          STATE.historyLoaded = true;
+          loadBidHistory();
+          setupHistoryFilters();
+        }
       });
     });
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // WAR ROOM (compliance + cut-then-rebid blocks)
+  // ════════════════════════════════════════════════════════════════════
+  async function loadWarRoom() {
+    const season = new Date().getUTCFullYear();
+    const qs = "?L=" + LEAGUE_ID + "&YEAR=" + season;
+    const metaEl = $("#warroom-meta");
+    const complianceGrid = $("#warroom-compliance-grid");
+    const blocksGrid = $("#warroom-blocks-grid");
+    const complianceSummary = $("#warroom-compliance-summary");
+    const blocksSummary = $("#warroom-blocks-summary");
+    if (metaEl) metaEl.textContent = "Loading…";
+    try {
+      const [compliance, blocks] = await Promise.all([
+        fetchJSON(apiUrl("/api/auction/compliance") + qs),
+        fetchJSON(apiUrl("/api/auction/cut-rebid-blocks") + qs),
+      ]);
+      STATE.compliance = compliance;
+      STATE.cutRebidBlocks = blocks;
+      renderCompliance();
+      renderCutRebidBlocks();
+      if (complianceSummary) {
+        complianceSummary.textContent =
+          (compliance.total_warnings || 0) + " warning" +
+          ((compliance.total_warnings || 0) === 1 ? "" : "s") +
+          " across " + (compliance.franchise_count || 0) + " franchises";
+      }
+      if (blocksSummary) {
+        blocksSummary.textContent =
+          (blocks.total_blocked || 0) + " block" +
+          ((blocks.total_blocked || 0) === 1 ? "" : "s") +
+          (blocks.total_needs_review > 0
+            ? " · " + blocks.total_needs_review + " need manual review"
+            : "");
+      }
+      if (metaEl) {
+        const win = blocks.window || {};
+        metaEl.textContent =
+          "Cap thresholds: " + (compliance.thresholds
+            ? "$" + compliance.thresholds.cap_floor_k + "K floor · $" +
+              compliance.thresholds.cap_ceiling_k + "K ceiling · " +
+              compliance.thresholds.active_min + "-active min"
+            : "unknown") +
+          " · Block window: " + (win.offseason_start_iso
+            ? new Date(win.offseason_start_iso).toLocaleDateString()
+            : "—") + " → " +
+            (win.evaluated_through_iso
+              ? new Date(win.evaluated_through_iso).toLocaleDateString()
+              : "—");
+      }
+    } catch (e) {
+      console.error("[auction-hub] war room load failed:", e);
+      if (complianceGrid) {
+        complianceGrid.innerHTML = `<div class="ah-placeholder" style="color:var(--err);">
+          Failed to load compliance: ${escapeHtml(String(e && e.message || e))}</div>`;
+      }
+      if (blocksGrid) {
+        blocksGrid.innerHTML = `<div class="ah-placeholder" style="color:var(--err);">
+          Failed to load cut-rebid blocks: ${escapeHtml(String(e && e.message || e))}</div>`;
+      }
+      if (metaEl) metaEl.textContent = "Failed to load.";
+    }
+  }
+
+  function renderCompliance() {
+    const grid = $("#warroom-compliance-grid");
+    if (!grid) return;
+    const data = STATE.compliance || {};
+    const rows = data.franchises || [];
+    if (rows.length === 0) {
+      grid.innerHTML = `<div class="ah-placeholder">No franchise data available.</div>`;
+      return;
+    }
+    grid.innerHTML = rows.map((f) => {
+      const sev = (f.warnings || []).some((w) => w.severity === "error") ? "error"
+                : (f.warnings || []).length > 0 ? "warning"
+                : "ok";
+      const sevLabel = sev === "error" ? "OVER CEILING" : sev === "warning" ? "ADVISORY" : "OK";
+      return `
+        <div class="ah-warroom-card ah-sev-${sev}">
+          <div class="ah-warroom-card-head">
+            <div class="ah-warroom-fname">${escapeHtml(f.franchise_name)}</div>
+            <div class="ah-warroom-sev ah-sev-pill-${sev}">${sevLabel}</div>
+          </div>
+          <div class="ah-warroom-stats">
+            <div><span class="ah-stat-label">Cap Spent</span>
+              <span class="ah-stat-val">$${f.cap_spent_k}K</span></div>
+            <div><span class="ah-stat-label">Cap Room</span>
+              <span class="ah-stat-val ${f.cap_room_k < 0 ? "ah-neg" : ""}">$${f.cap_room_k}K</span></div>
+            <div><span class="ah-stat-label">Active</span>
+              <span class="ah-stat-val ${f.active_count < f.active_min ? "ah-neg" : ""}">${f.active_count}/${f.active_min}–${f.active_max}</span></div>
+            <div><span class="ah-stat-label">Taxi</span>
+              <span class="ah-stat-val">${f.taxi_count}</span></div>
+            <div><span class="ah-stat-label">IR</span>
+              <span class="ah-stat-val">${f.ir_count}</span></div>
+            <div><span class="ah-stat-label">Adjustments</span>
+              <span class="ah-stat-val">$${f.adjustments_k}K</span></div>
+          </div>
+          ${(f.warnings || []).length > 0 ? `
+            <ul class="ah-warroom-warns">
+              ${f.warnings.map((w) => `
+                <li class="ah-warn-${w.severity}">${escapeHtml(w.message)}</li>
+              `).join("")}
+            </ul>
+          ` : ""}
+        </div>`;
+    }).join("");
+  }
+
+  function renderCutRebidBlocks() {
+    const grid = $("#warroom-blocks-grid");
+    if (!grid) return;
+    const data = STATE.cutRebidBlocks || {};
+    const rows = data.franchises || [];
+    if (rows.length === 0) {
+      grid.innerHTML = `<div class="ah-placeholder">
+        No cut-then-rebid blocks this offseason. Either no qualifying drops have happened yet,
+        or no franchise has cut a player under contractual control.</div>`;
+      return;
+    }
+    grid.innerHTML = rows.map((f) => `
+      <div class="ah-warroom-card">
+        <div class="ah-warroom-card-head">
+          <div class="ah-warroom-fname">${escapeHtml(f.franchise_name)}</div>
+          <div class="ah-warroom-sev">
+            ${f.blocked_count} blocked${f.needs_review_count > 0 ? ` · ${f.needs_review_count} review` : ""}
+          </div>
+        </div>
+        ${f.blocked_players && f.blocked_players.length > 0 ? `
+          <ul class="ah-block-list">
+            ${f.blocked_players.slice(0, 12).map((p) => `
+              <li>
+                <span class="ah-block-name">${escapeHtml(p.player_name)}</span>
+                <span class="ah-block-meta">
+                  ${escapeHtml(p.position || "")}${p.nfl_team ? " · " + escapeHtml(p.nfl_team) : ""}
+                  · ${escapeHtml(p.prior_contract_status || "")}
+                  ${p.prior_contract_year ? " · cy=" + p.prior_contract_year : ""}
+                </span>
+              </li>`).join("")}
+            ${f.blocked_players.length > 12 ? `<li class="ah-block-more">+${f.blocked_players.length - 12} more</li>` : ""}
+          </ul>
+        ` : `<div class="ah-placeholder ah-placeholder-tight">No definitive blocks (only review items).</div>`}
+        ${f.needs_review && f.needs_review.length > 0 ? `
+          <details class="ah-warroom-review">
+            <summary>${f.needs_review.length} needs manual review</summary>
+            <ul class="ah-block-list ah-block-list-review">
+              ${f.needs_review.slice(0, 8).map((p) => `
+                <li>
+                  <span class="ah-block-name">${escapeHtml(p.player_name)}</span>
+                  <span class="ah-block-meta">${escapeHtml(p.reason || "")}</span>
+                </li>`).join("")}
+              ${f.needs_review.length > 8 ? `<li class="ah-block-more">+${f.needs_review.length - 8} more</li>` : ""}
+            </ul>
+          </details>
+        ` : ""}
+      </div>
+    `).join("");
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // BID HISTORY
+  // ════════════════════════════════════════════════════════════════════
+  async function loadBidHistory() {
+    const season = new Date().getUTCFullYear();
+    const qs = "?L=" + LEAGUE_ID + "&YEAR=" + season + "&limit=200";
+    const metaEl = $("#history-meta");
+    const feed = $("#history-feed");
+    const filterEl = $("#history-filters");
+    if (metaEl) metaEl.textContent = "Loading…";
+    try {
+      const data = await fetchJSON(apiUrl("/api/auction/bid-history") + qs);
+      STATE.bidHistory = data;
+      // Populate franchise filter dropdown
+      const franchiseSelect = $("#history-franchise-filter");
+      if (franchiseSelect) {
+        const seen = new Set();
+        const opts = [];
+        for (const b of (data.bids || [])) {
+          if (!b.fid || seen.has(b.fid)) continue;
+          seen.add(b.fid);
+          opts.push({ fid: b.fid, name: b.franchise_name });
+        }
+        opts.sort((a, b) => a.name.localeCompare(b.name));
+        franchiseSelect.innerHTML = `<option value="">All franchises</option>` +
+          opts.map((o) => `<option value="${escapeHtml(o.fid)}">${escapeHtml(o.name)}</option>`).join("");
+      }
+      if (filterEl) filterEl.style.display = "";
+      renderBidHistory();
+      if (metaEl) {
+        metaEl.textContent = "Showing most recent " + (data.bids || []).length + " bids.";
+      }
+    } catch (e) {
+      console.error("[auction-hub] bid history load failed:", e);
+      if (feed) {
+        feed.innerHTML = `<div class="ah-placeholder" style="color:var(--err);">
+          Failed to load bid history: ${escapeHtml(String(e && e.message || e))}</div>`;
+      }
+      if (metaEl) metaEl.textContent = "Failed to load.";
+    }
+  }
+
+  function setupHistoryFilters() {
+    const rerender = () => renderBidHistory();
+    ["history-player-filter", "history-franchise-filter", "history-kind-filter"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("input", rerender);
+      el.addEventListener("change", rerender);
+    });
+  }
+
+  function renderBidHistory() {
+    const feed = $("#history-feed");
+    const countEl = $("#history-count");
+    if (!feed) return;
+    const data = STATE.bidHistory || {};
+    let bids = Array.isArray(data.bids) ? data.bids.slice() : [];
+
+    const pFilter = ($("#history-player-filter")?.value || "").trim().toLowerCase();
+    const fFilter = ($("#history-franchise-filter")?.value || "").trim();
+    const kFilter = ($("#history-kind-filter")?.value || "").trim();
+    if (pFilter) {
+      bids = bids.filter((b) =>
+        (b.player_name || "").toLowerCase().includes(pFilter) ||
+        String(b.player_id || "").includes(pFilter)
+      );
+    }
+    if (fFilter) bids = bids.filter((b) => b.fid === fFilter);
+    if (kFilter) bids = bids.filter((b) => b.kind === kFilter);
+
+    // Newest first for the feed
+    bids.sort((a, b) => (b.bid_at_unix || 0) - (a.bid_at_unix || 0));
+
+    if (countEl) countEl.textContent = bids.length + " event" + (bids.length === 1 ? "" : "s");
+
+    if (bids.length === 0) {
+      feed.innerHTML = `<div class="ah-placeholder">No bids match the current filters.</div>`;
+      return;
+    }
+
+    feed.innerHTML = `<ul class="ah-bid-feed">` +
+      bids.map((b) => {
+        const icon = b.kind === "nomination" ? "🆕"
+                  : b.kind === "proxy_walk" ? "🤖"
+                  : "💰";
+        const kindLabel = b.kind === "nomination" ? "NOMINATION"
+                       : b.kind === "proxy_walk" ? "PROXY WALK"
+                       : "BID";
+        return `
+          <li class="ah-bid-event ah-bid-${b.kind}">
+            <div class="ah-bid-icon">${icon}</div>
+            <div class="ah-bid-body">
+              <div class="ah-bid-head">
+                <strong>${escapeHtml(b.franchise_name || "")}</strong>
+                <span class="ah-bid-kind">${kindLabel}</span>
+                <span class="ah-bid-amount">$${b.bid_k}K</span>
+              </div>
+              <div class="ah-bid-meta">
+                <span class="ah-bid-player">${escapeHtml(b.player_name || "")}</span>
+                ${b.position ? ` · ${escapeHtml(b.position)}` : ""}
+                ${b.nfl_team ? ` · ${escapeHtml(b.nfl_team)}` : ""}
+                <span class="ah-bid-when">${formatBidWhen(b.bid_at_unix)}</span>
+              </div>
+              ${b.note ? `<div class="ah-bid-note">${escapeHtml(b.note)}</div>` : ""}
+            </div>
+          </li>`;
+      }).join("") +
+      `</ul>`;
+  }
+
+  function formatBidWhen(unix) {
+    if (!unix) return "";
+    const ms = Number(unix) * 1000;
+    const diffSec = Math.max(0, (Date.now() - ms) / 1000);
+    if (diffSec < 60) return Math.floor(diffSec) + "s ago";
+    if (diffSec < 3600) return Math.floor(diffSec / 60) + "m ago";
+    if (diffSec < 86400) return Math.floor(diffSec / 3600) + "h ago";
+    return new Date(ms).toLocaleDateString();
   }
 
   // ════════════════════════════════════════════════════════════════════

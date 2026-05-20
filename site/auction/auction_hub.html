@@ -18,8 +18,8 @@
   <button data-tab="era" class="active">Expired Rookie Pool</button>
   <button data-tab="fa" disabled title="Coming soon">FA Auction Pool</button>
   <button data-tab="nominations">Nominations</button>
-  <button data-tab="warroom" disabled title="Coming soon">Cap &amp; Roster War Room</button>
-  <button data-tab="history" disabled title="Coming soon">Bid History</button>
+  <button data-tab="warroom">War Room</button>
+  <button data-tab="history">Bid History</button>
   <button data-tab="rules" disabled title="Coming soon">Rules &amp; Calendar</button>
 </nav>
 
@@ -149,19 +149,73 @@
     </div>
   </section>
 
-  <!-- ── WAR ROOM (placeholder) ───────────────────────────────────── -->
+  <!-- ── WAR ROOM ─────────────────────────────────────────────────── -->
   <section class="ah-section" data-section="warroom">
-    <div class="ah-placeholder">
-      <strong>Cap &amp; Roster War Room — coming soon</strong>
-      Per-owner cap state, loaded-contract counter (X/5), cut-then-rebid blocklist, roster-min/max tracking.
+    <div class="ah-context-banner">
+      <strong>War Room</strong> — per-franchise cap status, cut-then-rebid block lists, and roster-min/max
+      compliance against canon §6.A1/§A2/§B1.
+      <div class="meta" id="warroom-meta">Click the tab to load.</div>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Cap &amp; Roster Compliance</h2>
+        <span class="small" id="warroom-compliance-summary">—</span>
+      </div>
+      <div class="ah-warroom-grid" id="warroom-compliance-grid">
+        <div class="ah-placeholder">Loading franchise compliance…</div>
+      </div>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Cut-then-Rebid Blocks (§A2)</h2>
+        <span class="small" id="warroom-blocks-summary">—</span>
+      </div>
+      <div class="ah-warroom-grid" id="warroom-blocks-grid">
+        <div class="ah-placeholder">Loading cut-then-rebid lists…</div>
+      </div>
     </div>
   </section>
 
-  <!-- ── BID HISTORY (placeholder) ────────────────────────────────── -->
+  <!-- ── BID HISTORY ──────────────────────────────────────────────── -->
   <section class="ah-section" data-section="history">
-    <div class="ah-placeholder">
-      <strong>Bid History — coming soon</strong>
-      Reads from <code>transactions_auction</code>. Filter by auction_type, season, franchise, player.
+    <div class="ah-context-banner">
+      <strong>Bid History</strong> — chronological feed from <code>ups_auction_bids</code>
+      (populated every 5 minutes by the auction poll cron).
+      <div class="meta" id="history-meta">Click the tab to load.</div>
+    </div>
+
+    <div class="ah-filters" id="history-filters" style="display:none;">
+      <label>
+        <span>Filter by player</span>
+        <input type="text" id="history-player-filter" placeholder="Player name or ID…" />
+      </label>
+      <label>
+        <span>Filter by franchise</span>
+        <select id="history-franchise-filter">
+          <option value="">All franchises</option>
+        </select>
+      </label>
+      <label>
+        <span>Event type</span>
+        <select id="history-kind-filter">
+          <option value="">All</option>
+          <option value="nomination">Nominations</option>
+          <option value="bid">Bids</option>
+          <option value="proxy_walk">Proxy walks</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Recent Activity</h2>
+        <span class="small" id="history-count">—</span>
+      </div>
+      <div id="history-feed">
+        <div class="ah-placeholder">Loading bid history…</div>
+      </div>
     </div>
   </section>
 

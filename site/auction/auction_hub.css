@@ -280,3 +280,134 @@ a.btn.small {
   .ah-table th, .ah-table td { padding: 6px 4px; }
   .ah-filters input[type="search"] { min-width: 0; width: 100%; }
 }
+
+/* ── War Room: per-franchise compliance + cut-rebid blocks ───────────
+   Two-column grid of franchise cards. Each card surfaces cap state +
+   roster counts + per-rule warnings; or per-franchise blocklist. */
+.ah-warroom-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.ah-warroom-card {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 12px;
+}
+.ah-warroom-card.ah-sev-error  { border-left: 3px solid var(--err); }
+.ah-warroom-card.ah-sev-warning { border-left: 3px solid var(--warn); }
+.ah-warroom-card.ah-sev-ok      { border-left: 3px solid var(--ok); }
+.ah-warroom-card-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 8px;
+}
+.ah-warroom-fname { font-weight: 700; font-size: 13px; color: var(--text); }
+.ah-warroom-sev {
+  font-size: 10px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+.ah-sev-pill-error  { color: var(--err);  font-weight: 700; }
+.ah-sev-pill-warning { color: var(--warn); font-weight: 700; }
+.ah-sev-pill-ok     { color: var(--ok);   font-weight: 700; }
+
+.ah-warroom-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  margin-bottom: 6px;
+}
+.ah-warroom-stats > div {
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.ah-stat-label { color: var(--muted); font-size: 11px; }
+.ah-stat-val { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+.ah-stat-val.ah-neg { color: var(--err); }
+
+.ah-warroom-warns {
+  list-style: none; padding: 0; margin: 8px 0 0;
+  border-top: 1px solid var(--border); padding-top: 8px;
+  font-size: 11px; line-height: 1.4;
+}
+.ah-warroom-warns li { padding: 2px 0; }
+.ah-warn-error   { color: var(--err); }
+.ah-warn-warning { color: var(--warn); }
+
+.ah-block-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 3px;
+  max-height: 280px; overflow-y: auto;
+}
+.ah-block-list li {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 4px 6px;
+  border-radius: 3px;
+  background: var(--panel);
+}
+.ah-block-name { font-weight: 600; color: var(--text); font-size: 12px; }
+.ah-block-meta { color: var(--muted); font-size: 10px; }
+.ah-block-more {
+  background: transparent !important;
+  font-style: italic;
+  color: var(--muted) !important;
+  justify-content: center !important;
+}
+.ah-block-list-review li { opacity: 0.75; }
+.ah-warroom-review { margin-top: 8px; }
+.ah-warroom-review summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 4px 0;
+}
+.ah-warroom-review summary:hover { color: var(--accent); }
+.ah-placeholder-tight { padding: 4px 0; color: var(--muted); font-size: 11px; }
+
+/* ── Bid History feed ──────────────────────────────────────────────── */
+.ah-bid-feed {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ah-bid-event {
+  display: flex; gap: 12px;
+  padding: 8px 10px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  transition: background 100ms;
+}
+.ah-bid-event:hover { background: var(--panel); }
+.ah-bid-event.ah-bid-nomination { border-left: 3px solid var(--ok); }
+.ah-bid-event.ah-bid-proxy_walk { border-left: 3px solid #c084fc; }
+.ah-bid-event.ah-bid-bid        { border-left: 3px solid var(--accent); }
+.ah-bid-icon {
+  font-size: 18px; line-height: 1;
+  flex-shrink: 0; align-self: center;
+}
+.ah-bid-body { flex: 1; min-width: 0; }
+.ah-bid-head {
+  display: flex; gap: 8px; align-items: baseline;
+  margin-bottom: 2px;
+}
+.ah-bid-head strong { color: var(--text); font-size: 13px; }
+.ah-bid-kind {
+  color: var(--muted); font-size: 9px;
+  text-transform: uppercase; letter-spacing: 0.4px;
+  padding: 1px 6px; border: 1px solid var(--border); border-radius: 8px;
+}
+.ah-bid-amount {
+  margin-left: auto;
+  color: var(--accent); font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ah-bid-meta { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.ah-bid-player { color: var(--text); font-weight: 500; }
+.ah-bid-when { float: right; font-size: 10px; }
+.ah-bid-note {
+  margin-top: 3px; padding: 3px 6px;
+  background: var(--panel); border-radius: 3px;
+  font-size: 10px; color: var(--muted);
+  font-family: -apple-system, BlinkMacSystemFont, monospace;
+}
