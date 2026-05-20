@@ -9996,43 +9996,51 @@
    * Classes come from mflscripts.com — confirmed by the
    * "https://www.mflscripts.com/playerImages_80x107/" img src.
    * ───────────────────────────────────────────────────────────────── */
-  body[id^="body_options_43"] .add-drop-player-row {
+  /* Specificity-matched to beat light.css. Diagnostic confirmed
+     TOS uses .add-player-container .add-drop-player-row* (0,3,0).
+     Including .add-player-container in our chain → 0,4,1 — wins
+     regardless of source order or !important. */
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row {
     background: var(--ups-row-odd, #111f35) !important;
+    background-color: var(--ups-row-odd, #111f35) !important;
     color: var(--ups-text, #e8effa) !important;
     border-bottom: 1px solid var(--ups-td-border, #203a5d) !important;
   }
-  body[id^="body_options_43"] .add-drop-player-row.eventablerow {
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row.eventablerow {
     background: var(--ups-row-even, #0f1b30) !important;
+    background-color: var(--ups-row-even, #0f1b30) !important;
   }
-  body[id^="body_options_43"] .add-drop-player-row.oddtablerow {
-    background: var(--ups-row-odd, #111f35) !important;
-  }
-  /* Selected state — keep green semantic via 3px left border, paint
-     row dark so the player name stays readable. */
-  body[id^="body_options_43"] .add-drop-player-row.selected-player {
-    background: var(--ups-surface-alt, #16253f) !important;
-    border-left: 3px solid var(--ups-success, #25c37d) !important;
-    padding-left: calc(var(--ups-row-pad-left, 8px) - 3px) !important;
-  }
-  body[id^="body_options_43"] .add-drop-player-row:hover,
-  body[id^="body_options_43"] form .add-drop-player-row:hover,
-  body[id^="body_options_43"] .add-drop-player-row.hover,
-  body[id^="body_options_43"] .add-drop-player-row.is-hovered,
-  body[id^="body_options_43"] .add-drop-player-row[class*="hover"] {
-    background: var(--ups-surface-alt, #16253f) !important;
-    background-color: var(--ups-surface-alt, #16253f) !important;
-  }
-  /* Defensive — defeat any inline background TOS adds to the row on
-     mouseover/select. Specificity-via-attribute selector beats
-     external !important rules; pairing with our own !important lets us
-     win against TOS's inline style. */
-  body[id^="body_options_43"] .add-drop-player-row[style*="background"] {
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row.oddtablerow {
     background: var(--ups-row-odd, #111f35) !important;
     background-color: var(--ups-row-odd, #111f35) !important;
   }
-  body[id^="body_options_43"] .add-drop-player-row.selected-player[style*="background"] {
+  /* Selected state — dark fill + green left stripe (semantic preserved) */
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row.selected-player {
     background: var(--ups-surface-alt, #16253f) !important;
     background-color: var(--ups-surface-alt, #16253f) !important;
+    border-left: 3px solid var(--ups-success, #25c37d) !important;
+  }
+  /* Hover — surface-alt dark, beats TOS's green wash */
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row:hover,
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row.hover,
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row.is-hovered {
+    background: var(--ups-surface-alt, #16253f) !important;
+    background-color: var(--ups-surface-alt, #16253f) !important;
+  }
+  /* Selected + hover composed — keep green stripe AND dark fill */
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row.selected-player:hover {
+    background: var(--ups-surface-alt, #16253f) !important;
+    background-color: var(--ups-surface-alt, #16253f) !important;
+    border-left: 3px solid var(--ups-success, #25c37d) !important;
+  }
+  /* Defensive fallbacks (no .add-player-container wrapper) — kept at
+     lower specificity in case TOS ever refactors away the wrapper */
+  body[id^="body_options_43"] .add-drop-player-row.selected-player {
+    background: var(--ups-surface-alt, #16253f) !important;
+    border-left: 3px solid var(--ups-success, #25c37d) !important;
+  }
+  body[id^="body_options_43"] .add-drop-player-row:hover {
+    background: var(--ups-surface-alt, #16253f) !important;
   }
   /* All text inside the picker row inherits the light text token —
      defeats whatever inline color TOS may apply to player names
