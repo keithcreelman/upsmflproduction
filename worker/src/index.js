@@ -2131,7 +2131,9 @@ export default {
 
             for (const p of players) {
               const status = String(p?.status || "").toUpperCase();
-              const salaryDollars = Math.round(Number(p?.salary || 0) * 1000); // MFL salary field is in dollars-as-thousands ($K)
+              // MFL rosters export: salary is in WHOLE DOLLARS already (verified via
+              // direct fetch: "salary":"15000" = $15K, not 15 = 15K). NO multiplier.
+              const salaryDollars = Number(p?.salary || 0);
               const isTaxi = status === "TAXI_SQUAD" || status === "TAXI" || /TAXI/i.test(status);
               const isIR  = status === "INJURED_RESERVE" || status === "IR" || /INJURED/i.test(status);
               if (isTaxi) {
