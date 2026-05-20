@@ -822,6 +822,7 @@ export default {
         path !== "/api/auction/lots" &&
         path !== "/api/auction/bid-history" &&
         path !== "/api/auction/compliance" &&
+        path !== "/api/auction/cut-rebid-blocks" &&
         path !== "/admin/auction/probe-o43" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
@@ -2232,6 +2233,237 @@ export default {
           });
         } catch (e) {
           console.error("[auction/compliance] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/cut-rebid-blocks ----------
+      // Returns per-franchise list of players the franchise is BLOCKED
+      // from nominating/bidding on per league_context_v1.md §A2
+      // (cut-then-rebid prohibition).
+      //
+      // Canonical rule (Keith 2026-05-18):
+      //   Block when ALL of:
+      //     cut.season = current_season
+      //     cut.prior_contract_years_remaining > 0
+      //     cut.timestamp < FA_Auction_Cut_Deadline
+      //     cut.prior_contract_type != 'Tag'
+      //
+      // Data sources:
+      //   - TYPE=transactions, TRANS_TYPE=FREE_AGENT (the drops)
+      //   - TYPE=salaries     (contractYear + contractStatus per player)
+      //   - TYPE=league       (franchise names)
+      //   - TYPE=players      (player names)
+      //
+      // V1 limitations (deferred):
+      //   - FA_Auction_Cut_Deadline is TBD per docs §A3 / canon §A2.
+      //     For now we use offseason window = Feb 1 of season → now.
+      //     Hub UI should mark this as "approximate" until deadline pinned.
+      //   - "prior_contract_years_remaining at drop time" is read from
+      //     CURRENT TYPE=salaries entry (MFL preserves salary rows for
+      //     dropped-but-still-controlled players). If MFL has wiped the
+      //     row entirely, we mark the drop as "needs_manual_review"
+      //     rather than blocking incorrectly.
+      //
+      // Query params:
+      //   L              (optional, default 74598)
+      //   YEAR           (optional, default current UTC year)
+      //   franchise_id   (optional) — narrow to one franchise
+      if (path === "/api/auction/cut-rebid-blocks" && request.method === "GET") {
+        const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const filterFid = String(url.searchParams.get("franchise_id") || "")
+          .padStart(4, "0").slice(-4);
+        const apiKey = String(env.MFL_APIKEY || "").trim();
+        const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+
+        // Offseason window: Feb 1 → now (approximate; deadline TBD per §A2).
+        const offseasonStartUnix = Math.floor(new Date(`${year}-02-01T00:00:00Z`).getTime() / 1000);
+        const nowUnix = Math.floor(Date.now() / 1000);
+
+        try {
+          const [txRes, salariesRes, leagueRes] = await Promise.all([
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=transactions&L=${leagueId}&TRANS_TYPE=FREE_AGENT&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 60 } }).then((r) => r.json()).catch(() => ({})),
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=salaries&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 60 } }).then((r) => r.json()).catch(() => ({})),
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 300 } }).then((r) => r.json()).catch(() => ({})),
+          ]);
+
+          // Salary lookup: pid → { contractYear, contractStatus }
+          const salaryByPid = {};
+          let salaryRows = salariesRes?.salaries?.leagueUnit?.player || [];
+          if (!Array.isArray(salaryRows)) salaryRows = [salaryRows];
+          for (const row of salaryRows) {
+            const pid = String(row?.id || "").replace(/\D/g, "");
+            if (!pid || pid === "0000") continue;
+            const cy = Number(String(row?.contractYear || "0").trim()) || 0;
+            const status = String(row?.contractStatus || "").trim();
+            salaryByPid[pid] = { contractYear: cy, contractStatus: status, contractInfo: String(row?.contractInfo || "") };
+          }
+
+          // Franchise name lookup
+          const fidToName = {};
+          const flist = leagueRes?.league?.franchises?.franchise || [];
+          const farr = Array.isArray(flist) ? flist : [flist];
+          for (const f of farr) {
+            const id = String(f.id || "").padStart(4, "0");
+            if (id) fidToName[id] = String(f.name || ("Team " + id));
+          }
+
+          // Walk FREE_AGENT transactions. MFL stores them as
+          //   transaction = "added_pids|dropped_pids"
+          // where each side is a comma-separated player_id list.
+          // Offseason drops typically come as plain drops (no add).
+          let txs = txRes?.transactions?.transaction || [];
+          if (!Array.isArray(txs)) txs = [txs];
+
+          // Group: blockedByFid[fid] = [ {player_id, dropped_at_unix, reason, ...} ]
+          const blockedByFid = {};
+          const reviewByFid = {};   // drops needing manual review (salary row missing)
+          const droppedPidsToLookup = new Set();
+
+          for (const tx of txs) {
+            const fid = String(tx?.franchise || "").padStart(4, "0");
+            if (!fid || fid === "0000") continue;
+            const ts = Number(tx?.timestamp || 0);
+            if (ts < offseasonStartUnix || ts > nowUnix) continue;
+
+            const raw = String(tx?.transaction || "");
+            const parts = raw.split("|");
+            const droppedStr = String(parts[1] || "");
+            if (!droppedStr) continue;
+            const droppedPids = droppedStr.split(",").map((s) => s.replace(/\D/g, "")).filter(Boolean);
+
+            for (const pid of droppedPids) {
+              droppedPidsToLookup.add(pid);
+              const salaryInfo = salaryByPid[pid];
+
+              if (!salaryInfo) {
+                // No salary row — can't verify rule conditions. Surface for manual review.
+                if (!reviewByFid[fid]) reviewByFid[fid] = [];
+                reviewByFid[fid].push({
+                  player_id: pid,
+                  dropped_at_unix: ts,
+                  reason: "salary_row_missing",
+                  note: "MFL has no salary entry for this player; cannot verify cy>=1 or contractStatus.",
+                });
+                continue;
+              }
+
+              // Canon §A2 conditions:
+              //   contractYear >= 1 — there were years remaining
+              //   contractStatus does NOT match /tag/i — tags exempt
+              const cy = salaryInfo.contractYear;
+              const status = salaryInfo.contractStatus;
+              const isTag = /tag/i.test(status);
+
+              if (cy < 1) {
+                continue;  // expired contract — not blocked
+              }
+              if (isTag) {
+                continue;  // tagged-player exemption (§A2 tag clause)
+              }
+
+              if (!blockedByFid[fid]) blockedByFid[fid] = [];
+              blockedByFid[fid].push({
+                player_id: pid,
+                dropped_at_unix: ts,
+                dropped_at_iso: new Date(ts * 1000).toISOString(),
+                prior_contract_year: cy,
+                prior_contract_status: status,
+                prior_contract_info: salaryInfo.contractInfo,
+              });
+            }
+          }
+
+          // Enrich player names. Single bulk fetch for all blocked + review pids.
+          const allPids = [...droppedPidsToLookup];
+          const pidToInfo = {};
+          if (allPids.length > 0) {
+            try {
+              const pj = await fetch(
+                `https://api.myfantasyleague.com/${year}/export?TYPE=players&PLAYERS=${encodeURIComponent(allPids.join(","))}&JSON=1`,
+                { cf: { cacheTtl: 86400 } }
+              ).then((r) => r.json()).catch(() => ({}));
+              let plist = pj?.players?.player || [];
+              if (!Array.isArray(plist)) plist = [plist];
+              for (const p of plist) {
+                const id = String(p.id || "");
+                if (!id) continue;
+                let name = String(p.name || "");
+                if (name.includes(",")) name = name.split(",").reverse().map((s) => s.trim()).join(" ");
+                pidToInfo[id] = {
+                  name,
+                  position: String(p.position || "").toUpperCase(),
+                  nfl_team: String(p.team || "").toUpperCase(),
+                };
+              }
+            } catch (e) {
+              console.error("[auction/cut-rebid-blocks] player names fetch failed:", e);
+            }
+          }
+
+          // Build response
+          const buildFranchiseBlock = (fid) => {
+            const blocks = (blockedByFid[fid] || []).map((b) => ({
+              ...b,
+              player_name: pidToInfo[b.player_id]?.name || ("Player #" + b.player_id),
+              position: pidToInfo[b.player_id]?.position || "",
+              nfl_team: pidToInfo[b.player_id]?.nfl_team || "",
+            }));
+            const reviews = (reviewByFid[fid] || []).map((r) => ({
+              ...r,
+              player_name: pidToInfo[r.player_id]?.name || ("Player #" + r.player_id),
+              position: pidToInfo[r.player_id]?.position || "",
+              nfl_team: pidToInfo[r.player_id]?.nfl_team || "",
+            }));
+            // Sort each list by drop time desc
+            blocks.sort((a, b) => (b.dropped_at_unix || 0) - (a.dropped_at_unix || 0));
+            reviews.sort((a, b) => (b.dropped_at_unix || 0) - (a.dropped_at_unix || 0));
+            return {
+              fid,
+              franchise_name: fidToName[fid] || ("Team " + fid),
+              blocked_count: blocks.length,
+              blocked_player_ids: blocks.map((b) => b.player_id),
+              blocked_players: blocks,
+              needs_review_count: reviews.length,
+              needs_review: reviews,
+            };
+          };
+
+          let allFids = new Set([
+            ...Object.keys(blockedByFid),
+            ...Object.keys(reviewByFid),
+          ]);
+          if (filterFid && filterFid !== "0000") {
+            allFids = new Set([filterFid]);
+          }
+
+          const franchises = [...allFids]
+            .map(buildFranchiseBlock)
+            .sort((a, b) => (b.blocked_count - a.blocked_count) || a.fid.localeCompare(b.fid));
+
+          return jsonOut(200, {
+            season: year,
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            window: {
+              offseason_start_iso: new Date(offseasonStartUnix * 1000).toISOString(),
+              evaluated_through_iso: new Date(nowUnix * 1000).toISOString(),
+              cut_deadline_iso: null,  // §A2 deadline TBD — set when canon pins it down
+              cut_deadline_note: "FA Auction Cut Deadline not yet finalized in canon §A2; using offseason-start → now as the v1 window.",
+            },
+            canon_rule: "league_context_v1.md §A2 — block when cut.season = current AND prior_years_remaining ≥ 1 AND timestamp < cut_deadline AND prior_contract_type != Tag",
+            franchise_filter: filterFid || null,
+            franchise_count: franchises.length,
+            total_blocked: franchises.reduce((sum, f) => sum + f.blocked_count, 0),
+            total_needs_review: franchises.reduce((sum, f) => sum + f.needs_review_count, 0),
+            franchises,
+          });
+        } catch (e) {
+          console.error("[auction/cut-rebid-blocks] failed:", e);
           return jsonOut(500, { error: String(e && e.message || e) });
         }
       }
