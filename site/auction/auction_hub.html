@@ -17,7 +17,7 @@
 <nav class="ah-tabs" id="ah-tabs">
   <button data-tab="era" class="active">Expired Rookie Pool</button>
   <button data-tab="fa" disabled title="Coming soon">FA Auction Pool</button>
-  <button data-tab="nominations" disabled title="Coming soon">Nominations</button>
+  <button data-tab="nominations">Nominations</button>
   <button data-tab="warroom" disabled title="Coming soon">Cap &amp; Roster War Room</button>
   <button data-tab="history" disabled title="Coming soon">Bid History</button>
   <button data-tab="rules" disabled title="Coming soon">Rules &amp; Calendar</button>
@@ -91,11 +91,61 @@
     </div>
   </section>
 
-  <!-- ── NOMINATIONS (placeholder) ────────────────────────────────── -->
+  <!-- ── NOMINATIONS ─────────────────────────────────────────────────── -->
   <section class="ah-section" data-section="nominations">
-    <div class="ah-placeholder">
-      <strong>Nominations — coming soon</strong>
-      Live cross-cut feed for ERA + FA Auction. Per-owner cadence enforcement (ERA: 1 / 12h rolling; FA: 2 / 24h).
+    <div class="ah-context-banner">
+      <strong>Live Auction Feed</strong> — every player currently up for nomination + recent wins.
+      Refreshes every 30s. Lock window resets to 36hr from the most recent high bid (per §A3).
+      Your private proxy bid is shown only when you're signed in as the corresponding franchise.
+      <div class="meta" id="nominations-meta">Loading…</div>
+    </div>
+
+    <div class="ah-filters" id="nominations-filters">
+      <label>
+        <span>Status</span>
+        <div class="ah-pos-chips" id="nominations-status-chips">
+          <button type="button" class="ah-pos-chip active" data-nstatus="open">Open</button>
+          <button type="button" class="ah-pos-chip" data-nstatus="won">Won</button>
+          <button type="button" class="ah-pos-chip" data-nstatus="all">All</button>
+        </div>
+      </label>
+      <label>
+        <span>Sort</span>
+        <select id="nominations-sort">
+          <option value="time_remaining">Time remaining (asc)</option>
+          <option value="current_high_bid_k">Current high bid (desc)</option>
+          <option value="bid_count">Bid count (desc)</option>
+          <option value="opened_at_unix">Most recently opened</option>
+        </select>
+      </label>
+      <span class="ah-filters-summary" id="nominations-summary">— lots</span>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Live Lots</h2>
+        <span class="small" id="nominations-table-summary">Loading…</span>
+      </div>
+      <table class="ah-table" id="nominations-table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="col-md">NFL</th>
+            <th>Nominator</th>
+            <th class="num">High Bid</th>
+            <th>High Bidder</th>
+            <th class="num col-md">Bids</th>
+            <th class="num col-md">Bidders</th>
+            <th>Time Remaining</th>
+            <th class="col-md">Your Proxy</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="nominations-tbody">
+          <tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px;">Loading live lots…</td></tr>
+        </tbody>
+      </table>
     </div>
   </section>
 

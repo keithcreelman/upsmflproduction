@@ -70,6 +70,9 @@
     era_filters: { pos: "ALL", owner: "" },
     era_sort: "y3_salary",
     era_sort_dir: -1,            // desc
+    lots: null,                  // payload from /api/auction/lots
+    nom_filters: { status: "open" },
+    nom_sort: "time_remaining",
   };
 
   const $ = (sel, root) => (root || document).querySelector(sel);
@@ -121,6 +124,7 @@
     setupTabs();
     setupFilters();
     setupSorting();
+    setupNominationsControls();
 
     // Version badge — best-effort, doesn't block render
     fetchJSON("VERSION.json?_=" + Date.now()).then((v) => {
@@ -132,9 +136,19 @@
       if (el) el.textContent = "v0.1.0";
     });
 
-    await Promise.all([loadMe(), loadEraEligible()]);
+    await Promise.all([loadMe(), loadEraEligible(), loadLots()]);
     renderEraMeta();
     renderEraTable();
+    renderNominations();
+
+    // Auto-refresh nominations every 30s.
+    setInterval(async () => {
+      await loadLots();
+      renderNominations();
+    }, 30000);
+
+    // And tick the time-remaining countdowns every second.
+    setInterval(updateNominationCountdowns, 1000);
   }
 
   async function loadMe() {
@@ -427,6 +441,162 @@
   // colors, just the delta.
   function renderCapDelta(bidK) {
     return `+${fmtK(bidK)}`;
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // NOMINATIONS — live auction feed
+  // ════════════════════════════════════════════════════════════════════
+
+  async function loadLots() {
+    const fidQs = STATE.me && STATE.me.franchise_id
+      ? "&franchise_id=" + encodeURIComponent(STATE.me.franchise_id)
+      : "";
+    const season = new Date().getUTCFullYear();
+    try {
+      const data = await fetchJSON(apiUrl("/api/auction/lots") +
+        "?L=" + LEAGUE_ID + "&YEAR=" + season + fidQs);
+      STATE.lots = data;
+    } catch (e) {
+      console.error("[auction-hub] /api/auction/lots fetch failed:", e);
+      STATE.lots = { lots: [], error: String(e && e.message || e) };
+    }
+  }
+
+  function setupNominationsControls() {
+    $$("#nominations-status-chips .ah-pos-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const status = chip.dataset.nstatus || "open";
+        STATE.nom_filters.status = status;
+        $$("#nominations-status-chips .ah-pos-chip").forEach((c) =>
+          c.classList.toggle("active", c === chip));
+        renderNominations();
+      });
+    });
+    const sortSel = $("#nominations-sort");
+    if (sortSel) {
+      sortSel.addEventListener("change", (e) => {
+        STATE.nom_sort = e.target.value;
+        renderNominations();
+      });
+    }
+  }
+
+  function formatCountdown(seconds) {
+    const s = Math.max(0, Math.floor(seconds));
+    if (s === 0) return "LOCKED";
+    const days = Math.floor(s / 86400);
+    const hrs = Math.floor((s % 86400) / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    if (days > 0) return `${days}d ${hrs}h ${mins}m`;
+    if (hrs > 0) return `${hrs}h ${mins}m`;
+    if (mins > 0) return `${mins}m ${secs}s`;
+    return `${secs}s`;
+  }
+
+  // Resolve franchise display name from /api/me payload or fall back to id.
+  // The auction lots route returns fids; we want names in the table.
+  function franchiseName(fid) {
+    if (!fid) return "—";
+    // Try ERA-eligible payload (it has prior_owner_fid → prior_owner mapping)
+    if (STATE.era && STATE.era.players) {
+      for (const p of STATE.era.players) {
+        if (p.prior_owner_fid === fid && p.prior_owner) return p.prior_owner;
+      }
+    }
+    return fid;
+  }
+
+  function playerInfo(pid) {
+    if (STATE.era && STATE.era.players) {
+      for (const p of STATE.era.players) {
+        if (p.player_id === pid) return p;
+      }
+    }
+    return { name: "Player #" + pid, position: "", nfl_team: "" };
+  }
+
+  function renderNominations() {
+    const tbody = $("#nominations-tbody");
+    if (!tbody) return;
+    const lots = (STATE.lots && STATE.lots.lots) || [];
+    const filtered = lots.filter((l) => {
+      if (STATE.nom_filters.status === "all") return true;
+      return l.status === STATE.nom_filters.status;
+    });
+    const sorted = filtered.slice().sort((a, b) => {
+      switch (STATE.nom_sort) {
+        case "current_high_bid_k": return (b.current_high_bid_k || 0) - (a.current_high_bid_k || 0);
+        case "bid_count":          return (b.bid_count || 0) - (a.bid_count || 0);
+        case "opened_at_unix":     return (b.opened_at_unix || 0) - (a.opened_at_unix || 0);
+        case "time_remaining":
+        default:
+          return (a.seconds_remaining || 0) - (b.seconds_remaining || 0);
+      }
+    });
+
+    $("#nominations-summary").textContent = `${sorted.length} of ${lots.length} lots`;
+    $("#nominations-table-summary").textContent = sorted.length === 0
+      ? "No lots match the current filters."
+      : `Showing ${sorted.length} lot${sorted.length === 1 ? "" : "s"}.`;
+
+    const meta = $("#nominations-meta");
+    if (meta) {
+      const generated = STATE.lots && STATE.lots.generated_at
+        ? new Date(STATE.lots.generated_at).toLocaleTimeString()
+        : "—";
+      meta.textContent = `Last refreshed: ${generated} · Polled every 5 min by worker cron · Auto-refresh every 30s.`;
+    }
+
+    if (sorted.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px;">
+        No lots match the current filters.
+      </td></tr>`;
+      return;
+    }
+
+    const viewerFid = STATE.me && STATE.me.franchise_id ? STATE.me.franchise_id : null;
+    tbody.innerHTML = sorted.map((l) => {
+      const pi = playerInfo(l.player_id);
+      const pos = String(pi.position || "").toUpperCase();
+      const nflProfileUrl = `https://www.myfantasyleague.com/${new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=04&P=${encodeURIComponent(l.player_id)}`;
+      const mflAuctionUrl = `https://www.myfantasyleague.com/${new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=43`;
+      const isWon = l.status === "won";
+      const proxyCell = (viewerFid && l.your_proxy_bid_k)
+        ? `${fmtK(l.your_proxy_bid_k)}`
+        : `<span class="small" style="color:var(--muted)">—</span>`;
+      const actionCell = isWon
+        ? `<span class="ah-origin Rookie">WON by ${escapeHtml(franchiseName(l.winner_fid))}</span>`
+        : `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small" title="Open MFL auction to bid/raise">Bid ↗</a>`;
+      return `
+        <tr data-lot-id="${escapeHtml(l.lot_id)}" data-seconds="${l.seconds_remaining}" data-status="${l.status}">
+          <td><a href="${nflProfileUrl}" target="_blank" rel="noopener" class="player-link">${escapeHtml(pi.name || ("Player #" + l.player_id))}</a></td>
+          <td><span class="ah-pos ${pos}">${escapeHtml(pos)}</span></td>
+          <td class="col-md">${escapeHtml(pi.nfl_team || "—")}</td>
+          <td>${escapeHtml(franchiseName(l.nominator_fid))}</td>
+          <td class="num">${fmtK(l.current_high_bid_k)}</td>
+          <td>${escapeHtml(franchiseName(l.current_high_bidder_fid))}</td>
+          <td class="num col-md">${l.bid_count}</td>
+          <td class="num col-md">${l.unique_bidder_count}</td>
+          <td class="ah-countdown" data-locks-at="${l.locks_at_unix}">${isWon ? "—" : formatCountdown(l.seconds_remaining)}</td>
+          <td class="col-md num">${proxyCell}</td>
+          <td>${actionCell}</td>
+        </tr>`;
+    }).join("");
+  }
+
+  // Tick down the time-remaining cells without re-fetching from the worker.
+  function updateNominationCountdowns() {
+    const now = Math.floor(Date.now() / 1000);
+    $$("#nominations-tbody tr").forEach((tr) => {
+      const cell = tr.querySelector(".ah-countdown");
+      if (!cell || tr.dataset.status === "won") return;
+      const locksAt = Number(cell.dataset.locksAt || 0);
+      if (!locksAt) return;
+      const remaining = Math.max(0, locksAt - now);
+      cell.textContent = formatCountdown(remaining);
+      if (remaining === 0) cell.style.color = "var(--err)";
+    });
   }
 
   // ════════════════════════════════════════════════════════════════════

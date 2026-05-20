@@ -94,6 +94,159 @@ async function snapshotMflToR2(env, nowUtc) {
   );
 }
 
+// ── Auction polling pipeline ──────────────────────────────────────────
+// Polls MFL AUCTION_BID + AUCTION_WON transactions every 5min, upserts
+// into ups_auction_lots + ups_auction_bids. Idempotent via the UNIQUE
+// constraint on bids — re-polling the same bid is a no-op.
+//
+// Lot derivation: lot.opening_bid_k + lot.nominator_fid come from the
+// EARLIEST bid in ups_auction_bids for that player. Current high bid
+// is the MAX(bid_k) — but MFL's AUCTION_BID transactions ARE the high
+// bids (you don't see lower bids that were beaten), so MAX = latest.
+//
+// locks_at_unix = last_bid_at_unix + 36hr per league_context_v1.md §A3.
+async function processAuctionPoll(env) {
+  const db = env.UPS_MFL_DB;
+  if (!db) {
+    console.log("[auction-poll] UPS_MFL_DB binding missing — skipping");
+    return { skipped: "no_db" };
+  }
+  const leagueId = String(env.LEAGUE_ID || "74598");
+  const season = Number(env.YEAR || new Date().getUTCFullYear());
+  const apiKey = String(env.MFL_APIKEY || "").trim();
+
+  const baseUrl = `https://www48.myfantasyleague.com/${season}/export`;
+  const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+
+  // Fetch both transaction types in parallel.
+  const [bidsRes, winsRes] = await Promise.all([
+    fetch(`${baseUrl}?TYPE=transactions&L=${leagueId}&TRANS_TYPE=AUCTION_BID&JSON=1${apiQs}`,
+      { cf: { cacheTtl: 0, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
+    fetch(`${baseUrl}?TYPE=transactions&L=${leagueId}&TRANS_TYPE=AUCTION_WON&JSON=1${apiQs}`,
+      { cf: { cacheTtl: 0, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
+  ]);
+
+  const asArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+  const bidTxs = asArr(bidsRes?.transactions?.transaction);
+  const wonTxs = asArr(winsRes?.transactions?.transaction);
+
+  if (bidTxs.length === 0 && wonTxs.length === 0) {
+    return { new_bids: 0, new_wins: 0, active_lots: 0 };
+  }
+
+  // Parse a transaction string "playerid|bid|note" → { player_id, bid_k, note }.
+  // MFL serves bid in DOLLARS; we store in $K (divide by 1000).
+  const parseTx = (tx) => {
+    const raw = String(tx.transaction || "");
+    const parts = raw.split("|");
+    const player_id = String(parts[0] || "").replace(/\D/g, "");
+    const bid_dollars = Number(parts[1] || 0);
+    const note = String(parts[2] || "").trim() || null;
+    return {
+      player_id,
+      bid_k: Math.round(bid_dollars / 1000),
+      note,
+      bid_at_unix: Number(tx.timestamp || 0),
+      fid: String(tx.franchise || "").padStart(4, "0"),
+      raw_transaction: raw,
+    };
+  };
+
+  let newBids = 0;
+  let newWins = 0;
+
+  // ── Ingest AUCTION_BID ──
+  for (const tx of bidTxs) {
+    const p = parseTx(tx);
+    if (!p.player_id || !p.fid || !p.bid_at_unix) continue;
+    const lot_id = `${season}|${leagueId}|${p.player_id}`;
+
+    // Insert bid (UNIQUE constraint dedupes re-polls).
+    const ins = await db.prepare(
+      `INSERT OR IGNORE INTO ups_auction_bids
+         (lot_id, season, league_id, player_id, fid, bid_k, bid_at_unix, note, raw_transaction)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(lot_id, season, leagueId, p.player_id, p.fid, p.bid_k, p.bid_at_unix, p.note, p.raw_transaction).run();
+    if (ins.meta?.changes > 0) newBids++;
+  }
+
+  // ── Recompute lot state from accumulated bids ──
+  // For every lot that just received a bid, refresh the lot row from
+  // the bid table. Cheap because we only refresh lots with new bids.
+  if (newBids > 0) {
+    // Find lots touched in this poll: any lot with a bid_at_unix >= earliest new bid.
+    // Simpler: just rebuild every OPEN lot for this season+league. Cap at 100 — auction has ~30-60 lots max.
+    const openLots = await db.prepare(
+      `SELECT DISTINCT lot_id FROM ups_auction_bids
+        WHERE season = ? AND league_id = ?`
+    ).bind(season, leagueId).all();
+    for (const row of (openLots.results || [])) {
+      const lot_id = String(row.lot_id);
+      // Earliest bid = nomination. Latest bid = current high.
+      const stats = await db.prepare(
+        `SELECT
+           MIN(bid_at_unix)    AS opened_at_unix,
+           MAX(bid_at_unix)    AS last_bid_at_unix,
+           COUNT(*)            AS bid_count,
+           COUNT(DISTINCT fid) AS unique_bidder_count
+         FROM ups_auction_bids WHERE lot_id = ?`
+      ).bind(lot_id).first();
+      const firstBid = await db.prepare(
+        `SELECT fid, bid_k, player_id FROM ups_auction_bids
+          WHERE lot_id = ? ORDER BY bid_at_unix ASC, bid_id ASC LIMIT 1`
+      ).bind(lot_id).first();
+      const lastBid = await db.prepare(
+        `SELECT fid, bid_k FROM ups_auction_bids
+          WHERE lot_id = ? ORDER BY bid_at_unix DESC, bid_id DESC LIMIT 1`
+      ).bind(lot_id).first();
+      if (!firstBid || !lastBid) continue;
+      const locks_at_unix = Number(stats.last_bid_at_unix) + 36 * 3600;
+      await db.prepare(
+        `INSERT INTO ups_auction_lots
+           (lot_id, season, league_id, player_id, nominator_fid,
+            opening_bid_k, opened_at_unix,
+            current_high_bid_k, current_high_bidder_fid,
+            last_bid_at_unix, locks_at_unix, status,
+            bid_count, unique_bidder_count, updated_at_utc)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, datetime('now'))
+         ON CONFLICT(lot_id) DO UPDATE SET
+           current_high_bid_k      = excluded.current_high_bid_k,
+           current_high_bidder_fid = excluded.current_high_bidder_fid,
+           last_bid_at_unix        = excluded.last_bid_at_unix,
+           locks_at_unix           = excluded.locks_at_unix,
+           bid_count               = excluded.bid_count,
+           unique_bidder_count     = excluded.unique_bidder_count,
+           updated_at_utc          = datetime('now')`
+      ).bind(
+        lot_id, season, leagueId, firstBid.player_id, firstBid.fid,
+        firstBid.bid_k, stats.opened_at_unix,
+        lastBid.bid_k, lastBid.fid,
+        stats.last_bid_at_unix, locks_at_unix,
+        stats.bid_count, stats.unique_bidder_count
+      ).run();
+    }
+  }
+
+  // ── Ingest AUCTION_WON ──
+  for (const tx of wonTxs) {
+    const p = parseTx(tx);
+    if (!p.player_id || !p.fid) continue;
+    const lot_id = `${season}|${leagueId}|${p.player_id}`;
+    const res = await db.prepare(
+      `UPDATE ups_auction_lots
+          SET status = 'won', winner_fid = ?, won_at_unix = ?, updated_at_utc = datetime('now')
+        WHERE lot_id = ? AND status != 'won'`
+    ).bind(p.fid, p.bid_at_unix, lot_id).run();
+    if (res.meta?.changes > 0) newWins++;
+  }
+
+  const activeLots = await db.prepare(
+    `SELECT COUNT(*) AS n FROM ups_auction_lots WHERE season = ? AND league_id = ? AND status = 'open'`
+  ).bind(season, leagueId).first();
+
+  return { new_bids: newBids, new_wins: newWins, active_lots: Number(activeLots?.n || 0) };
+}
+
 export default {
   // Cloudflare cron trigger — fires every hour at :05 past per wrangler.toml.
   // RULE-WORKFLOW-004: scan MFL add/drop transactions for new drop penalties,
@@ -114,6 +267,23 @@ export default {
     // the others for CPU. See wrangler.toml triggers comment.
     const isHallSummarySweep = cronTrigger === "*/2 * * * *";
     const isHallNudgeSweep   = cronTrigger === "5 0,12,18 * * *";
+    const isAuctionPoll      = cronTrigger === "*/5 * * * *";
+
+    // ---------- AUCTION POLL (every 5 min) ----------
+    // Poll MFL AUCTION_BID + AUCTION_WON transactions, upsert into D1.
+    // Cheap when no auction is active (returns ~0 transactions per call).
+    if (isAuctionPoll) {
+      try {
+        ctx.waitUntil(processAuctionPoll(env).then((r) => {
+          if (r?.new_bids || r?.new_wins) {
+            console.log(`[scheduled */5] auction poll: new_bids=${r.new_bids} new_wins=${r.new_wins} active_lots=${r.active_lots}`);
+          }
+        }).catch((e) => console.error(`[scheduled */5] auction poll failed: ${e && e.message}`)));
+      } catch (e) {
+        console.error(`[scheduled */5] auction poll dispatch failed: ${e && e.message}`);
+      }
+      return; // auction poll is the only job on this cron
+    }
 
     // ---------- HALL SUMMARY SWEEP (every 2 min, summaries only) ----------
     if (isHallSummarySweep) {
@@ -435,6 +605,7 @@ export default {
         path !== "/api/advanced-stats-player-weekly" &&
         path !== "/api/mfl-league-state" &&
         path !== "/api/auction/era-eligible" &&
+        path !== "/api/auction/lots" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
@@ -1251,6 +1422,90 @@ export default {
           });
         } catch (e) {
           console.error("[auction/era-eligible] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/lots ----------
+      // Returns current auction state (open lots + recent wins) from
+      // D1, populated by the */5 cron that polls MFL transactions.
+      //
+      // Privacy:
+      //   - bid_k = PUBLIC current high bid (visible to all)
+      //   - current_high_bidder = PUBLIC (visible to all)
+      //   - your_proxy_bid_k = PRIVATE — only populated when the
+      //     requesting franchise matches the row's franchise. Other
+      //     owners' proxies are never exposed.
+      //
+      // Query params:
+      //   L (optional, default 74598)
+      //   YEAR (optional, default current UTC year)
+      //   franchise_id (optional, sets the "your" scope)
+      //   status (optional: 'open' | 'won' | 'all', default 'all')
+      if (path === "/api/auction/lots" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) {
+          return jsonOut(500, { error: "D1 binding UPS_MFL_DB missing" });
+        }
+        const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const viewerFid = String(url.searchParams.get("franchise_id") || "").padStart(4, "0").slice(-4);
+        const statusFilter = String(url.searchParams.get("status") || "all").toLowerCase();
+
+        try {
+          let sql = `SELECT lot_id, player_id, nominator_fid, opening_bid_k, opened_at_unix,
+                            current_high_bid_k, current_high_bidder_fid, last_bid_at_unix,
+                            locks_at_unix, status, winner_fid, won_at_unix,
+                            bid_count, unique_bidder_count
+                       FROM ups_auction_lots
+                      WHERE season = ? AND league_id = ?`;
+          const args = [year, leagueId];
+          if (statusFilter === "open" || statusFilter === "won") {
+            sql += ` AND status = ?`;
+            args.push(statusFilter);
+          }
+          sql += ` ORDER BY locks_at_unix ASC`;
+          const { results: lots } = await env.UPS_MFL_DB.prepare(sql).bind(...args).all();
+
+          // Look up requester's proxy bids (if any) — only their own.
+          let proxiesByPid = {};
+          if (viewerFid && viewerFid !== "0000") {
+            const { results: proxies } = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, proxy_bid_k FROM ups_auction_proxy_bids
+                WHERE season = ? AND league_id = ? AND fid = ?`
+            ).bind(year, leagueId, viewerFid).all();
+            for (const p of (proxies || [])) proxiesByPid[p.player_id] = p.proxy_bid_k;
+          }
+
+          const enriched = (lots || []).map((l) => ({
+            lot_id: l.lot_id,
+            player_id: l.player_id,
+            nominator_fid: l.nominator_fid,
+            opening_bid_k: l.opening_bid_k,
+            opened_at_unix: l.opened_at_unix,
+            current_high_bid_k: l.current_high_bid_k,
+            current_high_bidder_fid: l.current_high_bidder_fid,
+            last_bid_at_unix: l.last_bid_at_unix,
+            locks_at_unix: l.locks_at_unix,
+            seconds_remaining: Math.max(0, Number(l.locks_at_unix) - Math.floor(Date.now() / 1000)),
+            status: l.status,
+            winner_fid: l.winner_fid,
+            won_at_unix: l.won_at_unix,
+            bid_count: l.bid_count,
+            unique_bidder_count: l.unique_bidder_count,
+            // Private — only populated when viewer is the bidder.
+            your_proxy_bid_k: proxiesByPid[l.player_id] || null,
+          }));
+
+          return jsonOut(200, {
+            season: year,
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            viewer_franchise_id: viewerFid || null,
+            count: enriched.length,
+            lots: enriched,
+          });
+        } catch (e) {
+          console.error("[auction/lots] failed:", e);
           return jsonOut(500, { error: String(e && e.message || e) });
         }
       }
