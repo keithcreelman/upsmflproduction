@@ -214,9 +214,9 @@
       <strong>Bid History</strong> — chronological feed from <code>ups_auction_bids</code>,
       grouped by lot. Latest bid surfaces; click to expand the full sequence.
       <span class="ah-legend">
-        <span class="ah-legend-item">🆕 Nomination</span>
-        <span class="ah-legend-item">💰 Bid</span>
-        <span class="ah-legend-item ah-help" title="MFL's auto-bidder. When you submit a hidden proxy max, MFL bids up to that amount in $1K increments on your behalf when overtaken. Each auto-step shows here as a proxy walk.">🤖 Proxy walk <span class="ah-help-q">ⓘ</span></span>
+        <span class="ah-legend-item">🆕 Nom</span>
+        <span class="ah-legend-item ah-help" title="Same franchise as the previous high bidder — MFL walked their hidden max up because someone else bid into their proxy range.">⬆ Forced Increase <span class="ah-help-q">ⓘ</span></span>
+        <span class="ah-legend-item">💰 Overtake</span>
       </span>
       <div class="meta" id="history-meta">Click the tab to load.</div>
     </div>
@@ -237,8 +237,8 @@
         <select id="history-kind-filter">
           <option value="">All</option>
           <option value="nomination">Nominations</option>
-          <option value="bid">Bids</option>
-          <option value="proxy_walk">Proxy walks</option>
+          <option value="overtake">Overtakes (different franchise)</option>
+          <option value="forced_increase">Forced Increases (same franchise)</option>
         </select>
       </label>
     </div>

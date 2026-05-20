@@ -627,7 +627,27 @@
       );
     }
     if (fFilter) bids = bids.filter((b) => b.fid === fFilter);
-    if (kFilter) bids = bids.filter((b) => b.kind === kFilter);
+    // Observer-side kind filter (nomination / overtake / forced_increase).
+    // Computed by walking the per-lot thread chronologically: a bid is a
+    // forced_increase when same fid as the immediately-prior bid in its
+    // lot, otherwise overtake. is_nomination wins regardless.
+    if (kFilter) {
+      const lotPrevByLot = new Map();
+      // First pass: sort chronologically then walk
+      const chrono = bids.slice().sort((a, b) => (a.bid_at_unix || 0) - (b.bid_at_unix || 0));
+      const obsKindById = new Map();
+      for (const b of chrono) {
+        const lot = b.lot_id || String(b.player_id);
+        const prevFid = lotPrevByLot.get(lot);
+        let cls;
+        if (b.is_nomination) cls = "nomination";
+        else if (prevFid == null) cls = "overtake";
+        else cls = b.fid === prevFid ? "forced_increase" : "overtake";
+        obsKindById.set(b.bid_id, cls);
+        lotPrevByLot.set(lot, b.fid);
+      }
+      bids = bids.filter((b) => obsKindById.get(b.bid_id) === kFilter);
+    }
 
     if (bids.length === 0) {
       if (countEl) countEl.textContent = "0 events";
@@ -663,31 +683,38 @@
     }
 
     feed.innerHTML = threads.map((thread) => {
-      const latest = thread[thread.length - 1];
-      const opening = thread.find((b) => b.is_nomination) || thread[0];
-      const expandable = thread.length > 1;
-      const proxyWalkCount = thread.filter((b) => b.kind === "proxy_walk").length;
-      const summaryIcon = latest.kind === "nomination" ? "🆕"
-                       : latest.kind === "proxy_walk" ? "🤖"
-                       : "💰";
-      const summaryKindLabel = latest.kind === "nomination" ? "NOMINATION"
-                            : latest.kind === "proxy_walk" ? "PROXY WALK"
-                            : "BID";
+      // Reclassify each bid in observer terms (Nom / Forced Increase / Overtake)
+      // based on its position in the chronological thread:
+      //   - is_nomination       → "nom"
+      //   - same fid as prior   → "forced_increase" (MFL walked their proxy)
+      //   - different fid       → "overtake" (new franchise dethroned the leader)
+      const classified = thread.map((b, i) => {
+        let cls;
+        if (b.is_nomination) cls = "nom";
+        else if (i === 0)    cls = "overtake";  // first non-nom bid in thread
+        else                 cls = (b.fid === thread[i - 1].fid) ? "forced_increase" : "overtake";
+        return { ...b, _obs_kind: cls };
+      });
+      const latest = classified[classified.length - 1];
+      const expandable = classified.length > 1;
+      const forcedCount = classified.filter((b) => b._obs_kind === "forced_increase").length;
+      const overtakeCount = classified.filter((b) => b._obs_kind === "overtake").length;
 
-      const expandedRows = thread.map((b, i) => {
-        const isLast = i === thread.length - 1;
-        const icon = b.kind === "nomination" ? "🆕"
-                  : b.kind === "proxy_walk" ? "🤖"
-                  : "💰";
-        const kindLabel = b.kind === "nomination" ? "Nominated"
-                       : b.kind === "proxy_walk" ? "Proxy walk"
-                       : "Bid";
+      const obsIcon = (k) => k === "nom" ? "🆕" : k === "forced_increase" ? "⬆" : "💰";
+      const obsLabel = (k) => k === "nom" ? "NOM" : k === "forced_increase" ? "FORCED INCREASE" : "OVERTAKE";
+      const obsLabelShort = (k) => k === "nom" ? "Nominated" : k === "forced_increase" ? "Forced increase" : "Overtake";
+
+      const summaryIcon = obsIcon(latest._obs_kind);
+      const summaryKindLabel = obsLabel(latest._obs_kind);
+
+      const expandedRows = classified.map((b, i) => {
+        const isLast = i === classified.length - 1;
         return `
-          <div class="ah-thread-step ${isLast ? "ah-thread-step-latest" : ""}">
-            <div class="ah-thread-icon">${icon}</div>
+          <div class="ah-thread-step ah-thread-step-${b._obs_kind} ${isLast ? "ah-thread-step-latest" : ""}">
+            <div class="ah-thread-icon">${obsIcon(b._obs_kind)}</div>
             <div class="ah-thread-step-body">
               <div class="ah-thread-step-head">
-                <span class="ah-thread-step-action">${escapeHtml(kindLabel)}</span>
+                <span class="ah-thread-step-action">${escapeHtml(obsLabelShort(b._obs_kind))}</span>
                 <strong class="ah-thread-step-team">${escapeHtml(b.franchise_name || "")}</strong>
                 <span class="ah-thread-step-amount">$${b.bid_k}K</span>
                 <span class="ah-thread-step-when" title="${escapeHtml(formatBidWhen(b.bid_at_unix))}">${escapeHtml(formatBidWhenET(b.bid_at_unix))}</span>
@@ -697,8 +724,14 @@
           </div>`;
       }).join("");
 
+      const metaBreakdownParts = [];
+      if (expandable) metaBreakdownParts.push(`${classified.length} bids`);
+      if (forcedCount > 0)   metaBreakdownParts.push(`${forcedCount} forced`);
+      if (overtakeCount > 1) metaBreakdownParts.push(`${overtakeCount} overtake${overtakeCount === 1 ? "" : "s"}`);
+      const metaBreakdown = metaBreakdownParts.length > 0 ? `<span class="ah-thread-count">· ${metaBreakdownParts.join(" · ")}</span>` : "";
+
       return `
-        <details class="ah-bid-thread ah-bid-${latest.kind}" ${expandable ? "" : "open"}>
+        <details class="ah-bid-thread ah-bid-${latest._obs_kind}" ${expandable ? "" : "open"}>
           <summary class="ah-bid-thread-summary">
             <span class="ah-bid-icon">${summaryIcon}</span>
             <div class="ah-bid-body">
@@ -711,7 +744,7 @@
                 <span class="ah-bid-player">${escapeHtml(latest.player_name || "")}</span>
                 ${latest.position ? ` · ${escapeHtml(latest.position)}` : ""}
                 ${latest.nfl_team ? ` · ${escapeHtml(latest.nfl_team)}` : ""}
-                ${expandable ? `<span class="ah-thread-count">· ${thread.length} bids${proxyWalkCount > 0 ? ` · ${proxyWalkCount} proxy walk${proxyWalkCount === 1 ? "" : "s"}` : ""}</span>` : ""}
+                ${metaBreakdown}
                 <span class="ah-bid-when">${formatBidWhen(latest.bid_at_unix)}</span>
               </div>
             </div>

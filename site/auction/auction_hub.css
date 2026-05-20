@@ -486,10 +486,18 @@ a.btn.small {
   overflow: hidden;
   transition: background 100ms;
 }
-.ah-bid-thread.ah-bid-nomination { border-left: 3px solid var(--ok); }
-.ah-bid-thread.ah-bid-proxy_walk { border-left: 3px solid #c084fc; }
-.ah-bid-thread.ah-bid-bid        { border-left: 3px solid var(--accent); }
+/* Thread left-stripe colored by the LATEST bid's observer-kind:
+   nom = green (lot just opened), forced_increase = purple (MFL walked
+   the leader's proxy), overtake = blue (a new franchise dethroned). */
+.ah-bid-thread.ah-bid-nom             { border-left: 3px solid var(--ok); }
+.ah-bid-thread.ah-bid-forced_increase { border-left: 3px solid #c084fc; }
+.ah-bid-thread.ah-bid-overtake        { border-left: 3px solid var(--accent); }
 .ah-bid-thread:hover { background: var(--panel); }
+/* Per-step subtle tint inside the expanded thread for at-a-glance
+   classification scanning without dominating the row. */
+.ah-thread-step.ah-thread-step-nom             { background: rgba(74, 222, 128, 0.04); }
+.ah-thread-step.ah-thread-step-forced_increase { background: rgba(192, 132, 252, 0.06); }
+.ah-thread-step.ah-thread-step-overtake        { background: rgba(91, 141, 255, 0.04); }
 
 /* Override default browser disclosure marker for cleaner UI */
 .ah-bid-thread-summary {
