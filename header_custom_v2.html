@@ -2,10 +2,12 @@
 <!----------------- Start #1 - Header ------------------>
 <!------------------------------------------------------>
 
-<link rel="dns-prefetch" href="https://www.mflscripts.com">
-<link rel="preconnect" href="https://www.mflscripts.com" crossorigin>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="shortcut icon" href="https://www.mflscripts.com/ImageDirectory/script-images/favicon.ico" type="image/x-icon">
+<!-- 2026-05-20: removed mflscripts.com (theeohiostate) prefetch + preconnect
+     + favicon link. His header.js rewrote MFL's .reportnavigation into
+     .alert.alert-info-body at runtime, defeating our CSS selectors on O=43.
+     We host our own assets via worker / jsDelivr. -->
+<link rel="shortcut icon" href="https://www48.myfantasyleague.com/favicon.ico" type="image/x-icon">
 
 <script>
   // Legacy global safety guards (custom tabs removed; keep no-op shims to avoid hard crashes).
@@ -7102,7 +7104,11 @@
   })();
 </script>
 
-<script src="https://www.mflscripts.com/mfl-apps/global/header.js?v=1.60"></script>
+<!-- 2026-05-20: removed mflscripts.com/mfl-apps/global/header.js (theeohiostate).
+     585KB bundle rewrote MFL's .reportnavigation spans into .alert.alert-info-body
+     at runtime, breaking our CSS selectors on O=43 (and likely other pages).
+     See docs/mfl_native/theeohiostate_intel.md + lessons_from_theeohiostate.md
+     for the parts of his code worth re-implementing inside our own bundle. -->
 <style id="ups-marquee-style">
   .ups-marquee-shell {
     max-width: 1148px;
@@ -7586,7 +7592,7 @@
   banner.style.display = "flex";
 })();
 </script>
-<link rel="stylesheet" type="text/css" href="https://www.mflscripts.com/mfl-apps/global/css/300x50-icons.css">
+<!-- 2026-05-20: removed mflscripts.com 300x50-icons.css (theeohiostate). -->
 
 <style id="ups-theme-postload-overrides">
   /* Home / CCC pages: prevent horizontal overflow from shifting the entire

@@ -93,8 +93,10 @@
 <div id="trade_check" style="display:none"><module name="TRADES"></module></div>
 
 <!-- GLOBAL FOOTER -->
-<script src="https://www.mflscripts.com/mfl-apps/global/footer.js?v=1.12"></script>
-<script src="https://mflscripts.com/mfl-apps/playoffs/standingsColumns.js"></script>
+<!-- 2026-05-20: removed mflscripts.com footer.js (theeohiostate, 783KB) +
+     standingsColumns.js. Same reason as header.js removal — DOM transforms
+     fought our overlays. See docs/mfl_native/lessons_from_theeohiostate.md
+     for techniques worth porting into our own bundle. -->
 <script>
   // Legacy rosters-page fork. Transforms MFL's native /options?O=05
   // page into our custom rosters display. Skipped on /options?O=07
