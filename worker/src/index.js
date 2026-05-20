@@ -329,10 +329,21 @@ async function processAuctionPoll(env) {
 // all D1 writes complete.
 //
 // Channel selection (in priority order):
-//   1. DISCORD_AUCTION_CHANNEL_ID (dedicated, if Keith creates one)
-//   2. DISCORD_DRAFT_CHANNEL_ID   (draft-adjacent; current fallback)
+//   - PROD: DISCORD_AUCTION_CHANNEL_ID (preferred) → DISCORD_DRAFT_CHANNEL_ID (fallback)
+//   - TEST: DISCORD_AUCTION_TEST_CHANNEL_ID (preferred) → DISCORD_DRAFT_TEST_CHANNEL_ID
+//   Set env AUCTION_DISCORD_USE_TEST=1 to route to the test channel.
 //
 // Disable entirely with AUCTION_DISCORD_NARRATOR=0.
+//
+// Per-event classification (observer-side, matches Hub vocabulary):
+//   - init           → 🆕 Nom         (opening bid / nomination)
+//   - bid, same fid  → ⬆ Forced Increase (MFL walked the leader's proxy)
+//   - bid, diff fid  → 💰 Overtake    (new franchise dethroned the leader)
+//   - won            → 🏆 Won
+//
+// "Same/different fid as previous" is computed by querying D1 for the
+// immediately-prior bid in the lot. Falls back to "💰 Bid" if we can't
+// classify (e.g., narration of orphaned data).
 //
 // Rate limit: ~250ms between posts. Discord allows 5/5s per channel;
 // keeping well under that floor.
@@ -343,11 +354,15 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     console.log("[auction-narrator] DISCORD_BOT_TOKEN missing — skipping");
     return;
   }
+  const useTest = String(env.AUCTION_DISCORD_USE_TEST ?? "0").trim() === "1";
   const channelId = String(
-    env.DISCORD_AUCTION_CHANNEL_ID || env.DISCORD_DRAFT_CHANNEL_ID || ""
+    useTest
+      ? (env.DISCORD_AUCTION_TEST_CHANNEL_ID || env.DISCORD_DRAFT_TEST_CHANNEL_ID || "")
+      : (env.DISCORD_AUCTION_CHANNEL_ID || env.DISCORD_DRAFT_CHANNEL_ID || "")
   ).replace(/\D/g, "");
   if (!channelId) {
-    console.log("[auction-narrator] no DISCORD_*_CHANNEL_ID configured — skipping");
+    console.log("[auction-narrator] no DISCORD_*_CHANNEL_ID configured for " +
+      (useTest ? "TEST" : "PROD") + " — skipping");
     return;
   }
 
@@ -422,17 +437,84 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
   const fmtFranchise = (fid) => fidToName[fid] || `Team ${fid}`;
   const fmtBid = (k) => `**$${Number(k || 0).toLocaleString("en-US")}K**`;
 
+  // ── Observer-kind classification ──
+  // For each non-init, non-won bid event in the queue, determine if it's
+  // a "forced_increase" (same fid as the immediately-prior bid in the
+  // same lot) or an "overtake" (different fid).
+  //
+  // Strategy: walk the queue chronologically maintaining prev_fid_by_lot
+  // populated from queue events; for lots whose first new event has no
+  // intra-queue predecessor, query D1 for the immediately-prior bid.
+  const db = env.UPS_MFL_DB;
+  const prevFidByLot = new Map();
+  // Pre-fill prevFidByLot for lots we'll need from D1 (lookup only for
+  // the FIRST in-queue bid event in each lot; subsequent events use the
+  // queue itself).
+  const lotsNeedingD1Lookup = new Set();
+  {
+    const seenLots = new Set();
+    for (const ev of queue) {
+      if (ev.kind !== "bid") continue;  // only non-nom/won need classification
+      const lot = `${season}|${leagueId}|${ev.player_id}`;
+      if (seenLots.has(lot)) continue;
+      seenLots.add(lot);
+      lotsNeedingD1Lookup.add({ lot, before_unix: ev.bid_at_unix });
+    }
+  }
+  if (db && lotsNeedingD1Lookup.size > 0) {
+    for (const item of lotsNeedingD1Lookup) {
+      try {
+        const r = await db.prepare(
+          `SELECT fid FROM ups_auction_bids
+            WHERE lot_id = ? AND bid_at_unix < ?
+            ORDER BY bid_at_unix DESC, bid_id DESC LIMIT 1`
+        ).bind(item.lot, item.before_unix).first();
+        if (r && r.fid) prevFidByLot.set(item.lot, String(r.fid));
+      } catch (e) {
+        console.log("[auction-narrator] prev-bid lookup failed for", item.lot, e?.message || e);
+      }
+    }
+  }
+
+  // Classify each event in-place (mutates queue rows w/ _obs_kind).
+  for (const ev of queue) {
+    const lot = `${season}|${leagueId}|${ev.player_id}`;
+    if (ev.kind === "init") {
+      ev._obs_kind = "nom";
+    } else if (ev.kind === "won") {
+      ev._obs_kind = "won";
+    } else {
+      const priorFid = prevFidByLot.get(lot);
+      if (priorFid == null) {
+        // No predecessor known — fall back to "bid"
+        ev._obs_kind = "bid";
+      } else if (priorFid === ev.fid) {
+        ev._obs_kind = "forced_increase";
+      } else {
+        ev._obs_kind = "overtake";
+      }
+    }
+    // Track this event's fid as the new "prior" for the lot (for the next
+    // event in the chronologically-sorted queue).
+    prevFidByLot.set(lot, ev.fid);
+  }
+
   // Build messages
   const messages = queue.map((ev) => {
     const player = fmtPlayer(ev.player_id);
     const franchise = `**${fmtFranchise(ev.fid)}**`;
     const bid = fmtBid(ev.bid_k);
-    if (ev.kind === "init") {
-      return `🆕  ${franchise} nominated ${player} — opening at ${bid}`;
-    } else if (ev.kind === "won") {
-      return `🏆  ${franchise} **won** ${player} for ${bid}`;
-    } else {
-      return `💰  ${franchise} bid ${bid} on ${player}`;
+    switch (ev._obs_kind) {
+      case "nom":
+        return `🆕  ${franchise} **nominated** ${player} — opening at ${bid}`;
+      case "won":
+        return `🏆  ${franchise} **won** ${player} for ${bid}`;
+      case "forced_increase":
+        return `⬆  ${franchise} **Forced Increase** to ${bid} on ${player}`;
+      case "overtake":
+        return `💰  ${franchise} **Overtake** at ${bid} on ${player}`;
+      default:
+        return `💰  ${franchise} bid ${bid} on ${player}`;
     }
   });
 
