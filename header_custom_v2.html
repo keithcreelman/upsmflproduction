@@ -9632,6 +9632,60 @@
     margin: 4px 0 !important;
   }
 
+  /* ─────────────────────────────────────────────────────────────────
+   * TOS .alert.alert-info-body mirror (2026-05-20)
+   *
+   * theeohiostate's footer.js rewrites MFL's <span class="reportnavigation">
+   * into <span class="alert alert-info-body"> at runtime, so our
+   * .reportnavigation rules above never light up the post-transform DOM
+   * on auction pages. Mirror the dark-info treatment onto the
+   * transformed class so the Hint blocks render correctly regardless of
+   * whether the TOS transform ran. (See docs/mfl_native/lessons_from_
+   * theeohiostate.md — anti-pattern #1 documents the transform; we
+   * style its output rather than fight it until TOS is staged out.)
+   * ───────────────────────────────────────────────────────────────── */
+  body[id^="body_options_43"] .alert.alert-info-body,
+  body[id^="body_options_43"] span.alert-info-body {
+    display: block !important;
+    padding: 10px 14px !important;
+    margin: 8px 0 !important;
+    background: var(--ups-surface, #111b2e) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-left: 3px solid var(--ups-accent, #f0c465) !important;
+    border-radius: 4px !important;
+    color: var(--ups-text, #e8effa) !important;
+    font-size: 12px !important;
+    line-height: 1.6 !important;
+  }
+  body[id^="body_options_43"] .alert.alert-info-body .reportnavigationheader,
+  body[id^="body_options_43"] .alert.alert-info-body .alert-info-header,
+  body[id^="body_options_43"] .alert.alert-info-body > strong:first-child,
+  body[id^="body_options_43"] .alert.alert-info-body > b:first-child {
+    display: inline !important;
+    color: var(--ups-accent, #f0c465) !important;
+    font-weight: 700 !important;
+    margin-right: 6px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    font-size: 11px !important;
+  }
+  body[id^="body_options_43"] .alert.alert-info-body b,
+  body[id^="body_options_43"] .alert.alert-info-body strong {
+    color: var(--ups-text, #e8effa) !important;
+    font-weight: 700 !important;
+  }
+  body[id^="body_options_43"] .alert.alert-info-body .warning {
+    color: var(--ups-warning, #d33642) !important;
+    background: rgba(211, 54, 66, 0.12) !important;
+    padding: 1px 5px !important;
+    border-radius: 3px !important;
+    font-weight: 600 !important;
+  }
+  body[id^="body_options_43"] td .alert.alert-info-body,
+  body[id^="body_options_43"] tr .alert.alert-info-body {
+    margin: 4px 0 !important;
+  }
+
   /* Form inputs / selects / textareas */
   body[id^="body_options_43"] input[type="text"],
   body[id^="body_options_43"] input[type="password"],
