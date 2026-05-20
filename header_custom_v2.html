@@ -10263,6 +10263,144 @@
 </style>
 
 <script>
+  // ─── O=43 picker + #locked-msg inline-style painter ────────────────────
+  // Last-resort nuclear override: inline element.style.setProperty(..., 'important')
+  // beats EVERYTHING in author CSS — no specificity war can win against it.
+  //
+  // Why we need this: TOS's light.css ships .add-player-container
+  // .add-drop-player-row* rules with similar specificity + loaded after
+  // our <style> block, so they win the cascade. Inline !important styles
+  // bypass the cascade entirely.
+  //
+  // Scoped strictly to body_options_43 — does nothing on any other page.
+  // ───────────────────────────────────────────────────────────────────────
+  (function () {
+    if (!document.body || !/^body_options_43/.test(document.body.id || "")) {
+      // Page not loaded yet OR not the right page — try once at DOM ready then bail
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function () {
+          if (/^body_options_43/.test(document.body.id || "")) initO43Painter();
+        });
+      }
+      return;
+    }
+    initO43Painter();
+
+    function initO43Painter() {
+      // Token values mirror our :root --ups-* CSS vars so the painted styles
+      // match the rest of the dark theme.
+      var TOK = {
+        rowOdd:     "#111f35",  // --ups-row-odd
+        rowEven:    "#0f1b30",  // --ups-row-even
+        surface:    "#111b2e",  // --ups-surface
+        surfaceAlt: "#16253f",  // --ups-surface-alt
+        text:       "#e8effa",  // --ups-text
+        border:     "#27476f",  // --ups-border
+        success:    "#25c37d",  // --ups-success
+        accent:     "#f0c465",  // --ups-accent
+      };
+
+      function paintRow(row, isHovered) {
+        if (!row || !row.style) return;
+        var isSel = row.classList.contains("selected-player");
+        var isEven = row.classList.contains("eventablerow");
+        var bg = (isSel || isHovered) ? TOK.surfaceAlt : (isEven ? TOK.rowEven : TOK.rowOdd);
+        row.style.setProperty("background", bg, "important");
+        row.style.setProperty("background-color", bg, "important");
+        if (isSel) {
+          row.style.setProperty("border-left", "3px solid " + TOK.success, "important");
+        } else {
+          row.style.removeProperty("border-left");
+        }
+        row.style.setProperty("color", TOK.text, "important");
+      }
+
+      function paintLockedMsg() {
+        var lock = document.getElementById("locked-msg");
+        if (!lock) return;
+        lock.style.setProperty("display", "block", "important");
+        lock.style.setProperty("background", TOK.surface, "important");
+        lock.style.setProperty("background-color", TOK.surface, "important");
+        lock.style.setProperty("color", TOK.text, "important");
+        lock.style.setProperty("border", "1px solid " + TOK.border, "important");
+        lock.style.setProperty("border-radius", "6px", "important");
+        lock.style.setProperty("padding", "10px 14px", "important");
+        lock.style.setProperty("margin", "8px 0 12px", "important");
+        lock.style.setProperty("font-size", "12px", "important");
+        lock.style.setProperty("line-height", "1.6", "important");
+        // Sigils ([L], #, *) — gold accent
+        lock.querySelectorAll("b").forEach(function (b) {
+          b.style.setProperty("color", TOK.accent, "important");
+          b.style.setProperty("background", "transparent", "important");
+          b.style.setProperty("font-weight", "700", "important");
+        });
+        // Direct text nodes — light. We can't style text nodes, but we
+        // can set color on the parent + all children.
+        lock.style.setProperty("color", TOK.text, "important");
+        lock.querySelectorAll("a").forEach(function (a) {
+          a.style.setProperty("color", "#8ec4ff", "important"); // --ups-link
+          a.style.setProperty("background", "transparent", "important");
+        });
+      }
+
+      function sweepAll() {
+        document.querySelectorAll(".add-drop-player-row").forEach(function (row) {
+          paintRow(row, false);
+        });
+        paintLockedMsg();
+      }
+
+      // Initial sweep — handle anything already in the DOM
+      sweepAll();
+
+      // Periodic sweep for late-rendered rows. TOS finishes its DOM
+      // injection within a few seconds; we keep sweeping for 30s to be
+      // safe, then stop.
+      var sweepInterval = setInterval(sweepAll, 750);
+      setTimeout(function () { clearInterval(sweepInterval); }, 30000);
+
+      // Delegated hover handlers — work for any row, even ones rendered
+      // after we bind. Capture phase so we beat any TOS handlers.
+      document.addEventListener("mouseover", function (e) {
+        var row = e.target.closest && e.target.closest(".add-drop-player-row");
+        if (row) paintRow(row, true);
+      }, true);
+      document.addEventListener("mouseout", function (e) {
+        var row = e.target.closest && e.target.closest(".add-drop-player-row");
+        if (row) paintRow(row, false);
+      }, true);
+
+      // Re-paint after any class change on a row (TOS toggles
+      // .selected-player when user clicks Add/Deselect).
+      if (window.MutationObserver) {
+        var obs = new MutationObserver(function (records) {
+          for (var i = 0; i < records.length; i += 1) {
+            var t = records[i].target;
+            if (t && t.classList && t.classList.contains("add-drop-player-row")) {
+              paintRow(t, false);
+            }
+            // Newly-added rows too
+            var added = records[i].addedNodes;
+            for (var j = 0; j < added.length; j += 1) {
+              var n = added[j];
+              if (!n || n.nodeType !== 1) continue;
+              if (n.classList && n.classList.contains("add-drop-player-row")) paintRow(n, false);
+              else if (n.querySelectorAll) {
+                n.querySelectorAll(".add-drop-player-row").forEach(function (r) { paintRow(r, false); });
+              }
+              if (n.id === "locked-msg") paintLockedMsg();
+            }
+          }
+        });
+        obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+        // Stop after 60s — TOS doesn't touch the DOM after that
+        setTimeout(function () { try { obs.disconnect(); } catch (e) {} }, 60000);
+      }
+    }
+  })();
+</script>
+
+<script>
   // ─── Auction Bid (O=43) quick-bid buttons — Phase 4.3 ───────────────────
   // Inject +$1K / +$5K / +$10K buttons next to each bid input on MFL's
   // O=43 page. Reads the current high bid from the `onblur="validateBid(
