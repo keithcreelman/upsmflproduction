@@ -224,17 +224,22 @@
     const blocksSummary = $("#warroom-blocks-summary");
     if (metaEl) metaEl.textContent = "Loading…";
     try {
-      const [compliance, blocks, nomStatus] = await Promise.all([
+      const [compliance, blocks, nomStatus, bidStats] = await Promise.all([
         fetchJSON(apiUrl("/api/auction/compliance") + qs),
         fetchJSON(apiUrl("/api/auction/cut-rebid-blocks") + qs),
         fetchJSON(apiUrl("/api/auction/nomination-status") + qs).catch(() => null),
+        fetchJSON(apiUrl("/api/auction/bid-stats") + qs + "&kind=" + (STATE.bidStatsKind || "all"))
+          .catch(() => null),
       ]);
       STATE.compliance = compliance;
       STATE.cutRebidBlocks = blocks;
       STATE.nominationStatus = nomStatus;
+      STATE.bidStats = bidStats;
       renderCompliance();
       renderCutRebidBlocks();
       renderNominationStatus();
+      renderBidStats();
+      setupBidStatsToggle();
       if (complianceSummary) {
         complianceSummary.textContent =
           (compliance.total_warnings || 0) + " warning" +
@@ -397,6 +402,97 @@
           </div>
         </div>`;
     }).join("");
+  }
+
+  function renderBidStats() {
+    const grid = $("#warroom-bidstats-grid");
+    const summary = $("#bidstats-summary");
+    if (!grid) return;
+    const data = STATE.bidStats || {};
+    const rows = data.franchises || [];
+    if (summary) {
+      const t = data.totals || {};
+      summary.textContent = `${t.bids || 0} bids · ${t.nominations || 0} nominations · ${t.proxy_walks || 0} proxy walks · ERA pool: ${data.era_pool_size || 0}`;
+    }
+    if (rows.length === 0) {
+      grid.innerHTML = `<div class="ah-placeholder">No bid activity matches the current filter.</div>`;
+      return;
+    }
+    // Position order matches scoring importance
+    const POS_ORDER = ["QB", "RB", "WR", "TE", "PK", "K", "PN", "P", "DL", "LB", "DB", "S", "CB", "DT", "DE", "OL"];
+    grid.innerHTML = rows.map((f) => {
+      const positions = Object.entries(f.bids_by_position || {})
+        .sort(([a], [b]) => {
+          const ai = POS_ORDER.indexOf(a);
+          const bi = POS_ORDER.indexOf(b);
+          if (ai === -1 && bi === -1) return a.localeCompare(b);
+          if (ai === -1) return 1;
+          if (bi === -1) return -1;
+          return ai - bi;
+        });
+      const posChips = positions.length === 0
+        ? `<span class="ah-bidstats-empty">—</span>`
+        : positions.map(([pos, count]) => `
+            <span class="ah-bidstats-pos-chip">
+              <span class="ah-bidstats-pos-label">${escapeHtml(pos)}</span>
+              <span class="ah-bidstats-pos-count">${count}</span>
+            </span>`).join("");
+      const lastBidWhen = f.last_bid_at_iso
+        ? formatBidWhen(Math.floor(new Date(f.last_bid_at_iso).getTime() / 1000))
+        : "—";
+      return `
+        <div class="ah-warroom-card">
+          <div class="ah-warroom-card-head">
+            <div class="ah-warroom-fname">${escapeHtml(f.franchise_name)}</div>
+            <div class="ah-warroom-sev">${f.total_bids} bid${f.total_bids === 1 ? "" : "s"}</div>
+          </div>
+          <div class="ah-bidstats-stats">
+            <div><span class="ah-stat-label">Unique players</span>
+              <span class="ah-stat-val">${f.unique_players_bid_on}</span></div>
+            <div><span class="ah-stat-label">Nominations</span>
+              <span class="ah-stat-val">${f.total_nominations}</span></div>
+            <div><span class="ah-stat-label">ERA / FA</span>
+              <span class="ah-stat-val">${f.era_bid_count} / ${f.fa_bid_count}</span></div>
+            <div><span class="ah-stat-label">Total $K bid</span>
+              <span class="ah-stat-val">$${f.total_bid_dollars_k || 0}K</span></div>
+            <div><span class="ah-stat-label">Proxy walks</span>
+              <span class="ah-stat-val">${f.total_proxy_walks}</span></div>
+            <div><span class="ah-stat-label">Last bid</span>
+              <span class="ah-stat-val">${lastBidWhen}</span></div>
+          </div>
+          <div class="ah-bidstats-positions">${posChips}</div>
+        </div>`;
+    }).join("");
+  }
+
+  let _bidStatsToggleBound = false;
+  function setupBidStatsToggle() {
+    if (_bidStatsToggleBound) return;
+    const toggle = $("#bidstats-kind-toggle");
+    if (!toggle) return;
+    _bidStatsToggleBound = true;
+    toggle.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const kind = btn.dataset.kind || "all";
+        if (STATE.bidStatsKind === kind) return;
+        STATE.bidStatsKind = kind;
+        toggle.querySelectorAll("button").forEach((b) =>
+          b.classList.toggle("active", b === btn));
+        // Refetch with the new filter
+        const season = new Date().getUTCFullYear();
+        const qs = "?L=" + LEAGUE_ID + "&YEAR=" + season + "&kind=" + kind;
+        const grid = $("#warroom-bidstats-grid");
+        if (grid) grid.innerHTML = `<div class="ah-placeholder">Loading…</div>`;
+        try {
+          STATE.bidStats = await fetchJSON(apiUrl("/api/auction/bid-stats") + qs);
+          renderBidStats();
+        } catch (e) {
+          console.error("[auction-hub] bid-stats refetch failed:", e);
+          if (grid) grid.innerHTML = `<div class="ah-placeholder" style="color:var(--err);">
+            Failed: ${escapeHtml(String(e && e.message || e))}</div>`;
+        }
+      });
+    });
   }
 
   function countdownLabel(secs) {

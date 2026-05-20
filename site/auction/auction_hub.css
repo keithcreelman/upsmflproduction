@@ -574,3 +574,70 @@ a.btn.small {
   color: var(--muted);
   font-size: 10px;
 }
+
+/* ── Bid Activity card (positions + FA/ERA toggle) ──────────────────── */
+.ah-bidstats-controls {
+  display: flex; gap: 12px; align-items: center;
+  flex-wrap: wrap;
+}
+.ah-bidstats-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel-alt);
+}
+.ah-bidstats-toggle button {
+  background: transparent;
+  border: 0; border-right: 1px solid var(--border);
+  color: var(--muted);
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  transition: background 100ms, color 100ms;
+}
+.ah-bidstats-toggle button:last-child { border-right: 0; }
+.ah-bidstats-toggle button:hover { color: var(--text); }
+.ah-bidstats-toggle button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.ah-bidstats-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+}
+.ah-bidstats-stats > div {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11px;
+}
+.ah-bidstats-positions {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.ah-bidstats-pos-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.ah-bidstats-pos-label {
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.ah-bidstats-pos-count {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.ah-bidstats-empty { color: var(--muted); font-size: 11px; font-style: italic; }

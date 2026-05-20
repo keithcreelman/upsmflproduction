@@ -182,6 +182,23 @@
 
     <div class="ah-card">
       <div class="ah-card-head">
+        <h2>Bid Activity</h2>
+        <div class="ah-bidstats-controls">
+          <div class="ah-bidstats-toggle" id="bidstats-kind-toggle">
+            <button type="button" data-kind="all" class="active">All</button>
+            <button type="button" data-kind="era">ERA only</button>
+            <button type="button" data-kind="fa">FA only</button>
+          </div>
+          <span class="small" id="bidstats-summary">—</span>
+        </div>
+      </div>
+      <div class="ah-warroom-grid" id="warroom-bidstats-grid">
+        <div class="ah-placeholder">Loading bid activity…</div>
+      </div>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
         <h2>Cut-then-Rebid Blocks (§A2)</h2>
         <span class="small" id="warroom-blocks-summary">—</span>
       </div>

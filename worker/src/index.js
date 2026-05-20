@@ -824,6 +824,7 @@ export default {
         path !== "/api/auction/compliance" &&
         path !== "/api/auction/cut-rebid-blocks" &&
         path !== "/api/auction/nomination-status" &&
+        path !== "/api/auction/bid-stats" &&
         path !== "/admin/auction/probe-o43" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
@@ -2234,6 +2235,197 @@ export default {
           });
         } catch (e) {
           console.error("[auction/compliance] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/bid-stats ----------
+      // Per-franchise bid activity rollup. Counts bids placed, unique
+      // players bid on, position breakdown, and ERA-vs-FA classification.
+      //
+      // Classification:
+      //   ERA = player_id is in the current ERA-eligible pool
+      //   FA  = player_id is NOT in the ERA pool
+      // (Pre-2026-07-15 the pool is rookies with cy=0; after that, FA
+      //  Auction adds non-rookies. Classification is "what kind of
+      //  auction WOULD have nominated this player today" — works for
+      //  the offseason → FA Auction transition.)
+      //
+      // Query params:
+      //   L      (optional, default 74598)
+      //   YEAR   (optional, default current UTC year)
+      //   kind   (optional: 'era' | 'fa' | 'all', default 'all')
+      //   since  (optional, unix seconds — only bids at/after)
+      //
+      // Response per franchise:
+      //   - total_bids, total_nominations, total_proxy_walks
+      //   - unique_players_bid_on
+      //   - bids_by_position: { QB, RB, WR, TE, DL, LB, DB, K, PN, ... }
+      //   - era_bid_count, fa_bid_count
+      //   - first_bid_at + last_bid_at
+      if (path === "/api/auction/bid-stats" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) return jsonOut(500, { error: "D1 binding UPS_MFL_DB missing" });
+        const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const kindFilter = String(url.searchParams.get("kind") || "all").toLowerCase();
+        const sinceUnix = Math.max(0, Number(url.searchParams.get("since") || 0));
+
+        try {
+          // Pull all bids in scope
+          let sql = `SELECT fid, player_id, bid_k, bid_at_unix, note
+                       FROM ups_auction_bids
+                      WHERE season = ? AND league_id = ?`;
+          const args = [year, leagueId];
+          if (sinceUnix > 0) { sql += ` AND bid_at_unix >= ?`; args.push(sinceUnix); }
+          sql += ` ORDER BY bid_at_unix ASC`;
+          const { results: rows } = await env.UPS_MFL_DB.prepare(sql).bind(...args).all();
+          const bids = rows || [];
+
+          // Fetch ERA-eligible pool to classify ERA vs FA
+          const apiKey = String(env.MFL_APIKEY || "").trim();
+          const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+          const eraPool = new Set();
+          try {
+            // Internal lookup — reuse the same logic via D1.
+            // Simpler: fetch live MFL rosters + look for Rookie cy=0.
+            const rostersJson = await fetch(
+              `https://www48.myfantasyleague.com/${year}/export?TYPE=rosters&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 300 } }
+            ).then((r) => r.json()).catch(() => ({}));
+            const farr = Array.isArray(rostersJson?.rosters?.franchise)
+              ? rostersJson.rosters.franchise
+              : [rostersJson?.rosters?.franchise].filter(Boolean);
+            for (const fr of farr) {
+              let plist = Array.isArray(fr?.player) ? fr.player : [fr?.player].filter(Boolean);
+              for (const p of plist) {
+                if (String(p?.contractStatus || "").toLowerCase() === "rookie" &&
+                    Number(String(p?.contractYear || "0").trim()) === 0) {
+                  eraPool.add(String(p.id || ""));
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("[bid-stats] ERA pool lookup failed:", e?.message || e);
+          }
+
+          // Apply kind filter at the bid level
+          let scopedBids = bids;
+          if (kindFilter === "era") {
+            scopedBids = bids.filter((b) => eraPool.has(String(b.player_id)));
+          } else if (kindFilter === "fa") {
+            scopedBids = bids.filter((b) => !eraPool.has(String(b.player_id)));
+          }
+
+          // Player + franchise meta in parallel
+          const allPids = [...new Set(scopedBids.map((b) => String(b.player_id)))];
+          const allFids = [...new Set(scopedBids.map((b) => String(b.fid)))];
+          const [leagueRes, playersRes] = await Promise.all([
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 300 } }).then((r) => r.json()).catch(() => ({})),
+            allPids.length > 0
+              ? fetch(`https://api.myfantasyleague.com/${year}/export?TYPE=players&PLAYERS=${encodeURIComponent(allPids.join(","))}&JSON=1`,
+                  { cf: { cacheTtl: 86400 } }).then((r) => r.json()).catch(() => ({}))
+              : Promise.resolve({}),
+          ]);
+          const fidToName = {};
+          const flist = leagueRes?.league?.franchises?.franchise || [];
+          const farr2 = Array.isArray(flist) ? flist : [flist];
+          for (const f of farr2) {
+            const id = String(f.id || "").padStart(4, "0");
+            if (id) fidToName[id] = String(f.name || ("Team " + id));
+          }
+          const pidToPos = {};
+          let plist = playersRes?.players?.player || [];
+          if (!Array.isArray(plist)) plist = [plist];
+          for (const p of plist) {
+            const id = String(p.id || "");
+            if (id) pidToPos[id] = String(p.position || "UNK").toUpperCase();
+          }
+
+          // Aggregate per franchise
+          const byFid = {};
+          for (const b of scopedBids) {
+            const fid = String(b.fid || "").padStart(4, "0");
+            if (!fid || fid === "0000") continue;
+            if (!byFid[fid]) {
+              byFid[fid] = {
+                fid,
+                franchise_name: fidToName[fid] || ("Team " + fid),
+                total_bids: 0,
+                total_nominations: 0,
+                total_proxy_walks: 0,
+                era_bid_count: 0,
+                fa_bid_count: 0,
+                unique_player_ids: new Set(),
+                bids_by_position: {},
+                first_bid_at_unix: null,
+                last_bid_at_unix: null,
+                total_bid_dollars_k: 0,
+              };
+            }
+            const rec = byFid[fid];
+            const noteStr = String(b.note || "");
+            const isNom = noteStr.startsWith("[nomination]");
+            const isProxy = /proxy/i.test(noteStr);
+            rec.total_bids += 1;
+            if (isNom) rec.total_nominations += 1;
+            if (isProxy) rec.total_proxy_walks += 1;
+            rec.unique_player_ids.add(String(b.player_id));
+            const pos = pidToPos[String(b.player_id)] || "UNK";
+            rec.bids_by_position[pos] = (rec.bids_by_position[pos] || 0) + 1;
+            if (eraPool.has(String(b.player_id))) rec.era_bid_count += 1;
+            else rec.fa_bid_count += 1;
+            rec.total_bid_dollars_k += Number(b.bid_k || 0);
+            const ts = Number(b.bid_at_unix);
+            if (!rec.first_bid_at_unix || ts < rec.first_bid_at_unix) rec.first_bid_at_unix = ts;
+            if (!rec.last_bid_at_unix || ts > rec.last_bid_at_unix) rec.last_bid_at_unix = ts;
+          }
+
+          const franchises = Object.values(byFid).map((rec) => ({
+            fid: rec.fid,
+            franchise_name: rec.franchise_name,
+            total_bids: rec.total_bids,
+            total_nominations: rec.total_nominations,
+            total_proxy_walks: rec.total_proxy_walks,
+            era_bid_count: rec.era_bid_count,
+            fa_bid_count: rec.fa_bid_count,
+            unique_players_bid_on: rec.unique_player_ids.size,
+            bids_by_position: rec.bids_by_position,
+            total_bid_dollars_k: rec.total_bid_dollars_k,
+            first_bid_at_iso: rec.first_bid_at_unix ? new Date(rec.first_bid_at_unix * 1000).toISOString() : null,
+            last_bid_at_iso: rec.last_bid_at_unix ? new Date(rec.last_bid_at_unix * 1000).toISOString() : null,
+          }));
+
+          // Sort by total_bids desc
+          franchises.sort((a, b) => (b.total_bids - a.total_bids) || a.fid.localeCompare(b.fid));
+
+          // League-level totals
+          const totals = franchises.reduce((acc, f) => ({
+            bids: acc.bids + f.total_bids,
+            nominations: acc.nominations + f.total_nominations,
+            proxy_walks: acc.proxy_walks + f.total_proxy_walks,
+            era: acc.era + f.era_bid_count,
+            fa: acc.fa + f.fa_bid_count,
+          }), { bids: 0, nominations: 0, proxy_walks: 0, era: 0, fa: 0 });
+
+          return jsonOut(200, {
+            season: year,
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            filters: {
+              kind: kindFilter,
+              since_unix: sinceUnix || null,
+            },
+            classification_note:
+              "ERA = player currently in the rookie/cy=0 pool. FA = everyone else. " +
+              "Reclassifies dynamically based on current MFL rosters at request time.",
+            era_pool_size: eraPool.size,
+            franchise_count: franchises.length,
+            totals,
+            franchises,
+          });
+        } catch (e) {
+          console.error("[auction/bid-stats] failed:", e);
           return jsonOut(500, { error: String(e && e.message || e) });
         }
       }

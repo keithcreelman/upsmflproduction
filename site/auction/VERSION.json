@@ -1,46 +1,32 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.0",
   "released": "2026-05-20",
-  "label": "v0.3.0 — Nomination tracker + thread-view bid history + War Room polish",
-  "description": "War Room refines the per-card cap warnings (cap-floor advisory rolled up into a single league-wide banner), adds a Nomination Cadence card per franchise (ERA + FA Auction), and the Bid History tab switches to a lot-grouped thread view with expandable bid sequences. New worker endpoint /api/auction/nomination-status powers the cadence tracker.",
+  "label": "v0.4.0 — Bid Activity card (positions + FA/ERA toggle)",
+  "description": "Adds per-franchise bid aggregation card to War Room: counts of bids placed + unique players bid on + position breakdown + ERA-vs-FA classification + total $K bid. Toggle: All / ERA only / FA only.",
   "scope": {
     "this_release": [
-      "/api/auction/nomination-status — per-franchise ERA + FA cadence tracker (§A3 + §A1)",
-      "War Room: league-wide compliance banner (cap floor + active min rollup)",
-      "War Room: per-franchise cards drop universal cap-floor noise",
-      "War Room: Nomination Cadence card with countdowns to next-allowed",
-      "Bid History: thread view (group by lot, collapse to latest, expand for sequence)",
-      "Bid History: proxy-walk explainer legend chip in header (🤖 tooltip)"
+      "/api/auction/bid-stats — per-franchise aggregation, kind filter (era|fa|all), since filter",
+      "War Room: Bid Activity card with position chips per franchise",
+      "ERA-vs-FA classification via cross-reference with current rookie/cy=0 pool",
+      "All/ERA/FA toggle refetches from worker (no client-side filtering)"
     ],
     "deferred": [
-      "Roster + open winning bids per franchise (position compliance — won't go live until FA Auction)",
-      "Bids placed / players bid on by position, filter FA vs ERA",
-      "FA Auction Pool tab",
-      "Rules & Calendar tab",
-      "Phase C: side-mount MPM drawer for O=43 native picker"
+      "Position-based roster compliance (requires roster + open winning bids overlay)",
+      "Position breakdown filtered by acquisition timing (offseason vs in-season)",
+      "Side-by-side era_bid vs fa_bid timeline chart"
     ]
   },
   "canon_references": {
     "league_context_v1.md": ["§6.A1", "§6.A2", "§B1", "§A1", "§A2", "§A3"]
   },
   "changes": [
-    {
-      "version": "0.3.0",
-      "date": "2026-05-20",
-      "type": "feat",
-      "summary": "Nomination tracker + thread bid history + War Room signal-vs-noise pass."
-    },
-    {
-      "version": "0.2.0",
-      "date": "2026-05-20",
-      "type": "feat",
-      "summary": "War Room + Bid History tabs go live."
-    },
-    {
-      "version": "0.1.0",
-      "date": "2026-05-18",
-      "type": "feat",
-      "summary": "Initial scaffold + Expired Rookie Pool table."
-    }
+    { "version": "0.4.0", "date": "2026-05-20", "type": "feat",
+      "summary": "Bid Activity card with positions + FA/ERA toggle." },
+    { "version": "0.3.0", "date": "2026-05-20", "type": "feat",
+      "summary": "Nomination tracker + thread bid history + War Room signal-vs-noise pass." },
+    { "version": "0.2.0", "date": "2026-05-20", "type": "feat",
+      "summary": "War Room + Bid History tabs go live." },
+    { "version": "0.1.0", "date": "2026-05-18", "type": "feat",
+      "summary": "Initial scaffold + Expired Rookie Pool table." }
   ]
 }
