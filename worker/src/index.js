@@ -118,8 +118,18 @@ async function processAuctionPoll(env) {
   const baseUrl = `https://www48.myfantasyleague.com/${season}/export`;
   const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
 
-  // Fetch both transaction types in parallel.
-  const [bidsRes, winsRes] = await Promise.all([
+  // MFL distinguishes three transaction types for an auction:
+  //   AUCTION_INIT — nomination event. Records the opening bid +
+  //                  nominating franchise. Created once per lot.
+  //   AUCTION_BID  — every subsequent overtake. May be auto-walked
+  //                  by MFL's proxy mechanism (annotated in the note).
+  //   AUCTION_WON  — lot closed, winner ratified.
+  // Critical: poll INIT separately. Treating earliest AUCTION_BID as
+  // the nomination gets the nominator wrong (it's whoever overtook
+  // first, not whoever opened the lot).
+  const [initRes, bidsRes, winsRes] = await Promise.all([
+    fetch(`${baseUrl}?TYPE=transactions&L=${leagueId}&TRANS_TYPE=AUCTION_INIT&JSON=1${apiQs}`,
+      { cf: { cacheTtl: 0, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
     fetch(`${baseUrl}?TYPE=transactions&L=${leagueId}&TRANS_TYPE=AUCTION_BID&JSON=1${apiQs}`,
       { cf: { cacheTtl: 0, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
     fetch(`${baseUrl}?TYPE=transactions&L=${leagueId}&TRANS_TYPE=AUCTION_WON&JSON=1${apiQs}`,
@@ -127,10 +137,18 @@ async function processAuctionPoll(env) {
   ]);
 
   const asArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+  const initTxs = asArr(initRes?.transactions?.transaction);
   const bidTxs = asArr(bidsRes?.transactions?.transaction);
   const wonTxs = asArr(winsRes?.transactions?.transaction);
 
-  if (bidTxs.length === 0 && wonTxs.length === 0) {
+  // Merge INIT + BID into one stream for ingestion; tag with kind so
+  // downstream renderers can distinguish nomination from overtake.
+  const allBidEvents = [
+    ...initTxs.map((tx) => ({ tx, kind: "init" })),
+    ...bidTxs.map((tx) => ({ tx, kind: "bid" })),
+  ];
+
+  if (allBidEvents.length === 0 && wonTxs.length === 0) {
     return { new_bids: 0, new_wins: 0, active_lots: 0 };
   }
 
@@ -155,18 +173,24 @@ async function processAuctionPoll(env) {
   let newBids = 0;
   let newWins = 0;
 
-  // ── Ingest AUCTION_BID ──
-  for (const tx of bidTxs) {
-    const p = parseTx(tx);
+  // ── Ingest AUCTION_INIT + AUCTION_BID ──
+  // Both go into ups_auction_bids. The `note` column tags INIT events
+  // as "[nomination]" prepended so downstream queries can identify
+  // them. UNIQUE constraint on (lot_id, fid, bid_at, bid_k) dedupes
+  // re-polls.
+  for (const ev of allBidEvents) {
+    const p = parseTx(ev.tx);
     if (!p.player_id || !p.fid || !p.bid_at_unix) continue;
     const lot_id = `${season}|${leagueId}|${p.player_id}`;
+    const taggedNote = ev.kind === "init"
+      ? (p.note ? `[nomination] ${p.note}` : "[nomination]")
+      : p.note;
 
-    // Insert bid (UNIQUE constraint dedupes re-polls).
     const ins = await db.prepare(
       `INSERT OR IGNORE INTO ups_auction_bids
          (lot_id, season, league_id, player_id, fid, bid_k, bid_at_unix, note, raw_transaction)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(lot_id, season, leagueId, p.player_id, p.fid, p.bid_k, p.bid_at_unix, p.note, p.raw_transaction).run();
+    ).bind(lot_id, season, leagueId, p.player_id, p.fid, p.bid_k, p.bid_at_unix, taggedNote, p.raw_transaction).run();
     if (ins.meta?.changes > 0) newBids++;
   }
 
