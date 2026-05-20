@@ -6800,165 +6800,51 @@
   var deactivate_all_offseason = false;
 </script>
 
+<!-- MFLCache: three-tier cache (memory → IDB → localStorage) + BroadcastChannel
+     cross-tab + stampede locks + stale-while-revalidate + MFL /export 429 guard.
+     Must run BEFORE the TOS header.js below so the fetch wrapper is installed
+     before any TOS export call fires. Replaces the previous inline 429-guard
+     block; see docs/mfl_native/tos_removal_plan.md §3 Stage 1. Cache-bust the
+     pinned URL when shipping a new version of mfl_cache.js. -->
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/mfl_cache.js?v=2026-05-20-stage1"></script>
+
+<!-- UPSReveal: anti-flicker double-RAF helper. Stage 2 of tos_removal_plan.md.
+     Pure utility; consumers (rosters fork, etc.) import via window.UPSReveal. -->
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/reveal.js?v=2026-05-20-stage2"></script>
+
+<!-- Stage 3: native mini-boxscore port (gated behind a flag — TOS's bundled
+     mini-boxscore in header.js drives #MFLBoxWrapper until Stage 5 flips this
+     to true AND sets load_mini_boxscore=false. Loading the source dormant here
+     so the file is cached + parsed before the cutover. -->
 <script>
-  // Guard MFL export fetches against short-term 429 bursts so header.js fails soft.
-  (function () {
-    var originalFetch = window.fetch;
-    if (typeof originalFetch !== "function") return;
-    if (window.__UPS_MFL_EXPORT_GUARD_INSTALLED__) return;
-    window.__UPS_MFL_EXPORT_GUARD_INSTALLED__ = true;
-
-    var CACHE_KEY = "ups_mfl_export_cache_v1";
-    var BACKOFF_KEY = "ups_mfl_export_backoff_v1";
-    var MAX_ENTRIES = 80;
-    var BACKOFF_MS = 45000;
-
-    function nowMs() {
-      return Date.now();
-    }
-
-    function safeJsonParse(raw, fallback) {
-      try { return JSON.parse(String(raw || "")); } catch (e) { return fallback; }
-    }
-
-    function safeJsonStringify(value) {
-      try { return JSON.stringify(value); } catch (e) { return "{}"; }
-    }
-
-    function readStore(key) {
-      try {
-        return safeJsonParse(localStorage.getItem(key), {});
-      } catch (e) {
-        return {};
-      }
-    }
-
-    function writeStore(key, value) {
-      try {
-        localStorage.setItem(key, safeJsonStringify(value || {}));
-      } catch (e) {
-        // ignore storage quota/privacy errors
-      }
-    }
-
-    function normalizeExportKey(urlObj) {
-      var p = new URLSearchParams(urlObj.search || "");
-      var out = [];
-      var keys = [];
-      p.forEach(function (_v, k) {
-        if (k === "_" || k === "JSON") return;
-        keys.push(k);
-      });
-      keys.sort();
-      for (var i = 0; i < keys.length; i += 1) {
-        out.push(keys[i] + "=" + (p.get(keys[i]) || ""));
-      }
-      return urlObj.origin + urlObj.pathname + "?" + out.join("&");
-    }
-
-    function isMflExportUrl(urlObj) {
-      if (!urlObj) return false;
-      var host = String(urlObj.hostname || "").toLowerCase();
-      if (host.indexOf("myfantasyleague.com") === -1) return false;
-      return /\/export$/i.test(String(urlObj.pathname || ""));
-    }
-
-    function cacheGet(key) {
-      var cache = readStore(CACHE_KEY);
-      var row = cache && cache[key];
-      return row && typeof row === "object" ? row : null;
-    }
-
-    function cacheSet(key, status, text) {
-      if (!key || !text) return;
-      var cache = readStore(CACHE_KEY);
-      var row = {
-        ts: nowMs(),
-        status: status || 200,
-        text: String(text),
-      };
-      cache[key] = row;
-      var keys = Object.keys(cache).sort(function (a, b) {
-        var ta = cache[a] && cache[a].ts ? cache[a].ts : 0;
-        var tb = cache[b] && cache[b].ts ? cache[b].ts : 0;
-        return tb - ta;
-      });
-      for (var i = MAX_ENTRIES; i < keys.length; i += 1) {
-        delete cache[keys[i]];
-      }
-      writeStore(CACHE_KEY, cache);
-    }
-
-    function backoffUntilGet(key) {
-      var map = readStore(BACKOFF_KEY);
-      return Number(map && map[key] || 0);
-    }
-
-    function backoffUntilSet(key, untilTs) {
-      var map = readStore(BACKOFF_KEY);
-      map[key] = Number(untilTs || 0);
-      writeStore(BACKOFF_KEY, map);
-    }
-
-    function staleResponse(text, reason) {
-      return new Response(String(text || "{}"), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "X-UPS-MFL-Guard": String(reason || "stale-cache"),
-        },
-      });
-    }
-
-    window.fetch = function (input, init) {
-      var reqInit = init || {};
-      var method = String(reqInit.method || "GET").toUpperCase();
-      var urlObj = null;
-      try {
-        urlObj = new URL(typeof input === "string" ? input : (input && input.url) || "", window.location.href);
-      } catch (e) {
-        urlObj = null;
-      }
-      if (method !== "GET" || !isMflExportUrl(urlObj)) {
-        return originalFetch.apply(this, arguments);
-      }
-
-      var key = normalizeExportKey(urlObj);
-      var now = nowMs();
-      var backoffUntil = backoffUntilGet(key);
-      var cached = cacheGet(key);
-      if (backoffUntil > now && cached && cached.text) {
-        return Promise.resolve(staleResponse(cached.text, "backoff-cache"));
-      }
-
-      return originalFetch.apply(this, arguments).then(function (res) {
-        if (res && res.status === 429) {
-          backoffUntilSet(key, nowMs() + BACKOFF_MS);
-          if (cached && cached.text) {
-            console.warn("[UPS][MFL-Guard] 429 on export; serving cached payload for", key);
-            return staleResponse(cached.text, "429-cache");
-          }
-          return res;
-        }
-        if (res && res.ok) {
-          try {
-            res.clone().text().then(function (txt) {
-              if (!txt) return;
-              cacheSet(key, res.status, txt);
-            }).catch(function () {});
-          } catch (e) {}
-        }
-        return res;
-      }).catch(function (err) {
-        if (cached && cached.text) {
-          console.warn("[UPS][MFL-Guard] fetch error; serving cached payload for", key, err);
-          return staleResponse(cached.text, "error-cache");
-        }
-        throw err;
-      });
-    };
-  })();
+  if (typeof window.UPS_USE_NATIVE_MINI_BOXSCORE === "undefined") {
+    window.UPS_USE_NATIVE_MINI_BOXSCORE = false;
+  }
 </script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/mini_boxscore.js?v=2026-05-20-stage3"></script>
+
+<!-- Stage 4: native player popup. Bridges MFL's player-link clicks to our
+     existing UPS_openPlayerProfile (player_profile_master.js, 2373 lines).
+     Gated by UPS_USE_NATIVE_PLAYER_POPUP — while false, TOS's header.js popup
+     keeps working. Stage 5 flips this true AND sets load_popup=false. The
+     bridge ALSO loads player_profile_master.js so UPS_openPlayerProfile is
+     available before the click handler can fire. -->
+<script>
+  if (typeof window.UPS_USE_NATIVE_PLAYER_POPUP === "undefined") {
+    window.UPS_USE_NATIVE_PLAYER_POPUP = false;
+  }
+</script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=2026-05-20-stage4"></script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_popup_bridge.js?v=2026-05-20-stage4"></script>
+
+<!-- Stage 6: small native ports — mobile menu, module collapse, playoff bracket
+     polish. Additive; the corresponding TOS toggles (load_mobileMenu_script,
+     load_moduleExpand_script) stay true in HPM #20 until Stage 6 cutover
+     flips them off. Owner Activity hook was DELETED outright per §5 Q6
+     (no #tab202 references in our HPMs). -->
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/mobile_menu.js?v=2026-05-20-stage6"></script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/module_collapse.js?v=2026-05-20-stage6"></script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/playoff_bracket_polish.js?v=2026-05-20-stage6"></script>
 
 <script src="https://www.mflscripts.com/mfl-apps/global/header.js?v=1.60"></script>
 <style id="ups-marquee-style">
@@ -7444,7 +7330,15 @@
   banner.style.display = "flex";
 })();
 </script>
-<link rel="stylesheet" type="text/css" href="https://www.mflscripts.com/mfl-apps/global/css/300x50-icons.css">
+<!-- Stage 8 of tos_removal_plan.md: self-host the franchise-icon layout CSS
+     and explicitly link Font Awesome Free (cdnjs) so we don't silently depend
+     on TOS's header.js/light.css to provide either. FA Free 6.5.2 covers every
+     fa-* icon we actually use (audit at port time: 14 icons, all in Free).
+     fa-square-left/right in mini_boxscore.js were swapped to fa-square-caret-*
+     for Free compatibility. Self-hosted 300x50-icons.css is verbatim from
+     mflscripts.com — pure layout rules, no embedded image URLs. -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="stylesheet" type="text/css" href="https://keithcreelman.github.io/upsmflproduction/shared/css/300x50-icons.css?v=2026-05-20-stage8">
 
 <style id="ups-theme-postload-overrides">
   /* Home / CCC pages: prevent horizontal overflow from shifting the entire
