@@ -1,0 +1,70 @@
+{
+  "version": "1.0",
+  "updated": "2026-05-20",
+  "description": "Hand-curated GIFs for the Discord auction narrator. Each scenario fires with `probability_pct` chance when its trigger matches the event. When a scenario fires, a random GIF from its `gifs` array is picked (weighted by `weight` if set, defaults to 1). When no scenario fires OR a scenario fires but has empty `gifs`, falls back to the existing per-event Giphy search.",
+  "schema": {
+    "scenario_id": "stable string; referenced by worker logs",
+    "label": "short human-readable description",
+    "trigger": "object — all fields must match for the scenario to qualify. Fields: event_kind (nom|forced_increase|overtake|won), min_total_bids, max_total_bids, min_forced, min_overtakes, position (QB|RB|WR|TE|K|PN|DL|LB|DB|S|CB), min_bid_k, by_commish (true|false)",
+    "probability_pct": "0-100; when the scenario qualifies, this is the chance of using a curated GIF vs. falling through. 100 = always use this scenario's GIFs when triggered.",
+    "gifs": "array of { url, label?, weight? }; weight defaults to 1; one random pick weighted by weight."
+  },
+  "scenarios": [
+    {
+      "id": "tail_war_marathon",
+      "label": "Top-decile bidding war — 10+ bids, multi-day fight (D10 of total_bids per analysis)",
+      "trigger": { "event_kind": "won", "min_total_bids": 10 },
+      "probability_pct": 90,
+      "gifs": []
+    },
+    {
+      "id": "proxy_grind",
+      "label": "4+ forced increases on a lot — MFL grinding two proxy ceilings (D10 of forced)",
+      "trigger": { "event_kind": "forced_increase", "min_forced": 4 },
+      "probability_pct": 70,
+      "gifs": []
+    },
+    {
+      "id": "kill_shot",
+      "label": "Overtake that ends a 5+ bid lot decisively",
+      "trigger": { "event_kind": "overtake", "min_total_bids": 5 },
+      "probability_pct": 60,
+      "gifs": []
+    },
+    {
+      "id": "floor_close",
+      "label": "Lot won at the 24h MFL minimum (no late drama; 30% of contested lots per analysis)",
+      "trigger": { "event_kind": "won", "max_total_bids": 2 },
+      "probability_pct": 30,
+      "gifs": []
+    },
+    {
+      "id": "nom_marquee_qb",
+      "label": "QB nomination opening at a high price ($10K+)",
+      "trigger": { "event_kind": "nom", "position": "QB", "min_bid_k": 10 },
+      "probability_pct": 60,
+      "gifs": []
+    },
+    {
+      "id": "nom_kicker",
+      "label": "Kicker or punter nomination (always entertainment)",
+      "trigger": { "event_kind": "nom", "position": "K" },
+      "probability_pct": 100,
+      "gifs": []
+    },
+    {
+      "id": "nom_punter",
+      "label": "Punter nomination — even rarer",
+      "trigger": { "event_kind": "nom", "position": "PN" },
+      "probability_pct": 100,
+      "gifs": []
+    },
+    {
+      "id": "commish_intervention",
+      "label": "Commish-posted bid (uncommon but flag it)",
+      "trigger": { "by_commish": true },
+      "probability_pct": 100,
+      "gifs": []
+    }
+  ]
+}

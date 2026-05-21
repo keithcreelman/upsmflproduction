@@ -577,14 +577,106 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     prevFidByLot.set(lot, ev.fid);
   }
 
+  // ── Curated GIF manifest (site/auction/curated_gifs.json) ──
+  // Hand-picked GIFs for specific scenarios. Evaluated BEFORE Giphy
+  // fallback. Each scenario has a trigger, a probability_pct, and a
+  // pool of GIFs. First scenario whose trigger matches AND survives
+  // its probability roll wins. Fail-soft: any error fetching the
+  // manifest just bypasses curated and falls through to Giphy.
+  let _curatedManifestCache = null;
+  let _curatedManifestCacheTs = 0;
+  async function loadCuratedManifest() {
+    // Cache 60s in worker memory; manifest is also CDN-cached.
+    const now = Date.now();
+    if (_curatedManifestCache && (now - _curatedManifestCacheTs) < 60000) {
+      return _curatedManifestCache;
+    }
+    const sha = String(env.UPS_RELEASE_SHA || "main").replace(/[^A-Za-z0-9_.-]/g, "") || "main";
+    const url = `https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@${sha}/site/auction/curated_gifs.json`;
+    try {
+      const r = await fetch(url, { cf: { cacheTtl: 60 } });
+      if (!r.ok) return null;
+      const j = await r.json();
+      _curatedManifestCache = j;
+      _curatedManifestCacheTs = now;
+      return j;
+    } catch (e) {
+      console.log("[auction-narrator] curated manifest fetch failed:", e?.message || e);
+      return null;
+    }
+  }
+
+  async function pickCuratedGif(playerInfo, eventKind, ctx) {
+    const manifest = await loadCuratedManifest();
+    if (!manifest || !Array.isArray(manifest.scenarios)) return "";
+    const evCtx = {
+      event_kind: eventKind,
+      total_bids: Number(ctx?.total_bids || 0),
+      forced: Number(ctx?.forced || 0),
+      overtakes: Number(ctx?.overtakes || 0),
+      bid_k: Number(ctx?.bid_k || 0),
+      position: String(playerInfo?.position || "").toUpperCase(),
+      by_commish: !!ctx?.by_commish,
+    };
+    for (const sc of manifest.scenarios) {
+      const t = sc.trigger || {};
+      // Trigger evaluation: ALL provided fields must match
+      if (t.event_kind && t.event_kind !== evCtx.event_kind) continue;
+      if (t.min_total_bids != null && evCtx.total_bids < t.min_total_bids) continue;
+      if (t.max_total_bids != null && evCtx.total_bids > t.max_total_bids) continue;
+      if (t.min_forced != null && evCtx.forced < t.min_forced) continue;
+      if (t.min_overtakes != null && evCtx.overtakes < t.min_overtakes) continue;
+      if (t.min_bid_k != null && evCtx.bid_k < t.min_bid_k) continue;
+      if (t.position && t.position !== evCtx.position) continue;
+      if (t.by_commish === true && !evCtx.by_commish) continue;
+      if (t.by_commish === false && evCtx.by_commish) continue;
+      // Probability roll
+      const prob = Number(sc.probability_pct || 0);
+      if (prob <= 0) continue;
+      if (Math.random() * 100 >= prob) continue;
+      // Scenario won — pick a weighted random GIF from its pool
+      const gifs = Array.isArray(sc.gifs) ? sc.gifs.filter((g) => g && g.url) : [];
+      if (gifs.length === 0) {
+        // Scenario fired but has no GIFs configured yet — fall through
+        // so Giphy default still runs. Don't return here.
+        console.log(`[auction-narrator] curated scenario ${sc.id} qualified but has no gifs`);
+        continue;
+      }
+      const totalWeight = gifs.reduce((s, g) => s + Number(g.weight || 1), 0);
+      let r = Math.random() * totalWeight;
+      for (const g of gifs) {
+        r -= Number(g.weight || 1);
+        if (r <= 0) {
+          console.log(`[auction-narrator] curated scenario fired: ${sc.id}`);
+          return String(g.url);
+        }
+      }
+      // Fallthrough (shouldn't happen with positive weights)
+      return String(gifs[0].url);
+    }
+    return "";
+  }
+
   // ── GIF picker — per-event-kind query strategy ──
-  // Nom + Won  → celebration GIFs. Require last-name match (don't post
-  //              wrong-player celebrations; commish rule: no GIF beats
-  //              wrong GIF).
-  // Forced Increase → "ugh / annoyed / eye-roll" vibe. Try player+vibe
-  //                   first; fall back to generic reaction GIFs.
-  // Overtake → "come on man / really" vibe. Same fallback chain.
-  async function pickAuctionGifForPlayer(playerInfo, eventKind) {
+  // Order of operations:
+  //   1. Try curated manifest (site/auction/curated_gifs.json) for
+  //      scenario-specific hand-picked GIFs.
+  //   2. Fall back to Giphy:
+  //      Nom + Won  → celebration GIFs. Require last-name match (don't post
+  //                   wrong-player celebrations; commish rule: no GIF
+  //                   beats wrong GIF).
+  //      Forced Increase → "ugh / annoyed / eye-roll" vibe. Try player+
+  //                        vibe first; fall back to generic reaction GIFs.
+  //      Overtake → "come on man / really" vibe. Same fallback chain.
+  async function pickAuctionGifForPlayer(playerInfo, eventKind, ctx) {
+    // Try curated first
+    const curatedUrl = await pickCuratedGif(playerInfo, eventKind, ctx);
+    if (curatedUrl) return curatedUrl;
+    // Fall through to existing Giphy logic
+    return pickGiphyGif(playerInfo, eventKind);
+  }
+
+  async function pickGiphyGif(playerInfo, eventKind) {
     const apiKey = String(env.GIPHY_API_KEY || "").trim();
     if (!apiKey) return "";
 
@@ -770,7 +862,41 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     let content = msg.text.slice(0, 1900);
     let gifUrl = "";
     if (msg.want_gif) {
-      gifUrl = await pickAuctionGifForPlayer(pidToInfo[ev.player_id], ev._obs_kind);
+      // Build lot-level context for curated-GIF trigger matching:
+      // total_bids/forced/overtakes come from D1's running ups_auction_lots
+      // row; forced is approximated from note pattern in ups_auction_bids.
+      const ctx = {
+        bid_k: Number(ev.bid_k || 0),
+        by_commish: false,  // not surfaced via narrateQueue today; reserved
+        total_bids: 0,
+        forced: 0,
+        overtakes: 0,
+      };
+      try {
+        if (db) {
+          const lotRow = await db.prepare(
+            `SELECT bid_count FROM ups_auction_lots WHERE lot_id = ?`
+          ).bind(lotId).first();
+          if (lotRow) ctx.total_bids = Number(lotRow.bid_count || 0);
+          const forcedRow = await db.prepare(
+            `SELECT COUNT(*) AS n FROM ups_auction_bids
+              WHERE lot_id = ? AND LOWER(IFNULL(note, '')) LIKE '%forced%'`
+          ).bind(lotId).first();
+          if (forcedRow) ctx.forced = Number(forcedRow.n || 0);
+          // Overtakes ≈ total bids − nominations − forced. Nominations
+          // are the rows with note LIKE '[nomination]%' (the cron tags
+          // them that way).
+          const nomRow = await db.prepare(
+            `SELECT COUNT(*) AS n FROM ups_auction_bids
+              WHERE lot_id = ? AND IFNULL(note, '') LIKE '[nomination]%'`
+          ).bind(lotId).first();
+          const noms = nomRow ? Number(nomRow.n || 0) : 0;
+          ctx.overtakes = Math.max(0, ctx.total_bids - noms - ctx.forced);
+        }
+      } catch (e) {
+        console.log("[auction-narrator] ctx lookup failed:", e?.message || e);
+      }
+      gifUrl = await pickAuctionGifForPlayer(pidToInfo[ev.player_id], ev._obs_kind, ctx);
     }
 
     // Resolve target: thread for non-nom events; channel for nom (and
