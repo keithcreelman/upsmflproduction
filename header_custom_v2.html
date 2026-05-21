@@ -10757,13 +10757,15 @@
           '</div>' +
           '<input type="search" class="ups-picker-search" placeholder="Search by name…" />' +
           '<div class="ups-picker-sort-row">' +
-            '<label class="ups-picker-sort-label">Sort by</label>' +
+            '<label class="ups-picker-sort-label">Sort</label>' +
             '<select class="ups-picker-sort" data-sort>' +
-              '<option value="name">Name (A→Z)</option>' +
-              '<option value="pos">Position</option>' +
-              '<option value="points_rank">Points Rank (1 first)</option>' +
-              '<option value="ppg_rank">PPG Rank (1 first)</option>' +
-              '<option value="proj_pts">Proj Points (high first)</option>' +
+              '<option value="name">Name</option>' +
+              '<option value="points_rank">Points Rank</option>' +
+              '<option value="proj_pts">Proj Points</option>' +
+            '</select>' +
+            '<label class="ups-picker-sort-label">Team</label>' +
+            '<select class="ups-picker-sort" data-team>' +
+              '<option value="">All teams</option>' +
             '</select>' +
           '</div>' +
           '<div class="ups-picker-chips" data-chip-group="pos">' +
@@ -10808,7 +10810,7 @@
       var triggerContentEl = trigger.querySelector("[data-trigger-content]");
       var chipsEl = drawer.querySelector('[data-chip-group="pos"]');
 
-      var STATE = { search: "", pos: "ALL", sort: "name" };
+      var STATE = { search: "", pos: "ALL", sort: "name", team: "" };
 
       // Find MFL's currently-selected player row (if any). TOS marks
       // selected rows with .selected-player and the row carries
@@ -10861,17 +10863,21 @@
           var name = nameEl ? (nameEl.textContent || "").trim() : "";
           var teamEl = row.querySelector(".player-info small");
           var teamMeta = teamEl ? (teamEl.textContent || "").trim() : "";
-          // Parse Points Rank + PPG Rank from the team-meta string.
-          // TOS format: "TEAM • Bye: N • Rank: M" or "TEAM • Rank: M • PPG: P"
-          // Match permissively — "rank", "rk", "ppg" with or without colons.
+          // First token before " · " in the team-meta line is the NFL team
+          // abbreviation (e.g. "MIN · Bye: 6 · Rank: 109"). Used for the
+          // Team filter dropdown.
+          var nflTeam = "";
+          var firstTok = teamMeta.split(/\s*[·•|]\s*/)[0];
+          if (firstTok && /^[A-Z]{2,4}$/.test(firstTok.trim())) nflTeam = firstTok.trim();
+          // Parse Points Rank from the team-meta string. TOS format:
+          //   "MIN • Bye: 6 • Rank: 109"
+          // Match permissively. PPG isn't surfaced by TOS in current row
+          // layout (verified 2026-05-20 in Keith's drawer — only one
+          // "Rank: N" appears); PPG sort removed accordingly.
           var pointsRank = null;
-          var ppgRank = null;
           var m;
           if ((m = /(?:^|[^a-z])(?:points\s*rank|rank|rk)\s*[:#]?\s*(\d+)/i.exec(teamMeta))) {
             pointsRank = parseInt(m[1], 10) || null;
-          }
-          if ((m = /(?:^|[^a-z])(?:ppg\s*rank|ppg\s*rk|ppg)\s*[:#]?\s*(\d+(?:\.\d+)?)/i.exec(teamMeta))) {
-            ppgRank = parseFloat(m[1]) || null;
           }
           // Extract projected points (if any) from the .player-wproj column.
           var projPts = null;
@@ -10890,10 +10896,10 @@
             player_id: pid,
             name: name || ("Player #" + pid),
             pos: pos,
+            nfl_team: nflTeam,
             team_meta: teamMeta,
             img: imgSrc,
             points_rank: pointsRank,
-            ppg_rank: ppgRank,
             proj_pts: projPts,
             addBtnEl: addBtn,
             rowEl: row,
@@ -10910,12 +10916,16 @@
 
       function renderList() {
         var players = readPlayers();
+        // Repopulate Team dropdown once (or when player set changes).
+        refreshTeamDropdown(players);
         var selectedPid = getSelectedPid();
         var q = STATE.search.toLowerCase();
         var posFilter = STATE.pos;
+        var teamFilter = STATE.team;
         var filtered = players.filter(function (p) {
           if (q && p.name.toLowerCase().indexOf(q) === -1) return false;
           if (posFilter !== "ALL" && posBucket(p.pos) !== posFilter) return false;
+          if (teamFilter && p.nfl_team !== teamFilter) return false;
           return true;
         });
         // Selected player floats to top; then secondary sort per STATE.sort.
@@ -10923,25 +10933,13 @@
         filtered.sort(function (a, b) {
           if (a.player_id === selectedPid) return -1;
           if (b.player_id === selectedPid) return 1;
-          if (sortKey === "pos") {
-            return (a.pos || "").localeCompare(b.pos || "") ||
-                   a.name.localeCompare(b.name);
-          }
           if (sortKey === "points_rank") {
-            // Rank ascending (1 first); nulls last
             var ar = (a.points_rank == null) ? Infinity : a.points_rank;
             var br = (b.points_rank == null) ? Infinity : b.points_rank;
             if (ar !== br) return ar - br;
             return a.name.localeCompare(b.name);
           }
-          if (sortKey === "ppg_rank") {
-            var ap = (a.ppg_rank == null) ? Infinity : a.ppg_rank;
-            var bp = (b.ppg_rank == null) ? Infinity : b.ppg_rank;
-            if (ap !== bp) return ap - bp;
-            return a.name.localeCompare(b.name);
-          }
           if (sortKey === "proj_pts") {
-            // Proj points descending (high first); nulls last
             var ax = (a.proj_pts == null) ? -Infinity : a.proj_pts;
             var bx = (b.proj_pts == null) ? -Infinity : b.proj_pts;
             if (ax !== bx) return bx - ax;
@@ -10966,17 +10964,13 @@
 
         listEl.innerHTML = filtered.map(function (p) {
           var isSelected = p.player_id === selectedPid;
-          // Build supplementary meta line emphasizing whichever sort key
-          // is currently active so the user sees WHY the order is what it
-          // is. Defaults to the original team-meta string.
+          // Always show rank + proj points when available so users see
+          // the numbers regardless of which sort is active.
           var supMetaBits = [];
-          if (STATE.sort === "points_rank" && p.points_rank != null) {
-            supMetaBits.push('Points Rank <strong>#' + p.points_rank + '</strong>');
+          if (p.points_rank != null) {
+            supMetaBits.push('Rank <strong>#' + p.points_rank + '</strong>');
           }
-          if (STATE.sort === "ppg_rank" && p.ppg_rank != null) {
-            supMetaBits.push('PPG Rank <strong>#' + p.ppg_rank + '</strong>');
-          }
-          if (STATE.sort === "proj_pts" && p.proj_pts != null) {
+          if (p.proj_pts != null) {
             supMetaBits.push('Proj <strong>' + p.proj_pts + '</strong>');
           }
           var supMeta = supMetaBits.length > 0
@@ -11041,13 +11035,45 @@
         }, 150);
       });
 
-      // Sort dropdown
+      // Sort + Team dropdowns
       var sortEl = drawer.querySelector("[data-sort]");
+      var teamEl = drawer.querySelector("[data-team]");
       if (sortEl) {
         sortEl.addEventListener("change", function () {
           STATE.sort = sortEl.value || "name";
           renderList();
         });
+      }
+      if (teamEl) {
+        teamEl.addEventListener("change", function () {
+          STATE.team = teamEl.value || "";
+          renderList();
+        });
+      }
+
+      // Populate the Team dropdown with the union of nfl_team values
+      // present in the row data. Cheap (~32 entries); rebuilt on each
+      // renderList so late TOS injections show up.
+      var _lastTeamSig = "";
+      function refreshTeamDropdown(players) {
+        if (!teamEl) return;
+        var teams = [];
+        var seen = {};
+        for (var i = 0; i < players.length; i += 1) {
+          var t = players[i].nfl_team || "";
+          if (t && !seen[t]) { seen[t] = 1; teams.push(t); }
+        }
+        teams.sort();
+        var sig = teams.join("|");
+        if (sig === _lastTeamSig) return;
+        _lastTeamSig = sig;
+        var current = teamEl.value;
+        var html = '<option value="">All teams</option>';
+        for (var j = 0; j < teams.length; j += 1) {
+          var sel = teams[j] === current ? " selected" : "";
+          html += '<option value="' + teams[j] + '"' + sel + '>' + teams[j] + '</option>';
+        }
+        teamEl.innerHTML = html;
       }
 
       // Position chips

@@ -305,6 +305,79 @@ async function processAuctionPoll(env) {
     }
   }
 
+  // ── Cancellation reconciliation ──
+  // MFL doesn't emit a transaction when commish deletes an auction lot
+  // (verified 2026-05-20: only AUCTION_INIT + AUCTION_BID + AUCTION_WON
+  // appear in the transactions export). Without reconciliation, deleted
+  // lots stick around as "open" in our D1 forever.
+  //
+  // Strategy: fetch the live O=43 page with MFL_COOKIE, parse out the
+  // currently-displayed open player_ids, then mark any of our "open"
+  // lots whose player_id ISN'T in the live list as 'cancelled'.
+  //
+  // Fail-soft: if MFL_COOKIE missing or fetch fails, skip reconciliation
+  // (don't accidentally cancel lots that we couldn't verify).
+  let newCancellations = 0;
+  try {
+    const mflCookie = String(env.MFL_COOKIE || "").trim();
+    if (mflCookie) {
+      const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+      // FRANCHISE=0000 returns the franchise-select interstitial which
+      // doesn't list open lots, so we hit with a real franchise id.
+      // 0008 = Real Deal Creel (commish team); using as the probe fid
+      // gives us the full open-auction list. Override via env
+      // AUCTION_RECONCILE_FRANCHISE if needed.
+      const probeFid = String(env.AUCTION_RECONCILE_FRANCHISE || "0008");
+      const o43Url = `https://www48.myfantasyleague.com/${season}/options?LEAGUE_ID=${leagueId}&FRANCHISE=${probeFid}&O=43`;
+      const o43Res = await fetch(o43Url, {
+        headers: { Cookie: cookieHeader, "User-Agent": "ups-auction-poll" },
+        cf: { cacheTtl: 0, cacheEverything: false },
+      });
+      if (o43Res.ok) {
+        const html = await o43Res.text();
+        // MFL renders open auctions as <input name="BID_NNNN" ...> or
+        // similar form fields where NNNN is the player_id. Also as
+        // "validateBid(this, NNNN)" onblur handlers.
+        // Collect both sources to be permissive.
+        const livePidSet = new Set();
+        const reBid = /\b(?:BID|BIDDOLLARS|BID_DOLLARS|CMT)_(\d{3,6})\b/g;
+        let m1;
+        while ((m1 = reBid.exec(html)) !== null) livePidSet.add(m1[1]);
+        const reValidate = /validateBid\s*\(\s*[^,]+,\s*(\d{3,6})\s*\)/g;
+        let m2;
+        while ((m2 = reValidate.exec(html)) !== null) livePidSet.add(m2[1]);
+
+        // Only reconcile if we found a reasonable number of live pids.
+        // Empty set could mean we hit a franchise-select interstitial
+        // or got logged out; better to skip than blow away every lot.
+        if (livePidSet.size > 0) {
+          const { results: openRows } = await db.prepare(
+            `SELECT lot_id, player_id FROM ups_auction_lots
+              WHERE season = ? AND league_id = ? AND status = 'open'`
+          ).bind(season, leagueId).all();
+          for (const row of (openRows || [])) {
+            if (!livePidSet.has(String(row.player_id))) {
+              const upd = await db.prepare(
+                `UPDATE ups_auction_lots
+                    SET status = 'cancelled',
+                        cancelled_at_unix = ?,
+                        updated_at_utc = datetime('now')
+                  WHERE lot_id = ? AND status = 'open'`
+              ).bind(Math.floor(Date.now() / 1000), row.lot_id).run();
+              if (upd.meta?.changes > 0) newCancellations += 1;
+            }
+          }
+        } else {
+          console.log("[auction-reconcile] livePidSet empty; skipping (probable interstitial/logout)");
+        }
+      } else {
+        console.log("[auction-reconcile] O=43 fetch failed:", o43Res.status);
+      }
+    }
+  } catch (e) {
+    console.log("[auction-reconcile] error:", String(e?.message || e));
+  }
+
   // ── Discord narration ──
   // Fires AFTER all DB writes so messages reflect canonical state.
   // Fail-soft: any error here is logged but doesn't break the poll.
@@ -320,7 +393,12 @@ async function processAuctionPoll(env) {
     `SELECT COUNT(*) AS n FROM ups_auction_lots WHERE season = ? AND league_id = ? AND status = 'open'`
   ).bind(season, leagueId).first();
 
-  return { new_bids: newBids, new_wins: newWins, active_lots: Number(activeLots?.n || 0) };
+  return {
+    new_bids: newBids,
+    new_wins: newWins,
+    new_cancellations: newCancellations,
+    active_lots: Number(activeLots?.n || 0),
+  };
 }
 
 // ── Discord auction narrator ──────────────────────────────────────────
@@ -2098,6 +2176,29 @@ export default {
             for (const p of (proxies || [])) proxiesByPid[p.player_id] = p.proxy_bid_k;
           }
 
+          // Fid → franchise name lookup from MFL TYPE=league (cached 5 min)
+          const apiKey0 = String(env.MFL_APIKEY || "").trim();
+          const apiQs0 = apiKey0 ? `&APIKEY=${encodeURIComponent(apiKey0)}` : "";
+          const fidToName = {};
+          try {
+            const leagueRes = await fetch(
+              `https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs0}`,
+              { cf: { cacheTtl: 300 } }
+            ).then((r) => r.json()).catch(() => ({}));
+            const flist = leagueRes?.league?.franchises?.franchise || [];
+            const farr = Array.isArray(flist) ? flist : [flist];
+            for (const f of farr) {
+              const id = String(f.id || "").padStart(4, "0");
+              if (id) fidToName[id] = String(f.name || ("Team " + id));
+            }
+          } catch (e) {
+            console.error("[auction/lots] franchise name lookup failed:", e);
+          }
+          const fname = (fid) => {
+            const padded = String(fid || "").padStart(4, "0");
+            return fidToName[padded] || padded || "—";
+          };
+
           // Enrich with player metadata + ERA-eligible flag.
           //
           // Auctions in MFL can include ANY currently-FA player — not
@@ -2159,15 +2260,18 @@ export default {
               position: meta.position || "",
               nfl_team: meta.nfl_team || "",
               nominator_fid: l.nominator_fid,
+              nominator_name: fname(l.nominator_fid),
               opening_bid_k: l.opening_bid_k,
               opened_at_unix: l.opened_at_unix,
               current_high_bid_k: l.current_high_bid_k,
               current_high_bidder_fid: l.current_high_bidder_fid,
+              current_high_bidder_name: fname(l.current_high_bidder_fid),
               last_bid_at_unix: l.last_bid_at_unix,
               locks_at_unix: l.locks_at_unix,
               seconds_remaining: Math.max(0, Number(l.locks_at_unix) - Math.floor(Date.now() / 1000)),
               status: l.status,
               winner_fid: l.winner_fid,
+              winner_name: fname(l.winner_fid),
               won_at_unix: l.won_at_unix,
               bid_count: l.bid_count,
               unique_bidder_count: l.unique_bidder_count,

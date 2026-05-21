@@ -1186,9 +1186,9 @@
           <td><a href="${nflProfileUrl}" target="_blank" rel="noopener" class="player-link">${escapeHtml(pi.name || ("Player #" + l.player_id))}</a>${testBadge}</td>
           <td><span class="ah-pos ${pos}">${escapeHtml(pos)}</span></td>
           <td class="col-md">${escapeHtml(pi.nfl_team || "—")}</td>
-          <td>${escapeHtml(franchiseName(l.nominator_fid))}</td>
+          <td>${escapeHtml(l.nominator_name || franchiseName(l.nominator_fid))}</td>
           <td class="num">${fmtK(l.current_high_bid_k)}</td>
-          <td>${escapeHtml(franchiseName(l.current_high_bidder_fid))}</td>
+          <td>${escapeHtml(l.current_high_bidder_name || franchiseName(l.current_high_bidder_fid))}</td>
           <td class="num col-md">${l.bid_count}</td>
           <td class="num col-md">${l.unique_bidder_count}</td>
           <td class="ah-countdown" data-locks-at="${l.locks_at_unix}">${isWon ? "—" : formatCountdown(l.seconds_remaining)}</td>
