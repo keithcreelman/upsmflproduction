@@ -25668,6 +25668,287 @@ export default {
         });
       }
 
+      // POST /admin/reset-fa-contracts
+      // Body: { season, league_id?, dry_run? }
+      //
+      // Wipes contractStatus / salary / contractYear / contractInfo for every
+      // player NOT on a current roster (active + taxi + IR). Uses APPEND=1 so
+      // every rostered player is untouched by definition — only FA rows are in
+      // the payload. Dry-run defaults to TRUE for safety; caller must pass
+      // dry_run:false to execute.
+      //
+      // Source-of-truth canon (docs/MFL_IMPORT_EXPORT_DETAILED.md line 756):
+      //   "APPEND=1 → passed-in data will overlay existing data. Salaries not
+      //    uploaded will be left as is."
+      //
+      // Why this exists (Keith 2026-05-21): prior-season tag cycles leave
+      // contractStatus="TAG" stranded on players who got dropped to FA. The
+      // Roster Workbench's stale-tag cleanup misclassified those carry-overs
+      // and produced phantom "FA Contract" Discord posts. Resetting all FA
+      // rows to empty kills the data debt at source.
+      if (path === "/admin/reset-fa-contracts" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const auditDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || null;
+        await ensureSalaryChangeLogTable(auditDb);
+        const auditActor = {
+          ip: safeStr(request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")),
+          ua: safeStr(request.headers.get("user-agent")).slice(0, 200),
+          had_api_key: !!sessionByApiKey,
+        };
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        // Default to dry_run=true. Caller must explicitly pass false to commit.
+        const dryRun = body?.dry_run === false ? false : true;
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+
+        // 1. Pull rosters → compute rostered set (active + taxi + IR).
+        const rostersRes = await mflExportJson(targetSeason, leagueId, "rosters", {}, { useCookie: true });
+        if (!rostersRes.ok) {
+          return jsonOut(502, { ok: false, error: "Failed to fetch rosters from MFL", details: rostersRes });
+        }
+        const rosterFrList = rostersRes.data?.rosters?.franchise || [];
+        const rosterFrs = Array.isArray(rosterFrList) ? rosterFrList : [rosterFrList];
+        const rosteredSet = new Set();
+        for (const fr of rosterFrs) {
+          const players = fr?.player || [];
+          const plist = Array.isArray(players) ? players : [players];
+          for (const p of plist) {
+            const pid = safeStr(p?.id).replace(/\D/g, "");
+            if (pid) rosteredSet.add(pid);
+          }
+        }
+
+        // 2. Pull salaries export → universe of players with contract data.
+        const preExportRes = await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true });
+        if (!preExportRes.ok) {
+          return jsonOut(502, { ok: false, error: "Failed to fetch salaries from MFL", details: preExportRes });
+        }
+        const preList = preExportRes.data?.salaries?.leagueUnit?.player || [];
+        const preArr = Array.isArray(preList) ? preList : [preList];
+        const preMap = {};
+        for (const p of preArr) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (pid) preMap[pid] = p;
+        }
+
+        // 3. FA candidates = in salaries export AND not rostered AND has data.
+        // Skip placeholder rows (player_id = "0000" or empty) and rows whose
+        // fields are already all empty (nothing to reset).
+        const faIds = [];
+        for (const pid of Object.keys(preMap)) {
+          if (!pid || pid === "0000") continue;
+          if (rosteredSet.has(pid)) continue;
+          const p = preMap[pid];
+          const hasData =
+            safeStr(p?.contractStatus) !== "" ||
+            (safeStr(p?.salary) !== "" && safeStr(p?.salary) !== "0") ||
+            (safeStr(p?.contractYear) !== "" && safeStr(p?.contractYear) !== "0") ||
+            safeStr(p?.contractInfo) !== "";
+          if (hasData) faIds.push(pid);
+        }
+        faIds.sort();
+
+        // 4. Build XML: empty all fields. MFL accepts empty attribute values
+        // (verified against TYPE=salaries schema — empties round-trip).
+        const xmlEsc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const playerXml = faIds.map((pid) =>
+          `<player id="${xmlEsc(pid)}" salary="0" contractStatus="" contractYear="0" contractInfo="" />`
+        ).join("");
+        const dataXml = `<salaries><leagueUnit unit="LEAGUE">${playerXml}</leagueUnit></salaries>`;
+
+        const previewSample = faIds.slice(0, 25).map((pid) => {
+          const b = preMap[pid] || {};
+          return {
+            id: pid,
+            before: {
+              salary: safeStr(b?.salary),
+              contractStatus: safeStr(b?.contractStatus),
+              contractYear: safeStr(b?.contractYear),
+              contractInfo: safeStr(b?.contractInfo),
+            },
+          };
+        });
+
+        if (dryRun) {
+          // Log dry-run intent per FA so we have a record.
+          const nowIso = new Date().toISOString();
+          for (const pid of faIds) {
+            const before = preMap[pid] || {};
+            await logSalaryChangeRow(auditDb, {
+              created_ts: nowIso,
+              endpoint: "/admin/reset-fa-contracts",
+              league_id: leagueId,
+              season: targetSeason,
+              dry_run: true,
+              actor_ip: auditActor.ip,
+              actor_ua: auditActor.ua,
+              actor_had_api_key: auditActor.had_api_key,
+              player_id: pid,
+              before_salary: safeStr(before?.salary),
+              before_contract_status: safeStr(before?.contractStatus),
+              before_contract_year: safeStr(before?.contractYear),
+              before_contract_info: safeStr(before?.contractInfo),
+              intended_salary: "0",
+              intended_contract_status: "",
+              intended_contract_year: "0",
+              intended_contract_info: "",
+              landed: null,
+              import_status: null,
+              notes: "dry_run_fa_reset",
+            });
+          }
+          return jsonOut(200, {
+            ok: true,
+            dry_run: true,
+            mode: "APPEND_ONLY",
+            season: targetSeason,
+            league_id: leagueId,
+            rostered_count: rosteredSet.size,
+            salaries_universe_count: Object.keys(preMap).length,
+            fa_with_stale_data_count: faIds.length,
+            tag_holdovers: faIds
+              .filter((pid) => /TAG/i.test(safeStr(preMap[pid]?.contractStatus)))
+              .map((pid) => ({
+                id: pid,
+                contractStatus: safeStr(preMap[pid]?.contractStatus),
+                salary: safeStr(preMap[pid]?.salary),
+                contractInfo: safeStr(preMap[pid]?.contractInfo),
+              })),
+            sample_preview: previewSample,
+            xml_length: dataXml.length,
+            untouched_players_preserved: "APPEND=1: every rostered player is excluded from payload, MFL leaves them as-is.",
+          });
+        }
+
+        // Verify commish auth before any write.
+        const adminState = await getLeagueAdminState(leagueId, targetSeason);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, {
+            ok: false,
+            error: "MFL_COOKIE lacks commissioner privileges for salaries import",
+            admin_state: adminState,
+          });
+        }
+
+        if (!faIds.length) {
+          return jsonOut(200, {
+            ok: true,
+            mode: "APPEND_ONLY",
+            season: targetSeason,
+            league_id: leagueId,
+            posted_count: 0,
+            note: "No FAs with stale contract data — nothing to reset.",
+          });
+        }
+
+        // POST. Same headers/redirect config as /admin/import-salaries — those
+        // settings were learned the hard way (browser UA + redirect:follow +
+        // identity encoding are required for MFL to actually persist).
+        const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(targetSeason)}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}&APPEND=1`;
+        const importFetchRes = await fetch(importUrl, {
+          method: "POST",
+          headers: {
+            Cookie: cookieHeader,
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "Accept": "text/xml, text/plain, application/xml, */*",
+            "Accept-Encoding": "identity",
+          },
+          body: new URLSearchParams({ DATA: dataXml }).toString(),
+          redirect: "follow",
+          cf: { cacheTtl: 0, cacheEverything: false },
+        });
+        const importText = await importFetchRes.text();
+        const importStatusXml = /<status>OK<\/status>/i.test(importText);
+        const importErrorXml = /<error>([^<]+)<\/error>/i.exec(importText);
+        const importOk = importFetchRes.ok && importStatusXml;
+
+        // Verify by re-fetching salaries.
+        const postExportRes = await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true });
+        const postList = postExportRes.data?.salaries?.leagueUnit?.player || [];
+        const postArr = Array.isArray(postList) ? postList : [postList];
+        const postMap = {};
+        for (const p of postArr) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (pid) postMap[pid] = p;
+        }
+
+        let landedCount = 0;
+        let mismatchedCount = 0;
+        const mismatchSample = [];
+        const nowIso = new Date().toISOString();
+        for (const pid of faIds) {
+          const before = preMap[pid] || {};
+          const after = postMap[pid] || {};
+          const cleared =
+            (safeStr(after?.salary) === "" || safeStr(after?.salary) === "0") &&
+            safeStr(after?.contractStatus) === "" &&
+            (safeStr(after?.contractYear) === "" || safeStr(after?.contractYear) === "0") &&
+            safeStr(after?.contractInfo) === "";
+          if (cleared) landedCount += 1; else {
+            mismatchedCount += 1;
+            if (mismatchSample.length < 10) {
+              mismatchSample.push({
+                id: pid,
+                after: {
+                  salary: safeStr(after?.salary),
+                  contractStatus: safeStr(after?.contractStatus),
+                  contractYear: safeStr(after?.contractYear),
+                  contractInfo: safeStr(after?.contractInfo),
+                },
+              });
+            }
+          }
+          await logSalaryChangeRow(auditDb, {
+            created_ts: nowIso,
+            endpoint: "/admin/reset-fa-contracts",
+            league_id: leagueId,
+            season: targetSeason,
+            dry_run: false,
+            actor_ip: auditActor.ip,
+            actor_ua: auditActor.ua,
+            actor_had_api_key: auditActor.had_api_key,
+            player_id: pid,
+            before_salary: safeStr(before?.salary),
+            before_contract_status: safeStr(before?.contractStatus),
+            before_contract_year: safeStr(before?.contractYear),
+            before_contract_info: safeStr(before?.contractInfo),
+            after_salary: safeStr(after?.salary),
+            after_contract_status: safeStr(after?.contractStatus),
+            after_contract_year: safeStr(after?.contractYear),
+            after_contract_info: safeStr(after?.contractInfo),
+            intended_salary: "0",
+            intended_contract_status: "",
+            intended_contract_year: "0",
+            intended_contract_info: "",
+            landed: cleared,
+            import_status: importFetchRes.status,
+            notes: cleared ? "fa_reset_committed" : "fa_reset_mismatch",
+          });
+        }
+
+        return jsonOut(importOk && mismatchedCount === 0 ? 200 : 502, {
+          ok: importOk && mismatchedCount === 0,
+          mode: "APPEND_ONLY",
+          season: targetSeason,
+          league_id: leagueId,
+          rostered_count: rosteredSet.size,
+          posted_count: faIds.length,
+          landed_count: landedCount,
+          mismatched_count: mismatchedCount,
+          mismatch_sample: mismatchSample,
+          import_status: importFetchRes.status,
+          import_response_preview: importText.slice(0, 1500),
+          import_error: importErrorXml ? importErrorXml[1] : "",
+          xml_length: dataXml.length,
+        });
+      }
+
       // POST /admin/import-drop-penalties
       // Body: { season, league_id?, dry_run? }
       // Pulls DROP_PENALTY_CANDIDATE rows from the salary_adjustments JSON report
@@ -27322,6 +27603,35 @@ export default {
 
         if (!isImportRosterAction && !isMembershipRosterAction) {
           return jsonOut(400, { ok: false, error: "Unsupported roster action" });
+        }
+
+        // Dry-run safety (Keith 2026-05-21): defense-in-depth gate on the
+        // roster action endpoint. The Roster Workbench client now skips
+        // load/unload during dry-run, but any future caller that forgets
+        // to gate would still mutate the real MFL roster. Honoring
+        // body.dry_run / body.dryRun / ?dry_run=1 here makes the endpoint
+        // safe by default. Returns a synthetic OK without touching MFL.
+        const actionDryRunFlag = (() => {
+          const truthy = (v) => {
+            const s = String(v == null ? "" : v).trim().toLowerCase();
+            return s === "1" || s === "true" || s === "yes" || s === "y";
+          };
+          if (truthy(body?.dry_run) || truthy(body?.dryRun)) return true;
+          try {
+            if (truthy(url.searchParams.get("dry_run") || url.searchParams.get("DRY_RUN"))) return true;
+          } catch (_) {}
+          return false;
+        })();
+        if (actionDryRunFlag) {
+          return jsonOut(200, {
+            ok: true,
+            skipped: true,
+            dry_run: true,
+            action,
+            player_id: playerId,
+            franchise_id: franchiseId,
+            message: `Dry-run — ${action} simulated, MFL not touched.`,
+          });
         }
 
         // R1 active-only block (league_context_v1.md §A1 Round 1 + tracker Q12).
