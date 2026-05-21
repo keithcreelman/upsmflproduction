@@ -10768,15 +10768,11 @@
               '<option value="">All teams</option>' +
             '</select>' +
           '</div>' +
+          // Position chips are auto-populated from the union of player
+          // positions seen in TOS row data. Filled by refreshPosChips
+          // below. Initial state: just the "All" pill.
           '<div class="ups-picker-chips" data-chip-group="pos">' +
             '<button type="button" class="ups-picker-chip active" data-pos="ALL">All</button>' +
-            '<button type="button" class="ups-picker-chip" data-pos="QB">QB</button>' +
-            '<button type="button" class="ups-picker-chip" data-pos="RB">RB</button>' +
-            '<button type="button" class="ups-picker-chip" data-pos="WR">WR</button>' +
-            '<button type="button" class="ups-picker-chip" data-pos="TE">TE</button>' +
-            '<button type="button" class="ups-picker-chip" data-pos="K">K</button>' +
-            '<button type="button" class="ups-picker-chip" data-pos="PN">PN</button>' +
-            '<button type="button" class="ups-picker-chip" data-pos="IDP">IDP</button>' +
           '</div>' +
           '<div class="ups-picker-meta" data-meta="count">…</div>' +
         '</div>' +
@@ -10907,24 +10903,92 @@
         }).filter(function (p) { return p.player_id; });
       }
 
-      function posBucket(pos) {
-        // IDP umbrella: DL/LB/DB/S/CB/DT/DE/OL
-        if (!pos) return "UNK";
-        if (["QB","RB","WR","TE","K","PK","PN","P"].indexOf(pos) !== -1) return pos === "PK" ? "K" : (pos === "P" ? "PN" : pos);
-        return "IDP";
+      // Position chips are auto-populated from the union of positions
+      // present in TOS row data. Order: offensive (QB→RB→WR→TE→K→PN),
+      // then IDP/defense (DL→LB→DB→S→CB→DT→DE), then anything else
+      // alpha. Keeps "All" first.
+      var POS_PREFERRED_ORDER = [
+        "QB", "RB", "WR", "TE", "PK", "K", "PN", "P",
+        "DL", "DT", "DE", "LB", "DB", "S", "CB",
+      ];
+      var _lastPosSig = "";
+      function refreshPosChips(players) {
+        if (!chipsEl) return;
+        var seen = {};
+        for (var i = 0; i < players.length; i += 1) {
+          var pos = (players[i].pos || "").toUpperCase();
+          if (!pos) continue;
+          // Normalize MFL aliases
+          if (pos === "PK") pos = "K";
+          if (pos === "P") pos = "PN";
+          if (!seen[pos]) seen[pos] = 0;
+          seen[pos] += 1;
+        }
+        var posList = Object.keys(seen);
+        posList.sort(function (a, b) {
+          var ai = POS_PREFERRED_ORDER.indexOf(a);
+          var bi = POS_PREFERRED_ORDER.indexOf(b);
+          if (ai === -1 && bi === -1) return a.localeCompare(b);
+          if (ai === -1) return 1;
+          if (bi === -1) return -1;
+          return ai - bi;
+        });
+        var sig = posList.join("|");
+        if (sig === _lastPosSig) return;
+        _lastPosSig = sig;
+        var current = STATE.pos || "ALL";
+        var html = '<button type="button" class="ups-picker-chip' +
+          (current === "ALL" ? ' active' : '') + '" data-pos="ALL">All</button>';
+        for (var k = 0; k < posList.length; k += 1) {
+          var p = posList[k];
+          var active = current === p ? ' active' : '';
+          html += '<button type="button" class="ups-picker-chip' + active +
+            '" data-pos="' + p + '">' + p + '</button>';
+        }
+        chipsEl.innerHTML = html;
+      }
+
+      // Within each position, rank players by overall points_rank
+      // ascending. Stored on each player as p._pos_rank (1-indexed).
+      // Players with no points_rank get a null _pos_rank — they sort
+      // to the bottom of their position group.
+      function computePositionRanks(players) {
+        var byPos = {};
+        for (var i = 0; i < players.length; i += 1) {
+          var p = players[i];
+          var pos = (p.pos || "").toUpperCase();
+          if (!byPos[pos]) byPos[pos] = [];
+          byPos[pos].push(p);
+        }
+        Object.keys(byPos).forEach(function (pos) {
+          var group = byPos[pos];
+          group.sort(function (a, b) {
+            var ar = (a.points_rank == null) ? Infinity : a.points_rank;
+            var br = (b.points_rank == null) ? Infinity : b.points_rank;
+            return ar - br;
+          });
+          for (var j = 0; j < group.length; j += 1) {
+            group[j]._pos_rank = (group[j].points_rank == null) ? null : (j + 1);
+          }
+        });
       }
 
       function renderList() {
         var players = readPlayers();
-        // Repopulate Team dropdown once (or when player set changes).
+        // Repopulate Team dropdown + position chips when player set changes.
         refreshTeamDropdown(players);
+        refreshPosChips(players);
+        // Precompute position-relative ranks based on overall rank within
+        // each position. Stored on each player as p._pos_rank (1-indexed).
+        computePositionRanks(players);
+
         var selectedPid = getSelectedPid();
         var q = STATE.search.toLowerCase();
         var posFilter = STATE.pos;
         var teamFilter = STATE.team;
         var filtered = players.filter(function (p) {
           if (q && p.name.toLowerCase().indexOf(q) === -1) return false;
-          if (posFilter !== "ALL" && posBucket(p.pos) !== posFilter) return false;
+          if (posFilter !== "ALL" && p.pos !== posFilter) return false;
           if (teamFilter && p.nfl_team !== teamFilter) return false;
           return true;
         });
@@ -10964,14 +11028,41 @@
 
         listEl.innerHTML = filtered.map(function (p) {
           var isSelected = p.player_id === selectedPid;
-          // Always show rank + proj points when available so users see
-          // the numbers regardless of which sort is active.
+          // Strip any "Rank: N" / "Rk: N" / "Points Rank: N" segment from the
+          // team-meta line so we don't double up with the supmeta below.
+          // Keep "TEAM · Bye: X".
+          var teamMetaClean = (p.team_meta || "")
+            .replace(/\s*[·•|]\s*(?:points\s*rank|rank|rk)\s*[:#]?\s*\d+\s*/i, "")
+            .replace(/\s*[·•|]\s*$/, "")
+            .trim();
+          // Supplementary meta: ALWAYS shows the numbers. Two ranks:
+          //   POS #X = the player's rank WITHIN their position (computed
+          //            client-side from the row data — most useful when
+          //            scouting a single position)
+          //   Overall #N = TOS's pre-computed overall rank across all
+          //                positions (same value regardless of sort)
+          // Plus Proj points if available. All tooltips clarify meaning.
           var supMetaBits = [];
+          if (p._pos_rank != null && p.pos) {
+            supMetaBits.push(
+              '<span title="Rank within ' + escapeAttr(p.pos) + ' by projected points">' +
+                escapeText(p.pos) + ' <strong>#' + p._pos_rank + '</strong>' +
+              '</span>'
+            );
+          }
           if (p.points_rank != null) {
-            supMetaBits.push('Rank <strong>#' + p.points_rank + '</strong>');
+            supMetaBits.push(
+              '<span title="Overall projected-points rank across all positions (from MFL/TOS)">' +
+                'Overall <strong>#' + p.points_rank + '</strong>' +
+              '</span>'
+            );
           }
           if (p.proj_pts != null) {
-            supMetaBits.push('Proj <strong>' + p.proj_pts + '</strong>');
+            supMetaBits.push(
+              '<span title="Projected season points (from MFL/TOS)">' +
+                'Proj <strong>' + p.proj_pts + '</strong>' +
+              '</span>'
+            );
           }
           var supMeta = supMetaBits.length > 0
             ? '<div class="ups-picker-row-supmeta">' + supMetaBits.join(" · ") + '</div>'
@@ -10986,7 +11077,7 @@
               '<div class="ups-picker-row-name">' + escapeText(p.name) +
                 (isSelected ? ' <span class="ups-picker-row-selected-badge">✓ Selected</span>' : '') +
               '</div>' +
-              '<div class="ups-picker-row-meta">' + escapeText(p.team_meta || "") + '</div>' +
+              '<div class="ups-picker-row-meta">' + escapeText(teamMetaClean) + '</div>' +
               supMeta +
             '</div>' +
             '<button type="button" class="ups-picker-row-cta">' +

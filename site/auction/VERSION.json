@@ -1,5 +1,5 @@
 {
-  "version": "0.4.2",
+  "version": "0.4.3",
   "released": "2026-05-20",
   "label": "v0.4.2 — Bid thread relabel to Nom / Forced Increase / Overtake",
   "description": "Drops the 'proxy walk' jargon. Bid thread now classifies each step from the observer's perspective: Nom (opening bid), Forced Increase (same franchise as previous high — MFL walked their hidden proxy), Overtake (different franchise dethroned the leader). Classification computed client-side by walking each per-lot thread chronologically.",
