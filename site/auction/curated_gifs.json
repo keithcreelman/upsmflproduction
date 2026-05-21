@@ -1,70 +1,284 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "updated": "2026-05-20",
-  "description": "Hand-curated GIFs for the Discord auction narrator. Each scenario fires with `probability_pct` chance when its trigger matches the event. When a scenario fires, a random GIF from its `gifs` array is picked (weighted by `weight` if set, defaults to 1). When no scenario fires OR a scenario fires but has empty `gifs`, falls back to the existing per-event Giphy search.",
-  "schema": {
-    "scenario_id": "stable string; referenced by worker logs",
-    "label": "short human-readable description",
-    "trigger": "object — all fields must match for the scenario to qualify. Fields: event_kind (nom|forced_increase|overtake|won), min_total_bids, max_total_bids, min_forced, min_overtakes, position (QB|RB|WR|TE|K|PN|DL|LB|DB|S|CB), min_bid_k, by_commish (true|false)",
-    "probability_pct": "0-100; when the scenario qualifies, this is the chance of using a curated GIF vs. falling through. 100 = always use this scenario's GIFs when triggered.",
-    "gifs": "array of { url, label?, weight? }; weight defaults to 1; one random pick weighted by weight."
+  "description": "v5 — pool-based curated GIFs with anti-stale rotation, position-percentile triggers, and composite overlays for headline-tier wins. Based on docs/auction/analysis_v5_canon_aware.md. Worker evaluates scenarios in order; first scenario whose trigger matches AND survives probability_pct picks a GIF from its pool_id (rotated to avoid last 3 used).",
+
+  "schema_v2_notes": {
+    "pools": "Named GIF buckets. Scenarios reference pools by id. A pool can be shared by multiple scenarios. Each entry: { url, label?, weight? }. Worker rotates: picks from (pool.gifs - last_3_used). Empty pools = scenario falls through to Giphy fallback.",
+    "scenarios": "Ordered priority list. Worker evaluates top-down; first scenario whose trigger matches AND survives probability_pct wins. Fields:",
+    "trigger_fields": {
+      "event_kind": "nom | forced_increase | overtake | won",
+      "min_win_k / max_win_k": "Bid amount range in $K",
+      "min_total_bids / max_total_bids": "Lot bid count",
+      "min_forced / min_overtakes": "Bid-type counts",
+      "position": "Exact position string (QB/RB/WR/TE/LB/S/CB/DT/DE/PK/PN)",
+      "min_position_percentile": "0-100; win_k must be ≥ the player's position p[N] from POS_P90 constants in worker",
+      "by_commish": "true/false event flag",
+      "duration_hours_min / duration_hours_max": "Open-lot duration thresholds (for live mid-auction triggers)"
+    },
+    "overlay_pool_id": "Optional. If present, fires a SECOND GIF from this pool composed alongside the main pool's GIF. Used for headline+all-time tier where one player-celebration + one shock GIF land together.",
+    "rotation": "Worker tracks last 3 GIFs picked from each pool in module-scope Map. Same GIF can't fire 3 times in a row. Resets on worker cold-start (~hourly in practice — fine for an auction)."
   },
+
+  "pools": {
+    "shrug": {
+      "label": "Routine cap-free wins ($2-$4K) — minimal hype, fire ~20% of the time",
+      "TODO": "Populate with 6+ casual 'shrug' / 'whatever' / 'sure why not' GIFs. Search Giphy: 'shrug emoji', 'meh whatever', 'thumbs up casual', 'sure why not'",
+      "gifs": []
+    },
+    "nice_grab": {
+      "label": "Solid wins ($5-$9K) — modest celebration",
+      "TODO": "6+ low-key positive GIFs. Search: 'nice grab nfl', 'good pick reaction', 'small smile nod', 'i'll take it'",
+      "gifs": []
+    },
+    "ooh": {
+      "label": "Notable wins ($10-$17K mid-commit OR ≥p75 position-relative) — 'ooh' / 'interesting'",
+      "TODO": "6+ 'ooh' / 'eyebrow raise' / 'interesting' GIFs. Search: 'ooh reaction', 'eyebrow raise', 'pleasantly surprised', 'oh nice'",
+      "gifs": []
+    },
+    "respect": {
+      "label": "Rare-for-position wins (≥p90 positional, even if absolute $ is small) — 'respect the move'",
+      "TODO": "6+ respectful / nod-of-approval GIFs. Search: 'respect reaction', 'tip hat', 'salute reaction', 'fair play nod', 'gotta respect that'",
+      "gifs": []
+    },
+    "shock": {
+      "label": "Marquee wins ($30-$50K) — full-on shock + celebration",
+      "TODO": "6+ shocked / 'wow' / mind-blown GIFs. Search: 'mind blown', 'jaw drop reaction', 'wow no way', 'cant believe it', 'holy moly'",
+      "gifs": []
+    },
+    "all_time": {
+      "label": "Headline wins ($50-$60K) — 'all-time' tier reaction",
+      "TODO": "6+ 'legendary' / 'all-time' / 'this is the one' GIFs. Search: 'goat reaction', 'legendary moment', 'one for the ages', 'this is huge', 'historic moment'",
+      "gifs": []
+    },
+    "legendary": {
+      "label": "All-time wins ($60K+) — Henry $94K-tier — composite overlay on top of all_time",
+      "TODO": "6+ 'breaking news' / 'STOP THE PRESSES' GIFs for the 4-lots-per-7-years tier. Search: 'breaking news', 'stop everything', 'CALL YOUR FAMILY', 'this is biblical', 'we got to slow it down'",
+      "gifs": []
+    },
+    "rare_lb": {
+      "label": "Top-10% LB win (≥$5K) — LB rarely gets real money",
+      "TODO": "6+ defense-themed celebration GIFs. Search: 'defense celebrate', 'linebacker sack', 'big hit reaction', 'defensive stand'",
+      "gifs": []
+    },
+    "rare_db": {
+      "label": "Top-10% S/CB/DB win (≥$4-$5K) — DBs rarely get real money",
+      "TODO": "6+ defensive-back themed GIFs. Search: 'cornerback interception', 'safety big hit', 'pick six', 'defensive back celebrate'",
+      "gifs": []
+    },
+    "k_meme": {
+      "label": "K nomination — universal kicker comedy",
+      "TODO": "6+ kicker memes. Search: 'kicker miss field goal', 'kicker shank', 'kicker celebrate', 'kicking the ball wide', 'football kicker meme'",
+      "gifs": []
+    },
+    "pn_meme": {
+      "label": "PN nomination — even rarer than K, more comedic",
+      "TODO": "6+ punter memes (rare position = rarer meme set). Search: 'punter punt', 'punter shank', 'football punter funny', 'punt return'",
+      "gifs": []
+    },
+    "eye_roll": {
+      "label": "Forced Increase — annoyed reaction (MFL walked the leader's proxy)",
+      "TODO": "6+ eye-roll / ugh / facepalm GIFs. Search: 'eye roll reaction', 'facepalm reaction', 'ugh whatever', 'sigh reaction', 'oh come on'",
+      "gifs": []
+    },
+    "come_on_man": {
+      "label": "Overtake — 'come on man' / 'you took MY player'",
+      "TODO": "6+ frustrated-but-funny reaction GIFs. Search: 'come on man', 'are you kidding me', 'really reaction', 'oh stop', 'no way'",
+      "gifs": []
+    },
+    "kill_shot": {
+      "label": "Overtake that ends a ≥5-bid lot — decisive moment",
+      "TODO": "6+ 'mic drop' / kill-shot GIFs. Search: 'mic drop', 'walk away cool', 'thats how its done', 'boom done', 'finishing move'",
+      "gifs": []
+    },
+    "proxy_grind": {
+      "label": "Proxy-grind detected (F:O ≥ 2 AND ≥6 bids while OPEN) — machines fighting machines",
+      "TODO": "6+ robot / machine / automated GIFs. Search: 'robot vs robot', 'machine grind', 'automated fight', 'computer thinking', 'beep boop'",
+      "gifs": []
+    },
+    "active_war": {
+      "label": "Active-overtake war detected (F:O ≤ 0.5 AND ≥8 bids while OPEN) — humans clicking",
+      "TODO": "6+ epic-battle GIFs. Search: 'rocky training', 'epic battle', 'gladiator fight', 'sports fans going crazy', 'crowd erupts'",
+      "gifs": []
+    },
+    "floor_close": {
+      "label": "Won at 24h with exactly 2 bids — 'scared off after first ping' (use sparingly, 17.6% of lots)",
+      "TODO": "6+ 'easy money' / 'too easy' GIFs. Search: 'too easy reaction', 'easy money', 'thats it', 'free real estate'",
+      "gifs": []
+    },
+    "self_nom_marquee": {
+      "label": "Self-nominated win ≥$10K — 'called the shot, got him'",
+      "TODO": "6+ called-shot / babe-ruth-pointing GIFs. Search: 'babe ruth called shot', 'called it', 'i told you so', 'thats what i said'",
+      "gifs": []
+    }
+  },
+
   "scenarios": [
     {
-      "id": "tail_war_marathon",
-      "label": "Top-decile bidding war — 10+ bids, multi-day fight (D10 of total_bids per analysis)",
-      "trigger": { "event_kind": "won", "min_total_bids": 10 },
+      "id": "won_all_time",
+      "label": "$60K+ — all-time tier (4 in 7yr; Henry $94K, #9988 $79K, Brady $66K, Hill $61K)",
+      "trigger": { "event_kind": "won", "min_win_k": 60 },
+      "probability_pct": 100,
+      "pool_id": "all_time",
+      "overlay_pool_id": "legendary",
+      "player_specific": true
+    },
+    {
+      "id": "won_headline",
+      "label": "$50-$59K — headline tier",
+      "trigger": { "event_kind": "won", "min_win_k": 50, "max_win_k": 59 },
+      "probability_pct": 100,
+      "pool_id": "all_time",
+      "player_specific": true
+    },
+    {
+      "id": "won_marquee",
+      "label": "$30-$49K — marquee tier (real headlines start here, per v5 analysis)",
+      "trigger": { "event_kind": "won", "min_win_k": 30, "max_win_k": 49 },
+      "probability_pct": 100,
+      "pool_id": "shock",
+      "player_specific": true
+    },
+    {
+      "id": "won_top_tier",
+      "label": "$23-$29K — top-tier asset",
+      "trigger": { "event_kind": "won", "min_win_k": 23, "max_win_k": 29 },
       "probability_pct": 90,
-      "gifs": []
+      "pool_id": "shock",
+      "player_specific": true
     },
     {
-      "id": "proxy_grind",
-      "label": "4+ forced increases on a lot — MFL grinding two proxy ceilings (D10 of forced)",
-      "trigger": { "event_kind": "forced_increase", "min_forced": 4 },
+      "id": "won_position_rare",
+      "label": "Top-10% rare for position regardless of absolute $ (e.g., $10K LB)",
+      "trigger": { "event_kind": "won", "min_position_percentile": 90 },
+      "probability_pct": 95,
+      "pool_id": "respect",
+      "player_specific": false
+    },
+    {
+      "id": "won_real_money",
+      "label": "$10-$22K — real money tier",
+      "trigger": { "event_kind": "won", "min_win_k": 10, "max_win_k": 22 },
+      "probability_pct": 85,
+      "pool_id": "ooh",
+      "player_specific_pct": 70
+    },
+    {
+      "id": "won_solid",
+      "label": "$5-$9K — solid commit",
+      "trigger": { "event_kind": "won", "min_win_k": 5, "max_win_k": 9 },
       "probability_pct": 70,
-      "gifs": []
+      "pool_id": "nice_grab",
+      "player_specific_pct": 50
     },
     {
-      "id": "kill_shot",
-      "label": "Overtake that ends a 5+ bid lot decisively",
-      "trigger": { "event_kind": "overtake", "min_total_bids": 5 },
-      "probability_pct": 60,
-      "gifs": []
-    },
-    {
-      "id": "floor_close",
-      "label": "Lot won at the 24h MFL minimum (no late drama; 30% of contested lots per analysis)",
-      "trigger": { "event_kind": "won", "max_total_bids": 2 },
+      "id": "won_routine_floor",
+      "label": "Won at 24h with exactly 2 bids — floor close (17.6% of lots; subtle)",
+      "trigger": { "event_kind": "won", "max_total_bids": 2, "duration_hours_max": 24.5 },
       "probability_pct": 30,
-      "gifs": []
+      "pool_id": "floor_close",
+      "player_specific": false
     },
     {
-      "id": "nom_marquee_qb",
-      "label": "QB nomination opening at a high price ($10K+)",
-      "trigger": { "event_kind": "nom", "position": "QB", "min_bid_k": 10 },
-      "probability_pct": 60,
-      "gifs": []
+      "id": "won_routine",
+      "label": "$2-$4K cap-free zone (60% of contested wins) — minimal hype",
+      "trigger": { "event_kind": "won", "max_win_k": 4 },
+      "probability_pct": 20,
+      "pool_id": "shrug",
+      "player_specific": false
+    },
+
+    {
+      "id": "self_nom_marquee_win",
+      "label": "Self-nominated win ≥$10K — Cleon-style 'called the shot' (Henry/Herbert nom-and-win)",
+      "trigger": { "event_kind": "won", "min_win_k": 10, "self_nominated": true },
+      "probability_pct": 100,
+      "pool_id": "self_nom_marquee",
+      "player_specific": true,
+      "_note": "Worker computes self_nominated by comparing nominator_fid == winner_fid"
+    },
+
+    {
+      "id": "nom_qb_marquee",
+      "label": "QB nomination opening $20K+ (e.g., Cleon's $51K Herbert)",
+      "trigger": { "event_kind": "nom", "position": "QB", "min_win_k": 20 },
+      "probability_pct": 80,
+      "pool_id": "shock",
+      "player_specific": true
+    },
+    {
+      "id": "nom_marquee_any",
+      "label": "Any nomination opening $20K+ — Brady-tier opener",
+      "trigger": { "event_kind": "nom", "min_win_k": 20 },
+      "probability_pct": 70,
+      "pool_id": "ooh",
+      "player_specific": true
     },
     {
       "id": "nom_kicker",
-      "label": "Kicker or punter nomination (always entertainment)",
+      "label": "Kicker nomination",
       "trigger": { "event_kind": "nom", "position": "K" },
       "probability_pct": 100,
-      "gifs": []
+      "pool_id": "k_meme",
+      "player_specific_pct": 50
+    },
+    {
+      "id": "nom_kicker_pk",
+      "label": "PK nomination (MFL alias for K)",
+      "trigger": { "event_kind": "nom", "position": "PK" },
+      "probability_pct": 100,
+      "pool_id": "k_meme",
+      "player_specific_pct": 50
     },
     {
       "id": "nom_punter",
-      "label": "Punter nomination — even rarer",
+      "label": "Punter nomination — even rarer comedy",
       "trigger": { "event_kind": "nom", "position": "PN" },
       "probability_pct": 100,
-      "gifs": []
+      "pool_id": "pn_meme",
+      "player_specific_pct": 50
+    },
+
+    {
+      "id": "proxy_grind_alert",
+      "label": "Live: F:O ≥ 2 AND ≥6 bids while OPEN — machines grinding",
+      "trigger": { "event_kind": "forced_increase", "min_total_bids": 6, "min_forced": 4 },
+      "probability_pct": 70,
+      "pool_id": "proxy_grind",
+      "player_specific": false
     },
     {
-      "id": "commish_intervention",
-      "label": "Commish-posted bid (uncommon but flag it)",
-      "trigger": { "by_commish": true },
+      "id": "forced_default",
+      "label": "Any forced increase (default — eye roll vibe)",
+      "trigger": { "event_kind": "forced_increase" },
       "probability_pct": 100,
-      "gifs": []
+      "pool_id": "eye_roll",
+      "player_specific": false
+    },
+
+    {
+      "id": "active_war_alert",
+      "label": "Live: F:O ≤ 0.5 AND ≥8 bids while OPEN — humans clicking",
+      "trigger": { "event_kind": "overtake", "min_total_bids": 8, "min_overtakes": 5 },
+      "probability_pct": 70,
+      "pool_id": "active_war",
+      "player_specific": false
+    },
+    {
+      "id": "overtake_kill_shot",
+      "label": "Overtake on ≥5-bid lot — decisive moment",
+      "trigger": { "event_kind": "overtake", "min_total_bids": 5 },
+      "probability_pct": 60,
+      "pool_id": "kill_shot",
+      "player_specific": false
+    },
+    {
+      "id": "overtake_default",
+      "label": "Any overtake (default — come on man vibe)",
+      "trigger": { "event_kind": "overtake" },
+      "probability_pct": 100,
+      "pool_id": "come_on_man",
+      "player_specific": false
     }
   ]
 }

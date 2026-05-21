@@ -577,16 +577,28 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     prevFidByLot.set(lot, ev.fid);
   }
 
-  // ── Curated GIF manifest (site/auction/curated_gifs.json) ──
-  // Hand-picked GIFs for specific scenarios. Evaluated BEFORE Giphy
-  // fallback. Each scenario has a trigger, a probability_pct, and a
-  // pool of GIFs. First scenario whose trigger matches AND survives
-  // its probability roll wins. Fail-soft: any error fetching the
-  // manifest just bypasses curated and falls through to Giphy.
+  // ── Curated GIF manifest v2 (site/auction/curated_gifs.json) ──
+  // Pool-based. Scenarios reference pools by id. Worker rotates within
+  // each pool (last-3 used) to keep GIFs fresh. Position-percentile
+  // triggers gate scenarios like "Rare for LB" using POS_P90 constants.
+  // Composite overlays (overlay_pool_id) fire a second GIF stacked on
+  // the first — used for headline+all-time tier.
+  //
+  // Source data for POS_P90: docs/auction/data/position_thresholds.csv
+  // Update annually after each season.
+  const POS_P90 = {
+    QB: 38, RB: 23, WR: 32, TE: 21,
+    LB: 5, S: 4, CB: 4, DB: 4,
+    DT: 6, DE: 8, DL: 8,
+    PK: 3, K: 3, PN: 3, P: 3,
+  };
+  // Module-scope rotation state — Map<pool_id, [last_3_urls]>. Resets
+  // on worker cold-start (every few minutes in practice; fine).
+  const POOL_LAST_USED = new Map();
+
   let _curatedManifestCache = null;
   let _curatedManifestCacheTs = 0;
   async function loadCuratedManifest() {
-    // Cache 60s in worker memory; manifest is also CDN-cached.
     const now = Date.now();
     if (_curatedManifestCache && (now - _curatedManifestCacheTs) < 60000) {
       return _curatedManifestCache;
@@ -606,9 +618,67 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     }
   }
 
-  async function pickCuratedGif(playerInfo, eventKind, ctx) {
+  function pickFromPool(manifest, poolId) {
+    // Pool dereferencing + last-3-used rotation. Returns GIF url or "".
+    if (!poolId || !manifest?.pools) return "";
+    const pool = manifest.pools[poolId];
+    if (!pool || !Array.isArray(pool.gifs) || pool.gifs.length === 0) return "";
+    const gifs = pool.gifs.filter((g) => g && g.url);
+    if (gifs.length === 0) return "";
+    const last = POOL_LAST_USED.get(poolId) || [];
+    // Eligible = pool gifs minus last-3-used (if there are enough left)
+    let eligible = gifs.filter((g) => !last.includes(g.url));
+    if (eligible.length === 0) eligible = gifs;  // fallback if rotation drained pool
+    // Weighted random pick
+    const totalWeight = eligible.reduce((s, g) => s + Number(g.weight || 1), 0);
+    let r = Math.random() * totalWeight;
+    let pick = eligible[0];
+    for (const g of eligible) {
+      r -= Number(g.weight || 1);
+      if (r <= 0) { pick = g; break; }
+    }
+    // Update rotation state
+    const next = [pick.url, ...last].slice(0, 3);
+    POOL_LAST_USED.set(poolId, next);
+    return String(pick.url);
+  }
+
+  function evaluateTrigger(t, evCtx) {
+    if (!t) return true;
+    if (t.event_kind && t.event_kind !== evCtx.event_kind) return false;
+    if (t.min_total_bids != null && evCtx.total_bids < t.min_total_bids) return false;
+    if (t.max_total_bids != null && evCtx.total_bids > t.max_total_bids) return false;
+    if (t.min_forced != null && evCtx.forced < t.min_forced) return false;
+    if (t.min_overtakes != null && evCtx.overtakes < t.min_overtakes) return false;
+    if (t.min_win_k != null && evCtx.bid_k < t.min_win_k) return false;
+    if (t.max_win_k != null && evCtx.bid_k > t.max_win_k) return false;
+    if (t.position && t.position !== evCtx.position) return false;
+    if (t.by_commish === true && !evCtx.by_commish) return false;
+    if (t.by_commish === false && evCtx.by_commish) return false;
+    if (t.duration_hours_min != null && evCtx.duration_hours < t.duration_hours_min) return false;
+    if (t.duration_hours_max != null && evCtx.duration_hours > t.duration_hours_max) return false;
+    if (t.self_nominated === true && !evCtx.self_nominated) return false;
+    if (t.self_nominated === false && evCtx.self_nominated) return false;
+    // Position-percentile gating — win_k must be >= POS_P[percentile]
+    // Today we only have p90; can extend with more breakpoints if needed.
+    if (t.min_position_percentile != null) {
+      const pct = Number(t.min_position_percentile);
+      if (pct === 90) {
+        const threshold = POS_P90[evCtx.position];
+        if (!threshold || evCtx.bid_k < threshold) return false;
+      } else {
+        // Unsupported percentile breakpoint — fail safe (treat as no-match)
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Returns { primary_url, overlay_url, player_specific_pref, scenario_id }
+  // or null if no scenario fires.
+  async function pickCuratedScenario(playerInfo, eventKind, ctx) {
     const manifest = await loadCuratedManifest();
-    if (!manifest || !Array.isArray(manifest.scenarios)) return "";
+    if (!manifest || !Array.isArray(manifest.scenarios)) return null;
     const evCtx = {
       event_kind: eventKind,
       total_bids: Number(ctx?.total_bids || 0),
@@ -617,63 +687,79 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
       bid_k: Number(ctx?.bid_k || 0),
       position: String(playerInfo?.position || "").toUpperCase(),
       by_commish: !!ctx?.by_commish,
+      duration_hours: Number(ctx?.duration_hours || 0),
+      self_nominated: !!ctx?.self_nominated,
     };
     for (const sc of manifest.scenarios) {
-      const t = sc.trigger || {};
-      // Trigger evaluation: ALL provided fields must match
-      if (t.event_kind && t.event_kind !== evCtx.event_kind) continue;
-      if (t.min_total_bids != null && evCtx.total_bids < t.min_total_bids) continue;
-      if (t.max_total_bids != null && evCtx.total_bids > t.max_total_bids) continue;
-      if (t.min_forced != null && evCtx.forced < t.min_forced) continue;
-      if (t.min_overtakes != null && evCtx.overtakes < t.min_overtakes) continue;
-      if (t.min_bid_k != null && evCtx.bid_k < t.min_bid_k) continue;
-      if (t.position && t.position !== evCtx.position) continue;
-      if (t.by_commish === true && !evCtx.by_commish) continue;
-      if (t.by_commish === false && evCtx.by_commish) continue;
-      // Probability roll
+      if (!evaluateTrigger(sc.trigger, evCtx)) continue;
       const prob = Number(sc.probability_pct || 0);
       if (prob <= 0) continue;
       if (Math.random() * 100 >= prob) continue;
-      // Scenario won — pick a weighted random GIF from its pool
-      const gifs = Array.isArray(sc.gifs) ? sc.gifs.filter((g) => g && g.url) : [];
-      if (gifs.length === 0) {
-        // Scenario fired but has no GIFs configured yet — fall through
-        // so Giphy default still runs. Don't return here.
-        console.log(`[auction-narrator] curated scenario ${sc.id} qualified but has no gifs`);
+      // Scenario won — try to get a GIF from its pool
+      const primary = pickFromPool(manifest, sc.pool_id);
+      if (!primary) {
+        // Pool empty — log + fall through to next scenario (do NOT return early)
+        console.log(`[auction-narrator] scenario ${sc.id} qualified but pool ${sc.pool_id} empty`);
         continue;
       }
-      const totalWeight = gifs.reduce((s, g) => s + Number(g.weight || 1), 0);
-      let r = Math.random() * totalWeight;
-      for (const g of gifs) {
-        r -= Number(g.weight || 1);
-        if (r <= 0) {
-          console.log(`[auction-narrator] curated scenario fired: ${sc.id}`);
-          return String(g.url);
-        }
+      const overlay = sc.overlay_pool_id ? pickFromPool(manifest, sc.overlay_pool_id) : "";
+      // Player-specific preference (used by caller to decide if a player-
+      // specific Giphy search should run as a composite). Two forms:
+      //   player_specific: true       → always player-specific
+      //   player_specific_pct: 70     → 70% of the time player-specific
+      let playerPref = false;
+      if (sc.player_specific === true) playerPref = true;
+      else if (sc.player_specific_pct != null) {
+        playerPref = Math.random() * 100 < Number(sc.player_specific_pct);
       }
-      // Fallthrough (shouldn't happen with positive weights)
-      return String(gifs[0].url);
+      console.log(`[auction-narrator] curated scenario fired: ${sc.id} (pool ${sc.pool_id}${overlay ? `, overlay ${sc.overlay_pool_id}` : ""})`);
+      return {
+        primary_url: primary,
+        overlay_url: overlay,
+        player_specific_pref: playerPref,
+        scenario_id: sc.id,
+      };
     }
-    return "";
+    return null;
   }
 
-  // ── GIF picker — per-event-kind query strategy ──
+  // ── GIF picker — composite-aware, scenario-first ──
+  // Returns { url, overlay_url } so the caller can attach two embed
+  // images when a composite is fired (headline/all-time tier).
+  //
   // Order of operations:
-  //   1. Try curated manifest (site/auction/curated_gifs.json) for
-  //      scenario-specific hand-picked GIFs.
-  //   2. Fall back to Giphy:
-  //      Nom + Won  → celebration GIFs. Require last-name match (don't post
-  //                   wrong-player celebrations; commish rule: no GIF
-  //                   beats wrong GIF).
-  //      Forced Increase → "ugh / annoyed / eye-roll" vibe. Try player+
-  //                        vibe first; fall back to generic reaction GIFs.
-  //      Overtake → "come on man / really" vibe. Same fallback chain.
+  //   1. Try curated scenario (v2 manifest with pools + rotation).
+  //      If scenario fires + has a non-empty pool, use it.
+  //      - If scenario.player_specific true → ADDITIONALLY try Giphy
+  //        for a player-specific GIF; if found, use that as PRIMARY
+  //        and demote the curated to overlay.
+  //      - If scenario.overlay_pool_id set, fire a SECOND GIF from
+  //        that pool stacked on top.
+  //   2. If no scenario fires OR pool empty: fall back to Giphy.
   async function pickAuctionGifForPlayer(playerInfo, eventKind, ctx) {
-    // Try curated first
-    const curatedUrl = await pickCuratedGif(playerInfo, eventKind, ctx);
-    if (curatedUrl) return curatedUrl;
-    // Fall through to existing Giphy logic
-    return pickGiphyGif(playerInfo, eventKind);
+    const scenario = await pickCuratedScenario(playerInfo, eventKind, ctx);
+    if (scenario) {
+      let primary = scenario.primary_url;
+      let overlay = scenario.overlay_url;
+      // If player-specific is preferred AND we have a player, try Giphy
+      // for a player celebration. If found, promote it to primary and
+      // demote the curated pool pick to overlay.
+      if (scenario.player_specific_pref) {
+        try {
+          const giphy = await pickGiphyGif(playerInfo, eventKind);
+          if (giphy) {
+            overlay = primary;
+            primary = giphy;
+          }
+        } catch (e) {
+          // Giphy failure is fine — keep the curated primary
+        }
+      }
+      return { url: primary, overlay_url: overlay };
+    }
+    // Pure Giphy fallback (no scenario / empty pool)
+    const giphy = await pickGiphyGif(playerInfo, eventKind);
+    return giphy ? { url: giphy, overlay_url: "" } : { url: "", overlay_url: "" };
   }
 
   async function pickGiphyGif(playerInfo, eventKind) {
@@ -821,13 +907,13 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     }
   }
 
-  async function postToDiscord(targetChannelId, content, gifUrl) {
+  async function postToDiscord(targetChannelId, content, gifUrl, overlayUrl) {
     const body = { content, allowed_mentions: { parse: [] } };
-    // Use the embeds.image.url field so the GIF renders without the raw
-    // URL appearing as text in the message body.
-    if (gifUrl) {
-      body.embeds = [{ image: { url: gifUrl } }];
-    }
+    const embeds = [];
+    if (gifUrl) embeds.push({ image: { url: gifUrl } });
+    if (overlayUrl && overlayUrl !== gifUrl) embeds.push({ image: { url: overlayUrl } });
+    // Discord allows up to 10 embeds per message; 2 max here.
+    if (embeds.length) body.embeds = embeds;
     return fetch(
       `https://discord.com/api/v10/channels/${encodeURIComponent(targetChannelId)}/messages`,
       {
@@ -861,31 +947,45 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
 
     let content = msg.text.slice(0, 1900);
     let gifUrl = "";
+    let overlayUrl = "";
     if (msg.want_gif) {
-      // Build lot-level context for curated-GIF trigger matching:
-      // total_bids/forced/overtakes come from D1's running ups_auction_lots
-      // row; forced is approximated from note pattern in ups_auction_bids.
+      // Build lot-level context for curated-scenario triggers.
+      // Includes duration_hours (for live mid-auction triggers like
+      // floor_close) and self_nominated (for Cleon-style called-shot
+      // wins). All sourced from D1.
       const ctx = {
         bid_k: Number(ev.bid_k || 0),
-        by_commish: false,  // not surfaced via narrateQueue today; reserved
+        by_commish: false,
         total_bids: 0,
         forced: 0,
         overtakes: 0,
+        duration_hours: 0,
+        self_nominated: false,
       };
       try {
         if (db) {
           const lotRow = await db.prepare(
-            `SELECT bid_count FROM ups_auction_lots WHERE lot_id = ?`
+            `SELECT bid_count, nominator_fid, winner_fid, opened_at_unix, won_at_unix
+               FROM ups_auction_lots WHERE lot_id = ?`
           ).bind(lotId).first();
-          if (lotRow) ctx.total_bids = Number(lotRow.bid_count || 0);
+          if (lotRow) {
+            ctx.total_bids = Number(lotRow.bid_count || 0);
+            // self_nominated only matters for won events; safe to
+            // compute always.
+            if (lotRow.nominator_fid && lotRow.winner_fid) {
+              ctx.self_nominated = String(lotRow.nominator_fid) === String(lotRow.winner_fid);
+            }
+            // duration: prefer won-at - opened-at; fall back to now - opened-at
+            // (for in-flight forced/overtake events on still-open lots).
+            const start = Number(lotRow.opened_at_unix || 0);
+            const end = Number(lotRow.won_at_unix || 0) || Math.floor(Date.now() / 1000);
+            if (start > 0) ctx.duration_hours = (end - start) / 3600;
+          }
           const forcedRow = await db.prepare(
             `SELECT COUNT(*) AS n FROM ups_auction_bids
               WHERE lot_id = ? AND LOWER(IFNULL(note, '')) LIKE '%forced%'`
           ).bind(lotId).first();
           if (forcedRow) ctx.forced = Number(forcedRow.n || 0);
-          // Overtakes ≈ total bids − nominations − forced. Nominations
-          // are the rows with note LIKE '[nomination]%' (the cron tags
-          // them that way).
           const nomRow = await db.prepare(
             `SELECT COUNT(*) AS n FROM ups_auction_bids
               WHERE lot_id = ? AND IFNULL(note, '') LIKE '[nomination]%'`
@@ -896,7 +996,9 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
       } catch (e) {
         console.log("[auction-narrator] ctx lookup failed:", e?.message || e);
       }
-      gifUrl = await pickAuctionGifForPlayer(pidToInfo[ev.player_id], ev._obs_kind, ctx);
+      const picked = await pickAuctionGifForPlayer(pidToInfo[ev.player_id], ev._obs_kind, ctx);
+      gifUrl = picked.url || "";
+      overlayUrl = picked.overlay_url || "";
     }
 
     // Resolve target: thread for non-nom events; channel for nom (and
@@ -919,7 +1021,7 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
 
     let postedMessageId = "";
     try {
-      const r = await postToDiscord(targetChannelId, content, gifUrl);
+      const r = await postToDiscord(targetChannelId, content, gifUrl, overlayUrl);
       if (!r.ok) {
         const body = await r.text().catch(() => "");
         console.log(`[auction-narrator] post failed ${r.status} to ${targetChannelId}: ${body.slice(0, 200)}`);
