@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-21T22:59:48.973Z",
+    "updated_at": "2026-05-21T22:59:50.897Z",
     "row_count": 60,
     "source": "worker-trade-outbox"
   },
@@ -11411,14 +11411,14 @@
         },
         "comment": ""
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:60\nUPS_PAYLOAD_HASH:fcdfe9a195e4b89430ce84bacc02dd19bd2c81706aaa8a5df682806130a91031\n[UPS_TWB_INTENT_END]",
       "payload_hash": "fcdfe9a195e4b89430ce84bacc02dd19bd2c81706aaa8a5df682806130a91031",
       "status": "PENDING",
       "mfl_post_response_snip": "",
       "mfl_verify_response_snip": "",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-05-21T22:59:48.785Z",
+      "updated_ts": "2026-05-21T22:59:50.768Z",
       "id": "60"
     }
   ]
