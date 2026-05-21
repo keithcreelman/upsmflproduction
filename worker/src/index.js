@@ -2488,8 +2488,11 @@ export default {
           return jsonOut(500, { error: "DISCORD_AUCTION_TEST_CHANNEL_ID (or DISCORD_DRAFT_TEST_CHANNEL_ID) missing" });
         }
 
-        // Load curated manifest from CDN
-        const sha = String(env.UPS_RELEASE_SHA || "main").replace(/[^A-Za-z0-9_.-]/g, "") || "main";
+        // Load curated manifest from CDN.
+        // Accepts ?sha=<branch|sha> override so we can fire from a feature
+        // branch before merging the new manifest to main.
+        const shaOverride = String(url.searchParams.get("sha") || "").replace(/[^A-Za-z0-9_./-]/g, "");
+        const sha = shaOverride || (String(env.UPS_RELEASE_SHA || "main").replace(/[^A-Za-z0-9_./-]/g, "") || "main");
         const manifestUrl = `https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@${sha}/site/auction/curated_gifs.json`;
         let manifest = null;
         try {
