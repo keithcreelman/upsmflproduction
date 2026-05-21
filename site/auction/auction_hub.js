@@ -368,13 +368,48 @@
       grid.innerHTML = `<div class="ah-placeholder">No nomination activity yet this season.</div>`;
       return;
     }
-    const nowUnix = data.now_unix || Math.floor(Date.now() / 1000);
-    grid.innerHTML = rows.map((f) => {
+
+    // Top-of-grid banner: current ERA window state (anchored, not rolling).
+    // Source: api adds an era_window envelope (Keith 2026-05-21).
+    const eraWin = data.era_window || {};
+    let eraBannerHtml = "";
+    if (eraWin.open) {
+      eraBannerHtml = `
+        <div class="ah-warroom-league-banner">
+          <strong>ERA nominations open</strong> — current window:
+          <code>${escapeHtml(eraWin.current_window_label || "")}</code>
+          (window ${(eraWin.current_window_index ?? 0) + 1} of ${eraWin.total_windows || 6}).
+          Each franchise may submit <strong>1 nomination this window</strong>.
+        </div>`;
+    } else if (eraWin.reason === "before_open") {
+      eraBannerHtml = `
+        <div class="ah-warroom-league-banner">
+          <strong>ERA nominations not yet open</strong> — opens
+          <code>${escapeHtml(eraWin.open_at_iso || "")}</code>.
+          6 anchored 12-hour windows (6 AM / 6 PM ET), Sat 6 PM ET → Tue 6 PM ET.
+        </div>`;
+    } else if (eraWin.reason === "after_close") {
+      eraBannerHtml = `
+        <div class="ah-warroom-league-banner">
+          <strong>ERA nominations closed</strong> — last window ended
+          <code>${escapeHtml(eraWin.close_at_iso || "")}</code>.
+          Existing lots continue bidding with their 36-hour locks until everything resolves.
+        </div>`;
+    }
+
+    const cards = rows.map((f) => {
       const era = f.era || {};
       const fa = f.fa_auction || {};
-      const eraStatus = era.can_nominate_now
-        ? `<span class="ah-nom-ready">Can nominate now</span>`
-        : `<span class="ah-nom-cooldown">Next: ${countdownLabel(era.seconds_until_next)}</span>`;
+      let eraStatus;
+      if (era.window_open === false && era.window_reason === "before_open") {
+        eraStatus = `<span class="ah-nom-cooldown">Opens in ${countdownLabel(era.seconds_until_next)}</span>`;
+      } else if (era.window_open === false && era.window_reason === "after_close") {
+        eraStatus = `<span class="ah-nom-cooldown">Closed</span>`;
+      } else if (era.can_nominate_now) {
+        eraStatus = `<span class="ah-nom-ready">Can nominate this window</span>`;
+      } else {
+        eraStatus = `<span class="ah-nom-cooldown">Used this window · next ${countdownLabel(era.seconds_until_next)}</span>`;
+      }
       const faStatus = fa.can_nominate_now
         ? `<span class="ah-nom-ready">${fa.remaining} of ${fa.max_in_window} left</span>`
         : `<span class="ah-nom-cooldown">Next: ${countdownLabel(fa.seconds_until_next)}</span>`;
@@ -389,7 +424,7 @@
           </div>
           <div class="ah-nom-rows">
             <div class="ah-nom-row">
-              <span class="ah-nom-label">ERA (1 / 12h)</span>
+              <span class="ah-nom-label">ERA (1 / 12h window)</span>
               ${eraStatus}
             </div>
             <div class="ah-nom-row">
@@ -403,6 +438,7 @@
           </div>
         </div>`;
     }).join("");
+    grid.innerHTML = eraBannerHtml + cards;
   }
 
   function renderBidStats() {

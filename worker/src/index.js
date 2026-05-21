@@ -3732,13 +3732,18 @@ export default {
       }
 
       // ---------- Auction Hub: /api/auction/nomination-status ----------
-      // Per-franchise nomination cadence tracker. Returns last nomination
-      // timestamp + when the next nomination is allowed per the relevant
-      // cadence rule.
+      // Per-franchise nomination cadence tracker. Returns whether each
+      // franchise has used its 1 nomination for the current anchored
+      // 12-hour window (ERA) or the rolling 24-hour window (FA Auction).
       //
-      // Cadence rules (league_context_v1.md):
-      //   ERA (§A3):  1 nomination / 12-hour rolling window per franchise
-      //   FA Auction (§A1): 2 nominations / 24-hour rolling window
+      // Cadence rules (league_context_v1.md §A3 / §A1, Keith 2026-05-21):
+      //   ERA (§A3):  1 nomination per discrete 12-hour window. Windows
+      //               are ANCHORED to 6 AM ET and 6 PM ET — NOT rolling
+      //               from the franchise's last nomination. Opens Sat
+      //               6 PM ET (= Memorial Day Monday − 2 days at 22:00
+      //               UTC during EDT); closes at the end of the Tue
+      //               6 AM → 6 PM ET window (6 windows total).
+      //   FA Auction (§A1): 2 nominations / 24-hour rolling window.
       //
       // Data source: ups_auction_bids WHERE note LIKE '[nomination]%'.
       // The auction-poll cron tags AUCTION_INIT bids that way; this
@@ -3759,9 +3764,56 @@ export default {
         const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
         const leagueId = String(url.searchParams.get("L") || "74598");
         const nowUnix = Math.floor(Date.now() / 1000);
-        const ERA_COOLDOWN_SEC = 12 * 3600;
+        const nowMs = nowUnix * 1000;
         const FA_WINDOW_SEC    = 24 * 3600;
         const FA_MAX_IN_WINDOW = 2;
+        const ERA_WINDOW_LABELS = [
+          "Sat 6 PM – Sun 6 AM ET",
+          "Sun 6 AM – Sun 6 PM ET",
+          "Sun 6 PM – Mon 6 AM ET",
+          "Mon 6 AM – Mon 6 PM ET",
+          "Mon 6 PM – Tue 6 AM ET",
+          "Tue 6 AM – Tue 6 PM ET",
+        ];
+        const ERA_TOTAL_WINDOWS = ERA_WINDOW_LABELS.length;
+        const ERA_WINDOW_MS = 12 * 3600 * 1000;
+
+        // Compute ERA nomination window state (anchored, not rolling).
+        // Memorial Day is always EDT (UTC-4), so 6 PM ET = 22:00 UTC.
+        const eraWindow = (() => {
+          const memorial = _getMemorialDayUtcTopLevel(year);
+          if (!memorial) return { open: false, reason: "no_season_calendar" };
+          const openAt = new Date(memorial.getTime());
+          openAt.setUTCDate(openAt.getUTCDate() - 2); // Sat = Mon − 2
+          openAt.setUTCHours(22, 0, 0, 0);             // 6 PM ET = 22:00 UTC (EDT)
+          const closeAt = new Date(openAt.getTime() + ERA_TOTAL_WINDOWS * ERA_WINDOW_MS);
+          const out = {
+            open_at_iso: openAt.toISOString(),
+            close_at_iso: closeAt.toISOString(),
+            total_windows: ERA_TOTAL_WINDOWS,
+          };
+          if (nowMs < openAt.getTime()) {
+            return { open: false, reason: "before_open", next_window_start_iso: openAt.toISOString(), ...out };
+          }
+          if (nowMs >= closeAt.getTime()) {
+            return { open: false, reason: "after_close", ...out };
+          }
+          const sinceOpenMs = nowMs - openAt.getTime();
+          const idx = Math.floor(sinceOpenMs / ERA_WINDOW_MS);
+          const curStart = new Date(openAt.getTime() + idx * ERA_WINDOW_MS);
+          const curEnd = new Date(curStart.getTime() + ERA_WINDOW_MS);
+          return {
+            open: true,
+            current_window_index: idx,
+            current_window_label: ERA_WINDOW_LABELS[idx] || `Window ${idx + 1}`,
+            current_window_start_iso: curStart.toISOString(),
+            current_window_start_unix: Math.floor(curStart.getTime() / 1000),
+            current_window_end_iso: curEnd.toISOString(),
+            current_window_end_unix: Math.floor(curEnd.getTime() / 1000),
+            next_window_start_iso: curEnd.getTime() < closeAt.getTime() ? curEnd.toISOString() : null,
+            ...out,
+          };
+        })();
 
         try {
           // Pull every nomination event (tagged "[nomination]" by the poll)
@@ -3803,17 +3855,42 @@ export default {
             const list = nomsByFid[fid] || [];
             const last = list.length > 0 ? list[list.length - 1] : null;
 
-            // ERA: next allowed = last + 12h
-            const era_next_at_unix = last ? last.at_unix + ERA_COOLDOWN_SEC : nowUnix;
-            const era_can_nominate_now = era_next_at_unix <= nowUnix;
-            const era_seconds_remaining = Math.max(0, era_next_at_unix - nowUnix);
+            // ERA: anchored 12-hour windows. Count this franchise's noms
+            // within the CURRENT window only. If the window is open and
+            // count is 0 → can nominate. Otherwise must wait for next.
+            let era_used_in_window = 0;
+            let era_can_nominate_now = false;
+            let era_next_allowed_at_iso = null;
+            let era_seconds_until_next = 0;
+            if (eraWindow.open) {
+              const ws = eraWindow.current_window_start_unix;
+              const we = eraWindow.current_window_end_unix;
+              era_used_in_window = list.filter((n) => n.at_unix >= ws && n.at_unix < we).length;
+              if (era_used_in_window === 0) {
+                era_can_nominate_now = true;
+                era_next_allowed_at_iso = new Date(nowUnix * 1000).toISOString();
+                era_seconds_until_next = 0;
+              } else {
+                era_can_nominate_now = false;
+                era_next_allowed_at_iso = eraWindow.next_window_start_iso;
+                era_seconds_until_next = eraWindow.next_window_start_iso
+                  ? Math.max(0, we - nowUnix)
+                  : 0;
+              }
+            } else if (eraWindow.reason === "before_open") {
+              era_next_allowed_at_iso = eraWindow.open_at_iso;
+              era_seconds_until_next = Math.max(0, Math.floor((new Date(eraWindow.open_at_iso).getTime() - nowMs) / 1000));
+            } else {
+              // after_close — no more nominations
+              era_next_allowed_at_iso = null;
+              era_seconds_until_next = 0;
+            }
 
-            // FA: count in last 24h
+            // FA: rolling 24h, max 2 in window
             const fa_window_start = nowUnix - FA_WINDOW_SEC;
             const inFaWindow = list.filter((n) => n.at_unix >= fa_window_start);
             const fa_used = inFaWindow.length;
             const fa_remaining = Math.max(0, FA_MAX_IN_WINDOW - fa_used);
-            // FA next-allowed: when oldest-in-window expires (if at cap), otherwise now
             let fa_next_at_unix = nowUnix;
             if (fa_used >= FA_MAX_IN_WINDOW) {
               const oldest = inFaWindow[0];
@@ -3830,11 +3907,18 @@ export default {
               last_nomination_at_iso: last ? new Date(last.at_unix * 1000).toISOString() : null,
               last_nomination_player_id: last ? last.player_id : null,
               era: {
-                cooldown_sec: ERA_COOLDOWN_SEC,
+                window_open: !!eraWindow.open,
+                window_reason: eraWindow.reason || (eraWindow.open ? "open" : "closed"),
+                current_window_index: eraWindow.current_window_index ?? null,
+                current_window_label: eraWindow.current_window_label || null,
+                current_window_start_iso: eraWindow.current_window_start_iso || null,
+                current_window_end_iso: eraWindow.current_window_end_iso || null,
+                used_in_window: era_used_in_window,
+                max_in_window: 1,
+                remaining_in_window: Math.max(0, 1 - era_used_in_window),
                 can_nominate_now: era_can_nominate_now,
-                next_allowed_at_unix: era_next_at_unix,
-                next_allowed_at_iso: new Date(era_next_at_unix * 1000).toISOString(),
-                seconds_until_next: era_seconds_remaining,
+                next_allowed_at_iso: era_next_allowed_at_iso,
+                seconds_until_next: era_seconds_until_next,
               },
               fa_auction: {
                 window_sec: FA_WINDOW_SEC,
@@ -3862,9 +3946,10 @@ export default {
             generated_at: new Date().toISOString(),
             now_unix: nowUnix,
             rules: {
-              era: "league_context_v1.md §A3 — 1 nomination per 12-hour rolling window",
+              era: "league_context_v1.md §A3 — 1 nomination per 12-hour ANCHORED window (6 AM / 6 PM ET). Opens Sat 6 PM ET, closes end of Tue 6 AM–6 PM ET window.",
               fa_auction: "league_context_v1.md §A1 — 2 nominations per 24-hour rolling window",
             },
+            era_window: eraWindow,
             franchise_count: franchises.length,
             franchises,
           });
