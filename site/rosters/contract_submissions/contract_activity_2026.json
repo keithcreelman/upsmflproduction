@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-05-21 10:24:01",
+    "generated_at": "2026-05-21 13:24:44",
     "source": "contract-activity-log",
-    "count": 26,
+    "count": 27,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "01b995782f4ddf518e713a8c",
+      "submission_id": "01b995782f4ddf518e713a8c",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0003",
+      "franchise_name": "Gride",
+      "player_id": "16148",
+      "player_name": "Bryce Young",
+      "position": "QB",
+      "salary": 33000,
+      "contract_year": 2,
+      "contract_status": "EXT2",
+      "contract_info": "CL 2|TCV 66K|AAV 33K|Y1-33K, Y2-33K|Ext: GRID|GTD: 49.5K",
+      "tcv": 66000,
+      "aav": 33000,
+      "guaranteed": 49500,
+      "submitted_at_utc": "2026-05-21T13:24:29.062Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1507011204894163045",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "56db6864bb91bd068a1fb1f0",
       "submission_id": "56db6864bb91bd068a1fb1f0",
