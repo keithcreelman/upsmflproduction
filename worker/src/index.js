@@ -1530,6 +1530,7 @@ export default {
         path !== "/api/auction/nomination-status" &&
         path !== "/api/auction/bid-stats" &&
         path !== "/admin/auction/probe-o43" &&
+        path !== "/admin/auction/narrate-simulate" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
@@ -2453,6 +2454,179 @@ export default {
         } catch (e) {
           return jsonOut(502, { error: String(e?.message || e), url: pageUrl });
         }
+      }
+
+      // ---------- DIAGNOSTIC: POST /admin/auction/narrate-simulate ----------
+      // Posts a synthetic sequence of auction-narrator events to the TEST
+      // Discord channel. Loads the curated_gifs.json manifest, picks from
+      // requested pools (with rotation), formats messages in the narrator's
+      // voice, and posts each to channel. Commish-gated.
+      //
+      // Always routes to the test channel — never prod.
+      //
+      // Query params:
+      //   APIKEY    — required, COMMISH_API_KEY or TEST_SYNC_API_KEY
+      //   preset    — optional. "demo" injects a hand-crafted suite covering
+      //               every scenario (routine_forced, high_tension, late_overtake,
+      //               takeback, day_2_extender, hawks_mock, hammertime_vs_creel,
+      //               longhaulers_late_expensive, dollar tiers).
+      //
+      // Body (if no preset): { delay_ms?: number, events: [{ text, pool_id, overlay_pool_id? }] }
+      if (path === "/admin/auction/narrate-simulate" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
+        if (!authOk) return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+
+        const botToken = String(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "").trim();
+        if (!botToken) return jsonOut(500, { error: "DISCORD_BOT_TOKEN missing" });
+        const channelId = String(
+          env.DISCORD_AUCTION_TEST_CHANNEL_ID || env.DISCORD_DRAFT_TEST_CHANNEL_ID || ""
+        ).replace(/\D/g, "");
+        if (!channelId) {
+          return jsonOut(500, { error: "DISCORD_AUCTION_TEST_CHANNEL_ID (or DISCORD_DRAFT_TEST_CHANNEL_ID) missing" });
+        }
+
+        // Load curated manifest from CDN
+        const sha = String(env.UPS_RELEASE_SHA || "main").replace(/[^A-Za-z0-9_.-]/g, "") || "main";
+        const manifestUrl = `https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@${sha}/site/auction/curated_gifs.json`;
+        let manifest = null;
+        try {
+          const r = await fetch(manifestUrl, { cf: { cacheTtl: 60 } });
+          if (!r.ok) return jsonOut(502, { error: `manifest fetch ${r.status}`, url: manifestUrl });
+          manifest = await r.json();
+        } catch (e) {
+          return jsonOut(502, { error: `manifest fetch failed: ${String(e?.message || e)}`, url: manifestUrl });
+        }
+        if (!manifest || !manifest.pools) {
+          return jsonOut(502, { error: "manifest has no pools" });
+        }
+
+        // Local rotation tracker for THIS simulation only — so two events
+        // hitting the same pool don't reuse the same GIF if pool has >1.
+        const localLast = new Map();
+        const pickFrom = (poolId) => {
+          if (!poolId) return "";
+          const pool = manifest.pools[poolId];
+          if (!pool || !Array.isArray(pool.gifs) || pool.gifs.length === 0) return "";
+          const gifs = pool.gifs.filter((g) => g && g.url);
+          if (gifs.length === 0) return "";
+          const last = localLast.get(poolId) || [];
+          let eligible = gifs.filter((g) => !last.includes(g.url));
+          if (eligible.length === 0) eligible = gifs;
+          const totalWeight = eligible.reduce((s, g) => s + Number(g.weight || 1), 0);
+          let r = Math.random() * totalWeight;
+          let pick = eligible[0];
+          for (const g of eligible) {
+            r -= Number(g.weight || 1);
+            if (r <= 0) { pick = g; break; }
+          }
+          const next = [pick.url, ...last].slice(0, 3);
+          localLast.set(poolId, next);
+          return String(pick.url);
+        };
+
+        // Parse body
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+
+        // Resolve events: from body OR from preset
+        const preset = String(url.searchParams.get("preset") || body.preset || "").toLowerCase().trim();
+        let events;
+        if (preset === "demo") {
+          events = [
+            // 1. Nomination — opens lot, dollar-tier player_specific marquee
+            { text: "🆕  **Cleon Ca$h** **nominated** **Justin Herbert** (QB · LAC) — opening at **$20K**", pool_id: null, label: "nom open ($20K QB)" },
+            // 2. Routine forced increase — cap-free $2-4K, Keith's signature 35%
+            { text: "⬆  **Gride** **Forced Increase** to **$3K** on **Tyler Allgeier** (RB · ATL)", pool_id: "routine_forced", label: "routine_forced $3K (35%)" },
+            // 3. Same scenario again to show rotation
+            { text: "⬆  **Pure Greatness** **Forced Increase** to **$4K** on **Justice Hill** (RB · BAL)", pool_id: "routine_forced", label: "routine_forced $4K (rotation)" },
+            // 4. High tension — same-fid forced 4+ in a row
+            { text: "⬆  **CBP** **Forced Increase** to **$12K** on **Rashee Rice** (WR · KC)", pool_id: "high_tension", label: "high_tension same-fid streak" },
+            // 5. Late overtake — final 60 min
+            { text: "💰  **Sex Manther** **Overtake** at **$8K** on **Chig Okonkwo** (TE · TEN)", pool_id: "late_overtake", label: "late_overtake (final 60min)" },
+            // 6. Takeback — actor reclaims after losing lead
+            { text: "💰  **Blake Bombers** **Overtake** at **$6K** on **Khalil Herbert** (RB · CHI) — *takeback*", pool_id: "takeback", label: "takeback ('I'm back')" },
+            // 7. Day-2+ extender
+            { text: "⬆  **Real Deal Creel** **Forced Increase** to **$9K** on **Wan'Dale Robinson** (WR · NYG)", pool_id: "day_2_extender", label: "day_2 extender (lot 48hr+)" },
+            // 8. Hawks mock — nomination
+            { text: "🆕  **Hawks** **nominated** **D.J. Moore** (WR · CHI) — opening at **$10K**", pool_id: "hawks_mock", label: "hawks_mock nom (35%)" },
+            // 9. Hawks mock — win (different pool entry via rotation)
+            { text: "🏆  **Hawks** **won** **Christian Watson** (WR · GB) for **$5K**", pool_id: "hawks_mock", label: "hawks_mock win" },
+            // 10. Pair: HammerTime forces Real Deal Creel → Trey McBride
+            { text: "⬆  **HammerTime 🔨 ⏰** **Forced Increase** to **$6K** on **George Kittle** (TE · SF)", pool_id: "hammertime_vs_creel_trey_mcbride", label: "pair: HammerTime vs Creel (Trey McBride)" },
+            // 11. Pair: Long Haulers late + expensive overtake on Sex Manther → Home Alone
+            { text: "💰  **The Long Haulers** **Overtake** at **$14K** on **De'Von Achane** (RB · MIA)", pool_id: "longhaulers_late_expensive", label: "pair: Long Haulers late+expensive vs Martel (Home Alone)" },
+            // 12. Pair: Long Haulers overtake on Martel — Rashee Rice (note: pool currently empty pending URLs)
+            { text: "💰  **The Long Haulers** **Overtake** at **$5K** on **Jaylen Wright** (RB · MIA)", pool_id: "longhaulers_vs_martel_rashee_rice", label: "pair: Long Haulers vs Martel (Rashee Rice — empty pool)" },
+            // 13. Random spice — 5% sprinkle
+            { text: "⬆  **L.A. Looks** **Forced Increase** to **$4K** on **Tyler Conklin** (TE · NYJ)", pool_id: "random_spice", label: "random_spice (5%)" },
+            // 14. Win — $94K all-time tier (composite overlay)
+            { text: "🏆  **Cleon Ca$h** **won** **Derrick Henry** (RB · BAL) for **$94K**", pool_id: "all_time", overlay_pool_id: "legendary", label: "won_all_time ($94K composite — empty pools)" },
+            // 15. Win — $30K marquee
+            { text: "🏆  **C-Town Chivalry** **won** **Jaylen Waddle** (WR · MIA) for **$30K**", pool_id: "shock", label: "won_marquee $30K (empty pool)" },
+          ];
+        } else if (Array.isArray(body.events) && body.events.length > 0) {
+          events = body.events;
+        } else {
+          return jsonOut(400, { error: "Provide ?preset=demo OR body.events[]" });
+        }
+
+        const delayMs = Math.max(0, Math.min(10000, Number(body.delay_ms ?? 1200)));
+
+        const posted = [];
+        const errors = [];
+        for (let i = 0; i < events.length; i++) {
+          const e = events[i];
+          const content = String(e.text || "");
+          const primary = e.pool_id ? pickFrom(e.pool_id) : "";
+          const overlay = e.overlay_pool_id ? pickFrom(e.overlay_pool_id) : "";
+          const dbody = { content, allowed_mentions: { parse: [] } };
+          const embeds = [];
+          if (primary) embeds.push({ image: { url: primary } });
+          if (overlay && overlay !== primary) embeds.push({ image: { url: overlay } });
+          if (embeds.length) dbody.embeds = embeds;
+          try {
+            const r = await fetch(
+              `https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages`,
+              {
+                method: "POST",
+                headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify(dbody),
+              }
+            );
+            const txt = await r.text();
+            let j = null;
+            try { j = JSON.parse(txt); } catch (_) {}
+            if (!r.ok) {
+              errors.push({ index: i, label: e.label || "", status: r.status, body: txt.slice(0, 400) });
+            } else {
+              posted.push({
+                index: i,
+                label: e.label || "",
+                pool_id: e.pool_id || "",
+                gif_url: primary,
+                overlay_url: overlay,
+                message_id: String(j?.id || ""),
+              });
+            }
+          } catch (err) {
+            errors.push({ index: i, label: e.label || "", error: String(err?.message || err) });
+          }
+          if (delayMs > 0 && i < events.length - 1) {
+            await new Promise((res) => setTimeout(res, delayMs));
+          }
+        }
+        return jsonOut(200, {
+          ok: true,
+          channel_id: channelId,
+          manifest_sha: sha,
+          posted_count: posted.length,
+          error_count: errors.length,
+          posted,
+          errors,
+        });
       }
 
       // ---------- Auction Hub: /api/auction/lots ----------
