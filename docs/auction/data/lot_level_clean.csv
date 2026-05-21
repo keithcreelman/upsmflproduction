@@ -1,0 +1,664 @@
+year,pid,player,pos,nfl,win_dollars,win_k,total_bids,forced,overtakes,duration_hrs,nominator,winner,self_nom
+2019,11975,#11975,,,3000,3,3,1,1,48.54,Real Deal Creel,The Long Haulers,False
+2019,12164,#12164,,,2000,2,2,1,0,24.01,The Long Haulers,The Long Haulers,True
+2019,11293,#11293,,,3000,3,3,1,1,40.55,C-Town Chivalry,Sex Manther,False
+2019,13868,Mike Boone,RB,FA,2000,2,2,0,1,24.58,Blake Bombers,The Long Haulers,False
+2019,12295,#12295,,,2000,2,2,1,0,24.33,Blake Bombers,Blake Bombers,True
+2019,12386,#12386,,,4000,4,4,2,1,42.77,Sex Manther,C-Town Chivalry,False
+2019,11323,#11323,,,3000,3,3,0,2,24.65,Cleon Ca$h,Cleon Ca$h,True
+2019,12616,Jacoby Brissett,QB,ARI,4000,4,3,1,1,38.17,C-Town Chivalry,Hawks,False
+2019,11517,#11517,,,4000,4,4,0,3,47.32,Blake Bombers,Gride,False
+2019,9861,Kareem Jackson,S,FA,2000,2,2,0,1,42.13,Pure Greatness,Hawks,False
+2019,13412,#13412,,,3000,3,3,0,2,32.34,Pure Greatness,Pure Greatness,True
+2019,12154,#12154,,,4000,4,3,1,1,34.04,Real Deal Creel,CBP,False
+2019,11308,#11308,,,2000,2,2,0,1,43.93,Real Deal Creel,L.A. Looks,False
+2019,14096,#14096,,,4000,4,4,2,1,33.17,L.A. Looks,C-Town Chivalry,False
+2019,14098,#14098,,,4000,4,3,2,0,24.18,Sex Manther,Sex Manther,True
+2019,12443,#12443,,,3000,3,2,0,1,30.43,Sex Manther,The Long Haulers,False
+2019,13221,#13221,,,2000,2,2,0,1,26.81,Real Deal Creel,Gride,False
+2019,14162,Christian Wilkins,DT,FA,2000,2,2,0,1,34.23,Cleon Ca$h,Gride,False
+2019,11250,#11250,,,4000,4,3,1,1,39.33,C-Town Chivalry,Hawks,False
+2019,13850,Gus Edwards,RB,FA,3000,3,3,1,1,29.03,Gride,Pure Greatness,False
+2019,12205,#12205,,,6000,6,2,0,1,30.61,The Long Haulers,C-Town Chivalry,False
+2019,13304,#13304,,,2000,2,2,1,0,24.04,Gride,Gride,True
+2019,13136,#13136,,,2000,2,2,1,0,24.0,L.A. Looks,L.A. Looks,True
+2019,7877,#7877,,,3000,3,3,2,0,24.04,L.A. Looks,L.A. Looks,True
+2019,8687,#8687,,,3000,3,3,2,0,24.31,Sex Manther,Sex Manther,True
+2019,9833,Jason Pierre-Paul,DE,TBB,4000,4,4,3,0,24.0,The Long Haulers,The Long Haulers,True
+2019,8673,#8673,,,3000,3,3,0,2,38.23,CBP,Pure Greatness,False
+2019,12912,#12912,,,5000,5,5,1,3,35.87,CBP,The Long Haulers,False
+2019,13684,Sam Hubbard,DE,FA,4000,4,4,1,2,38.4,Cleon Ca$h,Cleon Ca$h,True
+2019,13026,#13026,,,2000,2,2,0,1,25.67,Cleon Ca$h,Blake Bombers,False
+2019,13231,Jabrill Peppers,S,PIT,2000,2,2,1,0,24.02,C-Town Chivalry,C-Town Chivalry,True
+2019,11516,#11516,,,6000,6,4,1,2,27.82,Blake Bombers,Blake Bombers,True
+2019,12274,#12274,,,4000,4,4,1,2,27.84,Blake Bombers,Blake Bombers,True
+2019,12762,Nick Vigil,LB,FA,2000,2,2,0,1,26.22,Pure Greatness,Blake Bombers,False
+2019,10266,Cameron Heyward,DT,PIT,2000,2,2,0,1,30.77,Real Deal Creel,C-Town Chivalry,False
+2019,10823,#10823,,,3000,3,3,0,2,66.25,Real Deal Creel,Gride,False
+2019,13201,Derek Barnett,DE,HOU,5000,5,4,2,1,45.44,Gride,Sex Manther,False
+2019,10783,Harrison Smith,S,MIN,2000,2,2,0,1,24.33,Hawks,Real Deal Creel,False
+2019,14267,Juwann Winfree,WR,FA,5000,5,4,2,1,48.04,L.A. Looks,Sex Manther,False
+2019,11711,#11711,,,2000,2,2,1,0,24.04,L.A. Looks,L.A. Looks,True
+2019,10973,#10973,,,3000,3,3,2,0,24.02,Sex Manther,Sex Manther,True
+2019,13715,Ronnie Harrison,S,ATL,3000,3,3,2,0,24.04,Sex Manther,Sex Manther,True
+2019,14159,Dexter Lawrence,DT,NYG,4000,4,4,1,2,42.65,HammerTime 🔨 ⏰,CBP,False
+2019,11761,Jerick McKinnon,RB,FA,10000,10,5,2,2,32.46,Hawks,Hawks,True
+2019,10699,#10699,,,2000,2,2,1,0,24.02,Gride,Gride,True
+2019,7422,#7422,,,2000,2,2,1,0,24.0,CBP,CBP,True
+2019,11850,#11850,,,7000,7,4,0,3,38.72,CBP,Hawks,False
+2019,13216,Zach Cunningham,LB,DET,3000,3,2,1,0,24.02,Cleon Ca$h,Cleon Ca$h,True
+2019,9427,#9427,,,4000,4,4,2,1,39.44,HammerTime 🔨 ⏰,L.A. Looks,False
+2019,12233,Kwon Alexander,LB,FA,5000,5,4,2,1,39.85,The Long Haulers,Hawks,False
+2019,12656,#12656,,,5000,5,4,3,0,24.02,The Long Haulers,The Long Haulers,True
+2019,9829,#9829,,,3000,3,3,1,1,39.89,C-Town Chivalry,Hawks,False
+2019,12222,#12222,,,3000,3,3,1,1,32.08,C-Town Chivalry,Hawks,False
+2019,12088,#12088,,,6000,6,4,0,3,37.64,Blake Bombers,The Long Haulers,False
+2019,13148,Dare Ogunbowale,RB,HOU,3000,3,2,1,0,24.02,Blake Bombers,Blake Bombers,True
+2019,11772,#11772,,,3000,3,3,1,1,24.87,Real Deal Creel,C-Town Chivalry,False
+2019,13229,Eddie Jackson,S,FA,3000,3,3,0,2,48.29,Pure Greatness,Pure Greatness,True
+2019,10267,Von Miller,DE,WAS,4000,4,4,2,1,47.94,L.A. Looks,Hawks,False
+2019,9902,#9902,,,4000,4,2,1,0,24.18,L.A. Looks,L.A. Looks,True
+2019,12596,#12596,,,2000,2,2,1,0,24.2,Sex Manther,Sex Manther,True
+2019,11330,#11330,,,3000,3,3,2,0,24.08,The Long Haulers,The Long Haulers,True
+2019,12261,#12261,,,2000,2,2,1,0,24.0,Sex Manther,Sex Manther,True
+2019,10312,#10312,,,8000,8,5,1,3,55.97,Gride,Gride,True
+2019,10389,#10389,,,7000,7,6,2,3,37.56,CBP,Real Deal Creel,False
+2019,12280,#12280,,,6000,6,6,5,0,24.02,CBP,CBP,True
+2019,9075,#9075,,,7000,7,6,5,0,24.0,The Long Haulers,The Long Haulers,True
+2019,8448,#8448,,,3000,3,3,0,2,31.25,HammerTime 🔨 ⏰,L.A. Looks,False
+2019,12773,Chris Moore,WR,WAS,3000,3,3,0,2,36.55,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2019,11644,Derek Carr,QB,FA,2000,2,2,0,1,29.13,Blake Bombers,CBP,False
+2019,10749,#10749,,,3000,3,3,1,1,24.8,Real Deal Creel,Pure Greatness,False
+2019,12176,#12176,,,4000,4,3,1,1,29.65,Real Deal Creel,CBP,False
+2019,9925,#9925,,,5000,5,3,0,2,31.29,Pure Greatness,Pure Greatness,True
+2019,10847,#10847,,,4000,4,4,0,3,68.12,Pure Greatness,Hawks,False
+2019,13844,Logan Cooke,PN,JAC,2000,2,2,0,1,42.42,Hawks,HammerTime 🔨 ⏰,False
+2019,12741,Chris Jones,DT,KCC,14000,14,11,4,6,94.73,Gride,The Long Haulers,False
+2019,11313,Tyrann Mathieu,S,FA,3000,3,3,1,1,35.62,Sex Manther,Cleon Ca$h,False
+2019,10700,Kirk Cousins,QB,ATL,6000,6,5,0,4,37.03,Hawks,CBP,False
+2019,6997,#6997,,,3000,3,3,0,2,43.9,Hawks,Hawks,True
+2019,7393,#7393,,,12000,12,7,2,4,61.76,Pure Greatness,L.A. Looks,False
+2019,10723,#10723,,,6000,6,5,1,3,58.58,HammerTime 🔨 ⏰,The Long Haulers,False
+2019,11740,#11740,,,5000,5,3,0,2,46.11,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2019,14124,#14124,,,5000,5,4,1,2,26.98,C-Town Chivalry,HammerTime 🔨 ⏰,False
+2019,13251,Budda Baker,S,ARI,11000,11,9,2,6,70.78,C-Town Chivalry,Cleon Ca$h,False
+2019,10292,Cameron Jordan,DT,NOS,6000,6,5,2,2,47.35,CBP,Cleon Ca$h,False
+2019,11657,#11657,,,2000,2,2,0,1,25.37,Blake Bombers,Pure Greatness,False
+2019,14256,Jake Bailey,PN,MIA,3000,3,3,0,2,51.99,Real Deal Creel,The Long Haulers,False
+2019,13871,#13871,,,4000,4,3,1,1,44.69,Blake Bombers,L.A. Looks,False
+2019,11795,#11795,,,3000,3,3,0,2,35.91,Pure Greatness,Pure Greatness,True
+2019,12287,Jordan Hicks,LB,FA,3000,3,3,0,2,28.93,Pure Greatness,Blake Bombers,False
+2019,10308,#10308,,,4000,4,4,1,2,50.77,Cleon Ca$h,Hawks,False
+2019,12956,Wil Lutz,PK,DEN,2000,2,2,1,0,24.05,CBP,CBP,True
+2019,8359,#8359,,,3000,3,3,2,0,24.07,Cleon Ca$h,Cleon Ca$h,True
+2019,14127,Jakobi Meyers,WR,JAC,7000,7,6,2,3,29.83,Real Deal Creel,The Long Haulers,False
+2019,13354,Harrison Butker,PK,KCC,2000,2,2,1,0,24.01,Gride,Gride,True
+2019,11769,Demarcus Lawrence,DE,SEA,6000,6,4,3,0,24.01,The Long Haulers,The Long Haulers,True
+2019,10768,Lavonte David,LB,TBB,7000,7,5,2,2,35.27,Gride,Sex Manther,False
+2019,12263,Darren Waller,TE,MIA,6000,6,5,4,0,24.1,The Long Haulers,The Long Haulers,True
+2019,9099,#9099,,,10000,10,4,2,1,24.14,Hawks,CBP,False
+2019,10868,Greg Zuerlein,PK,FA,4000,4,4,2,1,24.05,Sex Manther,The Long Haulers,False
+2019,9884,#9884,,,6000,6,4,0,3,72.43,Sex Manther,Cleon Ca$h,False
+2019,11728,C.J. Mosley,LB,FA,7000,7,5,1,3,47.59,Cleon Ca$h,Cleon Ca$h,True
+2019,13274,John Johnson,S,FA,5000,5,4,1,2,39.2,Gride,Gride,True
+2019,8416,#8416,,,9000,9,4,2,1,24.75,Gride,CBP,False
+2019,9918,#9918,,,18000,18,11,5,5,48.43,The Long Haulers,Pure Greatness,False
+2019,10976,Justin Tucker,PK,FA,2000,2,2,1,0,24.0,C-Town Chivalry,C-Town Chivalry,True
+2019,12985,#12985,,,7000,7,5,4,0,24.01,C-Town Chivalry,C-Town Chivalry,True
+2019,12620,Dak Prescott,QB,DAL,9000,9,7,2,4,72.21,Blake Bombers,Sex Manther,False
+2019,11695,#11695,,,8000,8,5,2,2,40.51,Blake Bombers,Gride,False
+2019,11677,#11677,,,11000,11,4,1,2,42.14,CBP,The Long Haulers,False
+2019,9448,#9448,,,11000,11,7,3,3,40.88,Real Deal Creel,HammerTime 🔨 ⏰,False
+2019,11390,Latavius Murray,RB,FA,19000,19,8,6,1,24.97,Real Deal Creel,CBP,False
+2019,12702,#12702,,,5000,5,4,2,1,26.98,Pure Greatness,Blake Bombers,False
+2019,11706,Jadeveon Clowney,DE,DAL,7000,7,5,2,2,27.55,Pure Greatness,Pure Greatness,True
+2019,11670,#11670,,,15000,15,6,2,3,33.26,L.A. Looks,C-Town Chivalry,False
+2019,12658,Sterling Shepard,WR,TBB,25000,25,8,4,3,46.49,The Long Haulers,Gride,False
+2019,8658,#8658,,,8000,8,7,2,4,92.41,Hawks,Gride,False
+2019,11257,#11257,,,16000,16,8,2,5,69.42,Sex Manther,The Long Haulers,False
+2019,13404,Austin Ekeler,RB,WAS,21000,21,6,5,0,24.05,Sex Manther,Sex Manther,True
+2019,11985,Tress Way,PN,WAS,2000,2,2,1,0,24.14,Gride,Gride,True
+2019,12665,#12665,,,9000,9,5,4,0,24.02,Gride,Gride,True
+2019,11680,Jarvis Landry,WR,FA,33000,33,14,7,6,92.9,The Long Haulers,Cleon Ca$h,False
+2019,10722,#10722,,,26000,26,7,2,4,68.78,The Long Haulers,Cleon Ca$h,False
+2019,10708,#10708,,,11000,11,8,7,0,24.11,L.A. Looks,L.A. Looks,True
+2019,10276,#10276,,,50000,50,22,12,9,117.7,L.A. Looks,Cleon Ca$h,False
+2019,10775,Bobby Wagner,LB,WAS,14000,14,8,3,4,39.52,Blake Bombers,The Long Haulers,False
+2019,12860,Ka'imi Fairbairn,PK,HOU,3000,3,3,2,0,24.23,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2019,12187,Tyler Lockett,WR,LVR,46000,46,15,6,8,46.09,HammerTime 🔨 ⏰,CBP,False
+2019,10816,Demario Davis,LB,NOS,5000,5,5,1,3,71.45,Pure Greatness,Pure Greatness,True
+2019,11757,#11757,,,20000,20,12,8,3,35.92,C-Town Chivalry,Sex Manther,False
+2019,10960,#10960,,,16000,16,6,4,1,27.61,C-Town Chivalry,Cleon Ca$h,False
+2019,7836,Aaron Rodgers,QB,PIT,18000,18,7,4,2,26.24,Real Deal Creel,Pure Greatness,False
+2019,10703,Russell Wilson,QB,NYG,15000,15,7,2,4,41.62,Real Deal Creel,C-Town Chivalry,False
+2019,11886,#11886,,,50000,50,9,7,1,28.67,CBP,Real Deal Creel,False
+2019,14059,Daniel Jones,QB,IND,3000,3,3,0,2,44.54,Cleon Ca$h,HammerTime 🔨 ⏰,False
+2019,9988,#9988,,,79000,79,10,9,0,24.0,CBP,CBP,True
+2019,5848,Tom Brady,QB,FA,20000,20,16,10,5,69.53,Cleon Ca$h,Hawks,False
+2020,12164,#12164,,,2000,2,2,0,1,26.27,Sex Manther,Real Deal Creel,False
+2020,12741,Chris Jones,DT,KCC,3000,3,3,0,2,49.08,Sex Manther,Gride,False
+2020,12386,#12386,,,6000,6,6,2,3,54.78,Gride,Hawks,False
+2020,13850,Gus Edwards,RB,FA,2000,2,2,1,0,24.3,Blake Bombers,Blake Bombers,True
+2020,13216,Zach Cunningham,LB,DET,5000,5,4,0,3,27.24,L.A. Looks,Pure Greatness,False
+2020,13809,Russell Gage,WR,SFO,2000,2,2,0,1,27.62,C-Town Chivalry,Real Deal Creel,False
+2020,9051,Calais Campbell,DT,ARI,5000,5,4,0,3,33.09,Cleon Ca$h,Pure Greatness,False
+2020,14096,#14096,,,2000,2,2,1,0,24.01,L.A. Looks,L.A. Looks,True
+2020,12505,#12505,,,2000,2,2,0,1,48.12,Hawks,Gride,False
+2020,11644,Derek Carr,QB,FA,4000,4,4,1,2,26.69,HammerTime 🔨 ⏰,Hawks,False
+2020,10308,#10308,,,4000,4,3,2,0,24.09,Sex Manther,Sex Manther,True
+2020,11772,#11772,,,4000,4,4,2,1,43.56,Sex Manther,Pure Greatness,False
+2020,10749,#10749,,,3000,3,3,0,2,48.14,The Long Haulers,C-Town Chivalry,False
+2020,13684,Sam Hubbard,DE,FA,3000,3,3,2,0,24.21,L.A. Looks,L.A. Looks,True
+2020,12217,Dante Fowler,DE,DAL,2000,2,2,0,1,41.76,Real Deal Creel,L.A. Looks,False
+2020,11186,#11186,,,5000,5,3,0,2,39.79,C-Town Chivalry,Hawks,False
+2020,12239,Eric Kendricks,LB,SFO,2000,2,2,0,1,46.33,CBP,Hawks,False
+2020,11182,#11182,,,2000,2,2,1,0,24.01,L.A. Looks,L.A. Looks,True
+2020,10274,#10274,,,2000,2,2,1,0,24.03,Cleon Ca$h,Cleon Ca$h,True
+2020,7401,#7401,,,2000,2,2,1,0,24.06,Sex Manther,Sex Manther,True
+2020,10700,Kirk Cousins,QB,ATL,4000,4,2,0,1,24.66,Cleon Ca$h,Pure Greatness,False
+2020,10722,#10722,,,3000,3,3,2,0,24.16,C-Town Chivalry,C-Town Chivalry,True
+2020,9430,#9430,,,2000,2,2,1,0,24.41,Pure Greatness,Pure Greatness,True
+2020,14225,Maxx Crosby,DE,LVR,5000,5,5,2,2,37.58,Pure Greatness,Pure Greatness,True
+2020,13153,#13153,,,6000,6,4,1,2,46.08,Real Deal Creel,Gride,False
+2020,14613,Steven Sims,WR,ARI,2000,2,2,1,0,24.03,Gride,Gride,True
+2020,12231,Shaq Thompson,LB,BUF,2000,2,2,1,0,24.06,Gride,Gride,True
+2020,13157,Curtis Samuel,WR,BUF,3000,3,3,2,0,24.03,The Long Haulers,The Long Haulers,True
+2020,10697,Ryan Tannehill,QB,FA,2000,2,2,1,0,24.01,Blake Bombers,Blake Bombers,True
+2020,12287,Jordan Hicks,LB,FA,2000,2,2,0,1,24.58,CBP,Pure Greatness,False
+2020,13274,John Johnson,S,FA,3000,3,2,0,1,24.19,Sex Manther,Pure Greatness,False
+2020,11760,Jimmy Garoppolo,QB,LAR,2000,2,2,1,0,24.09,Cleon Ca$h,Cleon Ca$h,True
+2020,13706,Jerome Baker,LB,CLE,2000,2,2,1,0,24.13,C-Town Chivalry,C-Town Chivalry,True
+2020,10816,Demario Davis,LB,NOS,3000,3,3,2,0,24.15,C-Town Chivalry,C-Town Chivalry,True
+2020,12745,Deion Jones,LB,TBB,3000,3,3,1,1,42.34,Cleon Ca$h,The Long Haulers,False
+2020,13257,#13257,,,2000,2,2,0,1,27.37,Pure Greatness,C-Town Chivalry,False
+2020,13155,John Ross,WR,FA,2000,2,2,1,0,24.28,Real Deal Creel,Real Deal Creel,True
+2020,12768,#12768,,,2000,2,2,1,0,24.05,Gride,Gride,True
+2020,12718,Vonn Bell,S,FA,2000,2,2,1,0,24.13,Gride,Gride,True
+2020,12250,#12250,,,4000,4,3,2,0,24.2,Blake Bombers,Blake Bombers,True
+2020,8658,#8658,,,15000,15,12,7,4,78.36,Blake Bombers,Pure Greatness,False
+2020,13678,Ian Thomas,TE,LVR,4000,4,2,1,0,24.0,The Long Haulers,The Long Haulers,True
+2020,12088,#12088,,,2000,2,2,0,1,32.84,Sex Manther,Blake Bombers,False
+2020,12075,Shaq Barrett,DE,FA,3000,3,3,2,0,24.01,Cleon Ca$h,Cleon Ca$h,True
+2020,12688,DeForest Buckner,DT,IND,2000,2,2,0,1,30.6,L.A. Looks,Sex Manther,False
+2020,10292,Cameron Jordan,DT,NOS,5000,5,5,4,0,24.05,L.A. Looks,L.A. Looks,True
+2020,12857,#12857,,,5000,5,4,2,1,46.13,The Long Haulers,Hawks,False
+2020,12610,Carson Wentz,QB,MIN,5000,5,4,1,2,33.91,Gride,C-Town Chivalry,False
+2020,12767,Justin Simmons,S,FA,3000,3,3,0,2,35.89,Hawks,Hawks,True
+2020,14965,#14965,,,2000,2,2,0,1,38.8,Sex Manther,Hawks,False
+2020,10868,Greg Zuerlein,PK,FA,2000,2,2,1,0,24.02,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2020,10272,#10272,,,4000,4,3,1,1,26.49,C-Town Chivalry,Blake Bombers,False
+2020,10738,#10738,,,17000,17,5,3,1,25.55,Real Deal Creel,HammerTime 🔨 ⏰,False
+2020,13763,Will Dissly,TE,LAC,5000,5,4,0,3,51.12,Real Deal Creel,Hawks,False
+2020,9831,#9831,,,5000,5,3,0,2,26.58,Pure Greatness,Pure Greatness,True
+2020,12756,Yannick Ngakoue,DE,FA,2000,2,2,0,1,26.26,Pure Greatness,HammerTime 🔨 ⏰,False
+2020,10976,Justin Tucker,PK,FA,2000,2,2,1,0,24.48,Cleon Ca$h,Cleon Ca$h,True
+2020,13240,#13240,,,2000,2,2,1,0,24.29,Blake Bombers,Blake Bombers,True
+2020,13722,#13722,,,5000,5,4,3,0,24.0,CBP,CBP,True
+2020,9988,#9988,,,4000,4,3,1,1,31.57,CBP,Real Deal Creel,False
+2020,12152,#12152,,,16000,16,15,8,6,94.32,L.A. Looks,Hawks,False
+2020,12197,#12197,,,11000,11,10,1,8,75.38,Hawks,Gride,False
+2020,13747,Tracy Walker,S,FA,3000,3,3,1,1,24.09,Pure Greatness,The Long Haulers,False
+2020,10775,Bobby Wagner,LB,WAS,6000,6,4,3,0,24.04,The Long Haulers,The Long Haulers,True
+2020,10729,#10729,,,17000,17,10,6,3,43.97,The Long Haulers,Blake Bombers,False
+2020,12788,#12788,,,5000,5,5,2,2,48.91,Sex Manther,Blake Bombers,False
+2020,12985,#12985,,,4000,4,3,2,0,24.02,Sex Manther,Sex Manther,True
+2020,11657,#11657,,,2000,2,2,1,0,24.02,Gride,Gride,True
+2020,13743,Fred Warner,LB,SFO,6000,6,4,1,2,24.65,Gride,Sex Manther,False
+2020,11747,#11747,,,26000,26,17,10,6,71.98,Hawks,HammerTime 🔨 ⏰,False
+2020,9662,#9662,,,13000,13,8,3,4,71.31,Cleon Ca$h,Blake Bombers,False
+2020,10708,#10708,,,4000,4,3,0,2,28.57,Cleon Ca$h,Real Deal Creel,False
+2020,10768,Lavonte David,LB,TBB,4000,4,3,1,1,27.79,C-Town Chivalry,Blake Bombers,False
+2020,10273,#10273,,,6000,6,4,1,2,62.65,C-Town Chivalry,The Long Haulers,False
+2020,10753,#10753,,,3000,3,2,0,1,29.9,Pure Greatness,L.A. Looks,False
+2020,10271,Julio Jones,WR,FA,50000,50,5,4,0,24.0,Blake Bombers,Blake Bombers,True
+2020,13589,Josh Allen,QB,BUF,8000,8,6,2,3,52.21,Blake Bombers,CBP,False
+2020,11228,Robert Woods,WR,FA,31000,31,14,5,8,90.47,Real Deal Creel,The Long Haulers,False
+2020,11244,Travis Kelce,TE,KCC,46000,46,10,6,3,28.29,Real Deal Creel,Sex Manther,False
+2020,10276,#10276,,,25000,25,10,1,8,77.81,CBP,Cleon Ca$h,False
+2020,7393,#7393,,,8000,8,6,2,3,58.76,CBP,Gride,False
+2020,12184,Jamison Crowder,WR,FA,7000,7,5,4,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2020,9918,#9918,,,7000,7,3,2,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2021,15419,Kylen Granson,TE,PHI,2000,2,2,0,1,39.22,Gride,Pure Greatness,False
+2021,14095,Ty Johnson,RB,BUF,4000,4,4,1,2,47.85,Real Deal Creel,Real Deal Creel,True
+2021,13863,Byron Pringle,WR,FA,2000,2,2,1,0,30.45,The Long Haulers,The Long Haulers,True
+2021,15337,Noah Gray,TE,KCC,4000,4,3,1,1,26.59,Sex Manther,Real Deal Creel,False
+2021,14157,Quinnen Williams,DT,DAL,2000,2,2,1,0,24.01,L.A. Looks,L.A. Looks,True
+2021,13236,Gerald Everett,TE,FA,2000,2,2,1,0,24.39,The Long Haulers,The Long Haulers,True
+2021,12741,Chris Jones,DT,KCC,2000,2,2,0,1,30.74,Real Deal Creel,Blake Bombers,False
+2021,13620,#13620,,,3000,3,3,0,2,25.94,Pure Greatness,Pure Greatness,True
+2021,13202,Carl Lawson,DE,BAL,3000,3,3,0,2,34.78,Gride,Gride,True
+2021,15034,Marquez Callaway,WR,FA,2000,2,2,0,1,29.31,C-Town Chivalry,The Long Haulers,False
+2021,13633,Christian Kirk,WR,HOU,4000,4,4,1,2,49.79,Blake Bombers,Sex Manther,False
+2021,14818,#14818,,,3000,3,3,2,0,24.26,Sex Manther,Sex Manther,True
+2021,12658,Sterling Shepard,WR,TBB,5000,5,3,1,1,38.07,L.A. Looks,Hawks,False
+2021,14122,Darius Slayton,WR,NYG,2000,2,2,0,1,24.8,CBP,Real Deal Creel,False
+2021,13188,#13188,,,4000,4,2,1,0,24.01,Cleon Ca$h,Cleon Ca$h,True
+2021,14163,Jeffery Simmons,DT,TEN,3000,3,3,0,2,45.27,Cleon Ca$h,Cleon Ca$h,True
+2021,11193,#11193,,,3000,3,2,1,0,24.01,Sex Manther,Sex Manther,True
+2021,12225,Leonard Williams,DT,SEA,2000,2,2,1,0,24.09,The Long Haulers,The Long Haulers,True
+2021,13717,Justin Reid,S,NOS,2000,2,2,1,0,24.06,C-Town Chivalry,C-Town Chivalry,True
+2021,14225,Maxx Crosby,DE,LVR,3000,3,3,0,2,55.48,Real Deal Creel,Cleon Ca$h,False
+2021,11761,Jerick McKinnon,RB,FA,3000,3,3,1,1,44.35,Real Deal Creel,L.A. Looks,False
+2021,12702,#12702,,,3000,3,2,0,1,31.23,Gride,C-Town Chivalry,False
+2021,14265,#14265,,,2000,2,2,1,0,24.01,L.A. Looks,L.A. Looks,True
+2021,14811,Salvon Ahmed,RB,IND,5000,5,3,1,1,47.66,L.A. Looks,Hawks,False
+2021,13680,Hayden Hurst,TE,FA,4000,4,3,2,0,24.3,Sex Manther,Sex Manther,True
+2021,12152,#12152,,,4000,4,4,1,2,31.5,Hawks,Hawks,True
+2021,13304,#13304,,,4000,4,3,2,0,24.28,Cleon Ca$h,Cleon Ca$h,True
+2021,14991,Jordan Fuller,S,ATL,3000,3,3,1,1,27.51,CBP,Sex Manther,False
+2021,12197,#12197,,,4000,4,3,0,2,35.66,CBP,Hawks,False
+2021,13608,Rashaad Penny,RB,FA,6000,6,5,3,1,46.42,The Long Haulers,C-Town Chivalry,False
+2021,13447,Eric Wilson,LB,MIN,3000,3,2,0,1,43.98,The Long Haulers,Gride,False
+2021,11317,Jordan Poyer,S,BUF,4000,4,3,0,2,26.49,C-Town Chivalry,CBP,False
+2021,14127,Jakobi Meyers,WR,JAC,4000,4,4,2,1,25.57,Blake Bombers,The Long Haulers,False
+2021,13234,Marlon Mack,RB,FA,5000,5,5,3,1,38.61,Real Deal Creel,C-Town Chivalry,False
+2021,10261,#10261,,,11000,11,6,2,3,40.39,Real Deal Creel,Hawks,False
+2021,12088,#12088,,,3000,3,3,1,1,47.45,Gride,The Long Haulers,False
+2021,12718,Vonn Bell,S,FA,4000,4,4,3,0,24.02,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2021,13252,Marcus Maye,S,LAC,2000,2,2,1,0,24.32,Sex Manther,Sex Manther,True
+2021,13245,Haason Reddick,DE,TBB,4000,4,4,1,2,38.61,L.A. Looks,CBP,False
+2021,14412,Alex Singleton,LB,DEN,4000,4,4,1,2,47.66,Sex Manther,Sex Manther,True
+2021,12688,DeForest Buckner,DT,IND,3000,3,3,0,2,41.85,Cleon Ca$h,Sex Manther,False
+2021,13640,#13640,,,2000,2,2,0,1,30.3,Cleon Ca$h,Hawks,False
+2021,10308,#10308,,,3000,3,3,2,0,24.1,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2021,10292,Cameron Jordan,DT,NOS,2000,2,2,1,0,24.09,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2021,13813,Foyesade Oluokun,LB,JAC,2000,2,2,1,0,24.0,The Long Haulers,The Long Haulers,True
+2021,11747,#11747,,,9000,9,6,2,3,41.06,The Long Haulers,Real Deal Creel,False
+2021,11390,Latavius Murray,RB,FA,5000,5,4,1,2,46.78,CBP,Pure Greatness,False
+2021,12752,Kevin Byard,S,CHI,3000,3,2,1,0,24.04,CBP,CBP,True
+2021,7401,#7401,,,5000,5,5,1,3,59.32,Gride,Pure Greatness,False
+2021,13154,Mike Williams,WR,FA,6000,6,5,4,0,24.05,Blake Bombers,Blake Bombers,True
+2021,8062,#8062,,,3000,3,2,0,1,39.44,Blake Bombers,L.A. Looks,False
+2021,11769,Demarcus Lawrence,DE,SEA,2000,2,2,1,0,24.08,C-Town Chivalry,C-Town Chivalry,True
+2021,12437,Jason Myers,PK,SEA,2000,2,2,0,1,40.86,Pure Greatness,L.A. Looks,False
+2021,13108,#13108,,,10000,10,8,3,4,62.56,Real Deal Creel,C-Town Chivalry,False
+2021,12221,Danielle Hunter,DE,HOU,8000,8,6,3,2,46.7,Hawks,Sex Manther,False
+2021,13850,Gus Edwards,RB,FA,9000,9,8,5,2,47.06,The Long Haulers,L.A. Looks,False
+2021,12745,Deion Jones,LB,TBB,4000,4,2,1,0,24.01,Cleon Ca$h,Cleon Ca$h,True
+2021,12239,Eric Kendricks,LB,SFO,4000,4,2,1,0,24.03,CBP,CBP,True
+2021,13809,Russell Gage,WR,SFO,5000,5,3,0,2,28.07,Blake Bombers,HammerTime 🔨 ⏰,False
+2021,13697,Tremaine Edmunds,LB,CHI,3000,3,3,1,1,34.69,Blake Bombers,L.A. Looks,False
+2021,10816,Demario Davis,LB,NOS,2000,2,2,0,1,35.19,Pure Greatness,L.A. Looks,False
+2021,9833,Jason Pierre-Paul,DE,TBB,2000,2,2,1,0,24.06,L.A. Looks,L.A. Looks,True
+2021,11674,Brandin Cooks,WR,BUF,9000,9,7,5,1,34.14,L.A. Looks,Pure Greatness,False
+2021,11316,#11316,,,4000,4,2,0,1,45.81,Sex Manther,HammerTime 🔨 ⏰,False
+2021,13231,Jabrill Peppers,S,PIT,4000,4,3,2,0,24.2,Pure Greatness,Pure Greatness,True
+2021,13274,John Johnson,S,FA,4000,4,2,0,1,30.59,Sex Manther,HammerTime 🔨 ⏰,False
+2021,10729,#10729,,,4000,4,2,0,1,32.02,C-Town Chivalry,HammerTime 🔨 ⏰,False
+2021,12630,#12630,,,10000,10,5,2,2,43.46,The Long Haulers,HammerTime 🔨 ⏰,False
+2021,13214,T.J. Watt,DE,PIT,9000,9,6,2,3,43.68,Gride,Pure Greatness,False
+2021,12677,Austin Hooper,TE,NEP,3000,3,3,2,0,24.03,Real Deal Creel,Real Deal Creel,True
+2021,12140,Jameis Winston,QB,NYG,2000,2,2,0,1,39.77,Real Deal Creel,HammerTime 🔨 ⏰,False
+2021,13251,Budda Baker,S,ARI,13000,13,9,6,2,59.39,HammerTime 🔨 ⏰,Pure Greatness,False
+2021,11247,Zach Ertz,TE,WAS,5000,5,5,4,0,24.0,Gride,Gride,True
+2021,13157,Curtis Samuel,WR,BUF,12000,12,6,4,1,25.78,Gride,L.A. Looks,False
+2021,13592,Sam Darnold,QB,SEA,6000,6,5,1,3,58.4,Cleon Ca$h,HammerTime 🔨 ⏰,False
+2021,10738,#10738,,,10000,10,4,1,2,41.74,Cleon Ca$h,HammerTime 🔨 ⏰,False
+2021,14256,Jake Bailey,PN,MIA,2000,2,2,0,1,25.37,Sex Manther,L.A. Looks,False
+2021,12650,Tyler Boyd,WR,FA,21000,21,5,1,3,50.34,The Long Haulers,Real Deal Creel,False
+2021,11228,Robert Woods,WR,FA,41000,41,11,6,4,74.1,The Long Haulers,The Long Haulers,True
+2021,13216,Zach Cunningham,LB,DET,5000,5,3,0,2,24.32,Pure Greatness,Pure Greatness,True
+2021,12171,#12171,,,16000,16,8,3,4,52.23,Pure Greatness,Hawks,False
+2021,12447,Raheem Mostert,RB,LVR,15000,15,9,4,4,43.0,Hawks,Sex Manther,False
+2021,13189,Evan Engram,TE,DEN,6000,6,5,1,3,49.56,Hawks,Gride,False
+2021,12075,Shaq Barrett,DE,FA,4000,4,4,1,2,45.13,L.A. Looks,CBP,False
+2021,11313,Tyrann Mathieu,S,FA,2000,2,2,0,1,25.4,L.A. Looks,Pure Greatness,False
+2021,7836,Aaron Rodgers,QB,PIT,39000,39,10,4,5,85.87,Sex Manther,Cleon Ca$h,False
+2021,13919,Anthony Firkser,TE,DET,4000,4,3,1,1,24.31,Blake Bombers,L.A. Looks,False
+2021,12151,Melvin Gordon,RB,FA,10000,10,6,4,1,24.47,Blake Bombers,L.A. Looks,False
+2021,13424,Taysom Hill,TE,NOS,5000,5,2,1,0,24.04,Real Deal Creel,Real Deal Creel,True
+2021,10703,Russell Wilson,QB,NYG,28000,28,7,3,3,25.71,Real Deal Creel,Real Deal Creel,True
+2021,13782,Michael Dickson,PN,SEA,2000,2,2,0,1,24.38,CBP,The Long Haulers,False
+2021,13706,Jerome Baker,LB,CLE,4000,4,4,1,2,44.64,C-Town Chivalry,Cleon Ca$h,False
+2021,12187,Tyler Lockett,WR,LVR,37000,37,8,6,1,47.99,HammerTime 🔨 ⏰,Gride,False
+2021,11222,Keenan Allen,WR,LAC,60000,60,11,10,0,24.0,CBP,CBP,True
+2021,12620,Dak Prescott,QB,DAL,45000,45,7,6,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,14331,D'Ernest Johnson,RB,NEP,4000,4,3,1,1,34.01,Real Deal Creel,The Long Haulers,False
+2022,13762,Kyzir White,LB,SFO,2000,2,2,0,1,31.92,C-Town Chivalry,Gride,False
+2022,15972,Jordan Mason,RB,MIN,2000,2,2,1,0,25.33,The Long Haulers,The Long Haulers,True
+2022,14017,Jeffery Wilson,RB,MIA,2000,2,2,0,1,28.37,Sex Manther,CBP,False
+2022,15723,Ty Chandler,RB,MIN,2000,2,2,0,1,33.96,Sex Manther,Real Deal Creel,False
+2022,13814,Boston Scott,RB,FA,4000,4,2,1,0,24.12,CBP,CBP,True
+2022,12184,Jamison Crowder,WR,FA,3000,3,3,2,0,24.01,The Long Haulers,The Long Haulers,True
+2022,14315,Ashton Dulin,WR,IND,3000,3,2,0,1,28.19,The Long Haulers,Real Deal Creel,False
+2022,12110,#12110,,,2000,2,2,0,1,27.36,Hawks,L.A. Looks,False
+2022,11728,C.J. Mosley,LB,FA,2000,2,2,1,0,24.19,Gride,Gride,True
+2022,10261,#10261,,,3000,3,3,1,1,39.57,HammerTime 🔨 ⏰,Hawks,False
+2022,13153,#13153,,,4000,4,3,2,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,14933,Julian Blackmon,S,NOS,2000,2,2,0,1,25.51,Pure Greatness,Sex Manther,False
+2022,11316,#11316,,,2000,2,2,1,0,24.08,Sex Manther,Sex Manther,True
+2022,12788,#12788,,,2000,2,2,1,0,24.07,Blake Bombers,Blake Bombers,True
+2022,14882,Jonathan Greenard,DE,MIN,2000,2,2,1,0,24.0,Blake Bombers,Blake Bombers,True
+2022,13638,Braxton Berrios,WR,HOU,2000,2,2,1,0,24.01,Cleon Ca$h,Cleon Ca$h,True
+2022,12930,Robbie Chosen,WR,WAS,3000,3,2,1,0,24.0,CBP,CBP,True
+2022,12238,Denzel Perryman,LB,LAC,3000,3,2,0,1,24.26,Gride,The Long Haulers,False
+2022,12720,Jayron Kearse,S,FA,3000,3,3,1,1,39.18,C-Town Chivalry,Blake Bombers,False
+2022,14260,Cole Holcomb,LB,PIT,2000,2,2,1,0,24.07,Sex Manther,Sex Manther,True
+2022,13871,#13871,,,2000,2,2,0,1,42.4,Pure Greatness,The Long Haulers,False
+2022,13607,#13607,,,6000,6,5,0,4,56.35,Cleon Ca$h,Cleon Ca$h,True
+2022,14057,Drew Lock,QB,SEA,3000,3,2,1,0,24.27,Blake Bombers,Blake Bombers,True
+2022,12239,Eric Kendricks,LB,SFO,2000,2,2,1,0,24.28,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,13629,Calvin Ridley,WR,TEN,18000,18,5,4,0,24.09,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,11182,#11182,,,2000,2,2,1,0,24.0,The Long Haulers,The Long Haulers,True
+2022,13189,Evan Engram,TE,DEN,2000,2,2,0,1,28.5,Hawks,Blake Bombers,False
+2022,15499,Blake Gillikin,PN,ARI,2000,2,2,0,1,48.07,The Long Haulers,Real Deal Creel,False
+2022,15496,#15496,,,2000,2,2,0,1,48.0,CBP,Real Deal Creel,False
+2022,13623,#13623,,,6000,6,4,1,2,68.09,CBP,Gride,False
+2022,13236,Gerald Everett,TE,FA,4000,4,4,2,1,47.56,Real Deal Creel,The Long Haulers,False
+2022,11886,#11886,,,2000,2,2,1,0,24.02,L.A. Looks,L.A. Looks,True
+2022,13793,Marquez Valdes-Scantling,WR,PIT,5000,5,5,4,0,24.04,Cleon Ca$h,Cleon Ca$h,True
+2022,11150,Geno Smith,QB,LVR,5000,5,5,1,3,51.14,Gride,Gride,True
+2022,15833,Sauce Gardner,CB,IND,2000,2,2,1,0,24.01,Gride,Gride,True
+2022,13139,Jamaal Williams,RB,FA,14000,14,10,2,7,53.08,The Long Haulers,Pure Greatness,False
+2022,13622,Nyheim Hines,RB,NOS,8000,8,6,5,0,24.08,Sex Manther,Sex Manther,True
+2022,10272,#10272,,,2000,2,2,1,0,24.0,C-Town Chivalry,C-Town Chivalry,True
+2022,12718,Vonn Bell,S,FA,3000,3,3,1,1,28.48,Pure Greatness,The Long Haulers,False
+2022,12630,#12630,,,5000,5,4,1,2,31.96,Pure Greatness,Pure Greatness,True
+2022,10775,Bobby Wagner,LB,WAS,9000,9,4,0,3,32.11,Hawks,L.A. Looks,False
+2022,10267,Von Miller,DE,WAS,3000,3,3,0,2,46.66,Hawks,Hawks,True
+2022,15798,Isaiah Likely,TE,BAL,2000,2,2,0,1,31.21,Blake Bombers,Sex Manther,False
+2022,13313,Isaiah McKenzie,WR,FA,3000,3,3,2,0,24.0,Blake Bombers,Blake Bombers,True
+2022,13284,Trey Hendrickson,DE,CIN,2000,2,2,1,0,24.02,CBP,CBP,True
+2022,13809,Russell Gage,WR,SFO,7000,7,3,1,1,32.29,Real Deal Creel,L.A. Looks,False
+2022,11760,Jimmy Garoppolo,QB,LAR,5000,5,3,2,0,24.04,Real Deal Creel,Real Deal Creel,True
+2022,13688,Marcus Davenport,DE,DET,3000,3,3,0,2,63.21,L.A. Looks,Sex Manther,False
+2022,12676,Hunter Henry,TE,NEP,8000,8,5,2,2,68.15,Cleon Ca$h,Cleon Ca$h,True
+2022,13418,Kendrick Bourne,WR,SFO,6000,6,5,4,0,24.03,Cleon Ca$h,Cleon Ca$h,True
+2022,12616,Jacoby Brissett,QB,ARI,6000,6,4,3,0,24.05,L.A. Looks,L.A. Looks,True
+2022,12677,Austin Hooper,TE,NEP,5000,5,5,2,2,46.99,Hawks,Hawks,True
+2022,13813,Foyesade Oluokun,LB,JAC,5000,5,5,3,1,47.5,The Long Haulers,Pure Greatness,False
+2022,13134,D'Onta Foreman,RB,FA,4000,4,3,1,1,37.9,The Long Haulers,L.A. Looks,False
+2022,11679,Odell Beckham,WR,FA,5000,5,4,3,0,24.0,CBP,CBP,True
+2022,14518,Jalen Thompson,S,ARI,2000,2,2,1,0,24.03,CBP,CBP,True
+2022,14244,Matt Gay,PK,FA,3000,3,3,0,2,46.93,Sex Manther,Real Deal Creel,False
+2022,13747,Tracy Walker,S,FA,3000,3,3,1,1,26.18,C-Town Chivalry,HammerTime 🔨 ⏰,False
+2022,13832,Jason Sanders,PK,MIA,2000,2,2,0,1,29.51,C-Town Chivalry,CBP,False
+2022,10783,Harrison Smith,S,MIN,4000,4,4,2,1,26.57,Pure Greatness,HammerTime 🔨 ⏰,False
+2022,12779,De'Vondre Campbell,LB,FA,4000,4,2,1,0,24.01,Pure Greatness,Pure Greatness,True
+2022,13590,Baker Mayfield,QB,TBB,15000,15,10,4,5,29.29,Blake Bombers,C-Town Chivalry,False
+2022,13737,Jessie Bates,S,ATL,2000,2,2,1,0,24.09,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,14983,Tyler Bass,PK,BUF,2000,2,2,1,0,24.1,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,12141,Marcus Mariota,QB,WAS,15000,15,9,3,5,35.41,Gride,Pure Greatness,False
+2022,13713,Minkah Fitzpatrick,S,MIA,4000,4,4,2,1,47.26,Gride,L.A. Looks,False
+2022,15736,#15736,,,3000,3,3,2,0,24.01,Sex Manther,Sex Manther,True
+2022,13115,Mitchell Trubisky,QB,BUF,17000,17,9,4,4,59.66,Real Deal Creel,C-Town Chivalry,False
+2022,12752,Kevin Byard,S,CHI,3000,3,3,2,0,24.08,L.A. Looks,L.A. Looks,True
+2022,10266,Cameron Heyward,DT,PIT,3000,3,3,2,0,24.1,L.A. Looks,L.A. Looks,True
+2022,14141,Irv Smith,TE,FA,8000,8,6,4,1,45.89,The Long Haulers,Real Deal Creel,False
+2022,13108,#13108,,,4000,4,4,3,0,24.09,The Long Haulers,The Long Haulers,True
+2022,13354,Harrison Butker,PK,KCC,2000,2,2,0,1,34.98,C-Town Chivalry,L.A. Looks,False
+2022,15368,Evan McPherson,PK,CIN,3000,3,3,2,0,24.2,Pure Greatness,Pure Greatness,True
+2022,15749,Isiah Pacheco,RB,KCC,5000,5,5,2,2,52.97,Blake Bombers,Hawks,False
+2022,14059,Daniel Jones,QB,IND,16000,16,11,10,0,24.01,Blake Bombers,Blake Bombers,True
+2022,12447,Raheem Mostert,RB,LVR,11000,11,9,3,5,49.99,Cleon Ca$h,HammerTime 🔨 ⏰,False
+2022,12611,Jared Goff,QB,DET,15000,15,8,5,2,36.23,Cleon Ca$h,CBP,False
+2022,13680,Hayden Hurst,TE,FA,2000,2,2,1,0,24.43,Gride,Gride,True
+2022,15728,#15728,,,4000,4,4,2,1,43.5,Sex Manther,Blake Bombers,False
+2022,13633,Christian Kirk,WR,HOU,9000,9,6,1,4,50.42,Sex Manther,Gride,False
+2022,13192,David Njoku,TE,CLE,3000,3,3,2,0,24.02,CBP,CBP,True
+2022,11680,Jarvis Landry,WR,FA,4000,4,3,2,0,24.03,CBP,CBP,True
+2022,14112,Parris Campbell,WR,DAL,4000,4,2,0,1,30.51,Real Deal Creel,Blake Bombers,False
+2022,14113,Mecole Hardman,WR,BUF,4000,4,3,2,0,24.03,Real Deal Creel,Real Deal Creel,True
+2022,13696,Roquan Smith,LB,BAL,15000,15,12,5,6,79.27,HammerTime 🔨 ⏰,Cleon Ca$h,False
+2022,10276,#10276,,,4000,4,4,3,0,24.01,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,10768,Lavonte David,LB,TBB,2000,2,2,1,0,24.01,Sex Manther,Sex Manther,True
+2022,10697,Ryan Tannehill,QB,FA,16000,16,9,2,6,74.37,Sex Manther,Hawks,False
+2022,13782,Michael Dickson,PN,SEA,3000,3,2,0,1,24.92,The Long Haulers,Sex Manther,False
+2022,10271,Julio Jones,WR,FA,5000,5,4,1,2,24.85,The Long Haulers,CBP,False
+2022,13156,JuJu Smith-Schuster,WR,KCC,15000,15,5,2,2,26.54,Hawks,Real Deal Creel,False
+2022,12610,Carson Wentz,QB,MIN,17000,17,10,3,6,51.88,Hawks,Cleon Ca$h,False
+2022,11678,Allen Robinson,WR,FA,21000,21,12,8,3,42.84,L.A. Looks,C-Town Chivalry,False
+2022,11757,#11757,,,8000,8,7,2,4,41.67,L.A. Looks,Pure Greatness,False
+2022,11232,DeAndre Hopkins,WR,BAL,32000,32,12,8,3,67.32,Real Deal Creel,CBP,False
+2022,12140,Jameis Winston,QB,NYG,12000,12,5,3,1,24.24,Real Deal Creel,CBP,False
+2022,13138,Kareem Hunt,RB,KCC,22000,22,8,3,4,42.03,Cleon Ca$h,The Long Haulers,False
+2022,13632,Allen Lazard,WR,FA,12000,12,7,6,0,24.0,Cleon Ca$h,Cleon Ca$h,True
+2022,13129,Leonard Fournette,RB,FA,39000,39,9,3,5,65.81,C-Town Chivalry,C-Town Chivalry,True
+2022,13684,Sam Hubbard,DE,FA,3000,3,2,0,1,24.2,C-Town Chivalry,Blake Bombers,False
+2022,11671,Mike Evans,WR,TBB,38000,38,11,5,5,91.48,Gride,Blake Bombers,False
+2022,5848,Tom Brady,QB,FA,66000,66,11,3,7,33.52,Gride,Sex Manther,False
+2022,11228,Robert Woods,WR,FA,13000,13,4,2,1,24.83,CBP,L.A. Looks,False
+2022,11644,Derek Carr,QB,FA,38000,38,9,7,1,25.17,CBP,L.A. Looks,False
+2022,10700,Kirk Cousins,QB,ATL,37000,37,12,8,3,25.48,Pure Greatness,Gride,False
+2022,13146,James Conner,RB,ARI,38000,38,9,8,0,24.01,Blake Bombers,Blake Bombers,True
+2022,13404,Austin Ekeler,RB,WAS,57000,57,9,3,5,28.52,Pure Greatness,C-Town Chivalry,False
+2022,9099,#9099,,,28000,28,10,9,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,14778,Tua Tagovailoa,QB,MIA,29000,29,8,7,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,12176,#12176,,,5000,5,4,0,3,37.56,Blake Bombers,Hawks,False
+2023,12630,#12630,,,4000,4,4,1,2,47.44,Real Deal Creel,CBP,False
+2023,13598,Mike White,QB,CAR,2000,2,2,0,1,25.99,Sex Manther,Real Deal Creel,False
+2023,16380,Deneric Prince,RB,NEP,5000,5,3,1,1,39.33,Real Deal Creel,CBP,False
+2023,16195,Dontayvion Wicks,WR,GBP,2000,2,2,0,1,40.86,Pure Greatness,C-Town Chivalry,False
+2023,13724,#13724,,,4000,4,4,3,0,24.27,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2023,13850,Gus Edwards,RB,FA,4000,4,4,1,2,30.93,Real Deal Creel,HammerTime 🔨 ⏰,False
+2023,14977,K.J. Osborn,WR,ATL,2000,2,2,0,1,36.56,Hawks,C-Town Chivalry,False
+2023,15763,Justyn Ross,WR,FA,15000,15,9,4,4,52.41,Cleon Ca$h,Cleon Ca$h,True
+2023,12616,Jacoby Brissett,QB,ARI,5000,5,4,0,3,41.96,Blake Bombers,C-Town Chivalry,False
+2023,14122,Darius Slayton,WR,NYG,2000,2,2,0,1,31.84,Gride,Hawks,False
+2023,12741,Chris Jones,DT,KCC,2000,2,2,0,1,41.02,Pure Greatness,Blake Bombers,False
+2023,13793,Marquez Valdes-Scantling,WR,PIT,3000,3,3,0,2,33.8,Hawks,Hawks,True
+2023,14168,Devin White,LB,LVR,2000,2,2,1,0,24.79,Cleon Ca$h,Cleon Ca$h,True
+2023,14067,Gardner Minshew,QB,KCC,2000,2,2,0,1,24.32,The Long Haulers,HammerTime 🔨 ⏰,False
+2023,15308,Terrace Marshall,WR,MIA,4000,4,3,2,0,24.08,Sex Manther,Sex Manther,True
+2023,16170,Kenny McIntosh,RB,SEA,4000,4,4,3,0,24.11,Sex Manther,Sex Manther,True
+2023,14907,Grant Delpit,S,CLE,2000,2,2,1,0,24.02,Real Deal Creel,Real Deal Creel,True
+2023,11938,Adam Thielen,WR,FA,4000,4,2,0,1,24.65,CBP,HammerTime 🔨 ⏰,False
+2023,15696,Bailey Zappe,QB,NYJ,2000,2,2,0,1,30.19,Cleon Ca$h,Gride,False
+2023,14896,Patrick Queen,LB,PIT,2000,2,2,0,1,41.28,Cleon Ca$h,Hawks,False
+2023,14218,Bobby Okereke,LB,NYG,2000,2,2,0,1,29.52,Hawks,HammerTime 🔨 ⏰,False
+2023,11228,Robert Woods,WR,FA,3000,3,2,0,1,27.83,CBP,HammerTime 🔨 ⏰,False
+2023,14080,Devin Singletary,RB,NYG,4000,4,4,2,1,46.75,CBP,Gride,False
+2023,14076,Trayveon Williams,RB,CLE,4000,4,4,0,3,49.47,The Long Haulers,Pure Greatness,False
+2023,13134,D'Onta Foreman,RB,FA,12000,12,7,2,4,52.69,Gride,Pure Greatness,False
+2023,12447,Raheem Mostert,RB,LVR,10000,10,10,2,7,71.04,Sex Manther,Blake Bombers,False
+2023,13608,Rashaad Penny,RB,FA,15000,15,9,6,2,49.01,Sex Manther,HammerTime 🔨 ⏰,False
+2023,13251,Budda Baker,S,ARI,2000,2,2,0,1,24.49,C-Town Chivalry,Blake Bombers,False
+2023,14224,Chauncey Gardner-Johnson,S,CHI,4000,4,3,1,1,24.54,Real Deal Creel,Sex Manther,False
+2023,13702,Josey Jewell,LB,FA,2000,2,2,0,1,33.23,Pure Greatness,Blake Bombers,False
+2023,13307,Matt Milano,LB,BUF,2000,2,2,0,1,28.88,Real Deal Creel,The Long Haulers,False
+2023,13952,Frankie Luvu,LB,WAS,4000,4,4,2,1,33.79,Blake Bombers,Pure Greatness,False
+2023,14171,Brian Burns,DE,NYG,5000,5,4,3,0,24.04,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2023,13733,Shaquille Leonard,LB,FA,4000,4,2,0,1,28.53,Blake Bombers,HammerTime 🔨 ⏰,False
+2023,13245,Haason Reddick,DE,TBB,4000,4,2,1,0,24.0,L.A. Looks,L.A. Looks,True
+2023,14630,A.J. Cole,PN,LVR,2000,2,2,0,1,31.95,L.A. Looks,The Long Haulers,False
+2023,14798,Zack Moss,RB,FA,4000,4,4,2,1,35.69,CBP,Real Deal Creel,False
+2023,13680,Hayden Hurst,TE,FA,3000,3,3,1,1,47.41,The Long Haulers,L.A. Looks,False
+2023,11757,#11757,,,5000,5,4,0,3,53.87,The Long Haulers,Cleon Ca$h,False
+2023,14861,Juwan Johnson,TE,NOS,2000,2,2,0,1,31.51,Hawks,Gride,False
+2023,12678,Tyler Higbee,TE,LAR,9000,9,5,2,2,28.11,Hawks,Hawks,True
+2023,11728,C.J. Mosley,LB,FA,3000,3,3,0,2,52.85,Pure Greatness,Pure Greatness,True
+2023,12795,Matt Judon,DE,BUF,2000,2,2,0,1,29.49,Blake Bombers,Hawks,False
+2023,14105,Marquise Brown,WR,KCC,37000,37,15,2,12,101.35,Blake Bombers,Cleon Ca$h,False
+2023,13837,Zaire Franklin,LB,IND,2000,2,2,1,0,24.01,Gride,Gride,True
+2023,13133,Samaje Perine,RB,CIN,2000,2,2,1,0,24.06,Real Deal Creel,Real Deal Creel,True
+2023,10292,Cameron Jordan,DT,NOS,3000,3,2,0,1,48.5,Pure Greatness,Blake Bombers,False
+2023,13139,Jamaal Williams,RB,FA,4000,4,4,2,1,24.37,Sex Manther,HammerTime 🔨 ⏰,False
+2023,10697,Ryan Tannehill,QB,FA,5000,5,2,0,1,39.55,Sex Manther,Blake Bombers,False
+2023,14983,Tyler Bass,PK,BUF,2000,2,2,1,0,24.46,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2023,13713,Minkah Fitzpatrick,S,MIA,4000,4,3,1,1,25.17,Cleon Ca$h,HammerTime 🔨 ⏰,False
+2023,12652,Michael Thomas,WR,FA,6000,6,3,1,1,25.69,L.A. Looks,Hawks,False
+2023,11761,Jerick McKinnon,RB,FA,8000,8,4,0,3,33.71,L.A. Looks,L.A. Looks,True
+2023,10775,Bobby Wagner,LB,WAS,2000,2,2,0,1,46.88,C-Town Chivalry,L.A. Looks,False
+2023,13674,Dallas Goedert,TE,PHI,22000,22,7,2,4,24.93,Pure Greatness,Pure Greatness,True
+2023,13630,Courtland Sutton,WR,DEN,10000,10,7,5,1,48.07,CBP,L.A. Looks,False
+2023,13163,Chris Godwin,WR,TBB,27000,27,12,4,7,74.79,CBP,Gride,False
+2023,11222,Keenan Allen,WR,LAC,28000,28,11,9,1,24.74,Blake Bombers,Pure Greatness,False
+2023,13590,Baker Mayfield,QB,TBB,5000,5,5,2,2,33.17,Hawks,The Long Haulers,False
+2023,14127,Jakobi Meyers,WR,JAC,5000,5,3,0,2,32.69,Hawks,Hawks,True
+2023,13198,Myles Garrett,DE,CLE,13000,13,11,4,6,116.49,Sex Manther,Sex Manther,True
+2023,10976,Justin Tucker,PK,FA,2000,2,2,1,0,24.02,Sex Manther,Sex Manther,True
+2023,14179,Julian Love,S,SEA,4000,4,4,2,1,48.04,Gride,Sex Manther,False
+2023,13131,Joe Mixon,RB,HOU,41000,41,12,6,5,50.07,Gride,HammerTime 🔨 ⏰,False
+2023,7836,Aaron Rodgers,QB,PIT,50000,50,9,6,2,42.3,Real Deal Creel,Cleon Ca$h,False
+2023,13714,Derwin James,S,LAC,9000,9,4,1,2,47.54,HammerTime 🔨 ⏰,Real Deal Creel,False
+2023,13214,T.J. Watt,DE,PIT,8000,8,6,3,2,48.48,HammerTime 🔨 ⏰,Sex Manther,False
+2023,12626,Derrick Henry,RB,BAL,94000,94,30,14,15,144.9,Real Deal Creel,Real Deal Creel,True
+2024,13168,Josh Reynolds,WR,NYJ,3000,3,3,0,2,54.29,The Long Haulers,Sex Manther,False
+2024,15970,Lucas Krull,TE,DEN,2000,2,2,0,1,24.28,Sex Manther,Gride,False
+2024,9064,Joe Flacco,QB,CIN,3000,3,3,0,2,57.91,Real Deal Creel,Gride,False
+2024,14974,Darnell Mooney,WR,ATL,2000,2,2,1,0,28.97,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2024,15257,Trey Sermon,RB,PIT,3000,3,3,1,1,46.18,L.A. Looks,Real Deal Creel,False
+2024,11706,Jadeveon Clowney,DE,DAL,2000,2,2,0,1,26.02,The Long Haulers,Hawks,False
+2024,15693,Sam Howell,QB,PHI,4000,4,3,1,1,24.87,Gride,Sex Manther,False
+2024,16858,Mason Tipton,WR,NOS,3000,3,3,1,1,47.63,Gride,Real Deal Creel,False
+2024,14137,Noah Fant,TE,CIN,4000,4,3,0,2,48.21,Real Deal Creel,Real Deal Creel,True
+2024,14079,Miles Sanders,RB,DAL,3000,3,3,0,2,60.08,The Long Haulers,Hawks,False
+2024,16633,Jordan Whittington,WR,LAR,2000,2,2,0,1,26.28,C-Town Chivalry,The Long Haulers,False
+2024,13154,Mike Williams,WR,FA,3000,3,3,1,1,46.29,Gride,L.A. Looks,False
+2024,14086,Justice Hill,RB,BAL,4000,4,4,2,1,44.54,Gride,Blake Bombers,False
+2024,15752,Treylon Burks,WR,WAS,4000,4,4,1,2,39.61,Blake Bombers,Blake Bombers,True
+2024,13987,Robert Spillane,LB,NEP,2000,2,2,0,1,46.98,Real Deal Creel,L.A. Looks,False
+2024,15263,Elijah Mitchell,RB,NEP,3000,3,2,1,0,24.0,Real Deal Creel,Real Deal Creel,True
+2024,14221,Quincy Williams,LB,NYJ,3000,3,3,1,1,44.18,L.A. Looks,Sex Manther,False
+2024,15972,Jordan Mason,RB,MIN,4000,4,4,3,0,24.04,L.A. Looks,L.A. Looks,True
+2024,14223,Alexander Mattison,RB,MIA,7000,7,7,1,5,64.23,The Long Haulers,Gride,False
+2024,13592,Sam Darnold,QB,SEA,7000,7,6,2,3,67.49,Gride,Cleon Ca$h,False
+2024,16649,Theo Johnson,TE,NYG,5000,5,4,2,1,29.52,HammerTime 🔨 ⏰,Sex Manther,False
+2024,15001,Kamren Curl,S,LAR,2000,2,2,0,1,25.21,HammerTime 🔨 ⏰,Blake Bombers,False
+2024,14803,Clyde Edwards-Helaire,RB,KCC,2000,2,2,0,1,24.84,Blake Bombers,Pure Greatness,False
+2024,14322,T.J. Edwards,LB,CHI,4000,4,4,0,3,52.81,Blake Bombers,CBP,False
+2024,13675,Tyler Conklin,TE,LAC,2000,2,2,1,0,24.45,Pure Greatness,Pure Greatness,True
+2024,14896,Patrick Queen,LB,PIT,2000,2,2,1,0,24.01,Gride,Gride,True
+2024,14995,Josh Metellus,S,MIN,2000,2,2,0,1,30.77,Real Deal Creel,Blake Bombers,False
+2024,10768,Lavonte David,LB,TBB,3000,3,3,1,1,47.38,L.A. Looks,Hawks,False
+2024,14907,Grant Delpit,S,CLE,3000,3,3,0,2,48.12,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2024,15366,Jevon Holland,S,NYG,2000,2,2,0,1,24.21,HammerTime 🔨 ⏰,C-Town Chivalry,False
+2024,14823,Rico Dowdle,RB,CAR,11000,11,9,7,1,30.18,Blake Bombers,L.A. Looks,False
+2024,14590,Azeez Al-Shaair,LB,HOU,2000,2,2,1,0,24.0,C-Town Chivalry,C-Town Chivalry,True
+2024,14179,Julian Love,S,SEA,5000,5,5,0,4,35.27,Cleon Ca$h,Cleon Ca$h,True
+2024,14805,AJ Dillon,RB,PHI,4000,4,4,0,3,51.76,The Long Haulers,Pure Greatness,False
+2024,14928,Logan Wilson,LB,DAL,3000,3,3,0,2,29.38,The Long Haulers,C-Town Chivalry,False
+2024,14800,J.K. Dobbins,RB,DEN,9000,9,7,2,4,70.47,Hawks,Hawks,True
+2024,14852,Antonio Gibson,RB,NEP,2000,2,2,0,1,30.7,Real Deal Creel,Blake Bombers,False
+2024,13172,Noah Brown,WR,WAS,2000,2,2,0,1,47.11,L.A. Looks,Real Deal Creel,False
+2024,16383,Ivan Pace,LB,MIN,2000,2,2,0,1,32.7,L.A. Looks,The Long Haulers,False
+2024,14871,Colby Parkinson,TE,LAR,4000,4,3,2,0,24.05,Sex Manther,Sex Manther,True
+2024,15723,Ty Chandler,RB,MIN,9000,9,5,3,1,46.09,Sex Manther,Real Deal Creel,False
+2024,14412,Alex Singleton,LB,DEN,3000,3,3,2,0,24.1,CBP,CBP,True
+2024,14518,Jalen Thompson,S,ARI,3000,3,3,2,0,24.17,Cleon Ca$h,Cleon Ca$h,True
+2024,11247,Zach Ertz,TE,WAS,4000,4,4,1,2,36.81,Hawks,Hawks,True
+2024,13418,Kendrick Bourne,WR,SFO,2000,2,2,0,1,47.25,Hawks,The Long Haulers,False
+2024,13681,Bradley Chubb,DE,MIA,3000,3,3,1,1,42.8,Gride,L.A. Looks,False
+2024,13133,Samaje Perine,RB,CIN,3000,3,3,1,1,46.91,The Long Haulers,Blake Bombers,False
+2024,13837,Zaire Franklin,LB,IND,4000,4,3,1,1,24.1,C-Town Chivalry,Pure Greatness,False
+2024,12187,Tyler Lockett,WR,LVR,4000,4,3,1,1,38.26,Blake Bombers,Hawks,False
+2024,10775,Bobby Wagner,LB,WAS,2000,2,2,0,1,34.68,Blake Bombers,The Long Haulers,False
+2024,14147,Nick Bosa,DE,SFO,5000,5,5,4,0,24.01,Pure Greatness,Pure Greatness,True
+2024,12625,Ezekiel Elliott,RB,FA,11000,11,9,3,5,48.98,Real Deal Creel,HammerTime 🔨 ⏰,False
+2024,11674,Brandin Cooks,WR,BUF,2000,2,2,1,0,24.04,Real Deal Creel,Real Deal Creel,True
+2024,14218,Bobby Okereke,LB,NYG,4000,4,3,2,0,24.07,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2024,14867,Cole Kmet,TE,CHI,9000,9,9,1,7,73.1,L.A. Looks,L.A. Looks,True
+2024,15261,Chuba Hubbard,RB,CAR,6000,6,6,5,0,24.05,Sex Manther,Sex Manther,True
+2024,14080,Devin Singletary,RB,NYG,21000,21,13,6,6,84.75,The Long Haulers,Gride,False
+2024,14105,Marquise Brown,WR,KCC,8000,8,6,2,3,36.15,Hawks,Hawks,True
+2024,14127,Jakobi Meyers,WR,JAC,4000,4,4,1,2,36.4,Hawks,L.A. Looks,False
+2024,11938,Adam Thielen,WR,FA,3000,3,3,2,0,24.09,CBP,CBP,True
+2024,13146,James Conner,RB,ARI,20000,20,10,7,2,55.78,CBP,Sex Manther,False
+2024,12686,Joey Bosa,DE,BUF,2000,2,2,1,0,24.01,Blake Bombers,Blake Bombers,True
+2024,13404,Austin Ekeler,RB,WAS,16000,16,9,4,4,57.04,Blake Bombers,Pure Greatness,False
+2024,14833,Jerry Jeudy,WR,CLE,3000,3,3,2,0,24.13,Cleon Ca$h,Cleon Ca$h,True
+2024,14148,Montez Sweat,DE,CHI,2000,2,2,1,0,24.35,C-Town Chivalry,C-Town Chivalry,True
+2024,13284,Trey Hendrickson,DE,CIN,3000,3,3,2,0,24.39,C-Town Chivalry,C-Town Chivalry,True
+2024,13696,Roquan Smith,LB,BAL,4000,4,3,1,1,28.84,Pure Greatness,Cleon Ca$h,False
+2024,13198,Myles Garrett,DE,CLE,9000,9,7,4,2,58.62,Pure Greatness,Pure Greatness,True
+2024,14249,Andrew Van Ginkel,DE,MIN,2000,2,2,1,0,26.87,Gride,Gride,True
+2024,13743,Fred Warner,LB,SFO,4000,4,3,1,1,42.93,Gride,Hawks,False
+2024,13813,Foyesade Oluokun,LB,JAC,5000,5,4,2,1,46.19,HammerTime 🔨 ⏰,L.A. Looks,False
+2024,14067,Gardner Minshew,QB,KCC,5000,5,5,1,3,62.22,The Long Haulers,Cleon Ca$h,False
+2024,12616,Jacoby Brissett,QB,ARI,3000,3,2,1,0,24.02,Real Deal Creel,Real Deal Creel,True
+2024,11721,Khalil Mack,DE,LAC,2000,2,2,1,0,24.15,CBP,CBP,True
+2024,11232,DeAndre Hopkins,WR,BAL,11000,11,4,2,1,43.54,CBP,Real Deal Creel,False
+2024,13189,Evan Engram,TE,DEN,13000,13,7,3,3,56.65,Sex Manther,L.A. Looks,False
+2024,11671,Mike Evans,WR,TBB,24000,24,11,3,7,56.98,Sex Manther,Hawks,False
+2024,14085,Tony Pollard,RB,TEN,17000,17,10,4,5,78.84,C-Town Chivalry,C-Town Chivalry,True
+2024,12186,Stefon Diggs,WR,NEP,16000,16,5,1,3,42.23,Pure Greatness,Cleon Ca$h,False
+2024,10703,Russell Wilson,QB,NYG,7000,7,6,3,2,24.33,The Long Haulers,Pure Greatness,False
+2024,13132,Alvin Kamara,RB,NOS,27000,27,17,5,11,92.86,The Long Haulers,CBP,False
+2024,14845,Gabriel Davis,WR,BUF,4000,4,3,2,0,24.01,Real Deal Creel,Real Deal Creel,True
+2024,12447,Raheem Mostert,RB,LVR,20000,20,11,9,1,24.1,Blake Bombers,HammerTime 🔨 ⏰,False
+2024,13319,Aaron Jones,RB,MIN,10000,10,6,4,1,33.89,Blake Bombers,L.A. Looks,False
+2024,11675,Davante Adams,WR,LAR,30000,30,7,5,1,33.78,Cleon Ca$h,Pure Greatness,False
+2024,14909,Antoine Winfield,S,TBB,4000,4,3,2,0,24.03,Gride,Gride,True
+2024,12801,Tyreek Hill,WR,MIA,61000,61,7,4,2,33.69,Cleon Ca$h,Sex Manther,False
+2024,15418,Camryn Bynum,S,IND,3000,3,3,2,0,24.06,Gride,Gride,True
+2025,12447,Raheem Mostert,RB,LVR,2000,2,2,0,1,38.26,Real Deal Creel,Pure Greatness,False
+2025,10413,Tyrod Taylor,QB,NYJ,2000,2,2,1,0,25.17,Sex Manther,Sex Manther,True
+2025,15889,Chigoziem Okonkwo,TE,TEN,2000,2,2,0,1,48.19,L.A. Looks,Real Deal Creel,False
+2025,15292,Dyami Brown,WR,JAC,4000,4,3,1,1,28.89,C-Town Chivalry,Sex Manther,False
+2025,11232,DeAndre Hopkins,WR,BAL,2000,2,2,1,0,24.06,Pure Greatness,Pure Greatness,True
+2025,14167,Josh Hines-Allen,DE,JAC,2000,2,2,0,1,41.92,Cleon Ca$h,L.A. Looks,False
+2025,11222,Keenan Allen,WR,LAC,5000,5,4,1,2,41.55,Gride,Hawks,False
+2025,14910,Brandon Jones,S,DEN,3000,3,2,0,1,24.25,L.A. Looks,Blake Bombers,False
+2025,15319,Joshua Palmer,WR,BUF,2000,2,2,0,1,24.31,Hawks,Real Deal Creel,False
+2025,16175,Roschon Johnson,RB,CHI,4000,4,3,1,1,37.07,Gride,HammerTime 🔨 ⏰,False
+2025,11938,Adam Thielen,WR,FA,4000,4,3,1,1,47.78,CBP,HammerTime 🔨 ⏰,False
+2025,14223,Alexander Mattison,RB,MIA,4000,4,3,2,0,24.01,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2025,14079,Miles Sanders,RB,DAL,2000,2,2,1,0,24.17,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2025,17054,Damien Martinez,RB,GBP,5000,5,5,3,1,39.84,Sex Manther,The Long Haulers,False
+2025,13138,Kareem Hunt,RB,KCC,5000,5,5,2,2,49.17,Pure Greatness,Pure Greatness,True
+2025,12752,Kevin Byard,S,CHI,4000,4,3,1,1,39.85,Real Deal Creel,Blake Bombers,False
+2025,15869,Terrel Bernard,LB,BUF,2000,2,2,0,1,33.26,Real Deal Creel,Blake Bombers,False
+2025,15404,Ernest Jones,LB,SEA,4000,4,4,1,2,33.6,Cleon Ca$h,Cleon Ca$h,True
+2025,14221,Quincy Williams,LB,NYJ,4000,4,4,1,2,40.7,Cleon Ca$h,Cleon Ca$h,True
+2025,17099,Oronde Gadsden,TE,LAC,4000,4,4,0,3,38.41,Blake Bombers,Sex Manther,False
+2025,14251,Blake Cashman,LB,MIN,2000,2,2,1,0,24.02,L.A. Looks,L.A. Looks,True
+2025,14823,Rico Dowdle,RB,CAR,4000,4,3,2,0,24.04,L.A. Looks,L.A. Looks,True
+2025,16269,Brenton Strange,TE,JAC,2000,2,2,1,0,24.04,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2025,14927,Jeremy Chinn,S,LVR,2000,2,2,1,0,24.1,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2025,13284,Trey Hendrickson,DE,CIN,3000,3,3,2,0,24.06,Blake Bombers,Blake Bombers,True
+2025,13737,Jessie Bates,S,ATL,2000,2,2,1,0,24.0,Real Deal Creel,Real Deal Creel,True
+2025,12860,Ka'imi Fairbairn,PK,HOU,2000,2,2,0,1,36.64,The Long Haulers,Pure Greatness,False
+2025,13714,Derwin James,S,LAC,4000,4,4,1,2,26.18,Pure Greatness,Pure Greatness,True
+2025,15293,Rashod Bateman,WR,BAL,5000,5,3,1,1,47.17,L.A. Looks,HammerTime 🔨 ⏰,False
+2025,13251,Budda Baker,S,ARI,4000,4,3,0,2,27.62,L.A. Looks,Sex Manther,False
+2025,9064,Joe Flacco,QB,CIN,6000,6,3,0,2,47.61,Sex Manther,The Long Haulers,False
+2025,13193,Jonnu Smith,TE,PIT,6000,6,5,3,1,25.99,Hawks,HammerTime 🔨 ⏰,False
+2025,15713,Jerome Ford,RB,CLE,6000,6,4,3,0,24.0,Sex Manther,Sex Manther,True
+2025,12676,Hunter Henry,TE,NEP,2000,2,2,1,0,24.21,Cleon Ca$h,Cleon Ca$h,True
+2025,15861,Nik Bonitto,DE,DEN,4000,4,4,1,2,59.82,C-Town Chivalry,Sex Manther,False
+2025,15428,Jamien Sherwood,LB,NYJ,3000,3,3,1,1,38.18,C-Town Chivalry,Pure Greatness,False
+2025,17241,Jeremy Crawshaw,PN,DEN,2000,2,2,0,1,24.96,Real Deal Creel,Blake Bombers,False
+2025,14892,Jordyn Brooks,LB,MIA,4000,4,4,1,2,42.04,The Long Haulers,The Long Haulers,True
+2025,13987,Robert Spillane,LB,NEP,4000,4,4,1,2,42.24,The Long Haulers,The Long Haulers,True
+2025,14840,Brandon Aiyuk,WR,SFO,11000,11,7,1,5,34.84,Pure Greatness,Pure Greatness,True
+2025,14412,Alex Singleton,LB,DEN,2000,2,2,1,0,24.11,Pure Greatness,Pure Greatness,True
+2025,15254,Najee Harris,RB,LAC,13000,13,8,5,2,47.62,Cleon Ca$h,The Long Haulers,False
+2025,13610,Nick Chubb,RB,HOU,3000,3,3,1,1,41.51,Blake Bombers,Real Deal Creel,False
+2025,14225,Maxx Crosby,DE,LVR,10000,10,5,3,1,30.48,Blake Bombers,Cleon Ca$h,False
+2025,15835,Jaquan Brisker,S,CHI,2000,2,2,1,0,24.01,Sex Manther,Sex Manther,True
+2025,14882,Jonathan Greenard,DE,MIN,2000,2,2,1,0,24.06,L.A. Looks,L.A. Looks,True
+2025,13674,Dallas Goedert,TE,PHI,7000,7,5,4,0,24.01,L.A. Looks,L.A. Looks,True
+2025,14136,Deebo Samuel,WR,WAS,8000,8,5,2,2,29.46,CBP,Gride,False
+2025,14109,Terry McLaurin,WR,WAS,19000,19,5,3,1,26.28,CBP,Blake Bombers,False
+2025,7836,Aaron Rodgers,QB,PIT,7000,7,4,2,1,33.46,CBP,Pure Greatness,False
+2025,14179,Julian Love,S,SEA,2000,2,2,1,0,24.02,CBP,CBP,True
+2025,13813,Foyesade Oluokun,LB,JAC,2000,2,2,1,0,24.0,C-Town Chivalry,C-Town Chivalry,True
+2025,16178,Keaton Mitchell,RB,BAL,2000,2,2,1,0,24.01,The Long Haulers,The Long Haulers,True
+2025,13633,Christian Kirk,WR,HOU,2000,2,2,1,0,24.01,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2025,16414,Brandon Aubrey,PK,DAL,2000,2,2,0,1,25.84,Real Deal Creel,L.A. Looks,False
+2025,15346,Gregory Rousseau,DE,BUF,3000,3,3,0,2,47.03,Real Deal Creel,HammerTime 🔨 ⏰,False
+2025,14218,Bobby Okereke,LB,NYG,2000,2,2,1,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2025,13869,Corey Bojorquez,PN,CLE,2000,2,2,0,1,26.64,Pure Greatness,L.A. Looks,False
+2025,9431,Matthew Stafford,QB,LAR,18000,18,7,3,3,36.11,Pure Greatness,L.A. Looks,False
+2025,13837,Zaire Franklin,LB,IND,5000,5,4,2,1,42.44,Gride,HammerTime 🔨 ⏰,False
+2025,13192,David Njoku,TE,CLE,27000,27,12,3,8,106.35,Blake Bombers,Gride,False
+2025,16280,Daiyan Henley,LB,LAC,2000,2,2,1,0,24.01,Blake Bombers,Blake Bombers,True
+2025,13635,D.J. Moore,WR,CHI,21000,21,8,6,1,41.18,L.A. Looks,Gride,False
+2025,15261,Chuba Hubbard,RB,CAR,37000,37,13,8,4,82.66,L.A. Looks,Real Deal Creel,False
+2025,15839,Nick Cross,S,IND,3000,3,3,1,1,25.11,Sex Manther,Pure Greatness,False
+2025,13404,Austin Ekeler,RB,WAS,8000,8,2,1,0,24.0,Real Deal Creel,Real Deal Creel,True
+2025,14071,David Montgomery,RB,DET,20000,20,6,2,3,52.95,Real Deal Creel,L.A. Looks,False
+2025,11150,Geno Smith,QB,LVR,15000,15,4,2,1,25.67,Pure Greatness,HammerTime 🔨 ⏰,False
+2025,13163,Chris Godwin,WR,TBB,10000,10,6,5,0,24.01,Blake Bombers,Blake Bombers,True
+2025,12186,Stefon Diggs,WR,NEP,20000,20,11,4,6,75.59,Hawks,L.A. Looks,False
+2025,15253,Travis Etienne,RB,JAC,17000,17,8,4,3,78.89,Gride,Gride,True
+2025,13592,Sam Darnold,QB,SEA,18000,18,8,7,0,24.04,Gride,Gride,True
+2025,13590,Baker Mayfield,QB,TBB,31000,31,7,4,2,24.43,Pure Greatness,Pure Greatness,True
+2025,13130,Christian McCaffrey,RB,SFO,56000,56,11,3,7,43.47,Cleon Ca$h,Pure Greatness,False
+2025,14797,D'Andre Swift,RB,CHI,23000,23,7,3,3,47.79,The Long Haulers,Blake Bombers,False
+2025,13164,Cooper Kupp,WR,SEA,9000,9,4,3,0,24.01,The Long Haulers,The Long Haulers,True
+2025,14928,Logan Wilson,LB,DAL,2000,2,2,1,0,24.01,C-Town Chivalry,C-Town Chivalry,True
+2025,11244,Travis Kelce,TE,KCC,21000,21,14,5,8,123.32,C-Town Chivalry,Pure Greatness,False
+2025,13299,George Kittle,TE,SFO,29000,29,8,4,3,27.66,HammerTime 🔨 ⏰,Sex Manther,False
+2025,14779,Justin Herbert,QB,LAC,51000,51,5,2,2,24.31,HammerTime 🔨 ⏰,Cleon Ca$h,False
+2025,15698,Brock Purdy,QB,SFO,28000,28,4,3,0,24.0,Blake Bombers,Blake Bombers,True
