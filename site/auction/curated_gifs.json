@@ -1,122 +1,246 @@
 {
-  "version": "2.0",
-  "updated": "2026-05-20",
-  "description": "v5 — pool-based curated GIFs with anti-stale rotation, position-percentile triggers, and composite overlays for headline-tier wins. Based on docs/auction/analysis_v5_canon_aware.md. Worker evaluates scenarios in order; first scenario whose trigger matches AND survives probability_pct picks a GIF from its pool_id (rotated to avoid last 3 used).",
+  "version": "3.0",
+  "updated": "2026-05-21",
+  "description": "v6 — story-driven pools per Keith's framework. Pools map to actual auction-room stories (routine forced, high tension, late overtake/takeback, day-2 extender, Hawks mocking, franchise-pair rivalries) instead of generic emotion buckets. Worker evaluates scenarios in order; first scenario whose trigger matches AND survives probability_pct picks a GIF from its pool_id (rotated to avoid last 3 used).",
 
-  "schema_v2_notes": {
-    "pools": "Named GIF buckets. Scenarios reference pools by id. A pool can be shared by multiple scenarios. Each entry: { url, label?, weight? }. Worker rotates: picks from (pool.gifs - last_3_used). Empty pools = scenario falls through to Giphy fallback.",
-    "scenarios": "Ordered priority list. Worker evaluates top-down; first scenario whose trigger matches AND survives probability_pct wins. Fields:",
+  "schema_notes": {
+    "pools": "Named GIF buckets. Scenarios reference pools by id. A pool can be shared by multiple scenarios. Each entry: { url, label?, weight? }. Worker rotates: picks from (pool.gifs - last_3_used). Empty pools = scenario falls through to next scenario / Giphy fallback.",
+    "scenarios": "Ordered priority list. Worker evaluates top-down; first scenario whose trigger matches AND survives probability_pct wins.",
     "trigger_fields": {
       "event_kind": "nom | forced_increase | overtake | won",
       "min_win_k / max_win_k": "Bid amount range in $K",
       "min_total_bids / max_total_bids": "Lot bid count",
-      "min_forced / min_overtakes": "Bid-type counts",
-      "position": "Exact position string (QB/RB/WR/TE/LB/S/CB/DT/DE/PK/PN)",
-      "min_position_percentile": "0-100; win_k must be ≥ the player's position p[N] from POS_P90 constants in worker",
-      "by_commish": "true/false event flag",
-      "duration_hours_min / duration_hours_max": "Open-lot duration thresholds (for live mid-auction triggers)"
+      "min_forced / min_overtakes": "Bid-type counts on lot",
+      "position": "Exact position string",
+      "min_position_percentile": "0-100; win_k must be ≥ POS_P90[position]",
+      "duration_hours_min / duration_hours_max": "Open-lot duration thresholds",
+      "extends_past_day_2": "true if duration_hours >= 48 (day-2+ extender)",
+      "self_nominated": "true if nominator_fid == winner_fid",
+      "actor_franchise_id": "Single franchise id (4-digit) — actor of this event must match. Use for franchise-specific (Hawks)",
+      "target_franchise_id": "Single franchise id — the franchise whose lead is being affected (overtake target for overtakes, prior leader for forced increases). Use for rivalry pairs",
+      "is_takeback": "true if actor previously held the lead on this lot and is now reclaiming it after losing it",
+      "is_late_in_lot": "true if minutes_to_close <= time_to_close_max_minutes (default 60)",
+      "time_to_close_max_minutes": "Override for is_late_in_lot threshold (default 60)",
+      "min_same_fid_consecutive": "Last N bids on lot are all from actor_fid"
     },
-    "overlay_pool_id": "Optional. If present, fires a SECOND GIF from this pool composed alongside the main pool's GIF. Used for headline+all-time tier where one player-celebration + one shock GIF land together.",
-    "rotation": "Worker tracks last 3 GIFs picked from each pool in module-scope Map. Same GIF can't fire 3 times in a row. Resets on worker cold-start (~hourly in practice — fine for an auction)."
+    "overlay_pool_id": "Optional second GIF stacked on the first — used for headline+all-time tier",
+    "rotation": "Module-scope Map<pool_id, [last_3_urls]>. Resets on worker cold-start."
+  },
+
+  "_franchise_map": {
+    "0001": "L.A. Looks",
+    "0002": "CBP",
+    "0003": "Gride",
+    "0004": "Pure Greatness",
+    "0005": "HammerTime (Eric Martel)",
+    "0006": "The Long Haulers (Cross)",
+    "0007": "Sex Manther (Josh Martel)",
+    "0008": "Real Deal Creel",
+    "0009": "C-Town Chivalry",
+    "0010": "Blake Bombers",
+    "0011": "Cleon Ca$h",
+    "0012": "Hawks",
+    "_note": "Display-only reference for scenario authors. Worker reads franchise ids from D1, not this block."
   },
 
   "pools": {
-    "shrug": {
-      "label": "Routine cap-free wins ($2-$4K) — minimal hype, fire ~20% of the time",
-      "TODO": "Populate with 6+ casual 'shrug' / 'whatever' / 'sure why not' GIFs. Search Giphy: 'shrug emoji', 'meh whatever', 'thumbs up casual', 'sure why not'",
+
+    "routine_forced": {
+      "label": "Routine $2-4K forced increase — cap-free zone, low stakes; fire ~35% (Keith's gold standard)",
+      "TODO": "Keith asked for 5 more from me on top of his 4 unique URLs below — add when sourced.",
+      "gifs": [
+        { "url": "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExbzN4ajl3OW1qdWp6eXZ2cmtxYnpsdThzenBjamJwZ3B0dm5jZGxjMSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/fXy3Bc6HAtlsFIlHqA/200.webp", "label": "Keith routine 1" },
+        { "url": "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExbzN4ajl3OW1qdWp6eXZ2cmtxYnpsdThzenBjamJwZ3B0dm5jZGxjMSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/qN8mwUPAt7gByge3W1/giphy.webp", "label": "Keith routine 2" },
+        { "url": "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExbzN4ajl3OW1qdWp6eXZ2cmtxYnpsdThzenBjamJwZ3B0dm5jZGxjMSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/ogb8RQdu8zQyc/200.webp", "label": "Keith routine 3" },
+        { "url": "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExbzN4ajl3OW1qdWp6eXZ2cmtxYnpsdThzenBjamJwZ3B0dm5jZGxjMSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/ma7VlDSlty3EA/200.webp", "label": "Keith routine 4" }
+      ]
+    },
+
+    "high_tension": {
+      "label": "High-tension burst: 3+ bids in last 30min OR 4+ same-fid forces in a row OR forced in final 60min — escalation incoming",
+      "TODO": "Keith asked for 2-3 more on top of his 4 below.",
+      "gifs": [
+        { "url": "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExZXhtb24zaXg3d2c2M3VvejhmdG9kbjQ0MDhncDJ4M3Vnb2FtanMzNyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/iCZsw1NeyY5vw8zFIX/giphy.webp", "label": "Keith tension 1" },
+        { "url": "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExNDZkb2drY2tldG9lN21qbzZuN2Z4ZDc4ZzRwb3o4NGNlMm96cnRzMyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/KeQMKwCli3mf3nJFyt/giphy.webp", "label": "Keith tension 2" },
+        { "url": "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExNDZkb2drY2tldG9lN21qbzZuN2Z4ZDc4ZzRwb3o4NGNlMm96cnRzMyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/dJVBCPzpaCBCknenuz/200.webp", "label": "Keith tension 3" },
+        { "url": "https://media3.giphy.com/media/v1.Y2lkPTZjMDliOTUyeHc1bjdhbnZsZGVxdThjeGhibGcxbm9taGIyYnZwbDFxeW1iZXFhNyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xT39DkkGBwez9AXHX2/200w.gif", "label": "Keith tension 4" }
+      ]
+    },
+
+    "late_overtake": {
+      "label": "Late overtake — overtake within final 60min of auto-close. 'You wait until now?'",
+      "TODO": "Pool seeded from Keith's full overtake/takeback batch (the 'I'm back' Tenor URL was pulled out to live in 'takeback' only).",
+      "gifs": [
+        { "url": "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDd6YjZyZWdlM2tncmx0am10NmJqdWo1M3VoeTBnNWtjd3ByaWZ6MyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/KiICaQKQkdu3rWxNCT/200.webp", "label": "Keith late overtake 1" },
+        { "url": "https://media.giphy.com/media/dasgM88oeWjUOGz7dM/giphy.gif", "label": "Keith late overtake 2 (normalized from browser URL)" },
+        { "url": "https://media.giphy.com/media/Mn5OtjObl5U4hH1ovF/giphy.gif", "label": "Keith Wayne fuckit (normalized from browser URL)" },
+        { "url": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg0Euh8lirgrN8JWH-Vu3fZj1_Q9jLZkepMwLMhtjGVUHevDq5E0UMmAOJAERvzrurmi9-hvXwUc72zcDg3FhBF3nByAqOOULC-4ZJ9IbQXZ3aRGThdtnanBiU-6GI4NJHM4R-M/s1600/herecomesthepizza.gif", "label": "Keith here comes the pizza" },
+        { "url": "https://media.tenor.com/HI9_Kly6SUQAAAAM/when-harry-met-sally-tissue.gif", "label": "Keith When Harry Met Sally tissue" },
+        { "url": "https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyd2ZzdDV4OTU1Y3ZsNzFlNXBzbDA2ZGo0aHZ2dHUwZjBnaGlkeXZieCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/fSpS6RSNgfg0BdFFnr/source.gif", "label": "Keith late overtake 6" },
+        { "url": "https://media.tenor.com/nDYXEIm28ZwAAAAM/balloons-eat-a-bag-of-d-icks.gif", "label": "Keith balloons eat a bag" },
+        { "url": "https://i.imgur.com/JOBa8bR.gif", "label": "Keith imgur late overtake" },
+        { "url": "https://i.redd.it/ymy3jzz4nso81.gif", "label": "Keith reddit late overtake" }
+      ]
+    },
+
+    "takeback": {
+      "label": "Actor reclaims the lead after losing it earlier on the same lot — 'I'm back' energy",
+      "TODO": "Per Keith: this single URL is takeback-ONLY (do not duplicate into late_overtake). Add more 'I'm back' / 'we're back' GIFs over time.",
+      "gifs": [
+        { "url": "https://media.tenor.com/LKh5OdPVawYAAAAM/im-back-i-am-back.gif", "label": "I'm back (Keith: TAKEBACKS ONLY)" }
+      ]
+    },
+
+    "random_spice": {
+      "label": "Random 5-10% spice on non-headline events (forced/overtake) — keeps the feed from feeling deterministic",
+      "TODO": "Seed from Keith's URL — add 2-3 more weird one-offs over time.",
+      "gifs": [
+        { "url": "https://media.tenor.com/qP6euyl6XzMAAAAM/takethatdick-you-gon-take-that-dick.gif", "label": "Keith take that" }
+      ]
+    },
+
+    "day_2_extender": {
+      "label": "Lot extends past 48hr (still bidding well after Day 1) — 'this lot has legs'",
+      "TODO": "Keith asked for 2-3 more on top of these 2.",
+      "gifs": [
+        { "url": "https://media.tenor.com/Op_0qT8RY0sAAAAM/willy-wonka-mr-salt.gif", "label": "Keith Willy Wonka Mr Salt" },
+        { "url": "https://media.tenor.com/pqmLpLF8Q4cAAAAM/youve-gotta-be-kidding-me-don-pauly.gif", "label": "Keith you've gotta be kidding me" }
+      ]
+    },
+
+    "hawks_mock": {
+      "label": "Hawks (F0012) nomination OR win — mock the perennial Hawktuah Bowl participant. 35% rate.",
+      "TODO": "All 5 from Keith — solid set already.",
+      "gifs": [
+        { "url": "https://media.tenor.com/ilWqjZ42fJYAAAAM/i-got-second-place-shubham-goel.gif", "label": "I got second place" },
+        { "url": "https://media.tenor.com/Twp3GsrGEYIAAAAM/hows-it-feel-to-almost-win-loser.gif", "label": "How's it feel to almost win loser" },
+        { "url": "https://i.imgflip.com/yrr61.gif", "label": "Imgflip Hawks meme" },
+        { "url": "https://media.tenor.com/Qb9joPYFknEAAAAM/well-excuse-me-for-trying-to-have-a-life-trying-hard.gif", "label": "Well excuse me for trying" },
+        { "url": "https://media4.giphy.com/media/v1.Y2lkPTZjMDliOTUyem1waHd4eGttNG8yZTBzenBxcHJmZjBoOHQ5ZmY1aGRiMGc3OTk5ayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o7budiu4mBEAccttC/source.gif", "label": "Keith Hawks 5" }
+      ]
+    },
+
+    "longhaulers_vs_martel_rashee_rice": {
+      "label": "Long Haulers (F0006) overtakes OR forces a significant bid on Sex Manther / Josh Martel (F0007) — Rashee Rice GIFs",
+      "TODO": "Keith specified 'Rashee Rice GIFs' as the visual but didn't paste a URL. Source 2-3 Rashee Rice celebration / touchdown GIFs.",
       "gifs": []
     },
-    "nice_grab": {
-      "label": "Solid wins ($5-$9K) — modest celebration",
-      "TODO": "6+ low-key positive GIFs. Search: 'nice grab nfl', 'good pick reaction', 'small smile nod', 'i'll take it'",
-      "gifs": []
+
+    "longhaulers_late_expensive": {
+      "label": "Long Haulers (F0006) late + expensive overtake on Sex Manther / Josh Martel — Home Alone tier",
+      "TODO": "Add 1-2 more Home Alone GIFs for rotation.",
+      "gifs": [
+        { "url": "https://www.reactiongifs.us/wp-content/uploads/2014/11/not_afraid_anymore_home_alone.gif", "label": "Keith Home Alone — not afraid anymore" }
+      ]
     },
-    "ooh": {
-      "label": "Notable wins ($10-$17K mid-commit OR ≥p75 position-relative) — 'ooh' / 'interesting'",
-      "TODO": "6+ 'ooh' / 'eyebrow raise' / 'interesting' GIFs. Search: 'ooh reaction', 'eyebrow raise', 'pleasantly surprised', 'oh nice'",
-      "gifs": []
+
+    "hammertime_vs_creel_trey_mcbride": {
+      "label": "HammerTime (F0005) forces a bid up on Real Deal Creel (F0008) — Trey McBride GIFs",
+      "TODO": "Source 2-3 more Trey McBride GIFs for rotation.",
+      "gifs": [
+        { "url": "https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUya3pzZzN5Nzh3ZTh3NWw5aG85Zm05OGp2aHU3Nzdpa3puZ3BoMmhvbyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l1J9wKizQOn7ifyow/giphy.gif", "label": "Keith Trey McBride 1" }
+      ]
     },
-    "respect": {
-      "label": "Rare-for-position wins (≥p90 positional, even if absolute $ is small) — 'respect the move'",
-      "TODO": "6+ respectful / nod-of-approval GIFs. Search: 'respect reaction', 'tip hat', 'salute reaction', 'fair play nod', 'gotta respect that'",
-      "gifs": []
-    },
+
     "shock": {
       "label": "Marquee wins ($30-$50K) — full-on shock + celebration",
-      "TODO": "6+ shocked / 'wow' / mind-blown GIFs. Search: 'mind blown', 'jaw drop reaction', 'wow no way', 'cant believe it', 'holy moly'",
+      "TODO": "6+ shocked / 'wow' / mind-blown GIFs. Search: 'mind blown', 'jaw drop reaction', 'wow no way', 'holy moly'",
       "gifs": []
     },
+
     "all_time": {
-      "label": "Headline wins ($50-$60K) — 'all-time' tier reaction",
-      "TODO": "6+ 'legendary' / 'all-time' / 'this is the one' GIFs. Search: 'goat reaction', 'legendary moment', 'one for the ages', 'this is huge', 'historic moment'",
+      "label": "Headline wins ($50-$60K) — 'all-time' tier",
+      "TODO": "6+ 'legendary' / 'all-time' GIFs. Search: 'goat reaction', 'legendary moment', 'one for the ages'",
       "gifs": []
     },
+
     "legendary": {
-      "label": "All-time wins ($60K+) — Henry $94K-tier — composite overlay on top of all_time",
-      "TODO": "6+ 'breaking news' / 'STOP THE PRESSES' GIFs for the 4-lots-per-7-years tier. Search: 'breaking news', 'stop everything', 'CALL YOUR FAMILY', 'this is biblical', 'we got to slow it down'",
+      "label": "All-time wins ($60K+) — composite overlay on top of all_time",
+      "TODO": "6+ 'breaking news' / 'STOP THE PRESSES' GIFs. Search: 'breaking news', 'stop everything', 'this is biblical'",
       "gifs": []
     },
-    "rare_lb": {
-      "label": "Top-10% LB win (≥$5K) — LB rarely gets real money",
-      "TODO": "6+ defense-themed celebration GIFs. Search: 'defense celebrate', 'linebacker sack', 'big hit reaction', 'defensive stand'",
+
+    "respect": {
+      "label": "Rare-for-position wins (≥p90 positional, even if absolute $ is small) — 'respect the move'",
+      "TODO": "6+ respectful / nod-of-approval GIFs. Search: 'respect reaction', 'tip hat', 'salute', 'fair play nod'",
       "gifs": []
     },
-    "rare_db": {
-      "label": "Top-10% S/CB/DB win (≥$4-$5K) — DBs rarely get real money",
-      "TODO": "6+ defensive-back themed GIFs. Search: 'cornerback interception', 'safety big hit', 'pick six', 'defensive back celebrate'",
-      "gifs": []
-    },
+
     "k_meme": {
-      "label": "K nomination — universal kicker comedy",
-      "TODO": "6+ kicker memes. Search: 'kicker miss field goal', 'kicker shank', 'kicker celebrate', 'kicking the ball wide', 'football kicker meme'",
+      "label": "K / PK nomination — universal kicker comedy",
+      "TODO": "6+ kicker memes. Search: 'kicker miss', 'kicker shank', 'wide right'",
       "gifs": []
     },
+
     "pn_meme": {
-      "label": "PN nomination — even rarer than K, more comedic",
-      "TODO": "6+ punter memes (rare position = rarer meme set). Search: 'punter punt', 'punter shank', 'football punter funny', 'punt return'",
+      "label": "PN (punter) nomination — even rarer comedy",
+      "TODO": "6+ punter memes. Search: 'punter punt', 'football punter funny'",
       "gifs": []
     },
-    "eye_roll": {
-      "label": "Forced Increase — annoyed reaction (MFL walked the leader's proxy)",
-      "TODO": "6+ eye-roll / ugh / facepalm GIFs. Search: 'eye roll reaction', 'facepalm reaction', 'ugh whatever', 'sigh reaction', 'oh come on'",
-      "gifs": []
-    },
-    "come_on_man": {
-      "label": "Overtake — 'come on man' / 'you took MY player'",
-      "TODO": "6+ frustrated-but-funny reaction GIFs. Search: 'come on man', 'are you kidding me', 'really reaction', 'oh stop', 'no way'",
-      "gifs": []
-    },
-    "kill_shot": {
-      "label": "Overtake that ends a ≥5-bid lot — decisive moment",
-      "TODO": "6+ 'mic drop' / kill-shot GIFs. Search: 'mic drop', 'walk away cool', 'thats how its done', 'boom done', 'finishing move'",
-      "gifs": []
-    },
-    "proxy_grind": {
-      "label": "Proxy-grind detected (F:O ≥ 2 AND ≥6 bids while OPEN) — machines fighting machines",
-      "TODO": "6+ robot / machine / automated GIFs. Search: 'robot vs robot', 'machine grind', 'automated fight', 'computer thinking', 'beep boop'",
-      "gifs": []
-    },
-    "active_war": {
-      "label": "Active-overtake war detected (F:O ≤ 0.5 AND ≥8 bids while OPEN) — humans clicking",
-      "TODO": "6+ epic-battle GIFs. Search: 'rocky training', 'epic battle', 'gladiator fight', 'sports fans going crazy', 'crowd erupts'",
-      "gifs": []
-    },
-    "floor_close": {
-      "label": "Won at 24h with exactly 2 bids — 'scared off after first ping' (use sparingly, 17.6% of lots)",
-      "TODO": "6+ 'easy money' / 'too easy' GIFs. Search: 'too easy reaction', 'easy money', 'thats it', 'free real estate'",
-      "gifs": []
-    },
+
     "self_nom_marquee": {
       "label": "Self-nominated win ≥$10K — 'called the shot, got him'",
-      "TODO": "6+ called-shot / babe-ruth-pointing GIFs. Search: 'babe ruth called shot', 'called it', 'i told you so', 'thats what i said'",
+      "TODO": "6+ called-shot / babe-ruth-pointing GIFs. Search: 'babe ruth called shot', 'called it', 'i told you so'",
       "gifs": []
     }
   },
 
   "scenarios": [
     {
+      "id": "pair_longhaulers_late_expensive_on_martel",
+      "label": "Long Haulers (0006) late + expensive overtake on Sex Manther / Josh Martel (0007) — Home Alone",
+      "trigger": {
+        "event_kind": "overtake",
+        "actor_franchise_id": "0006",
+        "target_franchise_id": "0007",
+        "is_late_in_lot": true,
+        "min_win_k": 10
+      },
+      "probability_pct": 100,
+      "pool_id": "longhaulers_late_expensive",
+      "player_specific": false
+    },
+    {
+      "id": "pair_longhaulers_vs_martel",
+      "label": "Long Haulers (0006) overtakes OR significant force on Martel (0007) — Rashee Rice",
+      "trigger": {
+        "event_kind": "overtake",
+        "actor_franchise_id": "0006",
+        "target_franchise_id": "0007"
+      },
+      "probability_pct": 100,
+      "pool_id": "longhaulers_vs_martel_rashee_rice",
+      "player_specific": false
+    },
+    {
+      "id": "pair_longhaulers_vs_martel_forced",
+      "label": "Long Haulers (0006) significant force bid on Martel (0007) ≥$5K — Rashee Rice",
+      "trigger": {
+        "event_kind": "forced_increase",
+        "actor_franchise_id": "0006",
+        "target_franchise_id": "0007",
+        "min_win_k": 5
+      },
+      "probability_pct": 100,
+      "pool_id": "longhaulers_vs_martel_rashee_rice",
+      "player_specific": false
+    },
+    {
+      "id": "pair_hammertime_vs_creel",
+      "label": "HammerTime (0005) force-bumps Real Deal Creel (0008) — Trey McBride",
+      "trigger": {
+        "event_kind": "forced_increase",
+        "actor_franchise_id": "0005",
+        "target_franchise_id": "0008"
+      },
+      "probability_pct": 100,
+      "pool_id": "hammertime_vs_creel_trey_mcbride",
+      "player_specific": false
+    },
+
+    {
       "id": "won_all_time",
-      "label": "$60K+ — all-time tier (4 in 7yr; Henry $94K, #9988 $79K, Brady $66K, Hill $61K)",
+      "label": "$60K+ all-time tier — composite (all_time + legendary)",
       "trigger": { "event_kind": "won", "min_win_k": 60 },
       "probability_pct": 100,
       "pool_id": "all_time",
@@ -125,7 +249,7 @@
     },
     {
       "id": "won_headline",
-      "label": "$50-$59K — headline tier",
+      "label": "$50-$59K headline tier",
       "trigger": { "event_kind": "won", "min_win_k": 50, "max_win_k": 59 },
       "probability_pct": 100,
       "pool_id": "all_time",
@@ -133,17 +257,9 @@
     },
     {
       "id": "won_marquee",
-      "label": "$30-$49K — marquee tier (real headlines start here, per v5 analysis)",
+      "label": "$30-$49K marquee — real headlines start here",
       "trigger": { "event_kind": "won", "min_win_k": 30, "max_win_k": 49 },
       "probability_pct": 100,
-      "pool_id": "shock",
-      "player_specific": true
-    },
-    {
-      "id": "won_top_tier",
-      "label": "$23-$29K — top-tier asset",
-      "trigger": { "event_kind": "won", "min_win_k": 23, "max_win_k": 29 },
-      "probability_pct": 90,
       "pool_id": "shock",
       "player_specific": true
     },
@@ -156,67 +272,97 @@
       "player_specific": false
     },
     {
-      "id": "won_real_money",
-      "label": "$10-$22K — real money tier",
-      "trigger": { "event_kind": "won", "min_win_k": 10, "max_win_k": 22 },
-      "probability_pct": 85,
-      "pool_id": "ooh",
-      "player_specific_pct": 70
-    },
-    {
-      "id": "won_solid",
-      "label": "$5-$9K — solid commit",
-      "trigger": { "event_kind": "won", "min_win_k": 5, "max_win_k": 9 },
-      "probability_pct": 70,
-      "pool_id": "nice_grab",
-      "player_specific_pct": 50
-    },
-    {
-      "id": "won_routine_floor",
-      "label": "Won at 24h with exactly 2 bids — floor close (17.6% of lots; subtle)",
-      "trigger": { "event_kind": "won", "max_total_bids": 2, "duration_hours_max": 24.5 },
-      "probability_pct": 30,
-      "pool_id": "floor_close",
-      "player_specific": false
-    },
-    {
-      "id": "won_routine",
-      "label": "$2-$4K cap-free zone (60% of contested wins) — minimal hype",
-      "trigger": { "event_kind": "won", "max_win_k": 4 },
-      "probability_pct": 20,
-      "pool_id": "shrug",
-      "player_specific": false
-    },
-
-    {
       "id": "self_nom_marquee_win",
-      "label": "Self-nominated win ≥$10K — Cleon-style 'called the shot' (Henry/Herbert nom-and-win)",
+      "label": "Self-nominated win ≥$10K — Cleon-style called shot",
       "trigger": { "event_kind": "won", "min_win_k": 10, "self_nominated": true },
       "probability_pct": 100,
       "pool_id": "self_nom_marquee",
-      "player_specific": true,
-      "_note": "Worker computes self_nominated by comparing nominator_fid == winner_fid"
+      "player_specific": true
     },
 
     {
-      "id": "nom_qb_marquee",
-      "label": "QB nomination opening $20K+ (e.g., Cleon's $51K Herbert)",
-      "trigger": { "event_kind": "nom", "position": "QB", "min_win_k": 20 },
+      "id": "hawks_mock_nom_or_win",
+      "label": "Hawks (0012) nomination OR win — mock the perennial Hawktuah Bowl",
+      "trigger": {
+        "actor_franchise_id": "0012",
+        "_event_kind_one_of": ["nom", "won"]
+      },
+      "probability_pct": 35,
+      "pool_id": "hawks_mock",
+      "player_specific": false
+    },
+
+    {
+      "id": "takeback_overtake",
+      "label": "Overtake where actor previously held + lost the lead — 'I'm back'",
+      "trigger": { "event_kind": "overtake", "is_takeback": true },
       "probability_pct": 80,
-      "pool_id": "shock",
-      "player_specific": true
+      "pool_id": "takeback",
+      "player_specific": false
     },
     {
-      "id": "nom_marquee_any",
-      "label": "Any nomination opening $20K+ — Brady-tier opener",
-      "trigger": { "event_kind": "nom", "min_win_k": 20 },
+      "id": "late_overtake",
+      "label": "Overtake in the final 60min of the auto-close window",
+      "trigger": { "event_kind": "overtake", "is_late_in_lot": true },
       "probability_pct": 70,
-      "pool_id": "ooh",
-      "player_specific": true
+      "pool_id": "late_overtake",
+      "player_specific": false
     },
+
+    {
+      "id": "day_2_extender_forced",
+      "label": "Forced increase on a lot that's been open >= 48hr — this lot has legs",
+      "trigger": { "event_kind": "forced_increase", "extends_past_day_2": true },
+      "probability_pct": 60,
+      "pool_id": "day_2_extender",
+      "player_specific": false
+    },
+    {
+      "id": "day_2_extender_overtake",
+      "label": "Overtake on a lot that's been open >= 48hr",
+      "trigger": { "event_kind": "overtake", "extends_past_day_2": true },
+      "probability_pct": 60,
+      "pool_id": "day_2_extender",
+      "player_specific": false
+    },
+
+    {
+      "id": "high_tension_forced_same_fid",
+      "label": "Same fid forcing 4+ in a row — they REALLY want this player",
+      "trigger": { "event_kind": "forced_increase", "min_same_fid_consecutive": 4 },
+      "probability_pct": 70,
+      "pool_id": "high_tension",
+      "player_specific": false
+    },
+    {
+      "id": "high_tension_burst",
+      "label": "3+ bids in last 30min on any event — burst activity",
+      "trigger": { "min_bids_in_30min": 3 },
+      "probability_pct": 50,
+      "pool_id": "high_tension",
+      "player_specific": false
+    },
+    {
+      "id": "high_tension_forced_late",
+      "label": "Forced increase in the final 60min — escalation right at the buzzer",
+      "trigger": { "event_kind": "forced_increase", "is_late_in_lot": true },
+      "probability_pct": 70,
+      "pool_id": "high_tension",
+      "player_specific": false
+    },
+
+    {
+      "id": "routine_forced_cap_free",
+      "label": "$2-$4K forced increase (cap-free zone) — Keith's signature 35% rotation",
+      "trigger": { "event_kind": "forced_increase", "max_win_k": 4 },
+      "probability_pct": 35,
+      "pool_id": "routine_forced",
+      "player_specific": false
+    },
+
     {
       "id": "nom_kicker",
-      "label": "Kicker nomination",
+      "label": "Kicker nomination (K or PK)",
       "trigger": { "event_kind": "nom", "position": "K" },
       "probability_pct": 100,
       "pool_id": "k_meme",
@@ -232,7 +378,7 @@
     },
     {
       "id": "nom_punter",
-      "label": "Punter nomination — even rarer comedy",
+      "label": "Punter nomination",
       "trigger": { "event_kind": "nom", "position": "PN" },
       "probability_pct": 100,
       "pool_id": "pn_meme",
@@ -240,44 +386,11 @@
     },
 
     {
-      "id": "proxy_grind_alert",
-      "label": "Live: F:O ≥ 2 AND ≥6 bids while OPEN — machines grinding",
-      "trigger": { "event_kind": "forced_increase", "min_total_bids": 6, "min_forced": 4 },
-      "probability_pct": 70,
-      "pool_id": "proxy_grind",
-      "player_specific": false
-    },
-    {
-      "id": "forced_default",
-      "label": "Any forced increase (default — eye roll vibe)",
-      "trigger": { "event_kind": "forced_increase" },
-      "probability_pct": 100,
-      "pool_id": "eye_roll",
-      "player_specific": false
-    },
-
-    {
-      "id": "active_war_alert",
-      "label": "Live: F:O ≤ 0.5 AND ≥8 bids while OPEN — humans clicking",
-      "trigger": { "event_kind": "overtake", "min_total_bids": 8, "min_overtakes": 5 },
-      "probability_pct": 70,
-      "pool_id": "active_war",
-      "player_specific": false
-    },
-    {
-      "id": "overtake_kill_shot",
-      "label": "Overtake on ≥5-bid lot — decisive moment",
-      "trigger": { "event_kind": "overtake", "min_total_bids": 5 },
-      "probability_pct": 60,
-      "pool_id": "kill_shot",
-      "player_specific": false
-    },
-    {
-      "id": "overtake_default",
-      "label": "Any overtake (default — come on man vibe)",
-      "trigger": { "event_kind": "overtake" },
-      "probability_pct": 100,
-      "pool_id": "come_on_man",
+      "id": "random_spice_forced",
+      "label": "Random 5% spice on any forced/overtake — non-deterministic feed",
+      "trigger": { "_event_kind_one_of": ["forced_increase", "overtake"] },
+      "probability_pct": 5,
+      "pool_id": "random_spice",
       "player_specific": false
     }
   ]

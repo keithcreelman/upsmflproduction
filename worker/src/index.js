@@ -646,6 +646,7 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
   function evaluateTrigger(t, evCtx) {
     if (!t) return true;
     if (t.event_kind && t.event_kind !== evCtx.event_kind) return false;
+    if (Array.isArray(t._event_kind_one_of) && !t._event_kind_one_of.includes(evCtx.event_kind)) return false;
     if (t.min_total_bids != null && evCtx.total_bids < t.min_total_bids) return false;
     if (t.max_total_bids != null && evCtx.total_bids > t.max_total_bids) return false;
     if (t.min_forced != null && evCtx.forced < t.min_forced) return false;
@@ -659,6 +660,25 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     if (t.duration_hours_max != null && evCtx.duration_hours > t.duration_hours_max) return false;
     if (t.self_nominated === true && !evCtx.self_nominated) return false;
     if (t.self_nominated === false && evCtx.self_nominated) return false;
+    // Franchise gating — pair triggers + Hawks-specific 35% pool
+    if (t.actor_franchise_id && String(t.actor_franchise_id) !== String(evCtx.actor_fid || "")) return false;
+    if (t.target_franchise_id && String(t.target_franchise_id) !== String(evCtx.target_fid || "")) return false;
+    // Takeback: actor previously held the lead on this lot, lost it, now reclaiming
+    if (t.is_takeback === true && !evCtx.is_takeback) return false;
+    if (t.is_takeback === false && evCtx.is_takeback) return false;
+    // Late-in-lot: minutes_to_close <= threshold (default 60). False if lot has no locks_at.
+    if (t.is_late_in_lot === true) {
+      const threshold = Number(t.time_to_close_max_minutes != null ? t.time_to_close_max_minutes : 60);
+      if (!(evCtx.minutes_to_close != null && evCtx.minutes_to_close <= threshold)) return false;
+    }
+    if (t.is_late_in_lot === false && evCtx.minutes_to_close != null && evCtx.minutes_to_close <= 60) return false;
+    // Day-2+ extender: lot has been open >= 48hr
+    if (t.extends_past_day_2 === true && !(evCtx.duration_hours >= 48)) return false;
+    if (t.extends_past_day_2 === false && evCtx.duration_hours >= 48) return false;
+    // Same-fid consecutive (actor forced N times in a row)
+    if (t.min_same_fid_consecutive != null && evCtx.same_fid_consecutive < t.min_same_fid_consecutive) return false;
+    // Bids in 30-min window (burst activity)
+    if (t.min_bids_in_30min != null && evCtx.bids_in_30min < t.min_bids_in_30min) return false;
     // Position-percentile gating — win_k must be >= POS_P[percentile]
     // Today we only have p90; can extend with more breakpoints if needed.
     if (t.min_position_percentile != null) {
@@ -689,6 +709,12 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
       by_commish: !!ctx?.by_commish,
       duration_hours: Number(ctx?.duration_hours || 0),
       self_nominated: !!ctx?.self_nominated,
+      actor_fid: ctx?.actor_fid ? String(ctx.actor_fid) : "",
+      target_fid: ctx?.target_fid ? String(ctx.target_fid) : "",
+      is_takeback: !!ctx?.is_takeback,
+      minutes_to_close: (ctx?.minutes_to_close == null ? null : Number(ctx.minutes_to_close)),
+      same_fid_consecutive: Number(ctx?.same_fid_consecutive || 0),
+      bids_in_30min: Number(ctx?.bids_in_30min || 0),
     };
     for (const sc of manifest.scenarios) {
       if (!evaluateTrigger(sc.trigger, evCtx)) continue;
@@ -961,25 +987,32 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
         overtakes: 0,
         duration_hours: 0,
         self_nominated: false,
+        actor_fid: ev.fid ? String(ev.fid) : "",
+        target_fid: "",
+        is_takeback: false,
+        minutes_to_close: null,
+        same_fid_consecutive: 0,
+        bids_in_30min: 0,
       };
       try {
         if (db) {
           const lotRow = await db.prepare(
-            `SELECT bid_count, nominator_fid, winner_fid, opened_at_unix, won_at_unix
+            `SELECT bid_count, nominator_fid, winner_fid, opened_at_unix, won_at_unix, locks_at_unix
                FROM ups_auction_lots WHERE lot_id = ?`
           ).bind(lotId).first();
           if (lotRow) {
             ctx.total_bids = Number(lotRow.bid_count || 0);
-            // self_nominated only matters for won events; safe to
-            // compute always.
             if (lotRow.nominator_fid && lotRow.winner_fid) {
               ctx.self_nominated = String(lotRow.nominator_fid) === String(lotRow.winner_fid);
             }
-            // duration: prefer won-at - opened-at; fall back to now - opened-at
-            // (for in-flight forced/overtake events on still-open lots).
             const start = Number(lotRow.opened_at_unix || 0);
-            const end = Number(lotRow.won_at_unix || 0) || Math.floor(Date.now() / 1000);
+            const nowUnix = Math.floor(Date.now() / 1000);
+            const end = Number(lotRow.won_at_unix || 0) || nowUnix;
             if (start > 0) ctx.duration_hours = (end - start) / 3600;
+            const locksAt = Number(lotRow.locks_at_unix || 0);
+            if (locksAt > 0 && !lotRow.won_at_unix) {
+              ctx.minutes_to_close = (locksAt - nowUnix) / 60;
+            }
           }
           const forcedRow = await db.prepare(
             `SELECT COUNT(*) AS n FROM ups_auction_bids
@@ -992,6 +1025,74 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
           ).bind(lotId).first();
           const noms = nomRow ? Number(nomRow.n || 0) : 0;
           ctx.overtakes = Math.max(0, ctx.total_bids - noms - ctx.forced);
+
+          // ── Bid-history derived signals: target_fid, is_takeback,
+          // same_fid_consecutive, bids_in_30min ──
+          // Pull bids in chronological order; cap at 50 (more than enough
+          // for any UPS auction lot). Exclude the [nomination] pseudo-bid
+          // when reasoning about leaders, since the nominator isn't
+          // necessarily the high bidder.
+          const histRs = await db.prepare(
+            `SELECT fid, bid_at_unix, IFNULL(note, '') AS note
+               FROM ups_auction_bids
+              WHERE lot_id = ?
+              ORDER BY bid_at_unix ASC, bid_id ASC
+              LIMIT 50`
+          ).bind(lotId).all();
+          const hist = (histRs?.results || []).map((r) => ({
+            fid: String(r.fid || ""),
+            t: Number(r.bid_at_unix || 0),
+            isNom: String(r.note || "").startsWith("[nomination]"),
+          }));
+          if (hist.length > 0) {
+            const actor = ctx.actor_fid;
+            // target_fid = most recent bid (excluding nom) where fid != actor.
+            // For overtakes that's the prior leader; for forced increases
+            // it's the franchise whose bid triggered the actor's proxy walk.
+            for (let i = hist.length - 1; i >= 0; i--) {
+              const h = hist[i];
+              if (!h.isNom && h.fid && h.fid !== actor) {
+                ctx.target_fid = h.fid;
+                break;
+              }
+            }
+            // same_fid_consecutive = count of trailing real-bid events
+            // whose fid == actor (including the current one if persisted)
+            let same = 0;
+            for (let i = hist.length - 1; i >= 0; i--) {
+              const h = hist[i];
+              if (h.isNom) continue;
+              if (h.fid === actor) same++;
+              else break;
+            }
+            ctx.same_fid_consecutive = same;
+            // is_takeback: actor previously had a bid that was later
+            // surpassed by another fid, and is now bidding again.
+            // Detect by scanning history (excluding noms): find earliest
+            // actor bid; if any non-actor bid lies between it and the
+            // latest event, it's a takeback.
+            let firstActorIdx = -1;
+            for (let i = 0; i < hist.length; i++) {
+              if (!hist[i].isNom && hist[i].fid === actor) { firstActorIdx = i; break; }
+            }
+            if (firstActorIdx >= 0) {
+              for (let i = firstActorIdx + 1; i < hist.length - 1; i++) {
+                if (!hist[i].isNom && hist[i].fid && hist[i].fid !== actor) {
+                  ctx.is_takeback = true;
+                  break;
+                }
+              }
+            }
+            // bids_in_30min: count of non-nom bids in the 30min window
+            // ending at this event's bid_at (fall back to "now" if event
+            // lacks a usable timestamp). The current event's row IS in
+            // history once persisted, so this naturally includes it.
+            const refT = Number(ev.bid_at_unix || Date.now() / 1000);
+            const windowStart = refT - 30 * 60;
+            ctx.bids_in_30min = hist.filter(
+              (h) => !h.isNom && h.t >= windowStart && h.t <= refT
+            ).length;
+          }
         }
       } catch (e) {
         console.log("[auction-narrator] ctx lookup failed:", e?.message || e);

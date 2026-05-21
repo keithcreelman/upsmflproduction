@@ -1,71 +1,122 @@
-# Curated GIF Library — v2 (Pool-Based with Rotation)
+# Curated GIF Library — v3 (Story-Driven Pools)
 
 **Manifest:** `site/auction/curated_gifs.json`
-**Worker:** `pickCuratedScenario` + `pickFromPool` + `POS_P90` in `worker/src/index.js`
+**Worker:** `pickCuratedScenario` + `pickFromPool` in `worker/src/index.js`
 
-This is v2. Schema changed from v1 — scenarios no longer hold `gifs` directly; they reference named **pools** by `pool_id`. The worker rotates within each pool to keep GIFs fresh.
-
----
-
-## Why v2 — what changed from v1
-
-| | v1 | v2 |
-|---|---|---|
-| GIF storage | inline per-scenario `gifs[]` | named `pools.<id>.gifs[]`; scenarios reference `pool_id` |
-| Rotation | none — random pick each time | last-3-used per pool tracked in worker memory; same GIF can't fire 3× in a row |
-| Position-aware triggers | trigger by exact `position` | also `min_position_percentile` (e.g., "top 10% for any position") |
-| Composite overlays | none | `overlay_pool_id` fires a second GIF stacked on the first |
-| Player-specific toggle | mixed-in via Giphy fallback | explicit `player_specific: true` or `player_specific_pct: 70` |
-| Default pools | 8 scenario-tied stubs | 18 reusable pools shared across scenarios |
-
-Pool reuse: e.g., `won_marquee` and `won_top_tier` both point at the same `shock` pool — populate once, both scenarios benefit.
+v3 rebuilds the pools around the actual stories Keith wants told in the auction channel, not generic emotion buckets. Pools are now tied to behaviors (routine forced increase, late overtake, takeback, day-2 extender) and franchise rivalries (Hawks mocking, HammerTime vs Real Deal Creel, Long Haulers vs Sex Manther). Generic catch-all pools (`shrug`/`come_on_man`/`eye_roll`) are gone — if no story fires, we fall through to Giphy.
 
 ---
 
-## The 18 pools
+## The pools
 
-| Pool | When it fires | What to populate (Giphy search hint) |
+### Behavioral story pools
+
+| Pool | Trigger | Rate | What to populate |
+|---|---|---|---|
+| `routine_forced` | $2-4K forced increase (cap-free zone) | **35%** | Casual / dismissive (Keith's framework — "the most common event in the channel; don't over-celebrate") |
+| `high_tension` | 3+ bids in last 30min OR same fid forces 4+ in a row OR forced in final 60min | 50-70% | Building anticipation, "uh oh things are heating up" |
+| `late_overtake` | Overtake in final 60min before lot locks | 70% | "You wait until now?" energy |
+| `takeback` | Actor previously held the lead, lost it, now reclaiming | 80% | **"I'm back" GIFs specifically.** Keith called this out as distinct from late_overtake — takeback gets its own line. |
+| `day_2_extender` | Lot duration ≥ 48hr and still bidding | 60% | "This lot has legs" — Day 2+ tension |
+| `random_spice` | Any non-nom/won event | 5% | One-off weirdness; keeps the feed from feeling deterministic |
+
+### Franchise-specific pools
+
+| Pool | Trigger | Rate | Visual direction |
+|---|---|---|---|
+| `hawks_mock` | F0012 (Hawks) nominates OR wins | 35% | Mock the perennial Hawktuah Bowl participant |
+| `hammertime_vs_creel_trey_mcbride` | F0005 (HammerTime/Eric Martel) forced increase against F0008 (Real Deal Creel) | 100% | **Trey McBride GIFs** |
+| `longhaulers_vs_martel_rashee_rice` | F0006 (Long Haulers) overtakes OR significant force (≥$5K) on F0007 (Sex Manther/Josh Martel) | 100% | **Rashee Rice GIFs** |
+| `longhaulers_late_expensive` | More specific: F0006 late + expensive (≥$10K) overtake on F0007 | 100% | **Home Alone GIFs** — more dramatic visual for the bigger moment |
+
+### Dollar-tier wins (kept from v2)
+
+| Pool | Trigger | What |
 |---|---|---|
-| `shrug` | $2-$4K cap-free win (20% fire rate) | "shrug emoji", "meh whatever", "sure why not" |
-| `nice_grab` | $5-$9K solid win | "nice grab nfl", "good pick reaction", "small smile nod" |
-| `ooh` | $10-$22K real-money win | "ooh reaction", "eyebrow raise", "oh nice" |
-| `respect` | Top-10% for position regardless of $ | "respect reaction", "tip hat", "salute reaction" |
-| `shock` | $23-$49K marquee win | "mind blown", "jaw drop", "wow no way", "holy moly" |
-| `all_time` | $50-$59K headline | "goat reaction", "legendary moment", "one for the ages" |
-| `legendary` | $60K+ all-time (composite overlay on top of all_time) | "breaking news", "stop everything", "this is biblical" |
-| `rare_lb` | $5K+ LB | "defense celebrate", "linebacker sack", "big hit" |
-| `rare_db` | $4K+ S/CB/DB | "interception", "pick six", "safety big hit" |
-| `k_meme` | K nomination | "kicker miss field goal", "kicker shank", "wide right" |
-| `pn_meme` | PN nomination | "punter punt", "football punter funny" |
-| `eye_roll` | Forced increase default | "eye roll", "facepalm", "ugh whatever", "sigh" |
-| `come_on_man` | Overtake default | "come on man", "are you kidding me", "really reaction" |
-| `kill_shot` | Overtake on ≥5-bid lot — decisive | "mic drop", "walk away cool", "boom done" |
-| `proxy_grind` | F:O ≥ 2 AND ≥6 bids while OPEN | "robot vs robot", "machine grind", "beep boop" |
-| `active_war` | F:O ≤ 0.5 AND ≥8 bids while OPEN | "rocky training", "epic battle", "crowd erupts" |
-| `floor_close` | Won at 24h with 2 bids | "too easy", "easy money", "free real estate" |
-| `self_nom_marquee` | Self-nominated win ≥$10K | "babe ruth called shot", "i told you so" |
+| `shock` | $30-49K win | Marquee — full-on shock |
+| `all_time` | $50-59K win (and $60K+ as primary) | Headline tier |
+| `legendary` | $60K+ win (composite OVERLAY on `all_time`) | "Stop the presses" — 4 lots per 7yr |
+| `respect` | Top-10% for position, any $ | Rare-for-position, nod-of-approval |
+| `self_nom_marquee` | Self-nominated win ≥$10K | Called-shot — "I told you so" |
+| `k_meme` / `pn_meme` | K/PK or PN nomination | Universal kicker/punter comedy |
 
-Each pool ships with `gifs: []` and a TODO comment. Populate with 6+ entries per pool for proper rotation.
+---
+
+## Franchise ID map (UPS league 74598)
+
+| ID | Team | Owner |
+|---|---|---|
+| 0001 | L.A. Looks | |
+| 0002 | CBP | |
+| 0003 | Gride | |
+| 0004 | Pure Greatness | |
+| 0005 | HammerTime | Eric Martel |
+| 0006 | The Long Haulers | Brian Cross |
+| 0007 | Sex Manther | Josh Martel (treasurer) |
+| 0008 | Real Deal Creel | |
+| 0009 | C-Town Chivalry | |
+| 0010 | Blake Bombers | Shawn Blake |
+| 0011 | Cleon Ca$h | Keith Creelman |
+| 0012 | Hawks | |
+
+The manifest's `_franchise_map` block is display-only — the worker reads fids from D1, not JSON.
+
+---
+
+## New trigger fields (v3)
+
+These extend v2's trigger vocabulary:
+
+| Field | Semantics |
+|---|---|
+| `actor_franchise_id` | 4-digit fid; the franchise INITIATING this event (winner / forcer / overtaker / nominator) |
+| `target_franchise_id` | The franchise on the receiving end. For overtakes = prior leader. For forced_increase = the franchise whose bid triggered the actor's proxy walk (most recent non-actor bid in history). |
+| `is_takeback: true` | Actor previously held the lead on this lot, was passed, is now reclaiming. Detected via bid history scan. |
+| `is_late_in_lot: true` | `minutes_to_close ≤ time_to_close_max_minutes` (default 60). Uses `locks_at_unix - now`. |
+| `time_to_close_max_minutes` | Override the 60-min default for `is_late_in_lot` |
+| `extends_past_day_2: true` | `duration_hours ≥ 48` |
+| `min_same_fid_consecutive` | Trailing N bids on this lot all from `actor_fid` |
+| `min_bids_in_30min` | At least N non-nom bids in the 30-min window ending at this event |
+| `_event_kind_one_of` | Array of event_kinds (alternative to single `event_kind`); useful for "nom OR won" |
+
+All compose with existing v2 fields (`min_win_k`, `position`, `min_position_percentile`, `self_nominated`, etc).
 
 ---
 
 ## Scenario evaluation order
 
-Scenarios in `curated_gifs.json` are ordered most-specific to most-generic. Worker walks the list top-down; first scenario whose trigger matches AND survives `probability_pct` wins.
+Top-down; first match wins. Order matters — specific pair triggers run BEFORE generic dollar-tier triggers so a Long-Haulers-vs-Martel Rashee Rice GIF can land on a $50K overtake before `won_headline` (no — pair triggers are on overtake/forced; wins still go through dollar tiers).
 
-Top-down ordering for Won events:
+Current order:
 
-1. `won_all_time` ($60K+) — fires composite (all_time + legendary)
-2. `won_headline` ($50-59K)
-3. `won_marquee` ($30-49K)
-4. `won_top_tier` ($23-29K)
-5. `won_position_rare` (≥p90 for position, any $ — catches $10K LB)
-6. `won_real_money` ($10-22K)
-7. `won_solid` ($5-9K)
-8. `won_routine_floor` (24h close + 2 bids)
-9. `won_routine` ($2-4K)
+1. **Franchise-pair triggers** (Long Haulers ↔ Martel; HammerTime ↔ Creel) — highest priority, 100% rate
+2. **Won-tier scenarios** (all_time / headline / marquee / position_rare / self_nom_marquee)
+3. **Hawks mock** (nom OR won, 35%)
+4. **Takeback overtake** (80%)
+5. **Late overtake** (70%)
+6. **Day-2+ extender** (forced/overtake on long-running lot, 60%)
+7. **High-tension burst** (same-fid streak / 30-min burst / late forced, 50-70%)
+8. **Routine forced cap-free** ($2-4K forced, 35%) — Keith's signature rate
+9. **K/PK/PN nominations** (kicker/punter comedy, 100%)
+10. **Random spice** (5%)
 
-Order matters: a $94K QB hits `won_all_time` first and never falls to the lower scenarios. A $10K LB hits `won_position_rare` before falling to `won_real_money`.
+---
+
+## Status: most pools empty (TODOs)
+
+After Keith's pushback on v2's generic pools, v3 ships the SCHEMA + WORKER LOGIC but most pools are empty pending real GIF URLs:
+
+- `routine_forced` — needs Keith's 5 URLs + 5 more for rotation
+- `high_tension` — needs Keith's 4 URLs + 2-3 more
+- `late_overtake` — needs Keith's URLs
+- `takeback` — needs Keith's "I'm back" URLs specifically
+- `day_2_extender` — needs Keith's 2 URLs + 2-3 more
+- `hawks_mock` — needs Keith's 5 URLs
+- `longhaulers_vs_martel_rashee_rice` — needs Rashee Rice GIFs
+- `longhaulers_late_expensive` — needs Home Alone GIFs
+- `hammertime_vs_creel_trey_mcbride` — needs Trey McBride GIFs
+
+Empty pools fall through to the next scenario, and ultimately to Giphy fallback, so the feed degrades gracefully — but the stories Keith wants won't land until pools are populated.
 
 ---
 
@@ -80,78 +131,27 @@ DT:6   DE:8   DL:8
 PK:3   K:3    PN:3   P:3
 ```
 
-Update annually after each season — re-run `docs/auction/data/v5_analysis.py` and copy `position_thresholds.csv` p90 values.
-
-A trigger with `min_position_percentile: 90` matches when `win_k >= POS_P90[position]`.
-
----
-
-## Player-specific behavior
-
-A scenario can prefer Giphy player search over (or alongside) its pool:
-
-| Field | Behavior |
-|---|---|
-| `player_specific: true` | Always try Giphy player search. If it returns a hit, that becomes the PRIMARY embed; the pool pick demotes to overlay. |
-| `player_specific_pct: 70` | 70% of the time, try Giphy player search (same demote-to-overlay logic). |
-| neither | Pool pick is always primary; no Giphy player search. |
-
-This means a $94K Henry win can fire: **player celebration GIF (primary) + all_time pool GIF + legendary pool overlay** = up to 3 embed images in the same Discord post (capped at 2 by Discord's limit per message in the current worker).
+A trigger with `min_position_percentile: 90` matches when `win_k >= POS_P90[position]`. Update annually after each season.
 
 ---
 
 ## Adding GIFs to a pool
 
-1. Find a stable `.gif` URL. Giphy: click the GIF → copy URL → use the `media.giphy.com/.../giphy.gif` form, NOT the `giphy.com/gifs/...` browser URL.
+1. Find a stable `.gif` URL. Giphy: copy the `media.giphy.com/.../giphy.gif` form, NOT the `giphy.com/gifs/...` browser URL.
 2. Edit `site/auction/curated_gifs.json`:
    ```json
    "pools": {
-     "shock": {
+     "routine_forced": {
        "gifs": [
-         { "url": "https://media.giphy.com/media/.../giphy.gif", "label": "Wendy williams jaw drop" },
-         { "url": "https://...", "label": "Stephen A choking", "weight": 2 }
+         { "url": "https://media.giphy.com/media/.../giphy.gif", "label": "casual shrug" },
+         { "url": "https://...", "label": "sure why not", "weight": 2 }
        ]
      }
    }
    ```
 3. Commit + push. Worker picks up within ~60s (manifest cached at edge + worker memory).
 
-The `weight` field biases random selection — default 1; higher = more likely.
-
----
-
-## Adding a new scenario
-
-1. Edit `curated_gifs.json`, add to `scenarios[]`:
-   ```json
-   {
-     "id": "won_rookie_explosion",
-     "label": "Rookie QB nominated > $30K",
-     "trigger": {
-       "event_kind": "nom",
-       "position": "QB",
-       "min_win_k": 30
-     },
-     "probability_pct": 100,
-     "pool_id": "shock",
-     "player_specific": true
-   }
-   ```
-2. Place it in the scenarios list ABOVE more-generic scenarios that would also match (otherwise the generic catches first).
-3. Pool can be existing or new (define a new entry under `pools`).
-
----
-
-## Tuning probabilities
-
-| Value | Meaning |
-|---|---|
-| 100 | Always fire when trigger matches |
-| 50-80 | Mix it in often, leave room for randomness |
-| 20-30 | Occasional surprise — used for high-volume events (`won_routine`, `floor_close`) |
-| 0 | Mute (temporary disable without deleting) |
-
-**Don't over-fire on common events.** 60% of contested wins are $2-4K cap-free — if every one of those gets a GIF, the channel becomes noise. The `won_routine` scenario uses `probability_pct: 20` for exactly this reason.
+`weight` biases random selection — default 1; higher = more likely.
 
 ---
 
@@ -159,18 +159,19 @@ The `weight` field biases random selection — default 1; higher = more likely.
 
 `POOL_LAST_USED` is a `Map<pool_id, [last_3_urls]>` in worker module scope. On every pool pick:
 1. Filter pool to GIFs NOT in `last_3` for that pool
-2. If filter drains the pool to 0 (because pool is < 4 GIFs), use all gifs
+2. If filter drains the pool to 0 (pool < 4 GIFs), use all gifs
 3. Weighted-random pick from eligible
-4. Prepend the chosen URL to `last_3`, trim to 3
+4. Prepend chosen URL to `last_3`, trim to 3
 
-Resets on worker cold-start (~hourly under typical load). Doesn't need to persist longer than that — Discord users don't notice repeats spaced an hour apart.
+Resets on worker cold-start (~hourly under typical load).
 
 ---
 
 ## Source data + canon refs
 
-- `docs/auction/analysis_v5_canon_aware.md` — the analysis that justifies the thresholds
-- `docs/auction/data/position_thresholds.csv` — per-position p50/p75/p90/p95/max (use to update `POS_P90`)
-- `docs/auction/data/zone_by_year.csv` — cap-free/low/mid/marquee distribution per year
-- `docs/auction/data/lot_level_clean.csv` — 663 rows; query to test scenario fire rates against history
+- `docs/auction/analysis_v5_canon_aware.md` — the analysis justifying thresholds
+- `docs/auction/data/position_thresholds.csv` — per-position p50/p75/p90/p95/max
+- `docs/auction/data/zone_by_year.csv` — cap-free/low/mid/marquee distribution
+- `docs/auction/data/lot_level_clean.csv` — 663 rows; query to test scenario fire rates
 - `docs/league_context_v1.md §D2` — the cap-free penalty rule that makes $4K the magnet
+- `docs/league_context_v1.md §C` — owner / franchise canon (incl. F0005 HammerTime, F0007 Sex Manther = Josh Martel)
