@@ -947,12 +947,16 @@ The Contract Command Center widget code (`site/ccc/ccc.js`) defines two computed
 - **`tagDeadline = MemorialDay − 4 days` = Thursday before Memorial Day weekend**
 - **`rookieDraft = MemorialDay − 1 day` = Sunday before Memorial Day**
 
+**Lock time (Keith 2026-05-21):** the tag/extension deadline is **midnight ET on the Thursday→Friday boundary** (i.e., submissions accepted through end-of-Thursday ET; first second of Friday ET = lock). In UTC during EDT (always — Memorial Day is late May), this is **04:00 UTC Friday**. Worker code: `getTagDeadlineUtc()` in `worker/src/index.js` returns this exact moment; `hasTagDeadlinePassed()` gates every downstream consumer (Discord routing flip, trade eligibility, `/commish-contract-update` hard-lock at line ~28766, midnight auto-drop cron). Prior canonical lock was 23:59:59 UTC Thursday (8 PM ET) — corrected upward by 4 hours to align with the natural "midnight" calendar boundary.
+
 For 2026 (Memorial Day = Mon May 25):
 
 | Date | Day | Event | Source |
 |---|---|---|---|
-| **2026-05-21** | **Thu** | **UPS Tag deadline** (offense + def/ST submissions) | `ccc.js` `getTagDeadlineInfo` (memorial − 4) |
+| **2026-05-21** | **Thu** | **UPS Tag deadline** (offense + def/ST submissions) — locks at midnight ET (04:00 UTC May 22) | `ccc.js` `getTagDeadlineInfo` (memorial − 4) + worker `getTagDeadlineUtc()` |
 | 2026-05-21 | Thu | UPS Rookie Extension deadline (same day as tag deadline — combined) | `event_window_matrix.csv` |
+| 2026-05-22 | Fri | **04:05 UTC** — auto-drop of every non-extended expired rookie (hourly cron, idempotent via `ups_deadline_lock_log`) | worker `processTagDeadlineMidnightLock` |
+| 2026-05-22 | Fri | **10:05 UTC (= 6 AM ET)** — commish DM with all locked tag contracts | worker `processTagDeadlineSixAmDm` |
 | **2026-05-24** | **Sun** | **UPS Rookie Draft** | `ccc.js` `getTagDeadlineInfo` (memorial − 1) |
 | 2026-05-25 | Mon | Memorial Day (NFL holiday) | calendar |
 

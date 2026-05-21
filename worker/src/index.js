@@ -94,6 +94,345 @@ async function snapshotMflToR2(env, nowUtc) {
   );
 }
 
+// ── Tag / rookie-extension deadline lock pipeline ─────────────────────
+// Two scheduled actions fire idempotently off the hourly cron once the
+// season's tag/extension deadline (midnight ET Thu→Fri before Memorial
+// Day) has passed:
+//
+//   1. Midnight ET (04:00 UTC during EDT) — first hourly cron at-or-after
+//      the deadline → auto-drop every player still on a roster whose
+//      contract has expired AND who wasn't extended (ERA-eligible pool).
+//      Each drop is a /roster-workbench/action unload_player POST so the
+//      audit, verification, and cache-invalidation paths all stay
+//      consistent with manual drops.
+//
+//   2. 6 AM ET day-after-deadline (10:00 UTC during EDT) — first hourly
+//      cron at-or-after that moment → DM the commissioner the full list
+//      of locked tag contracts (no public summary; intentionally private
+//      review surface).
+//
+// Both gated on a (season, league, event_key) row in ups_deadline_lock_log.
+// If the row exists, skip. If absent, run, then INSERT on success. The
+// hourly cron pattern is "at-or-after" so a worker outage at the exact
+// firing minute just defers by one hour, not a full year.
+
+const _padFranchiseIdTopLevel = (fid) => {
+  let s = String(fid || "").replace(/\D/g, "");
+  while (s.length < 4) s = "0" + s;
+  return s.slice(0, 4);
+};
+
+const _getMemorialDayUtcTopLevel = (season) => {
+  const year = Number(season);
+  if (!Number.isFinite(year) || year <= 0) return null;
+  const d = new Date(Date.UTC(year, 4, 31));
+  const weekday = d.getUTCDay();
+  const offset = (weekday + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - offset);
+  return d;
+};
+
+const _getTagDeadlineUtcTopLevel = (season) => {
+  // Midnight ET on the Thursday→Friday boundary before Memorial Day.
+  // Memorial Day is always late May → always EDT → always 04:00 UTC Friday.
+  const memorial = _getMemorialDayUtcTopLevel(season);
+  if (!memorial) return null;
+  const fridayMidnightEt = new Date(memorial.getTime());
+  fridayMidnightEt.setUTCDate(fridayMidnightEt.getUTCDate() - 3);
+  fridayMidnightEt.setUTCHours(4, 0, 0, 0);
+  return fridayMidnightEt;
+};
+
+const _getTagDeadlineDmUtcTopLevel = (season) => {
+  // 6 AM ET on the day AFTER the deadline. EDT (May) → 10:00 UTC Friday.
+  const deadline = _getTagDeadlineUtcTopLevel(season);
+  if (!deadline) return null;
+  const dm = new Date(deadline.getTime());
+  dm.setUTCHours(dm.getUTCHours() + 6); // 04:00 → 10:00 UTC same Friday
+  return dm;
+};
+
+async function _deadlineLockAlreadyFired(db, season, leagueId, eventKey) {
+  try {
+    const row = await db.prepare(
+      `SELECT id FROM ups_deadline_lock_log
+        WHERE season=? AND league_id=? AND event_key=? LIMIT 1`
+    ).bind(String(season), String(leagueId), String(eventKey)).first();
+    return !!row;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function _markDeadlineLockFired(db, season, leagueId, eventKey, details) {
+  try {
+    await db.prepare(
+      `INSERT INTO ups_deadline_lock_log
+         (season, league_id, event_key, completed_at_utc, details_json)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (season, league_id, event_key) DO NOTHING`
+    ).bind(
+      String(season),
+      String(leagueId),
+      String(eventKey),
+      new Date().toISOString(),
+      JSON.stringify(details || {})
+    ).run();
+    return true;
+  } catch (e) {
+    console.error(`[deadline-lock] mark-fired failed (${eventKey}):`, e?.message || String(e));
+    return false;
+  }
+}
+
+async function processTagDeadlineMidnightLock(env, season, leagueId, origin, commishApiKey) {
+  const eventKey = "tag_deadline_midnight_lock";
+  const db = env.UPS_MFL_DB;
+  if (!db) return { fired: false, reason: "no_db" };
+
+  const deadline = _getTagDeadlineUtcTopLevel(season);
+  if (!deadline) return { fired: false, reason: "no_deadline_for_season" };
+  if (Date.now() < deadline.getTime()) return { fired: false, reason: "before_deadline" };
+  if (await _deadlineLockAlreadyFired(db, season, leagueId, eventKey)) {
+    return { fired: false, reason: "already_fired" };
+  }
+
+  // Pull ERA-eligible pool from our own endpoint. This already has the
+  // full classification logic (rookie+cy=0 AND empty-contract 3-yr-clock
+  // expired) so we don't re-implement it here.
+  const eraUrl = `${origin}/api/auction/era-eligible?L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`;
+  let eraRows = [];
+  try {
+    const r = await fetch(eraUrl, { cf: { cacheTtl: 0, cacheEverything: false } });
+    const j = await r.json();
+    eraRows = Array.isArray(j?.players) ? j.players : (Array.isArray(j?.rows) ? j.rows : []);
+  } catch (e) {
+    console.error(`[deadline-lock midnight] era-eligible fetch failed:`, e?.message || String(e));
+    return { fired: false, reason: "era_fetch_failed", error: String(e?.message || e) };
+  }
+
+  // Filter: only drop players who are CURRENTLY on a roster. ERA
+  // endpoint already excludes free agents; if `franchise_id` is empty
+  // we skip defensively.
+  // ERA-eligible endpoint returns players with `prior_owner_fid` set to
+  // the franchise currently holding the player (rookie still on prior
+  // roster pre-drop). Defensive fallbacks for older shapes.
+  const candidates = eraRows
+    .map((p) => ({
+      player_id: String(p?.player_id || p?.id || "").replace(/\D/g, ""),
+      franchise_id: _padFranchiseIdTopLevel(
+        p?.prior_owner_fid || p?.prior_owner_franchise_id || p?.franchise_id || ""
+      ),
+      name: String(p?.name || p?.player_name || ""),
+      position: String(p?.position || "").toUpperCase(),
+    }))
+    .filter((c) => c.player_id && c.franchise_id && c.franchise_id !== "0000");
+
+  const dropped = [];
+  const failed = [];
+  const actionUrl = `${origin}/roster-workbench/action?APIKEY=${encodeURIComponent(commishApiKey)}`;
+
+  for (const c of candidates) {
+    try {
+      const r = await fetch(actionUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "unload_player",
+          league_id: leagueId,
+          season,
+          franchise_id: c.franchise_id,
+          player_id: c.player_id,
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (data?.ok) {
+        dropped.push({ player_id: c.player_id, name: c.name, position: c.position, franchise_id: c.franchise_id });
+      } else {
+        failed.push({ player_id: c.player_id, name: c.name, error: data?.error || `status_${r.status}` });
+      }
+    } catch (e) {
+      failed.push({ player_id: c.player_id, name: c.name, error: String(e?.message || e) });
+    }
+    // Brief pacing — MFL throttles commish writes if we burst.
+    await new Promise((res) => setTimeout(res, 250));
+  }
+
+  await _markDeadlineLockFired(db, season, leagueId, eventKey, {
+    dropped_count: dropped.length,
+    failed_count: failed.length,
+    dropped,
+    failed,
+    deadline_utc: deadline.toISOString(),
+    completed_utc: new Date().toISOString(),
+  });
+
+  return { fired: true, ok: failed.length === 0, dropped: dropped.length, failed: failed.length, candidates: candidates.length };
+}
+
+async function processTagDeadlineSixAmDm(env, season, leagueId, origin, commishApiKey) {
+  const eventKey = "tag_deadline_six_am_dm";
+  const db = env.UPS_MFL_DB;
+  if (!db) return { fired: false, reason: "no_db" };
+
+  const triggerAt = _getTagDeadlineDmUtcTopLevel(season);
+  if (!triggerAt) return { fired: false, reason: "no_deadline_for_season" };
+  if (Date.now() < triggerAt.getTime()) return { fired: false, reason: "before_trigger" };
+  if (await _deadlineLockAlreadyFired(db, season, leagueId, eventKey)) {
+    return { fired: false, reason: "already_fired" };
+  }
+
+  const commishUserId = String(env.COMMISH_DISCORD_USER_ID || "").trim();
+  const botToken = String(
+    env.DISCORD_CONTRACT_BOT_TOKEN || env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || ""
+  ).trim();
+  if (!commishUserId || !botToken) {
+    return { fired: false, reason: "missing_discord_config" };
+  }
+
+  // Pull current MFL state: rosters (for franchise mapping) + salaries
+  // (for contract details + TAG filter) + players (for names).
+  const [rostersRes, salariesRes, playersRes, leagueRes] = await Promise.all([
+    fetch(`${origin}/api/mfl-export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`),
+    fetch(`${origin}/api/mfl-export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`),
+    fetch(`${origin}/api/mfl-export?TYPE=players&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}&DETAILS=1`),
+    fetch(`${origin}/api/mfl-export?TYPE=league&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`),
+  ]);
+  const rj = await rostersRes.json().catch(() => ({}));
+  const sj = await salariesRes.json().catch(() => ({}));
+  const pj = await playersRes.json().catch(() => ({}));
+  const lj = await leagueRes.json().catch(() => ({}));
+
+  // Build pid → franchise + player metadata + salary contract.
+  const fidToName = {};
+  const flist = lj?.league?.franchises?.franchise || [];
+  for (const f of flist) fidToName[_padFranchiseIdTopLevel(f.id)] = String(f.name || `Team ${f.id}`);
+
+  const pidToFranchise = {};
+  const rfrs = rj?.rosters?.franchise || [];
+  const rfrList = Array.isArray(rfrs) ? rfrs : [rfrs];
+  for (const fr of rfrList) {
+    const fid = _padFranchiseIdTopLevel(fr?.id);
+    const plist = fr?.player || [];
+    const pl = Array.isArray(plist) ? plist : [plist];
+    for (const p of pl) {
+      const pid = String(p?.id || "").replace(/\D/g, "");
+      if (pid) pidToFranchise[pid] = fid;
+    }
+  }
+
+  const pidToMeta = {};
+  let pAll = pj?.players?.player || [];
+  if (!Array.isArray(pAll)) pAll = [pAll];
+  for (const p of pAll) {
+    const pid = String(p?.id || "").replace(/\D/g, "");
+    if (!pid) continue;
+    let nm = String(p?.name || "");
+    if (nm.includes(",")) nm = nm.split(",").reverse().map((s) => s.trim()).join(" ");
+    pidToMeta[pid] = { name: nm, position: String(p?.position || "").toUpperCase(), team: String(p?.team || "").toUpperCase() };
+  }
+
+  let salRows = sj?.salaries?.leagueUnit?.player || [];
+  if (!Array.isArray(salRows)) salRows = [salRows];
+
+  // Pull every row where contractStatus contains "TAG" AND player is
+  // currently rostered. The TAG label is what locks at deadline.
+  const tagContracts = [];
+  for (const r of salRows) {
+    const pid = String(r?.id || "").replace(/\D/g, "");
+    if (!pid) continue;
+    const cs = String(r?.contractStatus || "").toUpperCase();
+    if (!cs.includes("TAG")) continue;
+    const fid = pidToFranchise[pid];
+    if (!fid) continue; // FA carry-over, skip
+    const meta = pidToMeta[pid] || {};
+    tagContracts.push({
+      player_id: pid,
+      name: meta.name || `Player ${pid}`,
+      position: meta.position || "",
+      nfl: meta.team || "",
+      franchise_id: fid,
+      franchise_name: fidToName[fid] || `Team ${fid}`,
+      salary: Number(r?.salary || 0),
+      contract_year: String(r?.contractYear || "0"),
+      contract_info: String(r?.contractInfo || ""),
+    });
+  }
+
+  // Sort by franchise then position then salary desc — readable DM.
+  tagContracts.sort((a, b) =>
+    a.franchise_name.localeCompare(b.franchise_name) ||
+    a.position.localeCompare(b.position) ||
+    (b.salary - a.salary)
+  );
+
+  const lines = [];
+  let lastFid = "";
+  for (const c of tagContracts) {
+    if (c.franchise_id !== lastFid) {
+      lines.push(`\n**${c.franchise_name}** (${c.franchise_id})`);
+      lastFid = c.franchise_id;
+    }
+    const salK = c.salary >= 1000 ? `$${Math.round(c.salary / 1000)}K` : `$${c.salary}`;
+    lines.push(`• ${c.name} — ${c.position} ${c.nfl} — ${salK} — ${c.contract_info || "(no contract_info)"}`);
+  }
+  const header = `# Tag Deadline Closed (${season})\nLocked at ${_getTagDeadlineUtcTopLevel(season).toISOString()}.\n${tagContracts.length} tag contracts on the books.\n`;
+  const body = header + lines.join("\n");
+
+  // Discord message limit is 2000 chars per message. Chunk if longer.
+  const chunks = [];
+  let cursor = 0;
+  while (cursor < body.length) {
+    let end = Math.min(cursor + 1900, body.length);
+    if (end < body.length) {
+      const breakAt = body.lastIndexOf("\n", end);
+      if (breakAt > cursor + 500) end = breakAt;
+    }
+    chunks.push(body.slice(cursor, end));
+    cursor = end;
+  }
+
+  // Open DM channel + post each chunk.
+  let dmChannelId = "";
+  let messageIds = [];
+  try {
+    const openRes = await fetch(`https://discord.com/api/v10/users/@me/channels`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ recipient_id: commishUserId }),
+    });
+    const openData = await openRes.json().catch(() => ({}));
+    dmChannelId = String(openData?.id || "");
+    if (!dmChannelId) {
+      console.error(`[deadline-lock 6am] DM channel open failed: ${openRes.status}`, openData);
+      return { fired: false, reason: "dm_open_failed" };
+    }
+    for (const chunk of chunks) {
+      const sendRes = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(dmChannelId)}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ content: chunk, allowed_mentions: { parse: [] } }),
+      });
+      const sendData = await sendRes.json().catch(() => ({}));
+      if (sendData?.id) messageIds.push(String(sendData.id));
+      // Small spacing to be polite to Discord.
+      await new Promise((res) => setTimeout(res, 300));
+    }
+  } catch (e) {
+    console.error(`[deadline-lock 6am] DM send failed:`, e?.message || String(e));
+    return { fired: false, reason: "dm_send_failed", error: String(e?.message || e) };
+  }
+
+  await _markDeadlineLockFired(db, season, leagueId, eventKey, {
+    tag_count: tagContracts.length,
+    dm_channel_id: dmChannelId,
+    message_ids: messageIds,
+    completed_utc: new Date().toISOString(),
+  });
+
+  return { fired: true, ok: true, tag_count: tagContracts.length, message_ids: messageIds };
+}
+
 // ── Auction polling pipeline ──────────────────────────────────────────
 // Polls MFL AUCTION_BID + AUCTION_WON transactions every 5min, upserts
 // into ups_auction_lots + ups_auction_bids. Idempotent via the UNIQUE
@@ -1428,6 +1767,61 @@ export default {
       }
     } catch (e) {
       console.error(`[scheduled hourly] deadline-reminders dispatch failed: ${e && e.message}`);
+    }
+
+    // ---------- TAG / EXTENSION DEADLINE MIDNIGHT LOCK ----------
+    // First hourly cron at-or-after midnight ET on deadline night.
+    // Drops every non-extended expired rookie (canon §A1 → ERA pool).
+    // Idempotent: ups_deadline_lock_log row gates the action.
+    try {
+      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const leagueId = String(env.LEAGUE_ID || "74598");
+      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+      if (env.UPS_MFL_DB && commishApiKey) {
+        ctx.waitUntil(
+          processTagDeadlineMidnightLock(env, season, leagueId, origin, commishApiKey)
+            .then((r) => {
+              if (r?.fired) {
+                console.log(
+                  `[scheduled hourly] tag-deadline midnight-lock fired: dropped=${r.dropped}/${r.candidates} failed=${r.failed} ok=${r.ok}`
+                );
+              }
+            })
+            .catch((e) =>
+              console.error(`[scheduled hourly] tag-deadline midnight-lock failed: ${e && e.message}`)
+            )
+        );
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] tag-deadline midnight-lock dispatch failed: ${e && e.message}`);
+    }
+
+    // ---------- TAG DEADLINE 6 AM DM ----------
+    // First hourly cron at-or-after 6 AM ET day-after-deadline (= 10:00
+    // UTC during EDT). DMs commish the locked tag contracts list.
+    try {
+      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const leagueId = String(env.LEAGUE_ID || "74598");
+      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+      if (env.UPS_MFL_DB && commishApiKey) {
+        ctx.waitUntil(
+          processTagDeadlineSixAmDm(env, season, leagueId, origin, commishApiKey)
+            .then((r) => {
+              if (r?.fired) {
+                console.log(
+                  `[scheduled hourly] tag-deadline 6am-dm fired: tag_count=${r.tag_count} messages=${(r.message_ids || []).length}`
+                );
+              }
+            })
+            .catch((e) =>
+              console.error(`[scheduled hourly] tag-deadline 6am-dm failed: ${e && e.message}`)
+            )
+        );
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] tag-deadline 6am-dm dispatch failed: ${e && e.message}`);
     }
   },
 
@@ -17639,12 +18033,21 @@ export default {
       };
 
       const getTagDeadlineUtc = (season) => {
+        // Tag / rookie-extension deadline = MIDNIGHT ET on the Thursday→Friday
+        // boundary before Memorial Day weekend. Equivalent to: "submissions
+        // accepted through end-of-Thursday ET; first second of Friday ET = lock."
+        //
+        // Memorial Day is always late May (always EDT), so midnight ET = 04:00 UTC
+        // on the Friday before. No DST branching needed.
+        //
+        // (Prior code used 23:59:59 UTC on Thursday = 8 PM ET, ~4 hours early.
+        //  Keith 2026-05-21 moved the canonical lock to midnight ET.)
         const memorial = getMemorialDayUtc(season);
         if (!memorial) return null;
-        const tagDeadline = new Date(memorial.getTime());
-        tagDeadline.setUTCDate(tagDeadline.getUTCDate() - 4);
-        tagDeadline.setUTCHours(23, 59, 59, 999);
-        return tagDeadline;
+        const fridayMidnightEt = new Date(memorial.getTime());
+        fridayMidnightEt.setUTCDate(fridayMidnightEt.getUTCDate() - 3); // Mon → Fri before
+        fridayMidnightEt.setUTCHours(4, 0, 0, 0); // 00:00 EDT = 04:00 UTC
+        return fridayMidnightEt;
       };
 
       const hasTagDeadlinePassed = (season) => {
@@ -28753,6 +29156,41 @@ export default {
           } catch (_) {}
           return false;
         })();
+
+        // Tag / Extension deadline HARD LOCK (Keith 2026-05-21).
+        // Tag and rookie-extension submissions are rejected once the tag
+        // deadline (midnight ET Thu→Fri before Memorial Day) has passed.
+        // Untags + commish-overrides remain allowed so post-deadline
+        // corrections by the commissioner are still possible. Dry runs
+        // bypass the lock so the test harness keeps working off-cycle.
+        //
+        // Returns 410 Gone (RFC 9110 §15.5.11 — resource intentionally
+        // unavailable and not coming back this cycle).
+        if (
+          dryRunFlag !== 1 &&
+          submissionKindRaw !== "untag" &&
+          commishOverrideFlag !== 1 &&
+          (
+            submissionKindRaw === "tag" ||
+            isExtensionSubmission ||
+            safeStr(requestedContractStatus).toUpperCase() === "TAG"
+          ) &&
+          hasTagDeadlinePassed(year)
+        ) {
+          const deadline = getTagDeadlineUtc(year);
+          return mutationResponse(
+            "validation_fail",
+            String(body.submission_id || body.submissionId || "").trim(),
+            {
+              reason: `${submissionKindRaw === "tag" ? "Tag" : "Rookie extension"} submissions are locked — deadline passed (midnight ET, ${deadline ? deadline.toISOString() : "unknown"}). Contact the commissioner for late-corrections.`,
+              code: "TAG_EXTENSION_DEADLINE_PASSED",
+              deadline_utc: deadline ? deadline.toISOString() : null,
+              submission_kind: submissionKindRaw,
+              hint: "Dry-run preview and commish-override paths bypass this lock.",
+            },
+            410
+          );
+        }
 
         const providedSubmissionId = String(body.submission_id || body.submissionId || "").trim();
         const submissionId =
