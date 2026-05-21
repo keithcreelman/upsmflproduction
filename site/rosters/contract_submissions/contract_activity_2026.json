@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-05-19 18:49:19",
+    "generated_at": "2026-05-21 09:51:13",
     "source": "contract-activity-log",
-    "count": 24,
+    "count": 25,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "1009e16f745f2db8b5a4f3db",
+      "submission_id": "1009e16f745f2db8b5a4f3db",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0001",
+      "franchise_name": "L.A. Looks",
+      "player_id": "16181",
+      "player_name": "Chase Brown",
+      "position": "RB",
+      "salary": 22000,
+      "contract_year": 2,
+      "contract_status": "EXT2",
+      "contract_info": "CL 2|TCV 44K|AAV 22K|Y1-22K, Y2-22K|Ext: L.A.|GTD: 33K",
+      "tcv": 44000,
+      "aav": 22000,
+      "guaranteed": 33000,
+      "submitted_at_utc": "2026-05-21T09:50:57.353Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1506957469174464625",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "fed53dc59626d7d9d8d9828f",
       "submission_id": "fed53dc59626d7d9d8d9828f",
