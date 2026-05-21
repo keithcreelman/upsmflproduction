@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-05-21 09:51:13",
+    "generated_at": "2026-05-21 10:24:01",
     "source": "contract-activity-log",
-    "count": 25,
+    "count": 26,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "56db6864bb91bd068a1fb1f0",
+      "submission_id": "56db6864bb91bd068a1fb1f0",
+      "activity_scope": "contract_mutation",
+      "activity_type": "FA Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0001",
+      "franchise_name": "",
+      "player_id": "15365",
+      "player_name": "Trevon Moehrig",
+      "position": "",
+      "salary": 3000,
+      "contract_year": 1,
+      "contract_status": "Veteran",
+      "contract_info": "CL 1| TCV 3K| AAV 3K| No Further Extensions",
+      "tcv": 3000,
+      "aav": 3000,
+      "guaranteed": 0,
+      "submitted_at_utc": "2026-05-21T10:23:46.747Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1506965730120306748",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "1009e16f745f2db8b5a4f3db",
       "submission_id": "1009e16f745f2db8b5a4f3db",
