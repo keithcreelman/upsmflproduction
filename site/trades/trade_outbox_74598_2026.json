@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-21T14:32:09.255Z",
-    "row_count": 59,
+    "updated_at": "2026-05-21T22:59:48.973Z",
+    "row_count": 60,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -11246,6 +11246,180 @@
       "season": "2026",
       "updated_ts": "2026-05-21T14:32:09.050Z",
       "id": "59"
+    },
+    {
+      "created_ts": "2026-05-21T22:59:48.785Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0001",
+      "to_franchise_id": "0003",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-21T22:59:48.725Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0001_2027_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 5th",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0001_2027_5",
+                "pick_season": 2027,
+                "pick_round": 5,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "selected_assets": [
+              {
+                "asset_id": "player:16809",
+                "type": "PLAYER",
+                "player_id": "16809",
+                "player_name": "Coker, Jalen",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "CAR",
+                "salary": 1000,
+                "years": 1,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1, Y2-1, Y3-1",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 1000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0001",
+          "right_team_id": "0003"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 97000,
+            "salary_adjustment_total_dollars": 12800,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 1000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 1000,
+            "new_salary_dollars": 98000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -1000,
+            "available_salary_before_dollars": 190200,
+            "available_salary_after_dollars": 189200,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 162000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 1000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -1000,
+            "new_salary_dollars": 161000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 1000,
+            "available_salary_before_dollars": 134000,
+            "available_salary_after_dollars": 135000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "L.A. Looks",
+          "right_franchise_name": "Gride",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 97000,
+              "left_after_dollars": 98000,
+              "left_change_dollars": 1000,
+              "right_before_dollars": 187000,
+              "right_after_dollars": 186000,
+              "right_change_dollars": -1000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 93000,
+              "left_after_dollars": 94000,
+              "left_change_dollars": 1000,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 161000,
+              "right_change_dollars": -1000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 1000,
+              "left_after_dollars": 1000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 15000,
+              "right_after_dollars": 15000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "",
+      "payload_hash": "fcdfe9a195e4b89430ce84bacc02dd19bd2c81706aaa8a5df682806130a91031",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-21T22:59:48.785Z",
+      "id": "60"
     }
   ]
 }
