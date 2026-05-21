@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-20T19:17:53.980Z",
-    "row_count": 58,
+    "updated_at": "2026-05-21T14:32:05.549Z",
+    "row_count": 59,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -11054,6 +11054,198 @@
       "season": "2026",
       "updated_ts": "2026-05-20T19:17:53.845Z",
       "id": "58"
+    },
+    {
+      "created_ts": "2026-05-21T14:32:05.327Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0011",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-21T14:32:04.827Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "player:15794",
+                "type": "PLAYER",
+                "player_id": "15794",
+                "player_name": "McBride, Trey",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "ARI",
+                "salary": 35000,
+                "years": 1,
+                "contract_type": "BL",
+                "contract_info": "CL 2| TCV 44K| AAV 22K| Y1-9K, Y2-35K| Ext: Hammer",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 17,
+            "selected_non_taxi_salary_dollars": 35000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "selected_assets": [
+              {
+                "asset_id": "player:17104",
+                "type": "PLAYER",
+                "player_id": "17104",
+                "player_name": "Loveland, Colston",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "CHI",
+                "salary": 5000,
+                "years": 2,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 15K| AAV 5K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "player:16222",
+                "type": "PLAYER",
+                "player_id": "16222",
+                "player_name": "Kraft, Tucker",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "GBP",
+                "salary": 12000,
+                "years": 1,
+                "contract_type": "EXT1",
+                "contract_info": "CL 1|TCV 12K|AAV 12K|Y1-12K|Ext: Cash|GTD: 9K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 8,
+            "selected_non_taxi_salary_dollars": 17000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0011"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 187000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 35000,
+            "incoming_dollars": 17000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -18000,
+            "new_salary_dollars": 169000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 17,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 18000,
+            "available_salary_before_dollars": 103950,
+            "available_salary_after_dollars": 121950,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 253000,
+            "salary_adjustment_total_dollars": 2100,
+            "outgoing_dollars": 17000,
+            "incoming_dollars": 35000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 18000,
+            "new_salary_dollars": 271000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 8,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -18000,
+            "available_salary_before_dollars": 44900,
+            "available_salary_after_dollars": 26900,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "Cleon Ca$h",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 187000,
+              "left_after_dollars": 169000,
+              "left_change_dollars": -18000,
+              "right_before_dollars": 268000,
+              "right_after_dollars": 286000,
+              "right_change_dollars": 18000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 304000,
+              "left_after_dollars": 274000,
+              "left_change_dollars": -30000,
+              "right_before_dollars": 241000,
+              "right_after_dollars": 271000,
+              "right_change_dollars": 30000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 80000,
+              "left_change_dollars": 5000,
+              "right_before_dollars": 75000,
+              "right_after_dollars": 70000,
+              "right_change_dollars": -5000
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "",
+      "payload_hash": "3798fd68d90adfc2b11708e5fca8fd169ec045650031db6be55ce4e644c9e78f",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-21T14:32:05.327Z",
+      "id": "59"
     }
   ]
 }
