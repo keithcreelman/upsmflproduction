@@ -1769,22 +1769,30 @@ export default {
       console.error(`[scheduled hourly] deadline-reminders dispatch failed: ${e && e.message}`);
     }
 
-    // ---------- DROP TRACKER (hourly scan + Discord post) ----------
+    // ---------- DROP TRACKER (hourly scan + optional Discord post) ----------
     // Scans MFL FREE_AGENT transactions, writes new drops to
-    // ups_drop_events with computed cap penalty, then posts each new
-    // drop to the production Discord drops channel with tiered GIF.
+    // ups_drop_events with computed cap penalty. Optionally posts each
+    // new drop to the Discord drops channel with tiered GIF.
     // Idempotent via the UNIQUE constraint on
     // (season, league_id, player_id, dropped_at_unix) + the
     // discord_posted flag.
     //
-    // Set DROP_TRACKER_DISCORD_TARGET=test in env to fire posts to the
-    // test channel instead. Defaults to prod once enabled.
+    // Two-flag control (Keith 2026-05-22 — recording and auto-posting
+    // are separate decisions):
+    //   DROP_TRACKER_ENABLED="1"     → recording on (D1 inserts).
+    //   DROP_TRACKER_AUTO_POST="1"   → also auto-post unposted rows to Discord.
+    //   DROP_TRACKER_DISCORD_TARGET  → "prod" (default) or "test".
+    //
+    // Recording-on / auto-post-off is the safe default once enabled: every
+    // drop gets durably tracked, commissioner manually fires
+    // /admin/drops/post-discord when ready to announce.
     try {
       const season = String(env.YEAR || new Date().getUTCFullYear());
       const leagueId = String(env.LEAGUE_ID || "74598");
       const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
       const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
       const dropEnabled = String(env.DROP_TRACKER_ENABLED || "").trim() === "1";
+      const dropAutoPost = String(env.DROP_TRACKER_AUTO_POST || "").trim() === "1";
       const dropTarget = String(env.DROP_TRACKER_DISCORD_TARGET || "prod").trim().toLowerCase();
       if (dropEnabled && commishApiKey && env.UPS_MFL_DB) {
         ctx.waitUntil((async () => {
@@ -1800,18 +1808,22 @@ export default {
             );
             const scanData = await scanRes.json().catch(() => ({}));
             const newWritten = Number(scanData?.written_count) || 0;
-            // 2. Post any unposted rows to Discord.
-            const postRes = await fetch(
-              `${origin}/admin/drops/post-discord?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ season, league_id: leagueId, target: dropTarget, limit: 20 }),
-              }
-            );
-            const postData = await postRes.json().catch(() => ({}));
-            if (newWritten || postData?.posted_count) {
-              console.log(`[scheduled hourly] drop-tracker: new_drops=${newWritten} discord_posted=${postData?.posted_count || 0} target=${dropTarget}`);
+            // 2. Post unposted rows to Discord — ONLY if DROP_TRACKER_AUTO_POST=1.
+            let postedCount = 0;
+            if (dropAutoPost) {
+              const postRes = await fetch(
+                `${origin}/admin/drops/post-discord?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ season, league_id: leagueId, target: dropTarget, limit: 20 }),
+                }
+              );
+              const postData = await postRes.json().catch(() => ({}));
+              postedCount = Number(postData?.posted_count) || 0;
+            }
+            if (newWritten || postedCount) {
+              console.log(`[scheduled hourly] drop-tracker: new_drops=${newWritten} discord_posted=${postedCount} auto_post=${dropAutoPost ? "1" : "0"} target=${dropTarget}`);
             }
           } catch (e) {
             console.error(`[scheduled hourly] drop-tracker failed: ${e?.message || String(e)}`);
