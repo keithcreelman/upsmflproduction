@@ -1896,6 +1896,8 @@ export default {
         path !== "/admin/test-sync/prod-salaries" &&
         path !== "/admin/auction/auto-drop-expired-rookies" &&
         path !== "/admin/auction/resend-tag-deadline-dm" &&
+        path !== "/admin/auction/post-tag-deadline-channel-thread" &&
+        path !== "/admin/auction/snapshot-era-pool" &&
         path !== "/admin/reset-fa-contracts" &&
         path !== "/admin/discord/post" &&
         path !== "/admin/deadline-reminders/test-discord" &&
@@ -2455,6 +2457,74 @@ export default {
       if (path === "/api/auction/era-eligible" && request.method === "GET") {
         const year = url.searchParams.get("YEAR") || new Date().getUTCFullYear();
         const leagueId = url.searchParams.get("L") || "74598";
+
+        // Prefer the D1 ups_era_pool SNAPSHOT once it's been seeded for
+        // this season. Post-deadline the original walking-rosters logic
+        // returns 0 (dropped players are FA → not on any roster), so the
+        // snapshot is canonical. Pre-snapshot (early in the cycle), fall
+        // through to the legacy live-roster walk below.
+        //
+        // Bypass: ?nosnapshot=1 forces the live-roster walk regardless.
+        const noSnapshot = (url.searchParams.get("nosnapshot") || "") === "1";
+        if (!noSnapshot && env.UPS_MFL_DB) {
+          try {
+            const queryRes = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, player_name, position, nfl_team,
+                      prior_owner_fid, prior_owner_name, origin_label,
+                      rookie_slot, rookie_slot_round, rookie_slot_pick,
+                      rookie_slot_year, y3_salary, drafted_field_raw,
+                      contract_status_at_drop, snapshot_at_utc
+                 FROM ups_era_pool
+                WHERE season = ? AND league_id = ?
+                ORDER BY prior_owner_fid, position, player_name`
+            ).bind(String(year), String(leagueId)).all();
+            // D1 .all() returns { results: Array, success, meta }. Use
+            // explicit access — destructuring `const { results: poolRows }`
+            // intermittently returned undefined in production (Keith
+            // 2026-05-22 — pre-fix: response always fell through to the
+            // legacy live-roster walk).
+            const poolRows = (queryRes && Array.isArray(queryRes.results)) ? queryRes.results : [];
+            if (poolRows.length > 0) {
+              // NOTE: do NOT use safeInt here — it's defined at line
+              // ~10173, AFTER this snapshot block (~line 2469). Calling
+              // it would throw ReferenceError and the try/catch would
+              // swallow the error, falling through to the legacy walk
+              // and returning {count: 0}. Use inline Number() instead.
+              // safeStr IS available (defined ~line 2063).
+              const players = poolRows.map((r) => ({
+                player_id: safeStr(r.player_id),
+                name: safeStr(r.player_name),
+                position: safeStr(r.position),
+                nfl_team: safeStr(r.nfl_team),
+                age: null,
+                prior_owner_fid: safeStr(r.prior_owner_fid),
+                prior_owner: safeStr(r.prior_owner_name),
+                rookie_slot: safeStr(r.rookie_slot),
+                y3_salary: Number(r.y3_salary) || 0,
+                contract_status: safeStr(r.contract_status_at_drop),
+                origin_label: safeStr(r.origin_label),
+                drafted_field_raw: safeStr(r.drafted_field_raw),
+                eligibility_reason: "Cut at rookie extension deadline.",
+                deadline_iso: null,
+                season: String(year),
+                source: "ups_era_pool_snapshot",
+                snapshot_at_utc: safeStr(r.snapshot_at_utc),
+              }));
+              return jsonOut(200, {
+                season: String(year),
+                league_id: String(leagueId),
+                generated_at: new Date().toISOString(),
+                extension_deadline_iso: null,
+                source: "ups_era_pool",
+                players,
+                count: players.length,
+              });
+            }
+          } catch (e) {
+            console.warn("[era-eligible] snapshot read failed, falling through to live walk:", e?.message || String(e));
+          }
+        }
+
         try {
           const [leagueRes, rostersRes, playersRes] = await Promise.all([
             fetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`,
@@ -26794,6 +26864,460 @@ export default {
             franchise_name: c.franchise_name,
             salary: c.salary,
           })),
+        });
+      }
+
+      // POST /admin/auction/snapshot-era-pool
+      // Body: { season, league_id?, player_ids?: [...], franchise_ids_map?: { pid: fid } }
+      //
+      // Seeds ups_era_pool with the ERA-eligible set. Two modes:
+      //   1. No body player_ids → walk rosters live, inline the same logic
+      //      as /api/auction/era-eligible (rookie+cy=0 OR empty-contract w/
+      //      3-yr clock expired), join TYPE=draftResults for the original
+      //      slot. Used pre-deadline OR right after auto-drop when rosters
+      //      still hold candidates.
+      //   2. player_ids[] provided → backfill mode. Used when players have
+      //      already been dropped to FA so roster-walks return zero. Looks
+      //      up each PID across TYPE=players + prior-year TYPE=draftResults
+      //      to reconstruct origin and slot.
+      //
+      // UPSERT semantics: re-running is idempotent — existing rows update
+      // with the latest lookup.
+      if (path === "/admin/auction/snapshot-era-pool" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const explicitPids = Array.isArray(body?.player_ids) ? body.player_ids.map((x) => String(x).replace(/\D/g, "")).filter(Boolean) : [];
+        const explicitFidMap = body?.franchise_ids_map && typeof body.franchise_ids_map === "object" ? body.franchise_ids_map : {};
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+
+        const seasonInt = Number(targetSeason);
+        const taxiClockExpiredCutoff = seasonInt - 3;
+
+        // Salary schedule per §A1 (Y1=Y2=Y3 flat).
+        const rookieSalaryK = (round, pick) => {
+          const r = Number(round); const pk = Number(pick);
+          if (!Number.isFinite(r) || !Number.isFinite(pk)) return null;
+          if (r === 1) {
+            if (pk >= 1 && pk <= 10) return 16 - pk;
+            if (pk >= 11 && pk <= 12) return 5;
+            return null;
+          }
+          if (r === 2) return 5;
+          if (r >= 3 && r <= 5) return 2;
+          if (r === 6) return 1;
+          return null;
+        };
+        const deriveOrigin = (drafted) => {
+          if (!drafted) return "Other";
+          if (/^\d+\.\d+\s+\(\d{4}\)$/.test(drafted)) return "Rookie Draft";
+          const bb = drafted.match(/^(?:BB|FCFS)\b.*\((\d{4})\)$/i);
+          if (bb) {
+            const yr = Number(bb[1]);
+            return (yr <= seasonInt - 2) ? "MYM-Rookie" : "WW";
+          }
+          if (/^Auction\b.*\(\d{4}\)$/i.test(drafted)) return "Rookie - FA Auction";
+          if (/^Trade\s+\(\d{4}\)$/i.test(drafted)) return "Trade";
+          return "Other";
+        };
+
+        // Pull league + players (always needed for names/franchise labels).
+        const [leagueRes, playersRes] = await Promise.all([
+          mflExportJson(targetSeason, leagueId, "league", {}, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "players", { DETAILS: "1" }, { useCookie: true }),
+        ]);
+        const fidToName = {};
+        const flist = leagueRes.data?.league?.franchises?.franchise || [];
+        for (const f of flist) fidToName[padFranchiseId(f.id)] = safeStr(f.name || `Team ${f.id}`);
+        const pidIdx = new Map();
+        let pAll = playersRes.data?.players?.player || [];
+        if (!Array.isArray(pAll)) pAll = [pAll];
+        for (const p of pAll) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          let nm = safeStr(p?.name);
+          if (nm.includes(",")) nm = nm.split(",").reverse().map((s) => s.trim()).join(" ");
+          pidIdx.set(pid, {
+            name: nm,
+            position: safeStr(p?.position).toUpperCase(),
+            team: safeStr(p?.team).toUpperCase(),
+            nfl_draft_year: Number(p?.draft_year) || null,
+          });
+        }
+
+        // Build the candidate list.
+        const candidates = []; // each: { pid, fid, drafted_field, path, original_draft_year }
+        if (explicitPids.length) {
+          // Backfill mode: take the provided PIDs and use the given fid map
+          // for prior_owner. We assume these were dropped on the deadline-
+          // night auto-drop chain.
+          for (const pid of explicitPids) {
+            const fid = padFranchiseId(explicitFidMap[pid] || "");
+            const meta = pidIdx.get(pid) || {};
+            candidates.push({
+              pid,
+              fid,
+              drafted_field: "",
+              path: "backfill",
+              original_draft_year: meta.nfl_draft_year || null,
+            });
+          }
+        } else {
+          // Live-roster mode: walk rosters + flag eligibles.
+          const rostersRes = await mflExportJson(targetSeason, leagueId, "rosters", {}, { useCookie: true });
+          const rfrs = rostersRes.data?.rosters?.franchise || [];
+          const rfrList = Array.isArray(rfrs) ? rfrs : [rfrs];
+          for (const fr of rfrList) {
+            const fid = padFranchiseId(fr?.id);
+            const players = fr?.player || [];
+            const plist = Array.isArray(players) ? players : [players];
+            for (const p of plist) {
+              if (!p || !p.id) continue;
+              const pid = safeStr(p.id).replace(/\D/g, "");
+              const status = safeStr(p.contractStatus);
+              const cyRaw = p.contractYear;
+              const cy = (cyRaw === "" || cyRaw == null) ? null : Number(cyRaw);
+              const drafted = safeStr(p.drafted);
+              const slotMatch = drafted.match(/^\d+\.\d+\s+\((\d{4})\)$/);
+              const tradeMatch = drafted.match(/^Trade\s+\((\d{4})\)$/i);
+              const slotYear = slotMatch ? Number(slotMatch[1]) : null;
+              const isActiveCy0Rookie = (cy === 0 && /rookie/i.test(status));
+              const isEmptyContract = (status === "" && (cy === null || cy === 0));
+              if (!isActiveCy0Rookie && !isEmptyContract) continue;
+              const nflDraftYear = pidIdx.get(pid)?.nfl_draft_year || null;
+              const original_draft_year = slotYear || (tradeMatch ? nflDraftYear : null);
+              candidates.push({
+                pid, fid,
+                drafted_field: drafted,
+                path: isActiveCy0Rookie ? "active_cy0" : "empty_expired",
+                original_draft_year,
+              });
+            }
+          }
+        }
+
+        // Filter — active_cy0 always passes; empty/backfill needs the
+        // 3-yr-clock cutoff (skip ineligible non-rookies).
+        const survivors = candidates.filter((c) => {
+          if (c.path === "active_cy0") return true;
+          if (c.path === "backfill") return true; // trust caller
+          return c.original_draft_year != null && c.original_draft_year <= taxiClockExpiredCutoff;
+        });
+
+        // Look up original draft slot via TYPE=draftResults for each
+        // unique draft year. Backfill-mode candidates lacking a known
+        // year fall back to trying 2022 → 2025.
+        const draftYears = new Set();
+        for (const c of survivors) {
+          if (c.original_draft_year) draftYears.add(c.original_draft_year);
+        }
+        // For backfill: also probe last 4 seasons since we may not know
+        // the year up front.
+        if (explicitPids.length) {
+          for (let y = seasonInt - 4; y <= seasonInt - 1; y += 1) draftYears.add(y);
+        }
+        const pidToPick = new Map();
+        await Promise.all(Array.from(draftYears).map(async (dy) => {
+          try {
+            const drRes = await mflExportJson(String(dy), leagueId, "draftResults", {}, { useCookie: true });
+            let units = drRes.data?.draftResults?.draftUnit || [];
+            if (!Array.isArray(units)) units = [units];
+            for (const u of units) {
+              let picks = u.draftPick || [];
+              if (!Array.isArray(picks)) picks = [picks];
+              for (const pk of picks) {
+                const ppid = safeStr(pk.player).replace(/\D/g, "");
+                if (!ppid || pidToPick.has(ppid)) continue;
+                const rd = String(pk.round || "").padStart(2, "0");
+                const pp = String(pk.pick || "").padStart(2, "0");
+                pidToPick.set(ppid, {
+                  year: Number(dy),
+                  round: Number(pk.round),
+                  pick: Number(pk.pick),
+                  label: `${rd}.${pp} (${dy})`,
+                  origFranchise: safeStr(pk.franchise || pk.originalPickFor || ""),
+                });
+              }
+            }
+          } catch (e) {
+            console.warn(`[era-pool] draftResults ${dy} fetch failed:`, e?.message || String(e));
+          }
+        }));
+
+        // Insert/update.
+        const nowIso = new Date().toISOString();
+        const written = [];
+        const skipped = [];
+        for (const c of survivors) {
+          const meta = pidIdx.get(c.pid) || {};
+          const draftPick = pidToPick.get(c.pid) || null;
+          const rookieSlot = draftPick ? draftPick.label : (c.drafted_field || "");
+          const y3K = draftPick ? rookieSalaryK(draftPick.round, draftPick.pick) : null;
+          const y3Dollars = y3K ? y3K * 1000 : null;
+          const origin = deriveOrigin(c.drafted_field) || (draftPick ? "Rookie Draft" : "Other");
+          const fid = c.fid || padFranchiseId(draftPick?.origFranchise || "");
+          if (!c.pid) { skipped.push({ pid: c.pid, reason: "no_pid" }); continue; }
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_era_pool (
+                 season, league_id, player_id, player_name, position, nfl_team,
+                 prior_owner_fid, prior_owner_name, origin_label,
+                 rookie_slot, rookie_slot_round, rookie_slot_pick, rookie_slot_year,
+                 y3_salary, drafted_field_raw,
+                 contract_status_at_drop, contract_year_at_drop, source, snapshot_at_utc
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (season, league_id, player_id) DO UPDATE SET
+                 player_name = excluded.player_name,
+                 position = excluded.position,
+                 nfl_team = excluded.nfl_team,
+                 prior_owner_fid = excluded.prior_owner_fid,
+                 prior_owner_name = excluded.prior_owner_name,
+                 origin_label = excluded.origin_label,
+                 rookie_slot = excluded.rookie_slot,
+                 rookie_slot_round = excluded.rookie_slot_round,
+                 rookie_slot_pick = excluded.rookie_slot_pick,
+                 rookie_slot_year = excluded.rookie_slot_year,
+                 y3_salary = excluded.y3_salary,
+                 drafted_field_raw = excluded.drafted_field_raw,
+                 contract_status_at_drop = excluded.contract_status_at_drop,
+                 contract_year_at_drop = excluded.contract_year_at_drop,
+                 source = excluded.source,
+                 snapshot_at_utc = excluded.snapshot_at_utc`
+            ).bind(
+              targetSeason, leagueId, c.pid,
+              safeStr(meta.name) || `Player ${c.pid}`,
+              safeStr(meta.position),
+              safeStr(meta.team),
+              fid || null,
+              fid ? (fidToName[fid] || null) : null,
+              origin,
+              rookieSlot || null,
+              draftPick?.round || null,
+              draftPick?.pick || null,
+              draftPick?.year || null,
+              y3Dollars,
+              c.drafted_field || null,
+              null, null, // contract_status_at_drop / contract_year_at_drop captured on drop
+              explicitPids.length ? "backfill_admin_endpoint" : "live_roster_walk",
+              nowIso
+            ).run();
+            written.push({ pid: c.pid, name: meta.name, fid, origin, rookie_slot: rookieSlot, y3_salary: y3Dollars });
+          } catch (e) {
+            skipped.push({ pid: c.pid, reason: "insert_failed", error: String(e?.message || e) });
+          }
+        }
+
+        // Return current pool state.
+        const { results: poolRows } = await env.UPS_MFL_DB.prepare(
+          `SELECT player_id, player_name, position, nfl_team, prior_owner_fid, prior_owner_name,
+                  origin_label, rookie_slot, y3_salary
+             FROM ups_era_pool
+            WHERE season = ? AND league_id = ?
+            ORDER BY prior_owner_fid, position, player_name`
+        ).bind(targetSeason, leagueId).all();
+
+        return jsonOut(200, {
+          ok: skipped.length === 0,
+          season: targetSeason,
+          league_id: leagueId,
+          mode: explicitPids.length ? "backfill" : "live_walk",
+          considered_count: candidates.length,
+          survivor_count: survivors.length,
+          written_count: written.length,
+          skipped_count: skipped.length,
+          skipped,
+          pool_size: poolRows?.length || 0,
+          pool: poolRows || [],
+        });
+      }
+
+      // POST /admin/auction/post-tag-deadline-channel-thread
+      // Body: { season, league_id?, channel_id? (default contract channel) }
+      //
+      // Posts the tag-deadline summary to a CHANNEL (not DM) as one
+      // thread: parent message + per-tag embed reply (with GIF + franchise
+      // icon — same format owners see for individual tag submissions today).
+      if (path === "/admin/auction/post-tag-deadline-channel-thread" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const channelId = safeStr(body?.channel_id || body?.channelId || "").replace(/\D/g, "") ||
+          contractDiscordPrimaryChannelId();
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+        if (!channelId) return jsonOut(400, { ok: false, error: "Missing channel_id and no DISCORD_CONTRACT_CHANNEL_ID configured" });
+
+        const botToken = contractDiscordBotToken();
+        if (!botToken) return jsonOut(400, { ok: false, error: "missing_contract_bot_token" });
+
+        // Pull rosters + salaries + players + league.
+        const [rostersRes, salariesRes, playersRes, leagueRes] = await Promise.all([
+          mflExportJson(targetSeason, leagueId, "rosters", {}, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "players", { DETAILS: "1" }, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "league", {}, { useCookie: true }),
+        ]);
+
+        const fidToName = {};
+        const flist = leagueRes.data?.league?.franchises?.franchise || [];
+        for (const f of flist) fidToName[padFranchiseId(f.id)] = safeStr(f.name || `Team ${f.id}`);
+
+        const pidToFranchise = {};
+        const rfrs = rostersRes.data?.rosters?.franchise || [];
+        const rfrList = Array.isArray(rfrs) ? rfrs : [rfrs];
+        for (const fr of rfrList) {
+          const fid = padFranchiseId(fr?.id);
+          const plist = fr?.player || [];
+          const pl = Array.isArray(plist) ? plist : [plist];
+          for (const p of pl) {
+            const pid = safeStr(p?.id).replace(/\D/g, "");
+            if (pid) pidToFranchise[pid] = fid;
+          }
+        }
+
+        const pidToMeta = {};
+        let pAll = playersRes.data?.players?.player || [];
+        if (!Array.isArray(pAll)) pAll = [pAll];
+        for (const p of pAll) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          let nm = safeStr(p?.name);
+          if (nm.includes(",")) nm = nm.split(",").reverse().map((s) => s.trim()).join(" ");
+          pidToMeta[pid] = { name: nm, position: safeStr(p?.position).toUpperCase(), team: safeStr(p?.team).toUpperCase() };
+        }
+
+        let salRows = salariesRes.data?.salaries?.leagueUnit?.player || [];
+        if (!Array.isArray(salRows)) salRows = [salRows];
+
+        const tagContracts = [];
+        for (const r of salRows) {
+          const pid = safeStr(r?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          const cs = safeStr(r?.contractStatus).toUpperCase();
+          if (!cs.includes("TAG")) continue;
+          const fid = pidToFranchise[pid];
+          if (!fid) continue;
+          const meta = pidToMeta[pid] || {};
+          tagContracts.push({
+            player_id: pid,
+            player_name: meta.name || `Player ${pid}`,
+            position: meta.position || "",
+            nfl: meta.team || "",
+            franchise_id: fid,
+            franchise_name: fidToName[fid] || `Team ${fid}`,
+            salary: safeInt(r?.salary, 0),
+            contract_year: safeStr(r?.contractYear),
+            contract_status: safeStr(r?.contractStatus),
+            contract_info: safeStr(r?.contractInfo),
+          });
+        }
+        tagContracts.sort((a, b) =>
+          a.franchise_name.localeCompare(b.franchise_name) ||
+          a.position.localeCompare(b.position) ||
+          (b.salary - a.salary)
+        );
+
+        // 1) Parent message in the channel.
+        const deadlineIso = _getTagDeadlineUtcTopLevel(targetSeason)?.toISOString() || "";
+        const headerContent = `# 🔒 Tag Deadline Closed — ${targetSeason}\nLocked at ${deadlineIso}.\n**${tagContracts.length} tag contracts** on the books. Thread below has the full list with details.`;
+        const headerRes = await discordBotRequest(botToken, "POST", `/channels/${encodeURIComponent(channelId)}/messages`, {
+          content: headerContent,
+          allowed_mentions: { parse: [] },
+        });
+        const headerMessageId = safeStr(headerRes.data?.id || "");
+        if (!headerMessageId) {
+          return jsonOut(502, { ok: false, error: "header_post_failed", details: headerRes });
+        }
+
+        // 2) Create a thread from the parent message.
+        const threadRes = await discordBotRequest(
+          botToken,
+          "POST",
+          `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(headerMessageId)}/threads`,
+          {
+            name: `Tag Deadline Closed — ${targetSeason}`,
+            auto_archive_duration: 1440, // 24 hours
+          }
+        );
+        const threadId = safeStr(threadRes.data?.id || "");
+        if (!threadId) {
+          return jsonOut(502, {
+            ok: false,
+            error: "thread_create_failed",
+            details: threadRes,
+            channel_id: channelId,
+            header_message_id: headerMessageId,
+          });
+        }
+
+        // 3) Per-tag embed (with GIF) into the thread.
+        const sentMessageIds = [];
+        const failed = [];
+        for (const c of tagContracts) {
+          try {
+            const franchiseMeta = await loadContractDiscordFranchiseMeta({
+              season: targetSeason,
+              leagueId,
+              franchiseId: c.franchise_id,
+            });
+            const gif = await pickContractActivityGifUrl({ activityType: "Tag", playerName: c.player_name });
+            const embed = buildContractActivityDiscordEmbed({
+              activityType: "Tag",
+              franchiseName: c.franchise_name,
+              creditedFranchiseName: c.franchise_name,
+              playerName: c.player_name,
+              contractInfo: c.contract_info,
+              contractYear: c.contract_year,
+              contractStatus: c.contract_status,
+              season: targetSeason,
+              salary: c.salary,
+              submittedAtUtc: new Date().toISOString(),
+              franchiseIconUrl: safeStr(franchiseMeta?.icon_url || ""),
+              gifUrl: safeStr(gif?.gif_url || ""),
+            });
+            const sendRes = await discordBotRequest(botToken, "POST", `/channels/${encodeURIComponent(threadId)}/messages`, {
+              content: "",
+              embeds: [embed],
+              allowed_mentions: { parse: [] },
+            });
+            if (sendRes.ok && sendRes.data?.id) {
+              sentMessageIds.push({
+                player_id: c.player_id,
+                player_name: c.player_name,
+                franchise_name: c.franchise_name,
+                message_id: String(sendRes.data.id),
+                gif_url: safeStr(gif?.gif_url || ""),
+              });
+            } else {
+              failed.push({ player_id: c.player_id, error: safeStr(sendRes.text).slice(0, 300) });
+            }
+            // Spacing — be polite to Discord + GIF picker is rate-limited.
+            await new Promise((res) => setTimeout(res, 400));
+          } catch (e) {
+            failed.push({ player_id: c.player_id, error: String(e?.message || e) });
+          }
+        }
+
+        return jsonOut(failed.length ? 207 : 200, {
+          ok: failed.length === 0,
+          season: targetSeason,
+          league_id: leagueId,
+          channel_id: channelId,
+          header_message_id: headerMessageId,
+          thread_id: threadId,
+          tag_count: tagContracts.length,
+          sent: sentMessageIds,
+          failed,
         });
       }
 

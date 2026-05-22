@@ -197,6 +197,30 @@ There are **7 entry paths**. Each creates a different default contract and const
 - **AAV escalator basis (Keith 2026-05-18):** when an ERA winner converts to a multi-year contract, the AAV escalator is computed off the **winning bid**, not the prior Y3 rookie salary. (Necessary clarification after the 2025 switch to a flat $1K opening bid.)
 - **MYAC window (note):** ERA wins occur in late May, so the MYAC submission window runs from acquisition → September contract deadline ≈ 4 months — longer than the ~2-month FA Auction MYAC window. Intentional; no change.
 - **Forced retention:** players won in Expired Rookie Auction **cannot be cut until that summer's FA Auction CLOSES** (Keith 2026-05-18 — pinned to `FA_Auction.close_at` in the season calendar). Once auction closes, normal cut rules resume. Concept: no "get out of jail free" — you bid, you hold through auction.
+- **ERA pool = the players cut at the deadline (Keith 2026-05-22).** When the midnight-ET tag/extension deadline passes, the worker (or commish via `/admin/auction/auto-drop-expired-rookies` if the cron times out) drops every rookie+cy=0 player AND every empty-contract player whose 3-year clock expired (per §B2). These dropped players are **snapshotted into `ups_era_pool`** (D1 table) and **become the canonical ERA pool**. The O=43 player picker should be filtered to ONLY this snapshot when ERA is active — owners should NOT be able to nominate non-pool players. The snapshot persists through the auction so it survives players being dropped to FA. Reading the pool: `GET /api/auction/era-eligible` returns from `ups_era_pool` if seeded; otherwise falls back to the legacy live-roster walk.
+
+### A3.1 Data sources — what's MFL-native vs UPS-custom (Keith 2026-05-22)
+
+Critical: most contract concepts in this canon are **UPS layer constructs** that live in our worker + D1, not in MFL. Mixing them up causes bugs (yesterday: stale `contractStatus="TAG"` data debt produced phantom "FA Contract" Discord posts because owner-side code treated MFL-stored `TAG` as a current-season fact).
+
+| Field / concept | Source of truth | Notes |
+|---|---|---|
+| `salary` (raw dollar integer) | **MFL** `TYPE=salaries` | Authoritative. Worker writes via `TYPE=salaries` import (APPEND=1). |
+| `contractStatus` raw value | **MFL** `TYPE=salaries` / rosters | Stored on MFL. **Free-form string** — UPS overloads it for our taxonomy. |
+| `contractYear` (years remaining) | **MFL** | `cy=0` = expired. `cy=1` = LAST year. Per memory note. |
+| `contractInfo` annotation | **MFL** (free-text) | UPS-authored. Notes are NOT authoritative — derive cap math from year_salaries + events. |
+| Rookie draft slot (round.pick) | **MFL** `TYPE=draftResults` | Original slot. MFL's per-player `drafted` field (a.k.a. "Last Acquired") is overwritten on trade ("Trade (YEAR)") — recover original via `TYPE=draftResults` join for the original draft year. |
+| Player's NFL Draft Status / NFL draft year | **MFL** `TYPE=players&DETAILS=1` (proxy `draft_year` field) | Use this when MFL's roster `drafted` field is trade-overwritten. |
+| **Tag** (status, side, salary) | **UPS-CUSTOM** | NOT a native MFL concept. We encode it via `contractStatus="TAG"` + our D1 `ups_tag_master` table. The TAG carries our metadata (side, tier, formula). MFL has no understanding of "tag" as a contract type. |
+| **MYM** (Multi-Year MYM events) | **UPS-CUSTOM** | D1 `ups_mym_history`. Triggers contract write to MFL via `/offer-mym`. |
+| **Extension** events / history | **UPS-CUSTOM** | D1 `ups_extension_submissions` + `ups_extension_history`. |
+| **Restructure** events / history | **UPS-CUSTOM** | D1 `ups_restructure_submissions`. |
+| **ERA pool** (auction-eligible set) | **UPS-CUSTOM** | D1 `ups_era_pool`. Seeded at deadline-night auto-drop. Canonical for the O=43 picker filter. |
+| **Cap penalty** events | **UPS-CUSTOM** | Computed from MFL transactions + D1; posted to MFL via `TYPE=salaryAdj` import. |
+| **MYAC / Loading designations** (FL/BL/EXT1/EXT2/EXT3) | **UPS-CUSTOM** | Encoded into the MFL `contractStatus` string (e.g. "EXT2-BL") but the semantic taxonomy is ours. |
+| **`Tag` / `MYM-Vet` / `MYM-Rookie` etc.** | **UPS-CUSTOM** vocabulary | See memory note "MFL contractStatus vocabulary". |
+
+**Rule of thumb:** treat MFL as the salary ledger + transactions log. Treat D1 / worker as the authority on everything ABOUT the contract (kind, history, lineage, eligibility). When in doubt: salary numbers = MFL; everything else = us.
 
 ### A4. Blind Bid Waivers (in-season — Thu/Fri/Sat/Sun 9 AM ET)
 
