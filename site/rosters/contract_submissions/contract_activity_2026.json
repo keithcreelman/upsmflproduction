@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-05-22 00:32:03",
+    "generated_at": "2026-05-22 01:03:33",
     "source": "contract-activity-log",
-    "count": 29,
+    "count": 30,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "0eb715ab0064102cf2634881",
+      "submission_id": "0eb715ab0064102cf2634881",
+      "activity_scope": "contract_mutation",
+      "activity_type": "FA Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0009",
+      "franchise_name": "",
+      "player_id": "13589",
+      "player_name": "Josh Allen",
+      "position": "",
+      "salary": 46000,
+      "contract_year": 1,
+      "contract_status": "Veteran",
+      "contract_info": "No Further Extension Allowed",
+      "tcv": 0,
+      "aav": 0,
+      "guaranteed": 0,
+      "submitted_at_utc": "2026-05-22T01:03:18.356Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1507187070068592720",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "5ede7bf0fd04bea395818155",
       "submission_id": "5ede7bf0fd04bea395818155",
