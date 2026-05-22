@@ -18678,22 +18678,13 @@ export default {
         // kinds will get pools in a later rollout.
         const kindForPool = normalizeContractActivityKind(activityType, "");
         const TONE_POOL_QUERIES = {
-          // Drop = player got cut. Comedic "you're fired / get outta here"
-          // energy per Keith 2026-05-22 (replaced earlier sad/dejected tone
-          // which felt wrong — drop is a punchline, not a eulogy).
-          drop: [
-            "trump you're fired",
-            "you're fired",
-            "gtfoh",
-            "get outta here",
-            "kicked out",
-            "shown the door",
-            "hit the road",
-            "bye bye wave",
-            "boot kick out",
-            "see ya later",
-            "get out",
-          ],
+          // drop intentionally NOT here — Keith 2026-05-22 moved the drop
+          // lead to a dedicated nfl-sad pool with stronger randomization
+          // (see pickDropLeadGif in /admin/drops/post-discord). The prior
+          // "trump you're fired / gtfoh" pool is preserved in git history
+          // (commit 9a7435f) in case we want to bring it back as a
+          // sub-pool variant later.
+          //
           // extension / restructure / tag / trade / mym intentionally empty
           // until the cross-activity rollout (see
           // docs/generic_gif_fallback_rollout.md).
@@ -27264,6 +27255,55 @@ export default {
           return "";
         };
 
+        // Drop LEAD GIF — generic nfl-sad pool, heavily randomized
+        // (Keith 2026-05-22). Replaces the prior player-strict-match
+        // (Pass 1/2 of pickContractActivityGifUrl) and the "trump you're
+        // fired" tone-pool. Every drop lead is now a random sad-NFL
+        // reaction. Randomization is double-layered: shuffle the query
+        // list so a different query runs first each fire, then random-
+        // index into the chosen query's results (limit 50) so within
+        // a query the picked GIF varies too.
+        const NFL_SAD_LEAD_QUERIES = [
+          "nfl sad",
+          "football sad",
+          "nfl player sad",
+          "sad football player",
+          "nfl dejected",
+          "football disappointed",
+          "nfl loss reaction",
+          "nfl bench sad",
+          "nfl player crying",
+          "football head down",
+          "nfl sideline sad",
+          "football player upset",
+        ];
+        const pickDropLeadGif = async () => {
+          const apiKey = safeStr(env.GIPHY_API_KEY || "");
+          if (!apiKey) return { gif_url: "", query: "" };
+          const shuffled = [...NFL_SAD_LEAD_QUERIES].sort(() => Math.random() - 0.5);
+          for (const q of shuffled) {
+            const u = new URL("https://api.giphy.com/v1/gifs/search");
+            u.searchParams.set("api_key", apiKey);
+            u.searchParams.set("q", q);
+            u.searchParams.set("limit", "50");
+            u.searchParams.set("lang", "en");
+            u.searchParams.set("rating", "r");
+            try {
+              const r = await fetch(u.toString(), { cf: { cacheTtl: 300 } });
+              if (!r.ok) continue;
+              const j = await r.json();
+              const rows = Array.isArray(j?.data) ? j.data : [];
+              if (!rows.length) continue;
+              const pick = rows[Math.floor(Math.random() * rows.length)];
+              const gif = safeStr(pick?.images?.original?.url) ||
+                          safeStr(pick?.images?.downsized_large?.url) ||
+                          safeStr(pick?.images?.fixed_height?.url);
+              if (gif) return { gif_url: gif, query: q };
+            } catch (_) {}
+          }
+          return { gif_url: "", query: "" };
+        };
+
         // Pull rows that haven't been posted yet.
         const { results: rows } = await env.UPS_MFL_DB.prepare(
           `SELECT id, season, league_id, player_id, player_name, position, nfl_team,
@@ -27377,23 +27417,16 @@ export default {
           fields.push({ name: "Cap penalty", value: penaltyLine, inline: false });
           if (droppedAtET) fields.push({ name: "Dropped", value: droppedAtET, inline: false });
 
-          // Player-specific GIF — strict full-name / last-name match if
-          // Giphy has the player tagged, else a sad-NFL tone-pool fallback
-          // (Keith 2026-05-22 — Higbee proved most mid-tier players have
-          // zero name-tagged content on Giphy, so a generic-sad lead beats
-          // a bare details card). Pass 3 returns strict_match=false; we
-          // accept it for drops because the sad-context value outweighs
-          // player-specificity here.
+          // Lead GIF — random nfl-sad reaction from pickDropLeadGif
+          // (Keith 2026-05-22). No longer attempts player-specific
+          // matching; every drop gets a fresh sad-NFL GIF. Variety is
+          // the goal — heavy randomization across query and within
+          // results.
           let playerGifUrl = "";
           if (!dryRun) {
             try {
-              const pg = await pickContractActivityGifUrl({
-                activityType: "drop",
-                playerName: safeStr(r.player_name),
-              });
-              if (pg && pg.ok && pg.gif_url) {
-                playerGifUrl = pg.gif_url;
-              }
+              const lead = await pickDropLeadGif();
+              playerGifUrl = lead.gif_url || "";
             } catch (_) {}
           }
 
