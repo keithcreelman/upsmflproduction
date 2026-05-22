@@ -27235,6 +27235,27 @@ export default {
           };
           const droppedAtET = fmtEastern(r.dropped_at_iso);
 
+          // Humanize penalty basis (Keith 2026-05-22 — "more human readable").
+          const humanizeBasis = (b) => {
+            const key = safeStr(b);
+            const map = {
+              "tcv_under_5k_fixed_1k":          "Sub-$5K TCV, multi-year contract",
+              "tcv_under_5k_final_year_exempt": "Sub-$5K TCV, final year of contract",
+              "one_year_under_5k_exempt":       "1-year contract under $5K",
+              "ww_under_5k_exempt":             "WW pickup at $4K or below",
+              "taxi_exempt":                    "Taxi squad (cap-free)",
+              "guarantee_minus_earned":         "75% guarantee minus earned-to-date",
+              "no_penalty_zero":                "Earned already exceeds guarantee",
+              "no_pre_drop_contract":           "Pre-drop contract not found",
+            };
+            return map[key] || key;
+          };
+          // Strip canon references like "(§D2 — Keith 2026-05-22)" from
+          // exempt-reason text so they don't leak into the embed.
+          const humanizeReason = (s) => safeStr(s)
+            .replace(/\s*\(§[A-Z0-9.]+(?:\s*[-—]\s*[^)]+)?\)\s*/g, "")
+            .trim();
+
           const fields = [
             { name: "Team", value: safeStr(r.franchise_name) || `Team ${r.franchise_id}`, inline: true },
             { name: "Player", value: safeStr(r.player_name) || `Player ${r.player_id}`, inline: true },
@@ -27253,11 +27274,12 @@ export default {
 
           let penaltyLine;
           if (exempt) {
-            penaltyLine = `**$0 penalty** — ${safeStr(r.penalty_exempt_reason) || "Exempt per §D2."}`;
+            const reason = humanizeReason(r.penalty_exempt_reason) || "Exempt";
+            penaltyLine = `**$0 penalty** — ${reason}`;
           } else if (penalty === 0) {
-            penaltyLine = `**$0 penalty** — ${safeStr(r.penalty_basis) || "no_penalty_zero"}`;
+            penaltyLine = `**$0 penalty** — ${humanizeBasis(r.penalty_basis)}`;
           } else {
-            penaltyLine = `**${fmtK(penalty)} cap penalty** (basis: ${safeStr(r.penalty_basis)})\n` +
+            penaltyLine = `**${fmtK(penalty)} cap penalty** — ${humanizeBasis(r.penalty_basis)}\n` +
               `Guaranteed: ${fmtK(guaranteed)} · Earned: ${fmtK(earned)}`;
           }
           fields.push({ name: "Cap penalty", value: penaltyLine, inline: false });
@@ -27281,57 +27303,107 @@ export default {
             } catch (_) {}
           }
 
-          // Build embed(s).
-          //   Embed 1: title + fields + franchise icon as IMAGE (bigger
-          //            than thumbnail per Keith 2026-05-22).
-          //   Embed 2: player-specific GIF (if 100% match found)
-          //   Embed 3: tier GIF (penalty-based reaction)
-          // No tier label text — visual only per Keith 2026-05-22.
+          // Build embed(s) (Keith 2026-05-22 redesign):
+          //   - Header: title "Drop: <Player>" + description with the
+          //     CAP PENALTY as a large markdown heading (#) so it's the
+          //     visual anchor. Fields below for team/player/position/
+          //     contract/state/penalty-detail/dropped-at.
+          //   - Franchise icon back to THUMBNAIL (top-right corner).
+          //     Image-as-banner was unreliable when stacked with GIF
+          //     embeds (Brown's logo rendered blurred). Thumbnail
+          //     renders consistently regardless of embed count.
+          //   - Player-specific GIF + tier GIF stay in separate embeds
+          //     for stacked-image display.
+          let penaltyHeading;
+          if (exempt || penalty === 0) {
+            penaltyHeading = "# ✅ No Cap Penalty";
+          } else {
+            const cap = fmtK(penalty);
+            penaltyHeading = `# 💰 Cap Penalty: ${cap}`;
+          }
           const headerEmbed = {
-            title: `📤 Drop: ${safeStr(r.player_name)}`,
-            description: `${safeStr(r.franchise_name)} dropped ${safeStr(r.player_name)}.`,
+            title: `Drop: ${safeStr(r.player_name)}`,
+            description: `${penaltyHeading}\n${safeStr(r.franchise_name)} dropped ${safeStr(r.player_name)}.`,
             color: exempt || penalty === 0 ? 0x25c37d : (penalty >= 16000 ? 0xd9433a : (penalty >= 9000 ? 0xf0a020 : (penalty >= 5000 ? 0xf0c465 : 0x6c7a8a))),
             fields,
           };
           if (franchiseMeta?.icon_url) {
-            headerEmbed.image = { url: franchiseMeta.icon_url };
+            headerEmbed.thumbnail = { url: franchiseMeta.icon_url };
           }
 
-          const embeds = [headerEmbed];
-          // Discord allows multiple embeds in one message + each may have
-          // its own image. We use that for stacked images.
+          // 3-message sequence per Keith 2026-05-22:
+          //   1. Player GIF (lead — single-embed message = full-width render)
+          //   2. News / penalty details embed
+          //   3. Tier reaction GIF (single-embed message = full-width render)
+          //
+          // Multi-embed within ONE message forces Discord to grid-composite
+          // images into narrow side-by-side cards. Separate messages
+          // keep each image full-width, matching the Higbee single-image
+          // render the user liked.
+          const messageSequence = [];
           if (playerGifUrl) {
-            embeds.push({ url: "https://upsmflproduction.keith-creelman.workers.dev/", image: { url: playerGifUrl } });
+            messageSequence.push({
+              label: "player_gif",
+              payload: {
+                content: "",
+                embeds: [{ url: "https://upsmflproduction.keith-creelman.workers.dev/", image: { url: playerGifUrl } }],
+                allowed_mentions: { parse: [] },
+              },
+            });
           }
+          messageSequence.push({
+            label: "news",
+            payload: { content: "", embeds: [headerEmbed], allowed_mentions: { parse: [] } },
+          });
           if (gifUrl) {
-            embeds.push({ url: "https://upsmflproduction.keith-creelman.workers.dev/", image: { url: gifUrl } });
+            messageSequence.push({
+              label: "tier_gif",
+              payload: {
+                content: "",
+                embeds: [{ url: "https://upsmflproduction.keith-creelman.workers.dev/", image: { url: gifUrl } }],
+                allowed_mentions: { parse: [] },
+              },
+            });
           }
-          // Discord caps embeds at 10 per message; we're way under.
 
           if (dryRun) {
             results.push({
               row_id: r.id, player_id: r.player_id, player_name: r.player_name,
               tier, channel_id: channelId,
-              would_post_embed_title: headerEmbed.title,
+              message_sequence: messageSequence.map((m) => m.label),
               player_gif_found: !!playerGifUrl,
-              embed_count: embeds.length,
             });
             continue;
           }
 
-          // Post the embeds.
-          let postRes;
-          try {
-            postRes = await discordBotRequest(
-              botToken, "POST",
-              `/channels/${encodeURIComponent(channelId)}/messages`,
-              { content: "", embeds, allowed_mentions: { parse: [] } }
-            );
-          } catch (e) {
-            postRes = { ok: false, status: 0, text: String(e?.message || e) };
+          // Post messages sequentially with pacing. Track all IDs.
+          const messageIds = [];
+          let sequenceOk = true;
+          let lastError = "";
+          for (const msg of messageSequence) {
+            let pRes;
+            try {
+              pRes = await discordBotRequest(
+                botToken, "POST",
+                `/channels/${encodeURIComponent(channelId)}/messages`,
+                msg.payload
+              );
+            } catch (e) {
+              pRes = { ok: false, status: 0, text: String(e?.message || e) };
+            }
+            const mid = safeStr(pRes?.data?.id || "");
+            if (pRes?.ok && mid) {
+              messageIds.push({ label: msg.label, id: mid });
+            } else {
+              sequenceOk = false;
+              lastError = safeStr(pRes?.text).slice(0, 300);
+              break;
+            }
+            await new Promise((res) => setTimeout(res, 350));
           }
-          const messageId = safeStr(postRes?.data?.id || "");
-          if (postRes?.ok && messageId) {
+
+          if (sequenceOk && messageIds.length) {
+            const idsCsv = messageIds.map((m) => `${m.label}:${m.id}`).join(",");
             try {
               await env.UPS_MFL_DB.prepare(
                 `UPDATE ups_drop_events
@@ -27339,20 +27411,20 @@ export default {
                         discord_channel_id = ?,
                         discord_message_id = ?
                   WHERE id = ?`
-              ).bind(channelId, messageId, r.id).run();
+              ).bind(channelId, idsCsv, r.id).run();
             } catch (_) {}
             results.push({
               row_id: r.id, player_id: r.player_id, player_name: r.player_name,
-              tier, penalty, channel_id: channelId, message_id: messageId, ok: true,
+              tier, penalty, channel_id: channelId, message_ids: messageIds, ok: true,
             });
           } else {
             results.push({
               row_id: r.id, player_id: r.player_id, player_name: r.player_name,
-              tier, ok: false, error: safeStr(postRes?.text).slice(0, 300),
+              tier, ok: false, partial_message_ids: messageIds, error: lastError,
             });
           }
-          // Polite pacing — be friendly to Discord rate limit
-          await new Promise((res) => setTimeout(res, 350));
+          // Polite pacing between drop events.
+          await new Promise((res) => setTimeout(res, 500));
         }
 
         return jsonOut(200, {
