@@ -18621,6 +18621,9 @@ export default {
             searchUrl.searchParams.set("limit", "25");
             searchUrl.searchParams.set("offset", "0");
             searchUrl.searchParams.set("lang", "en");
+            // rating=r → broadest content per commissioner 2026-05-22
+            // (no silent g/pg-13 filter on player-strict-match passes).
+            searchUrl.searchParams.set("rating", "r");
             try {
               const res = await fetch(searchUrl.toString(), {
                 headers: { "User-Agent": "upsmflproduction-worker" },
@@ -18675,15 +18678,25 @@ export default {
         // kinds will get pools in a later rollout.
         const kindForPool = normalizeContractActivityKind(activityType, "");
         const TONE_POOL_QUERIES = {
+          // Drop = player got cut. Comedic "you're fired / get outta here"
+          // energy per Keith 2026-05-22 (replaced earlier sad/dejected tone
+          // which felt wrong — drop is a punchline, not a eulogy).
           drop: [
-            "nfl player dejected",
-            "football player frustrated",
-            "nfl bench head down",
-            "football walk off field",
-            "nfl disappointed",
+            "trump you're fired",
+            "you're fired",
+            "gtfoh",
+            "get outta here",
+            "kicked out",
+            "shown the door",
+            "hit the road",
+            "bye bye wave",
+            "boot kick out",
+            "see ya later",
+            "get out",
           ],
           // extension / restructure / tag / trade / mym intentionally empty
-          // until the cross-activity rollout.
+          // until the cross-activity rollout (see
+          // docs/generic_gif_fallback_rollout.md).
         };
         const tonePool = TONE_POOL_QUERIES[kindForPool] || [];
         for (const poolQuery of tonePool) {
@@ -18693,6 +18706,9 @@ export default {
           poolUrl.searchParams.set("limit", "25");
           poolUrl.searchParams.set("offset", "0");
           poolUrl.searchParams.set("lang", "en");
+          // rating=r → Pass-3 tone pool is comedic/edgy (e.g. drop =
+          // "you're fired"); commissioner wants no rating filter.
+          poolUrl.searchParams.set("rating", "r");
           try {
             const res = await fetch(poolUrl.toString(), {
               headers: { "User-Agent": "upsmflproduction-worker" },
@@ -18729,6 +18745,7 @@ export default {
             searchUrl.searchParams.set("q", query);
             searchUrl.searchParams.set("limit", "25");
             searchUrl.searchParams.set("lang", "en");
+            searchUrl.searchParams.set("rating", "r");
             try {
               const res = await fetch(searchUrl.toString(), {
                 headers: { "User-Agent": "upsmflproduction-worker" },
@@ -27230,6 +27247,7 @@ export default {
             u.searchParams.set("q", q);
             u.searchParams.set("limit", "25");
             u.searchParams.set("lang", "en");
+            u.searchParams.set("rating", "r");
             try {
               const r = await fetch(u.toString(), { cf: { cacheTtl: 600 } });
               if (!r.ok) continue;
