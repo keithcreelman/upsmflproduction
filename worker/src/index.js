@@ -18508,6 +18508,7 @@ export default {
         if (activity.includes("restructure")) return "restructure";
         if (activity.includes("mym")) return "mym";
         if (activity.includes("extension")) return "extension";
+        if (activity.includes("drop")) return "drop";
         return "other";
       };
 
@@ -18664,6 +18665,61 @@ export default {
         if (pass1) return pass1;
         const pass2 = await tryPass(false);
         if (pass2) return pass2;
+        // Pass 3 (tone-pool fallback): when strict player matching fails AND
+        // the activity kind has a curated tone pool, fall back to a generic
+        // pool search (no strict matching). Returns strict_match: false so
+        // callers can decide whether to accept it. Today only "drop" has a
+        // populated pool — Giphy coverage of mid-tier NFL players by name is
+        // sparse (see Higbee probe 2026-05-22) and the visual sad-context
+        // matters more than player-specificity for drop announcements. Other
+        // kinds will get pools in a later rollout.
+        const kindForPool = normalizeContractActivityKind(activityType, "");
+        const TONE_POOL_QUERIES = {
+          drop: [
+            "nfl player dejected",
+            "football player frustrated",
+            "nfl bench head down",
+            "football walk off field",
+            "nfl disappointed",
+          ],
+          // extension / restructure / tag / trade / mym intentionally empty
+          // until the cross-activity rollout.
+        };
+        const tonePool = TONE_POOL_QUERIES[kindForPool] || [];
+        for (const poolQuery of tonePool) {
+          const poolUrl = new URL("https://api.giphy.com/v1/gifs/search");
+          poolUrl.searchParams.set("api_key", apiKey);
+          poolUrl.searchParams.set("q", poolQuery);
+          poolUrl.searchParams.set("limit", "25");
+          poolUrl.searchParams.set("offset", "0");
+          poolUrl.searchParams.set("lang", "en");
+          try {
+            const res = await fetch(poolUrl.toString(), {
+              headers: { "User-Agent": "upsmflproduction-worker" },
+              cf: { cacheTtl: 300, cacheEverything: false },
+            });
+            if (!res.ok) continue;
+            const data = await res.json();
+            const rows = Array.isArray(data?.data) ? data.data : [];
+            if (!rows.length) continue;
+            const pick = rows[Math.floor(Math.random() * rows.length)];
+            const gifUrl =
+              safeStr(pick?.images?.original?.url) ||
+              safeStr(pick?.images?.downsized_large?.url) ||
+              safeStr(pick?.images?.fixed_height?.url) ||
+              safeStr(pick?.url);
+            if (gifUrl) {
+              return {
+                ok: true,
+                gif_url: gifUrl,
+                reason: "",
+                query: poolQuery,
+                strict_match: false,
+                tone_pool: kindForPool,
+              };
+            }
+          } catch (_) {}
+        }
         // Per commissioner: no GIF is better than a wrong one. Only fall back
         // to a generic celebration GIF if we have NO player at all.
         if (!playerLastNorm) {
@@ -27303,11 +27359,13 @@ export default {
           fields.push({ name: "Cap penalty", value: penaltyLine, inline: false });
           if (droppedAtET) fields.push({ name: "Dropped", value: droppedAtET, inline: false });
 
-          // Player-specific GIF (strict matching — only if Giphy returns
-          // a result with the player's last name in the title/slug).
-          // pickContractActivityGifUrl is the existing function used by
-          // contract-activity DMs; "strict_match: true" means full-name
-          // confidence.
+          // Player-specific GIF — strict full-name / last-name match if
+          // Giphy has the player tagged, else a sad-NFL tone-pool fallback
+          // (Keith 2026-05-22 — Higbee proved most mid-tier players have
+          // zero name-tagged content on Giphy, so a generic-sad lead beats
+          // a bare details card). Pass 3 returns strict_match=false; we
+          // accept it for drops because the sad-context value outweighs
+          // player-specificity here.
           let playerGifUrl = "";
           if (!dryRun) {
             try {
@@ -27315,7 +27373,7 @@ export default {
                 activityType: "drop",
                 playerName: safeStr(r.player_name),
               });
-              if (pg && pg.ok && pg.strict_match && pg.gif_url) {
+              if (pg && pg.ok && pg.gif_url) {
                 playerGifUrl = pg.gif_url;
               }
             } catch (_) {}
