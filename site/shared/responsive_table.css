@@ -1,0 +1,100 @@
+/*!
+ * responsive_table.css — stack-to-cards mobile pattern for HPM tables
+ * Stage 2 of docs/mfl_native/tos_removal_plan.md
+ * Mirrors lessons_from_theeohiostate.md §4.
+ *
+ * Usage on tables we own:
+ *   <table class="ups-stack-table">
+ *     <thead>...<th>Franchise</th>...</thead>
+ *     <tbody>
+ *       <tr><td data-card-label="Franchise">Steelers</td>...</tr>
+ *     </tbody>
+ *   </table>
+ *
+ * Below 650px, the table flips to a card-per-row layout. Each <td>'s
+ * `data-card-label` value is rendered as a bold left-aligned label.
+ * Cells without `data-card-label` stack with no label.
+ *
+ * Falls back gracefully for tables that don't opt in (no .ups-stack-table
+ * class → desktop layout always).
+ *
+ * Breakpoint 40.625em (650px @ 16px base) matches TOS canon so visual
+ * behavior is consistent if we later port more TOS-styled pages.
+ */
+
+@media (max-width: 40.625em) {
+  table.ups-stack-table,
+  table.ups-stack-table thead,
+  table.ups-stack-table tbody,
+  table.ups-stack-table tr,
+  table.ups-stack-table th,
+  table.ups-stack-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Hide <th> off-screen rather than display:none so screen readers still announce it. */
+  table.ups-stack-table thead tr {
+    position: absolute;
+    top: -9999rem;
+    left: -9999rem;
+  }
+
+  table.ups-stack-table tr {
+    margin: 0 0 0.625rem 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--ups-border, rgba(255, 255, 255, 0.12));
+    border-radius: 0.5rem;
+    background: var(--ups-surface, rgba(20, 30, 50, 0.55));
+  }
+
+  table.ups-stack-table tr:last-child {
+    margin-bottom: 0;
+  }
+
+  table.ups-stack-table td {
+    position: relative;
+    padding: 0.25rem 0;
+    border: 0;
+    text-align: left !important;
+    min-height: 1.5rem;
+    line-height: 1.35;
+    color: var(--ups-text, #e8eefb);
+  }
+
+  table.ups-stack-table td[data-card-label]::before {
+    content: attr(data-card-label) "\00a0:\00a0";
+    display: inline-block;
+    min-width: 6.25rem;
+    font-weight: 800;
+    color: var(--ups-muted, #a7c1e6);
+    margin-right: 0.5rem;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    vertical-align: top;
+  }
+
+  table.ups-stack-table td:empty {
+    display: none;
+  }
+}
+
+/* Optional: dense variant trims padding/spacing for tables with many rows
+   (e.g. transaction logs). Opt in with `.ups-stack-table.ups-stack-dense`. */
+@media (max-width: 40.625em) {
+  table.ups-stack-table.ups-stack-dense tr {
+    padding: 0.35rem 0.55rem;
+    margin-bottom: 0.4rem;
+  }
+
+  table.ups-stack-table.ups-stack-dense td {
+    padding: 0.15rem 0;
+  }
+
+  table.ups-stack-table.ups-stack-dense td[data-card-label]::before {
+    min-width: 5rem;
+    font-size: 0.68rem;
+  }
+}

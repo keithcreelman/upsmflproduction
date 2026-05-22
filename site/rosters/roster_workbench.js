@@ -555,6 +555,39 @@
     return status === "r" || status.indexOf("r-") === 0 || status.indexOf("rookie") !== -1;
   }
 
+  // taxiDemoteLikelyForbidden — client-side §B2 guard for the
+  // rule-transition cohort. The §B2 "3 call-ups → permanent" rule
+  // landed on 2026-05-08; any player who was on an active roster
+  // BEFORE the 2026 season is grandfathered into permanent-promotion
+  // because they used call-ups that pre-dated the tracking system
+  // (PR #246 backfill didn't catch the full cohort — Devin Neal,
+  // Kyle Williams, etc.).
+  //
+  // Rule (Keith 2026-05-19): if active AND acquired before season
+  // 2026 → block demote. Worker's taxi_callups_used + pending also
+  // honored as a definitive signal.
+  //
+  // SUNSET: this guard can be deleted in 2028. The youngest
+  // grandfathered cohort is the 2025 rookie draft (acquisition_year
+  // = 2025). Their 3-year taxi window expires after the 2027 season,
+  // so by the 2028 season none of them are taxi-eligible at all and
+  // the demote button is already hidden by the upstream taxiEligible
+  // check.
+  var TAXI_RULE_EFFECTIVE_SEASON = 2026;
+  function taxiDemoteLikelyForbidden(player) {
+    if (!player) return false;
+    var usedOrPending = safeInt(player.taxiCallupsUsed, 0) + safeInt(player.taxiCallupsPending, 0);
+    if (usedOrPending > 0) return true;     // worker says they've burned ≥1
+    var acq = safeStr(player.acquisitionText || "");
+    var m = acq.match(/\((\d{4})\)\s*$/);
+    if (!m) return false;                    // unknown acquisition window → trust worker
+    var acquiredYear = safeInt(m[1], 0);
+    if (acquiredYear <= 0) return false;
+    if (acquiredYear >= TAXI_RULE_EFFECTIVE_SEASON) return false;   // post-rule join, worker is authoritative
+    if (!rookieLikeContractStatus(player.type)) return false;       // veterans not in scope
+    return true;                              // pre-rule active rookie → grandfathered permanent
+  }
+
   function rosterContractEligibility(player) {
     var years = Math.max(0, safeInt(player && player.years, 0));
     var salary = safeInt(player && player.salary, 0);
@@ -2065,12 +2098,14 @@
   }
 
   function tagPriorAavSubtext(row) {
+    // Canon §C8: AAV-only display (Keith 2026-05-19). Removed
+    // prior_salary_week1 from the MAX to align with the tag-formula
+    // fix in effectiveTagSalaryForRow above.
     var season = safeStr(row && row.prior_basis_season) || safeStr(state.tagData && state.tagData.sourceSeason);
     var amount = Math.max(
       safeInt(row && row.prior_aav_week1, 0),
       safeInt(row && row.prior_aav, 0),
-      safeInt(row && row.aav, 0),
-      safeInt(row && row.prior_salary_week1, 0)
+      safeInt(row && row.aav, 0)
     );
     var label = season ? (season + " AAV") : "Prior AAV";
     return label + ": " + (amount > 0 ? formatContractK(amount) : "—");
@@ -2801,6 +2836,12 @@
       points_total: safeNum(row.points_total, 0),
       pos_rank: safeInt(row.pos_rank, 0),
       tag_tier: safeInt(row.tag_tier, 0),
+      // tag_base_bid = the tier's canonical base (avg AAV of its rank
+      // band). effectiveTagSalaryForRow uses this as the floor; without
+      // it the formula falls back to the JSON's precomputed (buggy)
+      // tag_salary and we don't actually fix anything. Keith 2026-05-19:
+      // Mahomes was still showing $75K post-fix because this was missing.
+      tag_base_bid: safeInt(row.tag_base_bid, 0),
       tag_salary: safeInt(row.tag_salary || row.tag_bid || row.salary, 0),
       tag_formula: safeStr(row.tag_formula),
       is_tag_eligible: safeInt(row.is_tag_eligible, 0),
@@ -2847,24 +2888,32 @@
   }
 
   function effectiveTagSalaryForRow(row) {
+    // CANON §C8: the 10% floor is grounded in AAV only — never
+    // current/prior salary (Keith 2026-05-19). Including salary in the
+    // MAX inflates the tag for back-loaded contracts (Mahomes BL Y2
+    // $68K → tag $75K instead of canonical $60K). Same fix applied to
+    // the FO v2 port. tag_base_bid is the tier bid (AAV-ranked);
+    // tag_salary in the row is the precomputed (formerly buggy) value
+    // and is NOT used as input — we use it only as a min-floor below
+    // for back-compat with rows that lack tag_base_bid.
     var ref = row || {};
-    var baseBid = safeInt(ref.tag_salary, 0);
-    var floorBase = Math.max(
+    var baseBid = safeInt(ref.tag_base_bid, 0) || safeInt(ref.tag_salary, 0);
+    var aavFloor = Math.max(
       safeInt(ref.prior_aav_week1, 0),
-      safeInt(ref.prior_salary_week1, 0),
-      safeInt(ref.aav, 0),
-      safeInt(ref.salary, 0)
+      safeInt(ref.aav, 0)
     );
-    var bumpFloor = floorBase > 0 ? Math.ceil((floorBase * 1.1) / 1000) * 1000 : 0;
+    var bumpFloor = aavFloor > 0 ? Math.ceil((aavFloor * 1.1) / 1000) * 1000 : 0;
     return Math.max(baseBid, bumpFloor);
   }
 
   function effectiveTagFormulaForRow(row) {
-    var formula = safeStr(row && row.tag_formula);
-    var baseBid = safeInt(row && row.tag_salary, 0);
+    // Strip the JSON's "10% salary floor" suffix because the formula
+    // is now AAV-only — the suffix label was misleading.
+    var formula = safeStr(row && row.tag_formula).replace(/\s*\|\s*10% salary floor[^|]*$/i, "");
+    var baseBid = safeInt(row && row.tag_base_bid, 0) || safeInt(row && row.tag_salary, 0);
     var effectiveBid = effectiveTagSalaryForRow(row);
-    if (effectiveBid > baseBid && formula.toLowerCase().indexOf("10%") === -1) {
-      formula += (formula ? " | " : "") + "10% salary floor (rounded up)";
+    if (effectiveBid > baseBid) {
+      formula += (formula ? " | " : "") + "10% AAV floor (rounded up to $1K)";
     }
     return formula;
   }
@@ -7101,9 +7150,11 @@
       items.sort(function (a, b) {
         var pointsDelta = safeNum(b.points_total, 0) - safeNum(a.points_total, 0);
         if (Math.abs(pointsDelta) > 0.0001) return pointsDelta;
-        var salaryDelta = Math.max(safeInt(b.prior_aav_week1, 0), safeInt(b.prior_salary_week1, 0)) -
-          Math.max(safeInt(a.prior_aav_week1, 0), safeInt(a.prior_salary_week1, 0));
-        if (salaryDelta !== 0) return salaryDelta;
+        // AAV-only tiebreaker per canon (Keith 2026-05-19) — was MAX
+        // of (prior_aav_week1, prior_salary_week1).
+        var aavDelta = Math.max(safeInt(b.prior_aav_week1, 0), safeInt(b.aav, 0)) -
+          Math.max(safeInt(a.prior_aav_week1, 0), safeInt(a.aav, 0));
+        if (aavDelta !== 0) return aavDelta;
         return compareText(a.player_name, b.player_name);
       });
 
@@ -7586,11 +7637,21 @@
           actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="promote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Promote From Taxi</button>'
           );
-        } else if (!player.isIr && player.taxiEligible && !player.taxiPermanentPromotion) {
+        } else if (!player.isIr && player.taxiEligible && !player.taxiPermanentPromotion && !taxiDemoteLikelyForbidden(player)) {
           // Demote to Taxi — appears for taxi-eligible non-taxi players
           // (R2-5 rookies in their 3-year window) who haven't been
           // permanently promoted. Worker enforces real rules: R1 blocked
           // (Q12), permanently-promoted blocked (Q10 follow-up).
+          //
+          // Keith 2026-05-19: Devin Neal + Kyle Williams were promoted
+          // BEFORE the §B2 3-call-ups-then-permanent rule landed on
+          // 2026-05-08, and the backfill in PR #246 didn't catch them
+          // — worker still reports taxi_callups_used=0 + taxi_permanent
+          // _promotion=false, so the button was showing on rule-locked
+          // players. The taxiDemoteLikelyForbidden() guard adds a
+          // conservative client-side check (active rookie acquired in
+          // a prior season → almost certainly burned ≥1 call-up across
+          // the season boundary → block).
           actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="demote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Demote to Taxi</button>'
           );
@@ -9001,17 +9062,15 @@
         // a single-shot indicator so owners know the cap-free-cut window
         // is gone for this player.
         tags.push('<span class="rwb-tag is-taxi-perm">Promoted</span>');
-      } else if (p.taxiEligible) {
-        // Active-roster rookie who is still taxi-eligible (Keith 2026-05-18):
-        // show the call-up budget so owners can see how many call-ups they
-        // can still spend on this player. Default state "Taxi · 0/3".
-        var usedE = safeInt(p.taxiCallupsUsed, 0);
-        var pendingE = safeInt(p.taxiCallupsPending, 0);
-        var maxE = safeInt(p.taxiCallupsMax, 3) || 3;
-        var eligLabel = "Taxi-Elig · " + usedE + "/" + maxE;
-        if (pendingE > 0) eligLabel += " + " + pendingE + " pending";
-        tags.push('<span class="rwb-tag is-taxi">' + escapeHtml(eligLabel) + '</span>');
       }
+      // (Was: "Taxi-Elig · N/3" chip for active-roster rookies. Removed
+      // 2026-05-19 — the worker's taxi_callups_used field is unreliable
+      // for the rule-transition cohort (Devin Neal, Kyle Williams,
+      // others promoted before 2026-05-08 + missed by PR #246 backfill).
+      // The chip was misleading owners into thinking they had unused
+      // call-ups when in reality the players are grandfathered permanent.
+      // Restore when worker data is trustworthy across the full cohort
+      // — paired with the TAXI_RULE_EFFECTIVE_SEASON sunset in 2028.)
       if (p.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
       var contractLength = contractLengthForPlayer(p);
       var totalContractValue = totalContractValueForPlayer(p);
@@ -10190,11 +10249,12 @@
           var player = rankedPlayers[p] || {};
           var rank = safeInt(player.pos_rank, 0);
           if (rank < minRank || rank > maxRank) continue;
+          // AAV-only per canon §C8 (Keith 2026-05-19). Dropped salary +
+          // prior_salary from the MAX so the tier base bid reflects
+          // canonical AAV, not the higher of AAV vs back-loaded salary.
           var projectedAav = Math.max(
             safeInt(player.prior_aav_week1, 0),
-            safeInt(player.prior_salary_week1, 0),
-            safeInt(player.aav, 0),
-            safeInt(player.salary, 0)
+            safeInt(player.aav, 0)
           );
           total += projectedAav;
           nextPlayers.push({
@@ -10927,15 +10987,59 @@
 
   function submitRosterMove(move, playerId, franchiseId, playerName, options) {
     options = options || {};
-    var moveKey = move === "activate_ir" ? "ir:" + playerId : (move === "drop_player" ? "drop:" + playerId : "taxi:" + playerId);
+    var moveKey = move === "activate_ir"
+      ? "ir:" + playerId
+      : (move === "drop_player"
+        ? "drop:" + playerId
+        : (move === "demote_taxi"
+          ? "demote:" + playerId
+          : "taxi:" + playerId));
     var verb = move === "activate_ir"
       ? "activate from IR"
-      : (move === "drop_player" ? "drop" : "promote from taxi");
+      : (move === "drop_player"
+        ? "drop"
+        : (move === "demote_taxi" ? "demote to taxi" : "promote from taxi"));
     var penaltyText = "";
     if (move === "drop_player" && options.dropPenalty) {
       penaltyText = "\n\nEstimated cap penalty: " + money(options.dropPenalty.amount) + "\n" + safeStr(options.dropPenalty.note);
     }
-    if (!window.confirm("Confirm " + verb + " for " + safeStr(playerName) + "?" + penaltyText)) return;
+    // Canon §B2 context for taxi promote/demote so owners know the rule
+    // before they burn a call-up. Counter values come from the worker
+    // payload (taxi_callups_used + pending + max).
+    var taxiContextText = "";
+    if (move === "promote_taxi" || move === "demote_taxi") {
+      var record = options.playerRecord || findPlayerRecord(pad4(franchiseId), safeStr(playerId));
+      var p = record && record.player;
+      var used = safeInt(p && p.taxiCallupsUsed, 0);
+      var pending = safeInt(p && p.taxiCallupsPending, 0);
+      var max = safeInt(p && p.taxiCallupsMax, 3) || 3;
+      var totalSpent = used + pending;
+      var remaining = Math.max(0, max - totalSpent);
+      if (move === "promote_taxi") {
+        var aboutToBeNth = totalSpent + 1;
+        var usedLine = "\n\nCall-ups used: " + used + " of " + max +
+          (pending > 0 ? " (+" + pending + " pending)" : "") + ".";
+        if (aboutToBeNth >= max + 1) {
+          taxiContextText =
+            usedLine +
+            "\n⚠ This will be call-up #" + aboutToBeNth + " of a " + max + "-call-up budget." +
+            "\nCanon §B2: 4th call-up = PERMANENT PROMOTION." +
+            "\nPlayer will no longer be cap-free cut after this NFL week locks.";
+        } else {
+          taxiContextText =
+            usedLine +
+            "\nCanon §B2: each NFL week the player is active on your roster burns 1 call-up." +
+            "\nDemoting before the next NFL week locks DOES NOT count.";
+        }
+      } else {
+        // demote_taxi
+        taxiContextText =
+          "\n\nCanon §B2: demoting before the next NFL week locks does NOT" +
+          "\nburn a call-up. Pending call-ups awaiting confirmation will be" +
+          "\nautomatically cleared on the next weeklyresults sweep.";
+      }
+    }
+    if (!window.confirm("Confirm " + verb + " for " + safeStr(playerName) + "?" + penaltyText + taxiContextText)) return;
 
     state.busyActionKey = moveKey;
     setFlash("success", "Submitting " + safeStr(playerName) + " to MFL...");

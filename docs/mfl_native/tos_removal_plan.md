@@ -377,23 +377,70 @@ For each stage, run the matrix below. The "TOS features active" column reflects 
 
 ---
 
-## §5 — Open questions for Keith
+## §5 — Decisions (resolved 2026-05-20)
 
-1. **Stage 11 timing** — Are you willing to absorb a 1–2 day "everything looks slightly off" period after the `light.css` skin flip, or do you want the replacement CSS to be pixel-perfect at the moment of flip? (Latter is 3-4× the effort.)
-2. **Dice Roll feature (#15)** — Has UPS ever used the dice-roll pre-draft order tool? If never, delete in Stage 9 with no replacement. If sometimes, what's the policy?
-3. **Chat enhancements (`load_chat_enhanced`)** — Anyone in UPS actively using the in-MFL league chat? If it's dormant, delete in Stage 9. If active, we'd need to build a replacement before flipping the toggle.
-4. **Lineup submit script V3** — The native MFL `/lineup` page works for submission. Does anyone rely on TOS's V3 enhancements (drag-drop reordering, "Set 'em and Leave 'em" panel)? If not, delete; if yes, port.
-5. **History sub-scripts (#13)** — HPM #6 "History" renders via 7 TOS history sub-scripts. Is the integrated history module a Keith-priority feature or a "would be nice"? Determines whether this becomes Phase 2 work or is deferred indefinitely.
-6. **Owner Activity tab ID (#20)** — Confirm `#tab202` is currently the Owner Activity tab. If our tab layout has moved (or you no longer expose Owner Activity as a tab), the hook can be deleted outright.
-7. **MFL skin commish endpoint** — Do you want Stage 11 to flip the skin via the MFL UI manually, or via a one-time POST script we author from the `csetup` recipe in `lessons §6`? Manual is safer; scripted is reproducible.
-8. **Add/Drop UI ownership (#21)** — TOS released the add_drop rebuild as a standalone app at `mflscripts.com/mfl-apps/add_drop/`. Do you prefer (a) port that codebase as-is (smaller diff, retains TOS-style polish), or (b) treat /add_drop as a candidate to redirect to a first-party page like Front Office?
-9. **Notification add-on commish gating (#10)** — TOS's popup-addon shows badges for unread PMs / new posts / open polls / open trades. Should the replacement be visible to all owners, or commish-only?
-10. **Self-hosted assets policy** — When we self-host `300x50-icons.css`, do you want them committed to the repo and served from GH Pages (consistent with rosters fork), or stashed on Cloudflare R2 / a worker route?
-11. **Effort-budget call** — Should we attempt this in one push (~3-week sprint), or stretch across multiple weeks at 1-2 stages per week (lower disruption, longer total elapsed time)?
-12. **`fid_commish` value mismatch** — Header sets `commishTeam = "0004"` (line 4746), footer sets `fid_commish = "0007"` and `ls_commish_id = "0007"`. Is this intentional (different roles for different surfaces) or a stale config? Resolve before Stage 6 so the new mobile-menu / popup-addon use the correct ID.
-13. **Player popup login icon** — TOS's popup includes a login icon for anonymous visitors. Do we want to retain it? Most public visitors to UPS don't need to log in (it's a private league).
-14. **mflscripts.com Font Awesome (`mflscripts.com/font-awesome/css/all.min.css`)** — Used in our codebase? (Will verify in Stage 8 via grep, but a quick yes/no from you saves a half-day.)
+All open questions resolved with Keith. Numbering preserved for traceability against research-archive copies of this doc.
+
+| # | Topic | Decision | Implementation impact |
+| --- | --- | --- | --- |
+| 1 / 11 | Stage 11 timing & cadence | **Stretched cadence; tolerate 1–2 days of visual drift.** Stages run at 1–2/week with a 7-day soak before final cuts. | Effort distribution stays at 12–20 person-days; no pixel-perfect baseline required pre-Stage 11. |
+| 2 | Dice Roll pre-draft tool | **DELETE in Stage 9, no replacement.** UPS doesn't use it. | §2 #15 confirmed delete. |
+| 3 | In-MFL chat enhancements | **DELETE in Stage 9, no replacement.** League chat is dormant. | §2 row for #6 / `load_chat_enhanced` toggle confirmed off + no port. |
+| 4 | Lineup submit V3 | **KEEP / PORT.** UPS uses native MFL lineup submission; the V3 drag-drop + reportnav rewrite are load-bearing. | §2 #5 upgraded from "Defer, then adapt" to **Adapt** in Stage 6/7 timeframe. |
+| 5 | History sub-scripts (HPM #6) | **PORT in Phase 1 (becomes Stage 9.5).** Value isn't UX polish — it's understanding TOS's data-pull patterns so we can later replace with D1-native reports. | Add Stage 9.5 between Stage 9 and Stage 10; effort estimate +3–5 person-days. |
+| 6 | Owner Activity `#tab202` hook | **DELETE with no replacement.** Verified: zero `tab202` / `owner_activity` references in our HPMs (Keith 2026-05-20). | §2 #20 confirmed delete; Stage 6 doesn't need an `owner_activity_refresh.js` after all. |
+| 7 | Stage 11 skin flip mechanism | **DEFERRED indefinitely.** Don't flip `light.css` right now; document the `csetup` POST recipe in `docs/mfl_native/lessons_from_theeohiostate.md` §6 for future reference. | Stage 11 becomes "OUT OF SCOPE — recipe captured, execution deferred." Final state after Stage 10 = TOS scripts gone, `light.css` still loaded as MFL skin. |
+| 8 | Add/Drop UI ownership | **DEFER port. STUDY TOS's public add_drop code for pull/push patterns only.** UI will be custom enhancements; we won't mirror TOS's look-and-feel. | §2 #21 downgraded from "Adopt verbatim / delete" to **Study-only**. Stage 9 no longer includes an add_drop port. Capture findings in a new `docs/mfl_native/add_drop_study.md`. |
+| 9 | Notification add-on audience | **All owners, custom UI.** Not a verbatim TOS port — design fresh popups. | §2 #10 + #11 reclassified as **Build (not Adapt)**. Stage 7 effort estimate +1–2 days to cover UX design. |
+| 10 | Self-hosted assets location | **`site/shared/css/`** (new subdir under existing `site/shared/`). | Stage 8 path: `site/shared/css/300x50-icons.css`, `site/shared/css/font-awesome.min.css` (new — see #14), `site/shared/css/ups_skin_replacement.css` (future / deferred per #7). |
+| 12 | `fid_commish` mismatch | **Both current values are stale.** Keith's actual commish franchise is **0008**. Normalize ALL new code to 0008. Flag a separate cleanup pass for the existing TOS configs (header `commishTeam="0004"`, footer `fid_commish="0007"` / `ls_commish_id="0007"`) — but that's adjacent work, NOT blocking. | All new modules (popup, notification add-on, mini-boxscore, etc.) use franchise `0008`. Add a §6 cleanup row below. |
+| 13 | Popup login icon | **KEEP** (do not suppress for anonymous). | §2 #2 adaptation must preserve the login-icon branch for anonymous visitors. |
+| 14 | Font Awesome source | **TOS provides it implicitly; we never link it ourselves.** Confirmed via grep: we use `fa-solid fa-*` classes heavily in [header_custom_v2.html:1662](header_custom_v2.html:1662)+, but there is no `<link>` to any FA CSS in our HPMs. Removing TOS will silently break every icon. **Stage 8 MUST self-host Font Awesome before Stage 10.** | New action: download FA `all.min.css` + webfonts to `site/shared/css/font-awesome/`; add `<link rel="stylesheet">` to HPM #1 in Stage 8. Estimate +0.5 day. |
 
 ---
 
-**END.** This plan is the artifact; nothing has been removed or rewritten in code yet.
+## §6 — Plan deltas (applied 2026-05-20)
+
+The decisions above modify §2 / §3 as follows. Reread §2 and §3 with these in mind:
+
+1. **§2 row #5 (Lineup submit V3)** — strategy changes from "Defer, then adapt" to **Adapt**. Effort still S/M. Add to Stage 6 or 7.
+2. **§2 row #15 (Dice Roll)** — **DELETE confirmed.** Remove `load_diceRoll_script` toggle + delete its loader from HPM #20 in Stage 9.
+3. **§2 row #6 / chat** — `load_chat_enhanced` confirmed **DELETE.** Add a delete row if not present.
+4. **§2 row #10 + #11 (Notification add-on)** — strategy changes from "Adapt" to **Build fresh**. Custom UPS popups for all owners. Don't mirror TOS rail layout.
+5. **§2 row #20 (Owner Activity `#tab202`)** — **DELETE confirmed.** No `owner_activity_refresh.js` needed.
+6. **§2 row #21 (Add/Drop UI)** — strategy changes from "Adopt verbatim / delete" to **Study-only**. Create `docs/mfl_native/add_drop_study.md` summarizing TOS's pull/push patterns. No code port.
+7. **§2 NEW row: Font Awesome self-host** — see #14 in §5. Stage 8 must download + serve from `site/shared/css/font-awesome/`. Insert script-tag in HPM #1.
+8. **§3 Stage 8** — expanded scope:
+   - (a) Self-host `300x50-icons.css` → `site/shared/css/300x50-icons.css`
+   - (b) **NEW: Self-host Font Awesome** → `site/shared/css/font-awesome/`
+   - (c) Rosters-fork TOS-global audit (already in plan)
+   - (d) nitrografixx scan: **completed 2026-05-20** — confirmed only in research docs, code is clean.
+9. **§3 NEW Stage 9.5 — Port history sub-scripts.** Insert between Stage 9 and Stage 10. Goals: port the 7 `_*History*_script` modules to first-party equivalents. Capture data-pull patterns in `docs/mfl_native/history_module_data_patterns.md` for future D1-native replacements.
+10. **§3 Stage 11 — DEFERRED.** Capture the `csetup` skin-flip recipe in `docs/mfl_native/lessons_from_theeohiostate.md` §6, then leave `light.css` loaded indefinitely. Plan terminates after Stage 10. (Future revisit: revisit when MFL skin policy changes or a UX redesign forces it.)
+11. **Commish ID normalization** — all new modules (popup, mini-boxscore, notification add-on, mobile menu) use franchise **0008**. Separate adjacent cleanup ticket: update header `commishTeam`, footer `fid_commish`, footer `ls_commish_id` to 0008.
+
+---
+
+## §7 — Updated effort estimate
+
+| Stage | Status | Effort (person-days) |
+| --- | --- | --- |
+| 1. MFLCache foundation | unchanged | 1.5 |
+| 2. reveal.js + responsive_table.css | unchanged | 0.5 |
+| 3. Mini-boxscore port (behind flag) | unchanged | 1.5 |
+| 4. Player popup port (behind flag) | unchanged | 2.0 |
+| 5. Cut over mini-boxscore + popup | unchanged | 1.0 |
+| 6. Mobile menu + module collapse + playoff polish (NO owner-activity refresh per Q6) | reduced | 1.0 |
+| 7. Notification add-on (build fresh per Q9) | +1–2 | 3.0 |
+| 8. Self-host CDN assets (+Font Awesome per Q14) | +0.5 | 1.0 |
+| 9. Audit & flip remaining toggles (Dice Roll + Chat confirmed delete; Lineup V3 keep) | unchanged | 1.5 |
+| 9.5 **NEW** — Port history sub-scripts | added per Q5 | 3.0–5.0 |
+| 10. Delete header.js + footer.js script tags | unchanged | 1.0 |
+| 11. ~~Skin flip~~ | DEFERRED per Q7 | 0 |
+| **Total** | | **17.0–19.0 person-days** |
+
+Within the original 12–20-day envelope. Stage 11 deferral saves the largest single risk; Stage 9.5 (history port) consumes the recovered budget.
+
+---
+
+**END.** This plan is the artifact; nothing has been removed or rewritten in code yet. Decisions register (§5) and deltas (§6) finalized 2026-05-20. **Next step: Stage 1 — port `MFLCache` foundation.**

@@ -47,28 +47,21 @@
     if (cy === 0) out.push('<span class="badge exp">Expired</span>');
     // Taxi badge with call-up counter (canon §B2 + tracker Q10).
     // Renders "Taxi · N/3" when N > 0; plain "Taxi" otherwise.
-    // Permanently-promoted players (4th call-up) aren't on taxi anymore,
-    // but if the underlying status somehow still says TAXI, prefer the
-    // explicit "Promoted" surface so the owner knows cap-free-cut is
-    // gone. (Defensive — should be unreachable in practice.)
     var callup = DATA.taxiCallupsFor && DATA.taxiCallupsFor(rosterRow.id);
     var isTaxiNow = /taxi/i.test(status);
-    var permanentlyPromoted = !!(callup && callup.permanent_promotion);
     // Taxi-eligibility (Keith 2026-05-18): show the call-up budget chip
     // on active-roster rookies who are still in the 3-year window so
     // owners can see how many call-ups remain. Match canon §A1 / §B2:
     // drafted R2-5, season - draft_year < 3.
     var taxiEligibleNow = false;
-    if (!isTaxiNow && !permanentlyPromoted && DATA.isTaxiEligibleFor) {
+    if (!isTaxiNow && DATA.isTaxiEligibleFor) {
       taxiEligibleNow = !!DATA.isTaxiEligibleFor(rosterRow.id);
     }
-    if (isTaxiNow || taxiEligibleNow || permanentlyPromoted) {
+    if (isTaxiNow || taxiEligibleNow) {
       var used = callup ? U.safeInt(callup.used, 0) : 0;
       var pending = callup ? U.safeInt(callup.pending, 0) : 0;
       var max = callup ? U.safeInt(callup.max, 3) || 3 : 3;
-      if (permanentlyPromoted) {
-        out.push('<span class="badge tx-perm">Promoted</span>');
-      } else if (isTaxiNow) {
+      if (isTaxiNow) {
         // Canon §B2 — always show the counter on taxi players (Keith
         // 2026-05-18) so the remaining budget is visible at a glance.
         var label = "Taxi · " + used + "/" + max;
@@ -154,24 +147,16 @@
       if (!seen[p]) ordered.push(p);
     });
 
-    // Parse contractInfo for CL / TCV (years remaining = cy directly).
-    // Reuse the FO penalty mirror's helpers so the values match what the
-    // desktop Roster Workbench renders.
-    var FO_PENALTY = window.UPS_FRONT_OFFICE;
+    // Parse contractInfo for CL / TCV. Delegates to the shared
+    // cap-math module (issue #244 Phase 2B). Falls back to a 0/0
+    // shape if the module hasn't loaded.
     function parseCT(infoStr) {
-      var out = { cl: 0, tcv: 0 };
-      var s = String(infoStr || "");
-      var m = s.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i);
-      if (m) out.cl = parseInt(m[1], 10) || 0;
-      var mm = s.match(/(?:^|\|)\s*TCV\s+([^|]+)/i);
-      if (mm) {
-        var raw = String(mm[1]).trim().replace(/[$,]/g, "");
-        var mult = /K$/i.test(raw) ? 1000 : (/M$/i.test(raw) ? 1000000 : 1);
-        raw = raw.replace(/[KM]$/i, "");
-        var n = Number(raw);
-        if (isFinite(n)) out.tcv = Math.round(n * mult);
+      var cm = (typeof window !== "undefined" && window.UPS_CAP_MATH) || null;
+      if (cm) {
+        var info = cm.parseContractInfo(infoStr);
+        return { cl: info.length || 0, tcv: info.tcv || 0 };
       }
-      return out;
+      return { cl: 0, tcv: 0 };
     }
     function nflLogoUrl(team) {
       var t = U.safeStr(team).toLowerCase();
