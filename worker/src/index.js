@@ -18542,6 +18542,24 @@ export default {
         const parsed = normalizePlayerNameForGif(playerName);
         const kind = normalizeContractActivityKind(activityType, "");
         const queries = [];
+        // Drop bias: prefer sad-themed player queries first so the lead
+        // GIF on a drop post leans sad/disappointed/cry/bench rather than
+        // celebration. Still goes through strict name-match passes —
+        // falls through to plain player variants if Giphy has no
+        // sad-tagged content for this player (Keith 2026-05-22).
+        if (kind === "drop") {
+          if (parsed.full) {
+            queries.push(`${parsed.full} sad`);
+            queries.push(`${parsed.full} disappointed`);
+            queries.push(`${parsed.full} cry`);
+            queries.push(`${parsed.full} bench`);
+            queries.push(`${parsed.full} dejected`);
+          }
+          if (parsed.last) {
+            queries.push(`${parsed.last} sad`);
+            queries.push(`${parsed.last} disappointed`);
+          }
+        }
         // Primary: player name variants (most specific first)
         for (const v of parsed.variants) {
           if (v) queries.push(v);
@@ -27303,17 +27321,20 @@ export default {
             } catch (_) {}
           }
 
-          // Build embed(s) (Keith 2026-05-22 redesign):
-          //   - Header: title "Drop: <Player>" + description with the
-          //     CAP PENALTY as a large markdown heading (#) so it's the
-          //     visual anchor. Fields below for team/player/position/
-          //     contract/state/penalty-detail/dropped-at.
-          //   - Franchise icon back to THUMBNAIL (top-right corner).
-          //     Image-as-banner was unreliable when stacked with GIF
-          //     embeds (Brown's logo rendered blurred). Thumbnail
-          //     renders consistently regardless of embed count.
-          //   - Player-specific GIF + tier GIF stay in separate embeds
-          //     for stacked-image display.
+          // Build embeds (Keith 2026-05-22 redesign — single message,
+          // 3 stacked embed cards):
+          //   embed 1: sad player GIF (image-only, no url → standalone card)
+          //   embed 2: header + fields (Drop: <Player> / penalty heading /
+          //            franchise + player + position + contract + pre-drop
+          //            state + cap penalty + dropped-at)
+          //   embed 3: tier reaction GIF — ONLY if penalty > 0
+          //
+          // No shared `url` across embeds → Discord renders them as
+          // separate cards stacked vertically within one message bubble,
+          // each card full-width, animated GIFs preserved. Shared-url
+          // multi-embed grid-composites images side-by-side, which is
+          // explicitly what we want to avoid (prior iteration on
+          // commit 598ee20).
           let penaltyHeading;
           if (exempt || penalty === 0) {
             penaltyHeading = "# ✅ No Cap Penalty";
@@ -27331,79 +27352,41 @@ export default {
             headerEmbed.thumbnail = { url: franchiseMeta.icon_url };
           }
 
-          // 3-message sequence per Keith 2026-05-22:
-          //   1. Player GIF (lead — single-embed message = full-width render)
-          //   2. News / penalty details embed
-          //   3. Tier reaction GIF (single-embed message = full-width render)
-          //
-          // Multi-embed within ONE message forces Discord to grid-composite
-          // images into narrow side-by-side cards. Separate messages
-          // keep each image full-width, matching the Higbee single-image
-          // render the user liked.
-          const messageSequence = [];
+          const embeds = [];
           if (playerGifUrl) {
-            messageSequence.push({
-              label: "player_gif",
-              payload: {
-                content: "",
-                embeds: [{ url: "https://upsmflproduction.keith-creelman.workers.dev/", image: { url: playerGifUrl } }],
-                allowed_mentions: { parse: [] },
-              },
-            });
+            embeds.push({ image: { url: playerGifUrl } });
           }
-          messageSequence.push({
-            label: "news",
-            payload: { content: "", embeds: [headerEmbed], allowed_mentions: { parse: [] } },
-          });
-          if (gifUrl) {
-            messageSequence.push({
-              label: "tier_gif",
-              payload: {
-                content: "",
-                embeds: [{ url: "https://upsmflproduction.keith-creelman.workers.dev/", image: { url: gifUrl } }],
-                allowed_mentions: { parse: [] },
-              },
-            });
+          embeds.push(headerEmbed);
+          // Reaction GIF only when there's a real cap penalty. Exempt /
+          // $0 drops skip the reaction — no penalty, no reaction.
+          if (gifUrl && !exempt && penalty > 0) {
+            embeds.push({ image: { url: gifUrl } });
           }
 
           if (dryRun) {
             results.push({
               row_id: r.id, player_id: r.player_id, player_name: r.player_name,
               tier, channel_id: channelId,
-              message_sequence: messageSequence.map((m) => m.label),
-              player_gif_found: !!playerGifUrl,
+              embed_count: embeds.length,
+              has_player_gif: !!playerGifUrl,
+              has_reaction_gif: !!(gifUrl && !exempt && penalty > 0),
             });
             continue;
           }
 
-          // Post messages sequentially with pacing. Track all IDs.
-          const messageIds = [];
-          let sequenceOk = true;
-          let lastError = "";
-          for (const msg of messageSequence) {
-            let pRes;
-            try {
-              pRes = await discordBotRequest(
-                botToken, "POST",
-                `/channels/${encodeURIComponent(channelId)}/messages`,
-                msg.payload
-              );
-            } catch (e) {
-              pRes = { ok: false, status: 0, text: String(e?.message || e) };
-            }
-            const mid = safeStr(pRes?.data?.id || "");
-            if (pRes?.ok && mid) {
-              messageIds.push({ label: msg.label, id: mid });
-            } else {
-              sequenceOk = false;
-              lastError = safeStr(pRes?.text).slice(0, 300);
-              break;
-            }
-            await new Promise((res) => setTimeout(res, 350));
+          let postRes;
+          try {
+            postRes = await discordBotRequest(
+              botToken, "POST",
+              `/channels/${encodeURIComponent(channelId)}/messages`,
+              { content: "", embeds, allowed_mentions: { parse: [] } }
+            );
+          } catch (e) {
+            postRes = { ok: false, status: 0, text: String(e?.message || e) };
           }
+          const messageId = safeStr(postRes?.data?.id || "");
 
-          if (sequenceOk && messageIds.length) {
-            const idsCsv = messageIds.map((m) => `${m.label}:${m.id}`).join(",");
+          if (postRes?.ok && messageId) {
             try {
               await env.UPS_MFL_DB.prepare(
                 `UPDATE ups_drop_events
@@ -27411,16 +27394,17 @@ export default {
                         discord_channel_id = ?,
                         discord_message_id = ?
                   WHERE id = ?`
-              ).bind(channelId, idsCsv, r.id).run();
+              ).bind(channelId, messageId, r.id).run();
             } catch (_) {}
             results.push({
               row_id: r.id, player_id: r.player_id, player_name: r.player_name,
-              tier, penalty, channel_id: channelId, message_ids: messageIds, ok: true,
+              tier, penalty, channel_id: channelId, message_id: messageId,
+              embed_count: embeds.length, ok: true,
             });
           } else {
             results.push({
               row_id: r.id, player_id: r.player_id, player_name: r.player_name,
-              tier, ok: false, partial_message_ids: messageIds, error: lastError,
+              tier, ok: false, error: safeStr(postRes?.text).slice(0, 300),
             });
           }
           // Polite pacing between drop events.
