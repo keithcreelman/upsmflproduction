@@ -27398,12 +27398,16 @@ export default {
           }
 
           // Build embeds (Keith 2026-05-22 redesign — single message,
-          // 3 stacked embed cards):
-          //   embed 1: sad player GIF (image-only, no url → standalone card)
-          //   embed 2: header + fields (Drop: <Player> / penalty heading /
-          //            franchise + player + position + contract + pre-drop
-          //            state + cap penalty + dropped-at)
-          //   embed 3: tier reaction GIF — ONLY if penalty > 0
+          // stacked embed cards, ORDER depends on penalty):
+          //
+          //   PENALTY drop (penalty > 0, not exempt):
+          //     embed 1: lead GIF (player-specific or fired-pool fallback)
+          //     embed 2: header + fields (penalty heading, contract details)
+          //     embed 3: tier reaction GIF
+          //   NO-PENALTY drop (penalty === 0 or exempt):
+          //     embed 1: header + fields
+          //     embed 2: lead GIF (the fired/GTFOH punchline AFTER the news)
+          //              — no reaction GIF when there's no penalty
           //
           // No shared `url` across embeds → Discord renders them as
           // separate cards stacked vertically within one message bubble,
@@ -27429,14 +27433,17 @@ export default {
           }
 
           const embeds = [];
-          if (playerGifUrl) {
-            embeds.push({ image: { url: playerGifUrl } });
-          }
-          embeds.push(headerEmbed);
-          // Reaction GIF only when there's a real cap penalty. Exempt /
-          // $0 drops skip the reaction — no penalty, no reaction.
-          if (gifUrl && !exempt && penalty > 0) {
-            embeds.push({ image: { url: gifUrl } });
+          const isPenaltyDrop = !exempt && penalty > 0;
+          if (isPenaltyDrop) {
+            // GIF → details → reaction
+            if (playerGifUrl) embeds.push({ image: { url: playerGifUrl } });
+            embeds.push(headerEmbed);
+            if (gifUrl) embeds.push({ image: { url: gifUrl } });
+          } else {
+            // No-penalty: details → GIF (punchline after the news,
+            // no reaction GIF — no penalty, no reaction).
+            embeds.push(headerEmbed);
+            if (playerGifUrl) embeds.push({ image: { url: playerGifUrl } });
           }
 
           if (dryRun) {
