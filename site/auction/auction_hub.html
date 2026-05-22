@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auction Hub — UPS League</title>
+<link rel="stylesheet" href="auction_hub.css?v=2026.05.18.v0.1.0">
+</head>
+<body>
+<header class="ah-header">
+  <h1>Auction Hub <span class="subtitle" id="ah-subtitle">UPS League · 2026</span>
+    <button id="ah-version-badge" class="ah-version-badge" title="Click for module changelog">Loading…</button>
+  </h1>
+  <div class="meta" id="ah-meta">Loading…</div>
+</header>
+
+<nav class="ah-tabs" id="ah-tabs">
+  <button data-tab="era" class="active">Expired Rookie Pool</button>
+  <button data-tab="fa" disabled title="Coming soon">FA Auction Pool</button>
+  <button data-tab="nominations">Nominations</button>
+  <button data-tab="warroom">War Room</button>
+  <button data-tab="history">Bid History</button>
+  <button data-tab="rules" disabled title="Coming soon">Rules &amp; Calendar</button>
+</nav>
+
+<main class="ah-main">
+  <!-- ── EXPIRED ROOKIE POOL ─────────────────────────────────────── -->
+  <section class="ah-section active" data-section="era">
+    <div class="ah-context-banner">
+      <strong>Expired Rookie Auction (ERA)</strong> — players whose rookie contract expired
+      (<code>contract_type='Rookie'</code> AND <code>contractYear=0</code>) and were not extended by the
+      rookie extension deadline (Thu before Memorial Day weekend). Starting bid <strong>$1K</strong>,
+      36-hour lock window, $1K bid increments. Each owner may submit
+      <strong>1 nomination per 12-hour window</strong> (windows anchored to 6 AM / 6 PM ET).
+      Opens Sat 6 PM ET; nominations close at the end of the Tue 6 AM → 6 PM ET window
+      (6 windows total). Forced retention through FA Auction close.
+      <div class="meta" id="era-context-meta">Eligibility deadline: loading…</div>
+    </div>
+
+    <div class="ah-filters" id="era-filters">
+      <label>
+        <span>Position</span>
+        <div class="ah-pos-chips" id="era-pos-chips">
+          <button type="button" class="ah-pos-chip active" data-pos="ALL">All</button>
+          <button type="button" class="ah-pos-chip" data-pos="QB">QB</button>
+          <button type="button" class="ah-pos-chip" data-pos="RB">RB</button>
+          <button type="button" class="ah-pos-chip" data-pos="WR">WR</button>
+          <button type="button" class="ah-pos-chip" data-pos="TE">TE</button>
+          <button type="button" class="ah-pos-chip" data-pos="PK">PK</button>
+          <button type="button" class="ah-pos-chip" data-pos="PN">PN</button>
+          <button type="button" class="ah-pos-chip" data-pos="IDP">IDP</button>
+        </div>
+      </label>
+      <label>
+        <span>Prior Owner</span>
+        <select id="era-filter-owner"><option value="">All</option></select>
+      </label>
+      <span class="ah-filters-summary" id="era-filters-summary">— eligible</span>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>ERA-Eligible Players</h2>
+        <span class="small" id="era-table-summary">Loading…</span>
+      </div>
+      <table class="ah-table" id="era-table">
+        <thead>
+          <tr>
+            <th data-sort="name">Player</th>
+            <th data-sort="position">Pos</th>
+            <th data-sort="nfl_team" class="col-md">NFL</th>
+            <th data-sort="age" class="num col-lo">Age</th>
+            <th data-sort="prior_owner" class="col-md">Prior Owner</th>
+            <th data-sort="rookie_slot" class="col-lo">Rookie Slot</th>
+            <th data-sort="origin_label">Origin</th>
+            <th data-sort="y3_salary" class="num">Rookie Salary</th>
+            <th data-sort="current_bid" class="num col-md">Current Bid</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="era-tbody">
+          <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px;">Loading eligible players…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── FA AUCTION POOL (placeholder) ────────────────────────────── -->
+  <section class="ah-section" data-section="fa">
+    <div class="ah-placeholder">
+      <strong>FA Auction Pool — coming soon</strong>
+      Last weekend of July. Expired Veterans, dropped players, and untagged FA pool. 24-hour lock, $1K increments, 2 nominations / 24h.
+    </div>
+  </section>
+
+  <!-- ── NOMINATIONS ─────────────────────────────────────────────────── -->
+  <section class="ah-section" data-section="nominations">
+    <div class="ah-context-banner">
+      <strong>Live Auction Feed</strong> — every player currently up for nomination + recent wins.
+      Refreshes every 30s. Lock window resets to 36hr from the most recent high bid (per §A3).
+      Your private proxy bid is shown only when you're signed in as the corresponding franchise.
+      <div class="meta" id="nominations-meta">Loading…</div>
+    </div>
+
+    <div class="ah-filters" id="nominations-filters">
+      <label>
+        <span>Status</span>
+        <div class="ah-pos-chips" id="nominations-status-chips">
+          <button type="button" class="ah-pos-chip active" data-nstatus="open">Open</button>
+          <button type="button" class="ah-pos-chip" data-nstatus="won">Won</button>
+          <button type="button" class="ah-pos-chip" data-nstatus="all">All</button>
+        </div>
+      </label>
+      <label>
+        <span>Sort</span>
+        <select id="nominations-sort">
+          <option value="time_remaining">Time remaining (asc)</option>
+          <option value="current_high_bid_k">Current high bid (desc)</option>
+          <option value="bid_count">Bid count (desc)</option>
+          <option value="opened_at_unix">Most recently opened</option>
+        </select>
+      </label>
+      <span class="ah-filters-summary" id="nominations-summary">— lots</span>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Live Lots</h2>
+        <span class="small" id="nominations-table-summary">Loading…</span>
+      </div>
+      <table class="ah-table" id="nominations-table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="col-md">NFL</th>
+            <th>Nominator</th>
+            <th class="num">High Bid</th>
+            <th>High Bidder</th>
+            <th class="num col-md">Bids</th>
+            <th class="num col-md">Bidders</th>
+            <th>Time Remaining</th>
+            <th class="col-md">Your Proxy</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="nominations-tbody">
+          <tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px;">Loading live lots…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── WAR ROOM ─────────────────────────────────────────────────── -->
+  <section class="ah-section" data-section="warroom">
+    <div class="ah-context-banner">
+      <strong>War Room</strong> — per-franchise cap status, cut-then-rebid block lists, and roster-min/max
+      compliance against canon §6.A1/§A2/§B1.
+      <div class="meta" id="warroom-meta">Click the tab to load.</div>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Cap &amp; Roster Compliance</h2>
+        <span class="small" id="warroom-compliance-summary">—</span>
+      </div>
+      <div class="ah-warroom-league-banner" id="warroom-compliance-banner" style="display:none;"></div>
+      <div class="ah-warroom-grid" id="warroom-compliance-grid">
+        <div class="ah-placeholder">Loading franchise compliance…</div>
+      </div>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Nomination Cadence</h2>
+        <span class="small">
+          ERA: 1 / 12h anchored window — 6 AM / 6 PM ET (§A3) · FA Auction: 2 / 24h rolling (§A1)
+        </span>
+      </div>
+      <div class="ah-warroom-grid" id="warroom-nominations-grid">
+        <div class="ah-placeholder">Loading nomination cadence…</div>
+      </div>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Bid Activity</h2>
+        <div class="ah-bidstats-controls">
+          <div class="ah-bidstats-toggle" id="bidstats-kind-toggle">
+            <button type="button" data-kind="all" class="active">All</button>
+            <button type="button" data-kind="era">ERA only</button>
+            <button type="button" data-kind="fa">FA only</button>
+          </div>
+          <span class="small" id="bidstats-summary">—</span>
+        </div>
+      </div>
+      <div class="ah-warroom-grid" id="warroom-bidstats-grid">
+        <div class="ah-placeholder">Loading bid activity…</div>
+      </div>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Cut-then-Rebid Blocks (§A2)</h2>
+        <span class="small" id="warroom-blocks-summary">—</span>
+      </div>
+      <div class="ah-warroom-grid" id="warroom-blocks-grid">
+        <div class="ah-placeholder">Loading cut-then-rebid lists…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── BID HISTORY ──────────────────────────────────────────────── -->
+  <section class="ah-section" data-section="history">
+    <div class="ah-context-banner">
+      <strong>Bid History</strong> — chronological feed from <code>ups_auction_bids</code>,
+      grouped by lot. Latest bid surfaces; click to expand the full sequence.
+      <span class="ah-legend">
+        <span class="ah-legend-item">🆕 Nom</span>
+        <span class="ah-legend-item ah-help" title="Same franchise as the previous high bidder — MFL walked their hidden max up because someone else bid into their proxy range.">⬆ Forced Increase <span class="ah-help-q">ⓘ</span></span>
+        <span class="ah-legend-item">💰 Overtake</span>
+      </span>
+      <div class="meta" id="history-meta">Click the tab to load.</div>
+    </div>
+
+    <div class="ah-filters" id="history-filters" style="display:none;">
+      <label>
+        <span>Filter by player</span>
+        <input type="text" id="history-player-filter" placeholder="Player name or ID…" />
+      </label>
+      <label>
+        <span>Filter by franchise</span>
+        <select id="history-franchise-filter">
+          <option value="">All franchises</option>
+        </select>
+      </label>
+      <label>
+        <span>Event type</span>
+        <select id="history-kind-filter">
+          <option value="">All</option>
+          <option value="nomination">Nominations</option>
+          <option value="overtake">Overtakes (different franchise)</option>
+          <option value="forced_increase">Forced Increases (same franchise)</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Recent Activity</h2>
+        <span class="small" id="history-count">—</span>
+      </div>
+      <div id="history-feed">
+        <div class="ah-placeholder">Loading bid history…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── RULES &amp; CALENDAR (placeholder) ─────────────────────────── -->
+  <section class="ah-section" data-section="rules">
+    <div class="ah-placeholder">
+      <strong>Rules &amp; Calendar — coming soon</strong>
+      Renders the §A2 + §A3 rules from <code>league_context_v1.md</code> with the season-relative dates resolved.
+    </div>
+  </section>
+</main>
+
+<script src="auction_hub.js?v=2026.05.18.v0.1.0"></script>
+</body>
+</html>

@@ -94,6 +94,1416 @@ async function snapshotMflToR2(env, nowUtc) {
   );
 }
 
+// ── Tag / rookie-extension deadline lock pipeline ─────────────────────
+// Two scheduled actions fire idempotently off the hourly cron once the
+// season's tag/extension deadline (midnight ET Thu→Fri before Memorial
+// Day) has passed:
+//
+//   1. Midnight ET (04:00 UTC during EDT) — first hourly cron at-or-after
+//      the deadline → auto-drop every player still on a roster whose
+//      contract has expired AND who wasn't extended (ERA-eligible pool).
+//      Each drop is a /roster-workbench/action unload_player POST so the
+//      audit, verification, and cache-invalidation paths all stay
+//      consistent with manual drops.
+//
+//   2. 6 AM ET day-after-deadline (10:00 UTC during EDT) — first hourly
+//      cron at-or-after that moment → DM the commissioner the full list
+//      of locked tag contracts (no public summary; intentionally private
+//      review surface).
+//
+// Both gated on a (season, league, event_key) row in ups_deadline_lock_log.
+// If the row exists, skip. If absent, run, then INSERT on success. The
+// hourly cron pattern is "at-or-after" so a worker outage at the exact
+// firing minute just defers by one hour, not a full year.
+
+const _padFranchiseIdTopLevel = (fid) => {
+  let s = String(fid || "").replace(/\D/g, "");
+  while (s.length < 4) s = "0" + s;
+  return s.slice(0, 4);
+};
+
+const _getMemorialDayUtcTopLevel = (season) => {
+  const year = Number(season);
+  if (!Number.isFinite(year) || year <= 0) return null;
+  const d = new Date(Date.UTC(year, 4, 31));
+  const weekday = d.getUTCDay();
+  const offset = (weekday + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - offset);
+  return d;
+};
+
+const _getTagDeadlineUtcTopLevel = (season) => {
+  // Midnight ET on the Thursday→Friday boundary before Memorial Day.
+  // Memorial Day is always late May → always EDT → always 04:00 UTC Friday.
+  const memorial = _getMemorialDayUtcTopLevel(season);
+  if (!memorial) return null;
+  const fridayMidnightEt = new Date(memorial.getTime());
+  fridayMidnightEt.setUTCDate(fridayMidnightEt.getUTCDate() - 3);
+  fridayMidnightEt.setUTCHours(4, 0, 0, 0);
+  return fridayMidnightEt;
+};
+
+const _getTagDeadlineDmUtcTopLevel = (season) => {
+  // 6 AM ET on the day AFTER the deadline. EDT (May) → 10:00 UTC Friday.
+  const deadline = _getTagDeadlineUtcTopLevel(season);
+  if (!deadline) return null;
+  const dm = new Date(deadline.getTime());
+  dm.setUTCHours(dm.getUTCHours() + 6); // 04:00 → 10:00 UTC same Friday
+  return dm;
+};
+
+async function _deadlineLockAlreadyFired(db, season, leagueId, eventKey) {
+  try {
+    const row = await db.prepare(
+      `SELECT id FROM ups_deadline_lock_log
+        WHERE season=? AND league_id=? AND event_key=? LIMIT 1`
+    ).bind(String(season), String(leagueId), String(eventKey)).first();
+    return !!row;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function _markDeadlineLockFired(db, season, leagueId, eventKey, details) {
+  try {
+    await db.prepare(
+      `INSERT INTO ups_deadline_lock_log
+         (season, league_id, event_key, completed_at_utc, details_json)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (season, league_id, event_key) DO NOTHING`
+    ).bind(
+      String(season),
+      String(leagueId),
+      String(eventKey),
+      new Date().toISOString(),
+      JSON.stringify(details || {})
+    ).run();
+    return true;
+  } catch (e) {
+    console.error(`[deadline-lock] mark-fired failed (${eventKey}):`, e?.message || String(e));
+    return false;
+  }
+}
+
+async function processTagDeadlineMidnightLock(env, season, leagueId, origin, commishApiKey) {
+  const eventKey = "tag_deadline_midnight_lock";
+  const db = env.UPS_MFL_DB;
+  if (!db) return { fired: false, reason: "no_db" };
+
+  const deadline = _getTagDeadlineUtcTopLevel(season);
+  if (!deadline) return { fired: false, reason: "no_deadline_for_season" };
+  if (Date.now() < deadline.getTime()) return { fired: false, reason: "before_deadline" };
+  if (await _deadlineLockAlreadyFired(db, season, leagueId, eventKey)) {
+    return { fired: false, reason: "already_fired" };
+  }
+
+  // Pull ERA-eligible pool from our own endpoint. This already has the
+  // full classification logic (rookie+cy=0 AND empty-contract 3-yr-clock
+  // expired) so we don't re-implement it here.
+  const eraUrl = `${origin}/api/auction/era-eligible?L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`;
+  let eraRows = [];
+  try {
+    const r = await fetch(eraUrl, { cf: { cacheTtl: 0, cacheEverything: false } });
+    const j = await r.json();
+    eraRows = Array.isArray(j?.players) ? j.players : (Array.isArray(j?.rows) ? j.rows : []);
+  } catch (e) {
+    console.error(`[deadline-lock midnight] era-eligible fetch failed:`, e?.message || String(e));
+    return { fired: false, reason: "era_fetch_failed", error: String(e?.message || e) };
+  }
+
+  // Filter: only drop players who are CURRENTLY on a roster. ERA
+  // endpoint already excludes free agents; if `franchise_id` is empty
+  // we skip defensively.
+  // ERA-eligible endpoint returns players with `prior_owner_fid` set to
+  // the franchise currently holding the player (rookie still on prior
+  // roster pre-drop). Defensive fallbacks for older shapes.
+  const candidates = eraRows
+    .map((p) => ({
+      player_id: String(p?.player_id || p?.id || "").replace(/\D/g, ""),
+      franchise_id: _padFranchiseIdTopLevel(
+        p?.prior_owner_fid || p?.prior_owner_franchise_id || p?.franchise_id || ""
+      ),
+      name: String(p?.name || p?.player_name || ""),
+      position: String(p?.position || "").toUpperCase(),
+    }))
+    .filter((c) => c.player_id && c.franchise_id && c.franchise_id !== "0000");
+
+  const dropped = [];
+  const failed = [];
+  const actionUrl = `${origin}/roster-workbench/action?APIKEY=${encodeURIComponent(commishApiKey)}`;
+
+  for (const c of candidates) {
+    try {
+      const r = await fetch(actionUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "unload_player",
+          league_id: leagueId,
+          season,
+          franchise_id: c.franchise_id,
+          player_id: c.player_id,
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (data?.ok) {
+        dropped.push({ player_id: c.player_id, name: c.name, position: c.position, franchise_id: c.franchise_id });
+      } else {
+        failed.push({ player_id: c.player_id, name: c.name, error: data?.error || `status_${r.status}` });
+      }
+    } catch (e) {
+      failed.push({ player_id: c.player_id, name: c.name, error: String(e?.message || e) });
+    }
+    // Brief pacing — MFL throttles commish writes if we burst.
+    await new Promise((res) => setTimeout(res, 250));
+  }
+
+  await _markDeadlineLockFired(db, season, leagueId, eventKey, {
+    dropped_count: dropped.length,
+    failed_count: failed.length,
+    dropped,
+    failed,
+    deadline_utc: deadline.toISOString(),
+    completed_utc: new Date().toISOString(),
+  });
+
+  return { fired: true, ok: failed.length === 0, dropped: dropped.length, failed: failed.length, candidates: candidates.length };
+}
+
+async function processTagDeadlineSixAmDm(env, season, leagueId, origin, commishApiKey) {
+  const eventKey = "tag_deadline_six_am_dm";
+  const db = env.UPS_MFL_DB;
+  if (!db) return { fired: false, reason: "no_db" };
+
+  const triggerAt = _getTagDeadlineDmUtcTopLevel(season);
+  if (!triggerAt) return { fired: false, reason: "no_deadline_for_season" };
+  if (Date.now() < triggerAt.getTime()) return { fired: false, reason: "before_trigger" };
+  if (await _deadlineLockAlreadyFired(db, season, leagueId, eventKey)) {
+    return { fired: false, reason: "already_fired" };
+  }
+
+  const commishUserId = String(env.COMMISH_DISCORD_USER_ID || "").trim();
+  const botToken = String(
+    env.DISCORD_CONTRACT_BOT_TOKEN || env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || ""
+  ).trim();
+  if (!commishUserId || !botToken) {
+    return { fired: false, reason: "missing_discord_config" };
+  }
+
+  // Pull current MFL state: rosters (for franchise mapping) + salaries
+  // (for contract details + TAG filter) + players (for names).
+  const [rostersRes, salariesRes, playersRes, leagueRes] = await Promise.all([
+    fetch(`${origin}/api/mfl-export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`),
+    fetch(`${origin}/api/mfl-export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`),
+    fetch(`${origin}/api/mfl-export?TYPE=players&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}&DETAILS=1`),
+    fetch(`${origin}/api/mfl-export?TYPE=league&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`),
+  ]);
+  const rj = await rostersRes.json().catch(() => ({}));
+  const sj = await salariesRes.json().catch(() => ({}));
+  const pj = await playersRes.json().catch(() => ({}));
+  const lj = await leagueRes.json().catch(() => ({}));
+
+  // Build pid → franchise + player metadata + salary contract.
+  const fidToName = {};
+  const flist = lj?.league?.franchises?.franchise || [];
+  for (const f of flist) fidToName[_padFranchiseIdTopLevel(f.id)] = String(f.name || `Team ${f.id}`);
+
+  const pidToFranchise = {};
+  const rfrs = rj?.rosters?.franchise || [];
+  const rfrList = Array.isArray(rfrs) ? rfrs : [rfrs];
+  for (const fr of rfrList) {
+    const fid = _padFranchiseIdTopLevel(fr?.id);
+    const plist = fr?.player || [];
+    const pl = Array.isArray(plist) ? plist : [plist];
+    for (const p of pl) {
+      const pid = String(p?.id || "").replace(/\D/g, "");
+      if (pid) pidToFranchise[pid] = fid;
+    }
+  }
+
+  const pidToMeta = {};
+  let pAll = pj?.players?.player || [];
+  if (!Array.isArray(pAll)) pAll = [pAll];
+  for (const p of pAll) {
+    const pid = String(p?.id || "").replace(/\D/g, "");
+    if (!pid) continue;
+    let nm = String(p?.name || "");
+    if (nm.includes(",")) nm = nm.split(",").reverse().map((s) => s.trim()).join(" ");
+    pidToMeta[pid] = { name: nm, position: String(p?.position || "").toUpperCase(), team: String(p?.team || "").toUpperCase() };
+  }
+
+  let salRows = sj?.salaries?.leagueUnit?.player || [];
+  if (!Array.isArray(salRows)) salRows = [salRows];
+
+  // Pull every row where contractStatus contains "TAG" AND player is
+  // currently rostered. The TAG label is what locks at deadline.
+  const tagContracts = [];
+  for (const r of salRows) {
+    const pid = String(r?.id || "").replace(/\D/g, "");
+    if (!pid) continue;
+    const cs = String(r?.contractStatus || "").toUpperCase();
+    if (!cs.includes("TAG")) continue;
+    const fid = pidToFranchise[pid];
+    if (!fid) continue; // FA carry-over, skip
+    const meta = pidToMeta[pid] || {};
+    tagContracts.push({
+      player_id: pid,
+      name: meta.name || `Player ${pid}`,
+      position: meta.position || "",
+      nfl: meta.team || "",
+      franchise_id: fid,
+      franchise_name: fidToName[fid] || `Team ${fid}`,
+      salary: Number(r?.salary || 0),
+      contract_year: String(r?.contractYear || "0"),
+      contract_info: String(r?.contractInfo || ""),
+    });
+  }
+
+  // Sort by franchise then position then salary desc — readable DM.
+  tagContracts.sort((a, b) =>
+    a.franchise_name.localeCompare(b.franchise_name) ||
+    a.position.localeCompare(b.position) ||
+    (b.salary - a.salary)
+  );
+
+  const lines = [];
+  let lastFid = "";
+  for (const c of tagContracts) {
+    if (c.franchise_id !== lastFid) {
+      lines.push(`\n**${c.franchise_name}** (${c.franchise_id})`);
+      lastFid = c.franchise_id;
+    }
+    const salK = c.salary >= 1000 ? `$${Math.round(c.salary / 1000)}K` : `$${c.salary}`;
+    lines.push(`• ${c.name} — ${c.position} ${c.nfl} — ${salK} — ${c.contract_info || "(no contract_info)"}`);
+  }
+  const header = `# Tag Deadline Closed (${season})\nLocked at ${_getTagDeadlineUtcTopLevel(season).toISOString()}.\n${tagContracts.length} tag contracts on the books.\n`;
+  const body = header + lines.join("\n");
+
+  // Discord message limit is 2000 chars per message. Chunk if longer.
+  const chunks = [];
+  let cursor = 0;
+  while (cursor < body.length) {
+    let end = Math.min(cursor + 1900, body.length);
+    if (end < body.length) {
+      const breakAt = body.lastIndexOf("\n", end);
+      if (breakAt > cursor + 500) end = breakAt;
+    }
+    chunks.push(body.slice(cursor, end));
+    cursor = end;
+  }
+
+  // Open DM channel + post each chunk.
+  let dmChannelId = "";
+  let messageIds = [];
+  try {
+    const openRes = await fetch(`https://discord.com/api/v10/users/@me/channels`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ recipient_id: commishUserId }),
+    });
+    const openData = await openRes.json().catch(() => ({}));
+    dmChannelId = String(openData?.id || "");
+    if (!dmChannelId) {
+      console.error(`[deadline-lock 6am] DM channel open failed: ${openRes.status}`, openData);
+      return { fired: false, reason: "dm_open_failed" };
+    }
+    for (const chunk of chunks) {
+      const sendRes = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(dmChannelId)}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ content: chunk, allowed_mentions: { parse: [] } }),
+      });
+      const sendData = await sendRes.json().catch(() => ({}));
+      if (sendData?.id) messageIds.push(String(sendData.id));
+      // Small spacing to be polite to Discord.
+      await new Promise((res) => setTimeout(res, 300));
+    }
+  } catch (e) {
+    console.error(`[deadline-lock 6am] DM send failed:`, e?.message || String(e));
+    return { fired: false, reason: "dm_send_failed", error: String(e?.message || e) };
+  }
+
+  await _markDeadlineLockFired(db, season, leagueId, eventKey, {
+    tag_count: tagContracts.length,
+    dm_channel_id: dmChannelId,
+    message_ids: messageIds,
+    completed_utc: new Date().toISOString(),
+  });
+
+  return { fired: true, ok: true, tag_count: tagContracts.length, message_ids: messageIds };
+}
+
+// ── Auction polling pipeline ──────────────────────────────────────────
+// Polls MFL AUCTION_BID + AUCTION_WON transactions every 5min, upserts
+// into ups_auction_lots + ups_auction_bids. Idempotent via the UNIQUE
+// constraint on bids — re-polling the same bid is a no-op.
+//
+// Lot derivation: lot.opening_bid_k + lot.nominator_fid come from the
+// EARLIEST bid in ups_auction_bids for that player. Current high bid
+// is the MAX(bid_k) — but MFL's AUCTION_BID transactions ARE the high
+// bids (you don't see lower bids that were beaten), so MAX = latest.
+//
+// locks_at_unix = last_bid_at_unix + 36hr per league_context_v1.md §A3.
+async function processAuctionPoll(env) {
+  const db = env.UPS_MFL_DB;
+  if (!db) {
+    console.log("[auction-poll] UPS_MFL_DB binding missing — skipping");
+    return { skipped: "no_db" };
+  }
+  const leagueId = String(env.LEAGUE_ID || "74598");
+  const season = Number(env.YEAR || new Date().getUTCFullYear());
+  const apiKey = String(env.MFL_APIKEY || "").trim();
+
+  const baseUrl = `https://www48.myfantasyleague.com/${season}/export`;
+  const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+
+  // MFL distinguishes three transaction types for an auction:
+  //   AUCTION_INIT — nomination event. Records the opening bid +
+  //                  nominating franchise. Created once per lot.
+  //   AUCTION_BID  — every subsequent overtake. May be auto-walked
+  //                  by MFL's proxy mechanism (annotated in the note).
+  //   AUCTION_WON  — lot closed, winner ratified.
+  // Critical: poll INIT separately. Treating earliest AUCTION_BID as
+  // the nomination gets the nominator wrong (it's whoever overtook
+  // first, not whoever opened the lot).
+  const [initRes, bidsRes, winsRes] = await Promise.all([
+    fetch(`${baseUrl}?TYPE=transactions&L=${leagueId}&TRANS_TYPE=AUCTION_INIT&JSON=1${apiQs}`,
+      { cf: { cacheTtl: 0, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
+    fetch(`${baseUrl}?TYPE=transactions&L=${leagueId}&TRANS_TYPE=AUCTION_BID&JSON=1${apiQs}`,
+      { cf: { cacheTtl: 0, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
+    fetch(`${baseUrl}?TYPE=transactions&L=${leagueId}&TRANS_TYPE=AUCTION_WON&JSON=1${apiQs}`,
+      { cf: { cacheTtl: 0, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
+  ]);
+
+  const asArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+  const initTxs = asArr(initRes?.transactions?.transaction);
+  const bidTxs = asArr(bidsRes?.transactions?.transaction);
+  const wonTxs = asArr(winsRes?.transactions?.transaction);
+
+  // Merge INIT + BID into one stream for ingestion; tag with kind so
+  // downstream renderers can distinguish nomination from overtake.
+  const allBidEvents = [
+    ...initTxs.map((tx) => ({ tx, kind: "init" })),
+    ...bidTxs.map((tx) => ({ tx, kind: "bid" })),
+  ];
+
+  if (allBidEvents.length === 0 && wonTxs.length === 0) {
+    return { new_bids: 0, new_wins: 0, active_lots: 0 };
+  }
+
+  // Parse a transaction string "playerid|bid|note" → { player_id, bid_k, note }.
+  // MFL serves bid in DOLLARS; we store in $K (divide by 1000).
+  const parseTx = (tx) => {
+    const raw = String(tx.transaction || "");
+    const parts = raw.split("|");
+    const player_id = String(parts[0] || "").replace(/\D/g, "");
+    const bid_dollars = Number(parts[1] || 0);
+    const note = String(parts[2] || "").trim() || null;
+    return {
+      player_id,
+      bid_k: Math.round(bid_dollars / 1000),
+      note,
+      bid_at_unix: Number(tx.timestamp || 0),
+      fid: String(tx.franchise || "").padStart(4, "0"),
+      raw_transaction: raw,
+    };
+  };
+
+  let newBids = 0;
+  let newWins = 0;
+
+  // Discord narrator queue — capture freshly-inserted bids/wins for
+  // post-recompute narration. Filtered to bids within the last hour
+  // so first-deploy catch-up polls don't spam Discord with weeks of
+  // historical activity. Set AUCTION_DISCORD_NARRATOR=0 to disable.
+  const NARRATE_LOOKBACK_SEC = 3600;
+  const narrateCutoffUnix = Math.floor(Date.now() / 1000) - NARRATE_LOOKBACK_SEC;
+  const narrateEnabled = String(env.AUCTION_DISCORD_NARRATOR ?? "1").trim() !== "0";
+  const narrateQueue = [];
+
+  // ── Ingest AUCTION_INIT + AUCTION_BID ──
+  // Both go into ups_auction_bids. The `note` column tags INIT events
+  // as "[nomination]" prepended so downstream queries can identify
+  // them. UNIQUE constraint on (lot_id, fid, bid_at, bid_k) dedupes
+  // re-polls.
+  for (const ev of allBidEvents) {
+    const p = parseTx(ev.tx);
+    if (!p.player_id || !p.fid || !p.bid_at_unix) continue;
+    const lot_id = `${season}|${leagueId}|${p.player_id}`;
+    const taggedNote = ev.kind === "init"
+      ? (p.note ? `[nomination] ${p.note}` : "[nomination]")
+      : p.note;
+
+    const ins = await db.prepare(
+      `INSERT OR IGNORE INTO ups_auction_bids
+         (lot_id, season, league_id, player_id, fid, bid_k, bid_at_unix, note, raw_transaction)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(lot_id, season, leagueId, p.player_id, p.fid, p.bid_k, p.bid_at_unix, taggedNote, p.raw_transaction).run();
+    if (ins.meta?.changes > 0) {
+      newBids++;
+      if (narrateEnabled && p.bid_at_unix >= narrateCutoffUnix) {
+        narrateQueue.push({
+          kind: ev.kind,               // "init" | "bid"
+          fid: p.fid,
+          player_id: p.player_id,
+          bid_k: p.bid_k,
+          bid_at_unix: p.bid_at_unix,
+        });
+      }
+    }
+  }
+
+  // ── Recompute lot state from accumulated bids ──
+  // Recompute EVERY poll, not just when newBids > 0. Reason: schema
+  // evolutions (e.g. adding AUCTION_INIT polling later) can leave
+  // existing lot rows with stale nominator_fid/opening_bid_k. Letting
+  // the recompute fire unconditionally self-heals those rows on the
+  // next tick. Cost is small (~30 lots × handful of queries each).
+  if (true) {
+    // Find lots touched in this poll: any lot with a bid_at_unix >= earliest new bid.
+    // Simpler: just rebuild every OPEN lot for this season+league. Cap at 100 — auction has ~30-60 lots max.
+    const openLots = await db.prepare(
+      `SELECT DISTINCT lot_id FROM ups_auction_bids
+        WHERE season = ? AND league_id = ?`
+    ).bind(season, leagueId).all();
+    for (const row of (openLots.results || [])) {
+      const lot_id = String(row.lot_id);
+      // Earliest bid = nomination. Latest bid = current high.
+      const stats = await db.prepare(
+        `SELECT
+           MIN(bid_at_unix)    AS opened_at_unix,
+           MAX(bid_at_unix)    AS last_bid_at_unix,
+           COUNT(*)            AS bid_count,
+           COUNT(DISTINCT fid) AS unique_bidder_count
+         FROM ups_auction_bids WHERE lot_id = ?`
+      ).bind(lot_id).first();
+      const firstBid = await db.prepare(
+        `SELECT fid, bid_k, player_id FROM ups_auction_bids
+          WHERE lot_id = ? ORDER BY bid_at_unix ASC, bid_id ASC LIMIT 1`
+      ).bind(lot_id).first();
+      const lastBid = await db.prepare(
+        `SELECT fid, bid_k FROM ups_auction_bids
+          WHERE lot_id = ? ORDER BY bid_at_unix DESC, bid_id DESC LIMIT 1`
+      ).bind(lot_id).first();
+      if (!firstBid || !lastBid) continue;
+      const locks_at_unix = Number(stats.last_bid_at_unix) + 36 * 3600;
+      await db.prepare(
+        `INSERT INTO ups_auction_lots
+           (lot_id, season, league_id, player_id, nominator_fid,
+            opening_bid_k, opened_at_unix,
+            current_high_bid_k, current_high_bidder_fid,
+            last_bid_at_unix, locks_at_unix, status,
+            bid_count, unique_bidder_count, updated_at_utc)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, datetime('now'))
+         ON CONFLICT(lot_id) DO UPDATE SET
+           -- Nominator + opening bid CAN change retroactively if an
+           -- AUCTION_INIT row arrives after AUCTION_BID rows (e.g. our
+           -- INIT polling was added in a later deploy). Recompute these
+           -- every time, not just on insert.
+           nominator_fid           = excluded.nominator_fid,
+           opening_bid_k           = excluded.opening_bid_k,
+           opened_at_unix          = excluded.opened_at_unix,
+           current_high_bid_k      = excluded.current_high_bid_k,
+           current_high_bidder_fid = excluded.current_high_bidder_fid,
+           last_bid_at_unix        = excluded.last_bid_at_unix,
+           locks_at_unix           = excluded.locks_at_unix,
+           bid_count               = excluded.bid_count,
+           unique_bidder_count     = excluded.unique_bidder_count,
+           updated_at_utc          = datetime('now')`
+      ).bind(
+        lot_id, season, leagueId, firstBid.player_id, firstBid.fid,
+        firstBid.bid_k, stats.opened_at_unix,
+        lastBid.bid_k, lastBid.fid,
+        stats.last_bid_at_unix, locks_at_unix,
+        stats.bid_count, stats.unique_bidder_count
+      ).run();
+    }
+  }
+
+  // ── Ingest AUCTION_WON ──
+  for (const tx of wonTxs) {
+    const p = parseTx(tx);
+    if (!p.player_id || !p.fid) continue;
+    const lot_id = `${season}|${leagueId}|${p.player_id}`;
+    const res = await db.prepare(
+      `UPDATE ups_auction_lots
+          SET status = 'won', winner_fid = ?, won_at_unix = ?, updated_at_utc = datetime('now')
+        WHERE lot_id = ? AND status != 'won'`
+    ).bind(p.fid, p.bid_at_unix, lot_id).run();
+    if (res.meta?.changes > 0) {
+      newWins++;
+      if (narrateEnabled && p.bid_at_unix >= narrateCutoffUnix) {
+        narrateQueue.push({
+          kind: "won",
+          fid: p.fid,
+          player_id: p.player_id,
+          bid_k: p.bid_k,
+          bid_at_unix: p.bid_at_unix,
+        });
+      }
+    }
+  }
+
+  // ── Cancellation reconciliation ──
+  // MFL doesn't emit a transaction when commish deletes an auction lot
+  // (verified 2026-05-20: only AUCTION_INIT + AUCTION_BID + AUCTION_WON
+  // appear in the transactions export). Without reconciliation, deleted
+  // lots stick around as "open" in our D1 forever.
+  //
+  // Strategy: fetch the live O=43 page with MFL_COOKIE, parse out the
+  // currently-displayed open player_ids, then mark any of our "open"
+  // lots whose player_id ISN'T in the live list as 'cancelled'.
+  //
+  // Fail-soft: if MFL_COOKIE missing or fetch fails, skip reconciliation
+  // (don't accidentally cancel lots that we couldn't verify).
+  let newCancellations = 0;
+  try {
+    const mflCookie = String(env.MFL_COOKIE || "").trim();
+    if (mflCookie) {
+      const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+      // FRANCHISE=0000 returns the franchise-select interstitial which
+      // doesn't list open lots, so we hit with a real franchise id.
+      // 0008 = Real Deal Creel (commish team); using as the probe fid
+      // gives us the full open-auction list. Override via env
+      // AUCTION_RECONCILE_FRANCHISE if needed.
+      const probeFid = String(env.AUCTION_RECONCILE_FRANCHISE || "0008");
+      const o43Url = `https://www48.myfantasyleague.com/${season}/options?LEAGUE_ID=${leagueId}&FRANCHISE=${probeFid}&O=43`;
+      const o43Res = await fetch(o43Url, {
+        headers: { Cookie: cookieHeader, "User-Agent": "ups-auction-poll" },
+        cf: { cacheTtl: 0, cacheEverything: false },
+      });
+      if (o43Res.ok) {
+        const html = await o43Res.text();
+        // MFL renders open auctions as <input name="BID_NNNN" ...> or
+        // similar form fields where NNNN is the player_id. Also as
+        // "validateBid(this, NNNN)" onblur handlers.
+        // Collect both sources to be permissive.
+        const livePidSet = new Set();
+        const reBid = /\b(?:BID|BIDDOLLARS|BID_DOLLARS|CMT)_(\d{3,6})\b/g;
+        let m1;
+        while ((m1 = reBid.exec(html)) !== null) livePidSet.add(m1[1]);
+        const reValidate = /validateBid\s*\(\s*[^,]+,\s*(\d{3,6})\s*\)/g;
+        let m2;
+        while ((m2 = reValidate.exec(html)) !== null) livePidSet.add(m2[1]);
+
+        // Only reconcile if we found a reasonable number of live pids.
+        // Empty set could mean we hit a franchise-select interstitial
+        // or got logged out; better to skip than blow away every lot.
+        if (livePidSet.size > 0) {
+          const { results: openRows } = await db.prepare(
+            `SELECT lot_id, player_id FROM ups_auction_lots
+              WHERE season = ? AND league_id = ? AND status = 'open'`
+          ).bind(season, leagueId).all();
+          for (const row of (openRows || [])) {
+            if (!livePidSet.has(String(row.player_id))) {
+              const upd = await db.prepare(
+                `UPDATE ups_auction_lots
+                    SET status = 'cancelled',
+                        cancelled_at_unix = ?,
+                        updated_at_utc = datetime('now')
+                  WHERE lot_id = ? AND status = 'open'`
+              ).bind(Math.floor(Date.now() / 1000), row.lot_id).run();
+              if (upd.meta?.changes > 0) newCancellations += 1;
+            }
+          }
+        } else {
+          console.log("[auction-reconcile] livePidSet empty; skipping (probable interstitial/logout)");
+        }
+      } else {
+        console.log("[auction-reconcile] O=43 fetch failed:", o43Res.status);
+      }
+    }
+  } catch (e) {
+    console.log("[auction-reconcile] error:", String(e?.message || e));
+  }
+
+  // ── Discord narration ──
+  // Fires AFTER all DB writes so messages reflect canonical state.
+  // Fail-soft: any error here is logged but doesn't break the poll.
+  if (narrateQueue.length > 0) {
+    try {
+      await narrateAuctionEvents(env, season, leagueId, narrateQueue);
+    } catch (e) {
+      console.log("[auction-narrator] error:", String(e?.message || e));
+    }
+  }
+
+  const activeLots = await db.prepare(
+    `SELECT COUNT(*) AS n FROM ups_auction_lots WHERE season = ? AND league_id = ? AND status = 'open'`
+  ).bind(season, leagueId).first();
+
+  return {
+    new_bids: newBids,
+    new_wins: newWins,
+    new_cancellations: newCancellations,
+    active_lots: Number(activeLots?.n || 0),
+  };
+}
+
+// ── Discord auction narrator ──────────────────────────────────────────
+// Posts each fresh auction event (nomination / overtake bid / win) to
+// the auction Discord channel. Called from processAuctionPoll after
+// all D1 writes complete.
+//
+// Channel selection (in priority order):
+//   - PROD: DISCORD_AUCTION_CHANNEL_ID (preferred) → DISCORD_DRAFT_CHANNEL_ID (fallback)
+//   - TEST: DISCORD_AUCTION_TEST_CHANNEL_ID (preferred) → DISCORD_DRAFT_TEST_CHANNEL_ID
+//   Set env AUCTION_DISCORD_USE_TEST=1 to route to the test channel.
+//
+// Disable entirely with AUCTION_DISCORD_NARRATOR=0.
+//
+// Per-event classification (observer-side, matches Hub vocabulary):
+//   - init           → 🆕 Nom         (opening bid / nomination)
+//   - bid, same fid  → ⬆ Forced Increase (MFL walked the leader's proxy)
+//   - bid, diff fid  → 💰 Overtake    (new franchise dethroned the leader)
+//   - won            → 🏆 Won
+//
+// "Same/different fid as previous" is computed by querying D1 for the
+// immediately-prior bid in the lot. Falls back to "💰 Bid" if we can't
+// classify (e.g., narration of orphaned data).
+//
+// Rate limit: ~250ms between posts. Discord allows 5/5s per channel;
+// keeping well under that floor.
+async function narrateAuctionEvents(env, season, leagueId, queue) {
+  if (!queue || queue.length === 0) return;
+  const botToken = String(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "").trim();
+  if (!botToken) {
+    console.log("[auction-narrator] DISCORD_BOT_TOKEN missing — skipping");
+    return;
+  }
+  const useTest = String(env.AUCTION_DISCORD_USE_TEST ?? "0").trim() === "1";
+  const channelId = String(
+    useTest
+      ? (env.DISCORD_AUCTION_TEST_CHANNEL_ID || env.DISCORD_DRAFT_TEST_CHANNEL_ID || "")
+      : (env.DISCORD_AUCTION_CHANNEL_ID || env.DISCORD_DRAFT_CHANNEL_ID || "")
+  ).replace(/\D/g, "");
+  if (!channelId) {
+    console.log("[auction-narrator] no DISCORD_*_CHANNEL_ID configured for " +
+      (useTest ? "TEST" : "PROD") + " — skipping");
+    return;
+  }
+
+  // Sort oldest → newest so narration reads in chronological order.
+  queue.sort((a, b) => a.bid_at_unix - b.bid_at_unix);
+
+  // Collect unique player + franchise IDs for batched lookups.
+  const pidSet = new Set();
+  const fidSet = new Set();
+  for (const ev of queue) {
+    if (ev.player_id) pidSet.add(ev.player_id);
+    if (ev.fid) fidSet.add(ev.fid);
+  }
+
+  // Fetch league + players in parallel.
+  const apiKey = String(env.MFL_APIKEY || "").trim();
+  const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+  const pidList = [...pidSet].join(",");
+
+  let leagueJson = {};
+  let playersJson = {};
+  try {
+    const [lr, pr] = await Promise.all([
+      fetch(`https://www48.myfantasyleague.com/${season}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+        { cf: { cacheTtl: 300, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
+      fetch(`https://www48.myfantasyleague.com/${season}/export?TYPE=players&L=${leagueId}&PLAYERS=${encodeURIComponent(pidList)}&JSON=1`,
+        { cf: { cacheTtl: 86400, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
+    ]);
+    leagueJson = lr || {};
+    playersJson = pr || {};
+  } catch (e) {
+    console.log("[auction-narrator] meta-fetch failed:", String(e?.message || e));
+  }
+
+  // fid → franchise name
+  const fidToName = {};
+  const flist = leagueJson?.league?.franchises?.franchise || [];
+  const farr = Array.isArray(flist) ? flist : [flist];
+  for (const f of farr) {
+    const id = String(f.id || "").padStart(4, "0");
+    if (id) fidToName[id] = String(f.name || ("Team " + id));
+  }
+
+  // pid → { name, position, team }
+  const pidToInfo = {};
+  const plist = playersJson?.players?.player || [];
+  const parr = Array.isArray(plist) ? plist : [plist];
+  for (const p of parr) {
+    const id = String(p.id || "");
+    if (!id) continue;
+    pidToInfo[id] = {
+      name: String(p.name || ""),
+      position: String(p.position || ""),
+      team: String(p.team || ""),
+    };
+  }
+
+  // Format "Last, First" → "First Last" for readability
+  const flipName = (n) => {
+    if (!n || !n.includes(",")) return n || "";
+    const [last, first] = n.split(",").map((s) => s.trim());
+    return `${first} ${last}`.trim();
+  };
+
+  const fmtPlayer = (pid) => {
+    const info = pidToInfo[pid];
+    if (!info) return `Player ${pid}`;
+    const name = flipName(info.name);
+    const meta = [info.position, info.team].filter(Boolean).join(" · ");
+    return meta ? `**${name}** (${meta})` : `**${name}**`;
+  };
+  const fmtFranchise = (fid) => fidToName[fid] || `Team ${fid}`;
+  const fmtBid = (k) => `**$${Number(k || 0).toLocaleString("en-US")}K**`;
+
+  // ── Observer-kind classification ──
+  // For each non-init, non-won bid event in the queue, determine if it's
+  // a "forced_increase" (same fid as the immediately-prior bid in the
+  // same lot) or an "overtake" (different fid).
+  //
+  // Strategy: walk the queue chronologically maintaining prev_fid_by_lot
+  // populated from queue events; for lots whose first new event has no
+  // intra-queue predecessor, query D1 for the immediately-prior bid.
+  const db = env.UPS_MFL_DB;
+  const prevFidByLot = new Map();
+  // Pre-fill prevFidByLot for lots we'll need from D1 (lookup only for
+  // the FIRST in-queue bid event in each lot; subsequent events use the
+  // queue itself).
+  const lotsNeedingD1Lookup = new Set();
+  {
+    const seenLots = new Set();
+    for (const ev of queue) {
+      if (ev.kind !== "bid") continue;  // only non-nom/won need classification
+      const lot = `${season}|${leagueId}|${ev.player_id}`;
+      if (seenLots.has(lot)) continue;
+      seenLots.add(lot);
+      lotsNeedingD1Lookup.add({ lot, before_unix: ev.bid_at_unix });
+    }
+  }
+  if (db && lotsNeedingD1Lookup.size > 0) {
+    for (const item of lotsNeedingD1Lookup) {
+      try {
+        const r = await db.prepare(
+          `SELECT fid FROM ups_auction_bids
+            WHERE lot_id = ? AND bid_at_unix < ?
+            ORDER BY bid_at_unix DESC, bid_id DESC LIMIT 1`
+        ).bind(item.lot, item.before_unix).first();
+        if (r && r.fid) prevFidByLot.set(item.lot, String(r.fid));
+      } catch (e) {
+        console.log("[auction-narrator] prev-bid lookup failed for", item.lot, e?.message || e);
+      }
+    }
+  }
+
+  // Classify each event in-place (mutates queue rows w/ _obs_kind).
+  for (const ev of queue) {
+    const lot = `${season}|${leagueId}|${ev.player_id}`;
+    if (ev.kind === "init") {
+      ev._obs_kind = "nom";
+    } else if (ev.kind === "won") {
+      ev._obs_kind = "won";
+    } else {
+      const priorFid = prevFidByLot.get(lot);
+      if (priorFid == null) {
+        // No predecessor known — fall back to "bid"
+        ev._obs_kind = "bid";
+      } else if (priorFid === ev.fid) {
+        ev._obs_kind = "forced_increase";
+      } else {
+        ev._obs_kind = "overtake";
+      }
+    }
+    // Track this event's fid as the new "prior" for the lot (for the next
+    // event in the chronologically-sorted queue).
+    prevFidByLot.set(lot, ev.fid);
+  }
+
+  // ── Curated GIF manifest v2 (site/auction/curated_gifs.json) ──
+  // Pool-based. Scenarios reference pools by id. Worker rotates within
+  // each pool (last-3 used) to keep GIFs fresh. Position-percentile
+  // triggers gate scenarios like "Rare for LB" using POS_P90 constants.
+  // Composite overlays (overlay_pool_id) fire a second GIF stacked on
+  // the first — used for headline+all-time tier.
+  //
+  // Source data for POS_P90: docs/auction/data/position_thresholds.csv
+  // Update annually after each season.
+  const POS_P90 = {
+    QB: 38, RB: 23, WR: 32, TE: 21,
+    LB: 5, S: 4, CB: 4, DB: 4,
+    DT: 6, DE: 8, DL: 8,
+    PK: 3, K: 3, PN: 3, P: 3,
+  };
+  // Module-scope rotation state — Map<pool_id, [last_3_urls]>. Resets
+  // on worker cold-start (every few minutes in practice; fine).
+  const POOL_LAST_USED = new Map();
+
+  let _curatedManifestCache = null;
+  let _curatedManifestCacheTs = 0;
+  async function loadCuratedManifest() {
+    const now = Date.now();
+    if (_curatedManifestCache && (now - _curatedManifestCacheTs) < 60000) {
+      return _curatedManifestCache;
+    }
+    const sha = String(env.UPS_RELEASE_SHA || "main").replace(/[^A-Za-z0-9_.-]/g, "") || "main";
+    const url = `https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@${sha}/site/auction/curated_gifs.json`;
+    try {
+      const r = await fetch(url, { cf: { cacheTtl: 60 } });
+      if (!r.ok) return null;
+      const j = await r.json();
+      _curatedManifestCache = j;
+      _curatedManifestCacheTs = now;
+      return j;
+    } catch (e) {
+      console.log("[auction-narrator] curated manifest fetch failed:", e?.message || e);
+      return null;
+    }
+  }
+
+  function pickFromPool(manifest, poolId) {
+    // Pool dereferencing + last-3-used rotation. Returns GIF url or "".
+    if (!poolId || !manifest?.pools) return "";
+    const pool = manifest.pools[poolId];
+    if (!pool || !Array.isArray(pool.gifs) || pool.gifs.length === 0) return "";
+    const gifs = pool.gifs.filter((g) => g && g.url);
+    if (gifs.length === 0) return "";
+    const last = POOL_LAST_USED.get(poolId) || [];
+    // Eligible = pool gifs minus last-3-used (if there are enough left)
+    let eligible = gifs.filter((g) => !last.includes(g.url));
+    if (eligible.length === 0) eligible = gifs;  // fallback if rotation drained pool
+    // Weighted random pick
+    const totalWeight = eligible.reduce((s, g) => s + Number(g.weight || 1), 0);
+    let r = Math.random() * totalWeight;
+    let pick = eligible[0];
+    for (const g of eligible) {
+      r -= Number(g.weight || 1);
+      if (r <= 0) { pick = g; break; }
+    }
+    // Update rotation state
+    const next = [pick.url, ...last].slice(0, 3);
+    POOL_LAST_USED.set(poolId, next);
+    return String(pick.url);
+  }
+
+  function evaluateTrigger(t, evCtx) {
+    if (!t) return true;
+    if (t.event_kind && t.event_kind !== evCtx.event_kind) return false;
+    if (Array.isArray(t._event_kind_one_of) && !t._event_kind_one_of.includes(evCtx.event_kind)) return false;
+    if (t.min_total_bids != null && evCtx.total_bids < t.min_total_bids) return false;
+    if (t.max_total_bids != null && evCtx.total_bids > t.max_total_bids) return false;
+    if (t.min_forced != null && evCtx.forced < t.min_forced) return false;
+    if (t.min_overtakes != null && evCtx.overtakes < t.min_overtakes) return false;
+    if (t.min_win_k != null && evCtx.bid_k < t.min_win_k) return false;
+    if (t.max_win_k != null && evCtx.bid_k > t.max_win_k) return false;
+    if (t.position && t.position !== evCtx.position) return false;
+    if (t.by_commish === true && !evCtx.by_commish) return false;
+    if (t.by_commish === false && evCtx.by_commish) return false;
+    if (t.duration_hours_min != null && evCtx.duration_hours < t.duration_hours_min) return false;
+    if (t.duration_hours_max != null && evCtx.duration_hours > t.duration_hours_max) return false;
+    if (t.self_nominated === true && !evCtx.self_nominated) return false;
+    if (t.self_nominated === false && evCtx.self_nominated) return false;
+    // Franchise gating — pair triggers + Hawks-specific 35% pool
+    if (t.actor_franchise_id && String(t.actor_franchise_id) !== String(evCtx.actor_fid || "")) return false;
+    if (t.target_franchise_id && String(t.target_franchise_id) !== String(evCtx.target_fid || "")) return false;
+    // Takeback: actor previously held the lead on this lot, lost it, now reclaiming
+    if (t.is_takeback === true && !evCtx.is_takeback) return false;
+    if (t.is_takeback === false && evCtx.is_takeback) return false;
+    // Late-in-lot: minutes_to_close <= threshold (default 60). False if lot has no locks_at.
+    if (t.is_late_in_lot === true) {
+      const threshold = Number(t.time_to_close_max_minutes != null ? t.time_to_close_max_minutes : 60);
+      if (!(evCtx.minutes_to_close != null && evCtx.minutes_to_close <= threshold)) return false;
+    }
+    if (t.is_late_in_lot === false && evCtx.minutes_to_close != null && evCtx.minutes_to_close <= 60) return false;
+    // Day-2+ extender: lot has been open >= 48hr
+    if (t.extends_past_day_2 === true && !(evCtx.duration_hours >= 48)) return false;
+    if (t.extends_past_day_2 === false && evCtx.duration_hours >= 48) return false;
+    // Same-fid consecutive (actor forced N times in a row)
+    if (t.min_same_fid_consecutive != null && evCtx.same_fid_consecutive < t.min_same_fid_consecutive) return false;
+    // Bids in 30-min window (burst activity)
+    if (t.min_bids_in_30min != null && evCtx.bids_in_30min < t.min_bids_in_30min) return false;
+    // Position-percentile gating — win_k must be >= POS_P[percentile]
+    // Today we only have p90; can extend with more breakpoints if needed.
+    if (t.min_position_percentile != null) {
+      const pct = Number(t.min_position_percentile);
+      if (pct === 90) {
+        const threshold = POS_P90[evCtx.position];
+        if (!threshold || evCtx.bid_k < threshold) return false;
+      } else {
+        // Unsupported percentile breakpoint — fail safe (treat as no-match)
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Returns { primary_url, overlay_url, player_specific_pref, scenario_id }
+  // or null if no scenario fires.
+  async function pickCuratedScenario(playerInfo, eventKind, ctx) {
+    const manifest = await loadCuratedManifest();
+    if (!manifest || !Array.isArray(manifest.scenarios)) return null;
+    const evCtx = {
+      event_kind: eventKind,
+      total_bids: Number(ctx?.total_bids || 0),
+      forced: Number(ctx?.forced || 0),
+      overtakes: Number(ctx?.overtakes || 0),
+      bid_k: Number(ctx?.bid_k || 0),
+      position: String(playerInfo?.position || "").toUpperCase(),
+      by_commish: !!ctx?.by_commish,
+      duration_hours: Number(ctx?.duration_hours || 0),
+      self_nominated: !!ctx?.self_nominated,
+      actor_fid: ctx?.actor_fid ? String(ctx.actor_fid) : "",
+      target_fid: ctx?.target_fid ? String(ctx.target_fid) : "",
+      is_takeback: !!ctx?.is_takeback,
+      minutes_to_close: (ctx?.minutes_to_close == null ? null : Number(ctx.minutes_to_close)),
+      same_fid_consecutive: Number(ctx?.same_fid_consecutive || 0),
+      bids_in_30min: Number(ctx?.bids_in_30min || 0),
+    };
+    for (const sc of manifest.scenarios) {
+      if (!evaluateTrigger(sc.trigger, evCtx)) continue;
+      const prob = Number(sc.probability_pct || 0);
+      if (prob <= 0) continue;
+      if (Math.random() * 100 >= prob) continue;
+      // Scenario won — try to get a GIF from its pool
+      const primary = pickFromPool(manifest, sc.pool_id);
+      if (!primary) {
+        // Pool empty — log + fall through to next scenario (do NOT return early)
+        console.log(`[auction-narrator] scenario ${sc.id} qualified but pool ${sc.pool_id} empty`);
+        continue;
+      }
+      const overlay = sc.overlay_pool_id ? pickFromPool(manifest, sc.overlay_pool_id) : "";
+      // Player-specific preference (used by caller to decide if a player-
+      // specific Giphy search should run as a composite). Two forms:
+      //   player_specific: true       → always player-specific
+      //   player_specific_pct: 70     → 70% of the time player-specific
+      let playerPref = false;
+      if (sc.player_specific === true) playerPref = true;
+      else if (sc.player_specific_pct != null) {
+        playerPref = Math.random() * 100 < Number(sc.player_specific_pct);
+      }
+      console.log(`[auction-narrator] curated scenario fired: ${sc.id} (pool ${sc.pool_id}${overlay ? `, overlay ${sc.overlay_pool_id}` : ""})`);
+      return {
+        primary_url: primary,
+        overlay_url: overlay,
+        player_specific_pref: playerPref,
+        scenario_id: sc.id,
+      };
+    }
+    return null;
+  }
+
+  // ── GIF picker — composite-aware, scenario-first ──
+  // Returns { url, overlay_url } so the caller can attach two embed
+  // images when a composite is fired (headline/all-time tier).
+  //
+  // Order of operations:
+  //   1. Try curated scenario (v2 manifest with pools + rotation).
+  //      If scenario fires + has a non-empty pool, use it.
+  //      - If scenario.player_specific true → ADDITIONALLY try Giphy
+  //        for a player-specific GIF; if found, use that as PRIMARY
+  //        and demote the curated to overlay.
+  //      - If scenario.overlay_pool_id set, fire a SECOND GIF from
+  //        that pool stacked on top.
+  //   2. If no scenario fires OR pool empty: fall back to Giphy.
+  async function pickAuctionGifForPlayer(playerInfo, eventKind, ctx) {
+    const scenario = await pickCuratedScenario(playerInfo, eventKind, ctx);
+    if (scenario) {
+      let primary = scenario.primary_url;
+      let overlay = scenario.overlay_url;
+      // If player-specific is preferred AND we have a player, try Giphy
+      // for a player celebration. If found, promote it to primary and
+      // demote the curated pool pick to overlay.
+      if (scenario.player_specific_pref) {
+        try {
+          const giphy = await pickGiphyGif(playerInfo, eventKind);
+          if (giphy) {
+            overlay = primary;
+            primary = giphy;
+          }
+        } catch (e) {
+          // Giphy failure is fine — keep the curated primary
+        }
+      }
+      return { url: primary, overlay_url: overlay };
+    }
+    // Pure Giphy fallback (no scenario / empty pool)
+    const giphy = await pickGiphyGif(playerInfo, eventKind);
+    return giphy ? { url: giphy, overlay_url: "" } : { url: "", overlay_url: "" };
+  }
+
+  async function pickGiphyGif(playerInfo, eventKind) {
+    const apiKey = String(env.GIPHY_API_KEY || "").trim();
+    if (!apiKey) return "";
+
+    const name = playerInfo && playerInfo.name ? flipName(playerInfo.name) : "";
+    const last = name ? name.split(/\s+/).pop().toLowerCase() : "";
+    const hasPlayer = !!last && last.length >= 3;
+
+    // Per-kind query + match strategy
+    let queries;
+    let strictLastNameMatch;
+    if (eventKind === "nom") {
+      queries = hasPlayer ? [`${name} touchdown`, `${name} hype`, `${name} nfl`] : [];
+      strictLastNameMatch = true;   // celebration GIFs MUST be the right player
+    } else if (eventKind === "won") {
+      queries = hasPlayer ? [`${name} celebration`, `${name} touchdown`, `${name} nfl`] : [];
+      strictLastNameMatch = true;   // ditto
+    } else if (eventKind === "forced_increase") {
+      // Player-specific first, then generic reaction fallbacks
+      queries = (hasPlayer ? [`${name} ugh`, `${name} angry`] : [])
+        .concat(["eye roll reaction", "facepalm reaction", "sigh reaction", "ugh"]);
+      strictLastNameMatch = false;  // generic reactions are the point
+    } else if (eventKind === "overtake") {
+      queries = (hasPlayer ? [`${name} reaction`] : [])
+        .concat(["come on man reaction", "are you kidding me", "really reaction", "stop it reaction"]);
+      strictLastNameMatch = false;
+    } else {
+      return "";
+    }
+    if (queries.length === 0) return "";
+
+    for (const q of queries) {
+      const isPlayerQuery = hasPlayer && q.startsWith(name);
+      try {
+        const u = new URL("https://api.giphy.com/v1/gifs/search");
+        u.searchParams.set("api_key", apiKey);
+        u.searchParams.set("q", q);
+        u.searchParams.set("limit", "25");
+        u.searchParams.set("lang", "en");
+        const r = await fetch(u.toString(), {
+          headers: { "User-Agent": "ups-auction-narrator" },
+          cf: { cacheTtl: 600, cacheEverything: false },
+        });
+        if (!r.ok) continue;
+        const j = await r.json();
+        const rows = Array.isArray(j?.data) ? j.data : [];
+        // Filter: if this is a player-specific query AND strict mode,
+        // require last-name match in title/slug. For generic reaction
+        // queries (forced_increase / overtake fallbacks), any result is OK.
+        const requireMatch = strictLastNameMatch || isPlayerQuery;
+        const matches = requireMatch
+          ? rows.filter((row) => {
+              const hay = String((row?.title || "") + " " + (row?.slug || "")).toLowerCase();
+              return last && hay.includes(last);
+            })
+          : rows;
+        if (matches.length === 0) continue;
+        const pick = matches[Math.floor(Math.random() * matches.length)];
+        const url =
+          pick?.images?.original?.url ||
+          pick?.images?.downsized_large?.url ||
+          pick?.images?.fixed_height?.url ||
+          pick?.url || "";
+        if (url) return String(url);
+      } catch (e) {
+        console.log("[auction-narrator] giphy lookup failed:", e?.message || e);
+      }
+    }
+    return "";
+  }
+
+  // Build messages — text first; we attach GIFs in the post loop so we
+  // can `await` Giphy without serializing the message-building phase.
+  const messages = queue.map((ev) => {
+    const player = fmtPlayer(ev.player_id);
+    const franchise = `**${fmtFranchise(ev.fid)}**`;
+    const bid = fmtBid(ev.bid_k);
+    let text;
+    switch (ev._obs_kind) {
+      case "nom":
+        text = `🆕  ${franchise} **nominated** ${player} — opening at ${bid}`;
+        break;
+      case "won":
+        text = `🏆  ${franchise} **won** ${player} for ${bid}`;
+        break;
+      case "forced_increase":
+        text = `⬆  ${franchise} **Forced Increase** to ${bid} on ${player}`;
+        break;
+      case "overtake":
+        text = `💰  ${franchise} **Overtake** at ${bid} on ${player}`;
+        break;
+      default:
+        text = `💰  ${franchise} bid ${bid} on ${player}`;
+    }
+    // All four observer-kinds get GIFs:
+    //   nom        → player celebration
+    //   forced_increase → "ugh / eye roll" reaction
+    //   overtake   → "come on man" reaction
+    //   won        → player celebration
+    const wantGif = ["nom", "forced_increase", "overtake", "won"].includes(ev._obs_kind);
+    return { text, want_gif: wantGif, ev };
+  });
+
+  // ── Per-lot Discord thread routing ──
+  // On Nom: post message to MAIN CHANNEL, create a Discord thread from
+  //         that message, persist the thread_id in ups_auction_lots.
+  // On Forced Increase / Overtake / Won: look up the lot's saved
+  //         thread_id and post INTO the thread (Discord threads are
+  //         addressable as channels via /channels/{thread_id}/messages).
+  // Fallback: if a lot has no saved thread_id (e.g., catch-up narration
+  //         after a deploy, or thread creation failed), post to the
+  //         main channel so the event still surfaces.
+  //
+  // discord_message_id = the parent message anchoring the thread
+  // discord_thread_id  = the thread itself (addressable as a channel)
+  // discord_channel_id = parent channel (test vs prod tracking)
+  async function getLotDiscord(lotId) {
+    if (!db) return null;
+    try {
+      const r = await db.prepare(
+        `SELECT discord_thread_id, discord_message_id, discord_channel_id
+           FROM ups_auction_lots WHERE lot_id = ?`
+      ).bind(lotId).first();
+      return r || null;
+    } catch (e) {
+      console.log("[auction-narrator] getLotDiscord failed:", e?.message || e);
+      return null;
+    }
+  }
+  async function saveLotDiscord(lotId, threadId, messageId, postedChannelId) {
+    if (!db) return;
+    try {
+      await db.prepare(
+        `UPDATE ups_auction_lots
+            SET discord_thread_id = COALESCE(discord_thread_id, ?),
+                discord_message_id = COALESCE(discord_message_id, ?),
+                discord_channel_id = COALESCE(discord_channel_id, ?),
+                updated_at_utc = datetime('now')
+          WHERE lot_id = ?`
+      ).bind(threadId, messageId, postedChannelId, lotId).run();
+    } catch (e) {
+      console.log("[auction-narrator] saveLotDiscord failed:", e?.message || e);
+    }
+  }
+
+  async function postToDiscord(targetChannelId, content, gifUrl, overlayUrl) {
+    const body = { content, allowed_mentions: { parse: [] } };
+    const embeds = [];
+    if (gifUrl) embeds.push({ image: { url: gifUrl } });
+    if (overlayUrl && overlayUrl !== gifUrl) embeds.push({ image: { url: overlayUrl } });
+    // Discord allows up to 10 embeds per message; 2 max here.
+    if (embeds.length) body.embeds = embeds;
+    return fetch(
+      `https://discord.com/api/v10/channels/${encodeURIComponent(targetChannelId)}/messages`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+  }
+  async function createThreadOnMessage(parentChannelId, messageId, name) {
+    return fetch(
+      `https://discord.com/api/v10/channels/${encodeURIComponent(parentChannelId)}/messages/${encodeURIComponent(messageId)}/threads`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: String(name || "Lot").slice(0, 100),
+          auto_archive_duration: 1440,  // 24h — archives gracefully after auction
+        }),
+      }
+    );
+  }
+
+  // Post sequentially with a small delay between posts. GIF lookup for
+  // marquee events happens just-in-time so we don't block the queue if
+  // Giphy is slow.
+  for (let i = 0; i < messages.length; i += 1) {
+    const msg = messages[i];
+    const ev = msg.ev;
+    const lotId = `${season}|${leagueId}|${ev.player_id}`;
+
+    let content = msg.text.slice(0, 1900);
+    let gifUrl = "";
+    let overlayUrl = "";
+    if (msg.want_gif) {
+      // Build lot-level context for curated-scenario triggers.
+      // Includes duration_hours (for live mid-auction triggers like
+      // floor_close) and self_nominated (for Cleon-style called-shot
+      // wins). All sourced from D1.
+      const ctx = {
+        bid_k: Number(ev.bid_k || 0),
+        by_commish: false,
+        total_bids: 0,
+        forced: 0,
+        overtakes: 0,
+        duration_hours: 0,
+        self_nominated: false,
+        actor_fid: ev.fid ? String(ev.fid) : "",
+        target_fid: "",
+        is_takeback: false,
+        minutes_to_close: null,
+        same_fid_consecutive: 0,
+        bids_in_30min: 0,
+      };
+      try {
+        if (db) {
+          const lotRow = await db.prepare(
+            `SELECT bid_count, nominator_fid, winner_fid, opened_at_unix, won_at_unix, locks_at_unix
+               FROM ups_auction_lots WHERE lot_id = ?`
+          ).bind(lotId).first();
+          if (lotRow) {
+            ctx.total_bids = Number(lotRow.bid_count || 0);
+            if (lotRow.nominator_fid && lotRow.winner_fid) {
+              ctx.self_nominated = String(lotRow.nominator_fid) === String(lotRow.winner_fid);
+            }
+            const start = Number(lotRow.opened_at_unix || 0);
+            const nowUnix = Math.floor(Date.now() / 1000);
+            const end = Number(lotRow.won_at_unix || 0) || nowUnix;
+            if (start > 0) ctx.duration_hours = (end - start) / 3600;
+            const locksAt = Number(lotRow.locks_at_unix || 0);
+            if (locksAt > 0 && !lotRow.won_at_unix) {
+              ctx.minutes_to_close = (locksAt - nowUnix) / 60;
+            }
+          }
+          const forcedRow = await db.prepare(
+            `SELECT COUNT(*) AS n FROM ups_auction_bids
+              WHERE lot_id = ? AND LOWER(IFNULL(note, '')) LIKE '%forced%'`
+          ).bind(lotId).first();
+          if (forcedRow) ctx.forced = Number(forcedRow.n || 0);
+          const nomRow = await db.prepare(
+            `SELECT COUNT(*) AS n FROM ups_auction_bids
+              WHERE lot_id = ? AND IFNULL(note, '') LIKE '[nomination]%'`
+          ).bind(lotId).first();
+          const noms = nomRow ? Number(nomRow.n || 0) : 0;
+          ctx.overtakes = Math.max(0, ctx.total_bids - noms - ctx.forced);
+
+          // ── Bid-history derived signals: target_fid, is_takeback,
+          // same_fid_consecutive, bids_in_30min ──
+          // Pull bids in chronological order; cap at 50 (more than enough
+          // for any UPS auction lot). Exclude the [nomination] pseudo-bid
+          // when reasoning about leaders, since the nominator isn't
+          // necessarily the high bidder.
+          const histRs = await db.prepare(
+            `SELECT fid, bid_at_unix, IFNULL(note, '') AS note
+               FROM ups_auction_bids
+              WHERE lot_id = ?
+              ORDER BY bid_at_unix ASC, bid_id ASC
+              LIMIT 50`
+          ).bind(lotId).all();
+          const hist = (histRs?.results || []).map((r) => ({
+            fid: String(r.fid || ""),
+            t: Number(r.bid_at_unix || 0),
+            isNom: String(r.note || "").startsWith("[nomination]"),
+          }));
+          if (hist.length > 0) {
+            const actor = ctx.actor_fid;
+            // target_fid = most recent bid (excluding nom) where fid != actor.
+            // For overtakes that's the prior leader; for forced increases
+            // it's the franchise whose bid triggered the actor's proxy walk.
+            for (let i = hist.length - 1; i >= 0; i--) {
+              const h = hist[i];
+              if (!h.isNom && h.fid && h.fid !== actor) {
+                ctx.target_fid = h.fid;
+                break;
+              }
+            }
+            // same_fid_consecutive = count of trailing real-bid events
+            // whose fid == actor (including the current one if persisted)
+            let same = 0;
+            for (let i = hist.length - 1; i >= 0; i--) {
+              const h = hist[i];
+              if (h.isNom) continue;
+              if (h.fid === actor) same++;
+              else break;
+            }
+            ctx.same_fid_consecutive = same;
+            // is_takeback: actor previously had a bid that was later
+            // surpassed by another fid, and is now bidding again.
+            // Detect by scanning history (excluding noms): find earliest
+            // actor bid; if any non-actor bid lies between it and the
+            // latest event, it's a takeback.
+            let firstActorIdx = -1;
+            for (let i = 0; i < hist.length; i++) {
+              if (!hist[i].isNom && hist[i].fid === actor) { firstActorIdx = i; break; }
+            }
+            if (firstActorIdx >= 0) {
+              for (let i = firstActorIdx + 1; i < hist.length - 1; i++) {
+                if (!hist[i].isNom && hist[i].fid && hist[i].fid !== actor) {
+                  ctx.is_takeback = true;
+                  break;
+                }
+              }
+            }
+            // bids_in_30min: count of non-nom bids in the 30min window
+            // ending at this event's bid_at (fall back to "now" if event
+            // lacks a usable timestamp). The current event's row IS in
+            // history once persisted, so this naturally includes it.
+            const refT = Number(ev.bid_at_unix || Date.now() / 1000);
+            const windowStart = refT - 30 * 60;
+            ctx.bids_in_30min = hist.filter(
+              (h) => !h.isNom && h.t >= windowStart && h.t <= refT
+            ).length;
+          }
+        }
+      } catch (e) {
+        console.log("[auction-narrator] ctx lookup failed:", e?.message || e);
+      }
+      const picked = await pickAuctionGifForPlayer(pidToInfo[ev.player_id], ev._obs_kind, ctx);
+      gifUrl = picked.url || "";
+      overlayUrl = picked.overlay_url || "";
+    }
+
+    // Resolve target: thread for non-nom events; channel for nom (and
+    // for any fallback when thread isn't yet known).
+    let targetChannelId = channelId;
+    let createThreadAfter = false;
+    if (ev._obs_kind === "nom") {
+      // Always go to main channel; we'll create a thread on this message.
+      targetChannelId = channelId;
+      createThreadAfter = true;
+    } else {
+      const existing = await getLotDiscord(lotId);
+      if (existing && existing.discord_thread_id) {
+        targetChannelId = String(existing.discord_thread_id);
+      } else {
+        // No thread yet (catch-up narration); post to channel as fallback.
+        targetChannelId = channelId;
+      }
+    }
+
+    let postedMessageId = "";
+    try {
+      const r = await postToDiscord(targetChannelId, content, gifUrl, overlayUrl);
+      if (!r.ok) {
+        const body = await r.text().catch(() => "");
+        console.log(`[auction-narrator] post failed ${r.status} to ${targetChannelId}: ${body.slice(0, 200)}`);
+      } else {
+        const j = await r.json().catch(() => ({}));
+        postedMessageId = String(j?.id || "");
+      }
+    } catch (e) {
+      console.log("[auction-narrator] post threw:", String(e?.message || e));
+    }
+
+    // If this was a nomination, create the per-lot thread now and save it.
+    if (createThreadAfter && postedMessageId) {
+      const pInfo = pidToInfo[ev.player_id];
+      const playerNameForThread = pInfo ? flipName(pInfo.name) : `Player ${ev.player_id}`;
+      const posMeta = pInfo ? [pInfo.position, pInfo.team].filter(Boolean).join(" · ") : "";
+      const threadName = posMeta
+        ? `Auction · ${playerNameForThread} (${posMeta})`
+        : `Auction · ${playerNameForThread}`;
+      try {
+        const tr = await createThreadOnMessage(channelId, postedMessageId, threadName);
+        if (tr.ok) {
+          const tj = await tr.json().catch(() => ({}));
+          const threadId = String(tj?.id || "");
+          if (threadId) {
+            await saveLotDiscord(lotId, threadId, postedMessageId, channelId);
+          }
+        } else {
+          const body = await tr.text().catch(() => "");
+          console.log(`[auction-narrator] thread create failed ${tr.status}: ${body.slice(0, 200)}`);
+        }
+      } catch (e) {
+        console.log("[auction-narrator] thread create threw:", String(e?.message || e));
+      }
+    }
+
+    if (i < messages.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+}
+
 export default {
   // Cloudflare cron trigger — fires every hour at :05 past per wrangler.toml.
   // RULE-WORKFLOW-004: scan MFL add/drop transactions for new drop penalties,
@@ -114,6 +1524,23 @@ export default {
     // the others for CPU. See wrangler.toml triggers comment.
     const isHallSummarySweep = cronTrigger === "*/2 * * * *";
     const isHallNudgeSweep   = cronTrigger === "5 0,12,18 * * *";
+    const isAuctionPoll      = cronTrigger === "*/5 * * * *";
+
+    // ---------- AUCTION POLL (every 5 min) ----------
+    // Poll MFL AUCTION_BID + AUCTION_WON transactions, upsert into D1.
+    // Cheap when no auction is active (returns ~0 transactions per call).
+    if (isAuctionPoll) {
+      try {
+        ctx.waitUntil(processAuctionPoll(env).then((r) => {
+          if (r?.new_bids || r?.new_wins) {
+            console.log(`[scheduled */5] auction poll: new_bids=${r.new_bids} new_wins=${r.new_wins} active_lots=${r.active_lots}`);
+          }
+        }).catch((e) => console.error(`[scheduled */5] auction poll failed: ${e && e.message}`)));
+      } catch (e) {
+        console.error(`[scheduled */5] auction poll dispatch failed: ${e && e.message}`);
+      }
+      return; // auction poll is the only job on this cron
+    }
 
     // ---------- HALL SUMMARY SWEEP (every 2 min, summaries only) ----------
     if (isHallSummarySweep) {
@@ -341,6 +1768,61 @@ export default {
     } catch (e) {
       console.error(`[scheduled hourly] deadline-reminders dispatch failed: ${e && e.message}`);
     }
+
+    // ---------- TAG / EXTENSION DEADLINE MIDNIGHT LOCK ----------
+    // First hourly cron at-or-after midnight ET on deadline night.
+    // Drops every non-extended expired rookie (canon §A1 → ERA pool).
+    // Idempotent: ups_deadline_lock_log row gates the action.
+    try {
+      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const leagueId = String(env.LEAGUE_ID || "74598");
+      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+      if (env.UPS_MFL_DB && commishApiKey) {
+        ctx.waitUntil(
+          processTagDeadlineMidnightLock(env, season, leagueId, origin, commishApiKey)
+            .then((r) => {
+              if (r?.fired) {
+                console.log(
+                  `[scheduled hourly] tag-deadline midnight-lock fired: dropped=${r.dropped}/${r.candidates} failed=${r.failed} ok=${r.ok}`
+                );
+              }
+            })
+            .catch((e) =>
+              console.error(`[scheduled hourly] tag-deadline midnight-lock failed: ${e && e.message}`)
+            )
+        );
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] tag-deadline midnight-lock dispatch failed: ${e && e.message}`);
+    }
+
+    // ---------- TAG DEADLINE 6 AM DM ----------
+    // First hourly cron at-or-after 6 AM ET day-after-deadline (= 10:00
+    // UTC during EDT). DMs commish the locked tag contracts list.
+    try {
+      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const leagueId = String(env.LEAGUE_ID || "74598");
+      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+      if (env.UPS_MFL_DB && commishApiKey) {
+        ctx.waitUntil(
+          processTagDeadlineSixAmDm(env, season, leagueId, origin, commishApiKey)
+            .then((r) => {
+              if (r?.fired) {
+                console.log(
+                  `[scheduled hourly] tag-deadline 6am-dm fired: tag_count=${r.tag_count} messages=${(r.message_ids || []).length}`
+                );
+              }
+            })
+            .catch((e) =>
+              console.error(`[scheduled hourly] tag-deadline 6am-dm failed: ${e && e.message}`)
+            )
+        );
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] tag-deadline 6am-dm dispatch failed: ${e && e.message}`);
+    }
   },
 
   async fetch(request, env, ctx) {
@@ -412,6 +1894,11 @@ export default {
         path !== "/admin/test-sync/prod-rosters" &&
         path !== "/admin/test-sync/prod-statuses" &&
         path !== "/admin/test-sync/prod-salaries" &&
+        path !== "/admin/auction/auto-drop-expired-rookies" &&
+        path !== "/admin/auction/resend-tag-deadline-dm" &&
+        path !== "/admin/auction/post-tag-deadline-channel-thread" &&
+        path !== "/admin/auction/snapshot-era-pool" &&
+        path !== "/admin/reset-fa-contracts" &&
         path !== "/admin/discord/post" &&
         path !== "/admin/deadline-reminders/test-discord" &&
         path !== "/admin/deadline-reminders/run" &&
@@ -434,6 +1921,15 @@ export default {
         path !== "/api/advanced-stats-leaderboard" &&
         path !== "/api/advanced-stats-player-weekly" &&
         path !== "/api/mfl-league-state" &&
+        path !== "/api/auction/era-eligible" &&
+        path !== "/api/auction/lots" &&
+        path !== "/api/auction/bid-history" &&
+        path !== "/api/auction/compliance" &&
+        path !== "/api/auction/cut-rebid-blocks" &&
+        path !== "/api/auction/nomination-status" &&
+        path !== "/api/auction/bid-stats" &&
+        path !== "/admin/auction/probe-o43" &&
+        path !== "/admin/auction/narrate-simulate" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
@@ -926,6 +2422,1853 @@ export default {
           });
         } catch (e) {
           console.error("[mfl-league-state] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/era-eligible ----------
+      // Returns the players currently eligible for the Expired Rookie Auction.
+      // Eligibility per league_context_v1.md §A3:
+      //   contract_type='Rookie' AND contractYear=0
+      // (R1-option-declined + taxi-3yr-clock-expired both land here by
+      // construction — no special-case logic.)
+      //
+      // Source: MFL rosters API (contract overlay) + MFL TYPE=players for
+      // name/position/team, + MFL TYPE=league for franchise names.
+      //
+      // Response shape:
+      //   {
+      //     season, league_id, generated_at,
+      //     extension_deadline_iso,
+      //     players: [{
+      //       player_id, name, position, nfl_team, age,
+      //       prior_owner_fid, prior_owner,
+      //       rookie_slot,            // null today (D1 lookup deferred)
+      //       y3_salary,              // current salary on the expired rookie deal
+      //       contract_status,        // raw MFL contractStatus
+      //       eligibility_reason,
+      //       deadline_iso,
+      //       current_bid,            // 0 until ups_auction_lots is wired
+      //       current_high_bidder,    // null until lots wired
+      //       your_proxy_bid,         // 0 until lots wired
+      //       nominate_blocked,       // false today (gate is in /api/auction/nominate, not here)
+      //       nominate_block_reason
+      //     }]
+      //   }
+      if (path === "/api/auction/era-eligible" && request.method === "GET") {
+        const year = url.searchParams.get("YEAR") || new Date().getUTCFullYear();
+        const leagueId = url.searchParams.get("L") || "74598";
+
+        // Prefer the D1 ups_era_pool SNAPSHOT once it's been seeded for
+        // this season. Post-deadline the original walking-rosters logic
+        // returns 0 (dropped players are FA → not on any roster), so the
+        // snapshot is canonical. Pre-snapshot (early in the cycle), fall
+        // through to the legacy live-roster walk below.
+        //
+        // Bypass: ?nosnapshot=1 forces the live-roster walk regardless.
+        const noSnapshot = (url.searchParams.get("nosnapshot") || "") === "1";
+        if (!noSnapshot && env.UPS_MFL_DB) {
+          try {
+            const queryRes = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, player_name, position, nfl_team,
+                      prior_owner_fid, prior_owner_name, origin_label,
+                      rookie_slot, rookie_slot_round, rookie_slot_pick,
+                      rookie_slot_year, y3_salary, drafted_field_raw,
+                      contract_status_at_drop, snapshot_at_utc
+                 FROM ups_era_pool
+                WHERE season = ? AND league_id = ?
+                ORDER BY prior_owner_fid, position, player_name`
+            ).bind(String(year), String(leagueId)).all();
+            // D1 .all() returns { results: Array, success, meta }. Use
+            // explicit access — destructuring `const { results: poolRows }`
+            // intermittently returned undefined in production (Keith
+            // 2026-05-22 — pre-fix: response always fell through to the
+            // legacy live-roster walk).
+            const poolRows = (queryRes && Array.isArray(queryRes.results)) ? queryRes.results : [];
+            if (poolRows.length > 0) {
+              // NOTE: do NOT use safeInt here — it's defined at line
+              // ~10173, AFTER this snapshot block (~line 2469). Calling
+              // it would throw ReferenceError and the try/catch would
+              // swallow the error, falling through to the legacy walk
+              // and returning {count: 0}. Use inline Number() instead.
+              // safeStr IS available (defined ~line 2063).
+              const players = poolRows.map((r) => ({
+                player_id: safeStr(r.player_id),
+                name: safeStr(r.player_name),
+                position: safeStr(r.position),
+                nfl_team: safeStr(r.nfl_team),
+                age: null,
+                prior_owner_fid: safeStr(r.prior_owner_fid),
+                prior_owner: safeStr(r.prior_owner_name),
+                rookie_slot: safeStr(r.rookie_slot),
+                y3_salary: Number(r.y3_salary) || 0,
+                contract_status: safeStr(r.contract_status_at_drop),
+                origin_label: safeStr(r.origin_label),
+                drafted_field_raw: safeStr(r.drafted_field_raw),
+                eligibility_reason: "Cut at rookie extension deadline.",
+                deadline_iso: null,
+                season: String(year),
+                source: "ups_era_pool_snapshot",
+                snapshot_at_utc: safeStr(r.snapshot_at_utc),
+              }));
+              return jsonOut(200, {
+                season: String(year),
+                league_id: String(leagueId),
+                generated_at: new Date().toISOString(),
+                extension_deadline_iso: null,
+                source: "ups_era_pool",
+                players,
+                count: players.length,
+              });
+            }
+          } catch (e) {
+            console.warn("[era-eligible] snapshot read failed, falling through to live walk:", e?.message || String(e));
+          }
+        }
+
+        try {
+          const [leagueRes, rostersRes, playersRes] = await Promise.all([
+            fetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`,
+              { cf: { cacheTtl: 300 } }),
+            fetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1`,
+              { cf: { cacheTtl: 60 } }),
+            fetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=players&JSON=1`,
+              { cf: { cacheTtl: 86400 } }),
+          ]);
+          const lj = await leagueRes.json().catch(() => ({}));
+          const rj = await rostersRes.json().catch(() => ({}));
+          const pj = await playersRes.json().catch(() => ({}));
+
+          const pad4 = (fid) => {
+            let s = String(fid || "");
+            while (s.length < 4) s = "0" + s;
+            return s.slice(0, 4);
+          };
+
+          // Franchise id → display name
+          const fidToName = {};
+          const franchiseList = lj?.league?.franchises?.franchise || [];
+          for (const f of franchiseList) fidToName[pad4(f.id)] = String(f.name || ("Team " + f.id));
+
+          // Player id → {name, position, team, age}
+          const pidIdx = new Map();
+          let plist = pj?.players?.player || [];
+          if (!Array.isArray(plist)) plist = [plist];
+          for (const p of plist) {
+            const pid = String(p.id || "");
+            if (!pid) continue;
+            // MFL stores "Last, First" — flip for display.
+            let name = String(p.name || "");
+            if (name.includes(",")) name = name.split(",").reverse().map((s) => s.trim()).join(" ");
+            // Derive age from birthdate if MFL provides it
+            let age = null;
+            if (p.birthdate) {
+              const bd = Number(p.birthdate);
+              if (Number.isFinite(bd) && bd > 0) {
+                const years = (Date.now() / 1000 - bd) / (365.25 * 86400);
+                age = Math.floor(years);
+              }
+            }
+            pidIdx.set(pid, {
+              name,
+              position: String(p.position || "").toUpperCase(),
+              team: String(p.team || "").toUpperCase(),
+              age,
+            });
+          }
+
+          // Walk rosters to collect two kinds of ERA candidates:
+          //   (a) Active-roster rookie+cy=0 — final year just ended.
+          //   (b) Empty-contract rookie (active OR taxi) whose 3-league-year
+          //       clock has run out. MFL populates contractStatus/cy/salary
+          //       while the rookie deal is alive (e.g. cy=1 in the final
+          //       year) and WIPES those fields on rollover (cy=1 → 0 →
+          //       expired). So empty contractStatus + 3-yr-clock-cutoff
+          //       passed = expired rookie regardless of taxi/active status.
+          //       (Includes promoted-off-taxi-but-not-extended like Jalen
+          //       Carter 2026.) Per §B2: "3-year clock end: when a player's
+          //       3 league years on taxi expire, they're treated like any
+          //       other expired rookie."
+          //
+          // For BOTH paths, the original UPS rookie draft slot is recoverable
+          // from MFL `TYPE=draftResults` for the draft year — the `drafted`
+          // field on rosters loses the slot info once the player is traded
+          // ("Trade (YEAR)" instead of "R.PP (YEAR)"). We resolve the slot
+          // by joining against draftResults for each candidate's original
+          // draft year. Rookie salary is then DERIVED from §A1's schedule
+          // (Y1=Y2=Y3 flat — 1.01=$15K stepping by $1K to 1.10=$6K, 1.11+
+          // and R2 flat $5K, R3-R5 $2K, R6 $1K) — MFL no longer surfaces it
+          // for expired contracts.
+          const seasonInt = Number(year);
+          const taxiClockExpiredCutoff = seasonInt - 3;
+          // (original_draft_year ≤ cutoff → 3 league years complete → expired)
+
+          // Origin sub-type derivation from MFL's `drafted` field. The
+          // field encodes acquisition path:
+          //   "2.10 (2023)"          → UPS rookie draft slot
+          //   "BB $1,000 (2023)"     → blind-bid waiver win (WW-Rookie path)
+          //   "FCFS (2025)"          → first-come-first-serve waiver
+          //   "Auction $2,000 (2025)" → FA Auction win
+          //   "Trade (2024)"         → trade-acquired (original origin lost)
+          //
+          // Distinguishing WW (1-year, never MYM'd) from MYM-Rookie (per §C3)
+          // for BB/FCFS pickups: WW contracts are 1 year by default. If the
+          // pickup year is ≥ 2 years before the current season, the contract
+          // had to be MYM'd to survive — so the player is MYM-Rookie. If the
+          // pickup year is current-1, the 1-year deal just expired without
+          // MYM — so the player is WW.
+          function deriveOrigin(drafted, seasonInt) {
+            if (!drafted) return null;
+            if (/^\d+\.\d+\s+\(\d{4}\)$/.test(drafted)) return "Rookie Draft";
+            const bb = drafted.match(/^(?:BB|FCFS)\b.*\((\d{4})\)$/i);
+            if (bb) {
+              const yr = Number(bb[1]);
+              return (yr <= seasonInt - 2) ? "MYM-Rookie" : "WW";
+            }
+            if (/^Auction\b.*\(\d{4}\)$/i.test(drafted)) return "Rookie - FA Auction";
+            if (/^Trade\s+\(\d{4}\)$/i.test(drafted)) return "Trade";
+            return null;
+          }
+
+          // Salary schedule per league_context_v1.md §A1 — flat Y1=Y2=Y3.
+          function rookieSalaryK(round, pick) {
+            const r = Number(round);
+            const pk = Number(pick);
+            if (!Number.isFinite(r) || !Number.isFinite(pk)) return null;
+            if (r === 1) {
+              if (pk >= 1 && pk <= 10) return 16 - pk; // 1.01=$15K → 1.10=$6K
+              if (pk >= 11 && pk <= 12) return 5;
+              return null;
+            }
+            if (r === 2) return 5;
+            if (r >= 3 && r <= 5) return 2;
+            if (r === 6) return 1;
+            return null;
+          }
+
+          // Single pass: classify every player on every roster.
+          const candidates = []; // { pid, fid, ownerName, drafted_field, path: 'active_cy0' | 'empty_expired', mfl_salary_dollars, slot_year_from_field, needs_nfl_lookup }
+          const rosterList = rj?.rosters?.franchise || [];
+          for (const f of rosterList) {
+            const fid = pad4(f.id);
+            const ownerName = fidToName[fid] || ("Team " + fid);
+            let arr = f.player || [];
+            if (!Array.isArray(arr)) arr = [arr];
+            for (const p of arr) {
+              if (!p || !p.id) continue;
+              const pid = String(p.id);
+              const status = String(p.contractStatus || "");
+              const cyRaw = p.contractYear;
+              const cy = (cyRaw === "" || cyRaw == null) ? null : Number(cyRaw);
+              const drafted = String(p.drafted || "");
+              const slotMatch = drafted.match(/^\d+\.\d+\s+\((\d{4})\)$/);
+              const tradeMatch = drafted.match(/^Trade\s+\((\d{4})\)$/i);
+              const slotYearFromField = slotMatch ? Number(slotMatch[1]) : null;
+
+              const isActiveCy0Rookie = (cy === 0 && /rookie/i.test(status));
+              const isEmptyContract = (status === "" && (cy === null || cy === 0));
+
+              if (!isActiveCy0Rookie && !isEmptyContract) continue;
+
+              candidates.push({
+                pid, fid, ownerName,
+                drafted_field: drafted,
+                path: isActiveCy0Rookie ? "active_cy0" : "empty_expired",
+                mfl_salary_dollars: Number(p.salary) || 0,
+                slot_year_from_field: slotYearFromField,
+                needs_nfl_lookup: !slotMatch && !!tradeMatch,
+              });
+            }
+          }
+
+          // For trade-acquired candidates (no slot-year in `drafted` field),
+          // resolve the NFL draft year via TYPE=players&DETAILS=1 — that's
+          // our best proxy for the original UPS rookie draft year.
+          const needsLookupPids = candidates.filter((c) => c.needs_nfl_lookup).map((c) => c.pid);
+          const pidToNflDraftYear = new Map();
+          if (needsLookupPids.length > 0) {
+            try {
+              const detailRes = await fetch(
+                `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=players&DETAILS=1&PLAYERS=${encodeURIComponent(needsLookupPids.join(","))}&JSON=1`,
+                { cf: { cacheTtl: 86400 } }
+              );
+              const dj = await detailRes.json().catch(() => ({}));
+              let dlist = dj?.players?.player || [];
+              if (!Array.isArray(dlist)) dlist = [dlist];
+              for (const d of dlist) {
+                const dpid = String(d.id || "");
+                const dy = Number(d.draft_year);
+                if (dpid && Number.isFinite(dy) && dy > 0) pidToNflDraftYear.set(dpid, dy);
+              }
+            } catch (e) {
+              console.error("[auction/era-eligible] DETAILS=1 lookup failed:", e);
+            }
+          }
+
+          // Resolve each candidate's best-known original draft year.
+          for (const c of candidates) {
+            c.original_draft_year = c.slot_year_from_field
+              || pidToNflDraftYear.get(c.pid)
+              || null;
+          }
+
+          // Filter empty-contract candidates by 3-yr-clock cutoff. Active
+          // cy=0 candidates pass through unconditionally (the rule already
+          // identified them as expired).
+          const survivors = candidates.filter((c) => {
+            if (c.path === "active_cy0") return true;
+            return c.original_draft_year != null && c.original_draft_year <= taxiClockExpiredCutoff;
+          });
+
+          // Resolve original rookie draft slot via MFL TYPE=draftResults
+          // for each unique survivor draft year. Build pid → { round, pick, label, year }.
+          const draftYears = Array.from(new Set(survivors.map((c) => c.original_draft_year).filter(Boolean)));
+          const pidToPick = new Map();
+          await Promise.all(draftYears.map(async (dy) => {
+            try {
+              const drRes = await fetch(
+                `https://www48.myfantasyleague.com/${encodeURIComponent(dy)}/export?TYPE=draftResults&L=${encodeURIComponent(leagueId)}&JSON=1`,
+                { cf: { cacheTtl: 86400 } }
+              );
+              const drJson = await drRes.json().catch(() => ({}));
+              let units = drJson?.draftResults?.draftUnit || [];
+              if (!Array.isArray(units)) units = [units];
+              for (const u of units) {
+                let picks = u.draftPick || [];
+                if (!Array.isArray(picks)) picks = [picks];
+                for (const pk of picks) {
+                  const ppid = String(pk.player || "");
+                  if (!ppid) continue;
+                  const rd = String(pk.round || "").padStart(2, "0");
+                  const pp = String(pk.pick || "").padStart(2, "0");
+                  pidToPick.set(ppid, {
+                    year: dy,
+                    round: Number(pk.round),
+                    pick: Number(pk.pick),
+                    label: `${rd}.${pp} (${dy})`,
+                  });
+                }
+              }
+            } catch (e) {
+              console.error(`[auction/era-eligible] draftResults ${dy} fetch failed:`, e);
+            }
+          }));
+
+          // Emit final players[].
+          const players = [];
+          for (const c of survivors) {
+            const meta = pidIdx.get(c.pid) || { name: "Player #" + c.pid, position: "", team: "", age: null };
+            const draftPick = pidToPick.get(c.pid) || null;
+            const rookieSlot = draftPick ? draftPick.label : (c.slot_year_from_field ? c.drafted_field : null);
+            const derivedSalK = draftPick ? rookieSalaryK(draftPick.round, draftPick.pick) : null;
+            // For active cy=0, MFL has the live salary in dollars — convert
+            // to $K. For empty-contract, MFL is empty so use the derived
+            // value from the schedule. If draftResults couldn't resolve a
+            // pick (e.g. dispersal/WW-Rookie), fall back to MFL salary.
+            let y3K;
+            if (c.path === "active_cy0") {
+              y3K = Math.round(c.mfl_salary_dollars / 1000) || derivedSalK || 0;
+            } else {
+              y3K = derivedSalK != null ? derivedSalK : 0;
+            }
+            // Origin priority: if we resolved the player's UPS rookie draft
+            // slot, the contract origin IS the rookie draft (any "Trade
+            // (YEAR)" in the `drafted` field is just the acquisition path,
+            // not the contract origin). Fall back to drafted-field parsing
+            // for players not found in any draftResults.
+            const origin = draftPick
+              ? "Rookie Draft"
+              : deriveOrigin(c.drafted_field, seasonInt);
+            players.push({
+              player_id: c.pid,
+              name: meta.name,
+              position: meta.position,
+              nfl_team: meta.team,
+              age: meta.age,
+              prior_owner_fid: c.fid,
+              prior_owner: c.ownerName,
+              rookie_slot: rookieSlot,
+              y3_salary: y3K,
+              contract_status: c.path === "active_cy0" ? "Rookie" : "Rookie (expired)",
+              origin_label: origin,           // "Rookie" | "MYM-Rookie" | "WW" | "Rookie - FA Auction" | "Trade" | null
+              drafted_field_raw: c.drafted_field,  // for debugging client-side
+              eligibility_reason: c.path === "active_cy0"
+                ? "Rookie contract expired (contractYear=0); no extension submitted."
+                : `3-year rookie clock expired (drafted ${c.original_draft_year}; MFL wiped contract fields on rollover).`,
+              deadline_iso: null,
+              season: seasonInt,
+              current_bid: 0,
+              current_high_bidder: null,
+              your_proxy_bid: 0,
+              nominate_blocked: false,
+              nominate_block_reason: null,
+            });
+          }
+
+          return jsonOut(200, {
+            season: Number(year),
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            extension_deadline_iso: null,
+            players,
+            count: players.length,
+          });
+        } catch (e) {
+          console.error("[auction/era-eligible] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- DIAGNOSTIC: GET /admin/auction/probe-o43 ----------
+      // One-shot: fetches MFL's O=43 nomination page using MFL_COOKIE
+      // and returns the HTML body so we can identify where proxy bid
+      // data lives (hidden inputs, inline JSON, JS vars). Delete this
+      // endpoint after the proxy-detection question is answered.
+      // Commish-gated.
+      if (path === "/admin/auction/probe-o43" && request.method === "GET") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
+        if (!authOk) {
+          return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+        }
+        const mflCookie = String(env.MFL_COOKIE || "").trim();
+        if (!mflCookie) return jsonOut(500, { error: "MFL_COOKIE secret missing" });
+        const year = url.searchParams.get("YEAR") || new Date().getUTCFullYear();
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const franchise = String(url.searchParams.get("FRANCHISE") || "0000");
+        const playerId = String(url.searchParams.get("PLAYER_ID") || "");
+        const pageUrl = `https://www48.myfantasyleague.com/${year}/options?LEAGUE_ID=${leagueId}&FRANCHISE=${franchise}&O=43${playerId ? "&PLAYER_ID=" + playerId : ""}`;
+        const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+        try {
+          const res = await fetch(pageUrl, {
+            headers: { Cookie: cookieHeader, "User-Agent": "ups-auction-probe" },
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          const body = await res.text();
+          // Highlight likely proxy-data locations:
+          const matches = {
+            proxy_mentions: (body.match(/proxy[^<>"\s]{0,40}/gi) || []).slice(0, 20),
+            max_bid_mentions: (body.match(/(?:max|hidden|secret)[_\s-]*bid[^<>"\s]{0,40}/gi) || []).slice(0, 20),
+            hidden_input_names: (body.match(/<input[^>]*type=["']hidden["'][^>]*name=["']([^"']+)["']/gi) || []).slice(0, 30),
+            json_blocks: (body.match(/var\s+\w+\s*=\s*\{[^;]{0,500}\};/g) || []).slice(0, 5),
+            inline_proxy_vars: (body.match(/(?:var|let|const)\s+\w*[Pp]roxy\w*[^;]{0,200};/g) || []).slice(0, 10),
+          };
+          // Find the section containing player 13447 if specified.
+          let playerContext = null;
+          if (playerId) {
+            const pid = playerId;
+            const idx = body.indexOf(pid);
+            if (idx > 0) {
+              playerContext = body.slice(Math.max(0, idx - 1000), Math.min(body.length, idx + 2000));
+            }
+          }
+          // Also extract <table> sections that look like auction state.
+          const auctionTables = [];
+          const tableRe = /<table[^>]*>[\s\S]*?<\/table>/gi;
+          let mt;
+          while ((mt = tableRe.exec(body)) !== null && auctionTables.length < 5) {
+            const t = mt[0];
+            if (/auction|bid|nominat|proxy/i.test(t)) auctionTables.push(t.slice(0, 3000));
+          }
+          // Pull a few specific things by regex so we don't have to
+          // ship the whole 183KB body back.
+          const bodyTagMatch = body.match(/<body[\s\S]{0,500}?>/i);
+          const allHintTexts = [];
+          const hintRe = /<[^>]*>(?:[^<]{0,5}<[^>]*>){0,3}\s*(?:<b>)?Hint:?(?:<\/b>)?[^<]{0,300}/gi;
+          let h;
+          while ((h = hintRe.exec(body)) && allHintTexts.length < 30) {
+            allHintTexts.push(h[0].slice(0, 400));
+          }
+          // Also grab every TR/TD/SPAN with "Hint" text inside
+          const hintRowsRe = /<(?:tr|td|div|span)[^>]*>[\s\S]{0,800}?Hint:[\s\S]{0,600}?<\/(?:tr|td|div|span)>/gi;
+          const hintRows = [];
+          let hr;
+          while ((hr = hintRowsRe.exec(body)) && hintRows.length < 15) {
+            hintRows.push(hr[0].slice(0, 1000));
+          }
+          // Any class attribute on the elements wrapping hint text
+          const hintClassesRe = /class="([^"]{0,200})"[^>]*>[\s\S]{0,300}?Hint:/g;
+          const hintClasses = new Set();
+          let hc;
+          while ((hc = hintClassesRe.exec(body)) && hintClasses.size < 30) {
+            hintClasses.add(hc[1]);
+          }
+          // Search for `Hint:` text occurrences with ~300 chars of context BEFORE each so we
+          // see the wrapping element. Helps when the regexes above miss.
+          const hintContextRe = /[\s\S]{200}Hint:[\s\S]{200}/g;
+          const hintContexts = [];
+          let hctx;
+          while ((hctx = hintContextRe.exec(body)) && hintContexts.length < 6) {
+            hintContexts.push(hctx[0]);
+            // Advance to avoid overlapping matches
+            hintContextRe.lastIndex = hctx.index + 400;
+          }
+
+          return jsonOut(200, {
+            url: pageUrl,
+            http_status: res.status,
+            body_length: body.length,
+            body_tag: bodyTagMatch ? bodyTagMatch[0] : "(no body tag found)",
+            hint_contexts: hintContexts,
+            hint_wrapper_classes: [...hintClasses],
+            hint_rows_sample: hintRows.slice(0, 5),
+            interesting_matches: matches,
+            player_context: playerContext,
+            auction_tables: auctionTables,
+            body_preview: body.slice(0, 2000),
+          });
+        } catch (e) {
+          return jsonOut(502, { error: String(e?.message || e), url: pageUrl });
+        }
+      }
+
+      // ---------- DIAGNOSTIC: POST /admin/auction/narrate-simulate ----------
+      // Posts a synthetic sequence of auction-narrator events to the TEST
+      // Discord channel. Loads the curated_gifs.json manifest, picks from
+      // requested pools (with rotation), formats messages in the narrator's
+      // voice, and posts each to channel. Commish-gated.
+      //
+      // Always routes to the test channel — never prod.
+      //
+      // Query params:
+      //   APIKEY    — required, COMMISH_API_KEY or TEST_SYNC_API_KEY
+      //   preset    — optional. "demo" injects a hand-crafted suite covering
+      //               every scenario (routine_forced, high_tension, late_overtake,
+      //               takeback, day_2_extender, hawks_mock, hammertime_vs_creel,
+      //               longhaulers_late_expensive, dollar tiers).
+      //
+      // Body (if no preset): { delay_ms?: number, events: [{ text, pool_id, overlay_pool_id? }] }
+      if (path === "/admin/auction/narrate-simulate" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
+        if (!authOk) return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+
+        const botToken = String(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "").trim();
+        if (!botToken) return jsonOut(500, { error: "DISCORD_BOT_TOKEN missing" });
+        const channelId = String(
+          env.DISCORD_AUCTION_TEST_CHANNEL_ID || env.DISCORD_DRAFT_TEST_CHANNEL_ID || ""
+        ).replace(/\D/g, "");
+        if (!channelId) {
+          return jsonOut(500, { error: "DISCORD_AUCTION_TEST_CHANNEL_ID (or DISCORD_DRAFT_TEST_CHANNEL_ID) missing" });
+        }
+
+        // Load curated manifest from CDN.
+        // Accepts ?sha=<branch|sha> override so we can fire from a feature
+        // branch before merging the new manifest to main.
+        const shaOverride = String(url.searchParams.get("sha") || "").replace(/[^A-Za-z0-9_./-]/g, "");
+        const sha = shaOverride || (String(env.UPS_RELEASE_SHA || "main").replace(/[^A-Za-z0-9_./-]/g, "") || "main");
+        const manifestUrl = `https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@${sha}/site/auction/curated_gifs.json`;
+        let manifest = null;
+        try {
+          const r = await fetch(manifestUrl, { cf: { cacheTtl: 60 } });
+          if (!r.ok) return jsonOut(502, { error: `manifest fetch ${r.status}`, url: manifestUrl });
+          manifest = await r.json();
+        } catch (e) {
+          return jsonOut(502, { error: `manifest fetch failed: ${String(e?.message || e)}`, url: manifestUrl });
+        }
+        if (!manifest || !manifest.pools) {
+          return jsonOut(502, { error: "manifest has no pools" });
+        }
+
+        // Local rotation tracker for THIS simulation only — so two events
+        // hitting the same pool don't reuse the same GIF if pool has >1.
+        const localLast = new Map();
+        const pickFrom = (poolId) => {
+          if (!poolId) return "";
+          const pool = manifest.pools[poolId];
+          if (!pool || !Array.isArray(pool.gifs) || pool.gifs.length === 0) return "";
+          const gifs = pool.gifs.filter((g) => g && g.url);
+          if (gifs.length === 0) return "";
+          const last = localLast.get(poolId) || [];
+          let eligible = gifs.filter((g) => !last.includes(g.url));
+          if (eligible.length === 0) eligible = gifs;
+          const totalWeight = eligible.reduce((s, g) => s + Number(g.weight || 1), 0);
+          let r = Math.random() * totalWeight;
+          let pick = eligible[0];
+          for (const g of eligible) {
+            r -= Number(g.weight || 1);
+            if (r <= 0) { pick = g; break; }
+          }
+          const next = [pick.url, ...last].slice(0, 3);
+          localLast.set(poolId, next);
+          return String(pick.url);
+        };
+
+        // Parse body
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+
+        // Resolve events: from body OR from preset
+        const preset = String(url.searchParams.get("preset") || body.preset || "").toLowerCase().trim();
+        let events;
+        if (preset === "demo") {
+          events = [
+            // 1. Nomination — opens lot, dollar-tier player_specific marquee
+            { text: "🆕  **Cleon Ca$h** **nominated** **Justin Herbert** (QB · LAC) — opening at **$20K**", pool_id: null, label: "nom open ($20K QB)" },
+            // 2. Routine forced increase — cap-free $2-4K, Keith's signature 35%
+            { text: "⬆  **Gride** **Forced Increase** to **$3K** on **Tyler Allgeier** (RB · ATL)", pool_id: "routine_forced", label: "routine_forced $3K (35%)" },
+            // 3. Same scenario again to show rotation
+            { text: "⬆  **Pure Greatness** **Forced Increase** to **$4K** on **Justice Hill** (RB · BAL)", pool_id: "routine_forced", label: "routine_forced $4K (rotation)" },
+            // 4. High tension — same-fid forced 4+ in a row
+            { text: "⬆  **CBP** **Forced Increase** to **$12K** on **Rashee Rice** (WR · KC)", pool_id: "high_tension", label: "high_tension same-fid streak" },
+            // 5. Late overtake — final 60 min
+            { text: "💰  **Sex Manther** **Overtake** at **$8K** on **Chig Okonkwo** (TE · TEN)", pool_id: "late_overtake", label: "late_overtake (final 60min)" },
+            // 6. Takeback — actor reclaims after losing lead
+            { text: "💰  **Blake Bombers** **Overtake** at **$6K** on **Khalil Herbert** (RB · CHI) — *takeback*", pool_id: "takeback", label: "takeback ('I'm back')" },
+            // 7. Day-2+ extender
+            { text: "⬆  **Real Deal Creel** **Forced Increase** to **$9K** on **Wan'Dale Robinson** (WR · NYG)", pool_id: "day_2_extender", label: "day_2 extender (lot 48hr+)" },
+            // 8. Hawks mock — nomination
+            { text: "🆕  **Hawks** **nominated** **D.J. Moore** (WR · CHI) — opening at **$10K**", pool_id: "hawks_mock", label: "hawks_mock nom (35%)" },
+            // 9. Hawks mock — win (different pool entry via rotation)
+            { text: "🏆  **Hawks** **won** **Christian Watson** (WR · GB) for **$5K**", pool_id: "hawks_mock", label: "hawks_mock win" },
+            // 10. Pair: HammerTime forces Real Deal Creel → Trey McBride
+            { text: "⬆  **HammerTime 🔨 ⏰** **Forced Increase** to **$6K** on **George Kittle** (TE · SF)", pool_id: "hammertime_vs_creel_trey_mcbride", label: "pair: HammerTime vs Creel (Trey McBride)" },
+            // 11. Pair: Long Haulers late + expensive overtake on Sex Manther → Home Alone
+            { text: "💰  **The Long Haulers** **Overtake** at **$14K** on **De'Von Achane** (RB · MIA)", pool_id: "longhaulers_late_expensive", label: "pair: Long Haulers late+expensive vs Martel (Home Alone)" },
+            // 12. Pair: Long Haulers overtake on Martel — Rashee Rice (note: pool currently empty pending URLs)
+            { text: "💰  **The Long Haulers** **Overtake** at **$5K** on **Jaylen Wright** (RB · MIA)", pool_id: "longhaulers_vs_martel_rashee_rice", label: "pair: Long Haulers vs Martel (Rashee Rice — empty pool)" },
+            // 13. Random spice — 5% sprinkle
+            { text: "⬆  **L.A. Looks** **Forced Increase** to **$4K** on **Tyler Conklin** (TE · NYJ)", pool_id: "random_spice", label: "random_spice (5%)" },
+            // 14. Win — $94K all-time tier (composite overlay)
+            { text: "🏆  **Cleon Ca$h** **won** **Derrick Henry** (RB · BAL) for **$94K**", pool_id: "all_time", overlay_pool_id: "legendary", label: "won_all_time ($94K composite — empty pools)" },
+            // 15. Win — $30K marquee
+            { text: "🏆  **C-Town Chivalry** **won** **Jaylen Waddle** (WR · MIA) for **$30K**", pool_id: "shock", label: "won_marquee $30K (empty pool)" },
+          ];
+        } else if (Array.isArray(body.events) && body.events.length > 0) {
+          events = body.events;
+        } else {
+          return jsonOut(400, { error: "Provide ?preset=demo OR body.events[]" });
+        }
+
+        const delayMs = Math.max(0, Math.min(10000, Number(body.delay_ms ?? 1200)));
+
+        const posted = [];
+        const errors = [];
+        for (let i = 0; i < events.length; i++) {
+          const e = events[i];
+          const content = String(e.text || "");
+          const primary = e.pool_id ? pickFrom(e.pool_id) : "";
+          const overlay = e.overlay_pool_id ? pickFrom(e.overlay_pool_id) : "";
+          const dbody = { content, allowed_mentions: { parse: [] } };
+          const embeds = [];
+          if (primary) embeds.push({ image: { url: primary } });
+          if (overlay && overlay !== primary) embeds.push({ image: { url: overlay } });
+          if (embeds.length) dbody.embeds = embeds;
+          try {
+            const r = await fetch(
+              `https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages`,
+              {
+                method: "POST",
+                headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify(dbody),
+              }
+            );
+            const txt = await r.text();
+            let j = null;
+            try { j = JSON.parse(txt); } catch (_) {}
+            if (!r.ok) {
+              errors.push({ index: i, label: e.label || "", status: r.status, body: txt.slice(0, 400) });
+            } else {
+              posted.push({
+                index: i,
+                label: e.label || "",
+                pool_id: e.pool_id || "",
+                gif_url: primary,
+                overlay_url: overlay,
+                message_id: String(j?.id || ""),
+              });
+            }
+          } catch (err) {
+            errors.push({ index: i, label: e.label || "", error: String(err?.message || err) });
+          }
+          if (delayMs > 0 && i < events.length - 1) {
+            await new Promise((res) => setTimeout(res, delayMs));
+          }
+        }
+        return jsonOut(200, {
+          ok: true,
+          channel_id: channelId,
+          manifest_sha: sha,
+          posted_count: posted.length,
+          error_count: errors.length,
+          posted,
+          errors,
+        });
+      }
+
+      // ---------- Auction Hub: /api/auction/lots ----------
+      // Returns current auction state (open lots + recent wins) from
+      // D1, populated by the */5 cron that polls MFL transactions.
+      //
+      // Privacy:
+      //   - bid_k = PUBLIC current high bid (visible to all)
+      //   - current_high_bidder = PUBLIC (visible to all)
+      //   - your_proxy_bid_k = PRIVATE — only populated when the
+      //     requesting franchise matches the row's franchise. Other
+      //     owners' proxies are never exposed.
+      //
+      // Query params:
+      //   L (optional, default 74598)
+      //   YEAR (optional, default current UTC year)
+      //   franchise_id (optional, sets the "your" scope)
+      //   status (optional: 'open' | 'won' | 'all', default 'all')
+      if (path === "/api/auction/lots" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) {
+          return jsonOut(500, { error: "D1 binding UPS_MFL_DB missing" });
+        }
+        const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const viewerFid = String(url.searchParams.get("franchise_id") || "").padStart(4, "0").slice(-4);
+        const statusFilter = String(url.searchParams.get("status") || "all").toLowerCase();
+
+        try {
+          let sql = `SELECT lot_id, player_id, nominator_fid, opening_bid_k, opened_at_unix,
+                            current_high_bid_k, current_high_bidder_fid, last_bid_at_unix,
+                            locks_at_unix, status, winner_fid, won_at_unix,
+                            bid_count, unique_bidder_count
+                       FROM ups_auction_lots
+                      WHERE season = ? AND league_id = ?`;
+          const args = [year, leagueId];
+          if (statusFilter === "open" || statusFilter === "won") {
+            sql += ` AND status = ?`;
+            args.push(statusFilter);
+          }
+          sql += ` ORDER BY locks_at_unix ASC`;
+          const { results: lots } = await env.UPS_MFL_DB.prepare(sql).bind(...args).all();
+
+          // Look up requester's proxy bids (if any) — only their own.
+          let proxiesByPid = {};
+          if (viewerFid && viewerFid !== "0000") {
+            const { results: proxies } = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, proxy_bid_k FROM ups_auction_proxy_bids
+                WHERE season = ? AND league_id = ? AND fid = ?`
+            ).bind(year, leagueId, viewerFid).all();
+            for (const p of (proxies || [])) proxiesByPid[p.player_id] = p.proxy_bid_k;
+          }
+
+          // Fid → franchise name lookup from MFL TYPE=league (cached 5 min)
+          const apiKey0 = String(env.MFL_APIKEY || "").trim();
+          const apiQs0 = apiKey0 ? `&APIKEY=${encodeURIComponent(apiKey0)}` : "";
+          const fidToName = {};
+          try {
+            const leagueRes = await fetch(
+              `https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs0}`,
+              { cf: { cacheTtl: 300 } }
+            ).then((r) => r.json()).catch(() => ({}));
+            const flist = leagueRes?.league?.franchises?.franchise || [];
+            const farr = Array.isArray(flist) ? flist : [flist];
+            for (const f of farr) {
+              const id = String(f.id || "").padStart(4, "0");
+              if (id) fidToName[id] = String(f.name || ("Team " + id));
+            }
+          } catch (e) {
+            console.error("[auction/lots] franchise name lookup failed:", e);
+          }
+          const fname = (fid) => {
+            const padded = String(fid || "").padStart(4, "0");
+            return fidToName[padded] || padded || "—";
+          };
+
+          // Enrich with player metadata + ERA-eligible flag.
+          //
+          // Auctions in MFL can include ANY currently-FA player — not
+          // just our ERA-eligible list (which is rookie+cy=0). When
+          // Keith tests with a random FA, our hub was rendering
+          // "Player #pid" because the client only knew names from the
+          // ERA payload. Fetch the names server-side from MFL's player
+          // metadata (cached 24h via cf.cacheTtl) so EVERY auctioned
+          // player renders correctly. Flag is_era_eligible separately
+          // so the UI can mark non-ERA lots as "[TEST]" / off-pool.
+          const playerIds = [...new Set((lots || []).map((l) => String(l.player_id)).filter(Boolean))];
+          const pidMeta = {};
+          if (playerIds.length > 0) {
+            try {
+              const playersRes = await fetch(
+                `https://api.myfantasyleague.com/${year}/export?TYPE=players&PLAYERS=${encodeURIComponent(playerIds.join(","))}&JSON=1`,
+                { cf: { cacheTtl: 86400 } }
+              );
+              const pj = await playersRes.json().catch(() => ({}));
+              let plist = pj?.players?.player || [];
+              if (!Array.isArray(plist)) plist = [plist];
+              for (const p of plist) {
+                const pid = String(p.id || "");
+                if (!pid) continue;
+                let name = String(p.name || "");
+                if (name.includes(",")) name = name.split(",").reverse().map((s) => s.trim()).join(" ");
+                pidMeta[pid] = {
+                  name,
+                  position: String(p.position || "").toUpperCase(),
+                  nfl_team: String(p.team || "").toUpperCase(),
+                };
+              }
+            } catch (e) {
+              console.error("[auction/lots] player metadata fetch failed:", e);
+            }
+          }
+
+          // Cross-check against ERA-eligible list (rookies with cy=0
+          // on active rosters). Lightweight check via D1 — no need to
+          // re-derive eligibility, just see if any of our lots
+          // intersect with the current rookie pool.
+          // For now: a lot is "era_eligible" if the player has an
+          // active Rookie contract with cy=0 OR has a recent rookie
+          // expiry event. Since deriving that here means re-running
+          // the full era-eligible logic, a cheaper proxy: flag
+          // is_era_eligible=false for any player we have no rookie
+          // history of (will surface "TEST" badge in the UI).
+          // Deferred to a separate cross-reference — for now ALL lots
+          // get is_era_eligible=null (unknown) so the UI shows them
+          // neutrally. Phase 5 can add the proper flag.
+
+          const enriched = (lots || []).map((l) => {
+            const meta = pidMeta[l.player_id] || {};
+            return {
+              lot_id: l.lot_id,
+              player_id: l.player_id,
+              // Player metadata enrichment (every auctioned player, not just ERA)
+              player_name: meta.name || ("Player #" + l.player_id),
+              position: meta.position || "",
+              nfl_team: meta.nfl_team || "",
+              nominator_fid: l.nominator_fid,
+              nominator_name: fname(l.nominator_fid),
+              opening_bid_k: l.opening_bid_k,
+              opened_at_unix: l.opened_at_unix,
+              current_high_bid_k: l.current_high_bid_k,
+              current_high_bidder_fid: l.current_high_bidder_fid,
+              current_high_bidder_name: fname(l.current_high_bidder_fid),
+              last_bid_at_unix: l.last_bid_at_unix,
+              locks_at_unix: l.locks_at_unix,
+              seconds_remaining: Math.max(0, Number(l.locks_at_unix) - Math.floor(Date.now() / 1000)),
+              status: l.status,
+              winner_fid: l.winner_fid,
+              winner_name: fname(l.winner_fid),
+              won_at_unix: l.won_at_unix,
+              bid_count: l.bid_count,
+              unique_bidder_count: l.unique_bidder_count,
+              // Private — only populated when viewer is the bidder.
+              your_proxy_bid_k: proxiesByPid[l.player_id] || null,
+              // ERA-eligibility flag: null = unknown (Phase 5 will
+              // populate this from the live era-eligible list).
+              is_era_eligible: null,
+            };
+          });
+
+          return jsonOut(200, {
+            season: year,
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            viewer_franchise_id: viewerFid || null,
+            count: enriched.length,
+            lots: enriched,
+          });
+        } catch (e) {
+          console.error("[auction/lots] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/bid-history ----------
+      // Returns chronological bid sequence for a single lot OR for ALL
+      // lots since a timestamp (war-room live feed mode).
+      //
+      // Backing data: ups_auction_bids — fully populated by the */5
+      // poll. Includes AUCTION_INIT (nominations, prefixed "[nomination]"
+      // in the note column) and every overtake bid. Pure D1 read, no
+      // MFL fetch — fast.
+      //
+      // Privacy: all bids are PUBLIC. Proxy LIMITS are still hidden
+      // (those live in ups_auction_proxy_bids and require the owner's
+      // own franchise_id to surface — handled by /api/auction/lots).
+      //
+      // Query params:
+      //   L          (optional, default 74598)
+      //   YEAR       (optional, default current UTC year)
+      //   player_id  (optional) — narrow to one lot
+      //   since      (optional, unix seconds) — only bids at/after this
+      //              timestamp; ideal for war-room polling
+      //   limit      (optional, default 200, max 1000)
+      if (path === "/api/auction/bid-history" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) {
+          return jsonOut(500, { error: "D1 binding UPS_MFL_DB missing" });
+        }
+        const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const playerId = String(url.searchParams.get("player_id") || "").replace(/\D/g, "");
+        const sinceUnix = Math.max(0, Number(url.searchParams.get("since") || 0));
+        const limit = Math.min(1000, Math.max(1, Number(url.searchParams.get("limit") || 200)));
+
+        try {
+          let sql = `SELECT bid_id, lot_id, player_id, fid, bid_k, bid_at_unix, note
+                       FROM ups_auction_bids
+                      WHERE season = ? AND league_id = ?`;
+          const args = [year, leagueId];
+          if (playerId) {
+            sql += ` AND player_id = ?`;
+            args.push(playerId);
+          }
+          if (sinceUnix > 0) {
+            sql += ` AND bid_at_unix >= ?`;
+            args.push(sinceUnix);
+          }
+          sql += ` ORDER BY bid_at_unix ASC, bid_id ASC LIMIT ?`;
+          args.push(limit);
+          const { results: bids } = await env.UPS_MFL_DB.prepare(sql).bind(...args).all();
+
+          // Enrich franchise + player names. Two parallel fetches.
+          const fidSet = new Set();
+          const pidSet = new Set();
+          for (const b of (bids || [])) {
+            if (b.fid) fidSet.add(b.fid);
+            if (b.player_id) pidSet.add(String(b.player_id));
+          }
+
+          const fidToName = {};
+          const pidToInfo = {};
+          if (fidSet.size > 0 || pidSet.size > 0) {
+            try {
+              const apiKey = String(env.MFL_APIKEY || "").trim();
+              const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+              const fetchTasks = [];
+              if (fidSet.size > 0) {
+                fetchTasks.push(
+                  fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+                    { cf: { cacheTtl: 300 } }).then((r) => r.json()).catch(() => ({}))
+                );
+              } else {
+                fetchTasks.push(Promise.resolve({}));
+              }
+              if (pidSet.size > 0) {
+                const pidList = [...pidSet].join(",");
+                fetchTasks.push(
+                  fetch(`https://api.myfantasyleague.com/${year}/export?TYPE=players&PLAYERS=${encodeURIComponent(pidList)}&JSON=1`,
+                    { cf: { cacheTtl: 86400 } }).then((r) => r.json()).catch(() => ({}))
+                );
+              } else {
+                fetchTasks.push(Promise.resolve({}));
+              }
+              const [lj, pj] = await Promise.all(fetchTasks);
+              const flist = lj?.league?.franchises?.franchise || [];
+              const farr = Array.isArray(flist) ? flist : [flist];
+              for (const f of farr) {
+                const id = String(f.id || "").padStart(4, "0");
+                if (id) fidToName[id] = String(f.name || ("Team " + id));
+              }
+              let plist = pj?.players?.player || [];
+              if (!Array.isArray(plist)) plist = [plist];
+              for (const p of plist) {
+                const id = String(p.id || "");
+                if (!id) continue;
+                let name = String(p.name || "");
+                if (name.includes(",")) name = name.split(",").reverse().map((s) => s.trim()).join(" ");
+                pidToInfo[id] = {
+                  name,
+                  position: String(p.position || "").toUpperCase(),
+                  nfl_team: String(p.team || "").toUpperCase(),
+                };
+              }
+            } catch (e) {
+              console.error("[auction/bid-history] meta enrichment failed:", e);
+            }
+          }
+
+          const enriched = (bids || []).map((b) => {
+            const noteStr = b.note ? String(b.note) : "";
+            const isNomination = noteStr.startsWith("[nomination]");
+            const isProxyWalk = /proxy/i.test(noteStr);
+            const pInfo = pidToInfo[String(b.player_id)] || {};
+            return {
+              bid_id: b.bid_id,
+              lot_id: b.lot_id,
+              player_id: b.player_id,
+              player_name: pInfo.name || ("Player #" + b.player_id),
+              position: pInfo.position || "",
+              nfl_team: pInfo.nfl_team || "",
+              fid: b.fid,
+              franchise_name: fidToName[b.fid] || ("Team " + b.fid),
+              bid_k: b.bid_k,
+              bid_at_unix: b.bid_at_unix,
+              bid_at_iso: new Date(Number(b.bid_at_unix) * 1000).toISOString(),
+              note: noteStr || null,
+              is_nomination: isNomination,
+              is_proxy_walk: isProxyWalk,
+              kind: isNomination ? "nomination" : (isProxyWalk ? "proxy_walk" : "bid"),
+            };
+          });
+
+          return jsonOut(200, {
+            season: year,
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            filters: {
+              player_id: playerId || null,
+              since_unix: sinceUnix || null,
+              limit,
+            },
+            count: enriched.length,
+            bids: enriched,
+          });
+        } catch (e) {
+          console.error("[auction/bid-history] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/compliance ----------
+      // Per-franchise rule-compliance snapshot for the war-room
+      // dashboard. Returns cap floor/ceiling status + active-count
+      // status per league_context_v1.md §6.A1, §6.A2, §B1.
+      //
+      // V1 surface (this commit):
+      //   - cap_spent_k, cap_room_k, cap_total_k
+      //   - cap_floor_status: 'below' | 'at_or_above' (260K threshold)
+      //   - cap_ceiling_status: 'over' | 'at_or_below' (300K threshold)
+      //   - active_count, active_status: 'below_27' | 'at_or_above_27'
+      //   - warnings: array of { severity, code, message }
+      //
+      // V2 (deferred — needs detailed contract-info parsing):
+      //   - loaded_count (FL/BL) vs 5 max (§6G)
+      //   - threeyr_count (cy=3) vs 6 max (§6G, per Keith 2026-05-16)
+      //   - IR 50% relief (§B3)
+      //
+      // Query params:
+      //   L     (optional, default 74598)
+      //   YEAR  (optional, default current UTC year)
+      if (path === "/api/auction/compliance" && request.method === "GET") {
+        const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const apiKey = String(env.MFL_APIKEY || "").trim();
+        const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+
+        // Canonical thresholds per league_context_v1.md
+        const CAP_FLOOR_K = 260;
+        const CAP_CEILING_K = 300;
+        const ACTIVE_MIN = 27;
+        const ACTIVE_MAX_POST_DEADLINE = 30;
+
+        try {
+          const [leagueRes, rostersRes, adjRes] = await Promise.all([
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 300 } }).then((r) => r.json()).catch(() => ({})),
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=rosters&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 60 } }).then((r) => r.json()).catch(() => ({})),
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=salaryAdjustments&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 300 } }).then((r) => r.json()).catch(() => ({})),
+          ]);
+
+          // Cap total — auctionStartAmount takes priority during auction
+          // window (§6.A1: $300K ceiling applies FA Auction → season end).
+          const leagueRoot = leagueRes?.league || {};
+          const capDollars =
+            Number(leagueRoot.auctionStartAmount) ||
+            Number(leagueRoot.salaryCapAmount) ||
+            Number(leagueRoot.salary_cap_amount) ||
+            CAP_CEILING_K * 1000;
+          const capTotalK = Math.round(capDollars / 1000);
+
+          // Franchise name lookup
+          const fidToName = {};
+          const flist = leagueRoot?.franchises?.franchise || [];
+          const farr = Array.isArray(flist) ? flist : [flist];
+          for (const f of farr) {
+            const id = String(f.id || "").padStart(4, "0");
+            if (id) fidToName[id] = String(f.name || ("Team " + id));
+          }
+
+          // Salary adjustments per franchise (sum)
+          const adjByFid = {};
+          let adjRows = adjRes?.salaryAdjustments?.salaryAdjustment ||
+                        adjRes?.salaryAdjustments ||
+                        [];
+          if (!Array.isArray(adjRows)) adjRows = [adjRows];
+          for (const r of adjRows) {
+            const fid = String(r?.franchise_id || r?.franchise || "").padStart(4, "0");
+            if (!fid || fid === "0000") continue;
+            const amt = Number(r?.amount || 0);
+            adjByFid[fid] = (adjByFid[fid] || 0) + amt;
+          }
+
+          // Rosters → per-franchise cap_spent + active_count
+          const franchiseRows = rostersRes?.rosters?.franchise || [];
+          const fArr = Array.isArray(franchiseRows) ? franchiseRows : [franchiseRows];
+          const perFranchise = [];
+
+          for (const fr of fArr) {
+            const fid = String(fr?.id || "").padStart(4, "0");
+            if (!fid || fid === "0000") continue;
+            let players = fr?.player || [];
+            if (!Array.isArray(players)) players = [players];
+
+            let capSpentDollars = 0;
+            let activeCount = 0;
+            let taxiCount = 0;
+            let irCount = 0;
+
+            for (const p of players) {
+              const status = String(p?.status || "").toUpperCase();
+              // MFL rosters export: salary is in WHOLE DOLLARS already (verified via
+              // direct fetch: "salary":"15000" = $15K, not 15 = 15K). NO multiplier.
+              const salaryDollars = Number(p?.salary || 0);
+              const isTaxi = status === "TAXI_SQUAD" || status === "TAXI" || /TAXI/i.test(status);
+              const isIR  = status === "INJURED_RESERVE" || status === "IR" || /INJURED/i.test(status);
+              if (isTaxi) {
+                taxiCount += 1;
+                // Taxi is OFF cap per §6.E — skip from cap_spent
+              } else if (isIR) {
+                irCount += 1;
+                // §B3 IR 50% relief — TODO v2: half-rate. For v1, full rate (conservative).
+                capSpentDollars += salaryDollars;
+                activeCount += 1;  // IR still counts toward "rostered active" per MFL convention
+              } else {
+                activeCount += 1;
+                capSpentDollars += salaryDollars;
+              }
+            }
+
+            const adjDollars = adjByFid[fid] || 0;
+            capSpentDollars += adjDollars;
+            const capSpentK = Math.round(capSpentDollars / 1000);
+            const capRoomK = capTotalK - capSpentK;
+
+            const warnings = [];
+            // §6.A1 ceiling — $300K during auction window
+            if (capSpentK > CAP_CEILING_K) {
+              warnings.push({
+                severity: "error",
+                code: "cap_ceiling_breach",
+                message: `Cap spent $${capSpentK}K — exceeds ceiling by $${capSpentK - CAP_CEILING_K}K`,
+              });
+            }
+            // §6.A2 floor — $260K by end of auction OR Roster Contract Deadline
+            if (capSpentK < CAP_FLOOR_K) {
+              warnings.push({
+                severity: "warning",
+                code: "cap_floor_advisory",
+                message: `Cap spent $${capSpentK}K — under floor by $${CAP_FLOOR_K - capSpentK}K. Must hit $${CAP_FLOOR_K}K by auction close or Roster Contract Deadline.`,
+              });
+            }
+            // §B1 active-min — 27 by end of auction
+            if (activeCount < ACTIVE_MIN) {
+              warnings.push({
+                severity: "warning",
+                code: "active_min_advisory",
+                message: `Active roster ${activeCount} — under ${ACTIVE_MIN}-min by ${ACTIVE_MIN - activeCount}. Must hit ${ACTIVE_MIN} at auction close.`,
+              });
+            }
+            // §B1 active-max — 30 post-deadline (advisory only mid-auction)
+            if (activeCount > ACTIVE_MAX_POST_DEADLINE) {
+              warnings.push({
+                severity: "warning",
+                code: "active_max_advisory",
+                message: `Active roster ${activeCount} — over ${ACTIVE_MAX_POST_DEADLINE}-max by ${activeCount - ACTIVE_MAX_POST_DEADLINE}. Must be ≤${ACTIVE_MAX_POST_DEADLINE} post-deadline.`,
+              });
+            }
+
+            perFranchise.push({
+              fid,
+              franchise_name: fidToName[fid] || ("Team " + fid),
+              cap_total_k: capTotalK,
+              cap_spent_k: capSpentK,
+              cap_room_k: capRoomK,
+              cap_floor_k: CAP_FLOOR_K,
+              cap_ceiling_k: CAP_CEILING_K,
+              cap_floor_status: capSpentK < CAP_FLOOR_K ? "below" : "at_or_above",
+              cap_ceiling_status: capSpentK > CAP_CEILING_K ? "over" : "at_or_below",
+              active_count: activeCount,
+              taxi_count: taxiCount,
+              ir_count: irCount,
+              active_min: ACTIVE_MIN,
+              active_max: ACTIVE_MAX_POST_DEADLINE,
+              active_status: activeCount < ACTIVE_MIN ? "below_27" : (activeCount > ACTIVE_MAX_POST_DEADLINE ? "over_30" : "at_or_above_27"),
+              adjustments_k: Math.round((adjByFid[fid] || 0) / 1000),
+              warnings,
+              warning_count: warnings.length,
+            });
+          }
+
+          // Sort by warning count desc, then by fid asc — most-at-risk first
+          perFranchise.sort((a, b) => (b.warning_count - a.warning_count) || a.fid.localeCompare(b.fid));
+
+          return jsonOut(200, {
+            season: year,
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            thresholds: {
+              cap_floor_k: CAP_FLOOR_K,
+              cap_ceiling_k: CAP_CEILING_K,
+              active_min: ACTIVE_MIN,
+              active_max_post_deadline: ACTIVE_MAX_POST_DEADLINE,
+            },
+            cap_total_k: capTotalK,
+            franchise_count: perFranchise.length,
+            total_warnings: perFranchise.reduce((sum, f) => sum + f.warning_count, 0),
+            franchises: perFranchise,
+            notes: "V1: loaded-contract (FL/BL) + 3-year (cy=3) checks deferred — need detailed contractInfo parsing. IR uses full-rate (§B3 50% relief deferred to V2).",
+          });
+        } catch (e) {
+          console.error("[auction/compliance] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/bid-stats ----------
+      // Per-franchise bid activity rollup. Counts bids placed, unique
+      // players bid on, position breakdown, and ERA-vs-FA classification.
+      //
+      // Classification:
+      //   ERA = player_id is in the current ERA-eligible pool
+      //   FA  = player_id is NOT in the ERA pool
+      // (Pre-2026-07-15 the pool is rookies with cy=0; after that, FA
+      //  Auction adds non-rookies. Classification is "what kind of
+      //  auction WOULD have nominated this player today" — works for
+      //  the offseason → FA Auction transition.)
+      //
+      // Query params:
+      //   L      (optional, default 74598)
+      //   YEAR   (optional, default current UTC year)
+      //   kind   (optional: 'era' | 'fa' | 'all', default 'all')
+      //   since  (optional, unix seconds — only bids at/after)
+      //
+      // Response per franchise:
+      //   - total_bids, total_nominations, total_proxy_walks
+      //   - unique_players_bid_on
+      //   - bids_by_position: { QB, RB, WR, TE, DL, LB, DB, K, PN, ... }
+      //   - era_bid_count, fa_bid_count
+      //   - first_bid_at + last_bid_at
+      if (path === "/api/auction/bid-stats" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) return jsonOut(500, { error: "D1 binding UPS_MFL_DB missing" });
+        const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const kindFilter = String(url.searchParams.get("kind") || "all").toLowerCase();
+        const sinceUnix = Math.max(0, Number(url.searchParams.get("since") || 0));
+
+        try {
+          // Pull all bids in scope
+          let sql = `SELECT fid, player_id, bid_k, bid_at_unix, note
+                       FROM ups_auction_bids
+                      WHERE season = ? AND league_id = ?`;
+          const args = [year, leagueId];
+          if (sinceUnix > 0) { sql += ` AND bid_at_unix >= ?`; args.push(sinceUnix); }
+          sql += ` ORDER BY bid_at_unix ASC`;
+          const { results: rows } = await env.UPS_MFL_DB.prepare(sql).bind(...args).all();
+          const bids = rows || [];
+
+          // Fetch ERA-eligible pool to classify ERA vs FA
+          const apiKey = String(env.MFL_APIKEY || "").trim();
+          const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+          const eraPool = new Set();
+          try {
+            // Internal lookup — reuse the same logic via D1.
+            // Simpler: fetch live MFL rosters + look for Rookie cy=0.
+            const rostersJson = await fetch(
+              `https://www48.myfantasyleague.com/${year}/export?TYPE=rosters&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 300 } }
+            ).then((r) => r.json()).catch(() => ({}));
+            const farr = Array.isArray(rostersJson?.rosters?.franchise)
+              ? rostersJson.rosters.franchise
+              : [rostersJson?.rosters?.franchise].filter(Boolean);
+            for (const fr of farr) {
+              let plist = Array.isArray(fr?.player) ? fr.player : [fr?.player].filter(Boolean);
+              for (const p of plist) {
+                if (String(p?.contractStatus || "").toLowerCase() === "rookie" &&
+                    Number(String(p?.contractYear || "0").trim()) === 0) {
+                  eraPool.add(String(p.id || ""));
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("[bid-stats] ERA pool lookup failed:", e?.message || e);
+          }
+
+          // Apply kind filter at the bid level
+          let scopedBids = bids;
+          if (kindFilter === "era") {
+            scopedBids = bids.filter((b) => eraPool.has(String(b.player_id)));
+          } else if (kindFilter === "fa") {
+            scopedBids = bids.filter((b) => !eraPool.has(String(b.player_id)));
+          }
+
+          // Player + franchise meta in parallel
+          const allPids = [...new Set(scopedBids.map((b) => String(b.player_id)))];
+          const allFids = [...new Set(scopedBids.map((b) => String(b.fid)))];
+          const [leagueRes, playersRes] = await Promise.all([
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 300 } }).then((r) => r.json()).catch(() => ({})),
+            allPids.length > 0
+              ? fetch(`https://api.myfantasyleague.com/${year}/export?TYPE=players&PLAYERS=${encodeURIComponent(allPids.join(","))}&JSON=1`,
+                  { cf: { cacheTtl: 86400 } }).then((r) => r.json()).catch(() => ({}))
+              : Promise.resolve({}),
+          ]);
+          const fidToName = {};
+          const flist = leagueRes?.league?.franchises?.franchise || [];
+          const farr2 = Array.isArray(flist) ? flist : [flist];
+          for (const f of farr2) {
+            const id = String(f.id || "").padStart(4, "0");
+            if (id) fidToName[id] = String(f.name || ("Team " + id));
+          }
+          const pidToPos = {};
+          let plist = playersRes?.players?.player || [];
+          if (!Array.isArray(plist)) plist = [plist];
+          for (const p of plist) {
+            const id = String(p.id || "");
+            if (id) pidToPos[id] = String(p.position || "UNK").toUpperCase();
+          }
+
+          // Aggregate per franchise
+          const byFid = {};
+          for (const b of scopedBids) {
+            const fid = String(b.fid || "").padStart(4, "0");
+            if (!fid || fid === "0000") continue;
+            if (!byFid[fid]) {
+              byFid[fid] = {
+                fid,
+                franchise_name: fidToName[fid] || ("Team " + fid),
+                total_bids: 0,
+                total_nominations: 0,
+                total_proxy_walks: 0,
+                era_bid_count: 0,
+                fa_bid_count: 0,
+                unique_player_ids: new Set(),
+                bids_by_position: {},
+                first_bid_at_unix: null,
+                last_bid_at_unix: null,
+                total_bid_dollars_k: 0,
+              };
+            }
+            const rec = byFid[fid];
+            const noteStr = String(b.note || "");
+            const isNom = noteStr.startsWith("[nomination]");
+            const isProxy = /proxy/i.test(noteStr);
+            rec.total_bids += 1;
+            if (isNom) rec.total_nominations += 1;
+            if (isProxy) rec.total_proxy_walks += 1;
+            rec.unique_player_ids.add(String(b.player_id));
+            const pos = pidToPos[String(b.player_id)] || "UNK";
+            rec.bids_by_position[pos] = (rec.bids_by_position[pos] || 0) + 1;
+            if (eraPool.has(String(b.player_id))) rec.era_bid_count += 1;
+            else rec.fa_bid_count += 1;
+            rec.total_bid_dollars_k += Number(b.bid_k || 0);
+            const ts = Number(b.bid_at_unix);
+            if (!rec.first_bid_at_unix || ts < rec.first_bid_at_unix) rec.first_bid_at_unix = ts;
+            if (!rec.last_bid_at_unix || ts > rec.last_bid_at_unix) rec.last_bid_at_unix = ts;
+          }
+
+          const franchises = Object.values(byFid).map((rec) => ({
+            fid: rec.fid,
+            franchise_name: rec.franchise_name,
+            total_bids: rec.total_bids,
+            total_nominations: rec.total_nominations,
+            total_proxy_walks: rec.total_proxy_walks,
+            era_bid_count: rec.era_bid_count,
+            fa_bid_count: rec.fa_bid_count,
+            unique_players_bid_on: rec.unique_player_ids.size,
+            bids_by_position: rec.bids_by_position,
+            total_bid_dollars_k: rec.total_bid_dollars_k,
+            first_bid_at_iso: rec.first_bid_at_unix ? new Date(rec.first_bid_at_unix * 1000).toISOString() : null,
+            last_bid_at_iso: rec.last_bid_at_unix ? new Date(rec.last_bid_at_unix * 1000).toISOString() : null,
+          }));
+
+          // Sort by total_bids desc
+          franchises.sort((a, b) => (b.total_bids - a.total_bids) || a.fid.localeCompare(b.fid));
+
+          // League-level totals
+          const totals = franchises.reduce((acc, f) => ({
+            bids: acc.bids + f.total_bids,
+            nominations: acc.nominations + f.total_nominations,
+            proxy_walks: acc.proxy_walks + f.total_proxy_walks,
+            era: acc.era + f.era_bid_count,
+            fa: acc.fa + f.fa_bid_count,
+          }), { bids: 0, nominations: 0, proxy_walks: 0, era: 0, fa: 0 });
+
+          return jsonOut(200, {
+            season: year,
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            filters: {
+              kind: kindFilter,
+              since_unix: sinceUnix || null,
+            },
+            classification_note:
+              "ERA = player currently in the rookie/cy=0 pool. FA = everyone else. " +
+              "Reclassifies dynamically based on current MFL rosters at request time.",
+            era_pool_size: eraPool.size,
+            franchise_count: franchises.length,
+            totals,
+            franchises,
+          });
+        } catch (e) {
+          console.error("[auction/bid-stats] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/nomination-status ----------
+      // Per-franchise nomination cadence tracker. Returns whether each
+      // franchise has used its 1 nomination for the current anchored
+      // 12-hour window (ERA) or the rolling 24-hour window (FA Auction).
+      //
+      // Cadence rules (league_context_v1.md §A3 / §A1, Keith 2026-05-21):
+      //   ERA (§A3):  1 nomination per discrete 12-hour window. Windows
+      //               are ANCHORED to 6 AM ET and 6 PM ET — NOT rolling
+      //               from the franchise's last nomination. Opens Sat
+      //               6 PM ET (= Memorial Day Monday − 2 days at 22:00
+      //               UTC during EDT); closes at the end of the Tue
+      //               6 AM → 6 PM ET window (6 windows total).
+      //   FA Auction (§A1): 2 nominations / 24-hour rolling window.
+      //
+      // Data source: ups_auction_bids WHERE note LIKE '[nomination]%'.
+      // The auction-poll cron tags AUCTION_INIT bids that way; this
+      // endpoint reads them directly out of D1.
+      //
+      // V1 distinguishes ERA vs FA via a heuristic on the active lots:
+      //   - If most/all lots have "rookie expired" semantics (covered by
+      //     /api/auction/era-eligible), assume current auction is ERA.
+      //   - When FA Auction starts in July, the auction_kind hint will
+      //     flip — for now, we just expose both cadence projections so
+      //     the Hub can pick which to display.
+      //
+      // Query params:
+      //   L     (optional, default 74598)
+      //   YEAR  (optional, default current UTC year)
+      if (path === "/api/auction/nomination-status" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) return jsonOut(500, { error: "D1 binding UPS_MFL_DB missing" });
+        const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const nowUnix = Math.floor(Date.now() / 1000);
+        const nowMs = nowUnix * 1000;
+        const FA_WINDOW_SEC    = 24 * 3600;
+        const FA_MAX_IN_WINDOW = 2;
+        const ERA_WINDOW_LABELS = [
+          "Sat 6 PM – Sun 6 AM ET",
+          "Sun 6 AM – Sun 6 PM ET",
+          "Sun 6 PM – Mon 6 AM ET",
+          "Mon 6 AM – Mon 6 PM ET",
+          "Mon 6 PM – Tue 6 AM ET",
+          "Tue 6 AM – Tue 6 PM ET",
+        ];
+        const ERA_TOTAL_WINDOWS = ERA_WINDOW_LABELS.length;
+        const ERA_WINDOW_MS = 12 * 3600 * 1000;
+
+        // Compute ERA nomination window state (anchored, not rolling).
+        // Memorial Day is always EDT (UTC-4), so 6 PM ET = 22:00 UTC.
+        const eraWindow = (() => {
+          const memorial = _getMemorialDayUtcTopLevel(year);
+          if (!memorial) return { open: false, reason: "no_season_calendar" };
+          const openAt = new Date(memorial.getTime());
+          openAt.setUTCDate(openAt.getUTCDate() - 2); // Sat = Mon − 2
+          openAt.setUTCHours(22, 0, 0, 0);             // 6 PM ET = 22:00 UTC (EDT)
+          const closeAt = new Date(openAt.getTime() + ERA_TOTAL_WINDOWS * ERA_WINDOW_MS);
+          const out = {
+            open_at_iso: openAt.toISOString(),
+            close_at_iso: closeAt.toISOString(),
+            total_windows: ERA_TOTAL_WINDOWS,
+          };
+          if (nowMs < openAt.getTime()) {
+            return { open: false, reason: "before_open", next_window_start_iso: openAt.toISOString(), ...out };
+          }
+          if (nowMs >= closeAt.getTime()) {
+            return { open: false, reason: "after_close", ...out };
+          }
+          const sinceOpenMs = nowMs - openAt.getTime();
+          const idx = Math.floor(sinceOpenMs / ERA_WINDOW_MS);
+          const curStart = new Date(openAt.getTime() + idx * ERA_WINDOW_MS);
+          const curEnd = new Date(curStart.getTime() + ERA_WINDOW_MS);
+          return {
+            open: true,
+            current_window_index: idx,
+            current_window_label: ERA_WINDOW_LABELS[idx] || `Window ${idx + 1}`,
+            current_window_start_iso: curStart.toISOString(),
+            current_window_start_unix: Math.floor(curStart.getTime() / 1000),
+            current_window_end_iso: curEnd.toISOString(),
+            current_window_end_unix: Math.floor(curEnd.getTime() / 1000),
+            next_window_start_iso: curEnd.getTime() < closeAt.getTime() ? curEnd.toISOString() : null,
+            ...out,
+          };
+        })();
+
+        try {
+          // Pull every nomination event (tagged "[nomination]" by the poll)
+          const { results: noms } = await env.UPS_MFL_DB.prepare(
+            `SELECT fid, bid_at_unix, player_id
+               FROM ups_auction_bids
+              WHERE season = ? AND league_id = ?
+                AND note LIKE '[nomination]%'
+              ORDER BY bid_at_unix ASC`
+          ).bind(year, leagueId).all();
+
+          // Fetch league for franchise names
+          const apiKey = String(env.MFL_APIKEY || "").trim();
+          const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+          const leagueRes = await fetch(
+            `https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+            { cf: { cacheTtl: 300 } }
+          ).then((r) => r.json()).catch(() => ({}));
+          const fidToName = {};
+          const flist = leagueRes?.league?.franchises?.franchise || [];
+          const farr = Array.isArray(flist) ? flist : [flist];
+          for (const f of farr) {
+            const id = String(f.id || "").padStart(4, "0");
+            if (id) fidToName[id] = String(f.name || ("Team " + id));
+          }
+          // Ensure all 12 franchises represented even if they haven't nominated
+          const allFids = Object.keys(fidToName).filter((f) => f !== "0000");
+
+          // Bucket nominations per fid
+          const nomsByFid = {};
+          for (const n of (noms || [])) {
+            const fid = String(n.fid || "").padStart(4, "0");
+            if (!fid) continue;
+            if (!nomsByFid[fid]) nomsByFid[fid] = [];
+            nomsByFid[fid].push({ at_unix: Number(n.bid_at_unix), player_id: String(n.player_id) });
+          }
+
+          const franchises = (allFids.length > 0 ? allFids : Object.keys(nomsByFid)).map((fid) => {
+            const list = nomsByFid[fid] || [];
+            const last = list.length > 0 ? list[list.length - 1] : null;
+
+            // ERA: anchored 12-hour windows. Count this franchise's noms
+            // within the CURRENT window only. If the window is open and
+            // count is 0 → can nominate. Otherwise must wait for next.
+            let era_used_in_window = 0;
+            let era_can_nominate_now = false;
+            let era_next_allowed_at_iso = null;
+            let era_seconds_until_next = 0;
+            if (eraWindow.open) {
+              const ws = eraWindow.current_window_start_unix;
+              const we = eraWindow.current_window_end_unix;
+              era_used_in_window = list.filter((n) => n.at_unix >= ws && n.at_unix < we).length;
+              if (era_used_in_window === 0) {
+                era_can_nominate_now = true;
+                era_next_allowed_at_iso = new Date(nowUnix * 1000).toISOString();
+                era_seconds_until_next = 0;
+              } else {
+                era_can_nominate_now = false;
+                era_next_allowed_at_iso = eraWindow.next_window_start_iso;
+                era_seconds_until_next = eraWindow.next_window_start_iso
+                  ? Math.max(0, we - nowUnix)
+                  : 0;
+              }
+            } else if (eraWindow.reason === "before_open") {
+              era_next_allowed_at_iso = eraWindow.open_at_iso;
+              era_seconds_until_next = Math.max(0, Math.floor((new Date(eraWindow.open_at_iso).getTime() - nowMs) / 1000));
+            } else {
+              // after_close — no more nominations
+              era_next_allowed_at_iso = null;
+              era_seconds_until_next = 0;
+            }
+
+            // FA: rolling 24h, max 2 in window
+            const fa_window_start = nowUnix - FA_WINDOW_SEC;
+            const inFaWindow = list.filter((n) => n.at_unix >= fa_window_start);
+            const fa_used = inFaWindow.length;
+            const fa_remaining = Math.max(0, FA_MAX_IN_WINDOW - fa_used);
+            let fa_next_at_unix = nowUnix;
+            if (fa_used >= FA_MAX_IN_WINDOW) {
+              const oldest = inFaWindow[0];
+              fa_next_at_unix = oldest.at_unix + FA_WINDOW_SEC;
+            }
+            const fa_can_nominate_now = fa_remaining > 0;
+            const fa_seconds_remaining = Math.max(0, fa_next_at_unix - nowUnix);
+
+            return {
+              fid,
+              franchise_name: fidToName[fid] || ("Team " + fid),
+              total_nominations: list.length,
+              last_nomination_at_unix: last ? last.at_unix : null,
+              last_nomination_at_iso: last ? new Date(last.at_unix * 1000).toISOString() : null,
+              last_nomination_player_id: last ? last.player_id : null,
+              era: {
+                window_open: !!eraWindow.open,
+                window_reason: eraWindow.reason || (eraWindow.open ? "open" : "closed"),
+                current_window_index: eraWindow.current_window_index ?? null,
+                current_window_label: eraWindow.current_window_label || null,
+                current_window_start_iso: eraWindow.current_window_start_iso || null,
+                current_window_end_iso: eraWindow.current_window_end_iso || null,
+                used_in_window: era_used_in_window,
+                max_in_window: 1,
+                remaining_in_window: Math.max(0, 1 - era_used_in_window),
+                can_nominate_now: era_can_nominate_now,
+                next_allowed_at_iso: era_next_allowed_at_iso,
+                seconds_until_next: era_seconds_until_next,
+              },
+              fa_auction: {
+                window_sec: FA_WINDOW_SEC,
+                max_in_window: FA_MAX_IN_WINDOW,
+                used_in_window: fa_used,
+                remaining: fa_remaining,
+                can_nominate_now: fa_can_nominate_now,
+                next_allowed_at_unix: fa_next_at_unix,
+                next_allowed_at_iso: new Date(fa_next_at_unix * 1000).toISOString(),
+                seconds_until_next: fa_seconds_remaining,
+              },
+            };
+          });
+
+          // Sort by last_nomination_at desc (most recent activity first), then fid
+          franchises.sort((a, b) => {
+            const at = a.last_nomination_at_unix || 0;
+            const bt = b.last_nomination_at_unix || 0;
+            return (bt - at) || a.fid.localeCompare(b.fid);
+          });
+
+          return jsonOut(200, {
+            season: year,
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            now_unix: nowUnix,
+            rules: {
+              era: "league_context_v1.md §A3 — 1 nomination per 12-hour ANCHORED window (6 AM / 6 PM ET). Opens Sat 6 PM ET, closes end of Tue 6 AM–6 PM ET window.",
+              fa_auction: "league_context_v1.md §A1 — 2 nominations per 24-hour rolling window",
+            },
+            era_window: eraWindow,
+            franchise_count: franchises.length,
+            franchises,
+          });
+        } catch (e) {
+          console.error("[auction/nomination-status] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Auction Hub: /api/auction/cut-rebid-blocks ----------
+      // Returns per-franchise list of players the franchise is BLOCKED
+      // from nominating/bidding on per league_context_v1.md §A2
+      // (cut-then-rebid prohibition).
+      //
+      // Canonical rule (Keith 2026-05-18):
+      //   Block when ALL of:
+      //     cut.season = current_season
+      //     cut.prior_contract_years_remaining > 0
+      //     cut.timestamp < FA_Auction_Cut_Deadline
+      //     cut.prior_contract_type != 'Tag'
+      //
+      // Data sources:
+      //   - TYPE=transactions, TRANS_TYPE=FREE_AGENT (the drops)
+      //   - TYPE=salaries     (contractYear + contractStatus per player)
+      //   - TYPE=league       (franchise names)
+      //   - TYPE=players      (player names)
+      //
+      // V1 limitations (deferred):
+      //   - FA_Auction_Cut_Deadline is TBD per docs §A3 / canon §A2.
+      //     For now we use offseason window = Feb 1 of season → now.
+      //     Hub UI should mark this as "approximate" until deadline pinned.
+      //   - "prior_contract_years_remaining at drop time" is read from
+      //     CURRENT TYPE=salaries entry (MFL preserves salary rows for
+      //     dropped-but-still-controlled players). If MFL has wiped the
+      //     row entirely, we mark the drop as "needs_manual_review"
+      //     rather than blocking incorrectly.
+      //
+      // Query params:
+      //   L              (optional, default 74598)
+      //   YEAR           (optional, default current UTC year)
+      //   franchise_id   (optional) — narrow to one franchise
+      if (path === "/api/auction/cut-rebid-blocks" && request.method === "GET") {
+        const year = Number(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const filterFid = String(url.searchParams.get("franchise_id") || "")
+          .padStart(4, "0").slice(-4);
+        const apiKey = String(env.MFL_APIKEY || "").trim();
+        const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+
+        // Offseason window: Feb 1 → min(now, Aug 1 of YEAR). Capping the
+        // end at Aug 1 prevents historical lookbacks (YEAR=2024 etc.) from
+        // bleeding into the following NFL season's in-season drops, which
+        // aren't subject to §A2 (different rule applies).
+        const offseasonStartUnix = Math.floor(new Date(`${year}-02-01T00:00:00Z`).getTime() / 1000);
+        const offseasonEndUnix   = Math.floor(new Date(`${year}-08-01T00:00:00Z`).getTime() / 1000);
+        const nowUnix = Math.floor(Date.now() / 1000);
+        const windowEndUnix = Math.min(nowUnix, offseasonEndUnix);
+
+        try {
+          // Franchise names always fetched from CURRENT year (historical
+          // years may return an empty league.franchises payload). MFL
+          // franchise IDs are stable so this is safe.
+          const currentYear = new Date().getUTCFullYear();
+          const [txRes, salariesRes, leagueRes] = await Promise.all([
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=transactions&L=${leagueId}&TRANS_TYPE=FREE_AGENT&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 60 } }).then((r) => r.json()).catch(() => ({})),
+            fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=salaries&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 60 } }).then((r) => r.json()).catch(() => ({})),
+            fetch(`https://www48.myfantasyleague.com/${currentYear}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
+              { cf: { cacheTtl: 300 } }).then((r) => r.json()).catch(() => ({})),
+          ]);
+
+          // Salary lookup: pid → { contractYear, contractStatus }
+          const salaryByPid = {};
+          let salaryRows = salariesRes?.salaries?.leagueUnit?.player || [];
+          if (!Array.isArray(salaryRows)) salaryRows = [salaryRows];
+          for (const row of salaryRows) {
+            const pid = String(row?.id || "").replace(/\D/g, "");
+            if (!pid || pid === "0000") continue;
+            const cy = Number(String(row?.contractYear || "0").trim()) || 0;
+            const status = String(row?.contractStatus || "").trim();
+            salaryByPid[pid] = { contractYear: cy, contractStatus: status, contractInfo: String(row?.contractInfo || "") };
+          }
+
+          // Franchise name lookup
+          const fidToName = {};
+          const flist = leagueRes?.league?.franchises?.franchise || [];
+          const farr = Array.isArray(flist) ? flist : [flist];
+          for (const f of farr) {
+            const id = String(f.id || "").padStart(4, "0");
+            if (id) fidToName[id] = String(f.name || ("Team " + id));
+          }
+
+          // Walk FREE_AGENT transactions. MFL stores them as
+          //   transaction = "added_pids|dropped_pids"
+          // where each side is a comma-separated player_id list.
+          // Offseason drops typically come as plain drops (no add).
+          let txs = txRes?.transactions?.transaction || [];
+          if (!Array.isArray(txs)) txs = [txs];
+
+          // Group: blockedByFid[fid] = [ {player_id, dropped_at_unix, reason, ...} ]
+          const blockedByFid = {};
+          const reviewByFid = {};   // drops needing manual review (salary row missing)
+          const droppedPidsToLookup = new Set();
+
+          for (const tx of txs) {
+            const fid = String(tx?.franchise || "").padStart(4, "0");
+            if (!fid || fid === "0000") continue;
+            const ts = Number(tx?.timestamp || 0);
+            if (ts < offseasonStartUnix || ts > windowEndUnix) continue;
+
+            const raw = String(tx?.transaction || "");
+            const parts = raw.split("|");
+            const droppedStr = String(parts[1] || "");
+            if (!droppedStr) continue;
+            const droppedPids = droppedStr.split(",").map((s) => s.replace(/\D/g, "")).filter(Boolean);
+
+            for (const pid of droppedPids) {
+              droppedPidsToLookup.add(pid);
+              const salaryInfo = salaryByPid[pid];
+
+              if (!salaryInfo) {
+                // No salary row — can't verify rule conditions. Surface for manual review.
+                if (!reviewByFid[fid]) reviewByFid[fid] = [];
+                reviewByFid[fid].push({
+                  player_id: pid,
+                  dropped_at_unix: ts,
+                  reason: "salary_row_missing",
+                  note: "MFL has no salary entry for this player; cannot verify cy>=1 or contractStatus.",
+                });
+                continue;
+              }
+
+              // Canon §A2 conditions:
+              //   contractYear >= 1 — there were years remaining
+              //   contractStatus does NOT match /tag/i — tags exempt
+              const cy = salaryInfo.contractYear;
+              const status = salaryInfo.contractStatus;
+              const isTag = /tag/i.test(status);
+
+              if (cy < 1) {
+                continue;  // expired contract — not blocked
+              }
+              if (isTag) {
+                continue;  // tagged-player exemption (§A2 tag clause)
+              }
+
+              if (!blockedByFid[fid]) blockedByFid[fid] = [];
+              blockedByFid[fid].push({
+                player_id: pid,
+                dropped_at_unix: ts,
+                dropped_at_iso: new Date(ts * 1000).toISOString(),
+                prior_contract_year: cy,
+                prior_contract_status: status,
+                prior_contract_info: salaryInfo.contractInfo,
+              });
+            }
+          }
+
+          // Enrich player names. Single bulk fetch for all blocked + review pids.
+          const allPids = [...droppedPidsToLookup];
+          const pidToInfo = {};
+          if (allPids.length > 0) {
+            try {
+              const pj = await fetch(
+                `https://api.myfantasyleague.com/${year}/export?TYPE=players&PLAYERS=${encodeURIComponent(allPids.join(","))}&JSON=1`,
+                { cf: { cacheTtl: 86400 } }
+              ).then((r) => r.json()).catch(() => ({}));
+              let plist = pj?.players?.player || [];
+              if (!Array.isArray(plist)) plist = [plist];
+              for (const p of plist) {
+                const id = String(p.id || "");
+                if (!id) continue;
+                let name = String(p.name || "");
+                if (name.includes(",")) name = name.split(",").reverse().map((s) => s.trim()).join(" ");
+                pidToInfo[id] = {
+                  name,
+                  position: String(p.position || "").toUpperCase(),
+                  nfl_team: String(p.team || "").toUpperCase(),
+                };
+              }
+            } catch (e) {
+              console.error("[auction/cut-rebid-blocks] player names fetch failed:", e);
+            }
+          }
+
+          // Build response
+          const buildFranchiseBlock = (fid) => {
+            const blocks = (blockedByFid[fid] || []).map((b) => ({
+              ...b,
+              player_name: pidToInfo[b.player_id]?.name || ("Player #" + b.player_id),
+              position: pidToInfo[b.player_id]?.position || "",
+              nfl_team: pidToInfo[b.player_id]?.nfl_team || "",
+            }));
+            const reviews = (reviewByFid[fid] || []).map((r) => ({
+              ...r,
+              player_name: pidToInfo[r.player_id]?.name || ("Player #" + r.player_id),
+              position: pidToInfo[r.player_id]?.position || "",
+              nfl_team: pidToInfo[r.player_id]?.nfl_team || "",
+            }));
+            // Sort each list by drop time desc
+            blocks.sort((a, b) => (b.dropped_at_unix || 0) - (a.dropped_at_unix || 0));
+            reviews.sort((a, b) => (b.dropped_at_unix || 0) - (a.dropped_at_unix || 0));
+            return {
+              fid,
+              franchise_name: fidToName[fid] || ("Team " + fid),
+              blocked_count: blocks.length,
+              blocked_player_ids: blocks.map((b) => b.player_id),
+              blocked_players: blocks,
+              needs_review_count: reviews.length,
+              needs_review: reviews,
+            };
+          };
+
+          let allFids = new Set([
+            ...Object.keys(blockedByFid),
+            ...Object.keys(reviewByFid),
+          ]);
+          if (filterFid && filterFid !== "0000") {
+            allFids = new Set([filterFid]);
+          }
+
+          const franchises = [...allFids]
+            .map(buildFranchiseBlock)
+            .sort((a, b) => (b.blocked_count - a.blocked_count) || a.fid.localeCompare(b.fid));
+
+          return jsonOut(200, {
+            season: year,
+            league_id: leagueId,
+            generated_at: new Date().toISOString(),
+            window: {
+              offseason_start_iso: new Date(offseasonStartUnix * 1000).toISOString(),
+              evaluated_through_iso: new Date(windowEndUnix * 1000).toISOString(),
+              cut_deadline_iso: null,  // §A2 deadline TBD — set when canon pins it down
+              cut_deadline_note: "FA Auction Cut Deadline not yet finalized in canon §A2; using offseason window (Feb 1 → min(now, Aug 1)) as v1 approximation.",
+            },
+            canon_rule: "league_context_v1.md §A2 — block when cut.season = current AND prior_years_remaining ≥ 1 AND timestamp < cut_deadline AND prior_contract_type != Tag",
+            franchise_filter: filterFid || null,
+            franchise_count: franchises.length,
+            total_blocked: franchises.reduce((sum, f) => sum + f.blocked_count, 0),
+            total_needs_review: franchises.reduce((sum, f) => sum + f.needs_review_count, 0),
+            franchises,
+          });
+        } catch (e) {
+          console.error("[auction/cut-rebid-blocks] failed:", e);
           return jsonOut(500, { error: String(e && e.message || e) });
         }
       }
@@ -11704,14 +15047,23 @@ export default {
         if (resp.status < 200 || resp.status >= 400) {
           return { ok: false, status: resp.status, error: "load_roster_page_failed", pageUrl, preview: resp.text.slice(0, 800) };
         }
+        // Try to parse the form first. If it parses, we have access —
+        // the "Commissioner Access Required" check was a false positive
+        // here (the phrase appears in some boilerplate on the actual
+        // form page, e.g. inside meta tags / footer text, so a naive
+        // substring match was rejecting valid responses).
+        const parsed = parseLoadRostForm(resp.text, resp.url || pageUrl);
+        if (parsed) {
+          return { ok: true, status: resp.status, pageUrl, ...parsed };
+        }
+        // No form found — now distinguish access-denied from generic
+        // not-found. The legit MFL denial page renders the phrase in
+        // body content (not just metadata), but to keep this robust we
+        // just report what we know.
         if (String(resp.text || "").includes("Commissioner Access Required")) {
           return { ok: false, status: resp.status, error: "commissioner_access_required", pageUrl, preview: resp.text.slice(0, 800) };
         }
-        const parsed = parseLoadRostForm(resp.text, resp.url || pageUrl);
-        if (!parsed) {
-          return { ok: false, status: resp.status, error: "load_roster_form_not_found", pageUrl, preview: resp.text.slice(0, 800) };
-        }
-        return { ok: true, status: resp.status, pageUrl, ...parsed };
+        return { ok: false, status: resp.status, error: "load_roster_form_not_found", pageUrl, preview: resp.text.slice(0, 800) };
       };
 
       const postLoadRostFormForCookie = async (cookieHeaderOverride, form, desiredRosterIds) => {
@@ -14934,12 +18286,21 @@ export default {
       };
 
       const getTagDeadlineUtc = (season) => {
+        // Tag / rookie-extension deadline = MIDNIGHT ET on the Thursday→Friday
+        // boundary before Memorial Day weekend. Equivalent to: "submissions
+        // accepted through end-of-Thursday ET; first second of Friday ET = lock."
+        //
+        // Memorial Day is always late May (always EDT), so midnight ET = 04:00 UTC
+        // on the Friday before. No DST branching needed.
+        //
+        // (Prior code used 23:59:59 UTC on Thursday = 8 PM ET, ~4 hours early.
+        //  Keith 2026-05-21 moved the canonical lock to midnight ET.)
         const memorial = getMemorialDayUtc(season);
         if (!memorial) return null;
-        const tagDeadline = new Date(memorial.getTime());
-        tagDeadline.setUTCDate(tagDeadline.getUTCDate() - 4);
-        tagDeadline.setUTCHours(23, 59, 59, 999);
-        return tagDeadline;
+        const fridayMidnightEt = new Date(memorial.getTime());
+        fridayMidnightEt.setUTCDate(fridayMidnightEt.getUTCDate() - 3); // Mon → Fri before
+        fridayMidnightEt.setUTCHours(4, 0, 0, 0); // 00:00 EDT = 04:00 UTC
+        return fridayMidnightEt;
       };
 
       const hasTagDeadlinePassed = (season) => {
@@ -22957,6 +26318,1098 @@ export default {
         });
       }
 
+      // POST /admin/reset-fa-contracts
+      // Body: { season, league_id?, dry_run? }
+      //
+      // Wipes contractStatus / salary / contractYear / contractInfo for every
+      // player NOT on a current roster (active + taxi + IR). Uses APPEND=1 so
+      // every rostered player is untouched by definition — only FA rows are in
+      // the payload. Dry-run defaults to TRUE for safety; caller must pass
+      // dry_run:false to execute.
+      //
+      // Source-of-truth canon (docs/MFL_IMPORT_EXPORT_DETAILED.md line 756):
+      //   "APPEND=1 → passed-in data will overlay existing data. Salaries not
+      //    uploaded will be left as is."
+      //
+      // Why this exists (Keith 2026-05-21): prior-season tag cycles leave
+      // contractStatus="TAG" stranded on players who got dropped to FA. The
+      // Roster Workbench's stale-tag cleanup misclassified those carry-overs
+      // and produced phantom "FA Contract" Discord posts. Resetting all FA
+      // rows to empty kills the data debt at source.
+      if (path === "/admin/reset-fa-contracts" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const auditDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || null;
+        await ensureSalaryChangeLogTable(auditDb);
+        const auditActor = {
+          ip: safeStr(request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")),
+          ua: safeStr(request.headers.get("user-agent")).slice(0, 200),
+          had_api_key: !!sessionByApiKey,
+        };
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        // Default to dry_run=true. Caller must explicitly pass false to commit.
+        const dryRun = body?.dry_run === false ? false : true;
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+
+        // 1. Pull rosters → compute rostered set (active + taxi + IR).
+        const rostersRes = await mflExportJson(targetSeason, leagueId, "rosters", {}, { useCookie: true });
+        if (!rostersRes.ok) {
+          return jsonOut(502, { ok: false, error: "Failed to fetch rosters from MFL", details: rostersRes });
+        }
+        const rosterFrList = rostersRes.data?.rosters?.franchise || [];
+        const rosterFrs = Array.isArray(rosterFrList) ? rosterFrList : [rosterFrList];
+        const rosteredSet = new Set();
+        for (const fr of rosterFrs) {
+          const players = fr?.player || [];
+          const plist = Array.isArray(players) ? players : [players];
+          for (const p of plist) {
+            const pid = safeStr(p?.id).replace(/\D/g, "");
+            if (pid) rosteredSet.add(pid);
+          }
+        }
+
+        // 2. Pull salaries export → universe of players with contract data.
+        const preExportRes = await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true });
+        if (!preExportRes.ok) {
+          return jsonOut(502, { ok: false, error: "Failed to fetch salaries from MFL", details: preExportRes });
+        }
+        const preList = preExportRes.data?.salaries?.leagueUnit?.player || [];
+        const preArr = Array.isArray(preList) ? preList : [preList];
+        const preMap = {};
+        for (const p of preArr) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (pid) preMap[pid] = p;
+        }
+
+        // 3. FA candidates = in salaries export AND not rostered AND has data.
+        // Skip placeholder rows (player_id = "0000" or empty) and rows whose
+        // fields are already all empty (nothing to reset).
+        const faIds = [];
+        for (const pid of Object.keys(preMap)) {
+          if (!pid || pid === "0000") continue;
+          if (rosteredSet.has(pid)) continue;
+          const p = preMap[pid];
+          const hasData =
+            safeStr(p?.contractStatus) !== "" ||
+            (safeStr(p?.salary) !== "" && safeStr(p?.salary) !== "0") ||
+            (safeStr(p?.contractYear) !== "" && safeStr(p?.contractYear) !== "0") ||
+            safeStr(p?.contractInfo) !== "";
+          if (hasData) faIds.push(pid);
+        }
+        faIds.sort();
+
+        // 4. Build XML: empty all fields. MFL accepts empty attribute values
+        // (verified against TYPE=salaries schema — empties round-trip).
+        const xmlEsc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const playerXml = faIds.map((pid) =>
+          `<player id="${xmlEsc(pid)}" salary="0" contractStatus="" contractYear="0" contractInfo="" />`
+        ).join("");
+        const dataXml = `<salaries><leagueUnit unit="LEAGUE">${playerXml}</leagueUnit></salaries>`;
+
+        const previewSample = faIds.slice(0, 25).map((pid) => {
+          const b = preMap[pid] || {};
+          return {
+            id: pid,
+            before: {
+              salary: safeStr(b?.salary),
+              contractStatus: safeStr(b?.contractStatus),
+              contractYear: safeStr(b?.contractYear),
+              contractInfo: safeStr(b?.contractInfo),
+            },
+          };
+        });
+
+        if (dryRun) {
+          // Log dry-run intent per FA so we have a record.
+          const nowIso = new Date().toISOString();
+          for (const pid of faIds) {
+            const before = preMap[pid] || {};
+            await logSalaryChangeRow(auditDb, {
+              created_ts: nowIso,
+              endpoint: "/admin/reset-fa-contracts",
+              league_id: leagueId,
+              season: targetSeason,
+              dry_run: true,
+              actor_ip: auditActor.ip,
+              actor_ua: auditActor.ua,
+              actor_had_api_key: auditActor.had_api_key,
+              player_id: pid,
+              before_salary: safeStr(before?.salary),
+              before_contract_status: safeStr(before?.contractStatus),
+              before_contract_year: safeStr(before?.contractYear),
+              before_contract_info: safeStr(before?.contractInfo),
+              intended_salary: "0",
+              intended_contract_status: "",
+              intended_contract_year: "0",
+              intended_contract_info: "",
+              landed: null,
+              import_status: null,
+              notes: "dry_run_fa_reset",
+            });
+          }
+          return jsonOut(200, {
+            ok: true,
+            dry_run: true,
+            mode: "APPEND_ONLY",
+            season: targetSeason,
+            league_id: leagueId,
+            rostered_count: rosteredSet.size,
+            salaries_universe_count: Object.keys(preMap).length,
+            fa_with_stale_data_count: faIds.length,
+            tag_holdovers: faIds
+              .filter((pid) => /TAG/i.test(safeStr(preMap[pid]?.contractStatus)))
+              .map((pid) => ({
+                id: pid,
+                contractStatus: safeStr(preMap[pid]?.contractStatus),
+                salary: safeStr(preMap[pid]?.salary),
+                contractInfo: safeStr(preMap[pid]?.contractInfo),
+              })),
+            sample_preview: previewSample,
+            xml_length: dataXml.length,
+            untouched_players_preserved: "APPEND=1: every rostered player is excluded from payload, MFL leaves them as-is.",
+          });
+        }
+
+        // Verify commish auth before any write.
+        const adminState = await getLeagueAdminState(leagueId, targetSeason);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, {
+            ok: false,
+            error: "MFL_COOKIE lacks commissioner privileges for salaries import",
+            admin_state: adminState,
+          });
+        }
+
+        if (!faIds.length) {
+          return jsonOut(200, {
+            ok: true,
+            mode: "APPEND_ONLY",
+            season: targetSeason,
+            league_id: leagueId,
+            posted_count: 0,
+            note: "No FAs with stale contract data — nothing to reset.",
+          });
+        }
+
+        // POST. Same headers/redirect config as /admin/import-salaries — those
+        // settings were learned the hard way (browser UA + redirect:follow +
+        // identity encoding are required for MFL to actually persist).
+        const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(targetSeason)}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}&APPEND=1`;
+        const importFetchRes = await fetch(importUrl, {
+          method: "POST",
+          headers: {
+            Cookie: cookieHeader,
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "Accept": "text/xml, text/plain, application/xml, */*",
+            "Accept-Encoding": "identity",
+          },
+          body: new URLSearchParams({ DATA: dataXml }).toString(),
+          redirect: "follow",
+          cf: { cacheTtl: 0, cacheEverything: false },
+        });
+        const importText = await importFetchRes.text();
+        const importStatusXml = /<status>OK<\/status>/i.test(importText);
+        const importErrorXml = /<error>([^<]+)<\/error>/i.exec(importText);
+        const importOk = importFetchRes.ok && importStatusXml;
+
+        // Verify by re-fetching salaries.
+        const postExportRes = await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true });
+        const postList = postExportRes.data?.salaries?.leagueUnit?.player || [];
+        const postArr = Array.isArray(postList) ? postList : [postList];
+        const postMap = {};
+        for (const p of postArr) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (pid) postMap[pid] = p;
+        }
+
+        let landedCount = 0;
+        let mismatchedCount = 0;
+        const mismatchSample = [];
+        const nowIso = new Date().toISOString();
+        for (const pid of faIds) {
+          const before = preMap[pid] || {};
+          const after = postMap[pid] || {};
+          const cleared =
+            (safeStr(after?.salary) === "" || safeStr(after?.salary) === "0") &&
+            safeStr(after?.contractStatus) === "" &&
+            (safeStr(after?.contractYear) === "" || safeStr(after?.contractYear) === "0") &&
+            safeStr(after?.contractInfo) === "";
+          if (cleared) landedCount += 1; else {
+            mismatchedCount += 1;
+            if (mismatchSample.length < 10) {
+              mismatchSample.push({
+                id: pid,
+                after: {
+                  salary: safeStr(after?.salary),
+                  contractStatus: safeStr(after?.contractStatus),
+                  contractYear: safeStr(after?.contractYear),
+                  contractInfo: safeStr(after?.contractInfo),
+                },
+              });
+            }
+          }
+          await logSalaryChangeRow(auditDb, {
+            created_ts: nowIso,
+            endpoint: "/admin/reset-fa-contracts",
+            league_id: leagueId,
+            season: targetSeason,
+            dry_run: false,
+            actor_ip: auditActor.ip,
+            actor_ua: auditActor.ua,
+            actor_had_api_key: auditActor.had_api_key,
+            player_id: pid,
+            before_salary: safeStr(before?.salary),
+            before_contract_status: safeStr(before?.contractStatus),
+            before_contract_year: safeStr(before?.contractYear),
+            before_contract_info: safeStr(before?.contractInfo),
+            after_salary: safeStr(after?.salary),
+            after_contract_status: safeStr(after?.contractStatus),
+            after_contract_year: safeStr(after?.contractYear),
+            after_contract_info: safeStr(after?.contractInfo),
+            intended_salary: "0",
+            intended_contract_status: "",
+            intended_contract_year: "0",
+            intended_contract_info: "",
+            landed: cleared,
+            import_status: importFetchRes.status,
+            notes: cleared ? "fa_reset_committed" : "fa_reset_mismatch",
+          });
+        }
+
+        return jsonOut(importOk && mismatchedCount === 0 ? 200 : 502, {
+          ok: importOk && mismatchedCount === 0,
+          mode: "APPEND_ONLY",
+          season: targetSeason,
+          league_id: leagueId,
+          rostered_count: rosteredSet.size,
+          posted_count: faIds.length,
+          landed_count: landedCount,
+          mismatched_count: mismatchedCount,
+          mismatch_sample: mismatchSample,
+          import_status: importFetchRes.status,
+          import_response_preview: importText.slice(0, 1500),
+          import_error: importErrorXml ? importErrorXml[1] : "",
+          xml_length: dataXml.length,
+        });
+      }
+
+      // POST /admin/auction/auto-drop-expired-rookies
+      // Body: { season, league_id?, dry_run? }
+      //
+      // Drops every ERA-eligible player from their current franchise in
+      // ONE MFL POST per franchise (instead of per-player). Replaces the
+      // cron path that timed out at 04:05 UTC May 22 — that path looped
+      // /roster-workbench/action 26× sequentially, hitting the worker's
+      // 30s CPU budget. Batched approach: ~10 MFL roundtrips total.
+      //
+      // Marks the same ups_deadline_lock_log row so the hourly cron stops
+      // retrying. Honors dry_run.
+      if (path === "/admin/auction/auto-drop-expired-rookies" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const dryRun = !!body?.dry_run;
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+
+        // Inline ERA-eligibility (can't self-call the worker's own
+        // /api/auction/era-eligible due to Cloudflare subrequest loop
+        // restrictions — returns "error code: 1042"). Walk rosters
+        // directly. Two ERA-eligibility shapes (per canon §A1):
+        //   (a) contractStatus="Rookie" AND contractYear="0" — active
+        //       rookie whose final year just rolled over.
+        //   (b) contractStatus="" AND contractYear="" AND salary="" —
+        //       3-league-year-clock taxi rookie (MFL wipes fields on
+        //       cy=1 → 0 rollover). Confirm via drafted_year ≤ season-3.
+        const rostersRes = await mflExportJson(targetSeason, leagueId, "rosters", {}, { useCookie: true });
+        if (!rostersRes.ok) {
+          return jsonOut(502, { ok: false, error: "rosters_fetch_failed", details: rostersRes });
+        }
+        const seasonInt = Number(targetSeason);
+        const clockExpiredCutoff = seasonInt - 3;
+        const rfrs = rostersRes.data?.rosters?.franchise || [];
+        const rfrList = Array.isArray(rfrs) ? rfrs : [rfrs];
+        const byFranchise = {};
+        for (const fr of rfrList) {
+          const fid = padFranchiseId(fr?.id);
+          if (!fid || fid === "0000") continue;
+          const players = fr?.player || [];
+          const plist = Array.isArray(players) ? players : [players];
+          for (const p of plist) {
+            const pid = safeStr(p?.id).replace(/\D/g, "");
+            if (!pid) continue;
+            const cs = safeStr(p?.contractStatus);
+            const cy = safeStr(p?.contractYear);
+            const sal = safeStr(p?.salary);
+            const ci = safeStr(p?.contractInfo);
+            let eligible = false;
+            if (cs.toUpperCase() === "ROOKIE" && cy === "0") {
+              eligible = true;
+            } else if (!cs && !cy && !sal && !ci) {
+              // Empty contract — confirm rookie clock by drafted-year parse.
+              const drafted = safeStr(p?.drafted);
+              const m = drafted.match(/\((\d{4})\)/);
+              if (m) {
+                const dy = Number(m[1]);
+                if (Number.isFinite(dy) && dy <= clockExpiredCutoff) eligible = true;
+              }
+            }
+            if (eligible) {
+              if (!byFranchise[fid]) byFranchise[fid] = { fid, player_ids: [], names: [] };
+              byFranchise[fid].player_ids.push(pid);
+              byFranchise[fid].names.push(pid); // resolve name later if needed
+            }
+          }
+        }
+        const franchises = Object.values(byFranchise);
+
+        if (dryRun) {
+          return jsonOut(200, {
+            ok: true,
+            dry_run: true,
+            season: targetSeason,
+            league_id: leagueId,
+            franchise_count: franchises.length,
+            total_drops: franchises.reduce((s, f) => s + f.player_ids.length, 0),
+            plan: franchises.map((f) => ({
+              franchise_id: f.fid,
+              drop_count: f.player_ids.length,
+              players: f.player_ids.map((id, i) => ({ player_id: id, name: f.names[i] })),
+            })),
+          });
+        }
+
+        // Per franchise: fetch the commish load_rosters form (gives the
+        // current player list + the form's hidden token), filter out the
+        // expired-rookie IDs, post the new list. Same mechanism as
+        // /roster-workbench/action unload_player, just batched.
+        const results = [];
+        const commishCookieHeader = await establishCommishCookieHeader(cookieHeader, targetSeason, leagueId);
+        for (const fr of franchises) {
+          try {
+            const formRes = await fetchLoadRostFormForCookie(commishCookieHeader, targetSeason, leagueId, fr.fid);
+            if (!formRes.ok) {
+              results.push({ franchise_id: fr.fid, ok: false, error: "load_rosters_form_fetch_failed", details: formRes });
+              continue;
+            }
+            const currentIds = Array.isArray(formRes.currentRosterIds) ? formRes.currentRosterIds.map((x) => String(x).replace(/\D/g, "")) : [];
+            const dropSet = new Set(fr.player_ids);
+            const desiredIds = currentIds.filter((pid) => !dropSet.has(pid));
+            const droppedFromCurrent = currentIds.filter((pid) => dropSet.has(pid));
+            const skippedNotOnRoster = fr.player_ids.filter((pid) => !currentIds.includes(pid));
+            if (droppedFromCurrent.length === 0) {
+              results.push({
+                franchise_id: fr.fid, ok: true, skipped: true,
+                reason: "none_on_current_roster",
+                requested: fr.player_ids,
+                current_count: currentIds.length,
+                dropped: [],
+                skipped_not_on_roster: skippedNotOnRoster,
+              });
+              continue;
+            }
+            const postRes = await postLoadRostFormForCookie(commishCookieHeader, formRes, desiredIds);
+            results.push({
+              franchise_id: fr.fid,
+              ok: !!postRes.ok,
+              status: postRes.status,
+              dropped: droppedFromCurrent,
+              skipped_not_on_roster: skippedNotOnRoster,
+              before_count: currentIds.length,
+              after_count: desiredIds.length,
+              error: postRes.ok ? "" : safeStr(postRes.text || postRes.error || "").slice(0, 400),
+            });
+          } catch (e) {
+            results.push({ franchise_id: fr.fid, ok: false, error: String(e?.message || e) });
+          }
+        }
+
+        const droppedTotal = results.reduce((s, r) => s + (Array.isArray(r.dropped) ? r.dropped.length : 0), 0);
+        const failedFranchises = results.filter((r) => !r.ok).length;
+
+        // Mark the midnight-lock event as fired so the hourly cron stops
+        // retrying. Even if some franchises failed, log the full result.
+        if (env.UPS_MFL_DB) {
+          await _markDeadlineLockFired(env.UPS_MFL_DB, targetSeason, leagueId, "tag_deadline_midnight_lock", {
+            source: "manual_via_admin_endpoint",
+            franchise_count: franchises.length,
+            dropped_total: droppedTotal,
+            failed_franchises: failedFranchises,
+            results,
+            completed_utc: new Date().toISOString(),
+          });
+        }
+
+        return jsonOut(failedFranchises === 0 ? 200 : 502, {
+          ok: failedFranchises === 0,
+          season: targetSeason,
+          league_id: leagueId,
+          franchise_count: franchises.length,
+          dropped_total: droppedTotal,
+          failed_franchises: failedFranchises,
+          results,
+        });
+      }
+
+      // POST /admin/auction/resend-tag-deadline-dm
+      // Body: { season, league_id?, delete_marker? (default true) }
+      //
+      // Deletes the broken 6 AM DM marker (if any) and resends a proper
+      // "Tag Deadline Closed" DM thread: one parent message then one
+      // contract-activity-style embed PER tagged player, matching the
+      // format owners see for individual tag submissions today.
+      if (path === "/admin/auction/resend-tag-deadline-dm" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const deleteMarker = body?.delete_marker !== false;
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+
+        const commishUserId = safeStr(env.COMMISH_DISCORD_USER_ID || "").replace(/\D/g, "");
+        const botToken = contractDiscordBotToken();
+        if (!commishUserId) return jsonOut(400, { ok: false, error: "missing_COMMISH_DISCORD_USER_ID" });
+        if (!botToken) return jsonOut(400, { ok: false, error: "missing_contract_bot_token" });
+
+        // Optionally delete the prior marker so the cron will re-fire if
+        // anything goes wrong here.
+        if (deleteMarker && env.UPS_MFL_DB) {
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `DELETE FROM ups_deadline_lock_log WHERE season=? AND league_id=? AND event_key=?`
+            ).bind(targetSeason, leagueId, "tag_deadline_six_am_dm").run();
+          } catch (_) {}
+        }
+
+        // Pull rosters + salaries + players + league.
+        const [rostersRes, salariesRes, playersRes, leagueRes] = await Promise.all([
+          mflExportJson(targetSeason, leagueId, "rosters", {}, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "players", { DETAILS: "1" }, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "league", {}, { useCookie: true }),
+        ]);
+
+        const fidToName = {};
+        const flist = leagueRes.data?.league?.franchises?.franchise || [];
+        for (const f of flist) fidToName[padFranchiseId(f.id)] = safeStr(f.name || `Team ${f.id}`);
+
+        const pidToFranchise = {};
+        const rfrs = rostersRes.data?.rosters?.franchise || [];
+        const rfrList = Array.isArray(rfrs) ? rfrs : [rfrs];
+        for (const fr of rfrList) {
+          const fid = padFranchiseId(fr?.id);
+          const plist = fr?.player || [];
+          const pl = Array.isArray(plist) ? plist : [plist];
+          for (const p of pl) {
+            const pid = safeStr(p?.id).replace(/\D/g, "");
+            if (pid) pidToFranchise[pid] = fid;
+          }
+        }
+
+        const pidToMeta = {};
+        let pAll = playersRes.data?.players?.player || [];
+        if (!Array.isArray(pAll)) pAll = [pAll];
+        for (const p of pAll) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          let nm = safeStr(p?.name);
+          if (nm.includes(",")) nm = nm.split(",").reverse().map((s) => s.trim()).join(" ");
+          pidToMeta[pid] = { name: nm, position: safeStr(p?.position).toUpperCase(), team: safeStr(p?.team).toUpperCase() };
+        }
+
+        let salRows = salariesRes.data?.salaries?.leagueUnit?.player || [];
+        if (!Array.isArray(salRows)) salRows = [salRows];
+
+        const tagContracts = [];
+        for (const r of salRows) {
+          const pid = safeStr(r?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          const cs = safeStr(r?.contractStatus).toUpperCase();
+          if (!cs.includes("TAG")) continue;
+          const fid = pidToFranchise[pid];
+          if (!fid) continue;
+          const meta = pidToMeta[pid] || {};
+          tagContracts.push({
+            player_id: pid,
+            player_name: meta.name || `Player ${pid}`,
+            position: meta.position || "",
+            nfl: meta.team || "",
+            franchise_id: fid,
+            franchise_name: fidToName[fid] || `Team ${fid}`,
+            salary: safeInt(r?.salary, 0),
+            contract_year: safeStr(r?.contractYear),
+            contract_status: safeStr(r?.contractStatus),
+            contract_info: safeStr(r?.contractInfo),
+          });
+        }
+
+        tagContracts.sort((a, b) =>
+          a.franchise_name.localeCompare(b.franchise_name) ||
+          a.position.localeCompare(b.position) ||
+          (b.salary - a.salary)
+        );
+
+        // Open DM channel.
+        const openRes = await discordBotRequest(botToken, "POST", "/users/@me/channels", { recipient_id: commishUserId });
+        const dmChannelId = safeStr(openRes.data?.id || "");
+        if (!dmChannelId) {
+          return jsonOut(502, { ok: false, error: "dm_open_failed", details: openRes });
+        }
+
+        // Parent header message.
+        const deadlineIso = _getTagDeadlineUtcTopLevel(targetSeason)?.toISOString() || "";
+        const headerContent = `**Tag Deadline Closed — ${targetSeason}**\nLocked at ${deadlineIso}\n${tagContracts.length} tag contracts on the books.`;
+        const headerRes = await discordBotRequest(botToken, "POST", `/channels/${encodeURIComponent(dmChannelId)}/messages`, {
+          content: headerContent,
+          allowed_mentions: { parse: [] },
+        });
+        const headerMessageId = safeStr(headerRes.data?.id || "");
+
+        // Per-tag embed (mirrors the live tag-submission DM shape).
+        const sentMessageIds = [];
+        const failedSends = [];
+        for (const c of tagContracts) {
+          try {
+            const franchiseMeta = await loadContractDiscordFranchiseMeta({
+              season: targetSeason,
+              leagueId,
+              franchiseId: c.franchise_id,
+            });
+            const embed = buildContractActivityDiscordEmbed({
+              activityType: "Tag",
+              franchiseName: c.franchise_name,
+              creditedFranchiseName: c.franchise_name,
+              playerName: c.player_name,
+              contractInfo: c.contract_info,
+              contractYear: c.contract_year,
+              contractStatus: c.contract_status,
+              season: targetSeason,
+              salary: c.salary,
+              submittedAtUtc: new Date().toISOString(),
+              franchiseIconUrl: safeStr(franchiseMeta?.icon_url || ""),
+              gifUrl: "",
+            });
+            const sendRes = await discordBotRequest(botToken, "POST", `/channels/${encodeURIComponent(dmChannelId)}/messages`, {
+              content: "",
+              embeds: [embed],
+              allowed_mentions: { parse: [] },
+              // Reply to the header message so each embed visually
+              // anchors under the parent (Discord DM "thread-ish" pattern).
+              message_reference: headerMessageId ? {
+                message_id: headerMessageId,
+                channel_id: dmChannelId,
+                fail_if_not_exists: false,
+              } : undefined,
+            });
+            if (sendRes.ok && sendRes.data?.id) sentMessageIds.push(String(sendRes.data.id));
+            else failedSends.push({ player_id: c.player_id, error: safeStr(sendRes.text).slice(0, 300) });
+            await new Promise((res) => setTimeout(res, 250));
+          } catch (e) {
+            failedSends.push({ player_id: c.player_id, error: String(e?.message || e) });
+          }
+        }
+
+        // Re-mark the lock event as fired.
+        if (env.UPS_MFL_DB) {
+          await _markDeadlineLockFired(env.UPS_MFL_DB, targetSeason, leagueId, "tag_deadline_six_am_dm", {
+            source: "manual_via_admin_endpoint",
+            tag_count: tagContracts.length,
+            dm_channel_id: dmChannelId,
+            header_message_id: headerMessageId,
+            message_ids: sentMessageIds,
+            failed_sends: failedSends,
+            completed_utc: new Date().toISOString(),
+          });
+        }
+
+        return jsonOut(failedSends.length ? 207 : 200, {
+          ok: failedSends.length === 0,
+          season: targetSeason,
+          league_id: leagueId,
+          dm_channel_id: dmChannelId,
+          header_message_id: headerMessageId,
+          tag_count: tagContracts.length,
+          sent_message_ids: sentMessageIds,
+          failed_sends: failedSends,
+          tagged_players: tagContracts.map((c) => ({
+            player_id: c.player_id,
+            player_name: c.player_name,
+            position: c.position,
+            franchise_id: c.franchise_id,
+            franchise_name: c.franchise_name,
+            salary: c.salary,
+          })),
+        });
+      }
+
+      // POST /admin/auction/snapshot-era-pool
+      // Body: { season, league_id?, player_ids?: [...], franchise_ids_map?: { pid: fid } }
+      //
+      // Seeds ups_era_pool with the ERA-eligible set. Two modes:
+      //   1. No body player_ids → walk rosters live, inline the same logic
+      //      as /api/auction/era-eligible (rookie+cy=0 OR empty-contract w/
+      //      3-yr clock expired), join TYPE=draftResults for the original
+      //      slot. Used pre-deadline OR right after auto-drop when rosters
+      //      still hold candidates.
+      //   2. player_ids[] provided → backfill mode. Used when players have
+      //      already been dropped to FA so roster-walks return zero. Looks
+      //      up each PID across TYPE=players + prior-year TYPE=draftResults
+      //      to reconstruct origin and slot.
+      //
+      // UPSERT semantics: re-running is idempotent — existing rows update
+      // with the latest lookup.
+      if (path === "/admin/auction/snapshot-era-pool" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const explicitPids = Array.isArray(body?.player_ids) ? body.player_ids.map((x) => String(x).replace(/\D/g, "")).filter(Boolean) : [];
+        const explicitFidMap = body?.franchise_ids_map && typeof body.franchise_ids_map === "object" ? body.franchise_ids_map : {};
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+
+        const seasonInt = Number(targetSeason);
+        const taxiClockExpiredCutoff = seasonInt - 3;
+
+        // Salary schedule per §A1 (Y1=Y2=Y3 flat).
+        const rookieSalaryK = (round, pick) => {
+          const r = Number(round); const pk = Number(pick);
+          if (!Number.isFinite(r) || !Number.isFinite(pk)) return null;
+          if (r === 1) {
+            if (pk >= 1 && pk <= 10) return 16 - pk;
+            if (pk >= 11 && pk <= 12) return 5;
+            return null;
+          }
+          if (r === 2) return 5;
+          if (r >= 3 && r <= 5) return 2;
+          if (r === 6) return 1;
+          return null;
+        };
+        const deriveOrigin = (drafted) => {
+          if (!drafted) return "Other";
+          if (/^\d+\.\d+\s+\(\d{4}\)$/.test(drafted)) return "Rookie Draft";
+          const bb = drafted.match(/^(?:BB|FCFS)\b.*\((\d{4})\)$/i);
+          if (bb) {
+            const yr = Number(bb[1]);
+            return (yr <= seasonInt - 2) ? "MYM-Rookie" : "WW";
+          }
+          if (/^Auction\b.*\(\d{4}\)$/i.test(drafted)) return "Rookie - FA Auction";
+          if (/^Trade\s+\(\d{4}\)$/i.test(drafted)) return "Trade";
+          return "Other";
+        };
+
+        // Pull league + players (always needed for names/franchise labels).
+        const [leagueRes, playersRes] = await Promise.all([
+          mflExportJson(targetSeason, leagueId, "league", {}, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "players", { DETAILS: "1" }, { useCookie: true }),
+        ]);
+        const fidToName = {};
+        const flist = leagueRes.data?.league?.franchises?.franchise || [];
+        for (const f of flist) fidToName[padFranchiseId(f.id)] = safeStr(f.name || `Team ${f.id}`);
+        const pidIdx = new Map();
+        let pAll = playersRes.data?.players?.player || [];
+        if (!Array.isArray(pAll)) pAll = [pAll];
+        for (const p of pAll) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          let nm = safeStr(p?.name);
+          if (nm.includes(",")) nm = nm.split(",").reverse().map((s) => s.trim()).join(" ");
+          pidIdx.set(pid, {
+            name: nm,
+            position: safeStr(p?.position).toUpperCase(),
+            team: safeStr(p?.team).toUpperCase(),
+            nfl_draft_year: Number(p?.draft_year) || null,
+          });
+        }
+
+        // Build the candidate list.
+        const candidates = []; // each: { pid, fid, drafted_field, path, original_draft_year }
+        if (explicitPids.length) {
+          // Backfill mode: take the provided PIDs and use the given fid map
+          // for prior_owner. We assume these were dropped on the deadline-
+          // night auto-drop chain.
+          for (const pid of explicitPids) {
+            const fid = padFranchiseId(explicitFidMap[pid] || "");
+            const meta = pidIdx.get(pid) || {};
+            candidates.push({
+              pid,
+              fid,
+              drafted_field: "",
+              path: "backfill",
+              original_draft_year: meta.nfl_draft_year || null,
+            });
+          }
+        } else {
+          // Live-roster mode: walk rosters + flag eligibles.
+          const rostersRes = await mflExportJson(targetSeason, leagueId, "rosters", {}, { useCookie: true });
+          const rfrs = rostersRes.data?.rosters?.franchise || [];
+          const rfrList = Array.isArray(rfrs) ? rfrs : [rfrs];
+          for (const fr of rfrList) {
+            const fid = padFranchiseId(fr?.id);
+            const players = fr?.player || [];
+            const plist = Array.isArray(players) ? players : [players];
+            for (const p of plist) {
+              if (!p || !p.id) continue;
+              const pid = safeStr(p.id).replace(/\D/g, "");
+              const status = safeStr(p.contractStatus);
+              const cyRaw = p.contractYear;
+              const cy = (cyRaw === "" || cyRaw == null) ? null : Number(cyRaw);
+              const drafted = safeStr(p.drafted);
+              const slotMatch = drafted.match(/^\d+\.\d+\s+\((\d{4})\)$/);
+              const tradeMatch = drafted.match(/^Trade\s+\((\d{4})\)$/i);
+              const slotYear = slotMatch ? Number(slotMatch[1]) : null;
+              const isActiveCy0Rookie = (cy === 0 && /rookie/i.test(status));
+              const isEmptyContract = (status === "" && (cy === null || cy === 0));
+              if (!isActiveCy0Rookie && !isEmptyContract) continue;
+              const nflDraftYear = pidIdx.get(pid)?.nfl_draft_year || null;
+              const original_draft_year = slotYear || (tradeMatch ? nflDraftYear : null);
+              candidates.push({
+                pid, fid,
+                drafted_field: drafted,
+                path: isActiveCy0Rookie ? "active_cy0" : "empty_expired",
+                original_draft_year,
+              });
+            }
+          }
+        }
+
+        // Filter — active_cy0 always passes; empty/backfill needs the
+        // 3-yr-clock cutoff (skip ineligible non-rookies).
+        const survivors = candidates.filter((c) => {
+          if (c.path === "active_cy0") return true;
+          if (c.path === "backfill") return true; // trust caller
+          return c.original_draft_year != null && c.original_draft_year <= taxiClockExpiredCutoff;
+        });
+
+        // Look up original draft slot via TYPE=draftResults for each
+        // unique draft year. Backfill-mode candidates lacking a known
+        // year fall back to trying 2022 → 2025.
+        const draftYears = new Set();
+        for (const c of survivors) {
+          if (c.original_draft_year) draftYears.add(c.original_draft_year);
+        }
+        // For backfill: also probe last 4 seasons since we may not know
+        // the year up front.
+        if (explicitPids.length) {
+          for (let y = seasonInt - 4; y <= seasonInt - 1; y += 1) draftYears.add(y);
+        }
+        const pidToPick = new Map();
+        await Promise.all(Array.from(draftYears).map(async (dy) => {
+          try {
+            const drRes = await mflExportJson(String(dy), leagueId, "draftResults", {}, { useCookie: true });
+            let units = drRes.data?.draftResults?.draftUnit || [];
+            if (!Array.isArray(units)) units = [units];
+            for (const u of units) {
+              let picks = u.draftPick || [];
+              if (!Array.isArray(picks)) picks = [picks];
+              for (const pk of picks) {
+                const ppid = safeStr(pk.player).replace(/\D/g, "");
+                if (!ppid || pidToPick.has(ppid)) continue;
+                const rd = String(pk.round || "").padStart(2, "0");
+                const pp = String(pk.pick || "").padStart(2, "0");
+                pidToPick.set(ppid, {
+                  year: Number(dy),
+                  round: Number(pk.round),
+                  pick: Number(pk.pick),
+                  label: `${rd}.${pp} (${dy})`,
+                  origFranchise: safeStr(pk.franchise || pk.originalPickFor || ""),
+                });
+              }
+            }
+          } catch (e) {
+            console.warn(`[era-pool] draftResults ${dy} fetch failed:`, e?.message || String(e));
+          }
+        }));
+
+        // Insert/update.
+        const nowIso = new Date().toISOString();
+        const written = [];
+        const skipped = [];
+        for (const c of survivors) {
+          const meta = pidIdx.get(c.pid) || {};
+          const draftPick = pidToPick.get(c.pid) || null;
+          const rookieSlot = draftPick ? draftPick.label : (c.drafted_field || "");
+          const y3K = draftPick ? rookieSalaryK(draftPick.round, draftPick.pick) : null;
+          const y3Dollars = y3K ? y3K * 1000 : null;
+          const origin = deriveOrigin(c.drafted_field) || (draftPick ? "Rookie Draft" : "Other");
+          const fid = c.fid || padFranchiseId(draftPick?.origFranchise || "");
+          if (!c.pid) { skipped.push({ pid: c.pid, reason: "no_pid" }); continue; }
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_era_pool (
+                 season, league_id, player_id, player_name, position, nfl_team,
+                 prior_owner_fid, prior_owner_name, origin_label,
+                 rookie_slot, rookie_slot_round, rookie_slot_pick, rookie_slot_year,
+                 y3_salary, drafted_field_raw,
+                 contract_status_at_drop, contract_year_at_drop, source, snapshot_at_utc
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (season, league_id, player_id) DO UPDATE SET
+                 player_name = excluded.player_name,
+                 position = excluded.position,
+                 nfl_team = excluded.nfl_team,
+                 prior_owner_fid = excluded.prior_owner_fid,
+                 prior_owner_name = excluded.prior_owner_name,
+                 origin_label = excluded.origin_label,
+                 rookie_slot = excluded.rookie_slot,
+                 rookie_slot_round = excluded.rookie_slot_round,
+                 rookie_slot_pick = excluded.rookie_slot_pick,
+                 rookie_slot_year = excluded.rookie_slot_year,
+                 y3_salary = excluded.y3_salary,
+                 drafted_field_raw = excluded.drafted_field_raw,
+                 contract_status_at_drop = excluded.contract_status_at_drop,
+                 contract_year_at_drop = excluded.contract_year_at_drop,
+                 source = excluded.source,
+                 snapshot_at_utc = excluded.snapshot_at_utc`
+            ).bind(
+              targetSeason, leagueId, c.pid,
+              safeStr(meta.name) || `Player ${c.pid}`,
+              safeStr(meta.position),
+              safeStr(meta.team),
+              fid || null,
+              fid ? (fidToName[fid] || null) : null,
+              origin,
+              rookieSlot || null,
+              draftPick?.round || null,
+              draftPick?.pick || null,
+              draftPick?.year || null,
+              y3Dollars,
+              c.drafted_field || null,
+              null, null, // contract_status_at_drop / contract_year_at_drop captured on drop
+              explicitPids.length ? "backfill_admin_endpoint" : "live_roster_walk",
+              nowIso
+            ).run();
+            written.push({ pid: c.pid, name: meta.name, fid, origin, rookie_slot: rookieSlot, y3_salary: y3Dollars });
+          } catch (e) {
+            skipped.push({ pid: c.pid, reason: "insert_failed", error: String(e?.message || e) });
+          }
+        }
+
+        // Return current pool state.
+        const { results: poolRows } = await env.UPS_MFL_DB.prepare(
+          `SELECT player_id, player_name, position, nfl_team, prior_owner_fid, prior_owner_name,
+                  origin_label, rookie_slot, y3_salary
+             FROM ups_era_pool
+            WHERE season = ? AND league_id = ?
+            ORDER BY prior_owner_fid, position, player_name`
+        ).bind(targetSeason, leagueId).all();
+
+        return jsonOut(200, {
+          ok: skipped.length === 0,
+          season: targetSeason,
+          league_id: leagueId,
+          mode: explicitPids.length ? "backfill" : "live_walk",
+          considered_count: candidates.length,
+          survivor_count: survivors.length,
+          written_count: written.length,
+          skipped_count: skipped.length,
+          skipped,
+          pool_size: poolRows?.length || 0,
+          pool: poolRows || [],
+        });
+      }
+
+      // POST /admin/auction/post-tag-deadline-channel-thread
+      // Body: { season, league_id?, channel_id? (default contract channel) }
+      //
+      // Posts the tag-deadline summary to a CHANNEL (not DM) as one
+      // thread: parent message + per-tag embed reply (with GIF + franchise
+      // icon — same format owners see for individual tag submissions today).
+      if (path === "/admin/auction/post-tag-deadline-channel-thread" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const channelId = safeStr(body?.channel_id || body?.channelId || "").replace(/\D/g, "") ||
+          contractDiscordPrimaryChannelId();
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+        if (!channelId) return jsonOut(400, { ok: false, error: "Missing channel_id and no DISCORD_CONTRACT_CHANNEL_ID configured" });
+
+        const botToken = contractDiscordBotToken();
+        if (!botToken) return jsonOut(400, { ok: false, error: "missing_contract_bot_token" });
+
+        // Pull rosters + salaries + players + league.
+        const [rostersRes, salariesRes, playersRes, leagueRes] = await Promise.all([
+          mflExportJson(targetSeason, leagueId, "rosters", {}, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "players", { DETAILS: "1" }, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "league", {}, { useCookie: true }),
+        ]);
+
+        const fidToName = {};
+        const flist = leagueRes.data?.league?.franchises?.franchise || [];
+        for (const f of flist) fidToName[padFranchiseId(f.id)] = safeStr(f.name || `Team ${f.id}`);
+
+        const pidToFranchise = {};
+        const rfrs = rostersRes.data?.rosters?.franchise || [];
+        const rfrList = Array.isArray(rfrs) ? rfrs : [rfrs];
+        for (const fr of rfrList) {
+          const fid = padFranchiseId(fr?.id);
+          const plist = fr?.player || [];
+          const pl = Array.isArray(plist) ? plist : [plist];
+          for (const p of pl) {
+            const pid = safeStr(p?.id).replace(/\D/g, "");
+            if (pid) pidToFranchise[pid] = fid;
+          }
+        }
+
+        const pidToMeta = {};
+        let pAll = playersRes.data?.players?.player || [];
+        if (!Array.isArray(pAll)) pAll = [pAll];
+        for (const p of pAll) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          let nm = safeStr(p?.name);
+          if (nm.includes(",")) nm = nm.split(",").reverse().map((s) => s.trim()).join(" ");
+          pidToMeta[pid] = { name: nm, position: safeStr(p?.position).toUpperCase(), team: safeStr(p?.team).toUpperCase() };
+        }
+
+        let salRows = salariesRes.data?.salaries?.leagueUnit?.player || [];
+        if (!Array.isArray(salRows)) salRows = [salRows];
+
+        const tagContracts = [];
+        for (const r of salRows) {
+          const pid = safeStr(r?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          const cs = safeStr(r?.contractStatus).toUpperCase();
+          if (!cs.includes("TAG")) continue;
+          const fid = pidToFranchise[pid];
+          if (!fid) continue;
+          const meta = pidToMeta[pid] || {};
+          tagContracts.push({
+            player_id: pid,
+            player_name: meta.name || `Player ${pid}`,
+            position: meta.position || "",
+            nfl: meta.team || "",
+            franchise_id: fid,
+            franchise_name: fidToName[fid] || `Team ${fid}`,
+            salary: safeInt(r?.salary, 0),
+            contract_year: safeStr(r?.contractYear),
+            contract_status: safeStr(r?.contractStatus),
+            contract_info: safeStr(r?.contractInfo),
+          });
+        }
+        tagContracts.sort((a, b) =>
+          a.franchise_name.localeCompare(b.franchise_name) ||
+          a.position.localeCompare(b.position) ||
+          (b.salary - a.salary)
+        );
+
+        // 1) Parent message in the channel.
+        const deadlineIso = _getTagDeadlineUtcTopLevel(targetSeason)?.toISOString() || "";
+        const headerContent = `# 🔒 Tag Deadline Closed — ${targetSeason}\nLocked at ${deadlineIso}.\n**${tagContracts.length} tag contracts** on the books. Thread below has the full list with details.`;
+        const headerRes = await discordBotRequest(botToken, "POST", `/channels/${encodeURIComponent(channelId)}/messages`, {
+          content: headerContent,
+          allowed_mentions: { parse: [] },
+        });
+        const headerMessageId = safeStr(headerRes.data?.id || "");
+        if (!headerMessageId) {
+          return jsonOut(502, { ok: false, error: "header_post_failed", details: headerRes });
+        }
+
+        // 2) Create a thread from the parent message.
+        const threadRes = await discordBotRequest(
+          botToken,
+          "POST",
+          `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(headerMessageId)}/threads`,
+          {
+            name: `Tag Deadline Closed — ${targetSeason}`,
+            auto_archive_duration: 1440, // 24 hours
+          }
+        );
+        const threadId = safeStr(threadRes.data?.id || "");
+        if (!threadId) {
+          return jsonOut(502, {
+            ok: false,
+            error: "thread_create_failed",
+            details: threadRes,
+            channel_id: channelId,
+            header_message_id: headerMessageId,
+          });
+        }
+
+        // 3) Per-tag embed (with GIF) into the thread.
+        const sentMessageIds = [];
+        const failed = [];
+        for (const c of tagContracts) {
+          try {
+            const franchiseMeta = await loadContractDiscordFranchiseMeta({
+              season: targetSeason,
+              leagueId,
+              franchiseId: c.franchise_id,
+            });
+            const gif = await pickContractActivityGifUrl({ activityType: "Tag", playerName: c.player_name });
+            const embed = buildContractActivityDiscordEmbed({
+              activityType: "Tag",
+              franchiseName: c.franchise_name,
+              creditedFranchiseName: c.franchise_name,
+              playerName: c.player_name,
+              contractInfo: c.contract_info,
+              contractYear: c.contract_year,
+              contractStatus: c.contract_status,
+              season: targetSeason,
+              salary: c.salary,
+              submittedAtUtc: new Date().toISOString(),
+              franchiseIconUrl: safeStr(franchiseMeta?.icon_url || ""),
+              gifUrl: safeStr(gif?.gif_url || ""),
+            });
+            const sendRes = await discordBotRequest(botToken, "POST", `/channels/${encodeURIComponent(threadId)}/messages`, {
+              content: "",
+              embeds: [embed],
+              allowed_mentions: { parse: [] },
+            });
+            if (sendRes.ok && sendRes.data?.id) {
+              sentMessageIds.push({
+                player_id: c.player_id,
+                player_name: c.player_name,
+                franchise_name: c.franchise_name,
+                message_id: String(sendRes.data.id),
+                gif_url: safeStr(gif?.gif_url || ""),
+              });
+            } else {
+              failed.push({ player_id: c.player_id, error: safeStr(sendRes.text).slice(0, 300) });
+            }
+            // Spacing — be polite to Discord + GIF picker is rate-limited.
+            await new Promise((res) => setTimeout(res, 400));
+          } catch (e) {
+            failed.push({ player_id: c.player_id, error: String(e?.message || e) });
+          }
+        }
+
+        return jsonOut(failed.length ? 207 : 200, {
+          ok: failed.length === 0,
+          season: targetSeason,
+          league_id: leagueId,
+          channel_id: channelId,
+          header_message_id: headerMessageId,
+          thread_id: threadId,
+          tag_count: tagContracts.length,
+          sent: sentMessageIds,
+          failed,
+        });
+      }
+
       // POST /admin/import-drop-penalties
       // Body: { season, league_id?, dry_run? }
       // Pulls DROP_PENALTY_CANDIDATE rows from the salary_adjustments JSON report
@@ -23176,13 +27629,46 @@ export default {
         } catch (_) {
           body = {};
         }
-        if (!!commishApiKey && !sessionByApiKey) {
-          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for test sync." });
+        // Auth: accept EITHER the global COMMISH_API_KEY (legacy callers
+        // — crons, internal scripts) OR a dedicated TEST_SYNC_API_KEY
+        // that's independent of any MFL per-league key. The dedicated
+        // key keeps the test-sync curl out of the same auth domain as
+        // production crons and lets Keith rotate it freely without
+        // touching MFL's per-league API keys (Keith 2026-05-19).
+        const testSyncApiKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const testSyncMatch = !!testSyncApiKey && !!browserApiKey && browserApiKey === testSyncApiKey;
+        const anyKeyConfigured = !!commishApiKey || !!testSyncApiKey;
+        if (anyKeyConfigured && !sessionByApiKey && !testSyncMatch) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY or TEST_SYNC_API_KEY is required for test sync." });
         }
 
         const season = safeStr(body?.season || body?.YEAR || url.searchParams.get("YEAR") || YEAR || "");
         const sourceLeagueId = safeStr(body?.source_league_id || body?.sourceLeagueId || url.searchParams.get("SOURCE_L") || "74598");
         const targetLeagueId = safeStr(body?.target_league_id || body?.targetLeagueId || url.searchParams.get("TARGET_L") || "25625");
+
+        // Hard guardrail: never let this endpoint write to production
+        // (L=74598). If a typo or misconfig ever pointed target at prod,
+        // the sync would overwrite real rosters/salaries with whatever
+        // the source league looks like at that moment. Reject loudly.
+        const PRODUCTION_LEAGUE_ID = "74598";
+        if (targetLeagueId === PRODUCTION_LEAGUE_ID) {
+          return jsonOut(403, {
+            ok: false,
+            error: "refused_target_is_production",
+            message: "target_league_id=74598 is the production UPS league. This endpoint refuses to write to production under any circumstance. Use a non-production league_id (e.g. 25625 for test).",
+            target_league_id_received: targetLeagueId,
+          });
+        }
+        // Chunking support — MFL throttles commish operations at the account
+        // level (cookie regeneration doesn't reset the counter), so a single
+        // worker invocation can only process ~8 franchises before hitting
+        // the limit. `franchises` body param filters which franchises get
+        // synced this run; `skip_salary` skips the salary import + verify
+        // tail so chunks before the last one don't import partial data.
+        const filterFranchises = Array.isArray(body?.franchises)
+          ? body.franchises.map((f) => String(f || "").padStart(4, "0")).filter(Boolean)
+          : null;
+        const skipSalary = !!body?.skip_salary;
         const targetCookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE || "");
         const targetCookieHeaderBase = targetCookieRaw
           ? (targetCookieRaw.includes("=") ? targetCookieRaw : `MFL_USER_ID=${targetCookieRaw}`)
@@ -23207,17 +27693,55 @@ export default {
         }
 
         const sourceByFranchise = rosterRowsByFranchiseFromRostersPayload(sourceRostersRes.data);
-        const franchiseIds = Object.keys(sourceByFranchise).sort();
+        const allFranchiseIds = Object.keys(sourceByFranchise).sort();
+        const franchiseIds = filterFranchises
+          ? allFranchiseIds.filter((f) => filterFranchises.includes(f))
+          : allFranchiseIds;
         const rosterSyncResults = [];
 
-        for (const franchiseId of franchiseIds) {
-          const franchiseCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
-          const formRes = await fetchLoadRostFormForCookie(franchiseCookieHeader, season, targetLeagueId, franchiseId);
+        // MFL throttles bursts of commish operations — without pacing,
+        // runs failed mid-loop with MFL returning its home page HTML
+        // instead of the LOADROST form. 1.5s sleep between iterations
+        // rides out the throttle window. Per-franchise BECOME=0000 is
+        // required (a single shared cookie bounces on the first csetup
+        // call — MFL invalidates the commish context somehow).
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        // 3s pacing — 1.5s wasn't enough to keep MFL's throttle from
+        // triggering after ~5-8 franchises. The throttle isn't a
+        // home-page redirect; MFL returns the form page WITHOUT a form
+        // (parses as "commissioner_access_required" via fallback check).
+        const PACE_MS = 3000;
+
+        // Retry on either MFL throttle signature:
+        //   - Home-page bounce (full redirect to MFL home)
+        //   - commissioner_access_required (form page minus the form)
+        // Both clear after ~5s. One retry max — more burns subrequests
+        // without helping.
+        const isRetriable = (res) =>
+          !!res && !res.ok && (
+            String(res.preview || "").includes("Home Page | MyFantasyLeague") ||
+            res.error === "commissioner_access_required"
+          );
+        const loadFormOnce = async (franchiseId) => {
+          const cookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
+          const formRes = await fetchLoadRostFormForCookie(cookieHeader, season, targetLeagueId, franchiseId);
+          return { cookieHeader, formRes };
+        };
+
+        for (let i = 0; i < franchiseIds.length; i++) {
+          const franchiseId = franchiseIds[i];
+          if (i > 0) await sleep(PACE_MS);
+          let { cookieHeader: franchiseCookieHeader, formRes } = await loadFormOnce(franchiseId);
+          if (isRetriable(formRes)) {
+            await sleep(5000);
+            ({ cookieHeader: franchiseCookieHeader, formRes } = await loadFormOnce(franchiseId));
+          }
           if (!formRes.ok) {
             return jsonOut(502, {
               ok: false,
               error: "Failed to load target roster form",
               franchise_id: franchiseId,
+              progress: { roster_sync_completed: rosterSyncResults.length, of: franchiseIds.length },
               details: formRes,
             });
           }
@@ -23251,10 +27775,13 @@ export default {
         }
 
         const taxiIrResults = [];
-        for (const franchiseId of franchiseIds) {
+        for (let i = 0; i < franchiseIds.length; i++) {
+          const franchiseId = franchiseIds[i];
           const sourceRows = sourceByFranchise[franchiseId] || [];
           const taxiIds = sourceRows.filter((row) => safeStr(row.status).includes("TAXI")).map((row) => row.player_id);
           const irIds = sourceRows.filter((row) => safeStr(row.status).includes("IR")).map((row) => row.player_id);
+          if (!taxiIds.length && !irIds.length) continue;
+          if (i > 0) await sleep(PACE_MS);
           const franchiseCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
           if (taxiIds.length) {
             const taxiRes = await postMflImportFormForCookie(
@@ -23292,6 +27819,23 @@ export default {
           }
         }
 
+        // Skip the salary import + verify tail when running a partial
+        // chunk — caller will trigger it in a final standalone curl with
+        // skip_salary:false (and either empty franchises or omitted).
+        if (skipSalary) {
+          return jsonOut(200, {
+            ok: true,
+            partial: true,
+            season,
+            source_league_id: sourceLeagueId,
+            target_league_id: targetLeagueId,
+            processed_franchises: franchiseIds,
+            roster_sync: rosterSyncResults,
+            status_sync: taxiIrResults,
+            note: "skip_salary=true — call again with skip_salary:false (and no franchises) to import salaries + verify.",
+          });
+        }
+
         const salaryRows = [];
         const salaryPlayers = asArray(sourceSalariesRes?.data?.salaries?.leagueUnit?.player || sourceSalariesRes?.data?.salaries?.leagueunit?.player).filter(Boolean);
         for (const player of salaryPlayers) {
@@ -23305,11 +27849,17 @@ export default {
         }
         const salaryCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
         const salaryXml = buildSalaryImportXmlFromRows(salaryRows);
+        // APPEND=0 → REPLACE all salary rows (previously APPEND=1 only
+        // added new players and silently skipped existing ones, which
+        // left the test league's contract years stuck on the prior
+        // season's state — visible as cy/contractYear being off-by-one
+        // vs source on every player). Safe because the guardrail above
+        // rejects target_league_id=74598; we'll never replace prod.
         const salaryImportRes = await postMflImportFormForCookie(
           salaryCookieHeader,
           season,
-          { TYPE: "salaries", L: targetLeagueId, APPEND: "1", DATA: salaryXml },
-          { TYPE: "salaries", L: targetLeagueId, APPEND: "1" }
+          { TYPE: "salaries", L: targetLeagueId, APPEND: "0", DATA: salaryXml },
+          { TYPE: "salaries", L: targetLeagueId, APPEND: "0" }
         );
         if (!salaryImportRes.requestOk) {
           return jsonOut(502, {
@@ -23331,7 +27881,25 @@ export default {
           });
         }
         const verifiedByFranchise = rosterRowsByFranchiseFromRostersPayload(verifyRostersRes.data);
-        const salaryByPlayerVerified = parseSalaryRows(verifySalariesRes.data);
+        // Local salary-row parser — the parseSalaryRows in another handler
+        // is closure-scoped and not visible here. Keep all players (no
+        // contractYear>0 filter) so cy=0 expired rookies still verify.
+        const parseSalaryRowsLocal = (payload) => {
+          const out = {};
+          const rows = asArray(payload?.salaries?.leagueUnit?.player || payload?.salaries?.leagueunit?.player).filter(Boolean);
+          for (const row of rows) {
+            const pid = String(row?.id || "").replace(/\D/g, "");
+            if (!pid || pid === "0000") continue;
+            out[pid] = {
+              salary: safeStr(row?.salary || ""),
+              contractYear: safeStr(row?.contractYear || ""),
+              contractStatus: safeStr(row?.contractStatus || ""),
+              contractInfo: safeStr(row?.contractInfo || ""),
+            };
+          }
+          return out;
+        };
+        const salaryByPlayerVerified = parseSalaryRowsLocal(verifySalariesRes.data);
         for (const franchiseId of Object.keys(verifiedByFranchise)) {
           verifiedByFranchise[franchiseId] = (verifiedByFranchise[franchiseId] || []).map((row) => {
             const salaryRow = salaryByPlayerVerified[row.player_id] || {};
@@ -24498,6 +29066,35 @@ export default {
           return jsonOut(400, { ok: false, error: "Unsupported roster action" });
         }
 
+        // Dry-run safety (Keith 2026-05-21): defense-in-depth gate on the
+        // roster action endpoint. The Roster Workbench client now skips
+        // load/unload during dry-run, but any future caller that forgets
+        // to gate would still mutate the real MFL roster. Honoring
+        // body.dry_run / body.dryRun / ?dry_run=1 here makes the endpoint
+        // safe by default. Returns a synthetic OK without touching MFL.
+        const actionDryRunFlag = (() => {
+          const truthy = (v) => {
+            const s = String(v == null ? "" : v).trim().toLowerCase();
+            return s === "1" || s === "true" || s === "yes" || s === "y";
+          };
+          if (truthy(body?.dry_run) || truthy(body?.dryRun)) return true;
+          try {
+            if (truthy(url.searchParams.get("dry_run") || url.searchParams.get("DRY_RUN"))) return true;
+          } catch (_) {}
+          return false;
+        })();
+        if (actionDryRunFlag) {
+          return jsonOut(200, {
+            ok: true,
+            skipped: true,
+            dry_run: true,
+            action,
+            player_id: playerId,
+            franchise_id: franchiseId,
+            message: `Dry-run — ${action} simulated, MFL not touched.`,
+          });
+        }
+
         // R1 active-only block (league_context_v1.md §A1 Round 1 + tracker Q12).
         // R1 rookies must stay on the active roster; reject any demote-to-taxi
         // for a player on a Rookie contract whose draft round is 1. Lookup
@@ -25621,6 +30218,41 @@ export default {
           } catch (_) {}
           return false;
         })();
+
+        // Tag / Extension deadline HARD LOCK (Keith 2026-05-21).
+        // Tag and rookie-extension submissions are rejected once the tag
+        // deadline (midnight ET Thu→Fri before Memorial Day) has passed.
+        // Untags + commish-overrides remain allowed so post-deadline
+        // corrections by the commissioner are still possible. Dry runs
+        // bypass the lock so the test harness keeps working off-cycle.
+        //
+        // Returns 410 Gone (RFC 9110 §15.5.11 — resource intentionally
+        // unavailable and not coming back this cycle).
+        if (
+          dryRunFlag !== 1 &&
+          submissionKindRaw !== "untag" &&
+          commishOverrideFlag !== 1 &&
+          (
+            submissionKindRaw === "tag" ||
+            isExtensionSubmission ||
+            safeStr(requestedContractStatus).toUpperCase() === "TAG"
+          ) &&
+          hasTagDeadlinePassed(year)
+        ) {
+          const deadline = getTagDeadlineUtc(year);
+          return mutationResponse(
+            "validation_fail",
+            String(body.submission_id || body.submissionId || "").trim(),
+            {
+              reason: `${submissionKindRaw === "tag" ? "Tag" : "Rookie extension"} submissions are locked — deadline passed (midnight ET, ${deadline ? deadline.toISOString() : "unknown"}). Contact the commissioner for late-corrections.`,
+              code: "TAG_EXTENSION_DEADLINE_PASSED",
+              deadline_utc: deadline ? deadline.toISOString() : null,
+              submission_kind: submissionKindRaw,
+              hint: "Dry-run preview and commish-override paths bypass this lock.",
+            },
+            410
+          );
+        }
 
         const providedSubmissionId = String(body.submission_id || body.submissionId || "").trim();
         const submissionId =

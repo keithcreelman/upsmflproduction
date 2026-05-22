@@ -160,20 +160,67 @@ There are **7 entry paths**. Each creates a different default contract and const
   - **Tagged-player exception (Keith v10):** if the player you cut was on a **TAG**, the prohibition does NOT apply. You CAN bid on a tagged player you cut. (Tags effectively "open" the player back into the FA pool with no carryover restrictions.)
   - **Pre-auction drop reset (Keith 2026-04-27):** drops done within the pre-auction window (the few days immediately before auction start, prior to roster lock) "reset" the prohibition — the drop is fine and Owner X CAN bid on Player A. The cut-then-rebid lockout only applies to drops earlier in the offseason.
   - **Cutdown day (Keith v10, future direction):** a 2-day-before-auction "cutdown day" is being added — that day exists to verify everything is set up properly (testing) before auction goes live. Reconciles with the existing 3-day-prior Auction Roster Lock; final mechanism still being settled.
+  - **Machine-enforceable rule (Keith 2026-05-18):** block owner from nominating/bidding on player X when ALL of: `cut.season = current_season` AND `cut.prior_contract_years_remaining > 0` AND `cut.timestamp < FA_Auction_Cut_Deadline` AND `cut.prior_contract_type != 'Tag'`. Cuts after the Cut Deadline (pre-auction reset window) and Tag-contract cuts are exempt; cuts after auction close are moot (no live auction). Enforcement lives in `/api/auction/bid` and `/api/auction/nominate`.
 - **Default contract:** **1 year** if no Multi-Year Auction Contract is submitted. Multi-Year option = 2-year or 3-year, Veteran or Loaded.
 - **Bid increments:** **$1K** (always).
 - **Naming note (decided 2026-04-27):** Keep "Veteran" contract type as-is. Rename idea parking-lotted.
 
 ### A3. Expired Rookie Auction (overlaps with Rookie Draft weekend)
 
-- **Eligibility:** any player whose **rookie contract expired** and was **NOT extended** by the rookie extension deadline (Thu before Memorial Day weekend — see Section 3 for exact date).
+- **Eligibility:** any player whose **rookie contract expired** and was **NOT extended** by the rookie extension deadline (Thu before Memorial Day weekend — see Section 3 for exact date). Operationally there are TWO MFL data shapes for an expired rookie:
+  1. **Active roster, just rolled over:** `contractStatus='Rookie'` AND `contractYear=0` (cy=0 = expired, per MFL vocabulary).
+  2. **Empty contract (Keith 2026-05-18):** `contractStatus=""` AND `contractYear=""` AND `salary=""`. MFL **wipes** the rookie contract fields on rollover from cy=1 → cy=0, so taxi rookies whose 3-league-year clock expired AND active-roster rookies promoted off taxi without an extension both surface with blank fields. The expiry signal in this case is the original draft year (from `TYPE=draftResults` join) being ≤ season-3. R1-option-declined and taxi-3-year-clock-expired players fall into this bucket by construction — no special-case logic.
+- **Rookie salary on the auction bid sheet (Keith 2026-05-18):** Salary source depends on the origin of the rookie contract:
+  - **Draft-slot rookies (UPS rookie draft):** When the contract expires (cy=1 → cy=0 rollover), MFL wipes the salary field. **Derive** salary from the §A1 schedule (Y1=Y2=Y3 flat): `1.01=$15K, 1.02=$14K, …, 1.10=$6K, 1.11+ and R2=$5K, R3-R5=$2K, R6=$1K`. The original slot is recoverable from `TYPE=draftResults` for the original draft year — even for trade-acquired players whose roster `drafted` field shows `Trade (YEAR)` instead of `R.PP (YEAR)`.
+  - **MYM-Rookie (WW/FCFS rookie pickup later given MYM, per §C3):** Salary = the WW bid amount, NOT derivable from any draft slot (the player never went through the UPS rookie draft). MFL surfaces the salary on the rosters export directly — use it as-is.
+  - **Dispersal-acquired rookies or other off-draft rookies** that never appear in `TYPE=draftResults`: fall back to MFL's live salary.
 - **Timing (NEW PATTERN, 2025+):** ERA **starts on the Saturday before Memorial Day weekend** and runs **through the Rookie Draft on Memorial Day Sunday**. ERA and the Rookie Draft now overlap. Historical pattern (pre-2025) had ERA in early-to-mid May, separated from the draft.
 - **Format:**
   - 2–3 day nomination window (overlapping with rookie draft active hours)
   - **Starting bid: $1K** (changed in 2025 — old "prior-year salary + $1K" rule is dead). Reason: under the old rule a $13K player needed a $14K opening nomination; nobody wanted that. $1K floor lets someone start the bidding.
   - **36-hour** lock window. Resets on new high bid.
-- **Contract on win:** 1, 2, or 3 years, same loading rules as FA Auction (front-load OR back-load, capped at **5 loaded contracts** on roster). No "sign immediately" benefit — FA Auction submission deadline applies.
-- **Forced retention:** players won in Expired Rookie Auction **cannot be cut until after that summer's FA Auction** (just through the auction window, not the entire season). Concept: no "get out of jail free" — you bid, you hold through auction.
+- **Nomination cadence (Keith 2026-05-21):** each owner may submit **at most 1 new ERA nomination per 12-hour window**. Windows are **anchored to 6 AM ET and 6 PM ET** — not rolling from the franchise's last nomination. No concurrent-nomination cap — if other owners don't nominate, additional lots simply don't open. Intent: prevent any single owner from grabbing the opening bid on multiple headline players in the first hours of the auction.
+- **Nomination window schedule:** 6 discrete windows, opens **Saturday 6 PM ET** (the Saturday before Memorial Day weekend), closes at the end of the **Tuesday 6 AM → 6 PM ET** window:
+
+  | # | Window | Notes |
+  |---|---|---|
+  | 1 | Sat 6 PM → Sun 6 AM ET | Opening window |
+  | 2 | Sun 6 AM → Sun 6 PM ET | |
+  | 3 | Sun 6 PM → Mon 6 AM ET | |
+  | 4 | Mon 6 AM → Mon 6 PM ET | Memorial Day morning |
+  | 5 | Mon 6 PM → Tue 6 AM ET | |
+  | 6 | Tue 6 AM → Tue 6 PM ET | **Final** nomination window |
+
+  After Tuesday 6 PM ET no new lots can be nominated. Existing lots continue bidding with their 36-hour lock windows until everything resolves. Enforcement: worker-side at `/api/auction/nomination-status` via `getEraNominationWindowState()` — computes the current window from "now" and checks if each franchise has used it. UI surfaces "Nominate" CTAs only when `current_window` is open and `used_in_window === 0` for the viewing franchise.
+- **Missed-nomination policy:** **no fine for ERA.** Participation is optional — unlike FA Auction, ERA has no mandatory-nomination obligation. (Asymmetric on purpose: ERA pools are smaller and not every owner has a target.)
+- **Contract on win:** 1, 2, or 3 years, same loading rules as FA Auction (front-load OR back-load, capped at **5 loaded contracts** on roster — see §C2 for enforcement timing). No "sign immediately" benefit — FA Auction submission deadline applies.
+- **AAV escalator basis (Keith 2026-05-18):** when an ERA winner converts to a multi-year contract, the AAV escalator is computed off the **winning bid**, not the prior Y3 rookie salary. (Necessary clarification after the 2025 switch to a flat $1K opening bid.)
+- **MYAC window (note):** ERA wins occur in late May, so the MYAC submission window runs from acquisition → September contract deadline ≈ 4 months — longer than the ~2-month FA Auction MYAC window. Intentional; no change.
+- **Forced retention:** players won in Expired Rookie Auction **cannot be cut until that summer's FA Auction CLOSES** (Keith 2026-05-18 — pinned to `FA_Auction.close_at` in the season calendar). Once auction closes, normal cut rules resume. Concept: no "get out of jail free" — you bid, you hold through auction.
+- **ERA pool = the players cut at the deadline (Keith 2026-05-22).** When the midnight-ET tag/extension deadline passes, the worker (or commish via `/admin/auction/auto-drop-expired-rookies` if the cron times out) drops every rookie+cy=0 player AND every empty-contract player whose 3-year clock expired (per §B2). These dropped players are **snapshotted into `ups_era_pool`** (D1 table) and **become the canonical ERA pool**. The O=43 player picker should be filtered to ONLY this snapshot when ERA is active — owners should NOT be able to nominate non-pool players. The snapshot persists through the auction so it survives players being dropped to FA. Reading the pool: `GET /api/auction/era-eligible` returns from `ups_era_pool` if seeded; otherwise falls back to the legacy live-roster walk.
+
+### A3.1 Data sources — what's MFL-native vs UPS-custom (Keith 2026-05-22)
+
+Critical: most contract concepts in this canon are **UPS layer constructs** that live in our worker + D1, not in MFL. Mixing them up causes bugs (yesterday: stale `contractStatus="TAG"` data debt produced phantom "FA Contract" Discord posts because owner-side code treated MFL-stored `TAG` as a current-season fact).
+
+| Field / concept | Source of truth | Notes |
+|---|---|---|
+| `salary` (raw dollar integer) | **MFL** `TYPE=salaries` | Authoritative. Worker writes via `TYPE=salaries` import (APPEND=1). |
+| `contractStatus` raw value | **MFL** `TYPE=salaries` / rosters | Stored on MFL. **Free-form string** — UPS overloads it for our taxonomy. |
+| `contractYear` (years remaining) | **MFL** | `cy=0` = expired. `cy=1` = LAST year. Per memory note. |
+| `contractInfo` annotation | **MFL** (free-text) | UPS-authored. Notes are NOT authoritative — derive cap math from year_salaries + events. |
+| Rookie draft slot (round.pick) | **MFL** `TYPE=draftResults` | Original slot. MFL's per-player `drafted` field (a.k.a. "Last Acquired") is overwritten on trade ("Trade (YEAR)") — recover original via `TYPE=draftResults` join for the original draft year. |
+| Player's NFL Draft Status / NFL draft year | **MFL** `TYPE=players&DETAILS=1` (proxy `draft_year` field) | Use this when MFL's roster `drafted` field is trade-overwritten. |
+| **Tag** (status, side, salary) | **UPS-CUSTOM** | NOT a native MFL concept. We encode it via `contractStatus="TAG"` + our D1 `ups_tag_master` table. The TAG carries our metadata (side, tier, formula). MFL has no understanding of "tag" as a contract type. |
+| **MYM** (Multi-Year MYM events) | **UPS-CUSTOM** | D1 `ups_mym_history`. Triggers contract write to MFL via `/offer-mym`. |
+| **Extension** events / history | **UPS-CUSTOM** | D1 `ups_extension_submissions` + `ups_extension_history`. |
+| **Restructure** events / history | **UPS-CUSTOM** | D1 `ups_restructure_submissions`. |
+| **ERA pool** (auction-eligible set) | **UPS-CUSTOM** | D1 `ups_era_pool`. Seeded at deadline-night auto-drop. Canonical for the O=43 picker filter. |
+| **Cap penalty** events | **UPS-CUSTOM** | Computed from MFL transactions + D1; posted to MFL via `TYPE=salaryAdj` import. |
+| **MYAC / Loading designations** (FL/BL/EXT1/EXT2/EXT3) | **UPS-CUSTOM** | Encoded into the MFL `contractStatus` string (e.g. "EXT2-BL") but the semantic taxonomy is ours. |
+| **`Tag` / `MYM-Vet` / `MYM-Rookie` etc.** | **UPS-CUSTOM** vocabulary | See memory note "MFL contractStatus vocabulary". |
+
+**Rule of thumb:** treat MFL as the salary ledger + transactions log. Treat D1 / worker as the authority on everything ABOUT the contract (kind, history, lineage, eligibility). When in doubt: salary numbers = MFL; everything else = us.
 
 ### A4. Blind Bid Waivers (in-season — Thu/Fri/Sat/Sun 9 AM ET)
 
@@ -298,6 +345,7 @@ These are transactions you can do TO a player who's already on your roster. Defi
   - **Front-loaded:** Year 1 salary > AAV. Total split must equal TCV.
   - **Back-loaded:** Year 1 salary < AAV. Min 20% of TCV in Year 1. **Same constraints as front-loaded** (TCV preserved, valid distribution).
   - **Loaded contracts cap: MAX 5 LOADED CONTRACTS PER ROSTER** (combined front-loaded + back-loaded). Earlier "3" was a confusion with the restructure limit — the LOADED cap is 5.
+  - **Enforcement timing (Keith 2026-05-18):** check is at **contract-load time** — system hard-blocks selecting Front-Load or Back-Load contract shape (on MYAC submit, ERA win, FA Auction win, restructure submit, or 2-year extension) if the owner already has 5 loaded contracts on roster. No "warn at 4/5" UI — hard reject at 6. Trading away or cutting a loaded player **reopens the slot** in real time; the next loaded contract submission becomes available immediately.
   - Total 3-year contracts: 6 max (excludes rookie 3-year deals).
 
 ### C3. Mid-Year Multi (MYM)
@@ -307,7 +355,10 @@ These are transactions you can do TO a player who's already on your roster. Defi
 - **Eligibility:**
   - Player acquired via FA Auction or pre-season waivers, NOT given a multi-year contract by Sept deadline → MYM available **before kickoff of NFL Week 3** (per Keith's recall — verify in event log).
   - In-season WW or FCFS pickup → **14-day MYM window** from acquisition. **The 14-day clock does NOT reset on trade.** Example: pickup 10/1 → MYM eligible until 10/14. If traded on 10/20 → no MYM possible (clock already expired). The acquiring team via trade does NOT inherit a fresh MYM window.
-- **Type rule (decided 2026-04-27):** MYM is its **own** `contract_type` value — "MYM" — not collapsed into Veteran. Origin (Veteran-MYM vs WW-MYM vs WW-Rookie-MYM) is captured by the `contract_type` history rather than by mutating the type at conversion.
+- **Type rule (decided 2026-04-27, refined 2026-05-18):** MYM is its **own** `contract_type` value — "MYM" — not collapsed into Veteran. Origin is captured by the `contract_type` history rather than by mutating the type at conversion. Recognized origin sub-types:
+  - `Veteran-MYM` — MYM applied to an FA-Auction or pre-season-waiver Veteran pickup.
+  - `WW-MYM` — MYM applied to an in-season WW/FCFS pickup that is NOT an NFL rookie.
+  - **`MYM-Rookie`** — MYM applied to a WW/FCFS pickup that IS an NFL rookie (preserves ERA-eligibility on expiry per §A3). Examples: Emanuel Wilson, Konata Mumpfield. MFL surfaces these as plain `contractStatus='Rookie'` — UPS-side classification is `MYM-Rookie`. **Salary on these contracts is the WW bid amount (per §A4) — NOT derivable from the §A1 rookie draft slot schedule, because the player never went through a UPS rookie draft.** When such a player's contract expires (cy=0 rollover), MFL preserves the salary on the rosters export (not wiped like draft-slot rookies), so the ERA bid sheet uses MFL's live salary directly.
 - **Length on MYM:** **owner's choice — 2 or 3 years.**
 
 ### C4. Extension (contract types `Ext1` / `Ext2`)
@@ -932,12 +983,16 @@ The Contract Command Center widget code (`site/ccc/ccc.js`) defines two computed
 - **`tagDeadline = MemorialDay − 4 days` = Thursday before Memorial Day weekend**
 - **`rookieDraft = MemorialDay − 1 day` = Sunday before Memorial Day**
 
+**Lock time (Keith 2026-05-21):** the tag/extension deadline is **midnight ET on the Thursday→Friday boundary** (i.e., submissions accepted through end-of-Thursday ET; first second of Friday ET = lock). In UTC during EDT (always — Memorial Day is late May), this is **04:00 UTC Friday**. Worker code: `getTagDeadlineUtc()` in `worker/src/index.js` returns this exact moment; `hasTagDeadlinePassed()` gates every downstream consumer (Discord routing flip, trade eligibility, `/commish-contract-update` hard-lock at line ~28766, midnight auto-drop cron). Prior canonical lock was 23:59:59 UTC Thursday (8 PM ET) — corrected upward by 4 hours to align with the natural "midnight" calendar boundary.
+
 For 2026 (Memorial Day = Mon May 25):
 
 | Date | Day | Event | Source |
 |---|---|---|---|
-| **2026-05-21** | **Thu** | **UPS Tag deadline** (offense + def/ST submissions) | `ccc.js` `getTagDeadlineInfo` (memorial − 4) |
+| **2026-05-21** | **Thu** | **UPS Tag deadline** (offense + def/ST submissions) — locks at midnight ET (04:00 UTC May 22) | `ccc.js` `getTagDeadlineInfo` (memorial − 4) + worker `getTagDeadlineUtc()` |
 | 2026-05-21 | Thu | UPS Rookie Extension deadline (same day as tag deadline — combined) | `event_window_matrix.csv` |
+| 2026-05-22 | Fri | **04:05 UTC** — auto-drop of every non-extended expired rookie (hourly cron, idempotent via `ups_deadline_lock_log`) | worker `processTagDeadlineMidnightLock` |
+| 2026-05-22 | Fri | **10:05 UTC (= 6 AM ET)** — commish DM with all locked tag contracts | worker `processTagDeadlineSixAmDm` |
 | **2026-05-24** | **Sun** | **UPS Rookie Draft** | `ccc.js` `getTagDeadlineInfo` (memorial − 1) |
 | 2026-05-25 | Mon | Memorial Day (NFL holiday) | calendar |
 

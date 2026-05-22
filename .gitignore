@@ -51,3 +51,7 @@ _local_*.html
 # the repo under jsDelivr's 50MB package limit. Re-running the build
 # scripts regenerates them locally.
 pipelines/reports/*.csv
+
+.dev.vars*
+!.dev.vars.example
+!.env.example

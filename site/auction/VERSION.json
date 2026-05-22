@@ -1,0 +1,34 @@
+{
+  "version": "0.5.0",
+  "released": "2026-05-21",
+  "label": "v0.5.0 — ERA nomination cadence: anchored 12h windows (6 AM / 6 PM ET)",
+  "description": "Drops the 'proxy walk' jargon. Bid thread now classifies each step from the observer's perspective: Nom (opening bid), Forced Increase (same franchise as previous high — MFL walked their hidden proxy), Overtake (different franchise dethroned the leader). Classification computed client-side by walking each per-lot thread chronologically.",
+  "scope": {
+    "this_release": [
+      "/api/auction/bid-stats — per-franchise aggregation, kind filter (era|fa|all), since filter",
+      "War Room: Bid Activity card with position chips per franchise",
+      "ERA-vs-FA classification via cross-reference with current rookie/cy=0 pool",
+      "All/ERA/FA toggle refetches from worker (no client-side filtering)"
+    ],
+    "deferred": [
+      "Position-based roster compliance (requires roster + open winning bids overlay)",
+      "Position breakdown filtered by acquisition timing (offseason vs in-season)",
+      "Side-by-side era_bid vs fa_bid timeline chart"
+    ]
+  },
+  "canon_references": {
+    "league_context_v1.md": ["§6.A1", "§6.A2", "§B1", "§A1", "§A2", "§A3"]
+  },
+  "changes": [
+    { "version": "0.5.0", "date": "2026-05-21", "type": "feat",
+      "summary": "ERA nomination cadence switched from rolling 12h cooldown to ANCHORED 12h windows (6 AM / 6 PM ET). Opens Sat 6 PM ET, closes end of Tue 6 AM–6 PM ET window. Banner + per-franchise card show current window label + used_in_window." },
+    { "version": "0.4.2", "date": "2026-05-20", "type": "feat",
+      "summary": "Bid Activity card with positions + FA/ERA toggle." },
+    { "version": "0.3.0", "date": "2026-05-20", "type": "feat",
+      "summary": "Nomination tracker + thread bid history + War Room signal-vs-noise pass." },
+    { "version": "0.2.0", "date": "2026-05-20", "type": "feat",
+      "summary": "War Room + Bid History tabs go live." },
+    { "version": "0.1.0", "date": "2026-05-18", "type": "feat",
+      "summary": "Initial scaffold + Expired Rookie Pool table." }
+  ]
+}

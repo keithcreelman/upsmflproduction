@@ -2879,6 +2879,129 @@
 </script>
 
 <script>
+  // UPS Hub Container — generic auto-bootstrap for the shared MFL MESSAGE
+  // slot that hosts our newer hubs (Auction Hub etc.). Mirrors the
+  // MESSAGE7 / MESSAGE11 pattern: header detects the MODULE + ?hub= param,
+  // creates a mount div, and injects the matching embed loader directly.
+  //
+  // Why this exists: every new hub used to need its own MFL MESSAGE page
+  // (MESSAGE12 = Rookie Draft Hub, MESSAGE14 was reserved for Auction
+  // Hub, etc.) — each carrying a SHA-pinned loader stub that had to be
+  // updated on every release. Routing through ONE container with the
+  // header doing the dispatching means:
+  //   1. MFL MESSAGE19 body stays empty forever (single comment line).
+  //   2. Adding a new hub = add 1 line to the HUBS registry below.
+  //   3. SHA bumps only touch the header, never any MESSAGE body.
+  //
+  // MESSAGE19 is used because MESSAGE20 is the league footer; MFL caps
+  // custom messages at 20. Anything earlier (MESSAGE2 = old CCC link,
+  // MESSAGE4 = Standings, etc.) is already in use.
+  (function () {
+    var BUILD = "2026-05-19.1";
+    if (window.__ups_hub_container_autoload === BUILD) return;
+    window.__ups_hub_container_autoload = BUILD;
+
+    // Registry — add new hubs here. Each entry needs the mount id the
+    // hub's embed loader looks for + the path (relative to repo root)
+    // of the loader script.
+    //
+    // The path is resolved against jsDelivr at window.UPS_RELEASE_SHA so
+    // the loader always matches the SHA the header itself was loaded
+    // from. This keeps feature-branch testing working without requiring
+    // a main merge or GitHub Pages publish — jsDelivr serves any commit
+    // SHA on demand. (GitHub Pages only serves main, so loaders that
+    // hardcode pages URLs 404 from feature branches.)
+    var HUBS = {
+      "auction-hub": {
+        mountId: "auctionHubMount",
+        loaderPath: "/site/auction/mfl_hpm_embed_loader.js"
+      }
+      // Future:
+      //   "front-office-v2": { mountId: "..." , loaderPath: "/site/rosters/v2/mfl_hpm_embed_loader.js" },
+      //   "trade-war-room":  { mountId: "..." , loaderPath: "/site/trades/mfl_hpm_embed_loader.js" },
+    };
+
+    function resolveLoaderUrl(path) {
+      var sha = String(window.UPS_RELEASE_SHA || "main").trim() || "main";
+      return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
+        encodeURIComponent(sha) + path + "?v=" + encodeURIComponent(sha);
+    }
+
+    // The MFL MESSAGE slot reserved as the hub container. Change here +
+    // in TABS (look for "MESSAGE19&hub=") if it ever has to move.
+    var CONTAINER_MODULE = "MESSAGE19";
+
+    function safeUpper(v) { return String(v == null ? "" : v).trim().toUpperCase(); }
+    function safeLower(v) { return String(v == null ? "" : v).trim().toLowerCase(); }
+
+    function readContext() {
+      try {
+        var u = new URL(window.location.href);
+        return {
+          module: safeUpper(u.searchParams.get("MODULE") || ""),
+          hub: safeLower(u.searchParams.get("hub") || "")
+        };
+      } catch (e) { return { module: "", hub: "" }; }
+    }
+
+    function ensureMount(mountId) {
+      var existing = document.getElementById(mountId);
+      if (existing) return existing;
+      var mount = document.createElement("div");
+      mount.id = mountId;
+      var anchor =
+        document.querySelector(".ups-hotlinks-shell") ||
+        document.getElementById("container-wrap") ||
+        document.body;
+      if (anchor && anchor.parentNode && anchor !== document.body) {
+        anchor.parentNode.insertBefore(mount, anchor.nextSibling);
+      } else {
+        document.body.appendChild(mount);
+      }
+      return mount;
+    }
+
+    function showError(msg) {
+      var mount = ensureMount("upsHubContainerError");
+      mount.style.cssText = "padding:24px;margin:16px;color:#f88;background:#141a26;border:1px solid #2a3446;border-radius:8px;font-family:-apple-system,sans-serif;";
+      mount.innerHTML = "<strong>UPS Hub Container</strong><br>" + msg;
+    }
+
+    function injectLoader(loaderPath) {
+      var loaderUrl = resolveLoaderUrl(loaderPath);
+      // Guard: don't double-inject if the user clicks between hubs
+      // without a full page reload (browsers may keep the iframe alive).
+      if (document.querySelector('script[data-ups-hub-loader="' + loaderPath + '"]')) return;
+      var s = document.createElement("script");
+      s.setAttribute("data-ups-hub-loader", loaderPath);
+      s.src = loaderUrl;
+      s.async = true;
+      (document.body || document.documentElement).appendChild(s);
+    }
+
+    function bootIfApplicable() {
+      var ctx = readContext();
+      if (!/^MESSAGE19\b/.test(ctx.module)) return;
+      if (!ctx.hub) {
+        return showError("Missing <code>?hub=</code> parameter. Registered hubs: <code>" + Object.keys(HUBS).join("</code>, <code>") + "</code>.");
+      }
+      var entry = HUBS[ctx.hub];
+      if (!entry) {
+        return showError("Unknown hub: <code>" + ctx.hub.replace(/[<>&"]/g, "") + "</code>. Registered hubs: <code>" + Object.keys(HUBS).join("</code>, <code>") + "</code>.");
+      }
+      ensureMount(entry.mountId);
+      injectLoader(entry.loaderPath);
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bootIfApplicable);
+    } else {
+      bootIfApplicable();
+    }
+  })();
+</script>
+
+<script>
   // Team Ops persistent sub-nav.
   //
   // Renders a 5-link strip (Overview / Front Office / Player Stats /
@@ -2927,6 +3050,16 @@
     else if (/^MESSAGE13\b/.test(ctx.module)) activeId = "player-stats";
     else if (/^MESSAGE6\b/.test(ctx.module)) activeId = "trade-room";
     else if (/^MESSAGE4\b/.test(ctx.module)) activeId = "standings";
+    else if (/^MESSAGE12\b/.test(ctx.module)) activeId = "rookie-hub";
+    // Generic hub container — currently only auction-hub. When more hubs
+    // route through MESSAGE19, switch on the `hub` query param value.
+    // (MESSAGE20 is reserved for the footer.)
+    else if (/^MESSAGE19\b/.test(ctx.module)) {
+      try {
+        var qhub = new URL(window.location.href).searchParams.get("hub") || "";
+        if (qhub === "auction-hub") activeId = "auction-hub";
+      } catch (e) {}
+    }
     // Any other MODULE → no active highlight, but we still render the
     // strip so the user can navigate away.
     else activeId = "";
@@ -2946,14 +3079,23 @@
     //   • { id, label, module }                   → direct link to a MESSAGEnn
     //   • { id, label, children: [{label,href|module}…] } → dropdown submenu
     //
-    // Order + grouping (Keith 2026-05-15):
+    // Order + grouping (Keith 2026-05-15, Auction Hub added 2026-05-18):
     //   Overview → Front Office → Trade War Room → Rookie Draft Hub
-    //   → Standings → Player Stats → Player Acquisition ▾ → Game Day ▾
+    //   → Auction Hub → Standings → Player Stats
+    //   → Player Acquisition ▾ → Game Day ▾
     var TABS = [
       { id: "overview",     label: "Overview",       module: "MESSAGE11" },
       { id: "front-office", label: "Front Office",   module: "MESSAGE7"  },
       { id: "trade-room",   label: "Trade War Room", module: "MESSAGE6=N" },
       { id: "rookie-hub",   label: "Rookie Draft Hub", module: "MESSAGE12" },
+      // Auction Hub (added 2026-05-18, MVP: Expired Rookie Pool tab).
+      // Routed through the generic UPS hub container (test: MESSAGE19)
+      // with ?hub=auction-hub — see site/hpm-hub-router.html. The MESSAGE
+      // page only needs the standard loader.js stub with
+      // data-ups-partial="hpm-hub-router"; the router dispatches based on
+      // the `hub` query param. This lets new hubs ship without an MFL
+      // admin step per hub. (MESSAGE20 is reserved for the footer.)
+      { id: "auction-hub",  label: "Auction Hub",    module: "MESSAGE19&hub=auction-hub" },
       { id: "standings",    label: "Standings",      module: "MESSAGE4"  },
       { id: "player-stats", label: "Player Stats",   module: "MESSAGE13" },
       { id: "acquisition",  label: "Player Acquisition", children: [
@@ -9107,46 +9249,1995 @@
     padding-bottom: 10rem !important;
     box-sizing: border-box;
   }
-  /* Ticket-reply + options forms specifically — give the SUBMIT
-     button its own scroll-margin so it always lands above the
-     champion footer when focused or scrolled into view. Applies to
-     desktop AND mobile. */
-  body[id^="body_my_tickets"],
-  body[id^="body_options_"] {
-    padding-bottom: 6rem !important;
-  }
-  body[id^="body_my_tickets"] form,
-  body[id^="body_my_tickets"] table,
-  body[id^="body_options_"] form,
-  body[id^="body_options_"] table {
+  /* ─────────────────────────────────────────────────────────────────
+   * UNIVERSAL native-MFL scroll safety + link contrast (2026-05-20)
+   *
+   * Previously we enumerated body IDs (body_my_tickets, body_options_,
+   * body_csetup, body_commissioner_setup, ...) and missed pages every
+   * time MFL added new ones. Switched to body-level + class-aware
+   * selectors so EVERY native MFL page is covered automatically.
+   *
+   * Risk analysis (why this is safe to apply universally):
+   *   - Extra body padding-bottom on a UPS hub iframe = a small blank
+   *     strip below the content. Harmless; iframe height beacon
+   *     handles auto-sizing.
+   *   - a:not([class]) excludes ALL UPS-injected components (CCC
+   *     pills, hub buttons, .ah-*, .rdh-*, .btn) by virtue of those
+   *     having class attributes. Only MFL's bare <a href> links match.
+   * ───────────────────────────────────────────────────────────────── */
+
+  /* Scroll safety — every page gets enough bottom padding to clear
+     the UPS hero/champion footer. Submit buttons get extra
+     scroll-margin so focus-scrolling parks them above the fold. */
+  body {
     padding-bottom: 8rem !important;
   }
-  body[id^="body_my_tickets"] input[type="submit"],
-  body[id^="body_my_tickets"] button[type="submit"],
-  body[id^="body_options_"]  input[type="submit"],
-  body[id^="body_options_"]  button[type="submit"] {
-    scroll-margin-bottom: 12rem;
-    margin-bottom: 2rem;
+  body input[type="submit"],
+  body button[type="submit"],
+  body input[type="image"][src*="submit"],
+  body input[name="SUBMIT"],
+  body .ups-submit,
+  body [class*="submit"] {
+    scroll-margin-bottom: 12rem !important;
   }
-  /* Mobile Safari: 100vh includes the URL bar's expandable region —
-     content sized to 100vh gets clipped behind the URL bar. 100dvh
-     uses the dynamic viewport (URL bar excluded) so content always
-     fits. Also add safe-area inset for notch / home-indicator. */
   @media (max-width: 980px) {
-    html, body {
-      min-height: 100dvh !important;
-    }
     body {
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8rem) !important;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10rem) !important;
     }
-    body[id^="body_my_tickets"] form,
-    body[id^="body_my_tickets"] table,
-    body[id^="body_options_"] form,
-    body[id^="body_options_"] table {
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8rem) !important;
-    }
+  }
+
+  /* Link contrast — any unstyled MFL link (no class, no inline color)
+     gets the UPS link color + bold + underline. UPS components all
+     have class attributes so they're naturally excluded. */
+  body a:not([class]):not([style*="color"]),
+  body a:not([class]):not([style*="color"]):visited {
+    color: var(--ups-link, #2960c1) !important;
+    font-weight: 700 !important;
+    text-decoration: underline !important;
+  }
+  body a:not([class]):not([style*="color"]):hover,
+  body a:not([class]):not([style*="color"]):focus {
+    color: var(--ups-link-hover, #1a4290) !important;
+  }
+
+  /* Text contrast — MFL renders hint/help/note text in faded grays
+     (#888-ish) that work on white but disappear on UPS dark theme.
+     This is a broad sweep of common text-bearing elements that
+     EXCLUDES anything with a UPS-prefixed class or inline color.
+     Same exclusion pattern as the link rule above. UPS components
+     keep their own colors because their class selectors win on the
+     specific elements that need it.
+
+     Coverage: td, th, div, span, p, label, li, dt, dd — covers most
+     MFL form/report layouts. Excludes nav-style elements (because
+     those typically have classes) and anything with inline styling. */
+  body td:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body th:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body div:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body span:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body p:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body label:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body li:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body dt:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]),
+  body dd:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]):not([style*="color"]) {
+    color: var(--ups-text, #e8edf5) !important;
+  }
+
+  /* Catch the specific class names MFL uses for hint/help boxes —
+     these tend to carry inline color via stylesheet rules that
+     would still win over the broad rule above. Force-override
+     every common name + their descendants.
+
+     CONFIRMED MFL MARKUP (from a 2026-05-20 inspection of the
+     auction-settings page):
+       <tr id="row_hint_AUCTION_TYPE">
+         <td class="tdalert tdalert-info-table">
+           <span><b>Hint:</b> Changing these values...</span>
+         </td>
+       </tr>
+     The .tdalert / .tdalert-info-table + the row_hint_ id attribute
+     give us two reliable signals to target. */
+  body .hint, body .hint *,
+  body .note, body .note *,
+  body .help, body .help *,
+  body .help_text, body .help_text *,
+  body .helpbox, body .helpbox *,
+  body .helphint, body .helphint *,
+  body .formhint, body .formhint *,
+  body .tdalert, body .tdalert *,
+  body .tdalert-info-table, body .tdalert-info-table *,
+  body tr[id^="row_hint_"], body tr[id^="row_hint_"] *,
+  body [class*="hint"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]),
+  body [class*="hint"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]) *,
+  body [class*="note"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]),
+  body [class*="note"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]) *,
+  body [class*="tdalert"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]),
+  body [class*="tdalert"]:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]) * {
+    color: var(--ups-text, #e8edf5) !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * Auction Bid (O=43) — comprehensive UPS dark-theme overlay v2
+   *
+   * Replaces the earlier Phase 4.1 block (which used wrong CSS var
+   * names — `--ups-accent` is GOLD #f0c465, not blue). v2 uses the
+   * actual outer-page vars defined in :root: --ups-btn-bg (blue
+   * buttons), --ups-th-bg (table headers), --ups-row-odd/even (row
+   * alternation), --ups-caption-bg (table captions).
+   *
+   * Targets: page chrome, all .report tables, .reportnavigation
+   * (THE hint container — was completely unstyled), form inputs +
+   * submits + buttons, player picker, status indicators.
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Page chrome */
+  body[id^="body_options_43"],
+  body[id^="body_options_43"] .pagebody,
+  body[id^="body_options_43"] #options_43,
+  body[id^="body_options_43"] #container-wrap {
+    background: var(--ups-bg, #0b1220) !important;
+    color: var(--ups-text, #e8effa) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  }
+  body[id^="body_options_43"] table.pageheader {
+    background: var(--ups-surface, #111b2e) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-radius: 6px !important;
+    margin-bottom: 16px !important;
+  }
+  body[id^="body_options_43"] .brandlogo,
+  body[id^="body_options_43"] .pagetitle,
+  body[id^="body_options_43"] .welcome,
+  body[id^="body_options_43"] .bannerimage {
+    background: var(--ups-surface, #111b2e) !important;
+    color: var(--ups-text, #e8effa) !important;
+    border: none !important;
+  }
+  body[id^="body_options_43"] .pagetitle h1 {
+    color: var(--ups-text, #e8effa) !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    margin: 0 !important;
+  }
+  body[id^="body_options_43"] .welcome a {
+    color: var(--ups-link, #8ec4ff) !important;
+    text-decoration: none !important;
+  }
+  body[id^="body_options_43"] .welcome a:hover {
+    color: var(--ups-link-hover, #c0deff) !important;
+    text-decoration: underline !important;
+  }
+
+  /* All .report tables — financial summary, auction state, picker */
+  body[id^="body_options_43"] table.report {
+    background: var(--ups-surface, #111b2e) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-radius: 8px !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    overflow: hidden !important;
+    margin: 12px 0 16px !important;
+    color: var(--ups-text, #e8effa) !important;
+  }
+  body[id^="body_options_43"] table.report caption {
+    background: var(--ups-caption-bg, linear-gradient(135deg, #0f1728 0%, #1c3359 60%, #204f73 100%)) !important;
+    color: var(--ups-text, #e8effa) !important;
+    padding: 12px 16px !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    border-bottom: 1px solid var(--ups-border, #27476f) !important;
+    caption-side: top !important;
+    text-align: left !important;
+  }
+  body[id^="body_options_43"] table.report th,
+  body[id^="body_options_43"] table.report thead th {
+    background: var(--ups-th-bg, #152742) !important;
+    color: var(--ups-muted, #9fb3d1) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    padding: 10px 12px !important;
+    border-bottom: 1px solid var(--ups-border, #27476f) !important;
+    text-align: left !important;
+  }
+  body[id^="body_options_43"] table.report th a {
+    color: var(--ups-muted, #9fb3d1) !important;
+    text-decoration: none !important;
+  }
+  body[id^="body_options_43"] table.report th a:hover {
+    color: var(--ups-link, #8ec4ff) !important;
+  }
+  body[id^="body_options_43"] table.report tr.oddtablerow {
+    background: var(--ups-row-odd, #111f35) !important;
+  }
+  body[id^="body_options_43"] table.report tr.eventablerow {
+    background: var(--ups-row-even, #0f1b30) !important;
+  }
+  body[id^="body_options_43"] table.report tr:hover {
+    background: var(--ups-surface-alt, #16253f) !important;
+  }
+  body[id^="body_options_43"] table.report td {
+    background: transparent !important;
+    color: var(--ups-text, #e8effa) !important;
+    padding: 10px 12px !important;
+    border-bottom: 1px solid var(--ups-td-border, #203a5d) !important;
+    font-size: 13px !important;
+  }
+  body[id^="body_options_43"] table.report td a {
+    color: var(--ups-link, #8ec4ff) !important;
+    text-decoration: none !important;
+  }
+  body[id^="body_options_43"] table.report td a:hover {
+    color: var(--ups-link-hover, #c0deff) !important;
+    text-decoration: underline !important;
+  }
+  body[id^="body_options_43"] td.salary {
+    font-variant-numeric: tabular-nums !important;
+    font-weight: 700 !important;
+    color: var(--ups-text, #e8effa) !important;
+    text-align: right !important;
+  }
+
+  /* THE CRITICAL FIX — .reportnavigation is MFL's hint container.
+     Was completely unstyled before so the text rendered invisible
+     against the dark theme. Now a proper info-box with the "Hint:"
+     label highlighted in gold. */
+  body[id^="body_options_43"] .reportnavigation {
+    display: block !important;
+    padding: 10px 14px !important;
+    margin: 8px 0 !important;
+    background: var(--ups-surface, #111b2e) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-left: 3px solid var(--ups-accent, #f0c465) !important;
+    border-radius: 4px !important;
+    color: var(--ups-text, #e8effa) !important;
+    font-size: 12px !important;
+    line-height: 1.6 !important;
+  }
+  body[id^="body_options_43"] .reportnavigationheader {
+    display: inline !important;
+    color: var(--ups-accent, #f0c465) !important;
+    font-weight: 700 !important;
+    margin-right: 6px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    font-size: 11px !important;
+  }
+  body[id^="body_options_43"] .reportnavigation b,
+  body[id^="body_options_43"] .reportnavigation strong {
+    color: var(--ups-text, #e8effa) !important;
+    font-weight: 700 !important;
+  }
+  body[id^="body_options_43"] .reportnavigation .warning {
+    color: var(--ups-warning, #d33642) !important;
+    background: rgba(211, 54, 66, 0.12) !important;
+    padding: 1px 5px !important;
+    border-radius: 3px !important;
+    font-weight: 600 !important;
+  }
+  /* Hint inside a TD — slightly tighter margins */
+  body[id^="body_options_43"] td .reportnavigation,
+  body[id^="body_options_43"] tr .reportnavigation {
+    margin: 4px 0 !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+   * TOS .alert.alert-info-body mirror (2026-05-20)
+   *
+   * theeohiostate's footer.js rewrites MFL's <span class="reportnavigation">
+   * into <span class="alert alert-info-body"> at runtime, so our
+   * .reportnavigation rules above never light up the post-transform DOM
+   * on auction pages. Mirror the dark-info treatment onto the
+   * transformed class so the Hint blocks render correctly regardless of
+   * whether the TOS transform ran. (See docs/mfl_native/lessons_from_
+   * theeohiostate.md — anti-pattern #1 documents the transform; we
+   * style its output rather than fight it until TOS is staged out.)
+   * ───────────────────────────────────────────────────────────────── */
+  body[id^="body_options_43"] .alert.alert-info-body,
+  body[id^="body_options_43"] span.alert-info-body {
+    display: block !important;
+    padding: 10px 14px !important;
+    margin: 8px 0 !important;
+    background: var(--ups-surface, #111b2e) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-left: 3px solid var(--ups-accent, #f0c465) !important;
+    border-radius: 4px !important;
+    color: var(--ups-text, #e8effa) !important;
+    font-size: 12px !important;
+    line-height: 1.6 !important;
+  }
+  body[id^="body_options_43"] .alert.alert-info-body .reportnavigationheader,
+  body[id^="body_options_43"] .alert.alert-info-body .alert-info-header,
+  body[id^="body_options_43"] .alert.alert-info-body > strong:first-child,
+  body[id^="body_options_43"] .alert.alert-info-body > b:first-child {
+    display: inline !important;
+    color: var(--ups-accent, #f0c465) !important;
+    font-weight: 700 !important;
+    margin-right: 6px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    font-size: 11px !important;
+  }
+  body[id^="body_options_43"] .alert.alert-info-body b,
+  body[id^="body_options_43"] .alert.alert-info-body strong {
+    color: var(--ups-text, #e8effa) !important;
+    font-weight: 700 !important;
+  }
+  body[id^="body_options_43"] .alert.alert-info-body .warning {
+    color: var(--ups-warning, #d33642) !important;
+    background: rgba(211, 54, 66, 0.12) !important;
+    padding: 1px 5px !important;
+    border-radius: 3px !important;
+    font-weight: 600 !important;
+  }
+  body[id^="body_options_43"] td .alert.alert-info-body,
+  body[id^="body_options_43"] tr .alert.alert-info-body {
+    margin: 4px 0 !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+   * Phase A — white-gap closure + visual feel match to .ah-* hub
+   * 2026-05-20.
+   *
+   * White gaps were leaking through because MFL wraps content in
+   * <form>, <p>, and unclassed <div>/<span> blocks whose default
+   * white background showed through between our styled .report
+   * tables. Solution: paint every block-level descendant that doesn't
+   * already have an explicit background — and tighten typography to
+   * the auction hub treatment (system font 14px, uppercase muted
+   * sub-captions, 8px container radii).
+   * ───────────────────────────────────────────────────────────────── */
+
+  /* html + body — guarantee no white leak ever, including the
+     overflow zone past the page bottom. */
+  html:has(body[id^="body_options_43"]),
+  body[id^="body_options_43"] {
+    background: var(--ups-bg, #0b1220) !important;
+  }
+
+  /* Every block-level wrapper MFL emits between sections. Painting
+     transparent inherits the body's dark — but also explicitly setting
+     --ups-bg covers any element whose parent isn't body (e.g. a div
+     in a div). Excludes our themed classes so we don't repaint cards. */
+  body[id^="body_options_43"] form,
+  body[id^="body_options_43"] fieldset,
+  body[id^="body_options_43"] > div:not(.myfantasyleague_menu),
+  body[id^="body_options_43"] .pagebody > p,
+  body[id^="body_options_43"] .pagebody > div:not(.report):not(.alert):not(.alert-info-body):not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]) {
+    background: var(--ups-bg, #0b1220) !important;
+    color: var(--ups-text, #e8effa) !important;
+  }
+
+  /* <p> tags on O=43 — tighten margin so consecutive blocks don't
+     leave a tall stripe; paragraph text inherits surface dark. */
+  body[id^="body_options_43"] p {
+    background: transparent !important;
+    color: var(--ups-text, #e8effa) !important;
+    margin: 8px 0 !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Empty <p>/<br> wrappers MFL leaves between sections show as
+     blank stripes; squash to zero height when they have no text. */
+  body[id^="body_options_43"] p:empty,
+  body[id^="body_options_43"] br + br {
+    display: none !important;
+  }
+
+  /* Section captions (the "START AUCTIONING…" / "SELECT A PLAYER…"
+     rows) — already get .report > caption styling above. Tighten
+     a notch to match .ah-card h2 (uppercase, muted, 13px). */
+  body[id^="body_options_43"] table.report caption {
+    background: var(--ups-caption-bg, linear-gradient(135deg, #0f1728 0%, #1c3359 60%, #204f73 100%)) !important;
+    color: var(--ups-text, #e8effa) !important;
+    padding: 12px 16px !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    border-bottom: 1px solid var(--ups-border, #27476f) !important;
+    caption-side: top !important;
+    text-align: left !important;
+    border-radius: 8px 8px 0 0 !important;
+  }
+
+  /* MFL's secondary section header (e.g. "Select A Player Before
+     Submitting Auction Bid") often lives in a <td> as a row spanning
+     the table width. Style it as a sub-caption strip. */
+  body[id^="body_options_43"] table.report tr.eventablerow td[colspan]:first-child:only-child,
+  body[id^="body_options_43"] table.report tr.oddtablerow td[colspan]:first-child:only-child {
+    background: var(--ups-th-bg, #152742) !important;
+    color: var(--ups-muted, #9fb3d1) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    padding: 8px 16px !important;
+  }
+
+  /* Make the report tables share .ah-card's exact 16px outer rhythm so
+     stacked tables align with the auction hub iframe living above
+     them. */
+  body[id^="body_options_43"] table.report {
+    margin: 0 0 16px !important;
+    width: 100% !important;
+    max-width: 1400px !important;
+  }
+
+  /* Body typography matches .ah-main: system font, 14px, 1.5 leading.
+     Existing rule sets the family on the body wrapper; add size +
+     leading explicitly to override MFL's defaults. */
+  body[id^="body_options_43"],
+  body[id^="body_options_43"] td,
+  body[id^="body_options_43"] th {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+  }
+  body[id^="body_options_43"] table.report th {
+    font-size: 11px !important;
+  }
+  body[id^="body_options_43"] table.report td {
+    font-size: 13px !important;
+  }
+
+  /* Cells that wrap form inputs (e.g. Opening Bid, Comments) — kill
+     the alt-row striping in those contexts so the input doesn't
+     sit on a different shade than its label. */
+  body[id^="body_options_43"] table.report tr:has(input[type="text"]) td,
+  body[id^="body_options_43"] table.report tr:has(textarea) td,
+  body[id^="body_options_43"] table.report tr:has(select) td {
+    background: var(--ups-surface, #111b2e) !important;
+  }
+
+  /* Form inputs / selects / textareas */
+  body[id^="body_options_43"] input[type="text"],
+  body[id^="body_options_43"] input[type="password"],
+  body[id^="body_options_43"] input[type="email"],
+  body[id^="body_options_43"] input[type="number"],
+  body[id^="body_options_43"] select,
+  body[id^="body_options_43"] textarea {
+    background: var(--ups-surface-alt, #16253f) !important;
+    color: var(--ups-text, #e8effa) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-radius: 4px !important;
+    padding: 6px 10px !important;
+    font-size: 13px !important;
+    font-family: inherit !important;
+  }
+  body[id^="body_options_43"] input[type="text"]:focus,
+  body[id^="body_options_43"] input[type="password"]:focus,
+  body[id^="body_options_43"] input[type="email"]:focus,
+  body[id^="body_options_43"] input[type="number"]:focus,
+  body[id^="body_options_43"] select:focus,
+  body[id^="body_options_43"] textarea:focus {
+    outline: none !important;
+    border-color: var(--ups-accent, #f0c465) !important;
+    box-shadow: 0 0 0 2px rgba(240, 196, 101, 0.18) !important;
+  }
+  body[id^="body_options_43"] textarea {
+    resize: vertical !important;
+  }
+  body[id^="body_options_43"] .inputlabel {
+    color: var(--ups-muted, #9fb3d1) !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    display: block !important;
+    margin-bottom: 4px !important;
+    font-weight: 500 !important;
+  }
+
+  /* Submit / button — uses the UPS button blue, not the gold accent.
+     CRITICAL: this is the bid-submit button. Don't break visibility. */
+  body[id^="body_options_43"] input[type="submit"],
+  body[id^="body_options_43"] button[type="submit"],
+  body[id^="body_options_43"] input[type="button"],
+  body[id^="body_options_43"] button:not(.ups-quickbid-btn) {
+    background: var(--ups-btn-bg, #1f4d93) !important;
+    color: var(--ups-btn-text, #ffffff) !important;
+    border: 1px solid var(--ups-btn-border, #4a75b7) !important;
+    padding: 8px 16px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    font-family: inherit !important;
+    letter-spacing: 0.02em !important;
+    transition: filter 120ms !important;
+  }
+  body[id^="body_options_43"] input[type="submit"]:hover,
+  body[id^="body_options_43"] button[type="submit"]:hover,
+  body[id^="body_options_43"] input[type="button"]:hover,
+  body[id^="body_options_43"] button:not(.ups-quickbid-btn):hover {
+    filter: brightness(1.15) !important;
+  }
+  body[id^="body_options_43"] input[type="submit"]:disabled,
+  body[id^="body_options_43"] button:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    filter: none !important;
+  }
+  body[id^="body_options_43"] .form_buttons {
+    background: var(--ups-surface, #111b2e) !important;
+    padding: 12px !important;
+    text-align: center !important;
+  }
+
+  /* Quick-bid buttons (Phase 4.3) — outlined gold accent, distinct
+     from the main submit blue. Pre-styled here so they appear the
+     moment the JS injects them. */
+  body[id^="body_options_43"] .ups-quickbid-btn {
+    background: transparent !important;
+    color: var(--ups-accent, #f0c465) !important;
+    border: 1px solid var(--ups-accent, #f0c465) !important;
+    padding: 4px 10px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    margin-left: 4px !important;
+    font-family: inherit !important;
+  }
+  body[id^="body_options_43"] .ups-quickbid-btn:hover {
+    background: var(--ups-accent, #f0c465) !important;
+    color: var(--ups-accent-ink, #102a55) !important;
+  }
+
+  /* Status indicators */
+  body[id^="body_options_43"] .warning:not(.reportnavigation .warning) {
+    color: var(--ups-warning, #d33642) !important;
+    font-weight: 600 !important;
+  }
+  body[id^="body_options_43"] .positive,
+  body[id^="body_options_43"] .success {
+    color: var(--ups-success, #25c37d) !important;
+    font-weight: 600 !important;
+  }
+  body[id^="body_options_43"] .negative,
+  body[id^="body_options_43"] .error {
+    color: var(--ups-danger, #e36572) !important;
+    font-weight: 600 !important;
+  }
+  body[id^="body_options_43"] .injurystatus {
+    color: var(--ups-warning, #d33642) !important;
+    font-weight: 700 !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+   * Phase B-lite — inline player picker (2026-05-20)
+   *
+   * O=43's auction-nominate form (form#AddDropForm) is an inline
+   * searchable table of ~1000+ players. Each row has a small <Add>
+   * button; clicking writes player_id into the hidden #sel_pid input
+   * (name="PLAYER_PICK") and submits. There's NO popup — the whole
+   * picker is rendered inline. Style it to feel like an .ah-card so
+   * it visually matches the auction-hub iframe rendered above it.
+   *
+   * Full side-mount drawer pivot is deferred to a separate scoped
+   * session (Phase C) — needs MFL player feed + search + on-pick
+   * animation work that doesn't fit a CSS-only pass.
+   * ───────────────────────────────────────────────────────────────── */
+  body[id^="body_options_43"] form#AddDropForm {
+    background: var(--ups-surface, #111b2e) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-radius: 8px !important;
+    padding: 16px !important;
+    margin: 0 0 16px !important;
+    color: var(--ups-text, #e8effa) !important;
+  }
+  body[id^="body_options_43"] form#AddDropForm select#picker_filt_nfl,
+  body[id^="body_options_43"] form#AddDropForm select#position-filter {
+    min-width: 120px !important;
+    margin-right: 6px !important;
+    margin-bottom: 6px !important;
+  }
+  /* The hundreds of <button>Add</button> rows in the picker table.
+     Compact, gold-outline so they stand out from MFL's submit blue. */
+  body[id^="body_options_43"] form#AddDropForm button:not([type="submit"]) {
+    background: transparent !important;
+    color: var(--ups-accent, #f0c465) !important;
+    border: 1px solid var(--ups-accent, #f0c465) !important;
+    padding: 3px 10px !important;
+    border-radius: 3px !important;
+    cursor: pointer !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    font-family: inherit !important;
+    letter-spacing: 0.02em !important;
+    line-height: 1.4 !important;
+    text-transform: uppercase !important;
+    transition: background 100ms, color 100ms !important;
+  }
+  body[id^="body_options_43"] form#AddDropForm button:not([type="submit"]):hover {
+    background: var(--ups-accent, #f0c465) !important;
+    color: var(--ups-accent-ink, #102a55) !important;
+  }
+  body[id^="body_options_43"] form#AddDropForm button:not([type="submit"]):disabled {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+  }
+  /* Inner picker table rows — tighten so 1000 players don't push the
+     page height into the moon. */
+  body[id^="body_options_43"] form#AddDropForm table.report td,
+  body[id^="body_options_43"] form#AddDropForm table.report th {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+  }
+  /* When the picker scrolls in a container with inline overflow style,
+     normalize the chrome. */
+  body[id^="body_options_43"] form#AddDropForm div[style*="overflow"] {
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-radius: 6px !important;
+    background: var(--ups-surface, #111b2e) !important;
+    max-height: 480px !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+   * TOS .add-drop-player-row picker rows (2026-05-20)
+   *
+   * theeohiostate's footer.js renders the player picker as
+   * <div class="add-drop-player-row oddtablerow selected-player">
+   * instead of the bare table rows MFL ships. Their selected state
+   * is rgba(60, 179, 0, 0.1) (pale green wash) — readable on light
+   * theme but unreadable on dark. Repaint dark + use a green LEFT
+   * BORDER as the "selected" indicator so the semantic stays.
+   *
+   * Classes come from mflscripts.com — confirmed by the
+   * "https://www.mflscripts.com/playerImages_80x107/" img src.
+   * ───────────────────────────────────────────────────────────────── */
+  /* Specificity-matched to beat light.css. Diagnostic confirmed
+     TOS uses .add-player-container .add-drop-player-row* (0,3,0).
+     Including .add-player-container in our chain → 0,4,1 — wins
+     regardless of source order or !important. */
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row {
+    background: var(--ups-row-odd, #111f35) !important;
+    background-color: var(--ups-row-odd, #111f35) !important;
+    color: var(--ups-text, #e8effa) !important;
+    border-bottom: 1px solid var(--ups-td-border, #203a5d) !important;
+  }
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row.eventablerow {
+    background: var(--ups-row-even, #0f1b30) !important;
+    background-color: var(--ups-row-even, #0f1b30) !important;
+  }
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row.oddtablerow {
+    background: var(--ups-row-odd, #111f35) !important;
+    background-color: var(--ups-row-odd, #111f35) !important;
+  }
+  /* Selected state — dark fill + green left stripe (semantic preserved) */
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row.selected-player {
+    background: var(--ups-surface-alt, #16253f) !important;
+    background-color: var(--ups-surface-alt, #16253f) !important;
+    border-left: 3px solid var(--ups-success, #25c37d) !important;
+  }
+  /* Hover — surface-alt dark, beats TOS's green wash */
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row:hover,
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row.hover,
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row.is-hovered {
+    background: var(--ups-surface-alt, #16253f) !important;
+    background-color: var(--ups-surface-alt, #16253f) !important;
+  }
+  /* Selected + hover composed — keep green stripe AND dark fill */
+  body[id^="body_options_43"] .add-player-container .add-drop-player-row.selected-player:hover {
+    background: var(--ups-surface-alt, #16253f) !important;
+    background-color: var(--ups-surface-alt, #16253f) !important;
+    border-left: 3px solid var(--ups-success, #25c37d) !important;
+  }
+  /* Defensive fallbacks (no .add-player-container wrapper) — kept at
+     lower specificity in case TOS ever refactors away the wrapper */
+  body[id^="body_options_43"] .add-drop-player-row.selected-player {
+    background: var(--ups-surface-alt, #16253f) !important;
+    border-left: 3px solid var(--ups-success, #25c37d) !important;
+  }
+  body[id^="body_options_43"] .add-drop-player-row:hover {
+    background: var(--ups-surface-alt, #16253f) !important;
+  }
+  /* All text inside the picker row inherits the light text token —
+     defeats whatever inline color TOS may apply to player names
+     under the now-dark surface. */
+  body[id^="body_options_43"] .add-drop-player-row,
+  body[id^="body_options_43"] .add-drop-player-row * {
+    color: var(--ups-text, #e8effa) !important;
+  }
+  /* TOS marks projection-points cells with weak grey — bump to muted
+     so the value stays visible on dark. */
+  body[id^="body_options_43"] .add-drop-player-row [class*="proj"],
+  body[id^="body_options_43"] .add-drop-player-row [class*="rank"],
+  body[id^="body_options_43"] .add-drop-player-row [class*="bye"] {
+    color: var(--ups-muted, #9fb3d1) !important;
+  }
+  /* Helmet image wrappers — round + thin border to match avatar treatment */
+  body[id^="body_options_43"] .add-drop-player-row .player-img-wrapper-clippler {
+    border: 1px solid var(--ups-border, #27476f) !important;
+    border-radius: 50% !important;
+    overflow: hidden !important;
+  }
+
+  /* Lock-status legend (#locked-msg) — TOS renders the "[L] Locked: ...
+     # Locked: Global ... * Locked: Recently Dropped" key below the
+     picker. Element has no class hooks; target by ID. Inherits page
+     default #000 on dark background → unreadable without an override. */
+  body[id^="body_options_43"] #locked-msg,
+  body[id^="body_options_43"] #locked-msg * {
+    color: var(--ups-text, #e8effa) !important;
+  }
+  body[id^="body_options_43"] #locked-msg b {
+    color: var(--ups-accent, #f0c465) !important;
+    font-weight: 700 !important;
+  }
+  body[id^="body_options_43"] #locked-msg a {
+    color: var(--ups-link, #8ec4ff) !important;
+    text-decoration: none !important;
+  }
+  body[id^="body_options_43"] #locked-msg a:hover {
+    color: var(--ups-link-hover, #c0deff) !important;
+    text-decoration: underline !important;
+  }
+
+  /* Player picker table */
+  body[id^="body_options_43"] table.pickerbox {
+    background: var(--ups-surface, #111b2e) !important;
+    border: 1px solid var(--ups-border, #27476f) !important;
+    color: var(--ups-text, #e8effa) !important;
+  }
+  body[id^="body_options_43"] table.pickerbox th {
+    background: var(--ups-th-bg, #152742) !important;
+    color: var(--ups-muted, #9fb3d1) !important;
+    border-bottom: 1px solid var(--ups-border, #27476f) !important;
+    padding: 8px 10px !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+  }
+  body[id^="body_options_43"] table.pickerbox td {
+    padding: 6px 8px !important;
+    color: var(--ups-text, #e8effa) !important;
+    border-bottom: 1px solid var(--ups-td-border, #203a5d) !important;
+  }
+  body[id^="body_options_43"] table.pickerbox tr:hover {
+    background: var(--ups-surface-alt, #16253f) !important;
+  }
+  body[id^="body_options_43"] table.pickerbox a {
+    color: var(--ups-link, #8ec4ff) !important;
+    text-decoration: none !important;
+  }
+  body[id^="body_options_43"] table.pickerbox a:hover {
+    color: var(--ups-link-hover, #c0deff) !important;
+    text-decoration: underline !important;
+  }
+  /* Scrollable container around the picker */
+  body[id^="body_options_43"] div[style*="overflow: auto"] {
+    border-color: var(--ups-border, #27476f) !important;
+    background: var(--ups-surface, #111b2e) !important;
+  }
+
+  /* Player position pills (.position_qb, .position_rb, etc.) */
+  body[id^="body_options_43"] a[class^="position_"],
+  body[id^="body_options_43"] [class^="position_"] {
+    color: var(--ups-link, #8ec4ff) !important;
+    font-weight: 600 !important;
+  }
+
+  /* Franchise badge cell — restraining oversized icons */
+  body[id^="body_options_43"] .franchiseicon {
+    max-width: 32px !important;
+    height: auto !important;
+    border-radius: 4px !important;
+    vertical-align: middle !important;
+  }
+  body[id^="body_options_43"] [class^="franchise_"] {
+    color: var(--ups-link, #8ec4ff) !important;
+  }
+
+  /* Typography niceties */
+  body[id^="body_options_43"] p,
+  body[id^="body_options_43"] span,
+  body[id^="body_options_43"] label,
+  body[id^="body_options_43"] td,
+  body[id^="body_options_43"] li {
+    color: var(--ups-text, #e8effa);
+  }
+  body[id^="body_options_43"] b,
+  body[id^="body_options_43"] strong {
+    color: var(--ups-report-strong, #ffffff) !important;
+    font-weight: 700 !important;
+  }
+  body[id^="body_options_43"] i,
+  body[id^="body_options_43"] em {
+    color: var(--ups-muted, #9fb3d1) !important;
+  }
+  body[id^="body_options_43"] h1,
+  body[id^="body_options_43"] h2,
+  body[id^="body_options_43"] h3 {
+    color: var(--ups-text, #e8effa) !important;
+  }
+  body[id^="body_options_43"] hr {
+    border: none !important;
+    border-top: 1px solid var(--ups-border, #27476f) !important;
+    margin: 12px 0 !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+   * MFL native-page styling gap fillers (2026-05-20)
+   *
+   * Catches 7 patterns identified by a league-wide audit (Explore
+   * agent covered 12 public MFL pages + the captured Commish-Tools
+   * dump). These are classes our universal text-color sweep doesn't
+   * reach because they carry explicit background/color rules from
+   * MFL's stylesheet at higher specificity.
+   *
+   * Audit source: Lineups O=07 (cap rows + injury), Auction O=43 +
+   * Taxi O=98 (form labels + buttons), report-style pages (footers).
+   *
+   * Same exclusion mask as the rest of the universal block so no
+   * UPS-injected component class gets touched.
+   * ───────────────────────────────────────────────────────────────── */
+
+  /* Salary summary rows (Lineups O=07) — show totals at table bottom */
+  body tr.salary_cap_row:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]),
+  body tr.total_salary_row:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]),
+  body tr.cap_room_available_row:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]):not([class*="tops-"]):not([class*="twb-"]):not([class*="rwb-"]):not([class*="lmb-"]) {
+    background: var(--ups-surface-alt, #1a2230) !important;
+    color: var(--ups-text, #e8edf5) !important;
+  }
+  body tr.salary_cap_row td:not([class*="ups-"]),
+  body tr.total_salary_row td:not([class*="ups-"]),
+  body tr.cap_room_available_row td:not([class*="ups-"]) {
+    background: transparent !important;
+    color: var(--ups-text, #e8edf5) !important;
+    border-bottom: 1px solid var(--ups-border, #2a3446) !important;
+  }
+
+  /* Injury status indicator (Lineups O=07) — was washed grey on dark */
+  body .injurystatus:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]) {
+    color: var(--ups-text, #e8edf5) !important;
+    opacity: 1 !important;
+  }
+
+  /* Form labels (Auction O=43, Taxi O=98, generic forms) */
+  body label.inputlabel:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]),
+  body .inputlabel:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]) {
+    color: var(--ups-text, #e8edf5) !important;
+    display: block !important;
+    margin-bottom: 4px !important;
+    font-weight: 500 !important;
+  }
+
+  /* Form button containers — covers any form on any MFL page that uses
+     the standard `<td class="form_buttons">` wrapper, not just O=43 */
+  body td.form_buttons:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]) {
+    background: transparent !important;
+    color: var(--ups-text, #e8edf5) !important;
+  }
+  body .form_buttons input[type="submit"],
+  body .form_buttons button {
+    background: var(--ups-accent, #5b8dff) !important;
+    color: white !important;
+    border: 1px solid var(--ups-accent, #5b8dff) !important;
+    padding: 6px 12px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+  }
+  body .form_buttons input[type="submit"]:hover,
+  body .form_buttons button:hover {
+    filter: brightness(1.15) !important;
+  }
+
+  /* Report footer rows (totals row at bottom of report-style tables) */
+  body tr.reportfooter:not([class*="ups-"]):not([class*="ah-"]):not([class*="rdh-"]):not([class*="ccc-"]) {
+    background: var(--ups-surface-alt, #1a2230) !important;
+  }
+  body tr.reportfooter td:not([class*="ups-"]) {
+    color: var(--ups-muted, #8a97ad) !important;
+    font-weight: 600 !important;
+    border-top: 2px solid var(--ups-border, #2a3446) !important;
+    border-bottom: none !important;
+  }
+
+  /* Generic form controls on non-O=43 pages — radios, checkboxes,
+     selects. accent-color sets the radio/checkbox tick color too. */
+  body input[type="radio"]:not([class*="ups-"]):not([class*="ah-"]),
+  body input[type="checkbox"]:not([class*="ups-"]):not([class*="ah-"]),
+  body select:not([class*="ups-"]):not([class*="ah-"]) {
+    accent-color: var(--ups-accent, #5b8dff) !important;
+    background: var(--ups-surface-alt, #1a2230) !important;
+    color: var(--ups-text, #e8edf5) !important;
+    border: 1px solid var(--ups-border, #2a3446) !important;
+    border-radius: 3px !important;
+  }
+  body select:not([class*="ups-"]):not([class*="ah-"]) option {
+    background: var(--ups-bg, #0b0f18) !important;
+    color: var(--ups-text, #e8edf5) !important;
   }
 </style>
+
+<script>
+  // ─── O=43 picker + #locked-msg inline-style painter ────────────────────
+  // Last-resort nuclear override: inline element.style.setProperty(..., 'important')
+  // beats EVERYTHING in author CSS — no specificity war can win against it.
+  //
+  // Why we need this: TOS's light.css ships .add-player-container
+  // .add-drop-player-row* rules with similar specificity + loaded after
+  // our <style> block, so they win the cascade. Inline !important styles
+  // bypass the cascade entirely.
+  //
+  // Scoped strictly to body_options_43 — does nothing on any other page.
+  // ───────────────────────────────────────────────────────────────────────
+  (function () {
+    if (!document.body || !/^body_options_43/.test(document.body.id || "")) {
+      // Page not loaded yet OR not the right page — try once at DOM ready then bail
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function () {
+          if (/^body_options_43/.test(document.body.id || "")) initO43Painter();
+        });
+      }
+      return;
+    }
+    initO43Painter();
+
+    function initO43Painter() {
+      // Token values mirror our :root --ups-* CSS vars so the painted styles
+      // match the rest of the dark theme.
+      var TOK = {
+        rowOdd:     "#111f35",  // --ups-row-odd
+        rowEven:    "#0f1b30",  // --ups-row-even
+        surface:    "#111b2e",  // --ups-surface
+        surfaceAlt: "#16253f",  // --ups-surface-alt
+        text:       "#e8effa",  // --ups-text
+        border:     "#27476f",  // --ups-border
+        success:    "#25c37d",  // --ups-success
+        accent:     "#f0c465",  // --ups-accent
+      };
+
+      function paintRow(row, isHovered) {
+        if (!row || !row.style) return;
+        var isSel = row.classList.contains("selected-player");
+        var isEven = row.classList.contains("eventablerow");
+        var bg = (isSel || isHovered) ? TOK.surfaceAlt : (isEven ? TOK.rowEven : TOK.rowOdd);
+        row.style.setProperty("background", bg, "important");
+        row.style.setProperty("background-color", bg, "important");
+        if (isSel) {
+          row.style.setProperty("border-left", "3px solid " + TOK.success, "important");
+        } else {
+          row.style.removeProperty("border-left");
+        }
+        row.style.setProperty("color", TOK.text, "important");
+      }
+
+      function paintLockedMsg() {
+        var lock = document.getElementById("locked-msg");
+        if (!lock) return;
+        lock.style.setProperty("display", "block", "important");
+        lock.style.setProperty("background", TOK.surface, "important");
+        lock.style.setProperty("background-color", TOK.surface, "important");
+        lock.style.setProperty("color", TOK.text, "important");
+        lock.style.setProperty("border", "1px solid " + TOK.border, "important");
+        lock.style.setProperty("border-radius", "6px", "important");
+        lock.style.setProperty("padding", "10px 14px", "important");
+        lock.style.setProperty("margin", "8px 0 12px", "important");
+        lock.style.setProperty("font-size", "12px", "important");
+        lock.style.setProperty("line-height", "1.6", "important");
+        // Sigils ([L], #, *) — gold accent
+        lock.querySelectorAll("b").forEach(function (b) {
+          b.style.setProperty("color", TOK.accent, "important");
+          b.style.setProperty("background", "transparent", "important");
+          b.style.setProperty("font-weight", "700", "important");
+        });
+        // Direct text nodes — light. We can't style text nodes, but we
+        // can set color on the parent + all children.
+        lock.style.setProperty("color", TOK.text, "important");
+        lock.querySelectorAll("a").forEach(function (a) {
+          a.style.setProperty("color", "#8ec4ff", "important"); // --ups-link
+          a.style.setProperty("background", "transparent", "important");
+        });
+      }
+
+      function sweepAll() {
+        document.querySelectorAll(".add-drop-player-row").forEach(function (row) {
+          paintRow(row, false);
+        });
+        paintLockedMsg();
+      }
+
+      // Initial sweep — handle anything already in the DOM
+      sweepAll();
+
+      // Periodic sweep for late-rendered rows. TOS finishes its DOM
+      // injection within a few seconds; we keep sweeping for 30s to be
+      // safe, then stop.
+      var sweepInterval = setInterval(sweepAll, 750);
+      setTimeout(function () { clearInterval(sweepInterval); }, 30000);
+
+      // Delegated hover handlers — work for any row, even ones rendered
+      // after we bind. Capture phase so we beat any TOS handlers.
+      document.addEventListener("mouseover", function (e) {
+        var row = e.target.closest && e.target.closest(".add-drop-player-row");
+        if (row) paintRow(row, true);
+      }, true);
+      document.addEventListener("mouseout", function (e) {
+        var row = e.target.closest && e.target.closest(".add-drop-player-row");
+        if (row) paintRow(row, false);
+      }, true);
+
+      // Re-paint after any class change on a row (TOS toggles
+      // .selected-player when user clicks Add/Deselect).
+      if (window.MutationObserver) {
+        var obs = new MutationObserver(function (records) {
+          for (var i = 0; i < records.length; i += 1) {
+            var t = records[i].target;
+            if (t && t.classList && t.classList.contains("add-drop-player-row")) {
+              paintRow(t, false);
+            }
+            // Newly-added rows too
+            var added = records[i].addedNodes;
+            for (var j = 0; j < added.length; j += 1) {
+              var n = added[j];
+              if (!n || n.nodeType !== 1) continue;
+              if (n.classList && n.classList.contains("add-drop-player-row")) paintRow(n, false);
+              else if (n.querySelectorAll) {
+                n.querySelectorAll(".add-drop-player-row").forEach(function (r) { paintRow(r, false); });
+              }
+              if (n.id === "locked-msg") paintLockedMsg();
+            }
+          }
+        });
+        obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+        // Stop after 60s — TOS doesn't touch the DOM after that
+        setTimeout(function () { try { obs.disconnect(); } catch (e) {} }, 60000);
+      }
+    }
+  })();
+</script>
+
+<style id="ups-picker-drawer-style">
+  /* ── Phase C: Side-mount Player Picker Drawer (O=43) ──────────────────
+     Replaces MFL's inline picker on the auction nomination form with a
+     right-mounted slide-in drawer styled like the Front Office MPM.
+     Hides MFL's row list + filters when the drawer trigger is present;
+     keeps the form fields (#sel_pid + submit) live so the drawer can
+     hook into the existing wiring by triggering the original "Add"
+     button click on the selected player. */
+
+  /* Hide MFL's inline picker once we know the drawer trigger rendered.
+     Triggered by adding .ups-picker-drawer-active to the body. */
+  body.ups-picker-drawer-active.ah-body-fallback,  /* fallback no-op selector */
+  body[id^="body_options_43"].ups-picker-drawer-active .add-player-container,
+  body[id^="body_options_43"].ups-picker-drawer-active select#picker_filt_nfl,
+  body[id^="body_options_43"].ups-picker-drawer-active select#position-filter,
+  body[id^="body_options_43"].ups-picker-drawer-active form#AddDropForm > div[class*="filter"] {
+    display: none !important;
+  }
+
+  /* Trigger button — sits where the inline picker filter row used to be */
+  .ups-picker-trigger {
+    display: block !important;
+    width: 100%;
+    background: var(--ups-btn-bg, #1f4d93);
+    color: var(--ups-btn-text, #ffffff);
+    border: 1px solid var(--ups-btn-border, #4a75b7);
+    border-radius: 4px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    margin: 16px 0;
+    letter-spacing: 0.02em;
+    transition: filter 120ms;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .ups-picker-trigger:hover { filter: brightness(1.15); }
+  .ups-picker-trigger .ups-picker-trigger-count {
+    margin-left: 8px;
+    opacity: 0.85;
+    font-weight: 500;
+    font-size: 12px;
+  }
+  /* "Selected: Player Name — click to change" trigger state */
+  .ups-picker-trigger.ups-picker-trigger-selected {
+    background: var(--ups-success, #25c37d);
+    color: #08240f;
+    border-color: var(--ups-success, #25c37d);
+  }
+  .ups-picker-trigger-check {
+    margin-right: 6px;
+    font-weight: 900;
+  }
+  .ups-picker-trigger-change {
+    margin-left: 8px;
+    opacity: 0.78;
+    font-weight: 500;
+    font-size: 12px;
+    font-style: italic;
+  }
+
+  /* Drawer row in the "currently selected" state — soft success tint
+     so the picked player floats visually distinct at the top of the
+     list. CTA flips Add → Clear. */
+  .ups-picker-row.ups-picker-row-selected {
+    background: rgba(37, 195, 125, 0.10) !important;
+    border-bottom-color: rgba(37, 195, 125, 0.30) !important;
+  }
+  .ups-picker-row.ups-picker-row-selected:hover {
+    background: rgba(37, 195, 125, 0.18) !important;
+  }
+  .ups-picker-row-selected-badge {
+    margin-left: 8px;
+    color: var(--ups-success, #25c37d);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .ups-picker-row.ups-picker-row-selected .ups-picker-row-cta {
+    color: var(--ups-warning, #d33642);
+    border-color: var(--ups-warning, #d33642);
+  }
+  .ups-picker-row.ups-picker-row-selected .ups-picker-row-cta:hover {
+    background: var(--ups-warning, #d33642);
+    color: var(--ups-accent-ink, #102a55);
+  }
+
+  /* Backdrop — dims the page behind the drawer */
+  .ups-picker-backdrop {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.55);
+    opacity: 0; pointer-events: none;
+    transition: opacity 220ms ease;
+    z-index: 99998;
+  }
+  .ups-picker-backdrop.ups-picker-open { opacity: 1; pointer-events: auto; }
+
+  /* Drawer itself — fixed right rail */
+  .ups-picker-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: min(440px, 100vw);
+    background: var(--ups-bg, #0b1220);
+    border-left: 1px solid var(--ups-border, #27476f);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
+    transform: translateX(100%);
+    transition: transform 250ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    z-index: 99999;
+    display: flex; flex-direction: column;
+    color: var(--ups-text, #e8effa);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .ups-picker-drawer.ups-picker-open { transform: translateX(0); }
+
+  .ups-picker-header {
+    flex: 0 0 auto;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--ups-border, #27476f);
+    background: var(--ups-surface, #111b2e);
+  }
+  .ups-picker-header-row {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .ups-picker-title {
+    font-size: 16px; font-weight: 700;
+    letter-spacing: 0.3px;
+    color: var(--ups-text, #e8effa);
+    margin: 0;
+  }
+  .ups-picker-close {
+    background: transparent;
+    border: 0;
+    color: var(--ups-muted, #9fb3d1);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+    transition: color 120ms;
+  }
+  .ups-picker-close:hover { color: var(--ups-text, #e8effa); }
+
+  .ups-picker-search {
+    width: 100%;
+    background: var(--ups-surface-alt, #16253f);
+    color: var(--ups-text, #e8effa);
+    border: 1px solid var(--ups-border, #27476f);
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    margin-top: 4px;
+  }
+  .ups-picker-search:focus {
+    outline: none;
+    border-color: var(--ups-accent, #f0c465);
+    box-shadow: 0 0 0 2px rgba(240, 196, 101, 0.18);
+  }
+
+  .ups-picker-sort-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 8px;
+  }
+  .ups-picker-sort-label {
+    color: var(--ups-muted, #9fb3d1);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 600;
+  }
+  .ups-picker-sort {
+    flex: 1;
+    background: var(--ups-surface-alt, #16253f);
+    color: var(--ups-text, #e8effa);
+    border: 1px solid var(--ups-border, #27476f);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .ups-picker-sort:focus {
+    outline: none;
+    border-color: var(--ups-accent, #f0c465);
+  }
+
+  .ups-picker-row-supmeta {
+    margin-top: 3px;
+    color: var(--ups-accent, #f0c465);
+    font-size: 10px;
+    letter-spacing: 0.2px;
+  }
+  .ups-picker-row-supmeta strong {
+    color: var(--ups-text, #e8effa);
+    font-weight: 700;
+  }
+
+  .ups-picker-chips {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    margin-top: 8px;
+  }
+  .ups-picker-chip {
+    background: var(--ups-surface-alt, #16253f);
+    color: var(--ups-muted, #9fb3d1);
+    border: 1px solid var(--ups-border, #27476f);
+    border-radius: 10px;
+    padding: 3px 10px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    font-family: inherit;
+    transition: background 120ms, color 120ms, border-color 120ms;
+  }
+  .ups-picker-chip:hover { color: var(--ups-text, #e8effa); }
+  .ups-picker-chip.active {
+    background: var(--ups-accent, #f0c465);
+    color: var(--ups-accent-ink, #102a55);
+    border-color: var(--ups-accent, #f0c465);
+  }
+
+  .ups-picker-meta {
+    margin-top: 8px;
+    color: var(--ups-muted, #9fb3d1);
+    font-size: 11px;
+  }
+
+  .ups-picker-list {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .ups-picker-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--ups-td-border, #203a5d);
+    cursor: pointer;
+    background: var(--ups-row-odd, #111f35);
+    transition: background 100ms;
+  }
+  .ups-picker-row:nth-child(even) { background: var(--ups-row-even, #0f1b30); }
+  .ups-picker-row:hover { background: var(--ups-surface-alt, #16253f); }
+  .ups-picker-row-pos {
+    flex: 0 0 36px;
+    text-align: center;
+    background: var(--ups-th-bg, #152742);
+    color: var(--ups-accent, #f0c465);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    padding: 4px 0;
+    border-radius: 3px;
+  }
+  .ups-picker-row-img {
+    flex: 0 0 40px;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 1px solid var(--ups-border, #27476f);
+    background: var(--ups-surface, #111b2e);
+  }
+  .ups-picker-row-img img { width: 100%; height: 100%; object-fit: cover; }
+  .ups-picker-row-body { flex: 1; min-width: 0; }
+  .ups-picker-row-name {
+    color: var(--ups-text, #e8effa);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .ups-picker-row-meta {
+    color: var(--ups-muted, #9fb3d1);
+    font-size: 11px;
+    margin-top: 2px;
+  }
+  .ups-picker-row-cta {
+    flex: 0 0 auto;
+    background: transparent;
+    color: var(--ups-accent, #f0c465);
+    border: 1px solid var(--ups-accent, #f0c465);
+    border-radius: 3px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .ups-picker-row-cta:hover {
+    background: var(--ups-accent, #f0c465);
+    color: var(--ups-accent-ink, #102a55);
+  }
+
+  .ups-picker-empty {
+    padding: 32px 20px;
+    text-align: center;
+    color: var(--ups-muted, #9fb3d1);
+    font-size: 12px;
+  }
+</style>
+
+<script>
+  // ─── Phase C: Side-mount Player Picker Drawer (O=43) ───────────────────
+  // Replaces MFL's inline picker on the auction nomination form with a
+  // right-mounted slide-in drawer. Reads available players from the
+  // already-rendered `.add-drop-player-row` elements (TOS-rendered) so
+  // we don't reinvent MFL's available-FA filtering logic. On player click
+  // we trigger the original "Add" button click → the existing form
+  // wiring writes #sel_pid → user submits the form normally.
+  //
+  // Scoped strictly to body_options_43. Fail-soft: if .add-player-container
+  // doesn't render, the drawer doesn't activate and MFL's inline picker
+  // stays visible.
+  (function () {
+    if (!document.body || !/^body_options_43/.test(document.body.id || "")) {
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function () {
+          if (/^body_options_43/.test(document.body.id || "")) initPickerDrawer();
+        });
+      }
+      return;
+    }
+    initPickerDrawer();
+
+    function initPickerDrawer() {
+      // Wait for TOS to render its picker rows. Poll up to 20s.
+      var attempts = 0;
+      var maxAttempts = 40;  // 40 × 500ms = 20s
+      var interval = setInterval(function () {
+        attempts += 1;
+        var container = document.querySelector(".add-player-container");
+        var rowCount = container ? container.querySelectorAll(".add-drop-player-row").length : 0;
+        if (rowCount > 0) {
+          clearInterval(interval);
+          mountDrawer();
+        } else if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          console.log("[ups-picker] TOS picker rows never rendered — drawer not mounted, MFL inline picker stays");
+        }
+      }, 500);
+    }
+
+    function mountDrawer() {
+      // Build drawer DOM
+      var backdrop = document.createElement("div");
+      backdrop.className = "ups-picker-backdrop";
+
+      var drawer = document.createElement("div");
+      drawer.className = "ups-picker-drawer";
+      drawer.innerHTML =
+        '<div class="ups-picker-header">' +
+          '<div class="ups-picker-header-row">' +
+            '<h2 class="ups-picker-title">Select Player to Auction</h2>' +
+            '<button type="button" class="ups-picker-close" aria-label="Close">×</button>' +
+          '</div>' +
+          '<input type="search" class="ups-picker-search" placeholder="Search by name…" />' +
+          '<div class="ups-picker-sort-row">' +
+            '<label class="ups-picker-sort-label">Sort</label>' +
+            '<select class="ups-picker-sort" data-sort>' +
+              '<option value="name">Name</option>' +
+              '<option value="points_rank">Points Rank</option>' +
+              '<option value="proj_pts">Proj Points</option>' +
+            '</select>' +
+            '<label class="ups-picker-sort-label">Team</label>' +
+            '<select class="ups-picker-sort" data-team>' +
+              '<option value="">All teams</option>' +
+            '</select>' +
+          '</div>' +
+          // Position chips are auto-populated from the union of player
+          // positions seen in TOS row data. Filled by refreshPosChips
+          // below. Initial state: just the "All" pill.
+          '<div class="ups-picker-chips" data-chip-group="pos">' +
+            '<button type="button" class="ups-picker-chip active" data-pos="ALL">All</button>' +
+          '</div>' +
+          '<div class="ups-picker-meta" data-meta="count">…</div>' +
+        '</div>' +
+        '<div class="ups-picker-list" data-list></div>';
+
+      document.body.appendChild(backdrop);
+      document.body.appendChild(drawer);
+
+      // Trigger button — placed at the top of the inline picker section so it
+      // sits where the user expects "go pick a player" to be. Text shifts
+      // between "no selection" and "currently selected" states (see
+      // updateTriggerLabel below).
+      var trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "ups-picker-trigger";
+      // Initial content set by updateTriggerLabel() after the function is
+      // defined below.
+      trigger.innerHTML = '<span data-trigger-content>Loading…</span>';
+
+      var anchor = document.querySelector(".add-player-container");
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(trigger, anchor);
+      }
+      // Hide MFL's inline picker now that the drawer is mounted.
+      document.body.classList.add("ups-picker-drawer-active");
+
+      // Wire interactions
+      var searchEl = drawer.querySelector(".ups-picker-search");
+      var listEl = drawer.querySelector("[data-list]");
+      var metaEl = drawer.querySelector('[data-meta="count"]');
+      var triggerContentEl = trigger.querySelector("[data-trigger-content]");
+      var chipsEl = drawer.querySelector('[data-chip-group="pos"]');
+
+      var STATE = { search: "", pos: "ALL", sort: "name", team: "" };
+
+      // Find MFL's currently-selected player row (if any). TOS marks
+      // selected rows with .selected-player and the row carries
+      // data-player-id; we mirror that into our drawer's state.
+      function getSelectedPid() {
+        var row = document.querySelector(
+          ".add-player-container .add-drop-player-row.selected-player"
+        );
+        return row ? (row.getAttribute("data-player-id") || "") : "";
+      }
+      function findPlayerByPid(pid) {
+        if (!pid) return null;
+        var all = readPlayers();
+        return all.find(function (p) { return p.player_id === String(pid); }) || null;
+      }
+
+      // Trigger label reflects current selection state. With nothing
+      // selected the user sees "Select a player for nomination (N available)";
+      // once a player is chosen the label flips to "✓ Selected: Player
+      // Name — click to change".
+      function updateTriggerLabel() {
+        var pid = getSelectedPid();
+        var players = readPlayers();
+        if (pid) {
+          var p = findPlayerByPid(pid);
+          var label = p ? p.name : ("Player " + pid);
+          triggerContentEl.innerHTML =
+            '<span class="ups-picker-trigger-check">✓</span> ' +
+            '<strong>' + escapeText(label) + '</strong>' +
+            '<span class="ups-picker-trigger-change">— click to change</span>';
+          trigger.classList.add("ups-picker-trigger-selected");
+        } else {
+          triggerContentEl.innerHTML =
+            'Select a player for nomination ' +
+            '<span class="ups-picker-trigger-count">(' + players.length + ' available)</span>';
+          trigger.classList.remove("ups-picker-trigger-selected");
+        }
+      }
+
+      function readPlayers() {
+        // Read TOS-rendered rows.
+        var rows = Array.from(document.querySelectorAll(".add-player-container .add-drop-player-row"));
+        return rows.map(function (row) {
+          var pid = row.getAttribute("data-player-id") || "";
+          var posEl = row.querySelector(".player-pos");
+          var pos = posEl ? (posEl.textContent || "").trim().toUpperCase() : "";
+          var imgEl = row.querySelector(".player-img-wrapper img, img");
+          var imgSrc = imgEl ? imgEl.src : "";
+          var nameEl = row.querySelector(".player-info strong, .player-info b, .player-info");
+          var name = nameEl ? (nameEl.textContent || "").trim() : "";
+          var teamEl = row.querySelector(".player-info small");
+          var teamMeta = teamEl ? (teamEl.textContent || "").trim() : "";
+          // First token before " · " in the team-meta line is the NFL team
+          // abbreviation (e.g. "MIN · Bye: 6 · Rank: 109"). Used for the
+          // Team filter dropdown.
+          var nflTeam = "";
+          var firstTok = teamMeta.split(/\s*[·•|]\s*/)[0];
+          if (firstTok && /^[A-Z]{2,4}$/.test(firstTok.trim())) nflTeam = firstTok.trim();
+          // Parse Points Rank from the team-meta string. TOS format:
+          //   "MIN • Bye: 6 • Rank: 109"
+          // Match permissively. PPG isn't surfaced by TOS in current row
+          // layout (verified 2026-05-20 in Keith's drawer — only one
+          // "Rank: N" appears); PPG sort removed accordingly.
+          var pointsRank = null;
+          var m;
+          if ((m = /(?:^|[^a-z])(?:points\s*rank|rank|rk)\s*[:#]?\s*(\d+)/i.exec(teamMeta))) {
+            pointsRank = parseInt(m[1], 10) || null;
+          }
+          // Extract projected points (if any) from the .player-wproj column.
+          var projPts = null;
+          var projEl = row.querySelector(".player-wproj");
+          if (projEl) {
+            var projText = (projEl.textContent || "").replace(/PROJ\s*PTS?/gi, "").trim();
+            var projNum = parseFloat(projText.replace(/[^0-9.\-]/g, ""));
+            if (!isNaN(projNum)) projPts = projNum;
+          }
+          // Find the "Add" button so we can trigger it on click
+          var addBtn = Array.from(row.querySelectorAll("button")).find(function (b) {
+            var t = (b.textContent || "").trim().toLowerCase();
+            return t === "add" || t === "deselect";
+          });
+          return {
+            player_id: pid,
+            name: name || ("Player #" + pid),
+            pos: pos,
+            nfl_team: nflTeam,
+            team_meta: teamMeta,
+            img: imgSrc,
+            points_rank: pointsRank,
+            proj_pts: projPts,
+            addBtnEl: addBtn,
+            rowEl: row,
+          };
+        }).filter(function (p) { return p.player_id; });
+      }
+
+      // Position chips are auto-populated from the union of positions
+      // present in TOS row data. Order: offensive (QB→RB→WR→TE→K→PN),
+      // then IDP/defense (DL→LB→DB→S→CB→DT→DE), then anything else
+      // alpha. Keeps "All" first.
+      var POS_PREFERRED_ORDER = [
+        "QB", "RB", "WR", "TE", "PK", "K", "PN", "P",
+        "DL", "DT", "DE", "LB", "DB", "S", "CB",
+      ];
+      var _lastPosSig = "";
+      function refreshPosChips(players) {
+        if (!chipsEl) return;
+        var seen = {};
+        for (var i = 0; i < players.length; i += 1) {
+          var pos = (players[i].pos || "").toUpperCase();
+          if (!pos) continue;
+          // Normalize MFL aliases
+          if (pos === "PK") pos = "K";
+          if (pos === "P") pos = "PN";
+          if (!seen[pos]) seen[pos] = 0;
+          seen[pos] += 1;
+        }
+        var posList = Object.keys(seen);
+        posList.sort(function (a, b) {
+          var ai = POS_PREFERRED_ORDER.indexOf(a);
+          var bi = POS_PREFERRED_ORDER.indexOf(b);
+          if (ai === -1 && bi === -1) return a.localeCompare(b);
+          if (ai === -1) return 1;
+          if (bi === -1) return -1;
+          return ai - bi;
+        });
+        var sig = posList.join("|");
+        if (sig === _lastPosSig) return;
+        _lastPosSig = sig;
+        var current = STATE.pos || "ALL";
+        var html = '<button type="button" class="ups-picker-chip' +
+          (current === "ALL" ? ' active' : '') + '" data-pos="ALL">All</button>';
+        for (var k = 0; k < posList.length; k += 1) {
+          var p = posList[k];
+          var active = current === p ? ' active' : '';
+          html += '<button type="button" class="ups-picker-chip' + active +
+            '" data-pos="' + p + '">' + p + '</button>';
+        }
+        chipsEl.innerHTML = html;
+      }
+
+      // Within each position, rank players by overall points_rank
+      // ascending. Stored on each player as p._pos_rank (1-indexed).
+      // Players with no points_rank get a null _pos_rank — they sort
+      // to the bottom of their position group.
+      function computePositionRanks(players) {
+        var byPos = {};
+        for (var i = 0; i < players.length; i += 1) {
+          var p = players[i];
+          var pos = (p.pos || "").toUpperCase();
+          if (!byPos[pos]) byPos[pos] = [];
+          byPos[pos].push(p);
+        }
+        Object.keys(byPos).forEach(function (pos) {
+          var group = byPos[pos];
+          group.sort(function (a, b) {
+            var ar = (a.points_rank == null) ? Infinity : a.points_rank;
+            var br = (b.points_rank == null) ? Infinity : b.points_rank;
+            return ar - br;
+          });
+          for (var j = 0; j < group.length; j += 1) {
+            group[j]._pos_rank = (group[j].points_rank == null) ? null : (j + 1);
+          }
+        });
+      }
+
+      function renderList() {
+        var players = readPlayers();
+        // Repopulate Team dropdown + position chips when player set changes.
+        refreshTeamDropdown(players);
+        refreshPosChips(players);
+        // Precompute position-relative ranks based on overall rank within
+        // each position. Stored on each player as p._pos_rank (1-indexed).
+        computePositionRanks(players);
+
+        var selectedPid = getSelectedPid();
+        var q = STATE.search.toLowerCase();
+        var posFilter = STATE.pos;
+        var teamFilter = STATE.team;
+        var filtered = players.filter(function (p) {
+          if (q && p.name.toLowerCase().indexOf(q) === -1) return false;
+          if (posFilter !== "ALL" && p.pos !== posFilter) return false;
+          if (teamFilter && p.nfl_team !== teamFilter) return false;
+          return true;
+        });
+        // Selected player floats to top; then secondary sort per STATE.sort.
+        var sortKey = STATE.sort || "name";
+        filtered.sort(function (a, b) {
+          if (a.player_id === selectedPid) return -1;
+          if (b.player_id === selectedPid) return 1;
+          if (sortKey === "points_rank") {
+            var ar = (a.points_rank == null) ? Infinity : a.points_rank;
+            var br = (b.points_rank == null) ? Infinity : b.points_rank;
+            if (ar !== br) return ar - br;
+            return a.name.localeCompare(b.name);
+          }
+          if (sortKey === "proj_pts") {
+            var ax = (a.proj_pts == null) ? -Infinity : a.proj_pts;
+            var bx = (b.proj_pts == null) ? -Infinity : b.proj_pts;
+            if (ax !== bx) return bx - ax;
+            return a.name.localeCompare(b.name);
+          }
+          // default: name A→Z
+          return a.name.localeCompare(b.name);
+        });
+
+        if (metaEl) {
+          var selBit = selectedPid ? " · 1 selected" : "";
+          metaEl.textContent = filtered.length + " of " + players.length + " players" +
+            (q ? ' matching "' + q + '"' : '') +
+            (posFilter !== "ALL" ? " · " + posFilter : "") +
+            selBit;
+        }
+
+        if (filtered.length === 0) {
+          listEl.innerHTML = '<div class="ups-picker-empty">No players match the current filter.</div>';
+          return;
+        }
+
+        listEl.innerHTML = filtered.map(function (p) {
+          var isSelected = p.player_id === selectedPid;
+          // Strip any "Rank: N" / "Rk: N" / "Points Rank: N" segment from the
+          // team-meta line so we don't double up with the supmeta below.
+          // Keep "TEAM · Bye: X".
+          var teamMetaClean = (p.team_meta || "")
+            .replace(/\s*[·•|]\s*(?:points\s*rank|rank|rk)\s*[:#]?\s*\d+\s*/i, "")
+            .replace(/\s*[·•|]\s*$/, "")
+            .trim();
+          // Supplementary meta: ALWAYS shows the numbers. Two ranks:
+          //   POS #X = the player's rank WITHIN their position (computed
+          //            client-side from the row data — most useful when
+          //            scouting a single position)
+          //   Overall #N = TOS's pre-computed overall rank across all
+          //                positions (same value regardless of sort)
+          // Plus Proj points if available. All tooltips clarify meaning.
+          var supMetaBits = [];
+          if (p._pos_rank != null && p.pos) {
+            supMetaBits.push(
+              '<span title="Rank within ' + escapeAttr(p.pos) + ' by projected points">' +
+                escapeText(p.pos) + ' <strong>#' + p._pos_rank + '</strong>' +
+              '</span>'
+            );
+          }
+          if (p.points_rank != null) {
+            supMetaBits.push(
+              '<span title="Overall projected-points rank across all positions (from MFL/TOS)">' +
+                'Overall <strong>#' + p.points_rank + '</strong>' +
+              '</span>'
+            );
+          }
+          if (p.proj_pts != null) {
+            supMetaBits.push(
+              '<span title="Projected season points (from MFL/TOS)">' +
+                'Proj <strong>' + p.proj_pts + '</strong>' +
+              '</span>'
+            );
+          }
+          var supMeta = supMetaBits.length > 0
+            ? '<div class="ups-picker-row-supmeta">' + supMetaBits.join(" · ") + '</div>'
+            : '';
+          return '<div class="ups-picker-row' + (isSelected ? ' ups-picker-row-selected' : '') +
+              '" data-picker-pid="' + escapeAttr(p.player_id) + '">' +
+            '<div class="ups-picker-row-pos">' + escapeText(p.pos || "—") + '</div>' +
+            '<div class="ups-picker-row-img">' +
+              (p.img ? '<img src="' + escapeAttr(p.img) + '" alt="" onerror="this.style.display=\'none\'">' : "") +
+            '</div>' +
+            '<div class="ups-picker-row-body">' +
+              '<div class="ups-picker-row-name">' + escapeText(p.name) +
+                (isSelected ? ' <span class="ups-picker-row-selected-badge">✓ Selected</span>' : '') +
+              '</div>' +
+              '<div class="ups-picker-row-meta">' + escapeText(teamMetaClean) + '</div>' +
+              supMeta +
+            '</div>' +
+            '<button type="button" class="ups-picker-row-cta">' +
+              (isSelected ? "Clear" : "Select") +
+            '</button>' +
+          '</div>';
+        }).join("");
+      }
+
+      function escapeText(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+      function escapeAttr(s) {
+        return escapeText(s).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+      }
+
+      // Open / close drawer
+      function openDrawer() {
+        renderList();
+        backdrop.classList.add("ups-picker-open");
+        drawer.classList.add("ups-picker-open");
+        setTimeout(function () {
+          if (searchEl) searchEl.focus();
+        }, 280);
+      }
+      function closeDrawer() {
+        backdrop.classList.remove("ups-picker-open");
+        drawer.classList.remove("ups-picker-open");
+      }
+
+      trigger.addEventListener("click", openDrawer);
+      backdrop.addEventListener("click", closeDrawer);
+      drawer.querySelector(".ups-picker-close").addEventListener("click", closeDrawer);
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && drawer.classList.contains("ups-picker-open")) closeDrawer();
+      });
+
+      // Search (debounced)
+      var searchDebounce;
+      searchEl.addEventListener("input", function () {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(function () {
+          STATE.search = searchEl.value || "";
+          renderList();
+        }, 150);
+      });
+
+      // Sort + Team dropdowns
+      var sortEl = drawer.querySelector("[data-sort]");
+      var teamEl = drawer.querySelector("[data-team]");
+      if (sortEl) {
+        sortEl.addEventListener("change", function () {
+          STATE.sort = sortEl.value || "name";
+          renderList();
+        });
+      }
+      if (teamEl) {
+        teamEl.addEventListener("change", function () {
+          STATE.team = teamEl.value || "";
+          renderList();
+        });
+      }
+
+      // Populate the Team dropdown with the union of nfl_team values
+      // present in the row data. Cheap (~32 entries); rebuilt on each
+      // renderList so late TOS injections show up.
+      var _lastTeamSig = "";
+      function refreshTeamDropdown(players) {
+        if (!teamEl) return;
+        var teams = [];
+        var seen = {};
+        for (var i = 0; i < players.length; i += 1) {
+          var t = players[i].nfl_team || "";
+          if (t && !seen[t]) { seen[t] = 1; teams.push(t); }
+        }
+        teams.sort();
+        var sig = teams.join("|");
+        if (sig === _lastTeamSig) return;
+        _lastTeamSig = sig;
+        var current = teamEl.value;
+        var html = '<option value="">All teams</option>';
+        for (var j = 0; j < teams.length; j += 1) {
+          var sel = teams[j] === current ? " selected" : "";
+          html += '<option value="' + teams[j] + '"' + sel + '>' + teams[j] + '</option>';
+        }
+        teamEl.innerHTML = html;
+      }
+
+      // Position chips
+      chipsEl.addEventListener("click", function (e) {
+        var btn = e.target.closest(".ups-picker-chip");
+        if (!btn) return;
+        STATE.pos = btn.getAttribute("data-pos") || "ALL";
+        chipsEl.querySelectorAll(".ups-picker-chip").forEach(function (c) {
+          c.classList.toggle("active", c === btn);
+        });
+        renderList();
+      });
+
+      // Row click → atomic deselect-old + select-new.
+      // User doesn't see "Deselect" mode — clicking any player simply
+      // becomes the new selection. Clicking the currently-selected
+      // player clears the selection (acts as "Clear").
+      listEl.addEventListener("click", function (e) {
+        var row = e.target.closest(".ups-picker-row");
+        if (!row) return;
+        var clickedPid = row.getAttribute("data-picker-pid");
+        if (!clickedPid) return;
+
+        var currentPid = getSelectedPid();
+
+        // 1) Clear any existing selection first (if there is one, and it
+        //    isn't the same row the user just clicked — that case is
+        //    handled in step 2).
+        if (currentPid && currentPid !== clickedPid) {
+          var oldRow = document.querySelector(
+            '.add-player-container .add-drop-player-row[data-player-id="' + cssAttrEscape(currentPid) + '"]'
+          );
+          if (oldRow) {
+            var oldBtn = findRowButton(oldRow, /deselect|clear/i)
+                       || findRowButton(oldRow, /add/i);  // fallback
+            if (oldBtn) { try { oldBtn.click(); } catch (err) {} }
+          }
+        }
+
+        // 2) If user clicked the currently-selected player, treat as
+        //    "Clear" — TOS's Deselect button handles this.
+        if (currentPid && currentPid === clickedPid) {
+          var sameRow = document.querySelector(
+            '.add-player-container .add-drop-player-row[data-player-id="' + cssAttrEscape(clickedPid) + '"]'
+          );
+          var clearBtn = sameRow ? findRowButton(sameRow, /deselect|clear/i) : null;
+          if (clearBtn) { try { clearBtn.click(); } catch (err) {} }
+          renderList();
+          updateTriggerLabel();
+          return;  // stay open so user can pick someone new
+        }
+
+        // 3) Select the new player.
+        var newRow = document.querySelector(
+          '.add-player-container .add-drop-player-row[data-player-id="' + cssAttrEscape(clickedPid) + '"]'
+        );
+        var addBtn = newRow ? findRowButton(newRow, /^\s*add\s*$/i) : null;
+        if (addBtn) {
+          try { addBtn.click(); }
+          catch (err) { console.log("[ups-picker] add-button click threw:", err); }
+        } else {
+          // Fallback: set the hidden input directly. Selection state in
+          // MFL may not reflect, but PLAYER_PICK is at least populated.
+          var sel = document.getElementById("sel_pid");
+          if (sel) sel.value = clickedPid;
+        }
+        // 4) Update UI state. Closing the drawer after a successful pick
+        //    so the user can move to bid entry.
+        renderList();
+        updateTriggerLabel();
+        closeDrawer();
+      });
+
+      function findRowButton(row, textRegex) {
+        var buttons = Array.from(row.querySelectorAll("button"));
+        return buttons.find(function (b) {
+          return textRegex.test(String(b.textContent || "").trim());
+        });
+      }
+      function cssAttrEscape(s) {
+        return String(s || "").replace(/(["\\])/g, "\\$1");
+      }
+
+      // Re-render when MFL/TOS injects more rows later OR the .selected-player
+      // class toggles (e.g., the user makes a selection some other way, or
+      // initial state finishes loading).
+      var anchor2 = document.querySelector(".add-player-container");
+      if (anchor2 && window.MutationObserver) {
+        var obs = new MutationObserver(function () {
+          if (drawer.classList.contains("ups-picker-open")) renderList();
+          updateTriggerLabel();
+        });
+        obs.observe(anchor2, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["class"],
+        });
+        setTimeout(function () { try { obs.disconnect(); } catch (e) {} }, 5 * 60 * 1000);
+      }
+
+      // Initial trigger label (will read selected state from MFL DOM)
+      updateTriggerLabel();
+    }
+  })();
+</script>
+
+<script>
+  // ─── Auction Bid (O=43) quick-bid buttons — Phase 4.3 ───────────────────
+  // Inject +$1K / +$5K / +$10K buttons next to each bid input on MFL's
+  // O=43 page. Reads the current high bid from the `onblur="validateBid(
+  // this, NNNN)"` attribute MFL bakes into each input, then a button
+  // click sets the input value to (current_high + delta).
+  //
+  // No "Match Proxy" — Keith opted out (proxy data isn't on the page
+  // anyway unless viewer is the high bidder).
+  // No "Max Affordable" yet — Keith wants that for FA Auction where the
+  // $300K cap matters; ERA has no cap so delta-only buttons are enough.
+  (function () {
+    var BUILD = "2026-05-20.1";
+    if (window.__ups_quickbid_o43_autoload === BUILD) return;
+    window.__ups_quickbid_o43_autoload = BUILD;
+
+    function onO43() {
+      var bodyId = String((document.body && document.body.id) || "");
+      return /^body_options_43/.test(bodyId);
+    }
+
+    function injectButtons() {
+      if (!onO43()) return;
+      // Each bid input is <input name="<playerId>" onblur="validateBid(this, NNNN)">
+      var inputs = document.querySelectorAll('input[onblur*="validateBid"]');
+      inputs.forEach(function (input) {
+        if (input.dataset.upsQuickbid === "1") return; // already wired
+        var onblur = String(input.getAttribute("onblur") || "");
+        var m = onblur.match(/validateBid\(this\s*,\s*(\d+)/);
+        var currentHigh = m ? Number(m[1]) : 0;
+        if (!currentHigh) return; // skip the "Opening bid" input (current=0)
+        input.dataset.upsQuickbid = "1";
+
+        var wrap = document.createElement("span");
+        wrap.style.cssText = "white-space:nowrap; display:inline-block; margin-left:4px;";
+        [1000, 5000, 10000].forEach(function (delta) {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "ups-quickbid-btn";
+          btn.textContent = "+$" + (delta / 1000) + "K";
+          btn.title = "Set bid to current high ($" + currentHigh.toLocaleString() +
+                      ") + $" + delta.toLocaleString();
+          btn.addEventListener("click", function (e) {
+            e.preventDefault();
+            // If user already typed something, increment from their value;
+            // otherwise from current high.
+            var existing = Number(String(input.value || "").replace(/[^\d]/g, "")) || currentHigh;
+            // If existing < currentHigh (stale value), bump base to current high.
+            if (existing < currentHigh) existing = currentHigh;
+            input.value = String(existing + delta);
+            // Trigger MFL's validation so it can re-check the bid is valid.
+            try { input.dispatchEvent(new Event("blur", { bubbles: true })); } catch (_) {}
+            input.focus();
+          });
+          wrap.appendChild(btn);
+        });
+        // Insert directly after the input (same TD cell).
+        if (input.parentNode) input.parentNode.insertBefore(wrap, input.nextSibling);
+      });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", injectButtons);
+    } else {
+      injectButtons();
+    }
+    // MFL doesn't reload the whole page when sorting / paginating —
+    // the auction table can be re-rendered in place. Re-scan every
+    // few seconds so any new bid inputs added dynamically get buttons.
+    setInterval(injectButtons, 3000);
+  })();
+</script>
 
 <script>
   // ─── UPS menu cleanup (header_custom_v2) ────────────────────────────────

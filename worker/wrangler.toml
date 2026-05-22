@@ -29,7 +29,7 @@ compatibility_date = "2026-02-02"
 #                        entirely. Auto-nudge sweep runs here only.
 #                        Code-level quiet-hours guard (10 PM – 6 AM ET)
 #                        as belt-and-suspenders against DST drift.
-crons = ["5 * * * *", "*/2 * * * *", "5 0,12,18 * * *"]
+crons = ["5 * * * *", "*/2 * * * *", "5 0,12,18 * * *", "*/5 * * * *"]
 
 # R2 bucket for MFL data snapshots + DB backups.
 # Access via `env.UPS_MFL_BACKUPS.put(key, body)` inside the Worker.

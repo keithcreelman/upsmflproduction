@@ -11077,7 +11077,11 @@
       league_id: state.ctx && state.ctx.leagueId,
       season: state.ctx && state.ctx.year,
       franchise_id: franchiseId,
-      player_id: playerId
+      player_id: playerId,
+      // Dry-run flag (Keith 2026-05-21): worker honors this server-side
+      // and returns a synthetic OK without touching MFL. See worker
+      // /roster-workbench/action `actionDryRunFlag` block.
+      dry_run: IS_DRY_RUN_MODE ? 1 : 0
     });
   }
 
@@ -11398,36 +11402,33 @@
   }
 
   function findStaleTagPlayerForSide(team, side) {
+    // Stale-tag detection (Keith 2026-05-21 — root cause of the bogus
+    // "L.A. Looks / FA Contract: Trevon Moehrig" Discord post).
+    //
+    // ORIGINAL BUG: this function had a second loop that returned
+    // players from `tagTrackingRows` even when those players weren't
+    // actually on the franchise's current roster. The caller then
+    // load_player → contract-update → unload_player'd them via the
+    // commish endpoint — which the worker misclassified as a brand-new
+    // "FA Contract" and announced to Discord (since the cleanup payload
+    // omitted submission_kind). A player who was a free agent suddenly
+    // appeared in the production contract channel as if their old
+    // franchise had just signed them.
+    //
+    // FIX: only return players who are CURRENTLY on the team's roster
+    // with a stale prior-season TAG contractStatus. The tracking-rows
+    // fallback is gone — if no such player is on the roster, there's
+    // nothing to clean up, period. Stale TAG status on free agents is
+    // harmless data debt; it gets resolved when the player is signed
+    // (a real new contract overwrites it) or by a separate offseason
+    // pipeline sweep, NOT by a tag-submit side effect.
     var normalizedSide = normalizeTagSideValue(side) || "OFFENSE";
-    var fid = pad4(team && team.id);
-
     var players = team && team.players ? team.players : [];
     for (var i = 0; i < players.length; i += 1) {
       var player = players[i] || {};
       if (safeStr(player.type).toUpperCase() !== "TAG") continue;
       if ((getTagSideFromPos(player.positionGroup || player.position) || "OFFENSE") !== normalizedSide) continue;
       if (isStaleTagFromPriorSeason(player)) return player;
-    }
-
-    var rows = Array.isArray(state.tagTrackingRows) ? state.tagTrackingRows : [];
-    for (var j = 0; j < rows.length; j += 1) {
-      var row = rows[j] || {};
-      if (pad4(row.franchise_id) !== fid) continue;
-      if (!safeInt(row.tag_prev_season, 0)) continue;
-      if (safeStr(row.contract_status).toUpperCase().indexOf("TAG") === -1) continue;
-      var rowSide = normalizeTagSideValue(row.side) || getTagSideFromPos(row.positional_grouping || row.position) || "OFFENSE";
-      if (rowSide !== normalizedSide) continue;
-      return {
-        id: safeStr(row.player_id).replace(/\D/g, ""),
-        player_id: safeStr(row.player_id),
-        name: safeStr(row.player_name),
-        player_name: safeStr(row.player_name),
-        position: safeStr(row.position),
-        positionGroup: safeStr(row.positional_grouping || row.position),
-        salary: safeInt(row.salary, 0),
-        type: "TAG",
-        source: "stale-tracking"
-      };
     }
     return null;
   }
@@ -11446,10 +11447,18 @@
       contractStatus = "Veteran";
     }
 
+    // Stale-tag cleanup payload (Keith 2026-05-21):
+    //   • silence_discord=1     → no Discord post for housekeeping
+    //   • submission_kind="stale_tag_cleanup" → identifiable in audit
+    //   • dry_run honored       → simulation never touches MFL
     var payload = {
       L: safeStr(state.ctx && state.ctx.leagueId),
       YEAR: safeStr(state.ctx && state.ctx.year),
       type: "MANUAL_CONTRACT_UPDATE",
+      submission_kind: "stale_tag_cleanup",
+      silence_discord: 1,
+      dry_run: IS_DRY_RUN_MODE ? 1 : 0,
+      source: "front-office-stale-tag-cleanup",
       leagueId: safeStr(state.ctx && state.ctx.leagueId),
       year: safeStr(state.ctx && state.ctx.year),
       player_id: pid,
@@ -11461,6 +11470,16 @@
       contract_info: contractInfo,
       commish_override_flag: 1
     };
+
+    // Dry-run short-circuit: never load/unload during simulation.
+    if (IS_DRY_RUN_MODE) {
+      return postContractUpdate(
+        resolveWorkerContractUpdateEndpoint() +
+          "?L=" + encodeURIComponent(payload.L) +
+          "&YEAR=" + encodeURIComponent(payload.YEAR),
+        payload
+      );
+    }
 
     return submitWorkerRosterAction("load_player", fid, pid).catch(function () {
       return null;
@@ -11519,11 +11538,20 @@
     setFlash("success", "Applying tag for " + safeStr(row.player_name) + "...");
     renderTeams();
 
-    var clearStalePromise = stalePlayer
+    // Dry-run safety (Keith 2026-05-21): stale-tag cleanup writes to MFL
+    // (load → contract update → unload) and can also fire a Discord
+    // "FA Contract" post if the cleanup payload omits submission_kind.
+    // Suppress the entire cleanup chain when simulating — the dry run
+    // should test the tag flow, not mutate someone else's contract.
+    var clearStalePromise = (stalePlayer && !IS_DRY_RUN_MODE)
       ? clearStaleTagContract(stalePlayer, row.franchise_id).catch(function () { return null; })
       : Promise.resolve(null);
 
     return clearStalePromise.then(function () {
+      // Dry-run safety (Keith 2026-05-21): load_player writes to MFL
+      // unconditionally. Skip it during dry-run so simulated tags
+      // don't drop real players onto the target franchise's roster.
+      if (IS_DRY_RUN_MODE) return { ok: true, skipped: true, dry_run: true, message: "Dry-run — load_player skipped." };
       return submitWorkerRosterAction("load_player", row.franchise_id, row.player_id);
     }).then(function (membershipPayload) {
       membershipResult = membershipPayload || null;
@@ -11592,6 +11620,10 @@
       restorePayload
     ).then(function () {
       contractRestored = true;
+      // Dry-run safety (Keith 2026-05-21): unload_player writes to MFL
+      // unconditionally. Skip it during dry-run so simulated untags
+      // don't actually remove the player from the franchise's roster.
+      if (IS_DRY_RUN_MODE) return { ok: true, skipped: true, dry_run: true, message: "Dry-run — unload_player skipped." };
       return submitWorkerRosterAction("unload_player", player.fid, player.id);
     }).then(function (payload) {
       removeTagSubmissionFromLocalStore(submissionKey);
