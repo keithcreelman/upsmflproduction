@@ -446,7 +446,11 @@ These are transactions you can do TO a player who's already on your roster. Defi
 - **What does NOT change** *(carried forward unchanged from prior rule)*:
   - Total cap hit over a contract's life is unchanged — only the *timing* of when salary is earned is now pro-rated.
   - **WW pickups with salary ≤ $4K** remain cap-penalty-free if dropped (see D2 + Bot Grounding appendix). Equivalent to the worker's `< $5K` integer boundary in `worker/src/lib/cap_penalty.js`.
-  - **Multi-year contracts where TCV < $5K** still carry the **fixed $1K penalty** if dropped with more than 1 year remaining (see Bot Grounding appendix).
+  - **Sub-$5K TCV rule (Keith 2026-05-22 — clarified canon):** for any contract with TCV ≤ $4K (multi-year or otherwise), the penalty rule is:
+    - **`years_remaining ≥ 2` → fixed $1K** cap penalty.
+    - **`years_remaining ≤ 1` (final year drop) → $0** — cap-free, regardless of what the standard `(TCV × 75%) − earned` formula would have produced.
+    - This **overrides** the standard guaranteed-minus-earned formula entirely for sub-$5K-TCV deals. (Replaces prior reading where the $1K was a "floor" on top of the formula. Worked example: Tyler Higbee, CL 3 / TCV $3K / cy=1 dropped 2026-05-22 → final-year sub-5K → $0 penalty.)
+    - Worker enforcement: `computeDropPenalty()` in `worker/src/index.js`. D1 audit: `ups_drop_events` table, `penalty_basis` field.
   - All cap penalties are **rounded based on the SUM of penalties accrued**, not per-penalty.
 - **Penalty timing (3 buckets — unchanged):**
   - Penalty incurred **before Roster Lock Date** (i.e., offseason early) → applies to **current season** cap.

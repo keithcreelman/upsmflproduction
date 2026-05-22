@@ -1769,6 +1769,61 @@ export default {
       console.error(`[scheduled hourly] deadline-reminders dispatch failed: ${e && e.message}`);
     }
 
+    // ---------- DROP TRACKER (hourly scan + Discord post) ----------
+    // Scans MFL FREE_AGENT transactions, writes new drops to
+    // ups_drop_events with computed cap penalty, then posts each new
+    // drop to the production Discord drops channel with tiered GIF.
+    // Idempotent via the UNIQUE constraint on
+    // (season, league_id, player_id, dropped_at_unix) + the
+    // discord_posted flag.
+    //
+    // Set DROP_TRACKER_DISCORD_TARGET=test in env to fire posts to the
+    // test channel instead. Defaults to prod once enabled.
+    try {
+      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const leagueId = String(env.LEAGUE_ID || "74598");
+      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+      const dropEnabled = String(env.DROP_TRACKER_ENABLED || "").trim() === "1";
+      const dropTarget = String(env.DROP_TRACKER_DISCORD_TARGET || "prod").trim().toLowerCase();
+      if (dropEnabled && commishApiKey && env.UPS_MFL_DB) {
+        ctx.waitUntil((async () => {
+          try {
+            // 1. Scan transactions for new drops (writes to D1).
+            const scanRes = await fetch(
+              `${origin}/admin/drops/scan-and-record?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ season, league_id: leagueId, days: 2 }),
+              }
+            );
+            const scanData = await scanRes.json().catch(() => ({}));
+            const newWritten = Number(scanData?.written_count) || 0;
+            // 2. Post any unposted rows to Discord.
+            const postRes = await fetch(
+              `${origin}/admin/drops/post-discord?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ season, league_id: leagueId, target: dropTarget, limit: 20 }),
+              }
+            );
+            const postData = await postRes.json().catch(() => ({}));
+            if (newWritten || postData?.posted_count) {
+              console.log(`[scheduled hourly] drop-tracker: new_drops=${newWritten} discord_posted=${postData?.posted_count || 0} target=${dropTarget}`);
+            }
+          } catch (e) {
+            console.error(`[scheduled hourly] drop-tracker failed: ${e?.message || String(e)}`);
+          }
+        })());
+      } else if (!dropEnabled) {
+        // Quiet log when disabled — set DROP_TRACKER_ENABLED=1 to turn on.
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] drop-tracker dispatch failed: ${e?.message || String(e)}`);
+    }
+
     // ---------- TAG / EXTENSION DEADLINE MIDNIGHT LOCK ----------
     // First hourly cron at-or-after midnight ET on deadline night.
     // Drops every non-extended expired rookie (canon §A1 → ERA pool).
@@ -1898,6 +1953,8 @@ export default {
         path !== "/admin/auction/resend-tag-deadline-dm" &&
         path !== "/admin/auction/post-tag-deadline-channel-thread" &&
         path !== "/admin/auction/snapshot-era-pool" &&
+        path !== "/admin/drops/scan-and-record" &&
+        path !== "/admin/drops/post-discord" &&
         path !== "/admin/reset-fa-contracts" &&
         path !== "/admin/discord/post" &&
         path !== "/admin/deadline-reminders/test-discord" &&
@@ -3348,20 +3405,32 @@ export default {
         const sinceUnix = Math.max(0, Number(url.searchParams.get("since") || 0));
         const limit = Math.min(1000, Math.max(1, Number(url.searchParams.get("limit") || 200)));
 
+        // Bid history feed (Keith 2026-05-22 update): exclude bids from
+        // CANCELLED lots. Commish-deleted auctions should not pollute
+        // the history view. JOIN against ups_auction_lots so we can
+        // filter on lot.status.
+        //
+        // ?include_cancelled=1 brings them back for audit.
+        const includeCancelled = (url.searchParams.get("include_cancelled") || "") === "1";
         try {
-          let sql = `SELECT bid_id, lot_id, player_id, fid, bid_k, bid_at_unix, note
-                       FROM ups_auction_bids
-                      WHERE season = ? AND league_id = ?`;
+          let sql = `SELECT b.bid_id, b.lot_id, b.player_id, b.fid, b.bid_k, b.bid_at_unix, b.note, l.status AS lot_status
+                       FROM ups_auction_bids b
+                  LEFT JOIN ups_auction_lots l
+                         ON l.lot_id = b.lot_id
+                      WHERE b.season = ? AND b.league_id = ?`;
           const args = [year, leagueId];
+          if (!includeCancelled) {
+            sql += ` AND (l.status IS NULL OR l.status != 'cancelled')`;
+          }
           if (playerId) {
-            sql += ` AND player_id = ?`;
+            sql += ` AND b.player_id = ?`;
             args.push(playerId);
           }
           if (sinceUnix > 0) {
-            sql += ` AND bid_at_unix >= ?`;
+            sql += ` AND b.bid_at_unix >= ?`;
             args.push(sinceUnix);
           }
-          sql += ` ORDER BY bid_at_unix ASC, bid_id ASC LIMIT ?`;
+          sql += ` ORDER BY b.bid_at_unix ASC, b.bid_id ASC LIMIT ?`;
           args.push(limit);
           const { results: bids } = await env.UPS_MFL_DB.prepare(sql).bind(...args).all();
 
@@ -27000,6 +27069,595 @@ export default {
             franchise_name: c.franchise_name,
             salary: c.salary,
           })),
+        });
+      }
+
+      // POST /admin/drops/post-discord
+      // Body: { season, league_id?, target? ("test"|"prod"), limit? (default 20), dry_run? }
+      //
+      // Pulls unposted rows from ups_drop_events (posted_to_mfl/discord
+      // tracking lives in same row) and posts each as a Discord embed
+      // with a tiered cap-penalty GIF.
+      //
+      // Cap-penalty GIF tiers (Keith 2026-05-22):
+      //   $0 (exempt)            → no GIF, just "no penalty" line
+      //   $1K – $4K              → whatever / shrug GIF (pool: drop_whatever)
+      //   $5K – $8K              → eyes-on-you / "got my attention" (pool: drop_eyes)
+      //   $9K – $15K             → wow / amazed / jaw-drop (pool: drop_wow)
+      //   $16K+                  → laugh / mocking (pool: drop_laugh)
+      //
+      // Channel targets:
+      //   target="test" → env.DISCORD_DROPS_TEST_CHANNEL_ID
+      //                   || env.DISCORD_CONTRACT_TEST_CHANNEL_ID
+      //                   || env.DISCORD_BUG_TEST_CHANNEL_ID
+      //   target="prod" → env.DISCORD_DROPS_CHANNEL_ID || 1059111651846131833
+      if (path === "/admin/drops/post-discord" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const target = safeStr(body?.target || "test").toLowerCase();
+        const limit = Math.max(1, Math.min(50, safeInt(body?.limit, 20)));
+        const dryRun = !!body?.dry_run;
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+
+        const botToken = contractDiscordBotToken();
+        if (!botToken) return jsonOut(400, { ok: false, error: "missing_contract_bot_token" });
+
+        const PROD_CHANNEL = safeStr(env.DISCORD_DROPS_CHANNEL_ID || "1059111651846131833").replace(/\D/g, "");
+        const TEST_CHANNEL = safeStr(
+          env.DISCORD_DROPS_TEST_CHANNEL_ID ||
+          env.DISCORD_CONTRACT_TEST_CHANNEL_ID ||
+          env.DISCORD_BUG_TEST_CHANNEL_ID ||
+          ""
+        ).replace(/\D/g, "");
+        const channelId = target === "prod" ? PROD_CHANNEL : TEST_CHANNEL;
+        if (!channelId) {
+          return jsonOut(400, {
+            ok: false,
+            error: target === "prod"
+              ? "missing DISCORD_DROPS_CHANNEL_ID"
+              : "missing DISCORD_DROPS_TEST_CHANNEL_ID (or fallback DISCORD_CONTRACT_TEST_CHANNEL_ID / DISCORD_BUG_TEST_CHANNEL_ID)",
+          });
+        }
+
+        // Tier resolution.
+        const pickTier = (amt) => {
+          const n = Number(amt) || 0;
+          if (n <= 0) return null;                          // no GIF for exempt
+          if (n >= 1000 && n <= 4000) return "whatever";
+          if (n >= 5000 && n <= 8000) return "eyes";
+          if (n >= 9000 && n <= 15000) return "wow";
+          if (n >= 16000) return "laugh";
+          // Edge: $4001–$4999 sits between tiers; bucket with eyes.
+          return "eyes";
+        };
+        const TIER_QUERIES = {
+          whatever: ["shrug whatever", "okay sure", "meh", "fine whatever", "i guess so"],
+          eyes:     ["raised eyebrow", "side eye", "watching closely", "interesting eyes", "go on"],
+          wow:      ["wow shock", "jaw drop", "amazed", "what just happened", "no way"],
+          laugh:    ["laughing crying", "haha mocking", "rofl", "dying laughing", "thats hilarious"],
+        };
+
+        // Pull tier GIF via Giphy. Any-match (not strict). Returns "" if no key.
+        const pickTierGif = async (tier) => {
+          if (!tier) return "";
+          const apiKey = safeStr(env.GIPHY_API_KEY || "");
+          if (!apiKey) return "";
+          const queries = TIER_QUERIES[tier] || [];
+          for (const q of queries) {
+            const u = new URL("https://api.giphy.com/v1/gifs/search");
+            u.searchParams.set("api_key", apiKey);
+            u.searchParams.set("q", q);
+            u.searchParams.set("limit", "25");
+            u.searchParams.set("lang", "en");
+            try {
+              const r = await fetch(u.toString(), { cf: { cacheTtl: 600 } });
+              if (!r.ok) continue;
+              const j = await r.json();
+              const rows = Array.isArray(j?.data) ? j.data : [];
+              if (!rows.length) continue;
+              const pick = rows[Math.floor(Math.random() * rows.length)];
+              const gif = safeStr(pick?.images?.original?.url) ||
+                          safeStr(pick?.images?.downsized_large?.url) ||
+                          safeStr(pick?.images?.fixed_height?.url);
+              if (gif) return gif;
+            } catch (_) {}
+          }
+          return "";
+        };
+
+        // Pull rows that haven't been posted yet.
+        const { results: rows } = await env.UPS_MFL_DB.prepare(
+          `SELECT id, season, league_id, player_id, player_name, position, nfl_team,
+                  franchise_id, franchise_name, dropped_at_unix, dropped_at_iso,
+                  pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year,
+                  pre_drop_contract_length, pre_drop_contract_info, pre_drop_tcv,
+                  pre_drop_years_remaining, pre_drop_taxi,
+                  earned_to_date, guaranteed_amount, penalty_amount, penalty_basis,
+                  penalty_exempt, penalty_exempt_reason, ledger_key
+             FROM ups_drop_events
+            WHERE season = ? AND league_id = ? AND discord_posted = 0
+            ORDER BY dropped_at_unix ASC
+            LIMIT ?`
+        ).bind(targetSeason, leagueId, limit).all();
+
+        if (!rows || rows.length === 0) {
+          return jsonOut(200, { ok: true, dry_run: dryRun, posted_count: 0, message: "No unposted drops." });
+        }
+
+        const results = [];
+        for (const r of rows) {
+          const penalty = Number(r.penalty_amount) || 0;
+          const exempt = Number(r.penalty_exempt) === 1;
+          const tier = exempt ? null : pickTier(penalty);
+          const gifUrl = dryRun ? "" : await pickTierGif(tier);
+
+          // Build embed.
+          const franchiseMeta = await loadContractDiscordFranchiseMeta({
+            season: targetSeason,
+            leagueId,
+            franchiseId: padFranchiseId(r.franchise_id),
+          });
+
+          const tcv = Number(r.pre_drop_tcv) || 0;
+          const cl = Number(r.pre_drop_contract_length) || null;
+          const cy = Number(r.pre_drop_contract_year) || null;
+          const earned = Number(r.earned_to_date) || 0;
+          const guaranteed = Number(r.guaranteed_amount) || 0;
+          const fmtK = (v) => {
+            const n = Number(v) || 0;
+            if (n >= 1000) return `$${Math.round(n / 1000)}K`;
+            return `$${n}`;
+          };
+
+          // Eastern timestamp: "May 22, 2026, 10:14:48 AM EDT".
+          const fmtEastern = (iso) => {
+            if (!iso) return "";
+            try {
+              const d = new Date(iso);
+              if (Number.isNaN(d.getTime())) return safeStr(iso);
+              return d.toLocaleString("en-US", {
+                timeZone: "America/New_York",
+                year: "numeric", month: "short", day: "numeric",
+                hour: "numeric", minute: "2-digit", second: "2-digit",
+                hour12: true,
+                timeZoneName: "short",
+              });
+            } catch (_) {
+              return safeStr(iso);
+            }
+          };
+          const droppedAtET = fmtEastern(r.dropped_at_iso);
+
+          const fields = [
+            { name: "Team", value: safeStr(r.franchise_name) || `Team ${r.franchise_id}`, inline: true },
+            { name: "Player", value: safeStr(r.player_name) || `Player ${r.player_id}`, inline: true },
+            { name: "Position", value: safeStr(r.position) + (r.nfl_team ? ` · ${r.nfl_team}` : ""), inline: true },
+          ];
+          if (r.pre_drop_contract_info) {
+            fields.push({ name: "Contract", value: `\`${safeStr(r.pre_drop_contract_info)}\``, inline: false });
+          }
+          const stateLine = [
+            `Status: **${safeStr(r.pre_drop_contract_status) || "—"}**`,
+            cl != null ? `CL: **${cl}**` : null,
+            cy != null ? `Yrs remaining: **${cy}**` : null,
+            tcv > 0 ? `TCV: **${fmtK(tcv)}**` : null,
+          ].filter(Boolean).join(" · ");
+          if (stateLine) fields.push({ name: "Pre-drop state", value: stateLine, inline: false });
+
+          let penaltyLine;
+          if (exempt) {
+            penaltyLine = `**$0 penalty** — ${safeStr(r.penalty_exempt_reason) || "Exempt per §D2."}`;
+          } else if (penalty === 0) {
+            penaltyLine = `**$0 penalty** — ${safeStr(r.penalty_basis) || "no_penalty_zero"}`;
+          } else {
+            penaltyLine = `**${fmtK(penalty)} cap penalty** (basis: ${safeStr(r.penalty_basis)})\n` +
+              `Guaranteed: ${fmtK(guaranteed)} · Earned: ${fmtK(earned)}`;
+          }
+          fields.push({ name: "Cap penalty", value: penaltyLine, inline: false });
+          if (droppedAtET) fields.push({ name: "Dropped", value: droppedAtET, inline: false });
+
+          // Player-specific GIF (strict matching — only if Giphy returns
+          // a result with the player's last name in the title/slug).
+          // pickContractActivityGifUrl is the existing function used by
+          // contract-activity DMs; "strict_match: true" means full-name
+          // confidence.
+          let playerGifUrl = "";
+          if (!dryRun) {
+            try {
+              const pg = await pickContractActivityGifUrl({
+                activityType: "drop",
+                playerName: safeStr(r.player_name),
+              });
+              if (pg && pg.ok && pg.strict_match && pg.gif_url) {
+                playerGifUrl = pg.gif_url;
+              }
+            } catch (_) {}
+          }
+
+          // Build embed(s).
+          //   Embed 1: title + fields + franchise icon as IMAGE (bigger
+          //            than thumbnail per Keith 2026-05-22).
+          //   Embed 2: player-specific GIF (if 100% match found)
+          //   Embed 3: tier GIF (penalty-based reaction)
+          // No tier label text — visual only per Keith 2026-05-22.
+          const headerEmbed = {
+            title: `📤 Drop: ${safeStr(r.player_name)}`,
+            description: `${safeStr(r.franchise_name)} dropped ${safeStr(r.player_name)}.`,
+            color: exempt || penalty === 0 ? 0x25c37d : (penalty >= 16000 ? 0xd9433a : (penalty >= 9000 ? 0xf0a020 : (penalty >= 5000 ? 0xf0c465 : 0x6c7a8a))),
+            fields,
+          };
+          if (franchiseMeta?.icon_url) {
+            headerEmbed.image = { url: franchiseMeta.icon_url };
+          }
+
+          const embeds = [headerEmbed];
+          // Discord allows multiple embeds in one message + each may have
+          // its own image. We use that for stacked images.
+          if (playerGifUrl) {
+            embeds.push({ url: "https://upsmflproduction.keith-creelman.workers.dev/", image: { url: playerGifUrl } });
+          }
+          if (gifUrl) {
+            embeds.push({ url: "https://upsmflproduction.keith-creelman.workers.dev/", image: { url: gifUrl } });
+          }
+          // Discord caps embeds at 10 per message; we're way under.
+
+          if (dryRun) {
+            results.push({
+              row_id: r.id, player_id: r.player_id, player_name: r.player_name,
+              tier, channel_id: channelId,
+              would_post_embed_title: headerEmbed.title,
+              player_gif_found: !!playerGifUrl,
+              embed_count: embeds.length,
+            });
+            continue;
+          }
+
+          // Post the embeds.
+          let postRes;
+          try {
+            postRes = await discordBotRequest(
+              botToken, "POST",
+              `/channels/${encodeURIComponent(channelId)}/messages`,
+              { content: "", embeds, allowed_mentions: { parse: [] } }
+            );
+          } catch (e) {
+            postRes = { ok: false, status: 0, text: String(e?.message || e) };
+          }
+          const messageId = safeStr(postRes?.data?.id || "");
+          if (postRes?.ok && messageId) {
+            try {
+              await env.UPS_MFL_DB.prepare(
+                `UPDATE ups_drop_events
+                    SET discord_posted = 1,
+                        discord_channel_id = ?,
+                        discord_message_id = ?
+                  WHERE id = ?`
+              ).bind(channelId, messageId, r.id).run();
+            } catch (_) {}
+            results.push({
+              row_id: r.id, player_id: r.player_id, player_name: r.player_name,
+              tier, penalty, channel_id: channelId, message_id: messageId, ok: true,
+            });
+          } else {
+            results.push({
+              row_id: r.id, player_id: r.player_id, player_name: r.player_name,
+              tier, ok: false, error: safeStr(postRes?.text).slice(0, 300),
+            });
+          }
+          // Polite pacing — be friendly to Discord rate limit
+          await new Promise((res) => setTimeout(res, 350));
+        }
+
+        return jsonOut(200, {
+          ok: results.every((r) => r.ok !== false),
+          dry_run: dryRun,
+          target,
+          channel_id: channelId,
+          posted_count: results.filter((r) => r.ok !== false).length,
+          failed_count: results.filter((r) => r.ok === false).length,
+          results,
+        });
+      }
+
+      // POST /admin/drops/scan-and-record
+      // Body: { season, league_id?, days? (default 7), dry_run? }
+      //
+      // Scans MFL TYPE=transactions&TRANS_TYPE=FREE_AGENT for the window
+      // and records every NEW drop event into ups_drop_events. Computes
+      // canon-determined cap penalty per §6/§D2:
+      //
+      //   guaranteed = TCV × 0.75
+      //   penalty    = max(0, guaranteed − earned_to_date)
+      //   if TCV ≤ $4K AND penalty > 0 → fixed $1K floor
+      //   exemptions: WW ≤ $4K · CL=1 + TCV ≤ $4K · TAXI · retired/jail-bird
+      //
+      // Pre-drop contract source: R2 daily snapshot at snapshots/<date>/rosters.json.
+      // If the drop happens on day D, looks for snapshot of day D first
+      // (taken at 09:05 UTC daily); falls back to D-1 if today's hasn't run.
+      // If neither available → records the event with null contract data
+      // for later backfill.
+      //
+      // Idempotent: UNIQUE (season, league_id, player_id, dropped_at_unix)
+      // means re-running the scan over the same window is safe.
+      if (path === "/admin/drops/scan-and-record" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const days = Math.max(1, Math.min(90, safeInt(body?.days, 7)));
+        const dryRun = !!body?.dry_run;
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+
+        // ── Contract parsing + penalty math (canon §6/§D2) ──
+        // Ported from pipelines/etl/scripts/build_salary_adjustments_report.py.
+        const parseContractData = ({ contractInfo, salary, contractYear }) => {
+          const ci = safeStr(contractInfo);
+          const tcvMatch = ci.match(/TCV\s*(\d+(?:\.\d+)?)\s*K/i);
+          const tcv = tcvMatch ? Math.round(Number(tcvMatch[1]) * 1000) : (Number(salary) || 0);
+          const clMatch = ci.match(/CL\s*(\d+)/i);
+          const cl = clMatch ? Number(clMatch[1]) : null;
+          const aavMatch = ci.match(/AAV\s*(\d+(?:\.\d+)?)\s*K/i);
+          const aav = aavMatch ? Math.round(Number(aavMatch[1]) * 1000) : null;
+          const cy = Number(contractYear) || 0;
+          // Per-year salaries: "Y1-1K, Y2-1K, Y3-1K" or "Y1-1, Y2-1"
+          // K-suffix means thousands; bare number is treated as $K too
+          // (MFL convention in contractInfo).
+          const yearSalaries = {};
+          const yRe = /Y(\d+)\s*[-:]\s*(\d+(?:\.\d+)?)\s*K?/gi;
+          let m;
+          while ((m = yRe.exec(ci)) !== null) {
+            yearSalaries[Number(m[1])] = Math.round(Number(m[2]) * 1000);
+          }
+          const yearsRemaining = cy > 0 ? cy : 0;
+          const yearsPlayed = (cl != null && yearsRemaining > 0) ? Math.max(0, cl - yearsRemaining) : 0;
+          let earned = 0;
+          for (let i = 1; i <= yearsPlayed; i += 1) {
+            if (yearSalaries[i] != null) earned += yearSalaries[i];
+          }
+          // If contractInfo lacks per-year salary detail, fall back to a
+          // flat AAV × yearsPlayed assumption.
+          if (earned === 0 && yearsPlayed > 0 && aav != null) {
+            earned = aav * yearsPlayed;
+          }
+          return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned };
+        };
+
+        const computeDropPenalty = ({ contractStatus, salary, contractInfo, contractYear, isTaxi }) => {
+          const ctx = parseContractData({ contractInfo, salary, contractYear });
+          // Exemption checks (priority order):
+          // 1. Taxi squad — 0% guarantee while not permanently promoted (§D2).
+          if (isTaxi) {
+            return { ...ctx, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
+          }
+          // 2. WW pickup at ≤ $4K → cap-free (§D2 + Bot Grounding appendix).
+          if (/^WW$/i.test(safeStr(contractStatus)) && Number(salary) <= 4000) {
+            return { ...ctx, penalty: 0, basis: "ww_under_5k_exempt", exempt: true, exempt_reason: "WW pickup salary ≤ $4K (§D2)." };
+          }
+          // 3. 1-year original-length contract with TCV ≤ $4K — cap-free (§D2).
+          if (ctx.cl === 1 && ctx.tcv > 0 && ctx.tcv <= 4000) {
+            return { ...ctx, penalty: 0, basis: "one_year_under_5k_exempt", exempt: true, exempt_reason: "1-year original contract under $5K (§D2)." };
+          }
+          // TCV ≤ $4K — sub-5K rule (Keith 2026-05-22, updated canon §D2):
+          //   yrs_remaining ≥ 2 → fixed $1K
+          //   yrs_remaining ≤ 1 → $0 (final-year drop is cap-free, regardless
+          //                            of the standard formula result)
+          // This OVERRIDES the standard guaranteed-minus-earned formula
+          // entirely for sub-$5K TCV contracts. Replaces the prior
+          // pipeline behavior which applied the $1K floor on top of any
+          // positive standard-formula result.
+          if (ctx.tcv > 0 && ctx.tcv <= 4000) {
+            if (ctx.yearsRemaining >= 2) {
+              return { ...ctx, guaranteed: Math.floor(ctx.tcv * 0.75), penalty: 1000, basis: "tcv_under_5k_fixed_1k", exempt: false, exempt_reason: "" };
+            }
+            return { ...ctx, guaranteed: Math.floor(ctx.tcv * 0.75), penalty: 0, basis: "tcv_under_5k_final_year_exempt", exempt: true, exempt_reason: "Sub-5K TCV with ≤ 1 year remaining (§D2 — Keith 2026-05-22)." };
+          }
+          // Standard formula for TCV > $4K
+          const guaranteed = Math.floor(ctx.tcv * 0.75);
+          let penalty = Math.max(0, guaranteed - ctx.earned);
+          if (penalty === 0) {
+            return { ...ctx, guaranteed, penalty: 0, basis: "no_penalty_zero", exempt: false, exempt_reason: "Earned ≥ guaranteed (no penalty)." };
+          }
+          return { ...ctx, guaranteed, penalty, basis: "guarantee_minus_earned", exempt: false, exempt_reason: "" };
+        };
+
+        // ── R2 snapshot reader ──
+        const r2Bucket = env.UPS_MFL_BACKUPS;
+        const snapshotRostersByDate = new Map(); // dateStr → parsed rosters JSON
+        const loadSnapshotRosters = async (dateStr) => {
+          if (snapshotRostersByDate.has(dateStr)) return snapshotRostersByDate.get(dateStr);
+          let data = null;
+          if (r2Bucket) {
+            try {
+              const obj = await r2Bucket.get(`snapshots/${dateStr}/rosters.json`);
+              if (obj) {
+                const text = await obj.text();
+                data = JSON.parse(text);
+              }
+            } catch (_) {}
+          }
+          snapshotRostersByDate.set(dateStr, data);
+          return data;
+        };
+
+        const findPreDropContract = async (pid, dropTs) => {
+          // Try the day-of-drop snapshot first, then walk back up to 7 days.
+          const drop = new Date(dropTs * 1000);
+          for (let lag = 0; lag <= 7; lag += 1) {
+            const probe = new Date(drop.getTime() - lag * 86400000);
+            const dateStr = probe.toISOString().slice(0, 10);
+            const snap = await loadSnapshotRosters(dateStr);
+            if (!snap) continue;
+            const fr = snap?.rosters?.franchise || [];
+            const frs = Array.isArray(fr) ? fr : [fr];
+            for (const f of frs) {
+              const players = f?.player || [];
+              const plist = Array.isArray(players) ? players : [players];
+              for (const p of plist) {
+                if (safeStr(p?.id).replace(/\D/g, "") === pid) {
+                  return {
+                    contract_status: safeStr(p?.contractStatus),
+                    salary: Number(p?.salary) || 0,
+                    contract_year: Number(p?.contractYear) || 0,
+                    contract_info: safeStr(p?.contractInfo),
+                    is_taxi: safeStr(p?.status) === "TAXI_SQUAD",
+                    snapshot_source: dateStr,
+                  };
+                }
+              }
+            }
+          }
+          return null;
+        };
+
+        // ── Pull FREE_AGENT transactions ──
+        const txRes = await mflExportJson(targetSeason, leagueId, "transactions",
+          { TRANS_TYPE: "FREE_AGENT", DAYS: String(days) }, { useCookie: true });
+        let txs = txRes.data?.transactions?.transaction || [];
+        if (!Array.isArray(txs)) txs = [txs];
+
+        // Player + franchise meta for enrichment
+        const [playersRes, leagueRes] = await Promise.all([
+          mflExportJson(targetSeason, leagueId, "players", {}, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "league", {}, { useCookie: true }),
+        ]);
+        const fidToName = {};
+        const flist = leagueRes.data?.league?.franchises?.franchise || [];
+        for (const f of flist) fidToName[padFranchiseId(f.id)] = safeStr(f.name || `Team ${f.id}`);
+        const pidMeta = new Map();
+        let pAll = playersRes.data?.players?.player || [];
+        if (!Array.isArray(pAll)) pAll = [pAll];
+        for (const p of pAll) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          let nm = safeStr(p?.name);
+          if (nm.includes(",")) nm = nm.split(",").reverse().map((s) => s.trim()).join(" ");
+          pidMeta.set(pid, { name: nm, position: safeStr(p?.position).toUpperCase(), team: safeStr(p?.team).toUpperCase() });
+        }
+
+        // Walk transactions → resolve every dropped player_id.
+        const drops = [];
+        for (const tx of txs) {
+          const fid = padFranchiseId(tx?.franchise || "");
+          const ts = Number(tx?.timestamp) || 0;
+          if (!fid || !ts) continue;
+          // The `transaction` field is "|pid1,|pid2,..." — extract digit clusters.
+          const blob = safeStr(tx?.transaction);
+          const pids = blob.match(/\d{3,6}/g) || [];
+          for (const pid of pids) {
+            drops.push({ pid, fid, ts, raw: tx });
+          }
+        }
+
+        // For each drop, check if already in D1; if not, look up + compute + insert.
+        const written = [];
+        const skipped = [];
+        const nowIso = new Date().toISOString();
+        for (const drop of drops) {
+          const ledgerKey = `${drop.pid}_${drop.ts}`;
+          try {
+            const existing = await env.UPS_MFL_DB.prepare(
+              `SELECT id FROM ups_drop_events
+                WHERE season=? AND league_id=? AND player_id=? AND dropped_at_unix=? LIMIT 1`
+            ).bind(targetSeason, leagueId, drop.pid, drop.ts).first();
+            if (existing) { skipped.push({ ...drop, reason: "already_recorded" }); continue; }
+
+            const meta = pidMeta.get(drop.pid) || {};
+            const preDrop = await findPreDropContract(drop.pid, drop.ts);
+            const dropIso = new Date(drop.ts * 1000).toISOString();
+            let penaltyInfo = {
+              tcv: null, cl: null, aav: null, cy: null,
+              yearsRemaining: null, yearsPlayed: null, earned: null,
+              guaranteed: null, penalty: null, basis: "no_pre_drop_contract",
+              exempt: false, exempt_reason: "",
+            };
+            if (preDrop) {
+              penaltyInfo = computeDropPenalty({
+                contractStatus: preDrop.contract_status,
+                salary: preDrop.salary,
+                contractInfo: preDrop.contract_info,
+                contractYear: preDrop.contract_year,
+                isTaxi: preDrop.is_taxi,
+              });
+            }
+
+            if (dryRun) {
+              written.push({
+                pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
+                pre_drop: preDrop, penalty: penaltyInfo,
+              });
+              continue;
+            }
+
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_drop_events (
+                 season, league_id, player_id, player_name, position, nfl_team,
+                 franchise_id, franchise_name, dropped_at_unix, dropped_at_iso,
+                 pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year,
+                 pre_drop_contract_length, pre_drop_contract_info, pre_drop_tcv,
+                 pre_drop_aav, pre_drop_years_remaining, pre_drop_taxi,
+                 earned_to_date, guaranteed_amount, penalty_amount, penalty_basis,
+                 penalty_exempt, penalty_exempt_reason,
+                 ledger_key, source, detected_at_utc, raw_transaction_json, snapshot_source
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (season, league_id, player_id, dropped_at_unix) DO NOTHING`
+            ).bind(
+              targetSeason, leagueId, drop.pid,
+              safeStr(meta.name) || `Player ${drop.pid}`,
+              safeStr(meta.position) || null,
+              safeStr(meta.team) || null,
+              drop.fid, fidToName[drop.fid] || null,
+              drop.ts, dropIso,
+              preDrop?.contract_status || null,
+              preDrop?.salary != null ? preDrop.salary : null,
+              preDrop?.contract_year != null ? preDrop.contract_year : null,
+              penaltyInfo.cl != null ? Number(penaltyInfo.cl) : null,
+              preDrop?.contract_info || null,
+              penaltyInfo.tcv != null ? Number(penaltyInfo.tcv) : null,
+              penaltyInfo.aav != null ? Number(penaltyInfo.aav) : null,
+              penaltyInfo.yearsRemaining != null ? Number(penaltyInfo.yearsRemaining) : null,
+              preDrop?.is_taxi ? 1 : 0,
+              penaltyInfo.earned != null ? Number(penaltyInfo.earned) : null,
+              penaltyInfo.guaranteed != null ? Number(penaltyInfo.guaranteed) : null,
+              penaltyInfo.penalty != null ? Number(penaltyInfo.penalty) : null,
+              safeStr(penaltyInfo.basis),
+              penaltyInfo.exempt ? 1 : 0,
+              safeStr(penaltyInfo.exempt_reason),
+              ledgerKey, "transactions_poll", nowIso,
+              JSON.stringify(drop.raw),
+              preDrop?.snapshot_source || null
+            ).run();
+            written.push({
+              pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
+              penalty_amount: penaltyInfo.penalty, penalty_basis: penaltyInfo.basis,
+              exempt: penaltyInfo.exempt,
+            });
+          } catch (e) {
+            skipped.push({ ...drop, reason: "insert_failed", error: String(e?.message || e) });
+          }
+        }
+
+        return jsonOut(200, {
+          ok: true,
+          dry_run: dryRun,
+          season: targetSeason,
+          league_id: leagueId,
+          window_days: days,
+          transactions_seen: drops.length,
+          written_count: written.length,
+          skipped_count: skipped.length,
+          written, skipped,
         });
       }
 
