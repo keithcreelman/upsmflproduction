@@ -27255,32 +27255,53 @@ export default {
           return "";
         };
 
-        // Drop LEAD GIF — generic nfl-sad pool, heavily randomized
-        // (Keith 2026-05-22). Replaces the prior player-strict-match
-        // (Pass 1/2 of pickContractActivityGifUrl) and the "trump you're
-        // fired" tone-pool. Every drop lead is now a random sad-NFL
-        // reaction. Randomization is double-layered: shuffle the query
-        // list so a different query runs first each fire, then random-
-        // index into the chosen query's results (limit 50) so within
-        // a query the picked GIF varies too.
-        const NFL_SAD_LEAD_QUERIES = [
+        // Drop LEAD GIF — combined nfl-sad + fired/GTFOH pool, heavily
+        // randomized (Keith 2026-05-22).
+        //
+        // Two tonal families mixed in one randomized pool:
+        //   (a) NFL-sad reactions — dejected, disappointed, bench, sideline
+        //   (b) "You're fired" / GTFOH comedy — Trump-fired, kicked out,
+        //       shown the door, see ya later
+        // Both themes get equal-ish odds via shuffle-then-iterate. NO
+        // "football"-prefixed queries — Giphy returns soccer content for
+        // generic "football" terms (it's an international platform).
+        //
+        // Randomization is double-layered: shuffle the query list so a
+        // different query runs first each fire, then random-index into
+        // the chosen query's results (limit 50) so within a query the
+        // picked GIF varies too. rating=r for the broadest set.
+        const DROP_LEAD_QUERIES = [
+          // NFL-sad family (NFL-only; never "football" — soccer noise)
           "nfl sad",
-          "football sad",
+          "sad nfl",
           "nfl player sad",
-          "sad football player",
           "nfl dejected",
-          "football disappointed",
-          "nfl loss reaction",
-          "nfl bench sad",
-          "nfl player crying",
-          "football head down",
+          "nfl disappointed",
           "nfl sideline sad",
-          "football player upset",
+          "nfl bench sad",
+          "nfl loss reaction",
+          "nfl player upset",
+          "nfl player crying",
+          "nfl player head down",
+          "nfl sideline dejected",
+          "nfl coach sad",
+          // Fired / GTFOH family (preserved from commit 9a7435f)
+          "trump you're fired",
+          "you're fired",
+          "gtfoh",
+          "get outta here",
+          "kicked out",
+          "shown the door",
+          "hit the road",
+          "bye bye wave",
+          "boot kick out",
+          "see ya later",
+          "get out",
         ];
         const pickDropLeadGif = async () => {
           const apiKey = safeStr(env.GIPHY_API_KEY || "");
           if (!apiKey) return { gif_url: "", query: "" };
-          const shuffled = [...NFL_SAD_LEAD_QUERIES].sort(() => Math.random() - 0.5);
+          const shuffled = [...DROP_LEAD_QUERIES].sort(() => Math.random() - 0.5);
           for (const q of shuffled) {
             const u = new URL("https://api.giphy.com/v1/gifs/search");
             u.searchParams.set("api_key", apiKey);
