@@ -68,7 +68,7 @@
     era: null,                   // payload from /api/auction/era-eligible
     activeTab: "era",
     era_filters: { pos: "ALL", owner: "" },
-    era_sort: "y3_salary",
+    era_sort: "ppg_weighted",
     era_sort_dir: -1,            // desc
     lots: null,                  // payload from /api/auction/lots
     nom_filters: { status: "open" },
@@ -179,7 +179,7 @@
       console.error("[auction-hub] era-eligible fetch failed:", e);
       STATE.era = { players: [], error: String(e && e.message || e) };
       if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--err);padding:24px;">
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--err);padding:24px;">
           Failed to load eligible players: ${escapeHtml(STATE.era.error)}
         </td></tr>`;
       }
@@ -853,7 +853,7 @@
         } else {
           STATE.era_sort = col;
           // Numeric columns default desc, text columns default asc
-          const numeric = ["age", "y3_salary", "current_bid", "rookie_slot"];
+          const numeric = ["ppg_2023", "ppg_2024", "ppg_2025", "ppg_weighted", "high_bid_k", "total_bids", "age", "y3_salary", "current_bid", "rookie_slot"];
           STATE.era_sort_dir = numeric.includes(col) ? -1 : 1;
         }
         renderEraTable();
@@ -953,7 +953,7 @@
     });
 
     if (sorted.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">
+      tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px;">
         No players match the current filters.
       </td></tr>`;
       return;
@@ -1046,17 +1046,39 @@
     const originLabel = origin === "Rookie - FA Auction" ? "FA Auction" : origin;
     const originChip = `<span class="ah-origin ${originClass}" title="Contract origin: ${escapeHtml(origin)}">${escapeHtml(originLabel)}</span>`;
 
+    // PPG cell formatter — show "—" for null, otherwise 1 decimal with
+    // a games count subscript when low (< 8 games) so users can spot
+    // small-sample noise.
+    const ppgCell = (ppg, games) => {
+      if (ppg == null) return "—";
+      const val = Number(ppg).toFixed(1);
+      const sub = (games != null && games > 0 && games < 8)
+        ? ` <span class="ah-ppg-games" title="${games} games">(${games}g)</span>`
+        : "";
+      return `${val}${sub}`;
+    };
+
+    const highBidCell = (p.high_bid_k != null && p.high_bid_k > 0)
+      ? fmtK(p.high_bid_k * 1000)
+      : "—";
+    const highBidderCell = p.high_bid_team
+      ? escapeHtml(p.high_bid_team)
+      : "—";
+    const totalBidsCell = Number(p.total_bids || 0);
+
     return `
       <tr data-pid="${escapeHtml(p.player_id || "")}">
         <td>${playerCell}</td>
         <td><span class="ah-pos ${pos}">${escapeHtml(pos)}</span></td>
         <td class="col-md">${escapeHtml(p.nfl_team || "—")}</td>
-        <td class="num col-lo">${p.age != null ? escapeHtml(String(p.age)) : "—"}</td>
-        <td class="col-md">${escapeHtml(p.prior_owner || "—")}</td>
-        <td class="col-lo">${escapeHtml(p.rookie_slot || "—")}</td>
         <td>${originChip}</td>
-        <td class="num">${p.y3_salary != null ? fmtK(p.y3_salary) : "—"}</td>
-        <td class="num col-md">${currentBidCell}</td>
+        <td class="num col-lo">${ppgCell(p.ppg_2023, p.games_2023)}</td>
+        <td class="num col-lo">${ppgCell(p.ppg_2024, p.games_2024)}</td>
+        <td class="num col-lo">${ppgCell(p.ppg_2025, p.games_2025)}</td>
+        <td class="num"><strong>${p.ppg_weighted != null ? Number(p.ppg_weighted).toFixed(1) : "—"}</strong></td>
+        <td class="num col-md">${highBidCell}</td>
+        <td class="col-md">${highBidderCell}</td>
+        <td class="num col-lo">${totalBidsCell}</td>
         <td>
           <div class="ah-nominate-wrap">
             ${nominateBtn}

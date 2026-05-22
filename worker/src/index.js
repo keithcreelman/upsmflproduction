@@ -2469,41 +2469,87 @@ export default {
         const noSnapshot = (url.searchParams.get("nosnapshot") || "") === "1";
         if (!noSnapshot && env.UPS_MFL_DB) {
           try {
+            // LEFT JOIN ups_auction_lots so we surface live high_bid_fid
+            // + bid_count + status for each ERA player. Auction hasn't
+            // started yet → these will be NULL until lots exist.
+            // NOTE: ups_auction_lots.season is INTEGER, ups_era_pool.season
+            // is TEXT — explicit CAST avoids silent JOIN miss.
             const queryRes = await env.UPS_MFL_DB.prepare(
-              `SELECT player_id, player_name, position, nfl_team,
-                      prior_owner_fid, prior_owner_name, origin_label,
-                      rookie_slot, rookie_slot_round, rookie_slot_pick,
-                      rookie_slot_year, y3_salary, drafted_field_raw,
-                      contract_status_at_drop, snapshot_at_utc
-                 FROM ups_era_pool
-                WHERE season = ? AND league_id = ?
-                ORDER BY prior_owner_fid, position, player_name`
+              `SELECT
+                  p.player_id, p.player_name, p.position, p.nfl_team,
+                  p.prior_owner_fid, p.prior_owner_name, p.origin_label,
+                  p.rookie_slot, p.rookie_slot_round, p.rookie_slot_pick,
+                  p.rookie_slot_year, p.y3_salary, p.drafted_field_raw,
+                  p.contract_status_at_drop, p.snapshot_at_utc,
+                  p.ppg_2023, p.ppg_2024, p.ppg_2025, p.ppg_weighted,
+                  p.games_2023, p.games_2024, p.games_2025,
+                  l.current_high_bid_k        AS lot_high_bid_k,
+                  l.current_high_bidder_fid   AS lot_high_fid,
+                  l.bid_count                 AS lot_bid_count,
+                  l.status                    AS lot_status,
+                  l.last_bid_at_unix          AS lot_last_bid_unix,
+                  l.locks_at_unix             AS lot_locks_at_unix
+                FROM ups_era_pool p
+                LEFT JOIN ups_auction_lots l
+                  ON CAST(l.season AS TEXT) = p.season
+                 AND l.league_id = p.league_id
+                 AND l.player_id = p.player_id
+                WHERE p.season = ? AND p.league_id = ?
+                ORDER BY p.position, p.player_name`
             ).bind(String(year), String(leagueId)).all();
-            // D1 .all() returns { results: Array, success, meta }. Use
-            // explicit access — destructuring `const { results: poolRows }`
-            // intermittently returned undefined in production (Keith
-            // 2026-05-22 — pre-fix: response always fell through to the
-            // legacy live-roster walk).
             const poolRows = (queryRes && Array.isArray(queryRes.results)) ? queryRes.results : [];
             if (poolRows.length > 0) {
-              // NOTE: do NOT use safeInt here — it's defined at line
-              // ~10173, AFTER this snapshot block (~line 2469). Calling
-              // it would throw ReferenceError and the try/catch would
-              // swallow the error, falling through to the legacy walk
-              // and returning {count: 0}. Use inline Number() instead.
-              // safeStr IS available (defined ~line 2063).
+              // High-bid franchise NAME resolution — pull from league.
+              // Cache one MFL call per request.
+              let fidToFranchiseName = {};
+              try {
+                const lr = await fetch(
+                  `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`,
+                  { cf: { cacheTtl: 300 } }
+                );
+                const lj = await lr.json().catch(() => ({}));
+                const frArr = lj?.league?.franchises?.franchise || [];
+                const flist = Array.isArray(frArr) ? frArr : [frArr];
+                for (const f of flist) {
+                  const fid = String(f.id || "").padStart(4, "0");
+                  if (fid) fidToFranchiseName[fid] = String(f.name || `Team ${f.id}`);
+                }
+              } catch (_) {}
+
+              // NOTE: safeInt isn't in scope here (defined later in file).
+              // Use inline Number() and `|| null` patterns.
               const players = poolRows.map((r) => ({
                 player_id: safeStr(r.player_id),
                 name: safeStr(r.player_name),
                 position: safeStr(r.position),
                 nfl_team: safeStr(r.nfl_team),
-                age: null,
                 prior_owner_fid: safeStr(r.prior_owner_fid),
                 prior_owner: safeStr(r.prior_owner_name),
+                origin_label: safeStr(r.origin_label),
+                // PPG (3-year + weighted)
+                ppg_2023: r.ppg_2023 != null ? Number(r.ppg_2023) : null,
+                ppg_2024: r.ppg_2024 != null ? Number(r.ppg_2024) : null,
+                ppg_2025: r.ppg_2025 != null ? Number(r.ppg_2025) : null,
+                ppg_weighted: r.ppg_weighted != null ? Number(r.ppg_weighted) : null,
+                games_2023: r.games_2023 != null ? Number(r.games_2023) : null,
+                games_2024: r.games_2024 != null ? Number(r.games_2024) : null,
+                games_2025: r.games_2025 != null ? Number(r.games_2025) : null,
+                // Live auction state (null until auction opens)
+                high_bid_k: r.lot_high_bid_k != null ? Number(r.lot_high_bid_k) : null,
+                high_bid_fid: r.lot_high_fid ? String(r.lot_high_fid).padStart(4, "0") : null,
+                high_bid_team: r.lot_high_fid
+                  ? (fidToFranchiseName[String(r.lot_high_fid).padStart(4, "0")] || `Team ${r.lot_high_fid}`)
+                  : null,
+                total_bids: r.lot_bid_count != null ? Number(r.lot_bid_count) : 0,
+                lot_status: safeStr(r.lot_status) || "not_yet_open",
+                lot_last_bid_unix: r.lot_last_bid_unix != null ? Number(r.lot_last_bid_unix) : null,
+                lot_locks_at_unix: r.lot_locks_at_unix != null ? Number(r.lot_locks_at_unix) : null,
+                // Retained for audit but de-emphasized in UI (Keith 2026-05-22
+                // removed Age / Prior Owner / Rookie Slot / Rookie Salary cols).
+                age: null,
                 rookie_slot: safeStr(r.rookie_slot),
                 y3_salary: Number(r.y3_salary) || 0,
                 contract_status: safeStr(r.contract_status_at_drop),
-                origin_label: safeStr(r.origin_label),
                 drafted_field_raw: safeStr(r.drafted_field_raw),
                 eligibility_reason: "Cut at rookie extension deadline.",
                 deadline_iso: null,
@@ -27139,6 +27185,153 @@ export default {
           }
         }));
 
+        // Pull transaction history for FA Auction / WW classification
+        // (Keith 2026-05-22). Origin priority:
+        //   1. draftPick found in TYPE=draftResults → "Rookie Draft"
+        //   2. AUCTION_WON transaction → "FA Auction"
+        //   3. FREE_AGENT/WAIVER transaction → "WW"
+        //   4. Fall back to deriveOrigin(drafted_field) or "Other"
+        //
+        // Transactions endpoint returns per-year. Probe the last 3 seasons
+        // for any AUCTION_WON / FREE_AGENT involving the survivor PIDs.
+        const survivorPidSet = new Set(survivors.map((c) => c.pid));
+        const pidToAuction = new Map(); // pid → true if won at MFL auction
+        const pidToWaiver = new Map();  // pid → true if BB/FCFS picked up
+        if (survivorPidSet.size > 0) {
+          const txYears = [seasonInt - 3, seasonInt - 2, seasonInt - 1, seasonInt];
+          await Promise.all(txYears.map(async (ty) => {
+            for (const tt of ["AUCTION_WON", "FREE_AGENT"]) {
+              try {
+                const txRes = await mflExportJson(String(ty), leagueId, "transactions",
+                  { TRANS_TYPE: tt }, { useCookie: true });
+                let txs = txRes.data?.transactions?.transaction || [];
+                if (!Array.isArray(txs)) txs = [txs];
+                for (const tx of txs) {
+                  // TYPE=transactions returns `transaction` field with pipe-
+                  // separated player_id list (or single id) in the trans's
+                  // primary `transaction` column for AUCTION_WON, or
+                  // `transaction` colon-suffix `,$N` for FA. Parse
+                  // permissively: every digit-cluster is a candidate PID.
+                  const blob = safeStr(tx?.transaction || "");
+                  const pids = blob.match(/\d{3,6}/g) || [];
+                  for (const pid of pids) {
+                    if (!survivorPidSet.has(pid)) continue;
+                    if (tt === "AUCTION_WON") pidToAuction.set(pid, true);
+                    else pidToWaiver.set(pid, true);
+                  }
+                }
+              } catch (_) {}
+            }
+          }));
+        }
+
+        // Fetch the local player_points_history.json (jsDelivr) for PPG
+        // backfill. The file is generated quarterly from MFL playerScores
+        // and covers ~404 active-roster players. For players NOT in this
+        // file, we'd need a live MFL playerScores fetch — skipped here for
+        // speed, will show as null PPG in the UI (can backfill later).
+        let ppgIndex = {};
+        try {
+          const sha = String(env.UPS_RELEASE_SHA || "main").replace(/[^A-Za-z0-9_./-]/g, "") || "main";
+          const histUrl = `https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@${sha}/site/rosters/player_points_history.json`;
+          const hr = await fetch(histUrl, { cf: { cacheTtl: 600 } });
+          if (hr.ok) {
+            const hj = await hr.json();
+            const playersHist = hj?.players || {};
+            // yearly_fields order: [points, games, ppg, pos_rank, ppg_rank, ...]
+            for (const pid of Object.keys(playersHist)) {
+              const p = playersHist[pid];
+              let y = p?.y || {};
+              if (typeof y === "string") {
+                // historical file sometimes stringifies — recover
+                try { y = JSON.parse(y.replace(/'/g, '"').replace(/None/g, "null")); } catch (_) { y = {}; }
+              }
+              ppgIndex[pid] = {
+                ppg_2023: y?.["2023"]?.[2] ?? null,
+                games_2023: y?.["2023"]?.[1] ?? null,
+                ppg_2024: y?.["2024"]?.[2] ?? null,
+                games_2024: y?.["2024"]?.[1] ?? null,
+                ppg_2025: y?.["2025"]?.[2] ?? null,
+                games_2025: y?.["2025"]?.[1] ?? null,
+              };
+            }
+          }
+        } catch (e) {
+          console.warn("[era-pool] player_points_history fetch failed:", e?.message || String(e));
+        }
+
+        // Live MFL playerScores fallback for any survivor missing from
+        // the local history file (taxi-squad players or IDPs the build
+        // script may have excluded). Fetches W=YTD for each prior year.
+        const ppgMissing = [];
+        for (const c of survivors) {
+          const h = ppgIndex[c.pid];
+          if (!h || (h.ppg_2023 == null && h.ppg_2024 == null && h.ppg_2025 == null)) {
+            ppgMissing.push(c.pid);
+          }
+        }
+        if (ppgMissing.length > 0 && ppgMissing.length <= 40) {
+          // Cap at 40 to bound subrequest count. Each pid × 3 years = 3
+          // subreq, total ≤ 120. Use W=ALL (per-week scores) instead of
+          // W=YTD — MFL's YTD response gives a score sum but no games
+          // count, so we can't derive PPG. With W=ALL we count weeks
+          // with non-empty score = games played.
+          await Promise.all(ppgMissing.map(async (pid) => {
+            const entry = ppgIndex[pid] || {};
+            for (const yr of ["2023", "2024", "2025"]) {
+              if (entry[`ppg_${yr}`] != null) continue;
+              try {
+                const psRes = await fetch(
+                  `https://api.myfantasyleague.com/${yr}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&P=${encodeURIComponent(pid)}&W=ALL&JSON=1`,
+                  { cf: { cacheTtl: 86400 } }
+                );
+                const pj = await psRes.json().catch(() => ({}));
+                const allWeeks = pj?.playerScoresAllWeeks?.playerScores || [];
+                const arr = Array.isArray(allWeeks) ? allWeeks : [allWeeks];
+                let totalScore = 0;
+                let gamesPlayed = 0;
+                for (const wk of arr) {
+                  const sc = wk?.playerScore?.score;
+                  if (sc === "" || sc == null) continue;
+                  const wkVal = Number(sc);
+                  if (!Number.isFinite(wkVal)) continue;
+                  totalScore += wkVal;
+                  gamesPlayed += 1;
+                }
+                if (gamesPlayed > 0) {
+                  entry[`ppg_${yr}`] = Math.round((totalScore / gamesPlayed) * 1000) / 1000;
+                  entry[`games_${yr}`] = gamesPlayed;
+                } else {
+                  entry[`ppg_${yr}`] = null;
+                  entry[`games_${yr}`] = 0;
+                }
+              } catch (_) {}
+            }
+            ppgIndex[pid] = entry;
+          }));
+        }
+
+        // Weighted average (3-2-1, more weight to recent). Skip years
+        // with games=0 so a player who didn't play in 2023 isn't dragged
+        // to 0 across the avg.
+        const computeWeightedPpg = (h) => {
+          if (!h) return null;
+          const slots = [
+            { ppg: h.ppg_2025, games: h.games_2025, w: 3 },
+            { ppg: h.ppg_2024, games: h.games_2024, w: 2 },
+            { ppg: h.ppg_2023, games: h.games_2023, w: 1 },
+          ];
+          let num = 0, den = 0;
+          for (const s of slots) {
+            const ppg = Number(s.ppg);
+            const games = Number(s.games);
+            if (!Number.isFinite(ppg) || !Number.isFinite(games) || games <= 0) continue;
+            num += ppg * s.w;
+            den += s.w;
+          }
+          return den > 0 ? Math.round((num / den) * 100) / 100 : null;
+        };
+
         // Insert/update.
         const nowIso = new Date().toISOString();
         const written = [];
@@ -27149,9 +27342,34 @@ export default {
           const rookieSlot = draftPick ? draftPick.label : (c.drafted_field || "");
           const y3K = draftPick ? rookieSalaryK(draftPick.round, draftPick.pick) : null;
           const y3Dollars = y3K ? y3K * 1000 : null;
-          const origin = deriveOrigin(c.drafted_field) || (draftPick ? "Rookie Draft" : "Other");
+
+          // Origin classification (Keith 2026-05-22). Priority order:
+          //   1. UPS rookie draft slot resolved → "Rookie Draft"
+          //   2. AUCTION_WON transaction → "FA Auction"
+          //   3. FREE_AGENT/WAIVER transaction → "WW"
+          //   4. Live mode w/ raw drafted field → deriveOrigin()
+          //   5. Fallback → "Other"
+          let origin;
+          if (draftPick) {
+            origin = "Rookie Draft";
+          } else if (pidToAuction.has(c.pid)) {
+            origin = "FA Auction";
+          } else if (pidToWaiver.has(c.pid)) {
+            origin = "WW";
+          } else if (c.drafted_field) {
+            const d = deriveOrigin(c.drafted_field);
+            origin = (d && d !== "Other") ? d : "Other";
+          } else {
+            origin = "Other";
+          }
+
           const fid = c.fid || padFranchiseId(draftPick?.origFranchise || "");
           if (!c.pid) { skipped.push({ pid: c.pid, reason: "no_pid" }); continue; }
+
+          // PPG values
+          const ph = ppgIndex[c.pid] || {};
+          const wPpg = computeWeightedPpg(ph);
+
           try {
             await env.UPS_MFL_DB.prepare(
               `INSERT INTO ups_era_pool (
@@ -27159,8 +27377,10 @@ export default {
                  prior_owner_fid, prior_owner_name, origin_label,
                  rookie_slot, rookie_slot_round, rookie_slot_pick, rookie_slot_year,
                  y3_salary, drafted_field_raw,
-                 contract_status_at_drop, contract_year_at_drop, source, snapshot_at_utc
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 contract_status_at_drop, contract_year_at_drop, source, snapshot_at_utc,
+                 ppg_2023, ppg_2024, ppg_2025, ppg_weighted,
+                 games_2023, games_2024, games_2025
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT (season, league_id, player_id) DO UPDATE SET
                  player_name = excluded.player_name,
                  position = excluded.position,
@@ -27177,7 +27397,14 @@ export default {
                  contract_status_at_drop = excluded.contract_status_at_drop,
                  contract_year_at_drop = excluded.contract_year_at_drop,
                  source = excluded.source,
-                 snapshot_at_utc = excluded.snapshot_at_utc`
+                 snapshot_at_utc = excluded.snapshot_at_utc,
+                 ppg_2023 = excluded.ppg_2023,
+                 ppg_2024 = excluded.ppg_2024,
+                 ppg_2025 = excluded.ppg_2025,
+                 ppg_weighted = excluded.ppg_weighted,
+                 games_2023 = excluded.games_2023,
+                 games_2024 = excluded.games_2024,
+                 games_2025 = excluded.games_2025`
             ).bind(
               targetSeason, leagueId, c.pid,
               safeStr(meta.name) || `Player ${c.pid}`,
@@ -27194,9 +27421,20 @@ export default {
               c.drafted_field || null,
               null, null, // contract_status_at_drop / contract_year_at_drop captured on drop
               explicitPids.length ? "backfill_admin_endpoint" : "live_roster_walk",
-              nowIso
+              nowIso,
+              ph.ppg_2023 != null ? Number(ph.ppg_2023) : null,
+              ph.ppg_2024 != null ? Number(ph.ppg_2024) : null,
+              ph.ppg_2025 != null ? Number(ph.ppg_2025) : null,
+              wPpg,
+              ph.games_2023 != null ? Number(ph.games_2023) : null,
+              ph.games_2024 != null ? Number(ph.games_2024) : null,
+              ph.games_2025 != null ? Number(ph.games_2025) : null
             ).run();
-            written.push({ pid: c.pid, name: meta.name, fid, origin, rookie_slot: rookieSlot, y3_salary: y3Dollars });
+            written.push({
+              pid: c.pid, name: meta.name, fid, origin,
+              ppg_2023: ph.ppg_2023, ppg_2024: ph.ppg_2024, ppg_2025: ph.ppg_2025,
+              ppg_weighted: wPpg,
+            });
           } catch (e) {
             skipped.push({ pid: c.pid, reason: "insert_failed", error: String(e?.message || e) });
           }
