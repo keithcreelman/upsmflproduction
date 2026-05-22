@@ -69,17 +69,19 @@
             <th data-sort="name">Player</th>
             <th data-sort="position">Pos</th>
             <th data-sort="nfl_team" class="col-md">NFL</th>
-            <th data-sort="age" class="num col-lo">Age</th>
-            <th data-sort="prior_owner" class="col-md">Prior Owner</th>
-            <th data-sort="rookie_slot" class="col-lo">Rookie Slot</th>
             <th data-sort="origin_label">Origin</th>
-            <th data-sort="y3_salary" class="num">Rookie Salary</th>
-            <th data-sort="current_bid" class="num col-md">Current Bid</th>
+            <th data-sort="ppg_2023" class="num col-lo">2023 PPG</th>
+            <th data-sort="ppg_2024" class="num col-lo">2024 PPG</th>
+            <th data-sort="ppg_2025" class="num col-lo">2025 PPG</th>
+            <th data-sort="ppg_weighted" class="num">Wtd PPG</th>
+            <th data-sort="high_bid_k" class="num col-md">High Bid</th>
+            <th data-sort="high_bid_team" class="col-md">High Bidder</th>
+            <th data-sort="total_bids" class="num col-lo">Bids</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody id="era-tbody">
-          <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px;">Loading eligible players…</td></tr>
+          <tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px;">Loading eligible players…</td></tr>
         </tbody>
       </table>
     </div>
@@ -153,6 +155,20 @@
 
   <!-- ── WAR ROOM ─────────────────────────────────────────────────── -->
   <section class="ah-section" data-section="warroom">
+    <div class="ah-wip-banner" style="
+      background: linear-gradient(90deg, #3a2a0d 0%, #2a1f0a 100%);
+      border: 1px solid #c89942;
+      border-left: 4px solid #f0c465;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin: 0 0 16px;
+      color: #f0d68f;
+      font-size: 13px;
+      line-height: 1.5;">
+      <strong style="color: #f0c465;">⚠ Work in progress</strong> — the War Room is under active build.
+      Cap compliance, nomination cadence, bid activity, and cut-rebid blocks render today, but expect rough
+      edges and numbers that don't yet reconcile across all views. File specifics with the commissioner.
+    </div>
     <div class="ah-context-banner">
       <strong>War Room</strong> — per-franchise cap status, cut-then-rebid block lists, and roster-min/max
       compliance against canon §6.A1/§A2/§B1.

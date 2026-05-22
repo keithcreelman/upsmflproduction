@@ -1769,6 +1769,73 @@ export default {
       console.error(`[scheduled hourly] deadline-reminders dispatch failed: ${e && e.message}`);
     }
 
+    // ---------- DROP TRACKER (hourly scan + optional Discord post) ----------
+    // Scans MFL FREE_AGENT transactions, writes new drops to
+    // ups_drop_events with computed cap penalty. Optionally posts each
+    // new drop to the Discord drops channel with tiered GIF.
+    // Idempotent via the UNIQUE constraint on
+    // (season, league_id, player_id, dropped_at_unix) + the
+    // discord_posted flag.
+    //
+    // Two-flag control (Keith 2026-05-22 — recording and auto-posting
+    // are separate decisions):
+    //   DROP_TRACKER_ENABLED="1"     → recording on (D1 inserts).
+    //   DROP_TRACKER_AUTO_POST="1"   → also auto-post unposted rows to Discord.
+    //   DROP_TRACKER_DISCORD_TARGET  → "prod" (default) or "test".
+    //
+    // Recording-on / auto-post-off is the safe default once enabled: every
+    // drop gets durably tracked, commissioner manually fires
+    // /admin/drops/post-discord when ready to announce.
+    try {
+      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const leagueId = String(env.LEAGUE_ID || "74598");
+      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+      const dropEnabled = String(env.DROP_TRACKER_ENABLED || "").trim() === "1";
+      const dropAutoPost = String(env.DROP_TRACKER_AUTO_POST || "").trim() === "1";
+      const dropTarget = String(env.DROP_TRACKER_DISCORD_TARGET || "prod").trim().toLowerCase();
+      if (dropEnabled && commishApiKey && env.UPS_MFL_DB) {
+        ctx.waitUntil((async () => {
+          try {
+            // 1. Scan transactions for new drops (writes to D1).
+            const scanRes = await fetch(
+              `${origin}/admin/drops/scan-and-record?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ season, league_id: leagueId, days: 2 }),
+              }
+            );
+            const scanData = await scanRes.json().catch(() => ({}));
+            const newWritten = Number(scanData?.written_count) || 0;
+            // 2. Post unposted rows to Discord — ONLY if DROP_TRACKER_AUTO_POST=1.
+            let postedCount = 0;
+            if (dropAutoPost) {
+              const postRes = await fetch(
+                `${origin}/admin/drops/post-discord?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ season, league_id: leagueId, target: dropTarget, limit: 20 }),
+                }
+              );
+              const postData = await postRes.json().catch(() => ({}));
+              postedCount = Number(postData?.posted_count) || 0;
+            }
+            if (newWritten || postedCount) {
+              console.log(`[scheduled hourly] drop-tracker: new_drops=${newWritten} discord_posted=${postedCount} auto_post=${dropAutoPost ? "1" : "0"} target=${dropTarget}`);
+            }
+          } catch (e) {
+            console.error(`[scheduled hourly] drop-tracker failed: ${e?.message || String(e)}`);
+          }
+        })());
+      } else if (!dropEnabled) {
+        // Quiet log when disabled — set DROP_TRACKER_ENABLED=1 to turn on.
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] drop-tracker dispatch failed: ${e?.message || String(e)}`);
+    }
+
     // ---------- TAG / EXTENSION DEADLINE MIDNIGHT LOCK ----------
     // First hourly cron at-or-after midnight ET on deadline night.
     // Drops every non-extended expired rookie (canon §A1 → ERA pool).
@@ -1898,6 +1965,8 @@ export default {
         path !== "/admin/auction/resend-tag-deadline-dm" &&
         path !== "/admin/auction/post-tag-deadline-channel-thread" &&
         path !== "/admin/auction/snapshot-era-pool" &&
+        path !== "/admin/drops/scan-and-record" &&
+        path !== "/admin/drops/post-discord" &&
         path !== "/admin/reset-fa-contracts" &&
         path !== "/admin/discord/post" &&
         path !== "/admin/deadline-reminders/test-discord" &&
@@ -2469,41 +2538,87 @@ export default {
         const noSnapshot = (url.searchParams.get("nosnapshot") || "") === "1";
         if (!noSnapshot && env.UPS_MFL_DB) {
           try {
+            // LEFT JOIN ups_auction_lots so we surface live high_bid_fid
+            // + bid_count + status for each ERA player. Auction hasn't
+            // started yet → these will be NULL until lots exist.
+            // NOTE: ups_auction_lots.season is INTEGER, ups_era_pool.season
+            // is TEXT — explicit CAST avoids silent JOIN miss.
             const queryRes = await env.UPS_MFL_DB.prepare(
-              `SELECT player_id, player_name, position, nfl_team,
-                      prior_owner_fid, prior_owner_name, origin_label,
-                      rookie_slot, rookie_slot_round, rookie_slot_pick,
-                      rookie_slot_year, y3_salary, drafted_field_raw,
-                      contract_status_at_drop, snapshot_at_utc
-                 FROM ups_era_pool
-                WHERE season = ? AND league_id = ?
-                ORDER BY prior_owner_fid, position, player_name`
+              `SELECT
+                  p.player_id, p.player_name, p.position, p.nfl_team,
+                  p.prior_owner_fid, p.prior_owner_name, p.origin_label,
+                  p.rookie_slot, p.rookie_slot_round, p.rookie_slot_pick,
+                  p.rookie_slot_year, p.y3_salary, p.drafted_field_raw,
+                  p.contract_status_at_drop, p.snapshot_at_utc,
+                  p.ppg_2023, p.ppg_2024, p.ppg_2025, p.ppg_weighted,
+                  p.games_2023, p.games_2024, p.games_2025,
+                  l.current_high_bid_k        AS lot_high_bid_k,
+                  l.current_high_bidder_fid   AS lot_high_fid,
+                  l.bid_count                 AS lot_bid_count,
+                  l.status                    AS lot_status,
+                  l.last_bid_at_unix          AS lot_last_bid_unix,
+                  l.locks_at_unix             AS lot_locks_at_unix
+                FROM ups_era_pool p
+                LEFT JOIN ups_auction_lots l
+                  ON CAST(l.season AS TEXT) = p.season
+                 AND l.league_id = p.league_id
+                 AND l.player_id = p.player_id
+                WHERE p.season = ? AND p.league_id = ?
+                ORDER BY p.position, p.player_name`
             ).bind(String(year), String(leagueId)).all();
-            // D1 .all() returns { results: Array, success, meta }. Use
-            // explicit access — destructuring `const { results: poolRows }`
-            // intermittently returned undefined in production (Keith
-            // 2026-05-22 — pre-fix: response always fell through to the
-            // legacy live-roster walk).
             const poolRows = (queryRes && Array.isArray(queryRes.results)) ? queryRes.results : [];
             if (poolRows.length > 0) {
-              // NOTE: do NOT use safeInt here — it's defined at line
-              // ~10173, AFTER this snapshot block (~line 2469). Calling
-              // it would throw ReferenceError and the try/catch would
-              // swallow the error, falling through to the legacy walk
-              // and returning {count: 0}. Use inline Number() instead.
-              // safeStr IS available (defined ~line 2063).
+              // High-bid franchise NAME resolution — pull from league.
+              // Cache one MFL call per request.
+              let fidToFranchiseName = {};
+              try {
+                const lr = await fetch(
+                  `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`,
+                  { cf: { cacheTtl: 300 } }
+                );
+                const lj = await lr.json().catch(() => ({}));
+                const frArr = lj?.league?.franchises?.franchise || [];
+                const flist = Array.isArray(frArr) ? frArr : [frArr];
+                for (const f of flist) {
+                  const fid = String(f.id || "").padStart(4, "0");
+                  if (fid) fidToFranchiseName[fid] = String(f.name || `Team ${f.id}`);
+                }
+              } catch (_) {}
+
+              // NOTE: safeInt isn't in scope here (defined later in file).
+              // Use inline Number() and `|| null` patterns.
               const players = poolRows.map((r) => ({
                 player_id: safeStr(r.player_id),
                 name: safeStr(r.player_name),
                 position: safeStr(r.position),
                 nfl_team: safeStr(r.nfl_team),
-                age: null,
                 prior_owner_fid: safeStr(r.prior_owner_fid),
                 prior_owner: safeStr(r.prior_owner_name),
+                origin_label: safeStr(r.origin_label),
+                // PPG (3-year + weighted)
+                ppg_2023: r.ppg_2023 != null ? Number(r.ppg_2023) : null,
+                ppg_2024: r.ppg_2024 != null ? Number(r.ppg_2024) : null,
+                ppg_2025: r.ppg_2025 != null ? Number(r.ppg_2025) : null,
+                ppg_weighted: r.ppg_weighted != null ? Number(r.ppg_weighted) : null,
+                games_2023: r.games_2023 != null ? Number(r.games_2023) : null,
+                games_2024: r.games_2024 != null ? Number(r.games_2024) : null,
+                games_2025: r.games_2025 != null ? Number(r.games_2025) : null,
+                // Live auction state (null until auction opens)
+                high_bid_k: r.lot_high_bid_k != null ? Number(r.lot_high_bid_k) : null,
+                high_bid_fid: r.lot_high_fid ? String(r.lot_high_fid).padStart(4, "0") : null,
+                high_bid_team: r.lot_high_fid
+                  ? (fidToFranchiseName[String(r.lot_high_fid).padStart(4, "0")] || `Team ${r.lot_high_fid}`)
+                  : null,
+                total_bids: r.lot_bid_count != null ? Number(r.lot_bid_count) : 0,
+                lot_status: safeStr(r.lot_status) || "not_yet_open",
+                lot_last_bid_unix: r.lot_last_bid_unix != null ? Number(r.lot_last_bid_unix) : null,
+                lot_locks_at_unix: r.lot_locks_at_unix != null ? Number(r.lot_locks_at_unix) : null,
+                // Retained for audit but de-emphasized in UI (Keith 2026-05-22
+                // removed Age / Prior Owner / Rookie Slot / Rookie Salary cols).
+                age: null,
                 rookie_slot: safeStr(r.rookie_slot),
                 y3_salary: Number(r.y3_salary) || 0,
                 contract_status: safeStr(r.contract_status_at_drop),
-                origin_label: safeStr(r.origin_label),
                 drafted_field_raw: safeStr(r.drafted_field_raw),
                 eligibility_reason: "Cut at rookie extension deadline.",
                 deadline_iso: null,
@@ -2511,11 +2626,12 @@ export default {
                 source: "ups_era_pool_snapshot",
                 snapshot_at_utc: safeStr(r.snapshot_at_utc),
               }));
+              const deadlineUtc = _getTagDeadlineUtcTopLevel(year);
               return jsonOut(200, {
                 season: String(year),
                 league_id: String(leagueId),
                 generated_at: new Date().toISOString(),
-                extension_deadline_iso: null,
+                extension_deadline_iso: deadlineUtc ? deadlineUtc.toISOString() : null,
                 source: "ups_era_pool",
                 players,
                 count: players.length,
@@ -3301,20 +3417,32 @@ export default {
         const sinceUnix = Math.max(0, Number(url.searchParams.get("since") || 0));
         const limit = Math.min(1000, Math.max(1, Number(url.searchParams.get("limit") || 200)));
 
+        // Bid history feed (Keith 2026-05-22 update): exclude bids from
+        // CANCELLED lots. Commish-deleted auctions should not pollute
+        // the history view. JOIN against ups_auction_lots so we can
+        // filter on lot.status.
+        //
+        // ?include_cancelled=1 brings them back for audit.
+        const includeCancelled = (url.searchParams.get("include_cancelled") || "") === "1";
         try {
-          let sql = `SELECT bid_id, lot_id, player_id, fid, bid_k, bid_at_unix, note
-                       FROM ups_auction_bids
-                      WHERE season = ? AND league_id = ?`;
+          let sql = `SELECT b.bid_id, b.lot_id, b.player_id, b.fid, b.bid_k, b.bid_at_unix, b.note, l.status AS lot_status
+                       FROM ups_auction_bids b
+                  LEFT JOIN ups_auction_lots l
+                         ON l.lot_id = b.lot_id
+                      WHERE b.season = ? AND b.league_id = ?`;
           const args = [year, leagueId];
+          if (!includeCancelled) {
+            sql += ` AND (l.status IS NULL OR l.status != 'cancelled')`;
+          }
           if (playerId) {
-            sql += ` AND player_id = ?`;
+            sql += ` AND b.player_id = ?`;
             args.push(playerId);
           }
           if (sinceUnix > 0) {
-            sql += ` AND bid_at_unix >= ?`;
+            sql += ` AND b.bid_at_unix >= ?`;
             args.push(sinceUnix);
           }
-          sql += ` ORDER BY bid_at_unix ASC, bid_id ASC LIMIT ?`;
+          sql += ` ORDER BY b.bid_at_unix ASC, b.bid_id ASC LIMIT ?`;
           args.push(limit);
           const { results: bids } = await env.UPS_MFL_DB.prepare(sql).bind(...args).all();
 
@@ -18392,6 +18520,7 @@ export default {
         if (activity.includes("restructure")) return "restructure";
         if (activity.includes("mym")) return "mym";
         if (activity.includes("extension")) return "extension";
+        if (activity.includes("drop")) return "drop";
         return "other";
       };
 
@@ -18426,6 +18555,24 @@ export default {
         const parsed = normalizePlayerNameForGif(playerName);
         const kind = normalizeContractActivityKind(activityType, "");
         const queries = [];
+        // Drop bias: prefer sad-themed player queries first so the lead
+        // GIF on a drop post leans sad/disappointed/cry/bench rather than
+        // celebration. Still goes through strict name-match passes —
+        // falls through to plain player variants if Giphy has no
+        // sad-tagged content for this player (Keith 2026-05-22).
+        if (kind === "drop") {
+          if (parsed.full) {
+            queries.push(`${parsed.full} sad`);
+            queries.push(`${parsed.full} disappointed`);
+            queries.push(`${parsed.full} cry`);
+            queries.push(`${parsed.full} bench`);
+            queries.push(`${parsed.full} dejected`);
+          }
+          if (parsed.last) {
+            queries.push(`${parsed.last} sad`);
+            queries.push(`${parsed.last} disappointed`);
+          }
+        }
         // Primary: player name variants (most specific first)
         for (const v of parsed.variants) {
           if (v) queries.push(v);
@@ -18486,6 +18633,9 @@ export default {
             searchUrl.searchParams.set("limit", "25");
             searchUrl.searchParams.set("offset", "0");
             searchUrl.searchParams.set("lang", "en");
+            // rating=r → broadest content per commissioner 2026-05-22
+            // (no silent g/pg-13 filter on player-strict-match passes).
+            searchUrl.searchParams.set("rating", "r");
             try {
               const res = await fetch(searchUrl.toString(), {
                 headers: { "User-Agent": "upsmflproduction-worker" },
@@ -18530,6 +18680,65 @@ export default {
         if (pass1) return pass1;
         const pass2 = await tryPass(false);
         if (pass2) return pass2;
+        // Pass 3 (tone-pool fallback): when strict player matching fails AND
+        // the activity kind has a curated tone pool, fall back to a generic
+        // pool search (no strict matching). Returns strict_match: false so
+        // callers can decide whether to accept it. Today only "drop" has a
+        // populated pool — Giphy coverage of mid-tier NFL players by name is
+        // sparse (see Higbee probe 2026-05-22) and the visual sad-context
+        // matters more than player-specificity for drop announcements. Other
+        // kinds will get pools in a later rollout.
+        const kindForPool = normalizeContractActivityKind(activityType, "");
+        const TONE_POOL_QUERIES = {
+          // drop intentionally NOT here — Keith 2026-05-22 moved the drop
+          // lead to a dedicated nfl-sad pool with stronger randomization
+          // (see pickDropLeadGif in /admin/drops/post-discord). The prior
+          // "trump you're fired / gtfoh" pool is preserved in git history
+          // (commit 9a7435f) in case we want to bring it back as a
+          // sub-pool variant later.
+          //
+          // extension / restructure / tag / trade / mym intentionally empty
+          // until the cross-activity rollout (see
+          // docs/generic_gif_fallback_rollout.md).
+        };
+        const tonePool = TONE_POOL_QUERIES[kindForPool] || [];
+        for (const poolQuery of tonePool) {
+          const poolUrl = new URL("https://api.giphy.com/v1/gifs/search");
+          poolUrl.searchParams.set("api_key", apiKey);
+          poolUrl.searchParams.set("q", poolQuery);
+          poolUrl.searchParams.set("limit", "25");
+          poolUrl.searchParams.set("offset", "0");
+          poolUrl.searchParams.set("lang", "en");
+          // rating=r → Pass-3 tone pool is comedic/edgy (e.g. drop =
+          // "you're fired"); commissioner wants no rating filter.
+          poolUrl.searchParams.set("rating", "r");
+          try {
+            const res = await fetch(poolUrl.toString(), {
+              headers: { "User-Agent": "upsmflproduction-worker" },
+              cf: { cacheTtl: 300, cacheEverything: false },
+            });
+            if (!res.ok) continue;
+            const data = await res.json();
+            const rows = Array.isArray(data?.data) ? data.data : [];
+            if (!rows.length) continue;
+            const pick = rows[Math.floor(Math.random() * rows.length)];
+            const gifUrl =
+              safeStr(pick?.images?.original?.url) ||
+              safeStr(pick?.images?.downsized_large?.url) ||
+              safeStr(pick?.images?.fixed_height?.url) ||
+              safeStr(pick?.url);
+            if (gifUrl) {
+              return {
+                ok: true,
+                gif_url: gifUrl,
+                reason: "",
+                query: poolQuery,
+                strict_match: false,
+                tone_pool: kindForPool,
+              };
+            }
+          } catch (_) {}
+        }
         // Per commissioner: no GIF is better than a wrong one. Only fall back
         // to a generic celebration GIF if we have NO player at all.
         if (!playerLastNorm) {
@@ -18539,6 +18748,7 @@ export default {
             searchUrl.searchParams.set("q", query);
             searchUrl.searchParams.set("limit", "25");
             searchUrl.searchParams.set("lang", "en");
+            searchUrl.searchParams.set("rating", "r");
             try {
               const res = await fetch(searchUrl.toString(), {
                 headers: { "User-Agent": "upsmflproduction-worker" },
@@ -26956,6 +27166,706 @@ export default {
         });
       }
 
+      // POST /admin/drops/post-discord
+      // Body: { season, league_id?, target? ("test"|"prod"), limit? (default 20), dry_run? }
+      //
+      // Pulls unposted rows from ups_drop_events (posted_to_mfl/discord
+      // tracking lives in same row) and posts each as a Discord embed
+      // with a tiered cap-penalty GIF.
+      //
+      // Cap-penalty GIF tiers (Keith 2026-05-22):
+      //   $0 (exempt)            → no GIF, just "no penalty" line
+      //   $1K – $4K              → whatever / shrug GIF (pool: drop_whatever)
+      //   $5K – $8K              → eyes-on-you / "got my attention" (pool: drop_eyes)
+      //   $9K – $15K             → wow / amazed / jaw-drop (pool: drop_wow)
+      //   $16K+                  → laugh / mocking (pool: drop_laugh)
+      //
+      // Channel targets:
+      //   target="test" → env.DISCORD_DROPS_TEST_CHANNEL_ID
+      //                   || env.DISCORD_CONTRACT_TEST_CHANNEL_ID
+      //                   || env.DISCORD_BUG_TEST_CHANNEL_ID
+      //   target="prod" → env.DISCORD_DROPS_CHANNEL_ID || 1059111651846131833
+      if (path === "/admin/drops/post-discord" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const target = safeStr(body?.target || "test").toLowerCase();
+        const limit = Math.max(1, Math.min(50, safeInt(body?.limit, 20)));
+        const dryRun = !!body?.dry_run;
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+
+        const botToken = contractDiscordBotToken();
+        if (!botToken) return jsonOut(400, { ok: false, error: "missing_contract_bot_token" });
+
+        const PROD_CHANNEL = safeStr(env.DISCORD_DROPS_CHANNEL_ID || "1059111651846131833").replace(/\D/g, "");
+        const TEST_CHANNEL = safeStr(
+          env.DISCORD_DROPS_TEST_CHANNEL_ID ||
+          env.DISCORD_CONTRACT_TEST_CHANNEL_ID ||
+          env.DISCORD_BUG_TEST_CHANNEL_ID ||
+          ""
+        ).replace(/\D/g, "");
+        const channelId = target === "prod" ? PROD_CHANNEL : TEST_CHANNEL;
+        if (!channelId) {
+          return jsonOut(400, {
+            ok: false,
+            error: target === "prod"
+              ? "missing DISCORD_DROPS_CHANNEL_ID"
+              : "missing DISCORD_DROPS_TEST_CHANNEL_ID (or fallback DISCORD_CONTRACT_TEST_CHANNEL_ID / DISCORD_BUG_TEST_CHANNEL_ID)",
+          });
+        }
+
+        // Tier resolution.
+        const pickTier = (amt) => {
+          const n = Number(amt) || 0;
+          if (n <= 0) return null;                          // no GIF for exempt
+          if (n >= 1000 && n <= 4000) return "whatever";
+          if (n >= 5000 && n <= 8000) return "eyes";
+          if (n >= 9000 && n <= 15000) return "wow";
+          if (n >= 16000) return "laugh";
+          // Edge: $4001–$4999 sits between tiers; bucket with eyes.
+          return "eyes";
+        };
+        const TIER_QUERIES = {
+          whatever: ["shrug whatever", "okay sure", "meh", "fine whatever", "i guess so"],
+          eyes:     ["raised eyebrow", "side eye", "watching closely", "interesting eyes", "go on"],
+          wow:      ["wow shock", "jaw drop", "amazed", "what just happened", "no way"],
+          laugh:    ["laughing crying", "haha mocking", "rofl", "dying laughing", "thats hilarious"],
+        };
+
+        // Pull tier GIF via Giphy. Any-match (not strict). Returns "" if no key.
+        const pickTierGif = async (tier) => {
+          if (!tier) return "";
+          const apiKey = safeStr(env.GIPHY_API_KEY || "");
+          if (!apiKey) return "";
+          const queries = TIER_QUERIES[tier] || [];
+          for (const q of queries) {
+            const u = new URL("https://api.giphy.com/v1/gifs/search");
+            u.searchParams.set("api_key", apiKey);
+            u.searchParams.set("q", q);
+            u.searchParams.set("limit", "25");
+            u.searchParams.set("lang", "en");
+            u.searchParams.set("rating", "r");
+            try {
+              const r = await fetch(u.toString(), { cf: { cacheTtl: 600 } });
+              if (!r.ok) continue;
+              const j = await r.json();
+              const rows = Array.isArray(j?.data) ? j.data : [];
+              if (!rows.length) continue;
+              const pick = rows[Math.floor(Math.random() * rows.length)];
+              const gif = safeStr(pick?.images?.original?.url) ||
+                          safeStr(pick?.images?.downsized_large?.url) ||
+                          safeStr(pick?.images?.fixed_height?.url);
+              if (gif) return gif;
+            } catch (_) {}
+          }
+          return "";
+        };
+
+        // Drop LEAD GIF — combined nfl-sad + fired/GTFOH pool, heavily
+        // randomized (Keith 2026-05-22).
+        //
+        // Two tonal families mixed in one randomized pool:
+        //   (a) NFL-sad reactions — dejected, disappointed, bench, sideline
+        //   (b) "You're fired" / GTFOH comedy — Trump-fired, kicked out,
+        //       shown the door, see ya later
+        // Both themes get equal-ish odds via shuffle-then-iterate. NO
+        // "football"-prefixed queries — Giphy returns soccer content for
+        // generic "football" terms (it's an international platform).
+        //
+        // Randomization is double-layered: shuffle the query list so a
+        // different query runs first each fire, then random-index into
+        // the chosen query's results (limit 50) so within a query the
+        // picked GIF varies too. rating=r for the broadest set.
+        const DROP_LEAD_QUERIES = [
+          // NFL-sad family (NFL-only; never "football" — soccer noise)
+          "nfl sad",
+          "sad nfl",
+          "nfl player sad",
+          "nfl dejected",
+          "nfl disappointed",
+          "nfl sideline sad",
+          "nfl bench sad",
+          "nfl loss reaction",
+          "nfl player upset",
+          "nfl player crying",
+          "nfl player head down",
+          "nfl sideline dejected",
+          "nfl coach sad",
+          // Fired / GTFOH family (preserved from commit 9a7435f)
+          "trump you're fired",
+          "you're fired",
+          "gtfoh",
+          "get outta here",
+          "kicked out",
+          "shown the door",
+          "hit the road",
+          "bye bye wave",
+          "boot kick out",
+          "see ya later",
+          "get out",
+        ];
+        const pickDropLeadGif = async () => {
+          const apiKey = safeStr(env.GIPHY_API_KEY || "");
+          if (!apiKey) return { gif_url: "", query: "" };
+          const shuffled = [...DROP_LEAD_QUERIES].sort(() => Math.random() - 0.5);
+          for (const q of shuffled) {
+            const u = new URL("https://api.giphy.com/v1/gifs/search");
+            u.searchParams.set("api_key", apiKey);
+            u.searchParams.set("q", q);
+            u.searchParams.set("limit", "50");
+            u.searchParams.set("lang", "en");
+            u.searchParams.set("rating", "r");
+            try {
+              const r = await fetch(u.toString(), { cf: { cacheTtl: 300 } });
+              if (!r.ok) continue;
+              const j = await r.json();
+              const rows = Array.isArray(j?.data) ? j.data : [];
+              if (!rows.length) continue;
+              const pick = rows[Math.floor(Math.random() * rows.length)];
+              const gif = safeStr(pick?.images?.original?.url) ||
+                          safeStr(pick?.images?.downsized_large?.url) ||
+                          safeStr(pick?.images?.fixed_height?.url);
+              if (gif) return { gif_url: gif, query: q };
+            } catch (_) {}
+          }
+          return { gif_url: "", query: "" };
+        };
+
+        // Pull rows that haven't been posted yet.
+        const { results: rows } = await env.UPS_MFL_DB.prepare(
+          `SELECT id, season, league_id, player_id, player_name, position, nfl_team,
+                  franchise_id, franchise_name, dropped_at_unix, dropped_at_iso,
+                  pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year,
+                  pre_drop_contract_length, pre_drop_contract_info, pre_drop_tcv,
+                  pre_drop_years_remaining, pre_drop_taxi,
+                  earned_to_date, guaranteed_amount, penalty_amount, penalty_basis,
+                  penalty_exempt, penalty_exempt_reason, ledger_key
+             FROM ups_drop_events
+            WHERE season = ? AND league_id = ? AND discord_posted = 0
+            ORDER BY dropped_at_unix ASC
+            LIMIT ?`
+        ).bind(targetSeason, leagueId, limit).all();
+
+        if (!rows || rows.length === 0) {
+          return jsonOut(200, { ok: true, dry_run: dryRun, posted_count: 0, message: "No unposted drops." });
+        }
+
+        const results = [];
+        for (const r of rows) {
+          const penalty = Number(r.penalty_amount) || 0;
+          const exempt = Number(r.penalty_exempt) === 1;
+          const tier = exempt ? null : pickTier(penalty);
+          const gifUrl = dryRun ? "" : await pickTierGif(tier);
+
+          // Build embed.
+          const franchiseMeta = await loadContractDiscordFranchiseMeta({
+            season: targetSeason,
+            leagueId,
+            franchiseId: padFranchiseId(r.franchise_id),
+          });
+
+          const tcv = Number(r.pre_drop_tcv) || 0;
+          const cl = Number(r.pre_drop_contract_length) || null;
+          const cy = Number(r.pre_drop_contract_year) || null;
+          const earned = Number(r.earned_to_date) || 0;
+          const guaranteed = Number(r.guaranteed_amount) || 0;
+          const fmtK = (v) => {
+            const n = Number(v) || 0;
+            if (n >= 1000) return `$${Math.round(n / 1000)}K`;
+            return `$${n}`;
+          };
+
+          // Eastern timestamp: "May 22, 2026, 10:14:48 AM EDT".
+          const fmtEastern = (iso) => {
+            if (!iso) return "";
+            try {
+              const d = new Date(iso);
+              if (Number.isNaN(d.getTime())) return safeStr(iso);
+              return d.toLocaleString("en-US", {
+                timeZone: "America/New_York",
+                year: "numeric", month: "short", day: "numeric",
+                hour: "numeric", minute: "2-digit", second: "2-digit",
+                hour12: true,
+                timeZoneName: "short",
+              });
+            } catch (_) {
+              return safeStr(iso);
+            }
+          };
+          const droppedAtET = fmtEastern(r.dropped_at_iso);
+
+          // Humanize penalty basis (Keith 2026-05-22 — "more human readable").
+          const humanizeBasis = (b) => {
+            const key = safeStr(b);
+            const map = {
+              "tcv_under_5k_fixed_1k":          "Sub-$5K TCV, multi-year contract",
+              "tcv_under_5k_final_year_exempt": "Sub-$5K TCV, final year of contract",
+              "one_year_under_5k_exempt":       "1-year contract under $5K",
+              "ww_under_5k_exempt":             "WW pickup at $4K or below",
+              "taxi_exempt":                    "Taxi squad (cap-free)",
+              "guarantee_minus_earned":         "75% guarantee minus earned-to-date",
+              "no_penalty_zero":                "Earned already exceeds guarantee",
+              "no_pre_drop_contract":           "Pre-drop contract not found",
+            };
+            return map[key] || key;
+          };
+          // Strip canon references like "(§D2 — Keith 2026-05-22)" from
+          // exempt-reason text so they don't leak into the embed.
+          const humanizeReason = (s) => safeStr(s)
+            .replace(/\s*\(§[A-Z0-9.]+(?:\s*[-—]\s*[^)]+)?\)\s*/g, "")
+            .trim();
+
+          const fields = [
+            { name: "Team", value: safeStr(r.franchise_name) || `Team ${r.franchise_id}`, inline: true },
+            { name: "Player", value: safeStr(r.player_name) || `Player ${r.player_id}`, inline: true },
+            { name: "Position", value: safeStr(r.position) + (r.nfl_team ? ` · ${r.nfl_team}` : ""), inline: true },
+          ];
+          if (r.pre_drop_contract_info) {
+            fields.push({ name: "Contract", value: `\`${safeStr(r.pre_drop_contract_info)}\``, inline: false });
+          }
+          const stateLine = [
+            `Status: **${safeStr(r.pre_drop_contract_status) || "—"}**`,
+            cl != null ? `CL: **${cl}**` : null,
+            cy != null ? `Yrs remaining: **${cy}**` : null,
+            tcv > 0 ? `TCV: **${fmtK(tcv)}**` : null,
+          ].filter(Boolean).join(" · ");
+          if (stateLine) fields.push({ name: "Pre-drop state", value: stateLine, inline: false });
+
+          let penaltyLine;
+          if (exempt) {
+            const reason = humanizeReason(r.penalty_exempt_reason) || "Exempt";
+            penaltyLine = `**$0 penalty** — ${reason}`;
+          } else if (penalty === 0) {
+            penaltyLine = `**$0 penalty** — ${humanizeBasis(r.penalty_basis)}`;
+          } else {
+            penaltyLine = `**${fmtK(penalty)} cap penalty** — ${humanizeBasis(r.penalty_basis)}\n` +
+              `Guaranteed: ${fmtK(guaranteed)} · Earned: ${fmtK(earned)}`;
+          }
+          fields.push({ name: "Cap penalty", value: penaltyLine, inline: false });
+          if (droppedAtET) fields.push({ name: "Dropped", value: droppedAtET, inline: false });
+
+          // Lead GIF — random nfl-sad reaction from pickDropLeadGif
+          // (Keith 2026-05-22). No longer attempts player-specific
+          // matching; every drop gets a fresh sad-NFL GIF. Variety is
+          // the goal — heavy randomization across query and within
+          // results.
+          let playerGifUrl = "";
+          if (!dryRun) {
+            try {
+              const lead = await pickDropLeadGif();
+              playerGifUrl = lead.gif_url || "";
+            } catch (_) {}
+          }
+
+          // Build embeds (Keith 2026-05-22 redesign — single message,
+          // stacked embed cards, ORDER depends on penalty):
+          //
+          //   PENALTY drop (penalty > 0, not exempt):
+          //     embed 1: lead GIF (player-specific or fired-pool fallback)
+          //     embed 2: header + fields (penalty heading, contract details)
+          //     embed 3: tier reaction GIF
+          //   NO-PENALTY drop (penalty === 0 or exempt):
+          //     embed 1: header + fields
+          //     embed 2: lead GIF (the fired/GTFOH punchline AFTER the news)
+          //              — no reaction GIF when there's no penalty
+          //
+          // No shared `url` across embeds → Discord renders them as
+          // separate cards stacked vertically within one message bubble,
+          // each card full-width, animated GIFs preserved. Shared-url
+          // multi-embed grid-composites images side-by-side, which is
+          // explicitly what we want to avoid (prior iteration on
+          // commit 598ee20).
+          let penaltyHeading;
+          if (exempt || penalty === 0) {
+            penaltyHeading = "# ✅ No Cap Penalty";
+          } else {
+            const cap = fmtK(penalty);
+            penaltyHeading = `# 💰 Cap Penalty: ${cap}`;
+          }
+          const headerEmbed = {
+            title: `Drop: ${safeStr(r.player_name)}`,
+            description: `${penaltyHeading}\n${safeStr(r.franchise_name)} dropped ${safeStr(r.player_name)}.`,
+            color: exempt || penalty === 0 ? 0x25c37d : (penalty >= 16000 ? 0xd9433a : (penalty >= 9000 ? 0xf0a020 : (penalty >= 5000 ? 0xf0c465 : 0x6c7a8a))),
+            fields,
+          };
+          if (franchiseMeta?.icon_url) {
+            headerEmbed.thumbnail = { url: franchiseMeta.icon_url };
+          }
+
+          const embeds = [];
+          const isPenaltyDrop = !exempt && penalty > 0;
+          if (isPenaltyDrop) {
+            // GIF → details → reaction
+            if (playerGifUrl) embeds.push({ image: { url: playerGifUrl } });
+            embeds.push(headerEmbed);
+            if (gifUrl) embeds.push({ image: { url: gifUrl } });
+          } else {
+            // No-penalty: details → GIF (punchline after the news,
+            // no reaction GIF — no penalty, no reaction).
+            embeds.push(headerEmbed);
+            if (playerGifUrl) embeds.push({ image: { url: playerGifUrl } });
+          }
+
+          if (dryRun) {
+            results.push({
+              row_id: r.id, player_id: r.player_id, player_name: r.player_name,
+              tier, channel_id: channelId,
+              embed_count: embeds.length,
+              has_player_gif: !!playerGifUrl,
+              has_reaction_gif: !!(gifUrl && !exempt && penalty > 0),
+            });
+            continue;
+          }
+
+          let postRes;
+          try {
+            postRes = await discordBotRequest(
+              botToken, "POST",
+              `/channels/${encodeURIComponent(channelId)}/messages`,
+              { content: "", embeds, allowed_mentions: { parse: [] } }
+            );
+          } catch (e) {
+            postRes = { ok: false, status: 0, text: String(e?.message || e) };
+          }
+          const messageId = safeStr(postRes?.data?.id || "");
+
+          if (postRes?.ok && messageId) {
+            try {
+              await env.UPS_MFL_DB.prepare(
+                `UPDATE ups_drop_events
+                    SET discord_posted = 1,
+                        discord_channel_id = ?,
+                        discord_message_id = ?
+                  WHERE id = ?`
+              ).bind(channelId, messageId, r.id).run();
+            } catch (_) {}
+            results.push({
+              row_id: r.id, player_id: r.player_id, player_name: r.player_name,
+              tier, penalty, channel_id: channelId, message_id: messageId,
+              embed_count: embeds.length, ok: true,
+            });
+          } else {
+            results.push({
+              row_id: r.id, player_id: r.player_id, player_name: r.player_name,
+              tier, ok: false, error: safeStr(postRes?.text).slice(0, 300),
+            });
+          }
+          // Polite pacing between drop events.
+          await new Promise((res) => setTimeout(res, 500));
+        }
+
+        return jsonOut(200, {
+          ok: results.every((r) => r.ok !== false),
+          dry_run: dryRun,
+          target,
+          channel_id: channelId,
+          posted_count: results.filter((r) => r.ok !== false).length,
+          failed_count: results.filter((r) => r.ok === false).length,
+          results,
+        });
+      }
+
+      // POST /admin/drops/scan-and-record
+      // Body: { season, league_id?, days? (default 7), dry_run? }
+      //
+      // Scans MFL TYPE=transactions&TRANS_TYPE=FREE_AGENT for the window
+      // and records every NEW drop event into ups_drop_events. Computes
+      // canon-determined cap penalty per §6/§D2:
+      //
+      //   guaranteed = TCV × 0.75
+      //   penalty    = max(0, guaranteed − earned_to_date)
+      //   if TCV ≤ $4K AND penalty > 0 → fixed $1K floor
+      //   exemptions: WW ≤ $4K · CL=1 + TCV ≤ $4K · TAXI · retired/jail-bird
+      //
+      // Pre-drop contract source: R2 daily snapshot at snapshots/<date>/rosters.json.
+      // If the drop happens on day D, looks for snapshot of day D first
+      // (taken at 09:05 UTC daily); falls back to D-1 if today's hasn't run.
+      // If neither available → records the event with null contract data
+      // for later backfill.
+      //
+      // Idempotent: UNIQUE (season, league_id, player_id, dropped_at_unix)
+      // means re-running the scan over the same window is safe.
+      if (path === "/admin/drops/scan-and-record" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const days = Math.max(1, Math.min(90, safeInt(body?.days, 7)));
+        const dryRun = !!body?.dry_run;
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+
+        // ── Contract parsing + penalty math (canon §6/§D2) ──
+        // Ported from pipelines/etl/scripts/build_salary_adjustments_report.py.
+        const parseContractData = ({ contractInfo, salary, contractYear }) => {
+          const ci = safeStr(contractInfo);
+          const tcvMatch = ci.match(/TCV\s*(\d+(?:\.\d+)?)\s*K/i);
+          const tcv = tcvMatch ? Math.round(Number(tcvMatch[1]) * 1000) : (Number(salary) || 0);
+          const clMatch = ci.match(/CL\s*(\d+)/i);
+          const cl = clMatch ? Number(clMatch[1]) : null;
+          const aavMatch = ci.match(/AAV\s*(\d+(?:\.\d+)?)\s*K/i);
+          const aav = aavMatch ? Math.round(Number(aavMatch[1]) * 1000) : null;
+          const cy = Number(contractYear) || 0;
+          // Per-year salaries: "Y1-1K, Y2-1K, Y3-1K" or "Y1-1, Y2-1"
+          // K-suffix means thousands; bare number is treated as $K too
+          // (MFL convention in contractInfo).
+          const yearSalaries = {};
+          const yRe = /Y(\d+)\s*[-:]\s*(\d+(?:\.\d+)?)\s*K?/gi;
+          let m;
+          while ((m = yRe.exec(ci)) !== null) {
+            yearSalaries[Number(m[1])] = Math.round(Number(m[2]) * 1000);
+          }
+          const yearsRemaining = cy > 0 ? cy : 0;
+          const yearsPlayed = (cl != null && yearsRemaining > 0) ? Math.max(0, cl - yearsRemaining) : 0;
+          let earned = 0;
+          for (let i = 1; i <= yearsPlayed; i += 1) {
+            if (yearSalaries[i] != null) earned += yearSalaries[i];
+          }
+          // If contractInfo lacks per-year salary detail, fall back to a
+          // flat AAV × yearsPlayed assumption.
+          if (earned === 0 && yearsPlayed > 0 && aav != null) {
+            earned = aav * yearsPlayed;
+          }
+          return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned };
+        };
+
+        const computeDropPenalty = ({ contractStatus, salary, contractInfo, contractYear, isTaxi }) => {
+          const ctx = parseContractData({ contractInfo, salary, contractYear });
+          // Exemption checks (priority order):
+          // 1. Taxi squad — 0% guarantee while not permanently promoted (§D2).
+          if (isTaxi) {
+            return { ...ctx, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
+          }
+          // 2. WW pickup at ≤ $4K → cap-free (§D2 + Bot Grounding appendix).
+          if (/^WW$/i.test(safeStr(contractStatus)) && Number(salary) <= 4000) {
+            return { ...ctx, penalty: 0, basis: "ww_under_5k_exempt", exempt: true, exempt_reason: "WW pickup salary ≤ $4K (§D2)." };
+          }
+          // 3. 1-year original-length contract with TCV ≤ $4K — cap-free (§D2).
+          if (ctx.cl === 1 && ctx.tcv > 0 && ctx.tcv <= 4000) {
+            return { ...ctx, penalty: 0, basis: "one_year_under_5k_exempt", exempt: true, exempt_reason: "1-year original contract under $5K (§D2)." };
+          }
+          // TCV ≤ $4K — sub-5K rule (Keith 2026-05-22, updated canon §D2):
+          //   yrs_remaining ≥ 2 → fixed $1K
+          //   yrs_remaining ≤ 1 → $0 (final-year drop is cap-free, regardless
+          //                            of the standard formula result)
+          // This OVERRIDES the standard guaranteed-minus-earned formula
+          // entirely for sub-$5K TCV contracts. Replaces the prior
+          // pipeline behavior which applied the $1K floor on top of any
+          // positive standard-formula result.
+          if (ctx.tcv > 0 && ctx.tcv <= 4000) {
+            if (ctx.yearsRemaining >= 2) {
+              return { ...ctx, guaranteed: Math.floor(ctx.tcv * 0.75), penalty: 1000, basis: "tcv_under_5k_fixed_1k", exempt: false, exempt_reason: "" };
+            }
+            return { ...ctx, guaranteed: Math.floor(ctx.tcv * 0.75), penalty: 0, basis: "tcv_under_5k_final_year_exempt", exempt: true, exempt_reason: "Sub-5K TCV with ≤ 1 year remaining (§D2 — Keith 2026-05-22)." };
+          }
+          // Standard formula for TCV > $4K
+          const guaranteed = Math.floor(ctx.tcv * 0.75);
+          let penalty = Math.max(0, guaranteed - ctx.earned);
+          if (penalty === 0) {
+            return { ...ctx, guaranteed, penalty: 0, basis: "no_penalty_zero", exempt: false, exempt_reason: "Earned ≥ guaranteed (no penalty)." };
+          }
+          return { ...ctx, guaranteed, penalty, basis: "guarantee_minus_earned", exempt: false, exempt_reason: "" };
+        };
+
+        // ── R2 snapshot reader ──
+        const r2Bucket = env.UPS_MFL_BACKUPS;
+        const snapshotRostersByDate = new Map(); // dateStr → parsed rosters JSON
+        const loadSnapshotRosters = async (dateStr) => {
+          if (snapshotRostersByDate.has(dateStr)) return snapshotRostersByDate.get(dateStr);
+          let data = null;
+          if (r2Bucket) {
+            try {
+              const obj = await r2Bucket.get(`snapshots/${dateStr}/rosters.json`);
+              if (obj) {
+                const text = await obj.text();
+                data = JSON.parse(text);
+              }
+            } catch (_) {}
+          }
+          snapshotRostersByDate.set(dateStr, data);
+          return data;
+        };
+
+        const findPreDropContract = async (pid, dropTs) => {
+          // Try the day-of-drop snapshot first, then walk back up to 7 days.
+          const drop = new Date(dropTs * 1000);
+          for (let lag = 0; lag <= 7; lag += 1) {
+            const probe = new Date(drop.getTime() - lag * 86400000);
+            const dateStr = probe.toISOString().slice(0, 10);
+            const snap = await loadSnapshotRosters(dateStr);
+            if (!snap) continue;
+            const fr = snap?.rosters?.franchise || [];
+            const frs = Array.isArray(fr) ? fr : [fr];
+            for (const f of frs) {
+              const players = f?.player || [];
+              const plist = Array.isArray(players) ? players : [players];
+              for (const p of plist) {
+                if (safeStr(p?.id).replace(/\D/g, "") === pid) {
+                  return {
+                    contract_status: safeStr(p?.contractStatus),
+                    salary: Number(p?.salary) || 0,
+                    contract_year: Number(p?.contractYear) || 0,
+                    contract_info: safeStr(p?.contractInfo),
+                    is_taxi: safeStr(p?.status) === "TAXI_SQUAD",
+                    snapshot_source: dateStr,
+                  };
+                }
+              }
+            }
+          }
+          return null;
+        };
+
+        // ── Pull FREE_AGENT transactions ──
+        const txRes = await mflExportJson(targetSeason, leagueId, "transactions",
+          { TRANS_TYPE: "FREE_AGENT", DAYS: String(days) }, { useCookie: true });
+        let txs = txRes.data?.transactions?.transaction || [];
+        if (!Array.isArray(txs)) txs = [txs];
+
+        // Player + franchise meta for enrichment
+        const [playersRes, leagueRes] = await Promise.all([
+          mflExportJson(targetSeason, leagueId, "players", {}, { useCookie: true }),
+          mflExportJson(targetSeason, leagueId, "league", {}, { useCookie: true }),
+        ]);
+        const fidToName = {};
+        const flist = leagueRes.data?.league?.franchises?.franchise || [];
+        for (const f of flist) fidToName[padFranchiseId(f.id)] = safeStr(f.name || `Team ${f.id}`);
+        const pidMeta = new Map();
+        let pAll = playersRes.data?.players?.player || [];
+        if (!Array.isArray(pAll)) pAll = [pAll];
+        for (const p of pAll) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          let nm = safeStr(p?.name);
+          if (nm.includes(",")) nm = nm.split(",").reverse().map((s) => s.trim()).join(" ");
+          pidMeta.set(pid, { name: nm, position: safeStr(p?.position).toUpperCase(), team: safeStr(p?.team).toUpperCase() });
+        }
+
+        // Walk transactions → resolve every dropped player_id.
+        const drops = [];
+        for (const tx of txs) {
+          const fid = padFranchiseId(tx?.franchise || "");
+          const ts = Number(tx?.timestamp) || 0;
+          if (!fid || !ts) continue;
+          // The `transaction` field is "|pid1,|pid2,..." — extract digit clusters.
+          const blob = safeStr(tx?.transaction);
+          const pids = blob.match(/\d{3,6}/g) || [];
+          for (const pid of pids) {
+            drops.push({ pid, fid, ts, raw: tx });
+          }
+        }
+
+        // For each drop, check if already in D1; if not, look up + compute + insert.
+        const written = [];
+        const skipped = [];
+        const nowIso = new Date().toISOString();
+        for (const drop of drops) {
+          const ledgerKey = `${drop.pid}_${drop.ts}`;
+          try {
+            const existing = await env.UPS_MFL_DB.prepare(
+              `SELECT id FROM ups_drop_events
+                WHERE season=? AND league_id=? AND player_id=? AND dropped_at_unix=? LIMIT 1`
+            ).bind(targetSeason, leagueId, drop.pid, drop.ts).first();
+            if (existing) { skipped.push({ ...drop, reason: "already_recorded" }); continue; }
+
+            const meta = pidMeta.get(drop.pid) || {};
+            const preDrop = await findPreDropContract(drop.pid, drop.ts);
+            const dropIso = new Date(drop.ts * 1000).toISOString();
+            let penaltyInfo = {
+              tcv: null, cl: null, aav: null, cy: null,
+              yearsRemaining: null, yearsPlayed: null, earned: null,
+              guaranteed: null, penalty: null, basis: "no_pre_drop_contract",
+              exempt: false, exempt_reason: "",
+            };
+            if (preDrop) {
+              penaltyInfo = computeDropPenalty({
+                contractStatus: preDrop.contract_status,
+                salary: preDrop.salary,
+                contractInfo: preDrop.contract_info,
+                contractYear: preDrop.contract_year,
+                isTaxi: preDrop.is_taxi,
+              });
+            }
+
+            if (dryRun) {
+              written.push({
+                pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
+                pre_drop: preDrop, penalty: penaltyInfo,
+              });
+              continue;
+            }
+
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_drop_events (
+                 season, league_id, player_id, player_name, position, nfl_team,
+                 franchise_id, franchise_name, dropped_at_unix, dropped_at_iso,
+                 pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year,
+                 pre_drop_contract_length, pre_drop_contract_info, pre_drop_tcv,
+                 pre_drop_aav, pre_drop_years_remaining, pre_drop_taxi,
+                 earned_to_date, guaranteed_amount, penalty_amount, penalty_basis,
+                 penalty_exempt, penalty_exempt_reason,
+                 ledger_key, source, detected_at_utc, raw_transaction_json, snapshot_source
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (season, league_id, player_id, dropped_at_unix) DO NOTHING`
+            ).bind(
+              targetSeason, leagueId, drop.pid,
+              safeStr(meta.name) || `Player ${drop.pid}`,
+              safeStr(meta.position) || null,
+              safeStr(meta.team) || null,
+              drop.fid, fidToName[drop.fid] || null,
+              drop.ts, dropIso,
+              preDrop?.contract_status || null,
+              preDrop?.salary != null ? preDrop.salary : null,
+              preDrop?.contract_year != null ? preDrop.contract_year : null,
+              penaltyInfo.cl != null ? Number(penaltyInfo.cl) : null,
+              preDrop?.contract_info || null,
+              penaltyInfo.tcv != null ? Number(penaltyInfo.tcv) : null,
+              penaltyInfo.aav != null ? Number(penaltyInfo.aav) : null,
+              penaltyInfo.yearsRemaining != null ? Number(penaltyInfo.yearsRemaining) : null,
+              preDrop?.is_taxi ? 1 : 0,
+              penaltyInfo.earned != null ? Number(penaltyInfo.earned) : null,
+              penaltyInfo.guaranteed != null ? Number(penaltyInfo.guaranteed) : null,
+              penaltyInfo.penalty != null ? Number(penaltyInfo.penalty) : null,
+              safeStr(penaltyInfo.basis),
+              penaltyInfo.exempt ? 1 : 0,
+              safeStr(penaltyInfo.exempt_reason),
+              ledgerKey, "transactions_poll", nowIso,
+              JSON.stringify(drop.raw),
+              preDrop?.snapshot_source || null
+            ).run();
+            written.push({
+              pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
+              penalty_amount: penaltyInfo.penalty, penalty_basis: penaltyInfo.basis,
+              exempt: penaltyInfo.exempt,
+            });
+          } catch (e) {
+            skipped.push({ ...drop, reason: "insert_failed", error: String(e?.message || e) });
+          }
+        }
+
+        return jsonOut(200, {
+          ok: true,
+          dry_run: dryRun,
+          season: targetSeason,
+          league_id: leagueId,
+          window_days: days,
+          transactions_seen: drops.length,
+          written_count: written.length,
+          skipped_count: skipped.length,
+          written, skipped,
+        });
+      }
+
       // POST /admin/auction/snapshot-era-pool
       // Body: { season, league_id?, player_ids?: [...], franchise_ids_map?: { pid: fid } }
       //
@@ -27139,6 +28049,153 @@ export default {
           }
         }));
 
+        // Pull transaction history for FA Auction / WW classification
+        // (Keith 2026-05-22). Origin priority:
+        //   1. draftPick found in TYPE=draftResults → "Rookie Draft"
+        //   2. AUCTION_WON transaction → "FA Auction"
+        //   3. FREE_AGENT/WAIVER transaction → "WW"
+        //   4. Fall back to deriveOrigin(drafted_field) or "Other"
+        //
+        // Transactions endpoint returns per-year. Probe the last 3 seasons
+        // for any AUCTION_WON / FREE_AGENT involving the survivor PIDs.
+        const survivorPidSet = new Set(survivors.map((c) => c.pid));
+        const pidToAuction = new Map(); // pid → true if won at MFL auction
+        const pidToWaiver = new Map();  // pid → true if BB/FCFS picked up
+        if (survivorPidSet.size > 0) {
+          const txYears = [seasonInt - 3, seasonInt - 2, seasonInt - 1, seasonInt];
+          await Promise.all(txYears.map(async (ty) => {
+            for (const tt of ["AUCTION_WON", "FREE_AGENT"]) {
+              try {
+                const txRes = await mflExportJson(String(ty), leagueId, "transactions",
+                  { TRANS_TYPE: tt }, { useCookie: true });
+                let txs = txRes.data?.transactions?.transaction || [];
+                if (!Array.isArray(txs)) txs = [txs];
+                for (const tx of txs) {
+                  // TYPE=transactions returns `transaction` field with pipe-
+                  // separated player_id list (or single id) in the trans's
+                  // primary `transaction` column for AUCTION_WON, or
+                  // `transaction` colon-suffix `,$N` for FA. Parse
+                  // permissively: every digit-cluster is a candidate PID.
+                  const blob = safeStr(tx?.transaction || "");
+                  const pids = blob.match(/\d{3,6}/g) || [];
+                  for (const pid of pids) {
+                    if (!survivorPidSet.has(pid)) continue;
+                    if (tt === "AUCTION_WON") pidToAuction.set(pid, true);
+                    else pidToWaiver.set(pid, true);
+                  }
+                }
+              } catch (_) {}
+            }
+          }));
+        }
+
+        // Fetch the local player_points_history.json (jsDelivr) for PPG
+        // backfill. The file is generated quarterly from MFL playerScores
+        // and covers ~404 active-roster players. For players NOT in this
+        // file, we'd need a live MFL playerScores fetch — skipped here for
+        // speed, will show as null PPG in the UI (can backfill later).
+        let ppgIndex = {};
+        try {
+          const sha = String(env.UPS_RELEASE_SHA || "main").replace(/[^A-Za-z0-9_./-]/g, "") || "main";
+          const histUrl = `https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@${sha}/site/rosters/player_points_history.json`;
+          const hr = await fetch(histUrl, { cf: { cacheTtl: 600 } });
+          if (hr.ok) {
+            const hj = await hr.json();
+            const playersHist = hj?.players || {};
+            // yearly_fields order: [points, games, ppg, pos_rank, ppg_rank, ...]
+            for (const pid of Object.keys(playersHist)) {
+              const p = playersHist[pid];
+              let y = p?.y || {};
+              if (typeof y === "string") {
+                // historical file sometimes stringifies — recover
+                try { y = JSON.parse(y.replace(/'/g, '"').replace(/None/g, "null")); } catch (_) { y = {}; }
+              }
+              ppgIndex[pid] = {
+                ppg_2023: y?.["2023"]?.[2] ?? null,
+                games_2023: y?.["2023"]?.[1] ?? null,
+                ppg_2024: y?.["2024"]?.[2] ?? null,
+                games_2024: y?.["2024"]?.[1] ?? null,
+                ppg_2025: y?.["2025"]?.[2] ?? null,
+                games_2025: y?.["2025"]?.[1] ?? null,
+              };
+            }
+          }
+        } catch (e) {
+          console.warn("[era-pool] player_points_history fetch failed:", e?.message || String(e));
+        }
+
+        // Live MFL playerScores fallback for any survivor missing from
+        // the local history file (taxi-squad players or IDPs the build
+        // script may have excluded). Fetches W=YTD for each prior year.
+        const ppgMissing = [];
+        for (const c of survivors) {
+          const h = ppgIndex[c.pid];
+          if (!h || (h.ppg_2023 == null && h.ppg_2024 == null && h.ppg_2025 == null)) {
+            ppgMissing.push(c.pid);
+          }
+        }
+        if (ppgMissing.length > 0 && ppgMissing.length <= 40) {
+          // Cap at 40 to bound subrequest count. Each pid × 3 years = 3
+          // subreq, total ≤ 120. Use W=ALL (per-week scores) instead of
+          // W=YTD — MFL's YTD response gives a score sum but no games
+          // count, so we can't derive PPG. With W=ALL we count weeks
+          // with non-empty score = games played.
+          await Promise.all(ppgMissing.map(async (pid) => {
+            const entry = ppgIndex[pid] || {};
+            for (const yr of ["2023", "2024", "2025"]) {
+              if (entry[`ppg_${yr}`] != null) continue;
+              try {
+                const psRes = await fetch(
+                  `https://api.myfantasyleague.com/${yr}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&P=${encodeURIComponent(pid)}&W=ALL&JSON=1`,
+                  { cf: { cacheTtl: 86400 } }
+                );
+                const pj = await psRes.json().catch(() => ({}));
+                const allWeeks = pj?.playerScoresAllWeeks?.playerScores || [];
+                const arr = Array.isArray(allWeeks) ? allWeeks : [allWeeks];
+                let totalScore = 0;
+                let gamesPlayed = 0;
+                for (const wk of arr) {
+                  const sc = wk?.playerScore?.score;
+                  if (sc === "" || sc == null) continue;
+                  const wkVal = Number(sc);
+                  if (!Number.isFinite(wkVal)) continue;
+                  totalScore += wkVal;
+                  gamesPlayed += 1;
+                }
+                if (gamesPlayed > 0) {
+                  entry[`ppg_${yr}`] = Math.round((totalScore / gamesPlayed) * 1000) / 1000;
+                  entry[`games_${yr}`] = gamesPlayed;
+                } else {
+                  entry[`ppg_${yr}`] = null;
+                  entry[`games_${yr}`] = 0;
+                }
+              } catch (_) {}
+            }
+            ppgIndex[pid] = entry;
+          }));
+        }
+
+        // Weighted average (3-2-1, more weight to recent). Skip years
+        // with games=0 so a player who didn't play in 2023 isn't dragged
+        // to 0 across the avg.
+        const computeWeightedPpg = (h) => {
+          if (!h) return null;
+          const slots = [
+            { ppg: h.ppg_2025, games: h.games_2025, w: 3 },
+            { ppg: h.ppg_2024, games: h.games_2024, w: 2 },
+            { ppg: h.ppg_2023, games: h.games_2023, w: 1 },
+          ];
+          let num = 0, den = 0;
+          for (const s of slots) {
+            const ppg = Number(s.ppg);
+            const games = Number(s.games);
+            if (!Number.isFinite(ppg) || !Number.isFinite(games) || games <= 0) continue;
+            num += ppg * s.w;
+            den += s.w;
+          }
+          return den > 0 ? Math.round((num / den) * 100) / 100 : null;
+        };
+
         // Insert/update.
         const nowIso = new Date().toISOString();
         const written = [];
@@ -27149,9 +28206,34 @@ export default {
           const rookieSlot = draftPick ? draftPick.label : (c.drafted_field || "");
           const y3K = draftPick ? rookieSalaryK(draftPick.round, draftPick.pick) : null;
           const y3Dollars = y3K ? y3K * 1000 : null;
-          const origin = deriveOrigin(c.drafted_field) || (draftPick ? "Rookie Draft" : "Other");
+
+          // Origin classification (Keith 2026-05-22). Priority order:
+          //   1. UPS rookie draft slot resolved → "Rookie Draft"
+          //   2. AUCTION_WON transaction → "FA Auction"
+          //   3. FREE_AGENT/WAIVER transaction → "WW"
+          //   4. Live mode w/ raw drafted field → deriveOrigin()
+          //   5. Fallback → "Other"
+          let origin;
+          if (draftPick) {
+            origin = "Rookie Draft";
+          } else if (pidToAuction.has(c.pid)) {
+            origin = "FA Auction";
+          } else if (pidToWaiver.has(c.pid)) {
+            origin = "WW";
+          } else if (c.drafted_field) {
+            const d = deriveOrigin(c.drafted_field);
+            origin = (d && d !== "Other") ? d : "Other";
+          } else {
+            origin = "Other";
+          }
+
           const fid = c.fid || padFranchiseId(draftPick?.origFranchise || "");
           if (!c.pid) { skipped.push({ pid: c.pid, reason: "no_pid" }); continue; }
+
+          // PPG values
+          const ph = ppgIndex[c.pid] || {};
+          const wPpg = computeWeightedPpg(ph);
+
           try {
             await env.UPS_MFL_DB.prepare(
               `INSERT INTO ups_era_pool (
@@ -27159,8 +28241,10 @@ export default {
                  prior_owner_fid, prior_owner_name, origin_label,
                  rookie_slot, rookie_slot_round, rookie_slot_pick, rookie_slot_year,
                  y3_salary, drafted_field_raw,
-                 contract_status_at_drop, contract_year_at_drop, source, snapshot_at_utc
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 contract_status_at_drop, contract_year_at_drop, source, snapshot_at_utc,
+                 ppg_2023, ppg_2024, ppg_2025, ppg_weighted,
+                 games_2023, games_2024, games_2025
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT (season, league_id, player_id) DO UPDATE SET
                  player_name = excluded.player_name,
                  position = excluded.position,
@@ -27177,7 +28261,14 @@ export default {
                  contract_status_at_drop = excluded.contract_status_at_drop,
                  contract_year_at_drop = excluded.contract_year_at_drop,
                  source = excluded.source,
-                 snapshot_at_utc = excluded.snapshot_at_utc`
+                 snapshot_at_utc = excluded.snapshot_at_utc,
+                 ppg_2023 = excluded.ppg_2023,
+                 ppg_2024 = excluded.ppg_2024,
+                 ppg_2025 = excluded.ppg_2025,
+                 ppg_weighted = excluded.ppg_weighted,
+                 games_2023 = excluded.games_2023,
+                 games_2024 = excluded.games_2024,
+                 games_2025 = excluded.games_2025`
             ).bind(
               targetSeason, leagueId, c.pid,
               safeStr(meta.name) || `Player ${c.pid}`,
@@ -27194,9 +28285,20 @@ export default {
               c.drafted_field || null,
               null, null, // contract_status_at_drop / contract_year_at_drop captured on drop
               explicitPids.length ? "backfill_admin_endpoint" : "live_roster_walk",
-              nowIso
+              nowIso,
+              ph.ppg_2023 != null ? Number(ph.ppg_2023) : null,
+              ph.ppg_2024 != null ? Number(ph.ppg_2024) : null,
+              ph.ppg_2025 != null ? Number(ph.ppg_2025) : null,
+              wPpg,
+              ph.games_2023 != null ? Number(ph.games_2023) : null,
+              ph.games_2024 != null ? Number(ph.games_2024) : null,
+              ph.games_2025 != null ? Number(ph.games_2025) : null
             ).run();
-            written.push({ pid: c.pid, name: meta.name, fid, origin, rookie_slot: rookieSlot, y3_salary: y3Dollars });
+            written.push({
+              pid: c.pid, name: meta.name, fid, origin,
+              ppg_2023: ph.ppg_2023, ppg_2024: ph.ppg_2024, ppg_2025: ph.ppg_2025,
+              ppg_weighted: wPpg,
+            });
           } catch (e) {
             skipped.push({ pid: c.pid, reason: "insert_failed", error: String(e?.message || e) });
           }

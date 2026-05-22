@@ -1,7 +1,7 @@
 {
-  "version": "0.5.0",
-  "released": "2026-05-21",
-  "label": "v0.5.0 — ERA nomination cadence: anchored 12h windows (6 AM / 6 PM ET)",
+  "version": "0.6.0",
+  "released": "2026-05-22",
+  "label": "v0.6.0 — ERA table redesign: Origin fixed, PPG history, live bid columns",
   "description": "Drops the 'proxy walk' jargon. Bid thread now classifies each step from the observer's perspective: Nom (opening bid), Forced Increase (same franchise as previous high — MFL walked their hidden proxy), Overtake (different franchise dethroned the leader). Classification computed client-side by walking each per-lot thread chronologically.",
   "scope": {
     "this_release": [
@@ -20,6 +20,8 @@
     "league_context_v1.md": ["§6.A1", "§6.A2", "§B1", "§A1", "§A2", "§A3"]
   },
   "changes": [
+    { "version": "0.6.0", "date": "2026-05-22", "type": "feat",
+      "summary": "ERA-Eligible table redesign: dropped Age/Prior Owner/Rookie Slot/Rookie Salary columns; added 2023/2024/2025 PPG + 3-2-1 weighted avg; added live High Bid / High Bidder / Bids columns (LEFT JOIN ups_auction_lots). Fixed Origin classification — was returning Other for backfilled players; now resolves Rookie Draft / FA Auction / WW / MYM-Rookie via draftResults + transactions probe." },
     { "version": "0.5.0", "date": "2026-05-21", "type": "feat",
       "summary": "ERA nomination cadence switched from rolling 12h cooldown to ANCHORED 12h windows (6 AM / 6 PM ET). Opens Sat 6 PM ET, closes end of Tue 6 AM–6 PM ET window. Banner + per-franchise card show current window label + used_in_window." },
     { "version": "0.4.2", "date": "2026-05-20", "type": "feat",

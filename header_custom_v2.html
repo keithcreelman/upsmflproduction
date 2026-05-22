@@ -11307,6 +11307,225 @@
   })();
 </script>
 
+<script>
+  /* ───────────────────────────────────────────────────────────────────────
+   * UPS — O=43 ERA picker filter (Keith 2026-05-22)
+   *
+   * MFL's O=43 (Auction Bid) page renders an inline picker with every
+   * available free agent — ~1,000 rows. During the Expired Rookie Auction
+   * (ERA), nominations are restricted by canon (§A3) to the cut rookies
+   * we snapshotted into ups_era_pool at the midnight-ET deadline.
+   *
+   * This IIFE:
+   *   1. Gates on body[id^="body_options_43"]
+   *   2. Fetches /api/auction/era-eligible (the seeded pool) and
+   *      /api/auction/nomination-status (the era_window state)
+   *   3. If ERA is OPEN, builds Set<player_id> from the response and
+   *      hides every picker row whose player_id isn't in the set.
+   *   4. Re-runs on MutationObserver — TOS's add-drop-player-row divs
+   *      hydrate after initial DOM ready, so a one-shot scrub misses them.
+   *
+   * Bypass: append ?era_filter=off to the URL.
+   *
+   * Compatible with BOTH render paths:
+   *   - TOS footer.js → <div class="add-drop-player-row" data-player-id="...">
+   *   - MFL native → <table class="report"> rows with <input> / <button>
+   *     referencing PLAYER_PICK and the PID in onclick handlers.
+   * ───────────────────────────────────────────────────────────────────── */
+  (function eraPickerFilter() {
+    "use strict";
+
+    // Body-id gate: O=43 is the only page where this matters.
+    var bodyId = String(document.body && document.body.id || "").toLowerCase();
+    if (!/^body_options_43/.test(bodyId)) return;
+
+    // URL toggles:
+    //   ?era_filter=off       — disable entirely (debug)
+    //   ?era_filter=force_on  — force-treat ERA as open (test pre-window)
+    var forceOn = false;
+    try {
+      var qs = new URLSearchParams(window.location.search);
+      var qv = (qs.get("era_filter") || "").toLowerCase();
+      if (qv === "off") {
+        console.log("[era-picker-filter] disabled via ?era_filter=off");
+        return;
+      }
+      forceOn = (qv === "force_on" || qv === "force");
+      if (forceOn) console.log("[era-picker-filter] force_on — bypassing era_window.open gate");
+    } catch (_) {}
+
+    var WORKER_ORIGIN = "https://upsmflproduction.keith-creelman.workers.dev";
+    var LEAGUE_ID = "74598";
+    var SEASON = String(new Date().getUTCFullYear());
+
+    // Pool state — populated on first fetch.
+    var eraSet = null;           // Set<player_id_string>
+    var eraWindowOpen = false;
+    var fetchInProgress = false;
+    var fetchedAt = 0;
+    var FETCH_TTL_MS = 60 * 1000;
+
+    // Extract player_id from a picker row. Tries multiple strategies because
+    // TOS-rendered and MFL-native DOM look different.
+    function extractPid(row) {
+      if (!row) return "";
+      // 1. Direct data-attribute (TOS sometimes)
+      var d = row.getAttribute && (row.getAttribute("data-player-id") ||
+        row.getAttribute("data-playerid") || row.getAttribute("data-pid"));
+      if (d && /^\d+$/.test(d)) return d;
+      // 2. Onclick handler containing PLAYER_PICK= or .value=NNN
+      var clickAttr = "";
+      var addBtn = row.querySelector && row.querySelector("button, a, input[type='submit']");
+      if (addBtn) {
+        clickAttr = addBtn.getAttribute("onclick") || addBtn.getAttribute("href") || "";
+        var m = clickAttr.match(/(?:PLAYER_PICK|PLAYER_ID)[^0-9]*(\d{3,6})/i) ||
+                clickAttr.match(/value\s*=\s*['"]?(\d{3,6})/i) ||
+                clickAttr.match(/\b(\d{5,6})\b/);
+        if (m) return m[1];
+      }
+      // 3. Any anchor with options?O=04&P=NNN (MFL player profile link)
+      var profileLink = row.querySelector && row.querySelector("a[href*='O=04']");
+      if (profileLink) {
+        var href = profileLink.getAttribute("href") || "";
+        var pm = href.match(/[?&]P=(\d{3,6})/);
+        if (pm) return pm[1];
+      }
+      // 4. Image src with playerImages_80x107/12345.jpg pattern (TOS)
+      var img = row.querySelector && row.querySelector("img[src*='playerImages']");
+      if (img) {
+        var sm = (img.getAttribute("src") || "").match(/playerImages[^/]*\/(\d{3,6})\b/);
+        if (sm) return sm[1];
+      }
+      return "";
+    }
+
+    function ensureBanner(state) {
+      var existing = document.getElementById("ups-era-picker-banner");
+      if (state.hidden) {
+        if (existing) existing.remove();
+        return;
+      }
+      if (existing) {
+        var inner = existing.querySelector(".inner");
+        if (inner) inner.textContent = state.text;
+        return;
+      }
+      var b = document.createElement("div");
+      b.id = "ups-era-picker-banner";
+      b.style.cssText =
+        "background: #1a2845; color: #f0c465; border: 1px solid #f0c465; " +
+        "border-radius: 6px; padding: 10px 14px; margin: 12px 0; " +
+        "font-size: 13px; font-weight: 600; line-height: 1.5;";
+      b.innerHTML = '<div class="inner">' + state.text + "</div>";
+      // Try to insert ABOVE the AddDropForm so it reads naturally.
+      var anchor = document.querySelector("form#AddDropForm");
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(b, anchor);
+      } else {
+        var fallback = document.querySelector(".add-player-container") || document.body;
+        fallback.insertBefore(b, fallback.firstChild);
+      }
+    }
+
+    // Walk picker rows and hide non-ERA ones. Returns counts for logging.
+    function applyFilter() {
+      if (!eraSet || !eraWindowOpen) {
+        // ERA closed → no filtering. Remove banner if present.
+        ensureBanner({ hidden: true });
+        return { kept: 0, hidden: 0, unknown: 0 };
+      }
+      var rows = document.querySelectorAll(
+        "form#AddDropForm table.report tr, " +
+        ".add-player-container .add-drop-player-row, " +
+        ".add-drop-player-row"
+      );
+      var kept = 0, hidden = 0, unknown = 0;
+      rows.forEach(function (row) {
+        var pid = extractPid(row);
+        if (!pid) {
+          // Header / disclaimer row → skip (don't hide). Heuristic:
+          // header rows have <th> or no Add button.
+          var hasBtn = row.querySelector && row.querySelector("button, input[type='submit']");
+          var hasTh = row.querySelector && row.querySelector("th");
+          if (hasTh || !hasBtn) return; // header/info row — leave alone
+          unknown += 1;
+          return;
+        }
+        if (eraSet.has(pid)) {
+          row.style.display = "";
+          row.classList.add("ups-era-pool-row");
+          kept += 1;
+        } else {
+          row.style.display = "none";
+          hidden += 1;
+        }
+      });
+      ensureBanner({
+        hidden: false,
+        text: "🔒 ERA Auction active — " + eraSet.size + " eligible players. " +
+          "Other free agents are hidden during this cycle. " +
+          "(Append ?era_filter=off to bypass.)",
+      });
+      return { kept: kept, hidden: hidden, unknown: unknown };
+    }
+
+    function loadPool(force) {
+      var now = Date.now();
+      if (!force && fetchedAt && now - fetchedAt < FETCH_TTL_MS) return Promise.resolve();
+      if (fetchInProgress) return Promise.resolve();
+      fetchInProgress = true;
+      return Promise.all([
+        fetch(WORKER_ORIGIN + "/api/auction/era-eligible?L=" + LEAGUE_ID + "&YEAR=" + SEASON, { credentials: "omit" })
+          .then(function (r) { return r.json(); })
+          .catch(function () { return null; }),
+        fetch(WORKER_ORIGIN + "/api/auction/nomination-status?L=" + LEAGUE_ID + "&YEAR=" + SEASON, { credentials: "omit" })
+          .then(function (r) { return r.json(); })
+          .catch(function () { return null; }),
+      ]).then(function (parts) {
+        var eraResp = parts[0];
+        var nomResp = parts[1];
+        if (eraResp && Array.isArray(eraResp.players)) {
+          eraSet = new Set(eraResp.players.map(function (p) { return String(p.player_id); }));
+        }
+        eraWindowOpen = forceOn || !!(nomResp && nomResp.era_window && nomResp.era_window.open);
+        fetchedAt = Date.now();
+        console.log("[era-picker-filter] pool=" + (eraSet ? eraSet.size : 0) +
+          " window_open=" + eraWindowOpen);
+        applyFilter();
+      }).finally(function () {
+        fetchInProgress = false;
+      });
+    }
+
+    // Observer — TOS hydrates after initial render, and MFL's search box
+    // can re-render rows on query. Re-apply on mutation.
+    function startObserver() {
+      var target = document.querySelector("form#AddDropForm") ||
+                   document.querySelector(".add-player-container") ||
+                   document.body;
+      if (!target || target._upsEraObserver) return;
+      var mo = new MutationObserver(function () { applyFilter(); });
+      mo.observe(target, { childList: true, subtree: true });
+      target._upsEraObserver = mo;
+    }
+
+    function init() {
+      loadPool(true).then(function () {
+        applyFilter();
+        startObserver();
+      });
+      // Refresh pool every TTL (handles the open → close transition mid-page).
+      setInterval(function () { loadPool(false); }, FETCH_TTL_MS);
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init, { once: true });
+    } else {
+      init();
+    }
+  })();
+</script>
+
 <div id="container-wrap"><!-- ENTER ALL HPMS AFTER THIS AND CLOSE IN FOOTER -->
 
 <!------------------------------------------------------>
