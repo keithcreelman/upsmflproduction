@@ -2557,11 +2557,12 @@ export default {
                 source: "ups_era_pool_snapshot",
                 snapshot_at_utc: safeStr(r.snapshot_at_utc),
               }));
+              const deadlineUtc = _getTagDeadlineUtcTopLevel(year);
               return jsonOut(200, {
                 season: String(year),
                 league_id: String(leagueId),
                 generated_at: new Date().toISOString(),
-                extension_deadline_iso: null,
+                extension_deadline_iso: deadlineUtc ? deadlineUtc.toISOString() : null,
                 source: "ups_era_pool",
                 players,
                 count: players.length,

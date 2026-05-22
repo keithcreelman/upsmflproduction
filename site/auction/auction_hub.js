@@ -870,8 +870,14 @@
     if (!STATE.era) return;
     const total = (STATE.era.players || []).length;
     const deadline = STATE.era.extension_deadline_iso || STATE.era.deadline_iso;
-    const deadlineTxt = deadline ? fmtDate(deadline) : "TBD (MFL calendar)";
-    if (meta) meta.textContent = `Rookie extension deadline: ${deadlineTxt} · ${total} players currently ERA-eligible.`;
+    let deadlineTxt;
+    if (deadline) {
+      const passed = new Date(deadline).getTime() < Date.now();
+      deadlineTxt = `${fmtDate(deadline)}${passed ? " (passed — pool locked)" : ""}`;
+    } else {
+      deadlineTxt = "TBD";
+    }
+    if (meta) meta.textContent = `Rookie extension deadline: ${deadlineTxt} · ${total} players in ERA pool.`;
     if (headerMeta) {
       const me = STATE.me || {};
       const youAre = me.configured && me.franchise_name
@@ -917,14 +923,26 @@
   function applySort(rows) {
     const col = STATE.era_sort;
     const dir = STATE.era_sort_dir;
-    const numeric = ["age", "y3_salary", "current_bid", "rookie_slot"];
+    // Numeric whitelist must match both sort-handler + click-handler.
+    // Bug fix (Keith 2026-05-22): ppg_weighted was falling through to
+    // the string sort branch and producing lexicographic ordering
+    // ("10.6" > "11" > "2.1" — Charbonnet should be on top with 10.6).
+    const numeric = [
+      "ppg_2023", "ppg_2024", "ppg_2025", "ppg_weighted",
+      "high_bid_k", "total_bids",
+      "age", "y3_salary", "current_bid", "rookie_slot",
+    ];
     return rows.slice().sort((a, b) => {
       let va = a[col], vb = b[col];
       if (numeric.includes(col)) {
         va = Number(va);
         vb = Number(vb);
-        if (!Number.isFinite(va)) va = -Infinity;
-        if (!Number.isFinite(vb)) vb = -Infinity;
+        // For descending sort (dir = -1), null/missing should sink to
+        // the bottom. -Infinity makes them sort LOW, which means they
+        // end up at the top of a descending order — wrong. Use
+        // +/-Infinity based on dir so nulls always go last.
+        if (!Number.isFinite(va)) va = dir < 0 ? -Infinity : Infinity;
+        if (!Number.isFinite(vb)) vb = dir < 0 ? -Infinity : Infinity;
         return (va - vb) * dir;
       }
       va = String(va || "").toLowerCase();
@@ -966,17 +984,17 @@
 
   function renderRow(p, myFid) {
     const pos = String(p.position || "").toUpperCase();
-    const why = p.eligibility_reason || "Rookie contract expired — no extension submitted.";
-    const deadline = p.deadline_iso ? ` Extension deadline: ${fmtDate(p.deadline_iso)}.` : "";
-    const whyTooltip = `${why}${deadline}`;
 
     const mflProfileUrl = p.player_id
       ? `https://www.myfantasyleague.com/${p.season || new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=04&P=${encodeURIComponent(p.player_id)}`
       : null;
 
+    // Player cell (Keith 2026-05-22: removed ?-helper tooltip; eligibility
+    // reason was redundant once every row is a known cut from the same
+    // deadline event).
     const playerCell = mflProfileUrl
-      ? `<a href="${mflProfileUrl}" target="_blank" rel="noopener" class="player-link">${escapeHtml(p.name || ("Player #" + p.player_id))}</a><span class="ah-why" title="${escapeHtml(whyTooltip)}">?</span>`
-      : `${escapeHtml(p.name || ("Player #" + p.player_id))}<span class="ah-why" title="${escapeHtml(whyTooltip)}">?</span>`;
+      ? `<a href="${mflProfileUrl}" target="_blank" rel="noopener" class="player-link">${escapeHtml(p.name || ("Player #" + p.player_id))}</a>`
+      : `${escapeHtml(p.name || ("Player #" + p.player_id))}`;
 
     const currentBid = Number(p.current_bid || 0);
     const yourProxy = Number(p.your_proxy_bid || 0);
