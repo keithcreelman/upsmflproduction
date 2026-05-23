@@ -176,26 +176,52 @@ def discord_create_thread_from_message(channel_id: str, message_id: str, token: 
     )
 
 
+WORKER_GIPHY_PROXY_URL = "https://upsmflproduction.keith-creelman.workers.dev/api/giphy-search"
+
+
 def giphy_search(api_key: str, query: str) -> str:
-    """Pick a random GIF from a Giphy search. Returns URL or empty string."""
+    """Pick a random GIF for `query`. Returns URL or empty string.
+
+    Two paths:
+      1) If `api_key` is provided (env or Keychain), hit Giphy directly.
+      2) Otherwise fall back to the Worker's /api/giphy-search proxy, which
+         uses the Worker's GIPHY_API_KEY secret (same secret the drops post
+         uses internally). Keith 2026-05-22 — "wire it the same way we are
+         for drops" — this path means the local roast bot doesn't need its
+         own Giphy key on the box.
+    """
     import random
-    if not api_key or not query:
+    if not query:
         return ""
-    u = urllib.parse.urlencode({"api_key": api_key, "q": query, "limit": 25, "lang": "en", "rating": "r"})
-    url = f"https://api.giphy.com/v1/gifs/search?{u}"
+
+    # Path 1: direct Giphy (only if we have a local key)
+    if api_key:
+        u = urllib.parse.urlencode({"api_key": api_key, "q": query, "limit": 25,
+                                    "lang": "en", "rating": "r"})
+        url = f"https://api.giphy.com/v1/gifs/search?{u}"
+        try:
+            with urllib.request.urlopen(url, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            rows = data.get("data", []) or []
+            if rows:
+                pick = random.choice(rows)
+                return (pick.get("images", {}).get("original", {}).get("url")
+                        or pick.get("images", {}).get("downsized_large", {}).get("url")
+                        or pick.get("images", {}).get("fixed_height", {}).get("url")
+                        or "")
+        except Exception:
+            pass  # fall through to worker proxy
+
+    # Path 2: Worker proxy (uses CF Worker's GIPHY_API_KEY secret)
+    proxy_url = f"{WORKER_GIPHY_PROXY_URL}?{urllib.parse.urlencode({'q': query})}"
     try:
-        with urllib.request.urlopen(url, timeout=10) as resp:
+        with urllib.request.urlopen(proxy_url, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
+        if data.get("ok"):
+            return data.get("gif_url", "") or ""
     except Exception:
         return ""
-    rows = data.get("data", []) or []
-    if not rows:
-        return ""
-    pick = random.choice(rows)
-    return (pick.get("images", {}).get("original", {}).get("url")
-            or pick.get("images", {}).get("downsized_large", {}).get("url")
-            or pick.get("images", {}).get("fixed_height", {}).get("url")
-            or "")
+    return ""
 
 
 # ── Roast generation ───────────────────────────────────────────────────────
@@ -356,10 +382,12 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
     print(f"    roast message_id={roast_msg_id}")
 
     # 8) Fetch + post GIF (Message 3)
+    # giphy_search() tries local key first, falls back to Worker /api/giphy-search proxy.
     gif_url = ""
     gif_msg_id = ""
-    if gif_query and giphy_key:
-        print(f"  Searching Giphy for {gif_query!r}...")
+    if gif_query:
+        source = "local key" if giphy_key else "Worker proxy"
+        print(f"  Searching Giphy for {gif_query!r} via {source}...")
         gif_url = giphy_search(giphy_key, gif_query)
         if gif_url:
             gif_embed = {"image": {"url": gif_url}, "color": 0x202225}
@@ -368,9 +396,7 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
             gif_msg_id = gif_resp.get("id", "")
             print(f"    gif message_id={gif_msg_id}  url={gif_url[:80]}")
         else:
-            print(f"    (no Giphy result for query)")
-    elif not giphy_key:
-        print(f"  (skipping GIF — no GIPHY_API_KEY)")
+            print(f"    (no Giphy result for query — neither local key nor proxy returned a URL)")
 
     return {
         "ok": True,
@@ -436,7 +462,7 @@ def main():
     client = anthropic.Anthropic()
     print(f"  Anthropic key: sourced ({len(anthropic_key)} chars)")
     print(f"  Discord token: sourced ({len(discord_token) if not args.dry_run else 0} chars)")
-    print(f"  Giphy key: {'sourced (' + str(len(giphy_key)) + ' chars)' if giphy_key else '(not set — GIF will be skipped)'}")
+    print(f"  Giphy: {'local key (' + str(len(giphy_key)) + ' chars)' if giphy_key else 'Worker /api/giphy-search proxy (no local key)'}")
     print(f"  Target channel: {TEST_CHANNEL_ID}")
     print(f"  Trades: {trades}")
     print(f"  Models: {models}")

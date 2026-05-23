@@ -1967,6 +1967,7 @@ export default {
         path !== "/admin/auction/snapshot-era-pool" &&
         path !== "/admin/drops/scan-and-record" &&
         path !== "/admin/drops/post-discord" &&
+        path !== "/api/giphy-search" &&
         path !== "/admin/reset-fa-contracts" &&
         path !== "/admin/discord/post" &&
         path !== "/admin/deadline-reminders/test-discord" &&
@@ -5986,6 +5987,40 @@ export default {
           return "";
         } catch (e) { return ""; }
       };
+
+      // ── GET /api/giphy-search?q=<query> ──────────────────────────────────────
+      // Proxy for Giphy search using the worker's GIPHY_API_KEY secret. Used by
+      // the local Python trade-roast bot so it doesn't need its own Giphy key
+      // (Keith 2026-05-22 — "wire it the same way we are for drops"). Public,
+      // no auth — GIF URLs are public CDN URLs anyway, and Giphy free tier
+      // limits cap abuse. Returns a random GIF from the search results.
+      //   rating=r (broad), limit=25, lang=en
+      if (path === "/api/giphy-search" && request.method === "GET") {
+        const q = safeStr(url.searchParams.get("q") || "");
+        if (!q) return jsonOut(400, { ok: false, error: "missing q" });
+        const apiKey = safeStr(env.GIPHY_API_KEY || "");
+        if (!apiKey) return jsonOut(500, { ok: false, error: "GIPHY_API_KEY not configured" });
+        const u = new URL("https://api.giphy.com/v1/gifs/search");
+        u.searchParams.set("api_key", apiKey);
+        u.searchParams.set("q", q);
+        u.searchParams.set("limit", "25");
+        u.searchParams.set("lang", "en");
+        u.searchParams.set("rating", "r");
+        try {
+          const r = await fetch(u.toString(), { cf: { cacheTtl: 60 } });
+          if (!r.ok) return jsonOut(502, { ok: false, error: `giphy ${r.status}` });
+          const j = await r.json();
+          const rows = Array.isArray(j?.data) ? j.data : [];
+          if (!rows.length) return jsonOut(200, { ok: true, gif_url: "", count: 0, query: q });
+          const pick = rows[Math.floor(Math.random() * rows.length)];
+          const gif = safeStr(pick?.images?.original?.url) ||
+                      safeStr(pick?.images?.downsized_large?.url) ||
+                      safeStr(pick?.images?.fixed_height?.url) || "";
+          return jsonOut(200, { ok: true, gif_url: gif, count: rows.length, query: q });
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: String(e?.message || e) });
+        }
+      }
 
       // ── GET /api/me — identify the current owner from HPM franchise_id or cookie ──
       if (path === "/api/me" && request.method === "GET") {
