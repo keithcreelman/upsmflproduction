@@ -212,14 +212,21 @@ def giphy_search(api_key: str, query: str) -> str:
         except Exception:
             pass  # fall through to worker proxy
 
-    # Path 2: Worker proxy (uses CF Worker's GIPHY_API_KEY secret)
+    # Path 2: Worker proxy (uses CF Worker's GIPHY_API_KEY secret).
+    # CF edge blocks the default Python urllib User-Agent with 403; supply
+    # a custom UA so the proxy actually receives the request.
     proxy_url = f"{WORKER_GIPHY_PROXY_URL}?{urllib.parse.urlencode({'q': query})}"
+    req = urllib.request.Request(
+        proxy_url,
+        headers={"User-Agent": "ups-roast-bot-test-fire (https://github.com/keithcreelman/upsmflproduction)"},
+    )
     try:
-        with urllib.request.urlopen(proxy_url, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         if data.get("ok"):
             return data.get("gif_url", "") or ""
-    except Exception:
+    except Exception as e:
+        print(f"    (proxy error: {type(e).__name__}: {e})")
         return ""
     return ""
 
