@@ -11,6 +11,12 @@
 // signature verification + dispatch.
 
 import { runHallSubcommand, handleComponentInteraction, handleModalInteraction } from "./discord_round.js";
+import {
+  isRoastReplyButton,
+  isRoastReplyModal,
+  handleRoastReplyComponent,
+  handleRoastReplyModal,
+} from "./discord_roast_reply.js";
 
 const INTERACTION_TYPE = {
   PING: 1,
@@ -159,6 +165,18 @@ export async function handleDiscordInteraction(request, env, ctx) {
     }
   }
   if (type === INTERACTION_TYPE.MESSAGE_COMPONENT) {
+    const customId = safeStr(interaction?.data?.custom_id || "");
+    // Route roast-bot reply buttons to their own handler (worker-side
+    // because the Discord App's Interactions Endpoint URL bypasses
+    // the launchd Python bot's gateway).
+    if (isRoastReplyButton(customId)) {
+      try {
+        return await handleRoastReplyComponent(interaction, env, ctx);
+      } catch (e) {
+        console.log(`[roast-btn] EXCEPTION: ${e && e.message} ${e && e.stack}`);
+        return ephemeralReply(`Reply button failed: ${e && e.message ? e.message : "unknown error"}`);
+      }
+    }
     try {
       return await handleComponentInteraction(interaction, env, ctx);
     } catch (e) {
@@ -167,6 +185,15 @@ export async function handleDiscordInteraction(request, env, ctx) {
     }
   }
   if (type === INTERACTION_TYPE.MODAL_SUBMIT) {
+    const customId = safeStr(interaction?.data?.custom_id || "");
+    if (isRoastReplyModal(customId)) {
+      try {
+        return await handleRoastReplyModal(interaction, env, ctx);
+      } catch (e) {
+        console.log(`[roast-modal] EXCEPTION: ${e && e.message} ${e && e.stack}`);
+        return ephemeralReply(`Reply modal failed: ${e && e.message ? e.message : "unknown error"}`);
+      }
+    }
     try {
       return await handleModalInteraction(interaction, env, ctx);
     } catch (e) {
