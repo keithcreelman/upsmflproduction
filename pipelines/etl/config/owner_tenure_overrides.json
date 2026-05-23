@@ -1,0 +1,15 @@
+{
+  "_README": "Manual owner-tenure overrides. Override the season-start-owner rule from src_weekly_franchise_summary when D1's owner_name field doesn't match the league's actual owner-of-record (typically because D1 ETL stamped current owner onto historical weekly rows OR because there was a managed-vs-owned distinction). Keyed by franchise_id → list of owner-tenure entries. Each entry has owner_name + tenure_start_season (inclusive). Tenure_end_season is optional (defaults to ongoing).",
+  "_last_updated": "2026-05-22",
+  "_last_updated_by": "Keith (2026-05-22 ruling: 'managed' ≠ 'owner of record' — season-start owner gets the W/L attribution)",
+  "_logic": "Rebuilder reads this file and trims owner_seasons to only include seasons >= tenure_start_season for the matching (franchise_id, owner_name) pair. Seasons before tenure_start_season are still attributed to the franchise but not to this owner.",
+
+  "0006": [
+    {
+      "owner_name": "Brian Cross",
+      "tenure_start_season": 2025,
+      "tenure_end_season": null,
+      "notes": "Brian managed 0006 from mid-2024 (week 15 swap) but Josh Lima retains attribution of 2024 W/L stats per Keith 2026-05-22 (commish ruling: season-start owner gets the season). Brian's career as owner-of-record starts 2025."
+    }
+  ]
+}
