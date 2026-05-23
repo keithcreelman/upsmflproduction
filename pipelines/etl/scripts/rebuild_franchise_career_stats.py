@@ -70,16 +70,30 @@ def load_weekly_summary() -> list[dict]:
 
 
 def build_stats(owners: dict, standings: list[dict], weekly: list[dict]) -> dict:
-    """Build the career stats dict keyed by current franchise_id."""
-    # Aggregate season-level totals per franchise per season
+    """Build the career stats dict keyed by current franchise_id.
+
+    Owner-tenure attribution rule (Keith 2026-05-22):
+      An owner is credited with a season ONLY if they owned the franchise
+      for the WHOLE season (zero mid-season transitions). Seasons where
+      multiple owner_name values appear across the weekly summary are
+      "transition seasons" — excluded from owner-tenure stats for ANY
+      owner involved. Final-standings finish/championship attribution
+      uses the season-end owner (whoever was there at the last week).
+    """
+    # Per-season totals (franchise-wide)
     season_totals = defaultdict(lambda: defaultdict(lambda: {
         "h2h_w": 0, "h2h_l": 0, "h2h_t": 0, "h2h_g": 0,
         "ap_w": 0, "ap_l": 0, "pts_for": 0.0, "weeks": 0,
-        "owner_name": "",
     }))
+    # Track all distinct owner_names per (fid, season) for transition detection
+    season_owners_seen = defaultdict(lambda: defaultdict(set))
+    # Track the LATEST-week owner per (fid, season) for end-of-season attribution
+    season_end_owner = defaultdict(dict)  # season_end_owner[fid][season] = (max_week, owner_name)
+
     for w in weekly:
         fid = str(w["franchise_id"]).zfill(4)
         season = int(w["season"])
+        week = int(w.get("week") or 0)
         s = season_totals[fid][season]
         s["h2h_w"] += int(w.get("h2h_wins") or 0)
         s["h2h_l"] += int(w.get("h2h_losses") or 0)
@@ -89,8 +103,13 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict]) -> dict
         s["ap_l"] += int(w.get("allplay_losses") or 0)
         s["pts_for"] += float(w.get("h2h_team_score") or 0)
         s["weeks"] += 1
-        if w.get("owner_name") and not s["owner_name"]:
-            s["owner_name"] = w["owner_name"]
+        owner_nm = (w.get("owner_name") or "").strip()
+        if owner_nm:
+            season_owners_seen[fid][season].add(owner_nm)
+            # Track the latest week's owner
+            prior = season_end_owner[fid].get(season)
+            if prior is None or week > prior[0]:
+                season_end_owner[fid][season] = (week, owner_nm)
 
     # Index final standings
     finish_by_fs = {}  # (fid, season) → final_finish
@@ -102,24 +121,36 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict]) -> dict
     out = {}
     for fid in sorted(set(list(owners.keys()) + list(season_totals.keys()))):
         owner_info = owners.get(fid, {})
-        # Owner attribution per season — use weekly's owner_name (cleanest current source)
         seasons_with_data = sorted(season_totals.get(fid, {}).keys())
-        # Determine the current owner: take from discord_owners
+        # Determine the current owner: take from discord_owners (canonical)
         current_owner = owner_info.get("owner_name", "") or (
-            season_totals[fid][seasons_with_data[-1]]["owner_name"] if seasons_with_data else ""
+            list(season_owners_seen[fid][seasons_with_data[-1]])[0]
+            if seasons_with_data and season_owners_seen[fid][seasons_with_data[-1]]
+            else ""
         )
-        # Owner tenure = seasons where weekly owner_name matches current owner (case-insensitive substring)
+        # Owner tenure = WHOLE-SEASON-ONLY rule:
+        #   include season iff (current_owner is the only owner_name seen
+        #   across all weeks of that season). Transition seasons are
+        #   excluded from owner-tenure stats entirely.
         owner_seasons = []
+        transition_seasons = []
         for season in seasons_with_data:
-            s = season_totals[fid][season]
+            owners_seen = season_owners_seen[fid].get(season, set())
+            if not owners_seen:
+                # No owner_name data — can't attribute, skip
+                continue
+            if len(owners_seen) >= 2:
+                # Multi-owner season → transition, exclude from tenure
+                transition_seasons.append(season)
+                continue
+            # Exactly one owner_name across all weeks → check match
+            sole_owner = next(iter(owners_seen))
             if not current_owner:
                 owner_seasons.append(season)
-            elif s["owner_name"] and current_owner.lower() in s["owner_name"].lower():
+            elif current_owner.lower() == sole_owner.lower():
                 owner_seasons.append(season)
-            elif s["owner_name"] and s["owner_name"].lower() in current_owner.lower():
-                owner_seasons.append(season)
-            elif not s["owner_name"]:
-                # No owner_name in weekly → can't disambiguate, include cautiously
+            elif current_owner.lower() in sole_owner.lower() or sole_owner.lower() in current_owner.lower():
+                # Allow substring match for nickname variations (e.g. "Brian" vs "Brian Cross")
                 owner_seasons.append(season)
 
         # Owner-tenure aggregates
@@ -177,6 +208,11 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict]) -> dict
             "best_season": best_season,
             "worst_season": worst_season,
             "trend": trend,
+            # Transition seasons (multi-owner mid-year takeovers) — excluded
+            # from owner-tenure stats. Surfaced so the trade-counter logic
+            # can build trade_exclusions windows from these, and so the
+            # roast prompt can avoid attributing inherited rosters.
+            "transition_seasons": transition_seasons,
             "owner": {
                 "display": current_owner,
                 "first_season": owner_first,
