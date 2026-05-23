@@ -225,6 +225,12 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
         if franchise_chips:
             chip_seasons = [s for s in all_seasons if finish_by_fs.get((fid, s)) == 1]
             last_chip_season = max(chip_seasons) if chip_seasons else None
+        # Drought measured against UPCOMING season (current_year), not last
+        # completed season. For Hammer (won 2024, current=2026) drought = 2,
+        # not 1. Keith 2026-05-22: "Hammer won 2024 not 2025, make sure you
+        # get this correct." LLM was misreading "1 year ago" → "last year's
+        # champion" → falsely calling Hammer defending.
+        current_year_upcoming = (max(all_seasons) + 1) if all_seasons else None
         franchise_ap_w = sum(season_totals[fid][s]["ap_w"] for s in all_seasons)
         franchise_ap_l = sum(season_totals[fid][s]["ap_l"] for s in all_seasons)
         franchise_ap_pct = (franchise_ap_w / (franchise_ap_w + franchise_ap_l)) if (franchise_ap_w + franchise_ap_l) else 0
@@ -252,10 +258,13 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
 
         out[fid] = {
             "franchise_name": owner_info.get("team_name", ""),
+            "current_year": current_year_upcoming,  # the upcoming season we're in offseason for
             "seasons_played": len(all_seasons),
             "championships": franchise_chips,
             "last_championship": last_chip_season,
-            "championship_drought": (max(all_seasons) - last_chip_season) if (all_seasons and last_chip_season) else (max(all_seasons) - min(all_seasons) + 1 if all_seasons else 0),
+            # Drought = current_year (upcoming) - last_chip_season. For 2024 chip
+            # in 2026 offseason → drought = 2.
+            "championship_drought": (current_year_upcoming - last_chip_season) if (current_year_upcoming and last_chip_season) else (current_year_upcoming - min(all_seasons) + 1 if all_seasons and current_year_upcoming else 0),
             "career_allplay_pct": round(franchise_ap_pct, 3),
             "best_season": best_season,
             "worst_season": worst_season,

@@ -32,9 +32,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
+import urllib.parse
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
@@ -46,11 +48,16 @@ import anthropic
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from trade_grader import fetch_trades
+from trade_grader import (
+    fetch_trades, analyze_trade, load_franchises, load_players_map,
+    load_rosters, load_rollover, load_auction_pool, load_team_caps,
+    load_future_picks, load_trade_value_model,
+)
 from trade_roast_context import (
     build_trade_roast_context,
     context_to_prompt_text,
 )
+from trade_announcement import build_announcement_embed
 from content_engine import ROAST_SYSTEM
 
 
@@ -94,6 +101,22 @@ def get_discord_token() -> str:
         ) from e
 
 
+def get_giphy_key() -> str:
+    """Source Giphy API key from env or Keychain (service=giphy_api_key)."""
+    key = os.environ.get("GIPHY_API_KEY", "").strip()
+    if key:
+        return key
+    try:
+        result = subprocess.run(
+            ["security", "find-generic-password", "-a", os.environ["USER"],
+             "-s", "giphy_api_key", "-w"],
+            check=True, capture_output=True, text=True,
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, KeyError):
+        return ""  # Giphy is optional — if missing, just skip the GIF
+
+
 def get_anthropic_key() -> str:
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if key:
@@ -117,12 +140,11 @@ def get_anthropic_key() -> str:
 
 # ── Discord REST post ──────────────────────────────────────────────────────
 
-def discord_post_message(channel_id: str, token: str, payload: dict) -> dict:
-    """POST a message to a Discord channel via REST. No gateway needed."""
-    url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages"
-    data = json.dumps(payload).encode("utf-8")
+def _discord_request(method: str, path: str, token: str, payload: dict = None) -> dict:
+    url = f"{DISCORD_API_BASE}{path}"
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
     req = urllib.request.Request(
-        url, data=data, method="POST",
+        url, data=data, method=method,
         headers={
             "Authorization": f"Bot {token}",
             "Content-Type": "application/json",
@@ -131,10 +153,49 @@ def discord_post_message(channel_id: str, token: str, payload: dict) -> dict:
     )
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            body = resp.read().decode("utf-8")
+            return json.loads(body) if body else {}
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
-        raise SystemExit(f"Discord POST failed {e.code}: {body}") from e
+        raise SystemExit(f"Discord {method} {path} failed {e.code}: {body}") from e
+
+
+def discord_post_message(channel_id: str, token: str, payload: dict) -> dict:
+    """POST a message to a Discord channel via REST. No gateway needed."""
+    return _discord_request("POST", f"/channels/{channel_id}/messages", token, payload)
+
+
+def discord_create_thread_from_message(channel_id: str, message_id: str, token: str,
+                                       thread_name: str, auto_archive_minutes: int = 1440) -> dict:
+    """Start a thread anchored to an existing message. Returns the thread channel object."""
+    return _discord_request(
+        "POST",
+        f"/channels/{channel_id}/messages/{message_id}/threads",
+        token,
+        {"name": thread_name, "auto_archive_duration": auto_archive_minutes},
+    )
+
+
+def giphy_search(api_key: str, query: str) -> str:
+    """Pick a random GIF from a Giphy search. Returns URL or empty string."""
+    import random
+    if not api_key or not query:
+        return ""
+    u = urllib.parse.urlencode({"api_key": api_key, "q": query, "limit": 25, "lang": "en", "rating": "r"})
+    url = f"https://api.giphy.com/v1/gifs/search?{u}"
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return ""
+    rows = data.get("data", []) or []
+    if not rows:
+        return ""
+    pick = random.choice(rows)
+    return (pick.get("images", {}).get("original", {}).get("url")
+            or pick.get("images", {}).get("downsized_large", {}).get("url")
+            or pick.get("images", {}).get("fixed_height", {}).get("url")
+            or "")
 
 
 # ── Roast generation ───────────────────────────────────────────────────────
@@ -178,17 +239,39 @@ def find_trade(timestamp: int) -> dict:
 
 # ── Main ───────────────────────────────────────────────────────────────────
 
-def fire_one(client, discord_token, model_label: str, model_id: str,
+_GIF_TAG_RE = re.compile(r"\[GIF:\s*([^\]]+?)\s*\]\s*$", re.IGNORECASE | re.MULTILINE)
+
+
+def _extract_gif_query(roast_text: str) -> tuple[str, str]:
+    """Pull [GIF: ...] from the end of the roast. Returns (clean_roast, gif_query)."""
+    m = _GIF_TAG_RE.search(roast_text)
+    if not m:
+        return roast_text, ""
+    query = m.group(1).strip()
+    clean = roast_text[:m.start()].rstrip() + ("\n" if not roast_text[:m.start()].endswith("\n") else "")
+    return clean, query
+
+
+def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
              trade_ts: int, dry_run: bool) -> dict:
-    """Generate one roast and post it. Returns a result summary."""
+    """Full sequence:
+      1) Run analyze_trade → TradeAnalysis
+      2) Build announcement embed → post to channel (Message 1)
+      3) Create thread off Message 1
+      4) Generate roast via Anthropic
+      5) Parse [GIF: ...] tag from roast end
+      6) Post roast in thread (Message 2)
+      7) Search Giphy for the GIF query
+      8) Post GIF in thread (Message 3)
+    """
     print(f"\n=== ts={trade_ts} · model={model_label} ({model_id}) ===")
 
     trade = find_trade(trade_ts)
-    fr_a = trade.get("franchise", "")
-    fr_b = trade.get("franchise2", "")
-    print(f"  Trade: {fr_a} ↔ {fr_b}")
+    fr_a_id = trade.get("franchise", "")
+    fr_b_id = trade.get("franchise2", "")
+    print(f"  Trade: {fr_a_id} ↔ {fr_b_id}")
 
-    # Detect extension hint from comments (same logic the bot uses)
+    # Extension hint
     comments = (trade.get("comments", "") or "").lower()
     ext_years = 0
     ext_player = ""
@@ -201,7 +284,22 @@ def fire_one(client, discord_token, model_label: str, model_id: str,
                 ext_player = tok
                 break
 
-    print(f"  Building context...")
+    # 1) Analyze trade
+    print(f"  Running analyze_trade...")
+    franchises = load_franchises()
+    analysis = analyze_trade(
+        trade,
+        load_players_map(), franchises, load_rosters(), load_rollover(),
+        load_auction_pool(), load_team_caps(), load_future_picks(), load_trade_value_model(),
+    )
+
+    # 2) Build announcement embed
+    ts_int = int(trade.get("timestamp", 0))
+    trade_iso = datetime.fromtimestamp(ts_int, tz=timezone.utc).isoformat() if ts_int else ""
+    announcement = build_announcement_embed(analysis, franchises, trade_iso)
+
+    # 3) Build roast context + generate
+    print(f"  Building roast context...")
     ctx = build_trade_roast_context(trade, extension_years=ext_years,
                                     extension_player_id=ext_player)
     context_text = context_to_prompt_text(ctx)
@@ -209,51 +307,82 @@ def fire_one(client, discord_token, model_label: str, model_id: str,
 
     print(f"  Generating roast via {model_id}...")
     t0 = time.time()
-    roast, usage = generate_roast(client, model_id, context_text)
+    raw_roast, usage = generate_roast(client, model_id, context_text)
     gen_ms = int((time.time() - t0) * 1000)
-    print(f"  Generated in {gen_ms}ms · {len(roast)} chars · "
+    print(f"  Generated in {gen_ms}ms · {len(raw_roast)} chars · "
           f"{usage['input_tokens']} in / {usage['output_tokens']} out tokens · "
           f"${usage['cost_estimate_usd']}")
 
-    # Use embed.description for the roast (4096-char limit vs content's 2000).
-    # No footer (Keith 2026-05-22: "I dont need this at the end"). Title carries the model label.
-    desc_max = 4096
-    if len(roast) > desc_max:
-        roast = roast[:desc_max - 20] + "\n[…truncated…]"
-
-    embed = {
-        "title": f"A/B — {model_label.upper()}",
-        "description": roast,
-        "color": 0x5865F2 if model_label == "opus" else 0x57F287,  # blurple Opus, green Sonnet
-    }
-    payload = {
-        "embeds": [embed],
-        "allowed_mentions": {"parse": []},
-    }
+    # 4) Extract GIF tag
+    roast_clean, gif_query = _extract_gif_query(raw_roast)
+    print(f"  GIF query: {gif_query!r}" if gif_query else "  GIF query: (none — Opus skipped the tag)")
 
     if dry_run:
-        print(f"  DRY-RUN — would post embed ({len(roast)} chars in description) to channel {TEST_CHANNEL_ID}")
+        print(f"  DRY-RUN — would post announcement + thread (roast {len(roast_clean)} chars, gif='{gif_query}')")
         return {
             "ok": True, "dry_run": True,
             "trade_ts": trade_ts, "model": model_label,
             "context_chars": len(context_text),
-            "roast_chars": len(roast),
-            "gen_ms": gen_ms,
-            "usage": usage,
+            "roast_chars": len(roast_clean),
+            "gif_query": gif_query,
+            "gen_ms": gen_ms, "usage": usage,
         }
 
-    print(f"  Posting to channel {TEST_CHANNEL_ID}...")
-    result = discord_post_message(TEST_CHANNEL_ID, discord_token, payload)
-    msg_id = result.get("id", "")
-    print(f"  Posted: message_id={msg_id}")
+    # 5) Post announcement (Message 1)
+    print(f"  Posting announcement to channel {TEST_CHANNEL_ID}...")
+    announce_payload = {"embeds": [announcement], "allowed_mentions": {"parse": []}}
+    announce_resp = discord_post_message(TEST_CHANNEL_ID, discord_token, announce_payload)
+    announce_msg_id = announce_resp.get("id", "")
+    print(f"    announcement message_id={announce_msg_id}")
+
+    # 6) Create thread off announcement
+    thread_name = f"Trade Roast — {model_label.upper()} · ts={trade_ts}"
+    print(f"  Creating thread '{thread_name}'...")
+    thread = discord_create_thread_from_message(
+        TEST_CHANNEL_ID, announce_msg_id, discord_token, thread_name)
+    thread_id = thread.get("id", "")
+    print(f"    thread_id={thread_id}")
+
+    # 7) Post roast in thread (Message 2)
+    roast_embed = {
+        "title": f"🔥 Roast — {model_label.upper()}",
+        "description": roast_clean[:4096],
+        "color": 0x5865F2 if model_label == "opus" else 0x57F287,
+    }
+    print(f"  Posting roast in thread...")
+    roast_resp = discord_post_message(thread_id, discord_token,
+                                      {"embeds": [roast_embed], "allowed_mentions": {"parse": []}})
+    roast_msg_id = roast_resp.get("id", "")
+    print(f"    roast message_id={roast_msg_id}")
+
+    # 8) Fetch + post GIF (Message 3)
+    gif_url = ""
+    gif_msg_id = ""
+    if gif_query and giphy_key:
+        print(f"  Searching Giphy for {gif_query!r}...")
+        gif_url = giphy_search(giphy_key, gif_query)
+        if gif_url:
+            gif_embed = {"image": {"url": gif_url}, "color": 0x202225}
+            gif_resp = discord_post_message(thread_id, discord_token,
+                                            {"embeds": [gif_embed], "allowed_mentions": {"parse": []}})
+            gif_msg_id = gif_resp.get("id", "")
+            print(f"    gif message_id={gif_msg_id}  url={gif_url[:80]}")
+        else:
+            print(f"    (no Giphy result for query)")
+    elif not giphy_key:
+        print(f"  (skipping GIF — no GIPHY_API_KEY)")
+
     return {
         "ok": True,
         "trade_ts": trade_ts, "model": model_label,
-        "message_id": msg_id,
+        "announcement_msg_id": announce_msg_id,
+        "thread_id": thread_id,
+        "roast_msg_id": roast_msg_id,
+        "gif_msg_id": gif_msg_id,
+        "gif_query": gif_query,
         "context_chars": len(context_text),
-        "roast_chars": len(roast),
-        "gen_ms": gen_ms,
-        "usage": usage,
+        "roast_chars": len(roast_clean),
+        "gen_ms": gen_ms, "usage": usage,
     }
 
 
@@ -302,10 +431,12 @@ def main():
     print("Sourcing credentials...")
     anthropic_key = get_anthropic_key()
     discord_token = get_discord_token() if not args.dry_run else "(skipped — dry-run)"
+    giphy_key = get_giphy_key()
     os.environ["ANTHROPIC_API_KEY"] = anthropic_key  # SDK reads from env
     client = anthropic.Anthropic()
     print(f"  Anthropic key: sourced ({len(anthropic_key)} chars)")
     print(f"  Discord token: sourced ({len(discord_token) if not args.dry_run else 0} chars)")
+    print(f"  Giphy key: {'sourced (' + str(len(giphy_key)) + ' chars)' if giphy_key else '(not set — GIF will be skipped)'}")
     print(f"  Target channel: {TEST_CHANNEL_ID}")
     print(f"  Trades: {trades}")
     print(f"  Models: {models}")
@@ -315,7 +446,7 @@ def main():
     for ts in trades:
         for m_label in models:
             try:
-                r = fire_one(client, discord_token, m_label, MODELS[m_label],
+                r = fire_one(client, discord_token, giphy_key, m_label, MODELS[m_label],
                              ts, args.dry_run)
                 results.append(r)
             except Exception as e:
@@ -333,7 +464,11 @@ def main():
             cost = u.get("cost_estimate_usd", 0)
             total_cost += cost
             print(f"  {tag}  ts={r['trade_ts']}  {r['model']:6}  "
-                  f"msg_id={r.get('message_id','—'):20}  "
+                  f"announce={r.get('announcement_msg_id','—'):20}  "
+                  f"thread={r.get('thread_id','—'):20}  "
+                  f"roast={r.get('roast_msg_id','—'):20}  "
+                  f"gif={r.get('gif_msg_id','—'):20}  "
+                  f"gif_q={r.get('gif_query','—')!r}  "
                   f"gen={r.get('gen_ms','?')}ms  "
                   f"in={u.get('input_tokens','?')}t  out={u.get('output_tokens','?')}t  "
                   f"cost=${cost}")

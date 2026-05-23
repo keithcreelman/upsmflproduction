@@ -532,6 +532,16 @@ def context_to_prompt_text(ctx: dict) -> str:
     fa = a["franchise"]
     fb = b["franchise"]
 
+    # Current-year framing — explicit date math for the LLM. The payload's
+    # career_stats has current_year per franchise (upcoming season we're in
+    # offseason for). Pull whichever side has it (both should agree).
+    current_year = (fa.get("current_year") or fb.get("current_year") or 0)
+    if current_year:
+        last_completed = current_year - 1
+        ln(f"CURRENT YEAR: {current_year} (offseason — {current_year} season has not started)")
+        ln(f"LAST COMPLETED SEASON: {last_completed}")
+        ln("")
+
     # Defending champion — only emit if one of the traded sides IS the defending champ.
     # Otherwise it's noise the LLM misuses (e.g. naming an uninvolved third party in a roast).
     dc = ctx.get("defending_champion") or {}
