@@ -369,7 +369,10 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
     print(f"    announcement message_id={announce_msg_id}")
 
     # 6) Create thread off announcement
-    thread_name = f"Trade Roast — {model_label.upper()} · ts={trade_ts}"
+    team_a_name = franchises.get(analysis.side_a.franchise_id, analysis.side_a.franchise_name or "Team A")
+    team_b_name = franchises.get(analysis.side_b.franchise_id, analysis.side_b.franchise_name or "Team B")
+    # Discord thread names cap at 100 chars
+    thread_name = f"Trade Roast — {team_a_name} ↔ {team_b_name}"[:100]
     print(f"  Creating thread '{thread_name}'...")
     thread = discord_create_thread_from_message(
         TEST_CHANNEL_ID, announce_msg_id, discord_token, thread_name)

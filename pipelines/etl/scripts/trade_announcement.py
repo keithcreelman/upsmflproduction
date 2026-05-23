@@ -27,8 +27,28 @@ Built from the same TradeAnalysis the roast uses, so they stay in sync.
 """
 
 from datetime import datetime, timezone
+try:
+    from zoneinfo import ZoneInfo
+    _ET_TZ = ZoneInfo("America/New_York")
+except ImportError:
+    _ET_TZ = None  # pre-Python 3.9 fallback — keep UTC
 
 CURRENT_YEAR = 2026  # UPS current league year; bump when 2027 season opens
+
+
+def _format_eastern(iso_string: str) -> str:
+    """Convert ISO timestamp to Eastern Time: 'Apr 04, 2026, 10:14:48 AM EDT'."""
+    if not iso_string:
+        return ""
+    try:
+        dt = datetime.fromisoformat(iso_string.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return iso_string
+    if _ET_TZ:
+        dt = dt.astimezone(_ET_TZ)
+    # %-I is non-zero-padded hour on Unix; on Windows would need %#I. Acceptable
+    # for our deploy targets.
+    return dt.strftime("%b %d, %Y, %-I:%M:%S %p %Z")
 
 
 def _ordinal(n: int) -> str:
@@ -186,14 +206,8 @@ def build_announcement_embed(analysis, franchises: dict, trade_dt_iso: str = "")
     team_a = franchises.get(a.franchise_id, a.franchise_name or f"Franchise {a.franchise_id}")
     team_b = franchises.get(b.franchise_id, b.franchise_name or f"Franchise {b.franchise_id}")
 
-    # Format date
-    date_str = ""
-    if trade_dt_iso:
-        try:
-            dt = datetime.fromisoformat(trade_dt_iso.replace("Z", "+00:00"))
-            date_str = dt.strftime("%b %d, %Y")
-        except Exception:
-            date_str = trade_dt_iso
+    # Format date in Eastern Time with HH:MM:SS AM/PM TZ
+    date_str = _format_eastern(trade_dt_iso) if trade_dt_iso else ""
 
     description_lines = ["# 🤝 Trade Alert", "", f"**{team_a}** ↔ **{team_b}**"]
     if date_str:

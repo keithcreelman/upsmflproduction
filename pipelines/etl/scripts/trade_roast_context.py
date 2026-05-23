@@ -665,13 +665,19 @@ def context_to_prompt_text(ctx: dict) -> str:
 
         # Cap context — only show if the trade INCLUDES players or BB (cap matters then).
         # Pick-only trades don't move cap; suppress to keep the roast focused.
+        # Show only cap_space (the source of truth after adjustments). Don't show
+        # total_roster_salary alongside — they don't tie out cleanly because of
+        # league-applied salary adjustments (Keith 2026-05-22: "He's at 283K of
+        # pure salary but with adjustments he's got the 33K of space"). LLM was
+        # combining both and producing arithmetically wrong statements like
+        # "$283K post-trade with $33,500 in breathing room" (sums to $316K, not
+        # $300K cap).
         side_has_player_or_bb = (
             bool(side.get("players_received") or side.get("players_given")
                  or side.get("salary_received") or side.get("salary_given"))
         )
         if side_has_player_or_bb:
-            ln(f"  Post-trade salary: ${side['post_trade_salary']:,} / $300K cap")
-            ln(f"  Post-trade cap space: ${side['post_trade_cap']:,}")
+            ln(f"  Post-trade cap space: ${side['post_trade_cap']:,} (of $300K cap)")
 
         if f.get("trend"):
             ln(f"  Recent trend (franchise, not necessarily current owner):")
