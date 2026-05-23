@@ -28,6 +28,9 @@ def display_name(mfl_name: str) -> str:
     return mfl_name
 
 CAREER_STATS_PATH = Path(__file__).resolve().parent.parent / "data" / "franchise_career_stats.json"
+# Owner/team mapping — JSON in the repo is the canonical source (exported
+# from D1 discord_owners table). CSV is the legacy fallback for old deploys.
+DISCORD_OWNERS_JSON = Path(__file__).resolve().parent.parent / "data" / "discord_owners.json"
 DISCORD_USERS_CSV = Path("/Users/keithcreelman/Documents/mfl/mfl_python/dev/import_discord_info.csv")
 
 
@@ -47,7 +50,15 @@ def load_trade_value_model_full() -> dict:
 
 
 def load_discord_users() -> dict:
-    """Return {franchise_id: {owner_name, discord_username, discord_userid}}."""
+    """Return {franchise_id: {owner_name, discord_username, discord_userid, team_name}}.
+
+    Source order (first hit wins):
+      1. discord_owners.json in the repo data/ dir (canonical — D1 export)
+      2. Legacy CSV at the hardcoded Documents path (fallback for old deploys)
+    """
+    if DISCORD_OWNERS_JSON.exists():
+        with open(DISCORD_OWNERS_JSON) as f:
+            return json.load(f)
     out = {}
     if not DISCORD_USERS_CSV.exists():
         return out
@@ -101,8 +112,10 @@ def build_franchise_context(franchise_id: str, career_stats: dict,
 
     return {
         "franchise_id": franchise_id,
-        "franchise_name": cs.get("franchise_name", op.get("team_name", "")),
-        "owner_name": owner.get("display", du.get("owner_name", "")),
+        # franchise_name fallback chain: career_stats → owner_profiles → discord_users → ""
+        # discord_users team_name is the load-bearing fallback when career_stats is missing.
+        "franchise_name": cs.get("franchise_name") or op.get("team_name") or du.get("team_name", ""),
+        "owner_name": owner.get("display") or du.get("owner_name", ""),
         "discord_username": du.get("discord_username", ""),
 
         # OWNER stats (their tenure only — this is what the roast should cite)
