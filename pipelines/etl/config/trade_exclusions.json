@@ -1,0 +1,43 @@
+{
+  "_README": "Hand-curated trade-counter exclusion rules. Loaded by future trade-counter logic in trade_roast_context.py. Three categories: dispersal_windows (date ranges around owner-takeover events where roster realignment trades happen and don't count as 'real' trades), manual_exclusions (specific trade timestamps to never count), and reverse_pair_window_days (programmatic detection of A→B then B→A reversals of the same asset within N days). v1: hand-curated. v2: programmatic reverse-pair detector to be added.",
+  "_last_updated": "2026-05-22",
+  "_last_updated_by": "Keith (via Claude session 2026-05-22)",
+
+  "dispersal_windows": [
+    {
+      "label": "2012 inaugural dispersal draft",
+      "start": "2012-07-01",
+      "end": "2012-09-15",
+      "reason": "League founding — initial dispersal draft + heavy roster shuffling. Trades in this window are setup, not real trades.",
+      "evidence": "ups_dispersal_draft_2012_inaugural memory entry; 2012 only-year EOS rollover anomaly"
+    },
+    {
+      "label": "Balderllis / run-cmc split — 1st year of run-cmc takeover",
+      "start": "TODO_YEAR-TODO_MONTH-TODO_DAY",
+      "end": "TODO_YEAR-TODO_MONTH-TODO_DAY",
+      "reason": "Owner Balderlli was running CMC's franchise jointly; when run-cmc took it over as solo owner, large roster-rebalancing trades happened that shouldn't count as competitive trades.",
+      "evidence": "Per Keith 2026-05-22 — needs date range filled in from his memory or by querying D1 mfl_franchise_history for the owner-change season",
+      "TODO": "Fill in start/end dates"
+    },
+    {
+      "label": "Lima takeover — 1st year",
+      "start": "TODO_YEAR-TODO_MONTH-TODO_DAY",
+      "end": "TODO_YEAR-TODO_MONTH-TODO_DAY",
+      "reason": "Owner takeover, large initial roster realignment trades.",
+      "evidence": "Per Keith 2026-05-22 — needs date range",
+      "TODO": "Fill in start/end dates"
+    }
+  ],
+
+  "manual_exclusions": [
+    {
+      "_example": true,
+      "timestamp": 0,
+      "reason": "Reverse-pair partner of ts=NNN; see programmatic detector OR add by hand if obvious roster mistake",
+      "involved_franchises": ["0000", "0000"]
+    }
+  ],
+
+  "reverse_pair_window_days": 7,
+  "_reverse_pair_logic": "For each trade T1 (franchises A↔B, asset list X), look for a trade T2 within ±7 days between the same A↔B where T2's asset list is the inverse of T1's (i.e. asset that went A→B in T1 went B→A in T2 in T2). If exact inverse, flag both as reverse_pair and exclude from counters. Subtle: 'asset must be identical.' Two unrelated trades between the same teams in the same week is NOT a reversal — those count."
+}

@@ -1,0 +1,15 @@
+{
+  "_README": "Manual owner-tenure overrides. MFL is authoritative for owner-of-record per (franchise_id, season) via worker /api/franchise-ownership-history. MFL reports END-OF-SEASON ownership, however, so this file enforces Keith's 'season-start owner gets the season' commish ruling on mid-season takeovers by reassigning the trimmed season to the previous-season MFL owner on that franchise. Keyed by franchise_id → list of owner-tenure entries. Each entry has owner_name + tenure_start_season (inclusive). tenure_end_season is optional (defaults to ongoing).",
+  "_last_updated": "2026-05-23",
+  "_last_updated_by": "Keith (MFL ownership endpoint wired; only mid-season-takeover overrides remain)",
+  "_logic": "Rebuilder builds effective_owner_by_(fid,season) starting from MFL truth, then for each override entry trims seasons < tenure_start_season (or > tenure_end_season) for the matching (fid, owner_name) and reassigns those cells to the prior-season MFL owner on that fid. Owner career stats aggregate across every (fid, season) where the effective owner matches.",
+
+  "0006": [
+    {
+      "owner_name": "Brian Cross",
+      "tenure_start_season": 2025,
+      "tenure_end_season": null,
+      "notes": "Brian managed 0006 from mid-2024 (week 15 swap) but Josh Lima retains attribution of 2024 W/L stats per Keith 2026-05-22 (commish ruling: season-start owner gets the season). Brian's career as owner-of-record starts 2025. The 2024 cell on 0006 gets reassigned to Josh Lima (2023 MFL owner on 0006). 2023 Steve→Josh handoff was a clean preseason transfer per Keith 2026-05-23 — no override needed."
+    }
+  ]
+}

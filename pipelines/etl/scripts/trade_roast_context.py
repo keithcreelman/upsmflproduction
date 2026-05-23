@@ -28,6 +28,12 @@ def display_name(mfl_name: str) -> str:
     return mfl_name
 
 CAREER_STATS_PATH = Path(__file__).resolve().parent.parent / "data" / "franchise_career_stats.json"
+# Rookie-pick historical hit rates by band (smash/hit/contrib/bust).
+# Used to attach expected-value framing to each pick in the roast context.
+ROOKIE_TIERS_PATH = Path(__file__).resolve().parent.parent.parent.parent / "site" / "rookies" / "rookie_draft_tiers.json"
+# Owner/team mapping — JSON in the repo is the canonical source (exported
+# from D1 discord_owners table). CSV is the legacy fallback for old deploys.
+DISCORD_OWNERS_JSON = Path(__file__).resolve().parent.parent / "data" / "discord_owners.json"
 DISCORD_USERS_CSV = Path("/Users/keithcreelman/Documents/mfl/mfl_python/dev/import_discord_info.csv")
 
 
@@ -36,6 +42,197 @@ def load_career_stats() -> dict:
         return {}
     with open(CAREER_STATS_PATH) as f:
         return json.load(f)
+
+
+_ROOKIE_TIERS_CACHE = None
+def load_rookie_tiers() -> dict:
+    global _ROOKIE_TIERS_CACHE
+    if _ROOKIE_TIERS_CACHE is not None:
+        return _ROOKIE_TIERS_CACHE
+    if not ROOKIE_TIERS_PATH.exists():
+        _ROOKIE_TIERS_CACHE = {}
+        return _ROOKIE_TIERS_CACHE
+    with open(ROOKIE_TIERS_PATH) as f:
+        _ROOKIE_TIERS_CACHE = json.load(f)
+    return _ROOKIE_TIERS_CACHE
+
+
+def pick_band_for_slot(rnd: int, slot: int) -> str:
+    """Map (round, slot) to a tier band key like '3.01-04', '3.05-08', '3.09-12'.
+    For slot=0 (unknown), returns round-level fallback like '3.01-12'.
+    """
+    if slot < 1 or slot > 12:
+        # Unknown slot — use round-average across quarters
+        return f"{rnd}.01-12"  # synthetic key, looked up via aggregation below
+    if slot <= 4:
+        return f"{rnd}.01-04"
+    if slot <= 8:
+        return f"{rnd}.05-08"
+    return f"{rnd}.09-12"
+
+
+def _round_quarters(rnd: int) -> list[dict]:
+    """Return the three quarter bands of a round in slot order [1-4, 5-8, 9-12]."""
+    tiers = load_rookie_tiers().get("bands", {})
+    return [tiers.get(f"{rnd}.01-04", {}).get("combined", {}),
+            tiers.get(f"{rnd}.05-08", {}).get("combined", {}),
+            tiers.get(f"{rnd}.09-12", {}).get("combined", {})]
+
+
+def _avg_rate(quarters: list[dict], key: str) -> float:
+    valid = [q.get(key, 0) for q in quarters if q]
+    return round(sum(valid) / len(valid), 2) if valid else 0
+
+
+def _half_band_rates(rnd: int, half: str) -> dict:
+    """Compute half-band rates for R2+ with monotonic enforcement.
+
+    Slots 1-12 split into:
+      first  half = slots 1-6 (proportional weight: q1 [slots 1-4] = 4/6,
+                                q2 [slots 5-8] = 2/6 → first 6 slots only)
+      second half = slots 7-12 (proportional weight: q2 [slots 5-8] = 2/6,
+                                q3 [slots 9-12] = 4/6 → last 6 slots only)
+
+    Monotonic enforcement: if the small-sample noise makes second_half > first_half
+    for any rate, force second_half ≤ first_half (Keith 2026-05-22: earlier should
+    be at worst slightly better than later).
+    """
+    q1, q2, q3 = _round_quarters(rnd)
+    if not (q1 or q2 or q3):
+        return {}
+
+    def blended(q_a, q_b, w_a, w_b, key):
+        # Both quarters might be missing — fall back to whichever is present.
+        if q_a and q_b:
+            return round((q_a.get(key, 0) * w_a + q_b.get(key, 0) * w_b) / (w_a + w_b), 2)
+        if q_a:
+            return q_a.get(key, 0)
+        if q_b:
+            return q_b.get(key, 0)
+        return 0
+
+    keys = ("smash_pct", "hit_pct", "contrib_pct", "bust_pct", "usable_pct")
+    # First half: weighted toward 1-4 (slots 1-6)
+    first = {k: blended(q1, q2, 4, 2, k) for k in keys}
+    # Second half: weighted toward 9-12 (slots 7-12)
+    second = {k: blended(q2, q3, 2, 4, k) for k in keys}
+
+    # Monotonic enforcement: success rates (smash/hit/contrib/usable) → first ≥ second.
+    # Bust rate moves the opposite direction → first ≤ second.
+    monotonic_floor = max(first["usable_pct"], second["usable_pct"])
+    if second["usable_pct"] > first["usable_pct"]:
+        # Swap so first ≥ second on success metrics, with small monotonic gap
+        for k in ("smash_pct", "hit_pct", "contrib_pct", "usable_pct"):
+            avg = (first[k] + second[k]) / 2
+            # Force a 2 percentage-point gap, first slightly better
+            first[k] = round(avg + 0.01, 2)
+            second[k] = round(avg - 0.01, 2)
+        # Bust the other way
+        bust_avg = (first["bust_pct"] + second["bust_pct"]) / 2
+        first["bust_pct"] = round(bust_avg - 0.01, 2)
+        second["bust_pct"] = round(bust_avg + 0.01, 2)
+
+    rates = first if half == "first" else second
+    label = f"R{rnd} first half (slots 1-6)" if half == "first" else f"R{rnd} second half (slots 7-12)"
+    return {"band": label, **rates}
+
+
+def _avg_slot_bands(slot_keys: list[str]) -> dict:
+    """Average smash/hit/contrib/bust/usable across multiple per-slot bands."""
+    tiers = load_rookie_tiers().get("bands", {})
+    rates = [tiers.get(k, {}).get("combined", {}) for k in slot_keys]
+    valid = [r for r in rates if r]
+    if not valid:
+        return {}
+    return {
+        "smash_pct": round(sum(r.get("smash_pct", 0) for r in valid) / len(valid), 2),
+        "hit_pct": round(sum(r.get("hit_pct", 0) for r in valid) / len(valid), 2),
+        "contrib_pct": round(sum(r.get("contrib_pct", 0) for r in valid) / len(valid), 2),
+        "bust_pct": round(sum(r.get("bust_pct", 0) for r in valid) / len(valid), 2),
+        "usable_pct": round(sum(r.get("usable_pct", 0) for r in valid) / len(valid), 2),
+    }
+
+
+def pick_tier_rates(rnd: int, slot: int) -> dict:
+    """Return historical hit rates for a pick's band.
+
+    Granularity is finer at the top of the draft (where slot value differences
+    are largest) and coarser later (where small-sample noise dominates):
+
+      R1.01           → own tier (1.01 is MUCH better than 1.06; n=14 supports
+                                  showing the consensus #1 pick separately)
+      R1.02-04        → small band (avg of 1.02, 1.03, 1.04 per-slot data)
+      R1.05-08        → quarter band
+      R1.09-12        → quarter band
+      R2+ first half  → slots 1-6, half-band
+      R2+ second half → slots 7-12, half-band, monotonic-enforced ≤ first
+
+    Keith 2026-05-22: "1.1 is MUCH MUCH better than 1.6 ... 1.1 should be its
+    own tier but also hard to project, worth knowing for context. The bigger
+    bands matter for later rounds."
+    """
+    tiers = load_rookie_tiers().get("bands", {})
+    if rnd == 1:
+        if slot == 1:
+            d = tiers.get("1.01", {}).get("combined", {})
+            if d:
+                return {
+                    "band": "1.01 (consensus #1)",
+                    "smash_pct": d.get("smash_pct", 0),
+                    "hit_pct": d.get("hit_pct", 0),
+                    "contrib_pct": d.get("contrib_pct", 0),
+                    "bust_pct": d.get("bust_pct", 0),
+                    "usable_pct": d.get("usable_pct", 0),
+                }
+        if slot and 2 <= slot <= 4:
+            return {"band": "1.02-04", **_avg_slot_bands(["1.02", "1.03", "1.04"])}
+        if slot and 5 <= slot <= 8:
+            d = tiers.get("1.05-08", {}).get("combined", {})
+            if d:
+                return {"band": "1.05-08", "smash_pct": d["smash_pct"], "hit_pct": d["hit_pct"],
+                        "contrib_pct": d["contrib_pct"], "bust_pct": d["bust_pct"],
+                        "usable_pct": d["usable_pct"]}
+        if slot and 9 <= slot <= 12:
+            d = tiers.get("1.09-12", {}).get("combined", {})
+            if d:
+                return {"band": "1.09-12", "smash_pct": d["smash_pct"], "hit_pct": d["hit_pct"],
+                        "contrib_pct": d["contrib_pct"], "bust_pct": d["bust_pct"],
+                        "usable_pct": d["usable_pct"]}
+        # R1 with unknown slot → use the quarter most likely (mid)
+        d = tiers.get("1.05-08", {}).get("combined", {})
+        return {"band": "R1 (slot unknown)", **(d if d else {})}
+
+    # R2+ → first/second half split with monotonic enforcement
+    if not slot:
+        half = "second"  # unknown slot → conservative
+    elif 1 <= slot <= 6:
+        half = "first"
+    else:
+        half = "second"
+    return _half_band_rates(rnd, half)
+
+
+def find_defending_champion(career_stats: dict) -> dict:
+    """Find the most recent season's champion (final_finish=1).
+    Returns {season, franchise_id, owner_name, team_name} or {} if none.
+    """
+    # career_stats has per-franchise trend with finish per season.
+    # Find the franchise with finish=1 in the most recent season across all franchises.
+    candidates = []  # (season, fid, finish)
+    for fid, stats in career_stats.items():
+        for t in stats.get("trend", []):
+            if t.get("finish") == 1:
+                candidates.append((t["season"], fid, stats))
+    if not candidates:
+        return {}
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    season, fid, stats = candidates[0]
+    return {
+        "season": season,
+        "franchise_id": fid,
+        "owner_name": stats.get("owner", {}).get("display", ""),
+        "team_name": stats.get("franchise_name", ""),
+    }
 
 
 def load_trade_value_model_full() -> dict:
@@ -47,7 +244,15 @@ def load_trade_value_model_full() -> dict:
 
 
 def load_discord_users() -> dict:
-    """Return {franchise_id: {owner_name, discord_username, discord_userid}}."""
+    """Return {franchise_id: {owner_name, discord_username, discord_userid, team_name}}.
+
+    Source order (first hit wins):
+      1. discord_owners.json in the repo data/ dir (canonical — D1 export)
+      2. Legacy CSV at the hardcoded Documents path (fallback for old deploys)
+    """
+    if DISCORD_OWNERS_JSON.exists():
+        with open(DISCORD_OWNERS_JSON) as f:
+            return json.load(f)
     out = {}
     if not DISCORD_USERS_CSV.exists():
         return out
@@ -101,8 +306,10 @@ def build_franchise_context(franchise_id: str, career_stats: dict,
 
     return {
         "franchise_id": franchise_id,
-        "franchise_name": cs.get("franchise_name", op.get("team_name", "")),
-        "owner_name": owner.get("display", du.get("owner_name", "")),
+        # franchise_name fallback chain: career_stats → owner_profiles → discord_users → ""
+        # discord_users team_name is the load-bearing fallback when career_stats is missing.
+        "franchise_name": cs.get("franchise_name") or op.get("team_name") or du.get("team_name", ""),
+        "owner_name": owner.get("display") or du.get("owner_name", ""),
         "discord_username": du.get("discord_username", ""),
 
         # OWNER stats (their tenure only — this is what the roast should cite)
@@ -224,22 +431,53 @@ def build_trade_roast_context(trade_txn: dict,
     bb_a_to_b = b.salary_given  # BB from B to A
     bb_b_to_a = a.salary_given  # BB from A to B
 
+    # Pick detail builder — includes historical hit-rate band for expected-value framing.
+    # slot_confidence: 'high' when originating franchise's owner has 3+ seasons of
+    # consistent results; 'low' when owner has <3 seasons (Brian Cross types).
+    # The LLM should hedge slot predictions when confidence is low.
+    def pick_detail(pk, sender_fid: str = "") -> dict:
+        rates = pick_tier_rates(pk.round, getattr(pk, "predicted_slot", 0) or 0)
+        # Look up originating-franchise owner's tenure depth.
+        # PickInfo.original_owner is only set for picks acquired via prior trade.
+        # For "native" picks (a team trading their own draft slot), it's "" — fall
+        # back to the SENDER's fid since the sender's slot determines the pick.
+        raw_orig = (getattr(pk, "original_owner", "") or "").strip()
+        orig_fid = raw_orig.zfill(4) if raw_orig else (sender_fid or "").zfill(4)
+        orig_stats = career_stats.get(orig_fid, {})
+        orig_owner_seasons = orig_stats.get("owner", {}).get("seasons_count", 0)
+        if orig_owner_seasons >= 3:
+            slot_confidence = "high"
+        elif orig_owner_seasons >= 1:
+            slot_confidence = "low"
+        else:
+            slot_confidence = "unknown"
+        return {
+            "year": pk.year,
+            "round": pk.round,
+            "slot": getattr(pk, "predicted_slot", 0) or None,
+            "slot_confidence": slot_confidence,
+            "originating_owner_seasons": orig_owner_seasons,
+            "value": pk.estimated_value,
+            **rates,  # band, smash_pct, hit_pct, contrib_pct, bust_pct, usable_pct
+        }
+
     context = {
         "trade": {
             "timestamp": analysis.timestamp,
             "comments": analysis.comments,
         },
+        "defending_champion": find_defending_champion(career_stats),
         "side_a": {
             "franchise": ctx_a,
             "grade": a.grade,
             "grade_score": round(a.grade_score, 1),
             "players_given": [player_detail(p) for p in a.players_given],
-            "picks_given": [{"year": pk.year, "round": pk.round,
-                             "value": pk.estimated_value} for pk in a.picks_given],
+            # Picks given by side A → A is the sender; A's fid is the originating-owner fallback.
+            "picks_given": [pick_detail(pk, sender_fid=a.franchise_id) for pk in a.picks_given],
             "salary_given": a.salary_given,
             "players_received": [player_detail(p) for p in a.players_received],
-            "picks_received": [{"year": pk.year, "round": pk.round,
-                                "value": pk.estimated_value} for pk in a.picks_received],
+            # Picks received by side A → B is the sender.
+            "picks_received": [pick_detail(pk, sender_fid=b.franchise_id) for pk in a.picks_received],
             "salary_received": a.salary_received,
             "post_trade_salary": a.total_roster_salary,
             "post_trade_cap": a.cap_space,
@@ -249,12 +487,10 @@ def build_trade_roast_context(trade_txn: dict,
             "grade": b.grade,
             "grade_score": round(b.grade_score, 1),
             "players_given": [player_detail(p) for p in b.players_given],
-            "picks_given": [{"year": pk.year, "round": pk.round,
-                             "value": pk.estimated_value} for pk in b.picks_given],
+            "picks_given": [pick_detail(pk, sender_fid=b.franchise_id) for pk in b.picks_given],
             "salary_given": b.salary_given,
             "players_received": [player_detail(p) for p in b.players_received],
-            "picks_received": [{"year": pk.year, "round": pk.round,
-                                "value": pk.estimated_value} for pk in b.picks_received],
+            "picks_received": [pick_detail(pk, sender_fid=a.franchise_id) for pk in b.picks_received],
             "salary_received": b.salary_received,
             "post_trade_salary": b.total_roster_salary,
             "post_trade_cap": b.cap_space,
@@ -295,9 +531,59 @@ def context_to_prompt_text(ctx: dict) -> str:
     ln("=== TRADE ===")
     fa = a["franchise"]
     fb = b["franchise"]
+
+    # Current-year framing — explicit date math for the LLM. The payload's
+    # career_stats has current_year per franchise (upcoming season we're in
+    # offseason for). Pull whichever side has it (both should agree).
+    current_year = (fa.get("current_year") or fb.get("current_year") or 0)
+    if current_year:
+        last_completed = current_year - 1
+        ln(f"CURRENT YEAR: {current_year} (offseason — {current_year} season has not started)")
+        ln(f"LAST COMPLETED SEASON: {last_completed}")
+        ln("")
+
+    # Defending champion — only emit if one of the traded sides IS the defending champ.
+    # Otherwise it's noise the LLM misuses (e.g. naming an uninvolved third party in a roast).
+    dc = ctx.get("defending_champion") or {}
+    if dc and dc.get("franchise_id") in (fa.get("franchise_id"), fb.get("franchise_id")):
+        ln(f"NOTE: {dc['owner_name']} ({dc['team_name']}) IS the defending champion — they won {dc['season']}.")
+        ln("")
+
+    def render_pick(pk: dict) -> str:
+        # Pick line with historical band hit-rates and slot-confidence flag.
+        # smash = elite/star outcome, hit = solid starter, contrib = depth, bust = no impact.
+        # slot_confidence: low → hedge predictions ("could land in 1.05-08 if their
+        # season trajectory holds"); high → assert the band.
+        slot = pk.get("slot")
+        confidence = pk.get("slot_confidence", "unknown")
+        owner_seasons = pk.get("originating_owner_seasons", 0)
+        if slot:
+            if confidence == "high":
+                slot_str = f" (predicted slot {slot}, HIGH confidence — originating owner has {owner_seasons} consistent seasons)"
+            elif confidence == "low":
+                slot_str = f" (predicted slot {slot}, LOW confidence — originating owner only has {owner_seasons} season(s) of data; treat slot as tentative)"
+            else:
+                slot_str = f" (predicted slot {slot}, confidence unknown)"
+        else:
+            slot_str = ""
+        band = pk.get("band", "")
+        smash = pk.get("smash_pct", 0)
+        hit = pk.get("hit_pct", 0)
+        contrib = pk.get("contrib_pct", 0)
+        bust = pk.get("bust_pct", 0)
+        usable = pk.get("usable_pct", 0)
+        rates = ""
+        if band:
+            rates = (f" — historical band {band}: "
+                     f"smash {smash:.0%} / hit {hit:.0%} / "
+                     f"contrib {contrib:.0%} / bust {bust:.0%} / "
+                     f"usable {usable:.0%}")
+        return (f"  - {pk['year']} Round {pk['round']} pick{slot_str}"
+                f" (est. value ${pk['value']:,}){rates}")
+
     ln(f"{fa['franchise_name']} gave:")
     for pk in a["picks_given"]:
-        ln(f"  - {pk['year']} Round {pk['round']} pick (est. value ${pk['value']:,})")
+        ln(render_pick(pk))
     for p in a["players_given"]:
         ln(f"  - {p['name']} ({p['position']}) — ${p['salary']:,} salary, "
            f"expected auction price ${p['expected_auction_price']:,}, {p['ppg']} PPG")
@@ -306,7 +592,7 @@ def context_to_prompt_text(ctx: dict) -> str:
 
     ln(f"{fb['franchise_name']} gave:")
     for pk in b["picks_given"]:
-        ln(f"  - {pk['year']} Round {pk['round']} pick (est. value ${pk['value']:,})")
+        ln(render_pick(pk))
     for p in b["players_given"]:
         ln(f"  - {p['name']} ({p['position']}) — ${p['salary']:,} salary, "
            f"expected auction price ${p['expected_auction_price']:,}, {p['ppg']} PPG")
@@ -354,9 +640,9 @@ def context_to_prompt_text(ctx: dict) -> str:
         ln(f"  Recent record: {f['recent_record']} (finish: #{f['recent_finish']})")
 
         # Owner's personal record (USE THIS FOR ROASTING)
-        oap = f.get("owner_allplay", {})
-        if oap:
-            ln(f"  {f['owner_name']}'s allplay record: {oap.get('w',0)}-{oap.get('l',0)} ({f['owner_allplay_pct']:.3f})")
+        # Owner W/L — pct only (Keith 2026-05-22: cite percentage, not W-L count + pct).
+        if f.get("owner_allplay_pct"):
+            ln(f"  {f['owner_name']}'s allplay: {f['owner_allplay_pct']:.3f}")
         ln(f"  {f['owner_name']}'s championships: {f['owner_championships']}")
         ln(f"  {f['owner_name']}'s playoff appearances: {f['owner_playoff_appearances']} in {f['owner_seasons']} season(s)")
         if f["owner_best_finish"]:
@@ -364,24 +650,34 @@ def context_to_prompt_text(ctx: dict) -> str:
         if f["owner_worst_finish"]:
             ln(f"  {f['owner_name']}'s worst finish: #{f['owner_worst_finish']}")
 
-        # Franchise history (for inherited context)
-        if f["franchise_championships"] > 0:
-            ln(f"  Franchise history: {f['franchise_championships']} championship(s), "
-               f"last in {f['franchise_last_championship']} ({f['franchise_championship_drought']} years ago)")
-        else:
-            ln(f"  Franchise history: ZERO championships in {f['franchise_seasons']} seasons")
+        # Franchise-wide history — ONLY when it's recent / relevant (not deep history).
+        # Keith 2026-05-22: don't reach >2 seasons back unless current owner played them.
+        if f["franchise_championship_drought"] and f["franchise_championship_drought"] <= 5 and f["franchise_championships"] > 0:
+            ln(f"  Franchise's last championship: {f['franchise_last_championship']} ({f['franchise_championship_drought']} years ago)")
+        # Ancient championships (>5 years) deliberately omitted — they don't roast a current owner.
 
-        ln(f"  Auction style: {f['auction_style']}")
-        ln(f"  Deal rate: {f['deal_rate']}%")
-        pt = f.get("position_targeting", {})
-        for pos in ("QB", "RB", "WR", "TE"):
-            if pos in pt:
-                pd = pt[pos]
-                ln(f"  {pos} bidding: avg bid ${pd.get('avg_bid',0):,}, "
-                   f"avg value delta ${pd.get('avg_delta',0):+,}")
+        # Owner auction tendencies — CUT per Keith 2026-05-22 cut list. The fields
+        # (auction_style, deal_rate, position_targeting) are derived from owner_profiles
+        # in trade_value_model_2026.json. With that file missing, they emit zeros that
+        # the LLM mis-reads as real signals ("0% deal rate" hallucination). Re-add as
+        # categorical tendency labels once the model is back online and Keith's reviewed
+        # the avg_value_delta calc.
 
-        ln(f"  Post-trade salary: ${side['post_trade_salary']:,} / $300K cap")
-        ln(f"  Post-trade cap space: ${side['post_trade_cap']:,}")
+        # Cap context — only show if the trade INCLUDES players or BB (cap matters then).
+        # Pick-only trades don't move cap; suppress to keep the roast focused.
+        # Show only cap_space (the source of truth after adjustments). Don't show
+        # total_roster_salary alongside — they don't tie out cleanly because of
+        # league-applied salary adjustments (Keith 2026-05-22: "He's at 283K of
+        # pure salary but with adjustments he's got the 33K of space"). LLM was
+        # combining both and producing arithmetically wrong statements like
+        # "$283K post-trade with $33,500 in breathing room" (sums to $316K, not
+        # $300K cap).
+        side_has_player_or_bb = (
+            bool(side.get("players_received") or side.get("players_given")
+                 or side.get("salary_received") or side.get("salary_given"))
+        )
+        if side_has_player_or_bb:
+            ln(f"  Post-trade cap space: ${side['post_trade_cap']:,} (of $300K cap)")
 
         if f.get("trend"):
             ln(f"  Recent trend (franchise, not necessarily current owner):")

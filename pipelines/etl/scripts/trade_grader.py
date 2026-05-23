@@ -253,6 +253,7 @@ class TradeSide:
     salary_received: int = 0
     total_roster_salary: int = 0
     cap_space: int = 0
+    cap_adjustments: int = 0  # signed; positive = added to salary, negative = added to cap space
     grade: str = ""
     grade_score: float = 0.0
     value_pts: dict = field(default_factory=dict)  # received/given/net breakdown
@@ -347,6 +348,36 @@ def load_team_caps() -> dict:
     with open(TEAM_CAP_CSV) as f:
         for row in csv.DictReader(f):
             out[row["franchise_id"]] = row
+    return out
+
+
+def load_salary_adjustments() -> dict:
+    """Return {franchise_id: sum_of_adjustments_signed}.
+
+    Pulls MFL TYPE=salaryAdjustments. MFL convention: positive amount = adds
+    to total salary (reduces cap space); negative = subtracts from salary
+    (increases cap space). Sum per franchise.
+
+    For Brian Cross (0006) in 2026: -$20K from a UPS-traded-salary settlement
+    + $2.5K drop penalty = -$17.5K net → +$17.5K of effective cap space
+    relative to raw roster total. Bug fix per Keith 2026-05-22.
+    """
+    out: dict[str, int] = {}
+    try:
+        data = mfl_fetch("salaryAdjustments")
+    except Exception:
+        return out
+    rows = data.get("salaryAdjustments", {}).get("salaryAdjustment", [])
+    if isinstance(rows, dict):
+        rows = [rows]
+    for r in rows:
+        fid = str(r.get("franchise_id", "")).zfill(4)
+        try:
+            amt = int(float(r.get("amount", 0)))
+        except (TypeError, ValueError):
+            amt = 0
+        if fid:
+            out[fid] = out.get(fid, 0) + amt
     return out
 
 
@@ -1102,14 +1133,21 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
         salary_received=a_gave_sal,
     )
 
-    # Cap context
+    # Cap context — includes MFL salary adjustments so cap_space matches MFL's
+    # league cap report (Keith 2026-05-22: trade-roast cap was showing $17K
+    # instead of $33K for Brian Cross because adjustments weren't included).
+    adjustments = load_salary_adjustments()
     for side in (side_a, side_b):
         if side.franchise_id in rosters:
             roster = rosters[side.franchise_id]
             total_sal = sum(int(p.get("salary", 0)) for p in roster
                            if p.get("status") != "TAXI_SQUAD")
+            adj = adjustments.get(side.franchise_id, 0)
             side.total_roster_salary = total_sal
-            side.cap_space = 300000 - total_sal
+            side.cap_adjustments = adj
+            # MFL convention: positive adj = adds to salary (reduces cap),
+            # negative = subtracts from salary (adds cap).
+            side.cap_space = 300000 - total_sal - adj
 
     # Symmetric points-based grade math (replaces old asymmetric dollar formulas).
     # Both sides are scored with one function; grades are zero-sum by construction.
