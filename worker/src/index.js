@@ -1554,27 +1554,29 @@ export default {
       try {
         const season = String(env.YEAR || new Date().getUTCFullYear());
         const leagueId = String(env.LEAGUE_ID || "74598");
-        const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+        // Internal admin endpoints — invoked via env.SELF.fetch so
+        // Cloudflare's workers.dev fetch-loop guard (error 1042) doesn't
+        // reject the request. The hostname on the URL is irrelevant for
+        // service-binding fetches; only the path/query matters.
+        const origin = "https://self.invalid";
         const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
         const dropEnabled = String(env.DROP_TRACKER_ENABLED || "").trim() === "1";
         const dropAutoPost = String(env.DROP_TRACKER_AUTO_POST || "").trim() === "1";
         const dropTarget = String(env.DROP_TRACKER_DISCORD_TARGET || "prod").trim().toLowerCase();
-        if (dropEnabled && commishApiKey && env.UPS_MFL_DB) {
+        if (dropEnabled && commishApiKey && env.UPS_MFL_DB && env.SELF) {
           ctx.waitUntil((async () => {
             try {
-              const scanRes = await fetch(
-                `${origin}/admin/drops/scan-and-record?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ season, league_id: leagueId, days: 2 }),
-                }
-              );
+              const scanUrl = `${origin}/admin/drops/scan-and-record?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`;
+              const scanRes = await env.SELF.fetch(scanUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ season, league_id: leagueId, days: 2 }),
+              });
               const scanData = await scanRes.json().catch(() => ({}));
               const newWritten = Number(scanData?.written_count) || 0;
               let postedCount = 0;
               if (dropAutoPost) {
-                const postRes = await fetch(
+                const postRes = await env.SELF.fetch(
                   `${origin}/admin/drops/post-discord?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
                   {
                     method: "POST",
@@ -1592,6 +1594,8 @@ export default {
               console.error(`[scheduled */5] drop-tracker failed: ${e?.message || String(e)}`);
             }
           })());
+        } else if (dropEnabled && !env.SELF) {
+          console.error("[scheduled */5] drop-tracker skipped: env.SELF service binding missing (check wrangler.toml [[services]])");
         }
       } catch (e) {
         console.error(`[scheduled */5] drop-tracker dispatch failed: ${e?.message || String(e)}`);

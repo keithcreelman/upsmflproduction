@@ -36,6 +36,14 @@ compatibility_date = "2026-02-02"
 #                        contend (Keith 2026-05-23).
 crons = ["5 * * * *", "*/2 * * * *", "5 0,12,18 * * *", "*/5 * * * *"]
 
+# Self service binding — lets scheduled() and other internal callers
+# reach this worker's own admin endpoints via env.SELF.fetch(...) without
+# tripping Cloudflare's workers.dev fetch-loop guard (error 1042) that
+# blocks `fetch()` on a worker's own public URL.
+[[services]]
+binding = "SELF"
+service = "upsmflproduction"
+
 # R2 bucket for MFL data snapshots + DB backups.
 # Access via `env.UPS_MFL_BACKUPS.put(key, body)` inside the Worker.
 [[r2_buckets]]
