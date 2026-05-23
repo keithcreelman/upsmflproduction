@@ -4,19 +4,31 @@ trade_announcement.py — Build the trade announcement Discord embed.
 This is Message 1 of the trade post sequence. Roast lands in a thread off
 this message; GIF lands in the same thread.
 
-Structure (Keith 2026-05-22):
+Structure (Keith 2026-05-22, refined through v7):
   Per side:
     {Team} gives up:
-      • Player X (POS · NFL) — Yrs remaining, $X salary
-      • {Year} {Team}'s {N}st/nd/rd Round Pick
-      • $X Budget Bucks (if BB given)
+      • Player X (POS · NFL) — Yrs remaining, $X salary, contract status
+      • Current-year pick:  {Year} {Team}'s Pick R.SS  (e.g. "2026 X's Pick 3.11")
+      • Future-year pick:   {Year} {Team}'s Nth Round Pick  (slot unknown)
     Receives $X Cap Credit  (only if BB received)
+    Gives $X Cap Credit     (only if BB given)
     Net Salary Change = $X commitment | $X relief
+
+Net Salary Change math:
+  + salary of acquired players (current-year salary)
+  - salary of given players (current-year salary)
+  + BB given (you committed cash → cap commitment)
+  - BB received (cash credit → cap relief)
+  + rookie slot AAV for R1 picks acquired in CURRENT_YEAR (you'll owe the rookie)
+  R2+ picks are taxi-eligible → $0 cap impact.
+  Future-year picks (year > current_year) → $0 cap impact in current season.
 
 Built from the same TradeAnalysis the roast uses, so they stay in sync.
 """
 
 from datetime import datetime, timezone
+
+CURRENT_YEAR = 2026  # UPS current league year; bump when 2027 season opens
 
 
 def _ordinal(n: int) -> str:
@@ -64,12 +76,20 @@ def _possessive(name: str) -> str:
 
 
 def _format_pick_with_sender(pk, sender_fid: str, franchises: dict) -> str:
-    """Same as _format_pick but with sender_fid fallback when original_owner is blank."""
+    """Same as _format_pick but with sender_fid fallback when original_owner is blank.
+
+    Current-year picks (year == CURRENT_YEAR) include slot since we know the
+    draft order: "2026 The Long Haulers' Pick 3.11". Future picks have unknown
+    slot: "2027 The Long Haulers' 1st Round Pick".
+    """
     year = pk.year
     rnd = pk.round
+    slot = getattr(pk, "predicted_slot", 0) or 0
     orig_raw = (getattr(pk, "original_owner", "") or "").strip()
     orig = orig_raw.zfill(4) if orig_raw else sender_fid.zfill(4)
     team_name = franchises.get(orig, f"Franchise {orig}")
+    if year == CURRENT_YEAR and 1 <= slot <= 12:
+        return f"{year} {_possessive(team_name)} Pick {rnd}.{slot:02d}"
     return f"{year} {_possessive(team_name)} {_ordinal(rnd)} Round Pick"
 
 
@@ -90,46 +110,59 @@ def _format_player(p) -> str:
     return "  • " + " — ".join([parts[0], ", ".join(parts[1:])])
 
 
-def _net_salary_change(side, opposite_side) -> int:
+def _net_salary_change(side) -> int:
     """Compute net salary change for `side`.
 
     Positive = commitment added (cap going DOWN).
     Negative = relief gained (cap going UP).
 
     Math:
-      + sum(salaries of acquired players)
-      - sum(salaries of given players)
+      + sum(salaries of acquired players, current-year)
+      - sum(salaries of given players, current-year)
       + BB given (committed cash you handed away)
       - BB received (cash credit you got)
+      + rookie slot AAV for R1 picks ACQUIRED in CURRENT_YEAR
+        (commits the acquirer to the drafted rookie's current-year salary)
+      Note: R2+ picks → $0 (taxi-eligible). Future-year picks → $0.
+      The team GIVING a current-year R1 doesn't get relief either —
+      they hadn't yet drafted, so no current obligation to shed.
     """
     salary_in = sum(int(p.salary or 0) for p in side.players_received)
     salary_out = sum(int(p.salary or 0) for p in side.players_given)
     bb_given = int(side.salary_given or 0)
     bb_received = int(side.salary_received or 0)
-    return salary_in - salary_out + bb_given - bb_received
+    # Current-year R1 acquired → rookie salary commitment
+    r1_rookie_in = sum(
+        int(getattr(pk, "rookie_aav", 0) or 0)
+        for pk in side.picks_received
+        if pk.year == CURRENT_YEAR and pk.round == 1
+    )
+    return salary_in - salary_out + bb_given - bb_received + r1_rookie_in
 
 
 def _build_side_block(side, sender_fid: str, franchises: dict) -> str:
     """Build the multi-line value for one side's embed field."""
     lines = []
-    # Players given
+    # Players given (bullets)
     for p in side.players_given:
         lines.append(_format_player(p))
-    # Picks given
+    # Picks given (bullets)
     for pk in side.picks_given:
         lines.append(f"  • {_format_pick_with_sender(pk, sender_fid, franchises)}")
-    # BB given
-    if side.salary_given:
-        lines.append(f"  • {_fmt_dollars(side.salary_given)} Budget Bucks")
-    # Empty placeholder if nothing given
+    # Placeholder if nothing in the gives-up list
     if not lines:
         lines.append("  • (nothing)")
-    # Receives cap credit (if BB received)
+    # Cap credit lines (Keith 2026-05-22: mirror "Receives" / "Gives" phrasing,
+    # NOT a bulleted "$X Budget Bucks" entry).
     if side.salary_received:
         lines.append("")
         lines.append(f"_Receives {_fmt_dollars(side.salary_received)} Cap Credit_")
+    if side.salary_given:
+        if not side.salary_received:
+            lines.append("")
+        lines.append(f"_Gives {_fmt_dollars(side.salary_given)} Cap Credit_")
     # Net salary change
-    net = _net_salary_change(side, None)
+    net = _net_salary_change(side)
     lines.append("")
     if net > 0:
         lines.append(f"**Net Salary Change: {_fmt_dollars(net)} commitment**")
