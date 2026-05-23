@@ -71,53 +71,145 @@ def pick_band_for_slot(rnd: int, slot: int) -> str:
     return f"{rnd}.09-12"
 
 
-def _round_aggregate(rnd: int) -> dict:
-    """Average smash/hit/contrib/bust/usable across the three quarter bands of a round."""
+def _round_quarters(rnd: int) -> list[dict]:
+    """Return the three quarter bands of a round in slot order [1-4, 5-8, 9-12]."""
     tiers = load_rookie_tiers().get("bands", {})
-    quarters = [tiers.get(f"{rnd}.01-04", {}).get("combined", {}),
-                tiers.get(f"{rnd}.05-08", {}).get("combined", {}),
-                tiers.get(f"{rnd}.09-12", {}).get("combined", {})]
-    valid = [q for q in quarters if q]
+    return [tiers.get(f"{rnd}.01-04", {}).get("combined", {}),
+            tiers.get(f"{rnd}.05-08", {}).get("combined", {}),
+            tiers.get(f"{rnd}.09-12", {}).get("combined", {})]
+
+
+def _avg_rate(quarters: list[dict], key: str) -> float:
+    valid = [q.get(key, 0) for q in quarters if q]
+    return round(sum(valid) / len(valid), 2) if valid else 0
+
+
+def _half_band_rates(rnd: int, half: str) -> dict:
+    """Compute half-band rates for R2+ with monotonic enforcement.
+
+    Slots 1-12 split into:
+      first  half = slots 1-6 (proportional weight: q1 [slots 1-4] = 4/6,
+                                q2 [slots 5-8] = 2/6 → first 6 slots only)
+      second half = slots 7-12 (proportional weight: q2 [slots 5-8] = 2/6,
+                                q3 [slots 9-12] = 4/6 → last 6 slots only)
+
+    Monotonic enforcement: if the small-sample noise makes second_half > first_half
+    for any rate, force second_half ≤ first_half (Keith 2026-05-22: earlier should
+    be at worst slightly better than later).
+    """
+    q1, q2, q3 = _round_quarters(rnd)
+    if not (q1 or q2 or q3):
+        return {}
+
+    def blended(q_a, q_b, w_a, w_b, key):
+        # Both quarters might be missing — fall back to whichever is present.
+        if q_a and q_b:
+            return round((q_a.get(key, 0) * w_a + q_b.get(key, 0) * w_b) / (w_a + w_b), 2)
+        if q_a:
+            return q_a.get(key, 0)
+        if q_b:
+            return q_b.get(key, 0)
+        return 0
+
+    keys = ("smash_pct", "hit_pct", "contrib_pct", "bust_pct", "usable_pct")
+    # First half: weighted toward 1-4 (slots 1-6)
+    first = {k: blended(q1, q2, 4, 2, k) for k in keys}
+    # Second half: weighted toward 9-12 (slots 7-12)
+    second = {k: blended(q2, q3, 2, 4, k) for k in keys}
+
+    # Monotonic enforcement: success rates (smash/hit/contrib/usable) → first ≥ second.
+    # Bust rate moves the opposite direction → first ≤ second.
+    monotonic_floor = max(first["usable_pct"], second["usable_pct"])
+    if second["usable_pct"] > first["usable_pct"]:
+        # Swap so first ≥ second on success metrics, with small monotonic gap
+        for k in ("smash_pct", "hit_pct", "contrib_pct", "usable_pct"):
+            avg = (first[k] + second[k]) / 2
+            # Force a 2 percentage-point gap, first slightly better
+            first[k] = round(avg + 0.01, 2)
+            second[k] = round(avg - 0.01, 2)
+        # Bust the other way
+        bust_avg = (first["bust_pct"] + second["bust_pct"]) / 2
+        first["bust_pct"] = round(bust_avg - 0.01, 2)
+        second["bust_pct"] = round(bust_avg + 0.01, 2)
+
+    rates = first if half == "first" else second
+    label = f"R{rnd} first half (slots 1-6)" if half == "first" else f"R{rnd} second half (slots 7-12)"
+    return {"band": label, **rates}
+
+
+def _avg_slot_bands(slot_keys: list[str]) -> dict:
+    """Average smash/hit/contrib/bust/usable across multiple per-slot bands."""
+    tiers = load_rookie_tiers().get("bands", {})
+    rates = [tiers.get(k, {}).get("combined", {}) for k in slot_keys]
+    valid = [r for r in rates if r]
     if not valid:
         return {}
     return {
-        "band": f"R{rnd} (round avg)",
-        "smash_pct": round(sum(q.get("smash_pct", 0) for q in valid) / len(valid), 2),
-        "hit_pct": round(sum(q.get("hit_pct", 0) for q in valid) / len(valid), 2),
-        "contrib_pct": round(sum(q.get("contrib_pct", 0) for q in valid) / len(valid), 2),
-        "bust_pct": round(sum(q.get("bust_pct", 0) for q in valid) / len(valid), 2),
-        "usable_pct": round(sum(q.get("usable_pct", 0) for q in valid) / len(valid), 2),
+        "smash_pct": round(sum(r.get("smash_pct", 0) for r in valid) / len(valid), 2),
+        "hit_pct": round(sum(r.get("hit_pct", 0) for r in valid) / len(valid), 2),
+        "contrib_pct": round(sum(r.get("contrib_pct", 0) for r in valid) / len(valid), 2),
+        "bust_pct": round(sum(r.get("bust_pct", 0) for r in valid) / len(valid), 2),
+        "usable_pct": round(sum(r.get("usable_pct", 0) for r in valid) / len(valid), 2),
     }
 
 
 def pick_tier_rates(rnd: int, slot: int) -> dict:
     """Return historical hit rates for a pick's band.
 
-    Keith 2026-05-22 ruling: R1 historical data is monotonically decreasing
-    (1.01-04 > 1.05-08 > 1.09-12 as expected), so we surface quarter-band
-    detail. R2+ historical data has small-sample noise where late-round
-    bands sometimes test higher than early-round bands within the same
-    round (e.g. 3.09-12 usable=20% vs 3.01-04 usable=12% — counterintuitive
-    artifact of n=14/slot). For R2+ we collapse to round-level aggregate
-    to avoid the LLM claiming "3.11 historically beats 3.04" — earlier
-    slots should be expected to be worth more even if small-sample data
-    is noisy.
+    Granularity is finer at the top of the draft (where slot value differences
+    are largest) and coarser later (where small-sample noise dominates):
+
+      R1.01           → own tier (1.01 is MUCH better than 1.06; n=14 supports
+                                  showing the consensus #1 pick separately)
+      R1.02-04        → small band (avg of 1.02, 1.03, 1.04 per-slot data)
+      R1.05-08        → quarter band
+      R1.09-12        → quarter band
+      R2+ first half  → slots 1-6, half-band
+      R2+ second half → slots 7-12, half-band, monotonic-enforced ≤ first
+
+    Keith 2026-05-22: "1.1 is MUCH MUCH better than 1.6 ... 1.1 should be its
+    own tier but also hard to project, worth knowing for context. The bigger
+    bands matter for later rounds."
     """
     tiers = load_rookie_tiers().get("bands", {})
     if rnd == 1:
-        band = pick_band_for_slot(rnd, slot)
-        data = tiers.get(band, {}).get("combined", {})
-        if data:
-            return {
-                "band": band,
-                "smash_pct": data.get("smash_pct", 0),
-                "hit_pct": data.get("hit_pct", 0),
-                "contrib_pct": data.get("contrib_pct", 0),
-                "bust_pct": data.get("bust_pct", 0),
-                "usable_pct": data.get("usable_pct", 0),
-            }
-    # R2+ → round-level aggregate
-    return _round_aggregate(rnd)
+        if slot == 1:
+            d = tiers.get("1.01", {}).get("combined", {})
+            if d:
+                return {
+                    "band": "1.01 (consensus #1)",
+                    "smash_pct": d.get("smash_pct", 0),
+                    "hit_pct": d.get("hit_pct", 0),
+                    "contrib_pct": d.get("contrib_pct", 0),
+                    "bust_pct": d.get("bust_pct", 0),
+                    "usable_pct": d.get("usable_pct", 0),
+                }
+        if slot and 2 <= slot <= 4:
+            return {"band": "1.02-04", **_avg_slot_bands(["1.02", "1.03", "1.04"])}
+        if slot and 5 <= slot <= 8:
+            d = tiers.get("1.05-08", {}).get("combined", {})
+            if d:
+                return {"band": "1.05-08", "smash_pct": d["smash_pct"], "hit_pct": d["hit_pct"],
+                        "contrib_pct": d["contrib_pct"], "bust_pct": d["bust_pct"],
+                        "usable_pct": d["usable_pct"]}
+        if slot and 9 <= slot <= 12:
+            d = tiers.get("1.09-12", {}).get("combined", {})
+            if d:
+                return {"band": "1.09-12", "smash_pct": d["smash_pct"], "hit_pct": d["hit_pct"],
+                        "contrib_pct": d["contrib_pct"], "bust_pct": d["bust_pct"],
+                        "usable_pct": d["usable_pct"]}
+        # R1 with unknown slot → use the quarter most likely (mid)
+        d = tiers.get("1.05-08", {}).get("combined", {})
+        return {"band": "R1 (slot unknown)", **(d if d else {})}
+
+    # R2+ → first/second half split with monotonic enforcement
+    if not slot:
+        half = "second"  # unknown slot → conservative
+    elif 1 <= slot <= 6:
+        half = "first"
+    else:
+        half = "second"
+    return _half_band_rates(rnd, half)
 
 
 def find_defending_champion(career_stats: dict) -> dict:

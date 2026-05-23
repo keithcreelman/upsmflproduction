@@ -261,8 +261,8 @@ def main():
     parser = argparse.ArgumentParser(description="A/B test fire for the trade roast")
     parser.add_argument("--trade", type=int, choices=[TRADE_1_TS, TRADE_2_TS],
                         help="Only fire this trade timestamp (else both)")
-    parser.add_argument("--model", choices=["opus", "sonnet"],
-                        help="Only fire this model (else both)")
+    parser.add_argument("--model", choices=["opus", "sonnet", "both"], default=None,
+                        help="opus (default) | sonnet | both for A/B compare")
     parser.add_argument("--dry-run", action="store_true",
                         help="Build context + generate roast but don't post to Discord")
     parser.add_argument("--context-only", action="store_true",
@@ -270,7 +270,14 @@ def main():
     args = parser.parse_args()
 
     trades = [args.trade] if args.trade else [TRADE_1_TS, TRADE_2_TS]
-    models = [args.model] if args.model else ["opus", "sonnet"]
+    # Default to Opus-only (Keith 2026-05-22: "stick 100% with Opus for the roast").
+    # Pass --model sonnet or --model both to compare.
+    if args.model == "both":
+        models = ["opus", "sonnet"]
+    elif args.model:
+        models = [args.model]
+    else:
+        models = ["opus"]
 
     # --context-only short-circuit: just build + print, no Anthropic, no Discord
     if args.context_only:

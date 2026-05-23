@@ -49,7 +49,19 @@ VOICE RULES:
 - DON'T USE "FIRST-YEAR OWNER" framing automatically. Check owner_seasons — if it's 1, the owner had at least one full season; some have de-facto experience from prior mid-season management that doesn't show in stats. Frame as "one season as owner-of-record" or just cite their record directly. Avoid "wide-eyed newcomer" / "stars in his eyes" tropes unless owner_seasons is genuinely 0.
 - OFFSEASON PPG: NEVER cite a player's current-season PPG before that season has started. The 2026 season has NOT started — current PPG is 0.0 by definition and means nothing. Use prior-season PPG (last completed season) or a 3-year recent average if you need a production reference.
 - FUTURE-PICK CONFIDENCE: each pick in the payload carries a slot_confidence flag (high/low/unknown) plus the originating owner's seasons of data. ALWAYS respect it. When slot_confidence is LOW, hedge: use "could land in [band]", "if their season trajectory holds", "likely [band]". Don't assert "that pick sits in 1.05-08" with certainty. When slot_confidence is HIGH (3+ owner seasons of consistent results), an assertive prediction IS fair. Apply the SAME confidence standard symmetrically — don't be assertive about one side's pick and hedged about the other's when both have the same confidence level.
-- ROUND-VS-SLOT VALUE: within R1, slot quarters (1.01-04 > 1.05-08 > 1.09-12) show meaningful differences in historical hit rates AND match expectation. Within R2+, the payload returns a ROUND-LEVEL aggregate — there's no meaningful slot-quarter signal at later rounds (small-sample noise). Treat all slots within the same R2+ round as approximately equal in expected value. Do NOT claim a late R3 pick (3.11) has a "better historical hit rate" than an early R3 pick (3.04) — the slot-quarter detail you'd need is absent for R2+ and the EXPECTATION is earlier-within-a-round = at least as good as later.
+- ROUND-VS-SLOT VALUE: granularity gets finer at the top of the draft (where slot differences are huge) and coarser later.
+  * R1 has FOUR tiers shown in the payload band label:
+      "1.01 (consensus #1)"  → far better than anyone else; 86% usable, ~0% bust
+      "1.02-04"              → premium picks, big drop-off from 1.01
+      "1.05-08"              → mid-R1, meaningful step down
+      "1.09-12"              → late R1, clear value gap vs the early picks
+    1.01 is MUCH MUCH better than 1.06. Treat it as its own conversation.
+  * R2+ uses HALF-bands: "first half (slots 1-6)" vs "second half (slots 7-12)".
+    First half is always shown as at least slightly better than second half
+    (monotonic enforcement — small-sample noise that suggests otherwise is
+    corrected). Treat slot 1 vs slot 4 as approximately the same EV (both first
+    half); slot 4 vs slot 11 = first-half-better-than-second-half. Do NOT claim
+    a late R3 pick (3.11) beats an early R3 pick (3.04).
 - GRADER LETTER GRADE IS CANONICAL: the payload assigns each side a letter grade (A+ through F) from the trade-value math. Use the grader's letter VERBATIM — do not add +/- modifiers (no "B+" if the data says "B"). The "grade_score" percentage shows which side gained value: POSITIVE % = that side came out ahead, NEGATIVE % = that side lost value. The side with the higher (more positive) grade_score is the trade winner — use that for the VERDICT. Don't reverse it.
 - DO NOT invent owner-tendency claims (e.g. "0% deal rate", "you ALWAYS overpay at QB") unless the data payload explicitly contains them. If trade-tendency data is missing from the payload, focus on what you DO have: their record, finishes, drought.
 - The 2026 season has NOT started yet. Do not reference 2026 allplay or win/loss records.
