@@ -367,9 +367,9 @@ def context_to_prompt_text(ctx: dict) -> str:
         ln(f"  Recent record: {f['recent_record']} (finish: #{f['recent_finish']})")
 
         # Owner's personal record (USE THIS FOR ROASTING)
-        oap = f.get("owner_allplay", {})
-        if oap:
-            ln(f"  {f['owner_name']}'s allplay record: {oap.get('w',0)}-{oap.get('l',0)} ({f['owner_allplay_pct']:.3f})")
+        # Owner W/L — pct only (Keith 2026-05-22: cite percentage, not W-L count + pct).
+        if f.get("owner_allplay_pct"):
+            ln(f"  {f['owner_name']}'s allplay: {f['owner_allplay_pct']:.3f}")
         ln(f"  {f['owner_name']}'s championships: {f['owner_championships']}")
         ln(f"  {f['owner_name']}'s playoff appearances: {f['owner_playoff_appearances']} in {f['owner_seasons']} season(s)")
         if f["owner_best_finish"]:
@@ -377,24 +377,28 @@ def context_to_prompt_text(ctx: dict) -> str:
         if f["owner_worst_finish"]:
             ln(f"  {f['owner_name']}'s worst finish: #{f['owner_worst_finish']}")
 
-        # Franchise history (for inherited context)
-        if f["franchise_championships"] > 0:
-            ln(f"  Franchise history: {f['franchise_championships']} championship(s), "
-               f"last in {f['franchise_last_championship']} ({f['franchise_championship_drought']} years ago)")
-        else:
-            ln(f"  Franchise history: ZERO championships in {f['franchise_seasons']} seasons")
+        # Franchise-wide history — ONLY when it's recent / relevant (not deep history).
+        # Keith 2026-05-22: don't reach >2 seasons back unless current owner played them.
+        if f["franchise_championship_drought"] and f["franchise_championship_drought"] <= 5 and f["franchise_championships"] > 0:
+            ln(f"  Franchise's last championship: {f['franchise_last_championship']} ({f['franchise_championship_drought']} years ago)")
+        # Ancient championships (>5 years) deliberately omitted — they don't roast a current owner.
 
-        ln(f"  Auction style: {f['auction_style']}")
-        ln(f"  Deal rate: {f['deal_rate']}%")
-        pt = f.get("position_targeting", {})
-        for pos in ("QB", "RB", "WR", "TE"):
-            if pos in pt:
-                pd = pt[pos]
-                ln(f"  {pos} bidding: avg bid ${pd.get('avg_bid',0):,}, "
-                   f"avg value delta ${pd.get('avg_delta',0):+,}")
+        # Owner auction tendencies — CUT per Keith 2026-05-22 cut list. The fields
+        # (auction_style, deal_rate, position_targeting) are derived from owner_profiles
+        # in trade_value_model_2026.json. With that file missing, they emit zeros that
+        # the LLM mis-reads as real signals ("0% deal rate" hallucination). Re-add as
+        # categorical tendency labels once the model is back online and Keith's reviewed
+        # the avg_value_delta calc.
 
-        ln(f"  Post-trade salary: ${side['post_trade_salary']:,} / $300K cap")
-        ln(f"  Post-trade cap space: ${side['post_trade_cap']:,}")
+        # Cap context — only show if the trade INCLUDES players or BB (cap matters then).
+        # Pick-only trades don't move cap; suppress to keep the roast focused.
+        side_has_player_or_bb = (
+            bool(side.get("players_received") or side.get("players_given")
+                 or side.get("salary_received") or side.get("salary_given"))
+        )
+        if side_has_player_or_bb:
+            ln(f"  Post-trade salary: ${side['post_trade_salary']:,} / $300K cap")
+            ln(f"  Post-trade cap space: ${side['post_trade_cap']:,}")
 
         if f.get("trend"):
             ln(f"  Recent trend (franchise, not necessarily current owner):")

@@ -201,19 +201,28 @@ def fire_one(client, discord_token, model_label: str, model_id: str,
     gen_ms = int((time.time() - t0) * 1000)
     print(f"  Generated in {gen_ms}ms · {len(roast)} chars")
 
-    # Trim to Discord's 2000-char content limit, leaving room for the header
-    header = f"**A/B test · {model_label.upper()} · trade ts={trade_ts}**\n\n"
-    max_body = 2000 - len(header) - 20
-    if len(roast) > max_body:
-        roast = roast[:max_body] + "\n[…truncated…]"
+    # Use embed.description for the roast (4096-char limit vs content's 2000).
+    # Header lives in the embed title + footer so the roast itself is full.
+    fr_a = trade.get("franchise", "")
+    fr_b = trade.get("franchise2", "")
+    # Trim only if we hit the embed limit (rare)
+    desc_max = 4096
+    if len(roast) > desc_max:
+        roast = roast[:desc_max - 20] + "\n[…truncated…]"
 
+    embed = {
+        "title": f"A/B test — {model_label.upper()}",
+        "description": roast,
+        "color": 0x5865F2 if model_label == "opus" else 0x57F287,  # blurple Opus, green Sonnet
+        "footer": {"text": f"trade ts={trade_ts}  ·  {fr_a} ↔ {fr_b}  ·  {model_id}  ·  gen={gen_ms}ms"},
+    }
     payload = {
-        "content": header + roast,
+        "embeds": [embed],
         "allowed_mentions": {"parse": []},
     }
 
     if dry_run:
-        print(f"  DRY-RUN — would post {len(payload['content'])} chars to channel {TEST_CHANNEL_ID}")
+        print(f"  DRY-RUN — would post embed ({len(roast)} chars in description) to channel {TEST_CHANNEL_ID}")
         return {
             "ok": True, "dry_run": True,
             "trade_ts": trade_ts, "model": model_label,
