@@ -26,6 +26,14 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 OUT_PATH = SCRIPT_DIR.parent / "data" / "franchise_career_stats.json"
 TENURE_OVERRIDES_PATH = SCRIPT_DIR.parent / "config" / "owner_tenure_overrides.json"
 
+# UPS league started in 2012 (inaugural dispersal draft). Pre-2012 records in
+# src_final_standings / src_weekly_franchise_summary are predecessor-league
+# data that shouldn't count for UPS owner attribution. Keith Creelman
+# 2026-05-23 ruling: clap-back called him "16 years since last ring" because
+# his franchise (0008) had a 2010 chip in the data. That's a pre-UPS league
+# title — not his UPS record. Filter eliminates it.
+UPS_FOUNDING_SEASON = 2012
+
 
 def load_tenure_overrides() -> dict:
     """Load manual owner-tenure overrides. Returns {fid: [{owner_name, tenure_start_season, tenure_end_season}]}."""
@@ -90,17 +98,18 @@ def load_owners() -> dict:
 
 def load_final_standings() -> list[dict]:
     return d1_query(
-        "SELECT season, franchise_id, final_finish, regular_season_finish "
-        "FROM src_final_standings ORDER BY season, franchise_id;"
+        f"SELECT season, franchise_id, final_finish, regular_season_finish "
+        f"FROM src_final_standings WHERE season >= {UPS_FOUNDING_SEASON} "
+        f"ORDER BY season, franchise_id;"
     )
 
 
 def load_weekly_summary() -> list[dict]:
     return d1_query(
-        "SELECT season, week, franchise_id, owner_name, "
-        "       h2h_wins, h2h_losses, h2h_ties, h2h_games, "
-        "       allplay_wins, allplay_losses, h2h_team_score "
-        "FROM src_weekly_franchise_summary;"
+        f"SELECT season, week, franchise_id, owner_name, "
+        f"       h2h_wins, h2h_losses, h2h_ties, h2h_games, "
+        f"       allplay_wins, allplay_losses, h2h_team_score "
+        f"FROM src_weekly_franchise_summary WHERE season >= {UPS_FOUNDING_SEASON};"
     )
 
 
