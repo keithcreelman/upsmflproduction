@@ -139,8 +139,8 @@ def discord_post_message(channel_id: str, token: str, payload: dict) -> dict:
 
 # ── Roast generation ───────────────────────────────────────────────────────
 
-def generate_roast(client: anthropic.Anthropic, model: str, context_text: str) -> str:
-    """Generate a roast using the configured model. Same prompt as content_engine."""
+def generate_roast(client: anthropic.Anthropic, model: str, context_text: str) -> tuple[str, dict]:
+    """Generate a roast. Returns (roast_text, usage_dict) — usage has input_tokens, output_tokens, cost_estimate."""
     message = client.messages.create(
         model=model,
         max_tokens=2048,
@@ -150,7 +150,19 @@ def generate_roast(client: anthropic.Anthropic, model: str, context_text: str) -
             "content": f"Roast this trade. Use ALL the data provided. Be ruthless.\n\n{context_text}",
         }],
     )
-    return message.content[0].text
+    usage = message.usage
+    # Per-million pricing (Anthropic 2026 — Opus 4.x, Sonnet 4.x)
+    PRICING = {
+        "claude-opus-4-6":   {"input": 15.0, "output": 75.0},
+        "claude-sonnet-4-6": {"input": 3.0,  "output": 15.0},
+    }
+    p = PRICING.get(model, {"input": 0, "output": 0})
+    cost = (usage.input_tokens * p["input"] + usage.output_tokens * p["output"]) / 1_000_000
+    return message.content[0].text, {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cost_estimate_usd": round(cost, 5),
+    }
 
 
 # ── Trade fetch ────────────────────────────────────────────────────────────
@@ -197,24 +209,22 @@ def fire_one(client, discord_token, model_label: str, model_id: str,
 
     print(f"  Generating roast via {model_id}...")
     t0 = time.time()
-    roast = generate_roast(client, model_id, context_text)
+    roast, usage = generate_roast(client, model_id, context_text)
     gen_ms = int((time.time() - t0) * 1000)
-    print(f"  Generated in {gen_ms}ms · {len(roast)} chars")
+    print(f"  Generated in {gen_ms}ms · {len(roast)} chars · "
+          f"{usage['input_tokens']} in / {usage['output_tokens']} out tokens · "
+          f"${usage['cost_estimate_usd']}")
 
     # Use embed.description for the roast (4096-char limit vs content's 2000).
-    # Header lives in the embed title + footer so the roast itself is full.
-    fr_a = trade.get("franchise", "")
-    fr_b = trade.get("franchise2", "")
-    # Trim only if we hit the embed limit (rare)
+    # No footer (Keith 2026-05-22: "I dont need this at the end"). Title carries the model label.
     desc_max = 4096
     if len(roast) > desc_max:
         roast = roast[:desc_max - 20] + "\n[…truncated…]"
 
     embed = {
-        "title": f"A/B test — {model_label.upper()}",
+        "title": f"A/B — {model_label.upper()}",
         "description": roast,
         "color": 0x5865F2 if model_label == "opus" else 0x57F287,  # blurple Opus, green Sonnet
-        "footer": {"text": f"trade ts={trade_ts}  ·  {fr_a} ↔ {fr_b}  ·  {model_id}  ·  gen={gen_ms}ms"},
     }
     payload = {
         "embeds": [embed],
@@ -229,6 +239,7 @@ def fire_one(client, discord_token, model_label: str, model_id: str,
             "context_chars": len(context_text),
             "roast_chars": len(roast),
             "gen_ms": gen_ms,
+            "usage": usage,
         }
 
     print(f"  Posting to channel {TEST_CHANNEL_ID}...")
@@ -242,6 +253,7 @@ def fire_one(client, discord_token, model_label: str, model_id: str,
         "context_chars": len(context_text),
         "roast_chars": len(roast),
         "gen_ms": gen_ms,
+        "usage": usage,
     }
 
 
@@ -306,14 +318,21 @@ def main():
             time.sleep(1.5)
 
     print("\n=== SUMMARY ===")
+    total_cost = 0.0
     for r in results:
         if r.get("ok"):
             tag = "DRY-RUN" if r.get("dry_run") else "POSTED"
+            u = r.get("usage", {})
+            cost = u.get("cost_estimate_usd", 0)
+            total_cost += cost
             print(f"  {tag}  ts={r['trade_ts']}  {r['model']:6}  "
                   f"msg_id={r.get('message_id','—'):20}  "
-                  f"gen={r.get('gen_ms','?')}ms  roast={r.get('roast_chars','?')} chars")
+                  f"gen={r.get('gen_ms','?')}ms  "
+                  f"in={u.get('input_tokens','?')}t  out={u.get('output_tokens','?')}t  "
+                  f"cost=${cost}")
         else:
             print(f"  FAIL  ts={r['trade_ts']}  {r['model']:6}  {r.get('error','?')}")
+    print(f"\n  TOTAL COST: ${round(total_cost, 4)}")
 
     # Write a tiny audit log
     audit_path = SCRIPT_DIR.parent / "data" / "ab_test_fire.log"

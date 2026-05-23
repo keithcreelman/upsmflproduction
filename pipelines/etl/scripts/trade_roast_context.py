@@ -28,6 +28,9 @@ def display_name(mfl_name: str) -> str:
     return mfl_name
 
 CAREER_STATS_PATH = Path(__file__).resolve().parent.parent / "data" / "franchise_career_stats.json"
+# Rookie-pick historical hit rates by band (smash/hit/contrib/bust).
+# Used to attach expected-value framing to each pick in the roast context.
+ROOKIE_TIERS_PATH = Path(__file__).resolve().parent.parent.parent.parent / "site" / "rookies" / "rookie_draft_tiers.json"
 # Owner/team mapping — JSON in the repo is the canonical source (exported
 # from D1 discord_owners table). CSV is the legacy fallback for old deploys.
 DISCORD_OWNERS_JSON = Path(__file__).resolve().parent.parent / "data" / "discord_owners.json"
@@ -39,6 +42,89 @@ def load_career_stats() -> dict:
         return {}
     with open(CAREER_STATS_PATH) as f:
         return json.load(f)
+
+
+_ROOKIE_TIERS_CACHE = None
+def load_rookie_tiers() -> dict:
+    global _ROOKIE_TIERS_CACHE
+    if _ROOKIE_TIERS_CACHE is not None:
+        return _ROOKIE_TIERS_CACHE
+    if not ROOKIE_TIERS_PATH.exists():
+        _ROOKIE_TIERS_CACHE = {}
+        return _ROOKIE_TIERS_CACHE
+    with open(ROOKIE_TIERS_PATH) as f:
+        _ROOKIE_TIERS_CACHE = json.load(f)
+    return _ROOKIE_TIERS_CACHE
+
+
+def pick_band_for_slot(rnd: int, slot: int) -> str:
+    """Map (round, slot) to a tier band key like '3.01-04', '3.05-08', '3.09-12'.
+    For slot=0 (unknown), returns round-level fallback like '3.01-12'.
+    """
+    if slot < 1 or slot > 12:
+        # Unknown slot — use round-average across quarters
+        return f"{rnd}.01-12"  # synthetic key, looked up via aggregation below
+    if slot <= 4:
+        return f"{rnd}.01-04"
+    if slot <= 8:
+        return f"{rnd}.05-08"
+    return f"{rnd}.09-12"
+
+
+def pick_tier_rates(rnd: int, slot: int) -> dict:
+    """Return historical hit rates for a pick's band — smash/hit/contrib/bust/usable.
+    Returns {} if the band isn't in rookie_draft_tiers.json (e.g. R6+ or unknown).
+    """
+    tiers = load_rookie_tiers().get("bands", {})
+    band = pick_band_for_slot(rnd, slot)
+    data = tiers.get(band, {}).get("combined", {})
+    if not data:
+        # Try round-aggregate by averaging the three known quarter bands
+        quarters = [tiers.get(f"{rnd}.01-04", {}).get("combined", {}),
+                    tiers.get(f"{rnd}.05-08", {}).get("combined", {}),
+                    tiers.get(f"{rnd}.09-12", {}).get("combined", {})]
+        valid = [q for q in quarters if q]
+        if not valid:
+            return {}
+        return {
+            "band": f"{rnd}.01-12 (round avg)",
+            "smash_pct": round(sum(q.get("smash_pct", 0) for q in valid) / len(valid), 2),
+            "hit_pct": round(sum(q.get("hit_pct", 0) for q in valid) / len(valid), 2),
+            "contrib_pct": round(sum(q.get("contrib_pct", 0) for q in valid) / len(valid), 2),
+            "bust_pct": round(sum(q.get("bust_pct", 0) for q in valid) / len(valid), 2),
+            "usable_pct": round(sum(q.get("usable_pct", 0) for q in valid) / len(valid), 2),
+        }
+    return {
+        "band": band,
+        "smash_pct": data.get("smash_pct", 0),
+        "hit_pct": data.get("hit_pct", 0),
+        "contrib_pct": data.get("contrib_pct", 0),
+        "bust_pct": data.get("bust_pct", 0),
+        "usable_pct": data.get("usable_pct", 0),
+    }
+
+
+def find_defending_champion(career_stats: dict) -> dict:
+    """Find the most recent season's champion (final_finish=1).
+    Returns {season, franchise_id, owner_name, team_name} or {} if none.
+    """
+    # career_stats has per-franchise trend with finish per season.
+    # Find the franchise with finish=1 in the most recent season across all franchises.
+    candidates = []  # (season, fid, finish)
+    for fid, stats in career_stats.items():
+        for t in stats.get("trend", []):
+            if t.get("finish") == 1:
+                candidates.append((t["season"], fid, stats))
+    if not candidates:
+        return {}
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    season, fid, stats = candidates[0]
+    return {
+        "season": season,
+        "franchise_id": fid,
+        "owner_name": stats.get("owner", {}).get("display", ""),
+        "team_name": stats.get("franchise_name", ""),
+    }
 
 
 def load_trade_value_model_full() -> dict:
@@ -237,22 +323,32 @@ def build_trade_roast_context(trade_txn: dict,
     bb_a_to_b = b.salary_given  # BB from B to A
     bb_b_to_a = a.salary_given  # BB from A to B
 
+    # Pick detail builder — includes historical hit-rate band for expected-value framing.
+    def pick_detail(pk) -> dict:
+        rates = pick_tier_rates(pk.round, getattr(pk, "predicted_slot", 0) or 0)
+        return {
+            "year": pk.year,
+            "round": pk.round,
+            "slot": getattr(pk, "predicted_slot", 0) or None,
+            "value": pk.estimated_value,
+            **rates,  # band, smash_pct, hit_pct, contrib_pct, bust_pct, usable_pct
+        }
+
     context = {
         "trade": {
             "timestamp": analysis.timestamp,
             "comments": analysis.comments,
         },
+        "defending_champion": find_defending_champion(career_stats),
         "side_a": {
             "franchise": ctx_a,
             "grade": a.grade,
             "grade_score": round(a.grade_score, 1),
             "players_given": [player_detail(p) for p in a.players_given],
-            "picks_given": [{"year": pk.year, "round": pk.round,
-                             "value": pk.estimated_value} for pk in a.picks_given],
+            "picks_given": [pick_detail(pk) for pk in a.picks_given],
             "salary_given": a.salary_given,
             "players_received": [player_detail(p) for p in a.players_received],
-            "picks_received": [{"year": pk.year, "round": pk.round,
-                                "value": pk.estimated_value} for pk in a.picks_received],
+            "picks_received": [pick_detail(pk) for pk in a.picks_received],
             "salary_received": a.salary_received,
             "post_trade_salary": a.total_roster_salary,
             "post_trade_cap": a.cap_space,
@@ -262,12 +358,10 @@ def build_trade_roast_context(trade_txn: dict,
             "grade": b.grade,
             "grade_score": round(b.grade_score, 1),
             "players_given": [player_detail(p) for p in b.players_given],
-            "picks_given": [{"year": pk.year, "round": pk.round,
-                             "value": pk.estimated_value} for pk in b.picks_given],
+            "picks_given": [pick_detail(pk) for pk in b.picks_given],
             "salary_given": b.salary_given,
             "players_received": [player_detail(p) for p in b.players_received],
-            "picks_received": [{"year": pk.year, "round": pk.round,
-                                "value": pk.estimated_value} for pk in b.picks_received],
+            "picks_received": [pick_detail(pk) for pk in b.picks_received],
             "salary_received": b.salary_received,
             "post_trade_salary": b.total_roster_salary,
             "post_trade_cap": b.cap_space,
@@ -308,9 +402,36 @@ def context_to_prompt_text(ctx: dict) -> str:
     ln("=== TRADE ===")
     fa = a["franchise"]
     fb = b["franchise"]
+
+    # Defending champion (most recent season's #1)
+    dc = ctx.get("defending_champion") or {}
+    if dc:
+        ln(f"DEFENDING CHAMPION (won {dc['season']}): {dc['owner_name']} ({dc['team_name']})")
+        ln("")
+
+    def render_pick(pk: dict) -> str:
+        # Pick line with historical band hit-rates for expected-value framing.
+        # smash = elite/star outcome, hit = solid starter, contrib = depth, bust = no impact.
+        slot = pk.get("slot")
+        slot_str = f" (slot {slot})" if slot else ""
+        band = pk.get("band", "")
+        smash = pk.get("smash_pct", 0)
+        hit = pk.get("hit_pct", 0)
+        contrib = pk.get("contrib_pct", 0)
+        bust = pk.get("bust_pct", 0)
+        usable = pk.get("usable_pct", 0)
+        rates = ""
+        if band:
+            rates = (f" — historical band {band}: "
+                     f"smash {smash:.0%} / hit {hit:.0%} / "
+                     f"contrib {contrib:.0%} / bust {bust:.0%} / "
+                     f"usable {usable:.0%}")
+        return (f"  - {pk['year']} Round {pk['round']} pick{slot_str}"
+                f" (est. value ${pk['value']:,}){rates}")
+
     ln(f"{fa['franchise_name']} gave:")
     for pk in a["picks_given"]:
-        ln(f"  - {pk['year']} Round {pk['round']} pick (est. value ${pk['value']:,})")
+        ln(render_pick(pk))
     for p in a["players_given"]:
         ln(f"  - {p['name']} ({p['position']}) — ${p['salary']:,} salary, "
            f"expected auction price ${p['expected_auction_price']:,}, {p['ppg']} PPG")
@@ -319,7 +440,7 @@ def context_to_prompt_text(ctx: dict) -> str:
 
     ln(f"{fb['franchise_name']} gave:")
     for pk in b["picks_given"]:
-        ln(f"  - {pk['year']} Round {pk['round']} pick (est. value ${pk['value']:,})")
+        ln(render_pick(pk))
     for p in b["players_given"]:
         ln(f"  - {p['name']} ({p['position']}) — ${p['salary']:,} salary, "
            f"expected auction price ${p['expected_auction_price']:,}, {p['ppg']} PPG")
