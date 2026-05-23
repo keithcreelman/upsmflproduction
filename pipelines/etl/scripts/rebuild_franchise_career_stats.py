@@ -26,13 +26,20 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 OUT_PATH = SCRIPT_DIR.parent / "data" / "franchise_career_stats.json"
 TENURE_OVERRIDES_PATH = SCRIPT_DIR.parent / "config" / "owner_tenure_overrides.json"
 
-# UPS league started in 2012 (inaugural dispersal draft). Pre-2012 records in
-# src_final_standings / src_weekly_franchise_summary are predecessor-league
-# data that shouldn't count for UPS owner attribution. Keith Creelman
-# 2026-05-23 ruling: clap-back called him "16 years since last ring" because
-# his franchise (0008) had a 2010 chip in the data. That's a pre-UPS league
-# title — not his UPS record. Filter eliminates it.
-UPS_FOUNDING_SEASON = 2012
+# UPS league format history (Keith 2026-05-23 canon clarification):
+#   2010 — first ever UPS season, REDRAFT auction-only format (not dynasty;
+#          doesn't count as a "current-format" UPS season for owner records).
+#   2011 — first season of CURRENT (dynasty) format. Counts.
+#   2012 — first season with rookie draft + roster contract rollover. Counts.
+# So UPS_FOUNDING_SEASON = 2011 (first dynasty-format season). The earlier
+# 2010 data is pre-current-format and gets filtered out of owner attribution.
+#
+# Keith Creelman 2026-05-23: "I was NOT franchise id 0008 in year 1 that was
+# Roussin." D1's owner_name field on 2011 weeks for 0008 says "Keith Creelman"
+# (likely ETL stamped current owner onto historical rows — same pattern we
+# saw with Brian Cross on 0006/2024). Use owner_tenure_overrides.json to
+# correct Keith's actual start season on 0008.
+UPS_FOUNDING_SEASON = 2011
 
 
 def load_tenure_overrides() -> dict:

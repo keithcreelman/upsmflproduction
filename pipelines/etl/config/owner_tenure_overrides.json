@@ -11,5 +11,14 @@
       "tenure_end_season": null,
       "notes": "Brian managed 0006 from mid-2024 (week 15 swap) but Josh Lima retains attribution of 2024 W/L stats per Keith 2026-05-22 (commish ruling: season-start owner gets the season). Brian's career as owner-of-record starts 2025."
     }
+  ],
+
+  "0008": [
+    {
+      "owner_name": "Keith Creelman",
+      "tenure_start_season": 2012,
+      "tenure_end_season": null,
+      "notes": "Per Keith 2026-05-23: 'I was NOT franchise id 0008 in year 1 that was Roussin.' D1's src_weekly_franchise_summary stamps Keith on 2011 weeks but that's ETL backfill (same bug as Brian Cross on 0006/2024). 2011 = Tom Roussin's year on 0008 (UPS year 1 of current dynasty format). Keith's UPS tenure starts 2012 (UPS year 2). TODO: confirm with Keith — could be later than 2012. Currently assumed 2012."
+    }
   ]
 }
