@@ -1969,6 +1969,7 @@ export default {
         path !== "/admin/drops/post-discord" &&
         path !== "/api/giphy-search" &&
         path !== "/api/franchise-ownership-history" &&
+        path !== "/api/roast-thread/track" &&
         path !== "/admin/reset-fa-contracts" &&
         path !== "/admin/discord/post" &&
         path !== "/admin/deadline-reminders/test-discord" &&
@@ -6070,6 +6071,104 @@ export default {
           }
         }
         return jsonOut(200, { ok: true, history: out, years_count: Object.keys(out).length });
+      }
+
+      // ── POST /api/roast-thread/track ─────────────────────────────────────────
+      // Called by the launchd Python trade-roast bot after posting a roast in
+      // a Discord thread. Persists context so the worker can later look it up
+      // when the user clicks the message's "💬 Reply to bot" button — Discord
+      // routes that interaction to /discord/interactions (this worker) because
+      // the Discord App has an Interactions Endpoint URL set, which bypasses
+      // the gateway-based Python bot. Without this row, the Reply button
+      // returns "tracking expired."
+      //
+      // Auth: Authorization: Bearer <env.ROAST_TRACK_API_KEY>. The Python bot
+      //   reads the matching value from macOS Keychain (`ups_roast_track_api_key`)
+      //   or its launchd env. If the env var is unset on the worker, the
+      //   endpoint is disabled (503 — bot logs warning, button won't work).
+      //
+      // Body (JSON):
+      //   {
+      //     roast_message_id:        string   (required) Discord message id
+      //     thread_id:               string   (required) Discord thread channel id
+      //     channel_id:              string   (required) parent channel id
+      //     context_text:            string   (required) roast prompt context (used as
+      //                                                   clap-back grounding; capped at 16KB)
+      //     trade_id?:               string   MFL transaction id (informational)
+      //     announcement_message_id?:string   Discord message id of the announcement embed
+      //     roast_text?:             string   the actual roast (informational, capped 8KB)
+      //     trade_franchises?:       string   comma-separated fids ("0005,0006")
+      //     posted_at?:              number   unix epoch sec (defaults to now)
+      //   }
+      if (path === "/api/roast-thread/track" && request.method === "POST") {
+        const expectedKey = safeStr(env.ROAST_TRACK_API_KEY || "");
+        if (!expectedKey) {
+          return jsonOut(503, { ok: false, error: "ROAST_TRACK_API_KEY not configured" });
+        }
+        const auth = safeStr(request.headers.get("authorization") || "");
+        const provided = auth.toLowerCase().startsWith("bearer ")
+          ? auth.slice(7).trim()
+          : auth;
+        if (provided !== expectedKey) {
+          return jsonOut(401, { ok: false, error: "auth failed" });
+        }
+        if (!env.UPS_MFL_DB) {
+          return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        }
+        let body;
+        try {
+          body = await request.json();
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "invalid json body" });
+        }
+        const roastMessageId = safeStr(body?.roast_message_id);
+        const threadId = safeStr(body?.thread_id);
+        const channelId = safeStr(body?.channel_id);
+        const contextText = safeStr(body?.context_text);
+        if (!roastMessageId || !threadId || !channelId || !contextText) {
+          return jsonOut(400, {
+            ok: false,
+            error: "missing required fields: roast_message_id, thread_id, channel_id, context_text",
+          });
+        }
+        const tradeId = safeStr(body?.trade_id);
+        const announceId = safeStr(body?.announcement_message_id);
+        const roastText = safeStr(body?.roast_text).slice(0, 8192);
+        const tradeFranchises = safeStr(body?.trade_franchises);
+        const postedAt = Number(body?.posted_at) || Math.floor(Date.now() / 1000);
+        try {
+          await env.UPS_MFL_DB
+            .prepare(
+              "INSERT INTO ups_roast_threads " +
+              "(roast_message_id, trade_id, thread_id, channel_id, " +
+              " announcement_message_id, context_text, roast_text, " +
+              " trade_franchises, posted_at) VALUES (?,?,?,?,?,?,?,?,?) " +
+              "ON CONFLICT(roast_message_id) DO UPDATE SET " +
+              " trade_id = excluded.trade_id, " +
+              " thread_id = excluded.thread_id, " +
+              " channel_id = excluded.channel_id, " +
+              " announcement_message_id = excluded.announcement_message_id, " +
+              " context_text = excluded.context_text, " +
+              " roast_text = excluded.roast_text, " +
+              " trade_franchises = excluded.trade_franchises, " +
+              " posted_at = excluded.posted_at"
+            )
+            .bind(
+              roastMessageId,
+              tradeId,
+              threadId,
+              channelId,
+              announceId,
+              contextText.slice(0, 16384),
+              roastText,
+              tradeFranchises,
+              postedAt
+            )
+            .run();
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: `D1 insert: ${String(e?.message || e)}` });
+        }
+        return jsonOut(200, { ok: true, roast_message_id: roastMessageId });
       }
 
       // ── GET /api/giphy-search?q=<query> ──────────────────────────────────────

@@ -185,6 +185,108 @@ def d1_query(sql: str) -> list[dict]:
     return payload[0].get("results", []) or []
 
 
+def d1_execute_file(sql_text: str) -> None:
+    """Run a multi-statement SQL script against remote D1 via wrangler.
+
+    Used to UPSERT the per-franchise career stats from this script's output
+    into ups_owner_career_stats so the Cloudflare worker can read owner-
+    attribution data at request time (clap-back grounding for the trade-
+    roast bot's Reply button). Without this, the worker queries
+    src_final_standings directly and credits the franchise's chips to the
+    current owner — which is wrong for cross-franchise owners (Keith's
+    franchise 0008 has 2010 chip from Roussin; Keith's owner career has 0).
+    """
+    import tempfile
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".sql", delete=False
+    ) as f:
+        f.write(sql_text)
+        sql_path = f.name
+    try:
+        result = subprocess.run(
+            ["npx", "wrangler", "d1", "execute", "ups-mfl-db", "--remote",
+             "--file", sql_path],
+            capture_output=True, text=True,
+            cwd=str(Path(__file__).resolve().parents[3] / "worker"),
+        )
+        if result.returncode != 0:
+            sys.stderr.write(f"D1 execute failed:\n{result.stderr}\n")
+            sys.exit(1)
+    finally:
+        Path(sql_path).unlink(missing_ok=True)
+
+
+def _sql_quote(v) -> str:
+    """SQL string literal — single quotes, escape internal single quotes."""
+    if v is None:
+        return "NULL"
+    if isinstance(v, (int, float)):
+        return str(v)
+    s = str(v).replace("'", "''")
+    return f"'{s}'"
+
+
+def sync_to_d1(stats: dict) -> None:
+    """UPSERT each franchise's owner-career row into ups_owner_career_stats."""
+    rows = []
+    for fid, e in stats.items():
+        o = e.get("owner", {}) or {}
+        franchises_owned_json = json.dumps(o.get("franchises_owned", []))
+        seasons_by_fr_json = json.dumps(o.get("seasons_by_franchise", {}))
+        allplay = o.get("allplay", {}) or {}
+        overall = o.get("overall", {}) or {}
+        rows.append({
+            "franchise_id": fid,
+            "owner_display": o.get("display", "") or "",
+            "franchise_name": e.get("franchise_name", "") or "",
+            "current_year": e.get("current_year"),
+            "owner_first_season": o.get("first_season"),
+            "owner_seasons_count": o.get("seasons_count", 0) or 0,
+            "owner_franchises_owned": franchises_owned_json,
+            "owner_seasons_by_franchise": seasons_by_fr_json,
+            "owner_championships": o.get("championships", 0) or 0,
+            "owner_playoff_appearances": o.get("playoff_appearances", 0) or 0,
+            "owner_best_finish": o.get("best_finish"),
+            "owner_worst_finish": o.get("worst_finish"),
+            "owner_allplay_w": allplay.get("w", 0) or 0,
+            "owner_allplay_l": allplay.get("l", 0) or 0,
+            "owner_allplay_pct": o.get("allplay_pct"),
+            "owner_overall_w": overall.get("w", 0) or 0,
+            "owner_overall_l": overall.get("l", 0) or 0,
+            "owner_last_championship": o.get("last_championship"),
+            "franchise_seasons_played": e.get("seasons_played", 0) or 0,
+            "franchise_championships": e.get("championships", 0) or 0,
+            "franchise_last_championship": e.get("last_championship"),
+            "franchise_championship_drought": e.get("championship_drought"),
+        })
+
+    cols = [
+        "franchise_id", "owner_display", "franchise_name", "current_year",
+        "owner_first_season", "owner_seasons_count", "owner_franchises_owned",
+        "owner_seasons_by_franchise", "owner_championships",
+        "owner_playoff_appearances", "owner_best_finish", "owner_worst_finish",
+        "owner_allplay_w", "owner_allplay_l", "owner_allplay_pct",
+        "owner_overall_w", "owner_overall_l", "owner_last_championship",
+        "franchise_seasons_played", "franchise_championships",
+        "franchise_last_championship", "franchise_championship_drought",
+    ]
+    sql_parts = []
+    for r in rows:
+        values = ", ".join(_sql_quote(r.get(c)) for c in cols)
+        update_clause = ", ".join(
+            f"{c} = excluded.{c}" for c in cols if c != "franchise_id"
+        )
+        sql_parts.append(
+            f"INSERT INTO ups_owner_career_stats ({', '.join(cols)}) "
+            f"VALUES ({values}) "
+            f"ON CONFLICT(franchise_id) DO UPDATE SET "
+            f"{update_clause}, updated_at = datetime('now');"
+        )
+    sql_text = "\n".join(sql_parts) + "\n"
+    d1_execute_file(sql_text)
+    print(f"  D1 sync: {len(rows)} rows UPSERTed into ups_owner_career_stats")
+
+
 def load_owners() -> dict:
     """Map franchise_id → current owner_name + team_name from D1."""
     out = {}
@@ -272,9 +374,19 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
 
     # Index final standings
     finish_by_fs = {}  # (fid, season) → final_finish
+    played_seasons = set()  # seasons that have been COMPLETED (have final_finish)
     for r in standings:
         fid = str(r["franchise_id"]).zfill(4)
-        finish_by_fs[(fid, int(r["season"]))] = int(r["final_finish"]) if r.get("final_finish") else None
+        season = int(r["season"])
+        finish = int(r["final_finish"]) if r.get("final_finish") else None
+        finish_by_fs[(fid, season)] = finish
+        if finish is not None:
+            played_seasons.add(season)
+    # Keith 2026-05-23: don't count the upcoming/in-progress season toward
+    # owner career — Real Deal Creel showing "17 seasons, 0 chips" when
+    # season 17 hasn't even started is misleading. `played_seasons` is the
+    # set of completed seasons (any franchise has a final_finish). Owner
+    # career attribution filters to seasons in this set.
 
     # Build per-franchise career stats
     out = {}
@@ -290,13 +402,16 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
             effective_owner.get((fid, seasons_with_data[-1])) if seasons_with_data else ""
         ) or ""
 
-        # ── OWNER CAREER (cross-franchise) ────────────────────────────────
+        # ── OWNER CAREER (cross-franchise, completed seasons only) ────────
         # Walk every (fid', season) in effective_owner where the season-start
-        # owner matches current_owner. This is the union of all franchises
-        # current_owner has held season-start ownership of.
+        # owner matches current_owner AND the season has actually been played
+        # (Keith 2026-05-23: don't credit 17 seasons when season 17 hasn't
+        # started). played_seasons = seasons with final_finish data.
         owner_seasons_pairs = []  # list of (fid', season)
         if current_owner:
             for (fid2, season), nm in effective_owner.items():
+                if season not in played_seasons:
+                    continue
                 if _owners_match(nm, current_owner):
                     owner_seasons_pairs.append((fid2, season))
         owner_seasons_pairs.sort(key=lambda p: (p[1], p[0]))
@@ -337,29 +452,38 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
         owner_playoffs = sum(1 for f in owner_finishes if f and f <= 6)  # top-6 = playoffs assumption
         owner_best = min(owner_finishes) if owner_finishes else None
         owner_worst = max(owner_finishes) if owner_finishes else None
+        # OWNER's last championship — distinct from franchise.last_championship.
+        # Keith's franchise 0008 has last_championship=2010 (Roussin's ring), but
+        # owner_last_championship=None (Keith has zero rings). Worker clap-back
+        # context MUST use owner_last_championship to avoid crediting Keith with
+        # Roussin's 2010 chip (Keith 2026-05-23 callout).
+        owner_chip_seasons = sorted(
+            s for (f, s) in owner_seasons_pairs if finish_by_fs.get((f, s)) == 1
+        )
+        owner_last_chip = owner_chip_seasons[-1] if owner_chip_seasons else None
 
-        # Franchise-wide aggregates (all owners)
-        all_seasons = seasons_with_data
+        # Franchise-wide aggregates — COMPLETED seasons only (Keith 2026-05-23:
+        # don't count the upcoming/in-progress season toward seasons_played).
+        all_seasons = [s for s in seasons_with_data if s in played_seasons]
         franchise_finishes = [finish_by_fs.get((fid, s)) for s in all_seasons if finish_by_fs.get((fid, s)) is not None]
         franchise_chips = sum(1 for f in franchise_finishes if f == 1)
         last_chip_season = None
         if franchise_chips:
             chip_seasons = [s for s in all_seasons if finish_by_fs.get((fid, s)) == 1]
             last_chip_season = max(chip_seasons) if chip_seasons else None
-        # Drought measured against UPCOMING season (current_year), not last
-        # completed season. For Hammer (won 2024, current=2026) drought = 2,
-        # not 1. Keith 2026-05-22: "Hammer won 2024 not 2025, make sure you
-        # get this correct." LLM was misreading "1 year ago" → "last year's
-        # champion" → falsely calling Hammer defending.
-        current_year_upcoming = (max(all_seasons) + 1) if all_seasons else None
+        # current_year_upcoming = last-completed-season + 1 (the offseason
+        # we're currently in). For 2025 completed in 2026 offseason → 2026.
+        # Drought = upcoming - last_chip_season. Hammer won 2024, upcoming
+        # = 2026 → drought = 2 (Keith 2026-05-22 ruling).
+        current_year_upcoming = (max(played_seasons) + 1) if played_seasons else None
         franchise_ap_w = sum(season_totals[fid][s]["ap_w"] for s in all_seasons)
         franchise_ap_l = sum(season_totals[fid][s]["ap_l"] for s in all_seasons)
         franchise_ap_pct = (franchise_ap_w / (franchise_ap_w + franchise_ap_l)) if (franchise_ap_w + franchise_ap_l) else 0
         owner_ap_pct = (owner_ap_w / (owner_ap_w + owner_ap_l)) if (owner_ap_w + owner_ap_l) else 0
 
-        # Trend: last 4 seasons' allplay% + final finish
+        # Trend: last 4 COMPLETED seasons' allplay% + final finish
         trend = []
-        for s in seasons_with_data[-4:]:
+        for s in all_seasons[-4:]:
             sw = season_totals[fid][s]
             ap_pct = (sw["ap_w"] / (sw["ap_w"] + sw["ap_l"])) if (sw["ap_w"] + sw["ap_l"]) else 0
             trend.append({
@@ -368,11 +492,11 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
                 "finish": finish_by_fs.get((fid, s)),
             })
 
-        # Best/worst season (by allplay %)
+        # Best/worst season (by allplay %) — COMPLETED seasons only
         season_aps = [
             (s, (season_totals[fid][s]["ap_w"] / (season_totals[fid][s]["ap_w"] + season_totals[fid][s]["ap_l"]))
                 if (season_totals[fid][s]["ap_w"] + season_totals[fid][s]["ap_l"]) else 0)
-            for s in seasons_with_data
+            for s in all_seasons
         ]
         best_season = max(season_aps, key=lambda x: x[1])[0] if season_aps else None
         worst_season = min(season_aps, key=lambda x: x[1])[0] if season_aps else None
@@ -412,6 +536,7 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
                 "allplay_pct": round(owner_ap_pct, 3),
                 "overall": {"w": owner_h2h_w, "l": owner_h2h_l},
                 "championships": owner_chips,
+                "last_championship": owner_last_chip,
                 "playoff_appearances": owner_playoffs,
                 "best_finish": owner_best,
                 "worst_finish": owner_worst,
@@ -492,6 +617,13 @@ def main():
         json.dump(stats, f, indent=2)
     tmp.replace(OUT_PATH)
     print(f"\nWrote {OUT_PATH} — {len(stats)} franchises")
+
+    # Mirror to D1 so the Cloudflare worker can read owner-attribution stats
+    # at request time (trade-roast Reply-button clap-back grounding). Without
+    # this, worker falls back to franchise-keyed src_final_standings and
+    # mis-credits cross-franchise owners (Keith on 0007/2010 + 0008/2011-2025).
+    print("Syncing to D1 (ups_owner_career_stats)...")
+    sync_to_d1(stats)
 
 
 if __name__ == "__main__":

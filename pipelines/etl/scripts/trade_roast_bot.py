@@ -52,7 +52,9 @@ ROAST_CHANNEL_ID = PROD_CHANNEL_ID if (ROAST_BOT_ENV == "prod" and PROD_CHANNEL_
 
 HURTS_TRADE_TS = 1775772921
 POLL_INTERVAL_SECONDS = 300  # 5 minutes
-WORKER_GIPHY_PROXY_URL = "https://upsmflproduction.keith-creelman.workers.dev/api/giphy-search"
+WORKER_BASE_URL = "https://upsmflproduction.keith-creelman.workers.dev"
+WORKER_GIPHY_PROXY_URL = f"{WORKER_BASE_URL}/api/giphy-search"
+WORKER_ROAST_TRACK_URL = f"{WORKER_BASE_URL}/api/roast-thread/track"
 
 # Secrets — preferred location is the macOS Keychain. Store once with:
 #   security add-generic-password -a "$USER" -s "discord_bot_token" -w
@@ -63,6 +65,7 @@ import subprocess
 import re
 import urllib.request
 import urllib.parse
+import urllib.error
 
 
 def _keychain_secret(env_name: str, keychain_service: str) -> str:
@@ -101,6 +104,15 @@ else:
         "  security add-generic-password -a \"$USER\" -s \"anthropic_api_key\" -w\n"
         "Or set the ANTHROPIC_API_KEY env var."
     )
+
+# Worker → roast-track shared secret. Lets the bot register each roast in D1
+# so the worker-side Reply button handler (Option B, Keith 2026-05-23) can
+# load the prompt context. Optional — if missing, the button still appears
+# but clicking it returns "tracking expired" from the worker. To enable:
+#   security add-generic-password -a "$USER" -s "ups_roast_track_api_key" -w
+# AND set the same value as worker secret ROAST_TRACK_API_KEY:
+#   echo "<value>" | npx wrangler secret put ROAST_TRACK_API_KEY --config worker/wrangler.toml
+ROAST_TRACK_API_KEY = _keychain_secret("ROAST_TRACK_API_KEY", "ups_roast_track_api_key")
 
 # Track posted roasts: {discord_message_id: tracker_payload}
 # Persisted to disk so clap-back monitoring + reply button survive bot restarts.
@@ -327,6 +339,55 @@ def _extract_gif_query(roast_text: str) -> tuple[str, str]:
     return clean, query
 
 
+def _track_roast_to_worker(payload: dict) -> bool:
+    """Register a roast in D1 via POST /api/roast-thread/track.
+
+    Lets the worker handle Reply-button interactions when Discord routes
+    them to /discord/interactions (Discord App has an Interactions Endpoint
+    URL set, which bypasses the gateway-based Python bot). Without this row
+    the button returns "tracking expired."
+
+    Soft failure: if the worker secret is unconfigured or the call fails,
+    log and continue — the in-memory ROAST_TRACKER + Python ReplyView still
+    handles the case if interactions ever route to the gateway. The
+    worker-handled path is the LIVE path right now though, so a failure
+    here means clap-backs won't fire for this roast.
+    """
+    if not ROAST_TRACK_API_KEY:
+        print(f"[{datetime.now()}] roast-track skipped — "
+              f"ROAST_TRACK_API_KEY not in env or Keychain")
+        return False
+    try:
+        body = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            WORKER_ROAST_TRACK_URL,
+            data=body,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {ROAST_TRACK_API_KEY}",
+                "Content-Type": "application/json",
+                "User-Agent": "ups-roast-bot-launchd",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        if data.get("ok"):
+            print(f"[{datetime.now()}] roast-track OK "
+                  f"(roast_message_id={data.get('roast_message_id')})")
+            return True
+        print(f"[{datetime.now()}] roast-track non-ok: {data}")
+        return False
+    except urllib.error.HTTPError as e:
+        body_preview = ""
+        try: body_preview = e.read().decode("utf-8")[:300]
+        except Exception: pass
+        print(f"[{datetime.now()}] roast-track HTTP {e.code}: {body_preview}")
+        return False
+    except Exception as e:
+        print(f"[{datetime.now()}] roast-track error: {e}")
+        return False
+
+
 def _fetch_gif_via_worker(query: str) -> str:
     """Hit the Worker /api/giphy-search proxy to get a Giphy URL.
 
@@ -449,6 +510,27 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     ROAST_TRACKER[announce_msg.id] = tracker_payload
     ROAST_TRACKER[roast_msg.id] = tracker_payload
     _save_tracker()
+
+    # 10b. Register the roast in D1 via the worker so Discord-routed
+    #      Reply-button interactions can find the prompt context. Discord
+    #      delivers component clicks to /discord/interactions (because the
+    #      Discord App has an Interactions Endpoint URL set, bypassing the
+    #      gateway). The worker reads ups_roast_threads → classify → clap-
+    #      back → post to thread. Without this row, the button returns
+    #      "tracking expired." Soft fail — bot keeps posting either way.
+    fr_a_id = ctx["side_a"]["franchise"]["franchise_id"]
+    fr_b_id = ctx["side_b"]["franchise"]["franchise_id"]
+    _track_roast_to_worker({
+        "roast_message_id": str(roast_msg.id),
+        "thread_id": str(thread.id),
+        "channel_id": str(channel.id),
+        "announcement_message_id": str(announce_msg.id),
+        "context_text": context_text[:16384],
+        "roast_text": roast_clean[:8000],
+        "trade_id": str(trade_txn.get("timestamp", "")),
+        "trade_franchises": f"{fr_a_id},{fr_b_id}",
+        "posted_at": int(time.time()),
+    })
 
     # 11. Save to archive
     save_to_archive({
