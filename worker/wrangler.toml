@@ -16,9 +16,10 @@ compatibility_date = "2026-02-02"
 # 2026-05-08 — three sweeps in parallel on */2 starved each other and the
 # */2 ticks all returned "Exceeded CPU Limit"):
 #
-#   "5 * * * *"        — hourly: cap-penalty drop scan + once-daily R2
-#                        snapshot at 09:05 UTC + Hall overdue-close sweep
-#                        (deadline-driven, fast SQL only).
+#   "5 * * * *"        — hourly: once-daily R2 snapshot at 09:05 UTC,
+#                        Hall overdue-close sweep, cap-penalty drop scan
+#                        (RULE-WORKFLOW-004), deadline reminders, taxi
+#                        callup confirms, news warmer.
 #   "*/2 * * * *"      — every 2 min: ONLY processPendingSummaries with
 #                        LIMIT 1 — at most one Anthropic impact analysis
 #                        per tick. Keeps post-lock verdict announcements
@@ -29,6 +30,10 @@ compatibility_date = "2026-02-02"
 #                        entirely. Auto-nudge sweep runs here only.
 #                        Code-level quiet-hours guard (10 PM – 6 AM ET)
 #                        as belt-and-suspenders against DST drift.
+#   "*/5 * * * *"      — every 5 min: auction-bid poll + drop-tracker
+#                        scan/post. Both I/O-bound and cheap; drops can't
+#                        occur during an active auction so they don't
+#                        contend (Keith 2026-05-23).
 crons = ["5 * * * *", "*/2 * * * *", "5 0,12,18 * * *", "*/5 * * * *"]
 
 # R2 bucket for MFL data snapshots + DB backups.
