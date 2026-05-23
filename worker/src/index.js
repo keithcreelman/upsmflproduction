@@ -1526,9 +1526,16 @@ export default {
     const isHallNudgeSweep   = cronTrigger === "5 0,12,18 * * *";
     const isAuctionPoll      = cronTrigger === "*/5 * * * *";
 
-    // ---------- AUCTION POLL (every 5 min) ----------
-    // Poll MFL AUCTION_BID + AUCTION_WON transactions, upsert into D1.
-    // Cheap when no auction is active (returns ~0 transactions per call).
+    // ---------- AUCTION POLL + DROP TRACKER (every 5 min) ----------
+    // Two cheap I/O-bound jobs share this tick:
+    //   1. processAuctionPoll — MFL AUCTION_BID/WON → D1 upserts.
+    //   2. drop-tracker — MFL FREE_AGENT scan → D1 inserts + optional
+    //      Discord post (controlled by DROP_TRACKER_ENABLED / _AUTO_POST).
+    // Co-location is safe because (a) drops don't happen during auctions
+    // (Keith 2026-05-23) so the two jobs rarely have real work on the same
+    // tick, and (b) both are I/O-bound webhook/HTTP fan-out, not CPU-heavy
+    // (unlike the 2026-05-08 Hall+Anthropic incident that prompted the
+    // original one-job-per-cron isolation rule).
     if (isAuctionPoll) {
       try {
         ctx.waitUntil(processAuctionPoll(env).then((r) => {
@@ -1539,7 +1546,62 @@ export default {
       } catch (e) {
         console.error(`[scheduled */5] auction poll dispatch failed: ${e && e.message}`);
       }
-      return; // auction poll is the only job on this cron
+
+      // Drop tracker — scan MFL FREE_AGENT txs, record to D1, optionally
+      // post to Discord. Idempotent via UNIQUE(season, league_id, player_id,
+      // dropped_at_unix) + discord_posted flag, so re-running every 5 min
+      // is cheap when there are no new drops.
+      try {
+        const season = String(env.YEAR || new Date().getUTCFullYear());
+        const leagueId = String(env.LEAGUE_ID || "74598");
+        // Internal admin endpoints — invoked via env.SELF.fetch so
+        // Cloudflare's workers.dev fetch-loop guard (error 1042) doesn't
+        // reject the request. The hostname on the URL is irrelevant for
+        // service-binding fetches; only the path/query matters.
+        const origin = "https://self.invalid";
+        const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+        const dropEnabled = String(env.DROP_TRACKER_ENABLED || "").trim() === "1";
+        const dropAutoPost = String(env.DROP_TRACKER_AUTO_POST || "").trim() === "1";
+        const dropTarget = String(env.DROP_TRACKER_DISCORD_TARGET || "prod").trim().toLowerCase();
+        if (dropEnabled && commishApiKey && env.UPS_MFL_DB && env.SELF) {
+          ctx.waitUntil((async () => {
+            try {
+              const scanUrl = `${origin}/admin/drops/scan-and-record?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`;
+              const scanRes = await env.SELF.fetch(scanUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ season, league_id: leagueId, days: 2 }),
+              });
+              const scanData = await scanRes.json().catch(() => ({}));
+              const newWritten = Number(scanData?.written_count) || 0;
+              let postedCount = 0;
+              if (dropAutoPost) {
+                const postRes = await env.SELF.fetch(
+                  `${origin}/admin/drops/post-discord?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ season, league_id: leagueId, target: dropTarget, limit: 20 }),
+                  }
+                );
+                const postData = await postRes.json().catch(() => ({}));
+                postedCount = Number(postData?.posted_count) || 0;
+              }
+              if (newWritten || postedCount) {
+                console.log(`[scheduled */5] drop-tracker: new_drops=${newWritten} discord_posted=${postedCount} auto_post=${dropAutoPost ? "1" : "0"} target=${dropTarget}`);
+              }
+            } catch (e) {
+              console.error(`[scheduled */5] drop-tracker failed: ${e?.message || String(e)}`);
+            }
+          })());
+        } else if (dropEnabled && !env.SELF) {
+          console.error("[scheduled */5] drop-tracker skipped: env.SELF service binding missing (check wrangler.toml [[services]])");
+        }
+      } catch (e) {
+        console.error(`[scheduled */5] drop-tracker dispatch failed: ${e?.message || String(e)}`);
+      }
+
+      return; // both jobs dispatched on the */5 tick
     }
 
     // ---------- HALL SUMMARY SWEEP (every 2 min, summaries only) ----------
@@ -1769,72 +1831,8 @@ export default {
       console.error(`[scheduled hourly] deadline-reminders dispatch failed: ${e && e.message}`);
     }
 
-    // ---------- DROP TRACKER (hourly scan + optional Discord post) ----------
-    // Scans MFL FREE_AGENT transactions, writes new drops to
-    // ups_drop_events with computed cap penalty. Optionally posts each
-    // new drop to the Discord drops channel with tiered GIF.
-    // Idempotent via the UNIQUE constraint on
-    // (season, league_id, player_id, dropped_at_unix) + the
-    // discord_posted flag.
-    //
-    // Two-flag control (Keith 2026-05-22 — recording and auto-posting
-    // are separate decisions):
-    //   DROP_TRACKER_ENABLED="1"     → recording on (D1 inserts).
-    //   DROP_TRACKER_AUTO_POST="1"   → also auto-post unposted rows to Discord.
-    //   DROP_TRACKER_DISCORD_TARGET  → "prod" (default) or "test".
-    //
-    // Recording-on / auto-post-off is the safe default once enabled: every
-    // drop gets durably tracked, commissioner manually fires
-    // /admin/drops/post-discord when ready to announce.
-    try {
-      const season = String(env.YEAR || new Date().getUTCFullYear());
-      const leagueId = String(env.LEAGUE_ID || "74598");
-      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
-      const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
-      const dropEnabled = String(env.DROP_TRACKER_ENABLED || "").trim() === "1";
-      const dropAutoPost = String(env.DROP_TRACKER_AUTO_POST || "").trim() === "1";
-      const dropTarget = String(env.DROP_TRACKER_DISCORD_TARGET || "prod").trim().toLowerCase();
-      if (dropEnabled && commishApiKey && env.UPS_MFL_DB) {
-        ctx.waitUntil((async () => {
-          try {
-            // 1. Scan transactions for new drops (writes to D1).
-            const scanRes = await fetch(
-              `${origin}/admin/drops/scan-and-record?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ season, league_id: leagueId, days: 2 }),
-              }
-            );
-            const scanData = await scanRes.json().catch(() => ({}));
-            const newWritten = Number(scanData?.written_count) || 0;
-            // 2. Post unposted rows to Discord — ONLY if DROP_TRACKER_AUTO_POST=1.
-            let postedCount = 0;
-            if (dropAutoPost) {
-              const postRes = await fetch(
-                `${origin}/admin/drops/post-discord?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ season, league_id: leagueId, target: dropTarget, limit: 20 }),
-                }
-              );
-              const postData = await postRes.json().catch(() => ({}));
-              postedCount = Number(postData?.posted_count) || 0;
-            }
-            if (newWritten || postedCount) {
-              console.log(`[scheduled hourly] drop-tracker: new_drops=${newWritten} discord_posted=${postedCount} auto_post=${dropAutoPost ? "1" : "0"} target=${dropTarget}`);
-            }
-          } catch (e) {
-            console.error(`[scheduled hourly] drop-tracker failed: ${e?.message || String(e)}`);
-          }
-        })());
-      } else if (!dropEnabled) {
-        // Quiet log when disabled — set DROP_TRACKER_ENABLED=1 to turn on.
-      }
-    } catch (e) {
-      console.error(`[scheduled hourly] drop-tracker dispatch failed: ${e?.message || String(e)}`);
-    }
+    // Drop tracker moved to the */5 cron (above) for sub-hour latency.
+    // See "AUCTION POLL + DROP TRACKER" block at the top of this handler.
 
     // ---------- TAG / EXTENSION DEADLINE MIDNIGHT LOCK ----------
     // First hourly cron at-or-after midnight ET on deadline night.
