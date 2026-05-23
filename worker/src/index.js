@@ -1968,6 +1968,7 @@ export default {
         path !== "/admin/drops/scan-and-record" &&
         path !== "/admin/drops/post-discord" &&
         path !== "/api/giphy-search" &&
+        path !== "/api/franchise-ownership-history" &&
         path !== "/admin/reset-fa-contracts" &&
         path !== "/admin/discord/post" &&
         path !== "/admin/deadline-reminders/test-discord" &&
@@ -5987,6 +5988,89 @@ export default {
           return "";
         } catch (e) { return ""; }
       };
+
+      // ── GET /api/franchise-ownership-history ─────────────────────────────────
+      // Returns the authoritative per-year franchise → owner_name mapping by
+      // fetching each year's MFL league export with MFL_APIKEY. The public
+      // MFL export strips owner_name; the API-keyed export includes it.
+      //
+      // Source of truth for owner-tenure attribution. Replaces D1's
+      // src_weekly_franchise_summary owner_name (which got ETL-backfilled
+      // with current owners, losing historical attribution). Keith 2026-05-23:
+      // "MFL is authoritative."
+      //
+      // Returns: {season: {franchise_id: {owner_name, team_name}}}
+      if (path === "/api/franchise-ownership-history" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        // MFL strips `owner_name` from anonymous public exports — APIKEY alone
+        // is NOT enough. Authenticated session cookie is required for league
+        // export to include owner_name (verified 2026-05-23 against anon curl
+        // of 2010/2011 returning 0/12 with owner_name). Worker has MFL_COOKIE.
+        // APIKEY is also explicitly OMITTED from the URL — MFL ties keys to a
+        // single league/season, so sending the 2026 key against 2010-2025
+        // archives returns "API Key Validation Failed". Cookie alone works
+        // across every archived league the session belongs to.
+        const mflCookie = safeStr(env.MFL_COOKIE || "").trim();
+        if (!mflCookie) return jsonOut(500, { ok: false, error: "MFL_COOKIE not configured" });
+
+        // Pull per-year league IDs
+        let years;
+        try {
+          const r = await env.UPS_MFL_DB.prepare(
+            "SELECT season, server, league_id FROM mfl_league_years ORDER BY season"
+          ).all();
+          years = (r?.results || []).filter((row) => row.season && row.league_id);
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: `mfl_league_years query: ${String(e?.message || e)}` });
+        }
+        if (!years.length) return jsonOut(500, { ok: false, error: "no rows in mfl_league_years" });
+
+        const out = {};
+        for (const y of years) {
+          const season = String(y.season);
+          const server = String(y.server || "www48");
+          const lid = String(y.league_id || "");
+          // No APIKEY in URL — MFL ties keys to a single league/season, so
+          // sending the 2026-issued key against 2010-2025 archives returns
+          // "API Key Validation Failed". Cookie alone is sufficient when the
+          // session belongs to a franchise in the archived league (Keith's
+          // session works for every UPS-archived season because he was a
+          // member every year).
+          const u = `https://${server}.myfantasyleague.com/${season}/export?TYPE=league&L=${encodeURIComponent(lid)}&JSON=1`;
+          try {
+            const r = await fetch(u, {
+              cf: { cacheTtl: 300 },
+              headers: {
+                Cookie: mflCookie,
+                "User-Agent": "Mozilla/5.0 (UPS-MFL-Worker)",
+              },
+            });
+            if (!r.ok) {
+              out[season] = { _error: `MFL ${r.status}` };
+              continue;
+            }
+            const j = await r.json();
+            if (j?.error?.$t) {
+              out[season] = { _error: `MFL: ${j.error.$t}` };
+              continue;
+            }
+            const list = j?.league?.franchises?.franchise || [];
+            const arr = Array.isArray(list) ? list : [list];
+            out[season] = {};
+            for (const f of arr) {
+              const fid = String(f?.id || "").padStart(4, "0");
+              if (!fid) continue;
+              out[season][fid] = {
+                owner_name: safeStr(f?.owner_name || ""),
+                team_name: safeStr(f?.name || ""),
+              };
+            }
+          } catch (e) {
+            out[season] = { _error: String(e?.message || e) };
+          }
+        }
+        return jsonOut(200, { ok: true, history: out, years_count: Object.keys(out).length });
+      }
 
       // ── GET /api/giphy-search?q=<query> ──────────────────────────────────────
       // Proxy for Giphy search using the worker's GIPHY_API_KEY secret. Used by

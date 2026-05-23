@@ -19,6 +19,7 @@ import argparse
 import json
 import subprocess
 import sys
+import urllib.request
 from collections import defaultdict
 from pathlib import Path
 
@@ -26,20 +27,26 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 OUT_PATH = SCRIPT_DIR.parent / "data" / "franchise_career_stats.json"
 TENURE_OVERRIDES_PATH = SCRIPT_DIR.parent / "config" / "owner_tenure_overrides.json"
 
-# UPS league format history (Keith 2026-05-23 canon clarification):
-#   2010 — first ever UPS season, REDRAFT auction-only format (not dynasty;
-#          doesn't count as a "current-format" UPS season for owner records).
+# MFL truth source for per-(season, franchise_id) owner_name attribution.
+# Worker endpoint authenticates via MFL_COOKIE and returns 17-year history.
+# Replaces D1's src_weekly_franchise_summary.owner_name (which ETL stamped
+# with current owners and lost historical attribution).
+WORKER_OWNERSHIP_URL = (
+    "https://upsmflproduction.keith-creelman.workers.dev"
+    "/api/franchise-ownership-history"
+)
+
+# UPS league format history (Keith 2026-05-23 canon, refined):
+#   2010 — first ever UPS season. Redraft auction-only format. STILL counts
+#          as UPS year 1 ("count year 1 as 2010 regardless") even though it
+#          wasn't dynasty format yet.
 #   2011 — first season of CURRENT (dynasty) format. Counts.
 #   2012 — first season with rookie draft + roster contract rollover. Counts.
-# So UPS_FOUNDING_SEASON = 2011 (first dynasty-format season). The earlier
-# 2010 data is pre-current-format and gets filtered out of owner attribution.
-#
-# Keith Creelman 2026-05-23: "I was NOT franchise id 0008 in year 1 that was
-# Roussin." D1's owner_name field on 2011 weeks for 0008 says "Keith Creelman"
-# (likely ETL stamped current owner onto historical rows — same pattern we
-# saw with Brian Cross on 0006/2024). Use owner_tenure_overrides.json to
-# correct Keith's actual start season on 0008.
-UPS_FOUNDING_SEASON = 2011
+# So UPS_FOUNDING_SEASON = 2010 (the league's actual first season).
+# Owner-tenure attribution is handled separately — owners who weren't on a
+# franchise in 2010 don't get credit for that season (per the season-start-
+# owner rule + manual overrides in owner_tenure_overrides.json).
+UPS_FOUNDING_SEASON = 2010
 
 
 def load_tenure_overrides() -> dict:
@@ -52,28 +59,112 @@ def load_tenure_overrides() -> dict:
     return {k: v for k, v in raw.items() if not k.startswith("_")}
 
 
-def apply_tenure_override(fid: str, current_owner: str, owner_seasons: list,
-                          overrides: dict) -> tuple[list, dict]:
-    """Apply manual override to owner_seasons. Returns (filtered_seasons, override_info)."""
-    if fid not in overrides:
-        return owner_seasons, {}
-    for entry in overrides[fid]:
-        entry_owner = (entry.get("owner_name") or "").lower()
-        if entry_owner == current_owner.lower() or (
-            current_owner and (entry_owner in current_owner.lower() or current_owner.lower() in entry_owner)
-        ):
+def fetch_mfl_ownership() -> dict:
+    """Pull per-year MFL ownership truth via worker endpoint.
+
+    Returns {season(int): {fid(str): owner_name(str)}}. Authoritative replacement
+    for D1's src_weekly_franchise_summary.owner_name. NOTE: MFL reports the
+    END-OF-SEASON owner, not the season-start owner. Overrides handle the
+    "season-start owner gets the season" Keith ruling on mid-season takeovers
+    (e.g. 0006/2024 Brian Cross is MFL-attributed but Keith-overridden to Josh
+    Lima as the season-start owner).
+    """
+    req = urllib.request.Request(
+        WORKER_OWNERSHIP_URL,
+        headers={"User-Agent": "Mozilla/5.0 (UPS-Rebuilder)"},
+    )
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        data = json.loads(resp.read())
+    if not data.get("ok"):
+        raise SystemExit(f"MFL ownership endpoint error: {data}")
+    out = {}
+    for season_str, fid_map in (data.get("history") or {}).items():
+        try:
+            season = int(season_str)
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(fid_map, dict):
+            continue
+        for fid, info in fid_map.items():
+            if not isinstance(info, dict):
+                continue
+            owner = (info.get("owner_name") or "").strip()
+            if owner:
+                out.setdefault(season, {})[str(fid).zfill(4)] = owner
+    return out
+
+
+def _owners_match(a: str, b: str) -> bool:
+    """Case-insensitive owner-name match. Substring tolerated for nickname variations."""
+    if not a or not b:
+        return False
+    al, bl = a.strip().lower(), b.strip().lower()
+    if al == bl:
+        return True
+    # Substring tolerance for nicknames (e.g. "Steve Bousquet" vs "Steve B.")
+    return al in bl or bl in al
+
+
+def build_effective_ownership(mfl_ownership: dict, overrides: dict) -> tuple[dict, dict]:
+    """Resolve (fid, season) → effective season-start owner.
+
+    Starts from MFL truth, then applies overrides: when an override declares
+    "owner X's tenure on franchise Y starts season N", any season < N where MFL
+    attributed X to Y is reassigned to the PRIOR MFL owner on that franchise
+    (the season-start owner per Keith's commish ruling). If no prior owner
+    exists in MFL data, the (fid, season) cell is dropped — the franchise totals
+    still include it but no owner career picks it up.
+
+    Returns:
+      effective_owner_by_fs: {(fid, season): owner_name}
+      override_meta_by_fid: {fid: [{"owner_name", "tenure_start_season",
+                                    "tenure_end_season", "notes"}]}
+    """
+    effective: dict = {}
+    for season, fid_map in mfl_ownership.items():
+        for fid, owner in fid_map.items():
+            effective[(fid, season)] = owner
+
+    override_meta_by_fid: dict = defaultdict(list)
+    for fid, entries in overrides.items():
+        for entry in entries:
+            owner_nm = (entry.get("owner_name") or "").strip()
+            if not owner_nm:
+                continue
             start = entry.get("tenure_start_season")
             end = entry.get("tenure_end_season")
-            filtered = [s for s in owner_seasons
-                        if (start is None or s >= start)
-                        and (end is None or s <= end)]
-            return filtered, {
-                "applied": True,
+            override_meta_by_fid[fid].append({
+                "owner_name": owner_nm,
                 "tenure_start_season": start,
                 "tenure_end_season": end,
                 "notes": entry.get("notes", ""),
-            }
-    return owner_seasons, {}
+            })
+
+            # Seasons where MFL attributes this owner to this franchise
+            mfl_seasons_for_owner = sorted(
+                s for (f, s), nm in effective.items()
+                if f == fid and _owners_match(nm, owner_nm)
+            )
+            for season in mfl_seasons_for_owner:
+                in_tenure = (
+                    (start is None or season >= start)
+                    and (end is None or season <= end)
+                )
+                if in_tenure:
+                    continue
+                # Out-of-tenure: reassign to prior MFL owner on this franchise
+                prior_owner = None
+                for psn in range(season - 1, season - 16, -1):
+                    cand = mfl_ownership.get(psn, {}).get(fid)
+                    if cand and not _owners_match(cand, owner_nm):
+                        prior_owner = cand
+                        break
+                if prior_owner:
+                    effective[(fid, season)] = prior_owner
+                else:
+                    effective.pop((fid, season), None)
+
+    return effective, dict(override_meta_by_fid)
 
 
 def d1_query(sql: str) -> list[dict]:
@@ -121,36 +212,46 @@ def load_weekly_summary() -> list[dict]:
 
 
 def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
-                overrides: dict = None) -> dict:
+                mfl_ownership: dict, overrides: dict = None) -> dict:
     """Build the career stats dict keyed by current franchise_id.
 
-    Owner-tenure attribution rule (Keith 2026-05-22, refined):
+    Owner-tenure attribution rule (Keith 2026-05-22/05-23):
       "Once you start you're locked in." Whoever owns the franchise at
-      SEASON START (the earliest-week row in src_weekly_franchise_summary)
-      gets credited with the FULL season's stats — regardless of any
-      mid-season takeover. A mid-season takeover does NOT begin the
+      SEASON START gets credited with the FULL season's stats — regardless
+      of any mid-season takeover. A mid-season takeover does NOT begin the
       incoming owner's career tenure; their tenure starts at the NEXT
       season they own at week 1.
 
       Example: The Long Haulers 2024 = 3 weeks Lima → 14 weeks Cross.
         Season-start owner = Lima → Lima gets all 2024 stats.
         Cross's career starts 2025 (his first full season from week 1).
+
+    Cross-franchise rule (Keith 2026-05-23):
+      "Keith started in 2010 as 0007." Owners can span multiple franchises
+      across their career (Keith on 0007/2010 → 0008/2011-2026). The owner
+      block aggregates stats across EVERY (fid, season) where MFL truth +
+      overrides attribute that owner.
+
+    Data source:
+      MFL public export per year (worker /api/franchise-ownership-history)
+      provides END-OF-SEASON owner_name. Overrides reassign mid-season-
+      takeover seasons to the prior MFL owner (the season-start owner).
     """
-    # Per-season totals (franchise-wide)
+    overrides = overrides or {}
+
+    # Per-(fid, season) raw stats — always franchise-scoped
     season_totals = defaultdict(lambda: defaultdict(lambda: {
         "h2h_w": 0, "h2h_l": 0, "h2h_t": 0, "h2h_g": 0,
         "ap_w": 0, "ap_l": 0, "pts_for": 0.0, "weeks": 0,
     }))
-    # Track the SEASON-START owner per (fid, season) — earliest week wins
-    season_start_owner = defaultdict(dict)  # season_start_owner[fid][season] = (min_week, owner_name)
-    # Also track distinct owners per season (informational — surfaces mid-season transitions
-    # for trade-counter exclusion logic, even though they don't change stat attribution).
+    # Distinct owners ever seen during a season (from D1 weekly) — heuristic
+    # signal for transition_seasons; D1 owner_name is unreliable (ETL stamps
+    # current owner backward), but multi-distinct-name still flags transitions.
     season_owners_seen = defaultdict(lambda: defaultdict(set))
 
     for w in weekly:
         fid = str(w["franchise_id"]).zfill(4)
         season = int(w["season"])
-        week = int(w.get("week") or 0)
         s = season_totals[fid][season]
         s["h2h_w"] += int(w.get("h2h_wins") or 0)
         s["h2h_l"] += int(w.get("h2h_losses") or 0)
@@ -163,10 +264,11 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
         owner_nm = (w.get("owner_name") or "").strip()
         if owner_nm:
             season_owners_seen[fid][season].add(owner_nm)
-            # Track season-start owner (earliest week)
-            prior = season_start_owner[fid].get(season)
-            if prior is None or week < prior[0]:
-                season_start_owner[fid][season] = (week, owner_nm)
+
+    # Resolve effective owner per (fid, season) — MFL truth + override reassignment
+    effective_owner, override_meta_by_fid = build_effective_ownership(
+        mfl_ownership, overrides
+    )
 
     # Index final standings
     finish_by_fs = {}  # (fid, season) → final_finish
@@ -176,58 +278,61 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
 
     # Build per-franchise career stats
     out = {}
-    for fid in sorted(set(list(owners.keys()) + list(season_totals.keys()))):
+    all_fids = sorted(
+        set(list(owners.keys()) + list(season_totals.keys()))
+        | {fid for (fid, _) in effective_owner.keys()}
+    )
+    for fid in all_fids:
         owner_info = owners.get(fid, {})
         seasons_with_data = sorted(season_totals.get(fid, {}).keys())
         # Determine the current owner: take from discord_owners (canonical)
         current_owner = owner_info.get("owner_name", "") or (
-            list(season_owners_seen[fid][seasons_with_data[-1]])[0]
-            if seasons_with_data and season_owners_seen[fid][seasons_with_data[-1]]
-            else ""
-        )
-        # Owner tenure = SEASON-START-OWNER rule (Keith 2026-05-22):
-        #   include season iff the season-start owner matches current_owner.
-        #   Mid-season takeovers DON'T transfer attribution — the inheriting
-        #   owner picks up at NEXT season's week 1. transition_seasons is
-        #   surfaced separately for trade-counter exclusion purposes (a
-        #   season with multiple owners is still a transition window where
-        #   trade activity should be filtered) but does NOT affect stats.
-        owner_seasons = []
-        transition_seasons = []
-        for season in seasons_with_data:
-            owners_seen = season_owners_seen[fid].get(season, set())
-            if not owners_seen:
-                continue  # no owner_name data, skip
-            if len(owners_seen) >= 2:
-                transition_seasons.append(season)
-            # Attribute to season-start owner regardless of transitions
-            start_owner_tup = season_start_owner[fid].get(season)
-            if not start_owner_tup:
-                continue
-            start_owner = start_owner_tup[1]
-            if not current_owner:
-                owner_seasons.append(season)
-            elif current_owner.lower() == start_owner.lower():
-                owner_seasons.append(season)
-            elif current_owner.lower() in start_owner.lower() or start_owner.lower() in current_owner.lower():
-                # Substring match for nickname variations
-                owner_seasons.append(season)
+            effective_owner.get((fid, seasons_with_data[-1])) if seasons_with_data else ""
+        ) or ""
 
-        # Apply manual tenure override (overrides D1's owner_name when it's
-        # incorrect — e.g. D1 stamped current owner onto historical rows).
+        # ── OWNER CAREER (cross-franchise) ────────────────────────────────
+        # Walk every (fid', season) in effective_owner where the season-start
+        # owner matches current_owner. This is the union of all franchises
+        # current_owner has held season-start ownership of.
+        owner_seasons_pairs = []  # list of (fid', season)
+        if current_owner:
+            for (fid2, season), nm in effective_owner.items():
+                if _owners_match(nm, current_owner):
+                    owner_seasons_pairs.append((fid2, season))
+        owner_seasons_pairs.sort(key=lambda p: (p[1], p[0]))
+        owner_seasons = sorted({s for (_, s) in owner_seasons_pairs})
+        owner_franchises = sorted({f for (f, _) in owner_seasons_pairs})
+
+        # Transition seasons (informational): D1 saw multiple distinct
+        # owner names during this franchise-season. Used downstream for
+        # trade-counter exclusion windows; doesn't affect stat attribution.
+        transition_seasons = [
+            season for season in seasons_with_data
+            if len(season_owners_seen[fid].get(season, set())) >= 2
+        ]
+
+        # Override meta — surface the entries that apply to this fid
+        # (may include overrides for owners who held the franchise but
+        # aren't the current owner — useful audit trail).
         override_info = {}
-        if overrides:
-            owner_seasons, override_info = apply_tenure_override(
-                fid, current_owner, owner_seasons, overrides
-            )
+        meta_list = override_meta_by_fid.get(fid, [])
+        for m in meta_list:
+            if _owners_match(m["owner_name"], current_owner):
+                override_info = {
+                    "applied": True,
+                    "tenure_start_season": m["tenure_start_season"],
+                    "tenure_end_season": m["tenure_end_season"],
+                    "notes": m["notes"],
+                }
+                break
 
-        # Owner-tenure aggregates
-        owner_h2h_w = sum(season_totals[fid][s]["h2h_w"] for s in owner_seasons)
-        owner_h2h_l = sum(season_totals[fid][s]["h2h_l"] for s in owner_seasons)
-        owner_ap_w = sum(season_totals[fid][s]["ap_w"] for s in owner_seasons)
-        owner_ap_l = sum(season_totals[fid][s]["ap_l"] for s in owner_seasons)
+        # Owner-tenure aggregates — pulled from each (fid', season) tile
+        owner_h2h_w = sum(season_totals[f][s]["h2h_w"] for (f, s) in owner_seasons_pairs)
+        owner_h2h_l = sum(season_totals[f][s]["h2h_l"] for (f, s) in owner_seasons_pairs)
+        owner_ap_w = sum(season_totals[f][s]["ap_w"] for (f, s) in owner_seasons_pairs)
+        owner_ap_l = sum(season_totals[f][s]["ap_l"] for (f, s) in owner_seasons_pairs)
         owner_first = min(owner_seasons) if owner_seasons else None
-        owner_finishes = [finish_by_fs.get((fid, s)) for s in owner_seasons if finish_by_fs.get((fid, s)) is not None]
+        owner_finishes = [finish_by_fs.get((f, s)) for (f, s) in owner_seasons_pairs if finish_by_fs.get((f, s)) is not None]
         owner_chips = sum(1 for f in owner_finishes if f == 1)
         owner_playoffs = sum(1 for f in owner_finishes if f and f <= 6)  # top-6 = playoffs assumption
         owner_best = min(owner_finishes) if owner_finishes else None
@@ -295,6 +400,14 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
                 "display": current_owner,
                 "first_season": owner_first,
                 "seasons_count": len(owner_seasons),
+                # Cross-franchise: owner career spans EVERY franchise they've
+                # been season-start owner of (e.g. Keith = 0007/2010 + 0008/
+                # 2011-2026). franchises_owned lists those fids in order.
+                "franchises_owned": owner_franchises,
+                "seasons_by_franchise": {
+                    f: sorted(s for (ff, s) in owner_seasons_pairs if ff == f)
+                    for f in owner_franchises
+                },
                 "allplay": {"w": owner_ap_w, "l": owner_ap_l},
                 "allplay_pct": round(owner_ap_pct, 3),
                 "overall": {"w": owner_h2h_w, "l": owner_h2h_l},
@@ -346,21 +459,27 @@ def main():
     print(f"  weekly summary rows: {len(weekly)}")
     overrides = load_tenure_overrides()
     print(f"  tenure overrides: {len(overrides)} franchise(s)")
+    print("Fetching MFL ownership history from worker...")
+    mfl_ownership = fetch_mfl_ownership()
+    print(f"  MFL ownership: {len(mfl_ownership)} season(s), "
+          f"{sum(len(v) for v in mfl_ownership.values())} (season, fid) cells")
 
     print("Building career stats...")
-    stats = build_stats(owners, standings, weekly, overrides=overrides)
+    stats = build_stats(owners, standings, weekly, mfl_ownership, overrides=overrides)
 
-    # Quick sanity sample
-    sample_fids = ["0006", "0007"]
+    # Quick sanity sample — Keith's cross-franchise career (0007/2010 → 0008+),
+    # Brian Cross's 2025-start override on 0006, Hammer's 2024 chip drought.
+    sample_fids = ["0006", "0007", "0008", "0005"]
     print("\nSample:")
     for fid in sample_fids:
         s = stats.get(fid, {})
         o = s.get("owner", {})
         print(f"  {fid} {s.get('franchise_name','')}: owner={o.get('display','')} "
+              f"first_season={o.get('first_season')} "
               f"seasons={o.get('seasons_count',0)} "
+              f"franchises={o.get('franchises_owned',[])} "
               f"allplay={o.get('allplay',{}).get('w',0)}-{o.get('allplay',{}).get('l',0)} "
-              f"chips={o.get('championships',0)} "
-              f"finishes={s.get('trend')}")
+              f"chips={o.get('championships',0)}")
 
     if args.dry_run:
         print("\nDRY RUN — not writing")

@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-21T22:59:53.516Z",
-    "row_count": 26,
+    "updated_at": "2026-05-22T19:28:44.100Z",
+    "row_count": 27,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -4884,6 +4884,228 @@
       "twb_meta": null,
       "mfl_trade_id": "1044",
       "trade_id": "1044",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1047",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-05-22T19:28:44.100Z",
+      "updated_at": "2026-05-22T19:28:44.100Z",
+      "from_franchise_id": "0010",
+      "to_franchise_id": "0006",
+      "from_franchise_name": "Blake Bombers",
+      "to_franchise_name": "The Long Haulers",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "13163,12616,DP_1_10",
+      "will_receive": "17102",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 3,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-05-22T19:28:40.869Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "selected_assets": [
+              {
+                "asset_id": "player:13163",
+                "type": "PLAYER",
+                "player_id": "13163",
+                "player_name": "Godwin, Chris",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "TBB",
+                "salary": 10000,
+                "years": 1,
+                "contract_type": "Veteran",
+                "contract_info": "CL 2| TCV 20K| AAV 10K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "player:12616",
+                "type": "PLAYER",
+                "player_id": "12616",
+                "player_name": "Brissett, Jacoby",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "ARI",
+                "salary": 16000,
+                "years": 1,
+                "contract_type": "TAG",
+                "contract_info": "CL 1| TCV 16K| AAV 16K| GTD 12K| Tag| Tier 3| Formula: Avg Top 16-24 QB AAV",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:DP_1_10",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.11",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_10",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 11
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 13,
+            "selected_non_taxi_salary_dollars": 26000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "selected_assets": [
+              {
+                "asset_id": "player:17102",
+                "type": "PLAYER",
+                "player_id": "17102",
+                "player_name": "Warren, Tyler",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "IND",
+                "salary": 5000,
+                "years": 2,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 15K| AAV 5K | Option Eligible",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 2,
+            "selected_non_taxi_salary_dollars": 5000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0010",
+          "right_team_id": "0006"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 164000,
+            "salary_adjustment_total_dollars": 6250,
+            "outgoing_dollars": 26000,
+            "incoming_dollars": 5000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -21000,
+            "new_salary_dollars": 143000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 13,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 21000,
+            "available_salary_before_dollars": 129750,
+            "available_salary_after_dollars": 150750,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 283000,
+            "salary_adjustment_total_dollars": 3500,
+            "outgoing_dollars": 5000,
+            "incoming_dollars": 26000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 21000,
+            "new_salary_dollars": 304000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 2,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -21000,
+            "available_salary_before_dollars": 13500,
+            "available_salary_after_dollars": -7500,
+            "over_cap_dollars": 7500
+          },
+          "has_over_cap": true
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Blake Bombers",
+          "right_franchise_name": "The Long Haulers",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 170000,
+              "left_after_dollars": 149000,
+              "left_change_dollars": -21000,
+              "right_before_dollars": 296000,
+              "right_after_dollars": 317000,
+              "right_change_dollars": 21000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 133000,
+              "left_after_dollars": 128000,
+              "left_change_dollars": -5000,
+              "right_before_dollars": 225000,
+              "right_after_dollars": 230000,
+              "right_change_dollars": 5000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 82000,
+              "left_after_dollars": 87000,
+              "left_change_dollars": 5000,
+              "right_before_dollars": 57000,
+              "right_after_dollars": 52000,
+              "right_change_dollars": -5000
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1047",
+      "trade_id": "1047",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
