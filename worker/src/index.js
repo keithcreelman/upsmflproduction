@@ -3104,6 +3104,10 @@ export default {
       if (path === "/api/draft-state" && request.method === "GET") {
         const leagueId = _rdhLeagueId();
         const year = _rdhYear();
+        // ?fresh=1 bypasses the server-side monotonic-coalesce — used
+        // when the user explicitly hits Sync MFL and wants to see the
+        // true latest state (including reverts that would shrink picks).
+        const bypassCache = url.searchParams.get("fresh") === "1";
         // Keith 2026-05-24: NO CACHE on draftResults.
         // The 5s CF edge cache caused the on-the-clock pick to bounce —
         // different CF colos returned different snapshots within the
@@ -3182,20 +3186,79 @@ export default {
             }
           }
 
-          return jsonOut(200, {
-            franchises,
-            draft_order,
-            picks_made,
-            active_pick,
-            meta: {
-              source: "mfl_live",
-              league_id: leagueId,
-              year,
-              as_of: new Date().toISOString(),
-              n_picks_made: picks_made.length,
-              n_picks_total: draft_order.length,
-            },
-          });
+          // ── Server-side monotonic coalesce (D1-backed) ──
+          // MFL's backend nodes don't replicate consistently during a
+          // live draft — different requests hit different nodes and
+          // see DIFFERENT picks_made counts (verified empirically:
+          // n=0,0,0,3,1 across 5 back-to-back calls). To keep all
+          // browsers in sync, the worker remembers the HIGHEST
+          // picks_made count it's seen for this league in the last
+          // 60 seconds and serves that. A higher new count promotes
+          // the cache. A lower new count is ignored UNLESS the user
+          // passed ?fresh=1 (intent: see reverts immediately).
+          try {
+            await env.UPS_MFL_DB.exec(
+              "CREATE TABLE IF NOT EXISTS ups_draft_state_cache (league_id TEXT PRIMARY KEY, n_picks INTEGER, payload TEXT, updated_at INTEGER)"
+            );
+            const cached = await env.UPS_MFL_DB.prepare(
+              "SELECT n_picks, payload, updated_at FROM ups_draft_state_cache WHERE league_id = ?"
+            ).bind(leagueId).first();
+            const nowSec = Math.floor(Date.now() / 1000);
+            const cacheFresh = cached && (nowSec - cached.updated_at) < 60;
+            const responseObj = {
+              franchises,
+              draft_order,
+              picks_made,
+              active_pick,
+              meta: {
+                source: "mfl_live",
+                league_id: leagueId,
+                year,
+                as_of: new Date().toISOString(),
+                n_picks_made: picks_made.length,
+                n_picks_total: draft_order.length,
+              },
+            };
+            if (
+              !bypassCache &&
+              cacheFresh &&
+              cached.n_picks > picks_made.length
+            ) {
+              // MFL just gave us a SMALLER snapshot than what we recently
+              // cached — almost certainly a stale read from a lagging
+              // node. Serve the cached (larger) payload instead.
+              try {
+                const cachedPayload = JSON.parse(cached.payload);
+                cachedPayload.meta = cachedPayload.meta || {};
+                cachedPayload.meta.coalesced = true;
+                cachedPayload.meta.coalesced_age_s = nowSec - cached.updated_at;
+                cachedPayload.meta.dropped_n_picks = picks_made.length;
+                return jsonOut(200, cachedPayload);
+              } catch (_) { /* fall through to fresh */ }
+            }
+            // Promote: write the new (larger or equal) payload + count
+            await env.UPS_MFL_DB.prepare(
+              "INSERT OR REPLACE INTO ups_draft_state_cache (league_id, n_picks, payload, updated_at) VALUES (?, ?, ?, ?)"
+            ).bind(leagueId, picks_made.length, JSON.stringify(responseObj), nowSec).run();
+            return jsonOut(200, responseObj);
+          } catch (cacheErr) {
+            // D1 cache failed — return the fresh payload anyway
+            return jsonOut(200, {
+              franchises,
+              draft_order,
+              picks_made,
+              active_pick,
+              meta: {
+                source: "mfl_live",
+                league_id: leagueId,
+                year,
+                as_of: new Date().toISOString(),
+                n_picks_made: picks_made.length,
+                n_picks_total: draft_order.length,
+                cache_error: String(cacheErr?.message || cacheErr),
+              },
+            });
+          }
         } catch (e) {
           return jsonOut(500, { error: String(e && e.message || e) });
         }
