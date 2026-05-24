@@ -31150,19 +31150,36 @@ export default {
         // extended in a prior year and still be holding the player on the
         // resulting contract (McBride: 2025 EXT2 still active in 2026).
         let extensionMasterPlayerSet = new Set();      // per #1, current season only
-        let extensionMasterFranchisePairSet = new Set(); // per #2, all seasons, "fid|pid"
+        let extensionMasterFranchisePairSet = new Set(); // per #2, only contracts STILL ACTIVE in current season
         let extensionMasterRowCount = 0;
         try {
+          // The contract_end_year filter (added in migration 0073) is
+          // critical: once an extension contract expires AND the player
+          // goes through FA Auction, the franchise's extension right
+          // RESETS. Without this filter we'd block PG from extending
+          // Bosa in 2026 just because PG extended him in 2023 (long
+          // since expired). Per Keith 2026-05-24.
+          const currentSeasonInt = safeInt(season, 0);
           const masterRes = await env.UPS_MFL_DB.prepare(
-            `SELECT season, franchise_id, player_id FROM ups_extension_master WHERE league_id = ?`
+            `SELECT season, franchise_id, player_id, contract_end_year
+             FROM ups_extension_master WHERE league_id = ?`
           ).bind(leagueId).all();
           for (const row of asArray(masterRes?.results)) {
             const pid = String(row?.player_id || "").replace(/\D/g, "");
             const fid = padFranchiseId(row?.franchise_id || "");
             if (!pid) continue;
-            if (fid) extensionMasterFranchisePairSet.add(fid + "|" + pid);
+            // Per-season player set (for preview-row pruning, Bijan class)
             if (String(row?.season) === String(season)) {
               extensionMasterPlayerSet.add(pid);
+            }
+            // Per-franchise pair set — only include if contract is STILL
+            // ACTIVE in the current season (contract_end_year >= current
+            // season). Players whose extension contract has already
+            // expired and gone through FA are eligible for re-extension
+            // by their original extender if re-acquired.
+            const endYear = safeInt(row?.contract_end_year, 0);
+            if (fid && currentSeasonInt > 0 && endYear >= currentSeasonInt) {
+              extensionMasterFranchisePairSet.add(fid + "|" + pid);
             }
           }
           extensionMasterRowCount = extensionMasterPlayerSet.size;
