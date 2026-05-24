@@ -411,19 +411,25 @@
     STATE.me = me;
 
     // ── SHARED DRAFT MODE (Keith 2026-05-24) ──
-    // The per-browser sessionStorage SIM/LIVE flag is wrong for a real
-    // draft room — different owners' hubs would land in different modes
-    // depending on their session history. Real-room behavior: if MFL
-    // shows the draft has started (any picks_made > 0), EVERY owner's
-    // hub auto-flips to LIVE so they see the same state.
-    //
-    // Pre-first-pick: hub respects the local SIM/LIVE flag (commish needs
-    // to manually flip to LIVE in their own hub to fire the first pick).
-    // Once that first pick lands in MFL, all other owners' hubs detect
-    // it on their next poll and flip themselves to LIVE automatically.
-    if (live && Array.isArray(live.picks_made) && live.picks_made.length > 0) {
+    // Two triggers flip every owner's hub to LIVE in sync:
+    //  1. Commish clicks "Go LIVE" → broadcasts via /api/draft-status →
+    //     every other hub picks it up on next poll.
+    //  2. ANY pick exists in MFL → defensive fallback so a stale hub
+    //     loaded mid-draft auto-flips even if the broadcast was missed.
+    let serverDraftStatus = null;
+    try {
+      const r = await fetch(apiUrl("/api/draft-status") + "?L=74598", { cache: "no-store" });
+      if (r.ok) serverDraftStatus = await r.json();
+    } catch (e) { /* server flag optional — defensive fallback below */ }
+    const serverSaysLive = !!(serverDraftStatus && serverDraftStatus.live);
+    const mflHasPicks = !!(live && Array.isArray(live.picks_made) && live.picks_made.length > 0);
+    if (serverSaysLive || mflHasPicks) {
       STATE.simulationMode = false;
       try { sessionStorage.setItem("rdh_sim_mode", "false"); } catch (e) {}
+    } else if (serverDraftStatus && serverDraftStatus.live === false) {
+      // Commish explicitly broadcast SIM → respect even if user had LIVE locally
+      STATE.simulationMode = true;
+      try { sessionStorage.setItem("rdh_sim_mode", "true"); } catch (e) {}
     }
     // Overlay HPM-injected franchise_id when present — that's the most
     // trustworthy "who is this owner" signal because MFL only injects it
@@ -539,14 +545,30 @@
       STATE.live.picks_made = live.picks_made.concat(localSimPicks);
       STATE.live.active_pick = live.active_pick || _autoSimNextSlot();
       STATE.live.meta = Object.assign({}, prevMeta, live.meta);
-      // SHARED DRAFT MODE: if MFL now has real picks made, every owner's
-      // hub should auto-flip to LIVE so they all see the same state.
-      // This catches the case where an owner was sitting in SIM mode when
-      // the draft started — their next poll detects picks and flips them.
-      if (Array.isArray(live.picks_made) && live.picks_made.length > 0 && STATE.simulationMode) {
+      // SHARED DRAFT MODE: poll the commish-controlled flag alongside
+      // MFL state. Either source flipping LIVE → flip the local hub.
+      // Commish broadcast (via /api/draft-status) propagates instantly
+      // on next poll cycle (~10s) without waiting for first pick.
+      let serverLive = false, serverStatusKnown = false;
+      try {
+        const sr = await fetch(apiUrl("/api/draft-status") + "?L=74598", { cache: "no-store" });
+        if (sr.ok) {
+          const sd = await sr.json();
+          serverStatusKnown = true;
+          serverLive = !!sd.live;
+        }
+      } catch (e) { /* server flag optional */ }
+      const mflHasPicks = Array.isArray(live.picks_made) && live.picks_made.length > 0;
+      if ((serverLive || mflHasPicks) && STATE.simulationMode) {
         STATE.simulationMode = false;
         try { sessionStorage.setItem("rdh_sim_mode", "false"); } catch (e) {}
         showToast("🔴 Draft is LIVE — switching your hub to LIVE mode automatically", "ok");
+        renderLiveModeBanner();
+      } else if (serverStatusKnown && !serverLive && !mflHasPicks && !STATE.simulationMode) {
+        // Commish broadcast SIM-mode AND no picks yet — flip back to SIM
+        STATE.simulationMode = true;
+        try { sessionStorage.setItem("rdh_sim_mode", "true"); } catch (e) {}
+        showToast("🟡 Commish reverted to SIMULATE mode", "ok");
         renderLiveModeBanner();
       }
       // Seed the per-pick clock: in LIVE, the previous pick's MFL timestamp
@@ -1244,6 +1266,23 @@
     try { sessionStorage.setItem("rdh_sim_mode", String(STATE.simulationMode)); } catch (e) {}
     renderLiveModeBanner();
     showToast(STATE.simulationMode ? "Switched to SIMULATE — picks won't hit MFL" : "🔴 LIVE MODE — picks will be submitted to MFL", STATE.simulationMode ? "ok" : "err");
+    // SHARED DRAFT MODE: if commish flipped, broadcast the new mode to
+    // the server so every other owner's hub flips on their next poll.
+    // Fire-and-forget — UI doesn't wait for the response.
+    if (STATE.me && STATE.me.is_commish) {
+      const requestedBy = (STATE.me.franchise_id || "0000");
+      fetch(apiUrl("/api/draft-status") + "?L=74598", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requested_by: requestedBy, live: !STATE.simulationMode }),
+      }).then(r => r.json()).then(d => {
+        if (d && d.ok) {
+          showToast(d.live ? "📡 Broadcast: every hub flipping to LIVE on next poll" : "📡 Broadcast: every hub flipping to SIMULATE on next poll", "ok");
+        } else {
+          console.warn("[draft-status] broadcast failed:", d);
+        }
+      }).catch(e => console.warn("[draft-status] broadcast failed:", e));
+    }
     // Mode flip toggles inbox visibility + polling + the pick clock.
     if (STATE.simulationMode) {
       if (TRADE_INBOX.pollTimer) clearInterval(TRADE_INBOX.pollTimer);
