@@ -541,6 +541,39 @@
       if (!ct.includes("json")) throw new Error("not JSON");
       const live = await r.json();
       if (!live || !Array.isArray(live.draft_order)) throw new Error("bad shape");
+      // ── Anti-flicker monotonic coalesce ─────────────────────────────
+      // MFL's shard hosts return inconsistent draftResults during a
+      // live draft — three back-to-back calls returned 1, 3, 1 picks.
+      // That made the on-the-clock cursor bounce around (1.04 → 1.01 →
+      // 1.02). Even after switching the worker to api.myfantasyleague.com,
+      // we keep this client-side guard as belt-and-suspenders.
+      //
+      // Rule: if a poll returns FEWER picks than we already had, DROP it
+      // (treat as transient stale read). EXCEPTIONS:
+      //   - User explicitly clicked Sync MFL (fresh:true) — they're
+      //     intentionally trying to see a revert.
+      //   - LIVE mode just turned on (prev count = 0) — first read.
+      //   - It's been >15s since our last successful poll — if it's
+      //     genuinely smaller after that, it's probably a real revert.
+      const prevPicksCount = (STATE.live.picks_made || []).length;
+      const newPicksCount = (live.picks_made || []).length;
+      const longGap = STATE._lastDraftStatePollAt &&
+        (Date.now() - STATE._lastDraftStatePollAt) > 15000;
+      if (
+        !fresh &&
+        !initial &&
+        prevPicksCount > 0 &&
+        newPicksCount < prevPicksCount &&
+        !longGap
+      ) {
+        // Drop this poll silently. Schedule the next one normally.
+        if (_liveStatePollTimer) clearTimeout(_liveStatePollTimer);
+        if (!STATE.simulationMode) {
+          _liveStatePollTimer = setTimeout(() => _refreshLiveDraftState({}), 5000);
+        }
+        return;
+      }
+      STATE._lastDraftStatePollAt = Date.now();
       // Merge: replace authoritative fields, preserve metadata.
       // MFL is ALWAYS source of truth for "which slots are filled". The only
       // local data we preserve is picks marked with a sim-origin comment

@@ -3104,28 +3104,33 @@ export default {
       if (path === "/api/draft-state" && request.method === "GET") {
         const leagueId = _rdhLeagueId();
         const year = _rdhYear();
-        // ?fresh=1 bypasses the CF edge cache — used by hub after pick
-        // submit, after a LIVE-mode flip, or anywhere we need MFL state
-        // RIGHT NOW (e.g. commish reverted a pick via MFL admin tools
-        // and is checking that the hub recognized it).
-        const bypassCache = url.searchParams.get("fresh") === "1";
-        const noStore = (u, ttl) => fetch(u, {
-          cf: bypassCache
-            ? { cacheTtl: 0, cacheEverything: false }
-            // Tiny TTL (5s) for normal polls so multiple browsers don't
-            // pummel MFL but the data is still effectively live during a draft.
-            : { cacheTtl: ttl || 5, cacheEverything: true },
+        // Keith 2026-05-24: NO CACHE on draftResults.
+        // The 5s CF edge cache caused the on-the-clock pick to bounce —
+        // different CF colos returned different snapshots within the
+        // cache window, so back-to-back polls would see (e.g.) 1.04 then
+        // 1.01 then 1.02. League export (franchise names) is fine to cache.
+        // Trade-off: ~12 owners × 5s poll = ~2.4 MFL calls/sec — well below
+        // anything MFL would care about.
+        const draftFetch = (u) => fetch(u, {
+          cf: { cacheTtl: 0, cacheEverything: false },
           headers: {
             "User-Agent": "upsmflproduction-worker",
-            // Belt-and-suspenders: even with cacheTtl:0, force MFL to skip
-            // any of its own edge layer.
-            ...(bypassCache ? { "Cache-Control": "no-cache" } : {}),
+            "Cache-Control": "no-cache",
           },
         });
+        const longCache = (u, ttl) => fetch(u, {
+          cf: { cacheTtl: ttl, cacheEverything: true },
+          headers: { "User-Agent": "upsmflproduction-worker" },
+        });
         try {
+          // Use api.myfantasyleague.com (authoritative) for draftResults
+          // instead of www48 shard — shard hosts had inconsistent
+          // replication mid-draft (3 back-to-back calls returned
+          // n=1, n=3, n=1 picks_made). The canonical api host is more
+          // consistent. League export still on www48 (cached daily).
           const [drRes, lgRes] = await Promise.allSettled([
-            noStore(`https://www48.myfantasyleague.com/${year}/export?TYPE=draftResults&L=${leagueId}&JSON=1`, 5),
-            noStore(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1`, 86400),
+            draftFetch(`https://api.myfantasyleague.com/${year}/export?TYPE=draftResults&L=${leagueId}&JSON=1`),
+            longCache(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1`, 86400),
           ]);
 
           // Build franchise name index from league
