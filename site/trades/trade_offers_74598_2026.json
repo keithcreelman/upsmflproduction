@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-24T23:01:31.386Z",
-    "row_count": 32,
+    "updated_at": "2026-05-24T23:59:29.170Z",
+    "row_count": 33,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -6072,6 +6072,228 @@
       "twb_meta": null,
       "mfl_trade_id": "1052",
       "trade_id": "1052",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1053",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-05-24T23:59:29.170Z",
+      "updated_at": "2026-05-24T23:59:29.170Z",
+      "from_franchise_id": "0006",
+      "to_franchise_id": "0003",
+      "from_franchise_name": "The Long Haulers",
+      "to_franchise_name": "Gride",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "DP_1_2,DP_2_5",
+      "will_receive": "DP_1_4,DP_1_9",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 2,
+        "to_asset_count": 2,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-05-24T23:59:25.431Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_2",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.03",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_2",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 3
+              },
+              {
+                "asset_id": "pick:DP_2_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.06",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_5",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 6
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_4",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.05",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_4",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 5
+              },
+              {
+                "asset_id": "pick:DP_1_9",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.10",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_9",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 10
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0006",
+          "right_team_id": "0003"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 283000,
+            "salary_adjustment_total_dollars": 3500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 283000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 13500,
+            "available_salary_after_dollars": 13500,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 162000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 162000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 134000,
+            "available_salary_after_dollars": 134000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "The Long Haulers",
+          "right_franchise_name": "Gride",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 283000,
+              "left_after_dollars": 283000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 225000,
+              "left_after_dollars": 225000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 57000,
+              "left_after_dollars": 57000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 15000,
+              "right_after_dollars": 15000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1053",
+      "trade_id": "1053",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
