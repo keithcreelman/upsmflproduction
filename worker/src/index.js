@@ -31129,20 +31129,41 @@ export default {
           franchiseMetaById
         );
 
-        // D1 master read — drop preview rows for players who have already
-        // been extended this season (canon §C4: one extension per season per
-        // player). This is the authoritative filter; without it stale preview
-        // JSON rows surface as "pre-trade extension" options for already-
-        // extended players (Bijan-class bug).
-        let extensionMasterPlayerSet = new Set();
+        // D1 master read — gates two things:
+        //
+        // 1. PREVIEW ROWS for already-extended-this-season players (Bijan
+        //    class). If anyone extended this player in the current season,
+        //    all preview rows are stale.
+        //
+        // 2. PER-FRANCHISE pre-trade extension eligibility (Stroud/McBride
+        //    class — Keith 2026-05-24): once a franchise extends a player,
+        //    THEY personally can't do a pre-trade extension on that player
+        //    again — even if the player is in cy=1 of the extension contract
+        //    and canon §C4 would technically allow it. The pre-trade
+        //    extension is the trading-away team's last action; if they've
+        //    already used their extension on this player, they have no
+        //    remaining extension right. (A DIFFERENT acquiring team can
+        //    still extend post-trade per canon §C4's 4-week trade-and-extend
+        //    window — that's a separate code path.)
+        //
+        // For #2 we look across ALL seasons since the franchise might have
+        // extended in a prior year and still be holding the player on the
+        // resulting contract (McBride: 2025 EXT2 still active in 2026).
+        let extensionMasterPlayerSet = new Set();      // per #1, current season only
+        let extensionMasterFranchisePairSet = new Set(); // per #2, all seasons, "fid|pid"
         let extensionMasterRowCount = 0;
         try {
           const masterRes = await env.UPS_MFL_DB.prepare(
-            `SELECT player_id FROM ups_extension_master WHERE league_id = ? AND season = ?`
-          ).bind(leagueId, season).all();
+            `SELECT season, franchise_id, player_id FROM ups_extension_master WHERE league_id = ?`
+          ).bind(leagueId).all();
           for (const row of asArray(masterRes?.results)) {
             const pid = String(row?.player_id || "").replace(/\D/g, "");
-            if (pid) extensionMasterPlayerSet.add(pid);
+            const fid = padFranchiseId(row?.franchise_id || "");
+            if (!pid) continue;
+            if (fid) extensionMasterFranchisePairSet.add(fid + "|" + pid);
+            if (String(row?.season) === String(season)) {
+              extensionMasterPlayerSet.add(pid);
+            }
           }
           extensionMasterRowCount = extensionMasterPlayerSet.size;
         } catch (e) {
@@ -31171,20 +31192,20 @@ export default {
             franchise_abbrev: franchiseId,
             icon_url: "",
           };
-          // Stamp already_extended_this_season on every PLAYER asset
-          // whose player_id appears in the season's ups_extension_master.
-          // Closes the Stroud bug: server was pruning preview rows for
-          // already-extended players, but the client's synthetic builder
-          // was firing on years=1 → re-building extension options. Now
-          // the client can short-circuit on this flag instead of just
-          // relying on years/contract_type.
+          // Stamp already_extended_by_this_franchise on every PLAYER asset
+          // whose (franchise_id, player_id) pair appears in ups_extension_master
+          // for ANY season. Per Keith 2026-05-24: once a franchise extends
+          // a player, they cannot offer a pre-trade extension on that
+          // player again (regardless of current canon §C4 final-year
+          // eligibility). McBride 2026 cy=1 BL was tripping the synthetic
+          // builder despite Hammer having extended him in 2025.
           const playerAssets = asArray(rosterAssetsByFranchise[franchiseId])
             .filter(Boolean)
             .map((a) => {
               if (a && safeStr(a.type).toUpperCase() === "PLAYER") {
                 const pid = String(a.player_id || "").replace(/\D/g, "");
-                if (pid && extensionMasterPlayerSet.has(pid)) {
-                  return { ...a, already_extended_this_season: true };
+                if (pid && extensionMasterFranchisePairSet.has(franchiseId + "|" + pid)) {
+                  return { ...a, already_extended_by_this_franchise: true };
                 }
               }
               return a;
@@ -31256,6 +31277,7 @@ export default {
               extension_preview_rows: Array.isArray(extRowsNormalized.rows) ? extRowsNormalized.rows.length : 0,
               extension_preview_rows_owner_remapped: safeInt(extRowsNormalized.remapped_count, 0),
               extension_master_players: extensionMasterRowCount,
+              extension_master_franchise_pairs: extensionMasterFranchisePairSet.size,
               extension_preview_rows_pruned_already_extended: prunedRowCount,
             },
             upstream: {
