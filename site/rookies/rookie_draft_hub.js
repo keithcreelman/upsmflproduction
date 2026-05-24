@@ -522,28 +522,41 @@
   // from the snapshot for back-compat. Local sim picks are kept ONLY in
   // SIM mode — LIVE mode trusts MFL completely.
   let _liveStatePollTimer = null;
-  async function _refreshLiveDraftState({ initial } = {}) {
+  async function _refreshLiveDraftState({ initial, fresh } = {}) {
     if (!STATE.live) return;
     try {
-      const r = await fetch(apiUrl("/api/draft-state") + "?L=74598", { cache: "no-store" });
+      const freshParam = fresh ? "&fresh=1" : "";
+      const r = await fetch(apiUrl("/api/draft-state") + "?L=74598" + freshParam, { cache: "no-store" });
       if (!r.ok) throw new Error("HTTP " + r.status);
       const ct = r.headers.get("content-type") || "";
       if (!ct.includes("json")) throw new Error("not JSON");
       const live = await r.json();
       if (!live || !Array.isArray(live.draft_order)) throw new Error("bad shape");
-      // Merge: replace authoritative fields, preserve metadata
+      // Merge: replace authoritative fields, preserve metadata.
+      // MFL is ALWAYS source of truth for "which slots are filled". The only
+      // local data we preserve is picks marked with a sim-origin comment
+      // ("[sim]" or "[sim-user]") — and only when MFL hasn't filled that slot.
+      // Keith 2026-05-24: when commish reverts a pick in MFL admin tools,
+      // the hub MUST drop its previously-cached version of that slot, even
+      // if the hub is in SIM mode. Anything without a [sim* marker was
+      // real LIVE-pulled data and should disappear when MFL drops it.
       const prevMeta = STATE.live.meta || {};
-      // SIM mode: merge picks_made — the user may have local sim picks
-      //   we don't want to lose. LIVE mode: trust MFL completely.
+      const isSimMarker = (c) => /^\[sim/.test(String(c || ""));
       const localSimPicks = STATE.simulationMode
-        ? (STATE.live.picks_made || []).filter(p => !live.picks_made.find(lp =>
-            Number(lp.round) === Number(p.round) && Number(lp.pick) === Number(p.pick)))
+        ? (STATE.live.picks_made || []).filter(p =>
+            isSimMarker(p.comments) &&
+            !live.picks_made.find(lp =>
+              Number(lp.round) === Number(p.round) && Number(lp.pick) === Number(p.pick)))
         : [];
       STATE.live.franchises = Object.keys(live.franchises || {}).length
         ? live.franchises : STATE.live.franchises;
       STATE.live.draft_order = live.draft_order;
       STATE.live.picks_made = live.picks_made.concat(localSimPicks);
-      STATE.live.active_pick = live.active_pick || _autoSimNextSlot();
+      // Recompute active_pick from the merged picks_made + draft_order so a
+      // revert in MFL correctly rewinds the on-the-clock cursor. The worker
+      // already returns its own active_pick from MFL state, but it's based
+      // only on MFL — doesn't know about layered sim picks.
+      STATE.live.active_pick = _autoSimNextSlot() || live.active_pick || null;
       STATE.live.meta = Object.assign({}, prevMeta, live.meta);
       // SHARED DRAFT MODE: poll the commish-controlled flag alongside
       // MFL state. Either source flipping LIVE → flip the local hub.
@@ -1113,6 +1126,28 @@
     const clockReset = document.getElementById("pick-clock-reset");
     if (clockReset) clockReset.addEventListener("click", _pickClockReset);
 
+    // Manual MFL re-sync (Keith 2026-05-24): when the commish reverts a
+    // pick via MFL admin tools, the hub may not see the change for up to
+    // 10s due to CF edge cache + the 5s poll. This button cache-busts and
+    // re-pulls immediately. Also useful if the hub looks "stuck" or stale.
+    const resyncBtn = document.getElementById("resync-mfl-btn");
+    if (resyncBtn) {
+      resyncBtn.addEventListener("click", async () => {
+        const orig = resyncBtn.textContent;
+        resyncBtn.textContent = "Syncing…";
+        resyncBtn.disabled = true;
+        try {
+          await _refreshLiveDraftState({ initial: false, fresh: true });
+          showToast("✓ Re-synced from MFL", "ok");
+        } catch (e) {
+          showToast("Re-sync failed: " + (e && e.message || e), "err");
+        } finally {
+          resyncBtn.textContent = orig;
+          resyncBtn.disabled = false;
+        }
+      });
+    }
+
     // Commish-only Discord trade-announcement toggle. Rendered hidden by
     // default; renderLiveModeBanner unhides for commish.
     const tradeDmBtn = document.getElementById("trade-discord-toggle");
@@ -1304,7 +1339,8 @@
       // Kick off live-state polling immediately and pull a fresh state so the
       // commissioner sees real picks the moment they flip to LIVE. The
       // refresh handler will seed the clock from MFL's pick timestamp.
-      _refreshLiveDraftState({ initial: true });
+      // fresh:true bypasses the worker's 5s edge cache so the flip is instant.
+      _refreshLiveDraftState({ initial: true, fresh: true });
       // Stamp NOW as a fallback — the live-state refresh above will
       // overwrite with the MFL timestamp if available, but if it races
       // we still want the clock running from the moment of the flip.
@@ -4070,17 +4106,27 @@
         const data = await r.json();
         if (data.ok) {
           if (isSim) {
-            result.innerHTML = `<div style="color: var(--warn);">✓ Simulated — no MFL write, no Discord post.</div>`;
+            // SIM path — local record only, advance to next slot in-memory
+            _autoSimRecordPick(active, prospect, "sim-user");
             showToast(`Simulated R${slot} → ${prospect.name}`, "ok");
           } else if (data.dry_run) {
-            result.innerHTML = `<div style="color: var(--warn);">🧪 DRY-RUN — MFL request validated and previewed (no write). Test Discord posted.</div>`;
             showToast(`🧪 DRY-RUN R${slot} → ${prospect.name} — no MFL write`, "ok");
           } else {
             const discordBit = data.discord_silenced
-              ? " · 🔕 Discord muted (per your DM toggle)"
-              : (data.discord_posted ? " · announced in Discord" : "");
-            result.innerHTML = `<div style="color: var(--ok);">✅ Pick submitted to MFL${discordBit}.</div>`;
-            showToast(`LIVE pick: R${slot} → ${prospect.name}${data.discord_silenced ? " · Discord muted" : ""}`, "ok");
+              ? " · 🔕 Discord muted"
+              : (data.discord_posted ? " · Discord announced" : "");
+            showToast(`✅ LIVE pick: R${slot} → ${prospect.name}${discordBit}`, "ok");
+          }
+          // Close the confirm modal immediately + force a fresh MFL pull so
+          // the on-the-clock cursor advances without waiting for the 5s poll.
+          // Keith 2026-05-24: "popup should go away and we should move to the
+          // next pick" — no more reading the success line, the toast covers it.
+          closeModal();
+          if (!isSim && typeof _refreshLiveDraftState === "function") {
+            // fresh:true → cache-busts the worker → we see MFL's brand-new
+            // pick state immediately instead of waiting up to 5s for the
+            // CF edge cache to expire.
+            _refreshLiveDraftState({ initial: false, fresh: true }).catch(() => {});
           }
         } else {
           result.innerHTML = `<div style="color: var(--err)">Failed: ${escapeHtml(data.error || data.mfl_response || JSON.stringify(data)).slice(0, 400)}</div>`;

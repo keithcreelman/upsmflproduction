@@ -3104,11 +3104,23 @@ export default {
       if (path === "/api/draft-state" && request.method === "GET") {
         const leagueId = _rdhLeagueId();
         const year = _rdhYear();
+        // ?fresh=1 bypasses the CF edge cache — used by hub after pick
+        // submit, after a LIVE-mode flip, or anywhere we need MFL state
+        // RIGHT NOW (e.g. commish reverted a pick via MFL admin tools
+        // and is checking that the hub recognized it).
+        const bypassCache = url.searchParams.get("fresh") === "1";
         const noStore = (u, ttl) => fetch(u, {
-          // Tiny TTL (5s) so multiple browsers don't pummel MFL but the
-          // data is still effectively live during a draft.
-          cf: { cacheTtl: ttl || 5, cacheEverything: true },
-          headers: { "User-Agent": "upsmflproduction-worker" },
+          cf: bypassCache
+            ? { cacheTtl: 0, cacheEverything: false }
+            // Tiny TTL (5s) for normal polls so multiple browsers don't
+            // pummel MFL but the data is still effectively live during a draft.
+            : { cacheTtl: ttl || 5, cacheEverything: true },
+          headers: {
+            "User-Agent": "upsmflproduction-worker",
+            // Belt-and-suspenders: even with cacheTtl:0, force MFL to skip
+            // any of its own edge layer.
+            ...(bypassCache ? { "Cache-Control": "no-cache" } : {}),
+          },
         });
         try {
           const [drRes, lgRes] = await Promise.allSettled([
