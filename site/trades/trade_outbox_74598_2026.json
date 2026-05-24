@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-24T13:33:18.480Z",
+    "updated_at": "2026-05-24T13:33:20.207Z",
     "row_count": 65,
     "source": "worker-trade-outbox"
   },
@@ -12155,7 +12155,7 @@
     },
     {
       "created_ts": "2026-05-24T13:33:18.366Z",
-      "trade_id": "",
+      "trade_id": "1051",
       "action_type": "SUBMIT",
       "from_franchise_id": "0008",
       "to_franchise_id": "0006",
@@ -12335,14 +12335,14 @@
         },
         "comment": "Sleep easy and get both of your guys at 3 & 4.  You've got Downs already.  Feel free to wait and see what happens at 1.2 but just firing this out there."
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:65\nUPS_PAYLOAD_HASH:ddf2e77b6d1877376b7ad8959df5a96d1296bd848761289d57370e2813df7b7d\n[UPS_TWB_INTENT_END]",
       "payload_hash": "ddf2e77b6d1877376b7ad8959df5a96d1296bd848761289d57370e2813df7b7d",
-      "status": "PENDING",
-      "mfl_post_response_snip": "",
-      "mfl_verify_response_snip": "",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":3,\"matched_trade_id\":\"1051\",\"upstream_status\":200}",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-05-24T13:33:18.366Z",
+      "updated_ts": "2026-05-24T13:33:20.098Z",
       "id": "65"
     }
   ]
