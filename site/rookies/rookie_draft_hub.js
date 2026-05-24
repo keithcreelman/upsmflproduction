@@ -427,17 +427,18 @@
       STATE.simulationMode = false;
       try { sessionStorage.setItem("rdh_sim_mode", "false"); } catch (e) {}
     } else if (serverDraftStatus && serverDraftStatus.live === false) {
-      // Commish explicitly broadcast SIM → respect even if user had LIVE locally.
-      // Only on INITIAL load — subsequent polls use the updated_at-change rule
-      // in _refreshLiveDraftState to avoid bouncing during a Go-LIVE broadcast race.
+      // Commish explicitly broadcast SIM → respect on INITIAL load only.
+      // Subsequent polls use the value-transition rule in
+      // _refreshLiveDraftState to avoid bouncing during a Go-LIVE broadcast race.
       STATE.simulationMode = true;
       try { sessionStorage.setItem("rdh_sim_mode", "true"); } catch (e) {}
     }
-    // Seed the SIM-flag timestamp so the poll's "actively changed" rule
-    // has a baseline. Without this, the first SIM-flag read after page load
-    // could re-fire the auto-flip-to-SIM logic.
-    if (serverDraftStatus && !serverDraftStatus.live) {
-      STATE._lastSeenServerSimUpdatedAt = serverDraftStatus.updated_at || null;
+    // Seed the last-seen server values so the first poll has a baseline
+    // to compare against. Without this the first poll might fire a flip
+    // toast unnecessarily.
+    if (serverDraftStatus) {
+      STATE._lastSeenServerLive = !!serverDraftStatus.live;
+      STATE._lastSeenServerUpdatedAt = serverDraftStatus.updated_at || null;
     }
     // Overlay HPM-injected franchise_id when present — that's the most
     // trustworthy "who is this owner" signal because MFL only injects it
@@ -566,19 +567,17 @@
       // only on MFL — doesn't know about layered sim picks.
       STATE.live.active_pick = _autoSimNextSlot() || live.active_pick || null;
       STATE.live.meta = Object.assign({}, prevMeta, live.meta);
-      // SHARED DRAFT MODE: poll the commish-controlled flag alongside
-      // MFL state.
+      // SHARED DRAFT MODE — poll the commish-controlled flag alongside MFL state.
       //
-      // The flip is a one-way ratchet UP to LIVE:
-      //   - serverLive=true OR mflHasPicks=true → auto-flip SIM→LIVE
-      // The flip DOWN to SIM only fires when the server flag actively
-      // CHANGES from live=true → live=false (commish hit "Back to
-      // SIMULATE"). Just reading "false" doesn't trigger it — that was
-      // bouncing the hub every poll when commish hit Go LIVE and the
-      // broadcast was still in flight on the next poll cycle.
-      //
-      // Keith 2026-05-24: "the effin sync is NOT working he keeps
-      // flipping back and forth" — root cause.
+      // Rules:
+      //   - Flip UP to LIVE if (serverLive=true OR mflHasPicks=true) AND we're SIM
+      //     (one-way ratchet — being in LIVE never auto-flips you out unless...)
+      //   - Flip DOWN to SIM ONLY when the server flag VALUE transitions
+      //     between polls (was true last poll, false this poll — commish
+      //     just clicked "Back to SIMULATE"). Reading a steady-state
+      //     `false` does NOT trigger anything — that was the bounce bug
+      //     (Keith 2026-05-24): every poll re-read default-false and
+      //     slammed the hub back to SIM during a Go-LIVE broadcast race.
       let serverLive = false, serverStatusKnown = false, serverUpdatedAt = null;
       try {
         const sr = await fetch(apiUrl("/api/draft-status") + "?L=74598", { cache: "no-store" });
@@ -590,32 +589,47 @@
         }
       } catch (e) { /* server flag optional */ }
       const mflHasPicks = Array.isArray(live.picks_made) && live.picks_made.length > 0;
+
+      // Detect a SERVER-SIDE value transition since last poll. The first poll
+      // after page load has no "previous" — it never triggers a flip down.
+      const prevServerLive = STATE._lastSeenServerLive;
+      const prevServerUpdatedAt = STATE._lastSeenServerUpdatedAt;
+      const serverTransitionedToSim =
+        serverStatusKnown &&
+        prevServerLive === true &&
+        serverLive === false &&
+        prevServerUpdatedAt !== serverUpdatedAt;
+      const serverTransitionedToLive =
+        serverStatusKnown &&
+        prevServerLive === false &&
+        serverLive === true;
+
       if ((serverLive || mflHasPicks) && STATE.simulationMode) {
         STATE.simulationMode = false;
         try { sessionStorage.setItem("rdh_sim_mode", "false"); } catch (e) {}
-        showToast("🔴 Draft is LIVE — switching your hub to LIVE mode automatically", "ok");
+        if (serverTransitionedToLive) {
+          showToast("🔴 Commish broadcast LIVE — your hub is now LIVE", "ok");
+        } else {
+          showToast("🔴 Draft is LIVE — switching your hub automatically", "ok");
+        }
         renderLiveModeBanner();
       } else if (
-        serverStatusKnown &&
-        !serverLive &&
+        serverTransitionedToSim &&
         !mflHasPicks &&
-        !STATE.simulationMode &&
-        // ⬇ NEW: only fire when the SIM flag is actively-broadcast NEW
-        // (commish just hit "Back to SIMULATE") — not just because the
-        // default value happens to be false during a LIVE-broadcast race.
-        STATE._lastSeenServerSimUpdatedAt !== undefined &&
-        serverUpdatedAt &&
-        serverUpdatedAt !== STATE._lastSeenServerSimUpdatedAt
+        !STATE.simulationMode
       ) {
         STATE.simulationMode = true;
         try { sessionStorage.setItem("rdh_sim_mode", "true"); } catch (e) {}
         showToast("🟡 Commish reverted to SIMULATE mode", "ok");
         renderLiveModeBanner();
       }
-      // Track the last-seen SIM-flag timestamp so we can detect FUTURE
-      // changes. First poll just records — never auto-flips down on it.
-      if (serverStatusKnown && !serverLive) {
-        STATE._lastSeenServerSimUpdatedAt = serverUpdatedAt;
+
+      // Always record last-seen server values so the NEXT poll can detect
+      // a real transition. Done after the flip check so the transition
+      // calc above sees the previous values.
+      if (serverStatusKnown) {
+        STATE._lastSeenServerLive = serverLive;
+        STATE._lastSeenServerUpdatedAt = serverUpdatedAt;
       }
       // Seed the per-pick clock: in LIVE, the previous pick's MFL timestamp
       // IS when the next slot started. In SIM, we stamp "now" inside the
