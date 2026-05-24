@@ -293,6 +293,14 @@
 
   function assetAllowsSyntheticExtension(asset, metrics) {
     if (!asset || safeStr(asset.type).toUpperCase() !== "PLAYER") return false;
+    // Server (worker /trade-workbench) stamps already_extended_this_season=true
+    // on any player whose player_id appears in ups_extension_master for the
+    // current season. Canon §C4 says one extension per season per player —
+    // even if the player is currently in their final year (years=1), they
+    // cannot be re-extended in the same season. Closes the Stroud bug:
+    // 2026 EXT1 player with years=1 was passing the eligibility check
+    // and the synthetic builder was constructing options for him.
+    if (parseBool(asset.already_extended_this_season, false)) return false;
     var type = safeStr(asset.contract_type).toLowerCase();
     var info = safeStr(asset.contract_info).toLowerCase();
     var yearsRemaining = metrics && metrics.years_remaining != null
@@ -967,6 +975,11 @@
     asset.contract_type = safeStr(raw.contract_type || raw.contractstatus || raw.contractStatus || raw.type_label || raw.contract);
     asset.contract_info = safeStr(raw.contract_info || raw.contractInfo || raw.details);
     asset.taxi = parseBool(raw.taxi, false);
+    // Server-set flag (worker /trade-workbench) marking that this player
+    // is already in ups_extension_master for the current season. Used by
+    // assetAllowsSyntheticExtension to short-circuit synthetic option
+    // building. See worker change for context.
+    asset.already_extended_this_season = parseBool(raw.already_extended_this_season, false);
     asset.roster_status = safeStr(raw.roster_status || raw.rosterStatus || raw.status).toUpperCase();
     asset.injury = safeStr(raw.injury || raw.status || "");
     asset.notes = safeStr(raw.notes || "");

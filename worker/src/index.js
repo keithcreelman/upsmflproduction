@@ -31171,7 +31171,24 @@ export default {
             franchise_abbrev: franchiseId,
             icon_url: "",
           };
-          const playerAssets = asArray(rosterAssetsByFranchise[franchiseId]).filter(Boolean);
+          // Stamp already_extended_this_season on every PLAYER asset
+          // whose player_id appears in the season's ups_extension_master.
+          // Closes the Stroud bug: server was pruning preview rows for
+          // already-extended players, but the client's synthetic builder
+          // was firing on years=1 → re-building extension options. Now
+          // the client can short-circuit on this flag instead of just
+          // relying on years/contract_type.
+          const playerAssets = asArray(rosterAssetsByFranchise[franchiseId])
+            .filter(Boolean)
+            .map((a) => {
+              if (a && safeStr(a.type).toUpperCase() === "PLAYER") {
+                const pid = String(a.player_id || "").replace(/\D/g, "");
+                if (pid && extensionMasterPlayerSet.has(pid)) {
+                  return { ...a, already_extended_this_season: true };
+                }
+              }
+              return a;
+            });
           const pickAssets = asArray(pickAssetsByFranchise[franchiseId]).filter(Boolean);
           return {
             franchise_id: franchiseId,
