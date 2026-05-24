@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-24T13:24:31.207Z",
-    "row_count": 64,
+    "updated_at": "2026-05-24T13:33:18.480Z",
+    "row_count": 65,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -12152,6 +12152,198 @@
       "season": "2026",
       "updated_ts": "2026-05-24T13:24:31.109Z",
       "id": "64"
+    },
+    {
+      "created_ts": "2026-05-24T13:33:18.366Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0006",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "<salary_adjustments><salary_adjustment franchise_id=\"0008\" amount=\"2000\" explanation=\"UPS traded salary settlement (trade_2026): net +2K\"/><salary_adjustment franchise_id=\"0006\" amount=\"-2000\" explanation=\"UPS traded salary settlement (trade_2026): net -2K\"/></salary_adjustments>",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-24T13:33:18.003Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "player:13674",
+                "type": "PLAYER",
+                "player_id": "13674",
+                "player_name": "Goedert, Dallas",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "PHI",
+                "salary": 7000,
+                "years": 1,
+                "contract_type": "Veteran",
+                "contract_info": "CL 2| TCV 14K| AAV 7K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:DP_0_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 1.04",
+                "position": null,
+                "nfl_team": null,
+                "salary": 12000,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_0_3",
+                "pick_season": 2026,
+                "pick_round": 1,
+                "pick_slot": 4
+              }
+            ],
+            "traded_salary_adjustment_dollars": 2000,
+            "traded_salary_adjustment_k": 2,
+            "traded_salary_adjustment_max_k": 3,
+            "selected_non_taxi_salary_dollars": 7000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "selected_assets": [
+              {
+                "asset_id": "player:17102",
+                "type": "PLAYER",
+                "player_id": "17102",
+                "player_name": "Warren, Tyler",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "IND",
+                "salary": 5000,
+                "years": 2,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 15K| AAV 5K | Option Eligible",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 2,
+            "selected_non_taxi_salary_dollars": 5000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0006"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 61000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 7000,
+            "incoming_dollars": 5000,
+            "salary_trade_adjustment_dollars": 2000,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 61000,
+            "trade_salary_adjustment_k": 2,
+            "trade_salary_adjustment_max_k": 3,
+            "net_trade_salary_k": 2,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 233550,
+            "available_salary_after_dollars": 233550,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 283000,
+            "salary_adjustment_total_dollars": 3500,
+            "outgoing_dollars": 5000,
+            "incoming_dollars": 7000,
+            "salary_trade_adjustment_dollars": -2000,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 283000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 2,
+            "net_trade_salary_k": -2,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 13500,
+            "available_salary_after_dollars": 13500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Real Deal Creel",
+          "right_franchise_name": "The Long Haulers",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 80000,
+              "left_after_dollars": 68000,
+              "left_change_dollars": -12000,
+              "right_before_dollars": 296000,
+              "right_after_dollars": 308000,
+              "right_change_dollars": 12000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 61000,
+              "left_after_dollars": 59000,
+              "left_change_dollars": -2000,
+              "right_before_dollars": 225000,
+              "right_after_dollars": 227000,
+              "right_change_dollars": 2000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 25000,
+              "left_after_dollars": 30000,
+              "left_change_dollars": 5000,
+              "right_before_dollars": 57000,
+              "right_after_dollars": 52000,
+              "right_change_dollars": -5000
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Sleep easy and get both of your guys at 3 & 4.  You've got Downs already.  Feel free to wait and see what happens at 1.2 but just firing this out there."
+      },
+      "comment_trailer": "",
+      "payload_hash": "ddf2e77b6d1877376b7ad8959df5a96d1296bd848761289d57370e2813df7b7d",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-24T13:33:18.366Z",
+      "id": "65"
     }
   ]
 }
