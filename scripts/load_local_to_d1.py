@@ -544,11 +544,21 @@ def main():
         # Source local table: `players` (season, player_id, name, position,
         # nfl_team, status, raw_json) populated by per-season MFL
         # TYPE=players exports.
+        #
+        # Nightly: ONLY pulls the current season. Historical seasons
+        # don't change (the MFL TYPE=players export is keyed by year,
+        # so a 2019 row is forever a 2019 row). PK is (season, player_id)
+        # + mode='upsert' so the nightly UPSERT just refreshes the
+        # current-season rows; the 2010-2024 historical rows stay put.
+        # To do a full historical reload (e.g. after adding 2010s):
+        #   python3 scripts/load_local_to_d1.py --only players --reset
+        # then re-run the per-season MFL backfill into mfl_database.db.
         ("players", "src_players",
-         """
+         f"""
          SELECT season, player_id, name, position, nfl_team, status, raw_json
          FROM players
          WHERE player_id IS NOT NULL AND player_id != ''
+           AND season = (SELECT MAX(season) FROM players)
          """,
          ["season","player_id","name","position","nfl_team","status","raw_json"]),
         ("schedule", "src_schedule",

@@ -54,11 +54,9 @@ FILES = [
     ('2019', '2019_Contract_Tansaction_Log.xlsx'),
     ('2020', '2020 Contract_Transaction_Log.xlsx'),
     ('2021', '2021_Contract_Transaction_Log.xlsx'),
-    # Undated file SKIPPED per Keith 2026-05-24: "it might be all of the
-    # years skip for now". Only 10/34 player overlap with 2021 file →
-    # not a duplicate. Salary cols 2020/2021/2022 are ambiguous. Will
-    # need a separate pass once Keith confirms scope per row.
-    # ('UNDATED', 'Contract_Transaction_Log.xlsx'),
+    # Keith confirmed 2026-05-24: "This has 2022 in excel file" — the
+    # undated Contract_Transaction_Log.xlsx covers 2022 extensions.
+    ('2022', 'Contract_Transaction_Log.xlsx'),
 ]
 
 # Team-name → franchise_id (stable 2019-2021 per src_franchises). Includes
@@ -136,7 +134,7 @@ def extract_nfl_team(raw: str) -> str:
     return m.group(1) if m else ''
 
 
-SEASON_BY_LABEL = {'2019': 2019, '2020': 2020, '2021': 2021}
+SEASON_BY_LABEL = {'2019': 2019, '2020': 2020, '2021': 2021, '2022': 2022}
 
 
 def extract_extensions(filepath: Path, file_label: str) -> list[dict]:
@@ -417,9 +415,35 @@ def main():
                 inc_int = int(r['salary_increase']) if r.get('salary_increase') is not None else None
             except (TypeError, ValueError):
                 inc_int = None
-            new_salary = inc_int  # post-extension AAV
-            new_aav = inc_int
-            new_tcv = (pre_sal_int + inc_int * r['term']) if (pre_sal_int is not None and inc_int is not None) else None
+            # Canon §C4: extension-year AAV = pre-extension salary + position
+            # bump (Sched 1: +10K/1yr, +20K/2yr; Sched 2: +3K/1yr, +5K/2yr).
+            # The xlsx "Salary Increase" column stores the BUMP amount,
+            # not the post-extension AAV. Compute post-ext AAV correctly.
+            #
+            # TCV = current year (pre-ext salary, carries) + extension
+            # years (at new AAV). Canon §C4 worked example:
+            #   1yr remaining $17K + ext 1yr → TCV = 17K + 27K = 44K
+            #   Not 17K + 10K = 27K, which is what the bug computed.
+            #
+            # For expired-rookie extensions (no carry, fresh contract),
+            # ALL years are at new AAV: TCV = new_aav * term.
+            # Heuristic: if pre_salary <= 0 OR expired_rookie flag set,
+            # treat as fresh contract.
+            new_aav = (pre_sal_int + inc_int) if (pre_sal_int is not None and inc_int is not None) else inc_int
+            new_salary = new_aav  # year-1 of the new deal
+            if r.get('expired_rookie') or not pre_sal_int:
+                # Fresh contract — all years at new AAV
+                new_tcv = (new_aav * r['term']) if (new_aav and r['term']) else None
+                # year-1 of a fresh contract is the new AAV
+                new_salary = new_aav
+            elif new_aav is not None and pre_sal_int is not None:
+                # Vet extension — current year carries at pre-ext salary,
+                # extension years at new AAV
+                new_tcv = pre_sal_int + (new_aav * r['term'])
+                # Y1 (current year) stays at pre-ext salary
+                new_salary = pre_sal_int
+            else:
+                new_tcv = None
             new_gtd = round(new_tcv * 0.75) if new_tcv else None
 
             f.write(f"""INSERT INTO ups_extension_master
