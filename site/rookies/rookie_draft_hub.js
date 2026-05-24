@@ -409,6 +409,22 @@
     STATE.prospects = prospects;
     STATE.ap_ep = apEp;
     STATE.me = me;
+
+    // ── SHARED DRAFT MODE (Keith 2026-05-24) ──
+    // The per-browser sessionStorage SIM/LIVE flag is wrong for a real
+    // draft room — different owners' hubs would land in different modes
+    // depending on their session history. Real-room behavior: if MFL
+    // shows the draft has started (any picks_made > 0), EVERY owner's
+    // hub auto-flips to LIVE so they see the same state.
+    //
+    // Pre-first-pick: hub respects the local SIM/LIVE flag (commish needs
+    // to manually flip to LIVE in their own hub to fire the first pick).
+    // Once that first pick lands in MFL, all other owners' hubs detect
+    // it on their next poll and flip themselves to LIVE automatically.
+    if (live && Array.isArray(live.picks_made) && live.picks_made.length > 0) {
+      STATE.simulationMode = false;
+      try { sessionStorage.setItem("rdh_sim_mode", "false"); } catch (e) {}
+    }
     // Overlay HPM-injected franchise_id when present — that's the most
     // trustworthy "who is this owner" signal because MFL only injects it
     // for an authenticated visitor.
@@ -523,6 +539,16 @@
       STATE.live.picks_made = live.picks_made.concat(localSimPicks);
       STATE.live.active_pick = live.active_pick || _autoSimNextSlot();
       STATE.live.meta = Object.assign({}, prevMeta, live.meta);
+      // SHARED DRAFT MODE: if MFL now has real picks made, every owner's
+      // hub should auto-flip to LIVE so they all see the same state.
+      // This catches the case where an owner was sitting in SIM mode when
+      // the draft started — their next poll detects picks and flips them.
+      if (Array.isArray(live.picks_made) && live.picks_made.length > 0 && STATE.simulationMode) {
+        STATE.simulationMode = false;
+        try { sessionStorage.setItem("rdh_sim_mode", "false"); } catch (e) {}
+        showToast("🔴 Draft is LIVE — switching your hub to LIVE mode automatically", "ok");
+        renderLiveModeBanner();
+      }
       // Seed the per-pick clock: in LIVE, the previous pick's MFL timestamp
       // IS when the next slot started. In SIM, we stamp "now" inside the
       // helper. This re-runs every poll, but the helper no-ops when the
