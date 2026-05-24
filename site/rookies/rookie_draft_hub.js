@@ -542,10 +542,13 @@
         if (!STATE.simulationMode) console.warn("[draft-state] LIVE refresh failed, falling back to static snapshot:", e);
       }
     }
-    // Schedule next poll only in LIVE mode (every 20s)
+    // Schedule next poll only in LIVE mode (every 5s — aligns with the
+    // worker's 5s CF edge cache TTL on the MFL draftResults fetch, so we
+    // don't pummel MFL but still surface picks on other devices within
+    // ~5–10s of the write).
     if (_liveStatePollTimer) clearTimeout(_liveStatePollTimer);
     if (!STATE.simulationMode) {
-      _liveStatePollTimer = setTimeout(() => _refreshLiveDraftState({}), 20000);
+      _liveStatePollTimer = setTimeout(() => _refreshLiveDraftState({}), 5000);
     }
   }
 
@@ -1348,6 +1351,23 @@
     modal.style.left = "";
     modal.style.transform = "";
     modal.style.margin = "";
+    // MFL embed fix (Keith 2026-05-24): when the hub is rendered inside
+    // MFL's MESSAGE module, MFL's outer page has a CSS `transform` on an
+    // ancestor which breaks `position: fixed` (it becomes positioned
+    // relative to the transformed ancestor instead of the viewport).
+    // Result: modal renders at the TOP of MFL's content frame instead of
+    // the user's current viewport — they have to scroll to find it.
+    // Workaround: scrollIntoView() on the modal box forces the browser
+    // to scroll its containing block until the modal is visible. Works
+    // regardless of whether `fixed` is honored or has degraded to `absolute`.
+    requestAnimationFrame(() => {
+      const overlay = document.getElementById("rdh-modal-overlay");
+      if (!overlay || !overlay.classList.contains("open")) return;
+      const box = overlay.querySelector(".rdh-modal");
+      try {
+        (box || overlay).scrollIntoView({ behavior: "auto", block: "center", inline: "center" });
+      } catch (e) {}
+    });
   }
   function closeModal() {
     const modal = document.getElementById("rdh-modal");
