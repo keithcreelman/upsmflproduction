@@ -5825,6 +5825,15 @@ export default {
         const testCh = safeStr(env.DISCORD_DRAFT_TEST_CHANNEL_ID || "1089538054236160010").replace(/\D/g, "");
         return live ? liveCh : testCh;
       };
+      // Parent channel for the per-year picks THREAD (one thread per draft).
+      // Keith 2026-05-24: picks go in a thread under #transactions; the
+      // existing rookie-draft channel (DISCORD_DRAFT_CHANNEL_ID) stays the
+      // home for the post-draft team-by-team summary only.
+      const _rdhPicksThreadParent = (live) => {
+        const liveCh = safeStr(env.DISCORD_PICKS_THREAD_PARENT_CHANNEL_ID || "1059111651846131833").replace(/\D/g, "");
+        const testCh = safeStr(env.DISCORD_DRAFT_TEST_CHANNEL_ID || "1089538054236160010").replace(/\D/g, "");
+        return live ? liveCh : testCh;
+      };
       const _rdhPostDiscord = async (channelId, content) => {
         const botToken = safeStr(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || env.Discord_bot || "");
         if (!botToken || !channelId) return { ok: false, error: "missing_discord_config" };
@@ -5836,6 +5845,76 @@ export default {
           });
           const ok = r.ok;
           return { ok, status: r.status };
+        } catch (e) {
+          return { ok: false, error: String(e && e.message || e) };
+        }
+      };
+      // Find-or-create the single per-year picks thread in the parent
+      // channel (#transactions by default). Idempotent: lists active threads
+      // first and matches by deterministic name "<YEAR> UPS Rookie Draft —
+      // Live Picks". If not present, creates a public thread (type=11) with
+      // 24h auto-archive. Returns { ok, thread_id, created, name } or error.
+      const _rdhFindOrCreateDraftPicksThread = async (parentChannelId, year) => {
+        const botToken = safeStr(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || env.Discord_bot || "");
+        if (!botToken || !parentChannelId) return { ok: false, error: "missing_discord_config" };
+        const expectedName = `${year} UPS Rookie Draft — Live Picks`;
+        const authHdr = { Authorization: `Bot ${botToken}` };
+        try {
+          // Need the guild_id to list active threads — Discord's channel-level
+          // /threads/active returns 404 in v10; the supported endpoint is
+          // /guilds/{guild_id}/threads/active. Discover guild_id from the
+          // parent channel (one cheap GET).
+          let guildId = safeStr(env.DISCORD_GUILD_ID || "");
+          if (!guildId) {
+            const chR = await fetch(
+              `https://discord.com/api/v10/channels/${encodeURIComponent(parentChannelId)}`,
+              { headers: authHdr }
+            );
+            if (chR.ok) {
+              const chData = await chR.json().catch(() => ({}));
+              guildId = safeStr(chData?.guild_id || "");
+            }
+          }
+          if (guildId) {
+            const listR = await fetch(
+              `https://discord.com/api/v10/guilds/${encodeURIComponent(guildId)}/threads/active`,
+              { headers: authHdr }
+            );
+            if (listR.ok) {
+              const data = await listR.json().catch(() => ({}));
+              const threads = Array.isArray(data?.threads) ? data.threads : [];
+              const existing = threads.find(t =>
+                safeStr(t.name) === expectedName && safeStr(t.parent_id) === safeStr(parentChannelId)
+              );
+              if (existing) {
+                return { ok: true, thread_id: existing.id, created: false, name: expectedName };
+              }
+            }
+          }
+          // Not found (or list failed) — create it
+          const createR = await fetch(
+            `https://discord.com/api/v10/channels/${encodeURIComponent(parentChannelId)}/threads`,
+            {
+              method: "POST",
+              headers: { ...authHdr, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: expectedName,
+                auto_archive_duration: 1440, // 24h
+                type: 11, // public thread (no message anchor)
+                invitable: true,
+              }),
+            }
+          );
+          if (!createR.ok) {
+            let body = "";
+            try { body = await createR.text(); } catch (_) {}
+            return { ok: false, error: `thread_create_failed status=${createR.status} body=${(body||"").slice(0,200)}` };
+          }
+          const created = await createR.json().catch(() => ({}));
+          if (created?.id) {
+            return { ok: true, thread_id: created.id, created: true, name: expectedName };
+          }
+          return { ok: false, error: "thread_create_no_id" };
         } catch (e) {
           return { ok: false, error: String(e && e.message || e) };
         }
@@ -7147,11 +7226,23 @@ export default {
       if (path === "/api/draft-state" && request.method === "GET") {
         const leagueId = _rdhLeagueId();
         const year = _rdhYear();
+        // ?fresh=1 bypasses the CF edge cache — used by hub after pick
+        // submit, after a LIVE-mode flip, or anywhere we need MFL state
+        // RIGHT NOW (e.g. commish reverted a pick via MFL admin tools
+        // and is checking that the hub recognized it).
+        const bypassCache = url.searchParams.get("fresh") === "1";
         const noStore = (u, ttl) => fetch(u, {
-          // Tiny TTL (5s) so multiple browsers don't pummel MFL but the
-          // data is still effectively live during a draft.
-          cf: { cacheTtl: ttl || 5, cacheEverything: true },
-          headers: { "User-Agent": "upsmflproduction-worker" },
+          cf: bypassCache
+            ? { cacheTtl: 0, cacheEverything: false }
+            // Tiny TTL (5s) for normal polls so multiple browsers don't
+            // pummel MFL but the data is still effectively live during a draft.
+            : { cacheTtl: ttl || 5, cacheEverything: true },
+          headers: {
+            "User-Agent": "upsmflproduction-worker",
+            // Belt-and-suspenders: even with cacheTtl:0, force MFL to skip
+            // any of its own edge layer.
+            ...(bypassCache ? { "Cache-Control": "no-cache" } : {}),
+          },
         });
         try {
           const [drRes, lgRes] = await Promise.allSettled([
@@ -9300,13 +9391,33 @@ export default {
           return jsonOut(409, { ok: false, error: `Franchise ${fid} is not on the clock — cannot submit live pick.` });
         }
 
-        // LIVE write to MFL.
+        // LIVE write to MFL via the live_draft endpoint.
+        // CANON (verified via MFL api_info form action 2026-05-24):
+        //   GET https://www48.myfantasyleague.com/{YEAR}/live_draft
+        //     ?L={leagueId}&CMD=DRAFT&PLAYER_PICK={pid}&FRANCHISE_PICK={fid}
+        //     &ROUND={r}&PICK={s}&APIKEY={k}&JSON=1
+        // NOT /import?TYPE=live_draft — that path returns "Invalid Data Type".
+        // live_draft is categorized as MISC (CCAT=misc), not import.
+        // Method is GET (the api_info form action is GET).
+        // FRANCHISE_PICK is required when commish submits on behalf of owner.
+        // Picks must match the current On-The-Clock slot — MFL rejects
+        // attempts to change earlier/later picks.
         const apiKey = safeStr(env.MFL_APIKEY || "");
         if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
-        const importUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=draftResults&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
-        const form = new URLSearchParams();
-        form.set("FRANCHISE_ID", fid);
-        form.set("PLAYER_ID", String(playerId));
+        const liveDraftParams = new URLSearchParams();
+        liveDraftParams.set("L", leagueId);
+        liveDraftParams.set("CMD", "DRAFT");
+        liveDraftParams.set("PLAYER_PICK", String(playerId));
+        liveDraftParams.set("FRANCHISE_PICK", fid);
+        liveDraftParams.set("ROUND", String(onClockRound));
+        liveDraftParams.set("PICK", String(onClockSlot));
+        liveDraftParams.set("APIKEY", apiKey);
+        liveDraftParams.set("JSON", "1");
+        const importUrl = `https://www48.myfantasyleague.com/${year}/live_draft?${liveDraftParams.toString()}`;
+        // Kept as `form` for downstream dry-run preview compatibility — POST
+        // body is unused on the GET request, but the variable is referenced
+        // by the dry_run preview block below.
+        const form = liveDraftParams;
         // ── DRY-RUN short-circuit ──
         // Build the full request, validate everything, post a [DRY-RUN] preview
         // to the test Discord channel — but DON'T fire the MFL fetch. Lets the
@@ -9329,10 +9440,10 @@ export default {
         let mflResp = "";
         let mflStatus = 0;
         try {
+          // GET, not POST — live_draft expects all params in the query string.
           const r = await fetch(importUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" },
-            body: form.toString(),
+            method: "GET",
+            headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
           });
           mflStatus = r.status;
           mflResp = await r.text();
@@ -9342,10 +9453,17 @@ export default {
         const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
         if (mflOk) {
           let dRes = null;
+          let threadInfo = null;
           if (!silenceDiscord) {
             try {
-              const ch = _rdhDiscordChannel(true);
-              dRes = await _rdhPostDiscord(ch, discordContent);
+              // Picks go to a per-year THREAD under #transactions
+              // (Keith 2026-05-24). Find-or-create the thread idempotently,
+              // then post into it. Falls back to the legacy channel if the
+              // thread-create flow fails for any reason — picks must still post.
+              const parentCh = _rdhPicksThreadParent(true);
+              threadInfo = await _rdhFindOrCreateDraftPicksThread(parentCh, year);
+              const destCh = threadInfo?.ok ? threadInfo.thread_id : _rdhDiscordChannel(true);
+              dRes = await _rdhPostDiscord(destCh, discordContent);
             } catch (e) { dRes = { ok: false, error: String(e) }; }
           } else {
             // Commish opted to silence Discord — record so frontend can show
@@ -9360,6 +9478,9 @@ export default {
             contract, mfl_response: mflResp,
             discord_posted: !!(dRes && dRes.ok),
             discord_silenced: !!(dRes && dRes.silenced),
+            discord_thread: threadInfo && threadInfo.ok
+              ? { id: threadInfo.thread_id, name: threadInfo.name, created: !!threadInfo.created }
+              : (threadInfo ? { error: threadInfo.error } : null),
           });
         }
         return jsonOut(502, { ok: false, status: mflStatus, mfl_response: mflResp });
@@ -9501,6 +9622,51 @@ export default {
             ? "Proposal sent. Commish can act as the partner via /api/trade/respond."
             : "Proposal sent. Discord announcement will fire when accepted.",
         });
+      }
+
+      // ── /api/draft-status — server-backed shared LIVE/SIM flag.
+      // Real-draft-room behavior (Keith 2026-05-24): when commish flips
+      // "Go LIVE" in their hub, every other owner's hub needs to flip
+      // too on next poll — not wait until first pick lands in MFL.
+      // Backed by ups_runtime_flags in D1 (single-row key/value).
+      // GET — anyone can read; POST — commish only.
+      if (path === "/api/draft-status" && request.method === "GET") {
+        try {
+          await env.UPS_MFL_DB.exec(
+            "CREATE TABLE IF NOT EXISTS ups_runtime_flags (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)"
+          );
+          const row = await env.UPS_MFL_DB.prepare(
+            "SELECT value, updated_at FROM ups_runtime_flags WHERE key = ?"
+          ).bind("draft_live").first();
+          return jsonOut(200, {
+            live: row ? row.value === "1" : false,
+            updated_at: row ? row.updated_at : null,
+          });
+        } catch (e) {
+          return jsonOut(500, { live: false, error: String(e?.message || e) });
+        }
+      }
+      if (path === "/api/draft-status" && request.method === "POST") {
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const reqFid = _rdhPadFid(body.requested_by || "");
+        const commishFids = _rdhCommishFids();
+        if (!reqFid || !commishFids.includes(reqFid)) {
+          return jsonOut(403, { ok: false, error: "Commish-only — requested_by must be a commish franchise_id" });
+        }
+        const live = !!body.live;
+        const now = Math.floor(Date.now() / 1000);
+        try {
+          await env.UPS_MFL_DB.exec(
+            "CREATE TABLE IF NOT EXISTS ups_runtime_flags (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)"
+          );
+          await env.UPS_MFL_DB.prepare(
+            "INSERT OR REPLACE INTO ups_runtime_flags (key, value, updated_at) VALUES (?, ?, ?)"
+          ).bind("draft_live", live ? "1" : "0", now).run();
+          return jsonOut(200, { ok: true, live, updated_at: now });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
       }
 
       // ── POST /api/r6/announce-kickoff — commish posts the R6 drawing
