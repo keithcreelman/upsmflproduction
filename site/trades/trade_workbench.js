@@ -994,11 +994,20 @@
       var extKey = [asset.franchise_id, asset.player_id].join("|");
       extOptions = extensionIndex[extKey] ? clone(extensionIndex[extKey]) : [];
     }
+    // Canon §C4 gate: regardless of source (raw, preview-index, or synthetic),
+    // only surface extension options when the live asset is currently
+    // eligible — final-year contract OR expired rookie. Drops stale preview
+    // rows for players who have since been extended (e.g. Bijan Robinson
+    // shows years=2/EXT2 after a pre-trade extension committed, but Feb
+    // preview rows for him still live in extension_previews_<season>.json).
+    if (extOptions.length && !assetAllowsSyntheticExtension(asset, resolveAssetDisplayContractMetrics(asset))) {
+      extOptions = [];
+    }
     if (!extOptions.length) {
       extOptions = buildSyntheticExtensionOptions(asset);
     }
     asset.extension_options = extOptions;
-    asset.extension_eligible = extOptions.length > 0 || parseBool(raw.extension_eligible, false);
+    asset.extension_eligible = extOptions.length > 0;
 
     var searchParts = [
       asset.player_name,
@@ -1449,10 +1458,17 @@
         if (safeStr(asset.contract_type).toLowerCase() === "taxi" && asset.original_draft_season > 0) {
           asset.contract_type = "Rookie";
         }
+        // Canon §C4 gate (mirror of normalizeAsset): drop any pre-existing
+        // options if the (possibly just-repaired) asset is no longer
+        // extension-eligible, then try the synthetic builder.
+        if (Array.isArray(asset.extension_options) && asset.extension_options.length
+          && !assetAllowsSyntheticExtension(asset, resolveAssetDisplayContractMetrics(asset))) {
+          asset.extension_options = [];
+        }
         if (!Array.isArray(asset.extension_options) || !asset.extension_options.length) {
           asset.extension_options = buildSyntheticExtensionOptions(asset);
         }
-        if (asset.extension_options.length) asset.extension_eligible = true;
+        asset.extension_eligible = asset.extension_options.length > 0;
       }
     }
 

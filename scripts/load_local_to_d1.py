@@ -73,6 +73,7 @@ PK_MAP: dict[str, list[str]] = {
     "src_standings":                 ["season", "franchise_id"],
     "src_franchise_weekly_score":    ["season", "week", "franchise_id"],
     "src_league_season_meta":        ["season"],
+    "src_players":                   ["season", "player_id"],
 }
 
 
@@ -536,6 +537,20 @@ def main():
          WHERE franchise_id IS NOT NULL AND franchise_id != ''
          """,
          ["season","franchise_id","owner_name","team_name","division","logo"]),
+        # Canonical MFL TYPE=players mirror (migration 0062). Keith
+        # 2026-05-24: player_points_history.json is scorers-only; we
+        # need the FULL MFL player roster (retired, defense, TMDL, etc.)
+        # for any name→id lookup across audit/backfill scripts.
+        # Source local table: `players` (season, player_id, name, position,
+        # nfl_team, status, raw_json) populated by per-season MFL
+        # TYPE=players exports.
+        ("players", "src_players",
+         """
+         SELECT season, player_id, name, position, nfl_team, status, raw_json
+         FROM players
+         WHERE player_id IS NOT NULL AND player_id != ''
+         """,
+         ["season","player_id","name","position","nfl_team","status","raw_json"]),
         ("schedule", "src_schedule",
          """
          SELECT s.season, s.week, s.franchise_id, s.opponent_franchise_id,

@@ -21759,6 +21759,103 @@ export default {
         const verificationOk = !!verification.ok;
         const verificationSoftFailed = requestOk && !verificationOk;
         const finalOk = requestOk && (verificationOk || !strictVerifyMode);
+
+        // Mirror successful pre-trade extensions into ups_extension_master so the
+        // /trade-workbench preview-filter can recognize already-extended players
+        // (Bijan-class bug fix). Only write when verification confirmed the
+        // MFL salaries import actually landed — otherwise we'd insert "pending"
+        // extensions that may not have committed.
+        //
+        // Source = "trade-workbench-pre-trade" so the row is distinguishable
+        // from front-office/mobile/commish submissions (which keep their own
+        // source tags). franchise_id = acquiring team after the trade (canon
+        // §C4: the extended player goes to the acquirer carrying the new
+        // contract). evidence_grade='evidenced' because verification ran
+        // against live MFL salaries.
+        if (finalOk && Array.isArray(plan.applied) && plan.applied.length) {
+          const franchiseByPlayer = {};
+          for (const req of extReqs) {
+            const pid = String(req?.player_id || "").replace(/\D/g, "");
+            if (!pid) continue;
+            const acquirer = padFranchiseId(req?.to_franchise_id || req?.toFranchiseId);
+            const fromFid = padFranchiseId(req?.from_franchise_id || req?.fromFranchiseId);
+            franchiseByPlayer[pid] = acquirer || fromFid || "";
+          }
+          for (const row of plan.applied) {
+            const playerId = String(row?.player_id || "").replace(/\D/g, "");
+            const franchiseId = franchiseByPlayer[playerId] || "";
+            if (!playerId || !franchiseId) continue;
+            const contractInfoStr = safeStr(row?.contractInfo);
+            const extTokenMatch = contractInfoStr.match(/Ext\s*:\s*([^|]+)/i);
+            const extToken = extTokenMatch ? String(extTokenMatch[1]).trim() : null;
+            // extension_term like "1YR" / "2YR"
+            const extTermDigits = safeStr(row?.extension_term).match(/(\d+)/);
+            const extensionTermYears = extTermDigits ? safeInt(extTermDigits[1], 0) : null;
+            // Derive TCV / AAV / GTD from salary_by_year when possible
+            const sbyPairs = Array.isArray(row?.diagnostics?.salary_by_year_pairs)
+              ? row.diagnostics.salary_by_year_pairs
+              : salaryByYearToSortedPairs(row?.salary_by_year || {});
+            const totals = computeSalaryByYearTotals(sbyPairs);
+            const newTcv = safeInt(row?.requested_new_tcv ?? totals?.tcv ?? 0, 0) || null;
+            const newAav = safeInt(row?.requested_new_aav_future ?? totals?.aav ?? 0, 0) || null;
+            const newGtd = newTcv ? Math.round(newTcv * 0.75) : null;
+            const evidenceSource = tradeId
+              ? `trade-workbench-pre-trade:${tradeId}`
+              : "trade-workbench-pre-trade";
+            try {
+              await env.UPS_MFL_DB.prepare(
+                `INSERT INTO ups_extension_master
+                   (league_id, season, franchise_id, player_id, player_name, position,
+                    new_contract_status, new_salary, new_contract_year, new_contract_info,
+                    extension_term_years, new_tcv, new_aav, new_gtd, ext_token,
+                    source, extended_at_utc, updated_at_utc,
+                    evidence_grade, evidence_source)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(league_id, season, player_id) DO UPDATE SET
+                   franchise_id         = excluded.franchise_id,
+                   player_name          = excluded.player_name,
+                   position             = excluded.position,
+                   new_contract_status  = excluded.new_contract_status,
+                   new_salary           = excluded.new_salary,
+                   new_contract_year    = excluded.new_contract_year,
+                   new_contract_info    = excluded.new_contract_info,
+                   extension_term_years = excluded.extension_term_years,
+                   new_tcv              = excluded.new_tcv,
+                   new_aav              = excluded.new_aav,
+                   new_gtd              = excluded.new_gtd,
+                   ext_token            = excluded.ext_token,
+                   source               = excluded.source,
+                   updated_at_utc       = excluded.updated_at_utc,
+                   evidence_grade       = excluded.evidence_grade,
+                   evidence_source      = excluded.evidence_source`
+              ).bind(
+                safeStr(leagueId),
+                safeStr(season),
+                franchiseId,
+                playerId,
+                safeStr(row?.player_name),
+                "", // position not on plan.applied row; left empty (front-office UPSERT also leaves "" when absent)
+                safeStr(row?.contractStatus) || null,
+                row?.salary != null ? Number(row.salary) : null,
+                row?.contractYear != null ? Number(row.contractYear) : null,
+                contractInfoStr || null,
+                extensionTermYears,
+                newTcv,
+                newAav,
+                newGtd,
+                extToken,
+                "trade-workbench-pre-trade",
+                new Date().toISOString(),
+                new Date().toISOString(),
+                "evidenced",
+                evidenceSource
+              ).run();
+            } catch (e) {
+              console.warn("[ext-master][trade-workbench] UPSERT failed:", e?.message || String(e), { playerId, franchiseId, tradeId });
+            }
+          }
+        }
+
         return {
           ok: finalOk,
           request_ok: requestOk,
@@ -31032,6 +31129,35 @@ export default {
           franchiseMetaById
         );
 
+        // D1 master read — drop preview rows for players who have already
+        // been extended this season (canon §C4: one extension per season per
+        // player). This is the authoritative filter; without it stale preview
+        // JSON rows surface as "pre-trade extension" options for already-
+        // extended players (Bijan-class bug).
+        let extensionMasterPlayerSet = new Set();
+        let extensionMasterRowCount = 0;
+        try {
+          const masterRes = await env.UPS_MFL_DB.prepare(
+            `SELECT player_id FROM ups_extension_master WHERE league_id = ? AND season = ?`
+          ).bind(leagueId, season).all();
+          for (const row of asArray(masterRes?.results)) {
+            const pid = String(row?.player_id || "").replace(/\D/g, "");
+            if (pid) extensionMasterPlayerSet.add(pid);
+          }
+          extensionMasterRowCount = extensionMasterPlayerSet.size;
+        } catch (e) {
+          console.warn("[trade-workbench] ups_extension_master read failed:", e?.message || String(e));
+        }
+        const prePruneRowCount = Array.isArray(extRowsNormalized?.rows) ? extRowsNormalized.rows.length : 0;
+        if (extensionMasterPlayerSet.size && Array.isArray(extRowsNormalized?.rows)) {
+          extRowsNormalized.rows = extRowsNormalized.rows.filter((row) => {
+            const pid = String(row?.player_id || "").replace(/\D/g, "");
+            return pid && !extensionMasterPlayerSet.has(pid);
+          });
+        }
+        const postPruneRowCount = Array.isArray(extRowsNormalized?.rows) ? extRowsNormalized.rows.length : 0;
+        const prunedRowCount = Math.max(0, prePruneRowCount - postPruneRowCount);
+
         const franchiseIds = new Set([
           ...Object.keys(franchiseMetaById),
           ...Object.keys(rosterAssetsByFranchise),
@@ -31112,6 +31238,8 @@ export default {
               ),
               extension_preview_rows: Array.isArray(extRowsNormalized.rows) ? extRowsNormalized.rows.length : 0,
               extension_preview_rows_owner_remapped: safeInt(extRowsNormalized.remapped_count, 0),
+              extension_master_players: extensionMasterRowCount,
+              extension_preview_rows_pruned_already_extended: prunedRowCount,
             },
             upstream: {
               league: { status: leagueRes.status, url: leagueRes.url },
@@ -32134,8 +32262,9 @@ export default {
                  (league_id, season, franchise_id, player_id, player_name, position,
                   new_contract_status, new_salary, new_contract_year, new_contract_info,
                   extension_term_years, new_tcv, new_aav, new_gtd, ext_token,
-                  source, extended_at_utc, updated_at_utc)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  source, extended_at_utc, updated_at_utc,
+                  evidence_grade, evidence_source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(league_id, season, player_id) DO UPDATE SET
                  franchise_id         = excluded.franchise_id,
                  player_name          = excluded.player_name,
@@ -32150,7 +32279,9 @@ export default {
                  new_gtd              = excluded.new_gtd,
                  ext_token            = excluded.ext_token,
                  source               = excluded.source,
-                 updated_at_utc       = excluded.updated_at_utc`
+                 updated_at_utc       = excluded.updated_at_utc,
+                 evidence_grade       = excluded.evidence_grade,
+                 evidence_source      = excluded.evidence_source`
             ).bind(
               leagueId,
               year,
@@ -32169,7 +32300,13 @@ export default {
               extToken,
               sourceTag || "worker-commish-contract-update",
               submittedAtUtc || new Date().toISOString(),
-              new Date().toISOString()
+              new Date().toISOString(),
+              // Every commish-contract-update extension goes through MFL's
+              // salary import + post-check; that's hard evidence. Source
+              // tag (front-office-extension-submit / ups-mobile-extension-submit
+              // / worker-commish-contract-update / etc.) preserves provenance.
+              "evidenced",
+              sourceTag || "worker-commish-contract-update"
             ).run();
           } catch (e) {
             console.warn("[ext-master] D1 upsert failed:", e?.message || String(e));
