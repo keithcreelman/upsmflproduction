@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-25T00:36:28.789Z",
+    "updated_at": "2026-05-25T00:39:52.708Z",
     "row_count": 36,
     "source": "worker-trade-offers"
   },
@@ -6548,7 +6548,7 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-05-25T00:33:46.294Z",
-      "updated_at": "2026-05-25T00:33:46.294Z",
+      "updated_at": "2026-05-25T00:39:52.708Z",
       "from_franchise_id": "0009",
       "to_franchise_id": "0010",
       "from_franchise_name": "C-Town Chivalry",
@@ -6558,7 +6558,7 @@
       "comments": "",
       "raw_comment": "",
       "will_give_up": "FP_0009_2027_3,FP_0009_2027_5",
-      "will_receive": "DP_1_10",
+      "will_receive": "DP_2_0",
       "source": "trade-workbench-ui",
       "summary": {
         "from_asset_count": 2,
@@ -6569,7 +6569,7 @@
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-05-25T00:33:42.419Z",
+        "generated_at": "2026-05-25T00:39:49.034Z",
         "source": "ups-trade-workbench",
         "league_id": "74598",
         "season": 2026,
@@ -6627,11 +6627,11 @@
             "franchise_name": "Blake Bombers",
             "selected_assets": [
               {
-                "asset_id": "pick:DP_1_10",
+                "asset_id": "pick:DP_2_0",
                 "type": "PICK",
                 "player_id": null,
                 "player_name": null,
-                "description": "2026 2.11",
+                "description": "2026 3.01",
                 "position": null,
                 "nfl_team": null,
                 "salary": 0,
@@ -6639,10 +6639,10 @@
                 "contract_type": "Pick",
                 "contract_info": null,
                 "taxi": false,
-                "pick_key": "DP_1_10",
+                "pick_key": "DP_2_0",
                 "pick_season": 2026,
-                "pick_round": 2,
-                "pick_slot": 11
+                "pick_round": 3,
+                "pick_slot": 1
               }
             ],
             "traded_salary_adjustment_dollars": 0,
@@ -6741,8 +6741,8 @@
         "comment": ""
       },
       "twb_meta": null,
-      "mfl_trade_id": "1057",
-      "trade_id": "1057",
+      "mfl_trade_id": "1060",
+      "trade_id": "1060",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
