@@ -11497,10 +11497,20 @@
       _applying = true;
       try {
         if (!eraSet || !eraWindowOpen) {
-          ensureBanner({ hidden: true });
+          ensureBanner({
+            hidden: false,
+            text: "⏸ ERA filter idle — eraSet=" +
+              (eraSet ? eraSet.size : "null") +
+              " · windowOpen=" + eraWindowOpen +
+              " (cycle closed or pool not loaded)",
+          });
           return { skipped: "filter_off" };
         }
         if (!pickerDataReady()) {
+          ensureBanner({
+            hidden: false,
+            text: "⏳ ERA filter waiting for playerDatabaseObj.picker (MFL picker hasn't hydrated)",
+          });
           return { skipped: "picker_data_not_ready" };
         }
         var pdb = window.playerDatabaseObj.picker;
@@ -11518,16 +11528,21 @@
           }
         }
         // Re-render the picker via MFL's own function.
+        var renderError = "";
         if (typeof window.update_picker === "function") {
-          try { window.update_picker("picker"); } catch (_) {}
+          try { window.update_picker("picker"); }
+          catch (e) { renderError = String((e && e.message) || e).slice(0, 200); }
+        } else {
+          renderError = "window.update_picker not a function";
         }
         ensureBanner({
           hidden: false,
-          text: "🔒 ERA Auction active — " + eraSet.size + " eligible players. " +
-            "Other free agents are hidden during this cycle. " +
-            "(Append ?era_filter=off to bypass.)",
+          text: "🔒 ERA Auction active — kept " + kept + " · hidden " + hidden +
+            " · pool " + eraSet.size +
+            (renderError ? " · render error: " + renderError : "") +
+            " (?era_filter=off to bypass)",
         });
-        return { kept: kept, hidden: hidden, total: pdb.length };
+        return { kept: kept, hidden: hidden, total: pdb.length, renderError: renderError };
       } finally {
         _applying = false;
       }
