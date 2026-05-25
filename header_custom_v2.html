@@ -11427,46 +11427,81 @@
       }
     }
 
+    // Re-entry guard (Keith 2026-05-25 bug fix). Without this, our
+    // MutationObserver triggered applyFilter on every mutation; the
+    // ensureBanner DOM insert below was ITSELF a mutation, so the
+    // observer re-fired, calling applyFilter again, infinitely. Result:
+    // the O=43 page CPU-pinned with the banner showing but no rows
+    // rendered (user 2026-05-25: "all blue and page is spinning hard").
+    //
+    // Three layers of protection:
+    //   1. `_applying` flag — short-circuits re-entrant calls
+    //   2. rAF debounce — collapses bursts of mutations into 1 walk
+    //   3. extractPid skips obvious non-row elements first
+    var _applying = false;
+    var _applyScheduled = false;
+
     // Walk picker rows and hide non-ERA ones. Returns counts for logging.
     function applyFilter() {
-      if (!eraSet || !eraWindowOpen) {
-        // ERA closed → no filtering. Remove banner if present.
-        ensureBanner({ hidden: true });
-        return { kept: 0, hidden: 0, unknown: 0 };
+      if (_applying) return { reentry: true };
+      _applying = true;
+      try {
+        if (!eraSet || !eraWindowOpen) {
+          // ERA closed → no filtering. Remove banner if present.
+          ensureBanner({ hidden: true });
+          return { kept: 0, hidden: 0, unknown: 0 };
+        }
+        var rows = document.querySelectorAll(
+          "form#AddDropForm table.report tr, " +
+          "form#auction_bid_form table.report tr, " +
+          "form[name='options43'] table.report tr, " +
+          "form[name='auctionbid'] table.report tr, " +
+          "table.report tr, " +
+          ".add-player-container .add-drop-player-row, " +
+          ".add-drop-player-row"
+        );
+        var kept = 0, hidden = 0, unknown = 0;
+        rows.forEach(function (row) {
+          // Skip our own banner if it ever ends up in the query result.
+          if (row.id === "ups-era-picker-banner" || (row.closest && row.closest("#ups-era-picker-banner"))) return;
+          var pid = extractPid(row);
+          if (!pid) {
+            var hasBtn = row.querySelector && row.querySelector("button, input[type='submit']");
+            var hasTh = row.querySelector && row.querySelector("th");
+            if (hasTh || !hasBtn) return;
+            unknown += 1;
+            return;
+          }
+          if (eraSet.has(pid)) {
+            if (row.style.display === "none") row.style.display = "";
+            kept += 1;
+          } else {
+            if (row.style.display !== "none") row.style.display = "none";
+            hidden += 1;
+          }
+        });
+        ensureBanner({
+          hidden: false,
+          text: "🔒 ERA Auction active — " + eraSet.size + " eligible players. " +
+            "Other free agents are hidden during this cycle. " +
+            "(Append ?era_filter=off to bypass.)",
+        });
+        return { kept: kept, hidden: hidden, unknown: unknown };
+      } finally {
+        _applying = false;
       }
-      var rows = document.querySelectorAll(
-        "form#AddDropForm table.report tr, " +
-        ".add-player-container .add-drop-player-row, " +
-        ".add-drop-player-row"
-      );
-      var kept = 0, hidden = 0, unknown = 0;
-      rows.forEach(function (row) {
-        var pid = extractPid(row);
-        if (!pid) {
-          // Header / disclaimer row → skip (don't hide). Heuristic:
-          // header rows have <th> or no Add button.
-          var hasBtn = row.querySelector && row.querySelector("button, input[type='submit']");
-          var hasTh = row.querySelector && row.querySelector("th");
-          if (hasTh || !hasBtn) return; // header/info row — leave alone
-          unknown += 1;
-          return;
-        }
-        if (eraSet.has(pid)) {
-          row.style.display = "";
-          row.classList.add("ups-era-pool-row");
-          kept += 1;
-        } else {
-          row.style.display = "none";
-          hidden += 1;
-        }
+    }
+
+    // Debounced wrapper — MutationObserver calls this, not applyFilter
+    // directly. Collapses mutation bursts into one filter walk per
+    // animation frame.
+    function scheduleApply() {
+      if (_applyScheduled || _applying) return;
+      _applyScheduled = true;
+      (window.requestAnimationFrame || function (cb) { setTimeout(cb, 16); })(function () {
+        _applyScheduled = false;
+        applyFilter();
       });
-      ensureBanner({
-        hidden: false,
-        text: "🔒 ERA Auction active — " + eraSet.size + " eligible players. " +
-          "Other free agents are hidden during this cycle. " +
-          "(Append ?era_filter=off to bypass.)",
-      });
-      return { kept: kept, hidden: hidden, unknown: unknown };
     }
 
     function loadPool(force) {
@@ -11498,15 +11533,40 @@
     }
 
     // Observer — TOS hydrates after initial render, and MFL's search box
-    // can re-render rows on query. Re-apply on mutation.
+    // can re-render rows on query. Re-apply on mutation. Keith
+    // 2026-05-25: DO NOT fall back to document.body — observing the
+    // whole body created an infinite loop where ensureBanner's own DOM
+    // insert triggered the observer, which triggered applyFilter,
+    // which triggered ensureBanner... Now we look for the actual
+    // picker container; if none found we retry on a short interval
+    // (MFL may hydrate the form async) and then abandon after ~10s.
+    var _observerAttempts = 0;
     function startObserver() {
       var target = document.querySelector("form#AddDropForm") ||
+                   document.querySelector("form#auction_bid_form") ||
+                   document.querySelector("form[name='options43']") ||
+                   document.querySelector("form[name='auctionbid']") ||
                    document.querySelector(".add-player-container") ||
-                   document.body;
-      if (!target || target._upsEraObserver) return;
-      var mo = new MutationObserver(function () { applyFilter(); });
+                   document.querySelector("table.report") ||
+                   null;
+      if (!target) {
+        if (++_observerAttempts <= 20) {
+          // 20 × 500ms = 10s upper bound waiting for MFL hydration.
+          setTimeout(startObserver, 500);
+          return;
+        }
+        console.log("[era-picker-filter] picker container not found after 10s — observer not attached");
+        return;
+      }
+      if (target._upsEraObserver) return;
+      var mo = new MutationObserver(function () { scheduleApply(); });
       mo.observe(target, { childList: true, subtree: true });
       target._upsEraObserver = mo;
+      console.log("[era-picker-filter] observer attached to", target.tagName,
+        target.id ? "#" + target.id : "",
+        target.className ? "." + String(target.className).split(/\s+/).join(".") : "");
+      // Initial apply after observer is attached.
+      scheduleApply();
     }
 
     function init() {
