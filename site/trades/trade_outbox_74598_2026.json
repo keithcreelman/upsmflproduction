@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-25T00:36:27.750Z",
-    "row_count": 77,
+    "updated_at": "2026-05-25T00:37:07.833Z",
+    "row_count": 78,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -14684,6 +14684,198 @@
       "season": "2026",
       "updated_ts": "2026-05-25T00:36:27.654Z",
       "id": "77"
+    },
+    {
+      "created_ts": "2026-05-25T00:37:07.694Z",
+      "trade_id": "1058",
+      "action_type": "ACCEPT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0004",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:36:00.787Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_3_0",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 4.01",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_3_0",
+                "pick_season": 2026,
+                "pick_round": 4,
+                "pick_slot": 1
+              },
+              {
+                "asset_id": "pick:FP_0005_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 3rd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0005_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_11",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.12",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_11",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 12
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0004"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 217000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 217000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 73950,
+            "available_salary_after_dollars": 73950,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 238000,
+            "salary_adjustment_total_dollars": 500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 238000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 61500,
+            "available_salary_after_dollars": 61500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "Pure Greatness",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 217000,
+              "left_after_dollars": 217000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 238000,
+              "right_after_dollars": 238000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 304000,
+              "left_after_dollars": 304000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 228000,
+              "right_after_dollars": 228000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 75000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 71000,
+              "right_after_dollars": 71000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:4c2e5b0164be782ab21d7cd97d46a107bdc57a48fd62b347db1324a467060047\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "4c2e5b0164be782ab21d7cd97d46a107bdc57a48fd62b347db1324a467060047",
+      "status": "PENDING",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:37:07.694Z",
+      "id": "78"
     }
   ]
 }
