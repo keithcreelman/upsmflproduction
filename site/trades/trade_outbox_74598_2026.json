@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-25T00:26:55.355Z",
-    "row_count": 74,
+    "updated_at": "2026-05-25T00:33:42.637Z",
+    "row_count": 75,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -14108,6 +14108,198 @@
       "season": "2026",
       "updated_ts": "2026-05-25T00:26:55.256Z",
       "id": "74"
+    },
+    {
+      "created_ts": "2026-05-25T00:33:42.538Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0009",
+      "to_franchise_id": "0010",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:33:42.419Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0009_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 3rd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0009_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:FP_0009_2027_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 5th",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0009_2027_5",
+                "pick_season": 2027,
+                "pick_round": 5,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_10",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.11",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_10",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 11
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0009",
+          "right_team_id": "0010"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 269000,
+            "salary_adjustment_total_dollars": 1000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 269000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 30000,
+            "available_salary_after_dollars": 30000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 164000,
+            "salary_adjustment_total_dollars": 6250,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 164000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 129750,
+            "available_salary_after_dollars": 129750,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "C-Town Chivalry",
+          "right_franchise_name": "Blake Bombers",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 269000,
+              "left_after_dollars": 269000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 164000,
+              "right_after_dollars": 164000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 248000,
+              "left_after_dollars": 248000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 133000,
+              "right_after_dollars": 133000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 56000,
+              "left_after_dollars": 56000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 82000,
+              "right_after_dollars": 82000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "",
+      "payload_hash": "d94f3a0793edfd166971cf32a02917afcae19c59012d3f60eb597d141d653d60",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:33:42.538Z",
+      "id": "75"
     }
   ]
 }
