@@ -11603,6 +11603,17 @@
             }
           });
         } catch (_) {}
+        // Update the drawer trigger button count too — it reads from
+        // readPlayers() which walks all TOS rows. We can't override
+        // readPlayers (it's local to the drawer IIFE), but we CAN
+        // patch the visible count text on the trigger.
+        try {
+          var triggerCountEl = document.querySelector(".ups-picker-trigger-count");
+          if (triggerCountEl && eraSet) {
+            triggerCountEl.textContent = "(" + eraSet.size + " ERA-eligible)";
+          }
+        } catch (_) {}
+
         ensureBanner({
           hidden: false,
           text: "🔒 ERA Auction active — pool " + eraSet.size +
@@ -11772,31 +11783,55 @@
         var qs = new URLSearchParams(window.location.search);
         var pid = String(qs.get("PLAYER_ID") || qs.get("P") || "").replace(/\D/g, "");
         if (!pid) return;
-        if (!pickerDataReady()) return;
-        var pdb = window.playerDatabaseObj.picker;
-        // Find first index whose id matches. We use the visible-row index
-        // post-filter — picker_select uses the SAME array index that
-        // update_picker walks, so eligible-only filtering doesn't change
-        // the lookup (avail=0 rows still occupy their index, picker.js
-        // just skips them visually).
-        var targetIdx = -1;
-        for (var j = 0; j < pdb.length; j += 1) {
-          if (String(pdb[j] && pdb[j].id || "") === pid) { targetIdx = j; break; }
+
+        // Preselect via TOS row's Add button (Keith 2026-05-25 — the
+        // UPS drawer / TOS overlay watches TOS row state, not MFL's
+        // picker_select hidden input). Programmatically clicking the
+        // Add button propagates selection through the drawer's UI and
+        // MFL's hidden inputs simultaneously.
+        var attempts = 0;
+        function tryClick() {
+          var tosRow = document.querySelector(
+            ".add-player-container .add-drop-player-row[data-player-id='" + pid + "']"
+          );
+          if (tosRow) {
+            // Find the "Add" button on this row.
+            var btns = Array.from(tosRow.querySelectorAll("button"));
+            var addBtn = btns.find(function (b) {
+              return /^\s*add\s*$/i.test(String(b.textContent || "").trim());
+            });
+            if (addBtn) {
+              try {
+                addBtn.click();
+                console.log("[era-picker-filter] preselected pid=" + pid + " via TOS Add button");
+                return;
+              } catch (e) {
+                console.log("[era-picker-filter] TOS Add click threw:", e && e.message);
+              }
+            } else {
+              console.log("[era-picker-filter] TOS row found but no Add button (might already be selected)");
+              return;
+            }
+          }
+          // TOS rows may render after our IIFE. Poll up to 15s.
+          if (++attempts <= 30) {
+            setTimeout(tryClick, 500);
+            return;
+          }
+          console.log("[era-picker-filter] TOS row for pid=" + pid + " never appeared — falling back to picker_select");
+          // Fallback: MFL native picker_select (no visible effect on
+          // drawer but at least sets MFL's hidden input).
+          if (!pickerDataReady()) return;
+          var pdb = window.playerDatabaseObj.picker;
+          var targetIdx = -1;
+          for (var j = 0; j < pdb.length; j += 1) {
+            if (String(pdb[j] && pdb[j].id || "") === pid) { targetIdx = j; break; }
+          }
+          if (targetIdx >= 0 && typeof window.picker_select === "function") {
+            try { window.picker_select("picker", targetIdx, 1); } catch (_) {}
+          }
         }
-        if (targetIdx < 0) {
-          console.log("[era-picker-filter] PLAYER_ID=" + pid + " not in picker data — can't preselect");
-          return;
-        }
-        if (typeof window.picker_select !== "function") {
-          console.log("[era-picker-filter] picker_select not available — can't preselect");
-          return;
-        }
-        try {
-          window.picker_select("picker", targetIdx, 1); // scroll=1
-          console.log("[era-picker-filter] preselected pid=" + pid + " at index " + targetIdx);
-        } catch (e) {
-          console.log("[era-picker-filter] picker_select threw:", e && e.message);
-        }
+        tryClick();
       } catch (_) {}
     }
 
