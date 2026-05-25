@@ -143,6 +143,18 @@ main.ah-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .ah-table .small { color: var(--muted); font-size: 11px; }
 .ah-table .player-link { color: var(--text); text-decoration: none; font-weight: 500; }
 .ah-table .player-link:hover { color: var(--accent); text-decoration: underline; }
+/* Buttons used as player-name openers should look like the legacy <a>
+   anchors — strip browser button chrome (Keith 2026-05-25). */
+.ah-table button.player-link,
+.ah-table .ah-player-open {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
 
 /* Position pill (small colored badge in table) */
 .ah-pos {

@@ -7654,6 +7654,21 @@
     text-shadow: none !important;
   }
 
+  /* Table-cell warnings (e.g. taxi squad "No Players Currently…" placeholder
+     row) — MFL paints these with a light yellow background that, combined
+     with the table-td color override below (var(--ups-text)), reads as
+     light-on-light. Force a high-contrast amber-on-dark scheme. Keith
+     2026-05-25. */
+  #container-wrap table td.warning,
+  #container-wrap table td.warning *,
+  #container-wrap table th.warning,
+  #container-wrap table th.warning * {
+    color: #ffe28a !important;
+    background: rgba(180, 35, 45, 0.18) !important;
+    text-shadow: none !important;
+    font-weight: 700 !important;
+  }
+
   #container-wrap h3.menu,
   #container-wrap h3.menu *,
   #container-wrap h3.menu a,
