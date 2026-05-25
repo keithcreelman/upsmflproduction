@@ -89,6 +89,14 @@
     if (!Number.isFinite(v)) return "—";
     return "$" + Math.round(v) + "K";
   };
+  // Display a K-denominated bid as actual dollars with thousands separator
+  // (e.g. high_bid_k=1 → "$1,000", high_bid_k=5 → "$5,000"). Keith 2026-05-25
+  // wants the High Bid column readable as dollars, not the $1K shorthand.
+  const fmtDollarsFromK = (k) => {
+    const v = Number(k);
+    if (!Number.isFinite(v) || v <= 0) return "—";
+    return "$" + Math.round(v * 1000).toLocaleString("en-US");
+  };
   const fmtDate = (iso) => {
     if (!iso) return "—";
     try {
@@ -125,6 +133,7 @@
     setupFilters();
     setupSorting();
     setupNominationsControls();
+    setupPlayerModalDelegation();
 
     // Version badge — best-effort, doesn't block render
     fetchJSON("VERSION.json?_=" + Date.now()).then((v) => {
@@ -985,16 +994,13 @@
   function renderRow(p, myFid) {
     const pos = String(p.position || "").toUpperCase();
 
-    const mflProfileUrl = p.player_id
-      ? `https://www.myfantasyleague.com/${p.season || new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=04&P=${encodeURIComponent(p.player_id)}`
-      : null;
-
-    // Player cell (Keith 2026-05-22: removed ?-helper tooltip; eligibility
-    // reason was redundant once every row is a known cut from the same
-    // deadline event).
-    const playerCell = mflProfileUrl
-      ? `<a href="${mflProfileUrl}" target="_blank" rel="noopener" class="player-link">${escapeHtml(p.name || ("Player #" + p.player_id))}</a>`
-      : `${escapeHtml(p.name || ("Player #" + p.player_id))}`;
+    // Player cell — opens the unified UPS player profile modal (same one
+    // used by Roster Workbench, Rookie Draft Hub, etc.). Falls back to the
+    // MFL profile page if the shared module hasn't loaded.
+    const playerName = escapeHtml(p.name || ("Player #" + p.player_id));
+    const playerCell = p.player_id
+      ? `<button type="button" class="ah-player-open player-link" data-action="open-player-modal" data-player-id="${escapeHtml(p.player_id)}">${playerName}</button>`
+      : playerName;
 
     const currentBid = Number(p.current_bid || 0);
     const yourProxy = Number(p.your_proxy_bid || 0);
@@ -1079,7 +1085,7 @@
     };
 
     const highBidCell = (p.high_bid_k != null && p.high_bid_k > 0)
-      ? fmtK(p.high_bid_k * 1000)
+      ? fmtDollarsFromK(p.high_bid_k)
       : "—";
     const highBidderCell = p.high_bid_team
       ? escapeHtml(p.high_bid_team)
@@ -1132,6 +1138,36 @@
       console.error("[auction-hub] /api/auction/lots fetch failed:", e);
       STATE.lots = { lots: [], error: String(e && e.message || e) };
     }
+  }
+
+  // Delegated click handler for player-name buttons in any auction-hub
+  // table. Opens the unified UPS player profile modal (same one used by
+  // Roster Workbench / Rookie Draft Hub) via window.UPS_openPlayerProfile.
+  // Falls back to the MFL profile page if the shared module is missing.
+  function setupPlayerModalDelegation() {
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest('[data-action="open-player-modal"]');
+      if (!btn) return;
+      const pid = btn.getAttribute("data-player-id");
+      if (!pid) return;
+      e.preventDefault();
+      if (typeof window.UPS_openPlayerProfile === "function") {
+        try {
+          window.UPS_openPlayerProfile(pid, {
+            apiBase: WORKER_BASE || "",
+            leagueId: LEAGUE_ID,
+            year: String(new Date().getUTCFullYear()),
+            mode: "auction_hub",
+          });
+          return;
+        } catch (err) {
+          console.warn("[auction-hub] UPS_openPlayerProfile failed, falling back:", err);
+        }
+      }
+      // Fallback — open MFL's native player profile in a new tab.
+      const url = `https://www.myfantasyleague.com/${new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=04&P=${encodeURIComponent(pid)}`;
+      window.open(url, "_blank", "noopener");
+    });
   }
 
   function setupNominationsControls() {
@@ -1261,11 +1297,11 @@
         : `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small" title="Open MFL auction to bid/raise">Bid ↗</a>`;
       return `
         <tr data-lot-id="${escapeHtml(l.lot_id)}" data-seconds="${l.seconds_remaining}" data-status="${l.status}">
-          <td><a href="${nflProfileUrl}" target="_blank" rel="noopener" class="player-link">${escapeHtml(pi.name || ("Player #" + l.player_id))}</a>${testBadge}</td>
+          <td><button type="button" class="ah-player-open player-link" data-action="open-player-modal" data-player-id="${escapeHtml(l.player_id)}">${escapeHtml(pi.name || ("Player #" + l.player_id))}</button>${testBadge}</td>
           <td><span class="ah-pos ${pos}">${escapeHtml(pos)}</span></td>
           <td class="col-md">${escapeHtml(pi.nfl_team || "—")}</td>
           <td>${escapeHtml(l.nominator_name || franchiseName(l.nominator_fid))}</td>
-          <td class="num">${fmtK(l.current_high_bid_k)}</td>
+          <td class="num">${fmtDollarsFromK(l.current_high_bid_k)}</td>
           <td>${escapeHtml(l.current_high_bidder_name || franchiseName(l.current_high_bidder_fid))}</td>
           <td class="num col-md">${l.bid_count}</td>
           <td class="num col-md">${l.unique_bidder_count}</td>
