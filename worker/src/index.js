@@ -542,12 +542,24 @@ async function processAuctionPoll(env) {
     if (ins.meta?.changes > 0) {
       newBids++;
       if (narrateEnabled && p.bid_at_unix >= narrateCutoffUnix) {
+        // Extract forcer-franchise NAME from MFL's note. Format:
+        //   "Pure Greatness forced bid increase"
+        // The franchise name precedes " forced bid increase". Captured
+        // here and passed to the narrator so messages can say
+        // "Pure Greatness forced L.A. Looks's bid up to $2K" instead of
+        // the confusing "L.A. Looks Forced Increase to $2K".
+        var forcerName = null;
+        var noteText = String(p.note || "");
+        var fm = noteText.match(/^(.*?)\s+forced\s+bid\s+increase\s*$/i);
+        if (fm) forcerName = fm[1].trim();
         narrateQueue.push({
           kind: ev.kind,               // "init" | "bid"
           fid: p.fid,
           player_id: p.player_id,
           bid_k: p.bid_k,
           bid_at_unix: p.bid_at_unix,
+          forcer_name: forcerName,
+          note: noteText,
         });
       }
     }
@@ -1213,7 +1225,17 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
         text = `🏆  ${franchise} **won** ${player} for ${bid}`;
         break;
       case "forced_increase":
-        text = `⬆  ${franchise} **Forced Increase** to ${bid} on ${player}`;
+        // MFL note exposes the forcer's franchise name (e.g.
+        // "Pure Greatness forced bid increase"). Captured by parseTx
+        // and passed via ev.forcer_name. When present, show the forcer
+        // as the actor ("Pure Greatness forced ... up to $X") instead
+        // of the franchise being bumped — Keith 2026-05-25 readability
+        // fix. Fallback to the old form if the note didn't parse.
+        if (ev.forcer_name) {
+          text = `⬆  **${ev.forcer_name}** forced **${fmtFranchise(ev.fid)}**'s bid up to ${bid} on ${player}`;
+        } else {
+          text = `⬆  ${franchise} **Forced Increase** to ${bid} on ${player}`;
+        }
         break;
       case "overtake":
         text = `💰  ${franchise} **Overtake** at ${bid} on ${player}`;
@@ -2000,6 +2022,7 @@ export default {
         path !== "/api/auction/bid-stats" &&
         path !== "/admin/auction/probe-o43" &&
         path !== "/admin/auction/narrate-simulate" &&
+        path !== "/admin/auction/force-narrate-lot" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
@@ -3057,6 +3080,110 @@ export default {
       //               longhaulers_late_expensive, dollar tiers).
       //
       // Body (if no preset): { delay_ms?: number, events: [{ text, pool_id, overlay_pool_id? }] }
+      // POST /admin/auction/force-narrate-lot
+      // Body: { season, league_id?, player_id, kind? ("init"|"bid"|"won") }
+      //
+      // Replays a specific lot through narrateAuctionEvents — used when
+      // the cron missed narrating a real event (e.g. missing secrets at
+      // the time of the original poll). Pulls the matching bid from D1,
+      // constructs a synthetic queue, calls narrator. Honors the same
+      // env config as the live cron (DISCORD_BOT_TOKEN, AUCTION_CHANNEL_ID).
+      if (path === "/admin/auction/force-narrate-lot" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
+        if (!authOk) return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { error: "UPS_MFL_DB missing" });
+
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const playerId = safeStr(body?.player_id || url.searchParams.get("player_id")).replace(/\D/g, "");
+        const kind = safeStr(body?.kind || "init").toLowerCase();
+        if (!targetSeason || !leagueId || !playerId) {
+          return jsonOut(400, { error: "Need season + league_id + player_id" });
+        }
+        const lot_id = `${targetSeason}|${leagueId}|${playerId}`;
+
+        // Look up the matching bid in ups_auction_bids. For "init" we
+        // want the nomination (earliest bid with [nomination] note).
+        // For "won" we use ups_auction_lots.winner + won_at_unix.
+        let queue = [];
+        try {
+          if (kind === "won") {
+            const lot = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, winner_fid, won_at_unix, current_high_bid_k
+                 FROM ups_auction_lots WHERE lot_id = ?`
+            ).bind(lot_id).first();
+            if (!lot || !lot.winner_fid) return jsonOut(404, { error: "Lot not won yet" });
+            queue.push({
+              kind: "won",
+              fid: String(lot.winner_fid),
+              player_id: String(lot.player_id),
+              bid_k: Number(lot.current_high_bid_k || 0),
+              bid_at_unix: Number(lot.won_at_unix || 0),
+            });
+          } else if (kind === "init") {
+            const row = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, fid, bid_k, bid_at_unix
+                 FROM ups_auction_bids
+                WHERE lot_id = ? AND note LIKE '[nomination]%'
+                ORDER BY bid_at_unix ASC LIMIT 1`
+            ).bind(lot_id).first();
+            if (!row) return jsonOut(404, { error: "No nomination bid found for lot" });
+            queue.push({
+              kind: "init",
+              fid: String(row.fid),
+              player_id: String(row.player_id),
+              bid_k: Number(row.bid_k || 0),
+              bid_at_unix: Number(row.bid_at_unix || 0),
+            });
+          } else {
+            // kind=bid → take the latest bid for that lot. Also pull
+            // the note so the narrator can extract the forcer name
+            // (e.g. "Pure Greatness forced bid increase").
+            const row = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, fid, bid_k, bid_at_unix, note
+                 FROM ups_auction_bids
+                WHERE lot_id = ? AND (note NOT LIKE '[nomination]%' OR note IS NULL)
+                ORDER BY bid_at_unix DESC LIMIT 1`
+            ).bind(lot_id).first();
+            if (!row) return jsonOut(404, { error: "No bid found for lot" });
+            const noteText = String(row.note || "");
+            let forcerName = null;
+            const fm = noteText.match(/^(.*?)\s+forced\s+bid\s+increase\s*$/i);
+            if (fm) forcerName = fm[1].trim();
+            queue.push({
+              kind: "bid",
+              fid: String(row.fid),
+              player_id: String(row.player_id),
+              bid_k: Number(row.bid_k || 0),
+              bid_at_unix: Number(row.bid_at_unix || 0),
+              forcer_name: forcerName,
+              note: noteText,
+            });
+          }
+        } catch (e) {
+          return jsonOut(500, { error: "D1 lookup failed: " + String(e?.message || e) });
+        }
+
+        // Run the narrator with the synthesized queue.
+        try {
+          await narrateAuctionEvents(env, Number(targetSeason), leagueId, queue);
+          return jsonOut(200, {
+            ok: true,
+            lot_id,
+            kind,
+            queued_event: queue[0],
+            note: "Posted via narrateAuctionEvents — check Discord channel for the result.",
+          });
+        } catch (e) {
+          return jsonOut(500, { error: "Narrator failed: " + String(e?.message || e) });
+        }
+      }
+
       if (path === "/admin/auction/narrate-simulate" && request.method === "POST") {
         const commishKey = String(env.COMMISH_API_KEY || "").trim();
         const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
