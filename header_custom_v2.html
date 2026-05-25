@@ -10051,8 +10051,46 @@
   }
   body[id^="body_options_43"] h1,
   body[id^="body_options_43"] h2,
-  body[id^="body_options_43"] h3 {
+  body[id^="body_options_43"] h3,
+  body[id^="body_options_43"] h4,
+  body[id^="body_options_43"] h5,
+  body[id^="body_options_43"] h6,
+  body[id^="body_options_43"] h1 *,
+  body[id^="body_options_43"] h2 *,
+  body[id^="body_options_43"] h3 *,
+  body[id^="body_options_43"] h4 *,
+  body[id^="body_options_43"] h1 span,
+  body[id^="body_options_43"] h2 span,
+  body[id^="body_options_43"] h3 span,
+  body[id^="body_options_43"] caption,
+  body[id^="body_options_43"] caption *,
+  body[id^="body_options_43"] caption span,
+  body[id^="body_options_43"] legend,
+  body[id^="body_options_43"] legend *,
+  /* MFL's "Role" / "Welcome" / "Commissioner" headings + page title */
+  body[id^="body_options_43"] .welcome,
+  body[id^="body_options_43"] .welcome *,
+  body[id^="body_options_43"] .pagetitle,
+  body[id^="body_options_43"] .pagetitle *,
+  body[id^="body_options_43"] .reportheader,
+  body[id^="body_options_43"] .reportheader *,
+  body[id^="body_options_43"] .roleheader,
+  body[id^="body_options_43"] .roleheader *,
+  body[id^="body_options_43"] .reportnavigation,
+  body[id^="body_options_43"] .reportnavigationheader,
+  body[id^="body_options_43"] .sectionheader,
+  body[id^="body_options_43"] .sectionheader *,
+  body[id^="body_options_43"] .tableheader,
+  body[id^="body_options_43"] .tableheader * {
     color: var(--ups-text, #e8effa) !important;
+    background: transparent !important;
+  }
+  /* Strong / bold inside the role bar (e.g. "creelmank: Commissioner") */
+  body[id^="body_options_43"] .welcome b,
+  body[id^="body_options_43"] .welcome strong,
+  body[id^="body_options_43"] table.pageheader b,
+  body[id^="body_options_43"] table.pageheader strong {
+    color: var(--ups-accent, #f0c465) !important;
   }
   body[id^="body_options_43"] hr {
     border: none !important;
@@ -11575,12 +11613,51 @@
       console.log("[era-picker-filter] update_picker hooked");
     }
 
+    // Auto-preselect from URL — MFL doesn't honor PLAYER_ID query param
+    // for O=43 (verified by probe — page renders picker mode regardless).
+    // Workaround: read PLAYER_ID from URL after picker hydrates and call
+    // MFL's own picker_select("picker", j, 0). Mirrors what happens when
+    // a user clicks a row.
+    function preselectFromUrl() {
+      try {
+        var qs = new URLSearchParams(window.location.search);
+        var pid = String(qs.get("PLAYER_ID") || qs.get("P") || "").replace(/\D/g, "");
+        if (!pid) return;
+        if (!pickerDataReady()) return;
+        var pdb = window.playerDatabaseObj.picker;
+        // Find first index whose id matches. We use the visible-row index
+        // post-filter — picker_select uses the SAME array index that
+        // update_picker walks, so eligible-only filtering doesn't change
+        // the lookup (avail=0 rows still occupy their index, picker.js
+        // just skips them visually).
+        var targetIdx = -1;
+        for (var j = 0; j < pdb.length; j += 1) {
+          if (String(pdb[j] && pdb[j].id || "") === pid) { targetIdx = j; break; }
+        }
+        if (targetIdx < 0) {
+          console.log("[era-picker-filter] PLAYER_ID=" + pid + " not in picker data — can't preselect");
+          return;
+        }
+        if (typeof window.picker_select !== "function") {
+          console.log("[era-picker-filter] picker_select not available — can't preselect");
+          return;
+        }
+        try {
+          window.picker_select("picker", targetIdx, 1); // scroll=1
+          console.log("[era-picker-filter] preselected pid=" + pid + " at index " + targetIdx);
+        } catch (e) {
+          console.log("[era-picker-filter] picker_select threw:", e && e.message);
+        }
+      } catch (_) {}
+    }
+
     function init() {
       loadPool(true).then(function () {
-        // Wait for picker data, then apply + hook.
+        // Wait for picker data, then apply + hook + preselect.
         waitForPickerData(function () {
           applyFilter();
           hookUpdatePicker();
+          preselectFromUrl();
           console.log("[era-picker-filter] activated — pool=" + (eraSet ? eraSet.size : 0) +
             ", picker_size=" + (window.playerDatabaseObj.picker || []).length);
         });
