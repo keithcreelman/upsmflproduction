@@ -11535,17 +11535,90 @@
         } else {
           renderError = "window.update_picker not a function";
         }
+
+        // TOS overlay picker (Keith 2026-05-25 — found the actual visible
+        // picker). theeohiostate's footer.js renders a SEPARATE widget
+        // using `.add-drop-player-row` divs that read from the same
+        // playerDatabaseObj but have their own renderer. update_picker
+        // ("picker") doesn't touch it. So we walk those rows directly
+        // and hide any whose embedded player_id isn't in eraSet.
+        var tosKept = 0, tosHidden = 0;
+        try {
+          var tosRows = document.querySelectorAll(".add-drop-player-row");
+          tosRows.forEach(function (row) {
+            // Pull player_id from data-attr, img src, or profile link.
+            var pid = "";
+            var d = row.getAttribute && (row.getAttribute("data-player-id") ||
+              row.getAttribute("data-playerid") || row.getAttribute("data-pid"));
+            if (d && /^\d+$/.test(d)) pid = d;
+            if (!pid) {
+              var img = row.querySelector && row.querySelector("img[src*='playerImages']");
+              if (img) {
+                var sm = (img.getAttribute("src") || "").match(/playerImages[^/]*\/(?:mfl_)?(\d{3,6})\b/);
+                if (sm) pid = sm[1];
+              }
+            }
+            if (!pid) {
+              var prof = row.querySelector && row.querySelector("a[href*='O=04']");
+              if (prof) {
+                var hm = (prof.getAttribute("href") || "").match(/[?&]P=(\d{3,6})/);
+                if (hm) pid = hm[1];
+              }
+            }
+            if (!pid) return; // header / chrome row — leave alone
+            if (eraSet.has(pid)) {
+              if (row.style.display === "none") row.style.display = "";
+              tosKept += 1;
+            } else {
+              if (row.style.display !== "none") row.style.display = "none";
+              tosHidden += 1;
+            }
+          });
+        } catch (_) {}
         ensureBanner({
           hidden: false,
           text: "🔒 ERA Auction active — kept " + kept + " · hidden " + hidden +
             " · pool " + eraSet.size +
+            " · TOS kept/hidden " + tosKept + "/" + tosHidden +
             (renderError ? " · render error: " + renderError : "") +
             " (?era_filter=off to bypass)",
         });
-        return { kept: kept, hidden: hidden, total: pdb.length, renderError: renderError };
+        return {
+          kept: kept, hidden: hidden, total: pdb.length,
+          tos_kept: tosKept, tos_hidden: tosHidden,
+          renderError: renderError,
+        };
       } finally {
         _applying = false;
       }
+    }
+
+    // Watch the TOS widget container — when user clicks a position chip
+    // or searches, TOS re-renders the rows from scratch. We need to
+    // re-apply our filter after each re-render. Scoped to the add-player-
+    // container so we don't observe the whole body (avoids the earlier
+    // infinite-loop bug).
+    var _tosObserverAttached = false;
+    var _tosScheduled = false;
+    function attachTosObserver() {
+      if (_tosObserverAttached) return;
+      var container = document.querySelector(".add-player-container");
+      if (!container) {
+        var anyRow = document.querySelector("[class*='add-drop-player']");
+        container = anyRow && anyRow.parentElement;
+      }
+      if (!container) return;
+      var mo = new MutationObserver(function () {
+        if (_tosScheduled || _applying) return;
+        _tosScheduled = true;
+        (window.requestAnimationFrame || function (cb) { setTimeout(cb, 16); })(function () {
+          _tosScheduled = false;
+          applyFilter();
+        });
+      });
+      mo.observe(container, { childList: true, subtree: true });
+      _tosObserverAttached = true;
+      console.log("[era-picker-filter] TOS observer attached to", container.className || container.tagName);
     }
 
     // Debounced wrapper — MutationObserver / re-render hooks call this,
@@ -11674,11 +11747,18 @@
           console.log("[era-picker-filter] applyFilter result:", JSON.stringify(result));
           hookUpdatePicker();
           preselectFromUrl();
+          attachTosObserver();
           // Verify what's actually in the DOM after our re-render.
           var pickerEl = document.getElementById("picker");
           var rowCount = pickerEl ? pickerEl.querySelectorAll("tr").length : -1;
+          var tosVisible = 0, tosTotal = 0;
+          document.querySelectorAll(".add-drop-player-row").forEach(function (r) {
+            tosTotal += 1;
+            if (r.style.display !== "none") tosVisible += 1;
+          });
           console.log("[era-picker-filter] post-render #picker tr count =", rowCount,
             "(expected ~26 if filter worked)");
+          console.log("[era-picker-filter] post-render TOS rows visible/total =", tosVisible + "/" + tosTotal);
           console.log("[era-picker-filter] activated — pool=" + (eraSet ? eraSet.size : 0) +
             ", picker_size=" + (window.playerDatabaseObj.picker || []).length);
         });
