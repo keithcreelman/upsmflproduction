@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-25T01:01:02.288Z",
+    "updated_at": "2026-05-25T01:01:04.027Z",
     "row_count": 82,
     "source": "worker-trade-outbox"
   },
@@ -15637,12 +15637,12 @@
       },
       "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:3c895821ab289d28ecdd3a3ce2309aa2442f7460e28da326d156478d363368cf\n[UPS_TWB_INTENT_END]",
       "payload_hash": "3c895821ab289d28ecdd3a3ce2309aa2442f7460e28da326d156478d363368cf",
-      "status": "PENDING",
-      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
-      "mfl_verify_response_snip": "",
+      "status": "VERIFIED",
+      "mfl_post_response_snip": "{\"trade_response\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\",\"salary\":\"\",\"extensions\":\"\"}",
+      "mfl_verify_response_snip": "{\"transactions_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&JSON=1&_=1779670863447\",\"error\":\"\",\"preview\":\"{\\\"version\\\":\\\"1.0\\\",\\\"transactions\\\":{\\\"transaction\\\":[{\\\"timestamp\\\":\\\"1779670862\\\",\\\"franchise2\\\":\\\"0003\\\",\\\"comments\\\":\\\"\\\",\\\"franchise1_gave_up\\\":\\\"DP_2_8,DP_2_11,\\\",\\\"by_commish\\\":\\\"1\\\",\\\"franchise\\\":\\\"0008\\\",\\\"type\\\":\\\"TRADE\\\",\\\"expires\\\":\\\"1780275641\\\",\\\"franchise2_gave_up\\\":\\\"DP_2_5,\\\"},{\\\"franchise2\\\":\\\"0003\\\",\\\"comments\\\":\\\"\\\",\\\"timestamp\\\":\\\"1779670841\\\",\\\"franchise2_gave_up\\\":\\\"DP_2_5,\\\",\\\"franchise\\\":\\\"0008\\\",\\\"franchise1_gave_up\\\":\\\"DP_2_8,DP_2_11,\\\",\\\"expires\\\":\\\"1780275641\\\",\\\"type\\\":\\\"TRADE_PROPOSAL\\\"},{\\\"franchise2\\\":\\\"0012\\\",\\\"comments\\\":\\\"\\\",\\\"timestamp\\\":\\\"17\"},\"salaries_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=salaries&L=74598&JSON=1&_=1779670863683\",\"error\":\"\",\"preview\":\"{\\\"encoding\\\":\\\"utf-8\\\",\\\"salaries\\\":{\\\"leagueUnit\\\":{\\\"player\\\":[{\\\"contractYe",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-05-25T01:01:02.163Z",
+      "updated_ts": "2026-05-25T01:01:03.867Z",
       "id": "82"
     }
   ]
