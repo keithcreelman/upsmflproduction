@@ -11670,9 +11670,15 @@
       loadPool(true).then(function () {
         // Wait for picker data, then apply + hook + preselect.
         waitForPickerData(function () {
-          applyFilter();
+          var result = applyFilter();
+          console.log("[era-picker-filter] applyFilter result:", JSON.stringify(result));
           hookUpdatePicker();
           preselectFromUrl();
+          // Verify what's actually in the DOM after our re-render.
+          var pickerEl = document.getElementById("picker");
+          var rowCount = pickerEl ? pickerEl.querySelectorAll("tr").length : -1;
+          console.log("[era-picker-filter] post-render #picker tr count =", rowCount,
+            "(expected ~26 if filter worked)");
           console.log("[era-picker-filter] activated — pool=" + (eraSet ? eraSet.size : 0) +
             ", picker_size=" + (window.playerDatabaseObj.picker || []).length);
         });
