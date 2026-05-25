@@ -11536,12 +11536,40 @@
           renderError = "window.update_picker not a function";
         }
 
-        // TOS overlay picker (Keith 2026-05-25 — found the actual visible
-        // picker). theeohiostate's footer.js renders a SEPARATE widget
-        // using `.add-drop-player-row` divs that read from the same
-        // playerDatabaseObj but have their own renderer. update_picker
-        // ("picker") doesn't touch it. So we walk those rows directly
-        // and hide any whose embedded player_id isn't in eraSet.
+        // UPS-built picker drawer (Keith 2026-05-25 — discovered after
+        // user screenshot showed `ups-picker-*` classes). The page has
+        // THREE picker renderings:
+        //   1. MFL native #picker table (data layer: avail flags)
+        //   2. TOS footer.js .add-drop-player-row divs (DOM hide)
+        //   3. UPS-injected drawer .ups-picker-row (DOM hide via
+        //      data-picker-pid attribute — what user actually sees)
+        // Walk all three and hide non-ERA rows.
+        var upsKept = 0, upsHidden = 0;
+        try {
+          var upsRows = document.querySelectorAll(".ups-picker-row[data-picker-pid]");
+          upsRows.forEach(function (row) {
+            var pid = String(row.getAttribute("data-picker-pid") || "");
+            if (!pid) return;
+            if (eraSet.has(pid)) {
+              if (row.style.display === "none") row.style.display = "";
+              upsKept += 1;
+            } else {
+              if (row.style.display !== "none") row.style.display = "none";
+              upsHidden += 1;
+            }
+          });
+          // Update the drawer's count meta if present.
+          var metaEl = document.querySelector('.ups-picker-meta[data-meta="count"]');
+          if (metaEl && upsKept > 0) {
+            metaEl.textContent = upsKept + " of " + eraSet.size +
+              " eligible players · ERA cycle";
+          }
+        } catch (_) {}
+
+        // TOS overlay picker — theeohiostate's footer.js renders rows
+        // with `.add-drop-player-row` divs. Hide non-ERA ones too so the
+        // UPS picker's readPlayers() (which reads from these) sees only
+        // 26 entries on its next re-render.
         var tosKept = 0, tosHidden = 0;
         try {
           var tosRows = document.querySelectorAll(".add-drop-player-row");
@@ -11577,14 +11605,16 @@
         } catch (_) {}
         ensureBanner({
           hidden: false,
-          text: "🔒 ERA Auction active — kept " + kept + " · hidden " + hidden +
-            " · pool " + eraSet.size +
-            " · TOS kept/hidden " + tosKept + "/" + tosHidden +
+          text: "🔒 ERA Auction active — pool " + eraSet.size +
+            " · MFL " + kept + "/" + (kept + hidden) +
+            " · UPS drawer " + upsKept + "/" + (upsKept + upsHidden) +
+            " · TOS " + tosKept + "/" + (tosKept + tosHidden) +
             (renderError ? " · render error: " + renderError : "") +
             " (?era_filter=off to bypass)",
         });
         return {
           kept: kept, hidden: hidden, total: pdb.length,
+          ups_kept: upsKept, ups_hidden: upsHidden,
           tos_kept: tosKept, tos_hidden: tosHidden,
           renderError: renderError,
         };
@@ -11601,39 +11631,56 @@
     var _tosObserverAttached = false;
     var _tosScheduled = false;
     var _tosPollAttempts = 0;
-    function attachTosObserver() {
+    function attachPickerObservers() {
       if (_tosObserverAttached) return;
-      var container = document.querySelector(".add-player-container");
-      if (!container) {
+      var targets = [];
+
+      // UPS-built drawer list — primary visible picker. Re-renders on
+      // every search/chip/sort change. Must observe to catch new rows.
+      var upsList = document.querySelector(".ups-picker-list");
+      if (upsList) targets.push({ el: upsList, name: ".ups-picker-list" });
+
+      // TOS overlay container — secondary picker that feeds UPS drawer's
+      // readPlayers(). Hide TOS rows so the drawer's next render skips
+      // non-ERA players.
+      var tosContainer = document.querySelector(".add-player-container");
+      if (!tosContainer) {
         var anyRow = document.querySelector("[class*='add-drop-player']");
-        container = anyRow && anyRow.parentElement;
+        tosContainer = anyRow && anyRow.parentElement;
       }
-      if (!container) {
-        // TOS renders client-side AFTER page load. Poll up to 15s for
-        // its container/rows to appear, then attach observer + re-apply.
+      if (tosContainer) targets.push({ el: tosContainer, name: "add-player-container" });
+
+      if (targets.length === 0) {
+        // Neither picker rendered yet — poll up to 15s.
         if (++_tosPollAttempts > 30) {
-          console.log("[era-picker-filter] TOS widget never appeared after 15s");
+          console.log("[era-picker-filter] no picker container after 15s");
           return;
         }
-        setTimeout(attachTosObserver, 500);
+        setTimeout(attachPickerObservers, 500);
         return;
       }
-      var mo = new MutationObserver(function () {
-        if (_tosScheduled || _applying) return;
-        _tosScheduled = true;
-        (window.requestAnimationFrame || function (cb) { setTimeout(cb, 16); })(function () {
-          _tosScheduled = false;
-          applyFilter();
+
+      targets.forEach(function (t) {
+        var mo = new MutationObserver(function () {
+          if (_tosScheduled || _applying) return;
+          _tosScheduled = true;
+          (window.requestAnimationFrame || function (cb) { setTimeout(cb, 16); })(function () {
+            _tosScheduled = false;
+            applyFilter();
+          });
         });
+        mo.observe(t.el, { childList: true, subtree: true });
+        console.log("[era-picker-filter] observer attached to", t.name,
+          "— rows in DOM: .ups-picker-row=" + document.querySelectorAll(".ups-picker-row").length,
+          ".add-drop-player-row=" + document.querySelectorAll(".add-drop-player-row").length);
       });
-      mo.observe(container, { childList: true, subtree: true });
       _tosObserverAttached = true;
-      console.log("[era-picker-filter] TOS observer attached to", container.className || container.tagName,
-        "— current .add-drop-player-row count:", document.querySelectorAll(".add-drop-player-row").length);
-      // Re-apply filter right after attach — rows that appeared between
-      // the initial filter and now get caught here.
+      // Re-apply filter right after attach.
       applyFilter();
     }
+
+    // Backward-compat alias for existing callers.
+    var attachTosObserver = attachPickerObservers;
 
     // Debounced wrapper — MutationObserver / re-render hooks call this,
     // not applyFilter directly. rAF collapses mutation bursts.
