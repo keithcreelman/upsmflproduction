@@ -11600,6 +11600,7 @@
     // infinite-loop bug).
     var _tosObserverAttached = false;
     var _tosScheduled = false;
+    var _tosPollAttempts = 0;
     function attachTosObserver() {
       if (_tosObserverAttached) return;
       var container = document.querySelector(".add-player-container");
@@ -11607,7 +11608,16 @@
         var anyRow = document.querySelector("[class*='add-drop-player']");
         container = anyRow && anyRow.parentElement;
       }
-      if (!container) return;
+      if (!container) {
+        // TOS renders client-side AFTER page load. Poll up to 15s for
+        // its container/rows to appear, then attach observer + re-apply.
+        if (++_tosPollAttempts > 30) {
+          console.log("[era-picker-filter] TOS widget never appeared after 15s");
+          return;
+        }
+        setTimeout(attachTosObserver, 500);
+        return;
+      }
       var mo = new MutationObserver(function () {
         if (_tosScheduled || _applying) return;
         _tosScheduled = true;
@@ -11618,7 +11628,11 @@
       });
       mo.observe(container, { childList: true, subtree: true });
       _tosObserverAttached = true;
-      console.log("[era-picker-filter] TOS observer attached to", container.className || container.tagName);
+      console.log("[era-picker-filter] TOS observer attached to", container.className || container.tagName,
+        "— current .add-drop-player-row count:", document.querySelectorAll(".add-drop-player-row").length);
+      // Re-apply filter right after attach — rows that appeared between
+      // the initial filter and now get caught here.
+      applyFilter();
     }
 
     // Debounced wrapper — MutationObserver / re-render hooks call this,
