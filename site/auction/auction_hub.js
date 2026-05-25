@@ -1037,15 +1037,17 @@
     //
     // URL shape (confirmed against Keith's 2026-05-20 sample):
     //   /<year>/options?LEAGUE_ID=<L>&FRANCHISE=<fid>&O=43
-    //     &PLAYER_ID=<pid>&SELECT=Select+Franchise
-    // SELECT=Select+Franchise is the UI default-state marker MFL
-    // includes when navigating directly to the nominate flow.
+    //     &PLAYER_ID=<pid>
+    // (Removed &SELECT=Select+Franchise per Keith 2026-05-25 —
+    // it was triggering MFL's franchise-picker interstitial instead
+    // of going straight to the bid form. With just FRANCHISE +
+    // PLAYER_ID, MFL renders the bid form preselected to that player.)
     const nominateEligible = !p.nominate_blocked;
     const viewerFidForMfl = (STATE.me && STATE.me.franchise_id) || "0000";
     const mflAuctionUrl =
       `https://www48.myfantasyleague.com/${p.season || new Date().getUTCFullYear()}` +
       `/options?LEAGUE_ID=${LEAGUE_ID}&FRANCHISE=${encodeURIComponent(viewerFidForMfl)}&O=43` +
-      `&PLAYER_ID=${encodeURIComponent(p.player_id)}&SELECT=Select+Franchise`;
+      `&PLAYER_ID=${encodeURIComponent(p.player_id)}`;
     const nominateBtn = nominateEligible
       ? `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small ah-nominate-btn" data-pid="${escapeHtml(p.player_id)}" title="Opens MFL's native auction page in a new tab. UPS-side nominate endpoint is parked (see CROSS_CODEBASE_ALIGNMENT §4.1).">Nominate ↗</a>`
       : `<button type="button" class="btn small secondary" disabled title="${escapeHtml(p.nominate_block_reason || "Nomination blocked")}">Blocked</button>`;
@@ -1249,7 +1251,7 @@
       const mflAuctionUrl =
         `https://www48.myfantasyleague.com/${new Date().getUTCFullYear()}` +
         `/options?LEAGUE_ID=${LEAGUE_ID}&FRANCHISE=${encodeURIComponent(viewerFidForMfl)}&O=43` +
-        `&PLAYER_ID=${encodeURIComponent(l.player_id)}&SELECT=Select+Franchise`;
+        `&PLAYER_ID=${encodeURIComponent(l.player_id)}`;
       const isWon = l.status === "won";
       const proxyCell = (viewerFid && l.your_proxy_bid_k)
         ? `${fmtK(l.your_proxy_bid_k)}`
