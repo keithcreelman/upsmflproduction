@@ -150,10 +150,13 @@
     renderEraTable();
     renderNominations();
 
-    // Auto-refresh nominations every 30s.
+    // Auto-refresh nominations every 30s. Also re-render the ERA table so
+    // the Nominate→Bid CTA flips when a player gets newly nominated mid-
+    // session (cross-references STATE.lots in renderRow).
     setInterval(async () => {
       await loadLots();
       renderNominations();
+      renderEraTable();
     }, 30000);
 
     // And tick the time-remaining countdowns every second.
@@ -1054,8 +1057,19 @@
       `https://www48.myfantasyleague.com/${p.season || new Date().getUTCFullYear()}` +
       `/options?LEAGUE_ID=${LEAGUE_ID}&FRANCHISE=${encodeURIComponent(viewerFidForMfl)}&O=43` +
       `&PLAYER_ID=${encodeURIComponent(p.player_id)}`;
+    // If this player already has an open auction lot (anyone has bid →
+    // they're nominated), surface a "Bid" CTA instead of "Nominate".
+    // Same destination URL — MFL's O=43 page renders the bid form whether
+    // or not a lot already exists. Keith 2026-05-25.
+    const lotsArr = (STATE.lots && Array.isArray(STATE.lots.lots)) ? STATE.lots.lots : [];
+    const openLot = lotsArr.find((l) => String(l.player_id) === String(p.player_id) && l.status !== "won");
+    const alreadyNominated = !!openLot || (Number(p.high_bid_k) > 0) || (Number(p.total_bids) > 0);
+    const ctaLabel = alreadyNominated ? "Bid ↗" : "Nominate ↗";
+    const ctaTitle = alreadyNominated
+      ? "Already nominated — opens MFL's auction page to raise the bid."
+      : "Opens MFL's native auction page in a new tab. UPS-side nominate endpoint is parked (see CROSS_CODEBASE_ALIGNMENT §4.1).";
     const nominateBtn = nominateEligible
-      ? `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small ah-nominate-btn" data-pid="${escapeHtml(p.player_id)}" title="Opens MFL's native auction page in a new tab. UPS-side nominate endpoint is parked (see CROSS_CODEBASE_ALIGNMENT §4.1).">Nominate ↗</a>`
+      ? `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small ah-nominate-btn" data-pid="${escapeHtml(p.player_id)}" data-mode="${alreadyNominated ? "bid" : "nominate"}" title="${escapeHtml(ctaTitle)}">${ctaLabel}</a>`
       : `<button type="button" class="btn small secondary" disabled title="${escapeHtml(p.nominate_block_reason || "Nomination blocked")}">Blocked</button>`;
 
     const origin = p.origin_label || "Unknown";
