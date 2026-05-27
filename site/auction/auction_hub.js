@@ -1179,6 +1179,37 @@
   // table. Opens the unified UPS player profile modal (same one used by
   // Roster Workbench / Rookie Draft Hub) via window.UPS_openPlayerProfile.
   // Falls back to the MFL profile page if the shared module is missing.
+  // Resolve a player's known metadata (name / pos / NFL team) from our
+  // local STATE so the unified modal can render its header eagerly
+  // instead of showing "Player #<id>" until the async MFL fetch resolves.
+  // Mirrors the playerInfo shape player_profile_master.js consumes.
+  function resolvePlayerInfo(pid) {
+    const idStr = String(pid);
+    if (STATE.era && Array.isArray(STATE.era.players)) {
+      for (const p of STATE.era.players) {
+        if (String(p.player_id) === idStr) {
+          return {
+            name: p.name || "",
+            position: p.position || "",
+            team: p.nfl_team || "",
+          };
+        }
+      }
+    }
+    if (STATE.lots && Array.isArray(STATE.lots.lots)) {
+      for (const l of STATE.lots.lots) {
+        if (String(l.player_id) === idStr) {
+          return {
+            name: l.player_name || "",
+            position: l.position || "",
+            team: l.nfl_team || "",
+          };
+        }
+      }
+    }
+    return null;
+  }
+
   function setupPlayerModalDelegation() {
     document.addEventListener("click", (e) => {
       const btn = e.target.closest('[data-action="open-player-modal"]');
@@ -1188,11 +1219,17 @@
       e.preventDefault();
       if (typeof window.UPS_openPlayerProfile === "function") {
         try {
+          // Pass playerInfo so the master modal's header is correct
+          // immediately (same pattern Roster Workbench / Rookie Draft Hub
+          // use). Without this the header sits on "Player #<id>" until
+          // the MFL bundle fetch resolves.
+          const playerInfo = resolvePlayerInfo(pid);
           window.UPS_openPlayerProfile(pid, {
             apiBase: WORKER_BASE || "",
             leagueId: LEAGUE_ID,
             year: String(new Date().getUTCFullYear()),
             mode: "auction_hub",
+            playerInfo: playerInfo || undefined,
           });
           return;
         } catch (err) {
