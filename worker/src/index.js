@@ -2023,6 +2023,7 @@ export default {
         path !== "/admin/auction/probe-o43" &&
         path !== "/admin/auction/narrate-simulate" &&
         path !== "/admin/auction/force-narrate-lot" &&
+        path !== "/admin/auction/backfill-era-ppg" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
@@ -3182,6 +3183,131 @@ export default {
         } catch (e) {
           return jsonOut(500, { error: "Narrator failed: " + String(e?.message || e) });
         }
+      }
+
+      // POST /admin/auction/backfill-era-ppg?L=...&YEAR=...&APIKEY=...
+      //
+      // Lazy backfill of ups_era_pool PPG columns. At ERA-pool snapshot
+      // time, players missing from player_points_history.json (build-time
+      // quarterly file ~404 players) AND not picked up by the inline live
+      // MFL fallback (CPU-budget capped at 40 missing pids) end up with
+      // NULL ppg_*. Keith 2026-05-27: confirmed 5/26 players missing —
+      // Michael Mayer, Drew Sanders, Hendon Hooker, Jake Haener, Stetson
+      // Bennett. This endpoint walks ups_era_pool, fetches W=ALL player
+      // scores from MFL for any row with all three ppg_* NULL, computes
+      // PPG + games per year, recomputes the weighted PPG, UPDATEs D1.
+      // Idempotent — re-runs only touch still-null rows.
+      if (path === "/admin/auction/backfill-era-ppg" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
+        if (!authOk) return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { error: "UPS_MFL_DB missing" });
+
+        const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+
+        // Find rows with all three ppg_* NULL.
+        const { results: rows } = await env.UPS_MFL_DB.prepare(
+          `SELECT player_id, player_name
+             FROM ups_era_pool
+            WHERE season = ? AND league_id = ?
+              AND ppg_2023 IS NULL
+              AND ppg_2024 IS NULL
+              AND ppg_2025 IS NULL`
+        ).bind(yearArg, leagueId).all();
+
+        if (!rows || rows.length === 0) {
+          return jsonOut(200, { ok: true, message: "Nothing to backfill", count: 0 });
+        }
+
+        const computeWeightedPpg = (h) => {
+          const slots = [
+            { ppg: h.ppg_2025, games: h.games_2025, w: 3 },
+            { ppg: h.ppg_2024, games: h.games_2024, w: 2 },
+            { ppg: h.ppg_2023, games: h.games_2023, w: 1 },
+          ];
+          let num = 0, den = 0;
+          for (const s of slots) {
+            const ppg = Number(s.ppg);
+            const games = Number(s.games);
+            if (!Number.isFinite(ppg) || !Number.isFinite(games) || games <= 0) continue;
+            num += ppg * s.w;
+            den += s.w;
+          }
+          return den > 0 ? Math.round((num / den) * 100) / 100 : null;
+        };
+
+        const updates = [];
+        const errors = [];
+
+        for (const r of rows) {
+          const pid = String(r.player_id);
+          const out = {
+            player_id: pid,
+            player_name: r.player_name,
+            ppg_2023: null, games_2023: null,
+            ppg_2024: null, games_2024: null,
+            ppg_2025: null, games_2025: null,
+          };
+          for (const yr of ["2023", "2024", "2025"]) {
+            try {
+              const psRes = await fetch(
+                `https://api.myfantasyleague.com/${yr}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&P=${encodeURIComponent(pid)}&W=ALL&JSON=1`,
+                { cf: { cacheTtl: 86400 } }
+              );
+              const pj = await psRes.json().catch(() => ({}));
+              const allWeeks = pj?.playerScoresAllWeeks?.playerScores || [];
+              const arr = Array.isArray(allWeeks) ? allWeeks : [allWeeks];
+              let total = 0, games = 0;
+              for (const wk of arr) {
+                const sc = wk?.playerScore?.score;
+                if (sc === "" || sc == null) continue;
+                const v = Number(sc);
+                if (!Number.isFinite(v)) continue;
+                total += v;
+                games += 1;
+              }
+              if (games > 0) {
+                out[`ppg_${yr}`] = Math.round((total / games) * 1000) / 1000;
+                out[`games_${yr}`] = games;
+              } else {
+                out[`games_${yr}`] = 0;
+              }
+            } catch (e) {
+              errors.push({ pid, year: yr, error: String(e?.message || e) });
+            }
+          }
+          const wPpg = computeWeightedPpg(out);
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `UPDATE ups_era_pool
+                  SET ppg_2023 = ?, games_2023 = ?,
+                      ppg_2024 = ?, games_2024 = ?,
+                      ppg_2025 = ?, games_2025 = ?,
+                      ppg_weighted = ?
+                WHERE season = ? AND league_id = ? AND player_id = ?`
+            ).bind(
+              out.ppg_2023, out.games_2023,
+              out.ppg_2024, out.games_2024,
+              out.ppg_2025, out.games_2025,
+              wPpg, yearArg, leagueId, pid
+            ).run();
+            updates.push({ ...out, ppg_weighted: wPpg });
+          } catch (e) {
+            errors.push({ pid, stage: "update", error: String(e?.message || e) });
+          }
+        }
+
+        return jsonOut(200, {
+          ok: true,
+          season: yearArg,
+          league_id: leagueId,
+          count: updates.length,
+          updates,
+          errors,
+        });
       }
 
       if (path === "/admin/auction/narrate-simulate" && request.method === "POST") {
