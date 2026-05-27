@@ -191,7 +191,7 @@
       console.error("[auction-hub] era-eligible fetch failed:", e);
       STATE.era = { players: [], error: String(e && e.message || e) };
       if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--err);padding:24px;">
+        tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--err);padding:24px;">
           Failed to load eligible players: ${escapeHtml(STATE.era.error)}
         </td></tr>`;
       }
@@ -865,7 +865,7 @@
         } else {
           STATE.era_sort = col;
           // Numeric columns default desc, text columns default asc
-          const numeric = ["ppg_2023", "ppg_2024", "ppg_2025", "ppg_weighted", "high_bid_k", "total_bids", "age", "y3_salary", "current_bid", "rookie_slot"];
+          const numeric = ["ppg_2023", "ppg_2024", "ppg_2025", "ppg_weighted", "high_bid_k", "total_bids", "age", "y3_salary", "current_bid", "rookie_slot", "time_remaining"];
           STATE.era_sort_dir = numeric.includes(col) ? -1 : 1;
         }
         renderEraTable();
@@ -943,10 +943,30 @@
       "ppg_2023", "ppg_2024", "ppg_2025", "ppg_weighted",
       "high_bid_k", "total_bids",
       "age", "y3_salary", "current_bid", "rookie_slot",
+      "time_remaining",
     ];
+    // Status priority (lot_status sort key). Open auctions surface first
+    // on asc; won auctions last. "not_yet_open" => never nominated.
+    const STATUS_RANK = { open: 0, locked: 1, not_yet_open: 2, won: 3 };
+    const nowUnix = Math.floor(Date.now() / 1000);
+    const getVal = (row, key) => {
+      if (key === "time_remaining") {
+        // Compute remaining lock seconds. Rows with no lot or already
+        // won → NaN so they sink to the bottom via the +/-Infinity
+        // fallback below.
+        const locks = Number(row.lot_locks_at_unix || 0);
+        if (!locks || row.lot_status === "won") return NaN;
+        return Math.max(0, locks - nowUnix);
+      }
+      if (key === "lot_status") {
+        const s = String(row.lot_status || "not_yet_open");
+        return STATUS_RANK[s] != null ? STATUS_RANK[s] : 99;
+      }
+      return row[key];
+    };
     return rows.slice().sort((a, b) => {
-      let va = a[col], vb = b[col];
-      if (numeric.includes(col)) {
+      let va = getVal(a, col), vb = getVal(b, col);
+      if (numeric.includes(col) || col === "lot_status") {
         va = Number(va);
         vb = Number(vb);
         // For descending sort (dir = -1), null/missing should sink to
@@ -983,7 +1003,7 @@
     });
 
     if (sorted.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px;">
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px;">
         No players match the current filters.
       </td></tr>`;
       return;
@@ -1127,6 +1147,20 @@
       : "—";
     const totalBidsCell = Number(p.total_bids || 0);
 
+    // Time Remaining cell — counts down to the lot's 36hr lock window.
+    // Live (per-second tick handled by updateEraCountdowns()).
+    const locksAtUnix = Number(p.lot_locks_at_unix || 0);
+    const lotIsWonHere = String(p.lot_status || "") === "won";
+    let timeRemainingCell;
+    if (lotIsWonHere) {
+      timeRemainingCell = `<span class="small" style="color:var(--muted)">—</span>`;
+    } else if (locksAtUnix > 0) {
+      const remaining = Math.max(0, locksAtUnix - Math.floor(Date.now() / 1000));
+      timeRemainingCell = `<span class="ah-countdown" data-locks-at="${locksAtUnix}">${formatCountdown(remaining)}</span>`;
+    } else {
+      timeRemainingCell = `<span class="small" style="color:var(--muted)">—</span>`;
+    }
+
     return `
       <tr data-pid="${escapeHtml(p.player_id || "")}">
         <td>${playerCell}</td>
@@ -1140,6 +1174,7 @@
         <td class="num col-md">${highBidCell}</td>
         <td class="col-md">${highBidderCell}</td>
         <td class="num col-lo">${totalBidsCell}</td>
+        <td class="col-md">${timeRemainingCell}</td>
         <td>
           <div class="ah-nominate-wrap">
             ${nominateBtn}
@@ -1385,9 +1420,11 @@
   }
 
   // Tick down the time-remaining cells without re-fetching from the worker.
+  // Ticks BOTH the Nominations table and the ERA table (same .ah-countdown
+  // + data-locks-at pattern).
   function updateNominationCountdowns() {
     const now = Math.floor(Date.now() / 1000);
-    $$("#nominations-tbody tr").forEach((tr) => {
+    $$("#nominations-tbody tr, #era-tbody tr").forEach((tr) => {
       const cell = tr.querySelector(".ah-countdown");
       if (!cell || tr.dataset.status === "won") return;
       const locksAt = Number(cell.dataset.locksAt || 0);
