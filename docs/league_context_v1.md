@@ -180,18 +180,20 @@ There are **7 entry paths**. Each creates a different default contract and const
   - **Starting bid: $1K** (changed in 2025 — old "prior-year salary + $1K" rule is dead). Reason: under the old rule a $13K player needed a $14K opening nomination; nobody wanted that. $1K floor lets someone start the bidding.
   - **36-hour** lock window. Resets on new high bid.
 - **Nomination cadence (Keith 2026-05-21):** each owner may submit **at most 1 new ERA nomination per 12-hour window**. Windows are **anchored to 6 AM ET and 6 PM ET** — not rolling from the franchise's last nomination. No concurrent-nomination cap — if other owners don't nominate, additional lots simply don't open. Intent: prevent any single owner from grabbing the opening bid on multiple headline players in the first hours of the auction.
-- **Nomination window schedule:** 6 discrete windows, opens **Saturday 6 PM ET** (the Saturday before Memorial Day weekend), closes at the end of the **Tuesday 6 AM → 6 PM ET** window:
+- **Nomination window schedule (Keith 2026-05-27):** 6 discrete windows, opens **Memorial Day Monday 6 AM ET**, closes at the end of the **Wednesday 6 PM → Thursday 6 AM ET** window:
 
   | # | Window | Notes |
   |---|---|---|
-  | 1 | Sat 6 PM → Sun 6 AM ET | Opening window |
-  | 2 | Sun 6 AM → Sun 6 PM ET | |
-  | 3 | Sun 6 PM → Mon 6 AM ET | |
-  | 4 | Mon 6 AM → Mon 6 PM ET | Memorial Day morning |
-  | 5 | Mon 6 PM → Tue 6 AM ET | |
-  | 6 | Tue 6 AM → Tue 6 PM ET | **Final** nomination window |
+  | 1 | Mon 6 AM → Mon 6 PM ET | Opening window (Memorial Day morning) |
+  | 2 | Mon 6 PM → Tue 6 AM ET | |
+  | 3 | Tue 6 AM → Tue 6 PM ET | |
+  | 4 | Tue 6 PM → Wed 6 AM ET | |
+  | 5 | Wed 6 AM → Wed 6 PM ET | |
+  | 6 | Wed 6 PM → Thu 6 AM ET | **Final** nomination window |
 
-  After Tuesday 6 PM ET no new lots can be nominated. Existing lots continue bidding with their 36-hour lock windows until everything resolves. Enforcement: worker-side at `/api/auction/nomination-status` via `getEraNominationWindowState()` — computes the current window from "now" and checks if each franchise has used it. UI surfaces "Nominate" CTAs only when `current_window` is open and `used_in_window === 0` for the viewing franchise.
+  After Thursday 6 AM ET no new lots can be nominated. Existing lots continue bidding with their 36-hour lock windows until everything resolves. Enforcement: worker-side at `/api/auction/nomination-status` via `getEraNominationWindowState()` — computes the current window from "now" and checks if each franchise has used it. UI surfaces "Nominate" CTAs only when `current_window` is open and `used_in_window === 0` for the viewing franchise.
+
+  > **Prior rule (deprecated 2026-05-27):** opened Sat 6 PM ET / closed Tue 6 PM ET (6 windows shifted 60 hours earlier). Code + doc previously matched that; corrected upward after Keith confirmed the league actually started Memorial Day Monday 6 AM ET.
 - **Missed-nomination policy:** **no fine for ERA.** Participation is optional — unlike FA Auction, ERA has no mandatory-nomination obligation. (Asymmetric on purpose: ERA pools are smaller and not every owner has a target.)
 - **Contract on win:** 1, 2, or 3 years, same loading rules as FA Auction (front-load OR back-load, capped at **5 loaded contracts** on roster — see §C2 for enforcement timing). No "sign immediately" benefit — FA Auction submission deadline applies.
 - **AAV escalator basis (Keith 2026-05-18):** when an ERA winner converts to a multi-year contract, the AAV escalator is computed off the **winning bid**, not the prior Y3 rookie salary. (Necessary clarification after the 2025 switch to a flat $1K opening bid.)

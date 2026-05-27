@@ -150,10 +150,13 @@
     renderEraTable();
     renderNominations();
 
-    // Auto-refresh nominations every 30s.
+    // Auto-refresh nominations every 30s. Also re-render the ERA table so
+    // the Nominate→Bid CTA flips when a player gets newly nominated mid-
+    // session (cross-references STATE.lots in renderRow).
     setInterval(async () => {
       await loadLots();
       renderNominations();
+      renderEraTable();
     }, 30000);
 
     // And tick the time-remaining countdowns every second.
@@ -395,7 +398,7 @@
         <div class="ah-warroom-league-banner">
           <strong>ERA nominations not yet open</strong> — opens
           <code>${escapeHtml(eraWin.open_at_iso || "")}</code>.
-          6 anchored 12-hour windows (6 AM / 6 PM ET), Sat 6 PM ET → Tue 6 PM ET.
+          6 anchored 12-hour windows (6 AM / 6 PM ET), Memorial Day Mon 6 AM ET → Thu 6 AM ET.
         </div>`;
     } else if (eraWin.reason === "after_close") {
       eraBannerHtml = `
@@ -1054,9 +1057,41 @@
       `https://www48.myfantasyleague.com/${p.season || new Date().getUTCFullYear()}` +
       `/options?LEAGUE_ID=${LEAGUE_ID}&FRANCHISE=${encodeURIComponent(viewerFidForMfl)}&O=43` +
       `&PLAYER_ID=${encodeURIComponent(p.player_id)}`;
-    const nominateBtn = nominateEligible
-      ? `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small ah-nominate-btn" data-pid="${escapeHtml(p.player_id)}" title="Opens MFL's native auction page in a new tab. UPS-side nominate endpoint is parked (see CROSS_CODEBASE_ALIGNMENT §4.1).">Nominate ↗</a>`
-      : `<button type="button" class="btn small secondary" disabled title="${escapeHtml(p.nominate_block_reason || "Nomination blocked")}">Blocked</button>`;
+    // CTA logic — cross-reference STATE.lots to surface the right action:
+    //   - lot.status === "won"            → "Won by <team>" (disabled)
+    //   - lot exists but locks_at passed  → "Closed" (disabled; pending
+    //                                       resolution into a won row)
+    //   - lot exists and still open       → "Bid ↗"
+    //   - no lot but high_bid_k>0 (data-
+    //     layer-only signal of activity)  → "Bid ↗" (fallback)
+    //   - nothing                         → "Nominate ↗"
+    // (Keith 2026-05-25 / 2026-05-27.)
+    const lotsArr = (STATE.lots && Array.isArray(STATE.lots.lots)) ? STATE.lots.lots : [];
+    const lotForPlayer = lotsArr.find((l) => String(l.player_id) === String(p.player_id));
+    const nowUnix = Math.floor(Date.now() / 1000);
+    const lotIsWon = !!lotForPlayer && lotForPlayer.status === "won";
+    const lotIsLocked = !!lotForPlayer && !lotIsWon && Number(lotForPlayer.locks_at_unix || 0) > 0 && Number(lotForPlayer.locks_at_unix) <= nowUnix;
+    const lotIsOpen = !!lotForPlayer && !lotIsWon && !lotIsLocked;
+    const alreadyNominated = lotIsOpen || lotIsWon || lotIsLocked || (Number(p.high_bid_k) > 0) || (Number(p.total_bids) > 0);
+
+    let nominateBtn;
+    if (lotIsWon) {
+      const winner = lotForPlayer.winner_name
+        || (typeof franchiseName === "function" ? franchiseName(lotForPlayer.winner_fid) : "")
+        || p.high_bid_team
+        || "—";
+      nominateBtn = `<button type="button" class="btn small secondary" disabled title="${escapeHtml("Auction closed — won by " + winner)}" data-mode="won">Won · ${escapeHtml(winner)}</button>`;
+    } else if (lotIsLocked) {
+      nominateBtn = `<button type="button" class="btn small secondary" disabled title="Lock window expired — pending resolution into a won row." data-mode="closed">Closed</button>`;
+    } else if (!nominateEligible) {
+      nominateBtn = `<button type="button" class="btn small secondary" disabled title="${escapeHtml(p.nominate_block_reason || "Nomination blocked")}">Blocked</button>`;
+    } else {
+      const ctaLabel = alreadyNominated ? "Bid ↗" : "Nominate ↗";
+      const ctaTitle = alreadyNominated
+        ? "Already nominated — opens MFL's auction page to raise the bid."
+        : "Opens MFL's native auction page in a new tab. UPS-side nominate endpoint is parked (see CROSS_CODEBASE_ALIGNMENT §4.1).";
+      nominateBtn = `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small ah-nominate-btn" data-pid="${escapeHtml(p.player_id)}" data-mode="${alreadyNominated ? "bid" : "nominate"}" title="${escapeHtml(ctaTitle)}">${ctaLabel}</a>`;
+    }
 
     const origin = p.origin_label || "Unknown";
     // Map labels → CSS class slug (no spaces/hyphens)

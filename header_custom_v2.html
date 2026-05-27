@@ -11542,13 +11542,23 @@
             hidden += 1;
           }
         }
-        // Re-render the picker via MFL's own function.
+        // Re-render the picker via MFL's own function — but only if the
+        // legacy <table id="picker"> element actually exists on this page.
+        // O=43's nomination form doesn't render it (UI comes from the TOS
+        // overlay + UPS drawer instead); calling update_picker there throws
+        // "null is not an object (evaluating 'picker.innerHTML = content')"
+        // inside MFL's own code. Silently skip — the data-layer filter
+        // (avail flags above) is still applied, which is all we need for
+        // any other surface that DOES use #picker.
         var renderError = "";
-        if (typeof window.update_picker === "function") {
-          try { window.update_picker("picker"); }
-          catch (e) { renderError = String((e && e.message) || e).slice(0, 200); }
-        } else {
-          renderError = "window.update_picker not a function";
+        var hasPickerEl = !!document.getElementById("picker");
+        if (hasPickerEl) {
+          if (typeof window.update_picker === "function") {
+            try { window.update_picker("picker"); }
+            catch (e) { renderError = String((e && e.message) || e).slice(0, 200); }
+          } else {
+            renderError = "window.update_picker not a function";
+          }
         }
 
         // UPS-built picker drawer (Keith 2026-05-25 — discovered after
