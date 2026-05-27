@@ -4066,13 +4066,13 @@ export default {
       // franchise has used its 1 nomination for the current anchored
       // 12-hour window (ERA) or the rolling 24-hour window (FA Auction).
       //
-      // Cadence rules (league_context_v1.md §A3 / §A1, Keith 2026-05-21):
+      // Cadence rules (league_context_v1.md §A3 / §A1, Keith 2026-05-27):
       //   ERA (§A3):  1 nomination per discrete 12-hour window. Windows
       //               are ANCHORED to 6 AM ET and 6 PM ET — NOT rolling
-      //               from the franchise's last nomination. Opens Sat
-      //               6 PM ET (= Memorial Day Monday − 2 days at 22:00
-      //               UTC during EDT); closes at the end of the Tue
-      //               6 AM → 6 PM ET window (6 windows total).
+      //               from the franchise's last nomination. Opens
+      //               Memorial Day MONDAY 6 AM ET (= memorial day @ 10:00
+      //               UTC during EDT); closes at the end of the Wed
+      //               6 PM → Thu 6 AM ET window (6 windows total).
       //   FA Auction (§A1): 2 nominations / 24-hour rolling window.
       //
       // Data source: ups_auction_bids WHERE note LIKE '[nomination]%'.
@@ -4098,12 +4098,12 @@ export default {
         const FA_WINDOW_SEC    = 24 * 3600;
         const FA_MAX_IN_WINDOW = 2;
         const ERA_WINDOW_LABELS = [
-          "Sat 6 PM – Sun 6 AM ET",
-          "Sun 6 AM – Sun 6 PM ET",
-          "Sun 6 PM – Mon 6 AM ET",
           "Mon 6 AM – Mon 6 PM ET",
           "Mon 6 PM – Tue 6 AM ET",
           "Tue 6 AM – Tue 6 PM ET",
+          "Tue 6 PM – Wed 6 AM ET",
+          "Wed 6 AM – Wed 6 PM ET",
+          "Wed 6 PM – Thu 6 AM ET",
         ];
         const ERA_TOTAL_WINDOWS = ERA_WINDOW_LABELS.length;
         const ERA_WINDOW_MS = 12 * 3600 * 1000;
@@ -4114,8 +4114,7 @@ export default {
           const memorial = _getMemorialDayUtcTopLevel(year);
           if (!memorial) return { open: false, reason: "no_season_calendar" };
           const openAt = new Date(memorial.getTime());
-          openAt.setUTCDate(openAt.getUTCDate() - 2); // Sat = Mon − 2
-          openAt.setUTCHours(22, 0, 0, 0);             // 6 PM ET = 22:00 UTC (EDT)
+          openAt.setUTCHours(10, 0, 0, 0);             // 6 AM ET = 10:00 UTC on Memorial Day Mon (EDT)
           const closeAt = new Date(openAt.getTime() + ERA_TOTAL_WINDOWS * ERA_WINDOW_MS);
           const out = {
             open_at_iso: openAt.toISOString(),
@@ -4276,7 +4275,7 @@ export default {
             generated_at: new Date().toISOString(),
             now_unix: nowUnix,
             rules: {
-              era: "league_context_v1.md §A3 — 1 nomination per 12-hour ANCHORED window (6 AM / 6 PM ET). Opens Sat 6 PM ET, closes end of Tue 6 AM–6 PM ET window.",
+              era: "league_context_v1.md §A3 — 1 nomination per 12-hour ANCHORED window (6 AM / 6 PM ET). Opens Memorial Day Mon 6 AM ET, closes end of Wed 6 PM–Thu 6 AM ET window.",
               fa_auction: "league_context_v1.md §A1 — 2 nominations per 24-hour rolling window",
             },
             era_window: eraWindow,

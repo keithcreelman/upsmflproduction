@@ -398,7 +398,7 @@
         <div class="ah-warroom-league-banner">
           <strong>ERA nominations not yet open</strong> — opens
           <code>${escapeHtml(eraWin.open_at_iso || "")}</code>.
-          6 anchored 12-hour windows (6 AM / 6 PM ET), Sat 6 PM ET → Tue 6 PM ET.
+          6 anchored 12-hour windows (6 AM / 6 PM ET), Memorial Day Mon 6 AM ET → Thu 6 AM ET.
         </div>`;
     } else if (eraWin.reason === "after_close") {
       eraBannerHtml = `
