@@ -1940,24 +1940,28 @@
     var team = getTeamById(teamId);
     if (!team || !rawOfferAsset) return null;
     var type = safeStr(rawOfferAsset.type).toUpperCase();
+    // PICKS only — MFL's assets export legitimately misses some FP_
+    // future picks, so synthesizing them from the offer payload is the
+    // documented workaround.
     if (type === "PICK") return synthesizePickAssetForTeam(teamId, rawOfferAsset);
+    // PLAYERS: NEVER synthesize. Per Keith 2026-05-28: HammerTime's
+    // workbench showed Benson on his send side because a stored offer
+    // payload claimed Hammer was sending Benson — but Benson lives on
+    // Real Deal Creel's roster per live MFL. The old code fabricated
+    // a phantom Benson asset on Hammer's team and selected it, making
+    // the bogus state look real. Live rosters are authoritative; if
+    // a stored offer references a player not on the claimed team's
+    // roster, that offer is stale or corrupted and we should NOT lie
+    // about ownership.
     if (type !== "PLAYER") return null;
-    if (!Array.isArray(team.assets)) team.assets = [];
-    var raw = {};
-    var k;
-    for (k in rawOfferAsset) {
-      if (Object.prototype.hasOwnProperty.call(rawOfferAsset, k)) raw[k] = rawOfferAsset[k];
-    }
-    raw.type = "PLAYER";
-    var asset = normalizeAsset(raw, teamId, {}, getCurrentTradeSeason());
-    if (!asset || !asset.asset_id) return null;
-    var i;
-    for (i = 0; i < team.assets.length; i += 1) {
-      if (team.assets[i].asset_id === asset.asset_id) return team.assets[i];
-    }
-    asset.synthesized_from_offer = true;
-    team.assets.push(asset);
-    return asset;
+    var playerName = safeStr(rawOfferAsset.player_name || rawOfferAsset.name);
+    var playerId = safeStr(rawOfferAsset.player_id || rawOfferAsset.id);
+    console.warn(
+      "[TWB] Refusing to synthesize PLAYER " + (playerName || playerId) +
+      " for team " + teamId + " — not on this team's live roster. " +
+      "The stored offer is stale or references stale ownership."
+    );
+    return null;
   }
 
   function extensionPreviewForAssetOption(asset, optionKey, termHint) {
