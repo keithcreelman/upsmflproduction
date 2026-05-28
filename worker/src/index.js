@@ -15303,35 +15303,34 @@ export default {
 
       const ensureOutboxTable = async (db) => {
         if (!db) return { ok: false, error: "no_db_binding" };
+        // D1's exec() can be picky about multi-line strings with leading
+        // whitespace; collapse to a single line. Bug discovered 2026-05-28
+        // when wrangler.toml gained the TWB_OUTBOX_DB binding but the
+        // first-write CREATE TABLE silently failed, leaving the table
+        // uncreated and falling through to the (broken) file backend.
         try {
-          await db.exec(`
-            CREATE TABLE IF NOT EXISTS twb_trade_outbox (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              created_ts TEXT NOT NULL,
-              updated_ts TEXT NOT NULL,
-              league_id TEXT NOT NULL,
-              season TEXT NOT NULL,
-              trade_id TEXT,
-              action_type TEXT NOT NULL,
-              from_franchise_id TEXT,
-              to_franchise_id TEXT,
-              payload_xml_extensions TEXT,
-              payload_xml_salary_adj TEXT,
-              payload_xml_salary_trade TEXT,
-              payload_json TEXT,
-              comment_trailer TEXT,
-              payload_hash TEXT,
-              status TEXT NOT NULL DEFAULT 'PENDING',
-              mfl_post_response_snip TEXT,
-              mfl_verify_response_snip TEXT
-            );
-          `);
           await db.exec(
-            "CREATE INDEX IF NOT EXISTS idx_twb_trade_outbox_lookup ON twb_trade_outbox(league_id, season, trade_id, payload_hash, status);"
+            "CREATE TABLE IF NOT EXISTS twb_trade_outbox (" +
+              "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+              "created_ts TEXT NOT NULL, updated_ts TEXT NOT NULL, " +
+              "league_id TEXT NOT NULL, season TEXT NOT NULL, " +
+              "trade_id TEXT, action_type TEXT NOT NULL, " +
+              "from_franchise_id TEXT, to_franchise_id TEXT, " +
+              "payload_xml_extensions TEXT, payload_xml_salary_adj TEXT, " +
+              "payload_xml_salary_trade TEXT, " +
+              "payload_json TEXT, comment_trailer TEXT, payload_hash TEXT, " +
+              "status TEXT NOT NULL DEFAULT 'PENDING', " +
+              "mfl_post_response_snip TEXT, mfl_verify_response_snip TEXT)"
+          );
+          await db.exec(
+            "CREATE INDEX IF NOT EXISTS idx_twb_trade_outbox_lookup ON twb_trade_outbox(league_id, season, trade_id, payload_hash, status)"
           );
           return { ok: true };
         } catch (e) {
-          return { ok: false, error: `d1_schema_failed: ${e?.message || String(e)}` };
+          const msg = e?.message || String(e);
+          // Log so future schema failures aren't silent in worker logs.
+          console.warn("[outbox] ensureOutboxTable failed:", msg);
+          return { ok: false, error: `d1_schema_failed: ${msg}` };
         }
       };
 
