@@ -1602,56 +1602,34 @@
 
   async function loadData(options) {
     options = options || {};
-    var forceReload = !!options.forceReload;
-    // Stale-cache guard (Keith 2026-05-28): if the in-memory injected
-    // data is older than 5 minutes, treat it as stale and force a fresh
-    // fetch. Hammer's workbench was holding pre-test data showing Benson
-    // on his roster long after the test reset moved him back to Creel.
-    // The injected payload's generated_at field gives us the cutoff;
-    // if absent, we err on the side of refreshing.
-    if (!forceReload && window.UPS_TRADE_WORKBENCH_DATA) {
-      var cachedGenerated = safeStr(
-        window.UPS_TRADE_WORKBENCH_DATA.generated_at ||
-        (window.UPS_TRADE_WORKBENCH_DATA.meta || {}).generated_at ||
-        ""
-      );
-      var cachedMs = cachedGenerated ? new Date(cachedGenerated).getTime() : 0;
-      var ageMs = Date.now() - cachedMs;
-      var STALE_AFTER_MS = 5 * 60 * 1000;
-      if (cachedMs > 0 && ageMs < STALE_AFTER_MS) {
-        return window.UPS_TRADE_WORKBENCH_DATA;
-      }
-      // Otherwise fall through to fetch fresh — and clear the stale
-      // injection so subsequent calls don't loop back to it.
-      try { window.UPS_TRADE_WORKBENCH_DATA = null; } catch (_) {}
-    }
+    // Per Keith 2026-05-28: ALWAYS pull a fresh roster. Any caching
+    // (in-memory window.UPS_TRADE_WORKBENCH_DATA OR the localStorage
+    // fallback that fetchWithFallback writes) creates stale-roster bugs
+    // — players on the wrong side of trades, "0 assets" cards, ownership
+    // mismatches that only surface at MFL submit time. The forceReload
+    // option is preserved for legacy callers but no longer matters
+    // because we never hit the in-memory cache.
+    //
+    // Network cost: every workbench interaction that calls loadData()
+    // now goes to the worker /trade-workbench endpoint, which itself
+    // has a 45-second Cloudflare cache. That's the right place for
+    // request coalescing — not in the client.
+    void options.forceReload;
+    try { window.UPS_TRADE_WORKBENCH_DATA = null; } catch (_) {}
 
-    var fetchWithFallback = async function (url) {
-      try {
-        var payload = await fetchJson(url);
-        writeCachedTwbData(payload);
-        return payload;
-      } catch (err) {
-        var cached = readCachedTwbData();
-        if (cached) {
-          console.warn("[TWB] Falling back to cached payload after fetch error:", err);
-          return cached;
-        }
-        throw err;
-      }
+    // Always pull fresh — no localStorage fallback, no NO_CACHE-less
+    // request. Stale data > error. Per Keith 2026-05-28.
+    var fetchAlwaysFresh = async function (url) {
+      return await fetchJson(withNoCacheUrl(url));
     };
 
     var queryDataUrl = getDataUrlFromQuery();
-    if (queryDataUrl) {
-      return fetchWithFallback(forceReload ? withNoCacheUrl(queryDataUrl) : resolveRelativeUrl(queryDataUrl));
-    }
+    if (queryDataUrl) return fetchAlwaysFresh(queryDataUrl);
 
     var queryApiUrl = buildApiRequestUrlFromQuery();
-    if (queryApiUrl) {
-      return fetchWithFallback(forceReload ? withNoCacheUrl(queryApiUrl) : queryApiUrl);
-    }
+    if (queryApiUrl) return fetchAlwaysFresh(queryApiUrl);
 
-    return fetchWithFallback(forceReload ? withNoCacheUrl(SAMPLE_DATA_URL) : resolveRelativeUrl(SAMPLE_DATA_URL));
+    return fetchAlwaysFresh(SAMPLE_DATA_URL);
   }
 
   function resolveAfterTradeRefreshApiUrl() {
