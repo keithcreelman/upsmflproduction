@@ -1940,26 +1940,42 @@
     var team = getTeamById(teamId);
     if (!team || !rawOfferAsset) return null;
     var type = safeStr(rawOfferAsset.type).toUpperCase();
-    // PICKS only — MFL's assets export legitimately misses some FP_
-    // future picks, so synthesizing them from the offer payload is the
-    // documented workaround.
-    if (type === "PICK") return synthesizePickAssetForTeam(teamId, rawOfferAsset);
     // PLAYERS: NEVER synthesize. Per Keith 2026-05-28: HammerTime's
     // workbench showed Benson on his send side because a stored offer
     // payload claimed Hammer was sending Benson — but Benson lives on
     // Real Deal Creel's roster per live MFL. The old code fabricated
     // a phantom Benson asset on Hammer's team and selected it, making
-    // the bogus state look real. Live rosters are authoritative; if
-    // a stored offer references a player not on the claimed team's
-    // roster, that offer is stale or corrupted and we should NOT lie
-    // about ownership.
-    if (type !== "PLAYER") return null;
-    var playerName = safeStr(rawOfferAsset.player_name || rawOfferAsset.name);
-    var playerId = safeStr(rawOfferAsset.player_id || rawOfferAsset.id);
+    // the bogus state look real. Live rosters are authoritative.
+    //
+    // The original prior comment claimed PICK synthesis was a
+    // "documented workaround for MFL assets export missing FP_ future
+    // picks". That claim was NOT in MFL's documentation — MFL's
+    // assets export spec says: "All tradable assets (players, current
+    // year draft picks, future draft picks) for a given league" with
+    // no documented exclusions. The synthesis was an empirical
+    // workaround whose justification was invented in a code comment.
+    //
+    // We disable synthesis for BOTH types. If the assets export ever
+    // genuinely misses a future pick in practice (a real bug we need
+    // to verify, not assume), we should re-investigate against MFL
+    // and either file a ticket with them OR document the actual
+    // observed failure mode with reproduction steps — not silently
+    // fabricate state.
+    if (type !== "PLAYER" && type !== "PICK") return null;
+    var label = safeStr(
+      rawOfferAsset.player_name ||
+      rawOfferAsset.name ||
+      rawOfferAsset.description ||
+      rawOfferAsset.pick_key ||
+      rawOfferAsset.asset_id ||
+      rawOfferAsset.player_id ||
+      rawOfferAsset.id
+    );
     console.warn(
-      "[TWB] Refusing to synthesize PLAYER " + (playerName || playerId) +
-      " for team " + teamId + " — not on this team's live roster. " +
-      "The stored offer is stale or references stale ownership."
+      "[TWB] Refusing to synthesize " + type + " " + label +
+      " for team " + teamId + " — not on this team's live roster/assets. " +
+      "Live MFL data is authoritative; the stored offer is stale or references " +
+      "stale ownership."
     );
     return null;
   }
