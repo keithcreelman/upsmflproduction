@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-25T01:46:05.464Z",
-    "row_count": 40,
+    "updated_at": "2026-05-28T14:19:33.549Z",
+    "row_count": 41,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -7775,6 +7775,192 @@
       "twb_meta": null,
       "mfl_trade_id": "1066",
       "trade_id": "1066",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1073",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-05-28T14:19:33.549Z",
+      "updated_at": "2026-05-28T14:19:33.549Z",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0005",
+      "from_franchise_name": "Real Deal Creel",
+      "to_franchise_name": "HammerTime 🔨 ⏰",
+      "message": "one more time, I won't cry if you accept",
+      "comment": "one more time, I won't cry if you accept",
+      "comments": "one more time, I won't cry if you accept",
+      "raw_comment": "one more time, I won't cry if you accept",
+      "will_give_up": "13674",
+      "will_receive": "15794",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-05-28T14:19:32.714Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "player:13674",
+                "type": "PLAYER",
+                "player_id": "13674",
+                "player_name": "Goedert, Dallas",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "PHI",
+                "salary": 7000,
+                "years": 1,
+                "contract_type": "Veteran",
+                "contract_info": "CL 2| TCV 14K| AAV 7K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 3,
+            "selected_non_taxi_salary_dollars": 7000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "player:15794",
+                "type": "PLAYER",
+                "player_id": "15794",
+                "player_name": "McBride, Trey",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "ARI",
+                "salary": 35000,
+                "years": 1,
+                "contract_type": "BL",
+                "contract_info": "CL 2| TCV 44K| AAV 22K| Y1-9K, Y2-35K| Ext: Hammer",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 17,
+            "selected_non_taxi_salary_dollars": 35000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0005"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 109000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 7000,
+            "incoming_dollars": 35000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 28000,
+            "new_salary_dollars": 137000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 3,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -28000,
+            "available_salary_before_dollars": 185550,
+            "available_salary_after_dollars": 157550,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 217000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 35000,
+            "incoming_dollars": 7000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -28000,
+            "new_salary_dollars": 189000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 17,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 28000,
+            "available_salary_before_dollars": 73950,
+            "available_salary_after_dollars": 101950,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Real Deal Creel",
+          "right_franchise_name": "HammerTime 🔨 ⏰",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 109000,
+              "left_after_dollars": 137000,
+              "left_change_dollars": 28000,
+              "right_before_dollars": 217000,
+              "right_after_dollars": 189000,
+              "right_change_dollars": -28000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 85000,
+              "left_after_dollars": 113000,
+              "left_change_dollars": 28000,
+              "right_before_dollars": 304000,
+              "right_after_dollars": 276000,
+              "right_change_dollars": -28000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 49000,
+              "left_after_dollars": 49000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 75000,
+              "right_after_dollars": 75000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "one more time, I won't cry if you accept"
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1073",
+      "trade_id": "1073",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
