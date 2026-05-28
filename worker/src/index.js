@@ -24136,78 +24136,26 @@ export default {
           });
         }
 
-        const nowIso = new Date().toISOString();
-        const makeOffer = () => ({
-          id: `TWB-${(crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`).toString()}`,
-          league_id: leagueId,
-          season: safeInt(season, Number(season) || 0),
-          status: "PENDING",
-          created_at: nowIso,
-          updated_at: nowIso,
-          from_franchise_id: fromFranchiseId,
-          to_franchise_id: toFranchiseId,
-          from_franchise_name: fromFranchiseName || fromFranchiseId,
-          to_franchise_name: toFranchiseName || toFranchiseId,
-          message,
-          source: safeStr(body?.source || "trade-workbench-ui"),
-          summary: summarizeOfferPayload(payload),
-          payload,
-        });
-
-        let saveOut = null;
-        let createdOffer = null;
-        let attempts = 0;
-        while (attempts < 2) {
-          attempts += 1;
-          const loaded = await readTradeOffersDoc(leagueId, season);
-          if (!loaded.ok) {
-            return jsonOut(500, {
-              ok: false,
-              error: loaded.error || "Failed to load trade offers store",
-              storage_path: loaded.filePath || tradeOffersFilePath(leagueId, season),
-            });
-          }
-          const doc = normalizeTradeOffersDoc(loaded.doc, leagueId, season);
-          createdOffer = makeOffer();
-          doc.offers.push(createdOffer);
-          saveOut = await writeTradeOffersDoc(
-            leagueId,
-            season,
-            doc,
-            loaded.sha,
-            `feat(trades): store trade offer ${createdOffer.id}`
-          );
-          if (saveOut.ok) break;
-          // Retry once on GitHub SHA/contention failures.
-          if (attempts >= 2) break;
-        }
-
-        if (!saveOut || !saveOut.ok) {
-          return jsonOut(500, {
-            ok: false,
-            error: saveOut?.error || "Failed to save trade offer",
-            storage_path: saveOut?.filePath || tradeOffersFilePath(leagueId, season),
-            upstreamStatus: saveOut?.upstreamStatus || 0,
-            upstreamPreview: saveOut?.upstreamPreview || "",
-          });
-        }
-
-        const savedDoc = saveOut.doc || emptyTradeOffersDoc(leagueId, season);
-        const allOffers = Array.isArray(savedDoc.offers) ? savedDoc.offers : [];
-        return jsonOut(201, {
-          ok: true,
-          offer: sanitizeOfferForList(createdOffer, true),
-          storage_path: saveOut.filePath,
-          storage_commit_sha: saveOut.commitSha || "",
-          counts: {
-            total: allOffers.length,
-            pending: allOffers.filter((o) => offerStatusNormalized(o?.status, "PENDING") === "PENDING").length,
-            incoming_pending_for_recipient: allOffers.filter(
-              (o) =>
-                padFranchiseId(o?.to_franchise_id) === toFranchiseId &&
-                offerStatusNormalized(o?.status, "PENDING") === "PENDING"
-            ).length,
-          },
+        // Legacy non-directMfl path removed 2026-05-28 (Keith report):
+        // Hammertime's second submit showed bare "Offer submitted to MFL."
+        // with no Trade ID and no Outbox info — exactly the shape of the
+        // old legacy response ({ok, offer, storage_path, counts}, no
+        // mfl/outbox fields). The directMfl block above ALWAYS returns,
+        // so the legacy path was unreachable by static analysis — but
+        // some submits were producing that response shape anyway (possibly
+        // a Cloudflare rollout-skew window or an exception bypass). Even
+        // if execution falls through here in some edge case now, we return
+        // a clear error rather than silently going through the legacy
+        // path that would lose the audit trail (no MFL submit, no outbox
+        // row, no proper response shape).
+        return jsonOut(500, {
+          ok: false,
+          error: "trade_offers_post_unreachable_branch",
+          error_detail:
+            "Direct-MFL path did not return; this should be impossible. " +
+            "Report to commish with the timestamp and source franchise.",
+          source_franchise: fromFranchiseId,
+          target_franchise: toFranchiseId,
         });
       }
 

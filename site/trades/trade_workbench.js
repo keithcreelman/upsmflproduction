@@ -3946,7 +3946,23 @@
       state.submit.lastRequestBody = null;
       state.submit.lastRequestUrl = "";
       state.submit.canRetry = false;
-      var retryOkMessage = "Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : ".");
+      // Mirror the initial-submit message shape so retry success surfaces
+      // the same Trade ID + outbox detail (Keith 2026-05-28: prior retry
+      // message dropped outbox info, looked like the legacy non-directMfl
+      // response).
+      var retryOutbox = res && res.outbox ? res.outbox : {};
+      var retryOutboxId = safeStr(retryOutbox.outbox_id);
+      var retryOutboxHash = safeStr(retryOutbox.payload_hash);
+      var retryOutboxStatus = safeStr(retryOutbox.status);
+      var retryOutboxText = "";
+      if (retryOutboxId || retryOutboxHash) {
+        retryOutboxText =
+          " Outbox: " +
+          [retryOutboxStatus, retryOutboxId ? ("id " + retryOutboxId) : "", retryOutboxHash ? ("hash " + retryOutboxHash.slice(0, 10)) : ""]
+            .filter(Boolean)
+            .join(" · ");
+      }
+      var retryOkMessage = "Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : ".") + retryOutboxText;
       setSubmitStatus(retryOkMessage, "good");
       showFeedbackModal("Offer Submitted", retryOkMessage, "good");
       initTeamSelectors();
