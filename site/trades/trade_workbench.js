@@ -2764,16 +2764,29 @@
     var summary = (offer || {}).summary || {};
     var key = side === "left" ? "from_asset_count" : "to_asset_count";
     var summaryCount = safeInt(summary[key], NaN);
-    if (isFinite(summaryCount)) return summaryCount;
+    // Only trust summary when it's > 0; a stored 0 likely means the
+    // summarizeOfferPayload ran against an incomplete payload at write
+    // time. Real trades always have ≥1 asset per side.
+    if (isFinite(summaryCount) && summaryCount > 0) return summaryCount;
     var payload = getTradePayloadFromInput(offer || {});
     var teams = Array.isArray((payload || {}).teams) ? payload.teams : [];
     var i;
     for (i = 0; i < teams.length; i += 1) {
       if (safeStr(teams[i].role).toLowerCase() === (side === "left" ? "left" : "right")) {
         var selected = Array.isArray(teams[i].selected_assets) ? teams[i].selected_assets : [];
-        return selected.length;
+        if (selected.length > 0) return selected.length;
       }
     }
+    // Final fallback: count tokens in the will_give_up / will_receive
+    // CSV strings (the actual storage shape from MFL pendingTrades and
+    // syncDirectMflOfferToStorage). This is what shows up when there's
+    // no stored offer (e.g. GitHub PAT broken so the JSON store didn't
+    // get the row) and the MFL pendingTrades row is the only source.
+    var csvField = side === "left" ? offer.will_give_up : offer.will_receive;
+    if (typeof csvField === "string" && csvField.trim()) {
+      return csvField.split(",").map(function (s) { return s.trim(); }).filter(Boolean).length;
+    }
+    if (Array.isArray(csvField)) return csvField.filter(Boolean).length;
     return 0;
   }
 
