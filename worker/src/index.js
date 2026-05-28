@@ -17379,15 +17379,56 @@ export default {
           franchiseId
         );
         if (!pendingRes.ok) {
+          // MFL pendingTrades failed entirely — fall back to stored
+          // offers so users can still see their PENDING sent/received.
+          // (Keith 2026-05-24: empty sent box was the symptom; primary
+          // fallback covers MFL-returns-zero, this covers MFL-errors.)
+          let fallbackStoredOffers = [];
+          try {
+            const loaded = await readTradeOffersDoc(leagueId, season);
+            if (loaded.ok) fallbackStoredOffers = Array.isArray(loaded.doc?.offers) ? loaded.doc.offers : [];
+          } catch (_) { /* noop */ }
+          const fallbackFid = padFranchiseId(franchiseId);
+          let fallbackOut = [];
+          let fallbackIn = [];
+          if (fallbackFid) {
+            for (const so of fallbackStoredOffers) {
+              if (!so || offerStatusNormalized(so.status, "PENDING") !== "PENDING") continue;
+              const fromFid = padFranchiseId(so.from_franchise_id);
+              const toFid = padFranchiseId(so.to_franchise_id);
+              const synth = {
+                proposal_id: safeStr(so.id || ""),
+                mfl_trade_id: safeStr(so?.mfl?.trade_id || ""),
+                trade_id: safeStr(so?.mfl?.trade_id || ""),
+                from_franchise_id: fromFid,
+                to_franchise_id: toFid,
+                from_franchise_name: safeStr(so.from_franchise_name || fromFid),
+                to_franchise_name: safeStr(so.to_franchise_name || toFid),
+                status: "PENDING",
+                created_at: safeStr(so.created_at),
+                updated_at: safeStr(so.updated_at || so.created_at),
+                comments: safeStr(so.message || ""),
+                raw_comment: safeStr(so.message || ""),
+                will_give_up: Array.isArray(so?.summary?.will_give_up) ? so.summary.will_give_up : [],
+                will_receive: Array.isArray(so?.summary?.will_receive) ? so.summary.will_receive : [],
+                source: "stored_only_mfl_failed",
+                payload: includePayload ? (so.payload || null) : undefined,
+              };
+              if (fromFid === fallbackFid) fallbackOut.push(synth);
+              if (toFid === fallbackFid) fallbackIn.push(synth);
+            }
+          }
           return {
-            ok: false,
-            status: 502,
-            error: "Failed to load pendingTrades from MFL",
+            ok: true, // degraded but usable
+            status: 200,
             pendingLookup: {
               ok: false,
               rows_count: 0,
               upstream_status: pendingRes.status || 0,
               error: safeStr(pendingRes.error || "pendingTrades lookup failed"),
+              stored_only_outgoing: fallbackOut.length,
+              stored_only_incoming: fallbackIn.length,
+              degraded_fallback: true,
             },
             upstream: {
               status: pendingRes.status || 0,
@@ -17395,10 +17436,18 @@ export default {
               error: pendingRes.error || "",
               preview: pendingRes.textPreview || "",
             },
-            proposals: [],
-            incoming: [],
-            outgoing: [],
-            related: [],
+            proposals: fallbackOut.concat(fallbackIn),
+            incoming: fallbackIn,
+            outgoing: fallbackOut,
+            related: fallbackOut.concat(fallbackIn),
+            counts: {
+              total: fallbackOut.length + fallbackIn.length,
+              outgoing_total: fallbackOut.length,
+              incoming_total: fallbackIn.length,
+              outgoing_stored_only: fallbackOut.length,
+              incoming_stored_only: fallbackIn.length,
+            },
+            generatedAt: new Date().toISOString(),
           };
         }
 
@@ -17452,6 +17501,69 @@ export default {
           ? normalized.filter((o) => padFranchiseId(o.from_franchise_id) === franchiseId)
           : [];
 
+        // Stored-offers fallback (Keith 2026-05-24): when MFL's pendingTrades
+        // viewer query doesn't return a row for an offer that's clearly
+        // in our trade_offers_*.json store (PENDING status, matches caller's
+        // franchise_id), union it into outgoing/incoming. Handles two cases:
+        //   1. MFL indexing race — POST just succeeded but the GET reads
+        //      MFL before the trade is visible in the viewer's pendingTrades.
+        //   2. Viewer cookie issue — worker fell back to commish cookie which
+        //      doesn't see the per-franchise pendingTrades the same way; the
+        //      stored row IS canonical from the prior POST verification.
+        // Each fallback row is tagged with source='stored_only' so the
+        // client can flag it ("awaiting MFL confirmation") if desired.
+        const mflTradeIdsSeen = new Set();
+        for (const o of normalized) {
+          const tid = safeStr(o.mfl_trade_id || o.trade_id || "").replace(/\D/g, "");
+          if (tid) mflTradeIdsSeen.add(tid);
+        }
+        const fallbackOutgoing = [];
+        const fallbackIncoming = [];
+        if (franchiseId) {
+          for (const so of storedOffers) {
+            if (!so || typeof so !== "object") continue;
+            const status = offerStatusNormalized(so.status, "PENDING");
+            if (status !== "PENDING") continue;
+            const soTradeId = safeStr(so?.mfl?.trade_id || so?.trade_id || "").replace(/\D/g, "");
+            if (soTradeId && mflTradeIdsSeen.has(soTradeId)) continue;
+            const fromFid = padFranchiseId(so.from_franchise_id);
+            const toFid = padFranchiseId(so.to_franchise_id);
+            const isOutgoing = fromFid === franchiseId;
+            const isIncoming = toFid === franchiseId;
+            if (!isOutgoing && !isIncoming) continue;
+            // Build a minimal proposal-shaped row from the stored offer
+            const synthRow = {
+              proposal_id: safeStr(so.id || soTradeId || `stored-${fromFid}-${toFid}`),
+              mfl_trade_id: soTradeId,
+              trade_id: soTradeId,
+              from_franchise_id: fromFid,
+              to_franchise_id: toFid,
+              from_franchise_name: safeStr(so.from_franchise_name || franchiseNames[fromFid] || fromFid),
+              to_franchise_name: safeStr(so.to_franchise_name || franchiseNames[toFid] || toFid),
+              status: "PENDING",
+              created_ts: Math.floor((new Date(so.created_at || 0).getTime() || 0) / 1000),
+              created_at: safeStr(so.created_at),
+              updated_at: safeStr(so.updated_at || so.created_at),
+              comments: safeStr(so.message || ""),
+              raw_comment: safeStr(so.message || ""),
+              will_give_up: Array.isArray(so?.summary?.will_give_up) ? so.summary.will_give_up : [],
+              will_receive: Array.isArray(so?.summary?.will_receive) ? so.summary.will_receive : [],
+              mfl_present: !!soTradeId,
+              source: "stored_only",
+              payload: includePayload ? (so.payload || null) : undefined,
+            };
+            if (isOutgoing) fallbackOutgoing.push(synthRow);
+            if (isIncoming) fallbackIncoming.push(synthRow);
+          }
+        }
+        // Sort fallbacks by created_ts desc to keep most recent first
+        fallbackOutgoing.sort((a, b) => (b.created_ts || 0) - (a.created_ts || 0));
+        fallbackIncoming.sort((a, b) => (b.created_ts || 0) - (a.created_ts || 0));
+
+        const outgoingMerged = outgoing.concat(fallbackOutgoing);
+        const incomingMerged = incoming.concat(fallbackIncoming);
+        const relatedMerged = related.concat(fallbackOutgoing).concat(fallbackIncoming);
+
         const filterByStatus = (rows) => {
           const normalizedStatus = offerStatusNormalized(statusFilter, "");
           if (!normalizedStatus) return rows;
@@ -17468,20 +17580,24 @@ export default {
             rows_count: normalized.length,
             upstream_status: pendingRes.status || 0,
             error: "",
+            stored_only_outgoing: fallbackOutgoing.length,
+            stored_only_incoming: fallbackIncoming.length,
           },
-          proposals: filterByStatus(related).slice(0, maxRows),
-          incoming: filterByStatus(incoming).slice(0, maxRows),
-          outgoing: filterByStatus(outgoing).slice(0, maxRows),
-          related: filterByStatus(related).slice(0, maxRows),
+          proposals: filterByStatus(relatedMerged).slice(0, maxRows),
+          incoming: filterByStatus(incomingMerged).slice(0, maxRows),
+          outgoing: filterByStatus(outgoingMerged).slice(0, maxRows),
+          related: filterByStatus(relatedMerged).slice(0, maxRows),
           counts: {
-            total: normalized.length,
-            related_total: related.length,
-            incoming_total: incoming.length,
-            outgoing_total: outgoing.length,
-            incoming_pending: incoming.length,
-            outgoing_pending: outgoing.length,
+            total: normalized.length + fallbackOutgoing.length + fallbackIncoming.length,
+            related_total: relatedMerged.length,
+            incoming_total: incomingMerged.length,
+            outgoing_total: outgoingMerged.length,
+            incoming_pending: incomingMerged.length,
+            outgoing_pending: outgoingMerged.length,
             incoming_mfl_present_pending: incoming.length,
             outgoing_mfl_present_pending: outgoing.length,
+            outgoing_stored_only: fallbackOutgoing.length,
+            incoming_stored_only: fallbackIncoming.length,
           },
           generatedAt: new Date().toISOString(),
         };
