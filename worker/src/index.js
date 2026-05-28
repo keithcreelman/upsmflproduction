@@ -17877,15 +17877,27 @@ export default {
           const fallbackFid = padFranchiseId(franchiseId);
           let fallbackOut = [];
           let fallbackIn = [];
+          const fallbackCutoffMsFail = Date.now() - 24 * 3600 * 1000;
+          const parseCsvAssetsFail = (v) => {
+            if (Array.isArray(v)) return v.filter(Boolean);
+            const s = safeStr(v).trim();
+            if (!s) return [];
+            return s.split(",").map((x) => x.trim()).filter(Boolean);
+          };
           if (fallbackFid) {
             for (const so of fallbackStoredOffers) {
               if (!so || offerStatusNormalized(so.status, "PENDING") !== "PENDING") continue;
+              const createdMs = new Date(so.created_at || 0).getTime() || 0;
+              if (createdMs > 0 && createdMs < fallbackCutoffMsFail) continue;
               const fromFid = padFranchiseId(so.from_franchise_id);
               const toFid = padFranchiseId(so.to_franchise_id);
+              const soTradeId = safeStr(
+                so.mfl_trade_id || so?.mfl?.trade_id || so.trade_id || ""
+              ).replace(/\D/g, "");
               const synth = {
                 proposal_id: safeStr(so.id || ""),
-                mfl_trade_id: safeStr(so?.mfl?.trade_id || ""),
-                trade_id: safeStr(so?.mfl?.trade_id || ""),
+                mfl_trade_id: soTradeId,
+                trade_id: soTradeId,
                 from_franchise_id: fromFid,
                 to_franchise_id: toFid,
                 from_franchise_name: safeStr(so.from_franchise_name || fromFid),
@@ -17895,8 +17907,8 @@ export default {
                 updated_at: safeStr(so.updated_at || so.created_at),
                 comments: safeStr(so.message || ""),
                 raw_comment: safeStr(so.message || ""),
-                will_give_up: Array.isArray(so?.summary?.will_give_up) ? so.summary.will_give_up : [],
-                will_receive: Array.isArray(so?.summary?.will_receive) ? so.summary.will_receive : [],
+                will_give_up: parseCsvAssetsFail(so.will_give_up),
+                will_receive: parseCsvAssetsFail(so.will_receive),
                 source: "stored_only_mfl_failed",
                 payload: includePayload ? (so.payload || null) : undefined,
               };
@@ -17987,37 +17999,58 @@ export default {
           ? normalized.filter((o) => padFranchiseId(o.from_franchise_id) === franchiseId)
           : [];
 
-        // Stored-offers fallback (Keith 2026-05-24): when MFL's pendingTrades
-        // viewer query doesn't return a row for an offer that's clearly
-        // in our trade_offers_*.json store (PENDING status, matches caller's
-        // franchise_id), union it into outgoing/incoming. Handles two cases:
-        //   1. MFL indexing race — POST just succeeded but the GET reads
-        //      MFL before the trade is visible in the viewer's pendingTrades.
-        //   2. Viewer cookie issue — worker fell back to commish cookie which
-        //      doesn't see the per-franchise pendingTrades the same way; the
-        //      stored row IS canonical from the prior POST verification.
-        // Each fallback row is tagged with source='stored_only' so the
-        // client can flag it ("awaiting MFL confirmation") if desired.
+        // Stored-offers fallback (Keith 2026-05-24, refined 2026-05-28):
+        // ONLY fires when MFL's pendingTrades returned ZERO rows. If MFL
+        // returned ANY data, trust it as authoritative — adding stored
+        // rows alongside MFL data resurrected already-resolved trades
+        // (accepted/revoked offers still flagged PENDING in the JSON
+        // file, no way to revoke since MFL no longer has them).
+        //
+        // Also: only surface stored offers created in the last 24h. Older
+        // stored PENDING rows are presumed stale (MFL never indexed OR
+        // resolved without status sync).
+        //
+        // Asset counts now read from summary.{from,to}_asset_count and
+        // will_give_up/will_receive CSV strings (the actual stored shape),
+        // not from non-existent summary.will_give_up arrays.
         const mflTradeIdsSeen = new Set();
         for (const o of normalized) {
           const tid = safeStr(o.mfl_trade_id || o.trade_id || "").replace(/\D/g, "");
           if (tid) mflTradeIdsSeen.add(tid);
         }
+        const RECENT_FALLBACK_HOURS = 24;
+        const fallbackCutoffMs = Date.now() - RECENT_FALLBACK_HOURS * 3600 * 1000;
+        const mflReturnedAnyRows = normalized.length > 0;
         const fallbackOutgoing = [];
         const fallbackIncoming = [];
-        if (franchiseId) {
+        // Only fire fallback when MFL came back empty.
+        if (franchiseId && !mflReturnedAnyRows) {
           for (const so of storedOffers) {
             if (!so || typeof so !== "object") continue;
             const status = offerStatusNormalized(so.status, "PENDING");
             if (status !== "PENDING") continue;
-            const soTradeId = safeStr(so?.mfl?.trade_id || so?.trade_id || "").replace(/\D/g, "");
+            // Only recent stored offers — older ones are likely stale
+            const createdMs = new Date(so.created_at || 0).getTime() || 0;
+            if (createdMs > 0 && createdMs < fallbackCutoffMs) continue;
+            // Check both mfl_trade_id (flat) and mfl.trade_id (nested)
+            // and trade_id field. Dedup against MFL's seen set.
+            const soTradeId = safeStr(
+              so.mfl_trade_id || so?.mfl?.trade_id || so.trade_id || ""
+            ).replace(/\D/g, "");
             if (soTradeId && mflTradeIdsSeen.has(soTradeId)) continue;
             const fromFid = padFranchiseId(so.from_franchise_id);
             const toFid = padFranchiseId(so.to_franchise_id);
             const isOutgoing = fromFid === franchiseId;
             const isIncoming = toFid === franchiseId;
             if (!isOutgoing && !isIncoming) continue;
-            // Build a minimal proposal-shaped row from the stored offer
+            // Build asset arrays. Storage shape: will_give_up is a CSV
+            // string of MFL asset tokens (e.g. "P_12345,P_67890,DP_01_03").
+            const parseCsvAssets = (v) => {
+              if (Array.isArray(v)) return v.filter(Boolean);
+              const s = safeStr(v).trim();
+              if (!s) return [];
+              return s.split(",").map((x) => x.trim()).filter(Boolean);
+            };
             const synthRow = {
               proposal_id: safeStr(so.id || soTradeId || `stored-${fromFid}-${toFid}`),
               mfl_trade_id: soTradeId,
@@ -18027,13 +18060,13 @@ export default {
               from_franchise_name: safeStr(so.from_franchise_name || franchiseNames[fromFid] || fromFid),
               to_franchise_name: safeStr(so.to_franchise_name || franchiseNames[toFid] || toFid),
               status: "PENDING",
-              created_ts: Math.floor((new Date(so.created_at || 0).getTime() || 0) / 1000),
+              created_ts: Math.floor(createdMs / 1000),
               created_at: safeStr(so.created_at),
               updated_at: safeStr(so.updated_at || so.created_at),
               comments: safeStr(so.message || ""),
               raw_comment: safeStr(so.message || ""),
-              will_give_up: Array.isArray(so?.summary?.will_give_up) ? so.summary.will_give_up : [],
-              will_receive: Array.isArray(so?.summary?.will_receive) ? so.summary.will_receive : [],
+              will_give_up: parseCsvAssets(so.will_give_up),
+              will_receive: parseCsvAssets(so.will_receive),
               mfl_present: !!soTradeId,
               source: "stored_only",
               payload: includePayload ? (so.payload || null) : undefined,
