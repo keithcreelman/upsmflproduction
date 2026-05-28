@@ -89,6 +89,14 @@
     if (!Number.isFinite(v)) return "—";
     return "$" + Math.round(v) + "K";
   };
+  // Display a K-denominated bid as actual dollars with thousands separator
+  // (e.g. high_bid_k=1 → "$1,000", high_bid_k=5 → "$5,000"). Keith 2026-05-25
+  // wants the High Bid column readable as dollars, not the $1K shorthand.
+  const fmtDollarsFromK = (k) => {
+    const v = Number(k);
+    if (!Number.isFinite(v) || v <= 0) return "—";
+    return "$" + Math.round(v * 1000).toLocaleString("en-US");
+  };
   const fmtDate = (iso) => {
     if (!iso) return "—";
     try {
@@ -125,6 +133,7 @@
     setupFilters();
     setupSorting();
     setupNominationsControls();
+    setupPlayerModalDelegation();
 
     // Version badge — best-effort, doesn't block render
     fetchJSON("VERSION.json?_=" + Date.now()).then((v) => {
@@ -141,10 +150,13 @@
     renderEraTable();
     renderNominations();
 
-    // Auto-refresh nominations every 30s.
+    // Auto-refresh nominations every 30s. Also re-render the ERA table so
+    // the Nominate→Bid CTA flips when a player gets newly nominated mid-
+    // session (cross-references STATE.lots in renderRow).
     setInterval(async () => {
       await loadLots();
       renderNominations();
+      renderEraTable();
     }, 30000);
 
     // And tick the time-remaining countdowns every second.
@@ -179,7 +191,7 @@
       console.error("[auction-hub] era-eligible fetch failed:", e);
       STATE.era = { players: [], error: String(e && e.message || e) };
       if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--err);padding:24px;">
+        tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--err);padding:24px;">
           Failed to load eligible players: ${escapeHtml(STATE.era.error)}
         </td></tr>`;
       }
@@ -386,7 +398,7 @@
         <div class="ah-warroom-league-banner">
           <strong>ERA nominations not yet open</strong> — opens
           <code>${escapeHtml(eraWin.open_at_iso || "")}</code>.
-          6 anchored 12-hour windows (6 AM / 6 PM ET), Sat 6 PM ET → Tue 6 PM ET.
+          6 anchored 12-hour windows (6 AM / 6 PM ET), Memorial Day Mon 6 AM ET → Thu 6 AM ET.
         </div>`;
     } else if (eraWin.reason === "after_close") {
       eraBannerHtml = `
@@ -853,7 +865,7 @@
         } else {
           STATE.era_sort = col;
           // Numeric columns default desc, text columns default asc
-          const numeric = ["ppg_2023", "ppg_2024", "ppg_2025", "ppg_weighted", "high_bid_k", "total_bids", "age", "y3_salary", "current_bid", "rookie_slot"];
+          const numeric = ["ppg_2023", "ppg_2024", "ppg_2025", "ppg_weighted", "high_bid_k", "total_bids", "age", "y3_salary", "current_bid", "rookie_slot", "time_remaining"];
           STATE.era_sort_dir = numeric.includes(col) ? -1 : 1;
         }
         renderEraTable();
@@ -931,10 +943,30 @@
       "ppg_2023", "ppg_2024", "ppg_2025", "ppg_weighted",
       "high_bid_k", "total_bids",
       "age", "y3_salary", "current_bid", "rookie_slot",
+      "time_remaining",
     ];
+    // Status priority (lot_status sort key). Open auctions surface first
+    // on asc; won auctions last. "not_yet_open" => never nominated.
+    const STATUS_RANK = { open: 0, locked: 1, not_yet_open: 2, won: 3 };
+    const nowUnix = Math.floor(Date.now() / 1000);
+    const getVal = (row, key) => {
+      if (key === "time_remaining") {
+        // Compute remaining lock seconds. Rows with no lot or already
+        // won → NaN so they sink to the bottom via the +/-Infinity
+        // fallback below.
+        const locks = Number(row.lot_locks_at_unix || 0);
+        if (!locks || row.lot_status === "won") return NaN;
+        return Math.max(0, locks - nowUnix);
+      }
+      if (key === "lot_status") {
+        const s = String(row.lot_status || "not_yet_open");
+        return STATUS_RANK[s] != null ? STATUS_RANK[s] : 99;
+      }
+      return row[key];
+    };
     return rows.slice().sort((a, b) => {
-      let va = a[col], vb = b[col];
-      if (numeric.includes(col)) {
+      let va = getVal(a, col), vb = getVal(b, col);
+      if (numeric.includes(col) || col === "lot_status") {
         va = Number(va);
         vb = Number(vb);
         // For descending sort (dir = -1), null/missing should sink to
@@ -971,7 +1003,7 @@
     });
 
     if (sorted.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px;">
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px;">
         No players match the current filters.
       </td></tr>`;
       return;
@@ -985,16 +1017,13 @@
   function renderRow(p, myFid) {
     const pos = String(p.position || "").toUpperCase();
 
-    const mflProfileUrl = p.player_id
-      ? `https://www.myfantasyleague.com/${p.season || new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=04&P=${encodeURIComponent(p.player_id)}`
-      : null;
-
-    // Player cell (Keith 2026-05-22: removed ?-helper tooltip; eligibility
-    // reason was redundant once every row is a known cut from the same
-    // deadline event).
-    const playerCell = mflProfileUrl
-      ? `<a href="${mflProfileUrl}" target="_blank" rel="noopener" class="player-link">${escapeHtml(p.name || ("Player #" + p.player_id))}</a>`
-      : `${escapeHtml(p.name || ("Player #" + p.player_id))}`;
+    // Player cell — opens the unified UPS player profile modal (same one
+    // used by Roster Workbench, Rookie Draft Hub, etc.). Falls back to the
+    // MFL profile page if the shared module hasn't loaded.
+    const playerName = escapeHtml(p.name || ("Player #" + p.player_id));
+    const playerCell = p.player_id
+      ? `<button type="button" class="ah-player-open player-link" data-action="open-player-modal" data-player-id="${escapeHtml(p.player_id)}">${playerName}</button>`
+      : playerName;
 
     const currentBid = Number(p.current_bid || 0);
     const yourProxy = Number(p.your_proxy_bid || 0);
@@ -1037,18 +1066,52 @@
     //
     // URL shape (confirmed against Keith's 2026-05-20 sample):
     //   /<year>/options?LEAGUE_ID=<L>&FRANCHISE=<fid>&O=43
-    //     &PLAYER_ID=<pid>&SELECT=Select+Franchise
-    // SELECT=Select+Franchise is the UI default-state marker MFL
-    // includes when navigating directly to the nominate flow.
+    //     &PLAYER_ID=<pid>
+    // (Removed &SELECT=Select+Franchise per Keith 2026-05-25 —
+    // it was triggering MFL's franchise-picker interstitial instead
+    // of going straight to the bid form. With just FRANCHISE +
+    // PLAYER_ID, MFL renders the bid form preselected to that player.)
     const nominateEligible = !p.nominate_blocked;
     const viewerFidForMfl = (STATE.me && STATE.me.franchise_id) || "0000";
     const mflAuctionUrl =
       `https://www48.myfantasyleague.com/${p.season || new Date().getUTCFullYear()}` +
       `/options?LEAGUE_ID=${LEAGUE_ID}&FRANCHISE=${encodeURIComponent(viewerFidForMfl)}&O=43` +
-      `&PLAYER_ID=${encodeURIComponent(p.player_id)}&SELECT=Select+Franchise`;
-    const nominateBtn = nominateEligible
-      ? `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small ah-nominate-btn" data-pid="${escapeHtml(p.player_id)}" title="Opens MFL's native auction page in a new tab. UPS-side nominate endpoint is parked (see CROSS_CODEBASE_ALIGNMENT §4.1).">Nominate ↗</a>`
-      : `<button type="button" class="btn small secondary" disabled title="${escapeHtml(p.nominate_block_reason || "Nomination blocked")}">Blocked</button>`;
+      `&PLAYER_ID=${encodeURIComponent(p.player_id)}`;
+    // CTA logic — cross-reference STATE.lots to surface the right action:
+    //   - lot.status === "won"            → "Won by <team>" (disabled)
+    //   - lot exists but locks_at passed  → "Closed" (disabled; pending
+    //                                       resolution into a won row)
+    //   - lot exists and still open       → "Bid ↗"
+    //   - no lot but high_bid_k>0 (data-
+    //     layer-only signal of activity)  → "Bid ↗" (fallback)
+    //   - nothing                         → "Nominate ↗"
+    // (Keith 2026-05-25 / 2026-05-27.)
+    const lotsArr = (STATE.lots && Array.isArray(STATE.lots.lots)) ? STATE.lots.lots : [];
+    const lotForPlayer = lotsArr.find((l) => String(l.player_id) === String(p.player_id));
+    const nowUnix = Math.floor(Date.now() / 1000);
+    const lotIsWon = !!lotForPlayer && lotForPlayer.status === "won";
+    const lotIsLocked = !!lotForPlayer && !lotIsWon && Number(lotForPlayer.locks_at_unix || 0) > 0 && Number(lotForPlayer.locks_at_unix) <= nowUnix;
+    const lotIsOpen = !!lotForPlayer && !lotIsWon && !lotIsLocked;
+    const alreadyNominated = lotIsOpen || lotIsWon || lotIsLocked || (Number(p.high_bid_k) > 0) || (Number(p.total_bids) > 0);
+
+    let nominateBtn;
+    if (lotIsWon) {
+      const winner = lotForPlayer.winner_name
+        || (typeof franchiseName === "function" ? franchiseName(lotForPlayer.winner_fid) : "")
+        || p.high_bid_team
+        || "—";
+      nominateBtn = `<button type="button" class="btn small secondary" disabled title="${escapeHtml("Auction closed — won by " + winner)}" data-mode="won">Won · ${escapeHtml(winner)}</button>`;
+    } else if (lotIsLocked) {
+      nominateBtn = `<button type="button" class="btn small secondary" disabled title="Lock window expired — pending resolution into a won row." data-mode="closed">Closed</button>`;
+    } else if (!nominateEligible) {
+      nominateBtn = `<button type="button" class="btn small secondary" disabled title="${escapeHtml(p.nominate_block_reason || "Nomination blocked")}">Blocked</button>`;
+    } else {
+      const ctaLabel = alreadyNominated ? "Bid ↗" : "Nominate ↗";
+      const ctaTitle = alreadyNominated
+        ? "Already nominated — opens MFL's auction page to raise the bid."
+        : "Opens MFL's native auction page in a new tab. UPS-side nominate endpoint is parked (see CROSS_CODEBASE_ALIGNMENT §4.1).";
+      nominateBtn = `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small ah-nominate-btn" data-pid="${escapeHtml(p.player_id)}" data-mode="${alreadyNominated ? "bid" : "nominate"}" title="${escapeHtml(ctaTitle)}">${ctaLabel}</a>`;
+    }
 
     const origin = p.origin_label || "Unknown";
     // Map labels → CSS class slug (no spaces/hyphens)
@@ -1077,12 +1140,26 @@
     };
 
     const highBidCell = (p.high_bid_k != null && p.high_bid_k > 0)
-      ? fmtK(p.high_bid_k * 1000)
+      ? fmtDollarsFromK(p.high_bid_k)
       : "—";
     const highBidderCell = p.high_bid_team
       ? escapeHtml(p.high_bid_team)
       : "—";
     const totalBidsCell = Number(p.total_bids || 0);
+
+    // Time Remaining cell — counts down to the lot's 36hr lock window.
+    // Live (per-second tick handled by updateEraCountdowns()).
+    const locksAtUnix = Number(p.lot_locks_at_unix || 0);
+    const lotIsWonHere = String(p.lot_status || "") === "won";
+    let timeRemainingCell;
+    if (lotIsWonHere) {
+      timeRemainingCell = `<span class="small" style="color:var(--muted)">—</span>`;
+    } else if (locksAtUnix > 0) {
+      const remaining = Math.max(0, locksAtUnix - Math.floor(Date.now() / 1000));
+      timeRemainingCell = `<span class="ah-countdown" data-locks-at="${locksAtUnix}">${formatCountdown(remaining)}</span>`;
+    } else {
+      timeRemainingCell = `<span class="small" style="color:var(--muted)">—</span>`;
+    }
 
     return `
       <tr data-pid="${escapeHtml(p.player_id || "")}">
@@ -1097,6 +1174,7 @@
         <td class="num col-md">${highBidCell}</td>
         <td class="col-md">${highBidderCell}</td>
         <td class="num col-lo">${totalBidsCell}</td>
+        <td class="col-md">${timeRemainingCell}</td>
         <td>
           <div class="ah-nominate-wrap">
             ${nominateBtn}
@@ -1130,6 +1208,73 @@
       console.error("[auction-hub] /api/auction/lots fetch failed:", e);
       STATE.lots = { lots: [], error: String(e && e.message || e) };
     }
+  }
+
+  // Delegated click handler for player-name buttons in any auction-hub
+  // table. Opens the unified UPS player profile modal (same one used by
+  // Roster Workbench / Rookie Draft Hub) via window.UPS_openPlayerProfile.
+  // Falls back to the MFL profile page if the shared module is missing.
+  // Resolve a player's known metadata (name / pos / NFL team) from our
+  // local STATE so the unified modal can render its header eagerly
+  // instead of showing "Player #<id>" until the async MFL fetch resolves.
+  // Mirrors the playerInfo shape player_profile_master.js consumes.
+  function resolvePlayerInfo(pid) {
+    const idStr = String(pid);
+    if (STATE.era && Array.isArray(STATE.era.players)) {
+      for (const p of STATE.era.players) {
+        if (String(p.player_id) === idStr) {
+          return {
+            name: p.name || "",
+            position: p.position || "",
+            team: p.nfl_team || "",
+          };
+        }
+      }
+    }
+    if (STATE.lots && Array.isArray(STATE.lots.lots)) {
+      for (const l of STATE.lots.lots) {
+        if (String(l.player_id) === idStr) {
+          return {
+            name: l.player_name || "",
+            position: l.position || "",
+            team: l.nfl_team || "",
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  function setupPlayerModalDelegation() {
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest('[data-action="open-player-modal"]');
+      if (!btn) return;
+      const pid = btn.getAttribute("data-player-id");
+      if (!pid) return;
+      e.preventDefault();
+      if (typeof window.UPS_openPlayerProfile === "function") {
+        try {
+          // Pass playerInfo so the master modal's header is correct
+          // immediately (same pattern Roster Workbench / Rookie Draft Hub
+          // use). Without this the header sits on "Player #<id>" until
+          // the MFL bundle fetch resolves.
+          const playerInfo = resolvePlayerInfo(pid);
+          window.UPS_openPlayerProfile(pid, {
+            apiBase: WORKER_BASE || "",
+            leagueId: LEAGUE_ID,
+            year: String(new Date().getUTCFullYear()),
+            mode: "auction_hub",
+            playerInfo: playerInfo || undefined,
+          });
+          return;
+        } catch (err) {
+          console.warn("[auction-hub] UPS_openPlayerProfile failed, falling back:", err);
+        }
+      }
+      // Fallback — open MFL's native player profile in a new tab.
+      const url = `https://www.myfantasyleague.com/${new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=04&P=${encodeURIComponent(pid)}`;
+      window.open(url, "_blank", "noopener");
+    });
   }
 
   function setupNominationsControls() {
@@ -1249,7 +1394,7 @@
       const mflAuctionUrl =
         `https://www48.myfantasyleague.com/${new Date().getUTCFullYear()}` +
         `/options?LEAGUE_ID=${LEAGUE_ID}&FRANCHISE=${encodeURIComponent(viewerFidForMfl)}&O=43` +
-        `&PLAYER_ID=${encodeURIComponent(l.player_id)}&SELECT=Select+Franchise`;
+        `&PLAYER_ID=${encodeURIComponent(l.player_id)}`;
       const isWon = l.status === "won";
       const proxyCell = (viewerFid && l.your_proxy_bid_k)
         ? `${fmtK(l.your_proxy_bid_k)}`
@@ -1259,11 +1404,11 @@
         : `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small" title="Open MFL auction to bid/raise">Bid ↗</a>`;
       return `
         <tr data-lot-id="${escapeHtml(l.lot_id)}" data-seconds="${l.seconds_remaining}" data-status="${l.status}">
-          <td><a href="${nflProfileUrl}" target="_blank" rel="noopener" class="player-link">${escapeHtml(pi.name || ("Player #" + l.player_id))}</a>${testBadge}</td>
+          <td><button type="button" class="ah-player-open player-link" data-action="open-player-modal" data-player-id="${escapeHtml(l.player_id)}">${escapeHtml(pi.name || ("Player #" + l.player_id))}</button>${testBadge}</td>
           <td><span class="ah-pos ${pos}">${escapeHtml(pos)}</span></td>
           <td class="col-md">${escapeHtml(pi.nfl_team || "—")}</td>
           <td>${escapeHtml(l.nominator_name || franchiseName(l.nominator_fid))}</td>
-          <td class="num">${fmtK(l.current_high_bid_k)}</td>
+          <td class="num">${fmtDollarsFromK(l.current_high_bid_k)}</td>
           <td>${escapeHtml(l.current_high_bidder_name || franchiseName(l.current_high_bidder_fid))}</td>
           <td class="num col-md">${l.bid_count}</td>
           <td class="num col-md">${l.unique_bidder_count}</td>
@@ -1275,9 +1420,11 @@
   }
 
   // Tick down the time-remaining cells without re-fetching from the worker.
+  // Ticks BOTH the Nominations table and the ERA table (same .ah-countdown
+  // + data-locks-at pattern).
   function updateNominationCountdowns() {
     const now = Math.floor(Date.now() / 1000);
-    $$("#nominations-tbody tr").forEach((tr) => {
+    $$("#nominations-tbody tr, #era-tbody tr").forEach((tr) => {
       const cell = tr.querySelector(".ah-countdown");
       if (!cell || tr.dataset.status === "won") return;
       const locksAt = Number(cell.dataset.locksAt || 0);

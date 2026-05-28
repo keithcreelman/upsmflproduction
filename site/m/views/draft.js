@@ -364,6 +364,20 @@
     }
   }
 
+  // Commish override (Keith 2026-05-24): the desktop hub lets the
+  // commissioner submit picks on behalf of whichever franchise is
+  // currently on the clock. Mirror that here so Keith can draft for
+  // anyone from his phone. Detection: ?commish=1 URL param, OR viewer
+  // franchise is in the small allowlist of commish fids.
+  function isCommish() {
+    try {
+      var qs = new URLSearchParams(window.location.search);
+      if (qs.get("commish") === "1" || qs.get("commish") === "true") return true;
+    } catch (e) {}
+    var fid = M.state && M.state.viewerFranchiseId;
+    return fid === "0000" || fid === "0001" || fid === "0008";
+  }
+
   function confirmAndSubmitPick(pid) {
     var picks = buildPicks();
     var onClock = liveOnClockPick(picks);
@@ -371,7 +385,9 @@
       M.ui.showToast("Draft isn't live or no pick is on the clock.", "err");
       return;
     }
-    if (onClock.franchise_id !== M.state.viewerFranchiseId) {
+    var commish = isCommish();
+    var sameAsOnClock = onClock.franchise_id === M.state.viewerFranchiseId;
+    if (!sameAsOnClock && !commish) {
       M.ui.showToast("Not your pick — " + franchiseName(onClock.franchise_id) + " is on the clock.", "err");
       return;
     }
@@ -380,19 +396,28 @@
     var name = player ? nameFor(player) : "Player " + pid;
     var pos = player ? U.safeStr(player.position) : "";
     var clockLabel = onClock.round + "." + (onClock.pick < 10 ? "0" : "") + onClock.pick;
+    // Commish submitting for someone else? Make that crystal clear in the
+    // confirm prompt — the action button writes to MFL as that franchise.
+    var commishBit = (commish && !sameAsOnClock)
+      ? "\n\n⚠ Submitting as COMMISH on behalf of " + franchiseName(onClock.franchise_id) + "."
+      : "";
     if (!window.confirm(
       "Draft " + name + (pos ? " (" + pos + ")" : "") + " with pick " + clockLabel + "?\n\n" +
-      "This writes to MFL and posts to Discord. Cannot be undone from the app."
+      "This writes to MFL and posts to Discord. Cannot be undone from the app." +
+      commishBit
     )) return;
 
     M.ui.showToast("Drafting…", "info");
+    // Always send the ON-THE-CLOCK fid (not the viewer's) — that's what
+    // MFL's live_draft endpoint expects. The /api/pick worker uses the
+    // league API key, so it has commish authority by default.
     fetch(M.api.workerUrl("/api/pick"), {
       method: "POST",
       mode: "cors",
       credentials: "omit",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        franchise_id: M.state.viewerFranchiseId,
+        franchise_id: onClock.franchise_id,
         player_id: pid,
         simulate: false
       })

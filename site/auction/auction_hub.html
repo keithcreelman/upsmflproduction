@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Auction Hub — UPS League</title>
-<link rel="stylesheet" href="auction_hub.css?v=2026.05.18.v0.1.0">
+<link rel="stylesheet" href="auction_hub.css?v=2026.05.27.v0.1.3">
 </head>
 <body>
 <header class="ah-header">
@@ -32,7 +32,7 @@
       rookie extension deadline (Thu before Memorial Day weekend). Starting bid <strong>$1K</strong>,
       36-hour lock window, $1K bid increments. Each owner may submit
       <strong>1 nomination per 12-hour window</strong> (windows anchored to 6 AM / 6 PM ET).
-      Opens Sat 6 PM ET; nominations close at the end of the Tue 6 AM → 6 PM ET window
+      Opens Memorial Day Mon 6 AM ET; nominations close at the end of the Wed 6 PM → Thu 6 AM ET window
       (6 windows total). Forced retention through FA Auction close.
       <div class="meta" id="era-context-meta">Eligibility deadline: loading…</div>
     </div>
@@ -77,11 +77,12 @@
             <th data-sort="high_bid_k" class="num col-md">High Bid</th>
             <th data-sort="high_bid_team" class="col-md">High Bidder</th>
             <th data-sort="total_bids" class="num col-lo">Bids</th>
-            <th>Actions</th>
+            <th data-sort="time_remaining" class="col-md">Time Left</th>
+            <th data-sort="lot_status">Actions</th>
           </tr>
         </thead>
         <tbody id="era-tbody">
-          <tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px;">Loading eligible players…</td></tr>
+          <tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px;">Loading eligible players…</td></tr>
         </tbody>
       </table>
     </div>
@@ -281,6 +282,7 @@
   </section>
 </main>
 
-<script src="auction_hub.js?v=2026.05.18.v0.1.0"></script>
+<script src="../shared/player_profile_master.js?v=2026.05.12.v1"></script>
+<script src="auction_hub.js?v=2026.05.27.v0.1.5"></script>
 </body>
 </html>

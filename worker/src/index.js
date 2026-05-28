@@ -542,12 +542,24 @@ async function processAuctionPoll(env) {
     if (ins.meta?.changes > 0) {
       newBids++;
       if (narrateEnabled && p.bid_at_unix >= narrateCutoffUnix) {
+        // Extract forcer-franchise NAME from MFL's note. Format:
+        //   "Pure Greatness forced bid increase"
+        // The franchise name precedes " forced bid increase". Captured
+        // here and passed to the narrator so messages can say
+        // "Pure Greatness forced L.A. Looks's bid up to $2K" instead of
+        // the confusing "L.A. Looks Forced Increase to $2K".
+        var forcerName = null;
+        var noteText = String(p.note || "");
+        var fm = noteText.match(/^(.*?)\s+forced\s+bid\s+increase\s*$/i);
+        if (fm) forcerName = fm[1].trim();
         narrateQueue.push({
           kind: ev.kind,               // "init" | "bid"
           fid: p.fid,
           player_id: p.player_id,
           bid_k: p.bid_k,
           bid_at_unix: p.bid_at_unix,
+          forcer_name: forcerName,
+          note: noteText,
         });
       }
     }
@@ -1213,7 +1225,17 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
         text = `🏆  ${franchise} **won** ${player} for ${bid}`;
         break;
       case "forced_increase":
-        text = `⬆  ${franchise} **Forced Increase** to ${bid} on ${player}`;
+        // MFL note exposes the forcer's franchise name (e.g.
+        // "Pure Greatness forced bid increase"). Captured by parseTx
+        // and passed via ev.forcer_name. When present, show the forcer
+        // as the actor ("Pure Greatness forced ... up to $X") instead
+        // of the franchise being bumped — Keith 2026-05-25 readability
+        // fix. Fallback to the old form if the note didn't parse.
+        if (ev.forcer_name) {
+          text = `⬆  **${ev.forcer_name}** forced **${fmtFranchise(ev.fid)}**'s bid up to ${bid} on ${player}`;
+        } else {
+          text = `⬆  ${franchise} **Forced Increase** to ${bid} on ${player}`;
+        }
         break;
       case "overtake":
         text = `💰  ${franchise} **Overtake** at ${bid} on ${player}`;
@@ -2000,6 +2022,8 @@ export default {
         path !== "/api/auction/bid-stats" &&
         path !== "/admin/auction/probe-o43" &&
         path !== "/admin/auction/narrate-simulate" &&
+        path !== "/admin/auction/force-narrate-lot" &&
+        path !== "/admin/auction/backfill-era-ppg" &&
         path !== "/api/league-events" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
@@ -3057,6 +3081,235 @@ export default {
       //               longhaulers_late_expensive, dollar tiers).
       //
       // Body (if no preset): { delay_ms?: number, events: [{ text, pool_id, overlay_pool_id? }] }
+      // POST /admin/auction/force-narrate-lot
+      // Body: { season, league_id?, player_id, kind? ("init"|"bid"|"won") }
+      //
+      // Replays a specific lot through narrateAuctionEvents — used when
+      // the cron missed narrating a real event (e.g. missing secrets at
+      // the time of the original poll). Pulls the matching bid from D1,
+      // constructs a synthetic queue, calls narrator. Honors the same
+      // env config as the live cron (DISCORD_BOT_TOKEN, AUCTION_CHANNEL_ID).
+      if (path === "/admin/auction/force-narrate-lot" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
+        if (!authOk) return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { error: "UPS_MFL_DB missing" });
+
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const playerId = safeStr(body?.player_id || url.searchParams.get("player_id")).replace(/\D/g, "");
+        const kind = safeStr(body?.kind || "init").toLowerCase();
+        if (!targetSeason || !leagueId || !playerId) {
+          return jsonOut(400, { error: "Need season + league_id + player_id" });
+        }
+        const lot_id = `${targetSeason}|${leagueId}|${playerId}`;
+
+        // Look up the matching bid in ups_auction_bids. For "init" we
+        // want the nomination (earliest bid with [nomination] note).
+        // For "won" we use ups_auction_lots.winner + won_at_unix.
+        let queue = [];
+        try {
+          if (kind === "won") {
+            const lot = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, winner_fid, won_at_unix, current_high_bid_k
+                 FROM ups_auction_lots WHERE lot_id = ?`
+            ).bind(lot_id).first();
+            if (!lot || !lot.winner_fid) return jsonOut(404, { error: "Lot not won yet" });
+            queue.push({
+              kind: "won",
+              fid: String(lot.winner_fid),
+              player_id: String(lot.player_id),
+              bid_k: Number(lot.current_high_bid_k || 0),
+              bid_at_unix: Number(lot.won_at_unix || 0),
+            });
+          } else if (kind === "init") {
+            const row = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, fid, bid_k, bid_at_unix
+                 FROM ups_auction_bids
+                WHERE lot_id = ? AND note LIKE '[nomination]%'
+                ORDER BY bid_at_unix ASC LIMIT 1`
+            ).bind(lot_id).first();
+            if (!row) return jsonOut(404, { error: "No nomination bid found for lot" });
+            queue.push({
+              kind: "init",
+              fid: String(row.fid),
+              player_id: String(row.player_id),
+              bid_k: Number(row.bid_k || 0),
+              bid_at_unix: Number(row.bid_at_unix || 0),
+            });
+          } else {
+            // kind=bid → take the latest bid for that lot. Also pull
+            // the note so the narrator can extract the forcer name
+            // (e.g. "Pure Greatness forced bid increase").
+            const row = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, fid, bid_k, bid_at_unix, note
+                 FROM ups_auction_bids
+                WHERE lot_id = ? AND (note NOT LIKE '[nomination]%' OR note IS NULL)
+                ORDER BY bid_at_unix DESC LIMIT 1`
+            ).bind(lot_id).first();
+            if (!row) return jsonOut(404, { error: "No bid found for lot" });
+            const noteText = String(row.note || "");
+            let forcerName = null;
+            const fm = noteText.match(/^(.*?)\s+forced\s+bid\s+increase\s*$/i);
+            if (fm) forcerName = fm[1].trim();
+            queue.push({
+              kind: "bid",
+              fid: String(row.fid),
+              player_id: String(row.player_id),
+              bid_k: Number(row.bid_k || 0),
+              bid_at_unix: Number(row.bid_at_unix || 0),
+              forcer_name: forcerName,
+              note: noteText,
+            });
+          }
+        } catch (e) {
+          return jsonOut(500, { error: "D1 lookup failed: " + String(e?.message || e) });
+        }
+
+        // Run the narrator with the synthesized queue.
+        try {
+          await narrateAuctionEvents(env, Number(targetSeason), leagueId, queue);
+          return jsonOut(200, {
+            ok: true,
+            lot_id,
+            kind,
+            queued_event: queue[0],
+            note: "Posted via narrateAuctionEvents — check Discord channel for the result.",
+          });
+        } catch (e) {
+          return jsonOut(500, { error: "Narrator failed: " + String(e?.message || e) });
+        }
+      }
+
+      // POST /admin/auction/backfill-era-ppg?L=...&YEAR=...&APIKEY=...
+      //
+      // Lazy backfill of ups_era_pool PPG columns. At ERA-pool snapshot
+      // time, players missing from player_points_history.json (build-time
+      // quarterly file ~404 players) AND not picked up by the inline live
+      // MFL fallback (CPU-budget capped at 40 missing pids) end up with
+      // NULL ppg_*. Keith 2026-05-27: confirmed 5/26 players missing —
+      // Michael Mayer, Drew Sanders, Hendon Hooker, Jake Haener, Stetson
+      // Bennett. This endpoint walks ups_era_pool, fetches W=ALL player
+      // scores from MFL for any row with all three ppg_* NULL, computes
+      // PPG + games per year, recomputes the weighted PPG, UPDATEs D1.
+      // Idempotent — re-runs only touch still-null rows.
+      if (path === "/admin/auction/backfill-era-ppg" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
+        if (!authOk) return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { error: "UPS_MFL_DB missing" });
+
+        const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+
+        // Find rows with all three ppg_* NULL.
+        const { results: rows } = await env.UPS_MFL_DB.prepare(
+          `SELECT player_id, player_name
+             FROM ups_era_pool
+            WHERE season = ? AND league_id = ?
+              AND ppg_2023 IS NULL
+              AND ppg_2024 IS NULL
+              AND ppg_2025 IS NULL`
+        ).bind(yearArg, leagueId).all();
+
+        if (!rows || rows.length === 0) {
+          return jsonOut(200, { ok: true, message: "Nothing to backfill", count: 0 });
+        }
+
+        const computeWeightedPpg = (h) => {
+          const slots = [
+            { ppg: h.ppg_2025, games: h.games_2025, w: 3 },
+            { ppg: h.ppg_2024, games: h.games_2024, w: 2 },
+            { ppg: h.ppg_2023, games: h.games_2023, w: 1 },
+          ];
+          let num = 0, den = 0;
+          for (const s of slots) {
+            const ppg = Number(s.ppg);
+            const games = Number(s.games);
+            if (!Number.isFinite(ppg) || !Number.isFinite(games) || games <= 0) continue;
+            num += ppg * s.w;
+            den += s.w;
+          }
+          return den > 0 ? Math.round((num / den) * 100) / 100 : null;
+        };
+
+        const updates = [];
+        const errors = [];
+
+        for (const r of rows) {
+          const pid = String(r.player_id);
+          const out = {
+            player_id: pid,
+            player_name: r.player_name,
+            ppg_2023: null, games_2023: null,
+            ppg_2024: null, games_2024: null,
+            ppg_2025: null, games_2025: null,
+          };
+          for (const yr of ["2023", "2024", "2025"]) {
+            try {
+              const psRes = await fetch(
+                `https://api.myfantasyleague.com/${yr}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&P=${encodeURIComponent(pid)}&W=ALL&JSON=1`,
+                { cf: { cacheTtl: 86400 } }
+              );
+              const pj = await psRes.json().catch(() => ({}));
+              const allWeeks = pj?.playerScoresAllWeeks?.playerScores || [];
+              const arr = Array.isArray(allWeeks) ? allWeeks : [allWeeks];
+              let total = 0, games = 0;
+              for (const wk of arr) {
+                const sc = wk?.playerScore?.score;
+                if (sc === "" || sc == null) continue;
+                const v = Number(sc);
+                if (!Number.isFinite(v)) continue;
+                total += v;
+                games += 1;
+              }
+              if (games > 0) {
+                out[`ppg_${yr}`] = Math.round((total / games) * 1000) / 1000;
+                out[`games_${yr}`] = games;
+              } else {
+                out[`games_${yr}`] = 0;
+              }
+            } catch (e) {
+              errors.push({ pid, year: yr, error: String(e?.message || e) });
+            }
+          }
+          const wPpg = computeWeightedPpg(out);
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `UPDATE ups_era_pool
+                  SET ppg_2023 = ?, games_2023 = ?,
+                      ppg_2024 = ?, games_2024 = ?,
+                      ppg_2025 = ?, games_2025 = ?,
+                      ppg_weighted = ?
+                WHERE season = ? AND league_id = ? AND player_id = ?`
+            ).bind(
+              out.ppg_2023, out.games_2023,
+              out.ppg_2024, out.games_2024,
+              out.ppg_2025, out.games_2025,
+              wPpg, yearArg, leagueId, pid
+            ).run();
+            updates.push({ ...out, ppg_weighted: wPpg });
+          } catch (e) {
+            errors.push({ pid, stage: "update", error: String(e?.message || e) });
+          }
+        }
+
+        return jsonOut(200, {
+          ok: true,
+          season: yearArg,
+          league_id: leagueId,
+          count: updates.length,
+          updates,
+          errors,
+        });
+      }
+
       if (path === "/admin/auction/narrate-simulate" && request.method === "POST") {
         const commishKey = String(env.COMMISH_API_KEY || "").trim();
         const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
@@ -3939,13 +4192,13 @@ export default {
       // franchise has used its 1 nomination for the current anchored
       // 12-hour window (ERA) or the rolling 24-hour window (FA Auction).
       //
-      // Cadence rules (league_context_v1.md §A3 / §A1, Keith 2026-05-21):
+      // Cadence rules (league_context_v1.md §A3 / §A1, Keith 2026-05-27):
       //   ERA (§A3):  1 nomination per discrete 12-hour window. Windows
       //               are ANCHORED to 6 AM ET and 6 PM ET — NOT rolling
-      //               from the franchise's last nomination. Opens Sat
-      //               6 PM ET (= Memorial Day Monday − 2 days at 22:00
-      //               UTC during EDT); closes at the end of the Tue
-      //               6 AM → 6 PM ET window (6 windows total).
+      //               from the franchise's last nomination. Opens
+      //               Memorial Day MONDAY 6 AM ET (= memorial day @ 10:00
+      //               UTC during EDT); closes at the end of the Wed
+      //               6 PM → Thu 6 AM ET window (6 windows total).
       //   FA Auction (§A1): 2 nominations / 24-hour rolling window.
       //
       // Data source: ups_auction_bids WHERE note LIKE '[nomination]%'.
@@ -3971,12 +4224,12 @@ export default {
         const FA_WINDOW_SEC    = 24 * 3600;
         const FA_MAX_IN_WINDOW = 2;
         const ERA_WINDOW_LABELS = [
-          "Sat 6 PM – Sun 6 AM ET",
-          "Sun 6 AM – Sun 6 PM ET",
-          "Sun 6 PM – Mon 6 AM ET",
           "Mon 6 AM – Mon 6 PM ET",
           "Mon 6 PM – Tue 6 AM ET",
           "Tue 6 AM – Tue 6 PM ET",
+          "Tue 6 PM – Wed 6 AM ET",
+          "Wed 6 AM – Wed 6 PM ET",
+          "Wed 6 PM – Thu 6 AM ET",
         ];
         const ERA_TOTAL_WINDOWS = ERA_WINDOW_LABELS.length;
         const ERA_WINDOW_MS = 12 * 3600 * 1000;
@@ -3987,8 +4240,7 @@ export default {
           const memorial = _getMemorialDayUtcTopLevel(year);
           if (!memorial) return { open: false, reason: "no_season_calendar" };
           const openAt = new Date(memorial.getTime());
-          openAt.setUTCDate(openAt.getUTCDate() - 2); // Sat = Mon − 2
-          openAt.setUTCHours(22, 0, 0, 0);             // 6 PM ET = 22:00 UTC (EDT)
+          openAt.setUTCHours(10, 0, 0, 0);             // 6 AM ET = 10:00 UTC on Memorial Day Mon (EDT)
           const closeAt = new Date(openAt.getTime() + ERA_TOTAL_WINDOWS * ERA_WINDOW_MS);
           const out = {
             open_at_iso: openAt.toISOString(),
@@ -4149,7 +4401,7 @@ export default {
             generated_at: new Date().toISOString(),
             now_unix: nowUnix,
             rules: {
-              era: "league_context_v1.md §A3 — 1 nomination per 12-hour ANCHORED window (6 AM / 6 PM ET). Opens Sat 6 PM ET, closes end of Tue 6 AM–6 PM ET window.",
+              era: "league_context_v1.md §A3 — 1 nomination per 12-hour ANCHORED window (6 AM / 6 PM ET). Opens Memorial Day Mon 6 AM ET, closes end of Wed 6 PM–Thu 6 AM ET window.",
               fa_auction: "league_context_v1.md §A1 — 2 nominations per 24-hour rolling window",
             },
             era_window: eraWindow,
@@ -5825,6 +6077,15 @@ export default {
         const testCh = safeStr(env.DISCORD_DRAFT_TEST_CHANNEL_ID || "1089538054236160010").replace(/\D/g, "");
         return live ? liveCh : testCh;
       };
+      // Parent channel for the per-year picks THREAD (one thread per draft).
+      // Keith 2026-05-24: picks go in a thread under #transactions; the
+      // existing rookie-draft channel (DISCORD_DRAFT_CHANNEL_ID) stays the
+      // home for the post-draft team-by-team summary only.
+      const _rdhPicksThreadParent = (live) => {
+        const liveCh = safeStr(env.DISCORD_PICKS_THREAD_PARENT_CHANNEL_ID || "1059111651846131833").replace(/\D/g, "");
+        const testCh = safeStr(env.DISCORD_DRAFT_TEST_CHANNEL_ID || "1089538054236160010").replace(/\D/g, "");
+        return live ? liveCh : testCh;
+      };
       const _rdhPostDiscord = async (channelId, content) => {
         const botToken = safeStr(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || env.Discord_bot || "");
         if (!botToken || !channelId) return { ok: false, error: "missing_discord_config" };
@@ -5836,6 +6097,76 @@ export default {
           });
           const ok = r.ok;
           return { ok, status: r.status };
+        } catch (e) {
+          return { ok: false, error: String(e && e.message || e) };
+        }
+      };
+      // Find-or-create the single per-year picks thread in the parent
+      // channel (#transactions by default). Idempotent: lists active threads
+      // first and matches by deterministic name "<YEAR> UPS Rookie Draft —
+      // Live Picks". If not present, creates a public thread (type=11) with
+      // 24h auto-archive. Returns { ok, thread_id, created, name } or error.
+      const _rdhFindOrCreateDraftPicksThread = async (parentChannelId, year) => {
+        const botToken = safeStr(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || env.Discord_bot || "");
+        if (!botToken || !parentChannelId) return { ok: false, error: "missing_discord_config" };
+        const expectedName = `${year} UPS Rookie Draft — Live Picks`;
+        const authHdr = { Authorization: `Bot ${botToken}` };
+        try {
+          // Need the guild_id to list active threads — Discord's channel-level
+          // /threads/active returns 404 in v10; the supported endpoint is
+          // /guilds/{guild_id}/threads/active. Discover guild_id from the
+          // parent channel (one cheap GET).
+          let guildId = safeStr(env.DISCORD_GUILD_ID || "");
+          if (!guildId) {
+            const chR = await fetch(
+              `https://discord.com/api/v10/channels/${encodeURIComponent(parentChannelId)}`,
+              { headers: authHdr }
+            );
+            if (chR.ok) {
+              const chData = await chR.json().catch(() => ({}));
+              guildId = safeStr(chData?.guild_id || "");
+            }
+          }
+          if (guildId) {
+            const listR = await fetch(
+              `https://discord.com/api/v10/guilds/${encodeURIComponent(guildId)}/threads/active`,
+              { headers: authHdr }
+            );
+            if (listR.ok) {
+              const data = await listR.json().catch(() => ({}));
+              const threads = Array.isArray(data?.threads) ? data.threads : [];
+              const existing = threads.find(t =>
+                safeStr(t.name) === expectedName && safeStr(t.parent_id) === safeStr(parentChannelId)
+              );
+              if (existing) {
+                return { ok: true, thread_id: existing.id, created: false, name: expectedName };
+              }
+            }
+          }
+          // Not found (or list failed) — create it
+          const createR = await fetch(
+            `https://discord.com/api/v10/channels/${encodeURIComponent(parentChannelId)}/threads`,
+            {
+              method: "POST",
+              headers: { ...authHdr, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: expectedName,
+                auto_archive_duration: 1440, // 24h
+                type: 11, // public thread (no message anchor)
+                invitable: true,
+              }),
+            }
+          );
+          if (!createR.ok) {
+            let body = "";
+            try { body = await createR.text(); } catch (_) {}
+            return { ok: false, error: `thread_create_failed status=${createR.status} body=${(body||"").slice(0,200)}` };
+          }
+          const created = await createR.json().catch(() => ({}));
+          if (created?.id) {
+            return { ok: true, thread_id: created.id, created: true, name: expectedName };
+          }
+          return { ok: false, error: "thread_create_no_id" };
         } catch (e) {
           return { ok: false, error: String(e && e.message || e) };
         }
@@ -7147,16 +7478,37 @@ export default {
       if (path === "/api/draft-state" && request.method === "GET") {
         const leagueId = _rdhLeagueId();
         const year = _rdhYear();
-        const noStore = (u, ttl) => fetch(u, {
-          // Tiny TTL (5s) so multiple browsers don't pummel MFL but the
-          // data is still effectively live during a draft.
-          cf: { cacheTtl: ttl || 5, cacheEverything: true },
+        // ?fresh=1 bypasses the server-side monotonic-coalesce — used
+        // when the user explicitly hits Sync MFL and wants to see the
+        // true latest state (including reverts that would shrink picks).
+        const bypassCache = url.searchParams.get("fresh") === "1";
+        // Keith 2026-05-24: NO CACHE on draftResults.
+        // The 5s CF edge cache caused the on-the-clock pick to bounce —
+        // different CF colos returned different snapshots within the
+        // cache window, so back-to-back polls would see (e.g.) 1.04 then
+        // 1.01 then 1.02. League export (franchise names) is fine to cache.
+        // Trade-off: ~12 owners × 5s poll = ~2.4 MFL calls/sec — well below
+        // anything MFL would care about.
+        const draftFetch = (u) => fetch(u, {
+          cf: { cacheTtl: 0, cacheEverything: false },
+          headers: {
+            "User-Agent": "upsmflproduction-worker",
+            "Cache-Control": "no-cache",
+          },
+        });
+        const longCache = (u, ttl) => fetch(u, {
+          cf: { cacheTtl: ttl, cacheEverything: true },
           headers: { "User-Agent": "upsmflproduction-worker" },
         });
         try {
+          // Use api.myfantasyleague.com (authoritative) for draftResults
+          // instead of www48 shard — shard hosts had inconsistent
+          // replication mid-draft (3 back-to-back calls returned
+          // n=1, n=3, n=1 picks_made). The canonical api host is more
+          // consistent. League export still on www48 (cached daily).
           const [drRes, lgRes] = await Promise.allSettled([
-            noStore(`https://www48.myfantasyleague.com/${year}/export?TYPE=draftResults&L=${leagueId}&JSON=1`, 5),
-            noStore(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1`, 86400),
+            draftFetch(`https://api.myfantasyleague.com/${year}/export?TYPE=draftResults&L=${leagueId}&JSON=1`),
+            longCache(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1`, 86400),
           ]);
 
           // Build franchise name index from league
@@ -7208,20 +7560,79 @@ export default {
             }
           }
 
-          return jsonOut(200, {
-            franchises,
-            draft_order,
-            picks_made,
-            active_pick,
-            meta: {
-              source: "mfl_live",
-              league_id: leagueId,
-              year,
-              as_of: new Date().toISOString(),
-              n_picks_made: picks_made.length,
-              n_picks_total: draft_order.length,
-            },
-          });
+          // ── Server-side monotonic coalesce (D1-backed) ──
+          // MFL's backend nodes don't replicate consistently during a
+          // live draft — different requests hit different nodes and
+          // see DIFFERENT picks_made counts (verified empirically:
+          // n=0,0,0,3,1 across 5 back-to-back calls). To keep all
+          // browsers in sync, the worker remembers the HIGHEST
+          // picks_made count it's seen for this league in the last
+          // 60 seconds and serves that. A higher new count promotes
+          // the cache. A lower new count is ignored UNLESS the user
+          // passed ?fresh=1 (intent: see reverts immediately).
+          try {
+            await env.UPS_MFL_DB.exec(
+              "CREATE TABLE IF NOT EXISTS ups_draft_state_cache (league_id TEXT PRIMARY KEY, n_picks INTEGER, payload TEXT, updated_at INTEGER)"
+            );
+            const cached = await env.UPS_MFL_DB.prepare(
+              "SELECT n_picks, payload, updated_at FROM ups_draft_state_cache WHERE league_id = ?"
+            ).bind(leagueId).first();
+            const nowSec = Math.floor(Date.now() / 1000);
+            const cacheFresh = cached && (nowSec - cached.updated_at) < 60;
+            const responseObj = {
+              franchises,
+              draft_order,
+              picks_made,
+              active_pick,
+              meta: {
+                source: "mfl_live",
+                league_id: leagueId,
+                year,
+                as_of: new Date().toISOString(),
+                n_picks_made: picks_made.length,
+                n_picks_total: draft_order.length,
+              },
+            };
+            if (
+              !bypassCache &&
+              cacheFresh &&
+              cached.n_picks > picks_made.length
+            ) {
+              // MFL just gave us a SMALLER snapshot than what we recently
+              // cached — almost certainly a stale read from a lagging
+              // node. Serve the cached (larger) payload instead.
+              try {
+                const cachedPayload = JSON.parse(cached.payload);
+                cachedPayload.meta = cachedPayload.meta || {};
+                cachedPayload.meta.coalesced = true;
+                cachedPayload.meta.coalesced_age_s = nowSec - cached.updated_at;
+                cachedPayload.meta.dropped_n_picks = picks_made.length;
+                return jsonOut(200, cachedPayload);
+              } catch (_) { /* fall through to fresh */ }
+            }
+            // Promote: write the new (larger or equal) payload + count
+            await env.UPS_MFL_DB.prepare(
+              "INSERT OR REPLACE INTO ups_draft_state_cache (league_id, n_picks, payload, updated_at) VALUES (?, ?, ?, ?)"
+            ).bind(leagueId, picks_made.length, JSON.stringify(responseObj), nowSec).run();
+            return jsonOut(200, responseObj);
+          } catch (cacheErr) {
+            // D1 cache failed — return the fresh payload anyway
+            return jsonOut(200, {
+              franchises,
+              draft_order,
+              picks_made,
+              active_pick,
+              meta: {
+                source: "mfl_live",
+                league_id: leagueId,
+                year,
+                as_of: new Date().toISOString(),
+                n_picks_made: picks_made.length,
+                n_picks_total: draft_order.length,
+                cache_error: String(cacheErr?.message || cacheErr),
+              },
+            });
+          }
         } catch (e) {
           return jsonOut(500, { error: String(e && e.message || e) });
         }
@@ -9300,13 +9711,33 @@ export default {
           return jsonOut(409, { ok: false, error: `Franchise ${fid} is not on the clock — cannot submit live pick.` });
         }
 
-        // LIVE write to MFL.
+        // LIVE write to MFL via the live_draft endpoint.
+        // CANON (verified via MFL api_info form action 2026-05-24):
+        //   GET https://www48.myfantasyleague.com/{YEAR}/live_draft
+        //     ?L={leagueId}&CMD=DRAFT&PLAYER_PICK={pid}&FRANCHISE_PICK={fid}
+        //     &ROUND={r}&PICK={s}&APIKEY={k}&JSON=1
+        // NOT /import?TYPE=live_draft — that path returns "Invalid Data Type".
+        // live_draft is categorized as MISC (CCAT=misc), not import.
+        // Method is GET (the api_info form action is GET).
+        // FRANCHISE_PICK is required when commish submits on behalf of owner.
+        // Picks must match the current On-The-Clock slot — MFL rejects
+        // attempts to change earlier/later picks.
         const apiKey = safeStr(env.MFL_APIKEY || "");
         if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
-        const importUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=draftResults&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
-        const form = new URLSearchParams();
-        form.set("FRANCHISE_ID", fid);
-        form.set("PLAYER_ID", String(playerId));
+        const liveDraftParams = new URLSearchParams();
+        liveDraftParams.set("L", leagueId);
+        liveDraftParams.set("CMD", "DRAFT");
+        liveDraftParams.set("PLAYER_PICK", String(playerId));
+        liveDraftParams.set("FRANCHISE_PICK", fid);
+        liveDraftParams.set("ROUND", String(onClockRound));
+        liveDraftParams.set("PICK", String(onClockSlot));
+        liveDraftParams.set("APIKEY", apiKey);
+        liveDraftParams.set("JSON", "1");
+        const importUrl = `https://www48.myfantasyleague.com/${year}/live_draft?${liveDraftParams.toString()}`;
+        // Kept as `form` for downstream dry-run preview compatibility — POST
+        // body is unused on the GET request, but the variable is referenced
+        // by the dry_run preview block below.
+        const form = liveDraftParams;
         // ── DRY-RUN short-circuit ──
         // Build the full request, validate everything, post a [DRY-RUN] preview
         // to the test Discord channel — but DON'T fire the MFL fetch. Lets the
@@ -9329,10 +9760,10 @@ export default {
         let mflResp = "";
         let mflStatus = 0;
         try {
+          // GET, not POST — live_draft expects all params in the query string.
           const r = await fetch(importUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" },
-            body: form.toString(),
+            method: "GET",
+            headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
           });
           mflStatus = r.status;
           mflResp = await r.text();
@@ -9342,10 +9773,17 @@ export default {
         const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
         if (mflOk) {
           let dRes = null;
+          let threadInfo = null;
           if (!silenceDiscord) {
             try {
-              const ch = _rdhDiscordChannel(true);
-              dRes = await _rdhPostDiscord(ch, discordContent);
+              // Picks go to a per-year THREAD under #transactions
+              // (Keith 2026-05-24). Find-or-create the thread idempotently,
+              // then post into it. Falls back to the legacy channel if the
+              // thread-create flow fails for any reason — picks must still post.
+              const parentCh = _rdhPicksThreadParent(true);
+              threadInfo = await _rdhFindOrCreateDraftPicksThread(parentCh, year);
+              const destCh = threadInfo?.ok ? threadInfo.thread_id : _rdhDiscordChannel(true);
+              dRes = await _rdhPostDiscord(destCh, discordContent);
             } catch (e) { dRes = { ok: false, error: String(e) }; }
           } else {
             // Commish opted to silence Discord — record so frontend can show
@@ -9360,6 +9798,9 @@ export default {
             contract, mfl_response: mflResp,
             discord_posted: !!(dRes && dRes.ok),
             discord_silenced: !!(dRes && dRes.silenced),
+            discord_thread: threadInfo && threadInfo.ok
+              ? { id: threadInfo.thread_id, name: threadInfo.name, created: !!threadInfo.created }
+              : (threadInfo ? { error: threadInfo.error } : null),
           });
         }
         return jsonOut(502, { ok: false, status: mflStatus, mfl_response: mflResp });
@@ -9501,6 +9942,51 @@ export default {
             ? "Proposal sent. Commish can act as the partner via /api/trade/respond."
             : "Proposal sent. Discord announcement will fire when accepted.",
         });
+      }
+
+      // ── /api/draft-status — server-backed shared LIVE/SIM flag.
+      // Real-draft-room behavior (Keith 2026-05-24): when commish flips
+      // "Go LIVE" in their hub, every other owner's hub needs to flip
+      // too on next poll — not wait until first pick lands in MFL.
+      // Backed by ups_runtime_flags in D1 (single-row key/value).
+      // GET — anyone can read; POST — commish only.
+      if (path === "/api/draft-status" && request.method === "GET") {
+        try {
+          await env.UPS_MFL_DB.exec(
+            "CREATE TABLE IF NOT EXISTS ups_runtime_flags (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)"
+          );
+          const row = await env.UPS_MFL_DB.prepare(
+            "SELECT value, updated_at FROM ups_runtime_flags WHERE key = ?"
+          ).bind("draft_live").first();
+          return jsonOut(200, {
+            live: row ? row.value === "1" : false,
+            updated_at: row ? row.updated_at : null,
+          });
+        } catch (e) {
+          return jsonOut(500, { live: false, error: String(e?.message || e) });
+        }
+      }
+      if (path === "/api/draft-status" && request.method === "POST") {
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const reqFid = _rdhPadFid(body.requested_by || "");
+        const commishFids = _rdhCommishFids();
+        if (!reqFid || !commishFids.includes(reqFid)) {
+          return jsonOut(403, { ok: false, error: "Commish-only — requested_by must be a commish franchise_id" });
+        }
+        const live = !!body.live;
+        const now = Math.floor(Date.now() / 1000);
+        try {
+          await env.UPS_MFL_DB.exec(
+            "CREATE TABLE IF NOT EXISTS ups_runtime_flags (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)"
+          );
+          await env.UPS_MFL_DB.prepare(
+            "INSERT OR REPLACE INTO ups_runtime_flags (key, value, updated_at) VALUES (?, ?, ?)"
+          ).bind("draft_live", live ? "1" : "0", now).run();
+          return jsonOut(200, { ok: true, live, updated_at: now });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
       }
 
       // ── POST /api/r6/announce-kickoff — commish posts the R6 drawing

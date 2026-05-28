@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-24T13:33:20.207Z",
-    "row_count": 65,
+    "updated_at": "2026-05-25T01:46:04.483Z",
+    "row_count": 88,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -12344,6 +12344,4494 @@
       "season": "2026",
       "updated_ts": "2026-05-24T13:33:20.098Z",
       "id": "65"
+    },
+    {
+      "created_ts": "2026-05-24T23:01:27.735Z",
+      "trade_id": "1052",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0003",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-24T23:01:27.277Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_0_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 1.04",
+                "position": null,
+                "nfl_team": null,
+                "salary": 12000,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_0_3",
+                "pick_season": 2026,
+                "pick_round": 1,
+                "pick_slot": 4
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "selected_assets": [
+              {
+                "asset_id": "player:15253",
+                "type": "PLAYER",
+                "player_id": "15253",
+                "player_name": "Etienne, Travis",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "NOS",
+                "salary": 19000,
+                "years": 1,
+                "contract_type": "TAG",
+                "contract_info": "CL 1| TCV 19K| AAV 19K| GTD 14.3K| Tag| Tier 3| Formula: Avg Top 9-31 RB AAV | 10% salary floor (rounded up)",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:DP_0_6",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 1.07",
+                "position": null,
+                "nfl_team": null,
+                "salary": 9000,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_0_6",
+                "pick_season": 2026,
+                "pick_round": 1,
+                "pick_slot": 7
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 9,
+            "selected_non_taxi_salary_dollars": 19000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0003"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 61000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 19000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 19000,
+            "new_salary_dollars": 80000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -19000,
+            "available_salary_before_dollars": 233550,
+            "available_salary_after_dollars": 214550,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 181000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 19000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -19000,
+            "new_salary_dollars": 162000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 9,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 19000,
+            "available_salary_before_dollars": 115000,
+            "available_salary_after_dollars": 134000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Real Deal Creel",
+          "right_franchise_name": "Gride",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 80000,
+              "left_after_dollars": 96000,
+              "left_change_dollars": 16000,
+              "right_before_dollars": 206000,
+              "right_after_dollars": 190000,
+              "right_change_dollars": -16000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 61000,
+              "left_after_dollars": 61000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 25000,
+              "left_after_dollars": 25000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 15000,
+              "right_after_dollars": 15000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:66\nUPS_PAYLOAD_HASH:9956df1fdcf0554521d0a7ad4f534afd9e74c5a9606d057a389ccab5cb1f2ded\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "9956df1fdcf0554521d0a7ad4f534afd9e74c5a9606d057a389ccab5cb1f2ded",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":3,\"matched_trade_id\":\"1052\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-24T23:01:30.227Z",
+      "id": "66"
+    },
+    {
+      "created_ts": "2026-05-24T23:02:06.304Z",
+      "trade_id": "1052",
+      "action_type": "ACCEPT",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0003",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-24T23:01:27.277Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_0_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 1.04",
+                "position": null,
+                "nfl_team": null,
+                "salary": 12000,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_0_3",
+                "pick_season": 2026,
+                "pick_round": 1,
+                "pick_slot": 4
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "selected_assets": [
+              {
+                "asset_id": "player:15253",
+                "type": "PLAYER",
+                "player_id": "15253",
+                "player_name": "Etienne, Travis",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "NOS",
+                "salary": 19000,
+                "years": 1,
+                "contract_type": "TAG",
+                "contract_info": "CL 1| TCV 19K| AAV 19K| GTD 14.3K| Tag| Tier 3| Formula: Avg Top 9-31 RB AAV | 10% salary floor (rounded up)",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:DP_0_6",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 1.07",
+                "position": null,
+                "nfl_team": null,
+                "salary": 9000,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_0_6",
+                "pick_season": 2026,
+                "pick_round": 1,
+                "pick_slot": 7
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 19000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0003"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 61000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 19000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 19000,
+            "new_salary_dollars": 80000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -19000,
+            "available_salary_before_dollars": 233550,
+            "available_salary_after_dollars": 214550,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 181000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 19000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -19000,
+            "new_salary_dollars": 162000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 9,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 19000,
+            "available_salary_before_dollars": 115000,
+            "available_salary_after_dollars": 134000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Real Deal Creel",
+          "right_franchise_name": "Gride",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 80000,
+              "left_after_dollars": 96000,
+              "left_change_dollars": 16000,
+              "right_before_dollars": 206000,
+              "right_after_dollars": 190000,
+              "right_change_dollars": -16000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 61000,
+              "left_after_dollars": 61000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 25000,
+              "left_after_dollars": 25000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 15000,
+              "right_after_dollars": 15000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:11f7642ea575a97d1d28596723578a99592ef41de863384ccbdf36352f2af851\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "11f7642ea575a97d1d28596723578a99592ef41de863384ccbdf36352f2af851",
+      "status": "VERIFIED",
+      "mfl_post_response_snip": "{\"trade_response\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\",\"salary\":\"\",\"extensions\":\"\"}",
+      "mfl_verify_response_snip": "{\"transactions_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&JSON=1&_=1779663727298\",\"error\":\"\",\"preview\":\"{\\\"version\\\":\\\"1.0\\\",\\\"transactions\\\":{\\\"transaction\\\":[{\\\"timestamp\\\":\\\"1779663725\\\",\\\"franchise2\\\":\\\"0003\\\",\\\"comments\\\":\\\"\\\",\\\"franchise1_gave_up\\\":\\\"DP_0_3,\\\",\\\"by_commish\\\":\\\"1\\\",\\\"franchise\\\":\\\"0008\\\",\\\"expires\\\":\\\"1780268490\\\",\\\"type\\\":\\\"TRADE\\\",\\\"franchise2_gave_up\\\":\\\"15253,DP_0_6,\\\"},{\\\"timestamp\\\":\\\"1779663690\\\",\\\"franchise2\\\":\\\"0003\\\",\\\"comments\\\":\\\"\\\",\\\"franchise1_gave_up\\\":\\\"DP_0_3,\\\",\\\"franchise\\\":\\\"0008\\\",\\\"expires\\\":\\\"1780268490\\\",\\\"type\\\":\\\"TRADE_PROPOSAL\\\",\\\"franchise2_gave_up\\\":\\\"15253,DP_0_6,\\\"},{\\\"franchise\\\":\\\"Updated DRAFT_START \\\",\\\"timestamp\\\":\\\"17796\"},\"salaries_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=salaries&L=74598&JSON=1&_=1779663727517\",\"error\":\"\",\"preview\":\"{\\\"version\\\":\\\"1.0\\\",\\\"encoding\\\":\\\"utf-8\\\",\\\"salaries\\\":{\\\"leagueUnit\\\":{\\\"unit\\\":",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-24T23:02:07.627Z",
+      "id": "67"
+    },
+    {
+      "created_ts": "2026-05-24T23:59:25.812Z",
+      "trade_id": "1053",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0006",
+      "to_franchise_id": "0003",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-24T23:59:25.431Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_2",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.03",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_2",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 3
+              },
+              {
+                "asset_id": "pick:DP_2_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.06",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_5",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 6
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_4",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.05",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_4",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 5
+              },
+              {
+                "asset_id": "pick:DP_1_9",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.10",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_9",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 10
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0006",
+          "right_team_id": "0003"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 283000,
+            "salary_adjustment_total_dollars": 3500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 283000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 13500,
+            "available_salary_after_dollars": 13500,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 162000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 162000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 134000,
+            "available_salary_after_dollars": 134000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "The Long Haulers",
+          "right_franchise_name": "Gride",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 283000,
+              "left_after_dollars": 283000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 225000,
+              "left_after_dollars": 225000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 57000,
+              "left_after_dollars": 57000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 15000,
+              "right_after_dollars": 15000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:68\nUPS_PAYLOAD_HASH:4cd02396a8c2ceeb6b375b3cd96b2a6df906aeccaa565545d3ceee07ca866dda\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "4cd02396a8c2ceeb6b375b3cd96b2a6df906aeccaa565545d3ceee07ca866dda",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1053\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-24T23:59:28.137Z",
+      "id": "68"
+    },
+    {
+      "created_ts": "2026-05-24T23:59:43.255Z",
+      "trade_id": "1053",
+      "action_type": "ACCEPT",
+      "from_franchise_id": "0006",
+      "to_franchise_id": "0003",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-24T23:59:25.431Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_2",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.03",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_2",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 3
+              },
+              {
+                "asset_id": "pick:DP_2_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.06",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_5",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 6
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_4",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.05",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_4",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 5
+              },
+              {
+                "asset_id": "pick:DP_1_9",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.10",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_9",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 10
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0006",
+          "right_team_id": "0003"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 283000,
+            "salary_adjustment_total_dollars": 3500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 283000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 13500,
+            "available_salary_after_dollars": 13500,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 162000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 162000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 134000,
+            "available_salary_after_dollars": 134000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "The Long Haulers",
+          "right_franchise_name": "Gride",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 283000,
+              "left_after_dollars": 283000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 225000,
+              "left_after_dollars": 225000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 57000,
+              "left_after_dollars": 57000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 15000,
+              "right_after_dollars": 15000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:99dab2efbfb834ad62dceedbe3aca81af54b8dca45af7234274d1e5221421f93\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "99dab2efbfb834ad62dceedbe3aca81af54b8dca45af7234274d1e5221421f93",
+      "status": "VERIFIED",
+      "mfl_post_response_snip": "{\"trade_response\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\",\"salary\":\"\",\"extensions\":\"\"}",
+      "mfl_verify_response_snip": "{\"transactions_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&JSON=1&_=1779667184403\",\"error\":\"\",\"preview\":\"{\\\"version\\\":\\\"1.0\\\",\\\"encoding\\\":\\\"utf-8\\\",\\\"transactions\\\":{\\\"transaction\\\":[{\\\"franchise\\\":\\\"0006\\\",\\\"franchise1_gave_up\\\":\\\"DP_1_2,DP_2_5,\\\",\\\"by_commish\\\":\\\"1\\\",\\\"expires\\\":\\\"1780271967\\\",\\\"type\\\":\\\"TRADE\\\",\\\"franchise2_gave_up\\\":\\\"DP_1_4,DP_1_9,\\\",\\\"timestamp\\\":\\\"1779667183\\\",\\\"franchise2\\\":\\\"0003\\\",\\\"comments\\\":\\\"\\\"},{\\\"comments\\\":\\\"\\\",\\\"franchise2\\\":\\\"0003\\\",\\\"timestamp\\\":\\\"1779667167\\\",\\\"franchise2_gave_up\\\":\\\"DP_1_4,DP_1_9,\\\",\\\"type\\\":\\\"TRADE_PROPOSAL\\\",\\\"expires\\\":\\\"1780271967\\\",\\\"franchise\\\":\\\"0006\\\",\\\"by_commish\\\":\\\"1\\\",\\\"franchise1_gave_up\\\":\\\"DP_1_2,DP_2_5,\\\"},{\\\"\"},\"salaries_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=salaries&L=74598&JSON=1&_=1779667184610\",\"error\":\"\",\"preview\":\"{\\\"version\\\":\\\"1.0\\\",\\\"salaries\\\":{\\\"leagueUnit\\\":{\\\"unit\\\":\\\"LEAGUE\\\",\\\"player\\\"",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-24T23:59:44.782Z",
+      "id": "69"
+    },
+    {
+      "created_ts": "2026-05-25T00:04:04.899Z",
+      "trade_id": "1054",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0010",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:04:04.624Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_8",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.09",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_8",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 9
+              },
+              {
+                "asset_id": "pick:FP_0008_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 3rd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0008_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.04",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_3",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 4
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0010"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 80000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 80000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 214550,
+            "available_salary_after_dollars": 214550,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 164000,
+            "salary_adjustment_total_dollars": 6250,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 164000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 129750,
+            "available_salary_after_dollars": 129750,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Real Deal Creel",
+          "right_franchise_name": "Blake Bombers",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 80000,
+              "left_after_dollars": 80000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 164000,
+              "right_after_dollars": 164000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 61000,
+              "left_after_dollars": 61000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 133000,
+              "right_after_dollars": 133000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 25000,
+              "left_after_dollars": 25000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 82000,
+              "right_after_dollars": 82000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:70\nUPS_PAYLOAD_HASH:d1da078bf8fcbfeab80c8c81818df4a8eca81734dab4305db9ffe4f4cd33ba11\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "d1da078bf8fcbfeab80c8c81818df4a8eca81734dab4305db9ffe4f4cd33ba11",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":3,\"matched_trade_id\":\"1054\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:04:07.301Z",
+      "id": "70"
+    },
+    {
+      "created_ts": "2026-05-25T00:13:14.617Z",
+      "trade_id": "1055",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0004",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:13:14.504Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_8",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.09",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_8",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 9
+              },
+              {
+                "asset_id": "pick:FP_0008_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "Real Deal Creel's 2027 3rd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0008_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.06",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_5",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 6
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0004"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 80000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 80000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 214550,
+            "available_salary_after_dollars": 214550,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 238000,
+            "salary_adjustment_total_dollars": 500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 238000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 61500,
+            "available_salary_after_dollars": 61500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Real Deal Creel",
+          "right_franchise_name": "Pure Greatness",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 80000,
+              "left_after_dollars": 80000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 238000,
+              "right_after_dollars": 238000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 61000,
+              "left_after_dollars": 61000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 228000,
+              "right_after_dollars": 228000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 25000,
+              "left_after_dollars": 25000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 71000,
+              "right_after_dollars": 71000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:71\nUPS_PAYLOAD_HASH:20345d9922d647f658b14f83247deebecfca85823e22d723164b790b1446c2ce\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "20345d9922d647f658b14f83247deebecfca85823e22d723164b790b1446c2ce",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":2,\"matched_trade_id\":\"1055\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:13:16.159Z",
+      "id": "71"
+    },
+    {
+      "created_ts": "2026-05-25T00:13:32.204Z",
+      "trade_id": "1055",
+      "action_type": "ACCEPT",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0004",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:13:14.504Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_8",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.09",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_8",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 9
+              },
+              {
+                "asset_id": "pick:FP_0008_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "Real Deal Creel's 2027 3rd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0008_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.06",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_5",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 6
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0004"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 80000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 80000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 214550,
+            "available_salary_after_dollars": 214550,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 238000,
+            "salary_adjustment_total_dollars": 500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 238000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 61500,
+            "available_salary_after_dollars": 61500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Real Deal Creel",
+          "right_franchise_name": "Pure Greatness",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 80000,
+              "left_after_dollars": 80000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 238000,
+              "right_after_dollars": 238000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 61000,
+              "left_after_dollars": 61000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 228000,
+              "right_after_dollars": 228000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 25000,
+              "left_after_dollars": 25000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 71000,
+              "right_after_dollars": 71000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:77afe9788ed273028cd3c9aba17ed697899c3c451d33d9cfc88fd9b57dce8584\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "77afe9788ed273028cd3c9aba17ed697899c3c451d33d9cfc88fd9b57dce8584",
+      "status": "VERIFIED",
+      "mfl_post_response_snip": "{\"trade_response\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\",\"salary\":\"\",\"extensions\":\"\"}",
+      "mfl_verify_response_snip": "{\"transactions_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&JSON=1&_=1779668013238\",\"error\":\"\",\"preview\":\"{\\\"encoding\\\":\\\"utf-8\\\",\\\"transactions\\\":{\\\"transaction\\\":[{\\\"timestamp\\\":\\\"1779668012\\\",\\\"comments\\\":\\\"\\\",\\\"franchise2\\\":\\\"0004\\\",\\\"type\\\":\\\"TRADE\\\",\\\"expires\\\":\\\"1780272795\\\",\\\"by_commish\\\":\\\"1\\\",\\\"franchise1_gave_up\\\":\\\"DP_1_8,FP_0008_2027_3,\\\",\\\"franchise\\\":\\\"0008\\\",\\\"franchise2_gave_up\\\":\\\"DP_1_5,\\\"},{\\\"timestamp\\\":\\\"1779667995\\\",\\\"comments\\\":\\\"\\\",\\\"franchise2\\\":\\\"0004\\\",\\\"expires\\\":\\\"1780272795\\\",\\\"type\\\":\\\"TRADE_PROPOSAL\\\",\\\"franchise\\\":\\\"0008\\\",\\\"franchise1_gave_up\\\":\\\"DP_1_8,FP_0008_2027_3,\\\",\\\"franchise2_gave_up\\\":\\\"DP_1_5,\\\"},{\\\"comments\\\":\\\"Let's make tonight a\"},\"salaries_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=salaries&L=74598&JSON=1&_=1779668013525\",\"error\":\"\",\"preview\":\"{\\\"salaries\\\":{\\\"leagueUnit\\\":{\\\"player\\\":[{\\\"contractInfo\\\":\\\"\\\",\\\"contractYear\\\":\\\"\\\"",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:13:33.689Z",
+      "id": "72"
+    },
+    {
+      "created_ts": "2026-05-25T00:25:42.510Z",
+      "trade_id": "1056",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0004",
+      "to_franchise_id": "0003",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:25:42.415Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_8",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.09",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_8",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 9
+              },
+              {
+                "asset_id": "pick:DP_3_11",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 4.12",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_3_11",
+                "pick_season": 2026,
+                "pick_round": 4,
+                "pick_slot": 12
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0003_2027_2",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 2nd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0003_2027_2",
+                "pick_season": 2027,
+                "pick_round": 2,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0004",
+          "right_team_id": "0003"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 238000,
+            "salary_adjustment_total_dollars": 500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 238000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 61500,
+            "available_salary_after_dollars": 61500,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 162000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 162000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 134000,
+            "available_salary_after_dollars": 134000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Pure Greatness",
+          "right_franchise_name": "Gride",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 238000,
+              "left_after_dollars": 238000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 228000,
+              "left_after_dollars": 228000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 71000,
+              "left_after_dollars": 71000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 15000,
+              "right_after_dollars": 15000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:73\nUPS_PAYLOAD_HASH:b7792e2e7a760e81e29c8eb4882ed891451f16bb785bc38a81389c3360515194\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "b7792e2e7a760e81e29c8eb4882ed891451f16bb785bc38a81389c3360515194",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1056\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:25:45.382Z",
+      "id": "73"
+    },
+    {
+      "created_ts": "2026-05-25T00:26:53.329Z",
+      "trade_id": "1056",
+      "action_type": "ACCEPT",
+      "from_franchise_id": "0004",
+      "to_franchise_id": "0003",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:25:42.415Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_8",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.09",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_8",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 9
+              },
+              {
+                "asset_id": "pick:DP_3_11",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 4.12",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_3_11",
+                "pick_season": 2026,
+                "pick_round": 4,
+                "pick_slot": 12
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0003_2027_2",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "Gride's 2027 2nd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0003_2027_2",
+                "pick_season": 2027,
+                "pick_round": 2,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0004",
+          "right_team_id": "0003"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 238000,
+            "salary_adjustment_total_dollars": 500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 238000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 61500,
+            "available_salary_after_dollars": 61500,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 162000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 162000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 134000,
+            "available_salary_after_dollars": 134000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Pure Greatness",
+          "right_franchise_name": "Gride",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 238000,
+              "left_after_dollars": 238000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 228000,
+              "left_after_dollars": 228000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 71000,
+              "left_after_dollars": 71000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 15000,
+              "right_after_dollars": 15000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:c6e800b1b789a8ce36f2cf97066bdc71e5aa2a68ce9d86e94b5159b53df3f173\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "c6e800b1b789a8ce36f2cf97066bdc71e5aa2a68ce9d86e94b5159b53df3f173",
+      "status": "VERIFIED",
+      "mfl_post_response_snip": "{\"trade_response\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\",\"salary\":\"\",\"extensions\":\"\"}",
+      "mfl_verify_response_snip": "{\"transactions_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&JSON=1&_=1779668814407\",\"error\":\"\",\"preview\":\"{\\\"version\\\":\\\"1.0\\\",\\\"encoding\\\":\\\"utf-8\\\",\\\"transactions\\\":{\\\"transaction\\\":[{\\\"comments\\\":\\\"\\\",\\\"franchise2\\\":\\\"0003\\\",\\\"timestamp\\\":\\\"1779668813\\\",\\\"franchise2_gave_up\\\":\\\"FP_0003_2027_2,\\\",\\\"expires\\\":\\\"1780273544\\\",\\\"type\\\":\\\"TRADE\\\",\\\"franchise\\\":\\\"0004\\\",\\\"franchise1_gave_up\\\":\\\"DP_1_8,DP_3_11,\\\",\\\"by_commish\\\":\\\"1\\\"},{\\\"franchise2_gave_up\\\":\\\"FP_0003_2027_2,\\\",\\\"franchise1_gave_up\\\":\\\"DP_1_8,DP_3_11,\\\",\\\"franchise\\\":\\\"0004\\\",\\\"type\\\":\\\"TRADE_PROPOSAL\\\",\\\"expires\\\":\\\"1780273544\\\",\\\"franchise2\\\":\\\"0003\\\",\\\"comments\\\":\\\"\\\",\\\"timestamp\\\":\\\"1779668744\\\"},{\\\"type\\\":\\\"TRADE\\\"\"},\"salaries_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=salaries&L=74598&JSON=1&_=1779668814613\",\"error\":\"\",\"preview\":\"{\\\"salaries\\\":{\\\"leagueUnit\\\":{\\\"unit\\\":\\\"LEAGUE\\\",\\\"player\\\":[{\\\"contractYear\\\":\\",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:26:55.256Z",
+      "id": "74"
+    },
+    {
+      "created_ts": "2026-05-25T00:33:42.538Z",
+      "trade_id": "1057",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0009",
+      "to_franchise_id": "0010",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:33:42.419Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0009_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 3rd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0009_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:FP_0009_2027_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 5th",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0009_2027_5",
+                "pick_season": 2027,
+                "pick_round": 5,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_10",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.11",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_10",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 11
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0009",
+          "right_team_id": "0010"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 269000,
+            "salary_adjustment_total_dollars": 1000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 269000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 30000,
+            "available_salary_after_dollars": 30000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 164000,
+            "salary_adjustment_total_dollars": 6250,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 164000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 129750,
+            "available_salary_after_dollars": 129750,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "C-Town Chivalry",
+          "right_franchise_name": "Blake Bombers",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 269000,
+              "left_after_dollars": 269000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 164000,
+              "right_after_dollars": 164000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 248000,
+              "left_after_dollars": 248000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 133000,
+              "right_after_dollars": 133000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 56000,
+              "left_after_dollars": 56000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 82000,
+              "right_after_dollars": 82000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:75\nUPS_PAYLOAD_HASH:d94f3a0793edfd166971cf32a02917afcae19c59012d3f60eb597d141d653d60\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "d94f3a0793edfd166971cf32a02917afcae19c59012d3f60eb597d141d653d60",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1057\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:33:45.157Z",
+      "id": "75"
+    },
+    {
+      "created_ts": "2026-05-25T00:36:00.443Z",
+      "trade_id": "1058",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0004",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:36:00.787Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_3_0",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 4.01",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_3_0",
+                "pick_season": 2026,
+                "pick_round": 4,
+                "pick_slot": 1
+              },
+              {
+                "asset_id": "pick:FP_0005_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 3rd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0005_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_11",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.12",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_11",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 12
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0004"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 217000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 217000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 73950,
+            "available_salary_after_dollars": 73950,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 238000,
+            "salary_adjustment_total_dollars": 500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 238000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 61500,
+            "available_salary_after_dollars": 61500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "Pure Greatness",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 217000,
+              "left_after_dollars": 217000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 238000,
+              "right_after_dollars": 238000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 304000,
+              "left_after_dollars": 304000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 228000,
+              "right_after_dollars": 228000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 75000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 71000,
+              "right_after_dollars": 71000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:76\nUPS_PAYLOAD_HASH:cc72e97852a469718aa20f251d13b70d7ce9936c3801573e5afc486dbd05dadf\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "cc72e97852a469718aa20f251d13b70d7ce9936c3801573e5afc486dbd05dadf",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1058\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:36:01.882Z",
+      "id": "76"
+    },
+    {
+      "created_ts": "2026-05-25T00:36:25.144Z",
+      "trade_id": "1059",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0009",
+      "to_franchise_id": "0004",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:36:24.928Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0009_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 3rd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0009_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:FP_0009_2027_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 5th",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0009_2027_5",
+                "pick_season": 2027,
+                "pick_round": 5,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_11",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.12",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_11",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 12
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0009",
+          "right_team_id": "0004"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 269000,
+            "salary_adjustment_total_dollars": 1000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 269000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 30000,
+            "available_salary_after_dollars": 30000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 238000,
+            "salary_adjustment_total_dollars": 500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 238000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 61500,
+            "available_salary_after_dollars": 61500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "C-Town Chivalry",
+          "right_franchise_name": "Pure Greatness",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 269000,
+              "left_after_dollars": 269000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 238000,
+              "right_after_dollars": 238000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 248000,
+              "left_after_dollars": 248000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 228000,
+              "right_after_dollars": 228000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 56000,
+              "left_after_dollars": 56000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 71000,
+              "right_after_dollars": 71000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:77\nUPS_PAYLOAD_HASH:87787fe63eeb7f42134287f1c789f02defee00ef48e1e8fc9870da6e43675a09\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "87787fe63eeb7f42134287f1c789f02defee00ef48e1e8fc9870da6e43675a09",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":2,\"matched_trade_id\":\"1059\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:36:27.654Z",
+      "id": "77"
+    },
+    {
+      "created_ts": "2026-05-25T00:37:07.694Z",
+      "trade_id": "1058",
+      "action_type": "ACCEPT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0004",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:36:00.787Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_3_0",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 4.01",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_3_0",
+                "pick_season": 2026,
+                "pick_round": 4,
+                "pick_slot": 1
+              },
+              {
+                "asset_id": "pick:FP_0005_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 3rd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0005_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_11",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.12",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_11",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 12
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0004"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 217000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 217000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 73950,
+            "available_salary_after_dollars": 73950,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 238000,
+            "salary_adjustment_total_dollars": 500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 238000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 61500,
+            "available_salary_after_dollars": 61500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "Pure Greatness",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 217000,
+              "left_after_dollars": 217000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 238000,
+              "right_after_dollars": 238000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 304000,
+              "left_after_dollars": 304000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 228000,
+              "right_after_dollars": 228000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 75000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 71000,
+              "right_after_dollars": 71000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:4c2e5b0164be782ab21d7cd97d46a107bdc57a48fd62b347db1324a467060047\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "4c2e5b0164be782ab21d7cd97d46a107bdc57a48fd62b347db1324a467060047",
+      "status": "VERIFIED",
+      "mfl_post_response_snip": "{\"trade_response\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\",\"salary\":\"\",\"extensions\":\"\"}",
+      "mfl_verify_response_snip": "{\"transactions_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&JSON=1&_=1779669429073\",\"error\":\"\",\"preview\":\"{\\\"version\\\":\\\"1.0\\\",\\\"encoding\\\":\\\"utf-8\\\",\\\"transactions\\\":{\\\"transaction\\\":[{\\\"franchise2\\\":\\\"0004\\\",\\\"comments\\\":\\\"\\\",\\\"timestamp\\\":\\\"1779669427\\\",\\\"franchise2_gave_up\\\":\\\"DP_1_11,\\\",\\\"franchise1_gave_up\\\":\\\"DP_3_0,FP_0005_2027_3,\\\",\\\"franchise\\\":\\\"0005\\\",\\\"type\\\":\\\"TRADE\\\",\\\"expires\\\":\\\"1780274161\\\"},{\\\"franchise2_gave_up\\\":\\\"DP_1_11,\\\",\\\"expires\\\":\\\"1780274187\\\",\\\"type\\\":\\\"TRADE_PROPOSAL\\\",\\\"franchise1_gave_up\\\":\\\"FP_0009_2027_3,FP_0009_2027_5,\\\",\\\"franchise\\\":\\\"0009\\\",\\\"comments\\\":\\\"\\\",\\\"franchise2\\\":\\\"0004\\\",\\\"timestamp\\\":\\\"1779669387\\\"},{\\\"expires\\\":\\\"1780274161\\\",\"},\"salaries_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=salaries&L=74598&JSON=1&_=1779669429283\",\"error\":\"\",\"preview\":\"{\\\"salaries\\\":{\\\"leagueUnit\\\":{\\\"unit\\\":\\\"LEAGUE\\\",\\\"player\\\":[{\\\"contractStatus\\\":\\\"\\",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:37:09.452Z",
+      "id": "78"
+    },
+    {
+      "created_ts": "2026-05-25T00:39:49.241Z",
+      "trade_id": "1060",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0009",
+      "to_franchise_id": "0010",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:39:49.034Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0009_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 3rd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0009_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:FP_0009_2027_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 5th",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0009_2027_5",
+                "pick_season": 2027,
+                "pick_round": 5,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_2_0",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.01",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_0",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 1
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0009",
+          "right_team_id": "0010"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 269000,
+            "salary_adjustment_total_dollars": 1000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 269000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 30000,
+            "available_salary_after_dollars": 30000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 164000,
+            "salary_adjustment_total_dollars": 6250,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 164000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 129750,
+            "available_salary_after_dollars": 129750,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "C-Town Chivalry",
+          "right_franchise_name": "Blake Bombers",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 269000,
+              "left_after_dollars": 269000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 164000,
+              "right_after_dollars": 164000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 248000,
+              "left_after_dollars": 248000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 133000,
+              "right_after_dollars": 133000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 56000,
+              "left_after_dollars": 56000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 82000,
+              "right_after_dollars": 82000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:79\nUPS_PAYLOAD_HASH:d94f3a0793edfd166971cf32a02917afcae19c59012d3f60eb597d141d653d60\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "d94f3a0793edfd166971cf32a02917afcae19c59012d3f60eb597d141d653d60",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1060\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:39:51.521Z",
+      "id": "79"
+    },
+    {
+      "created_ts": "2026-05-25T00:45:24.476Z",
+      "trade_id": "1061",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0009",
+      "to_franchise_id": "0012",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T00:45:24.255Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0009_2027_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 3rd",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0009_2027_3",
+                "pick_season": 2027,
+                "pick_round": 3,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:FP_0009_2027_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 5th",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0009_2027_5",
+                "pick_season": 2027,
+                "pick_round": 5,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_2_1",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.02",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_1",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 2
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0009",
+          "right_team_id": "0012"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 269000,
+            "salary_adjustment_total_dollars": 1000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 269000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 30000,
+            "available_salary_after_dollars": 30000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 139000,
+            "salary_adjustment_total_dollars": 6500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 139000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 154500,
+            "available_salary_after_dollars": 154500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "C-Town Chivalry",
+          "right_franchise_name": "Hawks",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 269000,
+              "left_after_dollars": 269000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 139000,
+              "right_after_dollars": 139000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 248000,
+              "left_after_dollars": 248000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 139000,
+              "right_after_dollars": 139000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 56000,
+              "left_after_dollars": 56000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 58000,
+              "right_after_dollars": 58000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:80\nUPS_PAYLOAD_HASH:ce4e63c2511a8c167b9748d53b4a8674824e9981d82c2380c4e384df5b5ff4e6\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "ce4e63c2511a8c167b9748d53b4a8674824e9981d82c2380c4e384df5b5ff4e6",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":2,\"matched_trade_id\":\"1061\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T00:45:26.933Z",
+      "id": "80"
+    },
+    {
+      "created_ts": "2026-05-25T01:00:39.687Z",
+      "trade_id": "1062",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0003",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T01:00:39.591Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_2_8",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.09",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_8",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 9
+              },
+              {
+                "asset_id": "pick:DP_2_11",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.12",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_11",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 12
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_2_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.06",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_5",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 6
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0003"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 80000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 80000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 214550,
+            "available_salary_after_dollars": 214550,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 162000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 162000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 134000,
+            "available_salary_after_dollars": 134000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Real Deal Creel",
+          "right_franchise_name": "Gride",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 80000,
+              "left_after_dollars": 80000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 61000,
+              "left_after_dollars": 61000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 25000,
+              "left_after_dollars": 25000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 15000,
+              "right_after_dollars": 15000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:81\nUPS_PAYLOAD_HASH:9956df1fdcf0554521d0a7ad4f534afd9e74c5a9606d057a389ccab5cb1f2ded\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "9956df1fdcf0554521d0a7ad4f534afd9e74c5a9606d057a389ccab5cb1f2ded",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1062\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T01:00:42.118Z",
+      "id": "81"
+    },
+    {
+      "created_ts": "2026-05-25T01:01:02.163Z",
+      "trade_id": "1062",
+      "action_type": "ACCEPT",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0003",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T01:00:39.591Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_2_8",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.09",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_8",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 9
+              },
+              {
+                "asset_id": "pick:DP_2_11",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.12",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_11",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 12
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_2_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.06",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_5",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 6
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0003"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 80000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 80000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 214550,
+            "available_salary_after_dollars": 214550,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 162000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 162000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 134000,
+            "available_salary_after_dollars": 134000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Real Deal Creel",
+          "right_franchise_name": "Gride",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 80000,
+              "left_after_dollars": 80000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 61000,
+              "left_after_dollars": 61000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 162000,
+              "right_after_dollars": 162000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 25000,
+              "left_after_dollars": 25000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 15000,
+              "right_after_dollars": 15000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:3c895821ab289d28ecdd3a3ce2309aa2442f7460e28da326d156478d363368cf\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "3c895821ab289d28ecdd3a3ce2309aa2442f7460e28da326d156478d363368cf",
+      "status": "VERIFIED",
+      "mfl_post_response_snip": "{\"trade_response\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\",\"salary\":\"\",\"extensions\":\"\"}",
+      "mfl_verify_response_snip": "{\"transactions_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&JSON=1&_=1779670863447\",\"error\":\"\",\"preview\":\"{\\\"version\\\":\\\"1.0\\\",\\\"transactions\\\":{\\\"transaction\\\":[{\\\"timestamp\\\":\\\"1779670862\\\",\\\"franchise2\\\":\\\"0003\\\",\\\"comments\\\":\\\"\\\",\\\"franchise1_gave_up\\\":\\\"DP_2_8,DP_2_11,\\\",\\\"by_commish\\\":\\\"1\\\",\\\"franchise\\\":\\\"0008\\\",\\\"type\\\":\\\"TRADE\\\",\\\"expires\\\":\\\"1780275641\\\",\\\"franchise2_gave_up\\\":\\\"DP_2_5,\\\"},{\\\"franchise2\\\":\\\"0003\\\",\\\"comments\\\":\\\"\\\",\\\"timestamp\\\":\\\"1779670841\\\",\\\"franchise2_gave_up\\\":\\\"DP_2_5,\\\",\\\"franchise\\\":\\\"0008\\\",\\\"franchise1_gave_up\\\":\\\"DP_2_8,DP_2_11,\\\",\\\"expires\\\":\\\"1780275641\\\",\\\"type\\\":\\\"TRADE_PROPOSAL\\\"},{\\\"franchise2\\\":\\\"0012\\\",\\\"comments\\\":\\\"\\\",\\\"timestamp\\\":\\\"17\"},\"salaries_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=salaries&L=74598&JSON=1&_=1779670863683\",\"error\":\"\",\"preview\":\"{\\\"encoding\\\":\\\"utf-8\\\",\\\"salaries\\\":{\\\"leagueUnit\\\":{\\\"player\\\":[{\\\"contractYe",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T01:01:03.867Z",
+      "id": "82"
+    },
+    {
+      "created_ts": "2026-05-25T01:08:54.678Z",
+      "trade_id": "1063",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0001",
+      "to_franchise_id": "0005",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T01:08:54.525Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_2_7",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.08",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_7",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 8
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_3_7",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 4.08",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_3_7",
+                "pick_season": 2026,
+                "pick_round": 4,
+                "pick_slot": 8
+              },
+              {
+                "asset_id": "pick:DP_4_0",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 5.01",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_4_0",
+                "pick_season": 2026,
+                "pick_round": 5,
+                "pick_slot": 1
+              },
+              {
+                "asset_id": "pick:FP_0005_2027_4",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 4th",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0005_2027_4",
+                "pick_season": 2027,
+                "pick_round": 4,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0001",
+          "right_team_id": "0005"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 148000,
+            "salary_adjustment_total_dollars": 12800,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 148000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 139200,
+            "available_salary_after_dollars": 139200,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 217000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 217000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 73950,
+            "available_salary_after_dollars": 73950,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "L.A. Looks",
+          "right_franchise_name": "HammerTime 🔨 ⏰",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 148000,
+              "left_after_dollars": 148000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 217000,
+              "right_after_dollars": 217000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 93000,
+              "left_after_dollars": 93000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 304000,
+              "right_after_dollars": 304000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 1000,
+              "left_after_dollars": 1000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 75000,
+              "right_after_dollars": 75000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:83\nUPS_PAYLOAD_HASH:28761fd774e0394a566c6efe4d4ab48ea16111f3f3620f7b6f1369680fbf5028\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "28761fd774e0394a566c6efe4d4ab48ea16111f3f3620f7b6f1369680fbf5028",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1063\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T01:08:58.337Z",
+      "id": "83"
+    },
+    {
+      "created_ts": "2026-05-25T01:09:30.756Z",
+      "trade_id": "1064",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0001",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T01:09:31.037Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_3_7",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 4.08",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_3_7",
+                "pick_season": 2026,
+                "pick_round": 4,
+                "pick_slot": 8
+              },
+              {
+                "asset_id": "pick:DP_4_0",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 5.01",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_4_0",
+                "pick_season": 2026,
+                "pick_round": 5,
+                "pick_slot": 1
+              },
+              {
+                "asset_id": "pick:FP_0005_2027_4",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 4th",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0005_2027_4",
+                "pick_season": 2027,
+                "pick_round": 4,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_2_7",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.08",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_7",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 8
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0001"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 217000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 217000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 73950,
+            "available_salary_after_dollars": 73950,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 148000,
+            "salary_adjustment_total_dollars": 12800,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 148000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 139200,
+            "available_salary_after_dollars": 139200,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "L.A. Looks",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 217000,
+              "left_after_dollars": 217000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 148000,
+              "right_after_dollars": 148000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 304000,
+              "left_after_dollars": 304000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 93000,
+              "right_after_dollars": 93000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 75000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 1000,
+              "right_after_dollars": 1000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:84\nUPS_PAYLOAD_HASH:07044b7a30604d1598c40e8db61846833e3527f8414209d4eda09dc974b95aaf\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "07044b7a30604d1598c40e8db61846833e3527f8414209d4eda09dc974b95aaf",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":2,\"matched_trade_id\":\"1064\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T01:09:32.352Z",
+      "id": "84"
+    },
+    {
+      "created_ts": "2026-05-25T01:09:41.956Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0001",
+      "to_franchise_id": "0005",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T01:09:41.868Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_2_7",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.08",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_7",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 8
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_3_7",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 4.08",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_3_7",
+                "pick_season": 2026,
+                "pick_round": 4,
+                "pick_slot": 8
+              },
+              {
+                "asset_id": "pick:DP_4_0",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 5.01",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_4_0",
+                "pick_season": 2026,
+                "pick_round": 5,
+                "pick_slot": 1
+              },
+              {
+                "asset_id": "pick:FP_0005_2027_4",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "HammerTime 🔨 ⏰'s 2027 4th",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0005_2027_4",
+                "pick_season": 2027,
+                "pick_round": 4,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0001",
+          "right_team_id": "0005"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 148000,
+            "salary_adjustment_total_dollars": 12800,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 148000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 139200,
+            "available_salary_after_dollars": 139200,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 217000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 217000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 73950,
+            "available_salary_after_dollars": 73950,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "L.A. Looks",
+          "right_franchise_name": "HammerTime 🔨 ⏰",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 148000,
+              "left_after_dollars": 148000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 217000,
+              "right_after_dollars": 217000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 93000,
+              "left_after_dollars": 93000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 304000,
+              "right_after_dollars": 304000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 1000,
+              "left_after_dollars": 1000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 75000,
+              "right_after_dollars": 75000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:85\nUPS_PAYLOAD_HASH:28761fd774e0394a566c6efe4d4ab48ea16111f3f3620f7b6f1369680fbf5028\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "28761fd774e0394a566c6efe4d4ab48ea16111f3f3620f7b6f1369680fbf5028",
+      "status": "FAILED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<error>Duplicate trade offer</error>",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T01:09:44.365Z",
+      "id": "85"
+    },
+    {
+      "created_ts": "2026-05-25T01:09:57.929Z",
+      "trade_id": "1063",
+      "action_type": "ACCEPT",
+      "from_franchise_id": "0001",
+      "to_franchise_id": "0005",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T01:08:54.525Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_2_7",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 3.08",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_7",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 8
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_3_7",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 4.08",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_3_7",
+                "pick_season": 2026,
+                "pick_round": 4,
+                "pick_slot": 8
+              },
+              {
+                "asset_id": "pick:DP_4_0",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 5.01",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_4_0",
+                "pick_season": 2026,
+                "pick_round": 5,
+                "pick_slot": 1
+              },
+              {
+                "asset_id": "pick:FP_0005_2027_4",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "HammerTime 🔨 ⏰'s 2027 4th",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0005_2027_4",
+                "pick_season": 2027,
+                "pick_round": 4,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0001",
+          "right_team_id": "0005"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 148000,
+            "salary_adjustment_total_dollars": 12800,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 148000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 139200,
+            "available_salary_after_dollars": 139200,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 217000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 217000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 73950,
+            "available_salary_after_dollars": 73950,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "L.A. Looks",
+          "right_franchise_name": "HammerTime 🔨 ⏰",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 148000,
+              "left_after_dollars": 148000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 217000,
+              "right_after_dollars": 217000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 93000,
+              "left_after_dollars": 93000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 304000,
+              "right_after_dollars": 304000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 1000,
+              "left_after_dollars": 1000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 75000,
+              "right_after_dollars": 75000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:bbe9ee81a20e5a51e0610883e09658e0458b88555998e1dda205040b7013648a\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "bbe9ee81a20e5a51e0610883e09658e0458b88555998e1dda205040b7013648a",
+      "status": "VERIFIED",
+      "mfl_post_response_snip": "{\"trade_response\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\",\"salary\":\"\",\"extensions\":\"\"}",
+      "mfl_verify_response_snip": "{\"transactions_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&JSON=1&_=1779671399010\",\"error\":\"\",\"preview\":\"{\\\"version\\\":\\\"1.0\\\",\\\"transactions\\\":{\\\"transaction\\\":[{\\\"franchise2_gave_up\\\":\\\"DP_3_7,DP_4_0,FP_0005_2027_4,\\\",\\\"type\\\":\\\"TRADE\\\",\\\"expires\\\":\\\"1780276138\\\",\\\"franchise\\\":\\\"0001\\\",\\\"by_commish\\\":\\\"1\\\",\\\"franchise1_gave_up\\\":\\\"DP_2_7,\\\",\\\"comments\\\":\\\"\\\",\\\"franchise2\\\":\\\"0005\\\",\\\"timestamp\\\":\\\"1779671397\\\"},{\\\"franchise2_gave_up\\\":\\\"DP_2_7,\\\",\\\"franchise1_gave_up\\\":\\\"DP_3_7,DP_4_0,FP_0005_2027_4,\\\",\\\"franchise\\\":\\\"0005\\\",\\\"type\\\":\\\"TRADE_PROPOSAL\\\",\\\"expires\\\":\\\"1780276172\\\",\\\"franchise2\\\":\\\"0001\\\",\\\"comments\\\":\\\"\\\",\\\"timestamp\\\":\\\"1779671372\\\"},{\\\"franchise2\\\":\\\"0005\\\",\\\"\"},\"salaries_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=salaries&L=74598&JSON=1&_=1779671399226\",\"error\":\"\",\"preview\":\"{\\\"salaries\\\":{\\\"leagueUnit\\\":{\\\"unit\\\":\\\"LEAGUE\\\",\\\"player\\\":[{\\\"contractStatus\\\":\\\"",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T01:09:59.389Z",
+      "id": "86"
+    },
+    {
+      "created_ts": "2026-05-25T01:42:58.438Z",
+      "trade_id": "1065",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0002",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T01:42:58.758Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "player:16186",
+                "type": "PLAYER",
+                "player_id": "16186",
+                "player_name": "Addison, Jordan",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "MIN",
+                "salary": 17000,
+                "years": 1,
+                "contract_type": "Veteran",
+                "contract_info": "CL 2| TCV 24K| AAV 17K| Ext: LH",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 8,
+            "selected_non_taxi_salary_dollars": 17000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0002",
+            "franchise_name": "CBP",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_3_2",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 4.03",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_3_2",
+                "pick_season": 2026,
+                "pick_round": 4,
+                "pick_slot": 3
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0002"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 217000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 17000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -17000,
+            "new_salary_dollars": 200000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 8,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 17000,
+            "available_salary_before_dollars": 73950,
+            "available_salary_after_dollars": 90950,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0002",
+            "franchise_name": "CBP",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 132000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 17000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 17000,
+            "new_salary_dollars": 149000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -17000,
+            "available_salary_before_dollars": 164000,
+            "available_salary_after_dollars": 147000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "CBP",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 217000,
+              "left_after_dollars": 200000,
+              "left_change_dollars": -17000,
+              "right_before_dollars": 132000,
+              "right_after_dollars": 149000,
+              "right_change_dollars": 17000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 304000,
+              "left_after_dollars": 287000,
+              "left_change_dollars": -17000,
+              "right_before_dollars": 132000,
+              "right_after_dollars": 149000,
+              "right_change_dollars": 17000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 75000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 53000,
+              "right_after_dollars": 53000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:87\nUPS_PAYLOAD_HASH:b1ae6db96679b9ba45058b57d487072a575dbdf1e9bbf87287865eb2d91df899\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "b1ae6db96679b9ba45058b57d487072a575dbdf1e9bbf87287865eb2d91df899",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":2,\"matched_trade_id\":\"1065\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T01:43:00.947Z",
+      "id": "87"
+    },
+    {
+      "created_ts": "2026-05-25T01:46:01.716Z",
+      "trade_id": "1066",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0007",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-05-25T01:46:02.055Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "player:16186",
+                "type": "PLAYER",
+                "player_id": "16186",
+                "player_name": "Addison, Jordan",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "MIN",
+                "salary": 17000,
+                "years": 1,
+                "contract_type": "Veteran",
+                "contract_info": "CL 2| TCV 24K| AAV 17K| Ext: LH",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 8,
+            "selected_non_taxi_salary_dollars": 17000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0007",
+            "franchise_name": "Sex Manther",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_3_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 4.04",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_3_3",
+                "pick_season": 2026,
+                "pick_round": 4,
+                "pick_slot": 4
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0007"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 217000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 17000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -17000,
+            "new_salary_dollars": 200000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 8,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 17000,
+            "available_salary_before_dollars": 73950,
+            "available_salary_after_dollars": 90950,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0007",
+            "franchise_name": "Sex Manther",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 277000,
+            "salary_adjustment_total_dollars": 8250,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 17000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 17000,
+            "new_salary_dollars": 294000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -17000,
+            "available_salary_before_dollars": 14750,
+            "available_salary_after_dollars": -2250,
+            "over_cap_dollars": 2250
+          },
+          "has_over_cap": true
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "Sex Manther",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 217000,
+              "left_after_dollars": 200000,
+              "left_change_dollars": -17000,
+              "right_before_dollars": 277000,
+              "right_after_dollars": 294000,
+              "right_change_dollars": 17000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 304000,
+              "left_after_dollars": 287000,
+              "left_change_dollars": -17000,
+              "right_before_dollars": 215000,
+              "right_after_dollars": 232000,
+              "right_change_dollars": 17000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 75000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 85000,
+              "right_after_dollars": 85000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:88\nUPS_PAYLOAD_HASH:fb621e2337d267bd6c2c786452636086c8020fc4fe6e501a4e9a1fe5d1d7d148\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "fb621e2337d267bd6c2c786452636086c8020fc4fe6e501a4e9a1fe5d1d7d148",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1066\",\"upstream_status\":200}",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-05-25T01:46:04.374Z",
+      "id": "88"
     }
   ]
 }
