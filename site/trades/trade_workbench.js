@@ -1603,7 +1603,28 @@
   async function loadData(options) {
     options = options || {};
     var forceReload = !!options.forceReload;
-    if (!forceReload && window.UPS_TRADE_WORKBENCH_DATA) return window.UPS_TRADE_WORKBENCH_DATA;
+    // Stale-cache guard (Keith 2026-05-28): if the in-memory injected
+    // data is older than 5 minutes, treat it as stale and force a fresh
+    // fetch. Hammer's workbench was holding pre-test data showing Benson
+    // on his roster long after the test reset moved him back to Creel.
+    // The injected payload's generated_at field gives us the cutoff;
+    // if absent, we err on the side of refreshing.
+    if (!forceReload && window.UPS_TRADE_WORKBENCH_DATA) {
+      var cachedGenerated = safeStr(
+        window.UPS_TRADE_WORKBENCH_DATA.generated_at ||
+        (window.UPS_TRADE_WORKBENCH_DATA.meta || {}).generated_at ||
+        ""
+      );
+      var cachedMs = cachedGenerated ? new Date(cachedGenerated).getTime() : 0;
+      var ageMs = Date.now() - cachedMs;
+      var STALE_AFTER_MS = 5 * 60 * 1000;
+      if (cachedMs > 0 && ageMs < STALE_AFTER_MS) {
+        return window.UPS_TRADE_WORKBENCH_DATA;
+      }
+      // Otherwise fall through to fetch fresh — and clear the stale
+      // injection so subsequent calls don't loop back to it.
+      try { window.UPS_TRADE_WORKBENCH_DATA = null; } catch (_) {}
+    }
 
     var fetchWithFallback = async function (url) {
       try {

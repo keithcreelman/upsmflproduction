@@ -23818,6 +23818,83 @@ export default {
           const proposalAssets = buildTradeProposalAssetLists(payload);
           const willGiveUp = proposalAssets.willGiveUp;
           const willReceive = proposalAssets.willReceive;
+
+          // Ownership validation against LIVE MFL rosters. Per Keith
+          // 2026-05-28: HammerTime sent Creel a trade screenshot showing
+          // Benson on Hammer's send side, but live rosters had Benson at
+          // Creel (stale local cache). Without this check the worker would
+          // happily build trade tokens and POST to MFL — MFL would reject
+          // but the user-facing error would be opaque.
+          //
+          // For each PLAYER asset in selected_assets, verify (asset.player_id,
+          // asset.franchise_id) matches a live rosters entry. If any asset
+          // is on the WRONG franchise per live MFL, return a clear 400
+          // listing the mismatched assets.
+          try {
+            const ownershipRostersRes = await mflExportJsonWithRetryAsViewer(
+              season, leagueId, "rosters", {}, { useCookie: true }
+            );
+            if (ownershipRostersRes.ok) {
+              const liveOwnerByPid = {};
+              const ownFranchises = asArray(
+                ownershipRostersRes.data?.rosters?.franchise ||
+                ownershipRostersRes.data?.rosters?.franchises
+              ).filter(Boolean);
+              for (const fr of ownFranchises) {
+                const fid = padFranchiseId(fr?.id || fr?.franchise_id);
+                if (!fid) continue;
+                for (const pl of asArray(fr?.player || fr?.players)) {
+                  const pid = String(pl?.id || "").replace(/\D/g, "");
+                  if (pid) liveOwnerByPid[pid] = fid;
+                }
+              }
+              const ownershipMismatches = [];
+              for (const team of asArray(payload?.teams)) {
+                const claimedFid = padFranchiseId(team?.franchise_id);
+                if (!claimedFid) continue;
+                for (const a of asArray(team?.selected_assets)) {
+                  if (safeStr(a?.type).toUpperCase() !== "PLAYER") continue;
+                  const pid = String(a?.player_id || "").replace(/\D/g, "");
+                  if (!pid) continue;
+                  const liveFid = liveOwnerByPid[pid] || "";
+                  if (liveFid && liveFid !== claimedFid) {
+                    ownershipMismatches.push({
+                      player_id: pid,
+                      player_name: safeStr(a?.player_name),
+                      claimed_franchise_id: claimedFid,
+                      actual_franchise_id: liveFid,
+                    });
+                  } else if (!liveFid) {
+                    ownershipMismatches.push({
+                      player_id: pid,
+                      player_name: safeStr(a?.player_name),
+                      claimed_franchise_id: claimedFid,
+                      actual_franchise_id: "",
+                      note: "player not on any active roster",
+                    });
+                  }
+                }
+              }
+              if (ownershipMismatches.length) {
+                return jsonOut(409, {
+                  ok: false,
+                  error_type: "asset_ownership_mismatch",
+                  error:
+                    "One or more assets in this trade are no longer on the " +
+                    "claimed franchise's roster per live MFL data. The trade " +
+                    "workbench data may be stale. Refresh the page (Cmd-Shift-R) " +
+                    "and try again.",
+                  ownership_mismatches: ownershipMismatches,
+                });
+              }
+            }
+          } catch (e) {
+            console.warn("[trade-ownership] check failed (fail-open):", e?.message || String(e));
+            // Fail-open: don't block on lookup errors. MFL submit will
+            // still catch genuine ownership issues; this is belt-and-
+            // suspenders for the stale-cache case.
+          }
+
           if (!proposalAssets.isValid) {
             const diagnostics = buildValidationFailureDiagnostics({
               reason: "invalid_trade_assets_for_mfl",
