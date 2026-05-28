@@ -15694,24 +15694,43 @@ export default {
       };
 
       const loadPendingTradesExportAsViewer = async (seasonValue, leagueIdValue, franchiseIdValue = "") => {
-        // Per MFL API canon (Keith 2026-05-28 review): pendingTrades returns
-        // the trades visible to the COOKIE owner. The optional FRANCHISE_ID
-        // parameter is commissioner impersonation only — blocked under
-        // franchise lockout with "Commissioner can not impersonate another
-        // franchise with lockout on" error.
+        // Per MFL API canon — exact text from
+        // https://www48.myfantasyleague.com/<year>/api_info?STATE=details:
         //
-        // We never want to impersonate, so never pass FRANCHISE_ID:
-        //   • Owner cookie  → MFL returns that owner's pending trades.
-        //   • Commish cookie → MFL returns all pending trades the commish
-        //                       can see (which is everyone's).
-        // Either way the worker filters outgoing/incoming locally by
-        // matching from_franchise_id / to_franchise_id from the response
-        // against the requested franchiseId.
+        //   pendingTrades — Access restricted to league owners.
+        //     L            — League Id (required)
+        //     FRANCHISE_ID — When request comes from the league
+        //                    commissioner, this indicates which franchise
+        //                    they want. Pass in '0000' to get trades
+        //                    pending commissioner action.
         //
-        // franchiseIdValue is kept on the signature for callers that pass
-        // it through but is intentionally unused for the MFL call.
+        // Per Keith 2026-05-28: trades are always owner-to-owner. The
+        // commissioner cookie is never an acceptable substitute for an
+        // owner's session here. If the iframe loader didn't pass the
+        // user's MFL_USER_ID, we cannot reliably return that user's
+        // pending trades — falling back to the worker's commish cookie
+        // would return the commissioner's own pending-action queue, not
+        // the requesting owner's sent/received trades.
+        //
+        // Decision: REQUIRE browserCookieHeader (MFL_USER_ID from URL).
+        // No commish fallback. No FRANCHISE_ID impersonation. If owner
+        // session is missing, return a clear error so the client can
+        // surface "log in to MFL" UX.
         void franchiseIdValue;
-        const res = await mflExportJsonAsViewer(
+        if (!browserCookieHeader) {
+          return {
+            ok: false,
+            status: 401,
+            url: "",
+            data: null,
+            error: "missing_owner_session_mfl_user_id",
+            textPreview: "",
+            ownerSessionPresent: false,
+            cookieRole: "missing",
+          };
+        }
+        const res = await mflExportJsonForCookie(
+          browserCookieHeader,
           seasonValue,
           leagueIdValue,
           "pendingTrades",
@@ -15722,6 +15741,8 @@ export default {
           ...res,
           retriedWithoutFranchiseId: false,
           usedFranchiseId: false,
+          ownerSessionPresent: true,
+          cookieRole: "owner",
         };
       };
 
@@ -18089,68 +18110,28 @@ export default {
           franchiseId
         );
         if (!pendingRes.ok) {
-          // MFL pendingTrades failed entirely — fall back to stored
-          // offers so users can still see their PENDING sent/received.
-          // (Keith 2026-05-24: empty sent box was the symptom; primary
-          // fallback covers MFL-returns-zero, this covers MFL-errors.)
-          let fallbackStoredOffers = [];
-          try {
-            const loaded = await readTradeOffersDoc(leagueId, season);
-            if (loaded.ok) fallbackStoredOffers = Array.isArray(loaded.doc?.offers) ? loaded.doc.offers : [];
-          } catch (_) { /* noop */ }
-          const fallbackFid = padFranchiseId(franchiseId);
-          let fallbackOut = [];
-          let fallbackIn = [];
-          const fallbackCutoffMsFail = Date.now() - 24 * 3600 * 1000;
-          const parseCsvAssetsFail = (v) => {
-            if (Array.isArray(v)) return v.filter(Boolean);
-            const s = safeStr(v).trim();
-            if (!s) return [];
-            return s.split(",").map((x) => x.trim()).filter(Boolean);
-          };
-          if (fallbackFid) {
-            for (const so of fallbackStoredOffers) {
-              if (!so || offerStatusNormalized(so.status, "PENDING") !== "PENDING") continue;
-              const createdMs = new Date(so.created_at || 0).getTime() || 0;
-              if (createdMs > 0 && createdMs < fallbackCutoffMsFail) continue;
-              const fromFid = padFranchiseId(so.from_franchise_id);
-              const toFid = padFranchiseId(so.to_franchise_id);
-              const soTradeId = safeStr(
-                so.mfl_trade_id || so?.mfl?.trade_id || so.trade_id || ""
-              ).replace(/\D/g, "");
-              const synth = {
-                proposal_id: safeStr(so.id || ""),
-                mfl_trade_id: soTradeId,
-                trade_id: soTradeId,
-                from_franchise_id: fromFid,
-                to_franchise_id: toFid,
-                from_franchise_name: safeStr(so.from_franchise_name || fromFid),
-                to_franchise_name: safeStr(so.to_franchise_name || toFid),
-                status: "PENDING",
-                created_at: safeStr(so.created_at),
-                updated_at: safeStr(so.updated_at || so.created_at),
-                comments: safeStr(so.message || ""),
-                raw_comment: safeStr(so.message || ""),
-                will_give_up: parseCsvAssetsFail(so.will_give_up),
-                will_receive: parseCsvAssetsFail(so.will_receive),
-                source: "stored_only_mfl_failed",
-                payload: includePayload ? (so.payload || null) : undefined,
-              };
-              if (fromFid === fallbackFid) fallbackOut.push(synth);
-              if (toFid === fallbackFid) fallbackIn.push(synth);
-            }
-          }
+          // Surface the error verbatim — no commish fallback, no stored-
+          // offers substitute. Per Keith 2026-05-28: trades are always
+          // owner-to-owner; if MFL won't tell us this owner's pending
+          // trades, the client must surface a clear "session missing /
+          // log in to MFL" message rather than show potentially stale
+          // stored data.
+          const isMissingSession =
+            pendingRes.error === "missing_owner_session_mfl_user_id" ||
+            !pendingRes.ownerSessionPresent;
           return {
-            ok: true, // degraded but usable
-            status: 200,
+            ok: false,
+            status: isMissingSession ? 401 : 502,
+            error: isMissingSession
+              ? "Missing MFL owner session (MFL_USER_ID). Re-open the workbench from MFL or pass MFL_USER_ID."
+              : "Failed to load pendingTrades from MFL",
             pendingLookup: {
               ok: false,
               rows_count: 0,
               upstream_status: pendingRes.status || 0,
               error: safeStr(pendingRes.error || "pendingTrades lookup failed"),
-              stored_only_outgoing: fallbackOut.length,
-              stored_only_incoming: fallbackIn.length,
-              degraded_fallback: true,
+              cookie_role: pendingRes.cookieRole || "unknown",
+              missing_owner_session: isMissingSession,
             },
             upstream: {
               status: pendingRes.status || 0,
@@ -18158,18 +18139,10 @@ export default {
               error: pendingRes.error || "",
               preview: pendingRes.textPreview || "",
             },
-            proposals: fallbackOut.concat(fallbackIn),
-            incoming: fallbackIn,
-            outgoing: fallbackOut,
-            related: fallbackOut.concat(fallbackIn),
-            counts: {
-              total: fallbackOut.length + fallbackIn.length,
-              outgoing_total: fallbackOut.length,
-              incoming_total: fallbackIn.length,
-              outgoing_stored_only: fallbackOut.length,
-              incoming_stored_only: fallbackIn.length,
-            },
-            generatedAt: new Date().toISOString(),
+            proposals: [],
+            incoming: [],
+            outgoing: [],
+            related: [],
           };
         }
 
@@ -18223,32 +18196,39 @@ export default {
           ? normalized.filter((o) => padFranchiseId(o.from_franchise_id) === franchiseId)
           : [];
 
-        // Stored-offers fallback (Keith 2026-05-24, refined 2026-05-28):
-        // ONLY fires when MFL's pendingTrades returned ZERO rows. If MFL
-        // returned ANY data, trust it as authoritative — adding stored
-        // rows alongside MFL data resurrected already-resolved trades
-        // (accepted/revoked offers still flagged PENDING in the JSON
-        // file, no way to revoke since MFL no longer has them).
+        // Stored-offers fallback — refined to a narrow MFL-indexing-race
+        // window only. Per Keith 2026-05-28: trades are owner-to-owner,
+        // commish fallback isn't acceptable, and stale stored rows are
+        // a UX problem (can't revoke, "0 assets for 0 assets" artifacts).
         //
-        // Also: only surface stored offers created in the last 24h. Older
-        // stored PENDING rows are presumed stale (MFL never indexed OR
-        // resolved without status sync).
+        // Rules:
+        //   • Only fire when MFL's response is OK AND used the owner
+        //     cookie AND returned ZERO rows (i.e. genuine empty, not a
+        //     session miss). The session-miss case returned 401 above.
+        //   • Only surface stored offers created in the last 5 MINUTES
+        //     (window where MFL might still be indexing a freshly-posted
+        //     trade). Anything older means MFL has explicitly resolved
+        //     the trade — accepted, revoked, expired — and the stored
+        //     JSON status just hasn't been synced yet.
+        //   • Always dedup against MFL's mfl_trade_id set.
         //
-        // Asset counts now read from summary.{from,to}_asset_count and
-        // will_give_up/will_receive CSV strings (the actual stored shape),
-        // not from non-existent summary.will_give_up arrays.
+        // The 5-min window covers the immediately-after-submit race
+        // (POST returns success, then user refreshes within seconds
+        // and MFL's per-viewer pendingTrades hasn't caught up yet)
+        // without resurrecting stale rows from days/weeks ago.
         const mflTradeIdsSeen = new Set();
         for (const o of normalized) {
           const tid = safeStr(o.mfl_trade_id || o.trade_id || "").replace(/\D/g, "");
           if (tid) mflTradeIdsSeen.add(tid);
         }
-        const RECENT_FALLBACK_HOURS = 24;
-        const fallbackCutoffMs = Date.now() - RECENT_FALLBACK_HOURS * 3600 * 1000;
+        const RECENT_FALLBACK_MS = 5 * 60 * 1000; // 5 minutes
+        const fallbackCutoffMs = Date.now() - RECENT_FALLBACK_MS;
         const mflReturnedAnyRows = normalized.length > 0;
+        const ownerCookieUsed = pendingRes.cookieRole === "owner";
         const fallbackOutgoing = [];
         const fallbackIncoming = [];
-        // Only fire fallback when MFL came back empty.
-        if (franchiseId && !mflReturnedAnyRows) {
+        // Only fire fallback when owner-cookied MFL response came back empty.
+        if (franchiseId && ownerCookieUsed && !mflReturnedAnyRows) {
           for (const so of storedOffers) {
             if (!so || typeof so !== "object") continue;
             const status = offerStatusNormalized(so.status, "PENDING");
