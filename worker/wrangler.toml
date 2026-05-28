@@ -60,6 +60,19 @@ database_name = "ups-mfl-db"
 database_id = "8cfe1ddd-749e-476a-9c2c-a359410c6fc1"
 migrations_dir = "migrations"
 
+# Second binding to the SAME D1 database for the trade outbox.
+# writeOutboxRow checks env.TWB_OUTBOX_DB || env.TWB_DB || env.DB; with
+# this binding, outbox writes go to D1 (the table is created at
+# runtime by ensureOutboxTable's CREATE TABLE IF NOT EXISTS — no
+# separate migration needed). Previously the outbox fell back to the
+# GitHub file backend, which shares env.GITHUB_PAT with the trade
+# offers store and broke silently when the PAT expired (2026-05-24
+# outage diagnosed by Keith 2026-05-28).
+[[d1_databases]]
+binding = "TWB_OUTBOX_DB"
+database_name = "ups-mfl-db"
+database_id = "8cfe1ddd-749e-476a-9c2c-a359410c6fc1"
+
 # Bundle league_context_v1.md as a string at build time. Per Keith's
 # directive (2026-05-04), this is the SOLE source of truth the AI explainer
 # uses for league rules — other rulebook files (rules.json, canonical_rules.md)
