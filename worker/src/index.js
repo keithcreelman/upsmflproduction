@@ -15453,35 +15453,24 @@ export default {
       };
 
       const loadPendingTradesExportAsViewer = async (seasonValue, leagueIdValue, franchiseIdValue = "") => {
-        const fid = padFranchiseId(franchiseIdValue);
-        const first = await mflExportJsonAsViewer(
-          seasonValue,
-          leagueIdValue,
-          "pendingTrades",
-          fid ? { FRANCHISE_ID: fid } : {},
-          { useCookie: true }
-        );
-        if (first.ok) {
-          return {
-            ...first,
-            retriedWithoutFranchiseId: false,
-            usedFranchiseId: !!fid,
-          };
-        }
-
-        const canRetryWithoutFranchiseId =
-          !!browserCookieHeader &&
-          !!fid &&
-          isImpersonationLockoutExportError(first);
-        if (!canRetryWithoutFranchiseId) {
-          return {
-            ...first,
-            retriedWithoutFranchiseId: false,
-            usedFranchiseId: !!fid,
-          };
-        }
-
-        const retry = await mflExportJsonAsViewer(
+        // Per MFL API canon (Keith 2026-05-28 review): pendingTrades returns
+        // the trades visible to the COOKIE owner. The optional FRANCHISE_ID
+        // parameter is commissioner impersonation only — blocked under
+        // franchise lockout with "Commissioner can not impersonate another
+        // franchise with lockout on" error.
+        //
+        // We never want to impersonate, so never pass FRANCHISE_ID:
+        //   • Owner cookie  → MFL returns that owner's pending trades.
+        //   • Commish cookie → MFL returns all pending trades the commish
+        //                       can see (which is everyone's).
+        // Either way the worker filters outgoing/incoming locally by
+        // matching from_franchise_id / to_franchise_id from the response
+        // against the requested franchiseId.
+        //
+        // franchiseIdValue is kept on the signature for callers that pass
+        // it through but is intentionally unused for the MFL call.
+        void franchiseIdValue;
+        const res = await mflExportJsonAsViewer(
           seasonValue,
           leagueIdValue,
           "pendingTrades",
@@ -15489,15 +15478,9 @@ export default {
           { useCookie: true }
         );
         return {
-          ...retry,
-          retriedWithoutFranchiseId: true,
+          ...res,
+          retriedWithoutFranchiseId: false,
           usedFranchiseId: false,
-          firstAttempt: {
-            status: safeInt(first.status, 0),
-            url: safeStr(first.url),
-            error: safeStr(first.error),
-            preview: safeStr(first.textPreview),
-          },
         };
       };
 
