@@ -3602,7 +3602,15 @@
     } catch (e) {
       data = null;
     }
-    if (!res.ok) {
+    // Treat ANY of the following as an error:
+    //   1. Non-2xx HTTP status
+    //   2. JSON body with ok === false (covers the worker's outer-catch
+    //      that historically returned HTTP 200 with {ok:false, reason:...}
+    //      — Keith 2026-05-28: this was the silent fail behind Hammertime's
+    //      bare "Offer submitted to MFL." message). Belt-and-suspenders
+    //      with the worker fix that now returns 500 properly.
+    var bodyFlaggedFail = !!(data && typeof data === "object" && data.ok === false);
+    if (!res.ok || bodyFlaggedFail) {
       var textSummary = safeStr(text)
         .replace(/<[^>]+>/g, " ")
         .replace(/\s+/g, " ")
@@ -3613,6 +3621,7 @@
       err.status = res.status;
       err.data = data;
       err.responseText = text;
+      err.bodyFlaggedFail = bodyFlaggedFail;
       throw err;
     }
     return data;

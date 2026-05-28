@@ -33532,13 +33532,27 @@ export default {
 
       return adminStateResponse();
     } catch (e) {
+      // Outer safety net for any uncaught exception in the dispatcher.
+      // Per Keith 2026-05-28: this was returning STATUS 200 which made
+      // clients (fetchJsonRequest in trade_workbench.js, mobile site,
+      // etc.) treat it as a success response — silently dropping the
+      // {ok:false, reason:...} body into the success path. For the
+      // trade-submit flow that produced a bare "Offer submitted to MFL."
+      // message with no Trade ID or Outbox info (Hammertime symptom).
+      //
+      // Now returns status 500 so clients can distinguish a real
+      // exception from a successful API call.
+      try {
+        console.warn("[worker.fetch outer catch]", e?.stack || e?.message || String(e));
+      } catch (_) {}
       return new Response(
         JSON.stringify({
           ok: false,
           isAdmin: false,
+          error: `Worker error: ${e?.message || String(e)}`,
           reason: `Worker error: ${e?.message || String(e)}`,
         }),
-        { status: 200, headers: { "content-type": "application/json", "Access-Control-Allow-Origin": "*" } }
+        { status: 500, headers: { "content-type": "application/json", "Access-Control-Allow-Origin": "*" } }
       );
     }
   },
