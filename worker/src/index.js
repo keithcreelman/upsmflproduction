@@ -21873,7 +21873,13 @@ export default {
         plan.salary_to_send = finalSalary;
         plan.diagnostics = {
           current_salary_export: safeStr(current?.salary),
-          contract_year_raw: contractYearText,
+          // Fixed 2026-05-28: was `contractYearText` (undefined ReferenceError);
+          // correct variable is `contractYearRaw` declared at L21761 in this
+          // function's scope. The typo was hidden by the worker's outer-catch
+          // returning HTTP 200 with {ok:false, reason:"contractYearText is
+          // not defined"}, which the client treated as success → bare
+          // "Offer submitted to MFL." message (Keith 2026-05-28).
+          contract_year_raw: contractYearRaw,
           contract_status_requested: safeStr(req?.new_contract_status),
           contract_status_selected: safeStr(plan.contract_status),
           contract_status_current: safeStr(current?.contractStatus),
