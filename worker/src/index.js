@@ -18106,15 +18106,68 @@ export default {
           franchiseId
         );
         if (!pendingRes.ok) {
+          // MFL pendingTrades failed entirely — fall back to stored
+          // offers so users can still see their PENDING sent/received.
+          // (Keith 2026-05-24: empty sent box was the symptom; primary
+          // fallback covers MFL-returns-zero, this covers MFL-errors.)
+          let fallbackStoredOffers = [];
+          try {
+            const loaded = await readTradeOffersDoc(leagueId, season);
+            if (loaded.ok) fallbackStoredOffers = Array.isArray(loaded.doc?.offers) ? loaded.doc.offers : [];
+          } catch (_) { /* noop */ }
+          const fallbackFid = padFranchiseId(franchiseId);
+          let fallbackOut = [];
+          let fallbackIn = [];
+          const fallbackCutoffMsFail = Date.now() - 24 * 3600 * 1000;
+          const parseCsvAssetsFail = (v) => {
+            if (Array.isArray(v)) return v.filter(Boolean);
+            const s = safeStr(v).trim();
+            if (!s) return [];
+            return s.split(",").map((x) => x.trim()).filter(Boolean);
+          };
+          if (fallbackFid) {
+            for (const so of fallbackStoredOffers) {
+              if (!so || offerStatusNormalized(so.status, "PENDING") !== "PENDING") continue;
+              const createdMs = new Date(so.created_at || 0).getTime() || 0;
+              if (createdMs > 0 && createdMs < fallbackCutoffMsFail) continue;
+              const fromFid = padFranchiseId(so.from_franchise_id);
+              const toFid = padFranchiseId(so.to_franchise_id);
+              const soTradeId = safeStr(
+                so.mfl_trade_id || so?.mfl?.trade_id || so.trade_id || ""
+              ).replace(/\D/g, "");
+              const synth = {
+                proposal_id: safeStr(so.id || ""),
+                mfl_trade_id: soTradeId,
+                trade_id: soTradeId,
+                from_franchise_id: fromFid,
+                to_franchise_id: toFid,
+                from_franchise_name: safeStr(so.from_franchise_name || fromFid),
+                to_franchise_name: safeStr(so.to_franchise_name || toFid),
+                status: "PENDING",
+                created_at: safeStr(so.created_at),
+                updated_at: safeStr(so.updated_at || so.created_at),
+                comments: safeStr(so.message || ""),
+                raw_comment: safeStr(so.message || ""),
+                will_give_up: parseCsvAssetsFail(so.will_give_up),
+                will_receive: parseCsvAssetsFail(so.will_receive),
+                source: "stored_only_mfl_failed",
+                payload: includePayload ? (so.payload || null) : undefined,
+              };
+              if (fromFid === fallbackFid) fallbackOut.push(synth);
+              if (toFid === fallbackFid) fallbackIn.push(synth);
+            }
+          }
           return {
-            ok: false,
-            status: 502,
-            error: "Failed to load pendingTrades from MFL",
+            ok: true, // degraded but usable
+            status: 200,
             pendingLookup: {
               ok: false,
               rows_count: 0,
               upstream_status: pendingRes.status || 0,
               error: safeStr(pendingRes.error || "pendingTrades lookup failed"),
+              stored_only_outgoing: fallbackOut.length,
+              stored_only_incoming: fallbackIn.length,
+              degraded_fallback: true,
             },
             upstream: {
               status: pendingRes.status || 0,
@@ -18122,10 +18175,18 @@ export default {
               error: pendingRes.error || "",
               preview: pendingRes.textPreview || "",
             },
-            proposals: [],
-            incoming: [],
-            outgoing: [],
-            related: [],
+            proposals: fallbackOut.concat(fallbackIn),
+            incoming: fallbackIn,
+            outgoing: fallbackOut,
+            related: fallbackOut.concat(fallbackIn),
+            counts: {
+              total: fallbackOut.length + fallbackIn.length,
+              outgoing_total: fallbackOut.length,
+              incoming_total: fallbackIn.length,
+              outgoing_stored_only: fallbackOut.length,
+              incoming_stored_only: fallbackIn.length,
+            },
+            generatedAt: new Date().toISOString(),
           };
         }
 
@@ -18179,6 +18240,90 @@ export default {
           ? normalized.filter((o) => padFranchiseId(o.from_franchise_id) === franchiseId)
           : [];
 
+        // Stored-offers fallback (Keith 2026-05-24, refined 2026-05-28):
+        // ONLY fires when MFL's pendingTrades returned ZERO rows. If MFL
+        // returned ANY data, trust it as authoritative — adding stored
+        // rows alongside MFL data resurrected already-resolved trades
+        // (accepted/revoked offers still flagged PENDING in the JSON
+        // file, no way to revoke since MFL no longer has them).
+        //
+        // Also: only surface stored offers created in the last 24h. Older
+        // stored PENDING rows are presumed stale (MFL never indexed OR
+        // resolved without status sync).
+        //
+        // Asset counts now read from summary.{from,to}_asset_count and
+        // will_give_up/will_receive CSV strings (the actual stored shape),
+        // not from non-existent summary.will_give_up arrays.
+        const mflTradeIdsSeen = new Set();
+        for (const o of normalized) {
+          const tid = safeStr(o.mfl_trade_id || o.trade_id || "").replace(/\D/g, "");
+          if (tid) mflTradeIdsSeen.add(tid);
+        }
+        const RECENT_FALLBACK_HOURS = 24;
+        const fallbackCutoffMs = Date.now() - RECENT_FALLBACK_HOURS * 3600 * 1000;
+        const mflReturnedAnyRows = normalized.length > 0;
+        const fallbackOutgoing = [];
+        const fallbackIncoming = [];
+        // Only fire fallback when MFL came back empty.
+        if (franchiseId && !mflReturnedAnyRows) {
+          for (const so of storedOffers) {
+            if (!so || typeof so !== "object") continue;
+            const status = offerStatusNormalized(so.status, "PENDING");
+            if (status !== "PENDING") continue;
+            // Only recent stored offers — older ones are likely stale
+            const createdMs = new Date(so.created_at || 0).getTime() || 0;
+            if (createdMs > 0 && createdMs < fallbackCutoffMs) continue;
+            // Check both mfl_trade_id (flat) and mfl.trade_id (nested)
+            // and trade_id field. Dedup against MFL's seen set.
+            const soTradeId = safeStr(
+              so.mfl_trade_id || so?.mfl?.trade_id || so.trade_id || ""
+            ).replace(/\D/g, "");
+            if (soTradeId && mflTradeIdsSeen.has(soTradeId)) continue;
+            const fromFid = padFranchiseId(so.from_franchise_id);
+            const toFid = padFranchiseId(so.to_franchise_id);
+            const isOutgoing = fromFid === franchiseId;
+            const isIncoming = toFid === franchiseId;
+            if (!isOutgoing && !isIncoming) continue;
+            // Build asset arrays. Storage shape: will_give_up is a CSV
+            // string of MFL asset tokens (e.g. "P_12345,P_67890,DP_01_03").
+            const parseCsvAssets = (v) => {
+              if (Array.isArray(v)) return v.filter(Boolean);
+              const s = safeStr(v).trim();
+              if (!s) return [];
+              return s.split(",").map((x) => x.trim()).filter(Boolean);
+            };
+            const synthRow = {
+              proposal_id: safeStr(so.id || soTradeId || `stored-${fromFid}-${toFid}`),
+              mfl_trade_id: soTradeId,
+              trade_id: soTradeId,
+              from_franchise_id: fromFid,
+              to_franchise_id: toFid,
+              from_franchise_name: safeStr(so.from_franchise_name || franchiseNames[fromFid] || fromFid),
+              to_franchise_name: safeStr(so.to_franchise_name || franchiseNames[toFid] || toFid),
+              status: "PENDING",
+              created_ts: Math.floor(createdMs / 1000),
+              created_at: safeStr(so.created_at),
+              updated_at: safeStr(so.updated_at || so.created_at),
+              comments: safeStr(so.message || ""),
+              raw_comment: safeStr(so.message || ""),
+              will_give_up: parseCsvAssets(so.will_give_up),
+              will_receive: parseCsvAssets(so.will_receive),
+              mfl_present: !!soTradeId,
+              source: "stored_only",
+              payload: includePayload ? (so.payload || null) : undefined,
+            };
+            if (isOutgoing) fallbackOutgoing.push(synthRow);
+            if (isIncoming) fallbackIncoming.push(synthRow);
+          }
+        }
+        // Sort fallbacks by created_ts desc to keep most recent first
+        fallbackOutgoing.sort((a, b) => (b.created_ts || 0) - (a.created_ts || 0));
+        fallbackIncoming.sort((a, b) => (b.created_ts || 0) - (a.created_ts || 0));
+
+        const outgoingMerged = outgoing.concat(fallbackOutgoing);
+        const incomingMerged = incoming.concat(fallbackIncoming);
+        const relatedMerged = related.concat(fallbackOutgoing).concat(fallbackIncoming);
+
         const filterByStatus = (rows) => {
           const normalizedStatus = offerStatusNormalized(statusFilter, "");
           if (!normalizedStatus) return rows;
@@ -18195,20 +18340,24 @@ export default {
             rows_count: normalized.length,
             upstream_status: pendingRes.status || 0,
             error: "",
+            stored_only_outgoing: fallbackOutgoing.length,
+            stored_only_incoming: fallbackIncoming.length,
           },
-          proposals: filterByStatus(related).slice(0, maxRows),
-          incoming: filterByStatus(incoming).slice(0, maxRows),
-          outgoing: filterByStatus(outgoing).slice(0, maxRows),
-          related: filterByStatus(related).slice(0, maxRows),
+          proposals: filterByStatus(relatedMerged).slice(0, maxRows),
+          incoming: filterByStatus(incomingMerged).slice(0, maxRows),
+          outgoing: filterByStatus(outgoingMerged).slice(0, maxRows),
+          related: filterByStatus(relatedMerged).slice(0, maxRows),
           counts: {
-            total: normalized.length,
-            related_total: related.length,
-            incoming_total: incoming.length,
-            outgoing_total: outgoing.length,
-            incoming_pending: incoming.length,
-            outgoing_pending: outgoing.length,
+            total: normalized.length + fallbackOutgoing.length + fallbackIncoming.length,
+            related_total: relatedMerged.length,
+            incoming_total: incomingMerged.length,
+            outgoing_total: outgoingMerged.length,
+            incoming_pending: incomingMerged.length,
+            outgoing_pending: outgoingMerged.length,
             incoming_mfl_present_pending: incoming.length,
             outgoing_mfl_present_pending: outgoing.length,
+            outgoing_stored_only: fallbackOutgoing.length,
+            incoming_stored_only: fallbackIncoming.length,
           },
           generatedAt: new Date().toISOString(),
         };
