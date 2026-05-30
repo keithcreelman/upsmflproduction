@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ups.roast-bot</string>
+
+    <!-- Wrapper script reads ops/roast-bot.env.local and execs the bot -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/keithcreelman/Code/MFL/upsmflproduction/ops/run-roast-bot.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/keithcreelman/Code/MFL/upsmflproduction</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Restart if it exits with failure; don't loop on clean exit -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Throttle restarts to prevent hot loops on persistent failure -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/keithcreelman/Library/Logs/roast-bot.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/keithcreelman/Library/Logs/roast-bot.err</string>
+</dict>
+</plist>

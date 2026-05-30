@@ -38,3 +38,6 @@ node_modules/
 
 # Local-only Claude tooling
 .claude/
+
+# Roast bot local secrets (never commit)
+ops/roast-bot.env.local

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ups.roast-bot</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/upsbot/upsmflproduction/.venv/bin/python</string>
+        <string>pipelines/etl/scripts/trade_roast_bot.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/upsbot/upsmflproduction</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>ROAST_BOT_ENV</key>
+        <string>prod</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/upsbot/Library/Logs/roast-bot.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/upsbot/Library/Logs/roast-bot.err</string>
+</dict>
+</plist>

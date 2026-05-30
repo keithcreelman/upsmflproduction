@@ -1,0 +1,19 @@
+[Unit]
+Description=UPS MFL Trade Roast Bot (Discord)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=upsbot
+Group=upsbot
+WorkingDirectory=/opt/upsmflproduction
+EnvironmentFile=/etc/roast-bot.env
+ExecStart=/opt/upsmflproduction/.venv/bin/python pipelines/etl/scripts/trade_roast_bot.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/var/log/roast-bot/stdout.log
+StandardError=append:/var/log/roast-bot/stderr.log
+
+[Install]
+WantedBy=multi-user.target

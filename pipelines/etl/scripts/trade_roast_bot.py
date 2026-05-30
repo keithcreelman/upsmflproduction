@@ -37,7 +37,9 @@ from content_engine import (
 )
 
 # ── Config ─────────────────────────────────────────────────────────────────
-TEST_CHANNEL_ID = 1089538054236160010
+TEST_CHANNEL_ID = int(os.environ.get("DISCORD_TEST_CHANNEL_ID", "1089538054236160010"))
+PROD_CHANNEL_ID = int(os.environ.get("DISCORD_PROD_CHANNEL_ID", "0"))
+ROAST_CHANNEL_ID = PROD_CHANNEL_ID if os.environ.get("ROAST_BOT_ENV") == "prod" and PROD_CHANNEL_ID else TEST_CHANNEL_ID
 HURTS_TRADE_TS = 1775772921
 POLL_INTERVAL_SECONDS = 300  # 5 minutes
 
@@ -82,7 +84,15 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
                            extension_years: int = 0,
                            extension_player_id: str = ""):
-    """Full pipeline: analyze trade → generate roast → post to Discord."""
+    """Full pipeline: analyze trade → post announcement → create thread →
+    post intelligence report + roast inside the thread.
+
+    The announcement (parent message in the channel) is the human-readable
+    summary of what each team received. Discord opens a thread on that
+    message; the bot drops the data report and the Opus-generated roast
+    inside the thread. Reply tracking is scoped to the roast message
+    inside the thread.
+    """
 
     print(f"[{datetime.now()}] Analyzing trade: {trade_txn.get('franchise','')} "
           f"↔ {trade_txn.get('franchise2','')}")
@@ -100,32 +110,50 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     # Generate roast
     roast = generate_trade_roast(context_text)
 
-    print(f"[{datetime.now()}] Roast generated ({len(roast)} chars). Posting...")
+    print(f"[{datetime.now()}] Roast generated ({len(roast)} chars). "
+          f"Building announcement + thread...")
 
-    # Build the data report section (code block)
+    # 1. Post announcement to channel (parent for thread)
+    announcement = build_announcement(ctx)
+    if len(announcement) > 1900:
+        # Should be rare for an announcement, but guard anyway
+        announcement = announcement[:1897] + "…"
+    parent_msg = await channel.send(announcement)
+
+    # 2. Create a thread anchored on the announcement
+    fa = ctx["side_a"]["franchise"]["franchise_name"]
+    fb = ctx["side_b"]["franchise"]["franchise_name"]
+    thread_name = f"Roast — {fa} ↔ {fb}"[:100]  # Discord max 100 chars
+    try:
+        thread = await parent_msg.create_thread(name=thread_name,
+                                                auto_archive_duration=10080)  # 7 days
+    except discord.HTTPException as e:
+        print(f"[{datetime.now()}] Thread creation failed: {e}. "
+              f"Falling back to channel posts.")
+        thread = channel  # fallback so the rest still posts somewhere
+
+    # 3. Post the intelligence report code-block inside the thread
     report = build_report_block(ctx)
-
-    # Post report as code block
     if len(report) > 1900:
-        # Split into multiple messages if needed
-        parts = split_message(report, 1900)
-        for part in parts:
-            await channel.send(f"```\n{part}\n```")
+        for part in split_message(report, 1900):
+            await thread.send(f"```\n{part}\n```")
     else:
-        await channel.send(f"```\n{report}\n```")
+        await thread.send(f"```\n{report}\n```")
 
-    # Post roast as plain text (may need splitting too)
+    # 4. Post the roast inside the thread
     roast_parts = split_message(roast, 1900)
     last_msg = None
     for part in roast_parts:
-        last_msg = await channel.send(part)
+        last_msg = await thread.send(part)
 
-    # Track the roast message for reply monitoring
+    # 5. Track the roast message for reply monitoring (reply within the thread)
     if last_msg:
         ROAST_TRACKER[last_msg.id] = {
             "context_text": context_text,
             "ctx": ctx,
             "timestamp": time.time(),
+            "parent_message_id": getattr(parent_msg, "id", None),
+            "thread_id": getattr(thread, "id", None),
         }
 
     # Save to archive
@@ -135,8 +163,11 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "teams": [ctx["side_a"]["franchise"]["franchise_id"],
                   ctx["side_b"]["franchise"]["franchise_id"]],
+        "discord_announcement_id": getattr(parent_msg, "id", None),
+        "discord_thread_id": getattr(thread, "id", None),
         "discord_message_id": last_msg.id if last_msg else None,
         "content": {
+            "announcement": announcement,
             "report": report,
             "roast": roast,
             "grades": {
@@ -147,7 +178,75 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
         "replies": [],
     })
 
-    print(f"[{datetime.now()}] Posted to #{channel.name}")
+    print(f"[{datetime.now()}] Posted announcement + thread to #{channel.name}")
+
+
+def build_announcement(ctx: dict) -> str:
+    """Build the human-readable trade announcement that becomes the thread
+    anchor. Each team's assets shown as a bulleted list with key contract
+    facts; no analysis, no grades. The roast goes inside the thread."""
+    a = ctx["side_a"]
+    b = ctx["side_b"]
+    fa = a["franchise"]["franchise_name"]
+    fb = b["franchise"]["franchise_name"]
+
+    def asset_lines(side, side_name):
+        # In a 2-team trade, "side X receives" = side X's players_received +
+        # picks_received + salary_received.
+        out = []
+        for p in side.get("players_received", []):
+            line = f"• **{p['name']}** ({p['position']}) — ${p['salary']:,} salary"
+            if p.get("contract_status"):
+                line += f" [{p['contract_status']}]"
+            if p.get("in_trade_extension_owner"):
+                line += f" — EXTENDED in-trade by {p['in_trade_extension_owner']}"
+            out.append(line)
+        for pk in side.get("picks_received", []):
+            pk_line = f"• {pk.get('year','?')} Round {pk.get('round','?')}"
+            # Only show slot for current-draft picks. Future picks: slot is
+            # a prediction, not a real assignment; don't display it.
+            if pk.get("slot") and not pk.get("is_future_pick"):
+                pk_line += f" (slot {pk['slot']})"
+            if pk.get("from_franchise_name"):
+                pk_line += f" — originally {pk['from_franchise_name']}'s"
+            out.append(pk_line)
+        if side.get("salary_received"):
+            out.append(f"• ${side['salary_received']:,} in traded salary")
+        return out or ["• (nothing)"]
+
+    lines = []
+    lines.append(f"**🔁 TRADE — {fa} ↔ {fb}**")
+    lines.append("")
+    lines.append(f"**{fa} receives:**")
+    lines.extend(asset_lines(a, fa))
+    lines.append("")
+    lines.append(f"**{fb} receives:**")
+    lines.extend(asset_lines(b, fb))
+
+    # Effective-cost note (BB-shifted contract)
+    if ctx.get("effective_cost_note"):
+        lines.append("")
+        lines.append(f"_{ctx['effective_cost_note']}_")
+
+    # Extension projections summary
+    if ctx.get("extension_projections"):
+        lines.append("")
+        lines.append("**Extension projection** (if exercised by acquiring team):")
+        for pid, ext in ctx["extension_projections"].items():
+            new_aav = ext.get("effective_aav") or ext.get("new_aav") or 0
+            total = ext.get("total_commitment", 0)
+            yrs = ext.get("total_years", 0)
+            lines.append(
+                f"• {yrs}-year commitment ≈ ${total:,} total (effective AAV ${new_aav:,})"
+            )
+
+    # Trade comment
+    comment = (ctx.get("trade", {}).get("comments") or "").strip()
+    if comment:
+        lines.append("")
+        lines.append(f"**Owner comment:** _{comment}_")
+
+    return "\n".join(lines)
 
 
 def build_report_block(ctx: dict) -> str:
@@ -309,9 +408,9 @@ async def handle_reply(message: discord.Message, tracked: dict):
 async def poll_for_trades():
     """Check MFL API for new trades every 5 minutes."""
     try:
-        channel = bot.get_channel(TEST_CHANNEL_ID)
+        channel = bot.get_channel(ROAST_CHANNEL_ID)
         if not channel:
-            print(f"[{datetime.now()}] Channel {TEST_CHANNEL_ID} not found")
+            print(f"[{datetime.now()}] Channel {ROAST_CHANNEL_ID} not found")
             return
 
         trades = fetch_trades()
@@ -362,9 +461,9 @@ async def run_test(trade_timestamp: int = HURTS_TRADE_TS,
     """Run a one-shot test: post a roast for a specific trade."""
     await bot.wait_until_ready()
 
-    channel = bot.get_channel(TEST_CHANNEL_ID)
+    channel = bot.get_channel(ROAST_CHANNEL_ID)
     if not channel:
-        print(f"ERROR: Channel {TEST_CHANNEL_ID} not found")
+        print(f"ERROR: Channel {ROAST_CHANNEL_ID} not found")
         return
 
     # Find the trade

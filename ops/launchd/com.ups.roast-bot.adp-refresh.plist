@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ups.roast-bot.adp-refresh</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>cd /Users/upsbot/upsmflproduction &amp;&amp; .venv/bin/python pipelines/etl/scripts/fetch_external_adp.py &amp;&amp; .venv/bin/python pipelines/etl/scripts/build_auction_value_model.py</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>6</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/upsbot/Library/Logs/roast-bot-adp.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/upsbot/Library/Logs/roast-bot-adp.err</string>
+</dict>
+</plist>

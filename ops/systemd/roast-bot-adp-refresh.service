@@ -1,0 +1,13 @@
+[Unit]
+Description=UPS MFL Roast Bot — ADP + Auction Value Refresh
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=upsbot
+Group=upsbot
+WorkingDirectory=/opt/upsmflproduction
+EnvironmentFile=/etc/roast-bot.env
+ExecStart=/bin/sh -c '/opt/upsmflproduction/.venv/bin/python pipelines/etl/scripts/fetch_external_adp.py && /opt/upsmflproduction/.venv/bin/python pipelines/etl/scripts/build_auction_value_model.py'
+StandardOutput=append:/var/log/roast-bot/adp-refresh.log
+StandardError=append:/var/log/roast-bot/adp-refresh.log

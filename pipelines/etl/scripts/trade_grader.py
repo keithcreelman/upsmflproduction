@@ -176,10 +176,51 @@ ETL_ROOT = SCRIPT_DIR.parent
 ARTIFACTS_DIR = ETL_ROOT / "artifacts"
 CONFIG_DIR = ETL_ROOT / "config"
 
-AUCTION_POOL_CSV = ARTIFACTS_DIR / "early_projection_2026_auction_pool_values.csv"
-ROLLOVER_CSV = ARTIFACTS_DIR / "early_projection_2026_contract_rollover.csv"
-TEAM_CAP_CSV = ARTIFACTS_DIR / "early_projection_2026_team_cap.csv"
-TRADE_VALUE_MODEL = Path("/Users/keithcreelman/Documents/New project/site/trade-value/trade_value_model_2026.json")
+def _resolve_artifact(filename: str, env_var: str = "") -> Path:
+    """Resolve an ETL artifact path with env-var override + iCloud fallback."""
+    import os as _os
+    candidates = []
+    if env_var:
+        v = _os.environ.get(env_var)
+        if v: candidates.append(v)
+    candidates.extend([
+        str(ARTIFACTS_DIR / filename),
+        str(Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs"
+            / "Documents" / "New project" / "pipelines" / "etl" / "artifacts" / filename),
+        str(Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs"
+            / "Documents" / "mfl" / "Development" / "pipelines" / "etl" / "artifacts" / filename),
+    ])
+    for c in candidates:
+        if c and Path(c).exists():
+            return Path(c)
+    return Path(candidates[0])  # fallback so loaders' .exists() check handles absence
+
+AUCTION_POOL_CSV = _resolve_artifact("early_projection_2026_auction_pool_values.csv",
+                                     "AUCTION_POOL_CSV_PATH")
+ROLLOVER_CSV = _resolve_artifact("early_projection_2026_contract_rollover.csv",
+                                 "ROLLOVER_CSV_PATH")
+TEAM_CAP_CSV = _resolve_artifact("early_projection_2026_team_cap.csv",
+                                 "TEAM_CAP_CSV_PATH")
+import os as _os
+# Trade value model JSON path. Override via TRADE_VALUE_MODEL_PATH env var.
+# Default resolution order:
+#   1. $TRADE_VALUE_MODEL_PATH
+#   2. iCloud-synced macOS dev path
+#   3. Plain ~/Documents path (legacy)
+#   4. Repo-relative fallback (pipelines/etl/data/trade_value_model.json)
+_TVM_CANDIDATES = [
+    _os.environ.get("TRADE_VALUE_MODEL_PATH"),
+    str(Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs"
+        / "Documents" / "New project" / "site" / "trade-value"
+        / "trade_value_model_2026.json"),
+    "/Users/keithcreelman/Documents/New project/site/trade-value/trade_value_model_2026.json",
+    str(ETL_ROOT / "data" / "trade_value_model_2026.json"),
+    str(ETL_ROOT / "data" / "trade_value_model.json"),
+]
+TRADE_VALUE_MODEL = Path(next(
+    (p for p in _TVM_CANDIDATES if p and Path(p).exists()),
+    _TVM_CANDIDATES[-1]  # last fallback even if missing — load functions handle absence
+))
 
 # ── MFL API ────────────────────────────────────────────────────────────────
 LEAGUE_ID = "74598"
@@ -194,6 +235,37 @@ def mfl_fetch(export_type: str, **params) -> dict:
     url = f"{MFL_BASE}?{qs}"
     with urlopen(url, timeout=20) as resp:
         return json.loads(resp.read())
+
+
+def _fetch_cap_adjustments_safe() -> dict:
+    """Return {franchise_id: net_salary_adjustment} from live MFL feed.
+
+    UPS canonical cap math: cap_space = ceiling - (roster_salary + adj_total)
+    where adj_total is the signed sum of MFL salaryAdjustments per franchise.
+    Negative adj values reduce salary obligation (more cap space), positive
+    values reduce cap space.
+
+    Safe wrapper — returns {} on any failure so the bot still grades trades
+    even if MFL's adjustments endpoint is unavailable.
+    """
+    out: dict = {}
+    try:
+        data = mfl_fetch("salaryAdjustments")
+        adj = data.get("salaryAdjustments", {}).get("salaryAdjustment", [])
+        if isinstance(adj, dict):
+            adj = [adj]
+        for row in adj:
+            fid = str(row.get("franchise_id", "")).zfill(4)
+            if not fid:
+                continue
+            try:
+                amt = float(row.get("amount", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+            out[fid] = int(out.get(fid, 0) + amt)
+    except Exception as e:
+        print(f"[cap-adj] live MFL fetch failed ({e}); falling back to 0 adjustments")
+    return out
 
 
 # ── Data Classes ───────────────────────────────────────────────────────────
@@ -252,6 +324,7 @@ class TradeSide:
     picks_received: list = field(default_factory=list)
     salary_received: int = 0
     total_roster_salary: int = 0
+    cap_adjustment_total: int = 0
     cap_space: int = 0
     grade: str = ""
     grade_score: float = 0.0
@@ -619,6 +692,7 @@ def find_comparables(player: PlayerInfo, auction_pool: dict,
                     tv.get("roster_status") == "free_agent" and
                     float(tv.get("auction_value_50", 0) or 0) > 0):
                 comps.append({
+                    "player_id": pid,
                     "name": tv.get("player_name", "Unknown"),
                     "team": tv.get("nfl_team", ""),
                     "exp_price": float(tv.get("auction_value_50", 0) or 0),
@@ -634,6 +708,7 @@ def find_comparables(player: PlayerInfo, auction_pool: dict,
             if row["position"] == player.position:
                 pinfo = players_map.get(pid, {})
                 comps.append({
+                    "player_id": pid,
                     "name": row.get("player_name", pinfo.get("name", "Unknown")),
                     "team": row.get("nfl_team", ""),
                     "exp_price": float(row.get("projected_perceived_value", 0) or 0),
@@ -1102,14 +1177,28 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
         salary_received=a_gave_sal,
     )
 
-    # Cap context
+    # Cap context — total salary minus active cap adjustments.
+    # cap_space = 300K - (total_roster_salary + salary_adjustment_total)
+    # The adjustment total comes from live MFL salaryAdjustments (negative
+    # values reduce salary obligation -> increase cap space).
+    cap_adj_by_franchise = _fetch_cap_adjustments_safe()
     for side in (side_a, side_b):
         if side.franchise_id in rosters:
             roster = rosters[side.franchise_id]
-            total_sal = sum(int(p.get("salary", 0)) for p in roster
-                           if p.get("status") != "TAXI_SQUAD")
+            # IR counts at 50% per UPS rules
+            total_sal = 0
+            for p in roster:
+                status = (p.get("status") or "").upper()
+                if status == "TAXI_SQUAD":
+                    continue
+                sal = int(p.get("salary", 0) or 0)
+                if status == "INJURED_RESERVE":
+                    sal = sal // 2
+                total_sal += sal
             side.total_roster_salary = total_sal
-            side.cap_space = 300000 - total_sal
+            adj_total = int(cap_adj_by_franchise.get(side.franchise_id, 0))
+            side.cap_adjustment_total = adj_total
+            side.cap_space = 300000 - (total_sal + adj_total)
 
     # Symmetric points-based grade math (replaces old asymmetric dollar formulas).
     # Both sides are scored with one function; grades are zero-sum by construction.
