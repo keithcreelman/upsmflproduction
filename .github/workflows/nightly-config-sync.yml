@@ -1,0 +1,55 @@
+name: Nightly config sync (src_franchises + season meta)
+
+# Replaces the legacy MANUAL chain (MFL -> ~/Desktop/MFL_Scripts -> local SQLite
+# -> load_local_to_d1.py) for the current-season CONFIG tables. At season
+# rollover those tables had no rows for the new season, which broke V2 standings
+# (divisions/owners). This fetches TYPE=league LIVE from MFL with the commish
+# cookie (which unlocks owner names) and upserts src_franchises +
+# src_league_season_meta in D1. See docs/DATA_AUTHORITY_MAP.md.
+#
+# RESULTS tables (src_standings, src_schedule, weekly scores) fill as games are
+# played and are not handled here.
+#
+# Required secrets:
+#   MFL_COOKIE             — commissioner cookie (same value as the worker secret;
+#                            without it the sync runs but owner_name is empty)
+#   CLOUDFLARE_API_TOKEN   — must have D1 edit permission for ups-mfl-db
+# Optional repo variable:
+#   MFL_YEAR / MFL_LEAGUE_ID — override season/league (default: current UTC year / 74598)
+
+on:
+  schedule:
+    - cron: "30 9 * * *"   # 09:30 UTC — after mfl-daily-snapshot (09:05)
+  workflow_dispatch: {}
+
+concurrency:
+  group: nightly-config-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync CONFIG tables to D1
+        working-directory: worker   # so wrangler finds wrangler.toml / D1 binding
+        env:
+          MFL_COOKIE: ${{ secrets.MFL_COOKIE }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          MFL_YEAR: ${{ vars.MFL_YEAR }}
+          MFL_LEAGUE_ID: ${{ vars.MFL_LEAGUE_ID }}
+        run: |
+          set -euo pipefail
+          LEAGUE_ID="${MFL_LEAGUE_ID:-74598}"
+          # Season auto-computes (rolls at ~Week 18 kickoff, not Jan 1); MFL_YEAR overrides.
+          SEASON_ARG=""
+          if [ -n "${MFL_YEAR:-}" ]; then SEASON_ARG="--season ${MFL_YEAR}"; fi
+          echo "Syncing CONFIG tables (league ${LEAGUE_ID}); season=${MFL_YEAR:-auto}"
+          python3 ../pipelines/etl/scripts/sync_config_to_d1.py ${SEASON_ARG} --league-id "${LEAGUE_ID}"
