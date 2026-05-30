@@ -12583,7 +12583,12 @@ export default {
         );
         const explicitSalary = safeInt(explicit?.salary, 0);
         if (explicitSalary > 0) return { salary: explicitSalary, source: "explicit_schedule" };
-        if (roundNum === 1) return { salary: resolveFirstRoundPickSalaryDollarsAcq(pickNum), source: "round_1_fallback" };
+        // Canon §B2 (docs/league_context_v1.md:174):
+        //   R1: slot ladder $15K→$5K · R2: $5K · R3-5: $2K · R6: $1K.
+        if (roundNum === 1) return { salary: resolveFirstRoundPickSalaryDollarsAcq(pickNum), source: "round_1_canon" };
+        if (roundNum === 2) return { salary: 5000, source: "round_2_canon" };
+        if (roundNum >= 3 && roundNum <= 5) return { salary: 2000, source: "rounds_3_5_canon" };
+        if (roundNum === 6) return { salary: 1000, source: "round_6_canon" };
         return { salary: 5000, source: "flat_rookie_fallback" };
       };
 
@@ -25808,6 +25813,209 @@ export default {
           ok: !!reconcile.ok,
           message: reconcile.applied_count ? "Rookie contracts reconciled." : "No missing rookie contracts found.",
           ...reconcile,
+        });
+      }
+
+      if (path === "/admin/rookie-draft/apply-canon-2026" && request.method === "POST") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "74598");
+        if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonNoStore(403, { ok: false, error: "Admin only." });
+        }
+        const dryRun = safeStr(url.searchParams.get("DRY_RUN")) === "1";
+
+        const canonRookieSalary = (round, pickInRound) => {
+          const r = safeInt(round, 0);
+          const p = safeInt(pickInRound, 0);
+          if (r === 1) return Math.max(5000, 15000 - (p - 1) * 1000);
+          if (r === 2) return 5000;
+          if (r >= 3 && r <= 5) return 2000;
+          if (r === 6) return 1000;
+          return 0;
+        };
+        const fmtKCanon = (n) => {
+          const k = safeInt(n, 0) / 1000;
+          return Number.isInteger(k) ? `${k}K` : `${k.toFixed(1)}K`;
+        };
+        const SCHED1_POS = new Set(["QB", "RB", "WR", "TE"]);
+        const buildCanonContractInfo = (round, salary, position) => {
+          const years = 3;
+          const total = years * salary;
+          const aav = salary;
+          const gtd = total > 4000 ? Math.round(total * 0.75) : Math.max(0, total - salary);
+          let info =
+            `CL ${years}|TCV ${fmtKCanon(total)}|AAV ${fmtKCanon(aav)}|` +
+            `Y1-${fmtKCanon(salary)}, Y2-${fmtKCanon(salary)}, Y3-${fmtKCanon(salary)}|GTD: ${fmtKCanon(gtd)}`;
+          if (safeInt(round, 0) === 1) {
+            const halfRaise = SCHED1_POS.has(safeStr(position).toUpperCase()) ? 5000 : 2000;
+            info += `|Keep Option as Y4Option =${fmtKCanon(salary + halfRaise)}`;
+          }
+          return info;
+        };
+
+        const draftRes = await mflExportJson(season, leagueId, "draftResults", {}, { useCookie: false, cacheBust: true });
+        if (!draftRes.ok) {
+          return jsonNoStore(502, { ok: false, error: "draftResults_fetch_failed", upstream: draftRes });
+        }
+        const salRes = await fetchSalaryRowsByPlayerForAcq(season, leagueId);
+        const salRows = salRes.rowsByPlayer || {};
+
+        const picks = asArray(draftRes.data?.draftResults?.draftUnit?.draftPick);
+        const playerIds = [...new Set(picks.map((p) => safeStr(p?.player)).filter(Boolean))];
+        const positions = {};
+        if (playerIds.length > 0) {
+          const plRes = await mflExportJson(season, leagueId, "players", { PLAYERS: playerIds.join(",") }, { useCookie: false });
+          if (plRes.ok) {
+            for (const p of asArray(plRes.data?.players?.player)) {
+              if (p?.id) positions[safeStr(p.id)] = safeStr(p.position);
+            }
+          }
+        }
+
+        const sortedPicks = picks.slice().sort((a, b) => {
+          const ar = safeInt(a?.round, 0), br = safeInt(b?.round, 0);
+          if (ar !== br) return ar - br;
+          return safeInt(a?.pick, 0) - safeInt(b?.pick, 0);
+        });
+
+        const results = [];
+        const toWrite = [];
+        for (const pick of sortedPicks) {
+          const round = safeInt(pick?.round, 0);
+          const pickInRound = safeInt(pick?.pick, 0);
+          const pickLabel = `${round}.${String(pickInRound).padStart(2, "0")}`;
+          const franchiseId = padFranchiseId(pick?.franchise);
+          const playerId = safeStr(pick?.player);
+
+          if (!playerId) {
+            results.push({
+              pick_label: pickLabel,
+              franchise_id: franchiseId,
+              status: "pending_pick",
+              message: `${pickLabel} ${franchiseId} not yet picked — re-run after pick is made.`,
+            });
+            continue;
+          }
+
+          const current = salRows[playerId] || null;
+          if (current && rookieContractStatusLikeAcq(current.contractStatus) && safeInt(current.salary, 0) > 0) {
+            results.push({
+              pick_label: pickLabel,
+              franchise_id: franchiseId,
+              player_id: playerId,
+              status: "skipped_already_present",
+              current_contract: current,
+            });
+            continue;
+          }
+
+          const salary = canonRookieSalary(round, pickInRound);
+          if (salary <= 0) {
+            results.push({
+              pick_label: pickLabel,
+              franchise_id: franchiseId,
+              player_id: playerId,
+              status: "skipped_no_salary",
+              round,
+            });
+            continue;
+          }
+
+          const position = positions[playerId] || "";
+          const contractInfo = buildCanonContractInfo(round, salary, position);
+
+          if (dryRun) {
+            results.push({
+              pick_label: pickLabel,
+              franchise_id: franchiseId,
+              player_id: playerId,
+              position,
+              status: "dry_run",
+              salary,
+              contract_year: 3,
+              contract_status: "R",
+              contract_info: contractInfo,
+            });
+            continue;
+          }
+
+          toWrite.push({ pickLabel, franchiseId, playerId, position, salary, contractInfo });
+        }
+
+        let batchResult = null;
+        if (!dryRun && toWrite.length > 0) {
+          const esc = (s) => String(s == null ? "" : s)
+            .replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          const playerXml = toWrite.map((w) =>
+            `<player id="${esc(w.playerId)}" salary="${esc(w.salary)}" contractYear="3" contractStatus="R" contractInfo="${esc(w.contractInfo)}" />`
+          ).join("");
+          const dataXml = `<salaries><leagueUnit unit="LEAGUE">${playerXml}</leagueUnit></salaries>`;
+          const importUrl = `https://api.myfantasyleague.com/${encodeURIComponent(String(season))}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}&APPEND=1`;
+          let targetImportUrl = importUrl;
+          try {
+            const probe = await fetch(importUrl, {
+              method: "GET",
+              redirect: "manual",
+              headers: { Cookie: cookieHeader, "User-Agent": "upsmflproduction-worker" },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            const loc = probe.headers.get("Location") || probe.headers.get("location");
+            if (probe.status >= 300 && probe.status < 400 && loc) targetImportUrl = loc;
+          } catch (_) {}
+          const resp = await fetch(targetImportUrl, {
+            method: "POST",
+            headers: {
+              Cookie: cookieHeader,
+              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+              "User-Agent": "upsmflproduction-worker",
+            },
+            body: `DATA=${encodeURIComponent(dataXml)}`,
+            redirect: "manual",
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          const text = await resp.text();
+          const lowered = safeStr(text).toLowerCase();
+          const batchOk = resp.ok && !lowered.includes("error") && !lowered.includes("invalid") && !lowered.includes("not authorized");
+          batchResult = {
+            ok: batchOk,
+            upstream_status: resp.status,
+            upstream_preview: safeStr(text).slice(0, 1500),
+            target_url: targetImportUrl,
+            player_count: toWrite.length,
+            data_xml_bytes: dataXml.length,
+          };
+          for (const w of toWrite) {
+            results.push({
+              pick_label: w.pickLabel,
+              franchise_id: w.franchiseId,
+              player_id: w.playerId,
+              position: w.position,
+              status: batchOk ? "applied" : "import_failed",
+              salary: w.salary,
+              contract_info: w.contractInfo,
+            });
+          }
+        }
+
+        acqCacheBustPrefix(`acq:rookie-live:${season}:${leagueId}`);
+        acqCacheBustPrefix(`acq:rookiexml:${season}:${leagueId}`);
+
+        return jsonNoStore(200, {
+          ok: results.every((r) => r.status === "applied" || r.status === "skipped_already_present" || r.status === "pending_pick" || r.status === "dry_run"),
+          season,
+          leagueId,
+          dry_run: dryRun,
+          total_picks: picks.length,
+          applied: results.filter((r) => r.status === "applied").length,
+          dry_run_planned: results.filter((r) => r.status === "dry_run").length,
+          skipped_already_present: results.filter((r) => r.status === "skipped_already_present").length,
+          pending_pick: results.filter((r) => r.status === "pending_pick").length,
+          import_failed: results.filter((r) => r.status === "import_failed").length,
+          skipped_no_salary: results.filter((r) => r.status === "skipped_no_salary").length,
+          batch_result: batchResult,
+          results,
         });
       }
 
