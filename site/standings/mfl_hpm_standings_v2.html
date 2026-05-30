@@ -255,6 +255,8 @@
       border-radius: 3px;
       margin-left: 7px;
       letter-spacing: 0.08em;
+      flex: none;
+      white-space: nowrap;
     }
     .seed-badge {
       display: inline-flex;
@@ -411,10 +413,18 @@
     }
     .div-row .team-name {
       font-weight: 700;
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+    .div-row .team-name .tn-text {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      min-width: 0;
     }
+    .div-row .team-block > div { min-width: 0; }
+    .div-row .team-logo { flex: 0 0 auto; }
     .div-row .owner {
       font-size: 11px;
       color: var(--muted);
@@ -1543,7 +1553,7 @@
             + '<div class="team-block">'
             +   (t.logo ? '<img class="team-logo" src="' + escapeHtml(t.logo) + '" alt="" style="width:88px;height:44px">' : '')
             +   '<div>'
-            +     '<div class="team-name">' + escapeHtml(t.franchise_name || t.franchise_id) + (isLeader ? ' <span class="leader-pill">' + leaderTag + '</span>' : '') + '</div>'
+            +     '<div class="team-name"><span class="tn-text">' + escapeHtml(t.franchise_name || t.franchise_id) + '</span>' + (isLeader ? '<span class="leader-pill">' + leaderTag + '</span>' : '') + '</div>'
             +     '<div class="owner">' + escapeHtml(t.owner_name || "") + '</div>'
             +   '</div>'
             + '</div>'
