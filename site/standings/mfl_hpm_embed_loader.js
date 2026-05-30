@@ -58,18 +58,18 @@
         return (
           "https://rawcdn.githack.com/keithcreelman/upsmflproduction/" +
           jsd[1] +
-          "/site/standings/mfl_hpm_standings.html"
+          "/site/standings/mfl_hpm_standings_v2.html"
         );
       }
 
       const parts = safeStr(su.pathname).split("/");
       parts.pop();
-      su.pathname = parts.join("/") + "/mfl_hpm_standings.html";
+      su.pathname = parts.join("/") + "/mfl_hpm_standings_v2.html";
       su.search = "";
       su.hash = "";
       return su.toString();
     } catch (e) {
-      return "https://keithcreelman.github.io/upsmflproduction/standings/mfl_hpm_standings.html";
+      return "https://keithcreelman.github.io/upsmflproduction/standings/mfl_hpm_standings_v2.html";
     }
   }
 

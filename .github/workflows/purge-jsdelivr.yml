@@ -111,6 +111,20 @@ jobs:
             "site/ups_options_widget.js"
           )
 
+          # Skip any entries that no longer exist in the repo. A file that was
+          # deleted/renamed but left in this list 403s on pre-warm and fails the
+          # whole run (e.g. site/hpm-widget.html, site/ups_options_widget.html).
+          # Filtering here means removing a file never breaks this workflow.
+          KEEP=()
+          for f in "${FILES[@]}"; do
+            if [ -f "$f" ]; then
+              KEEP+=("$f")
+            else
+              echo "skip (not in repo): $f"
+            fi
+          done
+          FILES=("${KEEP[@]}")
+
           UA="ups-purge-workflow"
           OK=0
           THROTTLED=()
