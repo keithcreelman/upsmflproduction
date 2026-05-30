@@ -8156,11 +8156,20 @@ export default {
           let preseason = false;
           if (baseRows.length === 0 && Object.keys(leagueMeta.fidToFranchise).length > 0) {
             preseason = true;
+            // MFL's TYPE=league carries no owner names; pull the most recent known
+            // owner per franchise from src_franchises (owners are stable year to year).
+            const ownerByFid = {};
+            try {
+              const { results: ownerRows } = await db.prepare(
+                "SELECT franchise_id, owner_name FROM src_franchises WHERE owner_name IS NOT NULL AND season = (SELECT MAX(season) FROM src_franchises WHERE owner_name IS NOT NULL)"
+              ).all();
+              for (const o of (ownerRows || [])) ownerByFid[String(o.franchise_id).padStart(4, "0")] = o.owner_name;
+            } catch (_) {}
             baseRows = Object.keys(leagueMeta.fidToFranchise).sort().map((fid) => ({
               season: yr,
               franchise_id: fid,
               franchise_name: leagueMeta.fidToFranchise[fid].name,
-              owner_name: leagueMeta.fidToFranchise[fid].owner_name,
+              owner_name: leagueMeta.fidToFranchise[fid].owner_name || ownerByFid[fid] || null,
               division: leagueMeta.fidToDivision[fid] != null ? leagueMeta.fidToDivision[fid] : null,
               logo: leagueMeta.fidToFranchise[fid].logo,
               div_w: 0, div_l: 0, div_pct: 0,

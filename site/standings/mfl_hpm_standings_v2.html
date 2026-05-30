@@ -1375,7 +1375,7 @@
         return '<tr>'
           + '<td class="num">' + (i + 1) + '</td>'
           + '<td>' + seedBadge(s) + '</td>'
-          + '<td>' + (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="">' : '') + escapeHtml(r.franchise_name || r.franchise_id) + '</td>'
+          + '<td>' + (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="' + escapeHtml(r.franchise_name || r.franchise_id) + '">' : escapeHtml(r.franchise_name || r.franchise_id)) + '</td>'
           + '<td>' + escapeHtml(r.owner_name || "") + '</td>'
           + '<td>' + escapeHtml(divisionLabel(r)) + '</td>'
           + '<td>' + rec(r.h2h_w, r.h2h_l, r.h2h_t) + '</td>'
