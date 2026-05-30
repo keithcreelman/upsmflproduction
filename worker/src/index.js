@@ -8031,8 +8031,19 @@ export default {
           const metaR = await db.prepare(
             "SELECT league_id, mfl_server FROM src_league_season_meta WHERE season = ?"
           ).bind(yr).first();
-          const leagueId = metaR && metaR.league_id;
-          const server = (metaR && metaR.mfl_server) || "api";
+          let leagueId = metaR && metaR.league_id;
+          let server = (metaR && metaR.mfl_server) || "api";
+          // Fallback when the season has no src_league_season_meta row yet (a new
+          // season not loaded into the manual snapshot — the V2 standings bug).
+          // Use the worker's current league + the most recent known server so live
+          // division/alignment data still loads. See docs/DATA_AUTHORITY_MAP.md.
+          if (!leagueId) {
+            leagueId = String(env.LEAGUE_ID || "74598").trim() || null;
+            const fb = await db.prepare(
+              "SELECT mfl_server FROM src_league_season_meta WHERE mfl_server IS NOT NULL ORDER BY season DESC LIMIT 1"
+            ).first();
+            server = (fb && fb.mfl_server) || "www48";
+          }
           if (leagueId) {
             const u = `https://${server === "api" ? "api" : server}.myfantasyleague.com/${yr}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`;
             const res = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker-standings" }, cf: { cacheTtl: 600 } });
