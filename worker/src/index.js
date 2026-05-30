@@ -8046,7 +8046,15 @@ export default {
           }
           if (leagueId) {
             const u = `https://${server === "api" ? "api" : server}.myfantasyleague.com/${yr}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`;
-            const res = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker-standings" }, cf: { cacheTtl: 600 } });
+            // Commissioner cookie unlocks private owner info (owner names) in
+            // TYPE=league — without it MFL omits owner_name (see
+            // MFL_IMPORT_EXPORT_DETAILED.md §league). Owners ARE MFL-authoritative.
+            const cookieRaw = String(env.MFL_COOKIE || "").trim();
+            const cookieHeader = cookieRaw ? (cookieRaw.includes("=") ? cookieRaw : ("MFL_USER_ID=" + cookieRaw)) : "";
+            const res = await fetch(u, {
+              headers: { "User-Agent": "upsmflproduction-worker-standings", ...(cookieHeader ? { Cookie: cookieHeader } : {}) },
+              cf: { cacheTtl: 600 },
+            });
             if (res.ok) {
               const j = await res.json();
               const lg = (j && j.league) || {};
