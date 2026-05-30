@@ -8026,7 +8026,7 @@ export default {
       async function leagueMetaForSeason(db, yr) {
         const cacheKey = String(yr);
         if (_stdgCache.leagueByYear[cacheKey]) return _stdgCache.leagueByYear[cacheKey];
-        let out = { divisions: {}, conferences: {}, standingsSort: null, hasConferences: false };
+        let out = { divisions: {}, conferences: {}, standingsSort: null, hasConferences: false, fidToDivision: {} };
         try {
           const metaR = await db.prepare(
             "SELECT league_id, mfl_server FROM src_league_season_meta WHERE season = ?"
@@ -8055,6 +8055,19 @@ export default {
               const confArr = Array.isArray(confBlock) ? confBlock : (confBlock ? [confBlock] : []);
               for (const c of confArr) {
                 if (c && c.id != null) out.conferences[String(c.id)] = String(c.name || "");
+              }
+              // LIVE franchise→division map straight from MFL. MFL is authoritative
+              // for division assignments; src_franchises is a manual snapshot that
+              // drifts when divisions are reassigned (the V2 standings bug). Prefer
+              // this over src_franchises for the current season. See
+              // docs/DATA_AUTHORITY_MAP.md.
+              const frBlock = lg.franchises && lg.franchises.franchise;
+              const frArr = Array.isArray(frBlock) ? frBlock : (frBlock ? [frBlock] : []);
+              for (const f of frArr) {
+                if (f && f.id != null) {
+                  out.fidToDivision[String(f.id).padStart(4, "0")] =
+                    f.division != null ? String(f.division) : null;
+                }
               }
               out.hasConferences = Object.keys(out.conferences).length > 0;
               if (lg.standingsSort) out.standingsSort = String(lg.standingsSort);
@@ -8120,9 +8133,16 @@ export default {
           ).bind(yr).all();
           const leagueMeta = await leagueMetaForSeason(db, yr);
           const rows = (rs.results || []).map((r) => {
-            const divEntry = r.division != null ? leagueMeta.divisions[String(r.division)] : null;
+            // MFL wins on division assignment: prefer the live franchise→division
+            // map from TYPE=league over the src_franchises snapshot, which drifts
+            // when divisions are reassigned. Fall back to the snapshot only if MFL
+            // didn't return a division for this franchise/season.
+            const liveDiv = leagueMeta.fidToDivision[String(r.franchise_id).padStart(4, "0")];
+            const effDiv = (liveDiv !== undefined && liveDiv !== null) ? liveDiv : r.division;
+            const divEntry = effDiv != null ? leagueMeta.divisions[String(effDiv)] : null;
             return {
               ...r,
+              division: effDiv,
               division_name: divEntry ? divEntry.name : null,
               conference_id: divEntry ? divEntry.conference_id : null,
               conference_name: (divEntry && divEntry.conference_id) ? (leagueMeta.conferences[divEntry.conference_id] || null) : null,
@@ -8305,9 +8325,14 @@ export default {
           const leagueMeta = await leagueMetaForSeason(db, yr);
           const hasFS = await hasFinalStandings(db);
           const rawRows = (seedsRs.results || []).map((s) => {
-            const divEntry = s.division != null ? leagueMeta.divisions[String(s.division)] : null;
+            // MFL wins on division assignment (see /api/standings); fall back to
+            // the src_franchises snapshot only when MFL omits this franchise.
+            const liveDiv = leagueMeta.fidToDivision[String(s.franchise_id).padStart(4, "0")];
+            const effDiv = (liveDiv !== undefined && liveDiv !== null) ? liveDiv : s.division;
+            const divEntry = effDiv != null ? leagueMeta.divisions[String(effDiv)] : null;
             return {
               ...s,
+              division: effDiv,
               division_name: divEntry ? divEntry.name : null,
               conference_id: divEntry ? divEntry.conference_id : null,
               conference_name: (divEntry && divEntry.conference_id) ? (leagueMeta.conferences[divEntry.conference_id] || null) : null,
