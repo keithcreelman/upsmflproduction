@@ -1553,7 +1553,7 @@
             + '<div class="team-block">'
             +   (t.logo ? '<img class="team-logo" src="' + escapeHtml(t.logo) + '" alt="" style="width:88px;height:44px">' : '')
             +   '<div>'
-            +     '<div class="team-name"><span class="tn-text">' + escapeHtml(t.franchise_name || t.franchise_id) + '</span>' + (isLeader ? '<span class="leader-pill">' + leaderTag + '</span>' : '') + '</div>'
+            +     '<div class="team-name">' + (t.logo ? '' : '<span class="tn-text">' + escapeHtml(t.franchise_name || t.franchise_id) + '</span>') + (isLeader ? '<span class="leader-pill">' + leaderTag + '</span>' : '') + '</div>'
             +     '<div class="owner">' + escapeHtml(t.owner_name || "") + '</div>'
             +   '</div>'
             + '</div>'
