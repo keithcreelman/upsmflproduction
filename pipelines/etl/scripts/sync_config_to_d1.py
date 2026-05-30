@@ -36,12 +36,27 @@ Usage
     python3 sync_config_to_d1.py --season 2026
 """
 import argparse
+import datetime
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import urllib.request
+
+
+def active_season(today=None):
+    """The active UPS season for data purposes.
+
+    UPS's final week is endWeek (17), which completes in early January (~NFL
+    Week 18 kickoff). A raw calendar year would roll on Jan 1 while Week 17 is
+    still being played, so keep January days 1-7 on the PRIOR season and roll at
+    ~Week 18 kickoff (Jan 8). Override anytime with --season / MFL_YEAR.
+    """
+    d = today or datetime.datetime.now(datetime.timezone.utc)
+    if d.month == 1 and d.day < 8:
+        return d.year - 1
+    return d.year
 
 
 def fetch_league(season, league_id, server):
@@ -98,8 +113,10 @@ def build_sql(season, league_id, server, league_obj):
             "INSERT INTO src_franchises (season, franchise_id, owner_name, team_name, division, logo) "
             f"VALUES ({s}, {sql_str(fid)}, {sql_str(owner)}, {sql_str(team)}, {sql_str(div)}, {sql_str(logo)}) "
             "ON CONFLICT(season, franchise_id) DO UPDATE SET "
-            "owner_name=excluded.owner_name, team_name=excluded.team_name, "
-            "division=excluded.division, logo=excluded.logo;"
+            # Preserve an existing owner if this run had no cookie (owner_name NULL),
+            # so a cookie-less run never wipes good owner data.
+            "owner_name=COALESCE(excluded.owner_name, src_franchises.owner_name), "
+            "team_name=excluded.team_name, division=excluded.division, logo=excluded.logo;"
         )
 
     # src_league_season_meta — upsert per season
@@ -126,22 +143,23 @@ def build_sql(season, league_id, server, league_obj):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--season", required=True)
+    ap.add_argument("--season", default=None, help="UPS season year; default = computed active season (rolls at ~Week 18 kickoff, not Jan 1)")
     ap.add_argument("--league-id", default="74598")
     ap.add_argument("--server", default="www48")
     ap.add_argument("--db", default="ups-mfl-db")
     ap.add_argument("--from-file", default=None, help="read league JSON from a file instead of fetching")
     ap.add_argument("--dry-run", action="store_true", help="print SQL, do not touch D1")
     args = ap.parse_args()
+    season = args.season or str(active_season())
 
     if args.from_file:
         league_obj = json.load(open(args.from_file))
     else:
-        league_obj = fetch_league(args.season, args.league_id, args.server)
+        league_obj = fetch_league(season, args.league_id, args.server)
 
-    rows, stmts = build_sql(args.season, args.league_id, args.server, league_obj)
+    rows, stmts = build_sql(season, args.league_id, args.server, league_obj)
     owners = sum(1 for r in rows if r[2])
-    print(f"[config-sync] season={args.season} franchises={len(rows)} with_owner={owners}", file=sys.stderr)
+    print(f"[config-sync] season={season} franchises={len(rows)} with_owner={owners}", file=sys.stderr)
     if not rows:
         print("[config-sync] no franchises parsed — aborting (won't wipe D1)", file=sys.stderr)
         sys.exit(2)

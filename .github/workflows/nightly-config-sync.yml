@@ -47,8 +47,9 @@ jobs:
           MFL_LEAGUE_ID: ${{ vars.MFL_LEAGUE_ID }}
         run: |
           set -euo pipefail
-          YEAR="${MFL_YEAR:-$(date -u +%Y)}"
           LEAGUE_ID="${MFL_LEAGUE_ID:-74598}"
-          echo "Syncing CONFIG tables for season ${YEAR} (league ${LEAGUE_ID})"
-          python3 ../pipelines/etl/scripts/sync_config_to_d1.py \
-            --season "${YEAR}" --league-id "${LEAGUE_ID}"
+          # Season auto-computes (rolls at ~Week 18 kickoff, not Jan 1); MFL_YEAR overrides.
+          SEASON_ARG=""
+          if [ -n "${MFL_YEAR:-}" ]; then SEASON_ARG="--season ${MFL_YEAR}"; fi
+          echo "Syncing CONFIG tables (league ${LEAGUE_ID}); season=${MFL_YEAR:-auto}"
+          python3 ../pipelines/etl/scripts/sync_config_to_d1.py ${SEASON_ARG} --league-id "${LEAGUE_ID}"
