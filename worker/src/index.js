@@ -8026,7 +8026,7 @@ export default {
       async function leagueMetaForSeason(db, yr) {
         const cacheKey = String(yr);
         if (_stdgCache.leagueByYear[cacheKey]) return _stdgCache.leagueByYear[cacheKey];
-        let out = { divisions: {}, conferences: {}, standingsSort: null, hasConferences: false, fidToDivision: {} };
+        let out = { divisions: {}, conferences: {}, standingsSort: null, hasConferences: false, fidToDivision: {}, fidToFranchise: {} };
         try {
           const metaR = await db.prepare(
             "SELECT league_id, mfl_server FROM src_league_season_meta WHERE season = ?"
@@ -8065,8 +8065,13 @@ export default {
               const frArr = Array.isArray(frBlock) ? frBlock : (frBlock ? [frBlock] : []);
               for (const f of frArr) {
                 if (f && f.id != null) {
-                  out.fidToDivision[String(f.id).padStart(4, "0")] =
-                    f.division != null ? String(f.division) : null;
+                  const fid = String(f.id).padStart(4, "0");
+                  out.fidToDivision[fid] = f.division != null ? String(f.division) : null;
+                  out.fidToFranchise[fid] = {
+                    name: String(f.name || ("Team " + fid)),
+                    owner_name: f.owner_name != null ? String(f.owner_name) : null,
+                    logo: f.logo != null ? String(f.logo) : (f.icon != null ? String(f.icon) : null),
+                  };
                 }
               }
               out.hasConferences = Object.keys(out.conferences).length > 0;
@@ -8132,7 +8137,29 @@ export default {
               WHERE season = ?`
           ).bind(yr).all();
           const leagueMeta = await leagueMetaForSeason(db, yr);
-          const rows = (rs.results || []).map((r) => {
+          // Preseason fallback: if no games have been played yet (src_standings
+          // empty for this season), synthesize zero-record rows from the live
+          // MFL league so the division ALIGNMENT still renders (franchises grouped
+          // by their current MFL division at 0-0). See docs/DATA_AUTHORITY_MAP.md.
+          let baseRows = rs.results || [];
+          let preseason = false;
+          if (baseRows.length === 0 && Object.keys(leagueMeta.fidToFranchise).length > 0) {
+            preseason = true;
+            baseRows = Object.keys(leagueMeta.fidToFranchise).sort().map((fid) => ({
+              season: yr,
+              franchise_id: fid,
+              franchise_name: leagueMeta.fidToFranchise[fid].name,
+              owner_name: leagueMeta.fidToFranchise[fid].owner_name,
+              division: leagueMeta.fidToDivision[fid] != null ? leagueMeta.fidToDivision[fid] : null,
+              logo: leagueMeta.fidToFranchise[fid].logo,
+              div_w: 0, div_l: 0, div_pct: 0,
+              h2h_w: 0, h2h_l: 0, h2h_t: 0, h2h_pct: 0,
+              allplay_w: 0, allplay_l: 0, allplay_t: 0,
+              allplay_historical_w: 0, allplay_historical_l: 0, allplay_historical_t: 0,
+              allplay_pct: 0, pf: 0, pp: 0, pwr: 0, eff: 0, pa: 0,
+            }));
+          }
+          const rows = baseRows.map((r) => {
             // MFL wins on division assignment: prefer the live franchise→division
             // map from TYPE=league over the src_franchises snapshot, which drifts
             // when divisions are reassigned. Fall back to the snapshot only if MFL
@@ -8264,6 +8291,7 @@ export default {
             year: yr,
             meta: (metaRs.results && metaRs.results[0]) || null,
             season_complete: seasonComplete,
+            preseason,
             standings_sort: leagueMeta.standingsSort,
             conferences: leagueMeta.conferences,
             has_conferences: leagueMeta.hasConferences,
