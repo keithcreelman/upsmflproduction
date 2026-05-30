@@ -1399,9 +1399,14 @@
       if (!resp || !resp.ok) return showError(host, "Couldn't load standings for " + state.year + ".");
       var rows = resp.rows || [];
       if (!rows.some(function (r) { return !!r.division; })) {
-        host.innerHTML = '<div class="banner">Division alignment pending — locks at draft night for the 2026–2028 cycle (see league context §3.5.B).</div>';
+        host.innerHTML = '<div class="banner">Division alignment not available for ' + state.year + ' yet.</div>';
         return;
       }
+      // Preseason: alignment is live from MFL but no games have been played, so
+      // the worker returns 0-0 rows. Surface a note so 0-0 reads as intentional.
+      var preseasonNote = resp.preseason
+        ? '<div class="note">Preseason — ' + state.year + ' division alignment (live from MFL). Records begin Week 1.</div>'
+        : '';
       var seasonComplete = !!resp.season_complete;
       var leaderTag = seasonComplete ? "WINNER" : "LEADER";
       var hasConferences = !!resp.has_conferences;
@@ -1565,7 +1570,7 @@
         + (hasConferences ? "Conferences active this year. " : "")
         + 'UPS tiebreaker chain (' + state.year + '): ' + chainLabel + '. '
         + '"' + leaderTag + '" pill shows ' + (seasonComplete ? "the team that won" : "current in-season leader of") + ' the division.';
-      host.innerHTML = html + '<div class="note">' + noteText + '</div>' + DEFERRED_NOTE;
+      host.innerHTML = preseasonNote + html + '<div class="note">' + noteText + '</div>' + DEFERRED_NOTE;
     }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
   }
 
