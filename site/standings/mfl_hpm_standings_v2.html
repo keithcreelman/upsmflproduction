@@ -238,12 +238,12 @@
     .compact th, .compact td { padding: 4px 7px; font-size: 11px; }
 
     .team-logo {
-      width: 28px;
+      width: 56px;
       height: 28px;
       border-radius: 3px;
       margin-right: 7px;
       vertical-align: middle;
-      object-fit: cover;
+      object-fit: contain;
     }
     .leader-pill {
       display: inline-block;
@@ -1541,7 +1541,7 @@
           }
           return '<div class="div-row' + (isLeader ? ' leader' : '') + '">'
             + '<div class="team-block">'
-            +   (t.logo ? '<img class="team-logo" src="' + escapeHtml(t.logo) + '" alt="" style="width:44px;height:44px">' : '')
+            +   (t.logo ? '<img class="team-logo" src="' + escapeHtml(t.logo) + '" alt="" style="width:88px;height:44px">' : '')
             +   '<div>'
             +     '<div class="team-name">' + escapeHtml(t.franchise_name || t.franchise_id) + (isLeader ? ' <span class="leader-pill">' + leaderTag + '</span>' : '') + '</div>'
             +     '<div class="owner">' + escapeHtml(t.owner_name || "") + '</div>'
