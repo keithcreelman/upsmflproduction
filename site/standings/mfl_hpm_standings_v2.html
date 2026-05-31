@@ -363,6 +363,14 @@
       letter-spacing: 0.02em;
       line-height: 1.2;
     }
+    .div-card-brand { min-width: 0; flex: 1; }
+    .div-banner {
+      height: 40px;
+      width: auto;
+      max-width: 100%;
+      display: block;
+      border-radius: 4px;
+    }
     .div-card-ap {
       text-align: right;
       font-size: 11px;
@@ -1188,6 +1196,15 @@
     if (p == null || isNaN(p)) return "—";
     return (Number(p) * 100).toFixed(1) + "%";
   }
+  function divBannerHtml(code, name) {
+    // 2026-2028 realignment cycle has custom division banners (name baked in).
+    // Earlier seasons used different alignments → fall back to the name text.
+    if (state.year >= 2026 && /^0[0-3]$/.test(String(code))) {
+      var url = "https://keithcreelman.github.io/upsmflproduction/standings/div_logos/74598_division" + code + "_logo.png";
+      return '<img class="div-banner" src="' + url + '" alt="' + escapeHtml(name || "") + '">';
+    }
+    return '<div class="div-card-name">' + escapeHtml(name || "") + '</div>';
+  }
   function fmtCommas(n, digits) {
     if (n == null || isNaN(n)) return "—";
     return Number(n).toLocaleString(undefined, { minimumFractionDigits: digits || 0, maximumFractionDigits: digits || 0 });
@@ -1569,7 +1586,7 @@
         }).join("");
         html += '<section class="div-card">'
           + '<header class="div-card-header">'
-          +   '<div><div class="div-card-name">' + escapeHtml(d.name) + '</div></div>'
+          +   '<div class="div-card-brand">' + divBannerHtml(divCode, d.name) + '</div>'
           +   '<div class="div-card-ap">All-Play<span class="val">' + fmtPct(d.divApPct) + '</span></div>'
           + '</header>'
           + '<div class="div-card-body">' + rowsHtml + '</div>'
