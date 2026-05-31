@@ -211,7 +211,7 @@ def load_overrides():
     if OVERRIDES_FILE.exists():
         for row in csv.DictReader(open(OVERRIDES_FILE)):
             out.setdefault(row["player"].strip(), []).append(
-                (row.get("pos", "").strip(), row["final_type"].strip(), row.get("note", "").strip())
+                (row.get("pos", "").strip(), row["final_type"].strip(), row.get("note", "").strip(), row.get("restructure_year", "").strip())
             )
     return out
 
@@ -256,9 +256,12 @@ def main():
                 proposed_ci = normalize_contract_info(rest[pid][1])
             # Keith-reviewed overrides win (the manual cluster review). An optional
             # pos disambiguates duplicate player names (e.g. two Justin Jeffersons).
-            for opos, otype, onote in overrides.get(meta.get("name", "").strip(), []):
+            for opos, otype, onote, orestr in overrides.get(meta.get("name", "").strip(), []):
                 if not opos or opos == meta.get("position", ""):
                     prop, conf, note = otype, "confirmed", onote
+                    # restructure annotation (drops if/when the contract changes again)
+                    if orestr and "restructure:" not in proposed_ci.lower():
+                        proposed_ci = (proposed_ci.rstrip() + f"| restructure: {orestr}") if proposed_ci.strip() else f"restructure: {orestr}"
                     break
             else:
                 if (cur_type, prop) in CONFIRMED_CLUSTERS:

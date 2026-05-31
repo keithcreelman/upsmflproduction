@@ -1,75 +1,75 @@
-player,pos,final_type,note
-"London, Drake",,Vet-Ext2-BL,confirmed (BL review 2026-05-31)
-"Collins, Nico",,Vet-Ext2-BL,confirmed
-"Wilson, Garrett",,Vet-Ext2-BL,confirmed
-"Shakir, Khalil",,Vet-ERA-BL,corrected — origin is ERA not FAA
-"Chase, Ja'Marr",,Vet-Ext2-BL,confirmed
-"McBride, Trey",,Vet-Ext2-BL,confirmed
-"Smith, Geno",,Vet-FAA-BL,confirmed
-"Walker III, Kenneth",,Vet-Ext1-BL,corrected — 1yr ext with loaded year still ahead
-"Jefferson, Justin",WR,Vet-Ext2-BL,confirmed
-"Bond, Isaiah",,Vet-WW-BL,confirmed
-"Brown, A.J.",,Vet-Ext1,corrected — BL deal ended 2025; 1yr ext can't be loaded so -BL drops on 2026 rollover
-"Henry, Derrick",,Vet-Ext1,corrected — same as A.J. Brown (BL ended 2025; ext not loaded)
-"Hurts, Jalen",,Vet-Ext2-BL,confirmed
-"Downs, Josh",,Vet-Ext1,confirmed (EXT1 review)
-"Johnston, Quentin",,Vet-Ext1,confirmed
-"Kraft, Tucker",,Vet-Ext1,confirmed
-"Montgomery, David",,Vet-Ext1,confirmed
-"Reed, Jayden",,Vet-Ext1,confirmed
-"Stroud, C.J.",,Vet-Ext1,confirmed
-"Brown, Chase",,Vet-Ext2,confirmed (EXT2 review)
-"Nacua, Puka",,Vet-Ext2,confirmed
-"Robinson, Bijan",,Vet-Ext2,confirmed
-"Young, Bryce",,Vet-Ext2,confirmed
-"LaPorta, Sam",,Vet-Ext2-BL,confirmed (EXT2-BL review)
-"Purdy, Brock",,Vet-FAA-FL,confirmed (FL review)
-"Smith-Njigba, Jaxon",,Vet-Ext2-FL,confirmed — RESTRUCTURE (2yr ext '25 then restructured); add restructure:<year>
-"Tagovailoa, Tua",,Vet-Ext2-FL,confirmed
-"Kmet, Cole",,Vet-FAA-FL,confirmed
-"Herbert, Justin",,Vet-FAA-FL,confirmed
-"Jeudy, Jerry",,Vet-FAA-FL,confirmed
-"Smith, Roquan",,Vet-FAA-FL,confirmed
-"Adams, Davante",,Vet-FAA-FL,confirmed
-"Mayfield, Baker",,Vet-FAA-FL,confirmed
-"Olave, Chris",,Vet-Ext2-FL,confirmed — PROBABLE RESTRUCTURE (Keith to confirm); not in cloud D1
-"Mason, Jordan",,Vet-Ext2-FL,confirmed — RESTRUCTURE (2yr ext then Yr1 front-load; 2025 AAV 4K/24K vs 14K salary); add restructure:<year>
-"Smith, Tykee",,Vet-Ext1,corrected — 1yr extension
-"Pollard, Tony",,Vet-Ext1,corrected — 1yr extension
-"Higgins, Tee",,Vet-Ext1,corrected — 1yr extension; RESTRUCTURE (add restructure:<year>)
-"Robinson, Wan'Dale",,Vet-Ext1,corrected — 1yr extension
-"Jennings, Jauan",,Vet-Ext1,corrected — 1yr extension
-"Ferguson, Jake",,Vet-Ext1,corrected — 1yr extension
-"Sutton, Courtland",,Vet-Ext1,corrected — 1yr extension; RESTRUCTURE (add restructure:<year>)
-"Addison, Jordan",,Vet-Ext1,corrected — 1yr extension
-"Dowdle, Rico",,Vet-Ext1,corrected — 1yr extension
-"Coker, Jalen",,Rookie-MYM,WW post-contract-deadline (last Sun before Wk1) = MYM
-"Dike, Chimere",,Rookie-MYM,WW post-contract-deadline (last Sun before Wk1) = MYM
-"Watts, Xavier",,Rookie-MYM,WW post-contract-deadline (last Sun before Wk1) = MYM
-"Walker, Quay",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Lake, Quentin",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Campbell, Jack",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Jones, Marcus",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Wilson, Michael",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Elliott, DeShon",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Wentz, Carson",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Williams, Isaiah",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Sanders, Ja'Tavion",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Thornton, Tyquan",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Bynum, Camryn",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Cooper, Jonathon",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Wicks, Dontayvion",,Vet-MYM,WW pickup post-contract-deadline = MYM
-"Strange, Brenton",,Vet-FAA,last acq: 2025-08-07 FA Auction
-"Meyers, Jakobi",,Vet-FAA,last acq: 2024-07-29 FA Auction
-"Owusu-Koramoah, Jeremiah",,Vet-FAA,last acq: 2024-08-02 FA Auction
-"Schultz, Dalton",,Vet-FAA,last acq: 2024-07-29 FA Auction
-"Goedert, Dallas",,Vet-FAA,last acq: 2025-08-05 FA Auction
-"Johnson, Roschon",,Vet-FAA,last acq: 2025-08-09 FA Auction
-"Shaheed, Rashid",,Vet-ERA,last acq: 2025-05-25 ERA auction
-"Davis, Isaiah",,Vet-ERA,last acq: 2025-05-26 ERA auction
-"Mitchell, Keaton",,Vet-WW,last acq: 2025-08-30 BBID (pre-deadline 08-31)
-"Tucker, Tre",,Vet-WW,last acq: 2024-08-29 BBID (pre-deadline 09-01)
-"Anderson, Will",,Vet-MYM,last acq: 2024-09-19 BBID (post-deadline)
-"Walker, Travon",,Vet-MYM,last acq: 2024-10-31 BBID (post-deadline)
-"Dell, Tank",,Vet-MYM,last acq: 2025-09-11 BBID (post-deadline) — Keith: dropped then WW'd
-"Tuipulotu, Tuli",,Vet-MYM,last acq: 2024-11-14 BBID (post-deadline)
+player,pos,final_type,note,restructure_year
+"London, Drake",,Vet-Ext2-BL,confirmed (BL review 2026-05-31),2025
+"Collins, Nico",,Vet-Ext2-BL,confirmed,
+"Wilson, Garrett",,Vet-Ext2-BL,confirmed,
+"Shakir, Khalil",,Vet-ERA-BL,corrected — origin is ERA not FAA,
+"Chase, Ja'Marr",,Vet-Ext2-BL,confirmed,2026
+"McBride, Trey",,Vet-Ext2-BL,confirmed,
+"Smith, Geno",,Vet-FAA-BL,confirmed,
+"Walker III, Kenneth",,Vet-Ext1-BL,corrected — 1yr ext with loaded year still ahead,2026
+"Jefferson, Justin",WR,Vet-Ext2-BL,confirmed,2025
+"Bond, Isaiah",,Vet-WW-BL,confirmed,
+"Brown, A.J.",,Vet-Ext1,corrected — BL deal ended 2025; 1yr ext can't be loaded so -BL drops on 2026 rollover,
+"Henry, Derrick",,Vet-Ext1,corrected — same as A.J. Brown (BL ended 2025; ext not loaded),
+"Hurts, Jalen",,Vet-Ext2-BL,confirmed,
+"Downs, Josh",,Vet-Ext1,confirmed (EXT1 review),
+"Johnston, Quentin",,Vet-Ext1,confirmed,
+"Kraft, Tucker",,Vet-Ext1,confirmed,
+"Montgomery, David",,Vet-Ext1,confirmed,
+"Reed, Jayden",,Vet-Ext1,confirmed,
+"Stroud, C.J.",,Vet-Ext1,confirmed,
+"Brown, Chase",,Vet-Ext2,confirmed (EXT2 review),
+"Nacua, Puka",,Vet-Ext2,confirmed,
+"Robinson, Bijan",,Vet-Ext2,confirmed,
+"Young, Bryce",,Vet-Ext2,confirmed,
+"LaPorta, Sam",,Vet-Ext2-BL,confirmed (EXT2-BL review),
+"Purdy, Brock",,Vet-FAA-FL,confirmed (FL review),
+"Smith-Njigba, Jaxon",,Vet-Ext2-FL,confirmed — RESTRUCTURE (2yr ext '25 then restructured); add restructure:<year>,2025
+"Tagovailoa, Tua",,Vet-Ext2-FL,confirmed,
+"Kmet, Cole",,Vet-FAA-FL,confirmed,
+"Herbert, Justin",,Vet-FAA-FL,confirmed,
+"Jeudy, Jerry",,Vet-FAA-FL,confirmed,
+"Smith, Roquan",,Vet-FAA-FL,confirmed,
+"Adams, Davante",,Vet-FAA-FL,confirmed,
+"Mayfield, Baker",,Vet-FAA-FL,confirmed,
+"Olave, Chris",,Vet-Ext2-FL,confirmed — PROBABLE RESTRUCTURE (Keith to confirm); not in cloud D1,2025
+"Mason, Jordan",,Vet-Ext2-FL,confirmed — RESTRUCTURE (2yr ext then Yr1 front-load; 2025 AAV 4K/24K vs 14K salary); add restructure:<year>,2025
+"Smith, Tykee",,Vet-Ext1,corrected — 1yr extension,
+"Pollard, Tony",,Vet-Ext1,corrected — 1yr extension,
+"Higgins, Tee",,Vet-Ext1,corrected — 1yr extension; RESTRUCTURE (add restructure:<year>),2025
+"Robinson, Wan'Dale",,Vet-Ext1,corrected — 1yr extension,
+"Jennings, Jauan",,Vet-Ext1,corrected — 1yr extension,
+"Ferguson, Jake",,Vet-Ext1,corrected — 1yr extension,
+"Sutton, Courtland",,Vet-Ext1,corrected — 1yr extension; RESTRUCTURE (add restructure:<year>),2025
+"Addison, Jordan",,Vet-Ext1,corrected — 1yr extension,
+"Dowdle, Rico",,Vet-Ext1,corrected — 1yr extension,
+"Coker, Jalen",,Rookie-MYM,WW post-contract-deadline (last Sun before Wk1) = MYM,
+"Dike, Chimere",,Rookie-MYM,WW post-contract-deadline (last Sun before Wk1) = MYM,
+"Watts, Xavier",,Rookie-MYM,WW post-contract-deadline (last Sun before Wk1) = MYM,
+"Walker, Quay",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Lake, Quentin",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Campbell, Jack",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Jones, Marcus",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Wilson, Michael",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Elliott, DeShon",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Wentz, Carson",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Williams, Isaiah",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Sanders, Ja'Tavion",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Thornton, Tyquan",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Bynum, Camryn",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Cooper, Jonathon",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Wicks, Dontayvion",,Vet-MYM,WW pickup post-contract-deadline = MYM,
+"Strange, Brenton",,Vet-FAA,last acq: 2025-08-07 FA Auction,
+"Meyers, Jakobi",,Vet-FAA,last acq: 2024-07-29 FA Auction,
+"Owusu-Koramoah, Jeremiah",,Vet-FAA,last acq: 2024-08-02 FA Auction,
+"Schultz, Dalton",,Vet-FAA,last acq: 2024-07-29 FA Auction,
+"Goedert, Dallas",,Vet-FAA,last acq: 2025-08-05 FA Auction,
+"Johnson, Roschon",,Vet-FAA,last acq: 2025-08-09 FA Auction,
+"Shaheed, Rashid",,Vet-ERA,last acq: 2025-05-25 ERA auction,
+"Davis, Isaiah",,Vet-ERA,last acq: 2025-05-26 ERA auction,
+"Mitchell, Keaton",,Vet-WW,last acq: 2025-08-30 BBID (pre-deadline 08-31),
+"Tucker, Tre",,Vet-WW,last acq: 2024-08-29 BBID (pre-deadline 09-01),
+"Anderson, Will",,Vet-MYM,last acq: 2024-09-19 BBID (post-deadline),
+"Walker, Travon",,Vet-MYM,last acq: 2024-10-31 BBID (post-deadline),
+"Dell, Tank",,Vet-MYM,last acq: 2025-09-11 BBID (post-deadline) — Keith: dropped then WW'd,
+"Tuipulotu, Tuli",,Vet-MYM,last acq: 2024-11-14 BBID (post-deadline),
