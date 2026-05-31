@@ -1,0 +1,65 @@
+name: Nightly Builders
+
+# Recurring builders that are MFL-API-native (no local mfl_database.db
+# dependency), so they run on GitHub-hosted runners. Source of truth + rationale:
+# docs/SCHEDULED_PIPELINE_AUDIT.md. Runs after nightly-config-sync (09:30 UTC).
+#
+# Add a new builder here ONLY once it reads from MFL API / D1 (not the local
+# Desktop DB). Local-DB-bound builders must be ported first — see the audit doc.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "45 9 * * *" # 09:45 UTC — after snapshot (09:05) + config-sync (09:30)
+
+concurrency:
+  group: nightly-builders
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Franchise assets snapshot (feeds the rookie hub)
+        run: |
+          python pipelines/etl/scripts/snapshot_franchise_assets.py
+
+      - name: Commit and push if changed
+        run: |
+          # Ignore pure-timestamp churn: meta.generated_at_utc changes every run,
+          # so only commit when real asset data changed.
+          REAL=$(git diff --unified=0 -- site/rookies/franchise_assets_2026.json \
+                   | grep -E '^[+-]' | grep -vE '^[+-]{3} ' | grep -vc 'generated_at_utc')
+          if [ "${REAL}" = "0" ]; then
+            echo "Only the timestamp changed (no asset drift); skipping commit."
+            git checkout -- site/rookies/franchise_assets_2026.json || true
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add site/rookies/franchise_assets_2026.json
+          git commit -m "Auto-refresh franchise assets snapshot"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "Push succeeded on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed; retrying..."
+            sleep 2
+          done
+          echo "Failed to push after 3 attempts."
+          exit 1
