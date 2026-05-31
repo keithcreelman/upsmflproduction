@@ -183,6 +183,19 @@ def normalize_contract_info(ci):
     return ci2
 
 
+OVERRIDES_FILE = REPO / "docs" / "contract_unification_overrides.csv"
+
+
+def load_overrides():
+    """Keith-reviewed final types (docs/contract_unification_overrides.csv) — these
+    win over the derived proposal so the manual review persists across regenerations."""
+    out = {}
+    if OVERRIDES_FILE.exists():
+        for row in csv.DictReader(open(OVERRIDES_FILE)):
+            out[row["player"].strip()] = (row["final_type"].strip(), row.get("note", "").strip())
+    return out
+
+
 def main():
     snap = latest_snapshot()
     date = snap.name
@@ -201,6 +214,7 @@ def main():
                 rest[str(p["id"])] = (str(p.get("contractStatus", "")), p.get("contractInfo", "") or "")
     except Exception as e:
         print(f"warn: could not fetch {prev_year} rosters for restore: {e}")
+    overrides = load_overrides()
 
     rows = []
     for fr in rosters:
@@ -220,6 +234,10 @@ def main():
                 prop, conf = "Rookie-Draft", "high"
                 note = f"Restored from {prev_year} (2026 contractInfo wiped); roll contractYear forward."
                 proposed_ci = normalize_contract_info(rest[pid][1])
+            # Keith-reviewed overrides win (the manual cluster review).
+            ov = overrides.get(meta.get("name", "").strip())
+            if ov:
+                prop, conf, note = ov[0], "confirmed", ov[1]
             ci_note = completeness_note(proposed_ci, parse_cl(proposed_ci)) or "(numbers unchanged — type only)"
             rows.append({
                 "franchise": fids.get(fid, fid),
