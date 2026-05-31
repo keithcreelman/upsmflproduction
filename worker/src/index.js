@@ -8120,9 +8120,10 @@ export default {
           if (!Number.isFinite(yr) || yr < 2010 || yr > 2099) {
             return jsonOut(400, { ok: false, reason: "invalid year" });
           }
-          // PA (points against) = sum of opponent_score across the season
-          // from src_schedule (only regular-season H2H + playoff rows;
-          // bye weeks have no row, which is correct semantics).
+          // PA = AVERAGE points against per played matchup (not the season sum).
+          // UPS schedules can have multi-opponent rows per week, so SUM
+          // triple-counted and dwarfed PF; the average normalizes it. Only
+          // counts played games (opponent_score > 0); bye/unplayed rows excluded.
           const rs = await db.prepare(
             `SELECT s.season,
                     s.franchise_id,
@@ -8140,9 +8141,10 @@ export default {
                     COALESCE(s.allplay_historical_t, s.allplay_t)   AS allplay_historical_t,
                     s.allplay_pct,
                     s.pf, s.pp, s.pwr, s.eff,
-                    (SELECT ROUND(SUM(opponent_score), 2)
+                    (SELECT ROUND(AVG(opponent_score), 2)
                        FROM src_schedule sc
                       WHERE sc.season = s.season AND sc.franchise_id = s.franchise_id
+                        AND COALESCE(sc.opponent_score, 0) > 0
                     ) AS pa
                FROM src_standings s
                LEFT JOIN src_franchises f
