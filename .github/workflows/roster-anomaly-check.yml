@@ -1,0 +1,46 @@
+name: Roster Anomaly Check
+
+# J3 — daily drift safety net. Diffs the two most recent MFL snapshots and flags
+# any roster/contract change with no matching MFL transaction. Flag-only: it
+# never edits data. Unexplained roster moves fail the run (red = notification);
+# silent contract edits are `::warning::` annotations. See
+# docs/SCHEDULED_PIPELINE_AUDIT.md §4 + docs/DATA_AUTHORITY_MAP.md hotspot #0.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "50 9 * * *" # after mfl-daily-snapshot (09:05) commits the day's pull
+
+concurrency:
+  group: roster-anomaly-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Diff latest two snapshots vs transactions
+        run: |
+          python pipelines/etl/scripts/check_roster_anomalies.py \
+            --report "/tmp/roster_anomaly_report.json"
+
+      - name: Upload anomaly report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: roster-anomaly-report
+          path: /tmp/roster_anomaly_report.json
+          if-no-files-found: ignore
