@@ -27578,6 +27578,62 @@ export default {
         }
       }
 
+      // GET /admin/discord/restructures — READ-ONLY. Scrapes the Contract-Activity
+      // Discord channel for the bot's own restructure posts (the authoritative
+      // record; the local-DB ingest is stale + mislabels years). Returns
+      // [{ player, team, season, ts, message_id }]. Commish-gated. No writes.
+      if (path === "/admin/discord/restructures" && request.method === "GET") {
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const botToken = safeStr(env.DISCORD_CONTRACT_BOT_TOKEN || env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "");
+        if (!botToken) return jsonOut(500, { ok: false, error: "DISCORD_BOT_TOKEN missing" });
+        const channelId = safeStr(env.DISCORD_CONTRACTS_CHANNEL_ID || env.DISCORD_CONTRACT_CHANNEL_ID || "1059113303059730494").replace(/\D/g, "");
+        const maxPages = Math.max(1, Math.min(60, safeInt(url.searchParams.get("pages"), 30)));
+        const out = [];
+        let before = "";
+        let pages = 0;
+        try {
+          while (pages < maxPages) {
+            const u = `https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages?limit=100${before ? `&before=${encodeURIComponent(before)}` : ""}`;
+            const r = await fetch(u, { headers: { Authorization: `Bot ${botToken}` } });
+            if (!r.ok) {
+              if (pages === 0) return jsonOut(r.status, { ok: false, error: `discord_${r.status}`, detail: safeStr(await r.text()).slice(0, 240) });
+              break;
+            }
+            const msgs = await r.json();
+            if (!Array.isArray(msgs) || msgs.length === 0) break;
+            for (const m of msgs) {
+              const embeds = Array.isArray(m.embeds) ? m.embeds : [];
+              const blob = (safeStr(m.content) + " " + embeds.map((e) => safeStr(e.title) + " " + safeStr(e.description)).join(" ")).toLowerCase();
+              if (!blob.includes("restructure")) continue;
+              let player = null, team = null;
+              for (const e of embeds) {
+                for (const fld of (Array.isArray(e.fields) ? e.fields : [])) {
+                  const nm = safeStr(fld.name).toLowerCase();
+                  if (nm === "player" && !player) player = safeStr(fld.value);
+                  if (nm === "team" && !team) team = safeStr(fld.value);
+                }
+              }
+              const ts = safeStr(m.timestamp);
+              out.push({
+                player,
+                team,
+                season: ts ? Number(ts.slice(0, 4)) : null,
+                ts,
+                message_id: safeStr(m.id),
+                content_snippet: player ? null : safeStr(m.content).slice(0, 120),
+              });
+            }
+            before = safeStr(msgs[msgs.length - 1].id);
+            pages++;
+          }
+          return jsonOut(200, { ok: true, channel_id: channelId, pages_scanned: pages, count: out.length, restructures: out });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
       // POST /admin/import-salaries
       // Body: {
       //   season: "2026",
