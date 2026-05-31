@@ -8342,6 +8342,23 @@ export default {
               po: Number(r.is_playoff) === 1 ? 1 : 0,
             }));
           } catch (_) {}
+          // EVERY franchise's weekly score (incl. playoff byes — a team scores even
+          // with no H2H matchup), + optimal points for efficiency. This is what
+          // all-play and scoped scoring should use so counts are consistent.
+          let weeklyScores = [];
+          try {
+            const ws = await db.prepare(
+              "SELECT week, franchise_id, team_score, team_opt_pts, is_playoff " +
+              "FROM src_franchise_weekly_score WHERE season = ? AND COALESCE(team_score, 0) > 0 ORDER BY week"
+            ).bind(yr).all();
+            weeklyScores = (ws.results || []).map((r) => ({
+              w: Number(r.week) || 0,
+              fid: String(r.franchise_id || "").padStart(4, "0"),
+              ts: Number(r.team_score) || 0,
+              opt: Number(r.team_opt_pts) || 0,
+              po: Number(r.is_playoff) === 1 ? 1 : 0,
+            }));
+          } catch (_) {}
           return new Response(JSON.stringify({
             ok: true,
             year: yr,
@@ -8353,6 +8370,7 @@ export default {
             has_conferences: leagueMeta.hasConferences,
             rows,
             weekly,
+            weeklyScores,
           }), { status: 200, headers: { "content-type": "application/json", "Cache-Control": "public, max-age=60", ...corsHeaders } });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
