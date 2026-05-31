@@ -2245,6 +2245,7 @@ export default {
         path !== "/api/taxi-callups" &&
         path !== "/api/taxi-callups/confirm" &&
         path !== "/admin/sync-ups-draft-picks" &&
+        path !== "/admin/discord/restructures" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         !path.startsWith("/api/trades/proposals") &&
