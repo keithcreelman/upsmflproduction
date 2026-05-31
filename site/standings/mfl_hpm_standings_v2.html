@@ -1106,11 +1106,17 @@
         </div>
         <div class="controls">
           <label class="year-picker">Season <select id="yearSel"></select></label>
-          <label class="scope-picker disabled">
+          <label class="scope-picker">
             Scope
-            <select id="scopeSel" disabled>
-              <option>All</option><option>Reg Season</option><option>Playoffs</option><option>Custom weeks…</option>
+            <select id="scopeSel">
+              <option value="full">Full Season</option>
+              <option value="regular">Regular Season</option>
+              <option value="playoffs">Playoffs</option>
+              <option value="custom">Custom weeks…</option>
             </select>
+            <span id="customWk" style="display:none;white-space:nowrap"> wk
+              <input id="cwStart" type="number" min="1" max="25" style="width:46px">–<input id="cwEnd" type="number" min="1" max="25" style="width:46px">
+            </span>
           </label>
         </div>
       </header>
@@ -1170,6 +1176,9 @@
     year: parseInt(qs.get("year"), 10) || defaultSeasonForToday(),
     overall: { sortKey: "allplay_pct", sortDir: "desc" },
     divisions: { sortKey: "allplay_pct", sortDir: "desc" },
+    scope: qs.get("scope") || "full",      // full | regular | playoffs | custom
+    customStart: parseInt(qs.get("cs"), 10) || null,
+    customEnd: parseInt(qs.get("ce"), 10) || null,
     dpMode: "allTime",
     dpSort: { key: "ap_pct", dir: "desc" },
     // Eras view: "all" = cross-era summary table; era_start year = single-era detail page.
@@ -1238,6 +1247,13 @@
       var u = new URL(window.location.href);
       u.searchParams.set("view", state.view);
       u.searchParams.set("year", String(state.year));
+      if (state.scope && state.scope !== "full") {
+        u.searchParams.set("scope", state.scope);
+        if (state.scope === "custom") {
+          if (state.customStart) u.searchParams.set("cs", String(state.customStart)); else u.searchParams.delete("cs");
+          if (state.customEnd) u.searchParams.set("ce", String(state.customEnd)); else u.searchParams.delete("ce");
+        } else { u.searchParams.delete("cs"); u.searchParams.delete("ce"); }
+      } else { u.searchParams.delete("scope"); u.searchParams.delete("cs"); u.searchParams.delete("ce"); }
       if (state.view === "eras") {
         u.searchParams.set("era", String(state.eraSelected || "all"));
       } else {
@@ -1310,6 +1326,30 @@
       return '<option value="' + y + '"' + (y === state.year ? " selected" : "") + '>' + y + '</option>';
     }).join("");
     sel.addEventListener("change", function () { state.year = parseInt(sel.value, 10); pushQs(); render(); });
+
+    // Scope picker (Full / Regular / Playoffs / Custom weeks)
+    var scopeSel = el("scopeSel");
+    var customWk = el("customWk");
+    var cwStart = el("cwStart");
+    var cwEnd = el("cwEnd");
+    if (scopeSel) {
+      scopeSel.value = state.scope;
+      if (cwStart && state.customStart) cwStart.value = state.customStart;
+      if (cwEnd && state.customEnd) cwEnd.value = state.customEnd;
+      if (customWk) customWk.style.display = (state.scope === "custom") ? "" : "none";
+      scopeSel.addEventListener("change", function () {
+        state.scope = scopeSel.value || "full";
+        if (customWk) customWk.style.display = (state.scope === "custom") ? "" : "none";
+        pushQs(); render();
+      });
+      var onCustom = function () {
+        state.customStart = parseInt(cwStart && cwStart.value, 10) || null;
+        state.customEnd = parseInt(cwEnd && cwEnd.value, 10) || null;
+        if (state.scope === "custom") { pushQs(); render(); }
+      };
+      if (cwStart) cwStart.addEventListener("change", onCustom);
+      if (cwEnd) cwEnd.addEventListener("change", onCustom);
+    }
   }
 
   function render() {
@@ -1366,6 +1406,76 @@
   // ────────────────────────────────────────────────────────────────────────
   // View 1 — Overall
   // ────────────────────────────────────────────────────────────────────────
+  // ── Scoped standings (Full / Regular / Playoffs / Custom) ───────────────
+  // Ported from V1 (mfl_hpm_standings.html): recompute W-L / All-Play / Avg PF
+  // / Avg PA from per-week matchup rows over a chosen week range. See
+  // docs/STANDINGS_SCOPE_BUILD.md.
+  function scopeLabel() {
+    return { regular: "Regular Season", playoffs: "Playoffs", custom: "Custom" }[state.scope] || "Full Season";
+  }
+  function scopeWeekRange(resp) {
+    var meta = resp.meta || {};
+    var maxWk = 0;
+    (resp.weekly || []).forEach(function (m) { if (m.w > maxWk) maxWk = m.w; });
+    var start = 1;
+    var end = maxWk || parseInt(meta.total_weeks, 10) || 17;
+    var regEnd = parseInt(meta.last_regular_season_week, 10) || (end >= 17 ? 14 : Math.max(1, end - 3));
+    if (state.scope === "regular") return [start, regEnd];
+    if (state.scope === "playoffs") return [Math.min(end, regEnd + 1), end];
+    if (state.scope === "custom") {
+      var cs = Math.max(start, Math.min(end, parseInt(state.customStart, 10) || start));
+      var ce = Math.max(cs, Math.min(end, parseInt(state.customEnd, 10) || end));
+      return [cs, ce];
+    }
+    return [start, end];
+  }
+  function computeScopedRows(baseRows, weekly, start, end) {
+    var byId = {};
+    var out = (baseRows || []).map(function (r) {
+      var c = {
+        franchise_id: r.franchise_id, franchise_name: r.franchise_name, owner_name: r.owner_name,
+        division: r.division, division_name: r.division_name, conference_id: r.conference_id,
+        conference_name: r.conference_name, logo: r.logo,
+        h2h_w: 0, h2h_l: 0, h2h_t: 0, div_w: 0, div_l: 0,
+        allplay_w: 0, allplay_l: 0, allplay_t: 0, _pf: 0, _pa: 0, _n: 0
+      };
+      byId[pad4(r.franchise_id)] = c;
+      return c;
+    });
+    var scoresByWeek = {};
+    (weekly || []).forEach(function (m) {
+      if (m.w < start || m.w > end) return;
+      var fid = pad4(m.fid);
+      (scoresByWeek[m.w] = scoresByWeek[m.w] || {})[fid] = m.ts;
+      var c = byId[fid];
+      if (!c) return;
+      if (m.ts > m.os) c.h2h_w++; else if (m.ts < m.os) c.h2h_l++; else c.h2h_t++;
+      if (m.div) { if (m.ts > m.os) c.div_w++; else if (m.ts < m.os) c.div_l++; }
+      c._pf += m.ts; c._pa += m.os; c._n++;
+    });
+    Object.keys(scoresByWeek).forEach(function (w) {
+      var es = Object.keys(scoresByWeek[w]).map(function (f) { return { f: f, s: scoresByWeek[w][f] }; });
+      for (var i = 0; i < es.length; i++) for (var j = i + 1; j < es.length; j++) {
+        var a = es[i], b = es[j], ca = byId[a.f], cb = byId[b.f];
+        if (a.s > b.s) { if (ca) ca.allplay_w++; if (cb) cb.allplay_l++; }
+        else if (a.s < b.s) { if (ca) ca.allplay_l++; if (cb) cb.allplay_w++; }
+        else { if (ca) ca.allplay_t++; if (cb) cb.allplay_t++; }
+      }
+    });
+    out.forEach(function (c) {
+      var hg = c.h2h_w + c.h2h_l + c.h2h_t;
+      c.h2h_pct = hg ? (c.h2h_w + 0.5 * c.h2h_t) / hg : 0;
+      var dg = c.div_w + c.div_l;
+      c.div_pct = dg ? c.div_w / dg : 0;
+      var ag = c.allplay_w + c.allplay_l + c.allplay_t;
+      c.allplay_pct = ag ? (c.allplay_w + 0.5 * c.allplay_t) / ag : 0;
+      c.pf = c._n ? c._pf / c._n : 0;   // avg per matchup (matches full-season Avg PF)
+      c.pa = c._n ? c._pa / c._n : 0;
+      c.pp = null; c.eff = null; c.pwr = null;  // not computable per-scope
+    });
+    return out;
+  }
+
   function renderOverall(host) {
     Promise.all([
       fetchD1("/api/standings", state.year),
@@ -1374,9 +1484,12 @@
       var resp = results[0], brk = results[1];
       if (!resp || !resp.ok) return showError(host, "Couldn't load standings for " + state.year + ".");
       var seedMap = buildSeedMap(brk && brk.seeds);
+      var scoped = state.scope !== "full";
+      var rng = scopeWeekRange(resp);
+      var baseRows = scoped ? computeScopedRows(resp.rows || [], resp.weekly || [], rng[0], rng[1]) : (resp.rows || []);
       // Attach a numeric seed so the Seed column is sortable (unseeded → 99, sorts last).
-      (resp.rows || []).forEach(function (r) { r.seed = seedMap[pad4(r.franchise_id)] || 99; });
-      var rows = sortRows(resp.rows || [], state.overall.sortKey, state.overall.sortDir);
+      baseRows.forEach(function (r) { r.seed = seedMap[pad4(r.franchise_id)] || 99; });
+      var rows = sortRows(baseRows, state.overall.sortKey, state.overall.sortDir);
       var sortHdrs = state.overall;
       var head = '<tr>'
         + '<th class="num">#</th>'
@@ -1391,8 +1504,7 @@
         + sortableHeader("AP %", "allplay_pct", sortHdrs, "num")
         + sortableHeader("Avg PF", "pf", sortHdrs, "num")
         + sortableHeader("Avg PA", "pa", sortHdrs, "num")
-        + sortableHeader("PP", "pp", sortHdrs, "num")
-        + sortableHeader("EFF", "eff", sortHdrs, "num")
+        + (scoped ? '' : sortableHeader("PP", "pp", sortHdrs, "num") + sortableHeader("EFF", "eff", sortHdrs, "num"))
         + '</tr>';
       var body = rows.map(function (r, i) {
         var s = seedMap[pad4(r.franchise_id)];
@@ -1409,14 +1521,15 @@
           + '<td class="num">' + fmtPct(r.allplay_pct) + '</td>'
           + '<td class="num">' + fmtCommas(r.pf, 1) + '</td>'
           + '<td class="num">' + fmtCommas(r.pa, 1) + '</td>'
-          + '<td class="num">' + fmtCommas(r.pp, 1) + '</td>'
-          + '<td class="num">' + fmtPct(r.eff / 100) + '</td>'
+          + (scoped ? '' : '<td class="num">' + fmtCommas(r.pp, 1) + '</td>' + '<td class="num">' + fmtPct(r.eff / 100) + '</td>')
           + '</tr>';
       }).join("");
       var meta = resp.meta || {};
-      var note = meta.last_regular_season_week
-        ? '<div class="note">Regular season: weeks 1–' + meta.last_regular_season_week + ' (' + state.year + '). Click any column header to sort. Seeds derived AP % → Overall PCT → PF.</div>'
-        : '<div class="note">Click any column header to sort. Seeds derived AP % → Overall PCT → PF.</div>';
+      var note = scoped
+        ? '<div class="note"><strong>' + scopeLabel() + '</strong> — weeks ' + rng[0] + '–' + rng[1] + ' (computed from weekly results; PP / Eff are full-season only and hidden here). Click any header to sort.</div>'
+        : (meta.last_regular_season_week
+          ? '<div class="note">Regular season: weeks 1–' + meta.last_regular_season_week + ' (' + state.year + '). Click any column header to sort. Seeds derived AP % → Overall PCT → PF.</div>'
+          : '<div class="note">Click any column header to sort. Seeds derived AP % → Overall PCT → PF.</div>');
       host.innerHTML = '<div style="overflow-x:auto"><table><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' + note + DEFERRED_NOTE;
       wireSortClicks(host, state.overall, function () { renderOverall(host); });
     }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
@@ -1431,7 +1544,11 @@
   function renderDivisions(host) {
     fetchD1("/api/standings", state.year).then(function (resp) {
       if (!resp || !resp.ok) return showError(host, "Couldn't load standings for " + state.year + ".");
-      var rows = resp.rows || [];
+      var divScoped = state.scope !== "full";
+      var divRng = scopeWeekRange(resp);
+      var rows = divScoped
+        ? computeScopedRows(resp.rows || [], resp.weekly || [], divRng[0], divRng[1])
+        : (resp.rows || []);
       if (!rows.some(function (r) { return !!r.division; })) {
         host.innerHTML = '<div class="banner">Division alignment not available for ' + state.year + ' yet.</div>';
         return;

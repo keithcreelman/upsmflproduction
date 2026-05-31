@@ -8323,6 +8323,25 @@ export default {
             ).bind(yr).first();
             seasonComplete = !!(wkR && wkR.x);
           } catch (_) {}
+          // Per-week matchup rows (played games only) so the client can compute
+          // scoped standings — Full / Regular / Playoffs / Custom — over any week
+          // range. See docs/STANDINGS_SCOPE_BUILD.md.
+          let weekly = [];
+          try {
+            const wk = await db.prepare(
+              "SELECT week, franchise_id, team_score, opponent_franchise_id, opponent_score, is_divisional, is_playoff " +
+              "FROM src_schedule WHERE season = ? AND COALESCE(team_score, 0) > 0 ORDER BY week"
+            ).bind(yr).all();
+            weekly = (wk.results || []).map((r) => ({
+              w: Number(r.week) || 0,
+              fid: String(r.franchise_id || "").padStart(4, "0"),
+              ts: Number(r.team_score) || 0,
+              opp: String(r.opponent_franchise_id || "").padStart(4, "0"),
+              os: Number(r.opponent_score) || 0,
+              div: Number(r.is_divisional) === 1 ? 1 : 0,
+              po: Number(r.is_playoff) === 1 ? 1 : 0,
+            }));
+          } catch (_) {}
           return new Response(JSON.stringify({
             ok: true,
             year: yr,
@@ -8333,6 +8352,7 @@ export default {
             conferences: leagueMeta.conferences,
             has_conferences: leagueMeta.hasConferences,
             rows,
+            weekly,
           }), { status: 200, headers: { "content-type": "application/json", "Cache-Control": "public, max-age=60", ...corsHeaders } });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
