@@ -42,7 +42,8 @@ jobs:
           # Ignore pure-timestamp churn: meta.generated_at_utc changes every run,
           # so only commit when real asset data changed.
           REAL=$(git diff --unified=0 -- site/rookies/franchise_assets_2026.json \
-                   | grep -E '^[+-]' | grep -vE '^[+-]{3} ' | grep -vc 'generated_at_utc')
+                   | grep -E '^[+-]' | grep -vE '^[+-]{3} ' | grep -vc 'generated_at_utc' || true)
+          REAL=${REAL:-0}
           if [ "${REAL}" = "0" ]; then
             echo "Only the timestamp changed (no asset drift); skipping commit."
             git checkout -- site/rookies/franchise_assets_2026.json || true
