@@ -1,0 +1,39 @@
+name: Restructure Reconcile
+
+# Cross-confirms restructures: the bot's authoritative Discord posts
+# (/admin/discord/restructures, commish-gated) vs. an MFL contract-diff
+# fingerprint. Surfaces players flagged by one source but not the other.
+# Manual run — results land in the run Summary + an artifact.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch bot restructure posts (commish-gated)
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+        run: |
+          if [ -z "${KEY}" ]; then echo "COMMISH_API_KEY secret not set"; exit 1; fi
+          curl -s "https://upsmflproduction.keith-creelman.workers.dev/admin/discord/restructures?pages=50&APIKEY=${KEY}" -o /tmp/discord.json
+          python -c "import json; d=json.load(open('/tmp/discord.json')); print('discord ok:', d.get('ok'), '| posts:', d.get('count')); exit(0 if d.get('ok') else 1)"
+
+      - name: Reconcile vs MFL fingerprint
+        run: |
+          python pipelines/etl/scripts/reconcile_restructures.py --discord /tmp/discord.json --out /tmp/reconcile.md
+          { echo "## Restructure Reconcile"; echo; cat /tmp/reconcile.md; } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: restructure-reconcile
+          path: /tmp/reconcile.md
