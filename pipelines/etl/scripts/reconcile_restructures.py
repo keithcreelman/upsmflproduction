@@ -66,10 +66,20 @@ def main():
         for y in (2023, 2024, 2025, 2026):
             if dual(R[y].get(pid, "")):
                 sig.append(f"{y}:dual-AAV")
+        sched = lambda ci: re.findall(r"Y\d+\s*-\s*([\d.]+)", ci or "")
         for a2, b2 in ((2023, 2024), (2024, 2025), (2025, 2026)):
             ca, cb = R[a2].get(pid, ""), R[b2].get(pid, "")
-            if ca and cb and tcv(ca) and tcv(cb) and tcv(ca) != tcv(cb) and ext(ca) == ext(cb) and ext(cb):
+            if not (ca and cb):
+                continue
+            if tcv(ca) and tcv(cb) and tcv(ca) != tcv(cb) and ext(ca) == ext(cb) and ext(cb):
                 sig.append(f"{b2}:TCV {tcv(ca)}->{tcv(cb)}")
+            # Y-schedule rewritten in place (same length, amounts redistributed) on
+            # the same contract = a restructure even when TCV is unchanged. The
+            # MFL string is otherwise stable year to year, so a diff is meaningful.
+            sa, sb = sched(ca), sched(cb)
+            elif_flag = sa and sb and len(sa) == len(sb) and sa != sb and ext(ca) == ext(cb)
+            if elif_flag and not (tcv(ca) and tcv(cb) and tcv(ca) != tcv(cb)):
+                sig.append(f"{b2}:schedΔ {','.join(sa)}->{','.join(sb)}")
         if sig:
             fp[name_tokens(players.get(pid, pid))] = {"name": players.get(pid, pid), "sig": sig}
 
