@@ -1196,11 +1196,20 @@
     if (p == null || isNaN(p)) return "—";
     return (Number(p) * 100).toFixed(1) + "%";
   }
+  // The custom banners depict the 2025-era division alignment (names used
+  // ~2016-2025). Match by NAME so the right banner shows regardless of that
+  // season's division code; only for <=2025 — 2026 starts a new alignment with
+  // new names/logos (TBD), and pre-2016 used different names (→ text fallback).
+  var DIV_BANNERS_2025 = {
+    "ICE UP SON!":      "74598_division00_logo.png",
+    "LEGION OF BOOM":   "74598_division01_logo.png",
+    "MAKE IT RAIN":     "74598_division02_logo.png",
+    "DOG POUND 4 LIFE": "74598_division03_logo.png"
+  };
   function divBannerHtml(code, name) {
-    // 2026-2028 realignment cycle has custom division banners (name baked in).
-    // Earlier seasons used different alignments → fall back to the name text.
-    if (state.year >= 2026 && /^0[0-3]$/.test(String(code))) {
-      var url = "https://keithcreelman.github.io/upsmflproduction/standings/div_logos/74598_division" + code + "_logo.png";
+    var file = (state.year <= 2025) ? DIV_BANNERS_2025[String(name || "").toUpperCase().trim()] : null;
+    if (file) {
+      var url = "https://keithcreelman.github.io/upsmflproduction/standings/div_logos/" + file;
       return '<img class="div-banner" src="' + url + '" alt="' + escapeHtml(name || "") + '">';
     }
     return '<div class="div-card-name">' + escapeHtml(name || "") + '</div>';
@@ -1380,7 +1389,7 @@
         + sortableHeader("Div", "div_w", sortHdrs)
         + sortableHeader("AP W-L-T", "allplay_w", sortHdrs)
         + sortableHeader("AP %", "allplay_pct", sortHdrs, "num")
-        + sortableHeader("PF", "pf", sortHdrs, "num")
+        + sortableHeader("Avg PF", "pf", sortHdrs, "num")
         + sortableHeader("Avg PA", "pa", sortHdrs, "num")
         + sortableHeader("PP", "pp", sortHdrs, "num")
         + sortableHeader("EFF", "eff", sortHdrs, "num")
@@ -1401,7 +1410,7 @@
           + '<td class="num">' + fmtCommas(r.pf, 1) + '</td>'
           + '<td class="num">' + fmtCommas(r.pa, 1) + '</td>'
           + '<td class="num">' + fmtCommas(r.pp, 1) + '</td>'
-          + '<td class="num">' + fmtPct(r.eff) + '</td>'
+          + '<td class="num">' + fmtPct(r.eff / 100) + '</td>'
           + '</tr>';
       }).join("");
       var meta = resp.meta || {};
@@ -1580,7 +1589,7 @@
             + '<div class="stat"><div class="stat-label">Overall</div>' + rec(t.h2h_w, t.h2h_l, t.h2h_t) + '</div>'
             + '<div class="stat"><div class="stat-label">Div</div>' + rec(t.div_w, t.div_l) + '</div>'
             + '<div class="stat"><div class="stat-label">All-Play</div>' + rec(t.allplay_w, t.allplay_l, t.allplay_t) + '</div>'
-            + '<div class="stat"><div class="stat-label">PF</div>' + fmtCommas(t.pf, 1) + '</div>'
+            + '<div class="stat"><div class="stat-label">Avg PF</div>' + fmtCommas(t.pf, 1) + '</div>'
             + tbHtml
             + '</div>';
         }).join("");
