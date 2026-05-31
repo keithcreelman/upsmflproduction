@@ -192,7 +192,9 @@ def load_overrides():
     out = {}
     if OVERRIDES_FILE.exists():
         for row in csv.DictReader(open(OVERRIDES_FILE)):
-            out[row["player"].strip()] = (row["final_type"].strip(), row.get("note", "").strip())
+            out.setdefault(row["player"].strip(), []).append(
+                (row.get("pos", "").strip(), row["final_type"].strip(), row.get("note", "").strip())
+            )
     return out
 
 
@@ -234,10 +236,12 @@ def main():
                 prop, conf = "Rookie-Draft", "high"
                 note = f"Restored from {prev_year} (2026 contractInfo wiped); roll contractYear forward."
                 proposed_ci = normalize_contract_info(rest[pid][1])
-            # Keith-reviewed overrides win (the manual cluster review).
-            ov = overrides.get(meta.get("name", "").strip())
-            if ov:
-                prop, conf, note = ov[0], "confirmed", ov[1]
+            # Keith-reviewed overrides win (the manual cluster review). An optional
+            # pos disambiguates duplicate player names (e.g. two Justin Jeffersons).
+            for opos, otype, onote in overrides.get(meta.get("name", "").strip(), []):
+                if not opos or opos == meta.get("position", ""):
+                    prop, conf, note = otype, "confirmed", onote
+                    break
             ci_note = completeness_note(proposed_ci, parse_cl(proposed_ci)) or "(numbers unchanged — type only)"
             rows.append({
                 "franchise": fids.get(fid, fid),
