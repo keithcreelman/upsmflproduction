@@ -1247,18 +1247,18 @@
   }
   // Build a clickable th. `align` = "left" or "num".
   function sortableHeader(label, key, sortState, align) {
-    var active = sortState.key === key ? "1" : "0";
-    return '<th class="sortable' + (align === "num" ? " num" : "") + '" data-sort-key="' + escapeHtml(key) + '" data-sort-active="' + active + '" data-sort-dir="' + sortState.dir + '">' + escapeHtml(label) + '</th>';
+    var active = sortState.sortKey === key ? "1" : "0";
+    return '<th class="sortable' + (align === "num" ? " num" : "") + '" data-sort-key="' + escapeHtml(key) + '" data-sort-active="' + active + '" data-sort-dir="' + sortState.sortDir + '">' + escapeHtml(label) + '</th>';
   }
   function wireSortClicks(host, sortState, rerender) {
     host.querySelectorAll("th.sortable").forEach(function (th) {
       th.addEventListener("click", function () {
         var key = th.getAttribute("data-sort-key");
-        if (sortState.key === key) {
-          sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+        if (sortState.sortKey === key) {
+          sortState.sortDir = sortState.sortDir === "asc" ? "desc" : "asc";
         } else {
-          sortState.key = key;
-          sortState.dir = (key === "owner_name" || key === "franchise_name" || key === "division" || key === "division_name") ? "asc" : "desc";
+          sortState.sortKey = key;
+          sortState.sortDir = (key === "owner_name" || key === "franchise_name" || key === "division" || key === "division_name") ? "asc" : "desc";
         }
         rerender();
       });
