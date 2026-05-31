@@ -158,6 +158,31 @@ def completeness_note(ci, cl):
     return ""
 
 
+PICK_RE = re.compile(r"\b(\d+)\.(\d)\b")
+
+
+def pad_pick(drafted):
+    """Draft picks are 2-digit in MFL ('1.10'); restore a trailing zero a float
+    coercion may have dropped ('1.1' -> '1.10'). Keith 2026-05-31."""
+    return PICK_RE.sub(lambda m: f"{m.group(1)}.{m.group(2)}0", drafted or "")
+
+
+def normalize_contract_info(ci):
+    """Fold a rookie 'Keep Option as Y4Option =11K' tail into the year schedule as
+    'Y4-11K Option' (Keith 2026-05-31)."""
+    ci = ci or ""
+    m = re.search(r"\|?\s*Keep Option as Y(\d+)Option\s*=?\s*([\d.]+ ?K?)", ci, re.I)
+    if not m:
+        return ci
+    yr, amt = m.group(1), m.group(2).replace(" ", "").strip()
+    ci2 = (ci[:m.start()] + ci[m.end():]).rstrip().rstrip("|").rstrip()
+    yts = list(re.finditer(r"Y\d+\s*-\s*[\d.]+ ?K?", ci2))
+    if yts:
+        pos = yts[-1].end()
+        ci2 = ci2[:pos] + f", Y{yr}-{amt} Option" + ci2[pos:]
+    return ci2
+
+
 def main():
     snap = latest_snapshot()
     date = snap.name
@@ -165,6 +190,17 @@ def main():
     players = {p["id"]: p for p in fetch(f"{SERVER}/{YEAR}/export?TYPE=players&L={LEAGUE_ID}&DETAILS=0&JSON=1")["players"]["player"]}
     lg = fetch(f"{SERVER}/{YEAR}/export?TYPE=league&L={LEAGUE_ID}&JSON=1")["league"]
     fids = {f["id"]: f.get("name", f["id"]) for f in as_list(lg["franchises"]["franchise"])}
+    # Prior-season contracts — restore blank-status players whose 2026 contractInfo
+    # was wiped (data error): roll their last-season deal forward. Keith 2026-05-31.
+    prev_year = str(int(YEAR) - 1)
+    rest = {}
+    try:
+        r_prev = fetch(f"{SERVER}/{prev_year}/export?TYPE=rosters&L={LEAGUE_ID}&JSON=1")["rosters"]["franchise"]
+        for f in as_list(r_prev):
+            for p in as_list(f.get("player")):
+                rest[str(p["id"])] = (str(p.get("contractStatus", "")), p.get("contractInfo", "") or "")
+    except Exception as e:
+        print(f"warn: could not fetch {prev_year} rosters for restore: {e}")
 
     rows = []
     for fr in rosters:
@@ -175,7 +211,16 @@ def main():
             ci = p.get("contractInfo", "") or ""
             cl = parse_cl(ci)
             cur_type = (p.get("contractStatus", "") or "").strip() or "(blank)"
-            prop, conf, note = propose(p.get("contractStatus", ""), p.get("drafted", ""), ci, p.get("contractYear", ""))
+            drafted = pad_pick(p.get("drafted", ""))
+            prop, conf, note = propose(p.get("contractStatus", ""), drafted, ci, p.get("contractYear", ""))
+            proposed_ci = normalize_contract_info(ci)
+            # Blank-status = wiped contractInfo (data error). If the player held a
+            # Rookie deal last season, restore it (roll forward) + classify Rookie-Draft.
+            if cur_type == "(blank)" and rest.get(pid, ("", ""))[0] == "Rookie":
+                prop, conf = "Rookie-Draft", "high"
+                note = f"Restored from {prev_year} (2026 contractInfo wiped); roll contractYear forward."
+                proposed_ci = normalize_contract_info(rest[pid][1])
+            ci_note = completeness_note(proposed_ci, parse_cl(proposed_ci)) or "(numbers unchanged — type only)"
             rows.append({
                 "franchise": fids.get(fid, fid),
                 "player": meta.get("name", f"#{pid}"),
@@ -184,9 +229,10 @@ def main():
                 "proposed_type": prop,
                 "confidence": conf,
                 "current_contractInfo": ci,
-                "proposed_contractInfo_note": completeness_note(ci, cl) or "(numbers unchanged — type only)",
+                "proposed_contractInfo": proposed_ci,
+                "proposed_contractInfo_note": ci_note,
                 "mapping_note": note,
-                "drafted": p.get("drafted", ""),
+                "drafted": drafted,
             })
 
     rows.sort(key=lambda r: (r["franchise"], r["player"]))
