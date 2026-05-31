@@ -27616,6 +27616,11 @@ export default {
                   if (nm === "team" && !team) team = safeStr(fld.value);
                 }
               }
+              // Player can live in a "Player" field (new "Restructure Alert" embed),
+              // the embed title/description, or the message content (older posts).
+              const titles = embeds.map((e) => safeStr(e.title)).filter(Boolean).join(" | ");
+              const descs = embeds.map((e) => safeStr(e.description)).filter(Boolean).join(" | ");
+              const raw = `${titles} | ${descs} | ${safeStr(m.content)}`.trim();
               const ts = safeStr(m.timestamp);
               out.push({
                 player,
@@ -27623,7 +27628,8 @@ export default {
                 season: ts ? Number(ts.slice(0, 4)) : null,
                 ts,
                 message_id: safeStr(m.id),
-                content_snippet: player ? null : safeStr(m.content).slice(0, 120),
+                title: titles.slice(0, 120),
+                raw: raw.slice(0, 300),
               });
             }
             before = safeStr(msgs[msgs.length - 1].id);
