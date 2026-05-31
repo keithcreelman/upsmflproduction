@@ -36,4 +36,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: restructure-reconcile
-          path: /tmp/reconcile.md
+          path: |
+            /tmp/reconcile.md
+            /tmp/discord.json
