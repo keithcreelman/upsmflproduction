@@ -199,6 +199,8 @@ CONFIRMED_CLUSTERS = {
     ("R", "Rookie-Draft"),
     ("Rookie", "Rookie-Draft"),
     ("(blank)", "Rookie-Draft"),  # restored 2025 rookies
+    ("Rookie", "Rookie-FAA"), ("Rookie", "Rookie-WW"),
+    ("R", "Rookie-FAA"), ("R", "Rookie-WW"),  # "all other rookies ok"
 }
 
 
