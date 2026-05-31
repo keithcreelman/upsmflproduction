@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-05-10T17:07:23.175211+00:00",
+    "generated_at_utc": "2026-05-31T03:47:02.410420+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -9,6 +9,30 @@
     "0001": {
       "players": [
         {
+          "asset_id": "P_15287",
+          "display": "Amon-Ra St. Brown",
+          "player_id": "15287",
+          "position": "WR",
+          "nfl_team": "DET",
+          "salary": 51000,
+          "contract_year": 1,
+          "contract_status": "TAG",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16181",
+          "display": "Chase Brown",
+          "player_id": "16181",
+          "position": "RB",
+          "nfl_team": "CIN",
+          "salary": 22000,
+          "contract_year": 2,
+          "contract_status": "EXT2",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15799",
           "display": "Jake Ferguson",
           "player_id": "15799",
@@ -16,7 +40,9 @@
           "nfl_team": "DAL",
           "salary": 21000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14860",
@@ -26,7 +52,9 @@
           "nfl_team": "MIN",
           "salary": 21000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13630",
@@ -36,7 +64,21 @@
           "nfl_team": "DEN",
           "salary": 15000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16169",
+          "display": "Zach Charbonnet",
+          "player_id": "16169",
+          "position": "RB",
+          "nfl_team": "SEA",
+          "salary": 7000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16582",
@@ -46,7 +88,33 @@
           "nfl_team": "DEN",
           "salary": 5000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16245",
+          "display": "Jordan Battle",
+          "player_id": "16245",
+          "position": "S",
+          "nfl_team": "CIN",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15001",
+          "display": "Kamren Curl",
+          "player_id": "15001",
+          "position": "S",
+          "nfl_team": "LAR",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "TAG",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16164",
@@ -54,19 +122,11 @@
           "player_id": "16164",
           "position": "RB",
           "nfl_team": "PHI",
-          "salary": 5000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
-        },
-        {
-          "asset_id": "P_16169",
-          "display": "Zach Charbonnet",
-          "player_id": "16169",
-          "position": "RB",
-          "nfl_team": "SEA",
-          "salary": 5000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15768",
@@ -76,7 +136,9 @@
           "nfl_team": "IND",
           "salary": 2000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16414",
@@ -86,27 +148,45 @@
           "nfl_team": "DAL",
           "salary": 2000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16181",
-          "display": "Chase Brown",
-          "player_id": "16181",
-          "position": "RB",
-          "nfl_team": "CIN",
+          "asset_id": "P_17722",
+          "display": "Brendan Sorsby",
+          "player_id": "17722",
+          "position": "QB",
+          "nfl_team": "FA",
           "salary": 2000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16244",
-          "display": "Brian Branch",
-          "player_id": "16244",
-          "position": "S",
-          "nfl_team": "DET",
-          "salary": 1000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "asset_id": "P_17519",
+          "display": "Bryce Lance",
+          "player_id": "17519",
+          "position": "WR",
+          "nfl_team": "NOS",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17551",
+          "display": "David Bailey",
+          "player_id": "17551",
+          "position": "DE",
+          "nfl_team": "NYJ",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_12610",
@@ -116,7 +196,9 @@
           "nfl_team": "MIN",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14871",
@@ -126,7 +208,9 @@
           "nfl_team": "LAR",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "MYM - Vet"
+          "contract_status": "MYM - Vet",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13806",
@@ -136,7 +220,9 @@
           "nfl_team": "PIT",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16630",
@@ -146,7 +232,21 @@
           "nfl_team": "NYJ",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16189",
+          "display": "Marvin Mims",
+          "player_id": "16189",
+          "position": "WR",
+          "nfl_team": "DEN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17144",
@@ -156,47 +256,9 @@
           "nfl_team": "SEA",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Rookie"
-        },
-        {
-          "asset_id": "P_16626",
-          "display": "Adonai Mitchell",
-          "player_id": "16626",
-          "position": "WR",
-          "nfl_team": "NYJ",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16596",
-          "display": "Braelon Allen",
-          "player_id": "16596",
-          "position": "RB",
-          "nfl_team": "NYJ",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16650",
-          "display": "Dallas Turner",
-          "player_id": "16650",
-          "position": "DE",
-          "nfl_team": "MIN",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_17047",
-          "display": "Dylan Sampson",
-          "player_id": "17047",
-          "position": "RB",
-          "nfl_team": "CLE",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16651",
@@ -206,17 +268,93 @@
           "nfl_team": "IND",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16212",
-          "display": "Michael Mayer",
-          "player_id": "16212",
-          "position": "TE",
-          "nfl_team": "LVR",
+          "asset_id": "P_17510",
+          "display": "Deion Burks",
+          "player_id": "17510",
+          "position": "WR",
+          "nfl_team": "IND",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17709",
+          "display": "Robert Henry",
+          "player_id": "17709",
+          "position": "RB",
+          "nfl_team": "WAS",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17575",
+          "display": "Emmanuel McNeil-Warren",
+          "player_id": "17575",
+          "position": "S",
+          "nfl_team": "CLE",
+          "salary": 1000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_16626",
+          "display": "Adonai Mitchell",
+          "player_id": "16626",
+          "position": "WR",
+          "nfl_team": "NYJ",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_16596",
+          "display": "Braelon Allen",
+          "player_id": "16596",
+          "position": "RB",
+          "nfl_team": "NYJ",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_16650",
+          "display": "Dallas Turner",
+          "player_id": "16650",
+          "position": "DE",
+          "nfl_team": "MIN",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17047",
+          "display": "Dylan Sampson",
+          "player_id": "17047",
+          "position": "RB",
+          "nfl_team": "CLE",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17120",
@@ -226,7 +364,9 @@
           "nfl_team": "BAL",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17031",
@@ -236,7 +376,9 @@
           "nfl_team": "CLE",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         }
       ],
       "future_picks": [
@@ -286,6 +428,15 @@
           "original_owner_name": "Ryan Bousquet"
         },
         {
+          "asset_id": "FP_2027_4_0005",
+          "display": "2027 R4  (via HammerTime \ud83d\udd28 \u23f0 \u00b7 Eric Martel)",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0005",
+          "original_team_name": "HammerTime \ud83d\udd28 \u23f0",
+          "original_owner_name": "Eric Martel"
+        },
+        {
           "asset_id": "FP_2027_5_0001",
           "display": "2027 R5",
           "year": "2027",
@@ -295,38 +446,7 @@
           "original_owner_name": "Ryan Bousquet"
         }
       ],
-      "current_picks": [
-        {
-          "asset_id": "DP_2026_03_08",
-          "display": "2026 03.08",
-          "round": "03",
-          "slot": "08"
-        },
-        {
-          "asset_id": "DP_2026_03_10",
-          "display": "2026 03.10",
-          "round": "03",
-          "slot": "10"
-        },
-        {
-          "asset_id": "DP_2026_05_03",
-          "display": "2026 05.03",
-          "round": "05",
-          "slot": "03"
-        },
-        {
-          "asset_id": "DP_2026_05_06",
-          "display": "2026 05.06",
-          "round": "05",
-          "slot": "06"
-        },
-        {
-          "asset_id": "DP_2026_06_08",
-          "display": "2026 06.08",
-          "round": "06",
-          "slot": "08"
-        }
-      ]
+      "current_picks": []
     },
     "0002": {
       "players": [
@@ -338,7 +458,9 @@
           "nfl_team": "HOU",
           "salary": 47000,
           "contract_year": 2,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15753",
@@ -348,7 +470,9 @@
           "nfl_team": "NYJ",
           "salary": 44000,
           "contract_year": 1,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14782",
@@ -358,7 +482,21 @@
           "nfl_team": "GBP",
           "salary": 21000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17543",
+          "display": "Kenyon Sadiq",
+          "player_id": "17543",
+          "position": "TE",
+          "nfl_team": "NYJ",
+          "salary": 8000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14867",
@@ -368,7 +506,21 @@
           "nfl_team": "CHI",
           "salary": 6000,
           "contract_year": 1,
-          "contract_status": "FL"
+          "contract_status": "FL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17544",
+          "display": "Eli Stowers",
+          "player_id": "17544",
+          "position": "TE",
+          "nfl_team": "PHI",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17081",
@@ -378,7 +530,9 @@
           "nfl_team": "TBB",
           "salary": 5000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16622",
@@ -388,7 +542,9 @@
           "nfl_team": "SFO",
           "salary": 5000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16586",
@@ -398,7 +554,9 @@
           "nfl_team": "NOS",
           "salary": 2000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16653",
@@ -408,7 +566,9 @@
           "nfl_team": "LAR",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16178",
@@ -418,37 +578,9 @@
           "nfl_team": "LAC",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Veteran"
-        },
-        {
-          "asset_id": "P_16196",
-          "display": "A.T. Perry",
-          "player_id": "16196",
-          "position": "WR",
-          "nfl_team": "PIT",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_17037",
-          "display": "Dillon Gabriel",
-          "player_id": "17037",
-          "position": "QB",
-          "nfl_team": "CLE",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16629",
-          "display": "Roman Wilson",
-          "player_id": "16629",
-          "position": "WR",
-          "nfl_team": "PIT",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17039",
@@ -458,7 +590,81 @@
           "nfl_team": "NOS",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17477",
+          "display": "Jonah Coleman",
+          "player_id": "17477",
+          "position": "RB",
+          "nfl_team": "DEN",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17520",
+          "display": "Ted Hurst",
+          "player_id": "17520",
+          "position": "WR",
+          "nfl_team": "TBB",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17467",
+          "display": "Cade Klubnik",
+          "player_id": "17467",
+          "position": "QB",
+          "nfl_team": "NYJ",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17645",
+          "display": "Keyshaun Elliott",
+          "player_id": "17645",
+          "position": "LB",
+          "nfl_team": "CHI",
+          "salary": 1000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17037",
+          "display": "Dillon Gabriel",
+          "player_id": "17037",
+          "position": "QB",
+          "nfl_team": "CLE",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_16629",
+          "display": "Roman Wilson",
+          "player_id": "16629",
+          "position": "WR",
+          "nfl_team": "PIT",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17036",
@@ -468,7 +674,9 @@
           "nfl_team": "PIT",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         }
       ],
       "future_picks": [
@@ -518,44 +726,7 @@
           "original_owner_name": "Derrick Whitman"
         }
       ],
-      "current_picks": [
-        {
-          "asset_id": "DP_2026_01_08",
-          "display": "2026 01.08",
-          "round": "01",
-          "slot": "08"
-        },
-        {
-          "asset_id": "DP_2026_01_12",
-          "display": "2026 01.12",
-          "round": "01",
-          "slot": "12"
-        },
-        {
-          "asset_id": "DP_2026_02_01",
-          "display": "2026 02.01",
-          "round": "02",
-          "slot": "01"
-        },
-        {
-          "asset_id": "DP_2026_02_08",
-          "display": "2026 02.08",
-          "round": "02",
-          "slot": "08"
-        },
-        {
-          "asset_id": "DP_2026_04_03",
-          "display": "2026 04.03",
-          "round": "04",
-          "slot": "03"
-        },
-        {
-          "asset_id": "DP_2026_06_06",
-          "display": "2026 06.06",
-          "round": "06",
-          "slot": "06"
-        }
-      ]
+      "current_picks": []
     },
     "0003": {
       "players": [
@@ -567,17 +738,33 @@
           "nfl_team": "PIT",
           "salary": 45000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16148",
+          "display": "Bryce Young",
+          "player_id": "16148",
+          "position": "QB",
+          "nfl_team": "CAR",
+          "salary": 33000,
+          "contract_year": 2,
+          "contract_status": "EXT2",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13192",
           "display": "David Njoku",
           "player_id": "13192",
           "position": "TE",
-          "nfl_team": "FA",
+          "nfl_team": "LAC",
           "salary": 27000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13635",
@@ -587,7 +774,9 @@
           "nfl_team": "BUF",
           "salary": 21000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13592",
@@ -597,27 +786,57 @@
           "nfl_team": "SEA",
           "salary": 18000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16148",
-          "display": "Bryce Young",
-          "player_id": "16148",
-          "position": "QB",
-          "nfl_team": "CAR",
-          "salary": 13000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "asset_id": "P_17473",
+          "display": "Jadarian Price",
+          "player_id": "17473",
+          "position": "RB",
+          "nfl_team": "SEA",
+          "salary": 12000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17498",
+          "display": "Jordyn Tyson",
+          "player_id": "17498",
+          "position": "WR",
+          "nfl_team": "NOS",
+          "salary": 11000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14136",
           "display": "Deebo Samuel",
           "player_id": "14136",
           "position": "WR",
-          "nfl_team": "WAS",
+          "nfl_team": "FA",
           "salary": 8000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17512",
+          "display": "Antonio Williams",
+          "player_id": "17512",
+          "position": "WR",
+          "nfl_team": "WAS",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17045",
@@ -627,37 +846,69 @@
           "nfl_team": "NYG",
           "salary": 5000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16171",
-          "display": "Kendre Miller",
-          "player_id": "16171",
-          "position": "RB",
-          "nfl_team": "NOS",
+          "asset_id": "P_17506",
+          "display": "Chris Bell",
+          "player_id": "17506",
+          "position": "WR",
+          "nfl_team": "MIA",
           "salary": 5000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16165",
-          "display": "Tyjae Spears",
-          "player_id": "16165",
+          "asset_id": "P_17474",
+          "display": "Emmett Johnson",
+          "player_id": "17474",
           "position": "RB",
-          "nfl_team": "TEN",
+          "nfl_team": "KCC",
           "salary": 5000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16174",
-          "display": "Chris Rodriguez",
-          "player_id": "16174",
+          "asset_id": "P_17652",
+          "display": "Adam Randall",
+          "player_id": "17652",
           "position": "RB",
-          "nfl_team": "JAC",
+          "nfl_team": "BAL",
           "salary": 2000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17560",
+          "display": "Anthony Hill Jr.",
+          "player_id": "17560",
+          "position": "LB",
+          "nfl_team": "TEN",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17509",
+          "display": "Chris Brazzell II",
+          "player_id": "17509",
+          "position": "WR",
+          "nfl_team": "CAR",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17046",
@@ -667,7 +918,21 @@
           "nfl_team": "NOS",
           "salary": 2000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17548",
+          "display": "Justin Joly",
+          "player_id": "17548",
+          "position": "TE",
+          "nfl_team": "DEN",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16757",
@@ -677,7 +942,9 @@
           "nfl_team": "LAC",
           "salary": 2000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16809",
@@ -687,17 +954,33 @@
           "nfl_team": "CAR",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17668",
+          "display": "Trey Smack",
+          "player_id": "17668",
+          "position": "PK",
+          "nfl_team": "GBP",
+          "salary": 1000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16623",
           "display": "Brenden Rice",
           "player_id": "16623",
           "position": "WR",
-          "nfl_team": "LVR",
+          "nfl_team": "GBP",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17060",
@@ -707,7 +990,9 @@
           "nfl_team": "IND",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17078",
@@ -717,7 +1002,9 @@
           "nfl_team": "LVR",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17066",
@@ -727,7 +1014,9 @@
           "nfl_team": "CHI",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17121",
@@ -737,7 +1026,9 @@
           "nfl_team": "CLE",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16716",
@@ -747,7 +1038,9 @@
           "nfl_team": "PIT",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17056",
@@ -757,7 +1050,9 @@
           "nfl_team": "CAR",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         }
       ],
       "future_picks": [
@@ -766,15 +1061,6 @@
           "display": "2027 R1",
           "year": "2027",
           "round": "1",
-          "original_fid": "0003",
-          "original_team_name": "Gride",
-          "original_owner_name": "Matt Gerardi"
-        },
-        {
-          "asset_id": "FP_2027_2_0003",
-          "display": "2027 R2",
-          "year": "2027",
-          "round": "2",
           "original_fid": "0003",
           "original_team_name": "Gride",
           "original_owner_name": "Matt Gerardi"
@@ -807,50 +1093,7 @@
           "original_owner_name": "Matt Gerardi"
         }
       ],
-      "current_picks": [
-        {
-          "asset_id": "DP_2026_01_05",
-          "display": "2026 01.05",
-          "round": "01",
-          "slot": "05"
-        },
-        {
-          "asset_id": "DP_2026_01_07",
-          "display": "2026 01.07",
-          "round": "01",
-          "slot": "07"
-        },
-        {
-          "asset_id": "DP_2026_01_11",
-          "display": "2026 01.11",
-          "round": "01",
-          "slot": "11"
-        },
-        {
-          "asset_id": "DP_2026_02_05",
-          "display": "2026 02.05",
-          "round": "02",
-          "slot": "05"
-        },
-        {
-          "asset_id": "DP_2026_02_10",
-          "display": "2026 02.10",
-          "round": "02",
-          "slot": "10"
-        },
-        {
-          "asset_id": "DP_2026_05_09",
-          "display": "2026 05.09",
-          "round": "05",
-          "slot": "09"
-        },
-        {
-          "asset_id": "DP_2026_06_05",
-          "display": "2026 06.05",
-          "round": "06",
-          "slot": "05"
-        }
-      ]
+      "current_picks": []
     },
     "0004": {
       "players": [
@@ -862,7 +1105,9 @@
           "nfl_team": "MIN",
           "salary": 71000,
           "contract_year": 1,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16162",
@@ -872,7 +1117,9 @@
           "nfl_team": "DET",
           "salary": 31000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13590",
@@ -882,7 +1129,9 @@
           "nfl_team": "TBB",
           "salary": 26000,
           "contract_year": 1,
-          "contract_status": "FL"
+          "contract_status": "FL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16190",
@@ -892,7 +1141,9 @@
           "nfl_team": "BAL",
           "salary": 25000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_11675",
@@ -902,7 +1153,9 @@
           "nfl_team": "LAR",
           "salary": 20000,
           "contract_year": 1,
-          "contract_status": "FL"
+          "contract_status": "FL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17042",
@@ -912,7 +1165,9 @@
           "nfl_team": "LVR",
           "salary": 15000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15754",
@@ -922,7 +1177,21 @@
           "nfl_team": "NOS",
           "salary": 11000,
           "contract_year": 1,
-          "contract_status": "FL"
+          "contract_status": "FL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_13198",
+          "display": "Myles Garrett",
+          "player_id": "13198",
+          "position": "DE",
+          "nfl_team": "CLE",
+          "salary": 10000,
+          "contract_year": 1,
+          "contract_status": "TAG",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16580",
@@ -932,7 +1201,9 @@
           "nfl_team": "NEP",
           "salary": 8000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16618",
@@ -942,7 +1213,9 @@
           "nfl_team": "JAC",
           "salary": 5000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14147",
@@ -952,7 +1225,9 @@
           "nfl_team": "SFO",
           "salary": 5000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13772",
@@ -962,7 +1237,9 @@
           "nfl_team": "HOU",
           "salary": 4000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16708",
@@ -972,7 +1249,9 @@
           "nfl_team": "TBB",
           "salary": 4000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16598",
@@ -982,107 +1261,21 @@
           "nfl_team": "TBB",
           "salary": 2000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_11247",
           "display": "Zach Ertz",
           "player_id": "11247",
           "position": "TE",
-          "nfl_team": "WAS",
+          "nfl_team": "FA",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "MYM - Vet"
-        },
-        {
-          "asset_id": "P_16216",
-          "display": "Darnell Washington",
-          "player_id": "16216",
-          "position": "TE",
-          "nfl_team": "PIT",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_17087",
-          "display": "Dont'e Thornton",
-          "player_id": "17087",
-          "position": "WR",
-          "nfl_team": "LVR",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16645",
-          "display": "Erick All",
-          "player_id": "16645",
-          "position": "TE",
-          "nfl_team": "CIN",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_17119",
-          "display": "Nic Scourton",
-          "player_id": "17119",
-          "position": "DE",
-          "nfl_team": "CAR",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16263",
-          "display": "Quan Martin",
-          "player_id": "16263",
-          "position": "S",
-          "nfl_team": "WAS",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_17096",
-          "display": "Savion Williams",
-          "player_id": "17096",
-          "position": "WR",
-          "nfl_team": "GBP",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16153",
-          "display": "Stetson Bennett",
-          "player_id": "16153",
-          "position": "QB",
-          "nfl_team": "LAR",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_17098",
-          "display": "Tory Horton",
-          "player_id": "17098",
-          "position": "WR",
-          "nfl_team": "SEA",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16704",
-          "display": "Trevin Wallace",
-          "player_id": "16704",
-          "position": "LB",
-          "nfl_team": "CAR",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "MYM - Vet",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16639",
@@ -1092,7 +1285,129 @@
           "nfl_team": "CAR",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17599",
+          "display": "Caleb Douglas",
+          "player_id": "17599",
+          "position": "WR",
+          "nfl_team": "MIA",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17654",
+          "display": "Cole Payton",
+          "player_id": "17654",
+          "position": "QB",
+          "nfl_team": "PHI",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17505",
+          "display": "Elijah Sarratt",
+          "player_id": "17505",
+          "position": "WR",
+          "nfl_team": "BAL",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17547",
+          "display": "Max Klare",
+          "player_id": "17547",
+          "position": "TE",
+          "nfl_team": "LAR",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17589",
+          "display": "Josiah Trotter",
+          "player_id": "17589",
+          "position": "LB",
+          "nfl_team": "TBB",
+          "salary": 1000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17087",
+          "display": "Dont'e Thornton",
+          "player_id": "17087",
+          "position": "WR",
+          "nfl_team": "LVR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_16645",
+          "display": "Erick All",
+          "player_id": "16645",
+          "position": "TE",
+          "nfl_team": "CIN",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17096",
+          "display": "Savion Williams",
+          "player_id": "17096",
+          "position": "WR",
+          "nfl_team": "GBP",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17098",
+          "display": "Tory Horton",
+          "player_id": "17098",
+          "position": "WR",
+          "nfl_team": "SEA",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_16704",
+          "display": "Trevin Wallace",
+          "player_id": "16704",
+          "position": "LB",
+          "nfl_team": "CAR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         }
       ],
       "future_picks": [
@@ -1115,6 +1430,15 @@
           "original_owner_name": "Brian Cutting"
         },
         {
+          "asset_id": "FP_2027_2_0003",
+          "display": "2027 R2  (via Gride \u00b7 Matt Gerardi)",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0003",
+          "original_team_name": "Gride",
+          "original_owner_name": "Matt Gerardi"
+        },
+        {
           "asset_id": "FP_2027_3_0004",
           "display": "2027 R3",
           "year": "2027",
@@ -1131,6 +1455,24 @@
           "original_fid": "0006",
           "original_team_name": "The Long Haulers",
           "original_owner_name": "Brian Cross"
+        },
+        {
+          "asset_id": "FP_2027_3_0008",
+          "display": "2027 R3  (via Real Deal Creel \u00b7 Keith Creelman)",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0008",
+          "original_team_name": "Real Deal Creel",
+          "original_owner_name": "Keith Creelman"
+        },
+        {
+          "asset_id": "FP_2027_3_0005",
+          "display": "2027 R3  (via HammerTime \ud83d\udd28 \u23f0 \u00b7 Eric Martel)",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0005",
+          "original_team_name": "HammerTime \ud83d\udd28 \u23f0",
+          "original_owner_name": "Eric Martel"
         },
         {
           "asset_id": "FP_2027_4_0004",
@@ -1151,50 +1493,7 @@
           "original_owner_name": "Brian Cutting"
         }
       ],
-      "current_picks": [
-        {
-          "asset_id": "DP_2026_02_06",
-          "display": "2026 02.06",
-          "round": "02",
-          "slot": "06"
-        },
-        {
-          "asset_id": "DP_2026_02_12",
-          "display": "2026 02.12",
-          "round": "02",
-          "slot": "12"
-        },
-        {
-          "asset_id": "DP_2026_04_06",
-          "display": "2026 04.06",
-          "round": "04",
-          "slot": "06"
-        },
-        {
-          "asset_id": "DP_2026_04_12",
-          "display": "2026 04.12",
-          "round": "04",
-          "slot": "12"
-        },
-        {
-          "asset_id": "DP_2026_05_02",
-          "display": "2026 05.02",
-          "round": "05",
-          "slot": "02"
-        },
-        {
-          "asset_id": "DP_2026_05_04",
-          "display": "2026 05.04",
-          "round": "05",
-          "slot": "04"
-        },
-        {
-          "asset_id": "DP_2026_06_12",
-          "display": "2026 06.12",
-          "round": "06",
-          "slot": "12"
-        }
-      ]
+      "current_picks": []
     },
     "0005": {
       "players": [
@@ -1206,7 +1505,21 @@
           "nfl_team": "ARI",
           "salary": 35000,
           "contract_year": 1,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15256",
+          "display": "Javonte Williams",
+          "player_id": "15256",
+          "position": "RB",
+          "nfl_team": "DAL",
+          "salary": 30000,
+          "contract_year": 1,
+          "contract_status": "TAG",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15281",
@@ -1216,7 +1529,9 @@
           "nfl_team": "CIN",
           "salary": 26000,
           "contract_year": 2,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16150",
@@ -1226,7 +1541,9 @@
           "nfl_team": "HOU",
           "salary": 22000,
           "contract_year": 1,
-          "contract_status": "EXT1"
+          "contract_status": "EXT1",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16186",
@@ -1236,7 +1553,9 @@
           "nfl_team": "MIN",
           "salary": 17000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15711",
@@ -1246,7 +1565,9 @@
           "nfl_team": "KCC",
           "salary": 15000,
           "contract_year": 2,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14071",
@@ -1256,7 +1577,9 @@
           "nfl_team": "HOU",
           "salary": 12000,
           "contract_year": 2,
-          "contract_status": "EXT1"
+          "contract_status": "EXT1",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16152",
@@ -1266,7 +1589,9 @@
           "nfl_team": "IND",
           "salary": 11000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14138",
@@ -1276,7 +1601,9 @@
           "nfl_team": "MIN",
           "salary": 11000,
           "contract_year": 2,
-          "contract_status": "MYM - Vet"
+          "contract_status": "MYM - Vet",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13193",
@@ -1286,7 +1613,9 @@
           "nfl_team": "FA",
           "salary": 6000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16627",
@@ -1296,7 +1625,9 @@
           "nfl_team": "LAC",
           "salary": 5000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17070",
@@ -1306,7 +1637,9 @@
           "nfl_team": "CHI",
           "salary": 5000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16583",
@@ -1316,7 +1649,9 @@
           "nfl_team": "ATL",
           "salary": 5000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15293",
@@ -1326,7 +1661,9 @@
           "nfl_team": "BAL",
           "salary": 5000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16619",
@@ -1336,7 +1673,9 @@
           "nfl_team": "DEN",
           "salary": 5000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16239",
@@ -1346,7 +1685,9 @@
           "nfl_team": "DET",
           "salary": 3000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17106",
@@ -1356,17 +1697,9 @@
           "nfl_team": "NYJ",
           "salary": 2000,
           "contract_year": 2,
-          "contract_status": "Rookie"
-        },
-        {
-          "asset_id": "P_16166",
-          "display": "Sean Tucker",
-          "player_id": "16166",
-          "position": "RB",
-          "nfl_team": "TBB",
-          "salary": 2000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16667",
@@ -1376,7 +1709,9 @@
           "nfl_team": "TEN",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_11150",
@@ -1386,7 +1721,57 @@
           "nfl_team": "NYJ",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17508",
+          "display": "Skyler Bell",
+          "player_id": "17508",
+          "position": "WR",
+          "nfl_team": "BUF",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17568",
+          "display": "Akheem Mesidor",
+          "player_id": "17568",
+          "position": "DE",
+          "nfl_team": "LAC",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17481",
+          "display": "Demond Claiborne",
+          "player_id": "17481",
+          "position": "RB",
+          "nfl_team": "MIN",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17580",
+          "display": "Malachi Lawrence",
+          "player_id": "17580",
+          "position": "DE",
+          "nfl_team": "DAL",
+          "salary": 1000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16686",
@@ -1396,7 +1781,9 @@
           "nfl_team": "CAR",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16644",
@@ -1406,7 +1793,9 @@
           "nfl_team": "WAS",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16689",
@@ -1416,7 +1805,9 @@
           "nfl_team": "SEA",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16642",
@@ -1426,7 +1817,9 @@
           "nfl_team": "HOU",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16613",
@@ -1436,7 +1829,9 @@
           "nfl_team": "LVR",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17122",
@@ -1446,17 +1841,9 @@
           "nfl_team": "ATL",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16226",
-          "display": "Tyree Wilson",
-          "player_id": "16226",
-          "position": "DE",
-          "nfl_team": "NOS",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         }
       ],
       "future_picks": [
@@ -1479,24 +1866,6 @@
           "original_owner_name": "Brian Cross"
         },
         {
-          "asset_id": "FP_2027_3_0005",
-          "display": "2027 R3",
-          "year": "2027",
-          "round": "3",
-          "original_fid": "0005",
-          "original_team_name": "HammerTime \ud83d\udd28 \u23f0",
-          "original_owner_name": "Eric Martel"
-        },
-        {
-          "asset_id": "FP_2027_4_0005",
-          "display": "2027 R4",
-          "year": "2027",
-          "round": "4",
-          "original_fid": "0005",
-          "original_team_name": "HammerTime \ud83d\udd28 \u23f0",
-          "original_owner_name": "Eric Martel"
-        },
-        {
           "asset_id": "FP_2027_5_0005",
           "display": "2027 R5",
           "year": "2027",
@@ -1506,38 +1875,7 @@
           "original_owner_name": "Eric Martel"
         }
       ],
-      "current_picks": [
-        {
-          "asset_id": "DP_2026_04_01",
-          "display": "2026 04.01",
-          "round": "04",
-          "slot": "01"
-        },
-        {
-          "asset_id": "DP_2026_04_08",
-          "display": "2026 04.08",
-          "round": "04",
-          "slot": "08"
-        },
-        {
-          "asset_id": "DP_2026_05_01",
-          "display": "2026 05.01",
-          "round": "05",
-          "slot": "01"
-        },
-        {
-          "asset_id": "DP_2026_05_11",
-          "display": "2026 05.11",
-          "round": "05",
-          "slot": "11"
-        },
-        {
-          "asset_id": "DP_2026_06_10",
-          "display": "2026 06.10",
-          "round": "06",
-          "slot": "10"
-        }
-      ]
+      "current_picks": []
     },
     "0006": {
       "players": [
@@ -1549,7 +1887,9 @@
           "nfl_team": "PHI",
           "salary": 67000,
           "contract_year": 1,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14104",
@@ -1559,7 +1899,9 @@
           "nfl_team": "PHI",
           "salary": 56000,
           "contract_year": 1,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_12626",
@@ -1569,7 +1911,9 @@
           "nfl_team": "BAL",
           "salary": 44000,
           "contract_year": 1,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15237",
@@ -1579,7 +1923,9 @@
           "nfl_team": "JAC",
           "salary": 37000,
           "contract_year": 1,
-          "contract_status": "TAG"
+          "contract_status": "TAG",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16188",
@@ -1589,7 +1935,9 @@
           "nfl_team": "LAC",
           "salary": 18000,
           "contract_year": 1,
-          "contract_status": "EXT1"
+          "contract_status": "EXT1",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15972",
@@ -1599,7 +1947,21 @@
           "nfl_team": "MIN",
           "salary": 14000,
           "contract_year": 2,
-          "contract_status": "FL"
+          "contract_status": "FL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17462",
+          "display": "Fernando Mendoza",
+          "player_id": "17462",
+          "position": "QB",
+          "nfl_team": "LVR",
+          "salary": 13000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16187",
@@ -1609,17 +1971,9 @@
           "nfl_team": "IND",
           "salary": 12000,
           "contract_year": 1,
-          "contract_status": "EXT1"
-        },
-        {
-          "asset_id": "P_16149",
-          "display": "Will Levis",
-          "player_id": "16149",
-          "position": "QB",
-          "nfl_team": "TEN",
-          "salary": 6000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_status": "EXT1",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15802",
@@ -1629,7 +1983,9 @@
           "nfl_team": "TBB",
           "salary": 5000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17076",
@@ -1639,7 +1995,21 @@
           "nfl_team": "CLE",
           "salary": 5000,
           "contract_year": 2,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17511",
+          "display": "Malachi Fields",
+          "player_id": "17511",
+          "position": "WR",
+          "nfl_team": "NYG",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16649",
@@ -1649,7 +2019,9 @@
           "nfl_team": "NYG",
           "salary": 5000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17102",
@@ -1659,7 +2031,9 @@
           "nfl_team": "IND",
           "salary": 5000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16175",
@@ -1669,7 +2043,9 @@
           "nfl_team": "CHI",
           "salary": 4000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16241",
@@ -1677,9 +2053,11 @@
           "player_id": "16241",
           "position": "CB",
           "nfl_team": "SEA",
-          "salary": 2000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "salary": 3000,
+          "contract_year": 1,
+          "contract_status": "TAG",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17053",
@@ -1689,7 +2067,9 @@
           "nfl_team": "HOU",
           "salary": 2000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15418",
@@ -1699,7 +2079,9 @@
           "nfl_team": "IND",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16195",
@@ -1709,7 +2091,9 @@
           "nfl_team": "PHI",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15484",
@@ -1719,7 +2103,9 @@
           "nfl_team": "DEN",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17205",
@@ -1729,7 +2115,21 @@
           "nfl_team": "LAC",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "MYM - Rookie"
+          "contract_status": "MYM - Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17553",
+          "display": "Keldric Faulk",
+          "player_id": "17553",
+          "position": "DE",
+          "nfl_team": "TEN",
+          "salary": 1000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17254",
@@ -1739,7 +2139,9 @@
           "nfl_team": "LAR",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "MYM - Rookie"
+          "contract_status": "MYM - Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16287",
@@ -1749,7 +2151,81 @@
           "nfl_team": "LVR",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16165",
+          "display": "Tyjae Spears",
+          "player_id": "16165",
+          "position": "RB",
+          "nfl_team": "TEN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16149",
+          "display": "Will Levis",
+          "player_id": "16149",
+          "position": "QB",
+          "nfl_team": "TEN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17503",
+          "display": "Germie Bernard",
+          "player_id": "17503",
+          "position": "WR",
+          "nfl_team": "PIT",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17466",
+          "display": "Carson Beck",
+          "player_id": "17466",
+          "position": "QB",
+          "nfl_team": "ARI",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17528",
+          "display": "Kevin Coleman",
+          "player_id": "17528",
+          "position": "WR",
+          "nfl_team": "MIA",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17482",
+          "display": "Mike Washington Jr.",
+          "player_id": "17482",
+          "position": "RB",
+          "nfl_team": "LVR",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17049",
@@ -1759,7 +2235,9 @@
           "nfl_team": "KCC",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17069",
@@ -1769,17 +2247,9 @@
           "nfl_team": "DAL",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16635",
-          "display": "Luke McCaffrey",
-          "player_id": "16635",
-          "position": "WR",
-          "nfl_team": "WAS",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16684",
@@ -1789,7 +2259,9 @@
           "nfl_team": "MIA",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17059",
@@ -1799,7 +2271,9 @@
           "nfl_team": "MIA",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17034",
@@ -1809,7 +2283,9 @@
           "nfl_team": "MIA",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16746",
@@ -1819,27 +2295,9 @@
           "nfl_team": "BAL",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_17114",
-          "display": "Shemar Stewart",
-          "player_id": "17114",
-          "position": "DE",
-          "nfl_team": "CIN",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_17077",
-          "display": "Xavier Restrepo",
-          "player_id": "17077",
-          "position": "WR",
-          "nfl_team": "TEN",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         }
       ],
       "future_picks": [
@@ -1862,68 +2320,7 @@
           "original_owner_name": "Brian Cross"
         }
       ],
-      "current_picks": [
-        {
-          "asset_id": "DP_2026_01_03",
-          "display": "2026 01.03",
-          "round": "01",
-          "slot": "03"
-        },
-        {
-          "asset_id": "DP_2026_02_03",
-          "display": "2026 02.03",
-          "round": "02",
-          "slot": "03"
-        },
-        {
-          "asset_id": "DP_2026_03_03",
-          "display": "2026 03.03",
-          "round": "03",
-          "slot": "03"
-        },
-        {
-          "asset_id": "DP_2026_03_11",
-          "display": "2026 03.11",
-          "round": "03",
-          "slot": "11"
-        },
-        {
-          "asset_id": "DP_2026_04_04",
-          "display": "2026 04.04",
-          "round": "04",
-          "slot": "04"
-        },
-        {
-          "asset_id": "DP_2026_04_05",
-          "display": "2026 04.05",
-          "round": "04",
-          "slot": "05"
-        },
-        {
-          "asset_id": "DP_2026_04_07",
-          "display": "2026 04.07",
-          "round": "04",
-          "slot": "07"
-        },
-        {
-          "asset_id": "DP_2026_05_07",
-          "display": "2026 05.07",
-          "round": "05",
-          "slot": "07"
-        },
-        {
-          "asset_id": "DP_2026_05_08",
-          "display": "2026 05.08",
-          "round": "05",
-          "slot": "08"
-        },
-        {
-          "asset_id": "DP_2026_06_03",
-          "display": "2026 06.03",
-          "round": "06",
-          "slot": "03"
-        }
-      ]
+      "current_picks": []
     },
     "0007": {
       "players": [
@@ -1935,7 +2332,9 @@
           "nfl_team": "SFO",
           "salary": 62000,
           "contract_year": 1,
-          "contract_status": "TAG"
+          "contract_status": "TAG",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_12801",
@@ -1945,7 +2344,9 @@
           "nfl_team": "FA",
           "salary": 62000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13299",
@@ -1955,7 +2356,9 @@
           "nfl_team": "SFO",
           "salary": 29000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16167",
@@ -1965,7 +2368,9 @@
           "nfl_team": "MIA",
           "salary": 25000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16194",
@@ -1975,7 +2380,9 @@
           "nfl_team": "KCC",
           "salary": 25000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16579",
@@ -1985,7 +2392,9 @@
           "nfl_team": "CHI",
           "salary": 15000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17074",
@@ -1995,7 +2404,9 @@
           "nfl_team": "JAC",
           "salary": 14000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16616",
@@ -2005,7 +2416,9 @@
           "nfl_team": "CHI",
           "salary": 10000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16597",
@@ -2015,7 +2428,9 @@
           "nfl_team": "CAR",
           "salary": 7000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17103",
@@ -2025,7 +2440,9 @@
           "nfl_team": "CLE",
           "salary": 5000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17134",
@@ -2035,7 +2452,9 @@
           "nfl_team": "NEP",
           "salary": 5000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17099",
@@ -2045,7 +2464,21 @@
           "nfl_team": "LAC",
           "salary": 4000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16166",
+          "display": "Sean Tucker",
+          "player_id": "16166",
+          "position": "RB",
+          "nfl_team": "TBB",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16266",
@@ -2055,7 +2488,33 @@
           "nfl_team": "LAC",
           "salary": 4000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17576",
+          "display": "Dillon Thieneman",
+          "player_id": "17576",
+          "position": "S",
+          "nfl_team": "CHI",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17586",
+          "display": "Jacob Rodriguez",
+          "player_id": "17586",
+          "position": "LB",
+          "nfl_team": "MIA",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17256",
@@ -2065,7 +2524,21 @@
           "nfl_team": "WAS",
           "salary": 2000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17550",
+          "display": "Rueben Bain Jr.",
+          "player_id": "17550",
+          "position": "DE",
+          "nfl_team": "TBB",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17058",
@@ -2075,7 +2548,21 @@
           "nfl_team": "CIN",
           "salary": 2000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17601",
+          "display": "A.J. Haulcy",
+          "player_id": "17601",
+          "position": "S",
+          "nfl_team": "IND",
+          "salary": 1000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17147",
@@ -2085,7 +2572,9 @@
           "nfl_team": "CLE",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17269",
@@ -2095,7 +2584,9 @@
           "nfl_team": "NEP",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "MYM - Rookie"
+          "contract_status": "MYM - Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14179",
@@ -2105,7 +2596,9 @@
           "nfl_team": "SEA",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "MYM - Vet"
+          "contract_status": "MYM - Vet",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16204",
@@ -2115,7 +2608,9 @@
           "nfl_team": "HOU",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15702",
@@ -2125,7 +2620,9 @@
           "nfl_team": "PHI",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16384",
@@ -2135,7 +2632,45 @@
           "nfl_team": "CHI",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "MYM - Vet"
+          "contract_status": "MYM - Vet",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17567",
+          "display": "Oscar Delp",
+          "player_id": "17567",
+          "position": "TE",
+          "nfl_team": "NOS",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17549",
+          "display": "Sam Roush",
+          "player_id": "17549",
+          "position": "TE",
+          "nfl_team": "CHI",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17475",
+          "display": "Seth McGowan",
+          "player_id": "17475",
+          "position": "RB",
+          "nfl_team": "IND",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17083",
@@ -2145,7 +2680,9 @@
           "nfl_team": "HOU",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17080",
@@ -2155,7 +2692,9 @@
           "nfl_team": "HOU",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16632",
@@ -2165,7 +2704,9 @@
           "nfl_team": "FA",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17123",
@@ -2175,7 +2716,9 @@
           "nfl_team": "PHI",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17055",
@@ -2185,7 +2728,9 @@
           "nfl_team": "SFO",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16604",
@@ -2195,7 +2740,9 @@
           "nfl_team": "GBP",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16601",
@@ -2205,7 +2752,9 @@
           "nfl_team": "PHI",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         }
       ],
       "future_picks": [
@@ -2264,35 +2813,22 @@
           "original_owner_name": "Josh Martel"
         }
       ],
-      "current_picks": [
-        {
-          "asset_id": "DP_2026_03_04",
-          "display": "2026 03.04",
-          "round": "03",
-          "slot": "04"
-        },
-        {
-          "asset_id": "DP_2026_03_06",
-          "display": "2026 03.06",
-          "round": "03",
-          "slot": "06"
-        },
-        {
-          "asset_id": "DP_2026_05_05",
-          "display": "2026 05.05",
-          "round": "05",
-          "slot": "05"
-        },
-        {
-          "asset_id": "DP_2026_06_11",
-          "display": "2026 06.11",
-          "round": "06",
-          "slot": "11"
-        }
-      ]
+      "current_picks": []
     },
     "0008": {
       "players": [
+        {
+          "asset_id": "P_15253",
+          "display": "Travis Etienne",
+          "player_id": "15253",
+          "position": "RB",
+          "nfl_team": "NOS",
+          "salary": 19000,
+          "contract_year": 1,
+          "contract_status": "TAG",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
         {
           "asset_id": "P_16614",
           "display": "Marvin Harrison Jr.",
@@ -2301,7 +2837,9 @@
           "nfl_team": "ARI",
           "salary": 14000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17043",
@@ -2311,7 +2849,21 @@
           "nfl_team": "NEP",
           "salary": 12000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17501",
+          "display": "KC Concepcion",
+          "player_id": "17501",
+          "position": "WR",
+          "nfl_team": "CLE",
+          "salary": 9000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13674",
@@ -2321,7 +2873,21 @@
           "nfl_team": "PHI",
           "salary": 7000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17502",
+          "display": "Omar Cooper Jr.",
+          "player_id": "17502",
+          "position": "WR",
+          "nfl_team": "NYJ",
+          "salary": 7000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17071",
@@ -2331,7 +2897,9 @@
           "nfl_team": "CAR",
           "salary": 7000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16594",
@@ -2341,7 +2909,9 @@
           "nfl_team": "ARI",
           "salary": 6000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16617",
@@ -2351,7 +2921,9 @@
           "nfl_team": "BUF",
           "salary": 5000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14137",
@@ -2361,7 +2933,45 @@
           "nfl_team": "NOS",
           "salary": 4000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16174",
+          "display": "Chris Rodriguez",
+          "player_id": "16174",
+          "position": "RB",
+          "nfl_team": "JAC",
+          "salary": 3000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16193",
+          "display": "Kayshon Boutte",
+          "player_id": "16193",
+          "position": "WR",
+          "nfl_team": "NEP",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16212",
+          "display": "Michael Mayer",
+          "player_id": "16212",
+          "position": "TE",
+          "nfl_team": "LVR",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15789",
@@ -2371,7 +2981,9 @@
           "nfl_team": "GBP",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13113",
@@ -2381,17 +2993,9 @@
           "nfl_team": "CLE",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Veteran"
-        },
-        {
-          "asset_id": "P_16432",
-          "display": "Emanuel Wilson",
-          "player_id": "16432",
-          "position": "RB",
-          "nfl_team": "SEA",
-          "salary": 1000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15808",
@@ -2401,7 +3005,9 @@
           "nfl_team": "KCC",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16643",
@@ -2411,7 +3017,9 @@
           "nfl_team": "CAR",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17115",
@@ -2421,7 +3029,21 @@
           "nfl_team": "ATL",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16171",
+          "display": "Kendre Miller",
+          "player_id": "16171",
+          "position": "RB",
+          "nfl_team": "NOS",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15787",
@@ -2431,27 +3053,57 @@
           "nfl_team": "KCC",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16803",
-          "display": "Blake Watson",
-          "player_id": "16803",
-          "position": "RB",
-          "nfl_team": "FA",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "asset_id": "P_16252",
+          "display": "Will McDonald",
+          "player_id": "16252",
+          "position": "DE",
+          "nfl_team": "NYJ",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16233",
-          "display": "Jalen Carter",
-          "player_id": "16233",
-          "position": "DT",
-          "nfl_team": "PHI",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "asset_id": "P_17514",
+          "display": "De'Zhaun Stribling",
+          "player_id": "17514",
+          "position": "WR",
+          "nfl_team": "SFO",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17557",
+          "display": "Sonny Styles",
+          "player_id": "17557",
+          "position": "LB",
+          "nfl_team": "WAS",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17588",
+          "display": "Zion Young",
+          "player_id": "17588",
+          "position": "DE",
+          "nfl_team": "BAL",
+          "salary": 1000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         }
       ],
       "future_picks": [
@@ -2483,15 +3135,6 @@
           "original_owner_name": "Keith Creelman"
         },
         {
-          "asset_id": "FP_2027_3_0008",
-          "display": "2027 R3",
-          "year": "2027",
-          "round": "3",
-          "original_fid": "0008",
-          "original_team_name": "Real Deal Creel",
-          "original_owner_name": "Keith Creelman"
-        },
-        {
           "asset_id": "FP_2027_4_0008",
           "display": "2027 R4",
           "year": "2027",
@@ -2510,44 +3153,7 @@
           "original_owner_name": "Keith Creelman"
         }
       ],
-      "current_picks": [
-        {
-          "asset_id": "DP_2026_01_04",
-          "display": "2026 01.04",
-          "round": "01",
-          "slot": "04"
-        },
-        {
-          "asset_id": "DP_2026_01_09",
-          "display": "2026 01.09",
-          "round": "01",
-          "slot": "09"
-        },
-        {
-          "asset_id": "DP_2026_02_09",
-          "display": "2026 02.09",
-          "round": "02",
-          "slot": "09"
-        },
-        {
-          "asset_id": "DP_2026_03_09",
-          "display": "2026 03.09",
-          "round": "03",
-          "slot": "09"
-        },
-        {
-          "asset_id": "DP_2026_03_12",
-          "display": "2026 03.12",
-          "round": "03",
-          "slot": "12"
-        },
-        {
-          "asset_id": "DP_2026_06_04",
-          "display": "2026 06.04",
-          "round": "06",
-          "slot": "04"
-        }
-      ]
+      "current_picks": []
     },
     "0009": {
       "players": [
@@ -2559,7 +3165,21 @@
           "nfl_team": "ATL",
           "salary": 52000,
           "contract_year": 1,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15762",
+          "display": "George Pickens",
+          "player_id": "15762",
+          "position": "WR",
+          "nfl_team": "DAL",
+          "salary": 51000,
+          "contract_year": 1,
+          "contract_status": "TAG",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15708",
@@ -2569,7 +3189,9 @@
           "nfl_team": "NYJ",
           "salary": 35000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15715",
@@ -2579,7 +3201,9 @@
           "nfl_team": "BUF",
           "salary": 27000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14085",
@@ -2589,7 +3213,9 @@
           "nfl_team": "TEN",
           "salary": 27000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14835",
@@ -2599,7 +3225,9 @@
           "nfl_team": "CIN",
           "salary": 24000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14778",
@@ -2609,7 +3237,9 @@
           "nfl_team": "ATL",
           "salary": 15000,
           "contract_year": 1,
-          "contract_status": "FL"
+          "contract_status": "FL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16581",
@@ -2619,7 +3249,21 @@
           "nfl_team": "WAS",
           "salary": 12000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16214",
+          "display": "Sam LaPorta",
+          "player_id": "16214",
+          "position": "TE",
+          "nfl_team": "DET",
+          "salary": 10000,
+          "contract_year": 2,
+          "contract_status": "EXT2-BL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16641",
@@ -2629,17 +3273,33 @@
           "nfl_team": "LVR",
           "salary": 9000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16214",
-          "display": "Sam LaPorta",
-          "player_id": "16214",
-          "position": "TE",
+          "asset_id": "P_16244",
+          "display": "Brian Branch",
+          "player_id": "16244",
+          "position": "S",
           "nfl_team": "DET",
-          "salary": 5000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17563",
+          "display": "Caleb Downs",
+          "player_id": "17563",
+          "position": "S",
+          "nfl_team": "DAL",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16747",
@@ -2649,17 +3309,9 @@
           "nfl_team": "NYG",
           "salary": 2000,
           "contract_year": 1,
-          "contract_status": "Rookie"
-        },
-        {
-          "asset_id": "P_15292",
-          "display": "Dyami Brown",
-          "player_id": "15292",
-          "position": "WR",
-          "nfl_team": "WAS",
-          "salary": 1000,
-          "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16752",
@@ -2669,7 +3321,21 @@
           "nfl_team": "NYJ",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17571",
+          "display": "Jake Golday",
+          "player_id": "17571",
+          "position": "LB",
+          "nfl_team": "MIN",
+          "salary": 1000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16185",
@@ -2679,7 +3345,9 @@
           "nfl_team": "SEA",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "FL"
+          "contract_status": "FL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15923",
@@ -2689,7 +3357,9 @@
           "nfl_team": "LAR",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16724",
@@ -2699,17 +3369,9 @@
           "nfl_team": "CHI",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Rookie"
-        },
-        {
-          "asset_id": "P_12678",
-          "display": "Tyler Higbee",
-          "player_id": "12678",
-          "position": "TE",
-          "nfl_team": "LAR",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14908",
@@ -2719,7 +3381,9 @@
           "nfl_team": "GBP",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17126",
@@ -2729,7 +3393,9 @@
           "nfl_team": "NOS",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17073",
@@ -2739,27 +3405,9 @@
           "nfl_team": "TEN",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16151",
-          "display": "Hendon Hooker",
-          "player_id": "16151",
-          "position": "QB",
-          "nfl_team": "TEN",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16156",
-          "display": "Jake Haener",
-          "player_id": "16156",
-          "position": "QB",
-          "nfl_team": "FA",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17033",
@@ -2769,7 +3417,9 @@
           "nfl_team": "SEA",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16610",
@@ -2779,17 +3429,9 @@
           "nfl_team": "MIA",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16197",
-          "display": "Jonathan Mingo",
-          "player_id": "16197",
-          "position": "WR",
-          "nfl_team": "DAL",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16603",
@@ -2799,7 +3441,9 @@
           "nfl_team": "BUF",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         }
       ],
       "future_picks": [
@@ -2849,20 +3493,7 @@
           "original_owner_name": "Bear Dunn"
         }
       ],
-      "current_picks": [
-        {
-          "asset_id": "DP_2026_04_09",
-          "display": "2026 04.09",
-          "round": "04",
-          "slot": "09"
-        },
-        {
-          "asset_id": "DP_2026_06_09",
-          "display": "2026 06.09",
-          "round": "06",
-          "slot": "09"
-        }
-      ]
+      "current_picks": []
     },
     "0010": {
       "players": [
@@ -2874,7 +3505,21 @@
           "nfl_team": "SFO",
           "salary": 22000,
           "contract_year": 2,
-          "contract_status": "FL"
+          "contract_status": "FL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16211",
+          "display": "Puka Nacua",
+          "player_id": "16211",
+          "position": "WR",
+          "nfl_team": "LAR",
+          "salary": 22000,
+          "contract_year": 2,
+          "contract_status": "EXT2",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14109",
@@ -2884,7 +3529,9 @@
           "nfl_team": "WAS",
           "salary": 19000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_12616",
@@ -2894,7 +3541,21 @@
           "nfl_team": "ARI",
           "salary": 16000,
           "contract_year": 1,
-          "contract_status": "TAG"
+          "contract_status": "TAG",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16184",
+          "display": "Jayden Reed",
+          "player_id": "16184",
+          "position": "WR",
+          "nfl_team": "GBP",
+          "salary": 15000,
+          "contract_year": 1,
+          "contract_status": "EXT1",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17044",
@@ -2904,7 +3565,9 @@
           "nfl_team": "LAC",
           "salary": 13000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14823",
@@ -2914,7 +3577,9 @@
           "nfl_team": "PIT",
           "salary": 11000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17030",
@@ -2924,7 +3589,9 @@
           "nfl_team": "TEN",
           "salary": 10000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13163",
@@ -2934,7 +3601,9 @@
           "nfl_team": "TBB",
           "salary": 10000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17051",
@@ -2944,7 +3613,9 @@
           "nfl_team": "CLE",
           "salary": 8000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16080",
@@ -2954,17 +3625,21 @@
           "nfl_team": "SEA",
           "salary": 7000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16184",
-          "display": "Jayden Reed",
-          "player_id": "16184",
+          "asset_id": "P_17500",
+          "display": "Denzel Boston",
+          "player_id": "17500",
           "position": "WR",
-          "nfl_team": "GBP",
-          "salary": 5000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "nfl_team": "CLE",
+          "salary": 6000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13284",
@@ -2974,7 +3649,9 @@
           "nfl_team": "BAL",
           "salary": 3000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16269",
@@ -2984,7 +3661,9 @@
           "nfl_team": "JAC",
           "salary": 2000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16280",
@@ -2994,17 +3673,33 @@
           "nfl_team": "LAC",
           "salary": 2000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16211",
-          "display": "Puka Nacua",
-          "player_id": "16211",
-          "position": "WR",
-          "nfl_team": "LAR",
+          "asset_id": "P_17685",
+          "display": "Eli Heidenreich",
+          "player_id": "17685",
+          "position": "RB",
+          "nfl_team": "PIT",
           "salary": 2000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16432",
+          "display": "Emanuel Wilson",
+          "player_id": "16432",
+          "position": "RB",
+          "nfl_team": "SEA",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16723",
@@ -3014,7 +3709,9 @@
           "nfl_team": "SEA",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15846",
@@ -3024,7 +3721,9 @@
           "nfl_team": "LVR",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16223",
@@ -3034,7 +3733,9 @@
           "nfl_team": "HOU",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17131",
@@ -3044,17 +3745,57 @@
           "nfl_team": "ATL",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16595",
-          "display": "Audric Estime",
-          "player_id": "16595",
+          "asset_id": "P_17478",
+          "display": "Kaytron Allen",
+          "player_id": "17478",
           "position": "RB",
-          "nfl_team": "NOS",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "nfl_team": "WAS",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17463",
+          "display": "Ty Simpson",
+          "player_id": "17463",
+          "position": "QB",
+          "nfl_team": "LAR",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17607",
+          "display": "Eli Raridon",
+          "player_id": "17607",
+          "position": "TE",
+          "nfl_team": "NEP",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17634",
+          "display": "Justin Jefferson",
+          "player_id": "17634",
+          "position": "LB",
+          "nfl_team": "CLE",
+          "salary": 1000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17052",
@@ -3064,7 +3805,9 @@
           "nfl_team": "JAC",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16593",
@@ -3074,27 +3817,9 @@
           "nfl_team": "LAR",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_17125",
-          "display": "Demetrius Knight",
-          "player_id": "17125",
-          "position": "LB",
-          "nfl_team": "CIN",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16631",
-          "display": "Ja'Lynn Polk",
-          "player_id": "16631",
-          "position": "WR",
-          "nfl_team": "NOS",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17064",
@@ -3104,7 +3829,9 @@
           "nfl_team": "LAR",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17075",
@@ -3114,7 +3841,9 @@
           "nfl_team": "GBP",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17082",
@@ -3124,7 +3853,9 @@
           "nfl_team": "DEN",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17107",
@@ -3134,7 +3865,9 @@
           "nfl_team": "LAR",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         }
       ],
       "future_picks": [
@@ -3175,44 +3908,7 @@
           "original_owner_name": "Shawn Blake"
         }
       ],
-      "current_picks": [
-        {
-          "asset_id": "DP_2026_01_10",
-          "display": "2026 01.10",
-          "round": "01",
-          "slot": "10"
-        },
-        {
-          "asset_id": "DP_2026_02_04",
-          "display": "2026 02.04",
-          "round": "02",
-          "slot": "04"
-        },
-        {
-          "asset_id": "DP_2026_02_11",
-          "display": "2026 02.11",
-          "round": "02",
-          "slot": "11"
-        },
-        {
-          "asset_id": "DP_2026_03_01",
-          "display": "2026 03.01",
-          "round": "03",
-          "slot": "01"
-        },
-        {
-          "asset_id": "DP_2026_05_10",
-          "display": "2026 05.10",
-          "round": "05",
-          "slot": "10"
-        },
-        {
-          "asset_id": "DP_2026_06_07",
-          "display": "2026 06.07",
-          "round": "06",
-          "slot": "07"
-        }
-      ]
+      "current_picks": []
     },
     "0011": {
       "players": [
@@ -3224,7 +3920,9 @@
           "nfl_team": "DAL",
           "salary": 64000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14779",
@@ -3234,7 +3932,21 @@
           "nfl_team": "LAC",
           "salary": 51000,
           "contract_year": 2,
-          "contract_status": "FL"
+          "contract_status": "FL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16161",
+          "display": "Bijan Robinson",
+          "player_id": "16161",
+          "position": "RB",
+          "nfl_team": "ATL",
+          "salary": 35000,
+          "contract_year": 2,
+          "contract_status": "EXT2",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15761",
@@ -3244,7 +3956,9 @@
           "nfl_team": "BUF",
           "salary": 25000,
           "contract_year": 2,
-          "contract_status": "BL"
+          "contract_status": "BL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15757",
@@ -3254,17 +3968,21 @@
           "nfl_team": "TEN",
           "salary": 22000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16161",
-          "display": "Bijan Robinson",
-          "player_id": "16161",
+          "asset_id": "P_17472",
+          "display": "Jeremiyah Love",
+          "player_id": "17472",
           "position": "RB",
-          "nfl_team": "ATL",
+          "nfl_team": "ARI",
           "salary": 15000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16615",
@@ -3274,7 +3992,21 @@
           "nfl_team": "NYG",
           "salary": 13000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16222",
+          "display": "Tucker Kraft",
+          "player_id": "16222",
+          "position": "TE",
+          "nfl_team": "GBP",
+          "salary": 12000,
+          "contract_year": 1,
+          "contract_status": "EXT1",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16584",
@@ -3284,7 +4016,9 @@
           "nfl_team": "MIN",
           "salary": 11000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17032",
@@ -3294,7 +4028,9 @@
           "nfl_team": "NYG",
           "salary": 9000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17104",
@@ -3304,27 +4040,45 @@
           "nfl_team": "CHI",
           "salary": 5000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16189",
-          "display": "Marvin Mims",
-          "player_id": "16189",
-          "position": "WR",
-          "nfl_team": "DEN",
+          "asset_id": "P_17476",
+          "display": "Nicholas Singleton",
+          "player_id": "17476",
+          "position": "RB",
+          "nfl_team": "TEN",
           "salary": 5000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16193",
-          "display": "Kayshon Boutte",
-          "player_id": "16193",
-          "position": "WR",
+          "asset_id": "P_17556",
+          "display": "Arvell Reese",
+          "player_id": "17556",
+          "position": "LB",
+          "nfl_team": "NYG",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17486",
+          "display": "Jam Miller",
+          "player_id": "17486",
+          "position": "RB",
           "nfl_team": "NEP",
           "salary": 2000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17132",
@@ -3334,17 +4088,33 @@
           "nfl_team": "BAL",
           "salary": 2000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16222",
-          "display": "Tucker Kraft",
-          "player_id": "16222",
-          "position": "TE",
-          "nfl_team": "GBP",
+          "asset_id": "P_17657",
+          "display": "Taylen Green",
+          "player_id": "17657",
+          "position": "QB",
+          "nfl_team": "CLE",
           "salary": 2000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17507",
+          "display": "Zachariah Branch",
+          "player_id": "17507",
+          "position": "WR",
+          "nfl_team": "ATL",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16652",
@@ -3354,7 +4124,21 @@
           "nfl_team": "ATL",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17584",
+          "display": "Gabe Jacas",
+          "player_id": "17584",
+          "position": "DE",
+          "nfl_team": "NEP",
+          "salary": 1000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14833",
@@ -3364,7 +4148,9 @@
           "nfl_team": "CLE",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "FL"
+          "contract_status": "FL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13696",
@@ -3374,7 +4160,9 @@
           "nfl_team": "BAL",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "FL"
+          "contract_status": "FL",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15815",
@@ -3384,17 +4172,9 @@
           "nfl_team": "JAC",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
-        },
-        {
-          "asset_id": "P_16252",
-          "display": "Will McDonald",
-          "player_id": "16252",
-          "position": "DE",
-          "nfl_team": "NYJ",
-          "salary": 1000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16621",
@@ -3404,7 +4184,9 @@
           "nfl_team": "BAL",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17108",
@@ -3414,7 +4196,9 @@
           "nfl_team": "SEA",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17157",
@@ -3424,7 +4208,9 @@
           "nfl_team": "DET",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16628",
@@ -3434,7 +4220,9 @@
           "nfl_team": "TBB",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17086",
@@ -3444,7 +4232,9 @@
           "nfl_team": "KCC",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17113",
@@ -3454,7 +4244,9 @@
           "nfl_team": "SFO",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17072",
@@ -3464,7 +4256,9 @@
           "nfl_team": "LAC",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         }
       ],
       "future_picks": [
@@ -3514,50 +4308,7 @@
           "original_owner_name": "Eric Mannila"
         }
       ],
-      "current_picks": [
-        {
-          "asset_id": "DP_2026_01_01",
-          "display": "2026 01.01",
-          "round": "01",
-          "slot": "01"
-        },
-        {
-          "asset_id": "DP_2026_02_07",
-          "display": "2026 02.07",
-          "round": "02",
-          "slot": "07"
-        },
-        {
-          "asset_id": "DP_2026_03_07",
-          "display": "2026 03.07",
-          "round": "03",
-          "slot": "07"
-        },
-        {
-          "asset_id": "DP_2026_04_10",
-          "display": "2026 04.10",
-          "round": "04",
-          "slot": "10"
-        },
-        {
-          "asset_id": "DP_2026_04_11",
-          "display": "2026 04.11",
-          "round": "04",
-          "slot": "11"
-        },
-        {
-          "asset_id": "DP_2026_05_12",
-          "display": "2026 05.12",
-          "round": "05",
-          "slot": "12"
-        },
-        {
-          "asset_id": "DP_2026_06_01",
-          "display": "2026 06.01",
-          "round": "06",
-          "slot": "01"
-        }
-      ]
+      "current_picks": []
     },
     "0012": {
       "players": [
@@ -3569,7 +4320,9 @@
           "nfl_team": "BUF",
           "salary": 29000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_11671",
@@ -3579,7 +4332,9 @@
           "nfl_team": "SFO",
           "salary": 24000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15710",
@@ -3589,7 +4344,21 @@
           "nfl_team": "LAR",
           "salary": 22000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17497",
+          "display": "Carnell Tate",
+          "player_id": "17497",
+          "position": "WR",
+          "nfl_team": "TEN",
+          "salary": 14000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17068",
@@ -3599,7 +4368,21 @@
           "nfl_team": "DEN",
           "salary": 11000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17499",
+          "display": "Makai Lemon",
+          "player_id": "17499",
+          "position": "WR",
+          "nfl_team": "PHI",
+          "salary": 10000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14800",
@@ -3609,7 +4392,9 @@
           "nfl_team": "DEN",
           "salary": 9000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14105",
@@ -3619,7 +4404,9 @@
           "nfl_team": "PHI",
           "salary": 8000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17048",
@@ -3629,7 +4416,9 @@
           "nfl_team": "PIT",
           "salary": 6000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17171",
@@ -3639,7 +4428,9 @@
           "nfl_team": "TEN",
           "salary": 5000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16206",
@@ -3649,7 +4440,9 @@
           "nfl_team": "ARI",
           "salary": 5000,
           "contract_year": 2,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16620",
@@ -3659,7 +4452,9 @@
           "nfl_team": "KCC",
           "salary": 5000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_13743",
@@ -3669,7 +4464,9 @@
           "nfl_team": "SFO",
           "salary": 4000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_14127",
@@ -3679,7 +4476,9 @@
           "nfl_team": "JAC",
           "salary": 4000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_17112",
@@ -3689,7 +4488,21 @@
           "nfl_team": "NYG",
           "salary": 2000,
           "contract_year": 2,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17558",
+          "display": "CJ Allen",
+          "player_id": "17558",
+          "position": "LB",
+          "nfl_team": "IND",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16655",
@@ -3699,17 +4512,9 @@
           "nfl_team": "MIA",
           "salary": 2000,
           "contract_year": 1,
-          "contract_status": "Rookie"
-        },
-        {
-          "asset_id": "P_16228",
-          "display": "Nolan Smith",
-          "player_id": "16228",
-          "position": "DE",
-          "nfl_team": "PHI",
-          "salary": 2000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_16677",
@@ -3719,7 +4524,9 @@
           "nfl_team": "GBP",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Rookie"
+          "contract_status": "Rookie",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15351",
@@ -3729,17 +4536,21 @@
           "nfl_team": "CLE",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16245",
-          "display": "Jordan Battle",
-          "player_id": "16245",
-          "position": "S",
-          "nfl_team": "CIN",
+          "asset_id": "P_17562",
+          "display": "Mansoor Delane",
+          "player_id": "17562",
+          "position": "CB",
+          "nfl_team": "KCC",
           "salary": 1000,
-          "contract_year": 0,
-          "contract_status": "Rookie"
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
           "asset_id": "P_15868",
@@ -3749,17 +4560,45 @@
           "nfl_team": "NEP",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Veteran"
+          "contract_status": "Veteran",
+          "roster_status": "ROSTER",
+          "taxi": false
         },
         {
-          "asset_id": "P_16231",
-          "display": "Drew Sanders",
-          "player_id": "16231",
-          "position": "LB",
-          "nfl_team": "DEN",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "asset_id": "P_17485",
+          "display": "Kaelon Black",
+          "player_id": "17485",
+          "position": "RB",
+          "nfl_team": "SFO",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17468",
+          "display": "Drew Allar",
+          "player_id": "17468",
+          "position": "QB",
+          "nfl_team": "PIT",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17517",
+          "display": "Ja'Kobi Lane",
+          "player_id": "17517",
+          "position": "WR",
+          "nfl_team": "BAL",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "R",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17184",
@@ -3769,7 +4608,9 @@
           "nfl_team": "WAS",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17061",
@@ -3779,17 +4620,9 @@
           "nfl_team": "JAC",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
-        },
-        {
-          "asset_id": "P_16221",
-          "display": "Luke Schoonmaker",
-          "player_id": "16221",
-          "position": "TE",
-          "nfl_team": "DAL",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_16636",
@@ -3799,7 +4632,9 @@
           "nfl_team": "CLE",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17159",
@@ -3809,7 +4644,9 @@
           "nfl_team": "SFO",
           "salary": 0,
           "contract_year": 0,
-          "contract_status": ""
+          "contract_status": "",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         }
       ],
       "future_picks": [
@@ -3859,50 +4696,7 @@
           "original_owner_name": "Chris Klingenberg"
         }
       ],
-      "current_picks": [
-        {
-          "asset_id": "DP_2026_01_02",
-          "display": "2026 01.02",
-          "round": "01",
-          "slot": "02"
-        },
-        {
-          "asset_id": "DP_2026_01_06",
-          "display": "2026 01.06",
-          "round": "01",
-          "slot": "06"
-        },
-        {
-          "asset_id": "DP_2026_02_02",
-          "display": "2026 02.02",
-          "round": "02",
-          "slot": "02"
-        },
-        {
-          "asset_id": "DP_2026_03_02",
-          "display": "2026 03.02",
-          "round": "03",
-          "slot": "02"
-        },
-        {
-          "asset_id": "DP_2026_03_05",
-          "display": "2026 03.05",
-          "round": "03",
-          "slot": "05"
-        },
-        {
-          "asset_id": "DP_2026_04_02",
-          "display": "2026 04.02",
-          "round": "04",
-          "slot": "02"
-        },
-        {
-          "asset_id": "DP_2026_06_02",
-          "display": "2026 06.02",
-          "round": "06",
-          "slot": "02"
-        }
-      ]
+      "current_picks": []
     }
   }
 }
