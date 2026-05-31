@@ -1496,7 +1496,13 @@
 
       // Sections: when conferences exist, group divisions under conferences;
       // otherwise render a flat list.
-      var sortDivsByAp = function (a, b) { return (byDiv[b].divApPct || 0) - (byDiv[a].divApPct || 0); };
+      var sortDivsByAp = function (a, b) {
+        // Order divisions by standing (All-Play %) top → bottom, never by division id.
+        var d = (byDiv[b].divApPct || 0) - (byDiv[a].divApPct || 0);
+        if (d !== 0) return d;
+        // Preseason (no games → null AP%): deterministic fallback by division name.
+        return String(byDiv[a].name || a).localeCompare(String(byDiv[b].name || b));
+      };
       var sections = [];
       if (hasConferences) {
         var byConf = {};
@@ -1557,7 +1563,7 @@
             + '<div class="stat"><div class="stat-label">Overall</div>' + rec(t.h2h_w, t.h2h_l, t.h2h_t) + '</div>'
             + '<div class="stat"><div class="stat-label">Div</div>' + rec(t.div_w, t.div_l) + '</div>'
             + '<div class="stat"><div class="stat-label">All-Play</div>' + rec(t.allplay_w, t.allplay_l, t.allplay_t) + '</div>'
-            + '<div class="stat"><div class="stat-label">AP %</div>' + fmtPct(t.allplay_pct) + '</div>'
+            + '<div class="stat"><div class="stat-label">PF</div>' + fmtCommas(t.pf, 1) + '</div>'
             + tbHtml
             + '</div>';
         }).join("");
