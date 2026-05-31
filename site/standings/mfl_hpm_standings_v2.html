@@ -1234,6 +1234,24 @@
   function rec(w, l, t) {
     return (w || 0) + "-" + (l || 0) + (t ? "-" + t : "");
   }
+  // Mid-season takeover marks (docs/league_context_v1.md §D.2). The franchise
+  // icon/name shown is the year-accurate MFL mark; the credited owner is the
+  // auction-of-record. tkoMark = inline asterisk; tkoFootnote = bottom note.
+  function tkoMark(r) {
+    if (!r || !r.takeover) return "";
+    var t = r.takeover;
+    return '<sup class="tko-mark" title="' + escapeHtml(t.credited_owner + " credited (auction-of-record). " + t.note) + '" style="color:#c1440e;font-weight:700;cursor:help">*</sup>';
+  }
+  function tkoFootnote(resp) {
+    var ts = (resp && resp.takeovers) || [];
+    if (!ts.length) return "";
+    var items = ts.map(function (t) {
+      return '<li><strong>*</strong> <strong>' + escapeHtml(t.credited_owner) + '</strong> is credited with this season (ran the auction of record, per league rules). ' + escapeHtml(t.note) + '</li>';
+    }).join("");
+    return '<div class="note" style="border-left:3px solid #c1440e;padding-left:10px">'
+      + '<div style="font-weight:600;margin-bottom:4px">Ownership note — record-keeping per league_context \u00A7D.2</div>'
+      + '<ul style="margin:4px 0 0 16px;padding:0">' + items + '</ul></div>';
+  }
   function fetchD1(endpoint, year) {
     var key = endpoint + "|" + (year == null ? "" : year);
     if (state.cache[key]) return Promise.resolve(state.cache[key]);
@@ -1429,29 +1447,45 @@
     }
     return [start, end];
   }
-  function computeScopedRows(baseRows, weekly, start, end) {
+  function computeScopedRows(baseRows, weekly, weeklyScores, start, end) {
     var byId = {};
     var out = (baseRows || []).map(function (r) {
       var c = {
         franchise_id: r.franchise_id, franchise_name: r.franchise_name, owner_name: r.owner_name,
         division: r.division, division_name: r.division_name, conference_id: r.conference_id,
-        conference_name: r.conference_name, logo: r.logo,
+        conference_name: r.conference_name, logo: r.logo, takeover: r.takeover,
         h2h_w: 0, h2h_l: 0, h2h_t: 0, div_w: 0, div_l: 0,
-        allplay_w: 0, allplay_l: 0, allplay_t: 0, _pf: 0, _pa: 0, _n: 0
+        po_w: 0, po_l: 0, po_t: 0,
+        allplay_w: 0, allplay_l: 0, allplay_t: 0,
+        _pf: 0, _pfn: 0, _pa: 0, _pan: 0
       };
       byId[pad4(r.franchise_id)] = c;
       return c;
     });
+    // All-play + Avg PF come from EVERY franchise's weekly score (incl. playoff
+    // byes — a team scores even with no H2H matchup), so all-play denominators
+    // stay correct in playoff weeks (each week compares all 12 teams). Fall back
+    // to matchup scores only if the weeklyScores block is unavailable.
     var scoresByWeek = {};
-    (weekly || []).forEach(function (m) {
+    var scoreSrc = (weeklyScores && weeklyScores.length) ? weeklyScores : (weekly || []);
+    scoreSrc.forEach(function (m) {
       if (m.w < start || m.w > end) return;
       var fid = pad4(m.fid);
       (scoresByWeek[m.w] = scoresByWeek[m.w] || {})[fid] = m.ts;
       var c = byId[fid];
       if (!c) return;
+      c._pf += m.ts; c._pfn++;
+    });
+    // H2H, divisional, playoff record, and points-against come from actual
+    // matchups (a bye week has a score-for but no opponent -> no H2H / PA row).
+    (weekly || []).forEach(function (m) {
+      if (m.w < start || m.w > end) return;
+      var c = byId[pad4(m.fid)];
+      if (!c) return;
       if (m.ts > m.os) c.h2h_w++; else if (m.ts < m.os) c.h2h_l++; else c.h2h_t++;
       if (m.div) { if (m.ts > m.os) c.div_w++; else if (m.ts < m.os) c.div_l++; }
-      c._pf += m.ts; c._pa += m.os; c._n++;
+      if (m.po) { if (m.ts > m.os) c.po_w++; else if (m.ts < m.os) c.po_l++; else c.po_t++; }
+      c._pa += m.os; c._pan++;
     });
     Object.keys(scoresByWeek).forEach(function (w) {
       var es = Object.keys(scoresByWeek[w]).map(function (f) { return { f: f, s: scoresByWeek[w][f] }; });
@@ -1469,8 +1503,8 @@
       c.div_pct = dg ? c.div_w / dg : 0;
       var ag = c.allplay_w + c.allplay_l + c.allplay_t;
       c.allplay_pct = ag ? (c.allplay_w + 0.5 * c.allplay_t) / ag : 0;
-      c.pf = c._n ? c._pf / c._n : 0;   // avg per matchup (matches full-season Avg PF)
-      c.pa = c._n ? c._pa / c._n : 0;
+      c.pf = c._pfn ? c._pf / c._pfn : 0;   // avg of weekly score-for (incl byes)
+      c.pa = c._pan ? c._pa / c._pan : 0;   // avg score-against (matchups only)
       c.pp = null; c.eff = null; c.pwr = null;  // not computable per-scope
     });
     return out;
@@ -1486,9 +1520,20 @@
       var seedMap = buildSeedMap(brk && brk.seeds);
       var scoped = state.scope !== "full";
       var rng = scopeWeekRange(resp);
-      var baseRows = scoped ? computeScopedRows(resp.rows || [], resp.weekly || [], rng[0], rng[1]) : (resp.rows || []);
+      var baseRows = scoped ? computeScopedRows(resp.rows || [], resp.weekly || [], resp.weeklyScores || [], rng[0], rng[1]) : (resp.rows || []);
       // Attach a numeric seed so the Seed column is sortable (unseeded → 99, sorts last).
       baseRows.forEach(function (r) { r.seed = seedMap[pad4(r.franchise_id)] || 99; });
+      // Playoff record (bracket W-L) over the active week range — its own column,
+      // computed from playoff-flagged matchups so it works for Full + scoped views.
+      (function () {
+        var po = {};
+        (resp.weekly || []).forEach(function (m) {
+          if (!m.po || m.w < rng[0] || m.w > rng[1]) return;
+          var fid = pad4(m.fid); var p = po[fid] || (po[fid] = { w: 0, l: 0 });
+          if (m.ts > m.os) p.w++; else if (m.ts < m.os) p.l++;
+        });
+        baseRows.forEach(function (r) { var p = po[pad4(r.franchise_id)]; r.po_w = p ? p.w : 0; r.po_l = p ? p.l : 0; });
+      })();
       var rows = sortRows(baseRows, state.overall.sortKey, state.overall.sortDir);
       var sortHdrs = state.overall;
       var head = '<tr>'
@@ -1500,6 +1545,7 @@
         + sortableHeader("W-L-T", "h2h_w", sortHdrs)
         + sortableHeader("PCT", "h2h_pct", sortHdrs, "num")
         + sortableHeader("Div", "div_w", sortHdrs)
+        + sortableHeader("Playoffs", "po_w", sortHdrs)
         + sortableHeader("AP W-L-T", "allplay_w", sortHdrs)
         + sortableHeader("AP %", "allplay_pct", sortHdrs, "num")
         + sortableHeader("Avg PF", "pf", sortHdrs, "num")
@@ -1511,12 +1557,13 @@
         return '<tr>'
           + '<td class="num">' + (i + 1) + '</td>'
           + '<td>' + (resp.preseason ? '' : seedBadge(s)) + '</td>'
-          + '<td>' + (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="' + escapeHtml(r.franchise_name || r.franchise_id) + '">' : escapeHtml(r.franchise_name || r.franchise_id)) + '</td>'
+          + '<td>' + (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="' + escapeHtml(r.franchise_name || r.franchise_id) + '">' : escapeHtml(r.franchise_name || r.franchise_id)) + tkoMark(r) + '</td>'
           + '<td>' + escapeHtml(r.owner_name || "") + '</td>'
           + '<td>' + escapeHtml(divisionLabel(r)) + '</td>'
           + '<td>' + rec(r.h2h_w, r.h2h_l, r.h2h_t) + '</td>'
           + '<td class="num">' + fmtPct(r.h2h_pct) + '</td>'
           + '<td>' + rec(r.div_w, r.div_l) + '</td>'
+          + '<td>' + ((r.po_w || r.po_l) ? rec(r.po_w, r.po_l) : '—') + '</td>'
           + '<td>' + rec(r.allplay_w, r.allplay_l, r.allplay_t) + '</td>'
           + '<td class="num">' + fmtPct(r.allplay_pct) + '</td>'
           + '<td class="num">' + fmtCommas(r.pf, 1) + '</td>'
@@ -1530,7 +1577,7 @@
         : (meta.last_regular_season_week
           ? '<div class="note">Regular season: weeks 1–' + meta.last_regular_season_week + ' (' + state.year + '). Click any column header to sort. Seeds derived AP % → Overall PCT → PF.</div>'
           : '<div class="note">Click any column header to sort. Seeds derived AP % → Overall PCT → PF.</div>');
-      host.innerHTML = '<div style="overflow-x:auto"><table><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' + note + DEFERRED_NOTE;
+      host.innerHTML = '<div style="overflow-x:auto"><table><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' + note + tkoFootnote(resp) + DEFERRED_NOTE;
       wireSortClicks(host, state.overall, function () { renderOverall(host); });
     }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
   }
@@ -1547,7 +1594,7 @@
       var divScoped = state.scope !== "full";
       var divRng = scopeWeekRange(resp);
       var rows = divScoped
-        ? computeScopedRows(resp.rows || [], resp.weekly || [], divRng[0], divRng[1])
+        ? computeScopedRows(resp.rows || [], resp.weekly || [], resp.weeklyScores || [], divRng[0], divRng[1])
         : (resp.rows || []);
       if (!rows.some(function (r) { return !!r.division; })) {
         host.innerHTML = '<div class="banner">Division alignment not available for ' + state.year + ' yet.</div>';
@@ -1697,7 +1744,7 @@
             + '<div class="team-block">'
             +   (t.logo ? '<img class="team-logo" src="' + escapeHtml(t.logo) + '" alt="" style="width:88px;height:44px">' : '')
             +   '<div>'
-            +     '<div class="team-name">' + (t.logo ? '' : '<span class="tn-text">' + escapeHtml(t.franchise_name || t.franchise_id) + '</span>') + (isLeader ? '<span class="leader-pill">' + leaderTag + '</span>' : '') + '</div>'
+            +     '<div class="team-name">' + (t.logo ? '' : '<span class="tn-text">' + escapeHtml(t.franchise_name || t.franchise_id) + '</span>') + (isLeader ? '<span class="leader-pill">' + leaderTag + '</span>' : '') + tkoMark(t) + '</div>'
             +   '</div>'
             + '</div>'
             + '<div class="stat"><div class="stat-label">Overall</div>' + rec(t.h2h_w, t.h2h_l, t.h2h_t) + '</div>'
@@ -1723,7 +1770,7 @@
         + (hasConferences ? "Conferences active this year. " : "")
         + 'UPS tiebreaker chain (' + state.year + '): ' + chainLabel + '. '
         + '"' + leaderTag + '" pill shows ' + (seasonComplete ? "the team that won" : "current in-season leader of") + ' the division.';
-      host.innerHTML = preseasonNote + html + '<div class="note">' + noteText + '</div>' + DEFERRED_NOTE;
+      host.innerHTML = preseasonNote + html + '<div class="note">' + noteText + '</div>' + tkoFootnote(resp) + DEFERRED_NOTE;
     }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
   }
 
