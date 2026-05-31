@@ -1,0 +1,65 @@
+name: Unification Write Dry-Run
+
+# READ-ONLY preview of the contract-unification write. Builds the MFL import
+# payload from docs/contract_unification_*.csv and POSTs it to
+# /admin/import-salaries with dry_run=true — the endpoint validates + returns the
+# before/after and the exact XML it WOULD post, but writes nothing to MFL.
+# Review the run Summary before any real write.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dryrun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build import payload + per-player diff
+        run: |
+          python pipelines/etl/scripts/build_unification_write_payload.py \
+            --payload /tmp/payload.json --diff /tmp/diff.md
+
+      - name: POST dry-run to /admin/import-salaries (no write)
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+        run: |
+          if [ -z "${KEY}" ]; then echo "COMMISH_API_KEY secret not set"; exit 1; fi
+          # &L= bypasses the L-param admin guard; body.dry_run=true means no write
+          curl -s -X POST "https://upsmflproduction.keith-creelman.workers.dev/admin/import-salaries?APIKEY=${KEY}&L=74598" \
+            -H "Content-Type: application/json" --data @/tmp/payload.json -o /tmp/resp.json
+          python - <<'PY'
+          import json
+          d = json.load(open("/tmp/resp.json"))
+          print("ok:", d.get("ok"), "| dry_run:", d.get("dry_run"),
+                "| rows_to_post:", d.get("rows_to_post"), "| xml_length:", d.get("xml_length"))
+          assert d.get("ok") and d.get("dry_run") is True, "expected a successful dry_run response"
+          # sanity: it must NOT have hit MFL's import
+          assert d.get("import_status") in (None, "dry_run"), "dry_run must not import"
+          PY
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Contract Unification — WRITE dry-run (no MFL write)"
+            echo
+            python -c "import json;d=json.load(open('/tmp/resp.json'));print('Endpoint:', 'OK dry_run' if d.get('dry_run') else d.get('error'), '· rows_to_post:', d.get('rows_to_post'))" || true
+            echo
+            cat /tmp/diff.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unification-write-dryrun
+          path: |
+            /tmp/payload.json
+            /tmp/diff.md
+            /tmp/resp.json
