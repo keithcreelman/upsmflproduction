@@ -8140,7 +8140,14 @@ export default {
                     COALESCE(s.allplay_historical_l, s.allplay_l)   AS allplay_historical_l,
                     COALESCE(s.allplay_historical_t, s.allplay_t)   AS allplay_historical_t,
                     s.allplay_pct,
-                    s.pf, s.pp, s.pwr, s.eff,
+                    s.pp, s.pwr, s.eff,
+                    -- PF = AVERAGE points for per played matchup (symmetric with pa
+                    -- below) so PF and PA read on the same per-game scale.
+                    (SELECT ROUND(AVG(team_score), 2)
+                       FROM src_schedule sc
+                      WHERE sc.season = s.season AND sc.franchise_id = s.franchise_id
+                        AND COALESCE(sc.team_score, 0) > 0
+                    ) AS pf,
                     (SELECT ROUND(AVG(opponent_score), 2)
                        FROM src_schedule sc
                       WHERE sc.season = s.season AND sc.franchise_id = s.franchise_id
