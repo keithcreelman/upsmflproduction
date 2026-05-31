@@ -8089,7 +8089,11 @@ export default {
                   out.fidToFranchise[fid] = {
                     name: String(f.name || ("Team " + fid)),
                     owner_name: f.owner_name != null ? String(f.owner_name) : null,
-                    logo: f.logo != null ? String(f.logo) : (f.icon != null ? String(f.icon) : null),
+                    // Prefer the per-year ICON (fflnetdynamic<year>/...) — the
+                    // year-accurate franchise mark MFL serves for this season —
+                    // over the larger logo, which can lag a year. src_franchises'
+                    // snapshot drifts (stale icons + names), so MFL wins here.
+                    logo: f.icon != null ? String(f.icon) : (f.logo != null ? String(f.logo) : null),
                   };
                 }
               }
@@ -8196,16 +8200,39 @@ export default {
               allplay_pct: 0, pf: 0, pp: 0, pwr: 0, eff: 0, pa: 0,
             }));
           }
+          // Mid-season / mid-auction takeover ledger — docs/league_context_v1.md
+          // §D.2. The season's record belongs to whoever ran the auction at
+          // kickoff (already reflected in src_franchises.owner_name); MFL shows
+          // the replacement's branding. We surface a footnote so the icon/name
+          // (year-accurate, from MFL) reconcile with the credited owner.
+          const TAKEOVERS_ALL = [
+            { season: 2017, fid: "0002", credited_owner: "Derrick Whitman", replacement: "AJ & Rico Balderelli", note: "Whitman ran the 2017 auction, then left mid-season; the Balderellis took over but did not auction." },
+            { season: 2022, fid: "0002", credited_owner: "AJ Balderelli", replacement: "Derrick Whitman (returning)", note: "AJ ran the 2022 auction, then was ousted mid-season for collusion; Whitman returned." },
+            { season: 2022, fid: "0005", credited_owner: "Rico Balderelli", replacement: "Eric Martel (entering)", note: "Rico ran the 2022 auction, then was ousted mid-season for collusion; Eric Martel entered." },
+            { season: 2024, fid: "0006", credited_owner: "Josh Lima", replacement: "Brian Cross (entering)", note: "Lima held the franchise for the auction-of-record; Cross took over pre-season but did not auction." },
+          ];
+          const takeoversForYear = TAKEOVERS_ALL.filter((t) => t.season === yr);
           const rows = baseRows.map((r) => {
             // MFL wins on division assignment: prefer the live franchise→division
             // map from TYPE=league over the src_franchises snapshot, which drifts
             // when divisions are reassigned. Fall back to the snapshot only if MFL
             // didn't return a division for this franchise/season.
-            const liveDiv = leagueMeta.fidToDivision[String(r.franchise_id).padStart(4, "0")];
+            const fidKey = String(r.franchise_id).padStart(4, "0");
+            const liveDiv = leagueMeta.fidToDivision[fidKey];
             const effDiv = (liveDiv !== undefined && liveDiv !== null) ? liveDiv : r.division;
             const divEntry = effDiv != null ? leagueMeta.divisions[String(effDiv)] : null;
+            // MFL also wins on the franchise IDENTITY (name + icon): the per-year
+            // TYPE=league export is the year-accurate mark that was on the field,
+            // whereas src_franchises drifts (stale icons/names). The credited
+            // OWNER still comes from src (auction-of-record per league_context
+            // §D.2) — takeover years are flagged separately via `takeovers`.
+            const fr = leagueMeta.fidToFranchise[fidKey];
+            const takeover = takeoversForYear.find((t) => t.fid === fidKey) || null;
             return {
               ...r,
+              takeover,
+              franchise_name: (fr && fr.name && fr.name !== "New Franchise") ? fr.name : r.franchise_name,
+              logo: (fr && fr.logo) || r.logo,
               division: effDiv,
               division_name: divEntry ? divEntry.name : null,
               conference_id: divEntry ? divEntry.conference_id : null,
@@ -8371,6 +8398,7 @@ export default {
             rows,
             weekly,
             weeklyScores,
+            takeovers: takeoversForYear,
           }), { status: 200, headers: { "content-type": "application/json", "Cache-Control": "public, max-age=60", ...corsHeaders } });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
