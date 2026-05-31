@@ -185,6 +185,22 @@ def normalize_contract_info(ci):
 
 OVERRIDES_FILE = REPO / "docs" / "contract_unification_overrides.csv"
 
+# Whole-cluster confirmations (Keith "all ok" on a current→proposed pair). A row
+# whose (current_type, proposed_type) is here — and isn't individually overridden
+# — is marked "confirmed" without needing a per-player override row.
+CONFIRMED_CLUSTERS = {
+    ("MYM - Rookie", "Rookie-MYM"),
+    ("MYM - Vet", "Vet-MYM"),
+    ("TAG", "Tag"), ("Tag", "Tag"),
+    ("Vet-ERA", "Vet-ERA"),
+    ("Veteran", "Vet-FAA"),     # high-conf only; traded vets stay "Vet-FAA?" (distinct)
+    ("Veteran", "Vet-Ext2"),    # the 11 ok (the 9 Ext1 corrections are per-player overrides)
+    ("Veteran", "Vet-WW"),      # pre-deadline WW (post-deadline → Vet-MYM via override)
+    ("R", "Rookie-Draft"),
+    ("Rookie", "Rookie-Draft"),
+    ("(blank)", "Rookie-Draft"),  # restored 2025 rookies
+}
+
 
 def load_overrides():
     """Keith-reviewed final types (docs/contract_unification_overrides.csv) — these
@@ -242,6 +258,9 @@ def main():
                 if not opos or opos == meta.get("position", ""):
                     prop, conf, note = otype, "confirmed", onote
                     break
+            else:
+                if (cur_type, prop) in CONFIRMED_CLUSTERS:
+                    conf, note = "confirmed", note or "confirmed (cluster review 2026-05-31)"
             ci_note = completeness_note(proposed_ci, parse_cl(proposed_ci)) or "(numbers unchanged — type only)"
             rows.append({
                 "franchise": fids.get(fid, fid),

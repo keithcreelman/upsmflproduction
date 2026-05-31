@@ -61,7 +61,7 @@ A trailing **`?`** on a proposed type = best guess that **needs event-chain conf
 | 3 | `MYM - Rookie` | `Rookie-MYM` | high |
 | 1 each | `EXT2-BL`→`Vet-Ext2-BL`, `Rookie`→`Rookie-FAA`, `BL`→`Vet-WW-BL`, `FL`/`BL`→`…?` | | mixed |
 
-**Confidence: 272 high (80%) · 50 med (15%) · 17 low (5%).** *(was 207 / 50 / 82 before the 2026-05-31 blank-restoration.)*
+**Confidence: 324 confirmed (96%) · 14 low · 1 high.** *(Keith cluster review 2026-05-31; the 14 low are the traded vets still to resolve.)*
 
 - **High** = unambiguous relabel or restored-from-2025 (e.g. `TAG`→`Tag`, `EXT2`→`Vet-Ext2`, the 65 blank rookies → `Rookie-Draft`). Safe to apply.
 - **Med** = strong signal, light judgment (e.g. a `Veteran` carrying an `Ext:` token → `Vet-Ext2`; a `BL` with a back-loaded schedule + `Ext:` → `Vet-Ext2-BL`).
