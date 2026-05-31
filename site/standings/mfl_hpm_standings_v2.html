@@ -1098,7 +1098,7 @@
         </div>
         <div class="controls">
           <label class="year-picker">Season <select id="yearSel"></select></label>
-          <label class="scope-picker disabled" title="Coming soon — needs week-range aggregation in the worker">
+          <label class="scope-picker disabled">
             Scope
             <select id="scopeSel" disabled>
               <option>All</option><option>Reg Season</option><option>Playoffs</option><option>Custom weeks…</option>
@@ -1114,8 +1114,7 @@
       </main>
 
       <footer class="footer">
-        <span>Source: D1 via worker <code id="workerLbl"></code></span>
-        <span>Methodology + tenure rules: <code>docs/standings_advanced_stats_proposals.md</code></span>
+        <code id="workerLbl" style="display:none"></code>
       </footer>
     </div>
   </div>
@@ -1258,7 +1257,7 @@
           sortState.sortDir = sortState.sortDir === "asc" ? "desc" : "asc";
         } else {
           sortState.sortKey = key;
-          sortState.sortDir = (key === "owner_name" || key === "franchise_name" || key === "division" || key === "division_name") ? "asc" : "desc";
+          sortState.sortDir = (key === "owner_name" || key === "franchise_name" || key === "division" || key === "division_name" || key === "seed") ? "asc" : "desc";
         }
         rerender();
       });
@@ -1308,10 +1307,7 @@
     host.innerHTML = '<div class="err">' + escapeHtml(msg) + '</div>';
   }
   // Deferred-feature footer used inside several views.
-  var DEFERRED_NOTE = '<div class="deferred-note"><strong>Coming soon:</strong> Reg-Season / Playoffs / All toggle + Week range filter '
-    + '(needs worker support to aggregate over a week subset). Bracket "True Draft Order" overlay '
-    + '(maps each playoff result to next year\'s rookie pick 1.01-1.12 per league_context_v1.md §1) — '
-    + 'requires <code>src_final_standings</code> to be loaded into D1.</div>';
+  var DEFERRED_NOTE = '';
 
   // Shared "draft" banner used by the Eras + Hall of Champions views.
   // Surfaces that the narratives + stat callouts haven't been fully
@@ -1352,11 +1348,13 @@
       var resp = results[0], brk = results[1];
       if (!resp || !resp.ok) return showError(host, "Couldn't load standings for " + state.year + ".");
       var seedMap = buildSeedMap(brk && brk.seeds);
+      // Attach a numeric seed so the Seed column is sortable (unseeded → 99, sorts last).
+      (resp.rows || []).forEach(function (r) { r.seed = seedMap[pad4(r.franchise_id)] || 99; });
       var rows = sortRows(resp.rows || [], state.overall.sortKey, state.overall.sortDir);
       var sortHdrs = state.overall;
       var head = '<tr>'
         + '<th class="num">#</th>'
-        + '<th>Seed</th>'
+        + sortableHeader("Seed", "seed", sortHdrs, "num")
         + sortableHeader("Team", "franchise_name", sortHdrs)
         + sortableHeader("Owner", "owner_name", sortHdrs)
         + sortableHeader("Division", "division_name", sortHdrs)
@@ -1386,7 +1384,7 @@
           + '<td class="num">' + fmtCommas(r.pf, 1) + '</td>'
           + '<td class="num">' + fmtCommas(r.pa, 1) + '</td>'
           + '<td class="num">' + fmtCommas(r.pp, 1) + '</td>'
-          + '<td class="num">' + fmtDec(r.eff, 3) + '</td>'
+          + '<td class="num">' + fmtPct(r.eff) + '</td>'
           + '</tr>';
       }).join("");
       var meta = resp.meta || {};
@@ -1554,7 +1552,6 @@
             +   (t.logo ? '<img class="team-logo" src="' + escapeHtml(t.logo) + '" alt="" style="width:88px;height:44px">' : '')
             +   '<div>'
             +     '<div class="team-name">' + (t.logo ? '' : '<span class="tn-text">' + escapeHtml(t.franchise_name || t.franchise_id) + '</span>') + (isLeader ? '<span class="leader-pill">' + leaderTag + '</span>' : '') + '</div>'
-            +     '<div class="owner">' + escapeHtml(t.owner_name || "") + '</div>'
             +   '</div>'
             + '</div>'
             + '<div class="stat"><div class="stat-label">Overall</div>' + rec(t.h2h_w, t.h2h_l, t.h2h_t) + '</div>'
