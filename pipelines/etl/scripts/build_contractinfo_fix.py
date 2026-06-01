@@ -15,9 +15,10 @@ step-ups are taken from EXPLICIT_SCHEDULES; an already-present schedule (incl.
 non-flat: Collins, Hill, restructures) is preserved verbatim. The 4th-year option
 (Y3+$5K, §A1) is added only for rookies that are 1st-round 2025+ or "Option Eligible".
 
-AAV is never recomputed (the league's AAV convention is intentionally mixed).
-GTD is inserted right after the schedule (before Ext/restructure); existing GTDs
-are value-corrected in place. Default dry-run; --write emits dry_run=false.
+AAV is set to the CURRENT-year salary (never the TCV/CL average) — Keith 2026-06-01,
+mirroring roster_workbench.js. GTD is inserted right after the schedule (before
+Ext/restructure); existing GTDs are value-corrected in place. Default dry-run;
+--write emits dry_run=false.
 """
 import argparse, decimal, json, re, urllib.request
 
@@ -110,6 +111,14 @@ def build_full_ci(c, status, drafted, sched):
     return "| ".join(parts)
 
 
+def set_aav(ci, sal_k):
+    """AAV is the CURRENT-year salary, never the TCV/CL average (Keith 2026-06-01:
+    a 7K player who extends shows AAV 7K this year, 17K next — never the mean).
+    Mirrors roster_workbench.js (AAV = currentSalary). Replaces the whole AAV token
+    (handles stray multi-value forms like 'AAV 32K, 42K')."""
+    return re.sub(r"AAV\s*[^|]*", f"AAV {fmtk(sal_k)}", ci, count=1)
+
+
 def strip_gtd(ci):
     return "| ".join(seg for seg in re.split(r"\s*\|\s*", ci) if seg.strip() and not re.match(r"GTD\b", seg.strip()))
 
@@ -172,6 +181,9 @@ def main():
                 new_ci = build_full_ci(c, status, drafted, sched)
             else:
                 new_ci = with_gtd(ci, c["tcv"], c["cl"])
+            sal_k = num(p.get("salary"))
+            if sal_k:
+                new_ci = set_aav(new_ci, sal_k / 1000)  # AAV = current-year salary, never the average
             if new_ci == ci:
                 continue
             rows.append({"id": pid, "salary": str(p.get("salary", "") or ""), "contractStatus": status,
