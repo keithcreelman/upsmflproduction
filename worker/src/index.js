@@ -21849,10 +21849,10 @@ export default {
           req?.new_contract_status || req?.contract_status || req?.contractStatus || ""
         ).trim();
         const requested = requestedRaw.toUpperCase();
-        if (/^EXT1$/.test(requested)) return "EXT1";
-        if (/^EXT2$/.test(requested)) return "EXT2";
-        if (/^EXT2-BL$/.test(requested)) return "EXT2-BL";
-        if (/^EXT2-FL$/.test(requested)) return "EXT2-FL";
+        if (/EXT2-BL$/.test(requested)) return "Vet-Ext2-BL";
+        if (/EXT2-FL$/.test(requested)) return "Vet-Ext2-FL";
+        if (/(^|-)EXT2$/.test(requested)) return "Vet-Ext2";
+        if (/(^|-)EXT1$/.test(requested)) return "Vet-Ext1";
 
         const optionKey = safeStr(req?.option_key || req?.optionKey).toUpperCase();
         const termToken = safeStr(
@@ -21866,20 +21866,20 @@ export default {
               ? 1
               : 0;
 
-        if (term === 1) return "EXT1";
+        if (term === 1) return "Vet-Ext1";
         if (term === 2) {
           // Loaded 2-year extensions use explicit BL/FL suffixes.
-          if (optionKey.includes("|BL")) return "EXT2-BL";
-          if (optionKey.includes("|FL")) return "EXT2-FL";
-          return "EXT2";
+          if (optionKey.includes("|BL")) return "Vet-Ext2-BL";
+          if (optionKey.includes("|FL")) return "Vet-Ext2-FL";
+          return "Vet-Ext2";
         }
 
         // Last resort for malformed input: keep explicit EXT* if present; otherwise map by current if possible.
         if (requested.startsWith("EXT")) return requestedRaw || requested;
         const current = safeStr(currentStatus).toUpperCase();
-        if (current.includes("BL")) return "EXT2-BL";
-        if (current.includes("FL")) return "EXT2-FL";
-        return "EXT2";
+        if (current.includes("BL")) return "Vet-Ext2-BL";
+        if (current.includes("FL")) return "Vet-Ext2-FL";
+        return "Vet-Ext2";
       };
 
       const computeExtensionSalaryPlan = (req, current, payloadPlayer) => {
@@ -33059,7 +33059,7 @@ export default {
             rookie: null,
           };
         } else if (isRestructure) {
-          contractStatus = requestedContractStatus || "Veteran";
+          contractStatus = requestedContractStatus || "";  // never generic "Veteran" — preserve existing sub-type via preCheck
           playerStatusLookup = {
             source: "restructure-skip-rookie-check",
             value: "",

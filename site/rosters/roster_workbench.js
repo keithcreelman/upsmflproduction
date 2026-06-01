@@ -11279,7 +11279,7 @@
       position: safeStr(player.positionGroup || player.position),
       salary: safeInt(calc.y1, 0),
       contract_year: safeInt(calc.years, 0),
-      contract_status: safeStr(player.type || "Veteran"),
+      contract_status: safeStr(player.type),  // preserve existing sub-type; worker fills from preCheck if empty
       contract_info: safeStr(calc.contractInfo),
       tcv: safeInt(calc.tcv, 0),
       aav: safeInt(calc.aav, 0),
