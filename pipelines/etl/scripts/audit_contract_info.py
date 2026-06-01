@@ -110,6 +110,13 @@ def main():
                 if y3 is not None and abs(c["opt_amt"] - (y3 + 5)) > 0.6:
                     pi.append(("OPTION_PRICE", f"option {c['opt_amt']}K != Y3+5 ({y3}+5={y3+5}K)"))
 
+            # AAV must equal the CURRENT-year salary (never the TCV/CL average)
+            sal = num(p.get("salary"))
+            if c["aav"] is not None and sal:
+                cur = sal / 1000
+                if abs(c["aav"] - cur) > 0.05:
+                    pi.append(("AAV_OFF", f"AAV {c['aav']}K != current salary {cur:g}K (AAV is never the average)"))
+
             # GTD per canon rule (75% of TCV >=$5K; $1K/$2K sub-$5K; none for CL1 sub-$5K)
             want_gtd = gtd_value(c["tcv"], c["cl"])
             if c["gtd"] is not None and want_gtd is None:
