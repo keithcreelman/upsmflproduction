@@ -1,0 +1,90 @@
+name: Unification Write (REAL)
+
+# REAL write of the contract unification to MFL (2026 active roster).
+# Posts the canonical contractStatus + completed contractInfo via
+# /admin/import-salaries (dry_run=false, APPEND=1 — untouched players preserved).
+# Every row is logged to salary_change_log (reversible). Gated behind an explicit
+# "WRITE" confirmation. Run the dry-run (unification-write-dryrun) first.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type WRITE to confirm a real MFL write'
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  write:
+    if: ${{ github.event.inputs.confirm == 'WRITE' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build REAL payload (dry_run=false)
+        run: |
+          python pipelines/etl/scripts/build_unification_write_payload.py --write \
+            --payload /tmp/payload.json --diff /tmp/diff.md
+          python -c "import json;d=json.load(open('/tmp/payload.json'));print('dry_run(must be False):',d['dry_run'],'| rows:',len(d['rows']));assert d['dry_run'] is False"
+
+      - name: POST real write to /admin/import-salaries
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+        run: |
+          if [ -z "${KEY}" ]; then echo "COMMISH_API_KEY secret not set"; exit 1; fi
+          curl -s -X POST "https://upsmflproduction.keith-creelman.workers.dev/admin/import-salaries?APIKEY=${KEY}&L=74598" \
+            -H "Content-Type: application/json" --data @/tmp/payload.json -o /tmp/resp.json
+          python - <<'PY'
+          import json
+          d = json.load(open("/tmp/resp.json"))
+          print("ok:", d.get("ok"), "| dry_run:", d.get("dry_run"), "| import_status:", d.get("import_status"),
+                "| rows_valid:", len(d.get("rows_valid", [])), "| rows_invalid:", len(d.get("rows_invalid", [])))
+          assert d.get("ok"), f"write failed: {d.get('error')}"
+          assert d.get("dry_run") is not True, "expected a REAL write, got dry_run"
+          PY
+
+      - name: Post-write verify (re-fetch MFL, count canonical)
+        run: |
+          python - <<'PY'
+          import csv, json, urllib.request, glob
+          def fetch(u): return json.load(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent":"Mozilla/5.0"}), timeout=30))
+          def as_list(x): return [] if x is None else (x if isinstance(x,list) else [x])
+          L="74598"; S="https://www48.myfantasyleague.com"
+          players={p["id"]:p for p in fetch(f"{S}/2026/export?TYPE=players&L={L}&DETAILS=0&JSON=1")["players"]["player"]}
+          cur={}
+          for f in as_list(fetch(f"{S}/2026/export?TYPE=rosters&L={L}&JSON=1")["rosters"]["franchise"]):
+            for p in as_list(f.get("player")): cur[str(p["id"])]=str(p.get("contractStatus","") or "")
+          csvp=sorted(glob.glob("docs/contract_unification_2*.csv"))[-1]
+          prop={}
+          for r in csv.DictReader(open(csvp)):
+            prop.setdefault(r["player"],[]).append(r)
+          match=mismatch=0; misses=[]
+          for pid,status in cur.items():
+            meta=players.get(pid,{}); name=meta.get("name",pid); pos=meta.get("position","")
+            cands=prop.get(name,[])
+            pr=cands[0] if len(cands)==1 else next((x for x in cands if x.get("pos")==pos),None)
+            if not pr: continue
+            want=pr["proposed_type"].rstrip("?").strip()
+            if status==want: match+=1
+            else: mismatch+=1; misses.append(f"{name}: MFL={status!r} want={want!r}")
+          print(f"POST-WRITE VERIFY: {match} players now match canonical vocab; {mismatch} mismatch")
+          for m in misses[:25]: print("  -", m)
+          import os
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as fh:
+            fh.write(f"## Unification REAL write\n\n{match} players now canonical, {mismatch} mismatch.\n")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unification-write
+          path: |
+            /tmp/payload.json
+            /tmp/diff.md
+            /tmp/resp.json

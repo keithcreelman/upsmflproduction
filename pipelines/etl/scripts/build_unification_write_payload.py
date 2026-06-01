@@ -40,6 +40,7 @@ def main():
     ap.add_argument("--csv", default=None)
     ap.add_argument("--payload", default="/tmp/unification_payload.json")
     ap.add_argument("--diff", default="/tmp/unification_diff.md")
+    ap.add_argument("--write", action="store_true", help="set dry_run=false (REAL write)")
     a = ap.parse_args()
 
     csv_path = Path(a.csv) if a.csv else latest_csv()
@@ -110,7 +111,7 @@ def main():
             bits.append(f"contractInfo `{c['contractInfo'] or '(blank)'}` → `{new_ci}`")
         diff.append(f"- **{name}** [{pos}] — " + "; ".join(bits))
 
-    payload = {"season": YEAR, "league_id": LEAGUE, "dry_run": True, "rows": rows}
+    payload = {"season": YEAR, "league_id": LEAGUE, "dry_run": (not a.write), "rows": rows}
     Path(a.payload).write_text(json.dumps(payload, indent=2))
     diff.sort()
     md = [f"# Contract unification — WRITE dry-run preview", "",
