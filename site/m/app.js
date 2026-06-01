@@ -1476,6 +1476,7 @@
   // ---------- Boot ----------
   function boot() {
     detectContext();
+    window.addEventListener("ups-cap-penalty-ready", function () { try { renderRoute(); } catch (_) {} });
     window.addEventListener("hashchange", function () {
       renderRoute();
       updateNavBadges();

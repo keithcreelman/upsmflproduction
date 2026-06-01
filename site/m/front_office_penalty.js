@@ -316,7 +316,46 @@
     if (now.getFullYear() > yr) return false;
     return now < new Date(yr, 7, 1, 0, 0, 0, 0);
   }
+  // ── Cap-penalty SSOT cache (mirrors desktop roster_workbench.js) ──────────
+  // Authoritative penalty from the worker's /api/cap-penalty/preview (the SAME
+  // _computeDropPenalty the cron uses for real charges). Fetched once per season
+  // into __mCapCache; read synchronously below. Falls back to the inline estimate
+  // until it arrives, then dispatches "ups-cap-penalty-ready" so app.js repaints.
+  var __mCapCache = null, __mCapKey = "", __mCapLoading = false;
+  function loadMobileCapCache(season) {
+    var seasonStr = String(season || "").replace(/\D/g, "");
+    if (!seasonStr || __mCapLoading) return;
+    if (__mCapCache && __mCapKey === seasonStr) return;
+    __mCapLoading = true;
+    var url = "https://upsmflproduction.keith-creelman.workers.dev/api/cap-penalty/preview?L=74598&YEAR=" + encodeURIComponent(seasonStr);
+    fetch(url, { credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (payload) {
+        if (payload && payload.ok && payload.players) {
+          __mCapCache = payload.players; __mCapKey = seasonStr;
+          try { window.dispatchEvent(new Event("ups-cap-penalty-ready")); } catch (_) {}
+        }
+      })
+      .catch(function () {})
+      .then(function () { __mCapLoading = false; });
+  }
+
   function dropPenaltyEstimate(player, season) {
+    // SSOT: prefer the worker's authoritative penalty (cached batch).
+    var __mPid = safeStr(player && player.id).replace(/\D/g, "");
+    if (__mCapCache && __mPid && __mCapCache[__mPid]) {
+      var __mc = __mCapCache[__mPid];
+      var __me = safeInt(__mc.earned, 0);
+      return {
+        amount: safeInt(__mc.penalty, 0),
+        note: __mc.exempt ? (__mc.exempt_reason || "Cap-free cut.")
+          : ("75% guarantee (" + money(safeInt(__mc.guaranteed, 0)) + ") minus earned (" + money(__me) + ")."),
+        tcv: safeInt(__mc.tcv, 0), guaranteed: safeInt(__mc.guaranteed, 0),
+        currentYearSalary: safeInt(player && player.salary, 0),
+        priorEarned: __me, accrued: 0, earned: __me, authoritative: true
+      };
+    }
+    loadMobileCapCache(season);
     var years = Math.max(0, safeInt(player && player.years, 0));
     var seasonNum = safeInt(season, new Date().getFullYear());
     var now = new Date();
