@@ -101,6 +101,10 @@
     <div class="fo-card">
       <div class="fo-card-head">
         <h2>Roster</h2>
+        <div class="fo-subview-chips" id="fo-group-toggle" role="tablist" aria-label="Roster grouping">
+          <button type="button" class="fo-subview-chip active" data-group="flat">Flat</button>
+          <button type="button" class="fo-subview-chip" data-group="position">By Position</button>
+        </div>
         <span class="small" id="fo-roster-summary">Loading…</span>
       </div>
       <p class="fo-row-hint">
@@ -118,12 +122,15 @@
             <th data-sort="cl" class="num col-lo">CL</th>
             <th data-sort="years" class="num col-lo">Yrs Rem</th>
             <th data-sort="salary" class="num">Salary <span class="small" style="color:var(--muted);">/ AAV</span></th>
+            <th data-sort="gtd" class="num col-md">GTD</th>
+            <th data-sort="earned" class="num col-md">Earned</th>
+            <th data-sort="per_week" class="num col-lo">Per&nbsp;Wk</th>
             <th data-sort="drop_pen" class="num">Drop Pen</th>
             <th data-sort="roster_status" class="col-lo">Status</th>
           </tr>
         </thead>
         <tbody id="fo-roster-tbody">
-          <tr><td colspan="11" class="fo-table-loading">Loading roster…</td></tr>
+          <tr><td colspan="14" class="fo-table-loading">Loading roster…</td></tr>
         </tbody>
       </table>
     </div>

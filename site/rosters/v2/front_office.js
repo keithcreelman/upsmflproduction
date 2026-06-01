@@ -480,6 +480,19 @@
         : "GTD " + money(guaranteed) + " − Earned " + money(br.earned) + " = " + money(penalty) + "." };
   }
 
+  // Per-Week Earning = current-year salary spread over the 17-week earning window.
+  // N/A for sub-$5K (flat-$1K penalty) contracts; "—" for expired / taxi / $0.
+  function perWeekEarningValue(p, tcv, yrs) {
+    if (tcv > 0 && tcv <= 4000) return null;
+    if (yrs <= 0 || safeInt(p && p.salary, 0) <= 0 || (p && p.isTaxi)) return null;
+    return Math.round(safeInt(p.salary, 0) / 17);
+  }
+  function perWeekEarningCell(p, tcv, yrs) {
+    var v = perWeekEarningValue(p, tcv, yrs);
+    if (v === null) return (tcv > 0 && tcv <= 4000) ? "N/A" : "—";
+    return fmtUSD(v);
+  }
+
   // ── Taxi-data repair + eligibility ──────────────────────────────────
   // Keith 2026-05-19: "Taxi guys need TCV/Salary derived; only Watson
   // got it today, should be ALL taxi." Mirrors roster_workbench.js:517.
@@ -1337,6 +1350,7 @@
     renderHeaderMeta();
     populateTeamSelect();
     populateActionFilter();
+    populateValueFilters();
     renderRosterTable();
   }
 
@@ -1402,7 +1416,7 @@
       console.error("[fo] roster load failed:", e);
       STATE.teams = [];
       if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="10" class="fo-table-error">Failed to load roster: ' +
+        tbody.innerHTML = '<tr><td colspan="14" class="fo-table-error">Failed to load roster: ' +
           escapeHtml(e.message || String(e)) + '</td></tr>';
       }
     }
@@ -1552,6 +1566,13 @@
 
   // ── Toolbar (Roster tab) ────────────────────────────────────────────
   function setupToolbar() {
+    $$("#fo-group-toggle button").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        STATE.groupByPosition = btn.dataset.group === "position";
+        $$("#fo-group-toggle button").forEach(function (b) { b.classList.toggle("active", b === btn); });
+        renderRosterTable();
+      });
+    });
     $("#fo-team-select").addEventListener("change", function (e) {
       STATE.selectedTeamId = e.target.value || "__all__";
       renderRosterTable();
@@ -1651,6 +1672,57 @@
     }
   }
 
+  // Data-driven Years / Status / Type dropdowns — only surface values that
+  // exist on the roster (Keith 2026-06-01: "years remaining 4+ but no players,
+  // shouldn't be an option"). Mirrors populateActionFilter; recomputed on load.
+  function populateValueFilters() {
+    const all = [];
+    STATE.teams.forEach(function (t) { (t.players || []).forEach(function (p) { all.push(p); }); });
+    // Years Remaining
+    const yset = {};
+    all.forEach(function (p) { const y = safeInt(p.years, 0); yset[y >= 4 ? "4+" : String(y)] = true; });
+    const yLbl = { "0": "0 (Expired)", "1": "1", "2": "2", "3": "3", "4+": "4+" };
+    const ySel = $("#fo-filter-years");
+    if (ySel) {
+      const yo = ['<option value="">All</option>'];
+      ["0", "1", "2", "3", "4+"].forEach(function (k) { if (yset[k]) yo.push('<option value="' + k + '">' + yLbl[k] + '</option>'); });
+      ySel.innerHTML = yo.join("");
+      if (STATE.filters.years && !yset[STATE.filters.years]) { STATE.filters.years = ""; }
+      ySel.value = STATE.filters.years || "";
+    }
+    // Roster Status
+    const sset = { active: false, taxi: false, ir: false };
+    all.forEach(function (p) { if (p.isTaxi) sset.taxi = true; else if (p.isIr) sset.ir = true; else sset.active = true; });
+    const sSel = $("#fo-filter-status");
+    if (sSel) {
+      const so = ['<option value="">All</option>'];
+      if (sset.active) so.push('<option value="active">Active</option>');
+      if (sset.taxi)   so.push('<option value="taxi">Taxi</option>');
+      if (sset.ir)     so.push('<option value="ir">IR</option>');
+      sSel.innerHTML = so.join("");
+      if (STATE.filters.status && !sset[STATE.filters.status]) { STATE.filters.status = ""; }
+      sSel.value = STATE.filters.status || "";
+    }
+    // Contract Type (rookie / loaded / other) — same buckets the matcher uses
+    const tset = { rookie: false, loaded: false, other: false };
+    all.forEach(function (p) {
+      const t = String(p.type || "").toUpperCase();
+      if (t.startsWith("ROOKIE")) tset.rookie = true;
+      else if (safeInt(p.years, 0) >= 2) tset.loaded = true;
+      else tset.other = true;
+    });
+    const tSel = $("#fo-filter-type");
+    if (tSel) {
+      const to = ['<option value="">All</option>'];
+      if (tset.rookie) to.push('<option value="rookie">Rookie</option>');
+      if (tset.loaded) to.push('<option value="loaded">Loaded (multi-year)</option>');
+      if (tset.other)  to.push('<option value="other">Other</option>');
+      tSel.innerHTML = to.join("");
+      if (STATE.filters.type && !tset[STATE.filters.type]) { STATE.filters.type = ""; }
+      tSel.value = STATE.filters.type || "";
+    }
+  }
+
   // ── Roster render ───────────────────────────────────────────────────
   function allVisiblePlayers() {
     const teams = STATE.selectedTeamId === "__all__"
@@ -1705,10 +1777,13 @@
   function applySort(rows) {
     const key = STATE.sort.key;
     const dir = STATE.sort.dir;
-    const numeric = ["salary", "years", "aav", "drop_pen", "tcv", "cl"];
+    const numeric = ["salary", "years", "aav", "drop_pen", "tcv", "cl", "gtd", "earned", "per_week"];
     return rows.slice().sort(function (a, b) {
       let va, vb;
       if (key === "drop_pen")      { va = dropPenaltyEstimate(a).amount; vb = dropPenaltyEstimate(b).amount; }
+      else if (key === "gtd")      { va = parseContractGuaranteeValue(a.special); vb = parseContractGuaranteeValue(b.special); }
+      else if (key === "earned")   { va = dropPenaltyEstimate(a).earned; vb = dropPenaltyEstimate(b).earned; }
+      else if (key === "per_week") { va = perWeekEarningValue(a, totalContractValueForPlayer(a), safeInt(a.years, 0)); vb = perWeekEarningValue(b, totalContractValueForPlayer(b), safeInt(b.years, 0)); va = (va == null ? -1 : va); vb = (vb == null ? -1 : vb); }
       else if (key === "tcv")      { va = totalContractValueForPlayer(a); vb = totalContractValueForPlayer(b); }
       else if (key === "cl")       { va = contractLengthForPlayer(a); vb = contractLengthForPlayer(b); }
       else if (key === "roster_status") { va = rosterStatusLabel(a); vb = rosterStatusLabel(b); }
@@ -1728,6 +1803,27 @@
       vb = String(vb || "").toLowerCase();
       return va < vb ? -dir : va > vb ? dir : 0;
     });
+  }
+
+  // Grouped-by-position render (Keith 2026-06-01: option to group like the
+  // current Front Office). Inserts a position header row before each bucket;
+  // players keep the active sort order within their group.
+  function renderGroupedRows(players) {
+    const order = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB", "IDP"];
+    const groups = {};
+    players.forEach(function (p) { const b = posBucket(p.position) || "OTHER"; (groups[b] = groups[b] || []).push(p); });
+    const keys = Object.keys(groups).sort(function (a, b) {
+      const ia = order.indexOf(a), ib = order.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+    let html = "";
+    keys.forEach(function (k) {
+      const n = groups[k].length;
+      html += '<tr class="fo-group-row"><td colspan="14"><span class="fo-pos ' + escapeHtml(k) + '">' + escapeHtml(k) +
+              '</span> <span class="small">' + n + ' player' + (n === 1 ? "" : "s") + '</span></td></tr>';
+      html += groups[k].map(renderRosterRow).join("");
+    });
+    return html;
   }
 
   function renderRosterTable() {
@@ -1753,10 +1849,10 @@
     });
 
     if (sorted.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="11" class="fo-table-empty">No players match the current filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="14" class="fo-table-empty">No players match the current filters.</td></tr>';
       return;
     }
-    tbody.innerHTML = sorted.map(renderRosterRow).join("");
+    tbody.innerHTML = STATE.groupByPosition ? renderGroupedRows(sorted) : sorted.map(renderRosterRow).join("");
 
     // Wire row clicks — entire row opens the slide-over. Manage button
     // was removed (Keith 2026-05-19: "redundancy, just need a note to
@@ -1783,6 +1879,8 @@
     const cl  = contractLengthForPlayer(p);
     const yrs = safeInt(p.years, 0);
     const drop = dropPenaltyEstimate(p);
+    const gtd = parseContractGuaranteeValue(p.special);
+    const perWeekCell = perWeekEarningCell(p, tcv, yrs);
 
     // Salary / AAV combined cell — show "/AAV" only when AAV differs from
     // current-year salary. Keith 2026-05-19: keep these visually together.
@@ -1806,6 +1904,9 @@
         <td class="num col-lo">${cl > 0 ? cl : "—"}</td>
         <td class="num col-lo">${yrs > 0 ? yrs : "—"}</td>
         <td class="num">${salaryCell}</td>
+        <td class="num col-md">${gtd > 0 ? fmtUSD(gtd) : "—"}</td>
+        <td class="num col-md">${drop.earned > 0 ? fmtUSD(drop.earned) : "—"}</td>
+        <td class="num col-lo">${perWeekCell}</td>
         <td class="num"><span class="fo-tt" data-tip="${escapeHtml(drop.note)}">${fmtUSD(drop.amount)}</span></td>
         <td class="col-lo"><span class="fo-status ${statusKls}">${escapeHtml(statusLbl)}</span></td>
       </tr>`;
