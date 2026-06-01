@@ -143,7 +143,7 @@
     // Slide-over state
     slideoverPid: null,
     slideoverFid: null,
-    slideoverSubtab: "actions",
+    slideoverSubtab: "bio",
     extensionPreview: Object.create(null), // "{pid}:{fid}" → years
   };
 
@@ -1944,7 +1944,7 @@
     if (!p) return;
     STATE.slideoverPid = pid;
     STATE.slideoverFid = fid;
-    STATE.slideoverSubtab = "actions";
+    STATE.slideoverSubtab = "bio";
     const root = $("#fo-slideover");
     root.hidden = false;
     root.setAttribute("aria-hidden", "false");
@@ -1967,7 +1967,7 @@
       `${escapeHtml(p.nflTeam || "—")} · ${escapeHtml(p.franchise)} · ` +
       `<span class="fo-ctype ${ctypeClass(p.type)}">${escapeHtml(String(p.type || "—").toUpperCase())}</span> · ` +
       `${fmtUSD(p.salary)} (${p.years || 0}yr rem)`;
-    $$("#fo-slideover-tabs button").forEach(function (b) { b.classList.toggle("active", b.dataset.subtab === "actions"); });
+    $$("#fo-slideover-tabs button").forEach(function (b) { b.classList.toggle("active", b.dataset.subtab === STATE.slideoverSubtab); });
     renderSlideoverBody();
   }
 
@@ -2035,6 +2035,12 @@
     if (d.draft_team) parts.push(safeStr(d.draft_team));
     return parts.join(" · ");
   }
+  function bioUpsDraft(p) {
+    var rh = ROOKIE_HISTORY_INDEX[safeStr(p.id).replace(/\D/g, "")];
+    if (!rh || !safeInt(rh.round, 0)) return "—";   // not selected in a UPS rookie draft
+    var slot = "Rd " + rh.round + (rh.pick ? ", Pick " + rh.pick : "");
+    return (rh.season ? rh.season + " · " : "") + slot;
+  }
   function bioLastAcquired(p) {
     var head = [safeStr(p.acquisitionTypeLabel), safeStr(p.acquisitionDetail)].filter(Boolean).join(" · ") || safeStr(p.acquisitionText) || "—";
     var date = safeStr(p.acquisitionDate);
@@ -2065,6 +2071,7 @@
           <div class="fo-form-row"><span class="lbl">Born</span><span class="val">${escapeHtml(bioDob(d.birthdate))}</span></div>
           <div class="fo-form-row"><span class="lbl">College</span><span class="val">${escapeHtml(d.college || "—")}</span></div>
           <div class="fo-form-row"><span class="lbl">NFL Draft</span><span class="val">${escapeHtml(bioDraft(d))}</span></div>
+          <div class="fo-form-row"><span class="lbl">UPS Draft</span><span class="val">${escapeHtml(bioUpsDraft(p))}</span></div>
           <div class="fo-form-row"><span class="lbl">Last Acquired</span><span class="val">${escapeHtml(bioLastAcquired(p))}</span></div>
         </div>
       </div>`;
