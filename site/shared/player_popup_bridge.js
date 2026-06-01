@@ -126,6 +126,39 @@
     return false;
   }
 
+  // Rosters cache so the popup can show the live contract strip (TCV/AAV/earned/
+  // cap penalty). MFL native pages don't hand us a contract row, so we fetch the
+  // league rosters once (same-origin) and look the player up by id on click.
+  var __rostersCache = null, __rostersCacheKey = "", __rostersLoading = false;
+  function loadRostersCache(leagueId, year) {
+    var key = leagueId + ":" + year;
+    if (!leagueId || !year || __rostersLoading || (__rostersCache && __rostersCacheKey === key)) return;
+    __rostersLoading = true;
+    var url = "/" + encodeURIComponent(year) + "/export?TYPE=rosters&L=" + encodeURIComponent(leagueId) + "&JSON=1";
+    try {
+      fetch(url, { credentials: "include" })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          var out = {};
+          var frs = d && d.rosters && d.rosters.franchise;
+          frs = Array.isArray(frs) ? frs : (frs ? [frs] : []);
+          for (var i = 0; i < frs.length; i++) {
+            var pls = frs[i] && frs[i].player;
+            pls = Array.isArray(pls) ? pls : (pls ? [pls] : []);
+            for (var j = 0; j < pls.length; j++) {
+              var pl = pls[j];
+              var pid = String((pl && pl.id) || "").replace(/\D/g, "");
+              if (pid) out[pid] = { id: pid, salary: pl.salary, contractInfo: pl.contractInfo,
+                                    contractYear: pl.contractYear, contractStatus: pl.contractStatus, status: pl.status };
+            }
+          }
+          __rostersCache = out; __rostersCacheKey = key;
+        })
+        .catch(function () {})
+        .then(function () { __rostersLoading = false; });
+    } catch (e) { __rostersLoading = false; }
+  }
+
   function onClick(ev) {
     if (!isFlagOn()) return;
     if (ev.defaultPrevented) return;
@@ -149,12 +182,20 @@
     ev.preventDefault();
     ev.stopPropagation();
 
-    try { root.UPS_openPlayerProfile(pid, pageCtx()); }
+    var ctx = pageCtx();
+    if (!ctx.year) ctx.year = String(new Date().getFullYear());
+    var row = __rostersCache && __rostersCache[pid];
+    if (row) ctx.contractSalary = row;       // live cap strip (TCV/AAV/earned/penalty)
+    else loadRostersCache(ctx.leagueId, ctx.year);   // warm for next click
+    try { root.UPS_openPlayerProfile(pid, ctx); }
     catch (e) { try { console.warn("[UPS][popup-bridge] open failed", e); } catch (e2) {} }
   }
 
   // capture=true so we beat TOS's own jQuery handler (TOS binds on document
   // bubble-phase). Returning early without preventDefault when the flag is
   // off lets TOS's handler run unmolested.
+  // Warm the rosters cache on load so the first popup already has the live strip.
+  try { var __ic = pageCtx(); loadRostersCache(__ic.leagueId, __ic.year || String(new Date().getFullYear())); } catch (e) {}
+
   document.addEventListener("click", onClick, true);
 })(typeof window !== "undefined" ? window : null);
