@@ -816,7 +816,17 @@ async function processAuctionPoll(env) {
 // drop-penalty cron AND GET /api/cap-penalty/preview. Keep at module scope so
 // both the FO/mobile preview and the real cap charge run identical logic.
 const _s = (v) => String(v == null ? "" : v).trim();
-        const _parseContractData = ({ contractInfo, salary, contractYear }) => {
+// NFL Week-1 kickoff = Thursday after Labor Day (first Monday of Sept + 3 days).
+const _nflWeek1Iso = (year) => {
+  const y = Number(year) || 0;
+  if (!y) return "";
+  const sept1 = new Date(Date.UTC(y, 8, 1));
+  const firstMonday = 1 + ((8 - sept1.getUTCDay()) % 7);
+  const kickoff = new Date(Date.UTC(y, 8, firstMonday + 3));
+  return kickoff.toISOString().slice(0, 10);
+};
+        const _parseContractData = ({ contractInfo, salary, contractYear }, opts) => {
+          opts = opts || {};
           const ci = _s(contractInfo);
           const tcvMatch = ci.match(/TCV\s*(\d+(?:\.\d+)?)\s*K/i);
           const tcv = tcvMatch ? Math.round(Number(tcvMatch[1]) * 1000) : (Number(salary) || 0);
@@ -836,20 +846,49 @@ const _s = (v) => String(v == null ? "" : v).trim();
           }
           const yearsRemaining = cy > 0 ? cy : 0;
           const yearsPlayed = (cl != null && yearsRemaining > 0) ? Math.max(0, cl - yearsRemaining) : 0;
-          let earned = 0;
+          let priorEarned = 0;
           for (let i = 1; i <= yearsPlayed; i += 1) {
-            if (yearSalaries[i] != null) earned += yearSalaries[i];
+            if (yearSalaries[i] != null) priorEarned += yearSalaries[i];
           }
           // If contractInfo lacks per-year salary detail, fall back to a
           // flat AAV × yearsPlayed assumption.
-          if (earned === 0 && yearsPlayed > 0 && aav != null) {
-            earned = aav * yearsPlayed;
+          if (priorEarned === 0 && yearsPlayed > 0 && aav != null) {
+            priorEarned = aav * yearsPlayed;
           }
-          return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned };
+          // Current-year per-week earning (canon §6/§D1): each completed NFL
+          // regular-season week earns one share of THIS year's salary; the
+          // denominator is eligible weeks remaining at acquisition (17 for a
+          // continuing/auction/Week-1 contract, 18−W for a Week-W pickup via
+          // opts.acquisitionWeek). Only when a drop date is supplied; before
+          // Week 1 → $0 (offseason), after Week 17 → fully earned. Without a
+          // drop date the result is the legacy completed-years-only earned.
+          let currentYearEarned = 0;
+          if (opts.dropDateIso && cl != null && yearsRemaining > 0) {
+            const curYrSalary = (yearSalaries[yearsPlayed + 1] != null) ? yearSalaries[yearsPlayed + 1] : (Number(salary) || 0);
+            const rsw = Number(opts.regularSeasonWeeks) || 17;
+            const wk1 = opts.week1ThursdayIso || _nflWeek1Iso(opts.season);
+            const dropYmd = String(opts.dropDateIso).slice(0, 10);
+            if (wk1 && dropYmd >= wk1) {
+              const drop = new Date(dropYmd + "T00:00:00Z");
+              const w1 = new Date(wk1 + "T00:00:00Z");
+              const wk = Math.floor((drop - w1) / (7 * 86400000)) + 1;
+              if (wk > rsw) {
+                currentYearEarned = curYrSalary;
+              } else {
+                const acqWk = (Number(opts.acquisitionWeek) >= 1) ? Number(opts.acquisitionWeek) : 1;
+                const eligible = Math.max(1, rsw - acqWk + 1);
+                let frac = (wk - acqWk + 1) / eligible;
+                frac = Math.max(0, Math.min(1, frac));
+                currentYearEarned = Math.round(frac * curYrSalary);
+              }
+            }
+          }
+          const earned = priorEarned + currentYearEarned;
+          return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned };
         };
 
-        const _computeDropPenalty = ({ contractStatus, salary, contractInfo, contractYear, isTaxi }) => {
-          const ctx = _parseContractData({ contractInfo, salary, contractYear });
+        const _computeDropPenalty = ({ contractStatus, salary, contractInfo, contractYear, isTaxi }, opts) => {
+          const ctx = _parseContractData({ contractInfo, salary, contractYear }, opts || {});
           // Exemption checks (priority order):
           // 1. Taxi squad — 0% guarantee while not permanently promoted (§D2).
           if (isTaxi) {
@@ -29205,7 +29244,7 @@ export default {
                 contractInfo: preDrop.contract_info,
                 contractYear: preDrop.contract_year,
                 isTaxi: preDrop.is_taxi,
-              });
+              }, { dropDateIso: dropIso, season: targetSeason });
             }
 
             if (dryRun) {
@@ -29946,6 +29985,13 @@ export default {
           const rRes = await mflExportJson(pvSeason, pvLeague, "rosters", {}, {});
           let frs = rRes && rRes.data && rRes.data.rosters && rRes.data.rosters.franchise;
           frs = Array.isArray(frs) ? frs : (frs ? [frs] : []);
+          // Drop date defaults to NOW (offseason → $0 current-year earned); what-if
+          // ?drop_date=YYYY-MM-DD and ?acquisition_week=W drive the per-week math.
+          const pvOpts = {
+            season: pvSeason,
+            dropDateIso: url.searchParams.get("drop_date") || new Date().toISOString(),
+            acquisitionWeek: url.searchParams.get("acquisition_week") != null ? Number(url.searchParams.get("acquisition_week")) : undefined,
+          };
           const penaltyFor = (pl) => {
             const input = {
               contractStatus: safeStr(pl.contractStatus),
@@ -29954,8 +30000,9 @@ export default {
               contractYear: safeStr(pl.contractYear),
               isTaxi: safeStr(pl.status) === "TAXI_SQUAD",
             };
-            const r = _computeDropPenalty(input);
-            return { penalty: r.penalty, guaranteed: r.guaranteed, earned: r.earned, tcv: r.tcv,
+            const r = _computeDropPenalty(input, pvOpts);
+            return { penalty: r.penalty, guaranteed: r.guaranteed, earned: r.earned,
+                     prior_earned: r.priorEarned, current_year_earned: r.currentYearEarned, tcv: r.tcv,
                      cl: r.cl, years_remaining: r.yearsRemaining, years_played: r.yearsPlayed,
                      basis: r.basis, exempt: !!r.exempt, exempt_reason: r.exempt_reason || "" };
           };
