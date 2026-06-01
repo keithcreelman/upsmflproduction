@@ -5870,11 +5870,12 @@ export default {
         const leagueId = safeStr(L) || "74598";
         const commit = url.searchParams.get("commit") === "1";
         // Dry-run is read-only (preview) and open; the actual write (commit=1)
-        // is commish-key gated.
+        // is commish-key gated (COMMISH_API_KEY, via ?APIKEY= per the admin
+        // convention so a workflow_dispatch Action can run it).
         if (commit) {
-          const expectedKey = safeStr(env.MFL_APIKEY || "");
-          const providedKey = safeStr(request.headers.get("X-MFL-APIKEY") || url.searchParams.get("key") || "");
-          if (!expectedKey || providedKey !== expectedKey) return jsonOut(401, { ok: false, error: "unauthorized — commit requires key" });
+          const expectedKey = safeStr(env.COMMISH_API_KEY || "");
+          const providedKey = safeStr(url.searchParams.get("APIKEY") || request.headers.get("X-COMMISH-APIKEY") || url.searchParams.get("key") || "");
+          if (!expectedKey || providedKey !== expectedKey) return jsonOut(401, { ok: false, error: "unauthorized — commit requires APIKEY" });
         }
         const seasonsParam = safeStr(url.searchParams.get("seasons"));
         const seasons = seasonsParam

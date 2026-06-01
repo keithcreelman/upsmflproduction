@@ -1,0 +1,45 @@
+name: Backfill playoff weeks into src_weekly
+
+# Manual, commish-gated backfill of MFL playoff-week scoring (weeks 15-17 for
+# 2021+) into D1 src_weekly with is_reg=0, so the Front Office Game Log + career
+# stats include playoffs. Dry-run unless you type WRITE.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type WRITE to perform the real D1 write (otherwise dry-run)'
+        required: true
+        default: 'dry-run'
+      seasons:
+        description: 'Comma-separated seasons (default 2021,2022,2023,2024,2025)'
+        required: false
+        default: '2021,2022,2023,2024,2025'
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run backfill
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+          SEASONS: ${{ github.event.inputs.seasons }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          BASE="https://upsmflproduction.keith-creelman.workers.dev/admin/backfill-playoff-weekly"
+          if [ "$CONFIRM" = "WRITE" ]; then
+            echo "COMMIT mode — writing to src_weekly for seasons: $SEASONS"
+            URL="${BASE}?L=74598&commit=1&APIKEY=${KEY}&seasons=${SEASONS}"
+          else
+            echo "DRY-RUN mode (type WRITE to commit) — seasons: $SEASONS"
+            URL="${BASE}?L=74598&seasons=${SEASONS}"
+          fi
+          curl -s "$URL" -o resp.json -w "HTTP %{http_code}\n"
+          python3 - <<'PY'
+          import json
+          d = json.load(open("resp.json"))
+          print("ok:", d.get("ok"), "| dry_run:", d.get("dry_run"))
+          for season, srep in (d.get("seasons") or {}).items():
+              wk = srep.get("weeks", {})
+              wsum = {w: (info.get("players"), info.get("scorers"), info.get("no_pos_group")) for w, info in wk.items()}
+              print(f"  {season}: rows_written={srep.get('rows_written')} | weeks(players,scorers,no_pos_group)={wsum} | errors={srep.get('errors')}")
+          PY
