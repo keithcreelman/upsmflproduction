@@ -56,10 +56,13 @@
     if ((m = s.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i))) out.length = parseInt(m[1], 10) || 0;
     if ((m = s.match(/(?:^|\|)\s*AAV\s+([^|]+)/i))) out.aav = parseContractMoneyToken(m[1]);
     if ((m = s.match(/(?:^|\|)\s*GTD\s*:?\s*([^|]+)/i))) out.gtd = parseContractMoneyToken(m[1]);
-    var yearRe = /Y(\d+)\s*-\s*([0-9]+(?:\.[0-9]+)?K?)/gi;
+    // Y-tokens are MFL's $K convention: "Y1-15K" AND bare "Y1-11" both mean
+    // thousands. Always ×1000 (the worker's _parseContractData does the same) —
+    // do NOT route through parseContractMoneyToken, which reads bare "11" as $11.
+    var yearRe = /Y(\d+)\s*-\s*([0-9]+(?:\.[0-9]+)?)\s*K?/gi;
     while ((m = yearRe.exec(s))) {
       var idx = parseInt(m[1], 10);
-      if (idx > 0) out.yearVals[idx] = parseContractMoneyToken(m[2]);
+      if (idx > 0) out.yearVals[idx] = Math.round((parseFloat(m[2]) || 0) * 1000);
     }
     return out;
   }
@@ -98,12 +101,45 @@
     return 0;
   }
 
-  // Modern UPS cap-penalty formula (2019+): (TCV * 75%) - Earned. Floor 0.
-  // Pre-2019 era has materially smaller cap hits with no fully codified
-  // formula — when opts.suppressPreEra2019 is true we return null so the
-  // UI can render "—" rather than a wrong number.
+  // Authoritative cap penalty = the worker's /api/cap-penalty/preview (the SAME
+  // _computeDropPenalty the cron charges with — taxi/WW/sub-$5K exemptions +
+  // in-season per-week earning this client can't derive). Batch-fetched once per
+  // season + cached; dropPenalty() returns the cached value by player id, firing
+  // "ups-cap-penalty-ready" on arrival so consumers can repaint.
+  var WORKER_BASE = 'https://upsmflproduction.keith-creelman.workers.dev';
+  var __capBatch = null, __capBatchKey = '', __capBatchLoading = false;
+  function loadCapBatch(season) {
+    var y = String(season || (new Date().getFullYear())).replace(/\D/g, '');
+    if (!y || __capBatchLoading || (__capBatch && __capBatchKey === y)) return;
+    __capBatchLoading = true;
+    try {
+      fetch(WORKER_BASE + '/api/cap-penalty/preview?L=74598&YEAR=' + y, { credentials: 'omit', cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (p) {
+          if (p && p.ok && p.players) {
+            __capBatch = p.players; __capBatchKey = y;
+            try { global.dispatchEvent(new Event('ups-cap-penalty-ready')); } catch (_) {}
+          }
+        })
+        .catch(function () {})
+        .then(function () { __capBatchLoading = false; });
+    } catch (_) { __capBatchLoading = false; }
+  }
+  function workerPenalty(sal, season) {
+    var pid = String((sal && sal.id) || '').replace(/\D/g, '');
+    if (__capBatch && pid && __capBatch[pid]) return __capBatch[pid].penalty;
+    loadCapBatch(season);
+    return null;
+  }
+
+  // Cap-penalty (2019+): (TCV × 75%) − Earned, floor 0, with canon §D2 exemptions.
+  // Prefers the authoritative worker value; the local fallback (used until the
+  // batch loads, and for historical/off-roster players) mirrors the worker's
+  // exemptions so it's correct offseason. Pre-2019 → null so the UI renders "—".
   function dropPenalty(sal, opts) {
     opts = opts || {};
+    var wp = workerPenalty(sal, opts.season);
+    if (wp != null) return wp;
     var info = parseContractInfo(sal && sal.contractInfo);
     var tcv = info.tcv;
     if (!tcv) return opts.suppressPreEra2019 ? null : 0;
@@ -111,6 +147,15 @@
       var seasonNum = Number(opts.season) || (new Date().getFullYear());
       if (seasonNum < 2019) return null;
     }
+    var salary = Math.max(0, parseInt(sal && sal.salary, 10) || 0);
+    var status = String((sal && (sal.contractStatus || sal.type)) || '');
+    var cl = info.length || 0;
+    var cy = parseInt(sal && sal.contractYear, 10) || 0; // years remaining
+    var isTaxi = !!(sal && (sal.isTaxi || /taxi/i.test(String(sal.status || ''))));
+    if (isTaxi) return 0;                                              // §D2 taxi
+    if (/(^|-)WW($|-)/i.test(status) && salary <= 4000) return 0;      // §D2 WW ≤ $4K
+    if (cl === 1 && tcv <= 4000) return 0;                            // §D2 1-yr orig < $5K
+    if (tcv <= 4000) return (cy >= 2 ? 1000 : 0);                     // §D2 sub-$5K override
     var earned = earnedToDate(sal, info);
     return Math.max(0, Math.round(tcv * 0.75) - earned);
   }
