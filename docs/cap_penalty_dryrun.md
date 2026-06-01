@@ -1,0 +1,88 @@
+# Cap-penalty dry-run — OLD vs NEW contractStatus
+
+262 contracts: cap treatment **UNCHANGED**. 77 **change** (review below). 0 unmatched.
+
+Gates that move (a change = that exemption/flag flips):
+- **WW_drop_exempt**: 4 player(s)
+- **loaded**: 2 player(s)
+- **cap_free_1yr_cut**: 6 player(s)
+- **rookie**: 65 player(s)
+
+## Changed contracts — confirm each is a correction
+- **Ali, Rasheen** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **All, Erick** [TE] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Allen, Braelon** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Allen, LeQuint** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Arroyo, Elijah** [TE] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Ayomanor, Elic** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Bagent, Tyson** [QB] `MYM - Vet`→`Vet-MYM` ($1000, cy1): cap_free_1yr_cut: False→True
+- **Bech, Jack** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Blue, Jaydon** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Brown, A.J.** [WR] `BL`→`Vet-Ext1` ($56000, cy1): loaded: True→False
+- **Bryant, Pat** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Burton, Jermaine** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Campbell, Jihaad** [LB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Corley, Malachi** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Corum, Blake** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Davis, Ray** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Ertz, Zach** [TE] `MYM - Vet`→`Vet-MYM` ($1000, cy1): cap_free_1yr_cut: False→True
+- **Etienne, Trevor** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Ewers, Quinn** [QB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Ferguson, Terrance** [TE] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Gabriel, Dillon** [QB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Giddens, DJ** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Golden, Matthew** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Gordon, Ollie** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Graham, Mason** [DT] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Green, Mike** [DE] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Harris, Tre** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Henry, Derrick** [RB] `BL`→`Vet-Ext1` ($44000, cy1): loaded: True→False
+- **Higgins, Jayden** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Horton, Tory** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Howard, Will** [QB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Hunter, Jarquez** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **James, Jordan** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Jeudy, Jerry** [WR] `FL`→`Vet-FAA-FL` ($1000, cy1): cap_free_1yr_cut: False→True
+- **Lane, Jaylin** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Latu, Laiatu** [DE] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Laube, Dylan** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Legette, Xavier** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Lloyd, MarShawn** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Love, Julian** [S] `MYM - Vet`→`Vet-MYM` ($1000, cy1): cap_free_1yr_cut: False→True
+- **Martin, Nick** [LB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **McKee, Tanner** [QB] `Veteran`→`Vet-WW` ($1000, cy2): WW_drop_exempt: False→True
+- **McMillan, Jalen** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Milroe, Jalen** [QB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Mitchell, Adonai** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Mitchell, Keaton** [RB] `Veteran`→`Vet-WW` ($1000, cy2): WW_drop_exempt: False→True
+- **Monangai, Kyle** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Murphy, Byron** [DT] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Noel, Jaylin** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Parkinson, Colby** [TE] `MYM - Vet`→`Vet-MYM` ($1000, cy1): cap_free_1yr_cut: False→True
+- **Rice, Brenden** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Royals, Jalen** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Sampson, Dylan** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Sanders, Shedeur** [QB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Shipley, Will** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Shough, Tyler** [QB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Sinnott, Ben** [TE] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Smith, Ainias** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Smith, Brashard** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Smith, Roquan** [LB] `FL`→`Vet-FAA-FL` ($1000, cy1): cap_free_1yr_cut: False→True
+- **Stover, Cade** [TE] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Stutsman, Danny** [LB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **TeSlaa, Isaac** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Thornton, Dont'e** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Tucker, Tre** [WR] `Veteran`→`Vet-WW` ($1000, cy1): WW_drop_exempt: False→True
+- **Turner, Dallas** [DE] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Tuten, Bhayshul** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Walker, Devontez** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Walker, Jalon** [DE] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Wallace, Trevin** [LB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Washington, Malik** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Watson, Christian** [WR] `Veteran`→`Vet-WW` ($1000, cy2): WW_drop_exempt: False→True
+- **Williams, Mykel** [DE] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Williams, Savion** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Wilson, Payton** [LB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Wilson, Roman** [WR] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
+- **Wright, Jaylen** [RB] `(blank)`→`Rookie-Draft` ($0, cy99): rookie: False→True
