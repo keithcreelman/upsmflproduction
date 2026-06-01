@@ -963,7 +963,7 @@
     var slot = parseDraftSlotDetail(p.acquisitionDetail);
     if (slot.round !== 1) return null;
     var status = safeStr(p.type).toUpperCase();
-    if (status.indexOf("EXT") === 0 || status === "TAG") return null;
+    if (status.indexOf("EXT") !== -1 || status.indexOf("TAG") !== -1) return null;
     return { eligible: true, exercised: false, source: "derived", round: slot.round, pick: slot.pick };
   }
   function rookieOptionActionEligible(p) {
@@ -1123,7 +1123,7 @@
       if (!has) existingOwners.push(ownerToken);
     }
 
-    const contractStatusBase = "EXT" + years;
+    const contractStatusBase = "Vet-Ext" + years;
     const contractStatus = loading === "FL" ? contractStatusBase + "-FL"
                           : loading === "BL" ? contractStatusBase + "-BL"
                           : contractStatusBase;
@@ -1281,9 +1281,9 @@
   function ctypeClass(type) {
     var t = String(type || "").toUpperCase();
     if (t.startsWith("ROOKIE")) return "rookie";
-    if (t.startsWith("EXT"))    return "ext";
+    if (t.indexOf("EXT") !== -1) return "ext";
     if (t === "TAG")            return "tag";
-    if (t === "WW")             return "ww";
+    if (t.indexOf("WW")  !== -1) return "ww";
     if (t.indexOf("FL") >= 0)   return "fl";
     if (t.indexOf("BL") >= 0)   return "bl";
     if (t.indexOf("MYM") >= 0)  return "mym";
@@ -2157,7 +2157,7 @@
           <input type="number" id="fo-extl-y3" step="1000" min="1000" value="${defaultY3}" class="num" style="background:var(--panel-alt); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:4px;">
         </div>
         <div class="fo-form-row"><span class="lbl">Σ Y2+Y3 (must equal extension total)</span><span class="val" id="fo-extl-sum">${fmtUSD(extensionTotal)}</span></div>
-        <div class="fo-form-row"><span class="lbl">Derived status</span><span class="val" id="fo-extl-status">EXT2</span></div>
+        <div class="fo-form-row"><span class="lbl">Derived status</span><span class="val" id="fo-extl-status">Vet-Ext2</span></div>
         <div class="fo-form-actions">
           <button class="btn secondary" id="fo-extl-cancel">Cancel</button>
           <button class="btn" id="fo-extl-submit">${IS_DRY_RUN ? "Submit (dry-run)" : "Submit Loaded Extension"}</button>
@@ -2176,7 +2176,7 @@
       if (y2 > y3) suffix = "-FL";
       else if (y2 < y3) suffix = "-BL";
       else suffix = "";
-      $("#fo-extl-status").textContent = "EXT2" + suffix;
+      $("#fo-extl-status").textContent = "Vet-Ext2" + suffix;
     }
     $("#fo-extl-y2").addEventListener("input", recalc);
     $("#fo-extl-y3").addEventListener("input", recalc);
@@ -2196,7 +2196,7 @@
       return;
     }
     const suffix = y2 > y3 ? "-FL" : y2 < y3 ? "-BL" : "";
-    const status = "EXT2" + suffix;
+    const status = "Vet-Ext2" + suffix;
     const tcv = currentSalary + y2 + y3;
     const gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - currentSalary);
     const futureAav = Math.round((y2 + y3) / 2);
@@ -2267,7 +2267,7 @@
   function renderExtensionForm(p, opt) {
     const yrs = safeInt(opt.years, 0) || safeInt(opt.years_added, 0) || safeInt(opt.length, 0);
     const salary = safeInt(opt.salary, 0) || safeInt(opt.year1_salary, 0);
-    const status = safeStr(opt.contract_status || opt.status || ("EXT" + yrs));
+    const status = safeStr(opt.contract_status || opt.status || ("Vet-Ext" + yrs));
     const info   = safeStr(opt.contract_info || opt.info || "");
     return `
       <div class="fo-form">
@@ -2299,7 +2299,7 @@
 
     const yrs = safeInt(opt.years, 0) || safeInt(opt.years_added, 0) || safeInt(opt.length, 0);
     const salary = safeInt(opt.salary, 0) || safeInt(opt.year1_salary, 0);
-    const status = safeStr(opt.contract_status || opt.status || ("EXT" + yrs));
+    const status = safeStr(opt.contract_status || opt.status || ("Vet-Ext" + yrs));
     const info   = safeStr(opt.contract_info || opt.info || "");
     const me = STATE.me || {};
     const commishOverride = !!me.isAdmin && me.franchise_id !== p.fid;
