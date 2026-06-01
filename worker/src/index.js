@@ -29928,60 +29928,70 @@ export default {
       // Pulls DROP_PENALTY_CANDIDATE rows from the salary_adjustments JSON report
       // for the season, filters to import_eligible entries targeting that season,
       // then posts each as a salary adjustment to MFL (one row per franchise/player).
-      // GET /api/cap-penalty/preview — authoritative drop cap-penalty for a
-      // rostered player, using the SAME _computeDropPenalty the hourly cron uses
-      // for real charges (canon §6/§D2: guarantee-minus-earned, sub-$5K fixed
-      // $1K/$0, WW≤$4K + taxi + 1-yr-under-$5K exempt — the retired flat-35% WW
-      // rule is gone). FO + mobile call this instead of re-deriving the math, so
-      // the owner-facing preview == the actual charge. Optional what-if overrides:
-      // ?salary= &contractStatus= &contractInfo= &contractYear=.
+      // GET /api/cap-penalty/preview — authoritative drop cap-penalty using the
+      // SAME _computeDropPenalty the hourly cron uses for real charges (canon
+      // §6/§D2: guarantee-minus-earned, sub-$5K fixed $1K/$0, WW≤$4K + taxi +
+      // 1-yr-under-$5K exempt — the retired flat-35% WW rule is gone). FO +
+      // mobile call this instead of re-deriving the math, so the owner-facing
+      // preview == the actual charge.
+      //   ?player_id=  -> single player (optional what-if: &salary= &contractStatus=
+      //                   &contractInfo= &contractYear=)
+      //   (no player_id) -> BATCH: { players: { "<pid>": {penalty,...} } } for every
+      //                   rostered player (one MFL fetch; the FO caches it).
       if (path === "/api/cap-penalty/preview" && request.method === "GET") {
         const pvSeason = safeStr(url.searchParams.get("YEAR") || url.searchParams.get("season") || "2026");
         const pvLeague = safeStr(url.searchParams.get("L") || url.searchParams.get("league_id") || "74598");
         const pvPid = String(url.searchParams.get("player_id") || "").replace(/\D/g, "");
-        if (!pvPid) return jsonOut(400, { ok: false, error: "Missing player_id" });
         try {
           const rRes = await mflExportJson(pvSeason, pvLeague, "rosters", {}, {});
           let frs = rRes && rRes.data && rRes.data.rosters && rRes.data.rosters.franchise;
           frs = Array.isArray(frs) ? frs : (frs ? [frs] : []);
-          let found = null, foundFid = null;
+          const penaltyFor = (pl) => {
+            const input = {
+              contractStatus: safeStr(pl.contractStatus),
+              salary: Number(pl.salary) || 0,
+              contractInfo: safeStr(pl.contractInfo),
+              contractYear: safeStr(pl.contractYear),
+              isTaxi: safeStr(pl.status) === "TAXI_SQUAD",
+            };
+            const r = _computeDropPenalty(input);
+            return { penalty: r.penalty, guaranteed: r.guaranteed, earned: r.earned, tcv: r.tcv,
+                     cl: r.cl, years_remaining: r.yearsRemaining, years_played: r.yearsPlayed,
+                     basis: r.basis, exempt: !!r.exempt, exempt_reason: r.exempt_reason || "" };
+          };
+
+          if (pvPid) {
+            let found = null, foundFid = null;
+            for (const f of frs) {
+              let pls = f && f.player; pls = Array.isArray(pls) ? pls : (pls ? [pls] : []);
+              for (const pl of pls) {
+                if (safeStr(pl && pl.id).replace(/\D/g, "") === pvPid) { found = pl; foundFid = padFranchiseId(f.id); break; }
+              }
+              if (found) break;
+            }
+            if (!found) return jsonOut(404, { ok: false, error: "Player not found on any roster", player_id: pvPid });
+            // What-if overrides (single only)
+            const o = (k) => url.searchParams.get(k);
+            const wf = { ...found };
+            if (o("salary") != null) wf.salary = o("salary");
+            if (o("contractStatus") != null) wf.contractStatus = o("contractStatus");
+            if (o("contractInfo") != null) wf.contractInfo = o("contractInfo");
+            if (o("contractYear") != null) wf.contractYear = o("contractYear");
+            return jsonOut(200, { ok: true, player_id: pvPid, franchise_id: foundFid, season: pvSeason, ...penaltyFor(wf) });
+          }
+
+          // BATCH
+          const players = {};
           for (const f of frs) {
+            const fid = padFranchiseId(f.id);
             let pls = f && f.player; pls = Array.isArray(pls) ? pls : (pls ? [pls] : []);
             for (const pl of pls) {
-              if (safeStr(pl && pl.id).replace(/\D/g, "") === pvPid) { found = pl; foundFid = padFranchiseId(f.id); break; }
+              const pid = safeStr(pl && pl.id).replace(/\D/g, "");
+              if (!pid) continue;
+              players[pid] = { franchise_id: fid, ...penaltyFor(pl) };
             }
-            if (found) break;
           }
-          if (!found) return jsonOut(404, { ok: false, error: "Player not found on any roster", player_id: pvPid });
-          const ovSalary = url.searchParams.get("salary");
-          const ovStatus = url.searchParams.get("contractStatus");
-          const ovInfo = url.searchParams.get("contractInfo");
-          const ovCy = url.searchParams.get("contractYear");
-          const input = {
-            contractStatus: ovStatus != null ? ovStatus : safeStr(found.contractStatus),
-            salary: ovSalary != null ? Number(ovSalary) : (Number(found.salary) || 0),
-            contractInfo: ovInfo != null ? ovInfo : safeStr(found.contractInfo),
-            contractYear: ovCy != null ? ovCy : safeStr(found.contractYear),
-            isTaxi: safeStr(found.status) === "TAXI_SQUAD",
-          };
-          const r = _computeDropPenalty(input);
-          return jsonOut(200, {
-            ok: true,
-            player_id: pvPid,
-            franchise_id: foundFid,
-            season: pvSeason,
-            input,
-            penalty: r.penalty,
-            guaranteed: r.guaranteed,
-            earned: r.earned,
-            tcv: r.tcv,
-            cl: r.cl,
-            years_remaining: r.yearsRemaining,
-            years_played: r.yearsPlayed,
-            basis: r.basis,
-            exempt: !!r.exempt,
-            exempt_reason: r.exempt_reason || "",
-          });
+          return jsonOut(200, { ok: true, season: pvSeason, league_id: pvLeague, count: Object.keys(players).length, players });
         } catch (pvErr) {
           return jsonOut(500, { ok: false, error: safeStr(pvErr && pvErr.message ? pvErr.message : String(pvErr)) });
         }
