@@ -121,7 +121,7 @@
       tag_side: normalizeTagSideValue(row.tag_side || row.side) || "",
       salary: salary,
       contract_year: 1,
-      contract_status: "TAG",
+      contract_status: "Tag",
       contract_info: buildTagContractInfo(row, salary),
       submitted_at_utc: new Date().toISOString(),
       commish_override_flag: args.commishOverride ? 1 : 0

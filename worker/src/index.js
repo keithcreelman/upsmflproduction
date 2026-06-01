@@ -4297,7 +4297,7 @@ export default {
             for (const fr of farr) {
               let plist = Array.isArray(fr?.player) ? fr.player : [fr?.player].filter(Boolean);
               for (const p of plist) {
-                if (String(p?.contractStatus || "").toLowerCase() === "rookie" &&
+                if (/rookie/i.test(String(p?.contractStatus || "")) &&
                     Number(String(p?.contractYear || "0").trim()) === 0) {
                   eraPool.add(String(p.id || ""));
                 }
@@ -13398,7 +13398,7 @@ export default {
           salary: safeInt(salaryPlan.salary, 0),
           salary_source: safeStr(salaryPlan.source),
           contract_year: 3,
-          contract_status: "R",
+          contract_status: "Rookie-Draft",
           contract_info: buildRookieContractInfoAcq({
             yearsRemaining: 3,
             baseSalary: salaryPlan.salary,
@@ -28264,7 +28264,7 @@ export default {
             const sal = safeStr(p?.salary);
             const ci = safeStr(p?.contractInfo);
             let eligible = false;
-            if (cs.toUpperCase() === "ROOKIE" && cy === "0") {
+            if (/rookie/i.test(cs) && cy === "0") {
               eligible = true;
             } else if (!cs && !cy && !sal && !ci) {
               // Empty contract — confirm rookie clock by drafted-year parse.
@@ -29048,7 +29048,7 @@ export default {
             return { ...ctx, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
           }
           // 2. WW pickup at ≤ $4K → cap-free (§D2 + Bot Grounding appendix).
-          if (/^WW$/i.test(safeStr(contractStatus)) && Number(salary) <= 4000) {
+          if (/(^|-)WW($|-)/i.test(safeStr(contractStatus)) && Number(salary) <= 4000) {
             return { ...ctx, penalty: 0, basis: "ww_under_5k_exempt", exempt: true, exempt_reason: "WW pickup salary ≤ $4K (§D2)." };
           }
           // 3. 1-year original-length contract with TCV ≤ $4K — cap-free (§D2).
@@ -33070,7 +33070,7 @@ export default {
             playerStatusLookup.rookie !== null
               ? playerStatusLookup.rookie
               : rookieLike(requestedContractStatus);
-          contractStatus = isRookie ? "MYM - Rookie" : "MYM - Vet";
+          contractStatus = isRookie ? "Rookie-MYM" : "Vet-MYM";
         }
 
         const importQuery =
@@ -33129,7 +33129,7 @@ export default {
         // correct suffix here before MFL writes. Owners don't set this
         // manually — the suffix follows the salary math. Flat Y arrays
         // (Y[cy-1] = Y[cy]) stay as plain EXT2 per §C4.3.
-        if (isExtensionSubmission && /^EXT2$/i.test(contractStatus)) {
+        if (isExtensionSubmission && /(^|-)EXT2$/i.test(contractStatus)) {
           const cy = Number(contractYear) || 0;
           const yMap = {};
           const yIter = String(contractInfo || "").matchAll(/Y(\d+)\s*-\s*(\d+)/gi);
@@ -33141,8 +33141,8 @@ export default {
           if (cy >= 2 && yMap[cy] && yMap[cy - 1]) {
             const y2nd = yMap[cy - 1];
             const yLast = yMap[cy];
-            if (y2nd > yLast) contractStatus = "EXT2-FL";
-            else if (y2nd < yLast) contractStatus = "EXT2-BL";
+            if (y2nd > yLast) contractStatus = "Vet-Ext2-FL";
+            else if (y2nd < yLast) contractStatus = "Vet-Ext2-BL";
             // Flat (y2nd === yLast) stays as plain EXT2.
           }
         }

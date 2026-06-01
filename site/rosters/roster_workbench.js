@@ -812,6 +812,9 @@
     if (
       t === "fl" ||
       t === "bl" ||
+      /(^|-)(fl|bl)$/.test(t) ||
+      t.indexOf("-fl") !== -1 ||
+      t.indexOf("-bl") !== -1 ||
       t.indexOf("frontloaded") !== -1 ||
       t.indexOf("front loaded") !== -1 ||
       t.indexOf("backloaded") !== -1 ||
@@ -1592,8 +1595,11 @@
 
   function extensionTermYearsForStatus(status) {
     var raw = safeStr(status).toUpperCase();
-    if (raw === "EXT1") return 1;
-    if (raw === "EXT2" || raw === "EXT2-BL" || raw === "EXT2-FL") return 2;
+    // New canonical vocab uses VET-EXT1 / VET-EXT2 (optionally with a
+    // -FL/-BL loading suffix); the synthetic-preview path still emits the
+    // bare EXT1 / EXT2 / EXT2-FL / EXT2-BL literals. Recognize both.
+    if (raw === "EXT1" || raw === "VET-EXT1") return 1;
+    if (/(^|-)EXT2(-FL|-BL)?$/.test(raw)) return 2;
     return 0;
   }
 
@@ -1914,7 +1920,7 @@
     var type = safeStr(player && player.type).toUpperCase();
     var acquisition = acquisitionTextForPlayer(player);
     return !!(
-      type === "WW" ||
+      type.indexOf("WW") !== -1 ||
       acquisition.indexOf("BBID_WAIVER") !== -1 ||
       acquisition.indexOf("WAIVER") !== -1 ||
       acquisition.indexOf(" BB ") !== -1 ||
@@ -1986,7 +1992,7 @@
     }
 
     var type = safeStr(player && player.type).toUpperCase();
-    if (contractLength === 1 && currentYearSalary < 5000 && (type === "VETERAN" || type === "WW")) {
+    if (contractLength === 1 && currentYearSalary < 5000 && (/^VET/.test(type) || type.indexOf("WW") !== -1)) {
       return {
         amount: 0,
         note: "One-year veteran/waiver contracts under $5,000 are cap-free cuts under the current rule.",
@@ -11358,7 +11364,7 @@
       tag_side: normalizeTagSideValue(row && row.side) || "",
       salary: salary,
       contract_year: 1,
-      contract_status: "TAG",
+      contract_status: "Tag",
       contract_info: buildTagContractInfo(row, salary),
       submitted_at_utc: new Date().toISOString(),
       commish_override_flag: viewerCanManageAnyRoster() ? 1 : 0

@@ -299,7 +299,7 @@
     var type = safeStr(player && player.type).toUpperCase();
     var acquisition = acquisitionTextForPlayer(player);
     return !!(
-      type === "WW" ||
+      type.indexOf("WW") !== -1 ||
       acquisition.indexOf("BBID_WAIVER") !== -1 ||
       acquisition.indexOf("WAIVER") !== -1 ||
       acquisition.indexOf(" BB ") !== -1 ||
@@ -358,7 +358,7 @@
       };
     }
     var type = safeStr(player && player.type).toUpperCase();
-    if (contractLength === 1 && currentYearSalary < 5000 && (type === "VETERAN" || type === "WW")) {
+    if (contractLength === 1 && currentYearSalary < 5000 && (/^VET/.test(type) || type.indexOf("WW") !== -1)) {
       return {
         amount: 0,
         note: "One-year veteran/waiver contracts under $5,000 are cap-free cuts under the current rule.",

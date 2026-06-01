@@ -243,7 +243,8 @@ def is_one_year_default_add_lineage(
         if method in {"BBID", "WAIVER", "FREE_AGENT"}:
             return True
         return event_source.startswith("ADDDROP:")
-    return safe_str(contract_status).upper() in {"WW", "ADD_DEFAULT_1YR"}
+    status = safe_str(contract_status).upper()
+    return "WW" in status or status == "ADD_DEFAULT_1YR"
 
 
 def is_tag_cut_pre_auction_assumption(
@@ -569,7 +570,13 @@ def is_default_drop_contract(contract_status: str, contract_length: int, contrac
     info = safe_str(contract_info).upper()
     if max(0, safe_int(contract_length, 0)) > 1:
         return False
-    if status in {"WW", "ADD_DEFAULT_1YR", ""}:
+    # Post contract-status migration, blank statuses no longer occur (MFL now
+    # fills former blanks with Rookie-Draft), so the old "" status arm is gone.
+    # WW is matched as a substring to catch the new "-WW" suffixed values
+    # (e.g. Vet-WW, Rookie-WW). Note: dropping the "" status arm narrows the
+    # match slightly, but the info-based fallback below ("" / "CL 1|") still
+    # carries the genuine default 1-yr-add signal for shape-less rows.
+    if "WW" in status or status == "ADD_DEFAULT_1YR":
         return True
     return info in {"", "CL 1|"}
 
@@ -1382,7 +1389,7 @@ def build_drop_candidate_rows(
                 taxi_state = "taxi"
         on_taxi_at_drop = taxi_state == "taxi"
         rookie_round_2_plus_pre_deadline = (
-            contract_status.upper() == "ROOKIE"
+            contract_status.upper().startswith("ROOKIE")
             and current_year_index == 1
             and draft_round >= 2
             and is_pre_deadline_cut
@@ -1396,7 +1403,7 @@ def build_drop_candidate_rows(
             penalty = 0
         elif is_tag_cut_pre_auction_assumption(contract_status, auction_start_lookup.get(source_season), transaction_dt):
             penalty = 0
-        elif contract_length == 1 and current_year_salary < 5000 and contract_status.upper() in {"VETERAN", "WW"}:
+        elif contract_length == 1 and current_year_salary < 5000 and (contract_status.upper().startswith("VET") or "WW" in contract_status.upper()):
             penalty = 0
         elif (
             contract_length == 1
