@@ -574,3 +574,7 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
   .fo-table th, .fo-table td { padding: 6px 4px; }
   .fo-toolbar-row { gap: 6px; }
 }
+
+/* Roster: position-grouping header rows */
+.fo-group-row td { background: rgba(255,255,255,0.045); font-weight: 600; padding: 7px 12px; border-top: 2px solid rgba(255,255,255,0.09); letter-spacing: .02em; }
+.fo-group-row td .small { color: var(--muted, #8a93a0); font-weight: 400; margin-left: 6px; }
