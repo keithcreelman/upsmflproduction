@@ -161,9 +161,14 @@ LAST_TRADE_FILE = SCRIPT_DIR.parent / "data" / "last_trade_timestamp.txt"
 
 
 def get_last_trade_ts() -> int:
+    # A missing/corrupt marker must NEVER fall back to 0 — that would replay the
+    # entire trade history. Default to "now" so a reset can't repost old trades.
     if LAST_TRADE_FILE.exists():
-        return int(LAST_TRADE_FILE.read_text().strip())
-    return 0
+        try:
+            return int(LAST_TRADE_FILE.read_text().strip())
+        except Exception:
+            pass
+    return int(time.time())
 
 
 def save_last_trade_ts(ts: int):
@@ -624,11 +629,18 @@ async def poll_for_trades():
         trades = fetch_trades()
         last_ts = get_last_trade_ts()
 
-        for trade in trades:
+        # Only trades newer than the marker, oldest-first so the marker advances
+        # monotonically. A trade that fails to post is SKIPPED (marker still
+        # advances) so one bad trade can't block + replay the rest.
+        new_trades = sorted(
+            (t for t in trades if int(t.get("timestamp", 0)) > last_ts),
+            key=lambda t: int(t.get("timestamp", 0)),
+        )
+        max_ts = last_ts
+        for trade in new_trades:
             ts = int(trade.get("timestamp", 0))
-            if ts > last_ts:
-                print(f"[{datetime.now()}] New trade detected! ts={ts}")
-
+            print(f"[{datetime.now()}] New trade detected! ts={ts}")
+            try:
                 # Check trade comments for extension hints
                 comments = trade.get("comments", "").lower()
                 ext_years = 0
@@ -644,7 +656,10 @@ async def poll_for_trades():
                             break
 
                 await analyze_and_post(channel, trade, ext_years, ext_player)
-                save_last_trade_ts(ts)
+            except Exception as e:
+                print(f"[{datetime.now()}] Failed to post trade ts={ts}: {e} — skipping")
+            max_ts = max(max_ts, ts)
+            save_last_trade_ts(max_ts)
 
     except Exception as e:
         print(f"[{datetime.now()}] Poll error: {e}")
