@@ -1,0 +1,73 @@
+name: ContractInfo Write (REAL)
+
+# REAL write of the GTD + Y-schedule normalization to MFL (2026 active roster).
+# Brings every active contract to a correct GTD per canon (§6 + §D1): 75%xTCV for
+# TCV>=$5K; $1K(CL2)/$2K(CL3+) for TCV<=$4K; none for 1-yr-under-$5K. Posts via
+# /admin/import-salaries (dry_run=false, APPEND=1 — untouched players preserved).
+# Every row is logged to salary_change_log (reversible). Gated behind an explicit
+# "WRITE" confirmation. Post-write verification is the contract-info audit (expect 0).
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type WRITE to confirm a real MFL write'
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  write:
+    if: ${{ github.event.inputs.confirm == 'WRITE' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build REAL payload (dry_run=false)
+        run: |
+          python pipelines/etl/scripts/build_contractinfo_fix.py --write --payload /tmp/payload.json
+          python -c "import json;d=json.load(open('/tmp/payload.json'));print('dry_run(must be False):',d['dry_run'],'| rows:',len(d['rows']));assert d['dry_run'] is False"
+
+      - name: POST real write to /admin/import-salaries
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+        run: |
+          if [ -z "${KEY}" ]; then echo "COMMISH_API_KEY secret not set"; exit 1; fi
+          curl -s -X POST "https://upsmflproduction.keith-creelman.workers.dev/admin/import-salaries?APIKEY=${KEY}&L=74598" \
+            -H "Content-Type: application/json" --data @/tmp/payload.json -o /tmp/resp.json
+          python - <<'PY'
+          import json
+          d = json.load(open("/tmp/resp.json"))
+          print("ok:", d.get("ok"), "| dry_run:", d.get("dry_run"), "| import_status:", d.get("import_status"),
+                "| rows_valid:", len(d.get("rows_valid", [])), "| rows_invalid:", len(d.get("rows_invalid", [])))
+          assert d.get("ok"), f"write failed: {d.get('error')}"
+          assert d.get("dry_run") is not True, "expected a REAL write, got dry_run"
+          PY
+
+      - name: Post-write verify (re-run contract-info audit, expect 0 issues)
+        run: |
+          python pipelines/etl/scripts/audit_contract_info.py --year 2026 --report /tmp/audit.json | tee /tmp/audit.txt
+          python - <<'PY'
+          import json, os
+          d = json.load(open("/tmp/audit.json"))
+          n = len(d)
+          head = open("/tmp/audit.txt").readline().strip()
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as fh:
+              fh.write(f"## ContractInfo REAL write\n\n{head}\n\nResidual issues: **{n}** (expected 0).\n")
+          assert n == 0, f"post-write audit still flags {n} issue(s) — see artifact"
+          print("POST-WRITE AUDIT: 0 issues — every contract GTD/schedule consistent.")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: contractinfo-write
+          path: |
+            /tmp/payload.json
+            /tmp/resp.json
+            /tmp/audit.json
