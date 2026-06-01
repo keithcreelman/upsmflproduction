@@ -32975,6 +32975,30 @@ export default {
         const submissionKindRaw = String(
           body.submission_kind || body.submissionKind || ""
         ).trim().toLowerCase();
+
+        // Untag lock (Keith 2026-06-01): the TAG label locks at the tag deadline
+        // (canon §C8.2 + processTagDeadlineMidnightLock). An untag submission past
+        // that deadline is rejected — the tag is locked for the season — unless the
+        // commish overrides (APIKEY session + explicit flag). Covers the live Roster
+        // Workbench and FO v2 alike since both hit this endpoint. Mirrors the ERA
+        // forced-retention drop guard.
+        if (submissionKindRaw === "untag") {
+          try {
+            const tagDeadline = _getTagDeadlineUtcTopLevel(year);
+            const pastDeadline = !!(tagDeadline && Date.now() > tagDeadline.getTime());
+            const ovRaw = String((body.override_tag_deadline != null ? body.override_tag_deadline : body.overrideTagDeadline) || "").toLowerCase();
+            const commishOverride = sessionByApiKey && (ovRaw === "true" || ovRaw === "1" || ovRaw === "yes");
+            if (pastDeadline && !commishOverride) {
+              return mutationResponse("validation_fail", "", {
+                reason: `Untag is locked — the ${year} tag deadline (${tagDeadline.toISOString()}) has passed; the tag is locked for the season (\u00a7C8.2). The commissioner can override.`,
+                code: "TAG_DEADLINE_LOCKED",
+                tag_deadline_iso: tagDeadline.toISOString(),
+              }, 400);
+            }
+          } catch (tagGuardErr) {
+            console.warn("[untag-guard] failed (fail-open):", tagGuardErr && tagGuardErr.message ? tagGuardErr.message : String(tagGuardErr));
+          }
+        }
         const providedSourceTag = String(body.source || body.sourceTag || "").trim();
         const isManualContractUpdate =
           path === "/commish-contract-update" || contractTypeRaw.includes("manual_contract_update");
