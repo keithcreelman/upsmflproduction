@@ -1,19 +1,36 @@
 #!/usr/bin/env python3
-"""Normalize contractInfo to ONE consistent full format (Keith: nothing inconsistent).
+"""Normalize contractInfo so EVERY active contract carries a correct GTD and a
+full Y-schedule (Keith: "everything in unison, nothing inconsistent").
 
-For every active contract whose structure is DERIVABLE, rebuild contractInfo as:
-  CL n| TCV xK| AAV yK| Y1-yK, ..., Yn-yK[, Y(n+1)-(y+5)K Option]| GTD: zK[| Ext: ...][| restructure: YYYY]
-where the Y-schedule is the (flat) per-year salary, the 4th-year option is added
-only for 1st-round 2025+ rookies (= Y3+$5K per §A1), and GTD = 75% of TCV (§6).
+GTD value rule (canon §6 + Keith 2026-06-01, applies to ALL contract types):
+  - TCV >= $5K            -> GTD = 75% x TCV, half-up to 1 decimal (33.75 -> 33.8K)
+  - TCV <= $4K, CL == 2   -> GTD = $1K
+  - TCV <= $4K, CL >= 3   -> GTD = $2K
+  - TCV <= $4K, CL == 1   -> no GTD (1-year-under-$5K = 0% guarantee, cap-free)
+The sub-$5K override (fixed $1K/$2K) replaces 75% entirely for TCV <= $4K
+(docs/league_context_v1.md §D1, "Sub-$5K TCV rule").
 
-Only touches contracts that are currently missing the schedule/GTD/option AND are
-flat (TCV == CL*AAV) or terse "Option Eligible". Loaded/restructured contracts
-whose year split isn't derivable (TCV != CL*AAV) are LEFT for the event chain.
-Default is a dry-run preview; --write emits dry_run=false. MFL-API-native.
+Schedule: per-year salary. Flat (TCV == CL*AAV) is generated; the four known
+step-ups are taken from EXPLICIT_SCHEDULES; an already-present schedule (incl.
+non-flat: Collins, Hill, restructures) is preserved verbatim. The 4th-year option
+(Y3+$5K, §A1) is added only for rookies that are 1st-round 2025+ or "Option Eligible".
+
+AAV is never recomputed (the league's AAV convention is intentionally mixed).
+GTD is inserted right after the schedule (before Ext/restructure); existing GTDs
+are value-corrected in place. Default dry-run; --write emits dry_run=false.
 """
-import argparse, json, re, sys, urllib.request
+import argparse, decimal, json, re, urllib.request
 
 LEAGUE, SERVER, YEAR = "74598", "https://www48.myfantasyleague.com", "2026"
+
+# Hand-verified step-up schedules (Keith). Y1 = last cheap year; remaining years
+# = the stepped-up salary. Sums are checked against MFL TCV before use.
+EXPLICIT_SCHEDULES = {
+    "Addison, Jordan": [7, 17],
+    "Dowdle, Rico": [1, 11],
+    "Kincaid, Dalton": [9, 29, 29],
+    "Achane, De'Von": [5, 25, 25],
+}
 
 
 def fetch(u):
@@ -31,9 +48,25 @@ def num(s):
         return None
 
 
+def round_half_up(v, dp=1):
+    q = decimal.Decimal(1).scaleb(-dp)
+    return float(decimal.Decimal(str(v)).quantize(q, rounding=decimal.ROUND_HALF_UP))
+
+
 def fmtk(v):
     v = round(v, 1)
     return f"{int(v)}K" if v == int(v) else f"{v}K"
+
+
+def gtd_value(tcv, cl):
+    """Canon GTD rule. Returns the guaranteed $K, or None when no GTD applies."""
+    if tcv is None or cl is None:
+        return None
+    if tcv >= 5:
+        return round_half_up(tcv * 0.75, 1)
+    if cl <= 1:            # 1-year original under $5K -> 0% guarantee
+        return None
+    return 1.0 if cl == 2 else 2.0  # sub-$5K: CL2 -> $1K, CL3+ -> $2K
 
 
 def parse_ci(ci):
@@ -59,22 +92,54 @@ def draft_year(d):
     return int(m.group(1)) if m else None
 
 
-def build_full_ci(c, status, drafted):
+def build_full_ci(c, status, drafted, sched):
+    """Build a contract that is MISSING its schedule (flat or explicit step-up)."""
     cl, tcv, aav = c["cl"], c["tcv"], c["aav"]
     parts = [f"CL {cl}", f"TCV {fmtk(tcv)}", f"AAV {fmtk(aav)}"]
-    ys = [f"Y{i}-{fmtk(aav)}" for i in range(1, cl + 1)]
-    # Option year for 1st-round 2025+ rookies (§A1) — OR any contract currently
-    # marked "Option Eligible" (preserves it even when drafted is "Trade", so a
-    # traded 1st-rounder's option isn't dropped).
+    ys = [f"Y{i+1}-{fmtk(sched[i])}" for i in range(len(sched))] if sched else [f"Y{i}-{fmtk(aav)}" for i in range(1, cl + 1)]
     if "Rookie" in status and (c["opt_elig"] or (draft_round(drafted) == 1 and (draft_year(drafted) or 0) >= 2025)):
         ys.append(f"Y{cl + 1}-{fmtk(aav + 5)} Option")
     parts.append(", ".join(ys))
-    parts.append(f"GTD: {fmtk(tcv * 0.75)}")
+    g = gtd_value(tcv, cl)
+    if g is not None:
+        parts.append(f"GTD: {fmtk(g)}")
     if c["ext"]:
         parts.append(c["ext"])
     if c["restruct"]:
         parts.append(c["restruct"])
     return "| ".join(parts)
+
+
+def strip_gtd(ci):
+    return "| ".join(seg for seg in re.split(r"\s*\|\s*", ci) if seg.strip() and not re.match(r"GTD\b", seg.strip()))
+
+
+def insert_gtd(ci, token):
+    """Insert `token` after the Y-schedule (or after AAV when there's no schedule)."""
+    last = None
+    for mm in re.finditer(r"Y\d+\s*-\s*[\d.]+\s*K?(?:\s*Option)?", ci):
+        last = mm
+    if not last:
+        last = re.search(r"AAV\s*[\d.]+\s*K?", ci)
+    if not last:
+        return ci.rstrip().rstrip("|").rstrip() + f"| {token}"
+    head, tail = ci[:last.end()], ci[last.end():].lstrip()
+    if tail.startswith("|"):
+        tail = tail[1:].lstrip()
+    return f"{head.rstrip()}| {token}" + (f"| {tail}" if tail else "")
+
+
+def with_gtd(ci, tcv, cl):
+    """Ensure an already-scheduled contract has a correct GTD (add / correct / strip)."""
+    want = gtd_value(tcv, cl)
+    has = re.search(r"GTD\s*:?\s*([\d.]+)\s*K", ci)
+    if want is None:
+        return strip_gtd(ci) if has else ci
+    if has:
+        if abs(float(has.group(1)) - want) < 0.05 and re.search(r"GTD:\s", ci):
+            return ci
+        return re.sub(r"GTD\s*:?\s*[\d.]+\s*K", f"GTD: {fmtk(want)}", ci)
+    return insert_gtd(ci, f"GTD: {fmtk(want)}")
 
 
 def main():
@@ -93,25 +158,33 @@ def main():
             ci = str(p.get("contractInfo", "") or "")
             drafted = str(p.get("drafted", "") or "")
             c = parse_ci(ci)
-            needs = (not c["ysched"]) or c["opt_elig"]
-            if not (needs and c["cl"] and c["cl"] >= 2 and c["tcv"] and c["aav"]):
+            if not (c["cl"] and c["tcv"] is not None):
                 continue
-            if abs(c["tcv"] - c["cl"] * c["aav"]) > 1.0:  # non-flat → can't derive year split
-                skipped.append(f"{name}: TCV {c['tcv']}K != CL*AAV ({c['cl']}*{c['aav']}) — needs event chain")
-                continue
-            new_ci = build_full_ci(c, status, drafted)
+            needs_schedule = (not c["ysched"] or c["opt_elig"]) and c["cl"] >= 2 and c["aav"] is not None
+            if needs_schedule:
+                sched = EXPLICIT_SCHEDULES.get(name)
+                if sched and abs(sum(sched) - c["tcv"]) > 1.0:
+                    skipped.append(f"{name}: explicit {sched} sums {sum(sched)} != TCV {c['tcv']} — RECHECK")
+                    continue
+                if not sched and abs(c["tcv"] - c["cl"] * c["aav"]) > 1.0:
+                    skipped.append(f"{name}: TCV {c['tcv']} != CL*AAV and no explicit schedule — needs event chain")
+                    continue
+                new_ci = build_full_ci(c, status, drafted, sched)
+            else:
+                new_ci = with_gtd(ci, c["tcv"], c["cl"])
             if new_ci == ci:
                 continue
             rows.append({"id": pid, "salary": str(p.get("salary", "") or ""), "contractStatus": status,
                          "contractYear": str(p.get("contractYear", "") or ""), "contractInfo": new_ci})
-            preview.append(f"- {name[:20]:20} {ci!r}\n      -> {new_ci!r}")
+            preview.append(f"- {name[:20]:20} [{status}]\n      {ci!r}\n   -> {new_ci!r}")
 
     rows = [r for r in rows if r["salary"] and r["contractInfo"]]
     payload = {"season": YEAR, "league_id": LEAGUE, "dry_run": (not a.write), "rows": rows}
     open(a.payload, "w").write(json.dumps(payload, indent=2))
-    print(f"contractInfo normalization: {len(rows)} contracts would change · {len(skipped)} skipped (non-derivable)")
+    rk = sum(1 for r in rows if "Rookie" in r["contractStatus"])
+    print(f"contractInfo normalization: {len(rows)} contracts would change ({rk} rookie, {len(rows)-rk} vet/tag) · {len(skipped)} skipped")
     print(f"dry_run={payload['dry_run']} · payload={a.payload}\n")
-    for line in preview[:25]:
+    for line in preview:
         print(line)
     if skipped:
         print(f"\nSKIPPED (need event chain / review): {len(skipped)}")

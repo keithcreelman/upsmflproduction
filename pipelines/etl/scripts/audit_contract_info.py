@@ -9,7 +9,8 @@ Flags per player:
     full Y-schedule + "Y4-<n>K Option" + GTD.
   - OPTION_MISSING: a 1st-round 2025+ rookie with no option year.
   - OPTION_UNEXPECTED: a non-1st-round rookie carrying an option.
-  - GTD_OFF       : GTD present but != round(0.75*TCV).
+  - GTD_OFF/MISSING/UNEXPECTED : GTD must follow canon — 75%xTCV for TCV>=$5K,
+    fixed $1K (CL2) / $2K (CL3+) for TCV<=$4K, none for 1-yr-under-$5K (CL1 sub-$5K).
   - SCHED_MISSING : CL>=2 (multi-year) with no Y-schedule.
   - SCHED_SUM     : Y-schedule present but sum != TCV.
 MFL-API-native; no writes.
@@ -32,6 +33,24 @@ def num(s):
         return float(s)
     except Exception:
         return None
+
+
+def round_half_up(v, dp=1):
+    import decimal
+    return float(decimal.Decimal(str(v)).quantize(decimal.Decimal(1).scaleb(-dp), rounding=decimal.ROUND_HALF_UP))
+
+
+def gtd_value(tcv, cl):
+    """Canon GTD rule (docs/league_context_v1.md §6 + §D1, Keith 2026-06-01):
+    TCV>=$5K -> 75%xTCV (half-up); TCV<=$4K -> $1K if CL2 / $2K if CL3+;
+    CL1 sub-$5K -> None (1-year-under-$5K = 0% guarantee). Returns $K or None."""
+    if tcv is None or cl is None:
+        return None
+    if tcv >= 5:
+        return round_half_up(tcv * 0.75, 1)
+    if cl <= 1:
+        return None
+    return 1.0 if cl == 2 else 2.0
 
 
 def parse_ci(ci):
@@ -91,11 +110,14 @@ def main():
                 if y3 is not None and abs(c["opt_amt"] - (y3 + 5)) > 0.6:
                     pi.append(("OPTION_PRICE", f"option {c['opt_amt']}K != Y3+5 ({y3}+5={y3+5}K)"))
 
-            # GTD = 75% of TCV (when both present)
-            if c["gtd"] is not None and c["tcv"]:
-                want = round(c["tcv"] * 0.75, 1)
-                if abs(c["gtd"] - want) > 0.6:
-                    pi.append(("GTD_OFF", f"GTD {c['gtd']}K != 75% of TCV ({want}K)"))
+            # GTD per canon rule (75% of TCV >=$5K; $1K/$2K sub-$5K; none for CL1 sub-$5K)
+            want_gtd = gtd_value(c["tcv"], c["cl"])
+            if c["gtd"] is not None and want_gtd is None:
+                pi.append(("GTD_UNEXPECTED", f"GTD {c['gtd']}K but rule says no GTD (CL{c['cl']} sub-$5K)"))
+            elif want_gtd is not None and c["gtd"] is None:
+                pi.append(("GTD_MISSING", f"no GTD but rule wants {want_gtd}K"))
+            elif c["gtd"] is not None and abs(c["gtd"] - want_gtd) > 0.05:
+                pi.append(("GTD_OFF", f"GTD {c['gtd']}K != rule {want_gtd}K"))
 
             # multi-year schedule presence + sum (ignore the option year)
             if c["cl"] and c["cl"] >= 2 and c["tcv"]:
