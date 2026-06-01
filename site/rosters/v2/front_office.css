@@ -578,3 +578,8 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 /* Roster: position-grouping header rows */
 .fo-group-row td { background: rgba(255,255,255,0.045); font-weight: 600; padding: 7px 12px; border-top: 2px solid rgba(255,255,255,0.09); letter-spacing: .02em; }
 .fo-group-row td .small { color: var(--muted, #8a93a0); font-weight: 400; margin-left: 6px; }
+
+/* Slide-over Bio tab */
+.fo-bio-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.fo-bio-avatar { width: 76px; height: 76px; border-radius: 12px; background: rgba(255,255,255,0.06) center/cover no-repeat; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px; color: var(--muted, #8a93a0); flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
+.fo-bio-name { font-size: 18px; font-weight: 700; line-height: 1.2; }

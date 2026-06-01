@@ -481,17 +481,18 @@
   }
 
   // Per-Week Earning = current-year salary spread over the 17-week earning window.
-  // N/A for sub-$5K (flat-$1K penalty) contracts; "—" for expired / taxi / $0.
-  function perWeekEarningValue(p, tcv, yrs) {
-    if (tcv > 0 && tcv <= 4000) return null;
-    if (yrs <= 0 || safeInt(p && p.salary, 0) <= 0 || (p && p.isTaxi)) return null;
-    return Math.round(safeInt(p.salary, 0) / 17);
+  // Sub-$5K (flat-$1K penalty) deals show "1K Per Yr"; taxi players with TCV > $4K
+  // DO get the per-week calc (Keith 2026-06-01); only expired / $0 show "—".
+  function perWeekEarningInfo(p) {
+    var tcv = totalContractValueForPlayer(p);
+    var yrs = safeInt(p && p.years, 0);
+    if (tcv > 0 && tcv <= 4000) return { label: "1K Per Yr", sort: 0 };
+    if (yrs <= 0 || safeInt(p && p.salary, 0) <= 0) return { label: "—", sort: -1 };
+    var v = Math.round(safeInt(p.salary, 0) / 17);
+    return { label: fmtUSD(v), sort: v };
   }
-  function perWeekEarningCell(p, tcv, yrs) {
-    var v = perWeekEarningValue(p, tcv, yrs);
-    if (v === null) return (tcv > 0 && tcv <= 4000) ? "N/A" : "—";
-    return fmtUSD(v);
-  }
+  function perWeekEarningValue(p) { return perWeekEarningInfo(p).sort; }
+  function perWeekEarningCell(p) { return perWeekEarningInfo(p).label; }
 
   // ── Taxi-data repair + eligibility ──────────────────────────────────
   // Keith 2026-05-19: "Taxi guys need TCV/Salary derived; only Watson
@@ -1783,7 +1784,7 @@
       if (key === "drop_pen")      { va = dropPenaltyEstimate(a).amount; vb = dropPenaltyEstimate(b).amount; }
       else if (key === "gtd")      { va = parseContractGuaranteeValue(a.special); vb = parseContractGuaranteeValue(b.special); }
       else if (key === "earned")   { va = dropPenaltyEstimate(a).earned; vb = dropPenaltyEstimate(b).earned; }
-      else if (key === "per_week") { va = perWeekEarningValue(a, totalContractValueForPlayer(a), safeInt(a.years, 0)); vb = perWeekEarningValue(b, totalContractValueForPlayer(b), safeInt(b.years, 0)); va = (va == null ? -1 : va); vb = (vb == null ? -1 : vb); }
+      else if (key === "per_week") { va = perWeekEarningValue(a); vb = perWeekEarningValue(b); }
       else if (key === "tcv")      { va = totalContractValueForPlayer(a); vb = totalContractValueForPlayer(b); }
       else if (key === "cl")       { va = contractLengthForPlayer(a); vb = contractLengthForPlayer(b); }
       else if (key === "roster_status") { va = rosterStatusLabel(a); vb = rosterStatusLabel(b); }
@@ -1880,7 +1881,7 @@
     const yrs = safeInt(p.years, 0);
     const drop = dropPenaltyEstimate(p);
     const gtd = parseContractGuaranteeValue(p.special);
-    const perWeekCell = perWeekEarningCell(p, tcv, yrs);
+    const perWeekCell = perWeekEarningCell(p);
 
     // Salary / AAV combined cell — show "/AAV" only when AAV differs from
     // current-year salary. Keith 2026-05-19: keep these visually together.
@@ -1986,7 +1987,7 @@
     if (!p) { body.innerHTML = '<div class="fo-form-note err">Player not found in current data.</div>'; return; }
     switch (STATE.slideoverSubtab) {
       case "actions":  body.innerHTML = renderActionsTab(p); wireActionsTab(body, p); return;
-      case "bio":      body.innerHTML = renderBioTab(p); return;
+      case "bio":      renderBioTab(p); return;
       case "stats":    body.innerHTML = renderPlaceholderTab("Stats", "Will mirror current player-modal Stats tab (career table, season splits) in the next checkpoint."); return;
       case "gamelog":  body.innerHTML = renderPlaceholderTab("Game Log", "Will mirror current player-modal Game Log tab (weekly box scores w/ tier badges)."); return;
       case "history":  body.innerHTML = '<div class="fo-form-note">Loading contract history…</div>'; renderContractHistoryTab(p); return;
@@ -1999,16 +2000,82 @@
     return `<div class="fo-placeholder"><strong>${escapeHtml(title)} — checkpoint 2</strong>${escapeHtml(msg)}</div>`;
   }
 
-  function renderBioTab(p) {
+  // Player physicals (height/weight/DOB/draft) come from MFL players?DETAILS=1
+  // via the worker proxy (CORS-safe off the MFL host). Cached per player id.
+  var __playerDetailsCache = {};
+  async function loadPlayerDetails(pid) {
+    pid = safeStr(pid).replace(/\D/g, "");
+    if (!pid) return {};
+    if (__playerDetailsCache[pid]) return __playerDetailsCache[pid];
+    try {
+      var url = apiUrl("/api/mfl-export") + "?TYPE=players&L=" + encodeURIComponent(LEAGUE_ID) +
+                "&YEAR=" + encodeURIComponent(SEASON) + "&PLAYERS=" + encodeURIComponent(pid) + "&DETAILS=1&JSON=1";
+      var res = await fetch(url, { credentials: "omit" });
+      var data = await res.json();
+      var pl = data && data.players && data.players.player;
+      pl = Array.isArray(pl) ? pl[0] : pl;
+      __playerDetailsCache[pid] = pl || {};
+    } catch (e) { __playerDetailsCache[pid] = {}; }
+    return __playerDetailsCache[pid];
+  }
+  function bioHeight(inches) { var n = safeInt(inches, 0); return n > 0 ? (Math.floor(n / 12) + "'" + (n % 12) + '"') : "—"; }
+  function bioDob(birthdate) {
+    var ts = safeInt(birthdate, 0); if (ts <= 0) return "—";
+    var d = new Date(ts * 1000);
+    var mo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var age = Math.floor((Date.now() - d.getTime()) / (365.25 * 86400000));
+    return mo[d.getUTCMonth()] + " " + d.getUTCDate() + ", " + d.getUTCFullYear() + " (age " + age + ")";
+  }
+  function bioDraft(d) {
+    var rd = safeInt(d.draft_round, 0);
+    if (rd <= 0) return "Undrafted";
+    var parts = [];
+    if (d.draft_year) parts.push(safeStr(d.draft_year));
+    parts.push("Rd " + rd + (d.draft_pick ? ", Pick " + safeStr(d.draft_pick) : ""));
+    if (d.draft_team) parts.push(safeStr(d.draft_team));
+    return parts.join(" · ");
+  }
+  function bioLastAcquired(p) {
+    var head = [safeStr(p.acquisitionTypeLabel), safeStr(p.acquisitionDetail)].filter(Boolean).join(" · ") || safeStr(p.acquisitionText) || "—";
+    var date = safeStr(p.acquisitionDate);
+    return date ? head + " · " + date : head;
+  }
+  function bioInitials(name) { return (safeStr(name).match(/\b([A-Za-z])/g) || []).slice(0, 2).join("").toUpperCase() || "?"; }
+  function bioHtml(p, d) {
+    d = d || {};
+    var espn = safeStr(p.espnId).replace(/\D/g, "");
+    var avatar = espn
+      ? '<div class="fo-bio-avatar" style="background-image:url(https://a.espncdn.com/i/headshots/nfl/players/full/' + espn + '.png)"></div>'
+      : '<div class="fo-bio-avatar">' + escapeHtml(bioInitials(p.name)) + '</div>';
+    var loading = d.__loading ? ' <span class="small" style="color:var(--muted);">· loading…</span>' : "";
     return `
-      <div class="fo-form">
-        <div class="fo-form-row"><span class="lbl">Player ID</span><span class="val">${escapeHtml(p.id)}</span></div>
-        <div class="fo-form-row"><span class="lbl">ESPN ID</span><span class="val">${escapeHtml(p.espnId || "—")}</span></div>
-        <div class="fo-form-row"><span class="lbl">NFL Team</span><span class="val">${escapeHtml(p.nflTeam || "—")}</span></div>
-        <div class="fo-form-row"><span class="lbl">Position</span><span class="val">${escapeHtml(p.position)}</span></div>
-        <div class="fo-form-row"><span class="lbl">Acquisition</span><span class="val">${escapeHtml(p.acquisitionText || "—")}</span></div>
-        <div class="fo-form-note">Full bio (height/weight/college/age/draft slot) lands when the Player Profile master is wired in checkpoint 2.</div>
+      <div class="fo-bio">
+        <div class="fo-bio-head">
+          ${avatar}
+          <div>
+            <div class="fo-bio-name">${escapeHtml(p.name)}</div>
+            <div class="small">${escapeHtml(p.position || "—")} · ${escapeHtml(p.nflTeam || d.team || "—")}${loading}</div>
+          </div>
+        </div>
+        <div class="fo-form">
+          <div class="fo-form-row"><span class="lbl">NFL Team</span><span class="val">${escapeHtml(p.nflTeam || d.team || "—")}</span></div>
+          <div class="fo-form-row"><span class="lbl">Position</span><span class="val">${escapeHtml(p.position || "—")}</span></div>
+          <div class="fo-form-row"><span class="lbl">Height</span><span class="val">${escapeHtml(bioHeight(d.height))}</span></div>
+          <div class="fo-form-row"><span class="lbl">Weight</span><span class="val">${d.weight ? escapeHtml(d.weight) + " lbs" : "—"}</span></div>
+          <div class="fo-form-row"><span class="lbl">Born</span><span class="val">${escapeHtml(bioDob(d.birthdate))}</span></div>
+          <div class="fo-form-row"><span class="lbl">College</span><span class="val">${escapeHtml(d.college || "—")}</span></div>
+          <div class="fo-form-row"><span class="lbl">NFL Draft</span><span class="val">${escapeHtml(bioDraft(d))}</span></div>
+          <div class="fo-form-row"><span class="lbl">Last Acquired</span><span class="val">${escapeHtml(bioLastAcquired(p))}</span></div>
+        </div>
       </div>`;
+  }
+  async function renderBioTab(p) {
+    var body = $("#fo-slideover-body");
+    if (!body) return;
+    body.innerHTML = bioHtml(p, { __loading: true });
+    var d = await loadPlayerDetails(p.id);
+    if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "bio") return;
+    body.innerHTML = bioHtml(p, d);
   }
 
   // Contract History — year-by-year breakdown from /api/player-bundle
