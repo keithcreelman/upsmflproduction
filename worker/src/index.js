@@ -5865,13 +5865,17 @@ export default {
       //   • win_chunks left NULL (needs the positional-win-profile ETL).
       // Dry-run by default; pass commit=1 to actually write. Commish-key gated.
       if (path === "/admin/backfill-playoff-weekly" && request.method === "GET") {
-        const expectedKey = safeStr(env.MFL_APIKEY || "");
-        const providedKey = safeStr(request.headers.get("X-MFL-APIKEY") || url.searchParams.get("key") || "");
-        if (!expectedKey || providedKey !== expectedKey) return jsonOut(401, { ok: false, error: "unauthorized — provide key" });
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         const db = env.UPS_MFL_DB;
         const leagueId = safeStr(L) || "74598";
         const commit = url.searchParams.get("commit") === "1";
+        // Dry-run is read-only (preview) and open; the actual write (commit=1)
+        // is commish-key gated.
+        if (commit) {
+          const expectedKey = safeStr(env.MFL_APIKEY || "");
+          const providedKey = safeStr(request.headers.get("X-MFL-APIKEY") || url.searchParams.get("key") || "");
+          if (!expectedKey || providedKey !== expectedKey) return jsonOut(401, { ok: false, error: "unauthorized — commit requires key" });
+        }
         const seasonsParam = safeStr(url.searchParams.get("seasons"));
         const seasons = seasonsParam
           ? seasonsParam.split(",").map((s) => parseInt(s, 10)).filter((s) => s >= 2010 && s <= 2099)
