@@ -1249,8 +1249,24 @@
                           status.indexOf("tag") === -1 && !noFurther,
       rookieOptionEligible: rookieOptionActionEligible(p),
       restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status),
-      untagEligible: status === "tag"
+      untagEligible: status === "tag" && !isPastTagDeadlineFO()
     };
+  }
+
+  // Tag deadline (canon §C8.2): midnight ET on the Thu→Fri boundary before
+  // Memorial Day = Memorial Day (last Mon of May) − 3 days at 04:00 UTC. The TAG
+  // label locks then, so untag is blocked past it (mirrors the worker guard at
+  // /commish-contract-update). Computed client-side off SEASON.
+  function isPastTagDeadlineFO() {
+    try {
+      var yr = parseInt(SEASON, 10) || new Date().getUTCFullYear();
+      var may31 = new Date(Date.UTC(yr, 4, 31));
+      var lastMon = 31 - ((may31.getUTCDay() + 6) % 7);   // last Monday of May
+      var dl = new Date(Date.UTC(yr, 4, lastMon));
+      dl.setUTCDate(dl.getUTCDate() - 3);
+      dl.setUTCHours(4, 0, 0, 0);
+      return Date.now() > dl.getTime();
+    } catch (e) { return false; }   // fail-open: worker still enforces authoritatively
   }
 
   function posBucket(p) {
