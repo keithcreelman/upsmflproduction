@@ -5853,6 +5853,104 @@ export default {
         return jsonOut(200, { ok: true, player_id: pid, league_id: leagueId, seasons_scanned: seasons, count: events.length, events });
       }
 
+      // ---------- Playoff weekly backfill: /admin/backfill-playoff-weekly ----------
+      // src_weekly only holds the UPS regular season (W1-14) — the ETL never
+      // ingested playoffs, so the Game Log shows blank playoff rows. This admin
+      // endpoint fetches MFL weeklyResults (MISSING_AS_BYE=1 so playoff-bye teams
+      // still report scores) for the playoff weeks and writes them into src_weekly
+      // with is_reg=0, so both the Game Log and career stats pick them up.
+      //   • pos_group is inherited from the player's existing reg-season rows that
+      //     season (consistent grouping — same join key the tier baselines use).
+      //   • per-week pos_rank / overall_rank computed across rostered scorers.
+      //   • win_chunks left NULL (needs the positional-win-profile ETL).
+      // Dry-run by default; pass commit=1 to actually write. Commish-key gated.
+      if (path === "/admin/backfill-playoff-weekly" && request.method === "GET") {
+        const expectedKey = safeStr(env.MFL_APIKEY || "");
+        const providedKey = safeStr(request.headers.get("X-MFL-APIKEY") || url.searchParams.get("key") || "");
+        if (!expectedKey || providedKey !== expectedKey) return jsonOut(401, { ok: false, error: "unauthorized — provide key" });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        const db = env.UPS_MFL_DB;
+        const leagueId = safeStr(L) || "74598";
+        const commit = url.searchParams.get("commit") === "1";
+        const seasonsParam = safeStr(url.searchParams.get("seasons"));
+        const seasons = seasonsParam
+          ? seasonsParam.split(",").map((s) => parseInt(s, 10)).filter((s) => s >= 2010 && s <= 2099)
+          : [2021, 2022, 2023, 2024, 2025];
+        const pad4 = (v) => { const d = safeStr(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; };
+        const playoffWeeks = (yr) => (yr >= 2021 ? [15, 16, 17] : [14, 15, 16]);
+        const report = { ok: true, dry_run: !commit, league_id: leagueId, seasons: {} };
+
+        for (const season of seasons) {
+          const srep = { weeks: {}, rows_written: 0, errors: [] };
+          try {
+            const pg = await db.prepare(`SELECT DISTINCT player_id, pos_group FROM src_weekly WHERE season = ? AND pos_group IS NOT NULL`).bind(season).all();
+            const posGroup = {};
+            for (const r of (pg.results || [])) posGroup[String(r.player_id)] = r.pos_group;
+            const fn = await db.prepare(`SELECT DISTINCT franchise_id, team_name FROM src_contracts WHERE season = ?`).bind(season).all();
+            const fidName = {};
+            for (const r of (fn.results || [])) fidName[pad4(r.franchise_id)] = safeStr(r.team_name);
+
+            for (const week of playoffWeeks(season)) {
+              const u = `https://api.myfantasyleague.com/${season}/export?TYPE=weeklyResults&L=${encodeURIComponent(leagueId)}&W=${week}&MISSING_AS_BYE=1&JSON=1`;
+              let payload;
+              try {
+                const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 300 } });
+                if (!r.ok) { srep.weeks[week] = { error: "HTTP " + r.status }; continue; }
+                payload = await r.json();
+              } catch (e) { srep.weeks[week] = { error: String((e && e.message) || e) }; continue; }
+              const wr = (payload && payload.weeklyResults) || {};
+              let matchups = wr.matchup || [];
+              if (!Array.isArray(matchups)) matchups = [matchups];
+              const playerRows = [];
+              for (const m of matchups) {
+                let frs = (m && m.franchise) || [];
+                if (!Array.isArray(frs)) frs = [frs];
+                for (const f of frs) {
+                  const fid = pad4(f && f.id);
+                  if (!fid || safeStr(f && f.id).toUpperCase() === "BYE") continue;
+                  let players = (f && f.player) || [];
+                  if (!Array.isArray(players)) players = [players];
+                  for (const p of players) {
+                    const pidRaw = safeStr(p && p.id).replace(/\D/g, "");
+                    if (!pidRaw) continue;
+                    const scN = (p.score === "" || p.score == null) ? null : Number(p.score);
+                    playerRows.push({
+                      pid: pidRaw,
+                      score: (scN != null && isFinite(scN)) ? scN : null,
+                      status: safeStr(p.status) || (safeStr(p.shouldStart) === "1" ? "starter" : "nonstarter"),
+                      fid: fid,
+                      pos_group: posGroup[pidRaw] || null,
+                    });
+                  }
+                }
+              }
+              const scorers = playerRows.filter((r) => r.score != null && r.score > 0).slice().sort((a, b) => b.score - a.score);
+              scorers.forEach((r, i) => { r.overall_rank = i + 1; });
+              const posCounters = {};
+              for (const r of scorers) { const g = r.pos_group || "?"; posCounters[g] = (posCounters[g] || 0) + 1; r.pos_rank = posCounters[g]; }
+              const stmts = playerRows.map((r) => db.prepare(
+                `INSERT OR REPLACE INTO src_weekly
+                   (season, week, player_id, pos_group, status, score, is_reg,
+                    roster_franchise_id, roster_franchise_name, pos_rank, overall_rank, win_chunks)
+                 VALUES (?,?,?,?,?,?,0,?,?,?,?,NULL)`
+              ).bind(season, week, r.pid, r.pos_group, r.status, r.score, r.fid, fidName[r.fid] || null, r.pos_rank || null, r.overall_rank || null));
+              srep.weeks[week] = {
+                players: playerRows.length, scorers: scorers.length,
+                statuses: Array.from(new Set(playerRows.map((r) => r.status))),
+                no_pos_group: playerRows.filter((r) => !r.pos_group).length,
+                sample: scorers.slice(0, 4).map((r) => ({ pid: r.pid, score: r.score, status: r.status, pg: r.pos_group, pos_rank: r.pos_rank, overall_rank: r.overall_rank, team: fidName[r.fid] || r.fid })),
+              };
+              if (commit && stmts.length) {
+                for (let i = 0; i < stmts.length; i += 50) await db.batch(stmts.slice(i, i + 50));
+                srep.rows_written += stmts.length;
+              }
+            }
+          } catch (e) { srep.errors.push(String((e && e.message) || e)); }
+          report.seasons[season] = srep;
+        }
+        return jsonOut(200, report);
+      }
+
       // ---------- Rookie Draft Hub: /api/player-bundle ----------
       // Lean port of build_player_bundle from rookie_draft_bridge.py. Fetches
       // the MFL-public surface: playerProfile (bio/career), players DETAILS
