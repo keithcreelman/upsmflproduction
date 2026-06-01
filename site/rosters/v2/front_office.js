@@ -1989,7 +1989,7 @@
       case "actions":  body.innerHTML = renderActionsTab(p); wireActionsTab(body, p); return;
       case "bio":      renderBioTab(p); return;
       case "stats":    renderStatsTab(p); return;
-      case "gamelog":  body.innerHTML = renderPlaceholderTab("Game Log", "Will mirror current player-modal Game Log tab (weekly box scores w/ tier badges)."); return;
+      case "gamelog":  renderGameLogTab(p); return;
       case "history":  body.innerHTML = '<div class="fo-form-note">Loading contract history…</div>'; renderContractHistoryTab(p); return;
       case "news":     body.innerHTML = renderPlaceholderTab("News", "Will fetch /api/player-news?pids=" + escapeHtml(p.id) + " and render headlines + injury status."); return;
       default:         body.innerHTML = "";
@@ -2257,6 +2257,92 @@
       foStatSeasonTableHtml(career, lev) +
       '<div class="fo-form-note" style="margin-top:8px;">Source: <code>/api/player-bundle?pid=' + escapeHtml(p.id) +
       "</code> → <code>career_summary</code> (MFL scoring). Pts&nbsp;Rk / PPG&nbsp;Rk are positional. APW = win_chunks × leverage β.</div>";
+  }
+
+  // ── Game Log sub-tab inside slide-over ──────────────────────────────
+  // Mirrors the master modal's Scoring (MFL) game log: a season dropdown
+  // over a full-season week-by-week table (1..maxWeek) with playoff weeks
+  // tagged "P" + tinted, per-week tier badges, z-score, MFL start status,
+  // rostered team + positional rank. Source: bundle.weekly_by_season
+  // (D1 src_weekly + baselines). Playoff weeks (W15-17 for 2021+, W14-16
+  // earlier) render blank until the src_weekly playoff backfill lands.
+  function foGlTierClass(t) {
+    return t === "Elite" ? "elite" : t === "Plus" ? "plus" : t === "Neutral" ? "neutral" : t === "Dud" ? "dud" : "";
+  }
+  function foGameLogScoringHtml(seasonVal, bundle) {
+    var weeks = ((bundle && bundle.weekly_by_season) || {})[seasonVal] || [];
+    if (!weeks.length) return '<p class="fo-form-note">No MFL weekly data for ' + escapeHtml(String(seasonVal)) + ".</p>";
+    var yr = parseInt(seasonVal, 10);
+    var defaultMax = (yr >= 2021) ? 17 : 16;       // 2021+: W1-14 reg, W15-17 PO; earlier: W1-13 reg, W14-16 PO
+    var regSeasonWeeks = (yr >= 2021) ? 14 : 13;
+    var sorted = weeks.slice().sort(function (a, b) { return a.week - b.week; });
+    var dataMax = sorted.reduce(function (m, w) { return w.week > m ? w.week : m; }, 0);
+    var maxWeek = Math.max(defaultMax, dataMax);
+    var byWeek = {}; sorted.forEach(function (w) { byWeek[w.week] = w; });
+    var starts = 0, elite = 0, plus = 0, dud = 0, pts = 0;
+    sorted.forEach(function (w) {
+      if (w.status === "starter") starts++;
+      if (w.week_tier === "Elite") elite++;
+      if (w.week_tier === "Plus") plus++;
+      if (w.week_tier === "Dud") dud++;
+      pts += (Number(w.score) || 0);
+    });
+    var tot = sorted.length || 1;
+    var rows = [];
+    for (var wkN = 1; wkN <= maxWeek; wkN++) {
+      var w = byWeek[wkN];
+      var isPo = w ? (w.is_reg === 0) : (wkN > regSeasonWeeks);
+      var ptag = isPo ? ' <span class="fo-gl-ptag" title="Playoffs">P</span>' : "";
+      var cls = isPo ? ' class="fo-gl-po"' : "";
+      if (w) {
+        var tier = w.week_tier ? '<span class="fo-tier ' + foGlTierClass(w.week_tier) + '">' + escapeHtml(w.week_tier) + "</span>" : "—";
+        rows.push("<tr" + cls + ">" +
+          '<td class="num">' + w.week + ptag + "</td>" +
+          '<td class="num">' + (w.score != null ? Number(w.score).toFixed(1) : "—") + "</td>" +
+          '<td class="num">' + (w.z_score != null ? (w.z_score > 0 ? "+" : "") + Number(w.z_score).toFixed(2) : "—") + "</td>" +
+          "<td>" + tier + "</td>" +
+          "<td>" + escapeHtml(w.status || "") + "</td>" +
+          '<td class="small">' + escapeHtml(w.roster_franchise_name || "") + "</td>" +
+          '<td class="num">' + (w.pos_rank || "—") + "</td></tr>");
+      } else {
+        rows.push("<tr" + cls + ' style="color:var(--muted);">' +
+          '<td class="num">' + wkN + ptag + "</td>" +
+          '<td class="num">—</td><td class="num">—</td><td>—</td><td>—</td><td class="small">—</td><td class="num">—</td></tr>');
+      }
+    }
+    return '<div class="fo-form-note" style="margin-bottom:8px;">' +
+      tot + " games · " + starts + " starts · " + pts.toFixed(1) + " pts (" + (pts / tot).toFixed(1) + " ppg) · " +
+      "Elite " + elite + " · Plus " + plus + " · Dud " + dud + "</div>" +
+      '<div style="overflow-x:auto;"><table class="fo-table"><thead><tr>' +
+      '<th class="num">Wk</th><th class="num">Pts</th><th class="num">z</th><th>Tier</th><th>Status</th><th>Team</th><th class="num">Pos Rk</th>' +
+      "</tr></thead><tbody>" + rows.join("") + "</tbody></table></div>";
+  }
+  async function renderGameLogTab(p) {
+    var body = $("#fo-slideover-body");
+    if (!body) return;
+    body.innerHTML = '<div class="fo-form-note">Loading game log…</div>';
+    var bundle = await loadPlayerBundle(p.id);
+    if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "gamelog") return; // user moved on
+    var wbs = (bundle && bundle.weekly_by_season) || {};
+    var seasons = Object.keys(wbs).sort(function (a, b) { return Number(b) - Number(a); });
+    if (!seasons.length) {
+      body.innerHTML = '<div class="fo-form-note">No weekly scoring data in the bundle for this player.</div>';
+      return;
+    }
+    var opts = seasons.map(function (s) { return '<option value="' + s + '">' + s + "</option>"; }).join("");
+    body.innerHTML =
+      '<div class="fo-card-head" style="align-items:center;"><h2 style="margin:0;">Game Log</h2>' +
+      '<label class="small" style="color:var(--muted); margin-left:auto;">Season ' +
+      '<select id="fo-gl-season" style="margin-left:4px; background:var(--panel-alt); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:3px 6px;">' +
+      opts + "</select></label></div>" +
+      '<div id="fo-gl-body">' + foGameLogScoringHtml(seasons[0], bundle) + "</div>" +
+      '<div class="fo-form-note" style="margin-top:8px;">Source: <code>bundle.weekly_by_season</code> (D1 <code>src_weekly</code> + baselines). ' +
+      '<span class="fo-gl-ptag">P</span> = playoff week; tier from regular-season positional baselines.</div>';
+    var sel = body.querySelector("#fo-gl-season");
+    if (sel) sel.addEventListener("change", function () {
+      var b2 = document.querySelector("#fo-gl-body");
+      if (b2) b2.innerHTML = foGameLogScoringHtml(sel.value, bundle);
+    });
   }
 
   // ── Actions sub-tab inside slide-over ───────────────────────────────

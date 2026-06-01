@@ -591,3 +591,12 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-stat-val { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.1; }
 .fo-stat-sub { font-size: 11px; color: var(--muted); }
 .fo-stat-career td { border-top: 2px solid var(--border); font-weight: 600; }
+
+/* Game Log sub-tab — week tier badges + playoff annotation */
+.fo-tier { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+.fo-tier.elite { background: rgba(74,222,128,0.15); color: var(--ok); }
+.fo-tier.plus { background: rgba(91,141,255,0.15); color: var(--accent); }
+.fo-tier.neutral { background: rgba(138,151,173,0.12); color: var(--muted); }
+.fo-tier.dud { background: rgba(248,113,113,0.15); color: var(--err); }
+.fo-gl-ptag { color: var(--accent); font-weight: 700; font-size: 10px; }
+.fo-gl-po td { background: rgba(91,141,255,0.06); }
