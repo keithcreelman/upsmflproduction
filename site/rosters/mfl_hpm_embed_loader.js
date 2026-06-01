@@ -196,12 +196,14 @@
     // stats / no Snap%-by-Wk / no K-format contract history because the
     // legacy fallback fired silently.
     var masterCandidates = [];
+    var capMathCandidates = [];
 
     if (base) {
       cssCandidates.push(base + "roster_workbench.css?v=" + cacheKey);
       jsCandidates.push(base + "roster_workbench.js?v=" + cacheKey);
-      // base sits at site/rosters/ — master is one dir up under site/shared/.
+      // base sits at site/rosters/ — master + cap_math are one dir up under site/shared/.
       masterCandidates.push(base + "../shared/player_profile_master.js?v=" + cacheKey);
+      capMathCandidates.push(base + "../shared/cap_math.js?v=" + cacheKey);
     }
 
     // GitHub Pages is the canonical CDN (see #88). jsDelivr removed as of
@@ -210,16 +212,21 @@
     cssCandidates.push("https://keithcreelman.github.io/upsmflproduction/rosters/roster_workbench.css?v=" + cacheKey);
     jsCandidates.push("https://keithcreelman.github.io/upsmflproduction/rosters/roster_workbench.js?v=" + cacheKey);
     masterCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=" + cacheKey);
+    capMathCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/cap_math.js?v=" + cacheKey);
 
     injectCssCandidates(cssCandidates);
 
     // Load master modal first — it registers window.UPS_openPlayerProfile.
     // Even if it fails (404/network), roster_workbench.js still works via
     // its legacy fallback path; we just lose the unified-modal UX.
-    injectScript(masterCandidates, function () {
-      // roster_workbench.js self-initializes on load; avoid double-init
-      // because that can replace DOM after listeners are attached.
-      injectScript(jsCandidates, function () {});
+    // cap_math.js (window.UPS_CAP_MATH) MUST load before the master modal so it
+    // can parse TCV/AAV/earned + compute the cap penalty (else TCV renders blank).
+    injectScript(capMathCandidates, function () {
+      injectScript(masterCandidates, function () {
+        // roster_workbench.js self-initializes on load; avoid double-init
+        // because that can replace DOM after listeners are attached.
+        injectScript(jsCandidates, function () {});
+      });
     });
   }
 
