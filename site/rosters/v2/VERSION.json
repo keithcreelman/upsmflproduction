@@ -1,0 +1,8 @@
+{
+  "module": "front_office_v2",
+  "version": "0.1.0",
+  "released": "2026-05-19",
+  "checkpoint": 1,
+  "scope": "scaffold + Roster tab + slide-over modal pattern + Extension submit wired byte-for-byte",
+  "next": "Cap Plan tab + Tagging tab + Activity tab + remaining submit functions (Rookie Option, Restructure, Tag, Untag, Roster Move)"
+}

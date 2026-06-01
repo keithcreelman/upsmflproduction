@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Front Office — UPS League</title>
+<link rel="stylesheet" href="front_office.css?v=2026.05.19.v0.2.8">
+</head>
+<body>
+<header class="fo-header">
+  <h1>Front Office <span class="subtitle">UPS League 74598 · 2026</span>
+    <button id="fo-version-badge" class="fo-version-badge" title="Click for module changelog">Loading…</button>
+  </h1>
+  <div class="meta" id="fo-meta">Loading…</div>
+  <div id="fo-dryrun-banner" class="fo-dryrun-banner" hidden>
+    🧪 <strong>DRY-RUN MODE</strong> — submissions hit the worker with <code>dry_run: 1</code>; no MFL writes, Discord routes to test channel, D1 audit rows flagged.
+  </div>
+</header>
+
+<nav class="fo-tabs" id="fo-tabs">
+  <button data-tab="roster" class="active">Roster</button>
+  <button data-tab="cap">Cap Plan</button>
+  <button data-tab="tag">Tagging</button>
+  <button data-tab="activity" id="fo-tab-activity" hidden>Activity &amp; Audit</button>
+</nav>
+
+<main class="fo-main">
+
+  <!-- ── ROSTER TAB ───────────────────────────────────────────────── -->
+  <section class="fo-section active" data-section="roster">
+    <div class="fo-toolbar fo-card">
+      <div class="fo-toolbar-row">
+        <label class="fo-field">
+          <span>Team</span>
+          <select id="fo-team-select">
+            <option value="__all__">All teams</option>
+          </select>
+        </label>
+        <label class="fo-field fo-field-search">
+          <span>Search</span>
+          <input type="search" id="fo-search" placeholder="Player, team, contract note…" autocomplete="off">
+        </label>
+        <button type="button" id="fo-reset-filters" class="btn secondary" title="Clear all filters">Reset</button>
+      </div>
+      <div class="fo-toolbar-row fo-advanced-filters" id="fo-advanced-filters">
+        <label class="fo-field">
+          <span>Position</span>
+          <div class="fo-pos-chips" id="fo-filter-pos">
+            <button type="button" class="fo-pos-chip active" data-pos="ALL">All</button>
+            <button type="button" class="fo-pos-chip" data-pos="QB">QB</button>
+            <button type="button" class="fo-pos-chip" data-pos="RB">RB</button>
+            <button type="button" class="fo-pos-chip" data-pos="WR">WR</button>
+            <button type="button" class="fo-pos-chip" data-pos="TE">TE</button>
+            <button type="button" class="fo-pos-chip" data-pos="PK">PK</button>
+            <button type="button" class="fo-pos-chip" data-pos="PN">PN</button>
+            <button type="button" class="fo-pos-chip" data-pos="IDP">IDP</button>
+          </div>
+        </label>
+        <label class="fo-field">
+          <span>Contract Type</span>
+          <select id="fo-filter-type">
+            <option value="">All</option>
+            <option value="rookie">Rookie</option>
+            <option value="loaded">Loaded (multi-year)</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label class="fo-field">
+          <span>Roster Status</span>
+          <select id="fo-filter-status">
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="taxi">Taxi</option>
+            <option value="ir">IR</option>
+          </select>
+        </label>
+        <label class="fo-field">
+          <span>Yrs Remaining</span>
+          <select id="fo-filter-years">
+            <option value="">All</option>
+            <option value="0">0 (Expired)</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4+">4+</option>
+          </select>
+        </label>
+        <label class="fo-field">
+          <span>Action Eligibility</span>
+          <select id="fo-filter-action">
+            <option value="">All</option>
+            <option value="extension">Extension-eligible</option>
+            <option value="rookie_option">Rookie Option-eligible</option>
+            <option value="restructure">Restructure-eligible</option>
+            <option value="untag">Currently Tagged</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="fo-card">
+      <div class="fo-card-head">
+        <h2>Roster</h2>
+        <span class="small" id="fo-roster-summary">Loading…</span>
+      </div>
+      <p class="fo-row-hint">
+        💡 Click any row to open the player's slide-over (Actions · Bio · Stats · Game Log · Contract History · News).
+      </p>
+      <table class="fo-table" id="fo-roster-table">
+        <thead>
+          <tr>
+            <th data-sort="name">Player</th>
+            <th data-sort="position">Pos</th>
+            <th data-sort="nfl_team" class="col-md">NFL</th>
+            <th data-sort="franchise" class="col-md">Team</th>
+            <th data-sort="contract_status">Type</th>
+            <th data-sort="tcv" class="num col-md">TCV</th>
+            <th data-sort="cl" class="num col-lo">CL</th>
+            <th data-sort="years" class="num col-lo">Yrs Rem</th>
+            <th data-sort="salary" class="num">Salary <span class="small" style="color:var(--muted);">/ AAV</span></th>
+            <th data-sort="drop_pen" class="num">Drop Pen</th>
+            <th data-sort="roster_status" class="col-lo">Status</th>
+          </tr>
+        </thead>
+        <tbody id="fo-roster-tbody">
+          <tr><td colspan="11" class="fo-table-loading">Loading roster…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── CAP PLAN TAB ──────────────────────────────────────────────── -->
+  <section class="fo-section" data-section="cap">
+    <div class="fo-card">
+      <div class="fo-subview-chips" role="tablist" aria-label="Cap Plan view">
+        <button type="button" class="fo-subview-chip active" data-subview="summary">Summary</button>
+        <button type="button" class="fo-subview-chip" data-subview="detail">Detail (by team)</button>
+      </div>
+      <p class="small" id="fo-cap-horizon" style="color:var(--muted); margin: 8px 0 0;">
+        Projections cover the current season + 2 future years. Extension previews are layered on for any player in their final year (canon §C4 eligibility).
+      </p>
+    </div>
+    <div id="fo-cap-body"></div>
+  </section>
+
+  <!-- ── TAGGING TAB (stub for this checkpoint) ───────────────────── -->
+  <section class="fo-section" data-section="tag">
+    <div class="fo-card">
+      <div class="fo-subview-chips" role="tablist" aria-label="Tagging view">
+        <button type="button" class="fo-subview-chip active" data-subview="players">Eligible Players</button>
+        <button type="button" class="fo-subview-chip" data-subview="breakdown">Calc Breakdown</button>
+      </div>
+      <p class="small" id="fo-tag-meta" style="color:var(--muted); margin: 8px 0 0;">Loading tag plan…</p>
+    </div>
+    <div id="fo-tag-body"></div>
+  </section>
+
+  <!-- ── ACTIVITY & AUDIT TAB ──────────────────────────────────────── -->
+  <section class="fo-section" data-section="activity">
+    <div id="fo-activity-body"></div>
+  </section>
+
+</main>
+
+<!-- ── Slide-over action panel (right-side, universal pattern) ───── -->
+<aside id="fo-slideover" class="fo-slideover" hidden aria-hidden="true" aria-labelledby="fo-slideover-title">
+  <div class="fo-slideover-backdrop" data-action="close-slideover"></div>
+  <div class="fo-slideover-panel" role="dialog" aria-modal="true">
+    <header class="fo-slideover-head">
+      <div>
+        <h2 id="fo-slideover-title">Player</h2>
+        <div class="fo-slideover-sub" id="fo-slideover-sub"></div>
+      </div>
+      <button type="button" class="fo-slideover-close" data-action="close-slideover" aria-label="Close">×</button>
+    </header>
+    <nav class="fo-slideover-tabs" id="fo-slideover-tabs">
+      <button data-subtab="actions" class="active">Actions</button>
+      <button data-subtab="bio">Bio</button>
+      <button data-subtab="stats">Stats</button>
+      <button data-subtab="gamelog">Game Log</button>
+      <button data-subtab="history">Contract History</button>
+      <button data-subtab="news">News</button>
+    </nav>
+    <div class="fo-slideover-body" id="fo-slideover-body">
+      <!-- rendered per-tab -->
+    </div>
+  </div>
+</aside>
+
+<script src="front_office.js?v=2026.05.19.v0.1.0"></script>
+</body>
+</html>
