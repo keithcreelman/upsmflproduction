@@ -5786,18 +5786,24 @@ export default {
         if (db) {
           try {
             const cr = await db.prepare(
-              `SELECT season, franchise_id, franchise_name, contract_status,
-                      contract_length, tcv FROM src_contracts WHERE player_id = ? ORDER BY season`
+              `SELECT season, franchise_id, team_name, contract_status,
+                      contract_length, tcv, extension_flag FROM src_contracts WHERE player_id = ? ORDER BY season`
             ).bind(pid).all();
             for (const row of (cr.results || [])) {
               const bits = [];
               if (row.contract_status) bits.push(safeStr(row.contract_status));
               if (row.contract_length) bits.push("CL " + row.contract_length);
               if (row.tcv) bits.push("TCV " + usd(row.tcv));
+              const isExt = safeStr(row.extension_flag) === "1";
+              // No precise date in src_contracts — synthesize an offseason
+              // (March 1) timestamp so contract rows interleave chronologically
+              // instead of all sinking below the dated transactions.
+              let cts = 0;
+              try { cts = Math.floor(Date.UTC(parseInt(row.season, 10), 2, 1) / 1000); } catch (_) {}
               events.push({
-                season: row.season, ts: 0, date: String(row.season),
-                kind: "contract", label: "Contract", detail: bits.join(" · "),
-                franchise_id: pad4(row.franchise_id), franchise_name: safeStr(row.franchise_name),
+                season: row.season, ts: cts, date: String(row.season),
+                kind: "contract", label: isExt ? "Contract Extended" : "Contract", detail: bits.join(" · "),
+                franchise_id: pad4(row.franchise_id), franchise_name: safeStr(row.team_name),
               });
             }
           } catch (_) {}
