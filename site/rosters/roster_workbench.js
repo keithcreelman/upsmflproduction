@@ -1939,7 +1939,57 @@
     return now < new Date(yr, 7, 1, 0, 0, 0, 0);
   }
 
+  // ── Cap-penalty SSOT cache ──────────────────────────────────────────────
+  // Authoritative drop penalty comes from the worker's /api/cap-penalty/preview
+  // (the SAME _computeDropPenalty the hourly cron uses for real charges — canon
+  // §6/§D2 guarantee-minus-earned, no retired flat-35% WW). Fetched ONCE for the
+  // whole roster into __capPenaltyCache so dropPenaltyEstimate stays sync; the
+  // inline estimate is the fallback until the batch arrives, then renderTeams()
+  // repaints with the real numbers.
+  var __capPenaltyCache = null;
+  var __capPenaltyCacheKey = "";
+  var __capPenaltyLoading = false;
+  function loadCapPenaltyCache() {
+    var seasonStr;
+    try { seasonStr = liveSeasonKey(); } catch (_) { seasonStr = ""; }
+    if (!seasonStr || __capPenaltyLoading) return;
+    if (__capPenaltyCache && __capPenaltyCacheKey === seasonStr) return;
+    __capPenaltyLoading = true;
+    var base, lg;
+    try { base = upmResolveApiBase(); } catch (_) { base = "https://upsmflproduction.keith-creelman.workers.dev"; }
+    try { lg = (state && state.ctx && state.ctx.leagueId) ? state.ctx.leagueId : "74598"; } catch (_) { lg = "74598"; }
+    var url = base + "/api/cap-penalty/preview?L=" + encodeURIComponent(lg) + "&YEAR=" + encodeURIComponent(seasonStr);
+    fetchJson(url, { credentials: "omit", cache: "no-store" }).then(function (payload) {
+      if (payload && payload.ok && payload.players) {
+        __capPenaltyCache = payload.players;
+        __capPenaltyCacheKey = seasonStr;
+        try { renderTeams(); } catch (_) {}
+      }
+    }).catch(function () {}).then(function () { __capPenaltyLoading = false; });
+  }
+
   function dropPenaltyEstimate(player) {
+    // SSOT: prefer the worker's authoritative penalty (cached batch) over the
+    // inline estimate. Falls through to the legacy estimate until it loads.
+    var __capPid = safeStr(player && player.id).replace(/\D/g, "");
+    if (__capPenaltyCache && __capPid && __capPenaltyCache[__capPid]) {
+      var __cap = __capPenaltyCache[__capPid];
+      var __earnedC = safeInt(__cap.earned, 0);
+      return {
+        amount: safeInt(__cap.penalty, 0),
+        note: __cap.exempt
+          ? (__cap.exempt_reason || "Cap-free cut.")
+          : ("75% guarantee (" + money(safeInt(__cap.guaranteed, 0)) + ") minus earned (" + money(__earnedC) + ")."),
+        tcv: safeInt(__cap.tcv, 0),
+        guaranteed: safeInt(__cap.guaranteed, 0),
+        currentYearSalary: safeInt(player && player.salary, 0),
+        priorEarned: __earnedC,
+        accrued: 0,
+        earned: __earnedC,
+        authoritative: true
+      };
+    }
+    loadCapPenaltyCache();
     var years = Math.max(0, safeInt(player && player.years, 0));
     var season = currentYearInt();
     var now = new Date();
