@@ -28,12 +28,13 @@ jobs:
           BASE="https://upsmflproduction.keith-creelman.workers.dev/admin/backfill-playoff-weekly"
           if [ "$CONFIRM" = "WRITE" ]; then
             echo "COMMIT mode — writing to src_weekly for seasons: $SEASONS"
-            URL="${BASE}?L=74598&commit=1&APIKEY=${KEY}&seasons=${SEASONS}"
+            URL="${BASE}?L=74598&commit=1&seasons=${SEASONS}"
           else
             echo "DRY-RUN mode (type WRITE to commit) — seasons: $SEASONS"
             URL="${BASE}?L=74598&seasons=${SEASONS}"
           fi
-          curl -s "$URL" -o resp.json -w "HTTP %{http_code}\n"
+          # Key via header (raw) — avoids URL-encoding mangling of special chars.
+          curl -s "$URL" -H "X-COMMISH-APIKEY: ${KEY}" -o resp.json -w "HTTP %{http_code}\n"
           python3 - <<'PY'
           import json
           d = json.load(open("resp.json"))
