@@ -1,0 +1,39 @@
+name: Contract Reconcile (J4)
+
+# Nightly contract reconciliation-on-read. Reads MFL (the canonical contract
+# store) and flags drift: a contractStatus that's no longer canonical vocab
+# (some write path re-emitted old labels → red run) or a contractStatus that
+# disagrees with its contractInfo (advisory). Flag-only — never writes.
+# See docs/CONTRACT_AUTOMATION_PLAN.md (reconciliation-on-read).
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "55 9 * * *" # after snapshot (09:05), config-sync (09:30), builders (09:45)
+
+concurrency:
+  group: contract-reconcile
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Reconcile MFL contracts vs canonical
+        run: |
+          python pipelines/etl/scripts/reconcile_contracts.py --report /tmp/contract_reconcile.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: contract-reconcile
+          path: /tmp/contract_reconcile.json
+          if-no-files-found: ignore
