@@ -825,6 +825,37 @@ const _nflWeek1Iso = (year) => {
   const kickoff = new Date(Date.UTC(y, 8, firstMonday + 3));
   return kickoff.toISOString().slice(0, 10);
 };
+// NFL regular-season week for a unix timestamp (0 = preseason / outside weeks 1-17).
+const _nflWeekForUnix = (unixSec, year) => {
+  const wk1 = _nflWeek1Iso(year);
+  if (!wk1 || !unixSec) return 0;
+  const w1Sec = new Date(wk1 + "T00:00:00Z").getTime() / 1000;
+  if (unixSec < w1Sec) return 0;
+  const wk = Math.floor((unixSec - w1Sec) / (7 * 86400)) + 1;
+  return (wk >= 1 && wk <= 17) ? wk : 0;
+};
+// player_id -> most-recent IN-SEASON acquisition week this season (waiver / FCFS /
+// auction). Used as the per-week eligible-weeks denominator (18−W) for mid-season
+// pickups; players acquired preseason / Week 1 (or not this season) are absent →
+// the caller treats them as continuing (acquisitionWeek 1, eligible 17). Trades
+// (empty transaction string) are not parsed here — a known v1 gap.
+const _acquisitionWeekMapFromTxs = (txs, year) => {
+  const ACQ = { FREE_AGENT: 1, BBID_WAIVER: 1, AUCTION_WON: 1 };
+  const byPid = {};
+  for (const t of (Array.isArray(txs) ? txs : (txs ? [txs] : []))) {
+    if (!t || !ACQ[_s(t.type)]) continue;
+    const ts = Number(t.timestamp) || 0;
+    const wk = _nflWeekForUnix(ts, year);
+    if (wk <= 1) continue; // preseason / Week-1 add → continuing window (17)
+    const added = _s(t.transaction).split("|")[0]; // added pids precede the first |
+    for (const pid of (added.match(/\d{3,6}/g) || [])) {
+      if (!byPid[pid] || ts > byPid[pid].ts) byPid[pid] = { ts, wk };
+    }
+  }
+  const map = {};
+  for (const pid of Object.keys(byPid)) map[pid] = byPid[pid].wk;
+  return map;
+};
         const _parseContractData = ({ contractInfo, salary, contractYear }, opts) => {
           opts = opts || {};
           const ci = _s(contractInfo);
@@ -29215,6 +29246,17 @@ export default {
           }
         }
 
+        // Build the in-season acquisition-week map once (skip offseason: current-year
+        // earned is $0 then, so the pickup-week denominator is irrelevant). Gives
+        // mid-season WW/FCFS pickups the canon 18−W eligible-weeks window.
+        let acqWeekMap = {};
+        if (drops.some((d) => _nflWeekForUnix(d.ts, targetSeason) > 0)) {
+          try {
+            const allTxRes = await mflExportJson(targetSeason, leagueId, "transactions", {}, { useCookie: true });
+            acqWeekMap = _acquisitionWeekMapFromTxs(allTxRes && allTxRes.data && allTxRes.data.transactions && allTxRes.data.transactions.transaction, targetSeason);
+          } catch (_) {}
+        }
+
         // For each drop, check if already in D1; if not, look up + compute + insert.
         const written = [];
         const skipped = [];
@@ -29244,7 +29286,7 @@ export default {
                 contractInfo: preDrop.contract_info,
                 contractYear: preDrop.contract_year,
                 isTaxi: preDrop.is_taxi,
-              }, { dropDateIso: dropIso, season: targetSeason });
+              }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: acqWeekMap[drop.pid] });
             }
 
             if (dryRun) {
@@ -29987,12 +30029,22 @@ export default {
           frs = Array.isArray(frs) ? frs : (frs ? [frs] : []);
           // Drop date defaults to NOW (offseason → $0 current-year earned); what-if
           // ?drop_date=YYYY-MM-DD and ?acquisition_week=W drive the per-week math.
-          const pvOpts = {
-            season: pvSeason,
-            dropDateIso: url.searchParams.get("drop_date") || new Date().toISOString(),
-            acquisitionWeek: url.searchParams.get("acquisition_week") != null ? Number(url.searchParams.get("acquisition_week")) : undefined,
-          };
+          const pvDropIso = url.searchParams.get("drop_date") || new Date().toISOString();
+          const pvAcqWhatIf = url.searchParams.get("acquisition_week");
+          const pvOpts = { season: pvSeason, dropDateIso: pvDropIso };
+          // In-season only: derive each player's mid-season pickup week so the
+          // eligible-weeks denominator is 18−W (canon §D1). Offseason or an explicit
+          // ?acquisition_week= skips the extra transactions fetch (irrelevant then).
+          let pvAcqMap = {};
+          const pvDropTs = Math.floor(new Date(pvDropIso).getTime() / 1000);
+          if (pvAcqWhatIf == null && _nflWeekForUnix(pvDropTs, pvSeason) > 0) {
+            try {
+              const txRes = await mflExportJson(pvSeason, pvLeague, "transactions", {}, {});
+              pvAcqMap = _acquisitionWeekMapFromTxs(txRes && txRes.data && txRes.data.transactions && txRes.data.transactions.transaction, pvSeason);
+            } catch (_) {}
+          }
           const penaltyFor = (pl) => {
+            const pid = safeStr(pl.id).replace(/\D/g, "");
             const input = {
               contractStatus: safeStr(pl.contractStatus),
               salary: Number(pl.salary) || 0,
@@ -30000,10 +30052,12 @@ export default {
               contractYear: safeStr(pl.contractYear),
               isTaxi: safeStr(pl.status) === "TAXI_SQUAD",
             };
-            const r = _computeDropPenalty(input, pvOpts);
+            const acqWk = pvAcqWhatIf != null ? Number(pvAcqWhatIf) : pvAcqMap[pid];
+            const r = _computeDropPenalty(input, { ...pvOpts, acquisitionWeek: acqWk });
             return { penalty: r.penalty, guaranteed: r.guaranteed, earned: r.earned,
                      prior_earned: r.priorEarned, current_year_earned: r.currentYearEarned, tcv: r.tcv,
                      cl: r.cl, years_remaining: r.yearsRemaining, years_played: r.yearsPlayed,
+                     acquisition_week: acqWk || null,
                      basis: r.basis, exempt: !!r.exempt, exempt_reason: r.exempt_reason || "" };
           };
 
