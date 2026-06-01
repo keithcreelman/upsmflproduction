@@ -31569,6 +31569,66 @@ export default {
           return jsonOut(400, { ok: false, error: "Unsupported roster action" });
         }
 
+        // ERA forced-retention guard (league_context_v1.md §A3): a player won in
+        // the current cycle's Expired Rookie Auction cannot be cut until the FA
+        // Auction closes ("you bid, you hold through auction"). Authoritative
+        // signal = a 'won' lot in ups_auction_lots for THIS season joined to
+        // ups_era_pool — this excludes FA pickups (not won via ERA) and
+        // prior-cycle ERA vets traded in (their won lot is a different season),
+        // so ONLY the current-year ERA winners are protected. Runs before the
+        // dry-run short-circuit so the Front Office can preview the block and so
+        // it is testable without touching MFL. Fail-open on any lookup error
+        // (consistent with the other roster-action gates). Commish (APIKEY
+        // session) may override with body.override_era_retention=true.
+        if (action === "drop_player") {
+          let eraGate = { blocked: false, reason: "unchecked" };
+          try {
+            if (env && env.UPS_MFL_DB) {
+              const wonRow = await env.UPS_MFL_DB.prepare(
+                `SELECT 1
+                   FROM ups_auction_lots l
+                   INNER JOIN ups_era_pool p
+                     ON p.player_id = l.player_id AND p.league_id = l.league_id
+                    AND p.season = CAST(l.season AS TEXT)
+                  WHERE l.season = ? AND l.league_id = ? AND l.status = 'won' AND l.player_id = ?
+                  LIMIT 1`
+              ).bind(Number(season), String(leagueId), String(playerId)).first();
+              if (!wonRow) {
+                eraGate = { blocked: false, reason: "not_a_current_era_winner" };
+              } else {
+                // Retention lifts when the FA Auction closes. Source the close
+                // time from env.FA_AUCTION_CLOSE_AT (unix seconds or ISO 8601);
+                // when unset we are still inside the retention window (the FA
+                // Auction has not happened yet), so retention stays active.
+                const faRaw = String(env.FA_AUCTION_CLOSE_AT || "").trim();
+                let faCloseUnix = null;
+                if (faRaw) faCloseUnix = /^\d+$/.test(faRaw) ? Number(faRaw) : (Number.isFinite(Date.parse(faRaw)) ? Math.floor(Date.parse(faRaw) / 1000) : null);
+                const nowUnix = Math.floor(Date.now() / 1000);
+                if (faCloseUnix && nowUnix >= faCloseUnix) {
+                  eraGate = { blocked: false, reason: "fa_auction_closed", close_at_unix: faCloseUnix };
+                } else {
+                  eraGate = { blocked: true, reason: "era_forced_retention", close_at_unix: faCloseUnix };
+                }
+              }
+            }
+          } catch (eraErr) {
+            console.warn("[era-retention] gate failed (fail-open):", eraErr && eraErr.message ? eraErr.message : String(eraErr));
+            eraGate = { blocked: false, reason: "gate_error" };
+          }
+          const ovRaw = String((body && body.override_era_retention) != null ? body.override_era_retention : "").toLowerCase();
+          const overrideOk = sessionByApiKey && (ovRaw === "true" || ovRaw === "1" || ovRaw === "yes");
+          if (eraGate.blocked && !overrideOk) {
+            return jsonOut(400, {
+              ok: false,
+              code: "ERA_FORCED_RETENTION",
+              error: `This player was won in the ${season} Expired Rookie Auction and is under forced retention \u2014 they cannot be cut until the FA Auction closes (league_context_v1.md \u00a7A3). The commissioner can override.`,
+              player_id: playerId,
+              franchise_id: franchiseId,
+              gate: eraGate,
+            });
+          }
+        }
+
         // Dry-run safety (Keith 2026-05-21): defense-in-depth gate on the
         // roster action endpoint. The Roster Workbench client now skips
         // load/unload during dry-run, but any future caller that forgets
