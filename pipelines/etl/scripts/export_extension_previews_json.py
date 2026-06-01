@@ -190,7 +190,7 @@ def normalize_preview_rows(rows: list[sqlite3.Row], conn: sqlite3.Connection, se
         info_parts.append(f"GTD: {format_k(guarantee)}")
         item.update(
             {
-                "new_contract_status": f"EXT{years_to_add}",
+                "new_contract_status": f"Vet-Ext{years_to_add}",
                 "new_contract_length": contract_length,
                 "new_TCV": tcv,
                 "new_aav_current": current_aav,
