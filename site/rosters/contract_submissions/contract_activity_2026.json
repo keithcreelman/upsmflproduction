@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-06-01 15:57:05",
+    "generated_at": "2026-06-01 18:18:41",
     "source": "contract-activity-log",
-    "count": 34,
+    "count": 35,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "b196efe091ca0e5dd14b3559",
+      "submission_id": "b196efe091ca0e5dd14b3559",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0008",
+      "franchise_name": "",
+      "player_id": "16614",
+      "player_name": "",
+      "position": "",
+      "salary": 14000,
+      "contract_year": 1,
+      "contract_status": "Rookie-Draft",
+      "contract_info": "CL 3| TCV 42K| AAV 14K| Y1-14K, Y2-14K, Y3-14K| GTD: 31.5K",
+      "tcv": 42000,
+      "aav": 14000,
+      "guaranteed": 31500,
+      "submitted_at_utc": "2026-06-01T18:18:21.879Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "",
+      "discord_message_id": "",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "6eee6588cbe3ac62dbc92d24",
       "submission_id": "6eee6588cbe3ac62dbc92d24",
