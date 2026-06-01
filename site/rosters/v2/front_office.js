@@ -2073,7 +2073,7 @@
           <div class="fo-form-row"><span class="lbl">College</span><span class="val">${escapeHtml(d.college || "—")}</span></div>
           <div class="fo-form-row"><span class="lbl">NFL Draft</span><span class="val">${escapeHtml(bioDraft(d))}</span></div>
           <div class="fo-form-row"><span class="lbl">UPS Draft</span><span class="val">${escapeHtml(bioUpsDraft(p))}</span></div>
-          <div class="fo-form-row"><span class="lbl">Last Acquired</span><span class="val">${escapeHtml(bioLastAcquired(p))}</span></div>
+          <div class="fo-form-row"><span class="lbl">Last Acquired</span><span class="val" id="fo-bio-lastacq">${escapeHtml(bioLastAcquired(p))}</span></div>
         </div>
       </div>`;
   }
@@ -2084,6 +2084,18 @@
     var d = await loadPlayerDetails(p.id);
     if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "bio") return;
     body.innerHTML = bioHtml(p, d);
+    // Last Acquired fallback — the static acquisition JSON is a snapshot and
+    // misses recently moved players (no row → blank date). When it yields no
+    // date, derive the most-recent acquisition live from the transaction log
+    // and patch the cell in place (keeps the default Bio tab fast otherwise).
+    if (!safeStr(p.acquisitionDate)) {
+      loadPlayerTransactions(p.id).then(function (data) {
+        if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "bio") return;
+        var cell = document.querySelector("#fo-bio-lastacq");
+        var s = foMostRecentAcq(data && data.events);
+        if (cell && s) cell.textContent = s;
+      }).catch(function () {});
+    }
   }
 
   // Contract History — year-by-year breakdown from /api/player-bundle
@@ -2379,6 +2391,32 @@
     var t = (STATE.teams || []).find(function (x) { return x.fid === f; });
     return t ? (t.name || ("Team " + f)) : ("Team " + f);
   }
+  var __txnsCache = {};
+  async function loadPlayerTransactions(pid) {
+    pid = safeStr(pid).replace(/\D/g, "");
+    if (!pid) return null;
+    if (__txnsCache[pid]) return __txnsCache[pid];
+    try {
+      var res = await fetch(apiUrl("/api/player-transactions") + "?pid=" + encodeURIComponent(pid) +
+        "&L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON),
+        { credentials: "omit", cache: "no-store" });
+      var data = await res.json();
+      __txnsCache[pid] = data;
+      return data;
+    } catch (e) { return null; }
+  }
+  // Most-recent acquisition (auction/add/trade/draft) as a one-line summary,
+  // for the Bio "Last Acquired" fallback. Events arrive sorted desc.
+  function foMostRecentAcq(events) {
+    var acq = (events || []).filter(function (e) { return ["auction", "add", "trade", "draft"].indexOf(e.kind) >= 0; });
+    if (!acq.length) return "";
+    var e = acq[0];
+    var parts = [e.label || e.kind];
+    if (e.kind === "trade" && e.from_franchise_id) parts.push("from " + franchiseNameByFid(e.from_franchise_id));
+    else if (e.detail) parts.push(e.detail);
+    if (e.date) parts.push(safeStr(e.date).slice(0, 10));
+    return parts.join(" · ");
+  }
   function foTxnKindClass(k) {
     return ({ auction: "auction", add: "add", drop: "drop", trade: "trade", draft: "draft", contract: "contract" })[k] || "";
   }
@@ -2390,13 +2428,7 @@
     var body = $("#fo-slideover-body");
     if (!body) return;
     body.innerHTML = '<div class="fo-form-note">Loading transaction log…</div>';
-    var data = null;
-    try {
-      var res = await fetch(apiUrl("/api/player-transactions") + "?pid=" + encodeURIComponent(p.id) +
-        "&L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON),
-        { credentials: "omit", cache: "no-store" });
-      data = await res.json();
-    } catch (e) { data = null; }
+    var data = await loadPlayerTransactions(p.id);
     if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "txns") return; // user moved on
     var events = (data && Array.isArray(data.events)) ? data.events : [];
     if (!events.length) {
