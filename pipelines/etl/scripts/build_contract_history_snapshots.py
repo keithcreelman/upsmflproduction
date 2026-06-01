@@ -214,8 +214,17 @@ def is_contract_status(status: str) -> bool:
     s = safe_str(status).upper()
     if not s:
         return False
-    blocked = ("WW", "WAIVER", "FA", "FREE")
-    return not any(tok in s for tok in blocked)
+    # Exclude only genuinely status-less / free-agent / waiver rows. The new
+    # canonical contract vocab (Vet-FAA, Vet-WW, Rookie-FAA, Vet-ERA, *-MYM,
+    # *-FL/-BL suffixes, etc.) ARE real contracts and must return True, so we
+    # must NOT block on the bare substrings "WW" or "FA" (they collide with
+    # Vet-WW / Vet-FAA). Block FREE/WAIVER substrings, plus a bare-token "FA"
+    # (the legacy free-agent sentinel) matched on word boundaries only.
+    if "FREE" in s or "WAIVER" in s:
+        return False
+    if re.search(r"\bFA\b", s):
+        return False
+    return True
 
 
 def normalize_position(pos: str) -> str:

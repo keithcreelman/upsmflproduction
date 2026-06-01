@@ -92,8 +92,18 @@ def is_non_rookie_contract_status(status: str) -> bool:
     # cohort for the upcoming season's tag window.
     #
     # NOTE: Expiring rookies (contract_year=1, status=Rookie) are also eligible.
-    blocked_fragments = ("BL", "FA", "FREE")
-    return not any(tok in s for tok in blocked_fragments)
+    #
+    # Canonical contract-vocab safety: do NOT block bare "BL" or bare "FA"
+    # substrings. "-BL" is a loaded-contract suffix on real vets (Vet-FAA-BL,
+    # Vet-Ext1-BL, ...) and "FA" collides with the new Vet-FAA / Rookie-FAA
+    # values — all of which ARE tag-eligible contracts. Block only genuine
+    # free-agent / non-contract rows: any "FREE" substring, or a bare "FA"
+    # token (the legacy free-agent sentinel) on word boundaries.
+    if "FREE" in s:
+        return False
+    if "FA" in s.replace("-", " ").split():
+        return False
+    return True
 
 
 def now_local_stamp() -> str:

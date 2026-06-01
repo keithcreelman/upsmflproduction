@@ -859,6 +859,12 @@
       var isLoaded =
         t === "fl" ||
         t === "bl" ||
+        // New canonical vocab loads contracts via a `-FL`/`-BL` SUFFIX on
+        // the base type (e.g. `Vet-FAA-FL`). `t` has non-alnums stripped
+        // above, so the suffix collapses to a TRAILING `fl`/`bl`. Mirror
+        // of roster_workbench.js contractBucket() -fl/-bl suffix matching.
+        /fl$/.test(t) ||
+        /bl$/.test(t) ||
         t.indexOf("frontloaded") !== -1 ||
         t.indexOf("backloaded") !== -1;
       if (safeInt(r.contractYear, 0) === 3 && !isRookie) threeYearNonRookie += 1;
