@@ -1988,7 +1988,7 @@
     switch (STATE.slideoverSubtab) {
       case "actions":  body.innerHTML = renderActionsTab(p); wireActionsTab(body, p); return;
       case "bio":      renderBioTab(p); return;
-      case "stats":    body.innerHTML = renderPlaceholderTab("Stats", "Will mirror current player-modal Stats tab (career table, season splits) in the next checkpoint."); return;
+      case "stats":    renderStatsTab(p); return;
       case "gamelog":  body.innerHTML = renderPlaceholderTab("Game Log", "Will mirror current player-modal Game Log tab (weekly box scores w/ tier badges)."); return;
       case "history":  body.innerHTML = '<div class="fo-form-note">Loading contract history…</div>'; renderContractHistoryTab(p); return;
       case "news":     body.innerHTML = renderPlaceholderTab("News", "Will fetch /api/player-news?pids=" + escapeHtml(p.id) + " and render headlines + injury status."); return;
@@ -2151,6 +2151,112 @@
         Source: <code>/api/player-bundle?pid=${escapeHtml(p.id)}</code> → <code>bundle.contract_history</code>
         (D1 <code>src_contracts</code>). YL = year-of-contract (1..CL).
       </div>`;
+  }
+
+  // ── Stats sub-tab inside slide-over ─────────────────────────────────
+  // Mirrors the master player-modal Stats tab: a headline strip (Career
+  // Pts / PPG / Best Season / APW) over a compact "scoring" season table.
+  // Source: /api/player-bundle → career_summary (D1 src_weekly rollups) +
+  // leverage_coefs for APW. Computation matches player_profile_master.js
+  // buildHeadlineStripHtml / buildCompactScoringTableHtml verbatim so the
+  // numbers are identical across modules (no drift — see cap_math lesson).
+  function foNumComma(n) { return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+  function foStatRank(r) { return (r == null || r <= 0) ? "—" : "#" + r; }
+
+  function foStatHeadlineHtml(career, lev) {
+    var tot = { g: 0, pts: 0, apw: 0 };
+    var wcOk = false, bestYr = null, bestPts = -1, bestPPG = 0;
+    for (var i = 0; i < career.length; i++) {
+      var c = career[i];
+      var g = safeInt(c.games_played, 0);
+      var pts = Number(c.season_points) || 0;
+      var beta = (lev && lev[c.pos_group]) || 0;
+      tot.g += g; tot.pts += pts;
+      if (c.win_chunks != null && c.win_chunks > 0) { wcOk = true; tot.apw += c.win_chunks * beta; }
+      if (pts > bestPts) { bestPts = pts; bestYr = c.season; bestPPG = (c.avg_ppg != null ? c.avg_ppg : (g ? pts / g : 0)); }
+    }
+    var ppg = tot.g ? tot.pts / tot.g : 0;
+    var apwPerG = tot.g ? tot.apw / tot.g : 0;
+    function card(lbl, val, sub, title) {
+      return '<div class="fo-stat-card"' + (title ? ' title="' + escapeHtml(title) + '"' : "") + ">" +
+        '<span class="fo-stat-lbl">' + lbl + "</span>" +
+        '<span class="fo-stat-val">' + val + "</span>" +
+        '<span class="fo-stat-sub">' + sub + "</span></div>";
+    }
+    return '<div class="fo-stat-cards">' +
+      card("Career Pts", foNumComma(tot.pts), tot.g + " G · " + career.length + " season" + (career.length === 1 ? "" : "s")) +
+      card("Career PPG", ppg.toFixed(1), "Average per game") +
+      card("Best Season", (bestYr || "—"), (bestPts >= 0 ? foNumComma(bestPts) + " pts · " + bestPPG.toFixed(1) + " PPG" : "")) +
+      card("Career APW", (wcOk ? tot.apw.toFixed(1) : "—"), (wcOk ? apwPerG.toFixed(2) + " / game" : "data pending"),
+           "Adjusted All-Play Wins = win_chunks × positional leverage β. All-Play wins this player is responsible for if every other lineup slot turned in median output.") +
+      "</div>";
+  }
+
+  function foStatSeasonTableHtml(career, lev) {
+    var tot = { g: 0, pts: 0, apw: 0, el_num: 0, el_den: 0 };
+    var wcOk = false;
+    var rows = career.map(function (c) {
+      var beta = (lev && lev[c.pos_group]) || 0;
+      var apw = (c.win_chunks || 0) * beta;
+      var g = safeInt(c.games_played, 0);
+      tot.g += g; tot.pts += (Number(c.season_points) || 0); tot.apw += apw;
+      if (c.elite_pct != null) { tot.el_num += c.elite_pct * g; tot.el_den += g; }
+      if (c.win_chunks != null && c.win_chunks > 0) wcOk = true;
+      var apwCell = (c.win_chunks != null && c.win_chunks > 0)
+        ? "<strong>" + apw.toFixed(1) + "</strong>"
+        : '<span style="color:var(--muted);">—</span>';
+      return "<tr>" +
+        "<td>" + escapeHtml(String(c.season)) + "</td>" +
+        '<td class="num">' + g + "</td>" +
+        '<td class="num">' + (c.season_points != null ? Number(c.season_points).toFixed(0) : "—") + "</td>" +
+        '<td class="num" style="color:var(--muted);">' + foStatRank(c.pos_rank) + "</td>" +
+        '<td class="num">' + (c.avg_ppg != null ? Number(c.avg_ppg).toFixed(1) : "—") + "</td>" +
+        '<td class="num" style="color:var(--muted);">' + foStatRank(c.pos_ppg_rank) + "</td>" +
+        '<td class="num" style="color:var(--ok);">' + (c.elite_pct != null ? Number(c.elite_pct).toFixed(0) + "%" : "—") + "</td>" +
+        '<td class="num">' + apwCell + "</td>" +
+        "</tr>";
+    }).join("");
+    var ppg = tot.g ? tot.pts / tot.g : 0;
+    var el = tot.el_den ? tot.el_num / tot.el_den : 0;
+    return '<div style="overflow-x:auto;">' +
+      '<table class="fo-table"><thead><tr>' +
+      "<th>Yr</th><th class=\"num\">G</th><th class=\"num\">Pts</th>" +
+      '<th class="num" title="Positional rank by total points">Pts Rk</th>' +
+      '<th class="num">PPG</th><th class="num" title="Positional rank by PPG">PPG Rk</th>' +
+      '<th class="num" title="Elite weeks (z ≥ 1.0) %">Elite%</th>' +
+      '<th class="num" title="Adjusted All-Play Wins = win_chunks × leverage β">APW</th>' +
+      "</tr></thead><tbody>" + rows +
+      '<tr class="fo-stat-career"><td><strong>Career</strong></td>' +
+      '<td class="num">' + tot.g + "</td>" +
+      '<td class="num">' + tot.pts.toFixed(0) + "</td>" +
+      '<td class="num" style="color:var(--muted);">—</td>' +
+      '<td class="num">' + ppg.toFixed(1) + "</td>" +
+      '<td class="num" style="color:var(--muted);">—</td>' +
+      '<td class="num" style="color:var(--ok);">' + el.toFixed(0) + "%</td>" +
+      '<td class="num">' + (wcOk ? tot.apw.toFixed(1) : '<span style="color:var(--muted);">—</span>') + "</td>" +
+      "</tr></tbody></table></div>" +
+      (wcOk ? "" : '<p class="fo-form-note" style="margin-top:6px;">APW shows "—" — upstream <code>win_chunks</code> not populated for these seasons.</p>');
+  }
+
+  async function renderStatsTab(p) {
+    var body = $("#fo-slideover-body");
+    if (!body) return;
+    body.innerHTML = '<div class="fo-form-note">Loading stats…</div>';
+    var bundle = await loadPlayerBundle(p.id);
+    if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "stats") return; // user moved on
+    var career = (bundle && Array.isArray(bundle.career_summary)) ? bundle.career_summary.slice() : [];
+    if (!career.length) {
+      body.innerHTML = '<div class="fo-form-note">No scoring history in the bundle for this player (rookie / pre-NFL, or load failed).</div>';
+      return;
+    }
+    career.sort(function (a, b) { return safeInt(b.season, 0) - safeInt(a.season, 0); });
+    var lev = (bundle && bundle.leverage_coefs) || {};
+    body.innerHTML =
+      '<div class="fo-card-head"><h2 style="margin:0;">Scoring — Career &amp; Season Splits</h2></div>' +
+      foStatHeadlineHtml(career, lev) +
+      foStatSeasonTableHtml(career, lev) +
+      '<div class="fo-form-note" style="margin-top:8px;">Source: <code>/api/player-bundle?pid=' + escapeHtml(p.id) +
+      "</code> → <code>career_summary</code> (MFL scoring). Pts&nbsp;Rk / PPG&nbsp;Rk are positional. APW = win_chunks × leverage β.</div>";
   }
 
   // ── Actions sub-tab inside slide-over ───────────────────────────────
