@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-06-01 15:56:36",
+    "generated_at": "2026-06-01 15:57:05",
     "source": "contract-activity-log",
-    "count": 33,
+    "count": 34,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "6eee6588cbe3ac62dbc92d24",
+      "submission_id": "6eee6588cbe3ac62dbc92d24",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Restructure",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0011",
+      "franchise_name": "Cleon Ca$h",
+      "player_id": "14779",
+      "player_name": "Herbert, Justin",
+      "position": "QB",
+      "salary": 51000,
+      "contract_year": 2,
+      "contract_status": "Vet-FAA-FL",
+      "contract_info": "CL 3| TCV 153K| AAV 51K| Y1-61, Y2-51, Y3-41| GTD: 114.8K",
+      "tcv": 153000,
+      "aav": 51000,
+      "guaranteed": 114800,
+      "submitted_at_utc": "2026-06-01T15:56:50.091Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "",
+      "discord_message_id": "",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "2e28f3f352fdba4d0ac686ac",
       "submission_id": "2e28f3f352fdba4d0ac686ac",
