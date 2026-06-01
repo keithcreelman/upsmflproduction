@@ -5929,16 +5929,19 @@ export default {
                   }
                 }
               }
+              // NOTE: pos_rank / overall_rank are left NULL for playoff rows. The
+              // regular-season src_weekly ranks players against the ENTIRE NFL at
+              // their position that week (derived by the points-summary ETL), but
+              // weeklyResults only exposes rostered players — a rostered-only rank
+              // would be inconsistently low (apples to oranges). The Game Log
+              // shows "—" for playoff pos rank rather than a misleading value.
               const scorers = playerRows.filter((r) => r.score != null && r.score > 0).slice().sort((a, b) => b.score - a.score);
-              scorers.forEach((r, i) => { r.overall_rank = i + 1; });
-              const posCounters = {};
-              for (const r of scorers) { const g = r.pos_group || "?"; posCounters[g] = (posCounters[g] || 0) + 1; r.pos_rank = posCounters[g]; }
               const stmts = playerRows.map((r) => db.prepare(
                 `INSERT OR REPLACE INTO src_weekly
                    (season, week, player_id, pos_group, status, score, is_reg,
                     roster_franchise_id, roster_franchise_name, pos_rank, overall_rank, win_chunks)
-                 VALUES (?,?,?,?,?,?,0,?,?,?,?,NULL)`
-              ).bind(season, week, r.pid, r.pos_group, r.status, r.score, r.fid, fidName[r.fid] || null, r.pos_rank || null, r.overall_rank || null));
+                 VALUES (?,?,?,?,?,?,0,?,?,NULL,NULL,NULL)`
+              ).bind(season, week, r.pid, r.pos_group, r.status, r.score, r.fid, fidName[r.fid] || null));
               srep.weeks[week] = {
                 players: playerRows.length, scorers: scorers.length,
                 statuses: Array.from(new Set(playerRows.map((r) => r.status))),
