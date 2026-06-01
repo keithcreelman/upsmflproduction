@@ -5722,6 +5722,131 @@ export default {
         }
       }
 
+      // ---------- Player Transaction Log: /api/player-transactions ----------
+      // Dated timeline of a player's transactions: auction wins, free-agent
+      // adds, waiver claims, drops, and trades (from MFL TYPE=transactions —
+      // the ONLY complete source for AUCTION_WON; D1 src_adddrop omits the
+      // offseason auction), merged with the rookie-draft pick and per-season
+      // contract rows from D1. The UPS league_id is stable across seasons, so
+      // we fetch each season by YEAR. Seasons scanned span the player's D1
+      // tenure (floor 2019, capped at the current year) and run in parallel.
+      if (path === "/api/player-transactions" && request.method === "GET") {
+        const pid = safeStr(url.searchParams.get("pid")).replace(/\D/g, "");
+        if (!pid) return jsonOut(400, { ok: false, error: "missing pid" });
+        const leagueId = safeStr(L) || "74598";
+        const curYear = parseInt(YEAR, 10) || new Date().getUTCFullYear();
+        const db = env.UPS_MFL_DB;
+        const events = [];
+        const csv = (s) => safeStr(s).split(",").map((x) => x.trim()).filter(Boolean);
+        const pad4 = (v) => { const d = safeStr(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; };
+        const usd = (n) => "$" + String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        const isoDate = (ts) => { const n = parseInt(ts, 10); if (!n) return ""; try { return new Date(n * 1000).toISOString().slice(0, 10); } catch (_) { return ""; } };
+
+        // 1. Season floor from D1 tenure (rookie/contract/add/trade), bounded.
+        let floor = curYear;
+        if (db) {
+          try {
+            const r = await db.prepare(
+              `SELECT MIN(s) AS m FROM (
+                 SELECT MIN(season) AS s FROM src_contracts   WHERE player_id = ?
+                 UNION ALL SELECT MIN(season) FROM src_draft_picks WHERE player_id = ?
+                 UNION ALL SELECT MIN(season) FROM src_adddrop     WHERE player_id = ?
+                 UNION ALL SELECT MIN(season) FROM src_trades      WHERE player_id = ?
+               )`
+            ).bind(pid, pid, pid, pid).first();
+            const m = r && r.m ? parseInt(r.m, 10) : 0;
+            if (m && m >= 2010) floor = m;
+          } catch (_) {}
+        }
+        floor = Math.max(2019, Math.min(floor, curYear));
+
+        // 2. Rookie draft (D1 src_draft_picks) — not an MFL "transaction".
+        if (db) {
+          try {
+            const dr = await db.prepare(
+              `SELECT season, draftpick_round, draftpick_overall, franchise_id,
+                      franchise_name, unix_timestamp, datetime_et
+                 FROM src_draft_picks WHERE player_id = ? ORDER BY season`
+            ).bind(pid).all();
+            for (const row of (dr.results || [])) {
+              const bits = [];
+              if (row.draftpick_round) bits.push("Round " + row.draftpick_round);
+              if (row.draftpick_overall) bits.push("Overall " + row.draftpick_overall);
+              events.push({
+                season: row.season, ts: parseInt(row.unix_timestamp, 10) || 0,
+                date: safeStr(row.datetime_et) || isoDate(row.unix_timestamp),
+                kind: "draft", label: "Rookie Draft", detail: bits.join(" · "),
+                franchise_id: pad4(row.franchise_id), franchise_name: safeStr(row.franchise_name),
+              });
+            }
+          } catch (_) {}
+        }
+
+        // 3. Per-season contracts (D1 src_contracts) — "Contract assigned".
+        if (db) {
+          try {
+            const cr = await db.prepare(
+              `SELECT season, franchise_id, franchise_name, contract_status,
+                      contract_length, tcv FROM src_contracts WHERE player_id = ? ORDER BY season`
+            ).bind(pid).all();
+            for (const row of (cr.results || [])) {
+              const bits = [];
+              if (row.contract_status) bits.push(safeStr(row.contract_status));
+              if (row.contract_length) bits.push("CL " + row.contract_length);
+              if (row.tcv) bits.push("TCV " + usd(row.tcv));
+              events.push({
+                season: row.season, ts: 0, date: String(row.season),
+                kind: "contract", label: "Contract", detail: bits.join(" · "),
+                franchise_id: pad4(row.franchise_id), franchise_name: safeStr(row.franchise_name),
+              });
+            }
+          } catch (_) {}
+        }
+
+        // 4. MFL transactions per season — auction / FA add / waiver / drop / trade.
+        const seasons = [];
+        for (let s = floor; s <= curYear; s++) seasons.push(s);
+        const mflFetch = (u) => fetch(u, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 300, cacheEverything: true } });
+        await Promise.all(seasons.map(async (s) => {
+          try {
+            const u = `https://api.myfantasyleague.com/${s}/export?TYPE=transactions&L=${encodeURIComponent(leagueId)}&JSON=1`;
+            const r = await mflFetch(u);
+            if (!r.ok) return;
+            const j = await r.json();
+            let txs = (j && j.transactions && j.transactions.transaction) || [];
+            if (!Array.isArray(txs)) txs = [txs];
+            for (const x of txs) {
+              const type = safeStr(x.type);
+              const ts = parseInt(x.timestamp, 10) || 0;
+              const fid = pad4(x.franchise);
+              const t = safeStr(x.transaction);
+              if (type === "AUCTION_WON") {
+                const parts = t.split("|");
+                if (csv(parts[0]).includes(pid)) {
+                  events.push({ season: s, ts, date: isoDate(ts), kind: "auction", label: "Auction Won", detail: parts[1] ? usd(parts[1]) : "", franchise_id: fid });
+                }
+              } else if (type === "FREE_AGENT") {
+                const fp = t.split("|");
+                if (csv(fp[0]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "add", label: "Free Agent Add", detail: "", franchise_id: fid });
+                if (csv(fp[1]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "drop", label: "Dropped", detail: "", franchise_id: fid });
+              } else if (type === "BBID_WAIVER") {
+                const wp = t.split("|"); // added,| bid | dropped,
+                if (csv(wp[0]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "add", label: "Waiver Claim", detail: wp[1] ? usd(wp[1]) : "", franchise_id: fid });
+                if (csv(wp[2]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "drop", label: "Dropped (waiver)", detail: "", franchise_id: fid });
+              } else if (type === "TRADE") {
+                const f1 = pad4(x.franchise), f2 = pad4(x.franchise2);
+                if (csv(x.franchise1_gave_up).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "trade", label: "Traded", detail: "", franchise_id: f2, from_franchise_id: f1 });
+                if (csv(x.franchise2_gave_up).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "trade", label: "Traded", detail: "", franchise_id: f1, from_franchise_id: f2 });
+              }
+            }
+          } catch (_) {}
+        }));
+
+        // Sort by timestamp desc; season-only rows (contracts, ts=0) sink within their season.
+        events.sort((a, b) => (b.ts - a.ts) || (b.season - a.season));
+        return jsonOut(200, { ok: true, player_id: pid, league_id: leagueId, seasons_scanned: seasons, count: events.length, events });
+      }
+
       // ---------- Rookie Draft Hub: /api/player-bundle ----------
       // Lean port of build_player_bundle from rookie_draft_bridge.py. Fetches
       // the MFL-public surface: playerProfile (bio/career), players DETAILS
