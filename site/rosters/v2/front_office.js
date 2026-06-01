@@ -1991,6 +1991,7 @@
       case "stats":    renderStatsTab(p); return;
       case "gamelog":  renderGameLogTab(p); return;
       case "history":  body.innerHTML = '<div class="fo-form-note">Loading contract history…</div>'; renderContractHistoryTab(p); return;
+      case "txns":     renderTransactionLogTab(p); return;
       case "news":     body.innerHTML = renderPlaceholderTab("News", "Will fetch /api/player-news?pids=" + escapeHtml(p.id) + " and render headlines + injury status."); return;
       default:         body.innerHTML = "";
     }
@@ -2364,6 +2365,61 @@
       var b2 = document.querySelector("#fo-gl-body");
       if (b2) b2.innerHTML = foGameLogScoringHtml(sel.value, bundle);
     });
+  }
+
+  // ── Transaction Log sub-tab inside slide-over ───────────────────────
+  // Dated timeline of the player's transactions (auction / FA add / waiver /
+  // drop / trade) + rookie draft + per-season contracts, from the worker
+  // /api/player-transactions (MFL TYPE=transactions ∪ D1 src_draft_picks /
+  // src_contracts). Auction wins surface here even though D1 src_adddrop
+  // omits them. Franchise ids are resolved to names against STATE.teams.
+  function franchiseNameByFid(fid) {
+    var f = pad4(fid);
+    if (!f) return "—";
+    var t = (STATE.teams || []).find(function (x) { return x.fid === f; });
+    return t ? (t.name || ("Team " + f)) : ("Team " + f);
+  }
+  function foTxnKindClass(k) {
+    return ({ auction: "auction", add: "add", drop: "drop", trade: "trade", draft: "draft", contract: "contract" })[k] || "";
+  }
+  function foTxnDetail(e) {
+    if (e.kind === "trade" && e.from_franchise_id) return "from " + escapeHtml(franchiseNameByFid(e.from_franchise_id));
+    return escapeHtml(e.detail || "");
+  }
+  async function renderTransactionLogTab(p) {
+    var body = $("#fo-slideover-body");
+    if (!body) return;
+    body.innerHTML = '<div class="fo-form-note">Loading transaction log…</div>';
+    var data = null;
+    try {
+      var res = await fetch(apiUrl("/api/player-transactions") + "?pid=" + encodeURIComponent(p.id) +
+        "&L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON),
+        { credentials: "omit", cache: "no-store" });
+      data = await res.json();
+    } catch (e) { data = null; }
+    if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "txns") return; // user moved on
+    var events = (data && Array.isArray(data.events)) ? data.events : [];
+    if (!events.length) {
+      body.innerHTML = '<div class="fo-form-note">No transactions found for this player' + (data && data.ok ? "" : " (load failed)") + ".</div>";
+      return;
+    }
+    var rows = events.map(function (e) {
+      return "<tr>" +
+        '<td class="small" style="white-space:nowrap;">' + escapeHtml(safeStr(e.date).slice(0, 10) || String(e.season)) + "</td>" +
+        '<td><span class="fo-txn ' + foTxnKindClass(e.kind) + '">' + escapeHtml(e.label || e.kind) + "</span></td>" +
+        "<td>" + foTxnDetail(e) + "</td>" +
+        '<td class="small">' + escapeHtml(franchiseNameByFid(e.franchise_id)) + "</td>" +
+        "</tr>";
+    }).join("");
+    var span = data.seasons_scanned || [];
+    body.innerHTML =
+      '<div class="fo-card-head"><h2 style="margin:0;">Transaction Log (' + events.length + ")</h2></div>" +
+      '<div style="overflow-x:auto;"><table class="fo-table"><thead><tr>' +
+      "<th>Date</th><th>Event</th><th>Detail</th><th>Team</th>" +
+      "</tr></thead><tbody>" + rows + "</tbody></table></div>" +
+      '<div class="fo-form-note" style="margin-top:8px;">Source: <code>/api/player-transactions</code> — live MFL transactions ' +
+      "(auction · FA · waiver · trade) ∪ D1 rookie draft + contracts" +
+      (span.length ? ", seasons " + escapeHtml(String(span[0])) + "–" + escapeHtml(String(span[span.length - 1])) : "") + ".</div>";
   }
 
   // ── Actions sub-tab inside slide-over ───────────────────────────────
