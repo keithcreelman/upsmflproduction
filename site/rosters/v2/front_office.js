@@ -2094,7 +2094,28 @@
     const body = $("#fo-slideover-body");
     const bundle = await loadPlayerBundle(p.id);
     if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "history") return; // user moved on
-    const rows = (bundle && Array.isArray(bundle.contract_history)) ? bundle.contract_history : [];
+    const rows = (bundle && Array.isArray(bundle.contract_history)) ? bundle.contract_history.slice() : [];
+    // Keith 2026-06-01: always surface the CURRENT season. The bundle's
+    // contract_history (D1 src_contracts) is historical and lags the live
+    // roster, so synthesize the current-season row from the live player
+    // object whenever it isn't already present.
+    const curSeason = safeInt(SEASON, 0);
+    if (curSeason > 0 && !rows.some(function (r) { return safeInt(r.season, 0) === curSeason; })) {
+      const curCl = contractLengthForPlayer(p);
+      const curYrs = safeInt(p.years, 0);
+      const curYl = curCl > 0 ? Math.min(curCl, Math.max(1, curCl - curYrs + 1)) : 0;
+      rows.unshift({
+        season: curSeason,
+        team_name: p.franchise,
+        contract_status: p.type,
+        contract_length: curCl,
+        contract_year: curYl,
+        tcv: totalContractValueForPlayer(p),
+        aav: displayAavForPlayer(p),
+        contract_info: p.special || "",
+        __current: true
+      });
+    }
     if (!rows.length) {
       body.innerHTML = '<div class="fo-form-note">No contract history available for this player in the bundle (or load failed).</div>';
       return;
@@ -2119,8 +2140,8 @@
         ? `${fmtK(yrSalary)} <span class="small" style="color:var(--muted);">/ ${fmtK(aav)}</span>`
         : (yrSalary > 0 ? fmtK(yrSalary) : (aav > 0 ? fmtK(aav) : "—"));
       return `
-        <tr>
-          <td>${escapeHtml(yr)}</td>
+        <tr${r.__current ? ' class="fo-ch-current"' : ""}>
+          <td>${escapeHtml(yr)}${r.__current ? ' <span class="fo-ch-now" title="Current season">now</span>' : ""}</td>
           <td>${escapeHtml(team)}</td>
           <td><span class="fo-ctype ${ctypeClass(type)}">${escapeHtml(type || "—")}</span></td>
           <td class="num">${cl || "—"}</td>

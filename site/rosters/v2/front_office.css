@@ -600,3 +600,7 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-tier.dud { background: rgba(248,113,113,0.15); color: var(--err); }
 .fo-gl-ptag { color: var(--accent); font-weight: 700; font-size: 10px; }
 .fo-gl-po td { background: rgba(91,141,255,0.06); }
+
+/* Contract History — current-season row marker */
+.fo-ch-current td { background: rgba(91,141,255,0.06); }
+.fo-ch-now { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; background: var(--accent-soft); color: var(--accent); vertical-align: middle; }
