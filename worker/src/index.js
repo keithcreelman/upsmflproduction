@@ -5970,19 +5970,27 @@ export default {
         // player was EXTENDED by (cy_now − (cy_prev − 1)) years. Terms come from
         // src_contracts; the precise date (if any) from ups_extension_master.
         {
-          const acqSeasons = new Set(events
-            .filter((e) => ["auction", "add", "draft", "dispersal"].includes(e.kind))
+          // New-contract seasons (auction/add/draft) reset the extension count;
+          // trades/dispersals carry the SAME contract so they don't.
+          const newContractSeasons = new Set(events
+            .filter((e) => ["auction", "add", "draft"].includes(e.kind))
             .map((e) => parseInt(e.season, 10)));
           const csAsc = Object.keys(contractBySeason).map(Number).filter((n) => n).sort((a, b) => a - b);
+          let extCount = 0;
           for (let i = 1; i < csAsc.length; i++) {
             const S = csAsc[i], P = csAsc[i - 1];
+            if (newContractSeasons.has(S)) extCount = 0; // fresh contract → reset
             if (S - P !== 1) continue; // need consecutive seasons to compare cy
             const cyS = parseInt(contractBySeason[String(S)].contract_year, 10) || 0;
             const cyP = parseInt(contractBySeason[String(P)].contract_year, 10) || 0;
             if (!cyS || !cyP) continue;
             const added = cyS - (cyP - 1); // years added beyond the normal decrement
-            if (added >= 1 && !acqSeasons.has(S)) {
+            if (added >= 1 && !newContractSeasons.has(S)) {
+              extCount++;
               const ic = inlineContract(S);
+              // Extension events carry the canonical Vet-Ext<n> label (the
+              // extension count is the meaningful classification here).
+              if (ic) ic.canonical_type = "Vet-Ext" + extCount;
               const em = extBySeason[String(S)];
               let exDate = String(S), dateApprox = true, exTs = 0;
               if (em) {
