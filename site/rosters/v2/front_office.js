@@ -2140,7 +2140,12 @@
       const yr = safeStr(r.season);
       // Worker field is team_name (per /api/player-bundle response).
       const team = safeStr(r.team_name || r.franchise_name || r.franchise || "");
-      const type = safeStr(r.contract_status || r.contract_type || "");
+      // Current season carries the live (already-canonical) MFL status; historical
+      // rows get canonicalized (Veteran→Vet, +FL/BL from the year shape).
+      const rawType = safeStr(r.contract_status || r.contract_type || "");
+      const _yv = parseContractYearValues(r.contract_info);
+      const _years = Object.keys(_yv).map(Number).sort(function (a, b) { return a - b; }).map(function (k) { return _yv[k]; });
+      const type = r.__current ? rawType : foCanonType(rawType, _years);
       const cl   = safeInt(r.contract_length, 0);
       const yl   = safeInt(r.contract_year, 0);   // year-of-contract (1..CL)
       const tcv  = safeInt(r.tcv, 0);
@@ -2454,6 +2459,26 @@
     if (/rookie/.test(s)) return "rookie";
     return "vet";
   }
+  // Front-loaded (decreasing) vs back-loaded (increasing) from the Y-shape.
+  function foStructureOf(years) {
+    if (!years || years.length < 2) return "";
+    var inc = true, dec = true;
+    for (var i = 1; i < years.length; i++) { if (years[i] >= years[i - 1]) dec = false; if (years[i] <= years[i - 1]) inc = false; }
+    return dec ? "FL" : inc ? "BL" : "";
+  }
+  // Canonicalize a legacy contract status to the league vocab (Vet-FAA-FL,
+  // Rookie-Draft, Vet-Ext2-BL, Tag…). Already-canonical values pass through.
+  // The acquisition-method suffix (FAA/ERA/Draft/WW) for HISTORICAL seasons
+  // needs the per-season acquisition lineage we don't carry here, so this
+  // resolves base + structure; the current season uses the live MFL status.
+  function foCanonType(status, years) {
+    var s = String(status || "").trim();
+    if (/^(Rookie|Vet)-/.test(s) || /^Tag$/i.test(s)) return s; // already canonical
+    if (/franchise\s*tag/i.test(s)) return "Tag";
+    var base = /rookie/i.test(s) ? "Rookie" : (/vet|standard|^fl$|^bl$|^gf$/i.test(s) ? "Vet" : (s || "—"));
+    var st = foStructureOf(years);
+    return st ? base + "-" + st : base;
+  }
   // Compact inline contract summary: canonical type · CL · TCV · AAV · Y1/Y2/Y3,
   // with a low-confidence flag for derived/inferred terms.
   function foContractSummary(c) {
@@ -2599,7 +2624,9 @@
     const moveBtns = [];
     if (p.isIr)   moveBtns.push(`<button class="btn small" data-action="activate-ir">Activate IR</button>`);
     if (p.isTaxi) moveBtns.push(`<button class="btn small" data-action="promote-taxi">Promote Taxi</button>`);
-    if (!p.isTaxi && !p.isIr && safeInt(p.years, 0) > 0) {
+    // Drop is available on ANY rostered player incl taxi (Keith 2026-06-02) —
+    // a taxi/§D2-exempt drop just carries a $0 penalty, which the label shows.
+    if (!p.isIr) {
       moveBtns.push(`<button class="btn small warn" data-action="drop">Drop (pen ${fmtUSD(dropPenaltyEstimate(p).amount)})</button>`);
     }
     if (moveBtns.length) {
