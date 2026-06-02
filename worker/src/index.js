@@ -5784,20 +5784,38 @@ export default {
         };
         const yearsFromContract = (c) => {
           let years = [];
-          try {
-            const yv = JSON.parse(c.year_values_json || "{}");
-            years = Object.keys(yv).map(Number).sort((a, b) => a - b).map((k) => Math.round(yv[k] || 0));
-          } catch (_) {}
-          if (!years.length && c.contract_info) {
+          const info = safeStr(c.contract_info);
+          // 1. Y-token format: "Y1-21 Y2-38 Y3-38".
+          if (info) {
             const re = /Y(\d+)\s*-\s*([0-9.]+)\s*K?/gi; let m; const map = {};
-            while ((m = re.exec(c.contract_info))) map[parseInt(m[1], 10)] = Math.round(parseFloat(m[2]) * 1000);
+            while ((m = re.exec(info))) map[parseInt(m[1], 10)] = Math.round(parseFloat(m[2]) * 1000);
             years = Object.keys(map).map(Number).sort((a, b) => a - b).map((k) => map[k]);
           }
+          // 2. Bracket format used by older contractInfo: "[14K, 14K, 15K]".
+          if (!years.length) {
+            const bm = info.match(/\[([^\]]+)\]/);
+            if (bm) {
+              years = bm[1].split(",").map((t) => {
+                const n = parseFloat(String(t).replace(/[^0-9.]/g, ""));
+                return isFinite(n) ? Math.round(n * 1000) : 0;
+              });
+            }
+          }
+          // 3. year_values_json — only when it actually carries non-zero values
+          // (older Hill rows store {"1":0,"2":0,"3":0}, which must NOT win).
+          if (!years.length) {
+            try {
+              const yv = JSON.parse(c.year_values_json || "{}");
+              const arr = Object.keys(yv).map(Number).sort((a, b) => a - b).map((k) => Math.round(yv[k] || 0));
+              if (arr.some((v) => v > 0)) years = arr;
+            } catch (_) {}
+          }
+          // 4. Even-split inference (flagged low confidence).
           let derived = false;
           if (!years.length && c.tcv && c.contract_length > 0) {
             const per = Math.round(c.tcv / c.contract_length);
             years = Array.from({ length: Math.min(c.contract_length, 8) }, () => per);
-            derived = true; // even-split inference — flag low confidence
+            derived = true;
           }
           return { years, derived };
         };
