@@ -2282,18 +2282,16 @@
     var d = await loadPlayerDetails(p.id);
     if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "bio") return;
     body.innerHTML = bioHtml(p, d);
-    // Last Acquired fallback — the static acquisition JSON is a snapshot and
-    // misses recently moved players (no row → blank date). When it yields no
-    // date, derive the most-recent acquisition live from the transaction log
-    // and patch the cell in place (keeps the default Bio tab fast otherwise).
-    if (!safeStr(p.acquisitionDate)) {
-      loadPlayerTransactions(p.id).then(function (data) {
-        if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "bio") return;
-        var cell = document.querySelector("#fo-bio-lastacq");
-        var s = foMostRecentAcq(data && data.events);
-        if (cell && s) cell.textContent = s;
-      }).catch(function () {});
-    }
+    // Last Acquired — ALWAYS derive live from the transaction log and patch the
+    // cell. The MFL acquisitionDate (and the static snapshot) are stale/empty for
+    // ERA + dispersal moves (e.g. Chris Rodriguez: ERA auction win, but the cell
+    // showed his 2023 rookie draft). The transaction log is authoritative.
+    loadPlayerTransactions(p.id).then(function (data) {
+      if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "bio") return;
+      var cell = document.querySelector("#fo-bio-lastacq");
+      var s = foMostRecentAcq(data && data.events);
+      if (cell && s) cell.textContent = s;
+    }).catch(function () {});
   }
 
   // Contract History — year-by-year breakdown from /api/player-bundle
@@ -2610,10 +2608,18 @@
     } catch (e) { return null; }
   }
   // Most-recent acquisition (auction/add/trade/draft) as a one-line summary,
-  // for the Bio "Last Acquired" fallback. Events arrive sorted desc.
+  // for the Bio "Last Acquired" fallback. NOTE: worker events arrive ASCENDING
+  // (oldest first), so we must pick the latest acquisition by timestamp — not
+  // acq[0] (which was the oldest, e.g. showing a 2023 rookie draft instead of a
+  // 2026 ERA auction win).
   function foMostRecentAcq(events) {
     var acq = (events || []).filter(function (e) { return ["auction", "add", "trade", "draft"].indexOf(e.kind) >= 0; });
     if (!acq.length) return "";
+    acq.sort(function (a, b) {
+      var ta = Number(a.ts) || 0, tb = Number(b.ts) || 0;
+      if (tb !== ta) return tb - ta;
+      return String(b.date || "").localeCompare(String(a.date || ""));
+    });
     var e = acq[0];
     var parts = [e.label || e.kind];
     if (e.kind === "trade" && e.from_franchise_id) parts.push("from " + franchiseNameByFid(e.from_franchise_id));
