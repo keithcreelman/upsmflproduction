@@ -7,106 +7,328 @@
   },
   "7836": [
     {
-      "season": 2012, "date": "2012-05-18", "kind": "dispersal", "label": "Dispersal Draft",
-      "detail": "Pick 6", "franchise_id": "0006", "franchise_name": "Steve B (Good in Da Hood)",
-      "contract": { "canonical_type": "Vet", "cl": null, "tcv": 55000, "aav": 55000, "years": [55000], "confidence": "derived" },
+      "season": 2012,
+      "date": "2012-05-18",
+      "kind": "dispersal",
+      "label": "Dispersal Draft",
+      "detail": "Pick 6",
+      "franchise_id": "0006",
+      "franchise_name": "Steve B (Good in Da Hood)",
+      "contract": {
+        "canonical_type": "Vet",
+        "cl": null,
+        "tcv": 55000,
+        "aav": 55000,
+        "years": [
+          55000
+        ],
+        "confidence": "derived"
+      },
       "source": "Forum t3-new-owners-draft post #6 (5/18/2012) — Steve B drafted Rodgers; $55k carryover, cy=1"
     },
     {
-      "season": 2014, "date": "2014", "date_approx": true, "kind": "tag", "label": "Tagged",
-      "detail": "", "franchise_id": "0006", "franchise_name": "Steve B (Hood)",
-      "contract": { "canonical_type": "Vet-Tag", "cl": 1, "tcv": 56000, "aav": 56000, "years": [56000], "confidence": "derived" },
+      "season": 2014,
+      "date": "2014",
+      "date_approx": true,
+      "kind": "tag",
+      "label": "Tagged",
+      "detail": "",
+      "franchise_id": "0006",
+      "franchise_name": "Steve B (Hood)",
+      "contract": {
+        "canonical_type": "Vet-Tag",
+        "cl": 1,
+        "tcv": 56000,
+        "aav": 56000,
+        "years": [
+          56000
+        ],
+        "confidence": "derived"
+      },
       "source": "Inferred from MFL contractInfo 'Franchised by Hood in 2014' — NOT in f8/f9 tag forum (forum gap)"
     },
     {
-      "season": 2014, "date": "2014", "date_approx": true, "kind": "trade", "label": "Traded",
-      "detail": "", "franchise_id": "0002", "franchise_name": "Whitman (Cranium Krusherz)", "from_franchise_id": "0006",
+      "season": 2014,
+      "date": "2014",
+      "date_approx": true,
+      "kind": "trade",
+      "label": "Traded",
+      "detail": "",
+      "franchise_id": "0002",
+      "franchise_name": "Whitman (Cranium Krusherz)",
+      "from_franchise_id": "0006",
       "source": "Tagged by Steve B then traded to Whitman before 2014 W=1 (contractInfo annotation)"
     },
     {
-      "season": 2015, "date": "2015", "date_approx": true, "kind": "tag", "label": "Tagged",
-      "detail": "", "franchise_id": "", "franchise_name": "CBP (Brian Cutting)",
-      "contract": { "canonical_type": "Vet-Tag", "cl": 1, "tcv": 57000, "aav": 57000, "years": [57000], "confidence": "derived" },
+      "season": 2015,
+      "date": "2015",
+      "date_approx": true,
+      "kind": "tag",
+      "label": "Tagged",
+      "detail": "",
+      "franchise_id": "",
+      "franchise_name": "CBP (Brian Cutting)",
+      "contract": {
+        "canonical_type": "Vet-Tag",
+        "cl": 1,
+        "tcv": 57000,
+        "aav": 57000,
+        "years": [
+          57000
+        ],
+        "confidence": "derived"
+      },
       "source": "Inferred from MFL contractInfo 'CBP in 2015' — NOT in f8/f9 tag forum (forum gap); CBP franchise id unconfirmed"
     },
     {
-      "season": 2015, "date": "2015", "date_approx": true, "kind": "trade", "label": "Traded",
-      "detail": "", "franchise_id": "0002", "franchise_name": "Whitman (Cranium Krusherz)", "from_franchise_id": "",
+      "season": 2015,
+      "date": "2015",
+      "date_approx": true,
+      "kind": "trade",
+      "label": "Traded",
+      "detail": "",
+      "franchise_id": "0002",
+      "franchise_name": "Whitman (Cranium Krusherz)",
+      "from_franchise_id": "",
       "source": "Tagged by CBP then traded to Whitman before 2015 W=1 (contractInfo annotation)"
     },
     {
-      "season": 2016, "date": "2016-08-14", "kind": "auction", "label": "Auction Won",
-      "detail": "", "franchise_id": "0011", "franchise_name": "Mannila (Baster)",
-      "contract": { "canonical_type": "Vet-FL", "cl": 3, "tcv": 123000, "aav": 41000, "years": [62000, 44000, 17000], "confidence": "ok" },
+      "season": 2016,
+      "date": "2016-08-14",
+      "kind": "auction",
+      "label": "Auction Won",
+      "detail": "",
+      "franchise_id": "0011",
+      "franchise_name": "Mannila (Baster)",
+      "contract": {
+        "canonical_type": "Vet-FL",
+        "cl": 3,
+        "tcv": 123000,
+        "aav": 41000,
+        "years": [
+          62000,
+          44000,
+          17000
+        ],
+        "confidence": "ok"
+      },
       "source": "Forum t271-baster-contracts (8/14-15/2016) — Mannila won FA auction, 3yr Front-Loaded 62/44/17, commish-confirmed"
     }
   ],
   "12801": [
     {
-      "season": 2016, "date": "2016-08-17", "kind": "auction", "label": "Auction Won", "confidence": "high",
-      "franchise_id": "0005", "franchise_name": "BTNH",
-      "contract": { "canonical_type": "Rookie", "cl": 3, "tcv": 3000, "aav": 1000, "years": [1000, 1000, 1000], "confidence": "high" },
+      "season": 2016,
+      "date": "2016-08-17",
+      "kind": "auction",
+      "label": "Auction Won",
+      "confidence": "high",
+      "franchise_id": "0005",
+      "franchise_name": "BTNH",
+      "contract": {
+        "canonical_type": "Rookie-FAA",
+        "cl": 3,
+        "tcv": 3000,
+        "aav": 1000,
+        "years": [
+          1000,
+          1000,
+          1000
+        ],
+        "confidence": "high"
+      },
       "source": "MFL 2016 (L=27191): AUCTION_WON 8/17/2016 — BTNH (F0005) won Hill $1k; salary $1k cy=3 → flat 3yr rookie-auction deal [1/1/1] '16-'18"
     },
     {
-      "season": 2017, "date": "2017-06-14", "kind": "trade", "label": "Traded", "confidence": "high",
-      "franchise_id": "0003", "franchise_name": "Gride", "from_franchise_id": "0005", "from_franchise_name": "C'mon Son",
+      "season": 2017,
+      "date": "2017-06-14",
+      "kind": "trade",
+      "label": "Traded",
+      "confidence": "high",
+      "franchise_id": "0003",
+      "franchise_name": "Gride",
+      "from_franchise_id": "0005",
+      "from_franchise_name": "C'mon Son",
       "source": "MFL 2017 TRADE 6/14/2017 — C'mon Son (F0005) -> Gride (F0003)"
     },
     {
-      "season": 2017, "date": "2017-11-23", "kind": "trade", "label": "Traded", "confidence": "high",
-      "franchise_id": "0007", "franchise_name": "Sex Manther", "from_franchise_id": "0003", "from_franchise_name": "Gride",
+      "season": 2017,
+      "date": "2017-11-23",
+      "kind": "trade",
+      "label": "Traded",
+      "confidence": "high",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "from_franchise_id": "0003",
+      "from_franchise_name": "Gride",
       "source": "MFL 2017 TRADE 11/23/2017 — Gride (F0003) -> Sex Manther (F0007)"
     },
     {
-      "season": 2018, "date": "2018", "date_approx": true, "kind": "extension", "label": "Extension (2yr)", "confidence": "high",
-      "franchise_id": "0007", "franchise_name": "Sex Manther",
-      "contract": { "canonical_type": "Vet-Ext1", "cl": 3, "tcv": 43000, "aav": 14000, "years": [14000, 14000, 15000], "confidence": "high" },
+      "season": 2018,
+      "date": "2018",
+      "date_approx": true,
+      "kind": "extension",
+      "label": "Extension (2yr)",
+      "confidence": "high",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "contract": {
+        "canonical_type": "Vet-Ext1",
+        "cl": 3,
+        "tcv": 43000,
+        "aav": 14000,
+        "years": [
+          14000,
+          14000,
+          15000
+        ],
+        "confidence": "high"
+      },
       "source": "Derived by following the contract: cy jumped 2->3 in 2018 = 2yr extension. MFL contractInfo 'Restructure Ext. Manther 18-20 [14K,14K,15K] (AAV 1K)' — restructured $1k->$14k + extended '19-'20. AAV annotation 1K('18) -> 21K('19)"
     },
     {
-      "season": 2019, "date": "2019-05-03", "kind": "trade", "label": "Traded", "confidence": "high",
-      "franchise_id": "0002", "franchise_name": "The Bash Bros", "from_franchise_id": "0007", "from_franchise_name": "Sex Manther",
+      "season": 2019,
+      "date": "2019-05-03",
+      "kind": "trade",
+      "label": "Traded",
+      "confidence": "high",
+      "franchise_id": "0002",
+      "franchise_name": "The Bash Bros",
+      "from_franchise_id": "0007",
+      "from_franchise_name": "Sex Manther",
       "source": "MFL 2019 TRADE 5/3/2019 — Sex Manther (F0007) -> The Bash Bros (F0002). Mid 2018 deal (yr 2)"
     },
     {
-      "season": 2020, "date": "2020-05-03", "kind": "trade", "label": "Traded", "confidence": "high",
-      "franchise_id": "0006", "franchise_name": "Good in Da Hood", "from_franchise_id": "0002", "from_franchise_name": "The Bash Bros",
+      "season": 2020,
+      "date": "2020-05-03",
+      "kind": "trade",
+      "label": "Traded",
+      "confidence": "high",
+      "franchise_id": "0006",
+      "franchise_name": "Good in Da Hood",
+      "from_franchise_id": "0002",
+      "from_franchise_name": "The Bash Bros",
       "source": "MFL 2020 TRADE 5/3/2020 — The Bash Bros (F0002) -> Good in Da Hood (F0006)"
     },
     {
-      "season": 2020, "date": "2020", "date_approx": true, "kind": "extension", "label": "Extension (2yr)", "confidence": "high",
-      "franchise_id": "0006", "franchise_name": "Good in Da Hood",
-      "contract": { "canonical_type": "Vet-Ext2", "cl": 3, "tcv": 97000, "aav": 21000, "years": [21000, 38000, 38000], "confidence": "high" },
+      "season": 2020,
+      "date": "2020",
+      "date_approx": true,
+      "kind": "extension",
+      "label": "Extension (2yr)",
+      "confidence": "high",
+      "franchise_id": "0006",
+      "franchise_name": "Good in Da Hood",
+      "contract": {
+        "canonical_type": "Vet-Ext2-BL",
+        "cl": 3,
+        "tcv": 97000,
+        "aav": 21000,
+        "years": [
+          21000,
+          38000,
+          38000
+        ],
+        "confidence": "high"
+      },
       "source": "Derived: cy jumped 2->3 in 2020 = another 2yr extension. MFL 'Ext. Manther 19/20 Bash 21/22 [21K,38K,38K] AAV 21K/41K' — new deal '20-'22"
     },
     {
-      "season": 2023, "date": "2023-03-29", "kind": "dispersal", "label": "Dispersal Draft", "confidence": "high",
-      "franchise_id": "0002", "franchise_name": "CBP", "from_franchise_id": "0006", "from_franchise_name": "The Main Event Mafia",
+      "season": 2023,
+      "date": "2023-03-29",
+      "kind": "dispersal",
+      "label": "Dispersal Draft",
+      "confidence": "high",
+      "franchise_id": "0002",
+      "franchise_name": "CBP",
+      "from_franchise_id": "0006",
+      "from_franchise_name": "The Main Event Mafia",
       "source": "2023 DISPERSAL (Discord) — The Main Event Mafia (F0006) folded; 11+ players incl Hill dispersed to CBP (F0002). MFL logged it as a 3/29/2023 multi-player swap"
     },
     {
-      "season": 2023, "date": "2023", "date_approx": true, "kind": "tag", "label": "Franchise Tag", "confidence": "high",
-      "franchise_id": "0002", "franchise_name": "CBP",
-      "contract": { "canonical_type": "Vet-Tag", "cl": 1, "tcv": 51000, "aav": 51000, "years": [51000], "confidence": "high" },
+      "season": 2023,
+      "date": "2023",
+      "date_approx": true,
+      "kind": "tag",
+      "label": "Franchise Tag",
+      "confidence": "high",
+      "franchise_id": "0002",
+      "franchise_name": "CBP",
+      "contract": {
+        "canonical_type": "Tag",
+        "cl": 1,
+        "tcv": 51000,
+        "aav": 51000,
+        "years": [
+          51000
+        ],
+        "confidence": "high"
+      },
       "source": "MFL 2023: Franchise Tag $51k cy=1 (returns to FA '24)"
     },
     {
-      "season": 2024, "date": "2024-07-29", "kind": "auction", "label": "Auction Won", "confidence": "high",
-      "franchise_id": "0007", "franchise_name": "Sex Manther",
-      "contract": { "canonical_type": "Vet-BL", "cl": 3, "tcv": 183000, "aav": 41000, "years": [41000, 71000, 71000], "confidence": "high" },
+      "season": 2024,
+      "date": "2024-07-29",
+      "kind": "auction",
+      "label": "Auction Won",
+      "confidence": "high",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "contract": {
+        "canonical_type": "Vet-FAA-BL",
+        "cl": 3,
+        "tcv": 183000,
+        "aav": 41000,
+        "years": [
+          41000,
+          71000,
+          71000
+        ],
+        "confidence": "high"
+      },
       "source": "MFL 2024 AUCTION_WON 7/29/2024 — Sex Manther (F0007), back-loaded [41,71,71] '24-'26"
     },
     {
-      "season": 2025, "date": "2025", "date_approx": true, "kind": "extension", "label": "Restructure (FL)", "confidence": "high",
-      "franchise_id": "0007", "franchise_name": "Sex Manther",
-      "contract": { "canonical_type": "Vet-FL", "cl": 2, "tcv": 142000, "aav": 80000, "years": [80000, 62000], "confidence": "high" },
+      "season": 2025,
+      "date": "2025",
+      "date_approx": true,
+      "kind": "extension",
+      "label": "Restructure (FL)",
+      "confidence": "high",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "contract": {
+        "canonical_type": "Vet-FAA-FL",
+        "cl": 2,
+        "tcv": 142000,
+        "aav": 80000,
+        "years": [
+          80000,
+          62000
+        ],
+        "confidence": "high"
+      },
       "source": "MFL 2025: restructure front-loaded [80,62] '25-'26 (cy=2). The restructure made it FL (Keith) — MFL's stored status 'Vet-FAA' is stale (reflects the 2024 acquisition method, not the current structure)"
     },
     {
-      "season": 2026, "date": "2026", "date_approx": true, "kind": "contract", "label": "Contract (FL · yr 2)", "confidence": "high",
-      "franchise_id": "0007", "franchise_name": "Sex Manther",
-      "contract": { "canonical_type": "Vet-FL", "cl": 2, "tcv": 142000, "aav": 62000, "years": [80000, 62000], "confidence": "high" },
+      "season": 2026,
+      "date": "2026",
+      "date_approx": true,
+      "kind": "contract",
+      "label": "Contract (FL · yr 2)",
+      "confidence": "high",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "contract": {
+        "canonical_type": "Vet-FAA-FL",
+        "cl": 2,
+        "tcv": 142000,
+        "aav": 62000,
+        "years": [
+          80000,
+          62000
+        ],
+        "confidence": "high"
+      },
       "source": "MFL 2026: salary $62k cy=1 — year 2 of the 2025 FL restructure (no change since). MFL stores status 'Vet-FAA' but it's an FL deal"
     }
   ]
