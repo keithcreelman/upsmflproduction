@@ -5877,9 +5877,12 @@ export default {
                 label: "Rookie Draft", detail: bits.join(" · "),
                 franchise_id: pad4(row.franchise_id), franchise_name: safeStr(row.franchise_name) });
               const ic = inlineContract(row.season);
-              if (ic) events.push({ season: row.season, ts: dTs + 1, date: dDate, kind: "contract",
-                label: "Rookie Contract", detail: "", franchise_id: pad4(row.franchise_id),
-                franchise_name: safeStr(row.franchise_name), contract: ic });
+              if (ic) {
+                if (ic.canonical_type) ic.canonical_type = ic.canonical_type.replace(/^Rookie\b/, "Rookie-Draft"); // drafted rookie
+                events.push({ season: row.season, ts: dTs + 1, date: dDate, kind: "contract",
+                  label: "Rookie Contract", detail: "", franchise_id: pad4(row.franchise_id),
+                  franchise_name: safeStr(row.franchise_name), contract: ic });
+              }
             }
           } catch (_) {}
         }
