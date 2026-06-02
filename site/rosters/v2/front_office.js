@@ -1913,8 +1913,10 @@
   function newsFlagBadge(pid) {
     var f = STATE.newsFlags[String(pid)];
     if (!f) return "";
+    // Injury/status → medical cross; news headline → newspaper. Clicking opens News.
+    var icon = f === "injury" ? "🏥" : "📰";
     var title = f === "injury" ? "Injury / status news — click to open News" : "News headline — click to open News";
-    return ' <span class="fo-news-flag fo-news-flag-' + f + '" data-news-pid="' + escapeHtml(String(pid)) + '" title="' + title + '">●</span>';
+    return ' <span class="fo-news-flag fo-news-flag-' + f + '" data-news-pid="' + escapeHtml(String(pid)) + '" title="' + title + '">' + icon + "</span>";
   }
   async function loadRosterIndicators() {
     var pids = allVisiblePlayers().map(function (p) { return p.id; }).filter(Boolean);
