@@ -5899,6 +5899,9 @@ export default {
               const ic = inlineContract(row.season);
               if (ic) {
                 if (ic.canonical_type) ic.canonical_type = ic.canonical_type.replace(/^Rookie\b/, "Rookie-Draft"); // drafted rookie
+                // Rookie deals are AUTOMATIC (§A1: flat slot-salary × 3) — the
+                // even-split equals the schedule, so this is HIGH confidence.
+                ic.confidence = "ok";
                 events.push({ season: row.season, ts: dTs + 1, date: dDate, kind: "contract",
                   label: "Rookie Contract", detail: "", franchise_id: pad4(row.franchise_id),
                   franchise_name: safeStr(row.franchise_name), contract: ic });
@@ -5914,7 +5917,8 @@ export default {
         if (db) {
           try {
             const ex = await db.prepare(
-              `SELECT season, extended_at_utc, evidence_grade, evidence_source
+              `SELECT season, extended_at_utc, evidence_grade, evidence_source,
+                      new_contract_info, new_tcv, new_aav, extension_term_years
                  FROM ups_extension_master WHERE league_id = ? AND player_id = ? ORDER BY season`
             ).bind(leagueId, pid).all();
             for (const r of (ex.results || [])) extBySeason[String(r.season)] = r;
@@ -6022,10 +6026,24 @@ export default {
             if (added >= 1 && !newContractSeasons.has(S)) {
               extCount++;
               const ic = inlineContract(S);
+              const em = extBySeason[String(S)];
+              // Extension TERMS come from ups_extension_master (the submitted
+              // extension — Discord/forum/Google-form sourced) when it carries a
+              // real year breakdown; that's authoritative, so HIGH confidence.
+              // Only fall back to src_contracts (and even-split) when it doesn't.
+              if (ic && em) {
+                const eyb = yearsFromContract({ contract_info: em.new_contract_info, tcv: em.new_tcv, contract_length: em.extension_term_years });
+                if (eyb.years.length && eyb.years.some((y) => y > 0) && !eyb.derived) {
+                  ic.years = eyb.years;
+                  if (em.new_tcv) ic.tcv = em.new_tcv;
+                  if (em.new_aav) ic.aav = em.new_aav;
+                  if (em.extension_term_years) ic.cl = em.extension_term_years;
+                  ic.confidence = "ok";
+                }
+              }
               // Extension events carry the canonical Vet-Ext<n> label (the
               // extension count is the meaningful classification here).
               if (ic) ic.canonical_type = "Vet-Ext" + extCount;
-              const em = extBySeason[String(S)];
               let exDate = String(S), dateApprox = true, exTs = 0;
               if (em) {
                 const md = safeStr(em.evidence_source).match(/(\d{4}-\d{2}-\d{2})/);
