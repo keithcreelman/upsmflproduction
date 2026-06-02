@@ -5859,6 +5859,25 @@ export default {
           }
           return dec ? "FL" : inc ? "BL" : "";
         };
+        // Did the player hold a rookie deal that expired before season `s`?
+        const hadExpiredRookie = (s) => Object.keys(contractBySeason).some((yr) =>
+          parseInt(yr, 10) < s && /rookie|standard/i.test(safeStr(contractBySeason[yr].contract_status)));
+        // A WW / FA add in MAY or JUNE is not a real waiver (Keith: no waivers
+        // those months) — it's a Tag, or for an expired-rookie player an ERA.
+        // Other months are genuine waiver/FA pickups (Vet-WW).
+        const wwAddEvent = (s, ts, fid, ic, baseLabel, detail) => {
+          let mon = 12; try { mon = new Date(ts * 1000).getUTCMonth() + 1; } catch (_) {}
+          if (mon === 5 || mon === 6) {
+            if (hadExpiredRookie(s)) {
+              if (ic && ic.canonical_type) ic.canonical_type = ic.canonical_type.replace(/^(Rookie|Vet)/, "$1-ERA");
+              return { season: s, ts, date: isoDate(ts), kind: "auction", label: "ERA (via WW)", detail: detail, franchise_id: fid, contract: ic };
+            }
+            if (ic) ic.canonical_type = "Tag";
+            return { season: s, ts, date: isoDate(ts), kind: "tag", label: "Tagged (via WW)", detail: "", franchise_id: fid, contract: ic };
+          }
+          if (ic && ic.canonical_type) ic.canonical_type = ic.canonical_type.replace(/^(Rookie|Vet)/, "$1-WW");
+          return { season: s, ts, date: isoDate(ts), kind: "add", label: baseLabel, detail: detail, franchise_id: fid, contract: ic };
+        };
 
         // 1. Rookie draft + paired Rookie Contract (same date).
         if (db) {
@@ -5947,20 +5966,18 @@ export default {
                     let mon = 12; try { mon = new Date(ts * 1000).getUTCMonth() + 1; } catch (_) {}
                     const sc = contractBySeason[String(s)];
                     const isVet = !/rookie|standard/i.test(safeStr(sc && sc.contract_status));
-                    const hadRookie = Object.keys(contractBySeason).some((yr) =>
-                      parseInt(yr, 10) < s && /rookie|standard/i.test(safeStr(contractBySeason[yr].contract_status)));
-                    const method = (isVet && s >= 2019 && mon < 7 && hadRookie) ? "ERA" : "FAA";
+                    const method = (isVet && s >= 2019 && mon < 7 && hadExpiredRookie(s)) ? "ERA" : "FAA";
                     ic.canonical_type = ic.canonical_type.replace(/^(Rookie|Vet)/, "$1-" + method);
                   }
                   events.push({ season: s, ts, date: isoDate(ts), kind: "auction", label: "Auction Won", detail: parts[1] ? usd(parts[1]) : "", franchise_id: fid, contract: ic });
                 }
               } else if (type === "FREE_AGENT") {
                 const fp = t.split("|");
-                if (csv(fp[0]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "add", label: "Free Agent Add", detail: "", franchise_id: fid, contract: inlineContract(s) });
+                if (csv(fp[0]).includes(pid)) events.push(wwAddEvent(s, ts, fid, inlineContract(s), "Free Agent Add", ""));
                 if (csv(fp[1]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "drop", label: "Dropped", detail: "", franchise_id: fid });
               } else if (type === "BBID_WAIVER") {
                 const wp = t.split("|"); // added,| bid | dropped,
-                if (csv(wp[0]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "add", label: "Waiver Claim", detail: wp[1] ? usd(wp[1]) : "", franchise_id: fid, contract: inlineContract(s) });
+                if (csv(wp[0]).includes(pid)) events.push(wwAddEvent(s, ts, fid, inlineContract(s), "Waiver Claim", wp[1] ? usd(wp[1]) : ""));
                 if (csv(wp[2]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "drop", label: "Dropped (waiver)", detail: "", franchise_id: fid });
               } else if (type === "TRADE") {
                 const f1 = pad4(x.franchise), f2 = pad4(x.franchise2);
