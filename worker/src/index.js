@@ -5936,7 +5936,20 @@ export default {
               if (type === "AUCTION_WON") {
                 const parts = t.split("|");
                 if (csv(parts[0]).includes(pid)) {
-                  events.push({ season: s, ts, date: isoDate(ts), kind: "auction", label: "Auction Won", detail: parts[1] ? usd(parts[1]) : "", franchise_id: fid, contract: inlineContract(s) });
+                  const ic = inlineContract(s);
+                  if (ic && ic.canonical_type) {
+                    // Acquisition-method suffix (Keith): an auction BEFORE July
+                    // (month < 7), 2019+, of a player whose ROOKIE deal expired,
+                    // is an Expired-Rookie Auction (ERA); everything else is FAA.
+                    let mon = 12; try { mon = new Date(ts * 1000).getUTCMonth() + 1; } catch (_) {}
+                    const sc = contractBySeason[String(s)];
+                    const isVet = !/rookie|standard/i.test(safeStr(sc && sc.contract_status));
+                    const hadRookie = Object.keys(contractBySeason).some((yr) =>
+                      parseInt(yr, 10) < s && /rookie|standard/i.test(safeStr(contractBySeason[yr].contract_status)));
+                    const method = (isVet && s >= 2019 && mon < 7 && hadRookie) ? "ERA" : "FAA";
+                    ic.canonical_type = ic.canonical_type.replace(/^(Rookie|Vet)/, "$1-" + method);
+                  }
+                  events.push({ season: s, ts, date: isoDate(ts), kind: "auction", label: "Auction Won", detail: parts[1] ? usd(parts[1]) : "", franchise_id: fid, contract: ic });
                 }
               } else if (type === "FREE_AGENT") {
                 const fp = t.split("|");
