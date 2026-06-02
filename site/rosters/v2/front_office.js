@@ -2418,11 +2418,30 @@
     return parts.join(" · ");
   }
   function foTxnKindClass(k) {
-    return ({ auction: "auction", add: "add", drop: "drop", trade: "trade", draft: "draft", contract: "contract" })[k] || "";
+    return ({ auction: "auction", add: "add", drop: "drop", trade: "trade", draft: "draft", contract: "contract", extension: "extension", tag: "tag" })[k] || "";
+  }
+  function foTxnK(n) { return (n == null) ? "—" : "$" + Math.round(Number(n) / 1000) + "K"; }
+  // Compact inline contract summary: canonical type · CL · TCV · AAV · Y1/Y2/Y3,
+  // with a low-confidence flag for derived/inferred terms.
+  function foContractSummary(c) {
+    if (!c) return "";
+    var parts = [];
+    if (c.canonical_type) parts.push('<strong>' + escapeHtml(c.canonical_type) + "</strong>");
+    if (c.cl) parts.push("CL" + c.cl);
+    if (c.tcv) parts.push("TCV " + foTxnK(c.tcv));
+    if (c.aav) parts.push("AAV " + foTxnK(c.aav));
+    if (c.years && c.years.length) parts.push("Y " + c.years.map(function (y) { return Math.round(Number(y) / 1000) + "K"; }).join("/"));
+    var s = parts.join(" · ");
+    if (c.confidence === "derived") s += ' <span class="fo-lowconf" title="Low-confidence — derived/inferred (verify)">~</span>';
+    return s;
   }
   function foTxnDetail(e) {
-    if (e.kind === "trade" && e.from_franchise_id) return "from " + escapeHtml(franchiseNameByFid(e.from_franchise_id));
-    return escapeHtml(e.detail || "");
+    if (e.kind === "trade") return e.from_franchise_id ? "from " + escapeHtml(franchiseNameByFid(e.from_franchise_id)) : "";
+    if (e.kind === "draft") return escapeHtml(e.detail || "");
+    var cs = foContractSummary(e.contract);
+    // Auction/waiver carry a $ price in detail — show it alongside the contract.
+    if (e.detail && cs) return escapeHtml(e.detail) + " · " + cs;
+    return cs || escapeHtml(e.detail || "");
   }
   async function renderTransactionLogTab(p) {
     var body = $("#fo-slideover-body");
@@ -2435,9 +2454,14 @@
       body.innerHTML = '<div class="fo-form-note">No transactions found for this player' + (data && data.ok ? "" : " (load failed)") + ".</div>";
       return;
     }
+    // Worker returns events oldest-first with a seq #.
     var rows = events.map(function (e) {
+      var dateStr = e.date_approx
+        ? "~" + escapeHtml(safeStr(e.date).slice(0, 4))
+        : escapeHtml(safeStr(e.date).slice(0, 10) || String(e.season));
       return "<tr>" +
-        '<td class="small" style="white-space:nowrap;">' + escapeHtml(safeStr(e.date).slice(0, 10) || String(e.season)) + "</td>" +
+        '<td class="small" style="color:var(--muted);">' + (e.seq || "") + "</td>" +
+        '<td class="small" style="white-space:nowrap;">' + dateStr + "</td>" +
         '<td><span class="fo-txn ' + foTxnKindClass(e.kind) + '">' + escapeHtml(e.label || e.kind) + "</span></td>" +
         "<td>" + foTxnDetail(e) + "</td>" +
         '<td class="small">' + escapeHtml(franchiseNameByFid(e.franchise_id)) + "</td>" +
@@ -2447,11 +2471,12 @@
     body.innerHTML =
       '<div class="fo-card-head"><h2 style="margin:0;">Transaction Log (' + events.length + ")</h2></div>" +
       '<div style="overflow-x:auto;"><table class="fo-table"><thead><tr>' +
-      "<th>Date</th><th>Event</th><th>Detail</th><th>Team</th>" +
+      '<th class="num">#</th><th>Date</th><th>Event</th><th>Detail</th><th>Team</th>' +
       "</tr></thead><tbody>" + rows + "</tbody></table></div>" +
-      '<div class="fo-form-note" style="margin-top:8px;">Source: <code>/api/player-transactions</code> — live MFL transactions ' +
-      "(auction · FA · waiver · trade) ∪ D1 rookie draft + contracts" +
-      (span.length ? ", seasons " + escapeHtml(String(span[0])) + "–" + escapeHtml(String(span[span.length - 1])) : "") + ".</div>";
+      '<div class="fo-form-note" style="margin-top:8px;">Oldest first. Source: <code>/api/player-transactions</code> — MFL transactions ' +
+      "(auction · FA · waiver · trade) ∪ D1 draft + contracts + extensions (<code>ups_extension_master</code>) + tags. " +
+      '<span class="fo-lowconf">~</span> = low-confidence (derived term / approximate date).' +
+      (span.length ? " Seasons " + escapeHtml(String(span[0])) + "–" + escapeHtml(String(span[span.length - 1])) + "." : "") + "</div>";
   }
 
   // ── Actions sub-tab inside slide-over ───────────────────────────────
