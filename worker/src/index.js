@@ -6118,6 +6118,34 @@ export default {
           }
         }
 
+        // Resolve franchise ids to the HISTORICAL (per-year) owner name — the
+        // frontend's franchiseNameByFid only knows CURRENT owners, which is wrong
+        // for old trades (owners change). Fetch each event-season's league
+        // roster of franchises (pre-2017 leagues have their own ids).
+        {
+          const leagueIdForYear = (yr) => (yr === 2014 ? "30590" : yr === 2015 ? "29015" : yr === 2016 ? "27191" : leagueId);
+          const eventSeasons = Array.from(new Set(events.map((e) => parseInt(e.season, 10)).filter(Boolean)));
+          const perYearName = {};
+          await Promise.all(eventSeasons.map(async (yr) => {
+            try {
+              const r = await mflFetch(`https://api.myfantasyleague.com/${yr}/export?TYPE=league&L=${encodeURIComponent(leagueIdForYear(yr))}&JSON=1`);
+              if (!r.ok) return;
+              const j = await r.json();
+              let frs = (j && j.league && j.league.franchises && j.league.franchises.franchise) || [];
+              if (!Array.isArray(frs)) frs = [frs];
+              const m = {};
+              for (const f of frs) m[pad4(f && f.id)] = safeStr(f && f.name);
+              perYearName[yr] = m;
+            } catch (_) {}
+          }));
+          for (const e of events) {
+            const m = perYearName[parseInt(e.season, 10)];
+            if (!m) continue;
+            if (!e.franchise_name && e.franchise_id && m[e.franchise_id]) e.franchise_name = m[e.franchise_id];
+            if (!e.from_franchise_name && e.from_franchise_id && m[e.from_franchise_id]) e.from_franchise_name = m[e.from_franchise_id];
+          }
+        }
+
         // Suppress expired-contract drops — a drop the same player RE-ACQUIRES
         // (auction/add/draft) later that same season is just expired-contract
         // churn (years remaining = 0), not a real roster move.
