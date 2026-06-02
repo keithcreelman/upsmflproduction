@@ -331,5 +331,72 @@
       },
       "source": "MFL 2026: salary $62k cy=1 — year 2 of the 2025 FL restructure (no change since). MFL stores status 'Vet-FAA' but it's an FL deal"
     }
+  ],
+  "11675": [
+    {
+      "season": 2014,
+      "date": "2014-06-15",
+      "kind": "draft",
+      "label": "Rookie Draft",
+      "detail": "Rd 2 · 2.01",
+      "confidence": "high",
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "source": "MFL 2014 draftResults — Blake Bombers (F0010) drafted Davante Adams at 2.01"
+    },
+    {
+      "season": 2014,
+      "date": "2014-06-15",
+      "kind": "contract",
+      "label": "Rookie Contract",
+      "confidence": "high",
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "contract": {
+        "canonical_type": "Rookie-Draft",
+        "cl": 3,
+        "tcv": 15000,
+        "aav": 5000,
+        "years": [
+          5000,
+          5000,
+          5000
+        ],
+        "confidence": "high"
+      },
+      "source": "§A1 rookie schedule: pick 2.01 = $5k flat 3-yr deal (2014-2016)"
+    },
+    {
+      "season": 2017,
+      "date": "2017",
+      "date_approx": true,
+      "kind": "trade",
+      "label": "Traded",
+      "confidence": "high",
+      "franchise_id": "0004",
+      "franchise_name": "Pure Greatness",
+      "from_franchise_id": "0010",
+      "from_franchise_name": "Blake Bombers",
+      "source": "Forum f3 t313 (2017 Extensions, Pure Greatness) — Adams 'agreed upon in trade'. Pure Greatness (F0004) acquired Adams via trade in 2017; any 2015-16 intermediary holders not individually traced."
+    },
+    {
+      "season": 2017,
+      "date": "2017",
+      "date_approx": true,
+      "kind": "extension",
+      "label": "Extension",
+      "confidence": "high",
+      "franchise_id": "0004",
+      "franchise_name": "Pure Greatness",
+      "contract": {
+        "canonical_type": "Vet-Ext1",
+        "cl": 2,
+        "tcv": null,
+        "aav": null,
+        "years": [],
+        "confidence": "low"
+      },
+      "source": "Forum f3 t313 — 'D. Adams extend for 2 years (agreed upon in trade)'. First extension off the expired rookie deal (2 yrs). Salary NOT stated in the forum post — left NULL, not faked (cf feedback_no_fake_amounts_in_blind_fields). The worker carries 2018+ (Good in Da Hood [25/45/45])."
+    }
   ]
 }
