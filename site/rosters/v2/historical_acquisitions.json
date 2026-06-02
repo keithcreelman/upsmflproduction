@@ -81,9 +81,9 @@
       "source": "Derived: cy jumped 2->3 in 2020 = another 2yr extension. MFL 'Ext. Manther 19/20 Bash 21/22 [21K,38K,38K] AAV 21K/41K' — new deal '20-'22"
     },
     {
-      "season": 2023, "date": "2023-03-29", "kind": "trade", "label": "Traded", "confidence": "high",
+      "season": 2023, "date": "2023-03-29", "kind": "dispersal", "label": "Dispersal Draft", "confidence": "high",
       "franchise_id": "0002", "franchise_name": "CBP", "from_franchise_id": "0006", "from_franchise_name": "The Main Event Mafia",
-      "source": "MFL 2023 TRADE 3/29/2023 — The Main Event Mafia (F0006) -> CBP (F0002)"
+      "source": "2023 DISPERSAL (Discord) — The Main Event Mafia (F0006) folded; 11+ players incl Hill dispersed to CBP (F0002). MFL logged it as a 3/29/2023 multi-player swap"
     },
     {
       "season": 2023, "date": "2023", "date_approx": true, "kind": "tag", "label": "Franchise Tag", "confidence": "high",
@@ -98,10 +98,16 @@
       "source": "MFL 2024 AUCTION_WON 7/29/2024 — Sex Manther (F0007), back-loaded [41,71,71] '24-'26"
     },
     {
-      "season": 2025, "date": "2025", "date_approx": true, "kind": "extension", "label": "Restructure", "confidence": "high",
+      "season": 2025, "date": "2025", "date_approx": true, "kind": "extension", "label": "Restructure (FL)", "confidence": "high",
       "franchise_id": "0007", "franchise_name": "Sex Manther",
-      "contract": { "canonical_type": "Restructure", "cl": 2, "tcv": 142000, "aav": 80000, "years": [80000, 62000], "confidence": "high" },
-      "source": "MFL 2025: restructure [80,62] '25-'26 (cy=2)"
+      "contract": { "canonical_type": "Vet-FL", "cl": 2, "tcv": 142000, "aav": 80000, "years": [80000, 62000], "confidence": "high" },
+      "source": "MFL 2025: restructure front-loaded [80,62] '25-'26 (cy=2). The restructure made it FL (Keith) — MFL's stored status 'Vet-FAA' is stale (reflects the 2024 acquisition method, not the current structure)"
+    },
+    {
+      "season": 2026, "date": "2026", "date_approx": true, "kind": "contract", "label": "Contract (FL · yr 2)", "confidence": "high",
+      "franchise_id": "0007", "franchise_name": "Sex Manther",
+      "contract": { "canonical_type": "Vet-FL", "cl": 2, "tcv": 142000, "aav": 62000, "years": [80000, 62000], "confidence": "high" },
+      "source": "MFL 2026: salary $62k cy=1 — year 2 of the 2025 FL restructure (no change since). MFL stores status 'Vet-FAA' but it's an FL deal"
     }
   ]
 }

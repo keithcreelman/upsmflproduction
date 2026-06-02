@@ -621,3 +621,7 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-conf { font-size: 9px; cursor: help; vertical-align: middle; margin-right: 2px; }
 .fo-conf-high { color: var(--ok); }
 .fo-conf-low { color: var(--warn); }
+/* Contract-TYPE color families: Rookie / Vet (incl FAA, ERA, FL, BL, MYM) / Tag */
+.fo-ctf-rookie { color: #34d399; }
+.fo-ctf-vet { color: #5b8dff; }
+.fo-ctf-tag { color: var(--warn); }

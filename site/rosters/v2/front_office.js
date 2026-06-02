@@ -2446,12 +2446,20 @@
     return (cc === "derived" || cc === "low") ? "low" : "high";
   }
   function foTxnK(n) { return (n == null) ? "—" : "$" + Math.round(Number(n) / 1000) + "K"; }
+  // Contract-TYPE color family (Keith): Rookie = one color, anything Vet
+  // (Vet-FAA, Vet-ERA, FL, BL, MYM, Ext, Restructure…) = another, Tag = yellow.
+  function foCtypeFamily(t) {
+    var s = String(t || "").toLowerCase();
+    if (/tag/.test(s)) return "tag";
+    if (/rookie/.test(s)) return "rookie";
+    return "vet";
+  }
   // Compact inline contract summary: canonical type · CL · TCV · AAV · Y1/Y2/Y3,
   // with a low-confidence flag for derived/inferred terms.
   function foContractSummary(c) {
     if (!c) return "";
     var parts = [];
-    if (c.canonical_type) parts.push('<strong>' + escapeHtml(c.canonical_type) + "</strong>");
+    if (c.canonical_type) parts.push('<strong class="fo-ctf-' + foCtypeFamily(c.canonical_type) + '">' + escapeHtml(c.canonical_type) + "</strong>");
     if (c.cl) parts.push("CL" + c.cl);
     if (c.tcv) parts.push("TCV " + foTxnK(c.tcv));
     if (c.aav) parts.push("AAV " + foTxnK(c.aav));
