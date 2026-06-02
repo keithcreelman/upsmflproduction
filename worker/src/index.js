@@ -7938,7 +7938,7 @@ export default {
           const season = safeStr(r.season);
           if (!pid || !season) continue;
           binds.push(stmt.bind(
-            safeStr(r.league_id) || "74598", season, safeStr(r.franchise_id) || null,
+            safeStr(r.league_id) || "74598", season, safeStr(r.franchise_id) || "",
             pid, safeStr(r.player_name) || null, safeStr(r.position) || null,
             safeStr(r.new_contract_status) || null, num(r.new_salary),
             num(r.new_contract_year), safeStr(r.new_contract_info) || null,
