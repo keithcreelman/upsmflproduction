@@ -1268,12 +1268,19 @@
                     info.indexOf("not eligible for tag or extension") !== -1;
     var expiredRookie = info.indexOf("expired rookie") !== -1 ||
                         (rookieLikeContractStatus(status) && years <= 0);
-    // MYAC (Multi-Year Auction Contract, §C2): a 1-year default from an ERA win
-    // (Vet-ERA) can be set to 2 or 3 years until the September contract deadline.
-    // While the MYAC window is open, the owner uses MYAC — NOT an extension
-    // (Keith) — so MYAC-eligible players show MYAC and hide Extension.
-    // Match the ERA token specifically — NOT the "era" inside "vetERAn".
-    var myacEligible = status.indexOf("-era") !== -1 && years === 1 && !isPastContractDeadlineFO();
+    // MYAC (Multi-Year Auction Contract, §C2): a 1-year DEFAULT from a fresh
+    // acquisition can be set to 2 or 3 years until the September contract
+    // deadline. Two entry paths (§C1): (1) ERA win → Vet-ERA; (2) FA Auction →
+    // 1-yr Veteran THIS season. The acquisition-date + auction label separate a
+    // fresh FA-auction Veteran from a HELD final-year Veteran (which gets a normal
+    // Extension, not MYAC). Match the ERA token specifically (not "vetERAn").
+    var acqLabel = safeStr(p && p.acquisitionTypeLabel).toLowerCase();
+    var acqYr = safeStr(p && p.acquisitionDate).slice(0, 4);
+    var isEra = status.indexOf("-era") !== -1;
+    var isFreshAuction = !isEra && /auction|faa/.test(acqLabel) &&
+                         acqLabel.indexOf("expired") === -1 && acqLabel.indexOf("rookie") === -1 &&
+                         acqYr === String(SEASON) && !rookieLikeContractStatus(status) && status.indexOf("tag") === -1;
+    var myacEligible = (isEra || isFreshAuction) && years === 1 && !isPastContractDeadlineFO();
     return {
       myacEligible: myacEligible,
       extensionEligible: !rookieOptionActionEligible(p) && (years === 1 || expiredRookie) &&
@@ -2938,13 +2945,15 @@
     // extension mechanism (+1Y → 2yr total, +2Y → 3yr total; escalator off the
     // winning bid) but records the contract as Vet-ERA, not Vet-Ext.
     if (elig.myacEligible) {
+      const recAs = String(p.type || "").toLowerCase().indexOf("-era") !== -1 ? "Vet-ERA" : "Vet-FAA";
       const mbtns = [];
       if (has1) mbtns.push(`<button class="btn small" data-action="myac" data-years="1">2-Year</button>`);
+      if (has1) mbtns.push(`<button class="btn small" data-action="myac-loaded" data-total="2">2-Year Loaded…</button>`);
       if (has2) mbtns.push(`<button class="btn small" data-action="myac" data-years="2">3-Year</button>`);
-      if (has2) mbtns.push(`<button class="btn small" data-action="myac-loaded" data-years="2">3-Year Loaded…</button>`);
+      if (has2) mbtns.push(`<button class="btn small" data-action="myac-loaded" data-total="3">3-Year Loaded…</button>`);
       const dlNote = STATE.contractDeadline ? " Window closes " + escapeHtml(STATE.contractDeadline) + "." : "";
       rows.push(actionRow("Multi-Year Contract (MYAC)",
-        "Set this 1-yr ERA deal to a 2- or 3-year contract (§C2). AAV escalator is off the winning bid; <strong>Loaded</strong> splits Y2/Y3 (FL/BL). Records as Vet-ERA." + dlNote,
+        "Set this 1-yr deal to a 2- or 3-year contract (§C2). Escalator is off the winning bid; <strong>Loaded</strong> free-keys Y1 (FL/BL; Y1 ≥ 20% TCV). Records as " + recAs + ". Max " + LOADED_MAX + " loaded contracts per roster." + dlNote,
         mbtns.join(" ") || '<span class="small" style="color:var(--muted);">No multi-year option computed.</span>'));
     }
 
@@ -3033,7 +3042,7 @@
       btn.addEventListener("click", function () { openMyacForm(p, safeInt(btn.dataset.years, 1)); });
     });
     $$("[data-action='myac-loaded']", body).forEach(function (btn) {
-      btn.addEventListener("click", function () { openExtensionLoadedForm(p, "Vet-ERA"); });
+      btn.addEventListener("click", function () { openMyacLoadedForm(p, safeInt(btn.dataset.total, 3)); });
     });
     $$("[data-action='rookie-option']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { submitRookieOption(p); });
@@ -3091,14 +3100,120 @@
   // MYAC flat (Veteran default) — reuses the extension form/submit, but records
   // the contract as Vet-ERA (§A3, the acquisition method survives MYAC), not
   // Vet-Ext. years 1 → 2-year total, years 2 → 3-year total.
+  function myacStatusBase(p) {
+    return String(p && p.type || "").toLowerCase().indexOf("-era") !== -1 ? "Vet-ERA" : "Vet-FAA";
+  }
   function openMyacForm(p, years) {
     const opt = pickExtensionOption(p, years);
     if (!opt) { flashToast("No " + (years + 1) + "-year MYAC option available for this player.", "warn"); return; }
-    const mopt = Object.assign({}, opt, { contract_status: "Vet-ERA", submission_kind: "myac" });
+    const mopt = Object.assign({}, opt, { contract_status: myacStatusBase(p), submission_kind: "myac" });
     const body = $("#fo-slideover-body");
     body.innerHTML = renderExtensionForm(p, mopt);
     $("#fo-ext-cancel").addEventListener("click", function () { renderSlideoverBody(); });
     $("#fo-ext-submit").addEventListener("click", function () { submitExtension(p, mopt); });
+  }
+
+  // Count a team's loaded (FL/BL) contracts on the active roster (taxi $0/exempt).
+  function loadedContractCountForTeam(fid) {
+    const team = (STATE.teams || []).find(function (t) { return t.fid === fid; });
+    if (!team) return 0;
+    return (team.players || []).filter(function (q) { return !q.isTaxi && isLoadedRow(q); }).length;
+  }
+  // MYAC loaded (§C2): free-key Y1 (FL if Y1>AAV, BL if Y1<AAV; Y1 ≥ 20% TCV);
+  // the LAST year auto-computes (TCV − keyed years). 2-yr: Y1 free → Y2 auto.
+  // 3-yr: Y1 & Y2 free → Y3 auto. Hard-blocks at the 5-loaded roster cap (§C2).
+  function openMyacLoadedForm(p, totalYears) {
+    const added = totalYears - 1;
+    const opt = pickExtensionOption(p, added);
+    if (!opt) { flashToast("No " + totalYears + "-year MYAC option available for this player.", "warn"); return; }
+    const statusBase = myacStatusBase(p);
+    const currentSalary = safeInt(p.salary, 0);
+    const futureAav = safeInt(opt.futureAav, 0) || currentSalary;
+    const tcv = currentSalary + futureAav * added;
+    const aav = Math.round(tcv / totalYears);
+    const minY1 = Math.ceil(tcv * 0.2 / 1000) * 1000;
+    const rows3 = totalYears === 3;
+    const body = $("#fo-slideover-body");
+    const loadedN = loadedContractCountForTeam(p.fid);
+    if (loadedN >= LOADED_MAX) {
+      body.innerHTML =
+        '<div class="fo-card-head"><h2 style="margin:0;">Multi-Year Contract — Loaded</h2></div>' +
+        '<div class="fo-review-note">⚠ ' + escapeHtml(p.franchise) + " is at the loaded-contract cap (" + loadedN + " of " + LOADED_MAX +
+        ", §C2). You can't add another loaded contract — trade or cut a loaded player to free a slot, or use a flat MYAC instead.</div>" +
+        '<button class="btn small secondary" id="fo-myacl-cancel">Back</button>';
+      $("#fo-myacl-cancel").addEventListener("click", renderSlideoverBody);
+      return;
+    }
+    body.innerHTML =
+      '<div class="fo-card-head"><h2 style="margin:0;">Multi-Year Contract — ' + totalYears + "-Year Loaded</h2></div>" +
+      '<div class="fo-form-note">TCV <strong>' + fmtUSD(tcv) + "</strong> · AAV " + fmtUSD(aav) +
+      " · Y1 ≥ " + fmtUSD(minY1) + " (20% TCV). FL if Y1 &gt; AAV, BL if Y1 &lt; AAV. Records as " + statusBase + ". " +
+      loadedN + "/" + LOADED_MAX + " loaded used.</div>" +
+      '<div class="fo-form-row"><label>Year 1 &nbsp;<input type="number" id="fo-myacl-y1" value="' + aav + '" step="1000" style="width:120px;"></label></div>' +
+      (rows3 ? '<div class="fo-form-row"><label>Year 2 &nbsp;<input type="number" id="fo-myacl-y2" value="' + aav + '" step="1000" style="width:120px;"></label></div>' : "") +
+      '<div class="fo-form-row"><span class="lbl">Year ' + totalYears + " (auto)</span> <span class=\"val\" id=\"fo-myacl-last\">" + fmtUSD(tcv - aav - (rows3 ? aav : 0)) + "</span></div>" +
+      '<div class="fo-form-note" id="fo-myacl-err" style="color:var(--err); min-height:14px;"></div>' +
+      '<div style="margin-top:8px;"><button class="btn small" id="fo-myacl-submit">Submit ' + statusBase + " MYAC</button> " +
+      '<button class="btn small secondary" id="fo-myacl-cancel">Cancel</button></div>';
+    const recalc = function () {
+      const y1 = safeInt(($("#fo-myacl-y1") || {}).value, 0);
+      const y2 = rows3 ? safeInt(($("#fo-myacl-y2") || {}).value, 0) : 0;
+      const lastYr = tcv - y1 - y2;
+      $("#fo-myacl-last").textContent = fmtUSD(lastYr);
+      let err = "";
+      if (y1 < minY1) err = "Year 1 must be ≥ " + fmtUSD(minY1) + " (20% of TCV).";
+      else if (rows3 && y2 < 1000) err = "Year 2 must be ≥ $1,000.";
+      else if (lastYr < 1000) err = "Last year must be ≥ $1,000 — lower the earlier year(s).";
+      $("#fo-myacl-err").textContent = err;
+      $("#fo-myacl-submit").disabled = !!err;
+    };
+    $("#fo-myacl-y1").addEventListener("input", recalc);
+    if (rows3) $("#fo-myacl-y2").addEventListener("input", recalc);
+    $("#fo-myacl-cancel").addEventListener("click", renderSlideoverBody);
+    $("#fo-myacl-submit").addEventListener("click", function () { submitMyacLoaded(p, totalYears, tcv, statusBase); });
+    recalc();
+  }
+  async function submitMyacLoaded(p, totalYears, tcv, statusBase) {
+    const rows3 = totalYears === 3;
+    const y1 = safeInt($("#fo-myacl-y1").value, 0);
+    const y2 = rows3 ? safeInt($("#fo-myacl-y2").value, 0) : (tcv - y1);
+    const y3 = rows3 ? (tcv - y1 - y2) : 0;
+    const lastYr = rows3 ? y3 : y2;
+    const minY1 = Math.ceil(tcv * 0.2 / 1000) * 1000;
+    if (y1 < minY1) { flashToast("Year 1 must be ≥ " + fmtUSD(minY1) + " (20% TCV).", "err"); return; }
+    if (lastYr < 1000 || (rows3 && y2 < 1000)) { flashToast("Each contract year must be ≥ $1,000.", "err"); return; }
+    if (loadedContractCountForTeam(p.fid) >= LOADED_MAX) { flashToast("At the " + LOADED_MAX + "-loaded-contract cap — can't add another.", "err"); return; }
+    const aav = Math.round(tcv / totalYears);
+    const suffix = y1 > aav ? "-FL" : y1 < aav ? "-BL" : "";
+    const status = statusBase + suffix;
+    const yrs = rows3 ? [y1, y2, y3] : [y1, y2];
+    const gtd = tcv > 4000 ? Math.round(tcv * 0.75) : 0;
+    const contractInfo = "CL " + totalYears +
+      "|TCV " + fmtK(tcv).replace(/\$/, "") + "|AAV " + fmtK(aav).replace(/\$/, "") +
+      "|" + yrs.map(function (v, i) { return "Y" + (i + 1) + "-" + fmtK(v).replace(/\$/, ""); }).join(", ") +
+      "|GTD: " + fmtK(gtd).replace(/\$/, "");
+    const confirmLines = ["Confirm " + totalYears + "-year loaded MYAC for " + p.name + "?", "", "Status: " + status]
+      .concat(yrs.map(function (v, i) { return "Y" + (i + 1) + ": " + fmtUSD(v); }))
+      .concat(["TCV: " + fmtUSD(tcv) + " · GTD: " + fmtUSD(gtd)]);
+    if (!window.confirm(confirmLines.join("\n"))) return;
+    const url = EP_CONTRACT_UPDATE() + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
+    const payload = {
+      L: LEAGUE_ID, YEAR: SEASON, type: "MANUAL_CONTRACT_UPDATE", submission_kind: "myac",
+      dry_run: IS_DRY_RUN ? 1 : 0, source: "front-office-v2-myac-loaded-submit",
+      leagueId: LEAGUE_ID, year: SEASON, player_id: p.id, player_name: p.name,
+      franchise_id: p.fid, franchise_name: p.franchise, position: p.positionGroup || p.position,
+      salary: y1, contract_year: totalYears, contract_status: status, contract_info: contractInfo,
+      prior_contract_status: p.type, prior_salary: p.salary, prior_contract_year: p.years, prior_contract_info: p.special,
+      submitted_at_utc: new Date().toISOString(), commish_override_flag: commishOverrideFor(p) ? 1 : 0
+    };
+    try {
+      await postContractUpdate(url, payload);
+      flashToast((IS_DRY_RUN ? "[DRY-RUN] " : "") + p.name + " " + totalYears + "-yr loaded MYAC submitted (" + status + ").", "ok");
+      await loadRosterData(); renderRosterTable(); closeSlideover();
+    } catch (e) {
+      console.error("[fo] MYAC loaded failed:", e);
+      flashToast("MYAC submit failed: " + (e && e.message ? e.message : e), "err");
+    }
   }
 
   // 2-year LOADED extension form — Y1 stays at current salary (canon
