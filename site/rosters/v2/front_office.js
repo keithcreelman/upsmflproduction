@@ -581,7 +581,12 @@
         const r = rows[i] || {};
         const fid = pad4(r.franchise_id);
         if (!fid) continue;
-        const amt = safeInt(r.amount, 0); // MFL amounts are full dollars — no K-rule
+        // MFL amounts are full dollars. Parse as a FLOAT then round — some rows
+        // carry a corrupted near-zero scientific-notation value (e.g. Blake
+        // Watson's penalty-free taxi drop is stored as "2e-124"); safeInt's
+        // parseInt would read that as $2, so round the real numeric value to $0.
+        let amt = Math.round(Number(r.amount));
+        if (!Number.isFinite(amt)) amt = 0;
         const cat = adjCategoryFromDesc(r.description);
         if (!byFid[fid]) byFid[fid] = { cut: 0, trade: 0, other: 0, items: [] };
         if      (cat === "cut")   byFid[fid].cut   += amt;
