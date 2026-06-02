@@ -5826,12 +5826,13 @@ export default {
               if (arr.some((v) => v > 0)) years = arr;
             } catch (_) {}
           }
-          // 4. Even-split inference (flagged low confidence).
+          // 4. Even-split inference. A 1-year deal's salary IS the TCV — exact,
+          // so HIGH; multi-year even-splits are a real guess, so LOW.
           let derived = false;
           if (!years.length && c.tcv && c.contract_length > 0) {
             const per = Math.round(c.tcv / c.contract_length);
             years = Array.from({ length: Math.min(c.contract_length, 8) }, () => per);
-            derived = true;
+            derived = c.contract_length > 1;
           }
           return { years, derived };
         };
