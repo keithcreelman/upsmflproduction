@@ -5760,51 +5760,119 @@ export default {
         }
         floor = Math.max(2019, Math.min(floor, curYear));
 
-        // 2. Rookie draft (D1 src_draft_picks) — not an MFL "transaction".
+        // ---- contract-by-season map (drives inline CL·TCV·AAV·Y on events) ----
+        const contractBySeason = {};
+        if (db) {
+          try {
+            const cr = await db.prepare(
+              `SELECT season, franchise_id, team_name, contract_status, contract_length,
+                      contract_year, tcv, aav, contract_info, year_values_json, extension_flag
+                 FROM src_contracts WHERE player_id = ? ORDER BY season`
+            ).bind(pid).all();
+            for (const r of (cr.results || [])) contractBySeason[String(r.season)] = r;
+          } catch (_) {}
+        }
+        // Light legacy→canonical normalization (extensions carry their own canonical
+        // new_contract_status; this just cleans the base type on other rows).
+        const canonType = (status, info) => {
+          const s = safeStr(status);
+          let base = /rookie/i.test(s) ? "Rookie" : /^vet/i.test(s) ? "Vet" : /veteran/i.test(s) ? "Vet" : (s || "—");
+          if (/(^|\W)MYM(\W|$)/i.test(safeStr(info)) && !/MYM/i.test(base)) base += "-MYM";
+          return base;
+        };
+        const yearsFromContract = (c) => {
+          let years = [];
+          try {
+            const yv = JSON.parse(c.year_values_json || "{}");
+            years = Object.keys(yv).map(Number).sort((a, b) => a - b).map((k) => Math.round(yv[k] || 0));
+          } catch (_) {}
+          if (!years.length && c.contract_info) {
+            const re = /Y(\d+)\s*-\s*([0-9.]+)\s*K?/gi; let m; const map = {};
+            while ((m = re.exec(c.contract_info))) map[parseInt(m[1], 10)] = Math.round(parseFloat(m[2]) * 1000);
+            years = Object.keys(map).map(Number).sort((a, b) => a - b).map((k) => map[k]);
+          }
+          let derived = false;
+          if (!years.length && c.tcv && c.contract_length > 0) {
+            const per = Math.round(c.tcv / c.contract_length);
+            years = Array.from({ length: Math.min(c.contract_length, 8) }, () => per);
+            derived = true; // even-split inference — flag low confidence
+          }
+          return { years, derived };
+        };
+        const inlineContract = (season) => {
+          const c = contractBySeason[String(season)];
+          if (!c) return null;
+          const yb = yearsFromContract(c);
+          return {
+            canonical_type: canonType(c.contract_status, c.contract_info),
+            cl: c.contract_length || null, tcv: c.tcv || null, aav: c.aav || null,
+            years: yb.years, confidence: yb.derived ? "derived" : "ok",
+          };
+        };
+
+        // 1. Rookie draft + paired Rookie Contract (same date).
         if (db) {
           try {
             const dr = await db.prepare(
-              `SELECT season, draftpick_round, draftpick_overall, franchise_id,
-                      franchise_name, unix_timestamp, datetime_et
+              `SELECT season, draftpick_round, draftpick_overall, franchise_id, franchise_name, unix_timestamp, datetime_et
                  FROM src_draft_picks WHERE player_id = ? ORDER BY season`
             ).bind(pid).all();
             for (const row of (dr.results || [])) {
+              const dDate = safeStr(row.datetime_et).slice(0, 10) || isoDate(row.unix_timestamp);
+              const dTs = parseInt(row.unix_timestamp, 10) || 0;
               const bits = [];
-              if (row.draftpick_round) bits.push("Round " + row.draftpick_round);
+              if (row.draftpick_round) bits.push("Rd " + row.draftpick_round);
               if (row.draftpick_overall) bits.push("Overall " + row.draftpick_overall);
-              events.push({
-                season: row.season, ts: parseInt(row.unix_timestamp, 10) || 0,
-                date: safeStr(row.datetime_et) || isoDate(row.unix_timestamp),
-                kind: "draft", label: "Rookie Draft", detail: bits.join(" · "),
-                franchise_id: pad4(row.franchise_id), franchise_name: safeStr(row.franchise_name),
-              });
+              events.push({ season: row.season, ts: dTs, date: dDate, kind: "draft",
+                label: "Rookie Draft", detail: bits.join(" · "),
+                franchise_id: pad4(row.franchise_id), franchise_name: safeStr(row.franchise_name) });
+              const ic = inlineContract(row.season);
+              if (ic) events.push({ season: row.season, ts: dTs + 1, date: dDate, kind: "contract",
+                label: "Rookie Contract", detail: "", franchise_id: pad4(row.franchise_id),
+                franchise_name: safeStr(row.franchise_name), contract: ic });
             }
           } catch (_) {}
         }
 
-        // 3. Per-season contracts (D1 src_contracts) — "Contract assigned".
+        // 2. Extensions (ups_extension_master) — canonical type, dated + graded.
         if (db) {
           try {
-            const cr = await db.prepare(
-              `SELECT season, franchise_id, team_name, contract_status,
-                      contract_length, tcv, extension_flag FROM src_contracts WHERE player_id = ? ORDER BY season`
-            ).bind(pid).all();
-            for (const row of (cr.results || [])) {
-              const bits = [];
-              if (row.contract_status) bits.push(safeStr(row.contract_status));
-              if (row.contract_length) bits.push("CL " + row.contract_length);
-              if (row.tcv) bits.push("TCV " + usd(row.tcv));
-              const isExt = safeStr(row.extension_flag) === "1";
-              // No precise date in src_contracts — synthesize an offseason
-              // (March 1) timestamp so contract rows interleave chronologically
-              // instead of all sinking below the dated transactions.
-              let cts = 0;
-              try { cts = Math.floor(Date.UTC(parseInt(row.season, 10), 2, 1) / 1000); } catch (_) {}
-              events.push({
-                season: row.season, ts: cts, date: String(row.season),
-                kind: "contract", label: isExt ? "Contract Extended" : "Contract", detail: bits.join(" · "),
-                franchise_id: pad4(row.franchise_id), franchise_name: safeStr(row.team_name),
-              });
+            const ex = await db.prepare(
+              `SELECT season, franchise_id, new_contract_status, new_tcv, new_aav,
+                      new_contract_info, extension_term_years, extended_at_utc, evidence_grade, evidence_source
+                 FROM ups_extension_master WHERE league_id = ? AND player_id = ? ORDER BY season`
+            ).bind(leagueId, pid).all();
+            for (const r of (ex.results || [])) {
+              // Prefer a date mined from the evidence quote, else the row's extended_at_utc.
+              const md = safeStr(r.evidence_source).match(/(\d{4}-\d{2}-\d{2})/);
+              const exDate = md ? md[1] : safeStr(r.extended_at_utc).slice(0, 10);
+              let exTs = 0;
+              try { exTs = exDate.length === 10 ? Math.floor(new Date(exDate + "T12:00:00Z").getTime() / 1000) : Math.floor(Date.UTC(parseInt(r.season, 10), 2, 1) / 1000); } catch (_) {}
+              const yb = yearsFromContract({ contract_info: r.new_contract_info, tcv: r.new_tcv, contract_length: r.extension_term_years });
+              events.push({ season: r.season, ts: exTs, date: exDate || String(r.season), kind: "extension",
+                label: "Extension", detail: "", franchise_id: pad4(r.franchise_id),
+                contract: { canonical_type: safeStr(r.new_contract_status) || "Extension", cl: r.extension_term_years || null,
+                  tcv: r.new_tcv || null, aav: r.new_aav || null, years: yb.years,
+                  confidence: safeStr(r.evidence_grade) === "evidenced" ? "ok" : "derived" },
+                evidence: safeStr(r.evidence_source).slice(0, 240) });
+            }
+          } catch (_) {}
+        }
+
+        // 3. Tags (ups_tag_master).
+        if (db) {
+          try {
+            const tg = await db.prepare(
+              `SELECT season, franchise_id, tag_side, tagged_at_utc FROM ups_tag_master
+                 WHERE league_id = ? AND player_id = ? ORDER BY season`
+            ).bind(leagueId, pid).all();
+            for (const r of (tg.results || [])) {
+              const tDate = safeStr(r.tagged_at_utc).slice(0, 10) || String(r.season);
+              let tTs = 0;
+              try { tTs = tDate.length === 10 ? Math.floor(new Date(tDate + "T12:00:00Z").getTime() / 1000) : Math.floor(Date.UTC(parseInt(r.season, 10), 2, 1) / 1000); } catch (_) {}
+              events.push({ season: r.season, ts: tTs, date: tDate, kind: "tag",
+                label: "Tagged" + (r.tag_side ? " (" + safeStr(r.tag_side) + ")" : ""),
+                detail: "", franchise_id: pad4(r.franchise_id), contract: inlineContract(r.season) });
             }
           } catch (_) {}
         }
@@ -5829,28 +5897,36 @@ export default {
               if (type === "AUCTION_WON") {
                 const parts = t.split("|");
                 if (csv(parts[0]).includes(pid)) {
-                  events.push({ season: s, ts, date: isoDate(ts), kind: "auction", label: "Auction Won", detail: parts[1] ? usd(parts[1]) : "", franchise_id: fid });
+                  events.push({ season: s, ts, date: isoDate(ts), kind: "auction", label: "Auction Won", detail: parts[1] ? usd(parts[1]) : "", franchise_id: fid, contract: inlineContract(s) });
                 }
               } else if (type === "FREE_AGENT") {
                 const fp = t.split("|");
-                if (csv(fp[0]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "add", label: "Free Agent Add", detail: "", franchise_id: fid });
+                if (csv(fp[0]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "add", label: "Free Agent Add", detail: "", franchise_id: fid, contract: inlineContract(s) });
                 if (csv(fp[1]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "drop", label: "Dropped", detail: "", franchise_id: fid });
               } else if (type === "BBID_WAIVER") {
                 const wp = t.split("|"); // added,| bid | dropped,
-                if (csv(wp[0]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "add", label: "Waiver Claim", detail: wp[1] ? usd(wp[1]) : "", franchise_id: fid });
+                if (csv(wp[0]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "add", label: "Waiver Claim", detail: wp[1] ? usd(wp[1]) : "", franchise_id: fid, contract: inlineContract(s) });
                 if (csv(wp[2]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "drop", label: "Dropped (waiver)", detail: "", franchise_id: fid });
               } else if (type === "TRADE") {
                 const f1 = pad4(x.franchise), f2 = pad4(x.franchise2);
-                if (csv(x.franchise1_gave_up).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "trade", label: "Traded", detail: "", franchise_id: f2, from_franchise_id: f1 });
-                if (csv(x.franchise2_gave_up).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "trade", label: "Traded", detail: "", franchise_id: f1, from_franchise_id: f2 });
+                if (csv(x.franchise1_gave_up).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "trade", label: "Traded", detail: "", franchise_id: f2, from_franchise_id: f1, contract: inlineContract(s) });
+                if (csv(x.franchise2_gave_up).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "trade", label: "Traded", detail: "", franchise_id: f1, from_franchise_id: f2, contract: inlineContract(s) });
               }
             }
           } catch (_) {}
         }));
 
-        // Sort by timestamp desc; season-only rows (contracts, ts=0) sink within their season.
-        events.sort((a, b) => (b.ts - a.ts) || (b.season - a.season));
-        return jsonOut(200, { ok: true, player_id: pid, league_id: leagueId, seasons_scanned: seasons, count: events.length, events });
+        // Suppress expired-contract drops — a drop the same player RE-ACQUIRES
+        // (auction/add/draft) later that same season is just expired-contract
+        // churn (years remaining = 0), not a real roster move.
+        const acqAfter = (season, ts) => events.some((e) =>
+          ["auction", "add", "draft"].includes(e.kind) && e.season === season && e.ts > ts);
+        const cleaned = events.filter((e) => !(e.kind === "drop" && acqAfter(e.season, e.ts)));
+
+        // Oldest-first, numbered #1.. (Keith: "Rookie Draft = transaction 1").
+        cleaned.sort((a, b) => (a.ts - b.ts) || (a.season - b.season));
+        cleaned.forEach((e, i) => { e.seq = i + 1; });
+        return jsonOut(200, { ok: true, player_id: pid, league_id: leagueId, seasons_scanned: seasons, count: cleaned.length, events: cleaned });
       }
 
       // ---------- Playoff weekly backfill: /admin/backfill-playoff-weekly ----------
