@@ -1,0 +1,44 @@
+{
+  "_meta": {
+    "purpose": "Curated, forum-validated PRE-2019 acquisition/contract events for the few players whose UPS history predates the modern D1 src_* tables (which the worker /api/player-transactions reaches back to ~2019). The Front Office Transaction Log merges these by player_id ahead of the live worker events. Keith 2026-06-01: Rodgers is the inaugural deep-history worked example (dispersal era 2012-2018).",
+    "source_of_truth": "memory/ups_rodgers_contract_history.md + memory/ups_dispersal_draft_2012_inaugural.md (validated 2026-05-09 vs MFL W=1 snapshots + Forumotion threads)",
+    "confidence_legend": "ok = forum/MFL-validated; derived = inferred from contractInfo annotations or carryover (forum gap) — flagged ~ in the UI",
+    "note": "franchise_name carries the historical owner/team (current-day franchise names differ)"
+  },
+  "7836": [
+    {
+      "season": 2012, "date": "2012-05-18", "kind": "dispersal", "label": "Dispersal Draft",
+      "detail": "Pick 6", "franchise_id": "0006", "franchise_name": "Steve B (Good in Da Hood)",
+      "contract": { "canonical_type": "Vet", "cl": null, "tcv": 55000, "aav": 55000, "years": [55000], "confidence": "derived" },
+      "source": "Forum t3-new-owners-draft post #6 (5/18/2012) — Steve B drafted Rodgers; $55k carryover, cy=1"
+    },
+    {
+      "season": 2014, "date": "2014", "date_approx": true, "kind": "tag", "label": "Tagged",
+      "detail": "", "franchise_id": "0006", "franchise_name": "Steve B (Hood)",
+      "contract": { "canonical_type": "Vet-Tag", "cl": 1, "tcv": 56000, "aav": 56000, "years": [56000], "confidence": "derived" },
+      "source": "Inferred from MFL contractInfo 'Franchised by Hood in 2014' — NOT in f8/f9 tag forum (forum gap)"
+    },
+    {
+      "season": 2014, "date": "2014", "date_approx": true, "kind": "trade", "label": "Traded",
+      "detail": "", "franchise_id": "0002", "franchise_name": "Whitman (Cranium Krusherz)", "from_franchise_id": "0006",
+      "source": "Tagged by Steve B then traded to Whitman before 2014 W=1 (contractInfo annotation)"
+    },
+    {
+      "season": 2015, "date": "2015", "date_approx": true, "kind": "tag", "label": "Tagged",
+      "detail": "", "franchise_id": "", "franchise_name": "CBP (Brian Cutting)",
+      "contract": { "canonical_type": "Vet-Tag", "cl": 1, "tcv": 57000, "aav": 57000, "years": [57000], "confidence": "derived" },
+      "source": "Inferred from MFL contractInfo 'CBP in 2015' — NOT in f8/f9 tag forum (forum gap); CBP franchise id unconfirmed"
+    },
+    {
+      "season": 2015, "date": "2015", "date_approx": true, "kind": "trade", "label": "Traded",
+      "detail": "", "franchise_id": "0002", "franchise_name": "Whitman (Cranium Krusherz)", "from_franchise_id": "",
+      "source": "Tagged by CBP then traded to Whitman before 2015 W=1 (contractInfo annotation)"
+    },
+    {
+      "season": 2016, "date": "2016-08-14", "kind": "auction", "label": "Auction Won",
+      "detail": "", "franchise_id": "0011", "franchise_name": "Mannila (Baster)",
+      "contract": { "canonical_type": "Vet-FL", "cl": 3, "tcv": 123000, "aav": 41000, "years": [62000, 44000, 17000], "confidence": "ok" },
+      "source": "Forum t271-baster-contracts (8/14-15/2016) — Mannila won FA auction, 3yr Front-Loaded 62/44/17, commish-confirmed"
+    }
+  ]
+}
