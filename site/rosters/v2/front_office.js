@@ -1843,10 +1843,21 @@
   // players keep the active sort order within their group.
   // League rank of a team's cap allocation at a position bucket (1 = highest
   // spend). Uses currentCapHit (taxi $0, IR×0.5) — same bucketing as the group.
+  // Finer position bucket: like posBucket but splits IDP into DL/LB/DB so the
+  // grouped view shows positional groups, not one IDP lump.
+  function posGroupFine(position) {
+    const b = posBucket(position);
+    if (b !== "IDP") return b;
+    const p = String(position || "").toUpperCase();
+    if (["DE", "DT", "DL", "NT"].indexOf(p) >= 0) return "DL";
+    if (["LB", "OLB", "ILB", "MLB", "EDGE"].indexOf(p) >= 0) return "LB";
+    if (["CB", "S", "DB", "SS", "FS", "SAF"].indexOf(p) >= 0) return "DB";
+    return "IDP";
+  }
   function positionAllocRank(bucket, teamFid) {
     const byTeam = STATE.teams.map(function (t) {
       let sum = 0;
-      (t.players || []).forEach(function (p) { if (posBucket(p.position) === bucket) sum += currentCapHit(p); });
+      (t.players || []).forEach(function (p) { if (posGroupFine(p.position) === bucket) sum += currentCapHit(p); });
       return { fid: t.fid, sum: sum };
     }).sort(function (a, b) { return b.sum - a.sum; });
     let rank = 0;
@@ -1856,7 +1867,7 @@
   function renderGroupedRows(players) {
     const order = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB", "IDP"];
     const groups = {};
-    players.forEach(function (p) { const b = posBucket(p.position) || "OTHER"; (groups[b] = groups[b] || []).push(p); });
+    players.forEach(function (p) { const b = posGroupFine(p.position) || "OTHER"; (groups[b] = groups[b] || []).push(p); });
     const keys = Object.keys(groups).sort(function (a, b) {
       const ia = order.indexOf(a), ib = order.indexOf(b);
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
@@ -1865,10 +1876,13 @@
     let html = "";
     keys.forEach(function (k) {
       const n = groups[k].length;
-      // Position cap allocation (taxi already $0 via currentCapHit).
-      let posSal = 0;
-      groups[k].forEach(function (p) { posSal += currentCapHit(p); });
-      let extra = ' <span class="fo-group-sal">' + escapeHtml(fmtUSD(posSal)) + "</span>";
+      // Cap allocation (taxi already $0 via currentCapHit) + avg spent per
+      // non-taxi player at the position, to nearest $100.
+      let posSal = 0, nNonTaxi = 0;
+      groups[k].forEach(function (p) { posSal += currentCapHit(p); if (!p.isTaxi) nNonTaxi += 1; });
+      const avg = nNonTaxi ? Math.round(posSal / nNonTaxi / 100) * 100 : 0;
+      let extra = ' <span class="fo-group-sal">' + escapeHtml(fmtUSD(posSal)) + "</span>" +
+        ' <span class="small" style="color:var(--muted);">' + escapeHtml(fmtUSD(avg) + "/player") + "</span>";
       if (single && order.indexOf(k) >= 0) {
         const r = positionAllocRank(k, STATE.selectedTeamId);
         if (r.rank) extra += ' <span class="fo-group-rank" title="League rank of ' + escapeHtml(k) + ' cap allocation">#' + r.rank + " of " + r.of + " in league</span>";
