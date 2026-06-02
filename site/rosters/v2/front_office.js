@@ -67,11 +67,9 @@
   // commish-maintained per-season acquisition lookup that feeds taxi
   // §A1.4 salary derivation and the "Acquired via" line in Bio.
   const URL_ACQUISITION_LOOKUP = (yr) => "../player_acquisition_lookup_" + encodeURIComponent(yr) + ".json";
-  // Canonical salary-adjustments report — the same source live FO
-  // uses (roster_workbench.js:2496 loadSalaryAdjustmentLedgerRows).
-  // Overrides the worker's raw salary_adjustment_breakdown which has
-  // intermittent K-multiplier glitches (Chubb on LA Looks 2026-05-19).
-  const URL_SALARY_ADJUSTMENTS = (yr) => "../../reports/salary_adjustments/salary_adjustments_" + encodeURIComponent(yr) + ".json";
+  // (Cap adjustments now load straight from MFL's salaryAdjustments feed —
+  // see loadMflSalaryAdjustments. The old /reports/salary_adjustments JSON
+  // was empty for 2025-2026, so it's no longer used here.)
   // Tag plan data — same sources live FO uses
   // (roster_workbench.js:2745 resolveTagTrackingUrl / :2768 submissions).
   const URL_TAG_TRACKING    = "../../ccc/tag_tracking.json";
