@@ -1,0 +1,30 @@
+name: Load forum extensions into ups_extension_master
+
+# Loads the pre-2018 extensions parsed from the Forumotion archive
+# (docs/league_context/forum_extensions_parsed.json) into the canonical
+# ups_extension_master via POST /admin/load-forum-extensions (insert-only,
+# COMMISH-gated). Dry-run unless you type WRITE.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type WRITE to commit the D1 insert (otherwise dry-run)'
+        required: true
+        default: 'dry-run'
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: POST parsed forum extensions
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          BASE="https://upsmflproduction.keith-creelman.workers.dev/admin/load-forum-extensions"
+          if [ "$CONFIRM" = "WRITE" ]; then URL="${BASE}?commit=1"; echo "COMMIT mode"; else URL="$BASE"; echo "DRY-RUN mode (type WRITE to commit)"; fi
+          python3 -c "import json; d=json.load(open('docs/league_context/forum_extensions_parsed.json')); json.dump({'rows': d['rows']}, open('payload.json','w'))"
+          echo "rows in payload: $(python3 -c "import json;print(len(json.load(open('payload.json'))['rows']))")"
+          curl -s "$URL" -H "X-COMMISH-APIKEY: ${KEY}" -H "Content-Type: application/json" --data @payload.json -o resp.json -w "HTTP %{http_code}\n"
+          python3 -m json.tool resp.json
