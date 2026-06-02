@@ -654,9 +654,7 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-nfl-status.fo-nfl-out { background: rgba(248,113,113,0.18); color: var(--err); }
 .fo-nfl-status.fo-nfl-doubtful { background: rgba(251,146,60,0.18); color: #fb923c; }
 .fo-nfl-status.fo-nfl-questionable { background: rgba(251,191,36,0.18); color: var(--warn); }
-.fo-news-flag { font-size: 10px; vertical-align: middle; cursor: pointer; margin-left: 2px; }
-.fo-news-flag.fo-news-flag-injury { color: var(--warn); }
-.fo-news-flag.fo-news-flag-news { color: var(--accent); }
+.fo-news-flag { font-size: 13px; line-height: 1; vertical-align: middle; cursor: pointer; margin-left: 3px; }
 
 /* Contract summary strip near the top of the roster (mirrors RWB's Cap Summary). */
 .fo-contract-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
