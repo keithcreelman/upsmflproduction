@@ -2948,11 +2948,10 @@
     const synthesized = extOpts.length > 0 && extOpts[0].synthesized === true;
     const rows = [];
 
-    // §C2 MYAC — a Vet-ERA 1-yr default becomes 2 or 3 years (Veteran or Loaded)
-    // until the Sept contract deadline. Shown INSTEAD of Extension while the
-    // window is open (Keith: nobody extends when they can MYAC). Reuses the
-    // extension mechanism (+1Y → 2yr total, +2Y → 3yr total; escalator off the
-    // winning bid) but records the contract as Vet-ERA, not Vet-Ext.
+    // §C2 MYAC — a 1-yr default (Vet-ERA or fresh FA-auction Veteran) becomes a
+    // 2- or 3-year contract at the SAME salary (TCV = salary × years; NO escalator
+    // — that's §C4 Extensions). Loadable (FL/BL). Shown INSTEAD of Extension while
+    // the MYAC window is open (Keith: nobody extends when they can MYAC).
     if (elig.myacEligible) {
       const recAs = String(p.type || "").toLowerCase().indexOf("-era") !== -1 ? "Vet-ERA" : "Vet-FAA";
       const mbtns = [];
@@ -2962,7 +2961,7 @@
       if (has2) mbtns.push(`<button class="btn small" data-action="myac-loaded" data-total="3">3-Year Loaded…</button>`);
       const dlNote = STATE.contractDeadline ? " Window closes " + escapeHtml(STATE.contractDeadline) + "." : "";
       rows.push(actionRow("Multi-Year Contract (MYAC)",
-        "Set this 1-yr deal to a 2- or 3-year contract (§C2). Escalator is off the winning bid; <strong>Loaded</strong> free-keys Y1 (FL/BL; Y1 ≥ 20% TCV). Records as " + recAs + ". Max " + LOADED_MAX + " loaded contracts per roster." + dlNote,
+        "Set this 1-yr deal to a 2- or 3-year contract (§C2) at the SAME salary (TCV = salary × years — no raise). <strong>Loaded</strong> free-keys Y1 in whole $1,000s (FL/BL; Y1 ≥ 20% TCV). Records as " + recAs + ". Max " + LOADED_MAX + " loaded contracts per roster." + dlNote,
         mbtns.join(" ") || '<span class="small" style="color:var(--muted);">No multi-year option computed.</span>'));
     }
 
@@ -3112,14 +3111,49 @@
   function myacStatusBase(p) {
     return String(p && p.type || "").toLowerCase().indexOf("-era") !== -1 ? "Vet-ERA" : "Vet-FAA";
   }
-  function openMyacForm(p, years) {
-    const opt = pickExtensionOption(p, years);
-    if (!opt) { flashToast("No " + (years + 1) + "-year MYAC option available for this player.", "warn"); return; }
-    const mopt = Object.assign({}, opt, { contract_status: myacStatusBase(p), submission_kind: "myac" });
-    const body = $("#fo-slideover-body");
-    body.innerHTML = renderExtensionForm(p, mopt);
-    $("#fo-ext-cancel").addEventListener("click", function () { renderSlideoverBody(); });
-    $("#fo-ext-submit").addEventListener("click", function () { submitExtension(p, mopt); });
+  // Submit a Multi-Year Auction Contract (§C2): flat OR loaded, at the AUCTION
+  // salary — TCV = SUM(year salaries). There is NO escalator (that's §C4
+  // Extensions). FL/BL suffix auto-derived from the year shape.
+  async function submitMyacContract(p, totalYears, yrs, statusBase) {
+    const tcv = yrs.reduce(function (a, b) { return a + b; }, 0);
+    const aav = Math.round(tcv / totalYears);
+    const loaded = yrs.some(function (v) { return v !== yrs[0]; });
+    const status = statusBase + (loaded ? (yrs[0] > aav ? "-FL" : "-BL") : "");
+    const gtd = tcv > 4000 ? Math.round(tcv * 0.75) : 0;
+    const contractInfo = "CL " + totalYears +
+      "|TCV " + fmtK(tcv).replace(/\$/, "") + "|AAV " + fmtK(aav).replace(/\$/, "") +
+      "|" + yrs.map(function (v, i) { return "Y" + (i + 1) + "-" + fmtK(v).replace(/\$/, ""); }).join(", ") +
+      "|GTD: " + fmtK(gtd).replace(/\$/, "");
+    const confirmLines = ["Confirm " + totalYears + "-year MYAC for " + p.name + "?", "", "Status: " + status]
+      .concat(yrs.map(function (v, i) { return "Y" + (i + 1) + ": " + fmtUSD(v); }))
+      .concat(["TCV: " + fmtUSD(tcv) + " · GTD: " + fmtUSD(gtd)]);
+    if (!window.confirm(confirmLines.join("\n"))) return;
+    const url = EP_CONTRACT_UPDATE() + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
+    const payload = {
+      L: LEAGUE_ID, YEAR: SEASON, type: "MANUAL_CONTRACT_UPDATE", submission_kind: "myac",
+      dry_run: IS_DRY_RUN ? 1 : 0, source: "front-office-v2-myac-submit",
+      leagueId: LEAGUE_ID, year: SEASON, player_id: p.id, player_name: p.name,
+      franchise_id: p.fid, franchise_name: p.franchise, position: p.positionGroup || p.position,
+      salary: yrs[0], contract_year: totalYears, contract_status: status, contract_info: contractInfo,
+      prior_contract_status: p.type, prior_salary: p.salary, prior_contract_year: p.years, prior_contract_info: p.special,
+      submitted_at_utc: new Date().toISOString(), commish_override_flag: commishOverrideFor(p) ? 1 : 0
+    };
+    try {
+      await postContractUpdate(url, payload);
+      flashToast((IS_DRY_RUN ? "[DRY-RUN] " : "") + p.name + " " + totalYears + "-yr MYAC submitted (" + status + ").", "ok");
+      await loadRosterData(); renderRosterTable(); closeSlideover();
+    } catch (e) {
+      console.error("[fo] MYAC failed:", e);
+      flashToast("MYAC submit failed: " + (e && e.message ? e.message : e), "err");
+    }
+  }
+  // Flat MYAC — keep the auction salary flat across 2 or 3 years (TCV = bid × N).
+  function openMyacForm(p, addedYears) {
+    const totalYears = addedYears + 1;
+    const bid = safeInt(p.salary, 0);
+    if (bid < 1000) { flashToast("MYAC needs a base salary ≥ $1,000.", "warn"); return; }
+    const yrs = []; for (let i = 0; i < totalYears; i += 1) yrs.push(bid);
+    submitMyacContract(p, totalYears, yrs, myacStatusBase(p));
   }
 
   // Count a team's loaded (FL/BL) contracts on the active roster (taxi $0/exempt).
@@ -3132,14 +3166,11 @@
   // the LAST year auto-computes (TCV − keyed years). 2-yr: Y1 free → Y2 auto.
   // 3-yr: Y1 & Y2 free → Y3 auto. Hard-blocks at the 5-loaded roster cap (§C2).
   function openMyacLoadedForm(p, totalYears) {
-    const added = totalYears - 1;
-    const opt = pickExtensionOption(p, added);
-    if (!opt) { flashToast("No " + totalYears + "-year MYAC option available for this player.", "warn"); return; }
+    const bid = safeInt(p.salary, 0);
+    if (bid < 1000) { flashToast("MYAC needs a base salary ≥ $1,000.", "warn"); return; }
     const statusBase = myacStatusBase(p);
-    const currentSalary = safeInt(p.salary, 0);
-    const futureAav = safeInt(opt.futureAav, 0) || currentSalary;
-    const tcv = currentSalary + futureAav * added;
-    const aav = Math.round(tcv / totalYears);
+    const tcv = bid * totalYears;          // flat — TCV = bid × years, NO escalator (§C2)
+    const aav = bid;
     const minY1 = Math.ceil(tcv * 0.2 / 1000) * 1000;
     const rows3 = totalYears === 3;
     const body = $("#fo-slideover-body");
@@ -3154,75 +3185,46 @@
       return;
     }
     body.innerHTML =
-      '<div class="fo-card-head"><h2 style="margin:0;">Multi-Year Contract — ' + totalYears + "-Year Loaded</h2></div>" +
-      '<div class="fo-form-note">TCV <strong>' + fmtUSD(tcv) + "</strong> · AAV " + fmtUSD(aav) +
-      " · Y1 ≥ " + fmtUSD(minY1) + " (20% TCV). FL if Y1 &gt; AAV, BL if Y1 &lt; AAV. Records as " + statusBase + ". " +
+      '<div class="fo-card-head"><h2 style="margin:0;">Multi-Year Contract (MYAC) — ' + totalYears + "-Year Loaded</h2></div>" +
+      '<div class="fo-form-note">TCV <strong>' + fmtUSD(tcv) + "</strong> (= " + fmtUSD(aav) + " × " + totalYears + ") · AAV " + fmtUSD(aav) +
+      " · Y1 ≥ " + fmtUSD(minY1) + " (20% TCV) · whole $1,000s, no $0 year. FL if Y1 &gt; AAV, BL if Y1 &lt; AAV. Records as " + statusBase + ". " +
       loadedN + "/" + LOADED_MAX + " loaded used.</div>" +
-      '<div class="fo-form-row"><label>Year 1 &nbsp;<input type="number" id="fo-myacl-y1" value="' + aav + '" step="1000" style="width:120px;"></label></div>' +
-      (rows3 ? '<div class="fo-form-row"><label>Year 2 &nbsp;<input type="number" id="fo-myacl-y2" value="' + aav + '" step="1000" style="width:120px;"></label></div>' : "") +
+      '<div class="fo-form-row"><label>Year 1 &nbsp;<input type="number" id="fo-myacl-y1" value="' + aav + '" step="1000" min="1000" style="width:120px;"></label></div>' +
+      (rows3 ? '<div class="fo-form-row"><label>Year 2 &nbsp;<input type="number" id="fo-myacl-y2" value="' + aav + '" step="1000" min="1000" style="width:120px;"></label></div>' : "") +
       '<div class="fo-form-row"><span class="lbl">Year ' + totalYears + " (auto)</span> <span class=\"val\" id=\"fo-myacl-last\">" + fmtUSD(tcv - aav - (rows3 ? aav : 0)) + "</span></div>" +
       '<div class="fo-form-note" id="fo-myacl-err" style="color:var(--err); min-height:14px;"></div>' +
       '<div style="margin-top:8px;"><button class="btn small" id="fo-myacl-submit">Submit ' + statusBase + " MYAC</button> " +
       '<button class="btn small secondary" id="fo-myacl-cancel">Cancel</button></div>';
-    const recalc = function () {
+    const readYrs = function () {
       const y1 = safeInt(($("#fo-myacl-y1") || {}).value, 0);
-      const y2 = rows3 ? safeInt(($("#fo-myacl-y2") || {}).value, 0) : 0;
-      const lastYr = tcv - y1 - y2;
-      $("#fo-myacl-last").textContent = fmtUSD(lastYr);
-      let err = "";
-      if (y1 < minY1) err = "Year 1 must be ≥ " + fmtUSD(minY1) + " (20% of TCV).";
-      else if (rows3 && y2 < 1000) err = "Year 2 must be ≥ $1,000.";
-      else if (lastYr < 1000) err = "Last year must be ≥ $1,000 — lower the earlier year(s).";
+      const y2 = rows3 ? safeInt(($("#fo-myacl-y2") || {}).value, 0) : (tcv - y1);
+      const y3 = rows3 ? (tcv - y1 - y2) : 0;
+      return rows3 ? [y1, y2, y3] : [y1, y2];
+    };
+    const validateYrs = function (yrs) {
+      if (yrs.some(function (v) { return v % 1000 !== 0; })) return "All years must be whole $1,000 increments.";
+      if (yrs[0] < minY1) return "Year 1 must be ≥ " + fmtUSD(minY1) + " (20% of TCV).";
+      if (yrs.some(function (v) { return v < 1000; })) return "No year can be below $1,000 — there are no $0 years.";
+      return "";
+    };
+    const recalc = function () {
+      const yrs = readYrs();
+      $("#fo-myacl-last").textContent = fmtUSD(yrs[yrs.length - 1]);
+      const err = validateYrs(yrs);
       $("#fo-myacl-err").textContent = err;
       $("#fo-myacl-submit").disabled = !!err;
     };
     $("#fo-myacl-y1").addEventListener("input", recalc);
     if (rows3) $("#fo-myacl-y2").addEventListener("input", recalc);
     $("#fo-myacl-cancel").addEventListener("click", renderSlideoverBody);
-    $("#fo-myacl-submit").addEventListener("click", function () { submitMyacLoaded(p, totalYears, tcv, statusBase); });
+    $("#fo-myacl-submit").addEventListener("click", function () {
+      const yrs = readYrs();
+      const err = validateYrs(yrs);
+      if (err) { flashToast(err, "err"); return; }
+      if (loadedContractCountForTeam(p.fid) >= LOADED_MAX) { flashToast("At the " + LOADED_MAX + "-loaded cap — can't add another.", "err"); return; }
+      submitMyacContract(p, totalYears, yrs, statusBase);
+    });
     recalc();
-  }
-  async function submitMyacLoaded(p, totalYears, tcv, statusBase) {
-    const rows3 = totalYears === 3;
-    const y1 = safeInt($("#fo-myacl-y1").value, 0);
-    const y2 = rows3 ? safeInt($("#fo-myacl-y2").value, 0) : (tcv - y1);
-    const y3 = rows3 ? (tcv - y1 - y2) : 0;
-    const lastYr = rows3 ? y3 : y2;
-    const minY1 = Math.ceil(tcv * 0.2 / 1000) * 1000;
-    if (y1 < minY1) { flashToast("Year 1 must be ≥ " + fmtUSD(minY1) + " (20% TCV).", "err"); return; }
-    if (lastYr < 1000 || (rows3 && y2 < 1000)) { flashToast("Each contract year must be ≥ $1,000.", "err"); return; }
-    if (loadedContractCountForTeam(p.fid) >= LOADED_MAX) { flashToast("At the " + LOADED_MAX + "-loaded-contract cap — can't add another.", "err"); return; }
-    const aav = Math.round(tcv / totalYears);
-    const suffix = y1 > aav ? "-FL" : y1 < aav ? "-BL" : "";
-    const status = statusBase + suffix;
-    const yrs = rows3 ? [y1, y2, y3] : [y1, y2];
-    const gtd = tcv > 4000 ? Math.round(tcv * 0.75) : 0;
-    const contractInfo = "CL " + totalYears +
-      "|TCV " + fmtK(tcv).replace(/\$/, "") + "|AAV " + fmtK(aav).replace(/\$/, "") +
-      "|" + yrs.map(function (v, i) { return "Y" + (i + 1) + "-" + fmtK(v).replace(/\$/, ""); }).join(", ") +
-      "|GTD: " + fmtK(gtd).replace(/\$/, "");
-    const confirmLines = ["Confirm " + totalYears + "-year loaded MYAC for " + p.name + "?", "", "Status: " + status]
-      .concat(yrs.map(function (v, i) { return "Y" + (i + 1) + ": " + fmtUSD(v); }))
-      .concat(["TCV: " + fmtUSD(tcv) + " · GTD: " + fmtUSD(gtd)]);
-    if (!window.confirm(confirmLines.join("\n"))) return;
-    const url = EP_CONTRACT_UPDATE() + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
-    const payload = {
-      L: LEAGUE_ID, YEAR: SEASON, type: "MANUAL_CONTRACT_UPDATE", submission_kind: "myac",
-      dry_run: IS_DRY_RUN ? 1 : 0, source: "front-office-v2-myac-loaded-submit",
-      leagueId: LEAGUE_ID, year: SEASON, player_id: p.id, player_name: p.name,
-      franchise_id: p.fid, franchise_name: p.franchise, position: p.positionGroup || p.position,
-      salary: y1, contract_year: totalYears, contract_status: status, contract_info: contractInfo,
-      prior_contract_status: p.type, prior_salary: p.salary, prior_contract_year: p.years, prior_contract_info: p.special,
-      submitted_at_utc: new Date().toISOString(), commish_override_flag: commishOverrideFor(p) ? 1 : 0
-    };
-    try {
-      await postContractUpdate(url, payload);
-      flashToast((IS_DRY_RUN ? "[DRY-RUN] " : "") + p.name + " " + totalYears + "-yr loaded MYAC submitted (" + status + ").", "ok");
-      await loadRosterData(); renderRosterTable(); closeSlideover();
-    } catch (e) {
-      console.error("[fo] MYAC loaded failed:", e);
-      flashToast("MYAC submit failed: " + (e && e.message ? e.message : e), "err");
-    }
   }
 
   // 2-year LOADED extension form — Y1 stays at current salary (canon
