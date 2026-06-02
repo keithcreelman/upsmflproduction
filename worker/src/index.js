@@ -5919,6 +5919,34 @@ export default {
           return { season: s, ts, date: isoDate(ts), kind: "add", label: baseLabel, detail: detail, franchise_id: fid, contract: ic };
         };
 
+        // §A1 rookie salary by draft slot (verified vs rookie_draft_history.json):
+        // R1 = $16K − slot×$1K floored at $5K (1.01=15K … 1.11/1.12=5K); R2 = $5K;
+        // R3–R5 = $2K; R6 = $1K. 3-year flat deal. Fallback when the history JSON
+        // lacks an explicit salary; used to synthesize the pre-2018 rookie contract
+        // that src_contracts doesn't reach back to.
+        const rookieSalary = (round, slot) => {
+          round = parseInt(round, 10) || 0; slot = parseInt(slot, 10) || 0;
+          if (round === 1) return Math.max(5000, 16000 - (slot || 1) * 1000);
+          if (round === 2) return 5000;
+          if (round <= 5) return 2000;
+          return 1000;
+        };
+        // Full rookie-draft history (Pages, all years 2012+) — round/slot for the
+        // pre-2018 picks that src_draft_picks doesn't fully carry.
+        let rookieHistRow = null, rookieHistLoaded = false;
+        const rookieHistFor = async () => {
+          if (rookieHistLoaded) return rookieHistRow;
+          rookieHistLoaded = true;
+          try {
+            const rr = await fetch("https://keithcreelman.github.io/upsmflproduction/rookies/rookie_draft_history.json", { cf: { cacheTtl: 86400, cacheEverything: true } });
+            if (!rr.ok) return null;
+            const rj = await rr.json();
+            const rows = Array.isArray(rj) ? rj : (rj.rows || rj.picks || []);
+            rookieHistRow = rows.find((x) => String(x.player_id).replace(/\D/g, "") === pid) || null;
+          } catch (_) {}
+          return rookieHistRow;
+        };
+
         // 1. Rookie draft + paired Rookie Contract (same date).
         if (db) {
           try {
@@ -5929,17 +5957,25 @@ export default {
             for (const row of (dr.results || [])) {
               const dDate = safeStr(row.datetime_et).slice(0, 10) || isoDate(row.unix_timestamp);
               const dTs = parseInt(row.unix_timestamp, 10) || 0;
+              const rh = await rookieHistFor();
+              const rRound = row.draftpick_round || (rh && rh.round);
+              const rSlot = row.draftpick_overall || (rh && (rh.pick_overall || rh.slot));
               const bits = [];
-              if (row.draftpick_round) bits.push("Rd " + row.draftpick_round);
-              if (row.draftpick_overall) bits.push("Overall " + row.draftpick_overall);
+              if (rRound) bits.push("Rd " + rRound);
+              if (rh && rh.pick_label) bits.push(rh.pick_label); else if (rSlot) bits.push("Overall " + rSlot);
               events.push({ season: row.season, ts: dTs, date: dDate, kind: "draft",
                 label: "Rookie Draft", detail: bits.join(" · "),
                 franchise_id: pad4(row.franchise_id), franchise_name: safeStr(row.franchise_name) });
-              const ic = inlineContract(row.season);
+              let ic = inlineContract(row.season);
+              if (!ic && rh) {
+                // Pre-2018: synthesize the rookie deal from the history JSON's own
+                // salary (authoritative) or §A1 by round/slot — 3-year flat.
+                const sal = parseInt(rh.salary, 10) || rookieSalary(rh.round, rh.slot);
+                ic = { canonical_type: "Rookie-Draft", cl: 3, tcv: sal * 3, aav: sal, years: [sal, sal, sal], confidence: "ok" };
+              }
               if (ic) {
                 if (ic.canonical_type) ic.canonical_type = ic.canonical_type.replace(/^Rookie\b/, "Rookie-Draft"); // drafted rookie
-                // Rookie deals are AUTOMATIC (§A1: flat slot-salary × 3) — the
-                // even-split equals the schedule, so this is HIGH confidence.
+                // Rookie deals are AUTOMATIC (§A1: flat slot-salary × 3) — HIGH.
                 ic.confidence = "ok";
                 events.push({ season: row.season, ts: dTs + 1, date: dDate, kind: "contract",
                   label: "Rookie Contract", detail: "", franchise_id: pad4(row.franchise_id),
