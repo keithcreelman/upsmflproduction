@@ -557,7 +557,7 @@
         if (!r.import_eligible) continue;
         const fid = pad4(r.franchise_id);
         if (!fid) continue;
-        if (!byFid[fid]) byFid[fid] = { cut: 0, trade: 0, other: 0 };
+        if (!byFid[fid]) byFid[fid] = { cut: 0, trade: 0, other: 0, items: [] };
         const amt = safeInt(r.amount || r.penalty_amount, 0);
         const bucket = safeStr(r.bucket).toLowerCase() ||
           (safeStr(r.adjustment_type).toUpperCase() === "TRADED_SALARY" ? "traded_salary"
@@ -566,6 +566,13 @@
         if      (bucket === "cut_players")    byFid[fid].cut   += amt;
         else if (bucket === "traded_salary")  byFid[fid].trade += amt;
         else                                   byFid[fid].other += amt;
+        // Keep the line item so the Cap Allocation "?" popup can show each one
+        // (e.g. "Drop · Kenneth Gainwell · $1,200").
+        byFid[fid].items.push({
+          kind: bucket === "cut_players" ? "Drop" : bucket === "traded_salary" ? "Trade" : "Other",
+          player: safeStr(r.player_name), amount: amt,
+          when: safeStr(r.transaction_datetime_et).slice(0, 10)
+        });
       }
       return byFid;
     } catch (e) {
@@ -1417,6 +1424,7 @@
       ]);
       mergeAcquisitionLookupRows(STATE.teams, acqRows);
       mergeSalaryAdjustmentsReport(STATE.teams, adjReport);
+      STATE.adjByFid = adjReport || {}; // per-team line items for the Cap Alloc popup
 
       // Keith 2026-05-19: applies to ALL taxi guys, not just Watson.
       repairTaxiContractFallbacks(STATE.teams, safeInt(SEASON, 0));
@@ -1926,7 +1934,7 @@
   // or SUMS across the league on "All Teams" (limits scale by team count).
   // Roster limits per league_context §B1: active 27 min – 35 max (auction
   // window); taxi 10; IR 15.
-  var ACTIVE_MAX = 35, ACTIVE_MIN = 27, TAXI_MAX = 10, IR_MAX = 15;
+  var ACTIVE_MAX = 35, ACTIVE_MIN = 27, TAXI_MAX = 10, LOADED_MAX = 5, THREEYR_MAX = 6;
   function isLoadedRow(p) {
     // Loaded = front/back-loaded: the contract's year salaries aren't flat.
     var yv = contractYearValueMapForPlayer(p) || {};
@@ -1977,9 +1985,12 @@
         "Sal " + escapeHtml(fmtUSD(salaryCap)) + " · Adj " + escapeHtml(fmtUSD(adjTotal)) +
         ' <button type="button" class="fo-adj-info" data-action="adj-popup" title="Cap adjustment detail">?</button>', "") +
       card(fmtUSD(capSpace), "Cap Space", escapeHtml("of " + fmtUSD(CAP_CEILING * nTeams)), capSpace < 0 ? "fo-sum-neg" : "fo-sum-pos") +
-      card(irN + ' <span class="fo-sum-of">/ ' + escapeHtml(fmtUSD(irAlloc)) + "</span>", "Injured Reserve",
-        escapeHtml("of " + (IR_MAX * nTeams) + " slots") + (irAlert ? "<br>" + irAlert : ""), "") +
-      card(loadedN, "Loaded Contracts", escapeHtml(threeYrN + " are 3-yr non-rookie"), "");
+      card(irN + ' <span class="fo-sum-of">Players</span>', "Injured Reserve",
+        escapeHtml(fmtUSD(irAlloc) + " allocated to IR") + (irAlert ? "<br>" + irAlert : ""), "") +
+      card(loadedN + ' <span class="fo-sum-of">/ ' + (LOADED_MAX * nTeams) + "</span>", "Loaded Contracts",
+        escapeHtml("max " + (LOADED_MAX * nTeams) + " (§C2)"), loadedN >= LOADED_MAX * nTeams ? "fo-sum-neg" : "") +
+      card(threeYrN + ' <span class="fo-sum-of">/ ' + (THREEYR_MAX * nTeams) + "</span>", "3-Yr Non-Rookie",
+        escapeHtml("max " + (THREEYR_MAX * nTeams)), threeYrN >= THREEYR_MAX * nTeams ? "fo-sum-neg" : "");
   }
 
   // Cap-adjustment detail popup (the "?" in the Cap Allocation box). Shows the
@@ -1991,14 +2002,24 @@
   function showAdjPopup() {
     const single = STATE.selectedTeamId !== "__all__";
     const teams = single ? STATE.teams.filter(function (t) { return t.fid === STATE.selectedTeamId; }) : STATE.teams;
+    const byFid = STATE.adjByFid || {};
     let inner = "", grand = 0;
     teams.forEach(function (team) {
       const s = team.summary || {};
       const cut = safeInt(s.adj_cut, 0), trade = safeInt(s.adj_trade, 0), other = safeInt(s.adj_other, 0);
-      if (!cut && !trade && !other) return;
+      const items = (byFid[team.fid] && byFid[team.fid].items) || [];
+      if (!cut && !trade && !other && !items.length) return;
       grand += cut + trade + other;
       inner += '<div class="fo-adj-team">' + escapeHtml(team.name) + "</div>";
-      if (cut) inner += adjRow("Drop penalties", cut);
+      // Itemize the drop penalties (player + amount) from the report; trades/other
+      // come from the MFL feed as team totals only.
+      if (items.length) {
+        items.slice().sort(function (a, b) { return (b.amount || 0) - (a.amount || 0); }).forEach(function (it) {
+          inner += adjRow(it.kind + (it.player ? " · " + it.player : ""), it.amount);
+        });
+      } else if (cut) {
+        inner += adjRow("Drop penalties", cut);
+      }
       if (trade) inner += adjRow("Traded salary", trade);
       if (other) inner += adjRow("Other adjustments", other);
     });
