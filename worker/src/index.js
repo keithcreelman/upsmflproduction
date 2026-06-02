@@ -5835,34 +5835,53 @@ export default {
           }
           return { years, derived };
         };
+        // Best real year-breakdown per (TCV, CL) across ALL the player's seasons.
+        // The same contract spans multiple seasons, so if ANY season annotated
+        // the breakdown, reuse it for the seasons that only stored a flat TCV
+        // (e.g. a trade mid-contract) — turning those LOW even-splits into HIGH.
+        const tcvClBreakdown = {};
+        for (const yr of Object.keys(contractBySeason)) {
+          const cc = contractBySeason[yr];
+          const yyb = yearsFromContract(cc);
+          if (yyb.years.length && !yyb.derived && cc.tcv && cc.contract_length) {
+            tcvClBreakdown[cc.tcv + "_" + cc.contract_length] = yyb.years;
+          }
+        }
         const inlineContract = (season) => {
           const c = contractBySeason[String(season)];
           if (!c) return null;
           const yb = yearsFromContract(c);
+          let years = yb.years, derived = yb.derived;
+          // If this season only even-split, borrow the real breakdown from
+          // another season of the same contract (same TCV + CL).
+          if (derived && c.tcv && c.contract_length && tcvClBreakdown[c.tcv + "_" + c.contract_length]) {
+            years = tcvClBreakdown[c.tcv + "_" + c.contract_length];
+            derived = false;
+          }
           // AAV = the CURRENT-YEAR salary (Keith's rule — never the average).
           // Derive from the Y-breakdown at this contract year (CL − years-
           // remaining); fall back to the stored aav only when the breakdown
           // can't place the year. (src_contracts.aav is often the average, e.g.
           // Hill 2021 stored 41K but the year-2 salary is 38K.)
-          const cl = c.contract_length || yb.years.length || 0;
+          const cl = c.contract_length || years.length || 0;
           const cy = parseInt(c.contract_year, 10) || 0; // years remaining
           let aav = c.aav || null;
-          if (yb.years.length) {
+          if (years.length) {
             const idx = (cl > 0 && cy > 0) ? (cl - cy) : 0; // 0-based current-year index
-            if (idx >= 0 && idx < yb.years.length && yb.years[idx] > 0) aav = yb.years[idx];
+            if (idx >= 0 && idx < years.length && years[idx] > 0) aav = years[idx];
           }
           // Structure (FL/BL) derived from the year shape — universal. Keith: a
           // restructure to [80,62] (decreasing) makes it FL even when MFL still
           // stores "Vet-FAA". Only override the structure suffix on plain vet
           // deals (not Rookie/Tag/Ext/MYM, which carry their own meaning).
           let ctype = canonType(c.contract_status, c.contract_info);
-          const struct = structureOf(yb.years);
+          const struct = structureOf(years);
           if (struct && /^vet\b/i.test(ctype) && !/-(FL|BL|Ext|MYM|Tag|ERA)/i.test(ctype)) ctype = "Vet-" + struct;
           else if (struct && (ctype === "FL" || ctype === "BL")) ctype = "Vet-" + struct;
           return {
             canonical_type: ctype,
             cl: c.contract_length || null, tcv: c.tcv || null, aav: aav,
-            years: yb.years, confidence: yb.derived ? "derived" : "ok",
+            years: years, confidence: derived ? "derived" : "ok",
           };
         };
         // Front-loaded (decreasing) vs back-loaded (increasing) from the Y-shape.
