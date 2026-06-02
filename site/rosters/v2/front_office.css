@@ -618,3 +618,6 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-txn.dispersal { background: rgba(236,72,153,0.16); color: #ec4899; }
 .fo-lowconf { color: var(--warn); font-weight: 700; cursor: help; }
 .fo-src { color: var(--accent); cursor: help; font-size: 11px; }
+.fo-conf { font-size: 9px; cursor: help; vertical-align: middle; margin-right: 2px; }
+.fo-conf-high { color: var(--ok); }
+.fo-conf-low { color: var(--warn); }
