@@ -97,6 +97,8 @@
   const STATE = {
     version: null,
     me: null,           // { configured, franchise_id, franchise_name, isAdmin }
+    nflStatus: {},      // pid -> MFL injury status string ("Questionable", "Out", ...)
+    newsFlags: {},      // pid -> "injury" | "news" when the player has a news item
     capAmount: 0,
     teams: [],          // worker payload normalized
     activeTab: "roster",
@@ -1353,6 +1355,7 @@
     populateActionFilter();
     populateValueFilters();
     renderRosterTable();
+    loadRosterIndicators(); // async — decorate rows with NFL status + news flags
   }
 
   async function loadMe() {
@@ -1827,6 +1830,52 @@
     return html;
   }
 
+  // ── NFL game status + news flags (decorate roster rows) ─────────────
+  // NFL game status (O/Q/D) comes straight from MFL's injuries export; the
+  // news flag from /api/player-news (same feed the News tab uses). Both load
+  // after the table first renders, then trigger one re-render.
+  var NFL_STATUS_ABBR = { out: "O", questionable: "Q", doubtful: "D", probable: "P", ir: "IR", pup: "PUP", suspended: "S", "injured reserve": "IR", "covid-19": "C" };
+  function nflStatusBadge(pid) {
+    var s = STATE.nflStatus[String(pid)];
+    if (!s) return "";
+    var key = String(s).toLowerCase();
+    var abbr = NFL_STATUS_ABBR[key] || String(s).charAt(0).toUpperCase();
+    var kls = (key.indexOf("out") >= 0 || key === "ir" || key.indexOf("reserve") >= 0 || key.indexOf("pup") >= 0) ? "out"
+      : (key.indexOf("doubt") >= 0 ? "doubtful" : "questionable");
+    return ' <span class="fo-nfl-status fo-nfl-' + kls + '" title="NFL game status: ' + escapeHtml(String(s)) + '">' + escapeHtml(abbr) + "</span>";
+  }
+  function newsFlagBadge(pid) {
+    var f = STATE.newsFlags[String(pid)];
+    if (!f) return "";
+    var title = f === "injury" ? "Injury / status news — click to open News" : "News headline — click to open News";
+    return ' <span class="fo-news-flag fo-news-flag-' + f + '" data-news-pid="' + escapeHtml(String(pid)) + '" title="' + title + '">●</span>';
+  }
+  async function loadRosterIndicators() {
+    var pids = allVisiblePlayers().map(function (p) { return p.id; }).filter(Boolean);
+    if (!pids.length) return;
+    // NFL game status — straight from MFL's injuries export.
+    try {
+      var inj = await fetchJSON(apiUrl("/api/mfl-export") + "?TYPE=injuries&L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON) + "&JSON=1");
+      var arr = (inj && inj.injuries && inj.injuries.injury) || [];
+      if (!Array.isArray(arr)) arr = [arr];
+      var m = {};
+      arr.forEach(function (x) { if (x && x.id && x.status) m[String(x.id)] = String(x.status); });
+      STATE.nflStatus = m;
+    } catch (e) {}
+    // News flags — the worker aggregates the shared RSS pool once + tags pids.
+    try {
+      var news = await fetchJSON(apiUrl("/api/player-news") + "?pids=" + encodeURIComponent(pids.slice(0, 500).join(",")) + "&L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON));
+      var ibp = (news && news.items_by_pid) || {};
+      var flags = {};
+      Object.keys(ibp).forEach(function (pid) {
+        var items = (ibp[pid] || []).filter(function (it) { return it && (it.type === "injury" || it.type === "status" || it.type === "headline"); });
+        if (items.length) flags[pid] = items.some(function (it) { return it.type === "injury" || it.type === "status"; }) ? "injury" : "news";
+      });
+      STATE.newsFlags = flags;
+    } catch (e) {}
+    if (Object.keys(STATE.nflStatus).length || Object.keys(STATE.newsFlags).length) renderRosterTable();
+  }
+
   function renderRosterTable() {
     const tbody = $("#fo-roster-tbody");
     const summary = $("#fo-roster-summary");
@@ -1859,9 +1908,14 @@
     // was removed (Keith 2026-05-19: "redundancy, just need a note to
     // click player name"); hint text added below the table.
     $$("#fo-roster-tbody tr").forEach(function (tr) {
-      tr.addEventListener("click", function () {
+      tr.addEventListener("click", function (e) {
         const pid = tr.dataset.pid; const fid = tr.dataset.fid;
-        if (pid) openSlideover(pid, fid);
+        if (!pid) return;
+        // Clicking the news flag jumps straight to the News tab.
+        if (e.target && e.target.classList && e.target.classList.contains("fo-news-flag")) {
+          openSlideover(pid, fid, "news"); return;
+        }
+        openSlideover(pid, fid);
       });
     });
   }
@@ -1894,7 +1948,7 @@
     return `
       <tr data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(p.fid)}">
         <td>
-          <div>${escapeHtml(p.name)}</div>
+          <div>${escapeHtml(p.name)}${nflStatusBadge(p.id)}${newsFlagBadge(p.id)}</div>
           <div class="small">${escapeHtml(p.special || "")}</div>
         </td>
         <td><span class="fo-pos ${escapeHtml(pos)}">${escapeHtml(p.position)}</span></td>
@@ -1939,12 +1993,12 @@
     return team.players.find(function (p) { return p.id === pid; }) || null;
   }
 
-  function openSlideover(pid, fid) {
+  function openSlideover(pid, fid, subtab) {
     const p = findPlayer(pid, fid);
     if (!p) return;
     STATE.slideoverPid = pid;
     STATE.slideoverFid = fid;
-    STATE.slideoverSubtab = "bio";
+    STATE.slideoverSubtab = subtab || "bio";
     const root = $("#fo-slideover");
     root.hidden = false;
     root.setAttribute("aria-hidden", "false");
@@ -2172,6 +2226,7 @@
       <div class="fo-card-head">
         <h2 style="margin:0;">Contract History (${sorted.length} season${sorted.length === 1 ? "" : "s"})</h2>
       </div>
+      <div class="fo-review-note">⚠ Auto-derived &amp; forum-mined — this data needs to be reviewed for accuracy before you rely on it.</div>
       <table class="fo-table">
         <thead>
           <tr>
@@ -2564,6 +2619,7 @@
     var oldestYr = histEvents.length ? histEvents[0].season : (span.length ? span[0] : "");
     body.innerHTML =
       '<div class="fo-card-head"><h2 style="margin:0;">Transaction Log (' + events.length + ")</h2></div>" +
+      '<div class="fo-review-note">⚠ Auto-derived &amp; forum-mined — this data needs to be reviewed for accuracy before you rely on it.</div>' +
       '<div style="overflow-x:auto;"><table class="fo-table"><thead><tr>' +
       '<th class="num">#</th><th>Date</th><th>Event</th><th>Detail</th><th>Team</th>' +
       "</tr></thead><tbody>" + rows + "</tbody></table></div>" +
