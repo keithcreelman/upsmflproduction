@@ -1833,6 +1833,18 @@
   // Grouped-by-position render (Keith 2026-06-01: option to group like the
   // current Front Office). Inserts a position header row before each bucket;
   // players keep the active sort order within their group.
+  // League rank of a team's cap allocation at a position bucket (1 = highest
+  // spend). Uses currentCapHit (taxi $0, IR×0.5) — same bucketing as the group.
+  function positionAllocRank(bucket, teamFid) {
+    const byTeam = STATE.teams.map(function (t) {
+      let sum = 0;
+      (t.players || []).forEach(function (p) { if (posBucket(p.position) === bucket) sum += currentCapHit(p); });
+      return { fid: t.fid, sum: sum };
+    }).sort(function (a, b) { return b.sum - a.sum; });
+    let rank = 0;
+    for (let i = 0; i < byTeam.length; i += 1) { if (byTeam[i].fid === teamFid) { rank = i + 1; break; } }
+    return { rank: rank, of: byTeam.length };
+  }
   function renderGroupedRows(players) {
     const order = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB", "IDP"];
     const groups = {};
@@ -1841,11 +1853,22 @@
       const ia = order.indexOf(a), ib = order.indexOf(b);
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
     });
+    const single = STATE.selectedTeamId !== "__all__";
     let html = "";
     keys.forEach(function (k) {
       const n = groups[k].length;
+      // Position cap allocation (taxi already $0 via currentCapHit).
+      let posSal = 0;
+      groups[k].forEach(function (p) { posSal += currentCapHit(p); });
+      let extra = ' <span class="fo-group-sal">' + escapeHtml(fmtUSD(posSal)) + "</span>";
+      if (single && order.indexOf(k) >= 0) {
+        const r = positionAllocRank(k, STATE.selectedTeamId);
+        if (r.rank) extra += ' <span class="fo-group-rank" title="League rank of ' + escapeHtml(k) + ' cap allocation">#' + r.rank + " of " + r.of + " in league</span>";
+      } else if (!single) {
+        extra += ' <span class="small" style="color:var(--muted);">league total</span>';
+      }
       html += '<tr class="fo-group-row"><td colspan="14"><span class="fo-pos ' + escapeHtml(k) + '">' + escapeHtml(k) +
-              '</span> <span class="small">' + n + ' player' + (n === 1 ? "" : "s") + '</span></td></tr>';
+              '</span> <span class="small">' + n + ' player' + (n === 1 ? "" : "s") + "</span>" + extra + "</td></tr>";
       html += groups[k].map(renderRosterRow).join("");
     });
     return html;
