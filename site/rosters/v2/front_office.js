@@ -1954,7 +1954,7 @@
           if (st && (st.indexOf("out") >= 0 || st === "ir" || st.indexOf("doubt") >= 0 || st.indexOf("pup") >= 0 || st.indexOf("reserve") >= 0)) irEligible.push(p);
         }
         if (isLoadedRow(p)) loadedN += 1;
-        if (safeInt(p.years, 0) === 3 && ctypeClass(p.type) !== "rookie") threeYrN += 1;
+        if (safeInt(p.years, 0) === 3 && ctypeClass(p.type).split(" ")[0] !== "rk") threeYrN += 1;
       });
       const s = team.summary || {};
       adjTotal += safeInt(s.adj_cut, 0) + safeInt(s.adj_trade, 0) + safeInt(s.adj_other, 0);
