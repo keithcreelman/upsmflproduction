@@ -5805,9 +5805,21 @@ export default {
           const c = contractBySeason[String(season)];
           if (!c) return null;
           const yb = yearsFromContract(c);
+          // AAV = the CURRENT-YEAR salary (Keith's rule — never the average).
+          // Derive from the Y-breakdown at this contract year (CL − years-
+          // remaining); fall back to the stored aav only when the breakdown
+          // can't place the year. (src_contracts.aav is often the average, e.g.
+          // Hill 2021 stored 41K but the year-2 salary is 38K.)
+          const cl = c.contract_length || yb.years.length || 0;
+          const cy = parseInt(c.contract_year, 10) || 0; // years remaining
+          let aav = c.aav || null;
+          if (yb.years.length) {
+            const idx = (cl > 0 && cy > 0) ? (cl - cy) : 0; // 0-based current-year index
+            if (idx >= 0 && idx < yb.years.length && yb.years[idx] > 0) aav = yb.years[idx];
+          }
           return {
             canonical_type: canonType(c.contract_status, c.contract_info),
-            cl: c.contract_length || null, tcv: c.tcv || null, aav: c.aav || null,
+            cl: c.contract_length || null, tcv: c.tcv || null, aav: aav,
             years: yb.years, confidence: yb.derived ? "derived" : "ok",
           };
         };
@@ -5856,16 +5868,26 @@ export default {
               let exTs = 0;
               try { exTs = exDate.length === 10 ? Math.floor(new Date(exDate + "T12:00:00Z").getTime() / 1000) : Math.floor(Date.UTC(parseInt(r.season, 10), 2, 1) / 1000); } catch (_) {}
               // Term details: extension_master first, fall back to that season's src_contracts.
-              const fb = inlineContract(r.season) || {};
-              const yb = yearsFromContract({ contract_info: r.new_contract_info, tcv: r.new_tcv, contract_length: r.extension_term_years });
-              const years = yb.years.length ? yb.years : (fb.years || []);
-              const evidenced = safeStr(r.evidence_grade) === "evidenced";
+              // Terms + FRANCHISE come from that season's src_contracts — the
+              // authoritative MFL contract history. extension_master terms drift
+              // badly on older rows (e.g. Hill: Y[0,0,0], AAV $1k, wrong CL, and
+              // a phantom 2020 F0002 row after he'd been traded to F0006). Keep
+              // only extension_master's canonical label + mined date.
+              const sc = contractBySeason[String(r.season)];
+              const fb = inlineContract(r.season);
+              const fid = sc ? pad4(sc.franchise_id) : pad4(r.franchise_id);
+              const canonical = canonType(r.new_contract_status, r.new_contract_info) || (fb && fb.canonical_type) || "Extension";
+              let contract;
+              if (fb) {
+                contract = { canonical_type: canonical, cl: fb.cl, tcv: fb.tcv, aav: fb.aav, years: fb.years, confidence: fb.confidence };
+              } else {
+                const yb = yearsFromContract({ contract_info: r.new_contract_info, tcv: r.new_tcv, contract_length: r.extension_term_years });
+                const evidenced = safeStr(r.evidence_grade) === "evidenced";
+                contract = { canonical_type: canonical, cl: r.extension_term_years || null, tcv: r.new_tcv || null,
+                  aav: r.new_aav || null, years: yb.years, confidence: (evidenced && !dateApprox) ? "ok" : "derived" };
+              }
               events.push({ season: r.season, ts: exTs, date: exDate, date_approx: dateApprox, kind: "extension",
-                label: "Extension", detail: "", franchise_id: pad4(r.franchise_id),
-                contract: { canonical_type: canonType(r.new_contract_status, r.new_contract_info) || "Extension",
-                  cl: r.extension_term_years || fb.cl || null, tcv: r.new_tcv || fb.tcv || null,
-                  aav: r.new_aav || fb.aav || null, years: years,
-                  confidence: (evidenced && !dateApprox) ? "ok" : "derived" },
+                label: "Extension", detail: "", franchise_id: fid, contract,
                 evidence: safeStr(r.evidence_source).slice(0, 240) });
             }
           } catch (_) {}
