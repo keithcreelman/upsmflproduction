@@ -2497,7 +2497,21 @@
     var maxHist = histEvents.reduce(function (m, e) { return Math.max(m, parseInt(e.season, 10) || 0); }, 0);
     if (maxHist) workerEvents = workerEvents.filter(function (e) { return (parseInt(e.season, 10) || 9999) > maxHist; });
     var events = histEvents.concat(workerEvents).slice();
-    events.sort(function (a, b) { return foTxnSortKey(a) - foTxnSortKey(b); });
+    // Split acquisitions (auction / FA add) into the acquisition + a separate
+    // Contract event (Keith: the contract handout is its own event). MFL has no
+    // distinct handout date, so the Contract shares the acquisition date.
+    var expanded = [];
+    events.forEach(function (e) {
+      if ((e.kind === "auction" || e.kind === "add") && e.contract) {
+        var acq = {}, con = {}, k;
+        for (k in e) { acq[k] = e[k]; con[k] = e[k]; }
+        acq.contract = null; acq._sub = 0;
+        con.kind = "contract"; con.label = "Contract"; con.detail = ""; con.from_franchise_id = null; con._sub = 1;
+        expanded.push(acq, con);
+      } else { e._sub = 0; expanded.push(e); }
+    });
+    events = expanded;
+    events.sort(function (a, b) { return (foTxnSortKey(a) - foTxnSortKey(b)) || ((a._sub || 0) - (b._sub || 0)); });
     events.forEach(function (e, i) { e.seq = i + 1; });
     if (!events.length) {
       body.innerHTML = '<div class="fo-form-note">No transactions found for this player' + (data && data.ok ? "" : " (load failed)") + ".</div>";
@@ -2510,12 +2524,10 @@
       var team = e.franchise_name ? escapeHtml(e.franchise_name) : escapeHtml(franchiseNameByFid(e.franchise_id));
       var src = safeStr(e.source || e.evidence);
       var info = src ? ' <span class="fo-src" title="' + escapeHtml(src) + '">ⓘ</span>' : "";
-      var conf = foEventConf(e);
-      var dot = '<span class="fo-conf fo-conf-' + conf + '" title="' + (conf === "high" ? "High confidence" : "Low confidence — verify") + '">●</span> ';
       return "<tr>" +
         '<td class="small" style="color:var(--muted);">' + (e.seq || "") + "</td>" +
         '<td class="small" style="white-space:nowrap;">' + dateStr + "</td>" +
-        "<td>" + dot + '<span class="fo-txn ' + foTxnKindClass(e.kind) + '">' + escapeHtml(e.label || e.kind) + "</span></td>" +
+        "<td>" + '<span class="fo-txn ' + foTxnKindClass(e.kind) + '">' + escapeHtml(e.label || e.kind) + "</span></td>" +
         "<td>" + foTxnDetail(e) + info + "</td>" +
         '<td class="small">' + team + "</td>" +
         "</tr>";
