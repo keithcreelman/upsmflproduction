@@ -99,6 +99,7 @@
     me: null,           // { configured, franchise_id, franchise_name, isAdmin }
     nflStatus: {},      // pid -> MFL injury status string ("Questionable", "Out", ...)
     newsFlags: {},      // pid -> "injury" | "news" when the player has a news item
+    contractDeadline: null, // ISO date of the Sept contract deadline (league_events)
     capAmount: 0,
     teams: [],          // worker payload normalized
     activeTab: "roster",
@@ -1267,13 +1268,29 @@
                     info.indexOf("not eligible for tag or extension") !== -1;
     var expiredRookie = info.indexOf("expired rookie") !== -1 ||
                         (rookieLikeContractStatus(status) && years <= 0);
+    // MYAC (Multi-Year Auction Contract, §C2): a 1-year default from an ERA win
+    // (Vet-ERA) can be set to 2 or 3 years until the September contract deadline.
+    // While the MYAC window is open, the owner uses MYAC — NOT an extension
+    // (Keith) — so MYAC-eligible players show MYAC and hide Extension.
+    // Match the ERA token specifically — NOT the "era" inside "vetERAn".
+    var myacEligible = status.indexOf("-era") !== -1 && years === 1 && !isPastContractDeadlineFO();
     return {
+      myacEligible: myacEligible,
       extensionEligible: !rookieOptionActionEligible(p) && (years === 1 || expiredRookie) &&
-                          status.indexOf("tag") === -1 && !noFurther,
+                          status.indexOf("tag") === -1 && !noFurther && !myacEligible,
       rookieOptionEligible: rookieOptionActionEligible(p),
       restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status),
       untagEligible: status === "tag" && !isPastTagDeadlineFO()
     };
+  }
+
+  // §C2 MYAC window closes at the September contract deadline (D1 league_events
+  // `ups_contract_deadline`, e.g. 2026-09-06). Unknown → treat as within window
+  // (show MYAC) so a load failure never blocks the option.
+  function isPastContractDeadlineFO() {
+    var d = STATE.contractDeadline;
+    if (!d) return false;
+    try { return new Date() > new Date(d + "T23:59:59-04:00"); } catch (_) { return false; }
   }
 
   // Tag deadline (canon §C8.2): midnight ET on the Thu→Fri boundary before
@@ -1371,6 +1388,7 @@
     populateValueFilters();
     renderRosterTable();
     loadRosterIndicators(); // async — decorate rows with NFL status + news flags
+    loadContractDeadline(); // async — Sept contract deadline gates the MYAC window
     const sumEl = $("#fo-contract-summary");
     if (sumEl) sumEl.addEventListener("click", function (e) {
       if (e.target && e.target.closest && e.target.closest(".fo-adj-info")) showAdjPopup();
@@ -1957,6 +1975,14 @@
     var vals = Object.keys(yv).map(function (k) { return safeInt(yv[k], 0); }).filter(function (v) { return v > 0; });
     for (var i = 1; i < vals.length; i += 1) { if (vals[i] !== vals[0]) return true; }
     return false;
+  }
+  async function loadContractDeadline() {
+    try {
+      var data = await fetchJSON(apiUrl("/api/league-events") + "?season=" + encodeURIComponent(SEASON) + "&from=all&limit=50");
+      var evs = (data && data.events) || [];
+      var cd = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("contract_deadline") >= 0; });
+      if (cd && cd.date) STATE.contractDeadline = String(cd.date).slice(0, 10);
+    } catch (e) {}
   }
   function renderContractSummary() {
     const el = $("#fo-contract-summary");
@@ -2897,6 +2923,22 @@
     const synthesized = extOpts.length > 0 && extOpts[0].synthesized === true;
     const rows = [];
 
+    // §C2 MYAC — a Vet-ERA 1-yr default becomes 2 or 3 years (Veteran or Loaded)
+    // until the Sept contract deadline. Shown INSTEAD of Extension while the
+    // window is open (Keith: nobody extends when they can MYAC). Reuses the
+    // extension mechanism (+1Y → 2yr total, +2Y → 3yr total; escalator off the
+    // winning bid) but records the contract as Vet-ERA, not Vet-Ext.
+    if (elig.myacEligible) {
+      const mbtns = [];
+      if (has1) mbtns.push(`<button class="btn small" data-action="myac" data-years="1">2-Year</button>`);
+      if (has2) mbtns.push(`<button class="btn small" data-action="myac" data-years="2">3-Year</button>`);
+      if (has2) mbtns.push(`<button class="btn small" data-action="myac-loaded" data-years="2">3-Year Loaded…</button>`);
+      const dlNote = STATE.contractDeadline ? " Window closes " + escapeHtml(STATE.contractDeadline) + "." : "";
+      rows.push(actionRow("Multi-Year Contract (MYAC)",
+        "Set this 1-yr ERA deal to a 2- or 3-year contract (§C2). AAV escalator is off the winning bid; <strong>Loaded</strong> splits Y2/Y3 (FL/BL). Records as Vet-ERA." + dlNote,
+        mbtns.join(" ") || '<span class="small" style="color:var(--muted);">No multi-year option computed.</span>'));
+    }
+
     const extBlocked = extensionBlockedByCurrentOwner(p);
     if (elig.extensionEligible && extBlocked) {
       // Blocked path — show ONLY the blocked row, not the buttons
@@ -2978,6 +3020,12 @@
     $$("[data-action='extend-loaded']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { openExtensionLoadedForm(p); });
     });
+    $$("[data-action='myac']", body).forEach(function (btn) {
+      btn.addEventListener("click", function () { openMyacForm(p, safeInt(btn.dataset.years, 1)); });
+    });
+    $$("[data-action='myac-loaded']", body).forEach(function (btn) {
+      btn.addEventListener("click", function () { openExtensionLoadedForm(p, "Vet-ERA"); });
+    });
     $$("[data-action='rookie-option']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { submitRookieOption(p); });
     });
@@ -3031,11 +3079,24 @@
     $("#fo-ext-submit").addEventListener("click", function () { submitExtension(p, opt); });
   }
 
+  // MYAC flat (Veteran default) — reuses the extension form/submit, but records
+  // the contract as Vet-ERA (§A3, the acquisition method survives MYAC), not
+  // Vet-Ext. years 1 → 2-year total, years 2 → 3-year total.
+  function openMyacForm(p, years) {
+    const opt = pickExtensionOption(p, years);
+    if (!opt) { flashToast("No " + (years + 1) + "-year MYAC option available for this player.", "warn"); return; }
+    const mopt = Object.assign({}, opt, { contract_status: "Vet-ERA", submission_kind: "myac" });
+    const body = $("#fo-slideover-body");
+    body.innerHTML = renderExtensionForm(p, mopt);
+    $("#fo-ext-cancel").addEventListener("click", function () { renderSlideoverBody(); });
+    $("#fo-ext-submit").addEventListener("click", function () { submitExtension(p, mopt); });
+  }
+
   // 2-year LOADED extension form — Y1 stays at current salary (canon
   // §C4: extension AAV bump applies only to future years), Y2 + Y3
   // are split by the owner. Owner enters Y2 and Y3; the form derives
   // the FL/BL suffix from the per-year salary array (canon §C4.3).
-  function openExtensionLoadedForm(p) {
+  function openExtensionLoadedForm(p, statusBase) {
     const baseFlat = pickExtensionOption(p, 2); // for futureAav reference
     if (!baseFlat) {
       flashToast("No +2Y extension preview available — can't compute loaded variants.", "warn");
@@ -3087,10 +3148,10 @@
     $("#fo-extl-y2").addEventListener("input", recalc);
     $("#fo-extl-y3").addEventListener("input", recalc);
     $("#fo-extl-cancel").addEventListener("click", function () { renderSlideoverBody(); });
-    $("#fo-extl-submit").addEventListener("click", function () { submitExtensionLoaded(p, baseFlat, currentSalary, extensionTotal); });
+    $("#fo-extl-submit").addEventListener("click", function () { submitExtensionLoaded(p, baseFlat, currentSalary, extensionTotal, statusBase); });
   }
 
-  async function submitExtensionLoaded(p, baseFlat, currentSalary, extensionTotal) {
+  async function submitExtensionLoaded(p, baseFlat, currentSalary, extensionTotal, statusBase) {
     const y2 = safeInt($("#fo-extl-y2").value, 0);
     const y3 = safeInt($("#fo-extl-y3").value, 0);
     if (y2 + y3 !== extensionTotal) {
@@ -3102,7 +3163,7 @@
       return;
     }
     const suffix = y2 > y3 ? "-FL" : y2 < y3 ? "-BL" : "";
-    const status = "Vet-Ext2" + suffix;
+    const status = (statusBase || "Vet-Ext2") + suffix;
     const tcv = currentSalary + y2 + y3;
     const gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - currentSalary);
     const futureAav = Math.round((y2 + y3) / 2);
@@ -3128,9 +3189,9 @@
     const payload = {
       L: LEAGUE_ID, YEAR: SEASON,
       type: "MANUAL_CONTRACT_UPDATE",
-      submission_kind: "extension",
+      submission_kind: (statusBase && statusBase.indexOf("ERA") >= 0) ? "myac" : "extension",
       dry_run: IS_DRY_RUN ? 1 : 0,
-      source: "front-office-v2-extension-loaded-submit",
+      source: (statusBase && statusBase.indexOf("ERA") >= 0) ? "front-office-v2-myac-loaded-submit" : "front-office-v2-extension-loaded-submit",
       leagueId: LEAGUE_ID, year: SEASON,
       player_id: p.id, player_name: p.name,
       franchise_id: p.fid, franchise_name: p.franchise,
@@ -3212,7 +3273,7 @@
 
     const payload = {
       type: "MANUAL_CONTRACT_UPDATE",
-      submission_kind: "extension",
+      submission_kind: opt.submission_kind || "extension",
       league_id: LEAGUE_ID,
       season: SEASON,
       franchise_id: p.fid,
