@@ -7723,6 +7723,99 @@ export default {
         return jsonOut(200, out);
       }
 
+      // ── GET/POST /admin/sync-src-draft-picks — load src_draft_picks from MFL ──
+      // src_draft_picks (read by /api/player-transactions for the Rookie Draft
+      // event + paired Rookie Contract) is otherwise populated ONLY from Keith's
+      // local DB snapshot (scripts/load_local_to_d1.py). A just-completed draft
+      // (e.g. 2026) is therefore absent until that runs. The SSOT is MFL
+      // draftResults, so this pulls it for the requested seasons + league/player
+      // names and upserts (source='mfl'). Dry-run by default; the real D1 write
+      // is gated on COMMISH_API_KEY (?APIKEY= or X-COMMISH-APIKEY header).
+      // Idempotent per season: DELETE … WHERE season=? AND source='mfl' then
+      // INSERT. Defaults to the current season; ?seasons=2026,2025 to scope.
+      if (path === "/admin/sync-src-draft-picks") {
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        const commit = url.searchParams.get("commit") === "1";
+        if (commit) {
+          const expectedKey = safeStr(env.COMMISH_API_KEY || "");
+          const providedKey = safeStr(request.headers.get("X-COMMISH-APIKEY") || url.searchParams.get("APIKEY") || "");
+          if (!expectedKey || providedKey !== expectedKey) {
+            return jsonOut(401, { ok: false, error: "unauthorized — commit requires COMMISH_API_KEY" });
+          }
+        }
+        const pad4loc = (x) => { const d = String(x == null ? "" : x).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; };
+        const baseLeague = safeStr(url.searchParams.get("L") || L || "");
+        const seasonsParam = safeStr(url.searchParams.get("seasons") || "");
+        const seasons = seasonsParam
+          ? seasonsParam.split(",").map((s) => parseInt(s, 10)).filter((s) => Number.isFinite(s) && s >= 2010 && s <= 2099)
+          : [parseInt(YEAR, 10) || new Date().getUTCFullYear()];
+        const out = { ok: true, dry_run: !commit, seasons: {} };
+        for (const yr of seasons) {
+          const rep = { fetched: 0, written: 0, sample: [], errors: [] };
+          try {
+            // Pre-2017 used per-year league IDs; 74598 is stable for 2017+.
+            const lidYr = yr === 2014 ? "30590" : yr === 2015 ? "29015" : yr === 2016 ? "27191" : baseLeague;
+            const ua = { headers: { "User-Agent": "upsmflproduction-worker" } };
+            const [drRes, lgRes, plRes] = await Promise.all([
+              fetch(`https://api.myfantasyleague.com/${yr}/export?TYPE=draftResults&L=${encodeURIComponent(lidYr)}&JSON=1`, { ...ua, cf: { cacheTtl: 60 } }),
+              fetch(`https://api.myfantasyleague.com/${yr}/export?TYPE=league&L=${encodeURIComponent(lidYr)}&JSON=1`, { ...ua, cf: { cacheTtl: 300 } }),
+              fetch(`https://api.myfantasyleague.com/${yr}/export?TYPE=players&L=${encodeURIComponent(lidYr)}&JSON=1`, { ...ua, cf: { cacheTtl: 3600 } }),
+            ]);
+            if (!drRes.ok) { rep.errors.push(`draftResults HTTP ${drRes.status}`); out.seasons[yr] = rep; continue; }
+            const drData = await drRes.json();
+            const lgData = await lgRes.json().catch(() => ({}));
+            const plData = await plRes.json().catch(() => ({}));
+            let frs = lgData?.league?.franchises?.franchise || [];
+            if (!Array.isArray(frs)) frs = [frs];
+            const nameByFid = {};
+            for (const f of frs) nameByFid[pad4loc(f.id)] = safeStr(f.name);
+            const nTeams = frs.length || 12;
+            let pls = plData?.players?.player || [];
+            if (!Array.isArray(pls)) pls = [pls];
+            const nameByPid = {};
+            for (const p of pls) nameByPid[String(p.id)] = safeStr(p.name);
+            let units = drData?.draftResults?.draftUnit || [];
+            if (!Array.isArray(units)) units = [units];
+            const rows = [];
+            for (const u of units) {
+              let picks = u.draftPick || u.pick || [];
+              if (!Array.isArray(picks)) picks = [picks];
+              for (const dp of picks) {
+                const pidD = String(dp.player || "").replace(/\D/g, "");
+                if (!pidD) continue;
+                const rnd = parseInt(dp.round, 10) || 0;
+                const pk = parseInt(dp.pick, 10) || 0;
+                const overall = (rnd - 1) * nTeams + pk;
+                const fid = pad4loc(dp.franchise);
+                const ts = dp.timestamp ? parseInt(dp.timestamp, 10) : 0;
+                // ET wall-clock (drafts run May/EDT = UTC−4) so date slices right.
+                const etIso = ts ? new Date((ts - 4 * 3600) * 1000).toISOString().replace("T", " ").slice(0, 19) : "";
+                rep.fetched += 1;
+                rows.push([yr, rnd, pk, overall, fid || null, nameByFid[fid] || null, pidD, nameByPid[pidD] || null, ts || null, etIso || null, "mfl"]);
+              }
+            }
+            rep.sample = rows.slice(0, 2).map((r) => `${r[0]} R${r[1]}.${String(r[2]).padStart(2, "0")} ${r[7]} @${r[5]}`);
+            if (commit && rows.length) {
+              await env.UPS_MFL_DB.prepare(`DELETE FROM src_draft_picks WHERE season = ? AND source = 'mfl'`).bind(yr).run();
+              const stmt = env.UPS_MFL_DB.prepare(
+                `INSERT INTO src_draft_picks
+                   (season, draftpick_round, draftpick_roundorder, draftpick_overall,
+                    franchise_id, franchise_name, player_id, player_name,
+                    unix_timestamp, datetime_et, source)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              );
+              await env.UPS_MFL_DB.batch(rows.map((r) => stmt.bind(...r)));
+              rep.written = rows.length;
+            }
+            out.seasons[yr] = rep;
+          } catch (e) {
+            rep.errors.push(e?.message || String(e));
+            out.seasons[yr] = rep;
+          }
+        }
+        return jsonOut(200, out);
+      }
+
       // ── POST /api/taxi-callups/confirm — confirm pending call-ups against weeklyresults ──
       // Canon §B2: "Active for the week" = player was on active roster
       // (or IR) at lineup-lock AND appears in that week's weeklyresults.
