@@ -1992,7 +1992,7 @@
       case "gamelog":  renderGameLogTab(p); return;
       case "history":  body.innerHTML = '<div class="fo-form-note">Loading contract history…</div>'; renderContractHistoryTab(p); return;
       case "txns":     renderTransactionLogTab(p); return;
-      case "news":     body.innerHTML = renderPlaceholderTab("News", "Will fetch /api/player-news?pids=" + escapeHtml(p.id) + " and render headlines + injury status."); return;
+      case "news":     renderNewsTab(p); return;
       default:         body.innerHTML = "";
     }
   }
@@ -2571,6 +2571,72 @@
       (histEvents.length ? "; deep-history (pre-2019) curated from forum/MFL validation (<code>historical_acquisitions.json</code>)" : "") + ". " +
       '<span class="fo-lowconf">~</span> low-confidence · <span class="fo-src">ⓘ</span> hover for source.' +
       (oldestYr ? " Back to " + escapeHtml(String(oldestYr)) + "." : "") + "</div>";
+  }
+
+  // ── News sub-tab inside slide-over ──────────────────────────────────
+  // Mirrors the master player modal's News feed: live /api/player-news
+  // (worker aggregates Sleeper injury/status + ESPN/Yahoo/PFT/CBS headlines).
+  // Depth-chart entries are excluded (roster info, not news — Keith 2026-05-13).
+  var __newsCache = {};
+  async function loadPlayerNews(pid) {
+    if (!pid) return null;
+    if (__newsCache[pid]) return __newsCache[pid];
+    try {
+      var res = await fetch(apiUrl("/api/player-news") + "?pids=" + encodeURIComponent(pid) +
+        "&L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON), { cache: "no-store" });
+      var data = await res.json();
+      __newsCache[pid] = data;
+      return data;
+    } catch (e) { return null; }
+  }
+  function foNewsItemClass(t) {
+    if (t === "injury" || t === "status") return "fo-news-injury";
+    if (t === "headline") return "fo-news-headline";
+    return "";
+  }
+  function foIsRealNews(it) { return !!it && (it.type === "injury" || it.type === "status" || it.type === "headline"); }
+  function foRenderNewsItem(it) {
+    var when = "";
+    if (it.timestamp) { try { when = new Date(Number(it.timestamp) * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); } catch (e) {} }
+    var meta = (it.source ? escapeHtml(String(it.source)) : "") + (when ? " · " + when : "");
+    var headline = it.url
+      ? '<a href="' + escapeHtml(it.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(it.headline || "") + "</a>"
+      : escapeHtml(it.headline || "");
+    return '<div class="fo-news-item ' + foNewsItemClass(it.type) + '">' +
+      '<div class="fo-news-headline">' + headline + "</div>" +
+      '<div class="fo-news-meta">' + meta + "</div>" +
+      (it.body ? '<div class="fo-news-body">' + escapeHtml(it.body) + "</div>" : "") + "</div>";
+  }
+  async function renderNewsTab(p) {
+    var body = $("#fo-slideover-body");
+    if (!body) return;
+    body.innerHTML = '<div class="fo-card-head"><h2 style="margin:0;">News</h2></div><div class="fo-form-note">Loading news…</div>';
+    var data = await loadPlayerNews(p.id);
+    if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "news") return; // user moved on
+    var raw = (data && data.items_by_pid && data.items_by_pid[String(p.id)]) || [];
+    var items = raw.filter(foIsRealNews);
+    // Newest first (consistent with the other sub-tabs).
+    items.sort(function (a, b) { return (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0); });
+    var feed;
+    if (items.length) {
+      feed = '<div class="fo-news-list">' + items.map(foRenderNewsItem).join("") + "</div>";
+    } else {
+      var hadDepth = raw.some(function (it) { return it && it.type === "depth"; });
+      feed = '<div class="fo-form-note">No injury reports or news headlines for this player.' +
+        (hadDepth ? " (Depth-chart position available — see Bio.)" : "") + "</div>";
+    }
+    var injuryNote = "";
+    if (p && (p.injuryStatus || p.injury_status)) {
+      injuryNote = '<div class="fo-news-item fo-news-injury"><div class="fo-news-headline">MFL Injury · ' +
+        escapeHtml(safeStr(p.injuryStatus || p.injury_status)) + "</div>" +
+        (p.injuryDetails || p.injury_details ? '<div class="fo-news-body">' + escapeHtml(safeStr(p.injuryDetails || p.injury_details)) + "</div>" : "") + "</div>";
+    }
+    body.innerHTML =
+      '<div class="fo-card-head" style="align-items:center;"><h2 style="margin:0;">News</h2>' +
+      '<span class="small" style="color:var(--muted); margin-left:auto;">Sleeper + ESPN/Yahoo/PFT/CBS</span></div>' +
+      (injuryNote ? '<div class="fo-news-list" style="margin-bottom:10px;">' + injuryNote + "</div>" : "") +
+      feed +
+      '<div class="fo-form-note" style="margin-top:8px;">Live: <code>/api/player-news</code> — injury/status + headlines (depth-chart excluded). Newest first.</div>';
   }
 
   // ── Actions sub-tab inside slide-over ───────────────────────────────

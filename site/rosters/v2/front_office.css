@@ -621,6 +621,17 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-conf { font-size: 9px; cursor: help; vertical-align: middle; margin-right: 2px; }
 .fo-conf-high { color: var(--ok); }
 .fo-conf-low { color: var(--warn); }
+
+/* News sub-tab feed (mirrors the master modal's .upm-news-* feed). */
+.fo-news-list { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+.fo-news-item { padding: 10px 12px; background: var(--panel-alt); border-radius: 6px; border-left: 3px solid var(--border); }
+.fo-news-item.fo-news-injury { border-left-color: var(--warn); }
+.fo-news-item.fo-news-headline { border-left-color: var(--accent); }
+.fo-news-headline { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; line-height: 1.4; }
+.fo-news-meta { font-size: 11px; color: var(--muted); }
+.fo-news-meta a { color: var(--accent); text-decoration: none; }
+.fo-news-meta a:hover { text-decoration: underline; }
+.fo-news-body { font-size: 12px; color: var(--text); opacity: 0.85; margin-top: 4px; line-height: 1.5; }
 /* Contract-TYPE color families: Rookie / Vet (incl FAA, ERA, FL, BL, MYM) / Tag */
 .fo-ctf-rookie { color: #34d399; }
 .fo-ctf-vet { color: #5b8dff; }
