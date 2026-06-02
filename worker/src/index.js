@@ -7903,6 +7903,60 @@ export default {
         return jsonOut(200, out);
       }
 
+      // ── POST /admin/load-forum-extensions — load parsed forum extensions ──
+      // Bulk-loads the pre-2018 extensions parsed from the Forumotion archive
+      // (pipelines/etl/scripts/parse_forum_extensions.py -> docs/league_context/
+      // forum_extensions_parsed.json) into the canonical ups_extension_master.
+      // Insert-ONLY (ON CONFLICT DO NOTHING) so it never disturbs existing rows;
+      // re-runnable. COMMISH-gated. The workflow reads the file + POSTs {rows:[…]}.
+      // Terms the forum didn't state are NULL in the payload (not faked).
+      if (path === "/admin/load-forum-extensions" && request.method === "POST") {
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        const expectedKey = safeStr(env.COMMISH_API_KEY || "");
+        const providedKey = safeStr(request.headers.get("X-COMMISH-APIKEY") || url.searchParams.get("APIKEY") || "");
+        if (!expectedKey || providedKey !== expectedKey) {
+          return jsonOut(401, { ok: false, error: "unauthorized — requires COMMISH_API_KEY" });
+        }
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        let rows = Array.isArray(body?.rows) ? body.rows : [];
+        if (!rows.length) return jsonOut(400, { ok: false, error: "no rows" });
+        const dryRun = url.searchParams.get("commit") !== "1";
+        const num = (v) => (v == null || v === "" ? null : Number(v));
+        const stmt = env.UPS_MFL_DB.prepare(
+          `INSERT INTO ups_extension_master
+             (league_id, season, franchise_id, player_id, player_name, position,
+              new_contract_status, new_salary, new_contract_year, new_contract_info,
+              extension_term_years, new_tcv, new_aav, new_gtd, ext_token,
+              source, extended_at_utc, updated_at_utc, evidence_grade, evidence_source)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),?,?)
+           ON CONFLICT(league_id, season, player_id) DO NOTHING`
+        );
+        const binds = [];
+        for (const r of rows) {
+          const pid = safeStr(r.player_id).replace(/\D/g, "");
+          const season = safeStr(r.season);
+          if (!pid || !season) continue;
+          binds.push(stmt.bind(
+            safeStr(r.league_id) || "74598", season, safeStr(r.franchise_id) || null,
+            pid, safeStr(r.player_name) || null, safeStr(r.position) || null,
+            safeStr(r.new_contract_status) || null, num(r.new_salary),
+            num(r.new_contract_year), safeStr(r.new_contract_info) || null,
+            num(r.extension_term_years), num(r.new_tcv), num(r.new_aav), num(r.new_gtd),
+            safeStr(r.ext_token) || null, safeStr(r.source) || "forum-mining",
+            safeStr(r.extended_at_utc) || (season + "-09-01T00:00:00Z"),
+            safeStr(r.evidence_grade) || "evidenced", safeStr(r.evidence_source) || null
+          ));
+        }
+        if (dryRun) return jsonOut(200, { ok: true, dry_run: true, would_attempt: binds.length, sample: rows.slice(0, 3) });
+        let inserted = 0;
+        try {
+          const res = await env.UPS_MFL_DB.batch(binds);
+          for (const rr of res) inserted += (rr && rr.meta && rr.meta.changes) ? rr.meta.changes : 0;
+        } catch (e) { return jsonOut(500, { ok: false, error: e?.message || String(e), attempted: binds.length }); }
+        return jsonOut(200, { ok: true, dry_run: false, attempted: binds.length, inserted, skipped_existing: binds.length - inserted });
+      }
+
       // ── POST /api/taxi-callups/confirm — confirm pending call-ups against weeklyresults ──
       // Canon §B2: "Active for the week" = player was on active roster
       // (or IR) at lineup-lock AND appears in that week's weeklyresults.
