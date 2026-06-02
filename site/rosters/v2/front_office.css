@@ -644,6 +644,16 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-news-flag { font-size: 10px; vertical-align: middle; cursor: pointer; margin-left: 2px; }
 .fo-news-flag.fo-news-flag-injury { color: var(--warn); }
 .fo-news-flag.fo-news-flag-news { color: var(--accent); }
+
+/* Contract summary strip near the top of the roster (mirrors RWB's Cap Summary). */
+.fo-contract-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+.fo-contract-summary:empty { display: none; }
+.fo-sum-card { flex: 1 1 110px; min-width: 100px; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.fo-sum-val { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1.15; font-variant-numeric: tabular-nums; }
+.fo-sum-val.fo-sum-pos { color: var(--ok); }
+.fo-sum-val.fo-sum-neg { color: var(--err); }
+.fo-sum-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+.fo-sum-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
 /* Contract-TYPE color families: Rookie / Vet (incl FAA, ERA, FL, BL, MYM) / Tag */
 .fo-ctf-rookie { color: #34d399; }
 .fo-ctf-vet { color: #5b8dff; }
