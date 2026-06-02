@@ -5835,11 +5835,29 @@ export default {
             const idx = (cl > 0 && cy > 0) ? (cl - cy) : 0; // 0-based current-year index
             if (idx >= 0 && idx < yb.years.length && yb.years[idx] > 0) aav = yb.years[idx];
           }
+          // Structure (FL/BL) derived from the year shape — universal. Keith: a
+          // restructure to [80,62] (decreasing) makes it FL even when MFL still
+          // stores "Vet-FAA". Only override the structure suffix on plain vet
+          // deals (not Rookie/Tag/Ext/MYM, which carry their own meaning).
+          let ctype = canonType(c.contract_status, c.contract_info);
+          const struct = structureOf(yb.years);
+          if (struct && /^vet\b/i.test(ctype) && !/-(FL|BL|Ext|MYM|Tag|ERA)/i.test(ctype)) ctype = "Vet-" + struct;
+          else if (struct && (ctype === "FL" || ctype === "BL")) ctype = "Vet-" + struct;
           return {
-            canonical_type: canonType(c.contract_status, c.contract_info),
+            canonical_type: ctype,
             cl: c.contract_length || null, tcv: c.tcv || null, aav: aav,
             years: yb.years, confidence: yb.derived ? "derived" : "ok",
           };
+        };
+        // Front-loaded (decreasing) vs back-loaded (increasing) from the Y-shape.
+        const structureOf = (years) => {
+          if (!years || years.length < 2) return "";
+          let inc = true, dec = true;
+          for (let i = 1; i < years.length; i++) {
+            if (years[i] >= years[i - 1]) dec = false;
+            if (years[i] <= years[i - 1]) inc = false;
+          }
+          return dec ? "FL" : inc ? "BL" : "";
         };
 
         // 1. Rookie draft + paired Rookie Contract (same date).
@@ -5866,48 +5884,17 @@ export default {
           } catch (_) {}
         }
 
-        // 2. Extensions (ups_extension_master) — canonical type, dated + graded.
+        // 2. ups_extension_master → kept only as a DATE/evidence lookup by season.
+        // Extension DETECTION is done universally by following the contract (the
+        // cy chain) below — extension_master's terms drift too much to trust.
+        const extBySeason = {};
         if (db) {
           try {
             const ex = await db.prepare(
-              `SELECT season, franchise_id, new_contract_status, new_tcv, new_aav,
-                      new_contract_info, extension_term_years, extended_at_utc, evidence_grade, evidence_source
+              `SELECT season, extended_at_utc, evidence_grade, evidence_source
                  FROM ups_extension_master WHERE league_id = ? AND player_id = ? ORDER BY season`
             ).bind(leagueId, pid).all();
-            for (const r of (ex.results || [])) {
-              // Date: prefer one mined from the evidence quote; else a real
-              // extended_at_utc; else fall back to the season (approximate).
-              const md = safeStr(r.evidence_source).match(/(\d{4}-\d{2}-\d{2})/);
-              const eu = safeStr(r.extended_at_utc).slice(0, 10);
-              let exDate, dateApprox;
-              if (md) { exDate = md[1]; dateApprox = false; }
-              else if (eu && !/-01-01$/.test(eu)) { exDate = eu; dateApprox = false; }
-              else { exDate = String(r.season); dateApprox = true; }
-              let exTs = 0;
-              try { exTs = exDate.length === 10 ? Math.floor(new Date(exDate + "T12:00:00Z").getTime() / 1000) : Math.floor(Date.UTC(parseInt(r.season, 10), 2, 1) / 1000); } catch (_) {}
-              // Term details: extension_master first, fall back to that season's src_contracts.
-              // Terms + FRANCHISE come from that season's src_contracts — the
-              // authoritative MFL contract history. extension_master terms drift
-              // badly on older rows (e.g. Hill: Y[0,0,0], AAV $1k, wrong CL, and
-              // a phantom 2020 F0002 row after he'd been traded to F0006). Keep
-              // only extension_master's canonical label + mined date.
-              const sc = contractBySeason[String(r.season)];
-              const fb = inlineContract(r.season);
-              const fid = sc ? pad4(sc.franchise_id) : pad4(r.franchise_id);
-              const canonical = canonType(r.new_contract_status, r.new_contract_info) || (fb && fb.canonical_type) || "Extension";
-              let contract;
-              if (fb) {
-                contract = { canonical_type: canonical, cl: fb.cl, tcv: fb.tcv, aav: fb.aav, years: fb.years, confidence: fb.confidence };
-              } else {
-                const yb = yearsFromContract({ contract_info: r.new_contract_info, tcv: r.new_tcv, contract_length: r.extension_term_years });
-                const evidenced = safeStr(r.evidence_grade) === "evidenced";
-                contract = { canonical_type: canonical, cl: r.extension_term_years || null, tcv: r.new_tcv || null,
-                  aav: r.new_aav || null, years: yb.years, confidence: (evidenced && !dateApprox) ? "ok" : "derived" };
-              }
-              events.push({ season: r.season, ts: exTs, date: exDate, date_approx: dateApprox, kind: "extension",
-                label: "Extension", detail: "", franchise_id: fid, contract,
-                evidence: safeStr(r.evidence_source).slice(0, 240) });
-            }
+            for (const r of (ex.results || [])) extBySeason[String(r.season)] = r;
           } catch (_) {}
         }
 
@@ -5961,12 +5948,59 @@ export default {
                 if (csv(wp[2]).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "drop", label: "Dropped (waiver)", detail: "", franchise_id: fid });
               } else if (type === "TRADE") {
                 const f1 = pad4(x.franchise), f2 = pad4(x.franchise2);
-                if (csv(x.franchise1_gave_up).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "trade", label: "Traded", detail: "", franchise_id: f2, from_franchise_id: f1, contract: inlineContract(s) });
-                if (csv(x.franchise2_gave_up).includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: "trade", label: "Traded", detail: "", franchise_id: f1, from_franchise_id: f2, contract: inlineContract(s) });
+                // Dispersal detection: a folding franchise dumps its whole roster
+                // at once, so a side giving up many PLAYERS (not picks) is a
+                // dispersal, not a normal trade (e.g. Hill 2023-03-29).
+                const p1 = csv(x.franchise1_gave_up).filter((v) => /^\d+$/.test(v));
+                const p2 = csv(x.franchise2_gave_up).filter((v) => /^\d+$/.test(v));
+                const isDispersal = p1.length >= 6 || p2.length >= 6;
+                const tk = isDispersal ? "dispersal" : "trade";
+                const tl = isDispersal ? "Dispersal" : "Traded";
+                if (p1.includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: tk, label: tl, detail: "", franchise_id: f2, from_franchise_id: f1, contract: inlineContract(s) });
+                if (p2.includes(pid)) events.push({ season: s, ts, date: isoDate(ts), kind: tk, label: tl, detail: "", franchise_id: f1, from_franchise_id: f2, contract: inlineContract(s) });
               }
             }
           } catch (_) {}
         }));
+
+        // ── Extensions DERIVED by following the contract (cy chain) — UNIVERSAL.
+        // Keith's method: track years-remaining (contract_year) season over
+        // season. It should DECREMENT by 1 each year; when it instead stays the
+        // same or increases — and there was no new acquisition that season — the
+        // player was EXTENDED by (cy_now − (cy_prev − 1)) years. Terms come from
+        // src_contracts; the precise date (if any) from ups_extension_master.
+        {
+          const acqSeasons = new Set(events
+            .filter((e) => ["auction", "add", "draft", "dispersal"].includes(e.kind))
+            .map((e) => parseInt(e.season, 10)));
+          const csAsc = Object.keys(contractBySeason).map(Number).filter((n) => n).sort((a, b) => a - b);
+          for (let i = 1; i < csAsc.length; i++) {
+            const S = csAsc[i], P = csAsc[i - 1];
+            if (S - P !== 1) continue; // need consecutive seasons to compare cy
+            const cyS = parseInt(contractBySeason[String(S)].contract_year, 10) || 0;
+            const cyP = parseInt(contractBySeason[String(P)].contract_year, 10) || 0;
+            if (!cyS || !cyP) continue;
+            const added = cyS - (cyP - 1); // years added beyond the normal decrement
+            if (added >= 1 && !acqSeasons.has(S)) {
+              const ic = inlineContract(S);
+              const em = extBySeason[String(S)];
+              let exDate = String(S), dateApprox = true, exTs = 0;
+              if (em) {
+                const md = safeStr(em.evidence_source).match(/(\d{4}-\d{2}-\d{2})/);
+                const eu = safeStr(em.extended_at_utc).slice(0, 10);
+                if (md) { exDate = md[1]; dateApprox = false; }
+                else if (eu && !/-01-01$/.test(eu)) { exDate = eu; dateApprox = false; }
+              }
+              try { exTs = (exDate.length === 10) ? Math.floor(new Date(exDate + "T12:00:00Z").getTime() / 1000) : Math.floor(Date.UTC(S, 2, 1) / 1000); } catch (_) {}
+              events.push({
+                season: S, ts: exTs, date: exDate, date_approx: dateApprox, kind: "extension",
+                label: "Extension" + (added > 1 ? " (" + added + "yr)" : ""), detail: "",
+                franchise_id: pad4(contractBySeason[String(S)].franchise_id), contract: ic,
+                evidence: em ? safeStr(em.evidence_source).slice(0, 240) : "",
+              });
+            }
+          }
+        }
 
         // Origin contract — surface the EARLIEST src_contracts season when no
         // event yet represents it (acquisition predates the 2019 MFL-transaction
