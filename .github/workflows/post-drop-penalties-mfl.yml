@@ -1,0 +1,41 @@
+name: Post drop penalties to MFL (ups_drop_events)
+
+# Posts UNPOSTED owed drop penalties from ups_drop_events to MFL
+# salaryAdjustments via POST /admin/drops/post-mfl (commish-gated; the worker's
+# sessionByApiKey check reads ?APIKEY=, so the key goes in the query string).
+# Dry-run unless you type WRITE. Use only_pid to post a single player first
+# (e.g. 15292 = Dyami Brown).
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type WRITE to post to MFL (otherwise dry-run)'
+        required: true
+        default: 'dry-run'
+      only_pid:
+        description: 'Optional player_id to post alone (blank = all unposted owed)'
+        required: false
+        default: ''
+      season:
+        description: 'Season'
+        required: false
+        default: '2026'
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /admin/drops/post-mfl
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+          ONLY_PID: ${{ github.event.inputs.only_pid }}
+          SEASON: ${{ github.event.inputs.season }}
+        run: |
+          if [ "$CONFIRM" = "WRITE" ]; then DRY=false; echo "WRITE mode — posting to MFL"; else DRY=true; echo "DRY-RUN mode (type WRITE to post)"; fi
+          printf '{"season":"%s","league_id":"74598","dry_run":%s,"only_pid":"%s"}' "$SEASON" "$DRY" "$ONLY_PID" > payload.json
+          echo "payload:"; cat payload.json; echo
+          # APIKEY in the query (sessionByApiKey reads ?APIKEY=); keep it out of logs.
+          URL="https://upsmflproduction.keith-creelman.workers.dev/admin/drops/post-mfl?L=74598&YEAR=${SEASON}&APIKEY=${KEY}"
+          curl -s "$URL" -H "Content-Type: application/json" --data @payload.json -o resp.json -w "HTTP %{http_code}\n"
+          python3 -m json.tool resp.json
