@@ -6356,6 +6356,7 @@ export default {
               // Brown RB5, LaPorta TE3). weeklyResults (rostered-only) drives WHICH
               // rows we write; playerScores drives the rank within each.
               const posRankByPid = {}; const overallRankByPid = {};
+              let psOk = false;
               try {
                 const psRes = await fetchWithBackoff(`https://api.myfantasyleague.com/${season}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&W=${week}&JSON=1`, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 300 } });
                 if (psRes.ok) {
@@ -6379,8 +6380,18 @@ export default {
                   scored.sort((a, b) => b.score - a.score);
                   let pv = null, rr = 0;
                   scored.forEach((x, i) => { if (x.score !== pv) { rr = i + 1; pv = x.score; } overallRankByPid[x.pid] = rr; });
+                  if (scored.length > 0) psOk = true;
                 }
               } catch (_) {}
+              // SAFETY: if playerScores is unavailable (e.g. MFL rate-limited this
+              // fetch mid-batch even after backoff), DO NOT write — an INSERT OR
+              // REPLACE with NULL ranks would clobber previously-good ranks. Skip
+              // the week, preserve existing rows, and report so the operator can
+              // re-run that season individually.
+              if (!psOk) {
+                srep.weeks[week] = { skipped: true, error: "playerScores unavailable — week skipped (existing data preserved; re-run this season alone)" };
+                continue;
+              }
               const scorers = playerRows.filter((r) => r.score != null && r.score > 0).slice().sort((a, b) => b.score - a.score);
               const stmts = playerRows.map((r) => db.prepare(
                 `INSERT OR REPLACE INTO src_weekly
