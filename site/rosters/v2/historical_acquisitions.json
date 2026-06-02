@@ -46,23 +46,62 @@
       "season": 2016, "date": "2016-08-17", "kind": "auction", "label": "Auction Won", "confidence": "high",
       "franchise_id": "0005", "franchise_name": "BTNH",
       "contract": { "canonical_type": "Rookie", "cl": 3, "tcv": 3000, "aav": 1000, "years": [1000, 1000, 1000], "confidence": "high" },
-      "source": "MFL 2016 (L=27191) AUCTION_WON 8/17/2016 — BTNH (F0005) won Hill for $1k; salary $1k, cy=3 → 3-year rookie-auction deal"
+      "source": "MFL 2016 (L=27191): AUCTION_WON 8/17/2016 — BTNH (F0005) won Hill $1k; salary $1k cy=3 → flat 3yr rookie-auction deal [1/1/1] '16-'18"
     },
     {
       "season": 2017, "date": "2017-06-14", "kind": "trade", "label": "Traded", "confidence": "high",
-      "franchise_id": "0003", "franchise_name": "Gride", "from_franchise_id": "0005",
-      "source": "MFL 2017 TRADE 6/14/2017 — C'mon Son (F0005) traded Hill to Gride (F0003)"
+      "franchise_id": "0003", "franchise_name": "Gride", "from_franchise_id": "0005", "from_franchise_name": "C'mon Son",
+      "source": "MFL 2017 TRADE 6/14/2017 — C'mon Son (F0005) -> Gride (F0003)"
     },
     {
       "season": 2017, "date": "2017-11-23", "kind": "trade", "label": "Traded", "confidence": "high",
-      "franchise_id": "0007", "franchise_name": "Sex Manther", "from_franchise_id": "0003",
-      "source": "MFL 2017 TRADE 11/23/2017 — Gride (F0003) traded Hill to Sex Manther (F0007)"
+      "franchise_id": "0007", "franchise_name": "Sex Manther", "from_franchise_id": "0003", "from_franchise_name": "Gride",
+      "source": "MFL 2017 TRADE 11/23/2017 — Gride (F0003) -> Sex Manther (F0007)"
     },
     {
-      "season": 2018, "date": "2018", "date_approx": true, "kind": "extension", "label": "Extension (2yr restructure)", "confidence": "low",
+      "season": 2018, "date": "2018", "date_approx": true, "kind": "extension", "label": "Extension (2yr)", "confidence": "high",
       "franchise_id": "0007", "franchise_name": "Sex Manther",
-      "contract": { "canonical_type": "Vet-Ext1", "cl": 2, "tcv": 22000, "aav": 1000, "years": [1000, 21000], "confidence": "low" },
-      "source": "Keith: 2-yr extension + restructure, AAV 1,21 → [1K, 21K]. CONFLICTS with MFL contractInfo annotation 'Restructure Ext. Manther 18-20 [14K,14K,15K] (AAV 1K)' — needs confirmation"
+      "contract": { "canonical_type": "Vet-Ext1", "cl": 3, "tcv": 43000, "aav": 14000, "years": [14000, 14000, 15000], "confidence": "high" },
+      "source": "Derived by following the contract: cy jumped 2->3 in 2018 = 2yr extension. MFL contractInfo 'Restructure Ext. Manther 18-20 [14K,14K,15K] (AAV 1K)' — restructured $1k->$14k + extended '19-'20. AAV annotation 1K('18) -> 21K('19)"
+    },
+    {
+      "season": 2019, "date": "2019-05-03", "kind": "trade", "label": "Traded", "confidence": "high",
+      "franchise_id": "0002", "franchise_name": "The Bash Bros", "from_franchise_id": "0007", "from_franchise_name": "Sex Manther",
+      "source": "MFL 2019 TRADE 5/3/2019 — Sex Manther (F0007) -> The Bash Bros (F0002). Mid 2018 deal (yr 2)"
+    },
+    {
+      "season": 2020, "date": "2020-05-03", "kind": "trade", "label": "Traded", "confidence": "high",
+      "franchise_id": "0006", "franchise_name": "Good in Da Hood", "from_franchise_id": "0002", "from_franchise_name": "The Bash Bros",
+      "source": "MFL 2020 TRADE 5/3/2020 — The Bash Bros (F0002) -> Good in Da Hood (F0006)"
+    },
+    {
+      "season": 2020, "date": "2020", "date_approx": true, "kind": "extension", "label": "Extension (2yr)", "confidence": "high",
+      "franchise_id": "0006", "franchise_name": "Good in Da Hood",
+      "contract": { "canonical_type": "Vet-Ext2", "cl": 3, "tcv": 97000, "aav": 21000, "years": [21000, 38000, 38000], "confidence": "high" },
+      "source": "Derived: cy jumped 2->3 in 2020 = another 2yr extension. MFL 'Ext. Manther 19/20 Bash 21/22 [21K,38K,38K] AAV 21K/41K' — new deal '20-'22"
+    },
+    {
+      "season": 2023, "date": "2023-03-29", "kind": "trade", "label": "Traded", "confidence": "high",
+      "franchise_id": "0002", "franchise_name": "CBP", "from_franchise_id": "0006", "from_franchise_name": "The Main Event Mafia",
+      "source": "MFL 2023 TRADE 3/29/2023 — The Main Event Mafia (F0006) -> CBP (F0002)"
+    },
+    {
+      "season": 2023, "date": "2023", "date_approx": true, "kind": "tag", "label": "Franchise Tag", "confidence": "high",
+      "franchise_id": "0002", "franchise_name": "CBP",
+      "contract": { "canonical_type": "Vet-Tag", "cl": 1, "tcv": 51000, "aav": 51000, "years": [51000], "confidence": "high" },
+      "source": "MFL 2023: Franchise Tag $51k cy=1 (returns to FA '24)"
+    },
+    {
+      "season": 2024, "date": "2024-07-29", "kind": "auction", "label": "Auction Won", "confidence": "high",
+      "franchise_id": "0007", "franchise_name": "Sex Manther",
+      "contract": { "canonical_type": "Vet-BL", "cl": 3, "tcv": 183000, "aav": 41000, "years": [41000, 71000, 71000], "confidence": "high" },
+      "source": "MFL 2024 AUCTION_WON 7/29/2024 — Sex Manther (F0007), back-loaded [41,71,71] '24-'26"
+    },
+    {
+      "season": 2025, "date": "2025", "date_approx": true, "kind": "extension", "label": "Restructure", "confidence": "high",
+      "franchise_id": "0007", "franchise_name": "Sex Manther",
+      "contract": { "canonical_type": "Restructure", "cl": 2, "tcv": 142000, "aav": 80000, "years": [80000, 62000], "confidence": "high" },
+      "source": "MFL 2025: restructure [80,62] '25-'26 (cy=2)"
     }
   ]
 }

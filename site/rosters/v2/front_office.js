@@ -2461,7 +2461,13 @@
     return s;
   }
   function foTxnDetail(e) {
-    if (e.kind === "trade") return e.from_franchise_id ? "from " + escapeHtml(franchiseNameByFid(e.from_franchise_id)) : "";
+    if (e.kind === "trade") {
+      // Prefer the curated HISTORICAL from-name; franchiseNameByFid resolves the
+      // CURRENT (2026) owner, which is wrong for old trades (F0005 is "HammerTime"
+      // now but was "C'mon Son" — a different owner — in 2017).
+      var fromName = e.from_franchise_name || (e.from_franchise_id ? franchiseNameByFid(e.from_franchise_id) : "");
+      return fromName ? "from " + escapeHtml(fromName) : "";
+    }
     if (e.kind === "draft") return escapeHtml(e.detail || "");
     var cs = foContractSummary(e.contract);
     // Auction/waiver carry a $ price in detail — show it alongside the contract.
