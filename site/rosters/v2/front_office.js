@@ -2954,11 +2954,15 @@
     // the MYAC window is open (Keith: nobody extends when they can MYAC).
     if (elig.myacEligible) {
       const recAs = String(p.type || "").toLowerCase().indexOf("-era") !== -1 ? "Vet-ERA" : "Vet-FAA";
-      const mbtns = [];
-      if (has1) mbtns.push(`<button class="btn small" data-action="myac" data-years="1">2-Year</button>`);
-      if (has1) mbtns.push(`<button class="btn small" data-action="myac-loaded" data-total="2">2-Year Loaded…</button>`);
-      if (has2) mbtns.push(`<button class="btn small" data-action="myac" data-years="2">3-Year</button>`);
-      if (has2) mbtns.push(`<button class="btn small" data-action="myac-loaded" data-total="3">3-Year Loaded…</button>`);
+      // MYAC needs no worker preview — it's just bid × years — so always offer 2/3
+      // year (flat + loaded). The worker doesn't ship extension previews for
+      // Vet-ERA players, which is why these were wrongly hidden (e.g. M. Mayer).
+      const mbtns = [
+        `<button class="btn small" data-action="myac" data-years="1">2-Year</button>`,
+        `<button class="btn small" data-action="myac-loaded" data-total="2">2-Year Loaded…</button>`,
+        `<button class="btn small" data-action="myac" data-years="2">3-Year</button>`,
+        `<button class="btn small" data-action="myac-loaded" data-total="3">3-Year Loaded…</button>`
+      ];
       const dlNote = STATE.contractDeadline ? " Window closes " + escapeHtml(STATE.contractDeadline) + "." : "";
       rows.push(actionRow("Multi-Year Contract (MYAC)",
         "Set this 1-yr deal to a 2- or 3-year contract (§C2) at the SAME salary (TCV = salary × years — no raise). <strong>Loaded</strong> free-keys Y1 in whole $1,000s (FL/BL; Y1 ≥ 20% TCV). Records as " + recAs + ". Max " + LOADED_MAX + " loaded contracts per roster." + dlNote,
