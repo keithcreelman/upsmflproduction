@@ -2508,6 +2508,24 @@ export default {
 
       const safeStr = (v) => String(v == null ? "" : v).trim();
 
+      // Fetch an upstream (esp. the MFL API) with retry + exponential backoff on
+      // 429 / 5xx. MFL rate-limits bursts — the multi-season playoff backfill and
+      // draft-pick sync both hit it — so any batch of MFL fetches should route
+      // through this rather than a bare fetch(). Canon: docs/MFL_API.md §Rate limits.
+      const fetchWithBackoff = async (u, opts, tries = 4, baseDelay = 600) => {
+        let delay = baseDelay, last = null;
+        for (let attempt = 1; attempt <= tries; attempt++) {
+          try {
+            last = await fetch(u, opts);
+            if (last.status !== 429 && last.status < 500) return last;
+          } catch (e) {
+            if (attempt === tries) throw e;
+          }
+          if (attempt < tries) { await new Promise((r) => setTimeout(r, delay)); delay *= 2; }
+        }
+        return last;
+      };
+
       // Tiny RSS 2.0 parser — enough for player-news ingest (NFL.com,
       // ProFootballTalk, etc.). Returns [{ source, headline, description,
       // url, published_ts }, ...]. Strips CDATA + basic HTML in description
@@ -6277,7 +6295,7 @@ export default {
             const positionByPid = {};
             const posGroupByPosition = {};
             try {
-              const plRes = await fetch(`https://api.myfantasyleague.com/${season}/export?TYPE=players&L=${encodeURIComponent(leagueId)}&JSON=1`, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 86400 } });
+              const plRes = await fetchWithBackoff(`https://api.myfantasyleague.com/${season}/export?TYPE=players&L=${encodeURIComponent(leagueId)}&JSON=1`, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 86400 } });
               if (plRes.ok) {
                 const plData = await plRes.json();
                 let pls = (plData && plData.players && plData.players.player) || [];
@@ -6299,7 +6317,7 @@ export default {
               const u = `https://api.myfantasyleague.com/${season}/export?TYPE=weeklyResults&L=${encodeURIComponent(leagueId)}&W=${week}&MISSING_AS_BYE=1&JSON=1`;
               let payload;
               try {
-                const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 300 } });
+                const r = await fetchWithBackoff(u, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 300 } });
                 if (!r.ok) { srep.weeks[week] = { error: "HTTP " + r.status }; continue; }
                 payload = await r.json();
               } catch (e) { srep.weeks[week] = { error: String((e && e.message) || e) }; continue; }
@@ -6339,7 +6357,7 @@ export default {
               // rows we write; playerScores drives the rank within each.
               const posRankByPid = {}; const overallRankByPid = {};
               try {
-                const psRes = await fetch(`https://api.myfantasyleague.com/${season}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&W=${week}&JSON=1`, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 300 } });
+                const psRes = await fetchWithBackoff(`https://api.myfantasyleague.com/${season}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&W=${week}&JSON=1`, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 300 } });
                 if (psRes.ok) {
                   const psData = await psRes.json();
                   let arr = (psData && psData.playerScores && psData.playerScores.playerScore) || [];
@@ -7815,9 +7833,9 @@ export default {
             const lidYr = yr === 2014 ? "30590" : yr === 2015 ? "29015" : yr === 2016 ? "27191" : baseLeague;
             const ua = { headers: { "User-Agent": "upsmflproduction-worker" } };
             const [drRes, lgRes, plRes] = await Promise.all([
-              fetch(`https://api.myfantasyleague.com/${yr}/export?TYPE=draftResults&L=${encodeURIComponent(lidYr)}&JSON=1`, { ...ua, cf: { cacheTtl: 60 } }),
-              fetch(`https://api.myfantasyleague.com/${yr}/export?TYPE=league&L=${encodeURIComponent(lidYr)}&JSON=1`, { ...ua, cf: { cacheTtl: 300 } }),
-              fetch(`https://api.myfantasyleague.com/${yr}/export?TYPE=players&L=${encodeURIComponent(lidYr)}&JSON=1`, { ...ua, cf: { cacheTtl: 3600 } }),
+              fetchWithBackoff(`https://api.myfantasyleague.com/${yr}/export?TYPE=draftResults&L=${encodeURIComponent(lidYr)}&JSON=1`, { ...ua, cf: { cacheTtl: 60 } }),
+              fetchWithBackoff(`https://api.myfantasyleague.com/${yr}/export?TYPE=league&L=${encodeURIComponent(lidYr)}&JSON=1`, { ...ua, cf: { cacheTtl: 300 } }),
+              fetchWithBackoff(`https://api.myfantasyleague.com/${yr}/export?TYPE=players&L=${encodeURIComponent(lidYr)}&JSON=1`, { ...ua, cf: { cacheTtl: 3600 } }),
             ]);
             if (!drRes.ok) { rep.errors.push(`draftResults HTTP ${drRes.status}`); out.seasons[yr] = rep; continue; }
             const drData = await drRes.json();

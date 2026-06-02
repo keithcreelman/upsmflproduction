@@ -138,14 +138,26 @@ and the worker picks the right host.
 - `TYPE=myleagues` → `{ myleagues: { league: [{ league_id, franchise_id, name, host, ... }] } }`
 - `TYPE=myfranchise&L=<lid>` → `{ myfranchise: { id: "0008", name: "Real Deal Creel" } }`
 
-### 7) Throttling and retry policy (recommended)
+### 7) Throttling and retry policy (CANON — required for batch fetches)
 
 - Baseline: 1 request/sec.
-- On `429 Too Many Requests`:
-  - Exponential backoff (`2s, 4s, 8s, ...`) with jitter.
+- On `429 Too Many Requests` (or `5xx`):
+  - Exponential backoff (`2s, 4s, 8s, ...`).
   - Drop concurrency to 1.
   - Do not spam retries.
 - Always send a stable `User-Agent`.
+
+**Standard helper — route batch MFL fetches through it, do NOT call bare `fetch()`
+in a loop.** The worker exposes `fetchWithBackoff(url, opts, tries=4, baseDelay=600)`
+(defined next to `safeStr` in `worker/src/index.js`): it retries on 429/5xx with
+exponential backoff and returns the final response. Any endpoint that fans out
+across seasons/weeks/players (e.g. `/admin/backfill-playoff-weekly`,
+`/admin/sync-src-draft-picks`) MUST use it.
+
+> Why this is canon: the 5-season playoff backfill (35 MFL fetches in one request)
+> rate-limited mid-batch — 2024 W17 + all of 2025 silently came back empty — and
+> had to be re-run per-season. `fetchWithBackoff` + per-season runs is the rule.
+> When a batch is large, still prefer one season per invocation over one giant run.
 
 ### 8) Caching policy (recommended)
 
