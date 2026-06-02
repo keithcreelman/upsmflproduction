@@ -6234,7 +6234,8 @@ export default {
       // with is_reg=0, so both the Game Log and career stats pick them up.
       //   • pos_group is inherited from the player's existing reg-season rows that
       //     season (consistent grouping — same join key the tier baselines use).
-      //   • per-week pos_rank / overall_rank computed across rostered scorers.
+      //   • per-week pos_rank / overall_rank vs the ENTIRE NFL at each position
+      //     (from TYPE=playerScores), matching the reg-season rank definition.
       //   • win_chunks left NULL (needs the positional-win-profile ETL).
       // Dry-run by default; pass commit=1 to actually write. Commish-key gated.
       if (path === "/admin/backfill-playoff-weekly" && request.method === "GET") {
@@ -6267,6 +6268,32 @@ export default {
             const fn = await db.prepare(`SELECT DISTINCT franchise_id, team_name FROM src_contracts WHERE season = ?`).bind(season).all();
             const fidName = {};
             for (const r of (fn.results || [])) fidName[pad4(r.franchise_id)] = safeStr(r.team_name);
+
+            // NFL-wide player positions for this season + the league's
+            // position -> pos_group mapping, LEARNED from the rostered rows whose
+            // pos_group we already know (majority vote per position). This lets us
+            // rank playoff weeks against the ENTIRE NFL at each position, grouped
+            // EXACTLY the way the reg-season ranks are (validated below).
+            const positionByPid = {};
+            const posGroupByPosition = {};
+            try {
+              const plRes = await fetch(`https://api.myfantasyleague.com/${season}/export?TYPE=players&L=${encodeURIComponent(leagueId)}&JSON=1`, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 86400 } });
+              if (plRes.ok) {
+                const plData = await plRes.json();
+                let pls = (plData && plData.players && plData.players.player) || [];
+                if (!Array.isArray(pls)) pls = [pls];
+                for (const pp of pls) { if (pp && pp.id) positionByPid[String(pp.id)] = safeStr(pp.position); }
+                const tally = {};
+                for (const pid in posGroup) {
+                  const posn = positionByPid[pid]; const g = posGroup[pid];
+                  if (!posn || !g) continue;
+                  (tally[posn] = tally[posn] || {})[g] = (tally[posn][g] || 0) + 1;
+                }
+                for (const posn in tally) {
+                  posGroupByPosition[posn] = Object.keys(tally[posn]).sort((a, b) => tally[posn][b] - tally[posn][a])[0];
+                }
+              }
+            } catch (_) {}
 
             for (const week of playoffWeeks(season)) {
               const u = `https://api.myfantasyleague.com/${season}/export?TYPE=weeklyResults&L=${encodeURIComponent(leagueId)}&W=${week}&MISSING_AS_BYE=1&JSON=1`;
@@ -6302,24 +6329,55 @@ export default {
                   }
                 }
               }
-              // NOTE: pos_rank / overall_rank are left NULL for playoff rows. The
-              // regular-season src_weekly ranks players against the ENTIRE NFL at
-              // their position that week (derived by the points-summary ETL), but
-              // weeklyResults only exposes rostered players — a rostered-only rank
-              // would be inconsistently low (apples to oranges). The Game Log
-              // shows "—" for playoff pos rank rather than a misleading value.
+              // Per-week pos_rank / overall_rank vs the ENTIRE NFL at each
+              // position — the SAME definition the reg-season ranks use. Source is
+              // TYPE=playerScores (all NFL players under the league's scoring
+              // rules), grouped by posGroupByPosition and competition-ranked
+              // (1,2,2,4) by score desc. Validated: this reproduces the reg-season
+              // src_weekly.pos_rank exactly (W-10 2024: Burrow QB1, McLaurin WR12,
+              // Brown RB5, LaPorta TE3). weeklyResults (rostered-only) drives WHICH
+              // rows we write; playerScores drives the rank within each.
+              const posRankByPid = {}; const overallRankByPid = {};
+              try {
+                const psRes = await fetch(`https://api.myfantasyleague.com/${season}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&W=${week}&JSON=1`, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 300 } });
+                if (psRes.ok) {
+                  const psData = await psRes.json();
+                  let arr = (psData && psData.playerScores && psData.playerScores.playerScore) || [];
+                  if (!Array.isArray(arr)) arr = [arr];
+                  const scored = []; const byGroup = {};
+                  for (const ps of arr) {
+                    const sid = String((ps && ps.id) || "").replace(/\D/g, "");
+                    const sc = (ps && ps.score !== "" && ps.score != null) ? Number(ps.score) : null;
+                    if (!sid || sc == null || !isFinite(sc)) continue;
+                    scored.push({ pid: sid, score: sc });
+                    const g = posGroupByPosition[positionByPid[sid]];
+                    if (g) (byGroup[g] = byGroup[g] || []).push({ pid: sid, score: sc });
+                  }
+                  for (const g in byGroup) {
+                    const list = byGroup[g].sort((a, b) => b.score - a.score);
+                    let prev = null, rnk = 0;
+                    list.forEach((x, i) => { if (x.score !== prev) { rnk = i + 1; prev = x.score; } posRankByPid[x.pid] = rnk; });
+                  }
+                  scored.sort((a, b) => b.score - a.score);
+                  let pv = null, rr = 0;
+                  scored.forEach((x, i) => { if (x.score !== pv) { rr = i + 1; pv = x.score; } overallRankByPid[x.pid] = rr; });
+                }
+              } catch (_) {}
               const scorers = playerRows.filter((r) => r.score != null && r.score > 0).slice().sort((a, b) => b.score - a.score);
               const stmts = playerRows.map((r) => db.prepare(
                 `INSERT OR REPLACE INTO src_weekly
                    (season, week, player_id, pos_group, status, score, is_reg,
                     roster_franchise_id, roster_franchise_name, pos_rank, overall_rank, win_chunks)
-                 VALUES (?,?,?,?,?,?,0,?,?,NULL,NULL,NULL)`
-              ).bind(season, week, r.pid, r.pos_group, r.status, r.score, r.fid, fidName[r.fid] || null));
+                 VALUES (?,?,?,?,?,?,0,?,?,?,?,NULL)`
+              ).bind(season, week, r.pid, r.pos_group, r.status, r.score, r.fid, fidName[r.fid] || null,
+                     (posRankByPid[r.pid] != null ? posRankByPid[r.pid] : null),
+                     (overallRankByPid[r.pid] != null ? overallRankByPid[r.pid] : null)));
               srep.weeks[week] = {
                 players: playerRows.length, scorers: scorers.length,
+                ranked: playerRows.filter((r) => posRankByPid[r.pid] != null).length,
                 statuses: Array.from(new Set(playerRows.map((r) => r.status))),
                 no_pos_group: playerRows.filter((r) => !r.pos_group).length,
-                sample: scorers.slice(0, 4).map((r) => ({ pid: r.pid, score: r.score, status: r.status, pg: r.pos_group, pos_rank: r.pos_rank, overall_rank: r.overall_rank, team: fidName[r.fid] || r.fid })),
+                sample: scorers.slice(0, 4).map((r) => ({ pid: r.pid, score: r.score, status: r.status, pg: r.pos_group, pos_rank: (posRankByPid[r.pid] != null ? posRankByPid[r.pid] : null), overall_rank: (overallRankByPid[r.pid] != null ? overallRankByPid[r.pid] : null), team: fidName[r.fid] || r.fid })),
               };
               if (commit && stmts.length) {
                 for (let i = 0; i < stmts.length; i += 50) await db.batch(stmts.slice(i, i + 50));
