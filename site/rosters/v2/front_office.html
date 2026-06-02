@@ -60,9 +60,23 @@
           <span>Contract Type</span>
           <select id="fo-filter-type">
             <option value="">All</option>
-            <option value="rookie">Rookie</option>
-            <option value="loaded">Loaded (multi-year)</option>
-            <option value="other">Other</option>
+            <optgroup label="Rookie">
+              <option value="rookie">All Rookie</option>
+              <option value="rk-draft">Rookie-Draft</option>
+              <option value="rk-ww">Rookie-WW</option>
+              <option value="rk-mym">Rookie-MYM</option>
+            </optgroup>
+            <optgroup label="Veteran">
+              <option value="veteran">All Veteran</option>
+              <option value="vet-ext">Vet-Ext</option>
+              <option value="vet-fl">Vet-FL (loaded)</option>
+              <option value="vet-bl">Vet-BL (loaded)</option>
+              <option value="vet-ww">Vet-WW</option>
+              <option value="vet-mym">Vet-MYM</option>
+            </optgroup>
+            <option value="loaded">Loaded (FL/BL)</option>
+            <option value="tag">Tag</option>
+            <option value="expired">Expired</option>
           </select>
         </label>
         <label class="fo-field">

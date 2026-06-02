@@ -250,17 +250,25 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
   font-size: 10px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.3px; white-space: nowrap;
 }
-.fo-ctype.rookie    { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
-.fo-ctype.veteran   { background: rgba(91, 141, 255, 0.18); color: var(--accent); }
-.fo-ctype.ext       { background: rgba(91, 141, 255, 0.10); color: var(--accent); border: 1px solid rgba(91, 141, 255, 0.30); }
+/* Family bases — Rookie = green, Vet = blue, Tag = yellow. */
+.fo-ctype.rk        { background: rgba(52, 211, 153, 0.16); color: #34d399; }
+.fo-ctype.vet       { background: rgba(91, 141, 255, 0.16); color: #5b8dff; }
 .fo-ctype.tag       { background: rgba(251, 191, 36, 0.18); color: var(--warn); }
-.fo-ctype.ww        { background: rgba(251, 191, 36, 0.10); color: var(--warn); }
-.fo-ctype.fl        { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
-.fo-ctype.bl        { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
-.fo-ctype.mym       { background: rgba(20, 184, 166, 0.18); color: var(--dryrun); }
-.fo-ctype.expired   { background: rgba(248, 113, 113, 0.12); color: var(--err); border: 1px solid rgba(248, 113, 113, 0.35); }
+.fo-ctype.expired   { background: rgba(248, 113, 113, 0.14); color: var(--err); border: 1px solid rgba(248, 113, 113, 0.35); }
 .fo-ctype.other,
 .fo-ctype.unknown   { background: var(--panel-alt); color: var(--muted); border: 1px dashed var(--border); }
+/* Sub-hues (listed AFTER the bases so they override the family color). */
+.fo-ctype.rk-draft  { background: rgba(74, 222, 128, 0.18);  color: #4ade80; }
+.fo-ctype.rk-ww     { background: rgba(110, 231, 183, 0.16); color: #6ee7b7; }
+.fo-ctype.rk-mym    { background: rgba(45, 212, 191, 0.16);  color: #2dd4bf; }
+.fo-ctype.rk-fl,
+.fo-ctype.rk-bl,
+.fo-ctype.rk-ext    { background: rgba(16, 185, 129, 0.16);  color: #10b981; }
+.fo-ctype.vet-ext   { background: rgba(129, 140, 248, 0.18); color: #818cf8; }
+.fo-ctype.vet-fl    { background: rgba(192, 132, 252, 0.16); color: #c084fc; }
+.fo-ctype.vet-bl    { background: rgba(167, 139, 250, 0.16); color: #a78bfa; }
+.fo-ctype.vet-ww    { background: rgba(56, 189, 248, 0.16);  color: #38bdf8; }
+.fo-ctype.vet-mym   { background: rgba(34, 211, 238, 0.16);  color: #22d3ee; }
 
 /* ── Cap Plan tab ────────────────────────────────────────────────── */
 .fo-cap-team-link {
