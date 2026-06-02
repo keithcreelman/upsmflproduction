@@ -2536,7 +2536,10 @@
       } else { e._sub = 0; expanded.push(e); }
     });
     events = expanded;
-    events.sort(function (a, b) { return (foTxnSortKey(a) - foTxnSortKey(b)) || ((a._sub || 0) - (b._sub || 0)); });
+    // Newest-first (Keith: newest tx up top — consistent with Contract History
+    // + Stats). Primary key descending; _sub stays ascending so within a
+    // same-date pair the acquisition still sits above its Contract.
+    events.sort(function (a, b) { return (foTxnSortKey(b) - foTxnSortKey(a)) || ((a._sub || 0) - (b._sub || 0)); });
     events.forEach(function (e, i) { e.seq = i + 1; });
     if (!events.length) {
       body.innerHTML = '<div class="fo-form-note">No transactions found for this player' + (data && data.ok ? "" : " (load failed)") + ".</div>";
@@ -2564,7 +2567,7 @@
       '<div style="overflow-x:auto;"><table class="fo-table"><thead><tr>' +
       '<th class="num">#</th><th>Date</th><th>Event</th><th>Detail</th><th>Team</th>' +
       "</tr></thead><tbody>" + rows + "</tbody></table></div>" +
-      '<div class="fo-form-note" style="margin-top:8px;">Oldest first. Live: <code>/api/player-transactions</code> (MFL txns ∪ D1 draft/contracts/extensions/tags)' +
+      '<div class="fo-form-note" style="margin-top:8px;">Newest first. Live: <code>/api/player-transactions</code> (MFL txns ∪ D1 draft/contracts/extensions/tags)' +
       (histEvents.length ? "; deep-history (pre-2019) curated from forum/MFL validation (<code>historical_acquisitions.json</code>)" : "") + ". " +
       '<span class="fo-lowconf">~</span> low-confidence · <span class="fo-src">ⓘ</span> hover for source.' +
       (oldestYr ? " Back to " + escapeHtml(String(oldestYr)) + "." : "") + "</div>";
