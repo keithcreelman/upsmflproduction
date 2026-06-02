@@ -1294,18 +1294,26 @@
     return "IDP"; // DL/LB/DB/S/CB/DT/DE
   }
 
+  // Contract-type CSS class: FAMILY first (rk = green, vet = blue, tag = yellow),
+  // then a sub-hue to differentiate within the family. Returns "<family> <sub>"
+  // (e.g. "vet vet-fl", "rk rk-draft") so the family base color always applies
+  // and the sub rule (later in the stylesheet) overrides the hue. Works on raw
+  // MFL statuses (FL/BL/WW/EXT1/MYM/Veteran/Rookie) AND canonical types
+  // (Vet-FAA-FL, Rookie-Draft, …). FAA/ERA map to the family base per Keith.
   function ctypeClass(type) {
     var t = String(type || "").toUpperCase();
-    if (t.startsWith("ROOKIE")) return "rookie";
-    if (t.indexOf("EXT") !== -1) return "ext";
-    if (t === "TAG")            return "tag";
-    if (t.indexOf("WW")  !== -1) return "ww";
-    if (t.indexOf("FL") >= 0)   return "fl";
-    if (t.indexOf("BL") >= 0)   return "bl";
-    if (t.indexOf("MYM") >= 0)  return "mym";
-    if (t === "VETERAN" || t === "VET") return "veteran";
+    if (!t || t === "-") return "unknown";
     if (t === "EXPIRED") return "expired";
-    return t === "-" || !t ? "unknown" : "other";
+    if (t.indexOf("TAG") >= 0) return "tag";
+    var fam = t.startsWith("ROOKIE") ? "rk" : "vet";
+    var sub = "";
+    if (t.indexOf("FL") >= 0) sub = fam + "-fl";          // loaded (front)
+    else if (t.indexOf("BL") >= 0) sub = fam + "-bl";     // loaded (back)
+    else if (t.indexOf("EXT") >= 0) sub = fam + "-ext";   // extension
+    else if (t.indexOf("WW") >= 0) sub = fam + "-ww";     // waiver
+    else if (t.indexOf("MYM") >= 0) sub = fam + "-mym";   // make-your-mark
+    else if (fam === "rk" && t.indexOf("DRAFT") >= 0) sub = "rk-draft";
+    return sub ? (fam + " " + sub) : fam;
   }
 
   function rosterStatusClass(player) {
@@ -1747,10 +1755,19 @@
     return players.filter(function (p) {
       if (f.pos !== "ALL" && posBucket(p.position) !== f.pos) return false;
       if (f.type) {
-        const t = String(p.type || "").toUpperCase();
-        if (f.type === "rookie" && !t.startsWith("ROOKIE")) return false;
-        if (f.type === "loaded" && safeInt(p.years, 0) < 2)  return false;
-        if (f.type === "other"  && (t.startsWith("ROOKIE") || safeInt(p.years, 0) >= 2)) return false;
+        // Match the family+sub class from ctypeClass ("vet vet-fl" / "rk rk-draft"
+        // / "tag" / "expired"): families match the whole bucket, specific subs
+        // match exactly, "loaded" matches any FL/BL.
+        const cls = ctypeClass(p.type);
+        const fam = cls.split(" ")[0];
+        let ok;
+        if (f.type === "rookie") ok = fam === "rk";
+        else if (f.type === "veteran") ok = fam === "vet";
+        else if (f.type === "tag") ok = cls === "tag";
+        else if (f.type === "expired") ok = p.isExpiredRookie || cls === "expired";
+        else if (f.type === "loaded") ok = cls.indexOf("-fl") >= 0 || cls.indexOf("-bl") >= 0;
+        else ok = (" " + cls + " ").indexOf(" " + f.type + " ") >= 0;
+        if (!ok) return false;
       }
       if (f.status) {
         if (f.status === "active" && (p.isTaxi || p.isIr)) return false;
