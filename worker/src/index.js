@@ -5776,6 +5776,8 @@ export default {
         // new_contract_status; this just cleans the base type on other rows).
         const canonType = (status, info) => {
           const s = safeStr(status);
+          const em = s.match(/^EXT\s*(\d+)$/i);             // legacy EXT1 → canonical Vet-Ext1
+          if (em) return "Vet-Ext" + em[1];
           let base = /rookie/i.test(s) ? "Rookie" : /^vet/i.test(s) ? "Vet" : /veteran/i.test(s) ? "Vet" : (s || "—");
           if (/(^|\W)MYM(\W|$)/i.test(safeStr(info)) && !/MYM/i.test(base)) base += "-MYM";
           return base;
@@ -5843,17 +5845,27 @@ export default {
                  FROM ups_extension_master WHERE league_id = ? AND player_id = ? ORDER BY season`
             ).bind(leagueId, pid).all();
             for (const r of (ex.results || [])) {
-              // Prefer a date mined from the evidence quote, else the row's extended_at_utc.
+              // Date: prefer one mined from the evidence quote; else a real
+              // extended_at_utc; else fall back to the season (approximate).
               const md = safeStr(r.evidence_source).match(/(\d{4}-\d{2}-\d{2})/);
-              const exDate = md ? md[1] : safeStr(r.extended_at_utc).slice(0, 10);
+              const eu = safeStr(r.extended_at_utc).slice(0, 10);
+              let exDate, dateApprox;
+              if (md) { exDate = md[1]; dateApprox = false; }
+              else if (eu && !/-01-01$/.test(eu)) { exDate = eu; dateApprox = false; }
+              else { exDate = String(r.season); dateApprox = true; }
               let exTs = 0;
               try { exTs = exDate.length === 10 ? Math.floor(new Date(exDate + "T12:00:00Z").getTime() / 1000) : Math.floor(Date.UTC(parseInt(r.season, 10), 2, 1) / 1000); } catch (_) {}
+              // Term details: extension_master first, fall back to that season's src_contracts.
+              const fb = inlineContract(r.season) || {};
               const yb = yearsFromContract({ contract_info: r.new_contract_info, tcv: r.new_tcv, contract_length: r.extension_term_years });
-              events.push({ season: r.season, ts: exTs, date: exDate || String(r.season), kind: "extension",
+              const years = yb.years.length ? yb.years : (fb.years || []);
+              const evidenced = safeStr(r.evidence_grade) === "evidenced";
+              events.push({ season: r.season, ts: exTs, date: exDate, date_approx: dateApprox, kind: "extension",
                 label: "Extension", detail: "", franchise_id: pad4(r.franchise_id),
-                contract: { canonical_type: safeStr(r.new_contract_status) || "Extension", cl: r.extension_term_years || null,
-                  tcv: r.new_tcv || null, aav: r.new_aav || null, years: yb.years,
-                  confidence: safeStr(r.evidence_grade) === "evidenced" ? "ok" : "derived" },
+                contract: { canonical_type: canonType(r.new_contract_status, r.new_contract_info) || "Extension",
+                  cl: r.extension_term_years || fb.cl || null, tcv: r.new_tcv || fb.tcv || null,
+                  aav: r.new_aav || fb.aav || null, years: years,
+                  confidence: (evidenced && !dateApprox) ? "ok" : "derived" },
                 evidence: safeStr(r.evidence_source).slice(0, 240) });
             }
           } catch (_) {}
