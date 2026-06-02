@@ -5968,6 +5968,23 @@ export default {
           } catch (_) {}
         }));
 
+        // Origin contract — surface the EARLIEST src_contracts season when no
+        // event yet represents it (acquisition predates the 2019 MFL-transaction
+        // floor). Aligns the Transaction Log's start with the Contract History
+        // (e.g. Hill's 2017 $2k original deal at Sex Manther).
+        const contractSeasons = Object.keys(contractBySeason).map(Number).filter((n) => n).sort((a, b) => a - b);
+        if (contractSeasons.length) {
+          const originSeason = contractSeasons[0];
+          const earliestEventSeason = events.reduce((mn, e) => Math.min(mn, parseInt(e.season, 10) || 9999), 9999);
+          if (originSeason < earliestEventSeason) {
+            const sc = contractBySeason[String(originSeason)];
+            let oTs = 0; try { oTs = Math.floor(Date.UTC(originSeason, 2, 1) / 1000); } catch (_) {}
+            events.push({ season: originSeason, ts: oTs, date: String(originSeason), date_approx: true, kind: "contract",
+              label: "Original Contract", detail: "", franchise_id: sc ? pad4(sc.franchise_id) : "",
+              franchise_name: sc ? safeStr(sc.team_name) : "", contract: inlineContract(originSeason) });
+          }
+        }
+
         // Suppress expired-contract drops — a drop the same player RE-ACQUIRES
         // (auction/add/draft) later that same season is just expired-contract
         // churn (years remaining = 0), not a real roster move.
