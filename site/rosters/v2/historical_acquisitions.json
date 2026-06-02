@@ -40,5 +40,29 @@
       "contract": { "canonical_type": "Vet-FL", "cl": 3, "tcv": 123000, "aav": 41000, "years": [62000, 44000, 17000], "confidence": "ok" },
       "source": "Forum t271-baster-contracts (8/14-15/2016) — Mannila won FA auction, 3yr Front-Loaded 62/44/17, commish-confirmed"
     }
+  ],
+  "12801": [
+    {
+      "season": 2016, "date": "2016-08-17", "kind": "auction", "label": "Auction Won", "confidence": "high",
+      "franchise_id": "0005", "franchise_name": "BTNH",
+      "contract": { "canonical_type": "Rookie", "cl": 3, "tcv": 3000, "aav": 1000, "years": [1000, 1000, 1000], "confidence": "high" },
+      "source": "MFL 2016 (L=27191) AUCTION_WON 8/17/2016 — BTNH (F0005) won Hill for $1k; salary $1k, cy=3 → 3-year rookie-auction deal"
+    },
+    {
+      "season": 2017, "date": "2017-06-14", "kind": "trade", "label": "Traded", "confidence": "high",
+      "franchise_id": "0003", "franchise_name": "Gride", "from_franchise_id": "0005",
+      "source": "MFL 2017 TRADE 6/14/2017 — C'mon Son (F0005) traded Hill to Gride (F0003)"
+    },
+    {
+      "season": 2017, "date": "2017-11-23", "kind": "trade", "label": "Traded", "confidence": "high",
+      "franchise_id": "0007", "franchise_name": "Sex Manther", "from_franchise_id": "0003",
+      "source": "MFL 2017 TRADE 11/23/2017 — Gride (F0003) traded Hill to Sex Manther (F0007)"
+    },
+    {
+      "season": 2018, "date": "2018", "date_approx": true, "kind": "extension", "label": "Extension (2yr restructure)", "confidence": "low",
+      "franchise_id": "0007", "franchise_name": "Sex Manther",
+      "contract": { "canonical_type": "Vet-Ext1", "cl": 2, "tcv": 22000, "aav": 1000, "years": [1000, 21000], "confidence": "low" },
+      "source": "Keith: 2-yr extension + restructure, AAV 1,21 → [1K, 21K]. CONFLICTS with MFL contractInfo annotation 'Restructure Ext. Manther 18-20 [14K,14K,15K] (AAV 1K)' — needs confirmation"
+    }
   ]
 }

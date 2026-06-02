@@ -2438,6 +2438,13 @@
     var yr = parseInt(safeStr(e.season || d).slice(0, 4), 10) || 0;
     return yr ? Math.floor(Date.UTC(yr, 2, 1) / 1000) : 0;
   }
+  // High vs low confidence for an event (explicit on curated rows; otherwise
+  // inferred from the contract — even-split / approximate terms are low).
+  function foEventConf(e) {
+    if (e.confidence) return (e.confidence === "high" || e.confidence === "ok") ? "high" : "low";
+    var cc = e.contract && e.contract.confidence;
+    return (cc === "derived" || cc === "low") ? "low" : "high";
+  }
   function foTxnK(n) { return (n == null) ? "—" : "$" + Math.round(Number(n) / 1000) + "K"; }
   // Compact inline contract summary: canonical type · CL · TCV · AAV · Y1/Y2/Y3,
   // with a low-confidence flag for derived/inferred terms.
@@ -2470,8 +2477,11 @@
     if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "txns") return; // user moved on
     var workerEvents = (data && Array.isArray(data.events)) ? data.events : [];
     var histEvents = (histAll && Array.isArray(histAll[p.id])) ? histAll[p.id] : [];
-    // Merge curated deep-history (pre-2019) ahead of the live worker events,
-    // then re-sort oldest-first and re-number across the combined set.
+    // Curated deep-history SUPERSEDES the auto-derived worker events for every
+    // season it covers (older MFL annotations drift, e.g. Hill's 2018) — keep
+    // worker events only for seasons AFTER the curated range.
+    var maxHist = histEvents.reduce(function (m, e) { return Math.max(m, parseInt(e.season, 10) || 0); }, 0);
+    if (maxHist) workerEvents = workerEvents.filter(function (e) { return (parseInt(e.season, 10) || 9999) > maxHist; });
     var events = histEvents.concat(workerEvents).slice();
     events.sort(function (a, b) { return foTxnSortKey(a) - foTxnSortKey(b); });
     events.forEach(function (e, i) { e.seq = i + 1; });
@@ -2486,10 +2496,12 @@
       var team = e.franchise_name ? escapeHtml(e.franchise_name) : escapeHtml(franchiseNameByFid(e.franchise_id));
       var src = safeStr(e.source || e.evidence);
       var info = src ? ' <span class="fo-src" title="' + escapeHtml(src) + '">ⓘ</span>' : "";
+      var conf = foEventConf(e);
+      var dot = '<span class="fo-conf fo-conf-' + conf + '" title="' + (conf === "high" ? "High confidence" : "Low confidence — verify") + '">●</span> ';
       return "<tr>" +
         '<td class="small" style="color:var(--muted);">' + (e.seq || "") + "</td>" +
         '<td class="small" style="white-space:nowrap;">' + dateStr + "</td>" +
-        '<td><span class="fo-txn ' + foTxnKindClass(e.kind) + '">' + escapeHtml(e.label || e.kind) + "</span></td>" +
+        "<td>" + dot + '<span class="fo-txn ' + foTxnKindClass(e.kind) + '">' + escapeHtml(e.label || e.kind) + "</span></td>" +
         "<td>" + foTxnDetail(e) + info + "</td>" +
         '<td class="small">' + team + "</td>" +
         "</tr>";
