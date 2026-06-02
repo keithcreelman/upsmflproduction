@@ -653,7 +653,26 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-sum-val.fo-sum-pos { color: var(--ok); }
 .fo-sum-val.fo-sum-neg { color: var(--err); }
 .fo-sum-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); font-weight: 600; margin-top: 2px; }
-.fo-sum-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+.fo-sum-sub { font-size: 10px; color: var(--muted); margin-top: 1px; line-height: 1.5; }
+.fo-sum-of { font-size: 13px; font-weight: 600; color: var(--muted); }
+.fo-ir-alert { color: var(--warn); font-weight: 600; text-decoration: none; }
+.fo-ir-alert:hover { text-decoration: underline; }
+.fo-adj-info { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; padding: 0; margin-left: 2px; border-radius: 50%; border: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 9px; font-weight: 700; cursor: pointer; line-height: 1; }
+.fo-adj-info:hover { color: var(--accent); border-color: var(--accent); }
+/* Cap-adjustment popup */
+.fo-adj-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.fo-adj-popup { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(420px, 92vw); max-height: 80vh; overflow: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+.fo-adj-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); font-weight: 700; color: var(--text); }
+.fo-adj-close { background: none; border: none; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.fo-adj-close:hover { color: var(--text); }
+.fo-adj-body { padding: 8px 14px; }
+.fo-adj-team { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--accent); font-weight: 700; margin: 10px 0 4px; }
+.fo-adj-team:first-child { margin-top: 2px; }
+.fo-adj-row { display: flex; justify-content: space-between; gap: 16px; font-size: 12px; color: var(--text); padding: 3px 0; }
+.fo-adj-row .num { font-variant-numeric: tabular-nums; color: var(--muted); }
+.fo-adj-row.fo-adj-total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; font-weight: 700; }
+.fo-adj-row.fo-adj-total .num { color: var(--text); }
+.fo-adj-foot { padding: 8px 14px 12px; font-size: 10px; color: var(--muted); border-top: 1px solid var(--border); }
 /* Contract-TYPE color families: Rookie / Vet (incl FAA, ERA, FL, BL, MYM) / Tag */
 .fo-ctf-rookie { color: #34d399; }
 .fo-ctf-vet { color: #5b8dff; }
