@@ -1879,12 +1879,24 @@
     if (["CB", "S", "DB", "SS", "FS", "SAF"].indexOf(p) >= 0) return "DB";
     return "IDP";
   }
+  // Rank a team's position cap allocation (TOTAL) among the league. Taxi excluded.
   function positionAllocRank(bucket, teamFid) {
     const byTeam = STATE.teams.map(function (t) {
       let sum = 0;
-      (t.players || []).forEach(function (p) { if (posGroupFine(p.position) === bucket) sum += currentCapHit(p); });
+      (t.players || []).forEach(function (p) { if (posGroupFine(p.position) === bucket && !p.isTaxi) sum += currentCapHit(p); });
       return { fid: t.fid, sum: sum };
     }).sort(function (a, b) { return b.sum - a.sum; });
+    let rank = 0;
+    for (let i = 0; i < byTeam.length; i += 1) { if (byTeam[i].fid === teamFid) { rank = i + 1; break; } }
+    return { rank: rank, of: byTeam.length };
+  }
+  // Rank a team's AVG cap spend per non-taxi player at a position among the league.
+  function positionAvgRank(bucket, teamFid) {
+    const byTeam = STATE.teams.map(function (t) {
+      let sum = 0, n = 0;
+      (t.players || []).forEach(function (p) { if (posGroupFine(p.position) === bucket && !p.isTaxi) { sum += currentCapHit(p); n += 1; } });
+      return { fid: t.fid, avg: n ? sum / n : 0 };
+    }).sort(function (a, b) { return b.avg - a.avg; });
     let rank = 0;
     for (let i = 0; i < byTeam.length; i += 1) { if (byTeam[i].fid === teamFid) { rank = i + 1; break; } }
     return { rank: rank, of: byTeam.length };
@@ -1898,24 +1910,20 @@
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
     });
     const single = STATE.selectedTeamId !== "__all__";
+    const rankPill = function (r) { return (r && r.rank) ? ' <span class="fo-group-rank">#' + r.rank + "/" + r.of + "</span>" : ""; };
     let html = "";
     keys.forEach(function (k) {
-      const n = groups[k].length;
-      // Cap allocation (taxi already $0 via currentCapHit) + avg spent per
-      // non-taxi player at the position, to nearest $100.
-      let posSal = 0, nNonTaxi = 0;
-      groups[k].forEach(function (p) { posSal += currentCapHit(p); if (!p.isTaxi) nNonTaxi += 1; });
+      // Count + allocation + avg ALL exclude taxi (taxi = $0 cap; shown separately).
+      let posSal = 0, nNonTaxi = 0, taxiN = 0;
+      groups[k].forEach(function (p) { if (p.isTaxi) { taxiN += 1; } else { posSal += currentCapHit(p); nNonTaxi += 1; } });
       const avg = nNonTaxi ? Math.round(posSal / nNonTaxi / 100) * 100 : 0;
-      let extra = ' <span class="fo-group-sal">' + escapeHtml(fmtUSD(posSal)) + "</span>" +
-        ' <span class="small" style="color:var(--muted);">' + escapeHtml(fmtUSD(avg) + "/player") + "</span>";
-      if (single && order.indexOf(k) >= 0) {
-        const r = positionAllocRank(k, STATE.selectedTeamId);
-        if (r.rank) extra += ' <span class="fo-group-rank" title="League rank of ' + escapeHtml(k) + ' cap allocation">#' + r.rank + " of " + r.of + " in league</span>";
-      } else if (!single) {
-        extra += ' <span class="small" style="color:var(--muted);">league total</span>';
-      }
+      const rankable = single && order.indexOf(k) >= 0;
+      const count = nNonTaxi + " player" + (nNonTaxi === 1 ? "" : "s") + (taxiN ? " · " + taxiN + " taxi" : "");
+      const extra =
+        ' <span class="fo-group-sal">' + escapeHtml(fmtUSD(posSal)) + "</span>" + rankPill(rankable ? positionAllocRank(k, STATE.selectedTeamId) : null) +
+        ' <span class="fo-group-avg">' + escapeHtml(fmtUSD(avg) + "/player") + "</span>" + rankPill(rankable ? positionAvgRank(k, STATE.selectedTeamId) : null);
       html += '<tr class="fo-group-row"><td colspan="14"><span class="fo-pos ' + escapeHtml(k) + '">' + escapeHtml(k) +
-              '</span> <span class="small">' + n + ' player' + (n === 1 ? "" : "s") + "</span>" + extra + "</td></tr>";
+              '</span> <span class="small">' + count + "</span>" + extra + "</td></tr>";
       html += groups[k].map(renderRosterRow).join("");
     });
     return html;
@@ -1986,11 +1994,12 @@
   // window); taxi 10; IR 15.
   var ACTIVE_MAX = 35, ACTIVE_MIN = 27, TAXI_MAX = 10, LOADED_MAX = 5, THREEYR_MAX = 6;
   function isLoadedRow(p) {
-    // Loaded = front/back-loaded: the contract's year salaries aren't flat.
-    var yv = contractYearValueMapForPlayer(p) || {};
-    var vals = Object.keys(yv).map(function (k) { return safeInt(yv[k], 0); }).filter(function (v) { return v > 0; });
-    for (var i = 1; i < vals.length; i += 1) { if (vals[i] !== vals[0]) return true; }
-    return false;
+    // Loaded = an EXPLICIT front/back-loaded contract — the -FL / -BL suffix on
+    // the canonical contractStatus (Vet-FAA-FL, Vet-Ext2-BL, …). A merely
+    // non-flat year shape (default escalated extension) is NOT "loaded" and was
+    // over-counting (LH showed 6/8 vs the actual 3).
+    var t = String(p && p.type || "").toUpperCase();
+    return t.indexOf("-FL") >= 0 || t.indexOf("-BL") >= 0 || t === "FL" || t === "BL";
   }
   async function loadContractDeadline() {
     try {
