@@ -5956,8 +5956,9 @@ export default {
         if (db) {
           try {
             const ex = await db.prepare(
-              `SELECT season, extended_at_utc, evidence_grade, evidence_source,
-                      new_contract_info, new_tcv, new_aav, extension_term_years
+              `SELECT season, franchise_id, new_contract_status, extended_at_utc,
+                      evidence_grade, evidence_source, new_contract_info, new_tcv,
+                      new_aav, extension_term_years
                  FROM ups_extension_master WHERE league_id = ? AND player_id = ? ORDER BY season`
             ).bind(leagueId, pid).all();
             for (const r of (ex.results || [])) extBySeason[String(r.season)] = r;
@@ -6099,6 +6100,35 @@ export default {
               });
             }
           }
+        }
+
+        // Forum/Google-sheets era extensions (pre-2018) come straight from
+        // ups_extension_master — src_contracts doesn't reach 2012-2017, so the
+        // cy-following above can't see them. Emit the ones src_contracts misses.
+        for (const yr of Object.keys(extBySeason)) {
+          if (contractBySeason[yr]) continue; // already handled by cy-following
+          const r = extBySeason[yr];
+          const S = parseInt(yr, 10) || 0;
+          if (!S) continue;
+          const yb = yearsFromContract({ contract_info: r.new_contract_info, tcv: r.new_tcv, contract_length: r.extension_term_years });
+          const md = safeStr(r.evidence_source).match(/(\d{4}-\d{2}-\d{2})/);
+          const eu = safeStr(r.extended_at_utc).slice(0, 10);
+          let exDate = String(S), dateApprox = true;
+          if (md) { exDate = md[1]; dateApprox = false; }
+          else if (eu && !/-01-01$/.test(eu)) { exDate = eu; dateApprox = false; }
+          let exTs = 0; try { exTs = (exDate.length === 10) ? Math.floor(new Date(exDate + "T12:00:00Z").getTime() / 1000) : Math.floor(Date.UTC(S, 2, 1) / 1000); } catch (_) {}
+          const ct = canonType(r.new_contract_status, r.new_contract_info);
+          const evidenced = safeStr(r.evidence_grade) === "evidenced";
+          events.push({
+            season: S, ts: exTs, date: exDate, date_approx: dateApprox, kind: "extension", label: "Extension", detail: "",
+            franchise_id: pad4(r.franchise_id),
+            contract: {
+              canonical_type: /ext/i.test(ct) ? ct : "Vet-Ext",
+              cl: r.extension_term_years || null, tcv: r.new_tcv || null, aav: r.new_aav || null,
+              years: yb.years, confidence: (!yb.derived && evidenced) ? "ok" : (yb.derived ? "derived" : "ok"),
+            },
+            evidence: safeStr(r.evidence_source).slice(0, 240),
+          });
         }
 
         // Origin contract — surface the EARLIEST src_contracts season when no
