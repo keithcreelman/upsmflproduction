@@ -615,4 +615,6 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-txn.contract { background: rgba(138,151,173,0.12); color: var(--muted); }
 .fo-txn.extension { background: rgba(167,139,250,0.16); color: #a78bfa; }
 .fo-txn.tag { background: rgba(251,191,36,0.18); color: var(--warn); }
+.fo-txn.dispersal { background: rgba(236,72,153,0.16); color: #ec4899; }
 .fo-lowconf { color: var(--warn); font-weight: 700; cursor: help; }
+.fo-src { color: var(--accent); cursor: help; font-size: 11px; }

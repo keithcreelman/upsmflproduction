@@ -2418,7 +2418,25 @@
     return parts.join(" · ");
   }
   function foTxnKindClass(k) {
-    return ({ auction: "auction", add: "add", drop: "drop", trade: "trade", draft: "draft", contract: "contract", extension: "extension", tag: "tag" })[k] || "";
+    return ({ auction: "auction", add: "add", drop: "drop", trade: "trade", draft: "draft", contract: "contract", extension: "extension", tag: "tag", dispersal: "dispersal" })[k] || "";
+  }
+  // Curated pre-2019 deep-history events (forum-validated) merged ahead of the
+  // worker's modern events — the worker reaches back only to ~2019 (D1 src_*).
+  var __histAcqCache = null;
+  async function loadHistoricalAcquisitions() {
+    if (__histAcqCache) return __histAcqCache;
+    try {
+      var res = await fetch("historical_acquisitions.json", { cache: "no-store" });
+      __histAcqCache = await res.json();
+    } catch (e) { __histAcqCache = {}; }
+    return __histAcqCache || {};
+  }
+  function foTxnSortKey(e) {
+    if (e.ts) return e.ts;
+    var d = safeStr(e.date);
+    if (/^\d{4}-\d{2}-\d{2}/.test(d)) { try { return Math.floor(new Date(d.slice(0, 10) + "T12:00:00Z").getTime() / 1000); } catch (_) {} }
+    var yr = parseInt(safeStr(e.season || d).slice(0, 4), 10) || 0;
+    return yr ? Math.floor(Date.UTC(yr, 2, 1) / 1000) : 0;
   }
   function foTxnK(n) { return (n == null) ? "—" : "$" + Math.round(Number(n) / 1000) + "K"; }
   // Compact inline contract summary: canonical type · CL · TCV · AAV · Y1/Y2/Y3,
@@ -2448,35 +2466,45 @@
     if (!body) return;
     body.innerHTML = '<div class="fo-form-note">Loading transaction log…</div>';
     var data = await loadPlayerTransactions(p.id);
+    var histAll = await loadHistoricalAcquisitions();
     if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "txns") return; // user moved on
-    var events = (data && Array.isArray(data.events)) ? data.events : [];
+    var workerEvents = (data && Array.isArray(data.events)) ? data.events : [];
+    var histEvents = (histAll && Array.isArray(histAll[p.id])) ? histAll[p.id] : [];
+    // Merge curated deep-history (pre-2019) ahead of the live worker events,
+    // then re-sort oldest-first and re-number across the combined set.
+    var events = histEvents.concat(workerEvents).slice();
+    events.sort(function (a, b) { return foTxnSortKey(a) - foTxnSortKey(b); });
+    events.forEach(function (e, i) { e.seq = i + 1; });
     if (!events.length) {
       body.innerHTML = '<div class="fo-form-note">No transactions found for this player' + (data && data.ok ? "" : " (load failed)") + ".</div>";
       return;
     }
-    // Worker returns events oldest-first with a seq #.
     var rows = events.map(function (e) {
       var dateStr = e.date_approx
         ? "~" + escapeHtml(safeStr(e.date).slice(0, 4))
         : escapeHtml(safeStr(e.date).slice(0, 10) || String(e.season));
+      var team = e.franchise_name ? escapeHtml(e.franchise_name) : escapeHtml(franchiseNameByFid(e.franchise_id));
+      var src = safeStr(e.source || e.evidence);
+      var info = src ? ' <span class="fo-src" title="' + escapeHtml(src) + '">ⓘ</span>' : "";
       return "<tr>" +
         '<td class="small" style="color:var(--muted);">' + (e.seq || "") + "</td>" +
         '<td class="small" style="white-space:nowrap;">' + dateStr + "</td>" +
         '<td><span class="fo-txn ' + foTxnKindClass(e.kind) + '">' + escapeHtml(e.label || e.kind) + "</span></td>" +
-        "<td>" + foTxnDetail(e) + "</td>" +
-        '<td class="small">' + escapeHtml(franchiseNameByFid(e.franchise_id)) + "</td>" +
+        "<td>" + foTxnDetail(e) + info + "</td>" +
+        '<td class="small">' + team + "</td>" +
         "</tr>";
     }).join("");
-    var span = data.seasons_scanned || [];
+    var span = (data && data.seasons_scanned) || [];
+    var oldestYr = histEvents.length ? histEvents[0].season : (span.length ? span[0] : "");
     body.innerHTML =
       '<div class="fo-card-head"><h2 style="margin:0;">Transaction Log (' + events.length + ")</h2></div>" +
       '<div style="overflow-x:auto;"><table class="fo-table"><thead><tr>' +
       '<th class="num">#</th><th>Date</th><th>Event</th><th>Detail</th><th>Team</th>' +
       "</tr></thead><tbody>" + rows + "</tbody></table></div>" +
-      '<div class="fo-form-note" style="margin-top:8px;">Oldest first. Source: <code>/api/player-transactions</code> — MFL transactions ' +
-      "(auction · FA · waiver · trade) ∪ D1 draft + contracts + extensions (<code>ups_extension_master</code>) + tags. " +
-      '<span class="fo-lowconf">~</span> = low-confidence (derived term / approximate date).' +
-      (span.length ? " Seasons " + escapeHtml(String(span[0])) + "–" + escapeHtml(String(span[span.length - 1])) + "." : "") + "</div>";
+      '<div class="fo-form-note" style="margin-top:8px;">Oldest first. Live: <code>/api/player-transactions</code> (MFL txns ∪ D1 draft/contracts/extensions/tags)' +
+      (histEvents.length ? "; deep-history (pre-2019) curated from forum/MFL validation (<code>historical_acquisitions.json</code>)" : "") + ". " +
+      '<span class="fo-lowconf">~</span> low-confidence · <span class="fo-src">ⓘ</span> hover for source.' +
+      (oldestYr ? " Back to " + escapeHtml(String(oldestYr)) + "." : "") + "</div>";
   }
 
   // ── Actions sub-tab inside slide-over ───────────────────────────────
