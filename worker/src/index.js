@@ -6002,7 +6002,7 @@ export default {
               try { exTs = (exDate.length === 10) ? Math.floor(new Date(exDate + "T12:00:00Z").getTime() / 1000) : Math.floor(Date.UTC(S, 2, 1) / 1000); } catch (_) {}
               events.push({
                 season: S, ts: exTs, date: exDate, date_approx: dateApprox, kind: "extension",
-                label: "Extension" + (added > 1 ? " (" + added + "yr)" : ""), detail: "",
+                label: "Extension", detail: "",
                 franchise_id: pad4(contractBySeason[String(S)].franchise_id), contract: ic,
                 evidence: em ? safeStr(em.evidence_source).slice(0, 240) : "",
               });
