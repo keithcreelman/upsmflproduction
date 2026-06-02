@@ -542,58 +542,79 @@
     return out;
   }
 
-  // ── Canonical salary-adjustments report loader ──────────────────────
-  // Loads site/reports/salary_adjustments/salary_adjustments_<year>.json
-  // (the same source live FO reads). Returns { byFranchise: { fid:
-  // {cut, trade, other} } } using only import_eligible rows. Wins over
-  // the worker's raw breakdown when present — kills the LA Looks $750K
-  // bogus row and any future similar glitches at the source.
-  async function loadSalaryAdjustmentsReport(year) {
+  // ── MFL salary-adjustments loader (single source of truth) ──────────
+  // MFL's salaryAdjustments export IS the league's authoritative cap-
+  // adjustment feed — exact dollars + a description carrying the player +
+  // reason. We bucket Drop / Trade / Other by the description (same idea as
+  // live FO's salaryAdjustmentCategory) and itemize per player for the Cap
+  // Allocation "?" popup. This replaces the old /reports/salary_adjustments
+  // JSON (empty for 2025-2026) AND the worker's raw rows (which carry a
+  // <$1K K-multiplier glitch + null descriptions, e.g. Bates/0008 read
+  // $5,453 instead of MFL's $5,450). Returns { ok, byFid: { fid:
+  // {cut, trade, other, items:[{kind,player,amount,when}]} } }.
+  function adjCategoryFromDesc(desc) {
+    const t = String(desc || "").toLowerCase();
+    if (t.indexOf("trade") !== -1) return "trade";
+    if (t.indexOf("drop") !== -1 || t.indexOf("cut") !== -1 ||
+        t.indexOf("penalt") !== -1 || t.indexOf("waiv") !== -1) return "cut";
+    return "other";
+  }
+  function adjPlayerFromDesc(desc) {
+    // Pull a "Lastname, Firstname" right after a drop keyword; blank when
+    // there's no confident match (Flag-don't-fake — trade settlements carry
+    // no player name).
+    const m = String(desc || "").match(/(?:drop penalty|dropped|cut)\s+([A-Z][\w.'’-]+,\s*[A-Z][\w.'’-]+)/i);
+    return m ? m[1].replace(/\s+/g, " ").trim() : "";
+  }
+  function adjWhenFromTs(ts) {
+    const n = safeInt(ts, 0);
+    if (!n) return "";
+    try { return new Date(n * 1000).toISOString().slice(0, 10); } catch (e) { return ""; }
+  }
+  async function loadMflSalaryAdjustments(season) {
     try {
-      const payload = await fetchJSON(URL_SALARY_ADJUSTMENTS(year));
-      const rows = Array.isArray(payload && payload.rows) ? payload.rows : [];
+      const url = apiUrl("/api/mfl-export") + "?TYPE=salaryAdjustments&L=" +
+        encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(season) + "&JSON=1";
+      const payload = await fetchJSON(url);
+      let rows = payload && payload.salaryAdjustments && payload.salaryAdjustments.salaryAdjustment;
+      rows = Array.isArray(rows) ? rows : (rows ? [rows] : []);
       const byFid = Object.create(null);
       for (let i = 0; i < rows.length; i += 1) {
         const r = rows[i] || {};
-        if (!r.import_eligible) continue;
         const fid = pad4(r.franchise_id);
         if (!fid) continue;
+        const amt = safeInt(r.amount, 0); // MFL amounts are full dollars — no K-rule
+        const cat = adjCategoryFromDesc(r.description);
         if (!byFid[fid]) byFid[fid] = { cut: 0, trade: 0, other: 0, items: [] };
-        const amt = safeInt(r.amount || r.penalty_amount, 0);
-        const bucket = safeStr(r.bucket).toLowerCase() ||
-          (safeStr(r.adjustment_type).toUpperCase() === "TRADED_SALARY" ? "traded_salary"
-           : safeStr(r.adjustment_type).toUpperCase() === "DROP_PENALTY_CANDIDATE" ? "cut_players"
-           : "other");
-        if      (bucket === "cut_players")    byFid[fid].cut   += amt;
-        else if (bucket === "traded_salary")  byFid[fid].trade += amt;
-        else                                   byFid[fid].other += amt;
-        // Keep the line item so the Cap Allocation "?" popup can show each one
-        // (e.g. "Drop · Kenneth Gainwell · $1,200").
-        byFid[fid].items.push({
-          kind: bucket === "cut_players" ? "Drop" : bucket === "traded_salary" ? "Trade" : "Other",
-          player: safeStr(r.player_name), amount: amt,
-          when: safeStr(r.transaction_datetime_et).slice(0, 10)
-        });
+        if      (cat === "cut")   byFid[fid].cut   += amt;
+        else if (cat === "trade") byFid[fid].trade += amt;
+        else                      byFid[fid].other += amt;
+        if (amt !== 0) {
+          byFid[fid].items.push({
+            kind: cat === "cut" ? "Drop" : cat === "trade" ? "Trade" : "Other",
+            player: adjPlayerFromDesc(r.description),
+            amount: amt,
+            when: adjWhenFromTs(r.timestamp)
+          });
+        }
       }
-      return byFid;
+      return { ok: true, byFid: byFid };
     } catch (e) {
-      console.warn("[fo] salary_adjustments report load failed, falling back to worker raw rows:", e.message || e);
-      return null;
+      console.warn("[fo] MFL salaryAdjustments load failed, keeping worker raw sums:", e.message || e);
+      return { ok: false, byFid: {} };
     }
   }
-  function mergeSalaryAdjustmentsReport(teams, byFid) {
-    if (!byFid) return;
+  function mergeMflSalaryAdjustments(teams, mflAdj) {
+    if (!mflAdj || !mflAdj.ok) return; // fetch failed → keep worker raw-sum fallback
+    const byFid = mflAdj.byFid || {};
     for (let i = 0; i < teams.length; i += 1) {
       const t = teams[i];
       const r = byFid[t.fid];
-      if (!r) continue; // no report rows for this team → keep worker value
-      // The report is authoritative for cut_players (drop penalties).
-      // For traded_salary we still trust the worker because trades come
-      // through MFL's salaryAdjustments feed directly. Same merge order
-      // as live FO (report wins for drops; MFL feed wins for trades).
-      t.summary.adj_cut = r.cut;
-      if (r.trade !== 0) t.summary.adj_trade = r.trade;
-      if (r.other !== 0) t.summary.adj_other = r.other;
+      // MFL feed is complete + authoritative: a team with no rows has $0
+      // (this also clears the worker raw-row K-multiplier glitch).
+      t.summary.adj_cut   = r ? r.cut   : 0;
+      t.summary.adj_trade = r ? r.trade : 0;
+      t.summary.adj_other = r ? r.other : 0;
     }
   }
 
@@ -1442,14 +1463,14 @@
       // taxi repair — both feed §A1.4 salary derivation. History wins
       // when present (Keith 2026-05-19) because it has exact slot +
       // salary for every UPS rookie 2012-2025.
-      const [acqRows, _historyLoaded, adjReport] = await Promise.all([
+      const [acqRows, _historyLoaded, mflAdj] = await Promise.all([
         loadAcquisitionLookup(SEASON),
         loadRookieDraftHistory(),
-        loadSalaryAdjustmentsReport(SEASON)
+        loadMflSalaryAdjustments(SEASON)
       ]);
       mergeAcquisitionLookupRows(STATE.teams, acqRows);
-      mergeSalaryAdjustmentsReport(STATE.teams, adjReport);
-      STATE.adjByFid = adjReport || {}; // per-team line items for the Cap Alloc popup
+      mergeMflSalaryAdjustments(STATE.teams, mflAdj);
+      STATE.adjByFid = mflAdj.byFid || {}; // per-team line items for the Cap Alloc popup
 
       // Keith 2026-05-19: applies to ALL taxi guys, not just Watson.
       repairTaxiContractFallbacks(STATE.teams, safeInt(SEASON, 0));
@@ -1532,10 +1553,10 @@
       // when they disagree by >10x. Trade rows preserve the sign so
       // counterparty offsets (e.g. Long Haulers −$20K vs HammerTime
       // +$20K) actually offset.
-      // Worker raw rows give us the starting point. Mirror live FO:
-      // sum by category from raw rows (matches roster_workbench.js:4128),
-      // then let the canonical /reports/salary_adjustments report
-      // override drop-penalty totals at the post-load merge step.
+      // Worker raw rows are only a FALLBACK starting point (used if the MFL
+      // fetch below fails). The post-load mergeMflSalaryAdjustments step
+      // overrides adj_cut/trade/other from MFL's salaryAdjustments feed,
+      // which is authoritative and free of the raw-row K-multiplier glitch.
       const sum = team.summary || {};
       const rawRows = Array.isArray(sum.salary_adjustment_raw_rows) ? sum.salary_adjustment_raw_rows : [];
       const workerSums = sumWorkerAdjustmentRows(rawRows);
@@ -2060,9 +2081,10 @@
         escapeHtml("max " + (THREEYR_MAX * nTeams)), threeYrN >= THREEYR_MAX * nTeams ? "fo-sum-neg" : "");
   }
 
-  // Cap-adjustment detail popup (the "?" in the Cap Allocation box). Shows the
-  // re-summed Drop/Trade/Other per team in scope — same categories the Cap tab
-  // uses (NOT the worker's raw rows, which carry the K-multiplier bug).
+  // Cap-adjustment detail popup (the "?" in the Cap Allocation box). Itemizes
+  // Drop/Trade/Other per team in scope straight from MFL's salaryAdjustments
+  // feed (exact dollars + player parsed from the description) — NOT the
+  // worker's raw rows, which carry a <$1K K-multiplier glitch + null names.
   function adjRow(lbl, amt) {
     return '<div class="fo-adj-row"><span>' + escapeHtml(lbl) + '</span><span class="num">' + escapeHtml(fmtUSD(amt)) + "</span></div>";
   }
@@ -2081,14 +2103,16 @@
       // Itemize the drop penalties (player + amount) from the report; trades/other
       // come from the MFL feed as team totals only.
       if (items.length) {
+        // MFL items already cover every category — show them and skip the
+        // per-category subtotal lines below (else they'd double-count).
         items.slice().sort(function (a, b) { return (b.amount || 0) - (a.amount || 0); }).forEach(function (it) {
           inner += adjRow(it.kind + (it.player ? " · " + it.player : ""), it.amount);
         });
-      } else if (cut) {
-        inner += adjRow("Drop penalties", cut);
+      } else {
+        if (cut) inner += adjRow("Drop penalties", cut);
+        if (trade) inner += adjRow("Traded salary", trade);
+        if (other) inner += adjRow("Other adjustments", other);
       }
-      if (trade) inner += adjRow("Traded salary", trade);
-      if (other) inner += adjRow("Other adjustments", other);
     });
     if (!inner) inner = '<div class="fo-adj-row"><span>No cap adjustments.</span><span></span></div>';
     else inner += '<div class="fo-adj-row fo-adj-total"><span>Total</span><span class="num">' + escapeHtml(fmtUSD(grand)) + "</span></div>";
@@ -2097,7 +2121,7 @@
     overlay.innerHTML = '<div class="fo-adj-popup" role="dialog" aria-label="Cap adjustments">' +
       '<div class="fo-adj-head"><span>Cap Adjustments</span><button type="button" class="fo-adj-close" aria-label="Close">×</button></div>' +
       '<div class="fo-adj-body">' + inner + "</div>" +
-      '<div class="fo-adj-foot">Drop / Trade / Other from the salary-adjustments report + live MFL salaryAdjustments.</div></div>';
+      '<div class="fo-adj-foot">Drop / Trade / Other from MFL’s salaryAdjustments feed — the league’s authoritative cap-adjustment source.</div></div>';
     overlay.addEventListener("click", function (e) {
       if (e.target === overlay || (e.target.classList && e.target.classList.contains("fo-adj-close"))) {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
