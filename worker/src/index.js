@@ -5859,6 +5859,10 @@ export default {
             years = tcvClBreakdown[c.tcv + "_" + c.contract_length];
             derived = false;
           }
+          // Rookie deals are automatic + FLAT (§A1 slot-salary × 3, or the WW bid
+          // for MYM-Rookie), so the even-split is exact on EVERY event that
+          // carries them — incl a trade mid-rookie-deal (Keith: Achane's trade).
+          if (derived && /rookie|standard/i.test(safeStr(c.contract_status))) derived = false;
           // AAV = the CURRENT-YEAR salary (Keith's rule — never the average).
           // Derive from the Y-breakdown at this contract year (CL − years-
           // remaining); fall back to the stored aav only when the breakdown
