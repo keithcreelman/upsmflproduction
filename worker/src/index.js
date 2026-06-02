@@ -5802,6 +5802,21 @@ export default {
               });
             }
           }
+          // 2b. Salary-tier annotation: "AAV 5K, 25K" (a COMMA list — not the
+          // single-value average) lists the distinct salary tiers of an
+          // extension. Expand to fill CL (last tier repeats) and accept only
+          // when the total matches TCV — then it's the authoritative breakdown.
+          if (!years.length && c.contract_length > 0) {
+            const am = info.match(/AAV\s+([0-9.,KkMm\s]+)/);
+            const tiers = am ? am[1].split(",").map((t) => Math.round(parseFloat(String(t).replace(/[^0-9.]/g, "")) * 1000)).filter((v) => v > 0) : [];
+            if (tiers.length >= 2) {
+              const cl = Math.min(c.contract_length, 8);
+              const arr = [];
+              for (let i = 0; i < cl; i++) arr.push(i < tiers.length ? tiers[i] : tiers[tiers.length - 1]);
+              const sum = arr.reduce((a, b) => a + b, 0);
+              if (!c.tcv || Math.abs(sum - c.tcv) <= 1000) years = arr;
+            }
+          }
           // 3. year_values_json — only when it actually carries non-zero values
           // (older Hill rows store {"1":0,"2":0,"3":0}, which must NOT win).
           if (!years.length) {
