@@ -5778,6 +5778,7 @@ export default {
           const s = safeStr(status);
           const em = s.match(/^EXT\s*(\d+)$/i);             // legacy EXT1 → canonical Vet-Ext1
           if (em) return "Vet-Ext" + em[1];
+          if (/^WW$/i.test(s)) return "Vet-WW";             // bare WW status → Vet-WW
           let base = /rookie/i.test(s) ? "Rookie" : /^vet/i.test(s) ? "Vet" : /veteran/i.test(s) ? "Vet" : (s || "—");
           if (/(^|\W)MYM(\W|$)/i.test(safeStr(info)) && !/MYM/i.test(base)) base += "-MYM";
           return base;
