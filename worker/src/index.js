@@ -5971,7 +5971,8 @@ export default {
                 // Pre-2018: synthesize the rookie deal from the history JSON's own
                 // salary (authoritative) or §A1 by round/slot — 3-year flat.
                 const sal = parseInt(rh.salary, 10) || rookieSalary(rh.round, rh.slot);
-                ic = { canonical_type: "Rookie-Draft", cl: 3, tcv: sal * 3, aav: sal, years: [sal, sal, sal], confidence: "ok" };
+                // Bare "Rookie" — the replace() below promotes it to "Rookie-Draft".
+                ic = { canonical_type: "Rookie", cl: 3, tcv: sal * 3, aav: sal, years: [sal, sal, sal], confidence: "ok" };
               }
               if (ic) {
                 if (ic.canonical_type) ic.canonical_type = ic.canonical_type.replace(/^Rookie\b/, "Rookie-Draft"); // drafted rookie
