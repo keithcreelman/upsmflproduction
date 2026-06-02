@@ -632,6 +632,18 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-news-meta a { color: var(--accent); text-decoration: none; }
 .fo-news-meta a:hover { text-decoration: underline; }
 .fo-news-body { font-size: 12px; color: var(--text); opacity: 0.85; margin-top: 4px; line-height: 1.5; }
+
+/* "review for accuracy" caveat on auto-derived contract/transaction data. */
+.fo-review-note { margin: 4px 0 10px; padding: 6px 10px; font-size: 11px; color: var(--warn); background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.25); border-radius: 6px; }
+
+/* Roster-row indicators: NFL game status (O/Q/D, from MFL) + news flag. */
+.fo-nfl-status { display: inline-block; font-size: 9px; font-weight: 800; padding: 0 4px; border-radius: 3px; vertical-align: middle; line-height: 14px; }
+.fo-nfl-status.fo-nfl-out { background: rgba(248,113,113,0.18); color: var(--err); }
+.fo-nfl-status.fo-nfl-doubtful { background: rgba(251,146,60,0.18); color: #fb923c; }
+.fo-nfl-status.fo-nfl-questionable { background: rgba(251,191,36,0.18); color: var(--warn); }
+.fo-news-flag { font-size: 10px; vertical-align: middle; cursor: pointer; margin-left: 2px; }
+.fo-news-flag.fo-news-flag-injury { color: var(--warn); }
+.fo-news-flag.fo-news-flag-news { color: var(--accent); }
 /* Contract-TYPE color families: Rookie / Vet (incl FAA, ERA, FL, BL, MYM) / Tag */
 .fo-ctf-rookie { color: #34d399; }
 .fo-ctf-vet { color: #5b8dff; }
