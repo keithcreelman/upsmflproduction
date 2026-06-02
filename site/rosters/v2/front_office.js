@@ -1876,6 +1876,41 @@
     if (Object.keys(STATE.nflStatus).length || Object.keys(STATE.newsFlags).length) renderRosterTable();
   }
 
+  // ── Contract summary strip near the top of the roster (mirrors RWB's Cap
+  // Summary). Reflects the selected team (or league-wide when "All teams").
+  // Taxi excluded from salary; IR counts at 50% — same convention as RWB.
+  function renderContractSummary() {
+    const el = $("#fo-contract-summary");
+    if (!el) return;
+    const players = allVisiblePlayers();
+    if (!players.length) { el.innerHTML = ""; return; }
+    const fids = {};
+    let rosterN = 0, taxiN = 0, irN = 0, totalSalary = 0, underK = 0, threeYrNonRookie = 0;
+    players.forEach(function (p) {
+      fids[p.fid] = 1;
+      const sal = Math.max(0, safeInt(p.salary, 0));
+      if (p.isTaxi) { taxiN += 1; }
+      else if (p.isIr) { irN += 1; rosterN += 1; totalSalary += Math.round(sal * 0.5); }
+      else { rosterN += 1; totalSalary += sal; }
+      if (safeInt(p.years, 0) > 0) underK += 1;
+      if (safeInt(p.years, 0) === 3 && ctypeClass(p.type) !== "rookie") threeYrNonRookie += 1;
+    });
+    const nTeams = Object.keys(fids).length || 1;
+    const allTeams = nTeams > 1;
+    const capSpace = (safeInt(STATE.capAmount, 0) * nTeams) - totalSalary;
+    const card = function (val, lbl, sub, cls) {
+      return '<div class="fo-sum-card"><div class="fo-sum-val ' + (cls || "") + '">' + val + "</div>" +
+        '<div class="fo-sum-lbl">' + escapeHtml(lbl) + "</div>" +
+        (sub ? '<div class="fo-sum-sub">' + escapeHtml(sub) + "</div>" : "") + "</div>";
+    };
+    el.innerHTML =
+      card(rosterN, "Roster", (taxiN || irN) ? (taxiN + " taxi · " + irN + " IR") : "active", "") +
+      card(fmtUSD(totalSalary), allTeams ? "League Salary" : "Total Salary", "taxi excl · IR 50%", "") +
+      card(fmtUSD(capSpace), allTeams ? "League Cap Room" : "Cap Space", allTeams ? (nTeams + " teams") : "", capSpace < 0 ? "fo-sum-neg" : "fo-sum-pos") +
+      card(underK, "Under Contract", "of " + (rosterN + taxiN), "") +
+      card(threeYrNonRookie, "3-Yr Non-Rookie", "", "");
+  }
+
   function renderRosterTable() {
     const tbody = $("#fo-roster-tbody");
     const summary = $("#fo-roster-summary");
@@ -1884,6 +1919,8 @@
     const all = allVisiblePlayers();
     const filtered = applyFilters(all);
     const sorted   = applySort(filtered);
+
+    renderContractSummary();
 
     if (summary) {
       summary.textContent = filtered.length === all.length
