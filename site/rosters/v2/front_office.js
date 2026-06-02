@@ -1356,6 +1356,10 @@
     populateValueFilters();
     renderRosterTable();
     loadRosterIndicators(); // async — decorate rows with NFL status + news flags
+    const sumEl = $("#fo-contract-summary");
+    if (sumEl) sumEl.addEventListener("click", function (e) {
+      if (e.target && e.target.closest && e.target.closest(".fo-adj-info")) showAdjPopup();
+    });
   }
 
   async function loadMe() {
@@ -1876,39 +1880,102 @@
     if (Object.keys(STATE.nflStatus).length || Object.keys(STATE.newsFlags).length) renderRosterTable();
   }
 
-  // ── Contract summary strip near the top of the roster (mirrors RWB's Cap
-  // Summary). Reflects the selected team (or league-wide when "All teams").
-  // Taxi excluded from salary; IR counts at 50% — same convention as RWB.
+  // ── Contract summary strip near the top of the roster ───────────────
+  // Reuses the Cap tab's canonical math: currentCapHit (taxi $0, IR×0.5),
+  // CAP_CEILING $300K, per-team adj_cut/trade/other. Reflects the selected team,
+  // or SUMS across the league on "All Teams" (limits scale by team count).
+  // Roster limits per league_context §B1: active 27 min – 35 max (auction
+  // window); taxi 10; IR 15.
+  var ACTIVE_MAX = 35, ACTIVE_MIN = 27, TAXI_MAX = 10, IR_MAX = 15;
+  function isLoadedRow(p) {
+    // Loaded = front/back-loaded: the contract's year salaries aren't flat.
+    var yv = contractYearValueMapForPlayer(p) || {};
+    var vals = Object.keys(yv).map(function (k) { return safeInt(yv[k], 0); }).filter(function (v) { return v > 0; });
+    for (var i = 1; i < vals.length; i += 1) { if (vals[i] !== vals[0]) return true; }
+    return false;
+  }
   function renderContractSummary() {
     const el = $("#fo-contract-summary");
     if (!el) return;
-    const players = allVisiblePlayers();
-    if (!players.length) { el.innerHTML = ""; return; }
-    const fids = {};
-    let rosterN = 0, taxiN = 0, irN = 0, totalSalary = 0, underK = 0, threeYrNonRookie = 0;
-    players.forEach(function (p) {
-      fids[p.fid] = 1;
-      const sal = Math.max(0, safeInt(p.salary, 0));
-      if (p.isTaxi) { taxiN += 1; }
-      else if (p.isIr) { irN += 1; rosterN += 1; totalSalary += Math.round(sal * 0.5); }
-      else { rosterN += 1; totalSalary += sal; }
-      if (safeInt(p.years, 0) > 0) underK += 1;
-      if (safeInt(p.years, 0) === 3 && ctypeClass(p.type) !== "rookie") threeYrNonRookie += 1;
+    const single = STATE.selectedTeamId !== "__all__";
+    const teams = single ? STATE.teams.filter(function (t) { return t.fid === STATE.selectedTeamId; }) : STATE.teams;
+    if (!teams.length) { el.innerHTML = ""; return; }
+    const nTeams = teams.length;
+    let activeN = 0, taxiN = 0, irN = 0, salaryCap = 0, irAlloc = 0, loadedN = 0, threeYrN = 0, adjTotal = 0;
+    const irEligible = [];
+    teams.forEach(function (team) {
+      (team.players || []).forEach(function (p) {
+        const hit = currentCapHit(p);                 // taxi $0, IR×0.5, expired $0
+        if (p.isTaxi) { taxiN += 1; }
+        else if (p.isIr) { irN += 1; irAlloc += hit; salaryCap += hit; }
+        else {
+          activeN += 1; salaryCap += hit;
+          const st = (STATE.nflStatus[String(p.id)] || "").toLowerCase();
+          if (st && (st.indexOf("out") >= 0 || st === "ir" || st.indexOf("doubt") >= 0 || st.indexOf("pup") >= 0 || st.indexOf("reserve") >= 0)) irEligible.push(p);
+        }
+        if (isLoadedRow(p)) loadedN += 1;
+        if (safeInt(p.years, 0) === 3 && ctypeClass(p.type) !== "rookie") threeYrN += 1;
+      });
+      const s = team.summary || {};
+      adjTotal += safeInt(s.adj_cut, 0) + safeInt(s.adj_trade, 0) + safeInt(s.adj_other, 0);
     });
-    const nTeams = Object.keys(fids).length || 1;
-    const allTeams = nTeams > 1;
-    const capSpace = (safeInt(STATE.capAmount, 0) * nTeams) - totalSalary;
-    const card = function (val, lbl, sub, cls) {
+    const capAlloc = salaryCap + adjTotal;
+    const capSpace = (CAP_CEILING * nTeams) - capAlloc;
+    const card = function (val, lbl, subHtml, cls) {
       return '<div class="fo-sum-card"><div class="fo-sum-val ' + (cls || "") + '">' + val + "</div>" +
         '<div class="fo-sum-lbl">' + escapeHtml(lbl) + "</div>" +
-        (sub ? '<div class="fo-sum-sub">' + escapeHtml(sub) + "</div>" : "") + "</div>";
+        (subHtml ? '<div class="fo-sum-sub">' + subHtml + "</div>" : "") + "</div>";
     };
+    const irLink = "https://www48.myfantasyleague.com/" + encodeURIComponent(SEASON) + "/options?L=" + encodeURIComponent(LEAGUE_ID) + "&O=18";
+    const irAlert = (single && irEligible.length)
+      ? '<a class="fo-ir-alert" href="' + irLink + '" target="_blank" rel="noopener noreferrer" title="Manage IR on MFL">⚠ ' + irEligible.length + " IR-eligible &rarr; manage</a>"
+      : "";
     el.innerHTML =
-      card(rosterN, "Roster", (taxiN || irN) ? (taxiN + " taxi · " + irN + " IR") : "active", "") +
-      card(fmtUSD(totalSalary), allTeams ? "League Salary" : "Total Salary", "taxi excl · IR 50%", "") +
-      card(fmtUSD(capSpace), allTeams ? "League Cap Room" : "Cap Space", allTeams ? (nTeams + " teams") : "", capSpace < 0 ? "fo-sum-neg" : "fo-sum-pos") +
-      card(underK, "Under Contract", "of " + (rosterN + taxiN), "") +
-      card(threeYrNonRookie, "3-Yr Non-Rookie", "", "");
+      card(activeN + ' <span class="fo-sum-of">of ' + (ACTIVE_MAX * nTeams) + "</span>", "Active Roster",
+        escapeHtml("min " + (ACTIVE_MIN * nTeams) + " · taxi " + taxiN + "/" + (TAXI_MAX * nTeams)), "") +
+      card(fmtUSD(capAlloc), "Cap Allocation",
+        "Sal " + escapeHtml(fmtUSD(salaryCap)) + " · Adj " + escapeHtml(fmtUSD(adjTotal)) +
+        ' <button type="button" class="fo-adj-info" data-action="adj-popup" title="Cap adjustment detail">?</button>', "") +
+      card(fmtUSD(capSpace), "Cap Space", escapeHtml("of " + fmtUSD(CAP_CEILING * nTeams)), capSpace < 0 ? "fo-sum-neg" : "fo-sum-pos") +
+      card(irN + ' <span class="fo-sum-of">/ ' + escapeHtml(fmtUSD(irAlloc)) + "</span>", "Injured Reserve",
+        escapeHtml("of " + (IR_MAX * nTeams) + " slots") + (irAlert ? "<br>" + irAlert : ""), "") +
+      card(loadedN, "Loaded Contracts", escapeHtml(threeYrN + " are 3-yr non-rookie"), "");
+  }
+
+  // Cap-adjustment detail popup (the "?" in the Cap Allocation box). Shows the
+  // re-summed Drop/Trade/Other per team in scope — same categories the Cap tab
+  // uses (NOT the worker's raw rows, which carry the K-multiplier bug).
+  function adjRow(lbl, amt) {
+    return '<div class="fo-adj-row"><span>' + escapeHtml(lbl) + '</span><span class="num">' + escapeHtml(fmtUSD(amt)) + "</span></div>";
+  }
+  function showAdjPopup() {
+    const single = STATE.selectedTeamId !== "__all__";
+    const teams = single ? STATE.teams.filter(function (t) { return t.fid === STATE.selectedTeamId; }) : STATE.teams;
+    let inner = "", grand = 0;
+    teams.forEach(function (team) {
+      const s = team.summary || {};
+      const cut = safeInt(s.adj_cut, 0), trade = safeInt(s.adj_trade, 0), other = safeInt(s.adj_other, 0);
+      if (!cut && !trade && !other) return;
+      grand += cut + trade + other;
+      inner += '<div class="fo-adj-team">' + escapeHtml(team.name) + "</div>";
+      if (cut) inner += adjRow("Drop penalties", cut);
+      if (trade) inner += adjRow("Traded salary", trade);
+      if (other) inner += adjRow("Other adjustments", other);
+    });
+    if (!inner) inner = '<div class="fo-adj-row"><span>No cap adjustments.</span><span></span></div>';
+    else inner += '<div class="fo-adj-row fo-adj-total"><span>Total</span><span class="num">' + escapeHtml(fmtUSD(grand)) + "</span></div>";
+    const overlay = document.createElement("div");
+    overlay.className = "fo-adj-overlay";
+    overlay.innerHTML = '<div class="fo-adj-popup" role="dialog" aria-label="Cap adjustments">' +
+      '<div class="fo-adj-head"><span>Cap Adjustments</span><button type="button" class="fo-adj-close" aria-label="Close">×</button></div>' +
+      '<div class="fo-adj-body">' + inner + "</div>" +
+      '<div class="fo-adj-foot">Drop / Trade / Other from the salary-adjustments report + live MFL salaryAdjustments.</div></div>';
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay || (e.target.classList && e.target.classList.contains("fo-adj-close"))) {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      }
+    });
+    document.body.appendChild(overlay);
   }
 
   function renderRosterTable() {
