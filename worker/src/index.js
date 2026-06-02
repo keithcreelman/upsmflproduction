@@ -1933,6 +1933,7 @@ export default {
         const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
         const dropEnabled = String(env.DROP_TRACKER_ENABLED || "").trim() === "1";
         const dropAutoPost = String(env.DROP_TRACKER_AUTO_POST || "").trim() === "1";
+        const dropPostMfl = String(env.DROP_TRACKER_POST_MFL || "").trim() === "1";
         const dropTarget = String(env.DROP_TRACKER_DISCORD_TARGET || "prod").trim().toLowerCase();
         if (dropEnabled && commishApiKey && env.UPS_MFL_DB && env.SELF) {
           ctx.waitUntil((async () => {
@@ -1958,8 +1959,23 @@ export default {
                 const postData = await postRes.json().catch(() => ({}));
                 postedCount = Number(postData?.posted_count) || 0;
               }
-              if (newWritten || postedCount) {
-                console.log(`[scheduled */5] drop-tracker: new_drops=${newWritten} discord_posted=${postedCount} auto_post=${dropAutoPost ? "1" : "0"} target=${dropTarget}`);
+              // MFL half — post computed penalties to MFL salaryAdjustments.
+              // Gated behind its own flag (real cap write) so it's opt-in.
+              let mflPostedCount = 0;
+              if (dropPostMfl) {
+                const mflRes = await env.SELF.fetch(
+                  `${origin}/admin/drops/post-mfl?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ season, league_id: leagueId, limit: 20 }),
+                  }
+                );
+                const mflData = await mflRes.json().catch(() => ({}));
+                mflPostedCount = Number(mflData?.posted) || 0;
+              }
+              if (newWritten || postedCount || mflPostedCount) {
+                console.log(`[scheduled */5] drop-tracker: new_drops=${newWritten} discord_posted=${postedCount} mfl_posted=${mflPostedCount} auto_post=${dropAutoPost ? "1" : "0"} post_mfl=${dropPostMfl ? "1" : "0"} target=${dropTarget}`);
               }
             } catch (e) {
               console.error(`[scheduled */5] drop-tracker failed: ${e?.message || String(e)}`);
@@ -2336,6 +2352,7 @@ export default {
         path !== "/admin/auction/snapshot-era-pool" &&
         path !== "/admin/drops/scan-and-record" &&
         path !== "/admin/drops/post-discord" &&
+        path !== "/admin/drops/post-mfl" &&
         path !== "/api/giphy-search" &&
         path !== "/api/franchise-ownership-history" &&
         path !== "/api/roast-thread/track" &&
@@ -29958,6 +29975,144 @@ export default {
           posted_count: results.filter((r) => r.ok !== false).length,
           failed_count: results.filter((r) => r.ok === false).length,
           results,
+        });
+      }
+
+      // POST /admin/drops/post-mfl
+      // Body: { season, league_id?, limit?, dry_run?, only_pid? }
+      //
+      // Posts every UNPOSTED owed drop penalty from ups_drop_events
+      // (posted_to_mfl=0, penalty_amount>0) to MFL as a salaryAdjustment, then
+      // marks the row posted. This is the MFL half of the drop tracker
+      // (post-discord is the Discord half). Without it, scan-and-record's
+      // computed penalties sit in ups_drop_events and never reach MFL — which
+      // is exactly why the 2026 OFFSEASON drops were missed (e.g. Dyami Brown,
+      // dropped 2026-05-22, owes $1K but was never charged). The in-season
+      // drops are charged by /admin/import-drop-penalties (report-driven); this
+      // path reuses the SAME explanation format + merge-preserve + verify so the
+      // two never clash (dedup by the `id:<ledger_key>` suffix; merge keeps
+      // trade/other rows). Idempotent via posted_to_mfl + ledger-key dedup.
+      if (path === "/admin/drops/post-mfl" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const dryRun = !!body?.dry_run;
+        const limit = safeInt(body?.limit, 0);
+        const onlyPid = safeStr(body?.only_pid || "").replace(/\D/g, "");
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+
+        // 1. Pull unposted owed penalties from ups_drop_events.
+        const selBinds = onlyPid ? [targetSeason, leagueId, onlyPid] : [targetSeason, leagueId];
+        const sel = await env.UPS_MFL_DB.prepare(
+          `SELECT player_id, player_name, franchise_id, penalty_amount, ledger_key, penalty_basis
+             FROM ups_drop_events
+            WHERE season = ? AND league_id = ? AND posted_to_mfl = 0 AND penalty_amount > 0
+              ${onlyPid ? "AND player_id = ?" : ""}
+            ORDER BY dropped_at_unix ASC`
+        ).bind(...selBinds).all();
+        const owed = (sel && sel.results) || [];
+
+        // 2. Existing MFL adjustments → dedup keys + preserve set (the import
+        //    REPLACES all rows, so untouched adjustments must be merged back).
+        const existingRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
+        const existingRows = existingRes.ok
+          ? collectSalaryAdjustmentExportRows(existingRes.data?.salaryAdjustments || existingRes.data?.salaryadjustments || existingRes.data || {})
+          : [];
+        const existingKeys = new Set();
+        for (const ex of existingRows) {
+          const m = safeStr(ex.explanation).match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+          if (m) existingKeys.add(m[1]);
+        }
+
+        // 3. Build rows to post; skip any ledger key already in MFL.
+        const rowsToPost = [];
+        const skipped = [];
+        const reconcileKeys = [];
+        for (const r of owed) {
+          const fid = padFranchiseId(r.franchise_id);
+          const amount = safeInt(r.penalty_amount, 0);
+          const ledgerKey = safeStr(r.ledger_key) || `${r.player_id}_${targetSeason}`;
+          if (!fid || amount <= 0) { skipped.push({ ledger_key: ledgerKey, reason: "missing_fid_or_amount" }); continue; }
+          if (existingKeys.has(ledgerKey)) {
+            // Already in MFL (posted by another path) — reconcile the flag, don't re-post.
+            skipped.push({ ledger_key: ledgerKey, reason: "already_in_mfl" });
+            reconcileKeys.push(ledgerKey);
+            continue;
+          }
+          const playerName = safeStr(r.player_name) || safeStr(r.player_id);
+          const explanation = `UPS drop penalty ${playerName.replace(/[^A-Za-z0-9 ,.'-]/g, "")} ${amount} id:${ledgerKey}`;
+          rowsToPost.push({ franchise_id: fid, amount, explanation, ledger_key: ledgerKey });
+        }
+        const rowsSliced = limit > 0 ? rowsToPost.slice(0, limit) : rowsToPost;
+        const plain = (rs) => rs.map((r) => ({ franchise_id: r.franchise_id, amount: r.amount, explanation: r.explanation }));
+
+        if (dryRun) {
+          return jsonOut(200, {
+            ok: true, dry_run: true, season: targetSeason, league_id: leagueId,
+            owed_unposted: owed.length, would_post: rowsSliced, skipped,
+            xml_preview: buildSalaryAdjXml(plain(rowsSliced)),
+          });
+        }
+
+        // 4. Admin gate for the actual write.
+        const adminState = await getLeagueAdminState(leagueId, targetSeason);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "MFL_COOKIE lacks commissioner privileges for salary adjustments", admin_state: adminState, would_post: rowsSliced });
+        }
+
+        // Reconcile rows already present in MFL so we stop retrying them.
+        for (const key of reconcileKeys) {
+          await env.UPS_MFL_DB.prepare(
+            `UPDATE ups_drop_events SET posted_to_mfl=1, posted_at_utc=?, posted_amount=penalty_amount, posted_explanation=? WHERE ledger_key=?`
+          ).bind(new Date().toISOString(), "reconciled: pre-existing MFL row", key).run();
+        }
+
+        if (!rowsSliced.length) {
+          return jsonOut(200, { ok: true, season: targetSeason, league_id: leagueId, posted: 0, owed_unposted: owed.length, reconciled: reconcileKeys.length, skipped, message: "No new penalties to post." });
+        }
+
+        // 5. Merge-preserve untouched rows, then post.
+        const newKeys = new Set(rowsSliced.map((r) => r.ledger_key));
+        const preservedRows = existingRows
+          .filter((r) => {
+            const m = safeStr(r.explanation).match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+            const key = m ? m[1] : "";
+            return !key || !newKeys.has(key);
+          })
+          .map((r) => ({ franchise_id: r.franchise_id, amount: r.amount, explanation: r.explanation }));
+        const dataXml = buildSalaryAdjXml([...preservedRows, ...plain(rowsSliced)]);
+        const importRes = await postMflImportForm(targetSeason, { TYPE: "salaryAdj", L: leagueId, DATA: dataXml }, { TYPE: "salaryAdj", L: leagueId });
+
+        // 6. Verify against the post-import export, then mark posted.
+        const verifyRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
+        const verifyRows = verifyRes.ok
+          ? collectSalaryAdjustmentExportRows(verifyRes.data?.salaryAdjustments || verifyRes.data?.salaryadjustments || verifyRes.data || {})
+          : [];
+        const verifiedKeys = new Set();
+        for (const ex of verifyRows) {
+          const m = safeStr(ex.explanation).match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+          if (m) verifiedKeys.add(m[1]);
+        }
+        const posted = [];
+        for (const r of rowsSliced) {
+          if (verifiedKeys.has(r.ledger_key)) {
+            await env.UPS_MFL_DB.prepare(
+              `UPDATE ups_drop_events SET posted_to_mfl=1, posted_at_utc=?, posted_amount=?, posted_explanation=? WHERE ledger_key=?`
+            ).bind(new Date().toISOString(), r.amount, r.explanation, r.ledger_key).run();
+            posted.push({ ledger_key: r.ledger_key, franchise_id: r.franchise_id, amount: r.amount });
+          }
+        }
+        return jsonOut(200, {
+          ok: posted.length === rowsSliced.length,
+          season: targetSeason, league_id: leagueId,
+          posted: posted.length, attempted: rowsSliced.length, reconciled: reconcileKeys.length,
+          verified: posted, skipped,
+          mfl_import_ok: !!(importRes && (importRes.ok ?? importRes.status)),
         });
       }
 
