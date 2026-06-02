@@ -1948,14 +1948,23 @@
       arr.forEach(function (x) { if (x && x.id && x.status) m[String(x.id)] = String(x.status); });
       STATE.nflStatus = m;
     } catch (e) {}
-    // News flags — the worker aggregates the shared RSS pool once + tags pids.
+    // News flags. The /api/player-news endpoint resolves at most ~50 players per
+    // request, so a single all-roster call drops everyone past ~50 (Jalen Hurts
+    // had news but no flag). Chunk into ≤40-pid requests and merge.
     try {
-      var news = await fetchJSON(apiUrl("/api/player-news") + "?pids=" + encodeURIComponent(pids.slice(0, 500).join(",")) + "&L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON));
-      var ibp = (news && news.items_by_pid) || {};
+      var chunks = [];
+      for (var ci = 0; ci < pids.length; ci += 40) chunks.push(pids.slice(ci, ci + 40));
+      var newsBase = apiUrl("/api/player-news") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON) + "&pids=";
+      var results = await Promise.all(chunks.map(function (c) {
+        return fetchJSON(newsBase + encodeURIComponent(c.join(","))).catch(function () { return null; });
+      }));
       var flags = {};
-      Object.keys(ibp).forEach(function (pid) {
-        var items = (ibp[pid] || []).filter(function (it) { return it && (it.type === "injury" || it.type === "status" || it.type === "headline"); });
-        if (items.length) flags[pid] = items.some(function (it) { return it.type === "injury" || it.type === "status"; }) ? "injury" : "news";
+      results.forEach(function (news) {
+        var ibp = (news && news.items_by_pid) || {};
+        Object.keys(ibp).forEach(function (pid) {
+          var items = (ibp[pid] || []).filter(function (it) { return it && (it.type === "injury" || it.type === "status" || it.type === "headline"); });
+          if (items.length) flags[pid] = items.some(function (it) { return it.type === "injury" || it.type === "status"; }) ? "injury" : "news";
+        });
       });
       STATE.newsFlags = flags;
     } catch (e) {}
