@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-06-01T15:42:37.276242+00:00",
+    "generated_at_utc": "2026-06-02T13:02:16.186745+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -575,7 +575,7 @@
           "display": "Jared Verse",
           "player_id": "16653",
           "position": "DE",
-          "nfl_team": "LAR",
+          "nfl_team": "CLE",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Rookie-Draft",
@@ -1186,7 +1186,7 @@
           "display": "Myles Garrett",
           "player_id": "13198",
           "position": "DE",
-          "nfl_team": "CLE",
+          "nfl_team": "LAR",
           "salary": 10000,
           "contract_year": 1,
           "contract_status": "Tag",
@@ -1896,7 +1896,7 @@
           "display": "A.J. Brown",
           "player_id": "14104",
           "position": "WR",
-          "nfl_team": "PHI",
+          "nfl_team": "NEP",
           "salary": 56000,
           "contract_year": 1,
           "contract_status": "Vet-Ext1",
