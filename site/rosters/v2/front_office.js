@@ -1426,6 +1426,11 @@
       .catch(function () { renderVersionBadge(); });
 
     await Promise.all([loadMe(), loadRosterData()]);
+    // Contract Revert tab — commish-only (admin state from /api/me), or ?contracts=1
+    // opt-in for testing. Writes are constrained to restoring audited prior states.
+    if ($("#fo-tab-contracts") && ((STATE.me && STATE.me.isAdmin) || QS.get("contracts") === "1")) {
+      $("#fo-tab-contracts").hidden = false;
+    }
     renderHeaderMeta();
     populateTeamSelect();
     populateActionFilter();
@@ -1626,6 +1631,7 @@
         if (tab === "cap") renderCapTab();
         if (tab === "tag") renderTagTab();
         if (tab === "activity") renderActivityTab();
+        if (tab === "contracts") renderContractsTab();
       });
     });
   }
@@ -4974,6 +4980,141 @@
     } finally {
       STATE.activityLoading = false;
     }
+  }
+
+  // ── Contract Revert tab (commish-only) ────────────────────────────────
+  // Lists recent contract submissions (extension / MYAC / restructure / tag)
+  // for the season from GET /admin/contract-submissions, lets the commish pick
+  // one or more and revert them via POST /admin/contract-revert (restores the
+  // PRIOR contract in MFL; tags -> untag). Dry-run preview + confirm before write.
+  function contractRevertState() {
+    if (!STATE._cr) STATE._cr = { subs: [], sel: {} };
+    return STATE._cr;
+  }
+  async function postJSONRaw(url, payload) {
+    const r = await fetch(url, {
+      method: "POST", credentials: "omit", cache: "no-store",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload || {})
+    });
+    const txt = await r.text();
+    let data; try { data = txt ? JSON.parse(txt) : {}; } catch (_) { data = { raw: txt }; }
+    if (!r.ok) throw new Error((data && data.error) || ("HTTP " + r.status));
+    return data;
+  }
+  function ctKindLabel(k) {
+    return { myac: "MYAC", extension: "Extension", restructure: "Restructure", tag: "Tag", untag: "Untag" }[k] || k;
+  }
+  function ctContractStr(c, isTag) {
+    if (!c) return isTag ? "(untag)" : "—";
+    const sal = c.salary != null ? "$" + Number(c.salary).toLocaleString() : "$?";
+    const yr = c.contract_year != null ? c.contract_year + "yr" : "";
+    return [c.contract_status || "", yr, sal].filter(Boolean).join(" · ");
+  }
+  async function renderContractsTab() {
+    const body = $("#fo-contracts-body");
+    const meta = $("#fo-contracts-meta");
+    if (!body) return;
+    body.innerHTML = '<div class="fo-table-loading">Loading contract submissions…</div>';
+    const cr = contractRevertState();
+    try {
+      const url = apiUrl("/admin/contract-submissions") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
+      const data = await fetchJSON(url);
+      cr.subs = (data && data.submissions) || [];
+      cr.sel = {};
+    } catch (e) {
+      body.innerHTML = '<div class="fo-table-loading">Failed to load: ' + escapeHtml(e.message || String(e)) + '</div>';
+      return;
+    }
+    if (meta) meta.textContent = cr.subs.length + " submission" + (cr.subs.length === 1 ? "" : "s") + " · " + SEASON;
+    renderContractsBody();
+  }
+  function renderContractsBody() {
+    const body = $("#fo-contracts-body");
+    if (!body) return;
+    const cr = contractRevertState();
+    if (!cr.subs.length) { body.innerHTML = '<div class="fo-table-loading">No contract submissions this season.</div>'; return; }
+    const fmtDt = (s) => String(s || "").replace("T", " ").slice(0, 16);
+    let rows = "";
+    cr.subs.forEach(function (s) {
+      const key = s.table + ":" + s.id;
+      const checked = cr.sel[key] ? "checked" : "";
+      const disabled = s.revertable ? "" : "disabled";
+      const isTag = s.kind === "tag" || s.kind === "untag";
+      const newStr = ctContractStr(s.new, false) + (s.new && s.new.tag_side ? " (" + s.new.tag_side + ")" : "");
+      const priorStr = ctContractStr(s.prior, isTag);
+      const team = (STATE.teams || []).find(function (t) { return pad4(t.fid) === pad4(s.franchise_id); });
+      const fr = (team && team.name) || s.franchise_id || "";
+      rows += '<tr>' +
+        '<td style="text-align:center;"><input type="checkbox" class="fo-cr-chk" data-key="' + key + '" ' + checked + ' ' + disabled + '></td>' +
+        '<td>' + escapeHtml(s.player_name || s.player_id || "") + '</td>' +
+        '<td>' + escapeHtml(ctKindLabel(s.kind)) + '</td>' +
+        '<td>' + escapeHtml(fr) + '</td>' +
+        '<td class="small">' + escapeHtml(newStr) + '</td>' +
+        '<td class="small">' + escapeHtml(priorStr) + (s.revertable ? '' : ' <span style="color:var(--muted);">(no revert)</span>') + '</td>' +
+        '<td class="small">' + escapeHtml(fmtDt(s.submitted_at_utc)) + '</td>' +
+        '</tr>';
+    });
+    const nSel = Object.keys(cr.sel).filter(function (k) { return cr.sel[k]; }).length;
+    body.innerHTML =
+      '<div class="fo-cr-toolbar" style="margin:8px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
+        '<button type="button" class="btn small warn" id="fo-cr-revert"' + (nSel ? '' : ' disabled') + '>Revert selected (' + nSel + ')</button>' +
+        '<button type="button" class="btn small secondary" id="fo-cr-refresh">↻ Refresh</button>' +
+        '<span class="small" id="fo-cr-status" style="color:var(--muted);"></span>' +
+      '</div>' +
+      '<div class="fo-table-scroll"><table class="fo-table fo-cr-table"><thead><tr>' +
+        '<th style="width:32px;"></th><th>Player</th><th>Kind</th><th>Team</th>' +
+        '<th>Submitted (new)</th><th>Reverts to (prior)</th><th>When (UTC)</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    $$(".fo-cr-chk", body).forEach(function (chk) {
+      chk.addEventListener("change", function () {
+        const k = this.getAttribute("data-key");
+        if (this.checked) cr.sel[k] = true; else delete cr.sel[k];
+        renderContractsBody();
+      });
+    });
+    const revBtn = $("#fo-cr-revert");
+    if (revBtn) revBtn.addEventListener("click", doContractRevert);
+    const refBtn = $("#fo-cr-refresh");
+    if (refBtn) refBtn.addEventListener("click", renderContractsTab);
+  }
+  async function doContractRevert() {
+    const cr = contractRevertState();
+    const reverts = Object.keys(cr.sel).filter(function (k) { return cr.sel[k]; }).map(function (k) {
+      const i = k.lastIndexOf(":");
+      return { table: k.slice(0, i), id: safeInt(k.slice(i + 1), 0) };
+    });
+    if (!reverts.length) return;
+    const status = $("#fo-cr-status");
+    const setStatus = (m) => { if (status) status.textContent = m; };
+    const revertUrl = apiUrl("/admin/contract-revert") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
+    // Dry-run preview first so the commish sees exactly what each revert restores.
+    setStatus("Previewing (dry-run)…");
+    let dry;
+    try {
+      dry = await postJSONRaw(revertUrl, { league_id: LEAGUE_ID, season: SEASON, dry_run: true, reverts: reverts });
+    } catch (e) { setStatus("Preview failed: " + (e.message || e)); return; }
+    const lines = (dry.results || []).map(function (r) {
+      const to = r.restored && r.restored.contract_status
+        ? r.restored.contract_status + " " + r.restored.contract_year + "yr $" + Number(r.restored.salary || 0).toLocaleString()
+        : "untag";
+      return (r.ok ? "✓" : "✗") + " " + (r.player_name || r.id) + " → " + to + (r.error ? " (" + r.error + ")" : "");
+    });
+    if (!window.confirm("Revert " + reverts.length + " contract(s) in MFL?\n\n" + lines.join("\n") + "\n\nThis writes to MFL (Discord silenced) and is not undoable from here.")) {
+      setStatus("");
+      return;
+    }
+    setStatus("Reverting…");
+    try {
+      const res = await postJSONRaw(revertUrl, { league_id: LEAGUE_ID, season: SEASON, dry_run: false, reverts: reverts });
+      const all = res.results || [];
+      const okN = all.filter(function (r) { return r.ok; }).length;
+      const failed = all.filter(function (r) { return !r.ok; });
+      setStatus("Reverted " + okN + "/" + all.length + (failed.length ? " — failed: " + failed.map(function (f) { return (f.player_name || f.id) + " (" + (f.error || f.status || "?") + ")"; }).join(", ") : "") + ". Reloading…");
+      cr.sel = {};
+      await loadRosterData();        // refresh cap/contract figures off the new MFL state
+      renderRosterTable();
+      await renderContractsTab();
+    } catch (e) { setStatus("Revert failed: " + (e.message || e)); }
   }
 
   function renderActivityTab() {
