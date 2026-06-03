@@ -32442,21 +32442,44 @@ export default {
         });
       }
 
-      // GET /admin/discord-channel-config — names-only diagnostic (NO values) for
-      // which DISCORD_* bindings the worker actually sees. Catches secrets added
-      // under a different name, or to the account Secrets Store (which the worker
-      // can't read without a secrets_store binding).
+      // GET /admin/discord-channel-config — names-only config diagnostic (NEVER
+      // values). Reports which operational bindings the worker actually sees +
+      // the drop-tracker cron flags. Catches secrets added under a different
+      // name, or to the account Secrets Store (which the worker can't read
+      // without a secrets_store binding), and wiped values across the board.
       if (path === "/admin/discord-channel-config" && request.method === "GET") {
-        const names = Object.keys(env).filter((k) => /DISCORD/i.test(k)).sort();
-        const present = {};
-        names.forEach((k) => { try { present[k] = String(env[k] || "").length > 0; } catch (_) { present[k] = false; } });
         const dig = (s) => safeStr(s || "").replace(/\D/g, "");
+        const flag = (s) => String(s || "").trim() === "1";
+        const has = (k) => { try { return String(env[k] || "").length > 0; } catch (_) { return false; } };
+        const names = Object.keys(env).filter((k) => /DISCORD|GIPHY|DROP_TRACKER|COMMISH|MFL_COOKIE/i.test(k)).sort();
+        const present = {};
+        names.forEach((k) => { present[k] = has(k); });
+        // Curated EXPECTED operational config — quick present/missing audit to
+        // catch wiped secrets at a glance (booleans only, never values).
+        const EXPECTED = [
+          "MFL_COOKIE", "COMMISH_API_KEY", "GIPHY_API_KEY", "GITHUB_PAT",
+          "DISCORD_BOT_TOKEN", "DISCORD_CONTRACT_BOT_TOKEN",
+          "DISCORD_CONTRACT_CHANNEL_ID", "DISCORD_CONTRACT_TEST_CHANNEL_ID",
+          "DISCORD_AUCTION_CHANNEL_ID", "DISCORD_AUCTION_TEST_CHANNEL_ID",
+          "DISCORD_DROPS_CHANNEL_ID", "DISCORD_DROPS_TEST_CHANNEL_ID", "DISCORD_CAP_PENALTY_CHANNEL_ID",
+        ];
+        const expected_present = {};
+        EXPECTED.forEach((k) => { expected_present[k] = has(k); });
         return jsonOut(200, {
           ok: true,
-          discord_env_names: names,
+          env_names: names,
           present,
+          expected_present,
           contract_primary_resolved: !!dig(env.DISCORD_CONTRACT_CHANNEL_ID),
           contract_test_resolved: !!(dig(env.DISCORD_CONTRACT_TEST_CHANNEL_ID) || dig(env.DISCORD_BUG_TEST_CHANNEL_ID)),
+          drop_tracker: {
+            enabled: flag(env.DROP_TRACKER_ENABLED),
+            auto_post_discord: flag(env.DROP_TRACKER_AUTO_POST),
+            post_mfl: flag(env.DROP_TRACKER_POST_MFL),
+            discord_target: String(env.DROP_TRACKER_DISCORD_TARGET || "prod").trim().toLowerCase(),
+            commish_api_key_present: has("COMMISH_API_KEY"),
+            drops_channel_env_set: has("DISCORD_DROPS_CHANNEL_ID"),
+          },
         });
       }
 
