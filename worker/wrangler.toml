@@ -2,6 +2,23 @@ name = "upsmflproduction"
 main = "src/index.js"
 compatibility_date = "2026-02-02"
 
+# Drop-tracker cron flags (Keith 2026-06-03: "All 3 — full auto"). Kept in
+# version control — NOT dashboard secrets — so they can't silently vanish the
+# way the Discord channels / GIPHY key did. The */5 scheduled handler reads
+# these each tick:
+#   DROP_TRACKER_ENABLED        → run /admin/drops/scan-and-record (detect+record)
+#   DROP_TRACKER_AUTO_POST      → post each drop announcement to Discord
+#   DROP_TRACKER_POST_MFL       → auto-write computed cap penalties to MFL
+#   DROP_TRACKER_DISCORD_TARGET → "prod" (real drops channel) or "test"
+# NOTE: the prod drops channel currently falls back to a hardcoded id
+# (1059111651846131833) because DISCORD_DROPS_CHANNEL_ID is unset — re-add that
+# secret if a different channel is wanted.
+[vars]
+DROP_TRACKER_ENABLED = "1"
+DROP_TRACKER_AUTO_POST = "1"
+DROP_TRACKER_POST_MFL = "1"
+DROP_TRACKER_DISCORD_TARGET = "prod"
+
 # Hourly drop → cap-penalty scan at :05 past each hour (RULE-WORKFLOW-004).
 # The worker's scheduled() handler:
 #   1. calls /admin/import-drop-penalties logic to post new cap penalties to MFL
