@@ -2355,6 +2355,8 @@ export default {
         path !== "/admin/drops/scan-and-record" &&
         path !== "/admin/drops/post-discord" &&
         path !== "/admin/drops/post-mfl" &&
+        path !== "/admin/drops/reconciliation" &&
+        path !== "/admin/drops/reconcile-post" &&
         path !== "/api/giphy-search" &&
         path !== "/api/franchise-ownership-history" &&
         path !== "/api/roast-thread/track" &&
@@ -30028,6 +30030,130 @@ export default {
       // path reuses the SAME explanation format + merge-preserve + verify so the
       // two never clash (dedup by the `id:<ledger_key>` suffix; merge keeps
       // trade/other rows). Idempotent via posted_to_mfl + ledger-key dedup.
+      // ── Drop-penalty SUM rounding (canon §6 line 462: "All cap penalties are
+      //    rounded based on the SUM of penalties accrued, not per-penalty").
+      //    Individual penalties post EXACT all season; at the FA Auction Cut
+      //    Deadline a single per-franchise reconciliation salaryAdj trues each
+      //    franchise's MFL drop-penalty total to the nearest $1K (half-up).
+      const computeDropRoundingReconciliation = async (season, leagueId) => {
+        const sel = await env.UPS_MFL_DB.prepare(
+          `SELECT franchise_id,
+                  MAX(franchise_name) AS franchise_name,
+                  SUM(penalty_amount) AS exact_sum,
+                  SUM(CASE WHEN posted_to_mfl = 1 THEN COALESCE(posted_amount, penalty_amount) ELSE 0 END) AS posted_sum,
+                  COUNT(*) AS penalty_count
+             FROM ups_drop_events
+            WHERE season = ? AND league_id = ? AND penalty_amount > 0
+            GROUP BY franchise_id`
+        ).bind(String(season), String(leagueId)).all();
+        const out = [];
+        for (const r of ((sel && sel.results) || [])) {
+          const fid = padFranchiseId(r.franchise_id);
+          if (!fid) continue;
+          const exact = Math.round(Number(r.exact_sum) || 0);
+          const posted = Math.round(Number(r.posted_sum) || 0);
+          const rounded = Math.round(exact / 1000) * 1000;   // nearest $1K, half-up
+          out.push({
+            franchise_id: fid,
+            franchise_name: safeStr(r.franchise_name) || ("Team " + fid),
+            penalty_count: safeInt(r.penalty_count, 0),
+            exact_sum: exact,
+            rounded_total: rounded,
+            rounding_delta: rounded - exact,          // display: rounded vs exact sum
+            posted_sum: posted,
+            reconciliation_amount: rounded - posted,  // what to post to MFL to true up to rounded
+            ledger_key: `ups_drop_rounding_${fid}_${season}`,
+          });
+        }
+        out.sort((a, b) => a.franchise_id.localeCompare(b.franchise_id));
+        return out;
+      };
+      // FA Auction Cut Deadline = "FA Contract Drop Deadline" reconciliation trigger.
+      // Reads the league calendar when in scope; falls back to the pinned 2026 value.
+      const _cutDeadlineForSeason = (season) => {
+        const calRoot = (typeof DEADLINE_REMINDER_CALENDAR !== "undefined") ? DEADLINE_REMINDER_CALENDAR : null;
+        const cc = (calRoot && calRoot[String(season)] && calRoot[String(season)].cut_deadline) || null;
+        return {
+          date_et: safeStr(cc && cc.deadline_date_et) || (String(season) === "2026" ? "2026-07-22" : ""),
+          time_et: safeStr(cc && cc.deadline_time_et) || "21:00",
+        };
+      };
+
+      // GET /admin/drops/reconciliation?L=&YEAR= — read-only per-franchise SUM-rounding
+      // preview (powers the FO display). No writes.
+      if (path === "/admin/drops/reconciliation" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const rSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const rLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const franchises = await computeDropRoundingReconciliation(rSeason, rLeague);
+        const dl = _cutDeadlineForSeason(rSeason);
+        const fired = await _deadlineLockAlreadyFired(env.UPS_MFL_DB, rSeason, rLeague, "drop_rounding_reconciliation");
+        return jsonOut(200, {
+          ok: true, season: rSeason, league_id: rLeague,
+          deadline_date_et: dl.date_et, deadline_time_et: dl.time_et,
+          reconciliation_posted: !!fired,
+          franchises,
+          grand_exact: franchises.reduce((a, r) => a + r.exact_sum, 0),
+          grand_rounded: franchises.reduce((a, r) => a + r.rounded_total, 0),
+        });
+      }
+
+      // POST /admin/drops/reconcile-post — deadline-gated, fire-once true-up. Posts a
+      // per-franchise reconciliation salaryAdj (rounded − posted) so each franchise's
+      // MFL drop-penalty total lands on a clean $1K. Called hourly by the cron; no-ops
+      // until the cut deadline passes. ?force=1 overrides the date gate (commish only).
+      if (path === "/admin/drops/reconcile-post" && request.method === "POST") {
+        let rbody = {};
+        try { rbody = (await request.json()) || {}; } catch (_) { rbody = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const rSeason = safeStr(rbody.season || url.searchParams.get("YEAR") || YEAR || "2026");
+        const rLeague = safeStr(rbody.league_id || url.searchParams.get("L") || L || "74598");
+        const rDry = !!rbody.dry_run;
+        const rForce = rbody.force === 1 || rbody.force === true || url.searchParams.get("force") === "1";
+        const dl = _cutDeadlineForSeason(rSeason);
+        const deadlineMs = dl.date_et ? Date.parse(`${dl.date_et}T${dl.time_et || "21:00"}:00-04:00`) : NaN;
+        const nowMs = Number(new Date());
+        if (!rForce && (isNaN(deadlineMs) || nowMs < deadlineMs)) {
+          return jsonOut(200, { ok: true, skipped: true, reason: "before_cut_deadline", deadline_date_et: dl.date_et, season: rSeason });
+        }
+        if (!rForce && await _deadlineLockAlreadyFired(env.UPS_MFL_DB, rSeason, rLeague, "drop_rounding_reconciliation")) {
+          return jsonOut(200, { ok: true, skipped: true, reason: "already_reconciled", season: rSeason });
+        }
+        const franchises = await computeDropRoundingReconciliation(rSeason, rLeague);
+        const existingRes = await mflExportJson(rSeason, rLeague, "salaryAdjustments", {}, { useCookie: true });
+        const existingRows = existingRes.ok ? collectSalaryAdjustmentExportRows(existingRes.data?.salaryAdjustments || existingRes.data?.salaryadjustments || existingRes.data || {}) : [];
+        const existingKeys = new Set();
+        for (const ex of existingRows) { const m = safeStr(ex.explanation).match(/\bid:([A-Za-z0-9_.:-]+)\s*$/); if (m) existingKeys.add(m[1]); }
+        const rowsToPost = [];
+        for (const f of franchises) {
+          const amt = Math.round(f.reconciliation_amount);
+          if (!amt) continue;                          // already on a clean $1K
+          if (existingKeys.has(f.ledger_key)) continue; // already reconciled in MFL
+          rowsToPost.push({ franchise_id: f.franchise_id, amount: amt, explanation: `UPS drop penalty rounding ${safeStr(f.franchise_name).replace(/[^A-Za-z0-9 ,.'-]/g, "")} ${amt} id:${f.ledger_key}` });
+        }
+        if (rDry) {
+          return jsonOut(200, { ok: true, dry_run: true, season: rSeason, league_id: rLeague, would_post: rowsToPost, franchises });
+        }
+        const adminState = await getLeagueAdminState(rLeague, rSeason);
+        if (!adminState.ok || !adminState.isAdmin) return jsonOut(403, { ok: false, error: "MFL_COOKIE lacks commissioner privileges", would_post: rowsToPost });
+        let postedOk = true;
+        if (rowsToPost.length) {
+          const dataXml = buildSalaryAdjXml(rowsToPost.map((r) => ({ franchise_id: r.franchise_id, amount: r.amount, explanation: r.explanation })));
+          const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(rSeason)}/import`;
+          const importBody = new URLSearchParams({ TYPE: "salaryAdj", L: rLeague, DATA: dataXml }).toString();
+          try {
+            const ir = await fetch(importUrl, { method: "POST", headers: { Cookie: cookieHeader, "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)", "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: importBody, redirect: "manual", cf: { cacheTtl: 0, cacheEverything: false } });
+            postedOk = ir.status >= 200 && ir.status < 400;
+          } catch (e) { postedOk = false; }
+          if (!postedOk) return jsonOut(502, { ok: false, error: "mfl_post_failed", would_post: rowsToPost });
+        }
+        await _markDeadlineLockFired(env.UPS_MFL_DB, rSeason, rLeague, "drop_rounding_reconciliation", JSON.stringify({ posted: rowsToPost.length }));
+        return jsonOut(200, { ok: true, season: rSeason, league_id: rLeague, posted: rowsToPost.length, rows: rowsToPost, franchises });
+      }
+
       if (path === "/admin/drops/post-mfl" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
