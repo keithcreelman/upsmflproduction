@@ -30102,10 +30102,32 @@ export default {
         // worked 2026-04-17): plain postMflImportForm with the worker commish cookie
         // (now complete with MFL_USER_ID + MFL_PW_SEQ).
         const dataXml = buildSalaryAdjXml(plain(rowsSliced));
-        // Cookie-only (skipApiKey): canon says salaryAdj import does NOT accept the
-        // APIKEY; with a now-complete commish cookie, attaching the APIKEY may be
-        // what makes MFL silently 200 without applying.
-        const importRes = await postMflImportForm(targetSeason, { TYPE: "salaryAdj", L: leagueId, DATA: dataXml }, { TYPE: "salaryAdj", L: leagueId }, { skipApiKey: true });
+        // Mirror MFL's OWN salaryAdj test form EXACTLY (api_info?STATE=test&CCAT=
+        // import&TYPE=salaryAdj → <form action="import" method="POST"> with ONLY
+        // TYPE/L/DATA in the body). The shared postMflImportForm appends JSON=1 +
+        // APIKEY and duplicates TYPE/L in the query string, which this commissioner-
+        // cookie-only import silently 200s and ignores. Post clean: /{year}/import,
+        // body TYPE/L/DATA, commish cookie, no query params, no JSON, no APIKEY.
+        const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(targetSeason)}/import`;
+        const importBody = new URLSearchParams({ TYPE: "salaryAdj", L: leagueId, DATA: dataXml }).toString();
+        let importRes;
+        try {
+          const ir = await fetch(importUrl, {
+            method: "POST",
+            headers: {
+              Cookie: cookieHeader,
+              "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)",
+              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            },
+            body: importBody,
+            redirect: "manual",
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          const irText = await ir.text().catch(() => "");
+          importRes = { ok: ir.status >= 200 && ir.status < 400, status: ir.status, upstreamPreview: String(irText).slice(0, 300), error: "", target: importUrl };
+        } catch (e) {
+          importRes = { ok: false, status: 0, upstreamPreview: "", error: "fetch_failed: " + (e && e.message), target: importUrl };
+        }
 
         // 6. Verify against the post-import export, then mark posted.
         const verifyRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
