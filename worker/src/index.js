@@ -1976,8 +1976,21 @@ export default {
                 const mflData = await mflRes.json().catch(() => ({}));
                 mflPostedCount = Number(mflData?.posted) || 0;
               }
-              if (newWritten || postedCount || mflPostedCount) {
-                console.log(`[scheduled */5] drop-tracker: new_drops=${newWritten} discord_posted=${postedCount} mfl_posted=${mflPostedCount} auto_post=${dropAutoPost ? "1" : "0"} post_mfl=${dropPostMfl ? "1" : "0"} target=${dropTarget}`);
+              // SUM-rounding reconciliation (canon §6) — no-ops until the FA Auction
+              // Cut Deadline, then posts one per-franchise true-up to the nearest $1K.
+              let reconciledRows = 0;
+              if (dropPostMfl) {
+                try {
+                  const recRes = await env.SELF.fetch(
+                    `${origin}/admin/drops/reconcile-post?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId }) }
+                  );
+                  const recData = await recRes.json().catch(() => ({}));
+                  reconciledRows = Number(recData?.posted) || 0;
+                } catch (_) {}
+              }
+              if (newWritten || postedCount || mflPostedCount || reconciledRows) {
+                console.log(`[scheduled */5] drop-tracker: new_drops=${newWritten} discord_posted=${postedCount} mfl_posted=${mflPostedCount} reconciled=${reconciledRows} auto_post=${dropAutoPost ? "1" : "0"} post_mfl=${dropPostMfl ? "1" : "0"} target=${dropTarget}`);
               }
             } catch (e) {
               console.error(`[scheduled */5] drop-tracker failed: ${e?.message || String(e)}`);

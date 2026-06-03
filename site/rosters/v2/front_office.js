@@ -3609,6 +3609,63 @@
     if (STATE.capSubview === "detail") body.innerHTML = renderCapDetail();
     else                               body.innerHTML = renderCapSummary();
     wireCapTab();
+    renderDropReconciliationPanel(); // async — SUM-rounding true-up preview (canon §6)
+  }
+
+  // Drop-penalty SUM rounding (canon §6: round the per-franchise SUM, not each
+  // penalty). Individual penalties stay exact all season; the per-franchise
+  // true-up to the nearest $1,000 posts to MFL automatically at the FA Auction
+  // Cut Deadline. This panel previews what that true-up will be.
+  async function renderDropReconciliationPanel() {
+    const body = $("#fo-cap-body");
+    if (!body) return;
+    let panel = $("#fo-cap-reconciliation");
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "fo-cap-reconciliation";
+      panel.style.marginTop = "16px";
+      body.appendChild(panel);
+    }
+    const head = '<div class="fo-card-head"><h3 style="margin:0;">Drop-Penalty Rounding</h3><span class="small" style="color:var(--muted);">Canon §6 — round the SUM, not per-penalty</span></div>';
+    panel.innerHTML = '<div class="fo-card">' + head + '<p class="small" style="color:var(--muted);">Loading…</p></div>';
+    let data;
+    try {
+      const url = apiUrl("/admin/drops/reconciliation") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
+      data = await fetchJSON(url);
+    } catch (e) {
+      panel.innerHTML = '<div class="fo-card">' + head + '<p class="small">Unavailable: ' + escapeHtml(e.message || String(e)) + '</p></div>';
+      return;
+    }
+    const frs = (data && data.franchises) || [];
+    const anyDelta = frs.some(function (f) { return f.rounding_delta !== 0; });
+    const posted = !!(data && data.reconciliation_posted);
+    const dl = (data && data.deadline_date_et) || "the FA Auction Cut Deadline";
+    let rows = "";
+    frs.forEach(function (f) {
+      const d = f.rounding_delta;
+      const dStr = d === 0 ? "—" : (d > 0 ? "+" : "−") + "$" + Math.abs(d).toLocaleString();
+      const dCol = d === 0 ? "var(--muted)" : (d > 0 ? "#c0392b" : "#1f8a4c");
+      rows += '<tr><td>' + escapeHtml(f.franchise_name) + '</td>' +
+        '<td style="text-align:right;">$' + Number(f.exact_sum).toLocaleString() + '</td>' +
+        '<td style="text-align:right;font-weight:600;">$' + Number(f.rounded_total).toLocaleString() + '</td>' +
+        '<td style="text-align:right;color:' + dCol + ';">' + dStr + '</td>' +
+        '<td style="text-align:center;color:var(--muted);">' + safeInt(f.penalty_count, 0) + '</td></tr>';
+    });
+    const note = posted
+      ? '✅ Reconciliation has posted to MFL — franchise totals are final.'
+      : (anyDelta
+          ? '⏳ The per-franchise true-up posts to MFL automatically at the FA Auction Cut Deadline (' + escapeHtml(dl) + '). Individual penalties stay exact until then.'
+          : 'No rounding adjustment pending — every franchise total is already a clean $1,000.');
+    panel.innerHTML =
+      '<div class="fo-card">' + head +
+      '<p class="fo-row-hint">' + note + '</p>' +
+      (frs.length
+        ? '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th>Team</th>' +
+          '<th style="text-align:right;">Penalties (exact)</th><th style="text-align:right;">Rounded total</th>' +
+          '<th style="text-align:right;">Δ true-up</th><th style="text-align:center;"># drops</th></tr></thead><tbody>' +
+          rows + '</tbody></table></div>'
+        : '<p class="small" style="color:var(--muted);">No cap penalties accrued yet this season.</p>') +
+      '</div>';
   }
 
   // Filter a player through the Summary filters. Used by aggregate.
