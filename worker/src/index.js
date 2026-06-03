@@ -2370,6 +2370,8 @@ export default {
         path !== "/admin/contract-activity/test-discord-batch" &&
         path !== "/admin/contract-activity/post" &&
         path !== "/admin/contract-activity/post-batch" &&
+        path !== "/admin/contract-submissions" &&
+        path !== "/admin/contract-revert" &&
         path !== "/admin/contract-activity/edit" &&
         path !== "/admin/bug-report/status" &&
         path !== "/admin/bug-report/triage-note" &&
@@ -32437,6 +32439,140 @@ export default {
           count: results.length,
           results,
         });
+      }
+
+      // GET /admin/contract-submissions?L=&YEAR= — commish-only list of recent
+      // contract submissions (extension, MYAC, restructure, tag) for the season,
+      // real (dry_run=0) only, newest first. Powers the FO "Contract Activity"
+      // revert UI. Each row carries the prior/new state so the UI can show what a
+      // revert would restore.
+      if (path === "/admin/contract-submissions" && request.method === "GET") {
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const csSeason = safeStr(url.searchParams.get("YEAR") || url.searchParams.get("season") || YEAR || "2026");
+        const csLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const out = [];
+        const pushCommon = (r, table, kind, prior, newer) => out.push({
+          table, id: r.id, kind,
+          player_id: safeStr(r.player_id), player_name: safeStr(r.player_name), position: safeStr(r.position),
+          franchise_id: safeStr(r.franchise_id), source: safeStr(r.source), submitted_at_utc: safeStr(r.submitted_at_utc),
+          prior: prior, new: newer,
+        });
+        try {
+          const ext = await env.UPS_MFL_DB.prepare(
+            `SELECT id, player_id, player_name, position, franchise_id, source, submitted_at_utc,
+                    prior_contract_status, prior_salary, prior_contract_year, prior_contract_info,
+                    new_contract_status, new_salary, new_contract_year, new_contract_info
+               FROM ups_extension_submissions WHERE season = ? AND COALESCE(dry_run,0) = 0`
+          ).bind(csSeason).all();
+          for (const r of (ext.results || [])) {
+            const o = { table: "ups_extension_submissions", id: r.id,
+              kind: /myac/i.test(safeStr(r.source)) ? "myac" : "extension",
+              player_id: safeStr(r.player_id), player_name: safeStr(r.player_name), position: safeStr(r.position),
+              franchise_id: safeStr(r.franchise_id), source: safeStr(r.source), submitted_at_utc: safeStr(r.submitted_at_utc),
+              prior: { contract_status: r.prior_contract_status, salary: r.prior_salary, contract_year: r.prior_contract_year, contract_info: r.prior_contract_info },
+              new: { contract_status: r.new_contract_status, salary: r.new_salary, contract_year: r.new_contract_year, contract_info: r.new_contract_info },
+              revertable: r.prior_contract_status != null || r.prior_salary != null || r.prior_contract_year != null };
+            out.push(o);
+          }
+        } catch (_) {}
+        try {
+          const rst = await env.UPS_MFL_DB.prepare(
+            `SELECT id, player_id, player_name, position, franchise_id, source, submitted_at_utc,
+                    prior_contract_status, prior_salary, prior_contract_year, prior_contract_info,
+                    new_contract_status, new_salary, new_contract_year, new_contract_info
+               FROM ups_restructure_submissions WHERE season = ? AND COALESCE(dry_run,0) = 0`
+          ).bind(csSeason).all();
+          for (const r of (rst.results || [])) {
+            out.push({ table: "ups_restructure_submissions", id: r.id, kind: "restructure",
+              player_id: safeStr(r.player_id), player_name: safeStr(r.player_name), position: safeStr(r.position),
+              franchise_id: safeStr(r.franchise_id), source: safeStr(r.source), submitted_at_utc: safeStr(r.submitted_at_utc),
+              prior: { contract_status: r.prior_contract_status, salary: r.prior_salary, contract_year: r.prior_contract_year, contract_info: r.prior_contract_info },
+              new: { contract_status: r.new_contract_status, salary: r.new_salary, contract_year: r.new_contract_year, contract_info: r.new_contract_info },
+              revertable: r.prior_contract_status != null || r.prior_salary != null || r.prior_contract_year != null });
+          }
+        } catch (_) {}
+        try {
+          const tag = await env.UPS_MFL_DB.prepare(
+            `SELECT id, player_id, player_name, position, franchise_id, source, submitted_at_utc,
+                    tag_side, action, salary, contract_status
+               FROM ups_tag_submissions WHERE season = ? AND COALESCE(dry_run,0) = 0`
+          ).bind(csSeason).all();
+          for (const r of (tag.results || [])) {
+            const isUntag = safeStr(r.action).toLowerCase() === "untag";
+            out.push({ table: "ups_tag_submissions", id: r.id, kind: isUntag ? "untag" : "tag",
+              player_id: safeStr(r.player_id), player_name: safeStr(r.player_name), position: safeStr(r.position),
+              franchise_id: safeStr(r.franchise_id), source: safeStr(r.source), submitted_at_utc: safeStr(r.submitted_at_utc),
+              prior: null,
+              new: { contract_status: safeStr(r.contract_status), salary: r.salary, contract_year: 1, contract_info: "", tag_side: safeStr(r.tag_side) },
+              revertable: !isUntag });
+          }
+        } catch (_) {}
+        out.sort((a, b) => String(b.submitted_at_utc || "").localeCompare(String(a.submitted_at_utc || "")));
+        return jsonOut(200, { ok: true, season: csSeason, league_id: csLeague, count: out.length, submissions: out });
+      }
+
+      // POST /admin/contract-revert — Body: { reverts:[{table,id}], dry_run? }.
+      // Restores each selected submission's PRIOR contract to MFL (tags → untag)
+      // via /commish-contract-update (silence_discord + commish_override). Commish.
+      if (path === "/admin/contract-revert" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB || !env.SELF) return jsonOut(500, { ok: false, error: "UPS_MFL_DB / SELF service binding missing" });
+        const crSeason = safeStr(body.season || url.searchParams.get("YEAR") || YEAR || "2026");
+        const crLeague = safeStr(body.league_id || url.searchParams.get("L") || L || "74598");
+        const crDry = !!body.dry_run;
+        const reverts = Array.isArray(body.reverts) ? body.reverts : [];
+        const ALLOWED = { ups_extension_submissions: 1, ups_restructure_submissions: 1, ups_tag_submissions: 1 };
+        const results = [];
+        for (const rv of reverts) {
+          const table = safeStr(rv && rv.table);
+          const id = safeInt(rv && rv.id, 0);
+          if (!ALLOWED[table] || !id) { results.push({ table, id, ok: false, error: "bad_table_or_id" }); continue; }
+          const row = await env.UPS_MFL_DB.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(id).first();
+          if (!row) { results.push({ table, id, ok: false, error: "row_not_found" }); continue; }
+          let payload;
+          if (table === "ups_tag_submissions") {
+            if (safeStr(row.action).toLowerCase() === "untag") { results.push({ table, id, ok: false, error: "row_is_untag_not_revertable" }); continue; }
+            payload = { type: "MANUAL_CONTRACT_UPDATE", submission_kind: "untag",
+              L: crLeague, YEAR: crSeason, league_id: crLeague, season: crSeason,
+              player_id: safeStr(row.player_id), player_name: safeStr(row.player_name), position: safeStr(row.position),
+              franchise_id: safeStr(row.franchise_id), tag_side: safeStr(row.tag_side), side: safeStr(row.tag_side),
+              silence_discord: 1, dry_run: crDry ? 1 : 0, commish_override_flag: 1, source: "worker-commish-contract-revert" };
+          } else {
+            if (row.prior_contract_status == null && row.prior_salary == null && row.prior_contract_year == null) {
+              results.push({ table, id, ok: false, error: "no_prior_state_stored" }); continue;
+            }
+            payload = { type: "MANUAL_CONTRACT_UPDATE",
+              submission_kind: /myac/i.test(safeStr(row.source)) ? "myac" : "extension",
+              L: crLeague, YEAR: crSeason, league_id: crLeague, season: crSeason,
+              player_id: safeStr(row.player_id), player_name: safeStr(row.player_name), position: safeStr(row.position),
+              franchise_id: safeStr(row.franchise_id),
+              salary: row.prior_salary, contract_year: row.prior_contract_year,
+              contract_status: safeStr(row.prior_contract_status), contract_info: safeStr(row.prior_contract_info),
+              prior_salary: row.new_salary, prior_contract_year: row.new_contract_year,
+              prior_contract_status: safeStr(row.new_contract_status), prior_contract_info: safeStr(row.new_contract_info),
+              silence_discord: 1, dry_run: crDry ? 1 : 0, commish_override_flag: 1, source: "worker-commish-contract-revert" };
+          }
+          try {
+            const res = await env.SELF.fetch(
+              `https://self.invalid/commish-contract-update?L=${encodeURIComponent(crLeague)}&YEAR=${encodeURIComponent(crSeason)}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+              { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
+            );
+            const data = await res.json().catch(() => ({}));
+            const ok = !!(data && (data.ok === true || data.status === "import_ok_log_dispatched" || (data.changed && crDry)));
+            results.push({ table, id, player_name: safeStr(row.player_name), kind: payload.submission_kind, ok, status: data && data.status, changed: data && data.changed,
+              restored: table === "ups_tag_submissions" ? "untag" : { salary: row.prior_salary, contract_year: row.prior_contract_year, contract_status: safeStr(row.prior_contract_status) } });
+          } catch (e) {
+            results.push({ table, id, ok: false, error: "revert_dispatch_failed: " + (e && e.message) });
+          }
+        }
+        return jsonOut(200, { ok: results.length > 0 && results.every((r) => r.ok), dry_run: crDry, season: crSeason, league_id: crLeague, count: results.length, results });
       }
 
       if (path === "/admin/contract-activity/post" && request.method === "POST") {
