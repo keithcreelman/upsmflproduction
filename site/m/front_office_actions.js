@@ -1,17 +1,19 @@
 /* site/m/front_office_actions.js
  *
- * VERBATIM MIRROR of the contract-action eligibility + deep-link plumbing
- * in site/rosters/roster_workbench.js. Mobile uses this to:
+ * VERBATIM MIRROR of the contract-action eligibility predicates in the
+ * desktop Front Office (site/rosters/roster_workbench.js, with MYAC
+ * sourced from site/rosters/v2/front_office.js — the current contract-logic
+ * source of truth). Mobile uses this to:
  *   • compute which contract actions are available for a player
- *     (extension / rookie option / tag / restructure / untag)
- *   • build the same MFL Contract Command Center (CCC) deep-link URL
- *     that the desktop "open this action" buttons use
+ *     (extension / MYAC / rookie option / tag / restructure / untag)
  *   • check tag eligibility from site/ccc/tag_tracking.json the same way
  *     Front Office does (per-player row + per-team-side conflict check)
  *
- * Mobile does NOT reimplement the option pickers, payload builders, or
- * submit handlers — those live on desktop and run there when the user
- * lands on the CCC via the deep-link. Mobile is purely a launcher.
+ * Mobile runs every contract action IN-APP via the verbatim Front Office
+ * submit mirrors (front_office_extend_submit.js, front_office_tag_submit.js,
+ * front_office_restructure_submit.js, front_office_myac_submit.js), which
+ * POST to the same worker routes the desktop uses. The old MFL Contract
+ * Command Center deep-link (MODULE=MESSAGE2) is retired (Keith 2026-05-15).
  *
  * DO NOT EDIT logic. If desktop changes, copy the updated function
  * bodies here verbatim. Source-of-truth lines (roster_workbench.js):
@@ -22,8 +24,8 @@
  *   rookieOptionActionEligible (615)
  *   isStaleTagFromPriorSeason (7128) · activeTaggedPlayerForTeamSide (7145)
  *   conflictingTaggedPlayerForRow (7158)
- *   buildLeagueModuleUrl (7206) · buildLeagueModuleHashUrl (7224)
- *   buildContractCenterActionUrl (7265)
+ * MYAC eligibility (v2/front_office.js):
+ *   rosterContractEligibility (1262) · isPastContractDeadlineFO (1297)
  */
 (function () {
   "use strict";
@@ -108,6 +110,23 @@
     return safeInt(player && player.years, 0) === 1;
   }
 
+  // Current season from mobile context (desktop's module-global SEASON).
+  function currentSeasonFO() {
+    var s = window.UPS_MOBILE && window.UPS_MOBILE.state;
+    return safeStr(s && s.ctx && s.ctx.year);
+  }
+
+  // §C2 MYAC window closes at the September contract deadline. Verbatim
+  // mirror of v2/front_office.js isPastContractDeadlineFO (1297): an unknown
+  // deadline → within window (show MYAC) so a load failure never blocks the
+  // option. state.contractDeadline is loaded in app.js (fetchContractDeadline).
+  function isPastContractDeadlineFO() {
+    var s = window.UPS_MOBILE && window.UPS_MOBILE.state;
+    var d = s && s.contractDeadline;
+    if (!d) return false;
+    try { return new Date() > new Date(d + "T23:59:59-04:00"); } catch (_) { return false; }
+  }
+
   function rosterContractEligibility(player) {
     var years = Math.max(0, safeInt(player && player.years, 0));
     var salary = safeInt(player && player.salary, 0);
@@ -121,8 +140,30 @@
       info.indexOf("expired rookie") !== -1 ||
       (rookieLikeContractStatus(status) && years <= 0);
 
+    // ── MYAC (Multi-Year Auction Contract, §C2) — verbatim mirror of
+    // v2/front_office.js rosterContractEligibility (1271-1287). A 1-year
+    // DEFAULT from a fresh acquisition can be set to 2 or 3 years until the
+    // September contract deadline. Two entry paths (§C1): (1) ERA win →
+    // Vet-ERA (matched by the "-era" token on contractStatus); (2) FA Auction
+    // → 1-yr Veteran THIS season (matched by the acquisition label + date,
+    // which separate a fresh FA-auction Veteran from a HELD final-year
+    // Veteran — the latter gets a normal Extension, not MYAC). Acquisition
+    // fields are attached by eligibilityForRosterRow / extensionAvailableFor
+    // from the lookup loaded in app.js; absent → fresh-auction branch is
+    // simply false (ERA branch still works).
+    var acqLabel = safeStr(player && player.acquisitionTypeLabel).toLowerCase();
+    var acqYr = safeStr(player && player.acquisitionDate).slice(0, 4);
+    var isEra = status.indexOf("-era") !== -1;
+    var isFreshAuction = !isEra && /auction|faa/.test(acqLabel) &&
+                         acqLabel.indexOf("expired") === -1 && acqLabel.indexOf("rookie") === -1 &&
+                         acqYr === currentSeasonFO() && !rookieLikeContractStatus(status) && status.indexOf("tag") === -1;
+    var myacEligible = (isEra || isFreshAuction) && years === 1 && !isPastContractDeadlineFO();
+
     return {
-      extensionEligible: !rookieOptionActionEligible(player) && (years === 1 || expiredRookie) && status.indexOf("tag") === -1 && !noFurtherExt,
+      myacEligible: myacEligible,
+      // Extension is suppressed when MYAC applies — desktop parity (Keith:
+      // nobody extends when they can MYAC). v2/front_office.js:1286.
+      extensionEligible: !rookieOptionActionEligible(player) && (years === 1 || expiredRookie) && status.indexOf("tag") === -1 && !noFurtherExt && !myacEligible,
       rookieOptionEligible: !!(rookieOption && rookieOption.eligible && !rookieOption.exercised),
       restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status)
     };
@@ -398,67 +439,35 @@
 
   // ── END verbatim mirror ──────────────────────────────────────────────
 
-  // ── Deep-link URL builder ────────────────────────────────────────────
-  // Desktop builds this URL via buildContractCenterActionUrl (7265). On
-  // mobile we can't read state.ctx, so signature takes year/leagueId/etc.
-  // as explicit args. The resulting URL string is byte-identical to what
-  // desktop produces for the same player + action — verified by inspecting
-  // buildLeagueModuleUrl (7206) and buildLeagueModuleHashUrl (7224).
-  //
-  //   buildLeagueModuleUrl produces:
-  //     {origin}/{year}/home/{leagueId}?MODULE={moduleValue}
-  //   buildLeagueModuleHashUrl then adds:
-  //     #{cccAction=...&cccPlayer=...&cccFranchise=...&cccSeason=...&cccYears=N}
-  function buildContractCenterActionUrl(args) {
-    args = args || {};
-    var action = safeStr(args.action).toLowerCase();
-    var pid = safeStr(args.pid);
-    var fid = pad4(args.fid);
-    var year = safeStr(args.year);
-    var leagueId = safeStr(args.leagueId);
-    var years = args.years; // for "extension"
-    // Desktop sends MFL home origin: window.location.origin from the user's
-    // MFL session. Off-MFL (github.io / local dev) we hard-code the league
-    // shard host so the deep-link still works.
-    var mflOrigin = args.mflOrigin || "https://www48.myfantasyleague.com";
-    var base = mflOrigin + "/" + encodeURIComponent(year) +
-               "/home/" + encodeURIComponent(leagueId);
-    var qs = "MODULE=MESSAGE2";
-    var hashParams = {
-      cccAction: action,
-      cccPlayer: pid,
-      cccFranchise: fid,
-      cccSeason: year
-    };
-    if (action === "extension") {
-      hashParams.cccYears = Math.max(1, Math.min(2, safeInt(years, 1) || 1));
-    }
-    var hash = [];
-    Object.keys(hashParams).forEach(function (k) {
-      var v = hashParams[k];
-      if (v == null || v === "") return;
-      hash.push(encodeURIComponent(k) + "=" + encodeURIComponent(String(v)));
-    });
-    return base + "?" + qs + "#" + hash.join("&");
-  }
-
-  // Convenience: build a rosterRow-flavored "player" object compatible
-  // with the eligibility helpers above. Mobile state stores roster rows
-  // with MFL field names (contractYear → years, contractInfo → special,
-  // contractStatus → type).
-  function eligibilityForRosterRow(rosterRow, fid) {
-    if (!rosterRow) {
-      return { extensionEligible: false, rookieOptionEligible: false, restructureEligible: false };
-    }
-    var adapted = {
+  // Adapt a mobile rosterRow to the desktop "player" shape the eligibility
+  // predicates expect. Mobile state stores roster rows with MFL field names
+  // (contractYear → years, contractInfo → special, contractStatus → type).
+  // Also attaches the acquisition label/date the MYAC §C2 branch needs,
+  // resolved from the lookup loaded in app.js (data.acquisitionForPlayer).
+  // Both eligibilityForRosterRow and extensionAvailableFor use this so they
+  // agree on myacEligible (the footer reconciles the two — player_sheet.js).
+  function adaptRosterRowForEligibility(rosterRow, fid) {
+    var resolvedFid = fid || rosterRow.fid || rosterRow.franchise_id || "";
+    var acq = null;
+    var data = window.UPS_MOBILE && window.UPS_MOBILE.data;
+    if (data && data.acquisitionForPlayer) acq = data.acquisitionForPlayer(resolvedFid, rosterRow.id);
+    return {
       id: rosterRow.id,
       years: rosterRow.contractYear,
       salary: rosterRow.salary,
       special: rosterRow.contractInfo,
       type: rosterRow.contractStatus,
-      fid: fid || rosterRow.fid || rosterRow.franchise_id || ""
+      fid: resolvedFid,
+      acquisitionTypeLabel: acq ? acq.label : "",
+      acquisitionDate: acq ? acq.date : ""
     };
-    return rosterContractEligibility(adapted);
+  }
+
+  function eligibilityForRosterRow(rosterRow, fid) {
+    if (!rosterRow) {
+      return { myacEligible: false, extensionEligible: false, rookieOptionEligible: false, restructureEligible: false };
+    }
+    return rosterContractEligibility(adaptRosterRowForEligibility(rosterRow, fid));
   }
 
   // The SINGLE gate every caller should use to decide whether to show an
@@ -502,15 +511,10 @@
 
   function extensionAvailableFor(rosterRow, fid) {
     if (!rosterRow) return { ok: false, reason: "" };
-    var adapted = {
-      id: rosterRow.id,
-      years: rosterRow.contractYear,
-      salary: rosterRow.salary,
-      special: rosterRow.contractInfo,
-      type: rosterRow.contractStatus,
-      fid: fid || rosterRow.fid || rosterRow.franchise_id || ""
-    };
+    var adapted = adaptRosterRowForEligibility(rosterRow, fid);
     var base = rosterContractEligibility(adapted);
+    // extensionEligible is already false when MYAC applies (§C2 suppresses
+    // Extend), so a MYAC-eligible player correctly returns ok:false here.
     if (!base.extensionEligible) return { ok: false, reason: "" };
     // §C8.2 — a player TAGGED this season (even one who was untagged
     // back to their prior contract) cannot be extended this season.
@@ -535,6 +539,7 @@
     rookieOptionActionEligible: rookieOptionActionEligible,
     rosterContractEligibility: rosterContractEligibility,
     eligibilityForRosterRow: eligibilityForRosterRow,
+    isPastContractDeadlineFO: isPastContractDeadlineFO,
     extensionAvailableFor: extensionAvailableFor,
     extensionBlockedByCurrentOwner: extensionBlockedByCurrentOwner,
     extensionBlockedByHistory: extensionBlockedByHistory,
@@ -544,7 +549,6 @@
     teamIdentityTokenMap: teamIdentityTokenMap,
     lastExtensionIdentityToken: lastExtensionIdentityToken,
     identityTokenMatchesTeam: identityTokenMatchesTeam,
-    buildContractCenterActionUrl: buildContractCenterActionUrl,
     normalizeTagSideValue: normalizeTagSideValue,
     getTagSideFromPos: getTagSideFromPos,
     tagActionForPlayer: tagActionForPlayer,

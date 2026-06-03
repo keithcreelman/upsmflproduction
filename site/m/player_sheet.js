@@ -154,18 +154,27 @@
       var s = seasonsByYear[y] || {};
       var stats = getStats ? getStats(pid, y) : null;
       var games, pts, ppg, ppgRank;
-      if (stats) {
+      // Prefer career_summary — the SAME source the desktop master profile
+      // uses (site/shared/player_profile_master.js). It carries games_played,
+      // season_points, avg_ppg AND pos_ppg_rank and is internally consistent,
+      // so the table matches desktop. Fall back to the Advanced-Stats
+      // leaderboard (league-wide, may omit a player in a given year), then to
+      // MFL playerProfile.seasons.
+      if (c && (c.season_points != null || c.games_played != null)) {
+        games = Number(c.games_played || 0);
+        pts = Number(c.season_points || 0);
+        ppg = Number(c.avg_ppg != null ? c.avg_ppg : (games > 0 ? pts / games : 0));
+        ppgRank = Number(c.pos_ppg_rank || 0);
+      } else if (stats) {
         games = Number(stats.games || 0);
         pts = Number(stats.mfl_points || 0);
         ppg = Number(stats.mfl_ppg || 0);
         ppgRank = Number(stats.posRank || 0);
       } else {
-        // Fallback: career_summary (pts only) + playerProfile.seasons (games).
-        games = Number(s.games || s.gamesPlayed || c.games_played || 0) || 0;
-        pts = Number(c.season_points != null ? c.season_points
-                    : (s.fantasyPoints || s.points || s.total || 0)) || 0;
+        games = Number(s.games || s.gamesPlayed || 0) || 0;
+        pts = Number(s.fantasyPoints || s.points || s.total || 0) || 0;
         ppg = games > 0 ? (pts / games) : 0;
-        ppgRank = Number(c.pos_ppg_rank || s.pos_ppg_rank || 0) || 0;
+        ppgRank = Number(s.pos_ppg_rank || 0) || 0;
       }
       return '<tr>' +
         '<td>' + y + '</td>' +
@@ -185,7 +194,15 @@
 
   function loadBundle(pid) {
     if (bundleCache[pid]) return Promise.resolve(bundleCache[pid]);
-    return fetch(API.workerUrl("/api/player-bundle?pid=" + encodeURIComponent(pid)), { mode: "cors", credentials: "omit" })
+    // /api/player-bundle REQUIRES &L= (else it 400s "Missing L param" and the
+    // career_summary fallback for the Season Stats table is empty — players
+    // missing from the leaderboard, e.g. Michael Mayer in 2024/25, then show
+    // 0 pts). Pass L+YEAR exactly like the desktop master profile
+    // (site/shared/player_profile_master.js fetchBundle).
+    var ctx = window.UPS_MOBILE.state.ctx;
+    var url = API.workerUrl("/api/player-bundle?pid=" + encodeURIComponent(pid) +
+      "&L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year));
+    return fetch(url, { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (b) { if (b) bundleCache[pid] = b; return b; })
       .catch(function () { return null; });
@@ -313,9 +330,32 @@
         '</div>';
       }
 
-      // Contract-action grid: Extension / Rookie Option / Restructure /
-      // Tag — eligibility comes from the FO mirror. Each button opens the
-      // desktop Contract Command Center pre-targeted at this player + action.
+      // §C2 MYAC — when a fresh 1-yr auction default (Vet-ERA win or a
+      // this-season FA-auction Veteran) can be set to a 2-/3-year contract at
+      // the SAME salary (TCV = bid × years, NO escalator). Shown INSTEAD of
+      // Extend pre-deadline — the FO eligibility mirror already suppresses
+      // extensionEligible when myacEligible (desktop parity: nobody extends
+      // when they can MYAC). Flat submits directly; Loaded opens a Y1 free-key
+      // form. Mirrors v2/front_office.js renderActions MYAC block (2955).
+      if (elig.myacEligible) {
+        var dlNote = s.contractDeadline
+          ? ' Window closes ' + U.escapeHtml(s.contractDeadline) + '.' : '';
+        html += '<div class="ups-m-myac-head">Multi-Year Contract (MYAC) · §C2' +
+          '<span class="ups-m-myac-sub">Set this 1-yr deal to 2 or 3 years at the same salary — no raise. ' +
+          '<strong>Loaded</strong> free-keys Y1 (FL/BL).' + dlNote + '</span></div>';
+        html += '<div class="ups-m-sheet-actions">' +
+          '<button class="btn-act myac" data-act="contract" data-contract-action="myac" data-myac-total="2">2-Year</button>' +
+          '<button class="btn-act myac" data-act="contract" data-contract-action="myac-loaded" data-myac-total="2">2-Yr Loaded…</button>' +
+        '</div>' +
+        '<div class="ups-m-sheet-actions">' +
+          '<button class="btn-act myac" data-act="contract" data-contract-action="myac" data-myac-total="3">3-Year</button>' +
+          '<button class="btn-act myac" data-act="contract" data-contract-action="myac-loaded" data-myac-total="3">3-Yr Loaded…</button>' +
+        '</div>';
+      }
+
+      // Contract-action grid: Extension / Restructure / Tag — eligibility comes
+      // from the FO mirror. Each button runs the action in-app via the verbatim
+      // Front Office submit mirrors (no deep-links).
       var tagLabel = tagAction.kind === "untag" ? "Untag" : "Tag";
       var tagAct = tagAction.kind === "untag" ? "untag" : "tag";
       // Rookie Option intentionally not exposed on mobile yet (Keith
@@ -331,7 +371,7 @@
         html += '<div class="ups-m-sheet-actions">';
         contractActions.forEach(function (a) {
           if (!a.eligible) return;
-          html += '<button class="btn-act ' + a.css + '" data-act="ccc" data-ccc-action="' +
+          html += '<button class="btn-act ' + a.css + '" data-act="contract" data-contract-action="' +
             U.escapeHtml(a.key) + '">' + U.escapeHtml(a.label) + '</button>';
         });
         html += '</div>';
@@ -421,10 +461,10 @@
     if (demoteTaxi) demoteTaxi.addEventListener("click", function () {
       handleTaxiRosterMove("demote_taxi", demoteTaxi);
     });
-    var cccButtons = foot.querySelectorAll('[data-act="ccc"]');
-    for (var ci = 0; ci < cccButtons.length; ci++) {
-      cccButtons[ci].addEventListener("click", function () {
-        handleCccAction(this.getAttribute("data-ccc-action"));
+    var contractButtons = foot.querySelectorAll('[data-act="contract"]');
+    for (var ci = 0; ci < contractButtons.length; ci++) {
+      contractButtons[ci].addEventListener("click", function () {
+        handleContractAction(this.getAttribute("data-contract-action"), this);
       });
     }
   }
@@ -558,14 +598,18 @@
     });
   }
 
-  // All contract actions run in-app via the verbatim Front Office mirrors.
-  // CCC (MODULE=MESSAGE2) is retired (Keith 2026-05-15 — see memory
-  // feedback_roster_workbench_is_truth_not_ccc). No deep-link fallback.
-  function handleCccAction(action) {
+  // All contract actions run in-app via the verbatim Front Office mirrors
+  // (site/rosters/v2/front_office.js — the source of truth). The old MFL
+  // Contract Command Center deep-link (MODULE=MESSAGE2) is retired
+  // (Keith 2026-05-15 — see memory feedback_roster_workbench_is_truth_not_ccc).
+  // No deep-link fallback.
+  function handleContractAction(action, btn) {
     if (action === "tag") return handleTagSubmit();
     if (action === "untag") return handleUntagSubmit();
     if (action === "extension") return handleExtensionPick();
     if (action === "restructure") return handleRestructurePick();
+    if (action === "myac") return handleMyacPick(btn);
+    if (action === "myac-loaded") return handleMyacLoadedPick(btn);
     window.UPS_MOBILE.ui.showToast("Action not yet available on mobile.", "err");
   }
 
@@ -895,6 +939,227 @@
     });
   }
 
+  // ── In-app MYAC (§C2) ──────────────────────────────────────────────
+  // Math + payload live in front_office_myac_submit.js (UPS_M_FO_MYAC),
+  // a verbatim mirror of v2/front_office.js. Flat submits after a confirm
+  // (no form needed — TCV = bid × years). Loaded opens a Y1 free-key form
+  // sheet that parallels Restructure: Y1 (and Y2 for 3-yr) are owner-keyed,
+  // the last year auto-computes, TCV stays fixed.
+  var myacLoadedState = { totalYears: 2, statusBase: "Vet-FAA", constraints: null, loadedN: 0, y1: 0, y2: 0 };
+
+  function handleMyacPick(btn) {
+    var MY = window.UPS_M_FO_MYAC;
+    if (!MY) return;
+    var totalYears = U.safeInt(btn && btn.getAttribute("data-myac-total"), 2) || 2;
+    var rosterRow = footerState.rosterRow;
+    var flat = MY.flatMyacYears(rosterRow, totalYears);
+    if (flat.error) { window.UPS_MOBILE.ui.showToast(flat.error, "err"); return; }
+    var contract = MY.buildMyacContract(totalYears, flat.yrs, MY.myacStatusBase(rosterRow));
+    confirmAndSubmitMyac(contract);
+  }
+
+  function confirmAndSubmitMyac(contract) {
+    // U6 — cap impact preview. MYAC sets the current-year salary to Y1;
+    // the delta vs the existing rosterRow.salary is the cap shift.
+    var newSal = Number(contract.yrs[0]) || 0;
+    var curSal = Number(footerState.rosterRow && footerState.rosterRow.salary) || 0;
+    var capLine = capPreviewLine(newSal - curSal);
+    var lines = ["Submit " + contract.totalYears + "-year MYAC for " + footerState.name + "?", "",
+      "Status: " + contract.status];
+    for (var i = 0; i < contract.yrs.length; i++) lines.push("Y" + (i + 1) + ": " + U.fmtUsd(contract.yrs[i]));
+    lines.push("TCV: " + U.fmtUsd(contract.tcv) + " · GTD: " + U.fmtUsd(contract.gtd));
+    var msg = lines.join("\n") + capLine + "\n\nThis writes to MFL and cannot be undone from the app.";
+    if (!window.confirm(msg)) return;
+    window.UPS_MOBILE.ui.showToast("Submitting MYAC…", "ok");
+    submitMyacContract(contract);
+  }
+
+  function submitMyacContract(contract) {
+    var MY = window.UPS_M_FO_MYAC;
+    var s = window.UPS_MOBILE.state;
+    var rosterRow = footerState.rosterRow;
+    var player = window.UPS_MOBILE.data.playerById(footerState.pid);
+    return MY.submitMyac({
+      workerBase: window.UPS_MOBILE.api.workerBase(),
+      leagueId: s.ctx.leagueId,
+      year: s.ctx.year,
+      pid: footerState.pid,
+      playerName: U.safeStr(player && player.name) || footerState.name,
+      fid: s.viewerFranchiseId,
+      franchiseName: s.viewerFranchise && s.viewerFranchise.name || "",
+      position: U.safeStr(player && player.position),
+      contract: contract,
+      rosterRow: rosterRow,
+      dryRun: false,
+      commishOverride: false
+    }).then(function (resp) {
+      if (resp.ok) {
+        window.UPS_MOBILE.ui.showToast(contract.totalYears + "-yr MYAC submitted ✓ (" + contract.status + ")", "ok");
+        closeMyacSheet();
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
+      var slot = document.getElementById("ups-m-myac-body");
+      if (slot) slot.innerHTML = '<div class="ups-m-rstr-err">MYAC failed: ' + U.escapeHtml(resp.error || "unknown error") + '</div>';
+      else window.UPS_MOBILE.ui.showToast("MYAC failed: " + (resp.error || "unknown error"), "err");
+    }).catch(function (err) {
+      var slot = document.getElementById("ups-m-myac-body");
+      if (slot) slot.innerHTML = '<div class="ups-m-rstr-err">MYAC failed: ' + U.escapeHtml(err && err.message || String(err)) + '</div>';
+      else window.UPS_MOBILE.ui.showToast("MYAC failed: " + (err && err.message || String(err)), "err");
+    });
+  }
+
+  function ensureMyacMount() {
+    var existing = document.getElementById("ups-m-myac-overlay");
+    if (existing) existing.remove();
+    var html =
+      '<div class="ups-m-drop-overlay" id="ups-m-myac-overlay">' +
+        '<div class="ups-m-drop-sheet">' +
+          '<div class="ups-m-drop-head">' +
+            '<button class="ups-m-drop-close" id="ups-m-myac-close" aria-label="Close">×</button>' +
+            '<div class="grip"></div>' +
+            '<div class="title">MYAC — ' + U.escapeHtml(footerState.name) + '</div>' +
+            '<div class="sub">Loaded: free-key Y1 in whole $1,000s. Last year auto-computes. TCV is fixed (bid × years).</div>' +
+          '</div>' +
+          '<div class="ups-m-drop-body" id="ups-m-myac-body" style="padding:14px 16px"></div>' +
+        '</div>' +
+      '</div>';
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return null;
+    mount.insertAdjacentHTML("beforeend", html);
+    document.body.style.overflow = "hidden";
+    var overlay = document.getElementById("ups-m-myac-overlay");
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) closeMyacSheet(); });
+    document.getElementById("ups-m-myac-close").addEventListener("click", closeMyacSheet);
+    return overlay;
+  }
+  function closeMyacSheet() {
+    var ov = document.getElementById("ups-m-myac-overlay");
+    if (ov) ov.remove();
+    document.body.style.overflow = "";
+  }
+
+  function handleMyacLoadedPick(btn) {
+    var MY = window.UPS_M_FO_MYAC;
+    if (!MY) return;
+    var totalYears = U.safeInt(btn && btn.getAttribute("data-myac-total"), 3) || 3;
+    var rosterRow = footerState.rosterRow;
+    var bid = U.safeInt(rosterRow && rosterRow.salary, 0);
+    if (bid < 1000) { window.UPS_MOBILE.ui.showToast("MYAC needs a base salary ≥ $1,000.", "err"); return; }
+    // §C2 loaded-contract cap (5 per roster) — block before opening the form.
+    var myRoster = window.UPS_MOBILE.data.getRosterFor(window.UPS_MOBILE.state.viewerFranchiseId) || [];
+    var loadedN = MY.loadedContractCount(myRoster);
+    if (loadedN >= MY.LOADED_MAX) {
+      window.UPS_MOBILE.ui.showToast("At the " + MY.LOADED_MAX + "-loaded cap — trade or cut a loaded player, or use a flat MYAC.", "err");
+      return;
+    }
+    var constraints = MY.loadedMyacConstraints(rosterRow, totalYears);
+    myacLoadedState = {
+      totalYears: totalYears,
+      statusBase: MY.myacStatusBase(rosterRow),
+      constraints: constraints,
+      loadedN: loadedN,
+      y1: constraints.aav,
+      y2: constraints.aav
+    };
+    renderMyacLoadedSheet();
+  }
+
+  function renderMyacLoadedSheet() {
+    ensureMyacMount();
+    var body = document.getElementById("ups-m-myac-body");
+    if (!body) return;
+    var st = myacLoadedState;
+    var c = st.constraints;
+    var rows3 = st.totalYears === 3;
+    body.innerHTML = '' +
+      '<div class="ups-m-rstr-summary">' +
+        '<div class="row"><span class="lbl">TCV (fixed):</span> <span class="val">' + U.fmtUsd(c.tcv) + '</span> <span class="lbl">(' + U.fmtUsd(c.aav) + ' × ' + st.totalYears + ')</span></div>' +
+        '<div class="row"><span class="lbl">Records as:</span> <span class="val">' + U.escapeHtml(st.statusBase) + '</span></div>' +
+        '<div class="row"><span class="lbl">Loaded used:</span> <span class="val">' + st.loadedN + ' / ' + window.UPS_M_FO_MYAC.LOADED_MAX + '</span></div>' +
+      '</div>' +
+      '<div class="ups-m-rstr-field">' +
+        '<label>Year 1 salary (min ' + U.fmtUsd(c.minY1) + ', 1K increments)</label>' +
+        '<input type="number" step="1000" min="' + c.minY1 + '" value="' + st.y1 + '" id="ups-m-myac-y1" inputmode="numeric" />' +
+      '</div>' +
+      (rows3 ? '<div class="ups-m-rstr-field">' +
+        '<label>Year 2 salary (1K increments)</label>' +
+        '<input type="number" step="1000" min="1000" value="' + st.y2 + '" id="ups-m-myac-y2" inputmode="numeric" />' +
+      '</div>' : '') +
+      '<div class="ups-m-rstr-derived">' +
+        '<div class="row"><span class="lbl">Year ' + st.totalYears + ' (auto):</span> <span class="val" id="ups-m-myac-last">—</span></div>' +
+        '<div class="row"><span class="lbl">AAV:</span> <span class="val">' + U.fmtUsd(c.aav) + '</span></div>' +
+        '<div class="row"><span class="lbl">Shape:</span> <span class="val" id="ups-m-myac-shape">—</span></div>' +
+      '</div>' +
+      '<div id="ups-m-myac-status"></div>' +
+      '<button class="btn-act otb on" id="ups-m-myac-submit" style="width:100%;margin-top:12px">Submit ' + U.escapeHtml(st.statusBase) + ' MYAC</button>';
+
+    var y1Inp = document.getElementById("ups-m-myac-y1");
+    if (y1Inp) y1Inp.addEventListener("input", function (e) {
+      myacLoadedState.y1 = parseInt(e.target.value, 10) || 0;
+      updateMyacLoadedPreview();
+    });
+    var y2Inp = document.getElementById("ups-m-myac-y2");
+    if (y2Inp) y2Inp.addEventListener("input", function (e) {
+      myacLoadedState.y2 = parseInt(e.target.value, 10) || 0;
+      updateMyacLoadedPreview();
+    });
+    var submit = document.getElementById("ups-m-myac-submit");
+    if (submit) submit.addEventListener("click", function () {
+      var MY = window.UPS_M_FO_MYAC;
+      var yrs = MY.loadedMyacYears(myacLoadedState.constraints, myacLoadedState.y1, rows3 ? myacLoadedState.y2 : 0);
+      var err = MY.validateLoadedYears(yrs, myacLoadedState.constraints.minY1);
+      if (err) { window.UPS_MOBILE.ui.showToast(err, "err"); return; }
+      // Re-check the loaded cap at submit (another tab may have added one).
+      var myRoster = window.UPS_MOBILE.data.getRosterFor(window.UPS_MOBILE.state.viewerFranchiseId) || [];
+      if (MY.loadedContractCount(myRoster) >= MY.LOADED_MAX) {
+        window.UPS_MOBILE.ui.showToast("At the " + MY.LOADED_MAX + "-loaded cap — can't add another.", "err");
+        return;
+      }
+      var contract = MY.buildMyacContract(myacLoadedState.totalYears, yrs, myacLoadedState.statusBase);
+      confirmAndSubmitMyacLoaded(contract);
+    });
+    updateMyacLoadedPreview();
+  }
+
+  function updateMyacLoadedPreview() {
+    var MY = window.UPS_M_FO_MYAC;
+    var st = myacLoadedState;
+    var rows3 = st.totalYears === 3;
+    var yrs = MY.loadedMyacYears(st.constraints, st.y1, rows3 ? st.y2 : 0);
+    function setText(id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; }
+    setText("ups-m-myac-last", U.fmtUsd(yrs[yrs.length - 1]));
+    var err = MY.validateLoadedYears(yrs, st.constraints.minY1);
+    // FL/BL shape preview — derived the same way buildMyacContract does.
+    var aav = st.constraints.aav;
+    var shape = yrs.every(function (v) { return v === yrs[0]; })
+      ? "Flat" : (yrs[0] > aav ? "Front-loaded (FL)" : "Back-loaded (BL)");
+    setText("ups-m-myac-shape", shape);
+    var status = document.getElementById("ups-m-myac-status");
+    if (status) status.innerHTML = err
+      ? '<div class="ups-m-rstr-err">' + U.escapeHtml(err) + '</div>'
+      : '<div class="ups-m-rstr-ok">Ready to submit.</div>';
+    var submit = document.getElementById("ups-m-myac-submit");
+    if (submit) submit.disabled = !!err;
+  }
+
+  function confirmAndSubmitMyacLoaded(contract) {
+    var newSal = Number(contract.yrs[0]) || 0;
+    var curSal = Number(footerState.rosterRow && footerState.rosterRow.salary) || 0;
+    var capLine = capPreviewLine(newSal - curSal);
+    var lines = ["Submit " + contract.totalYears + "-year loaded MYAC for " + footerState.name + "?", "",
+      "Status: " + contract.status];
+    for (var i = 0; i < contract.yrs.length; i++) lines.push("Y" + (i + 1) + ": " + U.fmtUsd(contract.yrs[i]));
+    lines.push("TCV: " + U.fmtUsd(contract.tcv) + " · GTD: " + U.fmtUsd(contract.gtd));
+    var msg = lines.join("\n") + capLine + "\n\nThis writes to MFL and cannot be undone from the app.";
+    if (!window.confirm(msg)) return;
+    var body = document.getElementById("ups-m-myac-body");
+    if (body) body.innerHTML = '<div class="ups-m-sheet-loading">Submitting…</div>';
+    submitMyacContract(contract);
+  }
+
   // In-app Tag submit. Pipeline lives in front_office_tag_submit.js
   // (verbatim mirror of roster_workbench.js submitTagPlanSelection).
   function handleTagSubmit() {
@@ -929,7 +1194,7 @@
               "\nThis writes to MFL and logs to UPS tag history.";
     if (!window.confirm(msg)) return;
 
-    var btn = document.querySelector('[data-act="tag"]') || document.querySelector('[data-ccc-action="tag"]');
+    var btn = document.querySelector('[data-act="tag"]') || document.querySelector('[data-contract-action="tag"]');
     setBusy(btn, true, "Tagging…");
     FOT.submitTag({
       workerBase: window.UPS_MOBILE.api.workerBase(),
@@ -1002,7 +1267,7 @@
         "Then remove from roster.")) return;
 
     var player = window.UPS_MOBILE.data.playerById(footerState.pid);
-    var btn = document.querySelector('[data-ccc-action="untag"]');
+    var btn = document.querySelector('[data-contract-action="untag"]');
     setBusy(btn, true, "Untagging…");
     FOT.submitUntag({
       workerBase: window.UPS_MOBILE.api.workerBase(),

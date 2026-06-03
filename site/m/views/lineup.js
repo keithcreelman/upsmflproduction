@@ -213,7 +213,15 @@
     M.state.lineupSubmitting = true;
     M.state.lineupMessage = { kind: "info", text: "Submitting lineup to MFL…" };
     renderRoute();
-    fetch(API.workerUrl("/api/submit-lineup"), {
+    // Forward the viewer's MFL_USER_ID — /api/submit-lineup REQUIRES it to
+    // authenticate the write to MFL and verifies it matches this franchise
+    // (worker returns 401/403 otherwise). Cross-origin from github.io we can't
+    // send the MFL cookie, so it goes as a query param — same pattern as the
+    // roster-workbench actions + trade builder.
+    var luUrl = API.workerUrl("/api/submit-lineup");
+    var luStored = API.getStoredMflUserId && API.getStoredMflUserId();
+    if (luStored) luUrl += "?MFL_USER_ID=" + encodeURIComponent(luStored);
+    fetch(luUrl, {
       method: "POST",
       mode: "cors",
       credentials: "omit",
