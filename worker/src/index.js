@@ -16944,6 +16944,15 @@ export default {
         return targetImportUrl;
       };
 
+      // MFL import TYPEs that are "Access Restricted: Requires cookie from league
+      // commissioner" AND do NOT accept the APIKEY (per MFL api_info docs). These
+      // must be posted exactly like MFL's own test form (clean body-only POST);
+      // trade/lineup/waiver/taxi/ir imports are NOT in this set and keep their
+      // existing JSON/APIKEY/GET handling.
+      const COMMISH_COOKIE_ONLY_IMPORTS = new Set([
+        "salaries", "salaryAdj", "franchises", "draftResults", "auctionResults",
+        "accounting", "playerScoreAdjustment", "franchiseScoreAdjustment", "calendarEvent",
+      ]);
       const postMflImportForm = async (season, formFields, probeFields, requestOptions = {}) => {
         const form = new URLSearchParams();
         for (const [k, v] of Object.entries(formFields || {})) {
@@ -16962,16 +16971,26 @@ export default {
         // matches what MFL accepts for commissioner-level imports.
         let requestUrl = targetImportUrl;
         const apiKey = safeStr(env.MFL_APIKEY || "");
+        // MFL's commissioner-cookie-only imports must be posted EXACTLY like MFL's
+        // own api_info test form: bare POST /{year}/import with fields in the BODY
+        // only — NO JSON=1, NO APIKEY, NO query string. Polluting the URL makes MFL
+        // silently 200 the import without applying it (confirmed for salaryAdj; the
+        // APIKEY is "not accepted" for these per MFL docs).
+        const _commishCookieOnly = COMMISH_COOKIE_ONLY_IMPORTS.has(safeStr(formFields && formFields.TYPE)) && method !== "GET";
         try {
           const u = new URL(targetImportUrl);
-          if (apiKey && requestOptions.skipApiKey !== true && !u.searchParams.has("APIKEY")) {
-            u.searchParams.set("APIKEY", apiKey);
+          if (_commishCookieOnly) {
+            requestUrl = u.origin + u.pathname; // clean: body carries TYPE/L/DATA
+          } else {
+            if (apiKey && requestOptions.skipApiKey !== true && !u.searchParams.has("APIKEY")) {
+              u.searchParams.set("APIKEY", apiKey);
+            }
+            if (!u.searchParams.has("JSON")) u.searchParams.set("JSON", "1");
+            if (method === "GET") {
+              for (const [k, v] of form.entries()) u.searchParams.set(k, v);
+            }
+            requestUrl = u.toString();
           }
-          if (!u.searchParams.has("JSON")) u.searchParams.set("JSON", "1");
-          if (method === "GET") {
-            for (const [k, v] of form.entries()) u.searchParams.set(k, v);
-          }
-          requestUrl = u.toString();
         } catch (_) {
           // Fall back to the raw target URL if parsing fails.
           requestUrl = targetImportUrl;
@@ -16983,7 +17002,7 @@ export default {
             method,
             headers: {
               Cookie: cookieHeader,
-              "User-Agent": "upsmflproduction-worker",
+              "User-Agent": _commishCookieOnly ? "Mozilla/5.0 (upsmflproduction-worker)" : "upsmflproduction-worker",
               ...(method === "POST"
                 ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" }
                 : {}),
@@ -17070,6 +17089,7 @@ export default {
           probeFields || formFields
         );
         const method = safeStr(requestOptions.method || "POST").toUpperCase() === "GET" ? "GET" : "POST";
+        const _commishCookieOnly = COMMISH_COOKIE_ONLY_IMPORTS.has(safeStr(formFields && formFields.TYPE)) && method !== "GET";
         let requestUrl = targetImportUrl;
         if (method === "GET") {
           try {
@@ -17079,6 +17099,10 @@ export default {
           } catch (_) {
             requestUrl = targetImportUrl;
           }
+        } else if (_commishCookieOnly) {
+          // Clean form (commish cookie-only import): bare POST /{year}/import, the
+          // body carries TYPE/L/DATA — strip the probe-resolved query string.
+          try { const u = new URL(targetImportUrl); requestUrl = u.origin + u.pathname; } catch (_) { requestUrl = targetImportUrl; }
         }
         let res;
         let text = "";
@@ -17087,7 +17111,7 @@ export default {
             method,
             headers: {
               Cookie: cookieHeaderOverride,
-              "User-Agent": "upsmflproduction-worker",
+              "User-Agent": _commishCookieOnly ? "Mozilla/5.0 (upsmflproduction-worker)" : "upsmflproduction-worker",
               ...(method === "POST"
                 ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" }
                 : {}),
