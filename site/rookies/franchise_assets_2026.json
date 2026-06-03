@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-06-02T13:02:16.186745+00:00",
+    "generated_at_utc": "2026-06-03T14:16:17.663980+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2944,7 +2944,7 @@
           "position": "RB",
           "nfl_team": "JAC",
           "salary": 3000,
-          "contract_year": 1,
+          "contract_year": 2,
           "contract_status": "Vet-ERA",
           "roster_status": "ROSTER",
           "taxi": false
