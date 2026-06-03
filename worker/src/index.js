@@ -30068,7 +30068,17 @@ export default {
             if (isCorruptMarker(r.explanation)) { droppedMarkers.push(safeStr(r.explanation).slice(0, 60)); return false; }
             return true;
           })
-          .map((r) => ({ franchise_id: r.franchise_id, amount: r.amount, explanation: r.explanation }));
+          .map((r) => ({
+            franchise_id: r.franchise_id,
+            amount: r.amount,
+            // Sanitize each preserved explanation to the charset MFL's salaryAdj
+            // import reliably accepts — the same one the working "UPS drop penalty
+            // ... id:KEY" rows already use. Stray '(' ')' '+' (e.g. in the
+            // "UPS traded salary settlement (trade_...): net +20K" notes) are the
+            // likely trigger for MFL silently 200-ing the import without applying
+            // it. Amounts (incl. negative trade credits) are untouched.
+            explanation: (safeStr(r.explanation).replace(/[^A-Za-z0-9 ,.'_:-]/g, " ").replace(/\s+/g, " ").trim()) || "adjustment",
+          }));
         const combinedRows = [...preservedRows, ...plain(rowsSliced)];
 
         if (dryRun) {
