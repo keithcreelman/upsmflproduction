@@ -1135,8 +1135,10 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
   const useTest = String(env.AUCTION_DISCORD_USE_TEST ?? "0").trim() === "1";
   const channelId = String(
     useTest
-      ? (env.DISCORD_AUCTION_TEST_CHANNEL_ID || env.DISCORD_DRAFT_TEST_CHANNEL_ID || "")
-      : (env.DISCORD_AUCTION_CHANNEL_ID || env.DISCORD_DRAFT_CHANNEL_ID || "")
+      // Hardcoded fallbacks (version-controlled) so a wiped secret can't kill
+      // posting — env still wins when present. See contractDiscord* note.
+      ? (env.DISCORD_AUCTION_TEST_CHANNEL_ID || env.DISCORD_DRAFT_TEST_CHANNEL_ID || "1089538054236160010")
+      : (env.DISCORD_AUCTION_CHANNEL_ID || env.DISCORD_DRAFT_CHANNEL_ID || "1059111651846131833")
   ).replace(/\D/g, "");
   if (!channelId) {
     console.log("[auction-narrator] no DISCORD_*_CHANNEL_ID configured for " +
@@ -3745,7 +3747,7 @@ export default {
         const botToken = String(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "").trim();
         if (!botToken) return jsonOut(500, { error: "DISCORD_BOT_TOKEN missing" });
         const channelId = String(
-          env.DISCORD_AUCTION_TEST_CHANNEL_ID || env.DISCORD_DRAFT_TEST_CHANNEL_ID || ""
+          env.DISCORD_AUCTION_TEST_CHANNEL_ID || env.DISCORD_DRAFT_TEST_CHANNEL_ID || "1089538054236160010"
         ).replace(/\D/g, "");
         if (!channelId) {
           return jsonOut(500, { error: "DISCORD_AUCTION_TEST_CHANNEL_ID (or DISCORD_DRAFT_TEST_CHANNEL_ID) missing" });
@@ -20518,11 +20520,16 @@ export default {
           ""
         );
 
+      // In-code fallbacks (Keith 2026-06-03): channel IDs are public Discord
+      // snowflakes, NOT credentials, so they live in version control. If the env
+      // secret is wiped (as happened 2026-06-03), the hardcoded id keeps Discord
+      // posting alive. The env var still wins when present, so dashboard overrides
+      // remain possible. Mirrors the drops channel's existing fallback pattern.
       const contractDiscordPrimaryChannelId = () =>
-        safeStr(env.DISCORD_CONTRACT_CHANNEL_ID || "").replace(/\D/g, "");
+        safeStr(env.DISCORD_CONTRACT_CHANNEL_ID || "1059113303059730494").replace(/\D/g, "");
 
       const contractDiscordTestChannelId = () =>
-        safeStr(env.DISCORD_CONTRACT_TEST_CHANNEL_ID || env.DISCORD_BUG_TEST_CHANNEL_ID || "").replace(/\D/g, "");
+        safeStr(env.DISCORD_CONTRACT_TEST_CHANNEL_ID || env.DISCORD_BUG_TEST_CHANNEL_ID || "1089538054236160010").replace(/\D/g, "");
 
       const contractDiscordChannelTarget = (forceTestOnly = false, forcePrimaryOnly = false) => {
         // Routing semantics (Keith 2026-05-15: extensions now ship to the
@@ -32465,20 +32472,11 @@ export default {
         ];
         const expected_present = {};
         EXPECTED.forEach((k) => { expected_present[k] = has(k); });
-        // TEMP (reverted in the follow-up commit): channel IDs are NOT secrets —
-        // they're public Discord snowflakes. Expose *_CHANNEL_ID values (and only
-        // those — never tokens/keys/cookie) so they can be lifted into version
-        // control as in-code fallbacks.
-        const channel_id_values = {};
-        Object.keys(env)
-          .filter((k) => /CHANNEL_ID$/i.test(k) && !/TOKEN|KEY|COOKIE|PAT|SECRET|API/i.test(k))
-          .forEach((k) => { try { channel_id_values[k] = dig(env[k]); } catch (_) {} });
         return jsonOut(200, {
           ok: true,
           env_names: names,
           present,
           expected_present,
-          channel_id_values,
           contract_primary_resolved: !!dig(env.DISCORD_CONTRACT_CHANNEL_ID),
           contract_test_resolved: !!(dig(env.DISCORD_CONTRACT_TEST_CHANNEL_ID) || dig(env.DISCORD_BUG_TEST_CHANNEL_ID)),
           drop_tracker: {
