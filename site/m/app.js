@@ -614,9 +614,15 @@
   // safe to read unconditionally.
   function fetchTradeOffers(fid) {
     if (!fid) return Promise.resolve({ incoming: [], outgoing: [] });
+    // Listing offers pulls MFL's pendingTrades export AS THE OWNER — the
+    // worker returns 401 "missing_owner_session_mfl_user_id" (empty in/out)
+    // without it. Forward MFL_USER_ID + YEAR, same as the write/action paths.
     var url = workerUrl("/api/trades/proposals?L=" +
       encodeURIComponent(state.ctx.leagueId) +
+      "&YEAR=" + encodeURIComponent(state.ctx.year) +
       "&franchise_id=" + encodeURIComponent(fid));
+    var stored = getStoredMflUserId && getStoredMflUserId();
+    if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
     return fetch(url, { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {

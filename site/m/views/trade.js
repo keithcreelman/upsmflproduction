@@ -43,9 +43,15 @@
     if (state.loading) return Promise.resolve();
     if (!M.state.viewerFranchiseId) return Promise.resolve();
     state.loading = true; state.error = null;
+    // Listing offers reads MFL's pendingTrades AS THE OWNER — forward
+    // MFL_USER_ID + YEAR or the worker returns 401/empty (the just-created
+    // offer is in MFL but won't render). Same pattern as the write paths.
     var url = M.api.workerUrl("/api/trades/proposals?L=" +
       encodeURIComponent(M.state.ctx.leagueId) +
+      "&YEAR=" + encodeURIComponent(M.state.ctx.year) +
       "&franchise_id=" + encodeURIComponent(M.state.viewerFranchiseId));
+    var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+    if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
     return fetch(url, { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
@@ -89,12 +95,17 @@
     var tradeId = U.safeStr(offer.trade_id || offer.id || "");
     var fromFid = U.pad4(offer.offered_by || offer.from_franchise_id || offer.franchise_id || "");
     var toFid = U.pad4(offer.offered_to || offer.to_franchise_id || "");
+    // The worker (normalizePendingProposal) sends `will_give_up` / `will_receive`
+    // CSVs from the OFFERING franchise's perspective. Outgoing: you = the
+    // offerer, so you give `will_give_up` and get `will_receive`. Incoming: you
+    // = the recipient, so it flips. (Older `*_assets`/`*_give` names kept as
+    // fallbacks in case the shape ever changes.)
     var myAssetsCsv = direction === "incoming"
-      ? (offer.requested_assets || offer.will_give_up_b || offer.you_give || "")
-      : (offer.offered_assets || offer.will_give_up_a || offer.you_give || "");
+      ? (offer.will_receive || offer.requested_assets || offer.will_give_up_b || offer.you_give || "")
+      : (offer.will_give_up || offer.offered_assets || offer.will_give_up_a || offer.you_give || "");
     var theirAssetsCsv = direction === "incoming"
-      ? (offer.offered_assets || offer.will_give_up_a || offer.they_give || "")
-      : (offer.requested_assets || offer.will_give_up_b || offer.they_give || "");
+      ? (offer.will_give_up || offer.offered_assets || offer.will_give_up_a || offer.they_give || "")
+      : (offer.will_receive || offer.requested_assets || offer.will_give_up_b || offer.they_give || "");
     var note = U.safeStr(offer.note || offer.message || offer.comments || "");
     var other = direction === "incoming" ? fromFid : toFid;
 
