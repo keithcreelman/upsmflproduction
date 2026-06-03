@@ -595,6 +595,16 @@
     });
   }
 
+  // Map the mobile UI verb to MFL's direct-mode verb. The worker's action
+  // route accepts only ACCEPT / REJECT / REVOKE / COUNTER (index.js:25916),
+  // so "decline" (an incoming offer) → reject, and "cancel" (your own
+  // outgoing offer) → revoke. "accept" passes through.
+  function mflActionVerb(action) {
+    if (action === "decline") return "reject";
+    if (action === "cancel") return "revoke";
+    return action;
+  }
+
   function postTradeAction(action, tradeId) {
     // Forward the viewer's MFL_USER_ID — the action route writes to MFL as the
     // acting franchise and rejects with "Missing MFL owner session" without it
@@ -606,7 +616,7 @@
       method: "POST", mode: "cors", credentials: "omit",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: action,
+        action: mflActionVerb(action),
         trade_id: tradeId,
         league_id: M.state.ctx.leagueId,
         franchise_id: M.state.viewerFranchiseId,
