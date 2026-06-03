@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-06-01 18:36:53",
+    "generated_at": "2026-06-03 10:08:41",
     "source": "contract-activity-log",
-    "count": 36,
+    "count": 37,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "dbe64fb42722e6321b66a6b1",
+      "submission_id": "dbe64fb42722e6321b66a6b1",
+      "activity_scope": "contract_mutation",
+      "activity_type": "FA Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "player_id": "16212",
+      "player_name": "Michael Mayer",
+      "position": "TE",
+      "salary": 2000,
+      "contract_year": 1,
+      "contract_status": "Vet-ERA",
+      "contract_info": "CL 1| TCV 2K| AAV 2K",
+      "tcv": 2000,
+      "aav": 2000,
+      "guaranteed": 0,
+      "submitted_at_utc": "2026-06-03T10:08:25.213Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "",
+      "discord_message_id": "",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "7a8b5e6fadaf731657de9030",
       "submission_id": "7a8b5e6fadaf731657de9030",
