@@ -1,0 +1,44 @@
+name: Drops SUM-rounding reconciliation (manual)
+
+# Posts the per-franchise drop-penalty SUM-rounding true-up to MFL (canon §6).
+# Normally fires automatically at the FA Auction Cut Deadline via the */5 cron;
+# this is the manual lever + preview. DRY-RUN default. `force=1` bypasses the
+# deadline date gate (use to preview/run before the deadline).
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Type WRITE to actually post to MFL (otherwise dry-run)'
+        required: false
+        default: 'dry-run'
+      force:
+        description: 'Type FORCE to bypass the cut-deadline date gate'
+        required: false
+        default: 'gated'
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /admin/drops/reconcile-post
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+          MODE: ${{ github.event.inputs.mode }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: |
+          if [ "$MODE" = "WRITE" ]; then DRY=0; else DRY=1; fi
+          if [ "$FORCE" = "FORCE" ]; then FRC=1; else FRC=0; fi
+          echo "dry_run=$DRY force=$FRC"
+          URL="https://upsmflproduction.keith-creelman.workers.dev/admin/drops/reconcile-post?L=74598&YEAR=2026&APIKEY=${KEY}"
+          curl -s "$URL" -H "Content-Type: application/json" \
+            --data "{\"season\":\"2026\",\"league_id\":\"74598\",\"dry_run\":${DRY},\"force\":${FRC}}" \
+            -o resp.json -w "HTTP %{http_code}\n"
+          python3 - <<'PY'
+          import json
+          d = json.load(open('resp.json'))
+          print("ok:", d.get("ok"), "| skipped:", d.get("skipped"), "| reason:", d.get("reason"), "| posted:", d.get("posted"))
+          for r in (d.get("would_post") or d.get("rows") or []):
+              print(f"  {r.get('franchise_id')}  {r.get('amount')}  {r.get('explanation')}")
+          for f in (d.get("franchises") or []):
+              print(f"  [{f.get('franchise_id')}] {f.get('franchise_name')}: exact ${f.get('exact_sum')} -> rounded ${f.get('rounded_total')} (delta {f.get('rounding_delta')})")
+          PY
