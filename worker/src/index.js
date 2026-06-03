@@ -2372,6 +2372,7 @@ export default {
         path !== "/admin/contract-activity/post-batch" &&
         path !== "/admin/contract-submissions" &&
         path !== "/admin/contract-revert" &&
+        path !== "/admin/discord-channel-config" &&
         path !== "/admin/contract-activity/edit" &&
         path !== "/admin/bug-report/status" &&
         path !== "/admin/bug-report/triage-note" &&
@@ -32438,6 +32439,24 @@ export default {
           spacing_seconds: spacingSeconds,
           count: results.length,
           results,
+        });
+      }
+
+      // GET /admin/discord-channel-config — names-only diagnostic (NO values) for
+      // which DISCORD_* bindings the worker actually sees. Catches secrets added
+      // under a different name, or to the account Secrets Store (which the worker
+      // can't read without a secrets_store binding).
+      if (path === "/admin/discord-channel-config" && request.method === "GET") {
+        const names = Object.keys(env).filter((k) => /DISCORD/i.test(k)).sort();
+        const present = {};
+        names.forEach((k) => { try { present[k] = String(env[k] || "").length > 0; } catch (_) { present[k] = false; } });
+        const dig = (s) => safeStr(s || "").replace(/\D/g, "");
+        return jsonOut(200, {
+          ok: true,
+          discord_env_names: names,
+          present,
+          contract_primary_resolved: !!dig(env.DISCORD_CONTRACT_CHANNEL_ID),
+          contract_test_resolved: !!(dig(env.DISCORD_CONTRACT_TEST_CHANNEL_ID) || dig(env.DISCORD_BUG_TEST_CHANNEL_ID)),
         });
       }
 
