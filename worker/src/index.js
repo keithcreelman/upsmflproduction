@@ -30085,8 +30085,11 @@ export default {
         }
 
         // Post ONLY the new rows — additive, so existing adjustments are untouched.
+        // salaryAdj import is COMMISSIONER-COOKIE-ONLY (canon MFL_API_CANON_REVIEW
+        // §"APIKEY NOT accepted"): if the APIKEY is on the URL, MFL silently 200s the
+        // import without applying it. skipApiKey:true forces cookie-only auth.
         const dataXml = buildSalaryAdjXml(plain(rowsSliced));
-        const importRes = await postMflImportForm(targetSeason, { TYPE: "salaryAdj", L: leagueId, DATA: dataXml }, { TYPE: "salaryAdj", L: leagueId });
+        const importRes = await postMflImportForm(targetSeason, { TYPE: "salaryAdj", L: leagueId, DATA: dataXml }, { TYPE: "salaryAdj", L: leagueId }, { skipApiKey: true });
 
         // 6. Verify against the post-import export, then mark posted.
         const verifyRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
