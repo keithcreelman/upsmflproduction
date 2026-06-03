@@ -30060,23 +30060,10 @@ export default {
         // never a full re-post. (Negative amounts are valid per canon — credits.)
 
         if (dryRun) {
-          // Safe structural probe of how MFL_COOKIE is bound (no value revealed) —
-          // a Secrets Store binding stringifies to "[object Object]" (broken),
-          // a regular Worker string secret has MFL_USER_ID / a real length.
-          const cdRaw = env.MFL_COOKIE;
-          const cdStr = String(cdRaw == null ? "" : cdRaw);
           return jsonOut(200, {
             ok: true, dry_run: true, season: targetSeason, league_id: leagueId,
             owed_unposted: owed.length, would_post: rowsSliced, skipped,
             xml_preview: buildSalaryAdjXml(plain(rowsSliced)),
-            cookie_diag: {
-              typeof: typeof cdRaw,
-              has_get_method: !!(cdRaw && typeof cdRaw.get === "function"),
-              is_object_str: cdStr.startsWith("[object"),
-              has_userid_token: cdStr.includes("MFL_USER_ID"),
-              has_pwseq_token: cdStr.includes("MFL_PW_SEQ"),
-              len: cdStr.length,
-            },
           });
         }
 
