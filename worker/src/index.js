@@ -30133,6 +30133,9 @@ export default {
             status: importRes && importRes.status,
             error: (importRes && importRes.error) || "",
             preview: importRes ? String(importRes.upstreamPreview || "").slice(0, 300) : "",
+            target: (importRes && importRes.targetImportUrl) || "",
+            form_keys: importRes && importRes.formFields ? Object.keys(importRes.formFields) : [],
+            data_len: dataXml ? dataXml.length : 0,
           },
         });
       }
