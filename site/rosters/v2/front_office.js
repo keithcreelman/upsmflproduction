@@ -558,11 +558,24 @@
     return "other";
   }
   function adjPlayerFromDesc(desc) {
-    // Pull a "Lastname, Firstname" right after a drop keyword; blank when
-    // there's no confident match (Flag-don't-fake — trade settlements carry
-    // no player name).
-    const m = String(desc || "").match(/(?:drop penalty|dropped|cut)\s+([A-Z][\w.'’-]+,\s*[A-Z][\w.'’-]+)/i);
-    return m ? m[1].replace(/\s+/g, " ").trim() : "";
+    const s = String(desc || "");
+    // "UPS drop penalty <name> <amount> id:<key>" — the name sits between the
+    // keyword and the trailing amount + id. Captures both "Chark, D.J." (old
+    // report format) and "Dyami Brown" (drop-tracker format). Trade settlements
+    // (no "drop penalty") yield no name (Flag-don't-fake).
+    let m = s.match(/drop penalty\s+(.+?)\s+-?\d+\s+id:/i);
+    let name = m && m[1] ? m[1].trim() : "";
+    if (!name) {
+      m = s.match(/(?:dropped|cut)\s+([A-Z][\w.'’-]+,\s*[A-Z][\w.'’-]+)/i);
+      name = m ? m[1].replace(/\s+/g, " ").trim() : "";
+    }
+    // Normalize "Firstname Lastname" → "Lastname, Firstname" so it matches the
+    // rest of the popup (e.g. "Chark, D.J."). Only for clean 2-token names.
+    if (name && name.indexOf(",") === -1) {
+      const parts = name.split(/\s+/);
+      if (parts.length === 2) name = parts[1] + ", " + parts[0];
+    }
+    return name;
   }
   function adjWhenFromTs(ts) {
     const n = safeInt(ts, 0);
