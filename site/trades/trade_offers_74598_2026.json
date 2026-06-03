@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-28T15:44:49.134Z",
-    "row_count": 42,
+    "updated_at": "2026-06-03T10:42:55.437Z",
+    "row_count": 43,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -8176,6 +8176,112 @@
       "twb_meta": null,
       "mfl_trade_id": "1078",
       "trade_id": "1078",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1080",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-06-03T10:42:55.437Z",
+      "updated_at": "2026-06-03T10:42:55.437Z",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0001",
+      "from_franchise_name": "Real Deal Creel",
+      "to_franchise_name": "L.A. Looks",
+      "message": "This is a mobile UI test.",
+      "comment": "This is a mobile UI test.",
+      "comments": "This is a mobile UI test.",
+      "raw_comment": "This is a mobile UI test.",
+      "will_give_up": "16171",
+      "will_receive": "15287,BB_25000",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 25,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-06-03T10:42:54.337Z",
+        "source": "ups-mobile-trade-builder",
+        "league_id": "74598",
+        "season": "2026",
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "P_16171",
+                "type": "PLAYER",
+                "player_id": "16171",
+                "player_name": "Kendre Miller",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "NOS",
+                "salary": 1000,
+                "years": 1,
+                "contract_type": "Vet-ERA",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 1000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "selected_assets": [
+              {
+                "asset_id": "P_15287",
+                "type": "PLAYER",
+                "player_id": "15287",
+                "player_name": "Amon-Ra St. Brown",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "DET",
+                "salary": 51000,
+                "years": 1,
+                "contract_type": "Tag",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 25000,
+            "traded_salary_adjustment_k": 25,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 51000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0001"
+        }
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1080",
+      "trade_id": "1080",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
