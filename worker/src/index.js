@@ -30051,11 +30051,33 @@ export default {
         const rowsSliced = limit > 0 ? rowsToPost.slice(0, limit) : rowsToPost;
         const plain = (rs) => rs.map((r) => ({ franchise_id: r.franchise_id, amount: r.amount, explanation: r.explanation }));
 
+        // Merge-preserve set. MFL's salaryAdj import REPLACES all rows, so we
+        // re-post the existing ones — EXCEPT corrupt legacy "Dropped <name> ...
+        // (Salary: $...)" markers (the near-zero 1e-124 sentinels). Re-serializing
+        // those makes MFL silently 200 the import WITHOUT applying any change, so
+        // we drop them (which also cleans the garbage — the real penalty supersedes
+        // the marker).
+        const isCorruptMarker = (expl) => /^Dropped\b.*\(Salary:/i.test(safeStr(expl));
+        const newKeys = new Set(rowsSliced.map((r) => r.ledger_key));
+        const droppedMarkers = [];
+        const preservedRows = existingRows
+          .filter((r) => {
+            const m = safeStr(r.explanation).match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+            const key = m ? m[1] : "";
+            if (key && newKeys.has(key)) return false; // superseded by a row we're posting
+            if (isCorruptMarker(r.explanation)) { droppedMarkers.push(safeStr(r.explanation).slice(0, 60)); return false; }
+            return true;
+          })
+          .map((r) => ({ franchise_id: r.franchise_id, amount: r.amount, explanation: r.explanation }));
+        const combinedRows = [...preservedRows, ...plain(rowsSliced)];
+
         if (dryRun) {
           return jsonOut(200, {
             ok: true, dry_run: true, season: targetSeason, league_id: leagueId,
             owed_unposted: owed.length, would_post: rowsSliced, skipped,
-            xml_preview: buildSalaryAdjXml(plain(rowsSliced)),
+            existing_rows: existingRows.length, preserved_rows: preservedRows.length,
+            dropped_markers: droppedMarkers, combined_rows: combinedRows.length,
+            combined_xml: buildSalaryAdjXml(combinedRows),
           });
         }
 
@@ -30076,16 +30098,8 @@ export default {
           return jsonOut(200, { ok: true, season: targetSeason, league_id: leagueId, posted: 0, owed_unposted: owed.length, reconciled: reconcileKeys.length, skipped, message: "No new penalties to post." });
         }
 
-        // 5. Merge-preserve untouched rows, then post.
-        const newKeys = new Set(rowsSliced.map((r) => r.ledger_key));
-        const preservedRows = existingRows
-          .filter((r) => {
-            const m = safeStr(r.explanation).match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
-            const key = m ? m[1] : "";
-            return !key || !newKeys.has(key);
-          })
-          .map((r) => ({ franchise_id: r.franchise_id, amount: r.amount, explanation: r.explanation }));
-        const dataXml = buildSalaryAdjXml([...preservedRows, ...plain(rowsSliced)]);
+        // 5. Post the merged document (preserved rows minus corrupt markers + new).
+        const dataXml = buildSalaryAdjXml(combinedRows);
         const importRes = await postMflImportForm(targetSeason, { TYPE: "salaryAdj", L: leagueId, DATA: dataXml }, { TYPE: "salaryAdj", L: leagueId });
 
         // 6. Verify against the post-import export, then mark posted.
@@ -30112,7 +30126,14 @@ export default {
           season: targetSeason, league_id: leagueId,
           posted: posted.length, attempted: rowsSliced.length, reconciled: reconcileKeys.length,
           verified: posted, skipped,
-          mfl_import_ok: !!(importRes && (importRes.ok ?? importRes.status)),
+          existing_rows: existingRows.length, preserved_rows: preservedRows.length,
+          dropped_markers: droppedMarkers, combined_rows: combinedRows.length,
+          mfl_import: {
+            ok: !!(importRes && importRes.ok),
+            status: importRes && importRes.status,
+            error: (importRes && importRes.error) || "",
+            preview: importRes ? String(importRes.upstreamPreview || "").slice(0, 300) : "",
+          },
         });
       }
 
