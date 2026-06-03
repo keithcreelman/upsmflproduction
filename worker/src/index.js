@@ -30102,7 +30102,10 @@ export default {
         // worked 2026-04-17): plain postMflImportForm with the worker commish cookie
         // (now complete with MFL_USER_ID + MFL_PW_SEQ).
         const dataXml = buildSalaryAdjXml(plain(rowsSliced));
-        const importRes = await postMflImportForm(targetSeason, { TYPE: "salaryAdj", L: leagueId, DATA: dataXml }, { TYPE: "salaryAdj", L: leagueId });
+        // Cookie-only (skipApiKey): canon says salaryAdj import does NOT accept the
+        // APIKEY; with a now-complete commish cookie, attaching the APIKEY may be
+        // what makes MFL silently 200 without applying.
+        const importRes = await postMflImportForm(targetSeason, { TYPE: "salaryAdj", L: leagueId, DATA: dataXml }, { TYPE: "salaryAdj", L: leagueId }, { skipApiKey: true });
 
         // 6. Verify against the post-import export, then mark posted.
         const verifyRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
