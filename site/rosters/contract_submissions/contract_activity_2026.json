@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-06-03 13:49:21",
+    "generated_at": "2026-06-03 13:54:50",
     "source": "contract-activity-log",
-    "count": 40,
+    "count": 41,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "92bfe67e57c9327d18c49fa6",
+      "submission_id": "92bfe67e57c9327d18c49fa6",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "player_id": "16174",
+      "player_name": "Rodriguez, Chris",
+      "position": "RB",
+      "salary": 3000,
+      "contract_year": 2,
+      "contract_status": "Vet-ERA",
+      "contract_info": "CL 2|TCV 6K|AAV 3K|Y1-3K, Y2-3K|GTD: 4.5K",
+      "tcv": 6000,
+      "aav": 3000,
+      "guaranteed": 4500,
+      "submitted_at_utc": "2026-06-03T13:54:36.225Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "",
+      "discord_message_id": "",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "4e376cde5ec98938a8720c7b",
       "submission_id": "4e376cde5ec98938a8720c7b",
