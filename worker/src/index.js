@@ -20745,12 +20745,14 @@ export default {
       const deriveContractActivityType = ({
         isExtensionSubmission,
         isRestructure,
+        isMyac,
         contractStatus,
       }) => {
         const status = safeStr(contractStatus).toUpperCase();
         if (status === "TAG") return "Tag";
         if (isExtensionSubmission) return "Extension";
         if (isRestructure) return "Restructure";
+        if (isMyac) return "Multi-Year Contract";
         return "FA Contract";
       };
 
@@ -34072,6 +34074,12 @@ export default {
             /\bextension\b/i.test(providedSourceTag) ||
             requestedContractStatus.toLowerCase() === "extension"
           );
+        // MYAC (multi-year auction contract) — previously fell into the MYM/else
+        // bucket, so it skipped the D1 audit (gated on isExtensionSubmission) and
+        // was mislabeled for Discord. Recognize it explicitly.
+        const isMyacSubmission =
+          isManualContractUpdate &&
+          (submissionKindRaw === "myac" || /\bmyac\b/i.test(providedSourceTag));
         const eventType = isExtensionSubmission
           ? "log-extension-submission"
           : (isRestructure ? "log-restructure-submission" : "log-mym-submission");
@@ -34658,7 +34666,7 @@ export default {
         // Fires when submission_kind === "extension" and the salary
         // import actually changed something. Audit captures the full
         // before/after; master keeps one row per (league, season, player).
-        if (looksOk && anyChanged && isExtensionSubmission && env.UPS_MFL_DB) {
+        if (looksOk && anyChanged && (isExtensionSubmission || isMyacSubmission) && env.UPS_MFL_DB) {
           // Parse the new contractInfo for TCV/AAV/GTD/term so the
           // audit row has structured cap-math fields, not just a raw
           // string. Pattern matches Roster Workbench's
@@ -34916,6 +34924,7 @@ export default {
         const activityType = deriveContractActivityType({
           isExtensionSubmission,
           isRestructure,
+          isMyac: isMyacSubmission,
           contractStatus: activityContractStatus,
         });
 
@@ -35005,7 +35014,9 @@ export default {
               submittedAtUtc: submittedAtUtc || new Date().toISOString(),
               // Force the test channel for dry runs so we never spam
               // the production contract channel with simulated rows.
-              forceTestOnly: dryRunFlag === 1,
+              // MYAC routes to the TEST channel for now (Keith 2026-06-03) — verify
+              // the multi-year-contract announcement there before going to prod.
+              forceTestOnly: dryRunFlag === 1 || isMyacSubmission,
             });
           } catch (e) {
             contractDiscord = {
