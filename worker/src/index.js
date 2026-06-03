@@ -30085,14 +30085,17 @@ export default {
         }
 
         // Post ONLY the new rows — additive, so existing adjustments are untouched.
-        // salaryAdj import is COMMISSIONER-COOKIE-ONLY (canon MFL_API_CANON_REVIEW
-        // §"APIKEY NOT accepted"): if the APIKEY is on the URL, MFL silently 200s the
-        // import without applying it. skipApiKey:true forces cookie-only auth.
+        // salaryAdj is a COMMISSIONER write. The bare env.MFL_COOKIE (MFL_USER_ID
+        // only) silently 200s without applying — the "silent-no-op" path flagged in
+        // the Q19 fix (2026-05-17). Establish a full commish SESSION via BECOME=0000
+        // (establishCommishCookieHeader) and post with that, exactly like the
+        // salaries / test-sync writes (postMflImportFormForCookie).
+        const commishCookieHeader = await establishCommishCookieHeader(cookieHeader, targetSeason, leagueId);
         const dataXml = buildSalaryAdjXml(plain(rowsSliced));
-        const importRes = await postMflImportForm(targetSeason, { TYPE: "salaryAdj", L: leagueId, DATA: dataXml }, { TYPE: "salaryAdj", L: leagueId }, { skipApiKey: true });
+        const importRes = await postMflImportFormForCookie(commishCookieHeader, targetSeason, { TYPE: "salaryAdj", L: leagueId, DATA: dataXml }, { TYPE: "salaryAdj", L: leagueId });
 
-        // 6. Verify against the post-import export, then mark posted.
-        const verifyRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
+        // 6. Verify against the post-import export (commish session), then mark posted.
+        const verifyRes = await mflExportJsonForCookie(commishCookieHeader, targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
         const verifyRows = verifyRes.ok
           ? collectSalaryAdjustmentExportRows(verifyRes.data?.salaryAdjustments || verifyRes.data?.salaryadjustments || verifyRes.data || {})
           : [];
