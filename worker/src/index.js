@@ -30051,47 +30051,23 @@ export default {
         const rowsSliced = limit > 0 ? rowsToPost.slice(0, limit) : rowsToPost;
         const plain = (rs) => rs.map((r) => ({ franchise_id: r.franchise_id, amount: r.amount, explanation: r.explanation }));
 
-        // Merge-preserve set. MFL's salaryAdj import REPLACES all rows, so we
-        // re-post the existing ones — EXCEPT corrupt legacy "Dropped <name> ...
-        // (Salary: $...)" markers (the near-zero 1e-124 sentinels). Re-serializing
-        // those makes MFL silently 200 the import WITHOUT applying any change, so
-        // we drop them (which also cleans the garbage — the real penalty supersedes
-        // the marker).
-        const isCorruptMarker = (expl) => /^Dropped\b.*\(Salary:/i.test(safeStr(expl));
-        const newKeys = new Set(rowsSliced.map((r) => r.ledger_key));
-        const droppedMarkers = [];
-        const preservedRows = existingRows
-          .filter((r) => {
-            const m = safeStr(r.explanation).match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
-            const key = m ? m[1] : "";
-            if (key && newKeys.has(key)) return false; // superseded by a row we're posting
-            if (isCorruptMarker(r.explanation)) { droppedMarkers.push(safeStr(r.explanation).slice(0, 60)); return false; }
-            return true;
-          })
-          .map((r) => ({
-            franchise_id: r.franchise_id,
-            amount: r.amount,
-            // Sanitize each preserved explanation to the charset MFL's salaryAdj
-            // import reliably accepts — the same one the working "UPS drop penalty
-            // ... id:KEY" rows already use. Stray '(' ')' '+' (e.g. in the
-            // "UPS traded salary settlement (trade_...): net +20K" notes) are the
-            // likely trigger for MFL silently 200-ing the import without applying
-            // it. Amounts (incl. negative trade credits) are untouched.
-            explanation: (safeStr(r.explanation).replace(/[^A-Za-z0-9 ,.'_:-]/g, " ").replace(/\s+/g, " ").trim()) || "adjustment",
-          }));
-        const combinedRows = [...preservedRows, ...plain(rowsSliced)];
+        // MFL's salaryAdj import is ADDITIVE — per canon (MFL_IMPORT_EXPORT_DETAILED.md
+        // §salaryAdj + MFL_API_CANON_REVIEW_2026_05_28.md §5): "The data will always be
+        // ADDED to the existing salary adjustments." So post ONLY the new penalty rows —
+        // exactly like the trade-settlement writer (applySalaryAdjFromPayload). Re-posting
+        // existing rows would duplicate them and MFL silently 200s the batch without
+        // applying it. Idempotency = the existingKeys dedup above + the posted_to_mfl flag,
+        // never a full re-post. (Negative amounts are valid per canon — credits.)
 
         if (dryRun) {
           return jsonOut(200, {
             ok: true, dry_run: true, season: targetSeason, league_id: leagueId,
             owed_unposted: owed.length, would_post: rowsSliced, skipped,
-            existing_rows: existingRows.length, preserved_rows: preservedRows.length,
-            dropped_markers: droppedMarkers, combined_rows: combinedRows.length,
-            combined_xml: buildSalaryAdjXml(combinedRows),
+            xml_preview: buildSalaryAdjXml(plain(rowsSliced)),
           });
         }
 
-        // 4. Admin gate for the actual write.
+        // Admin gate — salaryAdj import requires the commissioner cookie.
         const adminState = await getLeagueAdminState(leagueId, targetSeason);
         if (!adminState.ok || !adminState.isAdmin) {
           return jsonOut(403, { ok: false, error: "MFL_COOKIE lacks commissioner privileges for salary adjustments", admin_state: adminState, would_post: rowsSliced });
@@ -30108,8 +30084,8 @@ export default {
           return jsonOut(200, { ok: true, season: targetSeason, league_id: leagueId, posted: 0, owed_unposted: owed.length, reconciled: reconcileKeys.length, skipped, message: "No new penalties to post." });
         }
 
-        // 5. Post the merged document (preserved rows minus corrupt markers + new).
-        const dataXml = buildSalaryAdjXml(combinedRows);
+        // Post ONLY the new rows — additive, so existing adjustments are untouched.
+        const dataXml = buildSalaryAdjXml(plain(rowsSliced));
         const importRes = await postMflImportForm(targetSeason, { TYPE: "salaryAdj", L: leagueId, DATA: dataXml }, { TYPE: "salaryAdj", L: leagueId });
 
         // 6. Verify against the post-import export, then mark posted.
@@ -30136,8 +30112,7 @@ export default {
           season: targetSeason, league_id: leagueId,
           posted: posted.length, attempted: rowsSliced.length, reconciled: reconcileKeys.length,
           verified: posted, skipped,
-          existing_rows: existingRows.length, preserved_rows: preservedRows.length,
-          dropped_markers: droppedMarkers, combined_rows: combinedRows.length,
+          existing_rows: existingRows.length,
           mfl_import: {
             ok: !!(importRes && importRes.ok),
             status: importRes && importRes.status,
