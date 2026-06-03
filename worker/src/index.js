@@ -30048,33 +30048,53 @@ export default {
       //    Individual penalties post EXACT all season; at the FA Auction Cut
       //    Deadline a single per-franchise reconciliation salaryAdj trues each
       //    franchise's MFL drop-penalty total to the nearest $1K (half-up).
+      // Classify a salaryAdjustment description as a drop penalty — mirrors the
+      // FO's adjCategoryFromDesc, and EXCLUDES our own reconciliation line so it's
+      // never re-summed (which would double-count after it posts).
+      const _adjIsDropPenalty = (desc) => {
+        const t = String(desc || "").toLowerCase();
+        if (t.indexOf("id:ups_drop_rounding_") !== -1) return false;
+        if (t.indexOf("trade") !== -1) return false;
+        return t.indexOf("drop") !== -1 || t.indexOf("cut") !== -1 || t.indexOf("penalt") !== -1 || t.indexOf("waiv") !== -1;
+      };
       const computeDropRoundingReconciliation = async (season, leagueId) => {
-        const sel = await env.UPS_MFL_DB.prepare(
-          `SELECT franchise_id,
-                  MAX(franchise_name) AS franchise_name,
-                  SUM(penalty_amount) AS exact_sum,
-                  SUM(CASE WHEN posted_to_mfl = 1 THEN COALESCE(posted_amount, penalty_amount) ELSE 0 END) AS posted_sum,
-                  COUNT(*) AS penalty_count
-             FROM ups_drop_events
-            WHERE season = ? AND league_id = ? AND penalty_amount > 0
-            GROUP BY franchise_id`
-        ).bind(String(season), String(leagueId)).all();
-        const out = [];
-        for (const r of ((sel && sel.results) || [])) {
-          const fid = padFranchiseId(r.franchise_id);
+        // AUTHORITATIVE source: MFL salaryAdjustments (the same feed the FO reads),
+        // NOT ups_drop_events. Amounts parsed as direct dollars — Math.round(Number)
+        // — to avoid collectSalaryAdjustmentExportRows' <$1K K-multiplier glitch.
+        const adjRes = await mflExportJson(season, leagueId, "salaryAdjustments", {}, { useCookie: true });
+        const adjRoot = (adjRes.ok && adjRes.data) ? (adjRes.data.salaryAdjustments || adjRes.data.salaryadjustments) : null;
+        let rows = adjRoot && (adjRoot.salaryAdjustment || adjRoot.salary_adjustment);
+        rows = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+        const fidName = {};
+        try {
+          const lg = await mflExportJson(season, leagueId, "league", {}, { useCookie: true });
+          let fl = lg.ok && lg.data && lg.data.league && lg.data.league.franchises && lg.data.league.franchises.franchise;
+          fl = Array.isArray(fl) ? fl : (fl ? [fl] : []);
+          for (const f of fl) { const fid = padFranchiseId(f && f.id); if (fid) fidName[fid] = safeStr(f && f.name) || ("Team " + fid); }
+        } catch (_) {}
+        const byFid = {};
+        for (const r of rows) {
+          const fid = padFranchiseId(r && r.franchise_id);
           if (!fid) continue;
-          const exact = Math.round(Number(r.exact_sum) || 0);
-          const posted = Math.round(Number(r.posted_sum) || 0);
+          if (!_adjIsDropPenalty(r && r.description)) continue;  // drops only; skips trades/other + our rounding line
+          let amt = Math.round(Number(r && r.amount));           // direct dollars; corrupt "2e-124" → 0
+          if (!Number.isFinite(amt)) amt = 0;
+          if (!byFid[fid]) byFid[fid] = { sum: 0, count: 0 };
+          byFid[fid].sum += amt;
+          if (amt !== 0) byFid[fid].count += 1;
+        }
+        const out = [];
+        for (const fid of Object.keys(byFid)) {
+          const exact = Math.round(byFid[fid].sum);
           const rounded = Math.round(exact / 1000) * 1000;   // nearest $1K, half-up
           out.push({
             franchise_id: fid,
-            franchise_name: safeStr(r.franchise_name) || ("Team " + fid),
-            penalty_count: safeInt(r.penalty_count, 0),
+            franchise_name: fidName[fid] || ("Team " + fid),
+            penalty_count: byFid[fid].count,
             exact_sum: exact,
             rounded_total: rounded,
-            rounding_delta: rounded - exact,          // display: rounded vs exact sum
-            posted_sum: posted,
-            reconciliation_amount: rounded - posted,  // what to post to MFL to true up to rounded
+            rounding_delta: rounded - exact,
+            reconciliation_amount: rounded - exact,   // drops already in MFL = exact; post the delta
             ledger_key: `ups_drop_rounding_${fid}_${season}`,
           });
         }

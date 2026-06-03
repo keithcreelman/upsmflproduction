@@ -592,6 +592,10 @@
       const byFid = Object.create(null);
       for (let i = 0; i < rows.length; i += 1) {
         const r = rows[i] || {};
+        // Skip our own posted rounding line (id:ups_drop_rounding_…) — it's
+        // represented by the computed "Rounding" line in showAdjPopup; summing it
+        // here would double-count once the deadline true-up has posted it to MFL.
+        if (/id:ups_drop_rounding_/i.test(String(r.description || ""))) continue;
         const fid = pad4(r.franchise_id);
         if (!fid) continue;
         // MFL amounts are full dollars. Parse as a FLOAT then round — some rows
