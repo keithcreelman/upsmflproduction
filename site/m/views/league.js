@@ -47,6 +47,7 @@
       tab("trade", "Trade", "trade") +
       tab("otb", "On the Block", "otb") +
       tab("draft", "Draft", "draft") +
+      tab("auction", "Auction", "auction") +
       '</div>';
   }
 
@@ -785,6 +786,9 @@
     }
     if (sub === "draft" && M.draftView && M.draftView.render) {
       return M.draftView.render(mount);
+    }
+    if (sub === "auction" && M.auctionView && M.auctionView.render) {
+      return M.auctionView.render(mount);
     }
     return renderStandings(mount);
   }

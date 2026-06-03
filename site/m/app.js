@@ -180,6 +180,8 @@
     draftResults: null,        // /api/mfl-export?TYPE=draftResults
     historicalDraftByPid: null, // { [pid]: { year, round, pick } } — past 3 years for taxi salary derivation
     leagueEvents: null,        // /api/league-events?season=<year>&from=today (UPS deadline calendar)
+    contractDeadline: "",      // §C2 MYAC window-close date (ISO yyyy-mm-dd) from /api/league-events?from=all; mirrors desktop v2/front_office.js STATE.contractDeadline
+    acquisitionByKey: null,    // { "fid:pid": { label, date } } from player_acquisition_lookup_<year>.json — gates the MYAC fresh-FA-auction branch (desktop mergeAcquisitionLookupRows)
     capAmount: 0,
     loaded: false,
     loadingPromise: null,
@@ -405,6 +407,56 @@
       })
       .catch(function () { return []; });
   }
+
+  // §C2 MYAC contract deadline — the September date that closes the MYAC
+  // window. Verbatim mirror of v2/front_office.js loadContractDeadline (2004):
+  // pulls the `contract_deadline` row from the D1 league-events calendar with
+  // from=all. NOTE: this is a SEPARATE fetch from state.leagueEvents (which
+  // uses from=today for the upcoming-deadlines display) — from=today drops the
+  // event once it passes, which would wrongly reopen the MYAC window. Returns
+  // ISO yyyy-mm-dd, or "" (unknown → treated as within-window per desktop so a
+  // load failure never blocks the option).
+  function fetchContractDeadline(year) {
+    var url = workerUrl("/api/league-events?season=" + encodeURIComponent(year) + "&from=all&limit=50");
+    return fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var evs = (data && data.events) || [];
+        var cd = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("contract_deadline") >= 0; });
+        return (cd && cd.date) ? String(cd.date).slice(0, 10) : "";
+      })
+      .catch(function () { return ""; });
+  }
+
+  // Acquisition lookup — the commish-maintained
+  // player_acquisition_lookup_<year>.json asset desktop Front Office consumes.
+  // Mobile needs each player's acquisition LABEL + DATE to gate the MYAC
+  // fresh-FA-auction branch (§C2): a 1-yr Veteran auctioned THIS season can
+  // MYAC, a HELD final-year Veteran cannot — the date is what separates them.
+  // Returns a map keyed "paddedFid:pid" → { label, date }. Mirror of
+  // v2/front_office.js loadAcquisitionLookup (780) + mergeAcquisitionLookupRows.
+  function fetchAcquisitionLookup(year) {
+    var url = "/upsmflproduction/rosters/player_acquisition_lookup_" + encodeURIComponent(year) + ".json";
+    return fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var rows = j ? (Array.isArray(j) ? j : (Array.isArray(j.rows) ? j.rows : [])) : [];
+        var map = {};
+        rows.forEach(function (row) {
+          if (!row) return;
+          var fid = pad4(row.franchise_id || row.franchiseId);
+          var pid = safeStr(row.player_id || row.playerId).replace(/\D/g, "");
+          if (!fid || !pid) return;
+          map[fid + ":" + pid] = {
+            label: safeStr(row.acquisition_label || row.label),
+            date: safeStr(row.acquisition_date || row.date_et).slice(0, 10)
+          };
+        });
+        return map;
+      })
+      .catch(function () { return {}; });
+  }
+
   function buildLeaderboardMap(perAliasArrays) {
     // Each alias response (skill / idp) returns multiple positions
     // (RB+WR+TE, or DB+LB+DL etc.). Bucket by row.position FIRST so a WR's
@@ -610,7 +662,13 @@
       // (no degradation).
       fetch(workerUrl("/api/taxi-callups"))
         .then(function (r) { return r.ok ? r.json() : { players: {} }; })
-        .catch(function () { return { players: {} }; })
+        .catch(function () { return { players: {} }; }),
+      // [17] §C2 MYAC window-close date; [18] acquisition label/date map.
+      // Both gate MYAC eligibility (front_office_actions.js). Fail-open:
+      // "" / {} keep the app fully functional (MYAC just falls back to its
+      // unknown-deadline / ERA-only behavior).
+      fetchContractDeadline(state.ctx.year),
+      fetchAcquisitionLookup(state.ctx.year)
     ]).then(function (results) {
       state.league = results[0];
       state.rosters = results[1];
@@ -667,6 +725,8 @@
       state.historicalDraftByPid = results[15] || {};
       var taxiCallupsResp = results[16] || { players: {} };
       state.taxiCallupsByPid = (taxiCallupsResp && taxiCallupsResp.players) || {};
+      state.contractDeadline = results[17] || "";
+      state.acquisitionByKey = results[18] || {};
       parseLeague();
       resolveViewerFranchise(results[14]);
       // Now that we know the viewer franchise, fetch their UPS-side trade
@@ -737,6 +797,17 @@
       if (pad4(state.franchises[i] && state.franchises[i].id) === id) return state.franchises[i];
     }
     return null;
+  }
+
+  // acquisitionForPlayer — resolve a roster player to their acquisition
+  // { label, date } from the lookup loaded in loadAllData. front_office_actions.js
+  // reads this to gate the MYAC fresh-FA-auction branch. Returns null when the
+  // lookup is absent or the player isn't in it (→ MYAC's ERA branch still works).
+  function acquisitionForPlayer(fid, pid) {
+    var map = state.acquisitionByKey;
+    if (!map) return null;
+    var key = pad4(fid) + ":" + safeStr(pid).replace(/\D/g, "");
+    return map[key] || null;
   }
 
   function resolveViewerFranchise(meResp) {
@@ -1516,6 +1587,7 @@
       playerById: playerById,
       getRosterFor: getRosterFor,
       findFranchiseById: findFranchiseById,
+      acquisitionForPlayer: acquisitionForPlayer,
       getAdjustmentTotalFor: getAdjustmentTotalFor,
       computeCap: computeCap,
       contractLimitsFor: contractLimitsFor,

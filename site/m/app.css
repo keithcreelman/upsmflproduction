@@ -1734,3 +1734,304 @@ button.ups-m-busy::before,
   color: var(--danger);
   font-size: 13px;
 }
+
+/* ════════ Auction view (League → Auction) ════════ */
+.ups-m-auction { padding: 12px 12px 24px; }
+.ups-m-auc-intro {
+  font-size: 12px;
+  color: var(--fg-muted);
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+.ups-m-auc-banner {
+  background: var(--bg-elev2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warn);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--fg);
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+.ups-m-auc-banner.open { border-left-color: var(--ok); }
+.ups-m-auc-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 16px 2px 8px;
+}
+.ups-m-auc-sec-head.sub { color: var(--line-soft); margin-top: 18px; }
+.ups-m-auc-sec-head .ct {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fg);
+  background: var(--bg-elev2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1px 7px;
+}
+.ups-m-auc-empty {
+  font-size: 12px;
+  color: var(--fg-muted);
+  padding: 10px 2px;
+}
+.ups-m-auc-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.ups-m-auc-card.won { opacity: 0.72; }
+.ups-m-auc-card-main { flex: 1 1 auto; min-width: 0; }
+.ups-m-auc-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ups-m-auc-pos {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(91, 141, 255, 0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.ups-m-auc-team { font-size: 11px; color: var(--fg-muted); font-weight: 500; }
+.ups-m-auc-meta {
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.ups-m-auc-meta strong { color: var(--fg); font-variant-numeric: tabular-nums; }
+.ups-m-auc-origin { color: var(--teal); }
+.ups-m-auc-proxy { color: var(--warn); }
+.ups-m-auc-noopen { color: var(--line-soft); font-style: italic; }
+.ups-m-auc-card-cta {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.ups-m-auc-card-cta .btn-act {
+  width: auto;
+  padding: 7px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.ups-m-auc-time {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--warn);
+  font-variant-numeric: tabular-nums;
+}
+.ups-m-auc-won {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+/* Nomination cadence */
+.ups-m-auc-nom { display: flex; flex-direction: column; gap: 6px; }
+.ups-m-auc-nom-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.ups-m-auc-nom-row.me { border-color: var(--accent); background: rgba(91, 141, 255, 0.06); }
+.ups-m-auc-nom-row .fn {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ups-m-auc-nom-row .you {
+  font-size: 9px;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0 3px;
+  margin-left: 4px;
+}
+.ups-m-auc-nom-row .ns { font-size: 11px; color: var(--fg-muted); text-align: right; }
+.ups-m-auc-nom-row .ns .lbl { font-weight: 700; color: var(--line-soft); margin-right: 2px; }
+.ups-m-auc-nom-row .rdy { color: var(--ok); font-weight: 600; }
+.ups-m-auc-nom-row .cd { color: var(--fg-muted); }
+
+/* ════════ Trade offer builder (League → Trade → Build offer) ════════ */
+.ups-m-tb-sheet { height: 92vh; max-height: 92vh; }
+#ups-m-tb-body { padding: 14px 16px 28px; display: flex; flex-direction: column; }
+.ups-m-tb-steptitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fg);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ups-m-tb-steptitle .cnt {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--teal);
+  background: rgba(45, 212, 191, 0.12);
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+/* counterparty list */
+.ups-m-tb-flist { display: flex; flex-direction: column; gap: 8px; }
+.ups-m-tb-frow {
+  text-align: left;
+  padding: 14px 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--fg);
+  font-size: 15px;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-tb-frow:active { background: var(--bg-elev2); }
+/* asset picker */
+.ups-m-tb-search {
+  width: 100%;
+  padding: 11px 12px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 15px;
+  margin-bottom: 10px;
+  -webkit-appearance: none;
+}
+.ups-m-tb-search:focus { outline: none; border-color: var(--accent); }
+.ups-m-tb-assets {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-elev);
+}
+.ups-m-tb-subhead {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+  padding: 10px 12px 4px;
+  border-top: 1px solid var(--line);
+}
+.ups-m-tb-asset {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  color: var(--fg);
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-tb-asset:last-child { border-bottom: none; }
+.ups-m-tb-asset .nm { font-size: 14px; font-weight: 600; }
+.ups-m-tb-asset .mt { font-size: 11px; color: var(--fg-muted); white-space: nowrap; }
+.ups-m-tb-asset.on { background: rgba(45, 212, 191, 0.12); }
+.ups-m-tb-asset.on .nm { color: var(--teal); }
+.ups-m-tb-asset.on::before { content: "✓ "; color: var(--teal); font-weight: 700; }
+/* cap money */
+.ups-m-tb-cap { margin-top: 12px; }
+.ups-m-tb-cap label {
+  display: block;
+  font-size: 11px;
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+  letter-spacing: 0.03em;
+}
+.ups-m-tb-cap input {
+  width: 100%;
+  padding: 11px 12px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  -webkit-appearance: none;
+}
+.ups-m-tb-cap input:focus { outline: none; border-color: var(--accent); }
+.ups-m-tb-cap input:disabled { opacity: 0.5; }
+.ups-m-tb-cap label .mx { color: var(--teal); font-weight: 700; }
+.ups-m-tb-cap .hint { font-size: 10px; color: var(--fg-muted); margin-top: 4px; line-height: 1.35; }
+/* nav row */
+.ups-m-tb-nav { display: flex; gap: 10px; margin-top: 14px; }
+.ups-m-tb-nav .btn-act { flex: 1 1 0; }
+/* review */
+.ups-m-tb-review { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.ups-m-tb-review .col {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.ups-m-tb-review .lbl {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  margin-bottom: 6px;
+}
+.ups-m-tb-review ul { list-style: none; margin: 0; padding: 0; }
+.ups-m-tb-review li { font-size: 13px; color: var(--fg); padding: 3px 0; line-height: 1.35; }
+.ups-m-tb-review li .sal { color: var(--fg-muted); font-size: 11px; }
+.ups-m-tb-review li.cap { color: var(--warn); font-weight: 600; }
+.ups-m-tb-review li.muted { color: var(--line-soft); }
+.ups-m-tb-comment {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  -webkit-appearance: none;
+}
+.ups-m-tb-comment:focus { outline: none; border-color: var(--accent); }
+.ups-m-tb-warn {
+  font-size: 11px;
+  color: var(--warn);
+  background: rgba(255, 184, 107, 0.08);
+  border: 1px solid rgba(255, 184, 107, 0.25);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-top: 10px;
+  line-height: 1.4;
+}
