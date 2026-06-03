@@ -32447,9 +32447,8 @@ export default {
       // revert UI. Each row carries the prior/new state so the UI can show what a
       // revert would restore.
       if (path === "/admin/contract-submissions" && request.method === "GET") {
-        if (!!commishApiKey && !sessionByApiKey) {
-          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
-        }
+        // Auth mirrors /commish-contract-update: the FO calls this browser-side
+        // (credentials:"omit", no APIKEY). Read-only list — no MFL write here.
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
         const csSeason = safeStr(url.searchParams.get("YEAR") || url.searchParams.get("season") || YEAR || "2026");
         const csLeague = safeStr(url.searchParams.get("L") || L || "74598");
@@ -32520,9 +32519,11 @@ export default {
       if (path === "/admin/contract-revert" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        if (!!commishApiKey && !sessionByApiKey) {
-          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
-        }
+        // Auth mirrors /commish-contract-update (FO calls it browser-side,
+        // credentials:"omit"). This is strictly MORE constrained than that route:
+        // it can only restore a PRIOR state already recorded in the audit tables
+        // (table-whitelisted) — never an arbitrary contract — and the real MFL
+        // write goes through /commish-contract-update with the worker's APIKEY.
         if (!env.UPS_MFL_DB || !env.SELF) return jsonOut(500, { ok: false, error: "UPS_MFL_DB / SELF service binding missing" });
         const crSeason = safeStr(body.season || url.searchParams.get("YEAR") || YEAR || "2026");
         const crLeague = safeStr(body.league_id || url.searchParams.get("L") || L || "74598");

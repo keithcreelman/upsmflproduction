@@ -22,6 +22,7 @@
   <button data-tab="cap">Cap Plan</button>
   <button data-tab="tag">Tagging</button>
   <button data-tab="activity" id="fo-tab-activity" hidden>Activity &amp; Audit</button>
+  <button data-tab="contracts" id="fo-tab-contracts" hidden>Contract Revert</button>
 </nav>
 
 <main class="fo-main">
@@ -182,6 +183,18 @@
   <!-- ── ACTIVITY & AUDIT TAB ──────────────────────────────────────── -->
   <section class="fo-section" data-section="activity">
     <div id="fo-activity-body"></div>
+  </section>
+
+  <!-- ── CONTRACT REVERT TAB (commish-only) ────────────────────────── -->
+  <section class="fo-section" data-section="contracts">
+    <div class="fo-card">
+      <div class="fo-card-head">
+        <h2>Contract Submissions</h2>
+        <span class="small" id="fo-contracts-meta" style="color:var(--muted);">Loading…</span>
+      </div>
+      <p class="fo-row-hint">💡 Commish-only. Select one or more recent contract submissions and revert them — restores the prior contract in MFL (tags → untag). Discord is silenced for reverts.</p>
+      <div id="fo-contracts-body"></div>
+    </div>
   </section>
 
 </main>
