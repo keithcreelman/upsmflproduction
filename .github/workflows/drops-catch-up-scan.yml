@@ -39,9 +39,15 @@ jobs:
           print("ok:", d.get("ok"), "| dry_run:", d.get("dry_run"), "| written_count:", d.get("written_count"))
           rows = d.get("written") or d.get("drops") or []
           for r in rows:
-              print(f"  {r.get('player_name') or r.get('pid')} | fid={r.get('franchise_id') or r.get('fid')} "
-                    f"| dropped={r.get('dropped_at_iso','')[:16]} | penalty=${r.get('penalty_amount',0)} "
-                    f"| exempt={r.get('penalty_exempt')} {r.get('penalty_exempt_reason','')}")
+              # Dry-run rows are NESTED: r['pre_drop'] + r['penalty'] objects.
+              pd = r.get("pre_drop") or {}
+              pen = r.get("penalty") or {}
+              print(f"  pid={r.get('pid')} {r.get('name') or ''} | fid={r.get('fid')} | dropped={r.get('dropped_at_iso','')[:16]}")
+              print(f"      pre_drop: status={pd.get('contract_status')} sal={pd.get('salary')} cy={pd.get('contract_year')} "
+                    f"taxi={pd.get('is_taxi')} snap={pd.get('snapshot_source')} info={(pd.get('contract_info') or '')[:48]}")
+              print(f"      PENALTY=${pen.get('penalty')} basis={pen.get('basis')} tcv={pen.get('tcv')} "
+                    f"cy={pen.get('cy')} yrs_rem={pen.get('yearsRemaining')} earned={pen.get('earned')} "
+                    f"exempt={pen.get('exempt')} reason={pen.get('exempt_reason')}")
           sk = d.get("skipped") or []
           if sk:
               print(f"  ({len(sk)} already-recorded/skipped)")
