@@ -32465,11 +32465,20 @@ export default {
         ];
         const expected_present = {};
         EXPECTED.forEach((k) => { expected_present[k] = has(k); });
+        // TEMP (reverted in the follow-up commit): channel IDs are NOT secrets —
+        // they're public Discord snowflakes. Expose *_CHANNEL_ID values (and only
+        // those — never tokens/keys/cookie) so they can be lifted into version
+        // control as in-code fallbacks.
+        const channel_id_values = {};
+        Object.keys(env)
+          .filter((k) => /CHANNEL_ID$/i.test(k) && !/TOKEN|KEY|COOKIE|PAT|SECRET|API/i.test(k))
+          .forEach((k) => { try { channel_id_values[k] = dig(env[k]); } catch (_) {} });
         return jsonOut(200, {
           ok: true,
           env_names: names,
           present,
           expected_present,
+          channel_id_values,
           contract_primary_resolved: !!dig(env.DISCORD_CONTRACT_CHANNEL_ID),
           contract_test_resolved: !!(dig(env.DISCORD_CONTRACT_TEST_CHANNEL_ID) || dig(env.DISCORD_BUG_TEST_CHANNEL_ID)),
           drop_tracker: {
