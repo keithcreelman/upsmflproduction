@@ -4833,8 +4833,33 @@
         "scoring weeks " + (m.scoring_weeks_used || "?") + " · " +
         "prior AAV snapshot wk " + (m.aav_snapshot_week || "?");
     }
-    if (STATE.tagSubview === "breakdown") body.innerHTML = renderTagBreakdown();
-    else                                  body.innerHTML = renderTagEligible();
+    if (STATE.tagSubview === "proj2027") {
+      body.innerHTML = renderTag2027Projection();
+      wireProj2027(body);
+    } else if (STATE.tagSubview === "breakdown") {
+      body.innerHTML = renderTagBreakdown();
+    } else {
+      body.innerHTML = renderTagEligible();
+    }
+  }
+
+  // Wire the 2027 projection subview's filters / sort / row-click (renderTagTab
+  // sets innerHTML, so handlers attach after each render).
+  function wireProj2027(body) {
+    const t = $("#fo-p27-team"); if (t) t.addEventListener("change", function () { STATE.proj2027Filter.team = this.value; renderTagTab(); });
+    const p = $("#fo-p27-pos"); if (p) p.addEventListener("change", function () { STATE.proj2027Filter.pos = this.value; renderTagTab(); });
+    const c = $("#fo-p27-clear"); if (c) c.addEventListener("click", function () { STATE.proj2027Filter = { team: "", pos: "" }; renderTagTab(); });
+    $$("[data-p27sort]", body).forEach(function (th) {
+      th.addEventListener("click", function () {
+        const k = this.getAttribute("data-p27sort");
+        if (STATE.proj2027Sort.key === k) STATE.proj2027Sort.dir *= -1;
+        else { STATE.proj2027Sort.key = k; STATE.proj2027Sort.dir = 1; }
+        renderTagTab();
+      });
+    });
+    $$("tbody tr[data-pid]", body).forEach(function (tr) {
+      tr.addEventListener("click", function () { if (tr.dataset.pid) openSlideover(tr.dataset.pid, tr.dataset.fid); });
+    });
   }
 
   // Resolve a player's CURRENT roster type from live STATE.teams.
@@ -5035,6 +5060,98 @@
           <tbody>${rows}</tbody>
         </table>
       </div>`;
+  }
+
+  // 2027 tag-VALUE projection (Keith 2026-06-04): for each expiring (cy=1) player,
+  // what their tag would cost if tagged next year. tag value = max(positional
+  // tier base bid, max(current AAV, prior AAV) × 1.10 rounded up to $1K) — canon
+  // §C8, AAV-only. REUSES the pipeline's tier base bids from calc_breakdown (does
+  // NOT re-derive the tier math). Tier bids reflect the current source season's
+  // points; they update as the season's YTD points come in (full living
+  // projection is parked in project_tag_value_2027_projection_parking_lot.md).
+  function renderTag2027Projection() {
+    const m = STATE.tagData.meta || {};
+    const cb = m.calc_breakdown || {};
+    const projYear = (safeInt(SEASON, 0) || new Date().getUTCFullYear()) + 1;
+    const nn = function (s) { return safeStr(s).toLowerCase().replace(/[^a-z]/g, ""); };
+    if (!Object.keys(cb).length) {
+      return '<div class="fo-placeholder">No calc_breakdown in tag_tracking.json — can\'t project tier bids.</div>';
+    }
+    // name → tier base bid, + lowest-tier bid per position (the position floor).
+    const tierByName = Object.create(null);
+    const lowestBidByPos = Object.create(null);
+    Object.keys(cb).forEach(function (posKey) {
+      const tiers = (cb[posKey] && cb[posKey].tiers) || [];
+      if (tiers.length) lowestBidByPos[posKey] = safeInt(tiers[tiers.length - 1].base_bid, 0);
+      tiers.forEach(function (t) {
+        (t.players || []).forEach(function (pl) {
+          tierByName[posKey + "|" + nn(pl.player_name)] = { bid: safeInt(t.base_bid, 0), label: "T" + t.tier };
+        });
+      });
+    });
+    let rows = [];
+    (STATE.teams || []).forEach(function (team) {
+      (team.players || []).forEach(function (p) {
+        // Every final-year (cy=1) active player is a potential 2027 tag candidate
+        // — including Vet-Ext / FL / BL (extension ≠ tag) and currently-tagged
+        // (Type column lets the commish judge re-tag eligibility). Taxi/IR excluded.
+        if (safeInt(p.years, 0) !== 1 || p.isTaxi || p.isIr) return;
+        const posKey = positionGroupKey(p.position);
+        const aav = Math.max(safeInt(p.aav, 0), 0);
+        const floor = aav > 0 ? Math.ceil((aav * 1.10) / 1000) * 1000 : 0;   // AAV × 1.10, ceil to $1K
+        const lk = tierByName[posKey + "|" + nn(p.name)];
+        const tierBid = lk ? lk.bid : (lowestBidByPos[posKey] || 0);
+        const tagValue = Math.max(tierBid, floor);
+        rows.push({
+          pid: safeStr(p.id), fid: safeStr(team.fid), name: safeStr(p.name), team: safeStr(team.name),
+          pos: safeStr(p.position), type: safeStr(p.type), aav: aav, floor: floor, tier_bid: tierBid,
+          tier_label: lk ? lk.label : "—", tag_value: tagValue,
+        });
+      });
+    });
+    STATE.proj2027Filter = STATE.proj2027Filter || { team: "", pos: "" };
+    const teamOpts = Array.from(new Set(rows.map(function (r) { return r.team; }).filter(Boolean))).sort();
+    const posOpts = Array.from(new Set(rows.map(function (r) { return r.pos; }).filter(Boolean))).sort();
+    const total = rows.length;
+    rows = rows.filter(function (r) {
+      return (!STATE.proj2027Filter.team || r.team === STATE.proj2027Filter.team) &&
+             (!STATE.proj2027Filter.pos || r.pos === STATE.proj2027Filter.pos);
+    });
+    STATE.proj2027Sort = STATE.proj2027Sort || { key: "tag_value", dir: -1 };
+    const sk = STATE.proj2027Sort.key, sd = STATE.proj2027Sort.dir;
+    rows.sort(function (a, b) {
+      const av = a[sk], bv = b[sk];
+      if (typeof av === "string") return sd * av.localeCompare(bv);
+      return sd * ((av || 0) - (bv || 0));
+    });
+    const selStyle = "background:var(--panel-alt);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;";
+    const opt = function (v, l, s) { return '<option value="' + escapeHtml(v) + '"' + (s ? " selected" : "") + ">" + escapeHtml(l) + "</option>"; };
+    const teamSel = '<select id="fo-p27-team" style="' + selStyle + '">' + opt("", "All teams", !STATE.proj2027Filter.team) + teamOpts.map(function (t) { return opt(t, t, STATE.proj2027Filter.team === t); }).join("") + "</select>";
+    const posSel = '<select id="fo-p27-pos" style="' + selStyle + '">' + opt("", "All positions", !STATE.proj2027Filter.pos) + posOpts.map(function (pp) { return opt(pp, pp, STATE.proj2027Filter.pos === pp); }).join("") + "</select>";
+    const clr = (STATE.proj2027Filter.team || STATE.proj2027Filter.pos) ? ' <button type="button" id="fo-p27-clear" class="btn small secondary">Clear</button>' : "";
+    const hdr = function (key, label, align) {
+      const arrow = STATE.proj2027Sort.key === key ? (STATE.proj2027Sort.dir > 0 ? " ▲" : " ▼") : "";
+      return '<th data-p27sort="' + key + '" style="cursor:pointer;text-align:' + (align || "left") + ';white-space:nowrap;">' + escapeHtml(label) + arrow + "</th>";
+    };
+    const trs = rows.map(function (r) {
+      return '<tr data-pid="' + escapeHtml(r.pid) + '" data-fid="' + escapeHtml(r.fid) + '" style="cursor:pointer;" title="Open ' + escapeHtml(r.name) + '">' +
+        "<td>" + escapeHtml(r.name) + "</td><td>" + escapeHtml(r.team) + "</td>" +
+        '<td><span class="fo-pos ' + escapeHtml(posBucket(r.pos)) + '">' + escapeHtml(r.pos) + "</span></td>" +
+        "<td>" + escapeHtml(r.type) + "</td>" +
+        '<td class="num">' + escapeHtml(fmtUSD(r.aav)) + "</td>" +
+        '<td class="num">' + escapeHtml(fmtUSD(r.floor)) + "</td>" +
+        '<td class="num">' + escapeHtml(fmtUSD(r.tier_bid)) + ' <span class="small" style="color:var(--muted);">' + escapeHtml(r.tier_label) + "</span></td>" +
+        '<td class="num"><strong>' + escapeHtml(fmtUSD(r.tag_value)) + "</strong></td></tr>";
+    }).join("");
+    return '<div class="fo-card">' +
+      '<p class="fo-row-hint">💡 <strong>Projected ' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, canon §C8 AAV-only. ' + projYear + ' tags are priced off ' + (projYear - 1) + '-season points; until that season plays out, tier bids use the latest complete (' + escapeHtml(String(m.season || "?")) + ') structure as a stand-in and update live — not locked until the ' + projYear + ' contract deadline.</p>' +
+      '<div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;"><span class="small" style="color:var(--muted);">Filter</span>' + teamSel + posSel + clr +
+      '<span class="small" style="color:var(--muted);margin-left:auto;">' + rows.length + (rows.length === total ? "" : " of " + total) + ' expiring players</span></div>' +
+      '<div class="fo-table-scroll"><table class="fo-table" id="fo-p27-table"><thead><tr>' +
+      hdr("name", "Player") + hdr("team", "Team") + hdr("pos", "Pos") + hdr("type", "Type") +
+      hdr("aav", "AAV", "right") + hdr("floor", "AAV×1.10", "right") + hdr("tier_bid", "Tier Bid", "right") +
+      hdr("tag_value", "Proj. " + projYear + " Tag", "right") +
+      "</tr></thead><tbody>" + (trs || '<tr><td colspan="8" class="fo-table-empty">No expiring players match.</td></tr>') + "</tbody></table></div></div>";
   }
 
   function renderTagBreakdown() {
