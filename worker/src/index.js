@@ -34546,23 +34546,26 @@ export default {
         // 410-ing veteran extensions that legitimately run to September. Untags +
         // commish-overrides + dry runs bypass. Returns 410 Gone (RFC 9110 §15.5.11).
         const _isTagSubmit = submissionKindRaw === "tag" || safeStr(requestedContractStatus).toUpperCase() === "TAG";
-        const _priorCY = safeInt(body.prior_contract_year ?? body.priorContractYear, -1);
+        const _priorCY = safeInt(body.prior_contract_year ?? body.priorContractYear, 1);
         const _priorStatusLc = safeStr(body.prior_contract_status || body.priorContractStatus).toLowerCase();
-        // Expired-rookie extension = prior deal already expired (cy=0) or the prior
-        // status read rookie/expired. Everything else extension = veteran (Sept).
-        const _isRookieExt = isExtensionSubmission && (_priorCY === 0 || /rookie|expired/.test(_priorStatusLc));
-        const _isVeteranExt = isExtensionSubmission && !_isRookieExt;
+        const _yearInt = safeInt(year, 0);
+        // A ROOKIE-draft contract extends by the MAY rookie-extension deadline of
+        // the year its deal expires = getTagDeadlineUtc(season + years_remaining):
+        // a final-year rookie (cy=1, e.g. Benson 2026) → next May (2027), NOT this
+        // year's; an expired rookie (cy=0) → this year's May. A VETERAN in its final
+        // year extends by the SEPTEMBER contract deadline of the season.
+        const _isRookieContractExt = isExtensionSubmission && /rookie/.test(_priorStatusLc);
 
         if (dryRunFlag !== 1 && submissionKindRaw !== "untag" && commishOverrideFlag !== 1) {
-          // (1) MAY deadline — tags + expired-rookie extensions.
-          if ((_isTagSubmit || _isRookieExt) && hasTagDeadlinePassed(year)) {
+          // Tags → the May tag deadline of the current season.
+          if (_isTagSubmit && hasTagDeadlinePassed(year)) {
             const deadline = getTagDeadlineUtc(year);
             return mutationResponse(
               "validation_fail",
               String(body.submission_id || body.submissionId || "").trim(),
               {
-                reason: `${_isTagSubmit ? "Tag" : "Expired-rookie extension"} submissions are locked — the ${year} tag/rookie-extension deadline passed (midnight ET, ${deadline ? deadline.toISOString() : "unknown"}). Contact the commissioner for late corrections.`,
-                code: "TAG_EXTENSION_DEADLINE_PASSED",
+                reason: `Tag submissions are locked — the ${year} tag deadline passed (midnight ET, ${deadline ? deadline.toISOString() : "unknown"}). Contact the commissioner for late corrections.`,
+                code: "TAG_DEADLINE_PASSED",
                 deadline_utc: deadline ? deadline.toISOString() : null,
                 submission_kind: submissionKindRaw,
                 hint: "Dry-run preview and commish-override paths bypass this lock.",
@@ -34570,21 +34573,26 @@ export default {
               410
             );
           }
-          // (2) SEPTEMBER contract deadline — final-year veteran extensions.
-          if (_isVeteranExt && hasContractDeadlinePassed(year)) {
-            const deadline = getContractDeadlineUtc(year);
-            return mutationResponse(
-              "validation_fail",
-              String(body.submission_id || body.submissionId || "").trim(),
-              {
-                reason: `Veteran extension submissions are locked — the ${year} September contract deadline passed (${deadline ? deadline.toISOString() : "unknown"}). Contact the commissioner for late corrections.`,
-                code: "EXTENSION_DEADLINE_PASSED",
-                deadline_utc: deadline ? deadline.toISOString() : null,
-                submission_kind: submissionKindRaw,
-                hint: "Dry-run preview and commish-override paths bypass this lock.",
-              },
-              410
-            );
+          // Extensions → per-player deadline (rookie = May of expiry year, veteran = Sept).
+          if (isExtensionSubmission) {
+            const _extDeadline = _isRookieContractExt
+              ? getTagDeadlineUtc(_yearInt + Math.max(0, _priorCY))
+              : getContractDeadlineUtc(year);
+            if (_extDeadline && Date.now() > _extDeadline.getTime()) {
+              return mutationResponse(
+                "validation_fail",
+                String(body.submission_id || body.submissionId || "").trim(),
+                {
+                  reason: `${_isRookieContractExt ? "Rookie" : "Veteran"} extension submissions are locked — the deadline passed (${_extDeadline.toISOString()}). Contact the commissioner for late corrections.`,
+                  code: "EXTENSION_DEADLINE_PASSED",
+                  deadline_utc: _extDeadline.toISOString(),
+                  extension_class: _isRookieContractExt ? "rookie" : "veteran",
+                  submission_kind: submissionKindRaw,
+                  hint: "Dry-run preview and commish-override paths bypass this lock.",
+                },
+                410
+              );
+            }
           }
         }
 
