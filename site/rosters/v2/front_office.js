@@ -369,6 +369,19 @@
     }
     return Math.round(total * 0.75);
   }
+  // Canon §D1 guarantee that drives the cap penalty (Keith 2026-05-22).
+  //   • TCV  > $4K → standard 75% of TCV.
+  //   • TCV ≤ $4K → OVERRIDE the 75%/earned formula entirely (sub-$5K TCV rule):
+  //       years remaining ≥ 2  → fixed $1,000
+  //       years remaining ≤ 1 (final year) → $0
+  // Used by every contract-CREATION GTD token (MYAC, extension, restructure) so
+  // a small 2/3-year deal (e.g. 3-yr Vet-ERA, $1K/yr, TCV $3K) reads GTD $1,000
+  // — not $0 (final-year branch) and not 75% (= $2,250).
+  function guaranteeForContract(tcv, yearsRemaining) {
+    var t = safeInt(tcv, 0);
+    if (t > 4000) return Math.round(t * 0.75);
+    return safeInt(yearsRemaining, 0) >= 2 ? 1000 : 0;
+  }
   function earnedBeforeCurrentContractYear(player) {
     var idx = contractYearIndexForPlayer(player);
     if (idx <= 1) return 0;
@@ -465,6 +478,20 @@
     if (isTagCutPreAuctionAssumption(player, season, now)) return { amount: 0, tcv: tcv, guaranteed: guaranteed, earned: br.earned,
       note: "Pre-auction tag cut: penalty $0. Standard earned-salary rules apply once auction opens." };
 
+    // Sub-$5K TCV rule (canon §D1, Keith 2026-05-22): for ANY deal with TCV ≤ $4K,
+    // the standard guaranteed-minus-earned formula is OVERRIDDEN — 2+ years
+    // remaining → fixed $1K, final year (≤1) → $0. Catches small multi-year MYACs
+    // (e.g. a 3-yr Vet-ERA $1K/yr / TCV $3K) the generic formula would mis-price.
+    // The 1-yr $4K–$5K band stays with the §D2.1 check below (threshold is salary
+    // < $5K, not TCV ≤ $4K).
+    if (tcv <= 4000) {
+      return years >= 2
+        ? { amount: 1000, tcv: tcv, guaranteed: guaranteed, earned: br.earned,
+            note: "Sub-$5K TCV, 2+ yrs remaining → fixed $1K cap penalty (§D1)." }
+        : { amount: 0, tcv: tcv, guaranteed: guaranteed, earned: br.earned,
+            note: "Sub-$5K TCV, final year → cap-free cut (§D1)." };
+    }
+
     var type = safeStr(player && player.type).toUpperCase();
     if (contractLength === 1 && br.currentYearSalary < 5000 && (type === "VETERAN" || type === "WW")) {
       return { amount: 0, tcv: tcv, guaranteed: guaranteed, earned: br.earned,
@@ -518,7 +545,7 @@
       "TCV " + formatContractK(current * years),
       "AAV " + formatContractK(current),
       yearParts.join(", "),
-      "GTD: " + formatContractK(Math.round(current * years * 0.75))
+      "GTD: " + formatContractK(guaranteeForContract(current * years, years))  // §D1 sub-$5K rule
     ].join("| ");
   }
   // ── Worker-raw adjustment summer ────────────────────────────────────
@@ -1178,7 +1205,7 @@
       yearParts.push("Y" + idx + "-" + formatContractK(yearSalary));
     }
     const tcv = currentSalary * currentYears + extensionTotal;
-    const gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - currentSalary);
+    const gtd = guaranteeForContract(tcv, totalLength);  // §D1 sub-$5K rule (extension preview)
     const aavDisplay = formatContractK(currentSalary) + ", " + formatContractK(futureSalary);
 
     const team = findTeamById(p.fid);
@@ -3262,7 +3289,7 @@
     const aav = Math.round(tcv / totalYears);
     const loaded = yrs.some(function (v) { return v !== yrs[0]; });
     const status = statusBase + (loaded ? (yrs[0] > aav ? "-FL" : "-BL") : "");
-    const gtd = tcv > 4000 ? Math.round(tcv * 0.75) : 0;
+    const gtd = guaranteeForContract(tcv, totalYears);   // §D1: sub-$5K, 2/3-yr → $1K (not $0)
     const contractInfo = "CL " + totalYears +
       "|TCV " + fmtK(tcv).replace(/\$/, "") + "|AAV " + fmtK(aav).replace(/\$/, "") +
       "|" + yrs.map(function (v, i) { return "Y" + (i + 1) + "-" + fmtK(v).replace(/\$/, ""); }).join(", ") +
@@ -3450,7 +3477,7 @@
     const suffix = y2 > y3 ? "-FL" : y2 < y3 ? "-BL" : "";
     const status = (statusBase || "Vet-Ext2") + suffix;
     const tcv = currentSalary + y2 + y3;
-    const gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - currentSalary);
+    const gtd = guaranteeForContract(tcv, 3);            // §D1 sub-$5K rule (3-yr loaded ext)
     const futureAav = Math.round((y2 + y3) / 2);
     const contractInfo =
       "CL 3" +
@@ -4645,7 +4672,7 @@
       return;
     }
     const aav = Math.round(tcv / Math.max(1, years));
-    const gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - y1);
+    const gtd = guaranteeForContract(tcv, years);        // §D1 sub-$5K rule (restructure)
     const yearTokens = ["Y1-" + fmtK(y1).replace(/\$/, ""), "Y2-" + fmtK(y2).replace(/\$/, "")];
     if (years >= 3) yearTokens.push("Y3-" + fmtK(y3).replace(/\$/, ""));
     const info = "CL " + years + "|TCV " + fmtK(tcv).replace(/\$/, "") +
