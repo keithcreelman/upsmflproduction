@@ -1326,8 +1326,13 @@
     var myacEligible = (isEra || isFreshAuction) && years === 1 && !isPastContractDeadlineFO();
     return {
       myacEligible: myacEligible,
-      extensionEligible: !rookieOptionActionEligible(p) && (years === 1 || expiredRookie) &&
-                          status.indexOf("tag") === -1 && !noFurther && !myacEligible,
+      // §C4 deadlines: a final-year VETERAN extension runs to the September
+      // contract deadline; an EXPIRED-ROOKIE extension to the May tag/rookie
+      // deadline. Gate each on its own date — the worker enforces the same split.
+      extensionEligible: !rookieOptionActionEligible(p) &&
+                          status.indexOf("tag") === -1 && !noFurther && !myacEligible &&
+                          ((years === 1 && !isPastContractDeadlineFO()) ||
+                           (expiredRookie && !isPastTagDeadlineFO())),
       rookieOptionEligible: rookieOptionActionEligible(p),
       restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status),
       untagEligible: status === "tag" && !isPastTagDeadlineFO()
