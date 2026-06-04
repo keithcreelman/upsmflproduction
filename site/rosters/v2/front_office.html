@@ -23,6 +23,7 @@
   <button data-tab="tag">Tagging</button>
   <button data-tab="extensions">Extensions</button>
   <button data-tab="myac">Auction Contracts</button>
+  <button data-tab="restructure">Restructures</button>
   <button data-tab="activity" id="fo-tab-activity" hidden>Activity &amp; Audit</button>
   <button data-tab="contracts" id="fo-tab-contracts" hidden>Contract Revert</button>
 </nav>
@@ -62,26 +63,15 @@
         <label class="fo-field">
           <span>Contract Type</span>
           <select id="fo-filter-type">
-            <option value="">All</option>
-            <optgroup label="Rookie">
-              <option value="rookie">All Rookie</option>
-              <option value="rk-draft">Rookie-Draft</option>
-              <option value="rk-ww">Rookie-WW</option>
-              <option value="rk-mym">Rookie-MYM</option>
-            </optgroup>
-            <optgroup label="Veteran">
-              <option value="veteran">All Veteran</option>
-              <option value="vet-ext">Vet-Ext</option>
-              <option value="vet-fl">Vet-FL (loaded)</option>
-              <option value="vet-bl">Vet-BL (loaded)</option>
-              <option value="vet-ww">Vet-WW</option>
-              <option value="vet-mym">Vet-MYM</option>
-            </optgroup>
-            <option value="loaded">Loaded (FL/BL)</option>
-            <option value="tag">Tag</option>
-            <option value="expired">Expired</option>
+            <option value="">All types</option>
           </select>
         </label>
+        <div class="fo-field">
+          <span>Loaded</span>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 0;color:var(--text);">
+            <input type="checkbox" id="fo-filter-loaded"> FL / BL only
+          </label>
+        </div>
         <label class="fo-field">
           <span>Roster Status</span>
           <select id="fo-filter-status">
@@ -207,6 +197,18 @@
     </div>
   </section>
 
+  <!-- ── RESTRUCTURES TAB (§C5) — redistribute remaining-year salary ─ -->
+  <section class="fo-section" data-section="restructure">
+    <div class="fo-card">
+      <div class="fo-card-head">
+        <h2>Restructures</h2>
+        <span class="small" id="fo-restructure-meta" style="color:var(--muted);">Loading…</span>
+      </div>
+      <p class="fo-row-hint">💡 Every player eligible to restructure (2+ years remaining). Front- or back-load the remaining years — TCV preserved, Year 1 ≥ 20% of TCV (canon §C5). Offseason → September contract deadline only (mid-season banned); 3 per team per season. Click a player to open Actions and submit the restructure.</p>
+      <div id="fo-restructure-body"></div>
+    </div>
+  </section>
+
   <!-- ── ACTIVITY & AUDIT TAB ──────────────────────────────────────── -->
   <section class="fo-section" data-section="activity">
     <div id="fo-activity-body"></div>
@@ -252,6 +254,6 @@
   </div>
 </aside>
 
-<script src="front_office.js?v=2026.06.04.v0.5.0"></script>
+<script src="front_office.js?v=2026.06.04.v0.6.0"></script>
 </body>
 </html>

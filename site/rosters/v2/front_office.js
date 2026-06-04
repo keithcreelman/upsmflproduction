@@ -103,7 +103,7 @@
     activeTab: "roster",
     selectedTeamId: "__all__",
     search: "",
-    filters: { pos: "ALL", type: "", status: "", years: "", action: "" },
+    filters: { pos: "ALL", type: "", status: "", years: "", action: "", loaded: false },
     sort: { key: "salary", dir: -1 },
     capSubview: "summary",
     capFocusedTeamFid: null,
@@ -1732,6 +1732,7 @@
         if (tab === "tag") renderTagTab();
         if (tab === "extensions") renderExtensionsTab();
         if (tab === "myac") renderMyacTab();
+        if (tab === "restructure") renderRestructureTab();
         if (tab === "activity") renderActivityTab();
         if (tab === "contracts") renderContractsTab();
       });
@@ -1777,7 +1778,7 @@
     });
     $("#fo-reset-filters").addEventListener("click", function () {
       STATE.search = ""; $("#fo-search").value = "";
-      STATE.filters = { pos: "ALL", type: "", status: "", years: "", action: "" };
+      STATE.filters = { pos: "ALL", type: "", status: "", years: "", action: "", loaded: false };
       $$("#fo-filter-pos .fo-pos-chip").forEach(function (c) {
         c.classList.toggle("active", c.dataset.pos === "ALL");
       });
@@ -1785,6 +1786,7 @@
       $("#fo-filter-status").value = "";
       $("#fo-filter-years").value = "";
       $("#fo-filter-action").value = "";
+      const lc = $("#fo-filter-loaded"); if (lc) lc.checked = false;
       renderRosterTable();
     });
 
@@ -1806,6 +1808,10 @@
     });
     $("#fo-filter-action").addEventListener("change", function (e) {
       STATE.filters.action = e.target.value; renderRosterTable();
+    });
+    const loadedChk = $("#fo-filter-loaded");
+    if (loadedChk) loadedChk.addEventListener("change", function (e) {
+      STATE.filters.loaded = !!e.target.checked; renderRosterTable();
     });
 
     // Sort headers
@@ -1847,16 +1853,18 @@
     if (!sel) return;
     const allPlayers = [];
     STATE.teams.forEach(function (t) { (t.players || []).forEach(function (p) { allPlayers.push(p); }); });
-    const counts = { extension: 0, rookie_option: 0, restructure: 0, untag: 0 };
+    const counts = { extension: 0, myac: 0, rookie_option: 0, restructure: 0, untag: 0 };
     for (let i = 0; i < allPlayers.length; i += 1) {
       const e = rosterContractEligibility(allPlayers[i]);
       if (e.extensionEligible)    counts.extension    += 1;
+      if (e.myacEligible)         counts.myac         += 1;
       if (e.rookieOptionEligible) counts.rookie_option += 1;
       if (e.restructureEligible)  counts.restructure  += 1;
       if (e.untagEligible)        counts.untag        += 1;
     }
     const opts = ['<option value="">All</option>'];
     if (counts.extension    > 0) opts.push(`<option value="extension">Extension-eligible (${counts.extension})</option>`);
+    if (counts.myac         > 0) opts.push(`<option value="myac">Auction-Contract-eligible (${counts.myac})</option>`);
     if (counts.rookie_option > 0) opts.push(`<option value="rookie_option">Rookie Option-eligible (${counts.rookie_option})</option>`);
     if (counts.restructure  > 0) opts.push(`<option value="restructure">Restructure-eligible (${counts.restructure})</option>`);
     if (counts.untag        > 0) opts.push(`<option value="untag">Currently Tagged (${counts.untag})</option>`);
@@ -1897,23 +1905,57 @@
       if (STATE.filters.status && !sset[STATE.filters.status]) { STATE.filters.status = ""; }
       sSel.value = STATE.filters.status || "";
     }
-    // Contract Type (rookie / loaded / other) — same buckets the matcher uses
-    const tset = { rookie: false, loaded: false, other: false };
+    // Contract Type — HIERARCHICAL + data-driven (Keith 2026-06-04). Rookie &
+    // Vet families with their sub-types (only those present on the roster), plus
+    // Tag / Expired. Loaded (FL/BL) is NOT in here — it spans both families, so
+    // it's the separate cross-cutting checkbox below.
+    const present = {};
+    let anyLoaded = false;
     all.forEach(function (p) {
       const t = String(p.type || "").toUpperCase();
-      if (t.startsWith("ROOKIE")) tset.rookie = true;
-      else if (safeInt(p.years, 0) >= 2) tset.loaded = true;
-      else tset.other = true;
+      const fam = t.indexOf("TAG") >= 0 ? "tag" : (t.indexOf("ROOKIE") === 0 ? "rk" : "vet");
+      if (fam === "rk" || fam === "vet") {
+        present[fam] = true;
+        if (t.indexOf("EXT") >= 0) present[fam + "-ext"] = true;
+        if (t.indexOf("WW") >= 0) present[fam + "-ww"] = true;
+        if (t.indexOf("MYM") >= 0) present[fam + "-mym"] = true;
+        if (fam === "rk" && t.indexOf("DRAFT") >= 0) present["rk-draft"] = true;
+        if (!/FL|BL|EXT|WW|MYM|DRAFT/.test(t)) present[fam + "-base"] = true;
+      } else if (fam === "tag") present.tag = true;
+      if (t === "EXPIRED" || p.isExpiredRookie) present.expired = true;
+      if (t.indexOf("FL") >= 0 || t.indexOf("BL") >= 0) anyLoaded = true;
     });
     const tSel = $("#fo-filter-type");
     if (tSel) {
-      const to = ['<option value="">All</option>'];
-      if (tset.rookie) to.push('<option value="rookie">Rookie</option>');
-      if (tset.loaded) to.push('<option value="loaded">Loaded (multi-year)</option>');
-      if (tset.other)  to.push('<option value="other">Other</option>');
-      tSel.innerHTML = to.join("");
-      if (STATE.filters.type && !tset[STATE.filters.type]) { STATE.filters.type = ""; }
+      const valid = { "": 1 };
+      const parts = ['<option value="">All types</option>'];
+      const grp = function (famKey, famVal, famLabel, subs) {
+        if (!present[famKey]) return;
+        const g = ['<option value="' + famVal + '">All ' + famLabel + '</option>'];
+        valid[famVal] = 1;
+        subs.forEach(function (s) { if (present[s[0]]) { g.push('<option value="' + s[0] + '">' + s[1] + '</option>'); valid[s[0]] = 1; } });
+        parts.push('<optgroup label="' + famLabel + '">' + g.join("") + '</optgroup>');
+      };
+      grp("rk", "rookie", "Rookie", [
+        ["rk-base", "Rookie (base)"], ["rk-draft", "Rookie-Draft"],
+        ["rk-ww", "Rookie-WW"], ["rk-mym", "Rookie-MYM"], ["rk-ext", "Rookie-Ext"],
+      ]);
+      grp("vet", "veteran", "Veteran", [
+        ["vet-base", "Vet-FAA / ERA"], ["vet-ext", "Vet-Ext"],
+        ["vet-ww", "Vet-WW"], ["vet-mym", "Vet-MYM"],
+      ]);
+      if (present.tag)     { parts.push('<option value="tag">Tag</option>'); valid.tag = 1; }
+      if (present.expired) { parts.push('<option value="expired">Expired</option>'); valid.expired = 1; }
+      tSel.innerHTML = parts.join("");
+      if (STATE.filters.type && !valid[STATE.filters.type]) { STATE.filters.type = ""; }
       tSel.value = STATE.filters.type || "";
+    }
+    // Loaded (FL/BL) cross-cut checkbox — disabled when no loaded contracts exist.
+    const loadedChk = $("#fo-filter-loaded");
+    if (loadedChk) {
+      loadedChk.disabled = !anyLoaded;
+      if (!anyLoaded && STATE.filters.loaded) STATE.filters.loaded = false;
+      loadedChk.checked = !!STATE.filters.loaded;
     }
   }
 
@@ -1933,19 +1975,34 @@
     return players.filter(function (p) {
       if (f.pos !== "ALL" && posBucket(p.position) !== f.pos) return false;
       if (f.type) {
-        // Match the family+sub class from ctypeClass ("vet vet-fl" / "rk rk-draft"
-        // / "tag" / "expired"): families match the whole bucket, specific subs
-        // match exactly, "loaded" matches any FL/BL.
-        const cls = ctypeClass(p.type);
-        const fam = cls.split(" ")[0];
+        // Hierarchical type match on the RAW MFL status so cross-cutting
+        // attributes co-exist: e.g. EXT2-BL matches BOTH "vet-ext" (it IS an
+        // extension) AND the Loaded cross-cut (it's back-loaded). Keith 2026-06-04.
+        const t = String(p.type || "").toUpperCase();
+        const fam = t.indexOf("TAG") >= 0 ? "tag" : (t.indexOf("ROOKIE") === 0 ? "rk" : "vet");
         let ok;
         if (f.type === "rookie") ok = fam === "rk";
         else if (f.type === "veteran") ok = fam === "vet";
-        else if (f.type === "tag") ok = cls === "tag";
-        else if (f.type === "expired") ok = p.isExpiredRookie || cls === "expired";
-        else if (f.type === "loaded") ok = cls.indexOf("-fl") >= 0 || cls.indexOf("-bl") >= 0;
-        else ok = (" " + cls + " ").indexOf(" " + f.type + " ") >= 0;
+        else if (f.type === "tag") ok = fam === "tag";
+        else if (f.type === "expired") ok = p.isExpiredRookie || t === "EXPIRED";
+        else if (f.type === "rk-base") ok = fam === "rk" && !/FL|BL|EXT|WW|MYM|DRAFT/.test(t);
+        else if (f.type === "vet-base") ok = fam === "vet" && !/FL|BL|EXT|WW|MYM/.test(t);
+        else {
+          // family-prefixed sub (vet-ext / rk-draft / …) → family + sub token in raw type
+          const dash = f.type.indexOf("-");
+          const wantFam = f.type.slice(0, dash);                  // "rk" | "vet"
+          const sub = f.type.slice(dash + 1);                     // "ext" | "ww" | "mym" | "draft"
+          const tok = { ext: "EXT", ww: "WW", mym: "MYM", draft: "DRAFT" }[sub] || sub.toUpperCase();
+          ok = fam === wantFam && t.indexOf(tok) >= 0;
+        }
         if (!ok) return false;
+      }
+      // Loaded (FL/BL) is a CROSS-CUTTING dimension — it spans Rookie & Vet, so
+      // it's its own toggle, combinable with the type hierarchy (Keith 2026-06-04:
+      // "I'm not sure how to show this since those are sub types of the other").
+      if (f.loaded) {
+        const t = String(p.type || "").toUpperCase();
+        if (t.indexOf("FL") < 0 && t.indexOf("BL") < 0) return false;
       }
       if (f.status) {
         if (f.status === "active" && (p.isTaxi || p.isIr)) return false;
@@ -1964,6 +2021,7 @@
         // incorrect" — old coarse gating let everyone through.
         const elig = rosterContractEligibility(p);
         if (f.action === "extension"     && !elig.extensionEligible)    return false;
+        if (f.action === "myac"          && !elig.myacEligible)         return false;
         if (f.action === "rookie_option" && !elig.rookieOptionEligible) return false;
         if (f.action === "restructure"   && !elig.restructureEligible)  return false;
         if (f.action === "untag"         && !elig.untagEligible)        return false;
@@ -3696,6 +3754,15 @@
       else if (offset === 2) baseAmt = ext.add2;
     }
 
+    // ── MYAC preview overlay (FLAT only) ─────────────────────────
+    // An auction-won 1-yr default → flat 2/3-yr at the auction salary.
+    // Future years pick up the current salary; loaded shapes ignored
+    // (Keith 2026-06-04: "show MYAC previews, don't worry about loaded").
+    if ((preview === "myac2" || preview === "myac3") && offset > 0) {
+      const extraYears = preview === "myac3" ? 2 : 1;   // years beyond Y+0
+      baseAmt = offset <= extraYears ? safeInt(p.salary, 0) : 0;
+    }
+
     if (p.isIr && offset === 0) return Math.round(baseAmt * 0.5);
     return baseAmt;
   }
@@ -3938,6 +4005,109 @@
     });
   }
 
+  // ── RESTRUCTURES (§C5) ─────────────────────────────────────────────────
+  // Mirrors the MYAC / Extensions tabs. Lists every player eligible to
+  // restructure — 2+ years remaining, redistributable salary — so the owner
+  // can front- or back-load the remaining years (TCV preserved, Y1 ≥ 20% TCV).
+  // Window is OFFSEASON → September contract deadline (mid-season BANNED, canon
+  // §C5); limit 3 per team per season. Row-click → slide-over Actions, where
+  // the restructure form already posts to MFL + Discord + GIF (/offer-restructure).
+  function renderRestructureTab() {
+    const body = $("#fo-restructure-body");
+    const meta = $("#fo-restructure-meta");
+    if (!body) return;
+    const fmtDt = function (d) {
+      try { return d.toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "short", day: "numeric" }); }
+      catch (_) { return "—"; }
+    };
+    const dlDate = contractDeadlineDateFO();              // Sept contract deadline (window close)
+    const dlMs = dlDate ? dlDate.getTime() : Infinity;
+    const dlStr = dlDate ? fmtDt(dlDate) : "—";
+    const daysLeft = dlDate ? Math.ceil((dlMs - Date.now()) / 86400000) : Infinity;
+    let rows = [];
+    (STATE.teams || []).forEach(function (t) {
+      (t.players || []).forEach(function (p) {
+        let elig;
+        try { elig = rosterContractEligibility(p); } catch (_) { return; }
+        if (!elig || !elig.restructureEligible || p.isTaxi || p.isIr) return;
+        rows.push({
+          pid: safeStr(p.id), fid: safeStr(t.fid),
+          name: safeStr(p.name), team: safeStr(t.name) || safeStr(t.fid), pos: safeStr(p.position),
+          type: safeStr(p.type), years: safeInt(p.years, 0), tcv: totalContractValueForPlayer(p),
+        });
+      });
+    });
+    STATE.rstrFilter = STATE.rstrFilter || { team: "", pos: "" };
+    const teamOpts = Array.from(new Set(rows.map(function (r) { return r.team; }).filter(Boolean))).sort();
+    const posOpts = Array.from(new Set(rows.map(function (r) { return r.pos; }).filter(Boolean))).sort();
+    const totalRows = rows.length;
+    rows = rows.filter(function (r) {
+      return (!STATE.rstrFilter.team || r.team === STATE.rstrFilter.team) &&
+             (!STATE.rstrFilter.pos || r.pos === STATE.rstrFilter.pos);
+    });
+    if (meta) {
+      meta.textContent = rows.length + (rows.length === totalRows ? "" : " of " + totalRows) +
+        " eligible · window " + (daysLeft === Infinity ? "open" : (daysLeft < 0 ? "CLOSED" : daysLeft + "d left (" + dlStr + ")")) +
+        " · 3/team/season · " + SEASON;
+    }
+    STATE.rstrSort = STATE.rstrSort || { key: "tcv", dir: -1 };
+    const sk = STATE.rstrSort.key, sd = STATE.rstrSort.dir;
+    rows.sort(function (a, b) {
+      const av = a[sk], bv = b[sk];
+      if (typeof av === "string") return sd * av.localeCompare(bv);
+      return sd * ((av || 0) - (bv || 0));
+    });
+    const selStyle = "background:var(--panel-alt);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;";
+    const opt = function (val, label, sel) { return '<option value="' + escapeHtml(val) + '"' + (sel ? " selected" : "") + ">" + escapeHtml(label) + "</option>"; };
+    const teamSel = '<select id="fo-rstr-team" style="' + selStyle + '">' + opt("", "All teams", !STATE.rstrFilter.team) +
+      teamOpts.map(function (tt) { return opt(tt, tt, STATE.rstrFilter.team === tt); }).join("") + "</select>";
+    const posSel = '<select id="fo-rstr-pos" style="' + selStyle + '">' + opt("", "All positions", !STATE.rstrFilter.pos) +
+      posOpts.map(function (pp) { return opt(pp, pp, STATE.rstrFilter.pos === pp); }).join("") + "</select>";
+    const clearBtn = (STATE.rstrFilter.team || STATE.rstrFilter.pos) ? ' <button type="button" id="fo-rstr-clear" class="btn small secondary">Clear</button>' : "";
+    const toolbar = '<div class="fo-ext-toolbar" style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;">' +
+      '<span class="small" style="color:var(--muted);">Filter</span>' + teamSel + posSel + clearBtn + "</div>";
+    const hdr = function (key, label, align) {
+      const arrow = STATE.rstrSort.key === key ? (STATE.rstrSort.dir > 0 ? " ▲" : " ▼") : "";
+      return '<th data-rstrsort="' + key + '" style="cursor:pointer;text-align:' + (align || "left") + ';white-space:nowrap;">' + escapeHtml(label) + arrow + "</th>";
+    };
+    const dCol = daysLeft === Infinity ? "var(--muted)" : (daysLeft <= 14 ? "#e67e22" : (daysLeft <= 45 ? "#d4a017" : "#1f8a4c"));
+    const dStr = daysLeft === Infinity ? "open" : (daysLeft < 0 ? "closed" : daysLeft + "d");
+    const trs = rows.map(function (r) {
+      return '<tr data-pid="' + escapeHtml(r.pid) + '" data-fid="' + escapeHtml(r.fid) + '" style="cursor:pointer;" title="Open ' + escapeHtml(r.name) + ' — Actions / Restructure">' +
+        "<td>" + escapeHtml(r.name) + "</td>" +
+        "<td>" + escapeHtml(r.team) + "</td>" +
+        "<td>" + escapeHtml(r.pos) + "</td>" +
+        '<td class="small">' + escapeHtml(r.type) + "</td>" +
+        '<td style="text-align:center;">' + r.years + "</td>" +
+        '<td style="text-align:right;">' + escapeHtml(fmtUSD(r.tcv)) + "</td>" +
+        "<td>" + escapeHtml(dlStr) + "</td>" +
+        '<td style="text-align:right;color:' + dCol + ';font-weight:600;">' + dStr + "</td>" +
+        "</tr>";
+    }).join("");
+    const tableHtml = rows.length
+      ? '<div class="fo-table-scroll"><table class="fo-table"><thead><tr>' +
+        hdr("name", "Player") + hdr("team", "Team") + hdr("pos", "Pos") + hdr("type", "Type") +
+        hdr("years", "Yrs Rem", "center") + hdr("tcv", "TCV", "right") +
+        '<th>Deadline</th><th style="text-align:right;">Days Left</th>' +
+        "</tr></thead><tbody>" + trs + "</tbody></table></div>"
+      : '<div class="fo-table-loading">No players eligible to restructure' + (daysLeft < 0 ? " (window closed)" : "") + '.</div>';
+    body.innerHTML = toolbar + tableHtml;
+    const teamEl = $("#fo-rstr-team"); if (teamEl) teamEl.addEventListener("change", function () { STATE.rstrFilter.team = this.value; renderRestructureTab(); });
+    const posEl = $("#fo-rstr-pos"); if (posEl) posEl.addEventListener("change", function () { STATE.rstrFilter.pos = this.value; renderRestructureTab(); });
+    const clearEl = $("#fo-rstr-clear"); if (clearEl) clearEl.addEventListener("click", function () { STATE.rstrFilter = { team: "", pos: "" }; renderRestructureTab(); });
+    $$("#fo-restructure-body tbody tr").forEach(function (tr) {
+      tr.addEventListener("click", function () { if (tr.dataset.pid) openSlideover(tr.dataset.pid, tr.dataset.fid); });
+    });
+    $$("[data-rstrsort]", body).forEach(function (th) {
+      th.addEventListener("click", function () {
+        const k = this.getAttribute("data-rstrsort");
+        if (STATE.rstrSort.key === k) STATE.rstrSort.dir *= -1;
+        else { STATE.rstrSort.key = k; STATE.rstrSort.dir = 1; }
+        renderRestructureTab();
+      });
+    });
+  }
+
   function renderCapTab() {
     const body = $("#fo-cap-body");
     if (!body) return;
@@ -4172,6 +4342,16 @@
       return k.endsWith(":" + team.fid);
     }).length;
 
+    // Detail filters (Keith 2026-06-04) — reuse the Summary filter state +
+    // control IDs so the existing wireCapTab change-handlers + click delegation
+    // pick them up. pos / years / status only (the Type filter stays hidden,
+    // pending the universal-contract pass, same as Summary).
+    const f = STATE.capSummaryFilters;
+    const posChips = ["ALL", "QB", "RB", "WR", "TE", "PK", "PN", "IDP"].map(function (pos) {
+      const on = (f.pos || "ALL") === pos;
+      return `<button type="button" class="fo-pos-chip ${on ? "active" : ""}" data-cap-pos="${pos}">${pos === "ALL" ? "All" : pos}</button>`;
+    }).join("");
+
     return `
       <div class="fo-card">
         <div class="fo-toolbar-row">
@@ -4181,6 +4361,28 @@
           </label>
           <button type="button" class="btn secondary" id="fo-cap-back-summary">← Back to Summary</button>
           ${activePreviews ? `<button type="button" class="btn secondary" id="fo-cap-clear-previews">Clear ${activePreviews} preview${activePreviews === 1 ? "" : "s"}</button>` : ""}
+        </div>
+        <div class="fo-toolbar-row" style="margin-top:8px;">
+          <div class="fo-pos-chips" id="fo-cap-pos-chips">${posChips}</div>
+          <input type="hidden" id="fo-cap-filter-type" value="${escapeHtml(f.type || "")}">
+          <label class="fo-field"><span>Yrs Remaining</span>
+            <select id="fo-cap-filter-years">
+              <option value="">All</option>
+              <option value="0" ${f.years === "0" ? "selected" : ""}>Expired</option>
+              <option value="1" ${f.years === "1" ? "selected" : ""}>1</option>
+              <option value="2" ${f.years === "2" ? "selected" : ""}>2</option>
+              <option value="3" ${f.years === "3" ? "selected" : ""}>3</option>
+            </select>
+          </label>
+          <label class="fo-field"><span>Roster Status</span>
+            <select id="fo-cap-filter-status">
+              <option value="">All</option>
+              <option value="active" ${f.status === "active" ? "selected" : ""}>Active</option>
+              <option value="taxi"   ${f.status === "taxi"   ? "selected" : ""}>Taxi</option>
+              <option value="ir"     ${f.status === "ir"     ? "selected" : ""}>IR</option>
+            </select>
+          </label>
+          <button type="button" class="btn secondary" id="fo-cap-reset">Reset filters</button>
         </div>
       </div>
       <div class="fo-card" id="fo-cap-detail-body">
@@ -4222,24 +4424,32 @@
     }
     const byId = Object.create(null);
     (team.players || []).forEach(function (p) { byId[p.id] = p; });
-    const players = STATE.capDetailOrder.map(function (pid) { return byId[pid]; }).filter(Boolean);
+    const allOrdered = STATE.capDetailOrder.map(function (pid) { return byId[pid]; }).filter(Boolean);
+    // Apply the Detail filters (pos / years / status) to the visible rows.
+    // Taxi players appear unless a status filter excludes them.
+    const players = allOrdered.filter(function (p) { return capSummaryPlayerMatches(p, STATE.capSummaryFilters); });
+    const filteredNote = players.length < allOrdered.length
+      ? ` <span class="small" style="color:var(--muted);">· filtered: ${players.length} of ${allOrdered.length} shown (year totals reflect the full roster)</span>`
+      : "";
     const totals = {
       cy:  teamCapForOffset(team, 0),
       ny:  teamCapForOffset(team, 1),
       ny2: teamCapForOffset(team, 2)
     };
-    const rows = players.map(function (p) { return renderCapDetailRow(p, team); }).join("");
+    const rows = players.map(function (p) { return renderCapDetailRow(p, team); }).join("")
+      || '<tr><td colspan="9" class="fo-table-empty">No players match the current filters.</td></tr>';
     const sort = STATE.capDetailSort;
     const arrow = (key) => sort.key === key ? (sort.dir > 0 ? " ▲" : " ▼") : "";
     return `
       <p class="fo-row-hint">
-        💡 Click <strong>Ext1 / Ext2 / Drop / Promote</strong> on any row to preview the impact on team totals (toggle off by clicking again). Row click opens the slide-over. Click any column header to sort.
+        💡 Click <strong>Ext1 / Ext2 / MYAC2 / MYAC3 / Drop / Promote</strong> on any row to preview the impact on team totals (toggle off by clicking again). MYAC previews are flat (even-split) auction contracts. Taxi players show here too (Promote to preview activating them). Row click opens the slide-over. Click any column header to sort.
       </p>
       <div class="fo-cap-totals">
         <div><span class="lbl">${yr0}</span><span class="val">${fmtUSD(totals.cy)}</span></div>
         <div><span class="lbl">${yr0 + 1}</span><span class="val">${fmtUSD(totals.ny)}</span></div>
         <div><span class="lbl">${yr0 + 2}</span><span class="val">${fmtUSD(totals.ny2)}</span></div>
       </div>
+      ${filteredNote ? `<div style="margin:6px 0 0;">${filteredNote}</div>` : ""}
       <table class="fo-table">
         <thead>
           <tr>
@@ -4278,6 +4488,12 @@
     if (elig.extensionEligible && has2) {
       btns.push(`<button class="btn small ${active === "ext2" ? "" : "secondary"} fo-cap-prev-btn" data-preview="ext2" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}">Ext2</button>`);
     }
+    // Flat MYAC previews for auction-won 1-yr defaults (§C2) — show the
+    // future-year cap commitment if converted to a 2/3-yr flat contract.
+    if (elig.myacEligible) {
+      btns.push(`<button class="btn small ${active === "myac2" ? "" : "secondary"} fo-cap-prev-btn" data-preview="myac2" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Flat 2-year auction contract">MYAC2</button>`);
+      btns.push(`<button class="btn small ${active === "myac3" ? "" : "secondary"} fo-cap-prev-btn" data-preview="myac3" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}" title="Flat 3-year auction contract">MYAC3</button>`);
+    }
     if (canDrop) {
       btns.push(`<button class="btn small ${active === "drop" ? "warn" : "secondary"} fo-cap-prev-btn" data-preview="drop" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(team.fid)}">Drop</button>`);
     }
@@ -4292,7 +4508,7 @@
     let rowClass = "";
     if (active === "drop")                      rowClass = "fo-cap-row-drop";
     else if (active === "promote")              rowClass = "fo-cap-row-promote";
-    else if (active === "ext1" || active === "ext2") rowClass = "fo-cap-row-active";
+    else if (active === "ext1" || active === "ext2" || active === "myac2" || active === "myac3") rowClass = "fo-cap-row-active";
 
     // Y+0 cell annotation when dropping — "(penalty)" makes the cap charge
     // unmistakable vs a salary.
