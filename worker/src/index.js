@@ -35466,9 +35466,10 @@ export default {
               submittedAtUtc: submittedAtUtc || new Date().toISOString(),
               // Force the test channel for dry runs so we never spam
               // the production contract channel with simulated rows.
-              // MYAC + Extensions route to the TEST channel for now (Keith
-              // 2026-06-03) — verify the announcement there before going to prod.
-              forceTestOnly: dryRunFlag === 1 || isMyacSubmission || isExtensionSubmission,
+              // MYAC + Extensions now post to PRODUCTION (Keith 2026-06-04, after
+              // verifying in the test channel) — same as Restructure/FA contracts.
+              // Only dry-runs are pinned to the test channel.
+              forceTestOnly: dryRunFlag === 1,
             });
           } catch (e) {
             contractDiscord = {
