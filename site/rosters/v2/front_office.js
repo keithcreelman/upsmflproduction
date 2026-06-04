@@ -1704,6 +1704,7 @@
         if (tab === "cap") renderCapTab();
         if (tab === "tag") renderTagTab();
         if (tab === "extensions") renderExtensionsTab();
+        if (tab === "myac") renderMyacTab();
         if (tab === "activity") renderActivityTab();
         if (tab === "contracts") renderContractsTab();
       });
@@ -3564,6 +3565,8 @@
       season: SEASON,
       franchise_id: p.fid,
       player_id: p.id,
+      player_name: p.name,                // store the name so the revert list isn't a bare id
+      position: p.positionGroup || p.position,
       salary: salary,
       contract_year: yrs,                 // full length, post-LaPorta
       contract_status: status,
@@ -3800,6 +3803,110 @@
         if (STATE.extSort.key === k) STATE.extSort.dir *= -1;
         else { STATE.extSort.key = k; STATE.extSort.dir = 1; }
         renderExtensionsTab();
+      });
+    });
+  }
+
+  // ── AUCTION CONTRACTS (MYAC, §C2) ──────────────────────────────────────
+  // Mirrors the Extensions tab, but for fresh auction wins that still need
+  // their multi-year contract SET: a 1-yr default (Vet-ERA win or FA-auction
+  // Veteran, Vet-FAA) the owner can convert to 2/3 years — flat or loaded —
+  // until the September contract deadline. Row-click opens the slide-over
+  // Actions tab, which surfaces the MYAC buttons (myacEligible).
+  function renderMyacTab() {
+    const body = $("#fo-myac-body");
+    const meta = $("#fo-myac-meta");
+    if (!body) return;
+    const fmtDt = function (d) {
+      try { return d.toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "short", day: "numeric" }); }
+      catch (_) { return "—"; }
+    };
+    const dlDate = contractDeadlineDateFO();              // Sept contract deadline (league-wide)
+    const dlMs = dlDate ? dlDate.getTime() : Infinity;
+    const dlStr = dlDate ? fmtDt(dlDate) : "—";
+    const daysLeft = dlDate ? Math.ceil((dlMs - Date.now()) / 86400000) : Infinity;
+    let rows = [];
+    (STATE.teams || []).forEach(function (t) {
+      (t.players || []).forEach(function (p) {
+        let elig;
+        try { elig = rosterContractEligibility(p); } catch (_) { return; }
+        if (!elig || !elig.myacEligible) return;          // auction-won 1-yr, before the deadline
+        const status = safeStr(p.type).toLowerCase();
+        rows.push({
+          pid: safeStr(p.id), fid: safeStr(t.fid),
+          name: safeStr(p.name), team: safeStr(t.name) || safeStr(t.fid), pos: safeStr(p.position),
+          type: safeStr(p.type), entry: status.indexOf("-era") !== -1 ? "ERA win" : "FA Auction",
+          salary: safeInt(p.salary, 0),
+        });
+      });
+    });
+    STATE.myacFilter = STATE.myacFilter || { team: "", pos: "" };
+    const teamOpts = Array.from(new Set(rows.map(function (r) { return r.team; }).filter(Boolean))).sort();
+    const posOpts = Array.from(new Set(rows.map(function (r) { return r.pos; }).filter(Boolean))).sort();
+    const totalRows = rows.length;
+    rows = rows.filter(function (r) {
+      return (!STATE.myacFilter.team || r.team === STATE.myacFilter.team) &&
+             (!STATE.myacFilter.pos || r.pos === STATE.myacFilter.pos);
+    });
+    if (meta) {
+      meta.textContent = rows.length + (rows.length === totalRows ? "" : " of " + totalRows) +
+        " player" + (totalRows === 1 ? "" : "s") + " · MYAC window " +
+        (daysLeft === Infinity ? "open" : (daysLeft < 0 ? "CLOSED" : daysLeft + "d left (" + dlStr + ")")) + " · " + SEASON;
+    }
+    STATE.myacSort = STATE.myacSort || { key: "salary", dir: -1 };
+    const sk = STATE.myacSort.key, sd = STATE.myacSort.dir;
+    rows.sort(function (a, b) {
+      const av = a[sk], bv = b[sk];
+      if (typeof av === "string") return sd * av.localeCompare(bv);
+      return sd * ((av || 0) - (bv || 0));
+    });
+    const selStyle = "background:var(--panel-alt);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;";
+    const opt = function (val, label, sel) { return '<option value="' + escapeHtml(val) + '"' + (sel ? " selected" : "") + ">" + escapeHtml(label) + "</option>"; };
+    const teamSel = '<select id="fo-myac-team" style="' + selStyle + '">' + opt("", "All teams", !STATE.myacFilter.team) +
+      teamOpts.map(function (tt) { return opt(tt, tt, STATE.myacFilter.team === tt); }).join("") + "</select>";
+    const posSel = '<select id="fo-myac-pos" style="' + selStyle + '">' + opt("", "All positions", !STATE.myacFilter.pos) +
+      posOpts.map(function (pp) { return opt(pp, pp, STATE.myacFilter.pos === pp); }).join("") + "</select>";
+    const clearBtn = (STATE.myacFilter.team || STATE.myacFilter.pos) ? ' <button type="button" id="fo-myac-clear" class="btn small secondary">Clear</button>' : "";
+    const toolbar = '<div class="fo-ext-toolbar" style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;">' +
+      '<span class="small" style="color:var(--muted);">Filter</span>' + teamSel + posSel + clearBtn + "</div>";
+    const hdr = function (key, label, align) {
+      const arrow = STATE.myacSort.key === key ? (STATE.myacSort.dir > 0 ? " ▲" : " ▼") : "";
+      return '<th data-myacsort="' + key + '" style="cursor:pointer;text-align:' + (align || "left") + ';white-space:nowrap;">' + escapeHtml(label) + arrow + "</th>";
+    };
+    const dCol = daysLeft === Infinity ? "var(--muted)" : (daysLeft <= 14 ? "#e67e22" : (daysLeft <= 45 ? "#d4a017" : "#1f8a4c"));
+    const dStr = daysLeft === Infinity ? "open" : (daysLeft < 0 ? "closed" : daysLeft + "d");
+    const trs = rows.map(function (r) {
+      return '<tr data-pid="' + escapeHtml(r.pid) + '" data-fid="' + escapeHtml(r.fid) + '" style="cursor:pointer;" title="Open ' + escapeHtml(r.name) + ' — Actions / Auction Contract">' +
+        "<td>" + escapeHtml(r.name) + "</td>" +
+        "<td>" + escapeHtml(r.team) + "</td>" +
+        "<td>" + escapeHtml(r.pos) + "</td>" +
+        '<td class="small">' + escapeHtml(r.type) + "</td>" +
+        '<td class="small">' + escapeHtml(r.entry) + "</td>" +
+        '<td style="text-align:right;">' + escapeHtml(fmtUSD(r.salary)) + "</td>" +
+        "<td>" + escapeHtml(dlStr) + "</td>" +
+        '<td style="text-align:right;color:' + dCol + ';font-weight:600;">' + dStr + "</td>" +
+        "</tr>";
+    }).join("");
+    const tableHtml = rows.length
+      ? '<div class="fo-table-scroll"><table class="fo-table"><thead><tr>' +
+        hdr("name", "Player") + hdr("team", "Team") + hdr("pos", "Pos") + hdr("type", "Type") +
+        hdr("entry", "Won via") + hdr("salary", "Auction $", "right") +
+        '<th>Deadline</th><th style="text-align:right;">Days Left</th>' +
+        "</tr></thead><tbody>" + trs + "</tbody></table></div>"
+      : '<div class="fo-table-loading">No players need an auction contract' + (daysLeft < 0 ? " (MYAC window closed)" : " right now") + '.</div>';
+    body.innerHTML = toolbar + tableHtml;
+    const teamEl = $("#fo-myac-team"); if (teamEl) teamEl.addEventListener("change", function () { STATE.myacFilter.team = this.value; renderMyacTab(); });
+    const posEl = $("#fo-myac-pos"); if (posEl) posEl.addEventListener("change", function () { STATE.myacFilter.pos = this.value; renderMyacTab(); });
+    const clearEl = $("#fo-myac-clear"); if (clearEl) clearEl.addEventListener("click", function () { STATE.myacFilter = { team: "", pos: "" }; renderMyacTab(); });
+    $$("#fo-myac-body tbody tr").forEach(function (tr) {
+      tr.addEventListener("click", function () { if (tr.dataset.pid) openSlideover(tr.dataset.pid, tr.dataset.fid); });
+    });
+    $$("[data-myacsort]", body).forEach(function (th) {
+      th.addEventListener("click", function () {
+        const k = this.getAttribute("data-myacsort");
+        if (STATE.myacSort.key === k) STATE.myacSort.dir *= -1;
+        else { STATE.myacSort.key = k; STATE.myacSort.dir = 1; }
+        renderMyacTab();
       });
     });
   }
@@ -5338,6 +5445,22 @@
     const yr = c.contract_year != null ? c.contract_year + "yr" : "";
     return [c.contract_status || "", yr, sal].filter(Boolean).join(" · ");
   }
+  // Resolve a player name from the loaded rosters by id. Older submission rows
+  // (e.g. flat extensions before the payload carried player_name) stored only
+  // the id; the revert list would then show a bare MFL number. Falls back to ""
+  // if the player isn't on any current roster (dropped) — caller keeps the id.
+  function playerNameById(id) {
+    if (id == null || id === "") return "";
+    const key = String(id);
+    const teams = STATE.teams || [];
+    for (let i = 0; i < teams.length; i += 1) {
+      const players = teams[i].players || [];
+      for (let j = 0; j < players.length; j += 1) {
+        if (players[j] && String(players[j].id) === key) return players[j].name || "";
+      }
+    }
+    return "";
+  }
   async function renderContractsTab() {
     const body = $("#fo-contracts-body");
     const meta = $("#fo-contracts-meta");
@@ -5374,7 +5497,7 @@
       const fr = (team && team.name) || s.franchise_id || "";
       rows += '<tr>' +
         '<td style="text-align:center;"><input type="checkbox" class="fo-cr-chk" data-key="' + key + '" ' + checked + ' ' + disabled + '></td>' +
-        '<td>' + escapeHtml(s.player_name || s.player_id || "") + '</td>' +
+        '<td>' + escapeHtml(s.player_name || playerNameById(s.player_id) || s.player_id || "") + '</td>' +
         '<td>' + escapeHtml(ctKindLabel(s.kind)) + '</td>' +
         '<td>' + escapeHtml(fr) + '</td>' +
         '<td class="small">' + escapeHtml(newStr) + '</td>' +
@@ -5425,7 +5548,9 @@
       const to = r.restored && r.restored.contract_status
         ? r.restored.contract_status + " " + r.restored.contract_year + "yr $" + Number(r.restored.salary || 0).toLocaleString()
         : "untag";
-      return (r.ok ? "✓" : "✗") + " " + (r.player_name || r.id) + " → " + to + (r.error ? " (" + r.error + ")" : "");
+      const sub = (cr.subs || []).find(function (x) { return x.table === r.table && String(x.id) === String(r.id); });
+      const nm = r.player_name || (sub && (sub.player_name || playerNameById(sub.player_id))) || r.id;
+      return (r.ok ? "✓" : "✗") + " " + nm + " → " + to + (r.error ? " (" + r.error + ")" : "");
     });
     if (!window.confirm("Revert " + reverts.length + " contract(s) in MFL?\n\n" + lines.join("\n") + "\n\nThis writes to MFL (Discord silenced) and is not undoable from here.")) {
       setStatus("");

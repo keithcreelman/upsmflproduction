@@ -22,6 +22,7 @@
   <button data-tab="cap">Cap Plan</button>
   <button data-tab="tag">Tagging</button>
   <button data-tab="extensions">Extensions</button>
+  <button data-tab="myac">Auction Contracts</button>
   <button data-tab="activity" id="fo-tab-activity" hidden>Activity &amp; Audit</button>
   <button data-tab="contracts" id="fo-tab-contracts" hidden>Contract Revert</button>
 </nav>
@@ -194,6 +195,18 @@
     </div>
   </section>
 
+  <!-- ── AUCTION CONTRACTS TAB (MYAC §C2) — fresh auction wins needing a multi-year contract ─ -->
+  <section class="fo-section" data-section="myac">
+    <div class="fo-card">
+      <div class="fo-card-head">
+        <h2>Auction Contracts</h2>
+        <span class="small" id="fo-myac-meta" style="color:var(--muted);">Loading…</span>
+      </div>
+      <p class="fo-row-hint">💡 Fresh auction wins (ERA win → <code>Vet-ERA</code> · FA Auction → <code>Vet-FAA</code>) default to a 1-year deal. The owner can convert it to a 2- or 3-year contract — flat or loaded — until the September contract deadline (canon §C2 MYAC). Click a player to open Actions and set the auction contract.</p>
+      <div id="fo-myac-body"></div>
+    </div>
+  </section>
+
   <!-- ── ACTIVITY & AUDIT TAB ──────────────────────────────────────── -->
   <section class="fo-section" data-section="activity">
     <div id="fo-activity-body"></div>
@@ -239,6 +252,6 @@
   </div>
 </aside>
 
-<script src="front_office.js?v=2026.06.04.v0.3.0"></script>
+<script src="front_office.js?v=2026.06.04.v0.4.0"></script>
 </body>
 </html>
