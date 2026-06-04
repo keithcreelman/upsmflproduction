@@ -34555,6 +34555,19 @@ export default {
         // year's; an expired rookie (cy=0) → this year's May. A VETERAN in its final
         // year extends by the SEPTEMBER contract deadline of the season.
         const _isRookieContractExt = isExtensionSubmission && /rookie/.test(_priorStatusLc);
+        // In-season pickup windows (§C4), derived from the acquisition date/type
+        // the FO forwards: a WW/FCFS pickup is extension-eligible ONLY on days
+        // 15–28 of the post-pickup window (days 1–14 are MYM); a trade-acquired
+        // final-year player has 4 weeks. These take priority over the season
+        // rookie/veteran deadlines.
+        const _acqTypeLc = safeStr(body.acquisition_type || body.acquisitionTypeLabel || body.acquisition_text).toLowerCase();
+        const _acqDateRaw = safeStr(body.acquisition_date || body.acquisitionDate);
+        const _acqDate = _acqDateRaw ? new Date(_acqDateRaw.slice(0, 10) + "T12:00:00-04:00") : null;
+        const _acqOk = _acqDate && !isNaN(_acqDate.getTime());
+        const _acqThisSeason = _acqOk && _acqDateRaw.slice(0, 4) === String(_yearInt);
+        const _isWWpickup = _acqThisSeason && /\b(ww|fcfs|blind|waiver|free agent)\b/.test(_acqTypeLc) && !/auction/.test(_acqTypeLc);
+        const _isTradeAcq = _acqThisSeason && /\btrade\b/.test(_acqTypeLc);
+        const _DAY_MS = 86400000;
 
         if (dryRunFlag !== 1 && submissionKindRaw !== "untag" && commishOverrideFlag !== 1) {
           // Tags → the May tag deadline of the current season.
@@ -34573,20 +34586,39 @@ export default {
               410
             );
           }
-          // Extensions → per-player deadline (rookie = May of expiry year, veteran = Sept).
+          // Extensions → per-player window. WW/trade pickup windows take priority
+          // over the rookie/veteran season deadlines.
           if (isExtensionSubmission) {
-            const _extDeadline = _isRookieContractExt
-              ? getTagDeadlineUtc(_yearInt + Math.max(0, _priorCY))
-              : getContractDeadlineUtc(year);
-            if (_extDeadline && Date.now() > _extDeadline.getTime()) {
+            let _extDeadline = null, _extStart = null, _extClass = "";
+            if (_isWWpickup) {
+              _extStart = new Date(_acqDate.getTime() + 15 * _DAY_MS);
+              _extDeadline = new Date(_acqDate.getTime() + 28 * _DAY_MS);
+              _extClass = "ww_pickup";
+            } else if (_isTradeAcq) {
+              _extDeadline = new Date(_acqDate.getTime() + 28 * _DAY_MS);
+              _extClass = "trade_acquired";
+            } else if (_isRookieContractExt) {
+              _extDeadline = getTagDeadlineUtc(_yearInt + Math.max(0, _priorCY));
+              _extClass = "rookie";
+            } else {
+              _extDeadline = getContractDeadlineUtc(year);
+              _extClass = "veteran";
+            }
+            const _nowMs = Date.now();
+            const _tooLate = _extDeadline && _nowMs > _extDeadline.getTime();
+            const _tooEarly = _extStart && _nowMs < _extStart.getTime();
+            if (_tooLate || _tooEarly) {
               return mutationResponse(
                 "validation_fail",
                 String(body.submission_id || body.submissionId || "").trim(),
                 {
-                  reason: `${_isRookieContractExt ? "Rookie" : "Veteran"} extension submissions are locked — the deadline passed (${_extDeadline.toISOString()}). Contact the commissioner for late corrections.`,
-                  code: "EXTENSION_DEADLINE_PASSED",
-                  deadline_utc: _extDeadline.toISOString(),
-                  extension_class: _isRookieContractExt ? "rookie" : "veteran",
+                  reason: _tooEarly
+                    ? `Extension window not open yet — a WW/FCFS pickup is extension-eligible only on days 15–28 of the post-pickup window (opens ${_extStart.toISOString()}); it is MYM-eligible until then.`
+                    : `${_extClass} extension submissions are locked — the deadline passed (${_extDeadline ? _extDeadline.toISOString() : "unknown"}). Contact the commissioner for late corrections.`,
+                  code: _tooEarly ? "EXTENSION_WINDOW_NOT_OPEN" : "EXTENSION_DEADLINE_PASSED",
+                  deadline_utc: _extDeadline ? _extDeadline.toISOString() : null,
+                  window_open_utc: _extStart ? _extStart.toISOString() : null,
+                  extension_class: _extClass,
                   submission_kind: submissionKindRaw,
                   hint: "Dry-run preview and commish-override paths bypass this lock.",
                 },

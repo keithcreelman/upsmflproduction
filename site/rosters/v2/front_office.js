@@ -3278,6 +3278,7 @@
       franchise_id: p.fid, franchise_name: p.franchise, position: p.positionGroup || p.position,
       salary: yrs[0], contract_year: totalYears, contract_status: status, contract_info: contractInfo,
       prior_contract_status: p.type, prior_salary: p.salary, prior_contract_year: p.years, prior_contract_info: p.special,
+      acquisition_date: p.acquisitionDate || "", acquisition_type: p.acquisitionTypeLabel || "",
       submitted_at_utc: new Date().toISOString(), commish_override_flag: commishOverrideFor(p) ? 1 : 0
     };
     try {
@@ -3487,6 +3488,8 @@
       prior_salary: p.salary,
       prior_contract_year: p.years,
       prior_contract_info: p.special,
+      acquisition_date: p.acquisitionDate || "",
+      acquisition_type: p.acquisitionTypeLabel || "",
       submitted_at_utc: new Date().toISOString(),
       commish_override_flag: commishOverrideFor(p) ? 1 : 0
     };
@@ -3569,6 +3572,8 @@
       prior_contract_year: p.years,
       prior_contract_status: p.type,
       prior_contract_info: p.special,
+      acquisition_date: p.acquisitionDate || "",
+      acquisition_type: p.acquisitionTypeLabel || "",
       commish_override_flag: commishOverride ? 1 : 0,
       source: "front-office-v2-extension-submit"
     };
@@ -3710,7 +3715,7 @@
       try { return d.toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "short", day: "numeric" }); }
       catch (_) { return "—"; }
     };
-    const rows = [];
+    let rows = [];
     (STATE.teams || []).forEach(function (t) {
       (t.players || []).forEach(function (p) {
         let elig;
@@ -3728,7 +3733,16 @@
         });
       });
     });
-    if (meta) meta.textContent = rows.length + " player" + (rows.length === 1 ? "" : "s") + " · " + SEASON;
+    // Team & position filters.
+    STATE.extFilter = STATE.extFilter || { team: "", pos: "" };
+    const teamOpts = Array.from(new Set(rows.map(function (r) { return r.team; }).filter(Boolean))).sort();
+    const posOpts = Array.from(new Set(rows.map(function (r) { return r.pos; }).filter(Boolean))).sort();
+    const totalRows = rows.length;
+    rows = rows.filter(function (r) {
+      return (!STATE.extFilter.team || r.team === STATE.extFilter.team) &&
+             (!STATE.extFilter.pos || r.pos === STATE.extFilter.pos);
+    });
+    if (meta) meta.textContent = rows.length + (rows.length === totalRows ? "" : " of " + totalRows) + " player" + (totalRows === 1 ? "" : "s") + " · " + SEASON;
     STATE.extSort = STATE.extSort || { key: "days_until", dir: 1 };
     const sk = STATE.extSort.key, sd = STATE.extSort.dir;
     rows.sort(function (a, b) {
@@ -3736,7 +3750,15 @@
       if (typeof av === "string") return sd * av.localeCompare(bv);
       return sd * ((av === Infinity ? 9e15 : av) - (bv === Infinity ? 9e15 : bv));
     });
-    if (!rows.length) { body.innerHTML = '<div class="fo-table-loading">No players are currently eligible to extend.</div>'; return; }
+    const selStyle = "background:var(--panel-alt);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;";
+    const opt = function (val, label, sel) { return '<option value="' + escapeHtml(val) + '"' + (sel ? " selected" : "") + ">" + escapeHtml(label) + "</option>"; };
+    const teamSel = '<select id="fo-ext-team" style="' + selStyle + '">' + opt("", "All teams", !STATE.extFilter.team) +
+      teamOpts.map(function (t) { return opt(t, t, STATE.extFilter.team === t); }).join("") + "</select>";
+    const posSel = '<select id="fo-ext-pos" style="' + selStyle + '">' + opt("", "All positions", !STATE.extFilter.pos) +
+      posOpts.map(function (pp) { return opt(pp, pp, STATE.extFilter.pos === pp); }).join("") + "</select>";
+    const clearBtn = (STATE.extFilter.team || STATE.extFilter.pos) ? ' <button type="button" id="fo-ext-clear" class="btn small secondary">Clear</button>' : "";
+    const toolbar = '<div class="fo-ext-toolbar" style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;">' +
+      '<span class="small" style="color:var(--muted);">Filter</span>' + teamSel + posSel + clearBtn + "</div>";
     const hdr = function (key, label, align) {
       const arrow = STATE.extSort.key === key ? (STATE.extSort.dir > 0 ? " ▲" : " ▼") : "";
       return '<th data-extsort="' + key + '" style="cursor:pointer;text-align:' + (align || "left") + ';white-space:nowrap;">' + escapeHtml(label) + arrow + "</th>";
@@ -3747,7 +3769,7 @@
       return "<tr>" +
         "<td>" + escapeHtml(r.name) + "</td>" +
         "<td>" + escapeHtml(r.team) + "</td>" +
-        '<td>' + escapeHtml(r.pos) + "</td>" +
+        "<td>" + escapeHtml(r.pos) + "</td>" +
         '<td class="small">' + escapeHtml(r.type) + "</td>" +
         '<td style="text-align:center;">' + r.years + "</td>" +
         '<td style="text-align:right;">' + escapeHtml(fmtUSD(r.salary)) + "</td>" +
@@ -3756,12 +3778,17 @@
         '<td class="small" style="color:var(--muted);">' + escapeHtml(r.basis) + (r.in_window ? "" : " · window not open yet") + "</td>" +
         "</tr>";
     }).join("");
-    body.innerHTML =
-      '<div class="fo-table-scroll"><table class="fo-table"><thead><tr>' +
-      hdr("name", "Player") + hdr("team", "Team") + hdr("pos", "Pos") + hdr("type", "Type") +
-      hdr("years", "Yrs", "center") + hdr("salary", "Salary", "right") + hdr("deadline_ms", "Deadline") +
-      hdr("days_until", "Days Left", "right") + hdr("basis", "Window / Basis") +
-      "</tr></thead><tbody>" + trs + "</tbody></table></div>";
+    const tableHtml = rows.length
+      ? '<div class="fo-table-scroll"><table class="fo-table"><thead><tr>' +
+        hdr("name", "Player") + hdr("team", "Team") + hdr("pos", "Pos") + hdr("type", "Type") +
+        hdr("years", "Yrs", "center") + hdr("salary", "Salary", "right") + hdr("deadline_ms", "Deadline") +
+        hdr("days_until", "Days Left", "right") + hdr("basis", "Window / Basis") +
+        "</tr></thead><tbody>" + trs + "</tbody></table></div>"
+      : '<div class="fo-table-loading">No players match the current filter.</div>';
+    body.innerHTML = toolbar + tableHtml;
+    const teamEl = $("#fo-ext-team"); if (teamEl) teamEl.addEventListener("change", function () { STATE.extFilter.team = this.value; renderExtensionsTab(); });
+    const posEl = $("#fo-ext-pos"); if (posEl) posEl.addEventListener("change", function () { STATE.extFilter.pos = this.value; renderExtensionsTab(); });
+    const clearEl = $("#fo-ext-clear"); if (clearEl) clearEl.addEventListener("click", function () { STATE.extFilter = { team: "", pos: "" }; renderExtensionsTab(); });
     $$("[data-extsort]", body).forEach(function (th) {
       th.addEventListener("click", function () {
         const k = this.getAttribute("data-extsort");
