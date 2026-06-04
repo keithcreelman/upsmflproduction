@@ -4889,6 +4889,21 @@
     }
     const aav = Math.round(tcv / Math.max(1, years));
     const gtd = guaranteeForContract(tcv, years);        // §D1 sub-$5K rule (restructure)
+    // §C5 / T3.4: a restructure that creates a loaded shape must carry the
+    // -FL / -BL suffix so it's typed correctly AND counts toward the 5-loaded
+    // roster cap (isLoadedRow keys off the suffix). Strip any existing suffix,
+    // re-derive from the new Y1-vs-AAV split (flat = no suffix).
+    const baseType = String(p.type || "Veteran").replace(/-(FL|BL)$/i, "");
+    const loadSuffix = y1 > aav ? "-FL" : (y1 < aav ? "-BL" : "");
+    const newStatus = baseType + loadSuffix;
+    // §C2.356 / §C5: hard-block a restructure that would create a NEW loaded
+    // contract once the team is at the 5-loaded roster cap. Re-shaping an
+    // already-loaded contract (or restructuring to flat) doesn't add a slot.
+    if (loadSuffix && !isLoadedRow(p) && loadedContractCountForTeam(p.fid) >= LOADED_MAX) {
+      flashToast("At the " + LOADED_MAX + "-loaded cap — this restructure would create a " +
+        (loadSuffix === "-FL" ? "front" : "back") + "-loaded contract. Trade or cut a loaded player first.", "err");
+      return;
+    }
     const yearTokens = ["Y1-" + fmtK(y1).replace(/\$/, ""), "Y2-" + fmtK(y2).replace(/\$/, "")];
     if (years >= 3) yearTokens.push("Y3-" + fmtK(y3).replace(/\$/, ""));
     const info = "CL " + years + "|TCV " + fmtK(tcv).replace(/\$/, "") +
@@ -4897,7 +4912,8 @@
     const confirmLines = ["Confirm restructure for " + p.name + "?", "",
       "Y1: " + fmtUSD(y1), "Y2: " + fmtUSD(y2)];
     if (years >= 3) confirmLines.push("Y3: " + fmtUSD(y3));
-    confirmLines.push("TCV: " + fmtUSD(tcv), "AAV: " + fmtUSD(aav), "GTD: " + fmtUSD(gtd));
+    confirmLines.push("TCV: " + fmtUSD(tcv), "AAV: " + fmtUSD(aav), "GTD: " + fmtUSD(gtd),
+      "New type: " + newStatus + (loadSuffix ? (loadSuffix === "-FL" ? " (front-loaded)" : " (back-loaded)") : " (flat)"));
     if (!window.confirm(confirmLines.join("\n"))) return;
 
     const url = EP_RESTRUCTURE() +
@@ -4911,7 +4927,7 @@
       position: p.positionGroup || p.position,
       salary: y1,
       contract_year: years,
-      contract_status: p.type || "Veteran",
+      contract_status: newStatus,
       contract_info: info,
       tcv: tcv, aav: aav, guaranteed: gtd,
       submitted_at_utc: new Date().toISOString(),
