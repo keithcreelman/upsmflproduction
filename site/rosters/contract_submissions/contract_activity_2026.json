@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-06-04 13:11:56",
+    "generated_at": "2026-06-04 16:25:24",
     "source": "contract-activity-log",
-    "count": 45,
+    "count": 46,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "a47c74652a9362c6d29a7b3b",
+      "submission_id": "a47c74652a9362c6d29a7b3b",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "player_id": "13674",
+      "player_name": "Goedert, Dallas",
+      "position": "TE",
+      "salary": 20000,
+      "contract_year": 3,
+      "contract_status": "Vet-Ext2-BL",
+      "contract_info": "CL 3|TCV 61K|AAV 7K, 27K|Y1-7K, Y2-20K, Y3-34K|GTD: 45.8K",
+      "tcv": 61000,
+      "aav": 0,
+      "guaranteed": 45800,
+      "submitted_at_utc": "2026-06-04T16:25:02.868Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "1089538054236160010",
+      "discord_message_id": "1512130077956247552",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "59549decbf0f745fcdab12dc",
       "submission_id": "59549decbf0f745fcdab12dc",
