@@ -1324,15 +1324,18 @@
                          acqLabel.indexOf("expired") === -1 && acqLabel.indexOf("rookie") === -1 &&
                          acqYr === String(SEASON) && !rookieLikeContractStatus(status) && status.indexOf("tag") === -1;
     var myacEligible = (isEra || isFreshAuction) && years === 1 && !isPastContractDeadlineFO();
+    var extCandidate = !rookieOptionActionEligible(p) && status.indexOf("tag") === -1 &&
+                       !noFurther && !myacEligible && (years === 1 || expiredRookie);
     return {
       myacEligible: myacEligible,
-      // §C4 deadlines: a final-year VETERAN extension runs to the September
-      // contract deadline; an EXPIRED-ROOKIE extension to the May tag/rookie
-      // deadline. Gate each on its own date — the worker enforces the same split.
-      extensionEligible: !rookieOptionActionEligible(p) &&
-                          status.indexOf("tag") === -1 && !noFurther && !myacEligible &&
-                          ((years === 1 && !isPastContractDeadlineFO()) ||
-                           (expiredRookie && !isPastTagDeadlineFO())),
+      // Base candidate: final year (cy=1) or expired rookie, not tag/option/MYAC.
+      // extensionEligible additionally requires being inside the §C4 deadline
+      // WINDOW (rookie → May of expiry year, veteran → September, WW → days 15–28,
+      // trade-acquired → 4 weeks) via extensionDeadlineForPlayer().in_window — the
+      // worker mirrors the same split. extensionCandidate ignores the window so
+      // the Extensions tab can list everyone + their deadline.
+      extensionCandidate: extCandidate,
+      extensionEligible: extCandidate && extensionDeadlineForPlayer(p).in_window,
       rookieOptionEligible: rookieOptionActionEligible(p),
       restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status),
       untagEligible: status === "tag" && !isPastTagDeadlineFO()
@@ -1362,6 +1365,65 @@
       dl.setUTCHours(4, 0, 0, 0);
       return Date.now() > dl.getTime();
     } catch (e) { return false; }   // fail-open: worker still enforces authoritatively
+  }
+
+  // May rookie/tag deadline (midnight ET Thu→Fri before Memorial Day) for any year.
+  function tagDeadlineDateFO(year) {
+    var yr = parseInt(year, 10);
+    if (!yr) return null;
+    var may31 = new Date(Date.UTC(yr, 4, 31));
+    var lastMon = 31 - ((may31.getUTCDay() + 6) % 7); // last Monday of May
+    var dl = new Date(Date.UTC(yr, 4, lastMon));
+    dl.setUTCDate(dl.getUTCDate() - 3);               // Thu→Fri boundary
+    dl.setUTCHours(4, 0, 0, 0);                        // 00:00 EDT
+    return dl;
+  }
+  // September contract deadline (current season) from league_events.
+  function contractDeadlineDateFO() {
+    var d = STATE.contractDeadline;
+    if (!d) return null;
+    try { return new Date(String(d).slice(0, 10) + "T21:00:00-04:00"); } catch (_) { return null; }
+  }
+  // Per-player §C4 extension deadline. Returns { date, start, basis, days_until,
+  // in_window }. Mirrors the worker lock:
+  //   • In-season WW/FCFS pickup → extension window is days 15–28 from pickup.
+  //   • In-season trade-acquired final-year → within 4 weeks of acquisition.
+  //   • Rookie-draft contract → May rookie-extension deadline of (season + cy).
+  //   • Veteran final-year → September contract deadline of the season.
+  function extensionDeadlineForPlayer(p) {
+    var seasonInt = parseInt(SEASON, 10) || new Date().getUTCFullYear();
+    var cy = Math.max(0, safeInt(p && p.years, 0));
+    var statusLc = safeStr(p && p.type).toLowerCase();
+    var expiredRookie = safeStr(p && p.special).toLowerCase().indexOf("expired rookie") !== -1 ||
+                        (rookieLikeContractStatus(statusLc) && cy <= 0) || !!(p && p.isExpiredRookie);
+    var isRookieContract = rookieLikeContractStatus(statusLc) || expiredRookie;
+    var acqLabel = safeStr(p && p.acquisitionTypeLabel).toLowerCase();
+    var acqYr = safeStr(p && p.acquisitionDate).slice(0, 4);
+    var acquiredThisSeason = acqYr === String(SEASON);
+    var acqDate = null;
+    try { if (p && p.acquisitionDate) acqDate = new Date(safeStr(p.acquisitionDate).slice(0, 10) + "T12:00:00-04:00"); } catch (_) {}
+    var isWW = acquiredThisSeason && acqDate && /\b(ww|fcfs|blind|waiver|free agent)\b/.test(acqLabel) && acqLabel.indexOf("auction") === -1;
+    var isTradeAcq = acquiredThisSeason && acqDate && acqLabel.indexOf("trade") !== -1;
+    var DAY = 86400000;
+    var date = null, start = null, basis = "";
+    if (isWW) {
+      start = new Date(acqDate.getTime() + 15 * DAY);  // days 1–14 = MYM
+      date  = new Date(acqDate.getTime() + 28 * DAY);  // days 15–28 = extension
+      basis = "WW/FCFS pickup — days 15–28";
+    } else if (isTradeAcq) {
+      date  = new Date(acqDate.getTime() + 28 * DAY);  // 4 weeks from acquisition
+      basis = "Trade-acquired — 4 weeks";
+    } else if (isRookieContract) {
+      date  = tagDeadlineDateFO(seasonInt + cy);       // May of the expiry year
+      basis = "Rookie — May " + (seasonInt + cy) + " (rookie-extension deadline)";
+    } else {
+      date  = contractDeadlineDateFO();                // September of the season
+      basis = "Veteran — September contract deadline";
+    }
+    var now = Date.now();
+    var days_until = date ? Math.ceil((date.getTime() - now) / DAY) : null;
+    var in_window = !!date && now <= date.getTime() && (!start || now >= start.getTime());
+    return { date: date, start: start, basis: basis, days_until: days_until, in_window: in_window };
   }
 
   function posBucket(p) {
@@ -1641,6 +1703,7 @@
         $$(".fo-section").forEach(function (s) { s.classList.toggle("active", s.dataset.section === tab); });
         if (tab === "cap") renderCapTab();
         if (tab === "tag") renderTagTab();
+        if (tab === "extensions") renderExtensionsTab();
         if (tab === "activity") renderActivityTab();
         if (tab === "contracts") renderContractsTab();
       });
@@ -3636,6 +3699,77 @@
       else buckets.IDP += hit;
     });
     return buckets;
+  }
+
+  // ── Extensions tab — every extension-eligible player + their §C4 deadline ──
+  function renderExtensionsTab() {
+    const body = $("#fo-extensions-body");
+    const meta = $("#fo-ext-meta");
+    if (!body) return;
+    const fmtDt = function (d) {
+      try { return d.toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "short", day: "numeric" }); }
+      catch (_) { return "—"; }
+    };
+    const rows = [];
+    (STATE.teams || []).forEach(function (t) {
+      (t.players || []).forEach(function (p) {
+        let elig;
+        try { elig = rosterContractEligibility(p); } catch (_) { return; }
+        if (!elig || !elig.extensionCandidate) return;
+        const dl = extensionDeadlineForPlayer(p);
+        if (dl.days_until != null && dl.days_until < 0) return; // deadline passed — not eligible
+        rows.push({
+          name: safeStr(p.name), team: safeStr(t.name) || safeStr(t.fid), pos: safeStr(p.position),
+          type: safeStr(p.type), years: safeInt(p.years, 0), salary: safeInt(p.salary, 0),
+          deadline_ms: dl.date ? dl.date.getTime() : Infinity,
+          deadline_str: dl.date ? fmtDt(dl.date) : "—",
+          days_until: dl.days_until == null ? Infinity : dl.days_until,
+          basis: dl.basis, in_window: dl.in_window,
+        });
+      });
+    });
+    if (meta) meta.textContent = rows.length + " player" + (rows.length === 1 ? "" : "s") + " · " + SEASON;
+    STATE.extSort = STATE.extSort || { key: "days_until", dir: 1 };
+    const sk = STATE.extSort.key, sd = STATE.extSort.dir;
+    rows.sort(function (a, b) {
+      const av = a[sk], bv = b[sk];
+      if (typeof av === "string") return sd * av.localeCompare(bv);
+      return sd * ((av === Infinity ? 9e15 : av) - (bv === Infinity ? 9e15 : bv));
+    });
+    if (!rows.length) { body.innerHTML = '<div class="fo-table-loading">No players are currently eligible to extend.</div>'; return; }
+    const hdr = function (key, label, align) {
+      const arrow = STATE.extSort.key === key ? (STATE.extSort.dir > 0 ? " ▲" : " ▼") : "";
+      return '<th data-extsort="' + key + '" style="cursor:pointer;text-align:' + (align || "left") + ';white-space:nowrap;">' + escapeHtml(label) + arrow + "</th>";
+    };
+    const trs = rows.map(function (r) {
+      const dStr = r.days_until === Infinity ? "—" : r.days_until + "d";
+      const dCol = r.days_until === Infinity ? "var(--muted)" : (r.days_until <= 14 ? "#e67e22" : (r.days_until <= 45 ? "#d4a017" : "#1f8a4c"));
+      return "<tr>" +
+        "<td>" + escapeHtml(r.name) + "</td>" +
+        "<td>" + escapeHtml(r.team) + "</td>" +
+        '<td>' + escapeHtml(r.pos) + "</td>" +
+        '<td class="small">' + escapeHtml(r.type) + "</td>" +
+        '<td style="text-align:center;">' + r.years + "</td>" +
+        '<td style="text-align:right;">' + escapeHtml(fmtUSD(r.salary)) + "</td>" +
+        "<td>" + escapeHtml(r.deadline_str) + "</td>" +
+        '<td style="text-align:right;color:' + dCol + ';font-weight:600;">' + dStr + "</td>" +
+        '<td class="small" style="color:var(--muted);">' + escapeHtml(r.basis) + (r.in_window ? "" : " · window not open yet") + "</td>" +
+        "</tr>";
+    }).join("");
+    body.innerHTML =
+      '<div class="fo-table-scroll"><table class="fo-table"><thead><tr>' +
+      hdr("name", "Player") + hdr("team", "Team") + hdr("pos", "Pos") + hdr("type", "Type") +
+      hdr("years", "Yrs", "center") + hdr("salary", "Salary", "right") + hdr("deadline_ms", "Deadline") +
+      hdr("days_until", "Days Left", "right") + hdr("basis", "Window / Basis") +
+      "</tr></thead><tbody>" + trs + "</tbody></table></div>";
+    $$("[data-extsort]", body).forEach(function (th) {
+      th.addEventListener("click", function () {
+        const k = this.getAttribute("data-extsort");
+        if (STATE.extSort.key === k) STATE.extSort.dir *= -1;
+        else { STATE.extSort.key = k; STATE.extSort.dir = 1; }
+        renderExtensionsTab();
+      });
+    });
   }
 
   function renderCapTab() {

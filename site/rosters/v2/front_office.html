@@ -21,6 +21,7 @@
   <button data-tab="roster" class="active">Roster</button>
   <button data-tab="cap">Cap Plan</button>
   <button data-tab="tag">Tagging</button>
+  <button data-tab="extensions">Extensions</button>
   <button data-tab="activity" id="fo-tab-activity" hidden>Activity &amp; Audit</button>
   <button data-tab="contracts" id="fo-tab-contracts" hidden>Contract Revert</button>
 </nav>
@@ -178,6 +179,18 @@
       <p class="small" id="fo-tag-meta" style="color:var(--muted); margin: 8px 0 0;">Loading tag plan…</p>
     </div>
     <div id="fo-tag-body"></div>
+  </section>
+
+  <!-- ── EXTENSIONS TAB — players eligible to extend + their §C4 deadline ─ -->
+  <section class="fo-section" data-section="extensions">
+    <div class="fo-card">
+      <div class="fo-card-head">
+        <h2>Extension Window</h2>
+        <span class="small" id="fo-ext-meta" style="color:var(--muted);">Loading…</span>
+      </div>
+      <p class="fo-row-hint">💡 Every player eligible to extend (final-year or expired rookie) with their canon §C4 deadline. Rookie → May of expiry year · Veteran → September · WW pickup → days 15–28 · Trade-acquired → 4 weeks. Click a column to sort.</p>
+      <div id="fo-extensions-body"></div>
+    </div>
   </section>
 
   <!-- ── ACTIVITY & AUDIT TAB ──────────────────────────────────────── -->
