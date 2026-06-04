@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-06-04 16:27:56",
+    "generated_at": "2026-06-04 17:23:05",
     "source": "contract-activity-log",
-    "count": 50,
+    "count": 51,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "9eeb783c4287a2e41f4cdfe3",
+      "submission_id": "9eeb783c4287a2e41f4cdfe3",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "player_id": "16252",
+      "player_name": "McDonald, Will",
+      "position": "DL",
+      "salary": 1000,
+      "contract_year": 3,
+      "contract_status": "Vet-ERA",
+      "contract_info": "CL 3|TCV 3K|AAV 1K|Y1-1K, Y2-1K, Y3-1K|GTD: 1K",
+      "tcv": 3000,
+      "aav": 1000,
+      "guaranteed": 1000,
+      "submitted_at_utc": "2026-06-04T17:22:50.674Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "1089538054236160010",
+      "discord_message_id": "1512144623210991887",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "1aea9c043a2e53a3ff2dfa70",
       "submission_id": "1aea9c043a2e53a3ff2dfa70",
