@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-06-03 20:55:15",
+    "generated_at": "2026-06-04 13:11:56",
     "source": "contract-activity-log",
-    "count": 44,
+    "count": 45,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "59549decbf0f745fcdab12dc",
+      "submission_id": "59549decbf0f745fcdab12dc",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0008",
+      "franchise_name": "",
+      "player_id": "16194",
+      "player_name": "Benson, Trey",
+      "position": "RB",
+      "salary": 25000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext2",
+      "contract_info": "CL 3| TCV 55K| AAV 25K| Y1-5 Y2-25, Y3-25| GTD: 41.3K| Ext: LH",
+      "tcv": 55000,
+      "aav": 25000,
+      "guaranteed": 41300,
+      "submitted_at_utc": "2026-06-04T13:11:38.029Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "1089538054236160010",
+      "discord_message_id": "1512081410863796296",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "34ab179a4c37ad128569ddef",
       "submission_id": "34ab179a4c37ad128569ddef",
