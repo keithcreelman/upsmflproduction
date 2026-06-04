@@ -2054,6 +2054,36 @@ export default {
       console.error(`[scheduled] snapshot dispatch failed: ${e && e.message}`);
     }
 
+    // UPS Rookie Draft picks → D1 cache, refreshed hourly STRAIGHT FROM MFL
+    // draftResults so taxi-eligibility never goes stale. This is the "nightly
+    // cron" the ups_draft_picks cache comment promised but was never built —
+    // its absence dropped the entire 2026 rookie class out of taxi eligibility
+    // until 2026-06-03. Idempotent upsert; covers the 3-year taxi window + 1yr
+    // buffer. Uses env.MFL_APIKEY via the existing sync endpoint.
+    try {
+      const dpKey = String(env.MFL_APIKEY || "").trim();
+      const dpLeague = String(env.LEAGUE_ID || "74598");
+      const dpYr = parseInt(String(env.YEAR || new Date().getUTCFullYear()), 10) || new Date().getUTCFullYear();
+      if (dpKey && env.SELF && env.UPS_MFL_DB) {
+        const dpSeasons = [dpYr, dpYr - 1, dpYr - 2, dpYr - 3];
+        ctx.waitUntil((async () => {
+          try {
+            const r = await env.SELF.fetch(
+              `https://self.invalid/admin/sync-ups-draft-picks?key=${encodeURIComponent(dpKey)}`,
+              { method: "POST", headers: { "Content-Type": "application/json", "X-MFL-APIKEY": dpKey }, body: JSON.stringify({ seasons: dpSeasons, league_id: dpLeague }) }
+            );
+            const d = await r.json().catch(() => ({}));
+            const tot = d && d.seasons ? Object.values(d.seasons).reduce((a, s) => a + (Number(s && s.upserted) || 0), 0) : 0;
+            if (tot) console.log(`[scheduled hourly] ups-draft-picks sync: upserted=${tot} seasons=${dpSeasons.join(",")}`);
+          } catch (e) {
+            console.error(`[scheduled hourly] ups-draft-picks sync failed: ${e && e.message}`);
+          }
+        })());
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] ups-draft-picks sync dispatch failed: ${e && e.message}`);
+    }
+
     // Hall overdue-close sweep — fast SQL only, runs once an hour. The
     // voting deadline is day-granularity so a 60-min check window is
     // plenty. Summaries run on */2; nudges run on the 6h cron.
@@ -35359,9 +35389,9 @@ export default {
               submittedAtUtc: submittedAtUtc || new Date().toISOString(),
               // Force the test channel for dry runs so we never spam
               // the production contract channel with simulated rows.
-              // MYAC routes to the TEST channel for now (Keith 2026-06-03) — verify
-              // the multi-year-contract announcement there before going to prod.
-              forceTestOnly: dryRunFlag === 1 || isMyacSubmission,
+              // MYAC + Extensions route to the TEST channel for now (Keith
+              // 2026-06-03) — verify the announcement there before going to prod.
+              forceTestOnly: dryRunFlag === 1 || isMyacSubmission || isExtensionSubmission,
             });
           } catch (e) {
             contractDiscord = {
