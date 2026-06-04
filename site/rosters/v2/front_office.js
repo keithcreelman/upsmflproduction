@@ -3068,6 +3068,11 @@
     const moveBtns = [];
     if (p.isIr)   moveBtns.push(`<button class="btn small" data-action="activate-ir">Activate IR</button>`);
     if (p.isTaxi) moveBtns.push(`<button class="btn small" data-action="promote-taxi">Promote Taxi</button>`);
+    // Move to Taxi: a taxi-eligible active rookie (§B2 — UPS R2-5, within the
+    // 3-league-year window, not yet permanently promoted) can be demoted to taxi.
+    if (p.taxiEligible && !p.isTaxi && !p.isIr && !p.taxiPermanentPromotion) {
+      moveBtns.push(`<button class="btn small" data-action="demote-taxi">Move to Taxi</button>`);
+    }
     // Drop is available on ANY rostered player incl taxi (Keith 2026-06-02) —
     // a taxi/§D2-exempt drop just carries a $0 penalty, which the label shows.
     if (!p.isIr) {
@@ -3133,6 +3138,9 @@
     });
     $$("[data-action='promote-taxi']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { submitRosterMove("promote_taxi", p); });
+    });
+    $$("[data-action='demote-taxi']", body).forEach(function (btn) {
+      btn.addEventListener("click", function () { submitRosterMove("demote_taxi", p); });
     });
     $$("[data-action='trade']", body).forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -4211,6 +4219,7 @@
   async function submitRosterMove(action, p) {
     const verb = action === "activate_ir" ? "activate from IR"
                : action === "drop_player" ? "drop"
+               : action === "demote_taxi" ? "move to taxi"
                : "promote from taxi";
     let extra = "";
     if (action === "drop_player") {
