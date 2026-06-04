@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-06-03T14:16:17.663980+00:00",
+    "generated_at_utc": "2026-06-04T12:33:10.518552+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2000,18 +2000,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17511",
-          "display": "Malachi Fields",
-          "player_id": "17511",
-          "position": "WR",
-          "nfl_team": "NYG",
-          "salary": 5000,
-          "contract_year": 3,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16649",
           "display": "Theo Johnson",
           "player_id": "16649",
@@ -2192,13 +2180,13 @@
           "taxi": true
         },
         {
-          "asset_id": "P_17049",
-          "display": "Brashard Smith",
-          "player_id": "17049",
-          "position": "RB",
-          "nfl_team": "KCC",
-          "salary": 2000,
-          "contract_year": 2,
+          "asset_id": "P_17511",
+          "display": "Malachi Fields",
+          "player_id": "17511",
+          "position": "WR",
+          "nfl_team": "NYG",
+          "salary": 5000,
+          "contract_year": 3,
           "contract_status": "Rookie-Draft",
           "roster_status": "TAXI_SQUAD",
           "taxi": true
@@ -2944,7 +2932,7 @@
           "position": "RB",
           "nfl_team": "JAC",
           "salary": 3000,
-          "contract_year": 2,
+          "contract_year": 1,
           "contract_status": "Vet-ERA",
           "roster_status": "ROSTER",
           "taxi": false
