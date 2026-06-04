@@ -1160,12 +1160,14 @@
     // LaPorta example 2026-05-15.
     const extensionTotal = futureSalary * years;
     let extYearSalaries = [];
+    // Canon §C4.3: each extension year ≥ 20% of the extension TCV. CEIL the 20%
+    // floor to the next $1K (matches the loaded-extension form) so the loaded
+    // extreme never dips below a true 20%.
+    const minExtYr = Math.max(1000, Math.ceil(extensionTotal * 0.2 / 1000) * 1000);
     if (years === 2 && loading === "FL") {
-      const fl1 = Math.max(1000, roundToK(Math.round(extensionTotal * 0.8)));
-      extYearSalaries = [fl1, extensionTotal - fl1];
+      extYearSalaries = [extensionTotal - minExtYr, minExtYr];   // Y1(ext) heavy, Y2(ext) at 20% floor
     } else if (years === 2 && loading === "BL") {
-      const bl1 = Math.max(1000, roundToK(Math.round(extensionTotal * 0.2)));
-      extYearSalaries = [bl1, extensionTotal - bl1];
+      extYearSalaries = [minExtYr, extensionTotal - minExtYr];   // Y1(ext) at 20% floor, Y2(ext) heavy
     } else {
       for (let i = 0; i < years; i += 1) extYearSalaries.push(futureSalary);
     }
@@ -3311,6 +3313,11 @@
     }
     const futureAav = safeInt(baseFlat.futureAav, 0);
     const extensionTotal = futureAav * 2;       // total $ across Y2 + Y3
+    // Canon §C4.3/§C4.6: each extension year must be ≥ 20% of the extension TCV,
+    // so Y2 ∈ [20%, 80%] of the total (Y3 = total − Y2 is then ≥ 20% too). CEIL to
+    // the next $1K (not round) so the floor never dips below a true 20%.
+    const minExtYear = Math.max(1000, Math.ceil(extensionTotal * 0.2 / 1000) * 1000);
+    const maxExtY2 = extensionTotal - minExtYear;
     const currentSalary = Math.max(1000, roundToK(safeInt(p.salary, 0)));
     const defaultY2 = futureAav;
     const defaultY3 = futureAav;
@@ -3321,11 +3328,11 @@
         <div class="fo-form-note">
           §C4.6 escalator: extension AAV = <strong>${fmtUSD(futureAav)}</strong>/yr · total extension $ = <strong>${fmtUSD(extensionTotal)}</strong>.
           Y1 is locked at current salary. Set Y2 — <strong>Y3 auto-fills</strong> so Σ(Y2,Y3) always equals ${fmtUSD(extensionTotal)}.
-          The split sets the FL/BL suffix per canon §C4.3 (see Derived status below).
+          Canon §C4.3: each extension year must be ≥ 20% of the total, so Y2 ∈ [<strong>${fmtUSD(minExtYear)}</strong> – <strong>${fmtUSD(maxExtY2)}</strong>]. The split sets the FL/BL suffix (Derived status below).
         </div>
         <div class="fo-form-row"><span class="lbl">Y1 (locked — current salary)</span><span class="val">${fmtUSD(currentSalary)}</span></div>
         <div class="fo-form-row"><span class="lbl">Y2 ($)</span>
-          <input type="number" id="fo-extl-y2" step="1000" min="1000" max="${extensionTotal - 1000}" value="${defaultY2}" class="num" style="background:var(--panel-alt); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:4px;">
+          <input type="number" id="fo-extl-y2" step="1000" min="${minExtYear}" max="${maxExtY2}" value="${defaultY2}" class="num" style="background:var(--panel-alt); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:4px;">
         </div>
         <div class="fo-form-row"><span class="lbl">Y3 (auto-filled)</span><span class="val" id="fo-extl-y3">${fmtUSD(defaultY3)}</span></div>
         <div class="fo-form-row"><span class="lbl">Σ Y2+Y3 (must equal extension total)</span><span class="val" id="fo-extl-sum">${fmtUSD(extensionTotal)}</span></div>
@@ -3347,7 +3354,13 @@
       let suffix = "";
       if (y2 > y3) suffix = "-FL";
       else if (y2 < y3) suffix = "-BL";
-      $("#fo-extl-status").textContent = "Vet-Ext2" + suffix;
+      // Canon §C4.3: each extension year ≥ 20% of the total.
+      const below20 = (y2 < minExtYear || y3 < minExtYear);
+      const statusEl = $("#fo-extl-status");
+      statusEl.textContent = "Vet-Ext2" + suffix + (below20 ? "  ⚠ each year must be ≥ " + fmtUSD(minExtYear) + " (20%)" : "");
+      statusEl.style.color = below20 ? "#c0392b" : "";
+      const submitBtn = $("#fo-extl-submit");
+      if (submitBtn) submitBtn.disabled = below20;
     }
     $("#fo-extl-y2").addEventListener("input", recalc);
     recalc();
@@ -3358,8 +3371,10 @@
   async function submitExtensionLoaded(p, baseFlat, currentSalary, extensionTotal, statusBase) {
     const y2 = safeInt($("#fo-extl-y2").value, 0);
     const y3 = extensionTotal - y2;   // auto-computed — Σ(Y2,Y3) always equals extensionTotal
-    if (y2 < 1000 || y3 < 1000) {
-      flashToast("Both Y2 and Y3 must be at least $1,000.", "err");
+    // Canon §C4.3/§C4.6: each extension year must be ≥ 20% of the extension TCV.
+    const minExtYear = Math.max(1000, Math.ceil(extensionTotal * 0.2 / 1000) * 1000);
+    if (y2 < minExtYear || y3 < minExtYear) {
+      flashToast("Canon §C4.3: each extension year must be ≥ 20% of the total (" + fmtUSD(minExtYear) + "). Y2=" + fmtUSD(y2) + ", Y3=" + fmtUSD(y3) + ".", "err");
       return;
     }
     const suffix = y2 > y3 ? "-FL" : y2 < y3 ? "-BL" : "";
