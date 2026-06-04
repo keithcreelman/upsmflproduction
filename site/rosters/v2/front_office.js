@@ -3320,16 +3320,14 @@
         <h3 style="margin:0 0 4px;">Extend ${escapeHtml(p.name)} +2Y (Loaded)</h3>
         <div class="fo-form-note">
           §C4.6 escalator: extension AAV = <strong>${fmtUSD(futureAav)}</strong>/yr · total extension $ = <strong>${fmtUSD(extensionTotal)}</strong>.
-          Y1 is locked at current salary. Split Y2 + Y3 however you like; Σ(Y2,Y3) must equal ${fmtUSD(extensionTotal)}.
-          Owner-chosen split derives the FL/BL suffix per canon §C4.3 (Y2 > Y3 = BL, Y2 &lt; Y3 = FL, Y2 = Y3 = flat).
+          Y1 is locked at current salary. Set Y2 — <strong>Y3 auto-fills</strong> so Σ(Y2,Y3) always equals ${fmtUSD(extensionTotal)}.
+          The split sets the FL/BL suffix per canon §C4.3 (see Derived status below).
         </div>
         <div class="fo-form-row"><span class="lbl">Y1 (locked — current salary)</span><span class="val">${fmtUSD(currentSalary)}</span></div>
         <div class="fo-form-row"><span class="lbl">Y2 ($)</span>
-          <input type="number" id="fo-extl-y2" step="1000" min="1000" value="${defaultY2}" class="num" style="background:var(--panel-alt); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:4px;">
+          <input type="number" id="fo-extl-y2" step="1000" min="1000" max="${extensionTotal - 1000}" value="${defaultY2}" class="num" style="background:var(--panel-alt); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:4px;">
         </div>
-        <div class="fo-form-row"><span class="lbl">Y3 ($)</span>
-          <input type="number" id="fo-extl-y3" step="1000" min="1000" value="${defaultY3}" class="num" style="background:var(--panel-alt); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:4px;">
-        </div>
+        <div class="fo-form-row"><span class="lbl">Y3 (auto-filled)</span><span class="val" id="fo-extl-y3">${fmtUSD(defaultY3)}</span></div>
         <div class="fo-form-row"><span class="lbl">Σ Y2+Y3 (must equal extension total)</span><span class="val" id="fo-extl-sum">${fmtUSD(extensionTotal)}</span></div>
         <div class="fo-form-row"><span class="lbl">Derived status</span><span class="val" id="fo-extl-status">Vet-Ext2</span></div>
         <div class="fo-form-actions">
@@ -3339,32 +3337,27 @@
       </div>`;
     function recalc() {
       const y2 = safeInt($("#fo-extl-y2").value, 0);
-      const y3 = safeInt($("#fo-extl-y3").value, 0);
+      // Y3 auto-fills so Σ(Y2,Y3) always equals the extension total (Keith
+      // 2026-06-04: "make Y3 auto-calc"). Owner only sets Y2.
+      const y3 = extensionTotal - y2;
+      $("#fo-extl-y3").textContent = fmtUSD(y3);
       $("#fo-extl-sum").textContent = fmtUSD(y2 + y3) + " / " + fmtUSD(extensionTotal);
+      // FL/BL suffix per canon §C4.3: front of the extension heavier (Y2 > Y3)
+      // = FL; back heavier (Y2 < Y3) = BL; flat (Y2 == Y3) = no suffix.
       let suffix = "";
-      if (y2 > y3) suffix = "-BL";        // back-loaded (Y2 > Y3 means contract loads OUTWARD: Y2 high, Y3 low... wait)
-      // Per canon §C4.3 + LaPorta example: EXT2-FL = Y1 > Y2 (front-loaded);
-      // EXT2-BL = Y1 < Y2 (back-loaded). For LOADED 2yr (Y1 current + Y2+Y3
-      // extension), FL means Y2 > Y3 (front of extension is heavier); BL
-      // means Y2 < Y3 (back of extension is heavier). Flat = Y2 == Y3.
       if (y2 > y3) suffix = "-FL";
       else if (y2 < y3) suffix = "-BL";
-      else suffix = "";
       $("#fo-extl-status").textContent = "Vet-Ext2" + suffix;
     }
     $("#fo-extl-y2").addEventListener("input", recalc);
-    $("#fo-extl-y3").addEventListener("input", recalc);
+    recalc();
     $("#fo-extl-cancel").addEventListener("click", function () { renderSlideoverBody(); });
     $("#fo-extl-submit").addEventListener("click", function () { submitExtensionLoaded(p, baseFlat, currentSalary, extensionTotal, statusBase); });
   }
 
   async function submitExtensionLoaded(p, baseFlat, currentSalary, extensionTotal, statusBase) {
     const y2 = safeInt($("#fo-extl-y2").value, 0);
-    const y3 = safeInt($("#fo-extl-y3").value, 0);
-    if (y2 + y3 !== extensionTotal) {
-      flashToast("Σ(Y2, Y3) must equal " + fmtUSD(extensionTotal) + " (currently " + fmtUSD(y2 + y3) + ").", "err");
-      return;
-    }
+    const y3 = extensionTotal - y2;   // auto-computed — Σ(Y2,Y3) always equals extensionTotal
     if (y2 < 1000 || y3 < 1000) {
       flashToast("Both Y2 and Y3 must be at least $1,000.", "err");
       return;
