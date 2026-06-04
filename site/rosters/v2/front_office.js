@@ -3724,6 +3724,7 @@
         const dl = extensionDeadlineForPlayer(p);
         if (dl.days_until != null && dl.days_until < 0) return; // deadline passed — not eligible
         rows.push({
+          pid: safeStr(p.id), fid: safeStr(t.fid),
           name: safeStr(p.name), team: safeStr(t.name) || safeStr(t.fid), pos: safeStr(p.position),
           type: safeStr(p.type), years: safeInt(p.years, 0), salary: safeInt(p.salary, 0),
           deadline_ms: dl.date ? dl.date.getTime() : Infinity,
@@ -3766,7 +3767,7 @@
     const trs = rows.map(function (r) {
       const dStr = r.days_until === Infinity ? "—" : r.days_until + "d";
       const dCol = r.days_until === Infinity ? "var(--muted)" : (r.days_until <= 14 ? "#e67e22" : (r.days_until <= 45 ? "#d4a017" : "#1f8a4c"));
-      return "<tr>" +
+      return '<tr data-pid="' + escapeHtml(r.pid) + '" data-fid="' + escapeHtml(r.fid) + '" style="cursor:pointer;" title="Open ' + escapeHtml(r.name) + ' — Actions / Extension">' +
         "<td>" + escapeHtml(r.name) + "</td>" +
         "<td>" + escapeHtml(r.team) + "</td>" +
         "<td>" + escapeHtml(r.pos) + "</td>" +
@@ -3789,6 +3790,10 @@
     const teamEl = $("#fo-ext-team"); if (teamEl) teamEl.addEventListener("change", function () { STATE.extFilter.team = this.value; renderExtensionsTab(); });
     const posEl = $("#fo-ext-pos"); if (posEl) posEl.addEventListener("change", function () { STATE.extFilter.pos = this.value; renderExtensionsTab(); });
     const clearEl = $("#fo-ext-clear"); if (clearEl) clearEl.addEventListener("click", function () { STATE.extFilter = { team: "", pos: "" }; renderExtensionsTab(); });
+    // Click a row → open that player's slide-over (Actions incl. Extension).
+    $$("#fo-extensions-body tbody tr").forEach(function (tr) {
+      tr.addEventListener("click", function () { if (tr.dataset.pid) openSlideover(tr.dataset.pid, tr.dataset.fid); });
+    });
     $$("[data-extsort]", body).forEach(function (th) {
       th.addEventListener("click", function () {
         const k = this.getAttribute("data-extsort");
@@ -4863,6 +4868,9 @@
     const f = STATE.tagFilter;
     const sort = STATE.tagSort;
     const search = safeStr(f.search).toLowerCase();
+    // §C8: tags lock at the tag deadline. Past it, no new tags can be submitted
+    // (the worker also 410s them) — show a locked banner + disable Tag buttons.
+    const tagsLocked = isPastTagDeadlineFO();
     const subsKey = STATE.tagData.submissions.reduce(function (acc, s) {
       acc[s.player_id + ":" + s.franchise_id + ":" + s.side] = s;
       return acc;
@@ -4952,6 +4960,8 @@
         // Submission row exists but player isn't currently chipped TAG
         // (rare — partial submission state). Show a passive marker.
         tagBtn = `<span class="fo-tt" data-tip="Tag submission recorded but player not currently chipped TAG. Check submission log."><button class="btn small secondary" disabled>Submitted</button></span>`;
+      } else if (tagsLocked) {
+        tagBtn = `<span class="fo-tt" data-tip="Tag deadline has passed — tags are locked for ${escapeHtml(String(SEASON))} (§C8)."><button class="btn small secondary" disabled>🔒 Locked</button></span>`;
       } else {
         tagBtn = `<button class="btn small fo-tag-tag-btn" data-pid="${escapeHtml(r.player_id)}" data-fid="${escapeHtml(r.franchise_id)}" data-side="${escapeHtml(r.side)}">Tag</button>`;
       }
@@ -4972,7 +4982,11 @@
         </tr>`;
     }).join("");
 
+    const lockedBanner = tagsLocked
+      ? '<div class="fo-card" style="border-left:3px solid #c0392b;padding:12px;"><strong style="color:#c0392b;">🔒 Tags locked for ' + escapeHtml(String(SEASON)) + '</strong> — the tag deadline has passed. No new tags can be submitted; committed tags are final for the season (§C8). Cut before the FA Auction starts to release a tagged player.</div>'
+      : "";
     return `
+      ${lockedBanner}
       <div class="fo-card">
         <div class="fo-toolbar-row">
           <label class="fo-field" style="flex:1; min-width:200px;">
