@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "note": "Restructures recorded OUTSIDE the FO/worker submit path (e.g. the 'UPS Contracts Hub Bot' Discord posts, or manual MFL edits) that are not in contract_activity_2026.json or ups_restructure_submissions. The FO Restructures tab merges these into the per-team used count (canon §C5, 3/team/season). Add an entry here whenever a restructure happens off-path.",
+    "season": "2026",
+    "league_id": "74598",
+    "updated_at": "2026-06-05"
+  },
+  "restructures": [
+    {
+      "franchise_id": "0005",
+      "franchise_name": "HammerTime",
+      "player_id": "15281",
+      "player_name": "Chase, Ja'Marr",
+      "submitted_at_utc": "2026-04-17T18:05:00Z",
+      "source": "ups-contracts-hub-bot-discord",
+      "contract_status": "BL",
+      "tcv": 129000,
+      "guaranteed": 96800,
+      "aav": 54000,
+      "year_salaries": [26000, 103000],
+      "note": "Restructure 2 of 3 (HammerTime). Was already BL — no shape change."
+    },
+    {
+      "franchise_id": "0005",
+      "franchise_name": "HammerTime",
+      "player_id": "15711",
+      "player_name": "Walker III, Kenneth",
+      "submitted_at_utc": "2026-04-17T18:06:00Z",
+      "source": "ups-contracts-hub-bot-discord",
+      "contract_status": "BL",
+      "tcv": 74000,
+      "guaranteed": 55500,
+      "aav": 42000,
+      "year_salaries": [15000, 59000],
+      "note": "Restructure 1 of 3 (HammerTime). Flipped EXT1 -> BL after the Real Deal Creel trade."
+    }
+  ]
+}

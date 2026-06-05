@@ -4080,19 +4080,27 @@
   async function loadRestructureUsage() {
     if (STATE.restructureUsage) return STATE.restructureUsage;
     const out = { byFid: {}, names: {} };
+    const add = function (fid, pid, name) {
+      fid = pad4(fid); pid = safeStr(pid);
+      if (!fid || !pid) return;
+      (out.byFid[fid] = out.byFid[fid] || {})[pid] = safeStr(name) || pid;
+    };
+    // 1) Worker contract-activity log — real prod restructures (skip test/dry-run).
     try {
       const data = await fetchJSON("../contract_submissions/contract_activity_" + encodeURIComponent(SEASON) + ".json");
       (data && data.activities || []).forEach(function (a) {
         if (String(a.activity_type || "").toLowerCase() !== "restructure") return;
-        // Only count REAL restructures — skip test-channel / dry-run posts
-        // (delivery_target "test") and any [DRY RUN]-prefixed name.
         if (String(a.delivery_target || "") === "test") return;
         if (/^\s*\[dry run\]/i.test(safeStr(a.player_name))) return;
-        const fid = pad4(a.franchise_id), pid = safeStr(a.player_id);
-        if (!fid || !pid) return;
-        (out.byFid[fid] = out.byFid[fid] || {})[pid] = safeStr(a.player_name) || pid;
+        add(a.franchise_id, a.player_id, a.player_name);
       });
-    } catch (e) { /* log file may not exist yet → no usage */ }
+    } catch (e) { /* log file may not exist yet */ }
+    // 2) Manual ledger — restructures done OFF-path (UPS Contracts Hub Bot,
+    //    manual MFL edits) that never hit the worker/activity log.
+    try {
+      const man = await fetchJSON("../contract_submissions/restructure_manual_" + encodeURIComponent(SEASON) + ".json");
+      (man && man.restructures || []).forEach(function (r) { add(r.franchise_id, r.player_id, r.player_name); });
+    } catch (e) { /* no manual ledger */ }
     STATE.restructureUsage = out;
     return out;
   }
