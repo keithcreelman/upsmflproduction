@@ -72,9 +72,13 @@ jobs:
               seen.add(k); uniq.append(r)
           print(f"POSTing {len(uniq)} unique restructure records for {season}")
           body = json.dumps({"season": season, "league_id": "74598", "records": uniq}).encode()
-          url = f"https://upsmflproduction.keith-creelman.workers.dev/admin/restructure-ingest?APIKEY={os.environ['KEY']}"
+          url = f"https://upsmflproduction.keith-creelman.workers.dev/admin/restructure-ingest?L=74598&YEAR={season}&APIKEY={os.environ['KEY']}"
           req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
-          with urllib.request.urlopen(req) as resp:
-              print("HTTP", resp.status)
-              print(resp.read().decode()[:2000])
+          try:
+              with urllib.request.urlopen(req) as resp:
+                  print("HTTP", resp.status)
+                  print(resp.read().decode()[:2000])
+          except urllib.error.HTTPError as e:
+              print("HTTP", e.code, e.read().decode()[:2000])
+              raise
           PY
