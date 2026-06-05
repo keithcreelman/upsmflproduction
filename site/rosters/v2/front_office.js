@@ -5313,6 +5313,11 @@
       contract_status: newStatus,
       contract_info: info,
       tcv: tcv, aav: aav, guaranteed: gtd,
+      // Prior state so the restructure audit row is REVERTABLE (was omitted —
+      // restructures showed "(no revert)" with a disabled checkbox). Keith
+      // 2026-06-05 (Rashee Rice couldn't be reverted).
+      prior_contract_status: p.type, prior_salary: p.salary,
+      prior_contract_year: p.years, prior_contract_info: p.special,
       submitted_at_utc: new Date().toISOString(),
       commish_override_flag: commishOverrideFor(p) ? 1 : 0
     };
