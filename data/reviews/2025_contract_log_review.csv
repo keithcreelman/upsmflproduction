@@ -1,0 +1,55 @@
+Franchise,Player,Pos,Contract Type,Salary,TCV,AAV,Years,Details (MFL contract_info),Confidence,Confidence Reason,Forum-Confirmed
+Blake Bombers,"Purdy, Brock",QB,FL,40000,84000,28000,3,"CL 3| TCV 84K| AAV 28K| Y1-40K, Y2-22K, Y3-22K|",HIGH,Full MFL contract_info (TCV + per-year),No
+Blake Bombers,"Barkley, Saquon",RB,Tag,61000,61000,61000,1,CL 1| TCV 61K| AAV 61K| No Further Extensions,MEDIUM,"MFL TCV present, per-year not itemized",No
+C-Town Chivalry,"London, Drake",WR,BL,14000,66000,33000,2,"CL 2| TCV 66K| AAV 33K| Y1-14, Y2-52| Ext: PG",HIGH,Full MFL contract_info (TCV + per-year),No
+C-Town Chivalry,"Pollard, Tony",RB,BL,27000,54000,17000,2,"CL 2| TCV 54K| AAV 17K, 17K| Y1-27, Y2-27| Ext: C-Town",HIGH,Full MFL contract_info (TCV + per-year),No
+C-Town Chivalry,"Mixon, Joe",RB,FL,9000,38000,19000,2,"CL 2| TCV 38K| AAV 19K| Y1-29K, Y2-9K",HIGH,Full MFL contract_info (TCV + per-year),No
+C-Town Chivalry,"Smith-Njigba, Jaxon",WR,FL,14000,70000,10000,3,"CL 3| TCV 70K| AAV 10K, 30K| Y1-14K, Y2-1K, Y3-55K| Ext: C-Town",HIGH,Full MFL contract_info (TCV + per-year),No
+C-Town Chivalry,"Tagovailoa, Tua",QB,FL,15000,116000,49000,3,CL 3| TCV 116K| AAV 49K| Y1-86 Y2-15 Y3-15| Ext: C-Town,HIGH,Full MFL contract_info (TCV + per-year),No
+C-Town Chivalry,"Allen, Josh",QB,Tag,46000,46000,46000,1,No Further Extension Allowed,LOW,Sparse contract_info — details derived,No
+C-Town Chivalry,"Jackson, Lamar",QB,Tag,46000,46000,46000,1,No Further Extension Allowed,LOW,Sparse contract_info — details derived,No
+CBP,"Collins, Nico",WR,BL,16000,110000,22000,3,"CL 3| TCV 110K| AAV 22K, 42K |Y1-16K, Y2-47K, Y3-47K|  Ext: C-Town, CBP",HIGH,Full MFL contract_info (TCV + per-year),No
+CBP,"Metcalf, DK",WR,BL,38000,66000,33000,2,"CL 2| TCV 66K| AAV 33K| Y1-28K, Y2-38K| Not eligible for tag or extension",HIGH,Full MFL contract_info (TCV + per-year),No
+CBP,"Wilson, Garrett",WR,BL,24000,68000,34000,2,"CL 2| TCV 68K| AAV 34K| Y1-24, Y2-44| Ext: CBP",HIGH,Full MFL contract_info (TCV + per-year),No
+CBP,"Kmet, Cole",TE,FL,1000,27000,9000,3,"CL 3| TCV 27K| AAV 9K| Y1-20, Y2-1, Y3-6",HIGH,Full MFL contract_info (TCV + per-year),No
+Cleon Ca$h,"Shakir, Khalil",WR,BL,14000,57000,19000,3,"CL 3| TCV 57K| AAV 19K| Y1-14K, Y2-25K, Y3-18K",HIGH,Full MFL contract_info (TCV + per-year),No
+Cleon Ca$h,"Stevenson, Rhamondre",RB,BL,32000,40000,25000,2,"CL 2| TCV 40K| AAV 25K| Y1-8K, Y2-32K| Ext: Mafia, Hammer",HIGH,Full MFL contract_info (TCV + per-year),No
+Cleon Ca$h,"Herbert, Justin",QB,FL,61000,153000,51000,3,"CL 3| TCV 153K| AAV 51K| Y1-61, Y2-51, Y3-41",HIGH,Full MFL contract_info (TCV + per-year),No
+Cleon Ca$h,"Jeudy, Jerry",WR,FL,1000,9000,3000,3,"CL 3| TCV 9K| AAV 3K| Y1-7, Y2-1, Y3-1",HIGH,Full MFL contract_info (TCV + per-year),No
+Cleon Ca$h,"Smith, Roquan",LB,FL,3000,12000,4000,3,"CL 3| TCV 12K| AAV 4K| Y1-8, Y2-3, Y3-1",HIGH,Full MFL contract_info (TCV + per-year),No
+HammerTime 🔨 ⏰,"Chase, Ja'Marr",WR,BL,33000,162000,34000,3,"CL 3| TCV 162K| AAV 34K, AAV 54K| Y1-33K, Y2-64K, Y3-65K| Ext: Creel, Hammer",HIGH,MFL contract_info + forum post,Yes
+HammerTime 🔨 ⏰,"Hunter, Danielle",DE,BL,6000,8000,4000,2,"CL 2| TCV 8K| AAV 4K| Y1-2, Y2-6,",HIGH,Full MFL contract_info (TCV + per-year),No
+HammerTime 🔨 ⏰,"Hurts, Jalen",QB,BL,17000,84000,42000,2,"CL 2| TCV 84K| AAV 42K| Y1-17K, Y2-67K| Ext: Gride, Hammer",HIGH,MFL contract_info + forum post,Yes
+HammerTime 🔨 ⏰,"McBride, Trey",TE,BL,9000,44000,22000,2,"CL 2| TCV 44K| AAV 22K, 22K| Y1-9K, Y2-35K| Ext: Hammer",HIGH,MFL contract_info + forum post,Yes
+HammerTime 🔨 ⏰,"Smith, Geno",QB,BL,9000,45000,15000,3,"CL 3| TCV 45K| AAV 15K| Y1-9K, Y2-1K, Y3-35K",HIGH,Full MFL contract_info (TCV + per-year),No
+HammerTime 🔨 ⏰,"Hockenson, T.J.",TE,MYM - Vet,11000,33000,11000,3,"CL 3| TCV 33K| AAV 11K| Y1-11K, Y2-11K, Y3-11K| GTD: 24750",HIGH,Full MFL contract_info (TCV + per-year),No
+HammerTime 🔨 ⏰,"Jacobs, Josh",RB,Tag,50000,50000,50000,1,CL 1| TCV 50K| AAV 50K| No Further Extensions,MEDIUM,"MFL TCV present, per-year not itemized",No
+Hawks,"Mahomes, Patrick",QB,BL,68000,108000,54000,2,"CL 2| TCV 108K| AAV 54K| Y1-40K,| Y2-68K| No Further Extension Allowed",HIGH,Full MFL contract_info (TCV + per-year),No
+L.A. Looks,"Watt, T.J.",DE,BL,9000,24000,8000,3,CL 3| TCV 24K| AAV 8K| Y1-5  Y2-10 Y3-9,HIGH,Full MFL contract_info (TCV + per-year),No
+L.A. Looks,"Jones, Aaron",RB,FL,5000,20000,10000,2,"CL 2| TCV 20K| AAV 10K| Y1-15, Y2-5,",HIGH,Full MFL contract_info (TCV + per-year),No
+L.A. Looks,"Montgomery, David",RB,FL,28000,40000,20000,2,"CL 2| TCV 40K| AAV 20K| Y1-28K, Y2-12K",HIGH,Full MFL contract_info (TCV + per-year),No
+L.A. Looks,"Parkinson, Colby",TE,MYM - Vet,1000,2000,1000,2,"CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",HIGH,Full MFL contract_info (TCV + per-year),No
+L.A. Looks,"Burrow, Joe",QB,Tag,46000,46000,46000,1,CL 1| TCV 46K| AAV 46K| No Further Extensions,MEDIUM,"MFL TCV present, per-year not itemized",No
+L.A. Looks,"Moehrig, Trevon",S,Tag,3000,3000,3000,1,CL 1| TCV 3K| AAV 3K| No Further Extensions,MEDIUM,"MFL TCV present, per-year not itemized",No
+L.A. Looks,"Taylor, Jonathan",RB,Tag,38000,38000,38000,1,CL 1| TCV 38K| AAV 38K| No Further Extensions,MEDIUM,"MFL TCV present, per-year not itemized",No
+Pure Greatness,"Jefferson, Justin",WR,BL,25000,96000,48000,2,"CL 2| TCV 96K| AAV 48K| Y1-25K, Y2-71K| Ext:  Sex, Hammer",HIGH,Full MFL contract_info (TCV + per-year),No
+Pure Greatness,"Adams, Davante",WR,FL,20000,90000,30000,3,"CL 3| TCV 90K| AAV 30K| Y1-50, Y2-20, Y3-20",HIGH,Full MFL contract_info (TCV + per-year),No
+Pure Greatness,"Garrett, Myles",DE,FL,4000,18000,9000,2,"CL 2| TCV 18K| AAV 9K| Y1-14, Y2-4,",HIGH,Full MFL contract_info (TCV + per-year),No
+Pure Greatness,"Mayfield, Baker",QB,FL,36000,62000,31000,2,"CL 2| TCV 62K| AAV 31K| Y1-36, Y2-26,",HIGH,Full MFL contract_info (TCV + per-year),No
+Pure Greatness,"Olave, Chris",WR,FL,51000,62000,31000,2,"CL 2| TCV 62K| AAV 31K| Y1-51, Y2-11| Ext: Blake",HIGH,Full MFL contract_info (TCV + per-year),No
+Pure Greatness,"Ertz, Zach",TE,MYM - Vet,1000,2000,1000,2,"CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",HIGH,Full MFL contract_info (TCV + per-year),No
+Pure Greatness,"Baun, Zack",LB,Tag,5000,5000,5000,1,No Further Extensions,LOW,Sparse contract_info — details derived,No
+Sex Manther,"Goff, Jared",QB,BL,30000,56000,35000,2,"CL 2| TCV 56K| AAV 35K| Y1-26, Y2-30K| Ext: Sex",HIGH,Full MFL contract_info (TCV + per-year),No
+Sex Manther,"Hill, Tyreek",WR,FL,80000,142000,61000,2,"CL 2| TCV 142K| AAV 61Kl Y1- 80K, Y2- 62K",HIGH,Full MFL contract_info (TCV + per-year),No
+Sex Manther,"Chism, Efton",WR,MYM - Rookie,1000,2000,1000,2,"CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",HIGH,Full MFL contract_info (TCV + per-year),No
+Sex Manther,"Bagent, Tyson",QB,MYM - Vet,1000,2000,1000,2,"CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",HIGH,Full MFL contract_info (TCV + per-year),No
+Sex Manther,"Love, Julian",S,MYM - Vet,1000,2000,1000,2,"CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",HIGH,Full MFL contract_info (TCV + per-year),No
+Sex Manther,"Van Ginkel, Andrew",DE,Tag,7000,7000,7000,1,CL 1| TCV 7K| AAV 7K| No Further Extensions,MEDIUM,"MFL TCV present, per-year not itemized",No
+The Long Haulers,"Bond, Isaiah",WR,BL,5000,24000,8000,3,"CL 3| TCV 24K| AAV 8K| Y1-5, Y2-5, Y3-14",HIGH,Full MFL contract_info (TCV + per-year),No
+The Long Haulers,"Brown, A.J.",WR,BL,73000,129000,46000,2,"CL 2| TCV 129K| AAV 46K, 56K|Y1-73 Y2-56 | Ext: Sex, Creel, LH",HIGH,Full MFL contract_info (TCV + per-year),No
+The Long Haulers,"Henry, Derrick",RB,BL,50000,94000,34000,2,"CL 2| TCV 94K| AAV 34K, 44K |Y1-50 Y2-44| Ext: LH",HIGH,Full MFL contract_info (TCV + per-year),No
+The Long Haulers,"Jones, Daniel",QB,FL,21000,73000,36000,3,CL 3| TCV 73K| AAV 36K| Y1-31 Y2-21 Y3-21,HIGH,Full MFL contract_info (TCV + per-year),No
+The Long Haulers,"Mason, Jordan",RB,FL,14000,52000,4000,3,"CL 3| TCV 52K| AAV 4K, 24K| Y1-14, Y2-14, Y3-24| Ext: LH",HIGH,Full MFL contract_info (TCV + per-year),No
+The Long Haulers,"Lambert-Smith, KeAndre",WR,MYM - Rookie,1000,3000,1000,3,"CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",HIGH,Full MFL contract_info (TCV + per-year),No
+The Long Haulers,"Mumpfield, Konata",WR,MYM - Rookie,1000,3000,1000,3,"CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",HIGH,Full MFL contract_info (TCV + per-year),No
+The Long Haulers,"Landry, Harold",DE,Tag,3000,3000,3000,1,CL 1| TCV 3K| AAV 3K| No Further Extensions,MEDIUM,"MFL TCV present, per-year not itemized",No
