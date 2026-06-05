@@ -13,7 +13,10 @@ const contractDiscordChannelLastSendMs = new Map();
 // Per-mechanism Discord routing (commish-settable via /admin/commish-settings,
 // stored in D1 ups_settings key 'discord_routing'). "test" => force the test
 // channel, "prod" => production. Defaults match the wiring as of 2026-06-05.
-const DISCORD_ROUTING_DEFAULTS = { extension: "prod", myac: "prod", restructure: "test", tag: "prod", fa: "prod", mym: "prod" };
+// FA (1-yr auction) folds into `myac` — same auction family (Keith 2026-06-05).
+// `traderoast` = the Trade Roast bot's target channel (the bot must read this to
+// honor it; it's currently disabled). Default test after the 2026-06-01 incident.
+const DISCORD_ROUTING_DEFAULTS = { extension: "prod", myac: "prod", restructure: "test", tag: "prod", mym: "prod", traderoast: "test" };
 async function getDiscordRoutingConfig(env) {
   try {
     if (!env || !env.UPS_MFL_DB) return { ...DISCORD_ROUTING_DEFAULTS };
@@ -35676,7 +35679,7 @@ export default {
         const discordRouting = await getDiscordRoutingConfig(env);
         const routingKey = {
           Tag: "tag", Extension: "extension", Restructure: "restructure",
-          "Multi-Year Contract": "myac", "FA Contract": "fa",
+          "Multi-Year Contract": "myac", "FA Contract": "myac",  // FA folds into auction
         }[activityType] || "mym";
         const routeToTest = String(discordRouting[routingKey] || "prod").toLowerCase() === "test";
 
