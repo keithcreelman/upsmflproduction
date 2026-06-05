@@ -6275,7 +6275,7 @@
       host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + escapeHtml(e.message || String(e)) + "</div></div>";
       return;
     }
-    const labels = { extension: "Extension", myac: "Auction Contract (FA + MYAC)", restructure: "Restructure", tag: "Tag / Untag", mym: "MYM", traderoast: "Trade Roast bot (offline)" };
+    const labels = { extension: "Extension", myac: "Auction Contract (FA + MYAC)", restructure: "Restructure", tag: "Tag / Untag", mym: "MYM", traderoast: "Trade Roast bot (toggle not wired to bot yet)" };
     const rowHtml = Object.keys(labels).map(function (k) {
       const val = String(cfg[k] || "prod").toLowerCase();
       const seg = ["prod", "test"].map(function (o) {
@@ -6351,7 +6351,7 @@
       { n: "Trade notification", state: "prod" },
       { n: "Auction alerts", state: "prod" },
       { n: "Deadline reminders", state: "prod" },
-      { n: "Trade Roast bot", state: "inactive", note: "OFF (agents disabled, prod incident 2026-06-01). Routing toggle sets target for when re-enabled." },
+      { n: "Trade Roast bot", state: "test", note: "RUNNING on the TEST channel (re-enabled 2026-06-05). NOTE: manually tracked — the bot is a separate launchd process that uses its OWN channel config, so the Discord Routing toggle above does NOT control it yet. Prod requires the main-branch (env-driven) bot." },
     ].map(function (r) {
       const state = r.k ? String(routing[r.k] || "prod").toLowerCase() : r.state;
       const label = state === "inactive" ? "INACTIVE" : (state === "test" ? "TEST" : "PROD");
