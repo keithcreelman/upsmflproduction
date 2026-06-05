@@ -32775,9 +32775,10 @@ export default {
         } catch (_) {}
         try {
           try { await env.UPS_MFL_DB.prepare("ALTER TABLE ups_tag_submissions ADD COLUMN contract_info TEXT").run(); } catch (_) {}
+          try { await env.UPS_MFL_DB.prepare("ALTER TABLE ups_tag_submissions ADD COLUMN locked_in_at TEXT").run(); } catch (_) {}
           const tag = await env.UPS_MFL_DB.prepare(
             `SELECT id, player_id, player_name, position, franchise_id, source, submitted_at_utc,
-                    tag_side, action, salary, contract_status, contract_info
+                    tag_side, action, salary, contract_status, contract_info, locked_in_at
                FROM ups_tag_submissions WHERE season = ? AND COALESCE(dry_run,0) = 0`
           ).bind(csSeason).all();
           for (const r of (tag.results || [])) {
@@ -32785,6 +32786,7 @@ export default {
             out.push({ table: "ups_tag_submissions", id: r.id, kind: isUntag ? "untag" : "tag",
               player_id: safeStr(r.player_id), player_name: safeStr(r.player_name), position: safeStr(r.position),
               franchise_id: safeStr(r.franchise_id), source: safeStr(r.source), submitted_at_utc: safeStr(r.submitted_at_utc),
+              locked_in_at: safeStr(r.locked_in_at),
               prior: null,
               new: { contract_status: safeStr(r.contract_status), salary: r.salary, contract_year: 1, contract_info: safeStr(r.contract_info), tag_side: safeStr(r.tag_side) },
               revertable: !isUntag });
@@ -32988,46 +32990,52 @@ export default {
         if (!(key && (key === env.COMMISH_API_KEY || key === env.MFL_APIKEY))) return jsonOut(401, { ok: false, error: "unauthorized" });
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
         try { await env.UPS_MFL_DB.prepare("ALTER TABLE ups_tag_submissions ADD COLUMN contract_info TEXT").run(); } catch (_) {}
+        try { await env.UPS_MFL_DB.prepare("ALTER TABLE ups_tag_submissions ADD COLUMN locked_in_at TEXT").run(); } catch (_) {}
         let tiBody = {};
         try { tiBody = await request.json(); } catch (_) {}
         const tiRecords = Array.isArray(tiBody.records) ? tiBody.records : [];
         const tiSeason = String(tiBody.season || YEAR || "2026");
         const tiLeague = String(tiBody.league_id || L || "74598");
-        let inserted = 0, skipped = 0, errors = 0;
+        let inserted = 0, updated = 0, errors = 0;
         for (const r of tiRecords) {
           const fid = padFranchiseId(r.franchise_id);
           const pid = String(r.player_id || "").replace(/\D/g, "");
           const action = String(r.action || "tag").toLowerCase();
           const src = String(r.source || "mfl-rosters-backfill");
           if (!fid || !pid) { errors += 1; continue; }
+          const sub = String(r.submitted_at_utc || "") || new Date().toISOString();
+          const lock = String(r.locked_in_at || "") || null;
+          const info = String(r.contract_info || "") || null;
+          const sal = r.salary != null ? Number(r.salary) : null;
           try {
-            const dupe = await env.UPS_MFL_DB.prepare(
-              `SELECT COUNT(*) AS n FROM ups_tag_submissions WHERE league_id=? AND season=? AND franchise_id=? AND player_id=? AND action=? AND COALESCE(source,'')=?`
+            // Upsert on (league, season, franchise, player, action, source) so
+            // re-running corrects dates (submitted_at / locked_in_at) in place.
+            const existing = await env.UPS_MFL_DB.prepare(
+              `SELECT id FROM ups_tag_submissions WHERE league_id=? AND season=? AND franchise_id=? AND player_id=? AND action=? AND COALESCE(source,'')=?`
             ).bind(tiLeague, tiSeason, fid, pid, action, src).first();
-            if (dupe && Number(dupe.n) > 0) { skipped += 1; continue; }
-            await env.UPS_MFL_DB.prepare(
-              `INSERT INTO ups_tag_submissions
-                 (league_id, season, franchise_id, player_id, player_name, position,
-                  tag_side, action, salary, contract_status, contract_info,
-                  source, raw_payload_json, submitted_at_utc, dry_run)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
-            ).bind(
-              tiLeague, tiSeason, fid, pid,
-              String(r.player_name || "") || null,
-              String(r.position || "") || null,
-              String(r.tag_side || "") || null,
-              action,
-              r.salary != null ? Number(r.salary) : null,
-              String(r.contract_status || "Tag"),
-              String(r.contract_info || "") || null,
-              src,
-              JSON.stringify(r),
-              String(r.submitted_at_utc || "") || new Date().toISOString()
-            ).run();
-            inserted += 1;
+            if (existing && existing.id != null) {
+              await env.UPS_MFL_DB.prepare(
+                `UPDATE ups_tag_submissions SET submitted_at_utc=?, locked_in_at=?, contract_info=?, salary=?, tag_side=?, contract_status=?, player_name=?, position=? WHERE id=?`
+              ).bind(sub, lock, info, sal, String(r.tag_side || "") || null, String(r.contract_status || "Tag"), String(r.player_name || "") || null, String(r.position || "") || null, existing.id).run();
+              updated += 1;
+            } else {
+              await env.UPS_MFL_DB.prepare(
+                `INSERT INTO ups_tag_submissions
+                   (league_id, season, franchise_id, player_id, player_name, position,
+                    tag_side, action, salary, contract_status, contract_info, locked_in_at,
+                    source, raw_payload_json, submitted_at_utc, dry_run)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
+              ).bind(
+                tiLeague, tiSeason, fid, pid,
+                String(r.player_name || "") || null, String(r.position || "") || null,
+                String(r.tag_side || "") || null, action, sal, String(r.contract_status || "Tag"),
+                info, lock, src, JSON.stringify(r), sub
+              ).run();
+              inserted += 1;
+            }
           } catch (e) { errors += 1; }
         }
-        return jsonOut(200, { ok: true, season: tiSeason, league_id: tiLeague, inserted, skipped, errors });
+        return jsonOut(200, { ok: true, season: tiSeason, league_id: tiLeague, inserted, updated, errors });
       }
 
       // POST /admin/contract-revert — Body: { reverts:[{table,id}], dry_run? }.

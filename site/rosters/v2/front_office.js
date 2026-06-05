@@ -5925,7 +5925,8 @@
       // ("CL 2| TCV 24K| AAV 12K| Y1-…| GTD: …"); fall back to the structured form.
       const cinfo = safeStr(s.new && s.new.contract_info);
       const fallback = ctContractStr(s.new, isTag) + (s.new && s.new.tag_side ? " (" + s.new.tag_side + ")" : "");
-      const detail = (player ? player + " — " : "") + (cinfo || fallback);
+      const lock = safeStr(s.locked_in_at);
+      const detail = (player ? player + " — " : "") + (cinfo || fallback) + (lock ? " · Locked " + lock : "");
       return {
         fid: fid, franchise: nameByFid[fid] || safeStr(s.franchise_id),
         date: String(s.submitted_at_utc || ""), date_str: String(s.submitted_at_utc || "").replace("T", " ").slice(0, 16) || "—",
