@@ -24,6 +24,7 @@
   <button data-tab="extensions">Extensions</button>
   <button data-tab="myac">Auction Contracts</button>
   <button data-tab="restructure">Restructures</button>
+  <button data-tab="mym">MYM</button>
   <button data-tab="contractlog">Contract Log</button>
   <button data-tab="activity" id="fo-tab-activity" hidden>Activity &amp; Audit</button>
   <button data-tab="contracts" id="fo-tab-contracts" hidden>Commish Settings</button>
@@ -210,6 +211,18 @@
     </div>
   </section>
 
+  <!-- ── MYM TAB (§C3 Mid-Year Multi) — convert an in-season pickup to a 2/3-yr deal ─ -->
+  <section class="fo-section" data-section="mym">
+    <div class="fo-card">
+      <div class="fo-card-head">
+        <h2>Mid-Year Multi (MYM)</h2>
+        <span class="small" id="fo-mym-meta" style="color:var(--muted);">Loading…</span>
+      </div>
+      <p class="fo-row-hint">💡 An in-season WW/FCFS pickup can convert to a flat 2- or 3-year contract within 14 days of acquisition (canon §C3). MYMs <strong>cannot be loaded</strong>; max 4 per team per season. Sub-types: <code>Veteran-MYM</code> · <code>WW-MYM</code> · <code>MYM-Rookie</code>. Click a player to open Actions and submit the MYM. Submitted MYMs land in the Contract Log.</p>
+      <div id="fo-mym-body"></div>
+    </div>
+  </section>
+
   <!-- ── CONTRACT LOG TAB (read-only, D1-sourced) ──────────────────── -->
   <section class="fo-section" data-section="contractlog">
     <div class="fo-card">
@@ -271,6 +284,6 @@
   </div>
 </aside>
 
-<script src="front_office.js?v=2026.06.05.v1.4.0"></script>
+<script src="front_office.js?v=2026.06.05.v1.5.0"></script>
 </body>
 </html>

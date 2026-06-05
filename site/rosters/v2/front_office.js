@@ -101,6 +101,10 @@
     capAmount: 0,
     teams: [],          // worker payload normalized
     activeTab: "roster",
+    // MYM test mode (?mymtest=1) — surfaces the §C3 MYM action on ANY player so
+    // the commish can exercise the wiring out of season; the form then forces a
+    // dry run (no live MFL write). See renderActionsTab / submitMymContract.
+    mymTest: (QS.get("mymtest") === "1" || QS.get("mymTest") === "1"),
     selectedTeamId: "__all__",
     search: "",
     filters: { pos: "ALL", type: "", status: "", years: "", action: "", loaded: false },
@@ -1351,10 +1355,28 @@
                          acqLabel.indexOf("expired") === -1 && acqLabel.indexOf("rookie") === -1 &&
                          acqYr === String(SEASON) && !rookieLikeContractStatus(status) && status.indexOf("tag") === -1;
     var myacEligible = (isEra || isFreshAuction) && years === 1 && !isPastContractDeadlineFO();
+    // MYM (Mid-Year Multi, §C3): an in-season WW/FCFS/waiver pickup can convert
+    // to a FLAT 2- or 3-year deal within 14 days of acquisition. Distinct from
+    // MYAC (auction wins) and Extension. Best-effort from the acquisition
+    // label/date the roster carries; the worker re-validates the 14-day window +
+    // the 4-per-season cap on submit. WW pickup days 1–14 = MYM, days 15–28 =
+    // extension — so this is mutually exclusive with the extension window.
+    var isInSeasonPickup = /\b(ww|fcfs|blind|waiver|free agent)\b/.test(acqLabel) &&
+                           acqLabel.indexOf("auction") === -1 && acqYr === String(SEASON);
+    var acqDateMs = (function () {
+      try { var d = new Date(safeStr(p && p.acquisitionDate).slice(0, 10) + "T12:00:00-04:00");
+            return isNaN(d.getTime()) ? null : d.getTime(); } catch (_) { return null; }
+    })();
+    var mymDays = acqDateMs != null ? Math.floor((Date.now() - acqDateMs) / 86400000) : null;
+    var mymEligible = isInSeasonPickup && mymDays != null && mymDays >= 0 && mymDays <= 14 &&
+                      years <= 1 && status.indexOf("tag") === -1 && !myacEligible &&
+                      !rookieOptionActionEligible(p);
     var extCandidate = !rookieOptionActionEligible(p) && status.indexOf("tag") === -1 &&
                        !noFurther && !myacEligible && (years === 1 || expiredRookie);
     return {
       myacEligible: myacEligible,
+      mymEligible: mymEligible,
+      mymDaysSinceAcq: mymDays,
       // Base candidate: final year (cy=1) or expired rookie, not tag/option/MYAC.
       // extensionEligible additionally requires being inside the §C4 deadline
       // WINDOW (rookie → May of expiry year, veteran → September, WW → days 15–28,
@@ -1733,6 +1755,7 @@
         if (tab === "extensions") renderExtensionsTab();
         if (tab === "myac") renderMyacTab();
         if (tab === "restructure") renderRestructureTab();
+        if (tab === "mym") renderMymTab();
         if (tab === "contractlog") renderContractLogTab();
         if (tab === "activity") renderActivityTab();
         if (tab === "contracts") renderContractsTab();
@@ -3240,6 +3263,28 @@
         mbtns.join(" ") || '<span class="small" style="color:var(--muted);">No multi-year option computed.</span>'));
     }
 
+    // §C3 MYM — an in-season WW/FCFS pickup converts to a FLAT 2- or 3-year deal
+    // at the SAME salary within 14 days of acquisition (cannot be loaded; max
+    // 4/season). STATE.mymTest (?mymtest=1) surfaces this on ANY player so the
+    // commish can exercise the wiring out of season — the form then defaults to
+    // a dry run. The worker re-validates the window + cap on submit.
+    if (elig.mymEligible || STATE.mymTest) {
+      const isTestRow = !elig.mymEligible && STATE.mymTest;
+      // Label is escaped by actionRow() — keep the TEST marker plain text; the
+      // rich "dry run" note lives in the (unescaped) help below.
+      const testNote = isTestRow ? " — TEST" : "";
+      const dayNote = (elig.mymDaysSinceAcq != null && elig.mymDaysSinceAcq >= 0)
+        ? " Day " + elig.mymDaysSinceAcq + " of 14." : "";
+      const mbtns = [
+        `<button class="btn small" data-action="mym" data-total="2">2-Year</button>`,
+        `<button class="btn small" data-action="mym" data-total="3">3-Year</button>`
+      ];
+      rows.push(actionRow("Mid-Year Multi (MYM)" + testNote,
+        "Convert this in-season pickup to a <strong>flat</strong> 2- or 3-year contract at the SAME salary (TCV = salary × years — no raise, cannot be loaded; §C3). Max 4 MYMs per team per season."
+          + dayNote + (isTestRow ? " <em>Test mode: submits a dry run.</em>" : ""),
+        mbtns.join(" ")));
+    }
+
     const extBlocked = extensionBlockedByCurrentOwner(p);
     if (elig.extensionEligible && extBlocked) {
       // Blocked path — show ONLY the blocked row, not the buttons
@@ -3331,6 +3376,9 @@
     });
     $$("[data-action='myac-loaded']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { openMyacLoadedForm(p, safeInt(btn.dataset.total, 3)); });
+    });
+    $$("[data-action='mym']", body).forEach(function (btn) {
+      btn.addEventListener("click", function () { openMymForm(p, safeInt(btn.dataset.total, 2)); });
     });
     $$("[data-action='rookie-option']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { submitRookieOption(p); });
@@ -3443,6 +3491,67 @@
     if (bid < 1000) { flashToast("MYAC needs a base salary ≥ $1,000.", "warn"); return; }
     const yrs = []; for (let i = 0; i < totalYears; i += 1) yrs.push(bid);
     submitMyacContract(p, totalYears, yrs, myacStatusBase(p));
+  }
+
+  // §C3 MYM — convert an in-season pickup to a FLAT 2- or 3-year deal at the
+  // SAME salary. TCV = salary × years; NO escalator, NO loading (loading is
+  // banned because it would restructure Y1, §C3). The UPS contract_type is MYM
+  // (MFL surface stays "Veteran"); sub_type preserves the origin. POSTs
+  // /offer-mym (submission_kind="mym") → worker writes ups_mym_submissions.
+  function mymSubType(p) {
+    const t = String(p && p.type || "").toLowerCase();
+    const acq = String(p && p.acquisitionTypeLabel || "").toLowerCase();
+    if (/rookie/.test(t)) return "MYM-Rookie";
+    if (/\b(ww|fcfs|blind|waiver|free agent)\b/.test(acq) && acq.indexOf("auction") === -1) return "WW-MYM";
+    return "Veteran-MYM";
+  }
+  async function submitMymContract(p, totalYears) {
+    const perYear = safeInt(p.salary, 0);
+    if (perYear < 1000) { flashToast("MYM needs a base salary ≥ $1,000.", "warn"); return; }
+    if (totalYears !== 2 && totalYears !== 3) { flashToast("MYM length must be 2 or 3 years (§C3).", "warn"); return; }
+    const tcv = perYear * totalYears;            // flat — no escalator, no loading
+    const aav = perYear;
+    const gtd = guaranteeForContract(tcv, totalYears);   // §D1 guarantee
+    const subType = mymSubType(p);
+    const yrs = []; for (let i = 0; i < totalYears; i += 1) yrs.push(perYear);
+    const contractInfo = "CL " + totalYears +
+      "| TCV " + fmtK(tcv).replace(/\$/, "") + "| AAV " + fmtK(aav).replace(/\$/, "") +
+      "| " + yrs.map(function (v, i) { return "Y" + (i + 1) + "-" + fmtK(v).replace(/\$/, ""); }).join(", ") +
+      "| GTD: " + fmtK(gtd).replace(/\$/, "");
+    // Test mode (?mymtest=1 surfacing the action on an INELIGIBLE player) forces
+    // a dry run so no live MFL data is touched while exercising the wiring.
+    const elig = rosterContractEligibility(p);
+    const forceDry = !!(STATE.mymTest && !elig.mymEligible);
+    const dry = (IS_DRY_RUN || forceDry) ? 1 : 0;
+    const confirmLines = [(dry ? "[DRY-RUN] " : "") + "Confirm " + totalYears + "-year MYM for " + p.name + "?", "",
+      "Sub-type: " + subType, "Per year: " + fmtUSD(perYear) + " (flat — cannot be loaded)",
+      "TCV: " + fmtUSD(tcv) + " · GTD: " + fmtUSD(gtd)];
+    if (!window.confirm(confirmLines.join("\n"))) return;
+    const url = apiUrl("/offer-mym") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
+    const payload = {
+      L: LEAGUE_ID, YEAR: SEASON, type: "MYM", submission_kind: "mym",
+      dry_run: dry, source: forceDry ? "front-office-mym-test" : "front-office-v2-mym-submit",
+      leagueId: LEAGUE_ID, year: SEASON, player_id: p.id, player_name: p.name,
+      franchise_id: p.fid, franchise_name: p.franchise, position: p.positionGroup || p.position,
+      salary: perYear, per_year: perYear, contract_year: totalYears, contract_status: "Veteran", contract_info: contractInfo,
+      mym_length: totalYears, mym_option: "mym" + totalYears, sub_type: subType,
+      tcv: tcv, aav: aav, guaranteed: gtd,
+      prior_contract_status: p.type, prior_salary: p.salary, prior_contract_year: p.years, prior_contract_info: p.special,
+      acquisition_date: p.acquisitionDate || "", acquisition_type: p.acquisitionTypeLabel || "",
+      submitted_at_utc: new Date().toISOString(), commish_override_flag: commishOverrideFor(p) ? 1 : 0
+    };
+    try {
+      await postContractUpdate(url, payload);
+      flashToast((dry ? "[DRY-RUN] " : "") + p.name + " " + totalYears + "-yr MYM submitted (" + subType + ").", "ok");
+      if (!dry) { await loadRosterData(); renderRosterTable(); }
+      closeSlideover();
+    } catch (e) {
+      console.error("[fo] MYM failed:", e);
+      flashToast("MYM submit failed: " + (e && e.message ? e.message : e), "err");
+    }
+  }
+  function openMymForm(p, totalYears) {
+    submitMymContract(p, totalYears || 2);
   }
 
   // Count a team's loaded (FL/BL) contracts on the active roster (taxi $0/exempt).
@@ -3962,6 +4071,77 @@
         else { STATE.extSort.key = k; STATE.extSort.dir = 1; }
         renderExtensionsTab();
       });
+    });
+  }
+
+  // ── MID-YEAR MULTI (MYM, §C3) ──────────────────────────────────────────
+  // Mirrors the Extensions tab, but for in-season WW/FCFS pickups that can
+  // convert to a FLAT 2- or 3-year deal within 14 days of acquisition. Row-click
+  // opens the slide-over Actions tab, which surfaces the MYM buttons
+  // (mymEligible). Also shows this season's submitted MYMs + the 4/team cap,
+  // straight from D1 (/admin/contract-submissions — the single source of truth).
+  async function renderMymTab() {
+    const body = $("#fo-mym-body");
+    const meta = $("#fo-mym-meta");
+    if (!body) return;
+    // Eligible-now players (inside their 14-day MYM window).
+    const elig = [];
+    (STATE.teams || []).forEach(function (t) {
+      (t.players || []).forEach(function (p) {
+        let e; try { e = rosterContractEligibility(p); } catch (_) { return; }
+        if (!e || !e.mymEligible) return;
+        elig.push({ pid: safeStr(p.id), fid: safeStr(t.fid), name: safeStr(p.name),
+          team: safeStr(t.name) || safeStr(t.fid), pos: safeStr(p.position),
+          salary: safeInt(p.salary, 0), days: e.mymDaysSinceAcq });
+      });
+    });
+    // This season's submitted MYMs from D1 (kind === "mym"), for the usage cap.
+    let subs = [];
+    try {
+      const data = await fetchJSON(apiUrl("/admin/contract-submissions") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON));
+      subs = ((data && data.submissions) || []).filter(function (s) { return s.kind === "mym"; });
+    } catch (_) {}
+    const nameByFid = {};
+    (STATE.teams || []).forEach(function (t) { nameByFid[pad4(t.fid)] = t.name; });
+    const usage = {};
+    subs.forEach(function (s) { const f = pad4(s.franchise_id); usage[f] = (usage[f] || 0) + 1; });
+    if (meta) meta.textContent = elig.length + " eligible now · " + subs.length + " MYM" + (subs.length === 1 ? "" : "s") + " this season · " + SEASON;
+    const eligHtml = elig.length
+      ? '<div class="fo-table-scroll"><table class="fo-table"><thead><tr>' +
+        '<th>Player</th><th>Team</th><th>Pos</th><th style="text-align:right;">Salary</th><th style="text-align:right;">MYM Day</th><th></th>' +
+        "</tr></thead><tbody>" + elig.map(function (r) {
+          return '<tr data-pid="' + escapeHtml(r.pid) + '" data-fid="' + escapeHtml(r.fid) + '" style="cursor:pointer;" title="Open Actions / MYM">' +
+            "<td>" + escapeHtml(r.name) + "</td><td>" + escapeHtml(r.team) + "</td><td>" + escapeHtml(r.pos) + "</td>" +
+            '<td style="text-align:right;">' + escapeHtml(fmtUSD(r.salary)) + "</td>" +
+            '<td style="text-align:right;font-weight:600;color:' + (r.days != null && r.days <= 14 ? "#1f8a4c" : "#e67e22") + ';">' + (r.days != null ? r.days + " / 14" : "—") + "</td>" +
+            '<td class="small" style="color:var(--muted);">click → MYM</td></tr>';
+        }).join("") + "</tbody></table></div>"
+      : '<div class="fo-table-loading">No players are in an active MYM window right now (in-season WW/FCFS pickups, days 1–14). A MYM converts a pickup to a flat 2- or 3-year deal at the same salary (§C3).' +
+        (STATE.mymTest ? ' <strong>Test mode on</strong> — open any player’s Actions to exercise the MYM form (submits a dry run).' : "") + "</div>";
+    const subRows = subs.slice().sort(function (a, b) { return String(b.submitted_at_utc || "").localeCompare(String(a.submitted_at_utc || "")); }).map(function (s) {
+      const f = pad4(s.franchise_id);
+      const nm = safeStr(s.player_name) || playerNameById(s.player_id) || safeStr(s.player_id);
+      const n = s.new || {};
+      return "<tr><td>" + escapeHtml(nameByFid[f] || safeStr(s.franchise_id)) + "</td><td>" + escapeHtml(nm) + "</td>" +
+        "<td>" + escapeHtml(safeStr(s.sub_type) || "MYM") + '</td><td style="text-align:center;">' + (s.mym_length || n.contract_year || "") + "yr</td>" +
+        '<td style="text-align:right;">' + escapeHtml(fmtUSD(n.per_year || n.salary || 0)) + "/yr</td>" +
+        '<td class="small">' + escapeHtml(String(s.submitted_at_utc || "").slice(0, 10)) + "</td></tr>";
+    }).join("");
+    const usageHtml = Object.keys(usage).length
+      ? '<div style="margin:10px 0;display:flex;gap:6px;flex-wrap:wrap;">' + Object.keys(usage).sort().map(function (f) {
+          const n = usage[f], cap = 4;
+          return '<span class="small" style="padding:2px 8px;border:1px solid var(--border);border-radius:10px;color:' + (n >= cap ? "var(--err)" : "var(--muted)") + ';">' +
+            escapeHtml(nameByFid[f] || f) + ": " + n + "/" + cap + "</span>";
+        }).join("") + "</div>"
+      : "";
+    const subsHtml = subs.length
+      ? '<h3 style="margin:16px 0 6px;font-size:14px;">Submitted this season</h3>' + usageHtml +
+        '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th>Team</th><th>Player</th><th>Sub-type</th><th style="text-align:center;">Len</th><th style="text-align:right;">Salary</th><th>Date</th></tr></thead><tbody>' +
+        subRows + "</tbody></table></div>"
+      : "";
+    body.innerHTML = '<h3 style="margin:6px 0;font-size:14px;">Eligible now</h3>' + eligHtml + subsHtml;
+    $$("#fo-mym-body tbody tr[data-pid]").forEach(function (tr) {
+      tr.addEventListener("click", function () { if (tr.dataset.pid) openSlideover(tr.dataset.pid, tr.dataset.fid); });
     });
   }
 
@@ -5855,7 +6035,7 @@
     return data;
   }
   function ctKindLabel(k) {
-    return { myac: "MYAC", extension: "Extension", restructure: "Restructure", tag: "Tag", untag: "Untag" }[k] || k;
+    return { myac: "MYAC", extension: "Extension", restructure: "Restructure", mym: "MYM", tag: "Tag", untag: "Untag" }[k] || k;
   }
   function ctContractStr(c, isTag) {
     if (!c) return isTag ? "(untag)" : "—";
