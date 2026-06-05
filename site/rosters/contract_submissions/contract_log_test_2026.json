@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "note": "Franchises whose contract events are TEST data — hidden in the FO Contract Log by default (toggle 'Show test' to reveal). `before` is the 'thus far' cutoff: only events submitted strictly before it are flagged test, so real-season events after it still count. Keith 2026-06-05.",
+    "season": "2026",
+    "league_id": "74598"
+  },
+  "test_franchises": [
+    {
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "before": "2026-06-06T00:00:00Z",
+      "reason": "Keith's test franchise during Front Office development — every contract event thus far (through 2026-06-05) is test data."
+    }
+  ]
+}
