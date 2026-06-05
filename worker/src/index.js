@@ -32771,6 +32771,72 @@ export default {
         return jsonOut(200, { ok: true, season: csSeason, league_id: csLeague, count: out.length, submissions: out });
       }
 
+      // POST /admin/restructure-ingest — write OFF-PATH restructures (UPS
+      // Contracts Hub Bot, manual MFL edits) into the canonical
+      // ups_restructure_submissions so D1 is the SINGLE SOURCE OF TRUTH
+      // (Keith 2026-06-05: "I need EVERYTHING written to D1 — that should be a
+      // rule"). Idempotent: dedupes on (league, season, franchise, player,
+      // submitted_at). Body: { league_id?, season?, records:[{franchise_id,
+      // player_id, player_name, position?, contract_status?, year_salaries[],
+      // tcv?, aav?, contract_year?, contract_info?, submitted_at_utc?, source? }] }.
+      if (path === "/admin/restructure-ingest" && request.method === "POST") {
+        const key = url.searchParams.get("APIKEY") || request.headers.get("X-MFL-APIKEY") || "";
+        if (!(key && (key === env.COMMISH_API_KEY || key === env.MFL_APIKEY))) {
+          return jsonOut(401, { ok: false, error: "unauthorized" });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let riBody = {};
+        try { riBody = await request.json(); } catch (_) {}
+        const riRecords = Array.isArray(riBody.records) ? riBody.records : [];
+        const riSeason = String(riBody.season || YEAR || "2026");
+        const riLeague = String(riBody.league_id || L || "74598");
+        let inserted = 0, skipped = 0; const riResults = [];
+        for (const r of riRecords) {
+          const fid = padFranchiseId(r.franchise_id);
+          const pid = String(r.player_id || "").replace(/\D/g, "");
+          const submittedAt = String(r.submitted_at_utc || "").trim() || new Date().toISOString();
+          if (!fid || !pid) { riResults.push({ player_id: r.player_id, ok: false, error: "missing franchise/player id" }); continue; }
+          try {
+            const dupe = await env.UPS_MFL_DB.prepare(
+              `SELECT COUNT(*) AS n FROM ups_restructure_submissions
+                 WHERE league_id=? AND season=? AND franchise_id=? AND player_id=? AND submitted_at_utc=?`
+            ).bind(riLeague, riSeason, fid, pid, submittedAt).first();
+            if (dupe && Number(dupe.n) > 0) { skipped += 1; riResults.push({ player_id: pid, ok: true, skipped: true }); continue; }
+            const ys = Array.isArray(r.year_salaries) ? r.year_salaries.map(Number) : [];
+            const tcv = Number(r.tcv) || (ys.length ? ys.reduce((a, b) => a + b, 0) : null);
+            const aav = Number(r.aav) || (ys.length && tcv ? Math.round(tcv / ys.length) : null);
+            const cy = Number(r.contract_year) || ys.length || null;
+            const info = String(r.contract_info || "").trim() ||
+              ("CL " + (cy || ys.length || 0) + "|TCV " + (tcv ? Math.round(tcv / 1000) + "K" : "?") +
+               "|" + ys.map((v, i) => "Y" + (i + 1) + "-" + Math.round(v / 1000) + "K").join(", "));
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_restructure_submissions
+                 (league_id, season, franchise_id, player_id, player_name, position,
+                  new_contract_status, new_salary, new_contract_year, new_contract_info,
+                  new_year_salaries_json, tcv_usd, new_aav,
+                  source, raw_payload_json, submitted_at_utc, dry_run)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
+            ).bind(
+              riLeague, riSeason, fid, pid,
+              String(r.player_name || "") || null,
+              String(r.position || "") || null,
+              String(r.contract_status || "") || null,
+              ys.length ? ys[0] : (Number(r.salary) || null),
+              cy, info,
+              ys.length ? JSON.stringify(ys) : null,
+              tcv, aav,
+              String(r.source || "off-path-ingest"),
+              JSON.stringify(r),
+              submittedAt
+            ).run();
+            inserted += 1; riResults.push({ player_id: pid, ok: true, inserted: true });
+          } catch (e) {
+            riResults.push({ player_id: pid, ok: false, error: e?.message || String(e) });
+          }
+        }
+        return jsonOut(200, { ok: true, season: riSeason, league_id: riLeague, inserted, skipped, results: riResults });
+      }
+
       // POST /admin/contract-revert — Body: { reverts:[{table,id}], dry_run? }.
       // Restores each selected submission's PRIOR contract to MFL (tags → untag)
       // via /commish-contract-update (silence_discord + commish_override). Commish.

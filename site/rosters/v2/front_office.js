@@ -4085,7 +4085,17 @@
       if (!fid || !pid) return;
       (out.byFid[fid] = out.byFid[fid] || {})[pid] = safeStr(name) || pid;
     };
-    // 1) Worker contract-activity log — real prod restructures (skip test/dry-run).
+    // PRIMARY: D1 ups_restructure_submissions (canon — D1 is the single source
+    // of truth; the restructure-ingest endpoint + action keep it complete).
+    try {
+      const d1 = await fetchJSON(apiUrl("/admin/contract-submissions") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON));
+      (d1 && d1.submissions || []).forEach(function (s) {
+        if (String(s.kind || "").toLowerCase() !== "restructure") return;
+        add(s.franchise_id, s.player_id, s.player_name);
+      });
+    } catch (e) { /* D1 unreachable → fall back to the files below */ }
+    // FALLBACK (transition): worker contract-activity log (real prod only) +
+    // the off-path manual ledger, in case a record isn't in D1 yet. Deduped by id.
     try {
       const data = await fetchJSON("../contract_submissions/contract_activity_" + encodeURIComponent(SEASON) + ".json");
       (data && data.activities || []).forEach(function (a) {
@@ -4094,9 +4104,7 @@
         if (/^\s*\[dry run\]/i.test(safeStr(a.player_name))) return;
         add(a.franchise_id, a.player_id, a.player_name);
       });
-    } catch (e) { /* log file may not exist yet */ }
-    // 2) Manual ledger — restructures done OFF-path (UPS Contracts Hub Bot,
-    //    manual MFL edits) that never hit the worker/activity log.
+    } catch (e) { /* no log file */ }
     try {
       const man = await fetchJSON("../contract_submissions/restructure_manual_" + encodeURIComponent(SEASON) + ".json");
       (man && man.restructures || []).forEach(function (r) { add(r.franchise_id, r.player_id, r.player_name); });
