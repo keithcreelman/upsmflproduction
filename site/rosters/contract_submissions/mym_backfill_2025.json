@@ -1,0 +1,99 @@
+{
+  "meta": {
+    "note": "Real 2025 Mid-Year Multi (MYM) submissions, backfilled to D1 ups_mym_submissions via /admin/mym-ingest so the Contract Log + MYM tab match reality. Source: mym_submissions table (Downloads mfl_database.db, ids 46-56), contract_info extracted VERBATIM from each xml_payload. sub_type derived from the archived mym_dashboard.json (mym_acq_type=WAIVER + pre-MYM contract_status): pre=Rookie -> MYM-Rookie, pre=Veteran -> WW-MYM (all in-season waiver pickups, canon §C3). submitted_at_utc = the DB created_at (ET wall-clock). Keith 2026-06-05.",
+    "season": "2025",
+    "league_id": "74598",
+    "canon": "docs/league_context_v1.md §C3 (Mid-Year Multi)"
+  },
+  "records": [
+    {
+      "franchise_id": "0008", "player_id": "16204", "player_name": "Dell, Tank", "position": "WR",
+      "prior_contract_status": "Veteran", "contract_status": "Veteran",
+      "mym_length": 3, "mym_option": "mym3", "sub_type": "WW-MYM",
+      "tcv": 3000, "guaranteed": 2000, "per_year": 1000, "year_salaries": [1000, 1000, 1000],
+      "contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+      "submitted_at_utc": "2025-09-13T10:26:00", "source": "mym-2025-backfill"
+    },
+    {
+      "franchise_id": "0008", "player_id": "15787", "player_name": "Thornton, Tyquan", "position": "WR",
+      "prior_contract_status": "Veteran", "contract_status": "Veteran",
+      "mym_length": 3, "mym_option": "mym3", "sub_type": "WW-MYM",
+      "tcv": 3000, "guaranteed": 2000, "per_year": 1000, "year_salaries": [1000, 1000, 1000],
+      "contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+      "submitted_at_utc": "2025-09-22T18:21:00", "source": "mym-2025-backfill"
+    },
+    {
+      "franchise_id": "0010", "player_id": "17131", "player_name": "Watts, Xavier", "position": "S",
+      "prior_contract_status": "Rookie", "contract_status": "Veteran",
+      "mym_length": 3, "mym_option": "mym3", "sub_type": "MYM-Rookie",
+      "tcv": 3000, "guaranteed": 2000, "per_year": 1000, "year_salaries": [1000, 1000, 1000],
+      "contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+      "submitted_at_utc": "2025-09-30T09:14:00", "source": "mym-2025-backfill"
+    },
+    {
+      "franchise_id": "0010", "player_id": "15846", "player_name": "Walker, Quay", "position": "LB",
+      "prior_contract_status": "Veteran", "contract_status": "Veteran",
+      "mym_length": 2, "mym_option": "mym2", "sub_type": "WW-MYM",
+      "tcv": 2000, "guaranteed": 1000, "per_year": 1000, "year_salaries": [1000, 1000],
+      "contract_info": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+      "submitted_at_utc": "2025-10-04T09:18:00", "source": "mym-2025-backfill"
+    },
+    {
+      "franchise_id": "0006", "player_id": "16195", "player_name": "Wicks, Dontayvion", "position": "WR",
+      "prior_contract_status": "Veteran", "contract_status": "Veteran",
+      "mym_length": 3, "mym_option": "mym3", "sub_type": "WW-MYM",
+      "tcv": 3000, "guaranteed": 2000, "per_year": 1000, "year_salaries": [1000, 1000, 1000],
+      "contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+      "submitted_at_utc": "2025-10-11T09:21:00", "source": "mym-2025-backfill"
+    },
+    {
+      "franchise_id": "0012", "player_id": "17171", "player_name": "Dike, Chimere", "position": "WR",
+      "prior_contract_status": "Rookie", "contract_status": "Veteran",
+      "mym_length": 3, "mym_option": "mym3", "sub_type": "MYM-Rookie",
+      "tcv": 15000, "guaranteed": 11250, "per_year": 5000, "year_salaries": [5000, 5000, 5000],
+      "contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.2K",
+      "submitted_at_utc": "2025-10-23T17:01:00", "source": "mym-2025-backfill"
+    },
+    {
+      "franchise_id": "0001", "player_id": "13806", "player_name": "Elliott, DeShon", "position": "S",
+      "prior_contract_status": "Veteran", "contract_status": "Veteran",
+      "mym_length": 2, "mym_option": "mym2", "sub_type": "WW-MYM",
+      "tcv": 2000, "guaranteed": 1000, "per_year": 1000, "year_salaries": [1000, 1000],
+      "contract_info": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+      "submitted_at_utc": "2025-11-09T09:15:00", "source": "mym-2025-backfill"
+    },
+    {
+      "franchise_id": "0001", "player_id": "12610", "player_name": "Wentz, Carson", "position": "QB",
+      "prior_contract_status": "Veteran", "contract_status": "Veteran",
+      "mym_length": 2, "mym_option": "mym2", "sub_type": "WW-MYM",
+      "tcv": 2000, "guaranteed": 1000, "per_year": 1000, "year_salaries": [1000, 1000],
+      "contract_info": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+      "submitted_at_utc": "2025-11-09T09:15:00", "source": "mym-2025-backfill"
+    },
+    {
+      "franchise_id": "0008", "player_id": "17290", "player_name": "Sanders, Shilo", "position": "S",
+      "prior_contract_status": "Rookie", "contract_status": "Veteran",
+      "mym_length": 3, "mym_option": "mym3", "sub_type": "MYM-Rookie",
+      "tcv": 3000, "guaranteed": 2000, "per_year": 1000, "year_salaries": [1000, 1000, 1000],
+      "contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+      "submitted_at_utc": "2025-11-13T09:24:00", "source": "mym-2025-backfill",
+      "raw": { "sub_type_note": "Not present in archived mym_dashboard snapshot; classified MYM-Rookie from known 2025 UDFA-rookie status (consistent with the other rookie waiver MYMs). Verify acquisition origin if precision needed." }
+    },
+    {
+      "franchise_id": "0009", "player_id": "15292", "player_name": "Brown, Dyami", "position": "WR",
+      "prior_contract_status": "Veteran", "contract_status": "Veteran",
+      "mym_length": 3, "mym_option": "mym3", "sub_type": "WW-MYM",
+      "tcv": 3000, "guaranteed": 2000, "per_year": 1000, "year_salaries": [1000, 1000, 1000],
+      "contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+      "submitted_at_utc": "2025-11-16T09:18:00", "source": "mym-2025-backfill"
+    },
+    {
+      "franchise_id": "0012", "player_id": "16206", "player_name": "Wilson, Michael", "position": "WR",
+      "prior_contract_status": "Veteran", "contract_status": "Veteran",
+      "mym_length": 3, "mym_option": "mym3", "sub_type": "WW-MYM",
+      "tcv": 15000, "guaranteed": 11250, "per_year": 5000, "year_salaries": [5000, 5000, 5000],
+      "contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.2K",
+      "submitted_at_utc": "2025-11-23T18:28:00", "source": "mym-2025-backfill"
+    }
+  ]
+}

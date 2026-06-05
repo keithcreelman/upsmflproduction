@@ -1,0 +1,39 @@
+name: MYM backfill → D1 (manual)
+
+# Backfills real historical MYMs (mym_backfill_<season>.json) into D1
+# ups_mym_submissions via /admin/mym-ingest so the Contract Log + MYM tab
+# match reality. Idempotent (dedupes on league+season+franchise+player+source).
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season'
+        required: false
+        default: '2025'
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: POST MYM records to D1
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+          SEASON: ${{ github.event.inputs.season }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.error
+          season = os.environ.get("SEASON") or "2025"
+          data = json.load(open(f"site/rosters/contract_submissions/mym_backfill_{season}.json"))
+          recs = data.get("records") or []
+          print("records:", len(recs))
+          url = f"https://upsmflproduction.keith-creelman.workers.dev/admin/mym-ingest?L=74598&YEAR={season}&APIKEY={os.environ['KEY']}"
+          ua = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+          body = json.dumps({"season": season, "league_id": "74598", "records": recs}).encode()
+          req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", "User-Agent": ua}, method="POST")
+          try:
+              with urllib.request.urlopen(req) as resp:
+                  print("HTTP", resp.status); print(resp.read().decode()[:2000])
+          except urllib.error.HTTPError as e:
+              print("HTTP", e.code, e.read().decode()[:2000]); raise
+          PY
