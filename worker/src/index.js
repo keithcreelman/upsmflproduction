@@ -2439,6 +2439,7 @@ export default {
         path !== "/admin/restructure-ingest" &&
         path !== "/admin/extension-ingest" &&
         path !== "/admin/tag-ingest" &&
+        path !== "/admin/mym-ingest" &&
         path !== "/admin/commish-settings" &&
         path !== "/admin/d1-status" &&
         path !== "/admin/discord-channel-config" &&
@@ -32792,6 +32793,25 @@ export default {
               revertable: !isUntag });
           }
         } catch (_) {}
+        try {
+          const mym = await env.UPS_MFL_DB.prepare(
+            `SELECT id, player_id, player_name, position, franchise_id, source, submitted_at_utc,
+                    prior_contract_status, prior_salary, prior_contract_year, prior_contract_info,
+                    new_contract_status, new_salary, new_contract_year, new_contract_info,
+                    mym_length, mym_option, sub_type, tcv_usd, aav_usd, gtd_usd, per_year_usd
+               FROM ups_mym_submissions WHERE season = ? AND COALESCE(dry_run,0) = 0`
+          ).bind(csSeason).all();
+          for (const r of (mym.results || [])) {
+            out.push({ table: "ups_mym_submissions", id: r.id, kind: "mym",
+              player_id: safeStr(r.player_id), player_name: safeStr(r.player_name), position: safeStr(r.position),
+              franchise_id: safeStr(r.franchise_id), source: safeStr(r.source), submitted_at_utc: safeStr(r.submitted_at_utc),
+              mym_length: r.mym_length, mym_option: safeStr(r.mym_option), sub_type: safeStr(r.sub_type),
+              prior: { contract_status: r.prior_contract_status, salary: r.prior_salary, contract_year: r.prior_contract_year, contract_info: r.prior_contract_info },
+              new: { contract_status: r.new_contract_status, salary: r.new_salary, contract_year: r.new_contract_year, contract_info: r.new_contract_info,
+                     tcv: r.tcv_usd, aav: r.aav_usd, gtd: r.gtd_usd, per_year: r.per_year_usd },
+              revertable: r.prior_contract_status != null || r.prior_salary != null || r.prior_contract_year != null });
+          }
+        } catch (_) {}
         out.sort((a, b) => String(b.submitted_at_utc || "").localeCompare(String(a.submitted_at_utc || "")));
         return jsonOut(200, { ok: true, season: csSeason, league_id: csLeague, count: out.length, submissions: out });
       }
@@ -32934,6 +32954,116 @@ export default {
           } catch (e) { errors += 1; }
         }
         return jsonOut(200, { ok: true, league_id: xiLeague, inserted, skipped, errors, total: xiRecords.length });
+      }
+
+      // POST /admin/mym-ingest — backfill historical/off-path MYM (Mid-Year
+      // Multi, canon §C3) records into ups_mym_submissions so D1 holds the full
+      // MYM history (Keith 2026-06-05 "everything in D1"). Idempotent on
+      // (league, season, franchise, player, source). Creates the table lazily
+      // (migrations are not auto-applied on deploy). Body: { league_id?,
+      // season?, records:[{season?, franchise_id, player_id, player_name,
+      // position?, prior_contract_status?, prior_salary?, prior_contract_info?,
+      // contract_status?, salary?, contract_info?, mym_length, mym_option?,
+      // sub_type?, tcv?, aav?, guaranteed?, per_year?, year_salaries?,
+      // submitted_at_utc?, source?, dry_run?, raw? }], delete:[{season?,
+      // franchise_id, player_id, source?}] }.
+      if (path === "/admin/mym-ingest" && request.method === "POST") {
+        const key = url.searchParams.get("APIKEY") || request.headers.get("X-MFL-APIKEY") || "";
+        if (!(key && (key === env.COMMISH_API_KEY || key === env.MFL_APIKEY))) {
+          return jsonOut(401, { ok: false, error: "unauthorized" });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        try {
+          await env.UPS_MFL_DB.prepare(
+            `CREATE TABLE IF NOT EXISTS ups_mym_submissions (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               league_id TEXT NOT NULL, season TEXT NOT NULL, franchise_id TEXT NOT NULL,
+               player_id TEXT NOT NULL, player_name TEXT, position TEXT,
+               prior_contract_status TEXT, prior_salary INTEGER, prior_contract_year INTEGER, prior_contract_info TEXT,
+               new_contract_status TEXT, new_salary INTEGER, new_contract_year INTEGER, new_contract_info TEXT, new_year_salaries_json TEXT,
+               mym_length INTEGER, mym_option TEXT, sub_type TEXT,
+               tcv_usd INTEGER, aav_usd INTEGER, gtd_usd INTEGER, per_year_usd INTEGER,
+               source TEXT, acting_user_id TEXT, raw_payload_json TEXT,
+               submitted_at_utc TEXT NOT NULL DEFAULT (datetime('now')), dry_run INTEGER NOT NULL DEFAULT 0
+             )`
+          ).run();
+        } catch (_) {}
+        let miBody = {};
+        try { miBody = await request.json(); } catch (_) {}
+        const miRecords = Array.isArray(miBody.records) ? miBody.records : [];
+        const miLeague = String(miBody.league_id || L || "74598");
+        const miDefaultSeason = String(miBody.season || YEAR || "2025");
+        let inserted = 0, skipped = 0, errors = 0; const miResults = [];
+        for (const r of miRecords) {
+          const fid = padFranchiseId(r.franchise_id);
+          const pid = String(r.player_id || "").replace(/\D/g, "");
+          const season = String(r.season || miDefaultSeason);
+          const src = String(r.source || "mym-historical");
+          if (!fid || !pid || !season) { errors += 1; miResults.push({ player_id: r.player_id, ok: false, error: "missing franchise/player/season" }); continue; }
+          try {
+            const dupe = await env.UPS_MFL_DB.prepare(
+              `SELECT COUNT(*) AS n FROM ups_mym_submissions
+                 WHERE league_id=? AND season=? AND franchise_id=? AND player_id=? AND source=?`
+            ).bind(miLeague, season, fid, pid, src).first();
+            if (dupe && Number(dupe.n) > 0) { skipped += 1; miResults.push({ player_id: pid, ok: true, skipped: true }); continue; }
+            const ys = Array.isArray(r.year_salaries) ? r.year_salaries.map(Number) : [];
+            const lengthInt = r.mym_length != null ? Number(r.mym_length) : (ys.length || null);
+            const perYear = r.per_year != null ? Number(r.per_year) : (r.salary != null ? Number(r.salary) : (ys.length ? ys[0] : null));
+            const tcv = r.tcv != null ? Number(r.tcv) : (ys.length ? ys.reduce((a, b) => a + b, 0) : null);
+            const aav = r.aav != null ? Number(r.aav) : (lengthInt && tcv ? Math.round(tcv / lengthInt) : null);
+            const mymOption = String(r.mym_option || "") || (lengthInt ? ("mym" + lengthInt) : null);
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_mym_submissions
+                 (league_id, season, franchise_id, player_id, player_name, position,
+                  prior_contract_status, prior_salary, prior_contract_year, prior_contract_info,
+                  new_contract_status, new_salary, new_contract_year, new_contract_info, new_year_salaries_json,
+                  mym_length, mym_option, sub_type,
+                  tcv_usd, aav_usd, gtd_usd, per_year_usd,
+                  source, raw_payload_json, submitted_at_utc, dry_run)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              miLeague, season, fid, pid,
+              String(r.player_name || "") || null,
+              String(r.position || "") || null,
+              String(r.prior_contract_status || "") || null,
+              r.prior_salary != null ? Number(r.prior_salary) : null,
+              r.prior_contract_year != null ? Number(r.prior_contract_year) : null,
+              String(r.prior_contract_info || "") || null,
+              String(r.contract_status || "Veteran") || null,
+              perYear,
+              lengthInt,
+              String(r.contract_info || "") || null,
+              ys.length ? JSON.stringify(ys) : null,
+              lengthInt, mymOption,
+              String(r.sub_type || "") || null,
+              tcv, aav,
+              r.guaranteed != null ? Number(r.guaranteed) : null,
+              perYear,
+              src,
+              JSON.stringify(r.raw || r),
+              String(r.submitted_at_utc || "") || null,
+              r.dry_run != null ? Number(r.dry_run) : 0
+            ).run();
+            inserted += 1; miResults.push({ player_id: pid, ok: true, inserted: true });
+          } catch (e) { errors += 1; miResults.push({ player_id: pid, ok: false, error: e?.message || String(e) }); }
+        }
+        // Deletions — purge test/invalid MYMs from D1 (records the commish later
+        // flagged as testing). Body: delete:[{season?, franchise_id, player_id, source?}].
+        let deleted = 0;
+        for (const dd of (Array.isArray(miBody.delete) ? miBody.delete : [])) {
+          const fid = padFranchiseId(dd.franchise_id);
+          const pid = String(dd.player_id || "").replace(/\D/g, "");
+          const season = String(dd.season || miDefaultSeason);
+          if (!fid || !pid) continue;
+          try {
+            const q = dd.source
+              ? env.UPS_MFL_DB.prepare(`DELETE FROM ups_mym_submissions WHERE league_id=? AND season=? AND franchise_id=? AND player_id=? AND source=?`).bind(miLeague, season, fid, pid, String(dd.source))
+              : env.UPS_MFL_DB.prepare(`DELETE FROM ups_mym_submissions WHERE league_id=? AND season=? AND franchise_id=? AND player_id=?`).bind(miLeague, season, fid, pid);
+            const res = await q.run();
+            deleted += (res && res.meta && res.meta.changes) || 0;
+          } catch (e) { miResults.push({ player_id: pid, ok: false, error: "delete: " + (e?.message || String(e)) }); }
+        }
+        return jsonOut(200, { ok: true, season: miDefaultSeason, league_id: miLeague, inserted, skipped, deleted, errors, results: miResults });
       }
 
       // GET/POST /admin/commish-settings — read/write commish-configurable
@@ -34742,6 +34872,15 @@ export default {
         const isMyacSubmission =
           isManualContractUpdate &&
           (submissionKindRaw === "myac" || /\bmyac\b/i.test(providedSourceTag));
+        // MYM (Mid-Year Multi, canon §C3) — its own contract_type, never
+        // collapsed into Veteran/Extension. Positive flag so the D1 audit below
+        // fires for MYMs (previously the else-bucket wrote NO audit row).
+        // Recognized via explicit submission_kind="mym" OR the /offer-mym path
+        // default (excluding tag/untag flows that piggyback on the endpoint).
+        const isMymSubmission =
+          !isExtensionSubmission && !isRestructure && !isMyacSubmission &&
+          (submissionKindRaw === "mym" ||
+            (path === "/offer-mym" && submissionKindRaw !== "tag" && submissionKindRaw !== "untag"));
         const eventType = isExtensionSubmission
           ? "log-extension-submission"
           : (isRestructure ? "log-restructure-submission" : "log-mym-submission");
@@ -35614,6 +35753,118 @@ export default {
             ).run();
           } catch (e) {
             console.warn("[restructure-audit] D1 insert failed:", e?.message || String(e));
+          }
+        }
+
+        // MYM (Mid-Year Multi) D1 audit row — canon §C3. Fires when
+        // isMymSubmission === true and the salary import actually changed
+        // something. Parallels the restructure audit above; MYM is its OWN
+        // contract_type (never folded into Veteran/Extension), so it gets a
+        // dedicated table. No master table — like restructures, the
+        // current-state mirror is the rosters/salaries payload. The table is
+        // created lazily (migrations are not auto-applied on deploy), matching
+        // the ups_settings / ups_runtime_flags inline-create pattern.
+        if (looksOk && anyChanged && isMymSubmission && env.UPS_MFL_DB) {
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `CREATE TABLE IF NOT EXISTS ups_mym_submissions (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 league_id TEXT NOT NULL, season TEXT NOT NULL, franchise_id TEXT NOT NULL,
+                 player_id TEXT NOT NULL, player_name TEXT, position TEXT,
+                 prior_contract_status TEXT, prior_salary INTEGER, prior_contract_year INTEGER, prior_contract_info TEXT,
+                 new_contract_status TEXT, new_salary INTEGER, new_contract_year INTEGER, new_contract_info TEXT, new_year_salaries_json TEXT,
+                 mym_length INTEGER, mym_option TEXT, sub_type TEXT,
+                 tcv_usd INTEGER, aav_usd INTEGER, gtd_usd INTEGER, per_year_usd INTEGER,
+                 source TEXT, acting_user_id TEXT, raw_payload_json TEXT,
+                 submitted_at_utc TEXT NOT NULL DEFAULT (datetime('now')), dry_run INTEGER NOT NULL DEFAULT 0
+               )`
+            ).run();
+          } catch (_) {}
+
+          const priorInfo = String(body.prior_contract_info || body.priorContractInfo || "").trim();
+          const newInfo = String(contractInfo || "").trim();
+          // K-aware money parser: "TCV 3K" → 3000, "GTD: 11.2K" → 11250,
+          // "TCV 1500" → 1500. Falls back from explicit numeric body fields.
+          const matchMoney = (str, re) => {
+            const m = String(str || "").match(re);
+            if (!m) return null;
+            const num = parseFloat(String(m[1]).replace(/,/g, ""));
+            if (!Number.isFinite(num)) return null;
+            return Math.round(/k/i.test(m[0]) ? num * 1000 : num);
+          };
+          const bInt = (v) => {
+            if (v == null || v === "") return null;
+            const n = Number(v);
+            return Number.isFinite(n) ? Math.round(n) : null;
+          };
+          // Per-year salaries: prefer the structured Y1-/Y2- tokens; MYMs are
+          // flat (can't be loaded per §C3) so this is usually [s, s] or [s,s,s].
+          const parseYearSalaries = (info) => {
+            const matches = String(info || "").match(/Y\d+\s*-\s*[\d.]+\s*K?/gi);
+            if (!matches || !matches.length) return null;
+            const arr = matches.map((tok) => {
+              const m = tok.match(/Y(\d+)\s*-\s*([\d.]+)\s*(K)?/i);
+              if (!m) return null;
+              const val = parseFloat(m[2]) * (m[3] ? 1000 : 1);
+              return { year: Number(m[1]), salary: Math.round(val) };
+            }).filter(Boolean);
+            arr.sort((a, b) => a.year - b.year);
+            return arr.length ? JSON.stringify(arr.map((x) => x.salary)) : null;
+          };
+
+          const lengthInt = bInt(contractYear) || matchMoney(newInfo, /\bCL\s*(\d+)/i);
+          const perYearUsd = bInt(body.per_year ?? body.perYear) ?? (salary ? Number(salary) : null);
+          const newTcv = bInt(body.tcv) ?? matchMoney(newInfo, /TCV\s*([\d.,]+)\s*K?/i);
+          const newAav = bInt(body.aav) ?? matchMoney(newInfo, /AAV\s*([\d.,]+)\s*K?/i);
+          const newGtd = bInt(body.guaranteed ?? body.gtd) ?? matchMoney(newInfo, /GTD\s*:?\s*([\d.,]+)\s*K?/i);
+          const priorStatusLc = safeStr(body.prior_contract_status || body.priorContractStatus).toLowerCase();
+          const subType = safeStr(body.sub_type || body.mym_sub_type || body.subType) ||
+            (/rookie/.test(priorStatusLc) ? "MYM-Rookie"
+              : (/\b(ww|fcfs|waiver|free agent|blind)\b/.test(priorStatusLc) ? "WW-MYM" : "Veteran-MYM"));
+          const mymOption = safeStr(body.mym_option || body.option) || (lengthInt ? ("mym" + lengthInt) : null);
+          const priorCyInt = Number(body.prior_contract_year || body.priorContractYear || 0) || null;
+
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_mym_submissions
+                 (league_id, season, franchise_id, player_id, player_name, position,
+                  prior_contract_status, prior_salary, prior_contract_year, prior_contract_info,
+                  new_contract_status, new_salary, new_contract_year, new_contract_info, new_year_salaries_json,
+                  mym_length, mym_option, sub_type,
+                  tcv_usd, aav_usd, gtd_usd, per_year_usd,
+                  source, acting_user_id, raw_payload_json, submitted_at_utc, dry_run)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              leagueId,
+              year,
+              franchiseId,
+              playerId,
+              playerName,
+              position,
+              String(body.prior_contract_status || body.priorContractStatus || "") || null,
+              body.prior_salary != null ? Number(body.prior_salary) : null,
+              priorCyInt,
+              priorInfo || null,
+              statusUsed || contractStatus || null,
+              salary ? Number(salary) : null,
+              lengthInt,
+              newInfo || null,
+              parseYearSalaries(newInfo),
+              lengthInt,
+              mymOption,
+              subType,
+              newTcv,
+              newAav,
+              newGtd,
+              perYearUsd,
+              sourceTag || "worker-offer-mym",
+              String(body.acting_user_id || body.actingUserId || "") || null,
+              JSON.stringify(body),
+              submittedAtUtc || new Date().toISOString(),
+              dryRunFlag
+            ).run();
+          } catch (e) {
+            console.warn("[mym-audit] D1 insert failed:", e?.message || String(e));
           }
         }
 
