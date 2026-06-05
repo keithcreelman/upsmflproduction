@@ -2420,6 +2420,7 @@ export default {
         path !== "/admin/contract-submissions" &&
         path !== "/admin/contract-revert" &&
         path !== "/admin/restructure-ingest" &&
+        path !== "/admin/extension-ingest" &&
         path !== "/admin/discord-channel-config" &&
         path !== "/admin/contract-activity/edit" &&
         path !== "/admin/bug-report/status" &&
@@ -32850,6 +32851,66 @@ export default {
           } catch (e) { riResults.push({ player_id: pid, ok: false, error: "delete: " + (e?.message || String(e)) }); }
         }
         return jsonOut(200, { ok: true, season: riSeason, league_id: riLeague, inserted, skipped, deleted, results: riResults });
+      }
+
+      // POST /admin/extension-ingest — backfill historical/off-path EXTENSION (and
+      // forum auction-contract) records into ups_extension_submissions so D1 holds
+      // the full contract history (Keith 2026-06-05 "everything in D1"). Idempotent
+      // on (league, season, franchise, player, source). Body: { league_id?,
+      // records:[{season, franchise_id, player_id, player_name, position?,
+      // contract_status?, contract_info?, term_years?, tcv?, aav?, guaranteed?,
+      // salary?, submitted_at_utc?, source?, raw? }] }.
+      if (path === "/admin/extension-ingest" && request.method === "POST") {
+        const key = url.searchParams.get("APIKEY") || request.headers.get("X-MFL-APIKEY") || "";
+        if (!(key && (key === env.COMMISH_API_KEY || key === env.MFL_APIKEY))) {
+          return jsonOut(401, { ok: false, error: "unauthorized" });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let xiBody = {};
+        try { xiBody = await request.json(); } catch (_) {}
+        const xiRecords = Array.isArray(xiBody.records) ? xiBody.records : [];
+        const xiLeague = String(xiBody.league_id || L || "74598");
+        let inserted = 0, skipped = 0, errors = 0;
+        for (const r of xiRecords) {
+          const fid = padFranchiseId(r.franchise_id);
+          const pid = String(r.player_id || "").replace(/\D/g, "");
+          const season = String(r.season || "");
+          const src = String(r.source || "forum-historical");
+          if (!fid || !pid || !season) { errors += 1; continue; }
+          try {
+            const dupe = await env.UPS_MFL_DB.prepare(
+              `SELECT COUNT(*) AS n FROM ups_extension_submissions
+                 WHERE league_id=? AND season=? AND franchise_id=? AND player_id=? AND source=?`
+            ).bind(xiLeague, season, fid, pid, src).first();
+            if (dupe && Number(dupe.n) > 0) { skipped += 1; continue; }
+            const term = r.term_years != null ? Number(r.term_years) : null;
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_extension_submissions
+                 (league_id, season, franchise_id, player_id, player_name, position,
+                  new_contract_status, new_salary, new_contract_year, new_contract_info,
+                  extension_term_years, new_tcv, new_aav, new_gtd,
+                  source, raw_payload_json, submitted_at_utc, dry_run)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
+            ).bind(
+              xiLeague, season, fid, pid,
+              String(r.player_name || "") || null,
+              String(r.position || "") || null,
+              String(r.contract_status || "") || null,
+              r.salary != null ? Number(r.salary) : null,
+              term,
+              String(r.contract_info || "") || null,
+              term,
+              r.tcv != null ? Number(r.tcv) : null,
+              r.aav != null ? Number(r.aav) : null,
+              r.guaranteed != null ? Number(r.guaranteed) : null,
+              src,
+              JSON.stringify(r.raw || {}),
+              String(r.submitted_at_utc || "") || null
+            ).run();
+            inserted += 1;
+          } catch (e) { errors += 1; }
+        }
+        return jsonOut(200, { ok: true, league_id: xiLeague, inserted, skipped, errors, total: xiRecords.length });
       }
 
       // POST /admin/contract-revert — Body: { reverts:[{table,id}], dry_run? }.

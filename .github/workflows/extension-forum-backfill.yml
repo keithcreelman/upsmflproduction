@@ -1,0 +1,41 @@
+name: Extension forum backfill → D1 (manual)
+
+# Backfills forum/sheet-sourced historical contracts (extension_forum_backfill.json)
+# into D1 ups_extension_submissions via /admin/extension-ingest (Keith 2026-06-05:
+# "everything in D1"). Idempotent on (league, season, franchise, player, source),
+# so re-running is safe. Batched to stay under request-size limits.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: POST forum contract records to D1 (batched)
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.error
+          data = json.load(open("site/rosters/contract_submissions/extension_forum_backfill.json"))
+          recs = data.get("records") or []
+          print("total records:", len(recs))
+          url = f"https://upsmflproduction.keith-creelman.workers.dev/admin/extension-ingest?L=74598&APIKEY={os.environ['KEY']}"
+          ua = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+          ins = skip = err = 0
+          BATCH = 100
+          for i in range(0, len(recs), BATCH):
+              chunk = recs[i:i+BATCH]
+              body = json.dumps({"league_id": "74598", "records": chunk}).encode()
+              req = urllib.request.Request(url, data=body,
+                  headers={"Content-Type": "application/json", "User-Agent": ua}, method="POST")
+              try:
+                  with urllib.request.urlopen(req) as resp:
+                      r = json.loads(resp.read().decode())
+                      ins += r.get("inserted", 0); skip += r.get("skipped", 0); err += r.get("errors", 0)
+                      print(f"batch {i//BATCH+1}: +{r.get('inserted')} ~{r.get('skipped')} !{r.get('errors')}")
+              except urllib.error.HTTPError as e:
+                  print("HTTP", e.code, e.read().decode()[:500]); raise
+          print(f"DONE inserted={ins} skipped={skip} errors={err}")
+          PY
