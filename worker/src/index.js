@@ -2419,6 +2419,7 @@ export default {
         path !== "/admin/contract-activity/post-batch" &&
         path !== "/admin/contract-submissions" &&
         path !== "/admin/contract-revert" &&
+        path !== "/admin/restructure-ingest" &&
         path !== "/admin/discord-channel-config" &&
         path !== "/admin/contract-activity/edit" &&
         path !== "/admin/bug-report/status" &&
