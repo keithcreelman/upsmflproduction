@@ -10,6 +10,20 @@ const acquisitionLiveMemoryCache = new Map();
 const contractDiscordChannelQueues = new Map();
 const contractDiscordChannelLastSendMs = new Map();
 
+// Per-mechanism Discord routing (commish-settable via /admin/commish-settings,
+// stored in D1 ups_settings key 'discord_routing'). "test" => force the test
+// channel, "prod" => production. Defaults match the wiring as of 2026-06-05.
+const DISCORD_ROUTING_DEFAULTS = { extension: "prod", myac: "prod", restructure: "test", tag: "prod", fa: "prod", mym: "prod" };
+async function getDiscordRoutingConfig(env) {
+  try {
+    if (!env || !env.UPS_MFL_DB) return { ...DISCORD_ROUTING_DEFAULTS };
+    await env.UPS_MFL_DB.prepare("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)").run();
+    const row = await env.UPS_MFL_DB.prepare("SELECT value FROM ups_settings WHERE key = 'discord_routing'").first();
+    const cfg = row && row.value ? JSON.parse(row.value) : {};
+    return { ...DISCORD_ROUTING_DEFAULTS, ...(cfg && typeof cfg === "object" ? cfg : {}) };
+  } catch (e) { return { ...DISCORD_ROUTING_DEFAULTS }; }
+}
+
 // Positional leverage coefficients (β per pos_group) from
 // pipelines/etl/config/positional_leverage_2026.json. Win Chunks × β =
 // Win Chunks Normalized — the "how many AP wins did this E+P week
@@ -2421,6 +2435,8 @@ export default {
         path !== "/admin/contract-revert" &&
         path !== "/admin/restructure-ingest" &&
         path !== "/admin/extension-ingest" &&
+        path !== "/admin/commish-settings" &&
+        path !== "/admin/d1-status" &&
         path !== "/admin/discord-channel-config" &&
         path !== "/admin/contract-activity/edit" &&
         path !== "/admin/bug-report/status" &&
@@ -32913,6 +32929,49 @@ export default {
         return jsonOut(200, { ok: true, league_id: xiLeague, inserted, skipped, errors, total: xiRecords.length });
       }
 
+      // GET/POST /admin/commish-settings — read/write commish-configurable
+      // settings (per-mechanism Discord routing for now). D1 ups_settings.
+      if (path === "/admin/commish-settings" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const routing = await getDiscordRoutingConfig(env);
+        return jsonOut(200, { ok: true, discord_routing: routing, defaults: DISCORD_ROUTING_DEFAULTS, mechanisms: Object.keys(DISCORD_ROUTING_DEFAULTS) });
+      }
+      if (path === "/admin/commish-settings" && request.method === "POST") {
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let csBody = {};
+        try { csBody = await request.json(); } catch (_) {}
+        const incoming = (csBody && csBody.discord_routing && typeof csBody.discord_routing === "object") ? csBody.discord_routing : {};
+        const merged = { ...(await getDiscordRoutingConfig(env)) };
+        for (const k of Object.keys(incoming)) {
+          const v = String(incoming[k]).toLowerCase();
+          if (v === "test" || v === "prod") merged[k] = v;
+        }
+        try {
+          await env.UPS_MFL_DB.prepare("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)").run();
+          await env.UPS_MFL_DB.prepare(
+            "INSERT INTO ups_settings (key, value, updated_at) VALUES ('discord_routing', ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at"
+          ).bind(JSON.stringify(merged), new Date().toISOString()).run();
+        } catch (e) { return jsonOut(500, { ok: false, error: e?.message || String(e) }); }
+        return jsonOut(200, { ok: true, discord_routing: merged });
+      }
+
+      // GET /admin/d1-status — row counts + last-write per ups_* table
+      // (Commish Settings → Status, the D1 view).
+      if (path === "/admin/d1-status" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const out = [];
+        try {
+          const tbls = await env.UPS_MFL_DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'ups_%' ORDER BY name").all();
+          for (const t of (tbls.results || [])) {
+            let rows = 0, lastWrite = null;
+            try { const c = await env.UPS_MFL_DB.prepare(`SELECT COUNT(*) AS n FROM "${t.name}"`).first(); rows = c ? Number(c.n) : 0; } catch (_) {}
+            try { const w = await env.UPS_MFL_DB.prepare(`SELECT MAX(submitted_at_utc) AS m FROM "${t.name}"`).first(); lastWrite = w ? w.m : null; } catch (_) {}
+            out.push({ table: t.name, rows: rows, last_write: lastWrite });
+          }
+        } catch (e) { return jsonOut(500, { ok: false, error: e?.message || String(e) }); }
+        return jsonOut(200, { ok: true, tables: out });
+      }
+
       // POST /admin/contract-revert — Body: { reverts:[{table,id}], dry_run? }.
       // Restores each selected submission's PRIOR contract to MFL (tags → untag)
       // via /commish-contract-update (silence_discord + commish_override). Commish.
@@ -35557,6 +35616,15 @@ export default {
           contractStatus: activityContractStatus,
         });
 
+        // Per-mechanism Discord routing — commish-configurable (D1 ups_settings
+        // 'discord_routing'). routeToTest forces the test channel for this type.
+        const discordRouting = await getDiscordRoutingConfig(env);
+        const routingKey = {
+          Tag: "tag", Extension: "extension", Restructure: "restructure",
+          "Multi-Year Contract": "myac", "FA Contract": "fa",
+        }[activityType] || "mym";
+        const routeToTest = String(discordRouting[routingKey] || "prod").toLowerCase() === "test";
+
         let contractDiscord = {
           ok: false,
           skipped: true,
@@ -35646,7 +35714,7 @@ export default {
               // MYAC + Extensions post to PRODUCTION (Keith 2026-06-04, verified
               // in test). Restructure is pinned to TEST until Keith verifies it
               // (2026-06-04) — flip by dropping `|| isRestructure`.
-              forceTestOnly: dryRunFlag === 1 || isRestructure,
+              forceTestOnly: dryRunFlag === 1 || routeToTest,
             });
           } catch (e) {
             contractDiscord = {
