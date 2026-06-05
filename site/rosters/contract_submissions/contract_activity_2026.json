@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-06-05 18:24:11",
+    "generated_at": "2026-06-05 18:40:32",
     "source": "contract-activity-log",
-    "count": 58,
+    "count": 59,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "413b2b8d107dae1f752259b0",
+      "submission_id": "413b2b8d107dae1f752259b0",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Restructure",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "player_id": "16194",
+      "player_name": "Rice, Rashee",
+      "position": "WR",
+      "salary": 11000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext2-BL",
+      "contract_info": "CL 2|TCV 55K|AAV 27.5K|Y1-11K, Y2-44K|GTD: 41.3K|Restructured 2026",
+      "tcv": 55000,
+      "aav": 27500,
+      "guaranteed": 41300,
+      "submitted_at_utc": "2026-06-05T18:40:19.271Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "1089538054236160010",
+      "discord_message_id": "1512526509448102068",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "8c57373f2cfa3d9fb553b244",
       "submission_id": "8c57373f2cfa3d9fb553b244",
