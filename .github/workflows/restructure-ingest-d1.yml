@@ -1,0 +1,80 @@
+name: Restructure ingest → D1 (manual)
+
+# Canon: D1 is the SINGLE SOURCE OF TRUTH for contract activity (Keith
+# 2026-06-05). This backfills restructures that happened OFF the worker path
+# (UPS Contracts Hub Bot, manual MFL edits — from restructure_manual_<season>.json)
+# AND any real prod restructure from the contract-activity log that predates the
+# worker's D1 write, into ups_restructure_submissions via /admin/restructure-ingest.
+# Idempotent (the endpoint dedupes on league+season+franchise+player+submitted_at),
+# so it's safe to re-run.
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season to ingest'
+        required: false
+        default: '2026'
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build records (ledger + prod activity log) and POST to D1
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+          SEASON: ${{ github.event.inputs.season }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, urllib.request
+          season = os.environ.get("SEASON") or "2026"
+          recs = []
+          # 1) manual ledger — off-path restructures (Hub Bot / manual MFL)
+          try:
+              man = json.load(open(f"site/rosters/contract_submissions/restructure_manual_{season}.json"))
+              for r in (man.get("restructures") or []):
+                  recs.append(r)
+              print(f"ledger: {len(man.get('restructures') or [])} records")
+          except Exception as e:
+              print("no ledger:", e)
+          # 2) contract-activity log — real prod restructures (worker path)
+          try:
+              act = json.load(open(f"site/rosters/contract_submissions/contract_activity_{season}.json"))
+              n = 0
+              for a in (act.get("activities") or []):
+                  if a.get("activity_type") != "Restructure":
+                      continue
+                  if a.get("delivery_target") == "test":
+                      continue
+                  if str(a.get("player_name") or "").strip().lower().startswith("[dry run]"):
+                      continue
+                  ys = [int(round(float(m.group(2)) * 1000))
+                        for m in re.finditer(r"Y(\d+)\s*-\s*([\d.]+)K", a.get("contract_info") or "")]
+                  recs.append({
+                      "franchise_id": a.get("franchise_id"), "franchise_name": a.get("franchise_name"),
+                      "player_id": a.get("player_id"), "player_name": a.get("player_name"),
+                      "position": a.get("position"), "contract_status": a.get("contract_status"),
+                      "year_salaries": ys, "tcv": a.get("tcv"), "aav": a.get("aav"),
+                      "contract_year": a.get("contract_year"), "contract_info": a.get("contract_info"),
+                      "submitted_at_utc": a.get("submitted_at_utc"),
+                      "source": a.get("source") or "worker-contract-activity",
+                  })
+                  n += 1
+              print(f"activity log: {n} prod restructures")
+          except Exception as e:
+              print("no activity log:", e)
+          # dedupe by (franchise, player, submitted_at)
+          seen, uniq = set(), []
+          for r in recs:
+              k = (str(r.get("franchise_id")), str(r.get("player_id")), str(r.get("submitted_at_utc")))
+              if k in seen:
+                  continue
+              seen.add(k); uniq.append(r)
+          print(f"POSTing {len(uniq)} unique restructure records for {season}")
+          body = json.dumps({"season": season, "league_id": "74598", "records": uniq}).encode()
+          url = f"https://upsmflproduction.keith-creelman.workers.dev/admin/restructure-ingest?APIKEY={os.environ['KEY']}"
+          req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+          with urllib.request.urlopen(req) as resp:
+              print("HTTP", resp.status)
+              print(resp.read().decode()[:2000])
+          PY
