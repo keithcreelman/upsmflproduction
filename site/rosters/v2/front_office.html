@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Front Office — UPS League</title>
-<link rel="stylesheet" href="front_office.css?v=2026.05.19.v0.2.8">
+<link rel="stylesheet" href="front_office.css?v=2026.06.05.v0.2.9">
 </head>
 <body>
 <header class="fo-header">
@@ -18,16 +18,21 @@
 </header>
 
 <nav class="fo-tabs" id="fo-tabs">
-  <button data-tab="roster" class="active">Roster</button>
-  <button data-tab="cap">Cap Plan</button>
-  <button data-tab="tag">Tagging</button>
-  <button data-tab="extensions">Extensions</button>
-  <button data-tab="myac">Auction Contracts</button>
-  <button data-tab="restructure">Restructures</button>
-  <button data-tab="mym">MYM</button>
+  <button data-tab="roster" class="active">Rosters</button>
+  <button data-tab="cap">Cap Planning</button>
+  <button data-tab="contracts">Contracts</button>
   <button data-tab="contractlog">Contract Log</button>
   <button data-tab="activity" id="fo-tab-activity" hidden>Activity &amp; Audit</button>
-  <button data-tab="contracts" id="fo-tab-contracts" hidden>Commish Settings</button>
+  <button data-tab="commish" id="fo-tab-contracts" hidden>Commish Settings</button>
+</nav>
+
+<!-- Sub-tabs under the Contracts parent (shown only when Contracts is active) -->
+<nav class="fo-subtabs" id="fo-contracts-subnav" hidden>
+  <button data-subtab="myac" class="active">Auction</button>
+  <button data-subtab="extensions">Extensions</button>
+  <button data-subtab="restructure">Restructures</button>
+  <button data-subtab="mym">MYM</button>
+  <button data-subtab="tag">Tagging</button>
 </nav>
 
 <main class="fo-main">
@@ -240,8 +245,8 @@
     <div id="fo-activity-body"></div>
   </section>
 
-  <!-- ── CONTRACT REVERT TAB (commish-only) ────────────────────────── -->
-  <section class="fo-section" data-section="contracts">
+  <!-- ── COMMISH SETTINGS TAB (commish-only) ────────────────────────── -->
+  <section class="fo-section" data-section="commish">
     <div class="fo-card">
       <div class="fo-card-head">
         <h2>Commish Settings</h2>
@@ -284,6 +289,6 @@
   </div>
 </aside>
 
-<script src="front_office.js?v=2026.06.05.v1.5.0"></script>
+<script src="front_office.js?v=2026.06.05.v1.6.0"></script>
 </body>
 </html>
