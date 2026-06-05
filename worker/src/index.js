@@ -32870,14 +32870,21 @@ export default {
             await env.UPS_MFL_DB.prepare(
               `INSERT INTO ups_restructure_submissions
                  (league_id, season, franchise_id, player_id, player_name, position,
+                  prior_contract_status, prior_salary, prior_contract_year, prior_contract_info, prior_year_salaries_json,
                   new_contract_status, new_salary, new_contract_year, new_contract_info,
                   new_year_salaries_json, tcv_usd, new_aav,
                   source, raw_payload_json, submitted_at_utc, dry_run)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
             ).bind(
               riLeague, riSeason, fid, pid,
               String(r.player_name || "") || null,
               String(r.position || "") || null,
+              // prior state — lets a backfill make an off-path restructure REVERTABLE
+              String(r.prior_contract_status || "") || null,
+              r.prior_salary != null ? Number(r.prior_salary) : null,
+              r.prior_contract_year != null ? Number(r.prior_contract_year) : null,
+              String(r.prior_contract_info || "") || null,
+              Array.isArray(r.prior_year_salaries) ? JSON.stringify(r.prior_year_salaries.map(Number)) : null,
               String(r.contract_status || "") || null,
               ys.length ? ys[0] : (Number(r.salary) || null),
               cy, info,
@@ -35704,7 +35711,14 @@ export default {
         // canonical contract identity the way an extension does; the
         // current-state mirror is just the rosters/salaries payload.
         if (looksOk && anyChanged && isRestructure && env.UPS_MFL_DB) {
-          const priorInfo = String(body.prior_contract_info || body.priorContractInfo || "").trim();
+          // Prior state — prefer what the client sent, but FALL BACK to the
+          // worker's own preCheck (the before-state it captured pre-import) so
+          // the audit row is REVERTABLE even when the client omits prior_*
+          // (the FO restructure form did — Rashee Rice couldn't be reverted).
+          const priorInfo = String(body.prior_contract_info || body.priorContractInfo || (preCheck && preCheck.contractInfo) || "").trim();
+          const priorStatusFb = String(body.prior_contract_status || body.priorContractStatus || (preCheck && preCheck.contractStatus) || "").trim();
+          const priorSalaryFb = body.prior_salary != null ? Number(body.prior_salary)
+            : ((preCheck && preCheck.salary != null && String(preCheck.salary) !== "") ? Number(preCheck.salary) : null);
           const newInfo = String(contractInfo || "").trim();
           const matchInt = (str, re) => {
             const m = String(str || "").match(re);
@@ -35726,7 +35740,7 @@ export default {
           };
           const newTcv = matchInt(newInfo, /TCV\s*(\d+(?:[.,]?\d+)*)/i);
           const newAav = matchInt(newInfo, /AAV\s*(\d+(?:[.,]?\d+)*)/i);
-          const priorCyInt = Number(body.prior_contract_year || body.priorContractYear || 0) || null;
+          const priorCyInt = Number(body.prior_contract_year || body.priorContractYear || (preCheck && preCheck.contractYear) || 0) || null;
 
           try {
             await env.UPS_MFL_DB.prepare(
@@ -35746,8 +35760,8 @@ export default {
               playerId,
               playerName,
               position,
-              String(body.prior_contract_status || body.priorContractStatus || "") || null,
-              body.prior_salary != null ? Number(body.prior_salary) : null,
+              priorStatusFb || null,
+              priorSalaryFb,
               priorCyInt,
               priorInfo || null,
               parseYearSalaries(priorInfo),
