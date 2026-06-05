@@ -24,6 +24,7 @@
   <button data-tab="extensions">Extensions</button>
   <button data-tab="myac">Auction Contracts</button>
   <button data-tab="restructure">Restructures</button>
+  <button data-tab="contractlog">Contract Log</button>
   <button data-tab="activity" id="fo-tab-activity" hidden>Activity &amp; Audit</button>
   <button data-tab="contracts" id="fo-tab-contracts" hidden>Contract Revert</button>
 </nav>
@@ -209,6 +210,18 @@
     </div>
   </section>
 
+  <!-- ── CONTRACT LOG TAB (read-only, D1-sourced) ──────────────────── -->
+  <section class="fo-section" data-section="contractlog">
+    <div class="fo-card">
+      <div class="fo-card-head">
+        <h2>Contract Log</h2>
+        <span class="small" style="color:var(--muted);">Every contract event from D1 — Franchise · Date · Type · Details.</span>
+      </div>
+      <p class="fo-row-hint">💡 Straight from D1 (the single source of truth): extensions, auction contracts (MYAC), restructures, tags &amp; untags. Filter by Team / Type / Year. Pinned to the current season until the historical (forum 2012–2025) backfill is validated.</p>
+      <div id="fo-contractlog-body"></div>
+    </div>
+  </section>
+
   <!-- ── ACTIVITY & AUDIT TAB ──────────────────────────────────────── -->
   <section class="fo-section" data-section="activity">
     <div id="fo-activity-body"></div>
@@ -254,6 +267,6 @@
   </div>
 </aside>
 
-<script src="front_office.js?v=2026.06.04.v0.9.1"></script>
+<script src="front_office.js?v=2026.06.05.v1.0.0"></script>
 </body>
 </html>
