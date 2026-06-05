@@ -101,6 +101,9 @@
     capAmount: 0,
     teams: [],          // worker payload normalized
     activeTab: "roster",
+    // Active subview under the Contracts parent tab (Auction/Extensions/
+    // Restructures/MYM/Tagging). Defaults to Auction.
+    contractsSubtab: "myac",
     // MYM test mode (?mymtest=1) — surfaces the §C3 MYM action on ANY player so
     // the commish can exercise the wiring out of season; the form then forces a
     // dry run (no live MFL write). See renderActionsTab / submitMymContract.
@@ -1741,24 +1744,56 @@
   }
 
   // ── Tabs ────────────────────────────────────────────────────────────
+  // The Contracts parent tab groups these subviews (in this order) under a
+  // sub-tab chip bar (#fo-contracts-subnav). Each still has its own .fo-section.
+  const CONTRACT_SUBTABS = ["myac", "extensions", "restructure", "mym", "tag"];
+  function renderTabByKey(key) {
+    if (key === "cap") renderCapTab();
+    else if (key === "tag") renderTagTab();
+    else if (key === "extensions") renderExtensionsTab();
+    else if (key === "myac") renderMyacTab();
+    else if (key === "restructure") renderRestructureTab();
+    else if (key === "mym") renderMymTab();
+    else if (key === "contractlog") renderContractLogTab();
+    else if (key === "activity") renderActivityTab();
+    else if (key === "commish") renderContractsTab();
+  }
+  // Activate one of the Contracts subviews: its section goes active, the
+  // Contracts parent button stays highlighted, and the sub-tab bar shows with
+  // the matching chip active.
+  function activateContractSubtab(sub) {
+    if (CONTRACT_SUBTABS.indexOf(sub) === -1) sub = "myac";
+    STATE.contractsSubtab = sub;
+    STATE.activeTab = sub;
+    $$("#fo-tabs button").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === "contracts"); });
+    $$(".fo-section").forEach(function (s) { s.classList.toggle("active", s.dataset.section === sub); });
+    const subnav = $("#fo-contracts-subnav");
+    if (subnav) {
+      subnav.hidden = false;
+      $$("button", subnav).forEach(function (b) { b.classList.toggle("active", b.dataset.subtab === sub); });
+    }
+    renderTabByKey(sub);
+  }
   function setupTabs() {
     $$("#fo-tabs button").forEach(function (btn) {
       btn.addEventListener("click", function () {
         if (btn.disabled) return;
         const tab = btn.dataset.tab;
-        if (!tab || tab === STATE.activeTab) return;
+        if (!tab) return;
+        // Contracts is a PARENT — open the last-used (or default) subview.
+        if (tab === "contracts") { activateContractSubtab(STATE.contractsSubtab || "myac"); return; }
+        if (tab === STATE.activeTab) return;
         STATE.activeTab = tab;
         $$("#fo-tabs button").forEach(function (b) { b.classList.toggle("active", b === btn); });
         $$(".fo-section").forEach(function (s) { s.classList.toggle("active", s.dataset.section === tab); });
-        if (tab === "cap") renderCapTab();
-        if (tab === "tag") renderTagTab();
-        if (tab === "extensions") renderExtensionsTab();
-        if (tab === "myac") renderMyacTab();
-        if (tab === "restructure") renderRestructureTab();
-        if (tab === "mym") renderMymTab();
-        if (tab === "contractlog") renderContractLogTab();
-        if (tab === "activity") renderActivityTab();
-        if (tab === "contracts") renderContractsTab();
+        const subnav = $("#fo-contracts-subnav"); if (subnav) subnav.hidden = true;  // left the Contracts group
+        renderTabByKey(tab);
+      });
+    });
+    // Sub-tab chips under the Contracts parent.
+    $$("#fo-contracts-subnav button").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.dataset.subtab) activateContractSubtab(btn.dataset.subtab);
       });
     });
   }
@@ -1778,7 +1813,7 @@
             STATE.tagSubview = chip.dataset.subview;
             renderTagTab();
           }
-          if (tabSection.dataset.section === "contracts") {
+          if (tabSection.dataset.section === "commish") {
             STATE.commishSubview = chip.dataset.subview;
             renderContractsTab();
           }
@@ -6171,7 +6206,7 @@
   function renderContractsTab() {
     if (!$("#fo-commish-body")) return;
     STATE.commishSubview = STATE.commishSubview || "discord";
-    $$('.fo-section[data-section="contracts"] .fo-subview-chip').forEach(function (c) {
+    $$('.fo-section[data-section="commish"] .fo-subview-chip').forEach(function (c) {
       c.classList.toggle("active", c.dataset.subview === STATE.commishSubview);
     });
     if (STATE.commishSubview === "revert") renderContractRevertSub();
@@ -6263,7 +6298,7 @@
       { n: "Contract — Auction (FA + MYAC)", k: "myac" },
       { n: "Contract — Restructure", k: "restructure" },
       { n: "Contract — Tag / Untag", k: "tag" },
-      { n: "Contract — MYM", k: "mym", note: "worker /offer-mym wired; not yet in Front Office" },
+      { n: "Contract — MYM", k: "mym" },
       { n: "Drop / Cap penalty", state: "prod" },
       { n: "Trade notification", state: "prod" },
       { n: "Auction alerts", state: "prod" },

@@ -74,6 +74,26 @@ nav.fo-tabs button:hover { color: var(--text); }
 nav.fo-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
 nav.fo-tabs button[disabled] { opacity: 0.45; cursor: not-allowed; }
 
+/* Sub-tabs under the Contracts parent — a secondary pill bar shown only when
+   a Contracts subview (Auction/Extensions/Restructures/MYM/Tagging) is active. */
+nav.fo-subtabs {
+  display: flex; gap: 6px; padding: 8px 24px;
+  background: var(--panel-alt, var(--panel));
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+nav.fo-subtabs[hidden] { display: none; }
+nav.fo-subtabs button {
+  background: transparent; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 4px 14px; cursor: pointer;
+  font-size: 12px; font-weight: 600;
+  transition: color 120ms, background 120ms, border-color 120ms;
+  white-space: nowrap; font-family: inherit;
+}
+nav.fo-subtabs button:hover { color: var(--text); border-color: var(--muted); }
+nav.fo-subtabs button.active { color: #fff; background: var(--accent); border-color: var(--accent); }
+
 main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-section { display: none; }
 .fo-section.active { display: block; }
