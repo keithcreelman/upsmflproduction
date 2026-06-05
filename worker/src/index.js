@@ -20875,6 +20875,9 @@ export default {
         // Handle both "Last, First" and "First Last" formats.
         // Returns {full, last, variants[]}
         let cleaned = safeStr(name).replace(/\s+/g, " ").trim();
+        // Strip a leading bracketed tag (e.g. "[DRY RUN] ") so dry-run posts
+        // still resolve a player GIF instead of searching the literal prefix.
+        cleaned = cleaned.replace(/^\[[^\]]*\]\s*/, "").trim();
         if (!cleaned) return { full: "", last: "", variants: [] };
         let first = "", last = "";
         if (cleaned.includes(",")) {
