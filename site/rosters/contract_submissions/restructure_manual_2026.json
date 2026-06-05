@@ -34,5 +34,14 @@
       "year_salaries": [15000, 59000],
       "note": "Restructure 1 of 3 (HammerTime). Flipped EXT1 -> BL after the Real Deal Creel trade."
     }
+  ],
+  "exclusions": [
+    {
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "player_id": "16594",
+      "player_name": "Benson, Trey",
+      "reason": "Testing only — NOT a real restructure (Keith 2026-06-05). Skip in the count and DELETE from D1."
+    }
   ]
 }

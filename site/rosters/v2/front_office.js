@@ -4080,9 +4080,16 @@
   async function loadRestructureUsage() {
     if (STATE.restructureUsage) return STATE.restructureUsage;
     const out = { byFid: {}, names: {} };
+    // Off-path ledger FIRST — gives us the exclusion set (test/invalid records
+    // the commish flagged, e.g. Benson) before we add from any source.
+    let ledger = { restructures: [], exclusions: [] };
+    try { ledger = await fetchJSON("../contract_submissions/restructure_manual_" + encodeURIComponent(SEASON) + ".json") || ledger; } catch (e) {}
+    const excluded = {};
+    (ledger.exclusions || []).forEach(function (e) { excluded[pad4(e.franchise_id) + "|" + safeStr(e.player_id)] = true; });
     const add = function (fid, pid, name) {
       fid = pad4(fid); pid = safeStr(pid);
       if (!fid || !pid) return;
+      if (excluded[fid + "|" + pid]) return;            // skip flagged test/invalid records
       (out.byFid[fid] = out.byFid[fid] || {})[pid] = safeStr(name) || pid;
     };
     // PRIMARY: D1 ups_restructure_submissions (canon — D1 is the single source
@@ -4094,8 +4101,8 @@
         add(s.franchise_id, s.player_id, s.player_name);
       });
     } catch (e) { /* D1 unreachable → fall back to the files below */ }
-    // FALLBACK (transition): worker contract-activity log (real prod only) +
-    // the off-path manual ledger, in case a record isn't in D1 yet. Deduped by id.
+    // FALLBACK (transition): worker contract-activity log (real prod only) + the
+    // off-path manual ledger, in case a record isn't in D1 yet. Deduped + excluded.
     try {
       const data = await fetchJSON("../contract_submissions/contract_activity_" + encodeURIComponent(SEASON) + ".json");
       (data && data.activities || []).forEach(function (a) {
@@ -4105,10 +4112,7 @@
         add(a.franchise_id, a.player_id, a.player_name);
       });
     } catch (e) { /* no log file */ }
-    try {
-      const man = await fetchJSON("../contract_submissions/restructure_manual_" + encodeURIComponent(SEASON) + ".json");
-      (man && man.restructures || []).forEach(function (r) { add(r.franchise_id, r.player_id, r.player_name); });
-    } catch (e) { /* no manual ledger */ }
+    (ledger.restructures || []).forEach(function (r) { add(r.franchise_id, r.player_id, r.player_name); });
     STATE.restructureUsage = out;
     return out;
   }
