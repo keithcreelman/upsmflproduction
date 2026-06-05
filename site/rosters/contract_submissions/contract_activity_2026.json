@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-06-05 21:39:25",
+    "generated_at": "2026-06-05 21:40:11",
     "source": "contract-activity-log",
-    "count": 60,
+    "count": 61,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "0b6a72023b3d7240b77ce7b2",
+      "submission_id": "0b6a72023b3d7240b77ce7b2",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Restructure",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "player_id": "16167",
+      "player_name": "Achane, De'Von",
+      "position": "RB",
+      "salary": 54000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext2-FL",
+      "contract_info": "CL 2|TCV 55K|AAV 27.5K|Y1-54K, Y2-1K|GTD: 41.3K|Restructured 2026",
+      "tcv": 55000,
+      "aav": 27500,
+      "guaranteed": 41300,
+      "submitted_at_utc": "2026-06-05T21:39:58.765Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "1089538054236160010",
+      "discord_message_id": "1512571721821978736",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "c612dbfdd39f7552fc02fe2b",
       "submission_id": "c612dbfdd39f7552fc02fe2b",
