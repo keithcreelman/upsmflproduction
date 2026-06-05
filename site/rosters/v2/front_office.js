@@ -6011,7 +6011,7 @@
       host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + escapeHtml(e.message || String(e)) + "</div></div>";
       return;
     }
-    const labels = { extension: "Extension", myac: "Auction Contract (MYAC)", restructure: "Restructure", tag: "Tag / Untag", fa: "FA Contract (1-yr auction)", mym: "MYM" };
+    const labels = { extension: "Extension", myac: "Auction Contract (FA + MYAC)", restructure: "Restructure", tag: "Tag / Untag", mym: "MYM", traderoast: "Trade Roast bot (offline)" };
     const rowHtml = Object.keys(labels).map(function (k) {
       const val = String(cfg[k] || "prod").toLowerCase();
       const seg = ["prod", "test"].map(function (o) {
@@ -6079,15 +6079,15 @@
     // Discord posters manifest (contract types pull live state from routing).
     const discordRows = [
       { n: "Contract — Extension", k: "extension" },
-      { n: "Contract — Auction (MYAC)", k: "myac" },
+      { n: "Contract — Auction (FA + MYAC)", k: "myac" },
       { n: "Contract — Restructure", k: "restructure" },
       { n: "Contract — Tag / Untag", k: "tag" },
-      { n: "Contract — FA / MYM", k: "fa" },
+      { n: "Contract — MYM", k: "mym", note: "worker /offer-mym wired; not yet in Front Office" },
       { n: "Drop / Cap penalty", state: "prod" },
       { n: "Trade notification", state: "prod" },
       { n: "Auction alerts", state: "prod" },
       { n: "Deadline reminders", state: "prod" },
-      { n: "Trade Roast bot", state: "inactive", note: "OFF — prod incident 2026-06-01; launchd agents disabled" },
+      { n: "Trade Roast bot", state: "inactive", note: "OFF (agents disabled, prod incident 2026-06-01). Routing toggle sets target for when re-enabled." },
     ].map(function (r) {
       const state = r.k ? String(routing[r.k] || "prod").toLowerCase() : r.state;
       const label = state === "inactive" ? "INACTIVE" : (state === "test" ? "TEST" : "PROD");
