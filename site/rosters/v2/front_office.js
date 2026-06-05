@@ -1770,6 +1770,9 @@
     });
     $("#fo-team-select").addEventListener("change", function (e) {
       STATE.selectedTeamId = e.target.value || "__all__";
+      // Re-scope the dynamic filters to the chosen team (dynamic per-team).
+      populateValueFilters();
+      populateActionFilter();
       renderRosterTable();
     });
     $("#fo-search").addEventListener("input", function (e) {
@@ -1851,8 +1854,12 @@
   function populateActionFilter() {
     const sel = $("#fo-filter-action");
     if (!sel) return;
+    // Scope to the selected team so counts/options match the visible roster.
+    const scopeTeams = STATE.selectedTeamId === "__all__"
+      ? STATE.teams
+      : STATE.teams.filter(function (t) { return t.fid === STATE.selectedTeamId; });
     const allPlayers = [];
-    STATE.teams.forEach(function (t) { (t.players || []).forEach(function (p) { allPlayers.push(p); }); });
+    scopeTeams.forEach(function (t) { (t.players || []).forEach(function (p) { allPlayers.push(p); }); });
     const counts = { extension: 0, myac: 0, rookie_option: 0, restructure: 0, untag: 0 };
     for (let i = 0; i < allPlayers.length; i += 1) {
       const e = rosterContractEligibility(allPlayers[i]);
@@ -1878,8 +1885,14 @@
   // exist on the roster (Keith 2026-06-01: "years remaining 4+ but no players,
   // shouldn't be an option"). Mirrors populateActionFilter; recomputed on load.
   function populateValueFilters() {
+    // Scope to the selected team so the filters are dynamic — a team with no
+    // (say) MYM contract won't list MYM (Keith 2026-06-04). "All teams"
+    // (__all__) spans the whole league. Re-run whenever the team changes.
+    const scopeTeams = STATE.selectedTeamId === "__all__"
+      ? STATE.teams
+      : STATE.teams.filter(function (t) { return t.fid === STATE.selectedTeamId; });
     const all = [];
-    STATE.teams.forEach(function (t) { (t.players || []).forEach(function (p) { all.push(p); }); });
+    scopeTeams.forEach(function (t) { (t.players || []).forEach(function (p) { all.push(p); }); });
     // Years Remaining
     const yset = {};
     all.forEach(function (p) { const y = safeInt(p.years, 0); yset[y >= 4 ? "4+" : String(y)] = true; });
@@ -1916,11 +1929,12 @@
       const fam = t.indexOf("TAG") >= 0 ? "tag" : (t.indexOf("ROOKIE") === 0 ? "rk" : "vet");
       if (fam === "rk" || fam === "vet") {
         present[fam] = true;
+        if (t.indexOf("FAA") >= 0) present[fam + "-faa"] = true;
+        if (t.indexOf("ERA") >= 0) present[fam + "-era"] = true;
         if (t.indexOf("EXT") >= 0) present[fam + "-ext"] = true;
         if (t.indexOf("WW") >= 0) present[fam + "-ww"] = true;
         if (t.indexOf("MYM") >= 0) present[fam + "-mym"] = true;
         if (fam === "rk" && t.indexOf("DRAFT") >= 0) present["rk-draft"] = true;
-        if (!/FL|BL|EXT|WW|MYM|DRAFT/.test(t)) present[fam + "-base"] = true;
       } else if (fam === "tag") present.tag = true;
       if (t === "EXPIRED" || p.isExpiredRookie) present.expired = true;
       if (t.indexOf("FL") >= 0 || t.indexOf("BL") >= 0) anyLoaded = true;
@@ -1937,11 +1951,11 @@
         parts.push('<optgroup label="' + famLabel + '">' + g.join("") + '</optgroup>');
       };
       grp("rk", "rookie", "Rookie", [
-        ["rk-base", "Rookie (base)"], ["rk-draft", "Rookie-Draft"],
-        ["rk-ww", "Rookie-WW"], ["rk-mym", "Rookie-MYM"], ["rk-ext", "Rookie-Ext"],
+        ["rk-draft", "Rookie-Draft"], ["rk-ww", "Rookie-WW"],
+        ["rk-mym", "Rookie-MYM"], ["rk-ext", "Rookie-Ext"],
       ]);
       grp("vet", "veteran", "Veteran", [
-        ["vet-base", "Vet-FAA / ERA"], ["vet-ext", "Vet-Ext"],
+        ["vet-faa", "Vet-FAA"], ["vet-era", "Vet-ERA"], ["vet-ext", "Vet-Ext"],
         ["vet-ww", "Vet-WW"], ["vet-mym", "Vet-MYM"],
       ]);
       if (present.tag)     { parts.push('<option value="tag">Tag</option>'); valid.tag = 1; }
@@ -1985,14 +1999,13 @@
         else if (f.type === "veteran") ok = fam === "vet";
         else if (f.type === "tag") ok = fam === "tag";
         else if (f.type === "expired") ok = p.isExpiredRookie || t === "EXPIRED";
-        else if (f.type === "rk-base") ok = fam === "rk" && !/FL|BL|EXT|WW|MYM|DRAFT/.test(t);
-        else if (f.type === "vet-base") ok = fam === "vet" && !/FL|BL|EXT|WW|MYM/.test(t);
         else {
-          // family-prefixed sub (vet-ext / rk-draft / …) → family + sub token in raw type
+          // family-prefixed REAL sub (vet-faa / vet-ext / rk-draft / …) →
+          // family + the actual MFL token in the raw status.
           const dash = f.type.indexOf("-");
           const wantFam = f.type.slice(0, dash);                  // "rk" | "vet"
-          const sub = f.type.slice(dash + 1);                     // "ext" | "ww" | "mym" | "draft"
-          const tok = { ext: "EXT", ww: "WW", mym: "MYM", draft: "DRAFT" }[sub] || sub.toUpperCase();
+          const sub = f.type.slice(dash + 1);                     // "faa"|"era"|"ext"|"ww"|"mym"|"draft"
+          const tok = { faa: "FAA", era: "ERA", ext: "EXT", ww: "WW", mym: "MYM", draft: "DRAFT" }[sub] || sub.toUpperCase();
           ok = fam === wantFam && t.indexOf(tok) >= 0;
         }
         if (!ok) return false;
@@ -2550,6 +2563,26 @@
     return date ? head + " · " + date : head;
   }
   function bioInitials(name) { return (safeStr(name).match(/\b([A-Za-z])/g) || []).slice(0, 2).join("").toUpperCase() || "?"; }
+  // Year-by-year salary for the player's REMAINING contract years (Keith
+  // 2026-06-04): e.g. a 3-yr deal viewed in 2026 → [2026:$20K, 2027:$20K,
+  // 2028:$20K]. Each year's salary comes from the contract_info Y-tokens
+  // (loaded shapes differ year-to-year), falling back to the per-year
+  // escalator value. So an extended player shows every remaining year.
+  function contractYearlyBreakdown(player) {
+    var yearsRem = Math.max(0, safeInt(player && player.years, 0));
+    if (yearsRem <= 0) return [];
+    var currentIdx = Math.max(1, contractYearIndexForPlayer(player));
+    var yv = contractYearValueMapForPlayer(player);
+    var base = safeInt(SEASON, 0);
+    var out = [];
+    for (var offset = 0; offset < yearsRem; offset += 1) {
+      var idx = currentIdx + offset;
+      var sal = safeInt(yv[idx], 0) || contractYearFallbackValue(player, idx);
+      out.push({ year: base + offset, salary: sal });
+    }
+    return out;
+  }
+
   function bioHtml(p, d) {
     d = d || {};
     var espn = safeStr(p.espnId).replace(/\D/g, "");
@@ -2557,6 +2590,22 @@
       ? '<div class="fo-bio-avatar" style="background-image:url(https://a.espncdn.com/i/headshots/nfl/players/full/' + espn + '.png)"></div>'
       : '<div class="fo-bio-avatar">' + escapeHtml(bioInitials(p.name)) + '</div>';
     var loading = d.__loading ? ' <span class="small" style="color:var(--muted);">· loading…</span>' : "";
+    // Contract section — Years Remaining + per-year salary breakdown.
+    var yrsRem = Math.max(0, safeInt(p.years, 0));
+    var bd = contractYearlyBreakdown(p);
+    var tcv = totalContractValueForPlayer(p);
+    var bdRows = bd.map(function (r) {
+      return '<div class="fo-form-row" style="padding-left:14px;"><span class="lbl" style="color:var(--muted);">' + r.year + '</span><span class="val">' + escapeHtml(fmtUSD(r.salary)) + '</span></div>';
+    }).join("");
+    var contractSection =
+      '<div class="fo-form-row" style="border-top:1px solid var(--border);margin-top:6px;padding-top:8px;">' +
+        '<span class="lbl"><strong>Years Remaining in Contract</strong></span>' +
+        '<span class="val"><strong>' + yrsRem + '</strong>' + (p.type ? ' <span class="small" style="color:var(--muted);">· ' + escapeHtml(p.type) + '</span>' : '') + '</span>' +
+      '</div>' +
+      (yrsRem > 0
+        ? '<div class="small" style="color:var(--muted);margin:4px 0 2px 14px;">Yearly breakdown</div>' + bdRows +
+          '<div class="fo-form-row" style="padding-left:14px;border-top:1px dashed var(--border);"><span class="lbl">TCV</span><span class="val">' + escapeHtml(fmtUSD(tcv)) + '</span></div>'
+        : '<div class="fo-form-row" style="padding-left:14px;"><span class="lbl small" style="color:var(--muted);">Expired / no remaining years</span><span class="val"></span></div>');
     return `
       <div class="fo-bio">
         <div class="fo-bio-head">
@@ -2576,6 +2625,7 @@
           <div class="fo-form-row"><span class="lbl">NFL Draft</span><span class="val">${escapeHtml(bioDraft(d))}</span></div>
           <div class="fo-form-row"><span class="lbl">UPS Draft</span><span class="val">${escapeHtml(bioUpsDraft(p))}</span></div>
           <div class="fo-form-row"><span class="lbl">Last Acquired</span><span class="val" id="fo-bio-lastacq">${escapeHtml(bioLastAcquired(p))}</span></div>
+          ${contractSection}
         </div>
       </div>`;
   }
