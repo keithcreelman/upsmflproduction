@@ -5883,10 +5883,11 @@
   async function renderContractLogTab() {
     const body = $("#fo-contractlog-body");
     if (!body) return;
-    STATE.contractLogFilter = STATE.contractLogFilter || { team: "", type: "", year: String(safeInt(SEASON, 2026)) };
+    STATE.contractLogFilter = STATE.contractLogFilter || { team: "", type: "", year: String(safeInt(SEASON, 2026)), showTest: false };
     const f = STATE.contractLogFilter;
     const year = f.year || String(safeInt(SEASON, 2026));
     STATE.contractLogData = STATE.contractLogData || {};
+    STATE.contractLogTest = STATE.contractLogTest || {};
     if (!STATE.contractLogData[year]) {
       body.innerHTML = '<div class="fo-table-loading">Loading contract log…</div>';
       try {
@@ -5896,25 +5897,43 @@
         body.innerHTML = '<div class="fo-table-loading">Failed to load contract log: ' + escapeHtml(e.message || String(e)) + "</div>";
         return;
       }
+      // Test-event config — franchises (with optional `before` cutoff) whose
+      // events are test data, hidden by default (Keith 2026-06-05).
+      try {
+        const tcfg = await fetchJSON("../contract_submissions/contract_log_test_" + encodeURIComponent(year) + ".json");
+        STATE.contractLogTest[year] = (tcfg && tcfg.test_franchises) || [];
+      } catch (e) { STATE.contractLogTest[year] = []; }
     }
     const nameByFid = {};
     (STATE.teams || []).forEach(function (t) { nameByFid[pad4(t.fid)] = t.name; });
+    const testFr = STATE.contractLogTest[year] || [];
+    const isTestEvent = function (fid, dateStr) {
+      return testFr.some(function (t) {
+        if (pad4(t.franchise_id) !== fid) return false;
+        return t.before ? String(dateStr || "") < String(t.before) : true;   // `before` = "thus far" cutoff
+      });
+    };
     let rows = (STATE.contractLogData[year] || []).map(function (s) {
       const fid = pad4(s.franchise_id);
       const isTag = s.kind === "tag" || s.kind === "untag";
       const player = safeStr(s.player_name) || playerNameById(s.player_id) || safeStr(s.player_id);
-      const detail = (player ? player + " · " : "") + ctContractStr(s.new, isTag) +
-        (s.new && s.new.tag_side ? " (" + s.new.tag_side + ")" : "");
+      // Details = the MFL contractInfo string that was/would be submitted
+      // ("CL 2| TCV 24K| AAV 12K| Y1-…| GTD: …"); fall back to the structured form.
+      const cinfo = safeStr(s.new && s.new.contract_info);
+      const fallback = ctContractStr(s.new, isTag) + (s.new && s.new.tag_side ? " (" + s.new.tag_side + ")" : "");
+      const detail = (player ? player + " — " : "") + (cinfo || fallback);
       return {
         fid: fid, franchise: nameByFid[fid] || safeStr(s.franchise_id),
         date: String(s.submitted_at_utc || ""), date_str: String(s.submitted_at_utc || "").replace("T", " ").slice(0, 16) || "—",
-        type: ctKindLabel(s.kind), details: detail,
+        type: ctKindLabel(s.kind), details: detail, test: isTestEvent(fid, s.submitted_at_utc),
       };
     });
     const teamOpts = Array.from(new Set(rows.map(function (r) { return r.franchise; }).filter(Boolean))).sort();
     const typeOpts = Array.from(new Set(rows.map(function (r) { return r.type; }).filter(Boolean))).sort();
-    const total = rows.length;
-    rows = rows.filter(function (r) {
+    const testCount = rows.filter(function (r) { return r.test; }).length;
+    const visible = rows.filter(function (r) { return f.showTest || !r.test; });   // test hidden unless toggled
+    const total = visible.length;
+    rows = visible.filter(function (r) {
       return (!f.team || r.franchise === f.team) && (!f.type || r.type === f.type);
     });
     STATE.contractLogSort = STATE.contractLogSort || { key: "date", dir: -1 };
@@ -5929,17 +5948,19 @@
     const typeSel = '<select id="fo-clog-type" style="' + sel + '">' + opt("", "All types", !f.type) + typeOpts.map(function (t) { return opt(t, t, f.type === t); }).join("") + "</select>";
     const yearSel = '<select id="fo-clog-year" style="' + sel + '">' + opt(year, year, true) + "</select>";
     const clr = (f.team || f.type) ? ' <button type="button" id="fo-clog-clear" class="btn small secondary">Clear</button>' : "";
+    const testChk = '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--text);font-size:13px;"><input type="checkbox" id="fo-clog-test"' + (f.showTest ? " checked" : "") + "> Show test" + (testCount ? " (" + testCount + ")" : "") + "</label>";
     const hdr = function (key, label) {
       const arrow = STATE.contractLogSort.key === key ? (STATE.contractLogSort.dir > 0 ? " ▲" : " ▼") : "";
       return '<th data-clogsort="' + key + '" style="cursor:pointer;white-space:nowrap;">' + escapeHtml(label) + arrow + "</th>";
     };
     const trs = rows.map(function (r) {
-      return "<tr><td>" + escapeHtml(r.franchise) + '</td><td class="small" style="white-space:nowrap;">' + escapeHtml(r.date_str) + "</td>" +
+      const badge = r.test ? ' <span style="background:var(--err);color:#fff;font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;vertical-align:middle;">TEST</span>' : "";
+      return "<tr" + (r.test ? ' style="opacity:0.55;"' : "") + "><td>" + escapeHtml(r.franchise) + badge + '</td><td class="small" style="white-space:nowrap;">' + escapeHtml(r.date_str) + "</td>" +
         "<td>" + escapeHtml(r.type) + '</td><td class="small">' + escapeHtml(r.details) + "</td></tr>";
     }).join("");
     body.innerHTML =
       '<div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;"><span class="small" style="color:var(--muted);">Filter</span>' +
-        teamSel + typeSel + yearSel + clr +
+        teamSel + typeSel + yearSel + clr + testChk +
         '<span class="small" style="color:var(--muted);margin-left:auto;">' + rows.length + (rows.length === total ? "" : " of " + total) + " entries · " + escapeHtml(year) +
         " only (historical years unlock after validation)</span></div>" +
       '<div class="fo-table-scroll"><table class="fo-table"><thead><tr>' +
@@ -5948,6 +5969,7 @@
     const te = $("#fo-clog-team"); if (te) te.addEventListener("change", function () { f.team = this.value; renderContractLogTab(); });
     const ty = $("#fo-clog-type"); if (ty) ty.addEventListener("change", function () { f.type = this.value; renderContractLogTab(); });
     const cl = $("#fo-clog-clear"); if (cl) cl.addEventListener("click", function () { f.team = ""; f.type = ""; renderContractLogTab(); });
+    const tt = $("#fo-clog-test"); if (tt) tt.addEventListener("change", function () { f.showTest = !!this.checked; renderContractLogTab(); });
     $$("[data-clogsort]", body).forEach(function (th) {
       th.addEventListener("click", function () {
         const k = this.getAttribute("data-clogsort");
