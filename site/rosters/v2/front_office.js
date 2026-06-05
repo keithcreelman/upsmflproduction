@@ -1755,6 +1755,10 @@
             STATE.tagSubview = chip.dataset.subview;
             renderTagTab();
           }
+          if (tabSection.dataset.section === "contracts") {
+            STATE.commishSubview = chip.dataset.subview;
+            renderContractsTab();
+          }
         });
       });
     });
@@ -5980,7 +5984,67 @@
     });
   }
 
-  async function renderContractsTab() {
+  // ── COMMISH SETTINGS (dispatcher) ─────────────────────────────────────
+  // Subviews: Discord Routing (test/prod per mechanism) · Contract Revert ·
+  // Status (Discord posters + D1 writers).
+  function renderContractsTab() {
+    if (!$("#fo-commish-body")) return;
+    STATE.commishSubview = STATE.commishSubview || "discord";
+    $$('.fo-section[data-section="contracts"] .fo-subview-chip').forEach(function (c) {
+      c.classList.toggle("active", c.dataset.subview === STATE.commishSubview);
+    });
+    if (STATE.commishSubview === "revert") renderContractRevertSub();
+    else if (STATE.commishSubview === "status") renderStatusSub();
+    else renderDiscordRoutingSub();
+  }
+
+  // — Option 1: Discord Routing (test/prod per contract mechanism) —
+  async function renderDiscordRoutingSub() {
+    const host = $("#fo-commish-body");
+    if (!host) return;
+    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading Discord routing…</div></div>';
+    let cfg = {};
+    try {
+      const data = await fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(LEAGUE_ID));
+      cfg = (data && data.discord_routing) || {};
+    } catch (e) {
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + escapeHtml(e.message || String(e)) + "</div></div>";
+      return;
+    }
+    const labels = { extension: "Extension", myac: "Auction Contract (MYAC)", restructure: "Restructure", tag: "Tag / Untag", fa: "FA Contract (1-yr auction)", mym: "MYM" };
+    const rowHtml = Object.keys(labels).map(function (k) {
+      const val = String(cfg[k] || "prod").toLowerCase();
+      const seg = ["prod", "test"].map(function (o) {
+        const on = val === o, c = o === "test" ? "#e67e22" : "#1f8a4c";
+        return '<button type="button" class="fo-route-btn" data-route="' + k + '" data-val="' + o + '" style="padding:4px 14px;border:1px solid var(--border);background:' + (on ? c : "var(--panel-alt)") + ";color:" + (on ? "#fff" : "var(--text)") + ";cursor:pointer;font-weight:" + (on ? "600" : "400") + ";" + (o === "prod" ? "border-radius:4px 0 0 4px;" : "border-radius:0 4px 4px 0;border-left:none;") + '">' + (o === "prod" ? "Prod" : "Test") + "</button>";
+      }).join("");
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);"><span>' + escapeHtml(labels[k]) + '</span><span style="display:inline-flex;">' + seg + "</span></div>";
+    }).join("");
+    host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3 style="margin:0;">Discord Routing</h3></div>' +
+      '<p class="fo-row-hint">💡 Per-mechanism: where contract announcements post. <strong style="color:#1f8a4c;">Prod</strong> = league channel · <strong style="color:#e67e22;">Test</strong> = test channel. Dry-run submissions always go to test regardless. Saved to D1 instantly.</p>' +
+      rowHtml + "</div>";
+    $$(".fo-route-btn", host).forEach(function (btn) {
+      btn.addEventListener("click", async function () {
+        const k = btn.dataset.route, v = btn.dataset.val;
+        if (String(cfg[k] || "prod").toLowerCase() === v) return;
+        try {
+          const upd = {}; upd[k] = v;
+          await postJSONRaw(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(LEAGUE_ID), { discord_routing: upd });
+          flashToast((labels[k] || k) + " → " + (v === "test" ? "Test" : "Prod"), "ok");
+        } catch (e) { flashToast("Failed: " + (e.message || String(e)), "err"); }
+        renderDiscordRoutingSub();
+      });
+    });
+  }
+
+  // — Option 2: Contract Revert (existing) —
+  async function renderContractRevertSub() {
+    const host = $("#fo-commish-body");
+    if (!host) return;
+    host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3 style="margin:0;">Contract Revert</h3>' +
+      '<span class="small" id="fo-contracts-meta" style="color:var(--muted);">Loading…</span></div>' +
+      '<p class="fo-row-hint">💡 Select recent contract submissions and revert them — restores the prior contract in MFL (tags → untag). Discord is silenced for reverts.</p>' +
+      '<div id="fo-contracts-body"></div></div>';
     const body = $("#fo-contracts-body");
     const meta = $("#fo-contracts-meta");
     if (!body) return;
@@ -5992,11 +6056,77 @@
       cr.subs = (data && data.submissions) || [];
       cr.sel = {};
     } catch (e) {
-      body.innerHTML = '<div class="fo-table-loading">Failed to load: ' + escapeHtml(e.message || String(e)) + '</div>';
+      body.innerHTML = '<div class="fo-table-loading">Failed to load: ' + escapeHtml(e.message || String(e)) + "</div>";
       return;
     }
     if (meta) meta.textContent = cr.subs.length + " submission" + (cr.subs.length === 1 ? "" : "s") + " · " + SEASON;
     renderContractsBody();
+  }
+
+  // — Option 3: Status (Discord posters + D1 writers) —
+  async function renderStatusSub() {
+    const host = $("#fo-commish-body");
+    if (!host) return;
+    STATE.statusView = STATE.statusView || "discord";
+    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading status…</div></div>';
+    let routing = {}, d1 = [];
+    try { routing = ((await fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(LEAGUE_ID))) || {}).discord_routing || {}; } catch (e) {}
+    try { d1 = ((await fetchJSON(apiUrl("/admin/d1-status") + "?L=" + encodeURIComponent(LEAGUE_ID))) || {}).tables || []; } catch (e) {}
+    const pill = function (state, txt) {
+      const c = state === "prod" ? "#1f8a4c" : state === "test" ? "#e67e22" : "#7a7a7a";
+      return '<span style="background:' + c + ';color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px;white-space:nowrap;">' + escapeHtml(txt) + "</span>";
+    };
+    // Discord posters manifest (contract types pull live state from routing).
+    const discordRows = [
+      { n: "Contract — Extension", k: "extension" },
+      { n: "Contract — Auction (MYAC)", k: "myac" },
+      { n: "Contract — Restructure", k: "restructure" },
+      { n: "Contract — Tag / Untag", k: "tag" },
+      { n: "Contract — FA / MYM", k: "fa" },
+      { n: "Drop / Cap penalty", state: "prod" },
+      { n: "Trade notification", state: "prod" },
+      { n: "Auction alerts", state: "prod" },
+      { n: "Deadline reminders", state: "prod" },
+      { n: "Trade Roast bot", state: "inactive", note: "OFF — prod incident 2026-06-01; launchd agents disabled" },
+    ].map(function (r) {
+      const state = r.k ? String(routing[r.k] || "prod").toLowerCase() : r.state;
+      const label = state === "inactive" ? "INACTIVE" : (state === "test" ? "TEST" : "PROD");
+      return "<tr><td>" + escapeHtml(r.n) + "</td><td>" + pill(state, label) + '</td><td class="small" style="color:var(--muted);">' + escapeHtml(r.note || (r.k ? "commish-configurable" : "wired")) + "</td></tr>";
+    }).join("");
+    // D1 writers manifest, enriched with live row counts.
+    const cntByTable = {}; d1.forEach(function (t) { cntByTable[t.table] = t; });
+    const d1Defs = [
+      { cat: "Contract Submissions", n: "Extensions / FA / historical", t: "ups_extension_submissions", freq: "on submit + forum backfill" },
+      { cat: "Contract Submissions", n: "Restructures", t: "ups_restructure_submissions", freq: "on submit + ingest action" },
+      { cat: "Contract Submissions", n: "Tags / Untags", t: "ups_tag_submissions", freq: "on submit" },
+      { cat: "Contract Submissions", n: "Commish settings", t: "ups_settings", freq: "on change" },
+      { cat: "MFL", n: "Drop / cap-penalty events", t: "ups_drop_events", freq: "on cut + scan" },
+      { cat: "MFL", n: "ERA auction pool", t: "ups_era_pool", freq: "pre-auction sync" },
+      { cat: "MFL", n: "Auction lots / bids", t: "ups_auction_lots", freq: "live during auction" },
+      { cat: "MFL", n: "Draft picks", t: "ups_draft_picks", freq: "hourly cron" },
+      { cat: "MFL", n: "Tag history", t: "ups_tag_history", freq: "tag pipeline" },
+      { cat: "MFL", n: "MYM history", t: "ups_mym_history", freq: "MYM submit" },
+    ];
+    const known = {}; d1Defs.forEach(function (d) { known[d.t] = true; });
+    d1.forEach(function (t) { if (!known[t.table]) d1Defs.push({ cat: "Other", n: "—", t: t.table, freq: "—" }); });
+    const d1Rows = d1Defs.map(function (d) {
+      const live = cntByTable[d.t];
+      const rows = live ? live.rows : 0;
+      const last = live && live.last_write ? String(live.last_write).replace("T", " ").slice(0, 16) : "—";
+      const status = live ? (rows > 0 ? "prod" : "inactive") : "inactive";
+      return "<tr><td>" + escapeHtml(d.cat) + "</td><td>" + escapeHtml(d.n) + '</td><td class="small"><code>' + escapeHtml(d.t) + "</code></td><td class=\"num\">" + rows + '</td><td class="small" style="color:var(--muted);">' + escapeHtml(d.freq) + "</td><td class=\"small\" style=\"color:var(--muted);\">" + escapeHtml(last) + "</td><td>" + pill(status === "prod" ? "prod" : "inactive", status === "prod" ? "LIVE" : "EMPTY") + "</td></tr>";
+    }).join("");
+    const viewSel = '<select id="fo-status-view" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;">' +
+      '<option value="discord"' + (STATE.statusView === "discord" ? " selected" : "") + ">Discord</option>" +
+      '<option value="d1"' + (STATE.statusView === "d1" ? " selected" : "") + ">D1</option></select>";
+    const inner = STATE.statusView === "d1"
+      ? '<p class="fo-row-hint">💡 Everything that writes to D1 — MFL data vs Contract Submissions — with live row counts (the source of truth).</p>' +
+        '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th>Category</th><th>Writes</th><th>Table</th><th class="num">Rows</th><th>Frequency</th><th>Last write</th><th>Status</th></tr></thead><tbody>' + d1Rows + "</tbody></table></div>"
+      : '<p class="fo-row-hint">💡 Everything scheduled to post to Discord, and whether it routes to Prod / Test / is Inactive (not wired). Contract types are live from the Discord Routing settings.</p>' +
+        '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th>Poster</th><th>Routing</th><th>Notes</th></tr></thead><tbody>' + discordRows + "</tbody></table></div>";
+    host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3 style="margin:0;">Status</h3>' +
+      '<span style="display:inline-flex;align-items:center;gap:6px;"><span class="small" style="color:var(--muted);">View</span>' + viewSel + "</span></div>" + inner + "</div>";
+    const vs = $("#fo-status-view"); if (vs) vs.addEventListener("change", function () { STATE.statusView = this.value; renderStatusSub(); });
   }
   function renderContractsBody() {
     const body = $("#fo-contracts-body");
