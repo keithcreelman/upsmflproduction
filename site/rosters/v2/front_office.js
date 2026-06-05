@@ -3393,6 +3393,11 @@
   // salary — TCV = SUM(year salaries). There is NO escalator (that's §C4
   // Extensions). FL/BL suffix auto-derived from the year shape.
   async function submitMyacContract(p, totalYears, yrs, statusBase) {
+    yrs = (yrs || []).map(roundToK);                      // every year in whole $1,000s
+    if (yrs.some(function (v) { return v % 1000 !== 0 || v < 1000; })) {
+      flashToast("All contract years must be whole $1,000 increments (no $0 year).", "err");
+      return;
+    }
     const tcv = yrs.reduce(function (a, b) { return a + b; }, 0);
     const aav = Math.round(tcv / totalYears);
     const loaded = yrs.some(function (v) { return v !== yrs[0]; });
@@ -3574,8 +3579,12 @@
   }
 
   async function submitExtensionLoaded(p, baseFlat, currentSalary, extensionTotal, statusBase) {
-    const y2 = safeInt($("#fo-extl-y2").value, 0);
+    const y2 = roundToK(safeInt($("#fo-extl-y2").value, 0));   // whole $1,000s
     const y3 = extensionTotal - y2;   // auto-computed — Σ(Y2,Y3) always equals extensionTotal
+    if (y2 % 1000 !== 0 || y3 % 1000 !== 0) {
+      flashToast("Each extension year must be a whole $1,000 increment.", "err");
+      return;
+    }
     // Canon §C4.3/§C4.6: each extension year must be ≥ 20% of the extension TCV.
     const minExtYear = Math.max(1000, Math.ceil(extensionTotal * 0.2 / 1000) * 1000);
     if (y2 < minExtYear || y3 < minExtYear) {
@@ -3655,7 +3664,7 @@
 
   function renderExtensionForm(p, opt) {
     const yrs = safeInt(opt.years, 0) || safeInt(opt.years_added, 0) || safeInt(opt.length, 0);
-    const salary = safeInt(opt.salary, 0) || safeInt(opt.year1_salary, 0);
+    const salary = roundToK(safeInt(opt.salary, 0) || safeInt(opt.year1_salary, 0));  // whole $1,000s
     const status = safeStr(opt.contract_status || opt.status || ("Vet-Ext" + yrs));
     const info   = safeStr(opt.contract_info || opt.info || "");
     return `
@@ -3687,7 +3696,7 @@
     btn.disabled = true; btn.textContent = "Submitting…";
 
     const yrs = safeInt(opt.years, 0) || safeInt(opt.years_added, 0) || safeInt(opt.length, 0);
-    const salary = safeInt(opt.salary, 0) || safeInt(opt.year1_salary, 0);
+    const salary = roundToK(safeInt(opt.salary, 0) || safeInt(opt.year1_salary, 0));  // whole $1,000s
     const status = safeStr(opt.contract_status || opt.status || ("Vet-Ext" + yrs));
     const info   = safeStr(opt.contract_info || opt.info || "");
     const me = STATE.me || {};
@@ -4062,10 +4071,41 @@
   // Window is OFFSEASON → September contract deadline (mid-season BANNED, canon
   // §C5); limit 3 per team per season. Row-click → slide-over Actions, where
   // the restructure form already posts to MFL + Discord + GIF (/offer-restructure).
+  // Restructures already USED this season (3/team/season limit, §C5). Source:
+  // the contract-activity log (the Discord-posted mutation log) — the canonical
+  // ups_restructure_submissions table misses them because the restructure path
+  // never wrote to it (the §C5 D1-write gap; fixed worker-side separately).
+  // Counts DISTINCT (franchise, player) so a double-posted submit counts once.
+  const RESTRUCTURE_LIMIT = 3;
+  async function loadRestructureUsage() {
+    if (STATE.restructureUsage) return STATE.restructureUsage;
+    const out = { byFid: {}, names: {} };
+    try {
+      const data = await fetchJSON("../contract_submissions/contract_activity_" + encodeURIComponent(SEASON) + ".json");
+      (data && data.activities || []).forEach(function (a) {
+        if (String(a.activity_type || "").toLowerCase() !== "restructure") return;
+        // Only count REAL restructures — skip test-channel / dry-run posts
+        // (delivery_target "test") and any [DRY RUN]-prefixed name.
+        if (String(a.delivery_target || "") === "test") return;
+        if (/^\s*\[dry run\]/i.test(safeStr(a.player_name))) return;
+        const fid = pad4(a.franchise_id), pid = safeStr(a.player_id);
+        if (!fid || !pid) return;
+        (out.byFid[fid] = out.byFid[fid] || {})[pid] = safeStr(a.player_name) || pid;
+      });
+    } catch (e) { /* log file may not exist yet → no usage */ }
+    STATE.restructureUsage = out;
+    return out;
+  }
+  function restructureUsedForFid(fid) {
+    const m = (STATE.restructureUsage && STATE.restructureUsage.byFid[pad4(fid)]) || null;
+    return m ? Object.keys(m).length : 0;
+  }
+
   function renderRestructureTab() {
     const body = $("#fo-restructure-body");
     const meta = $("#fo-restructure-meta");
     if (!body) return;
+    if (!STATE.restructureUsage) { loadRestructureUsage().then(renderRestructureTab); }
     const fmtDt = function (d) {
       try { return d.toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "short", day: "numeric" }); }
       catch (_) { return "—"; }
@@ -4084,6 +4124,7 @@
           pid: safeStr(p.id), fid: safeStr(t.fid),
           name: safeStr(p.name), team: safeStr(t.name) || safeStr(t.fid), pos: safeStr(p.position),
           type: safeStr(p.type), years: safeInt(p.years, 0), tcv: totalContractValueForPlayer(p),
+          used: restructureUsedForFid(t.fid),
         });
       });
     });
@@ -4126,6 +4167,7 @@
       return '<tr data-pid="' + escapeHtml(r.pid) + '" data-fid="' + escapeHtml(r.fid) + '" style="cursor:pointer;" title="Open ' + escapeHtml(r.name) + ' — Actions / Restructure">' +
         "<td>" + escapeHtml(r.name) + "</td>" +
         "<td>" + escapeHtml(r.team) + "</td>" +
+        '<td style="text-align:center;color:' + (r.used >= RESTRUCTURE_LIMIT ? "var(--err)" : "var(--muted)") + ';" title="Team restructures used this season">' + r.used + "/" + RESTRUCTURE_LIMIT + "</td>" +
         "<td>" + escapeHtml(r.pos) + "</td>" +
         '<td class="small">' + escapeHtml(r.type) + "</td>" +
         '<td style="text-align:center;">' + r.years + "</td>" +
@@ -4136,12 +4178,27 @@
     }).join("");
     const tableHtml = rows.length
       ? '<div class="fo-table-scroll"><table class="fo-table"><thead><tr>' +
-        hdr("name", "Player") + hdr("team", "Team") + hdr("pos", "Pos") + hdr("type", "Type") +
+        hdr("name", "Player") + hdr("team", "Team") +
+        '<th style="text-align:center;" title="Team restructures used / 3-per-season limit">R Used</th>' +
+        hdr("pos", "Pos") + hdr("type", "Type") +
         hdr("years", "Yrs Rem", "center") + hdr("tcv", "TCV", "right") +
         '<th>Deadline</th><th style="text-align:right;">Days Left</th>' +
         "</tr></thead><tbody>" + trs + "</tbody></table></div>"
       : '<div class="fo-table-loading">No players eligible to restructure' + (daysLeft < 0 ? " (window closed)" : "") + '.</div>';
-    body.innerHTML = toolbar + tableHtml;
+    // "Used this season" summary (§C5 3/team limit) from the contract-activity log.
+    const usage = STATE.restructureUsage || { byFid: {} };
+    const usedFids = Object.keys(usage.byFid || {});
+    const usedSummary = usedFids.length
+      ? '<div class="fo-card" style="margin:6px 0;padding:8px 10px;"><div class="small" style="color:var(--muted);margin-bottom:4px;">Restructures used this season (' + RESTRUCTURE_LIMIT + '/team limit):</div>' +
+        usedFids.map(function (fid) {
+          const team = (STATE.teams || []).find(function (t) { return pad4(t.fid) === fid; });
+          const nm = (team && team.name) || fid;
+          const players = Object.keys(usage.byFid[fid]).map(function (pid) { return usage.byFid[fid][pid]; });
+          const n = players.length;
+          return '<span style="display:inline-block;margin:2px 12px 2px 0;color:' + (n >= RESTRUCTURE_LIMIT ? "var(--err)" : "var(--text)") + ';"><strong>' + escapeHtml(nm) + '</strong> ' + n + '/' + RESTRUCTURE_LIMIT + ' <span class="small" style="color:var(--muted);">(' + escapeHtml(players.join(", ")) + ')</span></span>';
+        }).join("") + '</div>'
+      : (STATE.restructureUsage ? '<div class="small" style="color:var(--muted);margin:6px 0;">No restructures recorded this season yet.</div>' : "");
+    body.innerHTML = usedSummary + toolbar + tableHtml;
     const teamEl = $("#fo-rstr-team"); if (teamEl) teamEl.addEventListener("change", function () { STATE.rstrFilter.team = this.value; renderRestructureTab(); });
     const posEl = $("#fo-rstr-pos"); if (posEl) posEl.addEventListener("change", function () { STATE.rstrFilter.pos = this.value; renderRestructureTab(); });
     const clearEl = $("#fo-rstr-clear"); if (clearEl) clearEl.addEventListener("click", function () { STATE.rstrFilter = { team: "", pos: "" }; renderRestructureTab(); });
@@ -4887,50 +4944,77 @@
   function openRestructureForm(p) {
     const tcv = totalContractValueForPlayer(p);
     const years = safeInt(p.years, 0);
-    const minY1 = Math.max(1000, Math.round(tcv * 0.20 / 1000) * 1000);
+    const minY1 = Math.max(1000, Math.ceil(tcv * 0.20 / 1000) * 1000);
+    const aav = Math.round(tcv / Math.max(1, years) / 1000) * 1000;
+    const is3 = years >= 3;                       // 3-yr → Y1+Y2 input, Y3 auto; else Y1 input, Y2 auto
+    const inStyle = "background:var(--panel-alt); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:4px; width:120px;";
     const body = $("#fo-slideover-body");
     body.innerHTML = `
       <div class="fo-form">
         <h3 style="margin:0 0 4px;">Restructure ${escapeHtml(p.name)}</h3>
         <div class="fo-form-note">
-          TCV ${fmtUSD(tcv)} · Years remaining ${years} · Y1 minimum (20% TCV) ${fmtUSD(minY1)}.
-          Σ year salaries must equal TCV.
+          TCV ${fmtUSD(tcv)} · Years remaining ${years} · AAV ${fmtUSD(aav)} · Y1 ≥ ${fmtUSD(minY1)} (20% TCV) · whole $1,000s, no $0 year.
+          The last year auto-fills so Σ = TCV. FL if Y1 &gt; AAV, BL if Y1 &lt; AAV.
         </div>
         <div class="fo-form-row"><span class="lbl">Year 1 ($)</span>
-          <input type="number" id="fo-rs-y1" step="1000" min="${minY1}" value="${minY1}" class="num" style="background:var(--panel-alt); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:4px;">
+          <input type="number" id="fo-rs-y1" step="1000" min="${minY1}" value="${minY1}" class="num" style="${inStyle}">
         </div>
-        <div class="fo-form-row"><span class="lbl">Year 2 ($)</span>
-          <input type="number" id="fo-rs-y2" step="1000" min="1000" value="${Math.max(1000, tcv - minY1)}" class="num" style="background:var(--panel-alt); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:4px;">
-        </div>
-        ${years >= 3 ? `<div class="fo-form-row"><span class="lbl">Year 3 ($)</span>
-          <input type="number" id="fo-rs-y3" step="1000" min="0" value="0" class="num" style="background:var(--panel-alt); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:4px;">
+        ${is3 ? `<div class="fo-form-row"><span class="lbl">Year 2 ($)</span>
+          <input type="number" id="fo-rs-y2" step="1000" min="1000" value="${Math.max(1000, aav)}" class="num" style="${inStyle}">
         </div>` : ""}
-        <div class="fo-form-row"><span class="lbl">Sum (must equal TCV)</span><span class="val" id="fo-rs-sum">${fmtUSD(tcv)}</span></div>
+        <div class="fo-form-row"><span class="lbl">Year ${years} (auto)</span><span class="val" id="fo-rs-last">—</span></div>
+        <div class="fo-form-row"><span class="lbl">Σ (must equal TCV)</span><span class="val" id="fo-rs-sum">${fmtUSD(tcv)}</span></div>
+        <div class="fo-form-note" id="fo-rs-err" style="color:var(--err); min-height:14px;"></div>
         <div class="fo-form-actions">
           <button class="btn secondary" id="fo-rs-cancel">Cancel</button>
           <button class="btn" id="fo-rs-submit">${IS_DRY_RUN ? "Submit (dry-run)" : "Submit Restructure"}</button>
         </div>
       </div>`;
-    function recalcSum() {
-      const y1 = safeInt($("#fo-rs-y1").value, 0);
-      const y2 = safeInt($("#fo-rs-y2").value, 0);
-      const y3 = years >= 3 ? safeInt(($("#fo-rs-y3") || {}).value, 0) : 0;
-      $("#fo-rs-sum").textContent = fmtUSD(y1 + y2 + y3) + " / " + fmtUSD(tcv);
-    }
-    $("#fo-rs-y1").addEventListener("input", recalcSum);
-    $("#fo-rs-y2").addEventListener("input", recalcSum);
-    if (years >= 3) $("#fo-rs-y3").addEventListener("input", recalcSum);
+    const readYrs = function () {
+      const y1 = roundToK(safeInt(($("#fo-rs-y1") || {}).value, 0));
+      const y2 = is3 ? roundToK(safeInt(($("#fo-rs-y2") || {}).value, 0)) : (tcv - y1);
+      const y3 = is3 ? (tcv - y1 - y2) : 0;
+      return is3 ? [y1, y2, y3] : [y1, y2];
+    };
+    const validateYrs = function (yrs) {
+      if (yrs.some(function (v) { return v % 1000 !== 0; })) return "All years must be whole $1,000 increments.";
+      if (yrs[0] < minY1) return "Year 1 must be ≥ " + fmtUSD(minY1) + " (20% of TCV).";
+      if (yrs.some(function (v) { return v < 1000; })) return "No year can be below $1,000 — there are no $0 years.";
+      if (yrs.reduce(function (a, b) { return a + b; }, 0) !== tcv) return "Σ must equal TCV " + fmtUSD(tcv) + " — adjust the editable year(s).";
+      return "";
+    };
+    const recalc = function () {
+      const yrs = readYrs();
+      $("#fo-rs-last").textContent = fmtUSD(yrs[yrs.length - 1]);
+      $("#fo-rs-sum").textContent = fmtUSD(yrs.reduce(function (a, b) { return a + b; }, 0)) + " / " + fmtUSD(tcv);
+      const err = validateYrs(yrs);
+      $("#fo-rs-err").textContent = err;
+      const btn = $("#fo-rs-submit"); if (btn) btn.disabled = !!err;
+    };
+    $("#fo-rs-y1").addEventListener("input", recalc);
+    if (is3) $("#fo-rs-y2").addEventListener("input", recalc);
     $("#fo-rs-cancel").addEventListener("click", function () { renderSlideoverBody(); });
-    $("#fo-rs-submit").addEventListener("click", function () { submitRestructure(p, years); });
+    $("#fo-rs-submit").addEventListener("click", function () {
+      const yrs = readYrs();
+      const err = validateYrs(yrs);
+      if (err) { flashToast(err, "err"); return; }
+      submitRestructure(p, years, yrs);
+    });
+    recalc();
   }
-  async function submitRestructure(p, years) {
-    const y1 = safeInt($("#fo-rs-y1").value, 0);
-    const y2 = safeInt($("#fo-rs-y2").value, 0);
-    const y3 = years >= 3 ? safeInt(($("#fo-rs-y3") || {}).value, 0) : 0;
+  async function submitRestructure(p, years, yrs) {
+    yrs = (yrs || []).map(roundToK);
+    const y1 = safeInt(yrs[0], 0);
+    const y2 = safeInt(yrs[1], 0);
+    const y3 = years >= 3 ? safeInt(yrs[2], 0) : 0;
     const tcv = totalContractValueForPlayer(p);
     const sum = y1 + y2 + y3;
     if (sum !== tcv) {
       flashToast("Sum must equal TCV " + fmtUSD(tcv) + " (currently " + fmtUSD(sum) + ").", "err");
+      return;
+    }
+    if ([y1, y2, y3].slice(0, years).some(function (v) { return v % 1000 !== 0; })) {
+      flashToast("All years must be whole $1,000 increments.", "err");
       return;
     }
     if (y1 < Math.round(tcv * 0.20 / 1000) * 1000) {
