@@ -34936,6 +34936,41 @@ export default {
           ? [contractStatus]
           : Array.from(new Set([preCheck?.contractStatus || "", "A", ""]).values());
 
+        // Server-side 5-loaded-cap enforcement (canon §C2.356 / §C5): block a
+        // restructure that would create a NEW loaded (-FL/-BL) contract once the
+        // franchise is at the 5-loaded roster cap. Defense-in-depth behind the FO
+        // client gate + MYAC's loaded gate; covers direct API calls. Real writes
+        // only; fail-open on a fetch error so a transient MFL hiccup never blocks.
+        if (isRestructure && dryRunFlag !== 1 && /-(FL|BL)\b/i.test(String(contractStatus))) {
+          try {
+            const capRosters = await mflExportJson(year, leagueId, "rosters", {}, { useCookie: true });
+            if (capRosters && capRosters.ok) {
+              const myFid = padFranchiseId(franchiseId);
+              const wantPid = String(playerId).replace(/\D/g, "");
+              let loadedOthers = 0, thisWasLoaded = false;
+              for (const fr of asArray(capRosters.data?.rosters?.franchise || capRosters.data?.rosters?.franchises).filter(Boolean)) {
+                if (padFranchiseId(fr?.id || fr?.franchise_id) !== myFid) continue;
+                for (const pl of asArray(fr?.player || fr?.players)) {
+                  const st = String(pl?.contractStatus || "").toUpperCase();
+                  const taxi = String(pl?.status || "").toUpperCase().includes("TAXI");
+                  const loaded = !taxi && (st.includes("-FL") || st.includes("-BL"));
+                  if (String(pl?.id || "").replace(/\D/g, "") === wantPid) thisWasLoaded = loaded;
+                  else if (loaded) loadedOthers += 1;
+                }
+              }
+              if (!thisWasLoaded && loadedOthers + 1 > 5) {
+                return jsonOut(409, {
+                  ok: false,
+                  error: "LOADED_CAP_EXCEEDED",
+                  reason: `Franchise ${myFid} already holds ${loadedOthers} loaded contracts; this restructure would create a 6th (cap is 5 — canon §C5). Trade or cut a loaded player first.`,
+                });
+              }
+            }
+          } catch (capErr) {
+            console.warn("[restructure loaded-cap] check failed (fail-open):", capErr?.message || String(capErr));
+          }
+        }
+
         let mflRes = null;
         let text = "";
         let looksOk = false;
@@ -35466,10 +35501,10 @@ export default {
               submittedAtUtc: submittedAtUtc || new Date().toISOString(),
               // Force the test channel for dry runs so we never spam
               // the production contract channel with simulated rows.
-              // MYAC + Extensions now post to PRODUCTION (Keith 2026-06-04, after
-              // verifying in the test channel) — same as Restructure/FA contracts.
-              // Only dry-runs are pinned to the test channel.
-              forceTestOnly: dryRunFlag === 1,
+              // MYAC + Extensions post to PRODUCTION (Keith 2026-06-04, verified
+              // in test). Restructure is pinned to TEST until Keith verifies it
+              // (2026-06-04) — flip by dropping `|| isRestructure`.
+              forceTestOnly: dryRunFlag === 1 || isRestructure,
             });
           } catch (e) {
             contractDiscord = {
