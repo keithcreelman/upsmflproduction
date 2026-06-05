@@ -20844,6 +20844,7 @@ export default {
         isExtensionSubmission,
         isRestructure,
         isMyac,
+        isMym,
         contractStatus,
       }) => {
         const status = safeStr(contractStatus).toUpperCase();
@@ -20851,6 +20852,7 @@ export default {
         if (isExtensionSubmission) return "Extension";
         if (isRestructure) return "Restructure";
         if (isMyac) return "Multi-Year Contract";
+        if (isMym) return "MYM";   // §C3 Mid-Year Multi — its own embed/GIF/routing
         return "FA Contract";
       };
 
@@ -20933,6 +20935,9 @@ export default {
         } else if (kind === "tag") {
           queries.push("football franchise celebration");
           queries.push("nfl celebration");
+        } else if (kind === "mym") {
+          queries.push("nfl celebration");
+          queries.push("football contract signing");
         } else {
           queries.push("nfl signing");
           queries.push("football celebration");
@@ -21214,16 +21219,21 @@ export default {
         const perYearAavDisplay = (kind !== "tag" && summary.pairs.length > 1)
           ? summary.pairs.map((p) => formatContractK(safeInt(p.salary, 0))).join(", ")
           : formatContractK(resolvedAav);
+        // Restructures show "Remaining Salary Owed" instead of "TCV" (Keith
+        // 2026-06-05) — for a restructure the per-year salaries ARE the
+        // remaining years, so resolvedTcv (their sum) is exactly what's still
+        // owed; "TCV" reads as a new-contract figure and is misleading here.
+        const tcvLabel = kind === "restructure" ? "Remaining Salary Owed" : "TCV";
         const termsParts = isPreseasonTradeExtension
           ? [
               yearsLabel,
-              `${formatContractK(resolvedTcv)} TCV`,
+              `${formatContractK(resolvedTcv)} ${tcvLabel}`,
             ]
           : [
               yearsLabel,
               `${formatContractK(salary)} Salary`,
               `${perYearAavDisplay} AAV`,
-              `${formatContractK(resolvedTcv)} TCV`,
+              `${formatContractK(resolvedTcv)} ${tcvLabel}`,
             ];
         if (gtd > 0) termsParts.push(`${formatContractK(gtd)} GTD`);
         const termsLabel = termsParts.join(" | ");
@@ -35930,6 +35940,7 @@ export default {
           isExtensionSubmission,
           isRestructure,
           isMyac: isMyacSubmission,
+          isMym: isMymSubmission,
           contractStatus: activityContractStatus,
         });
 
@@ -35939,6 +35950,7 @@ export default {
         const routingKey = {
           Tag: "tag", Extension: "extension", Restructure: "restructure",
           "Multi-Year Contract": "myac", "FA Contract": "myac",  // FA folds into auction
+          MYM: "mym",
         }[activityType] || "mym";
         const routeToTest = String(discordRouting[routingKey] || "prod").toLowerCase() === "test";
 

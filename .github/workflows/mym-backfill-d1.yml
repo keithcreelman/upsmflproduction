@@ -26,10 +26,11 @@ jobs:
           season = os.environ.get("SEASON") or "2025"
           data = json.load(open(f"site/rosters/contract_submissions/mym_backfill_{season}.json"))
           recs = data.get("records") or []
-          print("records:", len(recs))
+          dels = data.get("delete") or []
+          print("records:", len(recs), "delete:", len(dels))
           url = f"https://upsmflproduction.keith-creelman.workers.dev/admin/mym-ingest?L=74598&YEAR={season}&APIKEY={os.environ['KEY']}"
           ua = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
-          body = json.dumps({"season": season, "league_id": "74598", "records": recs}).encode()
+          body = json.dumps({"season": season, "league_id": "74598", "records": recs, "delete": dels}).encode()
           req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", "User-Agent": ua}, method="POST")
           try:
               with urllib.request.urlopen(req) as resp:
