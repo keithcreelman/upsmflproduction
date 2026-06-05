@@ -32835,7 +32835,21 @@ export default {
             riResults.push({ player_id: pid, ok: false, error: e?.message || String(e) });
           }
         }
-        return jsonOut(200, { ok: true, season: riSeason, league_id: riLeague, inserted, skipped, results: riResults });
+        // Deletions — purge test/invalid restructures from D1 (e.g. records the
+        // commish later flagged as testing). Body: delete:[{franchise_id, player_id}].
+        let deleted = 0;
+        for (const dd of (Array.isArray(riBody.delete) ? riBody.delete : [])) {
+          const fid = padFranchiseId(dd.franchise_id);
+          const pid = String(dd.player_id || "").replace(/\D/g, "");
+          if (!fid || !pid) continue;
+          try {
+            const res = await env.UPS_MFL_DB.prepare(
+              `DELETE FROM ups_restructure_submissions WHERE league_id=? AND season=? AND franchise_id=? AND player_id=?`
+            ).bind(riLeague, riSeason, fid, pid).run();
+            deleted += (res && res.meta && res.meta.changes) || 0;
+          } catch (e) { riResults.push({ player_id: pid, ok: false, error: "delete: " + (e?.message || String(e)) }); }
+        }
+        return jsonOut(200, { ok: true, season: riSeason, league_id: riLeague, inserted, skipped, deleted, results: riResults });
       }
 
       // POST /admin/contract-revert — Body: { reverts:[{table,id}], dry_run? }.

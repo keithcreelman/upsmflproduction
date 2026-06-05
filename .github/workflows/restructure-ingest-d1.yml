@@ -29,12 +29,19 @@ jobs:
           import json, os, re, urllib.request
           season = os.environ.get("SEASON") or "2026"
           recs = []
-          # 1) manual ledger — off-path restructures (Hub Bot / manual MFL)
+          excl = set()        # (franchise_id, player_id) flagged test/invalid → skip + delete
+          deletes = []
+          # 1) manual ledger — off-path restructures (Hub Bot / manual MFL) + exclusions
           try:
               man = json.load(open(f"site/rosters/contract_submissions/restructure_manual_{season}.json"))
+              for e in (man.get("exclusions") or []):
+                  excl.add((str(e.get("franchise_id")), str(e.get("player_id"))))
+                  deletes.append({"franchise_id": e.get("franchise_id"), "player_id": e.get("player_id")})
               for r in (man.get("restructures") or []):
+                  if (str(r.get("franchise_id")), str(r.get("player_id"))) in excl:
+                      continue
                   recs.append(r)
-              print(f"ledger: {len(man.get('restructures') or [])} records")
+              print(f"ledger: {len(man.get('restructures') or [])} records, {len(excl)} exclusions")
           except Exception as e:
               print("no ledger:", e)
           # 2) contract-activity log — real prod restructures (worker path)
@@ -47,6 +54,8 @@ jobs:
                   if a.get("delivery_target") == "test":
                       continue
                   if str(a.get("player_name") or "").strip().lower().startswith("[dry run]"):
+                      continue
+                  if (str(a.get("franchise_id")), str(a.get("player_id"))) in excl:
                       continue
                   ys = [int(round(float(m.group(2)) * 1000))
                         for m in re.finditer(r"Y(\d+)\s*-\s*([\d.]+)K", a.get("contract_info") or "")]
@@ -70,8 +79,8 @@ jobs:
               if k in seen:
                   continue
               seen.add(k); uniq.append(r)
-          print(f"POSTing {len(uniq)} unique restructure records for {season}")
-          body = json.dumps({"season": season, "league_id": "74598", "records": uniq}).encode()
+          print(f"POSTing {len(uniq)} records + {len(deletes)} deletes for {season}")
+          body = json.dumps({"season": season, "league_id": "74598", "records": uniq, "delete": deletes}).encode()
           url = f"https://upsmflproduction.keith-creelman.workers.dev/admin/restructure-ingest?L=74598&YEAR={season}&APIKEY={os.environ['KEY']}"
           req = urllib.request.Request(url, data=body, headers={
               "Content-Type": "application/json",
