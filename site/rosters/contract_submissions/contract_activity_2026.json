@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-06-04 22:29:24",
+    "generated_at": "2026-06-05 17:41:22",
     "source": "contract-activity-log",
-    "count": 54,
+    "count": 55,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "0f4733771ff96841a1fd5678",
+      "submission_id": "0f4733771ff96841a1fd5678",
+      "activity_scope": "contract_mutation",
+      "activity_type": "FA Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0004",
+      "franchise_name": "Pure Greatness",
+      "player_id": "14836",
+      "player_name": "Jefferson, Justin",
+      "position": "WR",
+      "salary": 71000,
+      "contract_year": 1,
+      "contract_status": "Vet-Ext2-BL",
+      "contract_info": "CL 2| TCV 96K| AAV 71K| Y1-25K, Y2-71K| GTD: 72K| Ext:  Sex, Hammer| restructure: 2025",
+      "tcv": 96000,
+      "aav": 71000,
+      "guaranteed": 72000,
+      "submitted_at_utc": "2026-06-05T17:41:05.539Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "1089538054236160010",
+      "discord_message_id": "1512511604405698580",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "2e55ad50b6e77d88afb1f6b8",
       "submission_id": "2e55ad50b6e77d88afb1f6b8",
