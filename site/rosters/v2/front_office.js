@@ -1733,6 +1733,7 @@
         if (tab === "extensions") renderExtensionsTab();
         if (tab === "myac") renderMyacTab();
         if (tab === "restructure") renderRestructureTab();
+        if (tab === "contractlog") renderContractLogTab();
         if (tab === "activity") renderActivityTab();
         if (tab === "contracts") renderContractsTab();
       });
@@ -5874,6 +5875,89 @@
     }
     return "";
   }
+  // ── CONTRACT LOG (read-only, D1-sourced) ──────────────────────────────
+  // Franchise · Date · Type · Details, straight from D1 ups_* via
+  // /admin/contract-submissions (the single source of truth). Filters: Team,
+  // Type, Year. Year is pinned to the current season until the historical
+  // backfill (forum 2012-2025) is validated (Keith 2026-06-05).
+  async function renderContractLogTab() {
+    const body = $("#fo-contractlog-body");
+    if (!body) return;
+    STATE.contractLogFilter = STATE.contractLogFilter || { team: "", type: "", year: String(safeInt(SEASON, 2026)) };
+    const f = STATE.contractLogFilter;
+    const year = f.year || String(safeInt(SEASON, 2026));
+    STATE.contractLogData = STATE.contractLogData || {};
+    if (!STATE.contractLogData[year]) {
+      body.innerHTML = '<div class="fo-table-loading">Loading contract log…</div>';
+      try {
+        const data = await fetchJSON(apiUrl("/admin/contract-submissions") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(year));
+        STATE.contractLogData[year] = (data && data.submissions) || [];
+      } catch (e) {
+        body.innerHTML = '<div class="fo-table-loading">Failed to load contract log: ' + escapeHtml(e.message || String(e)) + "</div>";
+        return;
+      }
+    }
+    const nameByFid = {};
+    (STATE.teams || []).forEach(function (t) { nameByFid[pad4(t.fid)] = t.name; });
+    let rows = (STATE.contractLogData[year] || []).map(function (s) {
+      const fid = pad4(s.franchise_id);
+      const isTag = s.kind === "tag" || s.kind === "untag";
+      const player = safeStr(s.player_name) || playerNameById(s.player_id) || safeStr(s.player_id);
+      const detail = (player ? player + " · " : "") + ctContractStr(s.new, isTag) +
+        (s.new && s.new.tag_side ? " (" + s.new.tag_side + ")" : "");
+      return {
+        fid: fid, franchise: nameByFid[fid] || safeStr(s.franchise_id),
+        date: String(s.submitted_at_utc || ""), date_str: String(s.submitted_at_utc || "").replace("T", " ").slice(0, 16) || "—",
+        type: ctKindLabel(s.kind), details: detail,
+      };
+    });
+    const teamOpts = Array.from(new Set(rows.map(function (r) { return r.franchise; }).filter(Boolean))).sort();
+    const typeOpts = Array.from(new Set(rows.map(function (r) { return r.type; }).filter(Boolean))).sort();
+    const total = rows.length;
+    rows = rows.filter(function (r) {
+      return (!f.team || r.franchise === f.team) && (!f.type || r.type === f.type);
+    });
+    STATE.contractLogSort = STATE.contractLogSort || { key: "date", dir: -1 };
+    const sk = STATE.contractLogSort.key, sd = STATE.contractLogSort.dir;
+    rows.sort(function (a, b) {
+      const av = a[sk] || "", bv = b[sk] || "";
+      return sd * String(av).localeCompare(String(bv));
+    });
+    const sel = "background:var(--panel-alt);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;";
+    const opt = function (v, l, s) { return '<option value="' + escapeHtml(v) + '"' + (s ? " selected" : "") + ">" + escapeHtml(l) + "</option>"; };
+    const teamSel = '<select id="fo-clog-team" style="' + sel + '">' + opt("", "All teams", !f.team) + teamOpts.map(function (t) { return opt(t, t, f.team === t); }).join("") + "</select>";
+    const typeSel = '<select id="fo-clog-type" style="' + sel + '">' + opt("", "All types", !f.type) + typeOpts.map(function (t) { return opt(t, t, f.type === t); }).join("") + "</select>";
+    const yearSel = '<select id="fo-clog-year" style="' + sel + '">' + opt(year, year, true) + "</select>";
+    const clr = (f.team || f.type) ? ' <button type="button" id="fo-clog-clear" class="btn small secondary">Clear</button>' : "";
+    const hdr = function (key, label) {
+      const arrow = STATE.contractLogSort.key === key ? (STATE.contractLogSort.dir > 0 ? " ▲" : " ▼") : "";
+      return '<th data-clogsort="' + key + '" style="cursor:pointer;white-space:nowrap;">' + escapeHtml(label) + arrow + "</th>";
+    };
+    const trs = rows.map(function (r) {
+      return "<tr><td>" + escapeHtml(r.franchise) + '</td><td class="small" style="white-space:nowrap;">' + escapeHtml(r.date_str) + "</td>" +
+        "<td>" + escapeHtml(r.type) + '</td><td class="small">' + escapeHtml(r.details) + "</td></tr>";
+    }).join("");
+    body.innerHTML =
+      '<div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;"><span class="small" style="color:var(--muted);">Filter</span>' +
+        teamSel + typeSel + yearSel + clr +
+        '<span class="small" style="color:var(--muted);margin-left:auto;">' + rows.length + (rows.length === total ? "" : " of " + total) + " entries · " + escapeHtml(year) +
+        " only (historical years unlock after validation)</span></div>" +
+      '<div class="fo-table-scroll"><table class="fo-table"><thead><tr>' +
+        hdr("franchise", "Franchise") + hdr("date", "Date") + hdr("type", "Type") + "<th>Details</th>" +
+        "</tr></thead><tbody>" + (trs || '<tr><td colspan="4" class="fo-table-empty">No contract activity matches.</td></tr>') + "</tbody></table></div>";
+    const te = $("#fo-clog-team"); if (te) te.addEventListener("change", function () { f.team = this.value; renderContractLogTab(); });
+    const ty = $("#fo-clog-type"); if (ty) ty.addEventListener("change", function () { f.type = this.value; renderContractLogTab(); });
+    const cl = $("#fo-clog-clear"); if (cl) cl.addEventListener("click", function () { f.team = ""; f.type = ""; renderContractLogTab(); });
+    $$("[data-clogsort]", body).forEach(function (th) {
+      th.addEventListener("click", function () {
+        const k = this.getAttribute("data-clogsort");
+        if (STATE.contractLogSort.key === k) STATE.contractLogSort.dir *= -1;
+        else { STATE.contractLogSort.key = k; STATE.contractLogSort.dir = 1; }
+        renderContractLogTab();
+      });
+    });
+  }
+
   async function renderContractsTab() {
     const body = $("#fo-contracts-body");
     const meta = $("#fo-contracts-meta");
