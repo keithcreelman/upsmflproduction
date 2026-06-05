@@ -1,11 +1,12 @@
 {
   "meta": {
-    "note": "DELETION directive. The Isaiah Williams 2026 MYM was a development fake-test fixture that should NOT be logged (Keith 2026-06-05). This removes it from ups_mym_submissions. The MYM action pipeline is validated via the live dry-run submit instead (which posts to the test Discord channel and records a dry_run=1 audit row, excluded from the log). Idempotent — re-running is a no-op once deleted.",
+    "note": "DELETION directive. Purges development test rows from ups_mym_submissions: (1) the Isaiah Williams fake-test MYM (0008/16630), and (2) the Justin Jefferson dry-run MYM test rows (0004/14836, source front-office-mym-test, dry_run=1) created while validating the action→Discord chain. Neither should be in D1. Idempotent. Keith 2026-06-05.",
     "season": "2026",
     "league_id": "74598"
   },
   "records": [],
   "delete": [
-    { "season": "2026", "franchise_id": "0008", "player_id": "16630", "source": "mym-fo-test" }
+    { "season": "2026", "franchise_id": "0008", "player_id": "16630", "source": "mym-fo-test" },
+    { "season": "2026", "franchise_id": "0004", "player_id": "14836" }
   ]
 }
