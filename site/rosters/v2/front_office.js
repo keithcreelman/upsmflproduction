@@ -148,6 +148,9 @@
     activityFilter: { type: "", franchise: "", search: "" },
     deadlines: null,
     tagSubview: "players",
+    // Calc Breakdown year selector. The 2026 tag deadline has passed, so the
+    // forward-looking projection (2027) is the default. SEASON+1 set at init.
+    tagBreakdownYear: null,
     // Slide-over state
     slideoverPid: null,
     slideoverFid: null,
@@ -5573,14 +5576,23 @@
         "scoring weeks " + (m.scoring_weeks_used || "?") + " · " +
         "prior AAV snapshot wk " + (m.aav_snapshot_week || "?");
     }
-    if (STATE.tagSubview === "proj2027") {
-      body.innerHTML = renderTag2027Projection();
-      wireProj2027(body);
-    } else if (STATE.tagSubview === "breakdown") {
+    // "proj2027" retired — the 2027 projection now lives in the Calc Breakdown
+    // behind a year dropdown (Keith 2026-06-05). Migrate any stale state.
+    if (STATE.tagSubview === "proj2027") STATE.tagSubview = "breakdown";
+    if (STATE.tagSubview === "breakdown") {
       body.innerHTML = renderTagBreakdown();
+      wireTagBreakdown(body);
     } else {
       body.innerHTML = renderTagEligible();
     }
+  }
+
+  // Wire the Calc Breakdown's year dropdown + the folded-in per-player tag-value
+  // table (which reuses the proj2027 filter/sort/row-click handlers).
+  function wireTagBreakdown(body) {
+    const y = $("#fo-tagbd-year");
+    if (y) y.addEventListener("change", function () { STATE.tagBreakdownYear = safeInt(this.value, STATE.tagBreakdownYear); renderTagTab(); });
+    wireProj2027(body);
   }
 
   // Wire the 2027 projection subview's filters / sort / row-click (renderTagTab
@@ -5809,10 +5821,12 @@
   // NOT re-derive the tier math). Tier bids reflect the current source season's
   // points; they update as the season's YTD points come in (full living
   // projection is parked in project_tag_value_2027_projection_parking_lot.md).
-  function renderTag2027Projection() {
+  // Per-player projected tag-VALUE table for `projYear`. Folded into the Calc
+  // Breakdown (year dropdown) — no longer a separate subview (Keith 2026-06-05:
+  // "we don't need a separate tab ... calculation should be based off this").
+  function renderTagValueTable(projYear) {
     const m = STATE.tagData.meta || {};
     const cb = m.calc_breakdown || {};
-    const projYear = (safeInt(SEASON, 0) || new Date().getUTCFullYear()) + 1;
     const nn = function (s) { return safeStr(s).toLowerCase().replace(/[^a-z]/g, ""); };
     if (!Object.keys(cb).length) {
       return '<div class="fo-placeholder">No calc_breakdown in tag_tracking.json — can\'t project tier bids.</div>';
@@ -5883,8 +5897,12 @@
         '<td class="num">' + escapeHtml(fmtUSD(r.tier_bid)) + ' <span class="small" style="color:var(--muted);">' + escapeHtml(r.tier_label) + "</span></td>" +
         '<td class="num"><strong>' + escapeHtml(fmtUSD(r.tag_value)) + "</strong></td></tr>";
     }).join("");
+    const isProjected = projYear > (safeInt(SEASON, 0) || 0);
+    const hint = isProjected
+      ? '💡 <strong>Projected ' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, canon §C8 AAV-only. ' + projYear + ' tags are priced off ' + (projYear - 1) + '-season points; until that season plays out, tier bids use the latest complete (' + escapeHtml(String(m.season || "?")) + ') structure as a stand-in and update live — not locked until the ' + projYear + ' contract deadline.'
+      : '💡 <strong>' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, canon §C8 AAV-only — this cycle\'s tiers (source season ' + escapeHtml(String(m.season || "?")) + ').';
     return '<div class="fo-card">' +
-      '<p class="fo-row-hint">💡 <strong>Projected ' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, canon §C8 AAV-only. ' + projYear + ' tags are priced off ' + (projYear - 1) + '-season points; until that season plays out, tier bids use the latest complete (' + escapeHtml(String(m.season || "?")) + ') structure as a stand-in and update live — not locked until the ' + projYear + ' contract deadline.</p>' +
+      '<p class="fo-row-hint">' + hint + '</p>' +
       '<div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;"><span class="small" style="color:var(--muted);">Filter</span>' + teamSel + posSel + clr +
       '<span class="small" style="color:var(--muted);margin-left:auto;">' + rows.length + (rows.length === total ? "" : " of " + total) + ' expiring players</span></div>' +
       '<div class="fo-table-scroll"><table class="fo-table" id="fo-p27-table"><thead><tr>' +
@@ -5901,6 +5919,23 @@
     if (!posKeys.length) {
       return '<div class="fo-placeholder">No calc_breakdown in tag_tracking.json meta.</div>';
     }
+    // Year selector — the 2026 deadline has passed, so default to the forward
+    // projection (SEASON+1). The tier structure is the same pipeline output for
+    // both years (a documented stand-in for the projection until SEASON+1's
+    // source season plays out — see project_tag_value_2027_projection_parking_lot).
+    const curCycle = safeInt(SEASON, 0) || 2026;
+    if (STATE.tagBreakdownYear == null) STATE.tagBreakdownYear = curCycle + 1;
+    const year = safeInt(STATE.tagBreakdownYear, curCycle + 1);
+    const isProjected = year > curCycle;
+    const yopt = function (y) { return '<option value="' + y + '"' + (y === year ? " selected" : "") + ">" + y + (y > curCycle ? " (projected)" : "") + "</option>"; };
+    const yearSel = '<div style="display:flex;gap:8px;align-items:center;margin:4px 0 12px;flex-wrap:wrap;">' +
+      '<label class="small" style="color:var(--muted);">Tag year</label>' +
+      '<select id="fo-tagbd-year" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;">' +
+      yopt(curCycle + 1) + yopt(curCycle) + "</select>" +
+      (isProjected
+        ? '<span class="small" style="color:#d4a017;">PROJECTED — live off ' + (year - 1) + ' points once the season plays; not locked until the ' + year + ' contract deadline</span>'
+        : '<span class="small" style="color:var(--muted);">current cycle (locked at the ' + year + ' tag deadline)</span>') +
+      "</div>";
     const sections = posKeys.map(function (posKey) {
       const pos = cb[posKey] || {};
       const tiers = Array.isArray(pos.tiers) ? pos.tiers : [];
@@ -5926,11 +5961,13 @@
           <div class="fo-tag-tier-grid">${tierCards}</div>
         </div>`;
     }).join("");
-    return `
+    return yearSel + `
       <p class="fo-row-hint">
-        💡 Tag tiers come from prior season's <strong>positional rank</strong> by points. Each tier's <strong>base bid</strong> = average AAV of the players in that rank band. Effective tag salary on the Eligible Players view = max(this base bid, <strong>max(current AAV, prior AAV) × 1.10</strong>). Canon: AAV-only — never current/prior salary.
+        💡 Tag tiers come from prior season's <strong>positional rank</strong> by points. Each tier's <strong>base bid</strong> = average AAV of the players in that rank band. Effective tag salary = max(this base bid, <strong>max(current AAV, prior AAV) × 1.10</strong>). Canon: AAV-only — never current/prior salary.
       </p>
-      ${sections}`;
+      ${sections}
+      <h2 style="margin:20px 0 4px;">Tag values by player — ${year}${isProjected ? " (projected)" : ""}</h2>
+      ${renderTagValueTable(year)}`;
   }
 
   function positionLongLabel(k) {
