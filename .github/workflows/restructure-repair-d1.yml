@@ -1,0 +1,46 @@
+name: Restructure repair → D1 (manual)
+
+# One-off repair: re-ingest a restructure row WITH its prior state so the
+# Contract Revert checkbox enables. Deletes the old null-prior row first
+# (separate POST — the ingest endpoint inserts before deletes, so a combined
+# call would skip the insert on the still-present dupe then delete everything),
+# then inserts the corrected record.
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season'
+        required: false
+        default: '2026'
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Delete old row, then insert with prior state
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+          SEASON: ${{ github.event.inputs.season }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.error
+          season = os.environ.get("SEASON") or "2026"
+          data = json.load(open(f"site/rosters/contract_submissions/restructure_repair_{season}.json"))
+          recs = data.get("records") or []
+          dels = data.get("delete") or []
+          url = f"https://upsmflproduction.keith-creelman.workers.dev/admin/restructure-ingest?L=74598&YEAR={season}&APIKEY={os.environ['KEY']}"
+          ua = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+          def post(payload, label):
+              body = json.dumps(payload).encode()
+              req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", "User-Agent": ua}, method="POST")
+              try:
+                  with urllib.request.urlopen(req) as resp:
+                      print(label, "HTTP", resp.status, resp.read().decode()[:600])
+              except urllib.error.HTTPError as e:
+                  print(label, "HTTP", e.code, e.read().decode()[:600]); raise
+          # 1) delete the old null-prior row(s)
+          post({"season": season, "league_id": "74598", "records": [], "delete": dels}, "DELETE:")
+          # 2) insert the corrected record WITH prior state
+          post({"season": season, "league_id": "74598", "records": recs}, "INSERT:")
+          PY
