@@ -4363,10 +4363,16 @@
         let elig;
         try { elig = rosterContractEligibility(p); } catch (_) { return; }
         if (!elig || !elig.restructureEligible || p.isTaxi || p.isIr) return;
+        // Remaining Salary Owed = TCV − Earned (sum of the remaining-year
+        // salaries) — what a restructure actually redistributes. Keith
+        // 2026-06-05: show this instead of TCV on the restructure view.
+        var _rtcv = totalContractValueForPlayer(p);
+        var _rbr = earnedToDateBreakdownForPlayer(p, safeInt(SEASON, 0), new Date());
         rows.push({
           pid: safeStr(p.id), fid: safeStr(t.fid),
           name: safeStr(p.name), team: safeStr(t.name) || safeStr(t.fid), pos: safeStr(p.position),
-          type: safeStr(p.type), years: safeInt(p.years, 0), tcv: totalContractValueForPlayer(p),
+          type: safeStr(p.type), years: safeInt(p.years, 0), tcv: _rtcv,
+          remaining: Math.max(0, _rtcv - safeInt(_rbr && _rbr.earned, 0)),
           used: restructureUsedForFid(t.fid),
         });
       });
@@ -4384,7 +4390,7 @@
         " eligible · window " + (daysLeft === Infinity ? "open" : (daysLeft < 0 ? "CLOSED" : daysLeft + "d left (" + dlStr + ")")) +
         " · 3/team/season · " + SEASON;
     }
-    STATE.rstrSort = STATE.rstrSort || { key: "tcv", dir: -1 };
+    STATE.rstrSort = STATE.rstrSort || { key: "remaining", dir: -1 };
     const sk = STATE.rstrSort.key, sd = STATE.rstrSort.dir;
     rows.sort(function (a, b) {
       const av = a[sk], bv = b[sk];
@@ -4414,7 +4420,7 @@
         "<td>" + escapeHtml(r.pos) + "</td>" +
         '<td class="small">' + escapeHtml(r.type) + "</td>" +
         '<td style="text-align:center;">' + r.years + "</td>" +
-        '<td style="text-align:right;">' + escapeHtml(fmtUSD(r.tcv)) + "</td>" +
+        '<td style="text-align:right;">' + escapeHtml(fmtUSD(r.remaining)) + "</td>" +
         "<td>" + escapeHtml(dlStr) + "</td>" +
         '<td style="text-align:right;color:' + dCol + ';font-weight:600;">' + dStr + "</td>" +
         "</tr>";
@@ -4424,7 +4430,7 @@
         hdr("name", "Player") + hdr("team", "Team") +
         '<th style="text-align:center;" title="Team restructures used / 3-per-season limit">R Used</th>' +
         hdr("pos", "Pos") + hdr("type", "Type") +
-        hdr("years", "Yrs Rem", "center") + hdr("tcv", "TCV", "right") +
+        hdr("years", "Yrs Rem", "center") + hdr("remaining", "Remaining Owed", "right") +
         '<th>Deadline</th><th style="text-align:right;">Days Left</th>' +
         "</tr></thead><tbody>" + trs + "</tbody></table></div>"
       : '<div class="fo-table-loading">No players eligible to restructure' + (daysLeft < 0 ? " (window closed)" : "") + '.</div>';

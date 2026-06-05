@@ -1,18 +1,11 @@
 {
   "meta": {
-    "note": "FAKE TEST MYM for 2026 — validates the full MYM action → D1 → Contract Log chain while no live player is MYM-eligible (offseason). Uses real 2025 data (Isaiah Williams, the original /offer-mym worker-test contract: mym2 $1K/yr) attributed to Real Deal Creel (0008), Keith's designated test franchise. Dated before the 2026-06-06 cutoff in contract_log_test_2026.json, so the FO Contract Log auto-flags it TEST (hidden by default; toggle 'Show test' to reveal). It also appears under the MYM tab's 'Submitted this season'. Keith 2026-06-05.",
+    "note": "DELETION directive. The Isaiah Williams 2026 MYM was a development fake-test fixture that should NOT be logged (Keith 2026-06-05). This removes it from ups_mym_submissions. The MYM action pipeline is validated via the live dry-run submit instead (which posts to the test Discord channel and records a dry_run=1 audit row, excluded from the log). Idempotent — re-running is a no-op once deleted.",
     "season": "2026",
     "league_id": "74598"
   },
-  "records": [
-    {
-      "franchise_id": "0008", "franchise_name": "Real Deal Creel",
-      "player_id": "16630", "player_name": "Williams, Isaiah", "position": "WR",
-      "prior_contract_status": "WW", "contract_status": "Veteran",
-      "mym_length": 2, "mym_option": "mym2", "sub_type": "WW-MYM",
-      "tcv": 2000, "guaranteed": 1000, "per_year": 1000, "year_salaries": [1000, 1000],
-      "contract_info": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
-      "submitted_at_utc": "2026-06-05T12:00:00", "source": "mym-fo-test"
-    }
+  "records": [],
+  "delete": [
+    { "season": "2026", "franchise_id": "0008", "player_id": "16630", "source": "mym-fo-test" }
   ]
 }
