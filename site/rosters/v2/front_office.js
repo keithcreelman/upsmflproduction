@@ -79,9 +79,17 @@
     if (window.UPS_FO_FRANCHISE_ID) return pad4(window.UPS_FO_FRANCHISE_ID);
     if (window.UPS_RWB_FRANCHISE_ID) return pad4(window.UPS_RWB_FRANCHISE_ID);
     if (window.UPS_HPM_FRANCHISE_ID) return pad4(window.UPS_HPM_FRANCHISE_ID);
-    // HPM embed: nothing was passed via URL or a global, so read MFL's own login
-    // cookie (the viewer's franchise) — same heuristic roster_workbench.js uses,
-    // so FO resolves the logged-in owner natively inside the My Team page.
+    // MFL exposes the LOGGED-IN franchise on owner pages — login-scoped, so it
+    // distinguishes Keith's 0000 commish login from his 0008 team. The
+    // MFLPlayerPopup cookie below CANNOT (it sticks to the last team-popup
+    // context, which is why it always returned 0008). Prefer these when present.
+    const mflGlobal = pad4((window.FRANCHISE_ID != null ? window.FRANCHISE_ID : window.franchise_id) || "");
+    if (mflGlobal) return mflGlobal;
+    try {
+      const m = String(window.location.pathname || "").match(/\/home\/\d+\/(\d{1,4})(?:\/|$)/i);
+      if (m && m[1]) return pad4(m[1]);
+    } catch (e) {}
+    // Last resort: MFLPlayerPopup cookie (ambiguous for dual-identity logins).
     const fromCookie = franchiseIdFromCookies(LEAGUE_ID, SEASON);
     if (fromCookie) return pad4(fromCookie);
     return null;
@@ -1643,6 +1651,21 @@
   async function loadMe() {
     // Best effort: admin-state tells us if commish + viewer franchise.
     const fid = viewerFranchiseId();
+    // Debug hook: on the real MFL page, `window.UPS_FO_FRANCHISE_DEBUG` (also
+    // console-logged) shows every candidate signal so we can wire the correct
+    // logged-in-franchise source (the cookie alone can't tell 0000 from 0008).
+    try {
+      window.UPS_FO_FRANCHISE_DEBUG = {
+        resolved: fid,
+        qs_franchise_id: QS.get("franchise_id") || null,
+        win_FRANCHISE_ID: (typeof window.FRANCHISE_ID !== "undefined") ? window.FRANCHISE_ID : null,
+        win_franchise_id: (typeof window.franchise_id !== "undefined") ? window.franchise_id : null,
+        path: window.location.pathname,
+        cookie_fid: franchiseIdFromCookies(LEAGUE_ID, SEASON) || null,
+        popup_cookies: (String(document.cookie || "").match(/MFLPlayerPopup_[0-9_]+/g) || [])
+      };
+      console.log("[FO] franchise resolution →", window.UPS_FO_FRANCHISE_DEBUG);
+    } catch (e) {}
     const qs = "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
     // credentials: "omit" — the worker's admin-state route returns
     // useful data on IP/session bypass without cookies, and cross-origin
@@ -3543,7 +3566,11 @@
                    "&franchise_id=" + encodeURIComponent(p.fid) +
                    "&focus_pid=" + encodeURIComponent(p.id) +
                    "&focus_fid=" + encodeURIComponent(p.fid);
-        window.open("/trades/trade_workbench.html" + qs, "_blank", "noopener");
+        // Resolve to an ABSOLUTE Pages URL (FO lives at rosters/v2/, the trade
+        // hub at trades/). The old root-relative "/trades/..." 404'd inside the
+        // MFL embed (resolved against MFL's origin) and on Pages (missed the
+        // /upsmflproduction/ base). assetUrl rebases ../../trades onto Pages.
+        window.open(assetUrl("../../trades/trade_workbench.html") + qs, "_blank", "noopener");
       });
     });
   }
@@ -3902,24 +3929,37 @@
   }
 
   function renderExtensionForm(p, opt) {
-    const yrs = safeInt(opt.years, 0) || safeInt(opt.years_added, 0) || safeInt(opt.length, 0);
-    const salary = roundToK(safeInt(opt.salary, 0) || safeInt(opt.year1_salary, 0));  // whole $1,000s
-    const status = safeStr(opt.contract_status || opt.status || ("Vet-Ext" + yrs));
-    const info   = safeStr(opt.contract_info || opt.info || "");
+    const addedY = safeInt(opt.years, 0) || safeInt(opt.years_added, 0) || safeInt(opt.length, 0);
+    const status = safeStr(opt.contract_status || opt.contractStatus || opt.status || ("Vet-Ext" + addedY));
+    const info   = safeStr(opt.contract_info || opt.contractInfo || opt.info || "");
+    // Full season-by-season schedule from the contract_info Y-tokens (1-indexed).
+    // NEW LENGTH is the TOTAL contract length (current remaining + added years),
+    // not just the years added — e.g. a 1-yr-left player extended +1Y → 2 years.
+    const yv = parseContractYearValues(info);
+    const yearNums = Object.keys(yv).map(Number).sort(function (a, b) { return a - b; });
+    const cl  = safeInt(opt.contractLength || opt.contract_length, 0) || yearNums.length ||
+                (Math.max(0, safeInt(p.years, 0)) + addedY);
+    const tcv = safeInt(opt.tcv, 0) || yearNums.reduce(function (s, n) { return s + (yv[n] || 0); }, 0);
+    const baseYear = safeInt(SEASON, 0) || new Date().getUTCFullYear();
+    const schedule = (yearNums.length ? yearNums : [1]).map(function (n) {
+      const season = baseYear + (n - 1);
+      return '<div class="fo-form-row"><span class="lbl">' + season + (n === 1 ? " (current)" : "") +
+             '</span><span class="val">' + (yv[n] != null ? fmtK(yv[n]) : "—") + "</span></div>";
+    }).join("");
     return `
       <div class="fo-form">
-        <h3 style="margin:0 0 4px;">Extend ${escapeHtml(p.name)} · +${yrs}Y</h3>
+        <h3 style="margin:0 0 4px;">Extend ${escapeHtml(p.name)} · +${addedY}Y</h3>
         <div class="fo-form-note">
           Confirm the extension terms below. ${IS_DRY_RUN
             ? "<strong style='color:var(--dryrun);'>Dry-run mode is ON</strong> — this will NOT write to MFL."
             : "This will POST to <code>/commish-contract-update</code> and write to MFL."}
         </div>
         <div class="fo-form-row"><span class="lbl">New status</span><span class="val">${escapeHtml(status)}</span></div>
-        <div class="fo-form-row"><span class="lbl">New salary (Y1)</span><span class="val">${fmtK(salary)}</span></div>
-        <div class="fo-form-row"><span class="lbl">New length</span><span class="val">${yrs} year${yrs === 1 ? "" : "s"}</span></div>
-        <div class="fo-form-row"><span class="lbl">Contract info</span><span class="val">${escapeHtml(info || "—")}</span></div>
-        <div class="fo-form-row"><span class="lbl">Prior salary</span><span class="val">${fmtK(p.salary)}</span></div>
-        <div class="fo-form-row"><span class="lbl">Prior status</span><span class="val">${escapeHtml(p.type)}</span></div>
+        <div class="fo-form-row"><span class="lbl">New length</span><span class="val">${cl} year${cl === 1 ? "" : "s"}</span></div>
+        <div class="fo-form-row"><span class="lbl">TCV (total)</span><span class="val">${fmtK(tcv)}</span></div>
+        <div style="margin:10px 0 2px; font-weight:700; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.4px;">Salary by season</div>
+        ${schedule}
+        <div class="fo-form-row" style="margin-top:6px;"><span class="lbl">Contract info</span><span class="val">${escapeHtml(info || "—")}</span></div>
         <div class="fo-form-actions">
           <button class="btn secondary" id="fo-ext-cancel">Cancel</button>
           <button class="btn" id="fo-ext-submit">${IS_DRY_RUN ? "Submit (dry-run)" : "Submit Extension"}</button>
