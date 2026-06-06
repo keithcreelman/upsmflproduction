@@ -2641,16 +2641,18 @@
 </script>
 
 <script>
-  // Front Office (FO v2) embed helper for MESSAGE7 — replaces the legacy Roster
-  // Workbench on the "Front Office" page with FO v2 (site/rosters/v2 via
-  // fo_embed_loader.js). RWB is kept intact as a fallback: append ?rwb=1 (or set
-  // window.UPS_FORCE_RWB = true) to force the legacy Roster Workbench. Keith
-  // 2026-06-06: "just replace RWB." Only the Front Office page (MESSAGE7) is
-  // affected — My Team / Team Operations (MESSAGE11 + home) is untouched.
+  // Front Office (FO v2) / Roster Workbench embed helper.
+  //   MESSAGE7  → legacy Roster Workbench (the live "Front Office" page everyone
+  //               uses — unchanged, so testing FO doesn't disrupt owners).
+  //   MESSAGE14 → Front Office v2 (site/rosters/v2 via fo_embed_loader.js) — the
+  //               staging/test page. ?rwb=1 there forces RWB for an A/B compare.
+  // Keith 2026-06-06: "move this to message 14 for now so i can test without
+  // removing the RWB from people's view." My Team / Team Operations (MESSAGE11 +
+  // home) is untouched. Promote FO to MESSAGE7 by flipping the module check below.
   (function () {
-    var FO_HEADER_BUILD = "2026.06.06.1";
-    if (window.__ups_fo_message7_autoload === FO_HEADER_BUILD) return;
-    window.__ups_fo_message7_autoload = FO_HEADER_BUILD;
+    var FO_HEADER_BUILD = "2026.06.06.2";
+    if (window.__ups_fo_embed_autoload === FO_HEADER_BUILD) return;
+    window.__ups_fo_embed_autoload = FO_HEADER_BUILD;
 
     function safeStr(v) {
       return String(v || "").trim();
@@ -2768,26 +2770,34 @@
       clearLegacyEmbeds();
       var L = getCurrentLeagueId();
       var YEAR = getCurrentYear();
+      var mod = getModuleName();
 
-      if (forceLegacyRwb()) {
-        // Fallback: legacy Roster Workbench (files kept intact for exactly this).
-        ensureMountNearTop("roster-workbench");
-        window.UPS_RWB_LEAGUE_ID = L;
-        window.UPS_RWB_YEAR = YEAR;
-        injectLoader("mfl_hpm_embed_loader.js", "data-ups-rwb-loader");
+      // FO v2 lives ONLY on the MESSAGE14 test page for now, so owners on the
+      // live "Front Office" page (MESSAGE7) keep the proven Roster Workbench
+      // until FO v2 is signed off. ?rwb=1 on MESSAGE14 forces RWB for an A/B
+      // comparison.
+      var useFo = (mod === "MESSAGE14") && !forceLegacyRwb();
+
+      if (useFo) {
+        // Front Office v2. fo_embed_loader.js reads UPS_FO_* (falling back to
+        // UPS_RWB_*) for league/year, resolves the viewer franchise from MFL's
+        // login cookie, and mounts into #ups-front-office.
+        ensureMountNearTop("ups-front-office");
+        window.UPS_FO_LEAGUE_ID = L;
+        window.UPS_FO_YEAR = YEAR;
+        injectLoader("fo_embed_loader.js", "data-ups-fo-loader");
         return;
       }
 
-      // Default: Front Office v2. fo_embed_loader.js reads UPS_FO_* (and falls
-      // back to UPS_RWB_*) for league/year, and resolves the viewer franchise
-      // from MFL's login cookie. It mounts into #ups-front-office.
-      ensureMountNearTop("ups-front-office");
-      window.UPS_FO_LEAGUE_ID = L;
-      window.UPS_FO_YEAR = YEAR;
-      injectLoader("fo_embed_loader.js", "data-ups-fo-loader");
+      // Legacy Roster Workbench — MESSAGE7 (everyone), or MESSAGE14 with ?rwb=1.
+      ensureMountNearTop("roster-workbench");
+      window.UPS_RWB_LEAGUE_ID = L;
+      window.UPS_RWB_YEAR = YEAR;
+      injectLoader("mfl_hpm_embed_loader.js", "data-ups-rwb-loader");
     }
 
-    if (getModuleName() !== "MESSAGE7") return;
+    var __foMod = getModuleName();
+    if (__foMod !== "MESSAGE7" && __foMod !== "MESSAGE14") return;
     applyPrehide();
 
     if (document.readyState === "loading") {
