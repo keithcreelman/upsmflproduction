@@ -2020,7 +2020,33 @@ export default {
         console.error(`[scheduled */5] drop-tracker dispatch failed: ${e?.message || String(e)}`);
       }
 
-      return; // both jobs dispatched on the */5 tick
+      // Transactions ledger — pull MFL TYPE=transactions (ALL types) into
+      // ups_transactions every 5 min (Keith 2026-06-05 "we need ALL
+      // transactions in D1"). Idempotent (INSERT OR IGNORE on mfl_txn_id), cheap
+      // I/O, so it runs whenever SELF + key + D1 are present. Stage 1 = ledger
+      // only; per-type Discord posting (taxi/IR/adds) is a later pass.
+      try {
+        if (commishApiKey && env.UPS_MFL_DB && env.SELF) {
+          ctx.waitUntil((async () => {
+            try {
+              const res = await env.SELF.fetch(
+                `${origin}/admin/transactions/scan-and-record?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId, days: 2 }) }
+              );
+              const data = await res.json().catch(() => ({}));
+              if (Number(data?.written) > 0) {
+                console.log(`[scheduled */5] transactions-ledger: written=${data.written} scanned=${data.scanned}`);
+              }
+            } catch (e) {
+              console.error(`[scheduled */5] transactions-ledger failed: ${e?.message || String(e)}`);
+            }
+          })());
+        }
+      } catch (e) {
+        console.error(`[scheduled */5] transactions-ledger dispatch failed: ${e?.message || String(e)}`);
+      }
+
+      return; // jobs dispatched on the */5 tick
     }
 
     // ---------- HALL SUMMARY SWEEP (every 2 min, summaries only) ----------
@@ -2440,6 +2466,7 @@ export default {
         path !== "/admin/extension-ingest" &&
         path !== "/admin/tag-ingest" &&
         path !== "/admin/mym-ingest" &&
+        path !== "/admin/transactions/scan-and-record" &&
         path !== "/admin/commish-settings" &&
         path !== "/admin/d1-status" &&
         path !== "/admin/discord-channel-config" &&
@@ -33084,6 +33111,88 @@ export default {
           } catch (e) { miResults.push({ player_id: pid, ok: false, error: "delete: " + (e?.message || String(e)) }); }
         }
         return jsonOut(200, { ok: true, season: miDefaultSeason, league_id: miLeague, inserted, skipped, deleted, errors, results: miResults });
+      }
+
+      // POST /admin/transactions/scan-and-record — pull MFL TYPE=transactions
+      // (ALL types, no TRANS_TYPE filter) and INSERT-OR-IGNORE every row into
+      // ups_transactions (Keith 2026-06-05: "we need ALL transactions in D1").
+      // Idempotent on the synthesized mfl_txn_id. Invoked by the */5 cron.
+      // Stage 1 = the ledger only; per-type Discord posting is a later pass that
+      // reads discord_posted=0 rows. Commish-keyed; in the !L bypass list.
+      if (path === "/admin/transactions/scan-and-record" && request.method === "POST") {
+        const key = url.searchParams.get("APIKEY") || request.headers.get("X-MFL-APIKEY") || "";
+        if (!(key && (key === env.COMMISH_API_KEY || key === env.MFL_APIKEY))) {
+          return jsonOut(401, { ok: false, error: "unauthorized" });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let txBody = {};
+        try { txBody = (await request.json()) || {}; } catch (_) {}
+        const txSeason = safeStr(txBody.season || YEAR || "2026");
+        const txLeague = safeStr(txBody.league_id || L || "74598");
+        const txDays = Math.max(1, Math.min(90, safeInt(txBody.days, 7)));
+        try {
+          await env.UPS_MFL_DB.prepare(
+            `CREATE TABLE IF NOT EXISTS ups_transactions (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               mfl_txn_id TEXT NOT NULL UNIQUE,
+               league_id TEXT NOT NULL, season TEXT NOT NULL, type TEXT NOT NULL,
+               unix_timestamp INTEGER, datetime_et TEXT,
+               franchise_id TEXT, franchise_id2 TEXT,
+               added_players TEXT, dropped_players TEXT, raw_json TEXT NOT NULL,
+               discord_posted INTEGER NOT NULL DEFAULT 0, discord_message_id TEXT,
+               posted_at TEXT, recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
+             )`
+          ).run();
+        } catch (_) {}
+        let txs = [];
+        try {
+          const txRes = await mflExportJson(txSeason, txLeague, "transactions", { DAYS: String(txDays) }, { useCookie: true });
+          txs = txRes.data?.transactions?.transaction || [];
+          if (!Array.isArray(txs)) txs = [txs];
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: "mfl_fetch_failed: " + (e?.message || String(e)) });
+        }
+        let scanned = 0, written = 0, skipped = 0, errors = 0;
+        const byType = {};
+        for (const t of txs) {
+          scanned += 1;
+          try {
+            const ty = safeStr(t.type).toUpperCase();
+            byType[ty] = (byType[ty] || 0) + 1;
+            const ts = safeInt(t.timestamp, 0);
+            const fr = padFranchiseId(t.franchise);
+            const fr2 = t.franchise2 ? padFranchiseId(t.franchise2) : null;
+            // type-specific add/drop parsing (shapes confirmed from MFL):
+            //  FREE_AGENT  transaction "added,|dropped,"
+            //  *WAIVER     transaction "added,|bid|dropped,"
+            //  TAXI        promoted / demoted   ·   IR  activated / deactivated
+            //  TRADE       franchise1_gave_up / franchise2_gave_up
+            let added = "", dropped = "";
+            if (ty === "FREE_AGENT") {
+              const p = safeStr(t.transaction).split("|"); added = safeStr(p[0]); dropped = safeStr(p[1]);
+            } else if (/WAIVER/.test(ty)) {
+              const p = safeStr(t.transaction).split("|"); added = safeStr(p[0]); dropped = safeStr(p[2]);
+            } else if (ty === "TAXI") {
+              added = safeStr(t.promoted); dropped = safeStr(t.demoted);
+            } else if (ty === "IR") {
+              added = safeStr(t.activated); dropped = safeStr(t.deactivated);
+            } else if (ty === "TRADE") {
+              added = safeStr(t.franchise1_gave_up); dropped = safeStr(t.franchise2_gave_up);
+            }
+            const sig = [t.transaction, t.promoted, t.demoted, t.activated, t.deactivated, t.franchise1_gave_up, t.franchise2_gave_up]
+              .filter(Boolean).join("~").replace(/\s+/g, "");
+            const mflTxnId = txSeason + ":" + ty + ":" + ts + ":" + (fr || "") + ":" + sig;
+            const dt = ts ? new Date(ts * 1000).toISOString().replace("T", " ").slice(0, 19) : null;
+            const res = await env.UPS_MFL_DB.prepare(
+              `INSERT OR IGNORE INTO ups_transactions
+                 (mfl_txn_id, league_id, season, type, unix_timestamp, datetime_et,
+                  franchise_id, franchise_id2, added_players, dropped_players, raw_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(mflTxnId, txLeague, txSeason, ty, ts, dt, fr || null, fr2, added || null, dropped || null, JSON.stringify(t)).run();
+            if (res && res.meta && res.meta.changes) written += 1; else skipped += 1;
+          } catch (e) { errors += 1; }
+        }
+        return jsonOut(200, { ok: true, season: txSeason, league_id: txLeague, days: txDays, scanned, written, skipped, errors, by_type: byType });
       }
 
       // GET/POST /admin/commish-settings — read/write commish-configurable
