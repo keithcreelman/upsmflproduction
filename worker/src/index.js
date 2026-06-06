@@ -7263,14 +7263,13 @@ export default {
       const _rdhLeagueId = () => safeStr(L || "74598");
       const _rdhYear = () => safeStr(YEAR || String(new Date().getUTCFullYear()));
       const _rdhCommishFids = () => {
-        // Default commish allowlist:
+        // Commish allowlist (Keith 2026-06-06: only 0008 + 0000, NOT 0001):
         //   0008 — Keith / Real Deal Creel (actual UPS commish team)
         //   0000 — MFL pseudo-franchise for the league owner login (no
         //          roster, but commish view; Keith uses this when running
         //          the draft from the commish dashboard)
-        //   0001 — legacy fallback retained for compatibility
         // Override via env COMMISH_FRANCHISE_IDS.
-        const raw = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000,0001");
+        const raw = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000");
         return raw.split(/[,\s]+/).map(s => _rdhPadFid(s)).filter(Boolean);
       };
       const _rdhDiscordChannel = (live) => {
@@ -12522,18 +12521,6 @@ export default {
       };
 
       const adminStateResponse = async () => {
-        // The configured commish allowlist (same source the worker uses to
-        // authorize commish-only actions — see _rdhCommishFids). Exposed so the
-        // embedded Front Office can gate its commish UI per VIEWER franchise:
-        // admin-state's own isAdmin reflects the WORKER's stored commish session
-        // (true for every viewer), whereas `commishFids` lets the client check
-        // whether THIS viewer's franchise is a commish. Default 0008,0000,0001.
-        const _padFid = (s) => String(s || "").replace(/\D/g, "").padStart(4, "0").slice(-4);
-        const commishFids = String(env.COMMISH_FRANCHISE_IDS || "0008,0000,0001")
-          .split(/[,\s]+/)
-          .map(_padFid)
-          .filter(Boolean);
-
         const adminState = await getLeagueAdminState(L, YEAR);
         if (!adminState.ok) {
           return new Response(
@@ -12541,7 +12528,6 @@ export default {
               ok: false,
               isAdmin: false,
               reason: adminState.reason,
-              commishFids,
               sessionKnown,
               sessionMatch,
             }),
@@ -12549,6 +12535,11 @@ export default {
           );
         }
 
+        // commishFranchiseId is the dedicated MFL commish login (0000 for UPS).
+        // The embedded Front Office gates its commish UI on `viewer ===
+        // commishFranchiseId`, so ONLY 0000 sees commish functionality — Keith's
+        // playing team (0008) is a regular owner there even though it's a commish
+        // for draft auth (_rdhCommishFids).
         return new Response(
           JSON.stringify({
             ok: true,
@@ -12556,7 +12547,6 @@ export default {
             reason: adminState.reason,
             emailCount: adminState.emailCount,
             commishFranchiseId: adminState.commishFranchiseId || "",
-            commishFids,
             sessionKnown,
             sessionMatch,
             sessionByCookie,
