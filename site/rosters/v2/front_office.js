@@ -1862,7 +1862,7 @@
       const t = (STATE.teams || []).find(function (x) { return pad4(x.fid) === fid; });
       who = (t && t.name) || me.franchise_name || ("Franchise " + fid);
     }
-    meta.textContent = "You: " + who;
+    meta.textContent = "Logged in as: " + who;
   }
 
   // ── Tabs ────────────────────────────────────────────────────────────

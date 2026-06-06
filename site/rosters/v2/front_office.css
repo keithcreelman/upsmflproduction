@@ -167,17 +167,24 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 
 /* ── Buttons ────────────────────────────────────────────────────── */
 .btn {
-  background: #2f5fb0; color: #ffffff; border: 1px solid #5b8dff;
+  background: #244a8f; color: #ffffff; border: 1px solid #4a75c0;
   padding: 6px 12px; border-radius: 4px;
-  font-size: 12px; font-weight: 600; cursor: pointer;
+  font-size: 12px; font-weight: 700; cursor: pointer;
   font-family: inherit;
 }
-.btn:hover { filter: brightness(1.1); }
+.btn:hover { filter: brightness(1.15); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn.secondary { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); }
 .btn.warn { background: var(--warn); color: #0b0f18; }
 .btn.danger { background: var(--err); color: white; }
 .btn.small { padding: 4px 8px; font-size: 11px; }
+/* Embed: MFL's league theme can recolor generic <button> text on its pages, so
+   FO's primary action buttons (+1Y, +2Y, Open in Trade Hub, Submit) can lose
+   their white text inside the MESSAGE14 embed. Force it back — #ups-front-office
+   is ID specificity (1,1,0) and beats MFL's scoped rules. Secondary (dark panel)
+   + warn (gold, dark ink) keep their own contrast, so they're excluded. */
+#ups-front-office .btn:not(.secondary):not(.warn) { color: #ffffff !important; background: #244a8f !important; border-color: #4a75c0 !important; }
+#ups-front-office .btn.warn { color: #0b0f18 !important; }
 
 /* ── Tables ─────────────────────────────────────────────────────── */
 /* Horizontal scroll container for the wide roster table. */
