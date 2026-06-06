@@ -189,6 +189,7 @@
     sort: { key: "salary", dir: -1 },
     groupByPosition: true,   // Roster defaults to By Position (Keith 2026-06-06)
     capSubview: "summary",
+    miscSubview: "log",   // Misc tab: "log" (Contract Log) | "glossary"
     capFocusedTeamFid: null,
     // Per-player preview state in Cap Plan Detail. Key = "pid:fid",
     // value = "ext1" | "ext2" | "drop". Toggling re-runs the projection.
@@ -1938,6 +1939,10 @@
           if (tabSection.dataset.section === "commish") {
             STATE.commishSubview = chip.dataset.subview;
             renderContractsTab();
+          }
+          if (tabSection.dataset.section === "contractlog") {
+            STATE.miscSubview = chip.dataset.subview;
+            renderContractLogTab();
           }
         });
       });
@@ -4933,20 +4938,23 @@
     // Apply the Detail filters (pos / years / status) to the visible rows.
     // Taxi players appear unless a status filter excludes them.
     const players = allOrdered.filter(function (p) { return capSummaryPlayerMatches(p, STATE.capSummaryFilters); });
+    const _f = STATE.capSummaryFilters || {};
+    const anyFilter = (_f.pos && _f.pos !== "ALL") || _f.type || _f.years || _f.status;
     const filteredNote = players.length < allOrdered.length
-      ? ` <span class="small" style="color:var(--muted);">· filtered: ${players.length} of ${allOrdered.length} shown (year totals reflect the full roster)</span>`
+      ? ` <span class="small" style="color:var(--muted);">· filtered: ${players.length} of ${allOrdered.length} shown (totals reflect the selection)</span>`
       : "";
+    // Year totals reflect the FILTERED selection (Keith 2026-06-06: "summaries in
+    // cap planning should filter down based on the filtered selection").
     const totals = {
-      cy:  teamCapForOffset(team, 0),
-      ny:  teamCapForOffset(team, 1),
-      ny2: teamCapForOffset(team, 2)
+      cy:  players.reduce(function (s, p) { return s + projectedPlayerCapForOffset(p, 0); }, 0),
+      ny:  players.reduce(function (s, p) { return s + projectedPlayerCapForOffset(p, 1); }, 0),
+      ny2: players.reduce(function (s, p) { return s + projectedPlayerCapForOffset(p, 2); }, 0)
     };
-    // Team-level cap adjustments (drop penalties, traded salary, other) are NOT
-    // in the per-player year totals above — surface them as a standout line so
-    // the true current-year cap is obvious (Keith 2026-06-06: the adjustments
-    // were "misleading" when buried).
+    // Team-level cap adjustments (drop pen / traded $ / other) are team-WIDE, not
+    // per-player, so they only apply to the full-roster view — excluded (callout
+    // hidden) when a filter is active, consistent with the Summary %.
     const _adj = team.summary || {};
-    const adjTotal = safeInt(_adj.adj_cut, 0) + safeInt(_adj.adj_trade, 0) + safeInt(_adj.adj_other, 0);
+    const adjTotal = anyFilter ? 0 : (safeInt(_adj.adj_cut, 0) + safeInt(_adj.adj_trade, 0) + safeInt(_adj.adj_other, 0));
     const adjustedCy = totals.cy + adjTotal;
     const rows = players.map(function (p) { return renderCapDetailRow(p, team); }).join("")
       || '<tr><td colspan="9" class="fo-table-empty">No players match the current filters.</td></tr>';
@@ -6351,9 +6359,68 @@
   // /admin/contract-submissions (the single source of truth). Filters: Team,
   // Type, Year. Year is pinned to the current season until the historical
   // backfill (forum 2012-2025) is validated (Keith 2026-06-05).
+  // Plain-English glossary for owners — the contract jargon they'll see around
+  // Front Office, defined simply (Keith 2026-06-06). Definitions sourced from
+  // docs/league_context_v1.md: ERA = Expired Rookie Auction (§A3), FAA = Free
+  // Agent Auction (§A2), MYAC/MYM/restructure/tag mechanics (§C).
+  function renderGlossaryHtml() {
+    const groups = [
+      { title: "Contract types — the “Type” column", items: [
+        ["Rookie", "A player taken in the <strong>Rookie Draft</strong>. Cheap 3-year deal; the salary is fixed by the draft slot."],
+        ["Vet-ERA", "A veteran you won in the <strong>Expired Rookie Auction</strong> (late May — the auction of players whose rookie deals expired). Starts as 1 year; use <strong>MYAC</strong> to make it 2 or 3."],
+        ["Vet-FAA", "A veteran you won in the <strong>Free Agent Auction</strong> (late July). Same idea as Vet-ERA, just a different auction."],
+        ["Vet-Ext", "A veteran you <strong>extended</strong> — you added years before the old deal ran out."],
+        ["WW", "<strong>Waiver Wire</strong> — a player you grabbed in-season with a blind bid. 1-year contract."],
+        ["FCFS", "<strong>First-Come, First-Serve</strong> — a free agent you grabbed in-season after waivers ran. 1-year contract."],
+        ["MYM-Rookie", "An in-season pickup who is an NFL rookie that you locked up with a <strong>MYM</strong> (keeps them on the rookie path)."],
+        ["Tag", "A player you kept one more year with a Franchise/Transition <strong>Tag</strong> instead of letting them hit the auction."],
+      ]},
+      { title: "Contract tools — things you submit", items: [
+        ["MYAC", "<strong>Make Your Auction Count</strong>. Right after you win a player at auction, you choose the length (1, 2, or 3 years) and how the salary is spread. Skip it and the deal defaults to 1 year."],
+        ["Extension", "Add years to a player who is <strong>already</strong> under contract, before that contract expires."],
+        ["Restructure", "Reshape the salary across a deal’s <strong>remaining</strong> years (e.g. push money to later years). Offseason only, max 3 per team a season, and it does <strong>not</strong> add years."],
+        ["MYM", "<strong>Make Your Move</strong>. Turn an in-season waiver/FCFS pickup into a multi-year contract, within 14 days of grabbing them. Max 4 per team a season."],
+        ["Tag (Franchise / Transition)", "A one-year tool to keep a player whose contract is expiring. The price is set by a <strong>tier</strong> — the better the player, the higher the tier, the more it costs."],
+      ]},
+      { title: "Money & cap terms", items: [
+        ["Cap", "Your salary cap. Ceiling is <strong>$300K</strong>; you must spend at least the <strong>$260K</strong> floor."],
+        ["TCV", "<strong>Total Contract Value</strong> — the whole dollar value of the deal across all its years. Locked in when the contract is signed."],
+        ["AAV", "<strong>Average Annual Value</strong> — TCV ÷ number of years. The deal’s average yearly cost; this is what sets a player’s tag tier."],
+        ["CL", "<strong>Contract Length</strong> — how many years the deal runs."],
+        ["GTD", "<strong>Guaranteed money</strong> — what you’re still on the hook for against the cap if you cut the player."],
+        ["Earned", "What a player has <strong>already been paid</strong> in the past years of the deal."],
+        ["Cap hit", "What a player counts against your $300K cap <strong>this</strong> year."],
+        ["Drop penalty (dead cap)", "What you still owe against the cap <strong>after</strong> you cut a player."],
+        ["FL — Front-Loaded", "A deal that pays <strong>more early</strong>, less later."],
+        ["BL — Back-Loaded", "A deal that pays <strong>less early</strong>, more later. (Each team may carry at most <strong>5 loaded</strong> — FL or BL — contracts.)"],
+      ]},
+      { title: "Roster spots", items: [
+        ["Taxi", "Taxi (practice) squad — developmental players held off your active roster."],
+        ["IR", "Injured Reserve — a spot for injured players so they don’t clog your active roster."],
+      ]},
+    ];
+    const groupHtml = groups.map(function (g) {
+      const rows = g.items.map(function (it) {
+        return '<div class="fo-gloss-row" style="display:grid;grid-template-columns:minmax(120px,180px) 1fr;gap:14px;padding:9px 0;border-top:1px solid var(--border);">' +
+          '<div style="font-weight:700;color:var(--text);">' + it[0] + '</div>' +
+          '<div style="color:var(--muted);line-height:1.5;">' + it[1] + '</div>' +
+        '</div>';
+      }).join("");
+      return '<div class="fo-card" style="margin-bottom:14px;">' +
+        '<h3 style="margin:0 0 2px;color:var(--text);font-size:15px;">' + escapeHtml(g.title) + '</h3>' +
+        rows + '</div>';
+    }).join("");
+    return '<div class="fo-card-head"><h2>Glossary</h2><span class="small" style="color:var(--muted);">Plain-English definitions for the jargon you’ll see around Front Office.</span></div>' +
+      '<p class="fo-row-hint">💡 New here, or just need a refresher? Here’s what the contract terms actually mean — no rulebook required.</p>' +
+      groupHtml;
+  }
+
   async function renderContractLogTab() {
     const body = $("#fo-contractlog-body");
     if (!body) return;
+    // Misc tab has two sub-views: the Contract Log (default) and a plain-English
+    // Glossary for owners (Keith 2026-06-06: "some guys are not the brightest").
+    if (STATE.miscSubview === "glossary") { body.innerHTML = renderGlossaryHtml(); return; }
     STATE.contractLogFilter = STATE.contractLogFilter || { team: "", type: "", year: String(safeInt(SEASON, 2026)), showTest: false };
     const f = STATE.contractLogFilter;
     const year = f.year || String(safeInt(SEASON, 2026));
@@ -6431,6 +6498,8 @@
         "<td>" + escapeHtml(r.type) + '</td><td class="small">' + escapeHtml(r.details) + "</td></tr>";
     }).join("");
     body.innerHTML =
+      '<div class="fo-card-head"><h2>Contract Log</h2><span class="small" style="color:var(--muted);">Every contract event from D1 — Franchise · Date · Type · Details.</span></div>' +
+      '<p class="fo-row-hint">💡 Straight from D1 (the single source of truth): extensions, auction contracts (MYAC), restructures, tags &amp; untags. Filter by Team / Type / Year. Pinned to the current season until the historical (forum 2012–2025) backfill is validated.</p>' +
       '<div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;"><span class="small" style="color:var(--muted);">Filter</span>' +
         teamSel + typeSel + yearSel + clr + testChk +
         '<span class="small" style="color:var(--muted);margin-left:auto;">' + rows.length + (rows.length === total ? "" : " of " + total) + " entries · " + escapeHtml(year) +
