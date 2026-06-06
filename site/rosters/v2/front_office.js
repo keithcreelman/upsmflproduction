@@ -4662,6 +4662,29 @@
     return out;
   }
 
+  // Dynamic Yrs-Remaining options for the cap filters — only surface buckets
+  // (and "Expired") that actually have players, so the dropdown never offers an
+  // empty option (Keith 2026-06-06: don't show "Expired" when there are none).
+  function capYearOptionsHtml(f) {
+    const present = Object.create(null);
+    let hasExpired = false;
+    (STATE.teams || []).forEach(function (t) {
+      (t.players || []).forEach(function (p) {
+        const isExp = safeInt(p.years, 0) <= 0 || !!p.isExpiredRookie ||
+                      String(p.type || "").toUpperCase() === "EXPIRED";
+        if (isExp) { hasExpired = true; return; }
+        const y = safeInt(p.years, 0);
+        if (y > 0) present[y >= 4 ? "4+" : String(y)] = true;
+      });
+    });
+    let html = '<option value="">All</option>';
+    if (hasExpired) html += `<option value="0" ${f.years === "0" ? "selected" : ""}>Expired</option>`;
+    ["1", "2", "3", "4+"].forEach(function (y) {
+      if (present[y]) html += `<option value="${y}" ${f.years === y ? "selected" : ""}>${y}</option>`;
+    });
+    return html;
+  }
+
   function renderCapSummary() {
     const f = STATE.capSummaryFilters;
     const sort = STATE.capSummarySort;
@@ -4746,11 +4769,7 @@
           <label class="fo-field">
             <span>Yrs Remaining</span>
             <select id="fo-cap-filter-years">
-              <option value="">All</option>
-              <option value="0" ${f.years === "0" ? "selected" : ""}>Expired</option>
-              <option value="1" ${f.years === "1" ? "selected" : ""}>1</option>
-              <option value="2" ${f.years === "2" ? "selected" : ""}>2</option>
-              <option value="3" ${f.years === "3" ? "selected" : ""}>3</option>
+              ${capYearOptionsHtml(f)}
             </select>
           </label>
           <label class="fo-field">
@@ -4857,11 +4876,7 @@
           <input type="hidden" id="fo-cap-filter-type" value="${escapeHtml(f.type || "")}">
           <label class="fo-field"><span>Yrs Remaining</span>
             <select id="fo-cap-filter-years">
-              <option value="">All</option>
-              <option value="0" ${f.years === "0" ? "selected" : ""}>Expired</option>
-              <option value="1" ${f.years === "1" ? "selected" : ""}>1</option>
-              <option value="2" ${f.years === "2" ? "selected" : ""}>2</option>
-              <option value="3" ${f.years === "3" ? "selected" : ""}>3</option>
+              ${capYearOptionsHtml(f)}
             </select>
           </label>
           <label class="fo-field"><span>Roster Status</span>
