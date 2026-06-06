@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Front Office — UPS League</title>
-<link rel="stylesheet" href="front_office.css?v=2026.06.06.v0.3.1">
+<link rel="stylesheet" href="front_office.css?v=2026.06.06.v0.3.2">
 </head>
 <!-- .fo-root carries FO's page-level styling (dark surface, fonts, box-sizing).
      Scoped via this class so the same CSS is safe when injected into MFL's page
      (HPM embed): the embed loader applies .fo-root to its mount instead of <body>. -->
 <body class="fo-root" style="margin:0">
 <header class="fo-header">
-  <h1>Front Office <span class="subtitle">UPS League 74598 · 2026</span>
+  <h1>Front Office <span class="subtitle">UPS League · 2026</span>
     <button id="fo-version-badge" class="fo-version-badge" title="Click for module changelog">Loading…</button>
   </h1>
   <div class="meta" id="fo-meta">Loading…</div>
@@ -119,8 +119,8 @@
       <div class="fo-card-head">
         <h2>Roster</h2>
         <div class="fo-subview-chips" id="fo-group-toggle" role="tablist" aria-label="Roster grouping">
-          <button type="button" class="fo-subview-chip active" data-group="flat">Flat</button>
-          <button type="button" class="fo-subview-chip" data-group="position">By Position</button>
+          <button type="button" class="fo-subview-chip" data-group="flat">Flat</button>
+          <button type="button" class="fo-subview-chip active" data-group="position">By Position</button>
         </div>
         <span class="small" id="fo-roster-summary">Loading…</span>
       </div>
@@ -291,6 +291,6 @@
   </div>
 </aside>
 
-<script src="front_office.js?v=2026.06.06.v1.14.0"></script>
+<script src="front_office.js?v=2026.06.06.v1.15.0"></script>
 </body>
 </html>
