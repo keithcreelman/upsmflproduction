@@ -2641,11 +2641,16 @@
 </script>
 
 <script>
-  // Roster Workbench embed helper for MESSAGE7.
+  // Front Office (FO v2) embed helper for MESSAGE7 — replaces the legacy Roster
+  // Workbench on the "Front Office" page with FO v2 (site/rosters/v2 via
+  // fo_embed_loader.js). RWB is kept intact as a fallback: append ?rwb=1 (or set
+  // window.UPS_FORCE_RWB = true) to force the legacy Roster Workbench. Keith
+  // 2026-06-06: "just replace RWB." Only the Front Office page (MESSAGE7) is
+  // affected — My Team / Team Operations (MESSAGE11 + home) is untouched.
   (function () {
-    var RWB_HEADER_BUILD = "2026.03.07.1";
-    if (window.__ups_rwb_header_autoload === RWB_HEADER_BUILD) return;
-    window.__ups_rwb_header_autoload = RWB_HEADER_BUILD;
+    var FO_HEADER_BUILD = "2026.06.06.1";
+    if (window.__ups_fo_message7_autoload === FO_HEADER_BUILD) return;
+    window.__ups_fo_message7_autoload = FO_HEADER_BUILD;
 
     function safeStr(v) {
       return String(v || "").trim();
@@ -2693,8 +2698,18 @@
       return String(new Date().getFullYear());
     }
 
-    function applyRwbPrehide() {
-      var id = "ups-rwb-header-prehide";
+    // Escape hatch: ?rwb=1 (or window.UPS_FORCE_RWB) forces legacy Roster Workbench.
+    function forceLegacyRwb() {
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("rwb") || "").toLowerCase();
+        if (q === "1" || q === "true" || q === "yes") return true;
+      } catch (e) {}
+      return !!window.UPS_FORCE_RWB;
+    }
+
+    function applyPrehide() {
+      var id = "ups-fo-message7-prehide";
       if (document.getElementById(id)) return;
       var style = document.createElement("style");
       style.id = id;
@@ -2709,11 +2724,11 @@
       (document.head || document.documentElement).appendChild(style);
     }
 
-    function ensureMountNearTop() {
-      var mount = document.getElementById("roster-workbench");
+    function ensureMountNearTop(mountId) {
+      var mount = document.getElementById(mountId);
       if (mount) return mount;
       mount = document.createElement("div");
-      mount.id = "roster-workbench";
+      mount.id = mountId;
       var anchor =
         document.querySelector(".ups-hotlinks-shell") ||
         document.getElementById("container-wrap") ||
@@ -2726,55 +2741,59 @@
       return mount;
     }
 
-    function clearLegacyRwbEmbeds() {
-      var scripts = document.querySelectorAll('script[src*="/site/rosters/mfl_hpm_embed_loader.js"]');
+    // Remove any prior RWB or FO loader scripts so a re-run can't double-inject.
+    function clearLegacyEmbeds() {
+      var scripts = document.querySelectorAll(
+        'script[src*="rosters/mfl_hpm_embed_loader.js"], script[src*="rosters/fo_embed_loader.js"]'
+      );
       for (var i = 0; i < scripts.length; i += 1) {
         var n = scripts[i];
         if (n && n.parentNode) n.parentNode.removeChild(n);
       }
-      try {
-        delete window.UPS_RWB_INIT;
-      } catch (e) {
-        window.UPS_RWB_INIT = undefined;
-      }
+      try { delete window.UPS_RWB_INIT; } catch (e) { window.UPS_RWB_INIT = undefined; }
+      try { delete window.UPS_FO_INIT; } catch (e) { window.UPS_FO_INIT = undefined; }
     }
 
-    function loadRwbLoader() {
-      applyRwbPrehide();
-      ensureMountNearTop();
-      clearLegacyRwbEmbeds();
-      window.UPS_RWB_LEAGUE_ID = getCurrentLeagueId();
-      window.UPS_RWB_YEAR = getCurrentYear();
-
-      var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
+    function injectLoader(file, loaderAttr) {
       var cacheKey = encodeURIComponent(String(Date.now()));
-      var candidates = [
-        "https://keithcreelman.github.io/upsmflproduction/rosters/mfl_hpm_embed_loader.js?v=" + cacheKey,
-        "https://keithcreelman.github.io/upsmflproduction/rosters/mfl_hpm_embed_loader.js?v=" + cacheKey
-      ];
+      var s = document.createElement("script");
+      s.setAttribute(loaderAttr, "1");
+      s.src = "https://keithcreelman.github.io/upsmflproduction/rosters/" + file + "?v=" + cacheKey;
+      s.async = true;
+      document.body.appendChild(s);
+    }
 
-      function tryLoader(idx) {
-        if (idx >= candidates.length) return;
-        var s = document.createElement("script");
-        s.setAttribute("data-ups-rwb-loader", "1");
-        s.src = candidates[idx];
-        s.async = true;
-        s.onerror = function () {
-          tryLoader(idx + 1);
-        };
-        document.body.appendChild(s);
+    function loadEmbed() {
+      applyPrehide();
+      clearLegacyEmbeds();
+      var L = getCurrentLeagueId();
+      var YEAR = getCurrentYear();
+
+      if (forceLegacyRwb()) {
+        // Fallback: legacy Roster Workbench (files kept intact for exactly this).
+        ensureMountNearTop("roster-workbench");
+        window.UPS_RWB_LEAGUE_ID = L;
+        window.UPS_RWB_YEAR = YEAR;
+        injectLoader("mfl_hpm_embed_loader.js", "data-ups-rwb-loader");
+        return;
       }
 
-      tryLoader(0);
+      // Default: Front Office v2. fo_embed_loader.js reads UPS_FO_* (and falls
+      // back to UPS_RWB_*) for league/year, and resolves the viewer franchise
+      // from MFL's login cookie. It mounts into #ups-front-office.
+      ensureMountNearTop("ups-front-office");
+      window.UPS_FO_LEAGUE_ID = L;
+      window.UPS_FO_YEAR = YEAR;
+      injectLoader("fo_embed_loader.js", "data-ups-fo-loader");
     }
 
     if (getModuleName() !== "MESSAGE7") return;
-    applyRwbPrehide();
+    applyPrehide();
 
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", loadRwbLoader);
+      document.addEventListener("DOMContentLoaded", loadEmbed);
     } else {
-      loadRwbLoader();
+      loadEmbed();
     }
   })();
 </script>
