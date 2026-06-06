@@ -1670,15 +1670,20 @@
     // ?admin=0 forces it so the commish can preview a regular-owner view.
     // NOTE: this gates the UI only — commish WRITES must still be authorized
     // server-side; do not rely on this client flag for security.
-    const commishFids = Array.isArray(STATE.me && STATE.me.commishFids)
-      ? STATE.me.commishFids.map(pad4).filter(Boolean)
-      : [];
+    // The worker's isAdmin reflects ITS OWN stored commish session (it reads
+    // private owner emails via MFL_COOKIE), so it's true for EVERY viewer. Gate
+    // the commish UI on the VIEWER's franchise instead: ONLY the dedicated MFL
+    // commish login (commishFranchiseId — 0000 for UPS) gets commish
+    // functionality. Keith's PLAYING team (0008) and every other franchise are
+    // regular owners — Keith: "when im 0008 I dont want commish functionality, i
+    // want to be a regular owner." Access commish features by viewing as the
+    // commish login (or ?admin=1). ?admin=1 / ?admin=0 force it for testing.
+    // (UI gate only — commish WRITES are authorized server-side.)
     const commishFid = pad4(STATE.me && STATE.me.commishFranchiseId);
     const adminQ = (QS.get("admin") || "").toLowerCase();
     let viewerIsAdmin;
     if (adminQ === "1" || adminQ === "true") viewerIsAdmin = true;
     else if (adminQ === "0" || adminQ === "false") viewerIsAdmin = false;
-    else if (fid && commishFids.length) viewerIsAdmin = commishFids.includes(pad4(fid));
     else if (fid && commishFid) viewerIsAdmin = pad4(fid) === commishFid;
     else viewerIsAdmin = !!(STATE.me && STATE.me.isAdmin); // fallback: endpoint value
     STATE.me = Object.assign({}, STATE.me || {}, { isAdmin: viewerIsAdmin });
