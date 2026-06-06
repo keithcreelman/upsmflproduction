@@ -3551,26 +3551,15 @@
     });
     $$("[data-action='trade']", body).forEach(function (btn) {
       btn.addEventListener("click", function () {
-        // Hand-off to Trade Hub.
-        // Critical: pass ?api=<worker>/trade-workbench so Trade Hub
-        // loads the FULL 12-team payload from the worker. Without
-        // ?api= it falls back to trade_workbench_sample.json which
-        // has only 3 demo teams (Keith 2026-05-19: "Trade WarRoom
-        // doesn't have all teams"). The api param's value is forwarded
-        // to fetchJson with L= + YEAR= appended automatically by
-        // Trade Hub's buildApiRequestUrlFromQuery.
-        const apiUrl = WORKER_BASE + "/trade-workbench";
-        const qs = "?api=" + encodeURIComponent(apiUrl) +
-                   "&L=" + encodeURIComponent(LEAGUE_ID) +
-                   "&YEAR=" + encodeURIComponent(SEASON) +
-                   "&franchise_id=" + encodeURIComponent(p.fid) +
-                   "&focus_pid=" + encodeURIComponent(p.id) +
-                   "&focus_fid=" + encodeURIComponent(p.fid);
-        // Resolve to an ABSOLUTE Pages URL (FO lives at rosters/v2/, the trade
-        // hub at trades/). The old root-relative "/trades/..." 404'd inside the
-        // MFL embed (resolved against MFL's origin) and on Pages (missed the
-        // /upsmflproduction/ base). assetUrl rebases ../../trades onto Pages.
-        window.open(assetUrl("../../trades/trade_workbench.html") + qs, "_blank", "noopener");
+        // Open the in-MFL Trade War Room (MESSAGE6) — NOT the GitHub Pages trade
+        // workbench (Keith 2026-06-06). The header exposes the canonical URL
+        // (window.getWarRoomUrl, format ?MODULE=MESSAGE6=N) when FO runs inside
+        // MFL; otherwise build it from the current MFL origin. Player preselect
+        // is parked (the war room loads its own payload).
+        var warRoom = (typeof window.getWarRoomUrl === "function" && window.getWarRoomUrl()) ||
+          (window.location.origin + "/" + encodeURIComponent(SEASON) + "/home/" +
+           encodeURIComponent(LEAGUE_ID) + "?MODULE=MESSAGE6=N");
+        window.open(warRoom, "_blank", "noopener");
       });
     });
   }
@@ -3807,6 +3796,7 @@
           <strong>${y1S}</strong> stays at the current salary. The two extension years
           (<strong>${y2S}</strong> + <strong>${y3S}</strong>) total <strong>${fmtUSD(extensionTotal)}</strong> — set ${y2S} and ${y3S} auto-fills.
           Each year must be ≥ <strong>${fmtUSD(minExtYear)}</strong> (20%). Bigger ${y2S} = front-loaded (FL); bigger ${y3S} = back-loaded (BL).
+          <em>To change ${y1S}, submit a restructure after the extension.</em>
         </div>
         <div class="fo-form-row"><span class="lbl">${y1S} · current (locked)</span><span class="val">${fmtUSD(currentSalary)}</span></div>
         <div class="fo-form-row"><span class="lbl">${y2S} ($)</span>
@@ -3961,6 +3951,7 @@
         <div class="fo-form-row"><span class="lbl">TCV (total)</span><span class="val">${fmtK(tcv)}</span></div>
         <div style="margin:10px 0 2px; font-weight:700; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.4px;">Salary by season</div>
         ${schedule}
+        <div class="fo-form-note" style="margin-top:6px;"><em>${baseYear} stays at the current salary — to change it, submit a restructure after the extension.</em></div>
         <div class="fo-form-row" style="margin-top:6px;"><span class="lbl">Contract info</span><span class="val">${escapeHtml(info || "—")}</span></div>
         <div class="fo-form-actions">
           <button class="btn secondary" id="fo-ext-cancel">Cancel</button>
@@ -4624,11 +4615,17 @@
       if (f.status === "taxi" && !p.isTaxi) return false;
       if (f.status === "ir"   && !p.isIr)   return false;
     }
-    // Hide expired contracts (0 yrs remaining) from cap planning by default —
-    // they carry no current-year cap and just clutter the view. Still reachable
-    // by explicitly selecting the "0" years filter (Keith 2026-06-06: "I
-    // shouldn't see expired contracts at this point").
-    if (safeInt(p.years, 0) <= 0 && String(f.years) !== "0") return false;
+    // Hide expired contracts from cap planning by default — they carry no
+    // current-year cap and just clutter the view (Keith 2026-06-06: "I shouldn't
+    // see expired contracts at this point"). Catch them by ANY signal — 0 yrs
+    // remaining, the "Expired" contract type, or the expired-rookie flag — since
+    // some expired rows retain a stale positive years value. Still reachable via
+    // the explicit "Expired" (0 yrs) year filter or an expired type filter.
+    const _isExpired = safeInt(p.years, 0) <= 0 ||
+                       !!p.isExpiredRookie ||
+                       String(p.type || "").toUpperCase() === "EXPIRED";
+    const _wantExpired = String(f.years) === "0" || f.type === "expired";
+    if (_isExpired && !_wantExpired) return false;
     return true;
   }
 
@@ -4951,8 +4948,9 @@
       </div>
       ${adjTotal !== 0 ? `
       <div class="fo-cap-adj-callout">
-        <div class="fo-cap-adj-row"><span class="lbl">Cap adjustments (drop pen · traded $ · other)</span><span class="val">${adjTotal > 0 ? "+" : "−"}${fmtUSD(Math.abs(adjTotal))}</span></div>
-        <div class="fo-cap-adj-row fo-cap-adj-strong"><span class="lbl">${yr0} adjusted cap — salary + adjustments</span><span class="val">${fmtUSD(adjustedCy)}</span></div>
+        <div class="fo-cap-adj-row"><span class="lbl">${yr0} salary</span><span class="val">${fmtUSD(totals.cy)}</span></div>
+        <div class="fo-cap-adj-row"><span class="lbl">+ cap adjustments (drop pen · traded $ · other)</span><span class="val">${adjTotal > 0 ? "+" : "−"}${fmtUSD(Math.abs(adjTotal))}</span></div>
+        <div class="fo-cap-adj-row fo-cap-adj-strong"><span class="lbl">= ${yr0} adjusted cap</span><span class="val">${fmtUSD(adjustedCy)}</span></div>
       </div>` : ""}
       ${filteredNote ? `<div style="margin:6px 0 0;">${filteredNote}</div>` : ""}
       <table class="fo-table">
