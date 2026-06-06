@@ -179,6 +179,7 @@
     search: "",
     filters: { pos: "ALL", type: "", status: "", years: "", action: "", loaded: false },
     sort: { key: "salary", dir: -1 },
+    groupByPosition: true,   // Roster defaults to By Position (Keith 2026-06-06)
     capSubview: "summary",
     capFocusedTeamFid: null,
     // Per-player preview state in Cap Plan Detail. Key = "pid:fid",
@@ -1830,12 +1831,15 @@
     const meta = $("#fo-meta");
     if (!meta) return;
     const me = STATE.me || {};
-    const who = me.configured && me.franchise_id
-      ? "You: " + (me.franchise_name || ("franchise " + me.franchise_id))
-      : "Viewer (no franchise context)";
-    const adminBit = me.isAdmin ? " · 👑 admin" : "";
-    const teamCount = STATE.teams.length;
-    meta.textContent = who + adminBit + " · " + teamCount + " teams · season " + SEASON + " · L " + LEAGUE_ID;
+    let who;
+    if (!me.configured || !me.franchise_id) who = "Viewer";
+    else if (me.isAdmin) who = "Commish 👑";
+    else {
+      const fid = pad4(me.franchise_id);
+      const t = (STATE.teams || []).find(function (x) { return pad4(x.fid) === fid; });
+      who = (t && t.name) || me.franchise_name || ("Franchise " + fid);
+    }
+    meta.textContent = "You: " + who;
   }
 
   // ── Tabs ────────────────────────────────────────────────────────────
@@ -2894,11 +2898,7 @@
           </tr>
         </thead>
         <tbody>${headerRows}</tbody>
-      </table>
-      <div class="fo-form-note" style="margin-top:8px;">
-        Source: <code>/api/player-bundle?pid=${escapeHtml(p.id)}</code> → <code>bundle.contract_history</code>
-        (D1 <code>src_contracts</code>). YL = year-of-contract (1..CL).
-      </div>`;
+      </table>`;
   }
 
   // ── Stats sub-tab inside slide-over ─────────────────────────────────
@@ -2936,7 +2936,7 @@
       card("Career PPG", ppg.toFixed(1), "Average per game") +
       card("Best Season", (bestYr || "—"), (bestPts >= 0 ? foNumComma(bestPts) + " pts · " + bestPPG.toFixed(1) + " PPG" : "")) +
       card("Career APW", (wcOk ? tot.apw.toFixed(1) : "—"), (wcOk ? apwPerG.toFixed(2) + " / game" : "data pending"),
-           "Adjusted All-Play Wins = win_chunks × positional leverage β. All-Play wins this player is responsible for if every other lineup slot turned in median output.") +
+           "Adjusted All-Play Wins — the all-play wins this player produced, weighted by how hard it is to win at the position.") +
       "</div>";
   }
 
@@ -2972,7 +2972,7 @@
       '<th class="num" title="Positional rank by total points">Pts Rk</th>' +
       '<th class="num">PPG</th><th class="num" title="Positional rank by PPG">PPG Rk</th>' +
       '<th class="num" title="Elite weeks (z ≥ 1.0) %">Elite%</th>' +
-      '<th class="num" title="Adjusted All-Play Wins = win_chunks × leverage β">APW</th>' +
+      '<th class="num" title="Adjusted All-Play Wins — all-play wins produced, weighted by positional difficulty">APW</th>' +
       "</tr></thead><tbody>" + rows +
       '<tr class="fo-stat-career"><td><strong>Career</strong></td>' +
       '<td class="num">' + tot.g + "</td>" +
@@ -2983,7 +2983,7 @@
       '<td class="num" style="color:var(--ok);">' + el.toFixed(0) + "%</td>" +
       '<td class="num">' + (wcOk ? tot.apw.toFixed(1) : '<span style="color:var(--muted);">—</span>') + "</td>" +
       "</tr></tbody></table></div>" +
-      (wcOk ? "" : '<p class="fo-form-note" style="margin-top:6px;">APW shows "—" — upstream <code>win_chunks</code> not populated for these seasons.</p>');
+      (wcOk ? "" : '<p class="fo-form-note" style="margin-top:6px;">APW shows "—" when it isn\'t available for that season.</p>');
   }
 
   async function renderStatsTab(p) {
@@ -3002,9 +3002,7 @@
     body.innerHTML =
       '<div class="fo-card-head"><h2 style="margin:0;">Scoring — Career &amp; Season Splits</h2></div>' +
       foStatHeadlineHtml(career, lev) +
-      foStatSeasonTableHtml(career, lev) +
-      '<div class="fo-form-note" style="margin-top:8px;">Source: <code>/api/player-bundle?pid=' + escapeHtml(p.id) +
-      "</code> → <code>career_summary</code> (MFL scoring). Pts&nbsp;Rk / PPG&nbsp;Rk are positional. APW = win_chunks × leverage β.</div>";
+      foStatSeasonTableHtml(career, lev);
   }
 
   // ── Game Log sub-tab inside slide-over ──────────────────────────────
@@ -3084,8 +3082,10 @@
       '<select id="fo-gl-season" style="margin-left:4px; background:var(--panel-alt); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:3px 6px;">' +
       opts + "</select></label></div>" +
       '<div id="fo-gl-body">' + foGameLogScoringHtml(seasons[0], bundle) + "</div>" +
-      '<div class="fo-form-note" style="margin-top:8px;">Source: <code>bundle.weekly_by_season</code> (D1 <code>src_weekly</code> + baselines). ' +
-      '<span class="fo-gl-ptag">P</span> = playoff week; tier from regular-season positional baselines.</div>';
+      '<div class="fo-form-note" style="margin-top:8px;">' +
+      '<strong>Z</strong> = standard deviations above (+) or below (−) the average starter at the position that week (0 = average). ' +
+      'Tiers: <strong>Elite</strong> Z ≥ 1.0 · <strong>Plus</strong> 0.25–1.0 · <strong>Neutral</strong> −0.5–0.25 · <strong>Dud</strong> below −0.5. ' +
+      '<span class="fo-gl-ptag">P</span> = playoff week.</div>';
     var sel = body.querySelector("#fo-gl-season");
     if (sel) sel.addEventListener("change", function () {
       var b2 = document.querySelector("#fo-gl-body");
@@ -3284,11 +3284,7 @@
       '<div class="fo-review-note">⚠ Auto-derived &amp; forum-mined — this data needs to be reviewed for accuracy before you rely on it.</div>' +
       '<div style="overflow-x:auto;"><table class="fo-table"><thead><tr>' +
       '<th class="num">#</th><th>Date</th><th>Event</th><th>Detail</th><th>Team</th>' +
-      "</tr></thead><tbody>" + rows + "</tbody></table></div>" +
-      '<div class="fo-form-note" style="margin-top:8px;">Newest first. Live: <code>/api/player-transactions</code> (MFL txns ∪ D1 draft/contracts/extensions/tags)' +
-      (histEvents.length ? "; deep-history (pre-2019) curated from forum/MFL validation (<code>historical_acquisitions.json</code>)" : "") + ". " +
-      '<span class="fo-lowconf">~</span> low-confidence · <span class="fo-src">ⓘ</span> hover for source.' +
-      (oldestYr ? " Back to " + escapeHtml(String(oldestYr)) + "." : "") + "</div>";
+      "</tr></thead><tbody>" + rows + "</tbody></table></div>";
   }
 
   // ── News sub-tab inside slide-over ──────────────────────────────────
@@ -3353,8 +3349,7 @@
       '<div class="fo-card-head" style="align-items:center;"><h2 style="margin:0;">News</h2>' +
       '<span class="small" style="color:var(--muted); margin-left:auto;">Sleeper + ESPN/Yahoo/PFT/CBS</span></div>' +
       (injuryNote ? '<div class="fo-news-list" style="margin-bottom:10px;">' + injuryNote + "</div>" : "") +
-      feed +
-      '<div class="fo-form-note" style="margin-top:8px;">Live: <code>/api/player-news</code> — injury/status + headlines (depth-chart excluded). Newest first.</div>';
+      feed;
   }
 
   // ── Actions sub-tab inside slide-over ───────────────────────────────

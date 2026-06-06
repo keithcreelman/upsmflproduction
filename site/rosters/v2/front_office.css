@@ -167,9 +167,9 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 
 /* ── Buttons ────────────────────────────────────────────────────── */
 .btn {
-  background: var(--accent); color: white; border: 0;
+  background: #2f5fb0; color: #ffffff; border: 1px solid #5b8dff;
   padding: 6px 12px; border-radius: 4px;
-  font-size: 12px; font-weight: 500; cursor: pointer;
+  font-size: 12px; font-weight: 600; cursor: pointer;
   font-family: inherit;
 }
 .btn:hover { filter: brightness(1.1); }

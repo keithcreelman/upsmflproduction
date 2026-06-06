@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "0.1.0",
-  "released": "2026-05-19",
-  "checkpoint": 1,
-  "scope": "scaffold + Roster tab + slide-over modal pattern + Extension submit wired byte-for-byte",
-  "next": "Cap Plan tab + Tagging tab + Activity tab + remaining submit functions (Rookie Option, Restructure, Tag, Untag, Roster Move)"
+  "version": "2.0.0",
+  "released": "2026-06-06",
+  "checkpoint": 2,
+  "scope": "Full contract tooling (Auction/Extension/Restructure/MYM/Tag) + Contract Log + slide-over player profile + native MFL embed (MESSAGE14) + franchise-aware admin",
+  "next": "Cap-planning refinements, glossary tab, full contract-history performance, 2027 tag projection"
 }
