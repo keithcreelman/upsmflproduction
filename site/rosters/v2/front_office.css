@@ -714,3 +714,14 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-ctf-rookie { color: #34d399; }
 .fo-ctf-vet { color: #5b8dff; }
 .fo-ctf-tag { color: var(--warn); }
+
+/* ── Embed: defeat MFL's native-page text sweep ───────────────────────
+   On MFL pages the league theme (header_custom_v2.html) force-recolors every
+   generic td/th/div/span/p/label/li to one flat token via a high-specificity
+   !important sweep. `.fo-*` elements are exempted there (:not([class*="fo-"])),
+   but FO's generic helper class `.small` (muted labels) is not — it'd flatten
+   to the theme's light text and lose the muted hierarchy ("duller" look). The
+   embed mount is #ups-front-office, whose ID specificity (1,1,0) beats the
+   sweep (0,9,2). The standalone page has no sweep, so this is embed-only by
+   construction (no #ups-front-office there). */
+#ups-front-office .small { color: var(--muted) !important; }
