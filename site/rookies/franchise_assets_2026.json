@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-06-04T12:33:10.518552+00:00",
+    "generated_at_utc": "2026-06-06T11:10:57.065302+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2356,19 +2356,7 @@
           "nfl_team": "MIA",
           "salary": 25000,
           "contract_year": 2,
-          "contract_status": "Vet-Ext2",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16194",
-          "display": "Rashee Rice",
-          "player_id": "16194",
-          "position": "WR",
-          "nfl_team": "KCC",
-          "salary": 25000,
-          "contract_year": 2,
-          "contract_status": "Vet-Ext2",
+          "contract_status": "Vet-Ext2-BL",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -2393,6 +2381,18 @@
           "salary": 14000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16194",
+          "display": "Rashee Rice",
+          "player_id": "16194",
+          "position": "WR",
+          "nfl_team": "KCC",
+          "salary": 11000,
+          "contract_year": 2,
+          "contract_status": "Vet-Ext2-BL",
           "roster_status": "ROSTER",
           "taxi": false
         },
