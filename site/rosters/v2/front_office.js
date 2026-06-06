@@ -1662,6 +1662,26 @@
         source: STATE.me && STATE.me.source ? STATE.me.source : "url"
       });
     }
+    // The worker's isAdmin reflects ITS OWN stored commish session (it reads
+    // private owner emails via the MFL_COOKIE secret), so admin-state returns
+    // isAdmin:true for EVERY viewer. Re-derive admin from the VIEWER's franchise
+    // instead: the viewer is admin iff they ARE the commish franchise
+    // (commishFranchiseId is returned by the same admin-state call). ?admin=1 /
+    // ?admin=0 forces it so the commish can preview a regular-owner view.
+    // NOTE: this gates the UI only — commish WRITES must still be authorized
+    // server-side; do not rely on this client flag for security.
+    const commishFids = Array.isArray(STATE.me && STATE.me.commishFids)
+      ? STATE.me.commishFids.map(pad4).filter(Boolean)
+      : [];
+    const commishFid = pad4(STATE.me && STATE.me.commishFranchiseId);
+    const adminQ = (QS.get("admin") || "").toLowerCase();
+    let viewerIsAdmin;
+    if (adminQ === "1" || adminQ === "true") viewerIsAdmin = true;
+    else if (adminQ === "0" || adminQ === "false") viewerIsAdmin = false;
+    else if (fid && commishFids.length) viewerIsAdmin = commishFids.includes(pad4(fid));
+    else if (fid && commishFid) viewerIsAdmin = pad4(fid) === commishFid;
+    else viewerIsAdmin = !!(STATE.me && STATE.me.isAdmin); // fallback: endpoint value
+    STATE.me = Object.assign({}, STATE.me || {}, { isAdmin: viewerIsAdmin });
   }
 
   async function loadRosterData() {
@@ -6818,18 +6838,27 @@
   }
 
   // ── Go ──────────────────────────────────────────────────────────────
+  // Two triggers race to bootEmbed() in the embed: front_office.js's own boot
+  // (mount detected, below) AND the loader's script-onload → UPS_FO_INIT().
+  // buildShell() is async, so guarding only on `_foBooted` (set AFTER the await)
+  // let BOTH calls build a shell → a duplicate Front Office. `_foBooting` is set
+  // SYNCHRONOUSLY on entry, so the second caller bails before the first's fetch
+  // resolves.
   let _foBooted = false;
+  let _foBooting = false;
   async function bootEmbed() {
-    if (_foBooted) return;
+    if (_foBooted || _foBooting) return;
+    _foBooting = true;
     const mount = document.getElementById("ups-front-office") || document.body;
-    const ok = await buildShell(mount);
-    if (!ok) return;                           // leave _foBooted false → retry can rebuild
+    let ok = false;
+    try { ok = await buildShell(mount); } catch (e) { ok = false; }
+    if (!ok) { _foBooting = false; return; }   // allow a later retry to rebuild
     _foBooted = true;
     init();
   }
   // The loader calls this after injecting us (and re-fires it on its build-cache
-  // path). Idempotent — first call builds + inits, later calls no-op.
-  window.UPS_FO_INIT = function () { if (!_foBooted) bootEmbed(); };
+  // path). Idempotent — first call builds + inits, concurrent/later calls no-op.
+  window.UPS_FO_INIT = function () { if (!_foBooted && !_foBooting) bootEmbed(); };
 
   if ($("#fo-tabs")) {
     // Standalone page — structure is already in the DOM.
