@@ -17,12 +17,17 @@
   --dryrun: #14b8a6;
 }
 
-* { box-sizing: border-box; }
-html, body {
+/* Scoped to .fo-root so the HPM embed (FO injected into MFL's My Team page) does
+   NOT restyle MFL's surviving chrome. Standalone front_office.html applies .fo-root
+   to <body>; the embed loader applies it to the FO mount. The :root vars above stay
+   global — only .fo-* rules consume them, so they don't bleed. */
+.fo-root, .fo-root * { box-sizing: border-box; }
+.fo-root {
   margin: 0; padding: 0;
   background: var(--bg); color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 14px; line-height: 1.5;
+  min-height: 100vh;
 }
 
 /* ── Header ─────────────────────────────────────────────────────── */

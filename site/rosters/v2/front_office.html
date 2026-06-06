@@ -4,9 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Front Office — UPS League</title>
-<link rel="stylesheet" href="front_office.css?v=2026.06.05.v0.2.9">
+<link rel="stylesheet" href="front_office.css?v=2026.06.05.v0.3.0">
 </head>
-<body>
+<!-- .fo-root carries FO's page-level styling (dark surface, fonts, box-sizing).
+     Scoped via this class so the same CSS is safe when injected into MFL's page
+     (HPM embed): the embed loader applies .fo-root to its mount instead of <body>. -->
+<body class="fo-root" style="margin:0">
 <header class="fo-header">
   <h1>Front Office <span class="subtitle">UPS League 74598 · 2026</span>
     <button id="fo-version-badge" class="fo-version-badge" title="Click for module changelog">Loading…</button>
@@ -288,6 +291,6 @@
   </div>
 </aside>
 
-<script src="front_office.js?v=2026.06.05.v1.11.0"></script>
+<script src="front_office.js?v=2026.06.05.v1.12.0"></script>
 </body>
 </html>

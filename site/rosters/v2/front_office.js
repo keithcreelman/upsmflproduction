@@ -36,6 +36,35 @@
     return "https://upsmflproduction.keith-creelman.workers.dev";
   })();
 
+  // FO's own asset base. Relative data fetches (VERSION.json,
+  // ../player_acquisition_lookup, ../../ccc/tag_tracking.json,
+  // ../contract_submissions/*) must resolve against GitHub Pages when FO runs
+  // INSIDE MFL's HPM embed (page origin = MFL, not Pages). We derive the base
+  // from FO's own <script> src — works for the loader's async-injected tag
+  // (document.currentScript is null there) AND the standalone body-end tag, so
+  // both contexts behave identically. Standalone simply resolves relatives
+  // against the same dir they already lived in.
+  const ASSET_BASE = (function () {
+    function dirOf(src) { try { return new URL(".", src).toString(); } catch (e) { return ""; } }
+    try {
+      var tags = document.querySelectorAll('script[src]');
+      for (var i = tags.length - 1; i >= 0; i -= 1) {
+        if (/front_office\.js(\?|$)/.test(tags[i].src || "")) return dirOf(tags[i].src);
+      }
+    } catch (e) {}
+    try { if (document.currentScript && document.currentScript.src) return dirOf(document.currentScript.src); } catch (e) {}
+    if (typeof window.UPS_FO_ASSET_BASE === "string" && window.UPS_FO_ASSET_BASE) return dirOf(window.UPS_FO_ASSET_BASE);
+    return "";
+  })();
+  // Resolve a possibly-relative asset URL against ASSET_BASE. Absolute http(s)/
+  // protocol-relative/root-relative URLs (worker apiUrl(), etc.) pass through.
+  function assetUrl(u) {
+    if (!u) return u;
+    if (/^https?:\/\//i.test(u) || u.indexOf("//") === 0 || u.charAt(0) === "/") return u;
+    if (!ASSET_BASE) return u;
+    try { return new URL(u, ASSET_BASE).toString(); } catch (e) { return u; }
+  }
+
   const LEAGUE_ID = QS.get("L") || QS.get("league_id") || "74598";
   const SEASON    = QS.get("YEAR") || QS.get("year") || String(new Date().getUTCFullYear());
   const IS_DRY_RUN = (function () {
@@ -50,7 +79,43 @@
     if (window.UPS_FO_FRANCHISE_ID) return pad4(window.UPS_FO_FRANCHISE_ID);
     if (window.UPS_RWB_FRANCHISE_ID) return pad4(window.UPS_RWB_FRANCHISE_ID);
     if (window.UPS_HPM_FRANCHISE_ID) return pad4(window.UPS_HPM_FRANCHISE_ID);
+    // HPM embed: nothing was passed via URL or a global, so read MFL's own login
+    // cookie (the viewer's franchise) — same heuristic roster_workbench.js uses,
+    // so FO resolves the logged-in owner natively inside the My Team page.
+    const fromCookie = franchiseIdFromCookies(LEAGUE_ID, SEASON);
+    if (fromCookie) return pad4(fromCookie);
     return null;
+  }
+
+  // MFL writes a MFLPlayerPopup_{year}_{league}_{franchise} cookie keyed to the
+  // logged-in owner's own team. Ported verbatim from roster_workbench.js so the
+  // embedded FO knows "who am I" without a ?franchise_id= param.
+  function getCookieString() {
+    try { return safeStr(document.cookie || ""); } catch (e) { return ""; }
+  }
+  function franchiseIdFromCookies(leagueId, year) {
+    var lid = safeStr(leagueId).replace(/\D/g, "");
+    if (!lid) return "";
+    var yy = safeStr(year).replace(/\D/g, "");
+    var raw = getCookieString();
+    if (!raw) return "";
+    var re = /(?:^|;\s*)MFLPlayerPopup_(\d{4})_(\d+)_(\d{1,4})=/g;
+    var m, hits = [];
+    while ((m = re.exec(raw))) {
+      var hitLeague = safeStr(m[2]).replace(/\D/g, "");
+      var hitFranchise = pad4(m[3]);
+      if (!hitLeague || hitLeague !== lid) continue;
+      if (!hitFranchise || hitFranchise === "0000") continue;
+      hits.push({ year: safeStr(m[1]), franchiseId: hitFranchise });
+    }
+    if (!hits.length) return "";
+    if (yy) {
+      for (var i = 0; i < hits.length; i += 1) {
+        if (hits[i].year === yy) return hits[i].franchiseId;
+      }
+    }
+    hits.sort(function (a, b) { return safeInt(b.year, 0) - safeInt(a.year, 0); });
+    return hits[0].franchiseId;
   }
 
   const apiUrl = (p) => WORKER_BASE + p;
@@ -85,7 +150,9 @@
   const URL_ROOKIE_HISTORY = "../../rookies/rookie_draft_history.json";
 
   function fetchJSON(url, opts) {
-    return fetch(url, Object.assign({ cache: "no-store" }, opts || {})).then(function (r) {
+    // assetUrl() rebases relative JSON paths onto Pages in the embed; absolute
+    // worker URLs (apiUrl(...)) pass through unchanged.
+    return fetch(assetUrl(url), Object.assign({ cache: "no-store" }, opts || {})).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status + " " + url);
       return r.json();
     });
@@ -3056,7 +3123,7 @@
   async function loadHistoricalAcquisitions() {
     if (__histAcqCache) return __histAcqCache;
     try {
-      var res = await fetch("historical_acquisitions.json", { cache: "no-store" });
+      var res = await fetch(assetUrl("historical_acquisitions.json"), { cache: "no-store" });
       __histAcqCache = await res.json();
     } catch (e) { __histAcqCache = {}; }
     return __histAcqCache || {};
@@ -6719,10 +6786,64 @@
     setTimeout(function () { t.parentNode && t.parentNode.removeChild(t); }, 4200);
   }
 
+  // ── Embed shell (HPM) ───────────────────────────────────────────────
+  // Standalone front_office.html already ships the structure, so this no-ops
+  // there. Inside MFL's My Team page the loader gives us only a mount, so we
+  // fetch that SAME html (single source of truth — no duplicated template to
+  // drift) and inject everything except <head>/<script> into the mount.
+  async function buildShell(mount) {
+    if ($("#fo-tabs")) return true;            // standalone, or already built
+    const host = mount || document.getElementById("ups-front-office") || document.body;
+    if (!host) return false;
+    let html = "";
+    try {
+      const r = await fetch(assetUrl("front_office.html") + "?_=" + Date.now(), { cache: "no-store" });
+      if (r.ok) html = await r.text();
+    } catch (e) {}
+    if (!html) return false;
+    let nodes;
+    try {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      nodes = doc && doc.body ? Array.prototype.slice.call(doc.body.childNodes) : [];
+    } catch (e) { return false; }
+    if (!nodes.length) return false;
+    host.classList.add("fo-root");
+    nodes.forEach(function (node) {
+      // Skip <script> (don't re-load front_office.js); import everything else —
+      // header, nav, main sections, the slide-over <aside>, and comments.
+      if (node.nodeType === 1 && String(node.tagName || "").toLowerCase() === "script") return;
+      host.appendChild(document.importNode(node, true));
+    });
+    return !!$("#fo-tabs");
+  }
+
   // ── Go ──────────────────────────────────────────────────────────────
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
+  let _foBooted = false;
+  async function bootEmbed() {
+    if (_foBooted) return;
+    const mount = document.getElementById("ups-front-office") || document.body;
+    const ok = await buildShell(mount);
+    if (!ok) return;                           // leave _foBooted false → retry can rebuild
+    _foBooted = true;
     init();
+  }
+  // The loader calls this after injecting us (and re-fires it on its build-cache
+  // path). Idempotent — first call builds + inits, later calls no-op.
+  window.UPS_FO_INIT = function () { if (!_foBooted) bootEmbed(); };
+
+  if ($("#fo-tabs")) {
+    // Standalone page — structure is already in the DOM.
+    _foBooted = true;
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+    else init();
+  } else if (document.getElementById("ups-front-office") || window.UPS_FO_EMBED) {
+    // HPM embed — loader injected a mount; build the shell, then init.
+    bootEmbed();
+  } else if (document.readyState === "loading") {
+    // Defensive: structure may still be parsing (e.g. script relocated to <head>).
+    document.addEventListener("DOMContentLoaded", function () {
+      if ($("#fo-tabs")) { _foBooted = true; init(); }
+      else if (document.getElementById("ups-front-office") || window.UPS_FO_EMBED) bootEmbed();
+    });
   }
 })();
