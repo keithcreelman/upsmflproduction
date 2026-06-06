@@ -333,6 +333,19 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-cap-totals .lbl { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
 .fo-cap-totals .val { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); }
 .fo-cap-totals .ext-delta { display: block; color: var(--ok); font-size: 11px; font-style: italic; margin-top: 2px; }
+/* Cap-adjustments callout — bordered + tinted so team-level drop/trade/other
+   adjustments (NOT in the per-player year totals) stand out (Keith: "misleading"
+   when buried). */
+.fo-cap-adj-callout {
+  margin: -4px 0 12px; border: 2px solid var(--accent); border-radius: 8px;
+  background: rgba(91, 141, 255, 0.1); padding: 8px 14px;
+}
+.fo-cap-adj-row { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 2px 0; }
+.fo-cap-adj-row .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; }
+.fo-cap-adj-row .val { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); }
+.fo-cap-adj-row.fo-cap-adj-strong { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 6px; }
+.fo-cap-adj-row.fo-cap-adj-strong .lbl { color: var(--accent); }
+.fo-cap-adj-row.fo-cap-adj-strong .val { font-size: 16px; color: var(--text); }
 
 .fo-cap-row-active {
   background: rgba(91, 141, 255, 0.06);

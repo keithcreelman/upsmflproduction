@@ -3797,21 +3797,23 @@
     const currentSalary = Math.max(1000, roundToK(safeInt(p.salary, 0)));
     const defaultY2 = futureAav;
     const defaultY3 = futureAav;
+    const baseYear = safeInt(SEASON, 0) || new Date().getUTCFullYear();
+    const y1S = baseYear, y2S = baseYear + 1, y3S = baseYear + 2;
     const body = $("#fo-slideover-body");
     body.innerHTML = `
       <div class="fo-form">
         <h3 style="margin:0 0 4px;">Extend ${escapeHtml(p.name)} +2Y (Loaded)</h3>
         <div class="fo-form-note">
-          §C4.6 escalator: extension AAV = <strong>${fmtUSD(futureAav)}</strong>/yr · total extension $ = <strong>${fmtUSD(extensionTotal)}</strong>.
-          Y1 is locked at current salary. Set Y2 — <strong>Y3 auto-fills</strong> so Σ(Y2,Y3) always equals ${fmtUSD(extensionTotal)}.
-          Canon §C4.3: each extension year must be ≥ 20% of the total, so Y2 ∈ [<strong>${fmtUSD(minExtYear)}</strong> – <strong>${fmtUSD(maxExtY2)}</strong>]. The split sets the FL/BL suffix (Derived status below).
+          <strong>${y1S}</strong> stays at the current salary. The two extension years
+          (<strong>${y2S}</strong> + <strong>${y3S}</strong>) total <strong>${fmtUSD(extensionTotal)}</strong> — set ${y2S} and ${y3S} auto-fills.
+          Each year must be ≥ <strong>${fmtUSD(minExtYear)}</strong> (20%). Bigger ${y2S} = front-loaded (FL); bigger ${y3S} = back-loaded (BL).
         </div>
-        <div class="fo-form-row"><span class="lbl">Y1 (locked — current salary)</span><span class="val">${fmtUSD(currentSalary)}</span></div>
-        <div class="fo-form-row"><span class="lbl">Y2 ($)</span>
+        <div class="fo-form-row"><span class="lbl">${y1S} · current (locked)</span><span class="val">${fmtUSD(currentSalary)}</span></div>
+        <div class="fo-form-row"><span class="lbl">${y2S} ($)</span>
           <input type="number" id="fo-extl-y2" step="1000" min="${minExtYear}" max="${maxExtY2}" value="${defaultY2}" class="num" style="background:var(--panel-alt); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:4px;">
         </div>
-        <div class="fo-form-row"><span class="lbl">Y3 (auto-filled)</span><span class="val" id="fo-extl-y3">${fmtUSD(defaultY3)}</span></div>
-        <div class="fo-form-row"><span class="lbl">Σ Y2+Y3 (must equal extension total)</span><span class="val" id="fo-extl-sum">${fmtUSD(extensionTotal)}</span></div>
+        <div class="fo-form-row"><span class="lbl">${y3S} (auto-filled)</span><span class="val" id="fo-extl-y3">${fmtUSD(defaultY3)}</span></div>
+        <div class="fo-form-row"><span class="lbl">${y2S} + ${y3S} total</span><span class="val" id="fo-extl-sum">${fmtUSD(extensionTotal)}</span></div>
         <div class="fo-form-row"><span class="lbl">Derived status</span><span class="val" id="fo-extl-status">Vet-Ext2</span></div>
         <div class="fo-form-actions">
           <button class="btn secondary" id="fo-extl-cancel">Cancel</button>
@@ -4622,6 +4624,11 @@
       if (f.status === "taxi" && !p.isTaxi) return false;
       if (f.status === "ir"   && !p.isIr)   return false;
     }
+    // Hide expired contracts (0 yrs remaining) from cap planning by default —
+    // they carry no current-year cap and just clutter the view. Still reachable
+    // by explicitly selecting the "0" years filter (Keith 2026-06-06: "I
+    // shouldn't see expired contracts at this point").
+    if (safeInt(p.years, 0) <= 0 && String(f.years) !== "0") return false;
     return true;
   }
 
@@ -4641,15 +4648,18 @@
       out.totalAAV    += displayAavForPlayer(p);
       out.totalTCV    += totalContractValueForPlayer(p);
     });
-    // Team-level cap adjustments from the worker summary — these aren't
-    // player-attributable so they don't honor the position/type/etc
-    // filters. Surfaced as their own columns so users see the breakdown.
+    // Team-level cap adjustments (drop penalties, traded salary, other) aren't
+    // player-attributable, so they don't honor the position/type filters. When a
+    // SPECIFIC position is selected, exclude them from Total Cap + the % so the
+    // figure reflects only that position's salary (Keith 2026-06-06: "when you
+    // select a position you need to exclude those from the equation"). With ALL
+    // positions they're included.
+    const posFiltered = !!(filters.pos && filters.pos !== "ALL");
     const s = team.summary || {};
-    out.dropPen   = safeInt(s.adj_cut, 0);
-    out.tradeSal  = safeInt(s.adj_trade, 0);
-    out.otherAdj  = safeInt(s.adj_other, 0);
-    // Total cap = filtered salary + ALL adjustments (adjustments are
-    // team-level commitments; can't be filtered).
+    out.posFiltered = posFiltered;
+    out.dropPen   = posFiltered ? 0 : safeInt(s.adj_cut, 0);
+    out.tradeSal  = posFiltered ? 0 : safeInt(s.adj_trade, 0);
+    out.otherAdj  = posFiltered ? 0 : safeInt(s.adj_other, 0);
     out.totalCap  = out.totalSalary + out.dropPen + out.tradeSal + out.otherAdj;
     out.pct       = Math.round((out.totalCap / CAP_CEILING) * 100);
     return out;
@@ -4795,7 +4805,7 @@
           </tfoot>
         </table>
         <p class="small" style="color:var(--muted); margin: 8px 0 0;">
-          Click a team name to drill into Detail. <strong>Salary</strong> = current-year player cap hits (taxi $0, IR ×0.5) and honors the filters above. <strong>Drop Pen</strong> + <strong>Trade Sal</strong> are team-level cap adjustments from the worker (not filterable). <strong>Total Cap</strong> = Salary + adjustments. League % = sum of all teams' total cap / $${(CAP_CEILING / 1000) * STATE.teams.length}K (= $300K × ${STATE.teams.length} teams).
+          Click a team name to drill into Detail. <strong>Salary</strong> = current-year player cap hits (taxi $0, IR ×0.5) and honors the filters above. <strong>Drop Pen</strong> + <strong>Trade Sal</strong> are team-level cap adjustments. <strong>Total Cap</strong> = Salary + adjustments, and <strong>% of $300K</strong> follows it. Expired contracts (0 yrs left) are hidden. <strong>When you filter to a single position, adjustments are excluded from Total Cap + % </strong>(they're team-wide, not position-specific) — switch to <em>All</em> to see them. League % = sum of all teams' total cap / $${(CAP_CEILING / 1000) * STATE.teams.length}K ($300K × ${STATE.teams.length} teams).
         </p>
       </div>`;
   }
@@ -4919,6 +4929,13 @@
       ny:  teamCapForOffset(team, 1),
       ny2: teamCapForOffset(team, 2)
     };
+    // Team-level cap adjustments (drop penalties, traded salary, other) are NOT
+    // in the per-player year totals above — surface them as a standout line so
+    // the true current-year cap is obvious (Keith 2026-06-06: the adjustments
+    // were "misleading" when buried).
+    const _adj = team.summary || {};
+    const adjTotal = safeInt(_adj.adj_cut, 0) + safeInt(_adj.adj_trade, 0) + safeInt(_adj.adj_other, 0);
+    const adjustedCy = totals.cy + adjTotal;
     const rows = players.map(function (p) { return renderCapDetailRow(p, team); }).join("")
       || '<tr><td colspan="9" class="fo-table-empty">No players match the current filters.</td></tr>';
     const sort = STATE.capDetailSort;
@@ -4928,10 +4945,15 @@
         💡 Click <strong>Ext1 / Ext2 / MYAC2 / MYAC3 / Drop / Promote</strong> on any row to preview the impact on team totals (toggle off by clicking again). MYAC previews are flat (even-split) auction contracts. Taxi players show here too (Promote to preview activating them). Row click opens the slide-over. Click any column header to sort.
       </p>
       <div class="fo-cap-totals">
-        <div><span class="lbl">${yr0}</span><span class="val">${fmtUSD(totals.cy)}</span></div>
+        <div><span class="lbl">${yr0} salary</span><span class="val">${fmtUSD(totals.cy)}</span></div>
         <div><span class="lbl">${yr0 + 1}</span><span class="val">${fmtUSD(totals.ny)}</span></div>
         <div><span class="lbl">${yr0 + 2}</span><span class="val">${fmtUSD(totals.ny2)}</span></div>
       </div>
+      ${adjTotal !== 0 ? `
+      <div class="fo-cap-adj-callout">
+        <div class="fo-cap-adj-row"><span class="lbl">Cap adjustments (drop pen · traded $ · other)</span><span class="val">${adjTotal > 0 ? "+" : "−"}${fmtUSD(Math.abs(adjTotal))}</span></div>
+        <div class="fo-cap-adj-row fo-cap-adj-strong"><span class="lbl">${yr0} adjusted cap — salary + adjustments</span><span class="val">${fmtUSD(adjustedCy)}</span></div>
+      </div>` : ""}
       ${filteredNote ? `<div style="margin:6px 0 0;">${filteredNote}</div>` : ""}
       <table class="fo-table">
         <thead>
