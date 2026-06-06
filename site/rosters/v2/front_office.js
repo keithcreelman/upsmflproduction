@@ -5997,9 +5997,45 @@
   // Per-player projected tag-VALUE table for `projYear`. Folded into the Calc
   // Breakdown (year dropdown) — no longer a separate subview (Keith 2026-06-05:
   // "we don't need a separate tab ... calculation should be based off this").
+  // Build PROJECTED (next-season) tag tiers from CURRENT-season contracts: rank
+  // the players UNDER CONTRACT (rostered, AAV > 0) by AAV per position, drop them
+  // into the SAME tier rank-bands the pipeline defines (rank_min/rank_max), and
+  // set each tier's base bid = the AVERAGE AAV of that band. (Keith 2026-06-06:
+  // "take the players under contract and apply their 2026 AAV to the rules that
+  // determine the cost for Tier 1, 2…; these numbers change as rosters fill
+  // out.") Excludes free agents (not rostered) like Mahomes, so the projection
+  // reflects who can actually be tagged.
+  function projectedCalcBreakdown() {
+    const baseCb = (STATE.tagData && STATE.tagData.meta && STATE.tagData.meta.calc_breakdown) || {};
+    const byPos = Object.create(null);
+    (STATE.teams || []).forEach(function (team) {
+      (team.players || []).forEach(function (p) {
+        const aav = Math.max(safeInt(p.aav, 0), 0);
+        if (aav <= 0) return;                              // must be under contract
+        const posKey = positionGroupKey(p.position);
+        (byPos[posKey] = byPos[posKey] || []).push({ player_name: safeStr(p.name), aav: aav });
+      });
+    });
+    const out = Object.create(null);
+    Object.keys(baseCb).forEach(function (posKey) {
+      const tiers = (baseCb[posKey] && baseCb[posKey].tiers) || [];
+      const ranked = (byPos[posKey] || []).slice()
+        .sort(function (a, b) { return b.aav - a.aav; })
+        .map(function (pl, i) { return { rank: i + 1, player_name: pl.player_name, aav: pl.aav }; });
+      out[posKey] = { tiers: tiers.map(function (t) {
+        const lo = safeInt(t.rank_min, 0) || 1, hi = safeInt(t.rank_max, 0) || lo;
+        const band = ranked.filter(function (pl) { return pl.rank >= lo && pl.rank <= hi; });
+        const sum = band.reduce(function (s, pl) { return s + pl.aav; }, 0);
+        const bid = band.length ? Math.round(sum / band.length / 1000) * 1000 : 0;
+        return { tier: t.tier, label: t.label, rank_min: lo, rank_max: hi, base_bid: bid, players: band };
+      }) };
+    });
+    return out;
+  }
+
   function renderTagValueTable(projYear) {
     const m = STATE.tagData.meta || {};
-    const cb = m.calc_breakdown || {};
+    const cb = (projYear > (safeInt(SEASON, 0) || 0)) ? projectedCalcBreakdown() : (m.calc_breakdown || {});
     const nn = function (s) { return safeStr(s).toLowerCase().replace(/[^a-z]/g, ""); };
     if (!Object.keys(cb).length) {
       return '<div class="fo-placeholder">No calc_breakdown in tag_tracking.json — can\'t project tier bids.</div>';
@@ -6100,6 +6136,9 @@
     if (STATE.tagBreakdownYear == null) STATE.tagBreakdownYear = curCycle + 1;
     const year = safeInt(STATE.tagBreakdownYear, curCycle + 1);
     const isProjected = year > curCycle;
+    // Projected year → recompute tiers from CURRENT contracts (excludes FAs);
+    // current cycle → the pipeline's locked tiers.
+    const cbY = isProjected ? projectedCalcBreakdown() : cb;
     const yopt = function (y) { return '<option value="' + y + '"' + (y === year ? " selected" : "") + ">" + y + (y > curCycle ? " (projected)" : "") + "</option>"; };
     const yearSel = '<div style="display:flex;gap:8px;align-items:center;margin:4px 0 12px;flex-wrap:wrap;">' +
       '<label class="small" style="color:var(--muted);">Tag year</label>' +
@@ -6110,7 +6149,7 @@
         : '<span class="small" style="color:var(--muted);">current cycle (locked at the ' + year + ' tag deadline)</span>') +
       "</div>";
     const sections = posKeys.map(function (posKey) {
-      const pos = cb[posKey] || {};
+      const pos = cbY[posKey] || {};
       const tiers = Array.isArray(pos.tiers) ? pos.tiers : [];
       const tierCards = tiers.map(function (tier) {
         const players = Array.isArray(tier.players) ? tier.players : [];
@@ -6136,7 +6175,10 @@
     }).join("");
     return yearSel + `
       <p class="fo-row-hint">
-        💡 Tag tiers come from prior season's <strong>positional rank</strong> by points. Each tier's <strong>base bid</strong> = average AAV of the players in that rank band. Effective tag salary = max(this base bid, <strong>max(current AAV, prior AAV) × 1.10</strong>). Canon: AAV-only — never current/prior salary.
+        💡 ${isProjected
+          ? "Projected tiers rank the players <strong>currently under contract</strong> by <strong>AAV</strong> and average each rank band — they shift as rosters fill out (free agents excluded)."
+          : "Tag tiers come from prior season's <strong>positional rank</strong> by points; each tier's <strong>base bid</strong> = average AAV of that rank band."}
+        Effective tag salary = max(the base bid, <strong>max(current AAV, prior AAV) × 1.10</strong>). Canon: AAV-only — never current/prior salary.
       </p>
       ${sections}
       <h2 style="margin:20px 0 4px;">Tag values by player — ${year}${isProjected ? " (projected)" : ""}</h2>
