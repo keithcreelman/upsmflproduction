@@ -1,23 +1,12 @@
 {
   "meta": {
-    "note": "One-off repair: Rashee Rice's 2026 restructure (submitted via the FO before the prior-state fix) landed in D1 with NULL prior_* → the Contract Revert checkbox was disabled ('no_prior_state_stored'). This deletes that null-prior row and re-inserts it WITH the recovered pre-restructure contract so the revert works. Prior recovered from the Downloads mfl_database.db rosters_current snapshot (his pre-restructure 2026 contract; TCV 55K matches the preserved post-restructure TCV). NOTE: prior_contract_status is the snapshot's 'Veteran' label — if his real pre-restructure status was 'Vet-Ext2' (post is Vet-Ext2-BL), adjust before reverting. Keith 2026-06-05.",
+    "note": "PURGE Sex Manther (0007) test restructures — De'Von Achane (16167) + Rashee Rice (16194), both via worker-offer-restructure, recorded as REAL (dry_run unset) during FO restructure testing. Keith 2026-06-06: 'these were tests, NEVER have tests land as real.' records=[] (no re-insert) + delete both. HammerTime (0005) Walker/Chase (real Contracts Hub Bot) untouched. Supersedes the 2026-06-05 Rashee revert-repair backfill, which is also purged here since the underlying restructure was a test.",
     "season": "2026",
     "league_id": "74598"
   },
-  "records": [
-    {
-      "franchise_id": "0007", "player_id": "16194", "player_name": "Rice, Rashee", "position": "WR",
-      "prior_contract_status": "Veteran", "prior_salary": 25000, "prior_contract_year": 2,
-      "prior_contract_info": "CL 3| TCV 55K| AAV 25K| Y1-5 Y2-25, Y3-25| Ext: LH",
-      "prior_year_salaries": [5000, 25000, 25000],
-      "contract_status": "Vet-Ext2-BL", "salary": 11000, "contract_year": 2,
-      "contract_info": "CL 2|TCV 55K|AAV 27.5K|Y1-11K, Y2-44K|GTD: 41.3K|Restructured 2026",
-      "year_salaries": [11000, 44000], "tcv": 55000, "aav": 27500,
-      "submitted_at_utc": "2026-06-05T18:40:19.271Z",
-      "source": "worker-offer-restructure"
-    }
-  ],
+  "records": [],
   "delete": [
-    { "franchise_id": "0007", "player_id": "16194" }
+    { "franchise_id": "0007", "player_id": "16194" },
+    { "franchise_id": "0007", "player_id": "16167" }
   ]
 }
