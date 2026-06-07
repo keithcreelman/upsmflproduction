@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-06-03T10:42:55.437Z",
+    "updated_at": "2026-06-07T14:22:18.767Z",
     "row_count": 43,
     "source": "worker-trade-offers"
   },
@@ -5535,31 +5535,31 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-05-24T13:24:32.266Z",
-      "updated_at": "2026-05-24T13:24:32.266Z",
+      "updated_at": "2026-06-07T14:22:18.767Z",
       "from_franchise_id": "0008",
       "to_franchise_id": "0002",
       "from_franchise_name": "Real Deal Creel",
       "to_franchise_name": "CBP",
-      "message": "clean up the back end of the 1st",
-      "comment": "clean up the back end of the 1st",
-      "comments": "clean up the back end of the 1st",
-      "raw_comment": "clean up the back end of the 1st",
-      "will_give_up": "DP_0_8",
-      "will_receive": "FP_0002_2027_1",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "17502",
+      "will_receive": "16178,FP_0002_2027_2",
       "source": "trade-workbench-ui",
       "summary": {
         "from_asset_count": 1,
-        "to_asset_count": 1,
+        "to_asset_count": 2,
         "from_trade_salary_k": 0,
         "to_trade_salary_k": 0,
         "extension_request_count": 0
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-05-24T13:24:29.519Z",
-        "source": "ups-trade-workbench",
+        "generated_at": "2026-06-07T14:22:15.497Z",
+        "source": "ups-mobile-trade-builder",
         "league_id": "74598",
-        "season": 2026,
+        "season": "2026",
         "teams": [
           {
             "role": "left",
@@ -5567,28 +5567,28 @@
             "franchise_name": "Real Deal Creel",
             "selected_assets": [
               {
-                "asset_id": "pick:DP_0_8",
-                "type": "PICK",
-                "player_id": null,
-                "player_name": null,
-                "description": "2026 1.09",
-                "position": null,
-                "nfl_team": null,
+                "asset_id": "P_17502",
+                "type": "PLAYER",
+                "player_id": "17502",
+                "player_name": "Omar Cooper Jr.",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "NYJ",
                 "salary": 7000,
-                "years": null,
-                "contract_type": "Pick",
+                "years": 3,
+                "contract_type": "Rookie-Draft",
                 "contract_info": null,
                 "taxi": false,
-                "pick_key": "DP_0_8",
-                "pick_season": 2026,
-                "pick_round": 1,
-                "pick_slot": 9
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
               }
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 0,
-            "selected_non_taxi_salary_dollars": 0
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 7000
           },
           {
             "role": "right",
@@ -5596,28 +5596,46 @@
             "franchise_name": "CBP",
             "selected_assets": [
               {
-                "asset_id": "pick:FP_0002_2027_1",
+                "asset_id": "P_16178",
+                "type": "PLAYER",
+                "player_id": "16178",
+                "player_name": "Keaton Mitchell",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "LAC",
+                "salary": 1000,
+                "years": 2,
+                "contract_type": "Vet-WW",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "FP_0002_2027_2",
                 "type": "PICK",
                 "player_id": null,
                 "player_name": null,
-                "description": "2027 1st",
+                "description": "2027 R2",
                 "position": null,
                 "nfl_team": null,
                 "salary": 0,
                 "years": null,
-                "contract_type": "Pick",
+                "contract_type": null,
                 "contract_info": null,
                 "taxi": false,
-                "pick_key": "FP_0002_2027_1",
+                "pick_key": "FP_0002_2027_2",
                 "pick_season": 2027,
-                "pick_round": 1,
+                "pick_round": 2,
                 "pick_slot": null
               }
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 0,
-            "selected_non_taxi_salary_dollars": 0
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 1000
           }
         ],
         "extension_requests": [],
@@ -5627,91 +5645,11 @@
         "ui": {
           "left_team_id": "0008",
           "right_team_id": "0002"
-        },
-        "salary_reconciliation": {
-          "left": {
-            "franchise_id": "0008",
-            "franchise_name": "Real Deal Creel",
-            "salary_cap_dollars": 300000,
-            "starting_salary_dollars": 61000,
-            "salary_adjustment_total_dollars": 5450,
-            "outgoing_dollars": 0,
-            "incoming_dollars": 0,
-            "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": 0,
-            "new_salary_dollars": 61000,
-            "trade_salary_adjustment_k": 0,
-            "trade_salary_adjustment_max_k": 0,
-            "net_trade_salary_k": 0,
-            "net_cap_change_dollars": 0,
-            "available_salary_before_dollars": 233550,
-            "available_salary_after_dollars": 233550,
-            "over_cap_dollars": 0
-          },
-          "right": {
-            "franchise_id": "0002",
-            "franchise_name": "CBP",
-            "salary_cap_dollars": 300000,
-            "starting_salary_dollars": 132000,
-            "salary_adjustment_total_dollars": 4000,
-            "outgoing_dollars": 0,
-            "incoming_dollars": 0,
-            "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": 0,
-            "new_salary_dollars": 132000,
-            "trade_salary_adjustment_k": 0,
-            "trade_salary_adjustment_max_k": 0,
-            "net_trade_salary_k": 0,
-            "net_cap_change_dollars": 0,
-            "available_salary_before_dollars": 164000,
-            "available_salary_after_dollars": 164000,
-            "over_cap_dollars": 0
-          },
-          "has_over_cap": false
-        },
-        "multi_year_salary_impact": {
-          "current_season": 2026,
-          "left_franchise_name": "Real Deal Creel",
-          "right_franchise_name": "CBP",
-          "rows": [
-            {
-              "season": 2026,
-              "left_before_dollars": 80000,
-              "left_after_dollars": 73000,
-              "left_change_dollars": -7000,
-              "right_before_dollars": 145000,
-              "right_after_dollars": 152000,
-              "right_change_dollars": 7000
-            },
-            {
-              "season": 2027,
-              "left_before_dollars": 61000,
-              "left_after_dollars": 61000,
-              "left_change_dollars": 0,
-              "right_before_dollars": 132000,
-              "right_after_dollars": 132000,
-              "right_change_dollars": 0
-            },
-            {
-              "season": 2028,
-              "left_before_dollars": 25000,
-              "left_after_dollars": 25000,
-              "left_change_dollars": 0,
-              "right_before_dollars": 53000,
-              "right_after_dollars": 53000,
-              "right_change_dollars": 0
-            }
-          ]
-        },
-        "validation": {
-          "status": "ready",
-          "issues": []
-        },
-        "comment": "clean up the back end of the 1st"
+        }
       },
       "twb_meta": null,
-      "mfl_trade_id": "1050",
-      "trade_id": "1050",
+      "mfl_trade_id": "1081",
+      "trade_id": "1081",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
