@@ -353,6 +353,21 @@
         '</div>';
       }
 
+      // §C3 MYM — an IN-SEASON WW/FCFS/waiver pickup can lock into a FLAT 2- or
+      // 3-year deal at the same base salary within 14 days of acquisition (no
+      // raise, cannot be loaded; max 4/team/season). Math + payload live in
+      // front_office_mym_submit.js (UPS_M_FO_MYM); worker route /offer-mym.
+      if (elig.mymEligible) {
+        var mymDayNote = (elig.mymDaysSinceAcq != null)
+          ? ' Day ' + elig.mymDaysSinceAcq + ' of 14.' : '';
+        html += '<div class="ups-m-myac-head">Mid-Year Multi (MYM) · §C3' +
+          '<span class="ups-m-myac-sub">Lock this in-season pickup into a flat 2- or 3-year deal at the same salary — no raise, can\'t be loaded. Max 4 per team a season.' + mymDayNote + '</span></div>';
+        html += '<div class="ups-m-sheet-actions">' +
+          '<button class="btn-act mym" data-act="contract" data-contract-action="mym" data-mym-total="2">2-Year</button>' +
+          '<button class="btn-act mym" data-act="contract" data-contract-action="mym" data-mym-total="3">3-Year</button>' +
+        '</div>';
+      }
+
       // Contract-action grid: Extension / Restructure / Tag — eligibility comes
       // from the FO mirror. Each button runs the action in-app via the verbatim
       // Front Office submit mirrors (no deep-links).
@@ -610,7 +625,64 @@
     if (action === "restructure") return handleRestructurePick();
     if (action === "myac") return handleMyacPick(btn);
     if (action === "myac-loaded") return handleMyacLoadedPick(btn);
+    if (action === "mym") return handleMymPick(btn);
     window.UPS_MOBILE.ui.showToast("Action not yet available on mobile.", "err");
+  }
+
+  // §C3 MYM — flat 2-/3-year deal at the current base salary. Math + payload in
+  // front_office_mym_submit.js (UPS_M_FO_MYM); mirrors handleMyacPick.
+  function handleMymPick(btn) {
+    var MM = window.UPS_M_FO_MYM;
+    if (!MM) return;
+    var totalYears = U.safeInt(btn && btn.getAttribute("data-mym-total"), 2) || 2;
+    var rosterRow = footerState.rosterRow;
+    var player = window.UPS_MOBILE.data.playerById(footerState.pid);
+    var perYear = U.safeInt(rosterRow && rosterRow.salary, 0);
+    var err = MM.validateMym(perYear, totalYears);
+    if (err) { window.UPS_MOBILE.ui.showToast(err, "err"); return; }
+    var acqLabel = U.safeStr(player && player.acquisitionTypeLabel);
+    var subType = MM.mymSubType(rosterRow && rosterRow.contractStatus, acqLabel);
+    var contract = MM.buildMymContract(perYear, totalYears, subType);
+    confirmAndSubmitMym(contract, player, acqLabel);
+  }
+
+  function confirmAndSubmitMym(contract, player, acqLabel) {
+    var lines = ["Submit " + contract.totalYears + "-year MYM for " + footerState.name + "?", "",
+      "Sub-type: " + contract.subType,
+      "Per year: " + U.fmtUsd(contract.perYear) + " (flat — cannot be loaded)",
+      "TCV: " + U.fmtUsd(contract.tcv) + " · GTD: " + U.fmtUsd(contract.gtd)];
+    var msg = lines.join("\n") + "\n\nThis writes to MFL and cannot be undone from the app.";
+    if (!window.confirm(msg)) return;
+    window.UPS_MOBILE.ui.showToast("Submitting MYM…", "ok");
+    var MM = window.UPS_M_FO_MYM;
+    var s = window.UPS_MOBILE.state;
+    return MM.submitMym({
+      workerBase: window.UPS_MOBILE.api.workerBase(),
+      leagueId: s.ctx.leagueId,
+      year: s.ctx.year,
+      pid: footerState.pid,
+      playerName: U.safeStr(player && player.name) || footerState.name,
+      fid: s.viewerFranchiseId,
+      franchiseName: (s.viewerFranchise && s.viewerFranchise.name) || "",
+      position: U.safeStr(player && player.position),
+      contract: contract,
+      rosterRow: footerState.rosterRow,
+      acquisitionDate: U.safeStr(player && player.acquisitionDate),
+      acquisitionType: U.safeStr(acqLabel),
+      dryRun: false,
+      commishOverride: false
+    }).then(function (resp) {
+      if (resp.ok) {
+        window.UPS_MOBILE.ui.showToast(contract.totalYears + "-yr MYM submitted ✓ (" + contract.subType + ")", "ok");
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
+      window.UPS_MOBILE.ui.showToast("MYM failed: " + (resp.error || "unknown"), "err");
+    }).catch(function (e) {
+      window.UPS_MOBILE.ui.showToast("MYM failed: " + (e && e.message ? e.message : e), "err");
+    });
   }
 
   // In-app Extend — fetch precomputed options, show picker, submit.
