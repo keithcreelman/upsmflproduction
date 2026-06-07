@@ -231,6 +231,61 @@
       '</div>';
   }
 
+  // Action center — the "what needs my attention now" summary atop My Team
+  // (Keith 2026-06-07). Surfaces only ACTIVE prompts (incoming trades,
+  // time-sensitive contract windows, over-cap), each tapping through to where
+  // the action lives. Eligibility uses the same FO predicates as the hub.
+  function renderActionCenter(fid) {
+    var items = [];
+
+    // Incoming trade offers (most time-sensitive social action).
+    var incoming = (M.state.tradeOffers && M.state.tradeOffers.incoming) || [];
+    if (incoming.length) {
+      items.push({ icon: "📨", href: "#league/trade",
+        text: incoming.length + " incoming trade offer" + (incoming.length > 1 ? "s" : ""),
+        sub: "Review &amp; respond" });
+    }
+
+    // Contract action windows — MYM first (hard 14-day clock).
+    var prompts = [
+      { key: "mym", icon: "⏱", label: "MYM-eligible", sub: "In-season pickups · 14-day window" },
+      { key: "myac", icon: "📝", label: "auction win" /*pluralized below*/, sub: "Set 1-yr deals to 2 or 3 years", word: "to finalize (MYAC)" },
+      { key: "extend", icon: "📈", label: "can be extended", sub: "Final-year contracts" },
+      { key: "restructure", icon: "🔧", label: "can restructure", sub: "Offseason · 3 per season" }
+    ];
+    prompts.forEach(function (p) {
+      var n = eligiblePlayersForAction(fid, p.key).length;
+      if (!n) return;
+      var noun = n + " player" + (n > 1 ? "s" : "");
+      var text = p.key === "myac"
+        ? (n + " auction win" + (n > 1 ? "s" : "") + " " + p.word)
+        : (noun + " " + p.label);
+      items.push({ icon: p.icon, href: "#myteam/contracts/" + p.key, text: text, sub: p.sub });
+    });
+
+    // Cap compliance.
+    var cap = DATA.computeCap(fid);
+    if (cap && U.safeInt(cap.capRoom, 0) < 0) {
+      items.push({ icon: "🚨", cls: "danger", href: "#myteam/contracts/restructure",
+        text: "Over the cap by " + U.fmtUsd(Math.abs(cap.capRoom)),
+        sub: "Cut or restructure to get compliant" });
+    }
+
+    var html = '<div class="ups-m-action-center"><div class="ups-m-ac-title">Needs your attention</div>';
+    if (!items.length) {
+      return html + '<div class="ups-m-ac-allset">✓ You\'re all set — nothing needs action right now.</div></div>';
+    }
+    items.forEach(function (it) {
+      html += '<a class="ups-m-ac-item' + (it.cls ? " " + it.cls : "") + '" href="' + it.href + '">' +
+        '<span class="ups-m-ac-icon">' + it.icon + '</span>' +
+        '<span class="ups-m-ac-text">' + U.escapeHtml(it.text) +
+          (it.sub ? '<span class="sub">' + it.sub + '</span>' : '') + '</span>' +
+        '<span class="ups-m-ac-chev">›</span>' +
+      '</a>';
+    });
+    return html + '</div>';
+  }
+
   function renderRosterTab(mount) {
     var fid = M.state.viewerFranchiseId;
     if (!fid) {
@@ -245,6 +300,7 @@
     var roster = DATA.getRosterFor(fid);
     mount.innerHTML =
       subTabs("roster") +
+      renderActionCenter(fid) +
       renderCapCard(cap) +
       renderRoster(roster, fid);
     bindRowClicks(mount);
