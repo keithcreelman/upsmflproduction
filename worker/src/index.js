@@ -45,14 +45,21 @@ async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
     const cached = await env.UPS_MFL_DB.prepare("SELECT value FROM ups_settings WHERE key = ?").bind(cacheKey).first();
     if (cached && cached.value) {
       const arr = JSON.parse(cached.value);
-      if (Array.isArray(arr)) return new Set(arr.map(String));
+      // Only trust a NON-empty cache — an empty array almost always means a
+      // transient fetch failure poisoned the cache; recompute instead.
+      if (Array.isArray(arr) && arr.length > 0) return new Set(arr.map(String));
     }
   } catch (e) { /* fall through to recompute */ }
   const out = new Set();
   for (const y of [cur - 1, cur - 2]) {
     if (y < 2011) continue;
     try {
-      const r = await fetch(`${origin}/api/mfl-export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(y)}`);
+      // Fetch MFL DIRECTLY (a worker can't reliably fetch its own hostname, so
+      // the /api/mfl-export self-call returns empty). Browser UA so MFL's bot
+      // filter doesn't 1010 us. Rosters is a public export (no APIKEY).
+      const r = await fetch(`https://www48.myfantasyleague.com/${y}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1`, {
+        headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" }
+      });
       const j = await r.json().catch(() => ({}));
       let franchises = (j && j.rosters && j.rosters.franchise) || [];
       if (!Array.isArray(franchises)) franchises = [franchises];
@@ -68,11 +75,13 @@ async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
       }
     } catch (e) { /* skip the season we couldn't fetch */ }
   }
-  try {
-    await env.UPS_MFL_DB.prepare(
-      "INSERT INTO ups_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at"
-    ).bind(cacheKey, JSON.stringify(Array.from(out)), new Date().toISOString()).run();
-  } catch (e) { /* cache write best-effort */ }
+  if (out.size > 0) {
+    try {
+      await env.UPS_MFL_DB.prepare(
+        "INSERT INTO ups_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at"
+      ).bind(cacheKey, JSON.stringify(Array.from(out)), new Date().toISOString()).run();
+    } catch (e) { /* cache write best-effort */ }
+  }
   return out;
 }
 
