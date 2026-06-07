@@ -1021,6 +1021,18 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           if (isTaxi) {
             return { ...ctx, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
           }
+          // 1.5 TAGGED player — cap-FREE to drop until the FA Auction drop
+          // deadline (canon §C8 / Keith 2026-06-07: cutting a tagged player
+          // before the auction resets them with no cap hit; the auction is the
+          // reset). After the deadline (~Aug 1 of the season) the standard
+          // formula applies. contractStatus = "TAG" for a tagged player.
+          if (/tag/i.test(_s(contractStatus))) {
+            const _tagSeasonYr = Number(opts && opts.season) || 0;
+            const _faaCutoff = _tagSeasonYr ? new Date(Date.UTC(_tagSeasonYr, 7, 1)) : null;  // Aug 1
+            if (!_faaCutoff || new Date() < _faaCutoff) {
+              return { ...ctx, penalty: 0, basis: "tag_pre_auction_exempt", exempt: true, exempt_reason: "Tagged player dropped before the FA Auction drop deadline — cap-free (§C8)." };
+            }
+          }
           // 2. WW pickup at ≤ $4K → cap-free (§D2 + Bot Grounding appendix).
           if (/(^|-)WW($|-)/i.test(_s(contractStatus)) && Number(salary) <= 4000) {
             return { ...ctx, penalty: 0, basis: "ww_under_5k_exempt", exempt: true, exempt_reason: "WW pickup salary ≤ $4K (§D2)." };
