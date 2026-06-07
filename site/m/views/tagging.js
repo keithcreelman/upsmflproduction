@@ -155,7 +155,10 @@
       } else if (action.kind === "tag") {
         btnHtml = '<button class="ups-m-tag-btn tag" data-pid="' + U.escapeHtml(row.player_id) + '" data-act="tag">Tag · ' + salaryStr + '</button>';
       } else if (action.kind === "locked") {
-        btnHtml = '<button class="ups-m-tag-btn locked" disabled>Slot used</button>';
+        // Distinguish a cross-franchise lock (player already tagged by another
+        // team, §C8) from a same-team slot-already-used lock.
+        var lockLabel = action.reason === "tagged_by_other_franchise" ? "Tagged" : "Slot used";
+        btnHtml = '<button class="ups-m-tag-btn locked" disabled>' + lockLabel + '</button>';
       } else {
         btnHtml = '<button class="ups-m-tag-btn disabled" disabled>—</button>';
       }
