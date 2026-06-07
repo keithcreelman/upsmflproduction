@@ -27,6 +27,55 @@ async function getDiscordRoutingConfig(env) {
   } catch (e) { return { ...DISCORD_ROUTING_DEFAULTS }; }
 }
 
+// Pids that ENDED a PRIOR season on a NON-taxi roster (active/IR) — i.e. were
+// promoted off the taxi squad before the current season. Per canon §B2 ("once
+// permanently promoted, NEVER re-eligible for taxi"), these players are NOT
+// taxi-demote-eligible even if they never accrued 4 logged call-ups — closing
+// the pre-tracker gap that left R2-5 rookies promoted in a prior year wrongly
+// showing "Demote to Taxi" on BOTH desktop (/roster-workbench taxi_eligible)
+// and mobile (/api/taxi-callups permanent_promotion). Checks the 2 prior
+// seasons (the taxi window minus the current year). Prior-season rosters are
+// frozen, so the result is cached in D1 (ups_settings) per season.
+async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
+  const cur = parseInt(currentSeason, 10) || 0;
+  if (!cur || !env || !env.UPS_MFL_DB) return new Set();
+  const cacheKey = "taxi_prior_active_" + cur;
+  try {
+    await env.UPS_MFL_DB.prepare("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)").run();
+    const cached = await env.UPS_MFL_DB.prepare("SELECT value FROM ups_settings WHERE key = ?").bind(cacheKey).first();
+    if (cached && cached.value) {
+      const arr = JSON.parse(cached.value);
+      if (Array.isArray(arr)) return new Set(arr.map(String));
+    }
+  } catch (e) { /* fall through to recompute */ }
+  const out = new Set();
+  for (const y of [cur - 1, cur - 2]) {
+    if (y < 2011) continue;
+    try {
+      const r = await fetch(`${origin}/api/mfl-export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(y)}`);
+      const j = await r.json().catch(() => ({}));
+      let franchises = (j && j.rosters && j.rosters.franchise) || [];
+      if (!Array.isArray(franchises)) franchises = [franchises];
+      for (const fr of franchises) {
+        let players = (fr && fr.player) || [];
+        if (!Array.isArray(players)) players = [players];
+        for (const p of players) {
+          const status = String((p && p.status) || "").toUpperCase();
+          if (status.includes("TAXI")) continue;   // on taxi that year → NOT promoted
+          const pid = String((p && p.id) || "").replace(/\D/g, "");
+          if (pid) out.add(pid);
+        }
+      }
+    } catch (e) { /* skip the season we couldn't fetch */ }
+  }
+  try {
+    await env.UPS_MFL_DB.prepare(
+      "INSERT INTO ups_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at"
+    ).bind(cacheKey, JSON.stringify(Array.from(out)), new Date().toISOString()).run();
+  } catch (e) { /* cache write best-effort */ }
+  return out;
+}
+
 // Positional leverage coefficients (β per pos_group) from
 // pipelines/etl/config/positional_leverage_2026.json. Win Chunks × β =
 // Win Chunks Normalized — the "how many AP wins did this E+P week
@@ -7838,6 +7887,25 @@ export default {
         } catch (e) {
           return jsonOut(200, { ok: false, error: e?.message || String(e), players: {} });
         }
+        // §B2 — also flag players who ended a PRIOR season on a non-taxi roster
+        // as permanently promoted (even with zero call-up rows), so mobile's
+        // taxi-eligibility gate (which reads permanent_promotion from here)
+        // excludes them — matching the desktop /roster-workbench behavior.
+        try {
+          const tcOrigin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+          const tcLeague = safeStr(url.searchParams.get("L") || L || "74598");
+          const tcSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+          const priorActive = await taxiPriorActivePids(env, tcOrigin, tcLeague, tcSeason);
+          priorActive.forEach((pid) => {
+            if (out[pid]) out[pid].permanent_promotion = true;
+            else out[pid] = { used: 0, pending: 0, max: 3, permanent_promotion: true };
+          });
+          // Respect the optional ?player_ids= narrowing filter.
+          if (playerIds && playerIds.length) {
+            const allow = new Set(playerIds);
+            Object.keys(out).forEach((pid) => { if (!allow.has(pid)) delete out[pid]; });
+          }
+        } catch (e) { /* prior-active augmentation is best-effort */ }
         return jsonOut(200, { ok: true, players: out });
       }
 
@@ -28368,6 +28436,12 @@ export default {
           }
         }
 
+        // §B2 once-promoted-never-taxi: players who ended a prior season on a
+        // non-taxi roster are permanently promoted even without 4 logged
+        // call-ups (the pre-tracker gap). Computed once per load (cached in D1).
+        const rwOrigin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+        const taxiPriorActive = await taxiPriorActivePids(env, rwOrigin, leagueId, season);
+
         const extRowsNormalized = remapExtensionPreviewRowsToCurrentOwners(
           extRes.rows || [],
           rosterAssetsByFranchise,
@@ -28498,7 +28572,7 @@ export default {
                 taxi_callups_used: taxiCallup ? taxiCallup.used : 0,
                 taxi_callups_pending: taxiCallup ? (taxiCallup.pending || 0) : 0,
                 taxi_callups_max: 3,
-                taxi_permanent_promotion: !!(taxiCallup && taxiCallup.permanent_promotion),
+                taxi_permanent_promotion: !!(taxiCallup && taxiCallup.permanent_promotion) || taxiPriorActive.has(playerId),
                 taxi_eligible: isTaxiEligible,
                 ups_draft_round: upsRound || null,
                 ups_draft_year: upsYear || null,
