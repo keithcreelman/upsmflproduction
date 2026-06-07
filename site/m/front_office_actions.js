@@ -159,11 +159,32 @@
                          acqYr === currentSeasonFO() && !rookieLikeContractStatus(status) && status.indexOf("tag") === -1;
     var myacEligible = (isEra || isFreshAuction) && years === 1 && !isPastContractDeadlineFO();
 
+    // ── MYM (Mid-Year Multi, §C3) — verbatim mirror of v2/front_office.js
+    // rosterContractEligibility (1441-1456). An IN-SEASON WW/FCFS/waiver pickup
+    // converts to a FLAT 2- or 3-year deal within 14 days of acquisition.
+    // Mutually exclusive with MYAC (auction wins) AND the §C4 extension window
+    // (WW days 15-28 = extension, days 1-14 = MYM). The worker re-validates the
+    // 14-day window + the 4-per-season cap on submit; this is best-effort.
+    var isInSeasonPickup = /\b(ww|fcfs|blind|waiver|free agent)\b/.test(acqLabel) &&
+                           acqLabel.indexOf("auction") === -1 && acqYr === currentSeasonFO();
+    var acqDateMs = (function () {
+      try {
+        var d = new Date(safeStr(player && player.acquisitionDate).slice(0, 10) + "T12:00:00-04:00");
+        return isNaN(d.getTime()) ? null : d.getTime();
+      } catch (e) { return null; }
+    })();
+    var mymDays = acqDateMs != null ? Math.floor((Date.now() - acqDateMs) / 86400000) : null;
+    var mymEligible = isInSeasonPickup && mymDays != null && mymDays >= 0 && mymDays <= 14 &&
+                      years <= 1 && status.indexOf("tag") === -1 && !myacEligible &&
+                      !rookieOptionActionEligible(player);
+
     return {
       myacEligible: myacEligible,
-      // Extension is suppressed when MYAC applies — desktop parity (Keith:
-      // nobody extends when they can MYAC). v2/front_office.js:1286.
-      extensionEligible: !rookieOptionActionEligible(player) && (years === 1 || expiredRookie) && status.indexOf("tag") === -1 && !noFurtherExt && !myacEligible,
+      mymEligible: mymEligible,
+      mymDaysSinceAcq: mymDays,
+      // Extension is suppressed when MYAC OR MYM applies — desktop parity (Keith:
+      // nobody extends when they can MYAC; MYM is the days-1-14 path). v2:1286/1455.
+      extensionEligible: !rookieOptionActionEligible(player) && (years === 1 || expiredRookie) && status.indexOf("tag") === -1 && !noFurtherExt && !myacEligible && !mymEligible,
       rookieOptionEligible: !!(rookieOption && rookieOption.eligible && !rookieOption.exercised),
       restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status)
     };

@@ -230,6 +230,7 @@
 /* MYAC (§C2) — gold accent; the headline contract action for fresh auction
    defaults (shown instead of Extend pre-deadline). */
 .btn-act.myac { border-color: rgba(255, 209, 102, 0.5); color: #ffd166; }
+.btn-act.mym { border-color: rgba(38, 198, 218, 0.5); color: #26c6da; }
 
 /* ----- MYAC (§C2) header note above the multi-year buttons ----- */
 .ups-m-myac-head {
