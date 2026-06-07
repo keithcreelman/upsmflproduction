@@ -779,6 +779,130 @@
         if (picked) confirmAndSubmitExtension(picked);
       });
     }
+    // +2Y Loaded (FL/BL) — desktop parity. Surfaces when a flat 2-year option
+    // exists (its futureAav drives the loaded math). Consumes a §C2 loaded slot.
+    var twoYr = options.filter(function (o) { return U.safeInt(o.yearsToAdd, 0) === 2; })[0];
+    if (twoYr && U.safeInt(twoYr.futureAav, 0) >= 1000 && window.UPS_FRONT_OFFICE_EXT.buildLoadedExtensionOption) {
+      body.insertAdjacentHTML("beforeend",
+        '<button class="ups-m-drop-row" id="ups-m-ext-loaded-btn" style="border-top:1px dashed var(--line);margin-top:6px">' +
+          '<div class="body"><div class="name" style="color:var(--accent)">Extend +2Y — Loaded (FL/BL)…</div>' +
+          '<div class="sub">Y1 stays at the current salary; set Y2 and Y3 auto-fills. Front- or back-load the two new years.</div></div>' +
+        '</button>');
+      var lb = document.getElementById("ups-m-ext-loaded-btn");
+      if (lb) lb.addEventListener("click", function () { handleExtensionLoadedPick(twoYr); });
+    }
+  }
+
+  // ── 2-year Loaded extension form (mirrors the MYAC-loaded sheet) ──────────
+  var extLoadedState = { constraints: null, y2: 0 };
+  function handleExtensionLoadedPick(twoYrOption) {
+    var FOX = window.UPS_FRONT_OFFICE_EXT;
+    var MY = window.UPS_M_FO_MYAC;
+    if (!FOX) return;
+    var futureAav = U.safeInt(twoYrOption && twoYrOption.futureAav, 0);
+    if (futureAav < 1000) { window.UPS_MOBILE.ui.showToast("No 2-year preview available for a loaded extension.", "err"); return; }
+    // §C2 5-loaded cap — a loaded extension also consumes a loaded slot.
+    if (MY) {
+      var myRoster = window.UPS_MOBILE.data.getRosterFor(window.UPS_MOBILE.state.viewerFranchiseId) || [];
+      if (MY.loadedContractCount(myRoster) >= MY.LOADED_MAX) {
+        window.UPS_MOBILE.ui.showToast("At the " + MY.LOADED_MAX + "-loaded cap — trade or cut a loaded player first.", "err");
+        return;
+      }
+    }
+    var constraints = FOX.loadedExtensionConstraints(footerState.rosterRow, futureAav);
+    extLoadedState = { constraints: constraints, y2: constraints.futureAav };
+    renderExtensionLoadedSheet();
+  }
+  function renderExtensionLoadedSheet() {
+    ensureExtMount();
+    var sub = document.getElementById("ups-m-ext-sub");
+    if (sub) sub.textContent = "+2Y Loaded — Y1 locked, set Y2, Y3 auto-fills.";
+    var body = document.getElementById("ups-m-ext-body");
+    if (!body) return;
+    var c = extLoadedState.constraints;
+    body.innerHTML = '' +
+      '<div class="ups-m-rstr-summary">' +
+        '<div class="row"><span class="lbl">Y1 (locked):</span> <span class="val">' + U.fmtUsd(c.currentSalary) + '</span></div>' +
+        '<div class="row"><span class="lbl">Y2 + Y3 total:</span> <span class="val">' + U.fmtUsd(c.extensionTotal) + '</span> <span class="lbl">(' + U.fmtUsd(c.futureAav) + ' AAV × 2)</span></div>' +
+        '<div class="row"><span class="lbl">Each year ≥</span> <span class="val">' + U.fmtUsd(c.minExtYear) + ' (20%)</span></div>' +
+      '</div>' +
+      '<div class="ups-m-rstr-field">' +
+        '<label>Year 2 salary (min ' + U.fmtUsd(c.minExtYear) + ', 1K increments)</label>' +
+        '<input type="number" step="1000" min="' + c.minExtYear + '" value="' + extLoadedState.y2 + '" id="ups-m-extl-y2" inputmode="numeric" />' +
+      '</div>' +
+      '<div class="ups-m-rstr-derived">' +
+        '<div class="row"><span class="lbl">Year 3 (auto):</span> <span class="val" id="ups-m-extl-y3">—</span></div>' +
+        '<div class="row"><span class="lbl">Status:</span> <span class="val" id="ups-m-extl-status">—</span></div>' +
+        '<div class="row"><span class="lbl">TCV · GTD:</span> <span class="val" id="ups-m-extl-tcv">—</span></div>' +
+      '</div>' +
+      '<div id="ups-m-extl-msg"></div>' +
+      '<button class="btn-act ext" id="ups-m-extl-submit" style="width:100%;margin-top:12px">Submit Loaded Extension</button>';
+    var y2Inp = document.getElementById("ups-m-extl-y2");
+    if (y2Inp) y2Inp.addEventListener("input", function (e) { extLoadedState.y2 = parseInt(e.target.value, 10) || 0; updateExtensionLoadedPreview(); });
+    var submit = document.getElementById("ups-m-extl-submit");
+    if (submit) submit.addEventListener("click", function () {
+      var FOX2 = window.UPS_FRONT_OFFICE_EXT;
+      var cc = extLoadedState.constraints;
+      var y2 = Math.round((parseInt(extLoadedState.y2, 10) || 0) / 1000) * 1000;
+      var y3 = cc.extensionTotal - y2;
+      var err = FOX2.validateLoadedExtensionYears(y2, y3, cc.minExtYear);
+      if (err) { window.UPS_MOBILE.ui.showToast(err, "err"); return; }
+      confirmAndSubmitExtensionLoaded(FOX2.buildLoadedExtensionOption(cc, y2));
+    });
+    updateExtensionLoadedPreview();
+  }
+  function updateExtensionLoadedPreview() {
+    var FOX = window.UPS_FRONT_OFFICE_EXT;
+    var c = extLoadedState.constraints;
+    var y2 = Math.round((parseInt(extLoadedState.y2, 10) || 0) / 1000) * 1000;
+    var y3 = c.extensionTotal - y2;
+    var opt = FOX.buildLoadedExtensionOption(c, y2);
+    function setText(id, t) { var el = document.getElementById(id); if (el) el.textContent = t; }
+    setText("ups-m-extl-y3", U.fmtUsd(y3));
+    setText("ups-m-extl-status", opt.status);
+    setText("ups-m-extl-tcv", U.fmtUsd(opt.tcv) + " · " + U.fmtUsd(opt.gtd));
+    var err = FOX.validateLoadedExtensionYears(y2, y3, c.minExtYear);
+    var msg = document.getElementById("ups-m-extl-msg");
+    if (msg) msg.innerHTML = err ? '<div class="ups-m-rstr-err">' + U.escapeHtml(err) + '</div>' : '<div class="ups-m-rstr-ok">Ready to submit.</div>';
+    var submit = document.getElementById("ups-m-extl-submit");
+    if (submit) submit.disabled = !!err;
+  }
+  function confirmAndSubmitExtensionLoaded(option) {
+    var s = window.UPS_MOBILE.state;
+    var newSal = Number(option.salaryToSend) || 0;
+    var curSal = Number(footerState.rosterRow && footerState.rosterRow.salary) || 0;
+    var capLine = capPreviewLine(newSal - curSal);
+    var lines = ["Submit +2Y loaded extension for " + footerState.name + "?", "",
+      "Status: " + option.status,
+      "Y1: " + U.fmtUsd(option.yrs[0]) + " (locked)",
+      "Y2: " + U.fmtUsd(option.yrs[1]),
+      "Y3: " + U.fmtUsd(option.yrs[2]),
+      "TCV: " + U.fmtUsd(option.tcv) + " · GTD: " + U.fmtUsd(option.gtd)];
+    if (!window.confirm(lines.join("\n") + capLine + "\n\nThis writes to MFL and cannot be undone from the app.")) return;
+    var body = document.getElementById("ups-m-ext-body");
+    if (body) body.innerHTML = '<div class="ups-m-sheet-loading">Submitting…</div>';
+    var player = window.UPS_MOBILE.data.playerById(footerState.pid);
+    window.UPS_FRONT_OFFICE_EXT.submitExtension({
+      workerBase: window.UPS_MOBILE.api.workerBase(),
+      leagueId: s.ctx.leagueId, year: s.ctx.year,
+      pid: footerState.pid,
+      playerName: U.safeStr(player && player.name) || footerState.name,
+      fid: s.viewerFranchiseId,
+      franchiseName: (s.viewerFranchise && s.viewerFranchise.name) || "",
+      position: U.safeStr(player && player.position),
+      option: option, rosterRow: footerState.rosterRow, dryRun: false, commishOverride: false
+    }).then(function (resp) {
+      if (resp.ok) {
+        window.UPS_MOBILE.ui.showToast(option.status + " extension submitted ✓", "ok");
+        closeExtSheet();
+        return window.UPS_MOBILE.actions.reloadData().then(function () { window.UPS_MOBILE.route.renderRoute(); close(); });
+      }
+      var slot = document.getElementById("ups-m-ext-body");
+      if (slot) slot.innerHTML = '<div class="ups-m-sheet-empty" style="color:var(--danger)">Loaded extension failed: ' + U.escapeHtml(resp.error || "unknown") + '</div>';
+    }).catch(function (err) {
+      var slot = document.getElementById("ups-m-ext-body");
+      if (slot) slot.innerHTML = '<div class="ups-m-sheet-empty" style="color:var(--danger)">Loaded extension failed: ' + U.escapeHtml(err && err.message || String(err)) + '</div>';
+    });
   }
   function confirmAndSubmitExtension(option) {
     var FOX = window.UPS_FRONT_OFFICE_EXT;

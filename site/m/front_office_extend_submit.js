@@ -421,6 +421,60 @@
       .catch(function () { return []; });
   }
 
+  // ── 2-year LOADED (FL/BL) extension ─────────────────────────────────────
+  // Verbatim-logic mirror of desktop openExtensionLoadedForm + submitExtensionLoaded
+  // (v2/front_office.js 3808-3942). Y1 stays at the CURRENT salary; the owner
+  // free-keys Y2 and Y3 auto-fills so Y2+Y3 == futureAav×2. FL/BL from the
+  // Y2-vs-Y3 shape; each extension year ≥ 20% of the extension total (§C4.3).
+  // The result is fed to the SAME submitExtension() path as a flat option.
+  function fmtKbare(n) {
+    var dollars = Math.round(Number(n) || 0);
+    if (dollars <= 0) return "0";
+    return String(Math.round(dollars / 100) / 10).replace(/\.0$/, "") + "K";
+  }
+  function roundToK(n) { return Math.round(safeInt(n, 0) / 1000) * 1000; }
+  function guaranteeForContract(tcv, years) {   // §D1, verbatim from desktop
+    var t = safeInt(tcv, 0);
+    if (t > 4000) return Math.round(t * 0.75);
+    return safeInt(years, 0) >= 2 ? 1000 : 0;
+  }
+  // Constraints derived from the flat +2Y option's futureAav (the escalated AAV).
+  function loadedExtensionConstraints(rosterRow, futureAav) {
+    var fa = safeInt(futureAav, 0);
+    var extensionTotal = fa * 2;
+    var currentSalary = Math.max(1000, roundToK(safeInt(rosterRow && rosterRow.salary, 0)));
+    var minExtYear = Math.max(1000, Math.ceil(extensionTotal * 0.2 / 1000) * 1000);
+    return { currentSalary: currentSalary, futureAav: fa, extensionTotal: extensionTotal, minExtYear: minExtYear };
+  }
+  function validateLoadedExtensionYears(y2, y3, minExtYear) {
+    if (y2 % 1000 !== 0 || y3 % 1000 !== 0) return "Each extension year must be a whole $1,000 increment.";
+    if (y2 < minExtYear || y3 < minExtYear) return "Each extension year must be ≥ " + money(minExtYear) + " (20% of the total).";
+    return "";
+  }
+  // Build the submitExtension() `option` for a loaded extension. Y3 auto-fills.
+  function buildLoadedExtensionOption(constraints, y2Raw) {
+    var cur = constraints.currentSalary;
+    var total = constraints.extensionTotal;
+    var y2 = roundToK(y2Raw);
+    var y3 = total - y2;
+    var suffix = y2 > y3 ? "-FL" : y2 < y3 ? "-BL" : "";
+    var status = "Vet-Ext2" + suffix;
+    var tcv = cur + y2 + y3;
+    var gtd = guaranteeForContract(tcv, 3);
+    var futureAav = Math.round((y2 + y3) / 2);
+    var contractInfo =
+      "CL 3" +
+      "|TCV " + fmtKbare(tcv) +
+      "|AAV " + fmtKbare(cur) + ", " + fmtKbare(futureAav) +
+      "|Y1-" + fmtKbare(cur) + ", Y2-" + fmtKbare(y2) + ", Y3-" + fmtKbare(y3) +
+      "|GTD: " + fmtKbare(gtd);
+    return {
+      optionKey: "ext2-loaded", yearsToAdd: 2, contractLength: 3,
+      salaryToSend: y2, contractStatus: status, contractInfo: contractInfo,
+      tcv: tcv, gtd: gtd, futureAav: futureAav, yrs: [cur, y2, y3], status: status, loaded: true
+    };
+  }
+
   window.UPS_FRONT_OFFICE_EXT = {
     normalizeExtensionPreviewRow: normalizeExtensionPreviewRow,
     normalizeExtensionPreviewRows: normalizeExtensionPreviewRows,
@@ -429,6 +483,9 @@
     extensionOptionSummary: extensionOptionSummary,
     loadOptionsForPlayer: loadOptionsForPlayer,
     buildExtensionPayload: buildExtensionPayload,
-    submitExtension: submitExtension
+    submitExtension: submitExtension,
+    loadedExtensionConstraints: loadedExtensionConstraints,
+    validateLoadedExtensionYears: validateLoadedExtensionYears,
+    buildLoadedExtensionOption: buildLoadedExtensionOption
   };
 })();
