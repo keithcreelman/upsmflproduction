@@ -50,16 +50,36 @@ async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
       if (Array.isArray(arr) && arr.length > 0) return new Set(arr.map(String));
     }
   } catch (e) { /* fall through to recompute */ }
+  // Fetch MFL DIRECTLY (a worker can't reliably fetch its own hostname). Browser
+  // UA so MFL's bot filter doesn't 1010 us. Both exports are public (no APIKEY).
+  const UA = { headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" } };
+  // Phase 1 — recent R2-5 UPS draftees are the ONLY players the taxi window can
+  // apply to, so restrict to them (keeps the set to a handful of rookies instead
+  // of flagging every veteran who was merely on an active roster).
+  const recentRookies = new Set();
+  for (const y of [cur - 1, cur - 2]) {
+    if (y < 2011) continue;
+    try {
+      const dr = await fetch(`https://api.myfantasyleague.com/${y}/export?TYPE=draftResults&L=${encodeURIComponent(leagueId)}&JSON=1`, UA);
+      const dj = await dr.json().catch(() => ({}));
+      let unit = dj && dj.draftResults && dj.draftResults.draftUnit;
+      if (Array.isArray(unit)) unit = unit[0];
+      let picks = (unit && unit.draftPick) || [];
+      if (!Array.isArray(picks)) picks = [picks];
+      for (const pk of picks) {
+        const round = parseInt(pk && pk.round, 10);
+        const pid = String((pk && pk.player) || "").replace(/\D/g, "");
+        if (pid && round >= 2 && round <= 5) recentRookies.add(pid);
+      }
+    } catch (e) { /* skip the draft we couldn't fetch */ }
+  }
+  // Phase 2 — of those rookies, who ENDED a prior season on a NON-taxi roster
+  // (ROSTER/INJURED_RESERVE) = promoted off taxi before the current season.
   const out = new Set();
   for (const y of [cur - 1, cur - 2]) {
     if (y < 2011) continue;
     try {
-      // Fetch MFL DIRECTLY (a worker can't reliably fetch its own hostname, so
-      // the /api/mfl-export self-call returns empty). Browser UA so MFL's bot
-      // filter doesn't 1010 us. Rosters is a public export (no APIKEY).
-      const r = await fetch(`https://www48.myfantasyleague.com/${y}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1`, {
-        headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" }
-      });
+      const r = await fetch(`https://www48.myfantasyleague.com/${y}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1`, UA);
       const j = await r.json().catch(() => ({}));
       let franchises = (j && j.rosters && j.rosters.franchise) || [];
       if (!Array.isArray(franchises)) franchises = [franchises];
@@ -67,10 +87,11 @@ async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
         let players = (fr && fr.player) || [];
         if (!Array.isArray(players)) players = [players];
         for (const p of players) {
-          const status = String((p && p.status) || "").toUpperCase();
-          if (status.includes("TAXI")) continue;   // on taxi that year → NOT promoted
           const pid = String((p && p.id) || "").replace(/\D/g, "");
-          if (pid) out.add(pid);
+          if (!pid || !recentRookies.has(pid)) continue;   // only recent R2-5 rookies
+          const status = String((p && p.status) || "").toUpperCase();
+          if (status.includes("TAXI")) continue;           // on taxi that year → NOT promoted
+          out.add(pid);
         }
       }
     } catch (e) { /* skip the season we couldn't fetch */ }
