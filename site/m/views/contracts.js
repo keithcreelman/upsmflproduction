@@ -214,22 +214,27 @@
     return html;
   }
 
+  // My Team sub-nav — Roster (cap + roster overview) · Lineup · Taxi ·
+  // Contracts (the action hub: MYAC/Extend/Restructure/MYM/Tag). Tagging folded
+  // into Contracts › Tag (Keith 2026-06-07: unified Contracts hub, mirrors the
+  // desktop FO Contracts tab). NOTE: lineup.js + tagging.js keep their own copy
+  // of this nav — keep all three in sync.
   function subTabs(active) {
     function tab(href, label, key) {
       return '<a class="ups-m-subtab' + (key === active ? ' active' : '') + '" href="#myteam/' + href + '">' + label + '</a>';
     }
     return '<div class="ups-m-subtabs">' +
-      tab("contracts", "Contracts", "contracts") +
+      tab("roster", "Roster", "roster") +
       tab("lineup", "Lineup", "lineup") +
       tab("taxi", "Taxi", "taxi") +
-      tab("tagging", "Tagging", "tagging") +
+      tab("contracts", "Contracts", "contracts") +
       '</div>';
   }
 
-  function renderContracts(mount) {
+  function renderRosterTab(mount) {
     var fid = M.state.viewerFranchiseId;
     if (!fid) {
-      mount.innerHTML = subTabs("contracts") +
+      mount.innerHTML = subTabs("roster") +
         '<div class="ups-m-stub">' +
           '<h3>Sign in to MFL</h3>' +
           '<div>We couldn\'t resolve your franchise. Sign in on the desktop site first, then return here.</div>' +
@@ -239,9 +244,114 @@
     var cap = DATA.computeCap(fid);
     var roster = DATA.getRosterFor(fid);
     mount.innerHTML =
-      subTabs("contracts") +
+      subTabs("roster") +
       renderCapCard(cap) +
       renderRoster(roster, fid);
+    bindRowClicks(mount);
+  }
+
+  // ── Contracts hub (My Team › Contracts) ──────────────────────────────
+  // One tab holding all five contract ACTIONS as chips — each lists the
+  // viewer's eligible players → tap → player sheet (which carries the action
+  // button). Tag delegates to the rich tagging view (slots + tiers), embedded.
+  // Mirrors the desktop FO Contracts tab (Keith 2026-06-07).
+  var CONTRACT_ACTIONS = [
+    { key: "myac", label: "MYAC", blurb: "Set a fresh 1-yr auction win to a 2- or 3-year deal (§C2)." },
+    { key: "extend", label: "Extend", blurb: "Add years to a final-year contract before its deadline (§C4)." },
+    { key: "restructure", label: "Restructure", blurb: "Reshape salary across the remaining years — offseason, 3/season (§C5)." },
+    { key: "mym", label: "MYM", blurb: "Lock an in-season WW/FCFS pickup into a flat 2-/3-yr deal, ≤14 days (§C3)." },
+    { key: "tag", label: "Tag", blurb: "Keep an expiring player one more year — 1 offense + 1 defense (§C8)." }
+  ];
+
+  function actionChips(active) {
+    return '<div class="ups-m-subtabs ups-m-action-chips">' +
+      CONTRACT_ACTIONS.map(function (a) {
+        return '<a class="ups-m-subtab' + (a.key === active ? ' active' : '') +
+          '" href="#myteam/contracts/' + a.key + '">' + U.escapeHtml(a.label) + '</a>';
+      }).join("") + '</div>';
+  }
+
+  // Eligible roster players for one action, using the FO eligibility mirror
+  // (the SAME predicates the player sheet gates on).
+  function eligiblePlayersForAction(fid, action) {
+    var roster = DATA.getRosterFor(fid) || [];
+    var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
+    if (!FOA) return [];
+    return roster.filter(function (row) {
+      if (/taxi|ir/i.test(U.safeStr(row.status)) && action !== "restructure") {
+        // taxi/IR can't MYAC/Extend/MYM/Tag; restructure already excludes via eligibility
+      }
+      if (action === "extend") return FOA.extensionAvailableFor ? FOA.extensionAvailableFor(row, fid).ok : false;
+      var e = FOA.eligibilityForRosterRow ? FOA.eligibilityForRosterRow(row, fid) : {};
+      if (action === "myac") return !!e.myacEligible;
+      if (action === "mym") return !!e.mymEligible;
+      if (action === "restructure") return !!e.restructureEligible;
+      return false;
+    });
+  }
+
+  function renderActionList(fid, action) {
+    var meta = null;
+    for (var i = 0; i < CONTRACT_ACTIONS.length; i++) { if (CONTRACT_ACTIONS[i].key === action) meta = CONTRACT_ACTIONS[i]; }
+    var blurb = meta ? meta.blurb : "";
+    var players = eligiblePlayersForAction(fid, action);
+    var head = '<div class="ups-m-action-blurb">' + U.escapeHtml(blurb) + '</div>';
+    if (!players.length) {
+      return head + '<div class="ups-m-stub"><div>No players are eligible to ' +
+        U.escapeHtml(meta ? meta.label : action) + ' right now.</div>' +
+        '<div style="font-size:11px;margin-top:6px;color:var(--fg-muted)">Eligibility follows the same rules as the desktop Front Office. Tap a player anywhere to see their available actions.</div></div>';
+    }
+    players.sort(function (a, b) { return Number(b.salary || 0) - Number(a.salary || 0); });
+    var html = head + '<div class="ups-m-player-list">';
+    html += '<div class="ups-m-pos-group">Eligible · ' + players.length + '</div>';
+    players.forEach(function (r) {
+      var p = DATA.playerById(r.id);
+      var name = nameFor(p) || ("Player " + r.id);
+      var pos = U.safeStr(p && p.position).toUpperCase();
+      var team = U.safeStr(p && p.team);
+      var cy = U.safeInt(r.contractYear, 0);
+      var chips = [
+        (pos ? '<span class="chip">' + U.escapeHtml(pos) + '</span>' : ''),
+        (cy > 0 ? '<span class="chip">YR ' + cy + '</span>' : ''),
+        (r.contractStatus ? '<span class="chip type">' + U.escapeHtml(U.safeStr(r.contractStatus)) + '</span>' : '')
+      ].filter(Boolean).join(" ");
+      html += '<div class="ups-m-player-row rich" data-pid="' + U.escapeHtml(r.id) + '">' +
+        '<div class="pos ' + posClass(pos) + '">' + U.escapeHtml(pos) + '</div>' +
+        '<div class="body">' +
+          '<div class="name">' + U.escapeHtml(name) +
+            (team ? '<span class="nfl-team">' + U.escapeHtml(team) + '</span>' : '') + '</div>' +
+          '<div class="sub chips-row">' + chips + '</div>' +
+        '</div>' +
+        '<div class="right"><div class="salary">' + U.fmtUsd(r.salary) + '</div></div>' +
+      '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function renderContractsHub(mount, action) {
+    var fid = M.state.viewerFranchiseId;
+    if (!fid) {
+      mount.innerHTML = subTabs("contracts") +
+        '<div class="ups-m-stub"><h3>Sign in to MFL</h3><div>We couldn\'t resolve your franchise.</div></div>';
+      return;
+    }
+    action = action || "myac";
+    var valid = CONTRACT_ACTIONS.some(function (a) { return a.key === action; });
+    if (!valid) action = "myac";
+    mount.innerHTML = subTabs("contracts") + actionChips(action);
+    if (action === "tag") {
+      // Rich tagging view (slots + tiers), embedded without its own sub-nav.
+      if (M.taggingView && M.taggingView.render) {
+        var slot = document.createElement("div");
+        mount.appendChild(slot);
+        M.taggingView.render(slot, { embed: true });
+      } else {
+        mount.insertAdjacentHTML("beforeend", '<div class="ups-m-stub"><div>Tagging is loading…</div></div>');
+      }
+      return;
+    }
+    mount.insertAdjacentHTML("beforeend", renderActionList(fid, action));
     bindRowClicks(mount);
   }
 
@@ -361,13 +471,12 @@
   }
 
   function render(mount, subParts) {
-    var sub = (subParts && subParts[0]) || "contracts";
+    var sub = (subParts && subParts[0]) || "roster";
     if (sub === "lineup") return renderLineupStub(mount);
     if (sub === "taxi") return renderTaxi(mount);
-    if (sub === "tagging" && M.taggingView && M.taggingView.render) {
-      return M.taggingView.render(mount);
-    }
-    return renderContracts(mount);
+    if (sub === "contracts") return renderContractsHub(mount, subParts[1]);
+    if (sub === "tagging") return renderContractsHub(mount, "tag");   // back-compat for the old Tagging tab/links
+    return renderRosterTab(mount);   // "roster" or default
   }
 
   M.route.registerView("myteam", render);

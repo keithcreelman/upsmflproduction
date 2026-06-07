@@ -382,6 +382,23 @@ button.ups-m-busy::before,
   border-bottom-color: var(--accent);
 }
 
+/* Contracts hub — secondary action nav (MYAC/Extend/Restructure/MYM/Tag).
+   NOT sticky: the primary My Team subtabs already occupy the sticky slot, so a
+   second sticky bar would overlap it. Slightly inset/dimmer to read as level 2. */
+.ups-m-subtabs.ups-m-action-chips {
+  position: static;
+  top: auto;
+  z-index: auto;
+  background: var(--bg);
+}
+.ups-m-action-chips .ups-m-subtab { font-size: 12px; padding: 9px 13px; }
+.ups-m-action-blurb {
+  font-size: 12px;
+  color: var(--fg-muted);
+  line-height: 1.4;
+  padding: 10px 14px 0;
+}
+
 /* ----- Cards ----- */
 .ups-m-card {
   margin: 12px;

@@ -90,10 +90,10 @@
              '" href="#myteam/' + href + '">' + label + '</a>';
     }
     return '<div class="ups-m-subtabs">' +
-      tab("contracts", "Contracts", "contracts") +
+      tab("roster", "Roster", "roster") +
       tab("lineup", "Lineup", "lineup") +
       tab("taxi", "Taxi", "taxi") +
-      tab("tagging", "Tagging", "tagging") +
+      tab("contracts", "Contracts", "contracts") +
       '</div>';
   }
 

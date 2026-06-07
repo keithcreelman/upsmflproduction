@@ -34,10 +34,10 @@
              '" href="#myteam/' + href + '">' + label + '</a>';
     }
     return '<div class="ups-m-subtabs">' +
-      tab("contracts", "Contracts", "contracts") +
+      tab("roster", "Roster", "roster") +
       tab("lineup", "Lineup", "lineup") +
       tab("taxi", "Taxi", "taxi") +
-      tab("tagging", "Tagging", "tagging") +
+      tab("contracts", "Contracts", "contracts") +
       '</div>';
   }
 
@@ -319,16 +319,21 @@
     }
   }
 
-  function render(mount) {
+  // render(mount, opts) — opts.embed=true skips the My Team sub-nav so the
+  // Contracts hub can mount the tagging content under its own subtabs + action
+  // chips (Keith 2026-06-07: Tagging folded into Contracts › Tag).
+  function render(mount, opts) {
+    var embed = !!(opts && opts.embed);
+    var head = embed ? "" : subTabs("contracts");
     var fid = M.state.viewerFranchiseId;
     if (!fid) {
-      mount.innerHTML = subTabs("tagging") +
+      mount.innerHTML = head +
         '<div class="ups-m-stub"><div>Sign in to your franchise to manage tags.</div></div>';
       return;
     }
     var slots = activeTagSlots(fid);
     var eligible = buildEligibleRows(fid);
-    mount.innerHTML = subTabs("tagging") +
+    mount.innerHTML = head +
       renderSlotsCard(slots) +
       renderEligibleList(eligible, slots, fid);
     bind(mount);
