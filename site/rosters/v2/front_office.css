@@ -632,7 +632,7 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 }
 
 /* Roster: position-grouping header rows */
-.fo-group-row td { background: rgba(255,255,255,0.045); font-weight: 600; padding: 7px 12px; border-top: 2px solid rgba(255,255,255,0.09); letter-spacing: .02em; }
+.fo-group-row td { background: rgba(91,141,255,0.11); font-weight: 700; padding: 9px 12px; border-top: 2px solid var(--accent, #5b8dff); border-bottom: 1px solid var(--border, #2a3446); box-shadow: inset 3px 0 0 var(--accent, #5b8dff); letter-spacing: .03em; }
 .fo-group-row td .small { color: var(--muted, #8a93a0); font-weight: 400; margin-left: 6px; }
 .fo-group-sal { font-size: 12px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; margin-left: 8px; }
 .fo-group-avg { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: 10px; }

@@ -6144,6 +6144,7 @@
           pid: safeStr(p.id), fid: safeStr(team.fid), name: safeStr(p.name), team: safeStr(team.name),
           pos: safeStr(p.position), type: safeStr(p.type), aav: aav, floor: floor, tier_bid: tierBid,
           tier_label: lk ? lk.label : "—", tag_value: tagValue,
+          ytd_pts_rank: null,   // populated once the season starts (dynamic points-rank); N/A in offseason
         });
       });
     });
@@ -6178,6 +6179,7 @@
         "<td>" + escapeHtml(r.type) + "</td>" +
         '<td class="num">' + escapeHtml(fmtUSD(r.aav)) + "</td>" +
         '<td class="num">' + escapeHtml(fmtUSD(r.floor)) + "</td>" +
+        '<td class="num small" style="color:var(--muted);">' + (r.ytd_pts_rank == null ? "N/A" : "#" + r.ytd_pts_rank) + "</td>" +
         '<td class="num">' + escapeHtml(fmtUSD(r.tier_bid)) + ' <span class="small" style="color:var(--muted);">' + escapeHtml(r.tier_label) + "</span></td>" +
         '<td class="num"><strong>' + escapeHtml(fmtUSD(r.tag_value)) + "</strong></td></tr>";
     }).join("");
@@ -6191,9 +6193,11 @@
       '<span class="small" style="color:var(--muted);margin-left:auto;">' + rows.length + (rows.length === total ? "" : " of " + total) + ' expiring players' + (excludedTagged ? ' · ' + excludedTagged + ' already-tagged excluded' : '') + '</span></div>' +
       '<div class="fo-table-scroll"><table class="fo-table" id="fo-p27-table"><thead><tr>' +
       hdr("name", "Player") + hdr("team", "Team") + hdr("pos", "Pos") + hdr("type", "Type") +
-      hdr("aav", "AAV", "right") + hdr("floor", "AAV×1.10", "right") + hdr("tier_bid", "Tier Bid", "right") +
+      hdr("aav", "AAV", "right") + hdr("floor", "AAV×1.10", "right") +
+      '<th style="text-align:right;white-space:nowrap;" title="In-season points rank within position — will drive the tag tier once the season starts (N/A in the offseason)">YTD Pts Rank</th>' +
+      hdr("tier_bid", "Tier Bid", "right") +
       hdr("tag_value", "Proj. " + projYear + " Tag", "right") +
-      "</tr></thead><tbody>" + (trs || '<tr><td colspan="8" class="fo-table-empty">No expiring players match.</td></tr>') + "</tbody></table></div></div>";
+      "</tr></thead><tbody>" + (trs || '<tr><td colspan="9" class="fo-table-empty">No expiring players match.</td></tr>') + "</tbody></table></div></div>";
   }
 
   function renderTagBreakdown() {
