@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "released": "2026-06-06",
-  "checkpoint": 6,
-  "scope": "Roster: Pos Rank column + pos\u00b7NFL by name (\u22121 col, trimmed verbose contractInfo). Restructures: per-year salary breakdown. Auction: Auction Type filter+rename. Cap Detail: drop-penalty preview \u2192 cap adjustment (not salary).",
+  "checkpoint": 7,
+  "scope": "2027 tag table: YTD Pts Rank column (N/A in offseason, dynamic once season starts). Roster: position group-header rows restyled to stand out (accent tint + borders + left bar).",
   "next": "Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }
