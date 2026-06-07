@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.06.07.3";
+  var BUILD = "2026.06.07.4";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -1660,13 +1660,22 @@
         if (!pid) return false;
         var callup = (state.taxiCallupsByPid || {})[pid];
         if (callup && callup.permanent_promotion) return false;
-        var player = playerById(pid);
-        if (!player) return false;
-        var draftYear = parseInt(player.draft_year || player.draftYear, 10);
-        var draftRound = parseInt(player.draft_round || player.draftRound, 10);
+        // FAITHFUL MIRROR of the worker's taxi_eligible (worker/src/index.js
+        // ~28470-28476, the value desktop trusts verbatim): use the UPS ROOKIE
+        // DRAFT round/year (NOT the NFL round), R2-5 only, inside the 3-league-
+        // year window. `historicalDraftByPid` (results[15]) is the merged 3-year
+        // UPS draft index keyed by pid — the mobile equivalent of the worker's
+        // `upsDraftByPlayer`. Trey Benson is NFL R3 but UPS R1.10 → R1 NOT
+        // taxi-eligible (§A1); the old NFL-round check wrongly passed him. A
+        // player absent from the index has no UPS rookie-draft record → not
+        // draft-taxi-eligible.
+        var ups = (state.historicalDraftByPid || {})[pid];
+        if (!ups) return false;
+        var draftYear = parseInt(ups.year, 10);
+        var draftRound = parseInt(ups.round, 10);
         var currentSeason = parseInt(state.ctx && state.ctx.year, 10);
         if (!draftYear || !currentSeason) return false;
-        if (!draftRound || draftRound < 2 || draftRound > 5) return false;
+        if (!draftRound || draftRound < 2 || draftRound > 5) return false;  // R1 + R6 not taxi-eligible
         return (currentSeason - draftYear) < 3;
       },
       // Optimistic-update helpers — after a successful tag/untag the

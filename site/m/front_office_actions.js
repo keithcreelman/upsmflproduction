@@ -409,6 +409,32 @@
     return trackedTaggedPlayerForFranchiseSide(tagSubmissions, fid, normalizedSide, currentSeason);
   }
 
+  // League-wide tag holder for a player THIS SEASON — NO franchise filter.
+  // §C8 (canon line 911 item 12): once a player is tagged by ANY franchise,
+  // they're locked for EVERYONE — no other team can tag them. Mobile previously
+  // only scanned the viewer's own tags, so a player tagged by a DIFFERENT team
+  // (e.g. Travis Etienne) wrongly showed as taggable. Folds to the latest
+  // tag/untag event per pid; returns the holder row only if the latest is a tag
+  // (a later untag releases the lock). Mirrors desktop's per-player lock intent.
+  function tagHolderAnywhere(tagSubmissions, pid, currentSeason) {
+    if (!Array.isArray(tagSubmissions) || !pid) return null;
+    var want = String(pid).replace(/\D/g, "");
+    var seasonStr = currentSeason ? String(currentSeason) : "";
+    var latest = null;
+    tagSubmissions.forEach(function (row) {
+      if (!row) return;
+      if (String(row.player_id || "").replace(/\D/g, "") !== want) return;
+      if (seasonStr) {
+        var rowSeason = String(row.season || row.year || "");
+        if (rowSeason && rowSeason !== seasonStr) return;
+      }
+      var ts = row.submitted_at_utc || row.timestamp || "";
+      var kind = String(row.submission_kind || row.kind || "tag").toLowerCase();
+      if (!latest || ts > latest.ts) latest = { ts: ts, kind: kind, row: row };
+    });
+    return (latest && latest.kind === "tag") ? latest.row : null;
+  }
+
   // Given the viewer's roster + tag tracking data, decide what tag action
   // to show for `rosterRow` (the player being inspected in the mobile
   // player sheet). Returns one of:
@@ -427,6 +453,16 @@
     if (!rosterRow || !fid) return { kind: "none", reason: "no_player_or_team" };
 
     var pid = String(rosterRow.id).replace(/\D/g, "");
+
+    // §C8 LEAGUE-WIDE LOCK — if ANY franchise has an active tag on this player
+    // this season, they're locked for everyone (desktop parity). Only the
+    // tagging franchise itself falls through (to get its Untag); every other
+    // viewer sees "locked". This runs BEFORE the plan-row lookup so a player
+    // tagged by another team locks even if he isn't in the viewer's tag plan.
+    var anyHolder = tagHolderAnywhere(tagSubmissions, pid, currentSeason);
+    if (anyHolder && pad4(anyHolder.franchise_id) !== pad4(fid)) {
+      return { kind: "locked", reason: "tagged_by_other_franchise", holder: anyHolder, conflictingPlayer: rosterRow };
+    }
 
     // Step 1 — find this player's row in the league tag plan.
     var planRow = null;
