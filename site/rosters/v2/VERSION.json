@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "released": "2026-06-06",
-  "checkpoint": 5,
-  "scope": "Glossary (options-first, canon-accurate, CL 3yr/6\u00d73yr rule) + player slide-over opens to Actions + tag projection shows true AAV (not salary) + re-tag drop-before-auction reset",
+  "checkpoint": 6,
+  "scope": "Roster: Pos Rank column + pos\u00b7NFL by name (\u22121 col, trimmed verbose contractInfo). Restructures: per-year salary breakdown. Auction: Auction Type filter+rename. Cap Detail: drop-penalty preview \u2192 cap adjustment (not salary).",
   "next": "Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }

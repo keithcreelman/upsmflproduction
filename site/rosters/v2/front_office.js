@@ -1752,7 +1752,7 @@
       console.error("[fo] roster load failed:", e);
       STATE.teams = [];
       if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="14" class="fo-table-error">Failed to load roster: ' +
+        tbody.innerHTML = '<tr><td colspan="13" class="fo-table-error">Failed to load roster: ' +
           escapeHtml(e.message || String(e)) + '</td></tr>';
       }
     }
@@ -2328,7 +2328,7 @@
       const extra =
         ' <span class="fo-group-sal">' + escapeHtml(fmtUSD(posSal)) + "</span>" + rankPill(rankable ? positionAllocRank(k, STATE.selectedTeamId) : null) +
         ' <span class="fo-group-avg">' + escapeHtml(fmtUSD(avg) + "/player") + "</span>" + rankPill(rankable ? positionAvgRank(k, STATE.selectedTeamId) : null);
-      html += '<tr class="fo-group-row"><td colspan="14"><span class="fo-pos ' + escapeHtml(k) + '">' + escapeHtml(k) +
+      html += '<tr class="fo-group-row"><td colspan="13"><span class="fo-pos ' + escapeHtml(k) + '">' + escapeHtml(k) +
               '</span> <span class="small">' + count + "</span>" + extra + "</td></tr>";
       html += groups[k].map(renderRosterRow).join("");
     });
@@ -2525,6 +2525,28 @@
     document.body.appendChild(overlay);
   }
 
+  // Salary + AAV rank within each position group (league-wide, ALL rostered
+  // players — not the filtered view). Keyed by player id → {salRank, aavRank, n}.
+  // Feeds the roster "Pos Rank" column (Keith 2026-06-07).
+  function computePosRankMap() {
+    const byPos = Object.create(null);
+    (STATE.teams || []).forEach(function (t) {
+      (t.players || []).forEach(function (p) {
+        const pk = posBucket(p.position);
+        (byPos[pk] = byPos[pk] || []).push(p);
+      });
+    });
+    const out = Object.create(null);
+    Object.keys(byPos).forEach(function (pk) {
+      const arr = byPos[pk];
+      arr.slice().sort(function (a, b) { return safeInt(b.salary, 0) - safeInt(a.salary, 0); })
+        .forEach(function (p, i) { (out[p.id] = out[p.id] || { n: arr.length }).salRank = i + 1; });
+      arr.slice().sort(function (a, b) { return displayAavForPlayer(b) - displayAavForPlayer(a); })
+        .forEach(function (p, i) { (out[p.id] = out[p.id] || { n: arr.length }).aavRank = i + 1; });
+    });
+    return out;
+  }
+
   function renderRosterTable() {
     const tbody = $("#fo-roster-tbody");
     const summary = $("#fo-roster-summary");
@@ -2533,6 +2555,8 @@
     const all = allVisiblePlayers();
     const filtered = applyFilters(all);
     const sorted   = applySort(filtered);
+
+    STATE.posRankByPid = computePosRankMap();   // league-wide pos ranks for the Pos Rank column
 
     renderContractSummary();
 
@@ -2550,7 +2574,7 @@
     });
 
     if (sorted.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="14" class="fo-table-empty">No players match the current filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="13" class="fo-table-empty">No players match the current filters.</td></tr>';
       return;
     }
     tbody.innerHTML = STATE.groupByPosition ? renderGroupedRows(sorted) : sorted.map(renderRosterRow).join("");
@@ -2596,20 +2620,26 @@
       ? `${fmtUSD(p.salary)} <span class="small" style="color:var(--muted);">/ ${fmtUSD(aav)}</span>`
       : fmtUSD(p.salary);
 
+    // Pos Rank — salary & AAV rank within position (league-wide). Keith
+    // 2026-06-07: "add next to Salary/AAV the same but rank, ranked by position".
+    const rk = (STATE.posRankByPid && STATE.posRankByPid[p.id]) || null;
+    const rankCell = rk
+      ? `<span class="fo-tt" data-tip="Salary rank #${rk.salRank} · AAV rank #${rk.aavRank} of ${rk.n} ${escapeHtml(posBucket(p.position).toUpperCase())}">#${rk.salRank} <span class="small" style="color:var(--muted);">/ #${rk.aavRank}</span></span>`
+      : "—";
+
     return `
       <tr data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(p.fid)}">
         <td>
           <div>${escapeHtml(p.name)}${nflStatusBadge(p.id)}${newsFlagBadge(p.id)}</div>
-          <div class="small">${escapeHtml(p.special || "")}</div>
+          <div class="small"><span class="fo-pos ${escapeHtml(pos)}">${escapeHtml(p.position)}</span> · ${escapeHtml(p.nflTeam || "FA")}</div>
         </td>
-        <td><span class="fo-pos ${escapeHtml(pos)}">${escapeHtml(p.position)}</span></td>
-        <td class="col-md">${escapeHtml(p.nflTeam || "—")}</td>
         <td class="col-md">${escapeHtml(p.franchise)}</td>
         <td><span class="fo-ctype ${ctype}">${escapeHtml(ctypeLabel)}</span></td>
         <td class="num col-md">${tcv > 0 ? fmtUSD(tcv) : "—"}</td>
         <td class="num col-lo">${cl > 0 ? cl : "—"}</td>
         <td class="num col-lo">${yrs > 0 ? yrs : "—"}</td>
         <td class="num">${salaryCell}</td>
+        <td class="num col-lo">${rankCell}</td>
         <td class="num col-md">${gtd > 0 ? fmtUSD(gtd) : "—"}</td>
         <td class="num col-md">${drop.earned > 0 ? fmtUSD(drop.earned) : "—"}</td>
         <td class="num col-lo">${perWeekCell}</td>
@@ -4047,12 +4077,11 @@
     const preview = STATE.capPreviews[p.id + ":" + p.fid] || null;
 
     // ── Drop preview ─────────────────────────────────────────────
-    // Y+0 cap = drop penalty (the cap charge for cutting).
-    // Y+1, Y+2 = $0 (player no longer on roster).
-    if (preview === "drop") {
-      if (offset === 0) return dropPenaltyEstimate(p).amount;
-      return 0;
-    }
+    // The cut player contributes NO salary to ANY year. The dead-cap penalty is
+    // surfaced as a CAP ADJUSTMENT in the Cap Detail totals (renderCapDetailBody),
+    // not as a salary line (Keith 2026-06-07: "a drop penalty should apply to the
+    // cap adjustment, not against salary").
+    if (preview === "drop") return 0;
 
     // ── Promote preview (taxi → active) ──────────────────────────
     // Player comes off taxi onto the active roster. Their normal
@@ -4341,13 +4370,15 @@
         });
       });
     });
-    STATE.myacFilter = STATE.myacFilter || { team: "", pos: "" };
+    STATE.myacFilter = STATE.myacFilter || { team: "", pos: "", entry: "" };
     const teamOpts = Array.from(new Set(rows.map(function (r) { return r.team; }).filter(Boolean))).sort();
     const posOpts = Array.from(new Set(rows.map(function (r) { return r.pos; }).filter(Boolean))).sort();
+    const entryOpts = Array.from(new Set(rows.map(function (r) { return r.entry; }).filter(Boolean))).sort();
     const totalRows = rows.length;
     rows = rows.filter(function (r) {
       return (!STATE.myacFilter.team || r.team === STATE.myacFilter.team) &&
-             (!STATE.myacFilter.pos || r.pos === STATE.myacFilter.pos);
+             (!STATE.myacFilter.pos || r.pos === STATE.myacFilter.pos) &&
+             (!STATE.myacFilter.entry || r.entry === STATE.myacFilter.entry);
     });
     if (meta) {
       meta.textContent = rows.length + (rows.length === totalRows ? "" : " of " + totalRows) +
@@ -4367,9 +4398,11 @@
       teamOpts.map(function (tt) { return opt(tt, tt, STATE.myacFilter.team === tt); }).join("") + "</select>";
     const posSel = '<select id="fo-myac-pos" style="' + selStyle + '">' + opt("", "All positions", !STATE.myacFilter.pos) +
       posOpts.map(function (pp) { return opt(pp, pp, STATE.myacFilter.pos === pp); }).join("") + "</select>";
-    const clearBtn = (STATE.myacFilter.team || STATE.myacFilter.pos) ? ' <button type="button" id="fo-myac-clear" class="btn small secondary">Clear</button>' : "";
+    const entrySel = '<select id="fo-myac-entry" style="' + selStyle + '">' + opt("", "All auction types", !STATE.myacFilter.entry) +
+      entryOpts.map(function (e) { return opt(e, e, STATE.myacFilter.entry === e); }).join("") + "</select>";
+    const clearBtn = (STATE.myacFilter.team || STATE.myacFilter.pos || STATE.myacFilter.entry) ? ' <button type="button" id="fo-myac-clear" class="btn small secondary">Clear</button>' : "";
     const toolbar = '<div class="fo-ext-toolbar" style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;">' +
-      '<span class="small" style="color:var(--muted);">Filter</span>' + teamSel + posSel + clearBtn + "</div>";
+      '<span class="small" style="color:var(--muted);">Filter</span>' + teamSel + posSel + entrySel + clearBtn + "</div>";
     const hdr = function (key, label, align) {
       const arrow = STATE.myacSort.key === key ? (STATE.myacSort.dir > 0 ? " ▲" : " ▼") : "";
       return '<th data-myacsort="' + key + '" style="cursor:pointer;text-align:' + (align || "left") + ';white-space:nowrap;">' + escapeHtml(label) + arrow + "</th>";
@@ -4391,14 +4424,15 @@
     const tableHtml = rows.length
       ? '<div class="fo-table-scroll"><table class="fo-table"><thead><tr>' +
         hdr("name", "Player") + hdr("team", "Team") + hdr("pos", "Pos") + hdr("type", "Type") +
-        hdr("entry", "Won via") + hdr("salary", "Auction $", "right") +
+        hdr("entry", "Auction Type") + hdr("salary", "Auction $", "right") +
         '<th>Deadline</th><th style="text-align:right;">Days Left</th>' +
         "</tr></thead><tbody>" + trs + "</tbody></table></div>"
       : '<div class="fo-table-loading">No players need an auction contract' + (daysLeft < 0 ? " (MYAC window closed)" : " right now") + '.</div>';
     body.innerHTML = toolbar + tableHtml;
     const teamEl = $("#fo-myac-team"); if (teamEl) teamEl.addEventListener("change", function () { STATE.myacFilter.team = this.value; renderMyacTab(); });
     const posEl = $("#fo-myac-pos"); if (posEl) posEl.addEventListener("change", function () { STATE.myacFilter.pos = this.value; renderMyacTab(); });
-    const clearEl = $("#fo-myac-clear"); if (clearEl) clearEl.addEventListener("click", function () { STATE.myacFilter = { team: "", pos: "" }; renderMyacTab(); });
+    const entryEl = $("#fo-myac-entry"); if (entryEl) entryEl.addEventListener("change", function () { STATE.myacFilter.entry = this.value; renderMyacTab(); });
+    const clearEl = $("#fo-myac-clear"); if (clearEl) clearEl.addEventListener("click", function () { STATE.myacFilter = { team: "", pos: "", entry: "" }; renderMyacTab(); });
     $$("#fo-myac-body tbody tr").forEach(function (tr) {
       tr.addEventListener("click", function () { if (tr.dataset.pid) openSlideover(tr.dataset.pid, tr.dataset.fid); });
     });
@@ -4493,11 +4527,24 @@
         // 2026-06-05: show this instead of TCV on the restructure view.
         var _rtcv = totalContractValueForPlayer(p);
         var _rbr = earnedToDateBreakdownForPlayer(p, safeInt(SEASON, 0), new Date());
+        // Per-year salary for the REMAINING contract years — what a restructure
+        // actually redistributes (Keith 2026-06-07: show 2026-X, 2027-Y, …).
+        var _ymap = contractYearValueMapForPlayer(p);
+        var _cidx = Math.max(1, contractYearIndexForPlayer(p));
+        var _clen = Math.max(0, contractLengthForPlayer(p));
+        var _sched = [];
+        for (var _i = _cidx; _i <= _clen; _i += 1) {
+          _sched.push({
+            yr: safeInt(SEASON, 2026) + (_i - _cidx),
+            sal: safeInt(_ymap[_i], 0) || (_i === _cidx ? safeInt(p.salary, 0) : 0),
+          });
+        }
         rows.push({
           pid: safeStr(p.id), fid: safeStr(t.fid),
           name: safeStr(p.name), team: safeStr(t.name) || safeStr(t.fid), pos: safeStr(p.position),
           type: safeStr(p.type), years: safeInt(p.years, 0), tcv: _rtcv,
           remaining: Math.max(0, _rtcv - safeInt(_rbr && _rbr.earned, 0)),
+          sched: _sched,
           used: restructureUsedForFid(t.fid),
         });
       });
@@ -4537,7 +4584,10 @@
     };
     const dCol = daysLeft === Infinity ? "var(--muted)" : (daysLeft <= 14 ? "#e67e22" : (daysLeft <= 45 ? "#d4a017" : "#1f8a4c"));
     const dStr = daysLeft === Infinity ? "open" : (daysLeft < 0 ? "closed" : daysLeft + "d");
+    const _k = function (n) { n = safeInt(n, 0); return n >= 1000 ? "$" + String(Math.round(n / 100) / 10).replace(/\.0$/, "") + "K" : "$" + n; };
     const trs = rows.map(function (r) {
+      const schedVals = (r.sched || []).map(function (s) { return _k(s.sal); }).join(" · ") || "—";
+      const schedTitle = (r.sched || []).map(function (s) { return s.yr + " " + _k(s.sal); }).join(" · ");
       return '<tr data-pid="' + escapeHtml(r.pid) + '" data-fid="' + escapeHtml(r.fid) + '" style="cursor:pointer;" title="Open ' + escapeHtml(r.name) + ' — Actions / Restructure">' +
         "<td>" + escapeHtml(r.name) + "</td>" +
         "<td>" + escapeHtml(r.team) + "</td>" +
@@ -4546,6 +4596,7 @@
         '<td class="small">' + escapeHtml(r.type) + "</td>" +
         '<td style="text-align:center;">' + r.years + "</td>" +
         '<td style="text-align:right;">' + escapeHtml(fmtUSD(r.remaining)) + "</td>" +
+        '<td class="small" style="white-space:nowrap;" title="' + escapeHtml(schedTitle) + '">' + escapeHtml(schedVals) + "</td>" +
         "<td>" + escapeHtml(dlStr) + "</td>" +
         '<td style="text-align:right;color:' + dCol + ';font-weight:600;">' + dStr + "</td>" +
         "</tr>";
@@ -4556,6 +4607,7 @@
         '<th style="text-align:center;" title="Team restructures used / 3-per-season limit">R Used</th>' +
         hdr("pos", "Pos") + hdr("type", "Type") +
         hdr("years", "Yrs Rem", "center") + hdr("remaining", "Remaining Owed", "right") +
+        '<th title="Per-year salary for the remaining contract years (hover for years)">Salary by Yr</th>' +
         '<th>Deadline</th><th style="text-align:right;">Days Left</th>' +
         "</tr></thead><tbody>" + trs + "</tbody></table></div>"
       : '<div class="fo-table-loading">No players eligible to restructure' + (daysLeft < 0 ? " (window closed)" : "") + '.</div>';
@@ -4955,7 +5007,13 @@
     // hidden) when a filter is active, consistent with the Summary %.
     const _adj = team.summary || {};
     const adjTotal = anyFilter ? 0 : (safeInt(_adj.adj_cut, 0) + safeInt(_adj.adj_trade, 0) + safeInt(_adj.adj_other, 0));
-    const adjustedCy = totals.cy + adjTotal;
+    // Previewed-drop dead-cap — a "drop" preview's penalty is a CAP ADJUSTMENT
+    // (current-year dead cap), NOT a salary line (Keith 2026-06-07). The dropped
+    // player already contributes $0 to totals.cy (projectedPlayerCapForOffset).
+    const previewDropPen = players.reduce(function (s, p) {
+      return STATE.capPreviews[p.id + ":" + p.fid] === "drop" ? s + safeInt(dropPenaltyEstimate(p).amount, 0) : s;
+    }, 0);
+    const adjustedCy = totals.cy + adjTotal + previewDropPen;
     const rows = players.map(function (p) { return renderCapDetailRow(p, team); }).join("")
       || '<tr><td colspan="9" class="fo-table-empty">No players match the current filters.</td></tr>';
     const sort = STATE.capDetailSort;
@@ -4969,10 +5027,11 @@
         <div><span class="lbl">${yr0 + 1}</span><span class="val">${fmtUSD(totals.ny)}</span></div>
         <div><span class="lbl">${yr0 + 2}</span><span class="val">${fmtUSD(totals.ny2)}</span></div>
       </div>
-      ${adjTotal !== 0 ? `
+      ${(adjTotal !== 0 || previewDropPen !== 0) ? `
       <div class="fo-cap-adj-callout">
         <div class="fo-cap-adj-row"><span class="lbl">${yr0} salary</span><span class="val">${fmtUSD(totals.cy)}</span></div>
-        <div class="fo-cap-adj-row"><span class="lbl">+ cap adjustments (drop pen · traded $ · other)</span><span class="val">${adjTotal > 0 ? "+" : "−"}${fmtUSD(Math.abs(adjTotal))}</span></div>
+        ${adjTotal !== 0 ? `<div class="fo-cap-adj-row"><span class="lbl">+ cap adjustments (drop pen · traded $ · other)</span><span class="val">${adjTotal > 0 ? "+" : "−"}${fmtUSD(Math.abs(adjTotal))}</span></div>` : ""}
+        ${previewDropPen !== 0 ? `<div class="fo-cap-adj-row"><span class="lbl">+ previewed drop dead-cap</span><span class="val">+${fmtUSD(previewDropPen)}</span></div>` : ""}
         <div class="fo-cap-adj-row fo-cap-adj-strong"><span class="lbl">= ${yr0} adjusted cap</span><span class="val">${fmtUSD(adjustedCy)}</span></div>
       </div>` : ""}
       ${filteredNote ? `<div style="margin:6px 0 0;">${filteredNote}</div>` : ""}
@@ -5039,7 +5098,7 @@
     // Y+0 cell annotation when dropping — "(penalty)" makes the cap charge
     // unmistakable vs a salary.
     const y0Cell = active === "drop"
-      ? `<span class="fo-cap-pen">${fmtUSD(cy)}</span> <span class="small" style="color:var(--err); font-style:italic;">(penalty)</span>`
+      ? `<span class="fo-cap-pen">${fmtUSD(0)}</span> <span class="small" style="color:var(--err); font-style:italic;">(cut · +${fmtUSD(safeInt(dropPenaltyEstimate(p).amount, 0))} dead cap → adj)</span>`
       : fmtUSD(cy);
 
     const statusKls = active === "drop" ? "drop-preview"

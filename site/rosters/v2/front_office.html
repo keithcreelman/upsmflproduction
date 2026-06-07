@@ -133,14 +133,13 @@
         <thead>
           <tr>
             <th data-sort="name">Player</th>
-            <th data-sort="position">Pos</th>
-            <th data-sort="nfl_team" class="col-md">NFL</th>
             <th data-sort="franchise" class="col-md">Team</th>
             <th data-sort="contract_status">Type</th>
             <th data-sort="tcv" class="num col-md">TCV</th>
             <th data-sort="cl" class="num col-lo">CL</th>
             <th data-sort="years" class="num col-lo">Yrs Rem</th>
             <th data-sort="salary" class="num">Salary <span class="small" style="color:var(--muted);">/ AAV</span></th>
+            <th class="num col-lo" title="Salary &amp; AAV rank within position (league-wide)">Pos Rank</th>
             <th data-sort="gtd" class="num col-md">GTD</th>
             <th data-sort="earned" class="num col-md">Earned</th>
             <th data-sort="per_week" class="num col-lo">Per&nbsp;Wk</th>
@@ -149,7 +148,7 @@
           </tr>
         </thead>
         <tbody id="fo-roster-tbody">
-          <tr><td colspan="14" class="fo-table-loading">Loading roster…</td></tr>
+          <tr><td colspan="13" class="fo-table-loading">Loading roster…</td></tr>
         </tbody>
       </table>
       </div>
@@ -290,6 +289,6 @@
   </div>
 </aside>
 
-<script src="front_office.js?v=2026.06.07.v1.24.0"></script>
+<script src="front_office.js?v=2026.06.07.v1.25.0"></script>
 </body>
 </html>

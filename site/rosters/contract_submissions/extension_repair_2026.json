@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "note": "PURGE the Sex Manther (0007) De'Von Achane (16167) EXTENSION test row from ups_extension_submissions (id=660). Surfaced in the FO Contract Log under the DEFAULT (non-test) view because dry_run was 0. Source 'worker-commish-contract-revert' — written by a contract-revert test on top of the already-purged Achane restructure test (see restructure_repair_2026.json). Keith 2026-06-07: 'i thought we removed this why is it still in the log? if anything it's a test.' Canon/R4 rule: tests NEVER land as real. Deleted via wrangler d1 (id-scoped, guarded by franchise+player+source). The full row is captured below for reversibility.",
+    "season": "2026",
+    "league_id": "74598",
+    "purged_at_utc": "2026-06-07"
+  },
+  "records": [],
+  "delete": [
+    { "table": "ups_extension_submissions", "id": 660, "franchise_id": "0007", "player_id": "16167", "source": "worker-commish-contract-revert" }
+  ],
+  "deleted_row_backup": {
+    "id": 660,
+    "league_id": "74598",
+    "season": "2026",
+    "franchise_id": "0007",
+    "player_id": "16167",
+    "player_name": "Achane, De'Von",
+    "position": "RB",
+    "prior_contract_status": "Vet-Ext2-FL",
+    "prior_salary": 54000,
+    "prior_contract_year": 2,
+    "prior_contract_info": "CL 2|TCV 55K|AAV 27.5K|Y1-54K, Y2-1K|GTD: 41.3K|Restructured 2026",
+    "new_contract_status": "Vet-Ext2-BL",
+    "new_salary": 25000,
+    "new_contract_year": 2,
+    "new_contract_info": "CL 3| TCV 55K| AAV 25K| Y1-5K, Y2-25K, Y3-25K| GTD: 41.3K| Ext: Gride",
+    "extension_term_years": 1,
+    "new_tcv": 55,
+    "new_aav": 25,
+    "new_gtd": 413,
+    "ext_token": "Gride",
+    "source": "worker-commish-contract-revert",
+    "submitted_at_utc": "2026-06-05T21:40:49.165Z",
+    "dry_run": 0
+  }
+}
