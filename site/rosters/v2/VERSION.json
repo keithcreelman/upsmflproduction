@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "released": "2026-06-06",
-  "checkpoint": 3,
-  "scope": "Full contract tooling (Auction/Extension/Restructure/MYM/Tag) + Misc (Contract Log + plain-English Glossary) + slide-over player profile + native MFL embed (MESSAGE14) + franchise-aware admin. Cap Planning Detail totals now follow the active filter.",
+  "checkpoint": 4,
+  "scope": "Full contract tooling (Auction/Extension/Restructure/MYM/Tag) + Misc (Contract Log + canon-accurate plain-English Glossary) + slide-over player profile + native MFL embed (MESSAGE14) + franchise-aware admin. Cap Detail follows the filter. 2027 tag projection excludes already-tagged players (canon §911).",
   "next": "Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }

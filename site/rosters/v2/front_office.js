@@ -6043,7 +6043,8 @@
 
   function renderTagValueTable(projYear) {
     const m = STATE.tagData.meta || {};
-    const cb = (projYear > (safeInt(SEASON, 0) || 0)) ? projectedCalcBreakdown() : (m.calc_breakdown || {});
+    const projecting = projYear > (safeInt(SEASON, 0) || 0);
+    const cb = projecting ? projectedCalcBreakdown() : (m.calc_breakdown || {});
     const nn = function (s) { return safeStr(s).toLowerCase().replace(/[^a-z]/g, ""); };
     if (!Object.keys(cb).length) {
       return '<div class="fo-placeholder">No calc_breakdown in tag_tracking.json — can\'t project tier bids.</div>';
@@ -6061,12 +6062,18 @@
       });
     });
     let rows = [];
+    let excludedTagged = 0;
     (STATE.teams || []).forEach(function (team) {
       (team.players || []).forEach(function (p) {
-        // Every final-year (cy=1) active player is a potential 2027 tag candidate
-        // — including Vet-Ext / FL / BL (extension ≠ tag) and currently-tagged
-        // (Type column lets the commish judge re-tag eligibility). Taxi/IR excluded.
+        // Every final-year (cy=1) active player is a potential tag candidate —
+        // including Vet-Ext / FL / BL (extension ≠ tag). Taxi/IR excluded.
         if (safeInt(p.years, 0) !== 1 || p.isTaxi || p.isIr) return;
+        // Already-tagged players CANNOT be re-tagged (canon §911: once tagged →
+        // must go to next summer's FA Auction; a mid-season drop does NOT reset
+        // it). So they're not valid candidates for a PROJECTED future tag
+        // (Keith 2026-06-06: "Etienne and any other tagged player won't be
+        // eligible to be tagged again").
+        if (projecting && /tag/i.test(safeStr(p.type))) { excludedTagged += 1; return; }
         const posKey = positionGroupKey(p.position);
         const aav = Math.max(safeInt(p.aav, 0), 0);
         const floor = aav > 0 ? Math.ceil((aav * 1.10) / 1000) * 1000 : 0;   // AAV × 1.10, ceil to $1K
@@ -6116,12 +6123,12 @@
     }).join("");
     const isProjected = projYear > (safeInt(SEASON, 0) || 0);
     const hint = isProjected
-      ? '💡 <strong>Projected ' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, canon §C8 AAV-only. ' + projYear + ' tags are priced off ' + (projYear - 1) + '-season points; until that season plays out, tier bids use the latest complete (' + escapeHtml(String(m.season || "?")) + ') structure as a stand-in and update live — not locked until the ' + projYear + ' contract deadline.'
+      ? '💡 <strong>Projected ' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, canon §C8 AAV-only. Tier base bids are built from the AAVs of players <strong>currently under contract</strong> at each position, so they shift as rosters change and finalize at the ' + projYear + ' contract deadline. <strong>Already-tagged players are excluded</strong> — once tagged, a player can’t be re-tagged and must go to the FA auction (canon).'
       : '💡 <strong>' + projYear + ' tag value</strong> for every expiring (final-year) player: <code>max(positional tier base bid, AAV × 1.10)</code>, canon §C8 AAV-only — this cycle\'s tiers (source season ' + escapeHtml(String(m.season || "?")) + ').';
     return '<div class="fo-card">' +
       '<p class="fo-row-hint">' + hint + '</p>' +
       '<div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;"><span class="small" style="color:var(--muted);">Filter</span>' + teamSel + posSel + clr +
-      '<span class="small" style="color:var(--muted);margin-left:auto;">' + rows.length + (rows.length === total ? "" : " of " + total) + ' expiring players</span></div>' +
+      '<span class="small" style="color:var(--muted);margin-left:auto;">' + rows.length + (rows.length === total ? "" : " of " + total) + ' expiring players' + (excludedTagged ? ' · ' + excludedTagged + ' already-tagged excluded' : '') + '</span></div>' +
       '<div class="fo-table-scroll"><table class="fo-table" id="fo-p27-table"><thead><tr>' +
       hdr("name", "Player") + hdr("team", "Team") + hdr("pos", "Pos") + hdr("type", "Type") +
       hdr("aav", "AAV", "right") + hdr("floor", "AAV×1.10", "right") + hdr("tier_bid", "Tier Bid", "right") +
@@ -6153,7 +6160,7 @@
       '<select id="fo-tagbd-year" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;">' +
       yopt(curCycle + 1) + yopt(curCycle) + "</select>" +
       (isProjected
-        ? '<span class="small" style="color:#d4a017;">PROJECTED — live off ' + (year - 1) + ' points once the season plays; not locked until the ' + year + ' contract deadline</span>'
+        ? '<span class="small" style="color:#d4a017;">Projected ' + year + ' — built from players <strong>currently under contract</strong> (their current AAVs); finalizes at the ' + year + ' contract deadline as rosters change</span>'
         : '<span class="small" style="color:var(--muted);">current cycle (locked at the ' + year + ' tag deadline)</span>') +
       "</div>";
     const sections = posKeys.map(function (posKey) {
@@ -6366,36 +6373,37 @@
   function renderGlossaryHtml() {
     const groups = [
       { title: "Contract types — the “Type” column", items: [
-        ["Rookie", "A player taken in the <strong>Rookie Draft</strong>. Cheap 3-year deal; the salary is fixed by the draft slot."],
-        ["Vet-ERA", "A veteran you won in the <strong>Expired Rookie Auction</strong> (late May — the auction of players whose rookie deals expired). Starts as 1 year; use <strong>MYAC</strong> to make it 2 or 3."],
-        ["Vet-FAA", "A veteran you won in the <strong>Free Agent Auction</strong> (late July). Same idea as Vet-ERA, just a different auction."],
-        ["Vet-Ext", "A veteran you <strong>extended</strong> — you added years before the old deal ran out."],
-        ["WW", "<strong>Waiver Wire</strong> — a player you grabbed in-season with a blind bid. 1-year contract."],
-        ["FCFS", "<strong>First-Come, First-Serve</strong> — a free agent you grabbed in-season after waivers ran. 1-year contract."],
-        ["MYM-Rookie", "An in-season pickup who is an NFL rookie that you locked up with a <strong>MYM</strong> (keeps them on the rookie path)."],
-        ["Tag", "A player you kept one more year with a Franchise/Transition <strong>Tag</strong> instead of letting them hit the auction."],
+        ["Rookie-Draft", "A player taken in the <strong>Rookie Draft</strong>. 3-year deal; salary is set by the draft slot and spread <strong>equally across all 3 years</strong>. 1st-rounders (2025 draft onward) get a <strong>4th-year option</strong>."],
+        ["Vet-ERA", "A veteran you won in the <strong>Expired Rookie Auction</strong> (late May — the auction of players whose rookie deals expired). Starts as 1 year; use a <strong>Multi-Year Auction Contract (MYAC)</strong> to make it 2 or 3."],
+        ["Vet-FAA", "A veteran you won in the <strong>Free Agent Auction</strong> (late July / early August). Same idea as Vet-ERA, just a different auction."],
+        ["Vet-Ext", "A veteran you <strong>extended</strong> — you added years before the player’s extension deadline (which varies by player and how they were acquired)."],
+        ["Vet-WW", "<strong>Waiver Wire</strong> — a player you grabbed in-season with a blind bid. 1-year contract; salary = your winning bid, minimum $1,000. Also covers <strong>FCFS</strong> (First-Come, First-Serve) free agents picked up in the Sunday-morning post-waivers window — those carry a flat $1,000, 1-year deal."],
+        ["Rookie-MYM", "An in-season pickup who <strong>is</strong> an NFL rookie that you locked up with a <strong>MYM</strong> (keeps them on the rookie path)."],
+        ["Vet-MYM", "An in-season pickup who is <strong>not</strong> an NFL rookie that you locked up with a <strong>MYM</strong>."],
+        ["Tag", "A player you kept one more year with a <strong>Tag</strong> contract instead of letting them hit the auction."],
       ]},
-      { title: "Contract tools — things you submit", items: [
-        ["MYAC", "<strong>Make Your Auction Count</strong>. Right after you win a player at auction, you choose the length (1, 2, or 3 years) and how the salary is spread. Skip it and the deal defaults to 1 year."],
-        ["Extension", "Add years to a player who is <strong>already</strong> under contract, before that contract expires."],
+      { title: "Contract options", items: [
+        ["MYAC", "<strong>Multi-Year Auction Contract</strong>. Right after you win a player at auction, choose the length (1, 2, or 3 years) and how the salary is spread. Skip it and the deal defaults to 1 year."],
+        ["Extension", "<strong>Extend</strong> a player who’s already under contract by adding years — done before that player’s <strong>extension deadline</strong>, which varies by player and how they were acquired (e.g. rookies by late May, veterans by the September contract deadline)."],
         ["Restructure", "Reshape the salary across a deal’s <strong>remaining</strong> years (e.g. push money to later years). Offseason only, max 3 per team a season, and it does <strong>not</strong> add years."],
-        ["MYM", "<strong>Make Your Move</strong>. Turn an in-season waiver/FCFS pickup into a multi-year contract, within 14 days of grabbing them. Max 4 per team a season."],
-        ["Tag (Franchise / Transition)", "A one-year tool to keep a player whose contract is expiring. The price is set by a <strong>tier</strong> — the better the player, the higher the tier, the more it costs."],
+        ["MYM", "<strong>Mid-Year Multi</strong>. Turn an in-season waiver/FCFS pickup into a multi-year contract, within 14 days of grabbing them. Max 4 per team a season."],
+        ["Tag", "A one-year contract to keep a player whose deal has <strong>expired</strong>, instead of letting them hit the auction. Each team gets <strong>1 offensive + 1 defensive</strong> tag per year. The price is set by a <strong>tier</strong> — the better the player, the higher the tier, the more it costs."],
       ]},
       { title: "Money & cap terms", items: [
         ["Cap", "Your salary cap. Ceiling is <strong>$300K</strong>; you must spend at least the <strong>$260K</strong> floor."],
         ["TCV", "<strong>Total Contract Value</strong> — the whole dollar value of the deal across all its years. Locked in when the contract is signed."],
-        ["AAV", "<strong>Average Annual Value</strong> — TCV ÷ number of years. The deal’s average yearly cost; this is what sets a player’s tag tier."],
+        ["AAV", "<strong>Average Annual Value</strong>. At acquisition it’s TCV ÷ number of years — the average yearly cost — and it sets a player’s <strong>tag tier</strong> and <strong>extension rate</strong>. Heads-up: once a player is extended the salary can <strong>escalate</strong> year to year (e.g. $20K this year, $30K next), so the actual yearly number isn’t always a flat AAV."],
         ["CL", "<strong>Contract Length</strong> — how many years the deal runs."],
-        ["GTD", "<strong>Guaranteed money</strong> — what you’re still on the hook for against the cap if you cut the player."],
-        ["Earned", "What a player has <strong>already been paid</strong> in the past years of the deal."],
+        ["GTD", "<strong>Guaranteed money</strong> — the guaranteed amount locked in <strong>when the contract was signed</strong>."],
+        ["Earned", "What a player has <strong>already been paid</strong> — completed past years plus what they’ve earned so far in the current year."],
         ["Cap hit", "What a player counts against your $300K cap <strong>this</strong> year."],
         ["Drop penalty (dead cap)", "What you still owe against the cap <strong>after</strong> you cut a player."],
-        ["FL — Front-Loaded", "A deal that pays <strong>more early</strong>, less later."],
-        ["BL — Back-Loaded", "A deal that pays <strong>less early</strong>, more later. (Each team may carry at most <strong>5 loaded</strong> — FL or BL — contracts.)"],
+        ["FL — Front-Loaded", "A deal that pays <strong>more than the AAV in Year 1</strong> (and less in the later years)."],
+        ["BL — Back-Loaded", "A deal that pays <strong>less than the AAV in Year 1</strong> (and more in the later years). Each team may carry at most <strong>5 loaded</strong> — FL or BL — contracts."],
       ]},
-      { title: "Roster spots", items: [
-        ["Taxi", "Taxi (practice) squad — developmental players held off your active roster."],
+      { title: "Roster status", items: [
+        ["Active", "A player on your <strong>active roster</strong> — full salary counts against your cap."],
+        ["Taxi", "Taxi (practice) squad — developmental players held off your active roster (cap-free to cut while on taxi)."],
         ["IR", "Injured Reserve — a spot for injured players so they don’t clog your active roster."],
       ]},
     ];
