@@ -399,6 +399,57 @@ button.ups-m-busy::before,
   padding: 10px 14px 0;
 }
 
+/* "Update available" banner — shown when a newer build is deployed than the
+   running cached code. Floats above the bottom nav. */
+.ups-m-update-banner {
+  position: fixed;
+  left: 12px; right: 12px;
+  bottom: calc(var(--nav-h) + var(--safe-bot) + 12px);
+  z-index: 200;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+  font-size: 14px; font-weight: 600;
+}
+.ups-m-update-banner .ups-m-update-msg { flex: 1; }
+.ups-m-update-banner button {
+  border: none; border-radius: 8px; padding: 7px 12px;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#ups-m-update-reload { background: #fff; color: var(--accent); }
+#ups-m-update-dismiss { background: rgba(255,255,255,0.22); color: #fff; padding: 7px 10px; }
+
+/* ── My Team action center (dashboard summary card) ── */
+.ups-m-action-center { margin: 12px; }
+.ups-m-ac-title {
+  font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--fg-muted); margin-bottom: 8px;
+}
+.ups-m-ac-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  padding: 11px 12px; margin-bottom: 8px;
+  background: var(--bg-elev); border: 1px solid var(--line);
+  border-radius: 12px; color: var(--fg); text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-ac-item:last-child { margin-bottom: 0; }
+.ups-m-ac-item.warn { border-color: var(--warn); background: rgba(255,184,107,0.07); }
+.ups-m-ac-item.danger { border-color: var(--danger); background: rgba(255,107,107,0.07); }
+.ups-m-ac-icon { font-size: 18px; flex: 0 0 auto; }
+.ups-m-ac-text { flex: 1; font-size: 14px; line-height: 1.35; }
+.ups-m-ac-text .sub { display: block; font-size: 12px; color: var(--fg-muted); margin-top: 1px; }
+.ups-m-ac-chev { color: var(--fg-muted); font-size: 16px; flex: 0 0 auto; }
+.ups-m-ac-allset {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px; background: var(--bg-elev); border: 1px solid var(--line);
+  border-radius: 12px; color: var(--fg-muted); font-size: 13px;
+}
+
 /* ----- Cards ----- */
 .ups-m-card {
   margin: 12px;

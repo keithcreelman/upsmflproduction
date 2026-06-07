@@ -7,7 +7,11 @@
   "use strict";
 
   // ---------- Constants ----------
-  var BUILD = "2026.06.07.mym+contracts";
+  // Single source of truth for the running build. MUST match version.json.build
+  // and the ?v= cache-buster in index.html — bump all three together on each
+  // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
+  // version.json and surfaces a reload banner when a stale cache is detected.
+  var BUILD = "2026.06.07.3";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -1550,6 +1554,43 @@
     return 0;
   }
 
+  // ---------- Update check ----------
+  // The mobile shell has no service worker, so a browser/Pages can serve a STALE
+  // cached app.js after a deploy. Fetch the DEPLOYED version.json (no-store); if
+  // its build differs from the BUILD baked into this running code, show a
+  // dismissible "Update available — Reload" banner (Keith 2026-06-07).
+  function checkForUpdate() {
+    try {
+      fetch("./version.json?_=" + Date.now(), { cache: "no-store", credentials: "omit" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (v) {
+          if (!v || !v.build || String(v.build) === String(BUILD)) return;
+          showUpdateBanner(String(v.build));
+        })
+        .catch(function () {});
+    } catch (_) {}
+  }
+  function showUpdateBanner(newBuild) {
+    if (document.getElementById("ups-m-update-banner")) return;
+    var bar = document.createElement("div");
+    bar.id = "ups-m-update-banner";
+    bar.className = "ups-m-update-banner";
+    bar.innerHTML =
+      '<span class="ups-m-update-msg">⬆️ New version available</span>' +
+      '<button type="button" id="ups-m-update-reload">Reload</button>' +
+      '<button type="button" id="ups-m-update-dismiss" aria-label="Dismiss">✕</button>';
+    document.body.appendChild(bar);
+    var reload = document.getElementById("ups-m-update-reload");
+    if (reload) reload.addEventListener("click", function () {
+      // Bust the HTML cache too: a fresh query forces Pages to serve the newest
+      // index.html (and thus the newest ?v= asset URLs). Hash is preserved.
+      try { var u = new URL(window.location.href); u.searchParams.set("_v", newBuild); window.location.replace(u.toString()); }
+      catch (_) { window.location.reload(); }
+    });
+    var dismiss = document.getElementById("ups-m-update-dismiss");
+    if (dismiss) dismiss.addEventListener("click", function () { bar.remove(); });
+  }
+
   // ---------- Boot ----------
   function boot() {
     detectContext();
@@ -1561,6 +1602,7 @@
     renderRoute();
     installPullToRefresh();
     setTimeout(updateNavBadges, 0);
+    setTimeout(checkForUpdate, 1500);   // after first paint
   }
 
   // ---------- Public API ----------

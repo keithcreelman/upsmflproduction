@@ -1,0 +1,17 @@
+{
+  "name": "UPS Mobile — Front Office",
+  "short_name": "UPS",
+  "description": "UPS dynasty league — lineups, taxi, trades, contracts, draft & auction.",
+  "id": "/upsmflproduction/m/",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0e1320",
+  "theme_color": "#0e1320",
+  "icons": [
+    { "src": "./icons/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "./icons/icon-maskable-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ]
+}
