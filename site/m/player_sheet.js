@@ -462,6 +462,47 @@
     wireFooterActions();
   }
 
+  // ERA forced retention (league_context_v1.md §A3): a player won in the
+  // CURRENT cycle's Expired Rookie Auction cannot be cut until the FA Auction
+  // CLOSES ("you bid, you hold through auction"). The worker is the authority
+  // — it blocks the real drop — so we hide the Drop button up front and the
+  // owner never taps into that error. The check is a DRY-RUN drop: the
+  // worker's ERA gate runs before the dry-run short-circuit, so it returns the
+  // block precisely (current-cycle winners only, auto-lifts when the auction
+  // closes) without touching MFL. Fired only for "-era" contracts; fail-open
+  // (leave Drop) on any error since the worker still enforces it.
+  function gateEraRetentionDrop(foot, dropBtn) {
+    if (!dropBtn || !foot) return;
+    var status = U.safeStr(footerState.rosterRow && footerState.rosterRow.contractStatus).toLowerCase();
+    if (status.indexOf("-era") === -1) return;
+    var s = window.UPS_MOBILE.state;
+    var pidAtFire = U.safeStr(footerState.pid);
+    fetch(window.UPS_MOBILE.api.workerBase() + "/roster-workbench/action", {
+      method: "POST", mode: "cors", credentials: "omit",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "drop_player", dry_run: 1,
+        league_id: s.ctx.leagueId, season: s.ctx.year,
+        franchise_id: U.pad4(s.viewerFranchiseId),
+        player_id: pidAtFire
+      })
+    }).then(function (r) { return r.json(); }).then(function (b) {
+      var blocked = b && (b.code === "ERA_FORCED_RETENTION" || (b.gate && b.gate.blocked === true));
+      if (!blocked) return;
+      if (U.safeStr(footerState.pid) !== pidAtFire) return;   // sheet moved on
+      var live = foot.querySelector('[data-act="drop"]');
+      if (live && live.parentNode) live.parentNode.removeChild(live);
+      if (!foot.querySelector(".ups-m-era-lock")) {
+        var actions = foot.querySelector(".ups-m-sheet-actions");
+        var note = document.createElement("div");
+        note.className = "ups-m-era-lock";
+        note.textContent = "🔒 Won in the " + s.ctx.year + " Expired Rookie Auction — can’t be cut until the FA Auction closes (forced retention, §A3).";
+        if (actions && actions.parentNode) actions.parentNode.insertBefore(note, actions.nextSibling);
+        else foot.appendChild(note);
+      }
+    }).catch(function () { /* fail-open — worker still enforces the block */ });
+  }
+
   function wireFooterActions() {
     var foot = document.getElementById("ups-m-sheet-foot");
     if (!foot) return;
@@ -485,6 +526,7 @@
     if (save) save.addEventListener("click", function () { handleOTBSave(save); });
     if (remove) remove.addEventListener("click", function () { handleOTBRemove(remove); });
     if (drop) drop.addEventListener("click", function () { handleDrop(footerState.pid, footerState.name, footerState.rosterRow, drop); });
+    gateEraRetentionDrop(foot, drop);
     var unloadCleanup = foot.querySelector('[data-act="unload-cleanup"]');
     if (unloadCleanup) unloadCleanup.addEventListener("click", function () {
       handleUnloadCleanup(unloadCleanup);

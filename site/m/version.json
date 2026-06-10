@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.10.5",
-  "label": "Sign-in pill/button hide once signed in (token-aware) + Ledger also drops reverted moves (reverted = test)"
+  "build": "2026.06.10.6",
+  "label": "ERA forced retention (§A3): hide the Drop button on current-cycle Expired Rookie Auction winners (dry-run gate) until the FA Auction closes"
 }
