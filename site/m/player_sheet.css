@@ -247,6 +247,18 @@
   color: var(--teal);
 }
 .btn-act.drop { border-color: rgba(255, 107, 107, 0.45); color: var(--danger); }
+/* ERA forced-retention note — replaces the Drop button for a player won in the
+   current Expired Rookie Auction (§A3) until the FA Auction closes. */
+.ups-m-era-lock {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 184, 107, 0.12);
+  border: 1px solid rgba(255, 184, 107, 0.30);
+  color: var(--warn);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
 .btn-act.ext { border-color: rgba(91, 141, 255, 0.45); color: var(--accent); }
 .btn-act.ropt { border-color: rgba(255, 184, 107, 0.45); color: var(--warn); }
 .btn-act.rstr { border-color: rgba(139, 229, 139, 0.45); color: var(--ok); }
