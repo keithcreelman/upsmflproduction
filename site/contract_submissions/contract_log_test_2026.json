@@ -1,0 +1,7 @@
+{
+  "year": 2026,
+  "note": "Franchises whose contract-activity is TEST data, hidden from the Contract Ledger by default. Read by BOTH the desktop FO Misc Contract Log (front_office.js isTestEvent) and the mobile Contracts > Ledger (contracts.js buildIsTestEvent), so they stay in sync. Commish-maintained. To mark only events BEFORE a date as test (once a franchise begins REAL activity), add \"before\": \"YYYY-MM-DD\" to its entry; omit `before` to treat the whole franchise as test.",
+  "test_franchises": [
+    { "franchise_id": "0008", "owner": "Real Deal Creel — commish test team (tag/untag toggles + submit/revert pairs, net-zero). Add a `before` cutoff here when real 0008 contract activity starts." }
+  ]
+}

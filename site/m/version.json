@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.10.3",
-  "label": "Card-driven sections: Alerts rename · self-contained Contracts (no bleed) + read-only Contract Ledger · Market = one Team/FA-filtered player list (Point Leaders removed)"
+  "build": "2026.06.10.4",
+  "label": "Contract Ledger hides test moves — reads the test_franchises config (desktop + mobile in sync); flagged franchise 0008 (commish test team)"
 }
