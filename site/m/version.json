@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.10.4",
-  "label": "Contract Ledger hides test moves — reads the test_franchises config (desktop + mobile in sync); flagged franchise 0008 (commish test team)"
+  "build": "2026.06.10.5",
+  "label": "Sign-in pill/button hide once signed in (token-aware) + Ledger also drops reverted moves (reverted = test)"
 }

@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.06.10.4";
+  var BUILD = "2026.06.10.5";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -1480,7 +1480,10 @@
     // MFL-only auth: signed in → Sign out; signed out → Sign in with MFL.
     var mflHomeUrl = "https://www48.myfantasyleague.com/" +
       encodeURIComponent(state.ctx.year) + "/home/" + encodeURIComponent(state.ctx.leagueId);
-    var authBtn = state.viewerFranchiseId
+    // Signed in (franchise resolved OR a stored token) → Sign out; only a
+    // truly signed-out user sees "Sign in with MFL". Keeps this in lockstep
+    // with the Home Sign-in pill so the two never disagree.
+    var authBtn = (state.viewerFranchiseId || getStoredMflUserId())
       ? '<button class="ups-m-desktop-link" id="ups-m-sign-out" style="margin:8px 0 0;cursor:pointer;background:none;font-size:14px;color:var(--danger)">Sign out</button>'
       : '<a class="ups-m-signin-btn" href="' + mflHomeUrl + '" target="_blank" rel="noopener" style="margin-top:8px">' + ic("log-in", 18) + '<span>Sign in with MFL</span></a>';
     mount.innerHTML =
