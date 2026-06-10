@@ -562,7 +562,7 @@
     if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
     fetch(url, {
       method: "POST",
-      credentials: "include",
+      credentials: "omit",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         action: action,
@@ -609,7 +609,7 @@
     if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
     fetch(url, {
       method: "POST",
-      credentials: "include",
+      credentials: "omit",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         action: action,
@@ -653,7 +653,7 @@
     if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
     fetch(url, {
       method: "POST",
-      credentials: "include",
+      credentials: "omit",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         action: "unload_player",

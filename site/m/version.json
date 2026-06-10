@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.10.1",
-  "label": "MFL-only sign-in + per-player extension deadlines + All/FA players + propose-trade + standings label"
+  "build": "2026.06.10.2",
+  "label": "Fix: mobile sign-in — credentials:omit on cross-origin /api/me (wildcard-CORS block) + roster-move writes + token URL-strip"
 }
