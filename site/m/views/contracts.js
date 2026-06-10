@@ -125,6 +125,33 @@
       '</div>';
   }
 
+  // Cap HERO variant for the Home command center — Cap Room is the dominant
+  // number. Reuses the same .ups-m-cap-* classes as renderCapCard (the dense
+  // ledger on the Roster tab) so the two surfaces never diverge. Exposed via
+  // M.components.capHero.
+  function renderCapHero(cap) {
+    if (!cap) return "";
+    var pct = U.safeInt(cap.pct, 0);
+    var overCap = cap.capRoom < 0;
+    var roomClass = overCap ? "danger" : (pct >= 95 ? "warn" : "ok");
+    return '' +
+      '<div class="ups-m-cap-card hero">' +
+        '<div class="ups-m-cap-hero-room">' +
+          '<div class="lbl">Cap Room</div>' +
+          '<div class="val ' + roomClass + '">' + U.fmtUsd(cap.capRoom) + '</div>' +
+        '</div>' +
+        '<div class="ups-m-cap-bar"><div class="ups-m-cap-bar-fill ' + (overCap ? "over" : "") +
+          '" style="width:' + Math.min(100, Math.max(0, pct)) + '%"></div></div>' +
+        '<div class="ups-m-cap-foot">' +
+          '<span class="chip">' + pct + '% used</span>' +
+          '<span class="chip">' + U.fmtUsd(cap.capTotal) + ' of ' + U.fmtUsd(cap.capAmount) + '</span>' +
+          '<span class="chip">' + U.safeInt(cap.rosterCount, 0) + '/30 roster</span>' +
+          (cap.taxiCount ? '<span class="chip">' + cap.taxiCount + ' taxi</span>' : '') +
+          (cap.irCount ? '<span class="chip">' + cap.irCount + ' IR</span>' : '') +
+        '</div>' +
+      '</div>';
+  }
+
   function renderRoster(rosterRows, fid) {
     if (!rosterRows.length) return '<div class="ups-m-stub"><div>No roster found.</div></div>';
     var otbIds = DATA.getMyTradeBaitIds();
@@ -219,6 +246,8 @@
   // into Contracts › Tag (Keith 2026-06-07: unified Contracts hub, mirrors the
   // desktop FO Contracts tab). NOTE: lineup.js + tagging.js keep their own copy
   // of this nav — keep all three in sync.
+  function ic(name, size) { return window.UPS_ICONS ? window.UPS_ICONS.svg(name, { size: size || 18 }) : ""; }
+
   function subTabs(active) {
     function tab(href, label, key) {
       return '<a class="ups-m-subtab' + (key === active ? ' active' : '') + '" href="#myteam/' + href + '">' + label + '</a>';
@@ -227,6 +256,7 @@
       tab("roster", "Roster", "roster") +
       tab("lineup", "Lineup", "lineup") +
       tab("taxi", "Taxi", "taxi") +
+      tab("ir", "IR", "ir") +
       tab("contracts", "Contracts", "contracts") +
       '</div>';
   }
@@ -241,17 +271,17 @@
     // Incoming trade offers (most time-sensitive social action).
     var incoming = (M.state.tradeOffers && M.state.tradeOffers.incoming) || [];
     if (incoming.length) {
-      items.push({ icon: "📨", href: "#league/trade",
+      items.push({ icon: ic("inbox"), href: "#league/trade",
         text: incoming.length + " incoming trade offer" + (incoming.length > 1 ? "s" : ""),
         sub: "Review &amp; respond" });
     }
 
     // Contract action windows — MYM first (hard 14-day clock).
     var prompts = [
-      { key: "mym", icon: "⏱", label: "MYM-eligible", sub: "In-season pickups · 14-day window" },
-      { key: "myac", icon: "📝", label: "auction win" /*pluralized below*/, sub: "Set 1-yr deals to 2 or 3 years", word: "to finalize (MYAC)" },
-      { key: "extend", icon: "📈", label: "can be extended", sub: "Final-year contracts" },
-      { key: "restructure", icon: "🔧", label: "can restructure", sub: "Offseason · 3 per season" }
+      { key: "mym", icon: ic("clock"), label: "MYM-eligible", sub: "In-season pickups · 14-day window" },
+      { key: "myac", icon: ic("file-text"), label: "auction win" /*pluralized below*/, sub: "Set 1-yr deals to 2 or 3 years", word: "to finalize (MYAC)" },
+      { key: "extend", icon: ic("trending-up"), label: "can be extended", sub: "Final-year contracts" },
+      { key: "restructure", icon: ic("sliders"), label: "can restructure", sub: "Offseason · 3 per season" }
     ];
     prompts.forEach(function (p) {
       var n = eligiblePlayersForAction(fid, p.key).length;
@@ -266,7 +296,7 @@
     // Cap compliance.
     var cap = DATA.computeCap(fid);
     if (cap && U.safeInt(cap.capRoom, 0) < 0) {
-      items.push({ icon: "🚨", cls: "danger", href: "#myteam/contracts/restructure",
+      items.push({ icon: ic("alert-triangle"), cls: "danger", href: "#myteam/contracts/restructure",
         text: "Over the cap by " + U.fmtUsd(Math.abs(cap.capRoom)),
         sub: "Cut or restructure to get compliant" });
     }
@@ -346,6 +376,73 @@
     });
   }
 
+  // Per-player §C4 extension deadline — verbatim mirror of desktop
+  // extensionDeadlineForPlayer (front_office.js:1525). Each player's deadline
+  // varies: Rookie → May of expiry year; in-season WW/FCFS → acq+28d (days
+  // 15–28); in-season trade → acq+28d (4 weeks); Veteran → September.
+  function rookieLikeStatus(s) {
+    s = U.safeStr(s).toLowerCase();
+    return s === "r" || s.indexOf("r-") === 0 || s.indexOf("rookie") !== -1;
+  }
+  function mayRookieDeadline(year) {
+    var yr = parseInt(year, 10);
+    if (!yr) return null;
+    var may31 = new Date(Date.UTC(yr, 4, 31));
+    var lastMon = 31 - ((may31.getUTCDay() + 6) % 7);
+    var dl = new Date(Date.UTC(yr, 4, lastMon));
+    dl.setUTCDate(dl.getUTCDate() - 3);
+    dl.setUTCHours(4, 0, 0, 0);
+    return dl;
+  }
+  function septContractDeadline() {
+    var d = M.state.contractDeadline;
+    if (!d) return null;
+    // Noon UTC of the calendar date — keeps the DISPLAYED date stable (Sep 6,
+    // not the UTC-rolled Sep 7 you get from the real 9pm-ET deadline moment),
+    // which matches the desktop EXTENSION WINDOW table.
+    var m = String(d).slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12, 0, 0)) : null;
+  }
+  function extensionDeadlineFor(row, fid) {
+    var seasonInt = parseInt(M.state.ctx.year, 10) || new Date().getUTCFullYear();
+    var cy = Math.max(0, U.safeInt(row.contractYear, 0));
+    var statusLc = U.safeStr(row.contractStatus).toLowerCase();
+    var special = U.safeStr(row.contractInfo).toLowerCase();
+    var expiredRookie = special.indexOf("expired rookie") !== -1 || (rookieLikeStatus(statusLc) && cy <= 0);
+    var isRookieContract = rookieLikeStatus(statusLc) || expiredRookie;
+    var acq = DATA.acquisitionForPlayer ? DATA.acquisitionForPlayer(fid, row.id) : null;
+    var acqLabel = U.safeStr(acq && acq.label).toLowerCase();
+    var acqDateStr = U.safeStr(acq && acq.date);
+    var acquiredThisSeason = acqDateStr.slice(0, 4) === String(seasonInt);
+    var acqDate = null;
+    try { if (acqDateStr) acqDate = new Date(acqDateStr.slice(0, 10) + "T12:00:00-04:00"); } catch (e) {}
+    var isWW = acquiredThisSeason && acqDate && /\b(ww|fcfs|blind|waiver|free agent)\b/.test(acqLabel) && acqLabel.indexOf("auction") === -1;
+    var isTradeAcq = acquiredThisSeason && acqDate && acqLabel.indexOf("trade") !== -1;
+    var DAY = 86400000, date = null, start = null, basis = "";
+    if (isWW) {
+      start = new Date(acqDate.getTime() + 15 * DAY);
+      date = new Date(acqDate.getTime() + 28 * DAY);
+      basis = "WW/FCFS pickup — days 15–28";
+    } else if (isTradeAcq) {
+      date = new Date(acqDate.getTime() + 28 * DAY);
+      basis = "Trade-acquired — 4 weeks";
+    } else if (isRookieContract) {
+      date = mayRookieDeadline(seasonInt + cy);
+      basis = "Rookie — May " + (seasonInt + cy);
+    } else {
+      date = septContractDeadline();
+      basis = "Veteran — September contract deadline";
+    }
+    var now = Date.now();
+    var daysUntil = date ? Math.ceil((date.getTime() - now) / DAY) : null;
+    var inWindow = !!date && now <= date.getTime() && (!start || now >= start.getTime());
+    return { date: date, basis: basis, daysUntil: daysUntil, inWindow: inWindow };
+  }
+  var DL_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function fmtDeadlineDate(d) {
+    return d ? (DL_MONTHS[d.getUTCMonth()] + " " + d.getUTCDate() + ", " + d.getUTCFullYear()) : "—";
+  }
+
   function renderActionList(fid, action) {
     var meta = null;
     for (var i = 0; i < CONTRACT_ACTIONS.length; i++) { if (CONTRACT_ACTIONS[i].key === action) meta = CONTRACT_ACTIONS[i]; }
@@ -371,18 +468,59 @@
         (cy > 0 ? '<span class="chip">YR ' + cy + '</span>' : ''),
         (r.contractStatus ? '<span class="chip type">' + U.escapeHtml(U.safeStr(r.contractStatus)) + '</span>' : '')
       ].filter(Boolean).join(" ");
+      // EXTEND tab — each player has their OWN §C4 deadline (Keith 2026-06-08:
+      // "extension deadlines vary by player"). Show it per-row, not a generic strip.
+      var deadlineLine = "", rightDl = "";
+      if (action === "extend") {
+        var dl = extensionDeadlineFor(r, fid);
+        var n = dl.daysUntil;
+        var dcls = (n == null) ? "" : (n < 0 ? "past" : n <= 14 ? "now" : n <= 45 ? "soon" : "");
+        deadlineLine = '<div class="ups-m-ext-dl ' + dcls + '"><span class="basis">' + U.escapeHtml(dl.basis) + '</span></div>';
+        rightDl = '<div class="ext-dl-date">' + U.escapeHtml(fmtDeadlineDate(dl.date)) + '</div>' +
+          '<div class="ext-dl-days ' + dcls + '">' + (n == null ? "—" : (n < 0 ? "passed" : n + "d left")) + '</div>';
+      }
       html += '<div class="ups-m-player-row rich" data-pid="' + U.escapeHtml(r.id) + '">' +
         '<div class="pos ' + posClass(pos) + '">' + U.escapeHtml(pos) + '</div>' +
         '<div class="body">' +
           '<div class="name">' + U.escapeHtml(name) +
             (team ? '<span class="nfl-team">' + U.escapeHtml(team) + '</span>' : '') + '</div>' +
           '<div class="sub chips-row">' + chips + '</div>' +
+          deadlineLine +
         '</div>' +
-        '<div class="right"><div class="salary">' + U.fmtUsd(r.salary) + '</div></div>' +
+        '<div class="right">' +
+          (rightDl || ('<div class="salary">' + U.fmtUsd(r.salary) + '</div>')) +
+        '</div>' +
       '</div>';
     });
     html += '</div>';
     return html;
+  }
+
+  // Upcoming contract deadlines (Keith 2026-06-08 — "as we do on web"). Pulls
+  // the contract-relevant rows from the league-events calendar via the shared
+  // M.eventsUtil helpers so formatting matches the Events tab.
+  function renderDeadlinesStrip() {
+    var EU = M.eventsUtil;
+    if (!EU || !EU.upcomingEvents) return "";
+    var CONTRACT_RX = /(contract_deadline|extension|mym|restructure|tag|rookie_extensions)/i;
+    var evs = EU.upcomingEvents().filter(function (e) {
+      return CONTRACT_RX.test(U.safeStr(e.event));
+    }).slice(0, 4);
+    if (!evs.length) return "";
+    var rows = evs.map(function (e) {
+      var nm = EU.eventMeta(e);
+      var tone = EU.whenTone(e.date);
+      var n = EU.daysUntil(e.date);
+      // Always show the date; add a relative countdown only when imminent.
+      var when = EU.prettyDate(e.date);
+      if (n != null && n >= 0 && n <= 21) when += " · " + EU.whenLabel(e.date);
+      return '<a class="ups-m-deadline-row ' + U.escapeHtml(tone) + '" href="' + U.escapeHtml(nm.route) + '">' +
+        '<span class="dl-evt">' + U.escapeHtml(nm.label) + '</span>' +
+        '<span class="dl-when">' + U.escapeHtml(when) + '</span>' +
+      '</a>';
+    }).join("");
+    return '<div class="ups-m-deadlines">' +
+      '<div class="ups-m-deadlines-title">Upcoming deadlines</div>' + rows + '</div>';
   }
 
   function renderContractsHub(mount, action) {
@@ -395,7 +533,13 @@
     action = action || "myac";
     var valid = CONTRACT_ACTIONS.some(function (a) { return a.key === action; });
     if (!valid) action = "myac";
-    mount.innerHTML = subTabs("contracts") + actionChips(action);
+    // Per-player extension deadlines now live in the Extend list (each player
+    // has their own §C4 deadline). Only MYAC shows the single league-wide
+    // September contract deadline here.
+    var deadlineNote = (action === "myac" && M.state.contractDeadline)
+      ? '<div class="ups-m-action-blurb"><b>Contract deadline:</b> ' + fmtDeadlineDate(septContractDeadline()) + ' — finalize multi-year auction deals before this date.</div>'
+      : "";
+    mount.innerHTML = subTabs("contracts") + actionChips(action) + deadlineNote;
     if (action === "tag") {
       // Rich tagging view (slots + tiers), embedded without its own sub-nav.
       if (M.taggingView && M.taggingView.render) {
@@ -411,92 +555,126 @@
     bindRowClicks(mount);
   }
 
-  // Taxi subtab — read-only listing of taxi-squad players. Per Keith
-  // 2026-05-16, taxi rule changes are pending finalization; no mutating
-  // actions (promote / cut) are wired up yet.
-  //
-  // SALARY DERIVATION (Keith 2026-05-16):
-  // MFL nulls salary for taxi players in both rosters + salaries exports.
-  // Per §A1.4 rookie salary is deterministic by UPS draft slot, so we
-  // derive it via DATA.deriveTaxiSalary which:
-  //   1. Parses `drafted: "R.PP (YYYY)"` for players this franchise drafted
-  //   2. Falls back to a pid-keyed lookup against past 3 years of
-  //      draftResults for trade-acquired taxi players ("Trade (YYYY)")
-  //   3. Returns the §A1.4 salary for the resolved pick
-  // Coverage in live data (2026-05-16): 63/85 direct + ~22 via historical
-  // lookup = effectively 100% of rookie-origin taxi.
+  // ── Taxi + IR bucket helpers ────────────────────────────────────────
+  // Per-player call-up counter chip ("N/3 call-ups", +pending). Canon §B2.
+  function callupChip(pid) {
+    var c = DATA.taxiCallupsFor && DATA.taxiCallupsFor(pid);
+    var used = c ? U.safeInt(c.used, 0) : 0;
+    var pending = c ? U.safeInt(c.pending, 0) : 0;
+    var max = c ? (U.safeInt(c.max, 3) || 3) : 3;
+    var label = used + "/" + max + " call-ups";
+    if (pending > 0) label += " +" + pending;
+    return '<span class="chip' + (used >= max ? " danger" : "") + '">' + label + '</span>';
+  }
+  // One tappable mini-row (→ player sheet) for the taxi/IR bucket lists.
+  function rosterMiniRow(r, chips, right) {
+    var p = DATA.playerById(r.id);
+    var name = nameFor(p) || ("Player " + r.id);
+    var pos = U.safeStr(p && p.position).toUpperCase();
+    var team = U.safeStr(p && p.team);
+    return '<div class="ups-m-player-row rich" data-pid="' + U.escapeHtml(r.id) + '">' +
+      '<div class="pos ' + posClass(pos) + '">' + U.escapeHtml(pos) + '</div>' +
+      '<div class="body">' +
+        '<div class="name">' + U.escapeHtml(name) +
+          (team ? '<span class="nfl-team">' + U.escapeHtml(team) + '</span>' : '') + '</div>' +
+        (chips ? '<div class="sub chips-row">' + chips + '</div>' : '') +
+      '</div>' +
+      '<div class="right">' + (right || "") + '</div>' +
+    '</div>';
+  }
+  function bucketHead(label, n) {
+    return '<div class="ups-m-bucket-head"><span>' + U.escapeHtml(label) + '</span><span class="ct">' + n + '</span></div>';
+  }
+
+  // Taxi subtab — TWO buckets (Canon §B2). Promote/demote are wired via the
+  // player sheet (handleTaxiRosterMove → /roster-workbench/action). Each player
+  // shows their call-up counter (N/3); the 4th call-up makes the promotion
+  // permanent. Salary is derived from the §A1.4 rookie pay table (MFL nulls
+  // taxi salary) and is OFF-CAP while on taxi.
   function renderTaxi(mount) {
     var fid = M.state.viewerFranchiseId;
     if (!fid) {
-      mount.innerHTML = subTabs("taxi") +
-        '<div class="ups-m-stub"><h3>Sign in to MFL</h3><div>We couldn\'t resolve your franchise.</div></div>';
+      mount.innerHTML = subTabs("taxi") + '<div class="ups-m-stub"><h3>Sign in to MFL</h3><div>We couldn\'t resolve your franchise.</div></div>';
       return;
     }
-    var rows = DATA.getRosterFor(fid).filter(function (r) {
-      return /taxi/i.test(U.safeStr(r.status));
+    var roster = DATA.getRosterFor(fid) || [];
+    var onTaxi = roster.filter(function (r) { return /taxi/i.test(U.safeStr(r.status)); });
+    var demotable = roster.filter(function (r) {
+      return !/taxi|ir|injured|reserve/i.test(U.safeStr(r.status)) &&
+        DATA.isTaxiEligibleFor && DATA.isTaxiEligibleFor(r.id);
     });
-    var banner =
-      '<div class="ups-m-card" style="border-color:var(--warn);background:rgba(255,184,107,0.06)">' +
-        '<div class="ups-m-card-title" style="color:var(--warn)">Rule change pending</div>' +
-        '<div style="font-size:13px">Due to a change in rule, waiting to apply logic before allowing changes to taxi squad players. This view is read-only for now.</div>' +
-        '<div style="font-size:11px;margin-top:8px;color:var(--fg-muted)">Salaries are derived from the §A1.4 rookie pay table using each player\'s UPS draft slot. Off-cap while on taxi.</div>' +
-      '</div>';
+    function taxiSal(r) { var d = DATA.deriveTaxiSalary ? DATA.deriveTaxiSalary(r) : null; return (d && d.ok) ? d.salary : (Number(r.salary) || 0); }
+    onTaxi.sort(function (a, b) { return taxiSal(b) - taxiSal(a); });
+    demotable.sort(function (a, b) { return (Number(b.salary) || 0) - (Number(a.salary) || 0); });
 
-    if (!rows.length) {
-      mount.innerHTML = subTabs("taxi") + banner +
-        '<div class="ups-m-stub"><div>No players on taxi.</div></div>';
-      return;
-    }
-
-    // Derive salaries first so we can sort by them (MFL gives us $0).
-    var enriched = rows.map(function (r) {
-      var derived = DATA.deriveTaxiSalary ? DATA.deriveTaxiSalary(r) : { ok: false, salary: 0 };
-      return { row: r, derived: derived };
-    });
-    enriched.sort(function (a, b) {
-      return Number(b.derived.salary || 0) - Number(a.derived.salary || 0);
-    });
-
-    var html = subTabs("taxi") + banner + '<div class="ups-m-player-list">';
-    html += '<div class="ups-m-pos-group">Taxi · ' + rows.length + '</div>';
-    enriched.forEach(function (entry) {
-      var r = entry.row;
-      var d = entry.derived;
-      var p = DATA.playerById(r.id);
-      var rawPos = U.safeStr(p && p.position).toUpperCase();
-      var name = U.safeStr(p && p.name) || ("Player " + r.id);
-      // Re-orient "Last, First" → "First Last"
-      if (name.indexOf(",") >= 0) {
-        var parts = name.split(",");
-        name = (parts[1] || "").trim() + " " + (parts[0] || "").trim();
-        name = name.trim();
-      }
-      var team = U.safeStr(p && p.team);
-      // Chip: show the derived UPS draft slot for clarity. Falls back
-      // to the MFL `drafted` string when derivation didn't resolve.
-      var slotChip = "";
-      if (d.ok && d.round && d.pick) {
-        var pickStr = d.round + "." + (d.pick < 10 ? "0" + d.pick : d.pick);
-        slotChip = '<span class="chip">' + U.escapeHtml(pickStr) +
-          (d.year ? ' \'' + String(d.year).slice(-2) : '') + '</span>';
-      } else if (r.drafted) {
-        slotChip = '<span class="chip">' + U.escapeHtml(U.safeStr(r.drafted)) + '</span>';
-      }
-      var salaryHtml = d.ok
-        ? '<div class="salary" style="color:var(--teal)">' + U.fmtUsd(d.salary) + '</div>'
+    function taxiRow(r) {
+      var d = DATA.deriveTaxiSalary ? DATA.deriveTaxiSalary(r) : null;
+      var sal = (d && d.ok) ? d.salary : (Number(r.salary) || 0);
+      var slot = (d && d.ok && d.round && d.pick)
+        ? '<span class="chip">' + d.round + "." + (d.pick < 10 ? "0" + d.pick : d.pick) + (d.year ? " '" + String(d.year).slice(-2) : "") + '</span>'
+        : "";
+      var right = sal
+        ? '<div class="salary" style="color:var(--teal)">' + U.fmtUsd(sal) + '</div>'
         : '<div class="salary" style="color:var(--fg-muted);font-size:11px">—</div>';
-      html += '<div class="ups-m-player-row" data-pid="' + U.escapeHtml(r.id) + '">' +
-        '<div class="pos">' + U.escapeHtml(rawPos) + '</div>' +
-        '<div class="body">' +
-          '<div class="name">' + U.escapeHtml(name) +
-            (team ? '<span class="nfl-team">' + U.escapeHtml(team) + '</span>' : '') +
-          '</div>' +
-          '<div class="sub chips-row">' + slotChip + '</div>' +
-        '</div>' +
-        '<div class="right">' + salaryHtml + '</div>' +
-      '</div>';
+      return rosterMiniRow(r, callupChip(r.id) + " " + slot, right);
+    }
+
+    var html = subTabs("taxi") +
+      '<div class="ups-m-action-blurb">Canon §B2 — taxi players cost <b>$0</b> against the cap. Each gets <b>3 call-ups</b>; the 4th makes the promotion permanent. Tap a player to promote or demote.</div>';
+    html += bucketHead("Available to promote", onTaxi.length);
+    html += onTaxi.length
+      ? '<div class="ups-m-player-list">' + onTaxi.map(taxiRow).join("") + '</div>'
+      : '<div class="ups-m-bucket-empty">No players on the taxi squad.</div>';
+    html += bucketHead("Eligible to demote", demotable.length);
+    html += demotable.length
+      ? '<div class="ups-m-player-list">' + demotable.map(taxiRow).join("") + '</div>'
+      : '<div class="ups-m-bucket-empty">No active rookies are taxi-eligible (R2–5, within 3 league years, not yet permanently promoted).</div>';
+    mount.innerHTML = html;
+    bindRowClicks(mount);
+  }
+
+  // IR subtab — TWO buckets (Canon §B3: IR = 50% cap relief, off the active
+  // roster max). Display-only for now: surfaces who can come OFF IR and which
+  // active players hold an IR-eligible NFL designation (IR / PUP / suspended /
+  // holdout, from the MFL injuries export). The option-down / call-up writes
+  // land in a later pass.
+  function renderIr(mount) {
+    var fid = M.state.viewerFranchiseId;
+    if (!fid) {
+      mount.innerHTML = subTabs("ir") + '<div class="ups-m-stub"><h3>Sign in to MFL</h3><div>We couldn\'t resolve your franchise.</div></div>';
+      return;
+    }
+    var roster = DATA.getRosterFor(fid) || [];
+    var injuries = M.state.injuriesByPid || {};
+    function irEligible(pid) {
+      var s = injuries[String(pid)] || "";
+      return s === "IR" || s === "PUP" || s === "NFI" || s.indexOf("SUSPEND") === 0 || s.indexOf("COVID") >= 0;
+    }
+    var onIr = roster.filter(function (r) { return /ir|injured|reserve/i.test(U.safeStr(r.status)); });
+    var candidates = roster.filter(function (r) {
+      return !/ir|injured|reserve|taxi/i.test(U.safeStr(r.status)) && irEligible(r.id);
     });
-    html += '</div>';
+    onIr.sort(function (a, b) { return (Number(b.salary) || 0) - (Number(a.salary) || 0); });
+    candidates.sort(function (a, b) { return (Number(b.salary) || 0) - (Number(a.salary) || 0); });
+
+    function irRow(r) {
+      var sal = Number(r.salary) || 0;
+      var inj = injuries[String(r.id)] || "";
+      var chips = inj ? '<span class="chip">' + U.escapeHtml(inj) + '</span>' : "";
+      var right = sal ? '<div class="salary">' + U.fmtUsd(sal) + '</div><div class="cy">50% cap</div>' : "";
+      return rosterMiniRow(r, chips, right);
+    }
+
+    var html = subTabs("ir") +
+      '<div class="ups-m-action-blurb">Canon §B3 — IR players get <b>50% cap relief</b> and don\'t count against the active roster max. Eligible: NFL IR / PUP / suspended / holdout.</div>';
+    html += bucketHead("On IR — available to call up", onIr.length);
+    html += onIr.length
+      ? '<div class="ups-m-player-list">' + onIr.map(irRow).join("") + '</div>'
+      : '<div class="ups-m-bucket-empty">No players on IR.</div>';
+    html += bucketHead("Eligible to option to IR", candidates.length);
+    html += candidates.length
+      ? '<div class="ups-m-player-list">' + candidates.map(irRow).join("") + '</div>'
+      : '<div class="ups-m-bucket-empty">No active players currently hold an IR-eligible NFL designation.</div>';
     mount.innerHTML = html;
     bindRowClicks(mount);
   }
@@ -530,10 +708,19 @@
     var sub = (subParts && subParts[0]) || "roster";
     if (sub === "lineup") return renderLineupStub(mount);
     if (sub === "taxi") return renderTaxi(mount);
+    if (sub === "ir") return renderIr(mount);
     if (sub === "contracts") return renderContractsHub(mount, subParts[1]);
     if (sub === "tagging") return renderContractsHub(mount, "tag");   // back-compat for the old Tagging tab/links
     return renderRosterTab(mount);   // "roster" or default
   }
+
+  // Shared components — Home + the Roster tab call the SAME functions so
+  // the cap card + "needs attention" queue can never diverge.
+  M.components = M.components || {};
+  M.components.actionCenter = renderActionCenter;
+  M.components.eligiblePlayersForAction = eligiblePlayersForAction;
+  M.components.capLedger = renderCapCard;
+  M.components.capHero = renderCapHero;
 
   M.route.registerView("myteam", render);
 })();

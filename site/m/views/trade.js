@@ -116,6 +116,7 @@
     if (direction === "incoming") {
       actionsHtml = '<div class="ups-m-trade-actions">' +
         '<button class="btn-act otb on" data-act="accept" data-trade-id="' + U.escapeHtml(tradeId) + '">Accept</button>' +
+        '<button class="btn-act ext" data-act="counter" data-trade-id="' + U.escapeHtml(tradeId) + '" data-from-fid="' + U.escapeHtml(fromFid) + '">Counter</button>' +
         '<button class="btn-act drop" data-act="decline" data-trade-id="' + U.escapeHtml(tradeId) + '">Decline</button>' +
       '</div>';
     } else {
@@ -182,6 +183,7 @@
   function freshBuilderState() {
     return {
       step: 1, counterpartyFid: "",
+      counterMode: false, counterTradeId: "",
       inv: {}, loadingInv: false, invError: "",
       giveIds: {}, getIds: {},
       myCapK: 0, theirCapK: 0,
@@ -267,9 +269,17 @@
   }
 
   // ── Overlay shell ──
-  function openBuilder() {
+  function openBuilder(opts) {
+    opts = opts || {};
     if (!M.state.viewerFranchiseId) { M.ui.showToast("Pick your franchise first.", "err"); return; }
     builderState = freshBuilderState();
+    var counter = !!opts.counterFid;
+    var preFid = opts.counterFid || opts.toFid;  // pre-select counterparty (counter OR propose-to-team)
+    if (counter) {
+      builderState.counterMode = true;
+      builderState.counterTradeId = U.safeStr(opts.counterTradeId);
+    }
+    if (preFid) builderState.counterpartyFid = U.pad4(preFid);
     var existing = document.getElementById("ups-m-tb-overlay");
     if (existing) existing.remove();
     var html =
@@ -278,7 +288,7 @@
           '<div class="ups-m-drop-head">' +
             '<button class="ups-m-drop-close" id="ups-m-tb-close" aria-label="Close">×</button>' +
             '<div class="grip"></div>' +
-            '<div class="title">Build trade offer</div>' +
+            '<div class="title">' + (counter ? "Counter offer" : "Build trade offer") + '</div>' +
             '<div class="sub" id="ups-m-tb-stepsub"></div>' +
           '</div>' +
           '<div class="ups-m-drop-body" id="ups-m-tb-body"></div>' +
@@ -289,7 +299,28 @@
     mount.insertAdjacentHTML("beforeend", html);
     document.body.style.overflow = "hidden";
     document.getElementById("ups-m-tb-close").addEventListener("click", closeBuilder);
-    renderBuilder();
+    if (preFid) {
+      // Pre-selected counterparty (counter back to the offerer, or "Propose
+      // trade" from a rostered player) — skip the picker, load both
+      // inventories, and jump straight to asset selection.
+      builderState.step = 2;
+      builderState.loadingInv = true;
+      renderBuilder();
+      Promise.all([
+        loadInventoryFor(M.state.viewerFranchiseId),
+        loadInventoryFor(builderState.counterpartyFid)
+      ]).then(function () {
+        builderState.loadingInv = false;
+        if (opts.preGetPid) builderState.getIds["P_" + opts.preGetPid] = true;
+        renderBuilder();
+      }).catch(function (e) {
+        builderState.loadingInv = false;
+        builderState.invError = (e && e.message) || String(e);
+        renderBuilder();
+      });
+    } else {
+      renderBuilder();
+    }
   }
   function closeBuilder() {
     var ov = document.getElementById("ups-m-tb-overlay");
@@ -447,6 +478,9 @@
     });
     syncCapUi(true);
     document.getElementById("ups-m-tb-back").addEventListener("click", function () {
+      // In counter mode the counterparty is fixed (the offerer), so step 2's
+      // Back closes the builder instead of returning to the counterparty picker.
+      if (builderState.counterMode && isGet) { closeBuilder(); return; }
       builderState.step = isGet ? 1 : 2; renderBuilder();
     });
     document.getElementById("ups-m-tb-next").addEventListener("click", function () {
@@ -487,7 +521,7 @@
       '<div class="ups-m-tb-nav">' +
         '<button class="btn-act" id="ups-m-tb-back"' + (builderState.submitting ? ' disabled' : '') + '>Back</button>' +
         '<button class="btn-act otb on" id="ups-m-tb-submit"' + (canSubmit && !builderState.submitting ? '' : ' disabled') + '>' +
-          (builderState.submitting ? "Submitting…" : "Send offer") + '</button>' +
+          (builderState.submitting ? "Submitting…" : (builderState.counterMode ? "Send counter" : "Send offer")) + '</button>' +
       '</div>';
     var c = document.getElementById("ups-m-tb-comment");
     if (c) c.addEventListener("input", function () { builderState.comment = this.value; });
@@ -552,20 +586,42 @@
     var myFid = U.pad4(M.state.viewerFranchiseId);
     var theirFid = U.pad4(builderState.counterpartyFid);
     var payload = buildOfferPayload();
-    var body = {
-      league_id: M.state.ctx.leagueId,
-      season: M.state.ctx.year,
-      from_franchise_id: myFid,
-      to_franchise_id: theirFid,
-      from_franchise_name: franchiseName(myFid),
-      to_franchise_name: franchiseName(theirFid),
-      message: builderState.comment || "",
-      payload: payload
-    };
-    var url = M.api.workerUrl("/api/trades/proposals?L=" +
-      encodeURIComponent(M.state.ctx.leagueId) + "&YEAR=" + encodeURIComponent(M.state.ctx.year));
+    var url, body;
+    if (builderState.counterMode) {
+      // COUNTER: the worker rejects the original offer + sends this new
+      // proposal back to the offerer (worker /action COUNTER).
+      url = M.api.workerUrl("/api/trades/proposals/action");
+      body = {
+        action: "COUNTER",
+        trade_id: builderState.counterTradeId,
+        league_id: M.state.ctx.leagueId,
+        season: M.state.ctx.year,
+        year: M.state.ctx.year,
+        franchise_id: myFid,
+        message: builderState.comment || "",
+        counter_offer: {
+          from_franchise_id: myFid,
+          to_franchise_id: theirFid,
+          payload: payload,
+          message: builderState.comment || ""
+        }
+      };
+    } else {
+      url = M.api.workerUrl("/api/trades/proposals?L=" +
+        encodeURIComponent(M.state.ctx.leagueId) + "&YEAR=" + encodeURIComponent(M.state.ctx.year));
+      body = {
+        league_id: M.state.ctx.leagueId,
+        season: M.state.ctx.year,
+        from_franchise_id: myFid,
+        to_franchise_id: theirFid,
+        from_franchise_name: franchiseName(myFid),
+        to_franchise_name: franchiseName(theirFid),
+        message: builderState.comment || "",
+        payload: payload
+      };
+    }
     var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
-    if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
+    if (stored) url += (url.indexOf("?") >= 0 ? "&" : "?") + "MFL_USER_ID=" + encodeURIComponent(stored);
     fetch(url, {
       method: "POST", mode: "cors", credentials: "omit",
       headers: { "Content-Type": "application/json" },
@@ -578,7 +634,7 @@
     }).then(function (resp) {
       builderState.submitting = false;
       if (resp.ok && resp.body && resp.body.ok !== false) {
-        M.ui.showToast("Offer sent ✓", "ok");
+        M.ui.showToast(builderState.counterMode ? "Counter sent ✓" : "Offer sent ✓", "ok");
         closeBuilder();
         state.offers = null;
         if (M.actions && M.actions.reloadData) {
@@ -682,14 +738,12 @@
 
     var html = subTabs("trade");
     // CTA — native in-app builder (players + future picks + cap money).
-    // Desktop link retained for current-year draft-pick trades (see builder note).
     html += '<div class="ups-m-card">' +
       '<div class="ups-m-card-title">Build a new offer</div>' +
       '<div style="font-size:12px;color:var(--fg-muted);margin-bottom:10px">' +
-        'Trade players, future picks, and cap money right here. Including a current-year rookie pick? Use the desktop War Room.' +
+        'Trade players, future picks, and cap money right here.' +
       '</div>' +
-      '<button class="btn-act otb on" id="ups-m-tb-open" style="width:100%;margin-bottom:8px">+ Build offer</button>' +
-      '<a class="ups-m-desktop-link" style="margin:0" href="' + buildTradeWarRoomUrl() + '" target="_blank">Open Trade War Room (desktop)</a>' +
+      '<button class="btn-act otb on" id="ups-m-tb-open" style="width:100%">+ Build offer</button>' +
     '</div>';
 
     html += '<div class="ups-m-pos-group">Incoming · ' + incoming.length + '</div>';
@@ -705,10 +759,16 @@
     var btns = mount.querySelectorAll(".btn-act[data-act]");
     for (var i = 0; i < btns.length; i++) {
       btns[i].addEventListener("click", function () {
-        handleAction(this.getAttribute("data-act"), this.getAttribute("data-trade-id"));
+        var act = this.getAttribute("data-act");
+        var tid = this.getAttribute("data-trade-id");
+        if (act === "counter") {
+          openBuilder({ counterFid: this.getAttribute("data-from-fid"), counterTradeId: tid });
+          return;
+        }
+        handleAction(act, tid);
       });
     }
   }
 
-  M.tradeView = { render: render };
+  M.tradeView = { render: render, openBuilder: openBuilder };
 })();

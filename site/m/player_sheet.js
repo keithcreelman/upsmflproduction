@@ -11,6 +11,8 @@
   var ACT = window.UPS_MOBILE.actions;
 
   var bundleCache = {};
+  var activeTab = "actions";   // player sheet tab: actions | stats | bio
+  var currentBundle = null;    // /api/player-bundle result for the open player
 
   function ensureMount() {
     var mount = document.getElementById("ups-m-sheet-mount");
@@ -22,6 +24,7 @@
         '    <button class="ups-m-sheet-close" id="ups-m-sheet-close" aria-label="Close">×</button>' +
         '    <div class="ups-m-sheet-grip"></div>' +
         '    <div class="ups-m-sheet-head" id="ups-m-sheet-head"></div>' +
+        '    <div class="ups-m-sheet-tabs" id="ups-m-sheet-tabs" role="tablist"></div>' +
         '    <div class="ups-m-sheet-body" id="ups-m-sheet-body"></div>' +
         '    <div class="ups-m-sheet-foot" id="ups-m-sheet-foot"></div>' +
         '  </div>' +
@@ -33,6 +36,13 @@
       document.getElementById("ups-m-sheet-close").addEventListener("click", close);
       document.addEventListener("keydown", function (e) {
         if (e.key === "Escape" && overlay.classList.contains("open")) close();
+      });
+      // Tab switching (Actions / Stats / Bio). Delegated so it survives the
+      // per-open re-render of the tab labels.
+      var tabsNav = document.getElementById("ups-m-sheet-tabs");
+      if (tabsNav) tabsNav.addEventListener("click", function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest(".ups-m-sheet-tab") : null;
+        if (btn && btn.getAttribute("data-tab")) setTab(btn.getAttribute("data-tab"));
       });
     }
     return mount;
@@ -330,6 +340,17 @@
         '</div>';
       }
 
+      // IR call-up (canon §B3 — IR gives 50% cap relief + off the active
+      // roster max). Surfaces "Activate from IR" for players currently on IR;
+      // the worker maps it to MFL TYPE=ir ACTIVATE. Option-DOWN (place on IR)
+      // is deferred — the MFL `ir` import field for placing isn't confirmed,
+      // so owners option down on MFL directly for now.
+      if (rrIsIr) {
+        html += '<div class="ups-m-sheet-actions">' +
+          '<button class="btn-act ext" data-act="activate-ir">Activate from IR</button>' +
+        '</div>';
+      }
+
       // §C2 MYAC — when a fresh 1-yr auction default (Vet-ERA win or a
       // this-season FA-auction Veteran) can be set to a 2-/3-year contract at
       // the SAME salary (TCV = bid × years, NO escalator). Shown INSTEAD of
@@ -476,6 +497,10 @@
     if (demoteTaxi) demoteTaxi.addEventListener("click", function () {
       handleTaxiRosterMove("demote_taxi", demoteTaxi);
     });
+    var activateIr = foot.querySelector('[data-act="activate-ir"]');
+    if (activateIr) activateIr.addEventListener("click", function () {
+      handleIrMove("activate_ir", activateIr);
+    });
     var contractButtons = foot.querySelectorAll('[data-act="contract"]');
     for (var ci = 0; ci < contractButtons.length; ci++) {
       contractButtons[ci].addEventListener("click", function () {
@@ -561,6 +586,49 @@
       // Q19: worker returns 502 + verification.ok=false when MFL didn't
       // actually apply the action (off-season gate, permanent-promotion
       // block, etc.). Surface the error message directly.
+      var err = (resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status);
+      window.UPS_MOBILE.ui.showToast(verbCap + " failed: " + err, "err");
+    }).catch(function (err) {
+      setBusy(btn, false);
+      window.UPS_MOBILE.ui.showToast(verbCap + " failed: " + (err && err.message || err), "err");
+    });
+  }
+
+  // IR call-up — mobile mirror of desktop's activate-ir. Posts
+  // /roster-workbench/action action="activate_ir" (worker → MFL TYPE=ir,
+  // ACTIVATE). Same MFL_USER_ID forwarding as the taxi moves. §B3.
+  function handleIrMove(action, btn) {
+    var s = window.UPS_MOBILE.state;
+    var name = footerState.name || "this player";
+    var verbCap = "Activate";
+    if (!window.confirm("Activate " + name + " from IR?\n\nThis returns them to your active roster — they count against the cap + active-roster max again.")) return;
+    setBusy(btn, true, "Activating…");
+    var url = window.UPS_MOBILE.api.workerBase() + "/roster-workbench/action";
+    var getStored = window.UPS_MOBILE.api.getStoredMflUserId;
+    var stored = getStored ? getStored() : "";
+    if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
+    fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: action,
+        league_id: s.ctx.leagueId,
+        season: s.ctx.year,
+        franchise_id: U.pad4(s.viewerFranchiseId),
+        player_id: U.safeStr(footerState.pid)
+      })
+    }).then(function (r) {
+      return r.json().then(function (b) { return { ok: r.ok, status: r.status, body: b }; });
+    }).then(function (resp) {
+      setBusy(btn, false);
+      if (resp.ok && resp.body && resp.body.ok) {
+        window.UPS_MOBILE.ui.showToast(U.safeStr(resp.body.message) || "Activated from IR", "ok");
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
       var err = (resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status);
       window.UPS_MOBILE.ui.showToast(verbCap + " failed: " + err, "err");
     }).catch(function (err) {
@@ -1636,6 +1704,87 @@
     });
   }
 
+  // ── Tabs (Actions / Stats / Bio) — mirrors the desktop FO slide-over. ──
+  function renderTabNav() {
+    var tabs = [["actions", "Actions"], ["stats", "Stats"], ["bio", "Bio"]];
+    return tabs.map(function (t) {
+      return '<button class="ups-m-sheet-tab' + (t[0] === activeTab ? " active" : "") +
+        '" role="tab" data-tab="' + t[0] + '">' + t[1] + '</button>';
+    }).join("");
+  }
+  function setTab(tab) {
+    activeTab = tab;
+    var nav = document.getElementById("ups-m-sheet-tabs");
+    if (nav) {
+      var btns = nav.querySelectorAll(".ups-m-sheet-tab");
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.toggle("active", btns[i].getAttribute("data-tab") === tab);
+      }
+    }
+    // Actions live in the sticky foot — show it only on the Actions tab.
+    var foot = document.getElementById("ups-m-sheet-foot");
+    if (foot) foot.style.display = (tab === "actions") ? "" : "none";
+    renderTabBody();
+  }
+  function renderTabBody() {
+    var body = document.getElementById("ups-m-sheet-body");
+    if (!body) return;
+    if (activeTab === "stats") {
+      body.innerHTML = '<div class="ups-m-sheet-block"><h4>Season Stats</h4>' +
+        '<div id="ups-m-sheet-stats">' +
+          (currentBundle ? renderStatsBlock(currentBundle) : '<div class="ups-m-sheet-loading">Loading…</div>') +
+        '</div></div>';
+    } else if (activeTab === "bio") {
+      body.innerHTML = renderBioBlock(footerState.pid, currentBundle);
+    } else {
+      // Actions tab — contract context; the action buttons sit in the foot.
+      body.innerHTML = rowContractBlock(footerState.rosterRow) ||
+        '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">Free agent — no contract on file.</div></div>';
+    }
+  }
+  function computeAge(bdate) {
+    bdate = U.safeStr(bdate);
+    if (!bdate) return 0;
+    var d = null, m = bdate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    else if (/^\d{9,10}$/.test(bdate)) d = new Date(parseInt(bdate, 10) * (bdate.length === 10 ? 1000 : 1));
+    else { var m2 = bdate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m2) d = new Date(Date.UTC(+m2[3], +m2[1] - 1, +m2[2])); }
+    if (!d || isNaN(d.getTime())) return 0;
+    var now = new Date();
+    var age = now.getUTCFullYear() - d.getUTCFullYear();
+    var mo = now.getUTCMonth() - d.getUTCMonth();
+    if (mo < 0 || (mo === 0 && now.getUTCDate() < d.getUTCDate())) age -= 1;
+    return (age > 0 && age < 70) ? age : 0;
+  }
+  function renderBioBlock(pid, bundle) {
+    var player = DATA.playerById(pid) || {};
+    var pp = (bundle && bundle.profile && bundle.profile.playerProfile) || {};
+    function pick() { for (var i = 0; i < arguments.length; i++) { var v = U.safeStr(arguments[i]); if (v) return v; } return ""; }
+    var age = computeAge(pick(player.birthdate, player.dob, pp.birthdate));
+    var wt = pick(player.weight, pp.weight);
+    var dY = pick(player.draft_year, pp.draft_year);
+    var dR = pick(player.draft_round, pp.draft_round);
+    var dP = pick(player.draft_pick, pp.draft_pick);
+    var dT = pick(player.draft_team, pp.draft_team);
+    var drafted = dY ? (dY + (dR ? " · R" + dR + (dP ? "." + dP : "") : "") + (dT ? " · " + dT : "")) : "";
+    var rows = [
+      ["Position", pick(player.position, pp.position)],
+      ["NFL Team", pick(player.team, pp.team)],
+      ["Age", age ? (age + " yrs") : ""],
+      ["Height", pick(player.height, pp.height)],
+      ["Weight", wt ? (wt + " lb") : ""],
+      ["College", pick(player.college, pp.college)],
+      ["Drafted (NFL)", drafted]
+    ].filter(function (r) { return r[1]; });
+    if (!rows.length) {
+      return '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">Bio details unavailable for this player.</div></div>';
+    }
+    var kv = rows.map(function (r) {
+      return '<div class="lbl">' + U.escapeHtml(r[0]) + '</div><div class="val">' + U.escapeHtml(r[1]) + '</div>';
+    }).join("");
+    return '<div class="ups-m-sheet-block"><h4>Bio</h4><div class="ups-m-sheet-kv">' + kv + '</div></div>';
+  }
+
   function open(pid, opts) {
     opts = opts || {};
     ensureMount();
@@ -1681,26 +1830,29 @@
     var rosterRow = opts.rosterRow || (findRosterRowAcrossLeague(pid) || {}).row || null;
     var ownsPlayer = isOwnRoster(pid);
 
-    body.innerHTML =
-      rowContractBlock(rosterRow) +
-      '<div class="ups-m-sheet-block">' +
-        '<h4>Season Stats</h4>' +
-        '<div id="ups-m-sheet-stats"><div class="ups-m-sheet-loading">Loading…</div></div>' +
-      '</div>';
-
     footerState.pid = pid;
     footerState.name = name || ("Player " + pid);
     footerState.rosterRow = rosterRow;
     footerState.editingOtb = false;
     // Used by renderStatsBlock to look up leaderboard stats for THIS player.
     window.UPS_MOBILE.state._sheetPid = pid;
+
+    // Tabs default to Actions; the action buttons render into the sticky foot
+    // (shown only on the Actions tab). Stats/Bio lazy-render from the bundle.
+    currentBundle = null;
+    activeTab = "actions";
+    var tabsNav = document.getElementById("ups-m-sheet-tabs");
+    if (tabsNav) tabsNav.innerHTML = renderTabNav();
+
     foot.innerHTML = renderActionsFooter(pid, rosterRow, ownsPlayer);
     wireFooterActions();
+    foot.style.display = "";   // Actions tab is active on open
+
+    renderTabBody();
 
     loadBundle(pid).then(function (bundle) {
-      var slot = document.getElementById("ups-m-sheet-stats");
-      if (!slot) return;
-      slot.innerHTML = renderStatsBlock(bundle);
+      currentBundle = bundle;
+      if (activeTab === "stats" || activeTab === "bio") renderTabBody();
     });
   }
 

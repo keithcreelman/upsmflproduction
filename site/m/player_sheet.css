@@ -101,6 +101,30 @@
 }
 .ups-m-sheet-close:active { color: var(--fg); }
 
+/* Tab bar (Actions / Stats / Bio) — mirrors the desktop FO slide-over. */
+.ups-m-sheet-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.ups-m-sheet-tab {
+  flex: 1;
+  padding: 11px 8px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--fg-muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+}
+.ups-m-sheet-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
 .ups-m-sheet-body {
   flex: 1 1 auto;
   overflow-y: auto;

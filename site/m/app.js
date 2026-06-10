@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.06.07.6";
+  var BUILD = "2026.06.10.1";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -157,6 +157,12 @@
       return m ? decodeURIComponent(m[1]) : "";
     } catch (e) { return ""; }
   }
+  // Inline icon helper — UPS_ICONS svg string (or "" before icons.js loads).
+  // For leading icons in static view markup; tinted via currentColor.
+  function ic(name, size) {
+    if (!window.UPS_ICONS) return "";
+    return window.UPS_ICONS.svg(name, { size: size || 16, cls: "ups-ic-inline" });
+  }
 
   // ---------- State ----------
   var state = {
@@ -186,6 +192,7 @@
     leagueEvents: null,        // /api/league-events?season=<year>&from=today (UPS deadline calendar)
     contractDeadline: "",      // §C2 MYAC window-close date (ISO yyyy-mm-dd) from /api/league-events?from=all; mirrors desktop v2/front_office.js STATE.contractDeadline
     acquisitionByKey: null,    // { "fid:pid": { label, date } } from player_acquisition_lookup_<year>.json — gates the MYAC fresh-FA-auction branch (desktop mergeAcquisitionLookupRows)
+    injuriesByPid: null,       // { pid: "IR"|"OUT"|"PUP"|"SUSPENDED"|... } from MFL injuries export — IR view §B3 "eligible to option down" bucket
     capAmount: 0,
     loaded: false,
     loadingPromise: null,
@@ -461,6 +468,20 @@
       .catch(function () { return {}; });
   }
 
+  // NFL injury designations (MFL injuries export) → { pid: STATUS }.
+  // The IR view (§B3) uses this to surface active players who are
+  // IR-eligible (NFL IR / PUP / suspended / holdout). Fail-open → {}.
+  function fetchInjuries() {
+    return fetchJson(mflExportUrl("injuries")).then(function (j) {
+      var map = {};
+      var root = j && j.injuries && j.injuries.injury;
+      asArray(root).forEach(function (it) {
+        if (it && it.id != null) map[String(it.id)] = safeStr(it.status).toUpperCase();
+      });
+      return map;
+    }).catch(function () { return {}; });
+  }
+
   function buildLeaderboardMap(perAliasArrays) {
     // Each alias response (skill / idp) returns multiple positions
     // (RB+WR+TE, or DB+LB+DL etc.). Bucket by row.position FIRST so a WR's
@@ -678,7 +699,8 @@
       // "" / {} keep the app fully functional (MYAC just falls back to its
       // unknown-deadline / ERA-only behavior).
       fetchContractDeadline(state.ctx.year),
-      fetchAcquisitionLookup(state.ctx.year)
+      fetchAcquisitionLookup(state.ctx.year),
+      fetchInjuries()
     ]).then(function (results) {
       state.league = results[0];
       state.rosters = results[1];
@@ -737,6 +759,7 @@
       state.taxiCallupsByPid = (taxiCallupsResp && taxiCallupsResp.players) || {};
       state.contractDeadline = results[17] || "";
       state.acquisitionByKey = results[18] || {};
+      state.injuriesByPid = results[19] || {};
       parseLeague();
       resolveViewerFranchise(results[14]);
       // Now that we know the viewer franchise, fetch their UPS-side trade
@@ -1192,7 +1215,9 @@
 
   function currentRoute() {
     var hash = (window.location.hash || "").replace(/^#/, "");
-    return hash || "myteam/contracts";
+    // Default landing is the Home command center (Owner Actions), not a raw
+    // roster table — the mobile redesign makes Home the front door.
+    return hash || "home";
   }
   function navigate(hash) {
     if (hash[0] !== "#") hash = "#" + hash;
@@ -1201,13 +1226,21 @@
   }
 
   function updateNavActive(route) {
-    var top = route.split("/")[0];
+    // Match the FULL sub-route via data-subroute (longest prefix wins) so
+    // #myteam/lineup vs #myteam/contracts and #league/rosters vs
+    // #league/standings light the correct single tab. Routes with no nav
+    // entry (e.g. #myteam/taxi, #market) leave the bar un-highlighted.
     var items = document.querySelectorAll(".ups-m-nav-item");
+    var best = null, bestLen = -1;
     for (var i = 0; i < items.length; i++) {
-      var r = items[i].getAttribute("data-route");
-      if (r === top) items[i].classList.add("active");
-      else items[i].classList.remove("active");
+      items[i].classList.remove("active");
+      var sub = items[i].getAttribute("data-subroute") || items[i].getAttribute("data-route") || "";
+      if (sub && (route === sub || route.indexOf(sub + "/") === 0) && sub.length > bestLen) {
+        best = items[i];
+        bestLen = sub.length;
+      }
     }
+    if (best) best.classList.add("active");
   }
 
   function renderFranchisePicker(main) {
@@ -1217,32 +1250,22 @@
     // The clean path is: log into MFL → tap "Switch to App View" → land
     // here pre-authenticated. This picker is the fallback for cold
     // visits that bypassed the desktop entry.
-    var opts = state.franchises.map(function (f) {
-      return '<button class="ups-m-pick-row" data-fid="' + escapeHtml(f.id) + '">' +
-        '<span class="num">' + escapeHtml(f.id) + '</span>' +
-        '<span class="name">' + escapeHtml(f.name || "Franchise " + f.id) + '</span>' +
-        (f.owner ? '<span class="owner">' + escapeHtml(f.owner) + '</span>' : '') +
-        '</button>';
-    }).join("");
+    // MFL-only sign-in (Keith 2026-06-08): no manual team picker — the owner
+    // signs in via MFL's "Switch to App View" bounce, which forwards
+    // MFL_USER_ID (one-and-done; persisted in localStorage thereafter).
+    var mflHome = "https://www48.myfantasyleague.com/" +
+      encodeURIComponent(state.ctx.year) + "/home/" + encodeURIComponent(state.ctx.leagueId);
+    var loginIcon = window.UPS_ICONS ? window.UPS_ICONS.svg("log-in", { size: 18 }) : "";
     main.innerHTML =
       '<div class="ups-m-card">' +
-        '<div class="ups-m-card-title">Choose your team</div>' +
-        '<div style="font-size:12px;color:var(--fg-muted);margin-bottom:10px">' +
-        'For automatic sign-in, open the UPS site on MFL while logged in and tap the "📱 Switch to App View" button. Or pick your franchise once below — we\'ll remember it.' +
+        '<div class="ups-m-card-title">Sign in</div>' +
+        '<div style="font-size:13px;color:var(--fg-muted);margin-bottom:12px;line-height:1.5">' +
+          'Sign in through MyFantasyLeague so the app knows your franchise. Open the UPS league on MFL while logged in, then tap <b>"📱 Switch to App View."</b> You stay signed in after that.' +
         '</div>' +
-        '<div class="ups-m-pick-list">' + opts + '</div>' +
+        '<a class="ups-m-signin-btn" href="' + mflHome + '" target="_blank" rel="noopener">' +
+          loginIcon + '<span>Sign in with MFL</span>' +
+        '</a>' +
       '</div>';
-    var btns = main.querySelectorAll(".ups-m-pick-row");
-    for (var i = 0; i < btns.length; i++) {
-      btns[i].addEventListener("click", function () {
-        var fid = pad4(this.getAttribute("data-fid"));
-        if (!fid) return;
-        try { window.localStorage && window.localStorage.setItem("rdh_my_fid", fid); } catch (e) {}
-        state.viewerFranchiseId = fid;
-        state.viewerFranchise = state.franchises.find(function (f) { return f.id === fid; }) || null;
-        renderRoute();
-      });
-    }
   }
 
   function renderRoute() {
@@ -1330,6 +1353,21 @@
     try { window.localStorage && window.localStorage.removeItem("rdh_my_fid"); } catch (e) {}
     state.viewerFranchiseId = "";
     state.viewerFranchise = null;
+    renderRoute();
+  }
+
+  // Full sign-out — clears BOTH the remembered franchise and the persisted
+  // MFL session (ups_mfl_user_id). Sign-in is one-and-done (the MFL "Switch to
+  // App View" bounce stores MFL_USER_ID, reused every open); this is the only
+  // thing that ends it, dropping the user back to the picker / sign-in.
+  function signOut() {
+    try {
+      window.localStorage && window.localStorage.removeItem("rdh_my_fid");
+      window.localStorage && window.localStorage.removeItem("ups_mfl_user_id");
+    } catch (e) {}
+    state.viewerFranchiseId = "";
+    state.viewerFranchise = null;
+    state.meConfigured = false;
     renderRoute();
   }
 
@@ -1423,25 +1461,31 @@
     // When /api/me resolved a real session, hide Switch Team — the worker
     // will rebind us to the authoritative fid on next load anyway, and
     // letting the picker reopen would confuse "whose data am I looking at?"
-    var switchBtn = state.meConfigured
-      ? '<div style="font-size:12px;color:var(--fg-muted)">Signed in via MFL — team is locked to your account.</div>'
-      : '<button class="ups-m-pick-row" id="ups-m-switch-team" style="width:100%;justify-content:center"><span class="name">Switch team</span></button>';
+    // MFL-only auth: signed in → Sign out; signed out → Sign in with MFL.
+    var mflHomeUrl = "https://www48.myfantasyleague.com/" +
+      encodeURIComponent(state.ctx.year) + "/home/" + encodeURIComponent(state.ctx.leagueId);
+    var authBtn = state.viewerFranchiseId
+      ? '<button class="ups-m-desktop-link" id="ups-m-sign-out" style="margin:8px 0 0;cursor:pointer;background:none;font-size:14px;color:var(--danger)">Sign out</button>'
+      : '<a class="ups-m-signin-btn" href="' + mflHomeUrl + '" target="_blank" rel="noopener" style="margin-top:8px">' + ic("log-in", 18) + '<span>Sign in with MFL</span></a>';
     mount.innerHTML =
       '<div class="ups-m-card">' +
         '<div class="ups-m-card-title">Your team</div>' +
         '<div style="font-size:14px;margin-bottom:10px">' + accountLine + '</div>' +
-        switchBtn +
+        authBtn +
       '</div>' +
-      '<a class="ups-m-desktop-link" href="#more/rules">📖 Rules</a>' +
+      '<a class="ups-m-desktop-link" href="#more/rules">' + ic("book-open") + 'Rules</a>' +
       // Explicit refresh button (Keith MobileNotesV1: previously the only
       // refresh affordance was the pull-to-refresh gesture, which Keith
       // noted "doesn't do anything" — likely because it's only visible
-      // mid-pull. This button reloads everything via reloadData().
-      '<button class="ups-m-desktop-link" id="ups-m-refresh-data" style="width:100%;cursor:pointer;background:none;font-size:14px">🔄 Refresh data</button>' +
-      '<a class="ups-m-desktop-link" href="https://www48.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/home/' + escapeHtml(state.ctx.leagueId) + '" target="_blank" rel="noopener">Switch to Desktop View</a>' +
+      // mid-pull. This button reloads everything via reloadData(). Text-only
+      // (no icon) because the handler swaps its textContent during refresh.
+      '<button class="ups-m-desktop-link" id="ups-m-refresh-data" style="cursor:pointer;background:none;font-size:14px">Refresh data</button>' +
+      '<a class="ups-m-desktop-link" href="https://www48.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/home/' + escapeHtml(state.ctx.leagueId) + '" target="_blank" rel="noopener">' + ic("external-link") + 'Switch to Desktop View</a>' +
       '<div class="ups-m-stub"><div>UPS Mobile · ' + escapeHtml(BUILD) + '</div><div style="font-size:11px;margin-top:6px">League ' + escapeHtml(state.ctx.leagueId) + ' · ' + escapeHtml(state.ctx.year) + '</div></div>';
-    var btn = document.getElementById("ups-m-switch-team");
-    if (btn) btn.addEventListener("click", switchTeam);
+    var soBtn = document.getElementById("ups-m-sign-out");
+    if (soBtn) soBtn.addEventListener("click", function () {
+      if (window.confirm("Sign out? You'll need to sign in via MFL again to make changes.")) signOut();
+    });
     var refreshBtn = document.getElementById("ups-m-refresh-data");
     if (refreshBtn) {
       refreshBtn.addEventListener("click", function () {
@@ -1528,16 +1572,18 @@
   // Red-dot indicator on the League tab when there are pending incoming
   // trade offers for the viewer. Re-computed on each render + after reload.
   function updateNavBadges() {
-    var leagueAnchor = document.querySelector(".ups-m-nav-item[data-route='league'] .ups-m-nav-icon");
-    if (!leagueAnchor) return;
-    var existing = leagueAnchor.querySelector(".ups-m-nav-badge");
+    // Incoming-offer indicator rides the HOME tab now — Trades lives on the
+    // Home command center, and the Trades card carries the in-page alert.
+    var homeAnchor = document.querySelector(".ups-m-nav-item[data-route='home'] .ups-m-nav-icon");
+    if (!homeAnchor) return;
+    var existing = homeAnchor.querySelector(".ups-m-nav-badge");
     if (existing) existing.remove();
     var count = countIncomingOffers();
     if (count > 0) {
       var b = document.createElement("span");
       b.className = "ups-m-nav-badge";
       b.textContent = count > 9 ? "9+" : String(count);
-      leagueAnchor.appendChild(b);
+      homeAnchor.appendChild(b);
     }
   }
   function countIncomingOffers() {
