@@ -246,15 +246,16 @@
     return renderTeamHeader(franchise) + renderTeamCapCard(fid) + listHtml;
   }
 
-  // Two views for the Rosters tab:
+  // Two views for the Rosters tab — defaults to TEAM DETAIL of the viewer's
+  // own franchise (Keith 2026-06-08); Salary Summary is the secondary view.
+  //   "team"    — individual roster detail (default)
   //   "summary" — league-wide cap summary, one row per team
-  //   "team"    — individual roster detail (existing)
-  state.rostersMode = state.rostersMode || "summary";
+  state.rostersMode = state.rostersMode || "team";
 
   function renderRostersModeToggle() {
     var modes = [
-      { key: "summary", label: "Salary Summary" },
-      { key: "team", label: "Team Detail" }
+      { key: "team", label: "Team Detail" },
+      { key: "summary", label: "Salary Summary" }
     ];
     return '<div class="ups-m-segctl">' + modes.map(function (m) {
       return '<button class="ups-m-segctl-btn' + (state.rostersMode === m.key ? " on" : "") +
@@ -649,7 +650,7 @@
     var html = subTabs("standings") +
       renderYearPicker(year) +
       '<div class="ups-m-card">' +
-        '<div class="ups-m-card-title">' + U.escapeHtml(y) + ' · Final Standings</div>' +
+        '<div class="ups-m-card-title">' + U.escapeHtml(y) + (hasFinishData ? ' · Final Standings' : ' · Standings') + '</div>' +
         '<table class="ups-m-standings-table">' +
           '<thead><tr><th>#</th><th class="team">Team</th><th>W-L</th><th>H2H%</th><th>AP%</th><th>PF</th></tr></thead>' +
           '<tbody>' + trs + '</tbody>' +

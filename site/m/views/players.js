@@ -28,10 +28,28 @@
   var view = {
     query: "",
     pos: "ALL",
+    scope: "fa",    // "fa" (default) | "all" — Keith 2026-06-08: allow browsing ALL players
     sort: "ppg",    // "ppg" | "pts"
     debounceTimer: null,
     dropSheetFor: null   // pid of player being added (drop-sheet open)
   };
+
+  function franchiseName(fid) {
+    var f = (M.state.franchises || []).find(function (x) { return x.id === U.pad4(fid); });
+    return f ? f.name : ("Franchise " + fid);
+  }
+  // pid → owning franchise id (for "All players" scope → propose-trade).
+  function rosteredFidByPid() {
+    var map = {};
+    var rs = M.state.rosters && M.state.rosters.rosters;
+    if (rs) {
+      U.asArray(rs.franchise).forEach(function (fr) {
+        var fid = U.pad4(fr.id);
+        U.asArray(fr.player).forEach(function (p) { if (p && p.id) map[String(p.id)] = fid; });
+      });
+    }
+    return map;
+  }
 
   function nameFor(player) {
     var raw = U.safeStr(player && player.name);
@@ -69,6 +87,7 @@
 
   function buildFreeAgents() {
     var rostered = DATA.getAllRosteredPids();
+    var fidByPid = (view.scope === "all") ? rosteredFidByPid() : null;
     // Canonical UPS-scored stats — from Advanced Stats Workbench leaderboard.
     // Falls back to MFL YTD playerScores if the leaderboard didn't return
     // a row for this pid (rare; usually means the player didn't play this season).
@@ -83,7 +102,8 @@
       var p = list[i];
       if (!p || !p.id) continue;
       var pid = String(p.id);
-      if (rostered.has(pid)) continue;
+      var isRostered = rostered.has(pid);
+      if (view.scope !== "all" && isRostered) continue;
       var pos = U.safeStr(p.position).toUpperCase();
       if (!pos) continue;
       var group = POS_GROUP[pos] || pos;
@@ -102,7 +122,8 @@
         team: U.safeStr(p.team),
         ytdPts: pts,
         ppg: ppg,
-        posRank: rank
+        posRank: rank,
+        rosteredFid: (isRostered && fidByPid) ? (fidByPid[pid] || "") : ""
       });
     }
     return out;
@@ -133,9 +154,14 @@
       return '<button class="ups-m-pos-chip' + (view.pos === p ? " on" : "") +
         '" data-pos="' + U.escapeHtml(p) + '">' + U.escapeHtml(label) + '</button>';
     }).join("");
+    var scopeToggle = '<div class="ups-m-seg-toggle">' +
+      '<button class="ups-m-seg-btn' + (view.scope !== "all" ? " on" : "") + '" data-scope="fa">Free Agents</button>' +
+      '<button class="ups-m-seg-btn' + (view.scope === "all" ? " on" : "") + '" data-scope="all">All Players</button>' +
+    '</div>';
     return '<div class="ups-m-players-toolbar">' +
+      scopeToggle +
       '<input type="search" class="ups-m-players-search" id="ups-m-players-search" ' +
-        'placeholder="Search free agents…" autocomplete="off" autocorrect="off" ' +
+        'placeholder="' + (view.scope === "all" ? "Search all players…" : "Search free agents…") + '" autocomplete="off" autocorrect="off" ' +
         'value="' + U.escapeHtml(view.query) + '" />' +
       '<div class="ups-m-pos-chips">' + chips + '</div>' +
       '<div class="ups-m-sort-row">' +
@@ -147,24 +173,38 @@
 
   function renderRows(rows) {
     if (!rows.length) {
-      return '<div class="ups-m-stub"><div>No matching free agents.</div></div>';
+      return '<div class="ups-m-stub"><div>No matching ' + (view.scope === "all" ? "players" : "free agents") + '.</div></div>';
     }
     var capped = rows.slice(0, 200); // limit DOM cost on mobile
+    var myFid = U.pad4(M.state.viewerFranchiseId);
     var html = '<div class="ups-m-fa-list">';
     capped.forEach(function (r, idx) {
       var posClass = r.group.toLowerCase();
-      html += '<div class="ups-m-fa-row" data-pid="' + U.escapeHtml(r.id) + '">' +
+      // Rostered player (All-players scope): show the owner; offer Propose
+      // trade for players on OTHER teams (Keith 2026-06-08).
+      var ownerTag = "", actionBtn = "";
+      if (r.rosteredFid) {
+        if (r.rosteredFid === myFid) {
+          ownerTag = '<span class="owned you">Your team</span>';
+        } else {
+          ownerTag = '<span class="owned">' + U.escapeHtml(franchiseName(r.rosteredFid)) + '</span>';
+          actionBtn = '<button class="ups-m-fa-trade" data-act="propose-trade" data-fid="' + U.escapeHtml(r.rosteredFid) + '" data-pid="' + U.escapeHtml(r.id) + '">Propose trade</button>';
+        }
+      }
+      html += '<div class="ups-m-fa-row' + (actionBtn ? ' has-act' : '') + '" data-pid="' + U.escapeHtml(r.id) + '">' +
         '<div class="rank">' + (idx + 1) + '</div>' +
         '<div class="pos ' + posClass + '">' + U.escapeHtml(r.pos) + '</div>' +
         '<div class="body">' +
           '<div class="name">' + U.escapeHtml(r.name) + '</div>' +
           '<div class="sub">' +
+            ownerTag +
             (r.team ? '<span>' + U.escapeHtml(r.team) + '</span>' : '') +
             '<span>YTD ' + (Math.round(r.ytdPts * 10) / 10).toFixed(1) + '</span>' +
             '<span>PPG ' + (Math.round(r.ppg * 10) / 10).toFixed(1) + '</span>' +
             (r.posRank > 0 ? '<span>#' + r.posRank + ' ' + U.escapeHtml(r.group) + '</span>' : '') +
           '</div>' +
         '</div>' +
+        actionBtn +
       '</div>';
       // Add button removed per Keith 2026-05-15 — FA acquisition stays on
       // desktop for now. The drop sheet flow (handleAddDropConfirm) is
@@ -321,6 +361,23 @@
       sortBtns[j].addEventListener("click", function () {
         view.sort = this.getAttribute("data-sort");
         renderRoute();
+      });
+    }
+    var scopeBtns = mount.querySelectorAll(".ups-m-seg-btn");
+    for (var sc = 0; sc < scopeBtns.length; sc++) {
+      scopeBtns[sc].addEventListener("click", function () {
+        view.scope = this.getAttribute("data-scope");
+        renderRoute();
+      });
+    }
+    var tradeBtns = mount.querySelectorAll(".ups-m-fa-trade");
+    for (var t = 0; t < tradeBtns.length; t++) {
+      tradeBtns[t].addEventListener("click", function (e) {
+        e.stopPropagation();
+        var tfid = this.getAttribute("data-fid");
+        var tpid = this.getAttribute("data-pid");
+        if (M.tradeView && M.tradeView.openBuilder) M.tradeView.openBuilder({ toFid: tfid, preGetPid: tpid });
+        else M.route.navigate("#league/trade");
       });
     }
     var rows = mount.querySelectorAll(".ups-m-fa-row");

@@ -37,6 +37,7 @@
       tab("roster", "Roster", "roster") +
       tab("lineup", "Lineup", "lineup") +
       tab("taxi", "Taxi", "taxi") +
+      tab("ir", "IR", "ir") +
       tab("contracts", "Contracts", "contracts") +
       '</div>';
   }
