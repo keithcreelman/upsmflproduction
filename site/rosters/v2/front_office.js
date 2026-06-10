@@ -3547,6 +3547,37 @@
       </div>`;
   }
 
+  // ERA forced retention (§A3): mirror of the mobile player-sheet gate. A
+  // player won in the CURRENT Expired Rookie Auction can't be cut until the FA
+  // Auction closes; the worker blocks the real drop, so we hide the Drop button
+  // here so the owner never taps into the error. A dry-run drop is the
+  // authoritative check — the worker's ERA gate runs before the dry-run
+  // short-circuit, answering precisely (current-cycle winners only, auto-lifts
+  // when the auction closes, no MFL write). Only for "-era" contracts; fail-open.
+  function gateEraRetentionDropFO(body, p) {
+    var status = String((p && p.type) || "").toLowerCase();
+    if (status.indexOf("-era") === -1) return;
+    if (!body.querySelector("[data-action='drop']")) return;
+    var url = EP_ROSTER_ACTION() + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
+    fetch(url, {
+      method: "POST", credentials: "omit", cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "drop_player", dry_run: 1, league_id: LEAGUE_ID, season: SEASON, franchise_id: p.fid, player_id: p.id })
+    }).then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (d) {
+        var blocked = d && (d.code === "ERA_FORCED_RETENTION" || (d.gate && d.gate.blocked === true));
+        if (!blocked) return;
+        var live = body.querySelector("[data-action='drop']");
+        if (!live || !live.parentNode) return;
+        var note = document.createElement("span");
+        note.className = "fo-era-lock";
+        note.setAttribute("style", "display:inline-block;padding:5px 9px;border-radius:6px;background:rgba(255,184,107,0.14);border:1px solid rgba(255,184,107,0.34);color:#e6a85e;font-size:12px;line-height:1.4;");
+        note.textContent = "🔒 Won in the " + SEASON + " Expired Rookie Auction — can’t be cut until the FA Auction closes (§A3).";
+        live.parentNode.replaceChild(note, live);
+      })
+      .catch(function () { /* fail-open — worker still enforces the block */ });
+  }
+
   function wireActionsTab(body, p) {
     $$("[data-action='extend']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { openExtensionForm(p, safeInt(btn.dataset.years, 1)); });
@@ -3575,6 +3606,7 @@
     $$("[data-action='drop']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { submitRosterMove("drop_player", p); });
     });
+    gateEraRetentionDropFO(body, p);
     $$("[data-action='activate-ir']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { submitRosterMove("activate_ir", p); });
     });
