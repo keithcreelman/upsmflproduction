@@ -127,7 +127,14 @@
     var sub = [];
     if (team && team.owner) sub.push(U.escapeHtml(team.owner));
     sub.push(U.escapeHtml(M.state.ctx.year) + " season");
-    var signin = !M.state.meConfigured
+    // Hide the Sign-in pill the moment the user is signed in. "Signed in" =
+    // franchise resolved, /api/me confirmed a session, OR a forwarded
+    // MFL_USER_ID token is stored — the durable sign-in artifact, which
+    // survives a transient /api/me failure on a later load. Only a truly
+    // signed-out user (no token, no franchise) sees it. (Keith 2026-06-10.)
+    var signedIn = M.state.viewerFranchiseId || M.state.meConfigured ||
+      (M.api && M.api.getStoredMflUserId && M.api.getStoredMflUserId());
+    var signin = !signedIn
       ? '<a class="ups-m-signin-pill" href="' + mflHome() + '" target="_blank" rel="noopener">' + ic("log-in", { size: 15 }) + '<span>Sign in</span></a>'
       : "";
     return '' +

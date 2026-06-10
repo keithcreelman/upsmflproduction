@@ -591,9 +591,21 @@
     ]).then(function (res) {
       var data = res[0], tcfg = res[1];
       var isTest = buildIsTestEvent(tcfg && tcfg.test_franchises);
+      var all = (data && data.submissions) || [];
+      // "Anything that was reverted was a test" (Keith 2026-06-10): a contract
+      // change that got reverted never became a real standing move — so drop
+      // the revert AND every event on that player+franchise.
+      var revertChurn = {};
+      all.forEach(function (s) {
+        if (/revert/i.test(U.safeStr(s.source))) {
+          revertChurn[U.pad4(s.franchise_id) + "|" + U.safeStr(s.player_id)] = true;
+        }
+      });
       // Only real, non-test moves land in the ledger.
-      var rows = ((data && data.submissions) || []).filter(function (s) {
-        return !isTest(U.pad4(s.franchise_id), s.submitted_at_utc);
+      var rows = all.filter(function (s) {
+        if (isTest(U.pad4(s.franchise_id), s.submitted_at_utc)) return false;
+        if (revertChurn[U.pad4(s.franchise_id) + "|" + U.safeStr(s.player_id)]) return false;
+        return true;
       });
       if (!rows.length) {
         box.innerHTML = '<div class="ups-m-stub"><div>No contract activity recorded for ' + U.escapeHtml(String(year)) + ' yet.</div></div>';
