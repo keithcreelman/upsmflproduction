@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.10.2",
-  "label": "Fix: mobile sign-in — credentials:omit on cross-origin /api/me (wildcard-CORS block) + roster-move writes + token URL-strip"
+  "build": "2026.06.10.3",
+  "label": "Card-driven sections: Alerts rename · self-contained Contracts (no bleed) + read-only Contract Ledger · Market = one Team/FA-filtered player list (Point Leaders removed)"
 }

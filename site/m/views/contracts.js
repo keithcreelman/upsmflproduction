@@ -252,12 +252,15 @@
     function tab(href, label, key) {
       return '<a class="ups-m-subtab' + (key === active ? ' active' : '') + '" href="#myteam/' + href + '">' + label + '</a>';
     }
+    // Roster section only — Roster · Lineup · Taxi · IR. Contracts is its
+    // OWN self-contained section (its own contract-ops nav), reached via the
+    // Home "Contracts" card or the bottom nav — no cross-bleed. (Keith
+    // 2026-06-10: card-driven, no-bleed sections.)
     return '<div class="ups-m-subtabs">' +
       tab("roster", "Roster", "roster") +
       tab("lineup", "Lineup", "lineup") +
       tab("taxi", "Taxi", "taxi") +
       tab("ir", "IR", "ir") +
-      tab("contracts", "Contracts", "contracts") +
       '</div>';
   }
 
@@ -301,7 +304,7 @@
         sub: "Cut or restructure to get compliant" });
     }
 
-    var html = '<div class="ups-m-action-center"><div class="ups-m-ac-title">Needs your attention</div>';
+    var html = '<div class="ups-m-action-center"><div class="ups-m-ac-title">Alerts</div>';
     if (!items.length) {
       return html + '<div class="ups-m-ac-allset">✓ You\'re all set — nothing needs action right now.</div></div>';
     }
@@ -350,11 +353,14 @@
   ];
 
   function actionChips(active) {
-    return '<div class="ups-m-subtabs ups-m-action-chips">' +
-      CONTRACT_ACTIONS.map(function (a) {
-        return '<a class="ups-m-subtab' + (a.key === active ? ' active' : '') +
-          '" href="#myteam/contracts/' + a.key + '">' + U.escapeHtml(a.label) + '</a>';
-      }).join("") + '</div>';
+    var chips = CONTRACT_ACTIONS.map(function (a) {
+      return '<a class="ups-m-subtab' + (a.key === active ? ' active' : '') +
+        '" href="#myteam/contracts/' + a.key + '">' + U.escapeHtml(a.label) + '</a>';
+    });
+    // Ledger — read-only contract-activity log (audit), self-contained here.
+    chips.push('<a class="ups-m-subtab' + ("ledger" === active ? ' active' : '') +
+      '" href="#myteam/contracts/ledger">Ledger</a>');
+    return '<div class="ups-m-subtabs ups-m-action-chips">' + chips.join("") + '</div>';
   }
 
   // Eligible roster players for one action, using the FO eligibility mirror
@@ -523,23 +529,100 @@
       '<div class="ups-m-deadlines-title">Upcoming deadlines</div>' + rows + '</div>';
   }
 
+  // ── Contract Ledger (read-only audit log) ───────────────────────────
+  // League-wide contract-activity feed — the SAME source the desktop FO
+  // Misc tab uses: the public read-only /admin/contract-submissions D1
+  // endpoint (browser-side, credentials:"omit", no APIKEY). Newest first.
+  var LEDGER_KIND = { myac: "MYAC", extension: "Extension", restructure: "Restructure", tag: "Tag", untag: "Untag", mym: "MYM" };
+  var LEDGER_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function ledgerTeam(fid) {
+    var f = (M.state.franchises || []).find(function (x) { return x.id === U.pad4(fid); });
+    return f ? (f.abbrev || f.name || ("Team " + U.pad4(fid))) : ("Team " + U.pad4(fid));
+  }
+  function ledgerWhen(iso) {
+    var m = U.safeStr(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return "";
+    return LEDGER_MONTHS[(Number(m[2]) || 1) - 1] + " " + Number(m[3]);
+  }
+  function ledgerChange(s) {
+    function leg(side) {
+      side = side || {};
+      var yr = side.contract_year != null ? (side.contract_year + "yr") : null;
+      var sal = side.salary != null ? U.fmtUsd(side.salary) : null;
+      return [yr, sal].filter(Boolean).join(" ");
+    }
+    var a = leg(s.prior), b = leg(s.new);
+    if (a && b) return a + " → " + b;
+    return b || a || "";
+  }
+  function renderContractLedger(mount) {
+    var box = document.createElement("div");
+    box.className = "ups-m-ledger";
+    box.innerHTML = '<div class="ups-m-ledger-loading">Loading contract activity…</div>';
+    mount.appendChild(box);
+    var ctx = M.state.ctx || {};
+    var year = ctx.year || "2026", league = ctx.leagueId || "74598";
+    var url = M.api.workerUrl("/admin/contract-submissions") +
+      "?L=" + encodeURIComponent(league) + "&YEAR=" + encodeURIComponent(year);
+    fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var rows = (data && data.submissions) || [];
+        if (!rows.length) {
+          box.innerHTML = '<div class="ups-m-stub"><div>No contract activity recorded for ' + U.escapeHtml(String(year)) + ' yet.</div></div>';
+          return;
+        }
+        // Resolve names for submissions that didn't store player_name.
+        var nameByPid = {};
+        var pf = M.state.players && M.state.players.players;
+        if (pf) { U.asArray(pf.player).forEach(function (p) { if (p && p.id) nameByPid[String(p.id)] = U.safeStr(p.name); }); }
+        var html = '<div class="ups-m-ledger-note">League-wide contract activity · ' + rows.length + ' move' + (rows.length > 1 ? "s" : "") + ' · ' + U.escapeHtml(String(year)) + ' · newest first</div>';
+        rows.forEach(function (s) {
+          var kindKey = U.safeStr(s.kind).toLowerCase();
+          var change = ledgerChange(s);
+          var pname = U.safeStr(s.player_name) || nameByPid[U.safeStr(s.player_id)] || ("Player " + U.safeStr(s.player_id));
+          html += '<div class="ups-m-ledger-row">' +
+            '<span class="ups-m-ledger-kind k-' + U.escapeHtml(kindKey) + '">' + U.escapeHtml(LEDGER_KIND[kindKey] || U.safeStr(s.kind)) + '</span>' +
+            '<div class="ups-m-ledger-body">' +
+              '<div class="ups-m-ledger-player">' + U.escapeHtml(pname) +
+                (s.position ? ' <span class="pos">' + U.escapeHtml(s.position) + '</span>' : '') + '</div>' +
+              '<div class="ups-m-ledger-meta">' + U.escapeHtml(ledgerTeam(s.franchise_id)) +
+                (change ? ' · ' + U.escapeHtml(change) : '') + '</div>' +
+            '</div>' +
+            '<span class="ups-m-ledger-date">' + U.escapeHtml(ledgerWhen(s.submitted_at_utc)) + '</span>' +
+          '</div>';
+        });
+        box.innerHTML = html;
+      })
+      .catch(function () {
+        box.innerHTML = '<div class="ups-m-stub"><div>Couldn\'t load contract activity. Pull to refresh.</div></div>';
+      });
+  }
+
   function renderContractsHub(mount, action) {
     var fid = M.state.viewerFranchiseId;
     if (!fid) {
-      mount.innerHTML = subTabs("contracts") +
-        '<div class="ups-m-stub"><h3>Sign in to MFL</h3><div>We couldn\'t resolve your franchise.</div></div>';
+      mount.innerHTML = '<div class="ups-m-stub"><h3>Sign in to MFL</h3><div>We couldn\'t resolve your franchise.</div></div>';
       return;
     }
     action = action || "myac";
-    var valid = CONTRACT_ACTIONS.some(function (a) { return a.key === action; });
+    var valid = action === "ledger" || CONTRACT_ACTIONS.some(function (a) { return a.key === action; });
     if (!valid) action = "myac";
+    // Self-contained Contracts section: its OWN contract-ops nav (action
+    // chips + Ledger) — no roster tabs bleed in. Reach Roster/Lineup/Taxi/IR
+    // via Home or the bottom nav. (Keith 2026-06-10: card-driven sections.)
+    if (action === "ledger") {
+      mount.innerHTML = actionChips(action);
+      renderContractLedger(mount);
+      return;
+    }
     // Per-player extension deadlines now live in the Extend list (each player
     // has their own §C4 deadline). Only MYAC shows the single league-wide
     // September contract deadline here.
     var deadlineNote = (action === "myac" && M.state.contractDeadline)
       ? '<div class="ups-m-action-blurb"><b>Contract deadline:</b> ' + fmtDeadlineDate(septContractDeadline()) + ' — finalize multi-year auction deals before this date.</div>'
       : "";
-    mount.innerHTML = subTabs("contracts") + actionChips(action) + deadlineNote;
+    mount.innerHTML = actionChips(action) + deadlineNote;
     if (action === "tag") {
       // Rich tagging view (slots + tiers), embedded without its own sub-nav.
       if (M.taggingView && M.taggingView.render) {

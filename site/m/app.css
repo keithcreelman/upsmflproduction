@@ -894,6 +894,59 @@ button.ups-m-busy::before,
   -webkit-appearance: none;
 }
 .ups-m-players-search:focus { outline: none; border-color: var(--accent); }
+
+/* Players filter — single Team/FA dropdown (replaces the old FA/All toggle
+   + the redundant Market hub tiles). Keith 2026-06-10. */
+.ups-m-players-filter {
+  width: 100%;
+  background: var(--bg) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a97ad' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>") no-repeat right 12px center;
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 34px 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+  margin-bottom: 8px;
+}
+.ups-m-players-filter:focus { outline: none; border-color: var(--accent); }
+
+/* Contract Ledger — read-only contract-activity audit log (Contracts section). */
+.ups-m-ledger { margin-top: 4px; }
+.ups-m-ledger-loading { padding: 18px; text-align: center; color: var(--fg-muted); font-size: 13px; }
+.ups-m-ledger-note { font-size: 12px; color: var(--fg-muted); padding: 8px 2px 10px; }
+.ups-m-ledger-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--line);
+}
+.ups-m-ledger-kind {
+  flex: 0 0 auto;
+  min-width: 66px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: rgba(91, 141, 255, 0.16);
+  color: #9cc0ff;
+}
+.ups-m-ledger-kind.k-restructure { background: rgba(255, 184, 107, 0.16); color: var(--warn); }
+.ups-m-ledger-kind.k-tag { background: rgba(45, 212, 191, 0.16); color: var(--teal); }
+.ups-m-ledger-kind.k-mym { background: rgba(139, 229, 139, 0.16); color: var(--ok); }
+.ups-m-ledger-kind.k-untag { background: rgba(255, 107, 107, 0.16); color: var(--danger); }
+.ups-m-ledger-body { flex: 1 1 auto; min-width: 0; }
+.ups-m-ledger-player { font-size: 14px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ups-m-ledger-player .pos { font-size: 11px; color: var(--fg-muted); font-weight: 500; margin-left: 2px; }
+.ups-m-ledger-meta { font-size: 12px; color: var(--fg-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ups-m-ledger-date { flex: 0 0 auto; font-size: 11px; color: var(--fg-muted); }
 .ups-m-pos-chips {
   display: flex;
   gap: 6px;

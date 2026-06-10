@@ -29,6 +29,7 @@
     query: "",
     pos: "ALL",
     scope: "fa",    // "fa" (default) | "all" — Keith 2026-06-08: allow browsing ALL players
+    teamFilter: "", // "" = none | franchise id — filter list to one team (Keith 2026-06-10)
     sort: "ppg",    // "ppg" | "pts"
     debounceTimer: null,
     dropSheetFor: null   // pid of player being added (drop-sheet open)
@@ -87,7 +88,10 @@
 
   function buildFreeAgents() {
     var rostered = DATA.getAllRosteredPids();
-    var fidByPid = (view.scope === "all") ? rosteredFidByPid() : null;
+    // "All Players" OR a specific team filter both need rostered players in
+    // the list + their owner mapping.
+    var showAll = (view.scope === "all") || !!view.teamFilter;
+    var fidByPid = showAll ? rosteredFidByPid() : null;
     // Canonical UPS-scored stats — from Advanced Stats Workbench leaderboard.
     // Falls back to MFL YTD playerScores if the leaderboard didn't return
     // a row for this pid (rare; usually means the player didn't play this season).
@@ -103,7 +107,7 @@
       if (!p || !p.id) continue;
       var pid = String(p.id);
       var isRostered = rostered.has(pid);
-      if (view.scope !== "all" && isRostered) continue;
+      if (!showAll && isRostered) continue;
       var pos = U.safeStr(p.position).toUpperCase();
       if (!pos) continue;
       var group = POS_GROUP[pos] || pos;
@@ -133,6 +137,7 @@
     var q = view.query.trim().toLowerCase();
     var pos = view.pos;
     var filtered = all.filter(function (r) {
+      if (view.teamFilter && r.rosteredFid !== view.teamFilter) return false;
       if (pos !== "ALL" && r.group !== pos) return false;
       if (q) {
         var hay = (r.name + " " + r.team + " " + r.pos).toLowerCase();
@@ -154,10 +159,20 @@
       return '<button class="ups-m-pos-chip' + (view.pos === p ? " on" : "") +
         '" data-pos="' + U.escapeHtml(p) + '">' + U.escapeHtml(label) + '</button>';
     }).join("");
-    var scopeToggle = '<div class="ups-m-seg-toggle">' +
-      '<button class="ups-m-seg-btn' + (view.scope !== "all" ? " on" : "") + '" data-scope="fa">Free Agents</button>' +
-      '<button class="ups-m-seg-btn' + (view.scope === "all" ? " on" : "") + '" data-scope="all">All Players</button>' +
-    '</div>';
+    // One filter for team/FA (Keith 2026-06-10): Free Agents · All Players ·
+    // then each franchise. Replaces the old FA/All toggle + the redundant
+    // Market hub tiles.
+    var teamOpts = (M.state.franchises || []).slice().sort(function (a, b) {
+      return U.safeStr(a.name).localeCompare(U.safeStr(b.name));
+    }).map(function (f) {
+      return '<option value="team:' + U.escapeHtml(f.id) + '"' + (view.teamFilter === f.id ? ' selected' : '') + '>' +
+        U.escapeHtml(f.name || f.abbrev || f.id) + '</option>';
+    }).join("");
+    var scopeToggle = '<select class="ups-m-players-filter" id="ups-m-players-filter" aria-label="Filter players by team or free-agent status">' +
+      '<option value="fa"' + (view.scope !== "all" && !view.teamFilter ? ' selected' : '') + '>Free Agents</option>' +
+      '<option value="all"' + (view.scope === "all" && !view.teamFilter ? ' selected' : '') + '>All Players</option>' +
+      '<optgroup label="By team">' + teamOpts + '</optgroup>' +
+    '</select>';
     return '<div class="ups-m-players-toolbar">' +
       scopeToggle +
       '<input type="search" class="ups-m-players-search" id="ups-m-players-search" ' +
@@ -363,10 +378,13 @@
         renderRoute();
       });
     }
-    var scopeBtns = mount.querySelectorAll(".ups-m-seg-btn");
-    for (var sc = 0; sc < scopeBtns.length; sc++) {
-      scopeBtns[sc].addEventListener("click", function () {
-        view.scope = this.getAttribute("data-scope");
+    var filterSel = document.getElementById("ups-m-players-filter");
+    if (filterSel) {
+      filterSel.addEventListener("change", function () {
+        var v = this.value;
+        if (v === "fa") { view.scope = "fa"; view.teamFilter = ""; }
+        else if (v === "all") { view.scope = "all"; view.teamFilter = ""; }
+        else if (v.indexOf("team:") === 0) { view.teamFilter = v.slice(5); view.scope = "all"; }
         renderRoute();
       });
     }
