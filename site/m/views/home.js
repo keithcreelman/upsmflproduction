@@ -169,7 +169,7 @@
       { label: "My Roster", icon: "clipboard-list", tone: "field",  href: "#myteam/roster",    sub: rosterSub },
       { label: "Contracts", icon: "file-text",      tone: "gold",   href: "#myteam/contracts", sub: contractsSub },
       { label: "Trades",    icon: "repeat",         tone: "ember",  href: "#league/trade",     sub: tradesSub, dot: ctx.incoming > 0 },
-      { label: "Market",    icon: "tag",            tone: "sky",    href: "#market",           sub: "Add & browse players" },
+      { label: "Market",    icon: "tag",            tone: "sky",    href: "#players",          sub: "Browse — filter by team/FA" },
       { label: "Taxi & IR", icon: "shield",         tone: "violet", href: "#myteam/taxi",      sub: taxiIrSub },
       { label: "Events",    icon: "calendar",       tone: "mint",   href: "#events",           sub: eventsSub, dot: ctx.next && whenTone(ctx.next.date) === "now" }
     ];
@@ -204,27 +204,12 @@
   // player there reveals only the actions valid for their status + season phase
   // (Trade for / Trade away · Nominate / Bid · Add on the next WW run). ──
   function renderMarket(mount) {
-    var tiles = [
-      { label: "All Players",  icon: "users",       tone: "sky",   href: "#players", sub: "Everyone, filterable" },
-      { label: "Free Agents",  icon: "plus-circle", tone: "field", href: "#players", sub: "Available to add" },
-      { label: "Point Leaders",icon: "bar-chart",   tone: "gold",  href: "#players", sub: "Top scorers" },
-      { label: "Search",       icon: "search",      tone: "violet",href: "#players", sub: "Find anyone, fast" }
-    ];
-    mount.innerHTML =
-      '<div class="ups-m-home">' +
-        miniHubHeader("Player Market", "Acquire & move players", "Trade, bid, or add — the list adapts to status.") +
-        '<div class="ups-m-launch-grid">' + tiles.map(tile).join("") + '</div>' +
-        '<section class="ups-m-info-card">' +
-          '<div class="ups-m-info-title">How actions work</div>' +
-          '<ul class="ups-m-hub-points">' +
-            '<li><b>On another roster</b> → start a trade <i>for</i> them.</li>' +
-            '<li><b>On your roster</b> → block them or trade <i>away</i>.</li>' +
-            '<li><b>Free agent, auction live</b> → Nominate / Bid.</li>' +
-            '<li><b>Free agent, post-auction</b> → Add on the next waiver run.</li>' +
-          '</ul>' +
-          '<div class="ups-m-info-note">Auction Board — full live board lands in Phase 2. Read the current board under Events › Auction Room.</div>' +
-        '</section>' +
-      '</div>';
+    // Market === the combined, filterable player browser. The old hub (All
+    // Players / Free Agents / Point Leaders) was redundant — every tile
+    // opened the same #players list — so the Market card now points straight
+    // at it, and the Team/FA filter lives in the players toolbar. Redirect
+    // any lingering #market links there too. (Keith 2026-06-10.)
+    M.route.navigate("#players");
   }
 
   // ── Events mini-hub (#events) — actionable league calendar ──
