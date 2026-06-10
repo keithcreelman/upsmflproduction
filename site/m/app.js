@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.06.10.1";
+  var BUILD = "2026.06.10.2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -231,6 +231,18 @@
       try {
         window.localStorage && window.localStorage.setItem("ups_mfl_user_id", String(mflUserIdQs));
       } catch (e) {}
+      // Security: once captured into localStorage, strip the session token
+      // from the visible URL/history so it doesn't linger in the address
+      // bar, bookmarks, PWA recents, or any outbound Referer. Guarded so a
+      // failure here never blocks boot.
+      try {
+        if (window.history && window.history.replaceState) {
+          var cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete("MFL_USER_ID");
+          cleanUrl.searchParams.delete("mfl_user_id");
+          window.history.replaceState(null, "", cleanUrl.toString());
+        }
+      } catch (e) {}
     }
   }
   function getStoredMflUserId() {
@@ -322,20 +334,24 @@
   }
 
   function fetchMe() {
-    // /api/me — viewer franchise resolution. Two paths:
-    //   1. MFL_USER_ID cookie on the WORKER'S domain (auto-set when
-    //      desktop hubs bootstrap via _rdhSetCookie). Browser sends it
-    //      via credentials:include.
-    //   2. MFL_USER_ID URL param — used by the mobile bootstrap when the
-    //      Switch-to-App-View button on the desktop site forwarded it
-    //      from MFL's same-origin cookie. Persisted to localStorage so
-    //      subsequent visits don't need to re-bootstrap.
-    // Either path resolves to franchise_id + franchise_name via
-    // _rdhDetectFranchise on the worker side.
+    // /api/me — viewer franchise resolution via the MFL_USER_ID URL param
+    // (forwarded by the Switch-to-App-View button from MFL's cookie, then
+    // persisted to localStorage). The worker reads it off the query string
+    // and resolves franchise_id + franchise_name via _rdhDetectFranchise.
+    //
+    // MUST be credentials:"omit". This is a CROSS-ORIGIN call (github.io ->
+    // workers.dev) and the worker replies Access-Control-Allow-Origin: *.
+    // A wildcard ACAO is illegal on a credentialed request, so
+    // credentials:"include" makes the browser BLOCK the response ("Failed
+    // to fetch") -> fetchMe returns null -> meConfigured never flips true
+    // -> the app is stuck on "Sign in" even with a valid token. (Bug
+    // shipped 2026-06-10; only reproduces cross-origin, so same-origin
+    // localhost testing missed it.) The app authenticates purely via the
+    // URL param, never a worker-domain cookie, so omit costs nothing.
     var url = workerUrl("/api/me");
     var stored = getStoredMflUserId();
     if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
-    return fetch(url, { credentials: "include", mode: "cors" })
+    return fetch(url, { credentials: "omit", mode: "cors" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .catch(function () { return null; });
   }
