@@ -555,6 +555,23 @@
     if (a && b) return a + " → " + b;
     return b || a || "";
   }
+  // Test-event filter — franchises (optionally only before a `before` cutoff)
+  // whose contract activity is TEST data, hidden by default. Mirrors the
+  // desktop FO Misc Contract Log (front_office.js isTestEvent) and reads the
+  // SAME Pages-served config, so desktop + mobile stay in sync. Keith
+  // 2026-06-10: "only real, non-test moves in the ledger."
+  function buildIsTestEvent(testFranchises) {
+    var list = testFranchises || [];
+    return function (fid, dateStr) {
+      for (var i = 0; i < list.length; i++) {
+        var t = list[i];
+        if (U.pad4(t.franchise_id) !== fid) continue;
+        if (!t.before) return true;                                 // whole franchise = test
+        if (String(dateStr || "") < String(t.before)) return true;  // test "thus far"
+      }
+      return false;
+    };
+  }
   function renderContractLedger(mount) {
     var box = document.createElement("div");
     box.className = "ups-m-ledger";
@@ -562,41 +579,50 @@
     mount.appendChild(box);
     var ctx = M.state.ctx || {};
     var year = ctx.year || "2026", league = ctx.leagueId || "74598";
-    var url = M.api.workerUrl("/admin/contract-submissions") +
+    var subsUrl = M.api.workerUrl("/admin/contract-submissions") +
       "?L=" + encodeURIComponent(league) + "&YEAR=" + encodeURIComponent(year);
-    fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (data) {
-        var rows = (data && data.submissions) || [];
-        if (!rows.length) {
-          box.innerHTML = '<div class="ups-m-stub"><div>No contract activity recorded for ' + U.escapeHtml(String(year)) + ' yet.</div></div>';
-          return;
-        }
-        // Resolve names for submissions that didn't store player_name.
-        var nameByPid = {};
-        var pf = M.state.players && M.state.players.players;
-        if (pf) { U.asArray(pf.player).forEach(function (p) { if (p && p.id) nameByPid[String(p.id)] = U.safeStr(p.name); }); }
-        var html = '<div class="ups-m-ledger-note">League-wide contract activity · ' + rows.length + ' move' + (rows.length > 1 ? "s" : "") + ' · ' + U.escapeHtml(String(year)) + ' · newest first</div>';
-        rows.forEach(function (s) {
-          var kindKey = U.safeStr(s.kind).toLowerCase();
-          var change = ledgerChange(s);
-          var pname = U.safeStr(s.player_name) || nameByPid[U.safeStr(s.player_id)] || ("Player " + U.safeStr(s.player_id));
-          html += '<div class="ups-m-ledger-row">' +
-            '<span class="ups-m-ledger-kind k-' + U.escapeHtml(kindKey) + '">' + U.escapeHtml(LEDGER_KIND[kindKey] || U.safeStr(s.kind)) + '</span>' +
-            '<div class="ups-m-ledger-body">' +
-              '<div class="ups-m-ledger-player">' + U.escapeHtml(pname) +
-                (s.position ? ' <span class="pos">' + U.escapeHtml(s.position) + '</span>' : '') + '</div>' +
-              '<div class="ups-m-ledger-meta">' + U.escapeHtml(ledgerTeam(s.franchise_id)) +
-                (change ? ' · ' + U.escapeHtml(change) : '') + '</div>' +
-            '</div>' +
-            '<span class="ups-m-ledger-date">' + U.escapeHtml(ledgerWhen(s.submitted_at_utc)) + '</span>' +
-          '</div>';
-        });
-        box.innerHTML = html;
-      })
-      .catch(function () {
-        box.innerHTML = '<div class="ups-m-stub"><div>Couldn\'t load contract activity. Pull to refresh.</div></div>';
+    // Relative path resolves to <pages-root>/contract_submissions/… on both
+    // GitHub Pages (/upsmflproduction/m/ → /upsmflproduction/contract_submissions/)
+    // and local preview (/m/ → /contract_submissions/).
+    var testUrl = "../contract_submissions/contract_log_test_" + encodeURIComponent(year) + ".json";
+    Promise.all([
+      fetch(subsUrl, { mode: "cors", credentials: "omit", cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      fetch(testUrl, { credentials: "omit", cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+    ]).then(function (res) {
+      var data = res[0], tcfg = res[1];
+      var isTest = buildIsTestEvent(tcfg && tcfg.test_franchises);
+      // Only real, non-test moves land in the ledger.
+      var rows = ((data && data.submissions) || []).filter(function (s) {
+        return !isTest(U.pad4(s.franchise_id), s.submitted_at_utc);
       });
+      if (!rows.length) {
+        box.innerHTML = '<div class="ups-m-stub"><div>No contract activity recorded for ' + U.escapeHtml(String(year)) + ' yet.</div></div>';
+        return;
+      }
+      // Resolve names for submissions that didn't store player_name.
+      var nameByPid = {};
+      var pf = M.state.players && M.state.players.players;
+      if (pf) { U.asArray(pf.player).forEach(function (p) { if (p && p.id) nameByPid[String(p.id)] = U.safeStr(p.name); }); }
+      var html = '<div class="ups-m-ledger-note">League-wide contract activity · ' + rows.length + ' move' + (rows.length > 1 ? "s" : "") + ' · ' + U.escapeHtml(String(year)) + ' · newest first</div>';
+      rows.forEach(function (s) {
+        var kindKey = U.safeStr(s.kind).toLowerCase();
+        var change = ledgerChange(s);
+        var pname = U.safeStr(s.player_name) || nameByPid[U.safeStr(s.player_id)] || ("Player " + U.safeStr(s.player_id));
+        html += '<div class="ups-m-ledger-row">' +
+          '<span class="ups-m-ledger-kind k-' + U.escapeHtml(kindKey) + '">' + U.escapeHtml(LEDGER_KIND[kindKey] || U.safeStr(s.kind)) + '</span>' +
+          '<div class="ups-m-ledger-body">' +
+            '<div class="ups-m-ledger-player">' + U.escapeHtml(pname) +
+              (s.position ? ' <span class="pos">' + U.escapeHtml(s.position) + '</span>' : '') + '</div>' +
+            '<div class="ups-m-ledger-meta">' + U.escapeHtml(ledgerTeam(s.franchise_id)) +
+              (change ? ' · ' + U.escapeHtml(change) : '') + '</div>' +
+          '</div>' +
+          '<span class="ups-m-ledger-date">' + U.escapeHtml(ledgerWhen(s.submitted_at_utc)) + '</span>' +
+        '</div>';
+      });
+      box.innerHTML = html;
+    }).catch(function () {
+      box.innerHTML = '<div class="ups-m-stub"><div>Couldn\'t load contract activity. Pull to refresh.</div></div>';
+    });
   }
 
   function renderContractsHub(mount, action) {
