@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-06-06T11:10:57.065302+00:00",
+    "generated_at_utc": "2026-06-09T12:25:37.111281+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -156,7 +156,7 @@
           "asset_id": "P_17722",
           "display": "Brendan Sorsby",
           "player_id": "17722",
-          "position": "QB",
+          "position": "XX",
           "nfl_team": "FA",
           "salary": 2000,
           "contract_year": 3,
@@ -839,13 +839,13 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17506",
-          "display": "Chris Bell",
-          "player_id": "17506",
-          "position": "WR",
-          "nfl_team": "MIA",
+          "asset_id": "P_17045",
+          "display": "Cam Skattebo",
+          "player_id": "17045",
+          "position": "RB",
+          "nfl_team": "NYG",
           "salary": 5000,
-          "contract_year": 3,
+          "contract_year": 2,
           "contract_status": "Rookie-Draft",
           "roster_status": "ROSTER",
           "taxi": false
@@ -947,13 +947,13 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17045",
-          "display": "Cam Skattebo",
-          "player_id": "17045",
-          "position": "RB",
-          "nfl_team": "NYG",
+          "asset_id": "P_17506",
+          "display": "Chris Bell",
+          "player_id": "17506",
+          "position": "WR",
+          "nfl_team": "MIA",
           "salary": 5000,
-          "contract_year": 2,
+          "contract_year": 3,
           "contract_status": "Rookie-Draft",
           "roster_status": "TAXI_SQUAD",
           "taxi": true

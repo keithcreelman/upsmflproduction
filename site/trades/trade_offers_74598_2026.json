@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-06-07T14:22:18.767Z",
-    "row_count": 43,
+    "updated_at": "2026-06-09T12:39:08.691Z",
+    "row_count": 44,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -8123,31 +8123,31 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-06-03T10:42:55.437Z",
-      "updated_at": "2026-06-03T10:42:55.437Z",
+      "updated_at": "2026-06-09T12:39:08.691Z",
       "from_franchise_id": "0008",
       "to_franchise_id": "0001",
       "from_franchise_name": "Real Deal Creel",
       "to_franchise_name": "L.A. Looks",
-      "message": "This is a mobile UI test.",
-      "comment": "This is a mobile UI test.",
-      "comments": "This is a mobile UI test.",
-      "raw_comment": "This is a mobile UI test.",
-      "will_give_up": "16171",
-      "will_receive": "15287,BB_25000",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "17502,FP_0008_2027_4",
+      "will_receive": "FP_0001_2027_1",
       "source": "trade-workbench-ui",
       "summary": {
-        "from_asset_count": 1,
+        "from_asset_count": 2,
         "to_asset_count": 1,
         "from_trade_salary_k": 0,
-        "to_trade_salary_k": 25,
+        "to_trade_salary_k": 0,
         "extension_request_count": 0
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-06-03T10:42:54.337Z",
-        "source": "ups-mobile-trade-builder",
+        "generated_at": "2026-06-09T12:39:07.173Z",
+        "source": "ups-trade-workbench",
         "league_id": "74598",
-        "season": "2026",
+        "season": 2026,
         "teams": [
           {
             "role": "left",
@@ -8155,28 +8155,46 @@
             "franchise_name": "Real Deal Creel",
             "selected_assets": [
               {
-                "asset_id": "P_16171",
+                "asset_id": "player:17502",
                 "type": "PLAYER",
-                "player_id": "16171",
-                "player_name": "Kendre Miller",
+                "player_id": "17502",
+                "player_name": "Cooper Jr., Omar",
                 "description": null,
-                "position": "RB",
-                "nfl_team": "NOS",
-                "salary": 1000,
-                "years": 1,
-                "contract_type": "Vet-ERA",
-                "contract_info": null,
+                "position": "WR",
+                "nfl_team": "NYJ",
+                "salary": 7000,
+                "years": 3,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3|TCV 21K|AAV 7K|Y1-7K, Y2-7K, Y3-7K, Y4-12K Option|GTD: 15.8K",
                 "taxi": false,
                 "pick_key": null,
                 "pick_season": null,
                 "pick_round": null,
                 "pick_slot": null
+              },
+              {
+                "asset_id": "pick:FP_0008_2027_4",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 4th",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0008_2027_4",
+                "pick_season": 2027,
+                "pick_round": 4,
+                "pick_slot": null
               }
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 999,
-            "selected_non_taxi_salary_dollars": 1000
+            "traded_salary_adjustment_max_k": 3,
+            "selected_non_taxi_salary_dollars": 7000
           },
           {
             "role": "right",
@@ -8184,28 +8202,28 @@
             "franchise_name": "L.A. Looks",
             "selected_assets": [
               {
-                "asset_id": "P_15287",
-                "type": "PLAYER",
-                "player_id": "15287",
-                "player_name": "Amon-Ra St. Brown",
-                "description": null,
-                "position": "WR",
-                "nfl_team": "DET",
-                "salary": 51000,
-                "years": 1,
-                "contract_type": "Tag",
+                "asset_id": "pick:FP_0001_2027_1",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 1st",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
                 "contract_info": null,
                 "taxi": false,
-                "pick_key": null,
-                "pick_season": null,
-                "pick_round": null,
+                "pick_key": "FP_0001_2027_1",
+                "pick_season": 2027,
+                "pick_round": 1,
                 "pick_slot": null
               }
             ],
-            "traded_salary_adjustment_dollars": 25000,
-            "traded_salary_adjustment_k": 25,
-            "traded_salary_adjustment_max_k": 999,
-            "selected_non_taxi_salary_dollars": 51000
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
           }
         ],
         "extension_requests": [],
@@ -8215,11 +8233,295 @@
         "ui": {
           "left_team_id": "0008",
           "right_team_id": "0001"
-        }
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 105000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 7000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -7000,
+            "new_salary_dollars": 98000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 3,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 7000,
+            "available_salary_before_dollars": 189550,
+            "available_salary_after_dollars": 196550,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 172000,
+            "salary_adjustment_total_dollars": 12800,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 7000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 7000,
+            "new_salary_dollars": 179000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -7000,
+            "available_salary_before_dollars": 115200,
+            "available_salary_after_dollars": 108200,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Real Deal Creel",
+          "right_franchise_name": "L.A. Looks",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 105000,
+              "left_after_dollars": 98000,
+              "left_change_dollars": -7000,
+              "right_before_dollars": 172000,
+              "right_after_dollars": 179000,
+              "right_change_dollars": 7000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 77000,
+              "left_after_dollars": 70000,
+              "left_change_dollars": -7000,
+              "right_before_dollars": 101000,
+              "right_after_dollars": 108000,
+              "right_change_dollars": 7000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 41000,
+              "left_after_dollars": 34000,
+              "left_change_dollars": -7000,
+              "right_before_dollars": 7000,
+              "right_after_dollars": 14000,
+              "right_change_dollars": 7000
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
       },
       "twb_meta": null,
-      "mfl_trade_id": "1080",
-      "trade_id": "1080",
+      "mfl_trade_id": "1083",
+      "trade_id": "1083",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1082",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-06-09T03:10:16.985Z",
+      "updated_at": "2026-06-09T03:10:16.985Z",
+      "from_franchise_id": "0001",
+      "to_franchise_id": "0008",
+      "from_franchise_name": "L.A. Looks",
+      "to_franchise_name": "Real Deal Creel",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "14860,17047,BB_6000",
+      "will_receive": "17502",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 2,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 6,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-06-09T03:10:15.106Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "selected_assets": [
+              {
+                "asset_id": "player:14860",
+                "type": "PLAYER",
+                "player_id": "14860",
+                "player_name": "Jennings, Jauan",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "MIN",
+                "salary": 21000,
+                "years": 1,
+                "contract_type": "Vet-Ext1",
+                "contract_info": "CL 2| TCV 32K| AAV 21K| Y1-11K, Y2-21K| Ext: Creel, L.A.| GTD: 24K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "player:17047",
+                "type": "PLAYER",
+                "player_id": "17047",
+                "player_name": "Sampson, Dylan",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "CLE",
+                "salary": 2000,
+                "years": 2,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
+                "taxi": true,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 6000,
+            "traded_salary_adjustment_k": 6,
+            "traded_salary_adjustment_max_k": 10,
+            "selected_non_taxi_salary_dollars": 21000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "player:17502",
+                "type": "PLAYER",
+                "player_id": "17502",
+                "player_name": "Cooper Jr., Omar",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "NYJ",
+                "salary": 7000,
+                "years": 3,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3|TCV 21K|AAV 7K|Y1-7K, Y2-7K, Y3-7K, Y4-12K Option|GTD: 15.8K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 3,
+            "selected_non_taxi_salary_dollars": 7000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0001",
+          "right_team_id": "0008"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 172000,
+            "salary_adjustment_total_dollars": 12800,
+            "outgoing_dollars": 21000,
+            "incoming_dollars": 7000,
+            "salary_trade_adjustment_dollars": 6000,
+            "net_salary_adjustment_dollars": -8000,
+            "new_salary_dollars": 164000,
+            "trade_salary_adjustment_k": 6,
+            "trade_salary_adjustment_max_k": 10,
+            "net_trade_salary_k": 6,
+            "net_cap_change_dollars": 8000,
+            "available_salary_before_dollars": 115200,
+            "available_salary_after_dollars": 123200,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 105000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 7000,
+            "incoming_dollars": 21000,
+            "salary_trade_adjustment_dollars": -6000,
+            "net_salary_adjustment_dollars": 8000,
+            "new_salary_dollars": 113000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 3,
+            "net_trade_salary_k": -6,
+            "net_cap_change_dollars": -8000,
+            "available_salary_before_dollars": 189550,
+            "available_salary_after_dollars": 181550,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "L.A. Looks",
+          "right_franchise_name": "Real Deal Creel",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 172000,
+              "left_after_dollars": 164000,
+              "left_change_dollars": -8000,
+              "right_before_dollars": 105000,
+              "right_after_dollars": 113000,
+              "right_change_dollars": 8000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 101000,
+              "left_after_dollars": 87000,
+              "left_change_dollars": -14000,
+              "right_before_dollars": 77000,
+              "right_after_dollars": 91000,
+              "right_change_dollars": 14000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 7000,
+              "left_after_dollars": 14000,
+              "left_change_dollars": 7000,
+              "right_before_dollars": 41000,
+              "right_after_dollars": 34000,
+              "right_change_dollars": -7000
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1082",
+      "trade_id": "1082",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
