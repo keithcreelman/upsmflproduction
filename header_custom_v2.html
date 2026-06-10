@@ -2772,11 +2772,11 @@
       var YEAR = getCurrentYear();
       var mod = getModuleName();
 
-      // FO v2 lives ONLY on the MESSAGE14 test page for now, so owners on the
-      // live "Front Office" page (MESSAGE7) keep the proven Roster Workbench
-      // until FO v2 is signed off. ?rwb=1 on MESSAGE14 forces RWB for an A/B
-      // comparison.
-      var useFo = (mod === "MESSAGE14") && !forceLegacyRwb();
+      // FO v2 is the live Front Office on MESSAGE7 (promoted 2026-06-10, after
+      // verifying it renders cleanly on the live page) AND the MESSAGE14
+      // staging page. ?rwb=1 on either forces the legacy Roster Workbench —
+      // the instant escape hatch / A-B compare.
+      var useFo = (mod === "MESSAGE7" || mod === "MESSAGE14") && !forceLegacyRwb();
 
       if (useFo) {
         // Front Office v2. fo_embed_loader.js reads UPS_FO_* (falling back to
@@ -2789,7 +2789,7 @@
         return;
       }
 
-      // Legacy Roster Workbench — MESSAGE7 (everyone), or MESSAGE14 with ?rwb=1.
+      // Legacy Roster Workbench — only when ?rwb=1 forces it (MESSAGE7 or MESSAGE14).
       ensureMountNearTop("roster-workbench");
       window.UPS_RWB_LEAGUE_ID = L;
       window.UPS_RWB_YEAR = YEAR;
