@@ -8482,6 +8482,15 @@
   #menu-trigger,
   .hamburger.hamburger--spin { display: none !important; visibility: hidden !important; }
 
+  /* Remove MFL's native notification icon bar (new-message / message-board /
+     poll / pending-trade / outstanding-offer / login / search badges). It
+     renders as broken Font-Awesome tofu (the theme uses fa-regular/fa-sharp,
+     which our Free FA kit doesn't fully ship) and stacks vertically in the
+     desktop menu; redundant with our own My Hub nav. Keith 2026-06-11: "get rid
+     of icons." #icon-wrapper = desktop set, #icon-wrapper-mobile = TOS clone. */
+  #icon-wrapper,
+  #icon-wrapper-mobile { display: none !important; }
+
   /* Mini scoreboard (MFLBox) dark mode */
   #MFLBoxWrapper,
   #MFLBoxContainer,
@@ -11315,30 +11324,22 @@
       var prev = document.querySelectorAll('[data-ups-menu-hide]');
       for (var k = 0; k < prev.length; k++) { prev[k].style.removeProperty("display"); prev[k].removeAttribute("data-ups-menu-hide"); }
 
-      var mobile = (window.innerWidth || document.documentElement.clientWidth || 9999) <= 768;
-      if (mobile) {
-        // Trim the native menu down to the legacy essentials. Hide any <li>
-        // that has NO kept link inside it — this covers leaf items AND entire
-        // dropdowns whose children are all non-essential; a container holding a
-        // kept child stays visible so kept items are never orphaned.
-        var menu = document.querySelector(".myfantasyleague_menu");
-        if (!menu) return;
-        var lis = menu.querySelectorAll("li");
-        for (var i = 0; i < lis.length; i++) {
-          var li = lis[i], keep = false, as = li.querySelectorAll("a[href]");
-          for (var j = 0; j < as.length; j++) { if (hrefIsLegacyKeep(as[j].getAttribute("href"))) { keep = true; break; } }
-          // Inline !important so the open-drawer "li{display:block!important}"
-          // stacking rule in mobile_menu.js can't re-show a hidden item.
-          if (!keep) { li.style.setProperty("display", "none", "important"); li.setAttribute("data-ups-menu-hide", "1"); }
-        }
-      } else {
-        // Desktop (unchanged): hide native items that duplicate our custom hubs.
-        var anchors = document.querySelectorAll(".myfantasyleague_menu a[href], #tabmenu-wrap a[href]");
-        anchors.forEach(function (a) {
-          if (!hrefIsBlacklisted(a.getAttribute("href"))) return;
-          var li = a.closest("li"), tgt = li || a;
-          tgt.style.setProperty("display", "none", "important"); tgt.setAttribute("data-ups-menu-hide", "1");
-        });
+      // Keep-list trim on BOTH desktop and mobile (Keith 2026-06-11: "clean up
+      // the menu items, keep only what's needed"). Hide any <li> with NO kept
+      // link inside — covers leaf items AND entire dropdowns whose children are
+      // all non-essential; a container holding a kept child stays visible so the
+      // essentials are never orphaned. (Previously: keep-list on mobile only +
+      // a duplicate-hiding blacklist on desktop. Now the same short legacy set
+      // everywhere — hrefIsBlacklisted/BAD_PATTERNS above are now unused.)
+      var menu = document.querySelector(".myfantasyleague_menu");
+      if (!menu) return;
+      var lis = menu.querySelectorAll("li");
+      for (var i = 0; i < lis.length; i++) {
+        var li = lis[i], keep = false, as = li.querySelectorAll("a[href]");
+        for (var j = 0; j < as.length; j++) { if (hrefIsLegacyKeep(as[j].getAttribute("href"))) { keep = true; break; } }
+        // Inline !important so the open-drawer "li{display:block!important}"
+        // stacking rule in mobile_menu.js can't re-show a hidden item.
+        if (!keep) { li.style.setProperty("display", "none", "important"); li.setAttribute("data-ups-menu-hide", "1"); }
       }
     }
 
