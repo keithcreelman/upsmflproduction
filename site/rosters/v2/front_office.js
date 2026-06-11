@@ -1960,6 +1960,10 @@
     });
     $("#fo-team-select").addEventListener("change", function (e) {
       STATE.selectedTeamId = e.target.value || "__all__";
+      // Remember the commish's "acting as" choice per league+season.
+      if (STATE.me && STATE.me.isAdmin) {
+        try { window.localStorage.setItem(foCommishTeamKey(), STATE.selectedTeamId); } catch (err) {}
+      }
       // Re-scope the dynamic filters to the chosen team (dynamic per-team).
       populateValueFilters();
       populateActionFilter();
@@ -2021,6 +2025,13 @@
     });
   }
 
+  // Commish-only "Acting as" team switcher (Keith 2026-06-11). Regular owners
+  // just see their own team (the field stays hidden). The commish login (0000,
+  // which isn't a real team) picks which franchise to view/act-as; the choice
+  // is remembered per league+season so the FO doesn't sit on the empty 0000 /
+  // all-teams view. Writes already carry commish_override_flag for the acted-on
+  // franchise, so acting-as is safe + audited.
+  function foCommishTeamKey() { return "ups-fo-acting-as:" + LEAGUE_ID + ":" + SEASON; }
   function populateTeamSelect() {
     const sel = $("#fo-team-select");
     const opts = ['<option value="__all__">All teams (' + STATE.teams.length + ')</option>'];
@@ -2028,7 +2039,24 @@
       opts.push('<option value="' + escapeHtml(t.fid) + '">' + escapeHtml(t.name) + '</option>');
     });
     sel.innerHTML = opts.join("");
-    // Default to viewer's own team if known.
+    const isAdmin = !!(STATE.me && STATE.me.isAdmin);
+    const field = $("#fo-team-field");
+    const lbl = $("#fo-team-field-label");
+    if (isAdmin) {
+      // Commish: reveal the switcher as "Acting as" and default to the
+      // remembered franchise (else fall through to All teams).
+      if (field) field.hidden = false;
+      if (lbl) lbl.textContent = "Acting as";
+      let remembered = "";
+      try { remembered = window.localStorage.getItem(foCommishTeamKey()) || ""; } catch (e) {}
+      if (remembered && (remembered === "__all__" || STATE.teams.find(function (t) { return t.fid === remembered; }))) {
+        sel.value = remembered;
+        STATE.selectedTeamId = remembered;
+      }
+      return;
+    }
+    // Regular owner: keep the switcher hidden, default to their own team.
+    if (field) field.hidden = true;
     const myFid = STATE.me && STATE.me.franchise_id;
     if (myFid && STATE.teams.find(function (t) { return t.fid === myFid; })) {
       sel.value = myFid;
