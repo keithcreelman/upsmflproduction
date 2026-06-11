@@ -156,9 +156,14 @@
 
   // ── Launcher tiles ──
   function tile(t) {
+    // A numeric red badge (t.badge) takes precedence over a plain dot (t.dot) —
+    // e.g. the Trades tile shows the received-offer count.
+    var flag = t.badge != null
+      ? '<span class="ups-m-launch-badge">' + U.escapeHtml(String(t.badge)) + '</span>'
+      : (t.dot ? '<span class="ups-m-launch-dot"></span>' : "");
     return '<a class="ups-m-launch-tile tone-' + U.escapeHtml(t.tone || "base") + '" href="' + U.escapeHtml(t.href) + '">' +
       '<span class="ups-m-launch-ic">' + ic(t.icon, { size: 22 }) + '</span>' +
-      (t.dot ? '<span class="ups-m-launch-dot"></span>' : "") +
+      flag +
       '<span class="ups-m-launch-label">' + U.escapeHtml(t.label) + '</span>' +
       '<span class="ups-m-launch-sub">' + U.escapeHtml(t.sub || "") + '</span>' +
     '</a>';
@@ -168,14 +173,14 @@
     var rosterSub = cap ? (cap.rosterCount + "/30" + (cap.taxiCount ? " · " + cap.taxiCount + " taxi" : "")) : "—";
     var contractsSub = ctx.contractOpen > 0 ? (ctx.contractOpen + " open") : "Up to date";
     var tradesSub = ctx.incoming > 0
-      ? (ctx.incoming + " in" + (ctx.outgoing ? " · " + ctx.outgoing + " out" : ""))
+      ? (ctx.incoming + " received" + (ctx.outgoing ? " · " + ctx.outgoing + " out" : ""))
       : (ctx.outgoing ? (ctx.outgoing + " out") : "No offers");
     var taxiIrSub = cap ? ((cap.taxiCount || 0) + " taxi · " + (cap.irCount || 0) + " IR") : "Moves";
     var eventsSub = ctx.next ? (eventMeta(ctx.next).label + " " + whenLabel(ctx.next.date)) : "No windows";
     return [
       { label: "My Roster", icon: "clipboard-list", tone: "field",  href: "#myteam/roster",    sub: rosterSub },
       { label: "Contracts", icon: "file-text",      tone: "gold",   href: "#myteam/contracts", sub: contractsSub },
-      { label: "Trades",    icon: "repeat",         tone: "ember",  href: "#league/trade",     sub: tradesSub, dot: ctx.incoming > 0 },
+      { label: "Trades",    icon: "repeat",         tone: "ember",  href: "#league/trade",     sub: tradesSub, badge: ctx.incoming > 0 ? ctx.incoming : null },
       { label: "Market",    icon: "tag",            tone: "sky",    href: "#players",          sub: "Browse — filter by team/FA" },
       { label: "Taxi & IR", icon: "shield",         tone: "violet", href: "#myteam/taxi",      sub: taxiIrSub },
       { label: "Events",    icon: "calendar",       tone: "mint",   href: "#events",           sub: eventsSub, dot: ctx.next && whenTone(ctx.next.date) === "now" }
