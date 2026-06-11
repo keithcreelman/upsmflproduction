@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.06.10.6";
+  var BUILD = "2026.06.11.1";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -864,6 +864,12 @@
     // (3) MFL_LAST_LOGIN_FRANCHISE_ID cookie, (4) MFL_USER_ID cookie match.
     var fid = "";
     if (meResp && meResp.configured && meResp.franchise_id) fid = pad4(meResp.franchise_id);
+    // The commish login (0000) isn't a playing team — pinning the viewer to it
+    // makes every roster / trade / offer fetch come back empty. Drop it so we
+    // fall through to the remembered team (rdh_my_fid) or the franchise picker;
+    // the commish then picks which team to act as (Keith 2026-06-11, mirrors the
+    // desktop FO "Acting as" switcher). switchTeam() already re-opens the picker.
+    if (fid === "0000") fid = "";
     if (!fid) {
       try {
         var ls = window.localStorage && window.localStorage.getItem("rdh_my_fid");
@@ -1061,8 +1067,12 @@
     }
     if (t.indexOf("FP_") === 0) {
       var p2 = t.split("_");
-      // FP_FFFF_YYYY_R — round IS actual round here.
-      return p2[2] + " R" + p2[3] + " (from " + p2[1] + ")";
+      // FP_FFFF_YYYY_R — round IS actual round here. Show the originating
+      // franchise's NAME, not the raw id (Keith 2026-06-11) — mirrors
+      // team_operations.js. Falls back to the id if the franchise isn't found.
+      var fromFr = findFranchiseById(p2[1]);
+      var fromLabel = (fromFr && fromFr.name) ? fromFr.name : p2[1];
+      return p2[2] + " R" + p2[3] + " (from " + fromLabel + ")";
     }
     if (t.indexOf("BB_") === 0) {
       return "$" + t.slice(3) + " BB$";

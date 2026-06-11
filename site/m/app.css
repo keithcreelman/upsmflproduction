@@ -2512,6 +2512,14 @@ button.ups-m-busy::before,
   width: 9px; height: 9px; border-radius: 50%;
   background: var(--danger); box-shadow: 0 0 0 3px var(--bg-elev);
 }
+/* Red count badge — received-offer alert on the Trades tile. */
+.ups-m-launch-badge {
+  position: absolute; top: 9px; right: 9px;
+  min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box;
+  border-radius: 9px; background: var(--danger); color: #fff;
+  font: 700 11px/18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  text-align: center; box-shadow: 0 0 0 2px var(--bg-elev);
+}
 
 /* taxi / IR buckets */
 .ups-m-bucket-head {

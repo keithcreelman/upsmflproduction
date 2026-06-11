@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.10.6",
-  "label": "ERA forced retention (§A3): hide the Drop button on current-cycle Expired Rookie Auction winners (dry-run gate) until the FA Auction closes"
+  "build": "2026.06.11.1",
+  "label": "Commish 'Acting as' team switcher (don't pin the viewer to the 0000 commish login); trade pick labels show the team name not the franchise id; red received-offer count badge on the Home Trades tile"
 }
