@@ -7014,7 +7014,7 @@
      load_moduleExpand_script) stay true in HPM #20 until Stage 6 cutover
      flips them off. Owner Activity hook was DELETED outright per §5 Q6
      (no #tab202 references in our HPMs). -->
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/mobile_menu.js?v=2026-05-20-stage6"></script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/mobile_menu.js?v=2026-06-10-legacy-menu"></script>
 <script src="https://keithcreelman.github.io/upsmflproduction/shared/module_collapse.js?v=2026-05-20-stage6"></script>
 <script src="https://keithcreelman.github.io/upsmflproduction/shared/playoff_bracket_polish.js?v=2026-05-20-stage6"></script>
 
@@ -8472,84 +8472,15 @@
     color: var(--ups-text) !important;
   }
 
-  /* Mobile MFL hamburger/menu trigger: pin to upper-left and match UPS colors. */
-  @media (max-width: 980px) {
-    .myfantasyleague_menu {
-      position: fixed !important;
-      top: calc(env(safe-area-inset-top, 0px) + 0.45rem) !important;
-      left: 0.45rem !important;
-      right: auto !important;
-      bottom: auto !important;
-      margin: 0 !important;
-      transform: none !important;
-      z-index: 10060 !important;
-      width: 52px !important;
-      min-width: 52px !important;
-      height: 52px !important;
-      max-width: 52px !important;
-      border: 0 !important;
-      border-radius: 0 !important;
-      background: transparent !important;
-      box-shadow: none !important;
-      padding: 0 !important;
-      overflow: visible !important;
-    }
-
-    .myfantasyleague_menu > span,
-    .myfantasyleague_menu span:first-child {
-      display: none !important;
-    }
-
-    .myfantasyleague_menu > label,
-    .myfantasyleague_menu > label[for="sub0"],
-    .myfantasyleague_menu label[for="sub0"] {
-      position: fixed !important;
-      top: calc(env(safe-area-inset-top, 0px) + 0.45rem) !important;
-      left: 0.45rem !important;
-      right: auto !important;
-      bottom: auto !important;
-      width: 48px !important;
-      height: 48px !important;
-      min-width: 48px !important;
-      min-height: 48px !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      transform: none !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      z-index: 10061 !important;
-      background: var(--ups-accent) !important;
-      border: 1px solid #b98527 !important;
-      border-radius: 10px !important;
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28) !important;
-    }
-
-    .myfantasyleague_menu > label > span,
-    .myfantasyleague_menu > label > span::before,
-    .myfantasyleague_menu > label > span::after,
-    .myfantasyleague_menu label[for="sub0"] > span,
-    .myfantasyleague_menu label[for="sub0"] > span::before,
-    .myfantasyleague_menu label[for="sub0"] > span::after {
-      background: var(--ups-accent-ink) !important;
-      border-color: var(--ups-accent-ink) !important;
-    }
-
-    .myfantasyleague_menu > ul {
-      position: fixed !important;
-      top: calc(env(safe-area-inset-top, 0px) + 3.45rem) !important;
-      left: 0.45rem !important;
-      right: 0.45rem !important;
-      margin-top: 0 !important;
-      border: 1px solid var(--ups-border) !important;
-      border-radius: 12px !important;
-      background: var(--ups-surface-alt) !important;
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important;
-      overflow: auto !important;
-      max-height: calc(100vh - env(safe-area-inset-top, 0px) - 4.1rem) !important;
-      z-index: 10062 !important;
-    }
-  }
+  /* Suppress MFL's native responsive hamburger (#menu-trigger — the mis-
+     positioned gold box that floats over the banner). UPS provides ONE themed
+     hamburger via shared/mobile_menu.js. The prior @media(max-width:980px)
+     block that restyled .myfantasyleague_menu into a competing top-left gold
+     box was dead (mobile_menu.js display:none's that element) and conflicting —
+     removed 2026-06-10. Hidden here in the inline <style> too so there's no
+     flash of the gold box before mobile_menu.js loads. */
+  #menu-trigger,
+  .hamburger.hamburger--spin { display: none !important; visibility: hidden !important; }
 
   /* Mini scoreboard (MFLBox) dark mode */
   #MFLBoxWrapper,
@@ -11362,14 +11293,53 @@
       return false;
     }
 
+    // Mobile keep-list (Keith 2026-06-10): on phones the hamburger drawer is
+    // trimmed to a short "MFL Legacy Links" fallback — KEEP only Submit Lineup
+    // (O=02) · Trade (O=05) · Add/Drop · IR (O=18) · Taxi (O=98) · Live Scoring
+    // · Commissioner Setup · Logout; hide everything else (incl. prior-year
+    // league homes, account/help/social bloat). Custom MESSAGE links never
+    // count (those are the primary My Hub pages).
+    function hrefIsLegacyKeep(href) {
+      if (!href) return false;
+      if (/MODULE=/i.test(href)) return false;
+      if (/[?&]O=(?:02|05|18|98)\b/.test(href)) return true;
+      if (/\/add_drop\b/.test(href)) return true;
+      if (/\/ajax_ls\b/.test(href)) return true;
+      if (/\/commissioner_setup\b/.test(href)) return true;
+      if (/\/logout\b/.test(href)) return true;
+      return false;
+    }
+
     function scrubMenu() {
-      var anchors = document.querySelectorAll(".myfantasyleague_menu a[href], #tabmenu-wrap a[href]");
-      anchors.forEach(function (a) {
-        if (!hrefIsBlacklisted(a.getAttribute("href"))) return;
-        var li = a.closest("li");
-        if (li) li.style.display = "none";
-        else a.style.display = "none";
-      });
+      // Reset our prior hides first so a viewport change re-evaluates cleanly.
+      var prev = document.querySelectorAll('[data-ups-menu-hide]');
+      for (var k = 0; k < prev.length; k++) { prev[k].style.removeProperty("display"); prev[k].removeAttribute("data-ups-menu-hide"); }
+
+      var mobile = (window.innerWidth || document.documentElement.clientWidth || 9999) <= 768;
+      if (mobile) {
+        // Trim the native menu down to the legacy essentials. Hide any <li>
+        // that has NO kept link inside it — this covers leaf items AND entire
+        // dropdowns whose children are all non-essential; a container holding a
+        // kept child stays visible so kept items are never orphaned.
+        var menu = document.querySelector(".myfantasyleague_menu");
+        if (!menu) return;
+        var lis = menu.querySelectorAll("li");
+        for (var i = 0; i < lis.length; i++) {
+          var li = lis[i], keep = false, as = li.querySelectorAll("a[href]");
+          for (var j = 0; j < as.length; j++) { if (hrefIsLegacyKeep(as[j].getAttribute("href"))) { keep = true; break; } }
+          // Inline !important so the open-drawer "li{display:block!important}"
+          // stacking rule in mobile_menu.js can't re-show a hidden item.
+          if (!keep) { li.style.setProperty("display", "none", "important"); li.setAttribute("data-ups-menu-hide", "1"); }
+        }
+      } else {
+        // Desktop (unchanged): hide native items that duplicate our custom hubs.
+        var anchors = document.querySelectorAll(".myfantasyleague_menu a[href], #tabmenu-wrap a[href]");
+        anchors.forEach(function (a) {
+          if (!hrefIsBlacklisted(a.getAttribute("href"))) return;
+          var li = a.closest("li"), tgt = li || a;
+          tgt.style.setProperty("display", "none", "important"); tgt.setAttribute("data-ups-menu-hide", "1");
+        });
+      }
     }
 
     function runWithRetry() {
@@ -11380,6 +11350,7 @@
         scrubMenu();
         if (++n >= 6) clearInterval(iv);
       }, 400);
+      window.addEventListener("resize", scrubMenu);
     }
 
     if (document.readyState === "loading") {
