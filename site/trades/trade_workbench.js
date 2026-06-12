@@ -307,11 +307,22 @@
     var yearsRemaining = metrics && metrics.years_remaining != null
       ? safeInt(metrics.years_remaining, 0)
       : safeInt(asset.years, 0);
+    // Vet-ERA winners are blocked from the pre-trade extension while their MYAC
+    // window is open (canon §A3 ~line 204: contractStatus=="Vet-ERA" AND now <
+    // FA_Auction.contract_deadline — MYAC owns 1/2/3-yr length there). The
+    // deadline isn't on the client, so block Vet-ERA outright: correct through
+    // the Sept deadline, conservative after (worker re-validates on submit).
+    if (type.indexOf("vet-era") !== -1) return false;
     if (type.indexOf("tag") !== -1) return false;
     if (info.indexOf("no further extensions") !== -1 || info.indexOf("not eligible for tag or extension") !== -1) {
       return false;
     }
-    return yearsRemaining === 1 || (rookieLikeTradeContractStatus(type) && yearsRemaining <= 0);
+    // A taxi-squad player is never an "expired rookie" for this purpose: a taxi
+    // rookie whose years read <= 0 (e.g. an unrepaired draft-slot taxi on the
+    // desktop) must NOT fall into the fresh-contract branch. A taxi player
+    // heading into its FINAL year (years_remaining === 1) is still extendable
+    // via the first branch, exactly like any other player (Keith 2026-06-12).
+    return yearsRemaining === 1 || (rookieLikeTradeContractStatus(type) && yearsRemaining <= 0 && !parseBool(asset.taxi, false));
   }
 
   function buildSyntheticExtensionOptions(asset) {
