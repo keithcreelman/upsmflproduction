@@ -131,12 +131,12 @@ async function discordRequest(env, method, apiPath, body) {
 const discordPost = (env, p, b) => discordRequest(env, "POST", p, b);
 const discordPatch = (env, p, b) => discordRequest(env, "PATCH", p, b);
 
-async function openDmChannel(env, userId) {
+export async function openDmChannel(env, userId) {
   const cleanId = safeStr(userId).replace(/\D/g, "");
   const r = await discordPost(env, "/users/@me/channels", { recipient_id: cleanId });
   return r.ok ? safeStr(r.data?.id || "") : "";
 }
-async function sendDm(env, channelId, payload) {
+export async function sendDm(env, channelId, payload) {
   // DMs stay noisy — kickoff + nudges are directed messages and the user
   // expects a notification (that's the whole point).
   return await discordPost(env, `/channels/${encodeURIComponent(channelId)}/messages`, {

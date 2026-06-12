@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.12.2",
-  "label": "Pending trade cards now show any attached pre-trade extension(s) — player, term, new AAV, and which franchise applies it — in both your inbox and outbox (the offer list now fetches the payload)"
+  "build": "2026.06.12.3",
+  "label": "Trade-offer Discord DMs: a button in the DM deep-links into the app straight to that offer — opening the decline sheet or counter builder for it (so you can respond from the notification)"
 }
