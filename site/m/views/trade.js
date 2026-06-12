@@ -187,7 +187,9 @@
       inv: {}, loadingInv: false, invError: "",
       giveIds: {}, getIds: {},
       myCapK: 0, theirCapK: 0,
-      comment: "", submitting: false, error: ""
+      comment: "", submitting: false, error: "",
+      // Pre-trade extensions on give-side players: { asset_id: { enabled, option_key } }.
+      extensions: {}
     };
   }
 
@@ -217,8 +219,14 @@
       player_id: String(p.player_id), player_name: p.display || null,
       description: null, position: p.position || null, nfl_team: p.nfl_team || null,
       salary: U.safeInt(p.salary, 0),
+      // years = MFL contractYear = years-remaining (cy). Do NOT also set a
+      // `contract_year` field here — the shared extension module would then
+      // mis-derive years_remaining from (contract_length - contract_year).
       years: (p.contract_year == null ? null : p.contract_year),
-      contract_type: p.contract_status || null, contract_info: null,
+      contract_type: p.contract_status || null,
+      contract_info: p.contract_info || null,
+      contract_length: (p.contract_length == null ? null : p.contract_length),
+      already_extended_by_this_franchise: !!p.already_extended_by_this_franchise,
       taxi: !!p.taxi,
       pick_key: null, pick_season: null, pick_round: null, pick_slot: null
     };
@@ -506,12 +514,49 @@
       if (capK > 0) items += '<li class="cap">+ ' + U.fmtUsd(capK * 1000) + ' cap money</li>';
       return items || '<li class="muted">—</li>';
     }
+    // Pre-trade extension control — shown on eligible give-side PLAYER assets
+    // (the trading-away franchise extends as its last act before the trade).
+    // Options come straight from the shared canon module; the worker re-derives
+    // + re-validates on submit, so this is just selection + preview.
+    function extControlFor(a) {
+      if (a.type !== "PLAYER") return "";
+      var PX = window.UPS_PRETRADE_EXT;
+      var opts = (PX && PX.buildSyntheticExtensionOptions(a)) || [];
+      if (!opts.length) return "";
+      var cur = builderState.extensions[a.asset_id];
+      var curKey = (cur && cur.enabled) ? cur.option_key : "";
+      function seg(key, label, sub) {
+        return '<button type="button" class="ups-m-tb-extseg' + (curKey === key ? " on" : "") + '" data-asset="' + U.escapeHtml(a.asset_id) + '" data-key="' + U.escapeHtml(key) + '">' +
+          '<span class="l">' + U.escapeHtml(label) + '</span>' + (sub ? '<span class="s">' + U.escapeHtml(sub) + '</span>' : "") + '</button>';
+      }
+      var segs = seg("", "No ext", "");
+      opts.forEach(function (o) {
+        segs += seg(o.option_key, (o.extension_term === "1YR" ? "+1 yr" : "+2 yr"), U.fmtUsd(o.new_aav_future) + " AAV");
+      });
+      var preview = "";
+      if (curKey) {
+        var chosen = opts.filter(function (o) { return o.option_key === curKey; })[0];
+        if (chosen) preview = '<div class="ups-m-tb-extprev">→ ' + U.escapeHtml(String(chosen.preview_contract_info_string).replace(/\|\s*/g, " · ")) + '</div>';
+      }
+      return '<div class="ups-m-tb-extwrap"><div class="ups-m-tb-extlbl">Pre-trade extension</div>' +
+        '<div class="ups-m-tb-extctl">' + segs + '</div>' + preview + '</div>';
+    }
+    function giveColList(assets, capK) {
+      var items = assets.map(function (a) {
+        return '<li>' +
+          U.escapeHtml(a.type === "PLAYER" ? (a.player_name || a.player_id) : (a.description || a.asset_id)) +
+          (a.type === "PLAYER" && U.safeInt(a.salary, 0) > 0 ? ' <span class="sal">' + U.fmtUsd(a.salary) + '</span>' : "") +
+          extControlFor(a) + '</li>';
+      }).join("");
+      if (capK > 0) items += '<li class="cap">+ ' + U.fmtUsd(capK * 1000) + ' cap money</li>';
+      return items || '<li class="muted">—</li>';
+    }
     var canSubmit = (give.length || myCapK > 0) && (get.length || theirCapK > 0);
     body.innerHTML =
       '<div class="ups-m-tb-steptitle">Review offer</div>' +
       '<div class="ups-m-tb-review">' +
         '<div class="col"><div class="lbl">You give → ' + U.escapeHtml(franchiseName(theirFid)) + '</div>' +
-          '<ul>' + colList(give, myCapK) + '</ul></div>' +
+          '<ul>' + giveColList(give, myCapK) + '</ul></div>' +
         '<div class="col"><div class="lbl">You get</div>' +
           '<ul>' + colList(get, theirCapK) + '</ul></div>' +
       '</div>' +
@@ -525,6 +570,16 @@
       '</div>';
     var c = document.getElementById("ups-m-tb-comment");
     if (c) c.addEventListener("input", function () { builderState.comment = this.value; });
+    var extSegs = body.querySelectorAll(".ups-m-tb-extseg");
+    for (var ei = 0; ei < extSegs.length; ei++) {
+      extSegs[ei].addEventListener("click", function () {
+        var asset = this.getAttribute("data-asset");
+        var key = this.getAttribute("data-key");
+        if (key) builderState.extensions[asset] = { enabled: true, option_key: key };
+        else delete builderState.extensions[asset];
+        renderBuilder();
+      });
+    }
     document.getElementById("ups-m-tb-back").addEventListener("click", function () {
       if (builderState.submitting) return;
       builderState.step = 3; renderBuilder();
@@ -551,6 +606,35 @@
     // non-taxi salary, regardless of any UI state drift.
     var myCapK = Math.min(U.safeInt(builderState.myCapK, 0), maxCapKFor(myFid, builderState.giveIds));
     var theirCapK = Math.min(U.safeInt(builderState.theirCapK, 0), maxCapKFor(theirFid, builderState.getIds));
+    // Pre-trade extensions (Keith 2026-06-11): for each give-side player marked
+    // for extension, RE-DERIVE the option from the asset (never trust a stale
+    // option_key) via the shared canon module, and push the exact desktop row
+    // shape. from_franchise_id is always the giver (viewer). The worker
+    // re-derives + re-validates salary-by-year from preview_contract_info_string.
+    var extensionRequests = [];
+    var PX = window.UPS_PRETRADE_EXT;
+    if (PX) {
+      giveAssets.forEach(function (a) {
+        if (a.type !== "PLAYER") return;
+        var sel = builderState.extensions[a.asset_id];
+        if (!sel || !sel.enabled) return;
+        var opts = PX.buildSyntheticExtensionOptions(a) || [];
+        var opt = opts.filter(function (o) { return o.option_key === sel.option_key; })[0];
+        if (!opt) return;
+        extensionRequests.push({
+          player_id: a.player_id, player_name: a.player_name,
+          from_franchise_id: myFid, to_franchise_id: theirFid,
+          applies_to_acquirer: true,
+          option_key: opt.option_key, extension_term: opt.extension_term,
+          loaded_indicator: opt.loaded_indicator, preview_id: opt.preview_id,
+          preview_contract_info_string: opt.preview_contract_info_string,
+          new_contract_status: opt.new_contract_status,
+          new_contract_length: opt.new_contract_length,
+          new_TCV: opt.new_TCV,
+          new_aav_future: opt.new_aav_future
+        });
+      });
+    }
     return {
       schema_version: 1,
       generated_at: new Date().toISOString(),
@@ -575,7 +659,7 @@
           selected_non_taxi_salary_dollars: nonTaxi(getAssets)
         }
       ],
-      extension_requests: [],
+      extension_requests: extensionRequests,
       filters: { search: "" },
       ui: { left_team_id: myFid, right_team_id: theirFid }
     };
@@ -661,7 +745,7 @@
     return action;
   }
 
-  function postTradeAction(action, tradeId) {
+  function postTradeAction(action, tradeId, message) {
     // Forward the viewer's MFL_USER_ID — the action route writes to MFL as the
     // acting franchise and rejects with "Missing MFL owner session" without it
     // (worker viewerCookieHeader gate). Same query-param pattern as the builder.
@@ -676,7 +760,10 @@
         trade_id: tradeId,
         league_id: M.state.ctx.leagueId,
         franchise_id: M.state.viewerFranchiseId,
-        year: M.state.ctx.year
+        year: M.state.ctx.year,
+        // Decline note → worker forwards body.message to MFL's tradeResponse
+        // COMMENTS (index.js:25711). Harmless empty string for accept/cancel.
+        message: U.safeStr(message)
       })
     }).then(function (r) {
       return r.text().then(function (txt) {
@@ -687,13 +774,12 @@
     });
   }
 
-  function handleAction(action, tradeId) {
-    var prompt = action === "accept" ? "Accept this trade?\n\nWrites to MFL." :
-                 action === "decline" ? "Decline this trade?" :
-                 "Cancel this outgoing offer?";
-    if (!window.confirm(prompt)) return;
+  // Fire a trade action + toast + full reload. Shared by accept/cancel
+  // (window.confirm) and decline (reason sheet). `message` is the optional
+  // decline note; ignored by the worker for accept/cancel.
+  function runTradeAction(action, tradeId, message) {
     M.ui.showToast(action[0].toUpperCase() + action.slice(1) + "ing…", "info");
-    postTradeAction(action, tradeId).then(function (resp) {
+    return postTradeAction(action, tradeId, message).then(function (resp) {
       if (resp.ok) {
         M.ui.showToast("Done ✓", "ok");
         state.offers = null;
@@ -709,6 +795,57 @@
     }).catch(function (err) {
       M.ui.showToast("Failed: " + (err && err.message || err), "err");
     });
+  }
+
+  // Decline → a small sheet so the owner can attach an optional note that
+  // lands in MFL's native trade history (and, later, the offerer's DM).
+  function openDeclineSheet(tradeId) {
+    var existing = document.getElementById("ups-m-decline-overlay");
+    if (existing) existing.remove();
+    var html =
+      '<div class="ups-m-drop-overlay" id="ups-m-decline-overlay">' +
+        '<div class="ups-m-drop-sheet">' +
+          '<div class="ups-m-drop-head">' +
+            '<button class="ups-m-drop-close" id="ups-m-decline-close" aria-label="Close">×</button>' +
+            '<div class="grip"></div>' +
+            '<div class="title">Decline offer</div>' +
+            '<div class="sub">Add an optional note for the other owner.</div>' +
+          '</div>' +
+          '<div class="ups-m-drop-body">' +
+            '<textarea class="ups-m-tb-comment" id="ups-m-decline-reason" rows="3" maxlength="2000" ' +
+              'placeholder="Reason (optional) — e.g. too rich for me, but keep \'em coming."></textarea>' +
+            '<div class="ups-m-tb-nav">' +
+              '<button class="btn-act" id="ups-m-decline-cancel">Cancel</button>' +
+              '<button class="btn-act otb on" id="ups-m-decline-go">Decline trade</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return;
+    mount.insertAdjacentHTML("beforeend", html);
+    document.body.style.overflow = "hidden";
+    function close() {
+      var ov = document.getElementById("ups-m-decline-overlay");
+      if (ov) ov.remove();
+      document.body.style.overflow = "";
+    }
+    document.getElementById("ups-m-decline-close").addEventListener("click", close);
+    document.getElementById("ups-m-decline-cancel").addEventListener("click", close);
+    document.getElementById("ups-m-decline-go").addEventListener("click", function () {
+      var el = document.getElementById("ups-m-decline-reason");
+      var reason = el ? U.safeStr(el.value) : "";
+      close();
+      runTradeAction("decline", tradeId, reason);
+    });
+  }
+
+  function handleAction(action, tradeId) {
+    if (action === "decline") { openDeclineSheet(tradeId); return; }
+    var prompt = action === "accept" ? "Accept this trade?\n\nWrites to MFL." :
+                 "Cancel this outgoing offer?";
+    if (!window.confirm(prompt)) return;
+    runTradeAction(action, tradeId, "");
   }
 
   function render(mount) {

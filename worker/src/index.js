@@ -11094,6 +11094,30 @@ export default {
             }
           }
 
+          // Pre-trade extension §C4 gate: a franchise cannot re-extend a player
+          // it already extended on a still-active contract. Build the set of
+          // player_ids THIS franchise has already extended (contract_end_year >=
+          // current season) so the client can gate the pre-trade extension UI.
+          // Mirrors the /trade-workbench stamping (~line 34584). Keith 2026-06-11.
+          const alreadyExtendedPids = new Set();
+          try {
+            const seasonInt = safeInt(year, 0);
+            const masterRes = await env.UPS_MFL_DB.prepare(
+              `SELECT franchise_id, player_id, contract_end_year
+               FROM ups_extension_master WHERE league_id = ?`
+            ).bind(leagueId).all();
+            for (const row of asArray(masterRes?.results)) {
+              const rfid = _rdhPadFid(row?.franchise_id || "");
+              const rpid = String(row?.player_id || "").replace(/\D/g, "");
+              const endYear = safeInt(row?.contract_end_year, 0);
+              if (rfid === fid && rpid && seasonInt > 0 && endYear >= seasonInt) {
+                alreadyExtendedPids.add(rpid);
+              }
+            }
+          } catch (e) {
+            console.warn("[franchise-assets] ups_extension_master read failed:", e?.message || String(e));
+          }
+
           // Players (now with names + positions from the index)
           const players = [];
           if (rosterRes.status === "fulfilled" && rosterRes.value.ok) {
@@ -11126,6 +11150,12 @@ export default {
                   salary: Number(pp.salary || 0),
                   contract_year: Number(pp.contractYear || 0),
                   contract_status: contractStatusRaw,
+                  // Pre-trade extension inputs (Keith 2026-06-11): contract_info
+                  // (the Y-token schedule + AAV the shared extension module
+                  // parses), the parsed CL, and the §C4 already-extended gate.
+                  contract_info: safeStr(pp.contractInfo || ""),
+                  contract_length: (function () { var m = safeStr(pp.contractInfo).match(/(?:^|\|)\s*CL\s*(\d+)/i); return m ? Number(m[1]) : null; })(),
+                  already_extended_by_this_franchise: alreadyExtendedPids.has(pid),
                   roster_status: rosterStatus,
                   taxi: isTaxi,
                 });

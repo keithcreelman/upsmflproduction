@@ -3286,6 +3286,10 @@
         proposal_id: safeStr(offer.proposal_id || offer.trade_id || offer.id),
         trade_id: tradeId,
         action: normalizedAction,
+        // Decliner's optional note → the worker forwards body.message to MFL's
+        // tradeResponse COMMENTS (index.js:26498). Only attach on REJECT so
+        // ACCEPT/REVOKE keep their existing (empty-COMMENTS) behavior.
+        message: normalizedAction === "REJECT" ? safeStr(meta && meta.message).slice(0, 2000) : "",
         acting_franchise_id: actingFranchiseId,
         payload: actionPayload,
         offer_comment: offerRawCommentText,
@@ -4071,9 +4075,16 @@
           ? "REVOKE"
           : "";
     if (!action) return;
+    // On a review-flow decline, the "Message (Optional)" box (cleared when the
+    // offer was loaded, line ~2767) doubles as the decline note → MFL COMMENTS.
+    var reviewMessage = "";
+    if (action === "REJECT" && els.offerMessageInput) {
+      reviewMessage = safeStr(els.offerMessageInput.value).slice(0, 2000);
+    }
     performOfferAction(action, {
       bucket: bucket,
-      offer: offer
+      offer: offer,
+      message: reviewMessage
     });
   }
 
@@ -6668,7 +6679,20 @@
             if (action === "offer-accept") {
               performOfferAction("ACCEPT", { bucket: bucket, offer: offer });
             } else if (action === "offer-reject") {
-              performOfferAction("REJECT", { bucket: bucket, offer: offer });
+              // Quick-decline from the offers list: confirm + capture an
+              // optional note (lands in MFL trade history). Cancel aborts.
+              var quickDeclineReason = "";
+              try {
+                var rp = window.prompt(
+                  "Decline this offer?\n\nOptional note to the other owner (saved to MFL trade history):",
+                  ""
+                );
+                if (rp === null) return;
+                quickDeclineReason = safeStr(rp).slice(0, 2000);
+              } catch (ePrompt) {
+                quickDeclineReason = "";
+              }
+              performOfferAction("REJECT", { bucket: bucket, offer: offer, message: quickDeclineReason });
             } else if (action === "offer-revoke") {
               performOfferAction("REVOKE", { bucket: bucket, offer: offer });
             } else if (action === "offer-counter" || action === "build-counter" || action === "counter-offer") {
