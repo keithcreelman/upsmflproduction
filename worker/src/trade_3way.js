@@ -306,6 +306,60 @@ export async function create3WayTrade(env, ctx, spec) {
   }
 }
 
+// ──────────────── list a franchise's active 3-way trades (outbox) ────────────
+// Shape one row for the mobile outbox: the viewer's role, the per-team accept
+// states, the movements (from→to + summary), and whether the viewer can cancel.
+function shape3WayForView(row, viewerFid) {
+  const A = padFid(row.initiator_fid), B = padFid(row.team_b_fid), C = padFid(row.team_c_fid);
+  const me = padFid(viewerFid);
+  const status = safeStr(row.status);
+  const movements = parseLegs(row)
+    .filter((m) => m && Array.isArray(m.asset_tokens) && m.asset_tokens.length)
+    .map((m) => ({ from: padFid(m.from), to: padFid(m.to), from_name: teamLabel(row, m.from), to_name: teamLabel(row, m.to), summary: safeStr(m.summary) }));
+  const bState = safeStr(row.team_b_state), cState = safeStr(row.team_c_state);
+  const waiting = [];
+  if (bState !== "accepted") waiting.push(teamLabel(row, B));
+  if (cState !== "accepted") waiting.push(teamLabel(row, C));
+  return {
+    id: row.id, status, role: me === A ? "initiator" : "partner",
+    initiator_name: teamLabel(row, A), team_b_name: teamLabel(row, B), team_c_name: teamLabel(row, C),
+    team_b_state: bState, team_c_state: cState, waiting_on: waiting,
+    movements, notes: safeStr(row.notes),
+    can_cancel: me === A && status === "collecting",
+    created_at_utc: safeStr(row.created_at_utc),
+  };
+}
+export async function list3WayForFranchise(env, leagueId, fid) {
+  if (!env.UPS_MFL_DB) return [];
+  const f = padFid(fid);
+  if (!f) return [];
+  try {
+    const { results } = await env.UPS_MFL_DB.prepare(
+      `SELECT * FROM ups_3way_trades
+       WHERE league_id = ? AND status IN ('collecting','executing')
+         AND (initiator_fid = ? OR team_b_fid = ? OR team_c_fid = ?)
+       ORDER BY created_at_utc DESC LIMIT 25`
+    ).bind(safeStr(leagueId), f, f, f).all();
+    return (results || []).map((row) => shape3WayForView(row, f));
+  } catch (e) { console.error(`[3way] list failed: ${e?.message || e}`); return []; }
+}
+
+// ──────────────── cancel a pending 3-way (initiator only) ────────────────────
+export async function cancel3WayTrade(env, ctx, id, byFid) {
+  if (!env.UPS_MFL_DB) return { ok: false, error: "no_db" };
+  const row = await getRow(env, id);
+  if (!row) return { ok: false, error: "not_found" };
+  if (padFid(row.initiator_fid) !== padFid(byFid)) return { ok: false, error: "only_initiator_can_cancel" };
+  if (safeStr(row.status) !== "collecting") return { ok: false, error: `cannot_cancel_${safeStr(row.status)}` };
+  await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET status='cancelled', failure_reason='cancelled_by_initiator', updated_at_utc=? WHERE id=?`).bind(nowIso(), id).run();
+  const who = teamLabel(row, row.initiator_fid);
+  const alert = { content: `❌ **${who}** called off the 3-way trade.`.slice(0, 1990) };
+  const fire = async () => { await dmAll(env, row.team_b_discord_ids, alert); await dmAll(env, row.team_c_discord_ids, alert); };
+  if (ctx?.waitUntil) ctx.waitUntil(fire()); else await fire();
+  console.log(`[3way] ${id} cancelled by initiator ${padFid(byFid)}`);
+  return { ok: true, id };
+}
+
 // ─────────────────── accept / decline (in-Discord button) ───────────────────
 export async function handle3WayButton(interaction, env, ctx) {
   const customId = safeStr(interaction?.data?.custom_id || "");
