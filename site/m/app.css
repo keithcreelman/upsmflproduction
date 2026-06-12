@@ -2203,7 +2203,29 @@ button.ups-m-busy::before,
 }
 .ups-m-3w-ring .you { color: var(--accent); }
 .ups-m-3w-ring .arr { color: var(--line-soft); font-weight: 400; }
+.ups-m-3w-ring .tag {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--bg); background: var(--accent); border-radius: 5px; padding: 1px 6px;
+}
 .ups-m-3w-leg { margin-bottom: 14px; }
+
+/* per-asset destination chooser (step 3) */
+.ups-m-3w-assetwrap { margin-bottom: 2px; }
+.ups-m-3w-destrow {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 6px 4px 9px 12px;
+}
+.ups-m-3w-destrow .to { font-size: 11px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.ups-m-3w-dest {
+  font-size: 12px; font-weight: 600; color: var(--fg);
+  background: var(--bg-elev2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px 12px; cursor: pointer;
+}
+.ups-m-3w-dest.on { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+
+/* notes label (step 4) */
+.ups-m-3w-noteslbl { display: block; font-size: 12px; font-weight: 600; color: var(--fg); margin: 4px 0 6px; }
+.ups-m-3w-noteslbl .opt { font-weight: 400; color: var(--fg-muted); }
 .ups-m-3w-review { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .ups-m-3w-revrow {
   background: var(--bg-elev2); border: 1px solid var(--line);

@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.12.5",
-  "label": "3-way (ring) trades — mobile builder: pick two partners, route each leg (you→B→C→you), review, and send. Both partners get a Discord DM to Accept/Decline; once both accept, the commish runs it as two linked MFL trades. Players + future picks for v1."
+  "build": "2026.06.12.6",
+  "label": "3-way trades go free-form: route any player/pick from any of the three teams to whoever's receiving it (no longer a forced ring), plus an optional note the partners see in their Accept/Decline DM. Engine decomposes into a 2-trade hub for clean cycles, else pairwise (one MFL trade per team-pair)."
 }
