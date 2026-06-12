@@ -5,7 +5,7 @@ import {
   processAutoNudges as processHallAutoNudges,
   processOverdueRoundCloses as processHallOverdueCloses,
 } from "./discord_round.js";
-import { enqueueTradeOfferDm, processTradeOfferReminders } from "./trade_dm.js";
+import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline } from "./trade_dm.js";
 
 const acquisitionLiveMemoryCache = new Map();
 const contractDiscordChannelQueues = new Map();
@@ -26671,6 +26671,17 @@ export default {
               targetImportUrl: responseImport.targetImportUrl,
               formFields: responseImport.formFields,
             });
+          }
+
+          // Decline → DM the offerer (sending owner) that their offer was turned
+          // down, plus the decliner's note. Fire-and-forget. Accept is announced
+          // league-wide by the Trade Roast bot; counter sends the offerer a fresh
+          // offer DM; "think about it" is handled by the in-Discord button.
+          if (action === "REJECT") {
+            ctx.waitUntil(
+              notifyOffererOfDecline(env, mflTradeId, actionMessage)
+                .catch((e) => console.error(`[trade-dm] decline alert dispatch failed: ${e?.message || e}`))
+            );
           }
 
           let acceptOutboxId = safeStr(acceptOutboxRow && acceptOutboxRow.id);
