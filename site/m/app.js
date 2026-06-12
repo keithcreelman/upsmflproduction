@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.06.12.1";
+  var BUILD = "2026.06.12.2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -661,7 +661,10 @@
     var url = workerUrl("/api/trades/proposals?L=" +
       encodeURIComponent(state.ctx.leagueId) +
       "&YEAR=" + encodeURIComponent(state.ctx.year) +
-      "&franchise_id=" + encodeURIComponent(fid));
+      "&franchise_id=" + encodeURIComponent(fid) +
+      // include_payload=1 → offers carry payload.extension_requests so the trade
+      // cards can show pre-trade extensions (the comment-tag isn't written in prod).
+      "&include_payload=1");
     var stored = getStoredMflUserId && getStoredMflUserId();
     if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
     return fetch(url, { mode: "cors", credentials: "omit" })

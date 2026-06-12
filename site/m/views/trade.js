@@ -49,7 +49,10 @@
     var url = M.api.workerUrl("/api/trades/proposals?L=" +
       encodeURIComponent(M.state.ctx.leagueId) +
       "&YEAR=" + encodeURIComponent(M.state.ctx.year) +
-      "&franchise_id=" + encodeURIComponent(M.state.viewerFranchiseId));
+      "&franchise_id=" + encodeURIComponent(M.state.viewerFranchiseId) +
+      // include_payload=1 → offers carry payload.extension_requests so the
+      // cards can show pre-trade extensions (twb_meta isn't written in prod).
+      "&include_payload=1");
     var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
     if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
     return fetch(url, { mode: "cors", credentials: "omit" })
@@ -112,6 +115,27 @@
     var myAssets = describeAssetCsv(myAssetsCsv);
     var theirAssets = describeAssetCsv(theirAssetsCsv);
 
+    // Pre-trade extensions ride in the stored payload (the [UPS_TWB_META] comment
+    // tag isn't written in prod, so twb_meta is null) — hence include_payload=1 on
+    // the list fetch. Surface them so BOTH owners see the extension that's part of
+    // the deal; each is applied by the franchise giving that player up.
+    var exts = (offer.payload && Array.isArray(offer.payload.extension_requests))
+      ? offer.payload.extension_requests : [];
+    var extHtml = "";
+    if (exts.length) {
+      extHtml = '<div class="ups-m-trade-ext"><span class="lbl">' +
+        (exts.length > 1 ? "Pre-trade extensions" : "Pre-trade extension") + '</span><ul>' +
+        exts.map(function (e) {
+          var term = U.safeStr(e.extension_term) === "2YR" ? "+2 yr" : "+1 yr";
+          var aav = U.safeInt(e.new_aav_future, 0);
+          var who = franchiseName(U.pad4(e.from_franchise_id));
+          return '<li>' + U.escapeHtml(U.safeStr(e.player_name) || U.safeStr(e.player_id)) +
+            ' <span class="term">' + term + '</span>' +
+            (aav > 0 ? ' → ' + U.escapeHtml(U.fmtUsd(aav)) + ' AAV' : '') +
+            ' <span class="by">by ' + U.escapeHtml(who) + '</span></li>';
+        }).join("") + '</ul></div>';
+    }
+
     var actionsHtml = '';
     if (direction === "incoming") {
       actionsHtml = '<div class="ups-m-trade-actions">' +
@@ -143,6 +167,7 @@
             : '<div class="muted">—</div>') +
         '</div>' +
       '</div>' +
+      extHtml +
       (note ? '<div class="ups-m-trade-note"><span class="lbl">Note:</span> ' + U.escapeHtml(note) + '</div>' : '') +
       actionsHtml +
     '</div>';
