@@ -2133,6 +2133,21 @@ button.ups-m-busy::before,
 .ups-m-tb-review li .sal { color: var(--fg-muted); font-size: 11px; }
 .ups-m-tb-review li.cap { color: var(--warn); font-weight: 600; }
 .ups-m-tb-review li.muted { color: var(--line-soft); }
+/* Pre-trade extension control (review step, give-side eligible players) */
+.ups-m-tb-extwrap { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.ups-m-tb-extlbl { font-size: 10px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--accent); margin-bottom: 5px; }
+.ups-m-tb-extctl { display: flex; gap: 5px; flex-wrap: wrap; }
+.ups-m-tb-extseg {
+  flex: 1 1 0; min-width: 54px; display: flex; flex-direction: column; align-items: center;
+  gap: 1px; padding: 6px 4px; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--line); color: var(--fg);
+  font-family: inherit; cursor: pointer;
+}
+.ups-m-tb-extseg .l { font-size: 12px; font-weight: 700; }
+.ups-m-tb-extseg .s { font-size: 9px; color: var(--fg-muted); }
+.ups-m-tb-extseg.on { border-color: var(--accent); background: rgba(91, 141, 255, 0.16); }
+.ups-m-tb-extseg.on .l, .ups-m-tb-extseg.on .s { color: var(--accent); }
+.ups-m-tb-extprev { font-size: 11px; color: var(--teal); margin-top: 6px; line-height: 1.3; }
 .ups-m-tb-comment {
   width: 100%;
   padding: 10px 12px;
