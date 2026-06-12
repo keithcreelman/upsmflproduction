@@ -32,6 +32,15 @@ TRADE_DM_TEST_FRANCHISES = "0001,0007,0008"
 TRADE_DM_THINK_CAP_DAYS = "14"
 TRADE_DM_HARD_AGE_CAP_DAYS = "21"
 
+# 3-way (ring) trades (worker/src/trade_3way.js). ENABLED=1 arms the feature (DMs
+# + acceptance). EXECUTE=1 turns on LIVE MFL writes (the commish runs the two
+# chained 2-party trades); 0 = DRY-RUN (logs the plan + DMs "approved" but moves
+# NO rosters) — kept OFF until the flow is validated end-to-end. Reuses
+# TRADE_DM_TEST_FRANCHISES for the rollout allowlist. MFL can't undo a completed
+# trade, so flip EXECUTE on deliberately.
+TRADE_3WAY_ENABLED = "1"
+TRADE_3WAY_EXECUTE = "0"
+
 # Hourly drop → cap-penalty scan at :05 past each hour (RULE-WORKFLOW-004).
 # The worker's scheduled() handler:
 #   1. calls /admin/import-drop-penalties logic to post new cap penalties to MFL

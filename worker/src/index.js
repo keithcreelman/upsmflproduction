@@ -6,6 +6,7 @@ import {
   processOverdueRoundCloses as processHallOverdueCloses,
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline } from "./trade_dm.js";
+import { create3WayTrade } from "./trade_3way.js";
 
 const acquisitionLiveMemoryCache = new Map();
 const contractDiscordChannelQueues = new Map();
@@ -25228,6 +25229,32 @@ export default {
           },
           generated_at: new Date().toISOString(),
         });
+      }
+
+      // 3-way (ring) trade create. The initiator's builder (mobile/desktop)
+      // POSTs the ring spec; the engine DMs the two partners to accept, then
+      // the commish executes the chained 2-party trades (worker/src/trade_3way.js).
+      // v1 auth: a logged-in owner session (MFL_USER_ID) OR the commish key. The
+      // TRADE_3WAY_* flags + TRADE_DM_TEST_FRANCHISES allowlist bound the blast
+      // radius during the test rollout — tighten (verify viewer == initiator)
+      // before go-live.
+      if (path === "/api/trades/3way" && request.method === "POST") {
+        let body = null;
+        try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!browserMflUserId && (!commishKey || browserKey !== commishKey)) {
+          return jsonOut(401, { ok: false, error: "Sign in (MFL_USER_ID) or pass APIKEY." });
+        }
+        const out = await create3WayTrade(env, ctx, {
+          leagueId: safeStr(body?.league_id || L || ""),
+          season: safeStr(body?.season || YEAR || ""),
+          initiator: body?.initiator,
+          teamB: body?.team_b,
+          teamC: body?.team_c,
+          legs: body?.legs,
+        });
+        return jsonOut(out.ok ? 201 : 400, out);
       }
 
       if ((path === "/trade-offers" || path === "/api/trades/proposals") && request.method === "POST") {
