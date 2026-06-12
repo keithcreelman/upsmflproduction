@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.12.4",
-  "label": "Pre-trade extension eligibility fix: Vet-ERA winners are blocked during their MYAC window, and taxi players are no longer mis-treated as expired rookies (a taxi player in its final year is still extendable; one with 2+ years left is not)"
+  "build": "2026.06.12.5",
+  "label": "3-way (ring) trades — mobile builder: pick two partners, route each leg (you→B→C→you), review, and send. Both partners get a Discord DM to Accept/Decline; once both accept, the commish runs it as two linked MFL trades. Players + future picks for v1."
 }

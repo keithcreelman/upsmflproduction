@@ -53,9 +53,20 @@ function franchiseAllowed(env, fid) {
 function toMflAsset(a) {
   a = safeStr(a);
   if (a.startsWith("P_")) return a.slice(2);
-  if (a.startsWith("FP_")) { const [, yr, rd, orig] = a.split("_"); return `FP_${orig}_${yr}_${rd}`; }
-  if (a.startsWith("DP_")) { const [, , rd, slot] = a.split("_"); return `DP_${String(Number(rd) - 1).padStart(2, "0")}_${String(Number(slot) - 1).padStart(2, "0")}`; }
   if (a.startsWith("BB_")) return `BB_${a.slice(3)}`;
+  if (a.startsWith("DP_")) { const [, , rd, slot] = a.split("_"); return `DP_${String(Number(rd) - 1).padStart(2, "0")}_${String(Number(slot) - 1).padStart(2, "0")}`; }
+  if (a.startsWith("FP_")) {
+    // Robust to token-order variance — the commish path uses FP_<yr>_<rd>_<orig>
+    // while the mobile builder emits FP_<orig>_<yr>_<rd>. Identify the year
+    // (20xx), the original franchise id (4-digit, e.g. 0001), and the round
+    // (1-2 digit), then emit the canonical MFL token FP_<orig>_<yr>_<rd>.
+    const parts = a.slice(3).split("_").filter(Boolean);
+    const year = parts.find((p) => /^20\d\d$/.test(p)) || "";
+    const rest = parts.filter((p) => p !== year);
+    const orig = rest.find((p) => p.length === 4) || rest[0] || "";
+    const round = rest.find((p) => p !== orig) || "";
+    return `FP_${orig}_${year}_${round}`;
+  }
   return a;
 }
 
