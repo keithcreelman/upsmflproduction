@@ -6,7 +6,7 @@ import {
   processOverdueRoundCloses as processHallOverdueCloses,
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline } from "./trade_dm.js";
-import { create3WayTrade } from "./trade_3way.js";
+import { create3WayTrade, list3WayForFranchise, cancel3WayTrade } from "./trade_3way.js";
 
 const acquisitionLiveMemoryCache = new Map();
 const contractDiscordChannelQueues = new Map();
@@ -25257,6 +25257,27 @@ export default {
           notes: body?.notes,
         });
         return jsonOut(out.ok ? 201 : 400, out);
+      }
+
+      // List a franchise's active 3-way trades (mobile outbox).
+      if (path === "/api/trades/3way" && request.method === "GET") {
+        const fid = padFranchiseId(url.searchParams.get("franchise_id") || "");
+        if (!fid) return jsonOut(400, { ok: false, error: "Missing franchise_id." });
+        const rows = await list3WayForFranchise(env, safeStr(L || ""), fid);
+        return jsonOut(200, { ok: true, three_way: rows });
+      }
+
+      // Cancel a pending 3-way (initiator only).
+      if (path === "/api/trades/3way/cancel" && request.method === "POST") {
+        let body = null;
+        try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!browserMflUserId && (!commishKey || browserKey !== commishKey)) {
+          return jsonOut(401, { ok: false, error: "Sign in (MFL_USER_ID) or pass APIKEY." });
+        }
+        const out = await cancel3WayTrade(env, ctx, safeStr(body?.id), padFranchiseId(body?.franchise_id || ""));
+        return jsonOut(out.ok ? 200 : 400, out);
       }
 
       if ((path === "/trade-offers" || path === "/api/trades/proposals") && request.method === "POST") {

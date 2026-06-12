@@ -17,7 +17,7 @@
   var M = window.UPS_MOBILE;
   var U = M.util;
 
-  var state = { offers: null, loading: false, error: null };
+  var state = { offers: null, loading: false, error: null, threeWays: null, loadingThreeWays: false };
 
   function subTabs(active) {
     function tab(href, label, key) {
@@ -873,14 +873,14 @@
     runTradeAction(action, tradeId, "");
   }
 
-  // ════════════════════════ 3-WAY (RING) TRADE BUILDER ════════════════════════
-  // A dedicated ring: You(A) → Partner B → Partner C → You(A). Three legs — you
-  // send to B, B sends to C, C sends back to you. MFL only does 2-party trades,
-  // so the worker (worker/src/trade_3way.js) executes this as two chained commish
-  // trades once BOTH partners accept their Discord DM. This builder just composes
-  // the ring and POSTs it to /api/trades/3way. Players + future picks only for v1
-  // (cap money in a leg needs the salary-adjustment handling the ring engine
-  // doesn't do yet — desktop Trade War Room / Phase 2).
+  // ════════════════════════════ 3-WAY TRADE BUILDER ═══════════════════════════
+  // Three teams — You (A) + two partners (B, C). Free-form: any team can send any
+  // asset to either of the other two (movements). MFL only does 2-party trades,
+  // so the worker (worker/src/trade_3way.js) decomposes the movements into chained
+  // commish trades (2-trade hub for a clean cycle, else pairwise) once BOTH
+  // partners accept their Discord DM. This builder composes the movements + an
+  // optional note and POSTs to /api/trades/3way. Players + future picks only for
+  // v1 (cap-in-leg needs salary-adjustment handling the engine doesn't do yet).
   var b3 = null;
   function fresh3() {
     return {
@@ -968,7 +968,7 @@
           '<div class="ups-m-drop-head">' +
             '<button class="ups-m-drop-close" id="ups-m-3w-close" aria-label="Close">×</button>' +
             '<div class="grip"></div>' +
-            '<div class="title">3-Way Ring Trade</div>' +
+            '<div class="title">3-Way Trade</div>' +
             '<div class="sub" id="ups-m-3w-stepsub"></div>' +
           '</div>' +
           '<div class="ups-m-drop-body" id="ups-m-3w-body"></div>' +
@@ -1009,12 +1009,12 @@
     return render3Review(body);
   }
 
-  // ── Steps 1 & 2: pick partner B (you send to) then C (sends back to you) ──
+  // ── Steps 1 & 2: pick the two trade partners ──
   function render3PickPartner(body, slot) {
     var myFid = U.pad4(M.state.viewerFranchiseId);
     var taken = slot === "C" ? [myFid, U.pad4(b3.fidB)] : [myFid];
     var others = (M.state.franchises || []).filter(function (f) { return taken.indexOf(f.id) === -1; });
-    var prompt = slot === "B" ? "Who do you send to? (Partner 1)" : "Who sends back to you? (Partner 2)";
+    var prompt = slot === "B" ? "Pick Partner 1" : "Pick Partner 2";
     body.innerHTML =
       ringLine() +
       '<div class="ups-m-tb-steptitle">' + prompt + '</div>' +
@@ -1195,6 +1195,8 @@
       if (resp.ok && resp.body && resp.body.ok !== false) {
         M.ui.showToast("3-way sent — partners notified ✓", "ok");
         close3Way();
+        state.threeWays = null; // refresh the outbox so the new 3-way shows
+        loadThreeWays().then(function () { M.route.renderRoute(); });
       } else {
         b3.error = (resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status);
         render3();
@@ -1206,11 +1208,74 @@
     });
   }
 
+  // ── 3-way outbox: list the viewer's active 3-way trades (initiator or partner) ──
+  function loadThreeWays() {
+    if (state.loadingThreeWays) return Promise.resolve();
+    if (!M.state.viewerFranchiseId) { state.threeWays = []; return Promise.resolve(); }
+    state.loadingThreeWays = true;
+    var url = M.api.workerUrl("/api/trades/3way?L=" + encodeURIComponent(M.state.ctx.leagueId) +
+      "&franchise_id=" + encodeURIComponent(M.state.viewerFranchiseId));
+    var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+    if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
+    return fetch(url, { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) { state.threeWays = (data && data.three_way) || []; state.loadingThreeWays = false; })
+      .catch(function () { state.threeWays = []; state.loadingThreeWays = false; });
+  }
+  function statusLabel3w(t) {
+    if (t.status === "executing") return "Processing…";
+    if (t.status === "collecting") {
+      return (t.waiting_on && t.waiting_on.length) ? "Waiting on " + t.waiting_on.join(" & ") : "Both accepted";
+    }
+    return t.status;
+  }
+  function render3WayCards(list) {
+    return list.map(function (t) {
+      var movs = (t.movements || []).map(function (m) {
+        return '<div class="ups-m-3wc-mov"><span class="rt">' + U.escapeHtml(m.from_name) + ' → ' + U.escapeHtml(m.to_name) + '</span>' +
+          '<span class="as">' + U.escapeHtml(m.summary) + '</span></div>';
+      }).join("");
+      var note = t.notes ? '<div class="ups-m-3wc-note">💬 ' + U.escapeHtml(t.notes) + '</div>' : '';
+      var actions = t.can_cancel ? '<div class="ups-m-3wc-actions"><button class="btn-act" data-3w-cancel="' + U.escapeHtml(t.id) + '">Cancel</button></div>' : '';
+      var roleTag = t.role === "initiator" ? "You started this" : "You're a partner";
+      return '<div class="ups-m-card ups-m-3wc">' +
+        '<div class="ups-m-3wc-head"><span class="st">' + U.escapeHtml(statusLabel3w(t)) + '</span>' +
+          '<span class="rl">' + U.escapeHtml(roleTag) + '</span></div>' +
+        '<div class="ups-m-3wc-movs">' + movs + '</div>' + note + actions +
+      '</div>';
+    }).join("");
+  }
+  function cancel3WayTrade(id) {
+    if (!window.confirm("Call off this 3-way trade? The other two teams will be told it's off.")) return;
+    var url = M.api.workerUrl("/api/trades/3way/cancel");
+    var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+    if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
+    fetch(url, {
+      method: "POST", mode: "cors", credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: id, franchise_id: U.pad4(M.state.viewerFranchiseId), league_id: M.state.ctx.leagueId })
+    }).then(function (r) { return r.json().catch(function () { return null; }); })
+      .then(function (resp) {
+        if (resp && resp.ok) {
+          M.ui.showToast("3-way called off ✓", "ok");
+          state.threeWays = null;
+          loadThreeWays().then(function () { M.route.renderRoute(); });
+        } else {
+          M.ui.showToast((resp && (resp.error || resp.message)) || "Couldn't cancel.", "err");
+        }
+      }).catch(function () { M.ui.showToast("Couldn't cancel.", "err"); });
+  }
+
   function render(mount) {
     // Pre-load: loadAllData fetches trade offers as part of its
     // post-franchise-resolve step, so the badge on the League nav can
     // appear before the user navigates here. Always prefer the global
     // M.state.tradeOffers copy so reloadData() bust-invalidates the cache.
+    // Kick off the 3-way load in parallel (independent of the offers fetch);
+    // it re-renders when done so the outbox section appears.
+    if (state.threeWays === null && !state.loadingThreeWays) {
+      loadThreeWays().then(function () { M.route.renderRoute(); });
+    }
     if (M.state.tradeOffers) {
       state.offers = M.state.tradeOffers;
     } else if (!state.offers && !state.loading) {
@@ -1241,16 +1306,23 @@
       '<button class="btn-act otb on" id="ups-m-tb-open" style="width:100%">+ Build offer</button>' +
     '</div>';
 
-    // CTA — 3-way ring trade (You → B → C → You; executed as two linked MFL trades).
+    // CTA — 3-way trade (free-form: route any asset among the three teams).
     html += '<div class="ups-m-card">' +
-      '<div class="ups-m-card-title">3-way ring trade</div>' +
+      '<div class="ups-m-card-title">3-way trade</div>' +
       '<div style="font-size:12px;color:var(--fg-muted);margin-bottom:10px">' +
         'If you\'ve never had a 3-way, now\'s your chance. Three teams, one deal — route any player or pick to whoever\'s getting it.' +
       '</div>' +
       '<button class="btn-act otb on" id="ups-m-3w-open" style="width:100%">+ Build 3-way</button>' +
     '</div>';
 
-    html += '<div class="ups-m-pos-group">Incoming · ' + incoming.length + '</div>';
+    // Active 3-way trades the viewer is part of (initiator or partner).
+    var threeWays = state.threeWays || [];
+    if (threeWays.length) {
+      html += '<div class="ups-m-pos-group">3-Way Trades · ' + threeWays.length + '</div>';
+      html += render3WayCards(threeWays);
+    }
+
+    html += '<div class="ups-m-pos-group" style="margin-top:18px">Incoming · ' + incoming.length + '</div>';
     html += renderOffersList(incoming, "incoming");
     html += '<div class="ups-m-pos-group" style="margin-top:18px">Outgoing · ' + outgoing.length + '</div>';
     html += renderOffersList(outgoing, "outgoing");
@@ -1261,6 +1333,10 @@
     if (openBtn) openBtn.addEventListener("click", openBuilder);
     var open3Btn = mount.querySelector("#ups-m-3w-open");
     if (open3Btn) open3Btn.addEventListener("click", open3WayBuilder);
+    var cancel3wBtns = mount.querySelectorAll("[data-3w-cancel]");
+    for (var c3 = 0; c3 < cancel3wBtns.length; c3++) {
+      cancel3wBtns[c3].addEventListener("click", function () { cancel3WayTrade(this.getAttribute("data-3w-cancel")); });
+    }
 
     var btns = mount.querySelectorAll(".btn-act[data-act]");
     for (var i = 0; i < btns.length; i++) {
