@@ -2194,6 +2194,28 @@ button.ups-m-busy::before,
   line-height: 1.4;
 }
 
+/* ── 3-way (ring) trade builder (views/trade.js) ── */
+.ups-m-3w-ring {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 9px 11px; margin-bottom: 12px;
+  background: var(--bg-elev2); border: 1px solid var(--line);
+  border-radius: 10px; font-size: 12px; font-weight: 600; color: var(--fg-muted);
+}
+.ups-m-3w-ring .you { color: var(--accent); }
+.ups-m-3w-ring .arr { color: var(--line-soft); font-weight: 400; }
+.ups-m-3w-leg { margin-bottom: 14px; }
+.ups-m-3w-review { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.ups-m-3w-revrow {
+  background: var(--bg-elev2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px 11px;
+}
+.ups-m-3w-revrow .lbl {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--accent); margin-bottom: 3px;
+}
+.ups-m-3w-revrow .val { font-size: 13px; color: var(--fg); line-height: 1.35; }
+.ups-m-3w-revrow .val .muted { color: var(--line-soft); }
+
 /* ═══════════════════════════════════════════════════════════════════════
    HOME COMMAND CENTER (views/home.js) + Market / Events mini-hubs.
    A dense salary-cap operations console — neutral dark base, one accent

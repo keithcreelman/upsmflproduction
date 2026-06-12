@@ -873,6 +873,267 @@
     runTradeAction(action, tradeId, "");
   }
 
+  // ════════════════════════ 3-WAY (RING) TRADE BUILDER ════════════════════════
+  // A dedicated ring: You(A) → Partner B → Partner C → You(A). Three legs — you
+  // send to B, B sends to C, C sends back to you. MFL only does 2-party trades,
+  // so the worker (worker/src/trade_3way.js) executes this as two chained commish
+  // trades once BOTH partners accept their Discord DM. This builder just composes
+  // the ring and POSTs it to /api/trades/3way. Players + future picks only for v1
+  // (cap money in a leg needs the salary-adjustment handling the ring engine
+  // doesn't do yet — desktop Trade War Room / Phase 2).
+  var b3 = null;
+  function fresh3() {
+    return {
+      step: 1,              // 1 pick B · 2 pick C · 3 assets · 4 review
+      fidB: "", fidC: "",
+      inv: {}, loadingInv: false, invError: "",
+      sel: { AB: {}, BC: {}, CA: {} },
+      submitting: false, error: ""
+    };
+  }
+  // Inventory loader for the ring — caches into b3.inv (reuses the 2-party
+  // inventoryUrl, which is builder-state independent).
+  function load3InvFor(fid) {
+    var key = U.pad4(fid);
+    if (b3.inv[key]) return Promise.resolve(b3.inv[key]);
+    return fetch(inventoryUrl(key), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var inv = { players: (data && data.players) || [], future_picks: (data && data.future_picks) || [] };
+        b3.inv[key] = inv; return inv;
+      });
+  }
+  // Tokens + display names for a leg's current selection. The selected ids ARE
+  // the MFL-ready tokens (P_<id> / FP_<orig>_<yr>_<rd>) — the ring engine's
+  // toMflAsset normalizes them server-side.
+  function leg3Assets(fid, idMap) {
+    var inv = b3.inv[U.pad4(fid)] || { players: [], future_picks: [] };
+    var tokens = [], names = [];
+    (inv.players || []).forEach(function (p) {
+      if (idMap["P_" + p.player_id]) { tokens.push("P_" + p.player_id); names.push(p.display || ("Player #" + p.player_id)); }
+    });
+    (inv.future_picks || []).forEach(function (fp) {
+      var t = futurePickToken(fp);
+      if (idMap[t]) { tokens.push(t); names.push(fp.display || (fp.year + " R" + fp.round)); }
+    });
+    return { tokens: tokens, names: names };
+  }
+
+  function open3WayBuilder() {
+    if (!M.state.viewerFranchiseId) { M.ui.showToast("Pick your franchise first.", "err"); return; }
+    b3 = fresh3();
+    var existing = document.getElementById("ups-m-3w-overlay");
+    if (existing) existing.remove();
+    var html =
+      '<div class="ups-m-drop-overlay" id="ups-m-3w-overlay">' +
+        '<div class="ups-m-drop-sheet ups-m-tb-sheet">' +
+          '<div class="ups-m-drop-head">' +
+            '<button class="ups-m-drop-close" id="ups-m-3w-close" aria-label="Close">×</button>' +
+            '<div class="grip"></div>' +
+            '<div class="title">3-Way Ring Trade</div>' +
+            '<div class="sub" id="ups-m-3w-stepsub"></div>' +
+          '</div>' +
+          '<div class="ups-m-drop-body" id="ups-m-3w-body"></div>' +
+        '</div>' +
+      '</div>';
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return;
+    mount.insertAdjacentHTML("beforeend", html);
+    document.body.style.overflow = "hidden";
+    document.getElementById("ups-m-3w-close").addEventListener("click", close3Way);
+    render3();
+  }
+  function close3Way() {
+    var ov = document.getElementById("ups-m-3w-overlay");
+    if (ov) ov.remove();
+    document.body.style.overflow = "";
+    b3 = null;
+  }
+  function ringLine() {
+    var A = franchiseName(M.state.viewerFranchiseId);
+    var B = b3.fidB ? franchiseName(b3.fidB) : "Partner 1";
+    var C = b3.fidC ? franchiseName(b3.fidC) : "Partner 2";
+    return '<div class="ups-m-3w-ring">' +
+      '<span class="you">' + U.escapeHtml(A) + '</span><span class="arr">→</span>' +
+      '<span>' + U.escapeHtml(B) + '</span><span class="arr">→</span>' +
+      '<span>' + U.escapeHtml(C) + '</span><span class="arr">→</span>' +
+      '<span class="you">' + U.escapeHtml(A) + '</span>' +
+    '</div>';
+  }
+  function render3() {
+    var sub = document.getElementById("ups-m-3w-stepsub");
+    var body = document.getElementById("ups-m-3w-body");
+    if (!body) return;
+    if (sub) sub.textContent = "Step " + b3.step + " of 4";
+    if (b3.step === 1) return render3PickPartner(body, "B");
+    if (b3.step === 2) return render3PickPartner(body, "C");
+    if (b3.step === 3) return render3Assets(body);
+    return render3Review(body);
+  }
+
+  // ── Steps 1 & 2: pick partner B (you send to) then C (sends back to you) ──
+  function render3PickPartner(body, slot) {
+    var myFid = U.pad4(M.state.viewerFranchiseId);
+    var taken = slot === "C" ? [myFid, U.pad4(b3.fidB)] : [myFid];
+    var others = (M.state.franchises || []).filter(function (f) { return taken.indexOf(f.id) === -1; });
+    var prompt = slot === "B" ? "Who do you send to? (Partner 1)" : "Who sends back to you? (Partner 2)";
+    body.innerHTML =
+      ringLine() +
+      '<div class="ups-m-tb-steptitle">' + prompt + '</div>' +
+      '<div class="ups-m-tb-flist">' +
+        others.map(function (f) {
+          return '<button class="ups-m-tb-frow" data-fid="' + U.escapeHtml(f.id) + '">' + U.escapeHtml(f.name) + '</button>';
+        }).join("") +
+      '</div>' +
+      (slot === "C" ? '<div class="ups-m-tb-nav"><button class="btn-act" id="ups-m-3w-back">Back</button><span></span></div>' : '');
+    var rows = body.querySelectorAll(".ups-m-tb-frow");
+    for (var i = 0; i < rows.length; i++) {
+      rows[i].addEventListener("click", function () {
+        var fid = this.getAttribute("data-fid");
+        if (slot === "B") { b3.fidB = fid; b3.step = 2; render3(); return; }
+        b3.fidC = fid; b3.step = 3; b3.loadingInv = true; render3();
+        Promise.all([
+          load3InvFor(M.state.viewerFranchiseId),
+          load3InvFor(b3.fidB),
+          load3InvFor(b3.fidC)
+        ]).then(function () { b3.loadingInv = false; render3(); })
+          .catch(function (e) { b3.loadingInv = false; b3.invError = (e && e.message) || String(e); render3(); });
+      });
+    }
+    var back = document.getElementById("ups-m-3w-back");
+    if (back) back.addEventListener("click", function () { b3.step = 1; render3(); });
+  }
+
+  // ── Step 3: pick each leg's assets (each section = that leg's giver's roster) ──
+  function render3Assets(body) {
+    if (b3.loadingInv) { body.innerHTML = ringLine() + '<div class="ups-m-loading">Loading rosters…</div>'; return; }
+    if (b3.invError) { body.innerHTML = ringLine() + '<div class="ups-m-sheet-empty">Couldn\'t load assets: ' + U.escapeHtml(b3.invError) + '</div>'; return; }
+    var A = U.pad4(M.state.viewerFranchiseId), B = U.pad4(b3.fidB), C = U.pad4(b3.fidC);
+    var legs = [
+      { key: "AB", fid: A, label: "You send → " + franchiseName(B) },
+      { key: "BC", fid: B, label: franchiseName(B) + " sends → " + franchiseName(C) },
+      { key: "CA", fid: C, label: franchiseName(C) + " sends → you" }
+    ];
+    function sectionHtml(leg) {
+      var inv = b3.inv[U.pad4(leg.fid)] || { players: [], future_picks: [] };
+      var idMap = b3.sel[leg.key];
+      var playersHtml = (inv.players || []).map(function (p) {
+        var id = "P_" + p.player_id, on = !!idMap[id];
+        var meta = [p.position, p.nfl_team, (U.safeInt(p.salary, 0) > 0 ? U.fmtUsd(p.salary) : null), (p.taxi ? "Taxi" : null)].filter(Boolean).join(" · ");
+        return '<button class="ups-m-tb-asset' + (on ? ' on' : '') + '" data-leg="' + leg.key + '" data-id="' + U.escapeHtml(id) +
+          '" data-name="' + U.escapeHtml(String(p.display || "").toLowerCase()) + '"><span class="nm">' + U.escapeHtml(p.display || ("Player #" + p.player_id)) +
+          '</span><span class="mt">' + U.escapeHtml(meta) + '</span></button>';
+      }).join("");
+      var picksHtml = (inv.future_picks || []).map(function (fp) {
+        var id = futurePickToken(fp), on = !!idMap[id];
+        return '<button class="ups-m-tb-asset' + (on ? ' on' : '') + '" data-leg="' + leg.key + '" data-id="' + U.escapeHtml(id) +
+          '" data-name="pick ' + U.escapeHtml(String(fp.year)) + '"><span class="nm">' + U.escapeHtml(fp.display || (fp.year + " R" + fp.round)) +
+          '</span><span class="mt">Future pick</span></button>';
+      }).join("");
+      return '<div class="ups-m-3w-leg">' +
+        '<div class="ups-m-tb-subhead">' + U.escapeHtml(leg.label) + ' <span class="cnt" data-cnt="' + leg.key + '">' + countSelected(idMap) + ' selected</span></div>' +
+        '<div class="ups-m-tb-assets">' + (playersHtml || '<div class="ups-m-auc-empty">No players.</div>') +
+          (picksHtml ? '<div class="ups-m-tb-subhead">Future picks</div>' + picksHtml : '') + '</div>' +
+      '</div>';
+    }
+    body.innerHTML =
+      ringLine() +
+      '<div class="ups-m-tb-steptitle">Build the ring — pick what each team sends</div>' +
+      legs.map(sectionHtml).join("") +
+      '<div class="ups-m-tb-nav">' +
+        '<button class="btn-act" id="ups-m-3w-back">Back</button>' +
+        '<button class="btn-act otb on" id="ups-m-3w-next">Review</button>' +
+      '</div>';
+    var assetBtns = body.querySelectorAll(".ups-m-tb-asset");
+    for (var i = 0; i < assetBtns.length; i++) {
+      assetBtns[i].addEventListener("click", function () {
+        var leg = this.getAttribute("data-leg"), id = this.getAttribute("data-id");
+        var idMap = b3.sel[leg];
+        if (idMap[id]) { delete idMap[id]; this.classList.remove("on"); }
+        else { idMap[id] = true; this.classList.add("on"); }
+        var cnt = body.querySelector('[data-cnt="' + leg + '"]');
+        if (cnt) cnt.textContent = countSelected(idMap) + " selected";
+      });
+    }
+    document.getElementById("ups-m-3w-back").addEventListener("click", function () { b3.step = 2; render3(); });
+    document.getElementById("ups-m-3w-next").addEventListener("click", function () { b3.step = 4; render3(); });
+  }
+
+  // ── Step 4: review the ring + submit ──
+  function render3Review(body) {
+    var A = U.pad4(M.state.viewerFranchiseId), B = U.pad4(b3.fidB), C = U.pad4(b3.fidC);
+    var ab = leg3Assets(A, b3.sel.AB), bc = leg3Assets(B, b3.sel.BC), ca = leg3Assets(C, b3.sel.CA);
+    var allFull = ab.tokens.length && bc.tokens.length && ca.tokens.length;
+    function legRow(fromN, toN, names) {
+      return '<div class="ups-m-3w-revrow"><div class="lbl">' + U.escapeHtml(fromN) + ' → ' + U.escapeHtml(toN) + '</div>' +
+        '<div class="val">' + (names.length ? U.escapeHtml(names.join(", ")) : '<span class="muted">— nothing —</span>') + '</div></div>';
+    }
+    body.innerHTML =
+      ringLine() +
+      '<div class="ups-m-tb-steptitle">Review the ring</div>' +
+      '<div class="ups-m-3w-review">' +
+        legRow(franchiseName(A), franchiseName(B), ab.names) +
+        legRow(franchiseName(B), franchiseName(C), bc.names) +
+        legRow(franchiseName(C), franchiseName(A), ca.names) +
+      '</div>' +
+      (!allFull ? '<div class="ups-m-tb-warn">Each team needs to send at least one asset for a balanced ring.</div>' : '') +
+      (b3.error ? '<div class="ups-m-rstr-err">' + U.escapeHtml(b3.error) + '</div>' : '') +
+      '<div class="ups-m-tb-warn">When you submit, ' + U.escapeHtml(franchiseName(B)) + ' and ' + U.escapeHtml(franchiseName(C)) +
+        ' each get a Discord DM to Accept or Decline. Once BOTH accept, the commish runs it as two linked MFL trades. MFL can\'t undo a completed trade.</div>' +
+      '<div class="ups-m-tb-nav">' +
+        '<button class="btn-act" id="ups-m-3w-back"' + (b3.submitting ? ' disabled' : '') + '>Back</button>' +
+        '<button class="btn-act otb on" id="ups-m-3w-submit"' + (allFull && !b3.submitting ? '' : ' disabled') + '>' +
+          (b3.submitting ? "Sending…" : "Send 3-way") + '</button>' +
+      '</div>';
+    document.getElementById("ups-m-3w-back").addEventListener("click", function () { if (!b3.submitting) { b3.step = 3; render3(); } });
+    var submit = document.getElementById("ups-m-3w-submit");
+    if (submit) submit.addEventListener("click", function () { if (allFull && !b3.submitting) submit3Way(); });
+  }
+
+  function submit3Way() {
+    b3.submitting = true; b3.error = ""; render3();
+    var ctx = M.state.ctx;
+    var A = U.pad4(M.state.viewerFranchiseId), B = U.pad4(b3.fidB), C = U.pad4(b3.fidC);
+    var ab = leg3Assets(A, b3.sel.AB), bc = leg3Assets(B, b3.sel.BC), ca = leg3Assets(C, b3.sel.CA);
+    var bodyObj = {
+      league_id: ctx.leagueId, season: ctx.year,
+      initiator: { fid: A, name: franchiseName(A) },
+      team_b: { fid: B, name: franchiseName(B) },
+      team_c: { fid: C, name: franchiseName(C) },
+      legs: [
+        { from: A, to: B, asset_tokens: ab.tokens, cap_k: 0, summary: ab.names.join(", ") },
+        { from: B, to: C, asset_tokens: bc.tokens, cap_k: 0, summary: bc.names.join(", ") },
+        { from: C, to: A, asset_tokens: ca.tokens, cap_k: 0, summary: ca.names.join(", ") }
+      ]
+    };
+    var url = M.api.workerUrl("/api/trades/3way?L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year));
+    var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+    if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
+    fetch(url, {
+      method: "POST", mode: "cors", credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bodyObj)
+    }).then(function (r) {
+      return r.text().then(function (txt) {
+        var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
+        return { ok: r.ok, status: r.status, body: parsed };
+      });
+    }).then(function (resp) {
+      b3.submitting = false;
+      if (resp.ok && resp.body && resp.body.ok !== false) {
+        M.ui.showToast("3-way sent — partners notified ✓", "ok");
+        close3Way();
+      } else {
+        b3.error = (resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status);
+        render3();
+      }
+    }).catch(function (err) {
+      b3.submitting = false;
+      b3.error = (err && err.message) || String(err);
+      render3();
+    });
+  }
+
   function render(mount) {
     // Pre-load: loadAllData fetches trade offers as part of its
     // post-franchise-resolve step, so the badge on the League nav can
@@ -908,6 +1169,15 @@
       '<button class="btn-act otb on" id="ups-m-tb-open" style="width:100%">+ Build offer</button>' +
     '</div>';
 
+    // CTA — 3-way ring trade (You → B → C → You; executed as two linked MFL trades).
+    html += '<div class="ups-m-card">' +
+      '<div class="ups-m-card-title">3-way ring trade</div>' +
+      '<div style="font-size:12px;color:var(--fg-muted);margin-bottom:10px">' +
+        'If you\'ve never had a 3-way, now\'s your chance. Three teams, one ring — you send, they send, and a player comes back to you.' +
+      '</div>' +
+      '<button class="btn-act otb on" id="ups-m-3w-open" style="width:100%">+ Build 3-way</button>' +
+    '</div>';
+
     html += '<div class="ups-m-pos-group">Incoming · ' + incoming.length + '</div>';
     html += renderOffersList(incoming, "incoming");
     html += '<div class="ups-m-pos-group" style="margin-top:18px">Outgoing · ' + outgoing.length + '</div>';
@@ -917,6 +1187,8 @@
 
     var openBtn = mount.querySelector("#ups-m-tb-open");
     if (openBtn) openBtn.addEventListener("click", openBuilder);
+    var open3Btn = mount.querySelector("#ups-m-3w-open");
+    if (open3Btn) open3Btn.addEventListener("click", open3WayBuilder);
 
     var btns = mount.querySelectorAll(".btn-act[data-act]");
     for (var i = 0; i < btns.length; i++) {
@@ -958,5 +1230,5 @@
     }
   }
 
-  M.tradeView = { render: render, openBuilder: openBuilder };
+  M.tradeView = { render: render, openBuilder: openBuilder, open3WayBuilder: open3WayBuilder };
 })();
