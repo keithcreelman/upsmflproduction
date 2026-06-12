@@ -930,6 +930,32 @@
         handleAction(act, tid);
       });
     }
+
+    // Trade-DM deep-link consumption: if we arrived via a Discord DM button
+    // (?focus_trade=<id>&intent=…, captured in app.js detectContext), act on
+    // that specific incoming offer now that its card is rendered. Consumed
+    // (cleared) immediately so it can't re-fire on the next renderRoute().
+    var focus = M.state.pendingTradeFocus;
+    if (focus && focus.tradeId) {
+      M.state.pendingTradeFocus = null;
+      var fmatch = incoming.filter(function (o) {
+        return String(o.trade_id || o.id || "").replace(/\D/g, "") === focus.tradeId;
+      })[0];
+      if (fmatch) {
+        var ftid = String(fmatch.trade_id || fmatch.id || "");
+        if (focus.intent === "decline") {
+          openDeclineSheet(ftid);
+        } else if (focus.intent === "counter") {
+          openBuilder({ counterFid: U.pad4(fmatch.offered_by || fmatch.from_franchise_id || ""), counterTradeId: ftid });
+        } else {
+          var fcard = mount.querySelector('[data-trade-id="' + ftid + '"]');
+          var fhost = fcard && fcard.closest ? fcard.closest(".ups-m-card") : null;
+          if (fhost && fhost.scrollIntoView) fhost.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      } else if (M.ui && M.ui.showToast) {
+        M.ui.showToast("That offer isn't in your inbox anymore.", "info");
+      }
+    }
   }
 
   M.tradeView = { render: render, openBuilder: openBuilder };

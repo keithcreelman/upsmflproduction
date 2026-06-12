@@ -5,6 +5,7 @@ import {
   processAutoNudges as processHallAutoNudges,
   processOverdueRoundCloses as processHallOverdueCloses,
 } from "./discord_round.js";
+import { enqueueTradeOfferDm, processTradeOfferReminders } from "./trade_dm.js";
 
 const acquisitionLiveMemoryCache = new Map();
 const contractDiscordChannelQueues = new Map();
@@ -2227,6 +2228,19 @@ export default {
       }).catch((e) => console.error(`[scheduled hourly] hall overdue-close failed: ${e && e.message}`)));
     } catch (e) {
       console.error(`[scheduled hourly] hall overdue-close dispatch failed: ${e && e.message}`);
+    }
+
+    // Trade-offer DM reminders — hourly sweep over our own trade_offer_dm table
+    // (event-driven detection enqueues the Day-1 DM; this nags on the cadence,
+    // reconciles resolved offers, and caps). Has its OWN quiet-hours guard
+    // because the hourly cron runs overnight. Flag-gated (TRADE_DM_ENABLED).
+    try {
+      ctx.waitUntil(processTradeOfferReminders(env).then((r) => {
+        if (r?.sent || r?.resolved) console.log(`[scheduled hourly] trade-dm reminders: sent=${r.sent || 0} resolved=${r.resolved || 0} active=${r.active || 0}`);
+        else if (r?.skipped) console.log(`[scheduled hourly] trade-dm reminders skipped: ${r.skipped}`);
+      }).catch((e) => console.error(`[scheduled hourly] trade-dm reminders failed: ${e && e.message}`)));
+    } catch (e) {
+      console.error(`[scheduled hourly] trade-dm reminders dispatch failed: ${e && e.message}`);
     }
 
     // Taxi call-up confirmations (canon §B2 + tracker Q20). Walks
@@ -24961,6 +24975,31 @@ export default {
         });
       }
 
+      // Trade-DM reconciliation helper: the set of trade_ids still PENDING in
+      // the stored offers doc. processTradeOfferReminders calls this via
+      // env.SELF.fetch because readTradeOffersDoc is request-scoped (the cron
+      // can't read it directly). Commish-key gated; always passed with L.
+      if (path === "/admin/trade-offers/pending-ids" && request.method === "GET") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!commishKey || browserKey !== commishKey) {
+          return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY" });
+        }
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const season = safeStr(url.searchParams.get("YEAR") || url.searchParams.get("season") || YEAR || "");
+        if (!leagueId || !season) return jsonOut(400, { ok: false, error: "Missing L/YEAR" });
+        const loaded = await readTradeOffersDoc(leagueId, season);
+        if (!loaded.ok) return jsonOut(502, { ok: false, error: loaded.error || "doc read failed" });
+        const offers = Array.isArray(loaded.doc?.offers) ? loaded.doc.offers : [];
+        const ids = [];
+        for (const o of offers) {
+          if (offerStatusNormalized(o?.status, "") !== "PENDING") continue;
+          const tid = String(o?.mfl_trade_id || o?.trade_id || "").replace(/\D/g, "");
+          if (tid && !ids.includes(tid)) ids.push(tid);
+        }
+        return jsonOut(200, { ok: true, league_id: leagueId, season, pending_trade_ids: ids });
+      }
+
       if (
         (path === "/trade-offers" || path === "/api/trades/proposals") &&
         request.method === "GET"
@@ -25009,6 +25048,37 @@ export default {
             },
             upstream: live.upstream || null,
           });
+        }
+
+        // Trade-DM live reconcile (the reliable stop signal): the live MFL
+        // pending set for THIS franchise is authoritative. Resolve any active
+        // trade_offer_dm row addressed to this recipient whose offer is no
+        // longer a live incoming pending — this stops the nags the instant they
+        // act in-app (accept/decline/counter all drop it from this list). Runs
+        // only after a SUCCESSFUL live load, so it never false-resolves.
+        if (franchiseId && env.UPS_MFL_DB) {
+          ctx.waitUntil((async () => {
+            try {
+              const livePendingIds = new Set(
+                (Array.isArray(live.incoming) ? live.incoming : [])
+                  .map((o) => String(o?.trade_id || o?.mfl_trade_id || o?.id || "").replace(/\D/g, ""))
+                  .filter(Boolean)
+              );
+              const dmRows = await env.UPS_MFL_DB.prepare(
+                `SELECT trade_id FROM trade_offer_dm WHERE state='active' AND to_franchise_id=? AND league_id=?`
+              ).bind(franchiseId, leagueId).all();
+              for (const r of (dmRows?.results || [])) {
+                const tid = String(r.trade_id || "").replace(/\D/g, "");
+                if (tid && !livePendingIds.has(tid)) {
+                  await env.UPS_MFL_DB.prepare(
+                    `UPDATE trade_offer_dm SET state='resolved', resolved_reason='not_pending_live', updated_at_utc=? WHERE trade_id=?`
+                  ).bind(new Date().toISOString(), r.trade_id).run();
+                }
+              }
+            } catch (e) {
+              console.error(`[trade-dm] live reconcile failed: ${e?.message || e}`);
+            }
+          })());
         }
 
         return jsonOut(200, {
@@ -25649,6 +25719,24 @@ export default {
             payload,
             source: safeStr(body?.source || "trade-workbench-ui"),
           });
+          // Trade-offer DM (event-driven detection; covers the mobile builder
+          // AND the desktop War Room — both reach this handler). Fire-and-forget
+          // via waitUntil so it never blocks the 201. Guarded on storedOffer so
+          // we only DM offers that landed in the doc (reconciliation needs it).
+          if (syncOut?.storedOffer && resolvedTradeId) {
+            ctx.waitUntil(
+              enqueueTradeOfferDm(env, {
+                tradeId: resolvedTradeId,
+                leagueId,
+                season,
+                fromFranchiseId,
+                toFranchiseId,
+                fromFranchiseName,
+                toFranchiseName,
+                storedOffer: syncOut.storedOffer,
+              }).catch((e) => console.error(`[trade-dm] enqueue (propose) failed: ${e?.message || e}`))
+            );
+          }
           return jsonOut(201, {
             ok: true,
             mode: "direct_mfl",
@@ -26085,6 +26173,24 @@ export default {
               payload: proposalPayload || {},
               source: safeStr(body?.source || "trade-workbench-ui"),
             });
+
+            // Trade-offer DM for the countered-back offer: a COUNTER rejects the
+            // old offer (its row resolves on the next reconcile tick) and creates
+            // a NEW offer (new trade id) whose recipient is the original offerer.
+            if (syncOut?.storedOffer && resolvedTradeId) {
+              ctx.waitUntil(
+                enqueueTradeOfferDm(env, {
+                  tradeId: resolvedTradeId,
+                  leagueId,
+                  season,
+                  fromFranchiseId,
+                  toFranchiseId,
+                  fromFranchiseName: "",
+                  toFranchiseName: "",
+                  storedOffer: syncOut.storedOffer,
+                }).catch((e) => console.error(`[trade-dm] enqueue (counter) failed: ${e?.message || e}`))
+              );
+            }
 
             return {
               ok: true,

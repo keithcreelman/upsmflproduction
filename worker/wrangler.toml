@@ -19,6 +19,19 @@ DROP_TRACKER_AUTO_POST = "1"
 DROP_TRACKER_POST_MFL = "1"
 DROP_TRACKER_DISCORD_TARGET = "prod"
 
+# Trade-offer Discord DMs (worker/src/trade_dm.js). When a recipient gets a
+# trade offer through our app (mobile builder OR desktop War Room), DM them the
+# offer + buttons, then remind on a fixed cadence until it resolves.
+#   TRADE_DM_ENABLED          "1" arms the feature; anything else = dark (kill switch).
+#   TRADE_DM_TEST_FRANCHISES  CSV allowlist — a DM fires only if the TARGET franchise
+#                             is listed. Empty = all owners (go-live). Currently the
+#                             3-owner test set: LA Looks, Sex Manther, Real Deal Creel.
+#   *_CAP_DAYS                anti-spam ceilings (thinking track / any offer).
+TRADE_DM_ENABLED = "1"
+TRADE_DM_TEST_FRANCHISES = "0001,0007,0008"
+TRADE_DM_THINK_CAP_DAYS = "14"
+TRADE_DM_HARD_AGE_CAP_DAYS = "21"
+
 # Hourly drop → cap-penalty scan at :05 past each hour (RULE-WORKFLOW-004).
 # The worker's scheduled() handler:
 #   1. calls /admin/import-drop-penalties logic to post new cap penalties to MFL

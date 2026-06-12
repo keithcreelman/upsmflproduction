@@ -17,6 +17,7 @@ import {
   handleRoastReplyComponent,
   handleRoastReplyModal,
 } from "./discord_roast_reply.js";
+import { handleTradeThinkButton } from "./trade_dm.js";
 
 const INTERACTION_TYPE = {
   PING: 1,
@@ -175,6 +176,16 @@ export async function handleDiscordInteraction(request, env, ctx) {
       } catch (e) {
         console.log(`[roast-btn] EXCEPTION: ${e && e.message} ${e && e.stack}`);
         return ephemeralReply(`Reply button failed: ${e && e.message ? e.message : "unknown error"}`);
+      }
+    }
+    // Trade-offer DM buttons ("tr:think:<tradeId>"). Checked before the Hall
+    // fallthrough; the "tr:" prefix can't collide with Hall's strict "t:" check.
+    if (customId.startsWith("tr:")) {
+      try {
+        return await handleTradeThinkButton(interaction, env, ctx);
+      } catch (e) {
+        console.log(`[trade-btn] EXCEPTION: ${e && e.message} ${e && e.stack}`);
+        return ephemeralReply(`Trade button failed: ${e && e.message ? e.message : "unknown error"}`);
       }
     }
     try {

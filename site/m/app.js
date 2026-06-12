@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.06.12.2";
+  var BUILD = "2026.06.12.3";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -241,6 +241,30 @@
           cleanUrl.searchParams.delete("MFL_USER_ID");
           cleanUrl.searchParams.delete("mfl_user_id");
           window.history.replaceState(null, "", cleanUrl.toString());
+        }
+      } catch (e) {}
+    }
+    // Trade-DM deep-link: a Discord DM button lands here with
+    // ?focus_trade=<id>&intent=view|decline|counter to open the Trades view
+    // straight to that offer. Capture + scrub (mirror the MFL_USER_ID scrub),
+    // then ensure the trade route. Acts with the owner's OWN stored session.
+    var focusTrade = qs.get("focus_trade");
+    if (focusTrade) {
+      state.pendingTradeFocus = {
+        tradeId: String(focusTrade).replace(/\D/g, ""),
+        intent: String(qs.get("intent") || "view").toLowerCase()
+      };
+      try {
+        if (window.history && window.history.replaceState) {
+          var ctUrl = new URL(window.location.href);
+          ctUrl.searchParams.delete("focus_trade");
+          ctUrl.searchParams.delete("intent");
+          window.history.replaceState(null, "", ctUrl.toString());
+        }
+      } catch (e) {}
+      try {
+        if (!/^#?league\/trade/.test(window.location.hash || "")) {
+          window.location.hash = "#league/trade";
         }
       } catch (e) {}
     }
