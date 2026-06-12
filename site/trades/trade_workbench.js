@@ -597,6 +597,29 @@
     return cleaned || raw;
   }
 
+  // Future-pick label with the originating-franchise prefix resolved AT RENDER
+  // time. asset.pick_display is computed once in normalizeAsset, when
+  // state.data.teams may still be empty — so the owner name comes back blank and
+  // the prefix gets dropped. The board card already re-resolves this way; this
+  // shared helper does the same for the offer cart, trade summary, and search
+  // results, so a pick acquired from a THIRD team (not in the trade) still reads
+  // "HammerTime's 2027 1st" instead of a bare "2027 1st".
+  function livePickLabel(asset) {
+    if (!asset || typeof asset !== "object") return "";
+    var liveOwnerName = "";
+    if (asset.original_owner_fid) {
+      liveOwnerName =
+        safeStr(asset.original_owner_name) ||
+        getFranchiseNameById(asset.original_owner_fid);
+    }
+    return shortPickLabel(
+      asset.description,
+      asset.asset_id || asset.pick_key,
+      asset.pick_season,
+      liveOwnerName
+    );
+  }
+
   function resolvePickMeta(asset, seasonHintOverride) {
     var ref = asset || {};
     var token = normalizePickKey(
@@ -4563,7 +4586,7 @@
 
       var title = m.asset.type === "PLAYER"
         ? buildPlayerLabel(m.asset)
-        : safeStr(m.asset.pick_display || m.asset.description || "Rookie Pick");
+        : safeStr(livePickLabel(m.asset) || m.asset.description || "Rookie Pick");
       var meta = m.team.franchise_name + " · " +
         (m.asset.type === "PLAYER"
           ? moneyFmt(m.asset.salary) + " · Yrs " + (m.asset.years == null ? "-" : m.asset.years)
@@ -4831,18 +4854,7 @@
     // Recomputing here also means the label always matches the current
     // team list.
     if (asset.type === "PICK") {
-      var liveOwnerName = "";
-      if (asset.original_owner_fid) {
-        liveOwnerName =
-          safeStr(asset.original_owner_name) ||
-          getFranchiseNameById(asset.original_owner_fid);
-      }
-      name.textContent = shortPickLabel(
-        asset.description,
-        asset.asset_id || asset.pick_key,
-        asset.pick_season,
-        liveOwnerName
-      );
+      name.textContent = livePickLabel(asset);
     } else {
       name.textContent = buildPlayerLabel(asset);
     }
@@ -5620,7 +5632,7 @@
     head.className = "twb-offer-cart-item-head";
     var name = document.createElement("div");
     name.className = "twb-offer-cart-item-name";
-    name.textContent = safeStr(asset.pick_display || asset.description || "Rookie Pick");
+    name.textContent = safeStr(livePickLabel(asset) || asset.description || "Rookie Pick");
     head.appendChild(name);
 
     var remove = document.createElement("button");
@@ -6037,7 +6049,7 @@
     if (!asset || typeof asset !== "object") return "";
     var baseLabel = "";
     if (safeStr(asset.type).toUpperCase() === "PLAYER") baseLabel = safeStr(asset.player_name);
-    else if (safeStr(asset.type).toUpperCase() === "PICK") baseLabel = safeStr(asset.pick_display || asset.description || asset.asset_id);
+    else if (safeStr(asset.type).toUpperCase() === "PICK") baseLabel = safeStr(livePickLabel(asset) || asset.description || asset.asset_id);
     else baseLabel = safeStr(asset.player_name || asset.description || asset.asset_id);
 
     var extLabel = summarizeExtensionForTradeSummary(extensionReq);
