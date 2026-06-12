@@ -887,7 +887,11 @@
       step: 1,              // 1 pick B · 2 pick C · 3 assets · 4 review
       fidB: "", fidC: "",
       inv: {}, loadingInv: false, invError: "",
-      sel: { AB: {}, BC: {}, CA: {} },
+      // give[giverFid] = { [assetToken]: destFid } — each selected asset points
+      // at the team that receives it (defaults to the ring-next team). Free-form:
+      // any of the 3 teams can send any asset to either of the other two.
+      give: {},
+      notes: "",
       submitting: false, error: ""
     };
   }
@@ -903,20 +907,54 @@
         b3.inv[key] = inv; return inv;
       });
   }
-  // Tokens + display names for a leg's current selection. The selected ids ARE
-  // the MFL-ready tokens (P_<id> / FP_<orig>_<yr>_<rd>) — the ring engine's
-  // toMflAsset normalizes them server-side.
-  function leg3Assets(fid, idMap) {
-    var inv = b3.inv[U.pad4(fid)] || { players: [], future_picks: [] };
-    var tokens = [], names = [];
-    (inv.players || []).forEach(function (p) {
-      if (idMap["P_" + p.player_id]) { tokens.push("P_" + p.player_id); names.push(p.display || ("Player #" + p.player_id)); }
+  // The three franchises in ring order: You (A), then B, then C.
+  function teamFids() {
+    return [U.pad4(M.state.viewerFranchiseId), U.pad4(b3.fidB), U.pad4(b3.fidC)];
+  }
+  // Default destination for an asset from `giverFid`: the next team in the ring
+  // (You→B, B→C, C→You). The user can re-point it to the third team.
+  function ringNext(giverFid) {
+    var t = teamFids(); var i = t.indexOf(U.pad4(giverFid));
+    return i === -1 ? t[0] : t[(i + 1) % 3];
+  }
+  function otherTwo(fid) {
+    return teamFids().filter(function (x) { return x !== U.pad4(fid); });
+  }
+  // Display name for a selected asset token, from the giver's loaded inventory.
+  // The selected tokens ARE the MFL-ready ids (P_<id> / FP_<orig>_<yr>_<rd>) —
+  // the engine's toMflAsset normalizes them server-side.
+  function assetDisplay(giverFid, token) {
+    var inv = b3.inv[U.pad4(giverFid)] || { players: [], future_picks: [] };
+    if (token.indexOf("P_") === 0) {
+      var pid = token.slice(2);
+      var p = (inv.players || []).filter(function (x) { return String(x.player_id) === pid; })[0];
+      return p ? (p.display || ("Player #" + pid)) : token;
+    }
+    var fp = (inv.future_picks || []).filter(function (x) { return futurePickToken(x) === token; })[0];
+    return fp ? (fp.display || (fp.year + " R" + fp.round)) : token;
+  }
+  // Build movements from state: for each giver, group its selected assets by
+  // destination → one movement {from, to, asset_tokens, summary} per team-pair.
+  function movementsFromState() {
+    var out = [];
+    teamFids().forEach(function (giver) {
+      var map = b3.give[giver] || {};
+      var byDest = {};
+      Object.keys(map).forEach(function (token) {
+        var dest = U.pad4(map[token]);
+        if (!dest || dest === giver) return;
+        (byDest[dest] = byDest[dest] || []).push(token);
+      });
+      Object.keys(byDest).forEach(function (dest) {
+        var tokens = byDest[dest];
+        var names = tokens.map(function (t) { return assetDisplay(giver, t); });
+        out.push({ from: giver, to: dest, asset_tokens: tokens, summary: names.join(", "), _names: names });
+      });
     });
-    (inv.future_picks || []).forEach(function (fp) {
-      var t = futurePickToken(fp);
-      if (idMap[t]) { tokens.push(t); names.push(fp.display || (fp.year + " R" + fp.round)); }
-    });
-    return { tokens: tokens, names: names };
+    return out;
+  }
+  function countGiven() {
+    var n = 0; teamFids().forEach(function (f) { n += Object.keys(b3.give[f] || {}).length; }); return n;
   }
 
   function open3WayBuilder() {
@@ -954,10 +992,10 @@
     var B = b3.fidB ? franchiseName(b3.fidB) : "Partner 1";
     var C = b3.fidC ? franchiseName(b3.fidC) : "Partner 2";
     return '<div class="ups-m-3w-ring">' +
-      '<span class="you">' + U.escapeHtml(A) + '</span><span class="arr">→</span>' +
-      '<span>' + U.escapeHtml(B) + '</span><span class="arr">→</span>' +
-      '<span>' + U.escapeHtml(C) + '</span><span class="arr">→</span>' +
-      '<span class="you">' + U.escapeHtml(A) + '</span>' +
+      '<span class="tag">3-way</span>' +
+      '<span class="you">' + U.escapeHtml(A) + '</span><span class="arr">·</span>' +
+      '<span>' + U.escapeHtml(B) + '</span><span class="arr">·</span>' +
+      '<span>' + U.escapeHtml(C) + '</span>' +
     '</div>';
   }
   function render3() {
@@ -1004,107 +1042,141 @@
     if (back) back.addEventListener("click", function () { b3.step = 1; render3(); });
   }
 
-  // ── Step 3: pick each leg's assets (each section = that leg's giver's roster) ──
+  // ── Step 3: pick each team's assets + where each one goes (free-form) ──
+  // One section per team's roster. Selecting an asset opens a destination
+  // chooser (the other two teams), defaulting to the ring-next team. Toggles
+  // update in place so the (long) combined roster doesn't scroll-jump.
+  function destChooserHtml(giver, token) {
+    var cur = U.pad4((b3.give[giver] || {})[token]);
+    var pills = otherTwo(giver).map(function (d) {
+      return '<button type="button" class="ups-m-3w-dest' + (cur === d ? ' on' : '') + '" data-giver="' + giver +
+        '" data-token="' + U.escapeHtml(token) + '" data-dest="' + d + '">' + U.escapeHtml(franchiseName(d)) + '</button>';
+    }).join("");
+    return '<div class="ups-m-3w-destrow"><span class="to">to</span>' + pills + '</div>';
+  }
+  function onDestPillClick() {
+    var giver = this.getAttribute("data-giver"), token = this.getAttribute("data-token"), dest = this.getAttribute("data-dest");
+    b3.give[giver] = b3.give[giver] || {}; b3.give[giver][token] = dest;
+    var sibs = this.parentNode.querySelectorAll(".ups-m-3w-dest");
+    for (var m = 0; m < sibs.length; m++) sibs[m].classList.toggle("on", sibs[m] === this);
+  }
+  function wireDestPills(scope) {
+    var pills = scope.querySelectorAll(".ups-m-3w-dest");
+    for (var k = 0; k < pills.length; k++) pills[k].addEventListener("click", onDestPillClick);
+  }
   function render3Assets(body) {
     if (b3.loadingInv) { body.innerHTML = ringLine() + '<div class="ups-m-loading">Loading rosters…</div>'; return; }
     if (b3.invError) { body.innerHTML = ringLine() + '<div class="ups-m-sheet-empty">Couldn\'t load assets: ' + U.escapeHtml(b3.invError) + '</div>'; return; }
-    var A = U.pad4(M.state.viewerFranchiseId), B = U.pad4(b3.fidB), C = U.pad4(b3.fidC);
-    var legs = [
-      { key: "AB", fid: A, label: "You send → " + franchiseName(B) },
-      { key: "BC", fid: B, label: franchiseName(B) + " sends → " + franchiseName(C) },
-      { key: "CA", fid: C, label: franchiseName(C) + " sends → you" }
-    ];
-    function sectionHtml(leg) {
-      var inv = b3.inv[U.pad4(leg.fid)] || { players: [], future_picks: [] };
-      var idMap = b3.sel[leg.key];
+    var teams = teamFids();
+    function assetRowHtml(giver, token, name, meta) {
+      var on = !!(b3.give[giver] || {})[token];
+      return '<div class="ups-m-3w-assetwrap">' +
+        '<button class="ups-m-tb-asset' + (on ? ' on' : '') + '" data-giver="' + giver + '" data-token="' + U.escapeHtml(token) +
+          '" data-name="' + U.escapeHtml(String(name || "").toLowerCase()) + '"><span class="nm">' + U.escapeHtml(name) +
+          '</span><span class="mt">' + U.escapeHtml(meta) + '</span></button>' +
+        (on ? destChooserHtml(giver, token) : '') +
+      '</div>';
+    }
+    function sectionHtml(giver, idx) {
+      var inv = b3.inv[U.pad4(giver)] || { players: [], future_picks: [] };
+      var label = idx === 0 ? "You send" : franchiseName(giver) + " sends";
+      var count = Object.keys(b3.give[giver] || {}).length;
       var playersHtml = (inv.players || []).map(function (p) {
-        var id = "P_" + p.player_id, on = !!idMap[id];
         var meta = [p.position, p.nfl_team, (U.safeInt(p.salary, 0) > 0 ? U.fmtUsd(p.salary) : null), (p.taxi ? "Taxi" : null)].filter(Boolean).join(" · ");
-        return '<button class="ups-m-tb-asset' + (on ? ' on' : '') + '" data-leg="' + leg.key + '" data-id="' + U.escapeHtml(id) +
-          '" data-name="' + U.escapeHtml(String(p.display || "").toLowerCase()) + '"><span class="nm">' + U.escapeHtml(p.display || ("Player #" + p.player_id)) +
-          '</span><span class="mt">' + U.escapeHtml(meta) + '</span></button>';
+        return assetRowHtml(giver, "P_" + p.player_id, p.display || ("Player #" + p.player_id), meta);
       }).join("");
       var picksHtml = (inv.future_picks || []).map(function (fp) {
-        var id = futurePickToken(fp), on = !!idMap[id];
-        return '<button class="ups-m-tb-asset' + (on ? ' on' : '') + '" data-leg="' + leg.key + '" data-id="' + U.escapeHtml(id) +
-          '" data-name="pick ' + U.escapeHtml(String(fp.year)) + '"><span class="nm">' + U.escapeHtml(fp.display || (fp.year + " R" + fp.round)) +
-          '</span><span class="mt">Future pick</span></button>';
+        return assetRowHtml(giver, futurePickToken(fp), fp.display || (fp.year + " R" + fp.round), "Future pick");
       }).join("");
       return '<div class="ups-m-3w-leg">' +
-        '<div class="ups-m-tb-subhead">' + U.escapeHtml(leg.label) + ' <span class="cnt" data-cnt="' + leg.key + '">' + countSelected(idMap) + ' selected</span></div>' +
+        '<div class="ups-m-tb-subhead">' + U.escapeHtml(label) + ' <span class="cnt" data-cnt="' + giver + '">' + count + ' selected</span></div>' +
         '<div class="ups-m-tb-assets">' + (playersHtml || '<div class="ups-m-auc-empty">No players.</div>') +
           (picksHtml ? '<div class="ups-m-tb-subhead">Future picks</div>' + picksHtml : '') + '</div>' +
       '</div>';
     }
     body.innerHTML =
       ringLine() +
-      '<div class="ups-m-tb-steptitle">Build the ring — pick what each team sends</div>' +
-      legs.map(sectionHtml).join("") +
+      '<div class="ups-m-tb-steptitle">Pick assets &amp; where each one goes</div>' +
+      teams.map(function (g, i) { return sectionHtml(g, i); }).join("") +
       '<div class="ups-m-tb-nav">' +
         '<button class="btn-act" id="ups-m-3w-back">Back</button>' +
         '<button class="btn-act otb on" id="ups-m-3w-next">Review</button>' +
       '</div>';
+    wireDestPills(body); // already-selected assets render with their chooser
     var assetBtns = body.querySelectorAll(".ups-m-tb-asset");
     for (var i = 0; i < assetBtns.length; i++) {
       assetBtns[i].addEventListener("click", function () {
-        var leg = this.getAttribute("data-leg"), id = this.getAttribute("data-id");
-        var idMap = b3.sel[leg];
-        if (idMap[id]) { delete idMap[id]; this.classList.remove("on"); }
-        else { idMap[id] = true; this.classList.add("on"); }
-        var cnt = body.querySelector('[data-cnt="' + leg + '"]');
-        if (cnt) cnt.textContent = countSelected(idMap) + " selected";
+        var giver = this.getAttribute("data-giver"), token = this.getAttribute("data-token");
+        var wrap = this.parentNode; // .ups-m-3w-assetwrap
+        b3.give[giver] = b3.give[giver] || {};
+        var existing = wrap.querySelector(".ups-m-3w-destrow");
+        if (b3.give[giver][token]) {
+          delete b3.give[giver][token]; this.classList.remove("on");
+          if (existing) existing.remove();
+        } else {
+          b3.give[giver][token] = ringNext(giver); this.classList.add("on");
+          if (!existing) { this.insertAdjacentHTML("afterend", destChooserHtml(giver, token)); wireDestPills(wrap); }
+        }
+        var cnt = body.querySelector('[data-cnt="' + giver + '"]');
+        if (cnt) cnt.textContent = Object.keys(b3.give[giver]).length + " selected";
       });
     }
     document.getElementById("ups-m-3w-back").addEventListener("click", function () { b3.step = 2; render3(); });
     document.getElementById("ups-m-3w-next").addEventListener("click", function () { b3.step = 4; render3(); });
   }
 
-  // ── Step 4: review the ring + submit ──
+  // ── Step 4: review the deal + notes + submit ──
   function render3Review(body) {
-    var A = U.pad4(M.state.viewerFranchiseId), B = U.pad4(b3.fidB), C = U.pad4(b3.fidC);
-    var ab = leg3Assets(A, b3.sel.AB), bc = leg3Assets(B, b3.sel.BC), ca = leg3Assets(C, b3.sel.CA);
-    var allFull = ab.tokens.length && bc.tokens.length && ca.tokens.length;
-    function legRow(fromN, toN, names) {
-      return '<div class="ups-m-3w-revrow"><div class="lbl">' + U.escapeHtml(fromN) + ' → ' + U.escapeHtml(toN) + '</div>' +
-        '<div class="val">' + (names.length ? U.escapeHtml(names.join(", ")) : '<span class="muted">— nothing —</span>') + '</div></div>';
+    var teams = teamFids();
+    var movements = movementsFromState();
+    var participating = {};
+    movements.forEach(function (m) { participating[m.from] = 1; participating[m.to] = 1; });
+    var allIn = teams.every(function (f) { return participating[f]; });
+    var missing = teams.filter(function (f) { return !participating[f]; }).map(franchiseName);
+    // A real 3-way: ≥2 movements and every team is in the deal (giving or getting).
+    var canSubmit = movements.length >= 2 && allIn;
+    function movRow(m) {
+      return '<div class="ups-m-3w-revrow"><div class="lbl">' + U.escapeHtml(franchiseName(m.from)) + ' → ' + U.escapeHtml(franchiseName(m.to)) + '</div>' +
+        '<div class="val">' + U.escapeHtml(m._names.join(", ")) + '</div></div>';
     }
+    var rowsHtml = movements.length
+      ? movements.map(movRow).join("")
+      : '<div class="ups-m-3w-revrow"><div class="val"><span class="muted">Nothing routed yet — go back and pick assets.</span></div></div>';
     body.innerHTML =
       ringLine() +
-      '<div class="ups-m-tb-steptitle">Review the ring</div>' +
-      '<div class="ups-m-3w-review">' +
-        legRow(franchiseName(A), franchiseName(B), ab.names) +
-        legRow(franchiseName(B), franchiseName(C), bc.names) +
-        legRow(franchiseName(C), franchiseName(A), ca.names) +
-      '</div>' +
-      (!allFull ? '<div class="ups-m-tb-warn">Each team needs to send at least one asset for a balanced ring.</div>' : '') +
+      '<div class="ups-m-tb-steptitle">Review the trade</div>' +
+      '<div class="ups-m-3w-review">' + rowsHtml + '</div>' +
+      '<label class="ups-m-3w-noteslbl" for="ups-m-3w-notes">Notes <span class="opt">optional · both partners see this</span></label>' +
+      '<textarea class="ups-m-tb-comment" id="ups-m-3w-notes" rows="2" maxlength="500" placeholder="Add a note for the other two teams…">' + U.escapeHtml(b3.notes) + '</textarea>' +
+      (!allIn ? '<div class="ups-m-tb-warn">A 3-way needs all three teams in the deal' + (missing.length ? ' — ' + U.escapeHtml(missing.join(" & ")) + ' isn\'t involved yet.' : '.') + '</div>' : '') +
       (b3.error ? '<div class="ups-m-rstr-err">' + U.escapeHtml(b3.error) + '</div>' : '') +
-      '<div class="ups-m-tb-warn">When you submit, ' + U.escapeHtml(franchiseName(B)) + ' and ' + U.escapeHtml(franchiseName(C)) +
-        ' each get a Discord DM to Accept or Decline. Once BOTH accept, the commish runs it as two linked MFL trades. MFL can\'t undo a completed trade.</div>' +
+      '<div class="ups-m-tb-warn">When you submit, the other two teams each get a Discord DM to Accept or Decline. Once BOTH accept, the commish runs it as linked MFL trades. MFL can\'t undo a completed trade.</div>' +
       '<div class="ups-m-tb-nav">' +
         '<button class="btn-act" id="ups-m-3w-back"' + (b3.submitting ? ' disabled' : '') + '>Back</button>' +
-        '<button class="btn-act otb on" id="ups-m-3w-submit"' + (allFull && !b3.submitting ? '' : ' disabled') + '>' +
+        '<button class="btn-act otb on" id="ups-m-3w-submit"' + (canSubmit && !b3.submitting ? '' : ' disabled') + '>' +
           (b3.submitting ? "Sending…" : "Send 3-way") + '</button>' +
       '</div>';
+    var notesEl = document.getElementById("ups-m-3w-notes");
+    if (notesEl) notesEl.addEventListener("input", function () { b3.notes = this.value; });
     document.getElementById("ups-m-3w-back").addEventListener("click", function () { if (!b3.submitting) { b3.step = 3; render3(); } });
     var submit = document.getElementById("ups-m-3w-submit");
-    if (submit) submit.addEventListener("click", function () { if (allFull && !b3.submitting) submit3Way(); });
+    if (submit) submit.addEventListener("click", function () { if (canSubmit && !b3.submitting) submit3Way(); });
   }
 
   function submit3Way() {
     b3.submitting = true; b3.error = ""; render3();
     var ctx = M.state.ctx;
     var A = U.pad4(M.state.viewerFranchiseId), B = U.pad4(b3.fidB), C = U.pad4(b3.fidC);
-    var ab = leg3Assets(A, b3.sel.AB), bc = leg3Assets(B, b3.sel.BC), ca = leg3Assets(C, b3.sel.CA);
+    var movements = movementsFromState().map(function (m) {
+      return { from: m.from, to: m.to, asset_tokens: m.asset_tokens, cap_k: 0, summary: m.summary };
+    });
     var bodyObj = {
       league_id: ctx.leagueId, season: ctx.year,
       initiator: { fid: A, name: franchiseName(A) },
       team_b: { fid: B, name: franchiseName(B) },
       team_c: { fid: C, name: franchiseName(C) },
-      legs: [
-        { from: A, to: B, asset_tokens: ab.tokens, cap_k: 0, summary: ab.names.join(", ") },
-        { from: B, to: C, asset_tokens: bc.tokens, cap_k: 0, summary: bc.names.join(", ") },
-        { from: C, to: A, asset_tokens: ca.tokens, cap_k: 0, summary: ca.names.join(", ") }
-      ]
+      movements: movements,
+      notes: b3.notes || ""
     };
     var url = M.api.workerUrl("/api/trades/3way?L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year));
     var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
@@ -1173,7 +1245,7 @@
     html += '<div class="ups-m-card">' +
       '<div class="ups-m-card-title">3-way ring trade</div>' +
       '<div style="font-size:12px;color:var(--fg-muted);margin-bottom:10px">' +
-        'If you\'ve never had a 3-way, now\'s your chance. Three teams, one ring — you send, they send, and a player comes back to you.' +
+        'If you\'ve never had a 3-way, now\'s your chance. Three teams, one deal — route any player or pick to whoever\'s getting it.' +
       '</div>' +
       '<button class="btn-act otb on" id="ups-m-3w-open" style="width:100%">+ Build 3-way</button>' +
     '</div>';

@@ -1,16 +1,23 @@
-// trade_3way.js — UPS 3-way (ring) trade engine.
+// trade_3way.js — UPS 3-way trade engine (free-form routing).
 //
-// Ring A->B->C->A: A sends X to B, B sends Y to C, C sends Z to A. MFL only does
-// 2-party trades, so the worker executes this as two chained 2-party trades with
-// the INITIATOR (A) as hub:
-//   Trade 1 (A<->B): A gives X, receives Y   (A temporarily holds Y)
-//   Trade 2 (A<->C): A gives Y, receives Z
-//   Net: A -X +Z · B +X -Y · C +Y -Z  ✓
+// Three teams A (initiator), B, C exchange a set of "movements" — each movement
+// is one team sending specific assets to another ({from, to, asset_tokens}).
+// This covers a clean ring (A->B->C->A) AND deals where teams "work together"
+// (A + C both feed B; B sends back to both; etc.). MFL only does 2-party trades,
+// so the engine decomposes the movements two ways:
+//
+//   • Clean cycle (exactly A->B, B->C, C->A)  -> the proven 2-trade HUB path:
+//       Trade 1 (A<->B): A gives X, receives Y   (A temporarily holds the Y pass-through)
+//       Trade 2 (A<->C): A gives Y, receives Z
+//       Net: A -X +Z · B +X -Y · C +Y -Z  ✓
+//   • Anything else -> PAIRWISE: one MFL trade per team-pair (a gives its
+//       a->b assets, b gives its b->a assets). Up to three trades; a one-sided
+//       pair is a valid lopsided MFL trade (give-for-nothing).
 //
 // Both partners (B, C) consent via an in-Discord Accept button (A is implicit by
-// building it). When both accept, the commish (env.MFL_APIKEY) executes both
-// legs server-side — the partners never touch MFL. MFL has NO undo for a
-// COMPLETED trade, so execution is ordered + delayed-between-legs + all-or-
+// building it). When both accept, the commish (env.MFL_APIKEY) executes every
+// leg server-side — the partners never touch MFL. MFL has NO undo for a
+// COMPLETED trade, so execution is ordered + verified between legs + all-or-
 // nothing with a CRITICAL commish alert on partial failure.
 //
 // SAFETY GATES:
@@ -164,15 +171,21 @@ async function rosterOwnsPlayers(env, leagueId, year, fid, tokens) {
 }
 
 // ─────────────────────────── message builders ──────────────────────────────
-function partnerLegSummary(row, teamFid) {
-  // What this team gives + gets in the ring. legs: 0 A->B, 1 B->C, 2 C->A.
-  const legs = parseLegs(row);
-  const A = padFid(row.initiator_fid), B = padFid(row.team_b_fid), C = padFid(row.team_c_fid);
+// What a team gives + gets across the free-form movements, each line naming the
+// other team involved (so "MHJ → LA Looks", "Caleb Williams ← Sex Manther").
+function movementSummaries(row, teamFid) {
+  const movements = parseLegs(row);
   const t = padFid(teamFid);
-  const sumOf = (leg) => safeStr(leg?.summary) || "—";
-  if (t === B) return { gives: sumOf(legs[1]), gets: sumOf(legs[0]) }; // B gives Y, gets X
-  if (t === C) return { gives: sumOf(legs[2]), gets: sumOf(legs[1]) }; // C gives Z, gets Y
-  return { gives: sumOf(legs[0]), gets: sumOf(legs[2]) };              // A gives X, gets Z
+  const gives = [], gets = [];
+  for (const m of movements) {
+    const from = padFid(m?.from), to = padFid(m?.to);
+    const toks = Array.isArray(m?.asset_tokens) ? m.asset_tokens : [];
+    const sum = safeStr(m?.summary) || (toks.length ? `${toks.length} asset(s)` : "");
+    if (!sum) continue;
+    if (from === t) gives.push(`${sum} → ${teamLabel(row, to)}`);
+    if (to === t) gets.push(`${sum} ← ${teamLabel(row, from)}`);
+  }
+  return { gives, gets };
 }
 function buildPartnerButtons(id) {
   return [{ type: 1, components: [
@@ -182,23 +195,54 @@ function buildPartnerButtons(id) {
 }
 function partnerDmPayload(row, teamFid) {
   const A = safeStr(row.initiator_name) || "the commish";
-  const B = safeStr(row.team_b_name), C = safeStr(row.team_c_name);
-  const me = partnerLegSummary(row, teamFid);
+  const me = movementSummaries(row, teamFid);
+  const bullet = (arr) => (arr.length ? arr.map((x) => `• ${x}`).join("\n") : "• —");
   const lines = [
     `🔀 **${A} has roped you into a 3-way trade.**`,
     `_If you've never had a 3-way, now's your chance — if you have, welcome back._`,
     ``,
-    `The ring: **${A} → ${B} → ${C} → ${A}**`,
-    `**You give:** ${me.gives}`,
-    `**You get:** ${me.gets}`,
-    ``,
-    `All three have to be in for it to go through. Tap **Accept** or **Decline** — the other two get pinged either way.`,
+    `**You give:**`,
+    bullet(me.gives),
+    `**You get:**`,
+    bullet(me.gets),
   ];
+  const note = safeStr(row.notes);
+  if (note) lines.push(``, `💬 _${note.slice(0, 300)}_`);
+  lines.push(``, `All three have to be in for it to go through. Tap **Accept** or **Decline** — the other two get pinged either way.`);
   return { content: lines.join("\n").slice(0, 1990), embeds: [{ image: { url: GIF_URL } }], components: buildPartnerButtons(row.id) };
 }
 
 // ───────────────────────────── data helpers ────────────────────────────────
 function parseLegs(row) { try { const v = JSON.parse(row.legs_json || "[]"); return Array.isArray(v) ? v : []; } catch (_) { return []; } }
+// Only movements that actually move something.
+function parseMovements(row) { return parseLegs(row).filter((m) => m && Array.isArray(m.asset_tokens) && m.asset_tokens.length); }
+function pairKey(x, y) { return [padFid(x), padFid(y)].sort().join("|"); }
+// Decompose free-form movements into pairwise 2-party trades. For each team-pair
+// {a,b} (a<b by fid), a gives its a->b assets and b gives its b->a assets — a
+// single MFL trade (possibly lopsided if only one direction has assets).
+function pairwiseTrades(movements) {
+  const pairs = {};
+  for (const m of movements) {
+    const from = padFid(m?.from), to = padFid(m?.to);
+    const toks = Array.isArray(m?.asset_tokens) ? m.asset_tokens : [];
+    if (!from || !to || from === to || !toks.length) continue;
+    const key = pairKey(from, to); const [a, b] = key.split("|");
+    if (!pairs[key]) pairs[key] = { a, b, aToB: [], bToA: [] };
+    if (from === a) pairs[key].aToB.push(...toks); else pairs[key].bToA.push(...toks);
+  }
+  return Object.values(pairs);
+}
+// Detect a clean 3-cycle (exactly A->B, B->C, C->A) so we can use the proven
+// 2-trade hub path instead of three lopsided pairwise trades. Returns {X,Y,Z}
+// (the A->B, B->C, C->A token arrays) or null.
+function asCycle(movements, A, B, C) {
+  if (movements.length !== 3) return null;
+  const edge = {};
+  for (const m of movements) edge[`${padFid(m.from)}>${padFid(m.to)}`] = (m.asset_tokens || []);
+  const X = edge[`${A}>${B}`], Y = edge[`${B}>${C}`], Z = edge[`${C}>${A}`];
+  if (X && Y && Z && Object.keys(edge).length === 3) return { X, Y, Z };
+  return null;
+}
 async function getRow(env, id) {
   try { return await env.UPS_MFL_DB.prepare(`SELECT * FROM ups_3way_trades WHERE id=?`).bind(safeStr(id)).first(); }
   catch (e) { console.error(`[3way] getRow failed: ${e?.message || e}`); return null; }
@@ -222,9 +266,17 @@ export async function create3WayTrade(env, ctx, spec) {
     const A = padFid(spec?.initiator?.fid), B = padFid(spec?.teamB?.fid), C = padFid(spec?.teamC?.fid);
     if (!leagueId || !season || !A || !B || !C) return { ok: false, error: "missing_fields" };
     if (A === B || B === C || A === C) return { ok: false, error: "teams_must_be_distinct" };
-    const legs = Array.isArray(spec?.legs) ? spec.legs : [];
-    if (legs.length !== 3) return { ok: false, error: "need_3_legs" };
-    if (!legs.some((l) => Array.isArray(l?.asset_tokens) && l.asset_tokens.length)) return { ok: false, error: "no_assets" };
+    // Free-form movements ({from, to, asset_tokens}); `legs` accepted as a
+    // back-compat alias. Every from/to must be one of the three teams.
+    const movements = Array.isArray(spec?.movements) ? spec.movements : (Array.isArray(spec?.legs) ? spec.legs : []);
+    if (!movements.length) return { ok: false, error: "no_movements" };
+    const fidSet = new Set([A, B, C]);
+    for (const m of movements) {
+      const from = padFid(m?.from), to = padFid(m?.to);
+      if (!fidSet.has(from) || !fidSet.has(to) || from === to) return { ok: false, error: "bad_movement" };
+    }
+    if (!movements.some((m) => Array.isArray(m?.asset_tokens) && m.asset_tokens.length)) return { ok: false, error: "no_assets" };
+    const notes = safeStr(spec?.notes).slice(0, 500);
     // Allowlist: every participant must be allowed during the test rollout.
     if (![A, B, C].every((f) => franchiseAllowed(env, f))) return { ok: false, error: "not_in_allowlist" };
 
@@ -233,12 +285,12 @@ export async function create3WayTrade(env, ctx, spec) {
     await env.UPS_MFL_DB.prepare(
       `INSERT INTO ups_3way_trades
         (id, league_id, season, status, initiator_fid, team_b_fid, team_c_fid,
-         initiator_name, team_b_name, team_c_name, legs_json,
+         initiator_name, team_b_name, team_c_name, legs_json, notes,
          team_b_state, team_c_state, initiator_discord_ids, team_b_discord_ids, team_c_discord_ids,
          created_at_utc, updated_at_utc)
-       VALUES (?, ?, ?, 'collecting', ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, 'collecting', ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, ?, ?, ?, ?)`
     ).bind(id, leagueId, season, A, B, C,
-      safeStr(spec?.initiator?.name), safeStr(spec?.teamB?.name), safeStr(spec?.teamC?.name), JSON.stringify(legs),
+      safeStr(spec?.initiator?.name), safeStr(spec?.teamB?.name), safeStr(spec?.teamC?.name), JSON.stringify(movements), notes,
       aIds.join(","), bIds.join(","), cIds.join(","), nowIso(), nowIso()).run();
 
     const row = await getRow(env, id);
@@ -246,7 +298,7 @@ export async function create3WayTrade(env, ctx, spec) {
     const dm = async (csv, fid) => { const r = await dmAll(env, csv, partnerDmPayload(row, fid)); console.log(`[3way] invite DM to ${fid}: ${r.sent} account(s) (trade ${id})`); };
     if (ctx?.waitUntil) { ctx.waitUntil(dm(bIds.join(","), B)); ctx.waitUntil(dm(cIds.join(","), C)); }
     else { await dm(bIds.join(","), B); await dm(cIds.join(","), C); }
-    console.log(`[3way] created ${id}: ${A}->${B}->${C}->${A}`);
+    console.log(`[3way] created ${id}: teams ${A},${B},${C} · ${movements.length} movement(s)`);
     return { ok: true, id };
   } catch (e) {
     console.error(`[3way] create failed: ${e?.message || e}`);
@@ -313,19 +365,17 @@ export async function handle3WayButton(interaction, env, ctx) {
   return ephemeral(`You're in. Waiting on ${teamLabel(fresh, waitingFid)} to accept.`);
 }
 
-// ─────────────────── execute the two chained 2-party trades ─────────────────
-// Hub = A. Trade 1 (A<->B): give legs[0] (A->B), receive legs[1] (B->C passthrough).
-// Trade 2 (A<->C): give legs[1], receive legs[2] (C->A). Ordered + verified +
-// all-or-nothing. DRY-RUN unless TRADE_3WAY_EXECUTE=1.
+// ───────────────────── execute the chained 2-party trades ───────────────────
+// Clean cycle -> 2-trade HUB (A holds the pass-through between legs). Otherwise
+// -> PAIRWISE, one MFL trade per team-pair. Ordered, verified between legs, and
+// all-or-nothing with a CRITICAL commish alert on partial failure. DRY-RUN
+// unless TRADE_3WAY_EXECUTE=1.
 export async function execute3Way(env, id) {
   const row = await getRow(env, id);
   if (!row || safeStr(row.status) !== "executing") return { skipped: "not_executing" };
   const leagueId = safeStr(row.league_id), year = safeStr(row.season);
   const A = padFid(row.initiator_fid), B = padFid(row.team_b_fid), C = padFid(row.team_c_fid);
-  const legs = parseLegs(row);
-  const X = (legs[0]?.asset_tokens) || [], Y = (legs[1]?.asset_tokens) || [], Z = (legs[2]?.asset_tokens) || [];
-  const trade1 = { leagueId, year, fromFid: A, toFid: B, give: X, receive: Y, comments: `3-way ${id} leg 1/2` };
-  const trade2 = { leagueId, year, fromFid: A, toFid: C, give: Y, receive: Z, comments: `3-way ${id} leg 2/2` };
+  const movements = parseMovements(row);
 
   const finish = async (status, fields) => {
     const sets = ["status=?", "updated_at_utc=?"]; const binds = [status, nowIso()];
@@ -336,46 +386,77 @@ export async function execute3Way(env, id) {
   const dmAllThree = async (content) => {
     for (const c of [row.initiator_discord_ids, row.team_b_discord_ids, row.team_c_discord_ids]) await dmAll(env, c, { content: safeStr(content).slice(0, 1990) });
   };
+  // Persist executed trade ids into the legacy two id columns + the CSV column.
+  const progressFields = (done) => {
+    const f = { mfl_trade_ids: done.join(",") };
+    if (done[0]) f.mfl_trade1_id = done[0];
+    if (done[1]) f.mfl_trade2_id = done[1];
+    return f;
+  };
+
+  // Build the ordered execution plan.
+  const cyc = asCycle(movements, A, B, C);
+  let plan, mode;
+  if (cyc) {
+    mode = "cycle/hub";
+    plan = [
+      { fromFid: A, toFid: B, give: cyc.X, receive: cyc.Y, label: "hub-1" },
+      { fromFid: A, toFid: C, give: cyc.Y, receive: cyc.Z, label: "hub-2", verifyHold: cyc.Y }, // A must hold the pass-through first
+    ];
+  } else {
+    mode = "pairwise";
+    plan = pairwiseTrades(movements).map((p, i) => ({ fromFid: p.a, toFid: p.b, give: p.aToB, receive: p.bToA, label: `pair-${i + 1}` }));
+  }
+  if (!plan.length) {
+    await finish("failed", { failure_reason: "no_executable_legs" });
+    await dmAllThree(`⚠️ The 3-way trade had nothing to move — the commish will take a look.`);
+    return { ok: false, error: "no_legs" };
+  }
 
   // DRY-RUN: log the plan + tell everyone it's "approved" without moving rosters.
   if (!liveExecute(env)) {
-    console.log(`[3way][DRY-RUN] ${id} would execute:\n  Trade1 ${A}->${B} give=[${X.join(",")}] recv=[${Y.join(",")}]\n  Trade2 ${A}->${C} give=[${Y.join(",")}] recv=[${Z.join(",")}]`);
+    const planStr = plan.map((p) => `  ${p.label}: ${p.fromFid} gives [${p.give.join(",")}]  <->  ${p.toFid} gives [${p.receive.join(",")}]`).join("\n");
+    console.log(`[3way][DRY-RUN] ${id} would execute (${mode}, ${plan.length} trade(s)):\n${planStr}`);
     await finish("completed", { failure_reason: "dry_run", executed_at_utc: nowIso() });
     await dmAllThree(`✅ All three accepted the 3-way trade. _(Dry-run: not yet wired to MFL — the commish will finalize.)_`);
-    return { ok: true, dry_run: true };
+    return { ok: true, dry_run: true, mode, legs: plan.length };
   }
 
-  // LIVE — Trade 1
-  const r1 = await executeCommishTwoPartyTrade(env, trade1);
-  if (!r1.ok) {
-    console.error(`[3way] ${id} Trade1 FAILED (safe — nothing moved): ${r1.step}/${r1.error}`);
-    await finish("failed", { failure_reason: `trade1_${r1.step}: ${safeStr(r1.error).slice(0, 200)}` });
-    await dmAllThree(`⚠️ The 3-way trade couldn't be processed (it failed before anything moved). The commish will take a look.`);
-    return { ok: false, leg: 1, error: r1.error };
+  // LIVE — run each leg in order, all-or-nothing.
+  const done = [];
+  for (let i = 0; i < plan.length; i++) {
+    const leg = plan[i];
+    // Hub pass-through: A must actually hold Y before giving it away in leg 2.
+    if (leg.verifyHold && leg.verifyHold.length) {
+      let owns = false;
+      for (let k = 0; k < 4 && !owns; k++) { await sleep(2500); owns = await rosterOwnsPlayers(env, leagueId, year, A, leg.verifyHold); }
+      if (!owns) {
+        console.error(`[3way] ${id} ${leg.label}: pass-through unverified after ${done.join(",")} — ABORT.`);
+        await finish("failed", { ...progressFields(done), failure_reason: `passthrough_unverified_after_${done.join("+") || "leg1"}` });
+        await dmAllThree(`⚠️ The first leg of the 3-way went through but the next couldn't verify. **Commish: manual fix needed** (trades ${done.join(", ") || "?"}).`);
+        return { ok: false, leg: i + 1, error: "passthrough_unverified", partial: done.length > 0 };
+      }
+    }
+    const r = await executeCommishTwoPartyTrade(env, { leagueId, year, fromFid: leg.fromFid, toFid: leg.toFid, give: leg.give, receive: leg.receive, comments: `3-way ${id} ${leg.label} (${mode})` });
+    if (!r.ok) {
+      const partial = done.length > 0;
+      if (partial) {
+        console.error(`[3way] ${id} ${leg.label} FAILED — PARTIAL (already landed: ${done.join(",")}): ${r.step}/${r.error}`);
+        await finish("failed", { ...progressFields(done), failure_reason: `PARTIAL_${leg.label}_${r.step}: ${safeStr(r.error).slice(0, 150)} (done=${done.join(",")})` });
+        await dmAllThree(`🚨 The 3-way is **partially done** — ${done.length} leg(s) processed, the next failed. **Commish: manual intervention needed** (done: ${done.join(", ")}).`);
+      } else {
+        console.error(`[3way] ${id} ${leg.label} FAILED (safe — nothing moved): ${r.step}/${r.error}`);
+        await finish("failed", { failure_reason: `${leg.label}_${r.step}: ${safeStr(r.error).slice(0, 200)}` });
+        await dmAllThree(`⚠️ The 3-way trade couldn't be processed (it failed before anything moved). The commish will take a look.`);
+      }
+      return { ok: false, leg: i + 1, error: r.error, partial };
+    }
+    done.push(r.tradeId);
+    await finish("executing", progressFields(done)); // checkpoint after each landed leg
   }
-  await finish("executing", { mfl_trade1_id: r1.tradeId });
 
-  // Verify A holds the passthrough (Y) before Trade 2; retry a couple times for MFL indexing lag.
-  let owns = false;
-  for (let i = 0; i < 4 && !owns; i++) { await sleep(2500); owns = await rosterOwnsPlayers(env, leagueId, year, A, Y); }
-  if (!owns) {
-    console.error(`[3way] ${id} Trade1 landed (${r1.tradeId}) but A doesn't show the passthrough yet — ABORT before Trade2.`);
-    await finish("failed", { failure_reason: `passthrough_unverified_after_trade1_${r1.tradeId}` });
-    await dmAllThree(`⚠️ Heads up — the first half of the 3-way went through but the second half couldn't verify. **Commish: manual fix needed** (trade ${r1.tradeId}).`);
-    return { ok: false, leg: 2, error: "passthrough_unverified" };
-  }
-
-  // LIVE — Trade 2
-  const r2 = await executeCommishTwoPartyTrade(env, trade2);
-  if (!r2.ok) {
-    console.error(`[3way] ${id} Trade2 FAILED — PARTIAL (Trade1 ${r1.tradeId} already landed!): ${r2.step}/${r2.error}`);
-    await finish("failed", { failure_reason: `PARTIAL_trade2_${r2.step}: ${safeStr(r2.error).slice(0, 180)} (trade1=${r1.tradeId})` });
-    await dmAllThree(`🚨 The 3-way is **half done** — the first leg processed but the second failed. **Commish: manual intervention needed** (trade1=${r1.tradeId}).`);
-    return { ok: false, leg: 2, error: r2.error, partial: true };
-  }
-
-  await finish("completed", { mfl_trade2_id: r2.tradeId, executed_at_utc: nowIso() });
-  console.log(`[3way] ${id} COMPLETE: trade1=${r1.tradeId} trade2=${r2.tradeId}`);
+  await finish("completed", { ...progressFields(done), executed_at_utc: nowIso() });
+  console.log(`[3way] ${id} COMPLETE (${mode}): trades=${done.join(",")}`);
   await dmAllThree(`✅ **3-way trade complete!** Rosters are updated in MFL. (The Roast bot will have the play-by-play.)`);
-  return { ok: true, trade1: r1.tradeId, trade2: r2.tradeId };
+  return { ok: true, mode, trades: done };
 }

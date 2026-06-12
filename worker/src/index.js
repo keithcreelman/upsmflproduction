@@ -25252,7 +25252,9 @@ export default {
           initiator: body?.initiator,
           teamB: body?.team_b,
           teamC: body?.team_c,
+          movements: body?.movements,
           legs: body?.legs,
+          notes: body?.notes,
         });
         return jsonOut(out.ok ? 201 : 400, out);
       }
