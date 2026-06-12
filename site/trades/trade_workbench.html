@@ -1434,7 +1434,11 @@ summary:focus-visible {
 .twb-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 520px;
+  /* The asset tables live in the ~300px side columns of .twb-main; a 520px
+     floor forced them wider than their column and pushed the salary cell off
+     the right edge (you had to scroll to see it). Let the table fit its column
+     — cells wrap (player name, salary meta) to fit (Keith 2026-06-12). */
+  min-width: 0;
 }
 
 .twb-table th,

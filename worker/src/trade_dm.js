@@ -471,3 +471,31 @@ export async function handleTradeThinkButton(interaction, env, ctx) {
   const fromName = safeStr(row.from_franchise_name) || "them";
   return ephemeral(`Got it — I told ${fromName} you're mulling it over. I'll check back in a few days instead of nagging you daily.`);
 }
+
+// ───────────── offerer alert on decline (called from the action route) ──────
+// When the recipient DECLINES, DM the OFFERER (the sending owner) that their
+// offer was turned down, plus the decliner's optional note. Only fires for
+// offers the DM system tracked (a trade_offer_dm row exists = it was
+// allowlisted). Accept is announced league-wide by the Trade Roast bot;
+// counter sends the original offerer a fresh offer DM; "think" is handled by
+// the button. Fans out to all of the offerer's linked accounts.
+export async function notifyOffererOfDecline(env, tradeId, message) {
+  try {
+    if (!tradeDmEnabled(env)) return { skipped: "flag_off" };
+    const tid = digits(tradeId);
+    if (!tid || !env.UPS_MFL_DB) return { skipped: "no_id" };
+    const row = await env.UPS_MFL_DB.prepare(`SELECT * FROM trade_offer_dm WHERE trade_id=?`).bind(tid).first();
+    if (!row) return { skipped: "no_row" };
+    const offererCsv = safeStr(row.offerer_discord_user_id);
+    if (!offererCsv) return { skipped: "no_offerer_discord" };
+    const recipName = safeStr(row.to_franchise_name) || "The other owner";
+    const note = safeStr(message);
+    const content = `❌ **${recipName}** declined your trade offer.${note ? `\n💬 _${note}_` : ""}`.slice(0, 1990);
+    const r = await dmAll(env, offererCsv, { content });
+    console.log(`[trade-dm] decline alert sent to ${r.sent} account(s): trade=${tid}`);
+    return { sent: r.sent };
+  } catch (e) {
+    console.error(`[trade-dm] notifyOffererOfDecline failed: ${e?.message || e}`);
+    return { error: e?.message || String(e) };
+  }
+}
