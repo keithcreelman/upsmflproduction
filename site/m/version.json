@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.11.2",
-  "label": "Trade builder: apply a pre-trade extension to an eligible give-side player at review (canon §C4, shared module — same 1YR/2YR raise table and eligibility gate as the desktop War Room); add an optional note when declining an offer (saved to MFL's trade history)"
+  "build": "2026.06.12.1",
+  "label": "Pre-trade extension now offered on BOTH sides of a trade — a player you're acquiring can be extended by the franchise giving them up (canon §C4), not just your own outgoing players, matching the desktop War Room"
 }

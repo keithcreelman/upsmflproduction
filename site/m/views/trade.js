@@ -505,19 +505,23 @@
     // §A6-clamped cap values — match exactly what buildOfferPayload sends.
     var myCapK = Math.min(U.safeInt(builderState.myCapK, 0), maxCapKFor(myFid, builderState.giveIds));
     var theirCapK = Math.min(U.safeInt(builderState.theirCapK, 0), maxCapKFor(theirFid, builderState.getIds));
-    function assetLine(a) {
-      return '<li>' + U.escapeHtml(a.type === "PLAYER" ? (a.player_name || a.player_id) : (a.description || a.asset_id)) +
-        (a.type === "PLAYER" && U.safeInt(a.salary, 0) > 0 ? ' <span class="sal">' + U.fmtUsd(a.salary) + '</span>' : '') + '</li>';
-    }
+    // Renders one trade side's assets. Eligible outgoing PLAYER assets also show
+    // the pre-trade extension control (extControlFor) — on either side.
     function colList(assets, capK) {
-      var items = assets.map(assetLine).join("");
+      var items = assets.map(function (a) {
+        return '<li>' +
+          U.escapeHtml(a.type === "PLAYER" ? (a.player_name || a.player_id) : (a.description || a.asset_id)) +
+          (a.type === "PLAYER" && U.safeInt(a.salary, 0) > 0 ? ' <span class="sal">' + U.fmtUsd(a.salary) + '</span>' : "") +
+          extControlFor(a) + '</li>';
+      }).join("");
       if (capK > 0) items += '<li class="cap">+ ' + U.fmtUsd(capK * 1000) + ' cap money</li>';
       return items || '<li class="muted">—</li>';
     }
-    // Pre-trade extension control — shown on eligible give-side PLAYER assets
-    // (the trading-away franchise extends as its last act before the trade).
-    // Options come straight from the shared canon module; the worker re-derives
-    // + re-validates on submit, so this is just selection + preview.
+    // Pre-trade extension control — shown on ANY eligible outgoing PLAYER asset,
+    // either side. Each player is extended by the franchise GIVING it up (canon
+    // §C4): your give-side players by you; the partner's get-side players by them
+    // as part of the deal you propose. Options come from the shared canon module;
+    // the worker re-derives + re-validates on submit, so this is selection only.
     function extControlFor(a) {
       if (a.type !== "PLAYER") return "";
       var PX = window.UPS_PRETRADE_EXT;
@@ -541,22 +545,12 @@
       return '<div class="ups-m-tb-extwrap"><div class="ups-m-tb-extlbl">Pre-trade extension</div>' +
         '<div class="ups-m-tb-extctl">' + segs + '</div>' + preview + '</div>';
     }
-    function giveColList(assets, capK) {
-      var items = assets.map(function (a) {
-        return '<li>' +
-          U.escapeHtml(a.type === "PLAYER" ? (a.player_name || a.player_id) : (a.description || a.asset_id)) +
-          (a.type === "PLAYER" && U.safeInt(a.salary, 0) > 0 ? ' <span class="sal">' + U.fmtUsd(a.salary) + '</span>' : "") +
-          extControlFor(a) + '</li>';
-      }).join("");
-      if (capK > 0) items += '<li class="cap">+ ' + U.fmtUsd(capK * 1000) + ' cap money</li>';
-      return items || '<li class="muted">—</li>';
-    }
     var canSubmit = (give.length || myCapK > 0) && (get.length || theirCapK > 0);
     body.innerHTML =
       '<div class="ups-m-tb-steptitle">Review offer</div>' +
       '<div class="ups-m-tb-review">' +
         '<div class="col"><div class="lbl">You give → ' + U.escapeHtml(franchiseName(theirFid)) + '</div>' +
-          '<ul>' + giveColList(give, myCapK) + '</ul></div>' +
+          '<ul>' + colList(give, myCapK) + '</ul></div>' +
         '<div class="col"><div class="lbl">You get</div>' +
           '<ul>' + colList(get, theirCapK) + '</ul></div>' +
       '</div>' +
@@ -606,34 +600,40 @@
     // non-taxi salary, regardless of any UI state drift.
     var myCapK = Math.min(U.safeInt(builderState.myCapK, 0), maxCapKFor(myFid, builderState.giveIds));
     var theirCapK = Math.min(U.safeInt(builderState.theirCapK, 0), maxCapKFor(theirFid, builderState.getIds));
-    // Pre-trade extensions (Keith 2026-06-11): for each give-side player marked
-    // for extension, RE-DERIVE the option from the asset (never trust a stale
-    // option_key) via the shared canon module, and push the exact desktop row
-    // shape. from_franchise_id is always the giver (viewer). The worker
+    // Pre-trade extensions (Keith 2026-06-11; two-sided 2026-06-12): an outgoing
+    // player on EITHER side can be extended by the franchise giving it up (canon
+    // §C4 — the desktop serializeExtensionRequests collects from both teams). For
+    // each marked player, RE-DERIVE the option from the asset (never trust a
+    // stale option_key) and push the exact desktop row shape. The worker
     // re-derives + re-validates salary-by-year from preview_contract_info_string.
     var extensionRequests = [];
     var PX = window.UPS_PRETRADE_EXT;
     if (PX) {
-      giveAssets.forEach(function (a) {
-        if (a.type !== "PLAYER") return;
-        var sel = builderState.extensions[a.asset_id];
-        if (!sel || !sel.enabled) return;
-        var opts = PX.buildSyntheticExtensionOptions(a) || [];
-        var opt = opts.filter(function (o) { return o.option_key === sel.option_key; })[0];
-        if (!opt) return;
-        extensionRequests.push({
-          player_id: a.player_id, player_name: a.player_name,
-          from_franchise_id: myFid, to_franchise_id: theirFid,
-          applies_to_acquirer: true,
-          option_key: opt.option_key, extension_term: opt.extension_term,
-          loaded_indicator: opt.loaded_indicator, preview_id: opt.preview_id,
-          preview_contract_info_string: opt.preview_contract_info_string,
-          new_contract_status: opt.new_contract_status,
-          new_contract_length: opt.new_contract_length,
-          new_TCV: opt.new_TCV,
-          new_aav_future: opt.new_aav_future
+      var pushExtensions = function (assets, fromFid, toFid) {
+        assets.forEach(function (a) {
+          if (a.type !== "PLAYER") return;
+          var sel = builderState.extensions[a.asset_id];
+          if (!sel || !sel.enabled) return;
+          var opts = PX.buildSyntheticExtensionOptions(a) || [];
+          var opt = opts.filter(function (o) { return o.option_key === sel.option_key; })[0];
+          if (!opt) return;
+          extensionRequests.push({
+            player_id: a.player_id, player_name: a.player_name,
+            from_franchise_id: fromFid, to_franchise_id: toFid,
+            applies_to_acquirer: true,
+            option_key: opt.option_key, extension_term: opt.extension_term,
+            loaded_indicator: opt.loaded_indicator, preview_id: opt.preview_id,
+            preview_contract_info_string: opt.preview_contract_info_string,
+            new_contract_status: opt.new_contract_status,
+            new_contract_length: opt.new_contract_length,
+            new_TCV: opt.new_TCV,
+            new_aav_future: opt.new_aav_future
+          });
         });
-      });
+      };
+      // Give-side players are extended by you; get-side by the partner.
+      pushExtensions(giveAssets, myFid, theirFid);
+      pushExtensions(getAssets, theirFid, myFid);
     }
     return {
       schema_version: 1,
