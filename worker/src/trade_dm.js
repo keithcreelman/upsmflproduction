@@ -52,20 +52,44 @@ function appBase(env) {
 }
 
 // ─────────────────────── discord_owners resolver ───────────────────────────
-async function resolveDiscordUserId(env, franchiseId) {
+// ALL active Discord accounts linked to a franchise (a franchise can have more
+// than one — e.g. a personal + a commish account — and every one should get the
+// message so nothing is missed). Returns a de-duped array of user ids.
+async function resolveDiscordUserIds(env, franchiseId) {
   const fid = padFid(franchiseId);
-  if (!fid || !env.UPS_MFL_DB) return "";
+  if (!fid || !env.UPS_MFL_DB) return [];
   try {
-    const row = await env.UPS_MFL_DB.prepare(
+    const res = await env.UPS_MFL_DB.prepare(
       `SELECT discord_user_id FROM discord_owners
        WHERE franchise_id = ? AND active_owner = 'Y'
-         AND discord_user_id IS NOT NULL AND discord_user_id != '' LIMIT 1`
-    ).bind(fid).first();
-    return safeStr(row?.discord_user_id);
+         AND discord_user_id IS NOT NULL AND discord_user_id != ''`
+    ).bind(fid).all();
+    const ids = [];
+    for (const r of (res?.results || [])) {
+      const id = digits(r?.discord_user_id);
+      if (id && ids.indexOf(id) === -1) ids.push(id);
+    }
+    return ids;
   } catch (e) {
     console.error(`[trade-dm] discord_owners lookup failed for ${fid}: ${e?.message || e}`);
-    return "";
+    return [];
   }
+}
+
+// Fan a DM out to EVERY account in `target` (an array of ids OR a CSV string).
+// Returns {sent: count delivered, undeliverable: any 403/50007, firstMsgId}.
+async function dmAll(env, target, payload) {
+  const ids = (Array.isArray(target) ? target : String(target || "").split(","))
+    .map(digits).filter(Boolean);
+  let sent = 0, undeliverable = false, firstMsgId = "";
+  for (const uid of ids) {
+    const chan = await openDmChannel(env, uid);
+    if (!chan) continue;
+    const dm = await sendDm(env, chan, payload);
+    if (dm.ok) { sent += 1; if (!firstMsgId) firstMsgId = safeStr(dm?.data?.id); }
+    else if (dm.status === 403 || digits(dm?.data?.code) === "50007") undeliverable = true;
+  }
+  return { sent, undeliverable, firstMsgId };
 }
 
 // ─────────────────────────── quiet hours (ET) ──────────────────────────────
@@ -223,8 +247,8 @@ export async function enqueueTradeOfferDm(env, offer) {
     if (!env.UPS_MFL_DB) return { skipped: "no_db" };
     if (!tradeDmTargetAllowed(env, toFid)) return { skipped: tradeDmEnabled(env) ? "not_in_allowlist" : "flag_off" };
 
-    const recipientUid = await resolveDiscordUserId(env, toFid);
-    const offererUid = await resolveDiscordUserId(env, fromFid);
+    const recipientUids = await resolveDiscordUserIds(env, toFid);
+    const offererUids = await resolveDiscordUserIds(env, fromFid);
     const stored = offer?.storedOffer && typeof offer.storedOffer === "object" ? offer.storedOffer : {};
     const payload = stored.payload && typeof stored.payload === "object" ? stored.payload : null;
     // Prefer the payload's team names (the builder sets real names there) so
@@ -248,10 +272,10 @@ export async function enqueueTradeOfferDm(env, offer) {
           created_at_utc, dm_count, track, think_stage, offerer_alerted, state, updated_at_utc)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'main', 0, 0, 'active', ?)
        ON CONFLICT(trade_id) DO NOTHING`
-    ).bind(tradeId, leagueId, season, fromFid, toFid, fromName, toName, summaryText, recipientUid, offererUid, nowIso(), nowIso()).run();
+    ).bind(tradeId, leagueId, season, fromFid, toFid, fromName, toName, summaryText, recipientUids.join(","), offererUids.join(","), nowIso(), nowIso()).run();
     if (!ins.meta || ins.meta.changes === 0) return { skipped: "dup" };
 
-    if (!recipientUid) {
+    if (!recipientUids.length) {
       await env.UPS_MFL_DB.prepare(
         `UPDATE trade_offer_dm SET state='ended', resolved_reason='no_discord_owner', updated_at_utc=? WHERE trade_id=?`
       ).bind(nowIso(), tradeId).run();
@@ -259,28 +283,23 @@ export async function enqueueTradeOfferDm(env, offer) {
       return { skipped: "no_discord_owner" };
     }
 
-    const chan = await openDmChannel(env, recipientUid);
-    if (!chan) {
-      console.log(`[trade-dm] openDmChannel failed for ${recipientUid} (trade ${tradeId})`);
-      return { skipped: "dm_channel_failed" };
-    }
     const row = { trade_id: tradeId, league_id: leagueId, season, to_franchise_id: toFid, from_franchise_name: fromName, summary_text: summaryText };
     const content = payload ? day1Content(row, payload, franchiseName) : `📨 **Trade offer from ${fromName}** — open it in your app to see the details and respond.`;
-    const dm = await sendDm(env, chan, { content, components: buildButtons(env, row) });
-    if (!dm.ok) {
-      // 403 / 50007 = recipient blocks DMs → terminal, never retry.
-      const undeliverable = dm.status === 403 || digits(dm?.data?.code) === "50007";
+    // Fan the Day-1 DM out to EVERY account linked to the recipient franchise.
+    const r1 = await dmAll(env, recipientUids, { content, components: buildButtons(env, row) });
+    if (!r1.sent) {
+      // 403 / 50007 on all accounts = blocked → terminal, never retry.
       await env.UPS_MFL_DB.prepare(
-        `UPDATE trade_offer_dm SET dm_channel_id=?, state=?, resolved_reason=?, updated_at_utc=? WHERE trade_id=?`
-      ).bind(chan, undeliverable ? "ended" : "active", undeliverable ? "dm_undeliverable" : null, nowIso(), tradeId).run();
-      console.log(`[trade-dm] day-1 DM failed (status=${dm.status}) trade=${tradeId}`);
-      return { skipped: "dm_failed", status: dm.status };
+        `UPDATE trade_offer_dm SET state=?, resolved_reason=?, updated_at_utc=? WHERE trade_id=?`
+      ).bind(r1.undeliverable ? "ended" : "active", r1.undeliverable ? "dm_undeliverable" : null, nowIso(), tradeId).run();
+      console.log(`[trade-dm] day-1 DM not delivered (undeliverable=${r1.undeliverable}) trade=${tradeId}`);
+      return { skipped: r1.undeliverable ? "dm_undeliverable" : "dm_failed" };
     }
     await env.UPS_MFL_DB.prepare(
-      `UPDATE trade_offer_dm SET dm_channel_id=?, last_dm_utc=?, dm_count=1, bot_message_id=?, updated_at_utc=? WHERE trade_id=?`
-    ).bind(chan, nowIso(), safeStr(dm?.data?.id), nowIso(), tradeId).run();
-    console.log(`[trade-dm] day-1 DM sent: trade=${tradeId} to=${toFid}(${toName})`);
-    return { sent: true, trade_id: tradeId };
+      `UPDATE trade_offer_dm SET last_dm_utc=?, dm_count=1, bot_message_id=?, updated_at_utc=? WHERE trade_id=?`
+    ).bind(nowIso(), r1.firstMsgId, nowIso(), tradeId).run();
+    console.log(`[trade-dm] day-1 DM sent to ${r1.sent} account(s): trade=${tradeId} to=${toFid}(${toName})`);
+    return { sent: true, accounts: r1.sent, trade_id: tradeId };
   } catch (e) {
     console.error(`[trade-dm] enqueue failed: ${e?.message || e}`);
     return { error: e?.message || String(e) };
@@ -357,19 +376,16 @@ export async function processTradeOfferReminders(env) {
 
     // Send a message if one is attached (terminal can carry a final message).
     if (decision.message) {
-      let chan = safeStr(row.dm_channel_id) || (await openDmChannel(env, row.recipient_discord_user_id));
-      if (!chan) continue;
       const includeThink = !decision.terminal && safeStr(row.track) !== "thinking";
-      const dm = await sendDm(env, chan, {
+      const rr = await dmAll(env, row.recipient_discord_user_id, {
         content: reminderContent(decision.message, row),
         components: buildButtons(env, row, { includeThink }),
       });
-      if (!dm.ok) {
-        const undeliverable = dm.status === 403 || digits(dm?.data?.code) === "50007";
-        if (undeliverable) {
+      if (!rr.sent) {
+        if (rr.undeliverable) {
           await env.UPS_MFL_DB.prepare(
-            `UPDATE trade_offer_dm SET state='ended', resolved_reason='dm_undeliverable', dm_channel_id=?, updated_at_utc=? WHERE trade_id=?`
-          ).bind(chan, nowIso(), safeStr(row.trade_id)).run();
+            `UPDATE trade_offer_dm SET state='ended', resolved_reason='dm_undeliverable', updated_at_utc=? WHERE trade_id=?`
+          ).bind(nowIso(), safeStr(row.trade_id)).run();
         }
         continue;
       }
@@ -378,8 +394,8 @@ export async function processTradeOfferReminders(env) {
         ? Math.min(safeInt(row.think_stage, 0) + 1, THINK_INTERVALS_HOURS.length)
         : safeInt(row.think_stage, 0);
       await env.UPS_MFL_DB.prepare(
-        `UPDATE trade_offer_dm SET dm_channel_id=?, last_dm_utc=?, dm_count=dm_count+1, think_stage=?, updated_at_utc=? WHERE trade_id=?`
-      ).bind(chan, nowIso(), nextStage, nowIso(), safeStr(row.trade_id)).run();
+        `UPDATE trade_offer_dm SET last_dm_utc=?, dm_count=dm_count+1, think_stage=?, updated_at_utc=? WHERE trade_id=?`
+      ).bind(nowIso(), nextStage, nowIso(), safeStr(row.trade_id)).run();
     }
 
     // Terminal → resolve (after sending any final message).
@@ -413,8 +429,9 @@ export async function handleTradeThinkButton(interaction, env, ctx) {
   }
   if (!row || safeStr(row.state) !== "active") return ephemeral("This offer isn't active anymore.");
 
-  const caller = callerId(interaction);
-  if (caller && safeStr(row.recipient_discord_user_id) && caller !== safeStr(row.recipient_discord_user_id)) {
+  const caller = digits(callerId(interaction));
+  const recipientIds = String(row.recipient_discord_user_id || "").split(",").map(digits).filter(Boolean);
+  if (caller && recipientIds.length && recipientIds.indexOf(caller) === -1) {
     return ephemeral("Only the owner this offer was sent to can do that.");
   }
   if (safeStr(row.track) === "thinking") {
@@ -431,19 +448,19 @@ export async function handleTradeThinkButton(interaction, env, ctx) {
   }
 
   // Alert the offerer (fire-and-forget so we stay within Discord's 3s budget).
-  const offererUid = safeStr(row.offerer_discord_user_id);
+  const offererCsv = safeStr(row.offerer_discord_user_id);
   const recipName = safeStr(row.to_franchise_name) || "The other owner";
-  if (offererUid && !safeInt(row.offerer_alerted, 0)) {
+  if (offererCsv && !safeInt(row.offerer_alerted, 0)) {
     const alert = (async () => {
       try {
-        const chan = safeStr(row.offerer_dm_channel_id) || (await openDmChannel(env, offererUid));
-        if (!chan) return;
-        await sendDm(env, chan, {
+        const ar = await dmAll(env, offererCsv, {
           content: `🤔 **${recipName}** is thinking about your offer — no yes or no yet, but it's on their radar. I'll keep you posted.`.slice(0, 1990),
         });
-        await env.UPS_MFL_DB.prepare(
-          `UPDATE trade_offer_dm SET offerer_alerted=1, offerer_dm_channel_id=?, updated_at_utc=? WHERE trade_id=?`
-        ).bind(chan, nowIso(), tradeId).run();
+        if (ar.sent) {
+          await env.UPS_MFL_DB.prepare(
+            `UPDATE trade_offer_dm SET offerer_alerted=1, updated_at_utc=? WHERE trade_id=?`
+          ).bind(nowIso(), tradeId).run();
+        }
       } catch (e) {
         console.error(`[trade-dm] offerer alert failed: ${e?.message || e}`);
       }
