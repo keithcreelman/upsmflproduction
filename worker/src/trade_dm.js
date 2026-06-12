@@ -55,7 +55,7 @@ function appBase(env) {
 // ALL active Discord accounts linked to a franchise (a franchise can have more
 // than one — e.g. a personal + a commish account — and every one should get the
 // message so nothing is missed). Returns a de-duped array of user ids.
-async function resolveDiscordUserIds(env, franchiseId) {
+export async function resolveDiscordUserIds(env, franchiseId) {
   const fid = padFid(franchiseId);
   if (!fid || !env.UPS_MFL_DB) return [];
   try {
@@ -78,7 +78,7 @@ async function resolveDiscordUserIds(env, franchiseId) {
 
 // Fan a DM out to EVERY account in `target` (an array of ids OR a CSV string).
 // Returns {sent: count delivered, undeliverable: any 403/50007, firstMsgId}.
-async function dmAll(env, target, payload) {
+export async function dmAll(env, target, payload) {
   const ids = (Array.isArray(target) ? target : String(target || "").split(","))
     .map(digits).filter(Boolean);
   let sent = 0, undeliverable = false, firstMsgId = "";

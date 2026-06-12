@@ -18,6 +18,7 @@ import {
   handleRoastReplyModal,
 } from "./discord_roast_reply.js";
 import { handleTradeThinkButton } from "./trade_dm.js";
+import { handle3WayButton } from "./trade_3way.js";
 
 const INTERACTION_TYPE = {
   PING: 1,
@@ -176,6 +177,15 @@ export async function handleDiscordInteraction(request, env, ctx) {
       } catch (e) {
         console.log(`[roast-btn] EXCEPTION: ${e && e.message} ${e && e.stack}`);
         return ephemeralReply(`Reply button failed: ${e && e.message ? e.message : "unknown error"}`);
+      }
+    }
+    // 3-way trade buttons ("tr3:accept|decline:<id>") — checked before "tr:".
+    if (customId.startsWith("tr3:")) {
+      try {
+        return await handle3WayButton(interaction, env, ctx);
+      } catch (e) {
+        console.log(`[3way-btn] EXCEPTION: ${e && e.message} ${e && e.stack}`);
+        return ephemeralReply(`3-way trade button failed: ${e && e.message ? e.message : "unknown error"}`);
       }
     }
     // Trade-offer DM buttons ("tr:think:<tradeId>"). Checked before the Hall
