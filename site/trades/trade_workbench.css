@@ -1455,8 +1455,18 @@ summary:focus-visible {
   opacity: 0.9;
 }
 
-.twb-col-select,
+.twb-col-select {
+  white-space: nowrap;
+}
+/* The salary cell may WRAP its meta line ("Years · Type · Current/Future") so
+   the column doesn't force the whole table wider than the embed — nowrap
+   previously pushed the salary column off the right edge, requiring a
+   horizontal scroll to see it (Keith 2026-06-12). The dollar figures stay on
+   one line via .twb-money-main below. */
 .twb-col-salary {
+  white-space: normal;
+}
+.twb-col-salary .twb-money-main {
   white-space: nowrap;
 }
 

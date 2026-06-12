@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.12.3",
-  "label": "Trade-offer Discord DMs: a button in the DM deep-links into the app straight to that offer — opening the decline sheet or counter builder for it (so you can respond from the notification)"
+  "build": "2026.06.12.4",
+  "label": "Pre-trade extension eligibility fix: Vet-ERA winners are blocked during their MYAC window, and taxi players are no longer mis-treated as expired rookies (a taxi player in its final year is still extendable; one with 2+ years left is not)"
 }
