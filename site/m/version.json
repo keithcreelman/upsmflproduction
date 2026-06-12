@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.12.1",
-  "label": "Pre-trade extension now offered on BOTH sides of a trade — a player you're acquiring can be extended by the franchise giving them up (canon §C4), not just your own outgoing players, matching the desktop War Room"
+  "build": "2026.06.12.2",
+  "label": "Pending trade cards now show any attached pre-trade extension(s) — player, term, new AAV, and which franchise applies it — in both your inbox and outbox (the offer list now fetches the payload)"
 }
