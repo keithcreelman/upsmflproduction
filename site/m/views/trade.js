@@ -891,6 +891,10 @@
       // at the team that receives it (defaults to the ring-next team). Free-form:
       // any of the 3 teams can send any asset to either of the other two.
       give: {},
+      // ext[giverFid] = { [assetToken]: { enabled, option_key } } — pre-trade
+      // extension chosen for a give-side player (extended by the giver for the
+      // acquirer it's routed to). Mirrors the 2-party builder's extensions map.
+      ext: {},
       notes: "",
       submitting: false, error: ""
     };
@@ -1064,17 +1068,65 @@
     var pills = scope.querySelectorAll(".ups-m-3w-dest");
     for (var k = 0; k < pills.length; k++) pills[k].addEventListener("click", onDestPillClick);
   }
+  // Look up the inventory player object for a P_<id> token under a giver.
+  function playerForToken(giver, token) {
+    if (String(token).indexOf("P_") !== 0) return null;
+    var pid = String(token).slice(2);
+    var inv = b3.inv[U.pad4(giver)] || { players: [] };
+    return (inv.players || []).filter(function (x) { return String(x.player_id) === pid; })[0] || null;
+  }
+  // Pre-trade extension control for a selected give-side PLAYER. Reuses the
+  // shared canon module (UPS_PRETRADE_EXT) + the 2-party builder's ext CSS.
+  function ext3ControlHtml(giver, token, p) {
+    var PX = window.UPS_PRETRADE_EXT;
+    if (!PX || !p) return "";
+    var asset = playerToSelectedAsset(p);
+    var opts = PX.buildSyntheticExtensionOptions(asset) || [];
+    if (!opts.length) return "";
+    var cur = (b3.ext[giver] || {})[token];
+    var curKey = (cur && cur.enabled) ? cur.option_key : "";
+    function seg(key, label, sub) {
+      return '<button type="button" class="ups-m-tb-extseg' + (curKey === key ? " on" : "") + '" data-extgiver="' + giver +
+        '" data-exttoken="' + U.escapeHtml(token) + '" data-extkey="' + U.escapeHtml(key) + '"><span class="l">' + U.escapeHtml(label) + '</span>' +
+        (sub ? '<span class="s">' + U.escapeHtml(sub) + '</span>' : "") + '</button>';
+    }
+    var segs = seg("", "No ext", "");
+    opts.forEach(function (o) {
+      segs += seg(o.option_key, (o.extension_term === "1YR" ? "+1 yr" : "+2 yr"), U.fmtUsd(o.new_aav_future) + " AAV");
+    });
+    var preview = "";
+    if (curKey) {
+      var chosen = opts.filter(function (o) { return o.option_key === curKey; })[0];
+      if (chosen) preview = '<div class="ups-m-tb-extprev">→ ' + U.escapeHtml(String(chosen.preview_contract_info_string).replace(/\|\s*/g, " · ")) + '</div>';
+    }
+    return '<div class="ups-m-tb-extwrap"><div class="ups-m-tb-extlbl">Pre-trade extension</div><div class="ups-m-tb-extctl">' + segs + '</div>' + preview + '</div>';
+  }
+  function onExt3SegClick() {
+    var giver = this.getAttribute("data-extgiver"), token = this.getAttribute("data-exttoken"), key = this.getAttribute("data-extkey");
+    b3.ext[giver] = b3.ext[giver] || {};
+    if (key) b3.ext[giver][token] = { enabled: true, option_key: key };
+    else delete b3.ext[giver][token];
+    // Full re-render of the step (the preview changes) but keep scroll position.
+    var sy = window.scrollY;
+    render3();
+    window.scrollTo(0, sy);
+  }
+  function wireExt3Segs(scope) {
+    var segs = scope.querySelectorAll(".ups-m-tb-extseg");
+    for (var k = 0; k < segs.length; k++) segs[k].addEventListener("click", onExt3SegClick);
+  }
   function render3Assets(body) {
     if (b3.loadingInv) { body.innerHTML = ringLine() + '<div class="ups-m-loading">Loading rosters…</div>'; return; }
     if (b3.invError) { body.innerHTML = ringLine() + '<div class="ups-m-sheet-empty">Couldn\'t load assets: ' + U.escapeHtml(b3.invError) + '</div>'; return; }
     var teams = teamFids();
-    function assetRowHtml(giver, token, name, meta) {
+    function assetRowHtml(giver, token, name, meta, playerObj) {
       var on = !!(b3.give[giver] || {})[token];
       return '<div class="ups-m-3w-assetwrap">' +
         '<button class="ups-m-tb-asset' + (on ? ' on' : '') + '" data-giver="' + giver + '" data-token="' + U.escapeHtml(token) +
           '" data-name="' + U.escapeHtml(String(name || "").toLowerCase()) + '"><span class="nm">' + U.escapeHtml(name) +
           '</span><span class="mt">' + U.escapeHtml(meta) + '</span></button>' +
         (on ? destChooserHtml(giver, token) : '') +
+        (on && playerObj ? ext3ControlHtml(giver, token, playerObj) : '') +
       '</div>';
     }
     function sectionHtml(giver, idx) {
@@ -1083,7 +1135,7 @@
       var count = Object.keys(b3.give[giver] || {}).length;
       var playersHtml = (inv.players || []).map(function (p) {
         var meta = [p.position, p.nfl_team, (U.safeInt(p.salary, 0) > 0 ? U.fmtUsd(p.salary) : null), (p.taxi ? "Taxi" : null)].filter(Boolean).join(" · ");
-        return assetRowHtml(giver, "P_" + p.player_id, p.display || ("Player #" + p.player_id), meta);
+        return assetRowHtml(giver, "P_" + p.player_id, p.display || ("Player #" + p.player_id), meta, p);
       }).join("");
       var picksHtml = (inv.future_picks || []).map(function (fp) {
         return assetRowHtml(giver, futurePickToken(fp), fp.display || (fp.year + " R" + fp.round), "Future pick");
@@ -1103,19 +1155,26 @@
         '<button class="btn-act otb on" id="ups-m-3w-next">Review</button>' +
       '</div>';
     wireDestPills(body); // already-selected assets render with their chooser
+    wireExt3Segs(body);  // …and their extension control, if eligible
     var assetBtns = body.querySelectorAll(".ups-m-tb-asset");
     for (var i = 0; i < assetBtns.length; i++) {
       assetBtns[i].addEventListener("click", function () {
         var giver = this.getAttribute("data-giver"), token = this.getAttribute("data-token");
         var wrap = this.parentNode; // .ups-m-3w-assetwrap
         b3.give[giver] = b3.give[giver] || {};
-        var existing = wrap.querySelector(".ups-m-3w-destrow");
         if (b3.give[giver][token]) {
-          delete b3.give[giver][token]; this.classList.remove("on");
-          if (existing) existing.remove();
+          delete b3.give[giver][token];
+          if (b3.ext[giver]) delete b3.ext[giver][token];
+          this.classList.remove("on");
+          var dr = wrap.querySelector(".ups-m-3w-destrow"); if (dr) dr.remove();
+          var ew = wrap.querySelector(".ups-m-tb-extwrap"); if (ew) ew.remove();
         } else {
           b3.give[giver][token] = ringNext(giver); this.classList.add("on");
-          if (!existing) { this.insertAdjacentHTML("afterend", destChooserHtml(giver, token)); wireDestPills(wrap); }
+          this.insertAdjacentHTML("afterend", destChooserHtml(giver, token));
+          var p = playerForToken(giver, token);
+          var extHtml = p ? ext3ControlHtml(giver, token, p) : "";
+          if (extHtml) wrap.insertAdjacentHTML("beforeend", extHtml);
+          wireDestPills(wrap); wireExt3Segs(wrap);
         }
         var cnt = body.querySelector('[data-cnt="' + giver + '"]');
         if (cnt) cnt.textContent = Object.keys(b3.give[giver]).length + " selected";
@@ -1142,10 +1201,32 @@
     var rowsHtml = movements.length
       ? movements.map(movRow).join("")
       : '<div class="ups-m-3w-revrow"><div class="val"><span class="muted">Nothing routed yet — go back and pick assets.</span></div></div>';
+    // Pre-trade extensions chosen in step 3 (re-derived for the confirmation list).
+    function extBlock() {
+      var PX = window.UPS_PRETRADE_EXT;
+      if (!PX) return "";
+      var rows = [];
+      teamFids().forEach(function (giver) {
+        var extMap = b3.ext[giver] || {}, giveMap = b3.give[giver] || {};
+        Object.keys(extMap).forEach(function (token) {
+          var sel = extMap[token]; if (!sel || !sel.enabled) return;
+          var dest = U.pad4(giveMap[token]); if (!dest) return;
+          var p = playerForToken(giver, token); if (!p) return;
+          var opts = PX.buildSyntheticExtensionOptions(playerToSelectedAsset(p)) || [];
+          var opt = opts.filter(function (o) { return o.option_key === sel.option_key; })[0];
+          if (!opt) return;
+          rows.push('<div class="ups-m-3w-revrow"><div class="lbl">✨ ' + U.escapeHtml(p.display || ("Player " + p.player_id)) +
+            ' (' + (opt.extension_term === "1YR" ? "+1 yr" : "+2 yr") + ')</div><div class="val">' +
+            U.escapeHtml(franchiseName(giver)) + ' extends → ' + U.escapeHtml(franchiseName(dest)) + '</div></div>');
+        });
+      });
+      return rows.length ? '<div class="ups-m-tb-subhead" style="margin-top:12px">Pre-trade extensions</div><div class="ups-m-3w-review">' + rows.join("") + '</div>' : "";
+    }
     body.innerHTML =
       ringLine() +
       '<div class="ups-m-tb-steptitle">Review the trade</div>' +
       '<div class="ups-m-3w-review">' + rowsHtml + '</div>' +
+      extBlock() +
       '<label class="ups-m-3w-noteslbl" for="ups-m-3w-notes">Notes <span class="opt">optional · both partners see this</span></label>' +
       '<textarea class="ups-m-tb-comment" id="ups-m-3w-notes" rows="2" maxlength="500" placeholder="Add a note for the other two teams…">' + U.escapeHtml(b3.notes) + '</textarea>' +
       (!allIn ? '<div class="ups-m-tb-warn">A 3-way needs all three teams in the deal' + (missing.length ? ' — ' + U.escapeHtml(missing.join(" & ")) + ' isn\'t involved yet.' : '.') + '</div>' : '') +
@@ -1170,12 +1251,47 @@
     var movements = movementsFromState().map(function (m) {
       return { from: m.from, to: m.to, asset_tokens: m.asset_tokens, cap_k: 0, summary: m.summary };
     });
+    // Pre-trade extensions: for each marked give-side player still being sent,
+    // re-derive the option from the asset (never trust a stale key) and push the
+    // same row shape the 2-party builder uses. from=giver, to=its acquirer.
+    var extension_requests = [];
+    var PX = window.UPS_PRETRADE_EXT;
+    if (PX) {
+      teamFids().forEach(function (giver) {
+        var extMap = b3.ext[giver] || {};
+        var giveMap = b3.give[giver] || {};
+        Object.keys(extMap).forEach(function (token) {
+          var sel = extMap[token];
+          if (!sel || !sel.enabled) return;
+          var dest = U.pad4(giveMap[token]);
+          if (!dest) return; // only if the player is actually being sent
+          var p = playerForToken(giver, token);
+          if (!p) return;
+          var asset = playerToSelectedAsset(p);
+          var opts = PX.buildSyntheticExtensionOptions(asset) || [];
+          var opt = opts.filter(function (o) { return o.option_key === sel.option_key; })[0];
+          if (!opt) return;
+          extension_requests.push({
+            player_id: asset.player_id, player_name: asset.player_name,
+            from_franchise_id: giver, to_franchise_id: dest,
+            applies_to_acquirer: true,
+            option_key: opt.option_key, extension_term: opt.extension_term,
+            loaded_indicator: opt.loaded_indicator, preview_id: opt.preview_id,
+            preview_contract_info_string: opt.preview_contract_info_string,
+            new_contract_status: opt.new_contract_status,
+            new_contract_length: opt.new_contract_length,
+            new_TCV: opt.new_TCV, new_aav_future: opt.new_aav_future
+          });
+        });
+      });
+    }
     var bodyObj = {
       league_id: ctx.leagueId, season: ctx.year,
       initiator: { fid: A, name: franchiseName(A) },
       team_b: { fid: B, name: franchiseName(B) },
       team_c: { fid: C, name: franchiseName(C) },
       movements: movements,
+      extension_requests: extension_requests,
       notes: b3.notes || ""
     };
     var url = M.api.workerUrl("/api/trades/3way?L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year));

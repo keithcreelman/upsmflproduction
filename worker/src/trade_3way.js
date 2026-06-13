@@ -206,6 +206,15 @@ function partnerDmPayload(row, teamFid) {
     `**You get:**`,
     bullet(me.gets),
   ];
+  const exts = parseExtReqs(row);
+  if (exts.length) {
+    lines.push(``, `✨ **Pre-trade extensions in this deal:**`);
+    exts.forEach((e) => {
+      const term = safeStr(e.extension_term) === "2YR" ? "+2 yr" : "+1 yr";
+      const nm = safeStr(e.player_name) || ("Player " + safeStr(e.player_id));
+      lines.push(`• ${nm} (${term}) — ${teamLabel(row, e.from_franchise_id)} extends → ${teamLabel(row, e.to_franchise_id)}`);
+    });
+  }
   const note = safeStr(row.notes);
   if (note) lines.push(``, `💬 _${note.slice(0, 300)}_`);
   lines.push(``, `All three have to be in for it to go through. Tap **Accept** or **Decline** — the other two get pinged either way.`);
@@ -216,6 +225,30 @@ function partnerDmPayload(row, teamFid) {
 function parseLegs(row) { try { const v = JSON.parse(row.legs_json || "[]"); return Array.isArray(v) ? v : []; } catch (_) { return []; } }
 // Only movements that actually move something.
 function parseMovements(row) { return parseLegs(row).filter((m) => m && Array.isArray(m.asset_tokens) && m.asset_tokens.length); }
+function parseExtReqs(row) { try { const v = JSON.parse(row.extension_requests_json || "[]"); return Array.isArray(v) ? v : []; } catch (_) { return []; } }
+// Apply this deal's pre-trade extensions AFTER its legs land. Calls the worker's
+// own /admin/3way/apply-extensions (which reuses applyExtensionsFromPayload — a
+// cookie-only salaries import the APIKEY trade path can't do) via the SELF service
+// binding. Best-effort: the trade already executed by the time we get here.
+async function applyExtensionsViaSelf(env, row, tradeIds) {
+  const extReqs = parseExtReqs(row);
+  if (!extReqs.length) return { ok: true, applied: 0, none: true };
+  if (!env.SELF) { console.error(`[3way] ${row.id}: ${extReqs.length} extension(s) but env.SELF missing — cannot apply.`); return { ok: false, error: "no_self_binding" }; }
+  const apiKey = safeStr(env.COMMISH_API_KEY);
+  if (!apiKey) { console.error(`[3way] ${row.id}: extensions need COMMISH_API_KEY (unset).`); return { ok: false, error: "no_commish_key" }; }
+  try {
+    const u = `https://self.invalid/admin/3way/apply-extensions?L=${safeStr(row.league_id)}&YEAR=${safeStr(row.season)}&APIKEY=${encodeURIComponent(apiKey)}`;
+    const r = await env.SELF.fetch(u, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ league_id: safeStr(row.league_id), season: safeStr(row.season), extension_requests: extReqs, trade_id: (tradeIds || []).join(",") }),
+    });
+    const j = await r.json().catch(() => null);
+    return j || { ok: false, error: `apply HTTP ${r.status}` };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+}
 function pairKey(x, y) { return [padFid(x), padFid(y)].sort().join("|"); }
 // Decompose free-form movements into pairwise 2-party trades. For each team-pair
 // {a,b} (a<b by fid), a gives its a->b assets and b gives its b->a assets — a
@@ -277,6 +310,25 @@ export async function create3WayTrade(env, ctx, spec) {
     }
     if (!movements.some((m) => Array.isArray(m?.asset_tokens) && m.asset_tokens.length)) return { ok: false, error: "no_assets" };
     const notes = safeStr(spec?.notes).slice(0, 500);
+    // Pre-trade extensions (canon §C4): a player moving in this deal can be
+    // extended by the franchise giving it up. Keep only well-formed requests whose
+    // from/to are participants; the worker re-derives + re-validates the contract
+    // from preview_contract_info_string at apply time (its own safety net).
+    const extReqs = (Array.isArray(spec?.extension_requests) ? spec.extension_requests : [])
+      .filter((e) => e && safeStr(e.player_id) && safeStr(e.preview_contract_info_string)
+        && fidSet.has(padFid(e.from_franchise_id)) && fidSet.has(padFid(e.to_franchise_id)))
+      .map((e) => ({
+        player_id: safeStr(e.player_id), player_name: safeStr(e.player_name),
+        from_franchise_id: padFid(e.from_franchise_id), to_franchise_id: padFid(e.to_franchise_id),
+        applies_to_acquirer: true,
+        option_key: safeStr(e.option_key), extension_term: safeStr(e.extension_term),
+        loaded_indicator: safeStr(e.loaded_indicator) || "NONE", preview_id: e.preview_id || null,
+        preview_contract_info_string: safeStr(e.preview_contract_info_string),
+        new_contract_status: safeStr(e.new_contract_status),
+        new_contract_length: e.new_contract_length != null ? safeInt(e.new_contract_length, 0) : null,
+        new_TCV: e.new_TCV != null ? safeInt(e.new_TCV, 0) : null,
+        new_aav_future: e.new_aav_future != null ? safeInt(e.new_aav_future, 0) : null,
+      }));
     // Allowlist: every participant must be allowed during the test rollout.
     if (![A, B, C].every((f) => franchiseAllowed(env, f))) return { ok: false, error: "not_in_allowlist" };
 
@@ -285,12 +337,12 @@ export async function create3WayTrade(env, ctx, spec) {
     await env.UPS_MFL_DB.prepare(
       `INSERT INTO ups_3way_trades
         (id, league_id, season, status, initiator_fid, team_b_fid, team_c_fid,
-         initiator_name, team_b_name, team_c_name, legs_json, notes,
+         initiator_name, team_b_name, team_c_name, legs_json, notes, extension_requests_json,
          team_b_state, team_c_state, initiator_discord_ids, team_b_discord_ids, team_c_discord_ids,
          created_at_utc, updated_at_utc)
-       VALUES (?, ?, ?, 'collecting', ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, 'collecting', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, ?, ?, ?, ?)`
     ).bind(id, leagueId, season, A, B, C,
-      safeStr(spec?.initiator?.name), safeStr(spec?.teamB?.name), safeStr(spec?.teamC?.name), JSON.stringify(movements), notes,
+      safeStr(spec?.initiator?.name), safeStr(spec?.teamB?.name), safeStr(spec?.teamC?.name), JSON.stringify(movements), notes, JSON.stringify(extReqs),
       aIds.join(","), bIds.join(","), cIds.join(","), nowIso(), nowIso()).run();
 
     const row = await getRow(env, id);
@@ -467,12 +519,14 @@ export async function execute3Way(env, id) {
     return { ok: false, error: "no_legs" };
   }
 
+  const extReqs = parseExtReqs(row);
+
   // DRY-RUN: log the plan + tell everyone it's "approved" without moving rosters.
   if (!liveExecute(env)) {
     const planStr = plan.map((p) => `  ${p.label}: ${p.fromFid} gives [${p.give.join(",")}]  <->  ${p.toFid} gives [${p.receive.join(",")}]`).join("\n");
-    console.log(`[3way][DRY-RUN] ${id} would execute (${mode}, ${plan.length} trade(s)):\n${planStr}`);
+    console.log(`[3way][DRY-RUN] ${id} would execute (${mode}, ${plan.length} trade(s)):\n${planStr}${extReqs.length ? `\n  + ${extReqs.length} pre-trade extension(s)` : ""}`);
     await finish("completed", { failure_reason: "dry_run", executed_at_utc: nowIso() });
-    await dmAllThree(`✅ All three accepted the 3-way trade. _(Dry-run: not yet wired to MFL — the commish will finalize.)_`);
+    await dmAllThree(`✅ All three accepted the 3-way trade.${extReqs.length ? ` (${extReqs.length} pre-trade extension(s) included.)` : ""} _(Dry-run: not yet wired to MFL — the commish will finalize.)_`);
     return { ok: true, dry_run: true, mode, legs: plan.length };
   }
 
@@ -509,8 +563,22 @@ export async function execute3Way(env, id) {
     await finish("executing", progressFields(done)); // checkpoint after each landed leg
   }
 
+  // All legs landed — apply any pre-trade extensions now (post-move, so each new
+  // contract lands on the acquiring franchise). The trade itself is already done,
+  // so this is best-effort: on failure we still complete + alert the commish.
+  let extOut = null;
+  if (extReqs.length) {
+    extOut = await applyExtensionsViaSelf(env, row, done);
+    if (extOut && extOut.ok) {
+      console.log(`[3way] ${id} extensions applied: ${safeInt(extOut.applied, 0)}/${extReqs.length}`);
+    } else {
+      console.error(`[3way] ${id} extension apply FAILED: ${extOut && (extOut.error || extOut.reason)}`);
+      await dmAllThree(`⚠️ The 3-way trade went through, but ${extReqs.length} pre-trade extension(s) couldn't be applied automatically. **Commish: apply the contract(s) manually.**`);
+    }
+  }
+
   await finish("completed", { ...progressFields(done), executed_at_utc: nowIso() });
-  console.log(`[3way] ${id} COMPLETE (${mode}): trades=${done.join(",")}`);
-  await dmAllThree(`✅ **3-way trade complete!** Rosters are updated in MFL. (The Roast bot will have the play-by-play.)`);
-  return { ok: true, mode, trades: done };
+  console.log(`[3way] ${id} COMPLETE (${mode}): trades=${done.join(",")}${extReqs.length ? ` ext=${extOut && extOut.ok ? "ok" : "FAILED"}` : ""}`);
+  await dmAllThree(`✅ **3-way trade complete!** Rosters are updated in MFL.${extReqs.length && extOut && extOut.ok ? ` ${safeInt(extOut.applied, 0)} extension(s) applied.` : ""} (The Roast bot will have the play-by-play.)`);
+  return { ok: true, mode, trades: done, extensions: extOut };
 }
