@@ -6893,10 +6893,26 @@
     return (i === -1 || t.length < 2) ? "" : t[(i + 1) % t.length];
   }
   function tw3OtherTwo(fid) { return tw3TeamFids().filter(function (x) { return x && x !== pad4(fid); }); }
+  // Build the MFL-bound token for a pick. The desktop endpoint sends asset_id
+  // "pick:<key>" (NOT a bare FP_/DP_), but it resolves the numeric fields — so
+  // build from those (predictable): current-year picks (a slot is assigned) →
+  // DP_<yr>_<rd>_<slot> (engine emits DP_<rd-1>_<slot-1>); future picks →
+  // FP_<orig>_<yr>_<rd> (engine's robust parser handles it). Falls back to an
+  // explicit FP_/DP_ token if one is already present.
+  function tw3PickToken(asset) {
+    var year = safeInt(asset.pick_season, 0), round = safeInt(asset.pick_round, 0), slot = safeInt(asset.pick_slot, 0);
+    if (year && round) {
+      if (slot > 0) return "DP_" + year + "_" + round + "_" + slot;
+      var orig = pad4(asset.original_owner_fid) || pad4(asset.franchise_id);
+      if (orig) return "FP_" + orig + "_" + year + "_" + round;
+    }
+    var pk = safeStr(asset.pick_key || asset.asset_id).toUpperCase().replace(/^PICK:/, "");
+    return (pk.indexOf("FP_") === 0 || pk.indexOf("DP_") === 0) ? pk : "";
+  }
   function tw3IsTradeable(asset) {
     if (!asset) return false;
     if (asset.type === "PLAYER") return !!safeStr(asset.player_id).replace(/\D/g, "") && isTradeEligibleAsset(asset);
-    if (asset.type === "PICK") return safeStr(asset.asset_id).toUpperCase().indexOf("FP_") === 0 && isTradeEligibleAsset(asset);
+    if (asset.type === "PICK") return !!tw3PickToken(asset) && isTradeEligibleAsset(asset);
     return false;
   }
   function tw3TeamAssets(fid) {
@@ -6905,8 +6921,8 @@
   }
   function tw3AssetToken(asset) {
     if (asset.type === "PLAYER") return "P_" + safeStr(asset.player_id).replace(/\D/g, "");
-    var id = safeStr(asset.asset_id).toUpperCase();
-    return id.indexOf("FP_") === 0 ? id : "";
+    if (asset.type === "PICK") return tw3PickToken(asset);
+    return "";
   }
   function tw3AssetName(asset) {
     if (asset.type === "PLAYER") return safeStr(asset.player_name) || ("Player " + safeStr(asset.player_id));
@@ -6916,7 +6932,8 @@
     if (asset.type === "PLAYER") {
       return [asset.position, asset.nfl_team, (safeInt(asset.salary, 0) > 0 ? kFmtFromDollars(asset.salary) : ""), (asset.taxi ? "Taxi" : "")].filter(Boolean).join(" · ");
     }
-    return "Future pick";
+    // Current-year picks carry a slot; later years don't yet.
+    return safeInt(asset.pick_slot, 0) > 0 ? "Draft pick" : "Future pick";
   }
   function tw3NameOf(fid) { return getFranchiseNameById(pad4(fid)) || ("Franchise " + pad4(fid)); }
 
