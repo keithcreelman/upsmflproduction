@@ -2353,6 +2353,20 @@ summary:focus-visible {
 .twb-3w-foot { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .twb-3w-foot-note { font-size: 0.76rem; color: var(--twb-text-soft); flex: 1 1 320px; line-height: 1.35; }
 .twb-3w-foot-btns { display: flex; gap: 0.5rem; flex: 0 0 auto; }
+.twb-3w-extwrap { padding: 0.3rem 0.3rem 0.5rem 0.7rem; display: grid; gap: 0.35rem; }
+.twb-3w-extlbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--twb-text-soft); }
+.twb-3w-extctl { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.twb-3w-extseg {
+  display: flex; flex-direction: column; align-items: flex-start;
+  border: 1px solid var(--twb-border-strong); border-radius: 8px;
+  background: rgba(10, 19, 35, 0.9); color: var(--twb-text);
+  padding: 0.25rem 0.5rem; cursor: pointer; line-height: 1.15;
+}
+.twb-3w-extseg .l { font-size: 0.76rem; font-weight: 700; }
+.twb-3w-extseg .s { font-size: 0.66rem; color: var(--twb-text-soft); }
+.twb-3w-extseg.on { background: rgba(86, 215, 154, 0.16); border-color: rgba(86, 215, 154, 0.5); }
+.twb-3w-extseg.on .s { color: var(--twb-good); }
+.twb-3w-extprev { font-size: 0.74rem; color: var(--twb-good); padding-left: 0.1rem; }
 @media (max-width: 880px) {
   .twb-3w-teams, .twb-3w-cols { grid-template-columns: 1fr; }
   .twb-3w-assets { max-height: 38vh; }
@@ -2616,6 +2630,6 @@ summary:focus-visible {
     </form>
   </dialog>
 
-  <script src="./trade_workbench.js?v=20260612c" defer></script>
+  <script src="./trade_workbench.js?v=20260612d" defer></script>
 </body>
 </html>

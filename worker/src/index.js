@@ -25255,6 +25255,7 @@ export default {
           movements: body?.movements,
           legs: body?.legs,
           notes: body?.notes,
+          extension_requests: body?.extension_requests,
         });
         return jsonOut(out.ok ? 201 : 400, out);
       }
@@ -25278,6 +25279,25 @@ export default {
         }
         const out = await cancel3WayTrade(env, ctx, safeStr(body?.id), padFranchiseId(body?.franchise_id || ""));
         return jsonOut(out.ok ? 200 : 400, out);
+      }
+
+      // Internal (commish/self) — apply pre-trade extensions for a 3-way AFTER
+      // its legs have executed. Reuses the proven 2-party applyExtensionsFromPayload
+      // (cookie-only salaries import + ups_extension_master upsert). Called by
+      // execute3Way via env.SELF.fetch; not a public/owner route.
+      if (path === "/admin/3way/apply-extensions" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!commishKey || browserKey !== commishKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
+        let body = null;
+        try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
+        const leagueId = safeStr(body?.league_id || L || "");
+        const season = safeStr(body?.season || YEAR || "");
+        const extReqs = Array.isArray(body?.extension_requests) ? body.extension_requests : [];
+        if (!leagueId || !season) return jsonOut(400, { ok: false, error: "Missing league_id/season." });
+        if (!extReqs.length) return jsonOut(200, { ok: true, applied: 0, reason: "no_extension_requests" });
+        const out = await applyExtensionsFromPayload(leagueId, season, { extension_requests: extReqs }, { trade_id: safeStr(body?.trade_id) });
+        return jsonOut(200, out || { ok: false, error: "no_result" });
       }
 
       if ((path === "/trade-offers" || path === "/api/trades/proposals") && request.method === "POST") {

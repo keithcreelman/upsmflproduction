@@ -6876,7 +6876,14 @@
   var TW3_SLOTS = ["a", "b", "c"];
 
   function tw3Fresh() {
-    return { aFid: "", bFid: "", cFid: "", give: {}, notes: "", submitting: false, status: "", statusTone: "" };
+    // ext[giverFid] = { [asset_id]: { enabled, option_key } } — pre-trade
+    // extension chosen for a give-side player (extended by the giver for the
+    // acquirer it's routed to). Mirrors the 2-party builder's state.extensions.
+    return { aFid: "", bFid: "", cFid: "", give: {}, ext: {}, notes: "", submitting: false, status: "", statusTone: "" };
+  }
+  function tw3AssetById(giver, aid) {
+    var team = getTeamById(pad4(giver));
+    return ((team && team.assets) || []).filter(function (a) { return a.asset_id === aid; })[0] || null;
   }
   function tw3Reflow() { try { scheduleParentHeightPost(); } catch (e) {} }
   function tw3TeamFids() { return [pad4(tw3.aFid), pad4(tw3.bFid), pad4(tw3.cFid)]; }
@@ -7002,6 +7009,53 @@
     }).join("");
     return '<div class="twb-3w-destrow"><span class="lbl">to</span>' + pills + "</div>";
   }
+  // Pre-trade extension control for a selected give-side PLAYER. Reuses the
+  // verbatim buildSyntheticExtensionOptions copy already in this file.
+  function tw3ExtControlHtml(giver, asset) {
+    if (!asset || asset.type !== "PLAYER") return "";
+    var opts = buildSyntheticExtensionOptions(asset) || [];
+    if (!opts.length) return "";
+    var aid = asset.asset_id;
+    var cur = (tw3.ext[giver] || {})[aid];
+    var curKey = (cur && cur.enabled) ? cur.option_key : "";
+    function seg(key, label, sub) {
+      return '<button type="button" class="twb-3w-extseg' + (curKey === key ? " on" : "") + '" data-3w-extgiver="' + giver +
+        '" data-3w-extaid="' + escapeHtml(aid) + '" data-3w-extkey="' + escapeHtml(key) + '"><span class="l">' + escapeHtml(label) + "</span>" +
+        (sub ? '<span class="s">' + escapeHtml(sub) + "</span>" : "") + "</button>";
+    }
+    var segs = seg("", "No ext", "");
+    opts.forEach(function (o) {
+      segs += seg(o.option_key, (o.extension_term === "1YR" ? "+1 yr" : "+2 yr"), kFmtFromDollars(o.new_aav_future) + " AAV");
+    });
+    var preview = "";
+    if (curKey) {
+      var chosen = opts.filter(function (o) { return o.option_key === curKey; })[0];
+      if (chosen) preview = '<div class="twb-3w-extprev">→ ' + escapeHtml(String(chosen.preview_contract_info_string).replace(/\|\s*/g, " · ")) + "</div>";
+    }
+    return '<div class="twb-3w-extwrap"><div class="twb-3w-extlbl">Pre-trade extension</div><div class="twb-3w-extctl">' + segs + "</div>" + preview + "</div>";
+  }
+  function onTw3ExtSegClick() {
+    var giver = this.getAttribute("data-3w-extgiver"), aid = this.getAttribute("data-3w-extaid"), key = this.getAttribute("data-3w-extkey");
+    tw3.ext[giver] = tw3.ext[giver] || {};
+    if (key) tw3.ext[giver][aid] = { enabled: true, option_key: key };
+    else delete tw3.ext[giver][aid];
+    // Re-render this asset's ext control in place (the preview changes), so the
+    // per-column scroll position is preserved.
+    var assetwrap = this.closest(".twb-3w-assetwrap");
+    var asset = tw3AssetById(giver, aid);
+    var oldWrap = assetwrap ? assetwrap.querySelector(".twb-3w-extwrap") : null;
+    if (assetwrap && asset && oldWrap) {
+      var tmp = document.createElement("div");
+      tmp.innerHTML = tw3ExtControlHtml(giver, asset);
+      var fresh = tmp.firstChild;
+      if (fresh) { oldWrap.parentNode.replaceChild(fresh, oldWrap); tw3WireExtSegs(fresh); }
+    }
+    tw3RefreshSummaryAndSubmit();
+  }
+  function tw3WireExtSegs(scope) {
+    var segs = scope.querySelectorAll(".twb-3w-extseg");
+    for (var i = 0; i < segs.length; i += 1) segs[i].addEventListener("click", onTw3ExtSegClick);
+  }
   function tw3AssetRowHtml(giver, asset) {
     var aid = asset.asset_id;
     var on = !!(tw3.give[giver] || {})[aid];
@@ -7009,7 +7063,7 @@
       '<button type="button" class="twb-3w-asset' + (on ? " on" : "") + '" data-3w-giver="' + giver + '" data-3w-aid="' + escapeHtml(aid) + '">' +
         '<span class="nm">' + escapeHtml(tw3AssetName(asset)) + "</span>" +
         '<span class="mt">' + escapeHtml(tw3AssetMeta(asset)) + "</span>" +
-      "</button>" + (on ? tw3DestChooserHtml(giver, aid) : "") +
+      "</button>" + (on ? tw3DestChooserHtml(giver, aid) : "") + (on ? tw3ExtControlHtml(giver, asset) : "") +
     "</div>";
   }
   function tw3ColumnHtml(slot) {
@@ -7032,7 +7086,23 @@
           return '<div class="twb-3w-movrow"><span class="rt">' + escapeHtml(tw3NameOf(m.from)) + " → " + escapeHtml(tw3NameOf(m.to)) + '</span><span class="as">' + escapeHtml(m._names.join(", ")) + "</span></div>";
         }).join("")
       : '<div class="twb-3w-movrow muted">Nothing routed yet — select assets and choose where each goes.</div>';
-    return '<div class="twb-3w-summary-head">The deal</div>' + rows;
+    return '<div class="twb-3w-summary-head">The deal</div>' + rows + tw3ExtSummaryRows();
+  }
+  function tw3ExtSummaryRows() {
+    var rows = [];
+    tw3TeamFids().forEach(function (giver) {
+      var extMap = tw3.ext[giver] || {}, giveMap = tw3.give[giver] || {};
+      Object.keys(extMap).forEach(function (aid) {
+        var sel = extMap[aid]; if (!sel || !sel.enabled) return;
+        var dest = pad4(giveMap[aid]); if (!dest) return;
+        var asset = tw3AssetById(giver, aid); if (!asset || asset.type !== "PLAYER") return;
+        var opt = (buildSyntheticExtensionOptions(asset) || []).filter(function (o) { return o.option_key === sel.option_key; })[0];
+        if (!opt) return;
+        var term = opt.extension_term === "1YR" ? "+1 yr" : "+2 yr";
+        rows.push('<div class="twb-3w-movrow"><span class="rt">✨ ' + escapeHtml(tw3AssetName(asset)) + " (" + term + ')</span><span class="as">' + escapeHtml(tw3NameOf(giver)) + " extends → " + escapeHtml(tw3NameOf(dest)) + "</span></div>");
+      });
+    });
+    return rows.length ? '<div class="twb-3w-summary-head" style="margin-top:0.5rem">Pre-trade extensions</div>' + rows.join("") : "";
   }
   function render3WayPanel() {
     var body = document.getElementById("twb3wBody");
@@ -7120,15 +7190,20 @@
         var giver = this.getAttribute("data-3w-giver"), aid = this.getAttribute("data-3w-aid");
         var wrap = this.parentNode;
         tw3.give[giver] = tw3.give[giver] || {};
-        var existing = wrap.querySelector(".twb-3w-destrow");
         if (tw3.give[giver][aid]) {
           delete tw3.give[giver][aid];
+          if (tw3.ext[giver]) delete tw3.ext[giver][aid];
           this.classList.remove("on");
-          if (existing) existing.remove();
+          var dr = wrap.querySelector(".twb-3w-destrow"); if (dr) dr.remove();
+          var ew = wrap.querySelector(".twb-3w-extwrap"); if (ew) ew.remove();
         } else {
           tw3.give[giver][aid] = tw3RingNext(giver) || tw3OtherTwo(giver)[0] || "";
           this.classList.add("on");
-          if (!existing) { this.insertAdjacentHTML("afterend", tw3DestChooserHtml(giver, aid)); tw3WireDestPills(wrap); }
+          this.insertAdjacentHTML("afterend", tw3DestChooserHtml(giver, aid));
+          var asset = tw3AssetById(giver, aid);
+          var extHtml = (asset && asset.type === "PLAYER") ? tw3ExtControlHtml(giver, asset) : "";
+          if (extHtml) wrap.insertAdjacentHTML("beforeend", extHtml);
+          tw3WireDestPills(wrap); tw3WireExtSegs(wrap);
         }
         var cnt = body.querySelector('[data-3w-cnt="' + giver + '"]');
         if (cnt) cnt.textContent = Object.keys(tw3.give[giver]).length + " selected";
@@ -7136,6 +7211,7 @@
       });
     }
     tw3WireDestPills(body);
+    tw3WireExtSegs(body);
     var notes = document.getElementById("twb3wNotes");
     if (notes) notes.addEventListener("input", function () { tw3.notes = this.value; });
     var cancel = document.getElementById("twb3wCancelBtn");
@@ -7170,6 +7246,36 @@
     }
   }
   function tw3SetStatus(msg, tone) { if (tw3) { tw3.status = safeStr(msg); tw3.statusTone = safeStr(tone); } }
+  // For each marked give-side player still being sent, re-derive the option and
+  // push the same row shape the 2-party builder uses. from=giver, to=acquirer.
+  function tw3BuildExtensionRequests() {
+    var out = [];
+    tw3TeamFids().forEach(function (giver) {
+      var extMap = tw3.ext[giver] || {}, giveMap = tw3.give[giver] || {};
+      Object.keys(extMap).forEach(function (aid) {
+        var sel = extMap[aid];
+        if (!sel || !sel.enabled) return;
+        var dest = pad4(giveMap[aid]);
+        if (!dest) return;
+        var asset = tw3AssetById(giver, aid);
+        if (!asset || asset.type !== "PLAYER") return;
+        var opt = (buildSyntheticExtensionOptions(asset) || []).filter(function (o) { return o.option_key === sel.option_key; })[0];
+        if (!opt) return;
+        out.push({
+          player_id: safeStr(asset.player_id), player_name: safeStr(asset.player_name),
+          from_franchise_id: giver, to_franchise_id: dest,
+          applies_to_acquirer: true,
+          option_key: opt.option_key, extension_term: opt.extension_term,
+          loaded_indicator: opt.loaded_indicator, preview_id: opt.preview_id,
+          preview_contract_info_string: opt.preview_contract_info_string,
+          new_contract_status: opt.new_contract_status,
+          new_contract_length: opt.new_contract_length,
+          new_TCV: opt.new_TCV, new_aav_future: opt.new_aav_future
+        });
+      });
+    });
+    return out;
+  }
   function tw3Submit() {
     if (!tw3 || tw3.submitting) return;
     var st = tw3State();
@@ -7182,6 +7288,7 @@
       team_b: { fid: pad4(tw3.bFid), name: tw3NameOf(tw3.bFid) },
       team_c: { fid: pad4(tw3.cFid), name: tw3NameOf(tw3.cFid) },
       movements: st.movements.map(function (m) { return { from: m.from, to: m.to, asset_tokens: m.asset_tokens, cap_k: 0, summary: m.summary }; }),
+      extension_requests: tw3BuildExtensionRequests(),
       notes: tw3.notes || ""
     };
     fetch(resolve3WayApiUrl(), {
