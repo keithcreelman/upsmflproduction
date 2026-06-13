@@ -6664,7 +6664,57 @@
     });
     if (STATE.commishSubview === "revert") renderContractRevertSub();
     else if (STATE.commishSubview === "status") renderStatusSub();
+    else if (STATE.commishSubview === "killswitches") renderKillSwitchesSub();
     else renderDiscordRoutingSub();
+  }
+
+  // — Kill Switches: runtime feature flags (trade DMs / 3-way / 3-way LIVE) —
+  // Toggles persist to D1 instantly (POST /admin/commish-settings feature_flags);
+  // the worker reads them with the wrangler.toml env var as the default.
+  async function renderKillSwitchesSub() {
+    const host = $("#fo-commish-body");
+    if (!host) return;
+    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading kill switches…</div></div>';
+    let flags = [];
+    try {
+      const data = await fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(LEAGUE_ID));
+      flags = (data && data.feature_flags) || [];
+    } catch (e) {
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + escapeHtml(e.message || String(e)) + "</div></div>";
+      return;
+    }
+    const rowHtml = flags.map(function (f) {
+      const on = !!f.value;
+      const onColor = f.danger ? "#c0392b" : "#1f8a4c";
+      const seg = [["on", "On"], ["off", "Off"]].map(function (pair) {
+        const o = pair[0], isOn = (o === "on") === on;
+        const bg = isOn ? (o === "on" ? onColor : "#7a7f87") : "var(--panel-alt)";
+        return '<button type="button" class="fo-flag-btn" data-flag="' + escapeHtml(f.key) + '" data-val="' + o + '" style="padding:4px 16px;border:1px solid var(--border);background:' + bg + ";color:" + (isOn ? "#fff" : "var(--text)") + ";cursor:pointer;font-weight:" + (isOn ? "600" : "400") + ";" + (o === "on" ? "border-radius:4px 0 0 4px;" : "border-radius:0 4px 4px 0;border-left:none;") + '">' + pair[1] + "</button>";
+      }).join("");
+      const src = f.overridden ? "commish override" : "default";
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--border);">' +
+        '<span style="flex:1;"><strong>' + escapeHtml(f.label) + (f.danger ? ' <span style="color:#c0392b;">⚠️</span>' : "") + '</strong>' +
+        '<br><span class="small" style="color:var(--muted);">' + escapeHtml(f.help) + '</span>' +
+        '<br><span class="small" style="color:var(--muted);opacity:.8;">' + escapeHtml(f.key) + " · " + src + "</span></span>" +
+        '<span style="display:inline-flex;flex:0 0 auto;">' + seg + "</span></div>";
+    }).join("");
+    host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3 style="margin:0;">Kill Switches</h3></div>' +
+      '<p class="fo-row-hint">💡 Flip a feature on/off live — no redeploy. Saved to D1 instantly. <strong>3-way LIVE execution</strong> OFF puts the 3-way back in dry-run (builds + DMs work, but no rosters move).</p>' +
+      rowHtml + "</div>";
+    $$(".fo-flag-btn", host).forEach(function (btn) {
+      btn.addEventListener("click", async function () {
+        const k = btn.dataset.flag, v = btn.dataset.val === "on";
+        const cur = flags.filter(function (f) { return f.key === k; })[0];
+        if (cur && !!cur.value === v) return; // no change
+        if (cur && cur.danger && v && !window.confirm("Turn ON live 3-way execution? Accepted 3-way trades will move real rosters in MFL — this can't be undone.")) return;
+        try {
+          const upd = {}; upd[k] = v ? "1" : "0";
+          await postJSONRaw(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(LEAGUE_ID), { feature_flags: upd });
+          flashToast((cur ? cur.label : k) + " → " + (v ? "On" : "Off"), v && cur && cur.danger ? "err" : "ok");
+        } catch (e) { flashToast("Failed: " + (e.message || String(e)), "err"); }
+        renderKillSwitchesSub();
+      });
+    });
   }
 
   // — Option 1: Discord Routing (test/prod per contract mechanism) —

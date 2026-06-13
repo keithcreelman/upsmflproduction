@@ -1,0 +1,66 @@
+// feature_flags.js — runtime-overridable kill switches.
+//
+// The commish flips these from the FO commish-settings panel; the worker reads
+// the D1 override (ups_settings key 'feature_flags') with the wrangler.toml env
+// var as the default. This lets the commish disable/enable a feature WITHOUT a
+// redeploy. Mirrors the existing getDiscordRoutingConfig read-through pattern
+// (index.js), but the fallback is the env var, not a hardcoded default.
+
+function safeStr(v) { return String(v == null ? "" : v).trim(); }
+
+// The flags the commish can toggle. `key` is the wrangler.toml env var name.
+export const FEATURE_FLAGS = [
+  { key: "TRADE_DM_ENABLED",   label: "Trade-offer DMs",      help: "DM owners when they receive a trade offer, plus the reminder cadence." },
+  { key: "TRADE_3WAY_ENABLED", label: "3-way trades",         help: "Arm the 3-way feature — the builders, partner DMs, and acceptance." },
+  { key: "TRADE_3WAY_EXECUTE", label: "3-way LIVE execution", help: "ON = an accepted 3-way actually moves rosters in MFL (can't be undone). OFF = dry-run (everything runs but no rosters move).", danger: true },
+];
+const FLAG_KEYS = FEATURE_FLAGS.map((f) => f.key);
+
+async function readOverrides(env) {
+  if (!env || !env.UPS_MFL_DB) return {};
+  try {
+    await env.UPS_MFL_DB.prepare("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)").run();
+    const row = await env.UPS_MFL_DB.prepare("SELECT value FROM ups_settings WHERE key='feature_flags'").first();
+    const cfg = row && row.value ? JSON.parse(row.value) : {};
+    return cfg && typeof cfg === "object" ? cfg : {};
+  } catch (_) { return {}; }
+}
+
+// One flag, read-through: a D1 override wins; otherwise the env var. "1" => on.
+export async function getFeatureFlag(env, name) {
+  const overrides = await readOverrides(env);
+  if (Object.prototype.hasOwnProperty.call(overrides, name)) return String(overrides[name]) === "1";
+  return safeStr(env && env[name]) === "1";
+}
+
+// Every flag's effective state + source, for the settings UI.
+export async function getAllFeatureFlags(env) {
+  const overrides = await readOverrides(env);
+  return FEATURE_FLAGS.map((f) => {
+    const overridden = Object.prototype.hasOwnProperty.call(overrides, f.key);
+    const envOn = safeStr(env && env[f.key]) === "1";
+    return {
+      key: f.key, label: f.label, help: f.help, danger: !!f.danger,
+      value: overridden ? String(overrides[f.key]) === "1" : envOn,
+      overridden, env_default: envOn,
+    };
+  });
+}
+
+// Merge + persist a partial { KEY: bool | "1" | "0" } update (only known flags).
+export async function setFeatureFlags(env, partial) {
+  if (!env || !env.UPS_MFL_DB) return { ok: false, error: "no_db" };
+  const overrides = await readOverrides(env);
+  for (const k of Object.keys(partial || {})) {
+    if (FLAG_KEYS.indexOf(k) === -1) continue;
+    const v = partial[k];
+    overrides[k] = (v === true || v === "1" || v === 1) ? "1" : "0";
+  }
+  try {
+    await env.UPS_MFL_DB.prepare("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)").run();
+    await env.UPS_MFL_DB.prepare(
+      "INSERT INTO ups_settings (key, value, updated_at) VALUES ('feature_flags', ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at"
+    ).bind(JSON.stringify(overrides), new Date().toISOString()).run();
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e?.message || String(e) }; }
+}
