@@ -28,6 +28,7 @@
 //   TRADE_DM_TEST_FRANCHISES  -> reused allowlist for the rollout.
 
 import { dmAll, resolveDiscordUserIds } from "./trade_dm.js";
+import { getFeatureFlag } from "./feature_flags.js";
 
 // ───────────────────────────── helpers ─────────────────────────────────────
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -44,8 +45,10 @@ function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 const GIF_URL = "https://media0.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3ejVjaG5hOHI4emZqdzhzZzZyM2N6ejZ0dXNpZG4xd3hobWlyb3IyNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Ve4lppminZGFyGGqYD/200.webp";
 
 // ───────────────────────────── gates ───────────────────────────────────────
-function enabled(env) { return safeStr(env.TRADE_3WAY_ENABLED) === "1"; }
-function liveExecute(env) { return safeStr(env.TRADE_3WAY_EXECUTE) === "1"; }
+// Async: runtime overrides (commish kill switches in the FO), read from D1 with
+// the env var as the default.
+async function enabled(env) { return await getFeatureFlag(env, "TRADE_3WAY_ENABLED"); }
+async function liveExecute(env) { return await getFeatureFlag(env, "TRADE_3WAY_EXECUTE"); }
 function allowlist(env) { return safeStr(env.TRADE_3WAY_TEST_FRANCHISES).split(",").map(padFid).filter(Boolean); }
 function franchiseAllowed(env, fid) {
   const list = allowlist(env);
@@ -293,7 +296,7 @@ function teamLabel(row, fid) {
 //         legs:[{from,to,asset_tokens[],cap_k,summary}] (ring order A->B, B->C, C->A) }
 export async function create3WayTrade(env, ctx, spec) {
   try {
-    if (!enabled(env)) return { ok: false, error: "3way_disabled" };
+    if (!(await enabled(env))) return { ok: false, error: "3way_disabled" };
     if (!env.UPS_MFL_DB) return { ok: false, error: "no_db" };
     const leagueId = safeStr(spec?.leagueId), season = safeStr(spec?.season);
     const A = padFid(spec?.initiator?.fid), B = padFid(spec?.teamB?.fid), C = padFid(spec?.teamC?.fid);
@@ -522,7 +525,7 @@ export async function execute3Way(env, id) {
   const extReqs = parseExtReqs(row);
 
   // DRY-RUN: log the plan + tell everyone it's "approved" without moving rosters.
-  if (!liveExecute(env)) {
+  if (!(await liveExecute(env))) {
     const planStr = plan.map((p) => `  ${p.label}: ${p.fromFid} gives [${p.give.join(",")}]  <->  ${p.toFid} gives [${p.receive.join(",")}]`).join("\n");
     console.log(`[3way][DRY-RUN] ${id} would execute (${mode}, ${plan.length} trade(s)):\n${planStr}${extReqs.length ? `\n  + ${extReqs.length} pre-trade extension(s)` : ""}`);
     await finish("completed", { failure_reason: "dry_run", executed_at_utc: nowIso() });

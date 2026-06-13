@@ -7,6 +7,7 @@ import {
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline } from "./trade_dm.js";
 import { create3WayTrade, list3WayForFranchise, cancel3WayTrade } from "./trade_3way.js";
+import { getAllFeatureFlags, setFeatureFlags } from "./feature_flags.js";
 
 const acquisitionLiveMemoryCache = new Map();
 const contractDiscordChannelQueues = new Map();
@@ -33537,12 +33538,21 @@ export default {
       if (path === "/admin/commish-settings" && request.method === "GET") {
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
         const routing = await getDiscordRoutingConfig(env);
-        return jsonOut(200, { ok: true, discord_routing: routing, defaults: DISCORD_ROUTING_DEFAULTS, mechanisms: Object.keys(DISCORD_ROUTING_DEFAULTS) });
+        const featureFlags = await getAllFeatureFlags(env);
+        return jsonOut(200, { ok: true, discord_routing: routing, defaults: DISCORD_ROUTING_DEFAULTS, mechanisms: Object.keys(DISCORD_ROUTING_DEFAULTS), feature_flags: featureFlags });
       }
       if (path === "/admin/commish-settings" && request.method === "POST") {
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
         let csBody = {};
         try { csBody = await request.json(); } catch (_) {}
+        // Feature-flag kill switches (commish toggles in the FO). Persisted via
+        // setFeatureFlags → ups_settings key 'feature_flags'; the worker reads
+        // them with the env var as the default.
+        if (csBody && csBody.feature_flags && typeof csBody.feature_flags === "object") {
+          const ff = await setFeatureFlags(env, csBody.feature_flags);
+          if (!ff.ok) return jsonOut(500, ff);
+          return jsonOut(200, { ok: true, feature_flags: await getAllFeatureFlags(env) });
+        }
         const incoming = (csBody && csBody.discord_routing && typeof csBody.discord_routing === "object") ? csBody.discord_routing : {};
         const merged = { ...(await getDiscordRoutingConfig(env)) };
         for (const k of Object.keys(incoming)) {

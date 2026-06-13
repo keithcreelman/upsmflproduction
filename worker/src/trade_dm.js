@@ -21,6 +21,7 @@
 
 import { openDmChannel, sendDm } from "./discord_round.js";
 import { tradeReminderDecision } from "./trade_dm_cadence.js";
+import { getFeatureFlag } from "./feature_flags.js";
 
 // ───────────────────────── tiny self-contained helpers ─────────────────────
 // index.js's safeStr/safeInt/padFranchiseId are request-scoped closures; this
@@ -35,14 +36,16 @@ function ephemeral(content) { return jsonResponse({ type: 4, data: { content: sa
 function callerId(i) { return safeStr(i?.member?.user?.id || i?.user?.id || ""); }
 
 // ───────────────────────────── config / gates ──────────────────────────────
-function tradeDmEnabled(env) { return safeStr(env.TRADE_DM_ENABLED) === "1"; }
+// Async: the on/off flag is a runtime override (commish kill switch in the FO),
+// read from D1 with the env var as the default.
+async function tradeDmEnabled(env) { return await getFeatureFlag(env, "TRADE_DM_ENABLED"); }
 function tradeDmAllowlist(env) {
   return safeStr(env.TRADE_DM_TEST_FRANCHISES).split(",").map((s) => padFid(s)).filter(Boolean);
 }
 // A DM (to recipient OR offerer-alert) is allowed only if the flag is on AND
 // (the allowlist is empty = go-live, OR the target franchise is allowlisted).
-function tradeDmTargetAllowed(env, franchiseId) {
-  if (!tradeDmEnabled(env)) return false;
+async function tradeDmTargetAllowed(env, franchiseId) {
+  if (!(await tradeDmEnabled(env))) return false;
   const list = tradeDmAllowlist(env);
   if (!list.length) return true;
   return list.includes(padFid(franchiseId));
@@ -258,7 +261,7 @@ export async function enqueueTradeOfferDm(env, offer) {
     const toFid = padFid(offer?.toFranchiseId);
     if (!tradeId || !leagueId || !toFid) return { skipped: "missing_fields" };
     if (!env.UPS_MFL_DB) return { skipped: "no_db" };
-    if (!tradeDmTargetAllowed(env, toFid)) return { skipped: tradeDmEnabled(env) ? "not_in_allowlist" : "flag_off" };
+    if (!(await tradeDmTargetAllowed(env, toFid))) return { skipped: (await tradeDmEnabled(env)) ? "not_in_allowlist" : "flag_off" };
 
     const recipientUids = await resolveDiscordUserIds(env, toFid);
     const offererUids = await resolveDiscordUserIds(env, fromFid);
@@ -341,7 +344,7 @@ async function fetchPendingTradeIds(env, leagueId, season) {
 // ───────────────────────── hourly reminder sweep ───────────────────────────
 export async function processTradeOfferReminders(env) {
   if (!env.UPS_MFL_DB) return { skipped: "no_db" };
-  if (!tradeDmEnabled(env)) return { skipped: "flag_off" };
+  if (!(await tradeDmEnabled(env))) return { skipped: "flag_off" };
   if (inQuietHoursEt()) return { skipped: "quiet_hours" };
   const nowMs = Date.now();
   let sent = 0, resolved = 0, active = 0;
@@ -383,7 +386,7 @@ export async function processTradeOfferReminders(env) {
   for (const row of (rows?.results || [])) {
     active++;
     // Kill switch / allowlist re-check each tick.
-    if (!tradeDmTargetAllowed(env, row.to_franchise_id)) continue;
+    if (!(await tradeDmTargetAllowed(env, row.to_franchise_id))) continue;
     const decision = tradeReminderDecision(row, nowMs, env);
     if (!decision.due && !decision.terminal) continue;
 
@@ -493,7 +496,7 @@ export async function handleTradeThinkButton(interaction, env, ctx) {
 // the button. Fans out to all of the offerer's linked accounts.
 export async function notifyOffererOfDecline(env, tradeId, message) {
   try {
-    if (!tradeDmEnabled(env)) return { skipped: "flag_off" };
+    if (!(await tradeDmEnabled(env))) return { skipped: "flag_off" };
     const tid = digits(tradeId);
     if (!tid || !env.UPS_MFL_DB) return { skipped: "no_id" };
     const row = await env.UPS_MFL_DB.prepare(`SELECT * FROM trade_offer_dm WHERE trade_id=?`).bind(tid).first();
