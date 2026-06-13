@@ -225,7 +225,7 @@ function day1Content(row, payload, franchiseName, env) {
   if (note) lines.push(`💬 _${note}_`);
   if (exp) lines.push(exp);
   lines.push("");
-  lines.push("Tap **Accept**, **Decline**, or **Counter** to handle it in your app, or **Open in War Room** on desktop. Not sure yet? Hit **🤔 Think about it** and I'll check back on day 4.");
+  lines.push("Tap **Accept**, **Decline**, or **Counter** to handle it in your app, or **Open in War Room** on desktop. Not sure yet? Hit **🤔 Think about it** and I'll hold off until day 4.");
   return lines.join("\n").slice(0, 1990);
 }
 function reminderContent(key, row, env) {
