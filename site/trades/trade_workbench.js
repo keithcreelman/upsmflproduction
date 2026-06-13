@@ -6926,7 +6926,18 @@
   }
   function tw3AssetName(asset) {
     if (asset.type === "PLAYER") return safeStr(asset.player_name) || ("Player " + safeStr(asset.player_id));
-    return safeStr(asset.pick_display || asset.description) || safeStr(asset.asset_id);
+    // Future picks (no draft slot yet): label by the ORIGINAL team's name —
+    // "Real Deal Creel's 2027 1st", not a bare "2027 1st" or a raw fid. Built
+    // from the resolved fields so it's right whether the pick is the holder's
+    // own (orig falls back to franchise_id) or acquired (orig = original owner).
+    var year = safeInt(asset.pick_season, 0), round = safeInt(asset.pick_round, 0), slot = safeInt(asset.pick_slot, 0);
+    if (year && round && slot <= 0) {
+      var orig = pad4(asset.original_owner_fid) || pad4(asset.franchise_id);
+      var team = orig ? getFranchiseNameById(orig) : "";
+      if (team) return team + "'s " + year + " " + ordinalSuffix(round);
+    }
+    // Current-year specific picks (and any fallback): livePickLabel / pick_display.
+    return livePickLabel(asset) || safeStr(asset.pick_display || asset.description) || safeStr(asset.asset_id);
   }
   function tw3AssetMeta(asset) {
     if (asset.type === "PLAYER") {
