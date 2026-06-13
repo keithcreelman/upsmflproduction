@@ -21,25 +21,29 @@ DROP_TRACKER_DISCORD_TARGET = "prod"
 
 # Trade-offer Discord DMs (worker/src/trade_dm.js). When a recipient gets a
 # trade offer through our app (mobile builder OR desktop War Room), DM them the
-# offer + buttons, then remind on a fixed cadence until it resolves.
+# offer + buttons, then remind on the cadence below until it resolves.
 #   TRADE_DM_ENABLED          "1" arms the feature; anything else = dark (kill switch).
 #   TRADE_DM_TEST_FRANCHISES  CSV allowlist — a DM fires only if the TARGET franchise
-#                             is listed. Empty = all owners (go-live). Currently the
-#                             3-owner test set: LA Looks, Sex Manther, Real Deal Creel.
-#   *_CAP_DAYS                anti-spam ceilings (thinking track / any offer).
+#                             is listed. Empty = ALL owners (LIVE — go-live 2026-06-13).
+#   TRADE_DM_EXPIRY_DAYS      MFL pending-trade lifetime. Cadence (creation-anchored):
+#                             immediate · +48h · day 3 · day 4 · day 5 · day 6, then
+#                             stop (the offer expires at day 7). "Think about it" →
+#                             one courtesy reminder on day 4. Every reminder states
+#                             the expiry.
 TRADE_DM_ENABLED = "1"
-TRADE_DM_TEST_FRANCHISES = "0001,0007,0008"
-TRADE_DM_THINK_CAP_DAYS = "14"
-TRADE_DM_HARD_AGE_CAP_DAYS = "21"
+TRADE_DM_TEST_FRANCHISES = ""
+TRADE_DM_EXPIRY_DAYS = "7"
 
-# 3-way (ring) trades (worker/src/trade_3way.js). ENABLED=1 arms the feature (DMs
-# + acceptance). EXECUTE=1 turns on LIVE MFL writes (the commish runs the two
-# chained 2-party trades); 0 = DRY-RUN (logs the plan + DMs "approved" but moves
-# NO rosters) — kept OFF until the flow is validated end-to-end. Reuses
-# TRADE_DM_TEST_FRANCHISES for the rollout allowlist. MFL can't undo a completed
-# trade, so flip EXECUTE on deliberately.
+# 3-way trades (worker/src/trade_3way.js). ENABLED=1 arms the feature (DMs +
+# acceptance). EXECUTE=1 turns on LIVE MFL writes (the commish runs the chained
+# 2-party trades); 0 = DRY-RUN (logs the plan + DMs "approved" but moves NO
+# rosters) — kept OFF until validated end-to-end. TRADE_3WAY_TEST_FRANCHISES is
+# the 3-way's OWN rollout allowlist (kept gated to the test trio while the 2-party
+# DMs go live, since the 3-way is still dry-run). Empty = all. MFL can't undo a
+# completed trade, so flip EXECUTE on deliberately.
 TRADE_3WAY_ENABLED = "1"
 TRADE_3WAY_EXECUTE = "0"
+TRADE_3WAY_TEST_FRANCHISES = "0001,0007,0008"
 
 # Hourly drop → cap-penalty scan at :05 past each hour (RULE-WORKFLOW-004).
 # The worker's scheduled() handler:

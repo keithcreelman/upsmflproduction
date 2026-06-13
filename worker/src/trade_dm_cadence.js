@@ -1,8 +1,14 @@
 // trade_dm_cadence.js — PURE cadence logic for the trade-offer DM reminder
 // engine. NO imports / NO I/O, so it's unit-testable in bare node (the rest of
 // trade_dm.js pulls in the Discord/D1 import chain). trade_dm.js imports
-// tradeReminderDecision + THINK_INTERVALS_HOURS from here. See migration 0076
-// and the plan for the cadence spec.
+// tradeReminderDecision from here.
+//
+// CADENCE (Keith 2026-06-13) — MFL expires a pending trade after
+// TRADE_DM_EXPIRY_DAYS (default 7), so everything lives inside that window and
+// every reminder states the expiry:
+//   immediate (sent at enqueue) · +48h · day 3 · day 4 · day 5 · day 6
+//   = 6 DMs over the 7-day life; nothing fires after expiry.
+//   "Think about it" → a single courtesy reminder on day 4, then silence.
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
 function safeInt(v, fb) { const n = parseInt(v, 10); return Number.isFinite(n) ? n : (fb == null ? 0 : fb); }
@@ -10,60 +16,48 @@ function safeInt(v, fb) { const n = parseInt(v, 10); return Number.isFinite(n) ?
 const DAY_MS = 86400000;
 const HOUR_MS = 3600000;
 
-// Main-track schedule (anchor = created_at_utc, day 1 = creation instant). The
-// Day-1 DM is sent at enqueue; the cron owns days 3+. Tone escalates to a final
-// "rip 'em" at day 11, which is terminal (stop reminding).
+// Reminder schedule as ELAPSED time from offer creation. The immediate DM is
+// sent at enqueue; the cron owns these.
 export const MAIN_SCHEDULE = [
-  { day: 3, key: "gentle_1" },
-  { day: 5, key: "gentle_2" },
-  { day: 6, key: "checking_in" },
-  { day: 7, key: "just_decline" },
-  { day: 8, key: "just_decline" },
-  { day: 9, key: "just_decline" },
-  { day: 10, key: "just_decline" },
-  { day: 11, key: "rip_them", terminal: true },
+  { atHours: 48,  key: "nudge" },      // +48h (day 2)
+  { atHours: 72,  key: "nudge" },      // day 3
+  { atHours: 96,  key: "nudge" },      // day 4
+  { atHours: 120, key: "nudge" },      // day 5
+  { atHours: 144, key: "last_call" },  // day 6 — last call before the day-7 expiry
 ];
-// Thinking sub-cadence (after the recipient presses "Think about it"): +5 days,
-// then +48h, +48h, +24h, then every 24h thereafter, until resolved or capped.
-export const THINK_INTERVALS_HOURS = [120, 48, 48, 24];
-export const THINK_TAIL_HOURS = 24;
+// "Think about it" fires one courtesy reminder on this day (creation-anchored).
+export const THINK_REMINDER_DAY = 4;
 
-function thinkCapDays(env) { return safeInt(env?.TRADE_DM_THINK_CAP_DAYS, 14); }
-function hardAgeCapDays(env) { return safeInt(env?.TRADE_DM_HARD_AGE_CAP_DAYS, 21); }
+function expiryDays(env) { return safeInt(env?.TRADE_DM_EXPIRY_DAYS, 7); }
 
 // Returns {due?, message?, terminal?, reason?, advanceThinkStage?}. Pure — no
-// DB / Discord. nowMs + env injected so it's fully deterministic/testable.
+// DB / Discord. nowMs + env injected so it's deterministic/testable.
 export function tradeReminderDecision(row, nowMs, env) {
   const createdMs = Date.parse(row.created_at_utc);
+  if (!Number.isFinite(createdMs)) return { due: false };
   const lastMs = row.last_dm_utc ? Date.parse(row.last_dm_utc) : NaN;
-  // Hard age cap (both tracks) — absolute anti-spam ceiling.
-  if (Number.isFinite(createdMs) && nowMs - createdMs >= hardAgeCapDays(env) * DAY_MS) {
-    return { terminal: true, reason: "age_cap" };
-  }
+
+  // Past MFL expiry → terminal (the offer no longer exists). No final DM.
+  if (nowMs - createdMs >= expiryDays(env) * DAY_MS) return { terminal: true, reason: "expired" };
+
+  // Thinking track: exactly one courtesy reminder on day 4 (or ~24h after the
+  // press if it came on/after day 4), then silence.
   if (safeStr(row.track) === "thinking") {
+    if (safeInt(row.think_stage, 0) >= 1) return { due: false };
     const pressedMs = row.think_pressed_utc ? Date.parse(row.think_pressed_utc) : createdMs;
-    if (Number.isFinite(pressedMs) && nowMs - pressedMs >= thinkCapDays(env) * DAY_MS) {
-      return { terminal: true, reason: "think_cap", message: "think_final" };
-    }
-    const stage = safeInt(row.think_stage, 0);
-    const intervalH = stage < THINK_INTERVALS_HOURS.length ? THINK_INTERVALS_HOURS[stage] : THINK_TAIL_HOURS;
-    // stage 0 anchors off the press; later stages off the last reminder.
-    const refMs = stage > 0 && Number.isFinite(lastMs) ? lastMs : pressedMs;
-    if (Number.isFinite(refMs) && nowMs - refMs >= intervalH * HOUR_MS) {
-      return { due: true, message: "think_reminder", advanceThinkStage: true };
-    }
+    const day4Ms = createdMs + THINK_REMINDER_DAY * DAY_MS;
+    const dueAtMs = Math.max(day4Ms, (Number.isFinite(pressedMs) ? pressedMs : createdMs) + 24 * HOUR_MS);
+    if (nowMs >= dueAtMs) return { due: true, message: "think_reminder", advanceThinkStage: true };
     return { due: false };
   }
-  // Main track: each scheduled entry fires exactly once. An entry is due iff its
-  // scheduled time has passed AND no DM went out at/after that time. Pick the
-  // LATEST qualifying entry (skip missed catch-ups; send the current message).
-  if (!Number.isFinite(createdMs)) return { due: false };
+
+  // Main track: each entry fires once. Pick the LATEST qualifying entry (skip
+  // missed catch-ups — send the most current message).
   let due = null;
   for (const e of MAIN_SCHEDULE) {
-    const entryMs = createdMs + (e.day - 1) * DAY_MS; // day 1 = creation instant
+    const entryMs = createdMs + e.atHours * HOUR_MS;
     if (nowMs >= entryMs && (!Number.isFinite(lastMs) || lastMs < entryMs)) due = e;
   }
   if (!due) return { due: false };
-  if (due.terminal) return { due: true, terminal: true, message: due.key, reason: "day11_terminal" };
   return { due: true, message: due.key };
 }
