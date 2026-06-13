@@ -35,15 +35,15 @@ TRADE_DM_TEST_FRANCHISES = ""
 TRADE_DM_EXPIRY_DAYS = "7"
 
 # 3-way trades (worker/src/trade_3way.js). ENABLED=1 arms the feature (DMs +
-# acceptance). EXECUTE=1 turns on LIVE MFL writes (the commish runs the chained
-# 2-party trades); 0 = DRY-RUN (logs the plan + DMs "approved" but moves NO
-# rosters) — kept OFF until validated end-to-end. TRADE_3WAY_TEST_FRANCHISES is
-# the 3-way's OWN rollout allowlist (kept gated to the test trio while the 2-party
-# DMs go live, since the 3-way is still dry-run). Empty = all. MFL can't undo a
-# completed trade, so flip EXECUTE on deliberately.
+# acceptance). EXECUTE=1 = LIVE MFL writes (the commish runs the chained 2-party
+# trades + applies any pre-trade extensions); 0 = DRY-RUN. TRADE_3WAY_TEST_FRANCHISES
+# is the rollout allowlist (empty = all 12).
+# GO-LIVE 2026-06-13 (Keith, explicit): EXECUTE=1 + allowlist open to everyone.
+# MFL can't undo a completed trade — execution is ordered, verified between legs,
+# and all-or-nothing with a critical commish alert on a partial failure.
 TRADE_3WAY_ENABLED = "1"
-TRADE_3WAY_EXECUTE = "0"
-TRADE_3WAY_TEST_FRANCHISES = "0001,0007,0008"
+TRADE_3WAY_EXECUTE = "1"
+TRADE_3WAY_TEST_FRANCHISES = ""
 
 # Hourly drop → cap-penalty scan at :05 past each hour (RULE-WORKFLOW-004).
 # The worker's scheduled() handler:
