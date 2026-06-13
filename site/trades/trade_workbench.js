@@ -6864,6 +6864,358 @@
     scheduleParentHeightPost();
   }
 
+  // ════════════════════════════ 3-WAY TRADE BUILDER ═══════════════════════════
+  // A free-form 3-way: three teams, any asset routed to either of the other two.
+  // Renders as an in-flow panel that swaps in for the main board (robust inside
+  // the height-synced embed iframe — a centered <dialog> would float in the tall
+  // iframe content). Reuses the already-loaded state.data + War Room helpers and
+  // POSTs movements to the shared worker engine at /api/trades/3way. Players +
+  // FP_ future picks only (mirrors the mobile builder; current-year DP picks and
+  // cap-in-leg are out of scope for v1).
+  var tw3 = null;
+  var TW3_SLOTS = ["a", "b", "c"];
+
+  function tw3Fresh() {
+    return { aFid: "", bFid: "", cFid: "", give: {}, notes: "", submitting: false, status: "", statusTone: "" };
+  }
+  function tw3Reflow() { try { scheduleParentHeightPost(); } catch (e) {} }
+  function tw3TeamFids() { return [pad4(tw3.aFid), pad4(tw3.bFid), pad4(tw3.cFid)]; }
+  function tw3RingNext(fid) {
+    var t = tw3TeamFids().filter(Boolean);
+    var i = t.indexOf(pad4(fid));
+    return (i === -1 || t.length < 2) ? "" : t[(i + 1) % t.length];
+  }
+  function tw3OtherTwo(fid) { return tw3TeamFids().filter(function (x) { return x && x !== pad4(fid); }); }
+  function tw3IsTradeable(asset) {
+    if (!asset) return false;
+    if (asset.type === "PLAYER") return !!safeStr(asset.player_id).replace(/\D/g, "") && isTradeEligibleAsset(asset);
+    if (asset.type === "PICK") return safeStr(asset.asset_id).toUpperCase().indexOf("FP_") === 0 && isTradeEligibleAsset(asset);
+    return false;
+  }
+  function tw3TeamAssets(fid) {
+    var team = getTeamById(pad4(fid));
+    return ((team && team.assets) || []).filter(tw3IsTradeable);
+  }
+  function tw3AssetToken(asset) {
+    if (asset.type === "PLAYER") return "P_" + safeStr(asset.player_id).replace(/\D/g, "");
+    var id = safeStr(asset.asset_id).toUpperCase();
+    return id.indexOf("FP_") === 0 ? id : "";
+  }
+  function tw3AssetName(asset) {
+    if (asset.type === "PLAYER") return safeStr(asset.player_name) || ("Player " + safeStr(asset.player_id));
+    return safeStr(asset.pick_display || asset.description) || safeStr(asset.asset_id);
+  }
+  function tw3AssetMeta(asset) {
+    if (asset.type === "PLAYER") {
+      return [asset.position, asset.nfl_team, (safeInt(asset.salary, 0) > 0 ? kFmtFromDollars(asset.salary) : ""), (asset.taxi ? "Taxi" : "")].filter(Boolean).join(" · ");
+    }
+    return "Future pick";
+  }
+  function tw3NameOf(fid) { return getFranchiseNameById(pad4(fid)) || ("Franchise " + pad4(fid)); }
+
+  // Build movements from state: for each giver, group selected assets by
+  // destination -> one {from, to, asset_tokens, summary} per team-pair.
+  function tw3Movements() {
+    var out = [];
+    tw3TeamFids().forEach(function (giver) {
+      if (!giver) return;
+      var map = tw3.give[giver] || {};
+      var byId = {};
+      tw3TeamAssets(giver).forEach(function (a) { byId[a.asset_id] = a; });
+      var byDest = {};
+      Object.keys(map).forEach(function (aid) {
+        var dest = pad4(map[aid]);
+        if (!dest || dest === giver) return;
+        (byDest[dest] = byDest[dest] || []).push(aid);
+      });
+      Object.keys(byDest).forEach(function (dest) {
+        var tokens = [], names = [];
+        byDest[dest].forEach(function (aid) {
+          var a = byId[aid]; if (!a) return;
+          var tk = tw3AssetToken(a); if (!tk) return;
+          tokens.push(tk); names.push(tw3AssetName(a));
+        });
+        if (tokens.length) out.push({ from: giver, to: dest, asset_tokens: tokens, cap_k: 0, summary: names.join(", "), _names: names });
+      });
+    });
+    return out;
+  }
+  function tw3State() {
+    var movements = tw3Movements();
+    var teams = tw3TeamFids();
+    var participating = {};
+    movements.forEach(function (m) { participating[m.from] = 1; participating[m.to] = 1; });
+    var allIn = teams.every(function (f) { return f && participating[f]; });
+    var missing = teams.filter(function (f) { return f && !participating[f]; }).map(tw3NameOf);
+    return { movements: movements, allIn: allIn, missing: missing, canSubmit: movements.length >= 2 && allIn && !tw3.submitting };
+  }
+
+  // ── show / hide the in-flow panel (swap with the main board) ──
+  function tw3SetVisible(show) {
+    // Use inline display (beats the panels' own class display rules — the [hidden]
+    // attribute alone loses to e.g. `.twb-main { display: grid }`).
+    var panel = document.getElementById("twb3wPanel");
+    var main = document.querySelector(".twb-main");
+    var toolbar = document.querySelector(".twb-toolbar");
+    var tabs = document.getElementById("twbMobileTabs");
+    var tray = document.getElementById("twbOfferCartMobileTray");
+    if (panel) { panel.hidden = !show; panel.style.display = show ? "" : "none"; }
+    if (main) main.style.display = show ? "none" : "";
+    if (toolbar) toolbar.style.display = show ? "none" : "";
+    if (tabs) tabs.style.display = show ? "none" : "";
+    if (tray && show) tray.style.display = "none";
+    else if (tray) tray.style.display = "";
+    tw3Reflow();
+  }
+  function open3WayBuilder() {
+    if (!state.data || !((state.data.teams || []).length)) return;
+    tw3 = tw3Fresh();
+    tw3.aFid = pad4(state.leftTeamId || getActiveFranchiseId() || (state.data.teams[0] && state.data.teams[0].franchise_id) || "");
+    render3WayPanel();
+    tw3SetVisible(true);
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+  function close3WayBuilder() {
+    tw3SetVisible(false);
+    tw3 = null;
+  }
+
+  // ── render ──
+  function tw3TeamSelectHtml(slot, current) {
+    var teams = (state.data && state.data.teams) || [];
+    var chosen = tw3TeamFids();
+    var myIdx = TW3_SLOTS.indexOf(slot);
+    var others = chosen.filter(function (x, i) { return i !== myIdx && x; });
+    var placeholder = slot === "a" ? "Your team…" : (slot === "b" ? "Partner 1…" : "Partner 2…");
+    var opts = ['<option value="">' + placeholder + "</option>"];
+    teams.forEach(function (t) {
+      var fid = pad4(t.franchise_id);
+      if (others.indexOf(fid) !== -1) return;
+      opts.push('<option value="' + escapeHtml(fid) + '"' + (fid === pad4(current) ? " selected" : "") + ">" + escapeHtml(t.franchise_name || ("Franchise " + fid)) + "</option>");
+    });
+    return '<select class="twb-3w-teamsel" data-3w-slot="' + slot + '">' + opts.join("") + "</select>";
+  }
+  function tw3DestChooserHtml(giver, aid) {
+    var cur = pad4((tw3.give[giver] || {})[aid]);
+    var pills = tw3OtherTwo(giver).map(function (d) {
+      return '<button type="button" class="twb-3w-dest' + (cur === d ? " on" : "") + '" data-3w-giver="' + giver + '" data-3w-aid="' + escapeHtml(aid) + '" data-3w-dest="' + d + '">' + escapeHtml(tw3NameOf(d)) + "</button>";
+    }).join("");
+    return '<div class="twb-3w-destrow"><span class="lbl">to</span>' + pills + "</div>";
+  }
+  function tw3AssetRowHtml(giver, asset) {
+    var aid = asset.asset_id;
+    var on = !!(tw3.give[giver] || {})[aid];
+    return '<div class="twb-3w-assetwrap">' +
+      '<button type="button" class="twb-3w-asset' + (on ? " on" : "") + '" data-3w-giver="' + giver + '" data-3w-aid="' + escapeHtml(aid) + '">' +
+        '<span class="nm">' + escapeHtml(tw3AssetName(asset)) + "</span>" +
+        '<span class="mt">' + escapeHtml(tw3AssetMeta(asset)) + "</span>" +
+      "</button>" + (on ? tw3DestChooserHtml(giver, aid) : "") +
+    "</div>";
+  }
+  function tw3ColumnHtml(slot) {
+    var fid = pad4(tw3[slot + "Fid"]);
+    var placeholder = slot === "a" ? "Your team" : (slot === "b" ? "Partner 1" : "Partner 2");
+    if (!fid) {
+      return '<div class="twb-3w-col is-empty"><div class="twb-3w-colhead">' + placeholder + '</div><div class="twb-3w-colempty">Pick a team above.</div></div>';
+    }
+    var label = slot === "a" ? "You send" : (tw3NameOf(fid) + " sends");
+    var rows = tw3TeamAssets(fid).map(function (a) { return tw3AssetRowHtml(fid, a); }).join("");
+    var count = Object.keys(tw3.give[fid] || {}).length;
+    return '<div class="twb-3w-col"><div class="twb-3w-colhead">' + escapeHtml(label) +
+      ' <span class="twb-3w-cnt" data-3w-cnt="' + fid + '">' + count + " selected</span></div>" +
+      '<div class="twb-3w-assets">' + (rows || '<div class="twb-3w-colempty">No tradeable assets.</div>') + "</div></div>";
+  }
+  function tw3SummaryHtml() {
+    var st = tw3State();
+    var rows = st.movements.length
+      ? st.movements.map(function (m) {
+          return '<div class="twb-3w-movrow"><span class="rt">' + escapeHtml(tw3NameOf(m.from)) + " → " + escapeHtml(tw3NameOf(m.to)) + '</span><span class="as">' + escapeHtml(m._names.join(", ")) + "</span></div>";
+        }).join("")
+      : '<div class="twb-3w-movrow muted">Nothing routed yet — select assets and choose where each goes.</div>';
+    return '<div class="twb-3w-summary-head">The deal</div>' + rows;
+  }
+  function render3WayPanel() {
+    var body = document.getElementById("twb3wBody");
+    if (!body || !tw3) return;
+    var st = tw3State();
+    var bothPartners = tw3.bFid && tw3.cFid;
+    body.innerHTML =
+      '<div class="twb-3w-teams">' +
+        '<label class="twb-field"><span>Your team</span>' + tw3TeamSelectHtml("a", tw3.aFid) + "</label>" +
+        '<label class="twb-field"><span>Partner 1</span>' + tw3TeamSelectHtml("b", tw3.bFid) + "</label>" +
+        '<label class="twb-field"><span>Partner 2</span>' + tw3TeamSelectHtml("c", tw3.cFid) + "</label>" +
+      "</div>" +
+      '<div class="twb-3w-cols">' + tw3ColumnHtml("a") + tw3ColumnHtml("b") + tw3ColumnHtml("c") + "</div>" +
+      '<div class="twb-3w-summary">' + tw3SummaryHtml() + "</div>" +
+      (st.movements.length && !st.allIn && bothPartners ? '<div class="twb-3w-warn">' + escapeHtml(tw3WarnText(st)) + "</div>" : "") +
+      '<label class="twb-3w-noteslbl">Notes <span class="opt">optional · both partners see this in their DM</span>' +
+        '<textarea class="twb-3w-notes" id="twb3wNotes" rows="2" maxlength="500" placeholder="Add a note for the other two teams…">' + escapeHtml(tw3.notes) + "</textarea></label>" +
+      (tw3.status ? '<div class="twb-3w-status is-' + escapeHtml(tw3.statusTone || "info") + '">' + escapeHtml(tw3.status) + "</div>" : "") +
+      '<div class="twb-3w-foot">' +
+        '<div class="twb-3w-foot-note">When you send, the other two teams get a Discord DM to Accept or Decline. Once both accept, the commish runs it as linked MFL trades.</div>' +
+        '<div class="twb-3w-foot-btns">' +
+          '<button type="button" class="twb-btn twb-btn-ghost" id="twb3wCancelBtn">Cancel</button>' +
+          '<button type="button" class="twb-btn twb-btn-primary" id="twb3wSubmitBtn"' + (st.canSubmit ? "" : " disabled") + ">" + (tw3.submitting ? "Sending…" : "Send 3-way") + "</button>" +
+        "</div>" +
+      "</div>";
+    tw3WireBody(body);
+    tw3Reflow();
+  }
+  function tw3WarnText(st) {
+    if (!st.missing.length) return "A 3-way needs all three teams in the deal.";
+    return "A 3-way needs all three teams in the deal — " + st.missing.join(" & ") + (st.missing.length > 1 ? " aren't" : " isn't") + " involved yet.";
+  }
+  function tw3RefreshSummaryAndSubmit() {
+    var st = tw3State();
+    var panel = document.getElementById("twb3wPanel");
+    var sumEl = panel ? panel.querySelector(".twb-3w-summary") : null;
+    if (sumEl) sumEl.innerHTML = tw3SummaryHtml();
+    // refresh the "all three teams" warning in place (the toggle path doesn't
+    // re-render the whole panel, so without this it goes stale).
+    var warn = panel ? panel.querySelector(".twb-3w-warn") : null;
+    var needWarn = st.movements.length && !st.allIn && tw3.bFid && tw3.cFid;
+    if (needWarn) {
+      if (!warn && sumEl && sumEl.parentNode) {
+        warn = document.createElement("div");
+        warn.className = "twb-3w-warn";
+        sumEl.parentNode.insertBefore(warn, sumEl.nextSibling);
+      }
+      if (warn) warn.textContent = tw3WarnText(st);
+    } else if (warn && warn.parentNode) {
+      warn.parentNode.removeChild(warn);
+    }
+    var submit = document.getElementById("twb3wSubmitBtn");
+    if (submit) submit.disabled = !st.canSubmit;
+    tw3Reflow();
+  }
+  function tw3WireDestPills(scope) {
+    var pills = scope.querySelectorAll(".twb-3w-dest");
+    for (var k = 0; k < pills.length; k += 1) {
+      pills[k].addEventListener("click", function () {
+        var giver = this.getAttribute("data-3w-giver"), aid = this.getAttribute("data-3w-aid"), dest = this.getAttribute("data-3w-dest");
+        tw3.give[giver] = tw3.give[giver] || {};
+        tw3.give[giver][aid] = dest;
+        var sibs = this.parentNode.querySelectorAll(".twb-3w-dest");
+        for (var m = 0; m < sibs.length; m += 1) sibs[m].classList.toggle("on", sibs[m] === this);
+        tw3RefreshSummaryAndSubmit();
+      });
+    }
+  }
+  function tw3WireBody(body) {
+    var sels = body.querySelectorAll(".twb-3w-teamsel");
+    for (var i = 0; i < sels.length; i += 1) {
+      sels[i].addEventListener("change", function () {
+        var slot = this.getAttribute("data-3w-slot");
+        var key = slot + "Fid";
+        var oldFid = pad4(tw3[key]);
+        var newFid = pad4(this.value);
+        if (oldFid && oldFid !== newFid && tw3.give[oldFid]) delete tw3.give[oldFid];
+        tw3[key] = newFid;
+        render3WayPanel();
+      });
+    }
+    var assetBtns = body.querySelectorAll(".twb-3w-asset");
+    for (var j = 0; j < assetBtns.length; j += 1) {
+      assetBtns[j].addEventListener("click", function () {
+        var giver = this.getAttribute("data-3w-giver"), aid = this.getAttribute("data-3w-aid");
+        var wrap = this.parentNode;
+        tw3.give[giver] = tw3.give[giver] || {};
+        var existing = wrap.querySelector(".twb-3w-destrow");
+        if (tw3.give[giver][aid]) {
+          delete tw3.give[giver][aid];
+          this.classList.remove("on");
+          if (existing) existing.remove();
+        } else {
+          tw3.give[giver][aid] = tw3RingNext(giver) || tw3OtherTwo(giver)[0] || "";
+          this.classList.add("on");
+          if (!existing) { this.insertAdjacentHTML("afterend", tw3DestChooserHtml(giver, aid)); tw3WireDestPills(wrap); }
+        }
+        var cnt = body.querySelector('[data-3w-cnt="' + giver + '"]');
+        if (cnt) cnt.textContent = Object.keys(tw3.give[giver]).length + " selected";
+        tw3RefreshSummaryAndSubmit();
+      });
+    }
+    tw3WireDestPills(body);
+    var notes = document.getElementById("twb3wNotes");
+    if (notes) notes.addEventListener("input", function () { tw3.notes = this.value; });
+    var cancel = document.getElementById("twb3wCancelBtn");
+    if (cancel) cancel.addEventListener("click", close3WayBuilder);
+    var submit = document.getElementById("twb3wSubmitBtn");
+    if (submit) submit.addEventListener("click", function () { tw3Submit(); });
+  }
+
+  // ── submit ──
+  function resolve3WayApiUrl() {
+    var explicit = safeStr(window.UPS_TRADE_3WAY_API);
+    var baseStr = explicit;
+    if (!baseStr) {
+      try {
+        var u = new URL(resolveTradeOffersApiUrl(), window.location.href);
+        u.search = ""; u.hash = "";
+        u.pathname = String(u.pathname || "").replace(/\/trade-offers\/?$/i, "/api/trades/3way");
+        baseStr = u.toString();
+      } catch (e) {
+        baseStr = "https://upsmflproduction.keith-creelman.workers.dev/api/trades/3way";
+      }
+    }
+    var withSession = withBrowserSessionParams(baseStr);
+    try {
+      var ctx = getLeagueContext();
+      var fu = new URL(withSession, window.location.href);
+      if (!fu.searchParams.get("L") && ctx.leagueId) fu.searchParams.set("L", ctx.leagueId);
+      if (!fu.searchParams.get("YEAR") && ctx.season) fu.searchParams.set("YEAR", ctx.season);
+      return fu.toString();
+    } catch (e2) {
+      return withSession;
+    }
+  }
+  function tw3SetStatus(msg, tone) { if (tw3) { tw3.status = safeStr(msg); tw3.statusTone = safeStr(tone); } }
+  function tw3Submit() {
+    if (!tw3 || tw3.submitting) return;
+    var st = tw3State();
+    if (!st.canSubmit) { tw3SetStatus("All three teams need to be in the deal (at least two movements).", "warn"); render3WayPanel(); return; }
+    tw3.submitting = true; tw3SetStatus("Sending…", "info"); render3WayPanel();
+    var ctx = getLeagueContext();
+    var bodyObj = {
+      league_id: ctx.leagueId, season: ctx.season,
+      initiator: { fid: pad4(tw3.aFid), name: tw3NameOf(tw3.aFid) },
+      team_b: { fid: pad4(tw3.bFid), name: tw3NameOf(tw3.bFid) },
+      team_c: { fid: pad4(tw3.cFid), name: tw3NameOf(tw3.cFid) },
+      movements: st.movements.map(function (m) { return { from: m.from, to: m.to, asset_tokens: m.asset_tokens, cap_k: 0, summary: m.summary }; }),
+      notes: tw3.notes || ""
+    };
+    fetch(resolve3WayApiUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bodyObj)
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        var p = null; try { p = t ? JSON.parse(t) : null; } catch (e) {}
+        return { ok: r.ok, status: r.status, body: p };
+      });
+    }).then(function (resp) {
+      tw3.submitting = false;
+      if (resp.ok && resp.body && resp.body.ok !== false) {
+        tw3SetStatus("3-way sent — both partners have been DM'd to Accept or Decline. ✓", "good");
+        render3WayPanel();
+        setTimeout(function () { if (tw3 && !tw3.submitting) close3WayBuilder(); }, 1600);
+      } else {
+        tw3SetStatus("Couldn't send: " + ((resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status)), "bad");
+        render3WayPanel();
+      }
+    }).catch(function (err) {
+      tw3.submitting = false;
+      tw3SetStatus("Couldn't send: " + ((err && err.message) || err), "bad");
+      render3WayPanel();
+    });
+  }
+  function init3WayTrade() {
+    var openBtn = document.getElementById("twb3wOpenBtn");
+    if (openBtn && !openBtn.__tw3Wired) { openBtn.__tw3Wired = true; openBtn.addEventListener("click", open3WayBuilder); }
+    var closeBtn = document.getElementById("twb3wCloseBtn");
+    if (closeBtn && !closeBtn.__tw3Wired) { closeBtn.__tw3Wired = true; closeBtn.addEventListener("click", close3WayBuilder); }
+  }
+
   async function boot() {
     collectDomRefs();
     if (!els.app) return;
@@ -6896,6 +7248,7 @@
       applyRosterDeepLinkSelection();
       initializeControlsFromState();
       bindEvents();
+      init3WayTrade();
       state.uiReady = true;
       rerender();
       await refreshBannerOffers(true);
