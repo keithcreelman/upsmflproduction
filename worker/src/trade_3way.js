@@ -46,7 +46,7 @@ const GIF_URL = "https://media0.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3ejVjaG5hOHI4e
 // ───────────────────────────── gates ───────────────────────────────────────
 function enabled(env) { return safeStr(env.TRADE_3WAY_ENABLED) === "1"; }
 function liveExecute(env) { return safeStr(env.TRADE_3WAY_EXECUTE) === "1"; }
-function allowlist(env) { return safeStr(env.TRADE_DM_TEST_FRANCHISES).split(",").map(padFid).filter(Boolean); }
+function allowlist(env) { return safeStr(env.TRADE_3WAY_TEST_FRANCHISES).split(",").map(padFid).filter(Boolean); }
 function franchiseAllowed(env, fid) {
   const list = allowlist(env);
   if (!list.length) return true;

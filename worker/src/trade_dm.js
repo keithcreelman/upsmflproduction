@@ -20,7 +20,7 @@
 // states, reconciliation, and hard caps. See docs / migration 0076.
 
 import { openDmChannel, sendDm } from "./discord_round.js";
-import { tradeReminderDecision, THINK_INTERVALS_HOURS } from "./trade_dm_cadence.js";
+import { tradeReminderDecision } from "./trade_dm_cadence.js";
 
 // ───────────────────────── tiny self-contained helpers ─────────────────────
 // index.js's safeStr/safeInt/padFranchiseId are request-scoped closures; this
@@ -189,7 +189,24 @@ function buildButtons(env, row, opts = {}) {
 }
 
 // ──────────────────────────── message copy ─────────────────────────────────
-function day1Content(row, payload, franchiseName) {
+// "⏳ Expires Sat Jun 20 (in 3 days)." — created_at + TRADE_DM_EXPIRY_DAYS,
+// formatted in ET. Empty once expired (the reminder engine has already stopped).
+function expiryAdvisory(row, env) {
+  const createdMs = Date.parse(row?.created_at_utc);
+  if (!Number.isFinite(createdMs)) return "";
+  const days = safeInt(env?.TRADE_DM_EXPIRY_DAYS, 7);
+  const expiryMs = createdMs + days * 86400000;
+  const remMs = expiryMs - Date.now();
+  if (remMs <= 0) return "";
+  const dateStr = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric",
+  }).format(new Date(expiryMs));
+  const remDays = Math.floor(remMs / 86400000);
+  const remH = Math.round(remMs / 3600000);
+  const rel = remDays >= 1 ? `in ${remDays} day${remDays === 1 ? "" : "s"}` : (remH > 0 ? `in ~${remH}h` : "very soon");
+  return `⏳ Expires **${dateStr}** (${rel}).`;
+}
+function day1Content(row, payload, franchiseName, env) {
   const from = safeStr(row.from_franchise_name) || "another owner";
   const teams = Array.isArray(payload?.teams) ? payload.teams : [];
   const left = teams.find((t) => safeStr(t?.role) === "left") || teams[0];
@@ -198,6 +215,7 @@ function day1Content(row, payload, franchiseName) {
   const youGive = teamAssetNames(right);
   const note = safeStr(payload?.comment || payload?.message || "");
   const exts = extensionLines(payload, franchiseName);
+  const exp = expiryAdvisory(row, env);
   const lines = [];
   lines.push(`📨 **Trade offer from ${from}**`);
   lines.push("");
@@ -205,31 +223,26 @@ function day1Content(row, payload, franchiseName) {
   lines.push(`**You'd get:** ${youGet.length ? youGet.join(", ") : "—"}`);
   if (exts.length) lines.push(`📋 **Pre-trade extension** (applies if you accept): ${exts.join("; ")}`);
   if (note) lines.push(`💬 _${note}_`);
+  if (exp) lines.push(exp);
   lines.push("");
-  lines.push("Tap **Accept**, **Decline**, or **Counter** to handle it in your app, or **Open in War Room** on desktop. Not sure yet? Hit **🤔 Think about it** and I'll let them know you're considering it.");
+  lines.push("Tap **Accept**, **Decline**, or **Counter** to handle it in your app, or **Open in War Room** on desktop. Not sure yet? Hit **🤔 Think about it** and I'll check back on day 4.");
   return lines.join("\n").slice(0, 1990);
 }
-function reminderContent(key, row) {
+function reminderContent(key, row, env) {
   const from = safeStr(row.from_franchise_name) || "another owner";
   const recap = safeStr(row.summary_text);
   const recapLine = recap ? `\n_${recap}_` : "";
+  const exp = expiryAdvisory(row, env);
+  const expLine = exp ? `\n${exp}` : "";
   switch (key) {
-    case "gentle_1":
-      return `Quick nudge — ${from}'s trade offer is still sitting in your inbox. Give it a look when you get a sec.${recapLine}`;
-    case "gentle_2":
-      return `Still here — that offer from ${from} hasn't been answered yet. Accept, decline, or counter whenever you're ready.${recapLine}`;
-    case "checking_in":
-      return `Hey, checking on this one. ${from}'s offer has been open about six days now. No rush, but a quick yes or no keeps things moving.${recapLine}`;
-    case "just_decline":
-      return `If you're not interested, just decline — it takes two taps and it's not hard. ${from} is waiting on an answer.${recapLine}`;
-    case "rip_them":
-      return `Last call on ${from}'s offer. Either pull the trigger or send it to the shredder — I'm done reminding you after this one. Rip 'em.${recapLine}`;
+    case "nudge":
+      return `Quick nudge — ${from}'s trade offer is still in your inbox. Accept, decline, or counter when you get a sec.${recapLine}${expLine}`;
+    case "last_call":
+      return `Last call on ${from}'s offer before it expires — a quick yes or no keeps things moving.${recapLine}${expLine}`;
     case "think_reminder":
-      return `Still mulling over ${from}'s offer? Whenever you land on a decision — accept, decline, or counter — just open it up.${recapLine}`;
-    case "think_final":
-      return `I'll stop nagging you about ${from}'s offer now — it's still open on your end, so do with it what you like.`;
+      return `You wanted to sit on ${from}'s offer — here's your nudge. Whenever you've decided, just open it up.${recapLine}${expLine}`;
     default:
-      return `${from}'s trade offer is still pending.${recapLine}`;
+      return `${from}'s trade offer is still pending.${recapLine}${expLine}`;
   }
 }
 
@@ -283,8 +296,8 @@ export async function enqueueTradeOfferDm(env, offer) {
       return { skipped: "no_discord_owner" };
     }
 
-    const row = { trade_id: tradeId, league_id: leagueId, season, to_franchise_id: toFid, from_franchise_name: fromName, summary_text: summaryText };
-    const content = payload ? day1Content(row, payload, franchiseName) : `📨 **Trade offer from ${fromName}** — open it in your app to see the details and respond.`;
+    const row = { trade_id: tradeId, league_id: leagueId, season, to_franchise_id: toFid, from_franchise_name: fromName, summary_text: summaryText, created_at_utc: nowIso() };
+    const content = payload ? day1Content(row, payload, franchiseName, env) : `📨 **Trade offer from ${fromName}** — open it in your app to see the details and respond.`;
     // Fan the Day-1 DM out to EVERY account linked to the recipient franchise.
     const r1 = await dmAll(env, recipientUids, { content, components: buildButtons(env, row) });
     if (!r1.sent) {
@@ -378,7 +391,7 @@ export async function processTradeOfferReminders(env) {
     if (decision.message) {
       const includeThink = !decision.terminal && safeStr(row.track) !== "thinking";
       const rr = await dmAll(env, row.recipient_discord_user_id, {
-        content: reminderContent(decision.message, row),
+        content: reminderContent(decision.message, row, env),
         components: buildButtons(env, row, { includeThink }),
       });
       if (!rr.sent) {
@@ -390,9 +403,8 @@ export async function processTradeOfferReminders(env) {
         continue;
       }
       sent++;
-      const nextStage = decision.advanceThinkStage
-        ? Math.min(safeInt(row.think_stage, 0) + 1, THINK_INTERVALS_HOURS.length)
-        : safeInt(row.think_stage, 0);
+      // Thinking track fires exactly one reminder (day 4), so stage caps at 1.
+      const nextStage = decision.advanceThinkStage ? 1 : safeInt(row.think_stage, 0);
       await env.UPS_MFL_DB.prepare(
         `UPDATE trade_offer_dm SET last_dm_utc=?, dm_count=dm_count+1, think_stage=?, updated_at_utc=? WHERE trade_id=?`
       ).bind(nowIso(), nextStage, nowIso(), safeStr(row.trade_id)).run();
