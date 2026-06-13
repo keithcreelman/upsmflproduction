@@ -8,7 +8,8 @@
 // every reminder states the expiry:
 //   immediate (sent at enqueue) · +48h · day 3 · day 4 · day 5 · day 6
 //   = 6 DMs over the 7-day life; nothing fires after expiry.
-//   "Think about it" → a single courtesy reminder on day 4, then silence.
+//   "Think about it" → suppress reminders until day 4, then resume the normal
+//   once-a-day cadence (a nudge on day 4, then day 5 and day 6).
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
 function safeInt(v, fb) { const n = parseInt(v, 10); return Number.isFinite(n) ? n : (fb == null ? 0 : fb); }
@@ -40,15 +41,19 @@ export function tradeReminderDecision(row, nowMs, env) {
   // Past MFL expiry → terminal (the offer no longer exists). No final DM.
   if (nowMs - createdMs >= expiryDays(env) * DAY_MS) return { terminal: true, reason: "expired" };
 
-  // Thinking track: exactly one courtesy reminder on day 4 (or ~24h after the
-  // press if it came on/after day 4), then silence.
+  // Thinking track: suppress reminders before day 4, then resume the normal
+  // once-a-day cadence — a "you wanted to sit on it" nudge on day 4, then the
+  // standard day 5 / day 6 reminders. Same once-each dedup as the main track.
   if (safeStr(row.track) === "thinking") {
-    if (safeInt(row.think_stage, 0) >= 1) return { due: false };
-    const pressedMs = row.think_pressed_utc ? Date.parse(row.think_pressed_utc) : createdMs;
-    const day4Ms = createdMs + THINK_REMINDER_DAY * DAY_MS;
-    const dueAtMs = Math.max(day4Ms, (Number.isFinite(pressedMs) ? pressedMs : createdMs) + 24 * HOUR_MS);
-    if (nowMs >= dueAtMs) return { due: true, message: "think_reminder", advanceThinkStage: true };
-    return { due: false };
+    const minHours = THINK_REMINDER_DAY * 24;
+    let tdue = null;
+    for (const e of MAIN_SCHEDULE) {
+      if (e.atHours < minHours) continue;
+      const entryMs = createdMs + e.atHours * HOUR_MS;
+      if (nowMs >= entryMs && (!Number.isFinite(lastMs) || lastMs < entryMs)) tdue = e;
+    }
+    if (!tdue) return { due: false };
+    return { due: true, message: tdue.atHours === minHours ? "think_reminder" : tdue.key };
   }
 
   // Main track: each entry fires once. Pick the LATEST qualifying entry (skip
