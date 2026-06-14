@@ -3177,20 +3177,32 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         { label: "Taxi Squad",    href: buildMflPath("/options?O=98") },
         { label: "Live Scoring",  href: buildMflPath("/ajax_ls") }
       ]},
-      // "MFL Legacy Links" — the native MFL fallback menu collapsed into ONE
-      // desktop dropdown (Keith 2026-06-11), replacing the native horizontal bar
-      // (hidden on desktop). Points at NATIVE MFL pages (the fallback), not our
-      // custom hubs. Desktop-only — on phones the hamburger drawer covers this.
-      { id: "legacy", label: "MFL Legacy Links", desktopOnly: true, children: [
+      // "MFL Legacy Links" — native MFL fallback pages collapsed into ONE
+      // dropdown (Keith 2026-06-11). Shown on BOTH desktop and mobile (Keith
+      // 2026-06-14) so the two stay consistent — the hamburger drawer re-themes
+      // MFL's own native menu separately. Points at NATIVE MFL pages, not our
+      // custom hubs. URLs built dynamically (year + L) via buildMflPath. The
+      // "Become …" links toggle the commish between the commish (0000) and owner
+      // (0008) identities — gated to those franchises via commishOnly.
+      { id: "legacy", label: "MFL Legacy Links", children: [
         { label: "Home",               href: buildUrl("") },
         { label: "Submit Lineup",      href: buildMflPath("/lineup") },
+        { label: "Starting Lineups",   href: buildMflPath("/options?O=06") },
         { label: "Add/Drop",           href: buildMflPath("/add_drop") },
         { label: "Trades (native)",    href: buildMflPath("/options?O=05") },
+        { label: "Transactions",       href: buildMflPath("/options?O=03") },
+        { label: "Processed Waivers",  href: buildMflPath("/options?O=76") },
         { label: "Injured Reserve",    href: buildMflPath("/options?O=18") },
         { label: "Taxi Squad",         href: buildMflPath("/options?O=98") },
+        { label: "Locked Players",     href: buildMflPath("/locked_players") },
         { label: "Live Scoring",       href: buildMflPath("/ajax_ls") },
+        { label: "All Reports",        href: buildMflPath("/all_reports") },
+        { label: "Help Center",        href: buildMflPath("/support") },
+        { label: "My Support Tickets", href: buildMflPath("/my_tickets") },
         { label: "Commissioner Setup", href: buildMflPath("/commissioner_setup") },
         { label: "MFL Dashboard",      href: buildMflPath("/dash") },
+        { label: "Become Commissioner", href: buildMflPath("/logout?BECOME=0000"), commishOnly: true },
+        { label: "Become Owner",        href: buildMflPath("/logout?BECOME=0008"), commishOnly: true },
         { label: "Logout",             href: buildMflPath("/logout") }
       ]}
     ];
@@ -3204,6 +3216,21 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
           if (btn) btn.setAttribute("aria-expanded", "false");
         }
       }
+    }
+
+    // Is the current viewer the commish (or Keith's owner team 0008)? Gates the
+    // "Become …" links. MFL sets window.FRANCHISE_ID on the page; commish pages
+    // run as 0000.
+    function upsViewerIsCommish() {
+      try {
+        var raw = String(window.FRANCHISE_ID || window.franchise_id || "").replace(/\D/g, "");
+        var fid = raw ? raw.padStart(4, "0").slice(-4) : "";
+        if (fid === "0000" || fid === "0008") return true;
+        var p = new URLSearchParams(window.location.search || "");
+        var pr = String(p.get("FRANCHISE_ID") || p.get("FRANCHISE") || p.get("F") || "").replace(/\D/g, "");
+        var pf = pr ? pr.padStart(4, "0").slice(-4) : "";
+        return pf === "0000" || pf === "0008";
+      } catch (e) { return false; }
     }
 
     function buildDropdown(t) {
@@ -3230,6 +3257,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       menu.className = "ups-teamops-subnav-menu";
       menu.setAttribute("role", "menu");
       t.children.forEach(function (c) {
+        if (c.commishOnly && !upsViewerIsCommish()) return; // gate "Become …" links
         var a = document.createElement("a");
         a.className = "ups-teamops-subnav-menu-item";
         a.href = c.href || (c.module ? buildUrl(c.module) : "#");
