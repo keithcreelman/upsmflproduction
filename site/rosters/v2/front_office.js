@@ -6547,12 +6547,44 @@
       groupHtml;
   }
 
+  // Native MFL utility links (open on myfantasyleague.com). Year + league id come
+  // from SEASON / LEAGUE_ID so they track the season. The "Become" links let the
+  // commish toggle between the commish (0000) and owner (0008) identities.
+  function renderMflLinksHtml() {
+    const base = "https://www48.myfantasyleague.com/" + encodeURIComponent(SEASON) + "/";
+    const L = encodeURIComponent(LEAGUE_ID);
+    function link(path, label) {
+      return '<a href="' + base + path + '" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;padding:10px 2px;border-top:1px solid var(--border);color:var(--text);text-decoration:none;">↗ ' + escapeHtml(label) + "</a>";
+    }
+    const general =
+      link("support?L=" + L, "Help Center") +
+      link("my_tickets", "My Support Tickets") +
+      link("all_reports?L=" + L, "All Reports") +
+      link("locked_players?L=" + L, "Locked Players") +
+      link("options?L=" + L + "&O=03", "Transactions") +
+      link("options?L=" + L + "&O=76", "Processed Waivers") +
+      link("options?L=" + L + "&O=06", "Starting Lineups");
+    const isCommish = !!(STATE.me && STATE.me.isAdmin) || pad4(STATE.me && STATE.me.franchise_id) === "0008";
+    let commish = "";
+    if (isCommish) {
+      commish = '<div class="fo-card" style="margin-bottom:14px;"><h3 style="margin:0 0 2px;color:var(--text);font-size:15px;">Commish</h3>' +
+        '<p class="fo-row-hint" style="margin:4px 0 0;">Toggle your MFL identity between the commish (0000) and your owner team (0008).</p>' +
+        link("logout?L=" + L + "&BECOME=0000", "Become Commissioner") +
+        link("logout?L=" + L + "&BECOME=0008", "Become Owner") + "</div>";
+    }
+    return '<div class="fo-card-head"><h2>MFL Links</h2><span class="small" style="color:var(--muted);">Native MyFantasyLeague pages (open in a new tab).</span></div>' +
+      '<p class="fo-row-hint">💡 Quick links into MFL for the stuff the Front Office doesn\'t replace.</p>' +
+      '<div class="fo-card" style="margin-bottom:14px;"><h3 style="margin:0 0 2px;color:var(--text);font-size:15px;">League</h3>' + general + "</div>" +
+      commish;
+  }
+
   async function renderContractLogTab() {
     const body = $("#fo-contractlog-body");
     if (!body) return;
     // Misc tab has two sub-views: the Contract Log (default) and a plain-English
     // Glossary for owners (Keith 2026-06-06: "some guys are not the brightest").
     if (STATE.miscSubview === "glossary") { body.innerHTML = renderGlossaryHtml(); return; }
+    if (STATE.miscSubview === "links") { body.innerHTML = renderMflLinksHtml(); return; }
     STATE.contractLogFilter = STATE.contractLogFilter || { team: "", type: "", year: String(safeInt(SEASON, 2026)), showTest: false };
     const f = STATE.contractLogFilter;
     const year = f.year || String(safeInt(SEASON, 2026));
