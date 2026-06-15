@@ -6879,7 +6879,9 @@
     // ext[giverFid] = { [asset_id]: { enabled, option_key } } — pre-trade
     // extension chosen for a give-side player (extended by the giver for the
     // acquirer it's routed to). Mirrors the 2-party builder's state.extensions.
-    return { aFid: "", bFid: "", cFid: "", give: {}, ext: {}, notes: "", submitting: false, status: "", statusTone: "" };
+    // cap[giverFid] = { [destFid]: capK } — cap money (BlindBid$) the giver sends
+    // to that destination, clamped to §A6 (≤50% of non-taxi salary sent there).
+    return { aFid: "", bFid: "", cFid: "", give: {}, ext: {}, cap: {}, notes: "", submitting: false, status: "", statusTone: "" };
   }
   function tw3AssetById(giver, aid) {
     var team = getTeamById(pad4(giver));
@@ -6948,8 +6950,31 @@
   }
   function tw3NameOf(fid) { return getFranchiseNameById(pad4(fid)) || ("Franchise " + pad4(fid)); }
 
+  // §A6 — cap money a giver may send to a destination ≤ floor(sum of the NON-TAXI
+  // player salary it routes there / 2000) in $K. Picks + taxi players don't unlock
+  // cap. Mirrors the 2-party getTradeSalaryMaxK + the worker backstop.
+  function tw3MovementMaxCapK(giver, dest) {
+    giver = pad4(giver); dest = pad4(dest);
+    var map = tw3.give[giver] || {};
+    var byId = {};
+    tw3TeamAssets(giver).forEach(function (a) { byId[a.asset_id] = a; });
+    var sum = 0;
+    Object.keys(map).forEach(function (aid) {
+      if (pad4(map[aid]) !== dest) return;
+      var a = byId[aid];
+      if (a && a.type === "PLAYER" && !a.taxi) sum += safeInt(a.salary, 0);
+    });
+    return Math.floor(sum / 2000);
+  }
+  // The §A6-clamped cap the giver actually sends to dest (stored value capped by
+  // the live max — re-clamps automatically when the routed players change).
+  function tw3CapKFor(giver, dest) {
+    var raw = safeInt((tw3.cap[pad4(giver)] || {})[pad4(dest)], 0);
+    return Math.max(0, Math.min(raw, tw3MovementMaxCapK(giver, dest)));
+  }
+
   // Build movements from state: for each giver, group selected assets by
-  // destination -> one {from, to, asset_tokens, summary} per team-pair.
+  // destination -> one {from, to, asset_tokens, cap_k, summary} per team-pair.
   function tw3Movements() {
     var out = [];
     tw3TeamFids().forEach(function (giver) {
@@ -6970,7 +6995,7 @@
           var tk = tw3AssetToken(a); if (!tk) return;
           tokens.push(tk); names.push(tw3AssetName(a));
         });
-        if (tokens.length) out.push({ from: giver, to: dest, asset_tokens: tokens, cap_k: 0, summary: names.join(", "), _names: names });
+        if (tokens.length) out.push({ from: giver, to: dest, asset_tokens: tokens, cap_k: tw3CapKFor(giver, dest), summary: names.join(", "), _names: names });
       });
     });
     return out;
@@ -7111,7 +7136,13 @@
     var st = tw3State();
     var rows = st.movements.length
       ? st.movements.map(function (m) {
-          return '<div class="twb-3w-movrow"><span class="rt">' + escapeHtml(tw3NameOf(m.from)) + " → " + escapeHtml(tw3NameOf(m.to)) + '</span><span class="as">' + escapeHtml(m._names.join(", ")) + "</span></div>";
+          var maxK = tw3MovementMaxCapK(m.from, m.to);
+          var capCtl = maxK > 0
+            ? '<div class="twb-3w-capctl"><span class="cl">+ cap $</span>' +
+                '<input type="number" class="twb-3w-capin" min="0" max="' + maxK + '" step="1" inputmode="numeric" value="' + safeInt(m.cap_k, 0) + '" data-3w-capgiver="' + m.from + '" data-3w-capdest="' + m.to + '" aria-label="Cap money ' + escapeHtml(tw3NameOf(m.from)) + ' sends ' + escapeHtml(tw3NameOf(m.to)) + '" />' +
+                '<span class="ck">K</span><span class="cm">max $' + maxK + 'K · §A6</span></div>'
+            : "";
+          return '<div class="twb-3w-movrow"><span class="rt">' + escapeHtml(tw3NameOf(m.from)) + " → " + escapeHtml(tw3NameOf(m.to)) + '</span><span class="as">' + escapeHtml(m._names.join(", ")) + "</span>" + capCtl + "</div>";
         }).join("")
       : '<div class="twb-3w-movrow muted">Nothing routed yet — select assets and choose where each goes.</div>';
     return '<div class="twb-3w-summary-head">The deal</div>' + rows + tw3ExtSummaryRows();
@@ -7167,7 +7198,7 @@
     var st = tw3State();
     var panel = document.getElementById("twb3wPanel");
     var sumEl = panel ? panel.querySelector(".twb-3w-summary") : null;
-    if (sumEl) sumEl.innerHTML = tw3SummaryHtml();
+    if (sumEl) { sumEl.innerHTML = tw3SummaryHtml(); tw3WireCapInputs(sumEl); }
     // refresh the "all three teams" warning in place (the toggle path doesn't
     // re-render the whole panel, so without this it goes stale).
     var warn = panel ? panel.querySelector(".twb-3w-warn") : null;
@@ -7196,6 +7227,24 @@
         var sibs = this.parentNode.querySelectorAll(".twb-3w-dest");
         for (var m = 0; m < sibs.length; m += 1) sibs[m].classList.toggle("on", sibs[m] === this);
         tw3RefreshSummaryAndSubmit();
+      });
+    }
+  }
+  // Cap-money inputs live in the summary; clamp to §A6 on input + store, without
+  // re-rendering the summary (that would drop focus mid-type).
+  function tw3WireCapInputs(scope) {
+    if (!scope) return;
+    var ins = scope.querySelectorAll(".twb-3w-capin");
+    for (var i = 0; i < ins.length; i += 1) {
+      ins[i].addEventListener("input", function () {
+        var giver = pad4(this.getAttribute("data-3w-capgiver")), dest = pad4(this.getAttribute("data-3w-capdest"));
+        var maxK = tw3MovementMaxCapK(giver, dest);
+        var v = Math.max(0, Math.min(safeInt(this.value, 0), maxK));
+        if (String(v) !== String(this.value)) this.value = String(v);
+        tw3.cap[giver] = tw3.cap[giver] || {};
+        tw3.cap[giver][dest] = v;
+        var submit = document.getElementById("twb3wSubmitBtn");
+        if (submit) submit.disabled = !tw3State().canSubmit; // cap doesn't gate, but stay fresh
       });
     }
   }
@@ -7240,6 +7289,7 @@
     }
     tw3WireDestPills(body);
     tw3WireExtSegs(body);
+    tw3WireCapInputs(body);
     var notes = document.getElementById("twb3wNotes");
     if (notes) notes.addEventListener("input", function () { tw3.notes = this.value; });
     var cancel = document.getElementById("twb3wCancelBtn");
@@ -7315,7 +7365,7 @@
       initiator: { fid: pad4(tw3.aFid), name: tw3NameOf(tw3.aFid) },
       team_b: { fid: pad4(tw3.bFid), name: tw3NameOf(tw3.bFid) },
       team_c: { fid: pad4(tw3.cFid), name: tw3NameOf(tw3.cFid) },
-      movements: st.movements.map(function (m) { return { from: m.from, to: m.to, asset_tokens: m.asset_tokens, cap_k: 0, summary: m.summary }; }),
+      movements: st.movements.map(function (m) { return { from: m.from, to: m.to, asset_tokens: m.asset_tokens, cap_k: safeInt(m.cap_k, 0), summary: m.summary }; }),
       extension_requests: tw3BuildExtensionRequests(),
       notes: tw3.notes || ""
     };

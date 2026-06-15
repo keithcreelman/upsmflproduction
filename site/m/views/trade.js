@@ -879,8 +879,9 @@
   // so the worker (worker/src/trade_3way.js) decomposes the movements into chained
   // commish trades (2-trade hub for a clean cycle, else pairwise) once BOTH
   // partners accept their Discord DM. This builder composes the movements + an
-  // optional note and POSTs to /api/trades/3way. Players + future picks only for
-  // v1 (cap-in-leg needs salary-adjustment handling the engine doesn't do yet).
+  // optional note and POSTs to /api/trades/3way. Players, future picks, and cap
+  // money (BlindBid$, §A6-clamped per movement) are supported; the engine injects
+  // a BB_ token on the giving side so each leg carries the cap to MFL.
   var b3 = null;
   function fresh3() {
     return {
@@ -895,6 +896,9 @@
       // extension chosen for a give-side player (extended by the giver for the
       // acquirer it's routed to). Mirrors the 2-party builder's extensions map.
       ext: {},
+      // cap[giverFid] = { [destFid]: capK } — cap money (BlindBid$) the giver
+      // sends to that destination, clamped to §A6 (≤50% of non-taxi salary sent).
+      cap: {},
       notes: "",
       submitting: false, error: ""
     };
@@ -937,8 +941,27 @@
     var fp = (inv.future_picks || []).filter(function (x) { return futurePickToken(x) === token; })[0];
     return fp ? (fp.display || (fp.year + " R" + fp.round)) : token;
   }
+  // §A6 — cap money a giver may send to a destination ≤ floor(sum of the NON-TAXI
+  // player salary it routes there / 2000) in $K. Picks + taxi don't unlock cap.
+  // Mirrors maxCapKFor (the 2-party version) but scoped to one movement's players.
+  function movementMaxCapK(giver, dest) {
+    giver = U.pad4(giver); dest = U.pad4(dest);
+    var map = b3.give[giver] || {};
+    var inv = b3.inv[giver] || { players: [] };
+    var sum = 0;
+    (inv.players || []).forEach(function (p) {
+      if (U.pad4(map["P_" + p.player_id]) === dest && !p.taxi) sum += U.safeInt(p.salary, 0);
+    });
+    return Math.floor(sum / 2000);
+  }
+  // The §A6-clamped cap the giver actually sends to dest (re-clamps when players change).
+  function cap3KFor(giver, dest) {
+    var raw = U.safeInt((b3.cap[U.pad4(giver)] || {})[U.pad4(dest)], 0);
+    return Math.max(0, Math.min(raw, movementMaxCapK(giver, dest)));
+  }
+
   // Build movements from state: for each giver, group its selected assets by
-  // destination → one movement {from, to, asset_tokens, summary} per team-pair.
+  // destination → one movement {from, to, asset_tokens, cap_k, summary} per pair.
   function movementsFromState() {
     var out = [];
     teamFids().forEach(function (giver) {
@@ -952,7 +975,7 @@
       Object.keys(byDest).forEach(function (dest) {
         var tokens = byDest[dest];
         var names = tokens.map(function (t) { return assetDisplay(giver, t); });
-        out.push({ from: giver, to: dest, asset_tokens: tokens, summary: names.join(", "), _names: names });
+        out.push({ from: giver, to: dest, asset_tokens: tokens, cap_k: cap3KFor(giver, dest), summary: names.join(", "), _names: names });
       });
     });
     return out;
@@ -1184,6 +1207,23 @@
     document.getElementById("ups-m-3w-next").addEventListener("click", function () { b3.step = 4; render3(); });
   }
 
+  // Cap-money inputs live in the review; clamp to §A6 on input + store. No
+  // re-render here (review only re-renders on Back/Submit), so focus is kept.
+  function wireCap3Inputs(scope) {
+    if (!scope) return;
+    var ins = scope.querySelectorAll(".ups-m-3w-capin");
+    for (var i = 0; i < ins.length; i++) {
+      ins[i].addEventListener("input", function () {
+        var giver = U.pad4(this.getAttribute("data-capgiver")), dest = U.pad4(this.getAttribute("data-capdest"));
+        var maxK = movementMaxCapK(giver, dest);
+        var v = Math.max(0, Math.min(U.safeInt(this.value, 0), maxK));
+        if (String(v) !== String(this.value)) this.value = String(v);
+        b3.cap[giver] = b3.cap[giver] || {};
+        b3.cap[giver][dest] = v;
+      });
+    }
+  }
+
   // ── Step 4: review the deal + notes + submit ──
   function render3Review(body) {
     var teams = teamFids();
@@ -1195,8 +1235,14 @@
     // A real 3-way: ≥2 movements and every team is in the deal (giving or getting).
     var canSubmit = movements.length >= 2 && allIn;
     function movRow(m) {
+      var maxK = movementMaxCapK(m.from, m.to);
+      var capCtl = maxK > 0
+        ? '<div class="ups-m-3w-capctl"><span class="cl">+ cap $</span>' +
+            '<input type="number" class="ups-m-3w-capin" min="0" max="' + maxK + '" step="1" inputmode="numeric" value="' + U.safeInt(m.cap_k, 0) + '" data-capgiver="' + m.from + '" data-capdest="' + m.to + '" aria-label="Cap money ' + U.escapeHtml(franchiseName(m.from)) + ' sends ' + U.escapeHtml(franchiseName(m.to)) + '" />' +
+            '<span class="ck">K</span><span class="cm">max $' + maxK + 'K · §A6</span></div>'
+        : '';
       return '<div class="ups-m-3w-revrow"><div class="lbl">' + U.escapeHtml(franchiseName(m.from)) + ' → ' + U.escapeHtml(franchiseName(m.to)) + '</div>' +
-        '<div class="val">' + U.escapeHtml(m._names.join(", ")) + '</div></div>';
+        '<div class="val">' + U.escapeHtml(m._names.join(", ")) + '</div>' + capCtl + '</div>';
     }
     var rowsHtml = movements.length
       ? movements.map(movRow).join("")
@@ -1239,6 +1285,7 @@
       '</div>';
     var notesEl = document.getElementById("ups-m-3w-notes");
     if (notesEl) notesEl.addEventListener("input", function () { b3.notes = this.value; });
+    wireCap3Inputs(body);
     document.getElementById("ups-m-3w-back").addEventListener("click", function () { if (!b3.submitting) { b3.step = 3; render3(); } });
     var submit = document.getElementById("ups-m-3w-submit");
     if (submit) submit.addEventListener("click", function () { if (canSubmit && !b3.submitting) submit3Way(); });
@@ -1249,7 +1296,7 @@
     var ctx = M.state.ctx;
     var A = U.pad4(M.state.viewerFranchiseId), B = U.pad4(b3.fidB), C = U.pad4(b3.fidC);
     var movements = movementsFromState().map(function (m) {
-      return { from: m.from, to: m.to, asset_tokens: m.asset_tokens, cap_k: 0, summary: m.summary };
+      return { from: m.from, to: m.to, asset_tokens: m.asset_tokens, cap_k: U.safeInt(m.cap_k, 0), summary: m.summary };
     });
     // Pre-trade extensions: for each marked give-side player still being sent,
     // re-derive the option from the asset (never trust a stale key) and push the
