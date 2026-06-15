@@ -767,7 +767,9 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     background: rgba(125, 232, 217, 0.12) !important;
     color: #7de8d9 !important;
   }
-  /* Grouped legacy-links menu: a low-key backup note + uppercase section heads. */
+  /* Grouped "MFL Legacy Links" menu: a low-key backup note + collapsible
+     accordion submenus (one per group). Collapsed, the menu is just the group
+     triggers — short on both desktop and mobile. */
   .ups-teamops-subnav-menu { max-height: 75vh; overflow-y: auto; }
   .ups-teamops-subnav-menu-note {
     color: #8aa0c0;
@@ -778,14 +780,50 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     margin-bottom: 0.15rem;
     max-width: 15rem;
   }
-  .ups-teamops-subnav-menu-group {
+  /* Accordion group trigger — looks like a menu item, with a caret on the right. */
+  .ups-teamops-subnav-submenu-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    color: #dbe8fb;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.5rem 0.65rem;
+    border-radius: 5px;
+    transition: background 0.12s, color 0.12s;
+  }
+  .ups-teamops-subnav-submenu-trigger:hover,
+  .ups-teamops-subnav-submenu[data-open="1"] > .ups-teamops-subnav-submenu-trigger {
+    background: rgba(125, 232, 217, 0.12);
+    color: #7de8d9;
+  }
+  .ups-teamops-subnav-submenu-caret {
     color: #7fa8d8;
     font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 0.5rem 0.65rem 0.2rem;
+    margin-left: 0.5rem;
+    transition: transform 0.15s;
   }
+  .ups-teamops-subnav-submenu[data-open="1"] .ups-teamops-subnav-submenu-caret {
+    transform: rotate(90deg);
+  }
+  /* A group's links — hidden until expanded; indented to read as nested. */
+  .ups-teamops-subnav-submenu-panel {
+    display: none;
+    padding: 0.05rem 0 0.2rem 0.55rem;
+  }
+  .ups-teamops-subnav-submenu[data-open="1"] > .ups-teamops-subnav-submenu-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .ups-teamops-subnav-submenu-panel a.ups-teamops-subnav-menu-item { font-weight: 500; }
 
   /* CCC message page only: center the UPS header shells without changing the
      home-page HPM alignment behavior. */
@@ -3204,39 +3242,44 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       // headers (Owner Actions / League / Account / Commish). URLs built
       // dynamically (year + L) via buildMflPath. The Commish section + its
       // "Become …" identity-toggle links are gated via commishOnly (franchise
-      // 0000/0008 only). `note` + `group` are non-clickable; buildDropdown
-      // renders them as a descriptor line + section labels.
-      { id: "legacy", label: "MFL Legacy Links", children: [
-        { note: "Native MFL pages — a backup if one of the custom pages isn't loading." },
-
-        { group: "Owner Actions" },
-        { label: "Submit Lineup",      href: buildMflPath("/lineup") },
-        { label: "Add / Drop",         href: buildMflPath("/add_drop") },
-        { label: "Taxi Squad",         href: buildMflPath("/options?O=98") },
-        { label: "Injured Reserve",    href: buildMflPath("/options?O=18") },
-        { label: "Trades",             href: buildMflPath("/options?O=05") },
-
-        { group: "League" },
-        { label: "All Reports",        href: buildMflPath("/all_reports") },
-        { label: "Transactions",       href: buildMflPath("/options?O=03") },
-        { label: "Processed Waivers",  href: buildMflPath("/options?O=76") },
-        { label: "Starting Lineups",   href: buildMflPath("/options?O=06") },
-        { label: "Live Scoring",       href: buildMflPath("/ajax_ls") },
-        { label: "Weekly Summary",     href: buildMflPath("/options?O=31") },
-        { label: "Standings",          href: buildMflPath("/standings") },
-
-        { group: "Account" },
-        { label: "Home",               href: buildUrl("") },
-        { label: "MFL Dashboard",      href: buildMflPath("/dash") },
-        { label: "Log In / Out",       href: buildMflPath("/logout") },
-        { label: "Help Center",        href: buildMflPath("/support") },
-        { label: "My Support Tickets", href: buildMflPath("/my_tickets") },
-
-        { group: "Commish", commishOnly: true },
-        { label: "Commissioner Setup",  href: buildMflPath("/commissioner_setup"), commishOnly: true },
-        { label: "Become Commissioner", href: buildMflPath("/logout?BECOME=0000"), commishOnly: true },
-        { label: "Become Owner",        href: buildMflPath("/logout?BECOME=0008"), commishOnly: true }
-      ]}
+      // 0000/0008 only). The top-level `note` renders as a low-key backup line;
+      // each `groups[]` entry becomes a collapsible accordion submenu (click a
+      // group to expand its links inline — keeps the long list short on both
+      // desktop and mobile, single-open). The Commish group + its identity-
+      // toggle links are gated via commishOnly.
+      { id: "legacy", label: "MFL Legacy Links",
+        note: "Native MFL pages — a backup if one of the custom pages isn't loading.",
+        groups: [
+          { group: "Owner Actions", items: [
+            { label: "Submit Lineup",      href: buildMflPath("/lineup") },
+            { label: "Add / Drop",         href: buildMflPath("/add_drop") },
+            { label: "Taxi Squad",         href: buildMflPath("/options?O=98") },
+            { label: "Injured Reserve",    href: buildMflPath("/options?O=18") },
+            { label: "Trades",             href: buildMflPath("/options?O=05") }
+          ] },
+          { group: "League", items: [
+            { label: "All Reports",        href: buildMflPath("/all_reports") },
+            { label: "Transactions",       href: buildMflPath("/options?O=03") },
+            { label: "Processed Waivers",  href: buildMflPath("/options?O=76") },
+            { label: "Starting Lineups",   href: buildMflPath("/options?O=06") },
+            { label: "Live Scoring",       href: buildMflPath("/ajax_ls") },
+            { label: "Weekly Summary",     href: buildMflPath("/options?O=31") },
+            { label: "Standings",          href: buildMflPath("/standings") }
+          ] },
+          { group: "Account", items: [
+            { label: "Home",               href: buildUrl("") },
+            { label: "MFL Dashboard",      href: buildMflPath("/dash") },
+            { label: "Log In / Out",       href: buildMflPath("/logout") },
+            { label: "Help Center",        href: buildMflPath("/support") },
+            { label: "My Support Tickets", href: buildMflPath("/my_tickets") }
+          ] },
+          { group: "Commish", commishOnly: true, items: [
+            { label: "Commissioner Setup",  href: buildMflPath("/commissioner_setup") },
+            { label: "Become Commissioner", href: buildMflPath("/logout?BECOME=0000") },
+            { label: "Become Owner",        href: buildMflPath("/logout?BECOME=0008") }
+          ] }
+        ]
+      }
     ];
 
     function closeAllMenus(except) {
@@ -3288,32 +3331,86 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       var menu = document.createElement("div");
       menu.className = "ups-teamops-subnav-menu";
       menu.setAttribute("role", "menu");
-      t.children.forEach(function (c) {
-        if (c.commishOnly && !upsViewerIsCommish()) return; // gate commish-only rows/sections
-        // Non-clickable descriptor line (e.g. the legacy "backup" note).
-        if (c.note) {
-          var note = document.createElement("div");
-          note.className = "ups-teamops-subnav-menu-note";
-          note.textContent = c.note;
-          menu.appendChild(note);
-          return;
-        }
-        // Non-clickable section header (groups the legacy links).
-        if (c.group) {
-          var grp = document.createElement("div");
-          grp.className = "ups-teamops-subnav-menu-group";
-          grp.setAttribute("role", "presentation");
-          grp.textContent = c.group;
-          menu.appendChild(grp);
-          return;
-        }
+
+      // Optional low-key descriptor line at the top of the menu (legacy "backup").
+      if (t.note) {
+        var note = document.createElement("div");
+        note.className = "ups-teamops-subnav-menu-note";
+        note.textContent = t.note;
+        menu.appendChild(note);
+      }
+
+      // One clickable link row (used by both flat menus and submenu panels).
+      function buildMenuLink(c) {
         var a = document.createElement("a");
         a.className = "ups-teamops-subnav-menu-item";
         a.href = c.href || (c.module ? buildUrl(c.module) : "#");
         a.textContent = c.label;
         a.setAttribute("role", "menuitem");
-        menu.appendChild(a);
-      });
+        return a;
+      }
+
+      if (t.groups && t.groups.length) {
+        // Accordion submenus: each group is a collapsible trigger; clicking it
+        // expands that group's links inline (single-open) so a long list stays
+        // short. Works on desktop + mobile (click-based, no hover flyouts).
+        t.groups.forEach(function (g) {
+          if (g.commishOnly && !upsViewerIsCommish()) return; // gate whole section
+          var sub = document.createElement("div");
+          sub.className = "ups-teamops-subnav-submenu";
+
+          var head = document.createElement("button");
+          head.type = "button";
+          head.className = "ups-teamops-subnav-submenu-trigger";
+          head.setAttribute("aria-haspopup", "true");
+          head.setAttribute("aria-expanded", "false");
+          head.appendChild(document.createTextNode(g.group));
+          var caret = document.createElement("span");
+          caret.className = "ups-teamops-subnav-submenu-caret";
+          caret.setAttribute("aria-hidden", "true");
+          caret.textContent = "▸"; // ▸ (rotates to ▾ via CSS when open)
+          head.appendChild(caret);
+
+          var panel = document.createElement("div");
+          panel.className = "ups-teamops-subnav-submenu-panel";
+          panel.setAttribute("role", "menu");
+          (g.items || []).forEach(function (c) {
+            if (c.commishOnly && !upsViewerIsCommish()) return;
+            panel.appendChild(buildMenuLink(c));
+          });
+
+          head.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation(); // keep the parent dropdown open
+            var isOpen = sub.getAttribute("data-open") === "1";
+            // Single-open: collapse any sibling submenu first.
+            var openSubs = menu.querySelectorAll(".ups-teamops-subnav-submenu[data-open=\"1\"]");
+            for (var i = 0; i < openSubs.length; i += 1) {
+              if (openSubs[i] !== sub) {
+                openSubs[i].removeAttribute("data-open");
+                var h = openSubs[i].querySelector(".ups-teamops-subnav-submenu-trigger");
+                if (h) h.setAttribute("aria-expanded", "false");
+              }
+            }
+            if (isOpen) {
+              sub.removeAttribute("data-open");
+              head.setAttribute("aria-expanded", "false");
+            } else {
+              sub.setAttribute("data-open", "1");
+              head.setAttribute("aria-expanded", "true");
+            }
+          });
+
+          sub.appendChild(head);
+          sub.appendChild(panel);
+          menu.appendChild(sub);
+        });
+      } else {
+        (t.children || []).forEach(function (c) {
+          if (c.commishOnly && !upsViewerIsCommish()) return; // gate commish-only rows
+          menu.appendChild(buildMenuLink(c));
+        });
+      }
 
       btn.addEventListener("click", function (e) {
         e.preventDefault();
@@ -3343,7 +3440,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       lbl.textContent = "My Hub";
       nav.appendChild(lbl);
       TABS.forEach(function (t) {
-        if (t.children && t.children.length) {
+        if ((t.children && t.children.length) || (t.groups && t.groups.length)) {
           nav.appendChild(buildDropdown(t));
           return;
         }
