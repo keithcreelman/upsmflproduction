@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.12.8",
-  "label": "3-way trades now support pre-trade extensions: a give-side player can be extended by the team sending it (canon §C4), with the same +1/+2 yr control + AAV preview as a regular trade. Shown to both partners in their DM and applied after the legs land."
+  "build": "2026.06.15.1",
+  "label": "3-way trades can now include cap money (salary): each team→team movement gets a cap field, clamped to §A6 (≤50% of the non-taxi salary it sends). The engine carries it to MFL as BlindBid$ on the giving side, and both partners see the cap in their Discord DM."
 }

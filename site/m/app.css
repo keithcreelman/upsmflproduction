@@ -2253,6 +2253,17 @@ button.ups-m-busy::before,
 }
 .ups-m-3w-revrow .val { font-size: 13px; color: var(--fg); line-height: 1.35; }
 .ups-m-3w-revrow .val .muted { color: var(--line-soft); }
+/* Per-movement cap money (BlindBid$), §A6-clamped. 16px input dodges iOS zoom. */
+.ups-m-3w-capctl { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.ups-m-3w-capctl .cl { font-size: 12px; color: var(--fg-muted); font-weight: 700; }
+.ups-m-3w-capin {
+  width: 80px; padding: 7px 9px; background: var(--bg); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 7px;
+  font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; -webkit-appearance: none;
+}
+.ups-m-3w-capin:focus { outline: none; border-color: var(--accent); }
+.ups-m-3w-capctl .ck { font-size: 12px; color: var(--fg-muted); font-weight: 700; }
+.ups-m-3w-capctl .cm { font-size: 10px; color: var(--teal); font-weight: 700; margin-left: auto; }
 
 /* ═══════════════════════════════════════════════════════════════════════
    HOME COMMAND CENTER (views/home.js) + Market / Events mini-hubs.

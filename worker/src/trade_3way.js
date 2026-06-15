@@ -173,6 +173,68 @@ async function rosterOwnsPlayers(env, leagueId, year, fid, tokens) {
   } catch (_) { return false; }
 }
 
+// ─────────────────────────── cap money (§A6) ───────────────────────────────
+// UPS "trade salary" / cap money is MFL BlindBid$ — a BB_<dollars> asset on the
+// giving side of a trade (exactly what the 2-party path does: index.js:18434 sums
+// BB_ tokens into traded_salary_adjustment_k). The 3-way carries cap_k per
+// movement; here we (a) validate it against §A6 and (b) inject the BB_ token at
+// execution so the existing decomposition + executeCommishTwoPartyTrade move it.
+
+// Append each movement's cap money as a BlindBid$ token on its giving side, so
+// the from→to leg gives `to` that cap. Players already ride asset_tokens, so a
+// cap-bearing movement is never dropped by the decomposition.
+function injectCapTokens(movements) {
+  return (movements || []).map((m) => {
+    const capK = Math.max(0, safeInt(m?.cap_k, 0));
+    const toks = Array.isArray(m?.asset_tokens) ? m.asset_tokens.slice() : [];
+    if (capK > 0) toks.push(`BB_${capK * 1000}`);
+    return { ...m, asset_tokens: toks };
+  });
+}
+
+// Live non-taxi salary + taxi flag per `franchise|player`, for the §A6 cap check.
+async function fetchRosterSalaryMap(env, leagueId, year) {
+  try {
+    const apiKey = safeStr(env.MFL_APIKEY);
+    const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=rosters&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+    const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
+    const j = await r.json().catch(() => null);
+    let franchises = j?.rosters?.franchise || [];
+    if (!Array.isArray(franchises)) franchises = franchises ? [franchises] : [];
+    const salaryByFp = {}, taxiByFp = {};
+    for (const f of franchises) {
+      const fid = padFid(f?.id);
+      if (!fid) continue;
+      let players = f?.player || [];
+      if (!Array.isArray(players)) players = players ? [players] : [];
+      for (const p of players) {
+        const pid = digits(p?.id);
+        if (!pid) continue;
+        salaryByFp[`${fid}|${pid}`] = Number(p?.salary) || 0;
+        taxiByFp[`${fid}|${pid}`] = String(p?.status || "").toUpperCase().includes("TAXI");
+      }
+    }
+    return { ok: true, salaryByFp, taxiByFp };
+  } catch (e) { return { ok: false, error: e?.message || String(e) }; }
+}
+
+// §A6: cap money a side may attach ≤ 50% of the summed salary of the NON-TAXI
+// players it trades away → floor(sumNonTaxiSalary / 2000) in $K. Picks + taxi
+// players don't unlock cap. `from` is the giving franchise of the movement.
+function movementCapMaxK(movement, salaryByFp, taxiByFp) {
+  const from = padFid(movement?.from);
+  let sum = 0;
+  for (const tok of (movement?.asset_tokens || [])) {
+    const t = safeStr(tok);
+    if (!t.startsWith("P_")) continue;       // only players unlock cap money
+    const pid = digits(t.slice(2));
+    const key = `${from}|${pid}`;
+    if (taxiByFp[key]) continue;             // taxi salary doesn't count
+    sum += Number(salaryByFp[key]) || 0;
+  }
+  return Math.floor(sum / 2000);
+}
+
 // ─────────────────────────── message builders ──────────────────────────────
 // What a team gives + gets across the free-form movements, each line naming the
 // other team involved (so "MHJ → LA Looks", "Caleb Williams ← Sex Manther").
@@ -183,10 +245,16 @@ function movementSummaries(row, teamFid) {
   for (const m of movements) {
     const from = padFid(m?.from), to = padFid(m?.to);
     const toks = Array.isArray(m?.asset_tokens) ? m.asset_tokens : [];
+    const capK = safeInt(m?.cap_k, 0);
     const sum = safeStr(m?.summary) || (toks.length ? `${toks.length} asset(s)` : "");
-    if (!sum) continue;
-    if (from === t) gives.push(`${sum} → ${teamLabel(row, to)}`);
-    if (to === t) gets.push(`${sum} ← ${teamLabel(row, from)}`);
+    if (from === t) {
+      if (sum) gives.push(`${sum} → ${teamLabel(row, to)}`);
+      if (capK > 0) gives.push(`💰 $${capK}K cap → ${teamLabel(row, to)}`);
+    }
+    if (to === t) {
+      if (sum) gets.push(`${sum} ← ${teamLabel(row, from)}`);
+      if (capK > 0) gets.push(`💰 $${capK}K cap ← ${teamLabel(row, from)}`);
+    }
   }
   return { gives, gets };
 }
@@ -312,6 +380,26 @@ export async function create3WayTrade(env, ctx, spec) {
       if (!fidSet.has(from) || !fidSet.has(to) || from === to) return { ok: false, error: "bad_movement" };
     }
     if (!movements.some((m) => Array.isArray(m?.asset_tokens) && m.asset_tokens.length)) return { ok: false, error: "no_assets" };
+    // Normalize cap money (cap_k ≥ 0) on each movement, then §A6-validate: the cap
+    // a giver attaches to a destination ≤ floor(its non-taxi salary sent there /
+    // 2000). The builders clamp client-side; this is the bypass backstop. Best-
+    // effort — if the rosters fetch fails we trust the client clamp.
+    for (const m of movements) m.cap_k = Math.max(0, safeInt(m?.cap_k, 0));
+    if (movements.some((m) => m.cap_k > 0)) {
+      const sm = await fetchRosterSalaryMap(env, leagueId, season);
+      if (sm.ok) {
+        for (const m of movements) {
+          if (m.cap_k <= 0) continue;
+          const maxK = movementCapMaxK(m, sm.salaryByFp, sm.taxiByFp);
+          if (m.cap_k > maxK) {
+            return { ok: false, code: "TRADE_CAP_MONEY_50PCT",
+              error: `cap money ${m.cap_k}K from ${padFid(m.from)}→${padFid(m.to)} exceeds the §A6 max (${maxK}K = 50% of the non-taxi salary sent).` };
+          }
+        }
+      } else {
+        console.warn(`[3way] §A6 cap check skipped (rosters fetch failed): ${sm.error}`);
+      }
+    }
     const notes = safeStr(spec?.notes).slice(0, 500);
     // Pre-trade extensions (canon §C4): a player moving in this deal can be
     // extended by the franchise giving it up. Keep only well-formed requests whose
@@ -370,7 +458,7 @@ function shape3WayForView(row, viewerFid) {
   const status = safeStr(row.status);
   const movements = parseLegs(row)
     .filter((m) => m && Array.isArray(m.asset_tokens) && m.asset_tokens.length)
-    .map((m) => ({ from: padFid(m.from), to: padFid(m.to), from_name: teamLabel(row, m.from), to_name: teamLabel(row, m.to), summary: safeStr(m.summary) }));
+    .map((m) => ({ from: padFid(m.from), to: padFid(m.to), from_name: teamLabel(row, m.from), to_name: teamLabel(row, m.to), summary: safeStr(m.summary), cap_k: safeInt(m.cap_k, 0) }));
   const bState = safeStr(row.team_b_state), cState = safeStr(row.team_c_state);
   const waiting = [];
   if (bState !== "accepted") waiting.push(teamLabel(row, B));
@@ -484,7 +572,8 @@ export async function execute3Way(env, id) {
   if (!row || safeStr(row.status) !== "executing") return { skipped: "not_executing" };
   const leagueId = safeStr(row.league_id), year = safeStr(row.season);
   const A = padFid(row.initiator_fid), B = padFid(row.team_b_fid), C = padFid(row.team_c_fid);
-  const movements = parseMovements(row);
+  // Cap money rides as a BlindBid$ (BB_) token on each movement's giving side.
+  const movements = injectCapTokens(parseMovements(row));
 
   const finish = async (status, fields) => {
     const sets = ["status=?", "updated_at_utc=?"]; const binds = [status, nowIso()];
