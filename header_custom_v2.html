@@ -767,6 +767,25 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     background: rgba(125, 232, 217, 0.12) !important;
     color: #7de8d9 !important;
   }
+  /* Grouped legacy-links menu: a low-key backup note + uppercase section heads. */
+  .ups-teamops-subnav-menu { max-height: 75vh; overflow-y: auto; }
+  .ups-teamops-subnav-menu-note {
+    color: #8aa0c0;
+    font-size: 0.72rem;
+    line-height: 1.3;
+    padding: 0.35rem 0.65rem 0.45rem;
+    border-bottom: 1px solid rgba(125, 160, 210, 0.18);
+    margin-bottom: 0.15rem;
+    max-width: 15rem;
+  }
+  .ups-teamops-subnav-menu-group {
+    color: #7fa8d8;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.5rem 0.65rem 0.2rem;
+  }
 
   /* CCC message page only: center the UPS header shells without changing the
      home-page HPM alignment behavior. */
@@ -3177,33 +3196,46 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         { label: "Taxi Squad",    href: buildMflPath("/options?O=98") },
         { label: "Live Scoring",  href: buildMflPath("/ajax_ls") }
       ]},
-      // "MFL Legacy Links" — native MFL fallback pages collapsed into ONE
-      // dropdown (Keith 2026-06-11). Shown on BOTH desktop and mobile (Keith
-      // 2026-06-14) so the two stay consistent — the hamburger drawer re-themes
-      // MFL's own native menu separately. Points at NATIVE MFL pages, not our
-      // custom hubs. URLs built dynamically (year + L) via buildMflPath. The
-      // "Become …" links toggle the commish between the commish (0000) and owner
-      // (0008) identities — gated to those franchises via commishOnly.
+      // "MFL Legacy Links" — native MFL pages, a BACKUP for when one of our
+      // custom hubs isn't loading (Keith 2026-06-11). Shown on BOTH desktop and
+      // mobile (Keith 2026-06-14) so the two stay consistent — the hamburger
+      // drawer re-themes MFL's own native menu separately. Grouped into logical
+      // sections (Keith 2026-06-15): a low-key backup `note`, then `group`
+      // headers (Owner Actions / League / Account / Commish). URLs built
+      // dynamically (year + L) via buildMflPath. The Commish section + its
+      // "Become …" identity-toggle links are gated via commishOnly (franchise
+      // 0000/0008 only). `note` + `group` are non-clickable; buildDropdown
+      // renders them as a descriptor line + section labels.
       { id: "legacy", label: "MFL Legacy Links", children: [
-        { label: "Home",               href: buildUrl("") },
+        { note: "Native MFL pages — a backup if one of the custom pages isn't loading." },
+
+        { group: "Owner Actions" },
         { label: "Submit Lineup",      href: buildMflPath("/lineup") },
-        { label: "Starting Lineups",   href: buildMflPath("/options?O=06") },
-        { label: "Add/Drop",           href: buildMflPath("/add_drop") },
-        { label: "Trades (native)",    href: buildMflPath("/options?O=05") },
+        { label: "Add / Drop",         href: buildMflPath("/add_drop") },
+        { label: "Taxi Squad",         href: buildMflPath("/options?O=98") },
+        { label: "Injured Reserve",    href: buildMflPath("/options?O=18") },
+        { label: "Trades",             href: buildMflPath("/options?O=05") },
+
+        { group: "League" },
+        { label: "All Reports",        href: buildMflPath("/all_reports") },
         { label: "Transactions",       href: buildMflPath("/options?O=03") },
         { label: "Processed Waivers",  href: buildMflPath("/options?O=76") },
-        { label: "Injured Reserve",    href: buildMflPath("/options?O=18") },
-        { label: "Taxi Squad",         href: buildMflPath("/options?O=98") },
-        { label: "Locked Players",     href: buildMflPath("/locked_players") },
+        { label: "Starting Lineups",   href: buildMflPath("/options?O=06") },
         { label: "Live Scoring",       href: buildMflPath("/ajax_ls") },
-        { label: "All Reports",        href: buildMflPath("/all_reports") },
+        { label: "Weekly Summary",     href: buildMflPath("/options?O=31") },
+        { label: "Standings",          href: buildMflPath("/standings") },
+
+        { group: "Account" },
+        { label: "Home",               href: buildUrl("") },
+        { label: "MFL Dashboard",      href: buildMflPath("/dash") },
+        { label: "Log In / Out",       href: buildMflPath("/logout") },
         { label: "Help Center",        href: buildMflPath("/support") },
         { label: "My Support Tickets", href: buildMflPath("/my_tickets") },
-        { label: "Commissioner Setup", href: buildMflPath("/commissioner_setup") },
-        { label: "MFL Dashboard",      href: buildMflPath("/dash") },
+
+        { group: "Commish", commishOnly: true },
+        { label: "Commissioner Setup",  href: buildMflPath("/commissioner_setup"), commishOnly: true },
         { label: "Become Commissioner", href: buildMflPath("/logout?BECOME=0000"), commishOnly: true },
-        { label: "Become Owner",        href: buildMflPath("/logout?BECOME=0008"), commishOnly: true },
-        { label: "Logout",             href: buildMflPath("/logout") }
+        { label: "Become Owner",        href: buildMflPath("/logout?BECOME=0008"), commishOnly: true }
       ]}
     ];
 
@@ -3257,7 +3289,24 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       menu.className = "ups-teamops-subnav-menu";
       menu.setAttribute("role", "menu");
       t.children.forEach(function (c) {
-        if (c.commishOnly && !upsViewerIsCommish()) return; // gate "Become …" links
+        if (c.commishOnly && !upsViewerIsCommish()) return; // gate commish-only rows/sections
+        // Non-clickable descriptor line (e.g. the legacy "backup" note).
+        if (c.note) {
+          var note = document.createElement("div");
+          note.className = "ups-teamops-subnav-menu-note";
+          note.textContent = c.note;
+          menu.appendChild(note);
+          return;
+        }
+        // Non-clickable section header (groups the legacy links).
+        if (c.group) {
+          var grp = document.createElement("div");
+          grp.className = "ups-teamops-subnav-menu-group";
+          grp.setAttribute("role", "presentation");
+          grp.textContent = c.group;
+          menu.appendChild(grp);
+          return;
+        }
         var a = document.createElement("a");
         a.className = "ups-teamops-subnav-menu-item";
         a.href = c.href || (c.module ? buildUrl(c.module) : "#");
