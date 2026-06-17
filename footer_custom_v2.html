@@ -106,11 +106,11 @@
     try {
       var u = new URL(window.location.href);
       var o = String(u.searchParams.get("O") || "").trim();
-      // Keep the native lineup/rosters pages vanilla (no UPS fork overlay). The
-      // fork was running on the lineup page (O=06 / the /lineup alias) and the
-      // rosters page (O=07), hiding their content and leaving them blank-white.
-      // Skip all of them (Keith 2026-06-17).
-      if (o === "06" || o === "07" || /\/lineup\/?$/i.test(u.pathname)) return;
+      // Keep the rosters page (O=07) + the Submit Lineup page (/lineup) vanilla —
+      // no UPS rosters-fork overlay. NOTE: the /lineup blank-white bug turned out
+      // to be a theme-contrast issue (fixed in header_custom_v2.html), not the
+      // fork; this bail just keeps those two pages overlay-free as intended.
+      if (o === "07" || /\/lineup\/?$/i.test(u.pathname)) return;
     } catch (e) {}
     var sha = window.UPS_RELEASE_SHA || "main";
     var s = document.createElement("script");

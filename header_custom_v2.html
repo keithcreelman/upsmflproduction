@@ -10902,6 +10902,38 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
   }
   body#body_all_reports a:visited { color: #b39ae0 !important; }
   body#body_all_reports a:hover { color: #b5d3ff !important; }
+
+  /* Submit Lineup (body_lineup): MFL renders the lineup inside #lineup
+     (.pagebody), which MFL's light.css keeps WHITE (id beats our .pagebody dark
+     rule). Our dark-theme overlay loads async and recolors the text light, so it
+     lands light-on-white — the page "flashes then goes blank white". Force the
+     lineup content + report tables dark so the text is readable. Scoped to the
+     route; built from the live /lineup DOM (Keith 2026-06-17). */
+  body#body_lineup #lineup {
+    background: var(--ups-bg, #0b1220) !important;
+    color: var(--ups-text, #e8effa) !important;
+  }
+  body#body_lineup #lineup table.report { background: var(--ups-surface, #111b2e) !important; }
+  body#body_lineup #lineup table.report caption,
+  body#body_lineup #lineup table.report th,
+  body#body_lineup #lineup table.report td {
+    color: var(--ups-text, #e8effa) !important;
+    border-color: var(--ups-border, #2a3446) !important;
+  }
+  body#body_lineup #lineup table.report tr.oddtablerow th,
+  body#body_lineup #lineup table.report tr.oddtablerow td { background: var(--ups-row-odd, #111f35) !important; }
+  body#body_lineup #lineup table.report tr.eventablerow th,
+  body#body_lineup #lineup table.report tr.eventablerow td { background: var(--ups-row-even, #0f1b30) !important; }
+  /* Links readable on the dark rows (player names carry MFL position colors). */
+  body#body_lineup #lineup a { color: #7ab7ff !important; }
+  body#body_lineup #lineup table.report a[class*="position_"] { color: #cfe0f7 !important; }
+  /* Form controls (projection <select>, optional-message <textarea>). */
+  body#body_lineup #lineup select,
+  body#body_lineup #lineup textarea {
+    background: var(--ups-surface-alt, #16253f) !important;
+    color: var(--ups-text, #e8effa) !important;
+    border: 1px solid var(--ups-border, #2a3446) !important;
+  }
 </style>
 
 <script>
