@@ -10892,14 +10892,27 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     color: #ffe28a !important;
   }
 
-  /* All Reports: the report links are MFL's dark navy on our dark theme
-     (dark-on-dark — the global text fix doesn't touch <a>, and loader.js's
-     contrast fix only catches unclassed links / specific containers). Force
-     EVERY link on this page to a readable link blue, scoped to the route. */
-  body#body_all_reports a,
-  body#body_all_reports a:link {
-    color: #7ab7ff !important;
+  /* All Reports: light-on-light — light.css keeps the content area light while
+     our overlay makes the text + links light (recoloring links alone left light-
+     blue-on-light). Force the whole route dark like the lineup page so the link
+     directory is readable. Darken body + the likely wrappers (#allReports per
+     loader.js, .pagebody, #container-wrap) AND the tables/cells directly, so it
+     lands regardless of the exact wrapper. Route-scoped. */
+  body#body_all_reports,
+  body#body_all_reports .pagebody,
+  body#body_all_reports #allReports,
+  body#body_all_reports #all_reports,
+  body#body_all_reports #container-wrap {
+    background: var(--ups-bg, #0b1220) !important;
   }
+  body#body_all_reports table { background: var(--ups-surface, #111b2e) !important; }
+  body#body_all_reports td,
+  body#body_all_reports th {
+    background: transparent !important;
+    color: var(--ups-text, #e8effa) !important;
+  }
+  body#body_all_reports a,
+  body#body_all_reports a:link { color: #7ab7ff !important; }
   body#body_all_reports a:visited { color: #b39ae0 !important; }
   body#body_all_reports a:hover { color: #b5d3ff !important; }
 
