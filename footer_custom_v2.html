@@ -106,7 +106,10 @@
     try {
       var u = new URL(window.location.href);
       var o = String(u.searchParams.get("O") || "").trim();
-      if (o === "07") return;  // bail on Submit Lineup
+      // Keep the native lineup/rosters pages vanilla (no UPS fork overlay). The
+      // fork was also running on the /lineup page, hiding its content and leaving
+      // it blank-white; skip that path too (Keith 2026-06-17).
+      if (o === "07" || /\/lineup\/?$/i.test(u.pathname)) return;
     } catch (e) {}
     var sha = window.UPS_RELEASE_SHA || "main";
     var s = document.createElement("script");
