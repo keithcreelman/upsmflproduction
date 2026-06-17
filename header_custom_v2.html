@@ -3123,9 +3123,10 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
   // owners can jump between them without backing out to the home
   // page first. Active page is highlighted yellow.
   //
-  // Scope: MESSAGE4 / MESSAGE6 / MESSAGE7 / MESSAGE11 / MESSAGE13
-  // plus the bare home page (no MODULE). Anywhere else, no nav is
-  // rendered.
+  // Scope: every league page that resolves a league id — the MESSAGE4/6/7/11/13
+  // hub modules, the bare home page, AND the native MFL pages (add_drop, options,
+  // lineup, all_reports, standings, …) so "My Hub" is reachable from anywhere
+  // (Keith 2026-06-17). Only bails when no league id is resolvable.
   (function () {
     var BUILD = "2026.05.15.1";
     if (window.__ups_teamops_subnav === BUILD) return;
@@ -3143,23 +3144,30 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         var m = path.match(/\/(\d{4})\/home\/(\d+)/);
         if (m) { year = m[1]; leagueId = m[2]; }
         if (!leagueId) leagueId = safeStr(u.searchParams.get("L"));
-        if (!year) year = safeStr(u.searchParams.get("YEAR")) || String(new Date().getFullYear());
+        // Native pages (/2026/add_drop?L=…) carry the year in the path but not via
+        // /home/; fall back to ?YEAR, then any /20xx/ path segment, then current.
+        if (!year) year = safeStr(u.searchParams.get("YEAR"));
+        if (!year) { var ym = path.match(/\/(20\d\d)\//); if (ym) year = ym[1]; }
+        if (!year) year = String(new Date().getFullYear());
         var mod = safeUpper(u.searchParams.get("MODULE") || "");
         return { host: u.host, leagueId: leagueId, year: year, module: mod, isHomePath: /\/home\/\d+/.test(path) };
       } catch (e) { return { host: "", leagueId: "", year: "", module: "", isHomePath: false }; }
     }
 
     var ctx = currentContext();
-    // Bail if we can't resolve a league/year, or we're not on an MFL
-    // /home/<league> URL — sub-nav only makes sense in the owner-page
-    // context.
-    if (!ctx.leagueId || !ctx.isHomePath) return;
+    // Bail only if we can't resolve a league (without it the nav links can't be
+    // built). Render on BOTH the /home/<league> hub pages AND the native MFL
+    // pages (add_drop, options, lineup, all_reports, standings, …) so owners can
+    // jump back to My Hub from anywhere, not just the hub pages (Keith 2026-06-17).
+    if (!ctx.leagueId) return;
 
     // Active-page detection. Bare home (no MODULE) → Overview.
     // MESSAGE6 may carry "=N" suffix; treat anything starting MESSAGE6
     // as Trade War Room. Same lenient match for the others.
     var activeId = "";
-    if (!ctx.module || ctx.module === "MESSAGE11") activeId = "overview";
+    // Overview only when on the bare home page (or MESSAGE11). On a native page
+    // (no MODULE, not /home/) nothing is the active hub, so highlight nothing.
+    if ((!ctx.module && ctx.isHomePath) || ctx.module === "MESSAGE11") activeId = "overview";
     else if (/^MESSAGE7\b/.test(ctx.module)) activeId = "front-office";
     else if (/^MESSAGE13\b/.test(ctx.module)) activeId = "player-stats";
     else if (/^MESSAGE6\b/.test(ctx.module)) activeId = "trade-room";
@@ -10848,6 +10856,40 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     text-align: center;
     color: var(--ups-muted, #9fb3d1);
     font-size: 12px;
+  }
+</style>
+
+<style>
+  /* ── Native MFL page contrast repairs (Keith 2026-06-17) ───────────────────
+     A few native pages render a single element light-on-light (invisible): the
+     global light-text override applies, but that element kept a light background.
+     Force BOTH a dark surface and light text on just those elements, scoped to
+     their body_<route> id so no other page/element is affected (id-specificity
+     also wins over the broad global rules regardless of source order). */
+
+  /* Transactions (O=03): the "(C) Indicates…" report-footer row was invisible. */
+  body#body_options_03 tr.reportfooter,
+  body#body_options_03 tr.reportfooter td {
+    background: var(--ups-surface-alt, #16253f) !important;
+    color: var(--ups-text, #e8effa) !important;
+  }
+
+  /* Add/Drop: the "[L] Locked…" legend (#locked-msg — an unclassed div). */
+  body#body_add_drop #locked-msg {
+    background: var(--ups-surface, #111b2e) !important;
+    border-radius: 6px;
+    padding: 0.45rem 0.6rem;
+  }
+  body#body_add_drop #locked-msg,
+  body#body_add_drop #locked-msg * {
+    color: var(--ups-text, #e8effa) !important;
+  }
+
+  /* Injured Reserve (O=18): the "No Players Currently On IR" warning cell. */
+  body#body_options_18 td.warning,
+  body#body_options_18 td.warning * {
+    background: rgba(180, 35, 45, 0.18) !important;
+    color: #ffe28a !important;
   }
 </style>
 
