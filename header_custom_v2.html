@@ -10961,6 +10961,20 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     font-weight: 700 !important;
     cursor: pointer;
   }
+  /* The owner lineup TABLE lives inside <form> in a .mobile-wrap that MFL/
+     light.css leaves WHITE — that white shows as the "blank" lineup area (the
+     IR/Taxi tables sit in their own wrap and render dark over it, which is why
+     only the lineup looked blank). Darken the form + wrap, and force the table +
+     its rows shown in case anything leaves them inline-hidden. */
+  body#body_lineup #lineup .mobile-wrap,
+  body#body_lineup #lineup form {
+    background-color: var(--ups-bg, #0b1220) !important;
+  }
+  body#body_lineup #lineup form table.report { display: table !important; }
+  body#body_lineup #lineup form table.report > tbody { display: table-row-group !important; }
+  body#body_lineup #lineup form table.report > tbody > tr { display: table-row !important; }
+  body#body_lineup #lineup form table.report > tbody > tr > td,
+  body#body_lineup #lineup form table.report > tbody > tr > th { display: table-cell !important; }
 </style>
 
 <script>
