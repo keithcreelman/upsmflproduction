@@ -10947,6 +10947,20 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     color: var(--ups-text, #e8effa) !important;
     border: 1px solid var(--ups-border, #2a3446) !important;
   }
+  /* Commish "Select A Franchise" gate on /lineup: it's a bare .reportform with a
+     dropdown + submit (no lineup table). Make its text + button clearly visible
+     so the page reads as intentional, not an empty dark void. */
+  body#body_lineup #lineup form.reportform { color: var(--ups-text, #e8effa) !important; }
+  body#body_lineup #lineup input[type="submit"],
+  body#body_lineup #lineup input[type="button"] {
+    background: var(--ups-accent, #f3b61f) !important;
+    color: var(--ups-accent-ink, #0e1320) !important;
+    border: 0 !important;
+    padding: 0.4rem 0.85rem !important;
+    border-radius: 6px !important;
+    font-weight: 700 !important;
+    cursor: pointer;
+  }
 </style>
 
 <script>
