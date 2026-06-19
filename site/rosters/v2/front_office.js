@@ -6685,7 +6685,10 @@
     }
     const rowHtml = flags.map(function (f) {
       const on = !!f.value;
-      const onColor = f.danger ? "#c0392b" : "#1f8a4c";
+      // "On" is always green (enabled = green, the universal convention). A
+      // danger flag is signalled by the ⚠️ icon + help + a confirm dialog, NOT by
+      // a red "On" — red-for-on reads as an error/warning (Keith 2026-06-19).
+      const onColor = "#1f8a4c";
       const seg = [["on", "On"], ["off", "Off"]].map(function (pair) {
         const o = pair[0], isOn = (o === "on") === on;
         const bg = isOn ? (o === "on" ? onColor : "#7a7f87") : "var(--panel-alt)";
@@ -6706,7 +6709,7 @@
         const k = btn.dataset.flag, v = btn.dataset.val === "on";
         const cur = flags.filter(function (f) { return f.key === k; })[0];
         if (cur && !!cur.value === v) return; // no change
-        if (cur && cur.danger && v && !window.confirm("Turn ON live 3-way execution? Accepted 3-way trades will move real rosters in MFL — this can't be undone.")) return;
+        if (cur && cur.danger && v && !window.confirm('Turn ON "' + cur.label + '" (live)? ' + (cur.help || "This is a live action that can't be easily undone."))) return;
         try {
           const upd = {}; upd[k] = v ? "1" : "0";
           await postJSONRaw(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(LEAGUE_ID), { feature_flags: upd });
@@ -6730,7 +6733,7 @@
       host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + escapeHtml(e.message || String(e)) + "</div></div>";
       return;
     }
-    const labels = { extension: "Extension", myac: "Auction Contract (FA + MYAC)", restructure: "Restructure", tag: "Tag / Untag", mym: "MYM", traderoast: "Trade Roast bot (trades always post to #transactions)" };
+    const labels = { extension: "Extension", myac: "Auction Contract (FA + MYAC)", auctionbidding: "Auction Bidding (live bid/nom narration)", restructure: "Restructure", tag: "Tag / Untag", mym: "MYM", traderoast: "Trade Roast bot (trades always post to #transactions)" };
     const rowHtml = Object.keys(labels).map(function (k) {
       const val = String(cfg[k] || "prod").toLowerCase();
       const seg = ["prod", "test"].map(function (o) {
@@ -6804,7 +6807,7 @@
       { n: "Contract — MYM", k: "mym" },
       { n: "Drop / Cap penalty", state: "prod" },
       { n: "Trade notification", state: "prod" },
-      { n: "Auction alerts", state: "prod" },
+      { n: "Auction alerts (live bid/nom)", k: "auctionbidding" },
       { n: "Deadline reminders", state: "prod" },
       { n: "Trade Roast bot", state: "prod", note: "RUNNING — trade roasts post to #transactions, always (re-enabled 2026-06-05; cursor pinned to now, no history replay). Manually tracked (separate launchd process); clap-back is worker-handled. The Discord Routing toggle above does NOT steer it — trades always go to #transactions." },
     ].map(function (r) {
