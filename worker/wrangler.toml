@@ -45,6 +45,12 @@ TRADE_3WAY_ENABLED = "1"
 TRADE_3WAY_EXECUTE = "1"
 TRADE_3WAY_TEST_FRANCHISES = ""
 
+# In-app mobile auction bidding (Phase 1). Default OFF: the mobile Bid/Nominate
+# buttons fall back to MFL's O=43 deep-link until the commish flips this ON in the
+# FO Kill Switches panel. ON = the worker submits MFL's auction form on the
+# owner's behalf (fragile — flip OFF instantly if MFL's auction page changes).
+AUCTION_INAPP_BID_ENABLED = "0"
+
 # Hourly drop → cap-penalty scan at :05 past each hour (RULE-WORKFLOW-004).
 # The worker's scheduled() handler:
 #   1. calls /admin/import-drop-penalties logic to post new cap penalties to MFL
