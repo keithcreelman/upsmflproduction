@@ -105,6 +105,12 @@
     });
   }
 
+  // In-app bidding only when the commish kill switch is on (surfaced on the lots
+  // payload). Off → the CTAs stay plain MFL deep-links (current behavior).
+  function inappEnabled() {
+    return !!(state.lots && state.lots.inapp_bid_enabled);
+  }
+
   function lotForPid(pid) {
     var arr = (state.lots && state.lots.lots) || [];
     for (var i = 0; i < arr.length; i++) {
@@ -130,6 +136,7 @@
       return;
     }
     body.innerHTML = renderHeader() + renderNomination() + renderLots() + renderEra();
+    wireBidButtons();
   }
 
   function renderHeader() {
@@ -145,7 +152,10 @@
     } else if (win.reason === "after_close") {
       banner = '<div class="ups-m-auc-banner"><strong>ERA nominations closed</strong>. Open lots keep bidding on their 36-hour locks until they resolve.</div>';
     }
-    return '<div class="ups-m-auc-intro">Live auction board. Bidding & nominating happen on MFL — the buttons below open MFL\'s native auction page.</div>' + banner;
+    var intro = inappEnabled()
+      ? 'Live auction board. Tap <strong>Bid</strong> to bid in-app; <strong>↗</strong> opens MFL\'s page.'
+      : 'Live auction board. Bidding &amp; nominating open MFL\'s native auction page.';
+    return '<div class="ups-m-auc-intro">' + intro + '</div>' + banner;
   }
 
   function renderLots() {
@@ -171,7 +181,11 @@
     var isWon = l.status === "won";
     var cta = isWon
       ? '<span class="ups-m-auc-won">Won · ' + U.escapeHtml(l.winner_name || franchiseName(l.winner_fid)) + '</span>'
-      : '<a class="btn-act myac" href="' + mflAuctionUrl(l.player_id) + '" target="_blank" rel="noopener">Bid ↗</a>';
+      : (inappEnabled()
+        ? '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="bid" data-pid="' + U.escapeHtml(String(l.player_id)) +
+            '" data-name="' + U.escapeHtml(l.player_name || "") + '" data-kind="free-agent" data-high="' + (Number(l.current_high_bid_k) || 0) + '">Bid</button>' +
+          '<a class="ups-m-auc-mfl" href="' + mflAuctionUrl(l.player_id) + '" target="_blank" rel="noopener" title="Bid on MFL">↗</a>'
+        : '<a class="btn-act myac" href="' + mflAuctionUrl(l.player_id) + '" target="_blank" rel="noopener">Bid ↗</a>');
     var timeCell = isWon ? '' :
       '<span class="ups-m-auc-time" title="Locks in">' + countdown(l.seconds_remaining) + '</span>';
     return '<div class="ups-m-auc-card' + (isWon ? ' won' : '') + '">' +
@@ -261,6 +275,11 @@
       cta = '<span class="ups-m-auc-won">Closed</span>';
     } else if (p.nominate_blocked) {
       cta = '<span class="ups-m-auc-won" title="' + U.escapeHtml(p.nominate_block_reason || "Nomination blocked") + '">Blocked</span>';
+    } else if (inappEnabled()) {
+      cta = '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="' + (alreadyNominated ? "bid" : "nominate") +
+          '" data-pid="' + U.escapeHtml(String(p.player_id)) + '" data-name="' + U.escapeHtml(p.name || "") +
+          '" data-kind="expired-rookie" data-high="' + (Number(p.high_bid_k) || 0) + '">' + (alreadyNominated ? "Bid" : "Nominate") + '</button>' +
+        '<a class="ups-m-auc-mfl" href="' + mflAuctionUrl(p.player_id) + '" target="_blank" rel="noopener" title="Open on MFL">↗</a>';
     } else {
       cta = '<a class="btn-act myac" href="' + mflAuctionUrl(p.player_id) + '" target="_blank" rel="noopener">' +
         (alreadyNominated ? "Bid ↗" : "Nominate ↗") + '</a>';
@@ -281,6 +300,140 @@
       '</div>' +
       '<div class="ups-m-auc-card-cta">' + cta + '</div>' +
     '</div>';
+  }
+
+  // ── In-app bid / nominate (Phase 1) ─────────────────────────────────
+  // Submits through the worker (POST /api/auction/{bid,nominate}), which places
+  // the bid on MFL via the owner's forwarded MFL_USER_ID, then re-reads the live
+  // board (verify-after-submit). Gated server-side by AUCTION_INAPP_BID_ENABLED:
+  // when off the route 503s and we fall back to MFL's O=43 page (deep-link).
+  function postAuction(action, payload) {
+    var url = M.api.workerUrl("/api/auction/" + action +
+      "?L=" + encodeURIComponent(M.state.ctx.leagueId) +
+      "&YEAR=" + encodeURIComponent(M.state.ctx.year));
+    var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+    if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
+    return fetch(url, {
+      method: "POST", mode: "cors", credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {})
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        var p = null; try { p = t ? JSON.parse(t) : null; } catch (e) {}
+        return { status: r.status, ok: r.ok, body: p || {} };
+      });
+    });
+  }
+
+  function closeBidSheet() {
+    var ov = document.getElementById("ups-m-auc-bid-overlay");
+    if (ov) ov.remove();
+    document.body.style.overflow = "";
+  }
+
+  // opts: { action:"bid"|"nominate", player_id, player_name, auction_type, high_k }
+  function openBidSheet(opts) {
+    if (!M.state.viewerFranchiseId) { M.ui.showToast("Pick your franchise first.", "err"); return; }
+    var isNom = opts.action === "nominate";
+    var highK = Number(opts.high_k) || 0;
+    var minK = isNom ? 1 : highK + 1;     // ERA/FA start $1K; a bid beats the high by the $1K increment
+    var deepLink = mflAuctionUrl(opts.player_id);
+    closeBidSheet();
+    var html =
+      '<div class="ups-m-drop-overlay" id="ups-m-auc-bid-overlay">' +
+        '<div class="ups-m-drop-sheet ups-m-auc-bid-sheet">' +
+          '<div class="ups-m-drop-head">' +
+            '<button class="ups-m-drop-close" id="ups-m-auc-bid-close" aria-label="Close">×</button>' +
+            '<div class="grip"></div>' +
+            '<div class="title">' + (isNom ? "Nominate" : "Bid") + ' — ' + U.escapeHtml(opts.player_name || ("Player #" + opts.player_id)) + '</div>' +
+            '<div class="sub">' + (highK > 0 ? "High " + fmtK(highK) : (isNom ? "Starting bid " + fmtK(1) : "")) + '</div>' +
+          '</div>' +
+          '<div class="ups-m-drop-body">' +
+            '<label class="ups-m-auc-bid-lbl">Your ' + (isNom ? "nominating" : "max") + ' bid ($K)</label>' +
+            '<div class="ups-m-auc-bid-input">' +
+              '<button type="button" class="ups-m-auc-step" data-step="-1" aria-label="Lower">−</button>' +
+              '<input type="number" id="ups-m-auc-bid-amt" min="' + minK + '" step="1" inputmode="numeric" value="' + minK + '" />' +
+              '<button type="button" class="ups-m-auc-step" data-step="1" aria-label="Raise">+</button>' +
+            '</div>' +
+            '<div class="ups-m-auc-bid-note">Submitted to MFL on your behalf, then confirmed by re-reading the board.</div>' +
+            '<div class="ups-m-auc-bid-err" id="ups-m-auc-bid-err"></div>' +
+          '</div>' +
+          '<div class="ups-m-auc-bid-foot">' +
+            '<a class="btn-act" href="' + deepLink + '" target="_blank" rel="noopener">On MFL ↗</a>' +
+            '<button type="button" class="btn-act otb on" id="ups-m-auc-bid-submit">' + (isNom ? "Nominate" : "Place bid") + '</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return;
+    mount.insertAdjacentHTML("beforeend", html);
+    document.body.style.overflow = "hidden";
+    var amt = document.getElementById("ups-m-auc-bid-amt");
+    document.getElementById("ups-m-auc-bid-close").addEventListener("click", closeBidSheet);
+    Array.prototype.forEach.call(document.querySelectorAll("#ups-m-auc-bid-overlay .ups-m-auc-step"), function (b) {
+      b.addEventListener("click", function () {
+        var step = parseInt(this.getAttribute("data-step"), 10) || 0;
+        amt.value = String(Math.max(minK, (parseInt(amt.value, 10) || minK) + step));
+      });
+    });
+    document.getElementById("ups-m-auc-bid-submit").addEventListener("click", function () {
+      submitBid(opts, this, minK);
+    });
+  }
+
+  function submitBid(opts, btn, minK) {
+    var amt = document.getElementById("ups-m-auc-bid-amt");
+    var errEl = document.getElementById("ups-m-auc-bid-err");
+    var amountK = parseInt(amt && amt.value, 10) || 0;
+    if (amountK < minK) { if (errEl) errEl.textContent = "Bid must be at least " + fmtK(minK) + "."; return; }
+    if (errEl) errEl.textContent = "";
+    var label = opts.action === "nominate" ? "Nominate" : "Place bid";
+    btn.disabled = true; btn.textContent = "Submitting…";
+    M.ui.showToast((opts.action === "nominate" ? "Nominating" : "Bidding") + " " + fmtK(amountK) + "…", "info");
+    postAuction(opts.action, {
+      player_id: String(opts.player_id),
+      amount: amountK * 1000,            // $K → dollars (MFL form unit; archived module used dollars)
+      franchise_id: M.state.viewerFranchiseId,
+      auction_type: opts.auction_type || "free-agent"
+    }).then(function (resp) {
+      if (resp.status === 503) {            // kill switch off → fall back to MFL
+        M.ui.showToast("In-app bidding is off — opening MFL.", "info");
+        window.open((resp.body && resp.body.native_link) || mflAuctionUrl(opts.player_id), "_blank", "noopener");
+        closeBidSheet();
+        return;
+      }
+      if (resp.ok && resp.body && resp.body.ok) {
+        M.ui.showToast((opts.action === "nominate" ? "Nominated" : "Bid placed") + " ✓", "ok");
+        closeBidSheet();
+        state.loadedFor = ""; load().then(paint);   // re-read → shows the verified high bid
+      } else {
+        var msg = (resp.body && (resp.body.message || resp.body.error)) || ("HTTP " + resp.status);
+        if (errEl) errEl.textContent = msg;
+        M.ui.showToast("Bid failed: " + msg, "err");
+        btn.disabled = false; btn.textContent = label;
+      }
+    }).catch(function (e) {
+      var msg = (e && e.message) || String(e);
+      if (errEl) errEl.textContent = msg;
+      M.ui.showToast("Bid failed: " + msg, "err");
+      btn.disabled = false; btn.textContent = label;
+    });
+  }
+
+  function wireBidButtons() {
+    var body = document.getElementById("ups-m-auction-body");
+    if (!body) return;
+    Array.prototype.forEach.call(body.querySelectorAll(".ups-m-auc-bid-btn"), function (b) {
+      b.addEventListener("click", function () {
+        openBidSheet({
+          action: b.getAttribute("data-action"),
+          player_id: b.getAttribute("data-pid"),
+          player_name: b.getAttribute("data-name"),
+          auction_type: b.getAttribute("data-kind"),
+          high_k: Number(b.getAttribute("data-high")) || 0
+        });
+      });
+    });
   }
 
   M.auctionView = { render: render };

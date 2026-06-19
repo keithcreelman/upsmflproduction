@@ -7,7 +7,7 @@ import {
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline } from "./trade_dm.js";
 import { create3WayTrade, list3WayForFranchise, cancel3WayTrade } from "./trade_3way.js";
-import { getAllFeatureFlags, setFeatureFlags } from "./feature_flags.js";
+import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 
 const acquisitionLiveMemoryCache = new Map();
 const contractDiscordChannelQueues = new Map();
@@ -4262,6 +4262,9 @@ export default {
             generated_at: new Date().toISOString(),
             viewer_franchise_id: viewerFid || null,
             count: enriched.length,
+            // Drives the mobile CTA: when off, the board deep-links to MFL (no
+            // in-app sheet) — zero-regression default. Flip on in FO to bid in-app.
+            inapp_bid_enabled: await getFeatureFlag(env, "AUCTION_INAPP_BID_ENABLED"),
             lots: enriched,
           });
         } catch (e) {
@@ -28231,6 +28234,54 @@ export default {
             preview: actionRes.preview || "",
             native_link: actionRes.native_link || "",
           },
+          live,
+        });
+      }
+
+      // ---------- In-app auction bid / nominate (mobile, Phase 1) ----------
+      // Thin, mobile-facing wrappers over the proven performAuctionAction (owner-
+      // cookie O=43 form submit) + buildAuctionLivePayload (verify-after-submit).
+      // Gated behind the AUCTION_INAPP_BID_ENABLED kill switch so the commish can
+      // flip it off mid-auction from the FO panel (no redeploy) — when off we 503
+      // with native_link so the mobile silently falls back to MFL's O=43 page.
+      // Owner identity rides the forwarded MFL_USER_ID (→ viewerCookieHeader);
+      // body.auction_type picks free-agent (FA Auction) vs expired-rookie (ERA).
+      if ((path === "/api/auction/bid" || path === "/api/auction/nominate") && request.method === "POST") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        const nativeLink = `https://www48.myfantasyleague.com/${season}/options?LEAGUE_ID=${leagueId}&O=43`;
+        if (!(await getFeatureFlag(env, "AUCTION_INAPP_BID_ENABLED"))) {
+          return jsonNoStore(503, {
+            ok: false,
+            error: "auction_inapp_disabled",
+            message: "In-app bidding is off — use MFL's auction page.",
+            native_link: nativeLink,
+          });
+        }
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        const action = path.endsWith("/nominate") ? "nominate" : "bid";
+        const kind = safeStr(body.auction_type || body.auctionType || body.auction_kind) === "expired-rookie"
+          ? "expired-rookie" : "free-agent";
+        const actionRes = await performAuctionAction(season, leagueId, { ...body, action }, kind);
+        if (!actionRes.ok) {
+          return jsonNoStore(actionRes.status >= 400 ? actionRes.status : 502, {
+            ok: false,
+            error: actionRes.error,
+            preview: actionRes.preview || "",
+            native_link: actionRes.native_link || nativeLink,
+          });
+        }
+        // Verify-after-submit: re-read the live board so `live` reflects what MFL
+        // actually recorded (not just a 200 from the form POST).
+        acqCacheBustPrefix(`acq:auction-live:${season}:${leagueId}:${kind}`);
+        const live = await buildAuctionLivePayload(season, leagueId, body?.franchise_id || body?.franchiseId || "", kind);
+        return jsonNoStore(200, {
+          ok: true,
+          action,
+          message: `Auction ${action} submitted.`,
+          action_result: { status: actionRes.status, native_link: actionRes.native_link || nativeLink },
           live,
         });
       }

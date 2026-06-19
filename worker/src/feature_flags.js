@@ -13,6 +13,7 @@ export const FEATURE_FLAGS = [
   { key: "TRADE_DM_ENABLED",   label: "Trade-offer DMs",      help: "DM owners when they receive a trade offer, plus the reminder cadence." },
   { key: "TRADE_3WAY_ENABLED", label: "3-way trades",         help: "Arm the 3-way feature — the builders, partner DMs, and acceptance." },
   { key: "TRADE_3WAY_EXECUTE", label: "3-way LIVE execution", help: "ON = an accepted 3-way actually moves rosters in MFL (can't be undone). OFF = dry-run (everything runs but no rosters move).", danger: true },
+  { key: "AUCTION_INAPP_BID_ENABLED", label: "In-app auction bidding", help: "ON = the mobile app places auction bids/nominations directly (the worker submits MFL's auction form on your behalf). OFF = the buttons fall back to opening MFL's auction page. Flip OFF immediately if MFL changes its auction page and bidding breaks mid-auction.", danger: true },
 ];
 const FLAG_KEYS = FEATURE_FLAGS.map((f) => f.key);
 

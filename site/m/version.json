@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.15.1",
-  "label": "3-way trades can now include cap money (salary): each team→team movement gets a cap field, clamped to §A6 (≤50% of the non-taxi salary it sends). The engine carries it to MFL as BlindBid$ on the giving side, and both partners see the cap in their Discord DM."
+  "build": "2026.06.19.1",
+  "label": "Auction: bid + nominate in-app. Tap Bid on a lot (or Nominate in the ERA pool), set your $K amount, and it submits to MFL on your behalf — then re-reads the board to confirm the new high bid. A one-tap \"On MFL ↗\" fallback stays on every card. Gated by a commish kill switch (off = falls back to MFL's page). Phase 1 — dry-run before the July FA Auction."
 }
