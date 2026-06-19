@@ -13,7 +13,9 @@ export const FEATURE_FLAGS = [
   { key: "TRADE_DM_ENABLED",   label: "Trade-offer DMs",      help: "DM owners when they receive a trade offer, plus the reminder cadence." },
   { key: "TRADE_3WAY_ENABLED", label: "3-way trades",         help: "Arm the 3-way feature — the builders, partner DMs, and acceptance." },
   { key: "TRADE_3WAY_EXECUTE", label: "3-way LIVE execution", help: "ON = an accepted 3-way actually moves rosters in MFL (can't be undone). OFF = dry-run (everything runs but no rosters move).", danger: true },
-  { key: "AUCTION_INAPP_BID_ENABLED", label: "In-app auction bidding", help: "ON = the mobile app places auction bids/nominations directly (the worker submits MFL's auction form on your behalf). OFF = the buttons fall back to opening MFL's auction page. Flip OFF immediately if MFL changes its auction page and bidding breaks mid-auction.", danger: true },
+  { key: "AUCTION_INAPP_BID_ENABLED", label: "In-app auction bidding", help: "Master kill for in-app bidding (both app + desktop). ON = the worker submits MFL's auction form on your behalf. OFF = buttons fall back to MFL's auction page. Flip OFF immediately if MFL changes its auction page and bidding breaks mid-auction.", danger: true },
+  { key: "AUCTION_ERA_ENABLED", label: "ERA auction live", help: "ON = the Expired-Rookie Auction is running — the ERA tab goes live (board + bidding) on the app + desktop. OFF = the ERA tab shows a read-only eligible pool. Flip ON when ERA opens (Memorial Day weekend)." },
+  { key: "AUCTION_FAA_ENABLED", label: "FAA auction live", help: "ON = the Free-Agent Auction is running — the FAA tab goes live (board + bidding) on the app + desktop. OFF = the FAA tab shows a read-only available pool. Flip ON when the FA Auction opens (last weekend of July)." },
 ];
 const FLAG_KEYS = FEATURE_FLAGS.map((f) => f.key);
 

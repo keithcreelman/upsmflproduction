@@ -51,6 +51,12 @@ TRADE_3WAY_TEST_FRANCHISES = ""
 # owner's behalf (fragile — flip OFF instantly if MFL's auction page changes).
 AUCTION_INAPP_BID_ENABLED = "0"
 
+# Per-auction "is it live" switches (commish flips in FO Kill Switches). Default
+# OFF: the ERA/FAA tabs show a read-only eligible pool until the commish turns the
+# auction on. ON = live board + (with AUCTION_INAPP_BID_ENABLED) in-app bidding.
+AUCTION_ERA_ENABLED = "0"
+AUCTION_FAA_ENABLED = "0"
+
 # Hourly drop → cap-penalty scan at :05 past each hour (RULE-WORKFLOW-004).
 # The worker's scheduled() handler:
 #   1. calls /admin/import-drop-penalties logic to post new cap penalties to MFL

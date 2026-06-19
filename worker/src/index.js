@@ -774,6 +774,27 @@ async function processAuctionPoll(env) {
     }
   }
 
+  // ── Time-based auto-expiry (hygiene) ──
+  // A lot whose lock window passed without a winner (MFL never emitted
+  // AUCTION_WON) would otherwise sit `open` forever and surface as a phantom lot
+  // long after the auction ends (the A'Shawn Robinson / Eric Wilson bug). Mark
+  // such stale opens `expired`. A 2-hour grace past the lock avoids racing a
+  // just-locked lot whose AUCTION_WON tx hasn't been polled yet. Independent of
+  // the cookie-dependent reconcile below, so it always runs (Keith 2026-06-19).
+  try {
+    const staleCutoff = Math.floor(Date.now() / 1000) - 7200;
+    const exp = await db.prepare(
+      `UPDATE ups_auction_lots
+          SET status = 'expired', updated_at_utc = datetime('now')
+        WHERE season = ? AND league_id = ? AND status = 'open'
+          AND winner_fid IS NULL AND locks_at_unix > 0 AND locks_at_unix < ?`
+    ).bind(season, leagueId, staleCutoff).run();
+    const n = exp?.meta?.changes || 0;
+    if (n > 0) console.log(`[auction-poll] auto-expired ${n} stale open lot(s) past their lock`);
+  } catch (e) {
+    console.warn("[auction-poll] auto-expiry failed:", e?.message || String(e));
+  }
+
   // ── Cancellation reconciliation ──
   // MFL doesn't emit a transaction when commish deletes an auction lot
   // (verified 2026-05-20: only AUCTION_INIT + AUCTION_BID + AUCTION_WON
@@ -4135,7 +4156,8 @@ export default {
                             locks_at_unix, status, winner_fid, won_at_unix,
                             bid_count, unique_bidder_count
                        FROM ups_auction_lots
-                      WHERE season = ? AND league_id = ?`;
+                      WHERE season = ? AND league_id = ?
+                        AND status NOT IN ('cancelled', 'expired')`;
           const args = [year, leagueId];
           if (statusFilter === "open" || statusFilter === "won") {
             sql += ` AND status = ?`;
@@ -15482,10 +15504,17 @@ export default {
         const parsedPage = parseAuctionPage(pageRes.html, pageRes.url || pageRes.pageUrl);
         const preparedForm = auctionActionFormFromPage(parsedPage, normalized);
         if (!preparedForm) {
+          // Distinguish "no biddable forms at all" (the auction isn't live — the
+          // common case off-season) from "forms exist but none matched this player"
+          // (a real parser miss / MFL form change).
+          const noForms = !Array.isArray(parsedPage?.forms) || parsedPage.forms.length === 0;
           return {
             ok: false,
-            status: 422,
-            error: "auction_form_contract_not_found",
+            status: noForms ? 409 : 422,
+            error: noForms ? "auction_not_live" : "auction_form_contract_not_found",
+            message: noForms
+              ? "No biddable form on MFL's auction page — the auction may not be open right now."
+              : "Couldn't find the bid form for that player on MFL's page.",
             preview: safeStr(pageRes.html).slice(0, 800),
             native_link: pageRes.pageUrl,
           };
@@ -28130,6 +28159,9 @@ export default {
           }
         }
         const payload = await buildAuctionLivePayload(season, leagueId, franchiseId, "free-agent");
+        // `enabled` = the commish FAA switch. When off, the UI shows the read-only
+        // available pool (no live board / bidding). ≤15s cache staleness is fine.
+        payload.enabled = await getFeatureFlag(env, "AUCTION_FAA_ENABLED");
         acqCacheSet(cacheKey, payload);
         return jsonNoStore(payload.ok ? 200 : 502, payload);
       }
@@ -28195,6 +28227,7 @@ export default {
           }
         }
         const payload = await buildAuctionLivePayload(season, leagueId, franchiseId, "expired-rookie");
+        payload.enabled = await getFeatureFlag(env, "AUCTION_ERA_ENABLED");   // commish ERA switch
         acqCacheSet(cacheKey, payload);
         return jsonNoStore(payload.ok ? 200 : 502, payload);
       }
@@ -28256,6 +28289,22 @@ export default {
         const leagueId = safeStr(url.searchParams.get("L") || L || "");
         if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
         const nativeLink = `https://www48.myfantasyleague.com/${season}/options?LEAGUE_ID=${leagueId}&O=43`;
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        const action = path.endsWith("/nominate") ? "nominate" : "bid";
+        const kind = safeStr(body.auction_type || body.auctionType || body.auction_kind) === "expired-rookie"
+          ? "expired-rookie" : "free-agent";
+        // Gate 1 — that auction must be switched ON (commish). Off → nothing live to bid on.
+        const auctionFlag = kind === "expired-rookie" ? "AUCTION_ERA_ENABLED" : "AUCTION_FAA_ENABLED";
+        if (!(await getFeatureFlag(env, auctionFlag))) {
+          return jsonNoStore(503, {
+            ok: false,
+            error: "auction_not_open",
+            message: `The ${kind === "expired-rookie" ? "Expired-Rookie" : "Free-Agent"} auction isn't running right now.`,
+            native_link: nativeLink,
+          });
+        }
+        // Gate 2 — master in-app-bid kill (form-scrape safety).
         if (!(await getFeatureFlag(env, "AUCTION_INAPP_BID_ENABLED"))) {
           return jsonNoStore(503, {
             ok: false,
@@ -28264,11 +28313,6 @@ export default {
             native_link: nativeLink,
           });
         }
-        let body = {};
-        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        const action = path.endsWith("/nominate") ? "nominate" : "bid";
-        const kind = safeStr(body.auction_type || body.auctionType || body.auction_kind) === "expired-rookie"
-          ? "expired-rookie" : "free-agent";
         const actionRes = await performAuctionAction(season, leagueId, { ...body, action }, kind);
         if (!actionRes.ok) {
           return jsonNoStore(actionRes.status >= 400 ? actionRes.status : 502, {
