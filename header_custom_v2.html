@@ -10975,6 +10975,15 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
   body#body_lineup #lineup form table.report > tbody > tr { display: table-row !important; }
   body#body_lineup #lineup form table.report > tbody > tr > td,
   body#body_lineup #lineup form table.report > tbody > tr > th { display: table-cell !important; }
+  /* THE ACTUAL CULPRIT (confirmed via computed styles: display:table, 649px tall,
+     themed dark — only visibility was hidden): MFL hides the lineup <form> via
+     visibility:hidden until its own reveal JS fires, which doesn't run on our
+     themed page, so the fully-rendered table stays invisible while the non-form
+     IR/Taxi tables show. Force the form + its contents visible. */
+  body#body_lineup #lineup form,
+  body#body_lineup #lineup form * {
+    visibility: visible !important;
+  }
 </style>
 
 <script>
