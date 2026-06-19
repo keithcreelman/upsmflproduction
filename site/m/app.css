@@ -2054,6 +2054,50 @@ button.ups-m-busy::before,
 .ups-m-auc-nom-row .rdy { color: var(--ok); font-weight: 600; }
 .ups-m-auc-nom-row .cd { color: var(--fg-muted); }
 
+/* ── ERA/FAA inner tabs + redesign ── */
+.ups-m-auc-itabs { display: flex; gap: 6px; margin: 2px 0 12px; }
+.ups-m-auc-itab {
+  flex: 1; min-width: 0; padding: 9px 6px; cursor: pointer; white-space: nowrap;
+  background: var(--bg-elev); color: var(--fg-muted);
+  border: 1px solid var(--line); border-radius: 9px;
+  font-size: 12.5px; font-weight: 600;
+}
+.ups-m-auc-itab.active { background: var(--bg-elev2); color: var(--fg); border-color: var(--accent); }
+.ups-m-auc-live { color: var(--teal); font-size: 10px; font-weight: 700; }
+.ups-m-auc-tabbody { display: block; }
+/* KPI strip */
+.ups-m-auc-kpis { display: flex; gap: 8px; margin-bottom: 12px; }
+.ups-m-auc-kpi {
+  flex: 1; min-width: 0; text-align: center; padding: 8px 6px;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 9px;
+}
+.ups-m-auc-kpi .lbl { display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--fg-muted); margin-bottom: 2px; }
+.ups-m-auc-kpi strong { display: block; font-size: 15px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ups-m-auc-lock { font-size: 10px; color: var(--warn); font-weight: 600; margin-left: 6px; }
+/* Pool search + list */
+.ups-m-auc-search {
+  width: 100%; box-sizing: border-box; margin: 6px 0 10px; padding: 10px 12px;
+  background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 9px; font-size: 16px; -webkit-appearance: none;
+}
+.ups-m-auc-search:focus { outline: none; border-color: var(--accent); }
+.ups-m-auc-pool { display: flex; flex-direction: column; gap: 8px; }
+/* Budgets / needs tables */
+.ups-m-auc-table {
+  display: flex; flex-direction: column; gap: 1px; margin-bottom: 14px;
+  background: var(--line); border: 1px solid var(--line); border-radius: 9px; overflow: hidden;
+}
+.ups-m-auc-trow {
+  display: grid; grid-template-columns: 1.3fr 0.9fr 0.7fr 1.1fr; gap: 4px;
+  padding: 8px 10px; background: var(--bg-elev); font-size: 12px;
+  align-items: center; font-variant-numeric: tabular-nums;
+}
+.ups-m-auc-trow.head { background: var(--bg-elev2); color: var(--fg-muted); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 700; }
+.ups-m-auc-trow.me { background: rgba(91, 141, 255, 0.12); }
+.ups-m-auc-trow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ups-m-auc-trow .tn { color: var(--fg); font-weight: 600; }
+.ups-m-auc-trow .def { font-size: 10.5px; color: var(--fg-muted); white-space: normal; }
+
 /* ════════ Trade offer builder (League → Trade → Build offer) ════════ */
 .ups-m-tb-sheet { height: 92vh; max-height: 92vh; }
 #ups-m-tb-body { padding: 14px 16px 28px; display: flex; flex-direction: column; }

@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.19.1",
-  "label": "Auction: bid + nominate in-app. Tap Bid on a lot (or Nominate in the ERA pool), set your $K amount, and it submits to MFL on your behalf — then re-reads the board to confirm the new high bid. A one-tap \"On MFL ↗\" fallback stays on every card. Gated by a commish kill switch (off = falls back to MFL's page). Phase 1 — dry-run before the July FA Auction."
+  "build": "2026.06.19.2",
+  "label": "Auction redesigned — two live tabs. FA Auction and Expired-Rookie are now separate tabs: each shows live lots (tap Bid), the eligible/available pool with search, plus FAA team budgets and roster needs. Bid or Nominate in-app when an auction is on; when it's off the tab is a clean read-only pool. Stale phantom lots are gone. A one-tap \"On MFL ↗\" fallback stays on every card."
 }
