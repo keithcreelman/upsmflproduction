@@ -19,7 +19,7 @@ const contractDiscordChannelLastSendMs = new Map();
 // FA (1-yr auction) folds into `myac` — same auction family (Keith 2026-06-05).
 // `traderoast` = the Trade Roast bot's target channel (the bot must read this to
 // honor it; it's currently disabled). Default test after the 2026-06-01 incident.
-const DISCORD_ROUTING_DEFAULTS = { extension: "prod", myac: "prod", restructure: "test", tag: "prod", mym: "prod", traderoast: "test" };
+const DISCORD_ROUTING_DEFAULTS = { extension: "prod", myac: "prod", auctionbidding: "prod", restructure: "test", tag: "prod", mym: "prod", traderoast: "test" };
 async function getDiscordRoutingConfig(env) {
   try {
     if (!env || !env.UPS_MFL_DB) return { ...DISCORD_ROUTING_DEFAULTS };
@@ -1243,7 +1243,12 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     console.log("[auction-narrator] DISCORD_BOT_TOKEN missing — skipping");
     return;
   }
-  const useTest = String(env.AUCTION_DISCORD_USE_TEST ?? "0").trim() === "1";
+  // Test vs prod channel: the FO "Auction Bidding" Discord-routing toggle (D1)
+  // decides; the legacy AUCTION_DISCORD_USE_TEST env var still forces test if set
+  // (Keith 2026-06-19 — auction bidding is now routable like the contract types).
+  const routing = await getDiscordRoutingConfig(env);
+  const useTest = String(routing.auctionbidding) === "test" ||
+    String(env.AUCTION_DISCORD_USE_TEST ?? "0").trim() === "1";
   const channelId = String(
     useTest
       // Hardcoded fallbacks (version-controlled) so a wiped secret can't kill
