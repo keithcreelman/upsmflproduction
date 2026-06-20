@@ -21,7 +21,7 @@
   var U = M.util;
 
   // tab: "faa" | "era" (the auction). sub: "summary"|"lots"|"players"|"cadence"|"schedule".
-  var state = { faa: null, era: null, nom: null, schedule: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", search: "" };
+  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", search: "" };
 
   function subTabs(active) {
     function tab(href, label, key) {
@@ -207,12 +207,17 @@
       get(liveUrl("free-agent-auction")),
       get(liveUrl("expired-rookie-auction")),
       get(M.api.workerUrl("/api/auction/nomination-status?L=" + L + "&YEAR=" + Y)),
-      get(M.api.workerUrl("/api/auction/fa-schedule?L=" + L + "&YEAR=" + Y))
+      get(M.api.workerUrl("/api/auction/fa-schedule?L=" + L + "&YEAR=" + Y)),
+      // The rich ERA eligible pool (D1 snapshot — same source the desktop hub
+      // uses). The /live eligible_players walks live rosters and returns 0
+      // post-deadline, so this is the canonical pool.
+      get(M.api.workerUrl("/api/auction/era-eligible?L=" + L + "&YEAR=" + Y))
     ]).then(function (res) {
       state.faa = res[0] || { ok: false };
       state.era = res[1] || { ok: false };
       state.nom = res[2] || { franchises: [] };
       state.schedule = res[3] || { ok: false };
+      state.eraPool = res[4] || { players: [] };
       // Default tab: whichever auction is live, else FAA.
       if (!state.tab) {
         state.tab = (state.era && state.era.enabled && !(state.faa && state.faa.enabled)) ? "era" : "faa";
@@ -287,7 +292,7 @@
     var p = (tab === "era" ? state.era : state.faa) || {};
     if (p.ok === false) return '<div class="ups-m-auc-empty">' + (tab === "era" ? "ERA" : "FAA") + ' board unavailable right now.</div>';
     if (sub === "lots") return lotsBlock(p, tab === "era" ? "expired-rookie" : "free-agent", tab === "era" ? "36h lock" : "24h lock");
-    if (sub === "players") return tab === "era" ? eraPool(p) : faaPool(p);
+    if (sub === "players") return tab === "era" ? eraPool() : faaPool();
     if (sub === "cadence") return renderCadence(tab);
     if (sub === "schedule") return renderSchedule();
     return renderSummary(tab, p);
@@ -295,22 +300,47 @@
 
   function renderSummary(tab, p) {
     if (tab === "era") {
-      return kpis([["Live lots", (p.active_auctions || []).length], ["Eligible", (p.eligible_players || []).length], ["Markers", (p.extension_markers || []).length]]) +
+      var eligCount = ((state.eraPool && state.eraPool.players) || []).length || (p.eligible_players || []).length;
+      return kpis([["Live lots", (p.active_auctions || []).length], ["Eligible", eligCount], ["Markers", (p.extension_markers || []).length]]) +
         '<div class="ups-m-auc-note">The Expired-Rookie Auction claims players whose rookie deals expired. <strong>Players</strong> browses the eligible pool · <strong>Lots</strong> is the live board · <strong>Cadence</strong> shows nomination windows.</div>';
     }
     return kpis([["Live lots", (p.active_auctions || []).length], ["Available", (p.available_players || []).length], ["Your team", franchiseName(M.state.viewerFranchiseId)]]) +
       budgetsBlock(p) + needsBlock(p);
   }
 
-  function faaPool(p) {
+  function faaPool() {
+    var p = state.faa || {};
     return poolBlock(p.available_players || [], "free-agent", {
       title: "Available Players", enabled: !!p.enabled, teamKey: "team",
       subOf: function (r) { return r.upcoming_auction_value ? 'Model ' + usd(r.upcoming_auction_value) : ''; }
     });
   }
-  function eraPool(p) {
-    return poolBlock(p.eligible_players || [], "expired-rookie", {
-      title: "Eligible Pool", enabled: !!p.enabled, teamKey: "franchise_name",
+  // ERA eligible pool — prefer the rich D1 snapshot (/api/auction/era-eligible,
+  // the same source the desktop hub uses; the /live walk returns 0 post-deadline).
+  function eraPool() {
+    var enabled = !!(state.era && state.era.enabled);
+    var snap = (state.eraPool && state.eraPool.players) || [];
+    if (snap.length) {
+      var rows = snap.map(function (r) {
+        return {
+          player_id: r.player_id, player_name: r.name, position: r.position, team: r.nfl_team,
+          origin_label: r.origin_label, ppg_weighted: r.ppg_weighted, high_bid_k: r.high_bid_k, prior_owner: r.prior_owner
+        };
+      });
+      return poolBlock(rows, "expired-rookie", {
+        title: "Eligible Pool", enabled: enabled, teamKey: "team",
+        subOf: function (r) {
+          var bits = [];
+          if (r.origin_label) bits.push(U.escapeHtml(r.origin_label));
+          if (r.ppg_weighted) bits.push((Math.round(Number(r.ppg_weighted) * 10) / 10) + " PPG");
+          if (toNum(r.high_bid_k) > 0) bits.push("High " + fmtK(r.high_bid_k));
+          else if (r.prior_owner) bits.push("was " + U.escapeHtml(r.prior_owner));
+          return bits.join(" · ");
+        }
+      });
+    }
+    return poolBlock((state.era && state.era.eligible_players) || [], "expired-rookie", {
+      title: "Eligible Pool", enabled: enabled, teamKey: "franchise_name",
       subOf: function (r) { return r.franchise_name ? 'On ' + U.escapeHtml(r.franchise_name) : ''; }
     });
   }
@@ -523,9 +553,7 @@
       // Re-render just the pool list (preserve the input + focus).
       var pool = document.getElementById("ups-m-auc-pool");
       if (!pool) { paint(); return; }
-      var fresh = (state.tab === "era")
-        ? poolBlock((state.era && state.era.eligible_players) || [], "expired-rookie", { title: "Eligible Pool", enabled: !!(state.era && state.era.enabled), teamKey: "franchise_name", subOf: function (r) { return r.franchise_name ? 'On ' + U.escapeHtml(r.franchise_name) : ''; } })
-        : poolBlock((state.faa && state.faa.available_players) || [], "free-agent", { title: "Available Players", enabled: !!(state.faa && state.faa.enabled), teamKey: "team", subOf: function (r) { return r.upcoming_auction_value ? 'Model ' + usd(r.upcoming_auction_value) : ''; } });
+      var fresh = (state.tab === "era") ? eraPool() : faaPool();
       var tmp = document.createElement("div"); tmp.innerHTML = fresh;
       var newPool = tmp.querySelector("#ups-m-auc-pool");
       if (newPool && pool.parentNode) { pool.parentNode.replaceChild(newPool, pool); wireBidButtons(); }
