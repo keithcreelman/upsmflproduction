@@ -21,7 +21,7 @@
   var U = M.util;
 
   // tab: "faa" | "era" (the auction). sub: "summary"|"lots"|"players"|"cadence"|"schedule".
-  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", openThreads: {} };
+  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", poolStatus: "all", openThreads: {} };
 
   function subTabs(active) {
     function tab(href, label, key) {
@@ -226,9 +226,9 @@
       // Every free agent in the league (MFL export). Enriched client-side from
       // the already-loaded player DB → the "all players" nominate pool.
       get(M.api.mflExportUrl("freeAgents")),
-      // External ADP (the rookie hub's source — keyed by mfl id). Only covers
-      // the current rookie class, so it ranks few FAs; best-effort sort input.
-      get("../rookies/external_adp_2026.json"),
+      // League-wide ADP / dynasty values (FantasyCalc via the worker) — keyed
+      // by mfl id, covers every player (not just rookies).
+      get(M.api.workerUrl("/api/adp")),
       // PRIOR season fantasy points (this year's YTD is empty in the off-season)
       // → the PPG sort. W=YTD on a completed year = the full-season total.
       get(M.api.workerUrl("/api/mfl-export?TYPE=playerScores&L=" + L + "&YEAR=" +
@@ -244,8 +244,9 @@
       state.freeAgents = res[7] || null;
       state.adp = res[8] || null;
       state.priorScores = res[9] || null;
-      state._ytd = null;     // rebuild the pid→points map
-      state.faPool = null;  // memoized enrichment, rebuilt lazily
+      state._ytd = null;        // rebuild the pid→points map
+      state._statusIdx = null;  // rebuild the auction-status index
+      state.faPool = null;      // memoized enrichment, rebuilt lazily
       // Default tab: whichever auction is live, else FAA.
       if (!state.tab) {
         state.tab = (state.era && state.era.enabled && !(state.faa && state.faa.enabled)) ? "era" : "faa";
@@ -364,12 +365,12 @@
     }
     return state._ytd[String(pid)] || 0;
   }
-  // pid → ADP rank (rookie source; lower = better). Missing → null.
+  // pid → ADP rank (FantasyCalc overall dynasty rank; lower = better). null = unranked.
   function adpRank(pid) {
     var m = state.adp && state.adp.by_mfl_id;
     var e = m && m[String(pid)];
     if (!e) return null;
-    var r = Number(e.fantasycalc_sf_overall_rank);
+    var r = Number(e.overall_rank);
     return isFinite(r) && r > 0 ? r : null;
   }
   var POS_ORDER = { QB: 1, RB: 2, WR: 3, TE: 4, PK: 5, K: 5, PN: 6, DL: 7, LB: 8, DB: 9 };
@@ -402,11 +403,12 @@
     return poolBlock(faAllPlayers(), "free-agent", {
       title: "Free Agents", enabled: !!p.enabled, teamKey: "team",
       subOf: function (r) {
-        var bits = [];
-        if (r.ppg) bits.push(Math.round(r.ppg) + " pts");
-        if (r.adp) bits.push("ADP " + r.adp);
-        if (r.model_value) bits.push("Model " + usd(r.model_value));
-        return bits.join(" · ");
+        // Show ADP + last-season points consistently, leading with whatever
+        // the list is sorted by (so the ADP sort shows ADP for everyone).
+        var ppg = r.ppg ? Math.round(r.ppg) + " pts" : "";
+        var adp = r.adp ? "ADP " + r.adp : "";
+        var arr = state.poolSort === "adp" ? [adp, ppg] : [ppg, adp];
+        return arr.filter(Boolean).join(" · ");
       }
     });
   }
@@ -416,6 +418,36 @@
     var ids = {}, ps = (state.eraPool && state.eraPool.players) || [];
     for (var i = 0; i < ps.length; i++) ids[String(ps[i].player_id)] = true;
     return ids;
+  }
+  // Per-player auction status, from the live board (active) + lots ledger (won).
+  function statusIndex() {
+    if (state._statusIdx) return state._statusIdx;
+    var active = {}, done = {};
+    ((state.faa && state.faa.active_auctions) || []).concat((state.era && state.era.active_auctions) || []).forEach(function (l) {
+      active[String(l.player_id)] = { high_k: Math.round(toNum(l.high_bid_amount) / 1000) };
+    });
+    ((state.lots && state.lots.lots) || []).forEach(function (l) {
+      if (l.status === "open") { if (!active[String(l.player_id)]) active[String(l.player_id)] = { high_k: Number(l.current_high_bid_k) || 0 }; }
+      else if (l.status === "won" || l.status === "expired" || l.status === "closed") done[String(l.player_id)] = l;
+    });
+    state._statusIdx = { active: active, done: done };
+    return state._statusIdx;
+  }
+  function poolPhase(tab) {
+    var p = tab === "era" ? state.era : state.faa;
+    if (p && p.enabled) return "live";
+    return Object.keys(statusIndex().done).length ? "closed" : "upcoming";
+  }
+  // → { key, label, high_k }. key ∈ available | active | won | closed.
+  function statusOf(pid, phase) {
+    var idx = statusIndex(), id = String(pid);
+    if (idx.active[id]) return { key: "active", label: "Active", high_k: idx.active[id].high_k || 0 };
+    var lot = idx.done[id];
+    if (lot) {
+      if (lot.status === "won") return { key: "won", label: "Won · " + U.escapeHtml(lot.winner_name || lot.current_high_bidder_name || "—") };
+      return { key: "closed", label: "Closed" };
+    }
+    return { key: "available", label: phase === "closed" ? "Not nominated" : "Available" };
   }
   // ERA eligible pool — prefer the rich D1 snapshot (/api/auction/era-eligible,
   // the same source the desktop hub uses; the /live walk returns 0 post-deadline).
@@ -476,18 +508,22 @@
   }
 
   var POS_CHIPS = ["ALL", "QB", "RB", "WR", "TE", "PK", "PN", "IDP"];
-  // Pool list with search + position/team filters + sort + clickable names.
-  // The list ALWAYS shows (browse anytime); Nominate appears only when the
-  // auction is live. Tap a name for the player modal.
+  var STATUS_CHIPS = [["all", "All"], ["available", "Open"], ["active", "Active"], ["won", "Won"]];
+  // Pool list with search + position/team/status filters + sort + clickable
+  // names. The list ALWAYS shows (browse anytime). Per-player status (Won/Active/
+  // Not-nominated) drives the badge + which CTA (Bid / Nominate / none) appears.
   function poolBlock(rows, kind, cfg) {
+    var tab = kind === "expired-rookie" ? "era" : "faa";
+    var phase = poolPhase(tab);
     var teamKey = cfg.teamKey || "team";
     function teamOf(r) { return String(r.nfl_team || r[teamKey] || r.team || ""); }
-    var s = (state.search || "").toLowerCase(), pos = state.poolPos || "ALL", team = state.poolTeam || "", sort = state.poolSort || "name";
+    var s = (state.search || "").toLowerCase(), pos = state.poolPos || "ALL", team = state.poolTeam || "", sort = state.poolSort || "name", statusF = state.poolStatus || "all";
     var teamSet = {}; rows.forEach(function (r) { var t = teamOf(r); if (t) teamSet[t] = true; });
     var teamOpts = Object.keys(teamSet).sort();
-    var filtered = rows.filter(function (r) {
+    var filtered = rows.map(function (r) { r._st = statusOf(r.player_id, phase); return r; }).filter(function (r) {
       if (pos !== "ALL" && posBucket(r.position) !== pos) return false;
       if (team && teamOf(r) !== team) return false;
+      if (statusF !== "all" && r._st.key !== statusF) return false;
       if (s && [r.player_name, r.position, teamOf(r), r.player_id].join(" ").toLowerCase().indexOf(s) === -1) return false;
       return true;
     }).sort(function (a, b) {
@@ -495,7 +531,7 @@
       if (sort === "adp") return ((a.adp == null ? 1e9 : a.adp) - (b.adp == null ? 1e9 : b.adp)) || lastNameKey(a.player_name).localeCompare(lastNameKey(b.player_name));
       return lastNameKey(a.player_name).localeCompare(lastNameKey(b.player_name));
     });
-    var canNom = !!cfg.enabled;
+    var openLbl = phase === "closed" ? "Not nom." : "Open";
     var controls =
       '<input type="search" class="ups-m-auc-search" id="ups-m-auc-search" placeholder="Search players…" value="' + U.escapeHtml(state.search || "") + '" />' +
       '<div class="ups-m-auc-poolctl">' +
@@ -511,21 +547,37 @@
       '</div>' +
       '<div class="ups-m-auc-poschips" id="ups-m-auc-poschips">' +
         POS_CHIPS.map(function (pc) { return '<button type="button" class="ups-m-auc-poschip' + (pos === pc ? " active" : "") + '" data-pos="' + pc + '">' + pc + '</button>'; }).join("") +
+      '</div>' +
+      '<div class="ups-m-auc-poschips" id="ups-m-auc-statuschips">' +
+        STATUS_CHIPS.map(function (sc) { var lbl = sc[0] === "available" ? openLbl : sc[1]; return '<button type="button" class="ups-m-auc-poschip' + (statusF === sc[0] ? " active" : "") + '" data-status="' + sc[0] + '">' + lbl + '</button>'; }).join("") +
       '</div>';
     var html = '<div class="ups-m-auc-sec-head">' + cfg.title + ' <span class="ct">' + rows.length + '</span></div>' +
       controls + '<div class="ups-m-auc-pool" id="ups-m-auc-pool">';
-    if (!filtered.length) { html += '<div class="ups-m-auc-empty">' + (s || pos !== "ALL" || team ? "No players match." : "No players in the pool yet.") + '</div>'; }
+    if (!filtered.length) { html += '<div class="ups-m-auc-empty">' + (s || pos !== "ALL" || team || statusF !== "all" ? "No players match." : "No players in the pool yet.") + '</div>'; }
     else html += filtered.slice(0, 80).map(function (r) {
-      var sub = cfg.subOf(r);
-      var cta = canNom
-        ? '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="nominate" data-pid="' + U.escapeHtml(String(r.player_id || "")) +
-            '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="0">Nominate</button>'
-        : '';
+      var st = r._st, metric = cfg.subOf(r);
+      var badge =
+        st.key === "won" ? '<span class="stb won">' + st.label + '</span>' :
+        st.key === "active" ? '<span class="stb active">Active</span>' :
+        st.key === "closed" ? '<span class="stb closed">Closed</span>' :
+        (phase === "closed" ? '<span class="stb na">Not nominated</span>' : '');
+      var metaBits = [];
+      if (badge) metaBits.push(badge);
+      // Hide the metric once a player is off the board (won/closed) — it's noise.
+      if (metric && st.key !== "won" && st.key !== "closed") metaBits.push(metric);
+      var cta = "";
+      if (st.key === "active") {
+        cta = '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="bid" data-pid="' + U.escapeHtml(String(r.player_id || "")) +
+          '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="' + (st.high_k || 0) + '">Bid</button>';
+      } else if (st.key === "available" && cfg.enabled) {
+        cta = '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="nominate" data-pid="' + U.escapeHtml(String(r.player_id || "")) +
+          '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="0">Nominate</button>';
+      }
       return '<div class="ups-m-auc-card">' +
         '<div class="ups-m-auc-card-main">' +
           '<div class="ups-m-auc-name">' + posChip(r.position) + pname(r.player_id, r.player_name) +
             (teamOf(r) ? ' <span class="ups-m-auc-team">' + U.escapeHtml(teamOf(r)) + '</span>' : '') + '</div>' +
-          (sub ? '<div class="ups-m-auc-meta">' + sub + '</div>' : '') +
+          (metaBits.length ? '<div class="ups-m-auc-meta">' + metaBits.join(' · ') + '</div>' : '') +
         '</div>' +
         (cta ? '<div class="ups-m-auc-card-cta">' + cta + '</div>' : '') +
       '</div>';
@@ -686,12 +738,23 @@
       t.bids.sort(function (a, b) { return (Number(a.bid_at_unix) || 0) - (Number(b.bid_at_unix) || 0); });
       t.lastUnix = Number(t.bids[t.bids.length - 1].bid_at_unix) || 0;
       t.topK = t.bids.reduce(function (m, x) { return Math.max(m, Number(x.bid_k) || 0); }, 0);
+      // Classify by walking the thread: a bid by the SAME franchise as the
+      // prior high bid is a "Forced" increase (MFL walked their hidden proxy up
+      // because someone bid into it). Different franchise = a normal Bid.
+      var prevFid = null;
+      t.bids.forEach(function (b) {
+        b._cls = b.is_nomination ? "nom" : (prevFid != null && String(prevFid) === String(b.fid) ? "forced" : "bid");
+        prevFid = b.fid;
+      });
+      t.forcedCount = t.bids.filter(function (b) { return b._cls === "forced"; }).length;
     });
     threads.sort(function (a, b) { return b.lastUnix - a.lastUnix; });
     return head + '<div class="ups-m-auc-threads">' + threads.map(function (t) {
       var open = !!state.openThreads[t.key];
       var detail = open ? '<div class="ups-m-auc-thbids">' + t.bids.slice().reverse().map(function (b) {
-        var kind = b.is_nomination ? '<span class="nom">Nom</span>' : '<span class="bid">Bid</span>';
+        var kind = b._cls === "nom" ? '<span class="nom">Nom</span>'
+          : b._cls === "forced" ? '<span class="forced" title="Forced increase — their proxy was walked up">Forced ↑</span>'
+          : '<span class="bid">Bid</span>';
         return '<div class="thbid">' + kind + ' <strong>' + fmtK(b.bid_k) + '</strong> · ' + U.escapeHtml(b.franchise_name || "—") +
           '<span class="hw">' + fmtDateTime(b.bid_at_iso) + '</span></div>';
       }).join("") + '</div>' : '';
@@ -699,7 +762,7 @@
         '<div class="ups-m-auc-thsum" data-thread="' + U.escapeHtml(t.key) + '">' +
           '<span class="thtog">' + (open ? "▾" : "▸") + '</span>' +
           posChip(t.position) + pname(t.player_id, t.player_name) +
-          '<span class="thmeta">' + t.bids.length + ' ' + (t.bids.length === 1 ? "bid" : "bids") + ' · top ' + fmtK(t.topK) + '</span>' +
+          '<span class="thmeta">' + t.bids.length + ' ' + (t.bids.length === 1 ? "bid" : "bids") + (t.forcedCount ? ' · ' + t.forcedCount + ' forced' : '') + ' · top ' + fmtK(t.topK) + '</span>' +
         '</div>' + detail +
       '</div>';
     }).join("") + '</div>';
@@ -788,8 +851,11 @@
     if (sortSel) sortSel.addEventListener("change", function () { state.poolSort = this.value; repaintPlayers(); });
     var teamSel = document.getElementById("ups-m-auc-team");
     if (teamSel) teamSel.addEventListener("change", function () { state.poolTeam = this.value; repaintPlayers(); });
-    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-auc-poschip"), function (b) {
+    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-auc-poschip[data-pos]"), function (b) {
       b.addEventListener("click", function () { state.poolPos = this.getAttribute("data-pos"); repaintPlayers(); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-auc-poschip[data-status]"), function (b) {
+      b.addEventListener("click", function () { state.poolStatus = this.getAttribute("data-status"); repaintPlayers(); });
     });
   }
   // History thread expand/collapse.
