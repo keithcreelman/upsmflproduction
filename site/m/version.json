@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.19.3",
-  "label": "Auction tabs reorganized. FA Auction and Expired Rookie each now have their own sub-nav: Summary (budgets + roster needs), Lots (live board), Players (searchable pool), Cadence (nomination windows), and — for the FA Auction — a new Schedule tab tracking who's met the roster requirement and who still owes nominations today, with a countdown to the next reset. (A nightly 9 PM reminder to Discord is wired up too, off until the commish arms it for the July auction.)"
+  "build": "2026.06.19.4",
+  "label": "Auction players pool fixed. The Expired-Rookie Players tab now shows the full eligible pool (same source as the desktop hub) — with each player's origin, weighted PPG, and high bid — instead of coming up empty. FA Auction and Expired Rookie each keep their Summary / Lots / Players / Cadence sub-tabs (plus Schedule on the FA side)."
 }
