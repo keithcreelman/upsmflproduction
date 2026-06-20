@@ -2127,6 +2127,28 @@ button.ups-m-busy::before,
 .ups-m-auc-trow .bad { color: var(--warn); font-weight: 600; }
 .ups-m-auc-trow .cd { color: var(--fg-muted); }
 .ups-m-auc-trow .rst { color: var(--fg-dim, var(--fg-muted)); font-size: 10px; }
+/* Lots Open/Completed toggle. */
+.ups-m-auc-lotstoggle { display: flex; gap: 6px; margin: 0 0 12px; }
+.ups-m-auc-lottab {
+  flex: 1; padding: 8px 6px; cursor: pointer; white-space: nowrap;
+  background: var(--bg-elev); color: var(--fg-muted);
+  border: 1px solid var(--line); border-radius: 9px; font-size: 12.5px; font-weight: 600;
+}
+.ups-m-auc-lottab.active { background: var(--bg-elev2); color: var(--fg); border-color: var(--accent); }
+.ups-m-auc-lottab .ct { font-size: 10px; color: var(--fg-muted); margin-left: 3px; }
+/* Bid-history feed. */
+.ups-m-auc-hist { display: flex; flex-direction: column; gap: 6px; }
+.ups-m-auc-hrow {
+  display: flex; flex-direction: column; gap: 3px;
+  background: var(--bg-elev); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px;
+}
+.ups-m-auc-hrow .hp { font-size: 13px; font-weight: 600; color: var(--fg); }
+.ups-m-auc-hrow .hb { font-size: 11.5px; color: var(--fg-muted); display: flex; align-items: center; gap: 5px; }
+.ups-m-auc-hrow .hb strong { color: var(--fg); }
+.ups-m-auc-hrow .hw { margin-left: auto; font-size: 10px; color: var(--line-soft); }
+.ups-m-auc-hrow .nom { font-size: 9px; text-transform: uppercase; font-weight: 700; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 3px; }
+.ups-m-auc-hrow .bid { font-size: 9px; text-transform: uppercase; font-weight: 700; color: var(--teal); border: 1px solid var(--teal); border-radius: 4px; padding: 0 3px; }
 
 /* ════════ Trade offer builder (League → Trade → Build offer) ════════ */
 .ups-m-tb-sheet { height: 92vh; max-height: 92vh; }

@@ -21,7 +21,7 @@
   var U = M.util;
 
   // tab: "faa" | "era" (the auction). sub: "summary"|"lots"|"players"|"cadence"|"schedule".
-  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", search: "" };
+  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "" };
 
   function subTabs(active) {
     function tab(href, label, key) {
@@ -211,13 +211,23 @@
       // The rich ERA eligible pool (D1 snapshot — same source the desktop hub
       // uses). The /live eligible_players walks live rosters and returns 0
       // post-deadline, so this is the canonical pool.
-      get(M.api.workerUrl("/api/auction/era-eligible?L=" + L + "&YEAR=" + Y))
+      get(M.api.workerUrl("/api/auction/era-eligible?L=" + L + "&YEAR=" + Y)),
+      // Lots (open + completed) and the bid-history feed.
+      get(M.api.workerUrl("/api/auction/lots?L=" + L + "&YEAR=" + Y)),
+      get(M.api.workerUrl("/api/auction/bid-history?L=" + L + "&YEAR=" + Y)),
+      // Every free agent in the league (MFL export). Enriched client-side from
+      // the already-loaded player DB → the "all players" nominate pool.
+      get(M.api.mflExportUrl("freeAgents"))
     ]).then(function (res) {
       state.faa = res[0] || { ok: false };
       state.era = res[1] || { ok: false };
       state.nom = res[2] || { franchises: [] };
       state.schedule = res[3] || { ok: false };
       state.eraPool = res[4] || { players: [] };
+      state.lots = res[5] || { lots: [] };
+      state.bidHistory = res[6] || { bids: [] };
+      state.freeAgents = res[7] || null;
+      state.faPool = null;  // memoized enrichment, rebuilt lazily
       // Default tab: whichever auction is live, else FAA.
       if (!state.tab) {
         state.tab = (state.era && state.era.enabled && !(state.faa && state.faa.enabled)) ? "era" : "faa";
@@ -237,8 +247,8 @@
   // Which sub-pills each auction shows (ERA has no compliance Schedule).
   function subsFor(tab) {
     return tab === "faa"
-      ? [["summary", "Summary"], ["lots", "Lots"], ["players", "Players"], ["cadence", "Cadence"], ["schedule", "Schedule"]]
-      : [["summary", "Summary"], ["lots", "Lots"], ["players", "Players"], ["cadence", "Cadence"]];
+      ? [["summary", "Summary"], ["players", "Players"], ["lots", "Lots"], ["history", "History"], ["cadence", "Cadence"], ["schedule", "Schedule"]]
+      : [["summary", "Summary"], ["players", "Players"], ["lots", "Lots"], ["history", "History"], ["cadence", "Cadence"]];
   }
 
   function paint() {
@@ -257,8 +267,19 @@
       '<div class="ups-m-auc-tabbody">' + renderSub(state.tab, state.sub) + '</div>';
     wireTabs();
     wireSubNav();
+    wireLotsToggle();
     wireSearch();
     wireBidButtons();
+  }
+  function wireLotsToggle() {
+    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-auc-lottab"), function (b) {
+      b.addEventListener("click", function () {
+        var v = this.getAttribute("data-lotview");
+        if (v === state.lotsView) return;
+        state.lotsView = v;
+        paint();
+      });
+    });
   }
 
   function innerTabs() {
@@ -290,9 +311,10 @@
   // Dispatch the active sub-view for an auction.
   function renderSub(tab, sub) {
     var p = (tab === "era" ? state.era : state.faa) || {};
-    if (p.ok === false) return '<div class="ups-m-auc-empty">' + (tab === "era" ? "ERA" : "FAA") + ' board unavailable right now.</div>';
-    if (sub === "lots") return lotsBlock(p, tab === "era" ? "expired-rookie" : "free-agent", tab === "era" ? "36h lock" : "24h lock");
+    if (p.ok === false && sub !== "history" && sub !== "lots") return '<div class="ups-m-auc-empty">' + (tab === "era" ? "ERA" : "FAA") + ' board unavailable right now.</div>';
     if (sub === "players") return tab === "era" ? eraPool() : faaPool();
+    if (sub === "lots") return renderLots(tab);
+    if (sub === "history") return renderHistory(tab);
     if (sub === "cadence") return renderCadence(tab);
     if (sub === "schedule") return renderSchedule();
     return renderSummary(tab, p);
@@ -308,12 +330,49 @@
       budgetsBlock(p) + needsBlock(p);
   }
 
+  function flipName(n) { n = String(n || ""); var i = n.indexOf(", "); return i > 0 ? (n.slice(i + 2) + " " + n.slice(0, i)) : n; }
+  var POS_ORDER = { QB: 1, RB: 2, WR: 3, TE: 4, PK: 5, K: 5, PN: 6, DL: 7, LB: 8, DB: 9 };
+  // The full free-agent pool — every unrostered player (MFL freeAgents export),
+  // enriched from the boot-loaded player DB. Memoized in state.faPool.
+  function faAllPlayers() {
+    if (state.faPool) return state.faPool;
+    var lu = state.freeAgents && state.freeAgents.freeAgents && state.freeAgents.freeAgents.leagueUnit;
+    var list = U.asArray(lu && lu.player);
+    var dbArr = U.asArray(M.state.players && M.state.players.players && M.state.players.players.player);
+    var byId = {};
+    for (var i = 0; i < dbArr.length; i++) byId[String(dbArr[i].id)] = dbArr[i];
+    var modelById = {};
+    var avail = (state.faa && state.faa.available_players) || [];
+    for (var j = 0; j < avail.length; j++) modelById[String(avail[j].player_id)] = avail[j].upcoming_auction_value;
+    var rows = [];
+    for (var k = 0; k < list.length; k++) {
+      var id = String(list[k].id || "");
+      var pl = byId[id];
+      if (!pl || !pl.name) continue;
+      var pos = String(pl.position || "").toUpperCase();
+      if (!pos) continue;
+      rows.push({ player_id: id, player_name: flipName(pl.name), position: pos, team: pl.team || "", model_value: modelById[id] || 0 });
+    }
+    rows.sort(function (a, b) {
+      var ao = POS_ORDER[a.position] || 50, bo = POS_ORDER[b.position] || 50;
+      return ao - bo || a.player_name.localeCompare(b.player_name);
+    });
+    state.faPool = rows;
+    return rows;
+  }
   function faaPool() {
     var p = state.faa || {};
-    return poolBlock(p.available_players || [], "free-agent", {
-      title: "Available Players", enabled: !!p.enabled, teamKey: "team",
-      subOf: function (r) { return r.upcoming_auction_value ? 'Model ' + usd(r.upcoming_auction_value) : ''; }
+    return poolBlock(faAllPlayers(), "free-agent", {
+      title: "Free Agents", enabled: !!p.enabled, teamKey: "team",
+      subOf: function (r) { return r.model_value ? 'Model ' + usd(r.model_value) : ''; }
     });
+  }
+  // Player ids in the ERA eligible pool — used to split lots/bids by auction
+  // (expired rookies → ERA, everyone else → FA), since lots aren't kind-tagged.
+  function eraPoolIds() {
+    var ids = {}, ps = (state.eraPool && state.eraPool.players) || [];
+    for (var i = 0; i < ps.length; i++) ids[String(ps[i].player_id)] = true;
+    return ids;
   }
   // ERA eligible pool — prefer the rich D1 snapshot (/api/auction/era-eligible,
   // the same source the desktop hub uses; the /live walk returns 0 post-deadline).
@@ -399,6 +458,7 @@
         '<div class="ups-m-auc-card-cta">' + cta + '</div>' +
       '</div>';
     }).join("");
+    if (filtered.length > 80) html += '<div class="ups-m-auc-empty">Showing 80 of ' + filtered.length + ' — search to find a specific player.</div>';
     html += '</div>';
     return html;
   }
@@ -488,6 +548,60 @@
           '</div>';
         }).join("") +
       '</div>';
+  }
+
+  // Lots — Open (live board) / Completed (won) toggle. Completed + history are
+  // split by auction via the ERA-eligible intersection (lots aren't kind-tagged).
+  function renderLots(tab) {
+    var isEra = tab === "era";
+    var live = (isEra ? state.era : state.faa) || {};
+    var openCount = (live.active_auctions || []).length;
+    var eIds = eraPoolIds();
+    var completed = ((state.lots && state.lots.lots) || []).filter(function (l) {
+      var done = l.status === "won" || l.status === "expired" || l.status === "closed";
+      return done && (!!eIds[String(l.player_id)] === isEra);
+    });
+    var view = state.lotsView || "open";
+    var toggle = '<div class="ups-m-auc-lotstoggle">' +
+      '<button type="button" class="ups-m-auc-lottab' + (view === "open" ? " active" : "") + '" data-lotview="open">Open <span class="ct">' + openCount + '</span></button>' +
+      '<button type="button" class="ups-m-auc-lottab' + (view === "completed" ? " active" : "") + '" data-lotview="completed">Completed <span class="ct">' + completed.length + '</span></button>' +
+    '</div>';
+    if (view === "completed") return toggle + completedLotsBlock(completed);
+    return toggle + lotsBlock(live, isEra ? "expired-rookie" : "free-agent", isEra ? "36h lock" : "24h lock");
+  }
+  function completedLotsBlock(rows) {
+    var head = '<div class="ups-m-auc-sec-head">Completed Lots <span class="ct">' + rows.length + '</span></div>';
+    if (!rows.length) return head + '<div class="ups-m-auc-empty">No completed lots yet.</div>';
+    rows = rows.slice().sort(function (a, b) { return (Number(b.won_at_unix) || 0) - (Number(a.won_at_unix) || 0); });
+    return head + rows.map(function (l) {
+      var won = l.status === "won";
+      return '<div class="ups-m-auc-card">' +
+        '<div class="ups-m-auc-card-main">' +
+          '<div class="ups-m-auc-name">' + posChip(l.position) + U.escapeHtml(l.player_name || ("Player #" + l.player_id)) +
+            (l.nfl_team ? ' <span class="ups-m-auc-team">' + U.escapeHtml(l.nfl_team) + '</span>' : '') + '</div>' +
+          '<div class="ups-m-auc-meta">' + (won
+            ? 'Won by <strong>' + U.escapeHtml(l.winner_name || l.current_high_bidder_name || "—") + '</strong> · ' + fmtK(l.current_high_bid_k) + ' · ' + (Number(l.bid_count) || 0) + ' bids'
+            : '<span class="ups-m-auc-won">' + U.escapeHtml((l.status || "closed").replace(/^\w/, function (c) { return c.toUpperCase(); })) + '</span>') + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+  }
+  // Bid History — chronological feed, split by auction.
+  function renderHistory(tab) {
+    var isEra = tab === "era";
+    var eIds = eraPoolIds();
+    var bids = ((state.bidHistory && state.bidHistory.bids) || []).filter(function (b) { return !!eIds[String(b.player_id)] === isEra; });
+    var head = '<div class="ups-m-auc-sec-head">Bid History <span class="ct">' + bids.length + '</span></div>';
+    if (!bids.length) return head + '<div class="ups-m-auc-empty">No bids yet.</div>';
+    bids = bids.slice().sort(function (a, b) { return (Number(b.bid_at_unix) || 0) - (Number(a.bid_at_unix) || 0); });
+    return head + '<div class="ups-m-auc-hist">' + bids.slice(0, 120).map(function (b) {
+      var when = b.bid_at_iso ? new Date(b.bid_at_iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+      var kind = b.is_nomination ? '<span class="nom">Nom</span>' : '<span class="bid">Bid</span>';
+      return '<div class="ups-m-auc-hrow">' +
+        '<div class="hp">' + posChip(b.position) + U.escapeHtml(b.player_name || ("#" + b.player_id)) + '</div>' +
+        '<div class="hb">' + kind + ' <strong>' + fmtK(b.bid_k) + '</strong> · ' + U.escapeHtml(b.franchise_name || "—") + (when ? ' <span class="hw">' + when + '</span>' : '') + '</div>' +
+      '</div>';
+    }).join("") + '</div>';
   }
 
   // Per-franchise nomination windows for ONE auction (ERA = 1/12h anchored,
