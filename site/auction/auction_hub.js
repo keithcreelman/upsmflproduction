@@ -200,7 +200,6 @@
       loadEraEligible(),
       loadLots(),
       loadFa(),
-      loadWarRoom(),
       loadBidHistory(),
     ]);
     paint();
@@ -210,10 +209,9 @@
     // the switch state from STATE.lots).
     setInterval(async () => {
       const jobs = [loadLots(), loadFa()];
-      // Self-heal the once-loaded secondary data if it failed at boot (their
-      // catch blocks leave STATE undefined). Re-fetch only while still missing.
-      if (!STATE.bidHistory) jobs.push(loadBidHistory());
-      if (!STATE.compliance) jobs.push(loadWarRoom());
+      // Self-heal the once-loaded bid history if it failed at boot (its catch
+      // leaves STATE undefined); keep it fresh so the Tracker audit updates.
+      jobs.push(loadBidHistory());
       await Promise.all(jobs);
       paint();
     }, 30000);
@@ -329,10 +327,30 @@
   // PAINT — mount the (tab, sub) skeleton, fill it, re-wire its controls
   // ════════════════════════════════════════════════════════════════════
   function paint() {
+    renderHeaderMeta();
     renderTabs();
     renderSubNav();
     renderBanner();
     renderSub(STATE.tab, STATE.sub);
+  }
+
+  // Header meta line (#ah-meta) — set on every paint regardless of tab, so it
+  // never sticks on "Loading…" when the default (FAA) tab is showing.
+  function renderHeaderMeta() {
+    const el = $("#ah-meta");
+    if (!el) return;
+    const me = STATE.me || {};
+    const youAre = me.configured && me.franchise_name
+      ? `You: ${me.franchise_name}`
+      : me.configured && me.franchise_id
+        ? `You: franchise ${me.franchise_id}`
+        : "Viewer (not logged in)";
+    const season = (STATE.era && STATE.era.season) || new Date().getUTCFullYear();
+    const lots = STATE.lots || {};
+    const gen = lots.generated_at
+      ? new Date(lots.generated_at).toLocaleTimeString()
+      : (STATE.era && STATE.era.generated_at ? new Date(STATE.era.generated_at).toLocaleTimeString() : "—");
+    el.textContent = `${youAre} · Season ${season} · Updated ${gen}`;
   }
 
   function renderSub(tab, sub) {
@@ -614,57 +632,19 @@
         </div>
       </div>`;
   }
-  function trackerSkeleton() {
+  function trackerSkeleton(tab) {
+    const auc = tab === "era" ? "Expired Rookie Auction" : "FA Auction";
+    const cadence = tab === "era"
+      ? "1 nomination per 12-hour window (6 AM / 6 PM ET) — 2 a day (§A3)"
+      : "2 nominations per day (§A1)";
     return `
       <div class="ah-context-banner">
-        <strong>Tracker</strong> — league-wide cap &amp; roster compliance, nomination cadence, bid activity,
-        and cut-then-rebid blocks against canon §6.A1 / §A2 / §A3 / §B1.
-        <div class="meta" id="warroom-meta">Loading…</div>
+        <strong>Nominations Tracker</strong> — daily nomination compliance + the full audit trail for the
+        ${escapeHtml(auc)}. Each owner owes <strong>${escapeHtml(cadence)}</strong>. Click any owner to see
+        exactly which players they nominated and when.
+        <div class="meta" id="ah-noms-meta">Loading…</div>
       </div>
-      <div class="ah-card">
-        <div class="ah-card-head">
-          <h2>Cap &amp; Roster Compliance</h2>
-          <span class="small" id="warroom-compliance-summary">—</span>
-        </div>
-        <div class="ah-warroom-league-banner" id="warroom-compliance-banner" style="display:none;"></div>
-        <div class="ah-warroom-grid" id="warroom-compliance-grid">
-          <div class="ah-placeholder">Loading franchise compliance…</div>
-        </div>
-      </div>
-      <div class="ah-card">
-        <div class="ah-card-head">
-          <h2>Nomination Cadence</h2>
-          <span class="small">ERA: 1 / 12h anchored window — 6 AM / 6 PM ET (§A3) · FA Auction: 2 / 24h rolling (§A1)</span>
-        </div>
-        <div class="ah-warroom-grid" id="warroom-nominations-grid">
-          <div class="ah-placeholder">Loading nomination cadence…</div>
-        </div>
-      </div>
-      <div class="ah-card">
-        <div class="ah-card-head">
-          <h2>Bid Activity</h2>
-          <div class="ah-bidstats-controls">
-            <div class="ah-bidstats-toggle" id="bidstats-kind-toggle">
-              <button type="button" data-kind="all" class="active">All</button>
-              <button type="button" data-kind="era">ERA only</button>
-              <button type="button" data-kind="fa">FA only</button>
-            </div>
-            <span class="small" id="bidstats-summary">—</span>
-          </div>
-        </div>
-        <div class="ah-warroom-grid" id="warroom-bidstats-grid">
-          <div class="ah-placeholder">Loading bid activity…</div>
-        </div>
-      </div>
-      <div class="ah-card">
-        <div class="ah-card-head">
-          <h2>Cut-then-Rebid Blocks (§A2)</h2>
-          <span class="small" id="warroom-blocks-summary">—</span>
-        </div>
-        <div class="ah-warroom-grid" id="warroom-blocks-grid">
-          <div class="ah-placeholder">Loading cut-then-rebid lists…</div>
-        </div>
-      </div>`;
+      <div id="ah-noms-audit"><div class="ah-placeholder">Loading nominations…</div></div>`;
   }
 
   // ── Skeleton composers per (tab, sub) ─────────────────────────────────
@@ -680,7 +660,7 @@
   }
   function skeletonLots() { return nominationsSkeleton(); }
   function skeletonHistory() { return historySkeleton(); }
-  function skeletonTracker() { return trackerSkeleton(); }
+  function skeletonTracker(tab) { return trackerSkeleton(tab); }
 
   // ── Fill + re-wire per (tab, sub) ─────────────────────────────────────
   function fillSummary(tab) {
@@ -714,14 +694,107 @@
     renderBidHistory();     // reads STATE.tab for the per-auction split
     setupHistoryFilters();
   }
-  function fillTracker() {
-    renderCompliance();
-    renderNominationStatus();
-    renderBidStats();
-    renderCutRebidBlocks();
-    applyWarRoomSummaries();
-    syncBidStatsToggle();
-    setupBidStatsToggle();  // re-wire — toggle is new DOM each mount
+  function fillTracker(tab) {
+    renderNominationsAudit(tab);
+  }
+
+  // ── Nominations audit (Tracker) ───────────────────────────────────────
+  // Daily nomination compliance + a click-to-expand audit trail, per auction.
+  // Source: the nomination-tagged bids in STATE.bidHistory, grouped by ET day.
+  const _p4 = (v) => String(v == null ? "" : v).replace(/\D/g, "").padStart(4, "0");
+  function etDayParts(unix) {
+    const ms = Number(unix) * 1000;
+    return {
+      key: new Date(ms).toLocaleDateString("en-CA", { timeZone: "America/New_York" }), // YYYY-MM-DD
+      label: new Date(ms).toLocaleDateString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric" }),
+    };
+  }
+  function etTimeOnly(unix) {
+    return new Date(Number(unix) * 1000).toLocaleString("en-US", {
+      timeZone: "America/New_York", hour: "numeric", minute: "2-digit", hour12: true,
+    });
+  }
+  function renderNominationsAudit(tab) {
+    const host = $("#ah-noms-audit");
+    if (!host) return;
+    const REQ = 2;
+    const myFid = STATE.me && STATE.me.franchise_id ? _p4(STATE.me.franchise_id) : null;
+    const live = tab === "era"
+      ? !!(STATE.lots && STATE.lots.era_enabled)
+      : !!(STATE.lots && STATE.lots.faa_enabled);
+
+    // Full owner list (so we can audit who DIDN'T nominate too), from the FA
+    // live budget rows — those carry all franchises regardless of auction.
+    const owners = ((STATE.fa && STATE.fa.team_budget_rows) || [])
+      .map((r) => ({ fid: _p4(r.franchise_id), name: r.franchise_name || franchiseName(r.franchise_id) }))
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+    // Nominations for this auction (per-auction split on the ERA pool).
+    const eraIds = eraPoolIds();
+    const noms = ((STATE.bidHistory && STATE.bidHistory.bids) || [])
+      .filter((b) => b.is_nomination)
+      .filter((b) => eraIds.has(String(b.player_id)) === (tab === "era"))
+      .map((b) => { const d = etDayParts(b.bid_at_unix); return { fid: _p4(b.fid), player: b.player_name, unix: b.bid_at_unix, dayKey: d.key, dayLabel: d.label }; });
+
+    const byDay = new Map();
+    noms.forEach((n) => { if (!byDay.has(n.dayKey)) byDay.set(n.dayKey, { label: n.dayLabel, items: [] }); byDay.get(n.dayKey).items.push(n); });
+    const dayKeysDesc = [...byDay.keys()].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+
+    const meta = $("#ah-noms-meta");
+    if (meta) {
+      meta.textContent = noms.length
+        ? `${noms.length} nomination${noms.length === 1 ? "" : "s"} across ${dayKeysDesc.length} day${dayKeysDesc.length === 1 ? "" : "s"} · latest ${byDay.get(dayKeysDesc[0]).label}`
+        : "No nominations recorded yet.";
+    }
+
+    // One day card: per-owner X/REQ, each owner expandable to the players
+    // they nominated that day.
+    function dayCard(label, items, isToday, openByDefault) {
+      const ownerRows = owners.map((o) => {
+        const mine = items.filter((n) => n.fid === o.fid).sort((a, b) => a.unix - b.unix);
+        const c = mine.length;
+        const cls = c >= REQ ? "ah-nom-met" : (c > 0 ? "ah-nom-partial" : "ah-nom-zero");
+        const body = c > 0
+          ? `<ul class="ah-nom-players">${mine.map((n) => `<li>${escapeHtml(n.player || "—")} <span class="ah-nom-when">${escapeHtml(etTimeOnly(n.unix))}</span></li>`).join("")}</ul>`
+          : `<div class="ah-nom-empty">No nominations this day.</div>`;
+        return `<details class="ah-nom-owner ${cls}${o.fid === myFid ? " ah-nom-me" : ""}">
+          <summary><span class="ah-nom-oname">${escapeHtml(o.name)}</span><span class="ah-nom-count">${c}/${REQ}</span></summary>
+          ${body}
+        </details>`;
+      }).join("");
+      const total = items.length;
+      const metCount = owners.filter((o) => items.filter((n) => n.fid === o.fid).length >= REQ).length;
+      return `<details class="ah-card ah-nom-day"${openByDefault ? " open" : ""}>
+        <summary class="ah-nom-day-head">
+          <strong>${escapeHtml(label)}${isToday ? " · Today" : ""}</strong>
+          <span class="small ah-nom-day-sum">${total} nom${total === 1 ? "" : "s"} · ${metCount}/${owners.length} owners met</span>
+        </summary>
+        <div class="ah-nom-grid">${ownerRows}</div>
+      </details>`;
+    }
+
+    let html = "";
+    // While the auction is live, lead with Today's compliance scoreboard (even
+    // if 0 noms so far). Off-season we skip it — no point nagging 0/2 when the
+    // auction isn't running (Keith 2026-06-20).
+    if (live && owners.length) {
+      const today = etDayParts(Math.floor(Date.now() / 1000));
+      const todayItems = (byDay.get(today.key) || { items: [] }).items;
+      html += dayCard(today.label, todayItems, true, true);
+    }
+    const todayKey = etDayParts(Math.floor(Date.now() / 1000)).key;
+    dayKeysDesc.filter((k) => !(live && k === todayKey)).forEach((k) => {
+      const v = byDay.get(k);
+      html += dayCard(v.label, v.items, k === todayKey, !live && k === dayKeysDesc[0]);
+    });
+
+    if (!html) {
+      host.innerHTML = `<div class="ah-placeholder"><strong>No nominations yet</strong>
+        Once the auction is running, each owner's daily nominations (X/${REQ}) show here —
+        click any owner to audit exactly which players they nominated and when.</div>`;
+      return;
+    }
+    host.innerHTML = html;
   }
 
   // ── Sync freshly-mounted controls to persisted STATE ──────────────────
@@ -919,16 +992,22 @@
       tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">FA pool unavailable right now.</td></tr>`;
       return;
     }
+    // Nominate is only actionable while the FA auction is live. Off-season the
+    // pool is browse-only (Keith: "if we're not running nominate shouldn't show").
+    const faaLive = !!(STATE.lots && STATE.lots.faa_enabled);
     const CAP = 400;
     tbody.innerHTML = rows.slice(0, CAP).map((r) => {
       const name = r.name || r.player_name;
       const val = (r.adp ? "ADP " + r.adp : "") + (r.adp && r.ppg ? " · " : "") + (r.ppg ? Math.round(r.ppg) + " pts" : "");
+      const action = faaLive
+        ? `<a href="${mflBidUrl(r.player_id)}" target="_blank" rel="noopener" class="btn small">Nominate ↗</a>`
+        : `<span class="small" style="color:var(--muted)">—</span>`;
       return `<tr>
         <td>${playerNameCell(r.player_id, name)}</td>
         <td>${escapeHtml(String(r.position || "").toUpperCase() || "—")}</td>
         <td class="col-md">${escapeHtml(r.team || r.nfl_team || "—")}</td>
         <td>${val || "—"}</td>
-        <td><a href="${mflBidUrl(r.player_id)}" target="_blank" rel="noopener" class="btn small">Nominate ↗</a></td>
+        <td>${action}</td>
       </tr>`;
     }).join("") + (rows.length > CAP ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px;">Showing top ${CAP} of ${rows.length} by ADP — use the player search for anyone else.</td></tr>` : "");
   }
@@ -1320,7 +1399,7 @@
   // ════════════════════════════════════════════════════════════════════
   async function loadBidHistory() {
     const season = new Date().getUTCFullYear();
-    const qs = "?L=" + LEAGUE_ID + "&YEAR=" + season + "&limit=200";
+    const qs = "?L=" + LEAGUE_ID + "&YEAR=" + season + "&limit=500";
     const metaEl = $("#history-meta");
     const feed = $("#history-feed");
     const filterEl = $("#history-filters");
@@ -1800,6 +1879,7 @@
     //     layer-only signal of activity)  → "Bid ↗" (fallback)
     //   - nothing                         → "Nominate ↗"
     // (Keith 2026-05-25 / 2026-05-27.)
+    const eraLive = !!(STATE.lots && STATE.lots.era_enabled);
     const lotsArr = (STATE.lots && Array.isArray(STATE.lots.lots)) ? STATE.lots.lots : [];
     const lotForPlayer = lotsArr.find((l) => String(l.player_id) === String(p.player_id));
     const nowUnix = Math.floor(Date.now() / 1000);
@@ -1819,6 +1899,9 @@
       nominateBtn = `<button type="button" class="btn small secondary" disabled title="Lock window expired — pending resolution into a won row." data-mode="closed">Closed</button>`;
     } else if (!nominateEligible) {
       nominateBtn = `<button type="button" class="btn small secondary" disabled title="${escapeHtml(p.nominate_block_reason || "Nomination blocked")}">Blocked</button>`;
+    } else if (!alreadyNominated && !eraLive) {
+      // Auction isn't running — browse-only, no Nominate (Keith 2026-06-20).
+      nominateBtn = `<span class="small" style="color:var(--muted)">—</span>`;
     } else {
       const ctaLabel = alreadyNominated ? "Bid ↗" : "Nominate ↗";
       const ctaTitle = alreadyNominated

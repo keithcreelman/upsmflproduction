@@ -1,7 +1,13 @@
 {
-  "version": "0.9.0",
+  "version": "0.9.1",
   "released": "2026-06-20",
-  "label": "v0.9.0 — Mobile-style sub-menus (two auctions × Summary/Players/Lots/History/Tracker)",
+  "label": "v0.9.1 — Tracker → Nominations audit; Nominate hidden when an auction isn't running; header meta fix",
+  "changes_091": [
+    "Tracker rebuilt as a Nominations audit: per-day X/2 compliance for every owner, click an owner to see exactly which players they nominated and when (replaces the catch-all War Room cards).",
+    "Players: the Nominate action is hidden (—) when the auction isn't running — browse-only off-season, on both the FA pool and the ERA table.",
+    "Header meta no longer sticks on 'Loading…' on the default FA Auction tab (now set every paint).",
+    "Bid-history fetch limit 200 → 500 so the audit trail is more complete."
+  ],
   "description": "The hub now mirrors the mobile app: two top tabs (FA Auction · Expired Rookie), each broken into five sub-sections — Summary, Players, Lots, History, Tracker — instead of six flat tabs and one long FA scroll. A pill strip switches sub-sections and the body re-renders into a single container. Lots and History are split per auction (a player in the ERA-eligible pool → ERA, else FA). Summary leads with headline KPIs; the old Nominations tab folds into Lots (Open/Completed/All chips) and War Room into Tracker. Team Budgets columns are relabeled from the confusing 'Max Bid @27%/@35%' to 'Max Bid → 27-man / → 35-man' — 27 and 35 are roster sizes (§B1), not percentages; the value is the most you can spend on one player and still afford a legal roster filled to that size.",
   "scope": {
     "this_release": [
