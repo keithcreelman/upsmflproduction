@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.19.4",
-  "label": "Auction players pool fixed. The Expired-Rookie Players tab now shows the full eligible pool (same source as the desktop hub) — with each player's origin, weighted PPG, and high bid — instead of coming up empty. FA Auction and Expired Rookie each keep their Summary / Lots / Players / Cadence sub-tabs (plus Schedule on the FA side)."
+  "build": "2026.06.19.5",
+  "label": "Full FA Auction lifecycle on mobile. The FA Auction now has a Players tab with EVERY free agent in the league (searchable — tap Nominate once the commish opens the auction), a Lots tab that toggles between Open and Completed lots (who won, final price, bid count), and a Bid History feed. Expired Rookie gets the same Lots + History (split correctly by auction). All five-plus sub-tabs per auction."
 }
