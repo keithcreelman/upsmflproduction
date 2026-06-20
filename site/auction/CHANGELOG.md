@@ -1,5 +1,17 @@
 # Auction Hub — Changelog
 
+## v0.7.0 — 2026-06-19
+
+FA Auction tab goes live + both auctions honor the commish switches.
+
+### Added
+- **FA Auction Pool tab activated** (was a "coming soon" placeholder): Live Lots, Team Budgets (available funds + max legal bid under the 27% / 35% guarantee scenarios), Roster Needs (roster count, total need, per-slot lineup deficits), and the Available-player pool — all from `/acquisition-hub/free-agent-auction/live`, the same payload the mobile app uses.
+- **ERA + FA commish switches**: both tabs now read `era_enabled` / `faa_enabled` (added to `/api/auction/lots`). When an auction is off, the tab shows a read-only "isn't running right now" banner over a browsable pool; when on, it's a live board. State refreshes on the existing 30s cadence, so a commish flip reflects without a reload.
+- Viewer's own row highlighted in the FA budgets/needs tables; player names open the unified profile modal; Bid/Nominate deep-link to MFL's O=43 page (in-app bidding stays mobile-only for now).
+
+### Why
+- Keith wanted one set of ERA/FAA kill switches to control **both** the mobile app and the desktop hub. This brings the desktop hub to parity with the mobile redesign.
+
 ## v0.1.0 — 2026-05-18
 
 Initial scaffold + Expired Rookie Pool MVP.

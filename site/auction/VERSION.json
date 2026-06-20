@@ -1,25 +1,28 @@
 {
-  "version": "0.6.0",
-  "released": "2026-05-22",
-  "label": "v0.6.0 — ERA table redesign: Origin fixed, PPG history, live bid columns",
-  "description": "Drops the 'proxy walk' jargon. Bid thread now classifies each step from the observer's perspective: Nom (opening bid), Forced Increase (same franchise as previous high — MFL walked their hidden proxy), Overtake (different franchise dethroned the leader). Classification computed client-side by walking each per-lot thread chronologically.",
+  "version": "0.7.0",
+  "released": "2026-06-19",
+  "label": "v0.7.0 — FA Auction tab goes live + ERA/FA commish switches",
+  "description": "The FA Auction Pool tab is no longer a placeholder: live lots, team budgets (max legal bid @27%/@35%), roster needs, and the available-player pool, all fed by the same /acquisition-hub/free-agent-auction/live payload the mobile app uses. Both the ERA and FA tabs now honor the commish ERA/FAA kill switches — when an auction is off, the tab shows a read-only 'not running' banner over a browsable pool; when on, it's a live board. The switch state polls on the existing 30s cadence, so a commish flip reflects without a reload. One set of switches drives both the app and the desktop hub.",
   "scope": {
     "this_release": [
-      "/api/auction/bid-stats — per-franchise aggregation, kind filter (era|fa|all), since filter",
-      "War Room: Bid Activity card with position chips per franchise",
-      "ERA-vs-FA classification via cross-reference with current rookie/cy=0 pool",
-      "All/ERA/FA toggle refetches from worker (no client-side filtering)"
+      "FA Auction Pool tab activated: live lots + team budgets + roster needs + available pool",
+      "ERA + FA tabs honor AUCTION_ERA_ENABLED / AUCTION_FAA_ENABLED (surfaced on /api/auction/lots)",
+      "Read-only 'not running' banner when a switch is off; live board when on",
+      "FA data from /acquisition-hub/free-agent-auction/live (budgets, needs, available_players, active_auctions)",
+      "Read-only deep-links to MFL O=43 for Bid/Nominate (in-app bidding stays mobile-only for now)"
     ],
     "deferred": [
-      "Position-based roster compliance (requires roster + open winning bids overlay)",
-      "Position breakdown filtered by acquisition timing (offseason vs in-season)",
-      "Side-by-side era_bid vs fa_bid timeline chart"
+      "In-app desktop bidding (mobile Phase 1 only today)",
+      "FA pool position/owner filters + column sort (ERA tab has them)",
+      "Rules & Calendar tab"
     ]
   },
   "canon_references": {
     "league_context_v1.md": ["§6.A1", "§6.A2", "§B1", "§A1", "§A2", "§A3"]
   },
   "changes": [
+    { "version": "0.7.0", "date": "2026-06-19", "type": "feat",
+      "summary": "FA Auction Pool tab activated (live lots + team budgets @27/@35 + roster needs + available pool from /acquisition-hub/free-agent-auction/live). ERA + FA tabs now honor the commish ERA/FAA switches via era_enabled/faa_enabled on /api/auction/lots — read-only 'not running' banner when off, live board when on, refreshed on the 30s cadence. Mirrors the mobile redesign so one set of switches controls both surfaces." },
     { "version": "0.6.0", "date": "2026-05-22", "type": "feat",
       "summary": "ERA-Eligible table redesign: dropped Age/Prior Owner/Rookie Slot/Rookie Salary columns; added 2023/2024/2025 PPG + 3-2-1 weighted avg; added live High Bid / High Bidder / Bids columns (LEFT JOIN ups_auction_lots). Fixed Origin classification — was returning Other for backfilled players; now resolves Rookie Draft / FA Auction / WW / MYM-Rookie via draftResults + transactions probe." },
     { "version": "0.5.0", "date": "2026-05-21", "type": "feat",

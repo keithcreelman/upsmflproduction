@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Auction Hub — UPS League</title>
-<link rel="stylesheet" href="auction_hub.css?v=2026.05.27.v0.1.3">
+<link rel="stylesheet" href="auction_hub.css?v=2026.06.19.v0.2.0">
 </head>
 <body>
 <header class="ah-header">
@@ -16,7 +16,7 @@
 
 <nav class="ah-tabs" id="ah-tabs">
   <button data-tab="era" class="active">Expired Rookie Pool</button>
-  <button data-tab="fa" disabled title="Coming soon">FA Auction Pool</button>
+  <button data-tab="fa">FA Auction Pool</button>
   <button data-tab="nominations">Nominations</button>
   <button data-tab="warroom">War Room</button>
   <button data-tab="history">Bid History</button>
@@ -26,6 +26,7 @@
 <main class="ah-main">
   <!-- ── EXPIRED ROOKIE POOL ─────────────────────────────────────── -->
   <section class="ah-section active" data-section="era">
+    <div class="ah-auction-banner" id="era-banner" style="display:none;"></div>
     <div class="ah-context-banner">
       <strong>Expired Rookie Auction (ERA)</strong> — players whose rookie contract expired
       (<code>contract_type='Rookie'</code> AND <code>contractYear=0</code>) and were not extended by the
@@ -88,11 +89,99 @@
     </div>
   </section>
 
-  <!-- ── FA AUCTION POOL (placeholder) ────────────────────────────── -->
+  <!-- ── FA AUCTION POOL ──────────────────────────────────────────── -->
   <section class="ah-section" data-section="fa">
-    <div class="ah-placeholder">
-      <strong>FA Auction Pool — coming soon</strong>
-      Last weekend of July. Expired Veterans, dropped players, and untagged FA pool. 24-hour lock, $1K increments, 2 nominations / 24h.
+    <div class="ah-auction-banner" id="fa-banner" style="display:none;"></div>
+    <div class="ah-context-banner">
+      <strong>FA Auction (FAA)</strong> — Expired Veterans, dropped players, and the untagged free-agent pool.
+      Anyone not won in the ERA is eligible. Opens the last weekend of July. Starting bid <strong>$1K</strong>,
+      24-hour lock window, $1K bid increments. Each owner may submit
+      <strong>2 nominations per rolling 24-hour window</strong> (§A1).
+      <div class="meta" id="fa-context-meta">Click the tab to load.</div>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Live Lots</h2>
+        <span class="small" id="fa-lots-summary">—</span>
+      </div>
+      <table class="ah-table" id="fa-lots-table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="col-md">NFL</th>
+            <th class="num">High Bid</th>
+            <th>High Bidder</th>
+            <th>Time Left</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="fa-lots-tbody">
+          <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">Loading live lots…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Team Budgets</h2>
+        <span class="small">Max legal bid under the 27% / 35% guarantee scenarios.</span>
+      </div>
+      <table class="ah-table" id="fa-budgets-table">
+        <thead>
+          <tr>
+            <th>Team</th>
+            <th class="num">Available Funds</th>
+            <th class="num">Max Bid @27%</th>
+            <th class="num">Max Bid @35%</th>
+          </tr>
+        </thead>
+        <tbody id="fa-budgets-tbody">
+          <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">Loading budgets…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Roster Needs</h2>
+        <span class="small">Starters still needed to field a legal lineup.</span>
+      </div>
+      <table class="ah-table" id="fa-needs-table">
+        <thead>
+          <tr>
+            <th>Team</th>
+            <th class="num">Roster</th>
+            <th class="num">Total Need</th>
+            <th>Lineup Deficits</th>
+          </tr>
+        </thead>
+        <tbody id="fa-needs-tbody">
+          <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">Loading needs…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ah-card">
+      <div class="ah-card-head">
+        <h2>Available Players</h2>
+        <span class="small" id="fa-pool-summary">—</span>
+      </div>
+      <table class="ah-table" id="fa-pool-table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Pos</th>
+            <th class="col-md">NFL</th>
+            <th class="num">Model $</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="fa-pool-tbody">
+          <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">Loading available players…</td></tr>
+        </tbody>
+      </table>
     </div>
   </section>
 
@@ -284,6 +373,6 @@
 
 <script src="../shared/cap_math.js?v=2026.05.12.v1"></script>
 <script src="../shared/player_profile_master.js?v=2026.05.12.v1"></script>
-<script src="auction_hub.js?v=2026.05.27.v0.1.5"></script>
+<script src="auction_hub.js?v=2026.06.19.v0.2.0"></script>
 </body>
 </html>
