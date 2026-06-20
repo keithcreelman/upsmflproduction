@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.20.2",
-  "label": "New Player Stats view — the advanced-stats leaderboard (from the desktop Stats Workbench) is now on mobile: position tabs (QB/RB/WR/TE/DL/LB/DB/PK/PN) with curated per-position columns, search, and tap a player for the full sheet. Reach it from the Home 'Player Stats' tile or the League → Stats tab. Positional rank now buckets by IDP group (DL/LB/DB) so each group has one #1, and positions read in MFL's vocabulary (LB for all linebackers)."
+  "build": "2026.06.20.3",
+  "label": "Player Stats: defensive depth. The leaderboard query is now split by phase (offense / IDP / special) so it's no longer capped — assisted tackles, defensive pressures, and defensive TDs are back. Mobile IDP tabs now show Assists + Pressures; IDP results are ranked by a tackle/sack/INT impact score instead of yardage."
 }

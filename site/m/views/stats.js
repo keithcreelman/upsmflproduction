@@ -40,11 +40,14 @@
     recyd: { l: "RecYd", g: function (r) { return nn(r.rec_yds); } },
     rectd: { l: "RecTD", g: function (r) { return nn(r.rec_tds); } },
     tgtsh: { l: "Tgt%",  g: function (r) { return nn(r.target_share); }, f: "pct" },
-    tkl:   { l: "Tkl",   g: function (r) { return nn(r.def_tackles_total); } },
+    tkl:   { l: "Tkl",   g: function (r) { return nn(r.def_tackles_total); } },  // solo
+    ast:   { l: "Ast",   g: function (r) { return nn(r.def_tackles_ast); } },
     sk:    { l: "Sk",    g: function (r) { return nn(r.def_sacks); }, f: "dec1" },
     tfl:   { l: "TFL",   g: function (r) { return nn(r.def_tfl); } },
     pd:    { l: "PD",    g: function (r) { return nn(r.def_pass_def); } },
     intd:  { l: "INT",   g: function (r) { return nn(r.def_ints); } },
+    press: { l: "Press", g: function (r) { return nn(r.def_pressures); } },
+    deftd: { l: "DefTD", g: function (r) { return nn(r.def_tds); } },
     fgm:   { l: "FGM",   g: function (r) { return nn(r.fg_made); } },
     fgpct: { l: "FG%",   g: function (r) { return r.fg_att ? num(r.fg_made) / num(r.fg_att) : null; }, f: "pct" },
     xpm:   { l: "XPM",   g: function (r) { return nn(r.xp_made); } },
@@ -60,9 +63,9 @@
     { id: "RB", alias: "skill",  group: ["RB"],       cols: ["ruyd", "rutd", "rec", "rya", "ppg"] },
     { id: "WR", alias: "skill",  group: ["WR"],       cols: ["rec", "recyd", "rectd", "tgtsh", "ppg"] },
     { id: "TE", alias: "skill",  group: ["TE"],       cols: ["rec", "recyd", "rectd", "tgtsh", "ppg"] },
-    { id: "DL", alias: "idp",    group: ["DL"],       cols: ["tkl", "sk", "tfl", "pd", "ppg"] },
-    { id: "LB", alias: "idp",    group: ["LB"],       cols: ["tkl", "sk", "tfl", "pd", "ppg"] },
-    { id: "DB", alias: "idp",    group: ["DB"],       cols: ["tkl", "intd", "pd", "tfl", "ppg"] },
+    { id: "DL", alias: "idp",    group: ["DL"],       cols: ["tkl", "ast", "sk", "press", "ppg"] },
+    { id: "LB", alias: "idp",    group: ["LB"],       cols: ["tkl", "ast", "sk", "tfl", "ppg"] },
+    { id: "DB", alias: "idp",    group: ["DB"],       cols: ["tkl", "ast", "intd", "pd", "ppg"] },
     { id: "PK", alias: "kicker", group: ["PK"],       cols: ["fgm", "fgpct", "xpm", "ppg"] },
     { id: "PN", alias: "punter", group: ["PK", "PN"], cols: ["punts", "navg", "i20", "ppg"] }
   ];
