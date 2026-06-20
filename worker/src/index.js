@@ -4292,6 +4292,11 @@ export default {
             // Drives the mobile CTA: when off, the board deep-links to MFL (no
             // in-app sheet) — zero-regression default. Flip on in FO to bid in-app.
             inapp_bid_enabled: await getFeatureFlag(env, "AUCTION_INAPP_BID_ENABLED"),
+            // Per-auction "is it live" switches — the desktop Auction Hub polls
+            // this endpoint every 30s and flips its ERA / FA tabs between a live
+            // board and a read-only "not running" banner without a reload.
+            era_enabled: await getFeatureFlag(env, "AUCTION_ERA_ENABLED"),
+            faa_enabled: await getFeatureFlag(env, "AUCTION_FAA_ENABLED"),
             lots: enriched,
           });
         } catch (e) {

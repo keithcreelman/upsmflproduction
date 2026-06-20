@@ -104,6 +104,28 @@
       return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
     } catch (e) { return iso; }
   };
+  // Full-dollar formatter (desktop has room for the whole number).
+  const usd = (n) => {
+    const v = Number(n);
+    return Number.isFinite(v) && v > 0 ? "$" + Math.round(v).toLocaleString("en-US") : "—";
+  };
+  // The FAA /live high-bid value may arrive as a number or a pre-formatted
+  // "$5,000" string from the O=43 scrape — render either cleanly.
+  const money = (v) => {
+    if (v == null || v === "") return "—";
+    const s = String(v);
+    if (/\$/.test(s)) return escapeHtml(s);
+    const n = Number(s.replace(/[^0-9.\-]/g, ""));
+    return Number.isFinite(n) && n > 0 ? "$" + Math.round(n).toLocaleString("en-US") : escapeHtml(s);
+  };
+  // Read-only deep-link to MFL's native auction page (O=43) for a player —
+  // same pattern as the ERA table (the hub never bids in-app; that's mobile-only).
+  function mflBidUrl(pid) {
+    const fid = (STATE.me && STATE.me.franchise_id) || _hpmFranchiseId() || "0000";
+    const year = new Date().getUTCFullYear();
+    return `https://www48.myfantasyleague.com/${year}/options?LEAGUE_ID=${LEAGUE_ID}` +
+      `&FRANCHISE=${fid}&O=43&PLAYER_ID=${encodeURIComponent(pid)}`;
+  }
 
   // Map MFL position codes to display buckets (matches rookie hub convention)
   function posBucket(p) {
@@ -149,14 +171,19 @@
     renderEraMeta();
     renderEraTable();
     renderNominations();
+    refreshAuctionBanners();   // ERA + FA "not running" banners from the live switch state
 
     // Auto-refresh nominations every 30s. Also re-render the ERA table so
     // the Nominate→Bid CTA flips when a player gets newly nominated mid-
-    // session (cross-references STATE.lots in renderRow).
+    // session (cross-references STATE.lots in renderRow), refresh the
+    // ERA/FA switch banners (a commish flip reflects without a reload),
+    // and re-pull the FA board when that tab is open.
     setInterval(async () => {
       await loadLots();
       renderNominations();
       renderEraTable();
+      refreshAuctionBanners();
+      if (STATE.activeTab === "fa" && STATE.faLoaded) loadFa();
     }, 30000);
 
     // And tick the time-remaining countdowns every second.
@@ -211,7 +238,10 @@
         $$("#ah-tabs button").forEach((b) => b.classList.toggle("active", b === btn));
         $$(".ah-section").forEach((s) => s.classList.toggle("active", s.dataset.section === tab));
         // Lazy-load tab data on first activation
-        if (tab === "warroom" && !STATE.warroomLoaded) {
+        if (tab === "fa" && !STATE.faLoaded) {
+          STATE.faLoaded = true;
+          loadFa();
+        } else if (tab === "warroom" && !STATE.warroomLoaded) {
           STATE.warroomLoaded = true;
           loadWarRoom();
         } else if (tab === "history" && !STATE.historyLoaded) {
@@ -221,6 +251,144 @@
         }
       });
     });
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // FA AUCTION POOL  (+ ERA / FA "is it live" banners)
+  // ════════════════════════════════════════════════════════════════════
+  // The commish ERA/FAA switches (surfaced on /api/auction/lots as
+  // era_enabled / faa_enabled) gate each auction. OFF → the tab shows a
+  // read-only "not running" banner over a browsable pool; ON → a live board.
+  // Mirrors the mobile app: one set of switches drives both surfaces.
+  function setAuctionBanner(elId, name, enabled, whenText) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (enabled) { el.style.display = "none"; el.innerHTML = ""; return; }
+    el.style.display = "";
+    el.innerHTML = `<strong>${escapeHtml(name)} isn't running right now.</strong> ` +
+      (whenText ? escapeHtml(whenText) + " " : "") +
+      "Browse the pool below — bidding opens on MFL when the commissioner turns it on.";
+  }
+  function refreshAuctionBanners() {
+    const f = STATE.lots || {};
+    setAuctionBanner("era-banner", "The Expired-Rookie Auction", !!f.era_enabled, "Runs Memorial Day weekend.");
+    setAuctionBanner("fa-banner", "The FA Auction", !!f.faa_enabled, "Opens the last weekend of July.");
+  }
+
+  async function loadFa() {
+    const season = new Date().getUTCFullYear();
+    const hpmFid = (STATE.me && STATE.me.franchise_id) || _hpmFranchiseId();
+    let url = apiUrl("/acquisition-hub/free-agent-auction/live") + "?L=" + LEAGUE_ID + "&YEAR=" + season;
+    if (hpmFid) url += "&F=" + encodeURIComponent(hpmFid);
+    const meta = $("#fa-context-meta");
+    try {
+      const data = await fetchJSON(url);
+      STATE.fa = data;
+      if (meta) {
+        meta.textContent = data && data.ok === false
+          ? "FA board unavailable right now."
+          : `${(data.available_players || []).length} available · ${(data.active_auctions || []).length} live lots · generated ${data.generated_at ? new Date(data.generated_at).toLocaleTimeString() : "—"}`;
+      }
+    } catch (e) {
+      console.error("[auction-hub] FA live fetch failed:", e);
+      STATE.fa = { ok: false, error: String(e && e.message || e) };
+      if (meta) meta.textContent = "Failed to load the FA board: " + (e && e.message || e);
+    }
+    renderFa();
+  }
+
+  function renderFa() {
+    refreshAuctionBanners();
+    const fa = STATE.fa || {};
+    renderFaLots(fa.active_auctions || []);
+    renderFaBudgets(fa.team_budget_rows || []);
+    renderFaNeeds(fa.team_need_rows || []);
+    renderFaPool(fa.available_players || []);
+  }
+
+  function playerNameCell(pid, name) {
+    return `<button type="button" class="ah-player-open player-link" data-action="open-player-modal" ` +
+      `data-player-id="${escapeHtml(String(pid))}">${escapeHtml(name || ("Player #" + pid))}</button>`;
+  }
+
+  function renderFaLots(rows) {
+    const tbody = $("#fa-lots-tbody");
+    const summary = $("#fa-lots-summary");
+    if (summary) summary.textContent = rows.length + (rows.length === 1 ? " lot" : " lots");
+    if (!tbody) return;
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">No open FA lots right now.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map((r) => `<tr>
+        <td>${playerNameCell(r.player_id, r.player_name)}</td>
+        <td>${escapeHtml(String(r.position || "").toUpperCase() || "—")}</td>
+        <td class="col-md">${escapeHtml(r.nfl_team || r.team || "—")}</td>
+        <td class="num">${money(r.high_bid_amount)}</td>
+        <td>${escapeHtml(r.high_bidder_label || "—")}</td>
+        <td>${escapeHtml(r.timer_text || "—")}</td>
+        <td><a href="${mflBidUrl(r.player_id)}" target="_blank" rel="noopener" class="btn small">Bid ↗</a></td>
+      </tr>`).join("");
+  }
+
+  function renderFaBudgets(rows) {
+    const tbody = $("#fa-budgets-tbody");
+    if (!tbody) return;
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">No budget data yet.</td></tr>`;
+      return;
+    }
+    const meFid = (STATE.me && STATE.me.franchise_id) || _hpmFranchiseId();
+    const sorted = rows.slice().sort((a, b) => Number(b.available_funds_dollars || 0) - Number(a.available_funds_dollars || 0));
+    tbody.innerHTML = sorted.map((r) => {
+      const isMe = meFid && String(r.franchise_id).padStart(4, "0") === String(meFid).padStart(4, "0");
+      return `<tr${isMe ? ' class="ah-row-me"' : ""}>
+        <td>${escapeHtml(r.franchise_name || franchiseName(r.franchise_id))}</td>
+        <td class="num">${usd(r.available_funds_dollars)}</td>
+        <td class="num">${usd(r.scenario_27_max_bid)}</td>
+        <td class="num">${usd(r.scenario_35_max_bid)}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  function renderFaNeeds(rows) {
+    const tbody = $("#fa-needs-tbody");
+    if (!tbody) return;
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">No roster-need data yet.</td></tr>`;
+      return;
+    }
+    const meFid = (STATE.me && STATE.me.franchise_id) || _hpmFranchiseId();
+    const sorted = rows.slice().sort((a, b) => Number(b.total_deficit || 0) - Number(a.total_deficit || 0));
+    tbody.innerHTML = sorted.map((r) => {
+      const isMe = meFid && String(r.franchise_id).padStart(4, "0") === String(meFid).padStart(4, "0");
+      const d = r.lineup_deficits || {};
+      const deficits = Object.keys(d).filter((k) => d[k]).map((k) => `${k}:${d[k]}`).join(" ") || "Ready";
+      return `<tr${isMe ? ' class="ah-row-me"' : ""}>
+        <td>${escapeHtml(r.franchise_name || franchiseName(r.franchise_id))}</td>
+        <td class="num">${Number(r.roster_count) || 0}</td>
+        <td class="num">${Number(r.total_deficit) || 0}</td>
+        <td>${escapeHtml(deficits)}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  function renderFaPool(rows) {
+    const tbody = $("#fa-pool-tbody");
+    const summary = $("#fa-pool-summary");
+    if (summary) summary.textContent = rows.length + (rows.length === 1 ? " player" : " players");
+    if (!tbody) return;
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">No players in the pool yet — check back when the auction nears.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map((r) => `<tr>
+        <td>${playerNameCell(r.player_id, r.player_name)}</td>
+        <td>${escapeHtml(String(r.position || "").toUpperCase() || "—")}</td>
+        <td class="col-md">${escapeHtml(r.team || r.nfl_team || "—")}</td>
+        <td class="num">${usd(r.upcoming_auction_value)}</td>
+        <td><a href="${mflBidUrl(r.player_id)}" target="_blank" rel="noopener" class="btn small">Nominate ↗</a></td>
+      </tr>`).join("");
   }
 
   // ════════════════════════════════════════════════════════════════════
@@ -1238,6 +1406,20 @@
             name: l.player_name || "",
             position: l.position || "",
             team: l.nfl_team || "",
+          };
+        }
+      }
+    }
+    // FA board (available pool + active lots) — so FA player headers resolve
+    // eagerly too, not just ERA/lots players.
+    if (STATE.fa) {
+      const faRows = (STATE.fa.available_players || []).concat(STATE.fa.active_auctions || []);
+      for (const r of faRows) {
+        if (String(r.player_id) === idStr) {
+          return {
+            name: r.player_name || "",
+            position: r.position || "",
+            team: r.team || r.nfl_team || "",
           };
         }
       }
