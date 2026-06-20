@@ -697,6 +697,16 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     opacity: 0.7;
     margin-left: 0.15em;
   }
+  /* Commish/owner view toggle — a button styled like a nav link. */
+  button.ups-commish-toggle {
+    cursor: pointer;
+    font: inherit;
+    margin-left: auto;
+  }
+  button.ups-commish-toggle[data-owner-view="1"] {
+    color: #f3b61f !important;
+    border-color: rgba(243, 182, 31, 0.55);
+  }
 
   /* Dropdown items in My Hub (Player Acquisition, Game Day) — the
      trigger looks like a normal link but renders as a <button>, and
@@ -3029,6 +3039,10 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       "auction-hub": {
         mountId: "auctionHubMount",
         loaderPath: "/site/auction/mfl_hpm_embed_loader.js"
+      },
+      "commish-settings": {
+        mountId: "commishSettingsMount",
+        loaderPath: "/site/commish/mfl_hpm_embed_loader.js"
       }
       // Future:
       //   "front-office-v2": { mountId: "..." , loaderPath: "/site/rosters/v2/mfl_hpm_embed_loader.js" },
@@ -3180,6 +3194,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       try {
         var qhub = new URL(window.location.href).searchParams.get("hub") || "";
         if (qhub === "auction-hub") activeId = "auction-hub";
+        else if (qhub === "commish-settings") activeId = "commish-settings";
       } catch (e) {}
     }
     // Any other MODULE → no active highlight, but we still render the
@@ -3228,6 +3243,9 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       { id: "auction-hub",  label: "Auction Hub",    module: "MESSAGE19&hub=auction-hub" },
       { id: "standings",    label: "Standings",      module: "MESSAGE4"  },
       { id: "player-stats", label: "Player Stats",   module: "MESSAGE13" },
+      // Commish-only command center (moved here from the Legacy Links "Commish"
+      // group). Routes through the MESSAGE19 hub container like the Auction Hub.
+      { id: "commish-settings", label: "Commish Settings", module: "MESSAGE19&hub=commish-settings", commishOnly: true },
       { id: "acquisition",  label: "Player Acquisition", children: [
         { label: "Add/Drop",       href: buildMflPath("/add_drop") },
         { label: "Trade War Room", href: buildUrl("MESSAGE6=N") },
@@ -3280,12 +3298,8 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
             { label: "Log In / Out",       href: buildMflPath("/logout") },
             { label: "Help Center",        href: buildMflPath("/support") },
             { label: "My Support Tickets", href: buildMflPath("/my_tickets") }
-          ] },
-          { group: "Commish", commishOnly: true, items: [
-            { label: "Commissioner Setup",  href: buildMflPath("/commissioner_setup") },
-            { label: "Become Commissioner", href: buildMflPath("/logout?BECOME=0000") },
-            { label: "Become Owner",        href: buildMflPath("/logout?BECOME=0008") }
           ] }
+          // Commish links moved to the "Commish Settings" hub (commishOnly nav tab).
         ]
       }
     ];
@@ -3304,7 +3318,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     // Is the current viewer the commish (or Keith's owner team 0008)? Gates the
     // "Become …" links. MFL sets window.FRANCHISE_ID on the page; commish pages
     // run as 0000.
-    function upsViewerIsCommish() {
+    function upsRealCommish() {
       try {
         var raw = String(window.FRANCHISE_ID || window.franchise_id || "").replace(/\D/g, "");
         var fid = raw ? raw.padStart(4, "0").slice(-4) : "";
@@ -3315,6 +3329,10 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         return pf === "0000" || pf === "0008";
       } catch (e) { return false; }
     }
+    // The header commish/owner toggle (a localStorage flag) lets the commish
+    // preview the site as an owner — when set, commish-only UI is hidden.
+    function upsViewAsOwner() { try { return localStorage.getItem("ups_view_as_owner") === "1"; } catch (e) { return false; } }
+    function upsViewerIsCommish() { return upsRealCommish() && !upsViewAsOwner(); }
 
     function buildDropdown(t) {
       var wrap = document.createElement("span");
@@ -3448,6 +3466,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       lbl.textContent = "My Hub";
       nav.appendChild(lbl);
       TABS.forEach(function (t) {
+        if (t.commishOnly && !upsViewerIsCommish()) return; // commish-only tab
         if ((t.children && t.children.length) || (t.groups && t.groups.length)) {
           nav.appendChild(buildDropdown(t));
           return;
@@ -3459,6 +3478,23 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         if (t.id === activeId) a.setAttribute("data-active", "1");
         nav.appendChild(a);
       });
+      // Commish/owner view toggle — only for the real commish. Flips the
+      // localStorage flag (read by upsViewerIsCommish + the commish hub) and
+      // reloads so commish-only UI shows/hides everywhere.
+      if (upsRealCommish()) {
+        var tog = document.createElement("button");
+        tog.type = "button";
+        tog.className = "ups-teamops-subnav-link ups-commish-toggle";
+        var asOwner = upsViewAsOwner();
+        tog.textContent = asOwner ? "👤 Owner view" : "🛠 Commish view";
+        tog.title = "Toggle between commissioner and owner view";
+        if (asOwner) tog.setAttribute("data-owner-view", "1");
+        tog.addEventListener("click", function () {
+          try { localStorage.setItem("ups_view_as_owner", asOwner ? "0" : "1"); } catch (e) {}
+          window.location.reload();
+        });
+        nav.appendChild(tog);
+      }
       // Document-wide click closes any open dropdown.
       document.addEventListener("click", function (e) {
         if (!e || !e.target) return;

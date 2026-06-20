@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commish Settings — UPS League</title>
+<style>
+  :root {
+    --bg: #0b0f18; --panel: #141a26; --panel2: #1a2230; --line: #2a3446;
+    --fg: #e8edf5; --muted: #8a97ad; --accent: #5b8dff; --warn: #fbbf24; --ok: #4ade80; --danger: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; }
+  .cs-wrap { max-width: 1100px; margin: 0 auto; padding: 18px 16px 40px; }
+  .cs-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .cs-head h1 { font-size: 22px; margin: 0; }
+  .cs-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 2px 7px; }
+  .cs-sub { color: var(--muted); font-size: 12.5px; margin: 0 0 18px; line-height: 1.5; }
+  .cs-gate { padding: 40px 20px; text-align: center; color: var(--muted); }
+  /* Tool row (the commish identity / our tools) */
+  .cs-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+  .cs-tool { display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; border-radius: 9px; text-decoration: none;
+    background: var(--panel2); border: 1px solid var(--line); color: var(--fg); font-weight: 600; font-size: 13px; }
+  .cs-tool:hover { border-color: var(--accent); }
+  .cs-tool.warn { color: var(--warn); border-color: rgba(251,184,107,0.4); }
+  /* Section header */
+  .cs-sech { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
+    margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .cs-sech .lead { color: var(--accent); }
+  /* Card grid of MFL setup groups */
+  .cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .cs-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .cs-card.caution { border-color: rgba(248,113,113,0.35); }
+  .cs-card h3 { margin: 0 0 9px; font-size: 13.5px; color: var(--fg); display: flex; align-items: center; gap: 6px; }
+  .cs-card.caution h3 { color: var(--danger); }
+  .cs-card ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+  .cs-card li a { display: block; padding: 5px 7px; border-radius: 6px; text-decoration: none; color: var(--fg); font-size: 12.5px; }
+  .cs-card li a:hover { background: var(--panel2); color: var(--accent); }
+  .cs-card li a::after { content: "↗"; color: var(--muted); font-size: 10px; margin-left: 5px; }
+  .cs-note { font-size: 11.5px; color: var(--muted); margin-top: 18px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="cs-wrap" id="cs-root"><div class="cs-gate">Loading…</div></div>
+<script>
+(function () {
+  "use strict";
+  function s(v) { return String(v == null ? "" : v).trim(); }
+  function esc(v) { return s(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  // Context comes from the embed loader's injected globals; query params are a
+  // fallback for direct/standalone access.
+  var qp; try { qp = new URLSearchParams(location.search || ""); } catch (e) { qp = { get: function () { return ""; } }; }
+  var L = s(window.UPS_COMMISH_LEAGUE_ID) || s(qp.get("L")) || "74598";
+  var YEAR = s(window.UPS_COMMISH_YEAR) || s(qp.get("YEAR")) || String(new Date().getFullYear());
+  var HOST = s(window.UPS_COMMISH_HOST) || "www48.myfantasyleague.com";
+  var IS_COMMISH = (window.UPS_COMMISH_IS_COMMISH != null) ? !!window.UPS_COMMISH_IS_COMMISH : (s(qp.get("commish")) === "1");
+  var root = document.getElementById("cs-root");
+
+  if (!IS_COMMISH) {
+    root.innerHTML = '<div class="cs-gate"><h1>Commish Settings</h1><p>This page is for the commissioner only.</p></div>';
+    return;
+  }
+
+  // Build an MFL URL for this league/year. kind: "csetup" (C=) | "options" (O=) | "path".
+  function mfl(kind, key) {
+    var base = "https://" + HOST + "/" + YEAR + "/";
+    if (kind === "c") return base + "csetup?L=" + L + "&C=" + key;
+    if (kind === "o") return base + "options?L=" + L + "&O=" + key;
+    if (kind === "r") return base + "reports?L=" + L + "&R=" + key;
+    return base + key + (key.indexOf("?") === -1 ? "?L=" + L : "&L=" + L);
+  }
+
+  // Identity + our own commish tools (the "MFL Legacy Commish Links" moved here).
+  var tools = [
+    { label: "Become Commissioner", url: mfl("path", "logout?BECOME=0000") },
+    { label: "Become Owner (0008)", url: mfl("path", "logout?BECOME=0008") },
+    { label: "Full MFL Commissioner Setup", url: mfl("path", "commissioner_setup") }
+  ];
+
+  // Curated + grouped MFL Commissioner Setup. Decluttered from MFL's two-column
+  // wall into the screens this league actually touches. [kind, key, label].
+  var groups = [
+    { title: "General", items: [
+      ["c","GENERAL","General League Setup"],
+      ["o","60","Additional League Rules"],
+      ["o","110","League Calendar"],
+      ["c","ACCSETUP","Accounting Setup"],
+      ["c","ACCEDIT","Edit Accounting Records"],
+      ["c","DIVCONF","Divisions & Conferences"]
+    ]},
+    { title: "Franchises & Access", items: [
+      ["c","FRANCHISE","Franchise Setup"],
+      ["o","93","Abilities Setup"],
+      ["c","CACCESS","Grant Commissioner Access"],
+      ["c","FRANORD","Custom Franchise Order"],
+      ["o","103","Invite Owners"],
+      ["c","REMOWN","Remove Owner"]
+    ]},
+    { title: "Salary Cap", items: [
+      ["c","SALCAP","Salary Cap Setup"],
+      ["c","SALARIES","Edit Player Salaries & Contracts"],
+      ["c","IMPSAL","Import Salaries & Contracts"],
+      ["c","SALADJ","Edit Salary Adjustments"]
+    ]},
+    { title: "Rosters & Players", items: [
+      ["c","LINEUP","Starting Lineup Setup"],
+      ["c","ROSLIMIT","Roster Position Limits"],
+      ["c","KEEPERS","Dynasty & Keepers Setup"],
+      ["c","PLAYACQ","Player Acquired Info Setup"],
+      ["c","EDITACQ","Edit Player Acquired Info"],
+      ["c","CANTCUT","Can't Cut List"],
+      ["c","CANTADD","Can't Add List"],
+      ["c","LOADROST","Load / Unload Rosters"]
+    ]},
+    { title: "Scoring & Standings", items: [
+      ["c","SCORING","General Scoring Setup"],
+      ["c","STATCORR","Statistic Changes"],
+      ["c","STANDINGS","Standings Setup"],
+      ["c","RECALC","Recalculate Standings"],
+      ["c","FSCOREADJ","Adjust Franchise Scores"],
+      ["c","STANDADJ","Adjust Standings"]
+    ]},
+    { title: "Add/Drop & Trades", items: [
+      ["c","ADDDROP","Add/Drop Setup"],
+      ["c","FREEAG","Waivers / Free Agents"],
+      ["c","BBIDWAIV","Blind Bid Waivers"],
+      ["c","TRADES","Trades Setup"],
+      ["c","REVTRAD","Review Trades"],
+      ["c","IR","Injured Reserve Setup"],
+      ["c","TAXI","Taxi Squad Setup"],
+      ["o","67","Delete Transactions"]
+    ]},
+    { title: "Auction & Draft", items: [
+      ["c","AUCTIONS","General Auction Setup"],
+      ["o","127","Delete Auctions"],
+      ["c","DRAFT","General Draft Setup"],
+      ["c","DRAFTORD","Draft Order Setup"],
+      ["o","104","Import Future Draft Picks"]
+    ]},
+    { title: "Schedule & Playoffs", items: [
+      ["c","WEEKSCHED","Weekly Schedule Setup"],
+      ["c","VALSCHED","Validate Schedule"],
+      ["o","231","Schedule Generator (BETA)"],
+      ["c","PLAYOFFS","General Playoffs Setup"],
+      ["c","POSEEDS","Seed Playoff Teams"]
+    ]},
+    { title: "Appearance & Messages", items: [
+      ["c","HMPGMOD","Home Page Modules & Tabs"],
+      ["c","SKIN","Select Skin"],
+      ["path","edit_my_links?TYPE=L","Edit League Links"],
+      ["c","HMPGMSG","Home Page Messages"],
+      ["o","66","Edit Weekly Newsletter"],
+      ["c","SCROLLER","Scrolling Text"]
+    ]},
+    { title: "History", items: [
+      ["c","HISTORY","League History Setup"],
+      ["o","170","Link Historical Franchises"],
+      ["o","201","League Awards"]
+    ]},
+    { title: "⚠ Use With Caution", caution: true, items: [
+      ["o","173","Duplicate This League"],
+      ["o","146","Delete A Franchise"],
+      ["o","246","Replace / Reset Franchises"],
+      ["c","CLEARROST","Clear Rosters"]
+    ]}
+  ];
+
+  var html =
+    '<div class="cs-head"><h1>Commish Settings</h1><span class="cs-badge">Commissioner</span></div>' +
+    '<p class="cs-sub">League ' + esc(L) + ' · ' + esc(YEAR) + '. Your command center — identity toggle, plus a tidied set of deep-links into MFL\'s commissioner setup (opens MFL in a new tab).</p>' +
+    '<div class="cs-tools">' +
+      tools.map(function (t) { return '<a class="cs-tool" href="' + esc(t.url) + '" target="_blank" rel="noopener">' + esc(t.label) + '</a>'; }).join("") +
+    '</div>' +
+    '<div class="cs-sech"><span class="lead">MFL Settings</span> · Commissioner Setup</div>' +
+    '<div class="cs-grid">' +
+      groups.map(function (g) {
+        return '<div class="cs-card' + (g.caution ? " caution" : "") + '">' +
+          '<h3>' + esc(g.title) + '</h3><ul>' +
+          g.items.map(function (it) { return '<li><a href="' + esc(mfl(it[0], it[1])) + '" target="_blank" rel="noopener">' + esc(it[2]) + '</a></li>'; }).join("") +
+          '</ul></div>';
+      }).join("") +
+    '</div>' +
+    '<p class="cs-note">Links open MFL\'s native setup pages in a new tab. This is a curated subset — the <strong>Full MFL Commissioner Setup</strong> button above has everything.</p>';
+  root.innerHTML = html;
+})();
+</script>
+</body>
+</html>
