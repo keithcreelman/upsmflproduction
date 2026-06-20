@@ -2662,6 +2662,7 @@ export default {
         path !== "/api/advanced-stats-leaderboard" &&
         path !== "/api/advanced-stats-player-weekly" &&
         path !== "/api/mfl-league-state" &&
+        path !== "/api/adp" &&
         path !== "/api/auction/era-eligible" &&
         path !== "/api/auction/lots" &&
         path !== "/api/auction/bid-history" &&
@@ -9203,6 +9204,40 @@ export default {
       // can't talk to MFL directly from localhost or any non-MFL origin
       // due to MFL's same-origin CORS) fetch league data through the
       // worker. NOT a credentials proxy — public-only data.
+      // ── GET /api/adp — league-wide ADP / dynasty values (FantasyCalc) ──
+      // The same source the rookie hub used (fetch_external_adp.py), but for
+      // EVERY player, not just the rookie class. Keyed by MFL id. Edge-cached
+      // ~12h so an auction's worth of sorts costs one upstream fetch.
+      if (path === "/api/adp" && request.method === "GET") {
+        try {
+          const fcRes = await fetch(
+            "https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1",
+            { cf: { cacheTtl: 43200, cacheEverything: true }, headers: { accept: "application/json" } }
+          );
+          if (!fcRes.ok) return jsonOut(502, { ok: false, error: "fantasycalc_http_" + fcRes.status });
+          const rows = await fcRes.json();
+          const byMfl = {};
+          for (const r of (Array.isArray(rows) ? rows : [])) {
+            const p = r.player || {};
+            const id = String(p.mflId || "").trim();
+            if (!id || id.toUpperCase() === "UNK") continue;
+            byMfl[id] = {
+              value: Number(r.value) || 0,
+              overall_rank: Number(r.overallRank) || null,
+              pos_rank: Number(r.positionRank) || null,
+              trend30: Number(r.trend30Day) || 0,
+            };
+          }
+          return jsonOut(200, {
+            ok: true, source: "fantasycalc_sf_dynasty",
+            generated_at: new Date().toISOString(),
+            count: Object.keys(byMfl).length, by_mfl_id: byMfl,
+          });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
       // Usage: /api/mfl-export?TYPE=league&L=74598&YEAR=2026&JSON=1
       if (path === "/api/mfl-export" && request.method === "GET") {
         const allowedTypes = new Set([
