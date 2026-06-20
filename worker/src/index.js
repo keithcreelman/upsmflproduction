@@ -9207,7 +9207,7 @@ export default {
       if (path === "/api/mfl-export" && request.method === "GET") {
         const allowedTypes = new Set([
           "league", "rosters", "salaries", "salaryAdjustments",
-          "players", "transactions",
+          "players", "transactions", "freeAgents",
           "pendingTrades", "tradeBait", "futureDraftPicks", "schedule",
           "nflByeWeeks", "injuries", "calendar", "draftResults",
           "playerProfile", "playerScores",
