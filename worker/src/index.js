@@ -5519,6 +5519,73 @@ export default {
           // Team filter: LEFT JOIN src_contracts to pick the most recent
           // contract (MAX season). "FA" keeps rows where no active
           // contract exists. A specific fid filters to that franchise.
+          // Phase-conditional projection (Keith 2026-06-20). The single wide
+          // result row sat at D1's ~100-column result cap, which forced IDP
+          // stats (assist tackles, def TDs, def pressures) and a few offense/
+          // kicker columns to be dropped. Projecting only the requested phase's
+          // columns — offense / IDP / special — keeps every result well under
+          // the cap, so the dropped stats come back. The agg CTE is unchanged
+          // (it already SUMs all of these); only the final projection narrows.
+          const COL_SHARED = `a.gsis_id,
+                   c.mfl_player_id AS mfl_pid,
+                   c.full_name     AS player_name,
+                   a.position, a.team, a.pos_group, a.games,
+                   sa.off_snaps_total, sa.def_snaps_total,
+                   sa.off_snap_rate,   sa.def_snap_rate,
+                   lc.salary AS mfl_salary, lc.aav AS mfl_aav,
+                   (CASE WHEN lc.years_total IS NULL OR lc.years_total = 0 OR lc.contract_year IS NULL THEN NULL
+                         ELSE lc.years_total - lc.contract_year + 1 END) AS mfl_years_remaining,
+                   msa.mfl_points AS mfl_points,
+                   CAST(msa.mfl_points AS REAL) / NULLIF(msa.mfl_games_scored, 0) AS mfl_ppg,
+                   lc.franchise_id AS mfl_franchise_id,
+                   lc.team_name    AS mfl_franchise_name`;
+          const COL_OFFENSE = `a.rush_att, a.rush_yds, a.rush_tds,
+                   a.targets, a.receptions, a.rec_yds, a.rec_tds,
+                   a.pass_att, a.pass_cmp, a.pass_yds, a.pass_tds, a.pass_ints, a.pass_sacks, a.pass_sack_yds,
+                   a.receiving_drops, a.receiving_broken_tackles, a.rushing_broken_tackles,
+                   a.rushing_yards_before_contact, a.rushing_yards_after_contact,
+                   a.rush_att_i20, a.rush_att_i5, a.targets_i20, a.targets_ez,
+                   a.rec_i20, a.pass_att_i20, a.pass_att_ez,
+                   a.receiving_rat, a.passing_bad_throw_pct, a.passing_pressure_pct,
+                   sv.s_rec_adot AS receiving_adot, sv.s_rec_air_yards AS receiving_air_yards,
+                   sv.s_rec_yac_per_r AS receiving_yac_per_r, sv.s_rec_drop_pct AS receiving_drop_pct,
+                   sv.s_pass_air_yards AS passing_air_yards, sv.s_pass_adot AS passing_adot,
+                   sv.s_pass_yac AS passing_yards_after_catch,
+                   CAST(a.targets AS REAL)      / NULLIF(ta.team_targets, 0)         AS target_share,
+                   CAST(a.receptions AS REAL)   / NULLIF(ta.team_rec, 0)             AS rec_share,
+                   CAST(a.rush_att AS REAL)     / NULLIF(ta.team_rush_att, 0)        AS rush_share,
+                   CAST(a.targets_i20 AS REAL)  / NULLIF(trpa.team_targets_i20, 0)   AS rz_target_share,
+                   CAST(a.rec_i20 AS REAL)      / NULLIF(trpa.team_rec_i20, 0)       AS rz_rec_share,
+                   CAST(a.targets_ez AS REAL)   / NULLIF(trpa.team_targets_ez, 0)    AS ez_target_share,
+                   CAST(a.rush_att_i20 AS REAL) / NULLIF(trpa.team_rush_att_i20, 0)  AS rz_rush_share,
+                   CAST(a.rush_att_i5 AS REAL)  / NULLIF(trpa.team_rush_att_i5, 0)   AS gl_rush_share,
+                   (COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20_all,0)) AS team_rz_plays,
+                   CAST(tr.team_pass_att_i20 AS REAL) /
+                     NULLIF(COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20_all,0), 0) AS team_rz_pass_rate`;
+          // IDP — now includes def_tackles_ast, def_tds, def_pressures (were
+          // dropped for the cap; they're already SUM'd in the agg CTE).
+          const COL_IDP = `a.def_tackles_total, a.def_tackles_ast, a.def_tfl, a.def_sacks,
+                   a.def_ff, a.def_fr, a.def_ints, a.def_pass_def, a.def_tds, a.def_pressures,
+                   a.def_missed_tackles, a.def_missed_tackle_pct, a.def_passer_rating_allowed,
+                   sv.s_def_adot AS def_adot`;
+          const COL_SPECIAL = `a.fg_att, a.fg_made, a.xp_att, a.xp_made,
+                   a.fg_att_0_39, a.fg_made_0_39, a.fg_att_40_49, a.fg_made_40_49,
+                   a.fg_att_50_59, a.fg_made_50_59, a.fg_att_60plus, a.fg_made_60plus,
+                   a.punts, a.punt_yds, a.punt_inside20, a.punt_inside20_pbp,
+                   a.punt_inside15, a.punt_inside10, a.punt_inside5, a.punt_tb,
+                   CAST(a.punt_net_yds_sum AS REAL) / NULLIF(a.punts, 0) AS punt_net_avg,
+                   CAST(a.punt_spot_sum AS REAL) / NULLIF(a.punt_spot_count, 0) AS punt_avg_spot,
+                   CAST(tsa.team_fourth_down_go AS REAL) / NULLIF(tsa.team_fourth_down_total, 0) AS team_fourth_down_go_rate,
+                   CAST(tsa.team_stall_punts AS REAL) / NULLIF(tsa.team_all_punts, 0) AS team_stall_punt_rate`;
+          const _phase = (pos === "idp") ? "idp" : (pos === "kicker" || pos === "punter") ? "special" : "offense";
+          const projection = COL_SHARED + ",\n                   " +
+            (_phase === "idp" ? COL_IDP : _phase === "special" ? COL_SPECIAL : COL_OFFENSE);
+          // IDP ranks/cuts are meaningless ordered by yardage — order defenders
+          // by a tackle/sack/INT impact score so the LIMIT keeps the right players.
+          const orderExpr = (_phase === "idp")
+            ? "(COALESCE(a.def_tackles_total,0) + COALESCE(a.def_tackles_ast,0) + COALESCE(a.def_sacks,0)*2 + COALESCE(a.def_ints,0)*2 + COALESCE(a.def_tfl,0))"
+            : "a.rush_yds + a.rec_yds + a.pass_yds";
+
           const sql = `
             WITH latest_contract AS (
               -- MFL contract details are always pulled from the MAX season
@@ -5781,88 +5848,7 @@ export default {
                WHERE season IN (${seasonList})
                GROUP BY gsis_id
             )
-            SELECT a.gsis_id,
-                   c.mfl_player_id AS mfl_pid,
-                   c.full_name     AS player_name,
-                   a.position, a.team, a.pos_group, a.games,
-                   a.rush_att, a.rush_yds, a.rush_tds,
-                   a.targets, a.receptions, a.rec_yds, a.rec_tds,
-                   a.pass_att, a.pass_cmp, a.pass_yds, a.pass_tds, a.pass_ints, a.pass_sacks, a.pass_sack_yds,
-                   -- def_tackles_ast + def_tds dropped 2026-04-26 (D1 100-col cap).
-                   -- def_tackles_total covers the headline (ast = total - solo if
-                   -- ever needed in drawer). def_tds is a rare event, low UI value.
-                   a.def_tackles_total, a.def_tfl, a.def_sacks,
-                   a.def_ff, a.def_fr, a.def_ints, a.def_pass_def,
-                   a.fg_att, a.fg_made, a.xp_att, a.xp_made,
-                   a.punts, a.punt_yds,
-                   a.punt_inside20, a.punt_inside20_pbp,
-                   a.punt_inside15, a.punt_inside10, a.punt_inside5, a.punt_tb,
-                   CAST(a.punt_net_yds_sum AS REAL) / NULLIF(a.punts, 0) AS punt_net_avg,
-                   a.receiving_drops, a.receiving_broken_tackles,
-                   a.rushing_broken_tackles,
-                   a.rushing_yards_before_contact, a.rushing_yards_after_contact,
-                   a.rush_att_i20, a.rush_att_i5,
-                   a.targets_i20, a.targets_ez,
-                   a.rec_i20, a.pass_att_i20, a.pass_att_ez,
-                   a.fg_att_0_39, a.fg_made_0_39, a.fg_att_40_49, a.fg_made_40_49,
-                   a.fg_att_50_59, a.fg_made_50_59, a.fg_att_60plus, a.fg_made_60plus,
-                   -- fg_distance_sum_made + fg_made_pbp dropped from output
-                   -- to stay under D1's 100-col cap. Avg FG Make falls back
-                   -- to bucket-midpoint approximation client-side.
-                   a.receiving_rat,
-                   a.passing_bad_throw_pct,
-                   a.passing_pressure_pct,
-                   -- passing_hurries / passing_hits / passing_times_pressured
-                   -- dropped to stay under D1 100-col result limit. Press% covers
-                   -- the underlying counts proportionally.
-                   a.def_missed_tackles, a.def_missed_tackle_pct,
-                   a.def_passer_rating_allowed,
-                   -- def_yards_allowed / def_pressures dropped 2026-04-26 — both
-                   -- IDP-edge metrics, low signal vs the column-budget cost.
-                   sa.off_snaps_total, sa.def_snaps_total,
-                   sa.off_snap_rate,   sa.def_snap_rate,
-                   -- season-level PFR adv (migration 0014). Aliases preserve
-                   -- the column contract the workbench HTML template expects.
-                   sv.s_rec_adot         AS receiving_adot,
-                   sv.s_rec_air_yards    AS receiving_air_yards,
-                   sv.s_rec_yac_per_r    AS receiving_yac_per_r,
-                   sv.s_rec_drop_pct     AS receiving_drop_pct,
-                   sv.s_pass_air_yards   AS passing_air_yards,
-                   sv.s_pass_adot        AS passing_adot,
-                   sv.s_pass_yac         AS passing_yards_after_catch,
-                   sv.s_def_adot         AS def_adot,
-                   -- MFL details (league-specific — salary, years remaining, AAV, points)
-                   lc.salary             AS mfl_salary,
-                   lc.aav                AS mfl_aav,
-                   (CASE WHEN lc.years_total IS NULL OR lc.years_total = 0 OR lc.contract_year IS NULL THEN NULL
-                         ELSE lc.years_total - lc.contract_year + 1 END)      AS mfl_years_remaining,
-                   msa.mfl_points        AS mfl_points,
-                   CAST(msa.mfl_points AS REAL) / NULLIF(msa.mfl_games_scored, 0) AS mfl_ppg,
-                   -- Market share (Keith 2026-04-24) — ratios against
-                   -- team-level totals across the same season/week window.
-                   -- Values are 0..1 decimals; client formats as pct.
-                   -- Market share — denominators come from player-active
-                   -- weeks only (see team_agg / team_rz_player_active
-                   -- CTEs). Missing games don't drag the share down.
-                   CAST(a.targets AS REAL)      / NULLIF(ta.team_targets, 0)         AS target_share,
-                   CAST(a.receptions AS REAL)   / NULLIF(ta.team_rec, 0)             AS rec_share,
-                   CAST(a.rush_att AS REAL)     / NULLIF(ta.team_rush_att, 0)        AS rush_share,
-                   CAST(a.targets_i20 AS REAL)  / NULLIF(trpa.team_targets_i20, 0)   AS rz_target_share,
-                   CAST(a.rec_i20 AS REAL)      / NULLIF(trpa.team_rec_i20, 0)       AS rz_rec_share,
-                   CAST(a.targets_ez AS REAL)   / NULLIF(trpa.team_targets_ez, 0)    AS ez_target_share,
-                   CAST(a.rush_att_i20 AS REAL) / NULLIF(trpa.team_rush_att_i20, 0)  AS rz_rush_share,
-                   CAST(a.rush_att_i5 AS REAL)  / NULLIF(trpa.team_rush_att_i5, 0)   AS gl_rush_share,
-                   -- Team RZ context — whole-team totals for QB volume
-                   -- context, not player-active-scoped.
-                   (COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20_all,0)) AS team_rz_plays,
-                   CAST(tr.team_pass_att_i20 AS REAL) /
-                     NULLIF(COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20_all,0), 0) AS team_rz_pass_rate,
-                   -- Team situational rates (migration 0016)
-                   CAST(a.punt_spot_sum AS REAL) / NULLIF(a.punt_spot_count, 0)          AS punt_avg_spot,
-                   CAST(tsa.team_fourth_down_go AS REAL) / NULLIF(tsa.team_fourth_down_total, 0) AS team_fourth_down_go_rate,
-                   CAST(tsa.team_stall_punts AS REAL) / NULLIF(tsa.team_all_punts, 0)    AS team_stall_punt_rate,
-                   lc.franchise_id AS mfl_franchise_id,
-                   lc.team_name    AS mfl_franchise_name
+            SELECT ${projection}
               FROM agg a
               LEFT JOIN player_id_crosswalk c ON c.gsis_id = a.gsis_id
               LEFT JOIN snap_agg sa           ON sa.gsis_id = a.gsis_id
@@ -5874,7 +5860,7 @@ export default {
               LEFT JOIN mfl_scoring_agg msa   ON msa.gsis_id = a.gsis_id
               LEFT JOIN latest_contract lc    ON lc.player_id = c.mfl_player_id
              WHERE a.games >= ?
-             ORDER BY a.rush_yds + a.rec_yds + a.pass_yds DESC
+             ORDER BY ${orderExpr} DESC
              LIMIT ?
           `;
           const res = await db.prepare(sql).bind(minGames, limit).all();
