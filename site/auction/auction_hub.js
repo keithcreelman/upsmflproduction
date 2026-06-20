@@ -27,9 +27,18 @@
     return "https://upsmflproduction.keith-creelman.workers.dev";
   })();
   const apiUrl = (p) => WORKER_BASE + p;
-  const fetchJSON = (url) =>
+  const fetchJSON = (url, _retried) =>
     fetch(url, { cache: "no-store" }).then((r) => {
-      if (!r.ok) throw new Error("HTTP " + r.status + " " + url);
+      if (!r.ok) {
+        // One retry on a 5xx: the eager boot fires several requests at once
+        // and a cold worker / transient D1 contention can briefly 500. The
+        // same request succeeds a beat later, so a single backoff-retry keeps
+        // a tab from booting empty.
+        if (r.status >= 500 && !_retried) {
+          return new Promise((res) => setTimeout(res, 700)).then(() => fetchJSON(url, true));
+        }
+        throw new Error("HTTP " + r.status + " " + url);
+      }
       return r.json();
     });
 
@@ -66,7 +75,11 @@
     version: null,
     me: null,
     era: null,                   // payload from /api/auction/era-eligible
-    activeTab: "era",
+    // Mirrors the mobile app: a top tab per auction + a sub-section pill.
+    //   tab: "faa" | "era"
+    //   sub: "summary" | "players" | "lots" | "history" | "tracker"
+    tab: "faa",                  // FA Auction is the default landing tab
+    sub: "summary",
     era_filters: { pos: "ALL", owner: "" },
     era_sort: "ppg_weighted",
     era_sort_dir: -1,            // desc
@@ -74,6 +87,15 @@
     nom_filters: { status: "open" },
     nom_sort: "time_remaining",
   };
+
+  // Sub-sections (pills) — identical set under both auctions.
+  const SUBS = [
+    { key: "summary", label: "Summary" },
+    { key: "players", label: "Players" },
+    { key: "lots", label: "Lots" },
+    { key: "history", label: "History" },
+    { key: "tracker", label: "Tracker" },
+  ];
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -151,10 +173,12 @@
       if (isTest) subtitle.style.color = "var(--warn)";
     }
 
+    // The top tabs (two auctions) + the sub-nav pills persist across
+    // paints, so their click handlers bind ONCE here (delegation for the
+    // pills, since their inner buttons re-render). Everything else re-wires
+    // per-mount inside paint() → renderSub().
     setupTabs();
-    setupFilters();
-    setupSorting();
-    setupNominationsControls();
+    setupSubNav();
     setupPlayerModalDelegation();
 
     // Version badge — best-effort, doesn't block render
@@ -167,23 +191,31 @@
       if (el) el.textContent = "v0.1.0";
     });
 
-    await Promise.all([loadMe(), loadEraEligible(), loadLots()]);
-    renderEraMeta();
-    renderEraTable();
-    renderNominations();
-    refreshAuctionBanners();   // ERA + FA "not running" banners from the live switch state
+    // Eager-load everything once (mirrors the mobile app's single load()).
+    // The desktop is read-only, so a couple extra fetches up front buys a
+    // snappy tab/sub experience with no lazy-load flashes. Each loader only
+    // fetches + stores into STATE; paint() does ALL the DOM rendering.
+    await Promise.all([
+      loadMe(),
+      loadEraEligible(),
+      loadLots(),
+      loadFa(),
+      loadWarRoom(),
+      loadBidHistory(),
+    ]);
+    paint();
 
-    // Auto-refresh nominations every 30s. Also re-render the ERA table so
-    // the Nominate→Bid CTA flips when a player gets newly nominated mid-
-    // session (cross-references STATE.lots in renderRow), refresh the
-    // ERA/FA switch banners (a commish flip reflects without a reload),
-    // and re-pull the FA board when that tab is open.
+    // Auto-refresh the live data every 30s, then repaint the active view.
+    // A commish ERA/FAA flip reflects without a reload (banner + KPIs read
+    // the switch state from STATE.lots).
     setInterval(async () => {
-      await loadLots();
-      renderNominations();
-      renderEraTable();
-      refreshAuctionBanners();
-      if (STATE.activeTab === "fa" && STATE.faLoaded) loadFa();
+      const jobs = [loadLots(), loadFa()];
+      // Self-heal the once-loaded secondary data if it failed at boot (their
+      // catch blocks leave STATE undefined). Re-fetch only while still missing.
+      if (!STATE.bidHistory) jobs.push(loadBidHistory());
+      if (!STATE.compliance) jobs.push(loadWarRoom());
+      await Promise.all(jobs);
+      paint();
     }, 30000);
 
     // And tick the time-remaining countdowns every second.
@@ -228,29 +260,521 @@
   // ════════════════════════════════════════════════════════════════════
   // TABS
   // ════════════════════════════════════════════════════════════════════
+  // Top tabs = the two auctions. Switching tabs keeps the same sub-section
+  // (Summary stays Summary, etc.) and repaints. Bound once in init().
   function setupTabs() {
     $$("#ah-tabs button").forEach((btn) => {
       btn.addEventListener("click", () => {
         if (btn.disabled) return;
         const tab = btn.dataset.tab;
-        if (!tab || tab === STATE.activeTab) return;
-        STATE.activeTab = tab;
-        $$("#ah-tabs button").forEach((b) => b.classList.toggle("active", b === btn));
-        $$(".ah-section").forEach((s) => s.classList.toggle("active", s.dataset.section === tab));
-        // Lazy-load tab data on first activation
-        if (tab === "fa" && !STATE.faLoaded) {
-          STATE.faLoaded = true;
-          loadFa();
-        } else if (tab === "warroom" && !STATE.warroomLoaded) {
-          STATE.warroomLoaded = true;
-          loadWarRoom();
-        } else if (tab === "history" && !STATE.historyLoaded) {
-          STATE.historyLoaded = true;
-          loadBidHistory();
-          setupHistoryFilters();
-        }
+        if (!tab || tab === STATE.tab) return;
+        STATE.tab = tab;
+        paint();
       });
     });
+  }
+
+  // Sub-nav pills (Summary · Players · Lots · History · Tracker). Their inner
+  // buttons re-render every paint, so we delegate from the persistent #ah-subnav.
+  function setupSubNav() {
+    const nav = $("#ah-subnav");
+    if (!nav) return;
+    nav.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-sub]");
+      if (!btn) return;
+      const sub = btn.dataset.sub;
+      if (!sub || sub === STATE.sub) return;
+      STATE.sub = sub;
+      paint();
+    });
+  }
+
+  function renderTabs() {
+    $$("#ah-tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === STATE.tab));
+  }
+  function renderSubNav() {
+    const nav = $("#ah-subnav");
+    if (!nav) return;
+    nav.innerHTML = SUBS.map((s) =>
+      `<button type="button" data-sub="${s.key}" class="${s.key === STATE.sub ? "active" : ""}">${escapeHtml(s.label)}</button>`
+    ).join("");
+  }
+
+  // The single banner above the content reflects the ACTIVE auction's switch.
+  function renderBanner() {
+    const el = $("#ah-banner");
+    if (!el) return;
+    const f = STATE.lots || {};
+    const isEra = STATE.tab === "era";
+    const enabled = isEra ? !!f.era_enabled : !!f.faa_enabled;
+    if (enabled) { el.style.display = "none"; el.innerHTML = ""; return; }
+    const name = isEra ? "The Expired-Rookie Auction" : "The FA Auction";
+    const when = isEra ? "Runs Memorial Day weekend." : "Opens the last weekend of July.";
+    el.style.display = "";
+    el.innerHTML = `<strong>${escapeHtml(name)} isn't running right now.</strong> ` +
+      escapeHtml(when) + " Browse the pool below — bidding opens on MFL when the commissioner turns it on.";
+  }
+
+  // Set of player_ids in the ERA-eligible pool. A lot/bid belongs to the ERA
+  // iff its player is in this set, else it's an FA-auction lot (lots/bids
+  // aren't kind-tagged in D1). Mirrors the mobile app's eraPoolIds().
+  function eraPoolIds() {
+    const s = new Set();
+    const players = (STATE.era && STATE.era.players) || [];
+    for (const p of players) if (p.player_id != null) s.add(String(p.player_id));
+    return s;
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // PAINT — mount the (tab, sub) skeleton, fill it, re-wire its controls
+  // ════════════════════════════════════════════════════════════════════
+  function paint() {
+    renderTabs();
+    renderSubNav();
+    renderBanner();
+    renderSub(STATE.tab, STATE.sub);
+  }
+
+  function renderSub(tab, sub) {
+    const content = $("#ah-content");
+    if (!content) return;
+    switch (sub) {
+      case "players": content.innerHTML = skeletonPlayers(tab); fillPlayers(tab); break;
+      case "lots":    content.innerHTML = skeletonLots(tab);    fillLots(tab);    break;
+      case "history": content.innerHTML = skeletonHistory(tab); fillHistory(tab); break;
+      case "tracker": content.innerHTML = skeletonTracker(tab); fillTracker(tab); break;
+      case "summary":
+      default:        content.innerHTML = skeletonSummary(tab); fillSummary(tab); break;
+    }
+  }
+
+  // ── Headline KPIs (top of every Summary) ──────────────────────────────
+  function renderKpis(tab) {
+    const el = $("#ah-kpis");
+    if (!el) return;
+    const lots = (STATE.lots && STATE.lots.lots) || [];
+    const eraIds = eraPoolIds();
+    const tabLots = lots.filter((l) => eraIds.has(String(l.player_id)) === (tab === "era"));
+    const open = tabLots.filter((l) => l.status === "open").length;
+    const won = tabLots.filter((l) => l.status === "won").length;
+    const f = STATE.lots || {};
+    const enabled = tab === "era" ? !!f.era_enabled : !!f.faa_enabled;
+    const poolCount = tab === "era"
+      ? ((STATE.era && STATE.era.players) || []).length
+      : (STATE.faPool || []).length;
+    const poolLabel = tab === "era" ? "Eligible players" : "Free agents";
+    const kpis = [
+      [poolLabel, poolCount],
+      ["Open lots", open],
+      ["Won", won],
+      ["Status", enabled ? "LIVE" : "Not running"],
+    ];
+    el.innerHTML = kpis.map(([label, val]) =>
+      `<div class="ah-kpi"><div class="ah-kpi-val">${escapeHtml(String(val))}</div>` +
+      `<div class="ah-kpi-label">${escapeHtml(label)}</div></div>`
+    ).join("");
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // SKELETONS — card/table markup with the ids each renderer writes into.
+  // Lifted from the old static .ah-section blocks so the existing renderers
+  // keep working unchanged (lowest-risk path for the ERA sortable table).
+  // ════════════════════════════════════════════════════════════════════
+  function kpisSkeleton() {
+    return `<div class="ah-kpis" id="ah-kpis"></div>`;
+  }
+  function faBudgetsSkeleton() {
+    return `
+      <div class="ah-card">
+        <div class="ah-card-head">
+          <h2>Team Budgets</h2>
+          <span class="small">Most you can spend on one player and still afford a legal roster — filling to the 27-man minimum vs a full 35-man roster (§B1).</span>
+        </div>
+        <table class="ah-table" id="fa-budgets-table">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th class="num">Available Funds</th>
+              <th class="num">Max Bid → 27-man</th>
+              <th class="num">Max Bid → 35-man</th>
+            </tr>
+          </thead>
+          <tbody id="fa-budgets-tbody">
+            <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">Loading budgets…</td></tr>
+          </tbody>
+        </table>
+      </div>`;
+  }
+  function faNeedsSkeleton() {
+    return `
+      <div class="ah-card">
+        <div class="ah-card-head">
+          <h2>Roster Needs</h2>
+          <span class="small">Starters still needed to field a legal lineup.</span>
+        </div>
+        <table class="ah-table" id="fa-needs-table">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th class="num">Roster</th>
+              <th class="num">Total Need</th>
+              <th>Lineup Deficits</th>
+            </tr>
+          </thead>
+          <tbody id="fa-needs-tbody">
+            <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">Loading needs…</td></tr>
+          </tbody>
+        </table>
+      </div>`;
+  }
+  function faPoolSkeleton() {
+    return `
+      <div class="ah-card">
+        <div class="ah-card-head">
+          <h2>Available Players</h2>
+          <span class="small" id="fa-pool-summary">—</span>
+        </div>
+        <table class="ah-table" id="fa-pool-table">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Pos</th>
+              <th class="col-md">NFL</th>
+              <th>ADP / PPG</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="fa-pool-tbody">
+            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">Loading free agents…</td></tr>
+          </tbody>
+        </table>
+      </div>`;
+  }
+  function eraContextSkeleton() {
+    return `
+      <div class="ah-context-banner">
+        <strong>Expired Rookie Auction (ERA)</strong> — players whose rookie contract expired and were
+        not extended by the rookie extension deadline (Thu before Memorial Day weekend). Starting bid
+        <strong>$1K</strong>, 36-hour lock window, $1K increments. Each owner may submit
+        <strong>1 nomination per 12-hour window</strong> (anchored to 6 AM / 6 PM ET). Opens Memorial Day
+        Mon 6 AM ET; nominations close at the end of the Wed 6 PM → Thu 6 AM ET window. Forced retention
+        through FA Auction close.
+        <div class="meta" id="era-context-meta">Eligibility deadline: loading…</div>
+      </div>`;
+  }
+  function eraFiltersSkeleton() {
+    return `
+      <div class="ah-filters" id="era-filters">
+        <label>
+          <span>Position</span>
+          <div class="ah-pos-chips" id="era-pos-chips">
+            <button type="button" class="ah-pos-chip active" data-pos="ALL">All</button>
+            <button type="button" class="ah-pos-chip" data-pos="QB">QB</button>
+            <button type="button" class="ah-pos-chip" data-pos="RB">RB</button>
+            <button type="button" class="ah-pos-chip" data-pos="WR">WR</button>
+            <button type="button" class="ah-pos-chip" data-pos="TE">TE</button>
+            <button type="button" class="ah-pos-chip" data-pos="PK">PK</button>
+            <button type="button" class="ah-pos-chip" data-pos="PN">PN</button>
+            <button type="button" class="ah-pos-chip" data-pos="IDP">IDP</button>
+          </div>
+        </label>
+        <label>
+          <span>Prior Owner</span>
+          <select id="era-filter-owner"><option value="">All</option></select>
+        </label>
+        <span class="ah-filters-summary" id="era-filters-summary">— eligible</span>
+      </div>`;
+  }
+  function eraTableSkeleton() {
+    return `
+      <div class="ah-card">
+        <div class="ah-card-head">
+          <h2>ERA-Eligible Players</h2>
+          <span class="small" id="era-table-summary">Loading…</span>
+        </div>
+        <table class="ah-table" id="era-table">
+          <thead>
+            <tr>
+              <th data-sort="name">Player</th>
+              <th data-sort="position">Pos</th>
+              <th data-sort="nfl_team" class="col-md">NFL</th>
+              <th data-sort="origin_label">Origin</th>
+              <th data-sort="ppg_2023" class="num col-lo">2023 PPG</th>
+              <th data-sort="ppg_2024" class="num col-lo">2024 PPG</th>
+              <th data-sort="ppg_2025" class="num col-lo">2025 PPG</th>
+              <th data-sort="ppg_weighted" class="num">Wtd PPG</th>
+              <th data-sort="high_bid_k" class="num col-md">High Bid</th>
+              <th data-sort="high_bid_team" class="col-md">High Bidder</th>
+              <th data-sort="total_bids" class="num col-lo">Bids</th>
+              <th data-sort="time_remaining" class="col-md">Time Left</th>
+              <th data-sort="lot_status">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="era-tbody">
+            <tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px;">Loading eligible players…</td></tr>
+          </tbody>
+        </table>
+      </div>`;
+  }
+  function nominationsSkeleton() {
+    const isEra = STATE.tab === "era";
+    const note = isEra
+      ? "ERA lots — 36-hour lock window resets from the most recent high bid (§A3)."
+      : "FA Auction lots — 24-hour lock window resets from the most recent high bid (§A1).";
+    return `
+      <div class="ah-context-banner">
+        <strong>Lots</strong> — ${note} Use the status chips to switch between open lots and completed wins.
+        Your private proxy bid shows only when you're signed in as that franchise.
+        <div class="meta" id="nominations-meta">Loading…</div>
+      </div>
+      <div class="ah-filters" id="nominations-filters">
+        <label>
+          <span>Status</span>
+          <div class="ah-pos-chips" id="nominations-status-chips">
+            <button type="button" class="ah-pos-chip" data-nstatus="open">Open</button>
+            <button type="button" class="ah-pos-chip" data-nstatus="won">Completed</button>
+            <button type="button" class="ah-pos-chip" data-nstatus="all">All</button>
+          </div>
+        </label>
+        <label>
+          <span>Sort</span>
+          <select id="nominations-sort">
+            <option value="time_remaining">Time remaining (asc)</option>
+            <option value="current_high_bid_k">Current high bid (desc)</option>
+            <option value="bid_count">Bid count (desc)</option>
+            <option value="opened_at_unix">Most recently opened</option>
+          </select>
+        </label>
+        <span class="ah-filters-summary" id="nominations-summary">— lots</span>
+      </div>
+      <div class="ah-card">
+        <div class="ah-card-head">
+          <h2>Lots</h2>
+          <span class="small" id="nominations-table-summary">Loading…</span>
+        </div>
+        <table class="ah-table" id="nominations-table">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Pos</th>
+              <th class="col-md">NFL</th>
+              <th>Nominator</th>
+              <th class="num">High Bid</th>
+              <th>High Bidder</th>
+              <th class="num col-md">Bids</th>
+              <th class="num col-md">Bidders</th>
+              <th>Time Remaining</th>
+              <th class="col-md">Your Proxy</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="nominations-tbody">
+            <tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px;">Loading lots…</td></tr>
+          </tbody>
+        </table>
+      </div>`;
+  }
+  function historySkeleton() {
+    return `
+      <div class="ah-context-banner">
+        <strong>Bid History</strong> — chronological feed from <code>ups_auction_bids</code>, grouped by lot.
+        Latest bid surfaces; click a thread to expand the full sequence with timestamps.
+        <span class="ah-legend">
+          <span class="ah-legend-item">🆕 Nom</span>
+          <span class="ah-legend-item ah-help" title="Same franchise as the previous high bidder — MFL walked their hidden max up because someone else bid into their proxy range.">⬆ Forced Increase <span class="ah-help-q">ⓘ</span></span>
+          <span class="ah-legend-item">💰 Overtake</span>
+        </span>
+      </div>
+      <div class="ah-filters" id="history-filters">
+        <label>
+          <span>Filter by player</span>
+          <input type="text" id="history-player-filter" placeholder="Player name or ID…" />
+        </label>
+        <label>
+          <span>Filter by franchise</span>
+          <select id="history-franchise-filter"><option value="">All franchises</option></select>
+        </label>
+        <label>
+          <span>Event type</span>
+          <select id="history-kind-filter">
+            <option value="">All</option>
+            <option value="nomination">Nominations</option>
+            <option value="overtake">Overtakes (different franchise)</option>
+            <option value="forced_increase">Forced Increases (same franchise)</option>
+          </select>
+        </label>
+      </div>
+      <div class="ah-card">
+        <div class="ah-card-head">
+          <h2>Recent Activity</h2>
+          <span class="small" id="history-count">—</span>
+        </div>
+        <div id="history-feed">
+          <div class="ah-placeholder">Loading bid history…</div>
+        </div>
+      </div>`;
+  }
+  function trackerSkeleton() {
+    return `
+      <div class="ah-context-banner">
+        <strong>Tracker</strong> — league-wide cap &amp; roster compliance, nomination cadence, bid activity,
+        and cut-then-rebid blocks against canon §6.A1 / §A2 / §A3 / §B1.
+        <div class="meta" id="warroom-meta">Loading…</div>
+      </div>
+      <div class="ah-card">
+        <div class="ah-card-head">
+          <h2>Cap &amp; Roster Compliance</h2>
+          <span class="small" id="warroom-compliance-summary">—</span>
+        </div>
+        <div class="ah-warroom-league-banner" id="warroom-compliance-banner" style="display:none;"></div>
+        <div class="ah-warroom-grid" id="warroom-compliance-grid">
+          <div class="ah-placeholder">Loading franchise compliance…</div>
+        </div>
+      </div>
+      <div class="ah-card">
+        <div class="ah-card-head">
+          <h2>Nomination Cadence</h2>
+          <span class="small">ERA: 1 / 12h anchored window — 6 AM / 6 PM ET (§A3) · FA Auction: 2 / 24h rolling (§A1)</span>
+        </div>
+        <div class="ah-warroom-grid" id="warroom-nominations-grid">
+          <div class="ah-placeholder">Loading nomination cadence…</div>
+        </div>
+      </div>
+      <div class="ah-card">
+        <div class="ah-card-head">
+          <h2>Bid Activity</h2>
+          <div class="ah-bidstats-controls">
+            <div class="ah-bidstats-toggle" id="bidstats-kind-toggle">
+              <button type="button" data-kind="all" class="active">All</button>
+              <button type="button" data-kind="era">ERA only</button>
+              <button type="button" data-kind="fa">FA only</button>
+            </div>
+            <span class="small" id="bidstats-summary">—</span>
+          </div>
+        </div>
+        <div class="ah-warroom-grid" id="warroom-bidstats-grid">
+          <div class="ah-placeholder">Loading bid activity…</div>
+        </div>
+      </div>
+      <div class="ah-card">
+        <div class="ah-card-head">
+          <h2>Cut-then-Rebid Blocks (§A2)</h2>
+          <span class="small" id="warroom-blocks-summary">—</span>
+        </div>
+        <div class="ah-warroom-grid" id="warroom-blocks-grid">
+          <div class="ah-placeholder">Loading cut-then-rebid lists…</div>
+        </div>
+      </div>`;
+  }
+
+  // ── Skeleton composers per (tab, sub) ─────────────────────────────────
+  function skeletonSummary(tab) {
+    return tab === "faa"
+      ? kpisSkeleton() + faBudgetsSkeleton() + faNeedsSkeleton()
+      : kpisSkeleton() + eraContextSkeleton();
+  }
+  function skeletonPlayers(tab) {
+    return tab === "faa"
+      ? faPoolSkeleton()
+      : eraFiltersSkeleton() + eraTableSkeleton();
+  }
+  function skeletonLots() { return nominationsSkeleton(); }
+  function skeletonHistory() { return historySkeleton(); }
+  function skeletonTracker() { return trackerSkeleton(); }
+
+  // ── Fill + re-wire per (tab, sub) ─────────────────────────────────────
+  function fillSummary(tab) {
+    renderKpis(tab);
+    if (tab === "faa") {
+      const fa = STATE.fa || {};
+      renderFaBudgets(fa.team_budget_rows || []);
+      renderFaNeeds(fa.team_need_rows || []);
+    } else {
+      renderEraMeta();
+    }
+  }
+  function fillPlayers(tab) {
+    if (tab === "faa") {
+      renderFaPool(STATE.faPool || []);
+      return;
+    }
+    renderEraMeta();        // (re)populates the prior-owner dropdown
+    syncEraFilterChips();   // reflect STATE.era_filters on the fresh chips/select
+    renderEraTable();
+    setupFilters();         // re-wire — the chips/select are new DOM each mount
+    setupSorting();
+  }
+  function fillLots() {
+    syncNomStatusChips();   // reflect STATE.nom_filters/nom_sort on fresh controls
+    renderNominations();    // reads STATE.tab for the per-auction split
+    setupNominationsControls();
+  }
+  function fillHistory() {
+    populateHistoryFranchiseFilter();
+    renderBidHistory();     // reads STATE.tab for the per-auction split
+    setupHistoryFilters();
+  }
+  function fillTracker() {
+    renderCompliance();
+    renderNominationStatus();
+    renderBidStats();
+    renderCutRebidBlocks();
+    applyWarRoomSummaries();
+    syncBidStatsToggle();
+    setupBidStatsToggle();  // re-wire — toggle is new DOM each mount
+  }
+
+  // ── Sync freshly-mounted controls to persisted STATE ──────────────────
+  function syncEraFilterChips() {
+    $$("#era-pos-chips .ah-pos-chip").forEach((c) =>
+      c.classList.toggle("active", (c.dataset.pos || "ALL") === STATE.era_filters.pos));
+    const sel = $("#era-filter-owner");
+    if (sel && STATE.era_filters.owner) sel.value = STATE.era_filters.owner;
+  }
+  function syncNomStatusChips() {
+    $$("#nominations-status-chips .ah-pos-chip").forEach((c) =>
+      c.classList.toggle("active", (c.dataset.nstatus || "open") === STATE.nom_filters.status));
+    const sel = $("#nominations-sort");
+    if (sel) sel.value = STATE.nom_sort;
+  }
+  function syncBidStatsToggle() {
+    const kind = STATE.bidStatsKind || "all";
+    $$("#bidstats-kind-toggle button").forEach((b) =>
+      b.classList.toggle("active", (b.dataset.kind || "all") === kind));
+  }
+  // Re-derive the War Room summary lines (loadWarRoom computes them once, but
+  // the target spans only exist after the Tracker skeleton mounts).
+  function applyWarRoomSummaries() {
+    const compliance = STATE.compliance || {};
+    const blocks = STATE.cutRebidBlocks || {};
+    const cs = $("#warroom-compliance-summary");
+    if (cs) {
+      cs.textContent = (compliance.total_warnings || 0) + " warning" +
+        ((compliance.total_warnings || 0) === 1 ? "" : "s") +
+        " across " + (compliance.franchise_count || 0) + " franchises";
+    }
+    const bs = $("#warroom-blocks-summary");
+    if (bs) {
+      bs.textContent = (blocks.total_blocked || 0) + " block" +
+        ((blocks.total_blocked || 0) === 1 ? "" : "s") +
+        (blocks.total_needs_review > 0 ? " · " + blocks.total_needs_review + " need manual review" : "");
+    }
+  }
+  // Populate the History franchise dropdown from the loaded bid set (league-wide).
+  function populateHistoryFranchiseFilter() {
+    const sel = $("#history-franchise-filter");
+    if (!sel) return;
+    const data = STATE.bidHistory || {};
+    const seen = new Set();
+    const opts = [];
+    for (const b of (data.bids || [])) {
+      if (!b.fid || seen.has(b.fid)) continue;
+      seen.add(b.fid);
+      opts.push({ fid: b.fid, name: b.franchise_name });
+    }
+    opts.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    sel.innerHTML = `<option value="">All franchises</option>` +
+      opts.map((o) => `<option value="${escapeHtml(o.fid)}">${escapeHtml(o.name)}</option>`).join("");
   }
 
   // ════════════════════════════════════════════════════════════════════
@@ -269,10 +793,11 @@
       (whenText ? escapeHtml(whenText) + " " : "") +
       "Browse the pool below — bidding opens on MFL when the commissioner turns it on.";
   }
+  // Legacy entrypoint (renderFa still calls it) → now drives the single
+  // #ah-banner for the active auction. setAuctionBanner is retained above
+  // for reference but no longer wired to per-auction banner elements.
   function refreshAuctionBanners() {
-    const f = STATE.lots || {};
-    setAuctionBanner("era-banner", "The Expired-Rookie Auction", !!f.era_enabled, "Runs Memorial Day weekend.");
-    setAuctionBanner("fa-banner", "The FA Auction", !!f.faa_enabled, "Opens the last weekend of July.");
+    renderBanner();
   }
 
   async function loadFa() {
@@ -699,12 +1224,11 @@
     }).join("");
   }
 
-  let _bidStatsToggleBound = false;
+  // Re-bound on every Tracker mount — the toggle is fresh DOM each paint, so
+  // the prior listeners die with the old element (no double-bind).
   function setupBidStatsToggle() {
-    if (_bidStatsToggleBound) return;
     const toggle = $("#bidstats-kind-toggle");
     if (!toggle) return;
-    _bidStatsToggleBound = true;
     toggle.querySelectorAll("button").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const kind = btn.dataset.kind || "all";
@@ -849,6 +1373,11 @@
     if (!feed) return;
     const data = STATE.bidHistory || {};
     let bids = Array.isArray(data.bids) ? data.bids.slice() : [];
+
+    // Per-auction split (bids aren't kind-tagged): a bid belongs to the ERA
+    // iff its player is in the ERA-eligible pool, else it's an FA-auction bid.
+    const eraIds = eraPoolIds();
+    bids = bids.filter((b) => eraIds.has(String(b.player_id)) === (STATE.tab === "era"));
 
     const pFilter = ($("#history-player-filter")?.value || "").trim().toLowerCase();
     const fFilter = ($("#history-franchise-filter")?.value || "").trim();
@@ -1534,7 +2063,11 @@
   function renderNominations() {
     const tbody = $("#nominations-tbody");
     if (!tbody) return;
-    const lots = (STATE.lots && STATE.lots.lots) || [];
+    const allLots = (STATE.lots && STATE.lots.lots) || [];
+    // Per-auction split (lots aren't kind-tagged): a lot belongs to the ERA
+    // iff its player is in the ERA-eligible pool, else it's an FA-auction lot.
+    const eraIds = eraPoolIds();
+    const lots = allLots.filter((l) => eraIds.has(String(l.player_id)) === (STATE.tab === "era"));
     const filtered = lots.filter((l) => {
       if (STATE.nom_filters.status === "all") return true;
       return l.status === STATE.nom_filters.status;

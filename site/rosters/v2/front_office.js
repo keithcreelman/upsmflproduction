@@ -1631,11 +1631,7 @@
       .catch(function () { renderVersionBadge(); });
 
     await Promise.all([loadMe(), loadRosterData()]);
-    // Contract Revert tab — commish-only (admin state from /api/me), or ?contracts=1
-    // opt-in for testing. Writes are constrained to restoring audited prior states.
-    if ($("#fo-tab-contracts") && ((STATE.me && STATE.me.isAdmin) || QS.get("contracts") === "1")) {
-      $("#fo-tab-contracts").hidden = false;
-    }
+    // Commish Settings moved to its own hub page (MESSAGE19&hub=commish-settings).
     renderHeaderMeta();
     populateTeamSelect();
     populateActionFilter();
@@ -1879,7 +1875,6 @@
     else if (key === "mym") renderMymTab();
     else if (key === "contractlog") renderContractLogTab();
     else if (key === "activity") renderActivityTab();
-    else if (key === "commish") renderContractsTab();
   }
   // Activate one of the Contracts subviews: its section goes active, the
   // Contracts parent button stays highlighted, and the sub-tab bar shows with
@@ -1935,10 +1930,6 @@
           if (tabSection.dataset.section === "tag") {
             STATE.tagSubview = chip.dataset.subview;
             renderTagTab();
-          }
-          if (tabSection.dataset.section === "commish") {
-            STATE.commishSubview = chip.dataset.subview;
-            renderContractsTab();
           }
           if (tabSection.dataset.section === "contractlog") {
             STATE.miscSubview = chip.dataset.subview;
@@ -6441,25 +6432,9 @@
     }
   }
 
-  // ── Contract Revert tab (commish-only) ────────────────────────────────
-  // Lists recent contract submissions (extension / MYAC / restructure / tag)
-  // for the season from GET /admin/contract-submissions, lets the commish pick
-  // one or more and revert them via POST /admin/contract-revert (restores the
-  // PRIOR contract in MFL; tags -> untag). Dry-run preview + confirm before write.
-  function contractRevertState() {
-    if (!STATE._cr) STATE._cr = { subs: [], sel: {} };
-    return STATE._cr;
-  }
-  async function postJSONRaw(url, payload) {
-    const r = await fetch(url, {
-      method: "POST", credentials: "omit", cache: "no-store",
-      headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload || {})
-    });
-    const txt = await r.text();
-    let data; try { data = txt ? JSON.parse(txt) : {}; } catch (_) { data = { raw: txt }; }
-    if (!r.ok) throw new Error((data && data.error) || ("HTTP " + r.status));
-    return data;
-  }
+  // Contract-string + kind formatters — still used by the Misc → Contract Log
+  // tab. (The Commish Settings / Contract Revert UI moved to its own hub page,
+  // MESSAGE19&hub=commish-settings.)
   function ctKindLabel(k) {
     return { myac: "MYAC", extension: "Extension", restructure: "Restructure", mym: "MYM", tag: "Tag", untag: "Untag" }[k] || k;
   }
@@ -6651,294 +6626,6 @@
         renderContractLogTab();
       });
     });
-  }
-
-  // ── COMMISH SETTINGS (dispatcher) ─────────────────────────────────────
-  // Subviews: Discord Routing (test/prod per mechanism) · Contract Revert ·
-  // Status (Discord posters + D1 writers).
-  function renderContractsTab() {
-    if (!$("#fo-commish-body")) return;
-    STATE.commishSubview = STATE.commishSubview || "discord";
-    $$('.fo-section[data-section="commish"] .fo-subview-chip').forEach(function (c) {
-      c.classList.toggle("active", c.dataset.subview === STATE.commishSubview);
-    });
-    if (STATE.commishSubview === "revert") renderContractRevertSub();
-    else if (STATE.commishSubview === "status") renderStatusSub();
-    else if (STATE.commishSubview === "killswitches") renderKillSwitchesSub();
-    else renderDiscordRoutingSub();
-  }
-
-  // — Kill Switches: runtime feature flags (trade DMs / 3-way / 3-way LIVE) —
-  // Toggles persist to D1 instantly (POST /admin/commish-settings feature_flags);
-  // the worker reads them with the wrangler.toml env var as the default.
-  async function renderKillSwitchesSub() {
-    const host = $("#fo-commish-body");
-    if (!host) return;
-    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading kill switches…</div></div>';
-    let flags = [];
-    try {
-      const data = await fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(LEAGUE_ID));
-      flags = (data && data.feature_flags) || [];
-    } catch (e) {
-      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + escapeHtml(e.message || String(e)) + "</div></div>";
-      return;
-    }
-    const rowHtml = flags.map(function (f) {
-      const on = !!f.value;
-      // "On" is always green (enabled = green, the universal convention). A
-      // danger flag is signalled by the ⚠️ icon + help + a confirm dialog, NOT by
-      // a red "On" — red-for-on reads as an error/warning (Keith 2026-06-19).
-      const onColor = "#1f8a4c";
-      const seg = [["on", "On"], ["off", "Off"]].map(function (pair) {
-        const o = pair[0], isOn = (o === "on") === on;
-        const bg = isOn ? (o === "on" ? onColor : "#7a7f87") : "var(--panel-alt)";
-        return '<button type="button" class="fo-flag-btn" data-flag="' + escapeHtml(f.key) + '" data-val="' + o + '" style="padding:4px 16px;border:1px solid var(--border);background:' + bg + ";color:" + (isOn ? "#fff" : "var(--text)") + ";cursor:pointer;font-weight:" + (isOn ? "600" : "400") + ";" + (o === "on" ? "border-radius:4px 0 0 4px;" : "border-radius:0 4px 4px 0;border-left:none;") + '">' + pair[1] + "</button>";
-      }).join("");
-      const src = f.overridden ? "commish override" : "default";
-      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--border);">' +
-        '<span style="flex:1;"><strong>' + escapeHtml(f.label) + (f.danger ? ' <span style="color:#c0392b;">⚠️</span>' : "") + '</strong>' +
-        '<br><span class="small" style="color:var(--muted);">' + escapeHtml(f.help) + '</span>' +
-        '<br><span class="small" style="color:var(--muted);opacity:.8;">' + escapeHtml(f.key) + " · " + src + "</span></span>" +
-        '<span style="display:inline-flex;flex:0 0 auto;">' + seg + "</span></div>";
-    }).join("");
-    host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3 style="margin:0;">Kill Switches</h3></div>' +
-      '<p class="fo-row-hint">💡 Flip a feature on/off live — no redeploy. Saved to D1 instantly. <strong>3-way LIVE execution</strong> OFF puts the 3-way back in dry-run (builds + DMs work, but no rosters move).</p>' +
-      rowHtml + "</div>";
-    $$(".fo-flag-btn", host).forEach(function (btn) {
-      btn.addEventListener("click", async function () {
-        const k = btn.dataset.flag, v = btn.dataset.val === "on";
-        const cur = flags.filter(function (f) { return f.key === k; })[0];
-        if (cur && !!cur.value === v) return; // no change
-        if (cur && cur.danger && v && !window.confirm('Turn ON "' + cur.label + '" (live)? ' + (cur.help || "This is a live action that can't be easily undone."))) return;
-        try {
-          const upd = {}; upd[k] = v ? "1" : "0";
-          await postJSONRaw(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(LEAGUE_ID), { feature_flags: upd });
-          flashToast((cur ? cur.label : k) + " → " + (v ? "On" : "Off"), v && cur && cur.danger ? "err" : "ok");
-        } catch (e) { flashToast("Failed: " + (e.message || String(e)), "err"); }
-        renderKillSwitchesSub();
-      });
-    });
-  }
-
-  // — Option 1: Discord Routing (test/prod per contract mechanism) —
-  async function renderDiscordRoutingSub() {
-    const host = $("#fo-commish-body");
-    if (!host) return;
-    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading Discord routing…</div></div>';
-    let cfg = {};
-    try {
-      const data = await fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(LEAGUE_ID));
-      cfg = (data && data.discord_routing) || {};
-    } catch (e) {
-      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + escapeHtml(e.message || String(e)) + "</div></div>";
-      return;
-    }
-    const labels = { extension: "Extension", myac: "Auction Contract (FA + MYAC)", auctionbidding: "Auction Bidding (live bid/nom narration)", restructure: "Restructure", tag: "Tag / Untag", mym: "MYM", traderoast: "Trade Roast bot (trades always post to #transactions)" };
-    const rowHtml = Object.keys(labels).map(function (k) {
-      const val = String(cfg[k] || "prod").toLowerCase();
-      const seg = ["prod", "test"].map(function (o) {
-        const on = val === o, c = o === "test" ? "#e67e22" : "#1f8a4c";
-        return '<button type="button" class="fo-route-btn" data-route="' + k + '" data-val="' + o + '" style="padding:4px 14px;border:1px solid var(--border);background:' + (on ? c : "var(--panel-alt)") + ";color:" + (on ? "#fff" : "var(--text)") + ";cursor:pointer;font-weight:" + (on ? "600" : "400") + ";" + (o === "prod" ? "border-radius:4px 0 0 4px;" : "border-radius:0 4px 4px 0;border-left:none;") + '">' + (o === "prod" ? "Prod" : "Test") + "</button>";
-      }).join("");
-      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);"><span>' + escapeHtml(labels[k]) + '</span><span style="display:inline-flex;">' + seg + "</span></div>";
-    }).join("");
-    host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3 style="margin:0;">Discord Routing</h3></div>' +
-      '<p class="fo-row-hint">💡 Per-mechanism: where contract announcements post. <strong style="color:#1f8a4c;">Prod</strong> = league channel · <strong style="color:#e67e22;">Test</strong> = test channel. Dry-run submissions always go to test regardless. Saved to D1 instantly.</p>' +
-      rowHtml + "</div>";
-    $$(".fo-route-btn", host).forEach(function (btn) {
-      btn.addEventListener("click", async function () {
-        const k = btn.dataset.route, v = btn.dataset.val;
-        if (String(cfg[k] || "prod").toLowerCase() === v) return;
-        try {
-          const upd = {}; upd[k] = v;
-          await postJSONRaw(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(LEAGUE_ID), { discord_routing: upd });
-          flashToast((labels[k] || k) + " → " + (v === "test" ? "Test" : "Prod"), "ok");
-        } catch (e) { flashToast("Failed: " + (e.message || String(e)), "err"); }
-        renderDiscordRoutingSub();
-      });
-    });
-  }
-
-  // — Option 2: Contract Revert (existing) —
-  async function renderContractRevertSub() {
-    const host = $("#fo-commish-body");
-    if (!host) return;
-    host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3 style="margin:0;">Contract Revert</h3>' +
-      '<span class="small" id="fo-contracts-meta" style="color:var(--muted);">Loading…</span></div>' +
-      '<p class="fo-row-hint">💡 Select recent contract submissions and revert them — restores the prior contract in MFL (tags → untag). Discord is silenced for reverts.</p>' +
-      '<div id="fo-contracts-body"></div></div>';
-    const body = $("#fo-contracts-body");
-    const meta = $("#fo-contracts-meta");
-    if (!body) return;
-    body.innerHTML = '<div class="fo-table-loading">Loading contract submissions…</div>';
-    const cr = contractRevertState();
-    try {
-      const url = apiUrl("/admin/contract-submissions") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
-      const data = await fetchJSON(url);
-      cr.subs = (data && data.submissions) || [];
-      cr.sel = {};
-    } catch (e) {
-      body.innerHTML = '<div class="fo-table-loading">Failed to load: ' + escapeHtml(e.message || String(e)) + "</div>";
-      return;
-    }
-    if (meta) meta.textContent = cr.subs.length + " submission" + (cr.subs.length === 1 ? "" : "s") + " · " + SEASON;
-    renderContractsBody();
-  }
-
-  // — Option 3: Status (Discord posters + D1 writers) —
-  async function renderStatusSub() {
-    const host = $("#fo-commish-body");
-    if (!host) return;
-    STATE.statusView = STATE.statusView || "discord";
-    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading status…</div></div>';
-    let routing = {}, d1 = [];
-    try { routing = ((await fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(LEAGUE_ID))) || {}).discord_routing || {}; } catch (e) {}
-    try { d1 = ((await fetchJSON(apiUrl("/admin/d1-status") + "?L=" + encodeURIComponent(LEAGUE_ID))) || {}).tables || []; } catch (e) {}
-    const pill = function (state, txt) {
-      const c = state === "prod" ? "#1f8a4c" : state === "test" ? "#e67e22" : "#7a7a7a";
-      return '<span style="background:' + c + ';color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px;white-space:nowrap;">' + escapeHtml(txt) + "</span>";
-    };
-    // Discord posters manifest (contract types pull live state from routing).
-    const discordRows = [
-      { n: "Contract — Extension", k: "extension" },
-      { n: "Contract — Auction (FA + MYAC)", k: "myac" },
-      { n: "Contract — Restructure", k: "restructure" },
-      { n: "Contract — Tag / Untag", k: "tag" },
-      { n: "Contract — MYM", k: "mym" },
-      { n: "Drop / Cap penalty", state: "prod" },
-      { n: "Trade notification", state: "prod" },
-      { n: "Auction alerts (live bid/nom)", k: "auctionbidding" },
-      { n: "Deadline reminders", state: "prod" },
-      { n: "Trade Roast bot", state: "prod", note: "RUNNING — trade roasts post to #transactions, always (re-enabled 2026-06-05; cursor pinned to now, no history replay). Manually tracked (separate launchd process); clap-back is worker-handled. The Discord Routing toggle above does NOT steer it — trades always go to #transactions." },
-    ].map(function (r) {
-      const state = r.k ? String(routing[r.k] || "prod").toLowerCase() : r.state;
-      const label = state === "inactive" ? "INACTIVE" : (state === "test" ? "TEST" : "PROD");
-      return "<tr><td>" + escapeHtml(r.n) + "</td><td>" + pill(state, label) + '</td><td class="small" style="color:var(--muted);">' + escapeHtml(r.note || (r.k ? "commish-configurable" : "wired")) + "</td></tr>";
-    }).join("");
-    // D1 writers manifest, enriched with live row counts.
-    const cntByTable = {}; d1.forEach(function (t) { cntByTable[t.table] = t; });
-    const d1Defs = [
-      { cat: "Contract Submissions", n: "Extensions / FA / historical", t: "ups_extension_submissions", freq: "on submit + forum backfill" },
-      { cat: "Contract Submissions", n: "Restructures", t: "ups_restructure_submissions", freq: "on submit + ingest action" },
-      { cat: "Contract Submissions", n: "Tags / Untags", t: "ups_tag_submissions", freq: "on submit" },
-      { cat: "Contract Submissions", n: "Commish settings", t: "ups_settings", freq: "on change" },
-      { cat: "MFL", n: "Drop / cap-penalty events", t: "ups_drop_events", freq: "on cut + scan" },
-      { cat: "MFL", n: "ERA auction pool", t: "ups_era_pool", freq: "pre-auction sync" },
-      { cat: "MFL", n: "Auction lots / bids", t: "ups_auction_lots", freq: "live during auction" },
-      { cat: "MFL", n: "Draft picks", t: "ups_draft_picks", freq: "hourly cron" },
-      { cat: "MFL", n: "Tag history", t: "ups_tag_history", freq: "tag pipeline" },
-      { cat: "MFL", n: "MYM history", t: "ups_mym_history", freq: "MYM submit" },
-    ];
-    const known = {}; d1Defs.forEach(function (d) { known[d.t] = true; });
-    d1.forEach(function (t) { if (!known[t.table]) d1Defs.push({ cat: "Other", n: "—", t: t.table, freq: "—" }); });
-    const d1Rows = d1Defs.map(function (d) {
-      const live = cntByTable[d.t];
-      const rows = live ? live.rows : 0;
-      const last = live && live.last_write ? String(live.last_write).replace("T", " ").slice(0, 16) : "—";
-      const status = live ? (rows > 0 ? "prod" : "inactive") : "inactive";
-      return "<tr><td>" + escapeHtml(d.cat) + "</td><td>" + escapeHtml(d.n) + '</td><td class="small"><code>' + escapeHtml(d.t) + "</code></td><td class=\"num\">" + rows + '</td><td class="small" style="color:var(--muted);">' + escapeHtml(d.freq) + "</td><td class=\"small\" style=\"color:var(--muted);\">" + escapeHtml(last) + "</td><td>" + pill(status === "prod" ? "prod" : "inactive", status === "prod" ? "LIVE" : "EMPTY") + "</td></tr>";
-    }).join("");
-    const viewSel = '<select id="fo-status-view" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;">' +
-      '<option value="discord"' + (STATE.statusView === "discord" ? " selected" : "") + ">Discord</option>" +
-      '<option value="d1"' + (STATE.statusView === "d1" ? " selected" : "") + ">D1</option></select>";
-    const inner = STATE.statusView === "d1"
-      ? '<p class="fo-row-hint">💡 Everything that writes to D1 — MFL data vs Contract Submissions — with live row counts (the source of truth).</p>' +
-        '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th>Category</th><th>Writes</th><th>Table</th><th class="num">Rows</th><th>Frequency</th><th>Last write</th><th>Status</th></tr></thead><tbody>' + d1Rows + "</tbody></table></div>"
-      : '<p class="fo-row-hint">💡 Everything scheduled to post to Discord, and whether it routes to Prod / Test / is Inactive (not wired). Contract types are live from the Discord Routing settings.</p>' +
-        '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th>Poster</th><th>Routing</th><th>Notes</th></tr></thead><tbody>' + discordRows + "</tbody></table></div>";
-    host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3 style="margin:0;">Status</h3>' +
-      '<span style="display:inline-flex;align-items:center;gap:6px;"><span class="small" style="color:var(--muted);">View</span>' + viewSel + "</span></div>" + inner + "</div>";
-    const vs = $("#fo-status-view"); if (vs) vs.addEventListener("change", function () { STATE.statusView = this.value; renderStatusSub(); });
-  }
-  function renderContractsBody() {
-    const body = $("#fo-contracts-body");
-    if (!body) return;
-    const cr = contractRevertState();
-    if (!cr.subs.length) { body.innerHTML = '<div class="fo-table-loading">No contract submissions this season.</div>'; return; }
-    const fmtDt = (s) => String(s || "").replace("T", " ").slice(0, 16);
-    let rows = "";
-    cr.subs.forEach(function (s) {
-      const key = s.table + ":" + s.id;
-      const checked = cr.sel[key] ? "checked" : "";
-      const disabled = s.revertable ? "" : "disabled";
-      const isTag = s.kind === "tag" || s.kind === "untag";
-      const newStr = ctContractStr(s.new, false) + (s.new && s.new.tag_side ? " (" + s.new.tag_side + ")" : "");
-      const priorStr = ctContractStr(s.prior, isTag);
-      const team = (STATE.teams || []).find(function (t) { return pad4(t.fid) === pad4(s.franchise_id); });
-      const fr = (team && team.name) || s.franchise_id || "";
-      rows += '<tr>' +
-        '<td style="text-align:center;"><input type="checkbox" class="fo-cr-chk" data-key="' + key + '" ' + checked + ' ' + disabled + '></td>' +
-        '<td>' + escapeHtml(s.player_name || playerNameById(s.player_id) || s.player_id || "") + '</td>' +
-        '<td>' + escapeHtml(ctKindLabel(s.kind)) + '</td>' +
-        '<td>' + escapeHtml(fr) + '</td>' +
-        '<td class="small">' + escapeHtml(newStr) + '</td>' +
-        '<td class="small">' + escapeHtml(priorStr) + (s.revertable ? '' : ' <span style="color:var(--muted);">(no revert)</span>') + '</td>' +
-        '<td class="small">' + escapeHtml(fmtDt(s.submitted_at_utc)) + '</td>' +
-        '</tr>';
-    });
-    const nSel = Object.keys(cr.sel).filter(function (k) { return cr.sel[k]; }).length;
-    body.innerHTML =
-      '<div class="fo-cr-toolbar" style="margin:8px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
-        '<button type="button" class="btn small warn" id="fo-cr-revert"' + (nSel ? '' : ' disabled') + '>Revert selected (' + nSel + ')</button>' +
-        '<button type="button" class="btn small secondary" id="fo-cr-refresh">↻ Refresh</button>' +
-        '<span class="small" id="fo-cr-status" style="color:var(--muted);"></span>' +
-      '</div>' +
-      '<div class="fo-table-scroll"><table class="fo-table fo-cr-table"><thead><tr>' +
-        '<th style="width:32px;"></th><th>Player</th><th>Kind</th><th>Team</th>' +
-        '<th>Submitted (new)</th><th>Reverts to (prior)</th><th>When (UTC)</th>' +
-      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
-    $$(".fo-cr-chk", body).forEach(function (chk) {
-      chk.addEventListener("change", function () {
-        const k = this.getAttribute("data-key");
-        if (this.checked) cr.sel[k] = true; else delete cr.sel[k];
-        renderContractsBody();
-      });
-    });
-    const revBtn = $("#fo-cr-revert");
-    if (revBtn) revBtn.addEventListener("click", doContractRevert);
-    const refBtn = $("#fo-cr-refresh");
-    if (refBtn) refBtn.addEventListener("click", renderContractsTab);
-  }
-  async function doContractRevert() {
-    const cr = contractRevertState();
-    const reverts = Object.keys(cr.sel).filter(function (k) { return cr.sel[k]; }).map(function (k) {
-      const i = k.lastIndexOf(":");
-      return { table: k.slice(0, i), id: safeInt(k.slice(i + 1), 0) };
-    });
-    if (!reverts.length) return;
-    const status = $("#fo-cr-status");
-    const setStatus = (m) => { if (status) status.textContent = m; };
-    const revertUrl = apiUrl("/admin/contract-revert") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
-    // Dry-run preview first so the commish sees exactly what each revert restores.
-    setStatus("Previewing (dry-run)…");
-    let dry;
-    try {
-      dry = await postJSONRaw(revertUrl, { league_id: LEAGUE_ID, season: SEASON, dry_run: true, reverts: reverts });
-    } catch (e) { setStatus("Preview failed: " + (e.message || e)); return; }
-    const lines = (dry.results || []).map(function (r) {
-      const to = r.restored && r.restored.contract_status
-        ? r.restored.contract_status + " " + r.restored.contract_year + "yr $" + Number(r.restored.salary || 0).toLocaleString()
-        : "untag";
-      const sub = (cr.subs || []).find(function (x) { return x.table === r.table && String(x.id) === String(r.id); });
-      const nm = r.player_name || (sub && (sub.player_name || playerNameById(sub.player_id))) || r.id;
-      return (r.ok ? "✓" : "✗") + " " + nm + " → " + to + (r.error ? " (" + r.error + ")" : "");
-    });
-    if (!window.confirm("Revert " + reverts.length + " contract(s) in MFL?\n\n" + lines.join("\n") + "\n\nThis writes to MFL (Discord silenced) and is not undoable from here.")) {
-      setStatus("");
-      return;
-    }
-    setStatus("Reverting…");
-    try {
-      const res = await postJSONRaw(revertUrl, { league_id: LEAGUE_ID, season: SEASON, dry_run: false, reverts: reverts });
-      const all = res.results || [];
-      const okN = all.filter(function (r) { return r.ok; }).length;
-      const failed = all.filter(function (r) { return !r.ok; });
-      setStatus("Reverted " + okN + "/" + all.length + (failed.length ? " — failed: " + failed.map(function (f) { return (f.player_name || f.id) + " (" + (f.error || f.status || "?") + ")"; }).join(", ") : "") + ". Reloading…");
-      cr.sel = {};
-      await loadRosterData();        // refresh cap/contract figures off the new MFL state
-      renderRosterTable();
-      await renderContractsTab();
-    } catch (e) { setStatus("Revert failed: " + (e.message || e)); }
   }
 
   function renderActivityTab() {

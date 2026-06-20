@@ -118,8 +118,8 @@
       '(function(){function post(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);parent.postMessage({type:"auction-hub-height",height:h},"*");}catch(e){}}' +
       'window.addEventListener("load",post);window.addEventListener("resize",post);' +
       'if(typeof ResizeObserver==="function"){try{new ResizeObserver(post).observe(document.documentElement);}catch(e){}}' +
-      // Tab nav click → re-post on the NEXT animation frame.
-      'document.addEventListener("click",function(e){var t=e.target&&e.target.closest&&e.target.closest("#ah-tabs button[data-tab]");if(t){requestAnimationFrame(function(){requestAnimationFrame(post);});}},true);' +
+      // Tab / sub-nav click → re-post on the NEXT animation frame.
+      'document.addEventListener("click",function(e){var t=e.target&&e.target.closest&&e.target.closest("#ah-tabs button[data-tab],#ah-subnav button[data-sub]");if(t){requestAnimationFrame(function(){requestAnimationFrame(post);});}},true);' +
       'setInterval(post,600);' +
       '})();' +
       '<\/script>'

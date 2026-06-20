@@ -60,6 +60,42 @@ nav.ah-tabs button.active { color: var(--accent); border-bottom-color: var(--acc
 nav.ah-tabs button[disabled] { opacity: 0.45; cursor: not-allowed; }
 nav.ah-tabs button[disabled]:hover { color: var(--muted); }
 
+/* Sub-nav pills — secondary section switcher under the auction tabs.
+   Mirrors the mobile app (Summary · Players · Lots · History · Tracker). */
+nav.ah-subnav {
+  display: flex; gap: 6px; padding: 10px 24px;
+  background: var(--panel-alt);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+nav.ah-subnav button {
+  background: var(--panel); color: var(--muted);
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 6px 14px; cursor: pointer;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  transition: color 120ms, border-color 120ms, background 120ms;
+}
+nav.ah-subnav button:hover { color: var(--text); }
+nav.ah-subnav button.active {
+  background: var(--accent-soft); color: var(--text); border-color: var(--accent);
+}
+
+/* KPI strip — headline numbers at the top of each Summary */
+.ah-kpis {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin-bottom: 16px;
+}
+.ah-kpi {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 16px; text-align: center;
+}
+.ah-kpi-val { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1.1; }
+.ah-kpi-label {
+  font-size: 11px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.4px; margin-top: 4px;
+}
+@media (max-width: 640px) { .ah-kpis { grid-template-columns: repeat(2, 1fr); } }
+
 main.ah-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .ah-section { display: none; }
 .ah-section.active { display: block; }

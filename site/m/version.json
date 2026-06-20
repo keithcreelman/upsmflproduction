@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.19.7",
-  "label": "Auction: real ADP + player status. The ADP sort now uses league-wide FantasyCalc dynasty values (every player, not just rookies) — Josh Allen ranks #1, and each card shows ADP + last-season points consistently. Players now carry a status: Won (by whom), Active (Bid), or Not Nominated when the auction's closed — with new status filters (Open / Active / Won). Bid History flags Forced increases (a franchise's proxy walked up) and by whom."
+  "build": "2026.06.20.1",
+  "label": "Auction: Team Budgets columns relabeled. The two budget columns are now '27-man' and '35-man' (instead of '@27'/'@35') — those are roster sizes, not percentages. Each value is the most you can spend on one player and still afford a legal roster filled to that size."
 }

@@ -1,15 +1,17 @@
 {
-  "version": "0.8.0",
+  "version": "0.9.0",
   "released": "2026-06-20",
-  "label": "v0.8.0 — FA Auction Pool shows every free agent (ADP + prior-season PPG)",
-  "description": "The FA Auction Pool tab is no longer a placeholder: live lots, team budgets (max legal bid @27%/@35%), roster needs, and the available-player pool, all fed by the same /acquisition-hub/free-agent-auction/live payload the mobile app uses. Both the ERA and FA tabs now honor the commish ERA/FAA kill switches — when an auction is off, the tab shows a read-only 'not running' banner over a browsable pool; when on, it's a live board. The switch state polls on the existing 30s cadence, so a commish flip reflects without a reload. One set of switches drives both the app and the desktop hub.",
+  "label": "v0.9.0 — Mobile-style sub-menus (two auctions × Summary/Players/Lots/History/Tracker)",
+  "description": "The hub now mirrors the mobile app: two top tabs (FA Auction · Expired Rookie), each broken into five sub-sections — Summary, Players, Lots, History, Tracker — instead of six flat tabs and one long FA scroll. A pill strip switches sub-sections and the body re-renders into a single container. Lots and History are split per auction (a player in the ERA-eligible pool → ERA, else FA). Summary leads with headline KPIs; the old Nominations tab folds into Lots (Open/Completed/All chips) and War Room into Tracker. Team Budgets columns are relabeled from the confusing 'Max Bid @27%/@35%' to 'Max Bid → 27-man / → 35-man' — 27 and 35 are roster sizes (§B1), not percentages; the value is the most you can spend on one player and still afford a legal roster filled to that size.",
   "scope": {
     "this_release": [
-      "FA Auction Pool tab activated: live lots + team budgets + roster needs + available pool",
-      "ERA + FA tabs honor AUCTION_ERA_ENABLED / AUCTION_FAA_ENABLED (surfaced on /api/auction/lots)",
-      "Read-only 'not running' banner when a switch is off; live board when on",
-      "FA data from /acquisition-hub/free-agent-auction/live (budgets, needs, available_players, active_auctions)",
-      "Read-only deep-links to MFL O=43 for Bid/Nominate (in-app bidding stays mobile-only for now)"
+      "Two top tabs (FA Auction · Expired Rookie); five sub-pills each (Summary · Players · Lots · History · Tracker)",
+      "Single re-rendered content container with a persistent sub-nav (mirrors site/m/views/auction.js)",
+      "Lots + History split per auction via the ERA-eligible pool membership (eraPoolIds)",
+      "Nominations folded into Lots (Open/Completed/All); War Room folded into Tracker",
+      "Summary KPI strip (pool size · open lots · won · live status)",
+      "Team Budgets relabel: 'Max Bid @27%/@35%' → 'Max Bid → 27-man / → 35-man' (roster sizes, not %)",
+      "Eager single-load of all data; 30s refresh repaints; ERA sort/filters re-wire on each mount"
     ],
     "deferred": [
       "In-app desktop bidding (mobile Phase 1 only today)",
@@ -21,6 +23,8 @@
     "league_context_v1.md": ["§6.A1", "§6.A2", "§B1", "§A1", "§A2", "§A3"]
   },
   "changes": [
+    { "version": "0.9.0", "date": "2026-06-20", "type": "feat",
+      "summary": "Restructured into two auction tabs × five sub-sections (Summary/Players/Lots/History/Tracker), mirroring the mobile app — replaces six flat tabs and the long FA scroll. Lots + History split per auction; Nominations→Lots, War Room→Tracker. Summary KPI strip added. Team Budgets columns relabeled to roster targets (27-man / 35-man) since 27/35 are §B1 roster sizes, not percentages." },
     { "version": "0.7.0", "date": "2026-06-19", "type": "feat",
       "summary": "FA Auction Pool tab activated (live lots + team budgets @27/@35 + roster needs + available pool from /acquisition-hub/free-agent-auction/live). ERA + FA tabs now honor the commish ERA/FAA switches via era_enabled/faa_enabled on /api/auction/lots — read-only 'not running' banner when off, live board when on, refreshed on the 30s cadence. Mirrors the mobile redesign so one set of switches controls both surfaces." },
     { "version": "0.6.0", "date": "2026-05-22", "type": "feat",
