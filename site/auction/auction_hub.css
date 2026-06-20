@@ -96,6 +96,46 @@ nav.ah-subnav button.active {
 }
 @media (max-width: 640px) { .ah-kpis { grid-template-columns: repeat(2, 1fr); } }
 
+/* Nominations Tracker — per-day compliance + click-to-audit */
+.ah-nom-day { margin-bottom: 12px; }
+.ah-nom-day > summary.ah-nom-day-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  cursor: pointer; list-style: none; padding: 2px 0;
+}
+.ah-nom-day > summary.ah-nom-day-head::-webkit-details-marker { display: none; }
+.ah-nom-day > summary.ah-nom-day-head::before { content: "▸"; color: var(--muted); margin-right: 6px; font-size: 11px; }
+.ah-nom-day[open] > summary.ah-nom-day-head::before { content: "▾"; }
+.ah-nom-day-head strong { font-size: 14px; }
+.ah-nom-day-sum { color: var(--muted); }
+.ah-nom-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px; margin-top: 12px;
+}
+.ah-nom-owner {
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 7px;
+  border-left: 3px solid var(--muted);
+}
+.ah-nom-owner.ah-nom-met { border-left-color: var(--ok); }
+.ah-nom-owner.ah-nom-partial { border-left-color: var(--warn); }
+.ah-nom-owner.ah-nom-zero { border-left-color: var(--border); opacity: 0.78; }
+.ah-nom-owner.ah-nom-me { box-shadow: inset 0 0 0 1px var(--accent); }
+.ah-nom-owner > summary {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  cursor: pointer; list-style: none; padding: 8px 11px;
+}
+.ah-nom-owner > summary::-webkit-details-marker { display: none; }
+.ah-nom-oname { font-weight: 600; font-size: 12.5px; }
+.ah-nom-count {
+  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 12px;
+  padding: 1px 8px; border-radius: 999px; background: var(--panel); color: var(--muted);
+}
+.ah-nom-met .ah-nom-count { background: rgba(74, 222, 128, 0.15); color: var(--ok); }
+.ah-nom-partial .ah-nom-count { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
+.ah-nom-players { margin: 0; padding: 0 11px 9px 26px; list-style: disc; }
+.ah-nom-players li { font-size: 12px; padding: 2px 0; }
+.ah-nom-when { color: var(--muted); font-size: 11px; margin-left: 4px; }
+.ah-nom-empty { padding: 0 11px 9px; color: var(--muted); font-size: 11.5px; }
+
 main.ah-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .ah-section { display: none; }
 .ah-section.active { display: block; }
