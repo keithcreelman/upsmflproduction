@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.0.5",
-  "released": "2026-06-06",
-  "checkpoint": 7,
-  "scope": "2027 tag table: YTD Pts Rank column (N/A in offseason, dynamic once season starts). Roster: position group-header rows restyled to stand out (accent tint + borders + left bar).",
+  "version": "2.0.6",
+  "released": "2026-06-20",
+  "checkpoint": 8,
+  "scope": "Commish Settings tab removed from the Front Office — Discord Routing, Kill Switches, Contract Revert, and Status moved to the dedicated Commish Settings hub page (MESSAGE19&hub=commish-settings), now the single home for commish tools alongside the curated MFL Settings links.",
   "next": "Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }

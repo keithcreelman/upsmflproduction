@@ -640,9 +640,9 @@
     if (!rows.length) return '';
     var viewerFid = U.pad4(M.state.viewerFranchiseId);
     rows = rows.slice().sort(function (a, b) { return (U.pad4(a.franchise_id) === viewerFid ? 0 : 1) - (U.pad4(b.franchise_id) === viewerFid ? 0 : 1); });
-    return '<div class="ups-m-auc-sec-head">Team Budgets <span class="ct">max legal bid</span></div>' +
+    return '<div class="ups-m-auc-sec-head">Team Budgets <span class="ct">most you can spend on one player + still field a legal roster</span></div>' +
       '<div class="ups-m-auc-table">' +
-        '<div class="ups-m-auc-trow head"><span>Team</span><span>Funds</span><span>@27</span><span>@35</span></div>' +
+        '<div class="ups-m-auc-trow head"><span>Team</span><span>Funds</span><span>27-man</span><span>35-man</span></div>' +
         rows.map(function (r) {
           return '<div class="ups-m-auc-trow' + (U.pad4(r.franchise_id) === viewerFid ? ' me' : '') + '">' +
             '<span class="tn">' + U.escapeHtml(r.franchise_name || franchiseName(r.franchise_id)) + '</span>' +

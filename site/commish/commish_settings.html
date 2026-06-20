@@ -8,26 +8,35 @@
   :root {
     --bg: #0b0f18; --panel: #141a26; --panel2: #1a2230; --line: #2a3446;
     --fg: #e8edf5; --muted: #8a97ad; --accent: #5b8dff; --warn: #fbbf24; --ok: #4ade80; --danger: #f87171;
+    /* Aliases so the panels ported from the Front Office app (which reference
+       --border / --panel-alt / --text via inline styles) render unchanged. */
+    --border: #2a3446; --panel-alt: #1a2230; --text: #e8edf5;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; }
-  .cs-wrap { max-width: 1100px; margin: 0 auto; padding: 18px 16px 40px; }
+  .cs-wrap { max-width: 1100px; margin: 0 auto; padding: 18px 16px 60px; }
   .cs-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
   .cs-head h1 { font-size: 22px; margin: 0; }
   .cs-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 2px 7px; }
-  .cs-sub { color: var(--muted); font-size: 12.5px; margin: 0 0 18px; line-height: 1.5; }
+  .cs-sub { color: var(--muted); font-size: 12.5px; margin: 0 0 16px; line-height: 1.5; }
   .cs-gate { padding: 40px 20px; text-align: center; color: var(--muted); }
-  /* Tool row (the commish identity / our tools) */
+
+  /* Top tab bar (MFL Settings · Discord Routing · …) */
+  .cs-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+  .cs-tabs button { background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--muted);
+    font-weight: 600; font-size: 13.5px; padding: 9px 14px; cursor: pointer; white-space: nowrap; }
+  .cs-tabs button:hover { color: var(--fg); }
+  .cs-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* MFL Settings tab — identity tools + grouped setup cards */
   .cs-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
   .cs-tool { display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; border-radius: 9px; text-decoration: none;
     background: var(--panel2); border: 1px solid var(--line); color: var(--fg); font-weight: 600; font-size: 13px; }
   .cs-tool:hover { border-color: var(--accent); }
   .cs-tool.warn { color: var(--warn); border-color: rgba(251,184,107,0.4); }
-  /* Section header */
   .cs-sech { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
     margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
   .cs-sech .lead { color: var(--accent); }
-  /* Card grid of MFL setup groups */
   .cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
   .cs-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
   .cs-card.caution { border-color: rgba(248,113,113,0.35); }
@@ -38,15 +47,49 @@
   .cs-card li a:hover { background: var(--panel2); color: var(--accent); }
   .cs-card li a::after { content: "↗"; color: var(--muted); font-size: 10px; margin-left: 5px; }
   .cs-note { font-size: 11.5px; color: var(--muted); margin-top: 18px; line-height: 1.5; }
+
+  /* Operational panels (ported from the FO app) */
+  .fo-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+  .fo-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .fo-card-head h3 { font-size: 15px; margin: 0; }
+  .fo-row-hint { font-size: 12px; color: var(--muted); background: var(--panel2); border-left: 3px solid var(--accent);
+    padding: 8px 11px; border-radius: 6px; margin: 0 0 12px; line-height: 1.5; }
+  .fo-table-loading { padding: 26px; text-align: center; color: var(--muted); }
+  .fo-table-scroll { overflow-x: auto; }
+  .fo-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .fo-table th { text-align: left; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line); padding: 7px 8px; white-space: nowrap; }
+  .fo-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .fo-table th.num, .fo-table td.num { text-align: right; }
+  .fo-table-empty { text-align: center; color: var(--muted); padding: 18px; }
+  .small { font-size: 11.5px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
+  .btn { padding: 5px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel2); color: var(--fg);
+    cursor: pointer; font-size: 12px; font-weight: 600; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.small { padding: 4px 10px; }
+  .btn.warn { border-color: rgba(251,184,107,0.55); color: var(--warn); }
+  .btn.secondary { color: var(--muted); font-weight: 500; }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+  /* Toast */
+  #cs-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
+    background: var(--panel2); border: 1px solid var(--line); color: var(--fg); padding: 10px 16px; border-radius: 8px;
+    font-size: 13px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity 160ms, transform 160ms; z-index: 9999; }
+  #cs-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #cs-toast.err { border-color: var(--danger); color: var(--danger); }
+  #cs-toast.ok { border-color: var(--ok); }
 </style>
 </head>
 <body>
 <div class="cs-wrap" id="cs-root"><div class="cs-gate">Loading…</div></div>
+<div id="cs-toast"></div>
 <script>
 (function () {
   "use strict";
   function s(v) { return String(v == null ? "" : v).trim(); }
   function esc(v) { return s(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function pad4(v) { var x = s(v).replace(/\D/g, ""); while (x.length < 4) x = "0" + x; return x; }
+
   // Context comes from the embed loader's injected globals; query params are a
   // fallback for direct/standalone access.
   var qp; try { qp = new URLSearchParams(location.search || ""); } catch (e) { qp = { get: function () { return ""; } }; }
@@ -54,14 +97,46 @@
   var YEAR = s(window.UPS_COMMISH_YEAR) || s(qp.get("YEAR")) || String(new Date().getFullYear());
   var HOST = s(window.UPS_COMMISH_HOST) || "www48.myfantasyleague.com";
   var IS_COMMISH = (window.UPS_COMMISH_IS_COMMISH != null) ? !!window.UPS_COMMISH_IS_COMMISH : (s(qp.get("commish")) === "1");
-  var root = document.getElementById("cs-root");
 
+  // Worker base — same precedence as the auction hub: ?worker_base override →
+  // injected global → prod fallback. The operational panels POST here.
+  var WORKER_BASE = (function () {
+    try { var o = qp.get("worker_base"); if (o) return o.replace(/\/$/, ""); } catch (e) {}
+    if (typeof window.UPS_COMMISH_API_BASE === "string" && window.UPS_COMMISH_API_BASE) return s(window.UPS_COMMISH_API_BASE).replace(/\/$/, "");
+    return "https://upsmflproduction.keith-creelman.workers.dev";
+  })();
+  var apiUrl = function (p) { return WORKER_BASE + p; };
+  function fetchJSON(url) {
+    return fetch(url, { cache: "no-store", credentials: "omit" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+  function postJSON(url, payload) {
+    return fetch(url, { method: "POST", credentials: "omit", cache: "no-store",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload || {}) })
+      .then(function (r) { return r.text().then(function (txt) {
+        var data; try { data = txt ? JSON.parse(txt) : {}; } catch (_) { data = { raw: txt }; }
+        if (!r.ok) throw new Error((data && data.error) || ("HTTP " + r.status));
+        return data;
+      }); });
+  }
+  var _toastT = null;
+  function toast(msg, kind) {
+    var el = document.getElementById("cs-toast");
+    if (!el) return;
+    el.textContent = msg; el.className = (kind || "") + " show";
+    if (_toastT) clearTimeout(_toastT);
+    _toastT = setTimeout(function () { el.className = el.className.replace("show", "").trim(); }, 2600);
+  }
+
+  var root = document.getElementById("cs-root");
   if (!IS_COMMISH) {
     root.innerHTML = '<div class="cs-gate"><h1>Commish Settings</h1><p>This page is for the commissioner only.</p></div>';
     return;
   }
 
-  // Build an MFL URL for this league/year. kind: "csetup" (C=) | "options" (O=) | "path".
+  // Build an MFL URL for this league/year. kind: "c" (csetup C=) | "o" (options O=) | "r" (reports R=) | "path".
   function mfl(kind, key) {
     var base = "https://" + HOST + "/" + YEAR + "/";
     if (kind === "c") return base + "csetup?L=" + L + "&C=" + key;
@@ -70,118 +145,390 @@
     return base + key + (key.indexOf("?") === -1 ? "?L=" + L : "&L=" + L);
   }
 
-  // Identity + our own commish tools (the "MFL Legacy Commish Links" moved here).
-  var tools = [
-    { label: "Become Commissioner", url: mfl("path", "logout?BECOME=0000") },
-    { label: "Become Owner (0008)", url: mfl("path", "logout?BECOME=0008") },
-    { label: "Full MFL Commissioner Setup", url: mfl("path", "commissioner_setup") }
+  // ── Shared state ──────────────────────────────────────────────────────
+  var CS = { tab: "mfl", fmap: null, cr: { subs: [], sel: {} }, statusView: "discord" };
+  var content = function () { return document.getElementById("cs-content"); };
+  function $$(sel, host) { return Array.prototype.slice.call((host || document).querySelectorAll(sel)); }
+
+  var TABS = [
+    { key: "mfl", label: "MFL Settings" },
+    { key: "discord", label: "Discord Routing" },
+    { key: "killswitches", label: "Kill Switches" },
+    { key: "revert", label: "Contract Revert" },
+    { key: "status", label: "Status" }
   ];
 
-  // Curated + grouped MFL Commissioner Setup. Decluttered from MFL's two-column
-  // wall into the screens this league actually touches. [kind, key, label].
-  var groups = [
-    { title: "General", items: [
-      ["c","GENERAL","General League Setup"],
-      ["o","60","Additional League Rules"],
-      ["o","110","League Calendar"],
-      ["c","ACCSETUP","Accounting Setup"],
-      ["c","ACCEDIT","Edit Accounting Records"],
-      ["c","DIVCONF","Divisions & Conferences"]
-    ]},
-    { title: "Franchises & Access", items: [
-      ["c","FRANCHISE","Franchise Setup"],
-      ["o","93","Abilities Setup"],
-      ["c","CACCESS","Grant Commissioner Access"],
-      ["c","FRANORD","Custom Franchise Order"],
-      ["o","103","Invite Owners"],
-      ["c","REMOWN","Remove Owner"]
-    ]},
-    { title: "Salary Cap", items: [
-      ["c","SALCAP","Salary Cap Setup"],
-      ["c","SALARIES","Edit Player Salaries & Contracts"],
-      ["c","IMPSAL","Import Salaries & Contracts"],
-      ["c","SALADJ","Edit Salary Adjustments"]
-    ]},
-    { title: "Rosters & Players", items: [
-      ["c","LINEUP","Starting Lineup Setup"],
-      ["c","ROSLIMIT","Roster Position Limits"],
-      ["c","KEEPERS","Dynasty & Keepers Setup"],
-      ["c","PLAYACQ","Player Acquired Info Setup"],
-      ["c","EDITACQ","Edit Player Acquired Info"],
-      ["c","CANTCUT","Can't Cut List"],
-      ["c","CANTADD","Can't Add List"],
-      ["c","LOADROST","Load / Unload Rosters"]
-    ]},
-    { title: "Scoring & Standings", items: [
-      ["c","SCORING","General Scoring Setup"],
-      ["c","STATCORR","Statistic Changes"],
-      ["c","STANDINGS","Standings Setup"],
-      ["c","RECALC","Recalculate Standings"],
-      ["c","FSCOREADJ","Adjust Franchise Scores"],
-      ["c","STANDADJ","Adjust Standings"]
-    ]},
-    { title: "Add/Drop & Trades", items: [
-      ["c","ADDDROP","Add/Drop Setup"],
-      ["c","FREEAG","Waivers / Free Agents"],
-      ["c","BBIDWAIV","Blind Bid Waivers"],
-      ["c","TRADES","Trades Setup"],
-      ["c","REVTRAD","Review Trades"],
-      ["c","IR","Injured Reserve Setup"],
-      ["c","TAXI","Taxi Squad Setup"],
-      ["o","67","Delete Transactions"]
-    ]},
-    { title: "Auction & Draft", items: [
-      ["c","AUCTIONS","General Auction Setup"],
-      ["o","127","Delete Auctions"],
-      ["c","DRAFT","General Draft Setup"],
-      ["c","DRAFTORD","Draft Order Setup"],
-      ["o","104","Import Future Draft Picks"]
-    ]},
-    { title: "Schedule & Playoffs", items: [
-      ["c","WEEKSCHED","Weekly Schedule Setup"],
-      ["c","VALSCHED","Validate Schedule"],
-      ["o","231","Schedule Generator (BETA)"],
-      ["c","PLAYOFFS","General Playoffs Setup"],
-      ["c","POSEEDS","Seed Playoff Teams"]
-    ]},
-    { title: "Appearance & Messages", items: [
-      ["c","HMPGMOD","Home Page Modules & Tabs"],
-      ["c","SKIN","Select Skin"],
-      ["path","edit_my_links?TYPE=L","Edit League Links"],
-      ["c","HMPGMSG","Home Page Messages"],
-      ["o","66","Edit Weekly Newsletter"],
-      ["c","SCROLLER","Scrolling Text"]
-    ]},
-    { title: "History", items: [
-      ["c","HISTORY","League History Setup"],
-      ["o","170","Link Historical Franchises"],
-      ["o","201","League Awards"]
-    ]},
-    { title: "⚠ Use With Caution", caution: true, items: [
-      ["o","173","Duplicate This League"],
-      ["o","146","Delete A Franchise"],
-      ["o","246","Replace / Reset Franchises"],
-      ["c","CLEARROST","Clear Rosters"]
-    ]}
-  ];
+  function renderShell() {
+    root.innerHTML =
+      '<div class="cs-head"><h1>Commish Settings</h1><span class="cs-badge">Commissioner</span></div>' +
+      '<p class="cs-sub">League ' + esc(L) + ' · ' + esc(YEAR) + '. Your command center — identity, MFL setup, Discord routing, kill switches, contract reverts, and live posting/D1 status.</p>' +
+      '<nav class="cs-tabs" id="cs-tabs">' +
+        TABS.map(function (t) { return '<button type="button" data-cstab="' + t.key + '"' + (t.key === CS.tab ? ' class="active"' : '') + '>' + esc(t.label) + '</button>'; }).join("") +
+      '</nav>' +
+      '<div id="cs-content"></div>';
+    document.getElementById("cs-tabs").addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("button[data-cstab]");
+      if (!b) return;
+      var t = b.getAttribute("data-cstab");
+      if (!t || t === CS.tab) return;
+      CS.tab = t;
+      $$("#cs-tabs button").forEach(function (x) { x.classList.toggle("active", x.getAttribute("data-cstab") === t); });
+      renderTab();
+    });
+  }
 
-  var html =
-    '<div class="cs-head"><h1>Commish Settings</h1><span class="cs-badge">Commissioner</span></div>' +
-    '<p class="cs-sub">League ' + esc(L) + ' · ' + esc(YEAR) + '. Your command center — identity toggle, plus a tidied set of deep-links into MFL\'s commissioner setup (opens MFL in a new tab).</p>' +
-    '<div class="cs-tools">' +
-      tools.map(function (t) { return '<a class="cs-tool" href="' + esc(t.url) + '" target="_blank" rel="noopener">' + esc(t.label) + '</a>'; }).join("") +
-    '</div>' +
-    '<div class="cs-sech"><span class="lead">MFL Settings</span> · Commissioner Setup</div>' +
-    '<div class="cs-grid">' +
-      groups.map(function (g) {
-        return '<div class="cs-card' + (g.caution ? " caution" : "") + '">' +
-          '<h3>' + esc(g.title) + '</h3><ul>' +
-          g.items.map(function (it) { return '<li><a href="' + esc(mfl(it[0], it[1])) + '" target="_blank" rel="noopener">' + esc(it[2]) + '</a></li>'; }).join("") +
-          '</ul></div>';
-      }).join("") +
-    '</div>' +
-    '<p class="cs-note">Links open MFL\'s native setup pages in a new tab. This is a curated subset — the <strong>Full MFL Commissioner Setup</strong> button above has everything.</p>';
-  root.innerHTML = html;
+  function renderTab() {
+    if (CS.tab === "discord") return renderDiscordRouting();
+    if (CS.tab === "killswitches") return renderKillSwitches();
+    if (CS.tab === "revert") return renderContractRevert();
+    if (CS.tab === "status") return renderStatus();
+    return renderMflSettings();
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // MFL SETTINGS — identity tools + curated commissioner-setup deep-links
+  // ════════════════════════════════════════════════════════════════════
+  function renderMflSettings() {
+    var tools = [
+      { label: "Become Commissioner", url: mfl("path", "logout?BECOME=0000") },
+      { label: "Become Owner (0008)", url: mfl("path", "logout?BECOME=0008") },
+      { label: "Full MFL Commissioner Setup", url: mfl("path", "commissioner_setup") }
+    ];
+    var groups = [
+      { title: "General", items: [
+        ["c","GENERAL","General League Setup"], ["o","60","Additional League Rules"], ["o","110","League Calendar"],
+        ["c","ACCSETUP","Accounting Setup"], ["c","ACCEDIT","Edit Accounting Records"], ["c","DIVCONF","Divisions & Conferences"] ]},
+      { title: "Franchises & Access", items: [
+        ["c","FRANCHISE","Franchise Setup"], ["o","93","Abilities Setup"], ["c","CACCESS","Grant Commissioner Access"],
+        ["c","FRANORD","Custom Franchise Order"], ["o","103","Invite Owners"], ["c","REMOWN","Remove Owner"] ]},
+      { title: "Salary Cap", items: [
+        ["c","SALCAP","Salary Cap Setup"], ["c","SALARIES","Edit Player Salaries & Contracts"],
+        ["c","IMPSAL","Import Salaries & Contracts"], ["c","SALADJ","Edit Salary Adjustments"] ]},
+      { title: "Rosters & Players", items: [
+        ["c","LINEUP","Starting Lineup Setup"], ["c","ROSLIMIT","Roster Position Limits"], ["c","KEEPERS","Dynasty & Keepers Setup"],
+        ["c","PLAYACQ","Player Acquired Info Setup"], ["c","EDITACQ","Edit Player Acquired Info"], ["c","CANTCUT","Can't Cut List"],
+        ["c","CANTADD","Can't Add List"], ["c","LOADROST","Load / Unload Rosters"] ]},
+      { title: "Scoring & Standings", items: [
+        ["c","SCORING","General Scoring Setup"], ["c","STATCORR","Statistic Changes"], ["c","STANDINGS","Standings Setup"],
+        ["c","RECALC","Recalculate Standings"], ["c","FSCOREADJ","Adjust Franchise Scores"], ["c","STANDADJ","Adjust Standings"] ]},
+      { title: "Add/Drop & Trades", items: [
+        ["c","ADDDROP","Add/Drop Setup"], ["c","FREEAG","Waivers / Free Agents"], ["c","BBIDWAIV","Blind Bid Waivers"],
+        ["c","TRADES","Trades Setup"], ["c","REVTRAD","Review Trades"], ["c","IR","Injured Reserve Setup"],
+        ["c","TAXI","Taxi Squad Setup"], ["o","67","Delete Transactions"] ]},
+      { title: "Auction & Draft", items: [
+        ["c","AUCTIONS","General Auction Setup"], ["o","127","Delete Auctions"], ["c","DRAFT","General Draft Setup"],
+        ["c","DRAFTORD","Draft Order Setup"], ["o","104","Import Future Draft Picks"] ]},
+      { title: "Schedule & Playoffs", items: [
+        ["c","WEEKSCHED","Weekly Schedule Setup"], ["c","VALSCHED","Validate Schedule"], ["o","231","Schedule Generator (BETA)"],
+        ["c","PLAYOFFS","General Playoffs Setup"], ["c","POSEEDS","Seed Playoff Teams"] ]},
+      { title: "Appearance & Messages", items: [
+        ["c","HMPGMOD","Home Page Modules & Tabs"], ["c","SKIN","Select Skin"], ["path","edit_my_links?TYPE=L","Edit League Links"],
+        ["c","HMPGMSG","Home Page Messages"], ["o","66","Edit Weekly Newsletter"], ["c","SCROLLER","Scrolling Text"] ]},
+      { title: "History", items: [
+        ["c","HISTORY","League History Setup"], ["o","170","Link Historical Franchises"], ["o","201","League Awards"] ]},
+      { title: "⚠ Use With Caution", caution: true, items: [
+        ["o","173","Duplicate This League"], ["o","146","Delete A Franchise"], ["o","246","Replace / Reset Franchises"], ["c","CLEARROST","Clear Rosters"] ]}
+    ];
+    content().innerHTML =
+      '<div class="cs-tools">' +
+        tools.map(function (t) { return '<a class="cs-tool" href="' + esc(t.url) + '" target="_blank" rel="noopener">' + esc(t.label) + '</a>'; }).join("") +
+      '</div>' +
+      '<div class="cs-sech"><span class="lead">MFL Settings</span> · Commissioner Setup</div>' +
+      '<div class="cs-grid">' +
+        groups.map(function (g) {
+          return '<div class="cs-card' + (g.caution ? " caution" : "") + '"><h3>' + esc(g.title) + '</h3><ul>' +
+            g.items.map(function (it) { return '<li><a href="' + esc(mfl(it[0], it[1])) + '" target="_blank" rel="noopener">' + esc(it[2]) + '</a></li>'; }).join("") +
+            '</ul></div>';
+        }).join("") +
+      '</div>' +
+      '<p class="cs-note">Links open MFL\'s native setup pages in a new tab. This is a curated subset — the <strong>Full MFL Commissioner Setup</strong> button above has everything.</p>';
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // DISCORD ROUTING — per-mechanism prod/test channel (POST /admin/commish-settings)
+  // ════════════════════════════════════════════════════════════════════
+  function renderDiscordRouting() {
+    var host = content();
+    var myTab = CS.tab;
+    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading Discord routing…</div></div>';
+    fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L)).then(function (data) {
+      if (CS.tab !== myTab) return;   // tab switched while the fetch was in flight
+      var cfg = (data && data.discord_routing) || {};
+      var labels = { extension: "Extension", myac: "Auction Contract (FA + MYAC)", auctionbidding: "Auction Bidding (live bid/nom narration)", restructure: "Restructure", tag: "Tag / Untag", mym: "MYM", traderoast: "Trade Roast bot (trades always post to #transactions)" };
+      var rowHtml = Object.keys(labels).map(function (k) {
+        var val = String(cfg[k] || "prod").toLowerCase();
+        var seg = ["prod", "test"].map(function (o) {
+          var on = val === o, c = o === "test" ? "#e67e22" : "#1f8a4c";
+          return '<button type="button" class="fo-route-btn" data-route="' + k + '" data-val="' + o + '" style="padding:4px 14px;border:1px solid var(--border);background:' + (on ? c : "var(--panel-alt)") + ";color:" + (on ? "#fff" : "var(--text)") + ";cursor:pointer;font-weight:" + (on ? "600" : "400") + ";" + (o === "prod" ? "border-radius:4px 0 0 4px;" : "border-radius:0 4px 4px 0;border-left:none;") + '">' + (o === "prod" ? "Prod" : "Test") + "</button>";
+        }).join("");
+        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);"><span>' + esc(labels[k]) + '</span><span style="display:inline-flex;">' + seg + "</span></div>";
+      }).join("");
+      host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3>Discord Routing</h3></div>' +
+        '<p class="fo-row-hint">💡 Per-mechanism: where contract announcements post. <strong style="color:#1f8a4c;">Prod</strong> = league channel · <strong style="color:#e67e22;">Test</strong> = test channel. Dry-run submissions always go to test regardless. Saved to D1 instantly.</p>' +
+        rowHtml + "</div>";
+      $$(".fo-route-btn", host).forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var k = btn.getAttribute("data-route"), v = btn.getAttribute("data-val");
+          if (String(cfg[k] || "prod").toLowerCase() === v) return;
+          var upd = {}; upd[k] = v;
+          postJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L), { discord_routing: upd })
+            .then(function () { toast((labels[k] || k) + " → " + (v === "test" ? "Test" : "Prod"), "ok"); })
+            .catch(function (e) { toast("Failed: " + (e.message || String(e)), "err"); })
+            .then(function () { renderDiscordRouting(); });
+        });
+      });
+    }).catch(function (e) {
+      if (CS.tab !== myTab) return;
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + esc(e.message || String(e)) + "</div></div>";
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // KILL SWITCHES — runtime feature flags (POST /admin/commish-settings)
+  // ════════════════════════════════════════════════════════════════════
+  function renderKillSwitches() {
+    var host = content();
+    var myTab = CS.tab;
+    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading kill switches…</div></div>';
+    fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L)).then(function (data) {
+      if (CS.tab !== myTab) return;
+      var flags = (data && data.feature_flags) || [];
+      var rowHtml = flags.map(function (f) {
+        var on = !!f.value;
+        var onColor = "#1f8a4c";
+        var seg = [["on", "On"], ["off", "Off"]].map(function (pair) {
+          var o = pair[0], isOn = (o === "on") === on;
+          var bg = isOn ? (o === "on" ? onColor : "#7a7f87") : "var(--panel-alt)";
+          return '<button type="button" class="fo-flag-btn" data-flag="' + esc(f.key) + '" data-val="' + o + '" style="padding:4px 16px;border:1px solid var(--border);background:' + bg + ";color:" + (isOn ? "#fff" : "var(--text)") + ";cursor:pointer;font-weight:" + (isOn ? "600" : "400") + ";" + (o === "on" ? "border-radius:4px 0 0 4px;" : "border-radius:0 4px 4px 0;border-left:none;") + '">' + pair[1] + "</button>";
+        }).join("");
+        var src = f.overridden ? "commish override" : "default";
+        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--border);">' +
+          '<span style="flex:1;"><strong>' + esc(f.label) + (f.danger ? ' <span style="color:#c0392b;">⚠️</span>' : "") + '</strong>' +
+          '<br><span class="small" style="color:var(--muted);">' + esc(f.help) + '</span>' +
+          '<br><span class="small" style="color:var(--muted);opacity:.8;">' + esc(f.key) + " · " + src + "</span></span>" +
+          '<span style="display:inline-flex;flex:0 0 auto;">' + seg + "</span></div>";
+      }).join("");
+      host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3>Kill Switches</h3></div>' +
+        '<p class="fo-row-hint">💡 Flip a feature on/off live — no redeploy. Saved to D1 instantly. A ⚠️ flag is a live action and asks for confirmation before turning On.</p>' +
+        rowHtml + "</div>";
+      $$(".fo-flag-btn", host).forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var k = btn.getAttribute("data-flag"), v = btn.getAttribute("data-val") === "on";
+          var cur = flags.filter(function (f) { return f.key === k; })[0];
+          if (cur && !!cur.value === v) return;
+          if (cur && cur.danger && v && !window.confirm('Turn ON "' + cur.label + '" (live)? ' + (cur.help || "This is a live action that can't be easily undone."))) return;
+          var upd = {}; upd[k] = v ? "1" : "0";
+          postJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L), { feature_flags: upd })
+            .then(function () { toast((cur ? cur.label : k) + " → " + (v ? "On" : "Off"), v && cur && cur.danger ? "err" : "ok"); })
+            .catch(function (e) { toast("Failed: " + (e.message || String(e)), "err"); })
+            .then(function () { renderKillSwitches(); });
+        });
+      });
+    }).catch(function (e) {
+      if (CS.tab !== myTab) return;
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + esc(e.message || String(e)) + "</div></div>";
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // CONTRACT REVERT — list recent submissions, dry-run preview, revert in MFL
+  // ════════════════════════════════════════════════════════════════════
+  function ctKindLabel(k) { return { myac: "MYAC", extension: "Extension", restructure: "Restructure", mym: "MYM", tag: "Tag", untag: "Untag" }[k] || k; }
+  function ctContractStr(c, isTag) {
+    if (!c) return isTag ? "(untag)" : "—";
+    var sal = c.salary != null ? "$" + Number(c.salary).toLocaleString() : "$?";
+    var yr = c.contract_year != null ? c.contract_year + "yr" : "";
+    return [c.contract_status || "", yr, sal].filter(Boolean).join(" · ");
+  }
+  function franchiseName(fid) { return (CS.fmap && CS.fmap[pad4(fid)]) || s(fid); }
+
+  function loadFranchiseMap() {
+    if (CS.fmap) return Promise.resolve(CS.fmap);
+    return fetchJSON(apiUrl("/api/mfl-export") + "?TYPE=league&L=" + encodeURIComponent(L) + "&YEAR=" + encodeURIComponent(YEAR))
+      .then(function (d) {
+        var fr = d && d.league && d.league.franchises && d.league.franchises.franchise;
+        var arr = Array.isArray(fr) ? fr : (fr ? [fr] : []);
+        var m = {}; arr.forEach(function (f) { if (f && f.id) m[pad4(f.id)] = f.name || f.id; });
+        CS.fmap = m; return m;
+      }).catch(function () { CS.fmap = {}; return {}; });
+  }
+
+  function renderContractRevert() {
+    var host = content();
+    var myTab = CS.tab;
+    host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3>Contract Revert</h3>' +
+      '<span class="small" id="cs-cr-meta" style="color:var(--muted);">Loading…</span></div>' +
+      '<p class="fo-row-hint">💡 Select recent contract submissions and revert them — restores the prior contract in MFL (tags → untag). Discord is silenced for reverts. A dry-run preview + confirm runs before any write.</p>' +
+      '<div id="cs-cr-body"><div class="fo-table-loading">Loading contract submissions…</div></div></div>';
+    CS.cr.sel = {};
+    Promise.all([
+      loadFranchiseMap(),
+      fetchJSON(apiUrl("/admin/contract-submissions") + "?L=" + encodeURIComponent(L) + "&YEAR=" + encodeURIComponent(YEAR))
+    ]).then(function (res) {
+      if (CS.tab !== myTab) return;
+      CS.cr.subs = (res[1] && res[1].submissions) || [];
+      var meta = document.getElementById("cs-cr-meta");
+      if (meta) meta.textContent = CS.cr.subs.length + " submission" + (CS.cr.subs.length === 1 ? "" : "s") + " · " + YEAR;
+      renderContractRevertBody();
+    }).catch(function (e) {
+      if (CS.tab !== myTab) return;
+      var b = document.getElementById("cs-cr-body");
+      if (b) b.innerHTML = '<div class="fo-table-loading">Failed to load: ' + esc(e.message || String(e)) + "</div>";
+    });
+  }
+
+  function renderContractRevertBody() {
+    var body = document.getElementById("cs-cr-body");
+    if (!body) return;
+    var cr = CS.cr;
+    if (!cr.subs.length) { body.innerHTML = '<div class="fo-table-loading">No contract submissions this season.</div>'; return; }
+    var fmtDt = function (x) { return s(x).replace("T", " ").slice(0, 16); };
+    var rows = cr.subs.map(function (sub) {
+      var key = sub.table + ":" + sub.id;
+      var checked = cr.sel[key] ? "checked" : "";
+      var disabled = sub.revertable ? "" : "disabled";
+      var isTag = sub.kind === "tag" || sub.kind === "untag";
+      var newStr = ctContractStr(sub.new, false) + (sub.new && sub.new.tag_side ? " (" + sub.new.tag_side + ")" : "");
+      var priorStr = ctContractStr(sub.prior, isTag);
+      return '<tr>' +
+        '<td style="text-align:center;"><input type="checkbox" class="cs-cr-chk" data-key="' + esc(key) + '" ' + checked + ' ' + disabled + '></td>' +
+        '<td>' + esc(sub.player_name || sub.player_id || "") + '</td>' +
+        '<td>' + esc(ctKindLabel(sub.kind)) + '</td>' +
+        '<td>' + esc(franchiseName(sub.franchise_id)) + '</td>' +
+        '<td class="small">' + esc(newStr) + '</td>' +
+        '<td class="small">' + esc(priorStr) + (sub.revertable ? '' : ' <span style="color:var(--muted);">(no revert)</span>') + '</td>' +
+        '<td class="small">' + esc(fmtDt(sub.submitted_at_utc)) + '</td>' +
+        '</tr>';
+    }).join("");
+    var nSel = Object.keys(cr.sel).filter(function (k) { return cr.sel[k]; }).length;
+    body.innerHTML =
+      '<div style="margin:8px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
+        '<button type="button" class="btn small warn" id="cs-cr-revert"' + (nSel ? '' : ' disabled') + '>Revert selected (' + nSel + ')</button>' +
+        '<button type="button" class="btn small secondary" id="cs-cr-refresh">↻ Refresh</button>' +
+        '<span class="small" id="cs-cr-status" style="color:var(--muted);"></span>' +
+      '</div>' +
+      '<div class="fo-table-scroll"><table class="fo-table"><thead><tr>' +
+        '<th style="width:32px;"></th><th>Player</th><th>Kind</th><th>Team</th><th>Submitted (new)</th><th>Reverts to (prior)</th><th>When (UTC)</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    $$(".cs-cr-chk", body).forEach(function (chk) {
+      chk.addEventListener("change", function () {
+        var k = this.getAttribute("data-key");
+        if (this.checked) cr.sel[k] = true; else delete cr.sel[k];
+        renderContractRevertBody();
+      });
+    });
+    var rb = document.getElementById("cs-cr-revert"); if (rb) rb.addEventListener("click", doContractRevert);
+    var fb = document.getElementById("cs-cr-refresh"); if (fb) fb.addEventListener("click", renderContractRevert);
+  }
+
+  function doContractRevert() {
+    var cr = CS.cr;
+    var reverts = Object.keys(cr.sel).filter(function (k) { return cr.sel[k]; }).map(function (k) {
+      var i = k.lastIndexOf(":"); return { table: k.slice(0, i), id: parseInt(k.slice(i + 1), 10) || 0 };
+    });
+    if (!reverts.length) return;
+    var status = document.getElementById("cs-cr-status");
+    var setStatus = function (m) { if (status) status.textContent = m; };
+    var revertUrl = apiUrl("/admin/contract-revert") + "?L=" + encodeURIComponent(L) + "&YEAR=" + encodeURIComponent(YEAR);
+    setStatus("Previewing (dry-run)…");
+    postJSON(revertUrl, { league_id: L, season: YEAR, dry_run: true, reverts: reverts }).then(function (dry) {
+      var lines = (dry.results || []).map(function (r) {
+        var to = r.restored && r.restored.contract_status
+          ? r.restored.contract_status + " " + r.restored.contract_year + "yr $" + Number(r.restored.salary || 0).toLocaleString()
+          : "untag";
+        var sub = (cr.subs || []).filter(function (x) { return x.table === r.table && String(x.id) === String(r.id); })[0];
+        var nm = r.player_name || (sub && sub.player_name) || r.id;
+        return (r.ok ? "✓" : "✗") + " " + nm + " → " + to + (r.error ? " (" + r.error + ")" : "");
+      });
+      if (!window.confirm("Revert " + reverts.length + " contract(s) in MFL?\n\n" + lines.join("\n") + "\n\nThis writes to MFL (Discord silenced) and is not undoable from here.")) {
+        setStatus(""); return;
+      }
+      setStatus("Reverting…");
+      postJSON(revertUrl, { league_id: L, season: YEAR, dry_run: false, reverts: reverts }).then(function (resp) {
+        var all = resp.results || [];
+        var okN = all.filter(function (r) { return r.ok; }).length;
+        var failed = all.filter(function (r) { return !r.ok; });
+        setStatus("Reverted " + okN + "/" + all.length + (failed.length ? " — failed: " + failed.map(function (f) { return (f.player_name || f.id) + " (" + (f.error || f.status || "?") + ")"; }).join(", ") : "") + ". Refreshing…");
+        cr.sel = {};
+        toast("Reverted " + okN + "/" + all.length, failed.length ? "err" : "ok");
+        renderContractRevert();
+      }).catch(function (e) { setStatus("Revert failed: " + (e.message || e)); });
+    }).catch(function (e) { setStatus("Preview failed: " + (e.message || e)); });
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // STATUS — Discord posters (live routing) + D1 writers (live row counts)
+  // ════════════════════════════════════════════════════════════════════
+  function renderStatus() {
+    var host = content();
+    var myTab = CS.tab;
+    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading status…</div></div>';
+    Promise.all([
+      fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L)).catch(function () { return {}; }),
+      fetchJSON(apiUrl("/admin/d1-status") + "?L=" + encodeURIComponent(L)).catch(function () { return {}; })
+    ]).then(function (res) {
+      if (CS.tab !== myTab) return;
+      var routing = (res[0] || {}).discord_routing || {};
+      var d1 = (res[1] || {}).tables || [];
+      var pill = function (state, txt) {
+        var c = state === "prod" ? "#1f8a4c" : state === "test" ? "#e67e22" : "#7a7a7a";
+        return '<span style="background:' + c + ';color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px;white-space:nowrap;">' + esc(txt) + "</span>";
+      };
+      var discordRows = [
+        { n: "Contract — Extension", k: "extension" },
+        { n: "Contract — Auction (FA + MYAC)", k: "myac" },
+        { n: "Contract — Restructure", k: "restructure" },
+        { n: "Contract — Tag / Untag", k: "tag" },
+        { n: "Contract — MYM", k: "mym" },
+        { n: "Drop / Cap penalty", state: "prod" },
+        { n: "Trade notification", state: "prod" },
+        { n: "Auction alerts (live bid/nom)", k: "auctionbidding" },
+        { n: "Deadline reminders", state: "prod" },
+        { n: "Trade Roast bot", state: "prod", note: "RUNNING — trade roasts post to #transactions, always. Manually tracked (separate process). The Discord Routing toggle does NOT steer it — trades always go to #transactions." }
+      ].map(function (r) {
+        var state = r.k ? String(routing[r.k] || "prod").toLowerCase() : r.state;
+        var label = state === "inactive" ? "INACTIVE" : (state === "test" ? "TEST" : "PROD");
+        return "<tr><td>" + esc(r.n) + "</td><td>" + pill(state, label) + '</td><td class="small" style="color:var(--muted);">' + esc(r.note || (r.k ? "commish-configurable" : "wired")) + "</td></tr>";
+      }).join("");
+      var cntByTable = {}; d1.forEach(function (t) { cntByTable[t.table] = t; });
+      var d1Defs = [
+        { cat: "Contract Submissions", n: "Extensions / FA / historical", t: "ups_extension_submissions", freq: "on submit + forum backfill" },
+        { cat: "Contract Submissions", n: "Restructures", t: "ups_restructure_submissions", freq: "on submit + ingest action" },
+        { cat: "Contract Submissions", n: "Tags / Untags", t: "ups_tag_submissions", freq: "on submit" },
+        { cat: "Contract Submissions", n: "Commish settings", t: "ups_settings", freq: "on change" },
+        { cat: "MFL", n: "Drop / cap-penalty events", t: "ups_drop_events", freq: "on cut + scan" },
+        { cat: "MFL", n: "ERA auction pool", t: "ups_era_pool", freq: "pre-auction sync" },
+        { cat: "MFL", n: "Auction lots / bids", t: "ups_auction_lots", freq: "live during auction" },
+        { cat: "MFL", n: "Draft picks", t: "ups_draft_picks", freq: "hourly cron" },
+        { cat: "MFL", n: "Tag history", t: "ups_tag_history", freq: "tag pipeline" },
+        { cat: "MFL", n: "MYM history", t: "ups_mym_history", freq: "MYM submit" }
+      ];
+      var known = {}; d1Defs.forEach(function (d) { known[d.t] = true; });
+      d1.forEach(function (t) { if (!known[t.table]) d1Defs.push({ cat: "Other", n: "—", t: t.table, freq: "—" }); });
+      var d1Rows = d1Defs.map(function (d) {
+        var live = cntByTable[d.t];
+        var rows = live ? live.rows : 0;
+        var last = live && live.last_write ? s(live.last_write).replace("T", " ").slice(0, 16) : "—";
+        var st = live && rows > 0 ? "prod" : "inactive";
+        return "<tr><td>" + esc(d.cat) + "</td><td>" + esc(d.n) + '</td><td class="small"><code>' + esc(d.t) + "</code></td><td class=\"num\">" + rows + '</td><td class="small" style="color:var(--muted);">' + esc(d.freq) + "</td><td class=\"small\" style=\"color:var(--muted);\">" + esc(last) + "</td><td>" + pill(st, st === "prod" ? "LIVE" : "EMPTY") + "</td></tr>";
+      }).join("");
+      var viewSel = '<select id="cs-status-view" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;">' +
+        '<option value="discord"' + (CS.statusView === "discord" ? " selected" : "") + ">Discord</option>" +
+        '<option value="d1"' + (CS.statusView === "d1" ? " selected" : "") + ">D1</option></select>";
+      var inner = CS.statusView === "d1"
+        ? '<p class="fo-row-hint">💡 Everything that writes to D1 — MFL data vs Contract Submissions — with live row counts (the source of truth).</p>' +
+          '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th>Category</th><th>Writes</th><th>Table</th><th class="num">Rows</th><th>Frequency</th><th>Last write</th><th>Status</th></tr></thead><tbody>' + d1Rows + "</tbody></table></div>"
+        : '<p class="fo-row-hint">💡 Everything scheduled to post to Discord, and whether it routes to Prod / Test / is Inactive. Contract types are live from the Discord Routing settings.</p>' +
+          '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th>Poster</th><th>Routing</th><th>Notes</th></tr></thead><tbody>' + discordRows + "</tbody></table></div>";
+      host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3>Status</h3>' +
+        '<span style="display:inline-flex;align-items:center;gap:6px;"><span class="small" style="color:var(--muted);">View</span>' + viewSel + "</span></div>" + inner + "</div>";
+      var vs = document.getElementById("cs-status-view"); if (vs) vs.addEventListener("change", function () { CS.statusView = this.value; renderStatus(); });
+    });
+  }
+
+  // ── Boot ───────────────────────────────────────────────────────────────
+  renderShell();
+  renderTab();
 })();
 </script>
 </body>
