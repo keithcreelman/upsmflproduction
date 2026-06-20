@@ -149,7 +149,13 @@ h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
 .asw-compare-section-row td{background:var(--panel);color:var(--accent);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border-strong)}
 
 .asw-meta{color:var(--muted);font-size:11px;margin-bottom:6px}
-.asw-table-wrap{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px}
+/* Top horizontal scrollbar — a thin overflow strip whose inner spacer is sized
+   to the table width; its scrollLeft is two-way-synced with the table wrap. */
+.asw-topscroll{overflow-x:auto;overflow-y:hidden;height:14px;background:var(--panel);border:1px solid var(--border);border-bottom:0;border-radius:8px 8px 0 0}
+#asw-topscroll-spacer{height:1px}
+/* Bounded scroll region so the sticky header + top scrollbar stay put while the
+   body scrolls (works inside the auto-height iframe embed, not just standalone). */
+.asw-table-wrap{overflow:auto;max-height:680px;background:var(--panel);border:1px solid var(--border);border-top:0;border-radius:0 0 8px 8px}
 /* Phase E (2026-04-24): bump table to 13px + a touch more row padding.
    12px was dense enough that long sessions strained; 13px reads clean
    without forcing horizontal scroll on reasonable screens. */
@@ -160,7 +166,10 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
 .asw-table tr.asw-group-row th.no-group{color:transparent;border-bottom-color:var(--border)}
 .asw-table tr.asw-group-row th.group-sep{border-left:1px solid var(--border-strong)}
 /* Column header row */
-.asw-table tr.asw-col-row th{position:sticky;background:var(--panel-alt);color:var(--muted);font-weight:600;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;user-select:none}
+.asw-table tr.asw-col-row th{position:sticky;top:0;background:var(--panel-alt);color:var(--muted);font-weight:600;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;user-select:none}
+/* When Heat is on, the group-header row renders above the column row, so push
+   the (sticky) column row down by the group-row height. */
+.asw-table.heat tr.asw-col-row th{top:21px}
 .asw-table tr.asw-col-row th.group-sep{border-left:1px solid var(--border-strong)}
 .asw-table th.num,.asw-table td.num{text-align:right;font-variant-numeric:tabular-nums}
 .asw-table th[aria-sort="ascending"]::after{content:" ▲";color:var(--accent)}
@@ -289,7 +298,11 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
 </div>
 
 <div class="asw-meta" id="asw-meta"></div>
-<div class="asw-table-wrap"><div id="asw-body"></div></div>
+<!-- Top horizontal scrollbar (B7/Keith 2026-06-20): scroll left↔right from the
+     top instead of the bottom; stays put while the table body scrolls. Width of
+     the inner spacer is synced to the table width after each render. -->
+<div class="asw-topscroll" id="asw-topscroll"><div id="asw-topscroll-spacer"></div></div>
+<div class="asw-table-wrap" id="asw-table-wrap"><div id="asw-body"></div></div>
 </div>
 
 <!-- Drill-down drawer (slides in on row click) -->
@@ -1103,6 +1116,31 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
   }
 
   // ---------- Render table (two-row thead: group headers + column headers) ----------
+  // ---------- Top horizontal scrollbar (synced to the table wrap) ----------
+  function syncTopScroll() {
+    var wrap = document.getElementById("asw-table-wrap");
+    var top = document.getElementById("asw-topscroll");
+    var spacer = document.getElementById("asw-topscroll-spacer");
+    if (!wrap || !top || !spacer) return;
+    var tbl = wrap.querySelector("table");
+    var w = tbl ? tbl.scrollWidth : wrap.scrollWidth;
+    spacer.style.width = w + "px";
+    // Only show the top bar when the table actually overflows horizontally.
+    top.style.display = (w > wrap.clientWidth + 1) ? "" : "none";
+  }
+  var _topScrollWired = false;
+  function wireTopScroll() {
+    if (_topScrollWired) return;
+    var wrap = document.getElementById("asw-table-wrap");
+    var top = document.getElementById("asw-topscroll");
+    if (!wrap || !top) return;
+    _topScrollWired = true;
+    var lock = false;
+    top.addEventListener("scroll", function () { if (lock) return; lock = true; wrap.scrollLeft = top.scrollLeft; lock = false; });
+    wrap.addEventListener("scroll", function () { if (lock) return; lock = true; top.scrollLeft = wrap.scrollLeft; lock = false; });
+    window.addEventListener("resize", syncTopScroll);
+  }
+
   function render() {
     var tab = TABS[state.activeTab];
     var blocks = buildBlocks();
@@ -1314,6 +1352,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
           '<tbody>'+ (rows.length ? body : '<tr><td colspan="'+(cols.length + 1)+'" class="asw-empty">No rows match filters.</td></tr>') +'</tbody>' +
         '</table>'
       : '<div class="asw-empty">No rows.</div>';
+
+    syncTopScroll();   // size + show the top horizontal scrollbar for this table
 
     // "42 of 240 players" when any narrowing applied; plain "240 players" otherwise.
     // The denominator counts rows already narrowed by position/sub-tab (the
@@ -1805,7 +1845,10 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     var buckets = {};
     (rows || []).forEach(function(r){
       if (!r || !r.gsis_id) return;
-      var pos = String(r.position || r.pos_group || "").toUpperCase();
+      // Rank within the IDP/offense GROUP (DL/LB/DB/QB/RB/WR/TE/PK), not the raw
+      // nflverse position — otherwise DT/DE/OLB each get a #1 and a "DL" shows
+      // multiple rank-1s (Keith 2026-06-20). pos_group is clean (DL/LB/DB).
+      var pos = String(r.pos_group || r.position || "").toUpperCase();
       (buckets[pos] = buckets[pos] || []).push(r);
     });
     var map = {};
@@ -2881,6 +2924,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
   renderSubTabs();
   renderColsBar();
   updateCustomPickerVisibility();
+  wireTopScroll();
   runQuery();
 
   // Keep URL in sync after every render (covers sort/filter/heat/group

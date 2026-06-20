@@ -1,7 +1,11 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "released": "2026-06-20",
-  "label": "v1.1.0 — Pos-rank column, coverage/cap signals, Full-profile button, richer search, responsive, + mobile view",
+  "label": "v1.2.0 — Top scrollbar + sticky header; Pos Rk now buckets by IDP group (DL/LB/DB), one #1 per group",
+  "changes_120": [
+    "Horizontal scrollbar moved to the TOP of the table (synced two-way); the table now scrolls in a bounded 680px region so the scrollbar + column header stay fixed while the body scrolls (works in the iframe embed, not just standalone).",
+    "Pos Rk now ranks within the IDP/offense GROUP (DL/LB/DB/QB/RB/WR/TE/PK) instead of the raw nflverse position — fixes multiple #1s showing in a single DL/LB/DB."
+  ],
   "description": "The Advanced Stats Workbench gains a rank-within-position column (by MFL PPG, matching the mobile app), a coverage line that flags the 500-row cap and offseason, a 'Full profile' button in the drill-down drawer that opens the shared UPS player-profile modal, search by name/team/position, and a responsive layout for tablet/large-phone embeds. The leaderboard is also now available on the mobile site (focused per-position view).",
   "scope": {
     "this_release": [
