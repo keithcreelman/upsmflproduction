@@ -2098,6 +2098,36 @@ button.ups-m-busy::before,
 .ups-m-auc-trow .tn { color: var(--fg); font-weight: 600; }
 .ups-m-auc-trow .def { font-size: 10.5px; color: var(--fg-muted); white-space: normal; }
 
+/* ── Secondary sub-nav (Summary · Lots · Players · Cadence · Schedule) ── */
+.ups-m-auc-subnav {
+  display: flex; gap: 5px; margin: 0 0 12px; overflow-x: auto;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.ups-m-auc-subnav::-webkit-scrollbar { display: none; }
+.ups-m-auc-subpill {
+  flex: 0 0 auto; padding: 6px 12px; cursor: pointer; white-space: nowrap;
+  background: transparent; color: var(--fg-muted);
+  border: 1px solid var(--line); border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+}
+.ups-m-auc-subpill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+/* Explanatory note under a section. */
+.ups-m-auc-note {
+  font-size: 11.5px; color: var(--fg-muted); line-height: 1.5;
+  background: var(--bg-elev); border: 1px solid var(--line);
+  border-radius: 9px; padding: 9px 11px; margin: 0 0 12px;
+}
+.ups-m-auc-note strong { color: var(--fg); }
+/* Per-auction cadence row → single status column. */
+.ups-m-auc-nom-row.single { grid-template-columns: 1fr auto; }
+/* Schedule (compliance) table — status colors + out-of-compliance accent. */
+.ups-m-auc-table.sched .ups-m-auc-trow { grid-template-columns: 1.4fr 1fr 0.6fr 0.9fr; }
+.ups-m-auc-trow.ooc { box-shadow: inset 3px 0 0 var(--warn); }
+.ups-m-auc-trow .rdy { color: var(--ok); font-weight: 600; }
+.ups-m-auc-trow .bad { color: var(--warn); font-weight: 600; }
+.ups-m-auc-trow .cd { color: var(--fg-muted); }
+.ups-m-auc-trow .rst { color: var(--fg-dim, var(--fg-muted)); font-size: 10px; }
+
 /* ════════ Trade offer builder (League → Trade → Build offer) ════════ */
 .ups-m-tb-sheet { height: 92vh; max-height: 92vh; }
 #ups-m-tb-body { padding: 14px 16px 28px; display: flex; flex-direction: column; }

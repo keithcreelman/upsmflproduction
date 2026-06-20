@@ -1,15 +1,18 @@
-/* League → Auction view — ERA + FAA tabs (best-in-class redesign).
+/* League → Auction view — two auctions (FA · Expired Rookie), each with a
+ * sub-nav (best-in-class redesign).
  *
- * Two inner tabs (FAA · ERA) + Cadence, each fed by the rich live payload
- * (/acquisition-hub/{free-agent,expired-rookie}-auction/live → buildAuctionLivePayload):
- *   FAA: active lots + team budgets + roster needs + available pool + search
- *   ERA: active lots + eligible pool (current team) + search
- * Live board + in-app Bid/Nominate (reusing the Phase 1 bid sheet) only when the
- * commish switch is on (payload.enabled) AND in-app bidding is on; otherwise the
- * pool renders read-only under a "not running" banner. Amounts in the payload are
- * DOLLARS (the O=43 scrape / cap math); the bid sheet takes $K and sends ×1000.
- *
- * Cadence (nomination windows) stays on its own tab from /api/auction/nomination-status.
+ * Top tabs: FA Auction | Expired Rookie. Each auction has a segmented sub-nav:
+ *   Summary  — KPIs + (FAA) team budgets + roster needs
+ *   Lots     — live board (active_auctions) with in-app Bid
+ *   Players  — eligible/available pool + search + Nominate
+ *   Cadence  — per-franchise nomination windows for THIS auction
+ *   Schedule — (FAA only) compliance scoreboard: noms made/required, roster met,
+ *              reset countdown, out-of-compliance — from /api/auction/fa-schedule
+ * Board data: /acquisition-hub/{free-agent,expired-rookie}-auction/live. Cadence:
+ * /api/auction/nomination-status. In-app Bid/Nominate (Phase 1 sheet) only when
+ * the commish switch is on (payload.enabled) AND in-app bidding is on; else the
+ * pool is read-only under a "not running" banner. Payload amounts are DOLLARS;
+ * the bid sheet takes $K and sends ×1000.
  */
 (function () {
   "use strict";
@@ -17,8 +20,8 @@
   var M = window.UPS_MOBILE;
   var U = M.util;
 
-  // tab: "faa" | "era" | "cadence". search: per-pool filter text.
-  var state = { faa: null, era: null, nom: null, loading: false, error: null, loadedFor: "", tab: "", search: "" };
+  // tab: "faa" | "era" (the auction). sub: "summary"|"lots"|"players"|"cadence"|"schedule".
+  var state = { faa: null, era: null, nom: null, schedule: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", search: "" };
 
   function subTabs(active) {
     function tab(href, label, key) {
@@ -203,11 +206,13 @@
     return Promise.all([
       get(liveUrl("free-agent-auction")),
       get(liveUrl("expired-rookie-auction")),
-      get(M.api.workerUrl("/api/auction/nomination-status?L=" + L + "&YEAR=" + Y))
+      get(M.api.workerUrl("/api/auction/nomination-status?L=" + L + "&YEAR=" + Y)),
+      get(M.api.workerUrl("/api/auction/fa-schedule?L=" + L + "&YEAR=" + Y))
     ]).then(function (res) {
       state.faa = res[0] || { ok: false };
       state.era = res[1] || { ok: false };
       state.nom = res[2] || { franchises: [] };
+      state.schedule = res[3] || { ok: false };
       // Default tab: whichever auction is live, else FAA.
       if (!state.tab) {
         state.tab = (state.era && state.era.enabled && !(state.faa && state.faa.enabled)) ? "era" : "faa";
@@ -224,6 +229,13 @@
       '<div class="ups-m-auction" id="ups-m-auction-body"><div class="ups-m-loading">Loading auction…</div></div>';
     load().then(paint);
   }
+  // Which sub-pills each auction shows (ERA has no compliance Schedule).
+  function subsFor(tab) {
+    return tab === "faa"
+      ? [["summary", "Summary"], ["lots", "Lots"], ["players", "Players"], ["cadence", "Cadence"], ["schedule", "Schedule"]]
+      : [["summary", "Summary"], ["lots", "Lots"], ["players", "Players"], ["cadence", "Cadence"]];
+  }
+
   function paint() {
     var body = document.getElementById("ups-m-auction-body");
     if (!body) return;
@@ -231,30 +243,76 @@
       body.innerHTML = '<div class="ups-m-sheet-empty">Auction failed to load: ' + U.escapeHtml(state.error) + '</div>';
       return;
     }
-    body.innerHTML = innerTabs() +
-      '<div class="ups-m-auc-tabbody">' +
-        (state.tab === "era" ? renderEra() : state.tab === "cadence" ? renderCadence() : renderFaa()) +
-      '</div>';
+    // Keep the sub-pill valid for the active auction.
+    if (subsFor(state.tab).map(function (s) { return s[0]; }).indexOf(state.sub) === -1) state.sub = "summary";
+    body.innerHTML =
+      innerTabs() +
+      bannerFor(state.tab) +
+      subNav(state.tab) +
+      '<div class="ups-m-auc-tabbody">' + renderSub(state.tab, state.sub) + '</div>';
     wireTabs();
+    wireSubNav();
     wireSearch();
     wireBidButtons();
   }
+
   function innerTabs() {
     function live(p) { return p && p.enabled ? ' <span class="ups-m-auc-live">● live</span>' : ''; }
-    function tab(key, label, extra) {
-      return '<button type="button" class="ups-m-auc-itab' + (state.tab === key ? ' active' : '') + '" data-itab="' + key + '">' + label + (extra || '') + '</button>';
+    function tab(key, label, p) {
+      return '<button type="button" class="ups-m-auc-itab' + (state.tab === key ? ' active' : '') + '" data-itab="' + key + '">' + label + live(p) + '</button>';
     }
     return '<div class="ups-m-auc-itabs">' +
-      tab("faa", "FA Auction", live(state.faa)) +
-      tab("era", "Expired Rookie", live(state.era)) +
-      tab("cadence", "Cadence", "") +
+      tab("faa", "FA Auction", state.faa) +
+      tab("era", "Expired Rookie", state.era) +
       '</div>';
   }
 
-  function banner(p, name, when) {
+  function subNav(tab) {
+    return '<div class="ups-m-auc-subnav">' + subsFor(tab).map(function (s) {
+      return '<button type="button" class="ups-m-auc-subpill' + (state.sub === s[0] ? ' active' : '') + '" data-sub="' + s[0] + '">' + s[1] + '</button>';
+    }).join("") + '</div>';
+  }
+
+  function bannerFor(tab) {
+    var p = tab === "era" ? state.era : state.faa;
     if (p && p.enabled) return '';
-    return '<div class="ups-m-auc-banner"><strong>' + name + ' isn\'t running right now.</strong> ' +
-      (when ? when + ' ' : '') + 'Browse the pool below; bidding opens when the commish flips it on.</div>';
+    var name = tab === "era" ? "The Expired-Rookie Auction" : "The FA Auction";
+    var when = tab === "era" ? "Runs Memorial Day weekend." : "Opens the last weekend of July.";
+    return '<div class="ups-m-auc-banner"><strong>' + name + ' isn\'t running right now.</strong> ' + when +
+      ' Browse the pool; bidding opens when the commish flips it on.</div>';
+  }
+
+  // Dispatch the active sub-view for an auction.
+  function renderSub(tab, sub) {
+    var p = (tab === "era" ? state.era : state.faa) || {};
+    if (p.ok === false) return '<div class="ups-m-auc-empty">' + (tab === "era" ? "ERA" : "FAA") + ' board unavailable right now.</div>';
+    if (sub === "lots") return lotsBlock(p, tab === "era" ? "expired-rookie" : "free-agent", tab === "era" ? "36h lock" : "24h lock");
+    if (sub === "players") return tab === "era" ? eraPool(p) : faaPool(p);
+    if (sub === "cadence") return renderCadence(tab);
+    if (sub === "schedule") return renderSchedule();
+    return renderSummary(tab, p);
+  }
+
+  function renderSummary(tab, p) {
+    if (tab === "era") {
+      return kpis([["Live lots", (p.active_auctions || []).length], ["Eligible", (p.eligible_players || []).length], ["Markers", (p.extension_markers || []).length]]) +
+        '<div class="ups-m-auc-note">The Expired-Rookie Auction claims players whose rookie deals expired. <strong>Players</strong> browses the eligible pool · <strong>Lots</strong> is the live board · <strong>Cadence</strong> shows nomination windows.</div>';
+    }
+    return kpis([["Live lots", (p.active_auctions || []).length], ["Available", (p.available_players || []).length], ["Your team", franchiseName(M.state.viewerFranchiseId)]]) +
+      budgetsBlock(p) + needsBlock(p);
+  }
+
+  function faaPool(p) {
+    return poolBlock(p.available_players || [], "free-agent", {
+      title: "Available Players", enabled: !!p.enabled, teamKey: "team",
+      subOf: function (r) { return r.upcoming_auction_value ? 'Model ' + usd(r.upcoming_auction_value) : ''; }
+    });
+  }
+  function eraPool(p) {
+    return poolBlock(p.eligible_players || [], "expired-rookie", {
+      title: "Eligible Pool", enabled: !!p.enabled, teamKey: "franchise_name",
+      subOf: function (r) { return r.franchise_name ? 'On ' + U.escapeHtml(r.franchise_name) : ''; }
+    });
   }
 
   // Active-lot card list (live board) with in-app Bid when enabled.
@@ -321,32 +379,46 @@
     }).join("") + '</div>';
   }
 
-  function renderFaa() {
-    var p = state.faa || {};
-    if (p.ok === false) return '<div class="ups-m-auc-empty">FAA board unavailable right now.</div>';
-    var avail = p.available_players || [];
-    return banner(p, "The FA Auction", "Opens the last weekend of July.") +
-      kpis([["Live lots", (p.active_auctions || []).length], ["Available", avail.length], ["Your team", franchiseName(M.state.viewerFranchiseId)]]) +
-      lotsBlock(p, "free-agent", "24h lock") +
-      budgetsBlock(p) +
-      needsBlock(p) +
-      poolBlock(avail, "free-agent", {
-        title: "Available Players", enabled: !!p.enabled, teamKey: "team",
-        subOf: function (r) { return r.upcoming_auction_value ? 'Model ' + usd(r.upcoming_auction_value) : ''; }
-      });
-  }
-
-  function renderEra() {
-    var p = state.era || {};
-    if (p.ok === false) return '<div class="ups-m-auc-empty">ERA board unavailable right now.</div>';
-    var pool = p.eligible_players || [];
-    return banner(p, "The Expired-Rookie Auction", "Runs Memorial Day weekend.") +
-      kpis([["Live lots", (p.active_auctions || []).length], ["Eligible", pool.length], ["Markers", (p.extension_markers || []).length]]) +
-      lotsBlock(p, "expired-rookie", "36h lock") +
-      poolBlock(pool, "expired-rookie", {
-        title: "Eligible Pool", enabled: !!p.enabled, teamKey: "franchise_name",
-        subOf: function (r) { return r.franchise_name ? 'On ' + U.escapeHtml(r.franchise_name) : ''; }
-      });
+  // FAA compliance scoreboard (from /api/auction/fa-schedule). Per team: noms
+  // made/required today, roster-requirement status, and who still owes — the
+  // same data that drives the nightly Discord nudge.
+  function renderSchedule() {
+    var sc = state.schedule || {};
+    if (sc.ok === false) return '<div class="ups-m-auc-empty">Compliance data unavailable right now.</div>';
+    var rows = (sc.rows || []).slice();
+    if (!rows.length) return '<div class="ups-m-auc-empty">No compliance data yet — opens with the FA Auction.</div>';
+    var viewerFid = U.pad4(M.state.viewerFranchiseId);
+    rows.sort(function (a, b) {
+      var av = U.pad4(a.franchise_id) === viewerFid ? 0 : 1, bv = U.pad4(b.franchise_id) === viewerFid ? 0 : 1;
+      return (av - bv) || (Number(b.out_of_compliance) - Number(a.out_of_compliance)) || (Number(b.total_deficit) - Number(a.total_deficit));
+    });
+    var ooc = sc.out_of_compliance_count || 0;
+    var req = sc.noms_required || 2;
+    var head =
+      '<div class="ups-m-auc-sec-head">Nomination Schedule <span class="ct">' + ooc + ' owe noms</span></div>' +
+      '<div class="ups-m-auc-note">During the FA Auction every team makes <strong>' + req + ' nominations a day</strong> until it can field a legal lineup. Met the roster requirement? You can stop — but keep nominating daily if you want to keep adding.</div>';
+    var rowsHtml = rows.map(function (r) {
+      var me = U.pad4(r.franchise_id) === viewerFid;
+      var maxed = !r.roster_met && Number(r.noms_remaining) === 0;
+      var nomsCell = (Number(r.noms_made) || 0) + '/' + (Number(r.noms_required) || req) +
+        (maxed && Number(r.seconds_until_reset) > 0 ? ' <span class="rst">· ' + countdown(r.seconds_until_reset) + '</span>' : '');
+      var status = r.roster_met
+        ? '<span class="rdy">Met ✓</span>'
+        : r.out_of_compliance
+          ? '<span class="bad">Owes ' + (Number(r.noms_remaining) || 0) + '</span>'
+          : '<span class="cd">In window</span>';
+      return '<div class="ups-m-auc-trow' + (me ? ' me' : '') + (r.out_of_compliance ? ' ooc' : '') + '">' +
+        '<span class="tn">' + U.escapeHtml(r.franchise_name || franchiseName(r.franchise_id)) + '</span>' +
+        '<span>' + nomsCell + '</span>' +
+        '<span>' + (r.roster_met ? '✓' : (Number(r.total_deficit) || 0)) + '</span>' +
+        '<span>' + status + '</span>' +
+      '</div>';
+    }).join("");
+    return head +
+      '<div class="ups-m-auc-table sched">' +
+        '<div class="ups-m-auc-trow head"><span>Team</span><span>Noms</span><span>Gap</span><span>Status</span></div>' +
+        rowsHtml +
+      '</div>';
   }
 
   function budgetsBlock(p) {
@@ -388,25 +460,34 @@
       '</div>';
   }
 
-  function renderCadence() {
+  // Per-franchise nomination windows for ONE auction (ERA = 1/12h anchored,
+  // FAA = 2/24h rolling). Data: /api/auction/nomination-status.
+  function renderCadence(tab) {
     var rows = (state.nom && state.nom.franchises) || [];
     if (!rows.length) return '<div class="ups-m-auc-empty">No nomination data right now.</div>';
+    var isEra = tab === "era";
     var viewerFid = U.pad4(M.state.viewerFranchiseId);
     function rowFid(f) { return U.pad4(f.fid || f.id || f.franchise_id); }
     rows = rows.slice().sort(function (a, b) { return (rowFid(a) === viewerFid ? 0 : 1) - (rowFid(b) === viewerFid ? 0 : 1); });
+    var rule = isEra ? "1 nomination per 12-hour window — windows anchored to 6 AM / 6 PM ET."
+                     : "2 nominations per rolling 24-hour window.";
     return '<div class="ups-m-auc-sec-head">Nomination Cadence</div>' +
+      '<div class="ups-m-auc-note">' + rule + '</div>' +
       '<div class="ups-m-auc-nom">' + rows.map(function (f) {
         var fid = rowFid(f), era = f.era || {}, fa = f.fa_auction || {};
-        var eraStatus = era.can_nominate_now ? '<span class="rdy">Can nominate</span>'
-          : (era.window_open === false && era.window_reason === "after_close") ? '<span class="cd">Closed</span>'
-          : '<span class="cd">Next ' + countdown(era.seconds_until_next) + '</span>';
-        var faStatus = fa.can_nominate_now
-          ? '<span class="rdy">' + (fa.remaining != null ? fa.remaining : "?") + ' of ' + (fa.max_in_window != null ? fa.max_in_window : "?") + ' left</span>'
-          : '<span class="cd">Next ' + countdown(fa.seconds_until_next) + '</span>';
-        return '<div class="ups-m-auc-nom-row' + (fid === viewerFid ? ' me' : '') + '">' +
+        var status;
+        if (isEra) {
+          status = era.can_nominate_now ? '<span class="rdy">Can nominate</span>'
+            : (era.window_open === false && era.window_reason === "after_close") ? '<span class="cd">Closed</span>'
+            : '<span class="cd">Next ' + countdown(era.seconds_until_next) + '</span>';
+        } else {
+          status = fa.can_nominate_now
+            ? '<span class="rdy">' + (fa.remaining != null ? fa.remaining : "?") + ' of ' + (fa.max_in_window != null ? fa.max_in_window : "?") + ' left</span>'
+            : '<span class="cd">Next ' + countdown(fa.seconds_until_next) + '</span>';
+        }
+        return '<div class="ups-m-auc-nom-row single' + (fid === viewerFid ? ' me' : '') + '">' +
           '<div class="fn">' + U.escapeHtml(f.franchise_name || f.name || franchiseName(fid)) + (fid === viewerFid ? ' <span class="you">you</span>' : '') + '</div>' +
-          '<div class="ns"><span class="lbl">ERA</span> ' + eraStatus + '</div>' +
-          '<div class="ns"><span class="lbl">FA</span> ' + faStatus + '</div>' +
+          '<div class="ns"><span class="lbl">' + (isEra ? "ERA" : "FA") + '</span> ' + status + '</div>' +
         '</div>';
       }).join("") + '</div>';
   }
@@ -418,6 +499,18 @@
         var t = this.getAttribute("data-itab");
         if (t === state.tab) return;
         state.tab = t; state.search = "";
+        // Keep the current sub-pill if the new auction has it, else Summary.
+        if (subsFor(t).map(function (s) { return s[0]; }).indexOf(state.sub) === -1) state.sub = "summary";
+        paint();
+      });
+    });
+  }
+  function wireSubNav() {
+    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-auc-subpill"), function (b) {
+      b.addEventListener("click", function () {
+        var s = this.getAttribute("data-sub");
+        if (s === state.sub) return;
+        state.sub = s; state.search = "";
         paint();
       });
     });
