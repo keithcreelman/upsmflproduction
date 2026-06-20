@@ -697,13 +697,13 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     opacity: 0.7;
     margin-left: 0.15em;
   }
-  /* Commish/owner view toggle — a button styled like a nav link. */
-  button.ups-commish-toggle {
+  /* Commish/owner identity toggle (BECOME link), pushed to the right edge. */
+  .ups-commish-toggle {
     cursor: pointer;
     font: inherit;
     margin-left: auto;
   }
-  button.ups-commish-toggle[data-owner-view="1"] {
+  .ups-commish-toggle[data-owner-view="1"] {
     color: #f3b61f !important;
     border-color: rgba(243, 182, 31, 0.55);
   }
@@ -3318,21 +3318,26 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     // Is the current viewer the commish (or Keith's owner team 0008)? Gates the
     // "Become …" links. MFL sets window.FRANCHISE_ID on the page; commish pages
     // run as 0000.
-    function upsRealCommish() {
+    // Current MFL franchise the session is acting as (window global, then URL).
+    function upsCurrentFid() {
       try {
         var raw = String(window.FRANCHISE_ID || window.franchise_id || "").replace(/\D/g, "");
-        var fid = raw ? raw.padStart(4, "0").slice(-4) : "";
-        if (fid === "0000" || fid === "0008") return true;
+        if (raw) return raw.padStart(4, "0").slice(-4);
         var p = new URLSearchParams(window.location.search || "");
         var pr = String(p.get("FRANCHISE_ID") || p.get("FRANCHISE") || p.get("F") || "").replace(/\D/g, "");
-        var pf = pr ? pr.padStart(4, "0").slice(-4) : "";
-        return pf === "0000" || pf === "0008";
-      } catch (e) { return false; }
+        return pr ? pr.padStart(4, "0").slice(-4) : "";
+      } catch (e) { return ""; }
     }
-    // The header commish/owner toggle (a localStorage flag) lets the commish
-    // preview the site as an owner — when set, commish-only UI is hidden.
-    function upsViewAsOwner() { try { return localStorage.getItem("ups_view_as_owner") === "1"; } catch (e) { return false; } }
-    function upsViewerIsCommish() { return upsRealCommish() && !upsViewAsOwner(); }
+    // Commish abilities = the commish franchise (0000) ONLY. 0008 is Keith's
+    // OWNER team — a real owner with owner abilities (matches the FO v2 rule).
+    // Switching between them is a true MFL identity change (BECOME), below.
+    function upsViewerIsCommish() {
+      if (upsCurrentFid() === "0000") return true;
+      try { return /(?:^|;\s*)ISMFLCOMMISH\s*=\s*(1|Y|true)/i.test(String(document.cookie || "")); } catch (e) { return false; }
+    }
+    // The identity toggle shows for Keith's two franchises (commish 0000 + his
+    // owner team 0008); only the commish login can BECOME, so others never see it.
+    function upsCanToggleIdentity() { var f = upsCurrentFid(); return f === "0000" || f === "0008"; }
 
     function buildDropdown(t) {
       var wrap = document.createElement("span");
@@ -3478,21 +3483,18 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         if (t.id === activeId) a.setAttribute("data-active", "1");
         nav.appendChild(a);
       });
-      // Commish/owner view toggle — only for the real commish. Flips the
-      // localStorage flag (read by upsViewerIsCommish + the commish hub) and
-      // reloads so commish-only UI shows/hides everywhere.
-      if (upsRealCommish()) {
-        var tog = document.createElement("button");
-        tog.type = "button";
+      // Commish/owner identity toggle — a REAL MFL session switch via BECOME
+      // (changes abilities, not just the view). Commish (0000) → Become Owner
+      // (0008); owner team (0008) → Become Commissioner (0000). Shown only for
+      // Keith's two franchises; only the commish login can BECOME.
+      if (upsCanToggleIdentity()) {
+        var asCommish = upsCurrentFid() === "0000";
+        var tog = document.createElement("a");
         tog.className = "ups-teamops-subnav-link ups-commish-toggle";
-        var asOwner = upsViewAsOwner();
-        tog.textContent = asOwner ? "👤 Owner view" : "🛠 Commish view";
-        tog.title = "Toggle between commissioner and owner view";
-        if (asOwner) tog.setAttribute("data-owner-view", "1");
-        tog.addEventListener("click", function () {
-          try { localStorage.setItem("ups_view_as_owner", asOwner ? "0" : "1"); } catch (e) {}
-          window.location.reload();
-        });
+        tog.href = buildMflPath(asCommish ? "/logout?BECOME=0008" : "/logout?BECOME=0000");
+        tog.textContent = asCommish ? "👤 Become Owner" : "🛠 Become Commish";
+        tog.title = asCommish ? "Switch your MFL session to your owner team (Real Deal Creel)" : "Switch your MFL session back to commissioner";
+        if (!asCommish) tog.setAttribute("data-owner-view", "1");
         nav.appendChild(tog);
       }
       // Document-wide click closes any open dropdown.

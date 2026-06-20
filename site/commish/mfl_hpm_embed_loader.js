@@ -35,10 +35,10 @@
     return "";
   }
   function detectIsCommish(fid) {
-    try { if (/(?:^|;\s*)ISMFLCOMMISH\s*=\s*(1|Y|true)/i.test(String(document.cookie || ""))) return true; } catch (e) {}
-    // Honor the header's view-as-owner toggle so "Become Owner" view hides commish UI.
-    try { if (localStorage.getItem("ups_view_as_owner") === "1") return false; } catch (e) {}
-    return fid === "0000" || fid === "0008";
+    // Commish abilities = the commish franchise (0000) only. 0008 is Keith's
+    // OWNER team — switching to it via MFL's BECOME makes him a real owner.
+    if (fid === "0000") return true;
+    try { return /(?:^|;\s*)ISMFLCOMMISH\s*=\s*(1|Y|true)/i.test(String(document.cookie || "")); } catch (e) { return false; }
   }
 
   var L = getLeagueId(), YEAR = getYear(), FID = getFranchiseId();
