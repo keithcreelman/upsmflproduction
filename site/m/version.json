@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.19.6",
-  "label": "Auction refinements. Players pool: sort by name / prior-season points / ADP, filter by position and NFL team, and the list now shows even when the auction is closed (Nominate appears only once it's live). Tap any player name for the full player modal. Bid History is now collapsible per-player threads with date + time stamps. Cadence and Schedule merged into one Tracker tab. Both auctions share the same tabs and nominate wiring."
+  "build": "2026.06.19.7",
+  "label": "Auction: real ADP + player status. The ADP sort now uses league-wide FantasyCalc dynasty values (every player, not just rookies) — Josh Allen ranks #1, and each card shows ADP + last-season points consistently. Players now carry a status: Won (by whom), Active (Bid), or Not Nominated when the auction's closed — with new status filters (Open / Active / Won). Bid History flags Forced increases (a franchise's proxy walked up) and by whom."
 }
