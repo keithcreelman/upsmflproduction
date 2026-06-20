@@ -2671,6 +2671,7 @@ export default {
         path !== "/api/auction/nomination-status" &&
         path !== "/api/auction/bid-stats" &&
         path !== "/api/auction/fa-schedule" &&
+        path !== "/api/auction/fa-pool" &&
         path !== "/admin/auction/probe-o43" &&
         path !== "/admin/auction/narrate-simulate" &&
         path !== "/admin/auction/run-nightly-nudge" &&
@@ -9234,6 +9235,51 @@ export default {
             count: Object.keys(byMfl).length, by_mfl_id: byMfl,
           });
         } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/auction/fa-pool — the full FA-auction nominate pool ──
+      // Every unrostered player (MFL freeAgents) enriched server-side with
+      // name/pos/team (players export), ADP (FantasyCalc), and prior-season
+      // points. Powers the desktop FA Auction Pool (the mobile builds the same
+      // thing client-side). Upstream fetches are edge-cached so it's cheap.
+      if (path === "/api/auction/fa-pool" && request.method === "GET") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear());
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
+        try {
+          const apiKey = safeStr(env.MFL_APIKEY);
+          const kqs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+          const host = "https://www48.myfantasyleague.com";
+          const priorYear = String((parseInt(season, 10) || new Date().getUTCFullYear()) - 1);
+          const [faRes, plRes, adpRows, scRes] = await Promise.all([
+            fetch(`${host}/${encodeURIComponent(season)}/export?TYPE=freeAgents&L=${encodeURIComponent(leagueId)}&JSON=1${kqs}`, { cf: { cacheTtl: 900 } }).then((r) => r.json()).catch(() => ({})),
+            fetch(`${host}/${encodeURIComponent(season)}/export?TYPE=players&L=${encodeURIComponent(leagueId)}&DETAILS=1&JSON=1${kqs}`, { cf: { cacheTtl: 86400 } }).then((r) => r.json()).catch(() => ({})),
+            fetch("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1", { cf: { cacheTtl: 43200 } }).then((r) => r.json()).catch(() => []),
+            fetch(`${host}/${priorYear}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&W=YTD&JSON=1${kqs}`, { cf: { cacheTtl: 86400 } }).then((r) => r.json()).catch(() => ({})),
+          ]);
+          const pById = {};
+          for (const p of asArray(plRes?.players?.player)) pById[String(p.id)] = p;
+          const adpById = {};
+          for (const r of (Array.isArray(adpRows) ? adpRows : [])) {
+            const id = safeStr((r.player || {}).mflId);
+            if (id && id.toUpperCase() !== "UNK") adpById[id] = Number(r.overallRank) || null;
+          }
+          const ppgById = {};
+          for (const s2 of asArray(scRes?.playerScores?.playerScore)) if (s2 && s2.id) ppgById[String(s2.id)] = Number(s2.score) || 0;
+          const flipName = (n) => { n = safeStr(n); const i = n.indexOf(", "); return i > 0 ? (n.slice(i + 2) + " " + n.slice(0, i)) : n; };
+          const players = [];
+          for (const fa of asArray(faRes?.freeAgents?.leagueUnit?.player)) {
+            const id = safeStr(fa.id); const p = pById[id];
+            if (!p || !p.name) continue;
+            const pos = safeStr(p.position).toUpperCase();
+            if (!pos) continue;
+            players.push({ player_id: id, name: flipName(p.name), position: pos, team: safeStr(p.team), adp: adpById[id] || null, ppg: ppgById[id] || 0 });
+          }
+          return jsonOut(200, { ok: true, season, league_id: leagueId, generated_at: new Date().toISOString(), count: players.length, players });
+        } catch (e) {
+          console.error("[auction/fa-pool] failed:", e);
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
       }
