@@ -8,6 +8,7 @@ import {
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline } from "./trade_dm.js";
 import { create3WayTrade, list3WayForFranchise, cancel3WayTrade } from "./trade_3way.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
+import { runFaNightlyJob } from "./auction_nudge.js";
 
 const acquisitionLiveMemoryCache = new Map();
 const contractDiscordChannelQueues = new Map();
@@ -28,6 +29,20 @@ async function getDiscordRoutingConfig(env) {
     const cfg = row && row.value ? JSON.parse(row.value) : {};
     return { ...DISCORD_ROUTING_DEFAULTS, ...(cfg && typeof cfg === "object" ? cfg : {}) };
   } catch (e) { return { ...DISCORD_ROUTING_DEFAULTS }; }
+}
+
+// Resolve the "Auction Bidding" Discord channel id (prod vs test) the same way
+// the auction narrator does — honors the `auctionbidding` routing key + the
+// AUCTION_DISCORD_USE_TEST override. Used by the nightly FA nudge.
+async function resolveAuctionBiddingChannelId(env) {
+  const routing = await getDiscordRoutingConfig(env);
+  const useTest = String(routing.auctionbidding) === "test" ||
+    String(env.AUCTION_DISCORD_USE_TEST ?? "0").trim() === "1";
+  return String(
+    useTest
+      ? (env.DISCORD_AUCTION_TEST_CHANNEL_ID || env.DISCORD_DRAFT_TEST_CHANNEL_ID || "1089538054236160010")
+      : (env.DISCORD_AUCTION_CHANNEL_ID || env.DISCORD_DRAFT_CHANNEL_ID || "1059111651846131833")
+  ).replace(/\D/g, "");
 }
 
 // Pids that ENDED a PRIOR season on a NON-taxi roster (active/IR) — i.e. were
@@ -2035,6 +2050,7 @@ export default {
     const isHallSummarySweep = cronTrigger === "*/2 * * * *";
     const isHallNudgeSweep   = cronTrigger === "5 0,12,18 * * *";
     const isAuctionPoll      = cronTrigger === "*/5 * * * *";
+    const isFaNightlyNudge   = cronTrigger === "5 1,2 * * *";
 
     // ---------- AUCTION POLL + DROP TRACKER (every 5 min) ----------
     // Two cheap I/O-bound jobs share this tick:
@@ -2192,6 +2208,40 @@ export default {
         console.error(`[scheduled nudge] hall auto-nudge dispatch failed: ${e && e.message}`);
       }
       return; // nudge sweep is the only job on this cron
+    }
+
+    // ---------- FA-AUCTION NIGHTLY NUDGE (9 PM ET) ----------
+    // Cron "5 1,2 * * *" fires at 01:05 + 02:05 UTC; the ET-hour gate keeps
+    // only the tick that lands on 9 PM ET (one per night, DST-safe — 01:05 in
+    // EDT, 02:05 in EST). Posts the out-of-compliance summary to the Auction
+    // Bidding channel + DMs owners who still owe nominations. Dark by default
+    // (AUCTION_NIGHTLY_NUDGE_ENABLED) and only while the FA Auction is live
+    // (AUCTION_FAA_ENABLED) — both checked inside runFaNightlyJob.
+    if (isFaNightlyNudge) {
+      try {
+        const etHourStr = new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/New_York", hour: "numeric", hour12: false,
+        }).format(new Date());
+        const etHour = parseInt(etHourStr, 10);
+        if (etHour !== 21) {
+          console.log(`[scheduled fa-nudge] ET hour=${etHour} (not 9 PM) — skipping`);
+          return;
+        }
+        const season = String(env.YEAR || new Date().getUTCFullYear());
+        const leagueId = String(env.LEAGUE_ID || "74598");
+        ctx.waitUntil((async () => {
+          try {
+            const channelId = await resolveAuctionBiddingChannelId(env);
+            const r = await runFaNightlyJob(env, { leagueId, season, channelId });
+            console.log(`[scheduled fa-nudge] ${JSON.stringify(r)}`);
+          } catch (e) {
+            console.error(`[scheduled fa-nudge] failed: ${e && e.message}`);
+          }
+        })());
+      } catch (e) {
+        console.error(`[scheduled fa-nudge] dispatch failed: ${e && e.message}`);
+      }
+      return; // nightly nudge is the only job on this cron
     }
 
     // ---------- HOURLY CRON (5 * * * *) ----------
@@ -2619,8 +2669,10 @@ export default {
         path !== "/api/auction/cut-rebid-blocks" &&
         path !== "/api/auction/nomination-status" &&
         path !== "/api/auction/bid-stats" &&
+        path !== "/api/auction/fa-schedule" &&
         path !== "/admin/auction/probe-o43" &&
         path !== "/admin/auction/narrate-simulate" &&
+        path !== "/admin/auction/run-nightly-nudge" &&
         path !== "/admin/auction/force-narrate-lot" &&
         path !== "/admin/auction/backfill-era-ppg" &&
         path !== "/admin/auction/finalize-era-contracts" &&
@@ -15275,6 +15327,85 @@ export default {
             auction_page: { ok: auctionPageRes.ok, status: auctionPageRes.status, url: auctionPageRes.pageUrl || "" },
             auction_artifact: { ok: auctionArtifact.ok, status: auctionArtifact.status, url: auctionArtifact.url || "" },
           },
+        };
+      };
+
+      // FA-Auction compliance scoreboard — per-franchise daily nomination
+      // status joined with roster-requirement compliance. Drives the mobile
+      // Schedule view AND the nightly 9 PM Discord nudge (auction_nudge.js via
+      // env.SELF.fetch). Light: roster needs come from the teams snapshot (no
+      // O=43 scrape); noms come from the same [nomination]-tagged bids the
+      // nomination-status endpoint reads.
+      //   roster_met        = total_deficit === 0 (can field a legal lineup)
+      //   out_of_compliance = still needs starters AND hasn't used its daily noms
+      const buildFaScheduleRows = async (season, leagueId) => {
+        const FA_WINDOW_SEC = 24 * 3600;
+        const FA_MAX_IN_WINDOW = 2;
+        const nowUnix = Math.floor(Date.now() / 1000);
+        const teamsSnapshot = await buildLiveTeamsSnapshot(season, leagueId);
+        if (!teamsSnapshot || !teamsSnapshot.ok) {
+          return { ok: false, error: (teamsSnapshot && teamsSnapshot.error) || "teams_snapshot_failed", generated_at: new Date().toISOString() };
+        }
+        const needRows = teamNeedRowsFromLive(teamsSnapshot.teams);
+        let noms = [];
+        try {
+          const res = await env.UPS_MFL_DB.prepare(
+            `SELECT fid, bid_at_unix FROM ups_auction_bids
+              WHERE season = ? AND league_id = ?
+                AND note LIKE '[nomination]%'
+              ORDER BY bid_at_unix ASC`
+          ).bind(season, leagueId).all();
+          noms = res?.results || [];
+        } catch (_) { noms = []; }
+        const nomsByFid = {};
+        for (const n of noms) {
+          const fid = String(n.fid || "").padStart(4, "0");
+          if (!fid || fid === "0000") continue;
+          (nomsByFid[fid] = nomsByFid[fid] || []).push(Number(n.bid_at_unix));
+        }
+        const rows = needRows.map((nr) => {
+          const fid = String(nr.franchise_id).padStart(4, "0");
+          const list = nomsByFid[fid] || [];
+          const inWin = list.filter((t) => t >= nowUnix - FA_WINDOW_SEC);
+          const used = inWin.length;
+          const remaining = Math.max(0, FA_MAX_IN_WINDOW - used);
+          const nextAt = used >= FA_MAX_IN_WINDOW ? inWin[0] + FA_WINDOW_SEC : nowUnix;
+          const total_deficit = Number(nr.total_deficit) || 0;
+          const roster_met = total_deficit === 0;
+          // OWES noms = still short of a legal lineup AND hasn't used its 2 today.
+          const out_of_compliance = !roster_met && remaining > 0;
+          return {
+            franchise_id: fid,
+            franchise_name: nr.franchise_name,
+            roster_count: nr.roster_count,
+            total_deficit,
+            lineup_deficits: nr.lineup_deficits,
+            roster_met,
+            noms_made: used,
+            noms_required: FA_MAX_IN_WINDOW,
+            noms_remaining: remaining,
+            can_nominate_now: remaining > 0,
+            next_reset_unix: nextAt,
+            seconds_until_reset: Math.max(0, nextAt - nowUnix),
+            out_of_compliance,
+          };
+        });
+        // Out-of-compliance first, then biggest roster gap, then fid.
+        rows.sort((a, b) =>
+          (Number(b.out_of_compliance) - Number(a.out_of_compliance)) ||
+          (b.total_deficit - a.total_deficit) ||
+          a.franchise_id.localeCompare(b.franchise_id));
+        return {
+          ok: true,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          generated_at: new Date().toISOString(),
+          now_unix: nowUnix,
+          fa_window_sec: FA_WINDOW_SEC,
+          noms_required: FA_MAX_IN_WINDOW,
+          out_of_compliance_count: rows.filter((r) => r.out_of_compliance).length,
+          met_count: rows.filter((r) => r.roster_met).length,
+          rows,
         };
       };
 
@@ -28169,6 +28300,46 @@ export default {
         payload.enabled = await getFeatureFlag(env, "AUCTION_FAA_ENABLED");
         acqCacheSet(cacheKey, payload);
         return jsonNoStore(payload.ok ? 200 : 502, payload);
+      }
+
+      // FA-Auction compliance scoreboard (noms made/required + roster met +
+      // out-of-compliance). Feeds the mobile Schedule view + the nightly nudge.
+      if (path === "/api/auction/fa-schedule" && request.method === "GET") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear());
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        try {
+          const data = await buildFaScheduleRows(season, leagueId);
+          data.faa_enabled = await getFeatureFlag(env, "AUCTION_FAA_ENABLED");
+          return jsonNoStore(data.ok ? 200 : 502, data);
+        } catch (e) {
+          console.error("[auction/fa-schedule] failed:", e);
+          return jsonNoStore(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // Manual trigger for the nightly FA nudge (lets the commish dry-run it
+      // without waiting for 9 PM or arming the switches). DRY-RUN by default —
+      // returns the channel preview + DM counts but sends nothing. ?force=1
+      // bypasses the enable/faa gates; ?live=1 actually posts + DMs.
+      if (path === "/admin/auction/run-nightly-nudge" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!browserKey || (browserKey !== commishKey && browserKey !== testKey)) {
+          return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+        }
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear());
+        const leagueId = safeStr(url.searchParams.get("L") || L || "74598");
+        const dryRun = String(url.searchParams.get("live") || "") !== "1";
+        const force = String(url.searchParams.get("force") || "") === "1";
+        try {
+          const channelId = await resolveAuctionBiddingChannelId(env);
+          const r = await runFaNightlyJob(env, { leagueId, season, channelId, dryRun, force });
+          return jsonOut(200, { ok: true, channel_id: channelId, ...r });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
       }
 
       if (path === "/acquisition-hub/free-agent-auction/history" && request.method === "GET") {

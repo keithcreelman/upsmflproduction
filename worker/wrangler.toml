@@ -57,6 +57,15 @@ AUCTION_INAPP_BID_ENABLED = "0"
 AUCTION_ERA_ENABLED = "0"
 AUCTION_FAA_ENABLED = "0"
 
+# Nightly 9 PM ET FA-Auction nomination nudge (worker/src/auction_nudge.js).
+# Default OFF (dark). When ON *and* AUCTION_FAA_ENABLED is on, the "5 1,2 * * *"
+# cron posts an out-of-compliance roll-up to the Auction Bidding channel + DMs
+# each owner who still owes nominations. AUCTION_NUDGE_TEST_FRANCHISES is the DM
+# rollout allowlist (CSV of fids; empty = every owner). Dry-run any time via
+# POST /admin/auction/run-nightly-nudge?APIKEY=…&force=1 (add &live=1 to send).
+AUCTION_NIGHTLY_NUDGE_ENABLED = "0"
+AUCTION_NUDGE_TEST_FRANCHISES = ""
+
 # Hourly drop → cap-penalty scan at :05 past each hour (RULE-WORKFLOW-004).
 # The worker's scheduled() handler:
 #   1. calls /admin/import-drop-penalties logic to post new cap penalties to MFL
@@ -89,7 +98,12 @@ AUCTION_FAA_ENABLED = "0"
 #                        scan/post. Both I/O-bound and cheap; drops can't
 #                        occur during an active auction so they don't
 #                        contend (Keith 2026-05-23).
-crons = ["5 * * * *", "*/2 * * * *", "5 0,12,18 * * *", "*/5 * * * *"]
+#   "5 1,2 * * *"      — nightly FA-Auction nomination nudge. Fires 01:05 +
+#                        02:05 UTC; an ET-hour gate (etHour===21) keeps only
+#                        the tick at 9 PM ET (one/night, DST-safe — 01:05 EDT,
+#                        02:05 EST). Dark unless AUCTION_NIGHTLY_NUDGE_ENABLED
+#                        + AUCTION_FAA_ENABLED are both on.
+crons = ["5 * * * *", "*/2 * * * *", "5 0,12,18 * * *", "*/5 * * * *", "5 1,2 * * *"]
 
 # Self service binding — lets scheduled() and other internal callers
 # reach this worker's own admin endpoints via env.SELF.fetch(...) without
