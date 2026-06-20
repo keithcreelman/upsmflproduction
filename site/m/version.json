@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.19.2",
-  "label": "Auction redesigned — two live tabs. FA Auction and Expired-Rookie are now separate tabs: each shows live lots (tap Bid), the eligible/available pool with search, plus FAA team budgets and roster needs. Bid or Nominate in-app when an auction is on; when it's off the tab is a clean read-only pool. Stale phantom lots are gone. A one-tap \"On MFL ↗\" fallback stays on every card."
+  "build": "2026.06.19.3",
+  "label": "Auction tabs reorganized. FA Auction and Expired Rookie each now have their own sub-nav: Summary (budgets + roster needs), Lots (live board), Players (searchable pool), Cadence (nomination windows), and — for the FA Auction — a new Schedule tab tracking who's met the roster requirement and who still owes nominations today, with a countdown to the next reset. (A nightly 9 PM reminder to Discord is wired up too, off until the commish arms it for the July auction.)"
 }
