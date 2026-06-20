@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.06.20.1";
+  var BUILD = "2026.06.20.2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -532,7 +532,10 @@
     perAliasArrays.forEach(function (rows) {
       rows.forEach(function (row) {
         if (!row || !row.mfl_pid) return;
-        var pos = String(row.position || row.pos_group || "").toUpperCase();
+        // Rank within the IDP/offense GROUP (DL/LB/DB/QB/RB/WR/TE/PK), not the
+        // raw nflverse position — otherwise DT/DE/OLB each get their own #1 and
+        // a "DL" shows four rank-1s (Keith 2026-06-20). pos_group is clean.
+        var pos = String(row.pos_group || row.position || "").toUpperCase();
         if (!buckets[pos]) buckets[pos] = [];
         buckets[pos].push(row);
       });

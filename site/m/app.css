@@ -1038,6 +1038,42 @@ button.ups-m-busy::before,
 .ups-m-fa-row .pos.lb,
 .ups-m-fa-row .pos.db { color: #b39ddb; }
 .ups-m-fa-row .body { min-width: 0; }
+
+/* Player Stats view (#league/stats) — compact per-position leaderboard table */
+.ups-m-st-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 8px; }
+.ups-m-st-table { display: flex; flex-direction: column; min-width: 100%; }
+.ups-m-st-row {
+  display: grid;
+  grid-template-columns: 22px minmax(118px, 1.4fr) repeat(var(--n, 5), minmax(40px, 1fr));
+  gap: 6px; align-items: center;
+  padding: 8px 10px; border-top: 1px solid var(--line); background: var(--bg-elev);
+  cursor: pointer; min-height: 48px; -webkit-tap-highlight-color: rgba(91,141,255,0.08);
+}
+.ups-m-st-row:active { background: var(--bg-elev2); }
+.ups-m-st-row.head {
+  background: transparent; border-top: 0; min-height: 0; padding: 2px 10px 4px; cursor: default;
+  color: var(--fg-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.ups-m-st-row .rk { text-align: center; font-variant-numeric: tabular-nums; color: var(--fg-muted); font-weight: 700; font-size: 12px; }
+.ups-m-st-row .nm { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.ups-m-st-row .nm .pos {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.03em; padding: 2px 4px; border-radius: 4px;
+  background: var(--bg-elev2); border: 1px solid var(--line); color: var(--fg-muted); flex: 0 0 auto;
+}
+.ups-m-st-row .nm .pos.qb { color: #ef9a9a; }
+.ups-m-st-row .nm .pos.rb { color: #80deea; }
+.ups-m-st-row .nm .pos.wr { color: #a5d6a7; }
+.ups-m-st-row .nm .pos.te { color: #ffcc80; }
+.ups-m-st-row .nm .pos.pk { color: #ce93d8; }
+.ups-m-st-row .nm .pos.dl,
+.ups-m-st-row .nm .pos.lb,
+.ups-m-st-row .nm .pos.db { color: #b39ddb; }
+.ups-m-st-row .nm .t { display: flex; flex-direction: column; min-width: 0; }
+.ups-m-st-row .nm .pn { font-size: 13px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ups-m-st-row .nm .tm { font-size: 10px; color: var(--fg-muted); }
+.ups-m-st-row .v { text-align: right; font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--fg); }
+.ups-m-st-row .v:last-child { font-weight: 700; }
+.ups-m-st-row.head .v { font-weight: 600; }
 .ups-m-fa-row .name {
   font-size: 14px;
   font-weight: 600;

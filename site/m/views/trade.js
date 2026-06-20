@@ -31,6 +31,7 @@
       tab("otb", "On the Block", "otb") +
       tab("draft", "Draft", "draft") +
       tab("auction", "Auction", "auction") +
+      tab("stats", "Stats", "stats") +
       '</div>';
   }
 

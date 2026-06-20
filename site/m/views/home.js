@@ -182,6 +182,7 @@
       { label: "Contracts", icon: "file-text",      tone: "gold",   href: "#myteam/contracts", sub: contractsSub },
       { label: "Trades",    icon: "repeat",         tone: "ember",  href: "#league/trade",     sub: tradesSub, badge: ctx.incoming > 0 ? ctx.incoming : null },
       { label: "Market",    icon: "tag",            tone: "sky",    href: "#players",          sub: "Browse — filter by team/FA" },
+      { label: "Player Stats", icon: "bar-chart",   tone: "mint",   href: "#league/stats",     sub: "Leaderboards by position" },
       { label: "Taxi & IR", icon: "shield",         tone: "violet", href: "#myteam/taxi",      sub: taxiIrSub },
       { label: "Events",    icon: "calendar",       tone: "mint",   href: "#events",           sub: eventsSub, dot: ctx.next && whenTone(ctx.next.date) === "now" }
     ];
