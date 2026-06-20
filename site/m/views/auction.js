@@ -21,7 +21,7 @@
   var U = M.util;
 
   // tab: "faa" | "era" (the auction). sub: "summary"|"lots"|"players"|"cadence"|"schedule".
-  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "" };
+  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", openThreads: {} };
 
   function subTabs(active) {
     function tab(href, label, key) {
@@ -77,6 +77,14 @@
     return m + "m";
   }
   function posChip(pos) { return '<span class="ups-m-auc-pos">' + U.escapeHtml(String(pos || "").toUpperCase() || "—") + '</span>'; }
+  // Bucket an MFL position into the filter chips (offense kept; defense → IDP).
+  function posBucket(p) {
+    p = String(p || "").toUpperCase();
+    if (p === "QB" || p === "RB" || p === "WR" || p === "TE" || p === "PK" || p === "PN") return p;
+    if (p === "K") return "PK";
+    if (p === "P") return "PN";
+    return "IDP";
+  }
 
   // ── In-app bid / nominate sheet (reused from Phase 1) ────────────────
   function postAuction(action, payload) {
@@ -217,7 +225,14 @@
       get(M.api.workerUrl("/api/auction/bid-history?L=" + L + "&YEAR=" + Y)),
       // Every free agent in the league (MFL export). Enriched client-side from
       // the already-loaded player DB → the "all players" nominate pool.
-      get(M.api.mflExportUrl("freeAgents"))
+      get(M.api.mflExportUrl("freeAgents")),
+      // External ADP (the rookie hub's source — keyed by mfl id). Only covers
+      // the current rookie class, so it ranks few FAs; best-effort sort input.
+      get("../rookies/external_adp_2026.json"),
+      // PRIOR season fantasy points (this year's YTD is empty in the off-season)
+      // → the PPG sort. W=YTD on a completed year = the full-season total.
+      get(M.api.workerUrl("/api/mfl-export?TYPE=playerScores&L=" + L + "&YEAR=" +
+        encodeURIComponent(String((parseInt(ctx.year, 10) || 2026) - 1)) + "&W=YTD&JSON=1"))
     ]).then(function (res) {
       state.faa = res[0] || { ok: false };
       state.era = res[1] || { ok: false };
@@ -227,6 +242,9 @@
       state.lots = res[5] || { lots: [] };
       state.bidHistory = res[6] || { bids: [] };
       state.freeAgents = res[7] || null;
+      state.adp = res[8] || null;
+      state.priorScores = res[9] || null;
+      state._ytd = null;     // rebuild the pid→points map
       state.faPool = null;  // memoized enrichment, rebuilt lazily
       // Default tab: whichever auction is live, else FAA.
       if (!state.tab) {
@@ -244,11 +262,10 @@
       '<div class="ups-m-auction" id="ups-m-auction-body"><div class="ups-m-loading">Loading auction…</div></div>';
     load().then(paint);
   }
-  // Which sub-pills each auction shows (ERA has no compliance Schedule).
-  function subsFor(tab) {
-    return tab === "faa"
-      ? [["summary", "Summary"], ["players", "Players"], ["lots", "Lots"], ["history", "History"], ["cadence", "Cadence"], ["schedule", "Schedule"]]
-      : [["summary", "Summary"], ["players", "Players"], ["lots", "Lots"], ["history", "History"], ["cadence", "Cadence"]];
+  // Same five pills for both auctions. "Tracker" = the per-team nomination view
+  // (FAA: full compliance scoreboard; ERA: nomination windows).
+  function subsFor() {
+    return [["summary", "Summary"], ["players", "Players"], ["lots", "Lots"], ["history", "History"], ["tracker", "Tracker"]];
   }
 
   function paint() {
@@ -268,8 +285,10 @@
     wireTabs();
     wireSubNav();
     wireLotsToggle();
-    wireSearch();
+    wirePool();
     wireBidButtons();
+    wireThreads();
+    wirePlayerModal();
   }
   function wireLotsToggle() {
     Array.prototype.forEach.call(document.querySelectorAll(".ups-m-auc-lottab"), function (b) {
@@ -315,15 +334,14 @@
     if (sub === "players") return tab === "era" ? eraPool() : faaPool();
     if (sub === "lots") return renderLots(tab);
     if (sub === "history") return renderHistory(tab);
-    if (sub === "cadence") return renderCadence(tab);
-    if (sub === "schedule") return renderSchedule();
+    if (sub === "tracker") return renderTracker(tab);
     return renderSummary(tab, p);
   }
 
   function renderSummary(tab, p) {
     if (tab === "era") {
       var eligCount = ((state.eraPool && state.eraPool.players) || []).length || (p.eligible_players || []).length;
-      return kpis([["Live lots", (p.active_auctions || []).length], ["Eligible", eligCount], ["Markers", (p.extension_markers || []).length]]) +
+      return kpis([["Live lots", (p.active_auctions || []).length], ["Eligible", eligCount], ["Your team", franchiseName(M.state.viewerFranchiseId)]]) +
         '<div class="ups-m-auc-note">The Expired-Rookie Auction claims players whose rookie deals expired. <strong>Players</strong> browses the eligible pool · <strong>Lots</strong> is the live board · <strong>Cadence</strong> shows nomination windows.</div>';
     }
     return kpis([["Live lots", (p.active_auctions || []).length], ["Available", (p.available_players || []).length], ["Your team", franchiseName(M.state.viewerFranchiseId)]]) +
@@ -331,9 +349,32 @@
   }
 
   function flipName(n) { n = String(n || ""); var i = n.indexOf(", "); return i > 0 ? (n.slice(i + 2) + " " + n.slice(0, i)) : n; }
+  function lastNameKey(name) { var p = String(name || "").trim().split(/\s+/); return (p.length > 1 ? p[p.length - 1] + " " + p[0] : name).toLowerCase(); }
+  // Clickable player name → opens the unified player modal (M.sheet.open).
+  function pname(pid, name) {
+    return '<button type="button" class="ups-m-auc-pname" data-psheet="' + U.escapeHtml(String(pid || "")) + '">' + U.escapeHtml(name || ("Player #" + pid)) + '</button>';
+  }
+  // pid → prior-season fantasy points (full-season total), memoized. Falls back
+  // to the app's current-year YTD if the prior-season fetch failed.
+  function ytdScore(pid) {
+    if (!state._ytd) {
+      var m = {}, ps = state.priorScores || M.state.playerScoresYtd;
+      U.asArray(ps && ps.playerScores && ps.playerScores.playerScore).forEach(function (r) { if (r && r.id) m[String(r.id)] = Number(r.score) || 0; });
+      state._ytd = m;
+    }
+    return state._ytd[String(pid)] || 0;
+  }
+  // pid → ADP rank (rookie source; lower = better). Missing → null.
+  function adpRank(pid) {
+    var m = state.adp && state.adp.by_mfl_id;
+    var e = m && m[String(pid)];
+    if (!e) return null;
+    var r = Number(e.fantasycalc_sf_overall_rank);
+    return isFinite(r) && r > 0 ? r : null;
+  }
   var POS_ORDER = { QB: 1, RB: 2, WR: 3, TE: 4, PK: 5, K: 5, PN: 6, DL: 7, LB: 8, DB: 9 };
   // The full free-agent pool — every unrostered player (MFL freeAgents export),
-  // enriched from the boot-loaded player DB. Memoized in state.faPool.
+  // enriched from the boot-loaded player DB + YTD points + ADP. Memoized.
   function faAllPlayers() {
     if (state.faPool) return state.faPool;
     var lu = state.freeAgents && state.freeAgents.freeAgents && state.freeAgents.freeAgents.leagueUnit;
@@ -351,12 +392,8 @@
       if (!pl || !pl.name) continue;
       var pos = String(pl.position || "").toUpperCase();
       if (!pos) continue;
-      rows.push({ player_id: id, player_name: flipName(pl.name), position: pos, team: pl.team || "", model_value: modelById[id] || 0 });
+      rows.push({ player_id: id, player_name: flipName(pl.name), position: pos, team: pl.team || "", model_value: modelById[id] || 0, ppg: ytdScore(id), adp: adpRank(id) });
     }
-    rows.sort(function (a, b) {
-      var ao = POS_ORDER[a.position] || 50, bo = POS_ORDER[b.position] || 50;
-      return ao - bo || a.player_name.localeCompare(b.player_name);
-    });
     state.faPool = rows;
     return rows;
   }
@@ -364,7 +401,13 @@
     var p = state.faa || {};
     return poolBlock(faAllPlayers(), "free-agent", {
       title: "Free Agents", enabled: !!p.enabled, teamKey: "team",
-      subOf: function (r) { return r.model_value ? 'Model ' + usd(r.model_value) : ''; }
+      subOf: function (r) {
+        var bits = [];
+        if (r.ppg) bits.push(Math.round(r.ppg) + " pts");
+        if (r.adp) bits.push("ADP " + r.adp);
+        if (r.model_value) bits.push("Model " + usd(r.model_value));
+        return bits.join(" · ");
+      }
     });
   }
   // Player ids in the ERA eligible pool — used to split lots/bids by auction
@@ -383,7 +426,8 @@
       var rows = snap.map(function (r) {
         return {
           player_id: r.player_id, player_name: r.name, position: r.position, team: r.nfl_team,
-          origin_label: r.origin_label, ppg_weighted: r.ppg_weighted, high_bid_k: r.high_bid_k, prior_owner: r.prior_owner
+          origin_label: r.origin_label, ppg_weighted: r.ppg_weighted, high_bid_k: r.high_bid_k, prior_owner: r.prior_owner,
+          ppg: Number(r.ppg_weighted) || ytdScore(r.player_id), adp: adpRank(r.player_id)
         };
       });
       return poolBlock(rows, "expired-rookie", {
@@ -420,7 +464,7 @@
         : '<a class="ups-m-auc-mfl" href="' + mflAuctionUrl(r.player_id) + '" target="_blank" rel="noopener" title="Open on MFL">↗</a>';
       return '<div class="ups-m-auc-card">' +
         '<div class="ups-m-auc-card-main">' +
-          '<div class="ups-m-auc-name">' + posChip(r.position) + U.escapeHtml(r.player_name || ("Player #" + r.player_id)) + '</div>' +
+          '<div class="ups-m-auc-name">' + posChip(r.position) + pname(r.player_id, r.player_name) + '</div>' +
           '<div class="ups-m-auc-meta">High <strong>' + money(r.high_bid_amount) + '</strong>' +
             (r.high_bidder_label ? ' · ' + U.escapeHtml(r.high_bidder_label) : '') +
             (r.timer_text ? ' · ' + U.escapeHtml(r.timer_text) : '') + '</div>' +
@@ -431,34 +475,62 @@
     return html;
   }
 
-  // Pool list (eligible/available) with search + Nominate (when enabled).
+  var POS_CHIPS = ["ALL", "QB", "RB", "WR", "TE", "PK", "PN", "IDP"];
+  // Pool list with search + position/team filters + sort + clickable names.
+  // The list ALWAYS shows (browse anytime); Nominate appears only when the
+  // auction is live. Tap a name for the player modal.
   function poolBlock(rows, kind, cfg) {
-    var s = (state.search || "").toLowerCase();
+    var teamKey = cfg.teamKey || "team";
+    function teamOf(r) { return String(r.nfl_team || r[teamKey] || r.team || ""); }
+    var s = (state.search || "").toLowerCase(), pos = state.poolPos || "ALL", team = state.poolTeam || "", sort = state.poolSort || "name";
+    var teamSet = {}; rows.forEach(function (r) { var t = teamOf(r); if (t) teamSet[t] = true; });
+    var teamOpts = Object.keys(teamSet).sort();
     var filtered = rows.filter(function (r) {
-      if (!s) return true;
-      return [r.player_name, r.position, cfg.teamKey ? r[cfg.teamKey] : "", r.player_id].join(" ").toLowerCase().indexOf(s) !== -1;
+      if (pos !== "ALL" && posBucket(r.position) !== pos) return false;
+      if (team && teamOf(r) !== team) return false;
+      if (s && [r.player_name, r.position, teamOf(r), r.player_id].join(" ").toLowerCase().indexOf(s) === -1) return false;
+      return true;
+    }).sort(function (a, b) {
+      if (sort === "ppg") return (Number(b.ppg) || 0) - (Number(a.ppg) || 0) || lastNameKey(a.player_name).localeCompare(lastNameKey(b.player_name));
+      if (sort === "adp") return ((a.adp == null ? 1e9 : a.adp) - (b.adp == null ? 1e9 : b.adp)) || lastNameKey(a.player_name).localeCompare(lastNameKey(b.player_name));
+      return lastNameKey(a.player_name).localeCompare(lastNameKey(b.player_name));
     });
-    var canNom = !!(cfg.enabled);
+    var canNom = !!cfg.enabled;
+    var controls =
+      '<input type="search" class="ups-m-auc-search" id="ups-m-auc-search" placeholder="Search players…" value="' + U.escapeHtml(state.search || "") + '" />' +
+      '<div class="ups-m-auc-poolctl">' +
+        '<select class="ups-m-auc-sel" id="ups-m-auc-sort">' +
+          '<option value="name"' + (sort === "name" ? " selected" : "") + '>Sort · Name</option>' +
+          '<option value="ppg"' + (sort === "ppg" ? " selected" : "") + '>Sort · PPG</option>' +
+          '<option value="adp"' + (sort === "adp" ? " selected" : "") + '>Sort · ADP</option>' +
+        '</select>' +
+        '<select class="ups-m-auc-sel" id="ups-m-auc-team">' +
+          '<option value="">All NFL teams</option>' +
+          teamOpts.map(function (t) { return '<option value="' + U.escapeHtml(t) + '"' + (team === t ? " selected" : "") + '>' + U.escapeHtml(t) + '</option>'; }).join("") +
+        '</select>' +
+      '</div>' +
+      '<div class="ups-m-auc-poschips" id="ups-m-auc-poschips">' +
+        POS_CHIPS.map(function (pc) { return '<button type="button" class="ups-m-auc-poschip' + (pos === pc ? " active" : "") + '" data-pos="' + pc + '">' + pc + '</button>'; }).join("") +
+      '</div>';
     var html = '<div class="ups-m-auc-sec-head">' + cfg.title + ' <span class="ct">' + rows.length + '</span></div>' +
-      '<input type="search" class="ups-m-auc-search" id="ups-m-auc-search" placeholder="Search ' + cfg.title.toLowerCase() + '…" value="' + U.escapeHtml(state.search || "") + '" />' +
-      '<div class="ups-m-auc-pool" id="ups-m-auc-pool">';
-    if (!filtered.length) { html += '<div class="ups-m-auc-empty">' + (s ? "No players match your search." : "No players in the pool yet — check back when the auction nears.") + '</div>'; }
+      controls + '<div class="ups-m-auc-pool" id="ups-m-auc-pool">';
+    if (!filtered.length) { html += '<div class="ups-m-auc-empty">' + (s || pos !== "ALL" || team ? "No players match." : "No players in the pool yet.") + '</div>'; }
     else html += filtered.slice(0, 80).map(function (r) {
       var sub = cfg.subOf(r);
       var cta = canNom
         ? '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="nominate" data-pid="' + U.escapeHtml(String(r.player_id || "")) +
             '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="0">Nominate</button>'
-        : '<a class="ups-m-auc-mfl" href="' + mflAuctionUrl(r.player_id) + '" target="_blank" rel="noopener" title="Open on MFL">↗</a>';
+        : '';
       return '<div class="ups-m-auc-card">' +
         '<div class="ups-m-auc-card-main">' +
-          '<div class="ups-m-auc-name">' + posChip(r.position) + U.escapeHtml(r.player_name || ("Player #" + r.player_id)) +
-            (r.nfl_team || r.team ? ' <span class="ups-m-auc-team">' + U.escapeHtml(r.nfl_team || r.team) + '</span>' : '') + '</div>' +
+          '<div class="ups-m-auc-name">' + posChip(r.position) + pname(r.player_id, r.player_name) +
+            (teamOf(r) ? ' <span class="ups-m-auc-team">' + U.escapeHtml(teamOf(r)) + '</span>' : '') + '</div>' +
           (sub ? '<div class="ups-m-auc-meta">' + sub + '</div>' : '') +
         '</div>' +
-        '<div class="ups-m-auc-card-cta">' + cta + '</div>' +
+        (cta ? '<div class="ups-m-auc-card-cta">' + cta + '</div>' : '') +
       '</div>';
     }).join("");
-    if (filtered.length > 80) html += '<div class="ups-m-auc-empty">Showing 80 of ' + filtered.length + ' — search to find a specific player.</div>';
+    if (filtered.length > 80) html += '<div class="ups-m-auc-empty">Showing 80 of ' + filtered.length + ' — refine with search or filters.</div>';
     html += '</div>';
     return html;
   }
@@ -485,7 +557,7 @@
     var ooc = sc.out_of_compliance_count || 0;
     var req = sc.noms_required || 2;
     var head =
-      '<div class="ups-m-auc-sec-head">Nomination Schedule <span class="ct">' + ooc + ' owe noms</span></div>' +
+      '<div class="ups-m-auc-sec-head">Nomination Tracker <span class="ct">' + ooc + ' owe noms</span></div>' +
       '<div class="ups-m-auc-note">During the FA Auction every team makes <strong>' + req + ' nominations a day</strong> until it can field a legal lineup. Met the roster requirement? You can stop — but keep nominating daily if you want to keep adding.</div>';
     var rowsHtml = rows.map(function (r) {
       var me = U.pad4(r.franchise_id) === viewerFid;
@@ -577,7 +649,7 @@
       var won = l.status === "won";
       return '<div class="ups-m-auc-card">' +
         '<div class="ups-m-auc-card-main">' +
-          '<div class="ups-m-auc-name">' + posChip(l.position) + U.escapeHtml(l.player_name || ("Player #" + l.player_id)) +
+          '<div class="ups-m-auc-name">' + posChip(l.position) + pname(l.player_id, l.player_name) +
             (l.nfl_team ? ' <span class="ups-m-auc-team">' + U.escapeHtml(l.nfl_team) + '</span>' : '') + '</div>' +
           '<div class="ups-m-auc-meta">' + (won
             ? 'Won by <strong>' + U.escapeHtml(l.winner_name || l.current_high_bidder_name || "—") + '</strong> · ' + fmtK(l.current_high_bid_k) + ' · ' + (Number(l.bid_count) || 0) + ' bids'
@@ -586,24 +658,58 @@
       '</div>';
     }).join("");
   }
-  // Bid History — chronological feed, split by auction.
+  function fmtDateTime(iso) {
+    if (!iso) return "";
+    try {
+      var d = new Date(iso);
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " " +
+             d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    } catch (e) { return ""; }
+  }
+  // Bid History — collapsible per-player threads (split by auction). The summary
+  // shows the player + bid count + top bid; tap to expand the full timestamped
+  // sequence. Tap the name for the player modal.
   function renderHistory(tab) {
     var isEra = tab === "era";
     var eIds = eraPoolIds();
     var bids = ((state.bidHistory && state.bidHistory.bids) || []).filter(function (b) { return !!eIds[String(b.player_id)] === isEra; });
     var head = '<div class="ups-m-auc-sec-head">Bid History <span class="ct">' + bids.length + '</span></div>';
     if (!bids.length) return head + '<div class="ups-m-auc-empty">No bids yet.</div>';
-    bids = bids.slice().sort(function (a, b) { return (Number(b.bid_at_unix) || 0) - (Number(a.bid_at_unix) || 0); });
-    return head + '<div class="ups-m-auc-hist">' + bids.slice(0, 120).map(function (b) {
-      var when = b.bid_at_iso ? new Date(b.bid_at_iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
-      var kind = b.is_nomination ? '<span class="nom">Nom</span>' : '<span class="bid">Bid</span>';
-      return '<div class="ups-m-auc-hrow">' +
-        '<div class="hp">' + posChip(b.position) + U.escapeHtml(b.player_name || ("#" + b.player_id)) + '</div>' +
-        '<div class="hb">' + kind + ' <strong>' + fmtK(b.bid_k) + '</strong> · ' + U.escapeHtml(b.franchise_name || "—") + (when ? ' <span class="hw">' + when + '</span>' : '') + '</div>' +
+    var groups = {};
+    bids.forEach(function (b) {
+      var key = String(b.lot_id || ("p" + b.player_id));
+      if (!groups[key]) groups[key] = { key: key, player_id: b.player_id, player_name: b.player_name, position: b.position, bids: [] };
+      groups[key].bids.push(b);
+    });
+    var threads = Object.keys(groups).map(function (k) { return groups[k]; });
+    threads.forEach(function (t) {
+      t.bids.sort(function (a, b) { return (Number(a.bid_at_unix) || 0) - (Number(b.bid_at_unix) || 0); });
+      t.lastUnix = Number(t.bids[t.bids.length - 1].bid_at_unix) || 0;
+      t.topK = t.bids.reduce(function (m, x) { return Math.max(m, Number(x.bid_k) || 0); }, 0);
+    });
+    threads.sort(function (a, b) { return b.lastUnix - a.lastUnix; });
+    return head + '<div class="ups-m-auc-threads">' + threads.map(function (t) {
+      var open = !!state.openThreads[t.key];
+      var detail = open ? '<div class="ups-m-auc-thbids">' + t.bids.slice().reverse().map(function (b) {
+        var kind = b.is_nomination ? '<span class="nom">Nom</span>' : '<span class="bid">Bid</span>';
+        return '<div class="thbid">' + kind + ' <strong>' + fmtK(b.bid_k) + '</strong> · ' + U.escapeHtml(b.franchise_name || "—") +
+          '<span class="hw">' + fmtDateTime(b.bid_at_iso) + '</span></div>';
+      }).join("") + '</div>' : '';
+      return '<div class="ups-m-auc-thread' + (open ? " open" : "") + '">' +
+        '<div class="ups-m-auc-thsum" data-thread="' + U.escapeHtml(t.key) + '">' +
+          '<span class="thtog">' + (open ? "▾" : "▸") + '</span>' +
+          posChip(t.position) + pname(t.player_id, t.player_name) +
+          '<span class="thmeta">' + t.bids.length + ' ' + (t.bids.length === 1 ? "bid" : "bids") + ' · top ' + fmtK(t.topK) + '</span>' +
+        '</div>' + detail +
       '</div>';
     }).join("") + '</div>';
   }
 
+  // One per-team nomination view. FAA = the compliance scoreboard (who still
+  // owes noms + roster status); ERA = the nomination windows.
+  function renderTracker(tab) {
+    return tab === "faa" ? renderSchedule() : renderCadence(tab);
+  }
   // Per-franchise nomination windows for ONE auction (ERA = 1/12h anchored,
   // FAA = 2/24h rolling). Data: /api/auction/nomination-status.
   function renderCadence(tab) {
@@ -615,7 +721,7 @@
     rows = rows.slice().sort(function (a, b) { return (rowFid(a) === viewerFid ? 0 : 1) - (rowFid(b) === viewerFid ? 0 : 1); });
     var rule = isEra ? "1 nomination per 12-hour window — windows anchored to 6 AM / 6 PM ET."
                      : "2 nominations per rolling 24-hour window.";
-    return '<div class="ups-m-auc-sec-head">Nomination Cadence</div>' +
+    return '<div class="ups-m-auc-sec-head">Nomination Windows</div>' +
       '<div class="ups-m-auc-note">' + rule + '</div>' +
       '<div class="ups-m-auc-nom">' + rows.map(function (f) {
         var fid = rowFid(f), era = f.era || {}, fa = f.fa_auction || {};
@@ -659,19 +765,58 @@
       });
     });
   }
-  function wireSearch() {
+  function poolHtml() { return state.tab === "era" ? eraPool() : faaPool(); }
+  // Search re-renders just the list (preserves input focus); the sort/team/pos
+  // controls re-render the whole pool view (so their own state updates too).
+  function replacePoolList() {
+    var pool = document.getElementById("ups-m-auc-pool");
+    if (!pool) { repaintPlayers(); return; }
+    var tmp = document.createElement("div"); tmp.innerHTML = poolHtml();
+    var np = tmp.querySelector("#ups-m-auc-pool");
+    if (np && pool.parentNode) { pool.parentNode.replaceChild(np, pool); wireBidButtons(); }
+  }
+  function repaintPlayers() {
+    var tb = document.querySelector(".ups-m-auc-tabbody");
+    if (!tb) { paint(); return; }
+    tb.innerHTML = poolHtml();
+    wirePool(); wireBidButtons();
+  }
+  function wirePool() {
     var inp = document.getElementById("ups-m-auc-search");
-    if (!inp) return;
-    inp.addEventListener("input", function () {
-      state.search = this.value || "";
-      // Re-render just the pool list (preserve the input + focus).
-      var pool = document.getElementById("ups-m-auc-pool");
-      if (!pool) { paint(); return; }
-      var fresh = (state.tab === "era") ? eraPool() : faaPool();
-      var tmp = document.createElement("div"); tmp.innerHTML = fresh;
-      var newPool = tmp.querySelector("#ups-m-auc-pool");
-      if (newPool && pool.parentNode) { pool.parentNode.replaceChild(newPool, pool); wireBidButtons(); }
+    if (inp) inp.addEventListener("input", function () { state.search = this.value || ""; replacePoolList(); });
+    var sortSel = document.getElementById("ups-m-auc-sort");
+    if (sortSel) sortSel.addEventListener("change", function () { state.poolSort = this.value; repaintPlayers(); });
+    var teamSel = document.getElementById("ups-m-auc-team");
+    if (teamSel) teamSel.addEventListener("change", function () { state.poolTeam = this.value; repaintPlayers(); });
+    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-auc-poschip"), function (b) {
+      b.addEventListener("click", function () { state.poolPos = this.getAttribute("data-pos"); repaintPlayers(); });
     });
+  }
+  // History thread expand/collapse.
+  function wireThreads() {
+    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-auc-thsum"), function (b) {
+      b.addEventListener("click", function () {
+        var k = this.getAttribute("data-thread");
+        if (!k) return;
+        state.openThreads[k] = !state.openThreads[k];
+        paint();
+      });
+    });
+  }
+  // Delegated: tap any player name → the unified player modal. stopPropagation
+  // so a name inside a history thread doesn't also toggle the thread.
+  function wirePlayerModal() {
+    var body = document.getElementById("ups-m-auction-body");
+    if (!body || body.__modalWired) return; body.__modalWired = true;
+    // Capture phase → fires before the thread-row toggle, so stopPropagation
+    // keeps a name-tap inside a history thread from also expanding it.
+    body.addEventListener("click", function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest("[data-psheet]") : null;
+      if (!btn) return;
+      e.stopPropagation();
+      var pid = btn.getAttribute("data-psheet");
+      if (pid && M.sheet && M.sheet.open) M.sheet.open(pid);
+    }, true);
   }
   function wireBidButtons() {
     Array.prototype.forEach.call(document.querySelectorAll(".ups-m-auc-bid-btn"), function (b) {

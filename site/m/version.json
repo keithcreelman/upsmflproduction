@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.19.5",
-  "label": "Full FA Auction lifecycle on mobile. The FA Auction now has a Players tab with EVERY free agent in the league (searchable — tap Nominate once the commish opens the auction), a Lots tab that toggles between Open and Completed lots (who won, final price, bid count), and a Bid History feed. Expired Rookie gets the same Lots + History (split correctly by auction). All five-plus sub-tabs per auction."
+  "build": "2026.06.19.6",
+  "label": "Auction refinements. Players pool: sort by name / prior-season points / ADP, filter by position and NFL team, and the list now shows even when the auction is closed (Nominate appears only once it's live). Tap any player name for the full player modal. Bid History is now collapsible per-player threads with date + time stamps. Cadence and Schedule merged into one Tracker tab. Both auctions share the same tabs and nominate wiring."
 }
