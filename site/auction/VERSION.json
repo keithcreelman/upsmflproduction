@@ -1,7 +1,7 @@
 {
-  "version": "0.7.0",
-  "released": "2026-06-19",
-  "label": "v0.7.0 — FA Auction tab goes live + ERA/FA commish switches",
+  "version": "0.8.0",
+  "released": "2026-06-20",
+  "label": "v0.8.0 — FA Auction Pool shows every free agent (ADP + prior-season PPG)",
   "description": "The FA Auction Pool tab is no longer a placeholder: live lots, team budgets (max legal bid @27%/@35%), roster needs, and the available-player pool, all fed by the same /acquisition-hub/free-agent-auction/live payload the mobile app uses. Both the ERA and FA tabs now honor the commish ERA/FAA kill switches — when an auction is off, the tab shows a read-only 'not running' banner over a browsable pool; when on, it's a live board. The switch state polls on the existing 30s cadence, so a commish flip reflects without a reload. One set of switches drives both the app and the desktop hub.",
   "scope": {
     "this_release": [
