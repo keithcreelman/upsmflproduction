@@ -9259,18 +9259,21 @@ export default {
             fetch("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1", { cf: { cacheTtl: 43200 } }).then((r) => r.json()).catch(() => []),
             fetch(`${host}/${priorYear}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&W=YTD&JSON=1${kqs}`, { cf: { cacheTtl: 86400 } }).then((r) => r.json()).catch(() => ({})),
           ]);
+          // Local array-normalizer — the handler's shared asArray is a const
+          // declared later in scope (TDZ if referenced here).
+          const arr = (x) => Array.isArray(x) ? x : (x == null ? [] : [x]);
           const pById = {};
-          for (const p of asArray(plRes?.players?.player)) pById[String(p.id)] = p;
+          for (const p of arr(plRes?.players?.player)) pById[String(p.id)] = p;
           const adpById = {};
           for (const r of (Array.isArray(adpRows) ? adpRows : [])) {
             const id = safeStr((r.player || {}).mflId);
             if (id && id.toUpperCase() !== "UNK") adpById[id] = Number(r.overallRank) || null;
           }
           const ppgById = {};
-          for (const s2 of asArray(scRes?.playerScores?.playerScore)) if (s2 && s2.id) ppgById[String(s2.id)] = Number(s2.score) || 0;
+          for (const s2 of arr(scRes?.playerScores?.playerScore)) if (s2 && s2.id) ppgById[String(s2.id)] = Number(s2.score) || 0;
           const flipName = (n) => { n = safeStr(n); const i = n.indexOf(", "); return i > 0 ? (n.slice(i + 2) + " " + n.slice(0, i)) : n; };
           const players = [];
-          for (const fa of asArray(faRes?.freeAgents?.leagueUnit?.player)) {
+          for (const fa of arr(faRes?.freeAgents?.leagueUnit?.player)) {
             const id = safeStr(fa.id); const p = pById[id];
             if (!p || !p.name) continue;
             const pos = safeStr(p.position).toUpperCase();
