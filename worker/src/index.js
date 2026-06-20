@@ -594,6 +594,16 @@ async function processAuctionPoll(env) {
   const bidTxs = asArr(bidsRes?.transactions?.transaction);
   const wonTxs = asArr(winsRes?.transactions?.transaction);
 
+  // Every player_id with CURRENT MFL auction activity. Used at the end to purge
+  // D1 lots/bids whose source transactions the commish has since deleted — MFL
+  // emits no delete event (verified 2026-05-20), so without this a deleted
+  // *won* lot (e.g. a test nomination) sticks in D1 forever.
+  const liveTxnPids = new Set();
+  for (const tx of [...initTxs, ...bidTxs, ...wonTxs]) {
+    const pid = String(tx?.transaction || "").split("|")[0].replace(/\D/g, "");
+    if (pid) liveTxnPids.add(pid);
+  }
+
   // Merge INIT + BID into one stream for ingestion; tag with kind so
   // downstream renderers can distinguish nomination from overtake.
   const allBidEvents = [
@@ -883,6 +893,35 @@ async function processAuctionPoll(env) {
     console.log("[auction-reconcile] error:", String(e?.message || e));
   }
 
+  // ── Deleted-transaction purge ──
+  // If a player has D1 lots/bids but NO current MFL auction transaction, the
+  // commish deleted it in MFL → drop the stale rows (lots + bids), incl. WON
+  // lots that the cancellation pass above (open-only) can't catch. Guarded:
+  // only runs when we actually have live txns, so an MFL outage (empty fetch)
+  // can't wipe the tables — and we already returned early above if all empty.
+  let purgedLots = 0, purgedBids = 0;
+  if (liveTxnPids.size > 0) {
+    try {
+      const { results: lotPids } = await db.prepare(
+        `SELECT DISTINCT player_id FROM ups_auction_lots WHERE season = ? AND league_id = ?`
+      ).bind(season, leagueId).all();
+      const { results: bidPids } = await db.prepare(
+        `SELECT DISTINCT player_id FROM ups_auction_bids WHERE season = ? AND league_id = ?`
+      ).bind(season, leagueId).all();
+      const d1Pids = new Set([...(lotPids || []), ...(bidPids || [])].map((r) => String(r.player_id)));
+      for (const pid of d1Pids) {
+        if (liveTxnPids.has(pid)) continue;
+        const rb = await db.prepare(`DELETE FROM ups_auction_bids WHERE season = ? AND league_id = ? AND player_id = ?`).bind(season, leagueId, pid).run();
+        const rl = await db.prepare(`DELETE FROM ups_auction_lots WHERE season = ? AND league_id = ? AND player_id = ?`).bind(season, leagueId, pid).run();
+        purgedBids += rb.meta?.changes || 0;
+        purgedLots += rl.meta?.changes || 0;
+      }
+      if (purgedLots || purgedBids) console.log(`[auction-reconcile] purged deleted txns: lots=${purgedLots} bids=${purgedBids}`);
+    } catch (e) {
+      console.log("[auction-reconcile] deletion purge failed:", String(e?.message || e));
+    }
+  }
+
   // ── Discord narration ──
   // Fires AFTER all DB writes so messages reflect canonical state.
   // Fail-soft: any error here is logged but doesn't break the poll.
@@ -902,6 +941,8 @@ async function processAuctionPoll(env) {
     new_bids: newBids,
     new_wins: newWins,
     new_cancellations: newCancellations,
+    purged_lots: purgedLots,
+    purged_bids: purgedBids,
     active_lots: Number(activeLots?.n || 0),
   };
 }
@@ -2065,8 +2106,8 @@ export default {
     if (isAuctionPoll) {
       try {
         ctx.waitUntil(processAuctionPoll(env).then((r) => {
-          if (r?.new_bids || r?.new_wins) {
-            console.log(`[scheduled */5] auction poll: new_bids=${r.new_bids} new_wins=${r.new_wins} active_lots=${r.active_lots}`);
+          if (r?.new_bids || r?.new_wins || r?.purged_lots || r?.purged_bids) {
+            console.log(`[scheduled */5] auction poll: new_bids=${r.new_bids} new_wins=${r.new_wins} purged_lots=${r.purged_lots || 0} purged_bids=${r.purged_bids || 0} active_lots=${r.active_lots}`);
           }
         }).catch((e) => console.error(`[scheduled */5] auction poll failed: ${e && e.message}`)));
       } catch (e) {
