@@ -1,0 +1,22 @@
+{
+  "version": "1.1.0",
+  "released": "2026-06-20",
+  "label": "v1.1.0 — Pos-rank column, coverage/cap signals, Full-profile button, richer search, responsive, + mobile view",
+  "description": "The Advanced Stats Workbench gains a rank-within-position column (by MFL PPG, matching the mobile app), a coverage line that flags the 500-row cap and offseason, a 'Full profile' button in the drill-down drawer that opens the shared UPS player-profile modal, search by name/team/position, and a responsive layout for tablet/large-phone embeds. The leaderboard is also now available on the mobile site (focused per-position view).",
+  "scope": {
+    "this_release": [
+      "Pos Rk column — rank within position by MFL PPG over the current query (client-side; mirrors mobile)",
+      "Coverage line — 'data through {season}', '500-cap' truncation warning, offseason 'hasn't started' note",
+      "Full profile button in the drawer → shared player_profile_master.js modal (keeps the week/season charts)",
+      "Search by name + NFL team + position (was name-only)",
+      "Clearer MFL PPG tooltip",
+      "Responsive layout for narrow/tablet widths"
+    ],
+    "deferred": [
+      "Heat-map shading inside the drill-down drawer",
+      "By-Season 'Total' row in the drawer",
+      "Per-group PFR-2018+ / contract-is-current header notes",
+      "Server-side IDP ordering (currently ordered by total yards)"
+    ]
+  }
+}

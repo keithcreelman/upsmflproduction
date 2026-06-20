@@ -15,7 +15,21 @@
 body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 .asw-shell{max-width:1400px;margin:0 auto;padding:12px}
 h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
+.asw-version{font-size:10px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:5px;padding:1px 6px;vertical-align:middle;margin-left:6px;letter-spacing:.03em}
 .asw-subtitle{color:var(--muted);font-size:11px;margin-bottom:12px}
+/* Responsive (B7) — the page embeds in an iframe that can be tablet/large-phone
+   width. Tighten chrome + let the drawer go full-width so it's usable narrow. */
+@media (max-width:820px){
+  .asw-shell{padding:8px}
+  h1{font-size:16px}
+  .asw-drawer{width:100vw}
+  .asw-tabs{padding:8px}
+  .asw-tab{padding:5px 9px}
+}
+@media (max-width:560px){
+  .asw-drawer-head h2{font-size:14px}
+  .asw-table th,.asw-table td{padding:4px 6px}
+}
 
 /* Primary position tabs — grouped by phase (Offense / Defense / Special) */
 .asw-tabs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--panel);padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
@@ -195,8 +209,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
 </head>
 <body>
 <div class="asw-shell">
-<h1>Advanced Stats Workbench</h1>
-<div class="asw-subtitle">NFL on-field counts (nflverse) + snap share + PFR advanced. Tab picks the position; chips pick column groups. Player row click opens full profile (coming soon).</div>
+<h1>Advanced Stats Workbench <span id="asw-version" class="asw-version" title="Module version"></span></h1>
+<div class="asw-subtitle">NFL on-field counts (nflverse) + snap share + PFR advanced. Tab picks the position; chips pick column groups. Click a player for week-by-week / by-season trends, then "Full profile" for the full UPS card.</div>
 
 <!-- Primary position tabs -->
 <div class="asw-tabs" id="asw-tabs">
@@ -256,7 +270,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     </div>
   </label>
   <label>Search
-    <input type="text" id="asw-search" placeholder="name contains…">
+    <input type="text" id="asw-search" placeholder="name, team, or position…">
   </label>
 </div>
 
@@ -288,10 +302,15 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
       <button type="button" class="asw-chip" data-view="weekly" aria-pressed="true"  title="Week-by-week within the selected season(s)">By Week</button>
       <button type="button" class="asw-chip" data-view="season" aria-pressed="false" title="Year-over-year: one row per season across ALL years this player has data">By Season</button>
     </div>
+    <button type="button" class="asw-chip" id="asw-drawer-fullprofile" style="margin-left:auto" title="Open the full UPS player profile (Bio · Stats · Game Log · News)">Full profile ↗</button>
     <button type="button" class="asw-drawer-close" id="asw-drawer-close" aria-label="Close">×</button>
   </div>
   <div class="asw-drawer-body" id="asw-drawer-body"></div>
 </aside>
+
+<!-- Shared UPS player-profile modal. Absolute URL because this page is injected
+     as an iframe srcdoc (no base URL for relative paths). Defines window.UPS_openPlayerProfile. -->
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=2026.05.12.v1"></script>
 
 <script>
 (function(){
@@ -304,6 +323,13 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
   var MIN_SEASON = 2011;
   var LEAGUE_ID = "74598";
 
+  // Version badge (informational; the live version is the pinned SHA). Absolute
+  // URL because the page runs as an iframe srcdoc (no base for relative paths).
+  fetch("https://keithcreelman.github.io/upsmflproduction/stats_workbench/VERSION.json?_=" + Date.now(), { cache: "no-store" })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(v){ var el = document.getElementById("asw-version"); if (el && v && v.version) el.textContent = "v" + v.version; })
+    .catch(function(){});
+
   // ---------- Column manifest (single source of truth) ----------
   // Each column: label, num, fmt, cls, title, compute? (derived value)
   var COLS = {
@@ -313,11 +339,14 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     mfl_franchise_name:  { label:"MFL Team", cls:"dim",
       compute: function(r){ return r.mfl_franchise_name || "FA"; } },
     position:            { label:"Pos",      cls:"dim" },
+    pos_rank:            { label:"Pos Rk",   num:true, cls:"dim",
+      title:"Rank within position by MFL PPG, over the current query (matches the mobile app).",
+      compute: function(r){ return (state.rankByGsis && state.rankByGsis[r.gsis_id]) || null; } },
     // MFL Details (league-specific scoring + contract)
     mfl_points:          { label:"MFL Pts",  num:true, fmt:"dec1",
       title:"Total MFL fantasy points over the selected season/scope" },
     mfl_ppg:             { label:"MFL PPG",  num:true, fmt:"dec1",
-      title:"MFL fantasy points per game (weeks with score > 0 — computed server-side)" },
+      title:"MFL points ÷ games with a score (excludes inactives/byes; computed server-side)" },
     mfl_salary:          { label:"Salary",   num:true, fmt:"money",
       title:"Current MFL contract salary (compact: 45K / 1.25M)" },
     mfl_years_remaining: { label:"Yrs Left", num:true,
@@ -575,8 +604,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
   };
 
   // Identity columns — every tab shares these. Flex tabs prepend "position".
-  var IDENT_BASIC = ["player_name", "team", "mfl_franchise_name"];
-  var IDENT_FLEX  = ["player_name", "team", "mfl_franchise_name", "position"];
+  var IDENT_BASIC = ["player_name", "team", "mfl_franchise_name", "pos_rank"];
+  var IDENT_FLEX  = ["player_name", "team", "mfl_franchise_name", "position", "pos_rank"];
 
   // ---------- Tab definitions ----------
   // Each tab: workerPos (pos param to /api/advanced-stats-leaderboard),
@@ -912,6 +941,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     heatOn: false,         // percentile-rank cell coloring
     compareSet: new Set(), // gsis_ids selected for side-by-side comparison (max 4)
     compareRows: {},       // cached leaderboard rows keyed by gsis_id for the compare drawer
+    rankByGsis: {},        // gsis_id → pos rank by MFL PPG (B2, mirrors mobile buildLeaderboardMap)
+    lastApiCount: 0,       // worker row count for the last query (A1 coverage / 500-cap signal)
   };
 
   // ---------- Per-column filter expressions ----------
@@ -1101,10 +1132,12 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
       }
     }
 
-    // Search
+    // Search — name + NFL team + position (B6), mirrors the mobile auction search.
     var searchQ = (searchEl.value || "").trim().toLowerCase();
     if (searchQ) rows = rows.filter(function(r){
-      return String(r.player_name||"").toLowerCase().indexOf(searchQ) !== -1;
+      var hay = (String(r.player_name||"") + " " + String(r.team||"") + " " +
+                 String(r.position||"") + " " + String(r.pos_group||"")).toLowerCase();
+      return hay.indexOf(searchQ) !== -1;
     });
 
     // Per-column filters (only apply to currently visible columns — a filter
@@ -1307,7 +1340,19 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
 
     var filterCount = countActiveFilters();
     var filterHint = filterCount ? " · " + filterCount + " filter" + (filterCount === 1 ? "" : "s") : "";
-    metaEl.textContent = (state.lastQuery || "") + " · " + countLabel + (searchQ ? " (search)" : "") + filterHint;
+    // Coverage / completeness signal (A1/A6): flag the 500-row cap (long-tail
+    // truncation) + the offseason "season hasn't started" case. Cheap, no
+    // per-cell noise — derived from the payload count + selected seasons.
+    var covSeasons = getSelectedSeasons();
+    var maxSeason = covSeasons.length ? Math.max.apply(null, covSeasons) : null;
+    var nowY = new Date().getUTCFullYear();
+    var coverage = maxSeason ? (" · data through " + maxSeason) : "";
+    if (state.lastApiCount === 500) {
+      coverage += " · top 500 by yardage — deep bench may be cut off";
+    } else if (maxSeason === nowY && state.lastApiCount === 0) {
+      coverage += " · " + nowY + " hasn’t started — showing no rows yet";
+    }
+    metaEl.textContent = (state.lastQuery || "") + " · " + countLabel + (searchQ ? " (search)" : "") + filterHint + coverage;
 
     // Wire sort (column-header clicks)
     bodyEl.querySelectorAll("th[data-col-key]").forEach(function(el){
@@ -1752,6 +1797,26 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     return sel;
   }
 
+  // ---------- Rank within position by MFL PPG (B2) ----------
+  // Bucket by position (||pos_group), sort by mfl_ppg desc, assign 1..N. Keyed
+  // by gsis_id. Identical logic to the mobile app's buildLeaderboardMap so the
+  // "Pos Rk" column here and the "PPG Rk" in the mobile player sheet agree.
+  function computePosRanks(rows) {
+    var buckets = {};
+    (rows || []).forEach(function(r){
+      if (!r || !r.gsis_id) return;
+      var pos = String(r.position || r.pos_group || "").toUpperCase();
+      (buckets[pos] = buckets[pos] || []).push(r);
+    });
+    var map = {};
+    Object.keys(buckets).forEach(function(pos){
+      buckets[pos].slice()
+        .sort(function(a,b){ return Number(b.mfl_ppg || 0) - Number(a.mfl_ppg || 0); })
+        .forEach(function(r, i){ map[r.gsis_id] = i + 1; });
+    });
+    return map;
+  }
+
   // ---------- Fetch for the current tab's workerPos ----------
   function runQuery() {
     var tab = TABS[state.activeTab];
@@ -1780,6 +1845,9 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     ]).then(function(pair){
       var j = pair[0];
       var rows = Array.isArray(j.rows) ? j.rows : [];
+      // Coverage signal (A1): the worker LIMITs at 500; j.count === 500 means
+      // the long tail was truncated. Stash pre-team-filter count for the meta line.
+      state.lastApiCount = (j && typeof j.count === "number") ? j.count : rows.length;
       rows = applyLiveOwnership(rows);
       // Team filter (post-ownership-overlay)
       // Special values:
@@ -1803,6 +1871,10 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
         });
       }
       state.rowsByWorkerPos[workerPos] = rows;
+      // B2 — rank within position by MFL PPG over the fetched set. Mirrors the
+      // mobile buildLeaderboardMap (app.js) exactly (bucket by position||pos_group,
+      // sort by mfl_ppg desc) so desktop + mobile ranks never disagree.
+      state.rankByGsis = computePosRanks(rows);
       var seasonLabel = seasons.length === 1 ? String(seasons[0])
                       : seasons.length <= 3 ? seasons.sort(function(a,b){return b-a}).join(", ")
                       : seasons.sort(function(a,b){return a-b})[0] + "-" + seasons.sort(function(a,b){return b-a})[0];
@@ -1977,9 +2049,10 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     drawerState.weekRows = null;
     drawerState.allYearRows = null;
     drawerState.seasonRows = null;
-    // Hide the Week/Season view toggle — it's single-player only.
+    // Hide the Week/Season view toggle + Full-profile — single-player only.
     var toggleBox = document.getElementById("asw-drawer-view-toggle");
     if (toggleBox) toggleBox.style.display = "none";
+    if (drawerFullBtn) drawerFullBtn.style.display = "none";
 
     drawerTitle.textContent = "Comparison";
     drawerSub.textContent = players.length + " players · " + getScopeLabel();
@@ -2097,6 +2170,25 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     seasonRows:   null,  // aggregated one-row-per-season synthesized from allYearRows
     view:         "weekly",
   };
+
+  // B1 — "Full profile" button opens the shared UPS player-profile modal
+  // (Bio/Stats/GameLog/News) used across the app, keyed by MFL pid. We keep the
+  // rich week/season chart drawer; this just adds the unified profile alongside.
+  var drawerFullBtn = document.getElementById("asw-drawer-fullprofile");
+  if (drawerFullBtn) drawerFullBtn.addEventListener("click", function(){
+    var pr = drawerState.playerRow;
+    if (!pr || !pr.mfl_pid) return;
+    if (typeof window.UPS_openPlayerProfile === "function") {
+      window.UPS_openPlayerProfile(String(pr.mfl_pid), {
+        apiBase: API_BASE, leagueId: LEAGUE_ID, year: String(THIS_YEAR),
+        mode: "stats_workbench",
+        playerInfo: { name: pr.player_name || "", position: pr.position || "", team: pr.team || "" }
+      });
+    } else {
+      window.open("https://www.myfantasyleague.com/" + THIS_YEAR + "/options?L=" + LEAGUE_ID +
+        "&O=04&P=" + encodeURIComponent(pr.mfl_pid), "_blank", "noopener");
+    }
+  });
 
   // When the drawer's metric dropdown picks metric X, the table below
   // the chart narrows to [X + these related cols] instead of dumping
@@ -2249,6 +2341,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     // Toggle is single-player-only; the compare-drawer path hides it.
     var toggleBox = document.getElementById("asw-drawer-view-toggle");
     if (toggleBox) toggleBox.style.display = "";
+    if (drawerFullBtn) drawerFullBtn.style.display = "";   // single-player only
 
     var name = playerRow.player_name || "—";
     var nfl = playerRow.team || "—";
