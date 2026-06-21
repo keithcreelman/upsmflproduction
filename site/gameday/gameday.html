@@ -157,6 +157,21 @@
   .gd-sb-st.yet { color: var(--fg-muted, var(--muted)); opacity: 0.8; }
   .gd-sb-inj { font-size: 9px; font-weight: 800; color: var(--danger); border: 1px solid rgba(248,113,113,0.4); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
   @media (max-width: 720px) { .gd-sb-match-row { grid-template-columns: 1fr 1fr; row-gap: 8px; } .gd-sb-wp { grid-column: 1 / -1; } .gd-sb-exp { display: none; } }
+  /* Player scoring breakdown — inline expand under a starter row (MFL Detailed Results) */
+  a.gd-plink { cursor: pointer; }
+  .gd-bd-tr > td { padding: 0 !important; }
+  .gd-bd { background: rgba(91,141,255,0.06); border-left: 2px solid var(--accent); padding: 10px 12px 11px; }
+  .gd-bd-game { display: block; font-size: 11px; color: var(--muted); margin-bottom: 7px; }
+  .gd-bd-line { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 12.5px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .gd-bd-line .st { color: var(--fg); }
+  .gd-bd-line .pt { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+  .gd-bd-line .pt.p { color: var(--ok); }
+  .gd-bd-line .pt.n { color: var(--danger); }
+  .gd-bd-sub { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0 2px; font-weight: 800; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .gd-bd-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; font-size: 10.5px; color: var(--muted); }
+  .gd-bd-foot a { color: var(--accent); text-decoration: none; }
+  .gd-bd-loading, .gd-bd-empty, .gd-bd-err { padding: 10px 2px; text-align: center; color: var(--muted); font-size: 12px; }
+  .gd-bd-err a { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -210,7 +225,9 @@
     loadErrors: [],
     slots: null,            // { slotId: pid }
     submitting: false,
-    message: null           // { kind, text }
+    message: null,          // { kind, text }
+    sbBd: {},               // player breakdown cache: "year:week:pid" → /api/mfl-detailed JSON
+    sbPlayerExp: null       // pid whose inline scoring breakdown is open
   };
 
   // ---------- data layer (mirrors team_operations.js) ----------
@@ -834,9 +851,9 @@
   }
   function bindWeekControls(el) {
     var yEl = el.querySelector("#gd-sb-year");
-    if (yEl) yEl.addEventListener("change", function () { STATE.sbYear = yEl.value; STATE.sb = null; STATE.sbExpand = null; render(); });
+    if (yEl) yEl.addEventListener("change", function () { STATE.sbYear = yEl.value; STATE.sb = null; STATE.sbExpand = null; STATE.sbPlayerExp = null; render(); });
     var wEl = el.querySelector("#gd-sb-week");
-    if (wEl) wEl.addEventListener("change", function () { STATE.sbWeek = wEl.value; STATE.sb = null; STATE.sbExpand = null; render(); });
+    if (wEl) wEl.addEventListener("change", function () { STATE.sbWeek = wEl.value; STATE.sb = null; STATE.sbExpand = null; STATE.sbPlayerExp = null; render(); });
   }
 
   function renderLive(el) {
@@ -921,18 +938,78 @@
     el.querySelectorAll("[data-sbview]").forEach(function (b) {
       b.addEventListener("click", function () { STATE.sbView = b.getAttribute("data-sbview"); render(); });
     });
+    el.querySelectorAll("a.gd-plink[data-bd-pid]").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        // Modified clicks (cmd/ctrl/shift/middle) fall through to the MFL page.
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+        e.preventDefault();
+        var pid = a.getAttribute("data-bd-pid");
+        if (STATE.sbPlayerExp === pid) { STATE.sbPlayerExp = null; render(); return; }
+        STATE.sbPlayerExp = pid;
+        loadBreakdown(pid);
+        render();
+      });
+    });
     bindWeekControls(el);
     scheduleSbPoll();
   }
 
-  // Live roster table (used for "my starters" + expandable opponent rosters).
-  // MFL player page for the selected week — the canonical per-player scoring
-  // breakdown (raw stats → points), perfectly aligned with MFL. (An in-app
-  // breakdown via a worker scrape of this page is a planned follow-up.)
+  // MFL player page for the selected week (the "Full profile ↗" fallback link).
   function mflPlayerUrl(pid) {
     var wk = sbWeek();
     return "//" + CTX.host + "/" + encodeURIComponent(sbYear()) + "/player?L=" + encodeURIComponent(CTX.leagueId) +
       "&P=" + encodeURIComponent(pid) + (wk ? "&W=" + encodeURIComponent(wk) : "");
+  }
+
+  // In-app per-player scoring breakdown — pulled from MFL's own "Detailed
+  // Results" report via the worker (/api/mfl-detailed parses detailed?…&PRINTER=1).
+  // MFL-exact by construction (MFL computes it): first downs, sack yards lost,
+  // gross punt yards, per-FG distances — everything MFL scores, for ANY week.
+  function bdKey(pid) { return sbYear() + ":" + (sbWeek() || "") + ":" + pid; }
+  function loadBreakdown(pid) {
+    var key = bdKey(pid);
+    if (STATE.sbBd[key]) return;                 // cached (or already in flight)
+    STATE.sbBd[key] = { loading: true };
+    var wk = sbWeek();
+    fetch(workerUrl("/api/mfl-detailed?L=" + encodeURIComponent(CTX.leagueId) +
+        "&YEAR=" + encodeURIComponent(sbYear()) + "&P=" + encodeURIComponent(pid) +
+        (wk ? "&W=" + encodeURIComponent(wk) : "")), { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      // Validate on the actual `lines` array — the worker returns a catch-all
+      // {ok:true,…} (no lines) for unknown/misrouted /api paths, so an `ok`
+      // check alone would render a misleading "no scoring stats". A real DNP
+      // legitimately returns lines:[] (still an array) → the empty state.
+      .then(function (d) { STATE.sbBd[key] = (d && Array.isArray(d.lines)) ? d : { error: true }; render(); })
+      .catch(function () { STATE.sbBd[key] = { error: true }; render(); });
+  }
+  function breakdownRow(p) {
+    var d = STATE.sbBd[bdKey(p.pid)];
+    var full = '<a href="' + esc(mflPlayerUrl(p.pid)) + '" target="_blank" rel="noopener">Full profile ↗</a>';
+    var inner;
+    if (!d || d.loading) {
+      inner = '<div class="gd-bd-loading">Loading breakdown…</div>';
+    } else if (d.error) {
+      inner = '<div class="gd-bd-err">Couldn’t load the breakdown. ' + full + '</div>';
+    } else {
+      var lines = d.lines || [], pl = d.player || {};
+      var game = pl.game || pl.score;
+      var head = game ? '<span class="gd-bd-game">' + esc(game) + '</span>' : '';
+      if (!lines.length) {
+        inner = head + '<div class="gd-bd-empty">No scoring stats for ' + esc(sbYear()) + (sbWeek() ? ' Week ' + esc(sbWeek()) : '') + '.</div>' +
+          '<div class="gd-bd-foot"><span>MFL Detailed Results</span>' + full + '</div>';
+      } else {
+        var rows = lines.map(function (l) {
+          var pos = (Number(l.points) || 0) >= 0;
+          return '<div class="gd-bd-line"><span class="st">' + esc(l.stat) + '</span>' +
+            '<span class="pt ' + (pos ? 'p' : 'n') + '">' + (pos ? '+' : '') + fmtPts(l.points) + '</span></div>';
+        }).join("");
+        var subtotal = d.subtotal != null ? d.subtotal : lines.reduce(function (a, l) { return a + (Number(l.points) || 0); }, 0);
+        inner = head + '<div class="gd-bd-lines">' + rows + '</div>' +
+          '<div class="gd-bd-sub"><span>Subtotal</span><span>' + fmtPts(subtotal) + '</span></div>' +
+          '<div class="gd-bd-foot"><span>MFL Detailed Results</span>' + full + '</div>';
+      }
+    }
+    return '<tr class="gd-bd-tr"><td colspan="6"><div class="gd-bd">' + inner + '</div></td></tr>';
   }
   function rosterTable(team) {
     if (!team.starters.length) return '<div class="gd-stub" style="padding:14px">No starters scored yet.</div>';
@@ -942,11 +1019,15 @@
           : p.playing ? '<span class="gd-sb-st now">● ' + Math.ceil(p.gsr / 60) + "'</span>"
           : '<span class="gd-sb-st yet">Yet</span>';
         var inj = injuryShort(p.status) ? ' <span class="gd-sb-inj">' + esc(injuryShort(p.status)) + '</span>' : "";
-        var nameCell = '<a class="gd-plink" href="' + esc(mflPlayerUrl(p.pid)) + '" target="_blank" rel="noopener" title="Scoring breakdown on MFL">' + esc(p.name) + '</a>';
-        return '<tr><td>' + nameCell + inj + '</td><td class="gd-taxi-pos">' + esc(p.pos || "—") + '</td>' +
+        var nameCell = '<a class="gd-plink" href="' + esc(mflPlayerUrl(p.pid)) + '" target="_blank" rel="noopener"' +
+          ' data-bd-pid="' + esc(p.pid) + '" data-bd-name="' + esc(p.name) + '"' +
+          ' title="Tap for scoring breakdown">' + esc(p.name) + '</a>';
+        var row = '<tr><td>' + nameCell + inj + '</td><td class="gd-taxi-pos">' + esc(p.pos || "—") + '</td>' +
           '<td class="gd-taxi-pos">' + esc(p.nfl || "—") + '</td><td>' + st + '</td>' +
           '<td class="gd-taxi-sal" style="color:var(--fg)">' + fmtPts(p.live) + '</td>' +
           '<td class="gd-taxi-sal" style="color:var(--accent)">' + fmtPts(p.projFinal) + '</td></tr>';
+        if (STATE.sbPlayerExp === p.pid) row += breakdownRow(p);
+        return row;
       }).join("") + '</tbody></table>';
   }
 

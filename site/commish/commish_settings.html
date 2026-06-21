@@ -192,7 +192,10 @@
     var tools = [
       { label: "Become Commissioner", url: mfl("path", "logout?BECOME=0000") },
       { label: "Become Owner (0008)", url: mfl("path", "logout?BECOME=0008") },
-      { label: "Full MFL Commissioner Setup", url: mfl("path", "commissioner_setup") }
+      { label: "Full MFL Commissioner Setup", url: mfl("path", "commissioner_setup") },
+      // Developer's API docs/request tool — lives on api.myfantasyleague.com (not HOST),
+      // grounded to the current season (YEAR).
+      { label: "Developer's API", url: "https://api.myfantasyleague.com/" + encodeURIComponent(YEAR) + "/api_info?STATE=details" }
     ];
     var groups = [
       { title: "General", items: [
