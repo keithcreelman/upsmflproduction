@@ -18,6 +18,29 @@
   var SLOTS = FO.LINEUP_SLOTS;
   var TOTAL = FO.TOTAL_STARTERS;
 
+  // Projected points for the current scoring week. Source: MFL projectedScores
+  // (keyless) via the worker /api/mfl-export proxy. Lazy-loaded + cached on
+  // M.state; re-renders once it arrives. MFL is "fine for now" per Keith — a
+  // better projection source can swap in behind projFor() later.
+  function projMap() { return (M.state.lineupProj && M.state.lineupProj.map) || {}; }
+  function projFor(pid) { var v = projMap()[String(pid)]; return v == null ? null : v; }
+  function fmtProj(v) { return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1); }
+  function loadProjections() {
+    if (M.state.lineupProj) return;   // already loaded or in-flight
+    M.state.lineupProj = { loaded: false, map: {} };
+    fetch(API.mflExportUrl("projectedScores"), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var map = {}, ps = j && j.projectedScores && j.projectedScores.playerScore;
+        (Array.isArray(ps) ? ps : (ps ? [ps] : [])).forEach(function (p) {
+          if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) map[String(p.id)] = n; }
+        });
+        M.state.lineupProj = { loaded: true, map: map };
+        renderRoute();
+      })
+      .catch(function () { M.state.lineupProj = { loaded: true, map: {} }; renderRoute(); });
+  }
+
   function nameFor(player) {
     var raw = U.safeStr(player && player.name);
     if (!raw) return "";
@@ -89,7 +112,7 @@
       U.escapeHtml(msg.text || "") + '</div>';
   }
 
-  function renderHeader(v) {
+  function renderHeader(v, projTotal) {
     var fillClass = v.ok ? "ok" : (v.filled > TOTAL ? "over" : "under");
     var pct = Math.min(100, Math.round((v.filled / TOTAL) * 100));
     var summary = v.ok
@@ -97,7 +120,10 @@
       : '<strong>' + v.filled + ' / ' + TOTAL + '</strong> starters set';
     var offCls = v.bySide.O === FO.OFFENSE_STARTERS ? "ok" : "under";
     var defCls = v.bySide.D === FO.DEFENSE_STARTERS ? "ok" : "under";
-    var chips =
+    var projChip = (projTotal != null)
+      ? '<span class="ups-m-lineup-chip proj" title="Projected points (MFL, current week)">▾ ' + fmtProj(projTotal) + '</span>'
+      : '';
+    var chips = projChip +
       '<span class="ups-m-lineup-chip ' + offCls + '">Off ' + v.bySide.O + '/' + FO.OFFENSE_STARTERS + '</span>' +
       '<span class="ups-m-lineup-chip ' + defCls + '">Def ' + v.bySide.D + '/' + FO.DEFENSE_STARTERS + '</span>';
     var errorList = "";
@@ -122,11 +148,12 @@
 
   // Build the option text for a candidate inside a dropdown.
   function optText(r) {
-    var bits = [r.name];
     var meta = [];
     if (r.pos) meta.push(r.pos);
     if (r.team) meta.push(r.team);
     var line = r.name + (meta.length ? "  ·  " + meta.join(" ") : "");
+    var p = projFor(r.id);
+    if (p != null) line += "  ·  " + fmtProj(p) + "p";
     if (r.salary) line += "  ·  " + U.fmtUsd(r.salary);
     return line;
   }
@@ -141,7 +168,13 @@
       if (!FO.slotAccepts(slot, r.group)) return false;
       return !used[r.id] || r.id === current;
     });
-    cands.sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); });
+    // Highest projected first (players with no projection sort last), tie → salary.
+    cands.sort(function (a, b) {
+      var va = projFor(a.id), vb = projFor(b.id);
+      va = va == null ? -1 : va; vb = vb == null ? -1 : vb;
+      if (vb !== va) return vb - va;
+      return (b.salary || 0) - (a.salary || 0);
+    });
 
     var filled = !!current;
     var opts = '<option value="">— Empty —</option>';
@@ -155,12 +188,15 @@
     var note = slot.note ? '<span class="elig">' + U.escapeHtml(slot.note) + '</span>' : "";
     var selCls = "ups-m-slot-sel" + (filled ? "" : " empty");
     var emptyHint = cands.length ? "" : ' data-none="1"';
+    var cur = current ? projFor(current) : null;
+    var projCell = '<div class="ups-m-slot-proj' + (cur != null ? "" : " none") + '" title="Projected points">' + U.escapeHtml(fmtProj(cur)) + '</div>';
 
     return '<div class="ups-m-slot' + (filled ? " filled" : "") + '" data-slot="' + slot.id + '"' + emptyHint + '>' +
       '<div class="ups-m-slot-tag">' +
         '<span class="' + labelCls + '">' + U.escapeHtml(slot.label) + '</span>' + note +
       '</div>' +
       '<select class="' + selCls + '" data-slot="' + U.escapeHtml(slot.id) + '">' + opts + '</select>' +
+      projCell +
     '</div>';
   }
 
@@ -273,6 +309,7 @@
         '<div class="ups-m-stub"><div>No roster found.</div></div>';
       return;
     }
+    loadProjections();   // lazy fetch; re-renders when projections arrive
     var draft = ensureDraft(rows);
     var byId = rowsById(rows);
     var v = FO.validateSlots(draft, byId);
@@ -282,9 +319,16 @@
     var used = {};
     SLOTS.forEach(function (s) { if (draft[s.id]) used[draft[s.id]] = 1; });
 
+    // Sum projected points across filled slots (null until any projection loads).
+    var projTotal = null;
+    SLOTS.forEach(function (s) {
+      var p = draft[s.id] ? projFor(draft[s.id]) : null;
+      if (p != null) projTotal = (projTotal || 0) + p;
+    });
+
     var html = subTabs("lineup");
     html += renderMessage();
-    html += renderHeader(v);
+    html += renderHeader(v, projTotal);
     html += renderSection("O", "Offense", FO.OFFENSE_STARTERS, rows, draft, used);
     html += renderSection("D", "Defense", FO.DEFENSE_STARTERS, rows, draft, used);
     html += renderFooter(v, submitting);

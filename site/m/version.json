@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.20.7",
-  "label": "Lineup redesign: build your 18 starters with clear per-slot dropdowns — 1 QB, 2 RB, 2 WR, 1 TE, 2 Flex, 1 SuperFlex, K, P + 2 DL, 2 LB, 2 DB, 1 Flex. Picks fill and de-duplicate dynamically as you go."
+  "build": "2026.06.20.8",
+  "label": "Lineup now shows Projected Points per starter + a lineup total (MFL current-week projections). Dropdowns sort best-projected first."
 }

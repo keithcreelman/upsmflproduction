@@ -55,7 +55,10 @@
     font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
     background: var(--panel2); border-bottom: 1px solid var(--line); }
   .gd-col-head .n { color: var(--accent); letter-spacing: 0; }
-  .gd-slot { display: grid; grid-template-columns: 92px 1fr; gap: 10px; align-items: center; padding: 7px 14px; border-top: 1px solid var(--line); }
+  .gd-slot { display: grid; grid-template-columns: 88px 1fr 52px; gap: 10px; align-items: center; padding: 7px 14px; border-top: 1px solid var(--line); }
+  .gd-slot-proj { text-align: right; font-size: 14px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .gd-slot-proj.none { color: var(--muted); font-weight: 600; }
+  .gd-chip.proj { color: var(--accent); border-color: rgba(91,141,255,0.4); }
   .gd-slot:first-child { border-top: 0; }
   .gd-slot.filled { border-left: 3px solid var(--accent); padding-left: 11px; }
   .gd-slot-tag { display: flex; flex-direction: column; line-height: 1.15; }
@@ -146,7 +149,7 @@
 
   var STATE = {
     tab: "lineup",
-    league: null, rosters: null, salaries: null, players: null,
+    league: null, rosters: null, salaries: null, players: null, proj: {},
     franchises: [], viewerFranchiseId: "", viewerFranchise: null,
     loadErrors: [],
     slots: null,            // { slotId: pid }
@@ -186,12 +189,23 @@
       fetchJson(mflExportUrl("league")),
       fetchJson(mflExportUrl("rosters")),
       fetchJson(mflExportUrl("salaries")),
-      fetchJson(mflExportUrl("players", { DETAILS: "1" }))
+      fetchJson(mflExportUrl("players", { DETAILS: "1" })),
+      fetchJson(mflExportUrl("projectedScores"))   // current-week projections (keyless)
     ]).then(function (r) {
       STATE.league = r[0]; STATE.rosters = r[1]; STATE.salaries = r[2]; STATE.players = r[3];
+      STATE.proj = parseProj(r[4]);
       parseLeague(); resolveViewer();
     });
   }
+  // pid -> projected points (MFL projectedScores). "Fine for now" per Keith;
+  // a better source can swap in behind projFor() later.
+  function parseProj(j) {
+    var map = {}, ps = j && j.projectedScores && j.projectedScores.playerScore;
+    asArray(ps).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) map[String(p.id)] = n; } });
+    return map;
+  }
+  function projFor(pid) { var v = STATE.proj && STATE.proj[String(pid)]; return v == null ? null : v; }
+  function fmtProj(v) { return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1); }
   function parseLeague() {
     var lg = STATE.league && STATE.league.league; if (!lg) return;
     STATE.franchises = asArray(lg.franchises && lg.franchises.franchise).map(function (f) {
@@ -353,6 +367,8 @@
   function optText(r) {
     var meta = []; if (r.pos) meta.push(r.pos); if (r.team) meta.push(r.team);
     var line = r.name + (meta.length ? "  ·  " + meta.join(" ") : "");
+    var p = projFor(r.id);
+    if (p != null) line += "  ·  " + fmtProj(p) + "p";
     if (r.salary) line += "  ·  " + fmtUsd(r.salary);
     return line;
   }
@@ -361,13 +377,21 @@
     var cands = rows.filter(function (r) {
       if (!r.eligible || !slotAccepts(slot, r.group)) return false;
       return !used[r.id] || r.id === current;
-    }).sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); });
+    }).sort(function (a, b) {
+      // Highest projected first (no-projection sorts last), tie → salary.
+      var va = projFor(a.id), vb = projFor(b.id);
+      va = va == null ? -1 : va; vb = vb == null ? -1 : vb;
+      if (vb !== va) return vb - va;
+      return (b.salary || 0) - (a.salary || 0);
+    });
     var opts = '<option value="">— Empty —</option>';
     cands.forEach(function (r) { opts += '<option value="' + esc(r.id) + '"' + (r.id === current ? " selected" : "") + '>' + esc(optText(r)) + '</option>'; });
     var note = slot.note ? '<span class="elig">' + esc(slot.note) + '</span>' : "";
+    var cur = current ? projFor(current) : null;
     return '<div class="gd-slot' + (current ? " filled" : "") + '">' +
       '<div class="gd-slot-tag"><span class="pos' + (slot.flex ? " flex" : "") + '">' + esc(slot.label) + '</span>' + note + '</div>' +
       '<select class="gd-slot-sel' + (current ? "" : " empty") + '" data-slot="' + esc(slot.id) + '">' + opts + '</select>' +
+      '<div class="gd-slot-proj' + (cur != null ? "" : " none") + '" title="Projected points">' + esc(fmtProj(cur)) + '</div>' +
     '</div>';
   }
   function renderLineup(el) {
@@ -381,6 +405,9 @@
     var byId = {}; rows.forEach(function (r) { byId[r.id] = r; });
     var v = validate(draft, byId);
     var used = {}; SLOTS.forEach(function (sl) { if (draft[sl.id]) used[draft[sl.id]] = 1; });
+    var projTotal = null;
+    SLOTS.forEach(function (sl) { var pid = draft[sl.id]; if (pid) { var p = projFor(pid); if (p != null) projTotal = (projTotal || 0) + p; } });
+    var projChip = projTotal != null ? '<span class="gd-chip proj" title="Projected points (MFL, current week)">▾ ' + fmtProj(projTotal) + '</span>' : '';
 
     var offCls = v.bySide.O === OFF ? "ok" : "under", defCls = v.bySide.D === DEF ? "ok" : "under";
     var fillCls = v.ok ? "ok" : "under", pct = Math.min(100, Math.round(v.filled / TOTAL * 100));
@@ -397,7 +424,7 @@
     var html =
       '<div class="gd-lu-status">' +
         '<div class="gd-lu-status-line">' + summary +
-          '<span class="gd-chips"><span class="gd-chip ' + offCls + '">Off ' + v.bySide.O + '/' + OFF + '</span>' +
+          '<span class="gd-chips">' + projChip + '<span class="gd-chip ' + offCls + '">Off ' + v.bySide.O + '/' + OFF + '</span>' +
           '<span class="gd-chip ' + defCls + '">Def ' + v.bySide.D + '/' + DEF + '</span></span>' +
         '</div>' +
         '<div class="gd-bar"><div class="gd-bar-fill ' + fillCls + '" style="width:' + pct + '%"></div></div>' +
