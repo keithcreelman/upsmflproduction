@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.21.0",
-  "label": "New Live Scoring scoreboard (Home → Live Scoring): My team + opponents with Won/Lost/Tied, All-Play board, live-adjusted projections, year/week filter, and tap-a-player → MFL per-stat breakdown (first downs, sack yards, punt yards — MFL-exact, any week)."
+  "build": "2026.06.21.1",
+  "label": "Live Scoring: H2H record on your team row, Orig Proj once final (win-prob bar drops), All-Play column label, player breakdown now shows above/below expectation, and the year filter goes back to 2020."
 }

@@ -137,25 +137,25 @@
     fid = pad4(fid);
     var meta = sbFranchises().filter(function (f) { return f.id === fid; })[0] || { id: fid, name: fid };
     var raw = sbFranchiseRaw(fid);
-    if (!raw) return { fid: fid, name: meta.name, live: 0, projFinal: 0, secRem: 0, slots: 0, starters: [], hasData: false };
+    if (!raw) return { fid: fid, name: meta.name, live: 0, projFinal: 0, origProj: 0, secRem: 0, slots: 0, starters: [], hasData: false };
     var live = sbSource() === "live";
-    var teamScore = Number(raw.score || 0), remaining = 0, secRem = 0, starters = [];
+    var teamScore = Number(raw.score || 0), remaining = 0, secRem = 0, origTot = 0, starters = [];
     sbStarterRows(raw).forEach(function (p) {
       if (String(p.status) !== "starter") return;
       var pid = String(p.id), pts = Number(p.score || 0);
       var gsr = live ? (parseInt(p.gameSecondsRemaining, 10) || 0) : 0;
       var status = live ? injStatusFor(pid) : "";
-      var origProj = live ? projFor(pid) : 0;
+      var origProj = projFor(pid);   // ORIGINAL projection for the selected week (any week)
       var factor = injuryFactor(status);
       var rem = (!live || factor === 0) ? 0 : origProj * factor * (gsr / 3600);
-      remaining += rem; secRem += gsr;
+      remaining += rem; secRem += gsr; origTot += origProj;
       var pm = playerById(pid);
       starters.push({ pid: pid, name: nameFromMfl(pm.name) || pid, pos: s(pm.position).toUpperCase(), nfl: s(pm.team),
-        live: pts, gsr: gsr, status: status, projFinal: pts + rem,
+        live: pts, gsr: gsr, status: status, origProj: origProj, projFinal: pts + rem,
         playing: live && gsr > 0 && gsr < 3600, done: !live || gsr <= 0, yet: live && gsr >= 3600 });
     });
     starters.sort(function (a, b) { return b.projFinal - a.projFinal; });
-    return { fid: fid, name: meta.name, live: teamScore, projFinal: teamScore + remaining, secRem: secRem, slots: starters.length, starters: starters, hasData: true };
+    return { fid: fid, name: meta.name, live: teamScore, projFinal: teamScore + remaining, origProj: origTot, secRem: secRem, slots: starters.length, starters: starters, hasData: true };
   }
   function winProb(a, b) {
     var diff = a.projFinal - b.projFinal;
@@ -182,6 +182,22 @@
     var ahead = me.live > o.live;
     if (st === "final") return ahead ? '<span class="ups-m-sb-pill win">Won</span>' : '<span class="ups-m-sb-pill lose">Lost</span>';
     return ahead ? '<span class="ups-m-sb-pill win">Winning</span>' : '<span class="ups-m-sb-pill lose">Losing</span>';
+  }
+  // This-week head-to-head record (the UPS double/triple-header result) — W-L[-T]
+  // across the viewer's opponents, by actual score. Pre-game matchups skipped.
+  function h2hRecord(me, opps) {
+    var w = 0, l = 0, t = 0;
+    opps.forEach(function (o) {
+      if (matchupState(me, o) === "pre") return;
+      if (Math.abs(me.live - o.live) < 0.001) t++;
+      else if (me.live > o.live) w++;
+      else l++;
+    });
+    return { w: w, l: l, t: t, str: w + "-" + l + (t ? "-" + t : "") };
+  }
+  function teamFinal(team) {
+    if (sbSource() === "weekly") return true;
+    return !!(team.starters && team.starters.length && team.starters.every(function (x) { return x.done; }));
   }
   function sbOpponents() {
     var opps = [], meId = M.state.viewerFranchiseId;
@@ -259,8 +275,16 @@
             '<span class="pt ' + (pos ? "p" : "n") + '">' + (pos ? "+" : "") + fmtPts(l.points) + '</span></div>';
         }).join("");
         var subtotal = d.subtotal != null ? d.subtotal : lines.reduce(function (a, l) { return a + (Number(l.points) || 0); }, 0);
+        // Above / below expectation vs the player's ORIGINAL projection for this week.
+        var op = (p && p.origProj) || 0, expLine = "";
+        if (op > 0) {
+          var diff = subtotal - op, above = diff >= 0;
+          expLine = '<div class="ups-m-sb-bd-exp ' + (above ? "p" : "n") + '">vs proj ' + fmtPts(op) + ' · ' +
+            (above ? "+" : "") + fmtPts(diff) + ' ' + (above ? "above" : "below") + ' expectation</div>';
+        }
         inner = head + '<div class="ups-m-sb-bd-lines">' + rows + '</div>' +
           '<div class="ups-m-sb-bd-sub"><span>Subtotal</span><span>' + fmtPts(subtotal) + '</span></div>' +
+          expLine +
           '<div class="ups-m-sb-bd-foot"><span>MFL Detailed Results</span>' + full + '</div>';
       }
     }
@@ -290,7 +314,8 @@
   // ---- year/week controls ----
   function weekControls() {
     var cy = parseInt(ctx().year, 10) || (new Date()).getFullYear(), years = [];
-    for (var y = cy; y >= cy - 5; y--) years.push(y);
+    // Floor at 2020 — earliest season MFL has weeklyResults for L=74598.
+    for (var y = cy; y >= 2020; y--) years.push(y);
     var ySel = '<select class="ups-m-sb-sel" id="ups-m-sb-year">' + years.map(function (y) {
       return '<option value="' + y + '"' + (String(y) === String(sbYear()) ? " selected" : "") + '>' + y + '</option>';
     }).join("") + '</select>';
@@ -301,21 +326,30 @@
   function resetSb() { M.state.sb = null; M.state.sbExpand = null; M.state.sbPlayerExp = null; renderRoute(); }
 
   // ---- team row (Me or opponent) ----
-  function teamRow(team, isMe, me) {
+  function teamRow(team, isMe, me, opps) {
     var open = M.state.sbExpand === (isMe ? "me" : team.fid);
     var caret = '<span class="ups-m-sb-caret">' + (open ? "▾" : "▸") + '</span>';
     var main, sub = "";
     if (isMe) {
+      // H2H record (double/triple-header result) + ORIGINAL proj once my week is final.
+      var h2h = (opps && opps.length) ? h2hRecord(me, opps) : null;
+      var h2hChip = h2h ? ' <span class="ups-m-sb-h2h">H2H ' + esc(h2h.str) + '</span>' : '';
+      var meProjLbl = teamFinal(me) ? ('orig proj ' + fmtPts(team.origProj)) : ('proj ' + fmtPts(team.projFinal));
       main = caret +
-        '<span class="ups-m-sb-team"><span class="lbl">My</span> ' + esc(team.name) + '</span>' +
-        '<span class="ups-m-sb-num">' + fmtPts(team.live) + '<small>proj ' + fmtPts(team.projFinal) + '</small></span>';
+        '<span class="ups-m-sb-team"><span class="lbl">My</span> ' + esc(team.name) + h2hChip + '</span>' +
+        '<span class="ups-m-sb-num">' + fmtPts(team.live) + '<small>' + meProjLbl + '</small></span>';
     } else {
-      var pill = outcomePill(me, team), wpPct = Math.round(winProb(me, team) * 100), margin = me.projFinal - team.projFinal;
+      var fin = matchupState(me, team) === "final", pill = outcomePill(me, team), projLine;
+      if (fin) {
+        projLine = 'orig proj ' + fmtPts(me.origProj) + ' – ' + fmtPts(team.origProj);   // win-prob bar dropped once final
+      } else {
+        var margin = me.projFinal - team.projFinal, wpPct = Math.round(winProb(me, team) * 100);
+        projLine = 'proj ' + fmtPts(me.projFinal) + ' – ' + fmtPts(team.projFinal) + ' (' + (margin >= 0 ? "+" : "") + fmtPts(margin) + ')';
+        sub = '<div class="ups-m-sb-wp"><div class="ups-m-sb-wpbar"><div class="fill" style="width:' + wpPct + '%"></div></div><span class="wpn">' + wpPct + '%</span></div>';
+      }
       main = caret +
         '<span class="ups-m-sb-team"><span class="lbl">vs</span> ' + esc(team.name) + (pill ? " " + pill : "") + '</span>' +
-        '<span class="ups-m-sb-num">' + fmtPts(me.live) + ' – ' + fmtPts(team.live) +
-          '<small>proj ' + fmtPts(me.projFinal) + ' – ' + fmtPts(team.projFinal) + ' (' + (margin >= 0 ? "+" : "") + fmtPts(margin) + ')</small></span>';
-      sub = '<div class="ups-m-sb-wp"><div class="ups-m-sb-wpbar"><div class="fill" style="width:' + wpPct + '%"></div></div><span class="wpn">' + wpPct + '%</span></div>';
+        '<span class="ups-m-sb-num">' + fmtPts(me.live) + ' – ' + fmtPts(team.live) + '<small>' + projLine + '</small></span>';
     }
     return '<div class="ups-m-sb-row' + (isMe ? " mine" : "") + '">' +
       '<div class="ups-m-sb-row-tap" data-sbexp="' + (isMe ? "me" : esc(team.fid)) + '"><div class="ups-m-sb-row-main">' + main + '</div>' + sub + '</div>' +
@@ -345,7 +379,7 @@
       : (sbSource() === "weekly" ? '<span class="ups-m-sb-final">Final</span>' : '');
     var top = '<div class="ups-m-sb-top"><span class="wk">' + esc(sbYear()) + ' · Week ' + esc(wk) + ' · ' + esc(me.name) + '</span>' + statusTag + '</div>';
 
-    var meRow = teamRow(me, true, me);
+    var meRow = teamRow(me, true, me, opps);
     var oppRows = opps.length
       ? opps.map(function (o) { return teamRow(o, false, me); }).join("")
       : '<div class="ups-m-sb-note">No head-to-head opponent this week (bye) — your All-Play result still counts below.</div>';
@@ -367,7 +401,7 @@
     var allplay = '<div class="ups-m-sb-sec">All-Play board' +
       '<span class="ups-m-sb-toggle"><button type="button" data-sbview="proj"' + (sbView === "proj" ? ' class="on"' : '') + '>Proj</button>' +
       '<button type="button" data-sbview="live"' + (sbView === "live" ? ' class="on"' : '') + '>Live</button></span></div>' +
-      '<div class="ups-m-sb-ap"><div class="ups-m-sb-ap-row head"><span class="rk">#</span><span class="nm">Team</span><span class="lv">Live</span><span class="pj">Proj</span><span class="bt">Beat</span></div>' + apRows + '</div>';
+      '<div class="ups-m-sb-ap"><div class="ups-m-sb-ap-row head"><span class="rk">#</span><span class="nm">Team</span><span class="lv">Live</span><span class="pj">Proj</span><span class="bt">All-Play</span></div>' + apRows + '</div>';
 
     mount.innerHTML = head + weekControls() + top +
       '<div class="ups-m-sb-sec">My Week</div>' + meRow + oppRows +
