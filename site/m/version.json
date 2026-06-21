@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.21.1",
-  "label": "Live Scoring: H2H record on your team row, Orig Proj once final (win-prob bar drops), All-Play column label, player breakdown now shows above/below expectation, and the year filter goes back to 2020."
+  "build": "2026.06.21.2",
+  "label": "Live Scoring: yardage/TD bonuses shown as their own 'Bonus 200+ / 50+' lines, positional rank by points next to each starter, original projection once a game is final, above/below expectation; lineup dropdown trimmed to Player · Team · POS#rank."
 }

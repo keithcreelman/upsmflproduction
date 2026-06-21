@@ -88,7 +88,8 @@
       fetchJson(sbExportUrl("weeklyResults", wk)),
       fetchJson(sbExportUrl("schedule")),
       fetchJson(sbExportUrl("league")),
-      fetchJson(sbExportUrl("projectedScores", wk))
+      fetchJson(sbExportUrl("projectedScores", wk)),
+      fetchJson(sbExportUrl("playerScores", wk))   // every player's actual points → positional rank
     ]).then(function (r) {
       var live = r[0], weekly = r[1];
       var liveFr = (live && live.liveScoring && asArray(live.liveScoring.franchise).filter(function (f) { return f && f.id; })) || [];
@@ -97,8 +98,10 @@
       try { franchises = asArray(r[3].league.franchises.franchise).map(function (f) { return { id: pad4(f.id), name: s(f.name) }; }); } catch (e) {}
       var proj = {};
       try { asArray(r[4].projectedScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) proj[String(p.id)] = n; } }); } catch (e) {}
+      var scores = {};
+      try { asArray(r[5].playerScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) scores[String(p.id)] = n; } }); } catch (e) {}
       M.state.sb = { loaded: true, source: source, live: live, weekly: weekly, schedule: r[2],
-        franchises: franchises.length ? franchises : (M.state.franchises || []), proj: proj };
+        franchises: franchises.length ? franchises : (M.state.franchises || []), proj: proj, scores: scores };
       try { M.state.sbAt = Date.now(); } catch (e) {}
       renderRoute(); scheduleSbPoll();
     }).catch(function () { M.state.sb = { loaded: true, error: true }; renderRoute(); });
@@ -199,6 +202,46 @@
     if (sbSource() === "weekly") return true;
     return !!(team.starters && team.starters.length && team.starters.every(function (x) { return x.done; }));
   }
+  // Single-team game state: "pre" | "live" | "final" — drives live-blend vs orig proj.
+  function teamState(team) {
+    if (sbSource() === "weekly") return "final";
+    var ss = team.starters || [];
+    if (!ss.length) return "pre";
+    if (!ss.some(function (x) { return x.done || x.playing; })) return "pre";
+    return ss.every(function (x) { return x.done; }) ? "final" : "live";
+  }
+  function posGroup(pos) {
+    var p = s(pos).toUpperCase();
+    if (p === "QB") return "QB";
+    if (p === "RB" || p === "FB" || p === "HB") return "RB";
+    if (p === "WR") return "WR";
+    if (p === "TE") return "TE";
+    if (p === "PK" || p === "K") return "PK";
+    if (p === "PN" || p === "P") return "PN";
+    if (p === "DT" || p === "DE" || p === "NT" || p === "DL") return "DL";
+    if (p === "LB" || p === "OLB" || p === "ILB" || p === "MLB") return "LB";
+    if (p === "CB" || p === "S" || p === "FS" || p === "SS" || p === "DB") return "DB";
+    return "OTH";
+  }
+  // Positional-group rank by ACTUAL points that week (from playerScores). Cached.
+  function sbPosRank(pid) {
+    if (!M.state.sb) return null;
+    if (!M.state.sb._posRank) {
+      var scores = M.state.sb.scores || {}, byG = {};
+      Object.keys(scores).forEach(function (id) {
+        var pm = playerById(id) || {}; var g = posGroup(pm.position);
+        if (!g || g === "OTH") return;
+        (byG[g] = byG[g] || []).push({ id: id, pts: scores[id] });
+      });
+      var map = {};
+      Object.keys(byG).forEach(function (g) {
+        byG[g].sort(function (a, b) { return b.pts - a.pts; });
+        byG[g].forEach(function (x, i) { map[x.id] = { group: g, rank: i + 1 }; });
+      });
+      M.state.sb._posRank = map;
+    }
+    return M.state.sb._posRank[String(pid)] || null;
+  }
   function sbOpponents() {
     var opps = [], meId = M.state.viewerFranchiseId;
     if (sbSource() === "weekly") {
@@ -256,6 +299,34 @@
       .then(function (d) { M.state.sbBd[key] = (d && Array.isArray(d.lines)) ? d : { error: true }; renderRoute(); })
       .catch(function () { M.state.sbBd[key] = { error: true }; renderRoute(); });
   }
+  // Re-express raw breakdown lines: duplicate yardage line → milestone bonus;
+  // 50+ TD → base + 50+ bonus. Totals preserved. (Mirror of the desktop version.)
+  var YARD_MS = { Rushing: [100, 150, 200, 250], Receiving: [100, 150, 200], Passing: [300, 375, 425] };
+  function transformLines(lines) {
+    var seenYd = {}, out = [];
+    (lines || []).forEach(function (l) {
+      var stat = String(l.stat || ""), pts = Number(l.points) || 0;
+      var td = stat.match(/^(\d+)\s*yd\s+(.+?)\s+TD$/i);
+      if (td) {
+        var len = parseInt(td[1], 10), type = td[2], fifty = len >= 50;
+        out.push({ points: fifty ? (pts - 1) : pts, stat: type + " TD (" + (fifty ? "50+" : "1-49") + " yd)" });
+        if (fifty) out.push({ points: 1, stat: "Bonus 50+ yd " + type + " TD", bonus: true });
+        return;
+      }
+      var yd = stat.match(/^(\d+)\s+(Rushing|Receiving|Passing)\s+Yards$/i);
+      if (yd) {
+        var kind = yd[2].charAt(0).toUpperCase() + yd[2].slice(1).toLowerCase();
+        if (seenYd[kind]) {
+          var val = parseInt(yd[1], 10), ms = YARD_MS[kind] || [], thr = 0;
+          ms.forEach(function (m) { if (val >= m) thr = m; });
+          out.push({ points: pts, stat: "Bonus " + (thr || "") + "+ " + kind + " Yards", bonus: true });
+        } else { seenYd[kind] = true; out.push({ points: pts, stat: stat }); }
+        return;
+      }
+      out.push({ points: pts, stat: stat });
+    });
+    return out;
+  }
   function breakdownBlock(p) {
     var d = (M.state.sbBd || {})[bdKey(p.pid)];
     var full = '<a href="' + esc(mflPlayerUrl(p.pid)) + '" target="_blank" rel="noopener">Full profile ↗</a>';
@@ -269,9 +340,9 @@
         inner = head + '<div class="ups-m-sb-bd-msg">No scoring stats for ' + esc(sbYear()) + (sbWeek() ? ' Week ' + esc(sbWeek()) : '') + '.</div>' +
           '<div class="ups-m-sb-bd-foot"><span>MFL Detailed Results</span>' + full + '</div>';
       } else {
-        var rows = lines.map(function (l) {
+        var rows = transformLines(lines).map(function (l) {
           var pos = (Number(l.points) || 0) >= 0;
-          return '<div class="ups-m-sb-bd-line"><span class="st">' + esc(l.stat) + '</span>' +
+          return '<div class="ups-m-sb-bd-line' + (l.bonus ? " bonus" : "") + '"><span class="st">' + esc(l.stat) + '</span>' +
             '<span class="pt ' + (pos ? "p" : "n") + '">' + (pos ? "+" : "") + fmtPts(l.points) + '</span></div>';
         }).join("");
         var subtotal = d.subtotal != null ? d.subtotal : lines.reduce(function (a, l) { return a + (Number(l.points) || 0); }, 0);
@@ -300,11 +371,14 @@
         : '<span class="st yet">Yet</span>';
       var inj = injuryShort(p.status) ? ' <span class="ups-m-sb-inj">' + esc(injuryShort(p.status)) + '</span>' : "";
       var open = M.state.sbPlayerExp === p.pid;
+      var rk = sbPosRank(p.pid);
+      var rkBadge = rk ? ' <span class="ups-m-sb-prank">' + esc(rk.group) + '#' + rk.rank + '</span>' : '';
+      var projVal = p.done ? p.origProj : p.projFinal;   // orig proj once final
       var row = '<div class="ups-m-sb-pl' + (open ? " open" : "") + '" data-bd-pid="' + esc(p.pid) + '">' +
         '<span class="ups-m-sb-pl-caret">' + (open ? "▾" : "▸") + '</span>' +
-        '<span class="ups-m-sb-pl-id"><span class="nm">' + esc(p.name) + inj + '</span>' +
+        '<span class="ups-m-sb-pl-id"><span class="nm">' + esc(p.name) + rkBadge + inj + '</span>' +
           '<span class="meta">' + esc(p.pos || "—") + ' · ' + esc(p.nfl || "—") + ' · ' + st + '</span></span>' +
-        '<span class="ups-m-sb-pl-pts">' + fmtPts(p.live) + '<small>' + fmtPts(p.projFinal) + '</small></span>' +
+        '<span class="ups-m-sb-pl-pts">' + fmtPts(p.live) + '<small>' + fmtPts(projVal) + '</small></span>' +
       '</div>';
       if (open) row += breakdownBlock(p);
       return row;
@@ -334,18 +408,19 @@
       // H2H record (double/triple-header result) + ORIGINAL proj once my week is final.
       var h2h = (opps && opps.length) ? h2hRecord(me, opps) : null;
       var h2hChip = h2h ? ' <span class="ups-m-sb-h2h">H2H ' + esc(h2h.str) + '</span>' : '';
-      var meProjLbl = teamFinal(me) ? ('orig proj ' + fmtPts(team.origProj)) : ('proj ' + fmtPts(team.projFinal));
+      // Live games → live-blend; pre-game or final → ORIGINAL proj (ties to lineup).
+      var meProjLbl = (teamState(me) === "live") ? ('proj ' + fmtPts(team.projFinal)) : ('orig proj ' + fmtPts(team.origProj));
       main = caret +
         '<span class="ups-m-sb-team"><span class="lbl">My</span> ' + esc(team.name) + h2hChip + '</span>' +
         '<span class="ups-m-sb-num">' + fmtPts(team.live) + '<small>' + meProjLbl + '</small></span>';
     } else {
-      var fin = matchupState(me, team) === "final", pill = outcomePill(me, team), projLine;
-      if (fin) {
-        projLine = 'orig proj ' + fmtPts(me.origProj) + ' – ' + fmtPts(team.origProj);   // win-prob bar dropped once final
-      } else {
+      var live = matchupState(me, team) === "live", pill = outcomePill(me, team), projLine;
+      if (live) {
         var margin = me.projFinal - team.projFinal, wpPct = Math.round(winProb(me, team) * 100);
         projLine = 'proj ' + fmtPts(me.projFinal) + ' – ' + fmtPts(team.projFinal) + ' (' + (margin >= 0 ? "+" : "") + fmtPts(margin) + ')';
         sub = '<div class="ups-m-sb-wp"><div class="ups-m-sb-wpbar"><div class="fill" style="width:' + wpPct + '%"></div></div><span class="wpn">' + wpPct + '%</span></div>';
+      } else {
+        projLine = 'orig proj ' + fmtPts(me.origProj) + ' – ' + fmtPts(team.origProj);   // pre/final → orig proj, no bar
       }
       main = caret +
         '<span class="ups-m-sb-team"><span class="lbl">vs</span> ' + esc(team.name) + (pill ? " " + pill : "") + '</span>' +
