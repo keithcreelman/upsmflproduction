@@ -9360,6 +9360,13 @@ export default {
           if (["TYPE", "L", "YEAR", "JSON"].includes(k)) return;
           extra.set(k, v);
         });
+        // liveScoring returns ONLY the current week without an APIKEY; inject the
+        // worker's key server-side so the scoreboard can load any historical
+        // week (and DETAILS=1 raw stats). Key never leaves the worker.
+        if (type === "liveScoring") {
+          const lsKey = String(env.MFL_APIKEY || "").trim();
+          if (lsKey && !extra.has("APIKEY")) extra.set("APIKEY", lsKey);
+        }
         const extraStr = extra.toString();
         // Host selection:
         // - User-specific endpoints (myleagues/myfranchise) MUST go to
