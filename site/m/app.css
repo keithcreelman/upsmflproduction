@@ -1074,6 +1074,11 @@ button.ups-m-busy::before,
 .ups-m-st-row .v { text-align: right; font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--fg); }
 .ups-m-st-row .v:last-child { font-weight: 700; }
 .ups-m-st-row.head .v { font-weight: 600; }
+.ups-m-st-row .nm .tm .own { margin-left: 5px; color: var(--fg-muted); }
+.ups-m-st-row .nm .tm .own.fa { color: var(--accent); font-weight: 600; }
+/* Stats filter row — roster scope + column-set dropdowns */
+.ups-m-st-filters { display: flex; gap: 8px; padding: 0 12px 8px; }
+.ups-m-st-filters .ups-m-players-filter { flex: 1 1 0; min-width: 0; }
 .ups-m-fa-row .name {
   font-size: 14px;
   font-weight: 600;

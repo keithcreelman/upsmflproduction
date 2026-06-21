@@ -2,12 +2,20 @@
 
 .ups-m-sheet-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Use the DYNAMIC viewport height so the sheet is centered in the *visible*
+     area on mobile (iOS 100vh includes the URL bar, which pushed a tall sheet
+     off-screen — "shows in the middle, need to scroll"). vh is the fallback. */
+  height: 100vh;
+  height: 100dvh;
   background: rgba(0, 0, 0, 0.6);
   display: none;
   z-index: 100;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
   padding: 16px;
   -webkit-tap-highlight-color: transparent;
 }
@@ -18,6 +26,7 @@
   width: 100%;
   max-width: 520px;
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   background: var(--bg-elev);
   color: var(--fg);
   border-radius: 16px;
