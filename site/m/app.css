@@ -3009,6 +3009,8 @@ button.ups-m-busy::before,
 .ups-m-sb-pill.win { color: var(--ok); border: 1px solid rgba(139,229,139,0.45); }
 .ups-m-sb-pill.lose { color: var(--warn); border: 1px solid rgba(255,184,107,0.45); }
 .ups-m-sb-pill.tie { color: var(--fg-muted); border: 1px solid var(--line-soft); }
+.ups-m-sb-h2h { font-size: 9.5px; font-weight: 800; color: var(--accent); border: 1px solid rgba(91,141,255,0.45);
+  border-radius: 999px; padding: 1px 6px; margin-left: 5px; letter-spacing: 0.03em; white-space: nowrap; }
 .ups-m-sb-wp { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .ups-m-sb-wpbar { flex: 1; height: 6px; background: var(--bg-elev2); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
 .ups-m-sb-wpbar .fill { height: 100%; background: var(--accent); }
@@ -3046,6 +3048,9 @@ button.ups-m-busy::before,
 .ups-m-sb-bd-line .pt.n { color: var(--danger); }
 .ups-m-sb-bd-sub { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0 2px;
   font-weight: 800; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--fg); }
+.ups-m-sb-bd-exp { text-align: right; padding: 3px 0 1px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ups-m-sb-bd-exp.p { color: var(--ok); }
+.ups-m-sb-bd-exp.n { color: var(--danger); }
 .ups-m-sb-bd-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px;
   margin-top: 8px; font-size: 10px; color: var(--fg-muted); }
 .ups-m-sb-bd-foot a { color: var(--accent); text-decoration: none; }
