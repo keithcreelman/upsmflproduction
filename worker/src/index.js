@@ -9362,7 +9362,7 @@ export default {
         // Forward arbitrary extra params (DETAILS, P, FRANCHISE, DAYS, APIKEY, etc.)
         const extra = new URLSearchParams();
         url.searchParams.forEach((v, k) => {
-          if (["TYPE", "L", "YEAR", "JSON"].includes(k)) return;
+          if (["TYPE", "L", "YEAR", "JSON", "SERVER"].includes(k)) return;
           extra.set(k, v);
         });
         // liveScoring returns ONLY the current week without an APIKEY; inject the
@@ -9379,8 +9379,18 @@ export default {
         // - Other types use the league shard (www48 for UPS 74598) for
         //   speed; non-UPS leagues use api.* with 302 follow.
         const userScopedTypes = new Set(["myleagues", "myfranchise"]);
+        // Pre-2017 UPS seasons live under DISTINCT league_ids on older shards
+        // and are ARCHIVED → their weeklyResults/league export require the
+        // authenticated MFL session cookie. Inject it ONLY for these known UPS
+        // historical ids (never for arbitrary leagues). The client passes the
+        // per-year shard via &SERVER= (from /api/league-years).
+        const HIST_UPS_LEAGUES = new Set(["27191", "29015", "30590", "42721", "37227", "40832", "60671"]);
+        const isHistUps = HIST_UPS_LEAGUES.has(lid);
+        const srvParam = safeStr(url.searchParams.get("SERVER")).replace(/[^a-z0-9]/gi, "");
         let host;
-        if (userScopedTypes.has(type)) {
+        if (srvParam) {
+          host = `https://${srvParam}.myfantasyleague.com`;
+        } else if (userScopedTypes.has(type)) {
           host = "https://api.myfantasyleague.com";
         } else if (lid === "74598") {
           host = "https://www48.myfantasyleague.com";
@@ -9388,10 +9398,12 @@ export default {
           host = "https://api.myfantasyleague.com";
         }
         const upstream = `${host}/${encodeURIComponent(yr)}/export?TYPE=${encodeURIComponent(type)}&L=${encodeURIComponent(lid)}&JSON=1${extraStr ? "&" + extraStr : ""}`;
+        const exportHeaders = { "User-Agent": "Mozilla/5.0 (UPS-MFL-Worker)", "Accept": "application/json" };
+        if (isHistUps) { const ck = String(env.MFL_COOKIE || "").trim(); if (ck) exportHeaders.Cookie = ck; }
         try {
           const r = await fetch(upstream, {
             cf: { cacheTtl: 60, cacheEverything: true },
-            headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+            headers: exportHeaders,
           });
           const body = await r.text();
           // Pass through whatever MFL returned; jsonOut sets CORS headers.
