@@ -711,9 +711,32 @@
   // Year/week filter (default: current year, current/live week). "" week = current.
   function sbYear() { return STATE.sbYear || CTX.year; }
   function sbWeekSel() { return STATE.sbWeek || qp.get("W") || ""; }
+  // Per-season MFL league_id + shard from D1 (/api/league-years). 74598 is the
+  // 2017+ league (keyless); pre-2017 seasons live on older shards under distinct
+  // ids and are cookie-gated → those go through the worker (which injects the
+  // session cookie + the &SERVER= shard).
+  function loadLeagueYears() {
+    if (STATE.sbLeagueYears) return Promise.resolve(STATE.sbLeagueYears);
+    if (STATE._lyPromise) return STATE._lyPromise;
+    STATE._lyPromise = fetchJson(workerUrl("/api/league-years")).then(function (d) {
+      var map = {};
+      asArray(d && d.years).forEach(function (y) { if (y && y.season) map[String(y.season)] = { server: s(y.server) || "www48", league_id: s(y.league_id) }; });
+      STATE.sbLeagueYears = map; return map;
+    }).catch(function () { STATE.sbLeagueYears = {}; return {}; });
+    return STATE._lyPromise;
+  }
+  function sbLeagueInfo(year) {
+    var m = STATE.sbLeagueYears || {};
+    return m[String(year)] || { server: "www48", league_id: CTX.leagueId };
+  }
+  function sbLid() { return sbLeagueInfo(sbYear()).league_id; }
   function sbExportUrl(type, week) {
-    var base = onMflHost() ? "//" + CTX.host + "/" + encodeURIComponent(sbYear()) + "/export" : workerUrl("/api/mfl-export");
-    var url = base + "?TYPE=" + encodeURIComponent(type) + "&L=" + encodeURIComponent(CTX.leagueId) + "&YEAR=" + encodeURIComponent(sbYear()) + "&JSON=1&DETAILS=1";
+    var info = sbLeagueInfo(sbYear()), lid = info.league_id, srv = info.server || "www48";
+    var historical = String(lid) !== "74598";          // pre-2017 → distinct id/shard, cookie-gated
+    var viaWorker = historical || !onMflHost();
+    var base = viaWorker ? workerUrl("/api/mfl-export") : ("//" + CTX.host + "/" + encodeURIComponent(sbYear()) + "/export");
+    var url = base + "?TYPE=" + encodeURIComponent(type) + "&L=" + encodeURIComponent(lid) + "&YEAR=" + encodeURIComponent(sbYear()) + "&JSON=1&DETAILS=1";
+    if (viaWorker && historical) url += "&SERVER=" + encodeURIComponent(srv);
     if (week) url += "&W=" + encodeURIComponent(week);
     return url;
   }
@@ -723,6 +746,7 @@
   function loadScoreboard(force) {
     if (STATE.sb && STATE.sb.loaded && !force) { if (STATE.tab === "live") scheduleSbPoll(); return; }
     if (!STATE.sb) STATE.sb = { loaded: false };
+    loadLeagueYears().then(function () {   // resolve per-year league_id/shard before fetching
     var wk = sbWeekSel();
     Promise.all([
       fetchJson(sbExportUrl("liveScoring", wk)),
@@ -747,6 +771,7 @@
       try { STATE.sbAt = new Date(); } catch (e) {}
       if (STATE.tab === "live") { render(); scheduleSbPoll(); }
     }).catch(function () { STATE.sb = { loaded: true, error: true }; if (STATE.tab === "live") render(); });
+    });
   }
   function sbSource() { return (STATE.sb && STATE.sb.source) || "live"; }
   function sbLive() { return (STATE.sb && STATE.sb.live && STATE.sb.live.liveScoring) || null; }
@@ -928,10 +953,15 @@
   // Year + Week filter controls (any past week via weeklyResults; "Current" = live).
   function weekControls() {
     var cy = parseInt(CTX.year, 10) || (new Date()).getFullYear(), years = [];
-    // Floor at 2020 — the earliest season MFL has weeklyResults for L=74598
-    // (2019 and earlier used different per-year league_ids). The old cy-4 cap
-    // wrongly bottomed out at 2022.
-    for (var y = cy; y >= 2020; y--) years.push(String(y));
+    // Year list is the D1 per-season map (/api/league-years) — every UPS season
+    // 2010→now, each on its own league_id/shard. Until it loads, fall back to
+    // the keyless range (74598 covers 2017+).
+    var lyMap = STATE.sbLeagueYears;
+    if (lyMap && Object.keys(lyMap).length) {
+      years = Object.keys(lyMap).sort(function (a, b) { return Number(b) - Number(a); });
+    } else {
+      for (var y = cy; y >= 2017; y--) years.push(String(y));
+    }
     var yOpts = years.map(function (y) { return '<option value="' + y + '"' + (y === sbYear() ? " selected" : "") + '>' + y + '</option>'; }).join("");
     var selWk = sbWeekSel();
     var wOpts = '<option value=""' + (!selWk ? " selected" : "") + '>Current week</option>';
@@ -950,7 +980,7 @@
     if (!STATE.sb || !STATE.sb.loaded) { el.innerHTML = weekControls() + '<div class="gd-stub">Loading scoring…</div>'; bindWeekControls(el); return; }
     var ls = sbLive();
     var active = sbSource() === "weekly" ? sbWeekly() : ls;
-    var nativeUrl = "//" + CTX.host + "/" + encodeURIComponent(sbYear()) + "/ajax_ls?L=" + encodeURIComponent(CTX.leagueId);
+    var nativeUrl = "//" + (sbLeagueInfo(sbYear()).server || "www48") + ".myfantasyleague.com/" + encodeURIComponent(sbYear()) + "/ajax_ls?L=" + encodeURIComponent(sbLid());
     if (STATE.sb.error || !active) {
       el.innerHTML = weekControls() +
         '<div class="gd-ls-hero"><h2>Scoreboard</h2><div class="gd-note" style="margin:0">No scoring data for ' + esc(sbYear()) + ' ' + (sbWeekSel() ? "Week " + esc(sbWeekSel()) : "the current week") +
@@ -1069,10 +1099,11 @@
     scheduleSbPoll();
   }
 
-  // MFL player page for the selected week (the "Full profile ↗" fallback link).
+  // MFL player page for the selected week (the "Full profile ↗" fallback link) —
+  // per-year shard + league_id so historical seasons link correctly.
   function mflPlayerUrl(pid) {
-    var wk = sbWeek();
-    return "//" + CTX.host + "/" + encodeURIComponent(sbYear()) + "/player?L=" + encodeURIComponent(CTX.leagueId) +
+    var wk = sbWeek(), info = sbLeagueInfo(sbYear());
+    return "//" + (info.server || "www48") + ".myfantasyleague.com/" + encodeURIComponent(sbYear()) + "/player?L=" + encodeURIComponent(info.league_id) +
       "&P=" + encodeURIComponent(pid) + (wk ? "&W=" + encodeURIComponent(wk) : "");
   }
 
@@ -1086,7 +1117,7 @@
     if (STATE.sbBd[key]) return;                 // cached (or already in flight)
     STATE.sbBd[key] = { loading: true };
     var wk = sbWeek();
-    fetch(workerUrl("/api/mfl-detailed?L=" + encodeURIComponent(CTX.leagueId) +
+    fetch(workerUrl("/api/mfl-detailed?L=" + encodeURIComponent(sbLid()) +
         "&YEAR=" + encodeURIComponent(sbYear()) + "&P=" + encodeURIComponent(pid) +
         (wk ? "&W=" + encodeURIComponent(wk) : "")), { mode: "cors", credentials: "omit", cache: "no-store" })
       .then(function (r) { return r.json(); })
