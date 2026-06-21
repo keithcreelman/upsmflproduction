@@ -631,19 +631,24 @@ def main() -> None:
                     help="Skip the D1 dual-write — useful for local-only debug runs")
     args = ap.parse_args()
 
-    if not args.skip_local and not LOCAL_DB.exists():
-        sys.exit(f"local DB missing at {LOCAL_DB}\n"
-                 f"(set MFL_DB_PATH env var if DB lives elsewhere)")
-    print(f"DB: {LOCAL_DB}", file=sys.stderr)
-    db = sqlite3.connect(str(LOCAL_DB), timeout=30)
-    # WAL + busy_timeout — iCloud-synced DB serializes write locks
-    # poorly when the iCloud daemon is reading the file mid-write.
-    try:
-        db.execute("PRAGMA journal_mode=WAL")
-        db.execute("PRAGMA busy_timeout=30000")
-    except sqlite3.DatabaseError:
-        pass
-    if not args.skip_local:
+    if args.skip_local:
+        # D1-only run — don't open (or require) the local SQLite DB at all.
+        # All local writes downstream are already gated on `not skip_local`,
+        # so db stays None.
+        db = None
+    else:
+        if not LOCAL_DB.exists():
+            sys.exit(f"local DB missing at {LOCAL_DB}\n"
+                     f"(set MFL_DB_PATH env var if DB lives elsewhere)")
+        print(f"DB: {LOCAL_DB}", file=sys.stderr)
+        db = sqlite3.connect(str(LOCAL_DB), timeout=30)
+        # WAL + busy_timeout — iCloud-synced DB serializes write locks
+        # poorly when the iCloud daemon is reading the file mid-write.
+        try:
+            db.execute("PRAGMA journal_mode=WAL")
+            db.execute("PRAGMA busy_timeout=30000")
+        except sqlite3.DatabaseError:
+            pass
         try:
             ensure_table(db)
             ensure_weekly_columns(db)
