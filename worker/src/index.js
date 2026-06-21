@@ -2720,6 +2720,7 @@ export default {
         path !== "/admin/auction/backfill-era-ppg" &&
         path !== "/admin/auction/finalize-era-contracts" &&
         path !== "/api/league-events" &&
+        path !== "/api/league-years" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
         path !== "/api/historical-finishes" &&
