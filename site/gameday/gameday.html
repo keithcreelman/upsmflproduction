@@ -256,6 +256,23 @@
   }
   function projFor(pid) { var v = STATE.proj && STATE.proj[String(pid)]; return v == null ? null : v; }
   function fmtProj(v) { return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1); }
+  // League-wide positional rank by projection (cached): { pid: { rank, group } }.
+  function posRankMap() {
+    if (STATE.projRank) return STATE.projRank;
+    var byG = {};
+    Object.keys(STATE.proj || {}).forEach(function (pid) {
+      var pl = playerById(pid); var g = posGroup(pl && pl.position);
+      if (g === "OTH") return;
+      (byG[g] = byG[g] || []).push({ pid: pid, proj: STATE.proj[pid] });
+    });
+    var map = {};
+    Object.keys(byG).forEach(function (g) {
+      byG[g].sort(function (a, b) { return b.proj - a.proj; });
+      byG[g].forEach(function (x, i) { map[x.pid] = { rank: i + 1, group: g }; });
+    });
+    STATE.projRank = map; return map;
+  }
+  function posRankFor(pid) { return posRankMap()[String(pid)] || null; }
   function parseLeague() {
     var lg = STATE.league && STATE.league.league; if (!lg) return;
     STATE.franchises = asArray(lg.franchises && lg.franchises.franchise).map(function (f) {
@@ -347,14 +364,16 @@
       return row;
     });
   }
+  // Optimal lineup by projection (no-projection sorts last).
+  function optScore(r) { var p = projFor(r.id); return p == null ? -1 : p; }
   function autoFill(rows) {
     var byG = {};
     rows.forEach(function (r) { if (eligibleRow(r)) { var g = posGroup(r.pos); (byG[g] = byG[g] || []).push(r); } });
-    Object.keys(byG).forEach(function (g) { byG[g].sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); }); });
+    Object.keys(byG).forEach(function (g) { byG[g].sort(function (a, b) { return optScore(b) - optScore(a); }); });
     var used = {}, draft = {};
     function take(accepts) {
       var best = null;
-      accepts.forEach(function (g) { (byG[g] || []).forEach(function (r) { if (!used[r.id] && (!best || (r.salary || 0) > (best.salary || 0))) best = r; }); });
+      accepts.forEach(function (g) { (byG[g] || []).forEach(function (r) { if (!used[r.id] && (!best || optScore(r) > optScore(best))) best = r; }); });
       if (best) { used[best.id] = 1; return best.id; } return "";
     }
     SLOTS.forEach(function (sl) { if (!sl.flex) draft[sl.id] = take(sl.accepts); });
@@ -415,12 +434,17 @@
   }
 
   // ---- Lineup tab ----
+  // Salary is irrelevant for a starting lineup — show projection + positional
+  // projection rank instead (Keith 2026-06-21).
   function optText(r) {
     var meta = []; if (r.pos) meta.push(r.pos); if (r.team) meta.push(r.team);
     var line = r.name + (meta.length ? "  ·  " + meta.join(" ") : "");
     var p = projFor(r.id);
-    if (p != null) line += "  ·  " + fmtProj(p) + "p";
-    if (r.salary) line += "  ·  " + fmtUsd(r.salary);
+    if (p != null) {
+      line += "  ·  " + fmtProj(p) + " pts";
+      var rk = posRankFor(r.id);
+      if (rk) line += "  ·  " + rk.group + " #" + rk.rank;
+    }
     return line;
   }
   function slotHtml(slot, rows, draft, used) {
@@ -458,7 +482,7 @@
     var used = {}; SLOTS.forEach(function (sl) { if (draft[sl.id]) used[draft[sl.id]] = 1; });
     var projTotal = null;
     SLOTS.forEach(function (sl) { var pid = draft[sl.id]; if (pid) { var p = projFor(pid); if (p != null) projTotal = (projTotal || 0) + p; } });
-    var projChip = projTotal != null ? '<span class="gd-chip proj" title="Projected points (MFL, current week)">▾ ' + fmtProj(projTotal) + '</span>' : '';
+    var projChip = projTotal != null ? '<span class="gd-chip proj" title="Projected points (MFL, current week)">' + fmtProj(projTotal) + ' Proj Pts</span>' : '';
 
     var offCls = v.bySide.O === OFF ? "ok" : "under", defCls = v.bySide.D === DEF ? "ok" : "under";
     var fillCls = v.ok ? "ok" : "under", pct = Math.min(100, Math.round(v.filled / TOTAL * 100));
@@ -480,7 +504,7 @@
         '</div>' +
         '<div class="gd-bar"><div class="gd-bar-fill ' + fillCls + '" style="width:' + pct + '%"></div></div>' +
         (v.errors.length ? '<ul class="gd-lu-errors">' + v.errors.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join("") + '</ul>' : '') +
-        '<div class="gd-lu-tools"><button type="button" class="gd-tool" id="gd-autofill">Auto-fill</button>' +
+        '<div class="gd-lu-tools"><button type="button" class="gd-tool" id="gd-autofill" title="Fill the highest-projected eligible player into every slot">⚡ Optimal</button>' +
         '<button type="button" class="gd-tool" id="gd-clear">Clear all</button></div>' +
       '</div>' +
       (STATE.message ? '<div class="gd-msg ' + esc(STATE.message.kind) + '">' + esc(STATE.message.text) + '</div>' : '') +

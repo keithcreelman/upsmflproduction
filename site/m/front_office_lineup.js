@@ -79,10 +79,12 @@
     return posGroup(r.pos) !== "OTH";
   }
 
-  // Greedy seed — fill the fixed slots first (best-by-salary), then the flex
-  // slots from the best remaining eligible player. Returns { slotId: pid }.
-  // A sensible default the owner can adjust; not an "optimal" lineup.
-  function autoFillSlots(rows) {
+  // Greedy seed — fill the fixed slots first (best by `scoreFn`), then the
+  // flex slots from the best remaining eligible player. Returns { slotId: pid }.
+  // scoreFn(row) ranks candidates (default: salary). Pass a projection-based
+  // scoreFn for the "Optimal" lineup.
+  function autoFillSlots(rows, scoreFn) {
+    var score = (typeof scoreFn === "function") ? scoreFn : function (r) { return r.salary || 0; };
     var byGroup = {};
     rows.forEach(function (r) {
       if (!lineupEligibleRow(r)) return;
@@ -90,14 +92,14 @@
       (byGroup[g] = byGroup[g] || []).push(r);
     });
     Object.keys(byGroup).forEach(function (g) {
-      byGroup[g].sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); });
+      byGroup[g].sort(function (a, b) { return score(b) - score(a); });
     });
     var used = {}, draft = {};
     function take(accepts) {
       var best = null;
       accepts.forEach(function (g) {
         (byGroup[g] || []).forEach(function (r) {
-          if (!used[r.id] && (!best || (r.salary || 0) > (best.salary || 0))) best = r;
+          if (!used[r.id] && (!best || score(r) > score(best))) best = r;
         });
       });
       if (best) { used[best.id] = 1; return best.id; }
