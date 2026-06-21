@@ -112,6 +112,45 @@
   .gd-ls-hero h2 { margin: 0 0 6px; font-size: 17px; }
   .gd-ls-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
   .gd-ls-frame { width: 100%; min-height: 600px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+
+  /* ---- Live scoreboard ---- */
+  .gd-sb-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; font-size: 14px; }
+  .gd-sb-wk { font-weight: 800; }
+  .gd-sb-meta { color: var(--muted); font-size: 12px; }
+  .gd-sb-livedot { color: var(--ok); font-weight: 800; }
+  .gd-sb-myline { display: flex; align-items: baseline; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+  .gd-sb-myline .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .gd-sb-myline .live { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .gd-sb-myline .proj { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .gd-sb-match { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; overflow: hidden; background: var(--panel); }
+  .gd-sb-match-row { display: grid; grid-template-columns: 1.4fr 1.6fr 1.2fr 24px; gap: 12px; align-items: center; padding: 11px 14px; cursor: pointer; }
+  .gd-sb-match-row:hover { background: var(--panel2); }
+  .gd-sb-opp { font-weight: 700; }
+  .gd-sb-opp .vs { color: var(--muted); font-weight: 600; margin-right: 2px; }
+  .gd-sb-pill { font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px; margin-left: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .gd-sb-pill.win { color: var(--ok); border: 1px solid rgba(74,222,128,0.4); }
+  .gd-sb-pill.lose { color: var(--warn); border: 1px solid rgba(251,191,36,0.4); }
+  .gd-sb-nums { font-variant-numeric: tabular-nums; }
+  .gd-sb-nums .s { font-size: 15px; font-weight: 700; }
+  .gd-sb-nums .p { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .gd-sb-wp { display: flex; align-items: center; gap: 8px; }
+  .gd-sb-wpbar { flex: 1; height: 8px; background: var(--panel2); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  .gd-sb-wpbar .fill { height: 100%; background: var(--accent); }
+  .gd-sb-wp .wpn { font-size: 13px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+  .gd-sb-exp { color: var(--muted); text-align: center; }
+  .gd-sb-oppros { border-top: 1px solid var(--line); padding: 0 6px 6px; background: var(--bg); }
+  .gd-sb-sec-head { display: flex; justify-content: space-between; align-items: center; margin: 20px 0 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .gd-sb-toggle button { background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; padding: 3px 9px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; margin-left: 4px; }
+  .gd-sb-toggle button.on { color: var(--accent); border-color: var(--accent); }
+  .gd-sb-ros th, .gd-sb-ap th { font-size: 10px; }
+  .gd-sb-ap tr.me td { background: rgba(91,141,255,0.10); }
+  .gd-sb-ap .rk, .gd-sb-ros .rk { color: var(--muted); font-variant-numeric: tabular-nums; width: 28px; }
+  .gd-sb-st { font-size: 11px; font-weight: 700; }
+  .gd-sb-st.done { color: var(--muted); }
+  .gd-sb-st.now { color: var(--ok); }
+  .gd-sb-st.yet { color: var(--fg-muted, var(--muted)); opacity: 0.8; }
+  .gd-sb-inj { font-size: 9px; font-weight: 800; color: var(--danger); border: 1px solid rgba(248,113,113,0.4); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+  @media (max-width: 720px) { .gd-sb-match-row { grid-template-columns: 1fr 1fr; row-gap: 8px; } .gd-sb-wp { grid-column: 1 / -1; } .gd-sb-exp { display: none; } }
 </style>
 </head>
 <body>
@@ -353,6 +392,7 @@
   ];
 
   function render() {
+    if (STATE.sbTimer) { clearTimeout(STATE.sbTimer); STATE.sbTimer = null; }  // re-armed by renderLive when on the live tab
     var who = STATE.viewerFranchise ? STATE.viewerFranchise.name : (STATE.viewerFranchiseId || "—");
     var html = '<div class="gd-head"><h1>Game Day</h1><span class="gd-badge">' + esc(who) + '</span></div>' +
       '<div class="gd-sub">League ' + esc(CTX.leagueId) + ' · ' + esc(CTX.year) + ' · set your starters, manage the taxi squad, and follow live scoring.</div>' +
@@ -576,21 +616,225 @@
     });
   }
 
-  // ---- Live Scoring tab ----
+  // ============ Live Scoring scoreboard ============
+  // Custom board: live-adjusted projections (live + remaining proj, injury-aware),
+  // double/triple-header support, per-matchup win probability, and an All-Play
+  // board. Data via the worker proxy (60s cache = shared poller); polls ~30s
+  // while games are live. Spec: memory project_gameday_scoreboard.
+  var SB_POLL_MS = 30000, SIGMA_BASE = 30;
+
+  function injuryFactor(status) {
+    var s = String(status || "").toUpperCase();
+    if (!s) return 1;
+    if (s === "OUT" || s.indexOf("IR") >= 0 || s.indexOf("PUP") >= 0 || s.indexOf("SUSP") >= 0 || s === "NA") return 0;
+    if (s.indexOf("DOUBT") >= 0) return 0.40;
+    if (s.indexOf("QUEST") >= 0) return 0.75;
+    return 1;
+  }
+  function injuryShort(status) {
+    var s = String(status || "").toUpperCase(); if (!s) return "";
+    if (s.indexOf("DOUBT") >= 0) return "D"; if (s.indexOf("QUEST") >= 0) return "Q";
+    if (s === "OUT") return "OUT"; if (s.indexOf("IR") >= 0) return "IR";
+    if (s.indexOf("PUP") >= 0) return "PUP"; if (s.indexOf("SUSP") >= 0) return "SUS";
+    return s.slice(0, 3);
+  }
+  // standard normal CDF (Abramowitz-Stegun 26.2.17)
+  function normCdf(z) {
+    var t = 1 / (1 + 0.2316419 * Math.abs(z));
+    var d = 0.3989422804 * Math.exp(-z * z / 2);
+    var p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    return z > 0 ? 1 - p : p;
+  }
+  function parseInjuries(j) {
+    var map = {}, inj = j && j.injuries && j.injuries.injury;
+    asArray(inj).forEach(function (i) { if (i && i.id) map[String(i.id)] = String(i.status || ""); });
+    return map;
+  }
+
+  function loadScoreboard(force) {
+    if (STATE.sb && STATE.sb.loaded && !force) { if (STATE.tab === "live") scheduleSbPoll(); return; }
+    if (!STATE.sb) STATE.sb = { loaded: false };
+    var wParam = qp.get("W");  // optional testing override (e.g. 2025 W15)
+    Promise.all([
+      fetchJson(mflExportUrl("liveScoring", wParam ? { W: wParam, DETAILS: 1 } : { DETAILS: 1 })),
+      fetchJson(mflExportUrl("schedule")),
+      fetchJson(mflExportUrl("injuries"))
+    ]).then(function (r) {
+      STATE.sb = { loaded: true, live: r[0], schedule: r[1], injuries: parseInjuries(r[2]) };
+      try { STATE.sbAt = new Date(); } catch (e) {}
+      if (STATE.tab === "live") { render(); scheduleSbPoll(); }
+    }).catch(function () { STATE.sb = { loaded: true, error: true }; if (STATE.tab === "live") render(); });
+  }
+  function sbLive() { return (STATE.sb && STATE.sb.live && STATE.sb.live.liveScoring) || null; }
+  function sbWeek() { var ls = sbLive(); return ls ? String(ls.week || "") : ""; }
+  function injStatusFor(pid) { return (STATE.sb && STATE.sb.injuries && STATE.sb.injuries[String(pid)]) || ""; }
+  function anyGameLive() {
+    var ls = sbLive(); return ls ? asArray(ls.franchise).some(function (f) { return parseInt(f.playersCurrentlyPlaying, 10) > 0; }) : false;
+  }
+  // Find a franchise's live row. Normally in liveScoring.franchise[]; playoff
+  // weeks split some teams into liveScoring.matchup[].franchise[], so check both.
+  function sbFranchiseRaw(fid) {
+    var ls = sbLive(); if (!ls) return null; fid = pad4(fid);
+    var direct = asArray(ls.franchise).find(function (f) { return pad4(f.id) === fid; });
+    if (direct) return direct;
+    var found = null;
+    asArray(ls.matchup).forEach(function (m) { asArray(m.franchise).forEach(function (f) { if (pad4(f.id) === fid) found = f; }); });
+    return found;
+  }
+  // Per-franchise computed scoreboard line.
+  function sbCompute(fid) {
+    fid = pad4(fid);
+    var meta = STATE.franchises.find(function (f) { return f.id === fid; }) || { id: fid, name: fid };
+    var raw = sbFranchiseRaw(fid);
+    if (!raw) return { fid: fid, name: meta.name, live: 0, projFinal: 0, remaining: 0, secRem: 0, slots: 0, starters: [], hasData: false };
+    var liveScore = Number(raw.score || 0), remaining = 0, secRem = 0, starters = [];
+    asArray(raw.players && raw.players.player).forEach(function (p) {
+      if (String(p.status) !== "starter") return;
+      var pid = String(p.id), live = Number(p.score || 0);
+      var gsr = parseInt(p.gameSecondsRemaining, 10); if (isNaN(gsr)) gsr = 0;
+      var status = injStatusFor(pid), origProj = projFor(pid); if (origProj == null) origProj = 0;
+      var factor = injuryFactor(status);
+      var rem = factor === 0 ? 0 : origProj * factor * (gsr / 3600);
+      remaining += rem; secRem += gsr;
+      var pm = playerById(pid) || {};
+      starters.push({ pid: pid, name: nameFromMfl(pm.name) || pid, pos: s(pm.position).toUpperCase(), nfl: s(pm.team),
+        live: live, gsr: gsr, status: status, projFinal: live + rem,
+        playing: gsr > 0 && gsr < 3600, done: gsr <= 0, yet: gsr >= 3600 });
+    });
+    starters.sort(function (a, b) { return b.projFinal - a.projFinal; });
+    return { fid: fid, name: meta.name, live: liveScore, remaining: remaining, projFinal: liveScore + remaining, secRem: secRem, slots: starters.length, starters: starters, hasData: true };
+  }
+  function winProb(a, b) {
+    var diff = a.projFinal - b.projFinal;
+    var slots = (a.slots + b.slots) || 1;
+    var frac = Math.max(0, Math.min(1, (a.secRem + b.secRem) / (slots * 3600)));
+    var sigma = SIGMA_BASE * Math.sqrt(frac);
+    if (sigma < 0.5) return diff > 0 ? 1 : (diff < 0 ? 0 : 0.5);
+    return normCdf(diff / sigma);
+  }
+  function sbOpponents() {
+    var sched = STATE.sb && STATE.sb.schedule && STATE.sb.schedule.schedule; var wk = sbWeek(); var opps = [];
+    if (sched) {
+      var weeks = asArray(sched.weeklySchedule);
+      var wrow = weeks.find(function (w) { return String(w.week) === wk; }) || null;
+      if (wrow) asArray(wrow.matchup).forEach(function (m) {
+        var fr = asArray(m.franchise).map(function (f) { return pad4(f.id); });
+        if (fr.indexOf(STATE.viewerFranchiseId) >= 0) fr.forEach(function (id) { if (id !== STATE.viewerFranchiseId) opps.push(id); });
+      });
+    }
+    // Fallback to liveScoring's own matchup pairing when the schedule export
+    // has no row (e.g. playoffs, which the regular-season schedule omits).
+    if (!opps.length) {
+      var ls = sbLive();
+      if (ls) asArray(ls.matchup).forEach(function (m) {
+        var fr = asArray(m.franchise).map(function (f) { return pad4(f.id); });
+        if (fr.indexOf(STATE.viewerFranchiseId) >= 0) fr.forEach(function (id) { if (id !== STATE.viewerFranchiseId && opps.indexOf(id) < 0) opps.push(id); });
+      });
+    }
+    return opps;
+  }
+  function scheduleSbPoll() {
+    if (STATE.sbTimer) { clearTimeout(STATE.sbTimer); STATE.sbTimer = null; }
+    if (STATE.tab !== "live") return;
+    try { if (document.hidden) return; } catch (e) {}
+    if (!anyGameLive()) return;
+    STATE.sbTimer = setTimeout(function () { loadScoreboard(true); }, SB_POLL_MS);
+  }
+  function fmtPts(n) { return (Math.round((Number(n) || 0) * 10) / 10).toFixed(1); }
+
   function renderLive(el) {
-    // Native MFL live scoring (the current link). Embeds same-origin when this
-    // page runs inside MFL; opens in a new tab otherwise. A custom UPS
-    // scoreboard is planned to replace this.
-    var lsUrl = "//" + CTX.host + "/" + encodeURIComponent(CTX.year) + "/ajax_ls?L=" + encodeURIComponent(CTX.leagueId);
-    el.innerHTML =
-      '<div class="gd-ls-hero">' +
-        '<h2>Live Scoring</h2>' +
-        '<div class="gd-note" style="margin:0">Real-time scoring for the current week, straight from MFL. A custom UPS scoreboard (win probability, matchup pulse) is coming soon.</div>' +
-        '<div class="gd-ls-actions">' +
-          '<a class="gd-link-btn" href="' + esc(lsUrl) + '" target="_blank" rel="noopener">Open Live Scoring ↗</a>' +
-        '</div>' +
-      '</div>' +
-      '<iframe class="gd-ls-frame" src="' + esc(lsUrl) + '" title="MFL Live Scoring" loading="lazy"></iframe>';
+    loadScoreboard();
+    if (!STATE.sb || !STATE.sb.loaded) { el.innerHTML = '<div class="gd-stub">Loading live scoring…</div>'; return; }
+    var ls = sbLive();
+    var nativeUrl = "//" + CTX.host + "/" + encodeURIComponent(CTX.year) + "/ajax_ls?L=" + encodeURIComponent(CTX.leagueId);
+    if (STATE.sb.error || !ls) {
+      el.innerHTML = '<div class="gd-ls-hero"><h2>Live Scoring</h2><div class="gd-note" style="margin:0">No live game data right now' +
+        (STATE.sb.error ? ' (feed error)' : ' — check back on game day') + '.</div>' +
+        '<div class="gd-ls-actions"><a class="gd-link-btn" href="' + esc(nativeUrl) + '" target="_blank" rel="noopener">Open MFL Live Scoring ↗</a></div></div>';
+      return;
+    }
+    var me = sbCompute(STATE.viewerFranchiseId);
+    var opps = sbOpponents().map(function (id) { return sbCompute(id); });
+    var wk = sbWeek();
+    var sbView = STATE.sbView || "proj";
+    var updated = "";
+    try { if (STATE.sbAt) updated = "updated " + Math.max(0, Math.round((new Date() - STATE.sbAt) / 1000)) + "s ago"; } catch (e) {}
+
+    // ---- Section 1: My Week (multi-matchup) ----
+    var hdr = '<div class="gd-sb-top"><div><span class="gd-sb-wk">Week ' + esc(wk) + '</span> · ' + esc(me.name) +
+      '</div><div class="gd-sb-meta">' + (anyGameLive() ? '<span class="gd-sb-livedot">● LIVE</span> ' : '') + esc(updated) + '</div></div>';
+    var myCard = '<div class="gd-sb-myline"><span class="lbl">Your score</span>' +
+      '<span class="live">' + fmtPts(me.live) + '</span><span class="proj">proj ' + fmtPts(me.projFinal) + '</span></div>';
+    var matchHtml = "";
+    if (!opps.length) {
+      matchHtml = '<div class="gd-note">No head-to-head opponent this week (bye) — your All-Play result still counts below.</div>';
+    } else {
+      matchHtml = opps.map(function (o, i) {
+        var wp = winProb(me, o); var meWin = me.projFinal >= o.projFinal;
+        var margin = me.projFinal - o.projFinal;
+        var pill = meWin ? '<span class="gd-sb-pill win">Winning</span>' : '<span class="gd-sb-pill lose">Losing</span>';
+        var wpPct = Math.round(wp * 100);
+        var expanded = STATE.sbExpand === o.fid;
+        return '<div class="gd-sb-match">' +
+          '<div class="gd-sb-match-row" data-oppexp="' + esc(o.fid) + '">' +
+            '<div class="gd-sb-opp"><span class="vs">vs</span> ' + esc(o.name) + ' ' + pill + '</div>' +
+            '<div class="gd-sb-nums"><span class="s">' + fmtPts(me.live) + ' – ' + fmtPts(o.live) + '</span>' +
+              '<span class="p">proj ' + fmtPts(me.projFinal) + ' – ' + fmtPts(o.projFinal) + ' (' + (margin >= 0 ? '+' : '') + fmtPts(margin) + ')</span></div>' +
+            '<div class="gd-sb-wp"><div class="gd-sb-wpbar"><div class="fill" style="width:' + wpPct + '%"></div></div><span class="wpn">' + wpPct + '%</span></div>' +
+            '<div class="gd-sb-exp">' + (expanded ? '▾' : '▸') + '</div>' +
+          '</div>' +
+          (expanded ? '<div class="gd-sb-oppros">' + rosterTable(o) + '</div>' : '') +
+        '</div>';
+      }).join("");
+    }
+
+    // ---- Section 2: My roster live ----
+    var myRoster = '<div class="gd-sb-sec-head">Your starters</div>' + rosterTable(me);
+
+    // ---- Section 3: All-Play board ----
+    var all = STATE.franchises.map(function (f) { return sbCompute(f.id); }).filter(function (x) { return x.hasData; });
+    var metricOf = function (x) { return sbView === "live" ? x.live : x.projFinal; };
+    all.sort(function (a, b) { return metricOf(b) - metricOf(a); });
+    var apRows = all.map(function (x, i) {
+      var beat = all.filter(function (y) { return y.fid !== x.fid && metricOf(y) < metricOf(x); }).length;
+      var tied = all.filter(function (y) { return y.fid !== x.fid && metricOf(y) === metricOf(x); }).length;
+      var mine = x.fid === STATE.viewerFranchiseId;
+      return '<tr' + (mine ? ' class="me"' : '') + '><td class="rk">' + (i + 1) + '</td><td>' + esc(x.name) + '</td>' +
+        '<td class="gd-taxi-sal" style="color:var(--fg)">' + fmtPts(x.live) + '</td>' +
+        '<td class="gd-taxi-sal" style="color:var(--accent)">' + fmtPts(x.projFinal) + '</td>' +
+        '<td class="gd-taxi-pos">' + beat + '–' + (all.length - 1 - beat - tied) + (tied ? '–' + tied : '') + '</td></tr>';
+    }).join("");
+    var allplay = '<div class="gd-sb-sec-head">All-Play board ' +
+      '<span class="gd-sb-toggle"><button type="button" data-sbview="proj"' + (sbView === "proj" ? ' class="on"' : '') + '>Proj final</button>' +
+      '<button type="button" data-sbview="live"' + (sbView === "live" ? ' class="on"' : '') + '>Live</button></span></div>' +
+      '<table class="gd-taxi-table gd-sb-ap"><thead><tr><th class="rk">#</th><th>Team</th><th style="text-align:right">Live</th><th style="text-align:right">Proj</th><th>Beating</th></tr></thead><tbody>' + apRows + '</tbody></table>';
+
+    el.innerHTML = hdr + myCard + matchHtml + myRoster + allplay +
+      '<div class="gd-ls-actions" style="margin-top:16px"><a class="gd-link-btn alt" href="' + esc(nativeUrl) + '" target="_blank" rel="noopener">MFL Live Scoring ↗</a></div>';
+
+    el.querySelectorAll("[data-oppexp]").forEach(function (r) {
+      r.addEventListener("click", function () { var id = r.getAttribute("data-oppexp"); STATE.sbExpand = (STATE.sbExpand === id) ? null : id; render(); });
+    });
+    el.querySelectorAll("[data-sbview]").forEach(function (b) {
+      b.addEventListener("click", function () { STATE.sbView = b.getAttribute("data-sbview"); render(); });
+    });
+    scheduleSbPoll();
+  }
+
+  // Live roster table (used for "my starters" + expandable opponent rosters).
+  function rosterTable(team) {
+    if (!team.starters.length) return '<div class="gd-stub" style="padding:14px">No starters scored yet.</div>';
+    return '<table class="gd-taxi-table gd-sb-ros"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>State</th><th style="text-align:right">Live</th><th style="text-align:right">Proj</th></tr></thead><tbody>' +
+      team.starters.map(function (p) {
+        var st = p.done ? '<span class="gd-sb-st done">Final</span>'
+          : p.playing ? '<span class="gd-sb-st now">● ' + Math.ceil(p.gsr / 60) + "'</span>"
+          : '<span class="gd-sb-st yet">Yet</span>';
+        var inj = injuryShort(p.status) ? ' <span class="gd-sb-inj">' + esc(injuryShort(p.status)) + '</span>' : "";
+        return '<tr><td>' + esc(p.name) + inj + '</td><td class="gd-taxi-pos">' + esc(p.pos || "—") + '</td>' +
+          '<td class="gd-taxi-pos">' + esc(p.nfl || "—") + '</td><td>' + st + '</td>' +
+          '<td class="gd-taxi-sal" style="color:var(--fg)">' + fmtPts(p.live) + '</td>' +
+          '<td class="gd-taxi-sal" style="color:var(--accent)">' + fmtPts(p.projFinal) + '</td></tr>';
+      }).join("") + '</tbody></table>';
   }
 
   // ---------- boot ----------
