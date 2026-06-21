@@ -284,21 +284,27 @@ def process_season(db: sqlite3.Connection, season: int, args,
                     # nflverse PBP exposes the receiving team's resulting
                     # LoS via the FOLLOWING play; here we reconstruct:
                     #   end_spot_100 = yl100_at_punt - net_yards.
-                    # Negative / zero = touchback (skip). punt_inside20
-                    # itself comes from nflverse's `punt_inside_twenty`
-                    # flag (golden source). punt_inside20_pbp uses the
-                    # SAME end-spot math as I5/I10/I15 — the user can
-                    # eyeball golden vs derived for parity. (Keith
-                    # 2026-04-25: if these drift, our return_yards
-                    # calc is off.)
+                    # I5/I10/I15 have NO nflverse flag — this derivation is
+                    # their only source — so it's validated against the I20
+                    # golden flag (`punt_inside_twenty`): punt_inside20_pbp
+                    # must equal punt_inside20.
+                    #
+                    # Boundary: "inside the N" is STRICTLY 1..N-1 — a ball
+                    # downed AT the N-yard line is "at the N", not inside it.
+                    # Use `< N`, not `<= N`. Verified on the 2025 PBP parquet
+                    # (Keith 2026-06-20): `<= 20` gave 870 vs the flag's 808;
+                    # `< 20` gives 810, agreeing per-punt on 2040/2042 (the 2
+                    # residual are returned punts whose true LoS differs from
+                    # the reconstruction by ≤1 yd — surfaced by the I20 Δ
+                    # parity alert, which is now ~0 instead of a large drift).
                     if yl100 is not None and dist is not None:
                         net = max(0, dist - ret_yds)
                         end_100 = yl100 - net
                         if end_100 is not None and 0 < end_100:
-                            if end_100 <= 5:  b["punt_inside5"]  += 1
-                            if end_100 <= 10: b["punt_inside10"] += 1
-                            if end_100 <= 15: b["punt_inside15"] += 1
-                            if end_100 <= 20: b["punt_inside20_pbp"] += 1
+                            if end_100 < 5:  b["punt_inside5"]  += 1
+                            if end_100 < 10: b["punt_inside10"] += 1
+                            if end_100 < 15: b["punt_inside15"] += 1
+                            if end_100 < 20: b["punt_inside20_pbp"] += 1
             continue  # punt plays don't also fall into redzone bucketing
 
         # ---- Redzone aggregation (only run/pass) ----
