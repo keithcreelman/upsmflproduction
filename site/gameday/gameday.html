@@ -118,6 +118,8 @@
   .gd-sb-filter select { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 28px 7px 10px; font-size: 13px; font-family: inherit; -webkit-appearance: none; appearance: none;
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%238a97ad"><path d="M7 10l5 5 5-5z"/></svg>'); background-repeat: no-repeat; background-position: right 8px center; }
   .gd-sb-final { color: var(--muted); font-weight: 800; font-size: 11px; }
+  .gd-plink { color: var(--fg); text-decoration: none; border-bottom: 1px dotted var(--line-soft); }
+  .gd-plink:hover { color: var(--accent); border-bottom-color: var(--accent); }
   .gd-sb-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; font-size: 14px; }
   .gd-sb-wk { font-weight: 800; }
   .gd-sb-meta { color: var(--muted); font-size: 12px; }
@@ -924,6 +926,14 @@
   }
 
   // Live roster table (used for "my starters" + expandable opponent rosters).
+  // MFL player page for the selected week — the canonical per-player scoring
+  // breakdown (raw stats → points), perfectly aligned with MFL. (An in-app
+  // breakdown via a worker scrape of this page is a planned follow-up.)
+  function mflPlayerUrl(pid) {
+    var wk = sbWeek();
+    return "//" + CTX.host + "/" + encodeURIComponent(sbYear()) + "/player?L=" + encodeURIComponent(CTX.leagueId) +
+      "&P=" + encodeURIComponent(pid) + (wk ? "&W=" + encodeURIComponent(wk) : "");
+  }
   function rosterTable(team) {
     if (!team.starters.length) return '<div class="gd-stub" style="padding:14px">No starters scored yet.</div>';
     return '<table class="gd-taxi-table gd-sb-ros"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>State</th><th style="text-align:right">Live</th><th style="text-align:right">Proj</th></tr></thead><tbody>' +
@@ -932,7 +942,8 @@
           : p.playing ? '<span class="gd-sb-st now">● ' + Math.ceil(p.gsr / 60) + "'</span>"
           : '<span class="gd-sb-st yet">Yet</span>';
         var inj = injuryShort(p.status) ? ' <span class="gd-sb-inj">' + esc(injuryShort(p.status)) + '</span>' : "";
-        return '<tr><td>' + esc(p.name) + inj + '</td><td class="gd-taxi-pos">' + esc(p.pos || "—") + '</td>' +
+        var nameCell = '<a class="gd-plink" href="' + esc(mflPlayerUrl(p.pid)) + '" target="_blank" rel="noopener" title="Scoring breakdown on MFL">' + esc(p.name) + '</a>';
+        return '<tr><td>' + nameCell + inj + '</td><td class="gd-taxi-pos">' + esc(p.pos || "—") + '</td>' +
           '<td class="gd-taxi-pos">' + esc(p.nfl || "—") + '</td><td>' + st + '</td>' +
           '<td class="gd-taxi-sal" style="color:var(--fg)">' + fmtPts(p.live) + '</td>' +
           '<td class="gd-taxi-sal" style="color:var(--accent)">' + fmtPts(p.projFinal) + '</td></tr>';
