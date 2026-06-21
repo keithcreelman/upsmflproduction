@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UPS Game Day</title>
+<style>
+  :root {
+    --bg: #0b0f18; --panel: #141a26; --panel2: #1a2230; --line: #2a3446; --line-soft: #3a455c;
+    --fg: #e8edf5; --muted: #8a97ad; --accent: #5b8dff; --warn: #fbbf24; --ok: #4ade80; --danger: #f87171; --teal: #2dd4bf;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .gd-wrap { max-width: 1100px; margin: 0 auto; padding: 18px 16px 60px; }
+  .gd-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .gd-head h1 { font-size: 22px; margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+  .gd-badge { font-size: 11px; font-weight: 700; color: var(--accent); border: 1px solid var(--line);
+    border-radius: 999px; padding: 2px 9px; }
+  .gd-sub { color: var(--muted); font-size: 13px; margin: 6px 0 16px; }
+
+  /* Tab bar */
+  .gd-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+  .gd-tabs button { background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--muted);
+    font-weight: 600; font-size: 14px; padding: 10px 16px; cursor: pointer; white-space: nowrap; font-family: inherit; }
+  .gd-tabs button:hover { color: var(--fg); }
+  .gd-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .gd-stub { color: var(--muted); padding: 40px 16px; text-align: center; }
+  .gd-err { color: var(--danger); padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+
+  /* ---- Lineup tab ---- */
+  .gd-lu-status { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+  .gd-lu-status-line { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 15px; }
+  .gd-lu-status-line strong { font-weight: 800; }
+  .gd-chips { display: flex; gap: 7px; }
+  .gd-chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .gd-chip.ok { color: var(--ok); border-color: rgba(74,222,128,0.4); }
+  .gd-chip.under { color: var(--warn); border-color: rgba(251,191,36,0.4); }
+  .gd-bar { margin-top: 10px; height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; }
+  .gd-bar-fill { height: 100%; transition: width 200ms; background: var(--accent); }
+  .gd-bar-fill.ok { background: var(--ok); }
+  .gd-bar-fill.under { background: var(--warn); }
+  .gd-lu-errors { margin: 10px 0 0; padding: 0 0 0 18px; font-size: 12px; color: var(--warn); }
+  .gd-lu-tools { display: flex; gap: 8px; margin-top: 12px; }
+  .gd-tool { padding: 8px 14px; background: var(--panel2); color: var(--fg); border: 1px solid var(--line);
+    border-radius: 8px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; }
+  .gd-tool:hover { border-color: var(--line-soft); }
+
+  .gd-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .gd-cols { grid-template-columns: 1fr; } }
+  .gd-col { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .gd-col-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px;
+    font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    background: var(--panel2); border-bottom: 1px solid var(--line); }
+  .gd-col-head .n { color: var(--accent); letter-spacing: 0; }
+  .gd-slot { display: grid; grid-template-columns: 92px 1fr; gap: 10px; align-items: center; padding: 7px 14px; border-top: 1px solid var(--line); }
+  .gd-slot:first-child { border-top: 0; }
+  .gd-slot.filled { border-left: 3px solid var(--accent); padding-left: 11px; }
+  .gd-slot-tag { display: flex; flex-direction: column; line-height: 1.15; }
+  .gd-slot-tag .pos { font-size: 14px; font-weight: 800; color: var(--fg); }
+  .gd-slot-tag .pos.flex { color: var(--accent); font-size: 13px; }
+  .gd-slot-tag .elig { font-size: 9px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-top: 1px; }
+  .gd-slot-sel { width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 30px 9px 11px; font-size: 13px; font-family: inherit; min-height: 40px;
+    -webkit-appearance: none; appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%238a97ad"><path d="M7 10l5 5 5-5z"/></svg>');
+    background-repeat: no-repeat; background-position: right 8px center; }
+  .gd-slot-sel.empty { color: var(--muted); border-color: var(--line-soft); border-style: dashed; }
+
+  .gd-submit-row { margin-top: 16px; }
+  .gd-submit { width: 100%; padding: 14px; background: var(--panel2); color: var(--fg); border: 1px solid var(--line);
+    border-radius: 10px; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; }
+  .gd-submit.ready { background: var(--teal); color: #08251f; border-color: var(--teal); }
+  .gd-submit.busy { opacity: 0.6; cursor: wait; }
+  .gd-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .gd-msg { margin-top: 12px; padding: 9px 13px; border-radius: 8px; font-size: 13px; }
+  .gd-msg.ok { background: rgba(74,222,128,0.1); color: var(--ok); border: 1px solid rgba(74,222,128,0.3); }
+  .gd-msg.err { background: rgba(248,113,113,0.1); color: var(--danger); border: 1px solid rgba(248,113,113,0.3); }
+  .gd-msg.info { background: rgba(91,141,255,0.1); color: var(--accent); border: 1px solid rgba(91,141,255,0.3); }
+
+  /* ---- Taxi tab ---- */
+  .gd-taxi-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .gd-taxi-table th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .gd-taxi-table td { padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  .gd-taxi-table tr:hover td { background: var(--panel); }
+  .gd-taxi-pos { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .gd-taxi-sal { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .gd-note { color: var(--muted); font-size: 12.5px; margin: 14px 0; }
+  .gd-link-btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; background: var(--accent);
+    color: #08122e; border-radius: 8px; font-weight: 700; font-size: 13.5px; text-decoration: none; }
+  .gd-link-btn.alt { background: var(--panel2); color: var(--fg); border: 1px solid var(--line); }
+
+  /* ---- Live Scoring tab ---- */
+  .gd-ls-hero { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+  .gd-ls-hero h2 { margin: 0 0 6px; font-size: 17px; }
+  .gd-ls-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .gd-ls-frame { width: 100%; min-height: 600px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+</style>
+</head>
+<body>
+<div class="gd-wrap" id="gd-root">
+  <div class="gd-stub">Loading Game Day…</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- helpers ----------
+  function s(v) { return v == null ? "" : String(v).trim(); }
+  function pad4(v) { var d = String(v == null ? "" : v).replace(/\D/g, ""); return d ? ("0000" + d).slice(-4) : ""; }
+  function asArray(v) { return v == null ? [] : (Array.isArray(v) ? v : [v]); }
+  function esc(v) { return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function fmtUsd(n) {
+    n = Number(n || 0);
+    if (!n) return "$0";
+    if (n >= 1000) return "$" + Math.round(n / 1000) + "K";
+    return "$" + n;
+  }
+  function nameFromMfl(raw) {
+    raw = s(raw);
+    if (raw.indexOf(",") >= 0) {
+      var p = raw.split(","); var last = s(p[0]); var rest = s(p[1]);
+      return rest ? rest + " " + last : last;
+    }
+    return raw;
+  }
+
+  // ---------- context ----------
+  var qp; try { qp = new URLSearchParams(location.search || ""); } catch (e) { qp = { get: function () { return ""; } }; }
+  var CTX = {
+    leagueId: s(window.UPS_GAMEDAY_LEAGUE_ID) || s(qp.get("L")) || "74598",
+    year: s(window.UPS_GAMEDAY_YEAR) || s(qp.get("YEAR")) || String(new Date().getFullYear()),
+    host: s(window.UPS_GAMEDAY_HOST) || "www48.myfantasyleague.com",
+    franchiseId: pad4(window.UPS_GAMEDAY_FRANCHISE_ID || qp.get("FRANCHISE_ID") || qp.get("FRANCHISE") || "")
+  };
+  var WORKER_BASE = (function () {
+    try { var o = qp.get("worker_base"); if (o) return o.replace(/\/$/, ""); } catch (e) {}
+    if (typeof window.UPS_GAMEDAY_API_BASE === "string" && window.UPS_GAMEDAY_API_BASE) return s(window.UPS_GAMEDAY_API_BASE).replace(/\/$/, "");
+    return "https://upsmflproduction.keith-creelman.workers.dev";
+  })();
+  function workerUrl(path) { return WORKER_BASE + path; }
+
+  var STATE = {
+    tab: "lineup",
+    league: null, rosters: null, salaries: null, players: null,
+    franchises: [], viewerFranchiseId: "", viewerFranchise: null,
+    loadErrors: [],
+    slots: null,            // { slotId: pid }
+    submitting: false,
+    message: null           // { kind, text }
+  };
+
+  // ---------- data layer (mirrors team_operations.js) ----------
+  function onMflHost() {
+    try { return /\.myfantasyleague\.com$/.test(String(location.hostname || "").toLowerCase()); } catch (e) { return false; }
+  }
+  function mflExportUrl(type, extra) {
+    var base = onMflHost()
+      ? "//" + CTX.host + "/" + encodeURIComponent(CTX.year) + "/export"
+      : workerUrl("/api/mfl-export");
+    var url = base + "?TYPE=" + encodeURIComponent(type) +
+      "&L=" + encodeURIComponent(CTX.leagueId) + "&YEAR=" + encodeURIComponent(CTX.year) + "&JSON=1";
+    if (extra) { for (var k in extra) { if (extra[k] != null && extra[k] !== "") url += "&" + encodeURIComponent(k) + "=" + encodeURIComponent(extra[k]); } }
+    return url;
+  }
+  function fetchJson(url) {
+    var same = false;
+    try { same = /\.myfantasyleague\.com$/i.test(new URL(url, location.href).hostname); } catch (e) {}
+    return fetch(url, { credentials: same ? "include" : "omit", mode: "cors" })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .catch(function (err) { STATE.loadErrors.push((url.split("TYPE=")[1] || url).split("&")[0] + ": " + (err && err.message || err)); return null; });
+  }
+  function readCookie(name) {
+    try { var m = document.cookie.match(new RegExp("(?:^|;\\s*)" + name + "=([^;]+)")); return m ? decodeURIComponent(m[1]) : ""; } catch (e) { return ""; }
+  }
+  function readCookieRaw(name) {
+    try { var m = document.cookie.match(new RegExp("(?:^|;\\s*)" + name + "=([^;]+)")); return m ? m[1] : ""; } catch (e) { return ""; }
+  }
+
+  function loadData() {
+    return Promise.all([
+      fetchJson(mflExportUrl("league")),
+      fetchJson(mflExportUrl("rosters")),
+      fetchJson(mflExportUrl("salaries")),
+      fetchJson(mflExportUrl("players", { DETAILS: "1" }))
+    ]).then(function (r) {
+      STATE.league = r[0]; STATE.rosters = r[1]; STATE.salaries = r[2]; STATE.players = r[3];
+      parseLeague(); resolveViewer();
+    });
+  }
+  function parseLeague() {
+    var lg = STATE.league && STATE.league.league; if (!lg) return;
+    STATE.franchises = asArray(lg.franchises && lg.franchises.franchise).map(function (f) {
+      return { id: pad4(f.id), name: s(f.name), owner: s(f.owner_name) };
+    });
+  }
+  function resolveViewer() {
+    var fid = CTX.franchiseId;
+    if (!fid) { var ll = readCookie("MFL_LAST_LOGIN_FRANCHISE_ID"); if (ll) fid = pad4(ll); }
+    if (!fid) { try { var ls = window.localStorage && window.localStorage.getItem("rdh_my_fid"); if (ls) fid = pad4(ls); } catch (e) {} }
+    if (!fid) {
+      var lg = STATE.league && STATE.league.league;
+      var cookie = readCookie("MFL_USER_ID");
+      if (lg && cookie) {
+        var fr = asArray(lg.franchises && lg.franchises.franchise);
+        for (var i = 0; i < fr.length; i++) {
+          var owner = s(fr[i].username || fr[i].owner_id || fr[i].owner_name);
+          if (owner && owner.indexOf(cookie) !== -1) { fid = pad4(fr[i].id); break; }
+        }
+      }
+    }
+    STATE.viewerFranchiseId = fid;
+    STATE.viewerFranchise = STATE.franchises.find(function (f) { return f.id === fid; }) || null;
+    if (fid) { try { window.localStorage && window.localStorage.setItem("rdh_my_fid", fid); } catch (e) {} }
+  }
+  function playerById(id) {
+    if (!STATE.players || !STATE.players.players) return null;
+    var list = asArray(STATE.players.players.player);
+    for (var i = 0; i < list.length; i++) { if (String(list[i].id) === String(id)) return list[i]; }
+    return null;
+  }
+  function getMyRoster() {
+    if (!STATE.rosters || !STATE.rosters.rosters) return [];
+    var fr = asArray(STATE.rosters.rosters.franchise);
+    var mine = fr.find(function (f) { return pad4(f.id) === STATE.viewerFranchiseId; });
+    if (!mine) return [];
+    return asArray(mine.player).map(function (p) {
+      return { id: String(p.id), status: s(p.status), salary: Number(p.salary || 0),
+        contractYear: s(p.contractYear), contractInfo: s(p.contractInfo) };
+    });
+  }
+
+  // ---------- 18-starter slot model (mirror of site/m/front_office_lineup.js) ----------
+  function posGroup(pos) {
+    var p = s(pos).toUpperCase();
+    if (p === "QB") return "QB";
+    if (p === "RB" || p === "FB" || p === "HB") return "RB";
+    if (p === "WR") return "WR";
+    if (p === "TE") return "TE";
+    if (p === "PK" || p === "K") return "PK";
+    if (p === "PN" || p === "P") return "PN";
+    if (p === "DT" || p === "DE" || p === "NT" || p === "DL") return "DL";
+    if (p === "LB" || p === "OLB" || p === "ILB" || p === "MLB") return "LB";
+    if (p === "CB" || p === "S" || p === "FS" || p === "SS" || p === "DB") return "DB";
+    return "OTH";
+  }
+  var SLOTS = [
+    { id: "QB1", label: "QB", side: "O", accepts: ["QB"] },
+    { id: "RB1", label: "RB", side: "O", accepts: ["RB"] },
+    { id: "RB2", label: "RB", side: "O", accepts: ["RB"] },
+    { id: "WR1", label: "WR", side: "O", accepts: ["WR"] },
+    { id: "WR2", label: "WR", side: "O", accepts: ["WR"] },
+    { id: "TE1", label: "TE", side: "O", accepts: ["TE"] },
+    { id: "OF1", label: "Flex", side: "O", accepts: ["RB", "WR", "TE"], flex: true, note: "RB/WR/TE" },
+    { id: "OF2", label: "Flex", side: "O", accepts: ["RB", "WR", "TE"], flex: true, note: "RB/WR/TE" },
+    { id: "SF1", label: "SuperFlex", side: "O", accepts: ["QB", "RB", "WR", "TE"], flex: true, note: "QB/RB/WR/TE" },
+    { id: "PK1", label: "K", side: "O", accepts: ["PK"] },
+    { id: "PN1", label: "P", side: "O", accepts: ["PN"] },
+    { id: "DL1", label: "DL", side: "D", accepts: ["DL"], note: "DT/DE" },
+    { id: "DL2", label: "DL", side: "D", accepts: ["DL"], note: "DT/DE" },
+    { id: "LB1", label: "LB", side: "D", accepts: ["LB"] },
+    { id: "LB2", label: "LB", side: "D", accepts: ["LB"] },
+    { id: "DB1", label: "DB", side: "D", accepts: ["DB"], note: "CB/S" },
+    { id: "DB2", label: "DB", side: "D", accepts: ["DB"], note: "CB/S" },
+    { id: "DF1", label: "Flex", side: "D", accepts: ["DL", "LB", "DB"], flex: true, note: "DL/LB/DB" }
+  ];
+  var TOTAL = 18, OFF = 11, DEF = 7;
+  function slotAccepts(slot, g) { return slot.accepts.indexOf(g) !== -1; }
+  function eligibleRow(r) { if (!r) return false; if (r.isTaxi || r.isIr || r.isExpired) return false; return posGroup(r.pos) !== "OTH"; }
+
+  function buildRows() {
+    return getMyRoster().map(function (r) {
+      var p = playerById(r.id) || {};
+      var cy = parseInt(r.contractYear, 10);
+      var row = { id: r.id, name: nameFromMfl(p.name) || ("Player " + r.id), pos: s(p.position).toUpperCase(),
+        team: s(p.team), salary: r.salary, group: posGroup(p.position),
+        isTaxi: /taxi/i.test(r.status || ""), isIr: /ir|injured/i.test(r.status || ""), isExpired: cy === 0 };
+      row.eligible = eligibleRow(row);
+      return row;
+    });
+  }
+  function autoFill(rows) {
+    var byG = {};
+    rows.forEach(function (r) { if (eligibleRow(r)) { var g = posGroup(r.pos); (byG[g] = byG[g] || []).push(r); } });
+    Object.keys(byG).forEach(function (g) { byG[g].sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); }); });
+    var used = {}, draft = {};
+    function take(accepts) {
+      var best = null;
+      accepts.forEach(function (g) { (byG[g] || []).forEach(function (r) { if (!used[r.id] && (!best || (r.salary || 0) > (best.salary || 0))) best = r; }); });
+      if (best) { used[best.id] = 1; return best.id; } return "";
+    }
+    SLOTS.forEach(function (sl) { if (!sl.flex) draft[sl.id] = take(sl.accepts); });
+    SLOTS.forEach(function (sl) { if (sl.flex) draft[sl.id] = take(sl.accepts); });
+    return draft;
+  }
+  function validate(draft, byId) {
+    draft = draft || {};
+    var filled = 0, dupes = 0, ineligible = 0, mismatch = 0, seen = {}, bySide = { O: 0, D: 0 };
+    SLOTS.forEach(function (sl) {
+      var pid = draft[sl.id]; if (!pid) return;
+      filled++; bySide[sl.side]++;
+      if (seen[pid]) dupes++; else seen[pid] = 1;
+      var r = byId[pid];
+      if (!r || r.isTaxi || r.isIr || r.isExpired) { ineligible++; return; }
+      if (!slotAccepts(sl, posGroup(r.pos))) mismatch++;
+    });
+    var errors = [];
+    if (filled < TOTAL) { var n = TOTAL - filled; errors.push("Fill " + n + " more slot" + (n === 1 ? "" : "s")); }
+    if (dupes) errors.push(dupes + " player" + (dupes === 1 ? "" : "s") + " used in two slots");
+    if (ineligible) errors.push(ineligible + " ineligible (taxi/IR/expired) selected");
+    if (mismatch) errors.push(mismatch + " player" + (mismatch === 1 ? "" : "s") + " in the wrong slot");
+    var problems = dupes + ineligible + mismatch;
+    return { ok: problems === 0 && filled === TOTAL, complete: filled === TOTAL, problems: problems, filled: filled, bySide: bySide, errors: errors };
+  }
+
+  // ---------- render ----------
+  var root = document.getElementById("gd-root");
+  function rerender() { render(); }
+
+  var TABS = [
+    { key: "lineup", label: "Submit Lineup" },
+    { key: "taxi", label: "Taxi Squad" },
+    { key: "live", label: "Live Scoring" }
+  ];
+
+  function render() {
+    var who = STATE.viewerFranchise ? STATE.viewerFranchise.name : (STATE.viewerFranchiseId || "—");
+    var html = '<div class="gd-head"><h1>Game Day</h1><span class="gd-badge">' + esc(who) + '</span></div>' +
+      '<div class="gd-sub">League ' + esc(CTX.leagueId) + ' · ' + esc(CTX.year) + ' · set your starters, manage the taxi squad, and follow live scoring.</div>' +
+      '<nav class="gd-tabs" id="gd-tabs">' +
+        TABS.map(function (t) { return '<button type="button" data-gdtab="' + t.key + '"' + (t.key === STATE.tab ? ' class="active"' : '') + '>' + esc(t.label) + '</button>'; }).join("") +
+      '</nav>' +
+      '<div id="gd-content"></div>';
+    root.innerHTML = html;
+    document.getElementById("gd-tabs").addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("button[data-gdtab]");
+      if (!b) return;
+      var t = b.getAttribute("data-gdtab");
+      if (!t || t === STATE.tab) return;
+      STATE.tab = t; STATE.message = null; render();
+    });
+    var content = document.getElementById("gd-content");
+    if (STATE.tab === "taxi") renderTaxi(content);
+    else if (STATE.tab === "live") renderLive(content);
+    else renderLineup(content);
+  }
+
+  // ---- Lineup tab ----
+  function optText(r) {
+    var meta = []; if (r.pos) meta.push(r.pos); if (r.team) meta.push(r.team);
+    var line = r.name + (meta.length ? "  ·  " + meta.join(" ") : "");
+    if (r.salary) line += "  ·  " + fmtUsd(r.salary);
+    return line;
+  }
+  function slotHtml(slot, rows, draft, used) {
+    var current = draft[slot.id] || "";
+    var cands = rows.filter(function (r) {
+      if (!r.eligible || !slotAccepts(slot, r.group)) return false;
+      return !used[r.id] || r.id === current;
+    }).sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); });
+    var opts = '<option value="">— Empty —</option>';
+    cands.forEach(function (r) { opts += '<option value="' + esc(r.id) + '"' + (r.id === current ? " selected" : "") + '>' + esc(optText(r)) + '</option>'; });
+    var note = slot.note ? '<span class="elig">' + esc(slot.note) + '</span>' : "";
+    return '<div class="gd-slot' + (current ? " filled" : "") + '">' +
+      '<div class="gd-slot-tag"><span class="pos' + (slot.flex ? " flex" : "") + '">' + esc(slot.label) + '</span>' + note + '</div>' +
+      '<select class="gd-slot-sel' + (current ? "" : " empty") + '" data-slot="' + esc(slot.id) + '">' + opts + '</select>' +
+    '</div>';
+  }
+  function renderLineup(el) {
+    var rows = buildRows();
+    if (!rows.length) {
+      el.innerHTML = '<div class="gd-stub">No roster found' + (STATE.viewerFranchiseId ? " for " + esc(STATE.viewerFranchiseId) : " — sign in to MFL") + '.</div>';
+      return;
+    }
+    if (!STATE.slots) STATE.slots = autoFill(rows);
+    var draft = STATE.slots;
+    var byId = {}; rows.forEach(function (r) { byId[r.id] = r; });
+    var v = validate(draft, byId);
+    var used = {}; SLOTS.forEach(function (sl) { if (draft[sl.id]) used[draft[sl.id]] = 1; });
+
+    var offCls = v.bySide.O === OFF ? "ok" : "under", defCls = v.bySide.D === DEF ? "ok" : "under";
+    var fillCls = v.ok ? "ok" : "under", pct = Math.min(100, Math.round(v.filled / TOTAL * 100));
+    var summary = v.ok ? '<strong>' + TOTAL + ' / ' + TOTAL + '</strong> starters · ready to submit'
+                       : '<strong>' + v.filled + ' / ' + TOTAL + '</strong> starters set';
+
+    var subLabel, subReady = false, subDis = false;
+    if (STATE.submitting) { subLabel = "Submitting…"; subDis = true; }
+    else if (v.problems > 0) { subLabel = "Fix lineup errors"; subDis = true; }
+    else if (v.complete) { subLabel = "Submit Lineup to MFL"; subReady = true; }
+    else if (v.filled > 0) { subLabel = "Save Lineup (" + v.filled + "/" + TOTAL + ")"; }
+    else { subLabel = "Pick your starters"; subDis = true; }
+
+    var html =
+      '<div class="gd-lu-status">' +
+        '<div class="gd-lu-status-line">' + summary +
+          '<span class="gd-chips"><span class="gd-chip ' + offCls + '">Off ' + v.bySide.O + '/' + OFF + '</span>' +
+          '<span class="gd-chip ' + defCls + '">Def ' + v.bySide.D + '/' + DEF + '</span></span>' +
+        '</div>' +
+        '<div class="gd-bar"><div class="gd-bar-fill ' + fillCls + '" style="width:' + pct + '%"></div></div>' +
+        (v.errors.length ? '<ul class="gd-lu-errors">' + v.errors.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join("") + '</ul>' : '') +
+        '<div class="gd-lu-tools"><button type="button" class="gd-tool" id="gd-autofill">Auto-fill</button>' +
+        '<button type="button" class="gd-tool" id="gd-clear">Clear all</button></div>' +
+      '</div>' +
+      (STATE.message ? '<div class="gd-msg ' + esc(STATE.message.kind) + '">' + esc(STATE.message.text) + '</div>' : '') +
+      '<div class="gd-cols">' +
+        '<div class="gd-col"><div class="gd-col-head"><span>Offense</span><span class="n">' + OFF + '</span></div>' +
+          SLOTS.filter(function (sl) { return sl.side === "O"; }).map(function (sl) { return slotHtml(sl, rows, draft, used); }).join("") + '</div>' +
+        '<div class="gd-col"><div class="gd-col-head"><span>Defense</span><span class="n">' + DEF + '</span></div>' +
+          SLOTS.filter(function (sl) { return sl.side === "D"; }).map(function (sl) { return slotHtml(sl, rows, draft, used); }).join("") + '</div>' +
+      '</div>' +
+      '<div class="gd-submit-row"><button class="gd-submit' + (subReady ? " ready" : "") + (STATE.submitting ? " busy" : "") + '" id="gd-submit"' + (subDis ? " disabled" : "") + '>' + esc(subLabel) + '</button></div>';
+    el.innerHTML = html;
+
+    el.querySelectorAll(".gd-slot-sel").forEach(function (sel) {
+      sel.addEventListener("change", function (e) {
+        var id = e.target.getAttribute("data-slot"), pid = e.target.value;
+        if (pid) STATE.slots[id] = pid; else delete STATE.slots[id];
+        rerender();
+      });
+    });
+    var af = document.getElementById("gd-autofill");
+    if (af) af.addEventListener("click", function () { STATE.slots = autoFill(rows); STATE.message = null; rerender(); });
+    var clr = document.getElementById("gd-clear");
+    if (clr) clr.addEventListener("click", function () { STATE.slots = {}; STATE.message = null; rerender(); });
+    var sub = document.getElementById("gd-submit");
+    if (sub) sub.addEventListener("click", submitLineup);
+  }
+
+  function submitLineup() {
+    if (STATE.submitting) return;
+    var fid = STATE.viewerFranchiseId; if (!fid) return;
+    var draft = STATE.slots || {}, seen = {}, starters = [];
+    SLOTS.forEach(function (sl) { var pid = draft[sl.id]; if (pid && !seen[pid]) { seen[pid] = 1; starters.push(pid); } });
+    if (!starters.length) return;
+    STATE.submitting = true; STATE.message = { kind: "info", text: "Submitting lineup to MFL…" }; rerender();
+    var url = workerUrl("/api/submit-lineup");
+    var uid = readCookieRaw("MFL_USER_ID");
+    if (uid) url += "?MFL_USER_ID=" + encodeURIComponent(uid);
+    fetch(url, { method: "POST", mode: "cors", credentials: "omit",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ franchiseId: fid, starters: starters }) })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (resp) {
+        if (resp.body && resp.body.ok) STATE.message = { kind: "ok", text: "Lineup saved to MFL ✓" };
+        else {
+          var err = (resp.body && resp.body.error)
+            || (resp.body && resp.body.mfl_response && resp.body.mfl_response.error && resp.body.mfl_response.error.$t)
+            || (resp.body && resp.body.mfl_response && resp.body.mfl_response.error) || ("HTTP " + resp.status);
+          STATE.message = { kind: "err", text: String(err) };
+        }
+      })
+      .catch(function (e) { STATE.message = { kind: "err", text: "Submit failed: " + (e && e.message || e) }; })
+      .then(function () { STATE.submitting = false; rerender(); });
+  }
+
+  // ---- Taxi tab ----
+  function renderTaxi(el) {
+    var rows = buildRows().filter(function (r) { return r.isTaxi; });
+    var taxiUrl = "//" + CTX.host + "/" + encodeURIComponent(CTX.year) + "/options?L=" + encodeURIComponent(CTX.leagueId) + "&O=98";
+    var body;
+    if (!rows.length) {
+      body = '<div class="gd-stub">No players on your taxi squad.</div>';
+    } else {
+      rows.sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); });
+      body = '<table class="gd-taxi-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th style="text-align:right">Salary</th></tr></thead><tbody>' +
+        rows.map(function (r) {
+          return '<tr><td>' + esc(r.name) + '</td><td class="gd-taxi-pos">' + esc(r.pos || "—") + '</td>' +
+            '<td class="gd-taxi-pos">' + esc(r.team || "—") + '</td><td class="gd-taxi-sal">' + esc(fmtUsd(r.salary)) + '</td></tr>';
+        }).join("") + '</tbody></table>';
+    }
+    el.innerHTML =
+      '<div class="gd-note">Your taxi squad — ' + rows.length + ' player' + (rows.length === 1 ? "" : "s") + '. Taxi salary is real money but does <strong>not</strong> count against the cap. Promote/demote and call-ups are done on MFL.</div>' +
+      body +
+      '<div style="margin-top:16px"><a class="gd-link-btn" href="' + esc(taxiUrl) + '" target="_blank" rel="noopener">Manage Taxi Squad on MFL ↗</a></div>';
+  }
+
+  // ---- Live Scoring tab ----
+  function renderLive(el) {
+    // Native MFL live scoring (the current link). Embeds same-origin when this
+    // page runs inside MFL; opens in a new tab otherwise. A custom UPS
+    // scoreboard is planned to replace this.
+    var lsUrl = "//" + CTX.host + "/" + encodeURIComponent(CTX.year) + "/ajax_ls?L=" + encodeURIComponent(CTX.leagueId);
+    el.innerHTML =
+      '<div class="gd-ls-hero">' +
+        '<h2>Live Scoring</h2>' +
+        '<div class="gd-note" style="margin:0">Real-time scoring for the current week, straight from MFL. A custom UPS scoreboard (win probability, matchup pulse) is coming soon.</div>' +
+        '<div class="gd-ls-actions">' +
+          '<a class="gd-link-btn" href="' + esc(lsUrl) + '" target="_blank" rel="noopener">Open Live Scoring ↗</a>' +
+        '</div>' +
+      '</div>' +
+      '<iframe class="gd-ls-frame" src="' + esc(lsUrl) + '" title="MFL Live Scoring" loading="lazy"></iframe>';
+  }
+
+  // ---------- boot ----------
+  loadData().then(function () {
+    render();
+    if (STATE.loadErrors.length && !STATE.viewerFranchiseId) {
+      // Surfaced inside the lineup/taxi stubs; keep a console trace for diagnostics.
+      try { console.warn("[gameday] load issues:", STATE.loadErrors); } catch (e) {}
+    }
+  }).catch(function (err) {
+    root.innerHTML = '<div class="gd-wrap"><div class="gd-err">Game Day failed to load: ' + esc(err && err.message || err) + '</div></div>';
+  });
+})();
+</script>
+</body>
+</html>

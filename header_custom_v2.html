@@ -3043,6 +3043,10 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       "commish-settings": {
         mountId: "commishSettingsMount",
         loaderPath: "/site/commish/mfl_hpm_embed_loader.js"
+      },
+      "gameday": {
+        mountId: "gameDayMount",
+        loaderPath: "/site/gameday/mfl_hpm_embed_loader.js"
       }
       // Future:
       //   "front-office-v2": { mountId: "..." , loaderPath: "/site/rosters/v2/mfl_hpm_embed_loader.js" },
@@ -3195,6 +3199,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         var qhub = new URL(window.location.href).searchParams.get("hub") || "";
         if (qhub === "auction-hub") activeId = "auction-hub";
         else if (qhub === "commish-settings") activeId = "commish-settings";
+        else if (qhub === "gameday") activeId = "gameday";
       } catch (e) {}
     }
     // Any other MODULE → no active highlight, but we still render the
@@ -3253,13 +3258,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         // Keith confirmed 2026-05-15.
         { label: "Trade Block",    href: buildMflPath("/options?O=133") }
       ]},
-      { id: "gameday",      label: "Game Day", children: [
-        { label: "Submit Lineup", href: buildMflPath("/lineup") },
-        // Taxi Squad lives at /options?O=98 in MFL, not /taxi_squad.
-        // Keith confirmed 2026-05-15.
-        { label: "Taxi Squad",    href: buildMflPath("/options?O=98") },
-        { label: "Live Scoring",  href: buildMflPath("/ajax_ls") }
-      ]},
+      // Game Day — custom hub page with tabs (Submit Lineup [18-slot builder] /
+      // Taxi Squad / Live Scoring) routed through the MESSAGE19 hub container,
+      // replacing the old native-link dropdown (Keith 2026-06-20). Page lives
+      // at site/gameday/gameday.html.
+      { id: "gameday",      label: "Game Day", module: "MESSAGE19&hub=gameday" },
       // "MFL Legacy Links" — native MFL pages, a BACKUP for when one of our
       // custom hubs isn't loading (Keith 2026-06-11). Shown on BOTH desktop and
       // mobile (Keith 2026-06-14) so the two stay consistent — the hamburger
