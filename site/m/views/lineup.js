@@ -178,10 +178,9 @@
   // irrelevant for a starting lineup — show the projection + positional
   // projection rank instead (Keith 2026-06-21).
   function optText(r) {
-    var meta = [];
-    if (r.pos) meta.push(r.pos);
-    if (r.team) meta.push(r.team);
-    var line = r.name + (meta.length ? "  ·  " + meta.join(" ") : "");
+    // Player · Team · proj · POS#rank — the rank already carries the position,
+    // so the standalone position token is dropped (Keith 2026-06-21).
+    var line = r.name + (r.team ? "  ·  " + r.team : "");
     var p = projFor(r.id);
     if (p != null) {
       line += "  ·  " + fmtProj(p) + " pts";

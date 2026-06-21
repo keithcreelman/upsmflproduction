@@ -138,6 +138,7 @@
   .gd-sb-pill.lose { color: var(--warn); border: 1px solid rgba(251,191,36,0.4); }
   .gd-sb-pill.tie { color: var(--muted); border: 1px solid var(--line); }
   .gd-sb-h2h { font-size: 10px; font-weight: 800; color: var(--accent); border: 1px solid rgba(91,141,255,0.45); border-radius: 999px; padding: 1px 7px; margin-left: 6px; letter-spacing: 0.03em; white-space: nowrap; }
+  .gd-sb-prank { font-size: 10px; font-weight: 700; color: var(--muted); margin-left: 6px; white-space: nowrap; }
   .gd-sb-match-row.gd-sb-mine { background: rgba(91,141,255,0.08); }
   .gd-sb-match-row.gd-sb-mine:hover { background: rgba(91,141,255,0.13); }
   .gd-sb-nums { font-variant-numeric: tabular-nums; }
@@ -171,6 +172,7 @@
   .gd-bd-line .pt { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
   .gd-bd-line .pt.p { color: var(--ok); }
   .gd-bd-line .pt.n { color: var(--danger); }
+  .gd-bd-line.bonus .st { color: var(--muted); font-style: italic; }
   .gd-bd-sub { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0 2px; font-weight: 800; font-size: 13px; font-variant-numeric: tabular-nums; }
   .gd-bd-exp { text-align: right; padding: 3px 0 1px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .gd-bd-exp.p { color: var(--ok); }
@@ -467,8 +469,9 @@
   // Salary is irrelevant for a starting lineup — show projection + positional
   // projection rank instead (Keith 2026-06-21).
   function optText(r) {
-    var meta = []; if (r.pos) meta.push(r.pos); if (r.team) meta.push(r.team);
-    var line = r.name + (meta.length ? "  ·  " + meta.join(" ") : "");
+    // Player · Team · proj · POS#rank — the rank already carries the position,
+    // so the standalone position token is dropped (Keith 2026-06-21).
+    var line = r.name + (r.team ? "  ·  " + r.team : "");
     var p = projFor(r.id);
     if (p != null) {
       line += "  ·  " + fmtProj(p) + " pts";
@@ -727,7 +730,8 @@
       fetchJson(sbExportUrl("schedule")),
       fetchJson(sbExportUrl("injuries")),
       fetchJson(sbExportUrl("league")),
-      fetchJson(sbExportUrl("projectedScores", wk))   // ORIGINAL projection for the SELECTED week (keyless, goes back historically)
+      fetchJson(sbExportUrl("projectedScores", wk)),  // ORIGINAL projection for the SELECTED week (keyless, goes back historically)
+      fetchJson(sbExportUrl("playerScores", wk))      // every player's actual points that week → positional rank
     ]).then(function (r) {
       var live = r[0], weekly = r[1];
       var liveFr = (live && live.liveScoring && asArray(live.liveScoring.franchise).filter(function (f) { return f && f.id; })) || [];
@@ -736,8 +740,10 @@
       try { franchises = asArray(r[4].league.franchises.franchise).map(function (f) { return { id: pad4(f.id), name: s(f.name) }; }); } catch (e) {}
       var proj = {};
       try { asArray(r[5].projectedScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) proj[String(p.id)] = n; } }); } catch (e) {}
+      var scores = {};
+      try { asArray(r[6].playerScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) scores[String(p.id)] = n; } }); } catch (e) {}
       STATE.sb = { loaded: true, source: source, live: live, weekly: weekly, schedule: r[2], injuries: parseInjuries(r[3]),
-        franchises: franchises.length ? franchises : STATE.franchises, proj: proj };
+        franchises: franchises.length ? franchises : STATE.franchises, proj: proj, scores: scores };
       try { STATE.sbAt = new Date(); } catch (e) {}
       if (STATE.tab === "live") { render(); scheduleSbPoll(); }
     }).catch(function () { STATE.sb = { loaded: true, error: true }; if (STATE.tab === "live") render(); });
@@ -850,6 +856,35 @@
     if (sbSource() === "weekly") return true;
     return !!(team.starters && team.starters.length && team.starters.every(function (s) { return s.done; }));
   }
+  // Single-team game state: "pre" | "live" | "final" — drives whether a row
+  // shows the live-blended projection or the ORIGINAL projection (ties to lineup).
+  function teamState(team) {
+    if (sbSource() === "weekly") return "final";
+    var ss = team.starters || [];
+    if (!ss.length) return "pre";
+    if (!ss.some(function (s) { return s.done || s.playing; })) return "pre";
+    return ss.every(function (s) { return s.done; }) ? "final" : "live";
+  }
+  // Positional-group rank by ACTUAL points that week (every player at the
+  // position, from playerScores). Built once per scoreboard load + cached.
+  function sbPosRank(pid) {
+    if (!STATE.sb) return null;
+    if (!STATE.sb._posRank) {
+      var scores = STATE.sb.scores || {}, byG = {};
+      Object.keys(scores).forEach(function (id) {
+        var pm = playerById(id) || {}; var g = posGroup(pm.position);
+        if (!g || g === "OTH") return;
+        (byG[g] = byG[g] || []).push({ id: id, pts: scores[id] });
+      });
+      var map = {};
+      Object.keys(byG).forEach(function (g) {
+        byG[g].sort(function (a, b) { return b.pts - a.pts; });
+        byG[g].forEach(function (x, i) { map[x.id] = { group: g, rank: i + 1 }; });
+      });
+      STATE.sb._posRank = map;
+    }
+    return STATE.sb._posRank[String(pid)] || null;
+  }
   function sbOpponents() {
     var opps = [];
     // Historical: weeklyResults.matchup has the clean multi-header pairings.
@@ -942,10 +977,12 @@
     // Shows the week's H2H record (the double/triple-header result). Once my week
     // is final the proj label flips to the ORIGINAL projection.
     var meOpen = STATE.sbExpand === "me";
-    var meFinal = teamFinal(me);
+    var meState = teamState(me);
     var h2h = h2hRecord(me, opps);
     var h2hChip = opps.length ? ' <span class="gd-sb-h2h">H2H ' + esc(h2h.str) + '</span>' : '';
-    var meProjLbl = meFinal ? ('orig proj ' + fmtPts(me.origProj)) : ('proj ' + fmtPts(me.projFinal));
+    // Live games → live-blended projection; pre-game or final → ORIGINAL
+    // projection (so the current-week number ties to the lineup total).
+    var meProjLbl = (meState === "live") ? ('proj ' + fmtPts(me.projFinal)) : ('orig proj ' + fmtPts(me.origProj));
     var meRow = '<div class="gd-sb-match">' +
       '<div class="gd-sb-match-row gd-sb-mine" data-oppexp="me">' +
         '<div class="gd-sb-opp"><span class="vs">My</span> ' + esc(me.name) + h2hChip + '</div>' +
@@ -963,17 +1000,18 @@
       matchHtml = '<div class="gd-note">No head-to-head opponent this week (bye) — your All-Play result still counts below.</div>';
     } else {
       matchHtml = opps.map(function (o) {
-        var fin = matchupState(me, o) === "final";
+        var live = matchupState(me, o) === "live";
         var pill = outcomePill(me, o);
         var expanded = STATE.sbExpand === o.fid;
         var projLine, wpCell;
-        if (fin) {
-          projLine = 'orig proj ' + fmtPts(me.origProj) + ' – ' + fmtPts(o.origProj);
-          wpCell = '<div class="gd-sb-wp"></div>';   // win-prob bar removed once final
-        } else {
+        if (live) {
           var margin = me.projFinal - o.projFinal, wpPct = Math.round(winProb(me, o) * 100);
           projLine = 'proj ' + fmtPts(me.projFinal) + ' – ' + fmtPts(o.projFinal) + ' (' + (margin >= 0 ? '+' : '') + fmtPts(margin) + ')';
           wpCell = '<div class="gd-sb-wp"><div class="gd-sb-wpbar"><div class="fill" style="width:' + wpPct + '%"></div></div><span class="wpn">' + wpPct + '%</span></div>';
+        } else {
+          // pre-game OR final → ORIGINAL projection, no win-prob bar.
+          projLine = 'orig proj ' + fmtPts(me.origProj) + ' – ' + fmtPts(o.origProj);
+          wpCell = '<div class="gd-sb-wp"></div>';
         }
         return '<div class="gd-sb-match">' +
           '<div class="gd-sb-match-row" data-oppexp="' + esc(o.fid) + '">' +
@@ -1059,6 +1097,35 @@
       .then(function (d) { STATE.sbBd[key] = (d && Array.isArray(d.lines)) ? d : { error: true }; render(); })
       .catch(function () { STATE.sbBd[key] = { error: true }; render(); });
   }
+  // Re-express MFL's raw breakdown lines: the 2nd (duplicate) yardage line is the
+  // milestone bonus → relabel "Bonus 200+ Rushing Yards"; a 50+ TD splits into a
+  // base TD + a "Bonus 50+ yd …TD" line. Totals are preserved.
+  var YARD_MS = { Rushing: [100, 150, 200, 250], Receiving: [100, 150, 200], Passing: [300, 375, 425] };
+  function transformLines(lines) {
+    var seenYd = {}, out = [];
+    (lines || []).forEach(function (l) {
+      var stat = String(l.stat || ""), pts = Number(l.points) || 0;
+      var td = stat.match(/^(\d+)\s*yd\s+(.+?)\s+TD$/i);
+      if (td) {
+        var len = parseInt(td[1], 10), type = td[2], fifty = len >= 50;
+        out.push({ points: fifty ? (pts - 1) : pts, stat: type + " TD (" + (fifty ? "50+" : "1-49") + " yd)" });
+        if (fifty) out.push({ points: 1, stat: "Bonus 50+ yd " + type + " TD", bonus: true });
+        return;
+      }
+      var yd = stat.match(/^(\d+)\s+(Rushing|Receiving|Passing)\s+Yards$/i);
+      if (yd) {
+        var kind = yd[2].charAt(0).toUpperCase() + yd[2].slice(1).toLowerCase();
+        if (seenYd[kind]) {
+          var val = parseInt(yd[1], 10), ms = YARD_MS[kind] || [], thr = 0;
+          ms.forEach(function (m) { if (val >= m) thr = m; });
+          out.push({ points: pts, stat: "Bonus " + (thr || "") + "+ " + kind + " Yards", bonus: true });
+        } else { seenYd[kind] = true; out.push({ points: pts, stat: stat }); }
+        return;
+      }
+      out.push({ points: pts, stat: stat });
+    });
+    return out;
+  }
   function breakdownRow(p) {
     var d = STATE.sbBd[bdKey(p.pid)];
     var full = '<a href="' + esc(mflPlayerUrl(p.pid)) + '" target="_blank" rel="noopener">Full profile ↗</a>';
@@ -1075,9 +1142,9 @@
         inner = head + '<div class="gd-bd-empty">No scoring stats for ' + esc(sbYear()) + (sbWeek() ? ' Week ' + esc(sbWeek()) : '') + '.</div>' +
           '<div class="gd-bd-foot"><span>MFL Detailed Results</span>' + full + '</div>';
       } else {
-        var rows = lines.map(function (l) {
+        var rows = transformLines(lines).map(function (l) {
           var pos = (Number(l.points) || 0) >= 0;
-          return '<div class="gd-bd-line"><span class="st">' + esc(l.stat) + '</span>' +
+          return '<div class="gd-bd-line' + (l.bonus ? ' bonus' : '') + '"><span class="st">' + esc(l.stat) + '</span>' +
             '<span class="pt ' + (pos ? 'p' : 'n') + '">' + (pos ? '+' : '') + fmtPts(l.points) + '</span></div>';
         }).join("");
         var subtotal = d.subtotal != null ? d.subtotal : lines.reduce(function (a, l) { return a + (Number(l.points) || 0); }, 0);
@@ -1107,10 +1174,15 @@
         var nameCell = '<a class="gd-plink" href="' + esc(mflPlayerUrl(p.pid)) + '" target="_blank" rel="noopener"' +
           ' data-bd-pid="' + esc(p.pid) + '" data-bd-name="' + esc(p.name) + '"' +
           ' title="Tap for scoring breakdown">' + esc(p.name) + '</a>';
-        var row = '<tr><td>' + nameCell + inj + '</td><td class="gd-taxi-pos">' + esc(p.pos || "—") + '</td>' +
+        // Positional-group rank by actual points that week.
+        var rk = sbPosRank(p.pid);
+        var rkBadge = rk ? ' <span class="gd-sb-prank" title="Position rank by points this week">' + esc(rk.group) + '#' + rk.rank + '</span>' : '';
+        // Proj cell shows the ORIGINAL projection once the player is final.
+        var projVal = p.done ? p.origProj : p.projFinal;
+        var row = '<tr><td>' + nameCell + rkBadge + inj + '</td><td class="gd-taxi-pos">' + esc(p.pos || "—") + '</td>' +
           '<td class="gd-taxi-pos">' + esc(p.nfl || "—") + '</td><td>' + st + '</td>' +
           '<td class="gd-taxi-sal" style="color:var(--fg)">' + fmtPts(p.live) + '</td>' +
-          '<td class="gd-taxi-sal" style="color:var(--accent)">' + fmtPts(p.projFinal) + '</td></tr>';
+          '<td class="gd-taxi-sal" style="color:var(--accent)">' + fmtPts(projVal) + '</td></tr>';
         if (STATE.sbPlayerExp === p.pid) row += breakdownRow(p);
         return row;
       }).join("") + '</tbody></table>';
