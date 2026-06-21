@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.20.9",
-  "label": "Lineup: dropped salary in favor of Proj. Pts + positional projection rank (e.g. RB #5). \"Auto-fill\" is now \"Optimal\" — fills the highest-projected eligible player into every slot."
+  "build": "2026.06.21.0",
+  "label": "New Live Scoring scoreboard (Home → Live Scoring): My team + opponents with Won/Lost/Tied, All-Play board, live-adjusted projections, year/week filter, and tap-a-player → MFL per-stat breakdown (first downs, sack yards, punt yards — MFL-exact, any week)."
 }
