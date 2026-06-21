@@ -9340,6 +9340,10 @@ export default {
           // cache acts as the single shared poller (all owners hit the worker,
           // not MFL directly) — never browser → MFL for live data.
           "liveScoring",
+          // weeklyResults — keyless historical scoreboard source (every past
+          // week: matchups incl. double/triple-headers, per-player scores,
+          // W/L results). liveScoring is current-week-only; this is the rest.
+          "weeklyResults",
           // User-specific endpoints: MUST go to api.myfantasyleague.com
           // (MFL rejects them on shards). Authenticate with the per-user
           // APIKEY param read from window._apiKey_ in the browser. See
