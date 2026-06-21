@@ -25,6 +25,27 @@
   function projMap() { return (M.state.lineupProj && M.state.lineupProj.map) || {}; }
   function projFor(pid) { var v = projMap()[String(pid)]; return v == null ? null : v; }
   function fmtProj(v) { return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1); }
+  function projLoaded() { return !!(M.state.lineupProj && M.state.lineupProj.loaded && Object.keys(projMap()).length); }
+  // Optimal-lineup score: projection (no-projection sorts last).
+  function projScore(r) { var p = projFor(r.id); return p == null ? -1 : p; }
+  // League-wide positional rank by projection (cached): { pid: { rank, group } }.
+  function posRankMap() {
+    if (M.state.lineupProjRank) return M.state.lineupProjRank;
+    var pm = projMap(), byGroup = {};
+    Object.keys(pm).forEach(function (pid) {
+      var pl = DATA.playerById(pid); var g = FO.posGroup(pl && pl.position);
+      if (g === "OTH") return;
+      (byGroup[g] = byGroup[g] || []).push({ pid: pid, proj: pm[pid] });
+    });
+    var map = {};
+    Object.keys(byGroup).forEach(function (g) {
+      byGroup[g].sort(function (a, b) { return b.proj - a.proj; });
+      byGroup[g].forEach(function (x, i) { map[x.pid] = { rank: i + 1, group: g }; });
+    });
+    M.state.lineupProjRank = map;
+    return map;
+  }
+  function posRankFor(pid) { return posRankMap()[String(pid)] || null; }
   function loadProjections() {
     if (M.state.lineupProj) return;   // already loaded or in-flight
     M.state.lineupProj = { loaded: false, map: {} };
@@ -36,6 +57,9 @@
           if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) map[String(p.id)] = n; }
         });
         M.state.lineupProj = { loaded: true, map: map };
+        M.state.lineupProjRank = null;  // rebuild ranks against fresh projections
+        // Upgrade an un-edited salary seed to the Optimal (projection) lineup.
+        if (M.state.lineupSeed === "salary") { M.state.lineupSlots = null; M.state.lineupSeed = null; }
         renderRoute();
       })
       .catch(function () { M.state.lineupProj = { loaded: true, map: {} }; renderRoute(); });
@@ -87,7 +111,11 @@
   function ensureDraft(rows) {
     var d = M.state.lineupSlots;
     if (d && typeof d === "object" && !Array.isArray(d)) return d;
-    M.state.lineupSlots = FO.autoFillSlots(rows);
+    // Optimal (by projection) once projections are in; salary is the pre-load
+    // fallback (re-seeded optimally when projections arrive — see loadProjections).
+    var optimal = projLoaded();
+    M.state.lineupSlots = FO.autoFillSlots(rows, optimal ? projScore : null);
+    M.state.lineupSeed = optimal ? "proj" : "salary";
     return M.state.lineupSlots;
   }
 
@@ -121,7 +149,7 @@
     var offCls = v.bySide.O === FO.OFFENSE_STARTERS ? "ok" : "under";
     var defCls = v.bySide.D === FO.DEFENSE_STARTERS ? "ok" : "under";
     var projChip = (projTotal != null)
-      ? '<span class="ups-m-lineup-chip proj" title="Projected points (MFL, current week)">▾ ' + fmtProj(projTotal) + '</span>'
+      ? '<span class="ups-m-lineup-chip proj" title="Projected points (MFL, current week)">' + fmtProj(projTotal) + ' Proj Pts</span>'
       : '';
     var chips = projChip +
       '<span class="ups-m-lineup-chip ' + offCls + '">Off ' + v.bySide.O + '/' + FO.OFFENSE_STARTERS + '</span>' +
@@ -140,21 +168,26 @@
         '<div class="ups-m-lineup-bar"><div class="ups-m-lineup-bar-fill ' + fillClass + '" style="width:' + pct + '%"></div></div>' +
         errorList +
         '<div class="ups-m-lineup-tools">' +
-          '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-autofill">Auto-fill</button>' +
+          '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-autofill" title="Fill the highest-projected eligible player into every slot">⚡ Optimal</button>' +
           '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-clear">Clear all</button>' +
         '</div>' +
       '</div>';
   }
 
-  // Build the option text for a candidate inside a dropdown.
+  // Build the option text for a candidate inside a dropdown. Salary is
+  // irrelevant for a starting lineup — show the projection + positional
+  // projection rank instead (Keith 2026-06-21).
   function optText(r) {
     var meta = [];
     if (r.pos) meta.push(r.pos);
     if (r.team) meta.push(r.team);
     var line = r.name + (meta.length ? "  ·  " + meta.join(" ") : "");
     var p = projFor(r.id);
-    if (p != null) line += "  ·  " + fmtProj(p) + "p";
-    if (r.salary) line += "  ·  " + U.fmtUsd(r.salary);
+    if (p != null) {
+      line += "  ·  " + fmtProj(p) + " pts";
+      var rk = posRankFor(r.id);
+      if (rk) line += "  ·  " + rk.group + " #" + rk.rank;
+    }
     return line;
   }
 
@@ -232,18 +265,21 @@
         var slotId = e.target.getAttribute("data-slot");
         var pid = e.target.value;
         if (pid) draft[slotId] = pid; else delete draft[slotId];
+        M.state.lineupSeed = "user";
         renderRoute();
       });
     }
     var af = document.getElementById("ups-m-lu-autofill");
     if (af) af.addEventListener("click", function () {
-      M.state.lineupSlots = FO.autoFillSlots(rows);
+      M.state.lineupSlots = FO.autoFillSlots(rows, projLoaded() ? projScore : null);
+      M.state.lineupSeed = projLoaded() ? "proj" : "user";
       M.state.lineupMessage = null;
       renderRoute();
     });
     var clr = document.getElementById("ups-m-lu-clear");
     if (clr) clr.addEventListener("click", function () {
       M.state.lineupSlots = {};
+      M.state.lineupSeed = "user";
       M.state.lineupMessage = null;
       renderRoute();
     });
