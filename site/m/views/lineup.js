@@ -1,8 +1,12 @@
-/* My Team → Lineup view.
-   Lineup rules (LINEUP_GROUPS, eligibility, validate) come from the
-   verbatim mirror at site/m/front_office_lineup.js — same source-of-
-   truth that team_operations.js uses. Don't redefine groups here; if
-   the league adds/changes a position group, update the mirror file. */
+/* My Team → Lineup view — slot-based lineup builder.
+
+   18 starters (UPS 2026): 11 offense + 7 defense, presented as fixed + flex
+   slots. Each slot is an eligibility-filtered dropdown; picking a player
+   removes them from every other dropdown, so you can't double-start anyone.
+   The header tracks fill progress live (dynamic as completed). Submission is
+   the flat list of the 18 chosen player IDs — MFL auto-slots by position.
+
+   Slot model + validation live in site/m/front_office_lineup.js. */
 (function () {
   "use strict";
   if (!window.UPS_MOBILE || !window.UPS_FRONT_OFFICE_LINEUP) return;
@@ -10,15 +14,9 @@
   var U = M.util;
   var DATA = M.data;
   var API = M.api;
-  var FO_LINEUP = window.UPS_FRONT_OFFICE_LINEUP;
-
-  // Visible-in-mobile lineup groups: drop the "Other" catch-all so the UI
-  // doesn't render an empty trailing section. The catch-all stays in the
-  // mirror so validation still counts mis-positioned players as ineligible.
-  var LINEUP_GROUPS = FO_LINEUP.LINEUP_GROUPS.filter(function (g) {
-    return g.positions && g.positions.length;
-  });
-  var TOTAL_STARTERS = FO_LINEUP.TOTAL_STARTERS;
+  var FO = window.UPS_FRONT_OFFICE_LINEUP;
+  var SLOTS = FO.LINEUP_SLOTS;
+  var TOTAL = FO.TOTAL_STARTERS;
 
   function nameFor(player) {
     var raw = U.safeStr(player && player.name);
@@ -31,6 +29,7 @@
     }
     return raw;
   }
+
   function buildRows() {
     var fid = M.state.viewerFranchiseId;
     if (!fid) return [];
@@ -40,48 +39,33 @@
       var pos = U.safeStr(player && player.position).toUpperCase();
       var team = U.safeStr(player && player.team);
       var name = nameFor(player) || ("Player " + r.id);
-      // Position → group via the verbatim Front Office mirror.
-      var group = FO_LINEUP.lineupGroupForPos(pos);
       var cy = parseInt(r.contractYear, 10);
-      var isTaxi = /taxi/i.test(r.status || "");
-      var isIr = /ir|injured/i.test(r.status || "");
-      var isExpired = cy === 0;
       var row = {
         id: r.id, name: name, pos: pos, team: team, salary: r.salary,
-        group: group, isTaxi: isTaxi, isIr: isIr, isExpired: isExpired
+        group: FO.posGroup(pos),
+        isTaxi: /taxi/i.test(r.status || ""),
+        isIr: /ir|injured/i.test(r.status || ""),
+        isExpired: cy === 0
       };
-      // Eligibility goes through the verbatim mirror too — same predicate
-      // team_operations.js uses for the checkbox enable/disable state.
-      row.eligible = FO_LINEUP.lineupEligibleRow(row);
+      row.eligible = FO.lineupEligibleRow(row);
       return row;
     });
   }
 
-  // Lineup draft persisted on M.state so toggling between sub-tabs doesn't
-  // lose work. Seed once with top-by-salary up to each group's min.
-  function ensureDraft(rows) {
-    if (M.state.lineupDraft && M.state.lineupDraft instanceof Set) return M.state.lineupDraft;
-    var byGroup = {};
-    LINEUP_GROUPS.forEach(function (g) { byGroup[g.key] = []; });
-    rows.forEach(function (r) {
-      if (r.eligible) byGroup[r.group.key].push(r);
-    });
-    Object.keys(byGroup).forEach(function (k) {
-      byGroup[k].sort(function (a, b) { return b.salary - a.salary; });
-    });
-    var draft = new Set();
-    LINEUP_GROUPS.forEach(function (g) {
-      (byGroup[g.key] || []).slice(0, g.min).forEach(function (r) { draft.add(r.id); });
-    });
-    M.state.lineupDraft = draft;
-    return draft;
+  function rowsById(rows) {
+    var m = {};
+    rows.forEach(function (r) { m[r.id] = r; });
+    return m;
   }
 
-  function validate(rows, draft) {
-    var rowsByPid = {};
-    rows.forEach(function (r) { rowsByPid[r.id] = r; });
-    // Delegate to the verbatim Front Office mirror.
-    return FO_LINEUP.lineupValidate(draft, rowsByPid);
+  // Draft = { slotId: pid }. Seed once (greedy valid lineup) so the owner
+  // starts from a complete 18 they can tweak; persisted on M.state so
+  // switching sub-tabs doesn't lose work.
+  function ensureDraft(rows) {
+    var d = M.state.lineupSlots;
+    if (d && typeof d === "object" && !Array.isArray(d)) return d;
+    M.state.lineupSlots = FO.autoFillSlots(rows);
+    return M.state.lineupSlots;
   }
 
   function subTabs(active) {
@@ -98,91 +82,6 @@
       '</div>';
   }
 
-  function statusBadges(r) {
-    var out = [];
-    if (r.isExpired) out.push('<span class="badge exp">Expired</span>');
-    if (r.isTaxi) out.push('<span class="badge tx">Taxi</span>');
-    if (r.isIr) out.push('<span class="badge ir">IR</span>');
-    return out.join(" ");
-  }
-
-  function renderHeader(validation) {
-    var ok = validation.ok;
-    var fillClass = ok ? "ok" : (validation.total > TOTAL_STARTERS ? "over" : "under");
-    var pct = Math.min(100, Math.round((validation.total / TOTAL_STARTERS) * 100));
-    var summary = ok
-      ? '<strong>' + TOTAL_STARTERS + ' / ' + TOTAL_STARTERS + '</strong> starters · ready to submit'
-      : '<strong>' + validation.total + ' / ' + TOTAL_STARTERS + '</strong> starters';
-    var errorList = "";
-    if (validation.errors.length) {
-      errorList = '<ul class="ups-m-lineup-errors">' +
-        validation.errors.map(function (e) { return '<li>' + U.escapeHtml(e) + '</li>'; }).join("") +
-        '</ul>';
-    }
-    return '' +
-      '<div class="ups-m-lineup-status-card">' +
-        '<div class="ups-m-lineup-status-line">' + summary + '</div>' +
-        '<div class="ups-m-lineup-bar"><div class="ups-m-lineup-bar-fill ' + fillClass + '" style="width:' + pct + '%"></div></div>' +
-        errorList +
-      '</div>';
-  }
-
-  function renderGroup(group, rows, draft) {
-    var groupRows = rows.filter(function (r) { return r.group && r.group.key === group.key; });
-    groupRows.sort(function (a, b) {
-      // Eligible first, then by salary desc
-      if (a.eligible !== b.eligible) return a.eligible ? -1 : 1;
-      return b.salary - a.salary;
-    });
-    var picked = groupRows.filter(function (r) { return draft.has(r.id); }).length;
-    var rangeLabel = group.min === group.max
-      ? String(group.min)
-      : group.min + "-" + group.max;
-    var groupClass = picked < group.min ? "under"
-                   : picked > group.max ? "over" : "ok";
-    var html = '<div class="ups-m-lineup-group">';
-    html += '<div class="ups-m-lineup-group-head ' + groupClass + '">' +
-      '<span class="label">' + U.escapeHtml(group.label) + '</span>' +
-      '<span class="count">' + picked + ' / ' + rangeLabel + '</span>' +
-    '</div>';
-    if (!groupRows.length) {
-      html += '<div class="ups-m-lineup-row empty">No ' + U.escapeHtml(group.label) + ' on roster</div>';
-    } else {
-      groupRows.forEach(function (r) {
-        var checked = draft.has(r.id);
-        var disabledCls = r.eligible ? "" : " disabled";
-        html += '<label class="ups-m-lineup-row' + (checked ? " on" : "") + disabledCls + '" data-pid="' + U.escapeHtml(r.id) + '">' +
-          '<input type="checkbox" class="ups-m-lineup-cb" ' +
-            (checked ? "checked " : "") + (r.eligible ? "" : "disabled ") + '/>' +
-          '<div class="body">' +
-            '<div class="name">' + U.escapeHtml(r.name) + '</div>' +
-            '<div class="sub">' +
-              (r.team ? '<span>' + U.escapeHtml(r.team) + '</span>' : '') +
-              statusBadges(r) +
-            '</div>' +
-          '</div>' +
-          '<div class="salary">' + U.fmtUsd(r.salary) + '</div>' +
-        '</label>';
-      });
-    }
-    html += '</div>';
-    return html;
-  }
-
-  function renderFooter(validation, submitting) {
-    var canSubmit = !submitting;  // Allow incomplete saves per team_operations.js:937-938
-    var label = submitting ? "Submitting…" :
-                validation.ok ? "Submit Lineup" :
-                "Save Lineup (" + validation.total + "/" + TOTAL_STARTERS + ")";
-    return '<div class="ups-m-lineup-footer">' +
-      '<button class="ups-m-lineup-submit' + (validation.ok ? " ready" : "") +
-              (submitting ? " busy" : "") + '" id="ups-m-lineup-submit"' +
-              (canSubmit ? "" : " disabled") + '>' +
-        U.escapeHtml(label) +
-      '</button>' +
-    '</div>';
-  }
-
   function renderMessage() {
     var msg = M.state.lineupMessage;
     if (!msg) return "";
@@ -190,35 +89,152 @@
       U.escapeHtml(msg.text || "") + '</div>';
   }
 
-  function bind(mount, rows, draft) {
-    var checkboxes = mount.querySelectorAll(".ups-m-lineup-cb");
-    for (var i = 0; i < checkboxes.length; i++) {
-      checkboxes[i].addEventListener("change", function (e) {
-        var label = e.target.closest("[data-pid]");
-        if (!label) return;
-        var pid = label.getAttribute("data-pid");
-        if (e.target.checked) draft.add(pid); else draft.delete(pid);
+  function renderHeader(v) {
+    var fillClass = v.ok ? "ok" : (v.filled > TOTAL ? "over" : "under");
+    var pct = Math.min(100, Math.round((v.filled / TOTAL) * 100));
+    var summary = v.ok
+      ? '<strong>' + TOTAL + ' / ' + TOTAL + '</strong> starters · ready to submit'
+      : '<strong>' + v.filled + ' / ' + TOTAL + '</strong> starters set';
+    var offCls = v.bySide.O === FO.OFFENSE_STARTERS ? "ok" : "under";
+    var defCls = v.bySide.D === FO.DEFENSE_STARTERS ? "ok" : "under";
+    var chips =
+      '<span class="ups-m-lineup-chip ' + offCls + '">Off ' + v.bySide.O + '/' + FO.OFFENSE_STARTERS + '</span>' +
+      '<span class="ups-m-lineup-chip ' + defCls + '">Def ' + v.bySide.D + '/' + FO.DEFENSE_STARTERS + '</span>';
+    var errorList = "";
+    if (v.errors.length) {
+      errorList = '<ul class="ups-m-lineup-errors">' +
+        v.errors.map(function (e) { return '<li>' + U.escapeHtml(e) + '</li>'; }).join("") +
+        '</ul>';
+    }
+    return '' +
+      '<div class="ups-m-lineup-status-card">' +
+        '<div class="ups-m-lineup-status-line">' + summary +
+          '<span class="ups-m-lineup-chips">' + chips + '</span>' +
+        '</div>' +
+        '<div class="ups-m-lineup-bar"><div class="ups-m-lineup-bar-fill ' + fillClass + '" style="width:' + pct + '%"></div></div>' +
+        errorList +
+        '<div class="ups-m-lineup-tools">' +
+          '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-autofill">Auto-fill</button>' +
+          '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-clear">Clear all</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // Build the option text for a candidate inside a dropdown.
+  function optText(r) {
+    var bits = [r.name];
+    var meta = [];
+    if (r.pos) meta.push(r.pos);
+    if (r.team) meta.push(r.team);
+    var line = r.name + (meta.length ? "  ·  " + meta.join(" ") : "");
+    if (r.salary) line += "  ·  " + U.fmtUsd(r.salary);
+    return line;
+  }
+
+  // One slot = a label tag + a <select> of eligible, not-yet-used players.
+  function renderSlot(slot, rows, draft, used) {
+    var current = draft[slot.id] || "";
+    // Candidates: eligible, group accepted, and either unused elsewhere or
+    // the player already in THIS slot (so the select can show them).
+    var cands = rows.filter(function (r) {
+      if (!r.eligible) return false;
+      if (!FO.slotAccepts(slot, r.group)) return false;
+      return !used[r.id] || r.id === current;
+    });
+    cands.sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); });
+
+    var filled = !!current;
+    var opts = '<option value="">— Empty —</option>';
+    cands.forEach(function (r) {
+      opts += '<option value="' + U.escapeHtml(r.id) + '"' +
+        (r.id === current ? " selected" : "") + '>' +
+        U.escapeHtml(optText(r)) + '</option>';
+    });
+
+    var labelCls = slot.flex ? "pos flex" : "pos";
+    var note = slot.note ? '<span class="elig">' + U.escapeHtml(slot.note) + '</span>' : "";
+    var selCls = "ups-m-slot-sel" + (filled ? "" : " empty");
+    var emptyHint = cands.length ? "" : ' data-none="1"';
+
+    return '<div class="ups-m-slot' + (filled ? " filled" : "") + '" data-slot="' + slot.id + '"' + emptyHint + '>' +
+      '<div class="ups-m-slot-tag">' +
+        '<span class="' + labelCls + '">' + U.escapeHtml(slot.label) + '</span>' + note +
+      '</div>' +
+      '<select class="' + selCls + '" data-slot="' + U.escapeHtml(slot.id) + '">' + opts + '</select>' +
+    '</div>';
+  }
+
+  function renderSection(side, title, count, rows, draft, used) {
+    var html = '<div class="ups-m-lineup-section-head"><span>' + title + '</span><span class="n">' + count + '</span></div>';
+    SLOTS.filter(function (s) { return s.side === side; }).forEach(function (s) {
+      html += renderSlot(s, rows, draft, used);
+    });
+    return html;
+  }
+
+  function renderFooter(v, submitting) {
+    var label, ready = false, disabled = false;
+    if (submitting) { label = "Submitting…"; disabled = true; }
+    else if (v.problems > 0) { label = "Fix lineup errors"; disabled = true; }
+    else if (v.complete) { label = "Submit Lineup to MFL"; ready = true; }
+    else if (v.filled > 0) { label = "Save Lineup (" + v.filled + "/" + TOTAL + ")"; }
+    else { label = "Pick your starters"; disabled = true; }
+    return '<div class="ups-m-lineup-footer">' +
+      '<button class="ups-m-lineup-submit' + (ready ? " ready" : "") +
+              (submitting ? " busy" : "") + '" id="ups-m-lineup-submit"' +
+              (disabled ? " disabled" : "") + '>' +
+        U.escapeHtml(label) +
+      '</button>' +
+    '</div>';
+  }
+
+  function bind(mount, rows) {
+    var draft = M.state.lineupSlots;
+    var selects = mount.querySelectorAll(".ups-m-slot-sel");
+    for (var i = 0; i < selects.length; i++) {
+      selects[i].addEventListener("change", function (e) {
+        var slotId = e.target.getAttribute("data-slot");
+        var pid = e.target.value;
+        if (pid) draft[slotId] = pid; else delete draft[slotId];
         renderRoute();
       });
     }
+    var af = document.getElementById("ups-m-lu-autofill");
+    if (af) af.addEventListener("click", function () {
+      M.state.lineupSlots = FO.autoFillSlots(rows);
+      M.state.lineupMessage = null;
+      renderRoute();
+    });
+    var clr = document.getElementById("ups-m-lu-clear");
+    if (clr) clr.addEventListener("click", function () {
+      M.state.lineupSlots = {};
+      M.state.lineupMessage = null;
+      renderRoute();
+    });
     var submit = document.getElementById("ups-m-lineup-submit");
-    if (submit) submit.addEventListener("click", function () { handleSubmit(rows); });
+    if (submit) submit.addEventListener("click", function () { handleSubmit(); });
   }
 
-  function handleSubmit(rows) {
+  function handleSubmit() {
     if (M.state.lineupSubmitting) return;
     var fid = M.state.viewerFranchiseId;
     if (!fid) return;
-    var draft = M.state.lineupDraft;
-    var starters = draft ? Array.from(draft) : [];
+    var draft = M.state.lineupSlots || {};
+    // Flat list of chosen player IDs, in slot order, de-duped defensively.
+    var seen = {}, starters = [];
+    SLOTS.forEach(function (s) {
+      var pid = draft[s.id];
+      if (pid && !seen[pid]) { seen[pid] = 1; starters.push(pid); }
+    });
+    if (!starters.length) return;  // nothing to save; button is gated on problems===0
     M.state.lineupSubmitting = true;
     M.state.lineupMessage = { kind: "info", text: "Submitting lineup to MFL…" };
     renderRoute();
     // Forward the viewer's MFL_USER_ID — /api/submit-lineup REQUIRES it to
     // authenticate the write to MFL and verifies it matches this franchise
-    // (worker returns 401/403 otherwise). Cross-origin from github.io we can't
-    // send the MFL cookie, so it goes as a query param — same pattern as the
-    // roster-workbench actions + trade builder.
+    // (worker returns 401/403 otherwise). Cross-origin from github.io we
+    // can't send the MFL cookie, so it goes as a query param — same pattern
+    // as the roster-workbench actions + trade builder.
     var luUrl = API.workerUrl("/api/submit-lineup");
     var luStored = API.getStoredMflUserId && API.getStoredMflUserId();
     if (luStored) luUrl += "?MFL_USER_ID=" + encodeURIComponent(luStored);
@@ -258,17 +274,22 @@
       return;
     }
     var draft = ensureDraft(rows);
-    var validation = validate(rows, draft);
+    var byId = rowsById(rows);
+    var v = FO.validateSlots(draft, byId);
     var submitting = !!M.state.lineupSubmitting;
+
+    // Players already used (so each dropdown can exclude them).
+    var used = {};
+    SLOTS.forEach(function (s) { if (draft[s.id]) used[draft[s.id]] = 1; });
+
     var html = subTabs("lineup");
     html += renderMessage();
-    html += renderHeader(validation);
-    LINEUP_GROUPS.forEach(function (g) {
-      html += renderGroup(g, rows, draft);
-    });
-    html += renderFooter(validation, submitting);
+    html += renderHeader(v);
+    html += renderSection("O", "Offense", FO.OFFENSE_STARTERS, rows, draft, used);
+    html += renderSection("D", "Defense", FO.DEFENSE_STARTERS, rows, draft, used);
+    html += renderFooter(v, submitting);
     mount.innerHTML = html;
-    bind(mount, rows, draft);
+    bind(mount, rows);
   }
 
   M.lineupView = { render: render };
