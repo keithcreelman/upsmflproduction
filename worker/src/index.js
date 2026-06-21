@@ -9477,6 +9477,26 @@ export default {
         }
       }
 
+      // ── GET /api/league-years — per-season MFL league IDs (D1) ──
+      // The UPS league has a DIFFERENT MFL league_id (and sometimes server)
+      // every season. Powers the GameDay scoreboard's year dropdown so it can
+      // reach pre-2020 seasons (74598 only exists 2020+). Read-only.
+      if (path === "/api/league-years" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const r = await db.prepare(
+            "SELECT season, server, league_id FROM mfl_league_years WHERE league_id IS NOT NULL ORDER BY season DESC"
+          ).all();
+          const years = (r?.results || [])
+            .filter((x) => x.season && x.league_id)
+            .map((x) => ({ season: String(x.season), server: String(x.server || "www48"), league_id: String(x.league_id) }));
+          return jsonOut(200, { ok: true, count: years.length, years });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
+      }
+
       // ── GET /api/league-events — UPS calendar (deadlines + milestones) ──
       // Source: D1 `league_events` table (migration 0026). Read-only.
       // Usage: /api/league-events?season=2026&from=today&limit=10
