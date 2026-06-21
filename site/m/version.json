@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.20.4",
-  "label": "Player Stats: filters + cleaner cards. New roster-status filter (All / Rostered / Free agents) with an FA/owner tag on every player, and a per-position column-set dropdown to pull up other advanced stats. Player team now shows their CURRENT NFL team. Plus: the player sheet is centered correctly on mobile (no more scrolling to find it), and the duplicate Contracts tile is gone from Home."
+  "build": "2026.06.20.5",
+  "label": "Player Stats now shows each player's CURRENT NFL team (sourced league-wide so desktop + mobile match), not the team they were on during the stat season."
 }

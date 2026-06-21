@@ -5530,6 +5530,7 @@ export default {
                    c.mfl_player_id AS mfl_pid,
                    c.full_name     AS player_name,
                    a.position, a.team, a.pos_group, a.games,
+                   ctm.nfl_team AS current_team,
                    sa.off_snaps_total, sa.def_snaps_total,
                    sa.off_snap_rate,   sa.def_snap_rate,
                    lc.salary AS mfl_salary, lc.aav AS mfl_aav,
@@ -5587,7 +5588,16 @@ export default {
             : "a.rush_yds + a.rec_yds + a.pass_yds";
 
           const sql = `
-            WITH latest_contract AS (
+            WITH current_team AS (
+              -- Each player's CURRENT NFL team = their row in the latest season
+              -- we've mirrored from MFL's TYPE=players export (src_players,
+              -- refreshed nightly). The leaderboard 'team' is the stat-season
+              -- team; this overlays "the team they're on today" (Keith 2026-06-20).
+              SELECT player_id, nfl_team
+                FROM src_players
+               WHERE season = (SELECT MAX(season) FROM src_players)
+            ),
+            latest_contract AS (
               -- MFL contract details are always pulled from the MAX season
               -- in src_contracts (current year when synced). Historical
               -- contract views would need a separate lookup — later.
@@ -5859,6 +5869,7 @@ export default {
               LEFT JOIN team_situational_agg tsa ON tsa.team = a.team
               LEFT JOIN mfl_scoring_agg msa   ON msa.gsis_id = a.gsis_id
               LEFT JOIN latest_contract lc    ON lc.player_id = c.mfl_player_id
+              LEFT JOIN current_team ctm      ON ctm.player_id = c.mfl_player_id
              WHERE a.games >= ?
              ORDER BY ${orderExpr} DESC
              LIMIT ?

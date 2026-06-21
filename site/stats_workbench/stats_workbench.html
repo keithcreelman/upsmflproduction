@@ -348,7 +348,9 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
   var COLS = {
     // Identity
     player_name:         { label:"Player",   cls:"name" },
-    team:                { label:"NFL",      cls:"dim" },
+    team:                { label:"NFL",      cls:"dim",
+      title:"Current NFL team (falls back to the stat-season team if unknown)",
+      compute: function(r){ return r.current_team || r.team || "—"; } },
     mfl_franchise_name:  { label:"MFL Team", cls:"dim",
       compute: function(r){ return r.mfl_franchise_name || "FA"; } },
     position:            { label:"Pos",      cls:"dim" },
@@ -813,8 +815,11 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
         { id:"punt_volume",     label:"Volume",             cols:["punts","punt_yds"], defaultOn:true },
         { id:"punt_efficiency", label:"Efficiency",         cols:["punt_avg","punt_net_avg","punt_avg_spot"], defaultOn:false },
         // Inside-N buckets default ON — they're the punter's job. Order:
-        // I5 → I10 → I15 → I20 (golden) → I20* (PBP-derived parity) → Δ.
-        // Δ should hover near 0; non-zero signals end-spot math drift.
+        // I5 → I10 → I15 → I20 (golden flag) → I20* (PBP-derived) → Δ (drift alert).
+        // I5/I10/I15 have NO golden flag — they can only come from the end-spot
+        // derivation, so we validate that derivation against the I20 golden flag:
+        // Δ must be 0. Non-zero Δ = the end-spot math is off (and therefore I5/I10/
+        // I15 are too). Keep Δ visible as the alert. (Keith 2026-06-20.)
         { id:"punt_situation",  label:"Field Position",
           cols:["punt_inside5","punt_i5_pct","punt_inside10","punt_i10_pct","punt_inside15","punt_inside20","punt_i20_pct","punt_inside20_pbp","punt_i20_parity","punt_tb","punt_tb_pct"],
           defaultOn:true },
@@ -1173,7 +1178,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     // Search — name + NFL team + position (B6), mirrors the mobile auction search.
     var searchQ = (searchEl.value || "").trim().toLowerCase();
     if (searchQ) rows = rows.filter(function(r){
-      var hay = (String(r.player_name||"") + " " + String(r.team||"") + " " +
+      var hay = (String(r.player_name||"") + " " + String(r.current_team||r.team||"") + " " +
                  String(r.position||"") + " " + String(r.pos_group||"")).toLowerCase();
       return hay.indexOf(searchQ) !== -1;
     });

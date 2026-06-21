@@ -118,9 +118,11 @@
     var t = curTab();
     return t.sets[view.set] || t.sets[0];
   }
-  // Player's CURRENT NFL team (the leaderboard `team` is season-stamped). Fall
-  // back to the season team if the player isn't in the boot-loaded DB.
+  // Player's CURRENT NFL team. Prefer the worker's current_team (from
+  // src_players, so desktop + mobile match), then the boot-loaded player DB,
+  // then the season-stamped leaderboard team as a last resort.
   function curTeam(r) {
+    if (r.current_team) return U.safeStr(r.current_team);
     var p = M.data.playerById ? M.data.playerById(r.mfl_pid) : null;
     return U.safeStr((p && p.team) || r.team || "");
   }
