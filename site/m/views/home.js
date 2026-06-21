@@ -179,7 +179,7 @@
     var eventsSub = ctx.next ? (eventMeta(ctx.next).label + " " + whenLabel(ctx.next.date)) : "No windows";
     return [
       { label: "My Roster", icon: "clipboard-list", tone: "field",  href: "#myteam/roster",    sub: rosterSub },
-      { label: "Contracts", icon: "file-text",      tone: "gold",   href: "#myteam/contracts", sub: contractsSub },
+      // Contracts intentionally omitted here — it's in the bottom nav (Keith 2026-06-20).
       { label: "Trades",    icon: "repeat",         tone: "ember",  href: "#league/trade",     sub: tradesSub, badge: ctx.incoming > 0 ? ctx.incoming : null },
       { label: "Market",    icon: "tag",            tone: "sky",    href: "#players",          sub: "Browse — filter by team/FA" },
       { label: "Player Stats", icon: "bar-chart",   tone: "mint",   href: "#league/stats",     sub: "Leaderboards by position" },

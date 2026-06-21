@@ -29,16 +29,24 @@
   // Curated columns. g(r) → value | null; f: dec1 | pct (else integer).
   var C = {
     ppg:   { l: "PPG",   g: function (r) { return nn(r.mfl_ppg); }, f: "dec1" },
+    pts:   { l: "Pts",   g: function (r) { return nn(r.mfl_points); }, f: "dec1" },
     payd:  { l: "PaYd",  g: function (r) { return nn(r.pass_yds); } },
     patd:  { l: "PaTD",  g: function (r) { return nn(r.pass_tds); } },
+    patt:  { l: "Att",   g: function (r) { return nn(r.pass_att); } },
+    cmppct:{ l: "Cmp%",  g: function (r) { return r.pass_att ? num(r.pass_cmp) / num(r.pass_att) : null; }, f: "pct" },
     pint:  { l: "Int",   g: function (r) { return nn(r.pass_ints); } },
+    qbsk:  { l: "Sk",    g: function (r) { return nn(r.pass_sacks); } },
     ya:    { l: "Y/A",   g: function (r) { return r.pass_att ? num(r.pass_yds) / num(r.pass_att) : null; }, f: "dec1" },
+    ruatt: { l: "Att",   g: function (r) { return nn(r.rush_att); } },
     ruyd:  { l: "RuYd",  g: function (r) { return nn(r.rush_yds); } },
     rutd:  { l: "RuTD",  g: function (r) { return nn(r.rush_tds); } },
     rya:   { l: "Y/A",   g: function (r) { return r.rush_att ? num(r.rush_yds) / num(r.rush_att) : null; }, f: "dec1" },
+    tgt:   { l: "Tgt",   g: function (r) { return nn(r.targets); } },
     rec:   { l: "Rec",   g: function (r) { return nn(r.receptions); } },
     recyd: { l: "RecYd", g: function (r) { return nn(r.rec_yds); } },
     rectd: { l: "RecTD", g: function (r) { return nn(r.rec_tds); } },
+    ypr:   { l: "Y/R",   g: function (r) { return r.receptions ? num(r.rec_yds) / num(r.receptions) : null; }, f: "dec1" },
+    catchpct: { l: "Catch%", g: function (r) { return r.targets ? num(r.receptions) / num(r.targets) : null; }, f: "pct" },
     tgtsh: { l: "Tgt%",  g: function (r) { return nn(r.target_share); }, f: "pct" },
     tkl:   { l: "Tkl",   g: function (r) { return nn(r.def_tackles_total); } },  // solo
     ast:   { l: "Ast",   g: function (r) { return nn(r.def_tackles_ast); } },
@@ -46,6 +54,7 @@
     tfl:   { l: "TFL",   g: function (r) { return nn(r.def_tfl); } },
     pd:    { l: "PD",    g: function (r) { return nn(r.def_pass_def); } },
     intd:  { l: "INT",   g: function (r) { return nn(r.def_ints); } },
+    ff:    { l: "FF",    g: function (r) { return nn(r.def_ff); } },
     press: { l: "Press", g: function (r) { return nn(r.def_pressures); } },
     deftd: { l: "DefTD", g: function (r) { return nn(r.def_tds); } },
     fgm:   { l: "FGM",   g: function (r) { return nn(r.fg_made); } },
@@ -56,21 +65,42 @@
     i20:   { l: "I20",   g: function (r) { return nn(r.punt_inside20); } }
   };
 
-  // Each tab: alias (worker pos param), group (pos_group values to keep),
-  // cols (curated column keys). PN shares the kicker→"punter" alias's PK group.
+  // Each tab: alias (worker pos param), group (pos_group values to keep), and
+  // one-or-more named column SETS. The first set is the default; a dropdown
+  // switches between them so the owner can pull up other advanced stats without
+  // crowding the (phone-width) table. PN shares the punter alias's PK group.
   var TABS = [
-    { id: "QB", alias: "qb",     group: ["QB"],       cols: ["payd", "patd", "pint", "ya", "ppg"] },
-    { id: "RB", alias: "skill",  group: ["RB"],       cols: ["ruyd", "rutd", "rec", "rya", "ppg"] },
-    { id: "WR", alias: "skill",  group: ["WR"],       cols: ["rec", "recyd", "rectd", "tgtsh", "ppg"] },
-    { id: "TE", alias: "skill",  group: ["TE"],       cols: ["rec", "recyd", "rectd", "tgtsh", "ppg"] },
-    { id: "DL", alias: "idp",    group: ["DL"],       cols: ["tkl", "ast", "sk", "press", "ppg"] },
-    { id: "LB", alias: "idp",    group: ["LB"],       cols: ["tkl", "ast", "sk", "tfl", "ppg"] },
-    { id: "DB", alias: "idp",    group: ["DB"],       cols: ["tkl", "ast", "intd", "pd", "ppg"] },
-    { id: "PK", alias: "kicker", group: ["PK"],       cols: ["fgm", "fgpct", "xpm", "ppg"] },
-    { id: "PN", alias: "punter", group: ["PK", "PN"], cols: ["punts", "navg", "i20", "ppg"] }
+    { id: "QB", alias: "qb",     group: ["QB"], sets: [
+      { l: "Passing",   cols: ["payd", "patd", "pint", "ya", "ppg"] },
+      { l: "Volume",    cols: ["patt", "cmppct", "qbsk", "payd", "ppg"] },
+      { l: "Rushing",   cols: ["ruatt", "ruyd", "rutd", "rya", "ppg"] } ] },
+    { id: "RB", alias: "skill",  group: ["RB"], sets: [
+      { l: "Rushing",   cols: ["ruatt", "ruyd", "rutd", "rya", "ppg"] },
+      { l: "Receiving", cols: ["tgt", "rec", "recyd", "rectd", "ppg"] } ] },
+    { id: "WR", alias: "skill",  group: ["WR"], sets: [
+      { l: "Receiving", cols: ["rec", "recyd", "rectd", "tgtsh", "ppg"] },
+      { l: "Efficiency",cols: ["tgt", "catchpct", "ypr", "recyd", "ppg"] } ] },
+    { id: "TE", alias: "skill",  group: ["TE"], sets: [
+      { l: "Receiving", cols: ["rec", "recyd", "rectd", "tgtsh", "ppg"] },
+      { l: "Efficiency",cols: ["tgt", "catchpct", "ypr", "recyd", "ppg"] } ] },
+    { id: "DL", alias: "idp",    group: ["DL"], sets: [
+      { l: "Tackles",   cols: ["tkl", "ast", "tfl", "ppg"] },
+      { l: "Pass rush", cols: ["sk", "press", "tfl", "ppg"] } ] },
+    { id: "LB", alias: "idp",    group: ["LB"], sets: [
+      { l: "Tackles",   cols: ["tkl", "ast", "tfl", "ppg"] },
+      { l: "Pass rush", cols: ["sk", "press", "intd", "ppg"] },
+      { l: "Coverage",  cols: ["pd", "intd", "deftd", "ppg"] } ] },
+    { id: "DB", alias: "idp",    group: ["DB"], sets: [
+      { l: "Coverage",  cols: ["tkl", "intd", "pd", "ppg"] },
+      { l: "Tackles",   cols: ["tkl", "ast", "tfl", "ppg"] } ] },
+    { id: "PK", alias: "kicker", group: ["PK"], sets: [
+      { l: "Kicking",   cols: ["fgm", "fgpct", "xpm", "ppg"] } ] },
+    { id: "PN", alias: "punter", group: ["PK", "PN"], sets: [
+      { l: "Punting",   cols: ["punts", "navg", "i20", "ppg"] } ] }
   ];
 
-  var view = { tab: "QB", q: "", debounce: null };
+  // scope: "all" | "ros" (rostered) | "fa" (free agents) — Keith 2026-06-20.
+  var view = { tab: "QB", q: "", scope: "all", set: 0, debounce: null };
   var cache = {};   // alias|season → ranked raw rows
   var season = 0;
 
@@ -83,6 +113,16 @@
   function curTab() {
     for (var i = 0; i < TABS.length; i++) if (TABS[i].id === view.tab) return TABS[i];
     return TABS[0];
+  }
+  function curSet() {
+    var t = curTab();
+    return t.sets[view.set] || t.sets[0];
+  }
+  // Player's CURRENT NFL team (the leaderboard `team` is season-stamped). Fall
+  // back to the season team if the player isn't in the boot-loaded DB.
+  function curTeam(r) {
+    var p = M.data.playerById ? M.data.playerById(r.mfl_pid) : null;
+    return U.safeStr((p && p.team) || r.team || "");
   }
 
   // Rank within pos_group by MFL PPG (mirrors app.js buildLeaderboardMap).
@@ -144,8 +184,12 @@
     var q = view.q.trim().toLowerCase();
     return all.filter(function (r) {
       if (tab.group.indexOf(String(r.pos_group || "").toUpperCase()) === -1) return false;
+      // FA vs rostered scope (the leaderboard row carries mfl_franchise_id).
+      if (view.scope === "ros" && !r.mfl_franchise_id) return false;
+      if (view.scope === "fa" && r.mfl_franchise_id) return false;
       if (q) {
-        var hay = (String(r.player_name || "") + " " + String(r.team || "") + " " + mflPos(r.position)).toLowerCase();
+        var hay = (String(r.player_name || "") + " " + curTeam(r) + " " + mflPos(r.position) +
+                   " " + String(r.mfl_franchise_name || "")).toLowerCase();
         if (hay.indexOf(q) === -1) return false;
       }
       return true;
@@ -154,18 +198,23 @@
 
   function renderList(tab) {
     var rows = rowsFor(tab);
-    if (!rows.length) return '<div class="ups-m-stub"><div>No ' + tab.id + " data for " + curSeason() + ".</div></div>";
-    var cols = tab.cols.map(function (k) { return C[k]; });
+    if (!rows.length) return '<div class="ups-m-stub"><div>No ' + tab.id + " " +
+      (view.scope === "fa" ? "free agents" : view.scope === "ros" ? "rostered players" : "data") +
+      " for " + curSeason() + ".</div></div>";
+    var cols = curSet().cols.map(function (k) { return C[k]; });
     var capped = rows.slice(0, 150);
     var head = '<div class="ups-m-st-row head" style="--n:' + cols.length + '">' +
       '<span class="rk">#</span><span class="nm">Player</span>' +
       cols.map(function (c) { return '<span class="v">' + U.escapeHtml(c.l) + "</span>"; }).join("") + "</div>";
     var body = capped.map(function (r) {
+      var ownTag = r.mfl_franchise_id
+        ? '<span class="own"> · ' + U.escapeHtml(String(r.mfl_franchise_name || "Rostered")) + "</span>"
+        : '<span class="own fa"> · FA</span>';
       return '<div class="ups-m-st-row" data-pid="' + U.escapeHtml(String(r.mfl_pid || "")) + '" style="--n:' + cols.length + '">' +
         '<span class="rk">' + (r.__rk || "") + "</span>" +
         '<span class="nm"><span class="pos ' + String(r.pos_group || "").toLowerCase() + '">' + U.escapeHtml(mflPos(r.position)) + "</span>" +
           '<span class="t"><span class="pn">' + U.escapeHtml(flip(r.player_name)) + "</span>" +
-          '<span class="tm">' + U.escapeHtml(String(r.team || "")) + "</span></span></span>" +
+          '<span class="tm">' + U.escapeHtml(curTeam(r)) + ownTag + "</span></span></span>" +
         cols.map(function (c) { return '<span class="v">' + fmt(c.g(r), c) + "</span>"; }).join("") +
       "</div>";
     }).join("");
@@ -178,9 +227,22 @@
     var chips = TABS.map(function (t) {
       return '<button class="ups-m-pos-chip' + (view.tab === t.id ? " on" : "") + '" data-tab="' + t.id + '">' + t.id + "</button>";
     }).join("");
+    var scopeSel = '<select class="ups-m-players-filter" id="ups-m-st-scope" aria-label="Filter by roster status">' +
+      '<option value="all"' + (view.scope === "all" ? " selected" : "") + ">All players</option>" +
+      '<option value="ros"' + (view.scope === "ros" ? " selected" : "") + ">Rostered</option>" +
+      '<option value="fa"'  + (view.scope === "fa"  ? " selected" : "") + ">Free agents</option>" +
+    "</select>";
+    // Column-set dropdown — only when the position offers more than one set.
+    var sets = curTab().sets;
+    var setSel = sets.length > 1
+      ? '<select class="ups-m-players-filter" id="ups-m-st-set" aria-label="Stat columns">' +
+          sets.map(function (s, i) { return '<option value="' + i + '"' + (view.set === i ? " selected" : "") + ">" + U.escapeHtml(s.l) + "</option>"; }).join("") +
+        "</select>"
+      : "";
     return '<div class="ups-m-players-toolbar">' +
       '<div class="ups-m-auc-sec-head">Player Stats <span class="ct">' + curSeason() + " · advanced (nflverse)</span></div>" +
-      '<input type="search" class="ups-m-players-search" id="ups-m-st-search" placeholder="Search name, team…" autocomplete="off" autocorrect="off" value="' + U.escapeHtml(view.q) + '" />' +
+      '<input type="search" class="ups-m-players-search" id="ups-m-st-search" placeholder="Search name, team, owner…" autocomplete="off" autocorrect="off" value="' + U.escapeHtml(view.q) + '" />' +
+      '<div class="ups-m-st-filters">' + scopeSel + setSel + "</div>" +
       '<div class="ups-m-pos-chips">' + chips + "</div>" +
     "</div>";
   }
@@ -201,8 +263,13 @@
     for (var i = 0; i < chips.length; i++) chips[i].addEventListener("click", function () {
       view.tab = this.getAttribute("data-tab");
       view.q = "";
+      view.set = 0;   // each position defaults to its first column set
       M.route.renderRoute();
     });
+    var scope = document.getElementById("ups-m-st-scope");
+    if (scope) scope.addEventListener("change", function () { view.scope = this.value; M.route.renderRoute(); });
+    var setSel = document.getElementById("ups-m-st-set");
+    if (setSel) setSel.addEventListener("change", function () { view.set = parseInt(this.value, 10) || 0; M.route.renderRoute(); });
   }
 
   function bind(mount) {
