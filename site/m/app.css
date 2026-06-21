@@ -801,14 +801,23 @@ button.ups-m-busy::before,
 /* One starting slot = position tag + dropdown */
 .ups-m-slot {
   display: grid;
-  grid-template-columns: 62px 1fr;
-  gap: 10px;
+  grid-template-columns: 56px 1fr 40px;
+  gap: 8px;
   align-items: center;
   padding: 7px 14px;
   border-top: 1px solid var(--line);
   background: var(--bg-elev);
 }
 .ups-m-slot.filled { border-left: 3px solid var(--accent); padding-left: 11px; }
+.ups-m-slot-proj {
+  text-align: right;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.ups-m-slot-proj.none { color: var(--fg-muted); font-weight: 600; }
+.ups-m-lineup-chip.proj { color: var(--accent); border-color: rgba(91,141,255,0.4); }
 .ups-m-slot-tag { display: flex; flex-direction: column; line-height: 1.15; }
 .ups-m-slot-tag .pos {
   font-size: 14px;
