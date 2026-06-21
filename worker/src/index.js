@@ -9405,6 +9405,78 @@ export default {
         }
       }
 
+      // ── GET /api/mfl-detailed — MFL "Detailed Results" per-player scoring ──
+      // Parses MFL's KEYLESS `detailed?L=&P=&W=&PRINTER=1` report — the
+      // canonical, MFL-exact per-stat breakdown (first downs, sack yards lost,
+      // gross punt yards, per-FG distances; literally everything MFL scores,
+      // computed by MFL). Works for ANY historical week. Powers the GameDay
+      // player-breakdown modal. 60s edge cache (shared poller pattern).
+      // Usage: /api/mfl-detailed?L=74598&P=16579&W=8&YEAR=2025
+      if (path === "/api/mfl-detailed" && request.method === "GET") {
+        const lid = safeStr(url.searchParams.get("L") || "74598").replace(/\D/g, "");
+        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+        const pid = safeStr(url.searchParams.get("P") || "").replace(/\D/g, "");
+        const wk = safeStr(url.searchParams.get("W") || "").replace(/\D/g, "");
+        if (!pid) return jsonOut(400, { ok: false, error: "Missing P param" });
+        const host = lid === "74598" ? "https://www48.myfantasyleague.com" : "https://api.myfantasyleague.com";
+        const upstream = `${host}/${encodeURIComponent(yr)}/detailed?L=${encodeURIComponent(lid)}&P=${encodeURIComponent(pid)}${wk ? "&W=" + encodeURIComponent(wk) : ""}&PRINTER=1`;
+        // Parse the printer-friendly HTML table → clean JSON. No DOM in the
+        // worker, so regex over the rows. Structure (verified all positions):
+        //   header: [Player, Event]
+        //   first stat row: [<player meta>, <points>, "<value> <statname>"]
+        //   stat rows:      [<points>, "<value> <statname>"]
+        //   final row:      [<subtotal>, "Subtotal"]
+        const parseMflDetailed = (html) => {
+          const tables = html.match(/<table[\s\S]*?<\/table>/gi) || [];
+          const tbl = tables.filter((t) => /Subtotal/i.test(t)).sort((a, b) => b.length - a.length)[0];
+          if (!tbl) return { player: { raw: "" }, lines: [], subtotal: null, found: false };
+          const strip = (s) => s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+          const isNum = (s) => /^-?\d[\d,]*\.?\d*$/.test(String(s).replace(/,/g, ""));
+          const rows = tbl.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+          let meta = "", subtotal = null;
+          const lines = [];
+          for (const r of rows) {
+            const cells = (r.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || []).map(strip).filter((c) => c !== "");
+            if (!cells.length) continue;
+            if (/^Player$/i.test(cells[0]) && /^Event$/i.test(cells[1] || "")) continue;
+            if (cells.some((c) => /^Subtotal$/i.test(c))) {
+              const num = cells.find(isNum); if (num != null) subtotal = parseFloat(num.replace(/,/g, ""));
+              const m2 = cells.find((c) => !isNum(c) && !/^Subtotal$/i.test(c)); if (m2 && !meta) meta = m2;
+              continue;
+            }
+            if (cells.length >= 3) {
+              if (!meta) meta = cells[0];
+              const pts = cells[cells.length - 2], stat = cells[cells.length - 1];
+              if (isNum(pts)) lines.push({ points: parseFloat(pts), stat });
+            } else if (cells.length === 2) {
+              const pts = cells[0], stat = cells[1];
+              if (isNum(pts)) lines.push({ points: parseFloat(pts), stat });
+              else if (!meta) meta = cells.join(" ");
+            } else if (cells.length === 1 && !isNum(cells[0]) && !meta) meta = cells[0];
+          }
+          let player = { raw: meta };
+          const m = meta.match(/^(.+?)\s+([A-Z]{2,3})\s+(QB|RB|WR|TE|PK|PN|DT|DE|NT|LB|OLB|ILB|MLB|CB|S|FS|SS|DB|DL)\b\s*(.*)$/);
+          if (m) {
+            const nm = m[1].includes(", ") ? (m[1].split(", ")[1] + " " + m[1].split(", ")[0]) : m[1];
+            player = { raw: meta, name: nm.trim(), team: m[2], pos: m[3], game: (m[4] || "").trim() };
+            const sc = (m[4] || "").match(/[A-Z]{2,3}\s+\d+,\s*[A-Z]{2,3}\s+\d+/);
+            if (sc) player.score = sc[0];
+          }
+          return { player, lines, subtotal, found: lines.length > 0 || subtotal != null };
+        };
+        try {
+          const r = await fetch(upstream, {
+            cf: { cacheTtl: 60, cacheEverything: true },
+            headers: { "User-Agent": "upsmflproduction-worker", "Accept": "text/html" },
+          });
+          const html = await r.text();
+          const parsed = parseMflDetailed(html);
+          return jsonOut(r.ok ? 200 : 502, { ok: true, league_id: lid, year: yr, player_id: pid, week: wk || null, ...parsed });
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: `MFL detailed fetch failed: ${e?.message || String(e)}` });
+        }
+      }
+
       // ── GET /api/league-events — UPS calendar (deadlines + milestones) ──
       // Source: D1 `league_events` table (migration 0026). Read-only.
       // Usage: /api/league-events?season=2026&from=today&limit=10
