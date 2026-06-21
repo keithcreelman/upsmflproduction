@@ -90,7 +90,18 @@
   .gd-taxi-table td { padding: 9px 12px; border-bottom: 1px solid var(--line); }
   .gd-taxi-table tr:hover td { background: var(--panel); }
   .gd-taxi-pos { color: var(--muted); font-variant-numeric: tabular-nums; }
-  .gd-taxi-sal { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .gd-taxi-sal { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--teal); }
+  .gd-taxi-head { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 0; padding: 9px 12px;
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 8px 8px 0 0;
+    font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .gd-taxi-head .n { color: var(--accent); letter-spacing: 0; }
+  .gd-callup { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .gd-callup.danger { color: var(--warn); border-color: rgba(251,191,36,0.4); }
+  .gd-callup.perm { color: var(--teal); border-color: rgba(45,212,191,0.4); }
+  .gd-taxi-btn { padding: 6px 13px; border-radius: 7px; font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer; border: 1px solid var(--line); white-space: nowrap; }
+  .gd-taxi-btn.up { background: var(--accent); color: #08122e; border-color: var(--accent); }
+  .gd-taxi-btn.down { background: var(--panel2); color: var(--fg); }
+  .gd-taxi-btn:disabled { opacity: 0.55; cursor: wait; }
   .gd-note { color: var(--muted); font-size: 12.5px; margin: 14px 0; }
   .gd-link-btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; background: var(--accent);
     color: #08122e; border-radius: 8px; font-weight: 700; font-size: 13.5px; text-decoration: none; }
@@ -484,24 +495,85 @@
   }
 
   // ---- Taxi tab ----
+  // ---- Taxi tab (in-app promote/demote, mirrors mobile) ----
+  // Pulls the worker /roster-workbench feed for server-computed taxi_eligible +
+  // call-up counts + off-cap salary, and POSTs promote/demote to
+  // /roster-workbench/action (the worker enforces all §B2 rules + returns the
+  // error text). No bounce to MFL.
+  function loadRwb(force) {
+    if (STATE.rwb && !force) return;
+    STATE.rwb = { loaded: false, teams: [] };
+    fetch(workerUrl("/roster-workbench?L=" + encodeURIComponent(CTX.leagueId) + "&YEAR=" + encodeURIComponent(CTX.year)), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { STATE.rwb = { loaded: true, teams: (j && j.teams) || [] }; rerender(); })
+      .catch(function () { STATE.rwb = { loaded: true, teams: [] }; rerender(); });
+  }
+  function myRwbPlayers() {
+    var t = ((STATE.rwb && STATE.rwb.teams) || []).find(function (x) { return pad4(x.franchise_id) === STATE.viewerFranchiseId; });
+    return t ? (t.players || []) : [];
+  }
+  function callupLabel(p) {
+    if (p.taxi_permanent_promotion) return '<span class="gd-callup perm">Promoted</span>';
+    var used = Number(p.taxi_callups_used || 0), max = Number(p.taxi_callups_max || 3), pend = Number(p.taxi_callups_pending || 0);
+    return '<span class="gd-callup' + (used >= max ? " danger" : "") + '">' + used + '/' + max + (pend ? " +" + pend : "") + '</span>';
+  }
+  function taxiAction(action, pid, name) {
+    var verb = action === "promote_taxi" ? "Promote" : "Demote";
+    var msg = action === "promote_taxi"
+      ? "Promote " + name + " to your active roster?\n\nCanon §B2: each taxi player gets 3 call-ups; the 4th makes the promotion PERMANENT (no longer cap-free to cut). Demoting before the next NFL week locks does not burn a call-up."
+      : "Send " + name + " to your taxi squad?\n\nTaxi salary is off-cap. Demoting before the next NFL week locks does not burn a call-up.";
+    if (!window.confirm(msg)) return;
+    STATE.taxiBusy = pid; STATE.message = null; rerender();
+    fetch(workerUrl("/roster-workbench/action"), {
+      method: "POST", mode: "cors", credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: action, league_id: CTX.leagueId, season: CTX.year, franchise_id: STATE.viewerFranchiseId, player_id: pid })
+    }).then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+      .then(function (resp) {
+        var b = resp.body || {};
+        var ok = resp.status >= 200 && resp.status < 300 && b.ok !== false && b.error == null;
+        if (ok) { STATE.message = { kind: "ok", text: verb + "d " + name + " ✓" }; STATE.taxiBusy = null; loadRwb(true); }
+        else {
+          var err = b.error || b.message || (b.mfl_response && (b.mfl_response.error && b.mfl_response.error.$t || b.mfl_response.error)) || ("HTTP " + resp.status);
+          STATE.message = { kind: "err", text: String(err) }; STATE.taxiBusy = null; rerender();
+        }
+      })
+      .catch(function (e) { STATE.message = { kind: "err", text: "Move failed: " + (e && e.message || e) }; STATE.taxiBusy = null; rerender(); });
+  }
+
   function renderTaxi(el) {
-    var rows = buildRows().filter(function (r) { return r.isTaxi; });
-    var taxiUrl = "//" + CTX.host + "/" + encodeURIComponent(CTX.year) + "/options?L=" + encodeURIComponent(CTX.leagueId) + "&O=98";
-    var body;
-    if (!rows.length) {
-      body = '<div class="gd-stub">No players on your taxi squad.</div>';
-    } else {
-      rows.sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); });
-      body = '<table class="gd-taxi-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th style="text-align:right">Salary</th></tr></thead><tbody>' +
-        rows.map(function (r) {
-          return '<tr><td>' + esc(r.name) + '</td><td class="gd-taxi-pos">' + esc(r.pos || "—") + '</td>' +
-            '<td class="gd-taxi-pos">' + esc(r.team || "—") + '</td><td class="gd-taxi-sal">' + esc(fmtUsd(r.salary)) + '</td></tr>';
-        }).join("") + '</tbody></table>';
+    loadRwb();
+    if (!STATE.rwb || !STATE.rwb.loaded) { el.innerHTML = '<div class="gd-stub">Loading taxi squad…</div>'; return; }
+    var players = myRwbPlayers();
+    var onTaxi = players.filter(function (p) { return p.is_taxi; }).sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); });
+    var eligible = players.filter(function (p) { return p.taxi_eligible && !p.is_taxi && !p.is_ir && !p.taxi_permanent_promotion; })
+      .sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); });
+
+    function row(p, action) {
+      var name = nameFromMfl(p.name);
+      var busy = STATE.taxiBusy === p.id;
+      var label = action === "promote_taxi" ? "Promote ↑" : "Demote ↓";
+      var btn = '<button class="gd-taxi-btn ' + (action === "promote_taxi" ? "up" : "down") + '" data-act="' + action + '" data-pid="' + esc(p.id) + '" data-name="' + esc(name) + '"' + (busy ? " disabled" : "") + '>' + (busy ? "…" : label) + '</button>';
+      return '<tr><td>' + esc(name) + '</td><td class="gd-taxi-pos">' + esc(p.position || "—") + '</td>' +
+        '<td class="gd-taxi-pos">' + esc(p.nfl_team || "—") + '</td><td>' + callupLabel(p) + '</td>' +
+        '<td class="gd-taxi-sal">' + esc(fmtUsd(p.salary)) + '</td><td style="text-align:right">' + btn + '</td></tr>';
     }
+    function bucket(title, list, action, emptyMsg) {
+      var head = '<div class="gd-taxi-head">' + esc(title) + ' <span class="n">' + list.length + '</span></div>';
+      if (!list.length) return head + '<div class="gd-stub" style="padding:18px;text-align:left">' + emptyMsg + '</div>';
+      return head + '<table class="gd-taxi-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Call-ups</th><th style="text-align:right">Salary</th><th></th></tr></thead><tbody>' +
+        list.map(function (p) { return row(p, action); }).join("") + '</tbody></table>';
+    }
+
     el.innerHTML =
-      '<div class="gd-note">Your taxi squad — ' + rows.length + ' player' + (rows.length === 1 ? "" : "s") + '. Taxi salary is real money but does <strong>not</strong> count against the cap. Promote/demote and call-ups are done on MFL.</div>' +
-      body +
-      '<div style="margin-top:16px"><a class="gd-link-btn" href="' + esc(taxiUrl) + '" target="_blank" rel="noopener">Manage Taxi Squad on MFL ↗</a></div>';
+      '<div class="gd-note">Manage your taxi squad right here. Taxi salary is real money but <strong>does not</strong> count against the cap. Each taxi player gets <strong>3 call-ups</strong>; the 4th makes the promotion permanent (Canon §B2).</div>' +
+      (STATE.message ? '<div class="gd-msg ' + esc(STATE.message.kind) + '">' + esc(STATE.message.text) + '</div>' : '') +
+      bucket("On the Taxi Squad — call up to active", onTaxi, "promote_taxi", "No players on your taxi squad.") +
+      bucket("Eligible to send to Taxi", eligible, "demote_taxi", "No active rookies are taxi-eligible (UPS draft R2–5, within 3 league years, not permanently promoted).");
+
+    el.querySelectorAll(".gd-taxi-btn").forEach(function (b) {
+      b.addEventListener("click", function () { taxiAction(b.getAttribute("data-act"), b.getAttribute("data-pid"), b.getAttribute("data-name")); });
+    });
   }
 
   // ---- Live Scoring tab ----
