@@ -67,9 +67,29 @@
   // ---- year/week filter + data load ----
   function sbYear() { return M.state.sbYear || ctx().year; }
   function sbWeekSel() { return M.state.sbWeek || ""; }
+  // Per-season MFL league_id + shard from D1 (/api/league-years). 74598 is 2017+;
+  // pre-2017 seasons live on older shards under distinct ids + are cookie-gated
+  // (the worker injects the cookie + the &SERVER= shard for those).
+  function loadLeagueYears() {
+    if (M.state.sbLeagueYears) return Promise.resolve(M.state.sbLeagueYears);
+    if (M.state._lyPromise) return M.state._lyPromise;
+    M.state._lyPromise = fetchJson(API.workerUrl("/api/league-years")).then(function (d) {
+      var map = {};
+      asArray(d && d.years).forEach(function (y) { if (y && y.season) map[String(y.season)] = { server: s(y.server) || "www48", league_id: s(y.league_id) }; });
+      M.state.sbLeagueYears = map; return map;
+    }).catch(function () { M.state.sbLeagueYears = {}; return {}; });
+    return M.state._lyPromise;
+  }
+  function sbLeagueInfo(year) {
+    var m = M.state.sbLeagueYears || {};
+    return m[String(year)] || { server: "www48", league_id: leagueId() };
+  }
+  function sbLid() { return sbLeagueInfo(sbYear()).league_id; }
   function sbExportUrl(type, week) {
+    var info = sbLeagueInfo(sbYear()), lid = info.league_id, srv = info.server || "www48";
     var url = API.workerUrl("/api/mfl-export") + "?TYPE=" + encodeURIComponent(type) +
-      "&L=" + encodeURIComponent(leagueId()) + "&YEAR=" + encodeURIComponent(sbYear()) + "&JSON=1&DETAILS=1";
+      "&L=" + encodeURIComponent(lid) + "&YEAR=" + encodeURIComponent(sbYear()) + "&JSON=1&DETAILS=1";
+    if (String(lid) !== "74598") url += "&SERVER=" + encodeURIComponent(srv);   // historical shard
     if (week) url += "&W=" + encodeURIComponent(week);
     return url;
   }
@@ -82,6 +102,7 @@
   function loadScoreboard(force) {
     if (M.state.sb && M.state.sb.loaded && !force) { scheduleSbPoll(); return; }
     if (!M.state.sb) M.state.sb = { loaded: false };
+    loadLeagueYears().then(function () {   // resolve per-year league_id/shard first
     var wk = sbWeekSel();
     Promise.all([
       fetchJson(sbExportUrl("liveScoring", wk)),
@@ -105,6 +126,7 @@
       try { M.state.sbAt = Date.now(); } catch (e) {}
       renderRoute(); scheduleSbPoll();
     }).catch(function () { M.state.sb = { loaded: true, error: true }; renderRoute(); });
+    });
   }
   function sbSource() { return (M.state.sb && M.state.sb.source) || "live"; }
   function sbLive() { return (M.state.sb && M.state.sb.live && M.state.sb.live.liveScoring) || null; }
@@ -279,8 +301,8 @@
 
   // ---- per-player breakdown (reuse the keyless /api/mfl-detailed) ----
   function mflPlayerUrl(pid) {
-    var wk = sbWeek();
-    return "https://www48.myfantasyleague.com/" + encodeURIComponent(sbYear()) + "/player?L=" + encodeURIComponent(leagueId()) +
+    var wk = sbWeek(), info = sbLeagueInfo(sbYear());
+    return "https://" + (info.server || "www48") + ".myfantasyleague.com/" + encodeURIComponent(sbYear()) + "/player?L=" + encodeURIComponent(info.league_id) +
       "&P=" + encodeURIComponent(pid) + (wk ? "&W=" + encodeURIComponent(wk) : "");
   }
   function bdKey(pid) { return sbYear() + ":" + (sbWeek() || "") + ":" + pid; }
@@ -290,7 +312,7 @@
     if (M.state.sbBd[key]) return;
     M.state.sbBd[key] = { loading: true };
     var wk = sbWeek();
-    fetch(API.workerUrl("/api/mfl-detailed") + "?L=" + encodeURIComponent(leagueId()) +
+    fetch(API.workerUrl("/api/mfl-detailed") + "?L=" + encodeURIComponent(sbLid()) +
       "&YEAR=" + encodeURIComponent(sbYear()) + "&P=" + encodeURIComponent(pid) + (wk ? "&W=" + encodeURIComponent(wk) : ""),
       { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.json(); })
@@ -389,7 +411,12 @@
   function weekControls() {
     var cy = parseInt(ctx().year, 10) || (new Date()).getFullYear(), years = [];
     // Floor at 2020 — earliest season MFL has weeklyResults for L=74598.
-    for (var y = cy; y >= 2020; y--) years.push(y);
+    var lyMap = M.state.sbLeagueYears;
+    if (lyMap && Object.keys(lyMap).length) {
+      years = Object.keys(lyMap).sort(function (a, b) { return Number(b) - Number(a); });
+    } else {
+      for (var y = cy; y >= 2017; y--) years.push(y);   // keyless fallback until the D1 map loads
+    }
     var ySel = '<select class="ups-m-sb-sel" id="ups-m-sb-year">' + years.map(function (y) {
       return '<option value="' + y + '"' + (String(y) === String(sbYear()) ? " selected" : "") + '>' + y + '</option>';
     }).join("") + '</select>';
@@ -440,7 +467,7 @@
       loadScoreboard();
       return;
     }
-    var nativeUrl = "https://www48.myfantasyleague.com/" + encodeURIComponent(sbYear()) + "/ajax_ls?L=" + encodeURIComponent(leagueId());
+    var nativeUrl = "https://" + (sbLeagueInfo(sbYear()).server || "www48") + ".myfantasyleague.com/" + encodeURIComponent(sbYear()) + "/ajax_ls?L=" + encodeURIComponent(sbLid());
     if (M.state.sb.error) {
       mount.innerHTML = head + weekControls() +
         '<div class="ups-m-stub"><div>No scoring data for ' + esc(sbYear()) + (sbWeekSel() ? " Week " + esc(sbWeekSel()) : " the current week") + '. Pick another week.</div></div>';

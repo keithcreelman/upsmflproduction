@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.21.2",
-  "label": "Live Scoring: yardage/TD bonuses shown as their own 'Bonus 200+ / 50+' lines, positional rank by points next to each starter, original projection once a game is final, above/below expectation; lineup dropdown trimmed to Player · Team · POS#rank."
+  "build": "2026.06.21.3",
+  "label": "Live Scoring history: the year filter now goes all the way back to 2010 (per-season MFL league IDs from D1; pre-2017 archives load through the worker)."
 }
