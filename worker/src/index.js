@@ -9336,6 +9336,10 @@ export default {
           // Lineup projected points (keyless) + matchup points-allowed
           // (back-burner: defense vs position). Both public, read-only.
           "projectedScores", "pointsAllowed",
+          // Live scoring for the custom GameDay scoreboard. The 60s proxy
+          // cache acts as the single shared poller (all owners hit the worker,
+          // not MFL directly) — never browser → MFL for live data.
+          "liveScoring",
           // User-specific endpoints: MUST go to api.myfantasyleague.com
           // (MFL rejects them on shards). Authenticate with the per-user
           // APIKEY param read from window._apiKey_ in the browser. See
