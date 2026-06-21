@@ -3185,7 +3185,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     var activeId = "";
     // Overview only when on the bare home page (or MESSAGE11). On a native page
     // (no MODULE, not /home/) nothing is the active hub, so highlight nothing.
-    if ((!ctx.module && ctx.isHomePath) || ctx.module === "MESSAGE11") activeId = "overview";
+    if ((!ctx.module && ctx.isHomePath) || ctx.module === "MESSAGE11") activeId = "home";
     else if (/^MESSAGE7\b/.test(ctx.module)) activeId = "front-office";
     else if (/^MESSAGE13\b/.test(ctx.module)) activeId = "player-stats";
     else if (/^MESSAGE6\b/.test(ctx.module)) activeId = "trade-room";
@@ -3234,7 +3234,10 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     //   → Player Acquisition ▾ → Game Day ▾
     var TABS = [
       { id: "home",         label: "Home",           href: buildUrl("") },
-      { id: "overview",     label: "Overview",       module: "MESSAGE11" },
+      // Game Day promoted to slot 2 + Overview dropped — the Home page IS the
+      // overview (Keith 2026-06-20). Custom hub page (Submit Lineup / Taxi
+      // Squad / Live Scoring) via the MESSAGE19 hub container.
+      { id: "gameday",      label: "Game Day",       module: "MESSAGE19&hub=gameday" },
       { id: "front-office", label: "Front Office",   module: "MESSAGE7"  },
       { id: "trade-room",   label: "Trade War Room", module: "MESSAGE6=N" },
       { id: "rookie-hub",   label: "Rookie Draft Hub", module: "MESSAGE12" },
@@ -3258,11 +3261,6 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         // Keith confirmed 2026-05-15.
         { label: "Trade Block",    href: buildMflPath("/options?O=133") }
       ]},
-      // Game Day — custom hub page with tabs (Submit Lineup [18-slot builder] /
-      // Taxi Squad / Live Scoring) routed through the MESSAGE19 hub container,
-      // replacing the old native-link dropdown (Keith 2026-06-20). Page lives
-      // at site/gameday/gameday.html.
-      { id: "gameday",      label: "Game Day", module: "MESSAGE19&hub=gameday" },
       // "MFL Legacy Links" — native MFL pages, a BACKUP for when one of our
       // custom hubs isn't loading (Keith 2026-06-11). Shown on BOTH desktop and
       // mobile (Keith 2026-06-14) so the two stay consistent — the hamburger
