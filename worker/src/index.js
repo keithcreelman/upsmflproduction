@@ -9959,9 +9959,15 @@ export default {
             const rat = {}; rows.forEach((r, i) => { rat[r.d] = { rank: i + 1, ratio: Math.round(r.ratio * 100) / 100 }; });
             return Object.keys(rat).length ? rat : null;
           };
+          // Pick the rating season with a single cheap probe instead of a full
+          // wasted first pass — the offseason double-pass (≈70 fetches) blows the
+          // Worker subrequest limit and the fallback silently returns nothing.
           let ratingSeason = yr, projected = false;
-          let rat = await fpaRatings(yr);
-          if (!rat) { ratingSeason = String(parseInt(yr, 10) - 1); rat = await fpaRatings(ratingSeason); projected = true; }
+          const probe = await jf(`https://www48.myfantasyleague.com/${yr}/export?TYPE=playerScores&L=${lid}&W=1&JSON=1`, 86400);
+          const hasData = !!(probe && probe.playerScores && arr(probe.playerScores.playerScore).length);
+          if (!hasData) { ratingSeason = String(parseInt(yr, 10) - 1); projected = true; }
+          let rat = await fpaRatings(ratingSeason);
+          if (!rat && !projected) { ratingSeason = String(parseInt(yr, 10) - 1); projected = true; rat = await fpaRatings(ratingSeason); }
           const ratingByNflv = {};
           if (rat) for (const mflCode in rat) ratingByNflv[toNflv(mflCode)] = { ratio: rat[mflCode].ratio, rank: rat[mflCode].rank };
           const txt = await fetch("https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv", { cf: { cacheTtl: 1800, cacheEverything: true } }).then((x) => x.ok ? x.text() : null).catch(() => null);
