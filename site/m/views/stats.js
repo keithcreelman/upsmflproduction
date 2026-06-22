@@ -63,7 +63,12 @@
     punts: { l: "Punts", g: function (r) { return nn(r.punts); } },
     navg:  { l: "NetAvg",g: function (r) { return nn(r.punt_net_avg); }, f: "dec1" },
     i20:   { l: "I20",   g: function (r) { return nn(r.punt_inside20); } },
-    sospts:{ l: "SoSΔ",  g: function (r) { var s = sosRec(r); return (s && s.sos != null && s.raw != null) ? Math.round((s.sos - s.raw) * 10) / 10 : null; }, f: "delta" }
+    sospts:{ l: "SoSΔ",  g: function (r) { var s = sosRec(r); return (s && s.sos != null && s.raw != null) ? Math.round((s.sos - s.raw) * 10) / 10 : null; }, f: "delta" },
+    cfloor:{ l: "Floor", g: function (r) { var c = consRec(r); return c && c.floor != null ? c.floor : null; }, f: "dec1" },
+    cceil: { l: "Ceil",  g: function (r) { var c = consRec(r); return c && c.ceil != null ? c.ceil : null; }, f: "dec1" },
+    ccons: { l: "Consist", g: function (r) { var c = consRec(r); return c && c.consistency != null ? c.consistency : null; } },
+    cboom: { l: "Boom%", g: function (r) { var c = consRec(r); return c && c.boom_pct != null ? c.boom_pct : null; } },
+    cbust: { l: "Bust%", g: function (r) { var c = consRec(r); return c && c.bust_pct != null ? c.bust_pct : null; } }
   };
 
   // Each tab: alias (worker pos param), group (pos_group values to keep), and
@@ -102,6 +107,8 @@
   // SoS set — every position (raw Pts · SoS delta · PPG). (ADP + Team Pace moved
   // to their own Stats sub-tabs.)
   TABS.forEach(function (t) { t.sets.push({ l: "SoS", cols: ["pts", "sospts", "ppg"] }); });
+  // Boom/Bust set — every position (consistency + boom% + bust%).
+  TABS.forEach(function (t) { t.sets.push({ l: "Boom/Bust", cols: ["ccons", "cboom", "cbust"] }); });
 
   // scope: "all" | "ros" (rostered) | "fa" (free agents) — Keith 2026-06-20.
   // inner: "players" (the leaderboard) | "fpa" (Fantasy Points Against).
@@ -122,6 +129,18 @@
       .catch(function () { sosMap = {}; return sosMap; });
   }
   function sosRec(r) { return (sosMap && sosMap[String(r.gsis_id)]) || null; }
+  // Consistency / boom-bust by gsis_id — side-loaded per season, read by the "Boom/Bust" set.
+  var consMap = null, consSeason = 0;
+  function loadCons(yr) {
+    if (consMap && consSeason === yr) return Promise.resolve(consMap);
+    consSeason = yr;
+    return fetch(API.workerUrl("/api/player-consistency?seasons=" + encodeURIComponent(yr) + "&week_min=1&week_max=17"),
+        { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { consMap = (j && j.by_gsis) || {}; return consMap; })
+      .catch(function () { consMap = {}; return consMap; });
+  }
+  function consRec(r) { return (consMap && consMap[String(r.gsis_id)]) || null; }
 
   function curSeason() {
     if (season) return season;
@@ -770,6 +789,7 @@
     // SoS-adjusted points load in the background (per season); re-paint when ready
     // so the "SoS" column set fills in.
     loadSos(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
+    loadCons(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
     if (cache[tab.alias + "|" + curSeason()]) { paint(mount); return; }
     mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + '<div class="ups-m-loading">Loading stats…</div>';
     bindInner(mount); bindToolbar(mount);

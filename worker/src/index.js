@@ -2727,6 +2727,7 @@ export default {
         path !== "/api/fantasy-points-against" &&
         path !== "/api/fpa-detail" &&
         path !== "/api/sos-adjusted-points" &&
+        path !== "/api/player-consistency" &&
         path !== "/api/team-pace" &&
         path !== "/api/nfl-current-teams" &&
         path !== "/api/data-freshness" &&
@@ -10235,6 +10236,66 @@ export default {
           for (const x of (r?.results || [])) {
             if (!x.gsis_id) continue;
             by_gsis[x.gsis_id] = { raw: x.raw, sos: x.sos, sched_ease: x.sched_ease, gp: x.gp };
+          }
+          return jsonOut(200, { ok: true, seasons, window: { week_min: wMin, week_max: wMax }, count: Object.keys(by_gsis).length, by_gsis });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/player-consistency?seasons=&week_min=&week_max= ──
+      // Week-to-week reliability from the MFL weekly fantasy scores (src_weekly),
+      // by gsis_id (joined via ff_player_ids). Per player: ppg, floor (min),
+      // ceil (max), stdev, a 0-100 consistency score, boom% / bust% (share of
+      // weeks at/above the position's leaguewide 75th pct / at/below the 25th
+      // pct of weekly scores), and the ordered weekly scores (for a sparkline).
+      // Only scoring weeks (score>0) count — matches the leaderboard's PPG.
+      // Side-loaded by the Stats workbench + joined on gsis_id.
+      if (path === "/api/player-consistency" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const seasons = safeStr(url.searchParams.get("seasons") || "")
+            .split(",").map((s) => s.replace(/\D/g, "")).filter((s) => s.length === 4);
+          if (!seasons.length) return jsonOut(400, { ok: false, error: "seasons required (CSV of 4-digit years)" });
+          const wMin = Math.max(1, parseInt(url.searchParams.get("week_min") || "1", 10) || 1);
+          const wMaxRaw = parseInt(url.searchParams.get("week_max") || "17", 10) || 17;
+          const wMax = Math.min(23, Math.max(wMin, wMaxRaw));
+          const seasonList = seasons.map((s) => parseInt(s, 10)).join(",");
+          const r = await db.prepare(
+            "SELECT f.gsis_id AS gsis, sw.week AS week, sw.score AS score, sw.pos_group AS pos " +
+            "FROM src_weekly sw JOIN ff_player_ids f ON f.mfl_id = sw.player_id " +
+            "WHERE sw.season IN (" + seasonList + ") AND sw.week BETWEEN " + wMin + " AND " + wMax +
+            " AND sw.score > 0 AND f.gsis_id IS NOT NULL ORDER BY sw.season, sw.week"
+          ).all();
+          const rows = (r && r.results) || [];
+          const byG = {}, posScores = {};
+          for (const x of rows) {
+            const g = x.gsis; if (!g) continue;
+            (byG[g] = byG[g] || { pos: x.pos, scores: [] }).scores.push(x.score);
+            (posScores[x.pos || "?"] = posScores[x.pos || "?"] || []).push(x.score);
+          }
+          const pctl = (arr, p) => { if (!arr.length) return null; const s = arr.slice().sort((a, b) => a - b); const i = Math.min(s.length - 1, Math.max(0, Math.round((p / 100) * (s.length - 1)))); return s[i]; };
+          const boomT = {}, bustT = {};
+          for (const pos in posScores) { boomT[pos] = pctl(posScores[pos], 75); bustT[pos] = pctl(posScores[pos], 25); }
+          const by_gsis = {};
+          for (const g in byG) {
+            const sc = byG[g].scores, n = sc.length; if (!n) continue;
+            const mean = sc.reduce((a, b) => a + b, 0) / n;
+            const sd = Math.sqrt(sc.reduce((a, b) => a + (b - mean) * (b - mean), 0) / n);
+            const bt = boomT[byG[g].pos || "?"], st = bustT[byG[g].pos || "?"];
+            let mn = sc[0], mx = sc[0]; for (const v of sc) { if (v < mn) mn = v; if (v > mx) mx = v; }
+            by_gsis[g] = {
+              ppg: Math.round(mean * 10) / 10,
+              floor: Math.round(mn * 10) / 10,
+              ceil: Math.round(mx * 10) / 10,
+              stdev: Math.round(sd * 10) / 10,
+              consistency: mean > 0 ? Math.max(0, Math.min(100, Math.round(100 * (1 - sd / mean)))) : null,
+              boom_pct: bt != null ? Math.round((sc.filter((s) => s >= bt).length / n) * 100) : null,
+              bust_pct: st != null ? Math.round((sc.filter((s) => s <= st).length / n) * 100) : null,
+              gp: n,
+              weeks: sc,
+            };
           }
           return jsonOut(200, { ok: true, seasons, window: { week_min: wMin, week_max: wMax }, count: Object.keys(by_gsis).length, by_gsis });
         } catch (e) {
