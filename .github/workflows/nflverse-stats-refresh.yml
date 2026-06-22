@@ -52,6 +52,11 @@ jobs:
         working-directory: worker # so the D1Writer's `wrangler` finds wrangler.toml / the D1 binding
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # weekly/pbp/pfr ALWAYS sqlite3.connect(LOCAL_DB) even with --skip-local
+          # (they only skip the WRITE), and the default Desktop path doesn't exist
+          # on the runner → "unable to open database file". Point it at a writable
+          # throwaway so the connect succeeds; --skip-local still skips the write.
+          MFL_DB_PATH: ${{ runner.temp }}/etl_local.db
         run: |
           set -uo pipefail
           # Season range: current + prior (catches late stat corrections to the
