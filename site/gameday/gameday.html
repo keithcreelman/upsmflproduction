@@ -67,6 +67,7 @@
   .gd-mu-detail { font-size: 11.5px; color: var(--muted); padding: 4px 14px 9px 11px; border-left: 3px solid var(--accent); background: rgba(91,141,255,0.05); }
   .gd-mu-detail .r { padding: 2px 0; line-height: 1.4; }
   .gd-mu-detail b { color: var(--fg); font-weight: 800; }
+  .gd-mu-wx { opacity: 0.9; }
   .gd-mu-rank { font-weight: 700; color: var(--fg); }
   .gd-mu-rank.good { color: var(--ok); }
   .gd-mu-rank.tough { color: var(--danger); }
@@ -535,7 +536,16 @@
   // spread + the opponent-adjusted defense-vs-position rank, from the worker
   // /api/lineup-matchups. Lazy-loaded for the lineup's scoring week.
   function muWindow() { return STATE.muWindow || 0; }   // 0 = season-to-date, else last-N weeks
-  function muLabel(k) { return k ? ("last " + k) : "season"; }
+  function muLabel(k) { var s = muData(0); return k ? ("last " + k) : ((s && s.priorSeason) ? "last season" : "season"); }
+  // Which window buttons are meaningful: a window only differs from "season"
+  // once enough current-season weeks exist (else L3/L5 == season → confusing
+  // dead toggle, per Keith). 0 weeks ⇒ prior-season fallback ⇒ none.
+  function availWindows() {
+    var s = muData(0), wa = s ? (s.weeksAvailable || 0) : 0, out = [["0", "Season"]];
+    if (wa > 3) out.push(["3", "L3"]);
+    if (wa > 5) out.push(["5", "L5"]);
+    return out;
+  }
   // Per-window cache so the detail can show recent-vs-season without re-fetching.
   function loadMatchups() {
     var myr = qp.get("mYEAR") || sbYear(), mwk = qp.get("mW") || STATE.projWeek || "";
@@ -548,7 +558,8 @@
       fetchJson(workerUrl("/api/lineup-matchups?YEAR=" + encodeURIComponent(myr) + "&W=" + encodeURIComponent(mwk) + (key ? "&last=" + key : "")))
         .then(function (d) {
           STATE.muCache[k] = { matchups: (d && d.matchups) || {}, defRatings: (d && d.defRatings) || {},
-            playerWindow: (d && d.playerWindow) || {}, horizon: (d && d.horizon) || {} };
+            playerWindow: (d && d.playerWindow) || {}, horizon: (d && d.horizon) || {}, weather: (d && d.weather) || {},
+            weeksAvailable: (d && d.weeksAvailable) || 0, priorSeason: !!(d && d.priorSeason) };
           STATE._muLoading = null; render();
         }).catch(function () { STATE.muCache[k] = { empty: true }; STATE._muLoading = null; });
     });
@@ -576,7 +587,19 @@
     return { opp: m.opp, isHome: m.isHome, kickoff: m.kickoff, spread: m.spread, grp: grp,
       rank: rk ? rk.rank : null, of: rk ? rk.of : null, ratio: rk ? rk.ratio : null,
       form: (act.playerWindow || {})[String(pid)] || null,
-      seasonForm: (seas && seas.playerWindow) ? seas.playerWindow[String(pid)] : null, horizon: hz };
+      seasonForm: (seas && seas.playerWindow) ? seas.playerWindow[String(pid)] : null, horizon: hz,
+      weather: (act.weather || {})[team] || null };
+  }
+  // "54°F · wind 12 · P.Cloudy" — or "Dome (climate controlled)".
+  function wxText(w) {
+    if (!w) return "";
+    if (w.dome) return "Dome (climate controlled)";
+    var bits = [];
+    if (w.tempF != null) bits.push(w.tempF + "°F");
+    if (w.windMph != null) bits.push("wind " + w.windMph + " mph");
+    if (w.summary) bits.push(w.summary);
+    if (w.precip && w.precip >= 0.05) bits.push(w.precip + '" precip');
+    return bits.join(" · ");
   }
   // Compact, tappable matchup line + an on-demand detail card (Keith 2026-06-21:
   // declutter — one clean line per starter, full intel on tap).
@@ -589,6 +612,8 @@
     if (!open) return compact;
     var when = fmtKick(mu.kickoff), hasLine = (mu.spread != null && mu.spread !== 0);
     var rows = ['<div class="r">' + esc((mu.isHome ? "vs " : "@ ") + mu.opp) + (when ? " · " + esc(when) : "") + (hasLine ? " · " + esc((mu.spread > 0 ? "+" : "") + mu.spread) : "") + '</div>'];
+    var wx = wxText(mu.weather);
+    if (wx) rows.push('<div class="r gd-mu-wx">' + esc(wx) + '</div>');
     if (mu.rank != null) { var pct = Math.round((mu.ratio - 1) * 100); rows.push('<div class="r">Defense <b class="gd-mu-rank ' + rankCls(mu.rank) + '">#' + mu.rank + '/' + mu.of + ' to ' + mu.grp + '</b> · allows ' + (pct >= 0 ? "+" : "") + pct + '% vs expected (' + muLabel(muWindow()) + ')</div>'); }
     if (mu.form && mu.form.games) {
       var f = 'Form <b>' + fmtProj(mu.form.avg) + '</b> avg (' + muLabel(muWindow()) + ', ' + mu.form.games + 'g)';
@@ -644,6 +669,17 @@
           '<div class="gd-bench-proj" title="Projected points">' + esc(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id);
       }).join("") : '<div class="gd-bench-empty">No bench players.</div>') + '</div>' : '');
 
+    // Window toggle — only render buttons that produce data distinct from
+    // "season" (Keith: hide the dead L3/L5 toggle until this year's weeks
+    // exist). Clamp the selection if it became unavailable.
+    var wins = availWindows();
+    if (!wins.some(function (o) { return String(muWindow()) === o[0]; })) STATE.muWindow = 0;
+    var winHtml = wins.length > 1
+      ? '<span class="gd-mu-window" title="Window for the matchup defense rank + recent form">Matchup ' +
+          wins.map(function (o) { return '<button type="button" class="gd-win-btn' + (String(muWindow()) === o[0] ? " on" : "") + '" data-win="' + o[0] + '">' + o[1] + '</button>'; }).join("") +
+        '</span>'
+      : '';
+
     var html =
       '<div class="gd-lu-status">' +
         '<div class="gd-lu-status-line">' + summary +
@@ -654,9 +690,7 @@
         (v.errors.length ? '<ul class="gd-lu-errors">' + v.errors.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join("") + '</ul>' : '') +
         '<div class="gd-lu-tools"><button type="button" class="gd-tool" id="gd-autofill" title="Fill the highest-projected eligible player into every slot">⚡ Optimal</button>' +
         '<button type="button" class="gd-tool" id="gd-clear">Clear all</button>' +
-        '<span class="gd-mu-window" title="Window for the matchup defense rank + recent form">Matchup ' +
-          [["0", "Season"], ["3", "L3"], ["5", "L5"]].map(function (o) { return '<button type="button" class="gd-win-btn' + (String(muWindow()) === o[0] ? " on" : "") + '" data-win="' + o[0] + '">' + o[1] + '</button>'; }).join("") +
-        '</span></div>' +
+        winHtml + '</div>' +
       '</div>' +
       (STATE.message ? '<div class="gd-msg ' + esc(STATE.message.kind) + '">' + esc(STATE.message.text) + '</div>' : '') +
       '<div class="gd-cols">' +

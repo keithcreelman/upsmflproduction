@@ -70,7 +70,16 @@
   // defense-vs-position rank, recent-form window, and schedule horizon, from worker
   // /api/lineup-matchups. Tap-to-expand: one clean line per starter, full intel on tap.
   function muWindow() { return M.state.lineupMuWindow || 0; }   // 0 = season-to-date, else last-N weeks
-  function muLabel(k) { return k ? ("last " + k) : "season"; }
+  function muLabel(k) { var s = muData(0); return k ? ("last " + k) : ((s && s.priorSeason) ? "last season" : "season"); }
+  // Which window buttons are meaningful: a window only differs from "season"
+  // once enough current-season weeks exist (else L3/L5 == season → confusing
+  // dead toggle, per Keith). 0 weeks ⇒ prior-season fallback ⇒ none.
+  function availWindows() {
+    var s = muData(0), wa = s ? (s.weeksAvailable || 0) : 0, out = [["0", "Season"]];
+    if (wa > 3) out.push(["3", "L3"]);
+    if (wa > 5) out.push(["5", "L5"]);
+    return out;
+  }
   // Per-window cache so the detail can show recent-vs-season without re-fetching.
   function loadMatchups() {
     var qp; try { qp = new URLSearchParams(location.search); } catch (e) { qp = { get: function () { return null; } }; }
@@ -86,7 +95,8 @@
         .then(function (r) { return r.json(); })
         .then(function (d) {
           M.state.lineupMuCache[k] = { matchups: (d && d.matchups) || {}, defRatings: (d && d.defRatings) || {},
-            playerWindow: (d && d.playerWindow) || {}, horizon: (d && d.horizon) || {} };
+            playerWindow: (d && d.playerWindow) || {}, horizon: (d && d.horizon) || {}, weather: (d && d.weather) || {},
+            weeksAvailable: (d && d.weeksAvailable) || 0, priorSeason: !!(d && d.priorSeason) };
           M.state._muLoading = null; renderRoute();
         }).catch(function () { M.state.lineupMuCache[k] = { empty: true }; M.state._muLoading = null; });
     });
@@ -114,7 +124,19 @@
     return { opp: m.opp, isHome: m.isHome, kickoff: m.kickoff, spread: m.spread, grp: grp,
       rank: rk ? rk.rank : null, of: rk ? rk.of : null, ratio: rk ? rk.ratio : null,
       form: (act.playerWindow || {})[String(pid)] || null,
-      seasonForm: (seas && seas.playerWindow) ? seas.playerWindow[String(pid)] : null, horizon: hz };
+      seasonForm: (seas && seas.playerWindow) ? seas.playerWindow[String(pid)] : null, horizon: hz,
+      weather: (act.weather || {})[team] || null };
+  }
+  // "54°F · wind 12 · P.Cloudy" — or "Dome (climate controlled)".
+  function wxText(w) {
+    if (!w) return "";
+    if (w.dome) return "Dome (climate controlled)";
+    var bits = [];
+    if (w.tempF != null) bits.push(w.tempF + "°F");
+    if (w.windMph != null) bits.push("wind " + w.windMph + " mph");
+    if (w.summary) bits.push(w.summary);
+    if (w.precip && w.precip >= 0.05) bits.push(w.precip + '" precip');
+    return bits.join(" · ");
   }
   // Compact, tappable matchup line + an on-demand detail card (Keith 2026-06-21:
   // declutter — one clean line per starter, full intel on tap).
@@ -127,6 +149,8 @@
     if (!open) return compact;
     var when = fmtKick(mu.kickoff), hasLine = (mu.spread != null && mu.spread !== 0);
     var rows = ['<div class="r">' + U.escapeHtml((mu.isHome ? "vs " : "@ ") + mu.opp) + (when ? " · " + U.escapeHtml(when) : "") + (hasLine ? " · " + U.escapeHtml((mu.spread > 0 ? "+" : "") + mu.spread) : "") + '</div>'];
+    var wx = wxText(mu.weather);
+    if (wx) rows.push('<div class="r ups-m-mu-wx">' + U.escapeHtml(wx) + '</div>');
     if (mu.rank != null) { var pct = Math.round((mu.ratio - 1) * 100); rows.push('<div class="r">Defense <b class="ups-m-mu-rank ' + rankCls(mu.rank) + '">#' + mu.rank + '/' + mu.of + ' to ' + mu.grp + '</b> · allows ' + (pct >= 0 ? "+" : "") + pct + '% vs expected (' + muLabel(muWindow()) + ')</div>'); }
     if (mu.form && mu.form.games) {
       var f = 'Form <b>' + fmtProj(mu.form.avg) + '</b> avg (' + muLabel(muWindow()) + ', ' + mu.form.games + 'g)';
@@ -233,6 +257,16 @@
         v.errors.map(function (e) { return '<li>' + U.escapeHtml(e) + '</li>'; }).join("") +
         '</ul>';
     }
+    // Window toggle — only render buttons that produce data distinct from
+    // "season" (Keith: hide the dead L3/L5 toggle until this year's weeks
+    // exist). Clamp the selection if it became unavailable.
+    var wins = availWindows();
+    if (!wins.some(function (o) { return String(muWindow()) === o[0]; })) M.state.lineupMuWindow = 0;
+    var winHtml = wins.length > 1
+      ? '<span class="ups-m-mu-window" title="Window for the matchup defense rank + recent form">' +
+          wins.map(function (o) { return '<button type="button" class="ups-m-win-btn' + (String(muWindow()) === o[0] ? " on" : "") + '" data-win="' + o[0] + '">' + o[1] + '</button>'; }).join("") +
+        '</span>'
+      : '';
     return '' +
       '<div class="ups-m-lineup-status-card">' +
         '<div class="ups-m-lineup-status-line">' + summary +
@@ -243,9 +277,7 @@
         '<div class="ups-m-lineup-tools">' +
           '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-autofill" title="Fill the highest-projected eligible player into every slot">⚡ Optimal</button>' +
           '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-clear">Clear all</button>' +
-          '<span class="ups-m-mu-window" title="Window for the matchup defense rank + recent form">' +
-            [["0", "Season"], ["3", "L3"], ["5", "L5"]].map(function (o) { return '<button type="button" class="ups-m-win-btn' + (String(muWindow()) === o[0] ? " on" : "") + '" data-win="' + o[0] + '">' + o[1] + '</button>'; }).join("") +
-          '</span>' +
+          winHtml +
         '</div>' +
       '</div>';
   }
