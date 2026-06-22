@@ -2721,6 +2721,7 @@ export default {
         path !== "/admin/auction/finalize-era-contracts" &&
         path !== "/api/league-events" &&
         path !== "/api/league-years" &&
+        path !== "/api/lineup-matchups" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
         path !== "/api/historical-finishes" &&
@@ -9487,6 +9488,102 @@ export default {
           return jsonOut(r.ok ? 200 : 502, { ok: true, league_id: lid, year: yr, player_id: pid, week: wk || null, ...parsed });
         } catch (e) {
           return jsonOut(502, { ok: false, error: `MFL detailed fetch failed: ${e?.message || String(e)}` });
+        }
+      }
+
+      // ── GET /api/lineup-matchups?YEAR=&W= — Submit Lineup matchup intel ──
+      // (1) matchups: nflSchedule(W) → per NFL team {opp, isHome, kickoff, spread,
+      //     rushDefRank, passDefRank}. (2) defRatings: OPPONENT-ADJUSTED defense-
+      //     vs-position ratings = fantasy pts a defense allowed to a position ÷
+      //     what those specific opponents AVERAGE (strength-of-schedule adjusted,
+      //     per Keith), ranked across all 32 Ds (rank 1 = most generous = easiest
+      //     matchup). Basis = this season W1..(W-1), or the FULL prior season in W1.
+      if (path === "/api/lineup-matchups" && request.method === "GET") {
+        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+        const wk = Math.max(1, parseInt(url.searchParams.get("W") || "1", 10) || 1);
+        const lid = "74598";
+        const arr = (x) => Array.isArray(x) ? x : (x == null ? [] : [x]);
+        const posGroup = (p) => {
+          p = safeStr(p).toUpperCase();
+          if (p === "QB") return "QB";
+          if (["RB", "FB", "HB"].includes(p)) return "RB";
+          if (p === "WR") return "WR";
+          if (p === "TE") return "TE";
+          if (["PK", "K"].includes(p)) return "PK";
+          if (["PN", "P"].includes(p)) return "PN";
+          if (["DT", "DE", "NT", "DL"].includes(p)) return "DL";
+          if (["LB", "OLB", "ILB", "MLB"].includes(p)) return "LB";
+          if (["CB", "S", "FS", "SS", "DB"].includes(p)) return "DB";
+          return "";
+        };
+        const schedUrl = (y, w) => `https://api.myfantasyleague.com/${y}/export?TYPE=nflSchedule&W=${w}&JSON=1`;
+        const scoresUrl = (y, w) => `https://www48.myfantasyleague.com/${y}/export?TYPE=playerScores&L=${lid}&W=${w}&JSON=1`;
+        const j = (u, ttl) => fetch(u, { cf: { cacheTtl: ttl, cacheEverything: true }, headers: { "User-Agent": "ups-worker", Accept: "application/json" } }).then((r) => r.json()).catch(() => null);
+        try {
+          const pl = await j(`https://www48.myfantasyleague.com/${yr}/export?TYPE=players&L=${lid}&DETAILS=1&JSON=1`, 86400);
+          const pInfo = {};
+          for (const p of arr(pl?.players?.player)) pInfo[String(p.id)] = { pos: safeStr(p.position).toUpperCase(), team: safeStr(p.team).toUpperCase() };
+          // (1) current-week matchups
+          const sched = await j(schedUrl(yr, wk), 300);
+          const matchups = {};
+          for (const m of arr(sched?.nflSchedule?.matchup)) {
+            const ts = arr(m.team); if (ts.length < 2) continue;
+            const ko = Number(m.kickoff) || 0;
+            const mk = (t, o) => ({ opp: safeStr(o.id).toUpperCase(), isHome: String(t.isHome) === "1", kickoff: ko,
+              spread: t.spread != null && t.spread !== "" ? Number(t.spread) : null,
+              rushDefRank: Number(t.rushDefenseRank) || null, passDefRank: Number(t.passDefenseRank) || null });
+            matchups[safeStr(ts[0].id).toUpperCase()] = mk(ts[0], ts[1]);
+            matchups[safeStr(ts[1].id).toUpperCase()] = mk(ts[1], ts[0]);
+          }
+          // (2) ratings basis: this season W1..W-1, or full prior season in W1
+          let ratYear = yr, ratWeeks = [];
+          if (wk <= 1) { ratYear = String((parseInt(yr, 10) || 0) - 1); for (let w = 1; w <= 18; w++) ratWeeks.push(w); }
+          else { for (let w = 1; w < wk; w++) ratWeeks.push(w); }
+          const schedJobs = await Promise.all(ratWeeks.map((w) => j(schedUrl(ratYear, w), 86400)));
+          const scoreJobs = await Promise.all(ratWeeks.map((w) => j(scoresUrl(ratYear, w), 86400)));
+          const oppOf = {};   // team -> { weekIdx: oppTeam }
+          ratWeeks.forEach((w, wi) => {
+            for (const m of arr(schedJobs[wi]?.nflSchedule?.matchup)) {
+              const ts = arr(m.team); if (ts.length < 2) continue;
+              const ka = safeStr(ts[0].id).toUpperCase(), kb = safeStr(ts[1].id).toUpperCase();
+              (oppOf[ka] = oppOf[ka] || {})[wi] = kb; (oppOf[kb] = oppOf[kb] || {})[wi] = ka;
+            }
+          });
+          const playerWeeks = {};   // pid -> [{ pts, def }]
+          ratWeeks.forEach((w, wi) => {
+            for (const s of arr(scoreJobs[wi]?.playerScores?.playerScore)) {
+              const pid = String(s.id), info = pInfo[pid];
+              if (!info || !posGroup(info.pos)) continue;
+              const pts = parseFloat(s.score); if (isNaN(pts)) continue;
+              const def = (oppOf[info.team] || {})[wi]; if (!def) continue;
+              (playerWeeks[pid] = playerWeeks[pid] || []).push({ pts, def });
+            }
+          });
+          const allowed = {}, expected = {};   // def -> grp -> sum
+          for (const pid in playerWeeks) {
+            const wks = playerWeeks[pid], grp = posGroup(pInfo[pid].pos);
+            const avg = wks.reduce((a, x) => a + x.pts, 0) / wks.length;
+            for (const x of wks) {
+              (allowed[x.def] = allowed[x.def] || {})[grp] = (allowed[x.def][grp] || 0) + x.pts;
+              (expected[x.def] = expected[x.def] || {})[grp] = (expected[x.def][grp] || 0) + avg;
+            }
+          }
+          const GROUPS = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
+          const defRatings = {};
+          for (const g of GROUPS) {
+            const rows = [];
+            for (const d in allowed) {
+              const al = allowed[d][g], ex = (expected[d] && expected[d][g]) || 0;
+              if (al == null || ex <= 0) continue;
+              rows.push({ d, ratio: al / ex });
+            }
+            rows.sort((a, b) => b.ratio - a.ratio);   // rank 1 = most generous (easiest)
+            rows.forEach((r, i) => { (defRatings[r.d] = defRatings[r.d] || {})[g] = { rank: i + 1, of: rows.length, ratio: Math.round(r.ratio * 100) / 100 }; });
+          }
+          return jsonOut(200, { ok: true, year: yr, week: wk, matchups, defRatings,
+            ratingsBasis: (wk <= 1 ? (ratYear + " (prior season)") : (yr + " W1–" + (wk - 1))) });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
       }
 
