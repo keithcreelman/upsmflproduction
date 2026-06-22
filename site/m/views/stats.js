@@ -392,7 +392,8 @@
     if (w) { w.value = String(vg.week); w.addEventListener("change", function () { vg.week = parseInt(this.value, 10) || 0; loadVegas().then(function () { if (view.inner === "vegas") paint(mount); }); }); }
   }
   // ── ADP board (Stats → ADP inner tab) — multi-source ranks + tiers, Superflex ──
-  var adpb = { pos: "ALL", data: null, srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.35 };
+  var adpb = { pos: "ALL", data: null, srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.35, generatedAt: null };
+  function adpRelTime(iso) { if (!iso) return ""; var t = Date.parse(iso); if (isNaN(t)) return ""; var s = Math.max(0, (Date.now() - t) / 1000); if (s < 90) return "just now"; if (s < 5400) return Math.round(s / 60) + "m ago"; if (s < 172800) return Math.round(s / 3600) + "h ago"; return Math.round(s / 86400) + "d ago"; }
   var ADPB_SRC = [["fc", "FC"], ["ktc", "KTC"], ["dp", "DP"]];
   function adpbKeys() { return { d: "dsf", r: "rsf" }; }   // baked Superflex (UPS league)
   // Per-position tiers via local-cliff detection (matches desktop adpAssignTiers).
@@ -430,7 +431,7 @@
     if (adpb.data) return Promise.resolve(adpb.data);
     return fetch(API.workerUrl("/api/adp-board"), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.json(); })
-      .then(function (d) { adpb.data = (d && d.board) || []; return adpb.data; })
+      .then(function (d) { adpb.data = (d && d.board) || []; adpb.generatedAt = (d && d.generated_at) || null; return adpb.data; })
       .catch(function () { adpb.data = []; return adpb.data; });
   }
   function adpBoardToolbar() {
@@ -440,7 +441,7 @@
     var rdP = Math.round(adpb.rdPct * 100);
     var skew = rdP === 0 ? "all Dynasty" : rdP === 100 ? "all Redraft" : (rdP + "% redraft");
     return '<div class="ups-m-players-toolbar">' +
-      '<div class="ups-m-auc-sec-head">ADP <span class="ct">Superflex · ' + skew + ' · ranks + tiers</span></div>' +
+      '<div class="ups-m-auc-sec-head">ADP <span class="ct">Superflex · ' + skew + ' · ranks + tiers' + (adpb.generatedAt ? ' · fetched ' + adpRelTime(adpb.generatedAt) : '') + '</span></div>' +
       '<div class="ups-m-pos-chips">' + chips + "</div>" +
       '<div class="ups-m-adp-ctl"><span class="ups-m-adp-skew">Dynasty</span>' +
         '<input type="range" class="ups-m-adp-slider" min="0" max="100" step="5" value="' + rdP + '"/>' +
@@ -460,6 +461,8 @@
       });
       universe.forEach(function (r) { r._rk_slp = null; });
       universe.filter(function (r) { return r.sleeperRank != null; }).sort(function (a, b) { return a.sleeperRank - b.sleeperRank; }).forEach(function (r, i) { r._rk_slp = i + 1; });
+      universe.forEach(function (r) { r._rk_ffc = null; });
+      universe.filter(function (r) { return r.ffcAdp != null; }).sort(function (a, b) { return a.ffcAdp - b.ffcAdp; }).forEach(function (r, i) { r._rk_ffc = i + 1; });
     }
     universe.slice().sort(function (a, b) { return (b._bv || 0) - (a._bv || 0); }).forEach(function (r, i) { r._ovr = i + 1; });
     var byPos = {}; universe.forEach(function (r) { (byPos[r.pos] = byPos[r.pos] || []).push(r); });
@@ -480,6 +483,7 @@
         if (r._rk_ktc != null) src.push("KTC" + r._rk_ktc);
         if (r._rk_dp != null) src.push("DP" + r._rk_dp);
         if (r._rk_slp != null) src.push("Slp" + r._rk_slp);
+        if (r._rk_ffc != null) src.push("FFC" + r._rk_ffc);
         sub = (r.team || "—") + (src.length ? " · " + src.join(" ") : "");
       }
       return '<div class="ups-m-adp-row">' +

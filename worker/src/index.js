@@ -9340,7 +9340,8 @@ export default {
           const ffP = env.UPS_MFL_DB
             ? env.UPS_MFL_DB.prepare("SELECT mfl_id, fantasypros_id, name, position, team FROM ff_player_ids WHERE fantasypros_id IS NOT NULL AND fantasypros_id != ''").all().then((r) => (r && r.results) || []).catch(() => [])
             : Promise.resolve([]);
-          const [fcSf, fc1q, slR, dpTxt, ktcDynTxt, ktcRdTxt, fpIdpTxt, ffRows] = await Promise.all([
+          const adpYear = new Date().getUTCFullYear();
+          const [fcSf, fc1q, slR, dpTxt, ktcDynTxt, ktcRdTxt, fpIdpTxt, ffcR, ffRows] = await Promise.all([
             getJson("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1", 43200),
             getJson("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&numTeams=12&ppr=1", 43200),
             getJson("https://api.sleeper.app/v1/players/nfl", 86400),
@@ -9348,6 +9349,13 @@ export default {
             getText("https://keeptradecut.com/dynasty-rankings", 43200, CHROME_UA),
             getText("https://keeptradecut.com/fantasy-rankings", 43200, CHROME_UA),
             getText("https://www.fantasypros.com/nfl/rankings/dynasty-idp.php", 43200, CHROME_UA),
+            // FantasyFootballCalculator — REAL redraft ADP (avg draft position) from
+            // thousands of live drafts. The page is named ADP; this is the genuine
+            // article. Offseason → the upcoming season has drafts; fall back ±1.
+            getJson("https://fantasyfootballcalculator.com/api/v1/adp/ppr?teams=12&position=all&year=" + adpYear, 21600)
+              .then((d) => (d && d.players && d.players.length) ? d
+                : getJson("https://fantasyfootballcalculator.com/api/v1/adp/ppr?teams=12&position=all&year=" + (adpYear + 1), 21600))
+              .catch(() => null),
             ffP,
           ]);
           if (!Array.isArray(fcSf)) return jsonOut(502, { ok: false, error: "fantasycalc_unavailable" });
@@ -9405,6 +9413,12 @@ export default {
             } catch (e) {} }
           }
 
+          // FantasyFootballCalculator: nkey(name) → real redraft ADP (lower = earlier).
+          const ffcByName = {};
+          if (ffcR && Array.isArray(ffcR.players)) {
+            for (const p of ffcR.players) { const nm = nkey(p.name); const a = parseFloat(p.adp); if (nm && isFinite(a) && a > 0) ffcByName[nm] = Math.round(a * 10) / 10; }
+          }
+
           // ---- merge: offense backbone = FantasyCalc SF; then append IDP players ----
           const board = [], seen = {};
           for (const r of fcSf) {
@@ -9420,6 +9434,7 @@ export default {
               ktc: { dq1: kd.q1 || null, dsf: kd.sf || null, dtep: kd.tep || null, rq1: kr.q1 || null, rsf: kr.sf || null, rtep: kr.tep || null, adp: kd.adp || null },
               dp:  { dq1: dp.dq1 || null, dsf: dp.dsf || null },
               slp: (p.sleeperId && slBySid[String(p.sleeperId)]) || null,
+              ffcAdp: ffcByName[nm] || null,
             });
           }
           for (const mflId in idpByMfl) {
@@ -9448,6 +9463,7 @@ export default {
           if (Object.keys(ktcDyn).length) sources.push("keeptradecut");
           if (Object.keys(dpByName).length) sources.push("dynastyprocess");
           if (Object.keys(slBySid).length) sources.push("sleeper");
+          if (Object.keys(ffcByName).length) sources.push("fantasyfootballcalculator");
           if (Object.keys(idpByMfl).length) sources.push("fantasypros_idp");
           return jsonOut(200, { ok: true, sources: sources, formats: { roster: ["sf", "q1", "tep"], type: ["dynasty", "redraft"] }, generated_at: new Date().toISOString(), count: out.length, board: out });
         } catch (e) {
