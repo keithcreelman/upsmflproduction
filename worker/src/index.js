@@ -9964,7 +9964,9 @@ export default {
           // Worker subrequest limit and the fallback silently returns nothing.
           let ratingSeason = yr, projected = false;
           const probe = await jf(`https://www48.myfantasyleague.com/${yr}/export?TYPE=playerScores&L=${lid}&W=1&JSON=1`, 86400);
-          const hasData = !!(probe && probe.playerScores && arr(probe.playerScores.playerScore).length);
+          // A future season returns a single placeholder ({id:'', score:''}); a
+          // real week has scored entries — require a non-empty id + numeric score.
+          const hasData = arr(probe && probe.playerScores && probe.playerScores.playerScore).some((s) => s && s.id && !isNaN(parseFloat(s.score)));
           if (!hasData) { ratingSeason = String(parseInt(yr, 10) - 1); projected = true; }
           let rat = await fpaRatings(ratingSeason);
           if (!rat && !projected) { ratingSeason = String(parseInt(yr, 10) - 1); projected = true; rat = await fpaRatings(ratingSeason); }
