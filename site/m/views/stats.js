@@ -392,7 +392,7 @@
     if (w) { w.value = String(vg.week); w.addEventListener("change", function () { vg.week = parseInt(this.value, 10) || 0; loadVegas().then(function () { if (view.inner === "vegas") paint(mount); }); }); }
   }
   // ── ADP board (Stats → ADP inner tab) — multi-source ranks + tiers, Superflex ──
-  var adpb = { pos: "ALL", data: null, srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.35, generatedAt: null };
+  var adpb = { pos: "ALL", data: null, srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.35, generatedAt: null, team: "__ALL__" };
   function adpRelTime(iso) { if (!iso) return ""; var t = Date.parse(iso); if (isNaN(t)) return ""; var s = Math.max(0, (Date.now() - t) / 1000); if (s < 90) return "just now"; if (s < 5400) return Math.round(s / 60) + "m ago"; if (s < 172800) return Math.round(s / 3600) + "h ago"; return Math.round(s / 86400) + "d ago"; }
   var ADPB_SRC = [["fc", "FC"], ["ktc", "KTC"], ["dp", "DP"]];
   function adpbKeys() { return { d: "dsf", r: "rsf" }; }   // baked Superflex (UPS league)
@@ -448,15 +448,36 @@
       .then(function (d) { adpb.data = (d && d.board) || []; adpb.generatedAt = (d && d.generated_at) || null; return adpb.data; })
       .catch(function () { adpb.data = []; return adpb.data; });
   }
+  // UPS ownership (for the ADP Team/FA filter): mfl_id → franchise + franchise list.
+  var adpbOwn = null;
+  function loadAdpbOwn() {
+    if (adpbOwn) return Promise.resolve(adpbOwn);
+    return fetch(API.workerUrl("/api/mfl-league-state"), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var p2f = {}, f2n = {};
+        Object.keys((j && j.pid_to_fid) || {}).forEach(function (pid) { p2f[pid] = String(j.pid_to_fid[pid]); });
+        ((j && j.franchises) || []).forEach(function (f) { f2n[String(f.id)] = f.name; });
+        adpbOwn = { p2f: p2f, f2n: f2n };
+        return adpbOwn;
+      })
+      .catch(function () { adpbOwn = { p2f: {}, f2n: {} }; return adpbOwn; });
+  }
   function adpBoardToolbar() {
     var poss = [["ALL", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"], ["DL", "DL"], ["LB", "LB"], ["DB", "DB"]];
     var chips = poss.map(function (p) { return '<button class="ups-m-pos-chip' + (adpb.pos === p[0] ? " on" : "") + '" data-adppos="' + p[0] + '">' + p[1] + "</button>"; }).join("");
     var srcTogs = ADPB_SRC.map(function (p) { return '<label class="ups-m-adp-srctog"><input type="checkbox" data-adpsrc="' + p[0] + '"' + (adpb.srcSel[p[0]] ? " checked" : "") + '/>' + p[1] + "</label>"; }).join("");
     var rdP = Math.round(adpb.rdPct * 100);
     var skew = rdP === 0 ? "all Dynasty" : rdP === 100 ? "all Redraft" : (rdP + "% redraft");
+    var teamOpts = '<option value="__ALL__">All teams</option><option value="__ROSTERED__">All Rostered</option><option value="FA">Free Agents</option>';
+    if (adpbOwn && adpbOwn.f2n) {
+      Object.keys(adpbOwn.f2n).sort(function (a, b) { return (adpbOwn.f2n[a] || "").localeCompare(adpbOwn.f2n[b] || ""); })
+        .forEach(function (fid) { teamOpts += '<option value="' + fid + '"' + (adpb.team === fid ? " selected" : "") + ">" + U.escapeHtml(adpbOwn.f2n[fid]) + "</option>"; });
+    }
     return '<div class="ups-m-players-toolbar">' +
       '<div class="ups-m-auc-sec-head">ADP <span class="ct">Superflex · ' + skew + ' · ranks + tiers' + (adpb.generatedAt ? ' · fetched ' + adpRelTime(adpb.generatedAt) : '') + '</span></div>' +
       '<div class="ups-m-pos-chips">' + chips + "</div>" +
+      '<div class="ups-m-st-filters"><select class="ups-m-players-filter" id="ups-m-adp-team">' + teamOpts + "</select></div>" +
       '<div class="ups-m-adp-ctl"><span class="ups-m-adp-skew">Dynasty</span>' +
         '<input type="range" class="ups-m-adp-slider" min="0" max="100" step="5" value="' + rdP + '"/>' +
         '<span class="ups-m-adp-skew">Redraft</span></div>' +
@@ -483,6 +504,14 @@
     Object.keys(byPos).forEach(function (pos) { var arr = byPos[pos].sort(function (a, b) { return (b._bv || 0) - (a._bv || 0); }); arr.forEach(function (r, i) { r._posRank = i + 1; }); adpbTiers(arr); });
     var rows = universe.slice();
     if (!isIdp && adpb.pos !== "ALL") rows = rows.filter(function (r) { return r.pos === adpb.pos; });
+    if (adpb.team && adpb.team !== "__ALL__" && adpbOwn) {
+      rows = rows.filter(function (r) {
+        var fid = adpbOwn.p2f[String(r.pid)] || null;
+        if (adpb.team === "__ROSTERED__") return fid != null;
+        if (adpb.team === "FA") return fid == null;
+        return fid === adpb.team;
+      });
+    }
     rows.sort(function (a, b) { return (a._ovr || 9999) - (b._ovr || 9999); });
     if (!rows.length) return '<div class="ups-m-stub"><div>No players.</div></div>';
     function tpill(t) { if (t == null) return "—"; var c = t <= 1 ? "t1" : t <= 2 ? "t2" : t <= 3 ? "t3" : "tn"; return '<span class="ups-m-tierp ' + c + '">T' + t + "</span>"; }
@@ -516,6 +545,8 @@
     for (var k = 0; k < togs.length; k++) togs[k].addEventListener("change", function () { adpb.srcSel[this.getAttribute("data-adpsrc")] = this.checked; M.route.renderRoute(); });
     var sl = mount.querySelector(".ups-m-adp-slider");
     if (sl) sl.addEventListener("change", function () { adpb.rdPct = (parseInt(this.value, 10) || 0) / 100; M.route.renderRoute(); });
+    var tsel = document.getElementById("ups-m-adp-team");
+    if (tsel) { tsel.value = adpb.team; tsel.addEventListener("change", function () { adpb.team = this.value; M.route.renderRoute(); }); }
   }
   function fpaToolbar() {
     var yrs = fpa.years || [fpaYear()];
@@ -715,10 +746,10 @@
       return;
     }
     if (view.inner === "adp") {
-      if (adpb.data) { paint(mount); return; }
+      if (adpb.data && adpbOwn) { paint(mount); return; }
       mount.innerHTML = subTabs("stats") + innerSwitch() + adpBoardToolbar() + '<div class="ups-m-loading">Loading ADP…</div>';
       bindInner(mount); bindAdpBoard(mount);
-      loadAdpBoard().then(function () { if (view.inner === "adp") paint(mount); });
+      Promise.all([loadAdpBoard(), loadAdpbOwn()]).then(function () { if (view.inner === "adp") paint(mount); });
       return;
     }
     if (view.inner === "vegas") {
