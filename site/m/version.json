@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.21.3",
-  "label": "Live Scoring history: the year filter now goes all the way back to 2010 (per-season MFL league IDs from D1; pre-2017 archives load through the worker)."
+  "build": "2026.06.21.4",
+  "label": "Live Scoring now in the bottom nav (Standings moved to a Home card); breakdown groups TDs by tier (e.g. 2 Passing TD 1-49 = 12) and hides 0-point lines."
 }

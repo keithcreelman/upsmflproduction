@@ -322,17 +322,24 @@
       .catch(function () { M.state.sbBd[key] = { error: true }; renderRoute(); });
   }
   // Re-express raw breakdown lines: duplicate yardage line → milestone bonus;
-  // 50+ TD → base + 50+ bonus. Totals preserved. (Mirror of the desktop version.)
+  // AGGREGATE TDs by type+tier ("2 Passing TD (1-49 yd)" = +12) + 50+ bonus line;
+  // DROP 0-point lines. Totals preserved. (Mirror of the desktop version.)
   var YARD_MS = { Rushing: [100, 150, 200, 250], Receiving: [100, 150, 200], Passing: [300, 375, 425] };
   function transformLines(lines) {
-    var seenYd = {}, out = [];
+    var seenYd = {}, agg = {}, out = [];
     (lines || []).forEach(function (l) {
       var stat = String(l.stat || ""), pts = Number(l.points) || 0;
       var td = stat.match(/^(\d+)\s*yd\s+(.+?)\s+TD$/i);
       if (td) {
-        var len = parseInt(td[1], 10), type = td[2], fifty = len >= 50;
-        out.push({ points: fifty ? (pts - 1) : pts, stat: type + " TD (" + (fifty ? "50+" : "1-49") + " yd)" });
-        if (fifty) out.push({ points: 1, stat: "Bonus 50+ yd " + type + " TD", bonus: true });
+        var len = parseInt(td[1], 10), type = td[2], fifty = len >= 50, tier = fifty ? "50+" : "1-49";
+        var bk = "B|" + type + "|" + tier;
+        if (!agg[bk]) { agg[bk] = { count: 0, points: 0, stat: type + " TD (" + tier + " yd)" }; out.push({ ref: bk }); }
+        agg[bk].count++; agg[bk].points += fifty ? (pts - 1) : pts;
+        if (fifty) {
+          var nk = "N|" + type;
+          if (!agg[nk]) { agg[nk] = { count: 0, points: 0, stat: "Bonus 50+ yd " + type + " TD", bonus: true }; out.push({ ref: nk }); }
+          agg[nk].count++; agg[nk].points += 1;
+        }
         return;
       }
       var yd = stat.match(/^(\d+)\s+(Rushing|Receiving|Passing)\s+Yards$/i);
@@ -347,7 +354,11 @@
       }
       out.push({ points: pts, stat: stat });
     });
-    return out;
+    return out.map(function (e) {
+      if (!e.ref) return e;
+      var a = agg[e.ref];
+      return { points: a.points, stat: a.count + " " + a.stat, bonus: a.bonus };
+    }).filter(function (e) { return Math.round((Number(e.points) || 0) * 100) !== 0; });
   }
   function breakdownBlock(p) {
     var d = (M.state.sbBd || {})[bdKey(p.pid)];
