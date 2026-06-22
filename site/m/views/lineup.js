@@ -327,6 +327,8 @@
     });
     var submit = document.getElementById("ups-m-lineup-submit");
     if (submit) submit.addEventListener("click", function () { handleSubmit(); });
+    var benchT = document.getElementById("ups-m-bench-toggle");
+    if (benchT) benchT.addEventListener("click", function () { M.state.lineupShowBench = !M.state.lineupShowBench; renderRoute(); });
   }
 
   function handleSubmit() {
@@ -380,6 +382,26 @@
 
   function renderRoute() { M.route.renderRoute(); }
 
+  // Bench (toggle) — every other active-roster player by position + projection,
+  // with the same matchup intel, so you can see everyone laid out.
+  var BENCH_ORDER = { QB: 0, RB: 1, WR: 2, TE: 3, PK: 4, PN: 5, DL: 6, LB: 7, DB: 8, OTH: 9 };
+  function renderBench(rows, used) {
+    var bench = rows.filter(function (r) { return !used[r.id]; }).sort(function (a, b) {
+      var ga = BENCH_ORDER[a.group] == null ? 9 : BENCH_ORDER[a.group], gb = BENCH_ORDER[b.group] == null ? 9 : BENCH_ORDER[b.group];
+      if (ga !== gb) return ga - gb;
+      var pa = projFor(a.id), pb = projFor(b.id); pa = pa == null ? -1 : pa; pb = pb == null ? -1 : pb;
+      return pb - pa;
+    });
+    var show = !!M.state.lineupShowBench;
+    var head = '<div class="ups-m-bench-head"><button type="button" class="ups-m-bench-toggle" id="ups-m-bench-toggle">' + (show ? "▾" : "▸") + ' Bench &amp; matchups (' + bench.length + ')</button></div>';
+    if (!show) return head;
+    var body = bench.length ? bench.map(function (r) {
+      return '<div class="ups-m-bench-row"><div class="ups-m-bench-id"><span class="nm">' + U.escapeHtml(r.name) + '</span>' +
+        '<span class="meta">' + U.escapeHtml(r.pos || "—") + ' · ' + U.escapeHtml(r.team || "—") + '</span></div>' +
+        '<div class="ups-m-bench-proj">' + U.escapeHtml(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id);
+    }).join("") : '<div class="ups-m-bench-empty">No bench players.</div>';
+    return head + '<div class="ups-m-bench">' + body + '</div>';
+  }
   function render(mount) {
     var rows = buildRows();
     if (!rows.length) {
@@ -410,6 +432,7 @@
     html += renderHeader(v, projTotal);
     html += renderSection("O", "Offense", FO.OFFENSE_STARTERS, rows, draft, used);
     html += renderSection("D", "Defense", FO.DEFENSE_STARTERS, rows, draft, used);
+    html += renderBench(rows, used);
     html += renderFooter(v, submitting);
     mount.innerHTML = html;
     bind(mount, rows);

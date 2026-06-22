@@ -813,6 +813,16 @@ button.ups-m-busy::before,
 .ups-m-mu-rank { font-weight: 700; color: var(--fg); }
 .ups-m-mu-rank.good { color: var(--ok); }
 .ups-m-mu-rank.tough { color: var(--danger); }
+.ups-m-bench-head { margin: 14px 0 0; }
+.ups-m-bench-toggle { width: 100%; text-align: left; background: var(--bg-elev); border: 1px solid var(--line); color: var(--fg);
+  border-radius: 8px; padding: 10px 13px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+.ups-m-bench { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 8px 8px; overflow: hidden; }
+.ups-m-bench-row { display: grid; grid-template-columns: 1fr 48px; gap: 10px; align-items: center; padding: 8px 12px 1px; border-top: 1px solid var(--line); }
+.ups-m-bench-id .nm { font-size: 13px; font-weight: 700; color: var(--fg); }
+.ups-m-bench-id .meta { font-size: 10px; color: var(--fg-muted); margin-left: 6px; }
+.ups-m-bench-proj { text-align: right; font-size: 14px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+.ups-m-bench .ups-m-slot-mu { border-left: 0; padding-left: 12px; }
+.ups-m-bench-empty { padding: 12px; text-align: center; color: var(--fg-muted); font-size: 12px; }
 .ups-m-slot-proj {
   text-align: right;
   font-size: 13px;
