@@ -2729,6 +2729,7 @@ export default {
         path !== "/api/fpa-detail" &&
         path !== "/api/sos-adjusted-points" &&
         path !== "/api/player-consistency" &&
+        path !== "/api/player-epa" &&
         path !== "/api/team-pace" &&
         path !== "/api/nfl-current-teams" &&
         path !== "/api/data-freshness" &&
@@ -10383,6 +10384,43 @@ export default {
             };
           }
           return jsonOut(200, { ok: true, seasons, window: { week_min: wMin, week_max: wMax }, count: Object.keys(by_gsis).length, by_gsis });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/player-epa?seasons= — EPA / efficiency by gsis_id ──
+      // Per-player nflfastR EPA, CPOE and success rate from nfl_player_epa
+      // (PBP-derived; stored as sums so multi-season re-aggregation is exact).
+      // pass.* = QB dropbacks, rush.* = carries, rec.* = targets. Side-loaded by
+      // the Stats workbench "Efficiency (EPA)" group + joined on gsis_id.
+      if (path === "/api/player-epa" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const seasons = safeStr(url.searchParams.get("seasons") || "")
+            .split(",").map((s) => s.replace(/\D/g, "")).filter((s) => s.length === 4);
+          if (!seasons.length) return jsonOut(400, { ok: false, error: "seasons required (CSV of 4-digit years)" });
+          const seasonList = seasons.map((s) => parseInt(s, 10)).join(",");
+          const r = await db.prepare(
+            "SELECT gsis_id AS gsis, " +
+            "SUM(pass_plays) pp, SUM(pass_epa_sum) pe, SUM(pass_cpoe_sum) pc, SUM(pass_cpoe_n) pcn, SUM(pass_succ_sum) psx, " +
+            "SUM(rush_plays) rp, SUM(rush_epa_sum) re, SUM(rush_succ_sum) rsx, " +
+            "SUM(rec_tgt) tt, SUM(rec_epa_sum) te, SUM(rec_succ_sum) tsx " +
+            "FROM nfl_player_epa WHERE season IN (" + seasonList + ") GROUP BY gsis_id"
+          ).all();
+          const rows = (r && r.results) || [];
+          const rnd = (v, d) => v == null ? null : Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
+          const by_gsis = {};
+          for (const x of rows) {
+            const pp = x.pp || 0, rp = x.rp || 0, tt = x.tt || 0;
+            by_gsis[x.gsis] = {
+              pass: pp ? { plays: pp, epa: rnd(x.pe / pp, 3), cpoe: x.pcn ? rnd(x.pc / x.pcn, 1) : null, succ: rnd(100 * x.psx / pp, 1) } : null,
+              rush: rp ? { plays: rp, epa: rnd(x.re / rp, 3), succ: rnd(100 * x.rsx / rp, 1) } : null,
+              rec: tt ? { tgt: tt, epa: rnd(x.te / tt, 3), succ: rnd(100 * x.tsx / tt, 1) } : null,
+            };
+          }
+          return jsonOut(200, { ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
