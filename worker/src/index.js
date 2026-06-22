@@ -9501,6 +9501,7 @@ export default {
       if (path === "/api/lineup-matchups" && request.method === "GET") {
         const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
         const wk = Math.max(1, parseInt(url.searchParams.get("W") || "1", 10) || 1);
+        const last = Math.max(0, parseInt(url.searchParams.get("last") || "0", 10) || 0);   // window = last N weeks (0 = season-to-date)
         const lid = "74598";
         const arr = (x) => Array.isArray(x) ? x : (x == null ? [] : [x]);
         const posGroup = (p) => {
@@ -9535,9 +9536,11 @@ export default {
             matchups[safeStr(ts[0].id).toUpperCase()] = mk(ts[0], ts[1]);
             matchups[safeStr(ts[1].id).toUpperCase()] = mk(ts[1], ts[0]);
           }
-          // (2) ratings basis: this season W1..W-1, or full prior season in W1
+          // (2) ratings basis: a recent window (&last=N → last N weeks before W),
+          // else this season W1..W-1, or the FULL prior season in W1.
           let ratYear = yr, ratWeeks = [];
-          if (wk <= 1) { ratYear = String((parseInt(yr, 10) || 0) - 1); for (let w = 1; w <= 18; w++) ratWeeks.push(w); }
+          if (last > 0 && wk > 1) { for (let w = Math.max(1, wk - last); w < wk; w++) ratWeeks.push(w); }
+          else if (wk <= 1) { ratYear = String((parseInt(yr, 10) || 0) - 1); for (let w = 1; w <= 18; w++) ratWeeks.push(w); }
           else { for (let w = 1; w < wk; w++) ratWeeks.push(w); }
           const schedJobs = await Promise.all(ratWeeks.map((w) => j(schedUrl(ratYear, w), 86400)));
           const scoreJobs = await Promise.all(ratWeeks.map((w) => j(scoresUrl(ratYear, w), 86400)));
@@ -9559,10 +9562,12 @@ export default {
               (playerWeeks[pid] = playerWeeks[pid] || []).push({ pts, def });
             }
           });
-          const allowed = {}, expected = {};   // def -> grp -> sum
+          // (3) per-player REAL form over the window + the defense aggregates.
+          const allowed = {}, expected = {}, playerWindow = {};   // def -> grp -> sum ; pid -> {total,games,avg}
           for (const pid in playerWeeks) {
             const wks = playerWeeks[pid], grp = posGroup(pInfo[pid].pos);
-            const avg = wks.reduce((a, x) => a + x.pts, 0) / wks.length;
+            const total = wks.reduce((a, x) => a + x.pts, 0), avg = total / wks.length;
+            playerWindow[pid] = { total: Math.round(total * 10) / 10, games: wks.length, avg: Math.round(avg * 10) / 10 };
             for (const x of wks) {
               (allowed[x.def] = allowed[x.def] || {})[grp] = (allowed[x.def][grp] || 0) + x.pts;
               (expected[x.def] = expected[x.def] || {})[grp] = (expected[x.def][grp] || 0) + avg;
@@ -9580,8 +9585,22 @@ export default {
             rows.sort((a, b) => b.ratio - a.ratio);   // rank 1 = most generous (easiest)
             rows.forEach((r, i) => { (defRatings[r.d] = defRatings[r.d] || {})[g] = { rank: i + 1, of: rows.length, ratio: Math.round(r.ratio * 100) / 100 }; });
           }
-          return jsonOut(200, { ok: true, year: yr, week: wk, matchups, defRatings,
-            ratingsBasis: (wk <= 1 ? (ratYear + " (prior season)") : (yr + " W1–" + (wk - 1))) });
+          // (4) schedule horizon — the next 3 weeks' opponents (the current week's
+          // game is already in `matchups`); the client looks up each opp's defRating.
+          const horizonWeeks = [wk + 1, wk + 2, wk + 3];
+          const horizonSched = await Promise.all(horizonWeeks.map((w) => j(schedUrl(yr, w), 300)));
+          const horizon = {};   // team -> [{ wk, opp, isHome }]
+          horizonWeeks.forEach((w, wi) => {
+            for (const m of arr(horizonSched[wi]?.nflSchedule?.matchup)) {
+              const ts = arr(m.team); if (ts.length < 2) continue;
+              const ka = safeStr(ts[0].id).toUpperCase(), kb = safeStr(ts[1].id).toUpperCase();
+              (horizon[ka] = horizon[ka] || []).push({ wk: w, opp: kb, isHome: String(ts[0].isHome) === "1" });
+              (horizon[kb] = horizon[kb] || []).push({ wk: w, opp: ka, isHome: String(ts[1].isHome) === "1" });
+            }
+          });
+          const basis = (last > 0 && wk > 1) ? ("last " + Math.min(last, wk - 1) + " wks")
+            : (wk <= 1 ? (ratYear + " (prior season)") : (yr + " W1–" + (wk - 1)));
+          return jsonOut(200, { ok: true, year: yr, week: wk, window: (last || null), matchups, defRatings, playerWindow, horizon, ratingsBasis: basis });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
