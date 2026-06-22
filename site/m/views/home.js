@@ -179,8 +179,8 @@
     var eventsSub = ctx.next ? (eventMeta(ctx.next).label + " " + whenLabel(ctx.next.date)) : "No windows";
     return [
       { label: "My Roster", icon: "clipboard-list", tone: "field",  href: "#myteam/roster",    sub: rosterSub },
-      { label: "Live Scoring", icon: "heart-pulse", tone: "violet", href: "#scores",           sub: "Scoreboard · All-Play · breakdowns" },
-      // Contracts intentionally omitted here — it's in the bottom nav (Keith 2026-06-20).
+      { label: "Standings", icon: "list-checks", tone: "violet", href: "#league/standings", sub: "Standings & playoff race" },
+      // Live Scoring + Contracts intentionally omitted here — both are in the bottom nav.
       { label: "Trades",    icon: "repeat",         tone: "ember",  href: "#league/trade",     sub: tradesSub, badge: ctx.incoming > 0 ? ctx.incoming : null },
       { label: "Market",    icon: "tag",            tone: "sky",    href: "#players",          sub: "Browse — filter by team/FA" },
       { label: "Player Stats", icon: "bar-chart",   tone: "mint",   href: "#league/stats",     sub: "Leaderboards by position" },
