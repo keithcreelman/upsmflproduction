@@ -244,6 +244,10 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 .fpa-team-row:hover{background:var(--panel-alt)}
 .fpa-week-row{cursor:pointer}
 .fpa-week-row:hover{background:var(--panel-alt)}
+.adp-srcs{display:flex;gap:10px;flex-wrap:wrap}
+.adp-srctog{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap}
+.adp-srctog input{accent-color:var(--accent);cursor:pointer}
+.adp-slider{accent-color:var(--accent);cursor:pointer}
 .fpa-back{color:var(--accent);text-decoration:none;font-weight:700}
 .fpa-back:hover{text-decoration:underline}
 </style>
@@ -3230,76 +3234,134 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 
     // ---- ADP board (Stats → ADP sub-tab) — multi-source SF dynasty consensus ----
     var adpSection = document.getElementById("asw-view-adp");
-    var adp = { pos: "ALL", q: "", sort: "rank", dir: 1, data: null, sources: [], rendered: false, _t: null };
+    // Multi-source, multi-format value board. The owner picks which sources to
+    // include, a roster format (1QB / Superflex / TE-Prem), and a dynasty↔redraft
+    // skew (slider); the blended Value + per-source columns recompute client-side.
+    var adp = { pos: "ALL", q: "", sort: "value", dir: -1, data: null, sources: [], rendered: false, _t: null,
+                srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.5 };
+    var ADP_SRC = [["fc","FantasyCalc"],["ktc","KeepTradeCut"],["dp","DynastyProcess"]];
+    var ADP_ROSTER = [["sf","Superflex"],["q1","1QB"],["tep","TE-Prem"]];
+    function adpKeys(){ var r = adp.roster; return { d: r==="q1"?"dq1":(r==="tep"?"dtep":"dsf"), r: r==="q1"?"rq1":(r==="tep"?"rtep":"rsf") }; }
+    // One source's value for the chosen roster, blended dynasty↔redraft by the slider.
+    function adpSrcBlend(row, src){
+      var blk = row[src]; if (!blk) return null;
+      var k = adpKeys(), dyn = blk[k.d], rd = blk[k.r];
+      if (dyn == null && rd == null) return null;
+      if (rd == null) return dyn; if (dyn == null) return rd;
+      return Math.round((1 - adp.rdPct) * dyn + adp.rdPct * rd);
+    }
+    // Blended VALUE = mean of the selected sources' blended values (IDP uses ECR).
+    function adpBlend(row){
+      if (row.isIdp) return row.idpVal != null ? row.idpVal : null;
+      var s = 0, n = 0;
+      ADP_SRC.forEach(function(p){ if (!adp.srcSel[p[0]]) return; var v = adpSrcBlend(row, p[0]); if (v != null && v > 0) { s += v; n++; } });
+      return n ? Math.round(s / n) : null;
+    }
     function adpBody(){ return adpSection.querySelector(".adp-body"); }
     function adpLoad(){
-      var b = adpBody(); if (b) b.innerHTML = '<div class="asw-meta" style="padding:14px">Loading dynasty values…</div>';
+      var b = adpBody(); if (b) b.innerHTML = '<div class="asw-meta" style="padding:14px">Loading player values…</div>';
       fetch(API_BASE + "/api/adp-board").then(function(r){ return r.json(); })
         .then(function(d){ adp.data = (d && d.board) || []; adp.sources = (d && d.sources) || []; adpPaint(); })
         .catch(function(){ adp.data = []; adp.sources = []; adpPaint(); });
     }
     function adpRenderShell(){
-      var poss = [["ALL","All"],["QB","QB"],["RB","RB"],["WR","WR"],["TE","TE"]];
+      var poss = [["ALL","All"],["QB","QB"],["RB","RB"],["WR","WR"],["TE","TE"],["DL","DL"],["LB","LB"],["DB","DB"]];
       var chips = poss.map(function(p){ return '<button type="button" data-adppos="' + p[0] + '" aria-pressed="' + (p[0] === adp.pos ? "true" : "false") + '">' + p[1] + '</button>'; }).join("");
+      var rosterChips = ADP_ROSTER.map(function(p){ return '<button type="button" data-adproster="' + p[0] + '" aria-pressed="' + (p[0] === adp.roster ? "true" : "false") + '">' + p[1] + '</button>'; }).join("");
+      var srcToggles = ADP_SRC.map(function(p){ return '<label class="adp-srctog"><input type="checkbox" data-adpsrc="' + p[0] + '"' + (adp.srcSel[p[0]] ? " checked" : "") + '/> ' + p[1] + '</label>'; }).join("");
       adpSection.innerHTML =
         '<div class="fpa-controls">' +
           '<label>Position<div class="fpa-pos">' + chips + '</div></label>' +
-          '<label>Search<input type="search" class="adp-q" placeholder="name / team" value="' + esc(adp.q) + '" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 9px;font-size:13px;min-width:160px" /></label>' +
+          '<label>Format<div class="fpa-pos">' + rosterChips + '</div></label>' +
+          '<label>Search<input type="search" class="adp-q" placeholder="name / team" value="' + esc(adp.q) + '" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 9px;font-size:13px;min-width:150px" /></label>' +
+        '</div>' +
+        '<div class="fpa-controls" style="align-items:center">' +
+          '<label style="min-width:240px">Skew <span class="adp-skew-lbl" style="color:var(--muted);font-weight:600"></span>' +
+            '<input type="range" class="adp-slider" min="0" max="100" step="5" value="' + Math.round(adp.rdPct*100) + '" style="width:200px;vertical-align:middle;margin-left:8px"/>' +
+          '</label>' +
+          '<label>Sources<div class="adp-srcs">' + srcToggles + '</div></label>' +
         '</div><div class="adp-body"></div>';
-      adpSection.querySelectorAll(".fpa-pos button").forEach(function(b){
-        b.addEventListener("click", function(){ adp.pos = b.getAttribute("data-adppos"); adpSection.querySelectorAll(".fpa-pos button").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); adpPaint(); });
+      adpSection.querySelectorAll(".fpa-pos [data-adppos]").forEach(function(b){
+        b.addEventListener("click", function(){ adp.pos = b.getAttribute("data-adppos"); adpSection.querySelectorAll(".fpa-pos [data-adppos]").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); adpPaint(); });
       });
+      adpSection.querySelectorAll(".fpa-pos [data-adproster]").forEach(function(b){
+        b.addEventListener("click", function(){ adp.roster = b.getAttribute("data-adproster"); adpSection.querySelectorAll(".fpa-pos [data-adproster]").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); adpPaint(); });
+      });
+      adpSection.querySelectorAll("[data-adpsrc]").forEach(function(c){
+        c.addEventListener("change", function(){ adp.srcSel[c.getAttribute("data-adpsrc")] = c.checked; adpPaint(); });
+      });
+      var sl = adpSection.querySelector(".adp-slider");
+      if (sl) sl.addEventListener("input", function(){ adp.rdPct = (parseInt(sl.value, 10) || 0) / 100; adpPaint(); });
       var q = adpSection.querySelector(".adp-q");
       if (q) q.addEventListener("input", function(){ adp.q = q.value; clearTimeout(adp._t); adp._t = setTimeout(adpPaint, 180); });
     }
     function adpPaint(){
+      var skewEl = adpSection.querySelector(".adp-skew-lbl");
+      var rdP = Math.round(adp.rdPct * 100);
+      if (skewEl) skewEl.textContent = rdP === 0 ? "all Dynasty" : rdP === 100 ? "all Redraft" : (rdP + "% Redraft / " + (100 - rdP) + "% Dynasty");
       var rows = (adp.data || []).slice();
       if (adp.pos !== "ALL") rows = rows.filter(function(r){ return r.pos === adp.pos; });
       var q = adp.q.trim().toLowerCase();
       if (q) rows = rows.filter(function(r){ return ((r.name || "") + " " + (r.team || "") + " " + (r.pos || "")).toLowerCase().indexOf(q) >= 0; });
+      // Blend every row, then assign a value-rank (independent of the display sort).
+      rows.forEach(function(r){ r._bv = adpBlend(r); });
+      rows.slice().sort(function(a, b){ return (b._bv || 0) - (a._bv || 0); }).forEach(function(r, i){ r._vrank = i + 1; });
       rows.sort(function(a, b){
         if (adp.sort === "name") { var na = (a.name || "").toLowerCase(), nb = (b.name || "").toLowerCase(); return (na < nb ? -1 : na > nb ? 1 : 0) * adp.dir; }
-        var va = a[adp.sort] == null ? (adp.dir > 0 ? Infinity : -Infinity) : a[adp.sort];
-        var vb = b[adp.sort] == null ? (adp.dir > 0 ? Infinity : -Infinity) : b[adp.sort];
+        var key = adp.sort === "value" ? "_bv" : adp.sort;
+        var va = a[key] == null ? (adp.dir > 0 ? Infinity : -Infinity) : a[key];
+        var vb = b[key] == null ? (adp.dir > 0 ? Infinity : -Infinity) : b[key];
         return (va - vb) * adp.dir;
       });
       function arrow(k){ return adp.sort === k ? (adp.dir > 0 ? " ▲" : " ▼") : ""; }
-      var srcLabels = { fantasycalc: "FantasyCalc", keeptradecut: "KeepTradeCut", dynastyprocess: "DynastyProcess", sleeper: "Sleeper" };
-      var srcLine = (adp.sources || []).map(function(s){ return srcLabels[s] || s; }).join(" · ") || "FantasyCalc";
-      var html = '<div class="fpa-sub">SuperFlex dynasty consensus (mean of FC/KTC/DP value) · sources: ' + esc(srcLine) + ' · ' + rows.length + ' players · click a header to sort</div>' +
+      var isIdpView = (adp.pos === "DL" || adp.pos === "LB" || adp.pos === "DB");
+      var rLbl = ({ sf: "Superflex", q1: "1QB", tep: "TE-Prem" })[adp.roster];
+      var sub = isIdpView
+        ? ('IDP dynasty value (FantasyPros ECR) · ' + rows.length + ' players')
+        : (rLbl + ' · ' + (rdP === 0 ? "Dynasty" : rdP === 100 ? "Redraft" : (rdP + "% redraft")) + ' · combined value = mean of selected sources · ' + rows.length + ' players · click a header to sort');
+      var html = '<div class="fpa-sub">' + esc(sub) + '</div>' +
         '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
-        '<th class="num" data-k="rank">Rank' + arrow("rank") + '</th>' +
+        '<th class="num">#</th>' +
         '<th class="team" data-k="name">Player' + arrow("name") + '</th>' +
         '<th class="num">Pos</th><th class="num">Tm</th>' +
         '<th class="num" data-k="age">Age' + arrow("age") + '</th>' +
-        '<th class="num" data-k="consensus" title="Mean of the available dynasty values (FantasyCalc / KeepTradeCut / DynastyProcess)">Consensus' + arrow("consensus") + '</th>' +
-        '<th class="num" data-k="fcValue" title="FantasyCalc SF dynasty value">FC' + arrow("fcValue") + '</th>' +
-        '<th class="num" data-k="ktcValue" title="KeepTradeCut SF dynasty value">KTC' + arrow("ktcValue") + '</th>' +
-        '<th class="num" data-k="dpValue" title="DynastyProcess SF dynasty value">DP' + arrow("dpValue") + '</th>' +
-        '<th class="num" data-k="sleeperRank" title="Sleeper overall rank (lower = higher)">Slp' + arrow("sleeperRank") + '</th>' +
-        '<th class="num" data-k="trend30" title="FantasyCalc 30-day value trend">30d' + arrow("trend30") + '</th>' +
-        '</tr></thead><tbody>';
-      if (!rows.length) html += '<tr><td class="team">—</td><td colspan="9" class="num" style="color:var(--muted)">No players.</td></tr>';
+        '<th class="num" data-k="value" title="Blended value across the selected sources for the chosen format + skew">Value' + arrow("value") + '</th>';
+      if (isIdpView) {
+        html += '<th class="num" title="FantasyPros dynasty IDP expert consensus rank">ECR</th>';
+      } else {
+        html += '<th class="num" title="FantasyCalc value for this format/skew">FC</th>' +
+          '<th class="num" title="KeepTradeCut value for this format/skew">KTC</th>' +
+          '<th class="num" title="DynastyProcess value (dynasty only)">DP</th>' +
+          '<th class="num" data-k="sleeperRank" title="Sleeper overall popularity rank">Slp' + arrow("sleeperRank") + '</th>' +
+          '<th class="num" data-k="trend30" title="FantasyCalc 30-day value trend">30d' + arrow("trend30") + '</th>';
+      }
+      html += '</tr></thead><tbody>';
+      var ncols = isIdpView ? 6 : 9;
+      if (!rows.length) html += '<tr><td class="team">—</td><td colspan="' + ncols + '" class="num" style="color:var(--muted)">No players.</td></tr>';
       rows.forEach(function(r){
-        var t = r.trend30;
         html += '<tr>' +
-          '<td class="num">' + (r.rank != null ? r.rank : "—") + '</td>' +
+          '<td class="num">' + (r._vrank != null ? r._vrank : "—") + '</td>' +
           '<td class="team">' + esc(r.name) + '</td>' +
           '<td class="num">' + esc(r.pos) + '</td>' +
           '<td class="num">' + esc(r.team || "—") + '</td>' +
           '<td class="num">' + (r.age != null ? r.age : "—") + '</td>' +
-          '<td class="num"><b>' + (r.consensus != null ? r.consensus : "—") + '</b></td>' +
-          '<td class="num">' + (r.fcValue != null ? r.fcValue : "—") + '</td>' +
-          '<td class="num">' + (r.ktcValue != null ? r.ktcValue : "—") + '</td>' +
-          '<td class="num">' + (r.dpValue != null ? r.dpValue : "—") + '</td>' +
-          '<td class="num">' + (r.sleeperRank != null ? ("#" + r.sleeperRank) : "—") + '</td>' +
-          '<td class="num">' + (t != null && t !== 0 ? '<span class="asw-trend ' + (t > 0 ? "up" : "dn") + '">' + (t > 0 ? "▲" : "▼") + Math.abs(t) + "</span>" : (t === 0 ? "0" : "—")) + '</td>' +
-          '</tr>';
+          '<td class="num"><b>' + (r._bv != null ? r._bv : "—") + '</b></td>';
+        if (isIdpView) {
+          html += '<td class="num">' + (r.fpEcr != null ? ("#" + r.fpEcr) : "—") + '</td>';
+        } else {
+          var t = r.trend30;
+          html += '<td class="num">' + (function(v){ return v != null ? v : "—"; })(adpSrcBlend(r, "fc")) + '</td>' +
+            '<td class="num">' + (function(v){ return v != null ? v : "—"; })(adpSrcBlend(r, "ktc")) + '</td>' +
+            '<td class="num">' + (function(v){ return v != null ? v : "—"; })(adpSrcBlend(r, "dp")) + '</td>' +
+            '<td class="num">' + (r.sleeperRank != null ? ("#" + r.sleeperRank) : "—") + '</td>' +
+            '<td class="num">' + (t != null && t !== 0 ? '<span class="asw-trend ' + (t > 0 ? "up" : "dn") + '">' + (t > 0 ? "▲" : "▼") + Math.abs(t) + "</span>" : (t === 0 ? "0" : "—")) + '</td>';
+        }
+        html += '</tr>';
       });
       html += '</tbody></table></div>';
       adpBody().innerHTML = html;
       adpSection.querySelectorAll(".fpa-table th[data-k]").forEach(function(th){
-        th.addEventListener("click", function(){ var k = th.getAttribute("data-k"); if (adp.sort === k) adp.dir = -adp.dir; else { adp.sort = k; adp.dir = (k === "rank" || k === "name" || k === "age" || k === "sleeperRank") ? 1 : -1; } adpPaint(); });
+        th.addEventListener("click", function(){ var k = th.getAttribute("data-k"); if (adp.sort === k) adp.dir = -adp.dir; else { adp.sort = k; adp.dir = (k === "name" || k === "age" || k === "sleeperRank") ? 1 : -1; } adpPaint(); });
       });
       notifyResize();
     }
