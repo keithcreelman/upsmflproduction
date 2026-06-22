@@ -414,18 +414,32 @@
       arr[j]._tier = tier;
     }
   }
+  // Dynasty-only sources (DP) drop to null at the redraft extreme (show "—").
   function adpbSrcBlend(row, src) {
     var blk = row[src]; if (!blk) return null;
     var k = adpbKeys(), dyn = blk[k.d], rd = blk[k.r];
     if (dyn == null && rd == null) return null;
+    if (adpb.rdPct >= 0.999) return (rd != null && rd > 0) ? rd : null;
+    if (adpb.rdPct <= 0.001) return (dyn != null && dyn > 0) ? dyn : null;
     if (rd == null) return dyn; if (dyn == null) return rd;
     return Math.round((1 - adpb.rdPct) * dyn + adpb.rdPct * rd);
   }
+  // Per-dimension consensus: mean dynasty + mean redraft separately, then blend.
   function adpbBlend(row) {
     if (row.isIdp) return row.idpVal != null ? row.idpVal : null;
-    var s = 0, n = 0;
-    ADPB_SRC.forEach(function (p) { if (!adpb.srcSel[p[0]]) return; var v = adpbSrcBlend(row, p[0]); if (v != null && v > 0) { s += v; n++; } });
-    return n ? Math.round(s / n) : null;
+    var k = adpbKeys(), dynVals = [], rdVals = [];
+    ADPB_SRC.forEach(function (p) {
+      if (!adpb.srcSel[p[0]]) return;
+      var blk = row[p[0]]; if (!blk) return;
+      if (blk[k.d] != null && blk[k.d] > 0) dynVals.push(blk[k.d]);
+      if (blk[k.r] != null && blk[k.r] > 0) rdVals.push(blk[k.r]);
+    });
+    if (!dynVals.length && !rdVals.length) return null;
+    var dynC = dynVals.length ? dynVals.reduce(function (a, b) { return a + b; }, 0) / dynVals.length : null;
+    var rdC = rdVals.length ? rdVals.reduce(function (a, b) { return a + b; }, 0) / rdVals.length : null;
+    if (rdC == null) return Math.round(dynC);
+    if (dynC == null) return Math.round(rdC);
+    return Math.round((1 - adpb.rdPct) * dynC + adpb.rdPct * rdC);
   }
   function loadAdpBoard() {
     if (adpb.data) return Promise.resolve(adpb.data);
