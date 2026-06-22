@@ -391,11 +391,28 @@
     var w = document.getElementById("ups-m-vg-week");
     if (w) { w.value = String(vg.week); w.addEventListener("change", function () { vg.week = parseInt(this.value, 10) || 0; loadVegas().then(function () { if (view.inner === "vegas") paint(mount); }); }); }
   }
-  // ── ADP board (Stats → ADP inner tab) — FantasyCalc SF dynasty values ──
-  var adpb = { pos: "ALL", data: null, srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.5 };
+  // ── ADP board (Stats → ADP inner tab) — multi-source ranks + tiers, Superflex ──
+  var adpb = { pos: "ALL", data: null, srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.35 };
   var ADPB_SRC = [["fc", "FC"], ["ktc", "KTC"], ["dp", "DP"]];
-  var ADPB_ROSTER = [["sf", "Superflex"], ["q1", "1QB"], ["tep", "TE-Prem"]];
-  function adpbKeys() { var r = adpb.roster; return { d: r === "q1" ? "dq1" : (r === "tep" ? "dtep" : "dsf"), r: r === "q1" ? "rq1" : (r === "tep" ? "rtep" : "rsf") }; }
+  function adpbKeys() { return { d: "dsf", r: "rsf" }; }   // baked Superflex (UPS league)
+  // Per-position tiers via local-cliff detection (matches desktop adpAssignTiers).
+  function adpbTiers(arr) {
+    var n = arr.length; if (!n) return;
+    var vals = arr.map(function (r) { return r._bv != null ? r._bv : (r.idpVal || 0); });
+    arr[0]._tier = 1; if (n < 2) return;
+    var gaps = []; for (var i = 1; i < n; i++) gaps.push(vals[i - 1] - vals[i]);
+    var W = 4, K = 2.5, MINREL = 0.04;
+    function med(a) { if (!a.length) return 0; var s = a.slice().sort(function (x, y) { return x - y; }); var m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+    var tier = 1;
+    for (var j = 1; j < n; j++) {
+      var g = vals[j - 1] - vals[j];
+      var lo = Math.max(0, (j - 1) - W), hi = Math.min(gaps.length, (j - 1) + W + 1);
+      var local = []; for (var t = lo; t < hi; t++) if (gaps[t] > 0) local.push(gaps[t]);
+      var m2 = med(local), rel = vals[j - 1] > 0 ? g / vals[j - 1] : 0;
+      if (m2 > 0 && g > m2 * K && rel > MINREL) tier++;
+      arr[j]._tier = tier;
+    }
+  }
   function adpbSrcBlend(row, src) {
     var blk = row[src]; if (!blk) return null;
     var k = adpbKeys(), dyn = blk[k.d], rd = blk[k.r];
@@ -419,14 +436,12 @@
   function adpBoardToolbar() {
     var poss = [["ALL", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"], ["DL", "DL"], ["LB", "LB"], ["DB", "DB"]];
     var chips = poss.map(function (p) { return '<button class="ups-m-pos-chip' + (adpb.pos === p[0] ? " on" : "") + '" data-adppos="' + p[0] + '">' + p[1] + "</button>"; }).join("");
-    var rosterChips = ADPB_ROSTER.map(function (p) { return '<button class="ups-m-pos-chip' + (adpb.roster === p[0] ? " on" : "") + '" data-adproster="' + p[0] + '">' + p[1] + "</button>"; }).join("");
     var srcTogs = ADPB_SRC.map(function (p) { return '<label class="ups-m-adp-srctog"><input type="checkbox" data-adpsrc="' + p[0] + '"' + (adpb.srcSel[p[0]] ? " checked" : "") + '/>' + p[1] + "</label>"; }).join("");
     var rdP = Math.round(adpb.rdPct * 100);
     var skew = rdP === 0 ? "all Dynasty" : rdP === 100 ? "all Redraft" : (rdP + "% redraft");
     return '<div class="ups-m-players-toolbar">' +
-      '<div class="ups-m-auc-sec-head">ADP <span class="ct">multi-source · ' + (ADPB_ROSTER.filter(function (x) { return x[0] === adpb.roster; })[0][1]) + ' · ' + skew + "</span></div>" +
+      '<div class="ups-m-auc-sec-head">ADP <span class="ct">Superflex · ' + skew + ' · ranks + tiers</span></div>' +
       '<div class="ups-m-pos-chips">' + chips + "</div>" +
-      '<div class="ups-m-pos-chips" style="margin-top:6px">' + rosterChips + "</div>" +
       '<div class="ups-m-adp-ctl"><span class="ups-m-adp-skew">Dynasty</span>' +
         '<input type="range" class="ups-m-adp-slider" min="0" max="100" step="5" value="' + rdP + '"/>' +
         '<span class="ups-m-adp-skew">Redraft</span></div>' +
@@ -435,33 +450,43 @@
   }
   function adpBoardHtml() {
     if (!adpb.data) return '<div class="ups-m-loading">Loading…</div>';
-    var rows = adpb.data.slice();
-    // IDP (ECR-derived) isn't on the offense value scale → only under DL/LB/DB.
-    if (adpb.pos === "ALL") rows = rows.filter(function (r) { return !r.isIdp; });
-    else rows = rows.filter(function (r) { return r.pos === adpb.pos; });
+    var isIdp = (adpb.pos === "DL" || adpb.pos === "LB" || adpb.pos === "DB");
+    var universe = adpb.data.filter(function (r) { return isIdp ? r.isIdp : !r.isIdp; });
+    universe.forEach(function (r) { r._bv = adpbBlend(r); });
+    if (!isIdp) {
+      ADPB_SRC.forEach(function (p) {
+        universe.forEach(function (r) { r["_rk_" + p[0]] = null; });
+        universe.map(function (r) { return { r: r, v: adpbSrcBlend(r, p[0]) }; }).filter(function (x) { return x.v != null && x.v > 0; }).sort(function (a, b) { return b.v - a.v; }).forEach(function (x, i) { x.r["_rk_" + p[0]] = i + 1; });
+      });
+      universe.forEach(function (r) { r._rk_slp = null; });
+      universe.filter(function (r) { return r.sleeperRank != null; }).sort(function (a, b) { return a.sleeperRank - b.sleeperRank; }).forEach(function (r, i) { r._rk_slp = i + 1; });
+    }
+    universe.slice().sort(function (a, b) { return (b._bv || 0) - (a._bv || 0); }).forEach(function (r, i) { r._ovr = i + 1; });
+    var byPos = {}; universe.forEach(function (r) { (byPos[r.pos] = byPos[r.pos] || []).push(r); });
+    Object.keys(byPos).forEach(function (pos) { var arr = byPos[pos].sort(function (a, b) { return (b._bv || 0) - (a._bv || 0); }); arr.forEach(function (r, i) { r._posRank = i + 1; }); adpbTiers(arr); });
+    var rows = universe.slice();
+    if (!isIdp && adpb.pos !== "ALL") rows = rows.filter(function (r) { return r.pos === adpb.pos; });
+    rows.sort(function (a, b) { return (a._ovr || 9999) - (b._ovr || 9999); });
     if (!rows.length) return '<div class="ups-m-stub"><div>No players.</div></div>';
-    rows.forEach(function (r) { r._bv = adpbBlend(r); });
-    rows.slice().sort(function (a, b) { return (b._bv || 0) - (a._bv || 0); }).forEach(function (r, i) { r._vrank = i + 1; });
-    rows.sort(function (a, b) { return (b._bv || 0) - (a._bv || 0); });
-    var head = '<div class="ups-m-adp-row head"><span class="rk">#</span><span class="pl">Player</span><span class="v">Value</span><span class="v">30d</span></div>';
+    function tpill(t) { if (t == null) return "—"; var c = t <= 1 ? "t1" : t <= 2 ? "t2" : t <= 3 ? "t3" : "tn"; return '<span class="ups-m-tierp ' + c + '">T' + t + "</span>"; }
+    var head = '<div class="ups-m-adp-row head"><span class="rk">#</span><span class="pl">Player</span><span class="v">Pos</span><span class="v">Tier</span></div>';
     var body = rows.slice(0, 300).map(function (r) {
-      var t = r.trend30, tcls = t == null ? "" : (t > 0 ? "up" : (t < 0 ? "dn" : ""));
       var sub;
       if (r.isIdp) {
-        sub = r.pos + " · " + (r.team || "—") + (r.fpEcr != null ? " · ECR #" + r.fpEcr : "");
+        sub = (r.team || "—") + (r.fpEcr != null ? " · ECR #" + r.fpEcr : "");
       } else {
-        var src = [], fc = adpbSrcBlend(r, "fc"), ktc = adpbSrcBlend(r, "ktc"), dp = adpbSrcBlend(r, "dp");
-        if (fc != null) src.push("FC " + fc);
-        if (ktc != null) src.push("KTC " + ktc);
-        if (dp != null) src.push("DP " + dp);
-        if (r.sleeperRank != null) src.push("Slp #" + r.sleeperRank);
-        sub = r.pos + (r.posRank != null ? String(r.posRank) : "") + " · " + (r.team || "—") + (src.length ? " · " + src.join(" · ") : "");
+        var src = [];
+        if (r._rk_fc != null) src.push("FC" + r._rk_fc);
+        if (r._rk_ktc != null) src.push("KTC" + r._rk_ktc);
+        if (r._rk_dp != null) src.push("DP" + r._rk_dp);
+        if (r._rk_slp != null) src.push("Slp" + r._rk_slp);
+        sub = (r.team || "—") + (src.length ? " · " + src.join(" ") : "");
       }
       return '<div class="ups-m-adp-row">' +
-        '<span class="rk">' + (r._vrank != null ? r._vrank : "—") + "</span>" +
+        '<span class="rk">' + (r._ovr != null ? r._ovr : "—") + "</span>" +
         '<span class="pl"><span class="nm">' + U.escapeHtml(r.name) + '</span><span class="sub">' + U.escapeHtml(sub) + "</span></span>" +
-        '<span class="v">' + (r._bv != null ? r._bv : "—") + "</span>" +
-        '<span class="v"><span class="ups-m-tr ' + tcls + '">' + (t != null && t !== 0 ? ((t > 0 ? "▲" : "▼") + Math.abs(t)) : (t === 0 ? "0" : "—")) + "</span></span>" +
+        '<span class="v">' + U.escapeHtml(r.pos + (r._posRank != null ? r._posRank : "")) + "</span>" +
+        '<span class="v">' + tpill(r._tier) + "</span>" +
       "</div>";
     }).join("");
     return '<div class="ups-m-fpa-table">' + head + body + "</div>";
@@ -469,8 +494,6 @@
   function bindAdpBoard(mount) {
     var chips = mount.querySelectorAll(".ups-m-pos-chip[data-adppos]");
     for (var i = 0; i < chips.length; i++) chips[i].addEventListener("click", function () { adpb.pos = this.getAttribute("data-adppos"); M.route.renderRoute(); });
-    var rchips = mount.querySelectorAll(".ups-m-pos-chip[data-adproster]");
-    for (var j = 0; j < rchips.length; j++) rchips[j].addEventListener("click", function () { adpb.roster = this.getAttribute("data-adproster"); M.route.renderRoute(); });
     var togs = mount.querySelectorAll("[data-adpsrc]");
     for (var k = 0; k < togs.length; k++) togs[k].addEventListener("change", function () { adpb.srcSel[this.getAttribute("data-adpsrc")] = this.checked; M.route.renderRoute(); });
     var sl = mount.querySelector(".ups-m-adp-slider");

@@ -1,7 +1,7 @@
 {
-  "version": "1.10.0",
+  "version": "1.11.0",
   "released": "2026-06-22",
-  "label": "v1.10.0 \u2014 Pace moved to its own Pace sub-tab (team plays/game, def faced, Pace SoS); removed from Player Stats. SoS column is now a signed \u0394 (negative = easy schedule, positive = hard).",
+  "label": "v1.11.0 \u2014 ADP redesigned around RANKINGS + TIERS (your Superflex league): every source normalized to a clean overall rank (no more raw values / duplicate #1s), positional rank (QB1/RB8), and per-position tiers from value cliffs. Format selector + 30d removed; dynasty\u2194redraft skew slider kept (default 35% redraft).",
   "changes_120": [
     "Horizontal scrollbar moved to the TOP of the table (synced two-way); the table now scrolls in a bounded 680px region so the scrollbar + column header stay fixed while the body scrolls (works in the iframe embed, not just standalone).",
     "Pos Rk now ranks within the IDP/offense GROUP (DL/LB/DB/QB/RB/WR/TE/PK) instead of the raw nflverse position \u2014 fixes multiple #1s showing in a single DL/LB/DB."
