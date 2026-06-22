@@ -934,6 +934,15 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   // mfl_points_sos compute column. Repopulated inside runQuery().
   var sosByGsis = {};
 
+  // Current NFL team per MFL player id (MFL players export is trade-fresh; the
+  // leaderboard `team` is season-stamped). Awaited in runQuery so applyLiveOwnership
+  // can overlay r.current_team before the first paint.
+  var currentTeamByPid = {};
+  var currentTeamsPromise = fetch(API_BASE + "/api/nfl-current-teams")
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){ currentTeamByPid = (j && j.byId) || {}; })
+    .catch(function(){});
+
   var leagueStatePromise = fetch(API_BASE + "/api/mfl-league-state?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + THIS_YEAR)
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(j){
@@ -992,6 +1001,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     return rows.map(function(r){
       var pid = r.mfl_pid ? String(r.mfl_pid) : null;
       if (!pid) return r;
+      var curTm = currentTeamByPid[pid] || r.current_team || null;   // trade-fresh NFL team
       var liveFid = pidToFid[pid];
       if (liveFid) {
         // Rostered — overlay franchise + LIVE contract details from MFL
@@ -1001,6 +1011,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         var patch = {
           mfl_franchise_id: liveFid,
           mfl_franchise_name: fidToName[liveFid] || r.mfl_franchise_name,
+          current_team: curTm,
         };
         if (liveC) {
           if (liveC.salary != null)         patch.mfl_salary = liveC.salary;
@@ -1017,6 +1028,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         mfl_salary: 0,
         mfl_aav: 0,
         mfl_years_remaining: 0,
+        current_team: curTm,
       });
     });
   }
@@ -1982,6 +1994,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         return r.json();
       }),
       leagueStatePromise,
+      currentTeamsPromise,
       sosFetch,
     ]).then(function(pair){
       var j = pair[0];
@@ -3263,30 +3276,62 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     // and a dynasty↔redraft skew (default 35% redraft); ranks + tiers recompute
     // client-side. (Roster format is baked to Superflex — no picker.)
     var adp = { pos: "ALL", q: "", sort: "ovr", dir: 1, data: null, sources: [], rendered: false, _t: null,
-                srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.35, generatedAt: null, fresh: null };
+                srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.35, generatedAt: null, fresh: null, team: "__ALL__" };
     var ADP_SRC = [["fc","FantasyCalc"],["ktc","KeepTradeCut"],["dp","DynastyProcess"]];
     function adpKeys(){ return { d: "dsf", r: "rsf" }; }   // baked Superflex
-    // One source's value for the chosen roster, blended dynasty↔redraft by the slider.
+    // One source's displayed value for the chosen skew. At the extremes a
+    // dynasty-only source (DP has no redraft value) drops to null instead of
+    // falling back to the other dimension — so DP shows "—" at 100% redraft.
     function adpSrcBlend(row, src){
       var blk = row[src]; if (!blk) return null;
       var k = adpKeys(), dyn = blk[k.d], rd = blk[k.r];
       if (dyn == null && rd == null) return null;
+      if (adp.rdPct >= 0.999) return (rd != null && rd > 0) ? rd : null;
+      if (adp.rdPct <= 0.001) return (dyn != null && dyn > 0) ? dyn : null;
       if (rd == null) return dyn; if (dyn == null) return rd;
       return Math.round((1 - adp.rdPct) * dyn + adp.rdPct * rd);
     }
-    // Blended VALUE = mean of the selected sources' blended values (IDP uses ECR).
+    // Consensus VALUE = PER-DIMENSION blend: average the selected sources' dynasty
+    // values and their redraft values SEPARATELY, then blend by the skew. This is
+    // why a dynasty-only source (DP, no redraft) can't drag an old-but-elite
+    // redraft player down at 100% redraft — it simply isn't in the redraft mean.
     function adpBlend(row){
       if (row.isIdp) return row.idpVal != null ? row.idpVal : null;
-      var s = 0, n = 0;
-      ADP_SRC.forEach(function(p){ if (!adp.srcSel[p[0]]) return; var v = adpSrcBlend(row, p[0]); if (v != null && v > 0) { s += v; n++; } });
-      return n ? Math.round(s / n) : null;
+      var k = adpKeys(), dynVals = [], rdVals = [];
+      ADP_SRC.forEach(function(p){
+        if (!adp.srcSel[p[0]]) return;
+        var blk = row[p[0]]; if (!blk) return;
+        if (blk[k.d] != null && blk[k.d] > 0) dynVals.push(blk[k.d]);
+        if (blk[k.r] != null && blk[k.r] > 0) rdVals.push(blk[k.r]);
+      });
+      if (!dynVals.length && !rdVals.length) return null;
+      var dynC = dynVals.length ? dynVals.reduce(function(a,b){ return a + b; }, 0) / dynVals.length : null;
+      var rdC  = rdVals.length  ? rdVals.reduce(function(a,b){ return a + b; }, 0) / rdVals.length  : null;
+      if (rdC == null) return Math.round(dynC);
+      if (dynC == null) return Math.round(rdC);
+      return Math.round((1 - adp.rdPct) * dynC + adp.rdPct * rdC);
     }
     function adpBody(){ return adpSection.querySelector(".adp-body"); }
+    function adpFillTeams(){
+      var tsel = adpSection.querySelector(".adp-team"); if (!tsel) return;
+      var have = {}; Array.prototype.forEach.call(tsel.options, function(o){ have[o.value] = 1; });
+      Object.keys(fidToName).sort(function(a, b){ return (fidToName[a] || "").localeCompare(fidToName[b] || ""); }).forEach(function(fid){
+        if (have[fid]) return;
+        var o = document.createElement("option"); o.value = fid; o.textContent = fidToName[fid]; tsel.appendChild(o);
+      });
+      tsel.value = adp.team;
+    }
     function adpLoad(){
       var b = adpBody(); if (b) b.innerHTML = '<div class="asw-meta" style="padding:14px">Loading player values…</div>';
-      fetch(API_BASE + "/api/adp-board").then(function(r){ return r.json(); })
-        .then(function(d){ adp.data = (d && d.board) || []; adp.sources = (d && d.sources) || []; adp.generatedAt = (d && d.generated_at) || null; adpPaint(); })
-        .catch(function(){ adp.data = []; adp.sources = []; adpPaint(); });
+      // Wait for the league state too so the Team / FA filter (ownership by mfl_id)
+      // and the franchise dropdown are ready on first paint.
+      Promise.all([
+        fetch(API_BASE + "/api/adp-board").then(function(r){ return r.json(); }).catch(function(){ return null; }),
+        leagueStatePromise,
+      ]).then(function(res){
+        var d = res[0]; adp.data = (d && d.board) || []; adp.sources = (d && d.sources) || []; adp.generatedAt = (d && d.generated_at) || null;
+        adpFillTeams(); adpPaint();
+      });
       // Freshness of the nflverse-derived data (one-time); re-paint when ready.
       if (!adp.fresh) fetch(API_BASE + "/api/data-freshness").then(function(r){ return r.json(); })
         .then(function(f){ adp.fresh = f || {}; adpPaint(); }).catch(function(){});
@@ -3310,10 +3355,14 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       var poss = [["ALL","All"],["QB","QB"],["RB","RB"],["WR","WR"],["TE","TE"],["DL","DL"],["LB","LB"],["DB","DB"]];
       var chips = poss.map(function(p){ return '<button type="button" data-adppos="' + p[0] + '" aria-pressed="' + (p[0] === adp.pos ? "true" : "false") + '">' + p[1] + '</button>'; }).join("");
       var srcToggles = ADP_SRC.map(function(p){ return '<label class="adp-srctog"><input type="checkbox" data-adpsrc="' + p[0] + '"' + (adp.srcSel[p[0]] ? " checked" : "") + '/> ' + p[1] + '</label>'; }).join("");
+      var selStyle = 'background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 9px;font-size:13px';
       adpSection.innerHTML =
         '<div class="fpa-controls">' +
           '<label>Position<div class="fpa-pos">' + chips + '</div></label>' +
-          '<label>Search<input type="search" class="adp-q" placeholder="name / team" value="' + esc(adp.q) + '" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 9px;font-size:13px;min-width:150px" /></label>' +
+          '<label>Team<select class="adp-team" style="' + selStyle + '">' +
+            '<option value="__ALL__">All</option><option value="__ROSTERED__">All Rostered</option><option value="FA">Free Agents</option>' +
+          '</select></label>' +
+          '<label>Search<input type="search" class="adp-q" placeholder="name / team" value="' + esc(adp.q) + '" style="' + selStyle + ';min-width:150px" /></label>' +
         '</div>' +
         '<div class="fpa-controls" style="align-items:center">' +
           '<label style="min-width:260px">League skew <span class="adp-skew-lbl" style="color:var(--muted);font-weight:600"></span>' +
@@ -3321,6 +3370,9 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
           '</label>' +
           '<label>Sources<div class="adp-srcs">' + srcToggles + '</div></label>' +
         '</div><div class="adp-body"></div>';
+      adpFillTeams();
+      var tsel = adpSection.querySelector(".adp-team");
+      if (tsel) { tsel.value = adp.team; tsel.addEventListener("change", function(){ adp.team = tsel.value; adpPaint(); }); }
       adpSection.querySelectorAll(".fpa-pos [data-adppos]").forEach(function(b){
         b.addEventListener("click", function(){ adp.pos = b.getAttribute("data-adppos"); adpSection.querySelectorAll(".fpa-pos [data-adppos]").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); adpPaint(); });
       });
@@ -3392,9 +3444,19 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         arr.forEach(function(r, i){ r._posRank = i + 1; });
         adpAssignTiers(arr);
       });
-      // Filter to the view + search, then sort for display.
+      // Filter to the view + team/FA + search, then sort for display. The ranking
+      // above is over the FULL universe, so a player keeps their overall # / tier
+      // even when filtered to a roster.
       var rows = universe.slice();
       if (!isIdpView && adp.pos !== "ALL") rows = rows.filter(function(r){ return r.pos === adp.pos; });
+      if (adp.team && adp.team !== "__ALL__") {
+        rows = rows.filter(function(r){
+          var fid = pidToFid[String(r.pid)] || null;
+          if (adp.team === "__ROSTERED__") return fid != null;
+          if (adp.team === "FA") return fid == null;
+          return fid === adp.team;
+        });
+      }
       var q = adp.q.trim().toLowerCase();
       if (q) rows = rows.filter(function(r){ return ((r.name || "") + " " + (r.team || "") + " " + (r.pos || "")).toLowerCase().indexOf(q) >= 0; });
       rows.sort(function(a, b){

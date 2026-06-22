@@ -2728,6 +2728,7 @@ export default {
         path !== "/api/fpa-detail" &&
         path !== "/api/sos-adjusted-points" &&
         path !== "/api/team-pace" &&
+        path !== "/api/nfl-current-teams" &&
         path !== "/api/data-freshness" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
@@ -10263,6 +10264,30 @@ export default {
           const avgDef = rows.reduce((a, x) => a + (x.def_plays_pg || 0), 0) / n;
           return jsonOut(200, { ok: true, season: season, seasons: seasons, count: rows.length,
             leagueAvg: { off: Math.round(avgOff * 10) / 10, def: Math.round(avgDef * 10) / 10 }, teams: rows });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/nfl-current-teams — current NFL team per MFL player id ──
+      // The leaderboard `team` is season-stamped (MAX week's team that season), so a
+      // traded player shows a stale team. MFL's players export carries the CURRENT
+      // NFL team (synced on trades within hours). Cached 6h; clients overlay it by
+      // mfl_id. Returns { byId: { "<mfl_id>": "PHI", ... } }.
+      if (path === "/api/nfl-current-teams" && request.method === "GET") {
+        try {
+          const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+          const lid = "74598";
+          const arr = (x) => Array.isArray(x) ? x : (x == null ? [] : [x]);
+          const r = await fetch(`https://www48.myfantasyleague.com/${yr}/export?TYPE=players&L=${lid}&DETAILS=1&JSON=1`,
+            { cf: { cacheTtl: 21600, cacheEverything: true }, headers: { "User-Agent": "ups-worker", Accept: "application/json" } })
+            .then((x) => x.ok ? x.json() : null).catch(() => null);
+          const byId = {};
+          for (const p of arr(r && r.players && r.players.player)) {
+            const id = String(p.id || ""); const tm = safeStr(p.team || "").toUpperCase();
+            if (id && tm) byId[id] = tm;
+          }
+          return jsonOut(200, { ok: true, year: yr, count: Object.keys(byId).length, byId });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
