@@ -85,11 +85,30 @@ def parse_seasons(spec: str) -> list[int]:
 
 
 def build_pfr_to_gsis(db: sqlite3.Connection) -> dict[str, str]:
-    rows = db.execute("""
-        SELECT pfr_id, gsis_id FROM player_id_crosswalk
-         WHERE pfr_id IS NOT NULL AND gsis_id IS NOT NULL
-    """).fetchall()
-    return {r[0]: r[1] for r in rows}
+    # Prefer the local crosswalk; on CI (no local DB) fall back to the ffverse
+    # db_playerids CSV, which carries pfr_id + gsis_id (same source as ff_player_ids).
+    try:
+        rows = db.execute(
+            "SELECT pfr_id, gsis_id FROM player_id_crosswalk WHERE pfr_id IS NOT NULL AND gsis_id IS NOT NULL"
+        ).fetchall()
+        if rows:
+            return {r[0]: r[1] for r in rows}
+    except sqlite3.OperationalError:
+        pass
+    import urllib.request
+    import csv
+    import io
+    url = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv"
+    req = urllib.request.Request(url, headers={"User-Agent": "ups-mfl-etl/1.0"})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        text = resp.read().decode("utf-8")
+    out: dict[str, str] = {}
+    for r in csv.DictReader(io.StringIO(text)):
+        pfr = (r.get("pfr_id") or "").strip()
+        gsis = (r.get("gsis_id") or "").strip()
+        if pfr and gsis:
+            out[pfr] = gsis
+    return out
 
 
 def _load(stat_type: str, seasons: list[int]):

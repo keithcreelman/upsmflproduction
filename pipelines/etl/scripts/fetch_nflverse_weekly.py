@@ -166,8 +166,9 @@ BOX_COLS = ["season", "week", "gsis_id"] + list(PLAYERSTATS_MAP.keys() - {"gsis_
 SNAP_COLS = ["season", "week", "gsis_id"] + list(SNAP_MAP.keys() - {"gsis_id"})
 
 
-def pos_group_of(position: str) -> str:
-    p = (position or "").upper()
+def pos_group_of(position) -> str:
+    # nflreadpy can hand back a float NaN for a missing position → guard the .upper().
+    p = (position if isinstance(position, str) else "").upper()
     if p in {"QB"}: return "QB"
     if p in {"RB", "FB"}: return "RB"
     if p in {"WR"}: return "WR"
