@@ -9310,94 +9310,144 @@ export default {
         }
       }
 
-      // ── GET /api/adp-board?pos= — the MULTI-SOURCE dynasty ADP board (Stats → ADP) ──
-      // FantasyCalc SF-dynasty is the backbone (its player object carries name/
-      // pos/team/age/sleeperId). Three more live sources are merged, each guarded
-      // so one failing degrades gracefully: KeepTradeCut (page scrape, by name),
-      // DynastyProcess (CSV, by name), Sleeper (API, by sleeperId → overall rank).
-      // Consensus value = mean of the available dynasty VALUES (FC/KTC/DP — all on
-      // the same ~0-10000 SF scale); the board sorts by it. Everything edge-cached.
+      // ── GET /api/adp-board?pos= — the MULTI-SOURCE, MULTI-FORMAT value board (Stats → ADP) ──
+      // Returns a per-player MATRIX of values across [dynasty|redraft] × [1QB|SF|
+      // TE-premium], so the client can let the owner pick which sources to include,
+      // skew dynasty↔redraft with a slider, and choose a roster format — then blend
+      // a custom consensus on the fly. Sources (all live + edge-cached, each guarded
+      // so one failing degrades gracefully):
+      //   FantasyCalc  — 2 calls (numQbs=2 & =1); each carries dynasty `value` AND
+      //                  inline `redraftValue` → fills dyn+redraft for SF & 1QB.
+      //   KeepTradeCut — /dynasty-rankings + /fantasy-rankings scrapes (embedded
+      //                  playersArray, joined by INLINE mflid); adds TE-premium
+      //                  (superflex.tepp) + dynasty ADP.
+      //   DynastyProcess — values-players.csv (value_1qb + value_2qb), by name.
+      //   Sleeper      — search_rank reference, by sleeperId.
+      //   FantasyPros  — dynasty-IDP ECR (the only free IDP source), joined
+      //                  fantasypros_id → ff_player_ids → mfl_id.
+      // Back-compat keys (consensus/value/rank/fcValue/ktcValue/dpValue/sleeperRank)
+      // are kept = the dynasty-SF view so the prior UI survives a split deploy.
       if (path === "/api/adp-board" && request.method === "GET") {
         const posFilter = safeStr(url.searchParams.get("pos") || "").toUpperCase();
         const nkey = (n) => String(n || "").toLowerCase().replace(/[^a-z]/g, "");
+        const num = (x) => { const v = Number(x); return (isFinite(v) && v > 0) ? Math.round(v) : null; };
+        const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+        const getJson = (u, ttl, ua) => fetch(u, { cf: { cacheTtl: ttl, cacheEverything: true }, headers: Object.assign({ accept: "application/json" }, ua ? { "User-Agent": ua } : {}) }).then((r) => r.ok ? r.json() : null).catch(() => null);
+        const getText = (u, ttl, ua) => fetch(u, { cf: { cacheTtl: ttl, cacheEverything: true }, headers: ua ? { "User-Agent": ua } : {} }).then((r) => r.ok ? r.text() : null).catch(() => null);
         try {
-          const [fcR, slR, dpTxt, ktcTxt] = await Promise.all([
-            fetch("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1", { cf: { cacheTtl: 43200, cacheEverything: true }, headers: { accept: "application/json" } }).then((r) => r.ok ? r.json() : null).catch(() => null),
-            fetch("https://api.sleeper.app/v1/players/nfl", { cf: { cacheTtl: 86400, cacheEverything: true }, headers: { accept: "application/json" } }).then((r) => r.ok ? r.json() : null).catch(() => null),
-            fetch("https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-players.csv", { cf: { cacheTtl: 43200, cacheEverything: true } }).then((r) => r.ok ? r.text() : null).catch(() => null),
-            fetch("https://keeptradecut.com/dynasty-rankings", { cf: { cacheTtl: 43200, cacheEverything: true }, headers: { "User-Agent": "Mozilla/5.0 (compatible; ups-worker)" } }).then((r) => r.ok ? r.text() : null).catch(() => null),
+          const ffP = env.UPS_MFL_DB
+            ? env.UPS_MFL_DB.prepare("SELECT mfl_id, fantasypros_id, name, position, team FROM ff_player_ids WHERE fantasypros_id IS NOT NULL AND fantasypros_id != ''").all().then((r) => (r && r.results) || []).catch(() => [])
+            : Promise.resolve([]);
+          const [fcSf, fc1q, slR, dpTxt, ktcDynTxt, ktcRdTxt, fpIdpTxt, ffRows] = await Promise.all([
+            getJson("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1", 43200),
+            getJson("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&numTeams=12&ppr=1", 43200),
+            getJson("https://api.sleeper.app/v1/players/nfl", 86400),
+            getText("https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-players.csv", 43200),
+            getText("https://keeptradecut.com/dynasty-rankings", 43200, CHROME_UA),
+            getText("https://keeptradecut.com/fantasy-rankings", 43200, CHROME_UA),
+            getText("https://www.fantasypros.com/nfl/rankings/dynasty-idp.php", 43200, CHROME_UA),
+            ffP,
           ]);
-          if (!Array.isArray(fcR)) return jsonOut(502, { ok: false, error: "fantasycalc_unavailable" });
+          if (!Array.isArray(fcSf)) return jsonOut(502, { ok: false, error: "fantasycalc_unavailable" });
+
+          // FantasyCalc 1QB by mflId → { dq1 (dynasty), rq1 (redraft, inline) }.
+          const fc1ById = {};
+          if (Array.isArray(fc1q)) for (const r of fc1q) { const id = String((r.player || {}).mflId || "").trim(); if (id) fc1ById[id] = { dq1: num(r.value), rq1: num(r.redraftValue) }; }
 
           // Sleeper: sleeperId → overall search_rank.
           const slBySid = {};
-          if (slR && typeof slR === "object") {
-            for (const sid in slR) { const p = slR[sid]; if (p && typeof p === "object") { const sr = Number(p.search_rank); if (sr && sr < 9999) slBySid[String(sid)] = sr; } }
-          }
-          // DynastyProcess CSV: nkey(name) → { value, ecr }.
+          if (slR && typeof slR === "object") for (const sid in slR) { const p = slR[sid]; if (p && typeof p === "object") { const sr = Number(p.search_rank); if (sr && sr < 9999) slBySid[String(sid)] = sr; } }
+
+          // DynastyProcess CSV (fully quoted): nkey(name) → { dq1: value_1qb, dsf: value_2qb }.
           const dpByName = {};
           if (dpTxt) {
-            const unq = (s) => String(s || "").trim().replace(/^"|"$/g, "");   // DP's CSV is fully quoted
-            const lines = dpTxt.split(/\r?\n/);
-            const hdr = (lines[0] || "").split(",").map(unq);
-            const iName = hdr.indexOf("player"), iVal = hdr.indexOf("value_2qb"), iEcr = hdr.indexOf("ecr_2qb");
-            if (iName >= 0 && iVal >= 0) {
-              for (let li = 1; li < lines.length; li++) {
-                const cells = lines[li].split(",");
-                if (cells.length <= iVal) continue;
-                const nm = nkey(unq(cells[iName])); if (!nm) continue;
-                const v = parseFloat(unq(cells[iVal])), e = iEcr >= 0 ? parseFloat(unq(cells[iEcr])) : NaN;
-                dpByName[nm] = { value: isNaN(v) ? null : Math.round(v), ecr: isNaN(e) ? null : Math.round(e * 10) / 10 };
-              }
+            const unq = (s) => String(s || "").trim().replace(/^"|"$/g, "");
+            const lines = dpTxt.split(/\r?\n/), hdr = (lines[0] || "").split(",").map(unq);
+            const iName = hdr.indexOf("player"), i1 = hdr.indexOf("value_1qb"), i2 = hdr.indexOf("value_2qb"), iEcr = hdr.indexOf("ecr_2qb");
+            if (iName >= 0) for (let li = 1; li < lines.length; li++) {
+              const c = lines[li].split(","); if (c.length <= iName) continue;
+              const nm = nkey(unq(c[iName])); if (!nm) continue;
+              dpByName[nm] = { dq1: i1 >= 0 ? num(unq(c[i1])) : null, dsf: i2 >= 0 ? num(unq(c[i2])) : null, ecr: iEcr >= 0 ? (parseFloat(unq(c[iEcr])) || null) : null };
             }
           }
-          // KeepTradeCut: scrape the embedded playersArray → nkey(name) → { value, rank }.
-          const ktcByName = {};
-          if (ktcTxt) {
-            const m = ktcTxt.match(/playersArray\s*=\s*(\[.+?\])\s*;/s);
-            if (m) { try {
+
+          // KeepTradeCut: scrape playersArray → keyed by INLINE mflid. Captures 1QB,
+          // SF, TE-premium (superflex.tepp) values + the SF dynasty ADP.
+          const parseKtc = (txt) => {
+            const out = {}; if (!txt) return out;
+            const m = txt.match(/playersArray\s*=\s*(\[.+?\])\s*;/s); if (!m) return out;
+            try {
               const arr = JSON.parse(m[1]);
               for (const p of (Array.isArray(arr) ? arr : [])) {
-                const sf = p.superflexValues || {}, nm = nkey(p.playerName);
-                if (nm) ktcByName[nm] = { value: Number(sf.value) || null, rank: Number(sf.overallRank) || null };
+                const id = String(p.mflid || "").trim(); if (!id) continue;
+                const oq = p.oneQBValues || {}, sf = p.superflexValues || {};
+                out[id] = { q1: num(oq.value), sf: num(sf.value), tep: num((sf.tepp || {}).value) || num(sf.value), adp: Number(sf.adp) || null };
+              }
+            } catch (e) {}
+            return out;
+          };
+          const ktcDyn = parseKtc(ktcDynTxt), ktcRd = parseKtc(ktcRdTxt);
+
+          // FantasyPros IDP ECR by fantasypros_id → mfl_id (via ff_player_ids).
+          const ffByFpid = {};
+          for (const row of (ffRows || [])) { const fp = String(row.fantasypros_id || "").trim(); if (fp) ffByFpid[fp] = { mflId: String(row.mfl_id || ""), name: row.name, pos: row.position, team: row.team }; }
+          const idpByMfl = {};
+          if (fpIdpTxt) {
+            const m = fpIdpTxt.match(/var ecrData\s*=\s*(\{.+?\});/s);
+            if (m) { try {
+              const d = JSON.parse(m[1]);
+              for (const p of (d.players || [])) {
+                const ff = ffByFpid[String(p.player_id || "").trim()]; if (!ff || !ff.mflId) continue;
+                idpByMfl[ff.mflId] = { ecr: Number(p.rank_ecr) || null, name: p.player_name || ff.name, pos: safeStr(p.player_position_id || ff.pos).toUpperCase(), team: safeStr(p.player_team_id || ff.team).toUpperCase(), age: (Number(p.player_age) || null) };
               }
             } catch (e) {} }
           }
 
-          const board = [];
-          for (const r of fcR) {
-            const p = r.player || {};
-            const pid = String(p.mflId || "").trim();
+          // ---- merge: offense backbone = FantasyCalc SF; then append IDP players ----
+          const board = [], seen = {};
+          for (const r of fcSf) {
+            const p = r.player || {}, pid = String(p.mflId || "").trim();
             if (!pid || pid.toUpperCase() === "UNK") continue;
-            const pos = safeStr(p.position).toUpperCase();
-            if (posFilter && pos !== posFilter) continue;
-            const nm = nkey(p.name);
-            const dp = dpByName[nm] || null, ktc = ktcByName[nm] || null;
-            const fcVal = Number(r.value) || null;
-            const ktcVal = ktc && ktc.value ? ktc.value : null;
-            const dpVal = dp && dp.value ? dp.value : null;
-            const vals = [fcVal, ktcVal, dpVal].filter((v) => v != null && v > 0);
-            const consensus = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+            seen[pid] = 1;
+            const nm = nkey(p.name), f1 = fc1ById[pid] || {}, kd = ktcDyn[pid] || {}, kr = ktcRd[pid] || {}, dp = dpByName[nm] || {};
             board.push({
-              pid: pid, name: safeStr(p.name), pos: pos, team: safeStr(p.maybeTeam || ""),
-              age: (p.maybeAge != null ? Math.round(Number(p.maybeAge) * 10) / 10 : null),
-              fcValue: fcVal, fcRank: Number(r.overallRank) || null, posRank: Number(r.positionRank) || null,
-              trend30: Number(r.trend30Day) || 0,
-              ktcValue: ktcVal, ktcRank: ktc ? ktc.rank : null,
-              dpValue: dpVal, dpEcr: dp ? dp.ecr : null,
-              sleeperRank: (p.sleeperId && slBySid[String(p.sleeperId)]) || null,
-              consensus: consensus, nSources: vals.length,
+              pid: pid, name: safeStr(p.name), pos: safeStr(p.position).toUpperCase(), team: safeStr(p.maybeTeam || ""),
+              age: (p.maybeAge != null ? Math.round(Number(p.maybeAge) * 10) / 10 : null), isIdp: false,
+              trend30: Number(r.trend30Day) || 0, posRank: Number(r.positionRank) || null,
+              fc:  { dq1: f1.dq1 || null, dsf: num(r.value), rq1: f1.rq1 || null, rsf: num(r.redraftValue) },
+              ktc: { dq1: kd.q1 || null, dsf: kd.sf || null, dtep: kd.tep || null, rq1: kr.q1 || null, rsf: kr.sf || null, rtep: kr.tep || null, adp: kd.adp || null },
+              dp:  { dq1: dp.dq1 || null, dsf: dp.dsf || null },
+              slp: (p.sleeperId && slBySid[String(p.sleeperId)]) || null,
             });
           }
-          board.sort((a, b) => (b.consensus || 0) - (a.consensus || 0));
-          // rank = consensus rank; ovr/value are back-compat aliases for the
-          // pre-multi-source UI so nothing breaks between worker + client deploys.
-          board.forEach((r, i) => { r.rank = i + 1; r.ovr = i + 1; r.value = (r.consensus != null ? r.consensus : r.fcValue); });
-          const sources = ["fantasycalc"];
-          if (Object.keys(ktcByName).length) sources.push("keeptradecut");
+          for (const mflId in idpByMfl) {
+            if (seen[mflId]) continue;
+            const d = idpByMfl[mflId];
+            board.push({ pid: mflId, name: safeStr(d.name), pos: d.pos, team: d.team, age: d.age, isIdp: true,
+              trend30: 0, posRank: null, fc: {}, ktc: {}, dp: {}, slp: null, fpEcr: d.ecr });
+          }
+
+          let out = posFilter ? board.filter((r) => (posFilter === "IDP" ? r.isIdp : r.pos === posFilter)) : board;
+          // Back-compat + a default dynasty-SF consensus the prior UI reads. IDP rows
+          // get an ECR-derived value so they sort sensibly within their position.
+          for (const r of out) {
+            const dsfVals = [r.fc && r.fc.dsf, r.ktc && r.ktc.dsf, r.dp && r.dp.dsf].filter((v) => v != null && v > 0);
+            const cons = dsfVals.length ? Math.round(dsfVals.reduce((a, b) => a + b, 0) / dsfVals.length) : null;
+            r.consensus = cons; r.nSources = dsfVals.length;
+            r.fcValue = (r.fc && r.fc.dsf) || null; r.ktcValue = (r.ktc && r.ktc.dsf) || null; r.dpValue = (r.dp && r.dp.dsf) || null; r.sleeperRank = r.slp || null;
+            r.idpVal = (r.isIdp && r.fpEcr) ? Math.max(0, Math.round(10000 - r.fpEcr * 45)) : null;
+            r.value = (cons != null) ? cons : ((r.fc && r.fc.dsf) || r.idpVal || null);
+          }
+          out.sort((a, b) => (b.value || 0) - (a.value || 0));
+          out.forEach((r, i) => { r.rank = i + 1; r.ovr = i + 1; });
+
+          const sources = [];
+          if (fcSf.length) sources.push("fantasycalc");
+          if (Object.keys(ktcDyn).length) sources.push("keeptradecut");
           if (Object.keys(dpByName).length) sources.push("dynastyprocess");
           if (Object.keys(slBySid).length) sources.push("sleeper");
-          return jsonOut(200, { ok: true, sources: sources, generated_at: new Date().toISOString(), count: board.length, board: board });
+          if (Object.keys(idpByMfl).length) sources.push("fantasypros_idp");
+          return jsonOut(200, { ok: true, sources: sources, formats: { roster: ["sf", "q1", "tep"], type: ["dynasty", "redraft"] }, generated_at: new Date().toISOString(), count: out.length, board: out });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
