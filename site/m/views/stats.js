@@ -543,31 +543,39 @@
     var teamBack = '<div class="ups-m-fpa-sub"><a href="#" class="ups-m-fpa-back">&larr; All teams</a> · ';
     if (!dd) return teamBack + U.escapeHtml(hdr) + "</div>" + '<div class="ups-m-loading">Loading…</div>';
     var weeks = dd.weeks || [];
+    function pctsp(p) { return p == null ? "" : '<span class="ups-m-tr ' + (p > 0 ? "up" : (p < 0 ? "dn" : "")) + '">' + (p >= 0 ? "+" : "") + p + "%</span>"; }
 
     if (fpa.detailWeek == null) {
-      // LEVEL 1 — weekly totals first (how the position did each game); tap a week for the players.
-      var sub = teamBack + U.escapeHtml(hdr + (dd.total != null ? " · " + dd.total + " total" : "") + (dd.perGame != null ? " · " + dd.perGame + "/gm" : "")) + " · tap a week</div>";
+      // LEVEL 1 — weekly totals + game-script (did the opponent run the implied volume?); tap a week for players.
+      var paceNote = (dd.dPace && dd.dPace.expDeltaPct != null) ? (" · D allows " + (dd.dPace.expDeltaPct >= 0 ? "+" : "") + dd.dPace.expDeltaPct + "% plays") : "";
+      var sub = teamBack + U.escapeHtml(hdr + (dd.total != null ? " · " + dd.total + " total" : "") + paceNote) + " · tap a week</div>";
       if (!weeks.length) return sub + '<div class="ups-m-stub"><div>No games in range.</div></div>';
       var wrows = weeks.map(function (w) {
+        var s = w.script || {};
+        var oppSub = s.opp ? ("vs " + s.opp + (s.playsWk != null ? " · " + s.playsWk + "p " + pctsp(s.actualDeltaPct) : "")) : ((w.players ? w.players.length : 0) + " players");
+        var sg = s.scriptGap;
+        var sgHtml = (sg != null) ? '<span class="ups-m-tr ' + (sg > 0 ? "up" : (sg < 0 ? "dn" : "")) + '">' + (sg >= 0 ? "+" : "") + sg + "</span>" : "";
         return '<div class="ups-m-fpa-wkrow" data-fpawk="' + w.wk + '">' +
-          '<span class="wk">Week ' + w.wk + "</span>" +
-          '<span class="tot"><span class="b">' + (w.total != null ? w.total : "—") + '</span><span class="s">' + (w.players ? w.players.length : 0) + " players</span></span>" +
+          '<span class="wk"><span class="b">Wk ' + w.wk + '</span><span class="s">' + oppSub + "</span></span>" +
+          '<span class="tot"><span class="b">' + (w.total != null ? w.total : "—") + '</span><span class="s">' + (sg != null ? "script " + sgHtml : "") + "</span></span>" +
           '<span class="ch">&rsaquo;</span>' +
         "</div>";
       }).join("");
       return sub + '<div class="ups-m-fpa-table">' + wrows + "</div>";
     }
 
-    // LEVEL 2 — the players who faced them in the chosen week.
+    // LEVEL 2 — the players who faced them in the chosen week (+ snaps vs norm).
     var wk = null; for (var i = 0; i < weeks.length; i++) if (weeks[i].wk === fpa.detailWeek) wk = weeks[i];
     var players = wk ? (wk.players || []) : [];
+    var ws = wk && wk.script;
     var wkBack = '<div class="ups-m-fpa-sub"><a href="#" class="ups-m-fpa-wkback">&larr; ' + U.escapeHtml(fpa.detailTeam) + ' weeks</a> · ' +
-      U.escapeHtml("Wk " + fpa.detailWeek + (wk && wk.total != null ? " · " + wk.total + " allowed" : "") + " · Δ vs avg vs others") + "</div>";
+      U.escapeHtml("Wk " + fpa.detailWeek + (wk && wk.total != null ? " · " + wk.total + " allowed" : "") + (ws && ws.opp ? " · vs " + ws.opp : "")) + "</div>";
     if (!players.length) return wkBack + '<div class="ups-m-stub"><div>No players.</div></div>';
     var rows = players.map(function (g) {
       var v = g.variancePct, vcls = v == null ? "" : (v > 0 ? "up" : (v < 0 ? "dn" : ""));
+      var snapSub = (g.snaps != null) ? (" · " + g.snaps + "snp " + pctsp(g.snapDeltaPct)) : "";
       return '<div class="ups-m-fpa-drow nowk">' +
-        '<span class="pl"><span class="nm">' + U.escapeHtml(flip(g.name)) + '</span><span class="sub">norm ' + (g.avgVsOthers != null ? g.avgVsOthers : "—") + "</span></span>" +
+        '<span class="pl"><span class="nm">' + U.escapeHtml(flip(g.name)) + '</span><span class="sub">norm ' + (g.avgVsOthers != null ? g.avgVsOthers : "—") + snapSub + "</span></span>" +
         '<span class="fp">' + (g.pts != null ? g.pts : "—") + "</span>" +
         '<span class="dv"><span class="ups-m-tr ' + vcls + '">' + (v != null ? ((v >= 0 ? "+" : "") + v + "%") : "—") + "</span></span>" +
       "</div>";

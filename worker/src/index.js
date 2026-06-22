@@ -10099,7 +10099,8 @@ export default {
           try {
             const db = env.UPS_MFL_DB;
             if (db) {
-              const toNflv = (t) => ({ LAR: "LA", JAC: "JAX", OAK: "LV", SD: "LAC", STL: "LA" }[t] || t);
+              // MFL uses 3-letter codes (NOS/LVR/GBP/…); nflverse uses NO/LV/GB/…
+              const toNflv = (t) => ({ GBP: "GB", KCC: "KC", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB", LVR: "LV", JAC: "JAX", LAR: "LA", OAK: "LV", SDC: "LAC", SD: "LAC", STL: "LA", ARZ: "ARI", BLT: "BAL", CLV: "CLE", HST: "HOU" }[t] || t);
               const defNflv = toNflv(team), seasonInt = parseInt(yr, 10);
               const tpR = await db.prepare(
                 "SELECT week, team, SUM(COALESCE(rush_att,0)+COALESCE(pass_att,0)+COALESCE(pass_sacks,0)) AS plays FROM nfl_player_weekly WHERE season=? AND week BETWEEN ? AND ? GROUP BY week, team"
