@@ -432,6 +432,10 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     // Usage — defense
     def_snaps_total:     { label:"Snaps",    num:true, title:"Defensive snaps" },
     def_snap_rate:       { label:"Snap%",    num:true, fmt:"pct0" },
+    // Team pace (nflverse PBP, REG) — context for a player's opportunity.
+    team_plays_pg:       { label:"Pace",     num:true, fmt:"dec1", title:"Team offensive plays per game (REG) — the team's pace" },
+    team_def_plays_pg:   { label:"Def Pace", num:true, fmt:"dec1", title:"Plays the team's defense faces per game (REG)" },
+    pace_sos:            { label:"Pace SoS", num:true, fmt:"dec1", title:"Avg offensive plays/game of the opponents on the team's schedule (schedule-adjusted pace; high = faster schedule = more plays)" },
     // Receiving volume
     targets:             { label:"Tgt",      num:true },
     receptions:          { label:"Rec",      num:true },
@@ -893,6 +897,11 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     Object.keys(TABS).forEach(function(k){
       if (TABS[k] && TABS[k].groups) TABS[k].groups.splice(1, 0,
         { id:"dynasty_value", label:"Dynasty Value", cols:["adp_value","adp_overall","adp_trend"], defaultOn: !!OFF[k] });
+    });
+    // Team Pace group (nflverse) — available-but-off on every tab.
+    Object.keys(TABS).forEach(function(k){
+      if (TABS[k] && TABS[k].groups) TABS[k].groups.splice(2, 0,
+        { id:"team_pace", label:"Team Pace", cols:["team_plays_pg","team_def_plays_pg","pace_sos"], defaultOn:false });
     });
   })();
 

@@ -65,7 +65,9 @@
     i20:   { l: "I20",   g: function (r) { return nn(r.punt_inside20); } },
     val:   { l: "Val",   g: function (r) { var a = adpRec(r); return a && a.value != null ? a.value : null; } },
     ovr:   { l: "Ovr",   g: function (r) { var a = adpRec(r); return a && a.overall_rank != null ? a.overall_rank : null; } },
-    dtrend:{ l: "30d",   g: function (r) { var a = adpRec(r); return a && a.trend30 != null ? a.trend30 : null; }, f: "trend" }
+    dtrend:{ l: "30d",   g: function (r) { var a = adpRec(r); return a && a.trend30 != null ? a.trend30 : null; }, f: "trend" },
+    tmpace:{ l: "Pace",  g: function (r) { return nn(r.team_plays_pg); }, f: "dec1" },
+    pcsos: { l: "PcSoS", g: function (r) { return nn(r.pace_sos); }, f: "dec1" }
   };
 
   // Each tab: alias (worker pos param), group (pos_group values to keep), and
@@ -103,7 +105,7 @@
   ];
   // Dynasty Value set (FantasyCalc) — offense positions only.
   ["QB", "RB", "WR", "TE"].forEach(function (id) {
-    for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) TABS[i].sets.push({ l: "Dynasty", cols: ["val", "ovr", "dtrend", "ppg"] });
+    for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) { TABS[i].sets.push({ l: "Dynasty", cols: ["val", "ovr", "dtrend", "ppg"] }); TABS[i].sets.push({ l: "Pace", cols: ["tmpace", "pcsos", "ppg"] }); }
   });
 
   // scope: "all" | "ros" (rostered) | "fa" (free agents) — Keith 2026-06-20.
