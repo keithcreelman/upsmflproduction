@@ -2723,6 +2723,7 @@ export default {
         path !== "/api/league-years" &&
         path !== "/api/lineup-matchups" &&
         path !== "/api/fantasy-points-against" &&
+        path !== "/api/fpa-detail" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
         path !== "/api/historical-finishes" &&
@@ -9765,12 +9766,91 @@ export default {
             for (const g of groupsOut) {
               const tot = allowed[d][g]; if (tot == null) continue;
               const gp = gamesPlayed[d] || 0, adj = (adjRank[g] && adjRank[g][d]) || null;
-              row[g] = { raw: { total: Math.round(tot * 10) / 10, perGame: gp ? Math.round((tot / gp) * 10) / 10 : null, games: gp }, adj: adj };
+              const ex = (expected[d] && expected[d][g]) || 0;   // Σ opponents' normal avg → per-game baseline
+              row[g] = { raw: { total: Math.round(tot * 10) / 10, perGame: gp ? Math.round((tot / gp) * 10) / 10 : null,
+                oppNorm: gp ? Math.round((ex / gp) * 10) / 10 : null, games: gp }, adj: adj };
             }
             if (Object.keys(row).length) teams[d] = row;
           }
           const weeksUsed = weeks.filter((w, wi) => arr(schedJobs[wi]?.nflSchedule?.matchup).length);
           return jsonOut(200, { ok: true, year: yr, window: { week_min: wMin, week_max: wMax }, weeksUsed: weeksUsed, groups: groupsOut, teams: teams });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/fpa-detail?YEAR=&team=&pos=&week_min=&week_max= ──
+      // Drill-down for "click a team" on the FPA page: every player of position
+      // `pos` who faced defense `team`, game-by-game — points scored vs this D,
+      // the player's avg vs EVERYONE ELSE (excluding games vs this D), and the %
+      // delta. Same cached MFL fetches as /api/fantasy-points-against.
+      if (path === "/api/fpa-detail" && request.method === "GET") {
+        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+        const team = safeStr(url.searchParams.get("team") || "").toUpperCase();
+        const posWanted = safeStr(url.searchParams.get("pos") || "").toUpperCase();
+        const wMin = Math.max(1, parseInt(url.searchParams.get("week_min") || "1", 10) || 1);
+        const wMaxRaw = parseInt(url.searchParams.get("week_max") || "0", 10) || 0;
+        const wMax = Math.min(23, Math.max(wMin, wMaxRaw > 0 ? wMaxRaw : 18));
+        const lid = "74598";
+        const arr = (x) => Array.isArray(x) ? x : (x == null ? [] : [x]);
+        const posGroup = (p) => {
+          p = safeStr(p).toUpperCase();
+          if (p === "QB") return "QB";
+          if (["RB", "FB", "HB"].includes(p)) return "RB";
+          if (p === "WR") return "WR";
+          if (p === "TE") return "TE";
+          if (["PK", "K"].includes(p)) return "PK";
+          if (["PN", "P"].includes(p)) return "PN";
+          if (["DT", "DE", "NT", "DL"].includes(p)) return "DL";
+          if (["LB", "OLB", "ILB", "MLB"].includes(p)) return "LB";
+          if (["CB", "S", "FS", "SS", "DB"].includes(p)) return "DB";
+          return "";
+        };
+        const schedUrl = (y, w) => `https://api.myfantasyleague.com/${y}/export?TYPE=nflSchedule&W=${w}&JSON=1`;
+        const scoresUrl = (y, w) => `https://www48.myfantasyleague.com/${y}/export?TYPE=playerScores&L=${lid}&W=${w}&JSON=1`;
+        const j = (u, ttl) => fetch(u, { cf: { cacheTtl: ttl, cacheEverything: true }, headers: { "User-Agent": "ups-worker", Accept: "application/json" } }).then((r) => r.json()).catch(() => null);
+        if (!team || !posWanted) return jsonOut(400, { ok: false, error: "team and pos are required" });
+        try {
+          const pl = await j(`https://www48.myfantasyleague.com/${yr}/export?TYPE=players&L=${lid}&DETAILS=1&JSON=1`, 86400);
+          const pInfo = {}, pName = {};
+          for (const p of arr(pl?.players?.player)) { pInfo[String(p.id)] = { pos: safeStr(p.position).toUpperCase(), team: safeStr(p.team).toUpperCase() }; pName[String(p.id)] = safeStr(p.name); }
+          const weeks = []; for (let w = wMin; w <= wMax; w++) weeks.push(w);
+          const schedJobs = await Promise.all(weeks.map((w) => j(schedUrl(yr, w), 86400)));
+          const scoreJobs = await Promise.all(weeks.map((w) => j(scoresUrl(yr, w), 86400)));
+          const oppOf = {};
+          weeks.forEach((w, wi) => {
+            for (const m of arr(schedJobs[wi]?.nflSchedule?.matchup)) {
+              const ts = arr(m.team); if (ts.length < 2) continue;
+              const ka = safeStr(ts[0].id).toUpperCase(), kb = safeStr(ts[1].id).toUpperCase();
+              (oppOf[ka] = oppOf[ka] || {})[wi] = kb; (oppOf[kb] = oppOf[kb] || {})[wi] = ka;
+            }
+          });
+          // every game (in range) for players of the wanted position group
+          const pw = {};
+          weeks.forEach((w, wi) => {
+            for (const s of arr(scoreJobs[wi]?.playerScores?.playerScore)) {
+              const pid = String(s.id), info = pInfo[pid];
+              if (!info || posGroup(info.pos) !== posWanted) continue;
+              const pts = parseFloat(s.score); if (isNaN(pts)) continue;
+              const def = (oppOf[info.team] || {})[wi]; if (!def) continue;
+              (pw[pid] = pw[pid] || []).push({ wk: w, pts: pts, def: def });
+            }
+          });
+          // players who faced `team`: their vs-team games + avg vs everyone else
+          const games = [];
+          for (const pid in pw) {
+            const gs = pw[pid], vsTeam = gs.filter((x) => x.def === team);
+            if (!vsTeam.length) continue;
+            const others = gs.filter((x) => x.def !== team);
+            const oAvg = others.length ? others.reduce((a, x) => a + x.pts, 0) / others.length : null;
+            for (const x of vsTeam) {
+              games.push({ wk: x.wk, pid: pid, name: pName[pid] || pid, pts: Math.round(x.pts * 10) / 10,
+                avgVsOthers: oAvg != null ? Math.round(oAvg * 10) / 10 : null, otherGames: others.length,
+                variancePct: (oAvg != null && oAvg > 0) ? Math.round((x.pts / oAvg - 1) * 100) : null });
+            }
+          }
+          games.sort((a, b) => (a.wk - b.wk) || (b.pts - a.pts));
+          return jsonOut(200, { ok: true, year: yr, team: team, pos: posWanted, window: { week_min: wMin, week_max: wMax }, games: games });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
