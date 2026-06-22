@@ -3263,7 +3263,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     // and a dynasty↔redraft skew (default 35% redraft); ranks + tiers recompute
     // client-side. (Roster format is baked to Superflex — no picker.)
     var adp = { pos: "ALL", q: "", sort: "ovr", dir: 1, data: null, sources: [], rendered: false, _t: null,
-                srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.35 };
+                srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.35, generatedAt: null, fresh: null };
     var ADP_SRC = [["fc","FantasyCalc"],["ktc","KeepTradeCut"],["dp","DynastyProcess"]];
     function adpKeys(){ return { d: "dsf", r: "rsf" }; }   // baked Superflex
     // One source's value for the chosen roster, blended dynasty↔redraft by the slider.
@@ -3285,8 +3285,26 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     function adpLoad(){
       var b = adpBody(); if (b) b.innerHTML = '<div class="asw-meta" style="padding:14px">Loading player values…</div>';
       fetch(API_BASE + "/api/adp-board").then(function(r){ return r.json(); })
-        .then(function(d){ adp.data = (d && d.board) || []; adp.sources = (d && d.sources) || []; adpPaint(); })
+        .then(function(d){ adp.data = (d && d.board) || []; adp.sources = (d && d.sources) || []; adp.generatedAt = (d && d.generated_at) || null; adpPaint(); })
         .catch(function(){ adp.data = []; adp.sources = []; adpPaint(); });
+      // Freshness of the nflverse-derived data (one-time); re-paint when ready.
+      if (!adp.fresh) fetch(API_BASE + "/api/data-freshness").then(function(r){ return r.json(); })
+        .then(function(f){ adp.fresh = f || {}; adpPaint(); }).catch(function(){});
+    }
+    function relTime(iso){
+      if (!iso) return ""; var t = Date.parse(iso); if (isNaN(t)) return "";
+      var s = Math.max(0, (Date.now() - t) / 1000);
+      if (s < 90) return "just now"; if (s < 5400) return Math.round(s / 60) + "m ago";
+      if (s < 172800) return Math.round(s / 3600) + "h ago"; return Math.round(s / 86400) + "d ago";
+    }
+    function adpFreshnessFooter(){
+      var f = adp.fresh; if (!f || !f.ok) return "";
+      var live = "Live ADP sources fetched per request" + (adp.generatedAt ? " — last " + relTime(adp.generatedAt) : "") + ".";
+      var parts = [];
+      (f.etl || []).forEach(function(e){ if (e.last_run_utc) parts.push(e.source + " " + relTime(e.last_run_utc)); });
+      if (f.weeklyCoverage && f.weeklyCoverage.season) parts.push("weekly stats through " + f.weeklyCoverage.season + (f.weeklyCoverage.week ? (" W" + f.weeklyCoverage.week) : ""));
+      var nflv = parts.length ? (" &nbsp;·&nbsp; nflverse data: " + parts.join(" · ")) : "";
+      return '<div class="asw-meta" style="padding:10px 4px 2px;color:var(--muted);font-size:11px;line-height:1.6">' + esc(live) + nflv + '</div>';
     }
     function adpRenderShell(){
       var poss = [["ALL","All"],["QB","QB"],["RB","RB"],["WR","WR"],["TE","TE"],["DL","DL"],["LB","LB"],["DB","DB"]];
@@ -3360,6 +3378,11 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         universe.filter(function(r){ return r.sleeperRank != null; })
           .sort(function(a, b){ return a.sleeperRank - b.sleeperRank; })
           .forEach(function(r, i){ r._rk_slp = i + 1; });
+        // FFCalc = real redraft ADP (lower = drafted earlier) → clean rank. Reference column.
+        universe.forEach(function(r){ r._rk_ffc = null; });
+        universe.filter(function(r){ return r.ffcAdp != null; })
+          .sort(function(a, b){ return a.ffcAdp - b.ffcAdp; })
+          .forEach(function(r, i){ r._rk_ffc = i + 1; });
       }
       // Overall consensus rank (clean 1..N) + positional rank + tiers per position.
       universe.slice().sort(function(a, b){ return (b._bv || 0) - (a._bv || 0); }).forEach(function(r, i){ r._ovr = i + 1; });
@@ -3383,9 +3406,10 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       function arrow(k){ return adp.sort === k ? (adp.dir > 0 ? " ▲" : " ▼") : ""; }
       function tierPill(t){ if (t == null) return "—"; var cls = t <= 1 ? "adp-t1" : t <= 2 ? "adp-t2" : t <= 3 ? "adp-t3" : "adp-tn"; return '<span class="adp-tier ' + cls + '">T' + t + '</span>'; }
       var nSrc = ADP_SRC.filter(function(p){ return adp.srcSel[p[0]]; }).length;
+      var fetched = relTime(adp.generatedAt);
       var sub = isIdpView
         ? ('IDP — FantasyPros dynasty ECR · ranks + tiers · ' + rows.length + ' players · click a header to sort')
-        : ('Superflex · ' + (rdP === 0 ? "Dynasty" : rdP === 100 ? "Redraft" : (rdP + "% redraft / " + (100 - rdP) + "% dynasty")) + ' · normalized ranks across ' + nSrc + ' source' + (nSrc === 1 ? "" : "s") + ' · tiers from value gaps · ' + rows.length + ' players');
+        : ('Superflex · ' + (rdP === 0 ? "Dynasty" : rdP === 100 ? "Redraft" : (rdP + "% redraft / " + (100 - rdP) + "% dynasty")) + ' · normalized ranks across ' + nSrc + ' source' + (nSrc === 1 ? "" : "s") + ' · FFC = real redraft ADP · tiers from value gaps · ' + rows.length + ' players' + (fetched ? ' · sources fetched ' + fetched : ''));
       var html = '<div class="fpa-sub">' + esc(sub) + '</div>' +
         '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
         '<th class="num" data-k="ovr" title="Overall consensus rank in your league (Superflex)">#' + arrow("ovr") + '</th>' +
@@ -3399,10 +3423,11 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         html += '<th class="num" data-k="_rk_fc" title="FantasyCalc overall rank (this skew)">FC' + arrow("_rk_fc") + '</th>' +
           '<th class="num" data-k="_rk_ktc" title="KeepTradeCut overall rank (this skew)">KTC' + arrow("_rk_ktc") + '</th>' +
           '<th class="num" data-k="_rk_dp" title="DynastyProcess overall rank (dynasty)">DP' + arrow("_rk_dp") + '</th>' +
-          '<th class="num" data-k="_rk_slp" title="Sleeper overall rank (clean 1..N)">Slp' + arrow("_rk_slp") + '</th>';
+          '<th class="num" data-k="_rk_slp" title="Sleeper overall popularity rank (clean 1..N)">Slp' + arrow("_rk_slp") + '</th>' +
+          '<th class="num" data-k="_rk_ffc" title="FantasyFootballCalculator — REAL redraft average draft position (rank; reference)">FFC' + arrow("_rk_ffc") + '</th>';
       }
       html += '</tr></thead><tbody>';
-      var ncols = isIdpView ? 7 : 9;
+      var ncols = isIdpView ? 7 : 10;
       if (!rows.length) html += '<tr><td class="team">—</td><td colspan="' + ncols + '" class="num" style="color:var(--muted)">No players.</td></tr>';
       rows.forEach(function(r){
         html += '<tr>' +
@@ -3418,11 +3443,12 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
           html += '<td class="num">' + (r._rk_fc != null ? r._rk_fc : "—") + '</td>' +
             '<td class="num">' + (r._rk_ktc != null ? r._rk_ktc : "—") + '</td>' +
             '<td class="num">' + (r._rk_dp != null ? r._rk_dp : "—") + '</td>' +
-            '<td class="num">' + (r._rk_slp != null ? r._rk_slp : "—") + '</td>';
+            '<td class="num">' + (r._rk_slp != null ? r._rk_slp : "—") + '</td>' +
+            '<td class="num">' + (r._rk_ffc != null ? r._rk_ffc : "—") + '</td>';
         }
         html += '</tr>';
       });
-      html += '</tbody></table></div>';
+      html += '</tbody></table></div>' + adpFreshnessFooter();
       adpBody().innerHTML = html;
       adpSection.querySelectorAll(".fpa-table th[data-k]").forEach(function(th){
         th.addEventListener("click", function(){ var k = th.getAttribute("data-k"); if (adp.sort === k) adp.dir = -adp.dir; else { adp.sort = k; adp.dir = 1; } adpPaint(); });

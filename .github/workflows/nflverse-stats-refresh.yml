@@ -75,10 +75,13 @@ jobs:
           }
           FAILED=0
 
-          run nflverse_weekly  "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_weekly.py --seasons "${SEASONS}"
-          run nflverse_pbp     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_pbp.py --seasons "${SEASONS}"
+          # --skip-local: weekly/pbp/pfr exit with "local DB missing" without it
+          # (they require the Desktop SQLite mirror unless told to write D1 only);
+          # pace/names/ff_player_ids guard on LOCAL_DB.exists() so they need no flag.
+          run nflverse_weekly  "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_weekly.py --seasons "${SEASONS}" --skip-local
+          run nflverse_pbp     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_pbp.py --seasons "${SEASONS}" --skip-local
           run nflverse_pace    "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_pace.py --seasons "${SEASONS}"
-          run pfr_advstats     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_pfr_advstats.py --seasons "${SEASONS}"
+          run pfr_advstats     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_pfr_advstats.py --seasons "${SEASONS}" --skip-local
           run nfl_player_names "all-eras"   python3 ../pipelines/etl/scripts/fetch_nflverse_player_names.py
           run ff_player_ids    "all"        python3 ../pipelines/etl/scripts/fetch_ff_playerids.py
 
