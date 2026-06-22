@@ -469,7 +469,7 @@
   var TAB_DEFS = [
     { id: "overview",     label: "Overview" },
     { id: "front-office", label: "Front Office",   iframe: hubUrl("rosters/roster_workbench.html"),     message: "MESSAGE7" },
-    { id: "player-stats", label: "Player Stats",   iframe: hubUrl("stats_workbench/stats_workbench.html"), message: "MESSAGE13" },
+    { id: "player-stats", label: "Stats",          iframe: hubUrl("stats_workbench/stats_workbench.html"), message: "MESSAGE13" },
     { id: "trade-room",   label: "Trade War Room", iframe: hubUrl("trades/trade_workbench.html"),       message: "MESSAGE6=N" },
     // Standings v2 — the new Playoff Preview + Division Race +
     // H2H matrix module promoted via 0913829. Legacy non-v2 file

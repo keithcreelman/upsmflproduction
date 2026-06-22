@@ -214,11 +214,42 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
 .asw-drawer-sub-controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
 .asw-week-chip{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer;user-select:none}
 .asw-week-chip[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent);font-weight:700}
+
+/* Stats page-level sub-tabs (Player Stats / Fantasy Points Against) */
+.asw-viewtabs{display:flex;gap:6px;margin-bottom:12px}
+.asw-viewtab{background:var(--panel);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;transition:.1s;letter-spacing:.01em}
+.asw-viewtab:hover{border-color:var(--border-strong);color:var(--text)}
+.asw-viewtab[aria-selected="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent)}
+/* Fantasy Points Against view */
+.fpa-controls{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;background:var(--panel);padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px}
+.fpa-controls label{display:flex;flex-direction:column;gap:3px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.fpa-controls select{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 9px;font-size:13px}
+.fpa-pos{display:flex;flex-wrap:wrap;gap:5px}
+.fpa-pos button{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:4px 11px;font-size:12px;font-weight:600;cursor:pointer}
+.fpa-pos button[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent)}
+.fpa-sub{color:var(--muted);font-size:11px;margin:2px 0 10px}
+table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
+.fpa-table th,.fpa-table td{padding:7px 12px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:right}
+.fpa-table th{background:var(--panel-alt);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;position:sticky;top:0;cursor:pointer;user-select:none}
+.fpa-table th.team,.fpa-table td.team{text-align:left;position:sticky;left:0;background:var(--panel);font-weight:700}
+.fpa-table td.num{font-variant-numeric:tabular-nums}
+.fpa-rk{display:inline-block;min-width:32px;text-align:center;padding:2px 7px;border-radius:5px;font-weight:800;font-variant-numeric:tabular-nums}
+.fpa-rk.easy{background:rgba(91,217,162,.16);color:#8ff0c4}
+.fpa-rk.tough{background:rgba(224,122,122,.14);color:#ffb1b1}
+.fpa-rk.mid{background:var(--panel-alt);color:var(--text)}
 </style>
 </head>
 <body>
 <div class="asw-shell">
-<h1>Advanced Stats Workbench <span id="asw-version" class="asw-version" title="Module version"></span></h1>
+
+<!-- Stats page sub-tabs: Player Stats (this workbench) vs Fantasy Points Against. -->
+<div class="asw-viewtabs" id="asw-viewtabs" role="tablist" aria-label="Stats views">
+  <button type="button" class="asw-viewtab" data-view="player-stats" aria-selected="true" role="tab">Player Stats</button>
+  <button type="button" class="asw-viewtab" data-view="fpa" aria-selected="false" role="tab">Fantasy Points Against</button>
+</div>
+
+<section id="asw-view-player-stats">
+<h1>Player Stats <span id="asw-version" class="asw-version" title="Module version"></span></h1>
 <div class="asw-subtitle">NFL on-field counts (nflverse) + snap share + PFR advanced. Tab picks the position; chips pick column groups. Click a player for week-by-week / by-season trends, then "Full profile" for the full UPS card.</div>
 
 <!-- Primary position tabs -->
@@ -303,6 +334,10 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
      the inner spacer is synced to the table width after each render. -->
 <div class="asw-topscroll" id="asw-topscroll"><div id="asw-topscroll-spacer"></div></div>
 <div class="asw-table-wrap" id="asw-table-wrap"><div id="asw-body"></div></div>
+</section>
+
+<!-- Fantasy Points Against view — lazy-rendered on first switch by the FPA module below. -->
+<section id="asw-view-fpa" hidden></section>
 </div>
 
 <!-- Drill-down drawer (slides in on row click) -->
@@ -2937,6 +2972,141 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
   (function(){
     var origRender = render;
     render = function(){ origRender.apply(null, arguments); syncUrl(); };
+  })();
+
+  // ===================== Fantasy Points Against (Stats sub-tab) =====================
+  // RAW points a defense allows to a position (per game) + the opponent-ADJUSTED
+  // rating, from /api/fantasy-points-against. One fetch per (year, week-range)
+  // returns all 9 groups; the position chips filter client-side. Lazy: the view
+  // only builds on first switch.
+  (function(){
+    var host = document.getElementById("asw-view-fpa");
+    var viewTabs = document.getElementById("asw-viewtabs");
+    var psSection = document.getElementById("asw-view-player-stats");
+    if (!host || !viewTabs) return;
+    function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+    var POS = [["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"], ["DL", "DL"], ["LB", "LB"], ["DB", "DB"], ["PK", "K"], ["PN", "P"]];
+    var fpa = { year: String(THIS_YEAR), pos: "RB", wkMin: 1, wkMax: 18, sort: "rank", dir: 1, cache: {}, years: null, rendered: false, _fb: false };
+    function key(){ return fpa.year + ":" + fpa.wkMin + "-" + fpa.wkMax; }
+
+    function loadYears(cb){
+      if (fpa.years) return cb(fpa.years);
+      fetch(API_BASE + "/api/league-years").then(function(r){ return r.json(); }).then(function(d){
+        var ys = [];
+        (d && d.years || []).forEach(function(y){ if (y && y.season && parseInt(y.season, 10) >= 2017) ys.push(String(y.season)); });
+        ys.sort().reverse();
+        if (!ys.length) { for (var y = THIS_YEAR; y >= 2017; y--) ys.push(String(y)); }
+        fpa.years = ys; cb(ys);
+      }).catch(function(){ var ys = []; for (var y = THIS_YEAR; y >= 2017; y--) ys.push(String(y)); fpa.years = ys; cb(ys); });
+    }
+
+    function load(){
+      var k = key();
+      if (fpa.cache[k]) { paint(); return; }
+      var body = host.querySelector(".fpa-body"); if (body) body.innerHTML = '<div class="asw-meta" style="padding:14px">Loading…</div>';
+      fetch(API_BASE + "/api/fantasy-points-against?YEAR=" + encodeURIComponent(fpa.year) + "&week_min=" + fpa.wkMin + "&week_max=" + fpa.wkMax)
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          var data = (d && d.ok) ? d : { teams: {}, weeksUsed: [] };
+          fpa.cache[k] = data;
+          // Offseason / empty current year → fall back to the prior season once.
+          if (!Object.keys(data.teams || {}).length && fpa.year === String(THIS_YEAR) && !fpa._fb) {
+            fpa._fb = true; fpa.year = String(THIS_YEAR - 1);
+            var ysel = host.querySelector(".fpa-year"); if (ysel) ysel.value = fpa.year;
+            load(); return;
+          }
+          paint();
+        })
+        .catch(function(){ fpa.cache[k] = { teams: {}, weeksUsed: [], err: 1 }; paint(); });
+    }
+
+    function rkCls(rank, of){ if (rank == null) return "mid"; if (rank <= 10) return "easy"; if (rank > of - 10) return "tough"; return "mid"; }
+
+    function paint(){
+      var d = fpa.cache[key()] || { teams: {} }, teams = d.teams || {}, rows = [];
+      Object.keys(teams).forEach(function(tm){ var c = teams[tm] && teams[tm][fpa.pos]; if (c) rows.push({ tm: tm, raw: c.raw || {}, adj: c.adj || {} }); });
+      rows.sort(function(a, b){
+        var va, vb;
+        if (fpa.sort === "rank") { va = a.adj.rank == null ? 999 : a.adj.rank; vb = b.adj.rank == null ? 999 : b.adj.rank; }
+        else if (fpa.sort === "ratio") { va = a.adj.ratio == null ? -1 : a.adj.ratio; vb = b.adj.ratio == null ? -1 : b.adj.ratio; }
+        else { va = a.raw[fpa.sort] == null ? -1 : a.raw[fpa.sort]; vb = b.raw[fpa.sort] == null ? -1 : b.raw[fpa.sort]; }
+        return (va - vb) * fpa.dir;
+      });
+      var of = rows.length, posLabel = (POS.filter(function(p){ return p[0] === fpa.pos; })[0] || ["", ""])[1] || fpa.pos;
+      var wu = (d.weeksUsed || []).length;
+      var sub = fpa.year + " · weeks " + fpa.wkMin + "–" + fpa.wkMax + (wu ? " (" + wu + " played)" : "") + " · rank 1 = most generous to " + posLabel + (d.err ? " · (load error)" : "");
+      function arrow(k){ return fpa.sort === k ? (fpa.dir > 0 ? " ▲" : " ▼") : ""; }
+      var html = '<div class="fpa-sub">' + esc(sub) + '</div>' +
+        '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
+        '<th class="num" data-k="rank">Rank' + arrow("rank") + '</th>' +
+        '<th class="team">Team</th>' +
+        '<th class="num" data-k="ratio" title="Opponent-adjusted: pts allowed vs what those opponents average">Adj' + arrow("ratio") + '</th>' +
+        '<th class="num" data-k="perGame" title="Raw fantasy points allowed per game">PPG' + arrow("perGame") + '</th>' +
+        '<th class="num" data-k="total">Total' + arrow("total") + '</th>' +
+        '<th class="num" data-k="games">G' + arrow("games") + '</th>' +
+        '</tr></thead><tbody>';
+      if (!rows.length) html += '<tr><td class="team">—</td><td colspan="5" class="num" style="color:var(--muted)">No data for this position / range.</td></tr>';
+      rows.forEach(function(r){
+        var pct = r.adj.ratio != null ? Math.round((r.adj.ratio - 1) * 100) : null;
+        html += '<tr>' +
+          '<td class="num"><span class="fpa-rk ' + rkCls(r.adj.rank, of) + '">' + (r.adj.rank != null ? ("#" + r.adj.rank) : "—") + '</span></td>' +
+          '<td class="team">' + esc(r.tm) + '</td>' +
+          '<td class="num">' + (pct != null ? ((pct >= 0 ? "+" : "") + pct + "%") : "—") + '</td>' +
+          '<td class="num">' + (r.raw.perGame != null ? r.raw.perGame : "—") + '</td>' +
+          '<td class="num">' + (r.raw.total != null ? r.raw.total : "—") + '</td>' +
+          '<td class="num">' + (r.raw.games != null ? r.raw.games : "—") + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+      host.querySelector(".fpa-body").innerHTML = html;
+      host.querySelectorAll(".fpa-table th[data-k]").forEach(function(th){
+        th.addEventListener("click", function(){
+          var k = th.getAttribute("data-k");
+          if (fpa.sort === k) fpa.dir = -fpa.dir; else { fpa.sort = k; fpa.dir = (k === "rank") ? 1 : -1; }
+          paint();
+        });
+      });
+      notifyResize();
+    }
+
+    function renderShell(){
+      var posChips = POS.map(function(p){ return '<button type="button" data-pos="' + p[0] + '" aria-pressed="' + (p[0] === fpa.pos ? "true" : "false") + '">' + p[1] + '</button>'; }).join("");
+      var wkOpts = function(sel){ var o = ""; for (var w = 1; w <= 18; w++) o += '<option value="' + w + '"' + (w === sel ? " selected" : "") + '>' + w + '</option>'; return o; };
+      host.innerHTML =
+        '<div class="fpa-controls">' +
+          '<label>Season<select class="fpa-year"></select></label>' +
+          '<label>From wk<select class="fpa-wmin">' + wkOpts(fpa.wkMin) + '</select></label>' +
+          '<label>To wk<select class="fpa-wmax">' + wkOpts(fpa.wkMax) + '</select></label>' +
+          '<label>Position<div class="fpa-pos">' + posChips + '</div></label>' +
+        '</div>' +
+        '<div class="fpa-body"></div>';
+      var ysel = host.querySelector(".fpa-year");
+      loadYears(function(ys){ ysel.innerHTML = ys.map(function(y){ return '<option value="' + y + '"' + (y === fpa.year ? " selected" : "") + '>' + y + '</option>'; }).join(""); });
+      ysel.addEventListener("change", function(){ fpa.year = ysel.value; fpa._fb = true; load(); });
+      host.querySelector(".fpa-wmin").addEventListener("change", function(e){ fpa.wkMin = parseInt(e.target.value, 10) || 1; if (fpa.wkMax < fpa.wkMin) { fpa.wkMax = fpa.wkMin; host.querySelector(".fpa-wmax").value = fpa.wkMax; } load(); });
+      host.querySelector(".fpa-wmax").addEventListener("change", function(e){ fpa.wkMax = parseInt(e.target.value, 10) || 18; if (fpa.wkMax < fpa.wkMin) { fpa.wkMin = fpa.wkMax; host.querySelector(".fpa-wmin").value = fpa.wkMin; } load(); });
+      host.querySelectorAll(".fpa-pos button").forEach(function(b){
+        b.addEventListener("click", function(){
+          fpa.pos = b.getAttribute("data-pos");
+          host.querySelectorAll(".fpa-pos button").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+          paint();
+        });
+      });
+    }
+
+    function notifyResize(){ try { parent.postMessage({ type: "ups-asw-height", height: document.documentElement.scrollHeight }, "*"); } catch(e){} }
+
+    var sections = { "player-stats": psSection, "fpa": host };
+    viewTabs.querySelectorAll(".asw-viewtab").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var v = btn.getAttribute("data-view");
+        viewTabs.querySelectorAll(".asw-viewtab").forEach(function(x){ x.setAttribute("aria-selected", x === btn ? "true" : "false"); });
+        Object.keys(sections).forEach(function(k){ if (sections[k]) sections[k].hidden = (k !== v); });
+        if (v === "fpa" && !fpa.rendered) { fpa.rendered = true; renderShell(); load(); }
+        setTimeout(notifyResize, 80);
+      });
+    });
   })();
 })();
 </script>

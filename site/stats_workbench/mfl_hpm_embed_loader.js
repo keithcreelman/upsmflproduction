@@ -40,6 +40,16 @@
           iframe.style.height = (h + 40) + "px";
         } catch (e) {}
       });
+      // The page also posts its height after in-iframe sub-tab switches (Stats:
+      // Player Stats ⇄ Fantasy Points Against) so the embed follows content that
+      // grows/shrinks after the initial load.
+      window.addEventListener("message", function (ev) {
+        try {
+          if (ev && ev.data && ev.data.type === "ups-asw-height" && ev.data.height) {
+            iframe.style.height = (Number(ev.data.height) + 40) + "px";
+          }
+        } catch (e) {}
+      });
       mount.innerHTML = "";
       mount.appendChild(iframe);
     })
