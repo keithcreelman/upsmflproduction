@@ -9290,37 +9290,93 @@ export default {
         }
       }
 
-      // ── GET /api/adp-board?pos= — the dynasty ADP board (Stats → ADP) ──
-      // The full all-players FantasyCalc SF-dynasty board: name/pos/team/age +
-      // value, overall + positional rank, 30-day trend, tier, and redraft ADP —
-      // all from ONE cached FantasyCalc fetch (its player object carries the
-      // identity fields, so no MFL players call). Sorted by overall rank.
+      // ── GET /api/adp-board?pos= — the MULTI-SOURCE dynasty ADP board (Stats → ADP) ──
+      // FantasyCalc SF-dynasty is the backbone (its player object carries name/
+      // pos/team/age/sleeperId). Three more live sources are merged, each guarded
+      // so one failing degrades gracefully: KeepTradeCut (page scrape, by name),
+      // DynastyProcess (CSV, by name), Sleeper (API, by sleeperId → overall rank).
+      // Consensus value = mean of the available dynasty VALUES (FC/KTC/DP — all on
+      // the same ~0-10000 SF scale); the board sorts by it. Everything edge-cached.
       if (path === "/api/adp-board" && request.method === "GET") {
         const posFilter = safeStr(url.searchParams.get("pos") || "").toUpperCase();
+        const nkey = (n) => String(n || "").toLowerCase().replace(/[^a-z]/g, "");
         try {
-          const fcRes = await fetch(
-            "https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1",
-            { cf: { cacheTtl: 43200, cacheEverything: true }, headers: { accept: "application/json" } }
-          );
-          if (!fcRes.ok) return jsonOut(502, { ok: false, error: "fantasycalc_http_" + fcRes.status });
-          const rows = await fcRes.json();
+          const [fcR, slR, dpTxt, ktcTxt] = await Promise.all([
+            fetch("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1", { cf: { cacheTtl: 43200, cacheEverything: true }, headers: { accept: "application/json" } }).then((r) => r.ok ? r.json() : null).catch(() => null),
+            fetch("https://api.sleeper.app/v1/players/nfl", { cf: { cacheTtl: 86400, cacheEverything: true }, headers: { accept: "application/json" } }).then((r) => r.ok ? r.json() : null).catch(() => null),
+            fetch("https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-players.csv", { cf: { cacheTtl: 43200, cacheEverything: true } }).then((r) => r.ok ? r.text() : null).catch(() => null),
+            fetch("https://keeptradecut.com/dynasty-rankings", { cf: { cacheTtl: 43200, cacheEverything: true }, headers: { "User-Agent": "Mozilla/5.0 (compatible; ups-worker)" } }).then((r) => r.ok ? r.text() : null).catch(() => null),
+          ]);
+          if (!Array.isArray(fcR)) return jsonOut(502, { ok: false, error: "fantasycalc_unavailable" });
+
+          // Sleeper: sleeperId → overall search_rank.
+          const slBySid = {};
+          if (slR && typeof slR === "object") {
+            for (const sid in slR) { const p = slR[sid]; if (p && typeof p === "object") { const sr = Number(p.search_rank); if (sr && sr < 9999) slBySid[String(sid)] = sr; } }
+          }
+          // DynastyProcess CSV: nkey(name) → { value, ecr }.
+          const dpByName = {};
+          if (dpTxt) {
+            const lines = dpTxt.split(/\r?\n/);
+            const hdr = (lines[0] || "").split(",").map((s) => s.trim());
+            const iName = hdr.indexOf("player"), iVal = hdr.indexOf("value_2qb"), iEcr = hdr.indexOf("ecr_2qb");
+            if (iName >= 0 && iVal >= 0) {
+              for (let li = 1; li < lines.length; li++) {
+                const cells = lines[li].split(",");
+                if (cells.length <= iVal) continue;
+                const nm = nkey(cells[iName]); if (!nm) continue;
+                const v = parseFloat(cells[iVal]), e = iEcr >= 0 ? parseFloat(cells[iEcr]) : NaN;
+                dpByName[nm] = { value: isNaN(v) ? null : Math.round(v), ecr: isNaN(e) ? null : Math.round(e * 10) / 10 };
+              }
+            }
+          }
+          // KeepTradeCut: scrape the embedded playersArray → nkey(name) → { value, rank }.
+          const ktcByName = {};
+          if (ktcTxt) {
+            const m = ktcTxt.match(/playersArray\s*=\s*(\[.+?\])\s*;/s);
+            if (m) { try {
+              const arr = JSON.parse(m[1]);
+              for (const p of (Array.isArray(arr) ? arr : [])) {
+                const sf = p.superflexValues || {}, nm = nkey(p.playerName);
+                if (nm) ktcByName[nm] = { value: Number(sf.value) || null, rank: Number(sf.overallRank) || null };
+              }
+            } catch (e) {} }
+          }
+
           const board = [];
-          for (const r of (Array.isArray(rows) ? rows : [])) {
+          for (const r of fcR) {
             const p = r.player || {};
             const pid = String(p.mflId || "").trim();
             if (!pid || pid.toUpperCase() === "UNK") continue;
             const pos = safeStr(p.position).toUpperCase();
             if (posFilter && pos !== posFilter) continue;
+            const nm = nkey(p.name);
+            const dp = dpByName[nm] || null, ktc = ktcByName[nm] || null;
+            const fcVal = Number(r.value) || null;
+            const ktcVal = ktc && ktc.value ? ktc.value : null;
+            const dpVal = dp && dp.value ? dp.value : null;
+            const vals = [fcVal, ktcVal, dpVal].filter((v) => v != null && v > 0);
+            const consensus = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
             board.push({
               pid: pid, name: safeStr(p.name), pos: pos, team: safeStr(p.maybeTeam || ""),
               age: (p.maybeAge != null ? Math.round(Number(p.maybeAge) * 10) / 10 : null),
-              value: Number(r.value) || 0, ovr: Number(r.overallRank) || null, posRank: Number(r.positionRank) || null,
-              trend30: Number(r.trend30Day) || 0, tier: (r.maybeTier != null ? Number(r.maybeTier) : null),
-              adp: (r.maybeAdp != null ? Math.round(Number(r.maybeAdp) * 10) / 10 : null),
+              fcValue: fcVal, fcRank: Number(r.overallRank) || null, posRank: Number(r.positionRank) || null,
+              trend30: Number(r.trend30Day) || 0,
+              ktcValue: ktcVal, ktcRank: ktc ? ktc.rank : null,
+              dpValue: dpVal, dpEcr: dp ? dp.ecr : null,
+              sleeperRank: (p.sleeperId && slBySid[String(p.sleeperId)]) || null,
+              consensus: consensus, nSources: vals.length,
             });
           }
-          board.sort(function (a, b) { return (a.ovr == null ? 9999 : a.ovr) - (b.ovr == null ? 9999 : b.ovr); });
-          return jsonOut(200, { ok: true, source: "fantasycalc_sf_dynasty", generated_at: new Date().toISOString(), count: board.length, board: board });
+          board.sort((a, b) => (b.consensus || 0) - (a.consensus || 0));
+          // rank = consensus rank; ovr/value are back-compat aliases for the
+          // pre-multi-source UI so nothing breaks between worker + client deploys.
+          board.forEach((r, i) => { r.rank = i + 1; r.ovr = i + 1; r.value = (r.consensus != null ? r.consensus : r.fcValue); });
+          const sources = ["fantasycalc"];
+          if (Object.keys(ktcByName).length) sources.push("keeptradecut");
+          if (Object.keys(dpByName).length) sources.push("dynastyprocess");
+          if (Object.keys(slBySid).length) sources.push("sleeper");
+          return jsonOut(200, { ok: true, sources: sources, generated_at: new Date().toISOString(), count: board.length, board: board });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
