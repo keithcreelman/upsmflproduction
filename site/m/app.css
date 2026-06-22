@@ -122,7 +122,7 @@ body { min-height: 100vh; }
   line-height: 1;
   position: relative;
 }
-.ups-m-nav-label { font-size: 11px; }
+.ups-m-nav-label { font-size: 11px; white-space: nowrap; }
 /* Pending-offers badge on a nav icon — red dot top-right with optional count. */
 .ups-m-nav-icon .ups-m-nav-badge {
   position: absolute;
