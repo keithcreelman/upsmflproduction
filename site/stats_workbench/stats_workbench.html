@@ -253,6 +253,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 <div class="asw-viewtabs" id="asw-viewtabs" role="tablist" aria-label="Stats views">
   <button type="button" class="asw-viewtab" data-view="player-stats" aria-selected="true" role="tab">Player Stats</button>
   <button type="button" class="asw-viewtab" data-view="fpa" aria-selected="false" role="tab">Fantasy Points Against</button>
+  <button type="button" class="asw-viewtab" data-view="adp" aria-selected="false" role="tab">ADP</button>
 </div>
 
 <section id="asw-view-player-stats">
@@ -345,6 +346,9 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 
 <!-- Fantasy Points Against view — lazy-rendered on first switch by the FPA module below. -->
 <section id="asw-view-fpa" hidden></section>
+
+<!-- ADP / dynasty-value board — lazy-rendered on first switch. -->
+<section id="asw-view-adp" hidden></section>
 </div>
 
 <!-- Drill-down drawer (slides in on row click) -->
@@ -3182,13 +3186,84 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 
     function notifyResize(){ try { parent.postMessage({ type: "ups-asw-height", height: document.documentElement.scrollHeight }, "*"); } catch(e){} }
 
-    var sections = { "player-stats": psSection, "fpa": host };
+    // ---- ADP board (Stats → ADP sub-tab) — FantasyCalc SF dynasty values ----
+    var adpSection = document.getElementById("asw-view-adp");
+    var adp = { pos: "ALL", q: "", sort: "ovr", dir: 1, data: null, rendered: false, _t: null };
+    function adpBody(){ return adpSection.querySelector(".adp-body"); }
+    function adpLoad(){
+      var b = adpBody(); if (b) b.innerHTML = '<div class="asw-meta" style="padding:14px">Loading dynasty values…</div>';
+      fetch(API_BASE + "/api/adp-board").then(function(r){ return r.json(); })
+        .then(function(d){ adp.data = (d && d.board) || []; adpPaint(); })
+        .catch(function(){ adp.data = []; adpPaint(); });
+    }
+    function adpRenderShell(){
+      var poss = [["ALL","All"],["QB","QB"],["RB","RB"],["WR","WR"],["TE","TE"]];
+      var chips = poss.map(function(p){ return '<button type="button" data-adppos="' + p[0] + '" aria-pressed="' + (p[0] === adp.pos ? "true" : "false") + '">' + p[1] + '</button>'; }).join("");
+      adpSection.innerHTML =
+        '<div class="fpa-controls">' +
+          '<label>Position<div class="fpa-pos">' + chips + '</div></label>' +
+          '<label>Search<input type="search" class="adp-q" placeholder="name / team" value="' + esc(adp.q) + '" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 9px;font-size:13px;min-width:160px" /></label>' +
+        '</div><div class="adp-body"></div>';
+      adpSection.querySelectorAll(".fpa-pos button").forEach(function(b){
+        b.addEventListener("click", function(){ adp.pos = b.getAttribute("data-adppos"); adpSection.querySelectorAll(".fpa-pos button").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); adpPaint(); });
+      });
+      var q = adpSection.querySelector(".adp-q");
+      if (q) q.addEventListener("input", function(){ adp.q = q.value; clearTimeout(adp._t); adp._t = setTimeout(adpPaint, 180); });
+    }
+    function adpPaint(){
+      var rows = (adp.data || []).slice();
+      if (adp.pos !== "ALL") rows = rows.filter(function(r){ return r.pos === adp.pos; });
+      var q = adp.q.trim().toLowerCase();
+      if (q) rows = rows.filter(function(r){ return ((r.name || "") + " " + (r.team || "") + " " + (r.pos || "")).toLowerCase().indexOf(q) >= 0; });
+      rows.sort(function(a, b){
+        if (adp.sort === "name") { var na = (a.name || "").toLowerCase(), nb = (b.name || "").toLowerCase(); return (na < nb ? -1 : na > nb ? 1 : 0) * adp.dir; }
+        var va = a[adp.sort] == null ? (adp.dir > 0 ? Infinity : -Infinity) : a[adp.sort];
+        var vb = b[adp.sort] == null ? (adp.dir > 0 ? Infinity : -Infinity) : b[adp.sort];
+        return (va - vb) * adp.dir;
+      });
+      function arrow(k){ return adp.sort === k ? (adp.dir > 0 ? " ▲" : " ▼") : ""; }
+      var html = '<div class="fpa-sub">FantasyCalc SuperFlex dynasty values · ' + rows.length + ' players · click a header to sort</div>' +
+        '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
+        '<th class="num" data-k="ovr">Rank' + arrow("ovr") + '</th>' +
+        '<th class="team" data-k="name">Player' + arrow("name") + '</th>' +
+        '<th class="num">Pos</th><th class="num">Tm</th>' +
+        '<th class="num" data-k="age">Age' + arrow("age") + '</th>' +
+        '<th class="num" data-k="value">Value' + arrow("value") + '</th>' +
+        '<th class="num" data-k="posRank">Pos Rk' + arrow("posRank") + '</th>' +
+        '<th class="num" data-k="trend30">30d' + arrow("trend30") + '</th>' +
+        '<th class="num" data-k="tier">Tier' + arrow("tier") + '</th>' +
+        '</tr></thead><tbody>';
+      if (!rows.length) html += '<tr><td class="team">—</td><td colspan="8" class="num" style="color:var(--muted)">No players.</td></tr>';
+      rows.forEach(function(r){
+        var t = r.trend30;
+        html += '<tr>' +
+          '<td class="num">' + (r.ovr != null ? r.ovr : "—") + '</td>' +
+          '<td class="team">' + esc(r.name) + '</td>' +
+          '<td class="num">' + esc(r.pos) + '</td>' +
+          '<td class="num">' + esc(r.team || "—") + '</td>' +
+          '<td class="num">' + (r.age != null ? r.age : "—") + '</td>' +
+          '<td class="num">' + (r.value != null ? r.value : "—") + '</td>' +
+          '<td class="num">' + (r.posRank != null ? r.posRank : "—") + '</td>' +
+          '<td class="num">' + (t != null && t !== 0 ? '<span class="asw-trend ' + (t > 0 ? "up" : "dn") + '">' + (t > 0 ? "▲" : "▼") + Math.abs(t) + "</span>" : (t === 0 ? "0" : "—")) + '</td>' +
+          '<td class="num">' + (r.tier != null ? r.tier : "—") + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+      adpBody().innerHTML = html;
+      adpSection.querySelectorAll(".fpa-table th[data-k]").forEach(function(th){
+        th.addEventListener("click", function(){ var k = th.getAttribute("data-k"); if (adp.sort === k) adp.dir = -adp.dir; else { adp.sort = k; adp.dir = (k === "ovr" || k === "posRank" || k === "name" || k === "age") ? 1 : -1; } adpPaint(); });
+      });
+      notifyResize();
+    }
+
+    var sections = { "player-stats": psSection, "fpa": host, "adp": adpSection };
     viewTabs.querySelectorAll(".asw-viewtab").forEach(function(btn){
       btn.addEventListener("click", function(){
         var v = btn.getAttribute("data-view");
         viewTabs.querySelectorAll(".asw-viewtab").forEach(function(x){ x.setAttribute("aria-selected", x === btn ? "true" : "false"); });
         Object.keys(sections).forEach(function(k){ if (sections[k]) sections[k].hidden = (k !== v); });
         if (v === "fpa" && !fpa.rendered) { fpa.rendered = true; renderShell(); load(); }
+        if (v === "adp" && !adp.rendered) { adp.rendered = true; adpRenderShell(); adpLoad(); }
         setTimeout(notifyResize, 80);
       });
     });

@@ -348,7 +348,45 @@
 
   function innerSwitch() {
     function b(key, label) { return '<button class="ups-m-stseg' + (view.inner === key ? " on" : "") + '" data-inner="' + key + '">' + label + "</button>"; }
-    return '<div class="ups-m-stseg-bar">' + b("players", "Player Stats") + b("fpa", "Fantasy Points Against") + "</div>";
+    return '<div class="ups-m-stseg-bar">' + b("players", "Players") + b("fpa", "Pts Against") + b("adp", "ADP") + "</div>";
+  }
+  // ── ADP board (Stats → ADP inner tab) — FantasyCalc SF dynasty values ──
+  var adpb = { pos: "ALL", data: null };
+  function loadAdpBoard() {
+    if (adpb.data) return Promise.resolve(adpb.data);
+    return fetch(API.workerUrl("/api/adp-board"), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { adpb.data = (d && d.board) || []; return adpb.data; })
+      .catch(function () { adpb.data = []; return adpb.data; });
+  }
+  function adpBoardToolbar() {
+    var poss = [["ALL", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"]];
+    var chips = poss.map(function (p) { return '<button class="ups-m-pos-chip' + (adpb.pos === p[0] ? " on" : "") + '" data-adppos="' + p[0] + '">' + p[1] + "</button>"; }).join("");
+    return '<div class="ups-m-players-toolbar">' +
+      '<div class="ups-m-auc-sec-head">ADP <span class="ct">FantasyCalc SF dynasty value · 30-day trend</span></div>' +
+      '<div class="ups-m-pos-chips">' + chips + "</div></div>";
+  }
+  function adpBoardHtml() {
+    if (!adpb.data) return '<div class="ups-m-loading">Loading…</div>';
+    var rows = adpb.data.slice();
+    if (adpb.pos !== "ALL") rows = rows.filter(function (r) { return r.pos === adpb.pos; });
+    if (!rows.length) return '<div class="ups-m-stub"><div>No players.</div></div>';
+    var head = '<div class="ups-m-adp-row head"><span class="rk">#</span><span class="pl">Player</span><span class="v">Value</span><span class="v">30d</span></div>';
+    var body = rows.slice(0, 300).map(function (r) {
+      var t = r.trend30, tcls = t == null ? "" : (t > 0 ? "up" : (t < 0 ? "dn" : ""));
+      var sub = r.pos + (r.posRank != null ? String(r.posRank) : "") + " · " + (r.team || "—") + (r.age != null ? " · " + r.age + "y" : "");
+      return '<div class="ups-m-adp-row">' +
+        '<span class="rk">' + (r.ovr != null ? r.ovr : "—") + "</span>" +
+        '<span class="pl"><span class="nm">' + U.escapeHtml(r.name) + '</span><span class="sub">' + U.escapeHtml(sub) + "</span></span>" +
+        '<span class="v">' + (r.value != null ? r.value : "—") + "</span>" +
+        '<span class="v"><span class="ups-m-tr ' + tcls + '">' + (t != null && t !== 0 ? ((t > 0 ? "▲" : "▼") + Math.abs(t)) : (t === 0 ? "0" : "—")) + "</span></span>" +
+      "</div>";
+    }).join("");
+    return '<div class="ups-m-fpa-table">' + head + body + "</div>";
+  }
+  function bindAdpBoard(mount) {
+    var chips = mount.querySelectorAll(".ups-m-pos-chip[data-adppos]");
+    for (var i = 0; i < chips.length; i++) chips[i].addEventListener("click", function () { adpb.pos = this.getAttribute("data-adppos"); M.route.renderRoute(); });
   }
   function fpaToolbar() {
     var yrs = fpa.years || [fpaYear()];
@@ -431,6 +469,11 @@
       bindInner(mount); bindFpa(mount);
       return;
     }
+    if (view.inner === "adp") {
+      mount.innerHTML = subTabs("stats") + innerSwitch() + adpBoardToolbar() + adpBoardHtml();
+      bindInner(mount); bindAdpBoard(mount);
+      return;
+    }
     mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + renderList(curTab());
     bindInner(mount); bind(mount);
   }
@@ -456,6 +499,13 @@
         }
         if (view.inner === "fpa") paint(mount);
       });
+      return;
+    }
+    if (view.inner === "adp") {
+      if (adpb.data) { paint(mount); return; }
+      mount.innerHTML = subTabs("stats") + innerSwitch() + adpBoardToolbar() + '<div class="ups-m-loading">Loading ADP…</div>';
+      bindInner(mount); bindAdpBoard(mount);
+      loadAdpBoard().then(function () { if (view.inner === "adp") paint(mount); });
       return;
     }
     var tab = curTab();
