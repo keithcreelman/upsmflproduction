@@ -1139,6 +1139,8 @@ button.ups-m-busy::before,
 .ups-m-stseg { flex: 1 1 0; background: var(--bg-elev); border: 1px solid var(--line); color: var(--fg-muted); border-radius: 8px; padding: 8px 6px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; white-space: nowrap; }
 .ups-m-stseg-bar.four { gap: 4px; }
 .ups-m-stseg-bar.four .ups-m-stseg { font-size: 11px; padding: 8px 2px; letter-spacing: -0.01em; }
+.ups-m-stseg-bar.five { gap: 3px; }
+.ups-m-stseg-bar.five .ups-m-stseg { font-size: 10px; padding: 8px 1px; letter-spacing: -0.02em; }
 .ups-m-stseg.on { background: var(--accent); border-color: var(--accent); color: #0a1222; }
 .ups-m-fpa-wk { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--fg-muted); flex: 1 1 0; }
 .ups-m-fpa-wk select { flex: 0 0 auto; min-width: 0; width: 68px; padding-left: 8px; padding-right: 4px; }

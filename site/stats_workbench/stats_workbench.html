@@ -261,6 +261,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   <button type="button" class="asw-viewtab" data-view="fpa" aria-selected="false" role="tab">Fantasy Points Against</button>
   <button type="button" class="asw-viewtab" data-view="adp" aria-selected="false" role="tab">ADP</button>
   <button type="button" class="asw-viewtab" data-view="vegas" aria-selected="false" role="tab">Vegas</button>
+  <button type="button" class="asw-viewtab" data-view="pace" aria-selected="false" role="tab">Pace</button>
 </div>
 
 <section id="asw-view-player-stats">
@@ -359,6 +360,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 
 <!-- Vegas implied-points board — lazy-rendered on first switch. -->
 <section id="asw-view-vegas" hidden></section>
+
+<section id="asw-view-pace" hidden></section>
 </div>
 
 <!-- Drill-down drawer (slides in on row click) -->
@@ -420,9 +423,9 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       title:"MFL points ÷ games with a score (excludes inactives/byes; computed server-side)" },
     // Strength-of-Schedule-adjusted MFL points (side-loaded /api/sos-adjusted-points, by gsis_id).
     // raw ÷ avg generosity of the defenses faced — easy schedule adjusts DOWN, tough adjusts UP.
-    mfl_points_sos:      { label:"SoS Pts",  num:true, fmt:"dec1",
-      title:"Strength-of-Schedule-adjusted MFL points: raw points ÷ the average generosity of the defenses faced (vs the position). Easy schedule adjusts down, tough schedule adjusts up.",
-      compute:function(r){ var s=sosByGsis[String(r.gsis_id)]; return s && s.sos != null ? s.sos : null; } },
+    mfl_points_sos:      { label:"SoS Δ",  num:true, fmt:"delta",
+      title:"Strength-of-Schedule delta = SoS-adjusted points − raw points. NEGATIVE = easy schedule (faced generous defenses, raw is inflated); POSITIVE = hard schedule (faced tough defenses, raw understates them).",
+      compute:function(r){ var s=sosByGsis[String(r.gsis_id)]; return (s && s.sos != null && s.raw != null) ? Math.round((s.sos - s.raw)*10)/10 : null; } },
     // Usage — offense
     games:               { label:"G",        num:true },
     off_snaps_total:     { label:"Snaps",    num:true, title:"Offensive snaps" },
@@ -887,15 +890,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     },
   };
 
-  // (Dynasty/ADP value columns were removed from Player Stats — ADP lives on its
-  // own Stats sub-tab now. Contract Salary/AAV/Yrs were removed too.)
-  // Team Pace group (nflverse) — injected right after MFL Details, available-but-off.
-  (function(){
-    Object.keys(TABS).forEach(function(k){
-      if (TABS[k] && TABS[k].groups) TABS[k].groups.splice(1, 0,
-        { id:"team_pace", label:"Team Pace", cols:["team_plays_pg","team_def_plays_pg","pace_sos"], defaultOn:false });
-    });
-  })();
+  // (Dynasty/ADP value columns + contract Salary/AAV/Yrs were removed from Player
+  // Stats — ADP has its own sub-tab. Team Pace moved to its own Pace sub-tab too.)
 
   // ---------- DOM refs ----------
   var tabsEl      = document.getElementById("asw-tabs");
@@ -1148,6 +1144,11 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     if (fmt === "trend") {
       var t = Number(v); if (t === 0) return "0";
       return '<span class="asw-trend ' + (t > 0 ? "up" : "dn") + '">' + (t > 0 ? "▲" : "▼") + Math.abs(t) + "</span>";
+    }
+    if (fmt === "delta") {
+      // Signed, colored delta — positive (hard schedule) green, negative (easy) red.
+      var d = Number(v); if (d === 0) return "0";
+      return '<span class="asw-trend ' + (d > 0 ? "up" : "dn") + '">' + (d > 0 ? "+" : "") + d.toFixed(1) + "</span>";
     }
     if (fmt === "dec1") return Number(v).toFixed(1);
     if (fmt === "dec2") return Number(v).toFixed(2);
@@ -3423,7 +3424,56 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       notifyResize();
     }
 
-    var sections = { "player-stats": psSection, "fpa": host, "adp": adpSection, "vegas": vegasSection };
+    // ---- Team Pace board (Stats → Pace sub-tab) — moved out of Player Stats ----
+    var paceSection = document.getElementById("asw-view-pace");
+    var pace = { season: null, data: null, seasons: [], rendered: false, sort: "off_plays_pg", dir: -1 };
+    function paceBody(){ return paceSection.querySelector(".pace-body"); }
+    function paceLoad(){
+      var b = paceBody(); if (b) b.innerHTML = '<div class="asw-meta" style="padding:14px">Loading team pace…</div>';
+      fetch(API_BASE + "/api/team-pace" + (pace.season ? "?season=" + encodeURIComponent(pace.season) : ""))
+        .then(function(r){ return r.json(); })
+        .then(function(d){ pace.data = d || {}; pace.seasons = (d && d.seasons) || []; pace.season = (d && d.season) || pace.season; paceRenderShell(); pacePaint(); })
+        .catch(function(){ pace.data = { teams: [] }; paceRenderShell(); pacePaint(); });
+    }
+    function paceRenderShell(){
+      var yopts = (pace.seasons || []).map(function(y){ return '<option value="' + y + '"' + (String(y) === String(pace.season) ? " selected" : "") + '>' + y + '</option>'; }).join("");
+      paceSection.innerHTML =
+        '<div class="fpa-controls"><label>Season<select class="pace-year">' + (yopts || '<option value="0">—</option>') + '</select></label></div><div class="pace-body"></div>';
+      var ys = paceSection.querySelector(".pace-year");
+      if (ys) ys.addEventListener("change", function(){ pace.season = ys.value; paceLoad(); });
+    }
+    function pacePaint(){
+      var d = pace.data || {}, teams = (d.teams || []).slice(), avg = d.leagueAvg || {};
+      function arrow(k){ return pace.sort === k ? (pace.dir > 0 ? " ▲" : " ▼") : ""; }
+      teams.sort(function(a, b){ var va = a[pace.sort], vb = b[pace.sort]; return ((va == null ? -Infinity : va) - (vb == null ? -Infinity : vb)) * pace.dir; });
+      function cls(v, base){ if (v == null || base == null) return ""; if (v >= base * 1.03) return "up"; if (v <= base * 0.97) return "dn"; return ""; }
+      var html = '<div class="fpa-sub">Team pace · ' + esc(String(pace.season)) + ' · plays/game (run+pass, REG season) · league avg ' + (avg.off != null ? avg.off : "—") + ' off / ' + (avg.def != null ? avg.def : "—") + ' faced · Pace SoS = avg opponent pace (schedule) · click a header to sort</div>' +
+        '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
+        '<th class="num">#</th><th class="team">Team</th>' +
+        '<th class="num" data-pk="off_plays_pg" title="Offensive plays per game — the team\'s own pace">Pace' + arrow("off_plays_pg") + '</th>' +
+        '<th class="num" data-pk="def_plays_pg" title="Plays the defense faces per game">Def Pace' + arrow("def_plays_pg") + '</th>' +
+        '<th class="num" data-pk="pace_sos" title="Avg opponent offensive pace over the schedule (higher = faced faster offenses)">Pace SoS' + arrow("pace_sos") + '</th>' +
+        '<th class="num">G</th></tr></thead><tbody>';
+      if (!teams.length) html += '<tr><td class="team">—</td><td colspan="5" class="num" style="color:var(--muted)">No pace data for this season.</td></tr>';
+      teams.forEach(function(t, i){
+        html += '<tr>' +
+          '<td class="num">' + (i + 1) + '</td>' +
+          '<td class="team">' + esc(t.team) + '</td>' +
+          '<td class="num"><b class="asw-trend ' + cls(t.off_plays_pg, avg.off) + '">' + (t.off_plays_pg != null ? t.off_plays_pg : "—") + '</b></td>' +
+          '<td class="num">' + (t.def_plays_pg != null ? t.def_plays_pg : "—") + '</td>' +
+          '<td class="num">' + (t.pace_sos != null ? t.pace_sos : "—") + '</td>' +
+          '<td class="num">' + (t.games != null ? t.games : "—") + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+      paceBody().innerHTML = html;
+      paceSection.querySelectorAll(".fpa-table th[data-pk]").forEach(function(th){
+        th.addEventListener("click", function(){ var k = th.getAttribute("data-pk"); if (pace.sort === k) pace.dir = -pace.dir; else { pace.sort = k; pace.dir = -1; } pacePaint(); });
+      });
+      notifyResize();
+    }
+
+    var sections = { "player-stats": psSection, "fpa": host, "adp": adpSection, "vegas": vegasSection, "pace": paceSection };
     viewTabs.querySelectorAll(".asw-viewtab").forEach(function(btn){
       btn.addEventListener("click", function(){
         var v = btn.getAttribute("data-view");
@@ -3432,6 +3482,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         if (v === "fpa" && !fpa.rendered) { fpa.rendered = true; renderShell(); load(); }
         if (v === "adp" && !adp.rendered) { adp.rendered = true; adpRenderShell(); adpLoad(); }
         if (v === "vegas" && !vegas.rendered) { vegas.rendered = true; vegasLoad(); }
+        if (v === "pace" && !pace.rendered) { pace.rendered = true; paceLoad(); }
         setTimeout(notifyResize, 80);
       });
     });

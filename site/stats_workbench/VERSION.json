@@ -1,7 +1,7 @@
 {
-  "version": "1.9.1",
+  "version": "1.10.0",
   "released": "2026-06-22",
-  "label": "v1.9.1 \u2014 ADP: IDP players (ECR-derived) now show only under DL/LB/DB, not mixed into the All board (different value scale). (v1.9.0: multi-format ADP + slider.)",
+  "label": "v1.10.0 \u2014 Pace moved to its own Pace sub-tab (team plays/game, def faced, Pace SoS); removed from Player Stats. SoS column is now a signed \u0394 (negative = easy schedule, positive = hard).",
   "changes_120": [
     "Horizontal scrollbar moved to the TOP of the table (synced two-way); the table now scrolls in a bounded 680px region so the scrollbar + column header stay fixed while the body scrolls (works in the iframe embed, not just standalone).",
     "Pos Rk now ranks within the IDP/offense GROUP (DL/LB/DB/QB/RB/WR/TE/PK) instead of the raw nflverse position \u2014 fixes multiple #1s showing in a single DL/LB/DB."

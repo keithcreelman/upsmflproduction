@@ -63,9 +63,7 @@
     punts: { l: "Punts", g: function (r) { return nn(r.punts); } },
     navg:  { l: "NetAvg",g: function (r) { return nn(r.punt_net_avg); }, f: "dec1" },
     i20:   { l: "I20",   g: function (r) { return nn(r.punt_inside20); } },
-    sospts:{ l: "SoS",   g: function (r) { var s = sosRec(r); return s && s.sos != null ? s.sos : null; }, f: "dec1" },
-    tmpace:{ l: "Pace",  g: function (r) { return nn(r.team_plays_pg); }, f: "dec1" },
-    pcsos: { l: "PcSoS", g: function (r) { return nn(r.pace_sos); }, f: "dec1" }
+    sospts:{ l: "SoSΔ",  g: function (r) { var s = sosRec(r); return (s && s.sos != null && s.raw != null) ? Math.round((s.sos - s.raw) * 10) / 10 : null; }, f: "delta" }
   };
 
   // Each tab: alias (worker pos param), group (pos_group values to keep), and
@@ -101,13 +99,9 @@
     { id: "PN", alias: "punter", group: ["PK", "PN"], sets: [
       { l: "Punting",   cols: ["punts", "navg", "i20", "ppg"] } ] }
   ];
-  // SoS-adjusted MFL points set — every position (raw Pts · SoS-adjusted · PPG).
-  // (ADP/Dynasty columns were removed from Player Stats — ADP has its own sub-tab.)
+  // SoS set — every position (raw Pts · SoS delta · PPG). (ADP + Team Pace moved
+  // to their own Stats sub-tabs.)
   TABS.forEach(function (t) { t.sets.push({ l: "SoS", cols: ["pts", "sospts", "ppg"] }); });
-  // Team Pace set — offense positions only.
-  ["QB", "RB", "WR", "TE"].forEach(function (id) {
-    for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) TABS[i].sets.push({ l: "Pace", cols: ["tmpace", "pcsos", "ppg"] });
-  });
 
   // scope: "all" | "ros" (rostered) | "fa" (free agents) — Keith 2026-06-20.
   // inner: "players" (the leaderboard) | "fpa" (Fantasy Points Against).
@@ -197,6 +191,7 @@
   function fmt(v, c) {
     if (v == null) return "—";
     if (c.f === "trend") { if (v === 0) return "0"; return '<span class="ups-m-tr ' + (v > 0 ? "up" : "dn") + '">' + (v > 0 ? "▲" : "▼") + Math.abs(v) + "</span>"; }
+    if (c.f === "delta") { if (v === 0) return "0"; return '<span class="ups-m-tr ' + (v > 0 ? "up" : "dn") + '">' + (v > 0 ? "+" : "") + v.toFixed(1) + "</span>"; }
     if (c.f === "pct") return Math.round(v * 100) + "%";
     if (c.f === "dec1") return v.toFixed(1);
     return String(Math.round(v));
@@ -353,7 +348,7 @@
 
   function innerSwitch() {
     function b(key, label) { return '<button class="ups-m-stseg' + (view.inner === key ? " on" : "") + '" data-inner="' + key + '">' + label + "</button>"; }
-    return '<div class="ups-m-stseg-bar four">' + b("players", "Players") + b("fpa", "Pts Agst") + b("adp", "ADP") + b("vegas", "Vegas") + "</div>";
+    return '<div class="ups-m-stseg-bar five">' + b("players", "Players") + b("fpa", "Pts Agst") + b("adp", "ADP") + b("vegas", "Vegas") + b("pace", "Pace") + "</div>";
   }
   // ── Vegas board (Stats → Vegas inner tab) — implied team points + O/U ──
   var vg = { year: 0, week: 0, data: null, weeks: [], _fb: false };
@@ -580,7 +575,46 @@
     if (wkBack) wkBack.addEventListener("click", function (e) { e.preventDefault(); fpa.detailWeek = null; M.route.renderRoute(); });
   }
 
+  // Team Pace (Stats → Pace inner tab) — moved out of Player Stats.
+  var mpace = { season: 0, data: null, seasons: [] };
+  function loadPace() {
+    return fetch(API.workerUrl("/api/team-pace" + (mpace.season ? "?season=" + encodeURIComponent(mpace.season) : "")), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { mpace.data = d || {}; mpace.seasons = (d && d.seasons) || []; mpace.season = (d && d.season) || mpace.season; return mpace.data; })
+      .catch(function () { mpace.data = { teams: [] }; return mpace.data; });
+  }
+  function paceToolbar() {
+    var yopts = (mpace.seasons || []).map(function (y) { return '<option value="' + y + '"' + (String(y) === String(mpace.season) ? " selected" : "") + ">" + y + "</option>"; }).join("") || '<option value="0">—</option>';
+    return '<div class="ups-m-players-toolbar"><div class="ups-m-auc-sec-head">Team Pace <span class="ct">plays/game · REG · faster = more snaps</span></div>' +
+      '<div class="ups-m-st-filters"><select class="ups-m-players-filter" id="ups-m-pace-year">' + yopts + "</select></div></div>";
+  }
+  function paceHtml() {
+    if (!mpace.data) return '<div class="ups-m-loading">Loading…</div>';
+    var teams = (mpace.data.teams || []), avg = mpace.data.leagueAvg || {};
+    if (!teams.length) return '<div class="ups-m-stub"><div>No pace data.</div></div>';
+    function cls(v, base) { if (v == null || base == null) return ""; if (v >= base * 1.03) return "up"; if (v <= base * 0.97) return "dn"; return ""; }
+    var head = '<div class="ups-m-adp-row head"><span class="rk">#</span><span class="pl">Team</span><span class="v">Pace</span><span class="v">PcSoS</span></div>';
+    var body = teams.map(function (t, i) {
+      return '<div class="ups-m-adp-row">' +
+        '<span class="rk">' + (i + 1) + "</span>" +
+        '<span class="pl"><span class="nm">' + U.escapeHtml(t.team) + '</span><span class="sub">def faced ' + (t.def_plays_pg != null ? t.def_plays_pg : "—") + " · " + (t.games != null ? t.games : "—") + "g</span></span>" +
+        '<span class="v"><span class="ups-m-tr ' + cls(t.off_plays_pg, avg.off) + '">' + (t.off_plays_pg != null ? t.off_plays_pg : "—") + "</span></span>" +
+        '<span class="v">' + (t.pace_sos != null ? t.pace_sos : "—") + "</span>" +
+      "</div>";
+    }).join("");
+    return '<div class="ups-m-fpa-table">' + head + body + "</div>";
+  }
+  function bindPace(mount) {
+    var y = document.getElementById("ups-m-pace-year");
+    if (y) y.addEventListener("change", function () { mpace.season = this.value; mpace.data = null; M.route.renderRoute(); });
+  }
+
   function paint(mount) {
+    if (view.inner === "pace") {
+      mount.innerHTML = subTabs("stats") + innerSwitch() + paceToolbar() + paceHtml();
+      bindInner(mount); bindPace(mount);
+      return;
+    }
     if (view.inner === "fpa") {
       var bodyHtml = fpa.detailTeam ? fpaDetailHtml() : fpaListHtml();
       mount.innerHTML = subTabs("stats") + innerSwitch() + fpaToolbar() + bodyHtml;
@@ -602,6 +636,13 @@
   }
 
   function render(mount) {
+    if (view.inner === "pace") {
+      if (mpace.data) { paint(mount); return; }
+      mount.innerHTML = subTabs("stats") + innerSwitch() + '<div class="ups-m-loading">Loading pace…</div>';
+      bindInner(mount);
+      loadPace().then(function () { if (view.inner === "pace") paint(mount); });
+      return;
+    }
     if (view.inner === "fpa") {
       if (fpa.detailTeam) {
         if (fpa.detailCache[fpaDetailKey()]) { paint(mount); return; }

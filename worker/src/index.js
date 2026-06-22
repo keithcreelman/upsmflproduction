@@ -2727,6 +2727,7 @@ export default {
         path !== "/api/fantasy-points-against" &&
         path !== "/api/fpa-detail" &&
         path !== "/api/sos-adjusted-points" &&
+        path !== "/api/team-pace" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
         path !== "/api/historical-finishes" &&
@@ -10157,6 +10158,33 @@ export default {
             by_gsis[x.gsis_id] = { raw: x.raw, sos: x.sos, sched_ease: x.sched_ease, gp: x.gp };
           }
           return jsonOut(200, { ok: true, seasons, window: { week_min: wMin, week_max: wMax }, count: Object.keys(by_gsis).length, by_gsis });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/team-pace?season= — team pace table (Stats → Pace sub-tab) ──
+      // Per-team offensive plays/game (the team's pace), defensive plays-faced/
+      // game, and pace_sos (avg opponent pace = schedule-adjusted). From the
+      // nflverse-PBP-derived nfl_team_pace table. Returns the available seasons
+      // for the dropdown + the league averages for context.
+      if (path === "/api/team-pace" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const ys = await db.prepare("SELECT DISTINCT season FROM nfl_team_pace ORDER BY season DESC").all();
+          const seasons = ((ys && ys.results) || []).map((x) => String(x.season));
+          let season = parseInt(safeStr(url.searchParams.get("season") || "").replace(/\D/g, ""), 10);
+          if (!season) season = seasons.length ? parseInt(seasons[0], 10) : new Date().getUTCFullYear();
+          const r = await db.prepare(
+            "SELECT team, games, off_plays_pg, def_plays_pg, pace_sos FROM nfl_team_pace WHERE season = ? ORDER BY off_plays_pg DESC"
+          ).bind(season).all();
+          const rows = (r && r.results) || [];
+          const n = rows.length || 1;
+          const avgOff = rows.reduce((a, x) => a + (x.off_plays_pg || 0), 0) / n;
+          const avgDef = rows.reduce((a, x) => a + (x.def_plays_pg || 0), 0) / n;
+          return jsonOut(200, { ok: true, season: season, seasons: seasons, count: rows.length,
+            leagueAvg: { off: Math.round(avgOff * 10) / 10, def: Math.round(avgDef * 10) / 10 }, teams: rows });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
