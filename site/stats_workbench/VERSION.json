@@ -1,7 +1,7 @@
 {
-  "version": "1.14.0",
+  "version": "1.14.1",
   "released": "2026-06-22",
-  "label": "v1.14.0 \u2014 Stats now show CURRENT NFL team (trade-fresh, not season-stamped). ADP: fixed the 100%-redraft blend (per-dimension consensus \u2014 dynasty-only sources no longer drag elite redraft players down) + a Team/FA filter (All / Free Agents / by franchise).",
+  "label": "v1.14.1 \u2014 ADP: the Pos column is now sortable by positional rank (click the header; mobile gets an Overall|Positional toggle).",
   "changes_120": [
     "Horizontal scrollbar moved to the TOP of the table (synced two-way); the table now scrolls in a bounded 680px region so the scrollbar + column header stay fixed while the body scrolls (works in the iframe embed, not just standalone).",
     "Pos Rk now ranks within the IDP/offense GROUP (DL/LB/DB/QB/RB/WR/TE/PK) instead of the raw nflverse position \u2014 fixes multiple #1s showing in a single DL/LB/DB."

@@ -3476,7 +3476,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
         '<th class="num" data-k="ovr" title="Overall consensus rank in your league (Superflex)">#' + arrow("ovr") + '</th>' +
         '<th class="team" data-k="name">Player' + arrow("name") + '</th>' +
-        '<th class="num" title="Positional rank (e.g. QB1, RB8)">Pos</th><th class="num">Tm</th>' +
+        '<th class="num" data-k="_posRank" title="Positional rank (e.g. QB1, RB8) — click to sort">Pos' + arrow("_posRank") + '</th><th class="num">Tm</th>' +
         '<th class="num" data-k="age">Age' + arrow("age") + '</th>' +
         '<th class="num" data-k="_tier" title="Tier within position — from value gaps (a cliff in value starts a new tier)">Tier' + arrow("_tier") + '</th>';
       if (isIdpView) {
