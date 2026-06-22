@@ -2728,6 +2728,7 @@ export default {
         path !== "/api/fpa-detail" &&
         path !== "/api/sos-adjusted-points" &&
         path !== "/api/team-pace" &&
+        path !== "/api/data-freshness" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
         path !== "/api/historical-finishes" &&
@@ -10246,6 +10247,32 @@ export default {
           const avgDef = rows.reduce((a, x) => a + (x.def_plays_pg || 0), 0) / n;
           return jsonOut(200, { ok: true, season: season, seasons: seasons, count: rows.length,
             leagueAvg: { off: Math.round(avgOff * 10) / 10, def: Math.round(avgDef * 10) / 10 }, teams: rows });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/data-freshness — "last updated" per data source ──
+      // ETL'd nflverse data: the scheduled nflverse-stats-refresh workflow stamps
+      // etl_runs per source. Live ADP feeds are fetched per request (edge-cached)
+      // → their freshness is the /api/adp-board generated_at, surfaced separately.
+      if (path === "/api/data-freshness" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          let etl = [];
+          try { const r = await db.prepare("SELECT source, last_run_utc, status, detail FROM etl_runs ORDER BY source").all(); etl = (r && r.results) || []; } catch (e) {}
+          let weeklyCoverage = null;
+          try {
+            const c = await db.prepare("SELECT MAX(season) AS s FROM nfl_player_weekly").first();
+            if (c && c.s) {
+              const w = await db.prepare("SELECT MAX(week) AS w FROM nfl_player_weekly WHERE season = ?").bind(c.s).first();
+              weeklyCoverage = { season: c.s, week: (w && w.w) || null };
+            }
+          } catch (e) {}
+          return jsonOut(200, { ok: true, etl: etl, weeklyCoverage: weeklyCoverage,
+            liveSources: ["fantasycalc", "keeptradecut", "dynastyprocess", "sleeper", "fantasypros"],
+            generated_at: new Date().toISOString() });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }

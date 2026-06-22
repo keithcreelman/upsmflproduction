@@ -1,0 +1,86 @@
+name: nflverse stats refresh (Player Stats / FPA / Pace / SoS / ADP crosswalk)
+
+# Keeps the nflverse-derived data the Stats page reads from going stale. Before
+# this, the whole pipeline (weekly stats, PBP red-zone/FG/punts, team pace, PFR
+# advanced, all-eras player names, the ff_player_ids ID crosswalk) was MANUAL —
+# it only refreshed when someone ran the scripts by hand, so in-season the
+# leaderboard / Fantasy Points Against / game-script / SoS silently fell behind.
+#
+# The fetchers are download-native (nflreadpy + a GitHub CSV) and dual-write
+# local + D1, skipping the local mirror when the Desktop DB is absent (CI), so
+# they run cleanly on ubuntu. They write D1 via D1Writer → `wrangler d1 execute
+# --remote`, which needs CLOUDFLARE_API_TOKEN (D1 edit perm — same secret the
+# nightly-config-sync + deploy-worker jobs use). Each source stamps etl_runs so
+# /api/data-freshness can show "last updated" per source; a single failing
+# source doesn't block the others.
+#
+# Cadence: weekly (Wed 11:00 UTC) — nflverse finalizes the prior week's data
+# Tue/Wed. Off-season runs are cheap no-ops for the current season (no games),
+# but still refresh names + the ID crosswalk (player-pool churn).
+
+on:
+  schedule:
+    - cron: "0 11 * * 3" # Wednesday 11:00 UTC
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: "Season range for the scoped fetchers (e.g. 2025-2026 or 2014-2025). Blank = current+prior."
+        required: false
+        default: ""
+
+concurrency:
+  group: nflverse-stats-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python deps
+        run: pip install --quiet nflreadpy pandas pyarrow
+
+      - name: Refresh nflverse stats → D1
+        working-directory: worker # so the D1Writer's `wrangler` finds wrangler.toml / the D1 binding
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -uo pipefail
+          # Season range: current + prior (catches late stat corrections to the
+          # most recent season + keeps the in-progress season fresh).
+          if [ -n "${{ github.event.inputs.seasons }}" ]; then
+            SEASONS="${{ github.event.inputs.seasons }}"
+          else
+            Y=$(date -u +%Y); SEASONS="$((Y-1))-${Y}"
+          fi
+          echo "Season range: ${SEASONS}"
+
+          stamp() { # $1=source $2=status $3=detail
+            npx --yes wrangler@latest d1 execute ups-mfl-db --remote \
+              --command "INSERT OR REPLACE INTO etl_runs (source,last_run_utc,status,detail) VALUES ('$1','$(date -u +%Y-%m-%dT%H:%M:%SZ)','$2','$3');" || true
+          }
+          run() { # $1=source $2=detail; rest = command
+            local src="$1" det="$2"; shift 2
+            echo "::group::${src}"
+            if "$@"; then echo "${src}: ok"; stamp "${src}" ok "${det}"; else echo "${src}: FAILED"; stamp "${src}" error "${det}"; FAILED=1; fi
+            echo "::endgroup::"
+          }
+          FAILED=0
+
+          run nflverse_weekly  "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_weekly.py --seasons "${SEASONS}"
+          run nflverse_pbp     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_pbp.py --seasons "${SEASONS}"
+          run nflverse_pace    "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_pace.py --seasons "${SEASONS}"
+          run pfr_advstats     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_pfr_advstats.py --seasons "${SEASONS}"
+          run nfl_player_names "all-eras"   python3 ../pipelines/etl/scripts/fetch_nflverse_player_names.py
+          run ff_player_ids    "all"        python3 ../pipelines/etl/scripts/fetch_ff_playerids.py
+
+          if [ "${FAILED}" = "1" ]; then echo "One or more sources failed (see groups above)."; exit 1; fi
+          echo "All nflverse sources refreshed."
