@@ -2705,6 +2705,7 @@ export default {
         path !== "/api/mfl-league-state" &&
         path !== "/api/adp" &&
         path !== "/api/adp-board" &&
+        path !== "/api/vegas" &&
         path !== "/api/auction/era-eligible" &&
         path !== "/api/auction/lots" &&
         path !== "/api/auction/bid-history" &&
@@ -9378,6 +9379,54 @@ export default {
           if (Object.keys(dpByName).length) sources.push("dynastyprocess");
           if (Object.keys(slBySid).length) sources.push("sleeper");
           return jsonOut(200, { ok: true, sources: sources, generated_at: new Date().toISOString(), count: board.length, board: board });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/vegas?YEAR=&W= — Vegas lines → implied team points (Stats → Vegas) ──
+      // From nflverse's games file (spread_line + total_line; spread_line is the
+      // HOME-team spread, positive = home favored). Implied points: home = T/2 + S/2,
+      // away = T/2 − S/2. Live + edge-cached; defaults to the first week that has
+      // lines posted. Returns the week's games + a flat team list sorted by implied.
+      if (path === "/api/vegas" && request.method === "GET") {
+        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+        const wReq = parseInt(url.searchParams.get("W") || "0", 10) || 0;
+        try {
+          const txt = await fetch("https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv", { cf: { cacheTtl: 1800, cacheEverything: true } }).then((r) => r.ok ? r.text() : null).catch(() => null);
+          if (!txt) return jsonOut(502, { ok: false, error: "games_unavailable" });
+          const lines = txt.split(/\r?\n/);
+          const hdr = (lines[0] || "").split(",").map((s) => s.trim());
+          const ix = (n) => hdr.indexOf(n);
+          const iS = ix("season"), iW = ix("week"), iGT = ix("game_type"), iA = ix("away_team"), iH = ix("home_team"), iSp = ix("spread_line"), iT = ix("total_line"), iGd = ix("gameday"), iTm = ix("gametime");
+          if (iS < 0 || iH < 0) return jsonOut(502, { ok: false, error: "games_schema" });
+          const all = [], weeksSet = {};
+          for (let li = 1; li < lines.length; li++) {
+            const c = lines[li].split(","); if (c.length <= iH) continue;
+            if (String(c[iS]) !== yr) continue;
+            const wk = parseInt(c[iW], 10) || 0;
+            const total = parseFloat(c[iT]), spread = parseFloat(c[iSp]);
+            if (!isNaN(total)) weeksSet[wk] = 1;
+            all.push({ week: wk, gameType: safeStr(c[iGT]), away: safeStr(c[iA]).toUpperCase(), home: safeStr(c[iH]).toUpperCase(),
+              spread: isNaN(spread) ? null : spread, total: isNaN(total) ? null : total,
+              gameday: safeStr(c[iGd]), gametime: safeStr(c[iTm]) });
+          }
+          const weeks = Object.keys(weeksSet).map(Number).sort((a, b) => a - b);
+          const wk = wReq || weeks[0] || 1;
+          const games = all.filter((g) => g.week === wk).map((g) => {
+            const t = g.total, s = g.spread;
+            const homeImp = (t != null && s != null) ? Math.round((t / 2 + s / 2) * 10) / 10 : null;
+            const awayImp = (t != null && s != null) ? Math.round((t / 2 - s / 2) * 10) / 10 : null;
+            return { away: g.away, home: g.home, spread: s, total: t, gameType: g.gameType, gameday: g.gameday, gametime: g.gametime, homeImplied: homeImp, awayImplied: awayImp };
+          });
+          // flat per-team implied list (highest-scoring environments first)
+          const teams = [];
+          games.forEach((g) => {
+            if (g.homeImplied != null) teams.push({ team: g.home, implied: g.homeImplied, opp: g.away, home: true, total: g.total, spread: g.spread });
+            if (g.awayImplied != null) teams.push({ team: g.away, implied: g.awayImplied, opp: g.home, home: false, total: g.total, spread: g.spread == null ? null : -g.spread });
+          });
+          teams.sort((a, b) => b.implied - a.implied);
+          return jsonOut(200, { ok: true, year: yr, week: wk, weeksWithLines: weeks, games: games, teams: teams });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
