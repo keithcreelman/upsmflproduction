@@ -352,13 +352,13 @@
   }
   // ── Vegas board (Stats → Vegas inner tab) — implied team points + O/U ──
   var vg = { year: 0, week: 0, data: null, weeks: [], _fb: false };
-  function vgYear() { return String(vg.year || curSeason()); }
+  function vgYear() { return String(vg.year || new Date().getUTCFullYear()); }   // upcoming season's lines (matches desktop)
   function loadVegas() {
     return fetch(API.workerUrl("/api/vegas?YEAR=" + encodeURIComponent(vgYear()) + (vg.week ? "&W=" + vg.week : "")), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        if ((!d || !(d.teams || []).length) && vgYear() === String(curSeason()) && !vg._fb) {
-          vg._fb = true; vg.year = String((parseInt(curSeason(), 10) || 0) - 1); vg.week = 0; return loadVegas();
+        if ((!d || !(d.teams || []).length) && !vg._fb) {   // no lines yet → prior season once
+          vg._fb = true; vg.year = String((parseInt(vgYear(), 10) || 0) - 1); vg.week = 0; return loadVegas();
         }
         vg.data = d || {}; vg.weeks = (d && d.weeksWithLines) || []; vg.week = (d && d.week) || vg.week; return vg.data;
       })
