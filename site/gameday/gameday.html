@@ -605,13 +605,17 @@
   // declutter — one clean line per starter, full intel on tap).
   function slotMatchupHtml(pid) {
     var mu = matchupFor(pid); if (!mu) return "";
-    var loc = (mu.isHome ? "vs " : "@ ") + mu.opp;
+    var loc = (mu.isHome ? "vs " : "@ ") + mu.opp, when = fmtKick(mu.kickoff);
     var chip = mu.rank != null ? '<span class="gd-mu-rank ' + rankCls(mu.rank) + '">' + esc(mu.opp) + ' #' + mu.rank + ' to ' + mu.grp + '</span>' : "";
     var open = STATE.muExpand === pid;
-    var compact = '<div class="gd-slot-mu" data-mu-pid="' + esc(pid) + '">' + esc(loc) + (chip ? " · " + chip : "") + '<span class="gd-mu-exp">' + (open ? "▾" : "▸") + '</span></div>';
+    // Compact line carries location + kickoff + the def chip; the detail no
+    // longer repeats opp/kickoff (Keith: "@ JAC" was showing twice) — it just
+    // leads with the betting line when one exists.
+    var compact = '<div class="gd-slot-mu" data-mu-pid="' + esc(pid) + '">' + esc(loc) + (when ? " · " + esc(when) : "") + (chip ? " · " + chip : "") + '<span class="gd-mu-exp">' + (open ? "▾" : "▸") + '</span></div>';
     if (!open) return compact;
-    var when = fmtKick(mu.kickoff), hasLine = (mu.spread != null && mu.spread !== 0);
-    var rows = ['<div class="r">' + esc((mu.isHome ? "vs " : "@ ") + mu.opp) + (when ? " · " + esc(when) : "") + (hasLine ? " · " + esc((mu.spread > 0 ? "+" : "") + mu.spread) : "") + '</div>'];
+    var hasLine = (mu.spread != null && mu.spread !== 0);
+    var rows = [];
+    if (hasLine) rows.push('<div class="r">Line <b>' + esc((mu.spread > 0 ? "+" : "") + mu.spread) + '</b></div>');
     var wx = wxText(mu.weather);
     if (wx) rows.push('<div class="r gd-mu-wx">' + esc(wx) + '</div>');
     if (mu.rank != null) { var pct = Math.round((mu.ratio - 1) * 100); rows.push('<div class="r">Defense <b class="gd-mu-rank ' + rankCls(mu.rank) + '">#' + mu.rank + '/' + mu.of + ' to ' + mu.grp + '</b> · allows ' + (pct >= 0 ? "+" : "") + pct + '% vs expected (' + muLabel(muWindow()) + ')</div>'); }
