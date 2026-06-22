@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.21.4",
-  "label": "Live Scoring now in the bottom nav (Standings moved to a Home card); breakdown groups TDs by tier (e.g. 2 Passing TD 1-49 = 12) and hides 0-point lines."
+  "build": "2026.06.21.5",
+  "label": "Submit Lineup (Phase 1): each starter now shows the matchup — opponent, home/away, kickoff, spread, and an opponent-adjusted defense-vs-position rank (e.g. 'JAC #1 to RB', green=favorable / red=tough)."
 }

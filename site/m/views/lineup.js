@@ -57,12 +57,55 @@
           if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) map[String(p.id)] = n; }
         });
         M.state.lineupProj = { loaded: true, map: map };
+        M.state.lineupWeek = parseInt((j && j.projectedScores && j.projectedScores.week) || 0, 10) || 0;
         M.state.lineupProjRank = null;  // rebuild ranks against fresh projections
         // Upgrade an un-edited salary seed to the Optimal (projection) lineup.
         if (M.state.lineupSeed === "salary") { M.state.lineupSlots = null; M.state.lineupSeed = null; }
         renderRoute();
       })
       .catch(function () { M.state.lineupProj = { loaded: true, map: {} }; renderRoute(); });
+  }
+
+  // ── Matchup intel (Phase 1) — opponent · home/away · kickoff · spread + the
+  // opponent-adjusted defense-vs-position rank, from worker /api/lineup-matchups.
+  function loadMatchups() {
+    if (M.state.lineupMatch || M.state._muLoading) return;
+    var qp; try { qp = new URLSearchParams(location.search); } catch (e) { qp = { get: function () { return null; } }; }
+    var myr = qp.get("mYEAR") || M.state.ctx.year;
+    var mwk = qp.get("mW") || M.state.lineupWeek || "";
+    if (!mwk) { M.state.lineupMatch = { matchups: {}, defRatings: {} }; return; }   // offseason / no week
+    M.state._muLoading = true;
+    fetch(API.workerUrl("/api/lineup-matchups?YEAR=" + encodeURIComponent(myr) + "&W=" + encodeURIComponent(mwk)), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { M.state.lineupMatch = { matchups: (d && d.matchups) || {}, defRatings: (d && d.defRatings) || {}, basis: (d && d.ratingsBasis) || "" }; renderRoute(); })
+      .catch(function () { M.state.lineupMatch = { matchups: {}, defRatings: {} }; });
+  }
+  function fmtKick(unix) {
+    if (!unix) return "";
+    try {
+      var d = new Date(unix * 1000), days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      var h = d.getHours(), m = d.getMinutes(), ap = h >= 12 ? "p" : "a", h12 = h % 12 || 12;
+      return days[d.getDay()] + " " + h12 + (m ? ":" + (m < 10 ? "0" + m : m) : "") + ap;
+    } catch (e) { return ""; }
+  }
+  function matchupFor(pid) {
+    var lm = M.state.lineupMatch; if (!lm) return null;
+    var pl = DATA.playerById(pid); if (!pl) return null;
+    var team = U.safeStr(pl.team).toUpperCase(), m = (lm.matchups || {})[team];
+    if (!m) return null;
+    var grp = FO.posGroup(pl.position), dr = (lm.defRatings || {})[m.opp], rk = dr && dr[grp] ? dr[grp] : null;
+    return { opp: m.opp, isHome: m.isHome, kickoff: m.kickoff, spread: m.spread, grp: grp, rank: rk ? rk.rank : null, of: rk ? rk.of : null };
+  }
+  function slotMatchupHtml(pid) {
+    var mu = matchupFor(pid); if (!mu) return "";
+    var loc = (mu.isHome ? "vs " : "@ ") + mu.opp, when = fmtKick(mu.kickoff);
+    var spread = (mu.spread != null) ? ((mu.spread > 0 ? "+" : "") + mu.spread) : "";
+    var rankHtml = "";
+    if (mu.rank != null) {
+      var cls = mu.rank <= 10 ? "good" : (mu.rank >= 23 ? "tough" : "");
+      rankHtml = '<span class="ups-m-mu-rank ' + cls + '">' + U.escapeHtml(mu.opp) + ' #' + mu.rank + ' to ' + mu.grp + '</span>';
+    }
+    return '<div class="ups-m-slot-mu">' + U.escapeHtml(loc) + (when ? " · " + U.escapeHtml(when) : "") + (spread ? " · " + U.escapeHtml(spread) : "") + (rankHtml ? " · " + rankHtml : "") + '</div>';
   }
 
   function nameFor(player) {
@@ -229,7 +272,7 @@
       '</div>' +
       '<select class="' + selCls + '" data-slot="' + U.escapeHtml(slot.id) + '">' + opts + '</select>' +
       projCell +
-    '</div>';
+    '</div>' + (current ? slotMatchupHtml(current) : "");
   }
 
   function renderSection(side, title, count, rows, draft, used) {
@@ -345,6 +388,7 @@
       return;
     }
     loadProjections();   // lazy fetch; re-renders when projections arrive
+    loadMatchups();      // lazy: opponent/kickoff/spread + adjusted def rank
     var draft = ensureDraft(rows);
     var byId = rowsById(rows);
     var v = FO.validateSlots(draft, byId);
