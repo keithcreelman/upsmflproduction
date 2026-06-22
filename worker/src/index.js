@@ -2725,6 +2725,7 @@ export default {
         path !== "/api/league-years" &&
         path !== "/api/lineup-matchups" &&
         path !== "/api/fantasy-points-against" &&
+        path !== "/api/fantasy-sos" &&
         path !== "/api/fpa-detail" &&
         path !== "/api/sos-adjusted-points" &&
         path !== "/api/player-consistency" &&
@@ -9915,6 +9916,59 @@ export default {
           // differ from "season" yet (Keith: don't show a dead L3/L5 toggle).
           const weeksAvailable = wk > 1 ? wk - 1 : 0;
           return jsonOut(200, { ok: true, year: yr, week: wk, window: (last || null), matchups, defRatings, playerWindow, horizon, weather, ratingsBasis: basis, weeksAvailable, priorSeason: wk <= 1 });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/fantasy-sos?season=&pos= — fantasy Strength-of-Schedule grid ──
+      // For each NFL team (offense), how easy/hard is the schedule for a position:
+      // each week's opponent DEFENSE's opponent-adjusted FPA rating (>1 = generous
+      // = easy matchup). Reuses /api/fantasy-points-against for the ratings (MFL
+      // team codes → normalized to nflverse) + the nflverse games.csv for the
+      // schedule. Returns a team×week grid + season & playoff (Wk 15-17) averages,
+      // sorted easiest-first. Offseason → falls back to the prior season's ratings
+      // (projected SoS), with the selected season's schedule.
+      if (path === "/api/fantasy-sos" && request.method === "GET") {
+        try {
+          const yr = safeStr(url.searchParams.get("season") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+          const posWanted = (safeStr(url.searchParams.get("pos") || "RB").toUpperCase()) || "RB";
+          const origin = new URL(request.url).origin;
+          const toNflv = (t) => ({ GBP: "GB", KCC: "KC", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB", LVR: "LV", JAC: "JAX", LAR: "LA", OAK: "LV", SDC: "LAC", SD: "LAC", STL: "LA", ARZ: "ARI", BLT: "BAL", CLV: "CLE", HST: "HOU" }[t] || t);
+          const fpaFor = (season) => fetch(`${origin}/api/fantasy-points-against?YEAR=${season}&pos=${posWanted}&week_min=1&week_max=17`, { cf: { cacheTtl: 3600, cacheEverything: true } }).then((x) => x.ok ? x.json() : null).then((j) => (j && j.teams) ? j.teams : null).catch(() => null);
+          let ratingSeason = yr, projected = false;
+          let teams = await fpaFor(yr);
+          if (!teams || !Object.keys(teams).length) { ratingSeason = String(parseInt(yr, 10) - 1); teams = await fpaFor(ratingSeason); projected = true; }
+          const ratingByNflv = {};
+          if (teams) for (const mflCode in teams) { const a = teams[mflCode] && teams[mflCode][posWanted] && teams[mflCode][posWanted].adj; if (a && a.ratio != null) ratingByNflv[toNflv(mflCode)] = { ratio: a.ratio, rank: a.rank }; }
+          const txt = await fetch("https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv", { cf: { cacheTtl: 1800, cacheEverything: true } }).then((x) => x.ok ? x.text() : null).catch(() => null);
+          const sched = {};
+          if (txt) {
+            const lines = txt.split(/\r?\n/), hdr = (lines[0] || "").split(","), ix = (n) => hdr.indexOf(n);
+            const iS = ix("season"), iW = ix("week"), iGT = ix("game_type"), iA = ix("away_team"), iH = ix("home_team");
+            for (let li = 1; li < lines.length; li++) {
+              const c = lines[li].split(","); if (c.length <= iH) continue;
+              if (String(c[iS]) !== String(yr)) continue;
+              if (iGT >= 0 && c[iGT] !== "REG") continue;
+              const wk = parseInt(c[iW], 10), home = c[iH], away = c[iA];
+              if (!home || !away || !wk) continue;
+              (sched[home] = sched[home] || {})[wk] = away; (sched[away] = sched[away] || {})[wk] = home;
+            }
+          }
+          const out = [];
+          for (const team in sched) {
+            const weeks = []; let sSum = 0, sN = 0, pSum = 0, pN = 0;
+            for (let w = 1; w <= 18; w++) {
+              const opp = sched[team][w];
+              if (!opp) { weeks.push({ wk: w, opp: null, ratio: null, rank: null }); continue; }
+              const rt = ratingByNflv[opp], ratio = rt ? rt.ratio : null, rank = rt ? rt.rank : null;
+              weeks.push({ wk: w, opp: opp, ratio: ratio, rank: rank });
+              if (ratio != null) { sSum += ratio; sN++; if (w >= 15 && w <= 17) { pSum += ratio; pN++; } }
+            }
+            out.push({ team: team, weeks: weeks, seasonAvg: sN ? Math.round((sSum / sN) * 100) / 100 : null, playoffAvg: pN ? Math.round((pSum / pN) * 100) / 100 : null });
+          }
+          out.sort((a, b) => (b.seasonAvg || 0) - (a.seasonAvg || 0));
+          return jsonOut(200, { ok: true, season: yr, pos: posWanted, projected: projected, ratingSeason: ratingSeason, defsRated: Object.keys(ratingByNflv).length, teams: out });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
