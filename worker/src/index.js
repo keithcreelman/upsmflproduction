@@ -5533,7 +5533,7 @@ export default {
           // (it already SUMs all of these); only the final projection narrows.
           const COL_SHARED = `a.gsis_id,
                    c.mfl_player_id AS mfl_pid,
-                   c.full_name     AS player_name,
+                   COALESCE(NULLIF(c.full_name, ''), npn.display_name) AS player_name,
                    a.position, a.team, a.pos_group, a.games,
                    ctm.nfl_team AS current_team,
                    sa.off_snaps_total, sa.def_snaps_total,
@@ -5866,6 +5866,7 @@ export default {
             SELECT ${projection}
               FROM agg a
               LEFT JOIN player_id_crosswalk c ON c.gsis_id = a.gsis_id
+              LEFT JOIN nfl_player_names npn   ON npn.gsis_id = a.gsis_id
               LEFT JOIN snap_agg sa           ON sa.gsis_id = a.gsis_id
               LEFT JOIN season_adv_agg sv     ON sv.gsis_id = a.gsis_id
               LEFT JOIN team_agg ta           ON ta.gsis_id = a.gsis_id
@@ -5993,6 +5994,13 @@ export default {
             .bind(gsisId)
             .first();
           const pfrId = pfrRow && pfrRow.pfr_id || null;
+          // Name: crosswalk (MFL pool) first, else the all-eras nflverse master
+          // (covers retired players with no crosswalk row).
+          let resolvedName = (pfrRow && pfrRow.full_name) || null;
+          if (!resolvedName) {
+            const nameRow = await db.prepare("SELECT display_name FROM nfl_player_names WHERE gsis_id = ? LIMIT 1").bind(gsisId).first();
+            resolvedName = (nameRow && nameRow.display_name) || null;
+          }
           // Bind as a STRING — src_weekly.player_id is TEXT. If we bind
           // the INTEGER from the crosswalk D1 may coerce through REAL
           // (15794 → "15794.0") and the join silently misses every row.
@@ -6083,7 +6091,7 @@ export default {
           return jsonOut(200, {
             gsis_id: gsisId,
             pfr_id: pfrId,
-            player_name: pfrRow && pfrRow.full_name || null,
+            player_name: resolvedName,
             mfl_pid: pfrRow && pfrRow.mfl_player_id || null,
             seasons,
             include_post: includePost,
