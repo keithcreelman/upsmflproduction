@@ -9422,8 +9422,10 @@ export default {
           // flat per-team implied list (highest-scoring environments first)
           const teams = [];
           games.forEach((g) => {
-            if (g.homeImplied != null) teams.push({ team: g.home, implied: g.homeImplied, opp: g.away, home: true, total: g.total, spread: g.spread });
-            if (g.awayImplied != null) teams.push({ team: g.away, implied: g.awayImplied, opp: g.home, home: false, total: g.total, spread: g.spread == null ? null : -g.spread });
+            // per-team spread in BETTING convention (favorite negative); nflverse
+            // spread_line is +home-favored, so home flips, away keeps the sign.
+            if (g.homeImplied != null) teams.push({ team: g.home, implied: g.homeImplied, opp: g.away, home: true, total: g.total, spread: (g.spread == null ? null : -g.spread) });
+            if (g.awayImplied != null) teams.push({ team: g.away, implied: g.awayImplied, opp: g.home, home: false, total: g.total, spread: g.spread });
           });
           teams.sort((a, b) => b.implied - a.implied);
           return jsonOut(200, { ok: true, year: yr, week: wk, weeksWithLines: weeks, games: games, teams: teams });

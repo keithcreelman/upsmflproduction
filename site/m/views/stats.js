@@ -348,7 +348,48 @@
 
   function innerSwitch() {
     function b(key, label) { return '<button class="ups-m-stseg' + (view.inner === key ? " on" : "") + '" data-inner="' + key + '">' + label + "</button>"; }
-    return '<div class="ups-m-stseg-bar">' + b("players", "Players") + b("fpa", "Pts Against") + b("adp", "ADP") + "</div>";
+    return '<div class="ups-m-stseg-bar four">' + b("players", "Players") + b("fpa", "Pts Agst") + b("adp", "ADP") + b("vegas", "Vegas") + "</div>";
+  }
+  // ── Vegas board (Stats → Vegas inner tab) — implied team points + O/U ──
+  var vg = { year: 0, week: 0, data: null, weeks: [], _fb: false };
+  function vgYear() { return String(vg.year || curSeason()); }
+  function loadVegas() {
+    return fetch(API.workerUrl("/api/vegas?YEAR=" + encodeURIComponent(vgYear()) + (vg.week ? "&W=" + vg.week : "")), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if ((!d || !(d.teams || []).length) && vgYear() === String(curSeason()) && !vg._fb) {
+          vg._fb = true; vg.year = String((parseInt(curSeason(), 10) || 0) - 1); vg.week = 0; return loadVegas();
+        }
+        vg.data = d || {}; vg.weeks = (d && d.weeksWithLines) || []; vg.week = (d && d.week) || vg.week; return vg.data;
+      })
+      .catch(function () { vg.data = { teams: [], games: [] }; return vg.data; });
+  }
+  function vegasToolbar() {
+    var wkOpts = (vg.weeks || []).map(function (w) { return '<option value="' + w + '"' + (w === vg.week ? " selected" : "") + ">Week " + w + "</option>"; }).join("") || '<option value="0">—</option>';
+    return '<div class="ups-m-players-toolbar">' +
+      '<div class="ups-m-auc-sec-head">Vegas <span class="ct">implied team points · O/U · ' + vgYear() + "</span></div>" +
+      '<div class="ups-m-st-filters"><select class="ups-m-players-filter" id="ups-m-vg-week">' + wkOpts + "</select></div></div>";
+  }
+  function vegasHtml() {
+    if (!vg.data) return '<div class="ups-m-loading">Loading…</div>';
+    var teams = vg.data.teams || [];
+    if (!teams.length) return '<div class="ups-m-stub"><div>No lines posted for this week yet.</div></div>';
+    var head = '<div class="ups-m-adp-row head"><span class="rk">#</span><span class="pl">Team</span><span class="v">Impl</span><span class="v">O/U</span></div>';
+    var body = teams.map(function (t, i) {
+      var sub = (t.home ? "vs " : "@ ") + (t.opp || "—") + (t.spread != null ? " · " + (t.spread > 0 ? "+" : "") + t.spread : "");
+      var icls = t.implied == null ? "" : (t.implied >= 26 ? "up" : (t.implied <= 18 ? "dn" : ""));
+      return '<div class="ups-m-adp-row">' +
+        '<span class="rk">' + (i + 1) + "</span>" +
+        '<span class="pl"><span class="nm">' + U.escapeHtml(t.team) + '</span><span class="sub">' + U.escapeHtml(sub) + "</span></span>" +
+        '<span class="v"><span class="ups-m-tr ' + icls + '">' + (t.implied != null ? t.implied : "—") + "</span></span>" +
+        '<span class="v">' + (t.total != null ? t.total : "—") + "</span>" +
+      "</div>";
+    }).join("");
+    return '<div class="ups-m-fpa-table">' + head + body + "</div>";
+  }
+  function bindVegas(mount) {
+    var w = document.getElementById("ups-m-vg-week");
+    if (w) { w.value = String(vg.week); w.addEventListener("change", function () { vg.week = parseInt(this.value, 10) || 0; loadVegas().then(function () { if (view.inner === "vegas") paint(mount); }); }); }
   }
   // ── ADP board (Stats → ADP inner tab) — FantasyCalc SF dynasty values ──
   var adpb = { pos: "ALL", data: null };
@@ -479,6 +520,11 @@
       bindInner(mount); bindAdpBoard(mount);
       return;
     }
+    if (view.inner === "vegas") {
+      mount.innerHTML = subTabs("stats") + innerSwitch() + vegasToolbar() + vegasHtml();
+      bindInner(mount); bindVegas(mount);
+      return;
+    }
     mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + renderList(curTab());
     bindInner(mount); bind(mount);
   }
@@ -511,6 +557,13 @@
       mount.innerHTML = subTabs("stats") + innerSwitch() + adpBoardToolbar() + '<div class="ups-m-loading">Loading ADP…</div>';
       bindInner(mount); bindAdpBoard(mount);
       loadAdpBoard().then(function () { if (view.inner === "adp") paint(mount); });
+      return;
+    }
+    if (view.inner === "vegas") {
+      if (vg.data) { paint(mount); return; }
+      mount.innerHTML = subTabs("stats") + innerSwitch() + '<div class="ups-m-loading">Loading Vegas lines…</div>';
+      bindInner(mount);
+      loadVegas().then(function () { if (view.inner === "vegas") paint(mount); });
       return;
     }
     var tab = curTab();

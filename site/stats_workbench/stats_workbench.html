@@ -254,6 +254,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   <button type="button" class="asw-viewtab" data-view="player-stats" aria-selected="true" role="tab">Player Stats</button>
   <button type="button" class="asw-viewtab" data-view="fpa" aria-selected="false" role="tab">Fantasy Points Against</button>
   <button type="button" class="asw-viewtab" data-view="adp" aria-selected="false" role="tab">ADP</button>
+  <button type="button" class="asw-viewtab" data-view="vegas" aria-selected="false" role="tab">Vegas</button>
 </div>
 
 <section id="asw-view-player-stats">
@@ -349,6 +350,9 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 
 <!-- ADP / dynasty-value board — lazy-rendered on first switch. -->
 <section id="asw-view-adp" hidden></section>
+
+<!-- Vegas implied-points board — lazy-rendered on first switch. -->
+<section id="asw-view-vegas" hidden></section>
 </div>
 
 <!-- Drill-down drawer (slides in on row click) -->
@@ -3262,7 +3266,61 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       notifyResize();
     }
 
-    var sections = { "player-stats": psSection, "fpa": host, "adp": adpSection };
+    // ---- Vegas board (Stats → Vegas sub-tab) — implied team points + O/U ----
+    var vegasSection = document.getElementById("asw-view-vegas");
+    var vegas = { year: String(THIS_YEAR), week: 0, data: null, weeks: [], rendered: false, _fb: false };
+    function vegasBody(){ return vegasSection.querySelector(".vegas-body"); }
+    function vegasLoad(){
+      var b = vegasBody(); if (b) b.innerHTML = '<div class="asw-meta" style="padding:14px">Loading Vegas lines…</div>';
+      fetch(API_BASE + "/api/vegas?YEAR=" + encodeURIComponent(vegas.year) + (vegas.week ? "&W=" + vegas.week : ""))
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if ((!d || !(d.teams || []).length) && vegas.year === String(THIS_YEAR) && !vegas._fb) {
+            vegas._fb = true; vegas.year = String(THIS_YEAR - 1); vegas.week = 0; vegasLoad(); return;
+          }
+          vegas.data = d || {}; vegas.weeks = (d && d.weeksWithLines) || []; vegas.week = (d && d.week) || vegas.week;
+          vegasRenderShell(); vegasPaint();
+        })
+        .catch(function(){ vegas.data = { teams: [], games: [] }; vegasRenderShell(); vegasPaint(); });
+    }
+    function vegasRenderShell(){
+      var wkOpts = (vegas.weeks || []).map(function(w){ return '<option value="' + w + '"' + (w === vegas.week ? " selected" : "") + '>Week ' + w + '</option>'; }).join("");
+      vegasSection.innerHTML =
+        '<div class="fpa-controls">' +
+          '<label>Season<select class="vegas-year"></select></label>' +
+          '<label>Week<select class="vegas-week">' + (wkOpts || '<option value="0">—</option>') + '</select></label>' +
+        '</div><div class="vegas-body"></div>';
+      var ysel = vegasSection.querySelector(".vegas-year");
+      loadYears(function(ys){ ysel.innerHTML = ys.map(function(y){ return '<option value="' + y + '"' + (y === vegas.year ? " selected" : "") + '>' + y + '</option>'; }).join(""); });
+      ysel.addEventListener("change", function(){ vegas.year = ysel.value; vegas.week = 0; vegas._fb = true; vegasLoad(); });
+      var wsel = vegasSection.querySelector(".vegas-week");
+      if (wsel) wsel.addEventListener("change", function(){ vegas.week = parseInt(wsel.value, 10) || 0; vegasLoad(); });
+    }
+    function vegasPaint(){
+      var d = vegas.data || {}, teams = (d.teams || []).slice(), games = (d.games || []);
+      function implCls(v){ if (v == null) return ""; if (v >= 26) return "up"; if (v <= 18) return "dn"; return ""; }
+      var html = '<div class="fpa-sub">Vegas implied team points · ' + esc(vegas.year) + ' Week ' + vegas.week + ' · ' + games.length + ' games · implied = O/U ÷ 2 ± spread ÷ 2 · favorite spread is negative</div>' +
+        '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
+        '<th class="num">#</th><th class="team">Team</th><th class="num">Matchup</th>' +
+        '<th class="num">Implied</th><th class="num">O/U</th><th class="num">Spread</th>' +
+        '</tr></thead><tbody>';
+      if (!teams.length) html += '<tr><td class="team">—</td><td colspan="5" class="num" style="color:var(--muted)">No lines posted for this week yet.</td></tr>';
+      teams.forEach(function(t, i){
+        html += '<tr>' +
+          '<td class="num">' + (i + 1) + '</td>' +
+          '<td class="team">' + esc(t.team) + '</td>' +
+          '<td class="num">' + (t.home ? "vs " : "@ ") + esc(t.opp) + '</td>' +
+          '<td class="num"><b class="asw-trend ' + implCls(t.implied) + '">' + (t.implied != null ? t.implied : "—") + '</b></td>' +
+          '<td class="num">' + (t.total != null ? t.total : "—") + '</td>' +
+          '<td class="num">' + (t.spread != null ? ((t.spread > 0 ? "+" : "") + t.spread) : "—") + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+      vegasBody().innerHTML = html;
+      notifyResize();
+    }
+
+    var sections = { "player-stats": psSection, "fpa": host, "adp": adpSection, "vegas": vegasSection };
     viewTabs.querySelectorAll(".asw-viewtab").forEach(function(btn){
       btn.addEventListener("click", function(){
         var v = btn.getAttribute("data-view");
@@ -3270,6 +3328,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         Object.keys(sections).forEach(function(k){ if (sections[k]) sections[k].hidden = (k !== v); });
         if (v === "fpa" && !fpa.rendered) { fpa.rendered = true; renderShell(); load(); }
         if (v === "adp" && !adp.rendered) { adp.rendered = true; adpRenderShell(); adpLoad(); }
+        if (v === "vegas" && !vegas.rendered) { vegas.rendered = true; vegasLoad(); }
         setTimeout(notifyResize, 80);
       });
     });
