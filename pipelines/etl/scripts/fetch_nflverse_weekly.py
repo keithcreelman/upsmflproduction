@@ -256,7 +256,9 @@ def upsert_player_weekly(db: sqlite3.Connection, df, args) -> int:
     rows_to_insert = []
     for row in df.to_dict(orient="records"):
         gsis = pick(row, PLAYERSTATS_MAP["gsis_id"])
-        if not gsis:
+        # A float NaN is truthy, so `if not gsis` lets it through → it lands as a
+        # NULL gsis_id and trips the D1 NOT NULL constraint. Require a real string.
+        if not isinstance(gsis, str) or not gsis.strip():
             continue
         out = {
             "season": int(row.get("season") or 0),
@@ -336,7 +338,7 @@ def upsert_snaps(db: sqlite3.Connection, df, args) -> int:
     rows_to_insert = []
     for row in df.to_dict(orient="records"):
         pfr = pick(row, SNAP_MAP["pfr_id"])
-        if not pfr:
+        if not isinstance(pfr, str) or not pfr.strip():   # float NaN is truthy — require a real id
             continue
         out = {
             "season": int(row.get("season") or 0),
