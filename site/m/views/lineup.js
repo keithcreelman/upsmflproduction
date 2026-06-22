@@ -68,17 +68,24 @@
 
   // ── Matchup intel (Phase 1) — opponent · home/away · kickoff · spread + the
   // opponent-adjusted defense-vs-position rank, from worker /api/lineup-matchups.
+  function muWindow() { return M.state.lineupMuWindow || 0; }   // 0 = season-to-date, else last-N weeks
   function loadMatchups() {
-    if (M.state.lineupMatch || M.state._muLoading) return;
+    var key = muWindow(), lm = M.state.lineupMatch;
+    if (lm && lm.key === key) return;
+    if (M.state._muLoading === ("k" + key)) return;
     var qp; try { qp = new URLSearchParams(location.search); } catch (e) { qp = { get: function () { return null; } }; }
     var myr = qp.get("mYEAR") || M.state.ctx.year;
     var mwk = qp.get("mW") || M.state.lineupWeek || "";
-    if (!mwk) { M.state.lineupMatch = { matchups: {}, defRatings: {} }; return; }   // offseason / no week
-    M.state._muLoading = true;
-    fetch(API.workerUrl("/api/lineup-matchups?YEAR=" + encodeURIComponent(myr) + "&W=" + encodeURIComponent(mwk)), { mode: "cors", credentials: "omit" })
+    if (!mwk) { M.state.lineupMatch = { key: key, matchups: {}, defRatings: {} }; return; }   // offseason / no week
+    M.state._muLoading = "k" + key;
+    fetch(API.workerUrl("/api/lineup-matchups?YEAR=" + encodeURIComponent(myr) + "&W=" + encodeURIComponent(mwk) + (key ? "&last=" + key : "")), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.json(); })
-      .then(function (d) { M.state.lineupMatch = { matchups: (d && d.matchups) || {}, defRatings: (d && d.defRatings) || {}, basis: (d && d.ratingsBasis) || "" }; renderRoute(); })
-      .catch(function () { M.state.lineupMatch = { matchups: {}, defRatings: {} }; });
+      .then(function (d) {
+        M.state.lineupMatch = { key: key, matchups: (d && d.matchups) || {}, defRatings: (d && d.defRatings) || {},
+          playerWindow: (d && d.playerWindow) || {}, horizon: (d && d.horizon) || {}, basis: (d && d.ratingsBasis) || "" };
+        M.state._muLoading = null; renderRoute();
+      })
+      .catch(function () { M.state.lineupMatch = { key: key, matchups: {}, defRatings: {} }; M.state._muLoading = null; });
   }
   function fmtKick(unix) {
     if (!unix) return "";
@@ -88,24 +95,31 @@
       return days[d.getDay()] + " " + h12 + (m ? ":" + (m < 10 ? "0" + m : m) : "") + ap;
     } catch (e) { return ""; }
   }
+  function rankCls(r) { return r == null ? "" : (r <= 10 ? "good" : (r >= 23 ? "tough" : "")); }
   function matchupFor(pid) {
     var lm = M.state.lineupMatch; if (!lm) return null;
     var pl = DATA.playerById(pid); if (!pl) return null;
-    var team = U.safeStr(pl.team).toUpperCase(), m = (lm.matchups || {})[team];
+    var team = U.safeStr(pl.team).toUpperCase(), m = (lm.matchups || {})[team], grp = FO.posGroup(pl.position);
     if (!m) return null;
-    var grp = FO.posGroup(pl.position), dr = (lm.defRatings || {})[m.opp], rk = dr && dr[grp] ? dr[grp] : null;
-    return { opp: m.opp, isHome: m.isHome, kickoff: m.kickoff, spread: m.spread, grp: grp, rank: rk ? rk.rank : null, of: rk ? rk.of : null };
+    var dr = (lm.defRatings || {})[m.opp], rk = dr && dr[grp] ? dr[grp] : null;
+    var form = (lm.playerWindow || {})[String(pid)] || null;
+    var hz = ((lm.horizon || {})[team] || []).slice(0, 3).map(function (h) {
+      var hd = (lm.defRatings || {})[h.opp]; return { opp: h.opp, isHome: h.isHome, rank: hd && hd[grp] ? hd[grp].rank : null };
+    });
+    return { opp: m.opp, isHome: m.isHome, kickoff: m.kickoff, spread: m.spread, grp: grp, rank: rk ? rk.rank : null, of: rk ? rk.of : null, form: form, horizon: hz };
   }
   function slotMatchupHtml(pid) {
     var mu = matchupFor(pid); if (!mu) return "";
     var loc = (mu.isHome ? "vs " : "@ ") + mu.opp, when = fmtKick(mu.kickoff);
     var spread = (mu.spread != null) ? ((mu.spread > 0 ? "+" : "") + mu.spread) : "";
-    var rankHtml = "";
-    if (mu.rank != null) {
-      var cls = mu.rank <= 10 ? "good" : (mu.rank >= 23 ? "tough" : "");
-      rankHtml = '<span class="ups-m-mu-rank ' + cls + '">' + U.escapeHtml(mu.opp) + ' #' + mu.rank + ' to ' + mu.grp + '</span>';
-    }
-    return '<div class="ups-m-slot-mu">' + U.escapeHtml(loc) + (when ? " · " + U.escapeHtml(when) : "") + (spread ? " · " + U.escapeHtml(spread) : "") + (rankHtml ? " · " + rankHtml : "") + '</div>';
+    var rankHtml = mu.rank != null ? '<span class="ups-m-mu-rank ' + rankCls(mu.rank) + '">' + U.escapeHtml(mu.opp) + ' #' + mu.rank + ' to ' + mu.grp + '</span>' : "";
+    var formHtml = (mu.form && mu.form.games) ? '<span class="ups-m-mu-form">' + fmtProj(mu.form.avg) + ' avg</span>' : "";
+    var line1 = '<div class="ups-m-slot-mu">' + U.escapeHtml(loc) + (when ? " · " + U.escapeHtml(when) : "") + (spread ? " · " + U.escapeHtml(spread) : "") + (rankHtml ? " · " + rankHtml : "") + (formHtml ? " · " + formHtml : "") + '</div>';
+    var hz = (mu.horizon || []).filter(function (h) { return h.opp; });
+    var hzHtml = hz.length ? '<div class="ups-m-slot-hz">Next: ' + hz.map(function (h) {
+      return '<span class="ups-m-hz ' + rankCls(h.rank) + '">' + (h.isHome ? "" : "@") + U.escapeHtml(h.opp) + (h.rank != null ? " #" + h.rank : "") + '</span>';
+    }).join(" ") + '</div>' : "";
+    return line1 + hzHtml;
   }
 
   function nameFor(player) {
@@ -213,6 +227,9 @@
         '<div class="ups-m-lineup-tools">' +
           '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-autofill" title="Fill the highest-projected eligible player into every slot">⚡ Optimal</button>' +
           '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-clear">Clear all</button>' +
+          '<span class="ups-m-mu-window" title="Window for the matchup defense rank + recent form">' +
+            [["0", "Season"], ["3", "L3"], ["5", "L5"]].map(function (o) { return '<button type="button" class="ups-m-win-btn' + (String(muWindow()) === o[0] ? " on" : "") + '" data-win="' + o[0] + '">' + o[1] + '</button>'; }).join("") +
+          '</span>' +
         '</div>' +
       '</div>';
   }
@@ -329,6 +346,12 @@
     if (submit) submit.addEventListener("click", function () { handleSubmit(); });
     var benchT = document.getElementById("ups-m-bench-toggle");
     if (benchT) benchT.addEventListener("click", function () { M.state.lineupShowBench = !M.state.lineupShowBench; renderRoute(); });
+    var winBtns = mount.querySelectorAll(".ups-m-win-btn");
+    for (var w = 0; w < winBtns.length; w++) {
+      winBtns[w].addEventListener("click", (function (el) {
+        return function () { M.state.lineupMuWindow = parseInt(el.getAttribute("data-win"), 10) || 0; renderRoute(); };
+      })(winBtns[w]));
+    }
   }
 
   function handleSubmit() {

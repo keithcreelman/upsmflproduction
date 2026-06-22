@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.21.6",
-  "label": "Lineup: 'Bench & matchups' toggle to see every roster player laid out with their matchup; Live Scoring: fixed original projection showing 0 on past-season weeks."
+  "build": "2026.06.21.7",
+  "label": "Lineup matchups Phase 2: Season/L3/L5 window toggle (re-scopes the defense rank + recent form), each starter shows recent avg, and a 'Next:' schedule horizon with each upcoming defense's rank."
 }

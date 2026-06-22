@@ -75,6 +75,15 @@
   .gd-bench-proj { text-align: right; font-size: 14px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
   .gd-bench .gd-slot-mu { border-left: 0; padding-left: 14px; }
   .gd-bench-empty { padding: 12px; text-align: center; color: var(--muted); font-size: 12px; }
+  .gd-mu-form { font-weight: 700; color: var(--fg); }
+  .gd-slot-hz { font-size: 10px; color: var(--muted); padding: 0 14px 7px 11px; border-left: 3px solid var(--accent); }
+  .gd-slot-hz .gd-hz { font-weight: 700; color: var(--fg-muted, var(--muted)); margin-left: 5px; }
+  .gd-hz.good { color: var(--ok); }
+  .gd-hz.tough { color: var(--danger); }
+  .gd-mu-window { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; font-size: 11px; color: var(--muted); }
+  .gd-win-btn { background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .gd-win-btn.on { color: var(--accent); border-color: var(--accent); }
+  .gd-bench .gd-slot-hz { border-left: 0; padding-left: 14px; }
   .gd-slot-tag { display: flex; flex-direction: column; line-height: 1.15; }
   .gd-slot-tag .pos { font-size: 14px; font-weight: 800; color: var(--fg); }
   .gd-slot-tag .pos.flex { color: var(--accent); font-size: 13px; }
@@ -520,19 +529,25 @@
   // ── Submit Lineup matchup intel (Phase 1) — opponent · home/away · kickoff ·
   // spread + the opponent-adjusted defense-vs-position rank, from the worker
   // /api/lineup-matchups. Lazy-loaded for the lineup's scoring week.
+  function muWindow() { return STATE.muWindow || 0; }   // 0 = season-to-date, else last-N weeks
   function loadMatchups() {
-    if (STATE.matchups || STATE._muLoading) return;
+    var key = muWindow();
+    if (STATE.matchups && STATE._muKey === key) return;
+    if (STATE._muLoading === ("k" + key)) return;
     var myr = qp.get("mYEAR") || sbYear();
     var mwk = qp.get("mW") || STATE.projWeek || "";
-    if (!mwk) { STATE.matchups = {}; STATE.defRatings = {}; return; }   // offseason / no week
-    STATE._muLoading = true;
-    fetchJson(workerUrl("/api/lineup-matchups?YEAR=" + encodeURIComponent(myr) + "&W=" + encodeURIComponent(mwk)))
+    if (!mwk) { STATE.matchups = {}; STATE.defRatings = {}; STATE._muKey = key; return; }   // offseason / no week
+    STATE._muLoading = "k" + key;
+    fetchJson(workerUrl("/api/lineup-matchups?YEAR=" + encodeURIComponent(myr) + "&W=" + encodeURIComponent(mwk) + (key ? "&last=" + key : "")))
       .then(function (d) {
         STATE.matchups = (d && d.matchups) || {};
         STATE.defRatings = (d && d.defRatings) || {};
+        STATE.playerWindow = (d && d.playerWindow) || {};
+        STATE.horizon = (d && d.horizon) || {};
         STATE.matchupBasis = (d && d.ratingsBasis) || "";
+        STATE._muKey = key; STATE._muLoading = null;
         render();
-      }).catch(function () { STATE.matchups = {}; STATE.defRatings = {}; });
+      }).catch(function () { STATE.matchups = {}; STATE.defRatings = {}; STATE._muKey = key; STATE._muLoading = null; });
   }
   function fmtKick(unix) {
     if (!unix) return "";
@@ -542,26 +557,35 @@
       return days[d.getDay()] + " " + h12 + (m ? ":" + (m < 10 ? "0" + m : m) : "") + ap;
     } catch (e) { return ""; }
   }
+  function rankCls(r) { return r == null ? "" : (r <= 10 ? "good" : (r >= 23 ? "tough" : "")); }
   function matchupFor(pid) {
     var pl = playerById(pid); if (!pl) return null;
-    var team = s(pl.team).toUpperCase(), m = (STATE.matchups || {})[team];
+    var team = s(pl.team).toUpperCase(), m = (STATE.matchups || {})[team], grp = posGroup(pl.position);
     if (!m) return null;
-    var grp = posGroup(pl.position), dr = (STATE.defRatings || {})[m.opp], rk = dr && dr[grp] ? dr[grp] : null;
+    var dr = (STATE.defRatings || {})[m.opp], rk = dr && dr[grp] ? dr[grp] : null;
+    var form = (STATE.playerWindow || {})[String(pid)] || null;
+    var hz = ((STATE.horizon || {})[team] || []).slice(0, 3).map(function (h) {
+      var hd = (STATE.defRatings || {})[h.opp]; return { opp: h.opp, isHome: h.isHome, rank: hd && hd[grp] ? hd[grp].rank : null };
+    });
     return { opp: m.opp, isHome: m.isHome, kickoff: m.kickoff, spread: m.spread, grp: grp,
-      rank: rk ? rk.rank : null, of: rk ? rk.of : null, ratio: rk ? rk.ratio : null };
+      rank: rk ? rk.rank : null, of: rk ? rk.of : null, ratio: rk ? rk.ratio : null, form: form, horizon: hz };
   }
   function slotMatchupHtml(pid) {
     var mu = matchupFor(pid); if (!mu) return "";
-    var loc = (mu.isHome ? "vs " : "@ ") + mu.opp;
-    var when = fmtKick(mu.kickoff);
+    var loc = (mu.isHome ? "vs " : "@ ") + mu.opp, when = fmtKick(mu.kickoff);
     var spread = (mu.spread != null) ? ((mu.spread > 0 ? "+" : "") + mu.spread) : "";
     var rankHtml = "";
     if (mu.rank != null) {
-      var cls = mu.rank <= 10 ? "good" : (mu.rank >= 23 ? "tough" : "");
       var pct = Math.round((mu.ratio - 1) * 100);
-      rankHtml = '<span class="gd-mu-rank ' + cls + '" title="' + esc(mu.opp) + ' allows ' + (pct >= 0 ? "+" : "") + pct + '% vs expected to ' + mu.grp + ' (1 = easiest of ' + mu.of + ')">' + esc(mu.opp) + ' #' + mu.rank + ' to ' + mu.grp + '</span>';
+      rankHtml = '<span class="gd-mu-rank ' + rankCls(mu.rank) + '" title="' + esc(mu.opp) + ' allows ' + (pct >= 0 ? "+" : "") + pct + '% vs expected to ' + mu.grp + ' (1 = easiest of ' + mu.of + ')">' + esc(mu.opp) + ' #' + mu.rank + ' to ' + mu.grp + '</span>';
     }
-    return '<div class="gd-slot-mu">' + esc(loc) + (when ? " · " + esc(when) : "") + (spread ? " · " + esc(spread) : "") + (rankHtml ? " · " + rankHtml : "") + '</div>';
+    var formHtml = (mu.form && mu.form.games) ? '<span class="gd-mu-form" title="Real avg over the window (' + mu.form.games + ' g)">' + fmtProj(mu.form.avg) + ' avg</span>' : "";
+    var line1 = '<div class="gd-slot-mu">' + esc(loc) + (when ? " · " + esc(when) : "") + (spread ? " · " + esc(spread) : "") + (rankHtml ? " · " + rankHtml : "") + (formHtml ? " · " + formHtml : "") + '</div>';
+    var hz = (mu.horizon || []).filter(function (h) { return h.opp; });
+    var hzHtml = hz.length ? '<div class="gd-slot-hz">Next: ' + hz.map(function (h) {
+      return '<span class="gd-hz ' + rankCls(h.rank) + '">' + (h.isHome ? "" : "@") + esc(h.opp) + (h.rank != null ? " #" + h.rank : "") + '</span>';
+    }).join(" ") + '</div>' : "";
+    return line1 + hzHtml;
   }
   function renderLineup(el) {
     loadMatchups();   // lazy: opponent/kickoff/spread + adjusted def rank per starter
@@ -617,7 +641,10 @@
         '<div class="gd-bar"><div class="gd-bar-fill ' + fillCls + '" style="width:' + pct + '%"></div></div>' +
         (v.errors.length ? '<ul class="gd-lu-errors">' + v.errors.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join("") + '</ul>' : '') +
         '<div class="gd-lu-tools"><button type="button" class="gd-tool" id="gd-autofill" title="Fill the highest-projected eligible player into every slot">⚡ Optimal</button>' +
-        '<button type="button" class="gd-tool" id="gd-clear">Clear all</button></div>' +
+        '<button type="button" class="gd-tool" id="gd-clear">Clear all</button>' +
+        '<span class="gd-mu-window" title="Window for the matchup defense rank + recent form">Matchup ' +
+          [["0", "Season"], ["3", "L3"], ["5", "L5"]].map(function (o) { return '<button type="button" class="gd-win-btn' + (String(muWindow()) === o[0] ? " on" : "") + '" data-win="' + o[0] + '">' + o[1] + '</button>'; }).join("") +
+        '</span></div>' +
       '</div>' +
       (STATE.message ? '<div class="gd-msg ' + esc(STATE.message.kind) + '">' + esc(STATE.message.text) + '</div>' : '') +
       '<div class="gd-cols">' +
@@ -632,6 +659,9 @@
 
     var benchToggle = document.getElementById("gd-bench-toggle");
     if (benchToggle) benchToggle.addEventListener("click", function () { STATE.showBench = !STATE.showBench; rerender(); });
+    el.querySelectorAll(".gd-win-btn").forEach(function (b) {
+      b.addEventListener("click", function () { STATE.muWindow = parseInt(b.getAttribute("data-win"), 10) || 0; rerender(); });
+    });
 
     el.querySelectorAll(".gd-slot-sel").forEach(function (sel) {
       sel.addEventListener("change", function (e) {

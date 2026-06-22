@@ -823,6 +823,16 @@ button.ups-m-busy::before,
 .ups-m-bench-proj { text-align: right; font-size: 14px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
 .ups-m-bench .ups-m-slot-mu { border-left: 0; padding-left: 12px; }
 .ups-m-bench-empty { padding: 12px; text-align: center; color: var(--fg-muted); font-size: 12px; }
+.ups-m-mu-form { font-weight: 700; color: var(--fg); }
+.ups-m-slot-hz { font-size: 9.5px; color: var(--fg-muted); padding: 0 12px 7px 11px; border-left: 3px solid var(--accent); line-height: 1.4; }
+.ups-m-slot-hz .ups-m-hz { font-weight: 700; margin-left: 5px; }
+.ups-m-hz.good { color: var(--ok); }
+.ups-m-hz.tough { color: var(--danger); }
+.ups-m-bench .ups-m-slot-hz { border-left: 0; padding-left: 12px; }
+.ups-m-mu-window { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; }
+.ups-m-win-btn { background: transparent; border: 1px solid var(--line); color: var(--fg-muted); border-radius: 6px;
+  padding: 5px 9px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+.ups-m-win-btn.on { color: var(--accent); border-color: var(--accent); }
 .ups-m-slot-proj {
   text-align: right;
   font-size: 13px;
