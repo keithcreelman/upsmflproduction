@@ -392,7 +392,7 @@
     if (w) { w.value = String(vg.week); w.addEventListener("change", function () { vg.week = parseInt(this.value, 10) || 0; loadVegas().then(function () { if (view.inner === "vegas") paint(mount); }); }); }
   }
   // ── ADP board (Stats → ADP inner tab) — multi-source ranks + tiers, Superflex ──
-  var adpb = { pos: "ALL", data: null, srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.35, generatedAt: null, team: "__ALL__" };
+  var adpb = { pos: "ALL", data: null, srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.35, generatedAt: null, team: "__ALL__", sort: "ovr" };
   function adpRelTime(iso) { if (!iso) return ""; var t = Date.parse(iso); if (isNaN(t)) return ""; var s = Math.max(0, (Date.now() - t) / 1000); if (s < 90) return "just now"; if (s < 5400) return Math.round(s / 60) + "m ago"; if (s < 172800) return Math.round(s / 3600) + "h ago"; return Math.round(s / 86400) + "d ago"; }
   var ADPB_SRC = [["fc", "FC"], ["ktc", "KTC"], ["dp", "DP"]];
   function adpbKeys() { return { d: "dsf", r: "rsf" }; }   // baked Superflex (UPS league)
@@ -477,6 +477,10 @@
     return '<div class="ups-m-players-toolbar">' +
       '<div class="ups-m-auc-sec-head">ADP <span class="ct">Superflex · ' + skew + ' · ranks + tiers' + (adpb.generatedAt ? ' · fetched ' + adpRelTime(adpb.generatedAt) : '') + '</span></div>' +
       '<div class="ups-m-pos-chips">' + chips + "</div>" +
+      '<div class="ups-m-pos-chips" style="margin-top:6px">' +
+        '<button class="ups-m-pos-chip' + (adpb.sort === "ovr" ? " on" : "") + '" data-adpsort="ovr">Overall</button>' +
+        '<button class="ups-m-pos-chip' + (adpb.sort === "pos" ? " on" : "") + '" data-adpsort="pos">Positional</button>' +
+      "</div>" +
       '<div class="ups-m-st-filters"><select class="ups-m-players-filter" id="ups-m-adp-team">' + teamOpts + "</select></div>" +
       '<div class="ups-m-adp-ctl"><span class="ups-m-adp-skew">Dynasty</span>' +
         '<input type="range" class="ups-m-adp-slider" min="0" max="100" step="5" value="' + rdP + '"/>' +
@@ -512,7 +516,8 @@
         return fid === adpb.team;
       });
     }
-    rows.sort(function (a, b) { return (a._ovr || 9999) - (b._ovr || 9999); });
+    var sortKey = adpb.sort === "pos" ? "_posRank" : "_ovr";
+    rows.sort(function (a, b) { return (a[sortKey] || 9999) - (b[sortKey] || 9999); });
     if (!rows.length) return '<div class="ups-m-stub"><div>No players.</div></div>';
     function tpill(t) { if (t == null) return "—"; var c = t <= 1 ? "t1" : t <= 2 ? "t2" : t <= 3 ? "t3" : "tn"; return '<span class="ups-m-tierp ' + c + '">T' + t + "</span>"; }
     var head = '<div class="ups-m-adp-row head"><span class="rk">#</span><span class="pl">Player</span><span class="v">Pos</span><span class="v">Tier</span></div>';
@@ -547,6 +552,8 @@
     if (sl) sl.addEventListener("change", function () { adpb.rdPct = (parseInt(this.value, 10) || 0) / 100; M.route.renderRoute(); });
     var tsel = document.getElementById("ups-m-adp-team");
     if (tsel) { tsel.value = adpb.team; tsel.addEventListener("change", function () { adpb.team = this.value; M.route.renderRoute(); }); }
+    var sc = mount.querySelectorAll(".ups-m-pos-chip[data-adpsort]");
+    for (var s = 0; s < sc.length; s++) sc[s].addEventListener("click", function () { adpb.sort = this.getAttribute("data-adpsort"); M.route.renderRoute(); });
   }
   function fpaToolbar() {
     var yrs = fpa.years || [fpaYear()];
