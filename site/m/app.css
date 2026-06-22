@@ -1141,7 +1141,20 @@ button.ups-m-busy::before,
 .ups-m-stseg-bar.four .ups-m-stseg { font-size: 11px; padding: 8px 2px; letter-spacing: -0.01em; }
 .ups-m-stseg-bar.five { gap: 3px; }
 .ups-m-stseg-bar.five .ups-m-stseg { font-size: 10px; padding: 8px 1px; letter-spacing: -0.02em; }
+.ups-m-stseg-bar.six { gap: 2px; }
+.ups-m-stseg-bar.six .ups-m-stseg { font-size: 9px; padding: 8px 1px; letter-spacing: -0.03em; }
 .ups-m-stseg.on { background: var(--accent); border-color: var(--accent); color: #0a1222; }
+/* Strength-of-Schedule heatmap (Stats → Sched) */
+.ups-m-pos-chips.inline { display: inline-flex; gap: 4px; margin-left: 6px; }
+.ups-m-sched-note { color: var(--fg-muted); font-size: 10px; padding: 0 12px 6px; }
+.ups-m-sched-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 12px 10px; }
+.ups-m-sched-row { display: flex; gap: 2px; align-items: stretch; }
+.ups-m-sched-row .tm { position: sticky; left: 0; z-index: 1; min-width: 58px; max-width: 58px; background: var(--bg); font-size: 11px; font-weight: 700; padding: 4px 4px 4px 0; display: flex; align-items: center; white-space: nowrap; overflow: hidden; }
+.ups-m-sched-row .cell { min-width: 30px; max-width: 30px; text-align: center; font-size: 10px; font-weight: 700; padding: 5px 0; border-radius: 3px; margin-bottom: 2px; }
+.ups-m-sched-row .cell.bye { background: var(--bg-elev); color: var(--fg-muted); }
+.ups-m-sched-row .ag { min-width: 34px; max-width: 34px; text-align: center; font-size: 11px; font-weight: 800; padding: 5px 0; border-radius: 3px; margin-left: 2px; margin-bottom: 2px; }
+.ups-m-sched-row.head .cell, .ups-m-sched-row.head .ag, .ups-m-sched-row.head .tm { background: var(--bg-elev); color: var(--fg-muted); font-size: 9px; font-weight: 700; }
+.ups-m-sched-row.head .cell.po { color: var(--accent); }
 .ups-m-fpa-wk { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--fg-muted); flex: 1 1 0; }
 .ups-m-fpa-wk select { flex: 0 0 auto; min-width: 0; width: 68px; padding-left: 8px; padding-right: 4px; }
 .ups-m-fpa-sub { color: var(--fg-muted); font-size: 11px; padding: 0 12px 8px; }

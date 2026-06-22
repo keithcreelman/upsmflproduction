@@ -367,7 +367,7 @@
 
   function innerSwitch() {
     function b(key, label) { return '<button class="ups-m-stseg' + (view.inner === key ? " on" : "") + '" data-inner="' + key + '">' + label + "</button>"; }
-    return '<div class="ups-m-stseg-bar five">' + b("players", "Players") + b("fpa", "Pts Agst") + b("adp", "ADP") + b("vegas", "Vegas") + b("pace", "Pace") + "</div>";
+    return '<div class="ups-m-stseg-bar six">' + b("players", "Players") + b("fpa", "Pts Agst") + b("adp", "ADP") + b("vegas", "Vegas") + b("pace", "Pace") + b("sched", "Sched") + "</div>";
   }
   // ── Vegas board (Stats → Vegas inner tab) — implied team points + O/U ──
   var vg = { year: 0, week: 0, data: null, weeks: [], _fb: false };
@@ -715,6 +715,61 @@
     if (y) y.addEventListener("change", function () { mpace.season = this.value; mpace.data = null; M.route.renderRoute(); });
   }
 
+  // ── Schedule (fantasy Strength-of-Schedule heatmap) inner tab ──
+  // /api/fantasy-sos: per NFL team × week, the opponent defense's adjusted
+  // generosity to the chosen position (>1 = easy, <1 = tough). Compact
+  // horizontally-scrollable heatmap; offseason projects from prior-season ratings.
+  var msched = { year: 0, pos: "RB", view: "season", data: null };
+  function schedYear() { return String(msched.year || curSeason()); }
+  function schedYears() { var c = parseInt(curSeason(), 10) || new Date().getUTCFullYear(); var a = []; for (var y = c; y >= 2020; y--) a.push(y); return a; }
+  function loadSched() {
+    return fetch(API.workerUrl("/api/fantasy-sos?season=" + encodeURIComponent(schedYear()) + "&pos=" + encodeURIComponent(msched.pos)), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { msched.data = (d && d.ok) ? d : { teams: [] }; return msched.data; })
+      .catch(function () { msched.data = { teams: [] }; return msched.data; });
+  }
+  function schedColor(ratio) {
+    if (ratio == null) return "background:var(--bg-elev);color:var(--fg-muted)";
+    var t = Math.max(0, Math.min(1, (ratio - 0.8) / 0.4));
+    return "background:hsl(" + Math.round(t * 120) + ",55%,34%);color:#fff";
+  }
+  function schedToolbar() {
+    var yopts = schedYears().map(function (y) { return '<option value="' + y + '"' + (String(y) === schedYear() ? " selected" : "") + ">" + y + "</option>"; }).join("");
+    var chips = POS_FPA.map(function (p) { return '<button class="ups-m-pos-chip' + (msched.pos === p[0] ? " on" : "") + '" data-spos="' + p[0] + '">' + p[1] + "</button>"; }).join("");
+    var vchips = [["season", "Full"], ["playoffs", "Playoffs"]].map(function (p) { return '<button class="ups-m-pos-chip' + (msched.view === p[0] ? " on" : "") + '" data-sview="' + p[0] + '">' + p[1] + "</button>"; }).join("");
+    return '<div class="ups-m-players-toolbar">' +
+      '<div class="ups-m-auc-sec-head">Strength of Schedule <span class="ct">green = easy matchup · red = tough</span></div>' +
+      '<div class="ups-m-st-filters"><select class="ups-m-players-filter" id="ups-m-sched-year">' + yopts + "</select>" +
+      '<span class="ups-m-pos-chips inline">' + vchips + "</span></div>" +
+      '<div class="ups-m-pos-chips">' + chips + "</div></div>";
+  }
+  function schedHtml() {
+    if (!msched.data) return '<div class="ups-m-loading">Loading…</div>';
+    var teams = (msched.data.teams || []).slice();
+    if (!teams.length) return '<div class="ups-m-stub"><div>No schedule data.</div></div>';
+    var agg = msched.view === "playoffs" ? "playoffAvg" : "seasonAvg";
+    teams.sort(function (a, b) { return (b[agg] || 0) - (a[agg] || 0); });
+    var wks = []; for (var w = 1; w <= 18; w++) wks.push(w);
+    var note = (msched.data.projected ? "projected — " + msched.data.ratingSeason + " defense ratings · " : "") + (msched.view === "playoffs" ? "sorted easiest-first by playoff (Wk 15–17) avg" : "sorted easiest-first by season avg");
+    var head = '<div class="ups-m-sched-row head"><span class="tm">' + U.escapeHtml(String(msched.data.season || schedYear())) + "</span>" +
+      wks.map(function (wk) { return '<span class="cell' + ((wk >= 15 && wk <= 17) ? " po" : "") + '">' + wk + "</span>"; }).join("") + '<span class="ag">Avg</span></div>';
+    var body = teams.map(function (t, i) {
+      var byW = {}; (t.weeks || []).forEach(function (x) { byW[x.wk] = x; });
+      return '<div class="ups-m-sched-row"><span class="tm">' + (i + 1) + " " + U.escapeHtml(t.team) + "</span>" +
+        wks.map(function (wk) { var c = byW[wk]; if (!c || c.opp == null) return '<span class="cell bye">—</span>'; return '<span class="cell" style="' + schedColor(c.ratio) + '" title="vs ' + U.escapeHtml(c.opp) + " · " + (c.ratio != null ? c.ratio : "—") + '">' + U.escapeHtml(c.opp) + "</span>"; }).join("") +
+        '<span class="ag" style="' + schedColor(t[agg]) + '">' + (t[agg] != null ? t[agg] : "—") + "</span></div>";
+    }).join("");
+    return '<div class="ups-m-sched-note">' + U.escapeHtml(note) + '</div><div class="ups-m-sched-wrap">' + head + body + "</div>";
+  }
+  function bindSched(mount) {
+    var y = document.getElementById("ups-m-sched-year");
+    if (y) y.addEventListener("change", function () { msched.year = this.value; msched.data = null; M.route.renderRoute(); });
+    var ps = mount.querySelectorAll("[data-spos]");
+    for (var i = 0; i < ps.length; i++) ps[i].addEventListener("click", function () { msched.pos = this.getAttribute("data-spos"); msched.data = null; M.route.renderRoute(); });
+    var vs = mount.querySelectorAll("[data-sview]");
+    for (var j = 0; j < vs.length; j++) vs[j].addEventListener("click", function () { msched.view = this.getAttribute("data-sview"); paint(mount); });
+  }
+
   function paint(mount) {
     if (view.inner === "pace") {
       mount.innerHTML = subTabs("stats") + innerSwitch() + paceToolbar() + paceHtml();
@@ -735,6 +790,11 @@
     if (view.inner === "vegas") {
       mount.innerHTML = subTabs("stats") + innerSwitch() + vegasToolbar() + vegasHtml();
       bindInner(mount); bindVegas(mount);
+      return;
+    }
+    if (view.inner === "sched") {
+      mount.innerHTML = subTabs("stats") + innerSwitch() + schedToolbar() + schedHtml();
+      bindInner(mount); bindSched(mount);
       return;
     }
     mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + renderList(curTab());
@@ -783,6 +843,13 @@
       mount.innerHTML = subTabs("stats") + innerSwitch() + '<div class="ups-m-loading">Loading Vegas lines…</div>';
       bindInner(mount);
       loadVegas().then(function () { if (view.inner === "vegas") paint(mount); });
+      return;
+    }
+    if (view.inner === "sched") {
+      if (msched.data) { paint(mount); return; }
+      mount.innerHTML = subTabs("stats") + innerSwitch() + schedToolbar() + '<div class="ups-m-loading">Loading schedule…</div>';
+      bindInner(mount); bindSched(mount);
+      loadSched().then(function () { if (view.inner === "sched") paint(mount); });
       return;
     }
     var tab = curTab();
