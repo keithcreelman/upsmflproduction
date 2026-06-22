@@ -1191,6 +1191,11 @@ button.ups-m-busy::before,
 .ups-m-adp-srcs { display: flex; gap: 12px; padding: 6px 12px 2px; flex-wrap: wrap; }
 .ups-m-adp-srctog { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--fg); }
 .ups-m-adp-srctog input { accent-color: var(--accent); }
+.ups-m-tierp { display: inline-block; min-width: 20px; padding: 1px 5px; border-radius: 4px; font-weight: 800; font-size: 11px; }
+.ups-m-tierp.t1 { background: var(--accent); color: #0a1222; }
+.ups-m-tierp.t2 { background: rgba(91,141,255,0.55); color: #0a1222; }
+.ups-m-tierp.t3 { background: rgba(91,141,255,0.28); color: var(--fg); }
+.ups-m-tierp.tn { background: var(--bg-elev2); color: var(--fg-muted); }
 .ups-m-fa-row .name {
   font-size: 14px;
   font-weight: 600;
