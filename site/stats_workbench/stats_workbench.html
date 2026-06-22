@@ -242,6 +242,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 .asw-trend.dn{color:var(--err)}
 .fpa-team-row{cursor:pointer}
 .fpa-team-row:hover{background:var(--panel-alt)}
+.fpa-week-row{cursor:pointer}
+.fpa-week-row:hover{background:var(--panel-alt)}
 .fpa-back{color:var(--accent);text-decoration:none;font-weight:700}
 .fpa-back:hover{text-decoration:underline}
 </style>
@@ -3034,7 +3036,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
     var POS = [["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"], ["DL", "DL"], ["LB", "LB"], ["DB", "DB"], ["PK", "K"], ["PN", "P"]];
-    var fpa = { year: String(THIS_YEAR), pos: "RB", wkMin: 1, wkMax: 18, sort: "rank", dir: 1, cache: {}, years: null, rendered: false, _fb: false, detailTeam: null, detailCache: {} };
+    var fpa = { year: String(THIS_YEAR), pos: "RB", wkMin: 1, wkMax: 18, sort: "rank", dir: 1, cache: {}, years: null, rendered: false, _fb: false, detailTeam: null, detailWeek: null, detailCache: {} };
     function flipName(n){ n = String(n || ""); if (n.indexOf(",") >= 0) { var p = n.split(","); return ((p[1] || "").trim() + " " + (p[0] || "").trim()).trim(); } return n; }
     function posLbl(){ return (POS.filter(function(p){ return p[0] === fpa.pos; })[0] || ["", ""])[1] || fpa.pos; }
     function key(){ return fpa.year + ":" + fpa.wkMin + "-" + fpa.wkMax; }
@@ -3126,7 +3128,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     // Drill-down: click a team → every player of the position that faced it,
     // game-by-game (pts vs this D, their avg vs everyone else, the % variance).
     function detailKey(team){ return key() + "|" + fpa.pos + "|" + team; }
-    function wireBack(){ var b = host.querySelector(".fpa-back"); if (b) b.addEventListener("click", function(e){ e.preventDefault(); fpa.detailTeam = null; paint(); }); }
+    function wireBack(){ var b = host.querySelector(".fpa-back"); if (b) b.addEventListener("click", function(e){ e.preventDefault(); fpa.detailTeam = null; fpa.detailWeek = null; paint(); }); }
     function paintDetail(team){
       var dk = detailKey(team);
       if (!fpa.detailCache[dk]) {
@@ -3134,33 +3136,68 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         wireBack(); notifyResize();
         fetch(API_BASE + "/api/fpa-detail?YEAR=" + encodeURIComponent(fpa.year) + "&team=" + encodeURIComponent(team) + "&pos=" + encodeURIComponent(fpa.pos) + "&week_min=" + fpa.wkMin + "&week_max=" + fpa.wkMax)
           .then(function(r){ return r.json(); })
-          .then(function(d){ fpa.detailCache[dk] = (d && d.ok) ? d : { games: [] }; if (fpa.detailTeam === team) paintDetail(team); })
-          .catch(function(){ fpa.detailCache[dk] = { games: [], err: 1 }; if (fpa.detailTeam === team) paintDetail(team); });
+          .then(function(d){ fpa.detailCache[dk] = (d && d.ok) ? d : { weeks: [] }; if (fpa.detailTeam === team) paintDetail(team); })
+          .catch(function(){ fpa.detailCache[dk] = { weeks: [], err: 1 }; if (fpa.detailTeam === team) paintDetail(team); });
         return;
       }
-      var dd = fpa.detailCache[dk], games = dd.games || [];
-      var sub = esc(team) + " · " + posLbl() + " it allowed, game by game · " + fpa.year + " wks " + fpa.wkMin + "–" + fpa.wkMax + " · &Delta; vs each player's average against everyone else" + (dd.err ? " · (load error)" : "");
-      var html = '<div class="fpa-sub"><a href="#" class="fpa-back">&larr; All teams</a> &nbsp;·&nbsp; ' + sub + '</div>' +
+      var dd = fpa.detailCache[dk], weeks = dd.weeks || [];
+      var topSub = esc(team) + " · " + posLbl() + " allowed · " + fpa.year + " wks " + fpa.wkMin + "–" + fpa.wkMax +
+        " · " + (dd.total != null ? dd.total : "—") + " total" + (dd.perGame != null ? " · " + dd.perGame + "/gm" : "") + (dd.err ? " · (load error)" : "");
+
+      if (fpa.detailWeek == null) {
+        // LEVEL 1 — weekly totals first (how the position did each game); click a week for the players.
+        var html = '<div class="fpa-sub"><a href="#" class="fpa-back">&larr; All teams</a> &nbsp;·&nbsp; ' + topSub + ' &nbsp;·&nbsp; <span style="color:var(--muted)">click a week for the players</span></div>' +
+          '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
+          '<th class="num">Wk</th>' +
+          '<th class="num" title="Total ' + esc(posLbl()) + ' fantasy points this defense allowed that week">Allowed</th>' +
+          '<th class="num" title="How many players of this position faced them that week">Players</th>' +
+          '<th class="num"></th>' +
+          '</tr></thead><tbody>';
+        if (!weeks.length) html += '<tr><td colspan="4" class="num" style="color:var(--muted)">No games in range.</td></tr>';
+        weeks.forEach(function(w){
+          html += '<tr class="fpa-week-row" data-wk="' + w.wk + '" title="Click for the players in Week ' + w.wk + '">' +
+            '<td class="num">' + w.wk + '</td>' +
+            '<td class="num">' + (w.total != null ? w.total : "—") + '</td>' +
+            '<td class="num">' + (w.players ? w.players.length : 0) + '</td>' +
+            '<td class="num" style="color:var(--accent)">&rsaquo;</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table></div>';
+        host.querySelector(".fpa-body").innerHTML = html;
+        wireBack();
+        host.querySelectorAll(".fpa-week-row[data-wk]").forEach(function(tr){
+          tr.addEventListener("click", function(){ fpa.detailWeek = parseInt(tr.getAttribute("data-wk"), 10); paintDetail(team); });
+        });
+        notifyResize();
+        return;
+      }
+
+      // LEVEL 2 — the players who faced them in the chosen week.
+      var wk = null; for (var wi = 0; wi < weeks.length; wi++) if (weeks[wi].wk === fpa.detailWeek) wk = weeks[wi];
+      var players = wk ? (wk.players || []) : [];
+      var sub = esc(team) + " · Week " + fpa.detailWeek + " · " + posLbl() + " · " + (wk && wk.total != null ? wk.total + " allowed" : "—") + " · &Delta; vs each player's average against everyone else";
+      var html2 = '<div class="fpa-sub"><a href="#" class="fpa-week-back">&larr; ' + esc(team) + ' weeks</a> &nbsp;·&nbsp; ' + sub + '</div>' +
         '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
-        '<th class="num">Wk</th><th class="team">Player</th>' +
+        '<th class="team">Player</th>' +
         '<th class="num" title="Fantasy points scored against this defense">FP</th>' +
         '<th class="num" title="That player\'s average vs everyone else (excludes games vs this D)">Norm</th>' +
         '<th class="num" title="How much above/below their norm">&Delta; vs Norm</th>' +
         '</tr></thead><tbody>';
-      if (!games.length) html += '<tr><td class="team">—</td><td colspan="4" class="num" style="color:var(--muted)">No games in range.</td></tr>';
-      games.forEach(function(g){
+      if (!players.length) html2 += '<tr><td class="team">—</td><td colspan="3" class="num" style="color:var(--muted)">No players.</td></tr>';
+      players.forEach(function(g){
         var v = g.variancePct, vcls = v == null ? "" : (v > 0 ? "up" : (v < 0 ? "dn" : ""));
-        html += '<tr>' +
-          '<td class="num">' + g.wk + '</td>' +
+        html2 += '<tr>' +
           '<td class="team">' + esc(flipName(g.name)) + '</td>' +
           '<td class="num">' + (g.pts != null ? g.pts : "—") + '</td>' +
           '<td class="num">' + (g.avgVsOthers != null ? g.avgVsOthers : "—") + '</td>' +
           '<td class="num">' + (v != null ? '<span class="asw-trend ' + vcls + '">' + (v >= 0 ? "+" : "") + v + "%</span>" : "—") + '</td>' +
           '</tr>';
       });
-      html += '</tbody></table></div>';
-      host.querySelector(".fpa-body").innerHTML = html;
-      wireBack(); notifyResize();
+      html2 += '</tbody></table></div>';
+      host.querySelector(".fpa-body").innerHTML = html2;
+      wireBack();
+      var wb = host.querySelector(".fpa-week-back"); if (wb) wb.addEventListener("click", function(e){ e.preventDefault(); fpa.detailWeek = null; paintDetail(team); });
+      notifyResize();
     }
 
     function renderShell(){
@@ -3176,13 +3213,13 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         '<div class="fpa-body"></div>';
       var ysel = host.querySelector(".fpa-year");
       loadYears(function(ys){ ysel.innerHTML = ys.map(function(y){ return '<option value="' + y + '"' + (y === fpa.year ? " selected" : "") + '>' + y + '</option>'; }).join(""); });
-      ysel.addEventListener("change", function(){ fpa.year = ysel.value; fpa._fb = true; fpa.detailTeam = null; load(); });
-      host.querySelector(".fpa-wmin").addEventListener("change", function(e){ fpa.wkMin = parseInt(e.target.value, 10) || 1; if (fpa.wkMax < fpa.wkMin) { fpa.wkMax = fpa.wkMin; host.querySelector(".fpa-wmax").value = fpa.wkMax; } fpa.detailTeam = null; load(); });
-      host.querySelector(".fpa-wmax").addEventListener("change", function(e){ fpa.wkMax = parseInt(e.target.value, 10) || 18; if (fpa.wkMax < fpa.wkMin) { fpa.wkMin = fpa.wkMax; host.querySelector(".fpa-wmin").value = fpa.wkMin; } fpa.detailTeam = null; load(); });
+      ysel.addEventListener("change", function(){ fpa.year = ysel.value; fpa._fb = true; fpa.detailTeam = null; fpa.detailWeek = null; load(); });
+      host.querySelector(".fpa-wmin").addEventListener("change", function(e){ fpa.wkMin = parseInt(e.target.value, 10) || 1; if (fpa.wkMax < fpa.wkMin) { fpa.wkMax = fpa.wkMin; host.querySelector(".fpa-wmax").value = fpa.wkMax; } fpa.detailTeam = null; fpa.detailWeek = null; load(); });
+      host.querySelector(".fpa-wmax").addEventListener("change", function(e){ fpa.wkMax = parseInt(e.target.value, 10) || 18; if (fpa.wkMax < fpa.wkMin) { fpa.wkMin = fpa.wkMax; host.querySelector(".fpa-wmin").value = fpa.wkMin; } fpa.detailTeam = null; fpa.detailWeek = null; load(); });
       host.querySelectorAll(".fpa-pos button").forEach(function(b){
         b.addEventListener("click", function(){
           fpa.pos = b.getAttribute("data-pos");
-          fpa.detailTeam = null;
+          fpa.detailTeam = null; fpa.detailWeek = null;
           host.querySelectorAll(".fpa-pos button").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
           paint();
         });

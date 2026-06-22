@@ -314,7 +314,7 @@
   // rating, from /api/fantasy-points-against. One fetch per (year, week-range)
   // covers all 9 groups; position chips filter client-side.
   var POS_FPA = [["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"], ["DL", "DL"], ["LB", "LB"], ["DB", "DB"], ["PK", "K"], ["PN", "P"]];
-  var fpa = { year: 0, pos: "RB", wkMin: 1, wkMax: 18, sort: "rank", dir: 1, cache: {}, years: null, _fb: false, detailTeam: null, detailCache: {} };
+  var fpa = { year: 0, pos: "RB", wkMin: 1, wkMax: 18, sort: "rank", dir: 1, cache: {}, years: null, _fb: false, detailTeam: null, detailWeek: null, detailCache: {} };
   function fpaYear() { return String(fpa.year || curSeason()); }
   function fpaKey() { return fpaYear() + ":" + fpa.wkMin + "-" + fpa.wkMax; }
   function fpaPosLbl() { return (POS_FPA.filter(function (p) { return p[0] === fpa.pos; })[0] || ["", ""])[1] || fpa.pos; }
@@ -324,8 +324,8 @@
     if (fpa.detailCache[dk]) return Promise.resolve(fpa.detailCache[dk]);
     return fetch(API.workerUrl("/api/fpa-detail?YEAR=" + encodeURIComponent(fpaYear()) + "&team=" + encodeURIComponent(fpa.detailTeam) + "&pos=" + encodeURIComponent(fpa.pos) + "&week_min=" + fpa.wkMin + "&week_max=" + fpa.wkMax), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.json(); })
-      .then(function (d) { fpa.detailCache[dk] = (d && d.ok) ? d : { games: [] }; return fpa.detailCache[dk]; })
-      .catch(function () { fpa.detailCache[dk] = { games: [], err: 1 }; return fpa.detailCache[dk]; });
+      .then(function (d) { fpa.detailCache[dk] = (d && d.ok) ? d : { weeks: [] }; return fpa.detailCache[dk]; })
+      .catch(function () { fpa.detailCache[dk] = { weeks: [], err: 1 }; return fpa.detailCache[dk]; });
   }
 
   function loadFpaYears() {
@@ -478,21 +478,41 @@
     return '<div class="ups-m-fpa-sub">' + U.escapeHtml(sub) + '</div><div class="ups-m-fpa-table">' + head + body + "</div>";
   }
   function fpaDetailHtml() {
-    var back = '<div class="ups-m-fpa-sub"><a href="#" class="ups-m-fpa-back">&larr; All teams</a> · ' + U.escapeHtml(fpa.detailTeam + " vs " + fpaPosLbl() + ", game by game · Δ vs avg against others") + "</div>";
     var dd = fpa.detailCache[fpaDetailKey()];
-    if (!dd) return back + '<div class="ups-m-loading">Loading…</div>';
-    var games = dd.games || [];
-    if (!games.length) return back + '<div class="ups-m-stub"><div>No games in range.</div></div>';
-    var rows = games.map(function (g) {
+    var hdr = fpa.detailTeam + " · " + fpaPosLbl();
+    var teamBack = '<div class="ups-m-fpa-sub"><a href="#" class="ups-m-fpa-back">&larr; All teams</a> · ';
+    if (!dd) return teamBack + U.escapeHtml(hdr) + "</div>" + '<div class="ups-m-loading">Loading…</div>';
+    var weeks = dd.weeks || [];
+
+    if (fpa.detailWeek == null) {
+      // LEVEL 1 — weekly totals first (how the position did each game); tap a week for the players.
+      var sub = teamBack + U.escapeHtml(hdr + (dd.total != null ? " · " + dd.total + " total" : "") + (dd.perGame != null ? " · " + dd.perGame + "/gm" : "")) + " · tap a week</div>";
+      if (!weeks.length) return sub + '<div class="ups-m-stub"><div>No games in range.</div></div>';
+      var wrows = weeks.map(function (w) {
+        return '<div class="ups-m-fpa-wkrow" data-fpawk="' + w.wk + '">' +
+          '<span class="wk">Week ' + w.wk + "</span>" +
+          '<span class="tot"><span class="b">' + (w.total != null ? w.total : "—") + '</span><span class="s">' + (w.players ? w.players.length : 0) + " players</span></span>" +
+          '<span class="ch">&rsaquo;</span>' +
+        "</div>";
+      }).join("");
+      return sub + '<div class="ups-m-fpa-table">' + wrows + "</div>";
+    }
+
+    // LEVEL 2 — the players who faced them in the chosen week.
+    var wk = null; for (var i = 0; i < weeks.length; i++) if (weeks[i].wk === fpa.detailWeek) wk = weeks[i];
+    var players = wk ? (wk.players || []) : [];
+    var wkBack = '<div class="ups-m-fpa-sub"><a href="#" class="ups-m-fpa-wkback">&larr; ' + U.escapeHtml(fpa.detailTeam) + ' weeks</a> · ' +
+      U.escapeHtml("Wk " + fpa.detailWeek + (wk && wk.total != null ? " · " + wk.total + " allowed" : "") + " · Δ vs avg vs others") + "</div>";
+    if (!players.length) return wkBack + '<div class="ups-m-stub"><div>No players.</div></div>';
+    var rows = players.map(function (g) {
       var v = g.variancePct, vcls = v == null ? "" : (v > 0 ? "up" : (v < 0 ? "dn" : ""));
-      return '<div class="ups-m-fpa-drow">' +
-        '<span class="wk">' + g.wk + "</span>" +
+      return '<div class="ups-m-fpa-drow nowk">' +
         '<span class="pl"><span class="nm">' + U.escapeHtml(flip(g.name)) + '</span><span class="sub">norm ' + (g.avgVsOthers != null ? g.avgVsOthers : "—") + "</span></span>" +
         '<span class="fp">' + (g.pts != null ? g.pts : "—") + "</span>" +
         '<span class="dv"><span class="ups-m-tr ' + vcls + '">' + (v != null ? ((v >= 0 ? "+" : "") + v + "%") : "—") + "</span></span>" +
       "</div>";
     }).join("");
-    return back + '<div class="ups-m-fpa-table">' + rows + "</div>";
+    return wkBack + '<div class="ups-m-fpa-table">' + rows + "</div>";
   }
   function bindInner(mount) {
     var segs = mount.querySelectorAll(".ups-m-stseg[data-inner]");
@@ -500,17 +520,22 @@
   }
   function bindFpa(mount) {
     var y = document.getElementById("ups-m-fpa-year");
-    if (y) { y.value = fpaYear(); y.addEventListener("change", function () { fpa.year = this.value; fpa._fb = true; fpa.detailTeam = null; M.route.renderRoute(); }); }
+    if (y) { y.value = fpaYear(); y.addEventListener("change", function () { fpa.year = this.value; fpa._fb = true; fpa.detailTeam = null; fpa.detailWeek = null; M.route.renderRoute(); }); }
     var wmin = document.getElementById("ups-m-fpa-wmin");
-    if (wmin) { wmin.value = String(fpa.wkMin); wmin.addEventListener("change", function () { fpa.wkMin = parseInt(this.value, 10) || 1; if (fpa.wkMax < fpa.wkMin) fpa.wkMax = fpa.wkMin; fpa.detailTeam = null; M.route.renderRoute(); }); }
+    if (wmin) { wmin.value = String(fpa.wkMin); wmin.addEventListener("change", function () { fpa.wkMin = parseInt(this.value, 10) || 1; if (fpa.wkMax < fpa.wkMin) fpa.wkMax = fpa.wkMin; fpa.detailTeam = null; fpa.detailWeek = null; M.route.renderRoute(); }); }
     var wmax = document.getElementById("ups-m-fpa-wmax");
-    if (wmax) { wmax.value = String(fpa.wkMax); wmax.addEventListener("change", function () { fpa.wkMax = parseInt(this.value, 10) || 18; if (fpa.wkMax < fpa.wkMin) fpa.wkMin = fpa.wkMax; fpa.detailTeam = null; M.route.renderRoute(); }); }
+    if (wmax) { wmax.value = String(fpa.wkMax); wmax.addEventListener("change", function () { fpa.wkMax = parseInt(this.value, 10) || 18; if (fpa.wkMax < fpa.wkMin) fpa.wkMin = fpa.wkMax; fpa.detailTeam = null; fpa.detailWeek = null; M.route.renderRoute(); }); }
     var chips = mount.querySelectorAll(".ups-m-pos-chip[data-fpapos]");
-    for (var i = 0; i < chips.length; i++) chips[i].addEventListener("click", function () { fpa.pos = this.getAttribute("data-fpapos"); fpa.detailTeam = null; M.route.renderRoute(); });
+    for (var i = 0; i < chips.length; i++) chips[i].addEventListener("click", function () { fpa.pos = this.getAttribute("data-fpapos"); fpa.detailTeam = null; fpa.detailWeek = null; M.route.renderRoute(); });
     var teamRows = mount.querySelectorAll(".ups-m-fpa-row.tap[data-fpateam]");
-    for (var t = 0; t < teamRows.length; t++) teamRows[t].addEventListener("click", function () { fpa.detailTeam = this.getAttribute("data-fpateam"); M.route.renderRoute(); });
+    for (var t = 0; t < teamRows.length; t++) teamRows[t].addEventListener("click", function () { fpa.detailTeam = this.getAttribute("data-fpateam"); fpa.detailWeek = null; M.route.renderRoute(); });
     var back = mount.querySelector(".ups-m-fpa-back");
-    if (back) back.addEventListener("click", function (e) { e.preventDefault(); fpa.detailTeam = null; M.route.renderRoute(); });
+    if (back) back.addEventListener("click", function (e) { e.preventDefault(); fpa.detailTeam = null; fpa.detailWeek = null; M.route.renderRoute(); });
+    // two-level drill: tap a week → its players; tap "weeks" → back to the weekly totals
+    var wkRows = mount.querySelectorAll(".ups-m-fpa-wkrow[data-fpawk]");
+    for (var w = 0; w < wkRows.length; w++) wkRows[w].addEventListener("click", function () { fpa.detailWeek = parseInt(this.getAttribute("data-fpawk"), 10); M.route.renderRoute(); });
+    var wkBack = mount.querySelector(".ups-m-fpa-wkback");
+    if (wkBack) wkBack.addEventListener("click", function (e) { e.preventDefault(); fpa.detailWeek = null; M.route.renderRoute(); });
   }
 
   function paint(mount) {
