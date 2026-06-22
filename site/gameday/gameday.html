@@ -61,6 +61,10 @@
   .gd-chip.proj { color: var(--accent); border-color: rgba(91,141,255,0.4); }
   .gd-slot:first-child { border-top: 0; }
   .gd-slot.filled { border-left: 3px solid var(--accent); padding-left: 11px; }
+  .gd-slot-mu { font-size: 11px; color: var(--muted); padding: 0 14px 7px 11px; border-left: 3px solid var(--accent); line-height: 1.3; }
+  .gd-mu-rank { font-weight: 700; color: var(--fg); }
+  .gd-mu-rank.good { color: var(--ok); }
+  .gd-mu-rank.tough { color: var(--danger); }
   .gd-slot-tag { display: flex; flex-direction: column; line-height: 1.15; }
   .gd-slot-tag .pos { font-size: 14px; font-weight: 800; color: var(--fg); }
   .gd-slot-tag .pos.flex { color: var(--accent); font-size: 13px; }
@@ -276,6 +280,7 @@
     ]).then(function (r) {
       STATE.league = r[0]; STATE.rosters = r[1]; STATE.salaries = r[2]; STATE.players = r[3];
       STATE.proj = parseProj(r[4]);
+      STATE.projWeek = parseInt((r[4] && r[4].projectedScores && r[4].projectedScores.week) || 0, 10) || 0;
       parseLeague(); resolveViewer();
     });
   }
@@ -500,9 +505,56 @@
       '<div class="gd-slot-tag"><span class="pos' + (slot.flex ? " flex" : "") + '">' + esc(slot.label) + '</span>' + note + '</div>' +
       '<select class="gd-slot-sel' + (current ? "" : " empty") + '" data-slot="' + esc(slot.id) + '">' + opts + '</select>' +
       '<div class="gd-slot-proj' + (cur != null ? "" : " none") + '" title="Projected points">' + esc(fmtProj(cur)) + '</div>' +
-    '</div>';
+    '</div>' + (current ? slotMatchupHtml(current) : "");
+  }
+  // ── Submit Lineup matchup intel (Phase 1) — opponent · home/away · kickoff ·
+  // spread + the opponent-adjusted defense-vs-position rank, from the worker
+  // /api/lineup-matchups. Lazy-loaded for the lineup's scoring week.
+  function loadMatchups() {
+    if (STATE.matchups || STATE._muLoading) return;
+    var myr = qp.get("mYEAR") || sbYear();
+    var mwk = qp.get("mW") || STATE.projWeek || "";
+    if (!mwk) { STATE.matchups = {}; STATE.defRatings = {}; return; }   // offseason / no week
+    STATE._muLoading = true;
+    fetchJson(workerUrl("/api/lineup-matchups?YEAR=" + encodeURIComponent(myr) + "&W=" + encodeURIComponent(mwk)))
+      .then(function (d) {
+        STATE.matchups = (d && d.matchups) || {};
+        STATE.defRatings = (d && d.defRatings) || {};
+        STATE.matchupBasis = (d && d.ratingsBasis) || "";
+        render();
+      }).catch(function () { STATE.matchups = {}; STATE.defRatings = {}; });
+  }
+  function fmtKick(unix) {
+    if (!unix) return "";
+    try {
+      var d = new Date(unix * 1000), days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      var h = d.getHours(), m = d.getMinutes(), ap = h >= 12 ? "p" : "a", h12 = h % 12 || 12;
+      return days[d.getDay()] + " " + h12 + (m ? ":" + (m < 10 ? "0" + m : m) : "") + ap;
+    } catch (e) { return ""; }
+  }
+  function matchupFor(pid) {
+    var pl = playerById(pid); if (!pl) return null;
+    var team = s(pl.team).toUpperCase(), m = (STATE.matchups || {})[team];
+    if (!m) return null;
+    var grp = posGroup(pl.position), dr = (STATE.defRatings || {})[m.opp], rk = dr && dr[grp] ? dr[grp] : null;
+    return { opp: m.opp, isHome: m.isHome, kickoff: m.kickoff, spread: m.spread, grp: grp,
+      rank: rk ? rk.rank : null, of: rk ? rk.of : null, ratio: rk ? rk.ratio : null };
+  }
+  function slotMatchupHtml(pid) {
+    var mu = matchupFor(pid); if (!mu) return "";
+    var loc = (mu.isHome ? "vs " : "@ ") + mu.opp;
+    var when = fmtKick(mu.kickoff);
+    var spread = (mu.spread != null) ? ((mu.spread > 0 ? "+" : "") + mu.spread) : "";
+    var rankHtml = "";
+    if (mu.rank != null) {
+      var cls = mu.rank <= 10 ? "good" : (mu.rank >= 23 ? "tough" : "");
+      var pct = Math.round((mu.ratio - 1) * 100);
+      rankHtml = '<span class="gd-mu-rank ' + cls + '" title="' + esc(mu.opp) + ' allows ' + (pct >= 0 ? "+" : "") + pct + '% vs expected to ' + mu.grp + ' (1 = easiest of ' + mu.of + ')">' + esc(mu.opp) + ' #' + mu.rank + ' to ' + mu.grp + '</span>';
+    }
+    return '<div class="gd-slot-mu">' + esc(loc) + (when ? " · " + esc(when) : "") + (spread ? " · " + esc(spread) : "") + (rankHtml ? " · " + rankHtml : "") + '</div>';
   }
   function renderLineup(el) {
+    loadMatchups();   // lazy: opponent/kickoff/spread + adjusted def rank per starter
     var rows = buildRows();
     if (!rows.length) {
       el.innerHTML = '<div class="gd-stub">No roster found' + (STATE.viewerFranchiseId ? " for " + esc(STATE.viewerFranchiseId) : " — sign in to MFL") + '.</div>';
