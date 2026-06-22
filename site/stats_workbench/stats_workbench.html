@@ -3154,21 +3154,33 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       var topSub = esc(team) + " · " + posLbl() + " allowed · " + fpa.year + " wks " + fpa.wkMin + "–" + fpa.wkMax +
         " · " + (dd.total != null ? dd.total : "—") + " total" + (dd.perGame != null ? " · " + dd.perGame + "/gm" : "") + (dd.err ? " · (load error)" : "");
 
+      function pctSpan(p){ return (p != null) ? '<span class="asw-trend ' + (p > 0 ? "up" : (p < 0 ? "dn" : "")) + '">' + (p >= 0 ? "+" : "") + p + "%</span>" : ""; }
+      var paceNote = (dd.dPace && dd.dPace.expDeltaPct != null) ? (" · this D allows " + (dd.dPace.expDeltaPct >= 0 ? "+" : "") + dd.dPace.expDeltaPct + "% plays vs league") : "";
+
       if (fpa.detailWeek == null) {
-        // LEVEL 1 — weekly totals first (how the position did each game); click a week for the players.
-        var html = '<div class="fpa-sub"><a href="#" class="fpa-back">&larr; All teams</a> &nbsp;·&nbsp; ' + topSub + ' &nbsp;·&nbsp; <span style="color:var(--muted)">click a week for the players</span></div>' +
+        // LEVEL 1 — weekly totals + game-script (did the opponent run the volume the
+        // matchup implied?); click a week for the players.
+        var html = '<div class="fpa-sub"><a href="#" class="fpa-back">&larr; All teams</a> &nbsp;·&nbsp; ' + topSub + paceNote + ' &nbsp;·&nbsp; <span style="color:var(--muted)">click a week for the players</span></div>' +
           '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
           '<th class="num">Wk</th>' +
           '<th class="num" title="Total ' + esc(posLbl()) + ' fantasy points this defense allowed that week">Allowed</th>' +
-          '<th class="num" title="How many players of this position faced them that week">Players</th>' +
+          '<th class="num" title="Opponent offense that faced this defense">Opp</th>' +
+          '<th class="num" title="Opponent offensive plays that week vs their season norm">Plays vs Norm</th>' +
+          '<th class="num" title="Actual volume vs the snap bump this defense usually allows — negative = the game script (blowout / pass-funnel / clock) suppressed volume despite the matchup">Script</th>' +
           '<th class="num"></th>' +
           '</tr></thead><tbody>';
-        if (!weeks.length) html += '<tr><td colspan="4" class="num" style="color:var(--muted)">No games in range.</td></tr>';
+        if (!weeks.length) html += '<tr><td colspan="6" class="num" style="color:var(--muted)">No games in range.</td></tr>';
         weeks.forEach(function(w){
+          var s = w.script || {};
+          var playsHtml = (s.playsWk != null) ? (s.playsWk + " " + pctSpan(s.actualDeltaPct)) : "—";
+          var sg = s.scriptGap;
+          var sgHtml = (sg != null) ? '<span class="asw-trend ' + (sg > 0 ? "up" : (sg < 0 ? "dn" : "")) + '">' + (sg >= 0 ? "+" : "") + sg + "</span>" : "—";
           html += '<tr class="fpa-week-row" data-wk="' + w.wk + '" title="Click for the players in Week ' + w.wk + '">' +
             '<td class="num">' + w.wk + '</td>' +
             '<td class="num">' + (w.total != null ? w.total : "—") + '</td>' +
-            '<td class="num">' + (w.players ? w.players.length : 0) + '</td>' +
+            '<td class="num">' + esc(s.opp || "—") + '</td>' +
+            '<td class="num">' + playsHtml + '</td>' +
+            '<td class="num">' + sgHtml + '</td>' +
             '<td class="num" style="color:var(--accent)">&rsaquo;</td>' +
             '</tr>';
         });
@@ -3185,22 +3197,27 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       // LEVEL 2 — the players who faced them in the chosen week.
       var wk = null; for (var wi = 0; wi < weeks.length; wi++) if (weeks[wi].wk === fpa.detailWeek) wk = weeks[wi];
       var players = wk ? (wk.players || []) : [];
-      var sub = esc(team) + " · Week " + fpa.detailWeek + " · " + posLbl() + " · " + (wk && wk.total != null ? wk.total + " allowed" : "—") + " · &Delta; vs each player's average against everyone else";
+      var wkScript = wk && wk.script;
+      var scriptNote = (wkScript && wkScript.opp) ? (" · vs " + esc(wkScript.opp) + (wkScript.playsWk != null ? " (" + wkScript.playsWk + " plays " + pctSpan(wkScript.actualDeltaPct) + " vs norm)" : "")) : "";
+      var sub = esc(team) + " · Week " + fpa.detailWeek + " · " + posLbl() + " · " + (wk && wk.total != null ? wk.total + " allowed" : "—") + scriptNote;
       var html2 = '<div class="fpa-sub"><a href="#" class="fpa-week-back">&larr; ' + esc(team) + ' weeks</a> &nbsp;·&nbsp; ' + sub + '</div>' +
         '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
         '<th class="team">Player</th>' +
         '<th class="num" title="Fantasy points scored against this defense">FP</th>' +
         '<th class="num" title="That player\'s average vs everyone else (excludes games vs this D)">Norm</th>' +
         '<th class="num" title="How much above/below their norm">&Delta; vs Norm</th>' +
+        '<th class="num" title="Offensive snaps that week vs the player\'s season norm — context for whether a big/small game was volume or efficiency">Snaps vs Norm</th>' +
         '</tr></thead><tbody>';
-      if (!players.length) html2 += '<tr><td class="team">—</td><td colspan="3" class="num" style="color:var(--muted)">No players.</td></tr>';
+      if (!players.length) html2 += '<tr><td class="team">—</td><td colspan="4" class="num" style="color:var(--muted)">No players.</td></tr>';
       players.forEach(function(g){
         var v = g.variancePct, vcls = v == null ? "" : (v > 0 ? "up" : (v < 0 ? "dn" : ""));
+        var snapHtml = (g.snaps != null) ? (g.snaps + " " + pctSpan(g.snapDeltaPct)) : "—";
         html2 += '<tr>' +
           '<td class="team">' + esc(flipName(g.name)) + '</td>' +
           '<td class="num">' + (g.pts != null ? g.pts : "—") + '</td>' +
           '<td class="num">' + (g.avgVsOthers != null ? g.avgVsOthers : "—") + '</td>' +
           '<td class="num">' + (v != null ? '<span class="asw-trend ' + vcls + '">' + (v >= 0 ? "+" : "") + v + "%</span>" : "—") + '</td>' +
+          '<td class="num">' + snapHtml + '</td>' +
           '</tr>';
       });
       html2 += '</tbody></table></div>';
