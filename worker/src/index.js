@@ -9933,14 +9933,37 @@ export default {
         try {
           const yr = safeStr(url.searchParams.get("season") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
           const posWanted = (safeStr(url.searchParams.get("pos") || "RB").toUpperCase()) || "RB";
-          const origin = new URL(request.url).origin;
           const toNflv = (t) => ({ GBP: "GB", KCC: "KC", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB", LVR: "LV", JAC: "JAX", LAR: "LA", OAK: "LV", SDC: "LAC", SD: "LAC", STL: "LA", ARZ: "ARI", BLT: "BAL", CLV: "CLE", HST: "HOU" }[t] || t);
-          const fpaFor = (season) => fetch(`${origin}/api/fantasy-points-against?YEAR=${season}&pos=${posWanted}&week_min=1&week_max=17`, { cf: { cacheTtl: 3600, cacheEverything: true } }).then((x) => x.ok ? x.json() : null).then((j) => (j && j.teams) ? j.teams : null).catch(() => null);
+          // Compute the FPA def-vs-pos ratings INLINE for posWanted (a Worker
+          // fetching its own /api route returns empty). Same engine as
+          // /api/fantasy-points-against, edge-cached MFL fetches.
+          const lid = "74598";
+          const arr = (x) => Array.isArray(x) ? x : (x == null ? [] : [x]);
+          const posGroup = (p) => { p = safeStr(p).toUpperCase(); if (p === "QB") return "QB"; if (["RB", "FB", "HB"].includes(p)) return "RB"; if (p === "WR") return "WR"; if (p === "TE") return "TE"; if (["PK", "K"].includes(p)) return "PK"; if (["PN", "P"].includes(p)) return "PN"; if (["DT", "DE", "NT", "DL"].includes(p)) return "DL"; if (["LB", "OLB", "ILB", "MLB"].includes(p)) return "LB"; if (["CB", "S", "FS", "SS", "DB"].includes(p)) return "DB"; return ""; };
+          const jf = (u, ttl) => fetch(u, { cf: { cacheTtl: ttl, cacheEverything: true }, headers: { "User-Agent": "ups-worker", Accept: "application/json" } }).then((r) => r.json()).catch(() => null);
+          const fpaRatings = async (season) => {
+            const pl = await jf(`https://www48.myfantasyleague.com/${season}/export?TYPE=players&L=${lid}&DETAILS=1&JSON=1`, 86400);
+            const pInfo = {}; for (const p of arr(pl && pl.players && pl.players.player)) pInfo[String(p.id)] = { pos: safeStr(p.position).toUpperCase(), team: safeStr(p.team).toUpperCase() };
+            const weeks = []; for (let w = 1; w <= 17; w++) weeks.push(w);
+            const schedJobs = await Promise.all(weeks.map((w) => jf(`https://api.myfantasyleague.com/${season}/export?TYPE=nflSchedule&W=${w}&JSON=1`, 86400)));
+            const scoreJobs = await Promise.all(weeks.map((w) => jf(`https://www48.myfantasyleague.com/${season}/export?TYPE=playerScores&L=${lid}&W=${w}&JSON=1`, 86400)));
+            const oppOf = {};
+            weeks.forEach((w, wi) => { for (const m of arr(schedJobs[wi] && schedJobs[wi].nflSchedule && schedJobs[wi].nflSchedule.matchup)) { const ts = arr(m.team); if (ts.length < 2) continue; const ka = safeStr(ts[0].id).toUpperCase(), kb = safeStr(ts[1].id).toUpperCase(); (oppOf[ka] = oppOf[ka] || {})[wi] = kb; (oppOf[kb] = oppOf[kb] || {})[wi] = ka; } });
+            const pw = {};
+            weeks.forEach((w, wi) => { for (const s of arr(scoreJobs[wi] && scoreJobs[wi].playerScores && scoreJobs[wi].playerScores.playerScore)) { const pid = String(s.id), info = pInfo[pid]; if (!info || posGroup(info.pos) !== posWanted) continue; const pts = parseFloat(s.score); if (isNaN(pts)) continue; const def = (oppOf[info.team] || {})[wi]; if (!def) continue; (pw[pid] = pw[pid] || []).push({ pts: pts, def: def }); } });
+            const allowed = {}, expected = {};
+            for (const pid in pw) { const wks = pw[pid], avg = wks.reduce((a, x) => a + x.pts, 0) / wks.length; for (const x of wks) { allowed[x.def] = (allowed[x.def] || 0) + x.pts; expected[x.def] = (expected[x.def] || 0) + avg; } }
+            const rows = [];
+            for (const d in allowed) { const ex = expected[d] || 0; if (ex <= 0) continue; rows.push({ d: d, ratio: allowed[d] / ex }); }
+            rows.sort((a, b) => b.ratio - a.ratio);
+            const rat = {}; rows.forEach((r, i) => { rat[r.d] = { rank: i + 1, ratio: Math.round(r.ratio * 100) / 100 }; });
+            return Object.keys(rat).length ? rat : null;
+          };
           let ratingSeason = yr, projected = false;
-          let teams = await fpaFor(yr);
-          if (!teams || !Object.keys(teams).length) { ratingSeason = String(parseInt(yr, 10) - 1); teams = await fpaFor(ratingSeason); projected = true; }
+          let rat = await fpaRatings(yr);
+          if (!rat) { ratingSeason = String(parseInt(yr, 10) - 1); rat = await fpaRatings(ratingSeason); projected = true; }
           const ratingByNflv = {};
-          if (teams) for (const mflCode in teams) { const a = teams[mflCode] && teams[mflCode][posWanted] && teams[mflCode][posWanted].adj; if (a && a.ratio != null) ratingByNflv[toNflv(mflCode)] = { ratio: a.ratio, rank: a.rank }; }
+          if (rat) for (const mflCode in rat) ratingByNflv[toNflv(mflCode)] = { ratio: rat[mflCode].ratio, rank: rat[mflCode].rank };
           const txt = await fetch("https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv", { cf: { cacheTtl: 1800, cacheEverything: true } }).then((x) => x.ok ? x.text() : null).catch(() => null);
           const sched = {};
           if (txt) {
