@@ -2722,6 +2722,7 @@ export default {
         path !== "/api/league-events" &&
         path !== "/api/league-years" &&
         path !== "/api/lineup-matchups" &&
+        path !== "/api/fantasy-points-against" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
         path !== "/api/historical-finishes" &&
@@ -9671,6 +9672,105 @@ export default {
           // differ from "season" yet (Keith: don't show a dead L3/L5 toggle).
           const weeksAvailable = wk > 1 ? wk - 1 : 0;
           return jsonOut(200, { ok: true, year: yr, week: wk, window: (last || null), matchups, defRatings, playerWindow, horizon, weather, ratingsBasis: basis, weeksAvailable, priorSeason: wk <= 1 });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/fantasy-points-against?YEAR=&pos=&week_min=&week_max= ──
+      // Powers the "Stats → Fantasy Points Against" sub-tab. RAW fantasy points a
+      // defense allows to each position PER GAME, plus the OPPONENT-ADJUSTED
+      // rating (the same SOS engine as /api/lineup-matchups: pts allowed ÷ what
+      // those specific opponents average), ranked across the league (rank 1 =
+      // most generous). Default window = the full season; `pos` = optional CSV
+      // filter over the 9 groups; `week_min`/`week_max` = custom inclusive range.
+      if (path === "/api/fantasy-points-against" && request.method === "GET") {
+        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+        const wMin = Math.max(1, parseInt(url.searchParams.get("week_min") || "1", 10) || 1);
+        const wMaxRaw = parseInt(url.searchParams.get("week_max") || "0", 10) || 0;
+        const wMax = Math.min(23, Math.max(wMin, wMaxRaw > 0 ? wMaxRaw : 18));   // default = season-long
+        const posFilter = safeStr(url.searchParams.get("pos") || "").toUpperCase().split(/[,\s]+/).filter(Boolean);
+        const lid = "74598";
+        const arr = (x) => Array.isArray(x) ? x : (x == null ? [] : [x]);
+        const posGroup = (p) => {
+          p = safeStr(p).toUpperCase();
+          if (p === "QB") return "QB";
+          if (["RB", "FB", "HB"].includes(p)) return "RB";
+          if (p === "WR") return "WR";
+          if (p === "TE") return "TE";
+          if (["PK", "K"].includes(p)) return "PK";
+          if (["PN", "P"].includes(p)) return "PN";
+          if (["DT", "DE", "NT", "DL"].includes(p)) return "DL";
+          if (["LB", "OLB", "ILB", "MLB"].includes(p)) return "LB";
+          if (["CB", "S", "FS", "SS", "DB"].includes(p)) return "DB";
+          return "";
+        };
+        const GROUPS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"];
+        const wantGroup = (g) => !posFilter.length || posFilter.indexOf(g) >= 0;
+        const schedUrl = (y, w) => `https://api.myfantasyleague.com/${y}/export?TYPE=nflSchedule&W=${w}&JSON=1`;
+        const scoresUrl = (y, w) => `https://www48.myfantasyleague.com/${y}/export?TYPE=playerScores&L=${lid}&W=${w}&JSON=1`;
+        const j = (u, ttl) => fetch(u, { cf: { cacheTtl: ttl, cacheEverything: true }, headers: { "User-Agent": "ups-worker", Accept: "application/json" } }).then((r) => r.json()).catch(() => null);
+        try {
+          const pl = await j(`https://www48.myfantasyleague.com/${yr}/export?TYPE=players&L=${lid}&DETAILS=1&JSON=1`, 86400);
+          const pInfo = {};
+          for (const p of arr(pl?.players?.player)) pInfo[String(p.id)] = { pos: safeStr(p.position).toUpperCase(), team: safeStr(p.team).toUpperCase() };
+          const weeks = [];
+          for (let w = wMin; w <= wMax; w++) weeks.push(w);
+          const schedJobs = await Promise.all(weeks.map((w) => j(schedUrl(yr, w), 86400)));
+          const scoreJobs = await Promise.all(weeks.map((w) => j(scoresUrl(yr, w), 86400)));
+          // who each team played each week + games played (for the per-game raw avg)
+          const oppOf = {}, gamesPlayed = {};
+          weeks.forEach((w, wi) => {
+            for (const m of arr(schedJobs[wi]?.nflSchedule?.matchup)) {
+              const ts = arr(m.team); if (ts.length < 2) continue;
+              const ka = safeStr(ts[0].id).toUpperCase(), kb = safeStr(ts[1].id).toUpperCase();
+              (oppOf[ka] = oppOf[ka] || {})[wi] = kb; (oppOf[kb] = oppOf[kb] || {})[wi] = ka;
+              gamesPlayed[ka] = (gamesPlayed[ka] || 0) + 1; gamesPlayed[kb] = (gamesPlayed[kb] || 0) + 1;
+            }
+          });
+          // each scoring player's week-by-week pts + the defense they faced
+          const playerWeeks = {};
+          weeks.forEach((w, wi) => {
+            for (const s of arr(scoreJobs[wi]?.playerScores?.playerScore)) {
+              const pid = String(s.id), info = pInfo[pid];
+              if (!info || !posGroup(info.pos)) continue;
+              const pts = parseFloat(s.score); if (isNaN(pts)) continue;
+              const def = (oppOf[info.team] || {})[wi]; if (!def) continue;
+              (playerWeeks[pid] = playerWeeks[pid] || []).push({ pts, def });
+            }
+          });
+          // RAW pts allowed + EXPECTED (SOS baseline) per defense per group
+          const allowed = {}, expected = {};
+          for (const pid in playerWeeks) {
+            const wks = playerWeeks[pid], grp = posGroup(pInfo[pid].pos);
+            const total = wks.reduce((a, x) => a + x.pts, 0), avg = total / wks.length;
+            for (const x of wks) {
+              (allowed[x.def] = allowed[x.def] || {})[grp] = (allowed[x.def][grp] || 0) + x.pts;
+              (expected[x.def] = expected[x.def] || {})[grp] = (expected[x.def][grp] || 0) + avg;
+            }
+          }
+          // rank each group by the adjusted ratio (rank 1 = most generous = easiest)
+          const adjRank = {};
+          for (const g of GROUPS) {
+            if (!wantGroup(g)) continue;
+            const rows = [];
+            for (const d in allowed) { const al = allowed[d][g], ex = (expected[d] && expected[d][g]) || 0; if (al == null || ex <= 0) continue; rows.push({ d: d, ratio: al / ex }); }
+            rows.sort((a, b) => b.ratio - a.ratio);
+            rows.forEach((r, i) => { (adjRank[g] = adjRank[g] || {})[r.d] = { rank: i + 1, of: rows.length, ratio: Math.round(r.ratio * 100) / 100 }; });
+          }
+          const groupsOut = GROUPS.filter(wantGroup);
+          const teams = {};
+          for (const d in allowed) {
+            const row = {};
+            for (const g of groupsOut) {
+              const tot = allowed[d][g]; if (tot == null) continue;
+              const gp = gamesPlayed[d] || 0, adj = (adjRank[g] && adjRank[g][d]) || null;
+              row[g] = { raw: { total: Math.round(tot * 10) / 10, perGame: gp ? Math.round((tot / gp) * 10) / 10 : null, games: gp }, adj: adj };
+            }
+            if (Object.keys(row).length) teams[d] = row;
+          }
+          const weeksUsed = weeks.filter((w, wi) => arr(schedJobs[wi]?.nflSchedule?.matchup).length);
+          return jsonOut(200, { ok: true, year: yr, window: { week_min: wMin, week_max: wMax }, weeksUsed: weeksUsed, groups: groupsOut, teams: teams });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
