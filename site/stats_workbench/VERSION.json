@@ -1,7 +1,7 @@
 {
-  "version": "1.8.0",
+  "version": "1.8.1",
   "released": "2026-06-22",
-  "label": "v1.8.0 \u2014 Player Stats cleanup: removed the ADP/Dynasty + MFL Salary/AAV/Yrs columns; added a Strength-of-Schedule-adjusted MFL Points column (raw \u00f7 avg generosity of defenses faced). ADP now lives only on its own sub-tab.",
+  "label": "v1.8.1 \u2014 Fantasy Points Against drill is now two-level: click a team to see the WEEKLY total it allowed first, then click a week to see the players who faced them. (v1.8.0: SoS Pts column; removed ADP/contract cols.)",
   "changes_120": [
     "Horizontal scrollbar moved to the TOP of the table (synced two-way); the table now scrolls in a bounded 680px region so the scrollbar + column header stay fixed while the body scrolls (works in the iframe embed, not just standalone).",
     "Pos Rk now ranks within the IDP/offense GROUP (DL/LB/DB/QB/RB/WR/TE/PK) instead of the raw nflverse position \u2014 fixes multiple #1s showing in a single DL/LB/DB."
