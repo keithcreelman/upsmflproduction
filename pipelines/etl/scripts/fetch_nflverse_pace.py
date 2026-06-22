@@ -26,6 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from lib.d1_io import D1Writer  # noqa: E402
+from lib.nflverse_seasons import available_seasons  # noqa: E402
 
 LOCAL_DB = Path("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db")
 
@@ -92,6 +93,10 @@ def main() -> None:
     ap.add_argument("--skip-d1", action="store_true")
     args = ap.parse_args()
     seasons = parse_seasons(args.seasons)
+    seasons = available_seasons(seasons)
+    if not seasons:
+        print("no available nflverse seasons in range — nothing to fetch", file=sys.stderr)
+        sys.exit(0)
     print(f"loading PBP for {seasons} (big download)…", file=sys.stderr)
     rows = compute(seasons)
     print(f"  {len(rows)} (season,team) pace rows", file=sys.stderr)

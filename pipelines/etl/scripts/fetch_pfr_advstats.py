@@ -47,6 +47,7 @@ LOCAL_DB = Path(os.environ.get("MFL_DB_PATH") or _DEFAULT_DB)
 # Dual-write D1 path. Local SQLite stays primary until verified.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from lib.d1_io import D1Writer  # noqa: E402
+from lib.nflverse_seasons import available_seasons  # noqa: E402
 
 
 def _dual_write_d1(table: str, pk_cols: list[str], augment_cols: list[str],
@@ -458,6 +459,10 @@ def main() -> None:
         pass
 
     seasons = parse_seasons(args.seasons)
+    seasons = available_seasons(seasons, floor=2018)
+    if not seasons:
+        print("no available nflverse seasons in range — nothing to fetch", file=sys.stderr)
+        sys.exit(0)
     print(f"Target seasons: {seasons}", file=sys.stderr)
 
     pfr_to_gsis = build_pfr_to_gsis(db)
