@@ -2726,6 +2726,7 @@ export default {
         path !== "/api/lineup-matchups" &&
         path !== "/api/fantasy-points-against" &&
         path !== "/api/fpa-detail" &&
+        path !== "/api/sos-adjusted-points" &&
         path !== "/api/standings" &&
         path !== "/api/playoff-bracket" &&
         path !== "/api/historical-finishes" &&
@@ -10021,7 +10022,91 @@ export default {
             }
           }
           games.sort((a, b) => (a.wk - b.wk) || (b.pts - a.pts));
-          return jsonOut(200, { ok: true, year: yr, team: team, pos: posWanted, window: { week_min: wMin, week_max: wMax }, games: games });
+          // Two-level drill: group into weeks (week TOTAL allowed first) with the
+          // players nested, so the client shows "how the position did each game"
+          // before drilling to player level. weekTotal = pts this D allowed to the
+          // position that week (sum of all faced players of that position).
+          const byWk = {};
+          for (const g of games) {
+            const b = (byWk[g.wk] = byWk[g.wk] || { wk: g.wk, total: 0, players: [] });
+            b.total += g.pts;
+            b.players.push(g);
+          }
+          const weekGroups = Object.keys(byWk).map((k) => byWk[k]).sort((a, b) => a.wk - b.wk)
+            .map((w) => ({ wk: w.wk, total: Math.round(w.total * 10) / 10, players: w.players }));
+          const gp = weekGroups.length;
+          const total = Math.round(weekGroups.reduce((a, w) => a + w.total, 0) * 10) / 10;
+          const perGame = gp ? Math.round((total / gp) * 10) / 10 : null;
+          return jsonOut(200, { ok: true, year: yr, team: team, pos: posWanted, window: { week_min: wMin, week_max: wMax },
+            weeks: weekGroups, gamesPlayed: gp, total: total, perGame: perGame, games: games });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/sos-adjusted-points?seasons=&week_min=&week_max= ──
+      // Strength-of-Schedule-adjusted MFL fantasy points, per player (by gsis_id).
+      // For each (season, defense, pos_group) we compute MFL points allowed per
+      // game and divide by the league average for that position → a generosity
+      // ratio (>1 = the defense is easy). A player's schedule ease = the average
+      // generosity of the defenses they actually faced; SoS-adjusted points =
+      // raw points ÷ schedule ease (faced easy Ds → adjusted DOWN; tough Ds → UP).
+      // All D1 (src_weekly MFL scores + nfl_player_weekly opponents via the
+      // all-eras ff_player_ids map), so it covers every season, no live fetch.
+      // Side-loaded by the Stats workbench leaderboard and joined on gsis_id.
+      if (path === "/api/sos-adjusted-points" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const seasons = safeStr(url.searchParams.get("seasons") || "")
+            .split(",").map((s) => s.replace(/\D/g, "")).filter((s) => s.length === 4);
+          if (!seasons.length) return jsonOut(400, { ok: false, error: "seasons required (CSV of 4-digit years)" });
+          const wMin = Math.max(1, parseInt(url.searchParams.get("week_min") || "1", 10) || 1);
+          const wMaxRaw = parseInt(url.searchParams.get("week_max") || "17", 10) || 17;
+          const wMax = Math.min(23, Math.max(wMin, wMaxRaw));
+          const seasonList = seasons.map((s) => parseInt(s, 10)).join(",");
+          const sql = `
+            WITH pw AS (
+              SELECT w.season, w.week, w.gsis_id, w.pos_group, w.opponent AS def, sw.score AS pts
+                FROM nfl_player_weekly w
+                JOIN ff_player_ids f ON f.gsis_id = w.gsis_id
+                JOIN src_weekly sw
+                  ON CAST(f.mfl_id AS TEXT) = sw.player_id AND sw.season = w.season AND sw.week = w.week
+               WHERE w.season IN (${seasonList}) AND w.week BETWEEN ${wMin} AND ${wMax}
+                 AND w.pos_group IS NOT NULL AND w.opponent IS NOT NULL AND sw.score IS NOT NULL
+            ),
+            def_allowed AS (
+              SELECT season, def, pos_group, SUM(pts) AS pts, COUNT(DISTINCT week) AS gms
+                FROM pw GROUP BY season, def, pos_group
+            ),
+            lg AS (
+              SELECT season, pos_group, SUM(pts) AS pts, SUM(gms) AS gms
+                FROM def_allowed GROUP BY season, pos_group
+            ),
+            gen AS (
+              SELECT d.season, d.def, d.pos_group,
+                     (d.pts * 1.0 / NULLIF(d.gms, 0)) / NULLIF(l.pts * 1.0 / NULLIF(l.gms, 0), 0) AS g
+                FROM def_allowed d JOIN lg l ON l.season = d.season AND l.pos_group = d.pos_group
+            ),
+            ps AS (
+              SELECT p.gsis_id, SUM(p.pts) AS raw_pts, COUNT(*) AS gp, AVG(g.g) AS avg_gen
+                FROM pw p JOIN gen g ON g.season = p.season AND g.def = p.def AND g.pos_group = p.pos_group
+               GROUP BY p.gsis_id
+            )
+            SELECT gsis_id,
+                   ROUND(raw_pts, 1)                          AS raw,
+                   ROUND(avg_gen, 3)                          AS sched_ease,
+                   gp,
+                   ROUND(raw_pts / NULLIF(avg_gen, 0), 1)     AS sos
+              FROM ps
+             WHERE gp > 0`;
+          const r = await db.prepare(sql).all();
+          const by_gsis = {};
+          for (const x of (r?.results || [])) {
+            if (!x.gsis_id) continue;
+            by_gsis[x.gsis_id] = { raw: x.raw, sos: x.sos, sched_ease: x.sched_ease, gp: x.gp };
+          }
+          return jsonOut(200, { ok: true, seasons, window: { week_min: wMin, week_max: wMax }, count: Object.keys(by_gsis).length, by_gsis });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
