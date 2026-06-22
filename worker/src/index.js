@@ -2704,6 +2704,7 @@ export default {
         path !== "/api/advanced-stats-player-weekly" &&
         path !== "/api/mfl-league-state" &&
         path !== "/api/adp" &&
+        path !== "/api/adp-board" &&
         path !== "/api/auction/era-eligible" &&
         path !== "/api/auction/lots" &&
         path !== "/api/auction/bid-history" &&
@@ -9276,6 +9277,42 @@ export default {
             generated_at: new Date().toISOString(),
             count: Object.keys(byMfl).length, by_mfl_id: byMfl,
           });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/adp-board?pos= — the dynasty ADP board (Stats → ADP) ──
+      // The full all-players FantasyCalc SF-dynasty board: name/pos/team/age +
+      // value, overall + positional rank, 30-day trend, tier, and redraft ADP —
+      // all from ONE cached FantasyCalc fetch (its player object carries the
+      // identity fields, so no MFL players call). Sorted by overall rank.
+      if (path === "/api/adp-board" && request.method === "GET") {
+        const posFilter = safeStr(url.searchParams.get("pos") || "").toUpperCase();
+        try {
+          const fcRes = await fetch(
+            "https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1",
+            { cf: { cacheTtl: 43200, cacheEverything: true }, headers: { accept: "application/json" } }
+          );
+          if (!fcRes.ok) return jsonOut(502, { ok: false, error: "fantasycalc_http_" + fcRes.status });
+          const rows = await fcRes.json();
+          const board = [];
+          for (const r of (Array.isArray(rows) ? rows : [])) {
+            const p = r.player || {};
+            const pid = String(p.mflId || "").trim();
+            if (!pid || pid.toUpperCase() === "UNK") continue;
+            const pos = safeStr(p.position).toUpperCase();
+            if (posFilter && pos !== posFilter) continue;
+            board.push({
+              pid: pid, name: safeStr(p.name), pos: pos, team: safeStr(p.maybeTeam || ""),
+              age: (p.maybeAge != null ? Math.round(Number(p.maybeAge) * 10) / 10 : null),
+              value: Number(r.value) || 0, ovr: Number(r.overallRank) || null, posRank: Number(r.positionRank) || null,
+              trend30: Number(r.trend30Day) || 0, tier: (r.maybeTier != null ? Number(r.maybeTier) : null),
+              adp: (r.maybeAdp != null ? Math.round(Number(r.maybeAdp) * 10) / 10 : null),
+            });
+          }
+          board.sort(function (a, b) { return (a.ovr == null ? 9999 : a.ovr) - (b.ovr == null ? 9999 : b.ovr); });
+          return jsonOut(200, { ok: true, source: "fantasycalc_sf_dynasty", generated_at: new Date().toISOString(), count: board.length, board: board });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
