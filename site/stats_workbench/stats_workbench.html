@@ -3186,15 +3186,15 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 
     function notifyResize(){ try { parent.postMessage({ type: "ups-asw-height", height: document.documentElement.scrollHeight }, "*"); } catch(e){} }
 
-    // ---- ADP board (Stats → ADP sub-tab) — FantasyCalc SF dynasty values ----
+    // ---- ADP board (Stats → ADP sub-tab) — multi-source SF dynasty consensus ----
     var adpSection = document.getElementById("asw-view-adp");
-    var adp = { pos: "ALL", q: "", sort: "ovr", dir: 1, data: null, rendered: false, _t: null };
+    var adp = { pos: "ALL", q: "", sort: "rank", dir: 1, data: null, sources: [], rendered: false, _t: null };
     function adpBody(){ return adpSection.querySelector(".adp-body"); }
     function adpLoad(){
       var b = adpBody(); if (b) b.innerHTML = '<div class="asw-meta" style="padding:14px">Loading dynasty values…</div>';
       fetch(API_BASE + "/api/adp-board").then(function(r){ return r.json(); })
-        .then(function(d){ adp.data = (d && d.board) || []; adpPaint(); })
-        .catch(function(){ adp.data = []; adpPaint(); });
+        .then(function(d){ adp.data = (d && d.board) || []; adp.sources = (d && d.sources) || []; adpPaint(); })
+        .catch(function(){ adp.data = []; adp.sources = []; adpPaint(); });
     }
     function adpRenderShell(){
       var poss = [["ALL","All"],["QB","QB"],["RB","RB"],["WR","WR"],["TE","TE"]];
@@ -3222,36 +3222,42 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         return (va - vb) * adp.dir;
       });
       function arrow(k){ return adp.sort === k ? (adp.dir > 0 ? " ▲" : " ▼") : ""; }
-      var html = '<div class="fpa-sub">FantasyCalc SuperFlex dynasty values · ' + rows.length + ' players · click a header to sort</div>' +
+      var srcLabels = { fantasycalc: "FantasyCalc", keeptradecut: "KeepTradeCut", dynastyprocess: "DynastyProcess", sleeper: "Sleeper" };
+      var srcLine = (adp.sources || []).map(function(s){ return srcLabels[s] || s; }).join(" · ") || "FantasyCalc";
+      var html = '<div class="fpa-sub">SuperFlex dynasty consensus (mean of FC/KTC/DP value) · sources: ' + esc(srcLine) + ' · ' + rows.length + ' players · click a header to sort</div>' +
         '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
-        '<th class="num" data-k="ovr">Rank' + arrow("ovr") + '</th>' +
+        '<th class="num" data-k="rank">Rank' + arrow("rank") + '</th>' +
         '<th class="team" data-k="name">Player' + arrow("name") + '</th>' +
         '<th class="num">Pos</th><th class="num">Tm</th>' +
         '<th class="num" data-k="age">Age' + arrow("age") + '</th>' +
-        '<th class="num" data-k="value">Value' + arrow("value") + '</th>' +
-        '<th class="num" data-k="posRank">Pos Rk' + arrow("posRank") + '</th>' +
-        '<th class="num" data-k="trend30">30d' + arrow("trend30") + '</th>' +
-        '<th class="num" data-k="tier">Tier' + arrow("tier") + '</th>' +
+        '<th class="num" data-k="consensus" title="Mean of the available dynasty values (FantasyCalc / KeepTradeCut / DynastyProcess)">Consensus' + arrow("consensus") + '</th>' +
+        '<th class="num" data-k="fcValue" title="FantasyCalc SF dynasty value">FC' + arrow("fcValue") + '</th>' +
+        '<th class="num" data-k="ktcValue" title="KeepTradeCut SF dynasty value">KTC' + arrow("ktcValue") + '</th>' +
+        '<th class="num" data-k="dpValue" title="DynastyProcess SF dynasty value">DP' + arrow("dpValue") + '</th>' +
+        '<th class="num" data-k="sleeperRank" title="Sleeper overall rank (lower = higher)">Slp' + arrow("sleeperRank") + '</th>' +
+        '<th class="num" data-k="trend30" title="FantasyCalc 30-day value trend">30d' + arrow("trend30") + '</th>' +
         '</tr></thead><tbody>';
-      if (!rows.length) html += '<tr><td class="team">—</td><td colspan="8" class="num" style="color:var(--muted)">No players.</td></tr>';
+      if (!rows.length) html += '<tr><td class="team">—</td><td colspan="9" class="num" style="color:var(--muted)">No players.</td></tr>';
       rows.forEach(function(r){
         var t = r.trend30;
         html += '<tr>' +
-          '<td class="num">' + (r.ovr != null ? r.ovr : "—") + '</td>' +
+          '<td class="num">' + (r.rank != null ? r.rank : "—") + '</td>' +
           '<td class="team">' + esc(r.name) + '</td>' +
           '<td class="num">' + esc(r.pos) + '</td>' +
           '<td class="num">' + esc(r.team || "—") + '</td>' +
           '<td class="num">' + (r.age != null ? r.age : "—") + '</td>' +
-          '<td class="num">' + (r.value != null ? r.value : "—") + '</td>' +
-          '<td class="num">' + (r.posRank != null ? r.posRank : "—") + '</td>' +
+          '<td class="num"><b>' + (r.consensus != null ? r.consensus : "—") + '</b></td>' +
+          '<td class="num">' + (r.fcValue != null ? r.fcValue : "—") + '</td>' +
+          '<td class="num">' + (r.ktcValue != null ? r.ktcValue : "—") + '</td>' +
+          '<td class="num">' + (r.dpValue != null ? r.dpValue : "—") + '</td>' +
+          '<td class="num">' + (r.sleeperRank != null ? ("#" + r.sleeperRank) : "—") + '</td>' +
           '<td class="num">' + (t != null && t !== 0 ? '<span class="asw-trend ' + (t > 0 ? "up" : "dn") + '">' + (t > 0 ? "▲" : "▼") + Math.abs(t) + "</span>" : (t === 0 ? "0" : "—")) + '</td>' +
-          '<td class="num">' + (r.tier != null ? r.tier : "—") + '</td>' +
           '</tr>';
       });
       html += '</tbody></table></div>';
       adpBody().innerHTML = html;
       adpSection.querySelectorAll(".fpa-table th[data-k]").forEach(function(th){
-        th.addEventListener("click", function(){ var k = th.getAttribute("data-k"); if (adp.sort === k) adp.dir = -adp.dir; else { adp.sort = k; adp.dir = (k === "ovr" || k === "posRank" || k === "name" || k === "age") ? 1 : -1; } adpPaint(); });
+        th.addEventListener("click", function(){ var k = th.getAttribute("data-k"); if (adp.sort === k) adp.dir = -adp.dir; else { adp.sort = k; adp.dir = (k === "rank" || k === "name" || k === "age" || k === "sleeperRank") ? 1 : -1; } adpPaint(); });
       });
       notifyResize();
     }

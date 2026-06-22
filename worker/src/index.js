@@ -9317,15 +9317,16 @@ export default {
           // DynastyProcess CSV: nkey(name) → { value, ecr }.
           const dpByName = {};
           if (dpTxt) {
+            const unq = (s) => String(s || "").trim().replace(/^"|"$/g, "");   // DP's CSV is fully quoted
             const lines = dpTxt.split(/\r?\n/);
-            const hdr = (lines[0] || "").split(",").map((s) => s.trim());
+            const hdr = (lines[0] || "").split(",").map(unq);
             const iName = hdr.indexOf("player"), iVal = hdr.indexOf("value_2qb"), iEcr = hdr.indexOf("ecr_2qb");
             if (iName >= 0 && iVal >= 0) {
               for (let li = 1; li < lines.length; li++) {
                 const cells = lines[li].split(",");
                 if (cells.length <= iVal) continue;
-                const nm = nkey(cells[iName]); if (!nm) continue;
-                const v = parseFloat(cells[iVal]), e = iEcr >= 0 ? parseFloat(cells[iEcr]) : NaN;
+                const nm = nkey(unq(cells[iName])); if (!nm) continue;
+                const v = parseFloat(unq(cells[iVal])), e = iEcr >= 0 ? parseFloat(unq(cells[iEcr])) : NaN;
                 dpByName[nm] = { value: isNaN(v) ? null : Math.round(v), ecr: isNaN(e) ? null : Math.round(e * 10) / 10 };
               }
             }
