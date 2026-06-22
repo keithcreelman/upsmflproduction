@@ -3300,7 +3300,10 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       var rdP = Math.round(adp.rdPct * 100);
       if (skewEl) skewEl.textContent = rdP === 0 ? "all Dynasty" : rdP === 100 ? "all Redraft" : (rdP + "% Redraft / " + (100 - rdP) + "% Dynasty");
       var rows = (adp.data || []).slice();
-      if (adp.pos !== "ALL") rows = rows.filter(function(r){ return r.pos === adp.pos; });
+      // IDP values (ECR-derived) aren't on the offense dynasty/redraft scale, so
+      // keep them out of the "All" mix — they show only when a DL/LB/DB is picked.
+      if (adp.pos === "ALL") rows = rows.filter(function(r){ return !r.isIdp; });
+      else rows = rows.filter(function(r){ return r.pos === adp.pos; });
       var q = adp.q.trim().toLowerCase();
       if (q) rows = rows.filter(function(r){ return ((r.name || "") + " " + (r.team || "") + " " + (r.pos || "")).toLowerCase().indexOf(q) >= 0; });
       // Blend every row, then assign a value-rank (independent of the display sort).

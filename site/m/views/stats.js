@@ -441,7 +441,9 @@
   function adpBoardHtml() {
     if (!adpb.data) return '<div class="ups-m-loading">Loading…</div>';
     var rows = adpb.data.slice();
-    if (adpb.pos !== "ALL") rows = rows.filter(function (r) { return r.pos === adpb.pos; });
+    // IDP (ECR-derived) isn't on the offense value scale → only under DL/LB/DB.
+    if (adpb.pos === "ALL") rows = rows.filter(function (r) { return !r.isIdp; });
+    else rows = rows.filter(function (r) { return r.pos === adpb.pos; });
     if (!rows.length) return '<div class="ups-m-stub"><div>No players.</div></div>';
     rows.forEach(function (r) { r._bv = adpbBlend(r); });
     rows.slice().sort(function (a, b) { return (b._bv || 0) - (a._bv || 0); }).forEach(function (r, i) { r._vrank = i + 1; });
