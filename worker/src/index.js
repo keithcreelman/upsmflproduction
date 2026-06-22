@@ -9598,9 +9598,79 @@ export default {
               (horizon[kb] = horizon[kb] || []).push({ wk: w, opp: ka, isHome: String(ts[1].isHome) === "1" });
             }
           });
+          // (5) weather at each game's venue (the HOME team's stadium) near
+          // kickoff, via Open-Meteo (no key). Domes are climate-controlled →
+          // flagged, not fetched. Past games use the archive API so it's
+          // testable historically; near-future games use the forecast API.
+          const STADIUMS = {
+            ARI: { la: 33.5277, lo: -112.2626, dome: 1 }, ATL: { la: 33.7554, lo: -84.4008, dome: 1 },
+            BAL: { la: 39.2780, lo: -76.6227 }, BUF: { la: 42.7738, lo: -78.7870 },
+            CAR: { la: 35.2258, lo: -80.8528 }, CHI: { la: 41.8623, lo: -87.6167 },
+            CIN: { la: 39.0955, lo: -84.5161 }, CLE: { la: 41.5061, lo: -81.6995 },
+            DAL: { la: 32.7473, lo: -97.0945, dome: 1 }, DEN: { la: 39.7439, lo: -105.0201 },
+            DET: { la: 42.3400, lo: -83.0456, dome: 1 }, GBP: { la: 44.5013, lo: -88.0622 },
+            HOU: { la: 29.6847, lo: -95.4107, dome: 1 }, IND: { la: 39.7601, lo: -86.1639, dome: 1 },
+            JAC: { la: 30.3239, lo: -81.6373 }, KCC: { la: 39.0489, lo: -94.4839 },
+            LVR: { la: 36.0909, lo: -115.1833, dome: 1 }, LAC: { la: 33.9535, lo: -118.3392, dome: 1 },
+            LAR: { la: 33.9535, lo: -118.3392, dome: 1 }, MIA: { la: 25.9580, lo: -80.2389 },
+            MIN: { la: 44.9736, lo: -93.2575, dome: 1 }, NEP: { la: 42.0909, lo: -71.2643 },
+            NOS: { la: 29.9511, lo: -90.0812, dome: 1 }, NYG: { la: 40.8135, lo: -74.0745 },
+            NYJ: { la: 40.8135, lo: -74.0745 }, PHI: { la: 39.9008, lo: -75.1675 },
+            PIT: { la: 40.4468, lo: -80.0158 }, SFO: { la: 37.4032, lo: -121.9698 },
+            SEA: { la: 47.5952, lo: -122.3316 }, TBB: { la: 27.9759, lo: -82.5033 },
+            TEN: { la: 36.1665, lo: -86.7713 }, WAS: { la: 38.9076, lo: -76.8645 },
+          };
+          STADIUMS.GB = STADIUMS.GBP; STADIUMS.KC = STADIUMS.KCC; STADIUMS.LV = STADIUMS.LVR;
+          STADIUMS.NE = STADIUMS.NEP; STADIUMS.NO = STADIUMS.NOS; STADIUMS.SF = STADIUMS.SFO;
+          STADIUMS.TB = STADIUMS.TBB; STADIUMS.JAX = STADIUMS.JAC;
+          const wmo = (c) => { c = Number(c);
+            if (c === 0) return "Clear"; if (c <= 2) return "P.Cloudy"; if (c === 3) return "Overcast";
+            if (c <= 48) return "Fog"; if (c <= 57) return "Drizzle"; if (c <= 67) return "Rain";
+            if (c <= 77) return "Snow"; if (c <= 82) return "Showers"; if (c <= 86) return "Snow"; return "T-storm"; };
+          const weather = {};
+          const nowSec = Date.now() / 1000;
+          const games = [], seenHome = {};
+          for (const t in matchups) {
+            const m = matchups[t], home = m.isHome ? t : m.opp;
+            if (seenHome[home]) continue; seenHome[home] = 1;
+            games.push({ home, away: m.isHome ? m.opp : t, kickoff: m.kickoff });
+          }
+          // Domes are climate-controlled → flag, no fetch.
+          for (const g of games) { const st = STADIUMS[g.home]; if (st && st.dome) { weather[g.home] = { dome: true }; weather[g.away] = weather[g.home]; } }
+          // Every outdoor venue in ONE multi-location Open-Meteo call (a burst of
+          // ~16 parallel requests gets rate-limited and silently drops games).
+          // Past weeks → archive API (testable historically); near-term → forecast.
+          const outdoor = games.filter((g) => { const st = STADIUMS[g.home]; return st && !st.dome && g.kickoff; });
+          if (outdoor.length) {
+            const dstr = (sec) => new Date(sec * 1000).toISOString().slice(0, 10);
+            const kos = outdoor.map((g) => g.kickoff);
+            const minK = Math.min.apply(null, kos), maxK = Math.max.apply(null, kos);
+            const past = maxK < nowSec - 36 * 3600;
+            const host = past ? "https://archive-api.open-meteo.com/v1/archive" : "https://api.open-meteo.com/v1/forecast";
+            const u = host + "?latitude=" + outdoor.map((g) => STADIUMS[g.home].la).join(",") +
+              "&longitude=" + outdoor.map((g) => STADIUMS[g.home].lo).join(",") +
+              "&hourly=temperature_2m,precipitation,wind_speed_10m,weather_code" +
+              "&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timeformat=unixtime&timezone=auto" +
+              "&start_date=" + dstr(minK - 86400) + "&end_date=" + dstr(maxK + 86400);
+            const res = await j(u, past ? 604800 : 1800);
+            const list = Array.isArray(res) ? res : (res ? [res] : []);
+            outdoor.forEach((g, gi) => {
+              const h = list[gi] && list[gi].hourly;
+              if (!h || !Array.isArray(h.time) || !h.time.length) return;
+              let bi = 0, bd = Infinity;
+              for (let i = 0; i < h.time.length; i++) { const dd = Math.abs(h.time[i] - g.kickoff); if (dd < bd) { bd = dd; bi = i; } }
+              const wx = { tempF: Math.round(h.temperature_2m[bi]), windMph: Math.round(h.wind_speed_10m[bi]),
+                precip: Math.round((h.precipitation[bi] || 0) * 100) / 100, summary: wmo(h.weather_code[bi]) };
+              weather[g.home] = wx; weather[g.away] = wx;
+            });
+          }
           const basis = (last > 0 && wk > 1) ? ("last " + Math.min(last, wk - 1) + " wks")
             : (wk <= 1 ? (ratYear + " (prior season)") : (yr + " W1–" + (wk - 1)));
-          return jsonOut(200, { ok: true, year: yr, week: wk, window: (last || null), matchups, defRatings, playerWindow, horizon, ratingsBasis: basis });
+          // weeksAvailable = completed CURRENT-season weeks (0 ⇒ prior-season
+          // fallback). The client uses it to hide window buttons that can't
+          // differ from "season" yet (Keith: don't show a dead L3/L5 toggle).
+          const weeksAvailable = wk > 1 ? wk - 1 : 0;
+          return jsonOut(200, { ok: true, year: yr, week: wk, window: (last || null), matchups, defRatings, playerWindow, horizon, weather, ratingsBasis: basis, weeksAvailable, priorSeason: wk <= 1 });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }

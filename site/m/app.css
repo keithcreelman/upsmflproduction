@@ -817,6 +817,7 @@ button.ups-m-busy::before,
 .ups-m-mu-detail { font-size: 11px; color: var(--fg-muted); padding: 4px 12px 9px 11px; border-left: 3px solid var(--accent); background: rgba(91,141,255,0.05); }
 .ups-m-mu-detail .r { padding: 2px 0; line-height: 1.4; }
 .ups-m-mu-detail b { color: var(--fg); font-weight: 800; }
+.ups-m-mu-wx { opacity: 0.9; }
 .ups-m-bench .ups-m-mu-detail { border-left: 0; padding-left: 12px; }
 .ups-m-bench-head { margin: 14px 0 0; }
 .ups-m-bench-toggle { width: 100%; text-align: left; background: var(--bg-elev); border: 1px solid var(--line); color: var(--fg);
