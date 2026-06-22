@@ -68,7 +68,11 @@
     cceil: { l: "Ceil",  g: function (r) { var c = consRec(r); return c && c.ceil != null ? c.ceil : null; }, f: "dec1" },
     ccons: { l: "Consist", g: function (r) { var c = consRec(r); return c && c.consistency != null ? c.consistency : null; } },
     cboom: { l: "Boom%", g: function (r) { var c = consRec(r); return c && c.boom_pct != null ? c.boom_pct : null; } },
-    cbust: { l: "Bust%", g: function (r) { var c = consRec(r); return c && c.bust_pct != null ? c.bust_pct : null; } }
+    cbust: { l: "Bust%", g: function (r) { var c = consRec(r); return c && c.bust_pct != null ? c.bust_pct : null; } },
+    eepa:  { l: "EPA",   g: function (r) { var x = epaRecM(r); return x && x.epa != null ? x.epa : null; }, f: "epa" },
+    ecpoe: { l: "CPOE",  g: function (r) { return epaCpoe(r); }, f: "delta" },
+    esucc: { l: "Succ%", g: function (r) { var x = epaRecM(r); return x && x.succ != null ? x.succ : null; }, f: "pct100" },
+    evol:  { l: "EPA n", g: function (r) { var x = epaRawM(r); return x ? (x.plays != null ? x.plays : x.tgt) : null; } }
   };
 
   // Each tab: alias (worker pos param), group (pos_group values to keep), and
@@ -109,6 +113,11 @@
   TABS.forEach(function (t) { t.sets.push({ l: "SoS", cols: ["pts", "sospts", "ppg"] }); });
   // Boom/Bust set — every position (consistency + boom% + bust%).
   TABS.forEach(function (t) { t.sets.push({ l: "Boom/Bust", cols: ["ccons", "cboom", "cbust"] }); });
+  // Efficiency (EPA) set — skill positions only; QB gets CPOE (nflfastR).
+  TABS.forEach(function (t) {
+    if (t.id === "QB") t.sets.push({ l: "EPA", cols: ["eepa", "ecpoe", "esucc", "evol"] });
+    else if (t.id === "RB" || t.id === "WR" || t.id === "TE") t.sets.push({ l: "EPA", cols: ["eepa", "esucc", "evol"] });
+  });
 
   // scope: "all" | "ros" (rostered) | "fa" (free agents) — Keith 2026-06-20.
   // inner: "players" (the leaderboard) | "fpa" (Fantasy Points Against).
@@ -141,6 +150,21 @@
       .catch(function () { consMap = {}; return consMap; });
   }
   function consRec(r) { return (consMap && consMap[String(r.gsis_id)]) || null; }
+
+  // EPA / efficiency (nflfastR), single-season for mobile. Rate stats gated to a
+  // qualified sample (the raw "EPA n" stays visible) so scrubs don't top a sort.
+  var epaMap = null, epaSeason = 0;
+  function loadEpa(yr) {
+    if (epaMap && epaSeason === yr) return Promise.resolve(epaMap);
+    epaSeason = yr;
+    return fetch(API.workerUrl("/api/player-epa?seasons=" + encodeURIComponent(yr)), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { epaMap = (j && j.by_gsis) || {}; return epaMap; })
+      .catch(function () { epaMap = {}; return epaMap; });
+  }
+  function epaRawM(r) { var e = epaMap && epaMap[String(r.gsis_id)]; if (!e) return null; var pg = String(r.pos_group || r.position || "").toUpperCase(); if (pg === "QB") return e.pass; if (pg === "RB") return e.rush; return e.rec; }
+  function epaRecM(r) { var x = epaRawM(r); if (!x) return null; var pg = String(r.pos_group || r.position || "").toUpperCase(); var n = (x.plays != null ? x.plays : x.tgt) || 0; var min = pg === "QB" ? 50 : (pg === "RB" ? 25 : 20); return n >= min ? x : null; }
+  function epaCpoe(r) { var e = epaMap && epaMap[String(r.gsis_id)]; return (e && e.pass && e.pass.plays >= 50 && e.pass.cpoe != null) ? e.pass.cpoe : null; }
 
   function curSeason() {
     if (season) return season;
@@ -211,6 +235,8 @@
     if (v == null) return "—";
     if (c.f === "trend") { if (v === 0) return "0"; return '<span class="ups-m-tr ' + (v > 0 ? "up" : "dn") + '">' + (v > 0 ? "▲" : "▼") + Math.abs(v) + "</span>"; }
     if (c.f === "delta") { if (v === 0) return "0"; return '<span class="ups-m-tr ' + (v > 0 ? "up" : "dn") + '">' + (v > 0 ? "+" : "") + v.toFixed(1) + "</span>"; }
+    if (c.f === "epa") { return '<span class="ups-m-tr ' + (v > 0 ? "up" : (v < 0 ? "dn" : "")) + '">' + (v > 0 ? "+" : "") + v.toFixed(3) + "</span>"; }
+    if (c.f === "pct100") return Math.round(v) + "%";
     if (c.f === "pct") return Math.round(v * 100) + "%";
     if (c.f === "dec1") return v.toFixed(1);
     return String(Math.round(v));
@@ -857,6 +883,7 @@
     // so the "SoS" column set fills in.
     loadSos(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
     loadCons(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
+    loadEpa(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
     if (cache[tab.alias + "|" + curSeason()]) { paint(mount); return; }
     mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + '<div class="ups-m-loading">Loading stats…</div>';
     bindInner(mount); bindToolbar(mount);

@@ -450,6 +450,15 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       compute:function(r){ var c=consistByGsis[String(r.gsis_id)]; return c && c.bust_pct != null ? c.bust_pct : null; } },
     cons_spark:          { label:"Trend",   title:"Weekly fantasy points across the window (left → right)",
       compute:function(r){ var c=consistByGsis[String(r.gsis_id)]; return c && c.weeks && c.weeks.length ? c.weeks : null; }, fmt:"spark" },
+    // Efficiency / EPA (side-loaded /api/player-epa, nflfastR PBP, by gsis_id).
+    epa_play:            { label:"EPA",     num:true, fmt:"epa", title:"Expected Points Added per play (nflfastR) — QB: per dropback, RB: per carry, WR/TE: per target. Positive = efficient.",
+      compute:function(r){ var x=epaRole(r); return x && x.epa != null ? x.epa : null; } },
+    epa_cpoe:            { label:"CPOE",    num:true, fmt:"delta", title:"Completion % Over Expected (QB pass plays) — accuracy vs the nflfastR completion-probability model",
+      compute:function(r){ var e=epaByGsis[String(r.gsis_id)]; return e && e.pass && e.pass.plays >= 50 && e.pass.cpoe != null ? e.pass.cpoe : null; } },
+    epa_succ:            { label:"Succ%",   num:true, fmt:"pct0", title:"Success rate — share of plays with positive EPA (QB dropbacks / carries / targets). Qualified samples only.",
+      compute:function(r){ var x=epaRole(r); return x && x.succ != null ? x.succ : null; } },
+    epa_vol:             { label:"EPA n",   num:true, title:"EPA sample — QB dropbacks / RB carries / WR-TE targets in the window",
+      compute:function(r){ var x=epaRoleRaw(r); return x ? (x.plays != null ? x.plays : x.tgt) : null; } },
     // Usage — offense
     games:               { label:"G",        num:true },
     off_snaps_total:     { label:"Snaps",    num:true, title:"Offensive snaps" },
@@ -923,6 +932,12 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       if (TABS[k] && TABS[k].groups) TABS[k].groups.splice(1, 0,
         { id:"consistency", label:"Consistency", cols:["cons_floor","cons_ceil","cons_score","cons_boom","cons_bust","cons_spark"], defaultOn:false });
     });
+    // Efficiency (EPA) group — skill positions only; QB gets CPOE.
+    var epaCols = { qb:["epa_play","epa_cpoe","epa_succ","epa_vol"], rb:["epa_play","epa_succ","epa_vol"], wr:["epa_play","epa_succ","epa_vol"], te:["epa_play","epa_succ","epa_vol"] };
+    Object.keys(epaCols).forEach(function(k){
+      if (TABS[k] && TABS[k].groups) TABS[k].groups.splice(2, 0,
+        { id:"efficiency", label:"Efficiency (EPA)", cols:epaCols[k], defaultOn:false });
+    });
   })();
 
   // ---------- DOM refs ----------
@@ -961,6 +976,13 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   // mfl_points_sos compute column. Repopulated inside runQuery().
   var sosByGsis = {};
   var consistByGsis = {};   // /api/player-consistency by gsis_id — floor/ceil/consistency/boom/bust/weeks
+  var epaByGsis = {};       // /api/player-epa by gsis_id — {pass,rush,rec}.{epa,cpoe,succ,plays/tgt}
+  // Pick the EPA role that matches a row's fantasy position (QB→pass, RB→rush, WR/TE→rec).
+  function epaRoleRaw(r){ var e=epaByGsis[String(r.gsis_id)]; if(!e) return null; var pg=String(r.pos_group||r.position||"").toUpperCase(); if(pg==="QB") return e.pass; if(pg==="RB") return e.rush; return e.rec; }
+  // Gated to a qualified sample so 1-carry scrubs don't top an EPA sort (rate
+  // stats only; the raw "EPA n" sample stays visible). Thresholds scale trivially
+  // for multi-season windows where everyone clears them.
+  function epaRole(r){ var x=epaRoleRaw(r); if(!x) return null; var pg=String(r.pos_group||r.position||"").toUpperCase(); var n=(x.plays!=null?x.plays:x.tgt)||0; var min=pg==="QB"?50:(pg==="RB"?25:20); return n>=min ? x : null; }
 
   // Current NFL team per MFL player id (MFL players export is trade-fresh; the
   // leaderboard `team` is season-stamped). Awaited in runQuery so applyLiveOwnership
@@ -1194,6 +1216,11 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       // Signed, colored delta — positive (hard schedule) green, negative (easy) red.
       var d = Number(v); if (d === 0) return "0";
       return '<span class="asw-trend ' + (d > 0 ? "up" : "dn") + '">' + (d > 0 ? "+" : "") + d.toFixed(1) + "</span>";
+    }
+    if (fmt === "epa") {
+      // EPA per play — positive green (efficient), negative red.
+      var e = Number(v);
+      return '<span class="asw-trend ' + (e > 0 ? "up" : (e < 0 ? "dn" : "")) + '">' + (e > 0 ? "+" : "") + e.toFixed(3) + "</span>";
     }
     if (fmt === "spark") {
       // Inline weekly-points sparkline (v = ordered array of weekly scores).
@@ -2031,6 +2058,12 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ consistByGsis = (j && j.by_gsis) || {}; })
       .catch(function(){ consistByGsis = {}; });
+    // EPA / efficiency — keyed by gsis_id, re-aggregated across the seasons.
+    var epaFetch = fetch(API_BASE + "/api/player-epa?seasons=" +
+        encodeURIComponent(seasons.join(",")))
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ epaByGsis = (j && j.by_gsis) || {}; })
+      .catch(function(){ epaByGsis = {}; });
     Promise.all([
       fetch(url).then(function(r){
         if (!r.ok) throw new Error("HTTP " + r.status);
@@ -2040,6 +2073,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       currentTeamsPromise,
       sosFetch,
       consistFetch,
+      epaFetch,
     ]).then(function(pair){
       var j = pair[0];
       var rows = Array.isArray(j.rows) ? j.rows : [];
