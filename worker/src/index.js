@@ -10088,8 +10088,68 @@ export default {
           const gp = weekGroups.length;
           const total = Math.round(weekGroups.reduce((a, w) => a + w.total, 0) * 10) / 10;
           const perGame = gp ? Math.round((total / gp) * 10) / 10 : null;
+
+          // ── Pace / game-script context (D1, best-effort) ──
+          // Per game: did the opponent OFFENSE run the snaps the matchup implied?
+          // This defense's def-pace vs league = the bump it usually allows; compare
+          // it to the offense's actual plays-vs-its-own-norm. A big shortfall means
+          // the game script (blowout / pass-funnel / clock) beat the raw matchup.
+          // Plus each faced player's snaps that week vs their season norm.
+          let dPace = null;
+          try {
+            const db = env.UPS_MFL_DB;
+            if (db) {
+              const toNflv = (t) => ({ LAR: "LA", JAC: "JAX", OAK: "LV", SD: "LAC", STL: "LA" }[t] || t);
+              const defNflv = toNflv(team), seasonInt = parseInt(yr, 10);
+              const tpR = await db.prepare(
+                "SELECT week, team, SUM(COALESCE(rush_att,0)+COALESCE(pass_att,0)+COALESCE(pass_sacks,0)) AS plays FROM nfl_player_weekly WHERE season=? AND week BETWEEN ? AND ? GROUP BY week, team"
+              ).bind(seasonInt, wMin, wMax).all();
+              const playsByWk = {};
+              for (const r of (tpR?.results || [])) (playsByWk[r.week] = playsByWk[r.week] || {})[r.team] = r.plays;
+              const pcR = await db.prepare("SELECT team, off_plays_pg, def_plays_pg FROM nfl_team_pace WHERE season=?").bind(seasonInt).all();
+              const pace = {}; let defSum = 0, defN = 0;
+              for (const r of (pcR?.results || [])) { pace[r.team] = { off: r.off_plays_pg, def: r.def_plays_pg }; if (r.def_plays_pg != null) { defSum += r.def_plays_pg; defN++; } }
+              const lgDef = defN ? defSum / defN : null;
+              const dFactor = (pace[defNflv] && pace[defNflv].def != null && lgDef) ? pace[defNflv].def / lgDef : null;
+              dPace = { team: team, defPlaysPg: pace[defNflv] ? pace[defNflv].def : null, leagueDefAvg: lgDef != null ? Math.round(lgDef * 10) / 10 : null, expDeltaPct: dFactor != null ? Math.round((dFactor - 1) * 100) : null };
+              const byWkNum = {};
+              weeks.forEach((wkNum, wi) => {
+                const offMfl = (oppOf[team] || {})[wi]; if (!offMfl) return;
+                const offNflv = toNflv(offMfl), playsWk = (playsByWk[wkNum] || {})[offNflv], norm = pace[offNflv] && pace[offNflv].off;
+                const s = { opp: offMfl };
+                if (playsWk != null && norm) {
+                  s.playsWk = playsWk; s.norm = Math.round(norm * 10) / 10;
+                  s.actualDeltaPct = Math.round((playsWk / norm - 1) * 100);
+                  s.expDeltaPct = dPace.expDeltaPct;
+                  s.scriptGap = (dPace.expDeltaPct != null) ? (s.actualDeltaPct - dPace.expDeltaPct) : null;
+                }
+                byWkNum[wkNum] = s;
+              });
+              weekGroups.forEach((w) => { w.script = byWkNum[w.wk] || null; });
+
+              // Per-player snaps vs season norm (mfl_id → pfr_id → nfl_player_snaps).
+              const pids = Array.from(new Set(games.map((g) => String(g.pid))));
+              if (pids.length) {
+                const ffR = await db.prepare(`SELECT mfl_id, pfr_id FROM ff_player_ids WHERE mfl_id IN (${pids.map(() => "?").join(",")})`).bind(...pids).all();
+                const pfrByMfl = {}; for (const r of (ffR?.results || [])) if (r.pfr_id) pfrByMfl[String(r.mfl_id)] = r.pfr_id;
+                const pfrs = Array.from(new Set(Object.keys(pfrByMfl).map((m) => pfrByMfl[m])));
+                if (pfrs.length) {
+                  const snR = await db.prepare(`SELECT pfr_id, week, off_snaps FROM nfl_player_snaps WHERE season=? AND pfr_id IN (${pfrs.map(() => "?").join(",")})`).bind(seasonInt, ...pfrs).all();
+                  const byPfr = {};
+                  for (const r of (snR?.results || [])) { if (r.off_snaps == null) continue; const o = byPfr[r.pfr_id] = byPfr[r.pfr_id] || { wk: {}, all: [] }; o.wk[r.week] = r.off_snaps; o.all.push(r.off_snaps); }
+                  for (const g of games) {
+                    const pfr = pfrByMfl[String(g.pid)]; if (!pfr) continue;
+                    const o = byPfr[pfr]; if (!o) continue;
+                    const snaps = o.wk[g.wk], norm = o.all.length ? o.all.reduce((a, b) => a + b, 0) / o.all.length : null;
+                    if (snaps != null) { g.snaps = snaps; g.snapNorm = norm != null ? Math.round(norm) : null; g.snapDeltaPct = (norm && norm > 0) ? Math.round((snaps / norm - 1) * 100) : null; }
+                  }
+                }
+              }
+            }
+          } catch (e) { /* pace/snaps context is best-effort */ }
+
           return jsonOut(200, { ok: true, year: yr, team: team, pos: posWanted, window: { week_min: wMin, week_max: wMax },
-            weeks: weekGroups, gamesPlayed: gp, total: total, perGame: perGame, games: games });
+            weeks: weekGroups, gamesPlayed: gp, total: total, perGame: perGame, dPace: dPace, games: games });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
