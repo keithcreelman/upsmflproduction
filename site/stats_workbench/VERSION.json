@@ -1,7 +1,7 @@
 {
-  "version": "1.6.0",
+  "version": "1.7.0",
   "released": "2026-06-22",
-  "label": "v1.6.0 \u2014 New Vegas sub-tab: implied team points + over/under per week (nflverse lines). (v1.5.0: multi-source ADP. v1.4.0: ADP sub-tab.)",
+  "label": "v1.7.0 \u2014 Team Pace column group (nflverse PBP): team plays/game, def plays faced/game, and Pace SoS (schedule-adjusted = avg opponent pace). (v1.6.0: Vegas. v1.5.0: multi-source ADP.)",
   "changes_120": [
     "Horizontal scrollbar moved to the TOP of the table (synced two-way); the table now scrolls in a bounded 680px region so the scrollbar + column header stay fixed while the body scrolls (works in the iframe embed, not just standalone).",
     "Pos Rk now ranks within the IDP/offense GROUP (DL/LB/DB/QB/RB/WR/TE/PK) instead of the raw nflverse position \u2014 fixes multiple #1s showing in a single DL/LB/DB."

@@ -5516,6 +5516,8 @@ export default {
 
         const posList = posGroups.map(p => `'${p}'`).join(",");
         const seasonList = seasons.map(s => String(parseInt(s, 10))).join(",");
+        // Representative season for the team-pace join (the latest queried).
+        const paceSeason = Math.max.apply(null, seasons.map(s => parseInt(s, 10)));
 
         try {
           const db = env.UPS_MFL_DB;
@@ -5537,6 +5539,7 @@ export default {
                    COALESCE(NULLIF(c.full_name, ''), npn.display_name) AS player_name,
                    a.position, a.team, a.pos_group, a.games,
                    ctm.nfl_team AS current_team,
+                   ntp.off_plays_pg AS team_plays_pg, ntp.def_plays_pg AS team_def_plays_pg, ntp.pace_sos AS pace_sos,
                    sa.off_snaps_total, sa.def_snaps_total,
                    sa.off_snap_rate,   sa.def_snap_rate,
                    lc.salary AS mfl_salary, lc.aav AS mfl_aav,
@@ -5868,6 +5871,7 @@ export default {
               FROM agg a
               LEFT JOIN player_id_crosswalk c ON c.gsis_id = a.gsis_id
               LEFT JOIN nfl_player_names npn   ON npn.gsis_id = a.gsis_id
+              LEFT JOIN nfl_team_pace ntp      ON ntp.team = a.team AND ntp.season = ${paceSeason}
               LEFT JOIN snap_agg sa           ON sa.gsis_id = a.gsis_id
               LEFT JOIN season_adv_agg sv     ON sv.gsis_id = a.gsis_id
               LEFT JOIN team_agg ta           ON ta.gsis_id = a.gsis_id
