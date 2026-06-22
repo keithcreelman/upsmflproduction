@@ -412,19 +412,11 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       title:"Total MFL fantasy points over the selected season/scope" },
     mfl_ppg:             { label:"MFL PPG",  num:true, fmt:"dec1",
       title:"MFL points ÷ games with a score (excludes inactives/byes; computed server-side)" },
-    mfl_salary:          { label:"Salary",   num:true, fmt:"money",
-      title:"Current MFL contract salary (compact: 45K / 1.25M)" },
-    mfl_years_remaining: { label:"Yrs Left", num:true,
-      title:"Years remaining on current MFL contract (length - contract_year + 1)" },
-    mfl_aav:             { label:"AAV",      num:true, fmt:"money",
-      title:"Annual Average Value of current MFL contract (compact: 45K / 1.25M)" },
-    // Dynasty market value (FantasyCalc SuperFlex, via /api/adp; joined by mfl_pid)
-    adp_value:   { label:"Value", num:true, title:"FantasyCalc dynasty trade value (SuperFlex)",
-      compute:function(r){ var a=adpByPid[String(r.mfl_pid)]; return a && a.value != null ? a.value : null; } },
-    adp_overall: { label:"Ovr",   num:true, invertRank:true, title:"Overall dynasty rank (FantasyCalc SF; lower = better)",
-      compute:function(r){ var a=adpByPid[String(r.mfl_pid)]; return a && a.overall_rank != null ? a.overall_rank : null; } },
-    adp_trend:   { label:"30d",   num:true, fmt:"trend", title:"30-day change in dynasty value (FantasyCalc; ▲ rising / ▼ falling)",
-      compute:function(r){ var a=adpByPid[String(r.mfl_pid)]; return a && a.trend30 != null ? a.trend30 : null; } },
+    // Strength-of-Schedule-adjusted MFL points (side-loaded /api/sos-adjusted-points, by gsis_id).
+    // raw ÷ avg generosity of the defenses faced — easy schedule adjusts DOWN, tough adjusts UP.
+    mfl_points_sos:      { label:"SoS Pts",  num:true, fmt:"dec1",
+      title:"Strength-of-Schedule-adjusted MFL points: raw points ÷ the average generosity of the defenses faced (vs the position). Easy schedule adjusts down, tough schedule adjusts up.",
+      compute:function(r){ var s=sosByGsis[String(r.gsis_id)]; return s && s.sos != null ? s.sos : null; } },
     // Usage — offense
     games:               { label:"G",        num:true },
     off_snaps_total:     { label:"Snaps",    num:true, title:"Offensive snaps" },
@@ -695,7 +687,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       label: "QB", workerPos: "qb", positionFilter: null,
       ident: IDENT_BASIC, defaultSort: "pass_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"pass_volume",    label:"Passing · Volume",  cols:["pass_att","pass_cmp","cmp_pct","pass_yds","pass_tds","ypa"], defaultOn:true },
         { id:"pass_turnovers", label:"Passing · Turnovers", cols:["pass_ints","int_pct","pass_sacks","pass_sack_yds"], defaultOn:false },
@@ -711,7 +703,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       label: "RB", workerPos: "skill", positionFilter: ["RB","FB"],
       ident: IDENT_BASIC, defaultSort: "rush_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rush_volume",    label:"Rushing · Volume",  cols:["rush_att","rush_yds","rush_tds","y_per_a"], defaultOn:true },
         { id:"rush_efficiency",label:"Rushing · Efficiency", cols:["ybc_per_a","yac_per_a"], defaultOn:false },
@@ -733,7 +725,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       label: "WR", workerPos: "skill", positionFilter: ["WR"],
       ident: IDENT_BASIC, defaultSort: "rec_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds","rec_per_t"], defaultOn:true },
         { id:"rec_efficiency", label:"Receiving · Efficiency", cols:["y_per_t","y_per_r"], defaultOn:false },
@@ -752,7 +744,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       label: "TE", workerPos: "skill", positionFilter: ["TE"],
       ident: IDENT_BASIC, defaultSort: "rec_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds","rec_per_t"], defaultOn:true },
         { id:"rec_efficiency", label:"Receiving · Efficiency", cols:["y_per_t","y_per_r"], defaultOn:false },
@@ -770,7 +762,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       label: "Flex·O", workerPos: "skill", positionFilter: null,
       ident: IDENT_FLEX, defaultSort: "rec_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds"], defaultOn:true },
         { id:"rush_volume",    label:"Rushing · Volume", cols:["rush_att","rush_yds","rush_tds"], defaultOn:true },
@@ -799,7 +791,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       ],
       ident: IDENT_BASIC, defaultSort: "def_sacks",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:false },
@@ -812,7 +804,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       positionFilter: ["LB","OLB","ILB","MLB"],
       ident: IDENT_BASIC, defaultSort: "def_tackles_total",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:false },
@@ -832,7 +824,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       ],
       ident: IDENT_BASIC, defaultSort: "def_tackles_total",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_turnovers",   label:"Turnovers", cols:["def_ints","def_pass_def","def_ff","def_fr","def_tds"], defaultOn:false },
@@ -845,7 +837,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       label: "Flex·IDP", workerPos: "idp", positionFilter: null,
       ident: IDENT_FLEX, defaultSort: "def_tackles_total",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:false },
@@ -860,7 +852,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       label: "PK", workerPos: "kicker", positionFilter: null,
       ident: IDENT_BASIC, defaultSort: "fg_made",
       groups: [
-        { id:"mfl_details",  label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
+        { id:"mfl_details",  label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
         { id:"usage",        label:"Usage",    cols:["games"], defaultOn:true },
         { id:"fg_totals",    label:"FG Totals", cols:["fg_made","fg_miss","fg_pct","avg_fg_make","avg_fg_att"], defaultOn:true },
         { id:"fg_distance",  label:"FG by Distance", cols:["fg_0_39","fg_40_49","fg_50_59","fg_60plus"], defaultOn:false },
@@ -871,7 +863,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       label: "PN", workerPos: "punter", positionFilter: null,
       ident: IDENT_BASIC, defaultSort: "punts",
       groups: [
-        { id:"mfl_details",     label:"MFL Details",        cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details",        cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
         { id:"usage",           label:"Usage",              cols:["games"], defaultOn:true },
         { id:"punt_volume",     label:"Volume",             cols:["punts","punt_yds"], defaultOn:true },
         { id:"punt_efficiency", label:"Efficiency",         cols:["punt_avg","punt_net_avg","punt_avg_spot"], defaultOn:false },
@@ -889,18 +881,12 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     },
   };
 
-  // Dynasty Value group (FantasyCalc) — injected as the 2nd group on every tab so
-  // it sits right after MFL Details. Default-on for offense (where FantasyCalc has
-  // values); available-but-off for IDP / K / P (sparse coverage there).
+  // (Dynasty/ADP value columns were removed from Player Stats — ADP lives on its
+  // own Stats sub-tab now. Contract Salary/AAV/Yrs were removed too.)
+  // Team Pace group (nflverse) — injected right after MFL Details, available-but-off.
   (function(){
-    var OFF = { qb:1, rb:1, wr:1, te:1 };
     Object.keys(TABS).forEach(function(k){
       if (TABS[k] && TABS[k].groups) TABS[k].groups.splice(1, 0,
-        { id:"dynasty_value", label:"Dynasty Value", cols:["adp_value","adp_overall","adp_trend"], defaultOn: !!OFF[k] });
-    });
-    // Team Pace group (nflverse) — available-but-off on every tab.
-    Object.keys(TABS).forEach(function(k){
-      if (TABS[k] && TABS[k].groups) TABS[k].groups.splice(2, 0,
         { id:"team_pace", label:"Team Pace", cols:["team_plays_pg","team_def_plays_pg","pace_sos"], defaultOn:false });
     });
   })();
@@ -936,13 +922,10 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     return fid.slice(0, 4);
   }
 
-  // Dynasty market value (FantasyCalc SuperFlex) keyed by mfl_pid — side-loaded
-  // once and read by the adp_* compute columns (mirrors state.rankByGsis).
-  var adpByPid = {};
-  var adpPromise = fetch(API_BASE + "/api/adp")
-    .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(j){ var m = (j && j.by_mfl_id) || {}; Object.keys(m).forEach(function(pid){ adpByPid[String(pid)] = m[pid]; }); })
-    .catch(function(){});
+  // Strength-of-Schedule-adjusted MFL points keyed by gsis_id — side-loaded per
+  // query (it depends on the selected seasons + week window) and read by the
+  // mfl_points_sos compute column. Repopulated inside runQuery().
+  var sosByGsis = {};
 
   var leagueStatePromise = fetch(API_BASE + "/api/mfl-league-state?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + THIS_YEAR)
     .then(function(r){ return r.ok ? r.json() : null; })
@@ -1974,13 +1957,20 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       getScopeQueryParams() +
       "&min_games=1" +
       "&limit=500";
+    // SoS-adjusted MFL points — side-load per query with the SAME seasons +
+    // week window so the adjusted total lines up with the displayed raw points.
+    var sosFetch = fetch(API_BASE + "/api/sos-adjusted-points?seasons=" +
+        encodeURIComponent(seasons.join(",")) + getScopeQueryParams())
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ sosByGsis = (j && j.by_gsis) || {}; })
+      .catch(function(){ sosByGsis = {}; });
     Promise.all([
       fetch(url).then(function(r){
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       }),
       leagueStatePromise,
-      adpPromise,
+      sosFetch,
     ]).then(function(pair){
       var j = pair[0];
       var rows = Array.isArray(j.rows) ? j.rows : [];
@@ -2498,11 +2488,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     // season-aggregates, not per-week values — surfacing them once in
     // the header avoids spamming identical values on every week row.
     var metaParts = [(pos ? pos : ""), nfl, mfl].filter(Boolean);
-    // Keep Salary adjacent to AAV (Keith 2026-04-24: "salary NEXT to AAV
-    // rather than sticking yrs remain in between").
-    if (playerRow.mfl_salary != null) metaParts.push("Salary " + fmtCell(playerRow.mfl_salary, "money"));
-    if (playerRow.mfl_aav != null) metaParts.push("AAV " + fmtCell(playerRow.mfl_aav, "money"));
-    if (playerRow.mfl_years_remaining != null) metaParts.push(playerRow.mfl_years_remaining + " yr" + (playerRow.mfl_years_remaining === 1 ? "" : "s") + " left");
+    // Contract chips (Salary/AAV/Yrs) removed from Player Stats — contract detail
+    // lives in the Front Office / Contracts hub (Keith: "enough deets on contracts").
     if (playerRow.mfl_points != null) metaParts.push(fmtCell(playerRow.mfl_points, "dec1") + " MFL pts");
     if (playerRow.mfl_ppg != null) metaParts.push(fmtCell(playerRow.mfl_ppg, "dec1") + " PPG");
     drawerSub.textContent = metaParts.join(" · ");

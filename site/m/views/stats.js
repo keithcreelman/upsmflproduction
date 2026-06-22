@@ -63,9 +63,7 @@
     punts: { l: "Punts", g: function (r) { return nn(r.punts); } },
     navg:  { l: "NetAvg",g: function (r) { return nn(r.punt_net_avg); }, f: "dec1" },
     i20:   { l: "I20",   g: function (r) { return nn(r.punt_inside20); } },
-    val:   { l: "Val",   g: function (r) { var a = adpRec(r); return a && a.value != null ? a.value : null; } },
-    ovr:   { l: "Ovr",   g: function (r) { var a = adpRec(r); return a && a.overall_rank != null ? a.overall_rank : null; } },
-    dtrend:{ l: "30d",   g: function (r) { var a = adpRec(r); return a && a.trend30 != null ? a.trend30 : null; }, f: "trend" },
+    sospts:{ l: "SoS",   g: function (r) { var s = sosRec(r); return s && s.sos != null ? s.sos : null; }, f: "dec1" },
     tmpace:{ l: "Pace",  g: function (r) { return nn(r.team_plays_pg); }, f: "dec1" },
     pcsos: { l: "PcSoS", g: function (r) { return nn(r.pace_sos); }, f: "dec1" }
   };
@@ -103,9 +101,12 @@
     { id: "PN", alias: "punter", group: ["PK", "PN"], sets: [
       { l: "Punting",   cols: ["punts", "navg", "i20", "ppg"] } ] }
   ];
-  // Dynasty Value set (FantasyCalc) — offense positions only.
+  // SoS-adjusted MFL points set — every position (raw Pts · SoS-adjusted · PPG).
+  // (ADP/Dynasty columns were removed from Player Stats — ADP has its own sub-tab.)
+  TABS.forEach(function (t) { t.sets.push({ l: "SoS", cols: ["pts", "sospts", "ppg"] }); });
+  // Team Pace set — offense positions only.
   ["QB", "RB", "WR", "TE"].forEach(function (id) {
-    for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) { TABS[i].sets.push({ l: "Dynasty", cols: ["val", "ovr", "dtrend", "ppg"] }); TABS[i].sets.push({ l: "Pace", cols: ["tmpace", "pcsos", "ppg"] }); }
+    for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) TABS[i].sets.push({ l: "Pace", cols: ["tmpace", "pcsos", "ppg"] });
   });
 
   // scope: "all" | "ros" (rostered) | "fa" (free agents) — Keith 2026-06-20.
@@ -114,17 +115,19 @@
   var cache = {};   // alias|season → ranked raw rows
   var season = 0;
 
-  // Dynasty market value (FantasyCalc SF) keyed by mfl_pid — side-loaded once,
-  // read by the val/ovr/dtrend columns (the "Dynasty" set on offense tabs).
-  var adpMap = null;
-  function loadAdp() {
-    if (adpMap) return Promise.resolve(adpMap);
-    return fetch(API.workerUrl("/api/adp"), { mode: "cors", credentials: "omit" })
+  // SoS-adjusted MFL points keyed by gsis_id — side-loaded per season (MFL Total
+  // wks 1-17, matching the leaderboard's default), read by the "SoS" set.
+  var sosMap = null, sosSeason = 0;
+  function loadSos(yr) {
+    if (sosMap && sosSeason === yr) return Promise.resolve(sosMap);
+    sosSeason = yr;
+    return fetch(API.workerUrl("/api/sos-adjusted-points?seasons=" + encodeURIComponent(yr) + "&week_min=1&week_max=17"),
+        { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { adpMap = (j && j.by_mfl_id) || {}; return adpMap; })
-      .catch(function () { adpMap = {}; return adpMap; });
+      .then(function (j) { sosMap = (j && j.by_gsis) || {}; return sosMap; })
+      .catch(function () { sosMap = {}; return sosMap; });
   }
-  function adpRec(r) { return (adpMap && adpMap[String(r.mfl_pid)]) || null; }
+  function sosRec(r) { return (sosMap && sosMap[String(r.gsis_id)]) || null; }
 
   function curSeason() {
     if (season) return season;
@@ -569,9 +572,9 @@
       return;
     }
     var tab = curTab();
-    // Dynasty values load once in the background; re-paint when ready so the
-    // "Dynasty" column set fills in.
-    if (!adpMap) loadAdp().then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
+    // SoS-adjusted points load in the background (per season); re-paint when ready
+    // so the "SoS" column set fills in.
+    loadSos(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
     if (cache[tab.alias + "|" + curSeason()]) { paint(mount); return; }
     mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + '<div class="ups-m-loading">Loading stats…</div>';
     bindInner(mount); bindToolbar(mount);

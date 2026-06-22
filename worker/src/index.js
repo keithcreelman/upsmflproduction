@@ -5643,7 +5643,7 @@ export default {
                      SUM(COALESCE(sw.score, 0))                                      AS mfl_points,
                      SUM(CASE WHEN COALESCE(sw.score, 0) > 0 THEN 1 ELSE 0 END)      AS mfl_games_scored
                 FROM src_weekly sw
-                JOIN ff_player_ids f ON CAST(f.mfl_id AS TEXT) = sw.player_id
+                JOIN ff_player_ids f ON f.mfl_id = sw.player_id
                WHERE sw.season IN (${seasonList})
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "sw.week")}
                  AND f.gsis_id IS NOT NULL
@@ -10071,7 +10071,7 @@ export default {
                 FROM nfl_player_weekly w
                 JOIN ff_player_ids f ON f.gsis_id = w.gsis_id
                 JOIN src_weekly sw
-                  ON CAST(f.mfl_id AS TEXT) = sw.player_id AND sw.season = w.season AND sw.week = w.week
+                  ON f.mfl_id = sw.player_id AND sw.season = w.season AND sw.week = w.week
                WHERE w.season IN (${seasonList}) AND w.week BETWEEN ${wMin} AND ${wMax}
                  AND w.pos_group IS NOT NULL AND w.opponent IS NOT NULL AND sw.score IS NOT NULL
             ),
