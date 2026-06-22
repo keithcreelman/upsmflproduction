@@ -142,13 +142,17 @@
   // declutter — one clean line per starter, full intel on tap).
   function slotMatchupHtml(pid) {
     var mu = matchupFor(pid); if (!mu) return "";
-    var loc = (mu.isHome ? "vs " : "@ ") + mu.opp;
+    var loc = (mu.isHome ? "vs " : "@ ") + mu.opp, when = fmtKick(mu.kickoff);
     var chip = mu.rank != null ? '<span class="ups-m-mu-rank ' + rankCls(mu.rank) + '">' + U.escapeHtml(mu.opp) + ' #' + mu.rank + ' to ' + mu.grp + '</span>' : "";
     var open = M.state.lineupMuExpand === pid;
-    var compact = '<div class="ups-m-slot-mu" data-mu-pid="' + U.escapeHtml(pid) + '">' + U.escapeHtml(loc) + (chip ? " · " + chip : "") + '<span class="ups-m-mu-exp">' + (open ? "▾" : "▸") + '</span></div>';
+    // Compact line carries location + kickoff + the def chip; the detail no
+    // longer repeats opp/kickoff (Keith: "@ JAC" was showing twice) — it just
+    // leads with the betting line when one exists.
+    var compact = '<div class="ups-m-slot-mu" data-mu-pid="' + U.escapeHtml(pid) + '">' + U.escapeHtml(loc) + (when ? " · " + U.escapeHtml(when) : "") + (chip ? " · " + chip : "") + '<span class="ups-m-mu-exp">' + (open ? "▾" : "▸") + '</span></div>';
     if (!open) return compact;
-    var when = fmtKick(mu.kickoff), hasLine = (mu.spread != null && mu.spread !== 0);
-    var rows = ['<div class="r">' + U.escapeHtml((mu.isHome ? "vs " : "@ ") + mu.opp) + (when ? " · " + U.escapeHtml(when) : "") + (hasLine ? " · " + U.escapeHtml((mu.spread > 0 ? "+" : "") + mu.spread) : "") + '</div>'];
+    var hasLine = (mu.spread != null && mu.spread !== 0);
+    var rows = [];
+    if (hasLine) rows.push('<div class="r ups-m-mu-line">Line <b>' + U.escapeHtml((mu.spread > 0 ? "+" : "") + mu.spread) + '</b></div>');
     var wx = wxText(mu.weather);
     if (wx) rows.push('<div class="r ups-m-mu-wx">' + U.escapeHtml(wx) + '</div>');
     if (mu.rank != null) { var pct = Math.round((mu.ratio - 1) * 100); rows.push('<div class="r">Defense <b class="ups-m-mu-rank ' + rankCls(mu.rank) + '">#' + mu.rank + '/' + mu.of + ' to ' + mu.grp + '</b> · allows ' + (pct >= 0 ? "+" : "") + pct + '% vs expected (' + muLabel(muWindow()) + ')</div>'); }
