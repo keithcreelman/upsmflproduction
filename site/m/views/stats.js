@@ -363,7 +363,7 @@
     var poss = [["ALL", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"]];
     var chips = poss.map(function (p) { return '<button class="ups-m-pos-chip' + (adpb.pos === p[0] ? " on" : "") + '" data-adppos="' + p[0] + '">' + p[1] + "</button>"; }).join("");
     return '<div class="ups-m-players-toolbar">' +
-      '<div class="ups-m-auc-sec-head">ADP <span class="ct">FantasyCalc SF dynasty value · 30-day trend</span></div>' +
+      '<div class="ups-m-auc-sec-head">ADP <span class="ct">SF dynasty consensus · FantasyCalc + KTC + DynastyProcess + Sleeper</span></div>' +
       '<div class="ups-m-pos-chips">' + chips + "</div></div>";
   }
   function adpBoardHtml() {
@@ -371,14 +371,19 @@
     var rows = adpb.data.slice();
     if (adpb.pos !== "ALL") rows = rows.filter(function (r) { return r.pos === adpb.pos; });
     if (!rows.length) return '<div class="ups-m-stub"><div>No players.</div></div>';
-    var head = '<div class="ups-m-adp-row head"><span class="rk">#</span><span class="pl">Player</span><span class="v">Value</span><span class="v">30d</span></div>';
+    var head = '<div class="ups-m-adp-row head"><span class="rk">#</span><span class="pl">Player</span><span class="v">Cons</span><span class="v">30d</span></div>';
     var body = rows.slice(0, 300).map(function (r) {
       var t = r.trend30, tcls = t == null ? "" : (t > 0 ? "up" : (t < 0 ? "dn" : ""));
-      var sub = r.pos + (r.posRank != null ? String(r.posRank) : "") + " · " + (r.team || "—") + (r.age != null ? " · " + r.age + "y" : "");
+      var src = [];
+      if (r.fcValue != null) src.push("FC " + r.fcValue);
+      if (r.ktcValue != null) src.push("KTC " + r.ktcValue);
+      if (r.dpValue != null) src.push("DP " + r.dpValue);
+      if (r.sleeperRank != null) src.push("Slp #" + r.sleeperRank);
+      var sub = r.pos + (r.posRank != null ? String(r.posRank) : "") + " · " + (r.team || "—") + (src.length ? " · " + src.join(" · ") : "");
       return '<div class="ups-m-adp-row">' +
-        '<span class="rk">' + (r.ovr != null ? r.ovr : "—") + "</span>" +
+        '<span class="rk">' + (r.rank != null ? r.rank : "—") + "</span>" +
         '<span class="pl"><span class="nm">' + U.escapeHtml(r.name) + '</span><span class="sub">' + U.escapeHtml(sub) + "</span></span>" +
-        '<span class="v">' + (r.value != null ? r.value : "—") + "</span>" +
+        '<span class="v">' + (r.consensus != null ? r.consensus : "—") + "</span>" +
         '<span class="v"><span class="ups-m-tr ' + tcls + '">' + (t != null && t !== 0 ? ((t > 0 ? "▲" : "▼") + Math.abs(t)) : (t === 0 ? "0" : "—")) + "</span></span>" +
       "</div>";
     }).join("");
