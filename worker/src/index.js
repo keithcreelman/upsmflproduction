@@ -5632,17 +5632,21 @@ export default {
                 WHERE c.season = (SELECT MAX(season) FROM src_contracts)
             ),
             -- MFL per-player fantasy scoring for the same season/week
-            -- window as the NFL stat aggregates. src_weekly.player_id is
-            -- the MFL player_id, so we join via player_id_crosswalk.
+            -- window as the NFL stat aggregates. src_weekly.player_id is the
+            -- MFL player_id. We join via the ALL-ERAS ff_player_ids map (NOT
+            -- player_id_crosswalk, which is current-pool-only → only 3% of
+            -- 2012's MFL players mapped → blank historical "MFL PTS"). 100%
+            -- coverage of src_weekly across 2010-2025.
             mfl_scoring_agg AS (
-              SELECT c.gsis_id,
+              SELECT f.gsis_id,
                      SUM(COALESCE(sw.score, 0))                                      AS mfl_points,
                      SUM(CASE WHEN COALESCE(sw.score, 0) > 0 THEN 1 ELSE 0 END)      AS mfl_games_scored
                 FROM src_weekly sw
-                JOIN player_id_crosswalk c ON CAST(c.mfl_player_id AS TEXT) = sw.player_id
+                JOIN ff_player_ids f ON CAST(f.mfl_id AS TEXT) = sw.player_id
                WHERE sw.season IN (${seasonList})
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "sw.week")}
-               GROUP BY c.gsis_id
+                 AND f.gsis_id IS NOT NULL
+               GROUP BY f.gsis_id
             ),
             agg AS (
               SELECT w.gsis_id,
@@ -5998,7 +6002,7 @@ export default {
             .prepare("SELECT pfr_id, full_name, mfl_player_id FROM player_id_crosswalk WHERE gsis_id = ? LIMIT 1")
             .bind(gsisId)
             .first();
-          const pfrId = pfrRow && pfrRow.pfr_id || null;
+          let pfrId = pfrRow && pfrRow.pfr_id || null;
           // Name: crosswalk (MFL pool) first, else the all-eras nflverse master
           // (covers retired players with no crosswalk row).
           let resolvedName = (pfrRow && pfrRow.full_name) || null;
@@ -6009,8 +6013,18 @@ export default {
           // Bind as a STRING — src_weekly.player_id is TEXT. If we bind
           // the INTEGER from the crosswalk D1 may coerce through REAL
           // (15794 → "15794.0") and the join silently misses every row.
-          const mflPidLookup = pfrRow && pfrRow.mfl_player_id != null
+          let mflPidLookup = pfrRow && pfrRow.mfl_player_id != null
             ? String(pfrRow.mfl_player_id) : null;
+          // All-eras fallback: retired players have no player_id_crosswalk row,
+          // so resolve pfr_id / mfl_id from ff_player_ids by gsis_id (fixes the
+          // historical per-week MFL points + snaps joins in the drawer).
+          if (!pfrId || !mflPidLookup) {
+            const ff = await db.prepare("SELECT pfr_id, mfl_id FROM ff_player_ids WHERE gsis_id = ? LIMIT 1").bind(gsisId).first();
+            if (ff) {
+              if (!pfrId && ff.pfr_id) pfrId = ff.pfr_id;
+              if (!mflPidLookup && ff.mfl_id != null) mflPidLookup = String(ff.mfl_id);
+            }
+          }
           // Subqueries for team-week denominators — feed client-side
           // share calcs (target_share, rec_share, rush_share, RZ shares).
           // Keith 2026-04-24: drawer charts were blank on ratio metrics
