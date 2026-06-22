@@ -1133,6 +1133,25 @@ button.ups-m-busy::before,
 /* Stats filter row — roster scope + column-set dropdowns */
 .ups-m-st-filters { display: flex; gap: 8px; padding: 0 12px 8px; }
 .ups-m-st-filters .ups-m-players-filter { flex: 1 1 0; min-width: 0; }
+
+/* Stats inner switch (Player Stats / Fantasy Points Against) + FPA table */
+.ups-m-stseg-bar { display: flex; gap: 6px; padding: 0 12px 10px; }
+.ups-m-stseg { flex: 1 1 0; background: var(--bg-elev); border: 1px solid var(--line); color: var(--fg-muted); border-radius: 8px; padding: 8px 6px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+.ups-m-stseg.on { background: var(--accent); border-color: var(--accent); color: #0a1222; }
+.ups-m-fpa-wk { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--fg-muted); flex: 1 1 0; }
+.ups-m-fpa-wk select { flex: 0 0 auto; min-width: 0; width: 68px; padding-left: 8px; padding-right: 4px; }
+.ups-m-fpa-sub { color: var(--fg-muted); font-size: 11px; padding: 0 12px 8px; }
+.ups-m-fpa-table { display: flex; flex-direction: column; }
+.ups-m-fpa-row { display: grid; grid-template-columns: 38px 1fr 62px 62px; gap: 6px; align-items: center; padding: 9px 12px; border-top: 1px solid var(--line); background: var(--bg-elev); }
+.ups-m-fpa-row.head { background: transparent; border-top: 0; padding: 2px 12px 4px; color: var(--fg-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.ups-m-fpa-row .rk { text-align: center; }
+.ups-m-fpa-row .tm { font-size: 13px; font-weight: 700; color: var(--fg); }
+.ups-m-fpa-row .v { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--fg); }
+.ups-m-fpa-row .v:last-child { font-weight: 700; }
+.ups-m-fpa-rk { display: inline-block; min-width: 26px; text-align: center; padding: 2px 6px; border-radius: 5px; font-weight: 800; font-size: 12px; font-variant-numeric: tabular-nums; }
+.ups-m-fpa-rk.easy { background: rgba(91,217,162,0.16); color: #8ff0c4; }
+.ups-m-fpa-rk.tough { background: rgba(224,122,122,0.14); color: #ffb1b1; }
+.ups-m-fpa-rk.mid { background: var(--bg-elev2); color: var(--fg); }
 .ups-m-fa-row .name {
   font-size: 14px;
   font-weight: 600;
