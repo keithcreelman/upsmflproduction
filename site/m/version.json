@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.22.21",
-  "label": "Lineup matchups Phase 2: Season/L3/L5 window toggle (re-scopes the defense rank + recent form), each starter shows recent avg, and a 'Next:' schedule horizon with each upcoming defense's rank."
+  "build": "2026.06.22.22",
+  "label": "Stats → Sched: a fantasy Strength-of-Schedule heatmap. Pick a position; the grid colors each NFL team's weekly matchup green (easy — faces generous defenses) to red (tough), with a Full vs Playoffs (Wk 15–17) toggle and easiest-first sorting. Offseason projects from last season's defense ratings."
 }

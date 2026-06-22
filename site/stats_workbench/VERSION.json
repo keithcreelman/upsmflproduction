@@ -1,7 +1,7 @@
 {
-  "version": "1.15.0",
+  "version": "1.16.0",
   "released": "2026-06-22",
-  "label": "v1.15.0 \u2014 Consistency & Boom/Bust: a new Player Stats column group (Floor, Ceil, Consistency 0-100, Boom%, Bust%, + a weekly-points sparkline) from your MFL weekly scores. Mobile gets a Boom/Bust column set.",
+  "label": "v1.16.0 \u2014 Schedule: a new fantasy Strength-of-Schedule heatmap sub-tab. Pick a position + season; the grid colors each team's weekly matchup green (faces generous defenses = easy) to red (tough), with a Full-season vs Playoffs (Wk 15\u201317) toggle and easiest-first sorting. Built on the same opponent-adjusted FPA engine.",
   "changes_120": [
     "Horizontal scrollbar moved to the TOP of the table (synced two-way); the table now scrolls in a bounded 680px region so the scrollbar + column header stay fixed while the body scrolls (works in the iframe embed, not just standalone).",
     "Pos Rk now ranks within the IDP/offense GROUP (DL/LB/DB/QB/RB/WR/TE/PK) instead of the raw nflverse position \u2014 fixes multiple #1s showing in a single DL/LB/DB."
