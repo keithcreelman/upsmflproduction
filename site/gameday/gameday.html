@@ -65,6 +65,16 @@
   .gd-mu-rank { font-weight: 700; color: var(--fg); }
   .gd-mu-rank.good { color: var(--ok); }
   .gd-mu-rank.tough { color: var(--danger); }
+  .gd-bench-head { margin: 16px 0 0; }
+  .gd-bench-toggle { width: 100%; text-align: left; background: var(--panel2); border: 1px solid var(--line); color: var(--fg); border-radius: 8px; padding: 9px 13px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .gd-bench-toggle:hover { border-color: var(--accent); }
+  .gd-bench { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 8px 8px; overflow: hidden; }
+  .gd-bench-row { display: grid; grid-template-columns: 1fr 52px; gap: 10px; align-items: center; padding: 7px 14px 1px; border-top: 1px solid var(--line); }
+  .gd-bench-id .nm { font-size: 13px; font-weight: 700; color: var(--fg); }
+  .gd-bench-id .meta { font-size: 10px; color: var(--muted); margin-left: 6px; }
+  .gd-bench-proj { text-align: right; font-size: 14px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .gd-bench .gd-slot-mu { border-left: 0; padding-left: 14px; }
+  .gd-bench-empty { padding: 12px; text-align: center; color: var(--muted); font-size: 12px; }
   .gd-slot-tag { display: flex; flex-direction: column; line-height: 1.15; }
   .gd-slot-tag .pos { font-size: 14px; font-weight: 800; color: var(--fg); }
   .gd-slot-tag .pos.flex { color: var(--accent); font-size: 13px; }
@@ -581,6 +591,23 @@
     else if (v.filled > 0) { subLabel = "Save Lineup (" + v.filled + "/" + TOTAL + ")"; }
     else { subLabel = "Pick your starters"; subDis = true; }
 
+    // Bench (toggle) — every other active-roster player, laid out by position +
+    // projection, with the same matchup intel so you can compare everyone.
+    var GORDER = { QB: 0, RB: 1, WR: 2, TE: 3, PK: 4, PN: 5, DL: 6, LB: 7, DB: 8, OTH: 9 };
+    var benchRows = rows.filter(function (r) { return !used[r.id]; }).sort(function (a, b) {
+      var ga = GORDER[a.group] == null ? 9 : GORDER[a.group], gb = GORDER[b.group] == null ? 9 : GORDER[b.group];
+      if (ga !== gb) return ga - gb;
+      var pa = projFor(a.id), pb = projFor(b.id); pa = pa == null ? -1 : pa; pb = pb == null ? -1 : pb;
+      return pb - pa;
+    });
+    var showBench = !!STATE.showBench;
+    var benchHtml = '<div class="gd-bench-head"><button type="button" class="gd-bench-toggle" id="gd-bench-toggle">' + (showBench ? "▾" : "▸") + ' Bench &amp; matchups (' + benchRows.length + ')</button></div>' +
+      (showBench ? '<div class="gd-bench">' + (benchRows.length ? benchRows.map(function (r) {
+        return '<div class="gd-bench-row"><div class="gd-bench-id"><span class="nm">' + esc(r.name) + '</span>' +
+          '<span class="meta">' + esc(r.pos || "—") + ' · ' + esc(r.team || "—") + '</span></div>' +
+          '<div class="gd-bench-proj" title="Projected points">' + esc(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id);
+      }).join("") : '<div class="gd-bench-empty">No bench players.</div>') + '</div>' : '');
+
     var html =
       '<div class="gd-lu-status">' +
         '<div class="gd-lu-status-line">' + summary +
@@ -599,8 +626,12 @@
         '<div class="gd-col"><div class="gd-col-head"><span>Defense</span><span class="n">' + DEF + '</span></div>' +
           SLOTS.filter(function (sl) { return sl.side === "D"; }).map(function (sl) { return slotHtml(sl, rows, draft, used); }).join("") + '</div>' +
       '</div>' +
+      benchHtml +
       '<div class="gd-submit-row"><button class="gd-submit' + (subReady ? " ready" : "") + (STATE.submitting ? " busy" : "") + '" id="gd-submit"' + (subDis ? " disabled" : "") + '>' + esc(subLabel) + '</button></div>';
     el.innerHTML = html;
+
+    var benchToggle = document.getElementById("gd-bench-toggle");
+    if (benchToggle) benchToggle.addEventListener("click", function () { STATE.showBench = !STATE.showBench; rerender(); });
 
     el.querySelectorAll(".gd-slot-sel").forEach(function (sel) {
       sel.addEventListener("change", function (e) {
@@ -821,6 +852,22 @@
       STATE.sb = { loaded: true, source: source, live: live, weekly: weekly, schedule: r[2], injuries: parseInjuries(r[3]),
         franchises: franchises.length ? franchises : STATE.franchises, proj: proj, scores: scores };
       try { STATE.sbAt = new Date(); } catch (e) {}
+      // proj/playerScores were fetched with the SELECTED week; when that's ""
+      // (Current) on a PAST season MFL returns an empty placeholder → re-fetch
+      // for the RESOLVED week so historical orig-proj + positional rank populate.
+      var rw = sbWeek();
+      if (rw && String(rw) !== String(wk) && (!Object.keys(proj).length || !Object.keys(scores).length)) {
+        Promise.all([fetchJson(sbExportUrl("projectedScores", rw)), fetchJson(sbExportUrl("playerScores", rw))]).then(function (r2) {
+          var p2 = {}, s2 = {};
+          try { asArray(r2[0].projectedScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) p2[String(p.id)] = n; } }); } catch (e) {}
+          try { asArray(r2[1].playerScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) s2[String(p.id)] = n; } }); } catch (e) {}
+          if (STATE.sb) {
+            if (Object.keys(p2).length) STATE.sb.proj = p2;
+            if (Object.keys(s2).length) { STATE.sb.scores = s2; STATE.sb._posRank = null; }
+            if (STATE.tab === "live") render();
+          }
+        }).catch(function () {});
+      }
       if (STATE.tab === "live") { render(); scheduleSbPoll(); }
     }).catch(function () { STATE.sb = { loaded: true, error: true }; if (STATE.tab === "live") render(); });
     });

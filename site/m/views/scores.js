@@ -124,6 +124,21 @@
       M.state.sb = { loaded: true, source: source, live: live, weekly: weekly, schedule: r[2],
         franchises: franchises.length ? franchises : (M.state.franchises || []), proj: proj, scores: scores };
       try { M.state.sbAt = Date.now(); } catch (e) {}
+      // proj/playerScores fetched with the SELECTED week; "" (Current) on a PAST
+      // season returns an empty placeholder → re-fetch for the RESOLVED week.
+      var rw = sbWeek();
+      if (rw && String(rw) !== String(wk) && (!Object.keys(proj).length || !Object.keys(scores).length)) {
+        Promise.all([fetchJson(sbExportUrl("projectedScores", rw)), fetchJson(sbExportUrl("playerScores", rw))]).then(function (r2) {
+          var p2 = {}, s2 = {};
+          try { asArray(r2[0].projectedScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) p2[String(p.id)] = n; } }); } catch (e) {}
+          try { asArray(r2[1].playerScores.playerScore).forEach(function (p) { if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) s2[String(p.id)] = n; } }); } catch (e) {}
+          if (M.state.sb) {
+            if (Object.keys(p2).length) M.state.sb.proj = p2;
+            if (Object.keys(s2).length) { M.state.sb.scores = s2; M.state.sb._posRank = null; }
+            renderRoute();
+          }
+        }).catch(function () {});
+      }
       renderRoute(); scheduleSbPoll();
     }).catch(function () { M.state.sb = { loaded: true, error: true }; renderRoute(); });
     });

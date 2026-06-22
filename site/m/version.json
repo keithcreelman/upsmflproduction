@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.21.5",
-  "label": "Submit Lineup (Phase 1): each starter now shows the matchup — opponent, home/away, kickoff, spread, and an opponent-adjusted defense-vs-position rank (e.g. 'JAC #1 to RB', green=favorable / red=tough)."
+  "build": "2026.06.21.6",
+  "label": "Lineup: 'Bench & matchups' toggle to see every roster player laid out with their matchup; Live Scoring: fixed original projection showing 0 on past-season weeks."
 }
