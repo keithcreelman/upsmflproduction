@@ -62,7 +62,10 @@
     xpm:   { l: "XPM",   g: function (r) { return nn(r.xp_made); } },
     punts: { l: "Punts", g: function (r) { return nn(r.punts); } },
     navg:  { l: "NetAvg",g: function (r) { return nn(r.punt_net_avg); }, f: "dec1" },
-    i20:   { l: "I20",   g: function (r) { return nn(r.punt_inside20); } }
+    i20:   { l: "I20",   g: function (r) { return nn(r.punt_inside20); } },
+    val:   { l: "Val",   g: function (r) { var a = adpRec(r); return a && a.value != null ? a.value : null; } },
+    ovr:   { l: "Ovr",   g: function (r) { var a = adpRec(r); return a && a.overall_rank != null ? a.overall_rank : null; } },
+    dtrend:{ l: "30d",   g: function (r) { var a = adpRec(r); return a && a.trend30 != null ? a.trend30 : null; }, f: "trend" }
   };
 
   // Each tab: alias (worker pos param), group (pos_group values to keep), and
@@ -98,12 +101,28 @@
     { id: "PN", alias: "punter", group: ["PK", "PN"], sets: [
       { l: "Punting",   cols: ["punts", "navg", "i20", "ppg"] } ] }
   ];
+  // Dynasty Value set (FantasyCalc) — offense positions only.
+  ["QB", "RB", "WR", "TE"].forEach(function (id) {
+    for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) TABS[i].sets.push({ l: "Dynasty", cols: ["val", "ovr", "dtrend", "ppg"] });
+  });
 
   // scope: "all" | "ros" (rostered) | "fa" (free agents) — Keith 2026-06-20.
   // inner: "players" (the leaderboard) | "fpa" (Fantasy Points Against).
   var view = { tab: "QB", q: "", scope: "all", set: 0, debounce: null, inner: "players" };
   var cache = {};   // alias|season → ranked raw rows
   var season = 0;
+
+  // Dynasty market value (FantasyCalc SF) keyed by mfl_pid — side-loaded once,
+  // read by the val/ovr/dtrend columns (the "Dynasty" set on offense tabs).
+  var adpMap = null;
+  function loadAdp() {
+    if (adpMap) return Promise.resolve(adpMap);
+    return fetch(API.workerUrl("/api/adp"), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { adpMap = (j && j.by_mfl_id) || {}; return adpMap; })
+      .catch(function () { adpMap = {}; return adpMap; });
+  }
+  function adpRec(r) { return (adpMap && adpMap[String(r.mfl_pid)]) || null; }
 
   function curSeason() {
     if (season) return season;
@@ -172,6 +191,7 @@
 
   function fmt(v, c) {
     if (v == null) return "—";
+    if (c.f === "trend") { if (v === 0) return "0"; return '<span class="ups-m-tr ' + (v > 0 ? "up" : "dn") + '">' + (v > 0 ? "▲" : "▼") + Math.abs(v) + "</span>"; }
     if (c.f === "pct") return Math.round(v * 100) + "%";
     if (c.f === "dec1") return v.toFixed(1);
     return String(Math.round(v));
@@ -397,6 +417,9 @@
       return;
     }
     var tab = curTab();
+    // Dynasty values load once in the background; re-paint when ready so the
+    // "Dynasty" column set fills in.
+    if (!adpMap) loadAdp().then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
     if (cache[tab.alias + "|" + curSeason()]) { paint(mount); return; }
     mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + '<div class="ups-m-loading">Loading stats…</div>';
     bindInner(mount); bindToolbar(mount);

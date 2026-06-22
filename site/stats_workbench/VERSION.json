@@ -1,7 +1,7 @@
 {
-  "version": "1.3.0",
+  "version": "1.3.1",
   "released": "2026-06-22",
-  "label": "v1.3.0 — Page is now 'Stats': Player Stats (this workbench) + a new Fantasy Points Against sub-tab (raw + opponent-adjusted, per-position, custom week range, season lookback)",
+  "label": "v1.3.1 — Dynasty Value columns (FantasyCalc value + overall rank + 30-day trend, joined by mfl_pid) added to the Player Stats leaderboard; default-on for offense. (v1.3.0: page → 'Stats' with Player Stats + Fantasy Points Against sub-tabs.)",
   "changes_120": [
     "Horizontal scrollbar moved to the TOP of the table (synced two-way); the table now scrolls in a bounded 680px region so the scrollbar + column header stay fixed while the body scrolls (works in the iframe embed, not just standalone).",
     "Pos Rk now ranks within the IDP/offense GROUP (DL/LB/DB/QB/RB/WR/TE/PK) instead of the raw nflverse position — fixes multiple #1s showing in a single DL/LB/DB."

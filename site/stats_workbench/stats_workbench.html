@@ -237,6 +237,9 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 .fpa-rk.easy{background:rgba(91,217,162,.16);color:#8ff0c4}
 .fpa-rk.tough{background:rgba(224,122,122,.14);color:#ffb1b1}
 .fpa-rk.mid{background:var(--panel-alt);color:var(--text)}
+.asw-trend{font-weight:700;font-variant-numeric:tabular-nums}
+.asw-trend.up{color:var(--ok)}
+.asw-trend.dn{color:var(--err)}
 </style>
 </head>
 <body>
@@ -403,6 +406,13 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       title:"Years remaining on current MFL contract (length - contract_year + 1)" },
     mfl_aav:             { label:"AAV",      num:true, fmt:"money",
       title:"Annual Average Value of current MFL contract (compact: 45K / 1.25M)" },
+    // Dynasty market value (FantasyCalc SuperFlex, via /api/adp; joined by mfl_pid)
+    adp_value:   { label:"Value", num:true, title:"FantasyCalc dynasty trade value (SuperFlex)",
+      compute:function(r){ var a=adpByPid[String(r.mfl_pid)]; return a && a.value != null ? a.value : null; } },
+    adp_overall: { label:"Ovr",   num:true, invertRank:true, title:"Overall dynasty rank (FantasyCalc SF; lower = better)",
+      compute:function(r){ var a=adpByPid[String(r.mfl_pid)]; return a && a.overall_rank != null ? a.overall_rank : null; } },
+    adp_trend:   { label:"30d",   num:true, fmt:"trend", title:"30-day change in dynasty value (FantasyCalc; ▲ rising / ▼ falling)",
+      compute:function(r){ var a=adpByPid[String(r.mfl_pid)]; return a && a.trend30 != null ? a.trend30 : null; } },
     // Usage — offense
     games:               { label:"G",        num:true },
     off_snaps_total:     { label:"Snaps",    num:true, title:"Offensive snaps" },
@@ -863,6 +873,17 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     },
   };
 
+  // Dynasty Value group (FantasyCalc) — injected as the 2nd group on every tab so
+  // it sits right after MFL Details. Default-on for offense (where FantasyCalc has
+  // values); available-but-off for IDP / K / P (sparse coverage there).
+  (function(){
+    var OFF = { qb:1, rb:1, wr:1, te:1 };
+    Object.keys(TABS).forEach(function(k){
+      if (TABS[k] && TABS[k].groups) TABS[k].groups.splice(1, 0,
+        { id:"dynasty_value", label:"Dynasty Value", cols:["adp_value","adp_overall","adp_trend"], defaultOn: !!OFF[k] });
+    });
+  })();
+
   // ---------- DOM refs ----------
   var tabsEl      = document.getElementById("asw-tabs");
   var seasonsSel  = document.getElementById("asw-seasons");
@@ -893,6 +914,14 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     while (fid.length < 4) fid = "0" + fid;
     return fid.slice(0, 4);
   }
+
+  // Dynasty market value (FantasyCalc SuperFlex) keyed by mfl_pid — side-loaded
+  // once and read by the adp_* compute columns (mirrors state.rankByGsis).
+  var adpByPid = {};
+  var adpPromise = fetch(API_BASE + "/api/adp")
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){ var m = (j && j.by_mfl_id) || {}; Object.keys(m).forEach(function(pid){ adpByPid[String(pid)] = m[pid]; }); })
+    .catch(function(){});
 
   var leagueStatePromise = fetch(API_BASE + "/api/mfl-league-state?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + THIS_YEAR)
     .then(function(r){ return r.ok ? r.json() : null; })
@@ -1106,6 +1135,10 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   // ---------- Cell formatting ----------
   function fmtCell(v, fmt){
     if (v == null || v === "" || (typeof v === "number" && isNaN(v))) return "—";
+    if (fmt === "trend") {
+      var t = Number(v); if (t === 0) return "0";
+      return '<span class="asw-trend ' + (t > 0 ? "up" : "dn") + '">' + (t > 0 ? "▲" : "▼") + Math.abs(t) + "</span>";
+    }
     if (fmt === "dec1") return Number(v).toFixed(1);
     if (fmt === "dec2") return Number(v).toFixed(2);
     if (fmt === "pct")  return (Number(v)*100).toFixed(1)+"%";
@@ -1925,6 +1958,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         return r.json();
       }),
       leagueStatePromise,
+      adpPromise,
     ]).then(function(pair){
       var j = pair[0];
       var rows = Array.isArray(j.rows) ? j.rows : [];

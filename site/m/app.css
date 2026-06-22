@@ -1152,6 +1152,9 @@ button.ups-m-busy::before,
 .ups-m-fpa-rk.easy { background: rgba(91,217,162,0.16); color: #8ff0c4; }
 .ups-m-fpa-rk.tough { background: rgba(224,122,122,0.14); color: #ffb1b1; }
 .ups-m-fpa-rk.mid { background: var(--bg-elev2); color: var(--fg); }
+.ups-m-tr { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ups-m-tr.up { color: var(--ok); }
+.ups-m-tr.dn { color: var(--danger); }
 .ups-m-fa-row .name {
   font-size: 14px;
   font-weight: 600;
