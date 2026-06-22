@@ -1957,6 +1957,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   // ---------- Fetch for the current tab's workerPos ----------
   function runQuery() {
     var tab = TABS[state.activeTab];
+    var reqTab = state.activeTab;   // guard: drop this fetch if the user switches tabs before it resolves
     var workerPos = tab.workerPos;
     var seasons = getSelectedSeasons();
     var scope = getScope();
@@ -2008,7 +2009,11 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
           return wantFids[r.mfl_franchise_id] === true;
         });
       }
-      state.rowsByWorkerPos[workerPos] = rows;
+      state.rowsByWorkerPos[workerPos] = rows;   // cache is keyed by pos — safe to keep even if superseded
+      // A newer tab switch already replaced the active view: keep the cached rows
+      // above, but don't clobber the active tab's rank map / meta line / render
+      // with this stale position's data (was the "PN tab shows 'QB ·'" bug).
+      if (state.activeTab !== reqTab) return;
       // B2 — rank within position by MFL PPG over the fetched set. Mirrors the
       // mobile buildLeaderboardMap (app.js) exactly (bucket by position||pos_group,
       // sort by mfl_ppg desc) so desktop + mobile ranks never disagree.
