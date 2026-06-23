@@ -145,3 +145,24 @@ A second pass (per commish review) corrected several figures in the sections abo
 **$1K fodder is IDP/Special-teams-heavy:** of $1K wins, IDP 43% + ST 21% = **64%** (offense 36%). IDP/kickers are dirt cheap leaguewide (median win $1K) — that's where the streaming deals are, exactly as suspected. Day-0 is the opposite: 61% offense (the studs).
 
 **$4K WINS per team (correcting "you're #1"):** by actual wins at $4K — Josh 17 (16%), Kling 12, Eric Martel 11 (23% rate), Cutting 10, Ryan 10; **you are 8 (7%), all offense.** (The earlier "15" counted times you *forced* the price to $4K as the underbidder, not wins.) Only 15% of $4K wins were opened-at-$4K — the ceiling is reached by laddering, not opening proxies.
+
+---
+
+## Dynasty-SF ADP reframe (the right lens) — added 2026-06-23
+
+The marquee table above uses MFL **redraft** ADP, which distorts a dynasty SF auction. Pulling **DynastyProcess `ecr_2qb` (superflex dynasty ECR) as-of each auction date** (weekly git snapshots, within days of each late-July auction; `dynasty_adp_history.csv`, 2020-2025) gives the true lens. Both ranks now live in `segments.json` (`pos_adp` = redraft, `dyn_pos_rank` = dynasty SF).
+
+| Player | $ | Redraft | Dynasty SF | Read |
+|---|---|---|---|---|
+| Herbert '25 | $51K | QB20 | **QB8** | A genuine top-8 dynasty QB — $51K is *fair*, not a streamer splurge |
+| Carr '22 | $38K | QB21 | QB16 | mid dynasty QB |
+| Tua '22 | $29K | QB23 | QB17 | mid |
+| Cousins '22 | $37K | QB22 | QB20 | mid/aging |
+| Rodgers '23 | $50K | QB21 | **QB25** | age-41 — *this* was the overpay |
+| Mayfield '25 | $31K | QB7 | QB14 | redraft liked him more |
+| Hill '24 | $61K | WR2 | WR11 | still a stud |
+| Ekeler '22 | $57K | RB3 | RB8 | |
+| McCaffrey '25 | $56K | RB6 | RB10 | |
+| Henry '23 | $94K | RB7 | **RB17** | win-now RB; dynasty discounts age — a redraft/contender overpay |
+
+**Takeaway:** in dynasty terms the marquee pool was a *mix*, not uniformly low-talent. The aging arms (Rodgers QB25, and the RB17-26 backs: Henry/Mixon/Fournette/Conner) were win-now overpays; the young studs (Herbert QB8, Hill WR11, Ekeler RB8) were fair-to-strong buys. **For forecasting: anchor a genuine top-8 dynasty QB to Herbert's $51K (QB8), and a top-3 dynasty QB above it** — the dynasty rank, not the redraft rank, is the price driver. Source: DynastyProcess (DynastyDataLab has no open API). Build: `build_dynasty_adp_history.py` (run after `analyze_auction_tiers.py`).
