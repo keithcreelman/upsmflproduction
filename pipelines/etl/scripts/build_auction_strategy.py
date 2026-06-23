@@ -77,12 +77,13 @@ def main():
             deal, cost = "anchor", "pay up; elite in both lenses — build around"
         else:
             deal, cost = "1-yr / situational", "keep it 1-yr; redraft bet with trade optionality"
-        # price confidence: the player's OWN dynasty-rank band must have real
-        # samples. Elite positions that never hit the auction (TE1-3, WR1-6, RB1-4,
-        # QB1-6) have no band data → priced off a fodder-heavy fallback = unreliable
-        # (expect a war near the position max if they ever surface).
-        band_n = (pricing.get("bands", {}).get(p["pos"], {}).get(p.get("band"), {}) or {}).get("n", 0)
-        conf = "model" if band_n >= 4 else "scarce"
+        # price confidence, straight off the pricing basis:
+        #   model     = the player's own dynasty-rank band has real auction samples
+        #   projected = elite tier that never hit the auction (QB1-6, RB1-4, WR1-6,
+        #               TE1-3) — priced UP the monotonic ladder toward the position
+        #               record; a defensible estimate, but expect real bid variance
+        basis = p.get("basis") or "model"
+        conf = "model" if basis == "model" else "projected"
         out.append({
             "player": p["player"], "pos": p["pos"], "age": p.get("age"),
             "dyn_sf_rank": p["dyn_sf_pos_rank"], "redraft_rank": (rdr[0] + str(rdr[1])) if rdr else None,
@@ -104,8 +105,8 @@ def main():
     wn = sorted([p for p in out if p["win_now"] in ("A", "B") and (p["median_k"] or 0) <= 20 and p["price_confidence"] == "model"], key=lambda x: (x["median_k"] or 0))
     for p in wn[:10]:
         print(f"  {p['player'][:21]:<22}{(p['redraft_rank'] or '-'):>6} WN:{p['win_now']} AS:{p['asset']} ${p['median_k']}K  {p['deal_type']}")
-    scarce = [p for p in out if p["price_confidence"] == "scarce" and p["win_now"] == "A"]
-    print(f"\n  ({len(scarce)} elite players are SCARCE-priced — they never hit the auction, so the cheap model price is unreliable; if one is available expect a bidding war near the position max.)")
+    proj_elite = [p for p in out if p["price_confidence"] == "projected"]
+    print(f"\n  ({len(proj_elite)} elite players are PROJECTED-priced — they never hit the auction, so the price is extrapolated UP the ladder toward the position record; expect real bid variance if one surfaces.)")
 
 
 if __name__ == "__main__":
