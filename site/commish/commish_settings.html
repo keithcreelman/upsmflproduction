@@ -83,6 +83,21 @@
   .wr-vtabs { display: inline-flex; gap: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-bottom: 14px; }
   .wr-vtabs button { background: transparent; border: 0; color: var(--muted); font-weight: 700; font-size: 13px; padding: 7px 16px; border-radius: 7px; cursor: pointer; }
   .wr-vtabs button.on { background: var(--accent); color: #0a1222; }
+  .wr-budget { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; color: var(--muted); }
+  .wr-budget b { color: var(--fg); font-size: 15px; }
+  .wr-results { margin-top: 6px; }
+  .wr-res { padding: 7px 10px; border-radius: 7px; cursor: pointer; font-size: 13px; }
+  .wr-res:hover { background: var(--panel2); color: var(--accent); }
+  .wr-board { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .wr-tier-grp { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+  .wr-tier-h { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); margin-bottom: 8px; }
+  .wr-tgt { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .wr-tgt:last-child { border-bottom: 0; }
+  .wr-tgt .nm { flex: 1 1 180px; }
+  .wr-tgt input.wr-max { width: 56px; padding: 4px 6px; border-radius: 6px; background: var(--panel2); border: 1px solid var(--line); color: var(--fg); font-size: 12px; }
+  .wr-tgt select.wr-tier { padding: 4px 6px; border-radius: 6px; background: var(--panel2); border: 1px solid var(--line); color: var(--fg); font-size: 12px; }
+  .wr-rm { background: transparent; border: 0; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
+  .wr-rm:hover { color: var(--danger); }
   .wr-conf { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
   .wr-conf.high { color: var(--ok); border-color: rgba(74,222,128,0.4); }
   .wr-conf.medium { color: var(--warn); border-color: rgba(251,191,36,0.4); }
@@ -259,7 +274,8 @@
   function renderWrFrame(host) {
     host.innerHTML =
       '<div class="wr-vtabs">' +
-      '<button data-wrv="scouting"' + (WR.view !== "live" ? ' class="on"' : '') + '>📋 Scouting Intel</button>' +
+      '<button data-wrv="scouting"' + (WR.view === "scouting" ? ' class="on"' : '') + '>📋 Scouting Intel</button>' +
+      '<button data-wrv="board"' + (WR.view === "board" ? ' class="on"' : '') + '>🎯 My Board</button>' +
       '<button data-wrv="live"' + (WR.view === "live" ? ' class="on"' : '') + '>📡 Live Board</button>' +
       '</div><div id="wr-body"></div>';
     host.querySelector(".wr-vtabs").addEventListener("click", function (e) {
@@ -274,7 +290,9 @@
   function paintWrView() {
     var b = document.getElementById("wr-body"); if (!b) return;
     stopWrPoll();
-    if (WR.view === "live") paintLive(b); else paintScouting(b);
+    if (WR.view === "live") paintLive(b);
+    else if (WR.view === "board") paintBoard(b);
+    else paintScouting(b);
   }
   function wrName(fid) { var o = WR.data.owners[fid]; return o ? (o.owner_name || fid) : fid; }
   function wrTeam(fid) { var o = WR.data.owners[fid]; return o ? (o.team_name || "") : ""; }
@@ -324,6 +342,8 @@
     if (!WR.live) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading live board…</div></div>'; wrLoadLive(function () { if (WR.view === "live") paintLive(host); }); return; }
     var lots = (WR.live.lots && WR.live.lots.lots) || [], state = WR.live.state || {}, faa = WR.live.lots && WR.live.lots.faa_enabled;
     var pt = (WR.data.league || {}).position_thresholds_sf || {};
+    wrBoardLoad();
+    var boardByPid = {}; (WR.board || []).forEach(function (x) { boardByPid[String(x.pid)] = x; });
     var lotsHtml;
     if (!lots.length) {
       lotsHtml = '<div class="fo-row-hint">No live FA lots right now — the FA Auction opens late July. This board fills with open lots (leader + their tendencies, time left, value flags) once it is live' + (faa === false ? ' and the AUCTION_FAA switch is on' : '') + '. Your scouting + cash are ready below.</div>';
@@ -334,14 +354,16 @@
           var val = (bid != null && t.p50 != null) ? (bid <= t.p50 ? '<span class="wr-th low" style="color:var(--ok);border-color:rgba(74,222,128,0.5)">value</span>' : bid >= t.p90 ? '<span class="wr-th high">marquee</span>' : "") : "";
           var lf = l.current_high_bidder_fid, lead = lf ? wrName(lf) : "—", sf = wrSf(lf);
           var urgent = l.seconds_remaining != null && l.seconds_remaining < 6 * 3600;
+          var tgt = boardByPid[String(l.player_id)];
           var warn = [];
+          if (tgt) { warn.push("⭐ target $" + tgt.max + "K"); if (bid != null && bid < tgt.max) warn.push('<span style="color:var(--ok)">💰 under your max</span>'); }
           if (sf) { if (sf.post_win_pounce_share >= 0.6) warn.push("⚡ pouncer"); if (sf.runner_up_n >= 30) warn.push("🥷 lurker"); }
           if (urgent) warn.push("⏰ closing");
           if (l.your_proxy_bid_k != null) warn.push("you: $" + l.your_proxy_bid_k + "K");
-          return '<tr><td><b>' + esc(l.player_name || l.player_id) + '</b></td><td>' + esc(pos) + " " + val + '</td>' +
+          return '<tr' + (tgt ? ' style="background:rgba(91,141,255,0.07)"' : "") + '><td>' + (tgt ? "⭐ " : "") + '<b>' + esc(l.player_name || l.player_id) + '</b></td><td>' + esc(pos) + " " + val + '</td>' +
             '<td class="num">$' + (bid != null ? bid : "—") + 'K</td><td>' + esc(lead) + '</td>' +
             '<td class="num"' + (urgent ? ' style="color:var(--danger);font-weight:700"' : "") + '>' + wrFmtTime(l.seconds_remaining) + '</td>' +
-            '<td class="small">' + esc(warn.join(" · ")) + '</td></tr>';
+            '<td class="small">' + warn.join(" · ") + '</td></tr>';
         }).join("") + '</tbody></table></div>';
     }
     var cash = wrCash(state);
@@ -354,6 +376,79 @@
     var rb = document.getElementById("wr-refresh"); if (rb) rb.addEventListener("click", function () { WR.live = null; paintLive(host); });
     stopWrPoll();
     WR.pollTimer = setInterval(function () { if (WR.view !== "live") { stopWrPoll(); return; } wrLoadLive(function () { if (WR.view === "live") paintLive(host); }); }, 45000);
+  }
+
+  // ── My Board: pre-auction target planner (tiers + max $ + budget) ──
+  function wrBoardLoad() {
+    if (WR.board) return;
+    try { WR.board = JSON.parse(localStorage.getItem("ups_war_room_board_0008") || "[]"); } catch (e) { WR.board = []; }
+    if (!Array.isArray(WR.board)) WR.board = [];
+  }
+  function wrBoardSave() { try { localStorage.setItem("ups_war_room_board_0008", JSON.stringify(WR.board || [])); } catch (e) {} }
+  function wrRoomK() { return WR.room != null ? Math.round(WR.room / 1000) : null; }
+  function paintBoard(host) {
+    wrBoardLoad();
+    if (!WR.adp) {
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading player universe…</div></div>';
+      fetchJSON(apiUrl("/api/adp-board")).then(function (d) { WR.adp = (d && d.board) || []; if (WR.view === "board") paintBoard(host); })
+        .catch(function () { WR.adp = []; if (WR.view === "board") paintBoard(host); });
+      return;
+    }
+    if (WR.room == null) {
+      var st = WR.live && WR.live.state;
+      if (st) { var c0 = wrCash(st).filter(function (x) { return x.fid === "0008"; })[0]; WR.room = c0 ? c0.avail : null; }
+      if (WR.room == null) {
+        host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading budget…</div></div>';
+        fetchJSON(apiUrl("/api/mfl-league-state") + "?L=" + encodeURIComponent(L)).then(function (s) {
+          var c = wrCash(s).filter(function (x) { return x.fid === "0008"; })[0]; WR.room = c ? c.avail : 300000; if (WR.view === "board") paintBoard(host);
+        }).catch(function () { WR.room = 300000; if (WR.view === "board") paintBoard(host); });
+        return;
+      }
+    }
+    var pt = (WR.data.league || {}).position_thresholds_sf || {}, roomK = wrRoomK();
+    function tierSum(t) { return WR.board.filter(function (x) { return x.tier === t; }).reduce(function (a, x) { return a + (parseInt(x.max, 10) || 0); }, 0); }
+    var t1 = tierSum(1), cum2 = t1 + tierSum(2), cum3 = cum2 + tierSum(3);
+    function row(x) {
+      var th = pt[x.pos] || {};
+      return '<div class="wr-tgt"><span class="nm"><b>' + esc(x.name) + '</b> <span class="small" style="color:var(--muted)">' + esc(x.pos) + (x.team ? "·" + esc(x.team) : "") + (x.posRank ? " " + esc(x.pos) + x.posRank : "") + '</span></span>' +
+        '<label class="small">$<input type="number" class="wr-max" data-pid="' + esc(x.pid) + '" value="' + (x.max || 0) + '" min="0" step="1">K</label>' +
+        '<select class="wr-tier" data-pid="' + esc(x.pid) + '">' + [1, 2, 3].map(function (t) { return '<option value="' + t + '"' + (x.tier === t ? " selected" : "") + ">T" + t + "</option>"; }).join("") + '</select>' +
+        (th.p90 != null ? '<span class="small" style="color:var(--muted)" title="position SF p50 / p90 (rare) price">p50 $' + th.p50 + ' · p90 $' + th.p90 + '</span>' : "") +
+        '<button class="wr-rm" data-pid="' + esc(x.pid) + '" title="remove">×</button></div>';
+    }
+    var groups = [1, 2, 3].map(function (t) {
+      var items = WR.board.filter(function (x) { return x.tier === t; });
+      var label = t === 1 ? "Tier 1 — must-haves" : t === 2 ? "Tier 2 — likes" : "Tier 3 — fliers";
+      return '<div class="wr-tier-grp"><div class="wr-tier-h">' + label + ' <span class="small" style="color:var(--muted)">$' + tierSum(t) + "K · " + items.length + ' players</span></div>' +
+        (items.length ? items.map(row).join("") : '<div class="small" style="color:var(--muted);padding:4px 2px">— none yet —</div>') + "</div>";
+    }).join("");
+    host.innerHTML =
+      '<div class="fo-row-hint">Build your plans of attack — add targets, set a <b>max $</b> and a <b>tier</b> (T1 must-haves → T3 fliers). Your live room is <b>$' + roomK + 'K</b>. Targets get a ⭐ on the 📡 Live Board and trigger a value alert when a lot sits under your max. Saved in this browser.</div>' +
+      '<div class="fo-card"><div class="fo-card-head"><h3>💰 Budget plan</h3><span class="small" style="color:var(--muted)">room $' + roomK + 'K</span></div>' +
+      '<div class="wr-budget"><div' + (t1 > roomK ? ' style="color:var(--danger)"' : "") + '>Win all T1: <b>$' + t1 + 'K</b></div><div>+T2: <b>$' + cum2 + 'K</b></div><div>+T3: <b>$' + cum3 + 'K</b></div><div>room left after T1: <b>$' + (roomK - t1) + 'K</b></div></div></div>' +
+      '<div class="fo-card"><div class="fo-card-head"><h3>Add target</h3><button class="btn small" id="wr-export">Export</button></div>' +
+      '<input type="text" id="wr-search" placeholder="search 600+ players by name…" autocomplete="off" style="width:100%;padding:9px 11px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);color:var(--fg);font-size:13px"><div id="wr-results" class="wr-results"></div></div>' +
+      '<div class="wr-board">' + groups + "</div>";
+    var search = document.getElementById("wr-search"), results = document.getElementById("wr-results");
+    function renderResults(q) {
+      q = (q || "").trim().toLowerCase(); if (q.length < 2) { results.innerHTML = ""; return; }
+      var have = {}; WR.board.forEach(function (x) { have[x.pid] = 1; });
+      var ms = WR.adp.filter(function (p) { return p.name && p.name.toLowerCase().indexOf(q) >= 0 && !have[p.pid]; }).slice(0, 8);
+      results.innerHTML = ms.map(function (p) { return '<div class="wr-res" data-pid="' + esc(p.pid) + '">' + esc(p.name) + ' <span class="small" style="color:var(--muted)">' + esc(p.pos) + (p.team ? "·" + esc(p.team) : "") + (p.posRank ? " " + esc(p.pos) + p.posRank : "") + "</span></div>"; }).join("");
+      $$(".wr-res", results).forEach(function (el) {
+        el.addEventListener("click", function () {
+          var p = WR.adp.filter(function (x) { return x.pid === el.getAttribute("data-pid"); })[0]; if (!p) return;
+          var th = pt[p.pos] || {};
+          WR.board.push({ pid: p.pid, name: p.name, pos: p.pos, team: p.team, posRank: p.posRank, tier: 2, max: (th.p75 || th.p50 || 5) });
+          wrBoardSave(); paintBoard(host);
+        });
+      });
+    }
+    if (search) search.addEventListener("input", function () { renderResults(this.value); });
+    $$(".wr-max", host).forEach(function (el) { el.addEventListener("change", function () { var x = WR.board.filter(function (b) { return b.pid === el.getAttribute("data-pid"); })[0]; if (x) { x.max = parseInt(el.value, 10) || 0; wrBoardSave(); paintBoard(host); } }); });
+    $$(".wr-tier", host).forEach(function (el) { el.addEventListener("change", function () { var x = WR.board.filter(function (b) { return b.pid === el.getAttribute("data-pid"); })[0]; if (x) { x.tier = parseInt(el.value, 10) || 2; wrBoardSave(); paintBoard(host); } }); });
+    $$(".wr-rm", host).forEach(function (el) { el.addEventListener("click", function () { WR.board = WR.board.filter(function (b) { return b.pid !== el.getAttribute("data-pid"); }); wrBoardSave(); paintBoard(host); }); });
+    var ex = document.getElementById("wr-export"); if (ex) ex.addEventListener("click", function () { try { navigator.clipboard.writeText(JSON.stringify(WR.board || [])); ex.textContent = "Copied!"; setTimeout(function () { ex.textContent = "Export"; }, 1500); } catch (e) {} });
   }
 
   function paintScouting(host) {
