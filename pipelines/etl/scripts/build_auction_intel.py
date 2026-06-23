@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Build commish Auction War Room intel from the per-bid auction history.
 
-Reads the per-bid `transactions_auction` table (every AUCTION bid event, 2014-2025,
-ET timestamps + proxy forcing/leader IDs) and produces two CANON artifacts:
+Scope: the **FA Auction only** (`auction_type='FreeAgent'`, late July / early Aug).
+The spring `TagOrExpiredRookie` auctions (Apr-Jun) are a different event and are
+excluded — the War Room is about the July/Aug free-agent auction.
+
+Reads the per-bid `transactions_auction` table (every FA AUCTION bid event,
+2014-2025, ET timestamps + proxy forcing/leader IDs) and produces two CANON files:
 
   docs/auction/data/bids_enriched.csv   one row per bid + derived fields
   docs/auction/data/auction_intel.json  per-owner behavioural profiles per era
@@ -98,7 +102,7 @@ def load_lots(conn: sqlite3.Connection):
                franchise_currentbid_id, franchise_forcing_id,
                unix_timestamp, datetime_et, time_et, seconds_since_prev_bid
         FROM transactions_auction
-        WHERE season >= 2014
+        WHERE season >= 2014 AND auction_type = 'FreeAgent'
         ORDER BY season, player_id, bid_sequence
     """)
     cols = [d[0] for d in cur.description]
