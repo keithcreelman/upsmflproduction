@@ -334,7 +334,151 @@
         "runner_up_fid": "0011",
         "n_bids": 16
       }
-    ]
+    ],
+    "h2h_vs_commish": {
+      "0001": {
+        "commish_w": 10,
+        "opp_w": 11,
+        "shared": 21
+      },
+      "0002": {
+        "commish_w": 5,
+        "opp_w": 10,
+        "shared": 15
+      },
+      "0003": {
+        "commish_w": 5,
+        "opp_w": 7,
+        "shared": 12
+      },
+      "0004": {
+        "commish_w": 3,
+        "opp_w": 7,
+        "shared": 10
+      },
+      "0005": {
+        "commish_w": 2,
+        "opp_w": 11,
+        "shared": 13
+      },
+      "0006": {
+        "commish_w": 5,
+        "opp_w": 7,
+        "shared": 12
+      },
+      "0007": {
+        "commish_w": 5,
+        "opp_w": 6,
+        "shared": 11
+      },
+      "0009": {
+        "commish_w": 0,
+        "opp_w": 3,
+        "shared": 3
+      },
+      "0010": {
+        "commish_w": 8,
+        "opp_w": 12,
+        "shared": 20
+      },
+      "0011": {
+        "commish_w": 1,
+        "opp_w": 6,
+        "shared": 7
+      },
+      "0012": {
+        "commish_w": 3,
+        "opp_w": 7,
+        "shared": 10
+      }
+    },
+    "contender_benchmark": {
+      "top2_by_season": [
+        {
+          "season": 2022,
+          "rank": 1,
+          "team": "C-Town Chivalry",
+          "owner": "Bear Dunn",
+          "allplay_w": 132,
+          "allplay_l": 55,
+          "allplay_pct": 0.706,
+          "pf": 3084.3
+        },
+        {
+          "season": 2022,
+          "rank": 2,
+          "team": "Pure Greatness",
+          "owner": "Brian Cutting",
+          "allplay_w": 127,
+          "allplay_l": 60,
+          "allplay_pct": 0.679,
+          "pf": 3250.9
+        },
+        {
+          "season": 2023,
+          "rank": 1,
+          "team": "CBP",
+          "owner": "Derrick Whitman",
+          "allplay_w": 134,
+          "allplay_l": 53,
+          "allplay_pct": 0.717,
+          "pf": 3276.7
+        },
+        {
+          "season": 2023,
+          "rank": 2,
+          "team": "Blake Bombers",
+          "owner": "Shawn Blake",
+          "allplay_w": 129,
+          "allplay_l": 58,
+          "allplay_pct": 0.69,
+          "pf": 3164.7
+        },
+        {
+          "season": 2024,
+          "rank": 1,
+          "team": "C-Town Chivalry",
+          "owner": "Bear Dunn",
+          "allplay_w": 134,
+          "allplay_l": 53,
+          "allplay_pct": 0.717,
+          "pf": 3260.8
+        },
+        {
+          "season": 2024,
+          "rank": 2,
+          "team": "Ulterior Warrior",
+          "owner": "Ryan Bousquet",
+          "allplay_w": 132,
+          "allplay_l": 55,
+          "allplay_pct": 0.706,
+          "pf": 3190.1
+        },
+        {
+          "season": 2025,
+          "rank": 1,
+          "team": "Pure Greatness",
+          "owner": "Brian Cutting",
+          "allplay_w": 134,
+          "allplay_l": 53,
+          "allplay_pct": 0.717,
+          "pf": 3197.6
+        },
+        {
+          "season": 2025,
+          "rank": 2,
+          "team": "C-Town Chivalry",
+          "owner": "Bear Dunn",
+          "allplay_w": 119,
+          "allplay_l": 68,
+          "allplay_pct": 0.636,
+          "pf": 3218.6
+        }
+      ],
+      "pf_bar": 3205.0,
+      "pf_min": 3084.0,
+      "pf_max": 3277.0
+    }
   },
   "owners": {
     "0001": {
@@ -384,7 +528,7 @@
           },
           "overtake_rate": 0.245,
           "late_overtake_n": 7,
-          "runner_up_n": 43,
+          "runner_up_n": 42,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.65,
           "post_win_avg_followups": 2.47,
@@ -452,7 +596,7 @@
           },
           "overtake_rate": 0.255,
           "late_overtake_n": 8,
-          "runner_up_n": 51,
+          "runner_up_n": 50,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.68,
           "post_win_avg_followups": 2.43,
@@ -595,7 +739,7 @@
           },
           "overtake_rate": 0.138,
           "late_overtake_n": 3,
-          "runner_up_n": 23,
+          "runner_up_n": 22,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.417,
           "post_win_avg_followups": 1.28,
@@ -670,7 +814,7 @@
           },
           "overtake_rate": 0.183,
           "late_overtake_n": 8,
-          "runner_up_n": 17,
+          "runner_up_n": 16,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.522,
           "post_win_avg_followups": 1.15,
@@ -738,7 +882,7 @@
           },
           "overtake_rate": 0.177,
           "late_overtake_n": 11,
-          "runner_up_n": 25,
+          "runner_up_n": 24,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.518,
           "post_win_avg_followups": 1.07,
@@ -813,7 +957,7 @@
           },
           "overtake_rate": 0.27,
           "late_overtake_n": 7,
-          "runner_up_n": 24,
+          "runner_up_n": 25,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.672,
           "post_win_avg_followups": 2.64,
@@ -880,7 +1024,7 @@
           },
           "overtake_rate": 0.265,
           "late_overtake_n": 7,
-          "runner_up_n": 27,
+          "runner_up_n": 28,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.658,
           "post_win_avg_followups": 2.37,
@@ -954,7 +1098,7 @@
           },
           "overtake_rate": 0.305,
           "late_overtake_n": 3,
-          "runner_up_n": 8,
+          "runner_up_n": 9,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.705,
           "post_win_avg_followups": 1.39,
@@ -1020,7 +1164,7 @@
           },
           "overtake_rate": 0.284,
           "late_overtake_n": 7,
-          "runner_up_n": 14,
+          "runner_up_n": 15,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.711,
           "post_win_avg_followups": 1.89,
@@ -1093,7 +1237,7 @@
           },
           "overtake_rate": 0.19,
           "late_overtake_n": 5,
-          "runner_up_n": 21,
+          "runner_up_n": 25,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.511,
           "post_win_avg_followups": 0.79,
@@ -1160,7 +1304,7 @@
           },
           "overtake_rate": 0.203,
           "late_overtake_n": 6,
-          "runner_up_n": 28,
+          "runner_up_n": 33,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.476,
           "post_win_avg_followups": 0.79,
@@ -1375,7 +1519,7 @@
           },
           "overtake_rate": 0.18,
           "late_overtake_n": 12,
-          "runner_up_n": 48,
+          "runner_up_n": 44,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.547,
           "post_win_avg_followups": 1.49,
@@ -1441,7 +1585,7 @@
           },
           "overtake_rate": 0.179,
           "late_overtake_n": 12,
-          "runner_up_n": 59,
+          "runner_up_n": 55,
           "lurk_win_n": 0,
           "post_win_pounce_share": 0.522,
           "post_win_avg_followups": 1.41,
@@ -1581,7 +1725,7 @@
           },
           "overtake_rate": 0.14,
           "late_overtake_n": 2,
-          "runner_up_n": 40,
+          "runner_up_n": 41,
           "lurk_win_n": 3,
           "post_win_pounce_share": 0.429,
           "post_win_avg_followups": 1.43,
@@ -1863,7 +2007,7 @@
           },
           "overtake_rate": 0.168,
           "late_overtake_n": 7,
-          "runner_up_n": 15,
+          "runner_up_n": 14,
           "lurk_win_n": 1,
           "post_win_pounce_share": 0.521,
           "post_win_avg_followups": 1.16,

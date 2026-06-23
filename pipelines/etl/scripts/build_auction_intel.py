@@ -118,9 +118,35 @@ def load_lots(conn: sqlite3.Connection):
         yield cur_key[0], cur_key[1], batch
 
 
+def push_d1(intel: dict) -> None:
+    """Combine the quant intel with the Step-B scouting narratives (if present)
+    and the v6 doc, and upsert the single ups_auction_intel blob via wrangler."""
+    import subprocess, time
+    payload = dict(intel)
+    scout_path = OUT_DIR / "auction_scouting.json"
+    if scout_path.exists():
+        try: payload["scouting"] = json.loads(scout_path.read_text())
+        except Exception as e: print(f"  (scouting load failed: {e})", file=sys.stderr)
+    doc_path = REPO / "docs" / "auction" / "analysis_v6_war_room.md"
+    if doc_path.exists():
+        payload["doc_md"] = doc_path.read_text()
+    blob = json.dumps(payload).replace("'", "''")
+    ts = int(time.time())
+    worker_dir = REPO / "worker"
+    tmp = worker_dir / ".tmp"; tmp.mkdir(parents=True, exist_ok=True)
+    sql_path = tmp / "auction_intel_upsert.sql"
+    sql_path.write_text(
+        f"INSERT OR REPLACE INTO ups_auction_intel (id, payload, updated_at) VALUES (1, '{blob}', {ts});\n")
+    print(f"  pushing intel blob to D1 ({len(blob)} bytes) …", file=sys.stderr)
+    subprocess.run(["npx", "--yes", "wrangler@latest", "d1", "execute", "ups-mfl-db",
+                    "--remote", "--file", str(sql_path)], cwd=str(worker_dir), check=True)
+    print("  pushed ups_auction_intel", file=sys.stderr)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", default=None, help="SQLite with transactions_auction (default: in-repo archive)")
+    ap.add_argument("--push-d1", action="store_true", help="upsert the combined intel blob to D1 ups_auction_intel")
     args = ap.parse_args()
 
     db_path, _ = resolve_db(args.db)
@@ -256,6 +282,44 @@ def main() -> None:
             }
         owners[fid] = prof
 
+    # ---------- head-to-head vs the commish (0008), SF era ----------
+    # Of lots where BOTH 0008 and an opponent bid (actor), who won?
+    COMMISH = "0008"
+    bidders = defaultdict(set)
+    for b in enriched:
+        if in_era(b["season"], "sf"):
+            bidders[(b["season"], b["player_id"])].add(b["actor_fid"])
+    winner_of = {(l["season"], l["player_id"]): l["winner_fid"] for l in lots}
+    h2h = {}
+    for fid in fids:
+        if not fid or fid == COMMISH: continue
+        kw = ow = 0
+        for key, bs in bidders.items():
+            if COMMISH in bs and fid in bs:
+                w = winner_of.get(key)
+                if w == COMMISH: kw += 1
+                elif w == fid: ow += 1
+        if kw or ow:
+            h2h[fid] = {"commish_w": kw, "opp_w": ow, "shared": kw + ow}
+
+    # ---------- contender roster benchmark (top-2 all-play per season, SF era) ----------
+    bench_rows = []
+    try:
+        for season in range(2022, 2026):
+            top = conn.execute(
+                "SELECT franchise_name, owner_name, allplay_w, allplay_l, allplay_pct, pf "
+                "FROM standings WHERE season=? ORDER BY allplay_pct DESC LIMIT 2", (season,)).fetchall()
+            for i, r in enumerate(top):
+                bench_rows.append({"season": season, "rank": i + 1, "team": r[0], "owner": r[1],
+                                   "allplay_w": r[2], "allplay_l": r[3], "allplay_pct": r[4],
+                                   "pf": round(float(r[5]), 1) if r[5] is not None else None})
+    except Exception as e:
+        print(f"  (benchmark query skipped: {e})", file=sys.stderr)
+    pfs = [r["pf"] for r in bench_rows if r["pf"]]
+    benchmark = {"top2_by_season": bench_rows,
+                 "pf_bar": round(sum(pfs) / len(pfs), 0) if pfs else None,
+                 "pf_min": round(min(pfs), 0) if pfs else None, "pf_max": round(max(pfs), 0) if pfs else None}
+
     # ---------- league summary + position thresholds (SF era, contested ≥2 bids, $1K excl) ----------
     def pctile(vals, p):
         if not vals: return None
@@ -278,6 +342,8 @@ def main() -> None:
         "top_wins_l5": [{"season": l["season"], "player": l["player"], "pos": l["pos"], "win_k": l["win_k"],
                          "winner_fid": l["winner_fid"], "nominator_fid": l["nominator_fid"],
                          "runner_up_fid": l["runner_up_fid"], "n_bids": l["n_bids"]} for l in top_wins],
+        "h2h_vs_commish": h2h,
+        "contender_benchmark": benchmark,
     }
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -301,6 +367,9 @@ def main() -> None:
 
     print(f"wrote {csv_path.relative_to(REPO)} ({len(enriched)} bids)", file=sys.stderr)
     print(f"wrote {json_path.relative_to(REPO)} ({len(owners)} owners, {len(lots)} lots)", file=sys.stderr)
+
+    if args.push_d1:
+        push_d1(intel)
 
 
 if __name__ == "__main__":

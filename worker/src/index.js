@@ -2709,6 +2709,7 @@ export default {
         path !== "/api/auction/era-eligible" &&
         path !== "/api/auction/lots" &&
         path !== "/api/auction/bid-history" &&
+        path !== "/api/auction/intel" &&
         path !== "/api/auction/compliance" &&
         path !== "/api/auction/cut-rebid-blocks" &&
         path !== "/api/auction/nomination-status" &&
@@ -4433,6 +4434,32 @@ export default {
       //   since      (optional, unix seconds) — only bids at/after this
       //              timestamp; ideal for war-room polling
       //   limit      (optional, default 200, max 1000)
+      // ── GET /api/auction/intel — commish-only Auction War Room intel blob ──
+      // Per-owner FA-auction behavioural profiles (time-of-day rhythm, late-bid
+      // / snipe / lurker tendencies, spend signatures) + multi-agent scouting
+      // narratives + contender roster benchmark. Built offline by
+      // build_auction_intel.py and pushed to D1 ups_auction_intel. Gated to a
+      // commish franchise (0008/0000) via ?franchise_id= (the same soft
+      // requested_by model the other commish reads use).
+      if (path === "/api/auction/intel" && request.method === "GET") {
+        const reqFid = _rdhPadFid(url.searchParams.get("franchise_id") || "");
+        const commishFids = _rdhCommishFids();
+        if (!reqFid || !commishFids.includes(reqFid)) {
+          return jsonOut(403, { ok: false, error: "Commish-only — pass a commish franchise_id" });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        try {
+          const row = await env.UPS_MFL_DB.prepare(
+            "SELECT payload, updated_at FROM ups_auction_intel WHERE id = 1"
+          ).first();
+          if (!row || !row.payload) return jsonOut(404, { ok: false, error: "intel not loaded — run build_auction_intel.py --push-d1" });
+          let parsed; try { parsed = JSON.parse(row.payload); } catch (_) { parsed = {}; }
+          return jsonOut(200, { ok: true, updated_at: row.updated_at, ...parsed });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
+      }
+
       if (path === "/api/auction/bid-history" && request.method === "GET") {
         if (!env.UPS_MFL_DB) {
           return jsonOut(500, { error: "D1 binding UPS_MFL_DB missing" });
