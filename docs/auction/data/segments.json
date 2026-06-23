@@ -1,7 +1,8 @@
 {
   "meta": {
     "scope": "FreeAgent auctions only, 2019-2025",
-    "n_wins": 1259
+    "n_wins": 1259,
+    "adp_note": "marquee_adp uses MFL native ADP = REDRAFT (not dynasty); a player's dynasty-startup rank can be much higher (e.g. Herbert redraft QB20 vs dynasty ~QB8)."
   },
   "bucket_dist": {
     "2019": {
@@ -88,53 +89,409 @@
       "last_third_share": 0.023
     }
   },
+  "day_since_open": {
+    "all": {
+      "by_day_pct": [
+        7.5,
+        14.3,
+        13.3,
+        16.1,
+        12.8,
+        11.5,
+        8.6,
+        8.0,
+        4.1,
+        2.4,
+        1.4
+      ],
+      "median_day": 3
+    },
+    "$1K": {
+      "by_day_pct": [
+        2.4,
+        8.0,
+        8.2,
+        13.3,
+        13.3,
+        13.6,
+        13.8,
+        13.6,
+        6.8,
+        4.6,
+        2.4
+      ],
+      "median_day": 5
+    },
+    "$18K+": {
+      "by_day_pct": [
+        39.4,
+        25.4,
+        15.5,
+        11.3,
+        7.0,
+        1.4
+      ],
+      "median_day": 1
+    }
+  },
+  "pos_groups": {
+    "overall": {
+      "OFF": 0.485,
+      "IDP": 0.392,
+      "ST": 0.123
+    },
+    "$1K": {
+      "OFF": 0.358,
+      "IDP": 0.429,
+      "ST": 0.213
+    },
+    "day0": {
+      "OFF": 0.606,
+      "IDP": 0.245,
+      "ST": 0.149
+    },
+    "day1": {
+      "OFF": 0.489,
+      "IDP": 0.289,
+      "ST": 0.222
+    },
+    "avg_win_k_by_group": {
+      "OFF": 7.3,
+      "IDP": 2.3,
+      "ST": 1.2
+    }
+  },
   "dollar4k": {
     "wins_at_4k": 117,
     "opening_proxy_n": 18,
     "opening_proxy_share": 0.154,
-    "by_owner": [
+    "reached_4k_by_actor": [
       {
         "owner": "Keith Creelman",
-        "wins": 15,
+        "n": 15,
         "opening_proxy": 3
       },
       {
         "owner": "Ryan Bousquet",
-        "wins": 13,
+        "n": 13,
         "opening_proxy": 3
       },
       {
         "owner": "Brian Cutting",
-        "wins": 13,
+        "n": 13,
         "opening_proxy": 2
       },
       {
         "owner": "Josh Martel",
-        "wins": 11,
+        "n": 11,
         "opening_proxy": 0
       },
       {
         "owner": "Bear Dunn",
-        "wins": 11,
+        "n": 11,
         "opening_proxy": 0
       },
       {
         "owner": "Shawn Blake",
-        "wins": 10,
+        "n": 10,
         "opening_proxy": 1
       },
       {
         "owner": "Rico Balderelli",
-        "wins": 10,
+        "n": 10,
         "opening_proxy": 6
       },
       {
         "owner": "Chris Klingenberg",
-        "wins": 8,
+        "n": 8,
         "opening_proxy": 0
+      }
+    ],
+    "wins_by_team": [
+      {
+        "owner": "Josh Martel",
+        "total_wins": 104,
+        "wins_at_4k": 17,
+        "pct_of_wins": 0.163,
+        "off": 10,
+        "def_st": 7
+      },
+      {
+        "owner": "Chris Klingenberg",
+        "total_wins": 93,
+        "wins_at_4k": 12,
+        "pct_of_wins": 0.129,
+        "off": 9,
+        "def_st": 3
+      },
+      {
+        "owner": "Eric Martel",
+        "total_wins": 48,
+        "wins_at_4k": 11,
+        "pct_of_wins": 0.229,
+        "off": 7,
+        "def_st": 4
+      },
+      {
+        "owner": "Brian Cutting",
+        "total_wins": 114,
+        "wins_at_4k": 10,
+        "pct_of_wins": 0.088,
+        "off": 4,
+        "def_st": 6
+      },
+      {
+        "owner": "Ryan Bousquet",
+        "total_wins": 98,
+        "wins_at_4k": 10,
+        "pct_of_wins": 0.102,
+        "off": 8,
+        "def_st": 2
+      },
+      {
+        "owner": "AJ Balderelli",
+        "total_wins": 46,
+        "wins_at_4k": 9,
+        "pct_of_wins": 0.196,
+        "off": 4,
+        "def_st": 5
+      },
+      {
+        "owner": "Shawn Blake",
+        "total_wins": 113,
+        "wins_at_4k": 9,
+        "pct_of_wins": 0.08,
+        "off": 4,
+        "def_st": 5
+      },
+      {
+        "owner": "Keith Creelman",
+        "total_wins": 122,
+        "wins_at_4k": 8,
+        "pct_of_wins": 0.066,
+        "off": 8,
+        "def_st": 0
+      },
+      {
+        "owner": "Eric Mannila",
+        "total_wins": 103,
+        "wins_at_4k": 8,
+        "pct_of_wins": 0.078,
+        "off": 1,
+        "def_st": 7
+      },
+      {
+        "owner": "Rico Balderelli",
+        "total_wins": 48,
+        "wins_at_4k": 7,
+        "pct_of_wins": 0.146,
+        "off": 3,
+        "def_st": 4
+      },
+      {
+        "owner": "Steve Bousquet",
+        "total_wins": 70,
+        "wins_at_4k": 7,
+        "pct_of_wins": 0.1,
+        "off": 5,
+        "def_st": 2
+      },
+      {
+        "owner": "Matt Gerardi",
+        "total_wins": 123,
+        "wins_at_4k": 3,
+        "pct_of_wins": 0.024,
+        "off": 1,
+        "def_st": 2
+      },
+      {
+        "owner": "Bear Dunn",
+        "total_wins": 111,
+        "wins_at_4k": 2,
+        "pct_of_wins": 0.018,
+        "off": 2,
+        "def_st": 0
+      },
+      {
+        "owner": "Derrick Whitman",
+        "total_wins": 34,
+        "wins_at_4k": 2,
+        "pct_of_wins": 0.059,
+        "off": 1,
+        "def_st": 1
+      },
+      {
+        "owner": "Brian Cross",
+        "total_wins": 24,
+        "wins_at_4k": 2,
+        "pct_of_wins": 0.083,
+        "off": 0,
+        "def_st": 2
       }
     ]
   },
+  "spend_distribution": [
+    {
+      "owner": "Bear Dunn",
+      "by_year_k": {
+        "2022": 163,
+        "2023": 25,
+        "2024": 54,
+        "2025": 14
+      },
+      "avg_k": 64,
+      "max_k": 163
+    },
+    {
+      "owner": "Brian Cutting",
+      "by_year_k": {
+        "2022": 58,
+        "2023": 86,
+        "2024": 134,
+        "2025": 152
+      },
+      "avg_k": 108,
+      "max_k": 152
+    },
+    {
+      "owner": "Shawn Blake",
+      "by_year_k": {
+        "2022": 125,
+        "2023": 33,
+        "2024": 24,
+        "2025": 104
+      },
+      "avg_k": 72,
+      "max_k": 125
+    },
+    {
+      "owner": "Keith Creelman",
+      "by_year_k": {
+        "2022": 54,
+        "2023": 122,
+        "2024": 57,
+        "2025": 66
+      },
+      "avg_k": 75,
+      "max_k": 122
+    },
+    {
+      "owner": "Eric Mannila",
+      "by_year_k": {
+        "2022": 81,
+        "2023": 117,
+        "2024": 50,
+        "2025": 79
+      },
+      "avg_k": 82,
+      "max_k": 117
+    },
+    {
+      "owner": "Josh Martel",
+      "by_year_k": {
+        "2022": 97,
+        "2023": 43,
+        "2024": 114,
+        "2025": 65
+      },
+      "avg_k": 80,
+      "max_k": 114
+    },
+    {
+      "owner": "Rico Balderelli",
+      "by_year_k": {
+        "2022": 109
+      },
+      "avg_k": 109,
+      "max_k": 109
+    },
+    {
+      "owner": "Matt Gerardi",
+      "by_year_k": {
+        "2022": 74,
+        "2023": 47,
+        "2024": 87,
+        "2025": 103
+      },
+      "avg_k": 78,
+      "max_k": 103
+    },
+    {
+      "owner": "Eric Martel",
+      "by_year_k": {
+        "2023": 98,
+        "2024": 52,
+        "2025": 60
+      },
+      "avg_k": 70,
+      "max_k": 98
+    },
+    {
+      "owner": "AJ Balderelli",
+      "by_year_k": {
+        "2022": 96
+      },
+      "avg_k": 96,
+      "max_k": 96
+    },
+    {
+      "owner": "Ryan Bousquet",
+      "by_year_k": {
+        "2022": 96,
+        "2023": 33,
+        "2024": 74,
+        "2025": 83
+      },
+      "avg_k": 72,
+      "max_k": 96
+    },
+    {
+      "owner": "Chris Klingenberg",
+      "by_year_k": {
+        "2022": 41,
+        "2023": 34,
+        "2024": 68,
+        "2025": 12
+      },
+      "avg_k": 39,
+      "max_k": 68
+    },
+    {
+      "owner": "Steve Bousquet",
+      "by_year_k": {
+        "2022": 54
+      },
+      "avg_k": 54,
+      "max_k": 54
+    },
+    {
+      "owner": "Brian Cross",
+      "by_year_k": {
+        "2024": 17,
+        "2025": 47
+      },
+      "avg_k": 32,
+      "max_k": 47
+    },
+    {
+      "owner": "Derrick Whitman",
+      "by_year_k": {
+        "2023": 18,
+        "2024": 45,
+        "2025": 13
+      },
+      "avg_k": 25,
+      "max_k": 45
+    },
+    {
+      "owner": "Josh Lima",
+      "by_year_k": {
+        "2023": 14
+      },
+      "avg_k": 14,
+      "max_k": 14
+    }
+  ],
   "marquee_adp": [
     {
       "season": 2023,
@@ -420,7 +777,7 @@
       "win_k": 22,
       "player": "Goedert, Dallas",
       "pos": "TE",
-      "ovr_adp": 84,
+      "ovr_adp": 83,
       "pos_adp": 6,
       "winner": "Brian Cutting"
     },
@@ -552,22 +909,37 @@
     "2025": 798000
   },
   "league_room_now": {
-    "total_room": 783000,
+    "total_room": 1033000,
     "by_fid": {
-      "0010": 92000,
-      "0009": 9000,
-      "0002": 131000,
-      "0011": 1000,
-      "0003": 76000,
-      "0005": 63000,
-      "0012": 118000,
-      "0001": 109000,
-      "0004": 42000,
-      "0008": 187000,
-      "0007": -20000,
-      "0006": -25000
+      "0001": 128000,
+      "0002": 150000,
+      "0003": 102000,
+      "0004": 60000,
+      "0005": 83000,
+      "0006": 1000,
+      "0007": 12000,
+      "0008": 195000,
+      "0009": 24000,
+      "0010": 126000,
+      "0011": 18000,
+      "0012": 134000
+    },
+    "taxi_by_fid": {
+      "0001": 19000,
+      "0002": 19000,
+      "0003": 26000,
+      "0004": 18000,
+      "0005": 20000,
+      "0006": 26000,
+      "0007": 32000,
+      "0008": 8000,
+      "0009": 15000,
+      "0010": 34000,
+      "0011": 17000,
+      "0012": 16000
     },
     "n_teams": 12,
-    "ceiling": 300000
+    "ceiling": 300000,
+    "basis": "active roster only"
   }
 }

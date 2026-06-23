@@ -119,3 +119,29 @@ Your profile: 88% cap-free, RB-concentrated ($171K career RB spend, ~3× your WR
 ---
 
 *Methodology note: tier/timing/room/threshold/profile figures are exact against the auction archive. The marquee-QB pricing forecast deliberately discounts the historical $50–66K QB ceiling because that sample contained only QB13–25 arms — no top-12 SF QB has ever hit the UPS block, so those numbers are treated as a floor for a deeper pool, not a ceiling.*
+---
+
+## Corrections & updated numbers (2026-06-23)
+
+A second pass (per commish review) corrected several figures in the sections above — use these:
+
+**Cash / room was wrong (taxi-squad was being counted).** Committed cap = ACTIVE-roster salaries only; taxi-squad is exempt from the $300K ceiling. No team is "negative." Corrected room (room to $300K, active-only):
+
+| Team | Committed | Room | | Team | Committed | Room |
+|---|---|---|---|---|---|---|
+| **★ Real Deal Creel (you)** | $105K | **$195K** | | Hammer | $217K | $83K |
+| CBP | $150K | $150K | | Cutting | $240K | $60K |
+| Hawks | $166K | $134K | | Dunn | $276K | $24K |
+| Ryan | $172K | $128K | | Cleon | $282K | $18K |
+| Blake | $174K | $126K | | Josh | $288K | $12K |
+| Gerardi | $198K | $102K | | Cross | $299K | $1K |
+
+**Total league room ≈ $1,033K** active-only (not $783K), and it grows as teams cut before the auction. **Your $195K is the most in the league — and it's unprecedented: no SF-era team has ever *spent* more than $163K in a single auction** (Bear Dunn, 2022). You go in with more deployable cap than anyone has ever used.
+
+**ADP type: the marquee table uses MFL native = REDRAFT ADP.** Herbert's "QB20" is his post-2024-injury *redraft* rank; in dynasty-startup terms he's ~QB8. For a dynasty SF auction the dynasty lens is the right one — the historical CSV (`adp_history.csv`) is redraft and should be read as such. The directional point still holds (aging arms like Rodgers/Carr/Cousins were cheap in both lenses), but young studs (Herbert, Purdy) were *not* "low talent" — they were low *redraft* ADP.
+
+**Timing in DAYS since auction open (clearer than %):** marquee $18K+ median **Day 1** (39% land Day 0, 79% by Day 2); all wins median **Day 3**; $1K fodder median **Day 5** (peaks Days 3-7, *not* the final 2 days). Be ready for studs Days 0-2; fodder fills the middle.
+
+**$1K fodder is IDP/Special-teams-heavy:** of $1K wins, IDP 43% + ST 21% = **64%** (offense 36%). IDP/kickers are dirt cheap leaguewide (median win $1K) — that's where the streaming deals are, exactly as suspected. Day-0 is the opposite: 61% offense (the studs).
+
+**$4K WINS per team (correcting "you're #1"):** by actual wins at $4K — Josh 17 (16%), Kling 12, Eric Martel 11 (23% rate), Cutting 10, Ryan 10; **you are 8 (7%), all offense.** (The earlier "15" counted times you *forced* the price to $4K as the underbidder, not wins.) Only 15% of $4K wins were opened-at-$4K — the ceiling is reached by laddering, not opening proxies.

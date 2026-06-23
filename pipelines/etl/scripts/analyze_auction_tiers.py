@@ -81,6 +81,31 @@ def main():
                          "last_third_share": round(sum(1 for x in v if x > 66) / len(v), 3)}
                      for b, v in pos_through.items() if v}
 
+    # ---- day-since-open (absolute days, not %) + position groups ----
+    def grp(p):
+        p = (p or "").upper()
+        if p in ("QB", "RB", "WR", "TE", "FB", "HB"): return "OFF"
+        if p in ("PK", "PN", "K", "P"): return "ST"
+        return "IDP"
+    for yr in byyr:
+        ds = [w["d"] for w in byyr[yr] if w["d"]]
+        if not ds: continue
+        start = min(ds)
+        for w in byyr[yr]: w["day"] = (w["d"] - start).days if w["d"] else None
+    def day_share(ws):
+        dc = collections.Counter(w["day"] for w in ws if w.get("day") is not None)
+        m = max(dc) if dc else 0; tot = sum(dc.values()) or 1
+        return {"by_day_pct": [round(dc[i] / tot * 100, 1) for i in range(m + 1)],
+                "median_day": sorted(w["day"] for w in ws if w.get("day") is not None)[len([w for w in ws if w.get("day") is not None]) // 2] if dc else None}
+    day_since_open = {"all": day_share(wins), "$1K": day_share([w for w in wins if w["bid_amount"] <= 1000]),
+                      "$18K+": day_share([w for w in wins if w["bid_amount"] >= 18000])}
+    def gshare(ws):
+        cc = collections.Counter(grp(w["position"]) for w in ws); n = len(ws) or 1
+        return {g: round(cc[g] / n, 3) for g in ("OFF", "IDP", "ST")}
+    pos_groups = {"overall": gshare(wins), "$1K": gshare([w for w in wins if w["bid_amount"] <= 1000]),
+                  "day0": gshare([w for w in wins if w.get("day") == 0]), "day1": gshare([w for w in wins if w.get("day") == 1]),
+                  "avg_win_k_by_group": {g: round(sum(w["bid_amount"] / 1000 for w in wins if grp(w["position"]) == g) / max(sum(1 for w in wins if grp(w["position"]) == g), 1), 1) for g in ("OFF", "IDP", "ST")}}
+
     # ---- $4K analysis ----
     lots = collections.defaultdict(list)
     for r in c.execute(f"""SELECT season,player_id,bid_sequence,bid_amount,finalbid_ind,forced_bid_ind,
@@ -99,9 +124,28 @@ def main():
         goto4k[actor] += 1
         early = (h["bid_sequence"] is not None and h["bid_sequence"] <= 2) or (h["seconds_since_start"] is not None and h["seconds_since_start"] <= 7200)
         if early: open4k += 1; opener[actor] += 1
+    # per-team $4K WINS (not forcing) + offense/defense split + % of their wins
+    byteam = collections.defaultdict(list)
+    for w in wins: byteam[w["owner_name"]].append(w)
+    d4_team = []
+    for o in sorted(byteam, key=lambda x: -sum(1 for w in byteam[x] if w["bid_amount"] / 1000 == 4)):
+        ws = byteam[o]; f4 = [w for w in ws if w["bid_amount"] / 1000 == 4]
+        if not f4: continue
+        off = sum(1 for w in f4 if grp(w["position"]) == "OFF")
+        d4_team.append({"owner": o, "total_wins": len(ws), "wins_at_4k": len(f4),
+                        "pct_of_wins": round(len(f4) / len(ws), 3), "off": off, "def_st": len(f4) - off})
     dollar4k = {"wins_at_4k": end4k, "opening_proxy_n": open4k,
                 "opening_proxy_share": round(open4k / max(end4k, 1), 3),
-                "by_owner": [{"owner": o, "wins": n, "opening_proxy": opener[o]} for o, n in goto4k.most_common(8)]}
+                "reached_4k_by_actor": [{"owner": o, "n": n, "opening_proxy": opener[o]} for o, n in goto4k.most_common(8)],
+                "wins_by_team": d4_team}
+
+    # ---- per-team spend distribution (SF era) ----
+    sp = collections.defaultdict(dict)
+    for s, o, t in c.execute(f"SELECT season,owner_name,SUM(bid_amount) FROM transactions_auction WHERE {Q} AND season>=2022 AND finalbid_ind=1 GROUP BY season,owner_name"):
+        sp[o][s] = round(t / 1000)
+    spend_distribution = sorted(
+        [{"owner": o, "by_year_k": sp[o], "avg_k": round(sum(sp[o].values()) / len(sp[o])), "max_k": max(sp[o].values())}
+         for o in sp], key=lambda x: -x["max_k"])
 
     # ---- marquee ($18K+) ADP-at-auction join (SF era) ----
     marquee = []
@@ -130,28 +174,33 @@ def main():
                             "pos": pos, "ovr_adp": ay.get("ovr", {}).get(pid), "pos_adp": ay.get("prank", {}).get(pid),
                             "winner": w["owner_name"]})
 
-    # ---- this year's league cap room (room to $300K) ----
+    # ---- this year's league cap room (ACTIVE roster only; taxi-squad is cap-exempt) ----
     league_room = None
     try:
-        st = jget(f"https://upsmflproduction.keith-creelman.workers.dev/api/mfl-league-state?L={LEAGUE}")
-        committed = collections.defaultdict(int)
-        p2f, p2c = st.get("pid_to_fid", {}), st.get("pid_to_contract", {})
-        for pid, ct in p2c.items():
-            committed[p2f.get(pid)] += (ct.get("salary") or 0)
-        rooms = {f["id"]: CAP_CEILING - committed.get(f["id"], 0) for f in st.get("franchises", [])}
-        league_room = {"total_room": sum(rooms.values()), "by_fid": rooms,
-                       "n_teams": len(rooms), "ceiling": CAP_CEILING}
+        import datetime as _dt
+        cur_year = _dt.date(2026, 1, 1).year   # auction season (pass-through; no Date.now in workflows)
+        ro = jget(f"https://www48.myfantasyleague.com/{cur_year}/export?TYPE=rosters&L={LEAGUE}&JSON=1")
+        rooms, taxi = {}, {}
+        for f in ro["rosters"]["franchise"]:
+            pls = f.get("player", []); pls = [pls] if isinstance(pls, dict) else pls
+            act = sum(int(p.get("salary") or 0) for p in pls if p.get("status", "ROSTER") in ("ROSTER", ""))
+            tx = sum(int(p.get("salary") or 0) for p in pls if p.get("status") == "TAXI_SQUAD")
+            rooms[f["id"]] = CAP_CEILING - act; taxi[f["id"]] = tx
+        league_room = {"total_room": sum(rooms.values()), "by_fid": rooms, "taxi_by_fid": taxi,
+                       "n_teams": len(rooms), "ceiling": CAP_CEILING, "basis": "active roster only"}
     except Exception as e:
         print(f"  (league room failed: {e})", file=sys.stderr)
 
-    out = {"meta": {"scope": "FreeAgent auctions only, 2019-2025", "n_wins": N},
-           "bucket_dist": bucket_dist, "day_by_bucket": day_by_bucket, "dollar4k": dollar4k,
+    out = {"meta": {"scope": "FreeAgent auctions only, 2019-2025", "n_wins": N,
+                    "adp_note": "marquee_adp uses MFL native ADP = REDRAFT (not dynasty); a player's dynasty-startup rank can be much higher (e.g. Herbert redraft QB20 vs dynasty ~QB8)."},
+           "bucket_dist": bucket_dist, "day_by_bucket": day_by_bucket, "day_since_open": day_since_open,
+           "pos_groups": pos_groups, "dollar4k": dollar4k, "spend_distribution": spend_distribution,
            "marquee_adp": marquee, "spend_by_year": spend_by_year, "league_room_now": league_room}
     OUT.write_text(json.dumps(out, indent=2))
     print(f"wrote {OUT.relative_to(REPO)}", file=sys.stderr)
-    print(json.dumps({"bucket_ALL": bucket_dist["ALL"], "day_by_bucket": day_by_bucket,
-                      "dollar4k_top": dollar4k["by_owner"][:3], "spend_by_year": spend_by_year,
-                      "total_room_now": (league_room or {}).get("total_room")}, indent=1))
+    print(json.dumps({"pos_groups": pos_groups, "day_since_open_median": {k: v["median_day"] for k, v in day_since_open.items()},
+                      "total_room_now": (league_room or {}).get("total_room"),
+                      "max_spend_ever": spend_distribution[0] if spend_distribution else None}, indent=1))
 
 
 if __name__ == "__main__":
