@@ -80,6 +80,9 @@
   #cs-toast.ok { border-color: var(--ok); }
 
   /* Auction War Room */
+  .wr-vtabs { display: inline-flex; gap: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-bottom: 14px; }
+  .wr-vtabs button { background: transparent; border: 0; color: var(--muted); font-weight: 700; font-size: 13px; padding: 7px 16px; border-radius: 7px; cursor: pointer; }
+  .wr-vtabs button.on { background: var(--accent); color: #0a1222; }
   .wr-th { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 7px; border-radius: 6px; }
   .wr-th.high { color: var(--danger); border: 1px solid rgba(248,113,113,0.5); background: rgba(248,113,113,0.08); }
   .wr-th.medium { color: var(--warn); border: 1px solid rgba(251,191,36,0.45); background: rgba(251,191,36,0.07); }
@@ -227,10 +230,10 @@
   // ════════════════════════════════════════════════════════════════════
   // AUCTION WAR ROOM — commish-only FA-auction opponent intel (franchise 0008)
   // ════════════════════════════════════════════════════════════════════
-  var WR = { data: null, era: "sf" };
+  var WR = { data: null, era: "sf", view: "scouting", live: null, pollTimer: null };
   function renderWarRoom() {
     var host = content();
-    if (WR.data) { paintWarRoom(host); return; }
+    if (WR.data) { renderWrFrame(host); return; }
     host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading FA-auction intel…</div></div>';
     fetchJSON(apiUrl("/api/auction/intel") + "?franchise_id=0008").then(function (d) {
       if (!d || !d.ok) {
@@ -238,10 +241,31 @@
           (d && d.error ? esc(d.error) : "Intel not available.") + '</div></div>';
         return;
       }
-      WR.data = d; paintWarRoom(host);
+      WR.data = d; renderWrFrame(host);
     }).catch(function (e) {
       host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + esc(e.message || String(e)) + '</div></div>';
     });
+  }
+  function stopWrPoll() { if (WR.pollTimer) { clearInterval(WR.pollTimer); WR.pollTimer = null; } }
+  function renderWrFrame(host) {
+    host.innerHTML =
+      '<div class="wr-vtabs">' +
+      '<button data-wrv="scouting"' + (WR.view !== "live" ? ' class="on"' : '') + '>📋 Scouting Intel</button>' +
+      '<button data-wrv="live"' + (WR.view === "live" ? ' class="on"' : '') + '>📡 Live Board</button>' +
+      '</div><div id="wr-body"></div>';
+    host.querySelector(".wr-vtabs").addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("button[data-wrv]"); if (!b) return;
+      var v = b.getAttribute("data-wrv"); if (v === WR.view) return;
+      WR.view = v;
+      $$(".wr-vtabs button", host).forEach(function (x) { x.classList.toggle("on", x.getAttribute("data-wrv") === v); });
+      paintWrView();
+    });
+    paintWrView();
+  }
+  function paintWrView() {
+    var b = document.getElementById("wr-body"); if (!b) return;
+    stopWrPoll();
+    if (WR.view === "live") paintLive(b); else paintScouting(b);
   }
   function wrName(fid) { var o = WR.data.owners[fid]; return o ? (o.owner_name || fid) : fid; }
   function wrTeam(fid) { var o = WR.data.owners[fid]; return o ? (o.team_name || "") : ""; }
@@ -267,7 +291,63 @@
     if (sf.total_k >= 350 || sf.marquee_wins >= 5) b.push(['whale', '🐳 Whale · $' + sf.total_k + 'K']);
     return b.map(function (x) { return '<span class="wr-badge ' + x[0] + '">' + x[1] + '</span>'; }).join("");
   }
-  function paintWarRoom(host) {
+  // ── Live Board: live lots overlaid with intel + a remaining-cash panel ──
+  function wrFmtTime(secs) {
+    if (secs == null) return "—"; if (secs <= 0) return "locked";
+    var h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+    return h > 0 ? h + "h " + m + "m" : m + "m";
+  }
+  function wrLoadLive(cb) {
+    Promise.all([
+      fetchJSON(apiUrl("/api/auction/lots") + "?L=" + encodeURIComponent(L) + "&franchise_id=0008&status=open").catch(function () { return { lots: [] }; }),
+      fetchJSON(apiUrl("/api/mfl-league-state") + "?L=" + encodeURIComponent(L)).catch(function () { return {}; })
+    ]).then(function (r) { WR.live = { lots: r[0], state: r[1], at: Date.now() }; cb(); });
+  }
+  function wrCash(state) {
+    var CEIL = 300000, committed = {}, names = {};
+    (state.franchises || []).forEach(function (f) { committed[pad4(f.id)] = 0; names[pad4(f.id)] = f.name; });
+    var p2f = state.pid_to_fid || {}, p2c = state.pid_to_contract || {};
+    Object.keys(p2c).forEach(function (pid) { var fid = pad4(p2f[pid]); if (committed[fid] == null) committed[fid] = 0; committed[fid] += (p2c[pid].salary || 0); });
+    return Object.keys(committed).map(function (fid) { return { fid: fid, name: names[fid] || fid, committed: committed[fid], avail: CEIL - committed[fid] }; })
+      .sort(function (a, b) { return b.avail - a.avail; });
+  }
+  function paintLive(host) {
+    if (!WR.live) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading live board…</div></div>'; wrLoadLive(function () { if (WR.view === "live") paintLive(host); }); return; }
+    var lots = (WR.live.lots && WR.live.lots.lots) || [], state = WR.live.state || {}, faa = WR.live.lots && WR.live.lots.faa_enabled;
+    var pt = (WR.data.league || {}).position_thresholds_sf || {};
+    var lotsHtml;
+    if (!lots.length) {
+      lotsHtml = '<div class="fo-row-hint">No live FA lots right now — the FA Auction opens late July. This board fills with open lots (leader + their tendencies, time left, value flags) once it is live' + (faa === false ? ' and the AUCTION_FAA switch is on' : '') + '. Your scouting + cash are ready below.</div>';
+    } else {
+      lotsHtml = '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th>Player</th><th>Pos</th><th class="num">Bid</th><th>Leader</th><th class="num">Time left</th><th>Watch</th></tr></thead><tbody>' +
+        lots.map(function (l) {
+          var pos = (l.position || "").toUpperCase(), t = pt[pos] || {}, bid = l.current_high_bid_k;
+          var val = (bid != null && t.p50 != null) ? (bid <= t.p50 ? '<span class="wr-th low" style="color:var(--ok);border-color:rgba(74,222,128,0.5)">value</span>' : bid >= t.p90 ? '<span class="wr-th high">marquee</span>' : "") : "";
+          var lf = l.current_high_bidder_fid, lead = lf ? wrName(lf) : "—", sf = wrSf(lf);
+          var urgent = l.seconds_remaining != null && l.seconds_remaining < 6 * 3600;
+          var warn = [];
+          if (sf) { if (sf.post_win_pounce_share >= 0.6) warn.push("⚡ pouncer"); if (sf.runner_up_n >= 30) warn.push("🥷 lurker"); }
+          if (urgent) warn.push("⏰ closing");
+          if (l.your_proxy_bid_k != null) warn.push("you: $" + l.your_proxy_bid_k + "K");
+          return '<tr><td><b>' + esc(l.player_name || l.player_id) + '</b></td><td>' + esc(pos) + " " + val + '</td>' +
+            '<td class="num">$' + (bid != null ? bid : "—") + 'K</td><td>' + esc(lead) + '</td>' +
+            '<td class="num"' + (urgent ? ' style="color:var(--danger);font-weight:700"' : "") + '>' + wrFmtTime(l.seconds_remaining) + '</td>' +
+            '<td class="small">' + esc(warn.join(" · ")) + '</td></tr>';
+        }).join("") + '</tbody></table></div>';
+    }
+    var cash = wrCash(state);
+    var cashHtml = '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th>Team</th><th class="num">Committed</th><th class="num">Room to $300K</th></tr></thead><tbody>' +
+      cash.map(function (c) { var me = c.fid === "0008"; return '<tr' + (me ? ' style="background:rgba(91,141,255,0.10)"' : "") + '><td>' + (me ? "★ " : "") + esc(c.name) + '</td><td class="num">$' + Math.round(c.committed / 1000) + 'K</td><td class="num"><b>$' + Math.round(c.avail / 1000) + 'K</b></td></tr>'; }).join("") + '</tbody></table></div>';
+    host.innerHTML =
+      '<div class="fo-card"><div class="fo-card-head"><h3>📡 Live Lots</h3><span class="small" style="color:var(--muted)">' + (lots.length || 0) + ' open · ' + new Date(WR.live.at).toLocaleTimeString() + ' &nbsp;<button class="btn small" id="wr-refresh">↻</button></span></div>' + lotsHtml + '</div>' +
+      '<div class="fo-card"><div class="fo-card-head"><h3>💰 Remaining cash (room to $300K ceiling)</h3></div>' + cashHtml +
+      '<div class="small" style="color:var(--muted);margin-top:8px">Committed = sum of current salaries; room = $300K − committed (approx — ignores in-auction wins + cut penalties). Value flags compare the live bid to the position\'s SF p50/p90.</div></div>';
+    var rb = document.getElementById("wr-refresh"); if (rb) rb.addEventListener("click", function () { WR.live = null; paintLive(host); });
+    stopWrPoll();
+    WR.pollTimer = setInterval(function () { if (WR.view !== "live") { stopWrPoll(); return; } wrLoadLive(function () { if (WR.view === "live") paintLive(host); }); }, 45000);
+  }
+
+  function paintScouting(host) {
     var d = WR.data, L = d.league || {}, h2h = L.h2h_vs_commish || {}, cards = (d.scouting && d.scouting.cards) || [];
     var rank = { high: 1, medium: 2, low: 3 };
     var byThreat = cards.filter(function (c) { return c.fid !== "0008"; }).sort(function (a, b) {
