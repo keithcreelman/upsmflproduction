@@ -1,0 +1,2035 @@
+{
+  "meta": {
+    "source_db": "ups_auction_canon.db",
+    "lock_window_h": 24.0,
+    "post_win_window_h": 8.0,
+    "eras": {
+      "sf": [
+        2022,
+        2025
+      ],
+      "l5": [
+        2021,
+        2025
+      ],
+      "all": [
+        2014,
+        2025
+      ]
+    },
+    "n_bids": 10434,
+    "n_lots": 2374,
+    "seasons": [
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ]
+  },
+  "league": {
+    "position_thresholds_sf": {
+      "WR": {
+        "n": 88,
+        "p50": 5.0,
+        "p75": 15.0,
+        "p90": 32.0,
+        "p95": 46.0,
+        "max": 72.0
+      },
+      "DT": {
+        "n": 4,
+        "p50": 5.0,
+        "p75": 5.0,
+        "p90": 8.0,
+        "p95": 8.0,
+        "max": 8.0
+      },
+      "DE": {
+        "n": 31,
+        "p50": 3.0,
+        "p75": 5.0,
+        "p90": 9.0,
+        "p95": 10.0,
+        "max": 13.0
+      },
+      "RB": {
+        "n": 93,
+        "p50": 7.0,
+        "p75": 16.0,
+        "p90": 39.0,
+        "p95": 51.0,
+        "max": 94.0
+      },
+      "QB": {
+        "n": 42,
+        "p50": 15.0,
+        "p75": 26.0,
+        "p90": 38.0,
+        "p95": 50.0,
+        "max": 66.0
+      },
+      "LB": {
+        "n": 54,
+        "p50": 3.0,
+        "p75": 4.0,
+        "p90": 5.0,
+        "p95": 5.0,
+        "max": 15.0
+      },
+      "S": {
+        "n": 44,
+        "p50": 3.0,
+        "p75": 4.0,
+        "p90": 5.0,
+        "p95": 5.0,
+        "max": 9.0
+      },
+      "TE": {
+        "n": 36,
+        "p50": 4.0,
+        "p75": 8.0,
+        "p90": 21.0,
+        "p95": 22.0,
+        "max": 29.0
+      },
+      "PK": {
+        "n": 10,
+        "p50": 2.0,
+        "p75": 2.0,
+        "p90": 3.0,
+        "p95": 3.0,
+        "max": 3.0
+      },
+      "PN": {
+        "n": 6,
+        "p50": 2.0,
+        "p75": 2.0,
+        "p90": 2.0,
+        "p95": 3.0,
+        "max": 3.0
+      },
+      "CB": {
+        "n": 2,
+        "p50": 2.0,
+        "p75": 3.0,
+        "p90": 3.0,
+        "p95": 3.0,
+        "max": 3.0
+      }
+    },
+    "zones_sf": {
+      "capfree": 0.566,
+      "low": 0.183,
+      "mid": 0.11,
+      "marquee": 0.141
+    },
+    "median_win_k_sf": 4.0,
+    "n_contested_sf": 410,
+    "top_wins_l5": [
+      {
+        "season": 2023,
+        "player": "Henry, Derrick",
+        "pos": "RB",
+        "win_k": 94.0,
+        "winner_fid": "0008",
+        "nominator_fid": "0008",
+        "runner_up_fid": "0008",
+        "n_bids": 31
+      },
+      {
+        "season": 2023,
+        "player": "Adams, Davante",
+        "pos": "WR",
+        "win_k": 72.0,
+        "winner_fid": "0001",
+        "nominator_fid": "0001",
+        "runner_up_fid": "0008",
+        "n_bids": 3
+      },
+      {
+        "season": 2021,
+        "player": "Hopkins, DeAndre",
+        "pos": "WR",
+        "win_k": 70.0,
+        "winner_fid": "0009",
+        "nominator_fid": "0009",
+        "runner_up_fid": "",
+        "n_bids": 3
+      },
+      {
+        "season": 2022,
+        "player": "Brady, Tom",
+        "pos": "QB",
+        "win_k": 66.0,
+        "winner_fid": "0007",
+        "nominator_fid": "0003",
+        "runner_up_fid": "0009",
+        "n_bids": 12
+      },
+      {
+        "season": 2023,
+        "player": "Elliott, Ezekiel",
+        "pos": "RB",
+        "win_k": 64.0,
+        "winner_fid": "0006",
+        "nominator_fid": "0006",
+        "runner_up_fid": "0009",
+        "n_bids": 7
+      },
+      {
+        "season": 2023,
+        "player": "Ekeler, Austin",
+        "pos": "RB",
+        "win_k": 63.0,
+        "winner_fid": "0009",
+        "nominator_fid": "0009",
+        "runner_up_fid": "0007",
+        "n_bids": 3
+      },
+      {
+        "season": 2021,
+        "player": "Ekeler, Austin",
+        "pos": "RB",
+        "win_k": 61.0,
+        "winner_fid": "0008",
+        "nominator_fid": "0001",
+        "runner_up_fid": "0008",
+        "n_bids": 9
+      },
+      {
+        "season": 2024,
+        "player": "Hill, Tyreek",
+        "pos": "WR",
+        "win_k": 61.0,
+        "winner_fid": "0007",
+        "nominator_fid": "0011",
+        "runner_up_fid": "0011",
+        "n_bids": 8
+      },
+      {
+        "season": 2021,
+        "player": "Allen, Keenan",
+        "pos": "WR",
+        "win_k": 60.0,
+        "winner_fid": "0002",
+        "nominator_fid": "0002",
+        "runner_up_fid": "0008",
+        "n_bids": 12
+      },
+      {
+        "season": 2021,
+        "player": "Evans, Mike",
+        "pos": "WR",
+        "win_k": 59.0,
+        "winner_fid": "0008",
+        "nominator_fid": "0008",
+        "runner_up_fid": "",
+        "n_bids": 3
+      },
+      {
+        "season": 2023,
+        "player": "Diggs, Stefon",
+        "pos": "WR",
+        "win_k": 58.0,
+        "winner_fid": "0005",
+        "nominator_fid": "0005",
+        "runner_up_fid": "",
+        "n_bids": 3
+      },
+      {
+        "season": 2022,
+        "player": "Ekeler, Austin",
+        "pos": "RB",
+        "win_k": 57.0,
+        "winner_fid": "0009",
+        "nominator_fid": "0004",
+        "runner_up_fid": "0011",
+        "n_bids": 10
+      },
+      {
+        "season": 2025,
+        "player": "McCaffrey, Christian",
+        "pos": "RB",
+        "win_k": 56.0,
+        "winner_fid": "0004",
+        "nominator_fid": "0011",
+        "runner_up_fid": "0007",
+        "n_bids": 12
+      },
+      {
+        "season": 2022,
+        "player": "Mixon, Joe",
+        "pos": "RB",
+        "win_k": 51.0,
+        "winner_fid": "0002",
+        "nominator_fid": "0002",
+        "runner_up_fid": "0008",
+        "n_bids": 3
+      },
+      {
+        "season": 2023,
+        "player": "Hill, Tyreek",
+        "pos": "WR",
+        "win_k": 51.0,
+        "winner_fid": "0002",
+        "nominator_fid": "0002",
+        "runner_up_fid": "0007",
+        "n_bids": 3
+      },
+      {
+        "season": 2025,
+        "player": "Herbert, Justin",
+        "pos": "QB",
+        "win_k": 51.0,
+        "winner_fid": "0011",
+        "nominator_fid": "0005",
+        "runner_up_fid": "0011",
+        "n_bids": 6
+      },
+      {
+        "season": 2021,
+        "player": "Robinson, Allen",
+        "pos": "WR",
+        "win_k": 50.0,
+        "winner_fid": "0005",
+        "nominator_fid": "0005",
+        "runner_up_fid": "",
+        "n_bids": 3
+      },
+      {
+        "season": 2023,
+        "player": "Rodgers, Aaron",
+        "pos": "QB",
+        "win_k": 50.0,
+        "winner_fid": "0011",
+        "nominator_fid": "0008",
+        "runner_up_fid": "0010",
+        "n_bids": 10
+      },
+      {
+        "season": 2024,
+        "player": "Prescott, Dak",
+        "pos": "QB",
+        "win_k": 50.0,
+        "winner_fid": "0002",
+        "nominator_fid": "0002",
+        "runner_up_fid": "0004",
+        "n_bids": 15
+      },
+      {
+        "season": 2024,
+        "player": "Kupp, Cooper",
+        "pos": "WR",
+        "win_k": 46.0,
+        "winner_fid": "0011",
+        "nominator_fid": "0011",
+        "runner_up_fid": "0012",
+        "n_bids": 6
+      }
+    ]
+  },
+  "owners": {
+    "0001": {
+      "franchise_id": "0001",
+      "owner_name": "Ryan Bousquet",
+      "team_name": "L.A. Looks",
+      "by_era": {
+        "sf": {
+          "n_bids": 272,
+          "n_wins": 73,
+          "total_k": 481.0,
+          "hour_hist": [
+            12,
+            0,
+            3,
+            1,
+            1,
+            1,
+            3,
+            11,
+            13,
+            16,
+            13,
+            11,
+            14,
+            21,
+            9,
+            9,
+            9,
+            13,
+            5,
+            4,
+            3,
+            17,
+            33,
+            50
+          ],
+          "peak_hours_et": [
+            23,
+            22,
+            13
+          ],
+          "late_bid_share": {
+            "under8h": 0.377,
+            "under6h": 0.357,
+            "under2h": 0.314
+          },
+          "overtake_rate": 0.232,
+          "late_overtake_n": 8,
+          "runner_up_n": 41,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.562,
+          "post_win_avg_followups": 2.05,
+          "zone_mix": {
+            "capfree": 0.658,
+            "low": 0.123,
+            "mid": 0.137,
+            "marquee": 0.082
+          },
+          "pos_spend_k": {
+            "WR": 181.0,
+            "RB": 104.0,
+            "QB": 81.0,
+            "TE": 35.0,
+            "DE": 28.0,
+            "LB": 26.0,
+            "S": 9.0,
+            "PK": 6.0,
+            "DT": 5.0,
+            "PN": 5.0,
+            "CB": 1.0
+          },
+          "marquee_wins": 6,
+          "max_win_k": 72.0
+        },
+        "l5": {
+          "n_bids": 338,
+          "n_wins": 89,
+          "total_k": 544.0,
+          "hour_hist": [
+            17,
+            0,
+            3,
+            1,
+            1,
+            1,
+            4,
+            11,
+            13,
+            19,
+            14,
+            11,
+            19,
+            21,
+            9,
+            9,
+            19,
+            13,
+            11,
+            7,
+            6,
+            21,
+            46,
+            62
+          ],
+          "peak_hours_et": [
+            23,
+            22,
+            13
+          ],
+          "late_bid_share": {
+            "under8h": 0.338,
+            "under6h": 0.319,
+            "under2h": 0.285
+          },
+          "overtake_rate": 0.24,
+          "late_overtake_n": 9,
+          "runner_up_n": 49,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.596,
+          "post_win_avg_followups": 2.07,
+          "zone_mix": {
+            "capfree": 0.674,
+            "low": 0.124,
+            "mid": 0.135,
+            "marquee": 0.067
+          },
+          "pos_spend_k": {
+            "WR": 195.0,
+            "RB": 127.0,
+            "QB": 84.0,
+            "TE": 39.0,
+            "DE": 35.0,
+            "LB": 32.0,
+            "S": 9.0,
+            "PK": 8.0,
+            "DT": 7.0,
+            "PN": 7.0,
+            "CB": 1.0
+          },
+          "marquee_wins": 6,
+          "max_win_k": 72.0
+        }
+      }
+    },
+    "0002": {
+      "franchise_id": "0002",
+      "owner_name": "Derrick Whitman",
+      "team_name": "CBP",
+      "by_era": {
+        "sf": {
+          "n_bids": 210,
+          "n_wins": 59,
+          "total_k": 340.0,
+          "hour_hist": [
+            18,
+            7,
+            0,
+            0,
+            1,
+            2,
+            0,
+            13,
+            24,
+            21,
+            8,
+            13,
+            21,
+            17,
+            13,
+            10,
+            3,
+            3,
+            1,
+            8,
+            17,
+            2,
+            6,
+            2
+          ],
+          "peak_hours_et": [
+            8,
+            9,
+            12
+          ],
+          "late_bid_share": {
+            "under8h": 0.371,
+            "under6h": 0.357,
+            "under2h": 0.336
+          },
+          "overtake_rate": 0.124,
+          "late_overtake_n": 1,
+          "runner_up_n": 23,
+          "lurk_win_n": 1,
+          "post_win_pounce_share": 0.407,
+          "post_win_avg_followups": 1.14,
+          "zone_mix": {
+            "capfree": 0.814,
+            "low": 0.068,
+            "mid": 0.034,
+            "marquee": 0.085
+          },
+          "pos_spend_k": {
+            "WR": 109.0,
+            "RB": 93.0,
+            "QB": 78.0,
+            "TE": 14.0,
+            "LB": 11.0,
+            "S": 9.0,
+            "DE": 8.0,
+            "PK": 5.0,
+            "PN": 5.0,
+            "DT": 4.0,
+            "CB": 4.0
+          },
+          "marquee_wins": 5,
+          "max_win_k": 51.0
+        },
+        "l5": {
+          "n_bids": 240,
+          "n_wins": 67,
+          "total_k": 421.0,
+          "hour_hist": [
+            18,
+            7,
+            0,
+            0,
+            1,
+            2,
+            0,
+            13,
+            24,
+            30,
+            8,
+            14,
+            21,
+            19,
+            16,
+            25,
+            3,
+            3,
+            1,
+            8,
+            17,
+            2,
+            6,
+            2
+          ],
+          "peak_hours_et": [
+            9,
+            15,
+            8
+          ],
+          "late_bid_share": {
+            "under8h": 0.388,
+            "under6h": 0.375,
+            "under2h": 0.344
+          },
+          "overtake_rate": 0.129,
+          "late_overtake_n": 3,
+          "runner_up_n": 28,
+          "lurk_win_n": 1,
+          "post_win_pounce_share": 0.403,
+          "post_win_avg_followups": 1.18,
+          "zone_mix": {
+            "capfree": 0.821,
+            "low": 0.06,
+            "mid": 0.03,
+            "marquee": 0.09
+          },
+          "pos_spend_k": {
+            "WR": 169.0,
+            "RB": 93.0,
+            "QB": 79.0,
+            "LB": 19.0,
+            "S": 16.0,
+            "TE": 14.0,
+            "DE": 12.0,
+            "PN": 6.0,
+            "PK": 5.0,
+            "DT": 4.0,
+            "CB": 4.0
+          },
+          "marquee_wins": 6,
+          "max_win_k": 60.0
+        }
+      }
+    },
+    "0003": {
+      "franchise_id": "0003",
+      "owner_name": "Matt Gerardi",
+      "team_name": "Gride",
+      "by_era": {
+        "sf": {
+          "n_bids": 216,
+          "n_wins": 69,
+          "total_k": 338.0,
+          "hour_hist": [
+            14,
+            9,
+            7,
+            1,
+            3,
+            9,
+            5,
+            6,
+            10,
+            11,
+            6,
+            5,
+            15,
+            11,
+            15,
+            9,
+            15,
+            12,
+            8,
+            12,
+            16,
+            4,
+            4,
+            9
+          ],
+          "peak_hours_et": [
+            20,
+            12,
+            14
+          ],
+          "late_bid_share": {
+            "under8h": 0.521,
+            "under6h": 0.5,
+            "under2h": 0.472
+          },
+          "overtake_rate": 0.181,
+          "late_overtake_n": 8,
+          "runner_up_n": 17,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.507,
+          "post_win_avg_followups": 1.12,
+          "zone_mix": {
+            "capfree": 0.797,
+            "low": 0.072,
+            "mid": 0.014,
+            "marquee": 0.116
+          },
+          "pos_spend_k": {
+            "QB": 96.0,
+            "RB": 94.0,
+            "WR": 67.0,
+            "TE": 33.0,
+            "LB": 15.0,
+            "S": 9.0,
+            "CB": 7.0,
+            "DE": 6.0,
+            "DT": 4.0,
+            "PN": 4.0,
+            "PK": 3.0
+          },
+          "marquee_wins": 8,
+          "max_win_k": 37.0
+        },
+        "l5": {
+          "n_bids": 268,
+          "n_wins": 85,
+          "total_k": 403.0,
+          "hour_hist": [
+            20,
+            14,
+            8,
+            1,
+            5,
+            9,
+            5,
+            6,
+            13,
+            15,
+            7,
+            6,
+            15,
+            11,
+            18,
+            12,
+            15,
+            12,
+            8,
+            14,
+            20,
+            11,
+            12,
+            11
+          ],
+          "peak_hours_et": [
+            0,
+            20,
+            14
+          ],
+          "late_bid_share": {
+            "under8h": 0.542,
+            "under6h": 0.52,
+            "under2h": 0.475
+          },
+          "overtake_rate": 0.175,
+          "late_overtake_n": 11,
+          "runner_up_n": 25,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.506,
+          "post_win_avg_followups": 1.05,
+          "zone_mix": {
+            "capfree": 0.8,
+            "low": 0.082,
+            "mid": 0.012,
+            "marquee": 0.106
+          },
+          "pos_spend_k": {
+            "WR": 105.0,
+            "QB": 97.0,
+            "RB": 95.0,
+            "TE": 44.0,
+            "LB": 20.0,
+            "S": 11.0,
+            "CB": 9.0,
+            "DE": 9.0,
+            "PN": 5.0,
+            "PK": 4.0,
+            "DT": 4.0
+          },
+          "marquee_wins": 9,
+          "max_win_k": 37.0
+        }
+      }
+    },
+    "0004": {
+      "franchise_id": "0004",
+      "owner_name": "Brian Cutting",
+      "team_name": "Pure Greatness",
+      "by_era": {
+        "sf": {
+          "n_bids": 310,
+          "n_wins": 60,
+          "total_k": 390.0,
+          "hour_hist": [
+            0,
+            0,
+            0,
+            0,
+            16,
+            19,
+            43,
+            40,
+            8,
+            3,
+            9,
+            5,
+            30,
+            26,
+            13,
+            25,
+            24,
+            10,
+            5,
+            1,
+            5,
+            15,
+            13,
+            0
+          ],
+          "peak_hours_et": [
+            6,
+            7,
+            12
+          ],
+          "late_bid_share": {
+            "under8h": 0.243,
+            "under6h": 0.227,
+            "under2h": 0.188
+          },
+          "overtake_rate": 0.271,
+          "late_overtake_n": 7,
+          "runner_up_n": 27,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.633,
+          "post_win_avg_followups": 2.37,
+          "zone_mix": {
+            "capfree": 0.667,
+            "low": 0.15,
+            "mid": 0.083,
+            "marquee": 0.1
+          },
+          "pos_spend_k": {
+            "RB": 130.0,
+            "WR": 74.0,
+            "QB": 61.0,
+            "TE": 47.0,
+            "LB": 29.0,
+            "DE": 15.0,
+            "S": 14.0,
+            "DT": 9.0,
+            "PK": 7.0,
+            "PN": 4.0
+          },
+          "marquee_wins": 6,
+          "max_win_k": 56.0
+        },
+        "l5": {
+          "n_bids": 361,
+          "n_wins": 75,
+          "total_k": 452.0,
+          "hour_hist": [
+            1,
+            0,
+            0,
+            0,
+            18,
+            23,
+            44,
+            41,
+            10,
+            6,
+            9,
+            12,
+            31,
+            26,
+            15,
+            28,
+            25,
+            13,
+            5,
+            10,
+            14,
+            17,
+            13,
+            0
+          ],
+          "peak_hours_et": [
+            6,
+            7,
+            12
+          ],
+          "late_bid_share": {
+            "under8h": 0.254,
+            "under6h": 0.241,
+            "under2h": 0.207
+          },
+          "overtake_rate": 0.266,
+          "late_overtake_n": 7,
+          "runner_up_n": 30,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.627,
+          "post_win_avg_followups": 2.15,
+          "zone_mix": {
+            "capfree": 0.653,
+            "low": 0.187,
+            "mid": 0.08,
+            "marquee": 0.08
+          },
+          "pos_spend_k": {
+            "RB": 139.0,
+            "WR": 83.0,
+            "QB": 66.0,
+            "TE": 49.0,
+            "LB": 44.0,
+            "S": 33.0,
+            "DE": 16.0,
+            "DT": 9.0,
+            "PK": 8.0,
+            "PN": 5.0
+          },
+          "marquee_wins": 6,
+          "max_win_k": 56.0
+        }
+      }
+    },
+    "0005": {
+      "franchise_id": "0005",
+      "owner_name": "Eric Martel",
+      "team_name": "HammerTime \ud83d\udd28 \u23f0",
+      "by_era": {
+        "sf": {
+          "n_bids": 203,
+          "n_wins": 66,
+          "total_k": 442.0,
+          "hour_hist": [
+            12,
+            0,
+            9,
+            10,
+            9,
+            27,
+            10,
+            6,
+            25,
+            14,
+            4,
+            5,
+            27,
+            7,
+            8,
+            5,
+            6,
+            4,
+            2,
+            2,
+            4,
+            5,
+            0,
+            2
+          ],
+          "peak_hours_et": [
+            5,
+            12,
+            8
+          ],
+          "late_bid_share": {
+            "under8h": 0.288,
+            "under6h": 0.274,
+            "under2h": 0.247
+          },
+          "overtake_rate": 0.291,
+          "late_overtake_n": 3,
+          "runner_up_n": 12,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.667,
+          "post_win_avg_followups": 1.3,
+          "zone_mix": {
+            "capfree": 0.727,
+            "low": 0.091,
+            "mid": 0.076,
+            "marquee": 0.106
+          },
+          "pos_spend_k": {
+            "RB": 177.0,
+            "WR": 107.0,
+            "QB": 75.0,
+            "LB": 24.0,
+            "S": 20.0,
+            "DE": 15.0,
+            "TE": 13.0,
+            "PK": 7.0,
+            "PN": 4.0
+          },
+          "marquee_wins": 7,
+          "max_win_k": 58.0
+        },
+        "l5": {
+          "n_bids": 267,
+          "n_wins": 84,
+          "total_k": 631.0,
+          "hour_hist": [
+            17,
+            0,
+            9,
+            10,
+            9,
+            27,
+            10,
+            13,
+            25,
+            14,
+            6,
+            6,
+            34,
+            7,
+            8,
+            25,
+            12,
+            4,
+            3,
+            4,
+            15,
+            5,
+            2,
+            2
+          ],
+          "peak_hours_et": [
+            12,
+            5,
+            8
+          ],
+          "late_bid_share": {
+            "under8h": 0.317,
+            "under6h": 0.291,
+            "under2h": 0.256
+          },
+          "overtake_rate": 0.27,
+          "late_overtake_n": 8,
+          "runner_up_n": 18,
+          "lurk_win_n": 1,
+          "post_win_pounce_share": 0.667,
+          "post_win_avg_followups": 1.75,
+          "zone_mix": {
+            "capfree": 0.702,
+            "low": 0.095,
+            "mid": 0.083,
+            "marquee": 0.119
+          },
+          "pos_spend_k": {
+            "RB": 222.0,
+            "WR": 179.0,
+            "QB": 129.0,
+            "S": 32.0,
+            "LB": 25.0,
+            "DE": 17.0,
+            "TE": 13.0,
+            "PK": 9.0,
+            "PN": 5.0
+          },
+          "marquee_wins": 10,
+          "max_win_k": 58.0
+        }
+      }
+    },
+    "0006": {
+      "franchise_id": "0006",
+      "owner_name": "Brian Cross",
+      "team_name": "The Long Haulers",
+      "by_era": {
+        "sf": {
+          "n_bids": 204,
+          "n_wins": 62,
+          "total_k": 261.0,
+          "hour_hist": [
+            21,
+            4,
+            0,
+            6,
+            0,
+            11,
+            7,
+            20,
+            12,
+            23,
+            21,
+            3,
+            15,
+            7,
+            3,
+            4,
+            4,
+            1,
+            1,
+            5,
+            7,
+            1,
+            12,
+            16
+          ],
+          "peak_hours_et": [
+            9,
+            0,
+            10
+          ],
+          "late_bid_share": {
+            "under8h": 0.5,
+            "under6h": 0.5,
+            "under2h": 0.432
+          },
+          "overtake_rate": 0.191,
+          "late_overtake_n": 9,
+          "runner_up_n": 22,
+          "lurk_win_n": 1,
+          "post_win_pounce_share": 0.468,
+          "post_win_avg_followups": 0.71,
+          "zone_mix": {
+            "capfree": 0.774,
+            "low": 0.161,
+            "mid": 0.032,
+            "marquee": 0.032
+          },
+          "pos_spend_k": {
+            "RB": 139.0,
+            "WR": 30.0,
+            "S": 29.0,
+            "LB": 20.0,
+            "TE": 13.0,
+            "QB": 11.0,
+            "DE": 7.0,
+            "PN": 6.0,
+            "PK": 5.0,
+            "CB": 1.0
+          },
+          "marquee_wins": 2,
+          "max_win_k": 64.0
+        },
+        "l5": {
+          "n_bids": 268,
+          "n_wins": 79,
+          "total_k": 330.0,
+          "hour_hist": [
+            29,
+            5,
+            0,
+            6,
+            0,
+            11,
+            10,
+            20,
+            17,
+            31,
+            24,
+            3,
+            29,
+            7,
+            4,
+            8,
+            6,
+            1,
+            1,
+            5,
+            9,
+            2,
+            20,
+            20
+          ],
+          "peak_hours_et": [
+            9,
+            0,
+            12
+          ],
+          "late_bid_share": {
+            "under8h": 0.46,
+            "under6h": 0.46,
+            "under2h": 0.398
+          },
+          "overtake_rate": 0.198,
+          "late_overtake_n": 10,
+          "runner_up_n": 30,
+          "lurk_win_n": 1,
+          "post_win_pounce_share": 0.443,
+          "post_win_avg_followups": 0.72,
+          "zone_mix": {
+            "capfree": 0.81,
+            "low": 0.127,
+            "mid": 0.025,
+            "marquee": 0.038
+          },
+          "pos_spend_k": {
+            "RB": 142.0,
+            "WR": 80.0,
+            "S": 33.0,
+            "LB": 23.0,
+            "TE": 15.0,
+            "QB": 11.0,
+            "DE": 10.0,
+            "PN": 8.0,
+            "PK": 7.0,
+            "CB": 1.0
+          },
+          "marquee_wins": 3,
+          "max_win_k": 64.0
+        }
+      }
+    },
+    "0007": {
+      "franchise_id": "0007",
+      "owner_name": "Josh Martel",
+      "team_name": "Sex Manther",
+      "by_era": {
+        "sf": {
+          "n_bids": 171,
+          "n_wins": 57,
+          "total_k": 329.0,
+          "hour_hist": [
+            6,
+            1,
+            0,
+            0,
+            2,
+            1,
+            8,
+            20,
+            6,
+            4,
+            11,
+            9,
+            5,
+            9,
+            17,
+            14,
+            6,
+            10,
+            8,
+            6,
+            4,
+            13,
+            8,
+            3
+          ],
+          "peak_hours_et": [
+            7,
+            14,
+            15
+          ],
+          "late_bid_share": {
+            "under8h": 0.456,
+            "under6h": 0.439,
+            "under2h": 0.386
+          },
+          "overtake_rate": 0.175,
+          "late_overtake_n": 3,
+          "runner_up_n": 15,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.561,
+          "post_win_avg_followups": 0.98,
+          "zone_mix": {
+            "capfree": 0.807,
+            "low": 0.088,
+            "mid": 0.035,
+            "marquee": 0.07
+          },
+          "pos_spend_k": {
+            "QB": 77.0,
+            "WR": 74.0,
+            "RB": 61.0,
+            "TE": 45.0,
+            "DE": 29.0,
+            "S": 22.0,
+            "LB": 12.0,
+            "PK": 5.0,
+            "PN": 3.0,
+            "DT": 1.0
+          },
+          "marquee_wins": 4,
+          "max_win_k": 66.0
+        },
+        "l5": {
+          "n_bids": 222,
+          "n_wins": 74,
+          "total_k": 386.0,
+          "hour_hist": [
+            6,
+            1,
+            0,
+            0,
+            2,
+            1,
+            9,
+            23,
+            6,
+            8,
+            14,
+            9,
+            8,
+            14,
+            22,
+            14,
+            7,
+            12,
+            9,
+            8,
+            9,
+            16,
+            17,
+            7
+          ],
+          "peak_hours_et": [
+            7,
+            14,
+            22
+          ],
+          "late_bid_share": {
+            "under8h": 0.48,
+            "under6h": 0.453,
+            "under2h": 0.399
+          },
+          "overtake_rate": 0.18,
+          "late_overtake_n": 5,
+          "runner_up_n": 20,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.5,
+          "post_win_avg_followups": 0.84,
+          "zone_mix": {
+            "capfree": 0.824,
+            "low": 0.081,
+            "mid": 0.041,
+            "marquee": 0.054
+          },
+          "pos_spend_k": {
+            "RB": 83.0,
+            "WR": 78.0,
+            "QB": 77.0,
+            "TE": 50.0,
+            "DE": 37.0,
+            "S": 27.0,
+            "LB": 17.0,
+            "PK": 9.0,
+            "DT": 4.0,
+            "PN": 4.0
+          },
+          "marquee_wins": 4,
+          "max_win_k": 66.0
+        }
+      }
+    },
+    "0008": {
+      "franchise_id": "0008",
+      "owner_name": "Keith Creelman",
+      "team_name": "Real Deal Creel",
+      "by_era": {
+        "sf": {
+          "n_bids": 369,
+          "n_wins": 84,
+          "total_k": 393.0,
+          "hour_hist": [
+            45,
+            8,
+            0,
+            0,
+            8,
+            33,
+            26,
+            22,
+            15,
+            10,
+            9,
+            11,
+            47,
+            15,
+            21,
+            18,
+            22,
+            16,
+            7,
+            4,
+            5,
+            14,
+            8,
+            5
+          ],
+          "peak_hours_et": [
+            12,
+            0,
+            5
+          ],
+          "late_bid_share": {
+            "under8h": 0.38,
+            "under6h": 0.355,
+            "under2h": 0.297
+          },
+          "overtake_rate": 0.163,
+          "late_overtake_n": 12,
+          "runner_up_n": 69,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.536,
+          "post_win_avg_followups": 1.45,
+          "zone_mix": {
+            "capfree": 0.845,
+            "low": 0.071,
+            "mid": 0.036,
+            "marquee": 0.048
+          },
+          "pos_spend_k": {
+            "RB": 253.0,
+            "WR": 53.0,
+            "S": 28.0,
+            "TE": 17.0,
+            "QB": 13.0,
+            "LB": 8.0,
+            "DE": 7.0,
+            "PK": 7.0,
+            "PN": 7.0
+          },
+          "marquee_wins": 4,
+          "max_win_k": 94.0
+        },
+        "l5": {
+          "n_bids": 449,
+          "n_wins": 104,
+          "total_k": 601.0,
+          "hour_hist": [
+            48,
+            8,
+            0,
+            3,
+            15,
+            40,
+            31,
+            27,
+            17,
+            13,
+            14,
+            12,
+            54,
+            15,
+            29,
+            24,
+            24,
+            18,
+            10,
+            4,
+            11,
+            17,
+            10,
+            5
+          ],
+          "peak_hours_et": [
+            12,
+            0,
+            5
+          ],
+          "late_bid_share": {
+            "under8h": 0.371,
+            "under6h": 0.347,
+            "under2h": 0.296
+          },
+          "overtake_rate": 0.163,
+          "late_overtake_n": 12,
+          "runner_up_n": 80,
+          "lurk_win_n": 1,
+          "post_win_pounce_share": 0.5,
+          "post_win_avg_followups": 1.35,
+          "zone_mix": {
+            "capfree": 0.817,
+            "low": 0.077,
+            "mid": 0.029,
+            "marquee": 0.077
+          },
+          "pos_spend_k": {
+            "RB": 327.0,
+            "WR": 137.0,
+            "QB": 46.0,
+            "S": 28.0,
+            "TE": 25.0,
+            "DE": 10.0,
+            "LB": 10.0,
+            "PK": 10.0,
+            "PN": 8.0
+          },
+          "marquee_wins": 8,
+          "max_win_k": 94.0
+        }
+      }
+    },
+    "0009": {
+      "franchise_id": "0009",
+      "owner_name": "Bear Dunn",
+      "team_name": "C-Town Chivalry",
+      "by_era": {
+        "sf": {
+          "n_bids": 245,
+          "n_wins": 66,
+          "total_k": 309.0,
+          "hour_hist": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            22,
+            55,
+            42,
+            8,
+            4,
+            8,
+            17,
+            19,
+            12,
+            1,
+            4,
+            10,
+            7,
+            5,
+            8,
+            14,
+            1,
+            4,
+            4
+          ],
+          "peak_hours_et": [
+            6,
+            7,
+            5
+          ],
+          "late_bid_share": {
+            "under8h": 0.399,
+            "under6h": 0.37,
+            "under2h": 0.335
+          },
+          "overtake_rate": 0.147,
+          "late_overtake_n": 2,
+          "runner_up_n": 35,
+          "lurk_win_n": 3,
+          "post_win_pounce_share": 0.409,
+          "post_win_avg_followups": 1.26,
+          "zone_mix": {
+            "capfree": 0.864,
+            "low": 0.03,
+            "mid": 0.045,
+            "marquee": 0.061
+          },
+          "pos_spend_k": {
+            "RB": 183.0,
+            "QB": 43.0,
+            "WR": 35.0,
+            "DE": 15.0,
+            "LB": 14.0,
+            "S": 11.0,
+            "PK": 4.0,
+            "DT": 2.0,
+            "TE": 1.0,
+            "PN": 1.0
+          },
+          "marquee_wins": 4,
+          "max_win_k": 63.0
+        },
+        "l5": {
+          "n_bids": 315,
+          "n_wins": 86,
+          "total_k": 420.0,
+          "hour_hist": [
+            0,
+            0,
+            0,
+            0,
+            2,
+            24,
+            61,
+            60,
+            13,
+            7,
+            10,
+            23,
+            23,
+            13,
+            1,
+            9,
+            12,
+            12,
+            8,
+            14,
+            14,
+            1,
+            4,
+            4
+          ],
+          "peak_hours_et": [
+            6,
+            7,
+            5
+          ],
+          "late_bid_share": {
+            "under8h": 0.395,
+            "under6h": 0.372,
+            "under2h": 0.341
+          },
+          "overtake_rate": 0.14,
+          "late_overtake_n": 2,
+          "runner_up_n": 44,
+          "lurk_win_n": 3,
+          "post_win_pounce_share": 0.407,
+          "post_win_avg_followups": 1.33,
+          "zone_mix": {
+            "capfree": 0.849,
+            "low": 0.047,
+            "mid": 0.047,
+            "marquee": 0.058
+          },
+          "pos_spend_k": {
+            "RB": 208.0,
+            "WR": 107.0,
+            "QB": 43.0,
+            "DE": 18.0,
+            "LB": 18.0,
+            "S": 15.0,
+            "PK": 5.0,
+            "DT": 3.0,
+            "PN": 2.0,
+            "TE": 1.0
+          },
+          "marquee_wins": 5,
+          "max_win_k": 70.0
+        }
+      }
+    },
+    "0010": {
+      "franchise_id": "0010",
+      "owner_name": "Shawn Blake",
+      "team_name": "Blake Bombers",
+      "by_era": {
+        "sf": {
+          "n_bids": 351,
+          "n_wins": 68,
+          "total_k": 329.0,
+          "hour_hist": [
+            30,
+            4,
+            3,
+            0,
+            6,
+            7,
+            72,
+            42,
+            11,
+            6,
+            5,
+            7,
+            49,
+            11,
+            19,
+            19,
+            13,
+            5,
+            1,
+            7,
+            16,
+            9,
+            6,
+            3
+          ],
+          "peak_hours_et": [
+            6,
+            12,
+            7
+          ],
+          "late_bid_share": {
+            "under8h": 0.301,
+            "under6h": 0.284,
+            "under2h": 0.227
+          },
+          "overtake_rate": 0.205,
+          "late_overtake_n": 13,
+          "runner_up_n": 56,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.544,
+          "post_win_avg_followups": 2.13,
+          "zone_mix": {
+            "capfree": 0.838,
+            "low": 0.015,
+            "mid": 0.059,
+            "marquee": 0.088
+          },
+          "pos_spend_k": {
+            "WR": 105.0,
+            "RB": 86.0,
+            "QB": 53.0,
+            "S": 24.0,
+            "TE": 21.0,
+            "DE": 15.0,
+            "LB": 13.0,
+            "PN": 5.0,
+            "PK": 4.0,
+            "DT": 3.0
+          },
+          "marquee_wins": 6,
+          "max_win_k": 38.0
+        },
+        "l5": {
+          "n_bids": 404,
+          "n_wins": 82,
+          "total_k": 349.0,
+          "hour_hist": [
+            30,
+            4,
+            3,
+            0,
+            6,
+            9,
+            78,
+            61,
+            15,
+            6,
+            5,
+            10,
+            49,
+            12,
+            19,
+            20,
+            20,
+            5,
+            1,
+            7,
+            20,
+            13,
+            8,
+            3
+          ],
+          "peak_hours_et": [
+            6,
+            7,
+            12
+          ],
+          "late_bid_share": {
+            "under8h": 0.314,
+            "under6h": 0.298,
+            "under2h": 0.248
+          },
+          "overtake_rate": 0.188,
+          "late_overtake_n": 13,
+          "runner_up_n": 65,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.488,
+          "post_win_avg_followups": 1.8,
+          "zone_mix": {
+            "capfree": 0.854,
+            "low": 0.024,
+            "mid": 0.049,
+            "marquee": 0.073
+          },
+          "pos_spend_k": {
+            "WR": 113.0,
+            "RB": 87.0,
+            "QB": 53.0,
+            "S": 25.0,
+            "TE": 23.0,
+            "LB": 16.0,
+            "DE": 16.0,
+            "PN": 6.0,
+            "PK": 5.0,
+            "DT": 5.0
+          },
+          "marquee_wins": 6,
+          "max_win_k": 38.0
+        }
+      }
+    },
+    "0011": {
+      "franchise_id": "0011",
+      "owner_name": "Eric Mannila",
+      "team_name": "Cleon Ca$h",
+      "by_era": {
+        "sf": {
+          "n_bids": 197,
+          "n_wins": 60,
+          "total_k": 384.0,
+          "hour_hist": [
+            1,
+            2,
+            0,
+            0,
+            3,
+            27,
+            22,
+            17,
+            16,
+            4,
+            0,
+            2,
+            24,
+            24,
+            11,
+            7,
+            4,
+            4,
+            6,
+            6,
+            4,
+            9,
+            3,
+            1
+          ],
+          "peak_hours_et": [
+            5,
+            12,
+            13
+          ],
+          "late_bid_share": {
+            "under8h": 0.486,
+            "under6h": 0.435,
+            "under2h": 0.384
+          },
+          "overtake_rate": 0.178,
+          "late_overtake_n": 7,
+          "runner_up_n": 12,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.55,
+          "post_win_avg_followups": 1.22,
+          "zone_mix": {
+            "capfree": 0.683,
+            "low": 0.133,
+            "mid": 0.117,
+            "marquee": 0.067
+          },
+          "pos_spend_k": {
+            "WR": 145.0,
+            "QB": 132.0,
+            "LB": 45.0,
+            "DE": 13.0,
+            "S": 13.0,
+            "TE": 12.0,
+            "DT": 8.0,
+            "RB": 8.0,
+            "PN": 4.0,
+            "PK": 4.0
+          },
+          "marquee_wins": 4,
+          "max_win_k": 51.0
+        },
+        "l5": {
+          "n_bids": 234,
+          "n_wins": 75,
+          "total_k": 453.0,
+          "hour_hist": [
+            1,
+            2,
+            0,
+            0,
+            3,
+            27,
+            24,
+            17,
+            17,
+            7,
+            4,
+            8,
+            25,
+            29,
+            13,
+            11,
+            6,
+            4,
+            7,
+            9,
+            5,
+            11,
+            3,
+            1
+          ],
+          "peak_hours_et": [
+            13,
+            5,
+            12
+          ],
+          "late_bid_share": {
+            "under8h": 0.516,
+            "under6h": 0.465,
+            "under2h": 0.415
+          },
+          "overtake_rate": 0.175,
+          "late_overtake_n": 9,
+          "runner_up_n": 15,
+          "lurk_win_n": 1,
+          "post_win_pounce_share": 0.507,
+          "post_win_avg_followups": 1.13,
+          "zone_mix": {
+            "capfree": 0.733,
+            "low": 0.107,
+            "mid": 0.093,
+            "marquee": 0.067
+          },
+          "pos_spend_k": {
+            "QB": 172.0,
+            "WR": 146.0,
+            "LB": 58.0,
+            "DE": 18.0,
+            "TE": 18.0,
+            "S": 13.0,
+            "DT": 11.0,
+            "RB": 8.0,
+            "PN": 5.0,
+            "PK": 4.0
+          },
+          "marquee_wins": 5,
+          "max_win_k": 51.0
+        }
+      }
+    },
+    "0012": {
+      "franchise_id": "0012",
+      "owner_name": "Chris Klingenberg",
+      "team_name": "Hawks",
+      "by_era": {
+        "sf": {
+          "n_bids": 161,
+          "n_wins": 46,
+          "total_k": 207.0,
+          "hour_hist": [
+            15,
+            6,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            23,
+            9,
+            9,
+            1,
+            7,
+            11,
+            2,
+            0,
+            0,
+            0,
+            1,
+            7,
+            13,
+            27,
+            28
+          ],
+          "peak_hours_et": [
+            23,
+            22,
+            9
+          ],
+          "late_bid_share": {
+            "under8h": 0.437,
+            "under6h": 0.412,
+            "under2h": 0.403
+          },
+          "overtake_rate": 0.292,
+          "late_overtake_n": 6,
+          "runner_up_n": 20,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.413,
+          "post_win_avg_followups": 0.96,
+          "zone_mix": {
+            "capfree": 0.717,
+            "low": 0.217,
+            "mid": 0.022,
+            "marquee": 0.043
+          },
+          "pos_spend_k": {
+            "WR": 109.0,
+            "TE": 28.0,
+            "RB": 18.0,
+            "QB": 16.0,
+            "LB": 15.0,
+            "DE": 7.0,
+            "PN": 4.0,
+            "S": 4.0,
+            "PK": 4.0,
+            "CB": 2.0
+          },
+          "marquee_wins": 2,
+          "max_win_k": 43.0
+        },
+        "l5": {
+          "n_bids": 211,
+          "n_wins": 60,
+          "total_k": 261.0,
+          "hour_hist": [
+            21,
+            6,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            23,
+            17,
+            9,
+            1,
+            16,
+            11,
+            2,
+            0,
+            0,
+            0,
+            3,
+            8,
+            24,
+            32,
+            36
+          ],
+          "peak_hours_et": [
+            23,
+            22,
+            21
+          ],
+          "late_bid_share": {
+            "under8h": 0.436,
+            "under6h": 0.417,
+            "under2h": 0.404
+          },
+          "overtake_rate": 0.284,
+          "late_overtake_n": 6,
+          "runner_up_n": 23,
+          "lurk_win_n": 0,
+          "post_win_pounce_share": 0.433,
+          "post_win_avg_followups": 1.05,
+          "zone_mix": {
+            "capfree": 0.717,
+            "low": 0.2,
+            "mid": 0.05,
+            "marquee": 0.033
+          },
+          "pos_spend_k": {
+            "WR": 132.0,
+            "RB": 44.0,
+            "TE": 29.0,
+            "LB": 16.0,
+            "QB": 16.0,
+            "DE": 7.0,
+            "PN": 5.0,
+            "PK": 5.0,
+            "S": 4.0,
+            "CB": 3.0
+          },
+          "marquee_wins": 2,
+          "max_win_k": 43.0
+        }
+      }
+    }
+  }
+}
