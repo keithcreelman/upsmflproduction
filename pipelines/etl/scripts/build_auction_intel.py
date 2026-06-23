@@ -119,14 +119,26 @@ def load_lots(conn: sqlite3.Connection):
 
 
 def push_d1(intel: dict) -> None:
-    """Combine the quant intel with the Step-B scouting narratives (if present)
-    and the v6 doc, and upsert the single ups_auction_intel blob via wrangler."""
+    """Build a LEAN served payload (D1 has a per-statement size cap, SQLITE_TOOBIG):
+    sf-era only per owner, verdicts trimmed to fid/confidence/flags, + the v6 doc.
+    Upserts the single ups_auction_intel blob via wrangler."""
     import subprocess, time
-    payload = dict(intel)
+    payload = {"meta": intel["meta"], "league": intel["league"], "owners": {}}
+    for fid, o in intel["owners"].items():
+        payload["owners"][fid] = {"franchise_id": o["franchise_id"], "owner_name": o["owner_name"],
+                                  "team_name": o["team_name"], "by_era": {"sf": o["by_era"]["sf"]}}
     scout_path = OUT_DIR / "auction_scouting.json"
     if scout_path.exists():
-        try: payload["scouting"] = json.loads(scout_path.read_text())
-        except Exception as e: print(f"  (scouting load failed: {e})", file=sys.stderr)
+        try:
+            s = json.loads(scout_path.read_text())
+            payload["scouting"] = {
+                "cards": s.get("cards"),
+                "verdicts": [{"fid": v.get("fid"), "confidence": v.get("confidence"), "flags": v.get("flags", [])}
+                             for v in (s.get("verdicts") or [])],
+                "verification": s.get("verification"),
+            }
+        except Exception as e:
+            print(f"  (scouting load failed: {e})", file=sys.stderr)
     doc_path = REPO / "docs" / "auction" / "analysis_v6_war_room.md"
     if doc_path.exists():
         payload["doc_md"] = doc_path.read_text()

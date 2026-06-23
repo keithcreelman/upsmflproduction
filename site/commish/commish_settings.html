@@ -83,6 +83,15 @@
   .wr-vtabs { display: inline-flex; gap: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-bottom: 14px; }
   .wr-vtabs button { background: transparent; border: 0; color: var(--muted); font-weight: 700; font-size: 13px; padding: 7px 16px; border-radius: 7px; cursor: pointer; }
   .wr-vtabs button.on { background: var(--accent); color: #0a1222; }
+  .wr-conf { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+  .wr-conf.high { color: var(--ok); border-color: rgba(74,222,128,0.4); }
+  .wr-conf.medium { color: var(--warn); border-color: rgba(251,191,36,0.4); }
+  .wr-conf.low { color: var(--danger); border-color: rgba(248,113,113,0.5); }
+  .wr-card.lowconf { border-color: rgba(248,113,113,0.35); }
+  .wr-verif { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
+  .wr-verif summary { font-size: 12.5px; font-weight: 700; color: var(--accent); cursor: pointer; }
+  .wr-verif p { font-size: 12px; color: var(--fg); margin: 8px 0; line-height: 1.5; }
+  .wr-verif ul { margin: 0; padding-left: 16px; font-size: 11.5px; color: var(--muted); line-height: 1.55; }
   .wr-th { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 7px; border-radius: 6px; }
   .wr-th.high { color: var(--danger); border: 1px solid rgba(248,113,113,0.5); background: rgba(248,113,113,0.08); }
   .wr-th.medium { color: var(--warn); border: 1px solid rgba(251,191,36,0.45); background: rgba(251,191,36,0.07); }
@@ -349,6 +358,9 @@
 
   function paintScouting(host) {
     var d = WR.data, L = d.league || {}, h2h = L.h2h_vs_commish || {}, cards = (d.scouting && d.scouting.cards) || [];
+    var verdicts = (d.scouting && d.scouting.verdicts) || [], vmap = {};
+    verdicts.forEach(function (v) { vmap[v.fid] = v; });
+    var verif = (d.scouting && d.scouting.verification) || null;
     var rank = { high: 1, medium: 2, low: 3 };
     var byThreat = cards.filter(function (c) { return c.fid !== "0008"; }).sort(function (a, b) {
       var r = (rank[a.threat_level] || 9) - (rank[b.threat_level] || 9);
@@ -382,11 +394,14 @@
 
     // ── Per-owner cards ──
     var cardHtml = byThreat.map(function (c) {
-      var sf = wrSf(c.fid) || {}, hh = h2h[c.fid] || {};
+      var sf = wrSf(c.fid) || {}, hh = h2h[c.fid] || {}, vd = vmap[c.fid];
       var ex = (c.key_examples || []).map(function (e) { return '<li>' + esc(e) + '</li>'; }).join("");
-      return '<div class="wr-card">' +
+      var flags = (vd && vd.flags) || [];
+      var flagsHtml = flags.length ? '<details class="wr-ex"><summary>⚑ Verifier flags (' + flags.length + ')</summary><ul>' + flags.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join("") + '</ul></details>' : "";
+      var conf = vd ? '<span class="wr-conf ' + vd.confidence + '" title="adversarial-verifier confidence in this card\'s narrative">' + vd.confidence + ' conf</span>' : "";
+      return '<div class="wr-card' + (vd && vd.confidence === "low" ? " lowconf" : "") + '">' +
         '<div class="wr-card-h"><div><b>' + esc(wrTeam(c.fid)) + '</b> <span class="small" style="color:var(--muted)">' + esc(wrName(c.fid)) + '</span></div>' +
-        '<span class="wr-th ' + c.threat_level + '">' + c.threat_level + '</span></div>' +
+        '<div style="display:flex;gap:5px;align-items:center">' + conf + '<span class="wr-th ' + c.threat_level + '">' + c.threat_level + '</span></div></div>' +
         '<div class="wr-stat-row"><span>vs you <b' + ((hh.opp_w || 0) > (hh.commish_w || 0) ? ' style="color:var(--danger)"' : '') + '>' + (hh.commish_w != null ? hh.commish_w + '–' + hh.opp_w : '—') + '</b></span>' +
         '<span>SF wins <b>' + (sf.n_wins || 0) + '</b></span><span>spend <b>$' + (sf.total_k || 0) + 'K</b></span><span>max <b>$' + (sf.max_win_k || 0) + 'K</b></span></div>' +
         '<div class="wr-badges">' + ownerBadges(c.fid) + '</div>' +
@@ -398,7 +413,7 @@
         '<dt>Lurk</dt><dd>' + esc(c.lurk_threat) + '</dd>' +
         '<dt>Spend</dt><dd>' + esc(c.spend_signature) + '</dd>' +
         '<dt class="vs">vs 0008</dt><dd class="vs">' + esc(c.vs_0008) + '</dd>' +
-        '</dl>' + (ex ? '<details class="wr-ex"><summary>Examples</summary><ul>' + ex + '</ul></details>' : '') +
+        '</dl>' + (ex ? '<details class="wr-ex"><summary>Examples</summary><ul>' + ex + '</ul></details>' : '') + flagsHtml +
         '</div>';
     }).join("");
 
@@ -418,6 +433,9 @@
       '<div class="fo-row-hint">Commish-only FA-auction opponent intel, framed for <b>Real Deal Creel (0008)</b>. ' +
       d.meta.n_lots + ' FA lots · ' + d.meta.n_bids + ' bids · 2014–2025, Superflex era emphasized. Updated ' + esc(upd) + '. ' +
       'You were the runner-up ' + ((wrSf("0008") || {}).runner_up_n || "?") + '× in the SF era and lose the head-to-head to every active owner — read the playbook at the bottom.</div>' +
+
+      (verif ? '<details class="wr-verif"><summary>🔎 Trust check — adversarially verified (' + verdicts.length + ' verifiers)</summary>' +
+        '<p>' + esc(verif.note) + '</p><ul>' + (verif.key_corrections || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join("") + '</ul></details>' : "") +
 
       '<div class="fo-card"><div class="fo-card-head"><h3>🎯 Danger Board</h3><span class="small" style="color:var(--muted)">ranked by threat to 0008</span></div>' +
       '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th class="num">#</th><th>Owner</th><th>Threat</th><th class="num" title="Your record in shared SF lots">You</th><th class="num" title="Pounce rate">⚡</th><th class="num" title="Times the underbidder">🥷</th><th>Read</th></tr></thead><tbody>' + dbRows + '</tbody></table></div></div>' +
