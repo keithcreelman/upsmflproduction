@@ -2,7 +2,7 @@
   "meta": {
     "scope": "FreeAgent auctions only, 2019-2025",
     "n_wins": 1259,
-    "adp_note": "marquee_adp uses MFL native ADP = REDRAFT (not dynasty); a player's dynasty-startup rank can be much higher (e.g. Herbert redraft QB20 vs dynasty ~QB8)."
+    "adp_note": "marquee_adp now carries BOTH redraft (pos_adp, from MFL) and dynasty-SF (dyn_pos_rank, from DynastyProcess ecr_2qb as-of auction date). Herbert 2025: redraft QB20 vs dynasty QB8."
   },
   "bucket_dist": {
     "2019": {
@@ -500,7 +500,10 @@
       "pos": "RB",
       "ovr_adp": 21,
       "pos_adp": 7,
-      "winner": "Keith Creelman"
+      "winner": "Keith Creelman",
+      "dyn_pos_rank": "RB17",
+      "dyn_sf_ecr": 71.2,
+      "dyn_value": "1970"
     },
     {
       "season": 2022,
@@ -509,7 +512,10 @@
       "pos": "QB",
       "ovr_adp": 109,
       "pos_adp": 14,
-      "winner": "Josh Martel"
+      "winner": "Josh Martel",
+      "dyn_pos_rank": "QB21",
+      "dyn_sf_ecr": 89.1,
+      "dyn_value": "1294"
     },
     {
       "season": 2024,
@@ -518,7 +524,10 @@
       "pos": "WR",
       "ovr_adp": 3,
       "pos_adp": 2,
-      "winner": "Josh Martel"
+      "winner": "Josh Martel",
+      "dyn_pos_rank": "WR11",
+      "dyn_sf_ecr": 31.6,
+      "dyn_value": "4997"
     },
     {
       "season": 2022,
@@ -527,7 +536,10 @@
       "pos": "RB",
       "ovr_adp": 4,
       "pos_adp": 3,
-      "winner": "Bear Dunn"
+      "winner": "Bear Dunn",
+      "dyn_pos_rank": "RB8",
+      "dyn_sf_ecr": 25.2,
+      "dyn_value": "5808"
     },
     {
       "season": 2025,
@@ -536,7 +548,10 @@
       "pos": "RB",
       "ovr_adp": 12,
       "pos_adp": 6,
-      "winner": "Brian Cutting"
+      "winner": "Brian Cutting",
+      "dyn_pos_rank": "RB10",
+      "dyn_sf_ecr": 48.7,
+      "dyn_value": "3343"
     },
     {
       "season": 2025,
@@ -545,7 +560,10 @@
       "pos": "QB",
       "ovr_adp": 149,
       "pos_adp": 20,
-      "winner": "Eric Mannila"
+      "winner": "Eric Mannila",
+      "dyn_pos_rank": "QB8",
+      "dyn_sf_ecr": 14.1,
+      "dyn_value": "7539"
     },
     {
       "season": 2023,
@@ -554,7 +572,10 @@
       "pos": "QB",
       "ovr_adp": 173,
       "pos_adp": 21,
-      "winner": "Eric Mannila"
+      "winner": "Eric Mannila",
+      "dyn_pos_rank": "QB25",
+      "dyn_sf_ecr": 101.2,
+      "dyn_value": "974"
     },
     {
       "season": 2024,
@@ -563,7 +584,10 @@
       "pos": "QB",
       "ovr_adp": 81,
       "pos_adp": 13,
-      "winner": "Brian Cutting"
+      "winner": "Brian Cutting",
+      "dyn_pos_rank": "QB15",
+      "dyn_sf_ecr": 34.5,
+      "dyn_value": "4668"
     },
     {
       "season": 2023,
@@ -572,7 +596,10 @@
       "pos": "RB",
       "ovr_adp": 33,
       "pos_adp": 11,
-      "winner": "Eric Martel"
+      "winner": "Eric Martel",
+      "dyn_pos_rank": "RB25",
+      "dyn_sf_ecr": 92.3,
+      "dyn_value": "1200"
     },
     {
       "season": 2022,
@@ -581,7 +608,10 @@
       "pos": "RB",
       "ovr_adp": 25,
       "pos_adp": 14,
-      "winner": "Bear Dunn"
+      "winner": "Bear Dunn",
+      "dyn_pos_rank": "RB23",
+      "dyn_sf_ecr": 77.1,
+      "dyn_value": "1715"
     },
     {
       "season": 2022,
@@ -590,7 +620,10 @@
       "pos": "RB",
       "ovr_adp": 30,
       "pos_adp": 16,
-      "winner": "Shawn Blake"
+      "winner": "Shawn Blake",
+      "dyn_pos_rank": "RB26",
+      "dyn_sf_ecr": 84.9,
+      "dyn_value": "1428"
     },
     {
       "season": 2022,
@@ -599,7 +632,10 @@
       "pos": "QB",
       "ovr_adp": 183,
       "pos_adp": 21,
-      "winner": "Ryan Bousquet"
+      "winner": "Ryan Bousquet",
+      "dyn_pos_rank": "QB16",
+      "dyn_sf_ecr": 59.8,
+      "dyn_value": "2576"
     },
     {
       "season": 2022,
@@ -608,7 +644,10 @@
       "pos": "WR",
       "ovr_adp": 26,
       "pos_adp": 9,
-      "winner": "Shawn Blake"
+      "winner": "Shawn Blake",
+      "dyn_pos_rank": "WR19",
+      "dyn_sf_ecr": 53.1,
+      "dyn_value": "3015"
     },
     {
       "season": 2022,
@@ -617,7 +656,10 @@
       "pos": "QB",
       "ovr_adp": 192,
       "pos_adp": 22,
-      "winner": "Matt Gerardi"
+      "winner": "Matt Gerardi",
+      "dyn_pos_rank": "QB20",
+      "dyn_sf_ecr": 73.1,
+      "dyn_value": "1884"
     },
     {
       "season": 2023,
@@ -626,7 +668,10 @@
       "pos": "WR",
       "ovr_adp": 140,
       "pos_adp": 48,
-      "winner": "Eric Mannila"
+      "winner": "Eric Mannila",
+      "dyn_pos_rank": "WR32",
+      "dyn_sf_ecr": 79.6,
+      "dyn_value": "1617"
     },
     {
       "season": 2025,
@@ -635,7 +680,10 @@
       "pos": "RB",
       "ovr_adp": 67,
       "pos_adp": 23,
-      "winner": "Keith Creelman"
+      "winner": "Keith Creelman",
+      "dyn_pos_rank": "RB21",
+      "dyn_sf_ecr": 87.8,
+      "dyn_value": "1334"
     },
     {
       "season": 2024,
@@ -644,7 +692,10 @@
       "pos": "RB",
       "ovr_adp": 19,
       "pos_adp": 9,
-      "winner": "Matt Gerardi"
+      "winner": "Matt Gerardi",
+      "dyn_pos_rank": "RB20",
+      "dyn_sf_ecr": 85.3,
+      "dyn_value": "1415"
     },
     {
       "season": 2022,
@@ -653,7 +704,10 @@
       "pos": "WR",
       "ovr_adp": 163,
       "pos_adp": 54,
-      "winner": "AJ Balderelli"
+      "winner": "AJ Balderelli",
+      "dyn_pos_rank": "WR35",
+      "dyn_sf_ecr": 95.1,
+      "dyn_value": "1124"
     },
     {
       "season": 2025,
@@ -662,7 +716,10 @@
       "pos": "QB",
       "ovr_adp": 58,
       "pos_adp": 7,
-      "winner": "Brian Cutting"
+      "winner": "Brian Cutting",
+      "dyn_pos_rank": "QB14",
+      "dyn_sf_ecr": 29.3,
+      "dyn_value": "5274"
     },
     {
       "season": 2024,
@@ -671,7 +728,10 @@
       "pos": "WR",
       "ovr_adp": 20,
       "pos_adp": 10,
-      "winner": "Brian Cutting"
+      "winner": "Brian Cutting",
+      "dyn_pos_rank": "WR30",
+      "dyn_sf_ecr": 76.3,
+      "dyn_value": "1748"
     },
     {
       "season": 2022,
@@ -680,7 +740,10 @@
       "pos": "QB",
       "ovr_adp": 206,
       "pos_adp": 23,
-      "winner": "Rico Balderelli"
+      "winner": "Rico Balderelli",
+      "dyn_pos_rank": "QB17",
+      "dyn_sf_ecr": 63.6,
+      "dyn_value": "2356"
     },
     {
       "season": 2025,
@@ -689,7 +752,10 @@
       "pos": "TE",
       "ovr_adp": 53,
       "pos_adp": 4,
-      "winner": "Josh Martel"
+      "winner": "Josh Martel",
+      "dyn_pos_rank": "TE4",
+      "dyn_sf_ecr": 69.7,
+      "dyn_value": "2041"
     },
     {
       "season": 2022,
@@ -698,7 +764,10 @@
       "pos": "QB",
       "ovr_adp": 215,
       "pos_adp": 25,
-      "winner": "Rico Balderelli"
+      "winner": "Rico Balderelli",
+      "dyn_pos_rank": "QB26",
+      "dyn_sf_ecr": 119.7,
+      "dyn_value": "630"
     },
     {
       "season": 2023,
@@ -707,7 +776,10 @@
       "pos": "WR",
       "ovr_adp": 39,
       "pos_adp": 18,
-      "winner": "Brian Cutting"
+      "winner": "Brian Cutting",
+      "dyn_pos_rank": "WR42",
+      "dyn_sf_ecr": 110.9,
+      "dyn_value": "775"
     },
     {
       "season": 2025,
@@ -716,7 +788,10 @@
       "pos": "QB",
       "ovr_adp": 120,
       "pos_adp": 18,
-      "winner": "Shawn Blake"
+      "winner": "Shawn Blake",
+      "dyn_pos_rank": "QB13",
+      "dyn_sf_ecr": 28.3,
+      "dyn_value": "5400"
     },
     {
       "season": 2023,
@@ -725,7 +800,10 @@
       "pos": "WR",
       "ovr_adp": 61,
       "pos_adp": 25,
-      "winner": "Matt Gerardi"
+      "winner": "Matt Gerardi",
+      "dyn_pos_rank": "WR23",
+      "dyn_sf_ecr": 62.6,
+      "dyn_value": "2412"
     },
     {
       "season": 2024,
@@ -734,7 +812,10 @@
       "pos": "RB",
       "ovr_adp": 42,
       "pos_adp": 15,
-      "winner": "Derrick Whitman"
+      "winner": "Derrick Whitman",
+      "dyn_pos_rank": "RB23",
+      "dyn_sf_ecr": 96.3,
+      "dyn_value": "1092"
     },
     {
       "season": 2025,
@@ -743,7 +824,10 @@
       "pos": "TE",
       "ovr_adp": 156,
       "pos_adp": 16,
-      "winner": "Matt Gerardi"
+      "winner": "Matt Gerardi",
+      "dyn_pos_rank": "TE9",
+      "dyn_sf_ecr": 90.5,
+      "dyn_value": "1252"
     },
     {
       "season": 2024,
@@ -752,7 +836,10 @@
       "pos": "WR",
       "ovr_adp": 34,
       "pos_adp": 17,
-      "winner": "Chris Klingenberg"
+      "winner": "Chris Klingenberg",
+      "dyn_pos_rank": "WR33",
+      "dyn_sf_ecr": 81.8,
+      "dyn_value": "1536"
     },
     {
       "season": 2025,
@@ -761,7 +848,10 @@
       "pos": "RB",
       "ovr_adp": 99,
       "pos_adp": 28,
-      "winner": "Shawn Blake"
+      "winner": "Shawn Blake",
+      "dyn_pos_rank": "RB27",
+      "dyn_sf_ecr": 112.6,
+      "dyn_value": "745"
     },
     {
       "season": 2022,
@@ -770,7 +860,10 @@
       "pos": "RB",
       "ovr_adp": 166,
       "pos_adp": 50,
-      "winner": "Steve Bousquet"
+      "winner": "Steve Bousquet",
+      "dyn_pos_rank": "RB31",
+      "dyn_sf_ecr": 109.7,
+      "dyn_value": "797"
     },
     {
       "season": 2023,
@@ -779,7 +872,10 @@
       "pos": "TE",
       "ovr_adp": 83,
       "pos_adp": 6,
-      "winner": "Brian Cutting"
+      "winner": "Brian Cutting",
+      "dyn_pos_rank": "TE6",
+      "dyn_sf_ecr": 81.2,
+      "dyn_value": "1558"
     },
     {
       "season": 2022,
@@ -788,7 +884,10 @@
       "pos": "WR",
       "ovr_adp": 63,
       "pos_adp": 24,
-      "winner": "Bear Dunn"
+      "winner": "Bear Dunn",
+      "dyn_pos_rank": "WR41",
+      "dyn_sf_ecr": 104.3,
+      "dyn_value": "905"
     },
     {
       "season": 2024,
@@ -797,7 +896,10 @@
       "pos": "RB",
       "ovr_adp": 151,
       "pos_adp": 36,
-      "winner": "Matt Gerardi"
+      "winner": "Matt Gerardi",
+      "dyn_pos_rank": "RB35",
+      "dyn_sf_ecr": 136.9,
+      "dyn_value": "421"
     },
     {
       "season": 2025,
@@ -806,7 +908,10 @@
       "pos": "WR",
       "ovr_adp": 77,
       "pos_adp": 29,
-      "winner": "Matt Gerardi"
+      "winner": "Matt Gerardi",
+      "dyn_pos_rank": "WR25",
+      "dyn_sf_ecr": 60.9,
+      "dyn_value": "2510"
     },
     {
       "season": 2025,
@@ -815,7 +920,10 @@
       "pos": "TE",
       "ovr_adp": 123,
       "pos_adp": 11,
-      "winner": "Brian Cutting"
+      "winner": "Brian Cutting",
+      "dyn_pos_rank": "TE13",
+      "dyn_sf_ecr": 123.3,
+      "dyn_value": "579"
     },
     {
       "season": 2024,
@@ -824,7 +932,10 @@
       "pos": "RB",
       "ovr_adp": 107,
       "pos_adp": 26,
-      "winner": "Eric Martel"
+      "winner": "Eric Martel",
+      "dyn_pos_rank": "RB43",
+      "dyn_sf_ecr": 156.6,
+      "dyn_value": "265"
     },
     {
       "season": 2024,
@@ -833,7 +944,10 @@
       "pos": "RB",
       "ovr_adp": 70,
       "pos_adp": 20,
-      "winner": "Josh Martel"
+      "winner": "Josh Martel",
+      "dyn_pos_rank": "RB33",
+      "dyn_sf_ecr": 129.9,
+      "dyn_value": "496"
     },
     {
       "season": 2025,
@@ -842,7 +956,10 @@
       "pos": "RB",
       "ovr_adp": 113,
       "pos_adp": 34,
-      "winner": "Ryan Bousquet"
+      "winner": "Ryan Bousquet",
+      "dyn_pos_rank": "RB22",
+      "dyn_sf_ecr": 95.0,
+      "dyn_value": "1126"
     },
     {
       "season": 2025,
@@ -851,7 +968,10 @@
       "pos": "WR",
       "ovr_adp": 172,
       "pos_adp": 58,
-      "winner": "Ryan Bousquet"
+      "winner": "Ryan Bousquet",
+      "dyn_pos_rank": "WR55",
+      "dyn_sf_ecr": 135.9,
+      "dyn_value": "431"
     },
     {
       "season": 2024,
@@ -860,7 +980,10 @@
       "pos": "RB",
       "ovr_adp": 49,
       "pos_adp": 17,
-      "winner": "Bear Dunn"
+      "winner": "Bear Dunn",
+      "dyn_pos_rank": "RB18",
+      "dyn_sf_ecr": 77.6,
+      "dyn_value": "1695"
     },
     {
       "season": 2025,
@@ -869,7 +992,10 @@
       "pos": "WR",
       "ovr_adp": 55,
       "pos_adp": 22,
-      "winner": "Shawn Blake"
+      "winner": "Shawn Blake",
+      "dyn_pos_rank": "WR28",
+      "dyn_sf_ecr": 62.0,
+      "dyn_value": "2446"
     },
     {
       "season": 2022,
@@ -878,7 +1004,10 @@
       "pos": "WR",
       "ovr_adp": 262,
       "pos_adp": 84,
-      "winner": "Rico Balderelli"
+      "winner": "Rico Balderelli",
+      "dyn_pos_rank": "WR52",
+      "dyn_sf_ecr": 136.4,
+      "dyn_value": "426"
     },
     {
       "season": 2025,
@@ -887,7 +1016,10 @@
       "pos": "QB",
       "ovr_adp": 229,
       "pos_adp": 35,
-      "winner": "Matt Gerardi"
+      "winner": "Matt Gerardi",
+      "dyn_pos_rank": "QB26",
+      "dyn_sf_ecr": 90.7,
+      "dyn_value": "1246"
     },
     {
       "season": 2025,
@@ -896,7 +1028,10 @@
       "pos": "QB",
       "ovr_adp": 220,
       "pos_adp": 33,
-      "winner": "Ryan Bousquet"
+      "winner": "Ryan Bousquet",
+      "dyn_pos_rank": "QB29",
+      "dyn_sf_ecr": 112.0,
+      "dyn_value": "755"
     }
   ],
   "spend_by_year": {
