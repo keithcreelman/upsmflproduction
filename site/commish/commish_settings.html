@@ -78,6 +78,43 @@
   #cs-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   #cs-toast.err { border-color: var(--danger); color: var(--danger); }
   #cs-toast.ok { border-color: var(--ok); }
+
+  /* Auction War Room */
+  .wr-th { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 7px; border-radius: 6px; }
+  .wr-th.high { color: var(--danger); border: 1px solid rgba(248,113,113,0.5); background: rgba(248,113,113,0.08); }
+  .wr-th.medium { color: var(--warn); border: 1px solid rgba(251,191,36,0.45); background: rgba(251,191,36,0.07); }
+  .wr-th.low { color: var(--muted); border: 1px solid var(--line); }
+  .wr-mini-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .wr-mini-h { font-size: 12px; font-weight: 700; color: var(--fg); margin-bottom: 7px; }
+  .wr-mini-row { display: flex; justify-content: space-between; font-size: 12.5px; padding: 3px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
+  .wr-mini-row b { color: var(--accent); }
+  .wr-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .wr-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .wr-card-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .wr-stat-row { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11.5px; color: var(--muted); margin-bottom: 8px; }
+  .wr-stat-row b { color: var(--fg); }
+  .wr-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 9px; }
+  .wr-badge { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .wr-badge.pounce { color: var(--danger); border-color: rgba(248,113,113,0.4); }
+  .wr-badge.lurk { color: var(--warn); border-color: rgba(251,191,36,0.4); }
+  .wr-badge.owl { color: var(--accent); border-color: rgba(91,141,255,0.4); }
+  .wr-badge.whale { color: #c084fc; border-color: rgba(192,132,252,0.4); }
+  .wr-heat { display: grid; grid-template-columns: repeat(24, 1fr); gap: 1px; height: 16px; border-radius: 4px; overflow: hidden; }
+  .wr-hr { display: block; height: 100%; }
+  .wr-heat-ax { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); margin: 2px 0 9px; }
+  .wr-hl { font-size: 12.5px; font-weight: 600; color: var(--fg); margin: 4px 0 8px; line-height: 1.4; }
+  .wr-dl { margin: 0; font-size: 12px; line-height: 1.5; }
+  .wr-dl dt { font-weight: 700; color: var(--accent); margin-top: 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .wr-dl dt.vs { color: var(--danger); }
+  .wr-dl dd { margin: 1px 0 0; color: var(--muted); }
+  .wr-dl dd.vs { color: var(--fg); }
+  .wr-ex { margin-top: 8px; }
+  .wr-ex summary { font-size: 11.5px; color: var(--accent); cursor: pointer; }
+  .wr-ex ul { margin: 6px 0 0; padding-left: 16px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+  .wr-doc { margin-top: 6px; }
+  .wr-doc summary { font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; padding: 8px 0; }
+  .wr-doc pre { white-space: pre-wrap; font-size: 11.5px; line-height: 1.5; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; overflow-x: auto; }
+  @media (max-width: 560px) { .wr-mini-wrap { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -152,6 +189,7 @@
 
   var TABS = [
     { key: "mfl", label: "MFL Settings" },
+    { key: "warroom", label: "🔨 Auction War Room" },
     { key: "discord", label: "Discord Routing" },
     { key: "killswitches", label: "Kill Switches" },
     { key: "revert", label: "Contract Revert" },
@@ -178,11 +216,144 @@
   }
 
   function renderTab() {
+    if (CS.tab === "warroom") return renderWarRoom();
     if (CS.tab === "discord") return renderDiscordRouting();
     if (CS.tab === "killswitches") return renderKillSwitches();
     if (CS.tab === "revert") return renderContractRevert();
     if (CS.tab === "status") return renderStatus();
     return renderMflSettings();
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // AUCTION WAR ROOM — commish-only FA-auction opponent intel (franchise 0008)
+  // ════════════════════════════════════════════════════════════════════
+  var WR = { data: null, era: "sf" };
+  function renderWarRoom() {
+    var host = content();
+    if (WR.data) { paintWarRoom(host); return; }
+    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading FA-auction intel…</div></div>';
+    fetchJSON(apiUrl("/api/auction/intel") + "?franchise_id=0008").then(function (d) {
+      if (!d || !d.ok) {
+        host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">' +
+          (d && d.error ? esc(d.error) : "Intel not available.") + '</div></div>';
+        return;
+      }
+      WR.data = d; paintWarRoom(host);
+    }).catch(function (e) {
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + esc(e.message || String(e)) + '</div></div>';
+    });
+  }
+  function wrName(fid) { var o = WR.data.owners[fid]; return o ? (o.owner_name || fid) : fid; }
+  function wrTeam(fid) { var o = WR.data.owners[fid]; return o ? (o.team_name || "") : ""; }
+  function wrSf(fid) { var o = WR.data.owners[fid]; return o && o.by_era ? (o.by_era[WR.era] || o.by_era.sf) : null; }
+  function wrThreat(fid) { var c = (WR.data.scouting && WR.data.scouting.cards || []).filter(function (x) { return x.fid === fid; })[0]; return c || null; }
+  function heatStrip(hist) {
+    var mx = Math.max.apply(null, hist) || 1, cells = "";
+    for (var h = 0; h < 24; h++) {
+      var v = hist[h] || 0, t = v / mx;
+      var bg = v ? "rgba(91,141,255," + (0.15 + 0.85 * t).toFixed(2) + ")" : "var(--panel2)";
+      cells += '<span class="wr-hr" title="' + h + ':00 ET — ' + v + ' bids" style="background:' + bg + '"></span>';
+    }
+    return '<div class="wr-heat">' + cells + '</div><div class="wr-heat-ax"><span>12a</span><span>6a</span><span>12p</span><span>6p</span><span>11p</span></div>';
+  }
+  function ownerBadges(fid) {
+    var sf = wrSf(fid); if (!sf) return "";
+    var b = [], peak = (sf.peak_hours_et || [])[0];
+    if (sf.post_win_pounce_share >= 0.6) b.push(['pounce', '⚡ Pouncer ' + Math.round(sf.post_win_pounce_share * 100) + '%']);
+    if (sf.runner_up_n >= 30) b.push(['lurk', '🥷 Lurker · runner-up ' + sf.runner_up_n + '×']);
+    if (sf.late_bid_share && sf.late_bid_share.under8h >= 0.45) b.push(['lurk', '🕛 Late · ' + Math.round(sf.late_bid_share.under8h * 100) + '% <8h']);
+    if (peak != null && (peak >= 21 || peak <= 1)) b.push(['owl', '🌙 Night owl']);
+    else if (peak != null && peak >= 5 && peak <= 9) b.push(['owl', '🌅 Early bird']);
+    if (sf.total_k >= 350 || sf.marquee_wins >= 5) b.push(['whale', '🐳 Whale · $' + sf.total_k + 'K']);
+    return b.map(function (x) { return '<span class="wr-badge ' + x[0] + '">' + x[1] + '</span>'; }).join("");
+  }
+  function paintWarRoom(host) {
+    var d = WR.data, L = d.league || {}, h2h = L.h2h_vs_commish || {}, cards = (d.scouting && d.scouting.cards) || [];
+    var rank = { high: 0, medium: 1, low: 2 };
+    var byThreat = cards.filter(function (c) { return c.fid !== "0008"; }).sort(function (a, b) {
+      var r = (rank[a.threat_level] || 9) - (rank[b.threat_level] || 9);
+      return r || ((h2h[b.fid] || {}).opp_w || 0) - ((h2h[a.fid] || {}).opp_w || 0);
+    });
+    var fids = byThreat.map(function (c) { return c.fid; });
+    var upd = d.updated_at ? new Date(d.updated_at * 1000).toLocaleDateString() : "—";
+
+    // ── Danger board ──
+    var dbRows = byThreat.map(function (c, i) {
+      var hh = h2h[c.fid] || {}, sf = wrSf(c.fid) || {};
+      var lvl = c.threat_level;
+      return '<tr><td class="num">' + (i + 1) + '</td>' +
+        '<td><b>' + esc(wrName(c.fid)) + '</b><div class="small" style="color:var(--muted)">' + esc(wrTeam(c.fid)) + '</div></td>' +
+        '<td><span class="wr-th ' + lvl + '">' + lvl + '</span></td>' +
+        '<td class="num"' + ((hh.opp_w || 0) > (hh.commish_w || 0) ? ' style="color:var(--danger)"' : '') + '>' + (hh.commish_w != null ? hh.commish_w + '–' + hh.opp_w : '—') + '</td>' +
+        '<td class="num">' + Math.round((sf.post_win_pounce_share || 0) * 100) + '%</td>' +
+        '<td class="num">' + (sf.runner_up_n || 0) + '</td>' +
+        '<td class="small">' + esc(c.headline) + '</td></tr>';
+    }).join("");
+
+    // ── Pouncers / Lurkers leaderboards ──
+    function topBy(metric, fmt, label) {
+      var arr = fids.map(function (f) { return { f: f, v: (wrSf(f) || {})[metric] || 0 }; }).sort(function (a, b) { return b.v - a.v; }).slice(0, 6);
+      return '<div class="wr-mini"><div class="wr-mini-h">' + label + '</div>' +
+        arr.map(function (x) { return '<div class="wr-mini-row"><span>' + esc(wrName(x.f)) + '</span><b>' + fmt(x.v) + '</b></div>'; }).join("") + '</div>';
+    }
+    var fearBlock = '<div class="wr-mini-wrap">' +
+      topBy("post_win_pounce_share", function (v) { return Math.round(v * 100) + "%"; }, "⚡ Pouncers — bid another lot within 8h of a win") +
+      topBy("runner_up_n", function (v) { return v + "×"; }, "🥷 Lurkers — times the underbidder (SF)") + '</div>';
+
+    // ── Per-owner cards ──
+    var cardHtml = byThreat.map(function (c) {
+      var sf = wrSf(c.fid) || {}, hh = h2h[c.fid] || {};
+      var ex = (c.key_examples || []).map(function (e) { return '<li>' + esc(e) + '</li>'; }).join("");
+      return '<div class="wr-card">' +
+        '<div class="wr-card-h"><div><b>' + esc(wrTeam(c.fid)) + '</b> <span class="small" style="color:var(--muted)">' + esc(wrName(c.fid)) + '</span></div>' +
+        '<span class="wr-th ' + c.threat_level + '">' + c.threat_level + '</span></div>' +
+        '<div class="wr-stat-row"><span>vs you <b' + ((hh.opp_w || 0) > (hh.commish_w || 0) ? ' style="color:var(--danger)"' : '') + '>' + (hh.commish_w != null ? hh.commish_w + '–' + hh.opp_w : '—') + '</b></span>' +
+        '<span>SF wins <b>' + (sf.n_wins || 0) + '</b></span><span>spend <b>$' + (sf.total_k || 0) + 'K</b></span><span>max <b>$' + (sf.max_win_k || 0) + 'K</b></span></div>' +
+        '<div class="wr-badges">' + ownerBadges(c.fid) + '</div>' +
+        heatStrip(sf.hour_hist || []) +
+        '<div class="wr-hl">' + esc(c.headline) + '</div>' +
+        '<dl class="wr-dl">' +
+        '<dt>When</dt><dd>' + esc(c.bid_rhythm) + '</dd>' +
+        '<dt>Snipe</dt><dd>' + esc(c.snipe_threat) + '</dd>' +
+        '<dt>Lurk</dt><dd>' + esc(c.lurk_threat) + '</dd>' +
+        '<dt>Spend</dt><dd>' + esc(c.spend_signature) + '</dd>' +
+        '<dt class="vs">vs 0008</dt><dd class="vs">' + esc(c.vs_0008) + '</dd>' +
+        '</dl>' + (ex ? '<details class="wr-ex"><summary>Examples</summary><ul>' + ex + '</ul></details>' : '') +
+        '</div>';
+    }).join("");
+
+    // ── Position thresholds ──
+    var pt = L.position_thresholds_sf || {};
+    var ptHtml = '<table class="fo-table"><thead><tr><th>Pos</th><th class="num">n</th><th class="num">p50</th><th class="num">p75</th><th class="num">p90 (rare)</th><th class="num">max</th></tr></thead><tbody>' +
+      ['QB', 'RB', 'WR', 'TE', 'DE', 'DT', 'LB', 'S', 'CB', 'PK', 'PN'].filter(function (p) { return pt[p]; }).map(function (p) {
+        var t = pt[p]; return '<tr><td><b>' + p + '</b></td><td class="num">' + t.n + '</td><td class="num">$' + t.p50 + 'K</td><td class="num">$' + t.p75 + 'K</td><td class="num"><b>$' + t.p90 + 'K</b></td><td class="num">$' + t.max + 'K</td></tr>';
+      }).join("") + '</tbody></table>';
+
+    // ── Contender benchmark ──
+    var bm = L.contender_benchmark || {}, bmRows = (bm.top2_by_season || []).map(function (r) {
+      return '<tr><td>' + r.season + '</td><td class="num">#' + r.rank + '</td><td>' + esc(r.team) + '</td><td class="num">' + (r.allplay_pct != null ? Math.round(r.allplay_pct * 100) + '%' : '—') + '</td><td class="num">' + (r.pf || '—') + '</td></tr>';
+    }).join("");
+
+    host.innerHTML =
+      '<div class="fo-row-hint">Commish-only FA-auction opponent intel, framed for <b>Real Deal Creel (0008)</b>. ' +
+      d.meta.n_lots + ' FA lots · ' + d.meta.n_bids + ' bids · 2014–2025, Superflex era emphasized. Updated ' + esc(upd) + '. ' +
+      'You were the runner-up ' + ((wrSf("0008") || {}).runner_up_n || "?") + '× in the SF era and lose the head-to-head to every active owner — read the playbook at the bottom.</div>' +
+
+      '<div class="fo-card"><div class="fo-card-head"><h3>🎯 Danger Board</h3><span class="small" style="color:var(--muted)">ranked by threat to 0008</span></div>' +
+      '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th class="num">#</th><th>Owner</th><th>Threat</th><th class="num" title="Your record in shared SF lots">You</th><th class="num" title="Pounce rate">⚡</th><th class="num" title="Times the underbidder">🥷</th><th>Read</th></tr></thead><tbody>' + dbRows + '</tbody></table></div></div>' +
+
+      '<div class="fo-card"><div class="fo-card-head"><h3>Your two fears</h3></div>' + fearBlock + '</div>' +
+
+      '<div class="cs-sech"><span class="lead">Scouting cards</span></div><div class="wr-cards">' + cardHtml + '</div>' +
+
+      '<div class="fo-card"><div class="fo-card-head"><h3>Position $ thresholds (SF) — what is "rare" for the price</h3></div><div class="fo-table-scroll">' + ptHtml + '</div>' +
+      '<div class="small" style="color:var(--muted);margin-top:8px">p90 = a top-10% price for that position. A $10K LB is rare; a $30K WR is routine.</div></div>' +
+
+      '<div class="fo-card"><div class="fo-card-head"><h3>Contender roster benchmark</h3><span class="small" style="color:var(--muted)">PF bar ≈ ' + (bm.pf_bar || '—') + '/season</span></div>' +
+      '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th>Season</th><th class="num">AP</th><th>Team</th><th class="num">All-play</th><th class="num">PF</th></tr></thead><tbody>' + bmRows + '</tbody></table></div>' +
+      '<div class="small" style="color:var(--muted);margin-top:8px">Top-2 all-play teams since Superflex score ~3,200 PF. Contenders win on scoring depth — argues for the mid-tier ($10–17K) bets the field skips.</div></div>' +
+
+      (d.doc_md ? '<details class="wr-doc"><summary>📋 Full War Room scouting report (v6)</summary><pre>' + esc(d.doc_md) + '</pre></details>' : '');
   }
 
   // ════════════════════════════════════════════════════════════════════
