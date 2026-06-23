@@ -1,0 +1,422 @@
+player,pos,age,dyn_sf_rank,redraft_rank,win_now,asset,low_k,median_k,top10_k,e_apw_p50,e_apw_p90,implied_apw,value_ratio,verdict,value_conf,fit_0008,deal_type,top_competitors
+Josh Allen,QB,30.1,QB1,QB1,A,A,39,56,73,10.56,15.78,5303,1.4,VALUE,estimate,NEED,anchor,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Lamar Jackson,QB,29.4,QB2,QB2,A,A,38,55,73,9.57,15.17,5747,1.29,VALUE,estimate,NEED,anchor,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Patrick Mahomes II,QB,30.8,QB3,QB6,A,A,37,53,73,9.57,15.14,5538,1.34,VALUE,estimate,NEED,anchor,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Joe Burrow,QB,29.5,QB4,QB4,A,A,36,52,73,9.28,15.1,5603,1.32,VALUE,estimate,NEED,anchor,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Dak Prescott,QB,32.9,QB15,QB11,B,C,30,35,45,5.41,11.29,6470,1.14,FAIR,solid,NEED,1-yr / situational,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Jonathan Taylor,RB,27.4,RB9,RB3,A,B,44,63,88,4.37,8.33,14416,1.06,FAIR,estimate,SURPLUS,1-yr / situational,CBP; The Long Haulers
+Kyler Murray,QB,28.9,QB17,QB24,C,C,15,30,45,4.15,10.93,7229,1.02,FAIR,solid,NEED,1-yr / situational,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Jared Goff,QB,31.7,QB19,QB15,C,C,15,26,45,4.15,10.5,6265,1.18,VALUE,solid,NEED,1-yr / situational,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Malik Willis,QB,27.1,QB24,QB27,D,C,15,15,45,3.38,9.96,4438,1.67,VALUE,solid,NEED,1-yr / situational,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Saquon Barkley,RB,29.4,RB15,RB9,B,C,35,50,70,3.3,6.85,15152,1.01,FAIR,estimate,SURPLUS,1-yr rental / flip,CBP; The Long Haulers
+Matthew Stafford,QB,38.4,QB25,QB18,C,D,14,14,45,3.25,9.61,4308,1.72,VALUE,solid,NEED,1-yr rental / flip,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+DeVonta Smith,WR,27.6,WR19,WR12,B,C,19,27,30,2.36,5.01,11441,1.66,VALUE,solid,SURPLUS,1-yr / situational,The Long Haulers
+Jaylen Waddle,WR,27.6,WR20,WR20,C,C,19,25,30,2.33,5.01,10730,1.78,VALUE,solid,SURPLUS,1-yr / situational,The Long Haulers
+Daniel Jones,QB,29.1,QB27,QB25,D,D,10,10,45,2.2,8.66,4545,1.63,VALUE,solid,NEED,1-yr / situational,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Josh Jacobs,RB,28.4,RB23,RB19,C,C,17,33,39,2.18,5.21,15138,1.01,FAIR,solid,SURPLUS,1-yr / situational,CBP; The Long Haulers
+D'Andre Swift,RB,27.4,RB25,RB25,D,D,17,29,39,1.79,4.94,16201,0.94,FAIR,solid,SURPLUS,1-yr / situational,CBP; The Long Haulers
+Jameson Williams,WR,25.2,WR28,WR30,D,D,19,20,30,1.35,4.44,14815,1.29,VALUE,solid,SURPLUS,1-yr / situational,The Long Haulers
+Jaylen Warren,RB,27.6,RB28,RB27,D,D,17,22,39,0.94,4.64,23404,0.65,OVERPAY,solid,SURPLUS,1-yr / situational,CBP; The Long Haulers
+DK Metcalf,WR,28.5,WR36,WR38,D,D,10,17,30,0.8,4.44,21250,0.9,FAIR,solid,SURPLUS,1-yr / situational,The Long Haulers
+Rhamondre Stevenson,RB,28.3,RB31,RB28,D,D,17,17,39,0.75,4.43,22667,0.67,OVERPAY,solid,SURPLUS,1-yr / situational,CBP; The Long Haulers
+Brandon Aiyuk,WR,28.3,WR38,WR59,D,D,10,17,30,0.7,4.44,24286,0.78,OVERPAY,solid,SURPLUS,1-yr / situational,The Long Haulers
+Chuba Hubbard,RB,27,RB34,RB26,D,D,12,12,39,0.63,4.43,19048,0.8,OVERPAY,solid,SURPLUS,1-yr / situational,CBP; The Long Haulers
+Kenneth Gainwell,RB,27.3,RB37,RB35,D,D,1,8,9,0.54,4.09,14815,1.03,FAIR,solid,SURPLUS,1-yr / situational,CBP; The Long Haulers
+Tyler Allgeier,RB,26.2,RB40,RB47,D,D,1,3,9,0.24,3.17,12500,1.22,VALUE,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Kyle Pitts Sr.,TE,25.7,TE8,TE8,B,B,10,15,21,0.17,2.91,88235,0.71,OVERPAY,estimate,OK,multi-year build,
+Parker Washington,WR,24.2,WR47,WR42,D,D,9,9,30,0.12,3.0,75000,0.25,OVERPAY,solid,SURPLUS,1-yr / situational,The Long Haulers
+Isaiah Likely,TE,26.2,TE15,TE13,C,C,6,6,21,0.0,0.81,,,OVERPAY,estimate,OK,1-yr / situational,
+Rachaad White,RB,27.4,RB44,RB38,D,D,1,3,9,0.0,2.66,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Aaron Jones Sr.,RB,31.5,RB51,RB33,D,D,1,3,9,0.0,1.96,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Isiah Pacheco,RB,27.3,RB52,RB48,D,D,1,3,9,0.0,1.96,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Brian Robinson Jr.,RB,27.2,RB56,RB52,D,D,1,3,9,0.0,1.96,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Alvin Kamara,RB,30.9,RB57,RB40,D,D,1,3,9,0.0,1.96,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+James Conner,RB,31.1,RB63,,—,D,1,3,9,0.0,1.28,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Najee Harris,RB,28.3,RB78,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Brashard Smith,RB,23.2,RB80,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Chris Brooks,RB,26.4,RB82,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+J'Mari Taylor,RB,NA,RB83,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Roman Hemby,RB,NA,RB90,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Jerome Ford,RB,26.8,RB91,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Justice Hill,RB,28.6,RB92,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Devin Singletary,RB,28.8,RB93,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Raheim Sanders,RB,24,RB94,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+George Holani,RB,26.5,RB97,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Isaac Guerendo,RB,26,RB98,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Michael Carter,RB,27.1,RB99,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Joe Mixon,RB,29.9,RB100,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Kareem Hunt,RB,30.9,RB101,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Ty Johnson,RB,28.8,RB102,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Malik Davis,RB,27.6,RB103,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Audric Estime,RB,22.8,RB104,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Nick Chubb,RB,NA,RB105,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Samaje Perine,RB,30.8,RB106,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Jaleel McLaughlin,RB,25.8,RB108,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Terion Stewart,RB,NA,RB109,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Noah Whittington,RB,NA,RB110,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+CJ Donaldson,RB,NA,RB111,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Dean Connors,RB,NA,RB112,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Daylan Smothers,RB,NA,RB113,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Chip Trayanum,RB,NA,RB114,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Jaydn Ott,RB,NA,RB115,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Desmond Reid,RB,NA,RB116,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Rahsul Faison,RB,NA,RB117,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Phil Mafah,RB,23.7,RB118,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Mark Fletcher,RB,NA,RB119,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Damien Martinez,RB,22.4,RB120,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Emari Demercado,RB,27.4,RB121,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Antonio Gibson,RB,NA,RB122,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Bam Knight,RB,25.2,RB123,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Dameon Pierce,RB,26.3,RB124,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Miles Sanders,RB,29.1,RB125,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Raheem Mostert,RB,NA,RB126,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Ty Chandler,RB,28.1,RB128,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Tyler Badie,RB,26.4,RB129,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Austin Ekeler,RB,NA,RB130,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Jawhar Jordan,RB,26.8,RB131,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Jeremy McNichols,RB,30.5,RB132,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Kalel Mullings,RB,23.7,RB133,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Elijah Mitchell,RB,NA,RB134,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Zamir White,RB,NA,RB135,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Khalil Herbert,RB,NA,RB136,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Tyler Goodson,RB,25.6,RB137,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Alexander Mattison,RB,28,RB138,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+AJ Dillon,RB,28.1,RB139,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Hassan Haskins,RB,26.6,RB141,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Cam Akers,RB,NA,RB142,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Donovan Edwards,RB,23.3,RB143,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Ameer Abdullah,RB,NA,RB144,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Kenny McIntosh,RB,26.3,RB145,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Gus Edwards,RB,NA,RB146,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Eric Gray,RB,NA,RB147,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Dare Ogunbowale,RB,NA,RB148,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Evan Hull,RB,NA,RB149,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Zack Moss,RB,NA,RB150,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Sincere McCormick,RB,NA,RB151,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Jaret Patterson,RB,NA,RB152,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Carson Steele,RB,NA,RB153,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Cody Schrader,RB,NA,RB154,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Craig Reynolds,RB,NA,RB155,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Trey Sermon,RB,NA,RB156,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Marcus Yarns,RB,NA,RB157,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Israel Abanikanda,RB,23.7,RB158,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Pierre Strong Jr.,RB,NA,RB159,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Clyde Edwards-Helaire,RB,NA,RB160,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Deuce Vaughn,RB,24.6,RB161,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+DeeJay Dallas,RB,NA,RB162,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Frank Gore Jr.,RB,24.3,RB163,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Keaontay Ingram,RB,NA,RB164,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+D'Onta Foreman,RB,NA,RB165,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Keilan Robinson,RB,NA,RB166,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Blake Watson,RB,NA,RB167,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Kendall Milton,RB,24.4,RB168,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Deneric Prince,RB,NA,RB169,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Cordarrelle Patterson,RB,NA,RB170,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+D'Ernest Johnson,RB,NA,RB171,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Joshua Kelley,RB,NA,RB172,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Jeff Wilson Jr.,RB,NA,RB173,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Dillon Johnson,RB,NA,RB174,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Dalvin Cook,RB,NA,RB175,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Daijun Edwards,RB,NA,RB176,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Salvon Ahmed,RB,NA,RB177,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Ronnie Rivers,RB,NA,RB178,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Julius Chestnut,RB,25.6,RB179,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Chase Edmonds,RB,NA,RB180,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Darrynton Evans,RB,NA,RB181,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Kene Nwangwu,RB,NA,RB182,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Jerick McKinnon,RB,NA,RB183,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Chris Evans,RB,NA,RB184,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Jase McClellan,RB,NA,RB185,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+JaMycal Hasty,RB,NA,RB186,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Kevin Harris,RB,NA,RB187,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Travis Homer,RB,NA,RB188,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Trayveon Williams,RB,NA,RB189,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Tyrion Davis-Price,RB,NA,RB190,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+DeWayne McBride,RB,NA,RB191,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Nyheim Miller-Hines,RB,NA,RB192,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Matt Breida,RB,NA,RB193,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Michael Wiley,RB,NA,RB194,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Royce Freeman,RB,NA,RB195,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Gary Brightwell,RB,NA,RB196,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Emani Bailey,RB,NA,RB197,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Lew Nichols III,RB,NA,RB198,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Jashaun Corbin,RB,NA,RB199,,—,D,1,3,9,0.0,0.67,,,FAIR,solid,SURPLUS,cut-free dart,CBP; The Long Haulers
+Mark Andrews,TE,30.8,TE18,TE11,B,C,1,3,5,0.0,0.62,,,FAIR,estimate,OK,cut-free dart,
+Romeo Doubs,WR,26.2,WR59,WR54,D,D,1,2,6,0.0,2.11,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Stefon Diggs,WR,32.6,WR70,WR43,D,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jalen Nailor,WR,27.3,WR89,WR64,D,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Calvin Ridley,WR,31.5,WR93,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Darnell Mooney,WR,28.6,WR94,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Brenen Thompson,WR,NA,WR101,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Ryan Flournoy,WR,26.6,WR102,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Christian Kirk,WR,29.6,WR103,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Cedric Tillman,WR,26.2,WR104,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Tez Johnson,WR,24.1,WR107,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Cooper Kupp,WR,33,WR108,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Keenan Allen,WR,34.1,WR109,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Devaughn Vele,WR,28.5,WR110,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Hollywood Brown,WR,29,WR111,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+DeMario Douglas,WR,25.5,WR112,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Darius Slayton,WR,29.4,WR113,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Cyrus Allen,WR,NA,WR116,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jalen Tolbert,WR,27.3,WR117,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Andrei Iosivas,WR,26.7,WR119,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Zavion Thomas,WR,NA,WR120,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Joshua Palmer,WR,26.7,WR125,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Calvin Austin III,WR,27.2,WR127,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+CJ Daniels,WR,NA,WR128,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Luke McCaffrey,WR,25.2,WR129,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+John Metchie III,WR,25.9,WR130,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Josh Cameron,WR,NA,WR131,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Eric McAlister,WR,NA,WR132,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jordan Whittington,WR,25.7,WR133,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Elijah Moore,WR,26.2,WR135,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jeff Caldwell,WR,NA,WR136,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Kendrick Bourne,WR,30.9,WR137,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jahan Dotson,WR,26.2,WR138,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Mack Hollins,WR,32.8,WR139,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Tyler Lockett,WR,NA,WR141,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Malik Benson,WR,NA,WR142,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Eric Rivers Jr.,WR,NA,WR143,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Tyren Montgomery,WR,NA,WR144,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Barion Brown,WR,NA,WR145,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Xavier Hutchinson,WR,26,WR146,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+DeAndre Hopkins,WR,NA,WR147,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Reggie Virgil,WR,NA,WR148,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Tutu Atwell,WR,26.7,WR149,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Dyami Brown,WR,26.6,WR150,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Treylon Burks,WR,26.2,WR152,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Tai Felton,WR,23.3,WR153,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Chase Roberts,WR,NA,WR154,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Kaden Wetjen,WR,NA,WR155,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Noah Thomas,WR,NA,WR156,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Colbie Young,WR,NA,WR157,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Xavier Restrepo,WR,24.2,WR159,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Olamide Zaccheaus,WR,28.9,WR161,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jimmy Horn Jr.,WR,23.8,WR162,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+KaVontae Turpin,WR,29.9,WR163,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jahdae Walker,WR,NA,WR164,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Kendrick Law,WR,NA,WR165,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Ja'Lynn Polk,WR,24.2,WR166,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Nick Westbrook-Ikhine,WR,29.2,WR167,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Aaron Anderson,WR,NA,WR168,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Trebor Pena,WR,NA,WR169,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jake Bobo,WR,27.9,WR170,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Trey Palmer,WR,25.2,WR171,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Greg Dortch,WR,28.1,WR172,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Brandin Cooks,WR,NA,WR173,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jalin Hyatt,WR,24.7,WR174,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Tyrell Shavers,WR,26.8,WR175,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Dane Key,WR,NA,WR176,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Demarcus Robinson,WR,31.7,WR177,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jordan Watkins,WR,24.3,WR179,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Gabe Davis,WR,27.2,WR180,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+JuJu Smith-Schuster,WR,NA,WR181,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Harrison Wallace III,WR,NA,WR182,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Romello Brinson,WR,NA,WR183,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Noah Brown,WR,NA,WR184,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Kalif Raymond,WR,NA,WR185,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Sterling Shepard,WR,33.4,WR186,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Arian Smith,WR,24.7,WR187,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Van Jefferson,WR,29.9,WR188,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jacob Cowing,WR,25.4,WR189,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Vinny Anthony II,WR,NA,WR190,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Isaiah Hodgins,WR,27.7,WR191,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Nick Nash,WR,NA,WR193,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Marquez Valdes-Scantling,WR,NA,WR195,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Curtis Samuel,WR,NA,WR196,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Bo Melton,WR,27.1,WR197,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Ashton Dulin,WR,NA,WR198,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Josh Reynolds,WR,NA,WR199,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jamari Thrash,WR,25.5,WR200,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jonathan Mingo,WR,25.2,WR201,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Javon Baker,WR,24.3,WR202,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Henry Ruggs III,WR,NA,WR203,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Diontae Johnson,WR,NA,WR204,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Ricky White III,WR,NA,WR205,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Tim Patrick,WR,NA,WR206,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Kameron Johnson,WR,24.3,WR207,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Darius Cooper,WR,NA,WR208,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Mitch Tinsley,WR,NA,WR209,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Tyler Scott,WR,24.7,WR210,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Tahj Washington,WR,25.1,WR211,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Johnny Wilson,WR,25.2,WR212,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Zay Jones,WR,NA,WR213,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+David Moore,WR,NA,WR214,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Allen Lazard,WR,NA,WR215,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Skyy Moore,WR,25.8,WR216,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Casey Washington,WR,NA,WR218,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Charlie Jones,WR,NA,WR219,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Dominic Lovett,WR,NA,WR220,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Tyler Johnson,WR,27.8,WR221,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Justin Watson,WR,NA,WR222,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Ray-Ray McCloud III,WR,NA,WR223,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Bub Means,WR,25.4,WR224,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Cedrick Wilson Jr.,WR,NA,WR225,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+K.J. Osborn,WR,NA,WR226,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Tylan Wallace,WR,NA,WR227,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Derius Davis,WR,25.8,WR228,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+A.T. Perry,WR,NA,WR229,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Hunter Renfrow,WR,NA,WR230,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Ben Skowronek,WR,NA,WR231,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Scotty Miller,WR,NA,WR232,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Quez Watkins,WR,NA,WR233,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Mecole Hardman Jr.,WR,NA,WR235,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Braxton Berrios,WR,NA,WR236,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Velus Jones Jr.,WR,NA,WR237,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Xavier Gipson,WR,25.3,WR238,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Terrace Marshall Jr.,WR,NA,WR239,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Devin Duvernay,WR,NA,WR240,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jason Brownlee,WR,NA,WR241,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Trenton Irwin,WR,NA,WR242,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Nelson Agholor,WR,NA,WR243,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Tejhaun Palmer,WR,NA,WR244,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Danny Gray,WR,NA,WR245,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Jalen Reagor,WR,NA,WR246,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Donovan Peoples-Jones,WR,NA,WR247,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Kyle Philips,WR,NA,WR248,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Zach Pascal,WR,NA,WR249,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Justyn Ross,WR,NA,WR250,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Odell Beckham Jr.,WR,NA,WR251,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Michael Thomas,WR,NA,WR252,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Chase Claypool,WR,NA,WR253,,—,D,1,2,6,0.0,0.86,,,FAIR,solid,SURPLUS,cut-free dart,The Long Haulers
+Chig Okonkwo,TE,26.8,TE19,TE20,C,C,1,2,5,0.0,0.58,,,FAIR,estimate,OK,cut-free dart,
+Aaron Rodgers,QB,42.5,QB37,QB28,D,D,1,1,7,0.0,5.17,,,DART,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Mac Jones,QB,27.8,QB38,QB39,D,D,1,1,7,0.0,4.03,,,DART,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Justin Fields,QB,27.3,QB39,QB41,D,D,1,1,7,0.0,3.59,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Kirk Cousins,QB,37.8,QB41,QB37,D,D,1,1,7,0.0,3.59,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Garrett Nussmeier,QB,NA,QB43,,—,D,1,1,7,0.0,3.2,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Marcus Mariota,QB,32.6,QB44,,—,D,1,1,7,0.0,3.11,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Jameis Winston,QB,32.4,QB45,,—,D,1,1,7,0.0,3.11,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Joe Milton III,QB,26.3,QB51,,—,D,1,1,7,0.0,1.95,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Joe Flacco,QB,41.4,QB55,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Davis Mills,QB,27.7,QB57,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Riley Leonard,QB,23.8,QB58,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Russell Wilson,QB,NA,QB59,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Trey Lance,QB,26.1,QB62,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Gardner Minshew II,QB,30.1,QB63,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Tyler Huntley,QB,28.4,QB64,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Kenny Pickett,QB,28,QB65,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Tyrod Taylor,QB,36.9,QB66,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Haynes King,QB,NA,QB67,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Aidan O'Connell,QB,27.8,QB68,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Mason Rudolph,QB,30.9,QB69,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Zach Wilson,QB,26.9,QB70,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Diego Pavia,QB,NA,QB72,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Jake Browning,QB,NA,QB73,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Philip Rivers,QB,NA,QB74,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Joey Aguilar,QB,NA,QB75,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Sam Howell,QB,25.8,QB76,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Jimmy Garoppolo,QB,NA,QB77,,—,D,1,1,7,0.0,0.42,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Mitchell Trubisky,QB,NA,QB78,,—,D,1,1,7,0.0,0.2,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Jarrett Stidham,QB,NA,QB79,,—,D,1,1,7,0.0,0.2,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Brady Cook,QB,NA,QB80,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Drew Lock,QB,29.6,QB81,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Andy Dalton,QB,NA,QB82,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Kyle McCord,QB,23.7,QB83,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Joshua Dobbs,QB,NA,QB84,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Max Brosmer,QB,NA,QB85,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Nick Mullens,QB,NA,QB86,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Kurtis Rourke,QB,NA,QB87,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Cooper Rush,QB,NA,QB88,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Hendon Hooker,QB,NA,QB89,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Kyle Allen,QB,NA,QB90,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Stetson Bennett IV,QB,NA,QB91,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Dorian Thompson-Robinson,QB,NA,QB92,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Bailey Zappe,QB,NA,QB93,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Tommy DeVito,QB,NA,QB94,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Desmond Ridder,QB,NA,QB95,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Sam Ehlinger,QB,NA,QB96,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Josh Johnson,QB,NA,QB97,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Case Keenum,QB,NA,QB98,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Sean Clifford,QB,NA,QB99,,—,D,1,1,7,0.0,0.0,,,FAIR,solid,NEED,cut-free dart,Hawks; L.A. Looks; HammerTime 🔨 ⏰
+Travis Kelce,TE,36.7,TE21,TE9,B,C,1,1,5,0.0,0.55,,,FAIR,estimate,OK,cut-free dart,
+Juwan Johnson,TE,29.8,TE24,TE24,C,C,1,1,5,0.0,0.29,,,FAIR,estimate,OK,cut-free dart,
+Gunnar Helm,TE,23.8,TE25,TE27,D,D,1,1,5,0.0,0.29,,,FAIR,estimate,OK,cut-free dart,
+Hunter Henry,TE,31.5,TE26,TE19,C,D,1,1,5,0.0,0.29,,,FAIR,estimate,OK,cut-free dart,
+Pat Freiermuth,TE,27.6,TE33,,—,D,1,1,5,0.0,0.23,,,FAIR,estimate,OK,cut-free dart,
+Greg Dulcich,TE,26.2,TE37,,—,D,1,1,5,0.0,0.08,,,FAIR,estimate,OK,cut-free dart,
+Jake Tonges,TE,26.9,TE40,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Evan Engram,TE,31.8,TE42,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Darnell Washington,TE,24.8,TE45,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Mike Gesicki,TE,30.7,TE48,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Marlin Klein,TE,NA,TE49,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Tanner Koziol,TE,NA,TE50,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Michael Trigg,TE,NA,TE51,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Jack Endries,TE,NA,TE52,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Matt Hibner,TE,NA,TE53,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Dawson Knox,TE,29.6,TE55,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Tyler Higbee,TE,33.5,TE56,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Joe Royer,TE,NA,TE58,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Luke Musgrave,TE,25.8,TE59,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Elijah Higgins,TE,25.6,TE62,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Noah Gray,TE,27.1,TE63,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Luke Schoonmaker,TE,27.7,TE64,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Nate Boerkircher,TE,NA,TE65,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Will Kacmarek,TE,NA,TE66,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Mitchell Evans,TE,23.3,TE67,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Dae'Quan Wright,TE,NA,TE68,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Dallen Bentley,TE,NA,TE69,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Darren Waller,TE,33.8,TE70,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Seydou Traore,TE,NA,TE71,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Riley Nowakowski,TE,NA,TE72,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Jaren Kanak,TE,NA,TE73,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+RJ Maryland,TE,NA,TE74,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Josh Cuevas,TE,NA,TE75,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Tyler Conklin,TE,NA,TE76,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Carsen Ryan,TE,NA,TE78,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Tommy Tremble,TE,26,TE79,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Taysom Hill,TE,NA,TE80,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Daniel Bellinger,TE,25.7,TE81,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+John Michael Gyllenborg,TE,NA,TE82,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Jared Wiley,TE,25.6,TE83,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Adam Trautman,TE,NA,TE84,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Josh Oliver,TE,NA,TE85,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Thomas Fidone II,TE,23.7,TE86,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Austin Hooper,TE,NA,TE87,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Charlie Kolar,TE,27.4,TE88,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Davis Allen,TE,25.4,TE89,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Grant Calcaterra,TE,27.5,TE90,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Will Dissly,TE,NA,TE91,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Brock Wright,TE,27.6,TE92,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Jeremy Ruckert,TE,25.9,TE93,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Jackson Hawes,TE,NA,TE94,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Foster Moreau,TE,29.1,TE95,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Hunter Long,TE,NA,TE96,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Kylen Granson,TE,NA,TE97,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Jake Briningstool,TE,NA,TE98,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Brevin Jordan,TE,25.9,TE99,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Luke Lachey,TE,NA,TE100,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Tanner Hudson,TE,NA,TE101,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Stone Smartt,TE,NA,TE102,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Harrison Bryant,TE,NA,TE103,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Jelani Woods,TE,NA,TE104,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Jalin Conyers,TE,NA,TE105,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Gavin Bartholomew,TE,NA,TE106,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Jaheim Bell,TE,NA,TE107,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Luke Farrell,TE,NA,TE108,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Tip Reiman,TE,NA,TE109,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Josh Whyle,TE,NA,TE110,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Will Mallory,TE,NA,TE111,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Julian Hill,TE,NA,TE112,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Devin Culp,TE,NA,TE113,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+John Bates,TE,NA,TE114,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Lucas Krull,TE,NA,TE115,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Gerald Everett,TE,NA,TE116,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Moliki Matavao,TE,NA,TE117,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Irv Smith Jr.,TE,NA,TE118,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Brevyn Spann-Ford,TE,NA,TE119,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Drew Ogletree,TE,NA,TE120,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Johnny Mundt,TE,NA,TE121,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Payne Durham,TE,NA,TE122,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Drew Sample,TE,NA,TE123,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Mo Alie-Cox,TE,NA,TE124,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Donald Parham Jr.,TE,NA,TE125,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Eric Saubert,TE,NA,TE126,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Jack Stoll,TE,NA,TE127,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Durham Smythe,TE,NA,TE128,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+James Mitchell,TE,NA,TE129,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Connor Heyward,TE,NA,TE130,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Shane Zylstra,TE,NA,TE131,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Ian Thomas,TE,NA,TE132,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,
+Teagan Quitoriano,TE,NA,TE133,,—,D,1,1,5,0.0,0.0,,,FAIR,estimate,OK,cut-free dart,

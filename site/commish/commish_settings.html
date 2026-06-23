@@ -141,6 +141,46 @@
   .wr-doc { margin-top: 6px; }
   .wr-doc summary { font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; padding: 8px 0; }
   .wr-doc pre { white-space: pre-wrap; font-size: 11.5px; line-height: 1.5; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; overflow-x: auto; }
+  /* ── FA Value view ── */
+  .fo-sub { font-size: 11px; color: var(--muted); }
+  .fav-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .fav-sg-h { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--accent); margin-bottom: 6px; }
+  .fav-fit { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); margin: 0 4px 4px 0; color: var(--muted); }
+  .fav-fit.need { color: #fbbf24; border-color: rgba(251,191,36,0.45); background: rgba(251,191,36,0.08); }
+  .fav-fit.surp { color: #34d399; border-color: rgba(52,211,153,0.35); }
+  .fav-fit.ok { color: var(--muted); }
+  .fav-fit.sm { font-size: 10px; padding: 1px 6px; }
+  .fav-rate { display: inline-block; font-size: 11px; font-weight: 600; color: var(--fg); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; margin: 0 4px 4px 0; }
+  .fav-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+  .fav-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .fav-cg { display: flex; align-items: center; gap: 6px; }
+  .fav-cl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--muted); }
+  .wr-vtabs.sm { margin: 0; padding: 2px; }
+  .wr-vtabs.sm button { font-size: 11px; padding: 4px 9px; }
+  .fav-chk { font-size: 12px; color: var(--fg); display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  #fav-sort { background: var(--panel2); color: var(--fg); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; font-size: 12px; }
+  .fav-bar { position: relative; height: 7px; background: var(--panel2); border-radius: 4px; margin-bottom: 3px; min-width: 120px; }
+  .fav-bar-fill { position: absolute; top: 0; height: 100%; background: linear-gradient(90deg, rgba(91,141,255,0.35), rgba(52,211,153,0.55)); border-radius: 4px; }
+  .fav-bar-tick { position: absolute; top: -2px; width: 2px; height: 11px; background: var(--fg); border-radius: 1px; }
+  .fav-apw { font-size: 11px; color: var(--muted); } .fav-apw b { color: var(--fg); }
+  .fav-rk { font-size: 10.5px; color: var(--muted); font-weight: 500; }
+  .fav-px { display: block; font-size: 10px; color: var(--muted); }
+  .fav-v { font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; letter-spacing: 0.02em; }
+  .fav-v.sp { color: #0a1222; background: #34d399; } .fav-v.val { color: #0a1222; background: var(--accent); }
+  .fav-v.fair { color: var(--muted); border: 1px solid var(--line); } .fav-v.over { color: #fff; background: var(--danger); }
+  .fav-v.dart { color: #0a1222; background: #c084fc; }
+  .fav-est { color: #fbbf24; font-weight: 800; margin-left: 3px; }
+  .fav-vr.pos { color: #34d399; font-weight: 800; } .fav-vr.posL { color: #5b8dff; font-weight: 700; } .fav-vr.neg { color: var(--danger); }
+  .fav-comp { display: inline-block; font-size: 10.5px; color: var(--muted); background: var(--panel2); border-radius: 5px; padding: 1px 6px; margin: 0 3px 2px 0; }
+  .fav-comp.big { font-size: 12px; padding: 3px 9px; color: var(--fg); }
+  .fav-row { cursor: pointer; } .fav-row:hover { background: var(--panel2); }
+  .fav-detail td { background: var(--panel2); }
+  .fav-dwrap { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; padding: 4px 2px; }
+  .fav-dh { font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--accent); margin-bottom: 5px; }
+  .fav-dwhy { font-size: 12.5px; color: var(--fg); line-height: 1.5; margin-bottom: 8px; }
+  .fav-dmeta { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+  .fav-table td { vertical-align: middle; }
+  @media (max-width: 720px) { .fav-dwrap { grid-template-columns: 1fr; } }
   @media (max-width: 560px) { .wr-mini-wrap { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -275,6 +315,7 @@
     host.innerHTML =
       '<div class="wr-vtabs">' +
       '<button data-wrv="scouting"' + (WR.view === "scouting" ? ' class="on"' : '') + '>📋 Scouting Intel</button>' +
+      '<button data-wrv="favalue"' + (WR.view === "favalue" ? ' class="on"' : '') + '>💎 FA Value</button>' +
       '<button data-wrv="board"' + (WR.view === "board" ? ' class="on"' : '') + '>🎯 My Board</button>' +
       '<button data-wrv="live"' + (WR.view === "live" ? ' class="on"' : '') + '>📡 Live Board</button>' +
       '</div><div id="wr-body"></div>';
@@ -292,6 +333,7 @@
     stopWrPoll();
     if (WR.view === "live") paintLive(b);
     else if (WR.view === "board") paintBoard(b);
+    else if (WR.view === "favalue") paintFaValue(b);
     else paintScouting(b);
   }
   function wrName(fid) { var o = WR.data.owners[fid]; return o ? (o.owner_name || fid) : fid; }
@@ -454,6 +496,121 @@
     $$(".wr-tier", host).forEach(function (el) { el.addEventListener("change", function () { var x = WR.board.filter(function (b) { return b.pid === el.getAttribute("data-pid"); })[0]; if (x) { x.tier = parseInt(el.value, 10) || 2; wrBoardSave(); paintBoard(host); } }); });
     $$(".wr-rm", host).forEach(function (el) { el.addEventListener("click", function () { WR.board = WR.board.filter(function (b) { return b.pid !== el.getAttribute("data-pid"); }); wrBoardSave(); paintBoard(host); }); });
     var ex = document.getElementById("wr-export"); if (ex) ex.addEventListener("click", function () { try { navigator.clipboard.writeText(JSON.stringify(WR.board || [])); ex.textContent = "Copied!"; setTimeout(function () { ex.textContent = "Export"; }, 1500); } catch (e) {} });
+  }
+
+  // ── 💎 FA Value: expected-APW vs price vs roster-fit, per available FA ──
+  var FAV = { pos: "ALL", verdict: "ALL", sort: "apw", needOnly: false, open: {} };
+  var VMETA = { SPLURGE: ["sp", "SPLURGE"], VALUE: ["val", "VALUE"], FAIR: ["fair", "FAIR"], OVERPAY: ["over", "OVERPAY"], DART: ["dart", "DART"] };
+  var APW_SCALE = 16; // APW is cross-position comparable (β baked in) → one shared scale
+  function favRangeBar(p25, p50, p90, max) {
+    var lo = Math.max(0, Math.min(1, (p25 || 0) / max)) * 100;
+    var hi = Math.max(0, Math.min(1, (p90 || 0) / max)) * 100;
+    var mid = Math.max(0, Math.min(1, (p50 || 0) / max)) * 100;
+    return '<div class="fav-bar" title="floor ' + (p25 || 0) + ' · median ' + (p50 || 0) + ' · ceiling ' + (p90 || 0) + ' APW">' +
+      '<span class="fav-bar-fill" style="left:' + lo.toFixed(1) + '%;width:' + Math.max(2, hi - lo).toFixed(1) + '%"></span>' +
+      '<span class="fav-bar-tick" style="left:' + mid.toFixed(1) + '%"></span></div>';
+  }
+  function favTeamName(fid) { var t = (WR.fav.teams || {})[fid]; return t ? t.team : fid; }
+  function paintFaValue(host) {
+    if (WR.fav === undefined) WR.fav = null;
+    if (!WR.fav) {
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading FA value model…</div></div>';
+      fetchJSON(apiUrl("/api/auction/fa-value") + "?franchise_id=0008").then(function (d) {
+        if (!d || !d.ok) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">' + esc((d && d.error) || "FA value not available — run build_roster_fit.py --push-d1") + '</div></div>'; WR.fav = false; return; }
+        WR.fav = d; if (WR.view === "favalue") paintFaValue(host);
+      }).catch(function (e) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed: ' + esc(e.message || String(e)) + '</div></div>'; });
+      return;
+    }
+    if (WR.fav === false) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">FA value not loaded.</div></div>'; return; }
+    var d = WR.fav, meta = d.meta || {}, mr = meta.market_rate || {}, mine = (d.teams || {})["0008"] || { fit: {} };
+    var rows = (d.fas || []).slice();
+    // filters
+    if (FAV.pos !== "ALL") rows = rows.filter(function (r) { return r.p === FAV.pos; });
+    if (FAV.verdict !== "ALL") rows = rows.filter(function (r) { return r.v === FAV.verdict; });
+    if (FAV.needOnly) rows = rows.filter(function (r) { return r.f === "N"; });
+    // sort
+    var SORTS = {
+      apw: function (a, b) { return (b.a50 || 0) - (a.a50 || 0); },
+      value: function (a, b) { return (b.vr || 0) - (a.vr || 0); },
+      price: function (a, b) { return (b.mk || 0) - (a.mk || 0); },
+      ceiling: function (a, b) { return (b.a90 || 0) - (a.a90 || 0); }
+    };
+    rows.sort(SORTS[FAV.sort] || SORTS.apw);
+
+    // ── summary band: 0008 fit + market $/APW + fill ──
+    var fitChips = ["QB", "RB", "WR", "TE"].map(function (pos) {
+      var f = (mine.fit || {})[pos] || {}, lab = f.need > 0.4 * (meta.baseline_apw && meta.baseline_apw[pos] || 1) ? "NEED" : (f.surplus > 0.8 * (meta.baseline_apw && meta.baseline_apw[pos] || 1) ? "SURPLUS" : "OK");
+      var cls = lab === "NEED" ? "need" : (lab === "SURPLUS" ? "surp" : "ok");
+      return '<span class="fav-fit ' + cls + '">' + pos + ' · ' + lab + '</span>';
+    }).join("");
+    var rateChips = ["QB", "RB", "WR", "TE"].map(function (pos) {
+      var r = mr[pos] || {}; return '<span class="fav-rate" title="market $ paid per expected-APW (SF era)' + (r.R_conf !== "high" ? " — thin sample, estimate" : "") + '">' + pos + ' $' + (r.R ? Math.round(r.R / 100) / 10 + 'K' : '—') + '/APW' + (r.R_conf !== "high" ? ' ⚠' : '') + '</span>';
+    }).join("");
+    var fill = meta.fill || {};
+    var summary = '<div class="fo-card"><div class="fo-card-head"><h3>💎 FA Value — expected All-Play Wins vs price vs your roster</h3>' +
+      '<span class="fo-sub">' + (d.fas || []).length + ' available FAs · value = APW the slot delivers ÷ what the market pays for it</span></div>' +
+      '<div class="fav-summary"><div><div class="fav-sg-h">Your roster (0008) needs</div>' + fitChips + '</div>' +
+      '<div><div class="fav-sg-h">Market price of an APW (SF)</div>' + rateChips + '</div>' +
+      '<div><div class="fav-sg-h">Auction fill behavior</div><span class="fav-note">teams win ~14–15 at auction, then add <b>' + (fill.avg_post_auction_adds_per_team || '—') + '</b>/team via waivers before Wk 1 → don\'t overpay for depth, it\'s cheaper on waivers</span></div></div></div>';
+
+    // ── controls ──
+    var posTabs = ["ALL", "QB", "RB", "WR", "TE"].map(function (p) { return '<button data-favpos="' + p + '"' + (FAV.pos === p ? ' class="on"' : '') + '>' + p + '</button>'; }).join("");
+    var vTabs = ["ALL", "SPLURGE", "VALUE", "FAIR", "OVERPAY", "DART"].map(function (v) { return '<button data-favv="' + v + '"' + (FAV.verdict === v ? ' class="on"' : '') + '>' + v + '</button>'; }).join("");
+    var controls = '<div class="fav-controls">' +
+      '<div class="fav-cg"><span class="fav-cl">Pos</span><div class="wr-vtabs sm">' + posTabs + '</div></div>' +
+      '<div class="fav-cg"><span class="fav-cl">Verdict</span><div class="wr-vtabs sm">' + vTabs + '</div></div>' +
+      '<div class="fav-cg"><label class="fav-chk"><input type="checkbox" id="fav-need"' + (FAV.needOnly ? ' checked' : '') + '> my needs only</label></div>' +
+      '<div class="fav-cg"><span class="fav-cl">Sort</span><select id="fav-sort">' +
+      ['apw|Expected APW', 'ceiling|APW ceiling (p90)', 'value|Value (cheap per APW)', 'price|Price'].map(function (o) { var kv = o.split("|"); return '<option value="' + kv[0] + '"' + (FAV.sort === kv[0] ? ' selected' : '') + '>' + kv[1] + '</option>'; }).join("") +
+      '</select></div></div>';
+
+    // ── table ──
+    var head = '<tr><th>Player</th><th>Verdict</th><th>Expected APW (floor·med·ceiling)</th><th class="num">$/APW</th><th class="num">Value</th><th class="num">Price</th><th>Fit</th><th>Competition</th></tr>';
+    var body = rows.map(function (r, i) {
+      var vm = VMETA[r.v] || ["fair", r.v], implied = (r.a50 > 0) ? Math.round(r.mk * 1000 / r.a50) : null;
+      var vr = r.vr, vrCls = vr == null ? "" : (vr >= 1.5 ? "pos" : (vr >= 1.15 ? "posL" : (vr >= 0.85 ? "" : "neg")));
+      var fitTxt = r.f === "N" ? '<span class="fav-fit need sm">NEED</span>' : (r.f === "S" ? '<span class="fav-fit surp sm">surplus</span>' : '<span class="fav-fit ok sm">ok</span>');
+      var comp = (r.c || []).map(function (fid) { return '<span class="fav-comp">' + esc(favTeamName(fid)) + '</span>'; }).join("");
+      var conf = r.vc === "e" ? '<span class="fav-est" title="estimate — projected price and/or thin market-rate sample">~</span>' : "";
+      var tr = '<tr class="fav-row" data-favi="' + i + '">' +
+        '<td><b>' + esc(r.n) + '</b> <span class="fav-rk">' + esc(r.dr) + (r.rr ? ' · redr ' + esc(r.rr) : '') + '</span></td>' +
+        '<td><span class="fav-v ' + vm[0] + '">' + vm[1] + '</span>' + conf + '</td>' +
+        '<td>' + favRangeBar(r.a25, r.a50, r.a90, APW_SCALE) + '<span class="fav-apw">' + (r.a25 || 0) + ' · <b>' + (r.a50 || 0) + '</b> · ' + (r.a90 || 0) + '</span></td>' +
+        '<td class="num">' + (implied ? '$' + (implied / 1000).toFixed(1) + 'K' : '—') + '</td>' +
+        '<td class="num fav-vr ' + vrCls + '">' + (vr == null ? '—' : vr.toFixed(2) + '×') + '</td>' +
+        '<td class="num">$' + r.mk + 'K<span class="fav-px">' + r.lk + '–' + r.tk + '</span></td>' +
+        '<td>' + fitTxt + '</td>' +
+        '<td>' + (comp || '<span class="fav-rk">—</span>') + '</td></tr>';
+      var detail = FAV.open[r.n] ? favDetail(r, mr) : "";
+      return tr + detail;
+    }).join("");
+    var table = '<div class="fo-card"><div class="fo-table-scroll"><table class="fo-table fav-table"><thead>' + head + '</thead><tbody>' + (body || '<tr><td colspan="8" class="fo-table-empty">No FAs match.</td></tr>') + '</tbody></table></div></div>';
+
+    host.innerHTML = summary + controls + table;
+    // wire controls
+    $$("[data-favpos]", host).forEach(function (b) { b.addEventListener("click", function () { FAV.pos = b.getAttribute("data-favpos"); paintFaValue(host); }); });
+    $$("[data-favv]", host).forEach(function (b) { b.addEventListener("click", function () { FAV.verdict = b.getAttribute("data-favv"); paintFaValue(host); }); });
+    var nc = document.getElementById("fav-need"); if (nc) nc.addEventListener("change", function () { FAV.needOnly = nc.checked; paintFaValue(host); });
+    var ss = document.getElementById("fav-sort"); if (ss) ss.addEventListener("change", function () { FAV.sort = ss.value; paintFaValue(host); });
+    $$(".fav-row", host).forEach(function (tr) { tr.addEventListener("click", function () { var nm = rows[parseInt(tr.getAttribute("data-favi"), 10)].n; FAV.open[nm] = !FAV.open[nm]; paintFaValue(host); }); });
+  }
+  function favDetail(r, mr) {
+    var R = (mr[r.p] || {}).R, implied = (r.a50 > 0) ? Math.round(r.mk * 1000 / r.a50) : null;
+    var DTNAME = (WR.fav.key && WR.fav.key._dt) || {};
+    var why = "";
+    if (r.vr != null && R && implied) {
+      why = 'At $' + r.mk + 'K for a ' + (r.a50 || 0) + '-APW slot you\'d pay <b>$' + (implied / 1000).toFixed(1) + 'K/APW</b>; the SF market historically paid <b>$' + (R / 1000).toFixed(1) + 'K/APW</b> for ' + r.p + 's → <b>' + r.vr.toFixed(2) + '×</b> ' + (r.vr >= 1.15 ? 'a bargain.' : (r.vr >= 0.85 ? 'about fair.' : 'an overpay.'));
+    } else if ((r.mk || 0) <= 4) {
+      why = 'A cut-free ≤$4K flier: floor ~' + (r.a25 || 0) + ' APW but a real ' + (r.a90 || 0) + '-APW ceiling — zero cap risk (drop anytime).';
+    }
+    var comp = (r.c || []).map(function (fid) { var t = (WR.fav.teams || {})[fid] || {}; return '<span class="fav-comp big">' + esc(t.team || fid) + (t.capspace != null ? ' · $' + Math.round((t.capspace || 0) / 1000) + 'K room' : '') + '</span>'; }).join(" ");
+    return '<tr class="fav-detail"><td colspan="8"><div class="fav-dwrap">' +
+      '<div><div class="fav-dh">Why ' + (VMETA[r.v] || ["", r.v])[1] + '</div><div class="fav-dwhy">' + why + '</div>' +
+      '<div class="fav-dmeta">Deal: <b>' + esc(DTNAME[r.dt] || r.dt) + '</b> · Win-now ' + esc(r.wn || "—") + ' · Asset ' + esc(r.as || "—") + (r.vc === "e" ? ' · <span class="fav-est">estimate</span> (projected price / thin rate)' : '') + '</div></div>' +
+      '<div><div class="fav-dh">Expected APW range</div>' + favRangeBar(r.a25, r.a50, r.a90, APW_SCALE) + '<div class="fav-dmeta">floor ' + (r.a25 || 0) + ' · median ' + (r.a50 || 0) + ' · ceiling ' + (r.a90 || 0) + ' all-play wins</div>' +
+      '<div class="fav-dh" style="margin-top:8px">Price range</div><div class="fav-dmeta">$' + r.lk + 'K (low) · $' + r.mk + 'K (median) · $' + r.tk + 'K (top-10%)</div></div>' +
+      '<div><div class="fav-dh">Likely competition</div>' + (comp || '<span class="fav-rk">no other team has a clear need here</span>') + '</div>' +
+      '</div></td></tr>';
   }
 
   function paintScouting(host) {
