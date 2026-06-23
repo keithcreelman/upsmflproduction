@@ -4442,8 +4442,12 @@ export default {
       // commish franchise (0008/0000) via ?franchise_id= (the same soft
       // requested_by model the other commish reads use).
       if (path === "/api/auction/intel" && request.method === "GET") {
-        const reqFid = _rdhPadFid(url.searchParams.get("franchise_id") || "");
-        const commishFids = _rdhCommishFids();
+        // Inline commish gate — _rdhPadFid/_rdhCommishFids are declared later in
+        // this handler (TDZ), so don't reference them from up here.
+        const _pad4 = (v) => { const s = safeStr(v).trim(); return /^\d+$/.test(s) ? s.padStart(4, "0") : s; };
+        const reqFid = _pad4(url.searchParams.get("franchise_id") || "");
+        const commishFids = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000")
+          .split(",").map((x) => _pad4(x)).filter(Boolean);
         if (!reqFid || !commishFids.includes(reqFid)) {
           return jsonOut(403, { ok: false, error: "Commish-only — pass a commish franchise_id" });
         }
