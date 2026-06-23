@@ -217,7 +217,1138 @@
       ]
     }
   ],
-  "verdicts": [],
+  "verdicts": [
+    {
+      "fid": "0001",
+      "confidence": "high",
+      "claims": [
+        {
+          "claim": "bid_rhythm: nocturnal peak \u2014 43 bids at 23:00 ET, 32 at 22:00 ET, heaviest two buckets",
+          "supported": true,
+          "note": "CSV confirms hour 23=43, hour 22=32 for 0001 SF; JSON peak_hours_et=[23,22,13]. Verbatim correct."
+        },
+        {
+          "claim": "bid_rhythm: secondary ~13:00 ET (1pm) lunch pulse of 13 bids",
+          "supported": false,
+          "note": "ERROR. JSON hour_hist[13]=20 and CSV confirms 20 bids at hour 13, NOT 13. The card confused the hour index (13) with the bid count. The pulse is real (13:00 is the 3rd peak) but the magnitude is wrong: 20 bids, not 13."
+        },
+        {
+          "claim": "bid_rhythm: 233 bids for 60 wins (~3.9 bids/win)",
+          "supported": true,
+          "note": "JSON n_bids=233, n_wins=60; CSV win count=60, 233/60=3.88. Correct."
+        },
+        {
+          "claim": "snipe_threat: post_win_pounce_share=0.65, post_win_avg_followups=2.47",
+          "supported": true,
+          "note": "Matches JSON SF exactly. Verbatim correct."
+        },
+        {
+          "claim": "lurk_threat: runner_up_n=43 in SF era (51 over L5)",
+          "supported": false,
+          "note": "BOTH OFF BY +1. JSON SF runner_up_n=42 (not 43); L5 runner_up_n=50 (not 51). The narrative (high bridesmaid count near the 60 wins) still holds, but the two quoted figures are wrong. Instruction was to use numbers verbatim."
+        },
+        {
+          "claim": "lurk_threat: lurk_win_n=0 \u2014 underbidder position never converts",
+          "supported": true,
+          "note": "JSON SF lurk_win_n=0. Correct."
+        },
+        {
+          "claim": "lurk_threat: late_bid_share under8h 0.348 / under6h 0.326 / under2h 0.287",
+          "supported": true,
+          "note": "All three match JSON SF verbatim."
+        },
+        {
+          "claim": "lurk_threat: overtake_rate 0.245, late_overtake_n 7; most overtakes land 24-90h out (Evans $36k at 45.3h, Hopkins $26k at 43.2h)",
+          "supported": true,
+          "note": "CSV: 57 SF overtakes, rate 57/233=0.245; 7 with <8h remaining=late_overtake_n. t_to_close median 25.4h, max 90.7h, supporting 24-90h band. Evans $36k at t_to_close 45.32h bumping 0010, Hopkins $26k at 43.22h \u2014 both verified."
+        },
+        {
+          "claim": "spend_signature: zone_mix capfree 0.733/low 0.117/mid 0.083/marquee 0.067 vs league capfree 0.611/marquee 0.126",
+          "supported": true,
+          "note": "All zone_mix values match JSON SF; league zones_sf capfree=0.611, marquee=0.126 confirmed."
+        },
+        {
+          "claim": "spend_signature: 4 marquee_wins, max_win_k $38k (Derek Carr 2022)",
+          "supported": true,
+          "note": "JSON marquee_wins=4, max_win_k=38. CSV marquee wins (>=18k): Carr $38k, Diggs $20k, Montgomery $20k, Stafford $18k = 4. Max is Carr $38k 2022. Correct. SMALL SAMPLE: n=4 marquee wins."
+        },
+        {
+          "claim": "spend_signature: league top SF wins $94k Henry, $66k Brady; QB ceiling $66k",
+          "supported": true,
+          "note": "top_wins_l5: Henry RB $94k, Brady QB $66k; pos_thresh_sf QB max=66. Correct."
+        },
+        {
+          "claim": "spend_signature: pos_spend WR $65k/QB $64k/RB $64k/TE $35k/LB $23k",
+          "supported": true,
+          "note": "All match JSON SF pos_spend_k verbatim."
+        },
+        {
+          "claim": "spend_signature: $286k across 60 wins, ~$4.8k avg, vs league median win $4k",
+          "supported": true,
+          "note": "CSV total win spend=286.0, avg=4.77k (~$4.8k); JSON total_k=286, league median_win_k_sf=4.0. Correct."
+        },
+        {
+          "claim": "vs_0008: 7 overtakes against Keith, all cap-free/cheap \u2014 Trubisky $5k, Gage $5k, Evans $5k, Spillane LB $2k, Flacco $2k, Rousseau DE $2k, Aubrey PK $2k",
+          "supported": true,
+          "note": "CSV overtakes vs victim_fid 0008 = exactly these 7, with matching amounts/positions/seasons (Trubisky/Gage 2022, Evans 2024, Spillane/Flacco 2024, Rousseau/Aubrey 2025). All $2-5k, none marquee. Fully verified."
+        },
+        {
+          "claim": "vs_0008: price-pusher not thief (runner_up_n 43, lurk_win_n 0)",
+          "supported": true,
+          "note": "Conclusion holds; lurk_win_n=0 exact. runner_up_n carries the same +1 error (actual 42) but the qualitative read is sound."
+        },
+        {
+          "claim": "key_example: 2022 won Derek Carr $38k by overtaking 0002 up the ladder",
+          "supported": true,
+          "note": "CSV: Carr ladder 17->30->31(overtake victim 0002)->38(final win). Correct, incl. the 0002 overtake."
+        },
+        {
+          "claim": "key_example: pushed Mike Evans to $36k vs 0010 (lost), chased to $21k in 2024 vs 0012 (lost)",
+          "supported": true,
+          "note": "CSV: Evans 2022 $36k final-bid overtaken by 0010; 2024 $21k overtaken by 0012. Both confirmed losses."
+        },
+        {
+          "claim": "key_example: pounce \u2014 2022 won Bobby Wagner $9k, Robert Woods $13k, Derek Carr $38k in same stretch",
+          "supported": true,
+          "note": "CSV: Wagner won at $9k (2022), Woods won at $13k (2022), Carr won $38k (2022). All real wins."
+        }
+      ],
+      "flags": [
+        "bid_rhythm 13:00 pulse magnitude is WRONG: card says 13 bids, actual is 20 (hour index 13 confused with bid count). Soften/correct.",
+        "runner_up_n is overstated by 1 in BOTH eras: card SF=43 (actual 42), card L5=51 (actual 50). Correct to verbatim values.",
+        "marquee_wins=4 is a small sample (<5 events); any positional/ceiling generalization off it should be softened.",
+        "LB positional-spend ($23k) and the 'cheap LB collision zone' lean on thin volume \u2014 LB max win league-wide is only $15k and 0001's IDP overtakes vs Keith are $2k scraps; directionally fine but not a strong signal."
+      ]
+    },
+    {
+      "fid": "0002",
+      "confidence": "low",
+      "claims": [
+        {
+          "claim": "Owner is 'Derrick Whitman' for franchise 0002 (the entire card profiles Whitman)",
+          "supported": false,
+          "note": "CRITICAL ATTRIBUTION ERROR. Franchise 0002 changed hands: 2014-2017 Derrick Whitman, 2018-2022 AJ/Rico Balderelli, 2023-2025 Derrick Whitman again. The SF era (2022-2025) the card profiles is split essentially 50/50: 88 bids/18 wins were Balderelli (2022) and 92 bids/34 wins were Whitman (2023-25). The intel JSON's owner_name='Derrick Whitman' masks this. Most historical 'book' examples are Balderelli, not Whitman."
+        },
+        {
+          "claim": "hour_hist spikes hr8=22, hr9=19, hr0=18; peak_hours_et=[8,9,0]; morning/midnight bidder",
+          "supported": true,
+          "note": "Verified verbatim from owners.0002.by_era.sf: hour_hist[8]=22, [9]=19, [0]=18; peak_hours_et=[8,9,0]. But the hist blends two owners (Balderelli+Whitman), so it does not cleanly describe Whitman's rhythm alone."
+        },
+        {
+          "claim": "late_bid_share under8h 0.369 / under6h 0.352 / under2h 0.336 \u2014 over a third of bids under 2h",
+          "supported": true,
+          "note": "Matches SF JSON exactly. Same blended-owner caveat."
+        },
+        {
+          "claim": "post_win_pounce_share 0.423, post_win_avg_followups 1.25 (L5 0.417/1.28)",
+          "supported": true,
+          "note": "SF values 0.423/1.25 and L5 0.417/1.28 match JSON verbatim. Behavioral claim is a reasonable read of the metric."
+        },
+        {
+          "claim": "runner_up_n SF=18, L5=23; frequent bridesmaid applying price pressure",
+          "supported": false,
+          "note": "SF runner_up_n=18 is correct, but L5 runner_up_n is 22, NOT 23 as the card states. Minor numeric error. Also blended across two owners."
+        },
+        {
+          "claim": "overtake_rate 0.133, late_overtake_n SF=1, L5=3 \u2014 rarely overtakes in final 2h but does swoop",
+          "supported": true,
+          "note": "SF overtake_rate=0.133, late_overtake_n=1; L5 late_overtake_n=3, overtake_rate=0.138 all match. SMALL SAMPLE: late_overtake_n=1 (SF) and 3 (L5) are tiny; the 'does swoop' generalization rests on 1-3 events."
+        },
+        {
+          "claim": "2024 Kamara: Keith built to 26k (seq16), 0002 came over the top at 27k at the 24h lock (seq17, is_overtake=1, victim=0008), won at 27k",
+          "supported": true,
+          "note": "FULLY VERIFIED in bids_enriched.csv: seq16 0008 bid 26 (ov=1 vic=0007); seq17 0002 Derrick Whitman bid 27, t_to_close=24.03, is_overtake=1, victim_fid=0008; seq18 final at 27. This is a genuine Whitman late-overtake snipe on a Keith-built RB. The card's single strongest, correctly-attributed example."
+        },
+        {
+          "claim": "2022 DeAndre Hopkins: Keith opened 1k, 0002 overtook at 5k (vic=0008), late-laddered 27/28/32k to win at 32k \u2014 his SF max_win and a marquee_win",
+          "supported": false,
+          "note": "The bid ladder is real (verified: seq1 0008@1, seq2-3 0002@4 then 5 ov=1 vic=0008, seq10-13 0002 27/28/32 final@32). BUT the 2022 actor is AJ BALDERELLI, not Derrick Whitman. Attributing this as Whitman's 'SF max_win' and signature marquee detonation is wrong. SF max_win_k=32 belongs to Balderelli."
+        },
+        {
+          "claim": "2021 Keenan Allen: 0002 won at 60k with runner_up_fid=0008 (Keith pushed Whitman to his 2nd-highest career price)",
+          "supported": false,
+          "note": "Ladder verified (0002 wins at 60k final, 0008 prior bid 60). BUT 2021 0002 = AJ Balderelli, not Whitman. Misattributed. Keith was indeed the underbidder, but against Balderelli."
+        },
+        {
+          "claim": "2019 Antonio Brown: all-time max win at 79k \u2014 proof Whitman can detonate",
+          "supported": false,
+          "note": "0002 did win Brown at 79k (verified is_final). BUT 2019 0002 = AJ Balderelli. This is NOT Whitman's detonation. Misattributed."
+        },
+        {
+          "claim": "2014 Edelman 30k forcing 0008",
+          "supported": true,
+          "note": "Correctly Derrick Whitman (2014 = Whitman era). He won Edelman at 30k with a bid over Keith (vic=0008). Valid Whitman-vs-0008 example, though pre-SF (2014)."
+        },
+        {
+          "claim": "He forced/pushed 0008 on 17 separate bids",
+          "supported": false,
+          "note": "Count of 17 bids with victim_fid=0008 is correct all-time, but only 8 were Derrick Whitman; 9 were Balderelli era (8 AJ + 1 AJ&Rico). So the 0008-collision history is roughly half-misattributed to Whitman."
+        },
+        {
+          "claim": "zone_mix capfree 0.865 vs league 0.611; 86.5% cap-free dabbler",
+          "supported": true,
+          "note": "SF zone_mix capfree=0.865 matches JSON; league.zones_sf capfree=0.611 matches. Comparison valid. Blended-owner caveat applies but the cap-free tilt holds for the franchise."
+        },
+        {
+          "claim": "pos_spend_k WR 55k / RB 42k / QB 28k; 52 SF wins on 180 bids, total 172k; marquee_wins=2, max_win_k=32",
+          "supported": true,
+          "note": "All match SF JSON verbatim. BUT the 2 marquee wins are split one-each across owners (Hopkins 32k=Balderelli, Kamara 27k=Whitman), and the 180 bids / 172k are a blended Balderelli+Whitman total, not Whitman's alone."
+        },
+        {
+          "claim": "Headline: 'twice has ripped a built-up lot straight out of Keith's hands'",
+          "supported": false,
+          "note": "The two cited lots are Hopkins 2022 (Balderelli) and Kamara 2024 (Whitman). As Whitman specifically, it has happened ONCE (Kamara), not twice. 'Twice' is true only at the franchise level conflating two owners."
+        }
+      ],
+      "flags": [
+        "CRITICAL: Franchise 0002 ownership changed mid-window \u2014 2022 (incl. Hopkins 32k max-win) was AJ Balderelli, not Derrick Whitman; the card conflates two owners under one name.",
+        "3 of 4 key_examples (Hopkins 2022, Allen 2021, Brown 2019) are misattributed to Whitman but were bid by Balderelli; only Kamara 2024 is genuinely Whitman.",
+        "Only ONE correctly-attributed Whitman-vs-Keith marquee event exists (2024 Kamara) plus the 2014 Edelman \u2014 too thin to support 'twice ripped a lot from Keith' and the broad snipe narrative.",
+        "SMALL SAMPLE: late_overtake_n=1 (SF) / 3 (L5), marquee_wins=2 (split across owners) \u2014 overtake/detonation claims rest on 1-3 events.",
+        "Numeric error: card states L5 runner_up_n=23, actual is 22.",
+        "SF aggregate stats (180 bids, 52 wins, 172k, hour_hist, zone_mix) are blended ~50/50 Balderelli/Whitman and should not be presented as Whitman's behavioral signature."
+      ]
+    },
+    {
+      "fid": "0003",
+      "confidence": "medium",
+      "claims": [
+        {
+          "claim": "Owner/team attribution: 0003 = Matt Gerardi, team 'Gride'. SF era (2022-2025) bids all under Matt Gerardi.",
+          "supported": true,
+          "note": "CSV owner field for 0003 is 'Matt Gerardi' for every SF season (2022-25: 52/43/60/53 bids). Note: pre-2022 rows are 'Kris Lake' (franchise changed hands), but the SF-era card is correctly attributed to Gerardi."
+        },
+        {
+          "claim": "Volume: 67 SF wins on 208 bids for $311K total.",
+          "supported": true,
+          "note": "JSON sf.n_wins=67, n_bids=208, total_k=311.0; recomputed from CSV exactly (wins=67, total=311.0)."
+        },
+        {
+          "claim": "zone_mix 80.6% cap-free / 7.5% low / 1.5% mid / 10.4% marquee vs league 61.1% cap-free / 12.6% marquee.",
+          "supported": true,
+          "note": "JSON sf.zone_mix matches verbatim; league zones_sf capfree=0.611, marquee=0.126 match. 'Volume-over-stars value hunter' framing is fair."
+        },
+        {
+          "claim": "Position spend (SF): RB $94K, QB $70K, WR $67K, TE $33K, LB $15K, S $9K.",
+          "supported": true,
+          "note": "JSON pos_spend_k and CSV win-recompute both give RB94/QB70/WR67/TE33/LB15/S9 exactly."
+        },
+        {
+          "claim": "marquee_wins 7, max_win $37K (Kirk Cousins QB 2022); other marquee wins Henry $34, Godwin $27, Njoku $27, Singletary $21, Moore $21, Darnold $18.",
+          "supported": true,
+          "note": "All 7 marquee wins (>=18K, is_final) verified in CSV with exact player/pos/amount/season."
+        },
+        {
+          "claim": "overtake_rate 0.183, late_overtake_n 8 (11 over L5), of 38 SF overtakes.",
+          "supported": true,
+          "note": "JSON sf.overtake_rate=0.183, late_overtake_n=8, L5=11; CSV confirms 38 total SF overtakes by 0003."
+        },
+        {
+          "claim": "post_win_pounce_share 0.522 in SF (0.518 L5), post_win_avg_followups 1.15.",
+          "supported": true,
+          "note": "JSON verbatim. Snipe-threat framing is consistent with the metric (share of wins followed by another bid within 8h)."
+        },
+        {
+          "claim": "runner_up_n is 17 in SF (25 over L5).",
+          "supported": false,
+          "note": "WRONG. JSON sf.runner_up_n=16, l5.runner_up_n=24. Both inflated by one. The 'bridesmaid' thesis still holds directionally but the cited counts are incorrect."
+        },
+        {
+          "claim": "lurk_win_n is 0 \u2014 rarely steals the lot outright.",
+          "supported": true,
+          "note": "JSON sf.lurk_win_n=0. True."
+        },
+        {
+          "claim": "Late-bidding thesis: 52.2% of SF bids under 8h to close, 50.0% under 6h, 47.1% under 2h 'before the 24h lock'; 'a comfortable lead at hour 12 is not safe at hour 23'.",
+          "supported": false,
+          "note": "NUMBERS are verbatim-correct from JSON late_bid_share {0.522,0.500,0.471} BUT the builder computes them on t_remaining_h (time left in the bidding WINDOW), over only 138 of 208 timed bids \u2014 NOT t_to_close_h. Recomputing on t_to_close_h ('before the 24h lock', as the prose explicitly claims) gives under8=0.346, under6=0.346, under2=0.332. The card mislabels which clock the 47.1% measures; the 'final two hours before the 24h lock' / 'hour 23' framing is unsupported, and tactic #2 ('place your true max in the final window') rests on this misreading."
+        },
+        {
+          "claim": "peak_hours_et [12,14,16]; secondary spikes hours 9,17,20; L5 hour_hist lights up hour 0 (20 bids) and hour 20 (19).",
+          "supported": true,
+          "note": "JSON sf.peak_hours_et=[12,14,16]; sf hist h9=11/h17=12/h20=15 (h20 actually ties the SF peak of 15, so 'secondary' is loose but acceptable); l5.hour_hist[0]=20, [20]=19. Verified."
+        },
+        {
+          "claim": "4 SF overtakes vs Keith (0008): Kamara $5K, Kelce $12K, Deebo Samuel $7K (t_close 24.02h), Hubbard $34K.",
+          "supported": true,
+          "note": "CSV: exactly 4 overtakes with victim_fid=0008 \u2014 Kamara $5/Kelce $12/Deebo $7 (tclose 24.02)/Hubbard $34. All confirmed. SMALL SAMPLE: entire vs_0008 thesis rests on 4 events."
+        },
+        {
+          "claim": "Hubbard war: Keith opened $15->$20, Gerardi $23->$24->$26->$28 then overtook Keith at $34 (seq11), Keith forced up to $36->$37 to win at $37; ~$17 premium over Keith's $20 opener.",
+          "supported": true,
+          "note": "Bid log confirms seq4-5 Keith $15/$20; seq6-9 Gerardi $23/$24/$26/$28; seq11 Gerardi $34 OT victim=0008 (tclose 35.4h, card says '35h left' - correct); seq12-14 Keith $36/$37/$37 win. $37-$20=$17 arithmetic holds. Minor omission: an intervening seq10 Keith $29 overtake is not mentioned, but the named facts are accurate. Single anecdote driving tactic #2."
+        },
+        {
+          "claim": "Lurk examples: 2025 Etienne $16 tclose 24.02h over 0004; 2024 Henry $34 tclose 24.04h over 0002; 2024 Singletary $21 tclose 24.03h over 0001.",
+          "supported": true,
+          "note": "All three verified in CSV at the exact seq/amount/t_to_close/victim. Henry's $34 overtake (seq15) did become the win, as the key_examples note states."
+        },
+        {
+          "claim": "Cousins 2022 $37 'overtaking 0010 from $17' - will go to top of QB market.",
+          "supported": false,
+          "note": "Imprecise/misleading. Gerardi entered and overtook 0010 at $17 (seq6, true), but his winning $37 bid (seq13) is NOT flagged as an overtake and has no victim - it followed Mannila's $37. The phrasing conflates his $17 entry-overtake with the $37 win. Max_win $37 and 'marquee QB grab' are true."
+        }
+      ],
+      "flags": [
+        "runner_up_n is wrong: SF=16 not 17, L5=24 not 25 (off by one each).",
+        "CENTRAL THESIS FLAW: the late-bid percentages (52.2/50.0/47.1%) are computed on t_remaining_h over 138/208 timed bids, but the card's prose calls them time 'to close'/'before the 24h lock'. On the actual t_to_close clock the under-2h share is ~33%, not 47.1%. Tactic #2 ('place your max in the final window', 'hour 23') is built on this mislabel.",
+        "SMALL SAMPLE: the entire vs_0008 section rests on 4 overtakes; tactic #2 leans on the single Hubbard anecdote; late_overtake_n=8.",
+        "Cousins 'overtaking 0010 from $17' conflates his $17 entry-overtake with his $37 winning bid (the win was not an overtake).",
+        "Secondary-spike hour 20 (15 bids) actually ties the SF peak (15), so labeling it merely 'secondary' understates it.",
+        "Pre-2022 0003 rows belong to a different owner (Kris Lake); only SF-era attribution to Gerardi is clean."
+      ]
+    },
+    {
+      "fid": "0004",
+      "confidence": "medium",
+      "claims": [
+        {
+          "claim": "SF-era totals: 300 bids, 61 wins, total_k 430",
+          "supported": true,
+          "note": "Verified in JSON (n_bids 300, n_wins 61, total_k 430.0) and re-derived from DB: COUNT finalbid=1 = 61, SUM = 430.0."
+        },
+        {
+          "claim": "peak_hours_et are 6,7,12; hour_hist 42@6am, 38@7am, 30@12pm",
+          "supported": true,
+          "note": "JSON hour_hist[6]=42, [7]=38, [12]=30; peak_hours_et=[6,7,12]. Exact match."
+        },
+        {
+          "claim": "Evening 17:00-21:00 has 'only a few' bids",
+          "supported": false,
+          "note": "Overstated. hour_hist[21]=15 is not 'a few' (it is the 4th-busiest hour). [17]=10,[18]=5,[19]=1,[20]=4 are low, but the 21:00 bucket undercuts the 'asleep evening' framing."
+        },
+        {
+          "claim": "late_bid_share under8h 0.244 / under6h 0.228 / under2h 0.191",
+          "supported": true,
+          "note": "Exact match to JSON. '~1 in 5 land in final 2 hours' (0.191) is fair."
+        },
+        {
+          "claim": "post_win_pounce_share 0.672, post_win_avg_followups 2.64 (elite pouncer, his most dangerous trait)",
+          "supported": true,
+          "note": "Exact match to JSON."
+        },
+        {
+          "claim": "Pounce in action: after McCaffrey lock 07:47:30 (2025-08-05) he bid Aiyuk 07:48:44 and Njoku $16K 07:49:26",
+          "supported": true,
+          "note": "Verified verbatim in DB to the second. Njoku bid was 16000 at 07:49:26. Strongest example in the card."
+        },
+        {
+          "claim": "runner_up_n is 24 (SF)",
+          "supported": false,
+          "note": "DATA ERROR: JSON runner_up_n = 25, not 24. Cited as '24' twice (lurk_threat and key_examples). Minor but should be 25."
+        },
+        {
+          "claim": "late_overtake_n 7, overtake_rate 0.27",
+          "supported": true,
+          "note": "Matches JSON. FLAG: 7 is a small sample (<10); the 'will jump late to steal' generalization rests on 7 events."
+        },
+        {
+          "claim": "McCaffrey 2025 $56K is his max win; sat at $45K then late-overtook to $56K at 20:44 ET",
+          "supported": true,
+          "note": "DB confirms: 0004 at 45000 (08:00, forcing 0010), then 56000 at 20:44:01 (forcing 0007), final lock 56000 at 07:47:30 next morning. max_win_k=56.0. Accurate."
+        },
+        {
+          "claim": "Kelce 2025 TE $21K: out-dueled Keith head-to-head, Keith forced underbidder at $9-10K rungs",
+          "supported": true,
+          "note": "0004 won at 21000. His 9000 and 10000 bids list 0008 as forcing victim (Keith underbidding); Keith's top was 11000. 'Out-dueled head-to-head' is fair, though Keith's actual ceiling was $11K not $10K."
+        },
+        {
+          "claim": "Marquee wins (7, 18K+): McCaffrey 56, Prescott 45, Mayfield 31, Adams 30, Allen 28, Goedert 22, Kelce 21",
+          "supported": true,
+          "note": "All 7 verified exactly in DB (finalbid=1, franchise 0004, 2022-2025). marquee_wins=7 matches JSON."
+        },
+        {
+          "claim": "zone_mix capfree 0.672/low 0.131/mid 0.082/marquee 0.115",
+          "supported": true,
+          "note": "Exact match to JSON."
+        },
+        {
+          "claim": "pos_spend RB 125/QB 106/WR 71/TE 47, RB+QB = 54% of spend",
+          "supported": true,
+          "note": "Exact match; (125+106)/430 = 54%."
+        },
+        {
+          "claim": "Routinely clears league RB p90 (27K) and QB p90 (38K)",
+          "supported": true,
+          "note": "League thresholds confirmed: RB p90=27, QB p90=38. He has wins at RB 56 and QB 45/31, so 'clears both' holds."
+        },
+        {
+          "claim": "Henry 2023: 0004 was the runner-up who forced Keith (0008) to the league-record $94K; his $54K/$52K bids list 0008 as forced",
+          "supported": false,
+          "note": "MATERIALLY WRONG. DB shows the FINAL forcing party who drove Keith to $94K was 0010 (0010 reached 91000; the 67K-94K endgame is an 0008-vs-0010 duel). 0004 topped out at $65K and was NOT the runner-up (0010 was, at 91000). True parts: 0004's $52K/$54K bids did force 0008, and $94K is the league record. But the headline attribution of the record price to 0004's pressure is false."
+        },
+        {
+          "claim": "$94K Henry 2023 is the league record",
+          "supported": true,
+          "note": "Confirmed: highest FA-auction finalbid all-time (94000 > AB 79000/2019 > Foster 77000/2012). Won by 0008."
+        },
+        {
+          "claim": "Marquee loss: Prescott pushed to $50K, lost to 0002 (2024)",
+          "supported": false,
+          "note": "FABRICATED. DB: 0004 WON Prescott at $45K in 2024 (finalbid=1) \u2014 it is in his OWN marquee-wins list. No $50K bid exists; 0002 never bid on Prescott (only 0011 at 36000 and 0004). Self-contradictory: same player listed as both a $45K win and a $50K loss."
+        },
+        {
+          "claim": "Marquee loss: Tyreek Hill pushed to $61K, lost to 0007 (2024); '0004 pushed Hill to $61K'",
+          "supported": false,
+          "note": "OVERSTATED. 0004 maxed at $35K on Hill; 0007 won at $61K independently. The loss-to-0007 fact is true, but 0004 did NOT push the price to $61K \u2014 his ceiling was $35K."
+        },
+        {
+          "claim": "Marquee loss: Ekeler $57K to 0009 (2022)",
+          "supported": true,
+          "note": "DB confirms 0004 topped at 50000, 0009 won at 57000 (2022). Accurate."
+        },
+        {
+          "claim": "vs_0008: in 2025 0004 BEAT Keith head-to-head for Kelce $21K, Keith forced underbidder",
+          "supported": true,
+          "note": "Confirmed (see Kelce claim). Valid antagonist evidence."
+        },
+        {
+          "claim": "Henry cost Keith ~$40K of cap he wouldn't have spent unopposed",
+          "supported": false,
+          "note": "Unsupportable as attributed to 0004. The bulk of the price escalation (66K->94K) was driven by 0010, not 0004. 0004's pressure ended at the ~$50K rungs. The '$40K extra' cannot be credited to 0004."
+        }
+      ],
+      "flags": [
+        "runner_up_n is 25 in the data, not 24 as the card states (twice)",
+        "late_overtake_n=7 and overtake_rate 0.27 rest on only 7 events \u2014 soften the 'will jump late to steal' generalization",
+        "Henry 2023 headline/vs_0008/key_examples wrongly attribute the push to the $94K record to 0004; the data shows 0010 was the final forcing party and 0004 topped out at $65K \u2014 the '$94K record' and '~$40K of cap' claims should not be pinned on 0004",
+        "Prescott marquee-loss example is fabricated \u2014 0004 actually WON Prescott at $45K (it appears in his own marquee-wins list); 0002 never bid. Remove this example entirely",
+        "Tyreek Hill example overstates 0004's role: he maxed at $35K, did not push the lot to $61K (0007 did) \u2014 reword to 'lost to 0007, topped at $35K'",
+        "Evening-activity claim understates the 21:00 ET bucket (15 bids, his 4th-busiest hour) \u2014 'only a few in 17:00-21:00' is misleading"
+      ]
+    },
+    {
+      "fid": "0005",
+      "confidence": "high",
+      "claims": [
+        {
+          "claim": "Head-to-head: Hammer out-muscled Keith 11-2 in SF-era lots where both bid (21 such lots).",
+          "supported": true,
+          "note": "Re-derived from bids_enriched.csv SF era (2022-25): 21 lots where both 0005 and 0008 bid; 0005 won 11, 0008 won 2, other 8. Exact match."
+        },
+        {
+          "claim": "bid_rhythm: peak ET hours 5, 12, 8 (hour_hist 27/24/18; next cluster 0:00 with 12).",
+          "supported": true,
+          "note": "JSON owners.0005.by_era.sf.hour_hist verbatim: idx5=27, idx12=24, idx8=18, idx0=12. peak_hours_et=[5,12,8]. Matches."
+        },
+        {
+          "claim": "bid_rhythm: late_bid_share headline (under8h 0.306 / under6h 0.290 / under2h 0.258) is misleading.",
+          "supported": true,
+          "note": "JSON values are quoted correctly (0.306/0.290/0.258). The 'misleading' framing is defensible since most late rows are auto-close (tremain=0.0) finals, not genuine sniping."
+        },
+        {
+          "claim": "bid_rhythm: 'strip auto-close rows and only 2 of his 174 SF bids were genuinely placed with <8h left (Conner $38k at 0.03h, Hines $8k at 4.5h).'",
+          "supported": false,
+          "note": "WRONG. Conner $38k and Hines $8k are both forced=1 (forced bids), and both are 2022 SF. The non-forced bids at t_remaining<8h number 37 (mostly tremain=0.0 auto-close finals incl. Mixon $41k, Ridley $18k, Tua $29k). The '2 genuine late bids' figure and the two cited examples are not supported; internally contradictory (cites forced bids it told you to strip)."
+        },
+        {
+          "claim": "bid_rhythm: overtakes land at t_to_close 24-100h, not final hours; 53 SF overtakes.",
+          "supported": true,
+          "note": "53 SF overtakes confirmed (=overtake_rate 0.305=53/174). The 6 overtakes of Keith land at ttc 42.8-100.1h. Early-overtake thesis supported."
+        },
+        {
+          "claim": "snipe_threat: post_win_pounce_share 0.705 SF / 0.711 L5; avg 1.39 SF / 1.89 L5 follow-ups.",
+          "supported": true,
+          "note": "JSON verbatim: sf pounce 0.705 / followups 1.39; l5 0.711 / 1.89. Cannot independently recompute (CSV lacks timestamps) but values match JSON exactly."
+        },
+        {
+          "claim": "lurk_threat: lurk_win_n=0; overtake_rate 0.305 across 53 SF overtakes; late_overtake_n only 3.",
+          "supported": true,
+          "note": "JSON: lurk_win_n=0, overtake_rate=0.305, late_overtake_n=3, all verbatim. 53 overtakes independently confirmed from CSV."
+        },
+        {
+          "claim": "lurk_threat: runner_up_n=8 (SF) / 14 (L5).",
+          "supported": false,
+          "note": "DISCREPANCY. JSON owners.0005 runner_up_n = 9 (SF) and 15 (L5), not 8/14. Off by one in both. Use 9/15."
+        },
+        {
+          "claim": "lurk_threat: broader cut shows him pushing winner up on 16 SF lots (Fournette to $39k after $35k; Conner to $38k matching his $38k; Godwin to $27k).",
+          "supported": true,
+          "note": "My 2nd-highest-loser cut = exactly 16 SF lots. Fournette: 0005 hit $35k, won by 0009 at $39k. Conner: 0005 $38k, won by 0010 at $38k. Godwin: 0005 $23k, lot to $27k. All confirmed."
+        },
+        {
+          "claim": "spend_signature: RB $122k, QB $75k, WR $49k, LB $21k, S $20k, DE $13k; $319k over 61 wins.",
+          "supported": true,
+          "note": "Recomputed from 61 SF wins: RB122/QB75/WR49/LB21/S20/DE13/TE8/PK7/PN4, total 319. Exact match to JSON pos_spend_k and n_wins=61."
+        },
+        {
+          "claim": "spend_signature: zone_mix 78.7% capfree, ~8% mid, ~8% marquee; marquee_wins=5, max $41k (Mixon 2023).",
+          "supported": true,
+          "note": "JSON zone_mix capfree 0.787/mid 0.066/marquee 0.082; marquee_wins=5; max_win_k=41. 5 marquee wins recomputed: Mixon $41k, Tua $29k, Ryan $28k, Mostert $20k, Ridley $18k. Card lists these exactly."
+        },
+        {
+          "claim": "League context: median SF win $4k, RB p95 $39k, QB p95 $50k.",
+          "supported": true,
+          "note": "JSON league: median_win_k_sf=4.0, RB p95=39, QB p95=50. Exact."
+        },
+        {
+          "claim": "vs_0008: overtook Keith six times \u2014 Mixon RB ($23k), Godwin WR ($13k), Marquise Brown WR twice ($13k/$19k), Noah Fant TE ($3k), Diggs WR ($5k).",
+          "supported": true,
+          "note": "All 6 overtakes of victim_fid=0008 confirmed from CSV with exact players, positions, and amounts. Bid sequences verified."
+        },
+        {
+          "claim": "key_examples Mixon: Hammer's max win $41k; overtook Keith en route at $23k, matched Keith dollar-for-dollar at $41k, won tiebreak.",
+          "supported": true,
+          "note": "Verified seq-by-seq: seq6 0005 OT 0008 at $23k; seq12 0008 $41k (ttc 1.14); seq13 0005 $41k FINAL (ttc 0). Exact."
+        },
+        {
+          "claim": "key_examples Marquise Brown: overtook Keith twice ($13k then $19k), pushed to $27k, lost to 0011 at $37k.",
+          "supported": true,
+          "note": "Verified: seq3 0005 OT0008 $13k, seq6 0005 OT0008 $19k, seq10 0005 $27k, final 0011 $37k. Exact."
+        },
+        {
+          "claim": "key_examples Fant & Diggs: both lots he overtook Keith; on Fant forced Keith up to $4k winning bid; on Diggs pushed Keith to a $14k commitment.",
+          "supported": true,
+          "note": "Fant: 0005 OT0008 at $3k, 0008 won $4k. Exact. Diggs: 0005 OT0008 at $5k; Keith did reach $14k (seq9) but after 0001/0006 intervened, not directly from Hammer's $5k. Keith hit $14k and lost \u2014 directionally true, slight causal overstatement."
+        },
+        {
+          "claim": "key_examples: Mostert (2022 $11k, 2024 $20k) and Geno Smith (2025 $15k) \u2014 three SF lots Hammer won outright over Keith.",
+          "supported": true,
+          "note": "All three confirmed: Mostert 2022 won by 0005 $11k (0008 bid), Mostert 2024 won by 0005 $20k (0008 bid), Geno Smith 2025 won by 0005 $15k (0008 bid). Exact."
+        }
+      ],
+      "flags": [
+        "bid_rhythm FALSE claim: 'only 2 of his 174 SF bids genuinely placed <8h left (Conner $38k, Hines $8k)' is wrong and self-contradictory \u2014 both cited bids are forced=1, and there are 37 non-forced bids at t_remaining<8h. The early-aggressor thesis still holds via hour_hist and overtake timing, but this specific sentence should be cut or rewritten.",
+        "runner_up_n discrepancy: card says 8 SF / 14 L5; JSON is 9 SF / 15 L5 (off by one each). Use 9/15.",
+        "late_overtake_n=3 is the JSON value (quoted correctly) but a t_to_close<8h recompute yields 0 genuine last-second overtakes \u2014 the field definition differs; the 'early not last-second' conclusion is correct either way.",
+        "Diggs key_example slight causal overstatement: Hammer's $5k overtake did not directly push Keith to $14k (0001/0006 intervened); Keith reached $14k and lost.",
+        "Several supporting fields (pounce share, avg followups, zone_mix, late_overtake_n) are taken verbatim from JSON and could not be independently recomputed from the CSV (no timestamps/zone breakdown in CSV) \u2014 accepted as the canonical source per instructions."
+      ]
+    },
+    {
+      "fid": "0006",
+      "confidence": "medium",
+      "claims": [
+        {
+          "claim": "SF-era core profile: n_wins=47, total_k=132, max_win_k=22 (Kareem Hunt 2022, hr07), marquee_wins=1",
+          "supported": true,
+          "note": "Verified verbatim in owners['0006'].by_era.sf AND re-derived from bids_enriched.csv: 47 final-bid wins summing to 132k; max win Kareem Hunt 22.0 at hour_et=7. 132/47=2.81k/win as claimed."
+        },
+        {
+          "claim": "zone_mix is 87.2% cap-free / 8.5% low / 2.1% mid / 2.1% marquee vs league cap-free 61.1%",
+          "supported": true,
+          "note": "JSON sf zone_mix {capfree 0.872, low 0.085, mid 0.021, marquee 0.021}. Re-derived from win-by-win zoning (41/47 capfree, 4 low, 1 mid, 1 marquee). League zones_sf capfree=0.611. All exact."
+        },
+        {
+          "claim": "Top positions by spend: RB 63k, LB 19k, WR 17k, QB 11k",
+          "supported": true,
+          "note": "JSON pos_spend_k and CSV re-derivation both give RB 63, LB 19, WR 17, QB 11. Exact. RB is clearly his #1 spend."
+        },
+        {
+          "claim": "Bid rhythm: peak_hours_et [0,10,7]; hour-0=21, hour-10=21, hour-7=19, hour-9=17, hour-22=11, hour-23=16",
+          "supported": true,
+          "note": "JSON sf peak_hours_et=[0,10,7] and hour_hist confirms every cited bucket (idx0=21, 7=19, 9=17, 10=21, 22=11, 23=16). Overnight/pre-dawn ET clustering is real."
+        },
+        {
+          "claim": "Late-clock presence: late_bid_share under8h=0.463, under2h=0.407 (~41% of bids under 2h to lock)",
+          "supported": true,
+          "note": "JSON sf late_bid_share {under8h 0.463, under2h 0.407}. Verbatim. 0.407\u224841% framing correct."
+        },
+        {
+          "claim": "runner_up_n=21 SF (28 over L5)",
+          "supported": false,
+          "note": "MATERIAL ERROR. JSON sf runner_up_n=25 (not 21); l5 runner_up_n=33 (not 28). Card UNDERSTATES how often he is the bridesmaid. His core 'inflates more than he wins' thesis is actually STRONGER than the card claims, but the specific numbers are wrong."
+        },
+        {
+          "claim": "Snipe/pounce: post_win_pounce_share=0.511, avg_followups=0.79; Kareem Hunt win followed by Matt Gay/Oluokun/Foreman within 8h",
+          "supported": true,
+          "note": "JSON sf pounce=0.511, followups=0.79 verbatim. DB confirms: after 07:19 Hunt win, 0006 bid Matt Gay (PK, 09:08), Foreman (RB, 10:28), Oluokun (LB, 10:44) same day \u2014 all cheap ($1-4k) dart-throws as described."
+        },
+        {
+          "claim": "Lurk/close: overtake_rate=0.19, late_overtake_n=5, lurk_win_n=0; concrete pushes Montgomery (to 17k, lost to 0001@20k), Diggs (to 12k, lost 0001@20k), A.Robinson 2022 (to 12k, lost 0009@21k), M.Garrett 2023 (to 7k, lost 0007@13k)",
+          "supported": true,
+          "note": "JSON overtake_rate=0.19, late_overtake_n=5, lurk_win_n=0 verbatim. All four runner-up examples confirmed in CSV at the exact bid levels and winners stated. NOTE: late_overtake_n=5 is a small sample underpinning the 'overtakes late only 19%' closing-window advice."
+        },
+        {
+          "claim": "vs-Keith RB collisions: won Najee 2025 ($13k vs $8k), won Kupp 2025 ($9k vs $7k), tied Ekeler 2025 (both $8k, Keith won), tied Keaton Mitchell 2025 ($2k each, 0006 won)",
+          "supported": true,
+          "note": "All four verified in CSV. Najee: 0006 win@13, Keith peak@8. Kupp: 0006 win@9, Keith@7. Ekeler: both at 8, Keith won. Keaton Mitchell: 0006 won@2, Keith@2. 27 total SF lots where both bid (card lists the salient RB/WR ones)."
+        },
+        {
+          "claim": "Pre-SF splash: Robert Woods $41k in 2021",
+          "supported": true,
+          "note": "CSV confirms 0006 won Woods 2021 at 41.0 (correctly labeled pre-SF; not in the SF 132k total). L5 max_win_k=41 corroborates."
+        },
+        {
+          "claim": "Closing advice rests on 'overtakes late only 19%, zero lurk-wins' \u2014 bid to max in one clean overnight move",
+          "supported": true,
+          "note": "Directionally supported (overtake_rate=0.19, lurk_win_n=0 are real), but the late-steal evidence is thin: late_overtake_n=5 is a small sample, so 'safe to close before his under-2h window' is a reasonable-but-not-airtight inference."
+        },
+        {
+          "claim": "Threat level medium; not a marquee threat (Keith's 18k+ stars are safe)",
+          "supported": true,
+          "note": "marquee_wins=1, zone_mix marquee=2.1%, only SF marquee win is Hunt@22k. 'Almost never plays 18k+' is well supported. Medium framing fits a high-volume low-tier RB nudger."
+        }
+      ],
+      "flags": [
+        "runner_up_n is WRONG in the card: SF is 25 not 21, L5 is 33 not 28 (card understates his bridesmaid frequency; thesis direction still holds)",
+        "late_overtake_n=5 is a small sample (<5-event threshold borderline) underpinning the 'closes safely / overtakes late only 19%' advice \u2014 soften confidence on the timing-window prescription",
+        "D'Ernest Johnson 2022 win is filed under snipe_threat but is actually a head-to-head WIN over Keith (0008 was the $4k underbidder) \u2014 minor mis-categorization, not a factual error",
+        "mid zone (2.1%=1 win) and marquee (2.1%=1 win) each rest on a single event; fine for a deep-value verdict but individually small-sample"
+      ]
+    },
+    {
+      "fid": "0007",
+      "confidence": "high",
+      "claims": [
+        {
+          "claim": "Identity: fid 0007 = Josh Martel, team Sex Manther",
+          "supported": true,
+          "note": "DB transactions_auction shows 0007 = Josh Martel, current team 'Sex Manther' (also historical 'Ebners' Flow'). JSON owner/team fields are null but that is metadata only."
+        },
+        {
+          "claim": "bid_rhythm: 164 bids for 56 wins in SF era",
+          "supported": true,
+          "note": "Exact. CSV: 164 actor_fid=0007 bid rows in 2022-2025; 56 final-bid wins. Matches JSON n_bids=164, n_wins=56."
+        },
+        {
+          "claim": "peak_hours_et = [7,14,15] with 20 bids at 7 ET, 17 at 14 ET, 13 at 15 ET; not a midnight closer",
+          "supported": true,
+          "note": "Recomputed hour_et hist: 7->20, 14->17, 15->13 exactly. Hours 0-3 sum to just 7 bids -> 'not a midnight closer' holds. Note hour 21 also =13 (tied with 15)."
+        },
+        {
+          "claim": "L5 adds a 21 ET dinner-hour window; most dangerous mid-day and at 9pm ET",
+          "supported": true,
+          "note": "L5 hour_hist[21]=16 and L5 peak_hours_et=[7,14,21]. Supported."
+        },
+        {
+          "claim": "post_win_pounce_share = 0.571 (SF), post_win_avg_followups = 1.0",
+          "supported": true,
+          "note": "Cited verbatim from JSON owners.0007.by_era.sf. Not independently re-derived (requires the same 8h-window pounce definition), but the JSON values match the card."
+        },
+        {
+          "claim": "2024 Hill ($61k) and Conner ($20k) wins sit inside a same-window cluster of 16 final bids",
+          "supported": true,
+          "note": "Hill and Conner are both 2024 0007 wins at $61k/$20k (confirmed). The 'cluster of 16 final bids' is loosely defined and not precisely reproducible, but is not contradicted; treat as illustrative."
+        },
+        {
+          "claim": "lurk_win_n = 0 (active pusher, not passive lurker)",
+          "supported": true,
+          "note": "JSON lurk_win_n=0. Interpretation as 'not a passive lurker' is consistent with the 29 over-the-top overtakes found in the CSV."
+        },
+        {
+          "claim": "overtake_rate = 0.177 with runner_up_n = 11 (SF)",
+          "supported": true,
+          "note": "overtake_rate independently reproduced: 29 is_overtake='1' rows / 164 bids = 0.177. runner_up_n=11 cited from JSON; naive 'bid-but-lost' count is 31, so the 11 uses a stricter underbidder-at-close definition I could not exactly reproduce from the CSV - taken on JSON faith."
+        },
+        {
+          "claim": "late_bid_share under8h=0.468, under6h=0.45, under2h=0.394; ~40% of bids under 2h",
+          "supported": true,
+          "note": "Independently reproduced from t_remaining_h on the 109 bids with a timestamp: 0.468/0.450/0.394 exactly."
+        },
+        {
+          "claim": "late_overtake_n = 3 (SF); most bumps at the 24h reset, but will stab late",
+          "supported": true,
+          "note": "Exactly 3 overtakes with t_remaining_h<8 (Davenport 2022 t=0.02, Garrett 2023 t=2.2, Reynolds 2024 t=1.4). Matches JSON late_overtake_n=3."
+        },
+        {
+          "claim": "zone_mix barbell: 82.1% capfree, 8.9% low, 1.8% mid, 7.1% marquee",
+          "supported": true,
+          "note": "Card cites JSON verbatim (82.1/8.9/1.8/7.1). My by-bid-count recompute is very close (capfree 0.817) but swaps low/marquee (low 7.3 / marquee 8.5 vs JSON 8.9/7.1) - a definitional/boundary diff. The barbell conclusion (heavy capfree + marquee, thin middle) holds regardless."
+        },
+        {
+          "claim": "marquee_wins = 4, max_win_k = 66 (Brady 2022); QB ceiling 66, WR ceiling 61, TE max 29",
+          "supported": true,
+          "note": "Exactly 4 wins >=18k: Brady 66 (QB), Hill 61 (WR), Kittle 29 (TE), Conner 20 (RB). max_win 66. League thresholds confirm QB max=66, WR max=61, TE max=29, and 0007 holds all three of those ceilings/maxes."
+        },
+        {
+          "claim": "Top positional dollars: QB 77k, WR 74k, RB 51k, TE 45k, DE 29k, S 22k",
+          "supported": true,
+          "note": "pos_spend_k from winning bids reproduced exactly: QB 77, WR 74, RB 51, TE 45, DE 29, S 22, LB 12, PK 5, PN 3, DT 1; total 319."
+        },
+        {
+          "claim": "vs_0008: victim_fid=0008 on Kamara 2024 $23k, Gardner-Johnson 2023 $2k, Josh Reynolds 2024 $3k",
+          "supported": true,
+          "note": "All three confirmed in CSV as is_overtake='1' with victim_fid='0008'. These are exactly the 3 victim-0008 overtakes; no more, no fewer."
+        },
+        {
+          "claim": "Head-to-head wins over Keith: Myles Garrett $13k DE 2023, Josh Reynolds $3k WR 2024, Colby Parkinson $4k TE 2024, Gardner-Johnson $4k S 2023",
+          "supported": true,
+          "note": "All four verified: 0007 won the final bid and 0008 also bid in each lot, at the stated amounts. Note Gardner-Johnson 2023 is the SAME lot as the $2k victim-0008 overtake (one lot, two true facts) - internally consistent, not double-counting."
+        },
+        {
+          "claim": "Keith won the small-ball duels: Matt Gay PK, Ty Chandler RB, Mike White QB, Derwin James $9k S",
+          "supported": true,
+          "note": "All confirmed: 0008 won and 0007 also bid - Gay 2022 ($3k), Chandler 2022/2024 (max $9k), White 2023 ($2k), James 2023 ($9k S)."
+        },
+        {
+          "claim": "Brady: overtook 0009 to win at $66k; Hill: overtook victim 0004 to win at $61k",
+          "supported": true,
+          "note": "CSV confirms: Brady final sequence 0007 overtakes vic=0009 then wins 66; Hill 0007 overtakes vic=0004 then wins 61."
+        },
+        {
+          "claim": "Kamara key example: overtook Keith at $23k 'with 41.7h left', 0002 won at $27k",
+          "supported": false,
+          "note": "MISLABEL. The $23k 0007 overtake of vic=0008 and 0002 winning at $27k are correct. But '41.7h left' is t_to_close_h (41.66); the actual t_remaining_h (the field the card legend defines as time-left before the 24h lock) was 22.36h. Substance right, time-label wrong."
+        }
+      ],
+      "flags": [
+        "runner_up_n=11 is taken from JSON on faith - my CSV re-derivation gives 31 'bid-but-lost' lots, so the metric uses a stricter underbidder-at-close definition I could not exactly reproduce; the strategic claim rests on that JSON value.",
+        "late_overtake_n=3 and the three victim-0008 overtakes are each n=3 events (small sample) - soften 'reliably inflates final prices' / 'overtakes Keith more than chance' accordingly.",
+        "Kamara example mislabels 41.7h (t_to_close) as time-left when the card's own legend uses t_remaining_h (22.36h) - fix to avoid a credibility hit in the war room.",
+        "marquee_wins (4), max_win (1), head-to-head wins over 0008 (4) are all small-n; the 'one marquee strike per year' and 'beats Keith on contested lots' framing is directionally true but built on a handful of events.",
+        "zone_mix low/marquee percentages (8.9/7.1) come from the JSON; a by-bid-count recompute swaps them (7.3/8.5) - the barbell takeaway is robust but don't over-rely on the exact split."
+      ]
+    },
+    {
+      "fid": "0008",
+      "confidence": "high",
+      "claims": [
+        {
+          "claim": "max_win $94K = 2023 Derrick Henry, a 31-bid war won by 0008 vs 0004 and 0010",
+          "supported": true,
+          "note": "Verified: JSON max_win_k=94. CSV: Henry 2023 lot has exactly 31 bids (0008=17, 0004=8, 0010=6), 0008's final winning bid=94.0, is_final=1. War with 0004/0010 confirmed."
+        },
+        {
+          "claim": "Keith 'opened at $25K' on Henry 2023",
+          "supported": false,
+          "note": "FALSE detail. The opening bid on the Henry 2023 lot (seq=1) was $1.0K, not $25K. The $25K figure is invented/misremembered. Repeated in both spend_signature and key_examples."
+        },
+        {
+          "claim": "runner_up_n is 48 (SF) / 59 (l5)",
+          "supported": false,
+          "note": "MISMATCH. JSON owners['0008'].by_era.sf.runner_up_n=44, l5=55. Card overstates by 4 in each era. My own re-derivation (2nd-highest underbidder, SF) gave 52, so the exact count is definition-sensitive, but the card does NOT match the source JSON it cites. Used in lurk_threat and key_examples ('48 bridesmaid losses')."
+        },
+        {
+          "claim": "overtake_rate 0.18, late_overtake_n 12, lurk_win_n 0 (SF)",
+          "supported": true,
+          "note": "Exact match to JSON SF: overtake_rate=0.18, late_overtake_n=12, lurk_win_n=0."
+        },
+        {
+          "claim": "post_win_pounce_share 0.547 (SF)/0.522 (l5), avg 1.49/1.41 followups",
+          "supported": true,
+          "note": "Exact match to JSON. Pounce examples: 0008 did win Mecole Hardman 2022 ($4K), confirmed in CSV. The specific '3 follow-up lots within 8h' counts were not individually re-traced but the aggregate stats and the win itself check out."
+        },
+        {
+          "claim": "zone_mix 88% capfree / 2.7% marquee (SF) vs league 61.1% capfree / 12.6% marquee",
+          "supported": true,
+          "note": "Exact match: JSON sf zone_mix capfree=0.88, marquee=0.027; league zones_sf capfree=0.611, marquee=0.126. median_win_k_sf=4.0 confirmed."
+        },
+        {
+          "claim": "pos_spend RB $171K, WR $53K, S $19K, TE $17K, QB $13K (SF); RB $171K of $299K total",
+          "supported": true,
+          "note": "Exact match to JSON pos_spend_k SF. Independently re-derived from CSV: 0008 SF RB winning spend=171.0, total winning spend=299.0. RB-first tilt confirmed."
+        },
+        {
+          "claim": "Punts QB in SF: only $13K, just a $5K Garoppolo and a $4K-tier dart",
+          "supported": true,
+          "note": "$13K total QB confirmed. CSV SF QB wins: Garoppolo $5K (top), then Huntley/White/Brissett/Winston/Watson at $1-3K. Card says '$4K-tier dart' but no QB win was $4K (highest non-Garoppolo was $3K Brissett). Minor imprecision; the punt-QB thesis is sound. marquee_wins=2 (Henry 94K, Hubbard 37K) confirmed."
+        },
+        {
+          "claim": "Lurk-loss examples: Rodgers 2023 $50K to 0011, Mixon 2023 $41K to 0005, Cousins 2022 $37K to 0003, Henry 2024 $34K to 0003, Hopkins 2022 $32K to 0002",
+          "supported": false,
+          "note": "Winners/losses correct but DOLLAR FIGURES MISATTRIBUTED. The $X shown is the WINNER's price, not Keith's bid. Keith's actual max: Rodgers $30K (not 50), Mixon $41K (matches), Cousins $24K (not 37), Henry-2024 $32K (not 34), Hopkins only $7K (not 32). Hopkins especially misleading: '$32K' implies Keith drove it there, but he topped out at $7K \u2014 he barely contested it. The card presents these as 'Keith drove up to $X and lost' which overstates his role on 3 of 5."
+        },
+        {
+          "claim": "Late-active: 41.9% under8h, 38.9% under6h, 31.9% under2h (SF); 40.3/37.4/31.3 (l5)",
+          "supported": true,
+          "note": "Exact match to JSON late_bid_share SF {0.419,0.389,0.319} and l5 {0.403,0.374,0.313}."
+        },
+        {
+          "claim": "peak_hours [0,12,5] SF / [0,5,12] l5; hour_hist bimodal 45 at hr0, 33 at hr12",
+          "supported": true,
+          "note": "Exact match: JSON sf peak_hours_et=[0,12,5], l5=[0,5,12]; hour_hist[0]=45, hour_hist[12]=33, hour_hist[5]=32. Bimodal characterization fair."
+        },
+        {
+          "claim": "Historical big swings: Damien Williams $50K (2019), Lamar Miller $46K (2015), Hubbard $37K (2025)",
+          "supported": true,
+          "note": "All confirmed in CSV as 0008 winning final bids: Damien Williams 2019=$50K, Lamar Miller 2015=$46K, Hubbard 2025=$37K (SF marquee win)."
+        }
+      ],
+      "flags": [
+        "runner_up_n is wrong: card says 48 SF / 59 l5 but source JSON is 44 SF / 55 l5 \u2014 overstated by 4 in both eras; 'opened at $25K' on Henry 2023 is false (lot opened at $1K)",
+        "Lurk-loss dollar figures attribute the WINNER's clearing price to Keith. Keith's real max bids were lower on 3 of 5 (Rodgers $30K not $50K, Cousins $24K not $37K, Hopkins $7K not $32K). Soften 'he drove it up to $X and lost' \u2014 on Hopkins he barely participated.",
+        "QB '$4K-tier dart' is imprecise \u2014 no 0008 SF QB win was $4K (highest after Garoppolo $5K was Brissett $3K). Thesis (punt QB, $13K total) still holds.",
+        "Quantitative SF/l5 fields (overtake, pounce, zones, pos_spend, late_bid_share, peaks, hour_hist, marquee_wins, max_win) all match JSON verbatim and several re-derive cleanly from the CSV \u2014 the statistical backbone of the card is sound; only narrative/example details drift."
+      ]
+    },
+    {
+      "fid": "0009",
+      "confidence": "high",
+      "claims": [
+        {
+          "claim": "bid_rhythm: SF peak_hours_et=[6,7,5]; hour_hist front-loaded 22@5,54@6,42@7 = 118 of 234 SF bids before 8am ET; midday cluster 11-13 ET (17/16/12); evening dribble 19-20 ET (7/12)",
+          "supported": true,
+          "note": "Exact. JSON hour_hist[5,6,7]=22,54,42; CSV sum=118; before-8am=118; CSV 11/12/13=17/16/12; 19/20=7/12. n_bids=234 confirmed."
+        },
+        {
+          "claim": "late_bid_share moderate: under8h 0.406, under6h 0.376, under2h 0.339; NOT camping the 24h lock",
+          "supported": true,
+          "note": "Exact match. Re-derived from CSV over the 165 timed bids using t_remaining_h (the extractor's basis): under8h 67/165=0.406, under6h 0.376, under2h 0.339. Matches JSON verbatim."
+        },
+        {
+          "claim": "snipe: post_win_pounce_share 0.431, post_win_avg_followups 1.37; ~4 of every 10 of his 65 SF wins he flips within 8h, only 1-2 follow-ups; manageable",
+          "supported": true,
+          "note": "JSON values 0.431 and 1.37 quoted verbatim and are internally consistent (0.431x65~28). Could not independently recompute the pounce window from CSV but no contradicting evidence; directive says use JSON verbatim. n_wins=65 is JSON-extractor basis (CSV final-rows=62)."
+        },
+        {
+          "claim": "lurk: runner_up_n=31 in SF; chronic bridesmaid pushing winners up; pushed Brady to $66k (lost to 0007), Tua to $29k (lost 0005), Henry to $23k (lost 0003)",
+          "supported": true,
+          "note": "runner_up_n=31 matches JSON. All three examples exact in CSV: Brady max 66k lost to 0007, Tua 29k lost to 0005, Henry 23k lost to 0003."
+        },
+        {
+          "claim": "lurk: 58 SF lots he bid on and lost",
+          "supported": false,
+          "note": "SMALL DISCREPANCY: CSV grouping gives 61 lost SF lots, not 58. 31 of those are the stricter runner_up (last-forcing-before-final) subset. The 58 is the JSON-extractor's lost-lot basis vs my CSV de-dup; not fabricated but not exactly reproducible. Conclusion (chronic bridesmaid) holds regardless."
+        },
+        {
+          "claim": "lurk: late_overtake_n=2 and all 34 SF overtakes land at t_to_close>=24h (median 26.2h, min 24.0h) \u2014 ZERO inside the 8h CLOSE window",
+          "supported": true,
+          "note": "Both metrics verified and correctly reconciled despite using two different time bases. CSV: 34 SF overtakes, all t_to_close>=24h (min 24.0, median 26.2, max 64.94), zero with tc<8h. Separately late_overtake_n=2 = overtakes with t_remaining_h<=8 (within 8h of the 24h lock) \u2014 CSV reproduces exactly 2. overtake_rate 0.145 also exact."
+        },
+        {
+          "claim": "spend: zone_mix 0.877 capfree / 0.015 low / 0.046 mid / 0.062 marquee; only 4 marquee_wins; pos_spend RB $139k #1, QB $43k, WR $29k, IDP DE15/LB14/S11; RB 22.6% of bids, QB 17.9%",
+          "supported": true,
+          "note": "All exact. zone_mix and pos_spend_k match JSON verbatim. marquee_wins=4 confirmed in CSV (Robinson 21, Fournette 39, Ekeler 57, Mixon 19). RB bid share 0.226, QB 0.179 recomputed exactly from CSV."
+        },
+        {
+          "claim": "spend: max_win_k 57.0 = Ekeler 2022 won outright at seq 10; other wins Fournette $39k, A.Robinson $21k, Mixon $19k, Pollard $17k; total SF spend $259k across 65 wins; median win ~$2-4k",
+          "supported": true,
+          "note": "Ekeler $57k seq 10 exact; Fournette $39k, Robinson $21k, Mixon $19k, Pollard $17k all confirmed in CSV win list. total_k=259/n_wins=65 are JSON values (CSV final-rows: 62 wins / $256k \u2014 extractor basis differs). CAVEAT: card's 'median win ~$2-4k' overstates \u2014 actual CSV median win is $1.0k (many $1-2k dollar-bin wins); league median_win_k_sf=4 is league-wide not his. Minor."
+        },
+        {
+          "claim": "vs_0008: only 3 SF bids ever victimized Keith \u2014 Fournette $31k (2022, overtake 61.75h to close), dollar bumps on Drake and Gus Edwards ($2k each, 2023); NEVER beaten Keith (0 of lost lots went to 0008)",
+          "supported": true,
+          "note": "Exact. CSV: exactly 3 bids by 0009 with victim_fid=0008: Fournette 31k tc 61.75h (overtake), Drake 2k tc24.65, Gus Edwards 2k tc24.88, both 2023. Zero of 0009's lost SF lots went to 0008 \u2014 confirmed. Fournette $31k(bump) vs $39k(win) is the same 2022 lot, no contradiction."
+        },
+        {
+          "claim": "vs_0008 strategy: Keith's marquee target is RB; Henry won for league-high $94k in 2023, top_wins_l5 leader; advice to hold fire and bid inside final 8h where Bear isn't active",
+          "supported": true,
+          "note": "Bear's mechanics (zero late overtakes, all >=24h) are verified, so the 'place decisive bid in final 8h' tactic is sound against him. The $94k Henry / top_wins_l5 figure is a 0008 fact not re-derived here from 0009's data, but the strategic logic about Bear is data-backed."
+        },
+        {
+          "claim": "threat_level medium; headline 'dawn-patrol RB hoarder... loud volume but never a final-window sniper'",
+          "supported": true,
+          "note": "Well-calibrated. High volume (234 bids) + RB-centric (139k, #1) + front-loaded mornings (118/234 pre-8am) + zero late-close overtakes = price-inflater not closer. 'Medium' is appropriate."
+        }
+      ],
+      "flags": [
+        "lost-lot count: card says '58 SF lots bid on and lost' but CSV grouping gives 61; the 58 is the JSON-extractor basis and is not exactly reproducible from the CSV, though the chronic-bridesmaid conclusion is unaffected.",
+        "'median win ~$2-4k' in spend_signature overstates his central tendency: CSV median winning bid is $1.0k (heavy dollar-bin). The card seems to borrow league median_win_k_sf=4; his personal median is lower. Soften to 'median win ~$1-2k'.",
+        "win-count basis differs: card/JSON use n_wins=65 (canon-DB lot logic incl. forced/uncontested) vs 62 CSV final-rows, and total_k $259k vs $256k CSV. Small, expected extractor-vs-CSV gap, not an error.",
+        "post_win_pounce_share 0.431 / 1.37 followups are taken from the JSON verbatim and could not be independently recomputed from the CSV (no contradiction found); rests on JSON trust rather than re-derivation."
+      ]
+    },
+    {
+      "fid": "0010",
+      "confidence": "medium",
+      "claims": [
+        {
+          "claim": "bid_rhythm: SF-era peak ET hours are 6, 12, 7; hour 6 holds 70/321 bids (21.8%), hour 12 = 44 (13.7%), hour 7 = 42 (13.1%), hour 0 = 30; ~half activity in dawn 6-7am burst + midday check",
+          "supported": true,
+          "note": "Verified verbatim against SF hour_hist: hour6=70=21.8%, hour12=44=13.7%, hour7=42=13.1%, hour0=30, n_bids=321, peak_hours_et=[6,12,7]. Dawn 6-7am=112=34.9%, +hour12=48.6% supports 'nearly half'."
+        },
+        {
+          "claim": "snipe_threat: post_win_pounce_share 0.578, post_win_avg_followups 2.27 (after 57.8% of wins bids another lot within 8h, avg 2.3 follow-ups)",
+          "supported": true,
+          "note": "Matches SF JSON exactly (post_win_pounce_share=0.578, post_win_avg_followups=2.27). Passthrough field, correctly interpreted."
+        },
+        {
+          "claim": "lurk_threat: runner_up_n=53 SF (62 L5), lurk_win_n=0, overtake_rate=0.215, late_overtake_n=13; late_bid_share under8h 0.31/under6h 0.291/under2h 0.229",
+          "supported": true,
+          "note": "All match SF JSON verbatim (runner_up_n=53, L5=62, lurk_win_n=0, overtake_rate=0.215, late_overtake_n=13, late_bid_share={.31,.291,.229}). Interpretation as persistent price-pusher who loses is consistent with lurk_win_n=0 and 53 runner-ups."
+        },
+        {
+          "claim": "spend_signature zone framing: '85.9% of SF-era BIDS are in the 2-4K cap-free zone, 1.6% low, 4.7% mid, 7.8% marquee'",
+          "supported": false,
+          "note": "NUMBERS correct but NOUN wrong. zone_mix in build_auction_intel.py is computed over WINS (ewins), not bids: 85.9%/1.6%/4.7%/7.8% = share of his 64 WINS that closed in each zone (55/1/3/5). Recomputing zone over actual bid amounts gives capfree ~33.6%, not 85.9%. Card mislabels wins as bids here and again in vs_0008 tactic #4."
+        },
+        {
+          "claim": "spend_signature: 7.8% marquee is 'well above the league's own marquee rate'",
+          "supported": false,
+          "note": "CONTRADICTED. League zones_sf marquee share = 0.126 (12.6%); Blake = 0.078 (7.8%). Blake is BELOW league marquee rate, not above. Direct error."
+        },
+        {
+          "claim": "spend_signature: 64 wins / $286k SF era; max win $38k (twice); pos_spend RB $86k, WR $82k, QB $53k, S $21k(11w), DE $15k(7w), LB $13k(9w); win counts 10 WR, 9 RB, 11 S, 9 LB, 7 DE, 5 QB",
+          "supported": true,
+          "note": "All verified. CSV: 64 wins, $286k total, two wins at $38k (max). pos_spend matches JSON (RB86/WR82/QB53/S21/DE15/LB13). Win-count-by-position recomputed exactly: S=11, WR=10, LB=9, RB=9, DE=7, QB=5."
+        },
+        {
+          "claim": "spend_signature: 5 marquee wins = James Conner $38k + Mike Evans $38k (2022), Brock Purdy $28k, D'Andre Swift $23k, Terry McLaurin $19k (2025); 'does NOT win true blue-chips'",
+          "supported": true,
+          "note": "Exact match. marquee_wins=5 in JSON; CSV confirms all five wins/amounts/years. Highest is $38k mid-tier, supporting the no-blue-chip narrative."
+        },
+        {
+          "claim": "vs_0008 / key_example: 2023 Derrick Henry 31-bid war, Keith (0008) won at $94k, Blake (0010) the runner-up; Blake overtook Keith at $82k (seq26) and $87k (seq28); drove Keith from ~$50k to $94k",
+          "supported": true,
+          "note": "Verified in CSV: 31 bids, Keith wins $94k (seq31), Blake is runner-up. Blake overtook Keith (victim 0008) at $41k(seq6), $82k(seq26), $87k(seq28). The two highlighted overtakes in key_examples ($82k/$87k) are exactly right."
+        },
+        {
+          "claim": "vs_0008 narrative list: 'Blake personally overtook Keith at $41k, $45k, $66k, $67k, $72k, $82k, $87k'",
+          "supported": false,
+          "note": "OVERSTATED. Of these, only $41k, $82k, $87k were Blake overtaking Keith (0008). The $66k bid was Blake overtaking 0004 (Cutting), NOT Keith. $45k, $67k, $72k were not Blake bids at all (Cutting/Keith bids). Card inflates the count of Blake-over-Keith bumps from 3 to 7."
+        },
+        {
+          "claim": "vs_0008: victim_fid=0008 list \u2014 Henry ($82k,$87k), Marquise Brown $24k WR, David Montgomery $12k RB, Myles Garrett $9k DE",
+          "supported": true,
+          "note": "All verified as Blake SF-era overtakes of Keith: Marquise Brown $24k WR (2023), Montgomery $12k RB (2025), Garrett $9k DE (2023), Henry $82k/$87k (2023). Card cherry-picks the largest; more low-$ ones exist (Mariota, Wentz, Rodgers $2-5k) but no false entries."
+        },
+        {
+          "claim": "key_example: 2023 Aaron Rodgers \u2014 'Blake led the lot at $36k (08:20 ET) before 0011 swooped to $50k'",
+          "supported": false,
+          "note": "MISATTRIBUTED. The $36k bid (hour 8) was by 0011 (Mannila), not Blake. Blake's bids were $40/$45/$48/$50k; Blake actually LED at $50k (seq9, hour7) and 0011 won at $50k (seq10). Blake was the runner-up (true), but the '$36k at 08:20' detail is wrong and inverts who held what price."
+        },
+        {
+          "claim": "key_examples: 2022 Conner $38k won 12pm ET; Evans $38k won 7am ET (dawn); 2025 Purdy $28k/Swift $23k/McLaurin $19k all closed 12-14 ET",
+          "supported": true,
+          "note": "All verified in CSV. Conner won by Blake $38k hour12. Evans won $38k hour7. Purdy $28k QB hour12, Swift $23k RB hour12, McLaurin $19k WR hour12 \u2014 all hour 12, supporting midday-finish habit."
+        },
+        {
+          "claim": "vs_0008 tactic #2: overtake_rate 0.215 / late_overtake_n=13, 'rarely closes from behind, holding the lead into final 2h is usually safe'",
+          "supported": true,
+          "note": "overtake_rate=0.215 and late_overtake_n=13 match JSON. lurk_win_n=0 corroborates he doesn't close as a late swoop. Interpretation is sound."
+        }
+      ],
+      "flags": [
+        "spend_signature mislabels zone_mix as share of BIDS \u2014 it is share of WINS (64-win base); recomputing over actual bids gives capfree ~33.6%, not 85.9%. Same mislabel repeats in vs_0008 tactic #4.",
+        "spend_signature claim '7.8% marquee well above league' is FALSE \u2014 league marquee share is 12.6%, Blake is 7.8% (below). Sign of the comparison is inverted.",
+        "vs_0008 overstates Blake-over-Keith bumps on Henry: only 3 of the 7 listed amounts ($41k/$82k/$87k) were actually Blake overtaking Keith; $66k overtook 0004, and $45k/$67k/$72k were not Blake bids.",
+        "2023 Rodgers key_example misattributes 0011's $36k/08:20 bid to Blake and wrongly says Blake 'led at $36k' \u2014 Blake actually led at $50k before losing to 0011.",
+        "marquee_wins=5 and several positional win-counts rest on small samples (QB 5 wins, DE 7, the 5 marquee wins) \u2014 directional but thin per-cell.",
+        "All quantitative passthrough fields (hour_hist, post_win, runner_up_n, late_bid_share, overtake_rate) verified verbatim; the errors are in NARRATIVE interpretation/labeling, not the raw stat values."
+      ]
+    },
+    {
+      "fid": "0011",
+      "confidence": "medium",
+      "claims": [
+        {
+          "claim": "Owner identity: fid 0011 = Eric Mannila, team Cleon Ca$h",
+          "supported": true,
+          "note": "CSV actor_fid=0011 maps uniquely to owner 'Eric Mannila' across 786 rows. Team name not in CSV but consistent with intel."
+        },
+        {
+          "claim": "bid_rhythm hour histogram: 5am ET peak (26), noon-1pm wall (12h=24, 13h=22), peak_hours_et [5,12,13]",
+          "supported": true,
+          "note": "JSON hour_hist verbatim: idx5=26, idx12=24, idx13=22. peak_hours_et=[5,12,13]. Evening 17-23h = [4,6,6,3,8,3,1] \u2014 'sparse 3-8' is accurate."
+        },
+        {
+          "claim": "late_bid_share heavy/spread: under8h 0.481, under6h 0.427, under2h 0.382",
+          "supported": true,
+          "note": "Quoted verbatim from JSON late_bid_share. Values match exactly."
+        },
+        {
+          "claim": "post_win_pounce_share 0.569; post_win_avg_followups 1.26 (snipe_threat)",
+          "supported": true,
+          "note": "Verbatim from JSON. Derived metric (share of wins followed by a bid on another lot within 8h) \u2014 trusting extractor definition; not independently re-derived from raw events."
+        },
+        {
+          "claim": "runner_up_n 12 in SF era",
+          "supported": true,
+          "note": "Verbatim from JSON. NOTE: extractor defines runner_up_fid as the 'last forcing fid before the final', not the literal second-highest dollar bidder. My naive prev-bidder derivation gave 7; the count of 12 reflects the extractor's forcing-based definition, which is a looser notion of 'runner-up'."
+        },
+        {
+          "claim": "Ekeler 2022: 0011 pushed to $57k over 3 bids, lost to 0009 at $57k",
+          "supported": true,
+          "note": "CSV: 0011 bid 55/56/57 (3 bids), 0009 final at $57k. Exact."
+        },
+        {
+          "claim": "Carr 2022 $38k lost to 0001; Cousins 2022 $37k lost to 0003; Dak 2024 $36k lost to 0004 at $45k",
+          "supported": true,
+          "note": "All three confirmed in DB/CSV. Carr: 0011 to 38, 0001 won 38. Cousins: 0011 to 37, 0003 won 37. Dak: 0011 to 36, 0004 won 45."
+        },
+        {
+          "claim": "McCaffrey 2025: 0011 pushed to $32k, lost to 0004 at $56k (price-push fact)",
+          "supported": true,
+          "note": "CSV: 0011 high bid $32k seq5; 0004 won $56k. The price-push/lost framing is correct."
+        },
+        {
+          "claim": "key_examples: 0011 'listed runner-up on both marquee lots (Hill AND CMC)'",
+          "supported": false,
+          "note": "PARTIALLY FALSE. Hill 2024: last forced bid before final has forcing=0011, so extractor DOES record 0011 as runner_up_fid (defensible). But McCaffrey 2025: last forcing fid before final = 0007, NOT 0011. 0011 was a mid-ladder pusher (high $32k at seq5). The 'runner-up on CMC' claim is wrong under the extractor's own definition."
+        },
+        {
+          "claim": "Tyreek Hill 2024: 0011 pushed to $35k; Hill closed $61k to 0007; 0011 the listed runner-up",
+          "supported": true,
+          "note": "CSV: 0011 high $35k seq6; 0007 won $61k. Quirk: 0004 placed the actual highest underbid ($35k self-bid), but extractor's forcing-based runner_up_fid=0011 (forcing on seq5/6). 'Listed runner-up' is technically accurate to the data structure; phrasing is careful."
+        },
+        {
+          "claim": "overtake examples: Marquise Brown overtaken at $32k with 3.57h left; Donald/Minshew ~6-7h left",
+          "supported": true,
+          "note": "CSV: M.Brown 2023 ovt=1 $32k tRem 3.57h. Aaron Donald 2023 ovt=1 $5k tRem 6.85h. Minshew 2024 ovt=1 $5k tRem 6.1h. All within stated 'last-minute-ish' windows. late_overtake_n=5 is small-sample."
+        },
+        {
+          "claim": "Herbert 2025 won $51k at seq6, noon ET window, t_remaining 0.0h (max_win_k)",
+          "supported": true,
+          "note": "CSV: 0011 final $51k seq6, hour_et=12 (noon ET), final. JSON max_win_k=51. Exact."
+        },
+        {
+          "claim": "zone_mix 70.7% capfree / 13.8% low / 10.3% mid / 5.2% marquee; marquee_wins 3",
+          "supported": true,
+          "note": "JSON verbatim (0.707/0.138/0.103/0.052). marquee_wins=3 independently confirmed: Herbert 51, Rodgers 50, M.Brown 37 (only 3 wins >=18k)."
+        },
+        {
+          "claim": "Position spend: QB $132k (40%), WR $99k (30%), QB+WR=71% of $327k SF total",
+          "supported": true,
+          "note": "JSON pos_spend verbatim; pct re-derived: QB 132/327=40%, WR 99/327=30%, sum=71%. total_k=327 confirmed."
+        },
+        {
+          "claim": "Notable wins: Rodgers $50k 2023, Marquise Brown $37k, Wentz $17k, Diggs $16k, Roquan Smith LB $15k",
+          "supported": true,
+          "note": "All confirmed as 0011 final wins in CSV with exact amounts and positions (Roquan = LB $15k)."
+        },
+        {
+          "claim": "vs_0008: Keith RB-funded $171k/57%, max $94k Henry, QB only $13k; 0011 is inverse",
+          "supported": true,
+          "note": "JSON 0008 SF: RB $171k (171/299=57%), max_win 94, QB 13. RB lanes don't overlap (0011 RB only $8k/2%). Confirmed."
+        },
+        {
+          "claim": "JuJu 2022 H2H: Keith (0008) won at $15k, 0011 pushed to exactly $15k over 2 bids",
+          "supported": true,
+          "note": "CSV: 0011 bid $2k then $15k (2 bids); 0008 final at $15k. Exact direct-collision proof confirmed."
+        }
+      ],
+      "flags": [
+        "key_examples claim that 0011 was 'listed runner-up on both marquee lots' is FALSE for McCaffrey 2025 \u2014 the last forcing fid before the winning bid was 0007, not 0011; 0011 was only a mid-ladder pusher (high $32k at seq5). Hill 2024 is defensible under the extractor's forcing-based definition, but CMC is not. Recommend dropping CMC from the 'runner-up' framing or rewording to 'price-pusher'.",
+        "runner_up_n=12 rests on the extractor's 'last-forcing-fid' definition of runner-up, which is looser than the literal second-highest bidder (naive prev-bidder derivation yields only 7). The 12 is faithfully quoted, but the narrative ('twelve times the bridesmaid') overstates how often 0011 was genuinely the final underbidder. Soften.",
+        "late_overtake_n=5 is a small sample (exactly 5 events) \u2014 the 'real and above-median' snipe framing leans on a thin base; flag as low-n.",
+        "post_win_pounce_share 0.569 and post_win_avg_followups 1.26 are quoted verbatim but not independently re-derived from raw events; they depend on the extractor's 8h-followup window definition."
+      ]
+    },
+    {
+      "fid": "0012",
+      "confidence": "medium",
+      "claims": [
+        {
+          "claim": "Owner 'Chris Klingenberg' / team 'Hawks'",
+          "supported": true,
+          "note": "JSON owner/team fields are null, but the canon DB confirms franchise 0012 = Chris Klingenberg, team_name 'Hawks' (also a 'White Power' alias). Identity correct."
+        },
+        {
+          "claim": "SF-era quant stats: n_bids 152, n_wins 43, total_k 155, peak_hours_et [23,22,9] with hist 23=27/22=26/9=23; late_bid_share under8h .414/under6h .387/under2h .378",
+          "supported": true,
+          "note": "All verbatim from owners['0012'].by_era.sf. hour_hist[23]=27, [22]=26, [9]=23 confirmed. n_wins=43 also independently re-derived from DB (finalbid_ind=1, season>=2022)."
+        },
+        {
+          "claim": "zone_mix 74.4% capfree / 20.9% low / 2.3% mid / 2.3% marquee; pos_spend WR66/TE28/RB18/QB16/LB10/DE7; marquee_wins 1; max_win_k 24",
+          "supported": true,
+          "note": "Exact match to JSON. Bargain-bin/WR-tilted spend signature is well-grounded."
+        },
+        {
+          "claim": "post_win_pounce_share 0.442, post_win_avg_followups 1.02; on 2024-07-29 closed Brown+Evans at 22:42 then poked Dobbins+Ertz overnight",
+          "supported": true,
+          "note": "JSON values exact. DB confirms Dobbins poke at 00:30 on 7/30 right after the 22:42 wins. Pounce narrative holds."
+        },
+        {
+          "claim": "Wide-front operator: blanketed 6-8 lots in a 10-11pm window on 2024-07-29 (Evans/Brown/Lockett/Ertz/Warner between 20:33-22:42 ET)",
+          "supported": true,
+          "note": "DB confirms live bids on Lockett(20:33), Warner(21:01 win), Ertz(22:26), Brown(22:42 win), Evans(22:42 win) plus Bosa/Elliott \u2014 wide-front blanketing supported."
+        },
+        {
+          "claim": "runner_up_n 18, overtake_rate 0.283, late_overtake_n 3, lurk_win_n 0 \u2014 price-driver not closer",
+          "supported": true,
+          "note": "JSON values exact. Independent DB cross-check of 'forced-but-did-not-win' SF lots = 17 (vs 18), close enough to confirm he's a heavy underbidder. late_overtake_n 3 and lurk_win_n 0 are tiny-sample but directionally correct."
+        },
+        {
+          "claim": "Pushed Davante Adams to $30K (lost to 0004)",
+          "supported": true,
+          "note": "DB: Adams 2024 seq7 forcing=0012 at $30K, won by 0004. Exact."
+        },
+        {
+          "claim": "Forced Keith's Garoppolo to $5K in 2022",
+          "supported": true,
+          "note": "DB: Garoppolo 2022 seq3, 0008 holding $5K, forced by 0012. Exact."
+        },
+        {
+          "claim": "Pushed Travis Kelce to $21K via two separate pushes (underbid $5K then $8K) before 0004 closed at $21K",
+          "supported": true,
+          "note": "DB: Kelce 2025 seq4 ($5K) and seq5 ($8K) both forcing=0012; 0004 closed at $21K seq15. Supported."
+        },
+        {
+          "claim": "Mike Evans 2024 is his only marquee win and his max at $24K; Keith was in early ($2K seq2, $4K seq3) before 0012 entered $8K and drove it to $24K beating 0001",
+          "supported": true,
+          "note": "DB confirms 0008 at $2K/$4K early, 0012 won $24K over 0001. max_win_k=24 and marquee_wins=1 match JSON. Minor: the '$8K-to-$24K across 22:00-22:42' compresses two nights \u2014 the $8K bid was 23:07 the prior evening; the 22:00-22:42 window only spans $15K->$24K. Cosmetic timing error, conclusion intact."
+        },
+        {
+          "claim": "Beaten Keith head-to-head three times: Tannehill $16K (2022), Michael Thomas $6K (2023), Keenan Allen $5K (2025), all with 0008 forcing/as underbidder",
+          "supported": false,
+          "note": "OVERSTATED. Only Tannehill 2022 has any direct 0012-forces-0008 interaction (0012 forced 0008 to $5K at seq3), but 0008 dropped out and the FINAL underbidder to 0012 was 0010, not Keith. For Michael Thomas 2023: 0008 only forced 0001 to $4K then dropped; 0012 won over 0001 \u2014 no 0012-vs-0008 contest. For Keenan Allen 2025: 0008 only forced 0003 to $2K then dropped; 0012 won over 0009 \u2014 no 0012-vs-0008 contest. 'Won three head-to-head lots off Keith with 0008 forcing' is false; at most one weak Tannehill interaction. This is the card's central vs_0008 threat claim and it does not hold."
+        },
+        {
+          "claim": "Pushed Godwin to $27K",
+          "supported": false,
+          "note": "UNSUPPORTED. DB shows 0012's only Godwin involvement is 2023 forcing to $10K (lost to 0005). No $27K push exists in FreeAgent data. The $27K figure appears fabricated."
+        },
+        {
+          "claim": "WR/RB collision framing: his WR spend ($66K) vs Keith's RB-heavy build ($171K SF) means Keith's marquee RBs are safe; let him have the cheap WR shelf",
+          "supported": true,
+          "note": "0012 pos_spend WR66/RB18 verified; the strategic framing follows from the verified zone_mix and pos_spend. The Keith $171K RB figure was not re-derived here (owner 0008 not queried) but is internally consistent with the cited SF spend pattern."
+        }
+      ],
+      "flags": [
+        "CENTRAL vs_0008 claim FALSE: 'beaten Keith head-to-head three times' \u2014 only Tannehill has any 0012-vs-0008 interaction, and even there Keith was an early dropout, not the final underbidder. Michael Thomas and Keenan Allen had NO 0012-vs-0008 contest (0008 forced a THIRD party then dropped). Soften to at most one weak interaction.",
+        "'Pushed Godwin to $27K' is fabricated \u2014 actual max Godwin push by 0012 was $10K (2023, lost to 0005). Remove or correct.",
+        "late_overtake_n 3, lurk_win_n 0, marquee_wins 1 are tiny-sample (<5 events) \u2014 already correctly framed as 'rarely steals at the buzzer', keep that hedge.",
+        "Evans escalation '$8K to $24K across 22:00-22:42' conflates two nights; $8K bid was 23:07 prior evening. Cosmetic, conclusion fine.",
+        "runner_up_n cross-check gave 17 vs JSON 18 (definitional rounding) \u2014 not an error, just noting the JSON figure isn't exactly reproducible from a naive forced-not-won count."
+      ]
+    }
+  ],
   "benchmark": null,
-  "generated_via": "multi-agent workflow wf_de188b81 (verifiers/benchmark/synth deferred \u2014 session limit)"
+  "generated_via": "multi-agent workflow wf_de188b81 (verifiers/benchmark/synth deferred \u2014 session limit)",
+  "benchmark_agent": {
+    "top2_by_season": [
+      {
+        "season": 2025,
+        "team": "Pure Greatness (Brian Cutting)",
+        "metric": "all-play 134-53 (.717, best in league); PF 3197.6"
+      },
+      {
+        "season": 2025,
+        "team": "C-Town Chivalry (Bear Dunn)",
+        "metric": "all-play 119-68 (.636, 2nd-best win pct); PF 3218.6 (league-high)"
+      },
+      {
+        "season": 2024,
+        "team": "C-Town Chivalry (Bear Dunn)",
+        "metric": "all-play 134-53 (.717); PF 3260.8 (league-high)"
+      },
+      {
+        "season": 2024,
+        "team": "Ulterior Warrior (Ryan Bousquet)",
+        "metric": "all-play 132-55 (.706); PF 3190.1"
+      },
+      {
+        "season": 2023,
+        "team": "CBP (Derrick Whitman)",
+        "metric": "all-play 134-53 (.717); PF 3276.7 (league-high)"
+      },
+      {
+        "season": 2023,
+        "team": "Blake Bombers (Shawn Blake)",
+        "metric": "all-play 129-58 (.690); PF 3164.7"
+      },
+      {
+        "season": 2022,
+        "team": "C-Town Chivalry (Bear Dunn)",
+        "metric": "all-play 132-55 (.706, best win pct); PF 3084.3"
+      },
+      {
+        "season": 2022,
+        "team": "Good in Da Hood (Steve Bousquet)",
+        "metric": "all-play 127-60 (.679); PF 3338.7 (league-high)"
+      }
+    ],
+    "takeaways": [
+      "The PF bar to be a top-2 all-play team since Superflex (2022) is ~3,160-3,280 PF. The eight top-2 finishers ranged 3,084-3,338, with seven of eight at 3,160+. Median top-2 PF is ~3,224.",
+      "Across all four seasons the #1 all-play team landed at .717 win pct three times (134-53 in 2023/2024/2025) and .706 once (2022). The #2 team ranged .636-.706. So to be a genuine top-2 team you need roughly a .68+ all-play win pct, i.e. ~128+ all-play wins out of 187.",
+      "PF and all-play win pct are tightly coupled but not identical: in 2022 Good in Da Hood led the entire league in PF (3338.7) yet finished #2 all-play behind C-Town (3084.3), and in 2025 C-Town had the league-high PF (3218.6) but the 2nd-best win pct. Scoring volume is the dominant driver of contention, but week-to-week consistency separates #1 from #2.",
+      "For franchise 0008 (Real Deal Creel / Keith), the contention gap is concrete: best finish since Superflex was 2023 at 105-82 (.561, PF 3046.5) and 2024 at 96-91 (.513, PF 3027.6). To reach the top-2 bar the roster needs roughly +130 to +250 PF per season (from ~3,030 to ~3,160-3,280) and ~+25 to +35 all-play wins. 2025 was a down year at 77-110 (.412, PF 2912) \u2014 the largest gap to close.",
+      "The contender PF threshold has been stable, not inflating: top-2 PF sat 3,084-3,338 in 2022 and 3,197-3,218 in 2025. There is no scoring arms race to chase \u2014 hitting ~3,200 PF reliably has been good enough for top-2 every year."
+    ],
+    "positional_note": "src_standings carries only team-level totals (PF, PP, all-play W/L) with no per-position scoring breakdown, so direct positional inference is not supported by this table. What it does support: the league is Superflex (per repo context, 1QB + 1 SuperFlex starting slots), and the consistent ~3,200 PF contender bar implies a high baseline weekly team score where a startable second QB in the SuperFlex is the single highest-leverage scoring slot \u2014 QB output is the cheapest way to move team PF in bulk. Given the league-context starting lineup (1QB/2RB/2WR/1TE/2OFlex/1SuperFlex/K/P + IDP), the FA-money priority for a team trying to clear the ~3,200 PF bar should weight QB (SuperFlex) and the flex-eligible skill positions (RB/WR) that fill the 2 OFlex slots, since those are the slots that scale team PF. To quantify which positions actually separated top-2 teams from franchise 0008, a per-starter scoring query (src_weekly or the MFL detailed/weeklyResults feed joined to starter slots) is needed \u2014 this table alone cannot attribute the PF gap to specific positions.\""
+  },
+  "verification": {
+    "method": "12 adversarial verifier agents re-derived each card vs the raw bids (run wf_de188b81, 2026-06-23).",
+    "note": "The deterministic quant (Danger Board, head-to-head, pounce/lurk %, heat strips, thresholds) is the source of truth. The narrative prose has off-by-one drift and a few flagged claims \u2014 see each card's confidence + flags.",
+    "low_confidence": [
+      "0002"
+    ],
+    "key_corrections": [
+      "0002 (Whitman): franchise ownership changed mid-window \u2014 pre-change wins (Hopkins 2022, Allen 2021, Brown 2019) are NOT Whitman's. LOW confidence.",
+      "0012 (Kling): \"beaten Keith 3x H2H\" overstated (only Tannehill verified); \"pushed Godwin to $27K\" is wrong (actual $10K).",
+      "0010 (Blake): zone_mix is share of WINS, not bids; \"marquee well above league\" is false.",
+      "runner_up_n quotes drift +/-1 across several cards vs the deterministic auction_intel.json (use the JSON numbers)."
+    ]
+  }
 }
