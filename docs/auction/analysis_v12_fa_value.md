@@ -69,16 +69,17 @@ Your one true hole is a **stud QB** — which is also the position that costs th
 Mix: **318 FAIR · 90 VALUE · 7 SPLURGE · 3 DART · 3 OVERPAY.**
 
 ### Win-now VALUE — the aging-vet arbitrage
-The biggest values are **productive veterans dynasty has written off** — cheap because their dynasty rank is low (age), but their sticky production stays high:
+The best values are **productive veterans dynasty has written off** — their dynasty rank is low (age), but their sticky production stays high. A **win-now production floor** prices them at what their output is actually worth (`max(dynasty price, E[APW] × market $/APW × 0.5)`) — so they no longer dump into the $1K fodder band (*Kelce will never go for $1K*), but stay below young-stud money:
 
-| Player | Dyn rank | proj APW | Price | $/APW vs mkt | Fit |
+| Player | Dyn rank | proj APW | Price | Value | Fit |
 |---|---|---|---|---|---|
-| Travis Kelce | TE21 | 6.6 | $1K | 28.9× | SURPLUS (you're set at TE) |
-| Joe Mixon | RB100 | 5.3 | $3K | 14.5× | DEPTH |
-| Stefon Diggs | WR70 | 4.5 | $2K | 13.8× | DEPTH |
-| Justin Fields / Cousins / Rodgers / Wilson | QB37-59 | 1.7–2.7 | $1K | 13–21× | **NEED-STUD** ← cheap QB darts for you |
+| Travis Kelce | TE21 | 6.6 | **$14K** | 2.06× SPLURGE | SURPLUS (you're set at TE) |
+| Joe Mixon | RB100 | 5.3 | **$22K** | 1.98× VALUE | DEPTH |
+| Stefon Diggs | WR70 | 4.5 | **$14K** | 1.97× VALUE | DEPTH |
+| Justin Fields | QB39 | 2.7 | **$11K** | 1.93× VALUE | **NEED-STUD** ← cheap QB for you |
+| Aaron Rodgers | QB37 | 1.9 | **$7K** | 2.08× VALUE | **NEED-STUD** |
 
-> **Caveat (honest):** these prices are *dynasty-rank floors*. In a win-now contract league the market bids productive vets **above** their dynasty price, so the real clearing price is higher than $1–3K — the *direction* (great win-now value) is right, the magnitude is optimistic.
+The signal is the same (productive vets go cheaper than young studs) but the magnitude is now realistic (~2×, not 28×). Young studs are unaffected — Allen's $75K dynasty price already exceeds his production floor.
 
 ### OVERPAY — pay a premium for production that isn't there
 - **Joe Burrow** QB4 $66K → proj only 5.8 APW (injury-shortened recent years) = 0.68× — paying QB4 price for QB-mid output.

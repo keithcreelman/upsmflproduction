@@ -25,6 +25,7 @@ SUFFIX = re.compile(r"\b(jr|sr|ii|iii|iv|v)\b")
 # APW scale: elite season ≈ 11-13, good starter ≈ 7-9, mid ≈ 5-6, fodder ≈ 0-2.
 STARTER_APW = 6.0   # "a real starter" bar on the new positional all-play scale
 BOOM_APW = 5.0      # a cheap dart's p90 must reach a startable-quality ceiling
+VET_DISCOUNT = 0.5  # productive vets clear at ~half their full production value (1-yr/age)
 
 
 def nkey(s):
@@ -103,9 +104,20 @@ def main():
         p25 = s25 if s25 is not None else None
         p90 = max(s90, p50) if (s90 is not None and p50 is not None) else s90
         bestball = t_best                           # the optimal-start/sit ceiling (proven)
-        price_k = p.get("median_k") or 0
+        dyn_price_k = p.get("median_k") or 0
         rrow = rate.get(pos) or {}
         R = rrow.get("R"); R_conf = rrow.get("R_conf")
+        # ── WIN-NOW PRODUCTION FLOOR ──
+        # The dynasty-rank price dumps productive VETERANS into the $1K fodder band
+        # (Kelce TE21, Mixon RB100) even though a still-producing player commands real
+        # win-now money in a contract league. Floor the price at the production value:
+        #   price = max( dynasty asset price , E[APW] × market $/APW × VET_DISCOUNT ).
+        # Young studs keep their (higher) dynasty price; productive vets get lifted.
+        prod_floor_k = round((p50 or 0) * R * VET_DISCOUNT / 1000) if (p50 and R) else 0
+        price_k = max(dyn_price_k, prod_floor_k)
+        floored = price_k > dyn_price_k
+        low_k = round(price_k * 0.72) if floored else p["low_k"]
+        top10_k = round(price_k * 1.35) if floored else p["top10_k"]
         implied = round(price_k * 1000 / p50) if (p50 and p50 > 0) else None
         vr = round(R / implied, 2) if (R and implied) else None
         v = verdict(price_k, p50 or 0, p90 or 0, vr)
@@ -114,8 +126,8 @@ def main():
         value_conf = "solid" if (p.get("price_confidence") == "model" and R_conf == "high") else "estimate"
         out.append({
             **{k: p[k] for k in ("player", "pos", "age", "dyn_sf_rank", "redraft_rank",
-                                 "win_now", "asset", "low_k", "median_k", "top10_k",
-                                 "price_confidence", "deal_type")},
+                                 "win_now", "asset", "price_confidence", "deal_type")},
+            "low_k": low_k, "median_k": price_k, "top10_k": top10_k, "price_floored": floored,
             "e_apw_p25": p25, "e_apw_p50": p50, "e_apw_p90": p90,
             "e_apw_bestball": bestball, "apw_yrs": yrs,
             "market_R": R, "implied_apw": implied, "value_ratio": vr,
