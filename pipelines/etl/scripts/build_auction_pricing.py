@@ -60,12 +60,15 @@ def band_mid(band):
     return lo + 3 if hi >= 9999 else (lo + hi) / 2
 
 
-# rank-1 marquee MEDIAN as a fraction of the position's SF-era record win, and a
-# floor multiple of the richest reliable band. Elite dynasty-SF ranks (QB1-6,
-# RB1-4, WR1-6, TE1-3) have NEVER hit the FA auction, so there is no band data —
-# without this they collapse to the $1-4K fodder blend (the Josh-Allen-< Kyler
-# artifact). We instead price them ABOVE the richest band, toward the record.
-ELITE_CEIL_FRAC = 0.85
+# Rank-1 marquee MEDIAN per position. Elite dynasty-SF ranks (QB1-6, RB1-4, WR1-6,
+# TE1-3) have NEVER hit the FA auction, so there is no band data — and the FA-auction
+# RECORD under-anchors them, because elites command the CONTRACT/EXTENSION market, not
+# the FA block (Keith's comps: Julio/AJ Green/Arian Foster extended mid-high $60s;
+# Herbert FA $51K; an elite SF QB above all of them). So we anchor rank-1 explicitly to
+# the contract-market ceiling: QB1 the highest (SF scarcity), RB1/WR1 mid-high $60s, TE1
+# lower. The monotonic ladder cascades everyone down from these to the auction-data bands.
+ELITE_ANCHOR_K = {"QB": 75, "RB": 68, "WR": 66, "TE": 38}
+ELITE_CEIL_FRAC = 0.85   # fallback for any position without an explicit anchor
 ELITE_BAND_MULT = 1.35
 
 
@@ -131,7 +134,9 @@ def main():
             ladders[pos] = None
             continue
         richest = anchors[0][1]
-        elite = max(round(pos_max * ELITE_CEIL_FRAC), round(richest * ELITE_BAND_MULT))
+        # explicit contract-market anchor for the position, else the record-fraction fallback
+        elite = ELITE_ANCHOR_K.get(pos) or max(round(pos_max * ELITE_CEIL_FRAC), round(richest * ELITE_BAND_MULT))
+        elite = max(elite, round(richest * ELITE_BAND_MULT))   # never below the richest reliable band
         ladder = [(1.0, elite)] + [a for a in anchors if a[0] > 1.0]
         for i in range(1, len(ladder)):  # enforce non-increasing
             if ladder[i][1] > ladder[i - 1][1]:

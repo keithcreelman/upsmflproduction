@@ -148,8 +148,12 @@
   .fav-fit { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); margin: 0 4px 4px 0; color: var(--muted); }
   .fav-fit.need { color: #fbbf24; border-color: rgba(251,191,36,0.45); background: rgba(251,191,36,0.08); }
   .fav-fit.surp { color: #34d399; border-color: rgba(52,211,153,0.35); }
+  .fav-fit.depth { color: #f59e0b; border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.07); }
   .fav-fit.ok { color: var(--muted); }
   .fav-fit.sm { font-size: 10px; padding: 1px 6px; }
+  .fav-fit-w { display: inline-block; margin: 0 6px 4px 0; font-size: 11px; color: var(--muted); }
+  .fav-comp.own { color: #c084fc; border: 1px solid rgba(192,132,252,0.4); background: rgba(192,132,252,0.08); }
+  .fav-row.owned td:first-child { box-shadow: inset 3px 0 0 rgba(192,132,252,0.55); }
   .fav-rate { display: inline-block; font-size: 11px; font-weight: 600; color: var(--fg); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; margin: 0 4px 4px 0; }
   .fav-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
   .fav-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 12px; }
@@ -433,6 +437,11 @@
   }
   function wrBoardSave() { try { localStorage.setItem("ups_war_room_board_0008", JSON.stringify(WR.board || [])); } catch (e) {} }
   function wrRoomK() { return WR.room != null ? Math.round(WR.room / 1000) : null; }
+  // normalize a player name to match across sources (adp-board ↔ fa-value pricing)
+  function fnk(s) {
+    s = (s || "").toLowerCase().replace(/[.'']/g, "").replace(/-/g, " ").replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "");
+    return s.replace(/\s+/g, " ").trim();
+  }
   function paintBoard(host) {
     wrBoardLoad();
     if (!WR.adp) {
@@ -441,6 +450,15 @@
         .catch(function () { WR.adp = []; if (WR.view === "board") paintBoard(host); });
       return;
     }
+    // load the SAME pricing the FA Value view uses, so a target's $ ties out
+    if (WR.fav === undefined || WR.fav === null) {
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading pricing model…</div></div>';
+      fetchJSON(apiUrl("/api/auction/fa-value") + "?franchise_id=0008").then(function (d) { WR.fav = (d && d.ok) ? d : false; if (WR.view === "board") paintBoard(host); })
+        .catch(function () { WR.fav = false; if (WR.view === "board") paintBoard(host); });
+      return;
+    }
+    var pricByName = {};
+    (WR.fav && WR.fav.fas || []).forEach(function (p) { pricByName[fnk(p.n)] = p; });
     if (WR.room == null) {
       var ro = WR.live && WR.live.rosters;
       if (ro) { var c0 = wrCash(ro).filter(function (x) { return x.fid === "0008"; })[0]; WR.room = c0 ? c0.avail : null; }
@@ -456,11 +474,13 @@
     function tierSum(t) { return WR.board.filter(function (x) { return x.tier === t; }).reduce(function (a, x) { return a + (parseInt(x.max, 10) || 0); }, 0); }
     var t1 = tierSum(1), cum2 = t1 + tierSum(2), cum3 = cum2 + tierSum(3);
     function row(x) {
-      var th = pt[x.pos] || {};
+      var pr = pricByName[fnk(x.name)];
+      var priceTag = pr ? '<span class="small" style="color:var(--muted)" title="FA Value model: low–median–top10 expected price">model $' + pr.lk + '–<b style="color:var(--fg)">' + pr.mk + '</b>–' + pr.tk + 'K · ' + (pr.v || '') + '</span>'
+        : '<span class="small" style="color:var(--muted)">no model price</span>';
       return '<div class="wr-tgt"><span class="nm"><b>' + esc(x.name) + '</b> <span class="small" style="color:var(--muted)">' + esc(x.pos) + (x.team ? "·" + esc(x.team) : "") + (x.posRank ? " " + esc(x.pos) + x.posRank : "") + '</span></span>' +
         '<label class="small">$<input type="number" class="wr-max" data-pid="' + esc(x.pid) + '" value="' + (x.max || 0) + '" min="0" step="1">K</label>' +
         '<select class="wr-tier" data-pid="' + esc(x.pid) + '">' + [1, 2, 3].map(function (t) { return '<option value="' + t + '"' + (x.tier === t ? " selected" : "") + ">T" + t + "</option>"; }).join("") + '</select>' +
-        (th.p90 != null ? '<span class="small" style="color:var(--muted)" title="position SF p50 / p90 (rare) price">p50 $' + th.p50 + ' · p90 $' + th.p90 + '</span>' : "") +
+        priceTag +
         '<button class="wr-rm" data-pid="' + esc(x.pid) + '" title="remove">×</button></div>';
     }
     var groups = [1, 2, 3].map(function (t) {
@@ -485,8 +505,10 @@
       $$(".wr-res", results).forEach(function (el) {
         el.addEventListener("click", function () {
           var p = WR.adp.filter(function (x) { return x.pid === el.getAttribute("data-pid"); })[0]; if (!p) return;
-          var th = pt[p.pos] || {};
-          WR.board.push({ pid: p.pid, name: p.name, pos: p.pos, team: p.team, posRank: p.posRank, tier: 2, max: (th.p75 || th.p50 || 5) });
+          var th = pt[p.pos] || {}, pr = pricByName[fnk(p.name)];
+          // seed the max bid from the SAME FA Value pricing model (median); fall back to the SF threshold
+          var seed = pr ? pr.mk : (th.p75 || th.p50 || 5);
+          WR.board.push({ pid: p.pid, name: p.name, pos: p.pos, team: p.team, posRank: p.posRank, tier: 2, max: seed });
           wrBoardSave(); paintBoard(host);
         });
       });
@@ -499,9 +521,24 @@
   }
 
   // ── 💎 FA Value: expected-APW vs price vs roster-fit, per available FA ──
-  var FAV = { pos: "ALL", verdict: "ALL", sort: "apw", needOnly: false, open: {} };
+  var FAV = { pos: "ALL", verdict: "ALL", sort: "apw", needOnly: false, ownership: "available", open: {} };
+  var FAV_FIT = { NS: "NEED-STUD", N: "NEED", D: "DEPTH", S: "SURPLUS", "-": "OK" };
+  function favFitLabel(fit, pos, meta) {
+    if (!fit) return "OK";
+    var b = (meta.baseline_apw || {})[pos] || 1, thin = fit.need > 0.4 * b, deep = fit.surplus > 0.8 * b;
+    if (!fit.stud) return thin ? "NEED-STUD" : "DEPTH";
+    if (thin) return "NEED";
+    if (deep) return "SURPLUS";
+    return "OK";
+  }
+  function favFitChip(lab, small) {
+    var cls = lab.indexOf("NEED") === 0 ? "need" : (lab === "SURPLUS" ? "surp" : (lab === "DEPTH" ? "depth" : "ok"));
+    return '<span class="fav-fit ' + cls + (small ? " sm" : "") + '" title="' +
+      (lab === "DEPTH" ? "bodies above replacement but no stud" : (lab === "NEED-STUD" ? "no difference-maker at this position" : "")) +
+      '">' + lab + '</span>';
+  }
   var VMETA = { SPLURGE: ["sp", "SPLURGE"], VALUE: ["val", "VALUE"], FAIR: ["fair", "FAIR"], OVERPAY: ["over", "OVERPAY"], DART: ["dart", "DART"] };
-  var APW_SCALE = 16; // APW is cross-position comparable (β baked in) → one shared scale
+  var APW_SCALE = 14; // all-play wins, one shared scale across positions (season tops ~14)
   function favRangeBar(p25, p50, p90, max) {
     var lo = Math.max(0, Math.min(1, (p25 || 0) / max)) * 100;
     var hi = Math.max(0, Math.min(1, (p90 || 0) / max)) * 100;
@@ -524,70 +561,78 @@
     if (WR.fav === false) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">FA value not loaded.</div></div>'; return; }
     var d = WR.fav, meta = d.meta || {}, mr = meta.market_rate || {}, mine = (d.teams || {})["0008"] || { fit: {} };
     var rows = (d.fas || []).slice();
+    var nAvail = rows.filter(function (r) { return !r.o; }).length, nRost = rows.length - nAvail;
     // filters
+    if (FAV.ownership === "available") rows = rows.filter(function (r) { return !r.o; });
+    else if (FAV.ownership === "rostered") rows = rows.filter(function (r) { return r.o; });
     if (FAV.pos !== "ALL") rows = rows.filter(function (r) { return r.p === FAV.pos; });
     if (FAV.verdict !== "ALL") rows = rows.filter(function (r) { return r.v === FAV.verdict; });
-    if (FAV.needOnly) rows = rows.filter(function (r) { return r.f === "N"; });
+    if (FAV.needOnly) rows = rows.filter(function (r) { return r.f === "N" || r.f === "NS"; });
     // sort
     var SORTS = {
       apw: function (a, b) { return (b.a50 || 0) - (a.a50 || 0); },
+      bestball: function (a, b) { return (b.ab || 0) - (a.ab || 0); },
       value: function (a, b) { return (b.vr || 0) - (a.vr || 0); },
       price: function (a, b) { return (b.mk || 0) - (a.mk || 0); },
       ceiling: function (a, b) { return (b.a90 || 0) - (a.a90 || 0); }
     };
     rows.sort(SORTS[FAV.sort] || SORTS.apw);
 
-    // ── summary band: 0008 fit + market $/APW + fill ──
+    // ── summary band: 0008 fit (stud-aware) + market $/APW + fill ──
     var fitChips = ["QB", "RB", "WR", "TE"].map(function (pos) {
-      var f = (mine.fit || {})[pos] || {}, lab = f.need > 0.4 * (meta.baseline_apw && meta.baseline_apw[pos] || 1) ? "NEED" : (f.surplus > 0.8 * (meta.baseline_apw && meta.baseline_apw[pos] || 1) ? "SURPLUS" : "OK");
-      var cls = lab === "NEED" ? "need" : (lab === "SURPLUS" ? "surp" : "ok");
-      return '<span class="fav-fit ' + cls + '">' + pos + ' · ' + lab + '</span>';
-    }).join("");
+      return '<span class="fav-fit-w">' + pos + ' · ' + favFitChip(favFitLabel((mine.fit || {})[pos], pos, meta)) + '</span>';
+    }).join(" ");
     var rateChips = ["QB", "RB", "WR", "TE"].map(function (pos) {
-      var r = mr[pos] || {}; return '<span class="fav-rate" title="market $ paid per expected-APW (SF era)' + (r.R_conf !== "high" ? " — thin sample, estimate" : "") + '">' + pos + ' $' + (r.R ? Math.round(r.R / 100) / 10 + 'K' : '—') + '/APW' + (r.R_conf !== "high" ? ' ⚠' : '') + '</span>';
+      var r = mr[pos] || {}; return '<span class="fav-rate" title="market $ paid per all-play win (SF era)' + (r.R_conf !== "high" ? " — thin sample, estimate" : "") + '">' + pos + ' $' + (r.R ? Math.round(r.R / 100) / 10 + 'K' : '—') + '/APW' + (r.R_conf !== "high" ? ' ⚠' : '') + '</span>';
     }).join("");
     var fill = meta.fill || {};
-    var summary = '<div class="fo-card"><div class="fo-card-head"><h3>💎 FA Value — expected All-Play Wins vs price vs your roster</h3>' +
-      '<span class="fo-sub">' + (d.fas || []).length + ' available FAs · value = APW the slot delivers ÷ what the market pays for it</span></div>' +
-      '<div class="fav-summary"><div><div class="fav-sg-h">Your roster (0008) needs</div>' + fitChips + '</div>' +
+    var summary = '<div class="fo-card"><div class="fo-card-head"><h3>💎 FA Value — all-play wins vs price vs your roster</h3>' +
+      '<span class="fo-sub">' + nAvail + ' available FAs · ' + nRost + ' rostered trade targets · value = the all-play wins a slot delivers ÷ what the market pays per win</span></div>' +
+      '<div class="fav-summary"><div><div class="fav-sg-h">Your roster (0008) — stud / depth</div>' + fitChips + '</div>' +
       '<div><div class="fav-sg-h">Market price of an APW (SF)</div>' + rateChips + '</div>' +
       '<div><div class="fav-sg-h">Auction fill behavior</div><span class="fav-note">teams win ~14–15 at auction, then add <b>' + (fill.avg_post_auction_adds_per_team || '—') + '</b>/team via waivers before Wk 1 → don\'t overpay for depth, it\'s cheaper on waivers</span></div></div></div>';
 
     // ── controls ──
+    var ownTabs = [["available", "Available FAs"], ["rostered", "Trade targets"], ["all", "All"]].map(function (o) { return '<button data-favown="' + o[0] + '"' + (FAV.ownership === o[0] ? ' class="on"' : '') + '>' + o[1] + '</button>'; }).join("");
     var posTabs = ["ALL", "QB", "RB", "WR", "TE"].map(function (p) { return '<button data-favpos="' + p + '"' + (FAV.pos === p ? ' class="on"' : '') + '>' + p + '</button>'; }).join("");
     var vTabs = ["ALL", "SPLURGE", "VALUE", "FAIR", "OVERPAY", "DART"].map(function (v) { return '<button data-favv="' + v + '"' + (FAV.verdict === v ? ' class="on"' : '') + '>' + v + '</button>'; }).join("");
     var controls = '<div class="fav-controls">' +
+      '<div class="fav-cg"><span class="fav-cl">Show</span><div class="wr-vtabs sm">' + ownTabs + '</div></div>' +
       '<div class="fav-cg"><span class="fav-cl">Pos</span><div class="wr-vtabs sm">' + posTabs + '</div></div>' +
       '<div class="fav-cg"><span class="fav-cl">Verdict</span><div class="wr-vtabs sm">' + vTabs + '</div></div>' +
       '<div class="fav-cg"><label class="fav-chk"><input type="checkbox" id="fav-need"' + (FAV.needOnly ? ' checked' : '') + '> my needs only</label></div>' +
       '<div class="fav-cg"><span class="fav-cl">Sort</span><select id="fav-sort">' +
-      ['apw|Expected APW', 'ceiling|APW ceiling (p90)', 'value|Value (cheap per APW)', 'price|Price'].map(function (o) { var kv = o.split("|"); return '<option value="' + kv[0] + '"' + (FAV.sort === kv[0] ? ' selected' : '') + '>' + kv[1] + '</option>'; }).join("") +
+      ['apw|Expected APW', 'bestball|Best-ball APW', 'ceiling|APW ceiling (p90)', 'value|Value (cheap per APW)', 'price|Price'].map(function (o) { var kv = o.split("|"); return '<option value="' + kv[0] + '"' + (FAV.sort === kv[0] ? ' selected' : '') + '>' + kv[1] + '</option>'; }).join("") +
       '</select></div></div>';
 
     // ── table ──
-    var head = '<tr><th>Player</th><th>Verdict</th><th>Expected APW (floor·med·ceiling)</th><th class="num">$/APW</th><th class="num">Value</th><th class="num">Price</th><th>Fit</th><th>Competition</th></tr>';
+    var head = '<tr><th>Player</th><th>Verdict</th><th>All-play wins (floor·proj·ceil <span class="fav-rk">· best-ball</span>)</th><th class="num">$/APW</th><th class="num">Value</th><th class="num">Price</th><th>Fit</th><th>Competition / Owner</th></tr>';
     var body = rows.map(function (r, i) {
+      var owned = !!r.o;
       var vm = VMETA[r.v] || ["fair", r.v], implied = (r.a50 > 0) ? Math.round(r.mk * 1000 / r.a50) : null;
       var vr = r.vr, vrCls = vr == null ? "" : (vr >= 1.5 ? "pos" : (vr >= 1.15 ? "posL" : (vr >= 0.85 ? "" : "neg")));
-      var fitTxt = r.f === "N" ? '<span class="fav-fit need sm">NEED</span>' : (r.f === "S" ? '<span class="fav-fit surp sm">surplus</span>' : '<span class="fav-fit ok sm">ok</span>');
-      var comp = (r.c || []).map(function (fid) { return '<span class="fav-comp">' + esc(favTeamName(fid)) + '</span>'; }).join("");
+      var fitTxt = favFitChip(FAV_FIT[r.f] || "OK", true);
+      var lastCol = owned ? '<span class="fav-comp own">🔁 ' + esc(favTeamName(r.o)) + '</span>'
+        : ((r.c || []).map(function (fid) { return '<span class="fav-comp">' + esc(favTeamName(fid)) + '</span>'; }).join("") || '<span class="fav-rk">—</span>');
       var conf = r.vc === "e" ? '<span class="fav-est" title="estimate — projected price and/or thin market-rate sample">~</span>' : "";
-      var tr = '<tr class="fav-row" data-favi="' + i + '">' +
-        '<td><b>' + esc(r.n) + '</b> <span class="fav-rk">' + esc(r.dr) + (r.rr ? ' · redr ' + esc(r.rr) : '') + '</span></td>' +
+      var bb = (r.ab != null) ? '<span class="fav-rk"> · BB ' + r.ab + '</span>' : "";
+      var tr = '<tr class="fav-row' + (owned ? ' owned' : '') + '" data-favi="' + i + '">' +
+        '<td><b>' + esc(r.n) + '</b> <span class="fav-rk">' + esc(r.dr) + '</span></td>' +
         '<td><span class="fav-v ' + vm[0] + '">' + vm[1] + '</span>' + conf + '</td>' +
-        '<td>' + favRangeBar(r.a25, r.a50, r.a90, APW_SCALE) + '<span class="fav-apw">' + (r.a25 || 0) + ' · <b>' + (r.a50 || 0) + '</b> · ' + (r.a90 || 0) + '</span></td>' +
+        '<td>' + favRangeBar(r.a25, r.a50, r.a90, APW_SCALE) + '<span class="fav-apw">' + (r.a25 != null ? r.a25 + ' · ' : '') + '<b>' + (r.a50 || 0) + '</b> · ' + (r.a90 || 0) + bb + '</span></td>' +
         '<td class="num">' + (implied ? '$' + (implied / 1000).toFixed(1) + 'K' : '—') + '</td>' +
         '<td class="num fav-vr ' + vrCls + '">' + (vr == null ? '—' : vr.toFixed(2) + '×') + '</td>' +
-        '<td class="num">$' + r.mk + 'K<span class="fav-px">' + r.lk + '–' + r.tk + '</span></td>' +
+        '<td class="num">$' + r.mk + 'K' + (r.lk != null ? '<span class="fav-px">' + r.lk + '–' + r.tk + '</span>' : '') + '</td>' +
         '<td>' + fitTxt + '</td>' +
-        '<td>' + (comp || '<span class="fav-rk">—</span>') + '</td></tr>';
+        '<td>' + lastCol + '</td></tr>';
       var detail = FAV.open[r.n] ? favDetail(r, mr) : "";
       return tr + detail;
     }).join("");
-    var table = '<div class="fo-card"><div class="fo-table-scroll"><table class="fo-table fav-table"><thead>' + head + '</thead><tbody>' + (body || '<tr><td colspan="8" class="fo-table-empty">No FAs match.</td></tr>') + '</tbody></table></div></div>';
+    var table = '<div class="fo-card"><div class="fo-table-scroll"><table class="fo-table fav-table"><thead>' + head + '</thead><tbody>' + (body || '<tr><td colspan="8" class="fo-table-empty">No players match.</td></tr>') + '</tbody></table></div></div>';
 
     host.innerHTML = summary + controls + table;
     // wire controls
+    $$("[data-favown]", host).forEach(function (b) { b.addEventListener("click", function () { FAV.ownership = b.getAttribute("data-favown"); paintFaValue(host); }); });
     $$("[data-favpos]", host).forEach(function (b) { b.addEventListener("click", function () { FAV.pos = b.getAttribute("data-favpos"); paintFaValue(host); }); });
     $$("[data-favv]", host).forEach(function (b) { b.addEventListener("click", function () { FAV.verdict = b.getAttribute("data-favv"); paintFaValue(host); }); });
     var nc = document.getElementById("fav-need"); if (nc) nc.addEventListener("change", function () { FAV.needOnly = nc.checked; paintFaValue(host); });
@@ -599,17 +644,28 @@
     var DTNAME = (WR.fav.key && WR.fav.key._dt) || {};
     var why = "";
     if (r.vr != null && R && implied) {
-      why = 'At $' + r.mk + 'K for a ' + (r.a50 || 0) + '-APW slot you\'d pay <b>$' + (implied / 1000).toFixed(1) + 'K/APW</b>; the SF market historically paid <b>$' + (R / 1000).toFixed(1) + 'K/APW</b> for ' + r.p + 's → <b>' + r.vr.toFixed(2) + '×</b> ' + (r.vr >= 1.15 ? 'a bargain.' : (r.vr >= 0.85 ? 'about fair.' : 'an overpay.'));
+      why = 'At $' + r.mk + 'K for a ' + (r.a50 || 0) + '-win slot you\'d pay <b>$' + (implied / 1000).toFixed(1) + 'K per all-play win</b>; the SF market historically paid <b>$' + (R / 1000).toFixed(1) + 'K/APW</b> for ' + r.p + 's → <b>' + r.vr.toFixed(2) + '×</b> ' + (r.vr >= 1.15 ? 'a bargain.' : (r.vr >= 0.85 ? 'about fair.' : 'an overpay.'));
     } else if ((r.mk || 0) <= 4) {
       why = 'A cut-free ≤$4K flier: floor ~' + (r.a25 || 0) + ' APW but a real ' + (r.a90 || 0) + '-APW ceiling — zero cap risk (drop anytime).';
     }
-    var comp = (r.c || []).map(function (fid) { var t = (WR.fav.teams || {})[fid] || {}; return '<span class="fav-comp big">' + esc(t.team || fid) + (t.capspace != null ? ' · $' + Math.round((t.capspace || 0) / 1000) + 'K room' : '') + '</span>'; }).join(" ");
+    var bbLine = (r.ab != null) ? ' · <b>best-ball ' + r.ab + '</b> (optimal start/sit ceiling)' : "";
+    var dealLine = r.dt ? 'Deal: <b>' + esc(DTNAME[r.dt] || r.dt) + '</b>' + (r.vc === "e" ? ' · <span class="fav-est">estimate</span> (projected price / thin rate)' : '') : "";
+    var lastCol;
+    if (r.o) {
+      var ot = (WR.fav.teams || {})[r.o] || {};
+      lastCol = '<div class="fav-dh">Trade target</div><span class="fav-comp big own">🔁 owned by ' + esc(ot.team || r.o) +
+        (ot.capspace != null ? ' · $' + Math.round((ot.capspace || 0) / 1000) + 'K room' : '') + '</span>' +
+        '<div class="fav-dmeta" style="margin-top:6px">Value/price shown is what he\'d be worth on the open market — your read for a trade ask.</div>';
+    } else {
+      var comp = (r.c || []).map(function (fid) { var t = (WR.fav.teams || {})[fid] || {}; return '<span class="fav-comp big">' + esc(t.team || fid) + (t.capspace != null ? ' · $' + Math.round((t.capspace || 0) / 1000) + 'K room' : '') + '</span>'; }).join(" ");
+      lastCol = '<div class="fav-dh">Likely competition</div>' + (comp || '<span class="fav-rk">no other team has a clear need here</span>');
+    }
     return '<tr class="fav-detail"><td colspan="8"><div class="fav-dwrap">' +
       '<div><div class="fav-dh">Why ' + (VMETA[r.v] || ["", r.v])[1] + '</div><div class="fav-dwhy">' + why + '</div>' +
-      '<div class="fav-dmeta">Deal: <b>' + esc(DTNAME[r.dt] || r.dt) + '</b> · Win-now ' + esc(r.wn || "—") + ' · Asset ' + esc(r.as || "—") + (r.vc === "e" ? ' · <span class="fav-est">estimate</span> (projected price / thin rate)' : '') + '</div></div>' +
-      '<div><div class="fav-dh">Expected APW range</div>' + favRangeBar(r.a25, r.a50, r.a90, APW_SCALE) + '<div class="fav-dmeta">floor ' + (r.a25 || 0) + ' · median ' + (r.a50 || 0) + ' · ceiling ' + (r.a90 || 0) + ' all-play wins</div>' +
-      '<div class="fav-dh" style="margin-top:8px">Price range</div><div class="fav-dmeta">$' + r.lk + 'K (low) · $' + r.mk + 'K (median) · $' + r.tk + 'K (top-10%)</div></div>' +
-      '<div><div class="fav-dh">Likely competition</div>' + (comp || '<span class="fav-rk">no other team has a clear need here</span>') + '</div>' +
+      (dealLine ? '<div class="fav-dmeta">' + dealLine + '</div>' : '') + '</div>' +
+      '<div><div class="fav-dh">All-play wins</div>' + favRangeBar(r.a25, r.a50, r.a90, APW_SCALE) + '<div class="fav-dmeta">floor ' + (r.a25 != null ? r.a25 : '—') + ' · projected ' + (r.a50 || 0) + ' · ceiling ' + (r.a90 || 0) + bbLine + '</div>' +
+      (r.lk != null ? '<div class="fav-dh" style="margin-top:8px">Price range</div><div class="fav-dmeta">$' + r.lk + 'K (low) · $' + r.mk + 'K (median) · $' + r.tk + 'K (top-10%)</div>' : '') + '</div>' +
+      '<div>' + lastCol + '</div>' +
       '</div></td></tr>';
   }
 

@@ -1,66 +1,66 @@
 {
   "meta": {
     "method": "median $ per expected-APW (dynasty p50, ex-ante). preSF=2020-2021, SF=2022-2025. wins with E[APW]<0.5 or no dynasty rank excluded.",
-    "matched_wins": 82,
-    "excluded_wins": 430,
+    "matched_wins": 132,
+    "excluded_wins": 380,
     "eapw_floor": 0.5
   },
   "rate": {
     "QB": {
       "preSF": {
-        "median": 1204,
-        "mean": 1984,
+        "median": 1084,
+        "mean": 2080,
         "n": 18
       },
       "SF": {
-        "median": 7400,
-        "mean": 8186,
+        "median": 7732,
+        "mean": 7788,
         "n": 24
       },
-      "R": 7400,
+      "R": 7732,
       "R_conf": "high"
     },
     "RB": {
       "preSF": {
-        "median": 29101,
-        "mean": 29101,
-        "n": 2
+        "median": 10903,
+        "mean": 10197,
+        "n": 4
       },
       "SF": {
-        "median": 15232,
-        "mean": 17994,
-        "n": 19
+        "median": 8155,
+        "mean": 8839,
+        "n": 20
       },
-      "R": 15232,
+      "R": 8155,
       "R_conf": "high"
     },
     "WR": {
       "preSF": {
-        "median": 25663,
-        "mean": 24417,
-        "n": 6
+        "median": 7144,
+        "mean": 9430,
+        "n": 14
       },
       "SF": {
-        "median": 19048,
-        "mean": 19650,
-        "n": 11
+        "median": 6164,
+        "mean": 7545,
+        "n": 31
       },
-      "R": 19048,
+      "R": 6164,
       "R_conf": "high"
     },
     "TE": {
       "preSF": {
-        "median": 67647,
-        "mean": 67647,
-        "n": 1
+        "median": 3846,
+        "mean": 4530,
+        "n": 5
       },
       "SF": {
-        "median": 58000,
-        "mean": 58000,
-        "n": 1
+        "median": 4359,
+        "mean": 4567,
+        "n": 16
       },
-      "R": 62824,
-      "R_conf": "low"
+      "R": 4359,
+      "R_conf": "high"
     }
   }
 }

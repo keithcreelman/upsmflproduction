@@ -56,7 +56,11 @@ def main():
     lg = jget(f"https://www48.myfantasyleague.com/{YEAR}/export?TYPE=league&L={LEAGUE}&JSON=1")["league"]
     fid2team = {f["id"]: f.get("name", f["id"]) for f in lg["franchises"]["franchise"]}
 
-    rostered_names, team = set(), {}
+    # STUD bar per position = the dynasty E[APW] of a top-6 asset (a difference-maker).
+    curves = json.loads((DATA / "eapw_curves.json").read_text())["curves"]["dynasty"]
+    STUD = {pos: (curves[pos]["p50"][5] if pos in curves and len(curves[pos]["p50"]) > 5 else 6.0) for pos in SKILL}
+
+    rostered_names, rostered_by_name, team = set(), {}, {}
     for fr in rosters:
         fid = fr["id"]
         pls = fr.get("player", [])
@@ -64,7 +68,8 @@ def main():
         active_sal = 0; apw_by_pos = collections.defaultdict(list)
         for p in pls:
             nm = id2name.get(str(p.get("id")))
-            if nm: rostered_names.add(nkey(nm))
+            if nm:
+                rostered_names.add(nkey(nm)); rostered_by_name[nkey(nm)] = fid
             if p.get("status") == "ROSTER":
                 active_sal += int(p.get("salary") or 0)
             c = by_name.get(nkey(nm or ""))
@@ -76,33 +81,49 @@ def main():
             starters = (vals + [0.0] * SLOTS[pos])[:SLOTS[pos]]
             need = round(sum(max(0.0, B[pos] - v) for v in starters), 2)
             surplus = round(sum(max(0.0, v - B[pos]) for v in vals), 2)
-            fit[pos] = {"need": need, "surplus": surplus, "starters_apw": round(sum(vals[:SLOTS[pos]]), 2)}
+            top = vals[0] if vals else 0.0
+            fit[pos] = {"need": need, "surplus": surplus, "top_apw": round(top, 2),
+                        "has_stud": top >= STUD[pos], "starters_apw": round(sum(vals[:SLOTS[pos]]), 2)}
         team[fid] = {"team": fid2team.get(fid, fid), "capspace": CAP - active_sal,
                      "active_salary": active_sal, "fit": fit}
 
     def need_label(fid, pos):
+        # quality first (do you have a difference-maker?), then depth.
         f = team[fid]["fit"][pos]; b = B[pos] or 0.01
-        if f["need"] > 0.4 * b: return "NEED"
-        if f["surplus"] > 0.8 * b: return "SURPLUS"
+        thin = f["need"] > 0.4 * b
+        deep = f["surplus"] > 0.8 * b
+        if not f["has_stud"]:
+            return "NEED-STUD" if thin else "DEPTH"   # no stud: either thin OR just bodies (0008 RB)
+        if thin: return "NEED"                         # stud but no depth behind
+        if deep: return "SURPLUS"                      # stud + depth
         return "OK"
+
+    def comp_score(t, pos):
+        f = t["fit"][pos]
+        return f["need"] + max(0.0, STUD[pos] - f["top_apw"])   # thin starters + missing a stud
 
     def competition(pos):
         cands = []
         for fid, t in team.items():
             if fid == "0008": continue
-            f = t["fit"][pos]; b = B[pos] or 0.01
-            if f["need"] > 0.4 * b:
-                cands.append((f["need"] * max(0.05, t["capspace"] / CAP), fid, t["team"], f["need"], t["capspace"]))
+            cs = comp_score(t, pos)
+            if cs > 0.3 * (B[pos] or 0.01):
+                cands.append((cs * max(0.05, t["capspace"] / CAP), fid, t["team"], round(cs, 2), t["capspace"]))
         cands.sort(reverse=True)
-        return [{"fid": fid, "team": tm, "need": round(nd, 2), "capspace": cs} for _, fid, tm, nd, cs in cands[:3]]
+        return [{"fid": fid, "team": tm, "need": nd, "capspace": cs} for _, fid, tm, nd, cs in cands[:3]]
 
-    # ---- available FAs (unrostered) ----
+    # ---- the board: available FAs (own=None) + rostered trade targets (own=fid) ----
+    TRADE_FLOOR = 2.5   # only rostered players worth trading FOR (startable+), not depth fodder
     fas = []
     for p in core:
-        if nkey(p["player"]) in rostered_names: continue
         pos = p["pos"]
-        comp = competition(pos) if pos in SKILL else []
-        fas.append({**p, "fit_0008": need_label("0008", pos) if pos in SKILL else "—",
+        nm = nkey(p["player"])
+        owner = rostered_by_name.get(nm)
+        if owner and (p.get("e_apw_p50") or 0) < TRADE_FLOOR:
+            continue                                   # skip rostered fodder (not a trade target)
+        comp = competition(pos) if (pos in SKILL and not owner) else []
+        fas.append({**p, "own": owner,
+                    "fit_0008": need_label("0008", pos) if pos in SKILL else "—",
                     "competition": comp})
     fas.sort(key=lambda x: -(x["e_apw_p50"] or 0))
 
@@ -129,12 +150,15 @@ def main():
             "verdict_legend": "SPLURGE/VALUE/FAIR/OVERPAY/DART by value_ratio=R[pos]/(price/E[APW]); value_conf=solid|estimate",
         },
         "teams": {fid: {"team": t["team"], "capspace": t["capspace"], "fit": t["fit"]} for fid, t in team.items()},
+        "stud_bar": {pos: round(STUD[pos], 2) for pos in SKILL},
         "fas": [{
-            "player": p["player"], "pos": p["pos"], "age": p["age"],
+            "player": p["player"], "pos": p["pos"], "age": p["age"], "own": p.get("own"),
+            "owner_team": (team.get(p["own"], {}).get("team") if p.get("own") else None),
             "dyn_sf_rank": p["dyn_sf_rank"], "redraft_rank": p["redraft_rank"],
             "win_now": p["win_now"], "asset": p["asset"], "deal_type": p["deal_type"],
             "low_k": p["low_k"], "median_k": p["median_k"], "top10_k": p["top10_k"],
             "e_apw_p25": p["e_apw_p25"], "e_apw_p50": p["e_apw_p50"], "e_apw_p90": p["e_apw_p90"],
+            "e_apw_bestball": p.get("e_apw_bestball"),
             "implied_apw": p["implied_apw"], "value_ratio": p["value_ratio"],
             "verdict": p["verdict"], "value_conf": p["value_conf"],
             "fit_0008": p["fit_0008"], "competition": p["competition"],
@@ -145,15 +169,19 @@ def main():
     print(f"wrote {(DATA / 'fa_value.json').relative_to(REPO)} ({len(fas)} FAs, blob {blob_len/1024:.1f}KB)")
 
     # ---- CSV ----
-    cols = ["player", "pos", "age", "dyn_sf_rank", "redraft_rank", "win_now", "asset",
-            "low_k", "median_k", "top10_k", "e_apw_p50", "e_apw_p90", "implied_apw",
-            "value_ratio", "verdict", "value_conf", "fit_0008", "deal_type", "top_competitors"]
+    cols = ["player", "pos", "status", "owner", "dyn_sf_rank", "redraft_rank",
+            "low_k", "median_k", "top10_k", "e_apw_p50", "e_apw_bestball", "e_apw_p90",
+            "implied_apw", "value_ratio", "verdict", "value_conf", "fit_0008", "deal_type", "top_competitors"]
     with open(DATA / "fa_valuation.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
         w.writeheader()
         for p in fas:
-            w.writerow({**p, "top_competitors": "; ".join(x["team"] for x in p["competition"])})
+            w.writerow({**p, "status": "rostered" if p.get("own") else "FA",
+                        "owner": team.get(p["own"], {}).get("team", "") if p.get("own") else "",
+                        "top_competitors": "; ".join(x["team"] for x in p["competition"])})
     print(f"wrote {(DATA / 'fa_valuation.csv').relative_to(REPO)}")
+    n_avail = sum(1 for p in fas if not p.get("own")); n_rost = len(fas) - n_avail
+    print(f"  ({n_avail} available FAs + {n_rost} rostered trade targets)")
 
     # ---- summaries ----
     print(f"\n=== startable baseline B[pos] (E[APW] at replacement rank) ===")
@@ -179,28 +207,36 @@ def main():
         DT = {"cut-free dart": "d", "1-yr rental / flip": "r", "multi-year build": "m",
               "anchor": "a", "1-yr / situational": "s"}
         VC = {"solid": "s", "estimate": "e"}
-        FT = {"NEED": "N", "SURPLUS": "S", "OK": "-", "—": "-"}
+        FT = {"NEED-STUD": "NS", "DEPTH": "D", "NEED": "N", "SURPLUS": "S", "OK": "-", "—": "-"}
         lean = {
-            "meta": payload["meta"],
+            "meta": payload["meta"], "stud_bar": payload["stud_bar"],
             "key": {"n": "player", "p": "pos", "dr": "dyn_sf_rank", "rr": "redraft_rank",
                     "wn": "win_now", "as": "asset", "dt": "deal_type", "lk": "low_k",
                     "mk": "median_k", "tk": "top10_k",
-                    "a25": "e_apw_p25", "a50": "e_apw_p50", "a90": "e_apw_p90",
+                    "a25": "e_apw_p25", "a50": "e_apw_p50", "a90": "e_apw_p90", "ab": "e_apw_bestball",
                     "vr": "value_ratio", "v": "verdict", "vc": "value_conf",
-                    "f": "fit_0008", "c": "competition_fids",
+                    "f": "fit_0008", "c": "competition_fids", "o": "owner_fid (null=available FA)",
                     "_dt": {v: k for k, v in DT.items()}, "_vc": {v: k for k, v in VC.items()},
-                    "_f": {"N": "NEED", "S": "SURPLUS", "-": "OK"}},
+                    "_f": {"NS": "NEED-STUD", "D": "DEPTH", "N": "NEED", "S": "SURPLUS", "-": "OK"}},
             "teams": {fid: {"team": t["team"], "capspace": t["capspace"],
-                            "fit": {pos: {"need": t["fit"][pos]["need"], "surplus": t["fit"][pos]["surplus"]} for pos in SKILL}}
+                            "fit": {pos: {"need": t["fit"][pos]["need"], "surplus": t["fit"][pos]["surplus"],
+                                          "stud": t["fit"][pos]["has_stud"]} for pos in SKILL}}
                       for fid, t in team.items()},
-            "fas": [{
-                "n": p["player"], "p": p["pos"], "dr": p["dyn_sf_rank"], "rr": p["redraft_rank"],
-                "wn": p["win_now"], "as": p["asset"], "dt": DT.get(p["deal_type"], "s"),
-                "lk": p["low_k"], "mk": p["median_k"], "tk": p["top10_k"],
-                "a25": r1(p["e_apw_p25"]), "a50": r1(p["e_apw_p50"]), "a90": r1(p["e_apw_p90"]),
-                "vr": p["value_ratio"], "v": p["verdict"], "vc": VC.get(p["value_conf"], "e"),
-                "f": FT.get(p["fit_0008"], "-"), "c": [x["fid"] for x in p["competition"][:2]],
-            } for p in fas],
+            # available FAs get the full decision record; rostered trade targets get a
+            # lean record (owner + value + price) to keep the blob under the D1 cap.
+            "fas": [
+                ({"n": p["player"], "p": p["pos"], "dr": p["dyn_sf_rank"], "o": p["own"],
+                  "mk": p["median_k"], "a50": r1(p["e_apw_p50"]), "ab": r1(p.get("e_apw_bestball")),
+                  "a90": r1(p["e_apw_p90"]), "vr": p["value_ratio"], "v": p["verdict"]}
+                 if p.get("own") else
+                 {"n": p["player"], "p": p["pos"], "dr": p["dyn_sf_rank"],
+                  "dt": DT.get(p["deal_type"], "s"),
+                  "lk": p["low_k"], "mk": p["median_k"], "tk": p["top10_k"],
+                  "a25": r1(p["e_apw_p25"]), "a50": r1(p["e_apw_p50"]), "a90": r1(p["e_apw_p90"]),
+                  "ab": r1(p.get("e_apw_bestball")), "vr": p["value_ratio"], "v": p["verdict"],
+                  "vc": VC.get(p["value_conf"], "e"), "f": FT.get(p["fit_0008"], "-"),
+                  "c": [x["fid"] for x in p["competition"][:2]]})
+                for p in fas],
         }
         blob = json.dumps(lean, separators=(",", ":")).replace("'", "''")
         print(f"  (lean D1 blob {len(blob)/1024:.1f}KB)")

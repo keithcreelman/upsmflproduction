@@ -94,9 +94,9 @@ def main():
     apw = {}
     for r in csv.DictReader(open(DATA / "apw_seasonal.csv")):
         key = (int(r["season"]), str(r["player_id"]))
-        gp = int(r["gp"])
+        gp = int(r["gp_started"])
         if key not in apw or gp > apw[key][2]:
-            apw[key] = (r["pos"], float(r["apw"]), gp)
+            apw[key] = (r["pos"], float(r["apw_started"]), gp)
 
     # fp_id → mfl_id crosswalk for the dynasty axis
     fp2mfl = {}
