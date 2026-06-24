@@ -69,17 +69,17 @@ Your one true hole is a **stud QB** — which is also the position that costs th
 Mix: **318 FAIR · 90 VALUE · 7 SPLURGE · 3 DART · 3 OVERPAY.**
 
 ### Win-now VALUE — the aging-vet arbitrage
-The best values are **productive veterans dynasty has written off** — their dynasty rank is low (age), but their sticky production stays high. A **win-now production floor** prices them at what their output is actually worth (`max(dynasty price, E[APW] × market $/APW × 0.5)`) — so they no longer dump into the $1K fodder band (*Kelce will never go for $1K*), but stay below young-stud money:
+The best values are **productive veterans dynasty has written off** — their dynasty rank is low (age), but their sticky production stays high. A **win-now production floor** prices them at what their output is worth (`max(dynasty price, E[APW] × VET_RATE[pos])`) — so they no longer dump into the $1K fodder band (*Kelce will never go for $1K*). The rate is **position-specific by durability** (aging RBs crater → cheap; QBs hold startable value; TE/WR between): QB $3K/APW · TE $2.1K · WR $1.2K · RB $0.8K.
 
-| Player | Dyn rank | proj APW | Price | Value | Fit |
+| Player | Dyn rank | proj APW | Price | Verdict | Fit |
 |---|---|---|---|---|---|
-| Travis Kelce | TE21 | 6.6 | **$14K** | 2.06× SPLURGE | SURPLUS (you're set at TE) |
-| Joe Mixon | RB100 | 5.3 | **$22K** | 1.98× VALUE | DEPTH |
-| Stefon Diggs | WR70 | 4.5 | **$14K** | 1.97× VALUE | DEPTH |
-| Justin Fields | QB39 | 2.7 | **$11K** | 1.93× VALUE | **NEED-STUD** ← cheap QB for you |
-| Aaron Rodgers | QB37 | 1.9 | **$7K** | 2.08× VALUE | **NEED-STUD** |
+| Travis Kelce | TE21 | 6.6 | **$14K** | SPLURGE | SURPLUS (you're set at TE) |
+| Joe Mixon | RB100 | 5.3 | **$4K** | VALUE | DEPTH |
+| Stefon Diggs | WR70 | 4.5 | **$5K** | VALUE | DEPTH |
+| Justin Fields | QB39 | 2.7 | **$8K** | VALUE | **NEED-STUD** ← cheap QB for you |
+| Aaron Rodgers | QB37 | 1.9 | **$6K** | VALUE | **NEED-STUD** |
 
-The signal is the same (productive vets go cheaper than young studs) but the magnitude is now realistic (~2×, not 28×). Young studs are unaffected — Allen's $75K dynasty price already exceeds his production floor.
+Young studs are unaffected — Allen's $75K dynasty price already exceeds his production floor. *(Judgment-call note: the model rates Rodgers washed (1.9 APW) → $6K; a name like that can get bid past his production at auction — a potential overpay if it runs above ~$8K, not a value.)* The displayed value ratio is capped at 5× — a cheap vet's raw ratio vs the general position rate can read 10×+, which is the aging-RB discount, not a literal steal.
 
 ### OVERPAY — pay a premium for production that isn't there
 - **Joe Burrow** QB4 $66K → proj only 5.8 APW (injury-shortened recent years) = 0.68× — paying QB4 price for QB-mid output.

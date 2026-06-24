@@ -25,7 +25,11 @@ SUFFIX = re.compile(r"\b(jr|sr|ii|iii|iv|v)\b")
 # APW scale: elite season ≈ 11-13, good starter ≈ 7-9, mid ≈ 5-6, fodder ≈ 0-2.
 STARTER_APW = 6.0   # "a real starter" bar on the new positional all-play scale
 BOOM_APW = 5.0      # a cheap dart's p90 must reach a startable-quality ceiling
-VET_DISCOUNT = 0.5  # productive vets clear at ~half their full production value (1-yr/age)
+# Win-now production-floor rate ($K per expected-APW) for aging/deep-dynasty producers.
+# POSITION-SPECIFIC by durability, NOT the market $/APW: aging RBs crater (replaceable,
+# age cliff) so they stay cheap; QBs hold startable value; TE/WR in between. Calibrated
+# to Keith's anchors: Mixon RB100 5.3→$4K, Diggs WR70 4.5→$5-6K, Kelce TE21 6.6→$14K.
+VET_RATE = {"QB": 3.0, "RB": 0.8, "WR": 1.2, "TE": 2.1}
 
 
 def nkey(s):
@@ -111,15 +115,19 @@ def main():
         # The dynasty-rank price dumps productive VETERANS into the $1K fodder band
         # (Kelce TE21, Mixon RB100) even though a still-producing player commands real
         # win-now money in a contract league. Floor the price at the production value:
-        #   price = max( dynasty asset price , E[APW] × market $/APW × VET_DISCOUNT ).
-        # Young studs keep their (higher) dynasty price; productive vets get lifted.
-        prod_floor_k = round((p50 or 0) * R * VET_DISCOUNT / 1000) if (p50 and R) else 0
+        #   price = max( dynasty asset price , E[APW] × VET_RATE[pos] ).
+        # Young studs keep their (higher) dynasty price; productive vets get lifted —
+        # by a position-durability rate (aging RBs cheap, QBs hold value).
+        prod_floor_k = round((p50 or 0) * VET_RATE.get(pos, 1.5)) if p50 else 0
         price_k = max(dyn_price_k, prod_floor_k)
         floored = price_k > dyn_price_k
         low_k = round(price_k * 0.72) if floored else p["low_k"]
         top10_k = round(price_k * 1.35) if floored else p["top10_k"]
         implied = round(price_k * 1000 / p50) if (p50 and p50 > 0) else None
         vr = round(R / implied, 2) if (R and implied) else None
+        # cheap-vet prices clear far below the general position rate → vr can read absurd
+        # (Mixon 10×); cap the DISPLAYED ratio at a clean "deep value" ceiling.
+        if vr is not None: vr = min(vr, 5.0)
         v = verdict(price_k, p50 or 0, p90 or 0, vr)
         # value_conf: "solid" only when BOTH the price band and the market rate are
         # well-sampled; else "estimate" (elite projected price OR thin market rate).
