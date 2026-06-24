@@ -1,0 +1,30 @@
+QB                   dynR   fpR E[redr] E[dyn] blend worth$ dynPx stab  EP$  gap
+--------------------------------------------------------------------------------
+Josh Allen            QB1   QB1    11.6   11.4  11.5    $75   $75  $32  $75   +0
+Lamar Jackson         QB2   QB2    11.4   10.4  10.9    $71   $72  $32  $72   +1
+Patrick Mahomes II    QB3  QB11     6.2   10.4   8.3    $54   $69  $18  $69  +15
+Joe Burrow            QB4   QB3    10.3    9.4   9.8    $64   $66  $32  $66   +2
+Caleb Williams        QB5   QB6     9.7    8.5   9.1    $59   $63  $32  $63   +4
+Jalen Hurts           QB6   QB7     8.9    8.5   8.7    $57   $60  $32  $60   +3
+Justin Herbert        QB7   QB9     7.7    8.2   8.0    $52   $57  $18  $57   +5
+Jayden Daniels        QB8   QB4     9.7    7.0   8.4    $55   $54  $32  $54   -1
+Drake Maye            QB9   QB5     9.7    6.9   8.3    $54   $51  $32  $51   -3
+Jaxson Dart          QB10  QB12     6.2    6.2   6.2    $40   $48  $18  $48   +8
+Trevor Lawrence      QB11  QB10     7.1    6.0   6.5    $42   $45  $18  $45   +3
+Bo Nix               QB12  QB15     5.0    5.8   5.4    $35   $42  $18  $42   +7
+Brock Purdy          QB13  QB13     6.0    5.8   5.9    $38   $39  $18  $39   +1
+Jordan Love          QB14  QB18     4.0    5.8   4.9    $32   $37  $13  $37   +5
+Dak Prescott         QB15   QB8     7.7    5.7   6.7    $44   $35  $32  $35   -9
+C.J. Stroud          QB16  QB24     1.6    5.4   3.5    $23   $32  $13  $32   +9
+Kyler Murray         QB17  QB17     4.8    4.6   4.7    $31   $30  $13  $30   -1
+Fernando Mendoza     QB18  QB27     0.9    3.9   2.4    $16   $28   $9  $28  +12
+Jared Goff           QB19  QB16     4.8    3.1   4.0    $26   $26  $18  $26   +0
+Baker Mayfield       QB20  QB19     3.8    3.1   3.4    $22   $24  $13  $24   +2
+Cam Ward             QB21  QB22     2.8    2.8   2.8    $18   $21  $13  $21   +3
+Tyler Shough         QB22  QB20     3.8    2.3   3.0    $20   $19  $13  $19   -1
+Sam Darnold          QB23  QB23     2.6    2.3   2.5    $16   $17  $13  $17   +1
+Malik Willis         QB24  QB21     3.3    1.5   2.4    $16   $15  $13  $15   -1
+Matthew Stafford     QB25  QB14     5.7    0.9   3.3    $21   $14  $18  $18   -3
+Bryce Young          QB26  QB26     1.6    0.9   1.2     $8   $12   $9  $12   +4
+Daniel Jones         QB27  QB25     1.6    0.8   1.2     $8   $10   $9  $10   +2
+Tua Tagovailoa       QB28  QB31     0.3    0.7   0.5     $3    $8   $9   $9   +6

@@ -21,7 +21,9 @@
   var U = M.util;
 
   // tab: "faa" | "era" (the auction). sub: "summary"|"lots"|"players"|"cadence"|"schedule".
-  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", poolStatus: "all", openThreads: {} };
+  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", poolStatus: "all", openThreads: {}, faValue: undefined, favDynW: 0.5, favPos: "ALL", favOwn: "available", favOpen: {} };
+  // FA Value board (worth vs expected price + inflation) — commish-only.
+  function favIsCommish() { return ["0008", "0000"].indexOf(U.pad4(M.state.viewerFranchiseId || "")) !== -1; }
 
   function subTabs(active) {
     function tab(href, label, key) {
@@ -266,8 +268,10 @@
   }
   // Same five pills for both auctions. "Tracker" = the per-team nomination view
   // (FAA: full compliance scoreboard; ERA: nomination windows).
-  function subsFor() {
-    return [["summary", "Summary"], ["players", "Players"], ["lots", "Lots"], ["history", "History"], ["tracker", "Tracker"]];
+  function subsFor(tab) {
+    var base = [["summary", "Summary"], ["players", "Players"], ["lots", "Lots"], ["history", "History"], ["tracker", "Tracker"]];
+    if (tab === "faa" && favIsCommish()) base.push(["value", "💎 Value"]);   // commish-only FA value board
+    return base;
   }
 
   function paint() {
@@ -291,6 +295,7 @@
     wireBidButtons();
     wireThreads();
     wirePlayerModal();
+    wireFaValue();
   }
   function wireLotsToggle() {
     Array.prototype.forEach.call(document.querySelectorAll(".ups-m-auc-lottab"), function (b) {
@@ -333,11 +338,73 @@
   function renderSub(tab, sub) {
     var p = (tab === "era" ? state.era : state.faa) || {};
     if (p.ok === false && sub !== "history" && sub !== "lots") return '<div class="ups-m-auc-empty">' + (tab === "era" ? "ERA" : "FAA") + ' board unavailable right now.</div>';
+    if (sub === "value") return renderFaValue();
     if (sub === "players") return tab === "era" ? eraPool() : faaPool();
     if (sub === "lots") return renderLots(tab);
     if (sub === "history") return renderHistory(tab);
     if (sub === "tracker") return renderTracker(tab);
     return renderSummary(tab, p);
+  }
+
+  // ── FA Value board (commish-only): worth (production+dynasty blend) vs expected price + inflation ──
+  function favWorthM(r) { var w = state.favDynW; return Math.round((1 - w) * (r.rw || 0) + w * (r.dw || 0)); }
+  function favVerdictM(worth, ep, a90) {
+    var vr = ep > 0 ? worth / ep : null;
+    if (vr == null) return ["—", "fair"];
+    if (vr >= 1.5 && worth >= 15) return ["SPLURGE", "sp"];
+    if (vr >= 1.2) return ["VALUE", "val"];
+    if (vr >= 0.8) return ["FAIR", "fair"];
+    if (ep <= 4) return (a90 || 0) >= 5 ? ["DART", "dart"] : ["FAIR", "fair"];
+    if (ep < 15) return ["FAIR", "fair"];
+    return vr < 0.6 ? ["OVERPAY", "over"] : ["FAIR", "fair"];
+  }
+  function fetchFaValue() {
+    state.faValue = null;
+    var fid = U.pad4(M.state.viewerFranchiseId || "0008");
+    M.api.fetchJson(M.api.workerUrl("/api/auction/fa-value?franchise_id=" + fid))
+      .then(function (d) { state.faValue = (d && d.ok) ? d : false; paint(); })
+      .catch(function () { state.faValue = false; paint(); });
+  }
+  function renderFaValue() {
+    if (state.faValue === undefined) { fetchFaValue(); return '<div class="ups-m-loading">Loading FA value…</div>'; }
+    if (state.faValue === null) return '<div class="ups-m-loading">Loading FA value…</div>';
+    if (state.faValue === false) return '<div class="ups-m-auc-empty">FA value board unavailable (commish-only).</div>';
+    var d = state.faValue, infl = (d.meta || {}).inflation || {};
+    var rows = (d.fas || []).filter(function (r) { return !r.o; });
+    if (state.favPos !== "ALL") rows = rows.filter(function (r) { return r.p === state.favPos; });
+    rows.forEach(function (r) { r._w = favWorthM(r); r._gap = (r.e || 0) - r._w; var v = favVerdictM(r._w, r.e, r.a90); r._vlab = v[0]; r._vcls = v[1]; });
+    rows.sort(function (a, b) { return (b._w || 0) - (a._w || 0); });
+    rows = rows.slice(0, 60);
+    var pct = Math.round(state.favDynW * 100);
+    var inflStrip = '<div class="ups-m-fav-infl"><div class="ups-m-fav-infl-x">' + ((infl.factor || 1).toFixed(2)) + '×</div>' +
+      '<div class="ups-m-fav-infl-t"><b>' + U.escapeHtml(infl.regime || '') + ' market</b> · ante $' + (infl.ante_live || 0) + 'K (norm $' + (infl.ante_base || 7) + 'K)<br>biddable $' + (infl.biddable_money_k || 0) + 'K vs pool $' + (infl.credible_value_k || 0) + 'K · locked surplus $' + (infl.surplus_k || 0) + 'K</div></div>';
+    var blend = '<div class="ups-m-fav-blend"><div class="ups-m-fav-blend-h">Worth blend — win-now <b>' + (100 - pct) + '</b> / dynasty <b>' + pct + '</b></div>' +
+      '<input type="range" id="ups-m-fav-blend" min="0" max="100" step="5" value="' + pct + '"></div>';
+    var pills = '<div class="ups-m-fav-pos">' + ["ALL", "QB", "RB", "WR", "TE"].map(function (p) {
+      return '<button type="button" class="ups-m-fav-pospill' + (state.favPos === p ? ' active' : '') + '" data-favpos="' + p + '">' + p + '</button>';
+    }).join("") + '</div>';
+    var cards = rows.map(function (r) {
+      var gapCls = r._gap <= -3 ? 'pos' : (r._gap >= 3 ? 'neg' : '');
+      var head = '<div class="ups-m-fav-row" data-favn="' + U.escapeHtml(r.n) + '">' +
+        '<div class="ups-m-fav-nm"><b>' + U.escapeHtml(r.n) + '</b> <span class="ups-m-fav-rk">' + U.escapeHtml(r.dr) + (r.fr ? ' · ' + U.escapeHtml(r.fr) : '') + '</span>' +
+        '<span class="ups-m-fav-v ' + r._vcls + '">' + r._vlab + '</span></div>' +
+        '<div class="ups-m-fav-nums"><span class="ups-m-fav-w">$' + r._w + 'K</span><span class="ups-m-fav-arrow">→</span><span class="ups-m-fav-e">$' + (r.e || 0) + 'K</span>' +
+        '<span class="ups-m-fav-gap ' + gapCls + '">' + (r._gap > 0 ? '+' : '') + r._gap + '</span></div></div>';
+      var detail = state.favOpen[r.n] ? '<div class="ups-m-fav-detail">redraft (production) <b>$' + (r.rw || 0) + 'K</b> · dynasty (asset) <b>$' + (r.dw || 0) + 'K</b><br>' +
+        'all-play wins: proj <b>' + (r.a50 || 0) + '</b> · ceiling <b>' + (r.a90 || 0) + '</b> · price <b>$' + (r.e || 0) + 'K</b> · gap <b>' + (r._gap > 0 ? '+' : '') + r._gap + 'K</b></div>' : '';
+      return '<div class="ups-m-fav-card">' + head + detail + '</div>';
+    }).join("");
+    return inflStrip + blend + pills + '<div class="ups-m-fav-list">' + (cards || '<div class="ups-m-auc-empty">No players.</div>') + '</div>';
+  }
+  function wireFaValue() {
+    var bl = document.getElementById("ups-m-fav-blend");
+    if (bl) bl.addEventListener("change", function () { state.favDynW = (+bl.value) / 100; paint(); });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-favpos]"), function (b) {
+      b.addEventListener("click", function () { state.favPos = this.getAttribute("data-favpos"); paint(); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-fav-row"), function (b) {
+      b.addEventListener("click", function () { var n = this.getAttribute("data-favn"); state.favOpen[n] = !state.favOpen[n]; paint(); });
+    });
   }
 
   function renderSummary(tab, p) {

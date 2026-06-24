@@ -34,6 +34,17 @@ DATA = REPO / "docs" / "auction" / "data"
 WORKER = REPO / "worker"
 SEASONS = range(2020, 2026)
 SKILL = {"QB", "RB", "WR", "TE"}
+# ── Points-Above-Replacement → All-Play Wins Earned (the value metric) ──
+# Replacement = the league's revealed weekly STARTER demand (SF era): the Nth-best
+# started player at the position each week is the "replacement bar" you'd otherwise
+# field. A player's edge = his score above that bar, summed over weeks he played
+# (missed/benched weeks net 0 — you fill replacement, so durability is rewarded:
+# 6 great weeks < 17 near-great weeks). SLOPE converts team points → all-play wins
+# (regressed: +1 team point ≈ 0.088 all-play wins/week), so PAR × SLOPE = the
+# all-play wins a player's production EARNS you — points-based, scarcity-aware
+# (replacement differs by position), and NON-saturating (unlike the raw all-play %).
+REPL_RANK = {"QB": 24, "RB": 30, "WR": 40, "TE": 13}
+SLOPE = 0.088
 
 
 def d1(sql):
@@ -76,54 +87,65 @@ def main():
             if (r["status"] or "") == "starter":
                 field[int(r["week"])][r["pos"]].append((str(r["player_id"]), float(r["score"] or 0)))
         diag[season] = {wk: {p: len(v) for p, v in d.items() if p in SKILL} for wk, d in sorted(field.items())}
+        # SEASON replacement level per pos = the PPG of the REPL_RANK-th regular starter
+        # (the league's weekly demand cutoff), a stable VORP baseline (~QB24 ≈ 12 PPG).
+        ptot = collections.defaultdict(lambda: [0.0, 0])  # (pid,pos) -> [sum_started, gp_started]
+        for r in rows:
+            if (r["status"] or "") == "starter":
+                t = ptot[(str(r["player_id"]), r["pos"])]; t[0] += float(r["score"] or 0); t[1] += 1
+        repl_ppg = {}
+        for pos in SKILL:
+            ppgs = sorted((s / g for (p, po), (s, g) in ptot.items() if po == pos and g >= 8), reverse=True)
+            cut = REPL_RANK[pos]
+            repl_ppg[pos] = ppgs[cut - 1] if len(ppgs) >= cut else (ppgs[-1] if ppgs else 0.0)
 
-        agg = collections.defaultdict(lambda: {"started": 0.0, "bestball": 0.0, "gp_s": 0, "gp_a": 0, "pos": None})
+        agg = collections.defaultdict(lambda: {"apw_s": 0.0, "apw_b": 0.0, "par_s": 0.0, "par_b": 0.0, "gp_s": 0, "gp_a": 0, "pos": None})
         for r in rows:
             wk = int(r["week"]); pos = r["pos"]; sc = float(r["score"] or 0); pid = str(r["player_id"])
             fld = (field.get(wk) or {}).get(pos)
             if not fld:
                 continue
             started = (r["status"] or "") == "starter"
-            # compare vs the OTHER started players at the position (remove one own row if started)
             others = [x[1] for x in fld if x[0] != pid] if started else [x[1] for x in fld]
             apw = allplay_fraction(sc, others)
             if apw is None:
                 continue
+            par = sc - repl_ppg.get(pos, 0.0)   # points above the season replacement level
             a = agg[pid]; a["pos"] = pos
-            a["bestball"] += apw; a["gp_a"] += 1
+            a["apw_b"] += apw; a["par_b"] += max(0.0, par); a["gp_a"] += 1   # best-ball: bench sub-repl weeks
             if started:
-                a["started"] += apw; a["gp_s"] += 1
+                a["apw_s"] += apw; a["par_s"] += par; a["gp_s"] += 1          # started: as-played (neg allowed)
         for pid, a in agg.items():
             out.append({"season": season, "player_id": pid, "player": names.get(pid, ""),
                         "pos": a["pos"], "gp_started": a["gp_s"], "gp_all": a["gp_a"],
-                        "apw_started": round(a["started"], 3), "apw_bestball": round(a["bestball"], 3)})
+                        "apw_started": round(a["apw_s"], 3), "apw_bestball": round(a["apw_b"], 3),
+                        "par_started": round(a["par_s"], 1), "par_bestball": round(a["par_b"], 1),
+                        "apwe_started": round(a["par_s"] * SLOPE, 2), "apwe_bestball": round(a["par_b"] * SLOPE, 2)})
         print(f"  {season}: {len(agg)} player-seasons", flush=True)
 
-    out.sort(key=lambda x: (x["season"], -x["apw_started"]))
+    out.sort(key=lambda x: (x["season"], -x["apwe_started"]))
     with open(DATA / "apw_seasonal.csv", "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["season", "player_id", "player", "pos", "gp_started", "gp_all", "apw_started", "apw_bestball"])
+        w = csv.DictWriter(f, fieldnames=["season", "player_id", "player", "pos", "gp_started", "gp_all",
+                                          "apw_started", "apw_bestball", "par_started", "par_bestball",
+                                          "apwe_started", "apwe_bestball"])
         w.writeheader(); w.writerows(out)
     print(f"\nwrote {(DATA / 'apw_seasonal.csv').relative_to(REPO)} ({len(out)} player-seasons)")
 
-    # ── acceptance tests ──
+    # ── acceptance tests (APWE = all-play wins earned = PAR × slope; the proper spread) ──
     s24 = [r for r in out if r["season"] == 2024]
-    print("\n=== (a) 2024 top-10 apw_started — expect top ≈ 13-15 ===")
-    for r in sorted(s24, key=lambda x: -x["apw_started"])[:10]:
-        print(f"  {r['player'][:22]:<23}{r['pos']:>3}  started {r['apw_started']:>5.1f}  bestball {r['apw_bestball']:>5.1f}  (gp {r['gp_started']}/{r['gp_all']})")
-    fulltime = [r for r in s24 if r["gp_started"] >= 12 and r["pos"] in SKILL]
-    if fulltime:
-        med = statistics.median([r["apw_started"] for r in fulltime])
-        print(f"\n=== (b) 2024 median full-time starter (gp>=12) apw_started = {med:.1f} (expect ≈7) ===")
-    print("\n=== (c) position field sizes (W1 each season — the all-play denominator) ===")
-    for season in SEASONS:
-        wk1 = diag[season].get(1, {})
-        if wk1: print(f"  {season} W1 started field: " + " ".join(f"{p}={wk1.get(p,0)}" for p in ['QB','RB','WR','TE']))
-    print("\n=== (d) Kyle Pitts (15329) started vs bestball by season ===")
+    print("\n=== (a) 2024 top-12 by APWE — expect a PROPER spread (QB ≫ TE), not the flat APW band ===")
+    print(f"  {'player':<22}{'pos':>4}{'PAR':>7}{'APWE':>7}{'apw%':>7}  (gp)")
+    for r in sorted(s24, key=lambda x: -x["apwe_started"])[:12]:
+        print(f"  {r['player'][:21]:<22}{r['pos']:>4}{r['par_started']:>7.0f}{r['apwe_started']:>7.1f}{r['apw_started']:>7.1f}  ({r['gp_started']})")
+    print("\n=== (b) Allen vs Kelce edge (the test that was failing) ===")
+    al = next(r for r in s24 if r["player_id"] == "13589"); ke = next((r for r in s24 if r["player_id"] == "15329"), None)
+    print(f"  Allen APWE {al['apwe_started']:.1f} (PAR {al['par_started']:.0f}) ; old apw% {al['apw_started']:.1f}")
+    print("\n=== (c) Mixon (15257) — should be LOW now (no individual prediction here; this is realized) ===")
+    for r in sorted([r for r in out if r["player_id"] == "15257"], key=lambda x: x["season"]):
+        print(f"  {r['season']}: APWE {r['apwe_started']:>5.1f}  PAR {r['par_started']:>6.0f}  apw% {r['apw_started']:.1f}  (gp {r['gp_started']})")
+    print("\n=== (d) durability — Kyle Pitts (15329) started vs best-ball APWE ===")
     for r in sorted([r for r in out if r["player_id"] == "15329"], key=lambda x: x["season"]):
-        print(f"  {r['season']}: started {r['apw_started']:.1f}  bestball {r['apw_bestball']:.1f}  (gp {r['gp_started']}/{r['gp_all']})")
-    print("\n=== (e) Josh Allen (13589) by season — expect elite ≈12-14, sticky ===")
-    for r in sorted([r for r in out if r["player_id"] == "13589"], key=lambda x: x["season"]):
-        print(f"  {r['season']}: started {r['apw_started']:.1f}  bestball {r['apw_bestball']:.1f}  (gp {r['gp_started']}/{r['gp_all']})")
+        print(f"  {r['season']}: APWE started {r['apwe_started']:>5.1f}  best-ball {r['apwe_bestball']:>5.1f}  (gp {r['gp_started']}/{r['gp_all']})")
 
 
 if __name__ == "__main__":

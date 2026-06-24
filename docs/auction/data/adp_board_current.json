@@ -1,0 +1,3170 @@
+{
+  "josh allen": {
+    "pid": "13589",
+    "name": "Josh Allen",
+    "pos": "QB",
+    "dyn_rank": 1,
+    "dyn_value": 10136,
+    "rsf": 9990
+  },
+  "drake maye": {
+    "pid": "16580",
+    "name": "Drake Maye",
+    "pos": "QB",
+    "dyn_rank": 2,
+    "dyn_value": 8272,
+    "rsf": 8748
+  },
+  "lamar jackson": {
+    "pid": "13593",
+    "name": "Lamar Jackson",
+    "pos": "QB",
+    "dyn_rank": 3,
+    "dyn_value": 7982,
+    "rsf": 9331
+  },
+  "caleb williams": {
+    "pid": "16579",
+    "name": "Caleb Williams",
+    "pos": "QB",
+    "dyn_rank": 4,
+    "dyn_value": 7763,
+    "rsf": 7486
+  },
+  "jayden daniels": {
+    "pid": "16581",
+    "name": "Jayden Daniels",
+    "pos": "QB",
+    "dyn_rank": 5,
+    "dyn_value": 7489,
+    "rsf": 8403
+  },
+  "joe burrow": {
+    "pid": "14777",
+    "name": "Joe Burrow",
+    "pos": "QB",
+    "dyn_rank": 6,
+    "dyn_value": 7475,
+    "rsf": 8406
+  },
+  "justin herbert": {
+    "pid": "14779",
+    "name": "Justin Herbert",
+    "pos": "QB",
+    "dyn_rank": 7,
+    "dyn_value": 6830,
+    "rsf": 7504
+  },
+  "jalen hurts": {
+    "pid": "14783",
+    "name": "Jalen Hurts",
+    "pos": "QB",
+    "dyn_rank": 9,
+    "dyn_value": 6476,
+    "rsf": 7344
+  },
+  "patrick mahomes": {
+    "pid": "13116",
+    "name": "Patrick Mahomes",
+    "pos": "QB",
+    "dyn_rank": 8,
+    "dyn_value": 6254,
+    "rsf": 7748
+  },
+  "jaxson dart": {
+    "pid": "17032",
+    "name": "Jaxson Dart",
+    "pos": "QB",
+    "dyn_rank": 10,
+    "dyn_value": 5906,
+    "rsf": 6254
+  },
+  "trevor lawrence": {
+    "pid": "15237",
+    "name": "Trevor Lawrence",
+    "pos": "QB",
+    "dyn_rank": 11,
+    "dyn_value": 5814,
+    "rsf": 6048
+  },
+  "bo nix": {
+    "pid": "16582",
+    "name": "Bo Nix",
+    "pos": "QB",
+    "dyn_rank": 12,
+    "dyn_value": 5550,
+    "rsf": 6009
+  },
+  "brock purdy": {
+    "pid": "15698",
+    "name": "Brock Purdy",
+    "pos": "QB",
+    "dyn_rank": 13,
+    "dyn_value": 5313,
+    "rsf": 5724
+  },
+  "jordan love": {
+    "pid": "14782",
+    "name": "Jordan Love",
+    "pos": "QB",
+    "dyn_rank": 16,
+    "dyn_value": 4970,
+    "rsf": 5508
+  },
+  "dak prescott": {
+    "pid": "12620",
+    "name": "Dak Prescott",
+    "pos": "QB",
+    "dyn_rank": 15,
+    "dyn_value": 4564,
+    "rsf": 6120
+  },
+  "fernando mendoza": {
+    "pid": "17462",
+    "name": "Fernando Mendoza",
+    "pos": "QB",
+    "dyn_rank": 14,
+    "dyn_value": 4308,
+    "rsf": 4716
+  },
+  "cj stroud": {
+    "pid": "16150",
+    "name": "C.J. Stroud",
+    "pos": "QB",
+    "dyn_rank": 18,
+    "dyn_value": 4061,
+    "rsf": 4492
+  },
+  "cam ward": {
+    "pid": "17030",
+    "name": "Cam Ward",
+    "pos": "QB",
+    "dyn_rank": 17,
+    "dyn_value": 3881,
+    "rsf": 4410
+  },
+  "jared goff": {
+    "pid": "12611",
+    "name": "Jared Goff",
+    "pos": "QB",
+    "dyn_rank": 19,
+    "dyn_value": 3709,
+    "rsf": 5118
+  },
+  "baker mayfield": {
+    "pid": "13590",
+    "name": "Baker Mayfield",
+    "pos": "QB",
+    "dyn_rank": 21,
+    "dyn_value": 3587,
+    "rsf": 5158
+  },
+  "tyler shough": {
+    "pid": "17039",
+    "name": "Tyler Shough",
+    "pos": "QB",
+    "dyn_rank": 20,
+    "dyn_value": 3419,
+    "rsf": 3320
+  },
+  "kyler murray": {
+    "pid": "14056",
+    "name": "Kyler Murray",
+    "pos": "QB",
+    "dyn_rank": 23,
+    "dyn_value": 3361,
+    "rsf": 3988
+  },
+  "sam darnold": {
+    "pid": "13592",
+    "name": "Sam Darnold",
+    "pos": "QB",
+    "dyn_rank": 22,
+    "dyn_value": 3043,
+    "rsf": 3629
+  },
+  "bryce young": {
+    "pid": "16148",
+    "name": "Bryce Young",
+    "pos": "QB",
+    "dyn_rank": 24,
+    "dyn_value": 2769,
+    "rsf": 3582
+  },
+  "matthew stafford": {
+    "pid": "9431",
+    "name": "Matthew Stafford",
+    "pos": "QB",
+    "dyn_rank": 25,
+    "dyn_value": 2539,
+    "rsf": 4015
+  },
+  "malik willis": {
+    "pid": "15694",
+    "name": "Malik Willis",
+    "pos": "QB",
+    "dyn_rank": 28,
+    "dyn_value": 2502,
+    "rsf": 1550
+  },
+  "daniel jones": {
+    "pid": "14059",
+    "name": "Daniel Jones",
+    "pos": "QB",
+    "dyn_rank": 27,
+    "dyn_value": 2494,
+    "rsf": 3116
+  },
+  "michael penix": {
+    "pid": "16583",
+    "name": "Michael Penix",
+    "pos": "QB",
+    "dyn_rank": 29,
+    "dyn_value": 2438,
+    "rsf": 2847
+  },
+  "ty simpson": {
+    "pid": "17463",
+    "name": "Ty Simpson",
+    "pos": "QB",
+    "dyn_rank": 26,
+    "dyn_value": 2319,
+    "rsf": 2232
+  },
+  "tua tagovailoa": {
+    "pid": "14778",
+    "name": "Tua Tagovailoa",
+    "pos": "QB",
+    "dyn_rank": 30,
+    "dyn_value": 1777,
+    "rsf": 2565
+  },
+  "jj mccarthy": {
+    "pid": "16584",
+    "name": "J.J. McCarthy",
+    "pos": "QB",
+    "dyn_rank": 31,
+    "dyn_value": 1629,
+    "rsf": 2742
+  },
+  "anthony richardson": {
+    "pid": "16152",
+    "name": "Anthony Richardson",
+    "pos": "QB",
+    "dyn_rank": 42,
+    "dyn_value": 1596,
+    "rsf": 2798
+  },
+  "shedeur sanders": {
+    "pid": "17031",
+    "name": "Shedeur Sanders",
+    "pos": "QB",
+    "dyn_rank": 33,
+    "dyn_value": 1507,
+    "rsf": 1295
+  },
+  "jacoby brissett": {
+    "pid": "12616",
+    "name": "Jacoby Brissett",
+    "pos": "QB",
+    "dyn_rank": 35,
+    "dyn_value": 1440,
+    "rsf": 598
+  },
+  "geno smith": {
+    "pid": "11150",
+    "name": "Geno Smith",
+    "pos": "QB",
+    "dyn_rank": 34,
+    "dyn_value": 1340,
+    "rsf": 1000
+  },
+  "carson beck": {
+    "pid": "17466",
+    "name": "Carson Beck",
+    "pos": "QB",
+    "dyn_rank": 32,
+    "dyn_value": 1318,
+    "rsf": 198
+  },
+  "mac jones": {
+    "pid": "15241",
+    "name": "Mac Jones",
+    "pos": "QB",
+    "dyn_rank": 39,
+    "dyn_value": 1306,
+    "rsf": 61
+  },
+  "deshaun watson": {
+    "pid": "13113",
+    "name": "Deshaun Watson",
+    "pos": "QB",
+    "dyn_rank": 37,
+    "dyn_value": 1188,
+    "rsf": 304
+  },
+  "aaron rodgers": {
+    "pid": "7836",
+    "name": "Aaron Rodgers",
+    "pos": "QB",
+    "dyn_rank": 36,
+    "dyn_value": 1175,
+    "rsf": 2146
+  },
+  "drew allar": {
+    "pid": "17468",
+    "name": "Drew Allar",
+    "pos": "QB",
+    "dyn_rank": 38,
+    "dyn_value": 1042,
+    "rsf": 11
+  },
+  "justin fields": {
+    "pid": "15238",
+    "name": "Justin Fields",
+    "pos": "QB",
+    "dyn_rank": 43,
+    "dyn_value": 1033,
+    "rsf": 4215
+  },
+  "jalen milroe": {
+    "pid": "17033",
+    "name": "Jalen Milroe",
+    "pos": "QB",
+    "dyn_rank": 45,
+    "dyn_value": 1003,
+    "rsf": 3174
+  },
+  "joe milton": {
+    "pid": "16585",
+    "name": "Joe Milton",
+    "pos": "QB",
+    "dyn_rank": 52,
+    "dyn_value": 1002,
+    "rsf": 0
+  },
+  "kirk cousins": {
+    "pid": "10700",
+    "name": "Kirk Cousins",
+    "pos": "QB",
+    "dyn_rank": 41,
+    "dyn_value": 992,
+    "rsf": 1141
+  },
+  "cade klubnik": {
+    "pid": "17467",
+    "name": "Cade Klubnik",
+    "pos": "QB",
+    "dyn_rank": 40,
+    "dyn_value": 969,
+    "rsf": 0
+  },
+  "garrett nussmeier": {
+    "pid": "17465",
+    "name": "Garrett Nussmeier",
+    "pos": "QB",
+    "dyn_rank": 44,
+    "dyn_value": 835,
+    "rsf": 1782
+  },
+  "will howard": {
+    "pid": "17036",
+    "name": "Will Howard",
+    "pos": "QB",
+    "dyn_rank": 47,
+    "dyn_value": 798,
+    "rsf": 1990
+  },
+  "riley leonard": {
+    "pid": "17035",
+    "name": "Riley Leonard",
+    "pos": "QB",
+    "dyn_rank": 48,
+    "dyn_value": 697,
+    "rsf": 0
+  },
+  "quinn ewers": {
+    "pid": "17034",
+    "name": "Quinn Ewers",
+    "pos": "QB",
+    "dyn_rank": 49,
+    "dyn_value": 689,
+    "rsf": 0
+  },
+  "gardner minshew": {
+    "pid": "14067",
+    "name": "Gardner Minshew",
+    "pos": "QB",
+    "dyn_rank": 57,
+    "dyn_value": 629,
+    "rsf": 0
+  },
+  "spencer rattler": {
+    "pid": "16586",
+    "name": "Spencer Rattler",
+    "pos": "QB",
+    "dyn_rank": 58,
+    "dyn_value": 598,
+    "rsf": 2396
+  },
+  "taylen green": {
+    "pid": "17657",
+    "name": "Taylen Green",
+    "pos": "QB",
+    "dyn_rank": 46,
+    "dyn_value": 569,
+    "rsf": 0
+  },
+  "tyson bagent": {
+    "pid": "16384",
+    "name": "Tyson Bagent",
+    "pos": "QB",
+    "dyn_rank": 56,
+    "dyn_value": 536,
+    "rsf": 0
+  },
+  "jameis winston": {
+    "pid": "12140",
+    "name": "Jameis Winston",
+    "pos": "QB",
+    "dyn_rank": 54,
+    "dyn_value": 534,
+    "rsf": 1935
+  },
+  "marcus mariota": {
+    "pid": "12141",
+    "name": "Marcus Mariota",
+    "pos": "QB",
+    "dyn_rank": 50,
+    "dyn_value": 533,
+    "rsf": 0
+  },
+  "davis mills": {
+    "pid": "15252",
+    "name": "Davis Mills",
+    "pos": "QB",
+    "dyn_rank": 55,
+    "dyn_value": 506,
+    "rsf": 0
+  },
+  "dillon gabriel": {
+    "pid": "17037",
+    "name": "Dillon Gabriel",
+    "pos": "QB",
+    "dyn_rank": 63,
+    "dyn_value": 461,
+    "rsf": 2232
+  },
+  "joe flacco": {
+    "pid": "9064",
+    "name": "Joe Flacco",
+    "pos": "QB",
+    "dyn_rank": 53,
+    "dyn_value": 460,
+    "rsf": 0
+  },
+  "tanner mckee": {
+    "pid": "15702",
+    "name": "Tanner McKee",
+    "pos": "QB",
+    "dyn_rank": 62,
+    "dyn_value": 428,
+    "rsf": 0
+  },
+  "tyler huntley": {
+    "pid": "14789",
+    "name": "Tyler Huntley",
+    "pos": "QB",
+    "dyn_rank": 61,
+    "dyn_value": 425,
+    "rsf": 0
+  },
+  "trey lance": {
+    "pid": "15240",
+    "name": "Trey Lance",
+    "pos": "QB",
+    "dyn_rank": 59,
+    "dyn_value": 411,
+    "rsf": 0
+  },
+  "cole payton": {
+    "pid": "17654",
+    "name": "Cole Payton",
+    "pos": "QB",
+    "dyn_rank": 51,
+    "dyn_value": 371,
+    "rsf": 0
+  },
+  "tyrod taylor": {
+    "pid": "10413",
+    "name": "Tyrod Taylor",
+    "pos": "QB",
+    "dyn_rank": 60,
+    "dyn_value": 199,
+    "rsf": 0
+  },
+  "derek carr": {
+    "pid": "11644",
+    "name": "Derek Carr",
+    "pos": "QB",
+    "dyn_rank": 64,
+    "dyn_value": 50,
+    "rsf": 0
+  },
+  "teddy bridgewater": {
+    "pid": "11640",
+    "name": "Teddy Bridgewater",
+    "pos": "QB",
+    "dyn_rank": 66,
+    "dyn_value": 43,
+    "rsf": 0
+  },
+  "andy dalton": {
+    "pid": "10313",
+    "name": "Andy Dalton",
+    "pos": "QB",
+    "dyn_rank": 65,
+    "dyn_value": 25,
+    "rsf": 0
+  },
+  "bijan robinson": {
+    "pid": "16161",
+    "name": "Bijan Robinson",
+    "pos": "RB",
+    "dyn_rank": 1,
+    "dyn_value": 9386,
+    "rsf": 9894
+  },
+  "jahmyr gibbs": {
+    "pid": "16162",
+    "name": "Jahmyr Gibbs",
+    "pos": "RB",
+    "dyn_rank": 2,
+    "dyn_value": 9012,
+    "rsf": 9668
+  },
+  "ashton jeanty": {
+    "pid": "17042",
+    "name": "Ashton Jeanty",
+    "pos": "RB",
+    "dyn_rank": 3,
+    "dyn_value": 7122,
+    "rsf": 7205
+  },
+  "jeremiyah love": {
+    "pid": "17472",
+    "name": "Jeremiyah Love",
+    "pos": "RB",
+    "dyn_rank": 4,
+    "dyn_value": 6652,
+    "rsf": 5746
+  },
+  "omarion hampton": {
+    "pid": "17044",
+    "name": "Omarion Hampton",
+    "pos": "RB",
+    "dyn_rank": 6,
+    "dyn_value": 5962,
+    "rsf": 6283
+  },
+  "devon achane": {
+    "pid": "16167",
+    "name": "De'Von Achane",
+    "pos": "RB",
+    "dyn_rank": 5,
+    "dyn_value": 5949,
+    "rsf": 7136
+  },
+  "james cook": {
+    "pid": "15715",
+    "name": "James Cook",
+    "pos": "RB",
+    "dyn_rank": 8,
+    "dyn_value": 5497,
+    "rsf": 6568
+  },
+  "jonathan taylor": {
+    "pid": "14802",
+    "name": "Jonathan Taylor",
+    "pos": "RB",
+    "dyn_rank": 7,
+    "dyn_value": 5319,
+    "rsf": 7096
+  },
+  "kenneth walker": {
+    "pid": "15711",
+    "name": "Kenneth Walker",
+    "pos": "RB",
+    "dyn_rank": 10,
+    "dyn_value": 4768,
+    "rsf": 5056
+  },
+  "breece hall": {
+    "pid": "15708",
+    "name": "Breece Hall",
+    "pos": "RB",
+    "dyn_rank": 11,
+    "dyn_value": 4656,
+    "rsf": 4854
+  },
+  "christian mccaffrey": {
+    "pid": "13130",
+    "name": "Christian McCaffrey",
+    "pos": "RB",
+    "dyn_rank": 9,
+    "dyn_value": 4334,
+    "rsf": 6700
+  },
+  "chase brown": {
+    "pid": "16181",
+    "name": "Chase Brown",
+    "pos": "RB",
+    "dyn_rank": 12,
+    "dyn_value": 3995,
+    "rsf": 5300
+  },
+  "quinshon judkins": {
+    "pid": "17051",
+    "name": "Quinshon Judkins",
+    "pos": "RB",
+    "dyn_rank": 13,
+    "dyn_value": 3854,
+    "rsf": 4110
+  },
+  "treveyon henderson": {
+    "pid": "17043",
+    "name": "TreVeyon Henderson",
+    "pos": "RB",
+    "dyn_rank": 15,
+    "dyn_value": 3849,
+    "rsf": 4298
+  },
+  "travis etienne": {
+    "pid": "15253",
+    "name": "Travis Etienne",
+    "pos": "RB",
+    "dyn_rank": 22,
+    "dyn_value": 3685,
+    "rsf": 3864
+  },
+  "saquon barkley": {
+    "pid": "13604",
+    "name": "Saquon Barkley",
+    "pos": "RB",
+    "dyn_rank": 14,
+    "dyn_value": 3679,
+    "rsf": 6223
+  },
+  "kyren williams": {
+    "pid": "15710",
+    "name": "Kyren Williams",
+    "pos": "RB",
+    "dyn_rank": 16,
+    "dyn_value": 3419,
+    "rsf": 4714
+  },
+  "bucky irving": {
+    "pid": "16598",
+    "name": "Bucky Irving",
+    "pos": "RB",
+    "dyn_rank": 19,
+    "dyn_value": 3241,
+    "rsf": 4328
+  },
+  "jadarian price": {
+    "pid": "17473",
+    "name": "Jadarian Price",
+    "pos": "RB",
+    "dyn_rank": 17,
+    "dyn_value": 3204,
+    "rsf": 2734
+  },
+  "cam skattebo": {
+    "pid": "17045",
+    "name": "Cam Skattebo",
+    "pos": "RB",
+    "dyn_rank": 18,
+    "dyn_value": 3201,
+    "rsf": 3476
+  },
+  "javonte williams": {
+    "pid": "15256",
+    "name": "Javonte Williams",
+    "pos": "RB",
+    "dyn_rank": 21,
+    "dyn_value": 3091,
+    "rsf": 3716
+  },
+  "derrick henry": {
+    "pid": "12626",
+    "name": "Derrick Henry",
+    "pos": "RB",
+    "dyn_rank": 20,
+    "dyn_value": 2785,
+    "rsf": 5509
+  },
+  "josh jacobs": {
+    "pid": "14073",
+    "name": "Josh Jacobs",
+    "pos": "RB",
+    "dyn_rank": 23,
+    "dyn_value": 2601,
+    "rsf": 4636
+  },
+  "bhayshul tuten": {
+    "pid": "17052",
+    "name": "Bhayshul Tuten",
+    "pos": "RB",
+    "dyn_rank": 24,
+    "dyn_value": 2479,
+    "rsf": 760
+  },
+  "dandre swift": {
+    "pid": "14797",
+    "name": "D'Andre Swift",
+    "pos": "RB",
+    "dyn_rank": 26,
+    "dyn_value": 2232,
+    "rsf": 3114
+  },
+  "david montgomery": {
+    "pid": "14071",
+    "name": "David Montgomery",
+    "pos": "RB",
+    "dyn_rank": 25,
+    "dyn_value": 2110,
+    "rsf": 3168
+  },
+  "tyrone tracy": {
+    "pid": "16747",
+    "name": "Tyrone Tracy",
+    "pos": "RB",
+    "dyn_rank": 46,
+    "dyn_value": 2033,
+    "rsf": 2322
+  },
+  "rj harvey": {
+    "pid": "17068",
+    "name": "RJ Harvey",
+    "pos": "RB",
+    "dyn_rank": 29,
+    "dyn_value": 2009,
+    "rsf": 2996
+  },
+  "kyle monangai": {
+    "pid": "17066",
+    "name": "Kyle Monangai",
+    "pos": "RB",
+    "dyn_rank": 33,
+    "dyn_value": 1936,
+    "rsf": 256
+  },
+  "chris rodriguez": {
+    "pid": "16174",
+    "name": "Chris Rodriguez",
+    "pos": "RB",
+    "dyn_rank": 56,
+    "dyn_value": 1918,
+    "rsf": 1668
+  },
+  "chuba hubbard": {
+    "pid": "15261",
+    "name": "Chuba Hubbard",
+    "pos": "RB",
+    "dyn_rank": 28,
+    "dyn_value": 1874,
+    "rsf": 3156
+  },
+  "mike washington": {
+    "pid": "17482",
+    "name": "Mike Washington",
+    "pos": "RB",
+    "dyn_rank": 44,
+    "dyn_value": 1864,
+    "rsf": 1394
+  },
+  "zach charbonnet": {
+    "pid": "16169",
+    "name": "Zach Charbonnet",
+    "pos": "RB",
+    "dyn_rank": 34,
+    "dyn_value": 1846,
+    "rsf": 2694
+  },
+  "jaylen warren": {
+    "pid": "15742",
+    "name": "Jaylen Warren",
+    "pos": "RB",
+    "dyn_rank": 32,
+    "dyn_value": 1840,
+    "rsf": 2842
+  },
+  "jonah coleman": {
+    "pid": "17477",
+    "name": "Jonah Coleman",
+    "pos": "RB",
+    "dyn_rank": 27,
+    "dyn_value": 1838,
+    "rsf": 2297
+  },
+  "blake corum": {
+    "pid": "16593",
+    "name": "Blake Corum",
+    "pos": "RB",
+    "dyn_rank": 35,
+    "dyn_value": 1820,
+    "rsf": 1870
+  },
+  "jonathon brooks": {
+    "pid": "16597",
+    "name": "Jonathon Brooks",
+    "pos": "RB",
+    "dyn_rank": 30,
+    "dyn_value": 1805,
+    "rsf": 1243
+  },
+  "aaron jones": {
+    "pid": "13319",
+    "name": "Aaron Jones",
+    "pos": "RB",
+    "dyn_rank": 51,
+    "dyn_value": 1803,
+    "rsf": 2248
+  },
+  "brian robinson": {
+    "pid": "15716",
+    "name": "Brian Robinson",
+    "pos": "RB",
+    "dyn_rank": 61,
+    "dyn_value": 1753,
+    "rsf": 1676
+  },
+  "rico dowdle": {
+    "pid": "14823",
+    "name": "Rico Dowdle",
+    "pos": "RB",
+    "dyn_rank": 37,
+    "dyn_value": 1735,
+    "rsf": 692
+  },
+  "rhamondre stevenson": {
+    "pid": "15259",
+    "name": "Rhamondre Stevenson",
+    "pos": "RB",
+    "dyn_rank": 36,
+    "dyn_value": 1674,
+    "rsf": 2249
+  },
+  "nicholas singleton": {
+    "pid": "17476",
+    "name": "Nicholas Singleton",
+    "pos": "RB",
+    "dyn_rank": 31,
+    "dyn_value": 1638,
+    "rsf": 2119
+  },
+  "ollie gordon": {
+    "pid": "17059",
+    "name": "Ollie Gordon",
+    "pos": "RB",
+    "dyn_rank": 68,
+    "dyn_value": 1593,
+    "rsf": 3845
+  },
+  "jk dobbins": {
+    "pid": "14800",
+    "name": "J.K. Dobbins",
+    "pos": "RB",
+    "dyn_rank": 40,
+    "dyn_value": 1589,
+    "rsf": 2394
+  },
+  "tony pollard": {
+    "pid": "14085",
+    "name": "Tony Pollard",
+    "pos": "RB",
+    "dyn_rank": 39,
+    "dyn_value": 1570,
+    "rsf": 2687
+  },
+  "kenneth gainwell": {
+    "pid": "15255",
+    "name": "Kenneth Gainwell",
+    "pos": "RB",
+    "dyn_rank": 41,
+    "dyn_value": 1567,
+    "rsf": 1408
+  },
+  "jacory croskey merritt": {
+    "pid": "17256",
+    "name": "Jacory Croskey-Merritt",
+    "pos": "RB",
+    "dyn_rank": 42,
+    "dyn_value": 1562,
+    "rsf": 2343
+  },
+  "rachaad white": {
+    "pid": "15721",
+    "name": "Rachaad White",
+    "pos": "RB",
+    "dyn_rank": 43,
+    "dyn_value": 1469,
+    "rsf": 1823
+  },
+  "emmett johnson": {
+    "pid": "17474",
+    "name": "Emmett Johnson",
+    "pos": "RB",
+    "dyn_rank": 38,
+    "dyn_value": 1453,
+    "rsf": 1418
+  },
+  "tyler allgeier": {
+    "pid": "15712",
+    "name": "Tyler Allgeier",
+    "pos": "RB",
+    "dyn_rank": 47,
+    "dyn_value": 1450,
+    "rsf": 1770
+  },
+  "woody marks": {
+    "pid": "17053",
+    "name": "Woody Marks",
+    "pos": "RB",
+    "dyn_rank": 52,
+    "dyn_value": 1416,
+    "rsf": 83
+  },
+  "jordan mason": {
+    "pid": "15972",
+    "name": "Jordan Mason",
+    "pos": "RB",
+    "dyn_rank": 45,
+    "dyn_value": 1414,
+    "rsf": 2276
+  },
+  "dylan sampson": {
+    "pid": "17047",
+    "name": "Dylan Sampson",
+    "pos": "RB",
+    "dyn_rank": 48,
+    "dyn_value": 1409,
+    "rsf": 3756
+  },
+  "kaytron allen": {
+    "pid": "17478",
+    "name": "Kaytron Allen",
+    "pos": "RB",
+    "dyn_rank": 50,
+    "dyn_value": 1344,
+    "rsf": 1372
+  },
+  "braelon allen": {
+    "pid": "16596",
+    "name": "Braelon Allen",
+    "pos": "RB",
+    "dyn_rank": 55,
+    "dyn_value": 1323,
+    "rsf": 3678
+  },
+  "tank bigsby": {
+    "pid": "16164",
+    "name": "Tank Bigsby",
+    "pos": "RB",
+    "dyn_rank": 49,
+    "dyn_value": 1302,
+    "rsf": 1914
+  },
+  "lequint allen": {
+    "pid": "17061",
+    "name": "LeQuint Allen",
+    "pos": "RB",
+    "dyn_rank": 77,
+    "dyn_value": 1302,
+    "rsf": 0
+  },
+  "keaton mitchell": {
+    "pid": "16178",
+    "name": "Keaton Mitchell",
+    "pos": "RB",
+    "dyn_rank": 57,
+    "dyn_value": 1259,
+    "rsf": 22
+  },
+  "tyjae spears": {
+    "pid": "16165",
+    "name": "Tyjae Spears",
+    "pos": "RB",
+    "dyn_rank": 63,
+    "dyn_value": 1244,
+    "rsf": 3475
+  },
+  "isiah pacheco": {
+    "pid": "15749",
+    "name": "Isiah Pacheco",
+    "pos": "RB",
+    "dyn_rank": 53,
+    "dyn_value": 1232,
+    "rsf": 2302
+  },
+  "kaleb johnson": {
+    "pid": "17048",
+    "name": "Kaleb Johnson",
+    "pos": "RB",
+    "dyn_rank": 60,
+    "dyn_value": 1193,
+    "rsf": 4829
+  },
+  "alvin kamara": {
+    "pid": "13132",
+    "name": "Alvin Kamara",
+    "pos": "RB",
+    "dyn_rank": 58,
+    "dyn_value": 1102,
+    "rsf": 2722
+  },
+  "demond claiborne": {
+    "pid": "17481",
+    "name": "Demond Claiborne",
+    "pos": "RB",
+    "dyn_rank": 54,
+    "dyn_value": 1056,
+    "rsf": 2078
+  },
+  "trey benson": {
+    "pid": "16594",
+    "name": "Trey Benson",
+    "pos": "RB",
+    "dyn_rank": 67,
+    "dyn_value": 1056,
+    "rsf": 4477
+  },
+  "marshawn lloyd": {
+    "pid": "16604",
+    "name": "MarShawn Lloyd",
+    "pos": "RB",
+    "dyn_rank": 64,
+    "dyn_value": 1048,
+    "rsf": 1812
+  },
+  "jordan james": {
+    "pid": "17055",
+    "name": "Jordan James",
+    "pos": "RB",
+    "dyn_rank": 66,
+    "dyn_value": 1007,
+    "rsf": 2401
+  },
+  "jaydon blue": {
+    "pid": "17069",
+    "name": "Jaydon Blue",
+    "pos": "RB",
+    "dyn_rank": 65,
+    "dyn_value": 1002,
+    "rsf": 0
+  },
+  "kaelon black": {
+    "pid": "17485",
+    "name": "Kaelon Black",
+    "pos": "RB",
+    "dyn_rank": 59,
+    "dyn_value": 993,
+    "rsf": 19
+  },
+  "kimani vidal": {
+    "pid": "16757",
+    "name": "Kimani Vidal",
+    "pos": "RB",
+    "dyn_rank": 70,
+    "dyn_value": 980,
+    "rsf": 0
+  },
+  "jaylen wright": {
+    "pid": "16610",
+    "name": "Jaylen Wright",
+    "pos": "RB",
+    "dyn_rank": 71,
+    "dyn_value": 972,
+    "rsf": 2720
+  },
+  "sean tucker": {
+    "pid": "16166",
+    "name": "Sean Tucker",
+    "pos": "RB",
+    "dyn_rank": 76,
+    "dyn_value": 965,
+    "rsf": 2596
+  },
+  "dj giddens": {
+    "pid": "17060",
+    "name": "DJ Giddens",
+    "pos": "RB",
+    "dyn_rank": 74,
+    "dyn_value": 909,
+    "rsf": 0
+  },
+  "ray davis": {
+    "pid": "16603",
+    "name": "Ray Davis",
+    "pos": "RB",
+    "dyn_rank": 72,
+    "dyn_value": 893,
+    "rsf": 2999
+  },
+  "emanuel wilson": {
+    "pid": "16432",
+    "name": "Emanuel Wilson",
+    "pos": "RB",
+    "dyn_rank": 80,
+    "dyn_value": 855,
+    "rsf": 0
+  },
+  "devin neal": {
+    "pid": "17046",
+    "name": "Devin Neal",
+    "pos": "RB",
+    "dyn_rank": 81,
+    "dyn_value": 825,
+    "rsf": 2488
+  },
+  "trevor etienne": {
+    "pid": "17056",
+    "name": "Trevor Etienne",
+    "pos": "RB",
+    "dyn_rank": 85,
+    "dyn_value": 788,
+    "rsf": 2498
+  },
+  "james conner": {
+    "pid": "13146",
+    "name": "James Conner",
+    "pos": "RB",
+    "dyn_rank": 79,
+    "dyn_value": 776,
+    "rsf": 4487
+  },
+  "adam randall": {
+    "pid": "17652",
+    "name": "Adam Randall",
+    "pos": "RB",
+    "dyn_rank": 62,
+    "dyn_value": 763,
+    "rsf": 0
+  },
+  "isaiah davis": {
+    "pid": "16752",
+    "name": "Isaiah Davis",
+    "pos": "RB",
+    "dyn_rank": 82,
+    "dyn_value": 738,
+    "rsf": 0
+  },
+  "eli heidenreich": {
+    "pid": "17685",
+    "name": "Eli Heidenreich",
+    "pos": "RB",
+    "dyn_rank": 69,
+    "dyn_value": 699,
+    "rsf": 0
+  },
+  "brashard smith": {
+    "pid": "17049",
+    "name": "Brashard Smith",
+    "pos": "RB",
+    "dyn_rank": 90,
+    "dyn_value": 670,
+    "rsf": 0
+  },
+  "tahj brooks": {
+    "pid": "17058",
+    "name": "Tahj Brooks",
+    "pos": "RB",
+    "dyn_rank": 87,
+    "dyn_value": 664,
+    "rsf": 0
+  },
+  "kendre miller": {
+    "pid": "16171",
+    "name": "Kendre Miller",
+    "pos": "RB",
+    "dyn_rank": 95,
+    "dyn_value": 661,
+    "rsf": 2681
+  },
+  "najee harris": {
+    "pid": "15254",
+    "name": "Najee Harris",
+    "pos": "RB",
+    "dyn_rank": 83,
+    "dyn_value": 649,
+    "rsf": 2758
+  },
+  "jarquez hunter": {
+    "pid": "17064",
+    "name": "Jarquez Hunter",
+    "pos": "RB",
+    "dyn_rank": 94,
+    "dyn_value": 636,
+    "rsf": 0
+  },
+  "isaac guerendo": {
+    "pid": "16688",
+    "name": "Isaac Guerendo",
+    "pos": "RB",
+    "dyn_rank": 92,
+    "dyn_value": 585,
+    "rsf": 0
+  },
+  "will shipley": {
+    "pid": "16601",
+    "name": "Will Shipley",
+    "pos": "RB",
+    "dyn_rank": 104,
+    "dyn_value": 560,
+    "rsf": 2690
+  },
+  "seth mcgowan": {
+    "pid": "17475",
+    "name": "Seth McGowan",
+    "pos": "RB",
+    "dyn_rank": 75,
+    "dyn_value": 555,
+    "rsf": 1695
+  },
+  "malik davis": {
+    "pid": "15738",
+    "name": "Malik Davis",
+    "pos": "RB",
+    "dyn_rank": 88,
+    "dyn_value": 551,
+    "rsf": 0
+  },
+  "chris brooks": {
+    "pid": "16387",
+    "name": "Chris Brooks",
+    "pos": "RB",
+    "dyn_rank": 91,
+    "dyn_value": 542,
+    "rsf": 0
+  },
+  "jerome ford": {
+    "pid": "15713",
+    "name": "Jerome Ford",
+    "pos": "RB",
+    "dyn_rank": 101,
+    "dyn_value": 538,
+    "rsf": 3180
+  },
+  "jmari taylor": {
+    "pid": "17487",
+    "name": "J'Mari Taylor",
+    "pos": "RB",
+    "dyn_rank": 73,
+    "dyn_value": 529,
+    "rsf": 0
+  },
+  "george holani": {
+    "pid": "16608",
+    "name": "George Holani",
+    "pos": "RB",
+    "dyn_rank": 93,
+    "dyn_value": 525,
+    "rsf": 0
+  },
+  "damien martinez": {
+    "pid": "17054",
+    "name": "Damien Martinez",
+    "pos": "RB",
+    "dyn_rank": 102,
+    "dyn_value": 524,
+    "rsf": 1638
+  },
+  "justice hill": {
+    "pid": "14086",
+    "name": "Justice Hill",
+    "pos": "RB",
+    "dyn_rank": 96,
+    "dyn_value": 503,
+    "rsf": 0
+  },
+  "joe mixon": {
+    "pid": "13131",
+    "name": "Joe Mixon",
+    "pos": "RB",
+    "dyn_rank": 86,
+    "dyn_value": 461,
+    "rsf": 3218
+  },
+  "jam miller": {
+    "pid": "17486",
+    "name": "Jam Miller",
+    "pos": "RB",
+    "dyn_rank": 78,
+    "dyn_value": 449,
+    "rsf": 1522
+  },
+  "raheim sanders": {
+    "pid": "17062",
+    "name": "Raheim Sanders",
+    "pos": "RB",
+    "dyn_rank": 106,
+    "dyn_value": 448,
+    "rsf": 0
+  },
+  "devin singletary": {
+    "pid": "14080",
+    "name": "Devin Singletary",
+    "pos": "RB",
+    "dyn_rank": 100,
+    "dyn_value": 447,
+    "rsf": 1899
+  },
+  "phil mafah": {
+    "pid": "17063",
+    "name": "Phil Mafah",
+    "pos": "RB",
+    "dyn_rank": 97,
+    "dyn_value": 428,
+    "rsf": 0
+  },
+  "ty johnson": {
+    "pid": "14095",
+    "name": "Ty Johnson",
+    "pos": "RB",
+    "dyn_rank": 105,
+    "dyn_value": 424,
+    "rsf": 0
+  },
+  "emari demercado": {
+    "pid": "16385",
+    "name": "Emari Demercado",
+    "pos": "RB",
+    "dyn_rank": 99,
+    "dyn_value": 412,
+    "rsf": 0
+  },
+  "rasheen ali": {
+    "pid": "16746",
+    "name": "Rasheen Ali",
+    "pos": "RB",
+    "dyn_rank": 109,
+    "dyn_value": 404,
+    "rsf": 0
+  },
+  "dameon pierce": {
+    "pid": "15717",
+    "name": "Dameon Pierce",
+    "pos": "RB",
+    "dyn_rank": 107,
+    "dyn_value": 343,
+    "rsf": 2511
+  },
+  "robert henry": {
+    "pid": "17709",
+    "name": "Robert Henry",
+    "pos": "RB",
+    "dyn_rank": 89,
+    "dyn_value": 257,
+    "rsf": 0
+  },
+  "samaje perine": {
+    "pid": "13133",
+    "name": "Samaje Perine",
+    "pos": "RB",
+    "dyn_rank": 98,
+    "dyn_value": 238,
+    "rsf": 0
+  },
+  "kareem hunt": {
+    "pid": "13138",
+    "name": "Kareem Hunt",
+    "pos": "RB",
+    "dyn_rank": 103,
+    "dyn_value": 237,
+    "rsf": 2439
+  },
+  "roman hemby": {
+    "pid": "17483",
+    "name": "Roman Hemby",
+    "pos": "RB",
+    "dyn_rank": 84,
+    "dyn_value": 171,
+    "rsf": 0
+  },
+  "nick chubb": {
+    "pid": "13610",
+    "name": "Nick Chubb",
+    "pos": "RB",
+    "dyn_rank": 108,
+    "dyn_value": 13,
+    "rsf": 3623
+  },
+  "jamarr chase": {
+    "pid": "15281",
+    "name": "Ja'Marr Chase",
+    "pos": "WR",
+    "dyn_rank": 1,
+    "dyn_value": 9619,
+    "rsf": 9713
+  },
+  "jaxon smith njigba": {
+    "pid": "16185",
+    "name": "Jaxon Smith-Njigba",
+    "pos": "WR",
+    "dyn_rank": 2,
+    "dyn_value": 9090,
+    "rsf": 8202
+  },
+  "puka nacua": {
+    "pid": "16211",
+    "name": "Puka Nacua",
+    "pos": "WR",
+    "dyn_rank": 3,
+    "dyn_value": 8358,
+    "rsf": 8664
+  },
+  "amon ra st brown": {
+    "pid": "15287",
+    "name": "Amon-Ra St. Brown",
+    "pos": "WR",
+    "dyn_rank": 4,
+    "dyn_value": 7644,
+    "rsf": 7958
+  },
+  "justin jefferson": {
+    "pid": "14836",
+    "name": "Justin Jefferson",
+    "pos": "WR",
+    "dyn_rank": 5,
+    "dyn_value": 7567,
+    "rsf": 7755
+  },
+  "ceedee lamb": {
+    "pid": "14832",
+    "name": "CeeDee Lamb",
+    "pos": "WR",
+    "dyn_rank": 7,
+    "dyn_value": 7152,
+    "rsf": 7630
+  },
+  "malik nabers": {
+    "pid": "16615",
+    "name": "Malik Nabers",
+    "pos": "WR",
+    "dyn_rank": 6,
+    "dyn_value": 6734,
+    "rsf": 6422
+  },
+  "drake london": {
+    "pid": "15751",
+    "name": "Drake London",
+    "pos": "WR",
+    "dyn_rank": 8,
+    "dyn_value": 6245,
+    "rsf": 6286
+  },
+  "tetairoa mcmillan": {
+    "pid": "17071",
+    "name": "Tetairoa McMillan",
+    "pos": "WR",
+    "dyn_rank": 9,
+    "dyn_value": 5546,
+    "rsf": 5046
+  },
+  "george pickens": {
+    "pid": "15762",
+    "name": "George Pickens",
+    "pos": "WR",
+    "dyn_rank": 10,
+    "dyn_value": 5125,
+    "rsf": 5076
+  },
+  "emeka egbuka": {
+    "pid": "17081",
+    "name": "Emeka Egbuka",
+    "pos": "WR",
+    "dyn_rank": 11,
+    "dyn_value": 4983,
+    "rsf": 4778
+  },
+  "garrett wilson": {
+    "pid": "15753",
+    "name": "Garrett Wilson",
+    "pos": "WR",
+    "dyn_rank": 14,
+    "dyn_value": 4870,
+    "rsf": 4706
+  },
+  "nico collins": {
+    "pid": "15290",
+    "name": "Nico Collins",
+    "pos": "WR",
+    "dyn_rank": 12,
+    "dyn_value": 4833,
+    "rsf": 5706
+  },
+  "carnell tate": {
+    "pid": "17497",
+    "name": "Carnell Tate",
+    "pos": "WR",
+    "dyn_rank": 13,
+    "dyn_value": 4700,
+    "rsf": 3486
+  },
+  "chris olave": {
+    "pid": "15754",
+    "name": "Chris Olave",
+    "pos": "WR",
+    "dyn_rank": 15,
+    "dyn_value": 4625,
+    "rsf": 4413
+  },
+  "luther burden": {
+    "pid": "17070",
+    "name": "Luther Burden",
+    "pos": "WR",
+    "dyn_rank": 20,
+    "dyn_value": 4531,
+    "rsf": 3184
+  },
+  "ladd mcconkey": {
+    "pid": "16627",
+    "name": "Ladd McConkey",
+    "pos": "WR",
+    "dyn_rank": 16,
+    "dyn_value": 4343,
+    "rsf": 4440
+  },
+  "aj brown": {
+    "pid": "14104",
+    "name": "A.J. Brown",
+    "pos": "WR",
+    "dyn_rank": 17,
+    "dyn_value": 4257,
+    "rsf": 5045
+  },
+  "devonta smith": {
+    "pid": "15282",
+    "name": "DeVonta Smith",
+    "pos": "WR",
+    "dyn_rank": 19,
+    "dyn_value": 4242,
+    "rsf": 4378
+  },
+  "brian thomas": {
+    "pid": "16618",
+    "name": "Brian Thomas",
+    "pos": "WR",
+    "dyn_rank": 24,
+    "dyn_value": 4105,
+    "rsf": 3974
+  },
+  "jordyn tyson": {
+    "pid": "17498",
+    "name": "Jordyn Tyson",
+    "pos": "WR",
+    "dyn_rank": 18,
+    "dyn_value": 4075,
+    "rsf": 3128
+  },
+  "marvin harrison": {
+    "pid": "16614",
+    "name": "Marvin Harrison Jr",
+    "pos": "WR",
+    "dyn_rank": 23,
+    "dyn_value": 3988,
+    "rsf": 3826
+  },
+  "rome odunze": {
+    "pid": "16616",
+    "name": "Rome Odunze",
+    "pos": "WR",
+    "dyn_rank": 26,
+    "dyn_value": 3952,
+    "rsf": 3973
+  },
+  "makai lemon": {
+    "pid": "17499",
+    "name": "Makai Lemon",
+    "pos": "WR",
+    "dyn_rank": 22,
+    "dyn_value": 3751,
+    "rsf": 3228
+  },
+  "jaylen waddle": {
+    "pid": "15284",
+    "name": "Jaylen Waddle",
+    "pos": "WR",
+    "dyn_rank": 28,
+    "dyn_value": 3737,
+    "rsf": 3921
+  },
+  "rashee rice": {
+    "pid": "16194",
+    "name": "Rashee Rice",
+    "pos": "WR",
+    "dyn_rank": 21,
+    "dyn_value": 3736,
+    "rsf": 4303
+  },
+  "zay flowers": {
+    "pid": "16190",
+    "name": "Zay Flowers",
+    "pos": "WR",
+    "dyn_rank": 25,
+    "dyn_value": 3735,
+    "rsf": 3922
+  },
+  "tee higgins": {
+    "pid": "14835",
+    "name": "Tee Higgins",
+    "pos": "WR",
+    "dyn_rank": 27,
+    "dyn_value": 3691,
+    "rsf": 4120
+  },
+  "jameson williams": {
+    "pid": "15756",
+    "name": "Jameson Williams",
+    "pos": "WR",
+    "dyn_rank": 29,
+    "dyn_value": 3283,
+    "rsf": 3446
+  },
+  "omar cooper": {
+    "pid": "17502",
+    "name": "Omar Cooper",
+    "pos": "WR",
+    "dyn_rank": 31,
+    "dyn_value": 3040,
+    "rsf": 2190
+  },
+  "kc concepcion": {
+    "pid": "17501",
+    "name": "KC Concepcion",
+    "pos": "WR",
+    "dyn_rank": 30,
+    "dyn_value": 2914,
+    "rsf": 2475
+  },
+  "michael pittman": {
+    "pid": "14842",
+    "name": "Michael Pittman",
+    "pos": "WR",
+    "dyn_rank": 47,
+    "dyn_value": 2636,
+    "rsf": 2818
+  },
+  "alec pierce": {
+    "pid": "15768",
+    "name": "Alec Pierce",
+    "pos": "WR",
+    "dyn_rank": 35,
+    "dyn_value": 2526,
+    "rsf": 2012
+  },
+  "christian watson": {
+    "pid": "15789",
+    "name": "Christian Watson",
+    "pos": "WR",
+    "dyn_rank": 34,
+    "dyn_value": 2487,
+    "rsf": 2282
+  },
+  "jordan addison": {
+    "pid": "16186",
+    "name": "Jordan Addison",
+    "pos": "WR",
+    "dyn_rank": 39,
+    "dyn_value": 2424,
+    "rsf": 2765
+  },
+  "dj moore": {
+    "pid": "13635",
+    "name": "DJ Moore",
+    "pos": "WR",
+    "dyn_rank": 38,
+    "dyn_value": 2351,
+    "rsf": 3106
+  },
+  "terry mclaurin": {
+    "pid": "14109",
+    "name": "Terry McLaurin",
+    "pos": "WR",
+    "dyn_rank": 33,
+    "dyn_value": 2308,
+    "rsf": 3424
+  },
+  "chris godwin": {
+    "pid": "13163",
+    "name": "Chris Godwin",
+    "pos": "WR",
+    "dyn_rank": 61,
+    "dyn_value": 2249,
+    "rsf": 2240
+  },
+  "michael wilson": {
+    "pid": "16206",
+    "name": "Michael Wilson",
+    "pos": "WR",
+    "dyn_rank": 36,
+    "dyn_value": 2218,
+    "rsf": 702
+  },
+  "parker washington": {
+    "pid": "16192",
+    "name": "Parker Washington",
+    "pos": "WR",
+    "dyn_rank": 37,
+    "dyn_value": 2169,
+    "rsf": 364
+  },
+  "dk metcalf": {
+    "pid": "14102",
+    "name": "DK Metcalf",
+    "pos": "WR",
+    "dyn_rank": 50,
+    "dyn_value": 2161,
+    "rsf": 3121
+  },
+  "denzel boston": {
+    "pid": "17500",
+    "name": "Denzel Boston",
+    "pos": "WR",
+    "dyn_rank": 32,
+    "dyn_value": 2152,
+    "rsf": 2472
+  },
+  "matthew golden": {
+    "pid": "17075",
+    "name": "Matthew Golden",
+    "pos": "WR",
+    "dyn_rank": 44,
+    "dyn_value": 2079,
+    "rsf": 2630
+  },
+  "davante adams": {
+    "pid": "11675",
+    "name": "Davante Adams",
+    "pos": "WR",
+    "dyn_rank": 43,
+    "dyn_value": 2078,
+    "rsf": 3664
+  },
+  "wandale robinson": {
+    "pid": "15757",
+    "name": "Wan'Dale Robinson",
+    "pos": "WR",
+    "dyn_rank": 48,
+    "dyn_value": 2070,
+    "rsf": 2266
+  },
+  "josh downs": {
+    "pid": "16187",
+    "name": "Josh Downs",
+    "pos": "WR",
+    "dyn_rank": 51,
+    "dyn_value": 2059,
+    "rsf": 2226
+  },
+  "mike evans": {
+    "pid": "11671",
+    "name": "Mike Evans",
+    "pos": "WR",
+    "dyn_rank": 42,
+    "dyn_value": 2058,
+    "rsf": 3326
+  },
+  "ricky pearsall": {
+    "pid": "16622",
+    "name": "Ricky Pearsall",
+    "pos": "WR",
+    "dyn_rank": 52,
+    "dyn_value": 2031,
+    "rsf": 2745
+  },
+  "quentin johnston": {
+    "pid": "16188",
+    "name": "Quentin Johnston",
+    "pos": "WR",
+    "dyn_rank": 40,
+    "dyn_value": 2027,
+    "rsf": 1891
+  },
+  "chris brazzell": {
+    "pid": "17509",
+    "name": "Chris Brazzell",
+    "pos": "WR",
+    "dyn_rank": 63,
+    "dyn_value": 2027,
+    "rsf": 1498
+  },
+  "jayden higgins": {
+    "pid": "17083",
+    "name": "Jayden Higgins",
+    "pos": "WR",
+    "dyn_rank": 46,
+    "dyn_value": 2009,
+    "rsf": 2388
+  },
+  "xavier worthy": {
+    "pid": "16620",
+    "name": "Xavier Worthy",
+    "pos": "WR",
+    "dyn_rank": 45,
+    "dyn_value": 1999,
+    "rsf": 2780
+  },
+  "ted hurst": {
+    "pid": "17520",
+    "name": "Ted Hurst",
+    "pos": "WR",
+    "dyn_rank": 67,
+    "dyn_value": 1986,
+    "rsf": 1894
+  },
+  "travis hunter": {
+    "pid": "17074",
+    "name": "Travis Hunter",
+    "pos": "WR",
+    "dyn_rank": 41,
+    "dyn_value": 1941,
+    "rsf": 2832
+  },
+  "jayden reed": {
+    "pid": "16184",
+    "name": "Jayden Reed",
+    "pos": "WR",
+    "dyn_rank": 54,
+    "dyn_value": 1905,
+    "rsf": 2236
+  },
+  "courtland sutton": {
+    "pid": "13630",
+    "name": "Courtland Sutton",
+    "pos": "WR",
+    "dyn_rank": 56,
+    "dyn_value": 1829,
+    "rsf": 3004
+  },
+  "chris bell": {
+    "pid": "17506",
+    "name": "Chris Bell",
+    "pos": "WR",
+    "dyn_rank": 49,
+    "dyn_value": 1753,
+    "rsf": 1558
+  },
+  "jakobi meyers": {
+    "pid": "14127",
+    "name": "Jakobi Meyers",
+    "pos": "WR",
+    "dyn_rank": 64,
+    "dyn_value": 1735,
+    "rsf": 2409
+  },
+  "antonio williams": {
+    "pid": "17512",
+    "name": "Antonio Williams",
+    "pos": "WR",
+    "dyn_rank": 53,
+    "dyn_value": 1705,
+    "rsf": 1141
+  },
+  "romeo doubs": {
+    "pid": "15779",
+    "name": "Romeo Doubs",
+    "pos": "WR",
+    "dyn_rank": 58,
+    "dyn_value": 1704,
+    "rsf": 1822
+  },
+  "jalen coker": {
+    "pid": "16809",
+    "name": "Jalen Coker",
+    "pos": "WR",
+    "dyn_rank": 62,
+    "dyn_value": 1673,
+    "rsf": 68
+  },
+  "germie bernard": {
+    "pid": "17503",
+    "name": "Germie Bernard",
+    "pos": "WR",
+    "dyn_rank": 55,
+    "dyn_value": 1644,
+    "rsf": 1198
+  },
+  "jalen mcmillan": {
+    "pid": "16628",
+    "name": "Jalen McMillan",
+    "pos": "WR",
+    "dyn_rank": 66,
+    "dyn_value": 1598,
+    "rsf": 1602
+  },
+  "khalil shakir": {
+    "pid": "15761",
+    "name": "Khalil Shakir",
+    "pos": "WR",
+    "dyn_rank": 69,
+    "dyn_value": 1567,
+    "rsf": 2456
+  },
+  "elijah sarratt": {
+    "pid": "17505",
+    "name": "Elijah Sarratt",
+    "pos": "WR",
+    "dyn_rank": 59,
+    "dyn_value": 1501,
+    "rsf": 1568
+  },
+  "brandon aiyuk": {
+    "pid": "14840",
+    "name": "Brandon Aiyuk",
+    "pos": "WR",
+    "dyn_rank": 72,
+    "dyn_value": 1479,
+    "rsf": 1972
+  },
+  "dezhaun stribling": {
+    "pid": "17514",
+    "name": "De'Zhaun Stribling",
+    "pos": "WR",
+    "dyn_rank": 60,
+    "dyn_value": 1477,
+    "rsf": 37
+  },
+  "zachariah branch": {
+    "pid": "17507",
+    "name": "Zachariah Branch",
+    "pos": "WR",
+    "dyn_rank": 57,
+    "dyn_value": 1472,
+    "rsf": 1760
+  },
+  "malachi fields": {
+    "pid": "17511",
+    "name": "Malachi Fields",
+    "pos": "WR",
+    "dyn_rank": 65,
+    "dyn_value": 1441,
+    "rsf": 3734
+  },
+  "tre harris": {
+    "pid": "17072",
+    "name": "Tre' Harris",
+    "pos": "WR",
+    "dyn_rank": 71,
+    "dyn_value": 1430,
+    "rsf": 2009
+  },
+  "rashid shaheed": {
+    "pid": "16080",
+    "name": "Rashid Shaheed",
+    "pos": "WR",
+    "dyn_rank": 75,
+    "dyn_value": 1425,
+    "rsf": 2002
+  },
+  "kevin coleman": {
+    "pid": "17528",
+    "name": "Kevin Coleman",
+    "pos": "WR",
+    "dyn_rank": 91,
+    "dyn_value": 1385,
+    "rsf": 1794
+  },
+  "deebo samuel": {
+    "pid": "14136",
+    "name": "Deebo Samuel",
+    "pos": "WR",
+    "dyn_rank": 99,
+    "dyn_value": 1367,
+    "rsf": 4174
+  },
+  "jaylin noel": {
+    "pid": "17080",
+    "name": "Jaylin Noel",
+    "pos": "WR",
+    "dyn_rank": 84,
+    "dyn_value": 1328,
+    "rsf": 3509
+  },
+  "isaac teslaa": {
+    "pid": "17157",
+    "name": "Isaac TeSlaa",
+    "pos": "WR",
+    "dyn_rank": 79,
+    "dyn_value": 1327,
+    "rsf": 0
+  },
+  "jerry jeudy": {
+    "pid": "14833",
+    "name": "Jerry Jeudy",
+    "pos": "WR",
+    "dyn_rank": 78,
+    "dyn_value": 1325,
+    "rsf": 2490
+  },
+  "skyler bell": {
+    "pid": "17508",
+    "name": "Skyler Bell",
+    "pos": "WR",
+    "dyn_rank": 68,
+    "dyn_value": 1319,
+    "rsf": 2068
+  },
+  "jauan jennings": {
+    "pid": "14860",
+    "name": "Jauan Jennings",
+    "pos": "WR",
+    "dyn_rank": 82,
+    "dyn_value": 1311,
+    "rsf": 1952
+  },
+  "jakobi lane": {
+    "pid": "17517",
+    "name": "Ja'Kobi Lane",
+    "pos": "WR",
+    "dyn_rank": 70,
+    "dyn_value": 1281,
+    "rsf": 2512
+  },
+  "marvin mims": {
+    "pid": "16189",
+    "name": "Marvin Mims",
+    "pos": "WR",
+    "dyn_rank": 108,
+    "dyn_value": 1276,
+    "rsf": 3307
+  },
+  "adonai mitchell": {
+    "pid": "16626",
+    "name": "Adonai Mitchell",
+    "pos": "WR",
+    "dyn_rank": 76,
+    "dyn_value": 1275,
+    "rsf": 3049
+  },
+  "troy franklin": {
+    "pid": "16619",
+    "name": "Troy Franklin",
+    "pos": "WR",
+    "dyn_rank": 87,
+    "dyn_value": 1268,
+    "rsf": 3750
+  },
+  "tory horton": {
+    "pid": "17098",
+    "name": "Tory Horton",
+    "pos": "WR",
+    "dyn_rank": 88,
+    "dyn_value": 1266,
+    "rsf": 3578
+  },
+  "tank dell": {
+    "pid": "16204",
+    "name": "Tank Dell",
+    "pos": "WR",
+    "dyn_rank": 77,
+    "dyn_value": 1265,
+    "rsf": 886
+  },
+  "jalen nailor": {
+    "pid": "15786",
+    "name": "Jalen Nailor",
+    "pos": "WR",
+    "dyn_rank": 74,
+    "dyn_value": 1257,
+    "rsf": 60
+  },
+  "malik washington": {
+    "pid": "16684",
+    "name": "Malik Washington",
+    "pos": "WR",
+    "dyn_rank": 81,
+    "dyn_value": 1247,
+    "rsf": 0
+  },
+  "jack bech": {
+    "pid": "17078",
+    "name": "Jack Bech",
+    "pos": "WR",
+    "dyn_rank": 80,
+    "dyn_value": 1223,
+    "rsf": 0
+  },
+  "stefon diggs": {
+    "pid": "12186",
+    "name": "Stefon Diggs",
+    "pos": "WR",
+    "dyn_rank": 73,
+    "dyn_value": 1210,
+    "rsf": 2215
+  },
+  "tre tucker": {
+    "pid": "16287",
+    "name": "Tre Tucker",
+    "pos": "WR",
+    "dyn_rank": 85,
+    "dyn_value": 1210,
+    "rsf": 0
+  },
+  "keon coleman": {
+    "pid": "16617",
+    "name": "Keon Coleman",
+    "pos": "WR",
+    "dyn_rank": 86,
+    "dyn_value": 1191,
+    "rsf": 4521
+  },
+  "kayshon boutte": {
+    "pid": "16193",
+    "name": "Kayshon Boutte",
+    "pos": "WR",
+    "dyn_rank": 93,
+    "dyn_value": 1178,
+    "rsf": 2893
+  },
+  "donte thornton": {
+    "pid": "17087",
+    "name": "Dont'e Thornton",
+    "pos": "WR",
+    "dyn_rank": 111,
+    "dyn_value": 1174,
+    "rsf": 0
+  },
+  "pat bryant": {
+    "pid": "17082",
+    "name": "Pat Bryant",
+    "pos": "WR",
+    "dyn_rank": 90,
+    "dyn_value": 1156,
+    "rsf": 0
+  },
+  "tyreek hill": {
+    "pid": "12801",
+    "name": "Tyreek Hill",
+    "pos": "WR",
+    "dyn_rank": 83,
+    "dyn_value": 1139,
+    "rsf": 2334
+  },
+  "elic ayomanor": {
+    "pid": "17073",
+    "name": "Elic Ayomanor",
+    "pos": "WR",
+    "dyn_rank": 97,
+    "dyn_value": 1111,
+    "rsf": 3525
+  },
+  "dontayvion wicks": {
+    "pid": "16195",
+    "name": "Dontayvion Wicks",
+    "pos": "WR",
+    "dyn_rank": 94,
+    "dyn_value": 1090,
+    "rsf": 0
+  },
+  "chimere dike": {
+    "pid": "17171",
+    "name": "Chimere Dike",
+    "pos": "WR",
+    "dyn_rank": 98,
+    "dyn_value": 1088,
+    "rsf": 0
+  },
+  "kyle williams": {
+    "pid": "17134",
+    "name": "Kyle Williams",
+    "pos": "WR",
+    "dyn_rank": 100,
+    "dyn_value": 1049,
+    "rsf": 0
+  },
+  "marquise brown": {
+    "pid": "14105",
+    "name": "Marquise Brown",
+    "pos": "WR",
+    "dyn_rank": 122,
+    "dyn_value": 926,
+    "rsf": 2772
+  },
+  "calvin ridley": {
+    "pid": "13629",
+    "name": "Calvin Ridley",
+    "pos": "WR",
+    "dyn_rank": 101,
+    "dyn_value": 879,
+    "rsf": 4660
+  },
+  "darnell mooney": {
+    "pid": "14974",
+    "name": "Darnell Mooney",
+    "pos": "WR",
+    "dyn_rank": 106,
+    "dyn_value": 879,
+    "rsf": 3378
+  },
+  "ryan flournoy": {
+    "pid": "16778",
+    "name": "Ryan Flournoy",
+    "pos": "WR",
+    "dyn_rank": 96,
+    "dyn_value": 869,
+    "rsf": 0
+  },
+  "isaiah bond": {
+    "pid": "17076",
+    "name": "Isaiah Bond",
+    "pos": "WR",
+    "dyn_rank": 105,
+    "dyn_value": 857,
+    "rsf": 1985
+  },
+  "tez johnson": {
+    "pid": "17079",
+    "name": "Tez Johnson",
+    "pos": "WR",
+    "dyn_rank": 114,
+    "dyn_value": 845,
+    "rsf": 1739
+  },
+  "rashod bateman": {
+    "pid": "15293",
+    "name": "Rashod Bateman",
+    "pos": "WR",
+    "dyn_rank": 113,
+    "dyn_value": 822,
+    "rsf": 3134
+  },
+  "brenen thompson": {
+    "pid": "17529",
+    "name": "Brenen Thompson",
+    "pos": "WR",
+    "dyn_rank": 89,
+    "dyn_value": 821,
+    "rsf": 0
+  },
+  "xavier legette": {
+    "pid": "16639",
+    "name": "Xavier Legette",
+    "pos": "WR",
+    "dyn_rank": 107,
+    "dyn_value": 796,
+    "rsf": 3068
+  },
+  "calvin austin": {
+    "pid": "15777",
+    "name": "Calvin Austin",
+    "pos": "WR",
+    "dyn_rank": 130,
+    "dyn_value": 793,
+    "rsf": 2530
+  },
+  "jimmy horn": {
+    "pid": "17234",
+    "name": "Jimmy Horn",
+    "pos": "WR",
+    "dyn_rank": 148,
+    "dyn_value": 791,
+    "rsf": 0
+  },
+  "john metchie": {
+    "pid": "15759",
+    "name": "John Metchie",
+    "pos": "WR",
+    "dyn_rank": 132,
+    "dyn_value": 784,
+    "rsf": 1793
+  },
+  "christian kirk": {
+    "pid": "13633",
+    "name": "Christian Kirk",
+    "pos": "WR",
+    "dyn_rank": 116,
+    "dyn_value": 765,
+    "rsf": 3148
+  },
+  "bryce lance": {
+    "pid": "17519",
+    "name": "Bryce Lance",
+    "pos": "WR",
+    "dyn_rank": 92,
+    "dyn_value": 756,
+    "rsf": 0
+  },
+  "jalen royals": {
+    "pid": "17086",
+    "name": "Jalen Royals",
+    "pos": "WR",
+    "dyn_rank": 110,
+    "dyn_value": 752,
+    "rsf": 2633
+  },
+  "jaylin lane": {
+    "pid": "17184",
+    "name": "Jaylin Lane",
+    "pos": "WR",
+    "dyn_rank": 135,
+    "dyn_value": 718,
+    "rsf": 0
+  },
+  "demario douglas": {
+    "pid": "16342",
+    "name": "DeMario Douglas",
+    "pos": "WR",
+    "dyn_rank": 127,
+    "dyn_value": 715,
+    "rsf": 0
+  },
+  "cooper kupp": {
+    "pid": "13164",
+    "name": "Cooper Kupp",
+    "pos": "WR",
+    "dyn_rank": 112,
+    "dyn_value": 714,
+    "rsf": 3287
+  },
+  "caleb douglas": {
+    "pid": "17599",
+    "name": "Caleb Douglas",
+    "pos": "WR",
+    "dyn_rank": 95,
+    "dyn_value": 700,
+    "rsf": 0
+  },
+  "jalen tolbert": {
+    "pid": "15788",
+    "name": "Jalen Tolbert",
+    "pos": "WR",
+    "dyn_rank": 119,
+    "dyn_value": 693,
+    "rsf": 2071
+  },
+  "tyquan thornton": {
+    "pid": "15787",
+    "name": "Tyquan Thornton",
+    "pos": "WR",
+    "dyn_rank": 118,
+    "dyn_value": 692,
+    "rsf": 2094
+  },
+  "zavion thomas": {
+    "pid": "17521",
+    "name": "Zavion Thomas",
+    "pos": "WR",
+    "dyn_rank": 102,
+    "dyn_value": 689,
+    "rsf": 0
+  },
+  "cedric tillman": {
+    "pid": "16191",
+    "name": "Cedric Tillman",
+    "pos": "WR",
+    "dyn_rank": 124,
+    "dyn_value": 660,
+    "rsf": 3600
+  },
+  "savion williams": {
+    "pid": "17096",
+    "name": "Savion Williams",
+    "pos": "WR",
+    "dyn_rank": 128,
+    "dyn_value": 613,
+    "rsf": 0
+  },
+  "andrei iosivas": {
+    "pid": "16207",
+    "name": "Andrei Iosivas",
+    "pos": "WR",
+    "dyn_rank": 123,
+    "dyn_value": 612,
+    "rsf": 0
+  },
+  "luke mccaffrey": {
+    "pid": "16635",
+    "name": "Luke McCaffrey",
+    "pos": "WR",
+    "dyn_rank": 133,
+    "dyn_value": 605,
+    "rsf": 2418
+  },
+  "deion burks": {
+    "pid": "17510",
+    "name": "Deion Burks",
+    "pos": "WR",
+    "dyn_rank": 103,
+    "dyn_value": 594,
+    "rsf": 1579
+  },
+  "jahan dotson": {
+    "pid": "15755",
+    "name": "Jahan Dotson",
+    "pos": "WR",
+    "dyn_rank": 131,
+    "dyn_value": 591,
+    "rsf": 1796
+  },
+  "keandre lambert smith": {
+    "pid": "17205",
+    "name": "KeAndre Lambert-Smith",
+    "pos": "WR",
+    "dyn_rank": 136,
+    "dyn_value": 550,
+    "rsf": 0
+  },
+  "roman wilson": {
+    "pid": "16629",
+    "name": "Roman Wilson",
+    "pos": "WR",
+    "dyn_rank": 137,
+    "dyn_value": 550,
+    "rsf": 2964
+  },
+  "joshua palmer": {
+    "pid": "15319",
+    "name": "Joshua Palmer",
+    "pos": "WR",
+    "dyn_rank": 139,
+    "dyn_value": 549,
+    "rsf": 2910
+  },
+  "xavier hutchinson": {
+    "pid": "16201",
+    "name": "Xavier Hutchinson",
+    "pos": "WR",
+    "dyn_rank": 149,
+    "dyn_value": 547,
+    "rsf": 1759
+  },
+  "treylon burks": {
+    "pid": "15752",
+    "name": "Treylon Burks",
+    "pos": "WR",
+    "dyn_rank": 125,
+    "dyn_value": 545,
+    "rsf": 0
+  },
+  "devaughn vele": {
+    "pid": "16788",
+    "name": "Devaughn Vele",
+    "pos": "WR",
+    "dyn_rank": 129,
+    "dyn_value": 545,
+    "rsf": 0
+  },
+  "tutu atwell": {
+    "pid": "15301",
+    "name": "Tutu Atwell",
+    "pos": "WR",
+    "dyn_rank": 138,
+    "dyn_value": 540,
+    "rsf": 1829
+  },
+  "jordan whittington": {
+    "pid": "16633",
+    "name": "Jordan Whittington",
+    "pos": "WR",
+    "dyn_rank": 145,
+    "dyn_value": 540,
+    "rsf": 0
+  },
+  "darius slayton": {
+    "pid": "14122",
+    "name": "Darius Slayton",
+    "pos": "WR",
+    "dyn_rank": 141,
+    "dyn_value": 539,
+    "rsf": 2492
+  },
+  "cj daniels": {
+    "pid": "17504",
+    "name": "CJ Daniels",
+    "pos": "WR",
+    "dyn_rank": 104,
+    "dyn_value": 512,
+    "rsf": 1640
+  },
+  "keenan allen": {
+    "pid": "11222",
+    "name": "Keenan Allen",
+    "pos": "WR",
+    "dyn_rank": 121,
+    "dyn_value": 501,
+    "rsf": 3796
+  },
+  "jalynn polk": {
+    "pid": "16631",
+    "name": "Ja'Lynn Polk",
+    "pos": "WR",
+    "dyn_rank": 147,
+    "dyn_value": 485,
+    "rsf": 0
+  },
+  "cyrus allen": {
+    "pid": "17518",
+    "name": "Cyrus Allen",
+    "pos": "WR",
+    "dyn_rank": 109,
+    "dyn_value": 451,
+    "rsf": 0
+  },
+  "tai felton": {
+    "pid": "17097",
+    "name": "Tai Felton",
+    "pos": "WR",
+    "dyn_rank": 143,
+    "dyn_value": 439,
+    "rsf": 0
+  },
+  "kendrick bourne": {
+    "pid": "13418",
+    "name": "Kendrick Bourne",
+    "pos": "WR",
+    "dyn_rank": 151,
+    "dyn_value": 437,
+    "rsf": 2214
+  },
+  "olamide zaccheaus": {
+    "pid": "14592",
+    "name": "Olamide Zaccheaus",
+    "pos": "WR",
+    "dyn_rank": 146,
+    "dyn_value": 430,
+    "rsf": 0
+  },
+  "xavier restrepo": {
+    "pid": "17077",
+    "name": "Xavier Restrepo",
+    "pos": "WR",
+    "dyn_rank": 142,
+    "dyn_value": 426,
+    "rsf": 1963
+  },
+  "mack hollins": {
+    "pid": "13289",
+    "name": "Mack Hollins",
+    "pos": "WR",
+    "dyn_rank": 144,
+    "dyn_value": 381,
+    "rsf": 0
+  },
+  "jacob cowing": {
+    "pid": "16640",
+    "name": "Jacob Cowing",
+    "pos": "WR",
+    "dyn_rank": 153,
+    "dyn_value": 366,
+    "rsf": 1543
+  },
+  "odell beckham": {
+    "pid": "11679",
+    "name": "Odell Beckham",
+    "pos": "WR",
+    "dyn_rank": 117,
+    "dyn_value": 287,
+    "rsf": 0
+  },
+  "josh cameron": {
+    "pid": "17527",
+    "name": "Josh Cameron",
+    "pos": "WR",
+    "dyn_rank": 115,
+    "dyn_value": 180,
+    "rsf": 0
+  },
+  "jeff caldwell": {
+    "pid": "17523",
+    "name": "Jeff Caldwell",
+    "pos": "WR",
+    "dyn_rank": 120,
+    "dyn_value": 129,
+    "rsf": 0
+  },
+  "malik benson": {
+    "pid": "17706",
+    "name": "Malik Benson",
+    "pos": "WR",
+    "dyn_rank": 126,
+    "dyn_value": 84,
+    "rsf": 0
+  },
+  "colbie young": {
+    "pid": "17542",
+    "name": "Colbie Young",
+    "pos": "WR",
+    "dyn_rank": 134,
+    "dyn_value": 66,
+    "rsf": 0
+  },
+  "noah thomas": {
+    "pid": "17525",
+    "name": "Noah Thomas",
+    "pos": "WR",
+    "dyn_rank": 140,
+    "dyn_value": 32,
+    "rsf": 0
+  },
+  "henry ruggs": {
+    "pid": "14834",
+    "name": "Henry Ruggs",
+    "pos": "WR",
+    "dyn_rank": 150,
+    "dyn_value": 10,
+    "rsf": 0
+  },
+  "isaiah williams": {
+    "pid": "16630",
+    "name": "Isaiah Williams",
+    "pos": "WR",
+    "dyn_rank": 152,
+    "dyn_value": 5,
+    "rsf": 0
+  },
+  "darius cooper": {
+    "pid": "17333",
+    "name": "Darius Cooper",
+    "pos": "WR",
+    "dyn_rank": 154,
+    "dyn_value": 4,
+    "rsf": 0
+  },
+  "brock bowers": {
+    "pid": "16641",
+    "name": "Brock Bowers",
+    "pos": "TE",
+    "dyn_rank": 1,
+    "dyn_value": 6726,
+    "rsf": 7170
+  },
+  "trey mcbride": {
+    "pid": "15794",
+    "name": "Trey McBride",
+    "pos": "TE",
+    "dyn_rank": 2,
+    "dyn_value": 6145,
+    "rsf": 7154
+  },
+  "colston loveland": {
+    "pid": "17104",
+    "name": "Colston Loveland",
+    "pos": "TE",
+    "dyn_rank": 3,
+    "dyn_value": 4843,
+    "rsf": 4304
+  },
+  "tyler warren": {
+    "pid": "17102",
+    "name": "Tyler Warren",
+    "pos": "TE",
+    "dyn_rank": 4,
+    "dyn_value": 4336,
+    "rsf": 4606
+  },
+  "harold fannin": {
+    "pid": "17103",
+    "name": "Harold Fannin",
+    "pos": "TE",
+    "dyn_rank": 6,
+    "dyn_value": 4123,
+    "rsf": 2227
+  },
+  "kyle pitts": {
+    "pid": "15329",
+    "name": "Kyle Pitts",
+    "pos": "TE",
+    "dyn_rank": 8,
+    "dyn_value": 3665,
+    "rsf": 3017
+  },
+  "tucker kraft": {
+    "pid": "16222",
+    "name": "Tucker Kraft",
+    "pos": "TE",
+    "dyn_rank": 5,
+    "dyn_value": 3524,
+    "rsf": 3698
+  },
+  "sam laporta": {
+    "pid": "16214",
+    "name": "Sam LaPorta",
+    "pos": "TE",
+    "dyn_rank": 7,
+    "dyn_value": 3510,
+    "rsf": 3473
+  },
+  "oronde gadsden": {
+    "pid": "17099",
+    "name": "Oronde Gadsden",
+    "pos": "TE",
+    "dyn_rank": 14,
+    "dyn_value": 2758,
+    "rsf": 841
+  },
+  "kenyon sadiq": {
+    "pid": "17543",
+    "name": "Kenyon Sadiq",
+    "pos": "TE",
+    "dyn_rank": 9,
+    "dyn_value": 2680,
+    "rsf": 2404
+  },
+  "eli stowers": {
+    "pid": "17544",
+    "name": "Eli Stowers",
+    "pos": "TE",
+    "dyn_rank": 10,
+    "dyn_value": 2239,
+    "rsf": 1270
+  },
+  "dalton kincaid": {
+    "pid": "16213",
+    "name": "Dalton Kincaid",
+    "pos": "TE",
+    "dyn_rank": 15,
+    "dyn_value": 2155,
+    "rsf": 2346
+  },
+  "george kittle": {
+    "pid": "13299",
+    "name": "George Kittle",
+    "pos": "TE",
+    "dyn_rank": 11,
+    "dyn_value": 2007,
+    "rsf": 3451
+  },
+  "isaiah likely": {
+    "pid": "15798",
+    "name": "Isaiah Likely",
+    "pos": "TE",
+    "dyn_rank": 12,
+    "dyn_value": 1995,
+    "rsf": 1976
+  },
+  "jake ferguson": {
+    "pid": "15799",
+    "name": "Jake Ferguson",
+    "pos": "TE",
+    "dyn_rank": 13,
+    "dyn_value": 1962,
+    "rsf": 2508
+  },
+  "brenton strange": {
+    "pid": "16269",
+    "name": "Brenton Strange",
+    "pos": "TE",
+    "dyn_rank": 17,
+    "dyn_value": 1681,
+    "rsf": 2212
+  },
+  "mark andrews": {
+    "pid": "13671",
+    "name": "Mark Andrews",
+    "pos": "TE",
+    "dyn_rank": 16,
+    "dyn_value": 1579,
+    "rsf": 2166
+  },
+  "chig okonkwo": {
+    "pid": "15889",
+    "name": "Chig Okonkwo",
+    "pos": "TE",
+    "dyn_rank": 19,
+    "dyn_value": 1529,
+    "rsf": 1544
+  },
+  "aj barner": {
+    "pid": "16723",
+    "name": "AJ Barner",
+    "pos": "TE",
+    "dyn_rank": 21,
+    "dyn_value": 1494,
+    "rsf": 23
+  },
+  "tj hockenson": {
+    "pid": "14138",
+    "name": "T.J. Hockenson",
+    "pos": "TE",
+    "dyn_rank": 20,
+    "dyn_value": 1461,
+    "rsf": 2546
+  },
+  "dallas goedert": {
+    "pid": "13674",
+    "name": "Dallas Goedert",
+    "pos": "TE",
+    "dyn_rank": 23,
+    "dyn_value": 1442,
+    "rsf": 1959
+  },
+  "gunnar helm": {
+    "pid": "17105",
+    "name": "Gunnar Helm",
+    "pos": "TE",
+    "dyn_rank": 22,
+    "dyn_value": 1416,
+    "rsf": 13
+  },
+  "travis kelce": {
+    "pid": "11244",
+    "name": "Travis Kelce",
+    "pos": "TE",
+    "dyn_rank": 18,
+    "dyn_value": 1408,
+    "rsf": 2678
+  },
+  "terrance ferguson": {
+    "pid": "17107",
+    "name": "Terrance Ferguson",
+    "pos": "TE",
+    "dyn_rank": 25,
+    "dyn_value": 1366,
+    "rsf": 2782
+  },
+  "max klare": {
+    "pid": "17547",
+    "name": "Max Klare",
+    "pos": "TE",
+    "dyn_rank": 24,
+    "dyn_value": 1254,
+    "rsf": 2183
+  },
+  "juwan johnson": {
+    "pid": "14861",
+    "name": "Juwan Johnson",
+    "pos": "TE",
+    "dyn_rank": 26,
+    "dyn_value": 1246,
+    "rsf": 868
+  },
+  "david njoku": {
+    "pid": "13192",
+    "name": "David Njoku",
+    "pos": "TE",
+    "dyn_rank": 31,
+    "dyn_value": 1195,
+    "rsf": 2352
+  },
+  "hunter henry": {
+    "pid": "12676",
+    "name": "Hunter Henry",
+    "pos": "TE",
+    "dyn_rank": 27,
+    "dyn_value": 1179,
+    "rsf": 1590
+  },
+  "dalton schultz": {
+    "pid": "13772",
+    "name": "Dalton Schultz",
+    "pos": "TE",
+    "dyn_rank": 32,
+    "dyn_value": 1120,
+    "rsf": 1392
+  },
+  "cade otton": {
+    "pid": "15802",
+    "name": "Cade Otton",
+    "pos": "TE",
+    "dyn_rank": 34,
+    "dyn_value": 1115,
+    "rsf": 3690
+  },
+  "elijah arroyo": {
+    "pid": "17108",
+    "name": "Elijah Arroyo",
+    "pos": "TE",
+    "dyn_rank": 37,
+    "dyn_value": 1088,
+    "rsf": 3215
+  },
+  "mason taylor": {
+    "pid": "17106",
+    "name": "Mason Taylor",
+    "pos": "TE",
+    "dyn_rank": 38,
+    "dyn_value": 1071,
+    "rsf": 3536
+  },
+  "greg dulcich": {
+    "pid": "15797",
+    "name": "Greg Dulcich",
+    "pos": "TE",
+    "dyn_rank": 29,
+    "dyn_value": 1033,
+    "rsf": 0
+  },
+  "theo johnson": {
+    "pid": "16649",
+    "name": "Theo Johnson",
+    "pos": "TE",
+    "dyn_rank": 36,
+    "dyn_value": 1013,
+    "rsf": 0
+  },
+  "jake tonges": {
+    "pid": "16036",
+    "name": "Jake Tonges",
+    "pos": "TE",
+    "dyn_rank": 39,
+    "dyn_value": 995,
+    "rsf": 0
+  },
+  "pat freiermuth": {
+    "pid": "15331",
+    "name": "Pat Freiermuth",
+    "pos": "TE",
+    "dyn_rank": 40,
+    "dyn_value": 975,
+    "rsf": 2789
+  },
+  "michael mayer": {
+    "pid": "16212",
+    "name": "Michael Mayer",
+    "pos": "TE",
+    "dyn_rank": 41,
+    "dyn_value": 959,
+    "rsf": 2539
+  },
+  "oscar delp": {
+    "pid": "17567",
+    "name": "Oscar Delp",
+    "pos": "TE",
+    "dyn_rank": 28,
+    "dyn_value": 945,
+    "rsf": 0
+  },
+  "justin joly": {
+    "pid": "17548",
+    "name": "Justin Joly",
+    "pos": "TE",
+    "dyn_rank": 33,
+    "dyn_value": 928,
+    "rsf": 0
+  },
+  "eli raridon": {
+    "pid": "17607",
+    "name": "Eli Raridon",
+    "pos": "TE",
+    "dyn_rank": 30,
+    "dyn_value": 900,
+    "rsf": 0
+  },
+  "jatavion sanders": {
+    "pid": "16643",
+    "name": "Ja'Tavion Sanders",
+    "pos": "TE",
+    "dyn_rank": 51,
+    "dyn_value": 801,
+    "rsf": 2516
+  },
+  "colby parkinson": {
+    "pid": "14871",
+    "name": "Colby Parkinson",
+    "pos": "TE",
+    "dyn_rank": 45,
+    "dyn_value": 800,
+    "rsf": 0
+  },
+  "evan engram": {
+    "pid": "13189",
+    "name": "Evan Engram",
+    "pos": "TE",
+    "dyn_rank": 43,
+    "dyn_value": 797,
+    "rsf": 3527
+  },
+  "cole kmet": {
+    "pid": "14867",
+    "name": "Cole Kmet",
+    "pos": "TE",
+    "dyn_rank": 52,
+    "dyn_value": 787,
+    "rsf": 2968
+  },
+  "darnell washington": {
+    "pid": "16216",
+    "name": "Darnell Washington",
+    "pos": "TE",
+    "dyn_rank": 50,
+    "dyn_value": 767,
+    "rsf": 0
+  },
+  "ben sinnott": {
+    "pid": "16644",
+    "name": "Ben Sinnott",
+    "pos": "TE",
+    "dyn_rank": 54,
+    "dyn_value": 684,
+    "rsf": 0
+  },
+  "erick all": {
+    "pid": "16645",
+    "name": "Erick All",
+    "pos": "TE",
+    "dyn_rank": 61,
+    "dyn_value": 666,
+    "rsf": 0
+  },
+  "michael trigg": {
+    "pid": "17546",
+    "name": "Michael Trigg",
+    "pos": "TE",
+    "dyn_rank": 35,
+    "dyn_value": 664,
+    "rsf": 2163
+  },
+  "luke musgrave": {
+    "pid": "16215",
+    "name": "Luke Musgrave",
+    "pos": "TE",
+    "dyn_rank": 58,
+    "dyn_value": 659,
+    "rsf": 2374
+  },
+  "mike gesicki": {
+    "pid": "13672",
+    "name": "Mike Gesicki",
+    "pos": "TE",
+    "dyn_rank": 48,
+    "dyn_value": 625,
+    "rsf": 2902
+  },
+  "dawson knox": {
+    "pid": "14143",
+    "name": "Dawson Knox",
+    "pos": "TE",
+    "dyn_rank": 60,
+    "dyn_value": 603,
+    "rsf": 2357
+  },
+  "noah gray": {
+    "pid": "15337",
+    "name": "Noah Gray",
+    "pos": "TE",
+    "dyn_rank": 59,
+    "dyn_value": 551,
+    "rsf": 2410
+  },
+  "noah fant": {
+    "pid": "14137",
+    "name": "Noah Fant",
+    "pos": "TE",
+    "dyn_rank": 62,
+    "dyn_value": 487,
+    "rsf": 2446
+  },
+  "daniel bellinger": {
+    "pid": "15873",
+    "name": "Daniel Bellinger",
+    "pos": "TE",
+    "dyn_rank": 66,
+    "dyn_value": 483,
+    "rsf": 0
+  },
+  "jack endries": {
+    "pid": "17545",
+    "name": "Jack Endries",
+    "pos": "TE",
+    "dyn_rank": 42,
+    "dyn_value": 448,
+    "rsf": 2005
+  },
+  "elijah higgins": {
+    "pid": "16333",
+    "name": "Elijah Higgins",
+    "pos": "TE",
+    "dyn_rank": 67,
+    "dyn_value": 404,
+    "rsf": 0
+  },
+  "mitchell evans": {
+    "pid": "17109",
+    "name": "Mitchell Evans",
+    "pos": "TE",
+    "dyn_rank": 65,
+    "dyn_value": 402,
+    "rsf": 0
+  },
+  "sam roush": {
+    "pid": "17549",
+    "name": "Sam Roush",
+    "pos": "TE",
+    "dyn_rank": 53,
+    "dyn_value": 396,
+    "rsf": 0
+  },
+  "jonnu smith": {
+    "pid": "13193",
+    "name": "Jonnu Smith",
+    "pos": "TE",
+    "dyn_rank": 63,
+    "dyn_value": 346,
+    "rsf": 3030
+  },
+  "zach ertz": {
+    "pid": "11247",
+    "name": "Zach Ertz",
+    "pos": "TE",
+    "dyn_rank": 64,
+    "dyn_value": 330,
+    "rsf": 2692
+  },
+  "will kacmarek": {
+    "pid": "17605",
+    "name": "Will Kacmarek",
+    "pos": "TE",
+    "dyn_rank": 44,
+    "dyn_value": 262,
+    "rsf": 0
+  },
+  "tanner koziol": {
+    "pid": "17644",
+    "name": "Tanner Koziol",
+    "pos": "TE",
+    "dyn_rank": 46,
+    "dyn_value": 247,
+    "rsf": 0
+  },
+  "marlin klein": {
+    "pid": "17593",
+    "name": "Marlin Klein",
+    "pos": "TE",
+    "dyn_rank": 49,
+    "dyn_value": 204,
+    "rsf": 0
+  },
+  "john michael gyllenborg": {
+    "pid": "17710",
+    "name": "John Michael Gyllenborg",
+    "pos": "TE",
+    "dyn_rank": 55,
+    "dyn_value": 129,
+    "rsf": 0
+  },
+  "jaren kanak": {
+    "pid": "17681",
+    "name": "Jaren Kanak",
+    "pos": "TE",
+    "dyn_rank": 56,
+    "dyn_value": 106,
+    "rsf": 0
+  },
+  "nate boerkircher": {
+    "pid": "17591",
+    "name": "Nate Boerkircher",
+    "pos": "TE",
+    "dyn_rank": 57,
+    "dyn_value": 98,
+    "rsf": 0
+  },
+  "adam trautman": {
+    "pid": "14870",
+    "name": "Adam Trautman",
+    "pos": "TE",
+    "dyn_rank": 68,
+    "dyn_value": 4,
+    "rsf": 0
+  }
+}

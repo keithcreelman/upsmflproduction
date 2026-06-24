@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.22.23",
-  "label": "Stats → Efficiency (EPA): a new column set on QB/RB/WR/TE from nflfastR play-by-play — EPA per play (QB per dropback, RB per carry, WR/TE per target), Success rate, QB CPOE, and the EPA sample size. Positive EPA is green, negative red; rate stats are gated to qualified samples."
+  "build": "2026.06.24.0",
+  "label": "Auction → 💎 Value (commish): a new FA-auction value board — each free agent's WORTH (production all-play wins blended with dynasty asset value, on a live win-now↔dynasty slider) vs his EXPECTED PRICE (inflation-adjusted) and the GAP. Plus a live auction-inflation gauge (biddable money vs pool value + locked rostered surplus)."
 }
