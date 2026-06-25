@@ -16,6 +16,8 @@
 from __future__ import annotations
 import argparse, csv, json, re, sqlite3, subprocess, time, urllib.request, collections
 from pathlib import Path
+import build_fa_value as bfv   # reuse the EP constants (POS_DYN_W, STARTABILITY, AFFINE_*, $/APWE) so the
+                              # client recompute-kernel shipped in meta.model can't drift from the pipeline
 
 REPO = Path(__file__).resolve().parents[3]
 DATA = REPO / "docs" / "auction" / "data"
@@ -23,6 +25,7 @@ WORKER = REPO / "worker"
 DB = "/tmp/ups_auction_canon.db"
 LEAGUE = "74598"; YEAR = 2026; CAP = 300000
 SKILL = ["QB", "RB", "WR", "TE"]
+MODEL_CURVE_MAXRANK = 48   # client recompute-kernel curves capped here (covers every startable override; saves blob bytes)
 SLOTS = {"QB": 2, "RB": 2, "WR": 2, "TE": 1}          # SF starting demand per team
 REPL_RANK = {"QB": 24, "RB": 31, "WR": 31, "TE": 14}  # replacement (marginal-starter) rank
 SUFFIX = re.compile(r"\b(jr|sr|ii|iii|iv|v)\b")
@@ -267,6 +270,22 @@ def main():
             "generated": "build_roster_fit.py", "n_fas": len(fas),
             "worth_model": {"dollar_per_apwe": 6.5, "default_dyn_weight": 0.5,
                             "note": "WORTH=blend(redraft E[APWE]×$6.5, dynasty cardinal value×$/val); slider blends live"},
+            # ── client recompute KERNEL (ADP override): everything the View needs to re-derive a player's
+            # E[APWE]/worth/expected-price at a DIFFERENT redraft positional rank, reproducing build_fa_value
+            # EXACTLY. EP = round(max( startability(pos,rank), ante+slope·round(p50[rank]·$/APWE),
+            # dynasty_worth·pos_dyn_w[pos] )). Only the redraft axis + startability floor + affine move with
+            # rank; dynasty_worth (the KTC asset value) does NOT. Curves are fpros E[APWE] by 1-based rank.
+            "model": {
+                "dollar_per_apwe": bfv.DOLLAR_PER_APWE, "affine_ante": bfv.AFFINE_ANTE, "affine_slope": bfv.AFFINE_SLOPE,
+                "pos_dyn_w": bfv.POS_DYN_W, "startability": bfv.STARTABILITY, "curve_max_rank": MODEL_CURVE_MAXRANK,
+                # curves capped at MODEL_CURVE_MAXRANK (every startable override lives well inside this; the client
+                # clamps a higher rank to the last entry). p50 stays at FULL 2-decimal precision — the pipeline
+                # computes redraft_worth = round(p50·$/APWE) off the 2dp value, so the client MUST use 2dp to
+                # reproduce EP exactly. p90 is display/ceiling only (never feeds EP) → integer is plenty.
+                "curves": {pos: {"p50": [round(v, 2) for v in curve[pos]["p50"][:MODEL_CURVE_MAXRANK]],
+                                 "p90": [round(v) for v in curve[pos]["p90"][:MODEL_CURVE_MAXRANK]]} for pos in curve},
+                "note": "ep=round(max(startability(pos,rank), affine_ante+affine_slope*round(p50[r]*$apwe), dyn_worth*pos_dyn_w[pos])); r=min(rank,len)-1",
+            },
             "inflation": inflation,
             "tiers": tiers,
             "baseline_apw": {pos: round(B[pos], 2) for pos in SKILL},
@@ -373,7 +392,13 @@ def main():
         ts = int(time.time())
         tmp = WORKER / ".tmp"; tmp.mkdir(parents=True, exist_ok=True)
         sql_path = tmp / "fa_value_upsert.sql"
-        sql_path.write_text(f"INSERT OR REPLACE INTO ups_auction_fa_value (id, payload, updated_at) VALUES (1, '{blob}', {ts});\n")
+        stmt = f"INSERT OR REPLACE INTO ups_auction_fa_value (id, payload, updated_at) VALUES (1, '{blob}', {ts});\n"
+        # D1 rejects a single SQL statement over 100,000 bytes (SQLITE_TOOBIG). The recompute-kernel curves
+        # (meta.model) put us close, so fail LOUDLY here with the remedy instead of a cryptic wrangler error.
+        if len(stmt) > 99500:
+            raise SystemExit(f"  ✘ fa_value SQL statement is {len(stmt)} bytes (>99.5KB, near D1's 100KB cap). "
+                             f"Trim the blob: lower MODEL_CURVE_MAXRANK (now {MODEL_CURVE_MAXRANK}) or move meta.model.curves off-blob.")
+        sql_path.write_text(stmt)
         print(f"  pushing fa_value blob to D1 ({len(blob)} bytes) …")
         subprocess.run(["npx", "--yes", "wrangler@latest", "d1", "execute", "ups-mfl-db", "--remote", "--file", str(sql_path)], cwd=str(WORKER), check=True)
         print("  pushed ups_auction_fa_value")

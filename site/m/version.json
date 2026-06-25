@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.25.2",
-  "label": "Auction → 💎 Value: trade targets now show BOTH angles — what you pay THIS year (cap hit) vs the true AAV (TCV ÷ length), with a back/front-loaded flag (e.g. JSN $1K now · $23K AAV, back-loaded). Plus a smoother worth-blend slider."
+  "build": "2026.06.25.3",
+  "label": "Auction → 💎 Value: set your own ADP — tap a FA's rank (e.g. WR20 ✎) and type what you think he is (WR12); the board re-prices him instantly (worth + expected price). Once live, a ▲/▼ arrow shows each price moving up or down vs the original model. Edits persist across reloads."
 }

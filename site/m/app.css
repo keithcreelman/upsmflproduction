@@ -2119,7 +2119,16 @@ button.ups-m-busy::before,
 .ups-m-fav-nums { display: flex; align-items: center; gap: 5px; font-size: 13px; white-space: nowrap; }
 .ups-m-fav-w { color: var(--fg-muted); } .ups-m-fav-arrow { color: var(--fg-muted); font-size: 10px; } .ups-m-fav-e { font-weight: 800; } .ups-m-fav-e i { font-style: normal; font-size: 9px; font-weight: 600; color: var(--fg-muted); }
 .ups-m-fav-gap { font-size: 11px; font-weight: 700; min-width: 26px; text-align: right; } .ups-m-fav-gap.pos { color: #34d399; } .ups-m-fav-gap.neg { color: #ef4444; }
-.ups-m-fav-detail { font-size: 11px; color: var(--fg-muted); line-height: 1.5; margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line); } .ups-m-fav-detail b { color: var(--fg); }
+.ups-m-fav-detail { font-size: 11px; color: var(--fg-muted); line-height: 1.5; margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line); } .ups-m-fav-detail b { color: var(--fg); } .ups-m-fav-detail i { font-style: normal; color: #fbbf24; }
+/* ADP override: tappable rank chip + price direction arrow */
+.ups-m-fav-rankchip { color: var(--accent, #5b8dff); font-weight: 700; border-bottom: 1px dotted currentColor; padding-bottom: 1px; }
+.ups-m-fav-rankchip.ovr { color: #fbbf24; }
+.ups-m-fav-rankx { color: #ef4444; font-weight: 800; margin-left: 2px; padding: 0 3px; }
+.ups-m-fav-rankin { width: 46px; font-size: 12px; padding: 2px 4px; border: 1px solid var(--accent, #5b8dff); border-radius: 5px; background: var(--bg, #0a1222); color: var(--fg); }
+.ups-m-fav-row.ovr { box-shadow: inset 3px 0 0 #fbbf24; padding-left: 5px; border-radius: 4px; }
+.ups-m-fav-dir { font-size: 9px; font-weight: 800; margin-left: 3px; } .ups-m-fav-dir.up { color: #ef4444; } .ups-m-fav-dir.down { color: #34d399; }
+.ups-m-fav-ovrline { font-size: 10.5px; color: var(--fg-muted); margin: 4px 0 6px; }
+.ups-m-fav-ovrline #ups-m-fav-ovr-reset { font-size: 10.5px; font-weight: 700; color: var(--accent, #5b8dff); background: none; border: 1px solid var(--accent, #5b8dff); border-radius: 5px; padding: 1px 7px; margin-left: 4px; }
 .ups-m-fav-tiers { margin-top: 2px; }
 .ups-m-fav-tierpos { font-size: 13px; font-weight: 800; color: var(--accent, #5b8dff); margin: 10px 0 4px; }
 .ups-m-fav-tier { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; margin-bottom: 5px; }

@@ -21,7 +21,8 @@
   var U = M.util;
 
   // tab: "faa" | "era" (the auction). sub: "summary"|"lots"|"players"|"cadence"|"schedule".
-  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", poolStatus: "all", openThreads: {}, faValue: undefined, favDynW: 0.5, favPos: "ALL", favOwn: "available", favOpen: {}, favTiers: false, favHelp: false };
+  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", poolStatus: "all", openThreads: {}, faValue: undefined, favDynW: 0.5, favPos: "ALL", favOwn: "available", favOpen: {}, favTiers: false, favHelp: false,
+    favRankOvr: (function () { try { return JSON.parse(localStorage.getItem("ups_fav_rank_ovr") || "{}") || {}; } catch (e) { return {}; } })() };
   // FA Value board (worth vs expected price + inflation) — commish-only.
   function favIsCommish() { return ["0008", "0000"].indexOf(U.pad4(M.state.viewerFranchiseId || "")) !== -1; }
 
@@ -358,6 +359,23 @@
     if (ep < 15) return ["FAIR", "fair"];
     return vr < 0.6 ? ["OVERPAY", "over"] : ["FAIR", "fair"];
   }
+  // ── ADP override: re-rank a FA and re-price him. Kernel reproduces build_fa_value.ep_base_k EXACTLY
+  // (meta.model = constants + fpros curves). Only the redraft axis + startability + affine move with rank;
+  // dynasty worth (dw) is rank-independent. Persisted by player name (same localStorage key as desktop). ──
+  function favSaveOvrM() { try { localStorage.setItem("ups_fav_rank_ovr", JSON.stringify(state.favRankOvr)); } catch (e) { } }
+  function pyRound(x) { var r = Math.round(x); if (Math.abs(x - Math.trunc(x) - 0.5) < 1e-9 && (r % 2 !== 0)) r -= (x >= 0 ? 1 : -1); return r; }
+  function epStartFloorM(pos, rank, EP) { var t = EP && EP.startability && EP.startability[pos]; if (!t || !rank) return 0; for (var i = 0; i < t.length; i++) { if (rank <= t[i][0]) return t[i][1]; } return t[t.length - 1][1]; }
+  function favRankIntM(s) { var m = String(s || "").match(/(\d+)/); return m ? +m[1] : null; }
+  function epRecomputeM(pos, rank, dw, EP) {
+    var C = EP && EP.curves && EP.curves[pos]; if (!C || !rank) return null;
+    var idx = Math.min(rank, C.p50.length) - 1, a50f = C.p50[idx];             // FULL 2dp p50 → exact rw
+    var rw = pyRound(a50f * EP.dollar_per_apwe), aff = EP.affine_ante + EP.affine_slope * rw, sf = epStartFloorM(pos, rank, EP);
+    var pw = (EP.pos_dyn_w[pos] != null ? EP.pos_dyn_w[pos] : (EP.pos_dyn_w._default != null ? EP.pos_dyn_w._default : 0.8));
+    return { a50: Math.round(a50f * 10) / 10, a90: Math.round(C.p90[idx] * 10) / 10, rw: rw, ep: pyRound(Math.max(sf, aff, (dw || 0) * pw)) };
+  }
+  function favEPM(d) { return d && d.meta && d.meta.model; }
+  function favCanOvrM(r, EP) { return !r.o && EP && EP.curves && EP.curves[r.p] && r.fr; }
+  function favDirChipM(cur, e0) { if (e0 == null) return ""; var d = cur - e0; if (Math.abs(d) < 1) return ""; var up = d > 0; return '<span class="ups-m-fav-dir ' + (up ? "up" : "down") + '">' + (up ? "▲" : "▼") + Math.abs(d) + '</span>'; }
   function favTiersM(tiers) {
     var blendW = function (r) { return Math.round((1 - state.favDynW) * (r.rw || 0) + state.favDynW * (r.dw || 0)); };
     var POS = ["QB", "RB", "WR", "TE"].filter(function (p) { return tiers[p]; });
@@ -435,7 +453,14 @@
     var rows = (d.fas || []).filter(function (r) { return owned ? r.o : !r.o; });
     if (state.favPos !== "ALL") rows = rows.filter(function (r) { return r.p === state.favPos; });
     // trade targets price off their contract AAV (not in the auction); FAs price off the inflated EP.
+    var EP = favEPM(d);
     rows.forEach(function (r) {
+      // pristine snapshot (once) so an ADP override is reversible without a re-fetch; restore + re-apply each pass.
+      if (r._ep0 == null) { r._ep0 = r.e; r._rw0 = r.rw; r._a500 = r.a50; r._a900 = r.a90; }
+      r.e = r._ep0; r.rw = r._rw0; r.a50 = r._a500; r.a90 = r._a900;
+      var ov = favCanOvrM(r, EP) ? state.favRankOvr[r.n] : null;
+      if (ov != null) { var res = epRecomputeM(r.p, ov, r.dw, EP); if (res) { r.rw = res.rw; r.a50 = res.a50; r.a90 = res.a90; r.e = res.ep; } }
+      r._ovr = ov;
       r._w = favWorthM(r); r._price = r.o ? (r.av || 0) : (r.e || 0); r._gap = r._price - r._w;
       var v = favVerdictM(r._w, r._price, r.a90); r._vlab = v[0]; r._vcls = v[1];
       if (!r.o) { var nk = favnk(r.n); r._sold = live.sold[nk]; r._active = live.active[nk]; r._liveEP = (live.factor && r._sold == null && r._active == null) ? Math.round((r.e || 0) * live.factor) : null; }
@@ -460,14 +485,19 @@
     if (state.favTiers) return inflStrip + blend + ownToggle + pills + favTiersM((d.meta || {}).tiers || {});
     var cards = rows.map(function (r) {
       var gapCls = r._gap <= -3 ? 'pos' : (r._gap >= 3 ? 'neg' : '');
-      var head = '<div class="ups-m-fav-row" data-favn="' + U.escapeHtml(r.n) + '">' +
-        '<div class="ups-m-fav-nm"><b>' + U.escapeHtml(r.n) + '</b> <span class="ups-m-fav-rk">' + U.escapeHtml(r.dr) + (r.fr ? ' · ' + U.escapeHtml(r.fr) : '') + '</span>' +
+      var rkHtml;
+      if (favCanOvrM(r, EP)) {
+        var shownRk = r._ovr != null ? (r.p + r._ovr) : r.fr;
+        rkHtml = U.escapeHtml(r.dr) + ' · <span class="ups-m-fav-rankchip' + (r._ovr != null ? ' ovr' : '') + '" data-favrankn="' + U.escapeHtml(r.n) + '">' + U.escapeHtml(shownRk) + ' ✎' + (r._ovr != null ? '<span class="ups-m-fav-rankx" data-favrankxn="' + U.escapeHtml(r.n) + '">×</span>' : '') + '</span>';
+      } else { rkHtml = U.escapeHtml(r.dr) + (r.fr ? ' · ' + U.escapeHtml(r.fr) : ''); }
+      var head = '<div class="ups-m-fav-row' + (r._ovr != null ? ' ovr' : '') + '" data-favn="' + U.escapeHtml(r.n) + '">' +
+        '<div class="ups-m-fav-nm"><b>' + U.escapeHtml(r.n) + '</b> <span class="ups-m-fav-rk">' + rkHtml + '</span>' +
         '<span class="ups-m-fav-v ' + r._vcls + '">' + r._vlab + '</span></div>' +
         '<div class="ups-m-fav-nums"><span class="ups-m-fav-w">$' + r._w + 'K</span><span class="ups-m-fav-arrow">→</span>' +
         (r._sold != null ? '<span class="ups-m-fav-e" style="text-decoration:line-through;color:var(--fg-muted)">SOLD $' + r._sold + 'K</span>'
           : r._active != null ? '<span class="ups-m-fav-e" style="color:#fbbf24">🔨 $' + r._active + 'K</span>'
-            : r._liveEP != null ? '<span class="ups-m-fav-e">$' + r._liveEP + 'K<i> live</i></span>'
-              : '<span class="ups-m-fav-e">$' + r._price + 'K' + (r.o ? '<i> AAV · $' + (r.sl != null ? r.sl : r._price) + 'K now</i>' : '') + '</span>') +
+            : r._liveEP != null ? '<span class="ups-m-fav-e">$' + r._liveEP + 'K<i> live</i></span>' + favDirChipM(r._liveEP, r._ep0)
+              : '<span class="ups-m-fav-e">$' + r._price + 'K' + (r.o ? '<i> AAV · $' + (r.sl != null ? r.sl : r._price) + 'K now</i>' : '') + '</span>' + (r.o ? '' : favDirChipM(r._price, r._ep0))) +
         '<span class="ups-m-fav-gap ' + gapCls + '">' + (r._gap > 0 ? '+' : '') + r._gap + '</span></div></div>';
       var ct = r.contract || {}, aav = (ct.aav_k != null ? ct.aav_k : r.av), sal = (ct.sal_k != null ? ct.sal_k : r.sl),
         tcv = (ct.tcv_k != null ? ct.tcv_k : r.tcv), cl = (ct.cl != null ? ct.cl : r.cl);
@@ -475,12 +505,16 @@
       var shape = (sal != null && aav) ? (sal < aav * 0.7 ? ' · ⚠ back-loaded' : (sal > aav * 1.3 ? ' · front-loaded' : '')) : '';
       var priceLine = r.o
         ? 'this yr <b>$' + (sal != null ? sal : r._price) + 'K</b> · AAV <b>$' + (aav != null ? aav : r._price) + 'K</b>/yr' + (tcv ? ' · total $' + tcv + 'K' : '') + (cl ? ' / ' + cl + 'yr' : '') + shape + '<br>worth $' + r._w + 'K vs AAV → ' + (r._gap <= 0 ? '<b>$' + (-r._gap) + 'K surplus</b>' : '<b>$' + r._gap + 'K over</b>')
-        : 'price <b>$' + r._price + 'K</b> · gap <b>' + (r._gap > 0 ? '+' : '') + r._gap + 'K</b>';
+        : 'price <b>$' + r._price + 'K</b>' + (r._ovr != null ? ' <i>(your ' + r.p + r._ovr + ' · model ' + U.escapeHtml(r.fr) + ' = $' + r._ep0 + 'K)</i>' : '') + ' · gap <b>' + (r._gap > 0 ? '+' : '') + r._gap + 'K</b>';
       var detail = state.favOpen[r.n] ? '<div class="ups-m-fav-detail">redraft (production) <b>$' + (r.rw || 0) + 'K</b> · dynasty (asset) <b>$' + (r.dw || 0) + 'K</b><br>' +
         'all-play wins: proj <b>' + (r.a50 || 0) + '</b> · ceiling <b>' + (r.a90 || 0) + '</b><br>' + priceLine + '</div>' : '';
       return '<div class="ups-m-fav-card">' + head + detail + '</div>';
     }).join("");
-    return inflStrip + blend + ownToggle + pills + '<div class="ups-m-fav-list">' + (cards || '<div class="ups-m-auc-empty">No players.</div>') + '</div>';
+    var nOvr = Object.keys(state.favRankOvr).length;
+    var ovrLine = '<div class="ups-m-fav-ovrline">' + (nOvr
+      ? '✎ <b>' + nOvr + '</b> ADP edit' + (nOvr > 1 ? 's' : '') + ' <button type="button" id="ups-m-fav-ovr-reset">reset all</button>'
+      : 'Tap a FA\'s rank (e.g. <b>WR20 ✎</b>) to set your own ADP &amp; re-price him') + '</div>';
+    return inflStrip + blend + ownToggle + pills + ovrLine + '<div class="ups-m-fav-list">' + (cards || '<div class="ups-m-auc-empty">No players.</div>') + '</div>';
   }
   function wireFaValue() {
     var bl = document.getElementById("ups-m-fav-blend");
@@ -494,6 +528,31 @@
     var tt = document.querySelector("[data-favtiers]"); if (tt) tt.addEventListener("click", function () { state.favTiers = !state.favTiers; paint(); });
     var hb = document.getElementById("ups-m-fav-help-btn"); if (hb) hb.addEventListener("click", function () { state.favHelp = true; paint(); });
     var hbk = document.getElementById("ups-m-fav-help-back"); if (hbk) hbk.addEventListener("click", function () { state.favHelp = false; paint(); });
+    // ADP override: tap a rank chip → number input → commit re-prices the FA (stopPropagation so the
+    // card-expand tap below doesn't also fire). Typing the model's own rank clears the override.
+    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-fav-rankchip"), function (chip) {
+      chip.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (chip.querySelector("input")) return;
+        var n = chip.getAttribute("data-favrankn");
+        var rr = ((state.faValue && state.faValue.fas) || []).filter(function (x) { return x.n === n; })[0];
+        var modelRank = rr ? favRankIntM(rr.fr) : null;
+        var cur = state.favRankOvr[n] != null ? state.favRankOvr[n] : modelRank;
+        chip.innerHTML = '<input type="number" inputmode="numeric" min="1" max="80" value="' + (cur || "") + '" class="ups-m-fav-rankin" />';
+        var inp = chip.querySelector("input"); inp.focus(); inp.select();
+        var committed = false;
+        var commit = function (apply) {
+          if (committed) return; committed = true;
+          if (apply) { var v = favRankIntM(inp.value); if (v && v >= 1 && v <= 80) { if (v === modelRank) delete state.favRankOvr[n]; else state.favRankOvr[n] = v; } }
+          favSaveOvrM(); paint();
+        };
+        inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); commit(true); } else if (ev.key === "Escape") { ev.preventDefault(); commit(false); } });
+        inp.addEventListener("blur", function () { commit(true); });
+        inp.addEventListener("click", function (ev) { ev.stopPropagation(); });
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-fav-rankx"), function (x) { x.addEventListener("click", function (e) { e.stopPropagation(); var n = x.getAttribute("data-favrankxn"); delete state.favRankOvr[n]; favSaveOvrM(); paint(); }); });
+    var mra = document.getElementById("ups-m-fav-ovr-reset"); if (mra) mra.addEventListener("click", function () { state.favRankOvr = {}; favSaveOvrM(); paint(); });
     Array.prototype.forEach.call(document.querySelectorAll(".ups-m-fav-row"), function (b) {
       b.addEventListener("click", function () { var n = this.getAttribute("data-favn"); state.favOpen[n] = !state.favOpen[n]; paint(); });
     });
