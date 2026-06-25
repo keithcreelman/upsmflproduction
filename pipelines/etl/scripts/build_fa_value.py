@@ -36,6 +36,18 @@ DYN_ANCHOR_VALUE = 10136   # the top SF-dynasty consensus value (Josh Allen) …
 DYN_ANCHOR_K = 75          # … anchored to the top auction $; PER_VALUE = $K per dynasty-value unit
 PER_VALUE = DYN_ANCHOR_K / DYN_ANCHOR_VALUE
 DEFAULT_DYN_W = 0.5        # default blend weight on the dynasty axis (the View slider overrides live)
+# ── v4 EXPECTED-PRICE model (harness-fit + thread findings) ──
+# The auction clearing line, re-fit on ALL clears (build_auction_backtest.py): paid$K ≈
+# 3.53 + 0.82·redraft_worth (MSE 31 vs the v13 selection-biased 7.28+0.72/MSE 89). This is the
+# empirically-best price predictor (MAE $3.5K). EP = the max of three anchors:
+#   • the affine clearing line on REDRAFT (win-now) worth — the data-grounded predictor,
+#   • the startability slot-rent floor (a startable NFL player costs ≥ the rent), and
+#   • a POSITION-WEIGHTED dynasty anchor — RB clears win-now (dynasty heavily discounted: an
+#     expensive RB is a 1-yr rental, dynasty over-prices its age), while QB/WR/TE command their
+#     dynasty value (durable, locked multi-year, extensions hold ~80% — the thread's finding).
+AFFINE_ANTE = 2.67
+AFFINE_SLOPE = 0.84
+POS_DYN_W = {"QB": 1.0, "WR": 0.9, "TE": 0.9, "RB": 0.55}   # how much of dynasty value the auction will pay, by pos
 
 # ── EXPECTED PRICE: STARTABILITY FLOOR (FantasyPros redraft rank → slot rent $K) ──
 # A startable NFL player commands the slot rent regardless of production. Calibrated to
@@ -118,9 +130,13 @@ def main():
         dynasty_worth_k = round(dyn_value * PER_VALUE)      # asset worth (KTC cardinal tiering)
         worth_k = round((1 - DEFAULT_DYN_W) * redraft_worth_k + DEFAULT_DYN_W * dynasty_worth_k)  # default 50/50
 
-        # EXPECTED PRICE (pre-inflation) = the cardinal dynasty asset $ floored at the startability slot-rent
+        # v4 EXPECTED PRICE = max(affine clearing line on redraft worth, startability floor,
+        # position-weighted dynasty anchor). The affine IS the inflation (prices clear above worth
+        # via the fit), so there is no separate regime/ante machinery downstream.
         sf_floor = startability_floor(pos, fp_rank)
-        ep_base_k = max(dynasty_worth_k, sf_floor)
+        affine_k = AFFINE_ANTE + AFFINE_SLOPE * redraft_worth_k
+        dyn_anchor_k = dynasty_worth_k * POS_DYN_W.get(pos, 0.8)
+        ep_base_k = round(max(sf_floor, affine_k, dyn_anchor_k))
         gap_k = ep_base_k - worth_k                          # +premium / −discount (vs the default blend; View recomputes live)
         per_apwe = round(ep_base_k / a50, 1) if a50 > 0 else None
         vr = round(worth_k / ep_base_k, 2) if ep_base_k > 0 else None

@@ -84,8 +84,14 @@ def fit_curve(pairs):
         p50.append(float(np.percentile(sample, 50)))
         p90.append(float(np.percentile(sample, 90)))
     p25 = isotonic_decreasing(p25); p50 = isotonic_decreasing(p50); p90 = isotonic_decreasing(p90)
+    # v4 TAIL FLOOR (audit fix): the empirical p50 hard-zeros deep (QB33/RB39/WR46/TE21),
+    # forcing every startable player past that rank to redraft worth $0 and onto a hand-set
+    # startability table. Replace the hard 0 with a gentle exponential decay so a ranked
+    # player never has exactly $0 production worth (floor 0.9·e^(−rank/40) APWE → ~$2.9 at
+    # rank 33, ~$1.4 at rank 60). Non-increasing by construction; only lifts where p50 hit 0.
+    p50 = [round(max(v, 0.9 * math.exp(-(r) / 40.0)), 2) for r, v in enumerate(p50, 1)]
     return {"b0": round(float(b0), 3), "b1": round(float(b1), 3), "n": len(pairs),
-            "p25": [round(v, 2) for v in p25], "p50": [round(v, 2) for v in p50],
+            "p25": [round(v, 2) for v in p25], "p50": p50,
             "p90": [round(v, 2) for v in p90]}
 
 

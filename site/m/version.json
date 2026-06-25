@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.24.2",
-  "label": "Auction → 💎 Value: trade targets now priced off their contract AAV vs worth (Available FAs | Trade targets toggle), plus a ? explainer with plain-English how-it-works + worked QB/RB/WR/TE examples."
+  "build": "2026.06.25.0",
+  "label": "Auction → 💎 Value v4: expected price is now the harness-fit clearing line (2.67 + 0.84·redraft worth) maxed with the startability floor and a position-weighted dynasty anchor (RB clears win-now; QB/WR/TE command dynasty). Tail-floor kills $0-worth startables; regime machinery removed."
 }

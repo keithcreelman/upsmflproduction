@@ -129,28 +129,14 @@ def main():
         team[fid] = {"team": fid2team.get(fid, fid), "capspace": CAP - active_sal,
                      "active_salary": active_sal, "fit": fit}
 
-    # ---- INFLATION (affine clearing line; live-trackable) ----
-    FLOOR = 1
+    # ---- v4 MARKET CONTEXT (the affine clearing line is baked into EP in build_fa_value;
+    #      no separate regime/ante machinery — the audit flagged those as unvalidated knobs) ----
+    DEPLOY_FRAC = 0.76      # ~76% of ceiling headroom becomes real bids (calibrated SF-era)
     ceiling_headroom_k = sum(t["capspace"] for t in team.values()) / 1000.0
     biddable_money_k = round(DEPLOY_FRAC * ceiling_headroom_k)
-    # credible FA pool = unrostered targets the room competes for; factor is measured in REDRAFT
-    # worth (the units the back-test fit on), NOT EP_base.
     credible = [p for p in core if not rostered_by_name.get(nkey(p["player"]))
-                and ((p.get("redraft_worth_k") or 0) >= CREDIBLE_WORTH or (p.get("ep_base_k") or 0) >= CREDIBLE_EP)]
+                and ((p.get("redraft_worth_k") or 0) >= 3 or (p.get("ep_base_k") or 0) >= 5)]
     credible_rworth_k = round(sum(p.get("redraft_worth_k") or 0 for p in credible)) or 1
-    regime = round(biddable_money_k / credible_rworth_k, 2)   # biddable ÷ credible redraft-worth (SF norm ≈ 1.9)
-    ante_live = round(INFL_ANTE * clamp(regime / REGIME_BASE, 0.4, 1.6), 1)   # scarcity ante, dampened/lifted by the regime
-
-    def inflate(ep_base_k, redraft_worth_k):
-        """EP_inflated = max(dynasty/startability anchor, ANTE_live + SLOPE·redraft_worth). Additive
-        over the anchor → never deflates a stud, never double-inflates (the verifier's fix). The ante
-        ramps in over [0, CREDIBLE_WORTH] so a 1-rank ADP wobble near the cutoff isn't a price cliff."""
-        w = redraft_worth_k or 0
-        if w < CREDIBLE_WORTH and (ep_base_k or 0) < CREDIBLE_EP:
-            ante = ante_live * max(0.0, w / CREDIBLE_WORTH)   # sub-credible: phase the ante in (scrub w=0 → 0)
-        else:
-            ante = ante_live
-        return max(ep_base_k, round(ante + INFL_SLOPE * w))
 
     def re_verdict(ep_k, worth_k, p90):
         vr = round(worth_k / ep_k, 2) if ep_k > 0 else None
@@ -162,38 +148,31 @@ def main():
         if ep_k < 15: return ("FAIR", vr)                        # cheap startable = market slot-rent, not an overpay
         return ("OVERPAY", vr) if vr < 0.6 else ("FAIR", vr)     # real overpay only on a non-trivial price
 
-    # apply inflation to EVERY priced player (so My Board / trade targets see the inflated price too)
+    # EP is FINAL from build_fa_value (max of affine clearing line ∨ startability floor ∨
+    # position-weighted dynasty anchor). Pass it through + derive gap/verdict.
     for p in core:
-        ep_inf = inflate(p["ep_base_k"], p["redraft_worth_k"])
-        p["ep_k"] = ep_inf
-        p["median_k"] = ep_inf                               # the headline EXPECTED PRICE = inflated
-        p["low_k"] = round(ep_inf * 0.78); p["top10_k"] = round(ep_inf * 1.3)
-        p["gap_k"] = ep_inf - p["worth_k"]
-        p["per_apwe"] = round(ep_inf / p["e_apwe_p50"], 1) if (p.get("e_apwe_p50") or 0) > 0 else None
-        v, vr = re_verdict(ep_inf, p["worth_k"], p["e_apwe_p90"])
+        ep = p["ep_base_k"]
+        p["ep_k"] = ep; p["median_k"] = ep
+        p["low_k"] = round(ep * 0.78); p["top10_k"] = round(ep * 1.3)
+        p["gap_k"] = ep - p["worth_k"]
+        p["per_apwe"] = round(ep / p["e_apwe_p50"], 1) if (p.get("e_apwe_p50") or 0) > 0 else None
+        v, vr = re_verdict(ep, p["worth_k"], p["e_apwe_p90"])
         p["verdict"] = v; p["value_ratio"] = vr
 
-    # effective factor = how far the credible board is marked up over intrinsic redraft worth
-    sum_ep_inf = sum(p["ep_k"] for p in credible)
-    factor = round(sum_ep_inf / credible_rworth_k, 2) if credible_rworth_k else 1.0
-    lifted = sum(1 for p in credible if p["ep_k"] > p["ep_base_k"])
-    inflation = {
-        "factor": factor, "regime_ratio": regime, "ante_live": ante_live, "ante_base": INFL_ANTE,
-        "slope": INFL_SLOPE, "deploy_frac": DEPLOY_FRAC,
+    # how far the credible board is priced over intrinsic redraft worth (descriptive only)
+    markup = round(sum(p["ep_k"] for p in credible) / credible_rworth_k, 2) if credible_rworth_k else 1.0
+    inflation = {   # kept key name for View compatibility; v4 = the affine clearing line, not a regime factor
+        "model": "v4-affine", "ante": 2.67, "slope": 0.84, "deploy_frac": DEPLOY_FRAC,
         "ceiling_headroom_k": round(ceiling_headroom_k), "biddable_money_k": biddable_money_k,
-        "credible_value_k": credible_rworth_k, "n_credible": len(credible), "n_lifted": lifted,
-        "surplus_k": round(surplus_k),
-        "regime": "deep pool" if regime < REGIME_BASE * 0.85 else "hot" if regime > REGIME_BASE * 1.15 else "typical",
-        "backtest": {"2022": 1.89, "2023": 2.61, "2024": 1.57, "2025": 1.81, "mean_realized": 1.97,
-                     "by_pos": {"QB": 1.22, "RB": 1.73, "WR": 1.4, "TE": 2.45}},
-        "formula": "EP_inflated = max(EP_base, ANTE_live + " + str(INFL_SLOPE) + "·redraft_worth); "
-                   "ANTE_live = $" + str(INFL_ANTE) + "K × (biddable ÷ credible-redraft-worth ÷ " + str(REGIME_BASE) + ")",
-        "live": "recompute as lots clear: biddable & credible-worth both shrink, but studs (low ante/worth ratio) "
-                "leave faster → regime climbs → ANTE_live rises → remaining mid/depth inflates more.",
-        "note": f"2026: ${biddable_money_k}K biddable ÷ ${credible_rworth_k}K credible redraft-worth = regime {regime} "
-                f"→ ANTE ${ante_live}K (SF norm $7K). Board marks up ~{factor}× over intrinsic worth; "
-                f"{lifted} mid/depth targets lifted above their floor. ${round(surplus_k)}K of locked rostered "
-                f"surplus is the fuel — it climbs LIVE as the {len([p for p in credible if (p.get('redraft_worth_k') or 0) >= 25])} studs clear.",
+        "credible_value_k": credible_rworth_k, "n_credible": len(credible),
+        "surplus_k": round(surplus_k), "board_markup": markup,
+        "backtest": {"clearing_line": "paid$K ≈ 2.67 + 0.84·redraft_worth (all clears, MSE 31, n=346)",
+                     "dollar_weighted_inflation": 1.53,
+                     "per_year": {"2022": 1.57, "2023": 1.98, "2024": 1.30, "2025": 1.46}},
+        "note": f"v4 EP = max(startability floor, 2.67 + 0.84·redraft_worth [the harness-fit clearing line], "
+                f"position-weighted dynasty anchor). RB clears win-now (dynasty ×0.55); QB/WR/TE command dynasty. "
+                f"Board prices ~{markup}× intrinsic redraft worth; ${round(surplus_k)}K of locked rostered surplus + "
+                f"${biddable_money_k}K biddable money is the market context. Historical $-weighted markup 1.53×.",
     }
 
     def need_label(fid, pos):
@@ -329,11 +308,11 @@ def main():
     print(f"  ({n_avail} available FAs + {n_rost} rostered trade targets)")
 
     # ---- summaries ----
-    print(f"\n=== INFLATION ({inflation['regime']}) ===")
+    print(f"\n=== v4 MARKET CONTEXT (affine clearing line baked into EP) ===")
     print(f"  Σ ceiling headroom ${inflation['ceiling_headroom_k']}K → biddable ${biddable_money_k}K (×{DEPLOY_FRAC})")
-    print(f"  credible redraft-worth ${credible_rworth_k}K ({len(credible)} targets) → regime {regime} → ante ${ante_live}K → board ~{factor}× over worth ({lifted} lifted)")
+    print(f"  credible redraft-worth ${credible_rworth_k}K ({len(credible)} targets) → board prices ~{inflation['board_markup']}× over intrinsic worth")
     print(f"  locked rostered surplus (worth−cost, positive): ${inflation['surplus_k']}K")
-    print(f"  {inflation['note']}")
+    print(f"  clearing line: {inflation['backtest']['clearing_line']}")
     print(f"\n=== a few inflated prices (EP_base → EP_inflated) ===")
     for nm in ["Joe Mixon", "Stefon Diggs", "Aaron Rodgers", "Sam Darnold", "Travis Kelce", "Ja'Marr Chase"]:
         p = next((r for r in core if r["player"].startswith(nm)), None)

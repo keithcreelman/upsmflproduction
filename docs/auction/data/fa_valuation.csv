@@ -1,352 +1,361 @@
 player,pos,status,owner,dyn_sf_rank,fp_rank,redraft_worth_k,dynasty_worth_k,worth_k,ep_k,gap_k,e_apwe_p50,e_apwe_p90,per_apwe,value_ratio,verdict,fit_0008,deal_type,top_competitors
-Ja'Marr Chase,WR,rostered,HammerTime 🔨 ⏰,WR1,WR1,83,71,77,71,-6,12.7,21.4,5.6,1.08,FAIR,DEPTH,anchor,
+Ja'Marr Chase,WR,rostered,HammerTime 🔨 ⏰,WR1,WR1,83,71,77,72,-5,12.7,21.4,5.7,1.07,FAIR,DEPTH,anchor,
 Josh Allen,QB,FA,,QB1,QB1,75,75,75,75,0,11.6,23.18,6.5,1.0,FAIR,NEED-STUD,anchor,Hawks; CBP; L.A. Looks
-Puka Nacua,WR,rostered,Blake Bombers,WR5,WR2,80,62,71,62,-9,12.34,20.94,5.0,1.15,FAIR,DEPTH,multi-year build,
-Jaxon Smith-Njigba,WR,rostered,C-Town Chivalry,WR2,WR3,72,67,70,67,-3,11.14,20.88,6.0,1.04,FAIR,DEPTH,multi-year build,
-Lamar Jackson,QB,FA,,QB2,QB2,74,59,66,59,-7,11.41,22.76,5.2,1.12,FAIR,NEED-STUD,anchor,Hawks; CBP; L.A. Looks
-Bijan Robinson,RB,rostered,Cleon Ca$h,RB1,RB2,59,69,64,69,5,9.07,19.34,7.6,0.93,FAIR,DEPTH,multi-year build,
-Jahmyr Gibbs,RB,rostered,Pure Greatness,RB2,RB1,60,67,64,67,3,9.16,19.38,7.3,0.96,FAIR,DEPTH,multi-year build,
-Amon-Ra St. Brown,WR,rostered,L.A. Looks,WR6,WR4,72,57,64,57,-7,11.14,20.82,5.1,1.12,FAIR,DEPTH,anchor,
+Puka Nacua,WR,rostered,Blake Bombers,WR5,WR2,80,62,71,70,-1,12.34,20.94,5.7,1.01,FAIR,DEPTH,multi-year build,
+Jaxon Smith-Njigba,WR,rostered,C-Town Chivalry,WR2,WR3,72,67,70,63,-7,11.14,20.88,5.7,1.11,FAIR,DEPTH,multi-year build,
+Lamar Jackson,QB,FA,,QB2,QB2,74,59,66,65,-1,11.41,22.76,5.7,1.02,FAIR,NEED-STUD,anchor,Hawks; CBP; L.A. Looks
+Bijan Robinson,RB,rostered,Cleon Ca$h,RB1,RB2,59,69,64,52,-12,9.07,19.34,5.7,1.23,VALUE,DEPTH,multi-year build,
+Jahmyr Gibbs,RB,rostered,Pure Greatness,RB2,RB1,60,67,64,53,-11,9.16,19.38,5.8,1.21,VALUE,DEPTH,multi-year build,
+Amon-Ra St. Brown,WR,rostered,L.A. Looks,WR6,WR4,72,57,64,63,-1,11.14,20.82,5.7,1.02,FAIR,DEPTH,anchor,
 Drake Maye,QB,rostered,Pure Greatness,QB9,QB5,63,61,62,61,-1,9.7,20.77,6.3,1.02,FAIR,NEED-STUD,multi-year build,
-Joe Burrow,QB,FA,,QB4,QB3,67,55,61,55,-6,10.27,21.98,5.4,1.11,FAIR,NEED-STUD,anchor,Hawks; CBP; L.A. Looks
-Justin Jefferson,WR,rostered,Blake Bombers,WR3,WR6,66,56,61,56,-5,10.15,20.24,5.5,1.09,FAIR,DEPTH,anchor,
+Joe Burrow,QB,FA,,QB4,QB3,67,55,61,59,-2,10.27,21.98,5.7,1.03,FAIR,NEED-STUD,anchor,Hawks; CBP; L.A. Looks
+Justin Jefferson,WR,rostered,Blake Bombers,WR3,WR6,66,56,61,58,-3,10.15,20.24,5.7,1.05,FAIR,DEPTH,anchor,
 Caleb Williams,QB,rostered,Sex Manther,QB5,QB6,63,57,60,57,-3,9.7,20.43,5.9,1.05,FAIR,NEED-STUD,multi-year build,
-CeeDee Lamb,WR,rostered,Cleon Ca$h,WR4,WR5,68,53,60,53,-7,10.39,20.56,5.1,1.13,FAIR,DEPTH,anchor,
-Jayden Daniels,QB,rostered,C-Town Chivalry,QB8,QB4,63,55,59,55,-4,9.7,21.21,5.7,1.07,FAIR,NEED-STUD,multi-year build,
-Ashton Jeanty,RB,rostered,Pure Greatness,RB3,RB5,59,53,56,53,-3,9.07,19.12,5.8,1.06,FAIR,DEPTH,multi-year build,
-Drake London,WR,rostered,C-Town Chivalry,WR8,WR7,65,46,56,50,-6,9.97,20.24,5.0,1.12,FAIR,DEPTH,multi-year build,
-Jalen Hurts,QB,rostered,The Long Haulers,QB6,QB7,58,48,53,48,-5,8.93,20.14,5.4,1.1,FAIR,NEED-STUD,1-yr / situational,
-James Cook III,RB,rostered,C-Town Chivalry,RB5,RB6,59,41,50,46,-4,9.07,18.9,5.1,1.09,FAIR,DEPTH,anchor,
-Omarion Hampton,RB,rostered,Blake Bombers,RB6,RB8,55,44,50,44,-6,8.43,18.24,5.2,1.14,FAIR,DEPTH,multi-year build,
+CeeDee Lamb,WR,rostered,Cleon Ca$h,WR4,WR5,68,53,60,60,0,10.39,20.56,5.8,1.0,FAIR,DEPTH,anchor,
+Jayden Daniels,QB,rostered,C-Town Chivalry,QB8,QB4,63,55,59,56,-3,9.7,21.21,5.8,1.05,FAIR,NEED-STUD,multi-year build,
+Ashton Jeanty,RB,rostered,Pure Greatness,RB3,RB5,59,53,56,52,-4,9.07,19.12,5.7,1.08,FAIR,DEPTH,multi-year build,
+Drake London,WR,rostered,C-Town Chivalry,WR8,WR7,65,46,56,57,1,9.97,20.24,5.7,0.98,FAIR,DEPTH,multi-year build,
+Jalen Hurts,QB,rostered,The Long Haulers,QB6,QB7,58,48,53,51,-2,8.93,20.14,5.7,1.04,FAIR,NEED-STUD,1-yr / situational,
+James Cook III,RB,rostered,C-Town Chivalry,RB5,RB6,59,41,50,52,2,9.07,18.9,5.7,0.96,FAIR,DEPTH,anchor,
+Omarion Hampton,RB,rostered,Blake Bombers,RB6,RB8,55,44,50,49,-1,8.43,18.24,5.8,1.02,FAIR,DEPTH,multi-year build,
 Justin Herbert,QB,rostered,Cleon Ca$h,QB7,QB9,50,51,50,51,1,7.7,14.78,6.6,0.98,FAIR,NEED-STUD,anchor,
-De'Von Achane,RB,rostered,Sex Manther,RB7,RB9,54,44,49,44,-5,8.28,17.22,5.3,1.11,FAIR,DEPTH,multi-year build,
-Jonathan Taylor,RB,FA,,RB9,RB3,59,39,49,46,-3,9.07,19.34,5.1,1.07,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
-Nico Collins,WR,rostered,CBP,WR13,WR9,59,36,48,46,-2,9.03,19.78,5.1,1.04,FAIR,DEPTH,1-yr / situational,
-A.J. Brown,WR,rostered,The Long Haulers,WR15,WR8,64,31,48,50,2,9.89,20.24,5.1,0.96,FAIR,DEPTH,1-yr rental / flip,
-Christian McCaffrey,RB,rostered,Sex Manther,RB10,RB4,59,32,46,46,0,9.07,19.31,5.1,1.0,FAIR,DEPTH,1-yr / situational,
-George Pickens,WR,rostered,C-Town Chivalry,WR11,WR10,54,38,46,43,-3,8.3,18.0,5.2,1.07,FAIR,DEPTH,multi-year build,
-Malik Nabers,WR,rostered,Cleon Ca$h,WR7,WR14,40,50,45,50,5,6.21,11.1,8.1,0.9,FAIR,DEPTH,multi-year build,
+De'Von Achane,RB,rostered,Sex Manther,RB7,RB9,54,44,49,48,-1,8.28,17.22,5.8,1.02,FAIR,DEPTH,multi-year build,
+Jonathan Taylor,RB,FA,,RB9,RB3,59,39,49,52,3,9.07,19.34,5.7,0.94,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
+Nico Collins,WR,rostered,CBP,WR13,WR9,59,36,48,52,4,9.03,19.78,5.8,0.92,FAIR,DEPTH,1-yr / situational,
+A.J. Brown,WR,rostered,The Long Haulers,WR15,WR8,64,31,48,56,8,9.89,20.24,5.7,0.86,FAIR,DEPTH,1-yr rental / flip,
+Christian McCaffrey,RB,rostered,Sex Manther,RB10,RB4,59,32,46,52,6,9.07,19.31,5.7,0.88,FAIR,DEPTH,1-yr / situational,
+George Pickens,WR,rostered,C-Town Chivalry,WR11,WR10,54,38,46,48,2,8.3,18.0,5.8,0.96,FAIR,DEPTH,multi-year build,
+Malik Nabers,WR,rostered,Cleon Ca$h,WR7,WR14,40,50,45,45,0,6.21,11.1,7.2,1.0,FAIR,DEPTH,multi-year build,
 Trevor Lawrence,QB,rostered,The Long Haulers,QB11,QB10,46,43,44,43,-1,7.08,14.78,6.1,1.02,FAIR,NEED-STUD,1-yr / situational,
 Patrick Mahomes II,QB,FA,,QB3,QB11,40,46,43,46,3,6.22,13.12,7.4,0.93,FAIR,NEED-STUD,anchor,Hawks; CBP; L.A. Looks
-Saquon Barkley,RB,FA,,RB15,RB7,59,27,43,46,3,9.07,18.7,5.1,0.93,FAIR,DEPTH,1-yr rental / flip,CBP; Gride; Hawks
-Jeremiyah Love,RB,rostered,Cleon Ca$h,RB4,RB13,36,49,42,49,7,5.58,12.4,8.8,0.86,FAIR,DEPTH,1-yr / situational,
-Kenneth Walker III,RB,rostered,HammerTime 🔨 ⏰,RB11,RB10,48,35,42,38,-4,7.31,15.99,5.2,1.11,FAIR,DEPTH,multi-year build,
+Saquon Barkley,RB,FA,,RB15,RB7,59,27,43,52,9,9.07,18.7,5.7,0.83,FAIR,DEPTH,1-yr rental / flip,CBP; Gride; Hawks
+Jeremiyah Love,RB,rostered,Cleon Ca$h,RB4,RB13,36,49,42,33,-9,5.58,12.4,5.9,1.27,VALUE,DEPTH,1-yr / situational,
+Kenneth Walker III,RB,rostered,HammerTime 🔨 ⏰,RB11,RB10,48,35,42,43,1,7.31,15.99,5.9,0.98,FAIR,DEPTH,multi-year build,
 Jaxson Dart,QB,rostered,Cleon Ca$h,QB10,QB12,40,44,42,44,2,6.22,13.12,7.1,0.95,FAIR,NEED-STUD,multi-year build,
-Dak Prescott,QB,FA,,QB15,QB8,50,34,42,40,-2,7.7,19.08,5.2,1.05,FAIR,NEED-STUD,1-yr / situational,Hawks; CBP; L.A. Looks
+Dak Prescott,QB,FA,,QB15,QB8,50,34,42,45,3,7.7,19.08,5.8,0.93,FAIR,NEED-STUD,1-yr / situational,Hawks; CBP; L.A. Looks
 Brock Purdy,QB,rostered,Blake Bombers,QB13,QB13,39,39,39,39,0,5.95,13.09,6.6,1.0,FAIR,NEED-STUD,1-yr / situational,
-Brock Bowers,TE,rostered,C-Town Chivalry,TE1,TE1,28,50,39,50,11,4.3,11.96,11.6,0.78,FAIR,DEPTH,multi-year build,
-DeVonta Smith,WR,FA,,WR19,WR11,47,31,39,38,-1,7.17,16.61,5.3,1.03,FAIR,DEPTH,1-yr / situational,Gride; Hawks; CBP
-Tetairoa McMillan,WR,rostered,Real Deal Creel,WR9,WR18,34,41,38,41,3,5.29,10.68,7.8,0.93,FAIR,DEPTH,multi-year build,
-Chris Olave,WR,rostered,Pure Greatness,WR12,WR13,43,34,38,35,-3,6.58,11.29,5.3,1.09,FAIR,DEPTH,multi-year build,
-Chase Brown,RB,rostered,L.A. Looks,RB12,RB11,44,30,37,35,-2,6.81,15.28,5.1,1.06,FAIR,DEPTH,1-yr / situational,
+Brock Bowers,TE,rostered,C-Town Chivalry,TE1,TE1,28,50,39,45,6,4.3,11.96,10.5,0.87,FAIR,DEPTH,multi-year build,
+DeVonta Smith,WR,FA,,WR19,WR11,47,31,39,42,3,7.17,16.61,5.9,0.93,FAIR,DEPTH,1-yr / situational,Gride; Hawks; CBP
+Tetairoa McMillan,WR,rostered,Real Deal Creel,WR9,WR18,34,41,38,37,-1,5.29,10.68,7.0,1.03,FAIR,DEPTH,multi-year build,
+Chris Olave,WR,rostered,Pure Greatness,WR12,WR13,43,34,38,39,1,6.58,11.29,5.9,0.97,FAIR,DEPTH,multi-year build,
+Chase Brown,RB,rostered,L.A. Looks,RB12,RB11,44,30,37,40,3,6.81,15.28,5.9,0.93,FAIR,DEPTH,1-yr / situational,
 Bo Nix,QB,rostered,L.A. Looks,QB12,QB15,33,41,37,41,4,5.05,12.32,8.1,0.9,FAIR,NEED-STUD,1-yr / situational,
-Rashee Rice,WR,rostered,Sex Manther,WR24,WR12,45,28,36,36,0,6.86,14.39,5.2,1.0,FAIR,DEPTH,1-yr / situational,
-Breece Hall,RB,rostered,C-Town Chivalry,RB8,RB14,36,34,35,34,-1,5.57,12.4,6.1,1.03,FAIR,DEPTH,multi-year build,
-Garrett Wilson,WR,rostered,CBP,WR10,WR19,33,36,34,36,2,5.04,10.68,7.1,0.94,FAIR,DEPTH,multi-year build,
-Emeka Egbuka,WR,rostered,CBP,WR14,WR20,32,37,34,37,3,4.94,10.68,7.5,0.92,FAIR,DEPTH,multi-year build,
-Ladd McConkey,WR,rostered,HammerTime 🔨 ⏰,WR18,WR17,34,32,33,32,-1,5.29,10.68,6.0,1.03,FAIR,DEPTH,multi-year build,
-Luther Burden III,WR,rostered,HammerTime 🔨 ⏰,WR22,WR21,32,34,33,34,1,4.94,10.68,6.9,0.97,FAIR,DEPTH,1-yr / situational,
-Zay Flowers,WR,rostered,Pure Greatness,WR25,WR15,38,28,33,31,-2,5.83,10.83,5.3,1.06,FAIR,DEPTH,1-yr / situational,
-Travis Etienne Jr.,RB,rostered,Real Deal Creel,RB14,RB15,36,27,32,30,-2,5.57,12.4,5.4,1.07,FAIR,DEPTH,1-yr / situational,
+Rashee Rice,WR,rostered,Sex Manther,WR24,WR12,45,28,36,40,4,6.86,14.39,5.8,0.9,FAIR,DEPTH,1-yr / situational,
+Breece Hall,RB,rostered,C-Town Chivalry,RB8,RB14,36,34,35,33,-2,5.57,12.4,5.9,1.06,FAIR,DEPTH,multi-year build,
+Garrett Wilson,WR,rostered,CBP,WR10,WR19,33,36,34,32,-2,5.04,10.68,6.3,1.06,FAIR,DEPTH,multi-year build,
+Emeka Egbuka,WR,rostered,CBP,WR14,WR20,32,37,34,33,-1,4.94,10.68,6.7,1.03,FAIR,DEPTH,multi-year build,
+Ladd McConkey,WR,rostered,HammerTime 🔨 ⏰,WR18,WR17,34,32,33,31,-2,5.29,10.68,5.9,1.06,FAIR,DEPTH,multi-year build,
+Luther Burden III,WR,rostered,HammerTime 🔨 ⏰,WR22,WR21,32,34,33,31,-2,4.94,10.68,6.3,1.06,FAIR,DEPTH,1-yr / situational,
+Zay Flowers,WR,rostered,Pure Greatness,WR25,WR15,38,28,33,35,2,5.83,10.83,6.0,0.94,FAIR,DEPTH,1-yr / situational,
+Travis Etienne Jr.,RB,rostered,Real Deal Creel,RB14,RB15,36,27,32,33,1,5.57,12.4,5.9,0.97,FAIR,DEPTH,1-yr / situational,
 Jordan Love,QB,rostered,CBP,QB14,QB18,26,37,32,37,5,3.96,12.12,9.3,0.86,FAIR,NEED-STUD,1-yr / situational,
-Trey McBride,TE,rostered,HammerTime 🔨 ⏰,TE2,TE2,20,45,32,45,13,3.05,11.09,14.8,0.71,FAIR,DEPTH,anchor,
-Derrick Henry,RB,rostered,The Long Haulers,RB22,RB12,44,21,32,35,3,6.78,12.56,5.2,0.91,FAIR,DEPTH,1-yr rental / flip,
-Tee Higgins,WR,rostered,C-Town Chivalry,WR26,WR16,38,27,32,31,-1,5.83,10.83,5.3,1.03,FAIR,DEPTH,1-yr / situational,
-Kyren Williams,RB,rostered,Hawks,RB17,RB16,36,25,30,30,0,5.57,12.04,5.4,1.0,FAIR,DEPTH,multi-year build,
-Jared Goff,QB,FA,,QB19,QB16,31,27,29,27,-2,4.84,12.32,5.6,1.07,FAIR,NEED-STUD,1-yr / situational,Hawks; CBP; L.A. Looks
-Carnell Tate,WR,rostered,Hawks,WR16,WR30,22,35,28,35,7,3.38,10.13,10.4,0.8,FAIR,DEPTH,1-yr / situational,
-Colston Loveland,TE,rostered,Cleon Ca$h,TE3,TE3,20,36,28,36,8,3.05,9.63,11.8,0.78,FAIR,DEPTH,multi-year build,
-Kyler Murray,QB,FA,,QB17,QB17,31,25,28,26,-2,4.84,12.32,5.4,1.08,FAIR,NEED-STUD,1-yr / situational,Hawks; CBP; L.A. Looks
-Jaylen Waddle,WR,FA,,WR20,WR24,27,28,28,28,0,4.08,10.68,6.9,1.0,FAIR,DEPTH,1-yr / situational,Gride; Hawks; CBP
-Matthew Stafford,QB,FA,,QB25,QB14,37,19,28,30,2,5.68,12.32,5.3,0.93,FAIR,NEED-STUD,1-yr rental / flip,Hawks; CBP; L.A. Looks
-Javonte Williams,RB,rostered,HammerTime 🔨 ⏰,RB19,RB17,30,23,26,25,-1,4.59,11.14,5.4,1.04,FAIR,DEPTH,1-yr / situational,
-Rome Odunze,WR,rostered,Sex Manther,WR21,WR29,22,29,26,29,3,3.38,10.13,8.6,0.9,FAIR,DEPTH,1-yr / situational,
+Trey McBride,TE,rostered,HammerTime 🔨 ⏰,TE2,TE2,20,45,32,40,8,3.05,11.09,13.1,0.8,FAIR,DEPTH,anchor,
+Derrick Henry,RB,rostered,The Long Haulers,RB22,RB12,44,21,32,40,8,6.78,12.56,5.9,0.8,FAIR,DEPTH,1-yr rental / flip,
+Tee Higgins,WR,rostered,C-Town Chivalry,WR26,WR16,38,27,32,35,3,5.83,10.83,6.0,0.91,FAIR,DEPTH,1-yr / situational,
+Kyren Williams,RB,rostered,Hawks,RB17,RB16,36,25,30,33,3,5.57,12.04,5.9,0.91,FAIR,DEPTH,multi-year build,
+Jared Goff,QB,FA,,QB19,QB16,31,27,29,29,0,4.84,12.32,6.0,1.0,FAIR,NEED-STUD,1-yr / situational,Hawks; CBP; L.A. Looks
+Carnell Tate,WR,rostered,Hawks,WR16,WR30,22,35,28,32,4,3.38,10.13,9.5,0.88,FAIR,DEPTH,1-yr / situational,
+Colston Loveland,TE,rostered,Cleon Ca$h,TE3,TE3,20,36,28,32,4,3.05,9.63,10.5,0.88,FAIR,DEPTH,multi-year build,
+Kyler Murray,QB,FA,,QB17,QB17,31,25,28,29,1,4.84,12.32,6.0,0.97,FAIR,NEED-STUD,1-yr / situational,Hawks; CBP; L.A. Looks
+Jaylen Waddle,WR,FA,,WR20,WR24,27,28,28,25,-3,4.08,10.68,6.1,1.12,FAIR,DEPTH,1-yr / situational,Gride; Hawks; CBP
+Matthew Stafford,QB,FA,,QB25,QB14,37,19,28,34,6,5.68,12.32,6.0,0.82,FAIR,NEED-STUD,1-yr rental / flip,Hawks; CBP; L.A. Looks
+Javonte Williams,RB,rostered,HammerTime 🔨 ⏰,RB19,RB17,30,23,26,28,2,4.59,11.14,6.1,0.93,FAIR,DEPTH,1-yr / situational,
+Rome Odunze,WR,rostered,Sex Manther,WR21,WR29,22,29,26,26,0,3.38,10.13,7.7,1.0,FAIR,DEPTH,1-yr / situational,
 Baker Mayfield,QB,rostered,Pure Greatness,QB20,QB19,24,27,26,27,1,3.76,12.12,7.2,0.96,FAIR,NEED-STUD,1-yr / situational,
-Brian Thomas Jr.,WR,rostered,Pure Greatness,WR29,WR31,21,30,26,30,4,3.19,9.89,9.4,0.87,FAIR,DEPTH,1-yr / situational,
-TreVeyon Henderson,RB,rostered,Real Deal Creel,RB13,RB21,20,28,24,28,4,3.0,8.09,9.3,0.86,FAIR,DEPTH,multi-year build,
-Cam Skattebo,RB,rostered,Gride,RB20,RB19,23,24,24,24,0,3.49,10.24,6.9,1.0,FAIR,DEPTH,1-yr / situational,
-Marvin Harrison Jr.,WR,rostered,Real Deal Creel,WR17,WR33,18,30,24,30,6,2.8,9.89,10.7,0.8,FAIR,DEPTH,multi-year build,
-Tyler Warren,TE,rostered,The Long Haulers,TE5,TE4,16,32,24,32,8,2.41,9.27,13.3,0.75,FAIR,DEPTH,multi-year build,
-Jordyn Tyson,WR,rostered,Gride,WR23,WR32,19,30,24,30,6,2.92,9.89,10.3,0.8,FAIR,DEPTH,1-yr / situational,
+Brian Thomas Jr.,WR,rostered,Pure Greatness,WR29,WR31,21,30,26,27,1,3.19,9.89,8.5,0.96,FAIR,DEPTH,1-yr / situational,
+TreVeyon Henderson,RB,rostered,Real Deal Creel,RB13,RB21,20,28,24,19,-5,3.0,8.09,6.3,1.26,VALUE,DEPTH,multi-year build,
+Cam Skattebo,RB,rostered,Gride,RB20,RB19,23,24,24,22,-2,3.49,10.24,6.3,1.09,FAIR,DEPTH,1-yr / situational,
+Marvin Harrison Jr.,WR,rostered,Real Deal Creel,WR17,WR33,18,30,24,27,3,2.8,9.89,9.6,0.89,FAIR,DEPTH,multi-year build,
+Tyler Warren,TE,rostered,The Long Haulers,TE5,TE4,16,32,24,29,5,2.41,9.27,12.0,0.83,FAIR,DEPTH,multi-year build,
+Jordyn Tyson,WR,rostered,Gride,WR23,WR32,19,30,24,27,3,2.92,9.89,9.2,0.89,FAIR,DEPTH,1-yr / situational,
 Cam Ward,QB,rostered,Blake Bombers,QB21,QB22,18,29,24,29,5,2.84,11.99,10.2,0.83,FAIR,NEED-STUD,1-yr / situational,
 Jameson Williams,WR,FA,,WR28,WR25,25,24,24,24,0,3.84,10.68,6.2,1.0,FAIR,DEPTH,1-yr / situational,Gride; Hawks; CBP
 Tyler Shough,QB,rostered,CBP,QB22,QB20,24,25,24,25,1,3.76,12.12,6.6,0.96,FAIR,NEED-STUD,1-yr / situational,
-Terry McLaurin,WR,rostered,Blake Bombers,WR34,WR23,32,17,24,27,3,4.94,10.68,5.5,0.89,FAIR,DEPTH,1-yr rental / flip,
-Mike Evans,WR,rostered,Hawks,WR43,WR22,32,15,24,27,3,4.94,10.68,5.5,0.89,FAIR,DEPTH,1-yr rental / flip,
-Josh Jacobs,RB,FA,,RB23,RB18,25,19,22,22,0,3.83,10.92,5.7,1.0,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
-Harold Fannin Jr.,TE,rostered,Sex Manther,TE7,TE7,13,31,22,31,9,2.03,7.81,15.3,0.71,FAIR,DEPTH,multi-year build,
-Makai Lemon,WR,rostered,Hawks,WR27,WR35,16,28,22,28,6,2.4,7.66,11.7,0.79,FAIR,DEPTH,1-yr / situational,
-Quinshon Judkins,RB,rostered,Blake Bombers,RB16,RB24,13,29,21,29,8,1.94,6.93,14.9,0.72,FAIR,DEPTH,multi-year build,
-Tucker Kraft,TE,rostered,Cleon Ca$h,TE6,TE5,16,26,21,26,5,2.41,9.27,10.8,0.81,FAIR,DEPTH,multi-year build,
+Terry McLaurin,WR,rostered,Blake Bombers,WR34,WR23,32,17,24,30,6,4.94,10.68,6.1,0.8,FAIR,DEPTH,1-yr rental / flip,
+Mike Evans,WR,rostered,Hawks,WR43,WR22,32,15,24,30,6,4.94,10.68,6.1,0.8,FAIR,DEPTH,1-yr rental / flip,
+Josh Jacobs,RB,FA,,RB23,RB18,25,19,22,24,2,3.83,10.92,6.3,0.92,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
+Harold Fannin Jr.,TE,rostered,Sex Manther,TE7,TE7,13,31,22,28,6,2.03,7.81,13.8,0.79,FAIR,DEPTH,multi-year build,
+Makai Lemon,WR,rostered,Hawks,WR27,WR35,16,28,22,25,3,2.4,7.66,10.4,0.88,FAIR,DEPTH,1-yr / situational,
+Quinshon Judkins,RB,rostered,Blake Bombers,RB16,RB24,13,29,21,16,-5,1.94,6.93,8.2,1.31,VALUE,DEPTH,multi-year build,
+Tucker Kraft,TE,rostered,Cleon Ca$h,TE6,TE5,16,26,21,23,2,2.41,9.27,9.5,0.91,FAIR,DEPTH,multi-year build,
 C.J. Stroud,QB,rostered,HammerTime 🔨 ⏰,QB16,QB24,11,30,20,30,10,1.65,10.02,18.2,0.67,FAIR,NEED-STUD,multi-year build,
-Sam LaPorta,TE,rostered,C-Town Chivalry,TE4,TE6,15,26,20,26,6,2.25,8.9,11.6,0.77,FAIR,DEPTH,multi-year build,
-Christian Watson,WR,rostered,Real Deal Creel,WR32,WR28,22,18,20,20,0,3.38,10.38,5.9,1.0,FAIR,DEPTH,1-yr / situational,
-DJ Moore,WR,rostered,Gride,WR33,WR27,22,17,20,20,0,3.38,10.68,5.9,1.0,FAIR,DEPTH,1-yr / situational,
+Sam LaPorta,TE,rostered,C-Town Chivalry,TE4,TE6,15,26,20,23,3,2.25,8.9,10.2,0.87,FAIR,DEPTH,multi-year build,
+Christian Watson,WR,rostered,Real Deal Creel,WR32,WR28,22,18,20,21,1,3.38,10.38,6.2,0.95,FAIR,DEPTH,1-yr / situational,
+DJ Moore,WR,rostered,Gride,WR33,WR27,22,17,20,21,1,3.38,10.68,6.2,0.95,FAIR,DEPTH,1-yr / situational,
 Sam Darnold,QB,rostered,Gride,QB23,QB23,17,23,20,23,3,2.62,10.37,8.8,0.87,FAIR,NEED-STUD,1-yr / situational,
-Malik Willis,QB,FA,,QB24,QB21,22,19,20,20,0,3.32,12.12,6.0,1.0,FAIR,NEED-STUD,1-yr / situational,Hawks; CBP; L.A. Looks
-Bucky Irving,RB,rostered,Pure Greatness,RB18,RB23,14,24,19,24,5,2.17,7.32,11.1,0.79,FAIR,DEPTH,multi-year build,
+Malik Willis,QB,FA,,QB24,QB21,22,19,20,21,1,3.32,12.12,6.3,0.95,FAIR,NEED-STUD,1-yr / situational,Hawks; CBP; L.A. Looks
+Bucky Irving,RB,rostered,Pure Greatness,RB18,RB23,14,24,19,14,-5,2.17,7.32,6.5,1.36,VALUE,DEPTH,multi-year build,
 Fernando Mendoza,QB,rostered,The Long Haulers,QB18,QB27,6,32,19,32,13,0.95,10.02,33.7,0.59,OVERPAY,NEED-STUD,1-yr / situational,
-D'Andre Swift,RB,FA,,RB25,RB22,19,17,18,17,-1,2.87,7.42,5.9,1.06,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
-David Montgomery,RB,rostered,HammerTime 🔨 ⏰,RB27,RB20,21,16,18,19,1,3.23,8.09,5.9,0.95,FAIR,DEPTH,1-yr / situational,
-Kyle Pitts Sr.,TE,FA,,TE8,TE8,10,27,18,27,9,1.47,7.67,18.4,0.67,FAIR,DEPTH,multi-year build,CBP; Blake Bombers; Gride
-Davante Adams,WR,rostered,Pure Greatness,WR41,WR26,22,15,18,20,2,3.38,10.68,5.9,0.9,FAIR,DEPTH,1-yr rental / flip,
-Alec Pierce,WR,rostered,L.A. Looks,WR31,WR37,15,19,17,19,2,2.28,7.26,8.3,0.89,FAIR,DEPTH,1-yr / situational,
-Jadarian Price,RB,rostered,Gride,RB21,RB26,8,24,16,24,8,1.29,6.88,18.6,0.67,FAIR,DEPTH,1-yr / situational,
+D'Andre Swift,RB,FA,,RB25,RB22,19,17,18,19,1,2.87,7.42,6.6,0.95,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
+David Montgomery,RB,rostered,HammerTime 🔨 ⏰,RB27,RB20,21,16,18,20,2,3.23,8.09,6.2,0.9,FAIR,DEPTH,1-yr / situational,
+Kyle Pitts Sr.,TE,FA,,TE8,TE8,10,27,18,24,6,1.47,7.67,16.3,0.75,FAIR,DEPTH,multi-year build,CBP; Blake Bombers; Gride
+Davante Adams,WR,rostered,Pure Greatness,WR41,WR26,22,15,18,21,3,3.38,10.68,6.2,0.86,FAIR,DEPTH,1-yr rental / flip,
+Alec Pierce,WR,rostered,L.A. Looks,WR31,WR37,15,19,17,17,0,2.28,7.26,7.5,1.0,FAIR,DEPTH,1-yr / situational,
+Jadarian Price,RB,rostered,Gride,RB21,RB26,8,24,16,13,-3,1.29,6.88,10.1,1.23,VALUE,DEPTH,1-yr / situational,
 DK Metcalf,WR,FA,,WR36,WR36,16,16,16,16,0,2.4,7.66,6.7,1.0,FAIR,DEPTH,1-yr / situational,Gride; Hawks; CBP
 Parker Washington,WR,FA,,WR47,WR34,16,16,16,16,0,2.4,9.68,6.7,1.0,FAIR,DEPTH,1-yr / situational,Gride; Hawks; CBP
 Bryce Young,QB,rostered,Gride,QB26,QB26,10,20,15,20,5,1.55,10.02,12.9,0.75,FAIR,NEED-STUD,1-yr / situational,
-Bhayshul Tuten,RB,rostered,Blake Bombers,RB24,RB25,11,18,14,18,4,1.71,6.88,10.5,0.78,FAIR,DEPTH,1-yr / situational,
+Bhayshul Tuten,RB,rostered,Blake Bombers,RB24,RB25,11,18,14,12,-2,1.71,6.88,7.0,1.17,FAIR,DEPTH,1-yr / situational,
 Courtland Sutton,WR,rostered,L.A. Looks,WR44,WR39,14,14,14,14,0,2.17,7.24,6.5,1.0,FAIR,DEPTH,1-yr rental / flip,
 Daniel Jones,QB,FA,,QB27,QB25,10,18,14,18,4,1.55,10.02,11.6,0.78,FAIR,NEED-STUD,1-yr / situational,Hawks; CBP; L.A. Looks
-Quentin Johnston,WR,rostered,The Long Haulers,WR55,WR38,14,15,14,15,1,2.17,7.24,6.9,0.93,FAIR,DEPTH,cut-free dart,
-Jayden Reed,WR,rostered,Blake Bombers,WR53,WR40,12,14,13,14,1,1.79,7.22,7.8,0.93,FAIR,DEPTH,cut-free dart,
-George Kittle,TE,rostered,Sex Manther,TE14,TE9,8,15,12,15,3,1.29,6.6,11.6,0.8,FAIR,DEPTH,1-yr rental / flip,
-KC Concepcion,WR,rostered,Real Deal Creel,WR30,WR52,0,22,11,22,11,0.0,4.18,,0.5,OVERPAY,DEPTH,1-yr / situational,
-Jordan Addison,WR,rostered,HammerTime 🔨 ⏰,WR35,WR41,4,18,11,18,7,0.63,7.22,28.6,0.61,FAIR,DEPTH,1-yr / situational,
-Omar Cooper Jr.,WR,rostered,Real Deal Creel,WR37,WR58,0,22,11,22,11,0.0,4.18,,0.5,OVERPAY,DEPTH,1-yr / situational,
-Oronde Gadsden II,TE,rostered,Sex Manther,TE11,TE16,2,20,11,20,9,0.3,4.24,66.7,0.55,OVERPAY,DEPTH,multi-year build,
-RJ Harvey,RB,rostered,Hawks,RB26,RB31,4,15,10,15,5,0.69,6.88,21.7,0.67,FAIR,DEPTH,1-yr / situational,
-Jaylen Warren,RB,FA,,RB28,RB29,5,14,10,14,4,0.74,6.88,18.9,0.71,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
-Dalton Kincaid,TE,rostered,Hawks,TE9,TE13,5,16,10,16,6,0.75,4.5,21.3,0.62,FAIR,DEPTH,1-yr / situational,
-Kenyon Sadiq,TE,rostered,CBP,TE10,TE21,0,20,10,20,10,0.0,3.13,,0.5,OVERPAY,DEPTH,1-yr / situational,
-Chuba Hubbard,RB,FA,,RB34,RB27,6,14,10,14,4,0.98,6.88,14.3,0.71,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
-Michael Pittman Jr.,WR,rostered,Gride,WR48,WR48,0,20,10,20,10,0.01,5.76,2000.0,0.5,OVERPAY,DEPTH,1-yr rental / flip,
-Jake Ferguson,TE,rostered,L.A. Looks,TE13,TE12,5,15,10,15,5,0.8,4.54,18.8,0.67,FAIR,DEPTH,1-yr / situational,
-Isaiah Likely,TE,FA,,TE15,TE14,4,15,10,15,5,0.64,4.45,23.4,0.67,FAIR,DEPTH,1-yr / situational,CBP; Blake Bombers; Gride
-Chris Godwin Jr.,WR,rostered,Blake Bombers,WR54,WR42,4,17,10,17,7,0.57,6.66,29.8,0.59,OVERPAY,DEPTH,cut-free dart,
-Kyle Monangai,RB,rostered,Gride,RB29,RB33,4,14,9,14,5,0.57,6.88,24.6,0.64,FAIR,DEPTH,1-yr / situational,
-Michael Penix Jr.,QB,rostered,HammerTime 🔨 ⏰,QB31,QB33,0,18,9,18,9,0.0,6.25,,0.5,OVERPAY,NEED-STUD,cut-free dart,
+Quentin Johnston,WR,rostered,The Long Haulers,WR55,WR38,14,15,14,14,0,2.17,7.24,6.5,1.0,FAIR,DEPTH,cut-free dart,
+Jayden Reed,WR,rostered,Blake Bombers,WR53,WR40,12,14,13,13,0,1.79,7.22,7.3,1.0,FAIR,DEPTH,cut-free dart,
+KC Concepcion,WR,rostered,Real Deal Creel,WR30,WR52,2,22,12,20,8,0.25,4.18,80.0,0.6,FAIR,DEPTH,1-yr / situational,
+Omar Cooper Jr.,WR,rostered,Real Deal Creel,WR37,WR58,1,22,12,20,8,0.21,4.18,95.2,0.6,FAIR,DEPTH,1-yr / situational,
+Kenyon Sadiq,TE,rostered,CBP,TE10,TE21,3,20,12,18,6,0.53,3.13,34.0,0.67,FAIR,DEPTH,1-yr / situational,
+Oronde Gadsden II,TE,rostered,Sex Manther,TE11,TE16,4,20,12,18,6,0.6,4.24,30.0,0.67,FAIR,DEPTH,multi-year build,
+George Kittle,TE,rostered,Sex Manther,TE14,TE9,8,15,12,14,2,1.29,6.6,10.9,0.86,FAIR,DEPTH,1-yr rental / flip,
+Jordan Addison,WR,rostered,HammerTime 🔨 ⏰,WR35,WR41,4,18,11,16,5,0.63,7.22,25.4,0.69,FAIR,DEPTH,1-yr / situational,
+Michael Pittman Jr.,WR,rostered,Gride,WR48,WR48,2,20,11,18,7,0.27,5.76,66.7,0.61,FAIR,DEPTH,1-yr rental / flip,
+RJ Harvey,RB,rostered,Hawks,RB26,RB31,4,15,10,8,-2,0.69,6.88,11.6,1.25,VALUE,DEPTH,1-yr / situational,
+Jaylen Warren,RB,FA,,RB28,RB29,5,14,10,10,0,0.74,6.88,13.5,1.0,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
+Dalton Kincaid,TE,rostered,Hawks,TE9,TE13,5,16,10,14,4,0.75,4.5,18.7,0.71,FAIR,DEPTH,1-yr / situational,
+Chuba Hubbard,RB,FA,,RB34,RB27,6,14,10,10,0,0.98,6.88,10.2,1.0,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
+Eli Stowers,TE,rostered,CBP,TE12,TE29,3,17,10,15,5,0.44,2.09,34.1,0.67,FAIR,DEPTH,1-yr / situational,
+Jake Ferguson,TE,rostered,L.A. Looks,TE13,TE12,5,15,10,14,4,0.8,4.54,17.5,0.71,FAIR,DEPTH,1-yr / situational,
+Isaiah Likely,TE,FA,,TE15,TE14,4,15,10,14,4,0.64,4.45,21.9,0.71,FAIR,DEPTH,1-yr / situational,CBP; Blake Bombers; Gride
+Ty Simpson,QB,rostered,Blake Bombers,QB30,QB44,2,17,10,17,7,0.3,0.52,56.7,0.59,OVERPAY,NEED-STUD,1-yr / situational,
+Michael Penix Jr.,QB,rostered,HammerTime 🔨 ⏰,QB31,QB33,3,18,10,18,8,0.39,6.25,46.2,0.56,OVERPAY,NEED-STUD,cut-free dart,
+Chris Godwin Jr.,WR,rostered,Blake Bombers,WR54,WR42,4,17,10,15,5,0.57,6.66,26.3,0.67,FAIR,DEPTH,cut-free dart,
+Kyle Monangai,RB,rostered,Gride,RB29,RB33,4,14,9,8,-1,0.57,6.88,14.0,1.12,FAIR,DEPTH,1-yr / situational,
+Michael Wilson,WR,rostered,Hawks,WR39,WR44,2,16,9,14,5,0.3,6.42,46.7,0.64,FAIR,DEPTH,1-yr / situational,
 Travis Kelce,TE,FA,,TE21,TE10,8,10,9,14,5,1.25,5.96,11.2,0.64,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Rhamondre Stevenson,RB,FA,,RB31,RB28,5,12,8,12,4,0.74,6.88,16.2,0.67,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
-Michael Wilson,WR,rostered,Hawks,WR39,WR44,1,16,8,16,8,0.1,6.42,160.0,0.5,OVERPAY,DEPTH,1-yr / situational,
-Ricky Pearsall,WR,rostered,CBP,WR40,WR47,0,15,8,15,7,0.01,5.76,1500.0,0.53,OVERPAY,DEPTH,1-yr / situational,
-Rico Dowdle,RB,rostered,Blake Bombers,RB32,RB32,4,13,8,13,5,0.69,6.88,18.8,0.62,FAIR,DEPTH,1-yr / situational,
-Wan'Dale Robinson,WR,rostered,Cleon Ca$h,WR42,WR50,0,15,8,15,7,0.0,5.31,,0.53,OVERPAY,DEPTH,1-yr / situational,
-Blake Corum,RB,rostered,Blake Bombers,RB33,RB34,3,13,8,13,5,0.41,6.88,31.7,0.62,FAIR,DEPTH,1-yr / situational,
-Denzel Boston,WR,rostered,Blake Bombers,WR45,WR63,0,16,8,16,8,0.0,3.62,,0.5,OVERPAY,DEPTH,1-yr / situational,
-Xavier Worthy,WR,rostered,Hawks,WR46,WR45,1,15,8,15,7,0.1,6.42,150.0,0.53,OVERPAY,DEPTH,1-yr / situational,
-Eli Stowers,TE,rostered,CBP,TE12,TE29,0,17,8,17,9,0.0,2.09,,0.47,OVERPAY,DEPTH,1-yr / situational,
-Tony Pollard,RB,rostered,C-Town Chivalry,RB36,RB30,4,12,8,12,4,0.69,6.88,17.4,0.67,FAIR,DEPTH,1-yr rental / flip,
-Tua Tagovailoa,QB,rostered,C-Town Chivalry,QB28,QB31,2,13,8,13,5,0.27,7.91,48.1,0.62,FAIR,NEED-STUD,1-yr / situational,
-Jayden Higgins,WR,rostered,Sex Manther,WR49,WR53,0,15,8,15,7,0.0,4.18,,0.53,OVERPAY,DEPTH,1-yr / situational,
-Josh Downs,WR,rostered,The Long Haulers,WR50,WR43,2,15,8,15,7,0.36,6.42,41.7,0.53,OVERPAY,DEPTH,1-yr / situational,
-Jonathon Brooks,RB,rostered,Sex Manther,RB38,RB37,2,13,8,13,5,0.35,6.88,37.1,0.62,FAIR,DEPTH,1-yr / situational,
-Ty Simpson,QB,rostered,Blake Bombers,QB30,QB44,0,17,8,17,9,0.0,0.52,,0.47,OVERPAY,NEED-STUD,1-yr / situational,
-Matthew Golden,WR,rostered,Blake Bombers,WR52,WR49,0,15,8,15,7,0.0,5.31,,0.53,OVERPAY,DEPTH,cut-free dart,
-Tyrone Tracy Jr.,RB,rostered,C-Town Chivalry,RB41,RB43,0,15,8,15,7,0.0,3.4,,0.53,OVERPAY,DEPTH,cut-free dart,
+Zach Charbonnet,RB,rostered,L.A. Looks,RB30,RB48,2,14,8,8,0,0.27,1.84,29.6,1.0,FAIR,DEPTH,1-yr / situational,
+Rhamondre Stevenson,RB,FA,,RB31,RB28,5,12,8,10,2,0.74,6.88,13.5,0.8,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
+Ricky Pearsall,WR,rostered,CBP,WR40,WR47,2,15,8,14,6,0.28,5.76,50.0,0.57,FAIR,DEPTH,1-yr / situational,
+Rico Dowdle,RB,rostered,Blake Bombers,RB32,RB32,4,13,8,7,-1,0.69,6.88,10.1,1.14,FAIR,DEPTH,1-yr / situational,
+Wan'Dale Robinson,WR,rostered,Cleon Ca$h,WR42,WR50,2,15,8,14,6,0.26,5.31,53.8,0.57,FAIR,DEPTH,1-yr / situational,
+Blake Corum,RB,rostered,Blake Bombers,RB33,RB34,3,13,8,7,-1,0.41,6.88,17.1,1.14,FAIR,DEPTH,1-yr / situational,
+Denzel Boston,WR,rostered,Blake Bombers,WR45,WR63,1,16,8,14,6,0.19,3.62,73.7,0.57,FAIR,DEPTH,1-yr / situational,
+Jonah Coleman,RB,rostered,CBP,RB35,RB47,2,14,8,8,0,0.28,1.84,28.6,1.0,FAIR,DEPTH,1-yr / situational,
+Xavier Worthy,WR,rostered,Hawks,WR46,WR45,2,15,8,14,6,0.29,6.42,48.3,0.57,FAIR,DEPTH,1-yr / situational,
+Tony Pollard,RB,rostered,C-Town Chivalry,RB36,RB30,4,12,8,10,2,0.69,6.88,14.5,0.8,FAIR,DEPTH,1-yr rental / flip,
+Tua Tagovailoa,QB,rostered,C-Town Chivalry,QB28,QB31,3,13,8,13,5,0.41,7.91,31.7,0.62,FAIR,NEED-STUD,1-yr / situational,
+Jayden Higgins,WR,rostered,Sex Manther,WR49,WR53,2,15,8,14,6,0.24,4.18,58.3,0.57,FAIR,DEPTH,1-yr / situational,
+Josh Downs,WR,rostered,The Long Haulers,WR50,WR43,2,15,8,14,6,0.36,6.42,38.9,0.57,FAIR,DEPTH,1-yr / situational,
+Jonathon Brooks,RB,rostered,Sex Manther,RB38,RB37,2,13,8,7,-1,0.36,6.88,19.4,1.14,FAIR,DEPTH,1-yr / situational,
+Jakobi Meyers,WR,rostered,Hawks,WR51,WR46,2,13,8,12,4,0.28,5.93,42.9,0.67,FAIR,DEPTH,1-yr / situational,
+Brenton Strange,TE,rostered,Blake Bombers,TE16,TE19,4,12,8,11,3,0.56,3.13,19.6,0.73,FAIR,DEPTH,multi-year build,
+Matthew Golden,WR,rostered,Blake Bombers,WR52,WR49,2,15,8,14,6,0.26,5.31,53.8,0.57,FAIR,DEPTH,cut-free dart,
+Dallas Goedert,TE,rostered,Real Deal Creel,TE17,TE15,4,11,8,10,2,0.62,4.25,16.1,0.8,FAIR,DEPTH,cut-free dart,
+Tyrone Tracy Jr.,RB,rostered,C-Town Chivalry,RB41,RB43,2,15,8,8,0,0.31,3.4,25.8,1.0,FAIR,DEPTH,cut-free dart,
+Chris Rodriguez Jr.,RB,rostered,Real Deal Creel,RB49,RB42,2,14,8,8,0,0.31,6.49,25.8,1.0,FAIR,DEPTH,cut-free dart,
+Aaron Jones Sr.,RB,FA,,RB51,RB39,2,13,8,7,-1,0.34,6.88,20.6,1.14,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Mike Washington Jr.,RB,rostered,The Long Haulers,RB54,RB58,1,14,8,8,0,0.21,1.59,38.1,1.0,FAIR,DEPTH,cut-free dart,
+Brian Robinson Jr.,RB,FA,,RB56,RB51,2,13,8,7,-1,0.25,1.61,28.0,1.14,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
 Mark Andrews,TE,FA,,TE18,TE11,5,12,8,14,6,0.8,4.66,17.5,0.57,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Chris Brazzell II,WR,rostered,Gride,WR67,WR88,0,15,8,15,7,0.0,0.03,,0.53,OVERPAY,DEPTH,cut-free dart,
-Ted Hurst III,WR,rostered,CBP,WR69,WR78,0,15,8,15,7,0.0,0.03,,0.53,OVERPAY,DEPTH,cut-free dart,
+Romeo Doubs,WR,FA,,WR59,WR51,2,13,8,12,4,0.25,5.31,48.0,0.67,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Chris Brazzell II,WR,rostered,Gride,WR67,WR88,1,15,8,14,6,0.12,0.03,116.7,0.57,FAIR,DEPTH,cut-free dart,
+Ted Hurst III,WR,rostered,CBP,WR69,WR78,1,15,8,14,6,0.13,0.03,107.7,0.57,FAIR,DEPTH,cut-free dart,
+Chig Okonkwo,TE,FA,,TE19,TE17,4,11,8,10,2,0.59,4.24,16.9,0.8,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
 Jacoby Brissett,QB,rostered,Blake Bombers,QB33,QB30,5,11,8,12,4,0.7,8.06,17.1,0.67,FAIR,NEED-STUD,cut-free dart,
 Geno Smith,QB,rostered,HammerTime 🔨 ⏰,QB34,QB29,6,10,8,12,4,0.86,9.2,14.0,0.67,FAIR,NEED-STUD,cut-free dart,
 Aaron Rodgers,QB,FA,,QB37,QB28,6,9,8,12,4,0.86,9.2,14.0,0.67,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Zach Charbonnet,RB,rostered,L.A. Looks,RB30,RB48,0,14,7,14,7,0.0,1.84,,0.5,FAIR,DEPTH,1-yr / situational,
-Jonah Coleman,RB,rostered,CBP,RB35,RB47,0,14,7,14,7,0.0,1.84,,0.5,FAIR,DEPTH,1-yr / situational,
-J.K. Dobbins,RB,rostered,Hawks,RB39,RB35,2,12,7,12,5,0.35,6.88,34.3,0.58,FAIR,DEPTH,1-yr / situational,
-Dallas Goedert,TE,rostered,Real Deal Creel,TE17,TE15,3,11,7,11,4,0.53,4.25,20.8,0.64,FAIR,DEPTH,cut-free dart,
-Chris Rodriguez Jr.,RB,rostered,Real Deal Creel,RB49,RB42,0,14,7,14,7,0.0,6.49,,0.5,FAIR,DEPTH,cut-free dart,
-Mike Washington Jr.,RB,rostered,The Long Haulers,RB54,RB58,0,14,7,14,7,0.0,1.59,,0.5,FAIR,DEPTH,cut-free dart,
-Travis Hunter,WR,rostered,Sex Manther,WR56,,0,14,7,14,7,0.0,0.0,,0.5,FAIR,DEPTH,cut-free dart,
-Brandon Aiyuk,WR,FA,,WR38,WR75,0,11,6,11,5,0.0,1.28,,0.55,FAIR,DEPTH,1-yr / situational,Gride; Hawks; CBP
-Kenneth Gainwell,RB,FA,,RB37,,0,12,6,12,6,0.0,0.0,,0.5,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
-Anthony Richardson Sr.,QB,rostered,HammerTime 🔨 ⏰,QB29,QB39,0,12,6,12,6,0.0,1.05,,0.5,FAIR,NEED-STUD,1-yr / situational,
-Jakobi Meyers,WR,rostered,Hawks,WR51,WR46,0,13,6,13,7,0.01,5.93,1300.0,0.46,FAIR,DEPTH,1-yr / situational,
-Brenton Strange,TE,rostered,Blake Bombers,TE16,TE19,0,12,6,12,6,0.02,3.13,600.0,0.5,FAIR,DEPTH,multi-year build,
-Tyler Allgeier,RB,FA,,RB40,RB49,0,11,6,11,5,0.0,1.84,,0.55,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Jacory Croskey-Merritt,RB,rostered,Sex Manther,RB42,RB40,0,12,6,12,6,0.0,6.88,,0.5,FAIR,DEPTH,cut-free dart,
-Rachaad White,RB,FA,,RB44,RB38,1,11,6,11,5,0.17,6.88,64.7,0.55,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Nicholas Singleton,RB,rostered,Cleon Ca$h,RB45,RB56,0,12,6,12,6,0.0,1.59,,0.5,FAIR,DEPTH,cut-free dart,
-Emmett Johnson,RB,rostered,Gride,RB47,RB57,0,11,6,11,5,0.0,1.59,,0.55,FAIR,DEPTH,cut-free dart,
-Aaron Jones Sr.,RB,FA,,RB51,RB39,0,13,6,13,7,0.0,6.88,,0.46,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Brian Robinson Jr.,RB,FA,,RB56,RB51,0,13,6,13,7,0.0,1.61,,0.46,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Ollie Gordon II,RB,rostered,The Long Haulers,RB66,RB80,0,12,6,12,6,0.0,0.42,,0.5,FAIR,DEPTH,cut-free dart,
-Khalil Shakir,WR,rostered,Cleon Ca$h,WR58,WR54,0,12,6,12,6,0.0,4.18,,0.5,FAIR,DEPTH,cut-free dart,
-Romeo Doubs,WR,FA,,WR59,WR51,0,13,6,13,7,0.0,5.31,,0.46,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jalen Coker,WR,rostered,Gride,WR60,WR55,0,12,6,12,6,0.0,4.18,,0.5,FAIR,DEPTH,cut-free dart,
-Antonio Williams,WR,rostered,Gride,WR61,WR66,0,13,6,13,7,0.0,3.3,,0.46,FAIR,DEPTH,cut-free dart,
-Chris Bell,WR,rostered,Gride,WR62,WR89,0,13,6,13,7,0.0,0.03,,0.46,FAIR,DEPTH,cut-free dart,
-Rashid Shaheed,WR,rostered,Blake Bombers,WR63,WR57,0,11,6,11,5,0.0,4.18,,0.55,FAIR,DEPTH,cut-free dart,
-Germie Bernard,WR,rostered,The Long Haulers,WR64,WR73,0,12,6,12,6,0.0,1.28,,0.5,FAIR,DEPTH,cut-free dart,
-Jalen McMillan,WR,rostered,Cleon Ca$h,WR65,WR59,0,12,6,12,6,0.0,4.18,,0.5,FAIR,DEPTH,cut-free dart,
-Tre' Harris,WR,rostered,Cleon Ca$h,WR68,WR67,0,11,6,11,5,0.0,2.5,,0.55,FAIR,DEPTH,cut-free dart,
-Elijah Sarratt,WR,rostered,Pure Greatness,WR71,WR82,0,11,6,11,5,0.0,0.03,,0.55,FAIR,DEPTH,cut-free dart,
-De'Zhaun Stribling,WR,rostered,Real Deal Creel,WR74,WR68,0,11,6,11,5,0.0,2.5,,0.55,FAIR,DEPTH,cut-free dart,
-Malachi Fields,WR,rostered,The Long Haulers,WR79,WR91,0,11,6,11,5,0.0,0.03,,0.55,FAIR,DEPTH,cut-free dart,
-Zachariah Branch,WR,rostered,Cleon Ca$h,WR80,WR70,0,11,6,11,5,0.0,1.95,,0.55,FAIR,DEPTH,cut-free dart,
-Chig Okonkwo,TE,FA,,TE19,TE17,1,11,6,11,5,0.21,4.24,52.4,0.55,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-J.J. McCarthy,QB,rostered,Cleon Ca$h,QB32,QB37,0,12,6,12,6,0.0,4.08,,0.5,FAIR,NEED-STUD,cut-free dart,
-Shedeur Sanders,QB,rostered,L.A. Looks,QB35,QB34,0,11,6,11,5,0.0,6.15,,0.55,FAIR,NEED-STUD,cut-free dart,
-AJ Barner,TE,rostered,Blake Bombers,TE20,TE24,0,11,6,11,5,0.0,2.09,,0.55,FAIR,DEPTH,cut-free dart,
-T.J. Hockenson,TE,rostered,HammerTime 🔨 ⏰,TE23,TE22,0,11,6,11,5,0.0,2.09,,0.55,FAIR,DEPTH,cut-free dart,
-Woody Marks,RB,rostered,The Long Haulers,RB43,RB45,0,10,5,10,5,0.0,1.84,,0.5,FAIR,DEPTH,cut-free dart,
-Jordan Mason,RB,rostered,The Long Haulers,RB46,RB41,0,10,5,10,5,0.0,6.88,,0.5,FAIR,DEPTH,cut-free dart,
-Dylan Sampson,RB,rostered,L.A. Looks,RB48,RB53,0,10,5,10,5,0.0,1.61,,0.5,FAIR,DEPTH,cut-free dart,
-Kaytron Allen,RB,rostered,Blake Bombers,RB50,RB59,0,10,5,10,5,0.0,1.54,,0.5,FAIR,DEPTH,cut-free dart,
-Braelon Allen,RB,rostered,L.A. Looks,RB55,RB61,0,10,5,10,5,0.0,1.24,,0.5,FAIR,DEPTH,cut-free dart,
-Tank Bigsby,RB,rostered,L.A. Looks,RB59,RB52,0,10,5,10,5,0.0,1.61,,0.5,FAIR,DEPTH,cut-free dart,
-LeQuint Allen Jr.,RB,rostered,Hawks,RB86,RB73,0,10,5,10,5,0.0,0.84,,0.5,FAIR,DEPTH,cut-free dart,
-Jauan Jennings,WR,rostered,L.A. Looks,WR66,WR60,0,10,5,10,5,0.0,4.18,,0.5,FAIR,DEPTH,cut-free dart,
-Jerry Jeudy,WR,rostered,Cleon Ca$h,WR72,WR71,0,10,5,10,5,0.0,1.35,,0.5,FAIR,DEPTH,cut-free dart,
-Jaylin Noel,WR,rostered,Sex Manther,WR73,WR85,0,10,5,10,5,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Skyler Bell,WR,rostered,HammerTime 🔨 ⏰,WR77,WR98,0,10,5,10,5,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Deebo Samuel Sr.,WR,rostered,Gride,WR78,WR65,0,10,5,10,5,0.0,3.3,,0.5,FAIR,DEPTH,cut-free dart,
-Isaac TeSlaa,WR,rostered,Cleon Ca$h,WR83,WR69,0,10,5,10,5,0.0,2.5,,0.5,FAIR,DEPTH,cut-free dart,
-Kevin Coleman Jr.,WR,rostered,The Long Haulers,WR105,WR121,0,10,5,10,5,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Carson Beck,QB,rostered,The Long Haulers,QB36,QB36,0,10,5,10,5,0.0,4.08,,0.5,FAIR,NEED-STUD,cut-free dart,
-Mac Jones,QB,FA,,QB38,QB41,0,10,5,10,5,0.0,0.78,,0.5,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Terrance Ferguson,TE,rostered,Blake Bombers,TE22,TE30,0,10,5,10,5,0.0,2.02,,0.5,FAIR,DEPTH,cut-free dart,
-Gunnar Helm,TE,FA,,TE25,TE25,0,10,5,10,5,0.0,2.09,,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Hunter Henry,TE,FA,,TE26,TE18,1,9,5,9,4,0.09,3.13,100.0,0.56,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Isiah Pacheco,RB,FA,,RB52,RB46,0,9,4,9,5,0.0,1.84,,0.44,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Tyjae Spears,RB,rostered,The Long Haulers,RB53,RB50,0,9,4,9,5,0.0,1.82,,0.44,FAIR,DEPTH,cut-free dart,
-Alvin Kamara,RB,FA,,RB57,RB55,0,8,4,8,4,0.0,1.61,,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Keaton Mitchell,RB,rostered,CBP,RB58,RB44,0,9,4,9,5,0.0,2.21,,0.44,FAIR,DEPTH,cut-free dart,
-Kaleb Johnson,RB,rostered,Hawks,RB60,RB86,0,9,4,9,5,0.0,0.42,,0.44,FAIR,DEPTH,cut-free dart,
-Trey Benson,RB,rostered,Real Deal Creel,RB61,RB83,0,8,4,8,4,0.0,0.42,,0.5,FAIR,DEPTH,cut-free dart,
-Kimani Vidal,RB,rostered,Gride,RB62,RB69,0,7,4,7,3,0.0,0.85,,0.57,FAIR,DEPTH,cut-free dart,
-Demond Claiborne,RB,rostered,HammerTime 🔨 ⏰,RB64,RB66,0,8,4,8,4,0.0,0.85,,0.5,FAIR,DEPTH,cut-free dart,
-Jaylen Wright,RB,rostered,C-Town Chivalry,RB67,RB74,0,7,4,7,3,0.0,0.84,,0.57,FAIR,DEPTH,cut-free dart,
-Sean Tucker,RB,rostered,Sex Manther,RB68,RB54,0,7,4,7,3,0.0,1.61,,0.57,FAIR,DEPTH,cut-free dart,
-Ray Davis,RB,rostered,C-Town Chivalry,RB69,RB60,0,7,4,7,3,0.0,1.24,,0.57,FAIR,DEPTH,cut-free dart,
-Kaelon Black,RB,rostered,Hawks,RB72,RB68,0,7,4,7,3,0.0,0.85,,0.57,FAIR,DEPTH,cut-free dart,
-Jordan James,RB,rostered,Sex Manther,RB73,RB64,0,7,4,7,3,0.0,0.85,,0.57,FAIR,DEPTH,cut-free dart,
-Jaydon Blue,RB,rostered,The Long Haulers,RB75,RB63,0,7,4,7,3,0.0,0.85,,0.57,FAIR,DEPTH,cut-free dart,
-MarShawn Lloyd,RB,rostered,Sex Manther,RB77,RB62,0,8,4,8,4,0.0,0.95,,0.5,FAIR,DEPTH,cut-free dart,
-DJ Giddens,RB,rostered,Gride,RB79,RB75,0,7,4,7,3,0.0,0.84,,0.57,FAIR,DEPTH,cut-free dart,
-Tyreek Hill,WR,rostered,Sex Manther,WR57,WR86,0,8,4,8,4,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Stefon Diggs,WR,FA,,WR70,WR56,0,9,4,9,5,0.0,4.18,,0.44,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Kayshon Boutte,WR,rostered,Real Deal Creel,WR75,WR87,0,9,4,9,5,0.0,0.03,,0.44,FAIR,DEPTH,cut-free dart,
-Troy Franklin,WR,rostered,HammerTime 🔨 ⏰,WR76,WR83,0,9,4,9,5,0.0,0.03,,0.44,FAIR,DEPTH,cut-free dart,
-Adonai Mitchell,WR,rostered,L.A. Looks,WR81,WR72,0,9,4,9,5,0.0,1.28,,0.44,FAIR,DEPTH,cut-free dart,
-Ja'Kobi Lane,WR,rostered,Hawks,WR82,WR97,0,9,4,9,5,0.0,0.03,,0.44,FAIR,DEPTH,cut-free dart,
-Pat Bryant,WR,rostered,Blake Bombers,WR84,WR84,0,9,4,9,5,0.0,0.03,,0.44,FAIR,DEPTH,cut-free dart,
-Chimere Dike,WR,rostered,Hawks,WR85,WR101,0,8,4,8,4,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Tank Dell,WR,rostered,Sex Manther,WR86,WR76,0,9,4,9,5,0.0,1.28,,0.44,FAIR,DEPTH,cut-free dart,
-Elic Ayomanor,WR,rostered,C-Town Chivalry,WR87,WR109,0,8,4,8,4,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Kyle Williams,WR,rostered,Sex Manther,WR88,WR114,0,8,4,8,4,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Jalen Nailor,WR,FA,,WR89,WR61,0,9,4,9,5,0.0,4.18,,0.44,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jack Bech,WR,rostered,Gride,WR90,WR103,0,9,4,9,5,0.0,0.03,,0.44,FAIR,DEPTH,cut-free dart,
-Keon Coleman,WR,rostered,Real Deal Creel,WR91,WR92,0,9,4,9,5,0.0,0.03,,0.44,FAIR,DEPTH,cut-free dart,
-Tory Horton,WR,rostered,Pure Greatness,WR92,WR90,0,9,4,9,5,0.0,0.03,,0.44,FAIR,DEPTH,cut-free dart,
-Calvin Ridley,WR,FA,,WR93,WR74,0,7,4,7,3,0.0,1.28,,0.57,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Darnell Mooney,WR,FA,,WR94,WR80,0,7,4,7,3,0.0,0.03,,0.57,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Tre Tucker,WR,rostered,The Long Haulers,WR95,WR62,0,9,4,9,5,0.0,4.18,,0.44,FAIR,DEPTH,cut-free dart,
-Dontayvion Wicks,WR,rostered,The Long Haulers,WR96,WR79,0,8,4,8,4,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Malik Washington,WR,rostered,The Long Haulers,WR97,WR77,0,9,4,9,5,0.0,0.03,,0.44,FAIR,DEPTH,cut-free dart,
-Marvin Mims Jr.,WR,rostered,L.A. Looks,WR98,WR136,0,9,4,9,5,0.0,0.03,,0.44,FAIR,DEPTH,cut-free dart,
-Dont'e Thornton Jr.,WR,rostered,Pure Greatness,WR118,WR150,0,9,4,9,5,0.0,0.03,,0.44,FAIR,DEPTH,cut-free dart,
-Justin Fields,QB,FA,,QB39,QB38,0,8,4,8,4,0.0,1.65,,0.5,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Deshaun Watson,QB,rostered,Real Deal Creel,QB40,QB32,0,9,4,12,8,0.07,7.91,171.4,0.33,FAIR,NEED-STUD,cut-free dart,
-Kirk Cousins,QB,FA,,QB41,QB35,0,7,4,7,3,0.0,4.08,,0.57,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Anthony Richardson Sr.,QB,rostered,HammerTime 🔨 ⏰,QB29,QB39,2,12,7,12,5,0.34,1.05,35.3,0.58,FAIR,NEED-STUD,1-yr / situational,
+J.K. Dobbins,RB,rostered,Hawks,RB39,RB35,2,12,7,7,0,0.38,6.88,18.4,1.0,FAIR,DEPTH,1-yr / situational,
+Jacory Croskey-Merritt,RB,rostered,Sex Manther,RB42,RB40,2,12,7,7,0,0.33,6.88,21.2,1.0,FAIR,DEPTH,cut-free dart,
+Travis Hunter,WR,rostered,Sex Manther,WR56,,0,14,7,13,6,0.0,0.0,,0.54,FAIR,DEPTH,cut-free dart,
+Antonio Williams,WR,rostered,Gride,WR61,WR66,1,13,7,12,5,0.17,3.3,70.6,0.58,FAIR,DEPTH,cut-free dart,
+Chris Bell,WR,rostered,Gride,WR62,WR89,1,13,7,12,5,0.12,0.03,100.0,0.58,FAIR,DEPTH,cut-free dart,
+J.J. McCarthy,QB,rostered,Cleon Ca$h,QB32,QB37,2,12,7,12,5,0.36,4.08,33.3,0.58,FAIR,NEED-STUD,cut-free dart,
+AJ Barner,TE,rostered,Blake Bombers,TE20,TE24,3,11,7,10,3,0.49,2.09,20.4,0.7,FAIR,DEPTH,cut-free dart,
+T.J. Hockenson,TE,rostered,HammerTime 🔨 ⏰,TE23,TE22,3,11,7,10,3,0.52,2.09,19.2,0.7,FAIR,DEPTH,cut-free dart,
+Brandon Aiyuk,WR,FA,,WR38,WR75,1,11,6,10,4,0.14,1.28,71.4,0.6,FAIR,DEPTH,1-yr / situational,Gride; Hawks; CBP
+Kenneth Gainwell,RB,FA,,RB37,,0,12,6,7,1,0.0,0.0,,0.86,FAIR,DEPTH,1-yr / situational,CBP; Gride; Hawks
+Tyler Allgeier,RB,FA,,RB40,RB49,2,11,6,6,0,0.26,1.84,23.1,1.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Woody Marks,RB,rostered,The Long Haulers,RB43,RB45,2,10,6,6,0,0.29,1.84,20.7,1.0,FAIR,DEPTH,cut-free dart,
+Rachaad White,RB,FA,,RB44,RB38,2,11,6,6,0,0.35,6.88,17.1,1.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Nicholas Singleton,RB,rostered,Cleon Ca$h,RB45,RB56,1,12,6,7,1,0.22,1.59,31.8,0.86,FAIR,DEPTH,cut-free dart,
+Jordan Mason,RB,rostered,The Long Haulers,RB46,RB41,2,10,6,6,0,0.32,6.88,18.8,1.0,FAIR,DEPTH,cut-free dart,
+Emmett Johnson,RB,rostered,Gride,RB47,RB57,1,11,6,6,0,0.22,1.59,27.3,1.0,FAIR,DEPTH,cut-free dart,
+Dylan Sampson,RB,rostered,L.A. Looks,RB48,RB53,2,10,6,6,0,0.24,1.61,25.0,1.0,FAIR,DEPTH,cut-free dart,
+Kaytron Allen,RB,rostered,Blake Bombers,RB50,RB59,1,10,6,6,0,0.21,1.54,28.6,1.0,FAIR,DEPTH,cut-free dart,
+Isiah Pacheco,RB,FA,,RB52,RB46,2,9,6,5,-1,0.28,1.84,17.9,1.2,VALUE,DEPTH,cut-free dart,CBP; Gride; Hawks
+Tyjae Spears,RB,rostered,The Long Haulers,RB53,RB50,2,9,6,5,-1,0.26,1.82,19.2,1.2,VALUE,DEPTH,cut-free dart,
+Braelon Allen,RB,rostered,L.A. Looks,RB55,RB61,1,10,6,6,0,0.2,1.24,30.0,1.0,FAIR,DEPTH,cut-free dart,
+Keaton Mitchell,RB,rostered,CBP,RB58,RB44,2,9,6,5,-1,0.3,2.21,16.7,1.2,VALUE,DEPTH,cut-free dart,
+Tank Bigsby,RB,rostered,L.A. Looks,RB59,RB52,2,10,6,6,0,0.25,1.61,24.0,1.0,FAIR,DEPTH,cut-free dart,
+Ollie Gordon II,RB,rostered,The Long Haulers,RB66,RB80,1,12,6,7,1,0.12,0.42,58.3,0.86,FAIR,DEPTH,cut-free dart,
+LeQuint Allen Jr.,RB,rostered,Hawks,RB86,RB73,1,10,6,6,0,0.15,0.84,40.0,1.0,FAIR,DEPTH,cut-free dart,
+Khalil Shakir,WR,rostered,Cleon Ca$h,WR58,WR54,1,12,6,11,5,0.23,4.18,47.8,0.55,FAIR,DEPTH,cut-free dart,
+Jalen Coker,WR,rostered,Gride,WR60,WR55,1,12,6,11,5,0.23,4.18,47.8,0.55,FAIR,DEPTH,cut-free dart,
+Rashid Shaheed,WR,rostered,Blake Bombers,WR63,WR57,1,11,6,10,4,0.22,4.18,45.5,0.6,FAIR,DEPTH,cut-free dart,
+Germie Bernard,WR,rostered,The Long Haulers,WR64,WR73,1,12,6,11,5,0.15,1.28,73.3,0.55,FAIR,DEPTH,cut-free dart,
+Jalen McMillan,WR,rostered,Cleon Ca$h,WR65,WR59,1,12,6,11,5,0.21,4.18,52.4,0.55,FAIR,DEPTH,cut-free dart,
+Jauan Jennings,WR,rostered,L.A. Looks,WR66,WR60,1,10,6,9,3,0.2,4.18,45.0,0.67,FAIR,DEPTH,cut-free dart,
+Tre' Harris,WR,rostered,Cleon Ca$h,WR68,WR67,1,11,6,10,4,0.17,2.5,58.8,0.6,FAIR,DEPTH,cut-free dart,
+Elijah Sarratt,WR,rostered,Pure Greatness,WR71,WR82,1,11,6,10,4,0.12,0.03,83.3,0.6,FAIR,DEPTH,cut-free dart,
+Jerry Jeudy,WR,rostered,Cleon Ca$h,WR72,WR71,1,10,6,9,3,0.15,1.35,60.0,0.67,FAIR,DEPTH,cut-free dart,
+Jaylin Noel,WR,rostered,Sex Manther,WR73,WR85,1,10,6,9,3,0.12,0.03,75.0,0.67,FAIR,DEPTH,cut-free dart,
+De'Zhaun Stribling,WR,rostered,Real Deal Creel,WR74,WR68,1,11,6,10,4,0.16,2.5,62.5,0.6,FAIR,DEPTH,cut-free dart,
+Skyler Bell,WR,rostered,HammerTime 🔨 ⏰,WR77,WR98,1,10,6,9,3,0.12,0.03,75.0,0.67,FAIR,DEPTH,cut-free dart,
+Deebo Samuel Sr.,WR,rostered,Gride,WR78,WR65,1,10,6,9,3,0.18,3.3,50.0,0.67,FAIR,DEPTH,cut-free dart,
+Malachi Fields,WR,rostered,The Long Haulers,WR79,WR91,1,11,6,10,4,0.12,0.03,83.3,0.6,FAIR,DEPTH,cut-free dart,
+Zachariah Branch,WR,rostered,Cleon Ca$h,WR80,WR70,1,11,6,10,4,0.16,1.95,62.5,0.6,FAIR,DEPTH,cut-free dart,
+Isaac TeSlaa,WR,rostered,Cleon Ca$h,WR83,WR69,1,10,6,9,3,0.16,2.5,56.2,0.67,FAIR,DEPTH,cut-free dart,
+Kevin Coleman Jr.,WR,rostered,The Long Haulers,WR105,WR121,1,10,6,9,3,0.12,0.03,75.0,0.67,FAIR,DEPTH,cut-free dart,
+Shedeur Sanders,QB,rostered,L.A. Looks,QB35,QB34,2,11,6,11,5,0.38,6.15,28.9,0.55,FAIR,NEED-STUD,cut-free dart,
+Carson Beck,QB,rostered,The Long Haulers,QB36,QB36,2,10,6,10,4,0.37,4.08,27.0,0.6,FAIR,NEED-STUD,cut-free dart,
+Mac Jones,QB,FA,,QB38,QB41,2,10,6,10,4,0.32,0.78,31.2,0.6,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Deshaun Watson,QB,rostered,Real Deal Creel,QB40,QB32,3,9,6,12,6,0.4,7.91,30.0,0.5,FAIR,NEED-STUD,cut-free dart,
+Terrance Ferguson,TE,rostered,Blake Bombers,TE22,TE30,3,10,6,9,3,0.43,2.02,20.9,0.67,FAIR,DEPTH,cut-free dart,
+Juwan Johnson,TE,FA,,TE24,TE20,4,9,6,8,2,0.55,3.13,14.5,0.75,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Gunnar Helm,TE,FA,,TE25,TE25,3,10,6,9,3,0.48,2.09,18.8,0.67,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Hunter Henry,TE,FA,,TE26,TE18,4,9,6,8,2,0.57,3.13,14.0,0.75,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Max Klare,TE,rostered,Pure Greatness,TE27,TE52,2,9,6,8,2,0.25,0.01,32.0,0.75,FAIR,DEPTH,cut-free dart,
+Dalton Schultz,TE,rostered,Pure Greatness,TE30,TE23,3,8,6,7,1,0.51,2.09,13.7,0.86,FAIR,DEPTH,cut-free dart,
+David Njoku,TE,rostered,Gride,TE32,TE31,3,9,6,8,2,0.41,0.98,19.5,0.75,FAIR,DEPTH,cut-free dart,
+Cade Otton,TE,rostered,The Long Haulers,TE34,TE27,3,8,6,7,1,0.46,2.09,15.2,0.86,FAIR,DEPTH,cut-free dart,
+Greg Dulcich,TE,FA,,TE37,TE26,3,8,6,7,1,0.47,2.09,14.9,0.86,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Kaleb Johnson,RB,rostered,Hawks,RB60,RB86,1,9,5,5,0,0.12,0.42,41.7,1.0,FAIR,DEPTH,cut-free dart,
+Stefon Diggs,WR,FA,,WR70,WR56,1,9,5,8,3,0.22,4.18,36.4,0.62,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Kayshon Boutte,WR,rostered,Real Deal Creel,WR75,WR87,1,9,5,8,3,0.12,0.03,66.7,0.62,FAIR,DEPTH,cut-free dart,
+Troy Franklin,WR,rostered,HammerTime 🔨 ⏰,WR76,WR83,1,9,5,8,3,0.12,0.03,66.7,0.62,FAIR,DEPTH,cut-free dart,
+Adonai Mitchell,WR,rostered,L.A. Looks,WR81,WR72,1,9,5,8,3,0.15,1.28,53.3,0.62,FAIR,DEPTH,cut-free dart,
+Ja'Kobi Lane,WR,rostered,Hawks,WR82,WR97,1,9,5,8,3,0.12,0.03,66.7,0.62,FAIR,DEPTH,cut-free dart,
+Pat Bryant,WR,rostered,Blake Bombers,WR84,WR84,1,9,5,8,3,0.12,0.03,66.7,0.62,FAIR,DEPTH,cut-free dart,
+Tank Dell,WR,rostered,Sex Manther,WR86,WR76,1,9,5,8,3,0.13,1.28,61.5,0.62,FAIR,DEPTH,cut-free dart,
+Jalen Nailor,WR,FA,,WR89,WR61,1,9,5,8,3,0.2,4.18,40.0,0.62,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jack Bech,WR,rostered,Gride,WR90,WR103,1,9,5,8,3,0.12,0.03,66.7,0.62,FAIR,DEPTH,cut-free dart,
+Keon Coleman,WR,rostered,Real Deal Creel,WR91,WR92,1,9,5,8,3,0.12,0.03,66.7,0.62,FAIR,DEPTH,cut-free dart,
+Tory Horton,WR,rostered,Pure Greatness,WR92,WR90,1,9,5,8,3,0.12,0.03,66.7,0.62,FAIR,DEPTH,cut-free dart,
+Tre Tucker,WR,rostered,The Long Haulers,WR95,WR62,1,9,5,8,3,0.19,4.18,42.1,0.62,FAIR,DEPTH,cut-free dart,
+Malik Washington,WR,rostered,The Long Haulers,WR97,WR77,1,9,5,8,3,0.13,0.03,61.5,0.62,FAIR,DEPTH,cut-free dart,
+Marvin Mims Jr.,WR,rostered,L.A. Looks,WR98,WR136,1,9,5,8,3,0.12,0.03,66.7,0.62,FAIR,DEPTH,cut-free dart,
+Dont'e Thornton Jr.,WR,rostered,Pure Greatness,WR118,WR150,1,9,5,8,3,0.12,0.03,66.7,0.62,FAIR,DEPTH,cut-free dart,
+Justin Fields,QB,FA,,QB39,QB38,2,8,5,8,3,0.35,1.65,22.9,0.62,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Mason Taylor,TE,rostered,HammerTime 🔨 ⏰,TE28,TE43,2,8,5,7,2,0.31,0.01,22.6,0.71,FAIR,DEPTH,cut-free dart,
+Pat Freiermuth,TE,FA,,TE33,TE28,3,7,5,6,1,0.45,2.09,13.3,0.83,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Elijah Arroyo,TE,rostered,Cleon Ca$h,TE35,TE45,2,8,5,7,2,0.29,0.01,24.1,0.71,FAIR,DEPTH,cut-free dart,
+Alvin Kamara,RB,FA,,RB57,RB55,1,8,4,4,0,0.23,1.61,17.4,1.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Trey Benson,RB,rostered,Real Deal Creel,RB61,RB83,1,8,4,4,0,0.12,0.42,33.3,1.0,FAIR,DEPTH,cut-free dart,
+Kimani Vidal,RB,rostered,Gride,RB62,RB69,1,7,4,4,0,0.16,0.85,25.0,1.0,FAIR,DEPTH,cut-free dart,
+James Conner,RB,FA,,RB63,RB70,1,6,4,4,0,0.16,0.85,25.0,1.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Demond Claiborne,RB,rostered,HammerTime 🔨 ⏰,RB64,RB66,1,8,4,4,0,0.17,0.85,23.5,1.0,FAIR,DEPTH,cut-free dart,
+Emanuel Wilson,RB,rostered,Blake Bombers,RB65,RB71,1,6,4,4,0,0.15,0.85,26.7,1.0,FAIR,DEPTH,cut-free dart,
+Jaylen Wright,RB,rostered,C-Town Chivalry,RB67,RB74,1,7,4,4,0,0.14,0.84,28.6,1.0,FAIR,DEPTH,cut-free dart,
+Sean Tucker,RB,rostered,Sex Manther,RB68,RB54,1,7,4,4,0,0.23,1.61,17.4,1.0,FAIR,DEPTH,cut-free dart,
+Ray Davis,RB,rostered,C-Town Chivalry,RB69,RB60,1,7,4,4,0,0.2,1.24,20.0,1.0,FAIR,DEPTH,cut-free dart,
+Adam Randall,RB,rostered,Gride,RB70,RB76,1,6,4,4,0,0.13,0.84,30.8,1.0,FAIR,DEPTH,cut-free dart,
+Devin Neal,RB,rostered,Gride,RB71,RB92,1,6,4,4,0,0.12,0.42,33.3,1.0,FAIR,DEPTH,cut-free dart,
+Kaelon Black,RB,rostered,Hawks,RB72,RB68,1,7,4,4,0,0.16,0.85,25.0,1.0,FAIR,DEPTH,cut-free dart,
+Jordan James,RB,rostered,Sex Manther,RB73,RB64,1,7,4,4,0,0.18,0.85,22.2,1.0,FAIR,DEPTH,cut-free dart,
+Jaydon Blue,RB,rostered,The Long Haulers,RB75,RB63,1,7,4,4,0,0.19,0.85,21.1,1.0,FAIR,DEPTH,cut-free dart,
+MarShawn Lloyd,RB,rostered,Sex Manther,RB77,RB62,1,8,4,4,0,0.19,0.95,21.1,1.0,FAIR,DEPTH,cut-free dart,
+DJ Giddens,RB,rostered,Gride,RB79,RB75,1,7,4,4,0,0.14,0.84,28.6,1.0,FAIR,DEPTH,cut-free dart,
+Trevor Etienne,RB,rostered,Gride,RB87,RB87,1,6,4,4,0,0.12,0.42,33.3,1.0,FAIR,DEPTH,cut-free dart,
+Tyreek Hill,WR,rostered,Sex Manther,WR57,WR86,1,8,4,7,3,0.12,0.03,58.3,0.57,FAIR,DEPTH,cut-free dart,
+Chimere Dike,WR,rostered,Hawks,WR85,WR101,1,8,4,7,3,0.12,0.03,58.3,0.57,FAIR,DEPTH,cut-free dart,
+Elic Ayomanor,WR,rostered,C-Town Chivalry,WR87,WR109,1,8,4,7,3,0.12,0.03,58.3,0.57,FAIR,DEPTH,cut-free dart,
+Kyle Williams,WR,rostered,Sex Manther,WR88,WR114,1,8,4,7,3,0.12,0.03,58.3,0.57,FAIR,DEPTH,cut-free dart,
+Calvin Ridley,WR,FA,,WR93,WR74,1,7,4,6,2,0.14,1.28,42.9,0.67,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Darnell Mooney,WR,FA,,WR94,WR80,1,7,4,6,2,0.12,0.03,50.0,0.67,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Dontayvion Wicks,WR,rostered,The Long Haulers,WR96,WR79,1,8,4,7,3,0.12,0.03,58.3,0.57,FAIR,DEPTH,cut-free dart,
+Rashod Bateman,WR,rostered,HammerTime 🔨 ⏰,WR99,WR93,1,6,4,5,1,0.12,0.03,41.7,0.8,FAIR,DEPTH,cut-free dart,
+Bryce Lance,WR,rostered,L.A. Looks,WR100,WR118,1,6,4,5,1,0.12,0.03,41.7,0.8,FAIR,DEPTH,cut-free dart,
+Brenen Thompson,WR,FA,,WR101,WR108,1,6,4,5,1,0.12,0.03,41.7,0.8,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Ryan Flournoy,WR,FA,,WR102,WR64,1,6,4,5,1,0.18,3.62,27.8,0.8,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Christian Kirk,WR,FA,,WR103,WR94,1,6,4,5,1,0.12,0.03,41.7,0.8,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Xavier Legette,WR,rostered,Pure Greatness,WR106,WR111,1,6,4,5,1,0.12,0.03,41.7,0.8,FAIR,DEPTH,cut-free dart,
+Tez Johnson,WR,FA,,WR107,WR124,1,6,4,5,1,0.12,0.03,41.7,0.8,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jalen Royals,WR,rostered,Cleon Ca$h,WR114,WR128,1,6,4,5,1,0.12,0.03,41.7,0.8,FAIR,DEPTH,cut-free dart,
+Isaiah Bond,WR,rostered,The Long Haulers,WR115,WR120,1,6,4,5,1,0.12,0.03,41.7,0.8,FAIR,DEPTH,cut-free dart,
+Calvin Austin III,WR,FA,,WR127,WR147,1,6,4,5,1,0.12,0.03,41.7,0.8,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+John Metchie III,WR,FA,,WR130,WR155,1,6,4,5,1,0.12,0.03,41.7,0.8,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Kirk Cousins,QB,FA,,QB41,QB35,2,7,4,7,3,0.38,4.08,18.4,0.57,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
 Drew Allar,QB,rostered,Hawks,QB42,,0,8,4,8,4,0.0,0.0,,0.5,FAIR,NEED-STUD,cut-free dart,
-Cade Klubnik,QB,rostered,CBP,QB48,QB42,0,7,4,7,3,0.0,0.56,,0.57,FAIR,NEED-STUD,cut-free dart,
-Jalen Milroe,QB,rostered,C-Town Chivalry,QB49,QB49,0,7,4,7,3,0.0,0.52,,0.57,FAIR,NEED-STUD,cut-free dart,
-Joe Milton III,QB,FA,,QB51,QB46,0,7,4,7,3,0.0,0.52,,0.57,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Juwan Johnson,TE,FA,,TE24,TE20,0,9,4,9,5,0.02,3.13,450.0,0.44,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Max Klare,TE,rostered,Pure Greatness,TE27,TE52,0,9,4,9,5,0.0,0.01,,0.44,FAIR,DEPTH,cut-free dart,
-Mason Taylor,TE,rostered,HammerTime 🔨 ⏰,TE28,TE43,0,8,4,8,4,0.0,0.01,,0.5,FAIR,DEPTH,cut-free dart,
-Eli Raridon,TE,rostered,Blake Bombers,TE29,TE42,0,7,4,7,3,0.0,0.01,,0.57,FAIR,DEPTH,cut-free dart,
-Dalton Schultz,TE,rostered,Pure Greatness,TE30,TE23,0,8,4,8,4,0.0,2.09,,0.5,FAIR,DEPTH,cut-free dart,
-Oscar Delp,TE,rostered,Sex Manther,TE31,TE41,0,7,4,7,3,0.0,0.01,,0.57,FAIR,DEPTH,cut-free dart,
-David Njoku,TE,rostered,Gride,TE32,TE31,0,9,4,9,5,0.0,0.98,,0.44,FAIR,DEPTH,cut-free dart,
-Pat Freiermuth,TE,FA,,TE33,TE28,0,7,4,7,3,0.0,2.09,,0.57,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Cade Otton,TE,rostered,The Long Haulers,TE34,TE27,0,8,4,8,4,0.0,2.09,,0.5,FAIR,DEPTH,cut-free dart,
-Elijah Arroyo,TE,rostered,Cleon Ca$h,TE35,TE45,0,8,4,8,4,0.0,0.01,,0.5,FAIR,DEPTH,cut-free dart,
-Theo Johnson,TE,rostered,The Long Haulers,TE36,TE38,0,7,4,7,3,0.0,0.04,,0.57,FAIR,DEPTH,cut-free dart,
-Greg Dulcich,TE,FA,,TE37,TE26,0,8,4,8,4,0.0,2.09,,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Justin Joly,TE,rostered,Gride,TE38,TE48,0,7,4,7,3,0.0,0.01,,0.57,FAIR,DEPTH,cut-free dart,
-Michael Mayer,TE,rostered,Real Deal Creel,TE39,TE37,0,7,4,7,3,0.0,0.04,,0.57,FAIR,DEPTH,cut-free dart,
-Jake Tonges,TE,FA,,TE40,TE36,0,7,4,7,3,0.0,0.09,,0.57,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-James Conner,RB,FA,,RB63,RB70,0,6,3,6,3,0.0,0.85,,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Emanuel Wilson,RB,rostered,Blake Bombers,RB65,RB71,0,6,3,6,3,0.0,0.85,,0.5,FAIR,DEPTH,cut-free dart,
-Adam Randall,RB,rostered,Gride,RB70,RB76,0,6,3,6,3,0.0,0.84,,0.5,FAIR,DEPTH,cut-free dart,
-Devin Neal,RB,rostered,Gride,RB71,RB92,0,6,3,6,3,0.0,0.42,,0.5,FAIR,DEPTH,cut-free dart,
-Trevor Etienne,RB,rostered,Gride,RB87,RB87,0,6,3,6,3,0.0,0.42,,0.5,FAIR,DEPTH,cut-free dart,
-Rashod Bateman,WR,rostered,HammerTime 🔨 ⏰,WR99,WR93,0,6,3,6,3,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Bryce Lance,WR,rostered,L.A. Looks,WR100,WR118,0,6,3,6,3,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Brenen Thompson,WR,FA,,WR101,WR108,0,6,3,6,3,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Ryan Flournoy,WR,FA,,WR102,WR64,0,6,3,6,3,0.0,3.62,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Christian Kirk,WR,FA,,WR103,WR94,0,6,3,6,3,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Xavier Legette,WR,rostered,Pure Greatness,WR106,WR111,0,6,3,6,3,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Tez Johnson,WR,FA,,WR107,WR124,0,6,3,6,3,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jalen Royals,WR,rostered,Cleon Ca$h,WR114,WR128,0,6,3,6,3,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Isaiah Bond,WR,rostered,The Long Haulers,WR115,WR120,0,6,3,6,3,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Calvin Austin III,WR,FA,,WR127,WR147,0,6,3,6,3,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-John Metchie III,WR,FA,,WR130,WR155,0,6,3,6,3,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jimmy Horn Jr.,WR,FA,,WR162,,0,6,3,6,3,0.0,0.0,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Cade Klubnik,QB,rostered,CBP,QB48,QB42,2,7,4,7,3,0.31,0.56,22.6,0.57,FAIR,NEED-STUD,cut-free dart,
+Jalen Milroe,QB,rostered,C-Town Chivalry,QB49,QB49,2,7,4,7,3,0.26,0.52,26.9,0.57,FAIR,NEED-STUD,cut-free dart,
+Joe Milton III,QB,FA,,QB51,QB46,2,7,4,7,3,0.28,0.52,25.0,0.57,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Will Howard,QB,rostered,CBP,QB52,QB48,2,6,4,6,2,0.27,0.52,22.2,0.67,FAIR,NEED-STUD,cut-free dart,
+Eli Raridon,TE,rostered,Blake Bombers,TE29,TE42,2,7,4,6,2,0.31,0.01,19.4,0.67,FAIR,DEPTH,cut-free dart,
+Oscar Delp,TE,rostered,Sex Manther,TE31,TE41,2,7,4,6,2,0.32,0.01,18.8,0.67,FAIR,DEPTH,cut-free dart,
+Theo Johnson,TE,rostered,The Long Haulers,TE36,TE38,2,7,4,6,2,0.35,0.04,17.1,0.67,FAIR,DEPTH,cut-free dart,
+Justin Joly,TE,rostered,Gride,TE38,TE48,2,7,4,6,2,0.27,0.01,22.2,0.67,FAIR,DEPTH,cut-free dart,
+Michael Mayer,TE,rostered,Real Deal Creel,TE39,TE37,2,7,4,6,2,0.36,0.04,16.7,0.67,FAIR,DEPTH,cut-free dart,
+Jake Tonges,TE,FA,,TE40,TE36,2,7,4,6,2,0.37,0.09,16.2,0.67,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Colby Parkinson,TE,rostered,L.A. Looks,TE41,TE33,3,6,4,5,1,0.39,0.16,12.8,0.8,FAIR,DEPTH,cut-free dart,
+Evan Engram,TE,FA,,TE42,TE35,2,6,4,5,1,0.38,0.09,13.2,0.8,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Cole Kmet,TE,rostered,CBP,TE44,TE46,2,6,4,5,1,0.28,0.01,17.9,0.8,FAIR,DEPTH,cut-free dart,
+Darnell Washington,TE,FA,,TE45,TE34,2,6,4,5,1,0.38,0.16,13.2,0.8,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Ja'Tavion Sanders,TE,rostered,Real Deal Creel,TE46,TE39,2,6,4,5,1,0.34,0.01,14.7,0.8,FAIR,DEPTH,cut-free dart,
+Mike Gesicki,TE,FA,,TE48,TE32,3,5,4,5,1,0.4,0.81,12.5,0.8,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Luke Musgrave,TE,FA,,TE59,TE53,2,5,4,4,0,0.24,0.01,16.7,1.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Erick All Jr.,TE,rostered,Pure Greatness,TE61,TE47,2,5,4,4,0,0.28,0.01,14.3,1.0,FAIR,DEPTH,cut-free dart,
+Eli Heidenreich,RB,rostered,Blake Bombers,RB74,RB88,1,5,3,4,1,0.12,0.42,33.3,0.75,FAIR,DEPTH,cut-free dart,
+Najee Harris,RB,FA,,RB78,RB81,1,5,3,4,1,0.12,0.42,33.3,0.75,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Brashard Smith,RB,FA,,RB80,RB102,1,5,3,4,1,0.12,0.42,33.3,0.75,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Isaiah Davis,RB,rostered,C-Town Chivalry,RB81,RB89,1,5,3,4,1,0.12,0.42,33.3,0.75,FAIR,DEPTH,cut-free dart,
+Jarquez Hunter,RB,rostered,Blake Bombers,RB85,RB104,1,5,3,4,1,0.12,0.42,33.3,0.75,FAIR,DEPTH,cut-free dart,
+Tahj Brooks,RB,rostered,Sex Manther,RB88,RB84,1,5,3,4,1,0.12,0.42,33.3,0.75,FAIR,DEPTH,cut-free dart,
+Cedric Tillman,WR,FA,,WR104,WR152,1,5,3,4,1,0.12,0.03,33.3,0.75,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Cooper Kupp,WR,FA,,WR108,WR81,1,5,3,4,1,0.12,0.03,33.3,0.75,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+DeMario Douglas,WR,FA,,WR112,WR138,1,5,3,4,1,0.12,0.03,33.3,0.75,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jalen Tolbert,WR,FA,,WR117,WR107,1,5,3,4,1,0.12,0.03,33.3,0.75,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Andrei Iosivas,WR,FA,,WR119,WR99,1,5,3,4,1,0.12,0.03,33.3,0.75,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Zavion Thomas,WR,FA,,WR120,WR100,1,5,3,4,1,0.12,0.03,33.3,0.75,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Caleb Douglas,WR,rostered,Pure Greatness,WR121,WR105,1,5,3,4,1,0.12,0.03,33.3,0.75,FAIR,DEPTH,cut-free dart,
+Tyquan Thornton,WR,rostered,Real Deal Creel,WR123,WR95,1,5,3,4,1,0.12,0.03,33.3,0.75,FAIR,DEPTH,cut-free dart,
+Jaylin Lane,WR,rostered,Hawks,WR124,WR137,1,5,3,4,1,0.12,0.03,33.3,0.75,FAIR,DEPTH,cut-free dart,
+Savion Williams,WR,rostered,Pure Greatness,WR126,WR110,1,5,3,4,1,0.12,0.03,33.3,0.75,FAIR,DEPTH,cut-free dart,
+Jimmy Horn Jr.,WR,FA,,WR162,,0,6,3,5,2,0.0,0.0,,0.6,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
 Garrett Nussmeier,QB,FA,,QB43,,0,6,3,6,3,0.0,0.0,,0.5,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Will Howard,QB,rostered,CBP,QB52,QB48,0,6,3,6,3,0.0,0.52,,0.5,FAIR,NEED-STUD,cut-free dart,
-Colby Parkinson,TE,rostered,L.A. Looks,TE41,TE33,0,6,3,6,3,0.0,0.16,,0.5,FAIR,DEPTH,cut-free dart,
-Evan Engram,TE,FA,,TE42,TE35,0,6,3,6,3,0.0,0.09,,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Cole Kmet,TE,rostered,CBP,TE44,TE46,0,6,3,6,3,0.0,0.01,,0.5,FAIR,DEPTH,cut-free dart,
-Darnell Washington,TE,FA,,TE45,TE34,0,6,3,6,3,0.0,0.16,,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Ja'Tavion Sanders,TE,rostered,Real Deal Creel,TE46,TE39,0,6,3,6,3,0.0,0.01,,0.5,FAIR,DEPTH,cut-free dart,
-Eli Heidenreich,RB,rostered,Blake Bombers,RB74,RB88,0,5,2,5,3,0.0,0.42,,0.4,FAIR,DEPTH,cut-free dart,
-Seth McGowan,RB,rostered,Sex Manther,RB76,RB93,0,4,2,4,2,0.0,0.42,,0.5,FAIR,DEPTH,cut-free dart,
-Najee Harris,RB,FA,,RB78,RB81,0,5,2,5,3,0.0,0.42,,0.4,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Brashard Smith,RB,FA,,RB80,RB102,0,5,2,5,3,0.0,0.42,,0.4,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Isaiah Davis,RB,rostered,C-Town Chivalry,RB81,RB89,0,5,2,5,3,0.0,0.42,,0.4,FAIR,DEPTH,cut-free dart,
-Chris Brooks,RB,FA,,RB82,RB77,0,4,2,4,2,0.0,0.84,,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-J'Mari Taylor,RB,FA,,RB83,RB94,0,4,2,4,2,0.0,0.42,,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Kendre Miller,RB,rostered,Real Deal Creel,RB84,,0,5,2,5,3,0.0,0.0,,0.4,FAIR,DEPTH,cut-free dart,
-Jarquez Hunter,RB,rostered,Blake Bombers,RB85,RB104,0,5,2,5,3,0.0,0.42,,0.4,FAIR,DEPTH,cut-free dart,
-Tahj Brooks,RB,rostered,Sex Manther,RB88,RB84,0,5,2,5,3,0.0,0.42,,0.4,FAIR,DEPTH,cut-free dart,
-Will Shipley,RB,rostered,Sex Manther,RB89,RB98,0,4,2,4,2,0.0,0.42,,0.5,FAIR,DEPTH,cut-free dart,
-Jerome Ford,RB,FA,,RB91,RB96,0,4,2,4,2,0.0,0.42,,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Justice Hill,RB,FA,,RB92,RB67,0,4,2,4,2,0.0,0.85,,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Devin Singletary,RB,FA,,RB93,RB95,0,3,2,3,1,0.0,0.42,,0.67,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Marcus Mariota,QB,FA,,QB44,QB50,2,4,3,4,1,0.26,0.52,15.4,0.75,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Jameis Winston,QB,FA,,QB45,QB43,2,4,3,4,1,0.31,0.52,12.9,0.75,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Taylen Green,QB,rostered,Cleon Ca$h,QB46,QB47,2,4,3,4,1,0.28,0.52,14.3,0.75,FAIR,NEED-STUD,cut-free dart,
+Tyson Bagent,QB,rostered,Sex Manther,QB47,QB45,2,4,3,4,1,0.29,0.52,13.8,0.75,FAIR,NEED-STUD,cut-free dart,
+Ben Sinnott,TE,rostered,HammerTime 🔨 ⏰,TE43,TE57,1,5,3,4,1,0.22,0.01,18.2,0.75,FAIR,DEPTH,cut-free dart,
+Michael Trigg,TE,FA,,TE51,TE61,1,5,3,4,1,0.2,0.01,20.0,0.75,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Dawson Knox,TE,FA,,TE55,TE40,2,4,3,4,1,0.33,0.01,12.1,0.75,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Noah Gray,TE,FA,,TE63,TE51,2,4,3,4,1,0.25,0.01,16.0,0.75,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Seth McGowan,RB,rostered,Sex Manther,RB76,RB93,1,4,2,4,2,0.12,0.42,33.3,0.5,FAIR,DEPTH,cut-free dart,
+Chris Brooks,RB,FA,,RB82,RB77,1,4,2,4,2,0.13,0.84,30.8,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+J'Mari Taylor,RB,FA,,RB83,RB94,1,4,2,4,2,0.12,0.42,33.3,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Kendre Miller,RB,rostered,Real Deal Creel,RB84,,0,5,2,3,1,0.0,0.0,,0.67,FAIR,DEPTH,cut-free dart,
+Will Shipley,RB,rostered,Sex Manther,RB89,RB98,1,4,2,4,2,0.12,0.42,33.3,0.5,FAIR,DEPTH,cut-free dart,
+Jerome Ford,RB,FA,,RB91,RB96,1,4,2,4,2,0.12,0.42,33.3,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Justice Hill,RB,FA,,RB92,RB67,1,4,2,4,2,0.17,0.85,23.5,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Devin Singletary,RB,FA,,RB93,RB95,1,3,2,4,2,0.12,0.42,33.3,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
 Raheim Sanders,RB,FA,,RB94,,0,3,2,3,1,0.0,0.0,,0.67,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Jam Miller,RB,rostered,Cleon Ca$h,RB96,RB101,0,3,2,3,1,0.0,0.42,,0.67,FAIR,DEPTH,cut-free dart,
-George Holani,RB,FA,,RB97,RB65,0,4,2,4,2,0.0,0.85,,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Isaac Guerendo,RB,FA,,RB98,RB100,0,4,2,4,2,0.0,0.42,,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Joe Mixon,RB,FA,,RB100,RB90,0,3,2,3,1,0.0,0.42,,0.67,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Ty Johnson,RB,FA,,RB102,RB79,0,3,2,3,1,0.0,0.65,,0.67,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Malik Davis,RB,FA,,RB103,RB78,0,4,2,4,2,0.0,0.65,,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Phil Mafah,RB,FA,,RB118,RB85,0,3,2,3,1,0.0,0.42,,0.67,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Damien Martinez,RB,FA,,RB120,,0,4,2,4,2,0.0,0.0,,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Emari Demercado,RB,FA,,RB121,RB82,0,3,2,3,1,0.0,0.42,,0.67,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Jam Miller,RB,rostered,Cleon Ca$h,RB96,RB101,1,3,2,4,2,0.12,0.42,33.3,0.5,FAIR,DEPTH,cut-free dart,
+George Holani,RB,FA,,RB97,RB65,1,4,2,4,2,0.18,0.85,22.2,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Isaac Guerendo,RB,FA,,RB98,RB100,1,4,2,4,2,0.12,0.42,33.3,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Joe Mixon,RB,FA,,RB100,RB90,1,3,2,4,2,0.12,0.42,33.3,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Ty Johnson,RB,FA,,RB102,RB79,1,3,2,4,2,0.12,0.65,33.3,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Malik Davis,RB,FA,,RB103,RB78,1,4,2,4,2,0.13,0.65,30.8,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Samaje Perine,RB,FA,,RB106,RB72,1,2,2,4,2,0.15,0.85,26.7,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Phil Mafah,RB,FA,,RB118,RB85,1,3,2,4,2,0.12,0.42,33.3,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Damien Martinez,RB,FA,,RB120,,0,4,2,3,1,0.0,0.0,,0.67,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Emari Demercado,RB,FA,,RB121,RB82,1,3,2,4,2,0.12,0.42,33.3,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
 Dameon Pierce,RB,FA,,RB124,,0,3,2,3,1,0.0,0.0,,0.67,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Rasheen Ali,RB,rostered,The Long Haulers,RB127,RB97,0,3,2,3,1,0.0,0.42,,0.67,FAIR,DEPTH,cut-free dart,
-Cedric Tillman,WR,FA,,WR104,WR152,0,5,2,5,3,0.0,0.03,,0.4,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Cooper Kupp,WR,FA,,WR108,WR81,0,5,2,5,3,0.0,0.03,,0.4,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Keenan Allen,WR,FA,,WR109,WR104,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Devaughn Vele,WR,FA,,WR110,WR96,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-DeMario Douglas,WR,FA,,WR112,WR138,0,5,2,5,3,0.0,0.03,,0.4,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Darius Slayton,WR,FA,,WR113,WR102,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Cyrus Allen,WR,FA,,WR116,WR119,0,3,2,3,1,0.0,0.03,,0.67,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jalen Tolbert,WR,FA,,WR117,WR107,0,5,2,5,3,0.0,0.03,,0.4,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Andrei Iosivas,WR,FA,,WR119,WR99,0,5,2,5,3,0.0,0.03,,0.4,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Zavion Thomas,WR,FA,,WR120,WR100,0,5,2,5,3,0.0,0.03,,0.4,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Caleb Douglas,WR,rostered,Pure Greatness,WR121,WR105,0,5,2,5,3,0.0,0.03,,0.4,FAIR,DEPTH,cut-free dart,
-Deion Burks,WR,rostered,L.A. Looks,WR122,WR143,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Tyquan Thornton,WR,rostered,Real Deal Creel,WR123,WR95,0,5,2,5,3,0.0,0.03,,0.4,FAIR,DEPTH,cut-free dart,
-Jaylin Lane,WR,rostered,Hawks,WR124,WR137,0,5,2,5,3,0.0,0.03,,0.4,FAIR,DEPTH,cut-free dart,
-Joshua Palmer,WR,FA,,WR125,WR133,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Savion Williams,WR,rostered,Pure Greatness,WR126,WR110,0,5,2,5,3,0.0,0.03,,0.4,FAIR,DEPTH,cut-free dart,
-CJ Daniels,WR,FA,,WR128,WR123,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Luke McCaffrey,WR,FA,,WR129,WR134,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jordan Whittington,WR,FA,,WR133,WR129,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Kendrick Bourne,WR,FA,,WR137,WR122,0,3,2,3,1,0.0,0.03,,0.67,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jahan Dotson,WR,FA,,WR138,WR112,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Mack Hollins,WR,FA,,WR139,WR132,0,3,2,3,1,0.0,0.03,,0.67,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-KeAndre Lambert-Smith,WR,rostered,The Long Haulers,WR140,WR156,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
-Xavier Hutchinson,WR,FA,,WR146,WR139,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Tutu Atwell,WR,FA,,WR149,WR140,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Treylon Burks,WR,FA,,WR152,WR116,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Tai Felton,WR,FA,,WR153,WR160,0,3,2,3,1,0.0,0.03,,0.67,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Roman Wilson,WR,rostered,CBP,WR158,WR144,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,
+Rasheen Ali,RB,rostered,The Long Haulers,RB127,RB97,1,3,2,4,2,0.12,0.42,33.3,0.5,FAIR,DEPTH,cut-free dart,
+Keenan Allen,WR,FA,,WR109,WR104,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Devaughn Vele,WR,FA,,WR110,WR96,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Darius Slayton,WR,FA,,WR113,WR102,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Cyrus Allen,WR,FA,,WR116,WR119,1,3,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Deion Burks,WR,rostered,L.A. Looks,WR122,WR143,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,
+Joshua Palmer,WR,FA,,WR125,WR133,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+CJ Daniels,WR,FA,,WR128,WR123,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Luke McCaffrey,WR,FA,,WR129,WR134,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jordan Whittington,WR,FA,,WR133,WR129,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Kendrick Bourne,WR,FA,,WR137,WR122,1,3,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jahan Dotson,WR,FA,,WR138,WR112,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Mack Hollins,WR,FA,,WR139,WR132,1,3,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+KeAndre Lambert-Smith,WR,rostered,The Long Haulers,WR140,WR156,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,
+Xavier Hutchinson,WR,FA,,WR146,WR139,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Tutu Atwell,WR,FA,,WR149,WR140,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Treylon Burks,WR,FA,,WR152,WR116,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Tai Felton,WR,FA,,WR153,WR160,1,3,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Roman Wilson,WR,rostered,CBP,WR158,WR144,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,
 Xavier Restrepo,WR,FA,,WR159,,0,3,2,3,1,0.0,0.0,,0.67,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Olamide Zaccheaus,WR,FA,,WR161,WR135,0,3,2,3,1,0.0,0.03,,0.67,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Ja'Lynn Polk,WR,FA,,WR166,WR154,0,4,2,4,2,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jacob Cowing,WR,FA,,WR189,WR153,0,3,2,3,1,0.0,0.03,,0.67,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Marcus Mariota,QB,FA,,QB44,QB50,0,4,2,4,2,0.0,0.52,,0.5,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Jameis Winston,QB,FA,,QB45,QB43,0,4,2,4,2,0.0,0.52,,0.5,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Taylen Green,QB,rostered,Cleon Ca$h,QB46,QB47,0,4,2,4,2,0.0,0.52,,0.5,FAIR,NEED-STUD,cut-free dart,
-Tyson Bagent,QB,rostered,Sex Manther,QB47,QB45,0,4,2,4,2,0.0,0.52,,0.5,FAIR,NEED-STUD,cut-free dart,
+Olamide Zaccheaus,WR,FA,,WR161,WR135,1,3,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Ja'Lynn Polk,WR,FA,,WR166,WR154,1,4,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jacob Cowing,WR,FA,,WR189,WR153,1,3,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Odell Beckham Jr.,WR,FA,,WR251,WR113,1,2,2,4,2,0.12,0.03,33.3,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
 Spencer Rattler,QB,rostered,CBP,QB50,,0,4,2,4,2,0.0,0.0,,0.5,FAIR,NEED-STUD,cut-free dart,
 Quinn Ewers,QB,rostered,The Long Haulers,QB53,,0,5,2,5,3,0.0,0.0,,0.4,FAIR,NEED-STUD,cut-free dart,
 Cole Payton,QB,rostered,Pure Greatness,QB54,,0,3,2,3,1,0.0,0.0,,0.67,FAIR,NEED-STUD,cut-free dart,
-Joe Flacco,QB,FA,,QB55,QB40,0,3,2,6,4,0.0,1.05,,0.33,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Joe Flacco,QB,FA,,QB55,QB40,2,3,2,6,4,0.33,1.05,18.2,0.33,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
 Dillon Gabriel,QB,rostered,CBP,QB56,,0,3,2,3,1,0.0,0.0,,0.67,FAIR,NEED-STUD,cut-free dart,
 Davis Mills,QB,FA,,QB57,,0,4,2,4,2,0.0,0.0,,0.5,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
 Riley Leonard,QB,FA,,QB58,,0,5,2,5,3,0.0,0.0,,0.4,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
@@ -354,317 +363,308 @@ Tanner McKee,QB,rostered,Sex Manther,QB60,,0,3,2,3,1,0.0,0.0,,0.67,FAIR,NEED-STU
 Trey Lance,QB,FA,,QB62,,0,3,2,3,1,0.0,0.0,,0.67,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
 Gardner Minshew II,QB,FA,,QB63,,0,5,2,5,3,0.0,0.0,,0.4,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
 Tyler Huntley,QB,FA,,QB64,,0,3,2,3,1,0.0,0.0,,0.67,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Ben Sinnott,TE,rostered,HammerTime 🔨 ⏰,TE43,TE57,0,5,2,5,3,0.0,0.01,,0.4,FAIR,DEPTH,cut-free dart,
-Sam Roush,TE,rostered,Sex Manther,TE47,TE70,0,3,2,3,1,0.0,0.01,,0.67,FAIR,DEPTH,cut-free dart,
-Mike Gesicki,TE,FA,,TE48,TE32,0,5,2,5,3,0.0,0.81,,0.4,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Michael Trigg,TE,FA,,TE51,TE61,0,5,2,5,3,0.0,0.01,,0.4,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Jack Endries,TE,FA,,TE52,TE59,0,3,2,3,1,0.0,0.01,,0.67,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Jonnu Smith,TE,rostered,HammerTime 🔨 ⏰,TE54,TE78,0,3,2,3,1,0.0,0.01,,0.67,FAIR,DEPTH,cut-free dart,
-Dawson Knox,TE,FA,,TE55,TE40,0,4,2,4,2,0.0,0.01,,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Tyrod Taylor,QB,FA,,QB66,QB51,2,1,2,4,2,0.25,0.52,16.0,0.5,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Sam Roush,TE,rostered,Sex Manther,TE47,TE70,1,3,2,4,2,0.16,0.01,25.0,0.5,FAIR,DEPTH,cut-free dart,
+Tanner Koziol,TE,FA,,TE50,TE55,1,2,2,4,2,0.23,0.01,17.4,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Jack Endries,TE,FA,,TE52,TE59,1,3,2,4,2,0.21,0.01,19.0,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Jonnu Smith,TE,rostered,HammerTime 🔨 ⏰,TE54,TE78,1,3,2,4,2,0.13,0.01,30.8,0.5,FAIR,DEPTH,cut-free dart,
 Noah Fant,TE,rostered,Real Deal Creel,TE57,,0,4,2,4,2,0.0,0.0,,0.5,FAIR,DEPTH,cut-free dart,
-Luke Musgrave,TE,FA,,TE59,TE53,0,5,2,5,3,0.0,0.01,,0.4,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Erick All Jr.,TE,rostered,Pure Greatness,TE61,TE47,0,5,2,5,3,0.0,0.01,,0.4,FAIR,DEPTH,cut-free dart,
-Elijah Higgins,TE,FA,,TE62,TE60,0,3,2,3,1,0.0,0.01,,0.67,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Noah Gray,TE,FA,,TE63,TE51,0,4,2,4,2,0.0,0.01,,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Mitchell Evans,TE,FA,,TE67,TE62,0,3,2,3,1,0.0,0.01,,0.67,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Daniel Bellinger,TE,FA,,TE81,TE69,0,4,2,4,2,0.0,0.01,,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Kareem Hunt,RB,FA,,RB101,,0,2,1,2,1,0.0,0.0,,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Samaje Perine,RB,FA,,RB106,RB72,0,2,1,2,1,0.0,0.85,,0.5,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Odell Beckham Jr.,WR,FA,,WR251,WR113,0,2,1,2,1,0.0,0.03,,0.5,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Marlin Klein,TE,FA,,TE49,,0,2,1,2,1,0.0,0.0,,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Tanner Koziol,TE,FA,,TE50,TE55,0,2,1,2,1,0.0,0.01,,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Will Kacmarek,TE,FA,,TE66,TE68,0,2,1,2,1,0.0,0.01,,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Roman Hemby,RB,FA,,RB90,,0,1,0,1,1,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Michael Carter,RB,FA,,RB99,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Audric Estime,RB,FA,,RB104,RB99,0,0,0,2,2,0.0,0.42,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Nick Chubb,RB,FA,,RB105,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Jaleel McLaughlin,RB,FA,,RB108,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Terion Stewart,RB,FA,,RB109,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Noah Whittington,RB,FA,,RB110,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-CJ Donaldson,RB,FA,,RB111,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Dean Connors,RB,FA,,RB112,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Daylan Smothers,RB,FA,,RB113,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Chip Trayanum,RB,FA,,RB114,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Jaydn Ott,RB,FA,,RB115,RB103,0,0,0,2,2,0.0,0.42,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Desmond Reid,RB,FA,,RB116,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Rahsul Faison,RB,FA,,RB117,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Mark Fletcher,RB,FA,,RB119,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Antonio Gibson,RB,FA,,RB122,RB91,0,0,0,2,2,0.0,0.42,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Bam Knight,RB,FA,,RB123,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Miles Sanders,RB,FA,,RB125,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Raheem Mostert,RB,FA,,RB126,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Ty Chandler,RB,FA,,RB128,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Tyler Badie,RB,FA,,RB129,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Austin Ekeler,RB,FA,,RB130,RB105,0,0,0,2,2,0.0,0.42,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
-Jawhar Jordan,RB,FA,,RB131,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Jeremy McNichols,RB,FA,,RB132,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Kalel Mullings,RB,FA,,RB133,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Elijah Mitchell,RB,FA,,RB134,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Zamir White,RB,FA,,RB135,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Khalil Herbert,RB,FA,,RB136,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Tyler Goodson,RB,FA,,RB137,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Alexander Mattison,RB,FA,,RB138,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-AJ Dillon,RB,FA,,RB139,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Hassan Haskins,RB,FA,,RB141,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Cam Akers,RB,FA,,RB142,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Donovan Edwards,RB,FA,,RB143,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Ameer Abdullah,RB,FA,,RB144,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Kenny McIntosh,RB,FA,,RB145,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Gus Edwards,RB,FA,,RB146,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Eric Gray,RB,FA,,RB147,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Dare Ogunbowale,RB,FA,,RB148,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Evan Hull,RB,FA,,RB149,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Zack Moss,RB,FA,,RB150,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Sincere McCormick,RB,FA,,RB151,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Jaret Patterson,RB,FA,,RB152,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Carson Steele,RB,FA,,RB153,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Cody Schrader,RB,FA,,RB154,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Craig Reynolds,RB,FA,,RB155,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Trey Sermon,RB,FA,,RB156,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Marcus Yarns,RB,FA,,RB157,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Israel Abanikanda,RB,FA,,RB158,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Pierre Strong Jr.,RB,FA,,RB159,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Clyde Edwards-Helaire,RB,FA,,RB160,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Deuce Vaughn,RB,FA,,RB161,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-DeeJay Dallas,RB,FA,,RB162,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Frank Gore Jr.,RB,FA,,RB163,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Keaontay Ingram,RB,FA,,RB164,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-D'Onta Foreman,RB,FA,,RB165,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Keilan Robinson,RB,FA,,RB166,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Blake Watson,RB,FA,,RB167,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Kendall Milton,RB,FA,,RB168,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Deneric Prince,RB,FA,,RB169,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Cordarrelle Patterson,RB,FA,,RB170,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-D'Ernest Johnson,RB,FA,,RB171,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Joshua Kelley,RB,FA,,RB172,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Jeff Wilson Jr.,RB,FA,,RB173,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Dillon Johnson,RB,FA,,RB174,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Dalvin Cook,RB,FA,,RB175,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Daijun Edwards,RB,FA,,RB176,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Salvon Ahmed,RB,FA,,RB177,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Ronnie Rivers,RB,FA,,RB178,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Julius Chestnut,RB,FA,,RB179,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Chase Edmonds,RB,FA,,RB180,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Darrynton Evans,RB,FA,,RB181,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Kene Nwangwu,RB,FA,,RB182,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Jerick McKinnon,RB,FA,,RB183,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Chris Evans,RB,FA,,RB184,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Jase McClellan,RB,FA,,RB185,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-JaMycal Hasty,RB,FA,,RB186,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Kevin Harris,RB,FA,,RB187,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Travis Homer,RB,FA,,RB188,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Trayveon Williams,RB,FA,,RB189,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Tyrion Davis-Price,RB,FA,,RB190,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-DeWayne McBride,RB,FA,,RB191,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Nyheim Miller-Hines,RB,FA,,RB192,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Matt Breida,RB,FA,,RB193,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Michael Wiley,RB,FA,,RB194,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Royce Freeman,RB,FA,,RB195,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Gary Brightwell,RB,FA,,RB196,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Emani Bailey,RB,FA,,RB197,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Lew Nichols III,RB,FA,,RB198,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Jashaun Corbin,RB,FA,,RB199,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Gride; Hawks
-Hollywood Brown,WR,FA,,WR111,WR115,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Josh Cameron,WR,FA,,WR131,,0,1,0,1,1,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Eric McAlister,WR,FA,,WR132,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Elijah Moore,WR,FA,,WR135,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jeff Caldwell,WR,FA,,WR136,WR164,0,1,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Tyler Lockett,WR,FA,,WR141,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Malik Benson,WR,FA,,WR142,WR131,0,1,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Eric Rivers Jr.,WR,FA,,WR143,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Tyren Montgomery,WR,FA,,WR144,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Barion Brown,WR,FA,,WR145,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-DeAndre Hopkins,WR,FA,,WR147,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Reggie Virgil,WR,FA,,WR148,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Dyami Brown,WR,FA,,WR150,WR127,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Chase Roberts,WR,FA,,WR154,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Kaden Wetjen,WR,FA,,WR155,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Noah Thomas,WR,FA,,WR156,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Colbie Young,WR,FA,,WR157,WR141,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-KaVontae Turpin,WR,FA,,WR163,WR117,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jahdae Walker,WR,FA,,WR164,WR145,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Kendrick Law,WR,FA,,WR165,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Nick Westbrook-Ikhine,WR,FA,,WR167,WR126,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Aaron Anderson,WR,FA,,WR168,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Trebor Pena,WR,FA,,WR169,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jake Bobo,WR,FA,,WR170,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Trey Palmer,WR,FA,,WR171,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Greg Dortch,WR,FA,,WR172,WR142,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Brandin Cooks,WR,FA,,WR173,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jalin Hyatt,WR,FA,,WR174,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Tyrell Shavers,WR,FA,,WR175,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Dane Key,WR,FA,,WR176,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Demarcus Robinson,WR,FA,,WR177,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jordan Watkins,WR,FA,,WR179,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Gabe Davis,WR,FA,,WR180,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-JuJu Smith-Schuster,WR,FA,,WR181,WR158,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Harrison Wallace III,WR,FA,,WR182,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Romello Brinson,WR,FA,,WR183,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Noah Brown,WR,FA,,WR184,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Kalif Raymond,WR,FA,,WR185,WR125,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Sterling Shepard,WR,FA,,WR186,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Arian Smith,WR,FA,,WR187,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Van Jefferson,WR,FA,,WR188,WR149,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Vinny Anthony II,WR,FA,,WR190,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Isaiah Hodgins,WR,FA,,WR191,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Nick Nash,WR,FA,,WR193,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Marquez Valdes-Scantling,WR,FA,,WR195,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Curtis Samuel,WR,FA,,WR196,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Bo Melton,WR,FA,,WR197,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Ashton Dulin,WR,FA,,WR198,WR146,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Josh Reynolds,WR,FA,,WR199,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jamari Thrash,WR,FA,,WR200,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jonathan Mingo,WR,FA,,WR201,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Javon Baker,WR,FA,,WR202,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Henry Ruggs III,WR,FA,,WR203,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Diontae Johnson,WR,FA,,WR204,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Ricky White III,WR,FA,,WR205,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Tim Patrick,WR,FA,,WR206,WR151,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Kameron Johnson,WR,FA,,WR207,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Darius Cooper,WR,FA,,WR208,WR161,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Mitch Tinsley,WR,FA,,WR209,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Tyler Scott,WR,FA,,WR210,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Tahj Washington,WR,FA,,WR211,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Johnny Wilson,WR,FA,,WR212,WR163,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Zay Jones,WR,FA,,WR213,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-David Moore,WR,FA,,WR214,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Allen Lazard,WR,FA,,WR215,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Skyy Moore,WR,FA,,WR216,WR130,0,0,0,2,2,0.0,0.03,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
-Casey Washington,WR,FA,,WR218,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Charlie Jones,WR,FA,,WR219,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Dominic Lovett,WR,FA,,WR220,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Tyler Johnson,WR,FA,,WR221,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Justin Watson,WR,FA,,WR222,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Ray-Ray McCloud III,WR,FA,,WR223,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Bub Means,WR,FA,,WR224,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Cedrick Wilson Jr.,WR,FA,,WR225,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-K.J. Osborn,WR,FA,,WR226,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Tylan Wallace,WR,FA,,WR227,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Derius Davis,WR,FA,,WR228,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-A.T. Perry,WR,FA,,WR229,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Hunter Renfrow,WR,FA,,WR230,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Ben Skowronek,WR,FA,,WR231,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Scotty Miller,WR,FA,,WR232,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Quez Watkins,WR,FA,,WR233,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Mecole Hardman Jr.,WR,FA,,WR235,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Braxton Berrios,WR,FA,,WR236,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Velus Jones Jr.,WR,FA,,WR237,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Xavier Gipson,WR,FA,,WR238,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Terrace Marshall Jr.,WR,FA,,WR239,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Devin Duvernay,WR,FA,,WR240,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jason Brownlee,WR,FA,,WR241,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Trenton Irwin,WR,FA,,WR242,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Nelson Agholor,WR,FA,,WR243,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Tejhaun Palmer,WR,FA,,WR244,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Danny Gray,WR,FA,,WR245,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Jalen Reagor,WR,FA,,WR246,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Donovan Peoples-Jones,WR,FA,,WR247,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Kyle Philips,WR,FA,,WR248,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Zach Pascal,WR,FA,,WR249,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Justyn Ross,WR,FA,,WR250,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Michael Thomas,WR,FA,,WR252,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Chase Claypool,WR,FA,,WR253,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,Gride; Hawks; CBP
-Russell Wilson,QB,FA,,QB59,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Kenny Pickett,QB,FA,,QB65,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Tyrod Taylor,QB,FA,,QB66,QB51,0,1,0,2,2,0.0,0.52,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Haynes King,QB,FA,,QB67,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Aidan O'Connell,QB,FA,,QB68,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Mason Rudolph,QB,FA,,QB69,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Zach Wilson,QB,FA,,QB70,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Diego Pavia,QB,FA,,QB72,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Jake Browning,QB,FA,,QB73,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Philip Rivers,QB,FA,,QB74,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Joey Aguilar,QB,FA,,QB75,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Sam Howell,QB,FA,,QB76,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Jimmy Garoppolo,QB,FA,,QB77,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Mitchell Trubisky,QB,FA,,QB78,QB52,0,0,0,2,2,0.0,0.52,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Jarrett Stidham,QB,FA,,QB79,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Brady Cook,QB,FA,,QB80,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Drew Lock,QB,FA,,QB81,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Andy Dalton,QB,FA,,QB82,QB53,0,0,0,1,1,0.0,0.52,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Kyle McCord,QB,FA,,QB83,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Joshua Dobbs,QB,FA,,QB84,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Max Brosmer,QB,FA,,QB85,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Nick Mullens,QB,FA,,QB86,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Kurtis Rourke,QB,FA,,QB87,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Cooper Rush,QB,FA,,QB88,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Hendon Hooker,QB,FA,,QB89,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Kyle Allen,QB,FA,,QB90,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Stetson Bennett IV,QB,FA,,QB91,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Dorian Thompson-Robinson,QB,FA,,QB92,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Bailey Zappe,QB,FA,,QB93,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Tommy DeVito,QB,FA,,QB94,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Desmond Ridder,QB,FA,,QB95,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Sam Ehlinger,QB,FA,,QB96,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Josh Johnson,QB,FA,,QB97,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Case Keenum,QB,FA,,QB98,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Sean Clifford,QB,FA,,QB99,,0,0,0,0,0,0.0,0.0,,,—,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
-Matt Hibner,TE,FA,,TE53,TE56,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Tyler Higbee,TE,FA,,TE56,TE54,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Joe Royer,TE,FA,,TE58,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Luke Schoonmaker,TE,FA,,TE64,TE71,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Nate Boerkircher,TE,FA,,TE65,TE64,0,1,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Dae'Quan Wright,TE,FA,,TE68,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Dallen Bentley,TE,FA,,TE69,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Darren Waller,TE,FA,,TE70,TE67,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Seydou Traore,TE,FA,,TE71,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Riley Nowakowski,TE,FA,,TE72,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Jaren Kanak,TE,FA,,TE73,,0,1,0,1,1,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-RJ Maryland,TE,FA,,TE74,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Josh Cuevas,TE,FA,,TE75,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Tyler Conklin,TE,FA,,TE76,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Carsen Ryan,TE,FA,,TE78,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Tommy Tremble,TE,FA,,TE79,TE63,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Taysom Hill,TE,FA,,TE80,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-John Michael Gyllenborg,TE,FA,,TE82,,0,1,0,1,1,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Jared Wiley,TE,FA,,TE83,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Adam Trautman,TE,FA,,TE84,TE74,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Josh Oliver,TE,FA,,TE85,TE72,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Thomas Fidone II,TE,FA,,TE86,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Austin Hooper,TE,FA,,TE87,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Charlie Kolar,TE,FA,,TE88,TE44,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Davis Allen,TE,FA,,TE89,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Grant Calcaterra,TE,FA,,TE90,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Will Dissly,TE,FA,,TE91,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Brock Wright,TE,FA,,TE92,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Jeremy Ruckert,TE,FA,,TE93,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Jackson Hawes,TE,FA,,TE94,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Foster Moreau,TE,FA,,TE95,TE65,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Hunter Long,TE,FA,,TE96,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Kylen Granson,TE,FA,,TE97,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Jake Briningstool,TE,FA,,TE98,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Brevin Jordan,TE,FA,,TE99,TE76,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Luke Lachey,TE,FA,,TE100,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Tanner Hudson,TE,FA,,TE101,TE66,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Stone Smartt,TE,FA,,TE102,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Harrison Bryant,TE,FA,,TE103,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Jelani Woods,TE,FA,,TE104,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Jalin Conyers,TE,FA,,TE105,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Gavin Bartholomew,TE,FA,,TE106,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Jaheim Bell,TE,FA,,TE107,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Luke Farrell,TE,FA,,TE108,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Tip Reiman,TE,FA,,TE109,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Josh Whyle,TE,FA,,TE110,TE75,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Will Mallory,TE,FA,,TE111,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Julian Hill,TE,FA,,TE112,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Devin Culp,TE,FA,,TE113,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-John Bates,TE,FA,,TE114,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Lucas Krull,TE,FA,,TE115,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Gerald Everett,TE,FA,,TE116,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Moliki Matavao,TE,FA,,TE117,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Irv Smith Jr.,TE,FA,,TE118,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Brevyn Spann-Ford,TE,FA,,TE119,TE73,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Drew Ogletree,TE,FA,,TE120,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Johnny Mundt,TE,FA,,TE121,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Payne Durham,TE,FA,,TE122,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Drew Sample,TE,FA,,TE123,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Mo Alie-Cox,TE,FA,,TE124,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Donald Parham Jr.,TE,FA,,TE125,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Eric Saubert,TE,FA,,TE126,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Jack Stoll,TE,FA,,TE127,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Durham Smythe,TE,FA,,TE128,TE58,0,0,0,2,2,0.0,0.01,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-James Mitchell,TE,FA,,TE129,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Connor Heyward,TE,FA,,TE130,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Shane Zylstra,TE,FA,,TE131,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Ian Thomas,TE,FA,,TE132,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
-Teagan Quitoriano,TE,FA,,TE133,,0,0,0,0,0,0.0,0.0,,,—,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Elijah Higgins,TE,FA,,TE62,TE60,1,3,2,4,2,0.2,0.01,20.0,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Will Kacmarek,TE,FA,,TE66,TE68,1,2,2,4,2,0.16,0.01,25.0,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Mitchell Evans,TE,FA,,TE67,TE62,1,3,2,4,2,0.19,0.01,21.1,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Daniel Bellinger,TE,FA,,TE81,TE69,1,4,2,4,2,0.16,0.01,25.0,0.5,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Kareem Hunt,RB,FA,,RB101,,0,2,1,3,2,0.0,0.0,,0.33,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Jeff Caldwell,WR,FA,,WR136,WR164,1,1,1,4,3,0.12,0.03,33.3,0.25,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Malik Benson,WR,FA,,WR142,WR131,1,1,1,4,3,0.12,0.03,33.3,0.25,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Mitchell Trubisky,QB,FA,,QB78,QB52,2,0,1,4,3,0.25,0.52,16.0,0.25,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Andy Dalton,QB,FA,,QB82,QB53,2,0,1,4,3,0.24,0.52,16.7,0.25,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Marlin Klein,TE,FA,,TE49,,0,2,1,3,2,0.0,0.0,,0.33,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Nate Boerkircher,TE,FA,,TE65,TE64,1,1,1,4,3,0.18,0.01,22.2,0.25,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Charlie Kolar,TE,FA,,TE88,TE44,2,0,1,4,3,0.3,0.01,13.3,0.25,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Roman Hemby,RB,FA,,RB90,,0,1,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Michael Carter,RB,FA,,RB99,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Audric Estime,RB,FA,,RB104,RB99,1,0,0,4,4,0.12,0.42,33.3,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Nick Chubb,RB,FA,,RB105,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Jaleel McLaughlin,RB,FA,,RB108,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Terion Stewart,RB,FA,,RB109,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Noah Whittington,RB,FA,,RB110,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+CJ Donaldson,RB,FA,,RB111,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Dean Connors,RB,FA,,RB112,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Daylan Smothers,RB,FA,,RB113,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Chip Trayanum,RB,FA,,RB114,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Jaydn Ott,RB,FA,,RB115,RB103,1,0,0,4,4,0.12,0.42,33.3,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Desmond Reid,RB,FA,,RB116,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Rahsul Faison,RB,FA,,RB117,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Mark Fletcher,RB,FA,,RB119,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Antonio Gibson,RB,FA,,RB122,RB91,1,0,0,4,4,0.12,0.42,33.3,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Bam Knight,RB,FA,,RB123,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Miles Sanders,RB,FA,,RB125,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Raheem Mostert,RB,FA,,RB126,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Ty Chandler,RB,FA,,RB128,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Tyler Badie,RB,FA,,RB129,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Austin Ekeler,RB,FA,,RB130,RB105,1,0,0,4,4,0.12,0.42,33.3,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Jawhar Jordan,RB,FA,,RB131,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Jeremy McNichols,RB,FA,,RB132,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Kalel Mullings,RB,FA,,RB133,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Elijah Mitchell,RB,FA,,RB134,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Zamir White,RB,FA,,RB135,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Khalil Herbert,RB,FA,,RB136,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Tyler Goodson,RB,FA,,RB137,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Alexander Mattison,RB,FA,,RB138,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+AJ Dillon,RB,FA,,RB139,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Hassan Haskins,RB,FA,,RB141,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Cam Akers,RB,FA,,RB142,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Donovan Edwards,RB,FA,,RB143,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Ameer Abdullah,RB,FA,,RB144,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Kenny McIntosh,RB,FA,,RB145,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Gus Edwards,RB,FA,,RB146,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Eric Gray,RB,FA,,RB147,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Dare Ogunbowale,RB,FA,,RB148,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Evan Hull,RB,FA,,RB149,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Zack Moss,RB,FA,,RB150,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Sincere McCormick,RB,FA,,RB151,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Jaret Patterson,RB,FA,,RB152,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Carson Steele,RB,FA,,RB153,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Cody Schrader,RB,FA,,RB154,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Craig Reynolds,RB,FA,,RB155,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Trey Sermon,RB,FA,,RB156,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Marcus Yarns,RB,FA,,RB157,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Israel Abanikanda,RB,FA,,RB158,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Pierre Strong Jr.,RB,FA,,RB159,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Clyde Edwards-Helaire,RB,FA,,RB160,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Deuce Vaughn,RB,FA,,RB161,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+DeeJay Dallas,RB,FA,,RB162,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Frank Gore Jr.,RB,FA,,RB163,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Keaontay Ingram,RB,FA,,RB164,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+D'Onta Foreman,RB,FA,,RB165,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Keilan Robinson,RB,FA,,RB166,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Blake Watson,RB,FA,,RB167,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Kendall Milton,RB,FA,,RB168,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Deneric Prince,RB,FA,,RB169,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Cordarrelle Patterson,RB,FA,,RB170,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+D'Ernest Johnson,RB,FA,,RB171,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Joshua Kelley,RB,FA,,RB172,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Jeff Wilson Jr.,RB,FA,,RB173,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Dillon Johnson,RB,FA,,RB174,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Dalvin Cook,RB,FA,,RB175,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Daijun Edwards,RB,FA,,RB176,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Salvon Ahmed,RB,FA,,RB177,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Ronnie Rivers,RB,FA,,RB178,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Julius Chestnut,RB,FA,,RB179,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Chase Edmonds,RB,FA,,RB180,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Darrynton Evans,RB,FA,,RB181,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Kene Nwangwu,RB,FA,,RB182,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Jerick McKinnon,RB,FA,,RB183,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Chris Evans,RB,FA,,RB184,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Jase McClellan,RB,FA,,RB185,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+JaMycal Hasty,RB,FA,,RB186,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Kevin Harris,RB,FA,,RB187,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Travis Homer,RB,FA,,RB188,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Trayveon Williams,RB,FA,,RB189,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Tyrion Davis-Price,RB,FA,,RB190,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+DeWayne McBride,RB,FA,,RB191,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Nyheim Miller-Hines,RB,FA,,RB192,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Matt Breida,RB,FA,,RB193,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Michael Wiley,RB,FA,,RB194,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Royce Freeman,RB,FA,,RB195,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Gary Brightwell,RB,FA,,RB196,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Emani Bailey,RB,FA,,RB197,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Lew Nichols III,RB,FA,,RB198,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Jashaun Corbin,RB,FA,,RB199,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Gride; Hawks
+Hollywood Brown,WR,FA,,WR111,WR115,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Josh Cameron,WR,FA,,WR131,,0,1,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Eric McAlister,WR,FA,,WR132,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Elijah Moore,WR,FA,,WR135,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Tyler Lockett,WR,FA,,WR141,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Eric Rivers Jr.,WR,FA,,WR143,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Tyren Montgomery,WR,FA,,WR144,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Barion Brown,WR,FA,,WR145,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+DeAndre Hopkins,WR,FA,,WR147,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Reggie Virgil,WR,FA,,WR148,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Dyami Brown,WR,FA,,WR150,WR127,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Chase Roberts,WR,FA,,WR154,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Kaden Wetjen,WR,FA,,WR155,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Noah Thomas,WR,FA,,WR156,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Colbie Young,WR,FA,,WR157,WR141,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+KaVontae Turpin,WR,FA,,WR163,WR117,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jahdae Walker,WR,FA,,WR164,WR145,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Kendrick Law,WR,FA,,WR165,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Nick Westbrook-Ikhine,WR,FA,,WR167,WR126,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Aaron Anderson,WR,FA,,WR168,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Trebor Pena,WR,FA,,WR169,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jake Bobo,WR,FA,,WR170,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Trey Palmer,WR,FA,,WR171,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Greg Dortch,WR,FA,,WR172,WR142,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Brandin Cooks,WR,FA,,WR173,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jalin Hyatt,WR,FA,,WR174,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Tyrell Shavers,WR,FA,,WR175,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Dane Key,WR,FA,,WR176,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Demarcus Robinson,WR,FA,,WR177,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jordan Watkins,WR,FA,,WR179,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Gabe Davis,WR,FA,,WR180,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+JuJu Smith-Schuster,WR,FA,,WR181,WR158,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Harrison Wallace III,WR,FA,,WR182,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Romello Brinson,WR,FA,,WR183,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Noah Brown,WR,FA,,WR184,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Kalif Raymond,WR,FA,,WR185,WR125,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Sterling Shepard,WR,FA,,WR186,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Arian Smith,WR,FA,,WR187,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Van Jefferson,WR,FA,,WR188,WR149,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Vinny Anthony II,WR,FA,,WR190,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Isaiah Hodgins,WR,FA,,WR191,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Nick Nash,WR,FA,,WR193,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Marquez Valdes-Scantling,WR,FA,,WR195,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Curtis Samuel,WR,FA,,WR196,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Bo Melton,WR,FA,,WR197,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Ashton Dulin,WR,FA,,WR198,WR146,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Josh Reynolds,WR,FA,,WR199,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jamari Thrash,WR,FA,,WR200,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jonathan Mingo,WR,FA,,WR201,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Javon Baker,WR,FA,,WR202,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Henry Ruggs III,WR,FA,,WR203,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Diontae Johnson,WR,FA,,WR204,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Ricky White III,WR,FA,,WR205,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Tim Patrick,WR,FA,,WR206,WR151,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Kameron Johnson,WR,FA,,WR207,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Darius Cooper,WR,FA,,WR208,WR161,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Mitch Tinsley,WR,FA,,WR209,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Tyler Scott,WR,FA,,WR210,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Tahj Washington,WR,FA,,WR211,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Johnny Wilson,WR,FA,,WR212,WR163,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Zay Jones,WR,FA,,WR213,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+David Moore,WR,FA,,WR214,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Allen Lazard,WR,FA,,WR215,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Skyy Moore,WR,FA,,WR216,WR130,1,0,0,4,4,0.12,0.03,33.3,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Casey Washington,WR,FA,,WR218,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Charlie Jones,WR,FA,,WR219,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Dominic Lovett,WR,FA,,WR220,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Tyler Johnson,WR,FA,,WR221,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Justin Watson,WR,FA,,WR222,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Ray-Ray McCloud III,WR,FA,,WR223,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Bub Means,WR,FA,,WR224,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Cedrick Wilson Jr.,WR,FA,,WR225,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+K.J. Osborn,WR,FA,,WR226,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Tylan Wallace,WR,FA,,WR227,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Derius Davis,WR,FA,,WR228,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+A.T. Perry,WR,FA,,WR229,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Hunter Renfrow,WR,FA,,WR230,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Ben Skowronek,WR,FA,,WR231,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Scotty Miller,WR,FA,,WR232,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Quez Watkins,WR,FA,,WR233,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Mecole Hardman Jr.,WR,FA,,WR235,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Braxton Berrios,WR,FA,,WR236,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Velus Jones Jr.,WR,FA,,WR237,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Xavier Gipson,WR,FA,,WR238,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Terrace Marshall Jr.,WR,FA,,WR239,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Devin Duvernay,WR,FA,,WR240,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jason Brownlee,WR,FA,,WR241,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Trenton Irwin,WR,FA,,WR242,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Nelson Agholor,WR,FA,,WR243,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Tejhaun Palmer,WR,FA,,WR244,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Danny Gray,WR,FA,,WR245,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Jalen Reagor,WR,FA,,WR246,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Donovan Peoples-Jones,WR,FA,,WR247,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Kyle Philips,WR,FA,,WR248,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Zach Pascal,WR,FA,,WR249,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Justyn Ross,WR,FA,,WR250,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Michael Thomas,WR,FA,,WR252,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Chase Claypool,WR,FA,,WR253,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,Gride; Hawks; CBP
+Russell Wilson,QB,FA,,QB59,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Kenny Pickett,QB,FA,,QB65,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Haynes King,QB,FA,,QB67,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Aidan O'Connell,QB,FA,,QB68,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Mason Rudolph,QB,FA,,QB69,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Zach Wilson,QB,FA,,QB70,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Diego Pavia,QB,FA,,QB72,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Jake Browning,QB,FA,,QB73,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Philip Rivers,QB,FA,,QB74,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Joey Aguilar,QB,FA,,QB75,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Sam Howell,QB,FA,,QB76,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Jimmy Garoppolo,QB,FA,,QB77,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Jarrett Stidham,QB,FA,,QB79,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Brady Cook,QB,FA,,QB80,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Drew Lock,QB,FA,,QB81,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Kyle McCord,QB,FA,,QB83,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Joshua Dobbs,QB,FA,,QB84,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Max Brosmer,QB,FA,,QB85,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Nick Mullens,QB,FA,,QB86,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Kurtis Rourke,QB,FA,,QB87,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Cooper Rush,QB,FA,,QB88,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Hendon Hooker,QB,FA,,QB89,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Kyle Allen,QB,FA,,QB90,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Stetson Bennett IV,QB,FA,,QB91,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Dorian Thompson-Robinson,QB,FA,,QB92,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Bailey Zappe,QB,FA,,QB93,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Tommy DeVito,QB,FA,,QB94,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Desmond Ridder,QB,FA,,QB95,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Sam Ehlinger,QB,FA,,QB96,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Josh Johnson,QB,FA,,QB97,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Case Keenum,QB,FA,,QB98,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Sean Clifford,QB,FA,,QB99,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,NEED-STUD,cut-free dart,Hawks; CBP; L.A. Looks
+Matt Hibner,TE,FA,,TE53,TE56,1,0,0,4,4,0.22,0.01,18.2,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Tyler Higbee,TE,FA,,TE56,TE54,1,0,0,4,4,0.23,0.01,17.4,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Joe Royer,TE,FA,,TE58,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Luke Schoonmaker,TE,FA,,TE64,TE71,1,0,0,4,4,0.15,0.01,26.7,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Dae'Quan Wright,TE,FA,,TE68,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Dallen Bentley,TE,FA,,TE69,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Darren Waller,TE,FA,,TE70,TE67,1,0,0,4,4,0.17,0.01,23.5,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Seydou Traore,TE,FA,,TE71,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Riley Nowakowski,TE,FA,,TE72,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Jaren Kanak,TE,FA,,TE73,,0,1,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+RJ Maryland,TE,FA,,TE74,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Josh Cuevas,TE,FA,,TE75,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Tyler Conklin,TE,FA,,TE76,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Carsen Ryan,TE,FA,,TE78,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Tommy Tremble,TE,FA,,TE79,TE63,1,0,0,4,4,0.19,0.01,21.1,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Taysom Hill,TE,FA,,TE80,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+John Michael Gyllenborg,TE,FA,,TE82,,0,1,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Jared Wiley,TE,FA,,TE83,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Adam Trautman,TE,FA,,TE84,TE74,1,0,0,4,4,0.14,0.01,28.6,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Josh Oliver,TE,FA,,TE85,TE72,1,0,0,4,4,0.15,0.01,26.7,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Thomas Fidone II,TE,FA,,TE86,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Austin Hooper,TE,FA,,TE87,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Davis Allen,TE,FA,,TE89,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Grant Calcaterra,TE,FA,,TE90,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Will Dissly,TE,FA,,TE91,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Brock Wright,TE,FA,,TE92,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Jeremy Ruckert,TE,FA,,TE93,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Jackson Hawes,TE,FA,,TE94,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Foster Moreau,TE,FA,,TE95,TE65,1,0,0,4,4,0.18,0.01,22.2,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Hunter Long,TE,FA,,TE96,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Kylen Granson,TE,FA,,TE97,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Jake Briningstool,TE,FA,,TE98,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Brevin Jordan,TE,FA,,TE99,TE76,1,0,0,4,4,0.13,0.01,30.8,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Luke Lachey,TE,FA,,TE100,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Tanner Hudson,TE,FA,,TE101,TE66,1,0,0,4,4,0.17,0.01,23.5,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Stone Smartt,TE,FA,,TE102,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Harrison Bryant,TE,FA,,TE103,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Jelani Woods,TE,FA,,TE104,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Jalin Conyers,TE,FA,,TE105,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Gavin Bartholomew,TE,FA,,TE106,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Jaheim Bell,TE,FA,,TE107,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Luke Farrell,TE,FA,,TE108,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Tip Reiman,TE,FA,,TE109,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Josh Whyle,TE,FA,,TE110,TE75,1,0,0,4,4,0.14,0.01,28.6,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Will Mallory,TE,FA,,TE111,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Julian Hill,TE,FA,,TE112,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Devin Culp,TE,FA,,TE113,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+John Bates,TE,FA,,TE114,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Lucas Krull,TE,FA,,TE115,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Gerald Everett,TE,FA,,TE116,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Moliki Matavao,TE,FA,,TE117,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Irv Smith Jr.,TE,FA,,TE118,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Brevyn Spann-Ford,TE,FA,,TE119,TE73,1,0,0,4,4,0.15,0.01,26.7,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Drew Ogletree,TE,FA,,TE120,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Johnny Mundt,TE,FA,,TE121,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Payne Durham,TE,FA,,TE122,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Drew Sample,TE,FA,,TE123,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Mo Alie-Cox,TE,FA,,TE124,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Donald Parham Jr.,TE,FA,,TE125,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Eric Saubert,TE,FA,,TE126,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Jack Stoll,TE,FA,,TE127,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Durham Smythe,TE,FA,,TE128,TE58,1,0,0,4,4,0.21,0.01,19.0,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+James Mitchell,TE,FA,,TE129,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Connor Heyward,TE,FA,,TE130,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Shane Zylstra,TE,FA,,TE131,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Ian Thomas,TE,FA,,TE132,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride
+Teagan Quitoriano,TE,FA,,TE133,,0,0,0,3,3,0.0,0.0,,0.0,FAIR,DEPTH,cut-free dart,CBP; Blake Bombers; Gride

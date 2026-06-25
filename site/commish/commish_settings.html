@@ -642,13 +642,12 @@
     };
     rows.sort(SORTS[FAV.sort] || SORTS.worth);
 
-    // ── inflation panel (live-trackable) ──
-    var inflCls = infl.regime === "hot" ? "hot" : (infl.regime === "deep pool" ? "cool" : "");
-    var inflCard = '<div class="fo-card fav-infl ' + inflCls + '"><div class="fav-infl-grid">' +
-      '<div class="fav-infl-big"><div class="fav-infl-x">' + ((infl.factor != null ? infl.factor : 1).toFixed(2)) + '×</div>' +
-      '<div class="fav-infl-lab">expected price ÷<br>production worth<br><span class="fav-rk">' + esc(infl.regime || '—') + ' market</span></div></div>' +
+    // ── market panel (v4: the affine clearing line is the inflation) ──
+    var inflCard = '<div class="fo-card fav-infl"><div class="fav-infl-grid">' +
+      '<div class="fav-infl-big"><div class="fav-infl-x">' + ((infl.board_markup != null ? infl.board_markup : 1).toFixed(2)) + '×</div>' +
+      '<div class="fav-infl-lab">expected price ÷<br>production worth<br><span class="fav-rk">v4 clearing line</span></div></div>' +
       '<div class="fav-infl-ms">' +
-      '<div class="fav-infl-m"><span>scarcity ante</span><b>$' + (infl.ante_live || 0) + 'K</b> <span class="fav-rk">(norm $' + (infl.ante_base || 7) + 'K)</span></div>' +
+      '<div class="fav-infl-m"><span>clearing line</span><b>$' + (infl.ante || 0) + 'K + ' + (infl.slope || 0) + '·worth</b></div>' +
       '<div class="fav-infl-m"><span>biddable money</span><b>$' + (infl.biddable_money_k || 0) + 'K</b></div>' +
       '<div class="fav-infl-m"><span>credible pool (worth)</span><b>$' + (infl.credible_value_k || 0) + 'K</b></div>' +
       '<div class="fav-infl-m"><span>locked rostered surplus</span><b>$' + (infl.surplus_k || 0) + 'K</b></div>' +

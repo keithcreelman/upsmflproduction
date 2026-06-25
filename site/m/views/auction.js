@@ -420,8 +420,8 @@
     rows.sort(function (a, b) { return (b._w || 0) - (a._w || 0); });
     rows = rows.slice(0, 60);
     var pct = Math.round(state.favDynW * 100);
-    var inflStrip = '<div class="ups-m-fav-infl"><div class="ups-m-fav-infl-x">' + ((infl.factor || 1).toFixed(2)) + '×</div>' +
-      '<div class="ups-m-fav-infl-t"><b>' + U.escapeHtml(infl.regime || '') + ' market</b> · ante $' + (infl.ante_live || 0) + 'K (norm $' + (infl.ante_base || 7) + 'K)<br>biddable $' + (infl.biddable_money_k || 0) + 'K vs pool $' + (infl.credible_value_k || 0) + 'K · locked surplus $' + (infl.surplus_k || 0) + 'K</div>' +
+    var inflStrip = '<div class="ups-m-fav-infl"><div class="ups-m-fav-infl-x">' + ((infl.board_markup || 1).toFixed(2)) + '×</div>' +
+      '<div class="ups-m-fav-infl-t"><b>v4 clearing line</b> · $' + (infl.ante || 0) + 'K + ' + (infl.slope || 0) + '·worth<br>biddable $' + (infl.biddable_money_k || 0) + 'K vs pool $' + (infl.credible_value_k || 0) + 'K · locked surplus $' + (infl.surplus_k || 0) + 'K</div>' +
       '<button type="button" id="ups-m-fav-help-btn" class="ups-m-fav-help-q" title="How does this work?">?</button></div>';
     var blend = '<div class="ups-m-fav-blend"><div class="ups-m-fav-blend-h">Worth blend — win-now <b>' + (100 - pct) + '</b> / dynasty <b>' + pct + '</b></div>' +
       '<input type="range" id="ups-m-fav-blend" min="0" max="100" step="5" value="' + pct + '"></div>';
