@@ -2126,6 +2126,9 @@ button.ups-m-busy::before,
 .ups-m-fav-tier.sweet { border-color: #34d399; }
 .ups-m-fav-tier-l { font-size: 11px; font-weight: 700; text-transform: uppercase; } .ups-m-fav-tier-l i { color: var(--fg-muted); font-weight: 500; font-style: normal; }
 .ups-m-fav-tier-v { font-size: 12px; color: var(--fg); white-space: nowrap; } .ups-m-fav-tier-v b { font-size: 10px; color: var(--fg-muted); font-weight: 600; }
+/* FA value live overlay */
+.ups-m-fav-liveline { font-size: 11px; font-weight: 600; color: var(--fg-muted); margin-bottom: 8px; }
+.ups-m-fav-liveline.on { color: #34d399; }
 /* FA value help */
 .ups-m-fav-help-q { margin-left: auto; flex: 0 0 26px; width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--accent, #5b8dff); background: transparent; color: var(--accent, #5b8dff); font-weight: 800; font-size: 14px; }
 .ups-m-fav-help { font-size: 13px; line-height: 1.55; }

@@ -195,6 +195,13 @@
   .fav-infl-ms { display: flex; flex-wrap: wrap; gap: 6px 18px; }
   .fav-infl-m { font-size: 11.5px; color: var(--muted); } .fav-infl-m b { color: var(--fg); font-size: 13px; margin-left: 5px; }
   .fav-infl-note { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--line); padding-top: 8px; }
+  /* live auction overlay */
+  .fav-live { font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 4px 0 9px; }
+  .fav-live.on { color: #34d399; } .fav-live.on b { color: #34d399; }
+  .fav-sold { font-weight: 800; color: var(--muted); text-decoration: line-through; }
+  .fav-bid { font-weight: 800; color: #fbbf24; }
+  .fav-cleared { opacity: 0.6; }
+  .fav-rk.pos { color: #34d399; } .fav-rk.neg { color: var(--danger); }
   /* worth blend slider */
   .fav-blend-tag { font-size: 10.5px; font-weight: 700; color: var(--fg); background: var(--panel2); border-radius: 999px; padding: 1px 8px; }
   .fav-blend input[type=range] { width: 100%; margin: 8px 0 4px; accent-color: var(--accent); cursor: pointer; }
@@ -611,6 +618,12 @@
     if (WR.fav === false) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">FA value not loaded.</div></div>'; return; }
     if (FAV.dynW == null) FAV.dynW = 0.5;
     var d = WR.fav, meta = d.meta || {}, infl = meta.inflation || {}, mine = (d.teams || {})["0008"] || { fit: {} };
+    // LIVE auction overlay — as lots clear, recompute from the real board (non-blocking fetch)
+    if (WR.favLive === undefined) {
+      WR.favLive = null;
+      fetchJSON(apiUrl("/api/auction/lots") + "?L=" + encodeURIComponent(L) + "&franchise_id=0008").then(function (r) { WR.favLive = r || { lots: [] }; if (WR.view === "favalue") paintFaValue(host); }).catch(function () { WR.favLive = { lots: [] }; });
+    }
+    var live = favLiveState(d);
     if (FAV.showHelp) {
       host.innerHTML = favHelpCard(d);
       var bk = document.getElementById("fav-help-back"); if (bk) bk.addEventListener("click", function () { FAV.showHelp = false; paintFaValue(host); });
@@ -625,6 +638,12 @@
       r._price = r.o ? (r.av || 0) : (r.e || 0);
       r._gap = r._price - r._w;
       var v = favVerdict(r._w, r._price, r.a90); r._v = v[1]; r._vlab = v[0]; r._vcls = v[2];
+      // live overlay: sold (actual clear) / active (current bid) / calibrated live-EP for the rest
+      if (!r.o) {
+        var nk = fnk(r.n);
+        r._sold = live.sold[nk]; r._active = live.active[nk];
+        r._liveEP = (live.factor && r._sold == null && r._active == null) ? Math.round((r.e || 0) * live.factor) : null;
+      }
     });
     // filters
     if (FAV.ownership === "available") rows = rows.filter(function (r) { return !r.o; });
@@ -642,8 +661,11 @@
     };
     rows.sort(SORTS[FAV.sort] || SORTS.worth);
 
-    // ── market panel (v4: the affine clearing line is the inflation) ──
-    var inflCard = '<div class="fo-card fav-infl"><div class="fav-infl-grid">' +
+    // ── market panel (v4: the affine clearing line is the inflation) + live overlay ──
+    var liveLine = live.live
+      ? '<div class="fav-live on">🔴 LIVE · ' + live.nSold + ' sold · ' + live.nActive + ' active' + (live.factor ? ' · room running <b>' + live.factor.toFixed(2) + '×</b> model → remaining prices recalibrated' : ' · need ≥3 clears to calibrate') + '</div>'
+      : '<div class="fav-live">⚪ Auction not live — opens late July. As lots clear, sold prices recalibrate the remaining board automatically.</div>';
+    var inflCard = '<div class="fo-card fav-infl">' + liveLine + '<div class="fav-infl-grid">' +
       '<div class="fav-infl-big"><div class="fav-infl-x">' + ((infl.board_markup != null ? infl.board_markup : 1).toFixed(2)) + '×</div>' +
       '<div class="fav-infl-lab">expected price ÷<br>production worth<br><span class="fav-rk">v4 clearing line</span></div></div>' +
       '<div class="fav-infl-ms">' +
@@ -689,12 +711,24 @@
       var lastCol = owned ? '<span class="fav-comp own">🔁 ' + esc(favTeamName(r.o)) + '</span>'
         : ((r.c || []).map(function (fid) { return '<span class="fav-comp">' + esc(favTeamName(fid)) + '</span>'; }).join("") || '<span class="fav-rk">—</span>');
       var worthTip = 'redraft (production) $' + (r.rw || 0) + 'K · dynasty (asset) $' + (r.dw || 0) + 'K';
-      var tr = '<tr class="fav-row' + (owned ? ' owned' : '') + '" data-favi="' + i + '">' +
+      // live price cell: SOLD (actual vs model) / 🔨 active bid / live-calibrated EP / model EP
+      var priceCell;
+      if (r._sold != null) {
+        var d2 = r._sold - r._price, dc = d2 > 2 ? "neg" : (d2 < -2 ? "pos" : "");
+        priceCell = '<span class="fav-sold">SOLD $' + r._sold + 'K</span><span class="fav-rk ' + dc + '"> mdl $' + r._price + '</span>';
+      } else if (r._active != null) {
+        priceCell = '<span class="fav-bid">🔨 $' + r._active + 'K</span><span class="fav-rk"> mdl $' + r._price + '</span>';
+      } else if (r._liveEP != null) {
+        priceCell = '<b>$' + r._liveEP + 'K</b><span class="fav-rk"> live · mdl $' + r._price + '</span>';
+      } else {
+        priceCell = '<b>$' + r._price + 'K</b>' + (owned ? '<span class="fav-rk"> AAV</span>' : '');
+      }
+      var tr = '<tr class="fav-row' + (owned ? ' owned' : '') + (r._sold != null ? ' fav-cleared' : '') + '" data-favi="' + i + '">' +
         '<td><b>' + esc(r.n) + '</b> <span class="fav-rk">' + esc(r.dr) + (r.fr ? ' · ' + esc(r.fr) : '') + '</span></td>' +
         '<td><span class="fav-v ' + r._vcls + '">' + r._vlab + '</span></td>' +
         '<td>' + favRangeBar(r.a50, r.a90, APWE_SCALE) + '<span class="fav-apw"><b>' + (r.a50 || 0) + '</b> · ' + (r.a90 || 0) + '</span></td>' +
         '<td class="num" title="' + worthTip + '">$' + r._w + 'K</td>' +
-        '<td class="num"><b>$' + r._price + 'K</b>' + (owned ? '<span class="fav-rk"> AAV</span>' : '') + '</td>' +
+        '<td class="num">' + priceCell + '</td>' +
         '<td class="num fav-vr ' + gapCls + '" title="' + (owned ? 'worth minus contract cost — negative = surplus you\'d acquire' : 'price minus worth — positive = positional premium') + '">' + (gap > 0 ? '+' : '') + gap + '</td>' +
         '<td>' + fitTxt + '</td>' +
         '<td>' + lastCol + '</td></tr>';
@@ -714,6 +748,30 @@
     var tb = document.getElementById("fav-tiers-btn"); if (tb) tb.addEventListener("click", function () { FAV.showTiers = !FAV.showTiers; paintFaValue(host); });
     var hb = document.getElementById("fav-help-btn"); if (hb) hb.addEventListener("click", function () { FAV.showHelp = true; paintFaValue(host); });
     $$(".fav-row", host).forEach(function (tr) { tr.addEventListener("click", function () { var nm = rows[parseInt(tr.getAttribute("data-favi"), 10)].n; FAV.open[nm] = !FAV.open[nm]; paintFaValue(host); }); });
+    // while the auction is live, re-pull the board every 45s so it recomputes as lots clear
+    clearTimeout(WR.favPoll);
+    if (live.live) WR.favPoll = setTimeout(function () { if (WR.view === "favalue") { WR.favLive = undefined; paintFaValue(host); } }, 45000);
+  }
+  // Read the live auction board (/api/auction/lots) → who's sold (actual price) + active, and a
+  // LIVE CALIBRATION factor = median(actual ÷ model EP) over cleared lots. Offseason → empty/1.0.
+  function favLiveState(d) {
+    var lots = (WR.favLive && WR.favLive.lots) || [];
+    if (!Array.isArray(lots)) lots = (lots && lots.lots) || [];
+    var sold = {}, active = {}, nSold = 0, nActive = 0, cal = [];
+    var epByName = {}; (d.fas || []).forEach(function (p) { if (!p.o) epByName[fnk(p.n)] = p.e || 0; });
+    lots.forEach(function (l) {
+      var nm = fnk(l.player_name || l.player || l.name || ""), st = String(l.status || "").toLowerCase();
+      var price = (l.winning_bid_k != null ? l.winning_bid_k : (l.final_bid_k != null ? l.final_bid_k : l.current_high_bid_k)) || 0;
+      if (st === "won" || st === "closed" || st === "expired") { sold[nm] = price; nSold++; var m = epByName[nm]; if (m && price > 0) cal.push(price / m); }
+      else if (st === "open" || st === "active") { active[nm] = price; nActive++; }
+    });
+    cal.sort(function (a, b) { return a - b; });
+    var factor = cal.length >= 3 ? Math.round(cal[Math.floor(cal.length / 2)] * 100) / 100 : null;
+    // "live" only when there are OPEN lots (auction in progress). With 0 active, any "sold" lots are
+    // stale/prior-year (the 2026 auction opens late July) → ignore them so they don't leak onto the board.
+    var isLive = nActive > 0;
+    if (!isLive) { sold = {}; active = {}; factor = null; }
+    return { live: isLive, sold: sold, active: active, nSold: isLive ? nSold : 0, nActive: nActive, factor: factor };
   }
   function favTiersCard(meta) {
     var tiers = meta.tiers || {};
