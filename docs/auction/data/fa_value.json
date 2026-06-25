@@ -686,13 +686,14 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 26,
+        "sal_k": 26,
         "tcv_k": 129,
         "cl": 2,
+        "aav_k": 64,
         "cy": 2
       },
-      "aav_k": 26,
-      "trade_gap_k": -51,
+      "aav_k": 64,
+      "trade_gap_k": -13,
       "dyn_sf_rank": "WR1",
       "redraft_rank": "WR1",
       "fp_rank": "WR1",
@@ -778,9 +779,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 22,
+        "sal_k": 22,
         "tcv_k": 44,
         "cl": 2,
+        "aav_k": 22,
         "cy": 2
       },
       "aav_k": 22,
@@ -817,13 +819,14 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 70,
         "cl": 3,
+        "aav_k": 23,
         "cy": 2
       },
-      "aav_k": 1,
-      "trade_gap_k": -69,
+      "aav_k": 23,
+      "trade_gap_k": -47,
       "dyn_sf_rank": "WR2",
       "redraft_rank": "WR3",
       "fp_rank": "WR3",
@@ -909,9 +912,10 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 35,
+        "sal_k": 35,
         "tcv_k": 70,
         "cl": 2,
+        "aav_k": 35,
         "cy": 2
       },
       "aav_k": 35,
@@ -948,13 +952,14 @@
       "own": "0004",
       "owner_team": "Pure Greatness",
       "contract": {
-        "aav_k": 31,
+        "sal_k": 31,
         "tcv_k": 73,
         "cl": 3,
+        "aav_k": 24,
         "cy": 2
       },
-      "aav_k": 31,
-      "trade_gap_k": -33,
+      "aav_k": 24,
+      "trade_gap_k": -40,
       "dyn_sf_rank": "RB2",
       "redraft_rank": "RB2",
       "fp_rank": "RB1",
@@ -987,9 +992,10 @@
       "own": "0001",
       "owner_team": "L.A. Looks",
       "contract": {
-        "aav_k": 51,
+        "sal_k": 51,
         "tcv_k": 51,
         "cl": 1,
+        "aav_k": 51,
         "cy": 1
       },
       "aav_k": 51,
@@ -1026,9 +1032,10 @@
       "own": "0004",
       "owner_team": "Pure Greatness",
       "contract": {
-        "aav_k": 8,
+        "sal_k": 8,
         "tcv_k": 24,
         "cl": 3,
+        "aav_k": 8,
         "cy": 1
       },
       "aav_k": 8,
@@ -1118,13 +1125,14 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 71,
+        "sal_k": 71,
         "tcv_k": 96,
         "cl": 2,
+        "aav_k": 48,
         "cy": 1
       },
-      "aav_k": 71,
-      "trade_gap_k": 10,
+      "aav_k": 48,
+      "trade_gap_k": -13,
       "dyn_sf_rank": "WR3",
       "redraft_rank": "WR5",
       "fp_rank": "WR6",
@@ -1157,9 +1165,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 15,
+        "sal_k": 15,
         "tcv_k": 45,
         "cl": 3,
+        "aav_k": 15,
         "cy": 1
       },
       "aav_k": 15,
@@ -1196,13 +1205,14 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 64,
+        "sal_k": 64,
         "tcv_k": 172,
         "cl": 3,
+        "aav_k": 57,
         "cy": 1
       },
-      "aav_k": 64,
-      "trade_gap_k": 4,
+      "aav_k": 57,
+      "trade_gap_k": -3,
       "dyn_sf_rank": "WR4",
       "redraft_rank": "WR6",
       "fp_rank": "WR5",
@@ -1235,9 +1245,10 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 12,
+        "sal_k": 12,
         "tcv_k": 36,
         "cl": 3,
+        "aav_k": 12,
         "cy": 1
       },
       "aav_k": 12,
@@ -1274,9 +1285,10 @@
       "own": "0004",
       "owner_team": "Pure Greatness",
       "contract": {
-        "aav_k": 15,
+        "sal_k": 15,
         "tcv_k": 45,
         "cl": 3,
+        "aav_k": 15,
         "cy": 2
       },
       "aav_k": 15,
@@ -1313,13 +1325,14 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 52,
+        "sal_k": 52,
         "tcv_k": 66,
         "cl": 2,
+        "aav_k": 33,
         "cy": 1
       },
-      "aav_k": 52,
-      "trade_gap_k": -4,
+      "aav_k": 33,
+      "trade_gap_k": -23,
       "dyn_sf_rank": "WR8",
       "redraft_rank": "WR7",
       "fp_rank": "WR7",
@@ -1352,13 +1365,14 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 67,
+        "sal_k": 67,
         "tcv_k": 84,
         "cl": 2,
+        "aav_k": 42,
         "cy": 1
       },
-      "aav_k": 67,
-      "trade_gap_k": 14,
+      "aav_k": 42,
+      "trade_gap_k": -11,
       "dyn_sf_rank": "QB6",
       "redraft_rank": "QB9",
       "fp_rank": "QB7",
@@ -1391,13 +1405,14 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 27,
+        "sal_k": 27,
         "tcv_k": 61,
         "cl": 3,
+        "aav_k": 20,
         "cy": 1
       },
-      "aav_k": 27,
-      "trade_gap_k": -23,
+      "aav_k": 20,
+      "trade_gap_k": -30,
       "dyn_sf_rank": "RB5",
       "redraft_rank": "RB7",
       "fp_rank": "RB6",
@@ -1430,9 +1445,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 13,
+        "sal_k": 13,
         "tcv_k": 39,
         "cl": 3,
+        "aav_k": 13,
         "cy": 2
       },
       "aav_k": 13,
@@ -1469,9 +1485,10 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 51,
+        "sal_k": 51,
         "tcv_k": 153,
         "cl": 3,
+        "aav_k": 51,
         "cy": 2
       },
       "aav_k": 51,
@@ -1508,13 +1525,14 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 25,
+        "sal_k": 25,
         "tcv_k": 55,
         "cl": 3,
+        "aav_k": 18,
         "cy": 2
       },
-      "aav_k": 25,
-      "trade_gap_k": -24,
+      "aav_k": 18,
+      "trade_gap_k": -31,
       "dyn_sf_rank": "RB7",
       "redraft_rank": "RB4",
       "fp_rank": "RB9",
@@ -1600,13 +1618,14 @@
       "own": "0002",
       "owner_team": "CBP",
       "contract": {
-        "aav_k": 47,
+        "sal_k": 47,
         "tcv_k": 110,
         "cl": 3,
+        "aav_k": 37,
         "cy": 2
       },
-      "aav_k": 47,
-      "trade_gap_k": -1,
+      "aav_k": 37,
+      "trade_gap_k": -11,
       "dyn_sf_rank": "WR13",
       "redraft_rank": "WR9",
       "fp_rank": "WR9",
@@ -1639,13 +1658,14 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 56,
+        "sal_k": 56,
         "tcv_k": 129,
         "cl": 2,
+        "aav_k": 64,
         "cy": 1
       },
-      "aav_k": 56,
-      "trade_gap_k": 8,
+      "aav_k": 64,
+      "trade_gap_k": 16,
       "dyn_sf_rank": "WR15",
       "redraft_rank": "WR10",
       "fp_rank": "WR8",
@@ -1678,9 +1698,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 62,
+        "sal_k": 62,
         "tcv_k": 62,
         "cl": 1,
+        "aav_k": 62,
         "cy": 1
       },
       "aav_k": 62,
@@ -1717,9 +1738,10 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 51,
+        "sal_k": 51,
         "tcv_k": 51,
         "cl": 1,
+        "aav_k": 51,
         "cy": 1
       },
       "aav_k": 51,
@@ -1756,9 +1778,10 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 13,
+        "sal_k": 13,
         "tcv_k": 39,
         "cl": 3,
+        "aav_k": 13,
         "cy": 1
       },
       "aav_k": 13,
@@ -1795,9 +1818,10 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 37,
+        "sal_k": 37,
         "tcv_k": 37,
         "cl": 1,
+        "aav_k": 37,
         "cy": 1
       },
       "aav_k": 37,
@@ -1940,9 +1964,10 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 15,
+        "sal_k": 15,
         "tcv_k": 45,
         "cl": 3,
+        "aav_k": 15,
         "cy": 3
       },
       "aav_k": 15,
@@ -1979,13 +2004,14 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 15,
+        "sal_k": 15,
         "tcv_k": 74,
         "cl": 2,
+        "aav_k": 37,
         "cy": 2
       },
-      "aav_k": 15,
-      "trade_gap_k": -27,
+      "aav_k": 37,
+      "trade_gap_k": -5,
       "dyn_sf_rank": "RB11",
       "redraft_rank": "RB12",
       "fp_rank": "RB10",
@@ -2018,9 +2044,10 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 9,
+        "sal_k": 9,
         "tcv_k": 27,
         "cl": 3,
+        "aav_k": 9,
         "cy": 2
       },
       "aav_k": 9,
@@ -2110,13 +2137,14 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 22,
+        "sal_k": 22,
         "tcv_k": 84,
         "cl": 3,
+        "aav_k": 28,
         "cy": 2
       },
-      "aav_k": 22,
-      "trade_gap_k": -17,
+      "aav_k": 28,
+      "trade_gap_k": -11,
       "dyn_sf_rank": "QB13",
       "redraft_rank": "QB13",
       "fp_rank": "QB13",
@@ -2149,9 +2177,10 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 9,
+        "sal_k": 9,
         "tcv_k": 27,
         "cl": 3,
+        "aav_k": 9,
         "cy": 1
       },
       "aav_k": 9,
@@ -2241,9 +2270,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 7,
+        "sal_k": 7,
         "tcv_k": 21,
         "cl": 3,
+        "aav_k": 7,
         "cy": 2
       },
       "aav_k": 7,
@@ -2280,13 +2310,14 @@
       "own": "0004",
       "owner_team": "Pure Greatness",
       "contract": {
-        "aav_k": 11,
+        "sal_k": 11,
         "tcv_k": 62,
         "cl": 2,
+        "aav_k": 31,
         "cy": 1
       },
-      "aav_k": 11,
-      "trade_gap_k": -27,
+      "aav_k": 31,
+      "trade_gap_k": -7,
       "dyn_sf_rank": "WR12",
       "redraft_rank": "WR16",
       "fp_rank": "WR13",
@@ -2319,9 +2350,10 @@
       "own": "0001",
       "owner_team": "L.A. Looks",
       "contract": {
-        "aav_k": 22,
+        "sal_k": 22,
         "tcv_k": 44,
         "cl": 2,
+        "aav_k": 22,
         "cy": 2
       },
       "aav_k": 22,
@@ -2358,9 +2390,10 @@
       "own": "0001",
       "owner_team": "L.A. Looks",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 1
       },
       "aav_k": 5,
@@ -2397,13 +2430,14 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 25,
+        "sal_k": 25,
         "tcv_k": 55,
         "cl": 3,
+        "aav_k": 18,
         "cy": 2
       },
-      "aav_k": 25,
-      "trade_gap_k": -11,
+      "aav_k": 18,
+      "trade_gap_k": -18,
       "dyn_sf_rank": "WR24",
       "redraft_rank": "WR17",
       "fp_rank": "WR12",
@@ -2436,9 +2470,10 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 35,
+        "sal_k": 35,
         "tcv_k": 70,
         "cl": 2,
+        "aav_k": 35,
         "cy": 1
       },
       "aav_k": 35,
@@ -2475,13 +2510,14 @@
       "own": "0002",
       "owner_team": "CBP",
       "contract": {
-        "aav_k": 44,
+        "sal_k": 44,
         "tcv_k": 68,
         "cl": 2,
+        "aav_k": 34,
         "cy": 1
       },
-      "aav_k": 44,
-      "trade_gap_k": 10,
+      "aav_k": 34,
+      "trade_gap_k": 0,
       "dyn_sf_rank": "WR10",
       "redraft_rank": "WR13",
       "fp_rank": "WR19",
@@ -2514,9 +2550,10 @@
       "own": "0002",
       "owner_team": "CBP",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 2
       },
       "aav_k": 5,
@@ -2553,9 +2590,10 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 1
       },
       "aav_k": 5,
@@ -2592,9 +2630,10 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 2
       },
       "aav_k": 5,
@@ -2631,13 +2670,14 @@
       "own": "0004",
       "owner_team": "Pure Greatness",
       "contract": {
-        "aav_k": 25,
+        "sal_k": 25,
         "tcv_k": 55,
         "cl": 3,
+        "aav_k": 18,
         "cy": 2
       },
-      "aav_k": 25,
-      "trade_gap_k": -8,
+      "aav_k": 18,
+      "trade_gap_k": -15,
       "dyn_sf_rank": "WR25",
       "redraft_rank": "WR21",
       "fp_rank": "WR15",
@@ -2670,9 +2710,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 19,
+        "sal_k": 19,
         "tcv_k": 19,
         "cl": 1,
+        "aav_k": 19,
         "cy": 1
       },
       "aav_k": 19,
@@ -2709,13 +2750,14 @@
       "own": "0002",
       "owner_team": "CBP",
       "contract": {
-        "aav_k": 21,
+        "sal_k": 21,
         "tcv_k": 43,
         "cl": 3,
+        "aav_k": 14,
         "cy": 1
       },
-      "aav_k": 21,
-      "trade_gap_k": -11,
+      "aav_k": 14,
+      "trade_gap_k": -18,
       "dyn_sf_rank": "QB14",
       "redraft_rank": "QB16",
       "fp_rank": "QB18",
@@ -2748,13 +2790,14 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 35,
+        "sal_k": 35,
         "tcv_k": 44,
         "cl": 2,
+        "aav_k": 22,
         "cy": 1
       },
-      "aav_k": 35,
-      "trade_gap_k": 3,
+      "aav_k": 22,
+      "trade_gap_k": -10,
       "dyn_sf_rank": "TE2",
       "redraft_rank": "TE1",
       "fp_rank": "TE2",
@@ -2787,13 +2830,14 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 44,
+        "sal_k": 44,
         "tcv_k": 94,
         "cl": 2,
+        "aav_k": 47,
         "cy": 1
       },
-      "aav_k": 44,
-      "trade_gap_k": 12,
+      "aav_k": 47,
+      "trade_gap_k": 15,
       "dyn_sf_rank": "RB22",
       "redraft_rank": "RB11",
       "fp_rank": "RB12",
@@ -2826,9 +2870,10 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 24,
+        "sal_k": 24,
         "tcv_k": 48,
         "cl": 2,
+        "aav_k": 24,
         "cy": 1
       },
       "aav_k": 24,
@@ -2865,9 +2910,10 @@
       "own": "0012",
       "owner_team": "Hawks",
       "contract": {
-        "aav_k": 22,
+        "sal_k": 22,
         "tcv_k": 44,
         "cl": 2,
+        "aav_k": 22,
         "cy": 1
       },
       "aav_k": 22,
@@ -2957,9 +3003,10 @@
       "own": "0012",
       "owner_team": "Hawks",
       "contract": {
-        "aav_k": 14,
+        "sal_k": 14,
         "tcv_k": 42,
         "cl": 3,
+        "aav_k": 14,
         "cy": 3
       },
       "aav_k": 14,
@@ -2996,9 +3043,10 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 2
       },
       "aav_k": 5,
@@ -3194,9 +3242,10 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 30,
+        "sal_k": 30,
         "tcv_k": 30,
         "cl": 1,
+        "aav_k": 30,
         "cy": 1
       },
       "aav_k": 30,
@@ -3233,9 +3282,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 10,
+        "sal_k": 10,
         "tcv_k": 30,
         "cl": 3,
+        "aav_k": 10,
         "cy": 1
       },
       "aav_k": 10,
@@ -3272,13 +3322,14 @@
       "own": "0004",
       "owner_team": "Pure Greatness",
       "contract": {
-        "aav_k": 26,
+        "sal_k": 26,
         "tcv_k": 62,
         "cl": 2,
+        "aav_k": 31,
         "cy": 1
       },
-      "aav_k": 26,
-      "trade_gap_k": 0,
+      "aav_k": 31,
+      "trade_gap_k": 5,
       "dyn_sf_rank": "QB20",
       "redraft_rank": "QB17",
       "fp_rank": "QB19",
@@ -3311,9 +3362,10 @@
       "own": "0004",
       "owner_team": "Pure Greatness",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 1
       },
       "aav_k": 5,
@@ -3350,9 +3402,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 12,
+        "sal_k": 12,
         "tcv_k": 36,
         "cl": 3,
+        "aav_k": 12,
         "cy": 2
       },
       "aav_k": 12,
@@ -3389,9 +3442,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 2
       },
       "aav_k": 5,
@@ -3428,9 +3482,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 14,
+        "sal_k": 14,
         "tcv_k": 42,
         "cl": 3,
+        "aav_k": 14,
         "cy": 1
       },
       "aav_k": 14,
@@ -3467,9 +3522,10 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 2
       },
       "aav_k": 5,
@@ -3506,9 +3562,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 11,
+        "sal_k": 11,
         "tcv_k": 33,
         "cl": 3,
+        "aav_k": 11,
         "cy": 3
       },
       "aav_k": 11,
@@ -3545,9 +3602,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 10,
+        "sal_k": 10,
         "tcv_k": 30,
         "cl": 3,
+        "aav_k": 10,
         "cy": 2
       },
       "aav_k": 10,
@@ -3637,9 +3695,10 @@
       "own": "0002",
       "owner_team": "CBP",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 2
       },
       "aav_k": 5,
@@ -3676,9 +3735,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 19,
+        "sal_k": 19,
         "tcv_k": 57,
         "cl": 3,
+        "aav_k": 19,
         "cy": 2
       },
       "aav_k": 19,
@@ -3715,9 +3775,10 @@
       "own": "0012",
       "owner_team": "Hawks",
       "contract": {
-        "aav_k": 24,
+        "sal_k": 24,
         "tcv_k": 72,
         "cl": 3,
+        "aav_k": 24,
         "cy": 1
       },
       "aav_k": 24,
@@ -3807,9 +3868,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 2
       },
       "aav_k": 5,
@@ -3846,9 +3908,10 @@
       "own": "0012",
       "owner_team": "Hawks",
       "contract": {
-        "aav_k": 10,
+        "sal_k": 10,
         "tcv_k": 30,
         "cl": 3,
+        "aav_k": 10,
         "cy": 3
       },
       "aav_k": 10,
@@ -3885,9 +3948,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 8,
+        "sal_k": 8,
         "tcv_k": 24,
         "cl": 3,
+        "aav_k": 8,
         "cy": 2
       },
       "aav_k": 8,
@@ -3924,9 +3988,10 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 12,
+        "sal_k": 12,
         "tcv_k": 12,
         "cl": 1,
+        "aav_k": 12,
         "cy": 1
       },
       "aav_k": 12,
@@ -3963,9 +4028,10 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 22,
+        "sal_k": 22,
         "tcv_k": 22,
         "cl": 1,
+        "aav_k": 22,
         "cy": 1
       },
       "aav_k": 22,
@@ -4002,13 +4068,14 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 10,
+        "sal_k": 10,
         "tcv_k": 50,
         "cl": 2,
+        "aav_k": 25,
         "cy": 2
       },
-      "aav_k": 10,
-      "trade_gap_k": -10,
+      "aav_k": 25,
+      "trade_gap_k": 5,
       "dyn_sf_rank": "TE4",
       "redraft_rank": "TE7",
       "fp_rank": "TE6",
@@ -4041,9 +4108,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 2
       },
       "aav_k": 1,
@@ -4080,9 +4148,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 21,
+        "sal_k": 21,
         "tcv_k": 42,
         "cl": 2,
+        "aav_k": 21,
         "cy": 1
       },
       "aav_k": 21,
@@ -4119,9 +4188,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 18,
+        "sal_k": 18,
         "tcv_k": 36,
         "cl": 2,
+        "aav_k": 18,
         "cy": 1
       },
       "aav_k": 18,
@@ -4211,9 +4281,10 @@
       "own": "0004",
       "owner_team": "Pure Greatness",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 1
       },
       "aav_k": 2,
@@ -4250,9 +4321,10 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 13,
+        "sal_k": 13,
         "tcv_k": 39,
         "cl": 3,
+        "aav_k": 13,
         "cy": 3
       },
       "aav_k": 13,
@@ -4342,13 +4414,14 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 12,
+        "sal_k": 12,
         "tcv_k": 42,
         "cl": 2,
+        "aav_k": 21,
         "cy": 2
       },
-      "aav_k": 12,
-      "trade_gap_k": -6,
+      "aav_k": 21,
+      "trade_gap_k": 3,
       "dyn_sf_rank": "RB27",
       "redraft_rank": "RB23",
       "fp_rank": "RB20",
@@ -4434,13 +4507,14 @@
       "own": "0004",
       "owner_team": "Pure Greatness",
       "contract": {
-        "aav_k": 20,
+        "sal_k": 20,
         "tcv_k": 90,
         "cl": 3,
+        "aav_k": 30,
         "cy": 1
       },
-      "aav_k": 20,
-      "trade_gap_k": 2,
+      "aav_k": 30,
+      "trade_gap_k": 12,
       "dyn_sf_rank": "WR41",
       "redraft_rank": "WR22",
       "fp_rank": "WR26",
@@ -4473,9 +4547,10 @@
       "own": "0001",
       "owner_team": "L.A. Looks",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 4,
         "cl": 2,
+        "aav_k": 2,
         "cy": 1
       },
       "aav_k": 2,
@@ -4512,9 +4587,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 12,
+        "sal_k": 12,
         "tcv_k": 36,
         "cl": 3,
+        "aav_k": 12,
         "cy": 3
       },
       "aav_k": 12,
@@ -4657,9 +4733,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 33,
+        "sal_k": 33,
         "tcv_k": 66,
         "cl": 2,
+        "aav_k": 33,
         "cy": 2
       },
       "aav_k": 33,
@@ -4730,9 +4807,10 @@
       "own": "0001",
       "owner_team": "L.A. Looks",
       "contract": {
-        "aav_k": 15,
+        "sal_k": 15,
         "tcv_k": 30,
         "cl": 2,
+        "aav_k": 15,
         "cy": 1
       },
       "aav_k": 15,
@@ -4822,9 +4900,10 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 18,
+        "sal_k": 18,
         "tcv_k": 18,
         "cl": 1,
+        "aav_k": 18,
         "cy": 1
       },
       "aav_k": 18,
@@ -4861,9 +4940,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 15,
+        "sal_k": 15,
         "tcv_k": 15,
         "cl": 1,
+        "aav_k": 15,
         "cy": 1
       },
       "aav_k": 15,
@@ -4900,9 +4980,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 9,
+        "sal_k": 9,
         "tcv_k": 27,
         "cl": 3,
+        "aav_k": 9,
         "cy": 3
       },
       "aav_k": 9,
@@ -4939,9 +5020,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 7,
+        "sal_k": 7,
         "tcv_k": 21,
         "cl": 3,
+        "aav_k": 7,
         "cy": 3
       },
       "aav_k": 7,
@@ -4978,9 +5060,10 @@
       "own": "0002",
       "owner_team": "CBP",
       "contract": {
-        "aav_k": 8,
+        "sal_k": 8,
         "tcv_k": 24,
         "cl": 3,
+        "aav_k": 8,
         "cy": 3
       },
       "aav_k": 8,
@@ -5017,9 +5100,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 4,
+        "sal_k": 4,
         "tcv_k": 12,
         "cl": 3,
+        "aav_k": 4,
         "cy": 2
       },
       "aav_k": 4,
@@ -5056,9 +5140,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 29,
+        "sal_k": 29,
         "tcv_k": 58,
         "cl": 2,
+        "aav_k": 29,
         "cy": 1
       },
       "aav_k": 29,
@@ -5095,13 +5180,14 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 17,
+        "sal_k": 17,
         "tcv_k": 24,
         "cl": 2,
+        "aav_k": 12,
         "cy": 1
       },
-      "aav_k": 17,
-      "trade_gap_k": 6,
+      "aav_k": 12,
+      "trade_gap_k": 1,
       "dyn_sf_rank": "WR35",
       "redraft_rank": "WR48",
       "fp_rank": "WR41",
@@ -5134,13 +5220,14 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 45,
+        "sal_k": 45,
         "tcv_k": 115,
         "cl": 3,
+        "aav_k": 38,
         "cy": 1
       },
-      "aav_k": 45,
-      "trade_gap_k": 34,
+      "aav_k": 38,
+      "trade_gap_k": 27,
       "dyn_sf_rank": "WR48",
       "redraft_rank": "WR36",
       "fp_rank": "WR48",
@@ -5173,9 +5260,10 @@
       "own": "0012",
       "owner_team": "Hawks",
       "contract": {
-        "aav_k": 11,
+        "sal_k": 11,
         "tcv_k": 33,
         "cl": 3,
+        "aav_k": 11,
         "cy": 2
       },
       "aav_k": 11,
@@ -5265,13 +5353,14 @@
       "own": "0012",
       "owner_team": "Hawks",
       "contract": {
-        "aav_k": 29,
+        "sal_k": 29,
         "tcv_k": 67,
         "cl": 3,
+        "aav_k": 22,
         "cy": 2
       },
-      "aav_k": 29,
-      "trade_gap_k": 19,
+      "aav_k": 22,
+      "trade_gap_k": 12,
       "dyn_sf_rank": "TE9",
       "redraft_rank": "TE14",
       "fp_rank": "TE13",
@@ -5357,9 +5446,10 @@
       "own": "0002",
       "owner_team": "CBP",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 3
       },
       "aav_k": 5,
@@ -5396,13 +5486,14 @@
       "own": "0001",
       "owner_team": "L.A. Looks",
       "contract": {
-        "aav_k": 21,
+        "sal_k": 21,
         "tcv_k": 32,
         "cl": 2,
+        "aav_k": 16,
         "cy": 1
       },
-      "aav_k": 21,
-      "trade_gap_k": 11,
+      "aav_k": 16,
+      "trade_gap_k": 6,
       "dyn_sf_rank": "TE13",
       "redraft_rank": "TE12",
       "fp_rank": "TE12",
@@ -5522,9 +5613,10 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 1
       },
       "aav_k": 5,
@@ -5561,9 +5653,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 10,
+        "sal_k": 10,
         "tcv_k": 20,
         "cl": 2,
+        "aav_k": 10,
         "cy": 1
       },
       "aav_k": 10,
@@ -5634,9 +5727,10 @@
       "own": "0012",
       "owner_team": "Hawks",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 2
       },
       "aav_k": 5,
@@ -5726,9 +5820,10 @@
       "own": "0001",
       "owner_team": "L.A. Looks",
       "contract": {
-        "aav_k": 7,
+        "sal_k": 7,
         "tcv_k": 7,
         "cl": 1,
+        "aav_k": 7,
         "cy": 1
       },
       "aav_k": 7,
@@ -5818,9 +5913,10 @@
       "own": "0002",
       "owner_team": "CBP",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 1
       },
       "aav_k": 5,
@@ -5857,13 +5953,14 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 11,
+        "sal_k": 11,
         "tcv_k": 12,
         "cl": 2,
+        "aav_k": 6,
         "cy": 1
       },
-      "aav_k": 11,
-      "trade_gap_k": 3,
+      "aav_k": 6,
+      "trade_gap_k": -2,
       "dyn_sf_rank": "RB32",
       "redraft_rank": "RB28",
       "fp_rank": "RB32",
@@ -5896,13 +5993,14 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 22,
+        "sal_k": 22,
         "tcv_k": 34,
         "cl": 2,
+        "aav_k": 17,
         "cy": 1
       },
-      "aav_k": 22,
-      "trade_gap_k": 14,
+      "aav_k": 17,
+      "trade_gap_k": 9,
       "dyn_sf_rank": "WR42",
       "redraft_rank": "WR49",
       "fp_rank": "WR50",
@@ -5969,9 +6067,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 6,
+        "sal_k": 6,
         "tcv_k": 18,
         "cl": 3,
+        "aav_k": 6,
         "cy": 3
       },
       "aav_k": 6,
@@ -6042,9 +6141,10 @@
       "own": "0012",
       "owner_team": "Hawks",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 1
       },
       "aav_k": 5,
@@ -6081,9 +6181,10 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 27,
+        "sal_k": 27,
         "tcv_k": 54,
         "cl": 2,
+        "aav_k": 27,
         "cy": 1
       },
       "aav_k": 27,
@@ -6120,13 +6221,14 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 15,
+        "sal_k": 15,
         "tcv_k": 116,
         "cl": 3,
+        "aav_k": 39,
         "cy": 1
       },
-      "aav_k": 15,
-      "trade_gap_k": 7,
+      "aav_k": 39,
+      "trade_gap_k": 31,
       "dyn_sf_rank": "QB28",
       "redraft_rank": "QB32",
       "fp_rank": "QB31",
@@ -6193,13 +6295,14 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 12,
+        "sal_k": 12,
         "tcv_k": 14,
         "cl": 2,
+        "aav_k": 7,
         "cy": 1
       },
-      "aav_k": 12,
-      "trade_gap_k": 4,
+      "aav_k": 7,
+      "trade_gap_k": -1,
       "dyn_sf_rank": "WR50",
       "redraft_rank": "WR50",
       "fp_rank": "WR43",
@@ -6232,9 +6335,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 7,
+        "sal_k": 7,
         "tcv_k": 21,
         "cl": 3,
+        "aav_k": 7,
         "cy": 1
       },
       "aav_k": 7,
@@ -6271,9 +6375,10 @@
       "own": "0012",
       "owner_team": "Hawks",
       "contract": {
-        "aav_k": 4,
+        "sal_k": 4,
         "tcv_k": 12,
         "cl": 3,
+        "aav_k": 4,
         "cy": 1
       },
       "aav_k": 4,
@@ -6310,9 +6415,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 2
       },
       "aav_k": 2,
@@ -6383,9 +6489,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 7,
+        "sal_k": 7,
         "tcv_k": 14,
         "cl": 2,
+        "aav_k": 7,
         "cy": 1
       },
       "aav_k": 7,
@@ -6422,9 +6529,10 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 1
       },
       "aav_k": 2,
@@ -6461,9 +6569,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 3,
+        "sal_k": 3,
         "tcv_k": 3,
         "cl": 1,
+        "aav_k": 3,
         "cy": 1
       },
       "aav_k": 3,
@@ -6746,9 +6855,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 3
       },
       "aav_k": 2,
@@ -6872,9 +6982,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 16,
+        "sal_k": 16,
         "tcv_k": 16,
         "cl": 1,
+        "aav_k": 16,
         "cy": 1
       },
       "aav_k": 16,
@@ -6911,13 +7022,14 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 45,
         "cl": 3,
+        "aav_k": 15,
         "cy": 2
       },
-      "aav_k": 1,
-      "trade_gap_k": -7,
+      "aav_k": 15,
+      "trade_gap_k": 7,
       "dyn_sf_rank": "QB34",
       "redraft_rank": "QB30",
       "fp_rank": "QB29",
@@ -7003,9 +7115,10 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 11,
+        "sal_k": 11,
         "tcv_k": 33,
         "cl": 3,
+        "aav_k": 11,
         "cy": 2
       },
       "aav_k": 11,
@@ -7042,9 +7155,10 @@
       "own": "0012",
       "owner_team": "Hawks",
       "contract": {
-        "aav_k": 9,
+        "sal_k": 9,
         "tcv_k": 27,
         "cl": 3,
+        "aav_k": 9,
         "cy": 1
       },
       "aav_k": 9,
@@ -7081,9 +7195,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 2
       },
       "aav_k": 2,
@@ -7120,9 +7235,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 14,
+        "sal_k": 14,
         "tcv_k": 42,
         "cl": 3,
+        "aav_k": 14,
         "cy": 2
       },
       "aav_k": 14,
@@ -7159,9 +7275,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 3
       },
       "aav_k": 5,
@@ -7232,9 +7349,10 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 11,
+        "sal_k": 11,
         "tcv_k": 33,
         "cl": 3,
+        "aav_k": 11,
         "cy": 1
       },
       "aav_k": 11,
@@ -7271,9 +7389,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 2,
         "cl": 2,
+        "aav_k": 1,
         "cy": 1
       },
       "aav_k": 1,
@@ -7310,9 +7429,10 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 11,
+        "sal_k": 11,
         "tcv_k": 33,
         "cl": 3,
+        "aav_k": 11,
         "cy": 2
       },
       "aav_k": 11,
@@ -7508,9 +7628,10 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 2
       },
       "aav_k": 2,
@@ -7600,9 +7721,10 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 3
       },
       "aav_k": 5,
@@ -7639,13 +7761,14 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 14,
+        "sal_k": 14,
         "tcv_k": 52,
         "cl": 3,
+        "aav_k": 17,
         "cy": 2
       },
-      "aav_k": 14,
-      "trade_gap_k": 8,
+      "aav_k": 17,
+      "trade_gap_k": 11,
       "dyn_sf_rank": "RB46",
       "redraft_rank": "RB41",
       "fp_rank": "RB41",
@@ -7833,9 +7956,10 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 3
       },
       "aav_k": 1,
@@ -7906,9 +8030,10 @@
       "own": "0002",
       "owner_team": "CBP",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 2
       },
       "aav_k": 1,
@@ -7945,9 +8070,10 @@
       "own": "0001",
       "owner_team": "L.A. Looks",
       "contract": {
-        "aav_k": 4,
+        "sal_k": 4,
         "tcv_k": 4,
         "cl": 1,
+        "aav_k": 4,
         "cy": 1
       },
       "aav_k": 4,
@@ -8052,13 +8178,14 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 25,
+        "sal_k": 25,
         "tcv_k": 57,
         "cl": 3,
+        "aav_k": 19,
         "cy": 2
       },
-      "aav_k": 25,
-      "trade_gap_k": 19,
+      "aav_k": 19,
+      "trade_gap_k": 13,
       "dyn_sf_rank": "WR58",
       "redraft_rank": "WR60",
       "fp_rank": "WR54",
@@ -8091,9 +8218,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 1
       },
       "aav_k": 1,
@@ -8130,9 +8258,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 7,
+        "sal_k": 7,
         "tcv_k": 21,
         "cl": 3,
+        "aav_k": 7,
         "cy": 2
       },
       "aav_k": 7,
@@ -8237,13 +8366,14 @@
       "own": "0001",
       "owner_team": "L.A. Looks",
       "contract": {
-        "aav_k": 21,
+        "sal_k": 21,
         "tcv_k": 32,
         "cl": 2,
+        "aav_k": 16,
         "cy": 1
       },
-      "aav_k": 21,
-      "trade_gap_k": 15,
+      "aav_k": 16,
+      "trade_gap_k": 10,
       "dyn_sf_rank": "WR66",
       "redraft_rank": "WR68",
       "fp_rank": "WR60",
@@ -8344,13 +8474,14 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 9,
         "cl": 3,
+        "aav_k": 3,
         "cy": 1
       },
-      "aav_k": 1,
-      "trade_gap_k": -5,
+      "aav_k": 3,
+      "trade_gap_k": -3,
       "dyn_sf_rank": "WR72",
       "redraft_rank": "WR67",
       "fp_rank": "WR71",
@@ -8485,9 +8616,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 8,
+        "sal_k": 8,
         "tcv_k": 24,
         "cl": 3,
+        "aav_k": 8,
         "cy": 2
       },
       "aav_k": 8,
@@ -8558,9 +8690,10 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 3
       },
       "aav_k": 2,
@@ -8786,9 +8919,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 2
       },
       "aav_k": 1,
@@ -9052,9 +9186,10 @@
       "own": "0004",
       "owner_team": "Pure Greatness",
       "contract": {
-        "aav_k": 4,
+        "sal_k": 4,
         "tcv_k": 12,
         "cl": 3,
+        "aav_k": 4,
         "cy": 1
       },
       "aav_k": 4,
@@ -9091,9 +9226,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 27,
+        "sal_k": 27,
         "tcv_k": 54,
         "cl": 2,
+        "aav_k": 27,
         "cy": 1
       },
       "aav_k": 27,
@@ -9130,9 +9266,10 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 2
       },
       "aav_k": 5,
@@ -9222,9 +9359,10 @@
       "own": "0012",
       "owner_team": "Hawks",
       "contract": {
-        "aav_k": 6,
+        "sal_k": 6,
         "tcv_k": 18,
         "cl": 3,
+        "aav_k": 6,
         "cy": 2
       },
       "aav_k": 6,
@@ -9314,9 +9452,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 2,
         "cl": 1,
+        "aav_k": 2,
         "cy": 1
       },
       "aav_k": 2,
@@ -9353,9 +9492,10 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 1
       },
       "aav_k": 5,
@@ -9494,9 +9634,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 2
       },
       "aav_k": 1,
@@ -9620,9 +9761,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 1
       },
       "aav_k": 5,
@@ -9693,9 +9835,10 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 1
       },
       "aav_k": 1,
@@ -9766,9 +9909,10 @@
       "own": "0001",
       "owner_team": "L.A. Looks",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 1,
         "cl": 1,
+        "aav_k": 1,
         "cy": 1
       },
       "aav_k": 1,
@@ -9892,9 +10036,10 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 2
       },
       "aav_k": 2,
@@ -10071,9 +10216,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 6,
+        "sal_k": 6,
         "tcv_k": 18,
         "cl": 3,
+        "aav_k": 6,
         "cy": 1
       },
       "aav_k": 6,
@@ -10110,9 +10256,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 1
       },
       "aav_k": 2,
@@ -10236,9 +10383,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 2,
         "cl": 1,
+        "aav_k": 2,
         "cy": 1
       },
       "aav_k": 2,
@@ -10309,9 +10457,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 4,
+        "sal_k": 4,
         "tcv_k": 4,
         "cl": 1,
+        "aav_k": 4,
         "cy": 1
       },
       "aav_k": 4,
@@ -10416,9 +10565,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 2
       },
       "aav_k": 2,
@@ -10659,13 +10809,14 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 62,
+        "sal_k": 62,
         "tcv_k": 142,
         "cl": 2,
+        "aav_k": 71,
         "cy": 1
       },
-      "aav_k": 62,
-      "trade_gap_k": 58,
+      "aav_k": 71,
+      "trade_gap_k": 67,
       "dyn_sf_rank": "WR57",
       "redraft_rank": "WR57",
       "fp_rank": "WR86",
@@ -10698,9 +10849,10 @@
       "own": "0012",
       "owner_team": "Hawks",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 2
       },
       "aav_k": 5,
@@ -10771,9 +10923,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 2
       },
       "aav_k": 5,
@@ -10916,9 +11069,10 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 2
       },
       "aav_k": 1,
@@ -10955,9 +11109,10 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 2
       },
       "aav_k": 5,
@@ -10994,9 +11149,10 @@
       "own": "0001",
       "owner_team": "L.A. Looks",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 3
       },
       "aav_k": 2,
@@ -11192,9 +11348,10 @@
       "own": "0004",
       "owner_team": "Pure Greatness",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 1
       },
       "aav_k": 2,
@@ -11318,13 +11475,14 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 24,
         "cl": 3,
+        "aav_k": 8,
         "cy": 2
       },
-      "aav_k": 5,
-      "trade_gap_k": 1,
+      "aav_k": 8,
+      "trade_gap_k": 4,
       "dyn_sf_rank": "WR115",
       "redraft_rank": null,
       "fp_rank": "WR120",
@@ -11773,9 +11931,10 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 5,
+        "sal_k": 5,
         "tcv_k": 15,
         "cl": 3,
+        "aav_k": 5,
         "cy": 1
       },
       "aav_k": 5,
@@ -11812,9 +11971,10 @@
       "own": "0003",
       "owner_team": "Gride",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 3
       },
       "aav_k": 2,
@@ -11851,9 +12011,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 2,
         "cl": 1,
+        "aav_k": 2,
         "cy": 1
       },
       "aav_k": 2,
@@ -11943,9 +12104,10 @@
       "own": "0001",
       "owner_team": "L.A. Looks",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 2,
         "cl": 2,
+        "aav_k": 1,
         "cy": 1
       },
       "aav_k": 1,
@@ -12035,13 +12197,14 @@
       "own": "0002",
       "owner_team": "CBP",
       "contract": {
-        "aav_k": 6,
+        "sal_k": 6,
         "tcv_k": 27,
         "cl": 3,
+        "aav_k": 9,
         "cy": 1
       },
-      "aav_k": 6,
-      "trade_gap_k": 2,
+      "aav_k": 9,
+      "trade_gap_k": 5,
       "dyn_sf_rank": "TE44",
       "redraft_rank": null,
       "fp_rank": "TE46",
@@ -12127,9 +12290,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 2
       },
       "aav_k": 1,
@@ -12306,9 +12470,10 @@
       "own": "0010",
       "owner_team": "Blake Bombers",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 3
       },
       "aav_k": 2,
@@ -12451,9 +12616,10 @@
       "own": "0009",
       "owner_team": "C-Town Chivalry",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 2
       },
       "aav_k": 1,
@@ -12524,9 +12690,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 2
       },
       "aav_k": 2,
@@ -12915,9 +13082,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 2
       },
       "aav_k": 1,
@@ -13234,9 +13402,10 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 3
       },
       "aav_k": 2,
@@ -13273,9 +13442,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 2,
         "cl": 2,
+        "aav_k": 1,
         "cy": 1
       },
       "aav_k": 1,
@@ -13645,9 +13815,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 1,
         "cl": 1,
+        "aav_k": 1,
         "cy": 1
       },
       "aav_k": 1,
@@ -13930,9 +14101,10 @@
       "own": "0011",
       "owner_team": "Cleon Ca$h",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 3
       },
       "aav_k": 2,
@@ -15150,9 +15322,10 @@
       "own": "0006",
       "owner_team": "The Long Haulers",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 2
       },
       "aav_k": 1,
@@ -15700,9 +15873,10 @@
       "own": "0002",
       "owner_team": "CBP",
       "contract": {
-        "aav_k": 2,
+        "sal_k": 2,
         "tcv_k": 6,
         "cl": 3,
+        "aav_k": 2,
         "cy": 1
       },
       "aav_k": 2,
@@ -16000,9 +16174,10 @@
       "own": "0007",
       "owner_team": "Sex Manther",
       "contract": {
-        "aav_k": 1,
+        "sal_k": 1,
         "tcv_k": 3,
         "cl": 3,
+        "aav_k": 1,
         "cy": 2
       },
       "aav_k": 1,
@@ -16391,9 +16566,10 @@
       "own": "0005",
       "owner_team": "HammerTime \ud83d\udd28 \u23f0",
       "contract": {
-        "aav_k": 6,
+        "sal_k": 6,
         "tcv_k": 18,
         "cl": 3,
+        "aav_k": 6,
         "cy": 2
       },
       "aav_k": 6,
@@ -16430,9 +16606,10 @@
       "own": "0008",
       "owner_team": "Real Deal Creel",
       "contract": {
-        "aav_k": 4,
+        "sal_k": 4,
         "tcv_k": 12,
         "cl": 3,
+        "aav_k": 4,
         "cy": 1
       },
       "aav_k": 4,

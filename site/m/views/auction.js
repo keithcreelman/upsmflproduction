@@ -467,11 +467,14 @@
         (r._sold != null ? '<span class="ups-m-fav-e" style="text-decoration:line-through;color:var(--fg-muted)">SOLD $' + r._sold + 'K</span>'
           : r._active != null ? '<span class="ups-m-fav-e" style="color:#fbbf24">🔨 $' + r._active + 'K</span>'
             : r._liveEP != null ? '<span class="ups-m-fav-e">$' + r._liveEP + 'K<i> live</i></span>'
-              : '<span class="ups-m-fav-e">$' + r._price + 'K' + (r.o ? '<i> AAV</i>' : '') + '</span>') +
+              : '<span class="ups-m-fav-e">$' + r._price + 'K' + (r.o ? '<i> AAV · $' + (r.sl != null ? r.sl : r._price) + 'K now</i>' : '') + '</span>') +
         '<span class="ups-m-fav-gap ' + gapCls + '">' + (r._gap > 0 ? '+' : '') + r._gap + '</span></div></div>';
-      var ct = r.contract || {}, aav = (ct.aav_k != null ? ct.aav_k : r.av), tcv = (ct.tcv_k != null ? ct.tcv_k : r.tcv), cl = (ct.cl != null ? ct.cl : r.cl);
+      var ct = r.contract || {}, aav = (ct.aav_k != null ? ct.aav_k : r.av), sal = (ct.sal_k != null ? ct.sal_k : r.sl),
+        tcv = (ct.tcv_k != null ? ct.tcv_k : r.tcv), cl = (ct.cl != null ? ct.cl : r.cl);
+      // back/front-loaded read off this-year cap hit vs the smoothed AAV (JSN $1K now vs $23K AAV = back-loaded)
+      var shape = (sal != null && aav) ? (sal < aav * 0.7 ? ' · ⚠ back-loaded' : (sal > aav * 1.3 ? ' · front-loaded' : '')) : '';
       var priceLine = r.o
-        ? 'contract AAV <b>$' + (aav != null ? aav : r._price) + 'K</b>/yr' + (tcv ? ' · total $' + tcv + 'K' : '') + (cl ? ' / ' + cl + 'yr' : '') + ' · ' + (r._gap <= 0 ? '<b>$' + (-r._gap) + 'K surplus</b>' : '<b>$' + r._gap + 'K overpaid</b>')
+        ? 'this yr <b>$' + (sal != null ? sal : r._price) + 'K</b> · AAV <b>$' + (aav != null ? aav : r._price) + 'K</b>/yr' + (tcv ? ' · total $' + tcv + 'K' : '') + (cl ? ' / ' + cl + 'yr' : '') + shape + '<br>worth $' + r._w + 'K vs AAV → ' + (r._gap <= 0 ? '<b>$' + (-r._gap) + 'K surplus</b>' : '<b>$' + r._gap + 'K over</b>')
         : 'price <b>$' + r._price + 'K</b> · gap <b>' + (r._gap > 0 ? '+' : '') + r._gap + 'K</b>';
       var detail = state.favOpen[r.n] ? '<div class="ups-m-fav-detail">redraft (production) <b>$' + (r.rw || 0) + 'K</b> · dynasty (asset) <b>$' + (r.dw || 0) + 'K</b><br>' +
         'all-play wins: proj <b>' + (r.a50 || 0) + '</b> · ceiling <b>' + (r.a90 || 0) + '</b><br>' + priceLine + '</div>' : '';

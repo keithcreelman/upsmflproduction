@@ -721,7 +721,7 @@
       } else if (r._liveEP != null) {
         priceCell = '<b>$' + r._liveEP + 'K</b><span class="fav-rk"> live · mdl $' + r._price + '</span>';
       } else {
-        priceCell = '<b>$' + r._price + 'K</b>' + (owned ? '<span class="fav-rk"> AAV</span>' : '');
+        priceCell = '<b>$' + r._price + 'K</b>' + (owned ? '<span class="fav-rk"> AAV · $' + (r.sl != null ? r.sl : r._price) + 'K this yr</span>' : '');
       }
       var tr = '<tr class="fav-row' + (owned ? ' owned' : '') + (r._sold != null ? ' fav-cleared' : '') + '" data-favi="' + i + '">' +
         '<td><b>' + esc(r.n) + '</b> <span class="fav-rk">' + esc(r.dr) + (r.fr ? ' · ' + esc(r.fr) : '') + '</span></td>' +
@@ -744,7 +744,29 @@
     $$("[data-favv]", host).forEach(function (b) { b.addEventListener("click", function () { FAV.verdict = b.getAttribute("data-favv"); paintFaValue(host); }); });
     var nc = document.getElementById("fav-need"); if (nc) nc.addEventListener("change", function () { FAV.needOnly = nc.checked; paintFaValue(host); });
     var ss = document.getElementById("fav-sort"); if (ss) ss.addEventListener("change", function () { FAV.sort = ss.value; paintFaValue(host); });
-    var bl = document.getElementById("fav-blend"); if (bl) bl.addEventListener("input", function () { FAV.dynW = (+bl.value) / 100; paintFaValue(host); });
+    var bl = document.getElementById("fav-blend");
+    if (bl) {
+      // IN-PLACE re-blend during drag (a full re-render would delete the slider element mid-drag
+      // and break it). Update worth/gap/verdict cells + the tiers card in place; full re-render +
+      // re-sort only on release (change).
+      bl.addEventListener("input", function () {
+        FAV.dynW = (+bl.value) / 100;
+        var pct = Math.round(FAV.dynW * 100), tag = host.querySelector(".fav-blend-tag");
+        if (tag) tag.textContent = "win-now " + (100 - pct) + " · dynasty " + pct;
+        $$(".fav-row", host).forEach(function (tr) {
+          var r = rows[parseInt(tr.getAttribute("data-favi"), 10)]; if (!r) return;
+          r._w = favWorth(r); r._gap = (r._price || 0) - r._w;
+          var vv = favVerdict(r._w, r._price, r.a90); r._vlab = vv[0]; r._vcls = vv[2];
+          var td = tr.children;
+          if (td[1]) td[1].innerHTML = '<span class="fav-v ' + r._vcls + '">' + r._vlab + '</span>';
+          if (td[3]) td[3].textContent = '$' + r._w + 'K';
+          if (td[5]) { var g = r._gap; td[5].className = "num fav-vr " + (g <= -3 ? "pos" : (g >= 3 ? "neg" : "")); td[5].textContent = (g > 0 ? '+' : '') + g; }
+        });
+        var tc = host.querySelector(".fav-tiers");
+        if (tc && FAV.showTiers) { var tmp = document.createElement("div"); tmp.innerHTML = favTiersCard(meta); if (tmp.firstChild) tc.parentNode.replaceChild(tmp.firstChild, tc); }
+      });
+      bl.addEventListener("change", function () { FAV.dynW = (+bl.value) / 100; paintFaValue(host); });
+    }
     var tb = document.getElementById("fav-tiers-btn"); if (tb) tb.addEventListener("click", function () { FAV.showTiers = !FAV.showTiers; paintFaValue(host); });
     var hb = document.getElementById("fav-help-btn"); if (hb) hb.addEventListener("click", function () { FAV.showHelp = true; paintFaValue(host); });
     $$(".fav-row", host).forEach(function (tr) { tr.addEventListener("click", function () { var nm = rows[parseInt(tr.getAttribute("data-favi"), 10)].n; FAV.open[nm] = !FAV.open[nm]; paintFaValue(host); }); });
@@ -856,25 +878,30 @@
   }
   function favDetail(r) {
     var worth = r._w, gap = r._gap, price = r._price, owned = !!r.o, c = r.contract || {};
-    // the served (lean) blob carries av/tcv/cl/cy at top level; the full payload nests them under contract.
-    var aav = (c.aav_k != null ? c.aav_k : r.av), tcv = (c.tcv_k != null ? c.tcv_k : r.tcv),
-      cl = (c.cl != null ? c.cl : r.cl), cy = (c.cy != null ? c.cy : r.cy);
+    // the served (lean) blob carries av/sl/tcv/cl/cy at top level; the full payload nests them under contract.
+    // av = TRUE AAV (TCV/CL, the smoothed annual = the trade price); sl = this-year cap hit (what you absorb now).
+    var aav = (c.aav_k != null ? c.aav_k : r.av), sal = (c.sal_k != null ? c.sal_k : r.sl),
+      tcv = (c.tcv_k != null ? c.tcv_k : r.tcv), cl = (c.cl != null ? c.cl : r.cl), cy = (c.cy != null ? c.cy : r.cy);
     var DTNAME = (WR.fav.key && WR.fav.key._dt) || {};
     var why;
     if (owned) {
-      if (gap <= -3) why = 'Worth <b>$' + worth + 'K</b> but his contract costs only <b>$' + price + 'K</b>/yr → <b>$' + (-gap) + 'K of surplus value</b> you\'d acquire in a trade — a buy-low target.';
-      else if (gap >= 3) why = 'Costs <b>$' + price + 'K</b>/yr but worth only <b>$' + worth + 'K</b> → <b>$' + gap + 'K overpaid</b>. His owner may shop him; don\'t take the contract at face.';
+      if (gap <= -3) why = 'Worth <b>$' + worth + 'K</b> but his <b>AAV is only $' + price + 'K</b>/yr → <b>$' + (-gap) + 'K of surplus value</b> you\'d acquire in a trade — a buy-low target.';
+      else if (gap >= 3) why = 'AAV <b>$' + price + 'K</b>/yr but worth only <b>$' + worth + 'K</b> → <b>$' + gap + 'K overpaid</b> on the deal. His owner may shop him; don\'t take the contract at face.';
       else why = 'Worth <b>$' + worth + 'K</b> ≈ his <b>$' + price + 'K</b>/yr AAV — fairly priced on his deal.';
     } else {
       if (gap <= -3) why = 'Worth <b>$' + worth + 'K</b> but clears ~<b>$' + price + 'K</b> → a <b>$' + (-gap) + 'K discount</b>. His production + asset value beat his expected price.';
       else if (gap >= 3) why = 'Clears ~<b>$' + price + 'K</b> but worth only <b>$' + worth + 'K</b> → a <b>$' + gap + 'K premium</b> — you pay it for the position/slot, not the production.';
       else why = 'Worth <b>$' + worth + 'K</b> ≈ price <b>$' + price + 'K</b> — about fair at the market rate.';
     }
-    var backLoaded = (tcv && cl && Math.round(tcv / cl) > (aav || 0) * 1.4);
+    // back/front-loaded read off this-year cap hit vs the smoothed AAV (e.g. JSN $1K now vs $23K AAV = back-loaded)
+    var shape = (sal != null && aav) ? (sal < aav * 0.7 ? "back" : (sal > aav * 1.3 ? "front" : "level")) : null;
     var priceBlock = owned
-      ? '<div class="fav-dh" style="margin-top:8px">Contract — AAV is the price</div><div class="fav-dmeta">AAV <b>$' + (aav != null ? aav : price) + 'K</b>/yr'
+      ? '<div class="fav-dh" style="margin-top:8px">Contract — two angles</div><div class="fav-dmeta">'
+        + 'This year <b>$' + (sal != null ? sal : price) + 'K</b> cap hit'
+        + ' · AAV <b>$' + (aav != null ? aav : price) + 'K</b>/yr'
         + (tcv ? ' · total <b>$' + tcv + 'K</b>' : '') + (cl ? ' over ' + cl + ' yr' + (cl > 1 ? 's' : '') : '') + (cy ? ' · ' + cy + ' left' : '')
-        + (backLoaded ? ' <span class="fav-est">⚠ back-loaded</span> (true avg ~$' + Math.round(tcv / cl) + 'K)' : '') + '</div>'
+        + (shape === "back" ? ' <span class="fav-est">⚠ back-loaded</span> — cheap now ($' + sal + 'K), pricier later' : (shape === "front" ? ' <span class="fav-est">front-loaded</span> — pay up now, cheaper later' : ''))
+        + '</div><div class="fav-dmeta" style="margin-top:4px">Value read: worth <b>$' + worth + 'K</b> vs <b>$' + (aav != null ? aav : price) + 'K</b> AAV → <b>' + (gap <= 0 ? '$' + (-gap) + 'K surplus' : '$' + gap + 'K over') + '</b> on the deal</div>'
       : '<div class="fav-dh" style="margin-top:8px">Expected price</div><div class="fav-dmeta">clears ~<b>$' + price + 'K</b> (inflation-adjusted) · gap <b>' + (gap > 0 ? '+' : '') + gap + 'K</b></div>';
     var dealLine = (!owned && r.dt) ? 'Deal: <b>' + esc(DTNAME[r.dt] || r.dt) + '</b>' : "";
     var lastCol;

@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.25.1",
-  "label": "Auction → 💎 Value: LIVE overlay — as lots clear during the auction, sold prices recalibrate the remaining board (SOLD/🔨-active badges + a live room-vs-model factor). Offseason shows \"not live\"."
+  "build": "2026.06.25.2",
+  "label": "Auction → 💎 Value: trade targets now show BOTH angles — what you pay THIS year (cap hit) vs the true AAV (TCV ÷ length), with a back/front-loaded flag (e.g. JSN $1K now · $23K AAV, back-loaded). Plus a smoother worth-blend slider."
 }

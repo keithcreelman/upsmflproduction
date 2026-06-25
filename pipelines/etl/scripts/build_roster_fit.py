@@ -66,13 +66,17 @@ _CRX = {"aav": re.compile(r"AAV\s*([\d.]+)K", re.I), "tcv": re.compile(r"TCV\s*(
 
 
 def parse_contract(info, sal):
-    """MFL contractInfo → {aav_k, tcv_k, cl}. AAV (current annual cost) is the TRADE-TARGET price —
-    they're not in the auction, so what you compare to worth is what their contract costs you."""
-    out = {"aav_k": round((sal or 0) / 1000.0)}
-    for k, rx in _CRX.items():
-        m = rx.search(info or "")
+    """MFL contractInfo → {sal_k, aav_k, tcv_k, cl}. TWO angles for a trade target (Keith): what you
+    pay THIS YEAR (sal_k = the current cap hit) vs the TRUE AAV = TCV ÷ contract-length (the smoothed
+    annual cost over the deal). MFL's own 'AAV' token is just the current year (e.g. JSN 'AAV 1K' is
+    his $1K Y2 of a back-loaded $70K/3yr = real AAV $23K), so we compute AAV from TCV/CL, not that token."""
+    out = {"sal_k": round((sal or 0) / 1000.0)}
+    for k in ("tcv", "cl"):
+        m = _CRX[k].search(info or "")
         if m:
-            out[k + ("_k" if k != "cl" else "")] = (int(m.group(1)) if k == "cl" else round(float(m.group(1))))
+            out[k + ("_k" if k == "tcv" else "")] = (int(m.group(1)) if k == "cl" else round(float(m.group(1))))
+    tcv, cl = out.get("tcv_k"), out.get("cl")
+    out["aav_k"] = round(tcv / cl) if (tcv and cl) else out["sal_k"]   # TRUE AAV = TCV/CL, not the current-yr cap hit
     return out
 
 
@@ -215,8 +219,8 @@ def main():
                "competition": comp}
         # a trade target isn't in the auction → its "price" is its contract AAV, not the inflated EP.
         if owner and ctr:
-            rec["aav_k"] = ctr.get("aav_k")
-            rec["trade_gap_k"] = (ctr.get("aav_k") or 0) - (p.get("worth_k") or 0)   # neg = worth > cost = surplus
+            rec["aav_k"] = ctr.get("aav_k"); rec["sal_k"] = ctr.get("sal_k")
+            rec["trade_gap_k"] = (ctr.get("aav_k") or 0) - (p.get("worth_k") or 0)   # vs TRUE AAV; neg = worth > AAV = surplus
         fas.append(rec)
     fas.sort(key=lambda x: -(x.get("worth_k") or 0))
 
@@ -338,7 +342,8 @@ def main():
             "meta": payload["meta"],
             "key": {"n": "player", "p": "pos", "dr": "dyn_sf_rank", "fr": "fp_rank",
                     "rw": "redraft_worth_k", "dw": "dynasty_worth_k", "e": "ep_k (inflated expected price; FA)",
-                    "av": "aav_k (trade target's contract cost = its price; owned only)", "tcv": "tcv_k", "cl": "contract_len", "cy": "years_remaining",
+                    "av": "aav_k = TRUE AAV = TCV/CL (the smoothed annual = trade-target price; owned only)",
+                    "sl": "sal_k = current-year cap hit (what you pay THIS year; owned only)", "tcv": "tcv_k", "cl": "contract_len", "cy": "years_remaining",
                     "a50": "e_apwe_p50", "a90": "e_apwe_p90", "dt": "deal_type",
                     "f": "fit_0008", "c": "competition_fids", "o": "owner_fid (null=available FA)",
                     "derived": "worth=blend(rw,dw,dynW); FA gap=e−worth; trade-target gap=av−worth; verdict from worth/price",
@@ -351,7 +356,8 @@ def main():
             "fas": [
                 ({"n": p["player"], "p": p["pos"], "dr": p["dyn_sf_rank"], "o": p["own"],
                   "rw": p["redraft_worth_k"], "dw": p["dynasty_worth_k"], "e": p["ep_k"],
-                  "av": (p.get("contract") or {}).get("aav_k"), "tcv": (p.get("contract") or {}).get("tcv_k"),
+                  "av": (p.get("contract") or {}).get("aav_k"), "sl": (p.get("contract") or {}).get("sal_k"),
+                  "tcv": (p.get("contract") or {}).get("tcv_k"),
                   "cl": (p.get("contract") or {}).get("cl"), "cy": (p.get("contract") or {}).get("cy"),
                   "a50": r1(p["e_apwe_p50"]), "a90": r1(p["e_apwe_p90"])}
                  if p.get("own") else
