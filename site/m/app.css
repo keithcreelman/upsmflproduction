@@ -2117,7 +2117,7 @@ button.ups-m-busy::before,
 .ups-m-fav-v.sp { color: #0a1222; background: #34d399; } .ups-m-fav-v.val { color: #0a1222; background: var(--accent, #5b8dff); }
 .ups-m-fav-v.fair { color: var(--fg-muted); border: 1px solid var(--line); } .ups-m-fav-v.over { color: #fff; background: #ef4444; } .ups-m-fav-v.dart { color: #0a1222; background: #c084fc; }
 .ups-m-fav-nums { display: flex; align-items: center; gap: 5px; font-size: 13px; white-space: nowrap; }
-.ups-m-fav-w { color: var(--fg-muted); } .ups-m-fav-arrow { color: var(--fg-muted); font-size: 10px; } .ups-m-fav-e { font-weight: 800; }
+.ups-m-fav-w { color: var(--fg-muted); } .ups-m-fav-arrow { color: var(--fg-muted); font-size: 10px; } .ups-m-fav-e { font-weight: 800; } .ups-m-fav-e i { font-style: normal; font-size: 9px; font-weight: 600; color: var(--fg-muted); }
 .ups-m-fav-gap { font-size: 11px; font-weight: 700; min-width: 26px; text-align: right; } .ups-m-fav-gap.pos { color: #34d399; } .ups-m-fav-gap.neg { color: #ef4444; }
 .ups-m-fav-detail { font-size: 11px; color: var(--fg-muted); line-height: 1.5; margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line); } .ups-m-fav-detail b { color: var(--fg); }
 .ups-m-fav-tiers { margin-top: 2px; }
@@ -2126,6 +2126,13 @@ button.ups-m-busy::before,
 .ups-m-fav-tier.sweet { border-color: #34d399; }
 .ups-m-fav-tier-l { font-size: 11px; font-weight: 700; text-transform: uppercase; } .ups-m-fav-tier-l i { color: var(--fg-muted); font-weight: 500; font-style: normal; }
 .ups-m-fav-tier-v { font-size: 12px; color: var(--fg); white-space: nowrap; } .ups-m-fav-tier-v b { font-size: 10px; color: var(--fg-muted); font-weight: 600; }
+/* FA value help */
+.ups-m-fav-help-q { margin-left: auto; flex: 0 0 26px; width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--accent, #5b8dff); background: transparent; color: var(--accent, #5b8dff); font-weight: 800; font-size: 14px; }
+.ups-m-fav-help { font-size: 13px; line-height: 1.55; }
+.ups-m-fav-help h3 { font-size: 15px; margin: 6px 0 4px; } .ups-m-fav-help h4 { font-size: 12.5px; color: var(--accent, #5b8dff); margin: 12px 0 3px; }
+.ups-m-fav-help p { margin: 3px 0; color: var(--fg-muted); } .ups-m-fav-help p b, .ups-m-fav-help b { color: var(--fg); }
+.ups-m-fav-help-pos { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; } .ups-m-fav-help-pos h4 { margin: 0 0 5px; color: var(--fg); }
+.ups-m-fav-help-ex { font-size: 11.5px; color: var(--fg-muted); line-height: 1.5; margin-bottom: 7px; } .ups-m-fav-help-ex b { color: var(--fg); }
 .ups-m-auc-card {
   display: flex;
   align-items: center;

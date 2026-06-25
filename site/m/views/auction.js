@@ -21,7 +21,7 @@
   var U = M.util;
 
   // tab: "faa" | "era" (the auction). sub: "summary"|"lots"|"players"|"cadence"|"schedule".
-  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", poolStatus: "all", openThreads: {}, faValue: undefined, favDynW: 0.5, favPos: "ALL", favOwn: "available", favOpen: {}, favTiers: false };
+  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", poolStatus: "all", openThreads: {}, faValue: undefined, favDynW: 0.5, favPos: "ALL", favOwn: "available", favOpen: {}, favTiers: false, favHelp: false };
   // FA Value board (worth vs expected price + inflation) — commish-only.
   function favIsCommish() { return ["0008", "0000"].indexOf(U.pad4(M.state.viewerFranchiseId || "")) !== -1; }
 
@@ -382,37 +382,72 @@
       .then(function (d) { state.faValue = (d && d.ok) ? d : false; paint(); })
       .catch(function () { state.faValue = false; paint(); });
   }
+  function favHelpExM(r, label) {
+    var rw = r.rw || 0, dw = r.dw || 0, worth = Math.round(0.5 * rw + 0.5 * dw), price = r.e || 0, gap = price - worth;
+    var read = gap <= -3 ? ('$' + (-gap) + 'K bargain') : gap >= 3 ? ('$' + gap + 'K premium') : 'about right';
+    return '<div class="ups-m-fav-help-ex"><b>' + label + ':</b> ' + U.escapeHtml(r.n) + ' <span class="ups-m-fav-rk">' + U.escapeHtml(r.dr) + '</span><br>' +
+      'production ' + (r.a50 || 0) + ' wins → $' + rw + 'K · dynasty $' + dw + 'K → <b>worth $' + worth + 'K</b><br>' +
+      'price $' + price + 'K → gap ' + (gap > 0 ? '+' : '') + gap + 'K (' + read + ')</div>';
+  }
+  function favHelpM(d) {
+    var ex = ["QB", "RB", "WR", "TE"].map(function (pos) {
+      var pool = (d.fas || []).filter(function (r) { return !r.o && r.p === pos; }).sort(function (a, b) { return ((b.rw || 0) + (b.dw || 0)) - ((a.rw || 0) + (a.dw || 0)); });
+      if (!pool.length) return "";
+      var mid = pool.slice(7, 14)[0] || pool[Math.min(9, pool.length - 1)];
+      return '<div class="ups-m-fav-help-pos"><h4>' + pos + '</h4>' + favHelpExM(pool[0], "Best") + favHelpExM(mid, "Mid-tier") + '</div>';
+    }).join("");
+    return '<button type="button" id="ups-m-fav-help-back" class="ups-m-fav-pospill active" style="width:100%;margin-bottom:10px">← Back to the board</button>' +
+      '<div class="ups-m-fav-help">' +
+      '<h3>How to read this board</h3>' +
+      '<p>Every player has two numbers: what he\'s <b>WORTH</b> and what he\'ll <b>PRICE</b>. The difference is your bargain or overpay.</p>' +
+      '<h4>WORTH</h4><p><b>Production</b> = how many "all-play wins" his weekly scores would earn (his score vs all 11 teams, all season). <b>Dynasty</b> = how good an asset he is to own/trade (KTC consensus). The <b>slider</b> mixes them.</p>' +
+      '<h4>PRICE</h4><p>Free agents: what they clear for at the auction. Trade targets: their contract <b>AAV</b> (what you take on).</p>' +
+      '<h4>GAP</h4><p>price − worth. Green (negative) = bargain. Red (positive) = you pay extra for the position.</p>' +
+      '<h4>INFLATION</h4><p>Cheap contracts leave leftover cap chasing few players → prices rise. The gauge tracks it live.</p>' +
+      '<h4 style="margin-top:12px">Examples — best vs mid-tier (50/50 blend)</h4>' + ex + '</div>';
+  }
   function renderFaValue() {
     if (state.faValue === undefined) { fetchFaValue(); return '<div class="ups-m-loading">Loading FA value…</div>'; }
     if (state.faValue === null) return '<div class="ups-m-loading">Loading FA value…</div>';
     if (state.faValue === false) return '<div class="ups-m-auc-empty">FA value board unavailable (commish-only).</div>';
     var d = state.faValue, infl = (d.meta || {}).inflation || {};
-    var rows = (d.fas || []).filter(function (r) { return !r.o; });
+    if (state.favHelp) return favHelpM(d);
+    var owned = state.favOwn === "rostered";
+    var rows = (d.fas || []).filter(function (r) { return owned ? r.o : !r.o; });
     if (state.favPos !== "ALL") rows = rows.filter(function (r) { return r.p === state.favPos; });
-    rows.forEach(function (r) { r._w = favWorthM(r); r._gap = (r.e || 0) - r._w; var v = favVerdictM(r._w, r.e, r.a90); r._vlab = v[0]; r._vcls = v[1]; });
+    // trade targets price off their contract AAV (not in the auction); FAs price off the inflated EP.
+    rows.forEach(function (r) { r._w = favWorthM(r); r._price = r.o ? (r.av || 0) : (r.e || 0); r._gap = r._price - r._w; var v = favVerdictM(r._w, r._price, r.a90); r._vlab = v[0]; r._vcls = v[1]; });
     rows.sort(function (a, b) { return (b._w || 0) - (a._w || 0); });
     rows = rows.slice(0, 60);
     var pct = Math.round(state.favDynW * 100);
     var inflStrip = '<div class="ups-m-fav-infl"><div class="ups-m-fav-infl-x">' + ((infl.factor || 1).toFixed(2)) + '×</div>' +
-      '<div class="ups-m-fav-infl-t"><b>' + U.escapeHtml(infl.regime || '') + ' market</b> · ante $' + (infl.ante_live || 0) + 'K (norm $' + (infl.ante_base || 7) + 'K)<br>biddable $' + (infl.biddable_money_k || 0) + 'K vs pool $' + (infl.credible_value_k || 0) + 'K · locked surplus $' + (infl.surplus_k || 0) + 'K</div></div>';
+      '<div class="ups-m-fav-infl-t"><b>' + U.escapeHtml(infl.regime || '') + ' market</b> · ante $' + (infl.ante_live || 0) + 'K (norm $' + (infl.ante_base || 7) + 'K)<br>biddable $' + (infl.biddable_money_k || 0) + 'K vs pool $' + (infl.credible_value_k || 0) + 'K · locked surplus $' + (infl.surplus_k || 0) + 'K</div>' +
+      '<button type="button" id="ups-m-fav-help-btn" class="ups-m-fav-help-q" title="How does this work?">?</button></div>';
     var blend = '<div class="ups-m-fav-blend"><div class="ups-m-fav-blend-h">Worth blend — win-now <b>' + (100 - pct) + '</b> / dynasty <b>' + pct + '</b></div>' +
       '<input type="range" id="ups-m-fav-blend" min="0" max="100" step="5" value="' + pct + '"></div>';
+    var ownToggle = '<div class="ups-m-fav-pos">' + [["available", "Available FAs"], ["rostered", "Trade targets"]].map(function (o) {
+      return '<button type="button" class="ups-m-fav-pospill' + (state.favOwn === o[0] ? ' active' : '') + '" data-favown="' + o[0] + '">' + o[1] + '</button>';
+    }).join("") + '</div>';
     var pills = '<div class="ups-m-fav-pos">' + ["ALL", "QB", "RB", "WR", "TE"].map(function (p) {
       return '<button type="button" class="ups-m-fav-pospill' + (state.favPos === p ? ' active' : '') + '" data-favpos="' + p + '">' + p + '</button>';
     }).join("") + '<button type="button" class="ups-m-fav-pospill' + (state.favTiers ? ' active' : '') + '" data-favtiers="1">📊</button></div>';
-    if (state.favTiers) return inflStrip + blend + pills + favTiersM((d.meta || {}).tiers || {});
+    if (state.favTiers) return inflStrip + blend + ownToggle + pills + favTiersM((d.meta || {}).tiers || {});
     var cards = rows.map(function (r) {
       var gapCls = r._gap <= -3 ? 'pos' : (r._gap >= 3 ? 'neg' : '');
       var head = '<div class="ups-m-fav-row" data-favn="' + U.escapeHtml(r.n) + '">' +
         '<div class="ups-m-fav-nm"><b>' + U.escapeHtml(r.n) + '</b> <span class="ups-m-fav-rk">' + U.escapeHtml(r.dr) + (r.fr ? ' · ' + U.escapeHtml(r.fr) : '') + '</span>' +
         '<span class="ups-m-fav-v ' + r._vcls + '">' + r._vlab + '</span></div>' +
-        '<div class="ups-m-fav-nums"><span class="ups-m-fav-w">$' + r._w + 'K</span><span class="ups-m-fav-arrow">→</span><span class="ups-m-fav-e">$' + (r.e || 0) + 'K</span>' +
+        '<div class="ups-m-fav-nums"><span class="ups-m-fav-w">$' + r._w + 'K</span><span class="ups-m-fav-arrow">→</span><span class="ups-m-fav-e">$' + r._price + 'K' + (r.o ? '<i> AAV</i>' : '') + '</span>' +
         '<span class="ups-m-fav-gap ' + gapCls + '">' + (r._gap > 0 ? '+' : '') + r._gap + '</span></div></div>';
+      var ct = r.contract || {}, aav = (ct.aav_k != null ? ct.aav_k : r.av), tcv = (ct.tcv_k != null ? ct.tcv_k : r.tcv), cl = (ct.cl != null ? ct.cl : r.cl);
+      var priceLine = r.o
+        ? 'contract AAV <b>$' + (aav != null ? aav : r._price) + 'K</b>/yr' + (tcv ? ' · total $' + tcv + 'K' : '') + (cl ? ' / ' + cl + 'yr' : '') + ' · ' + (r._gap <= 0 ? '<b>$' + (-r._gap) + 'K surplus</b>' : '<b>$' + r._gap + 'K overpaid</b>')
+        : 'price <b>$' + r._price + 'K</b> · gap <b>' + (r._gap > 0 ? '+' : '') + r._gap + 'K</b>';
       var detail = state.favOpen[r.n] ? '<div class="ups-m-fav-detail">redraft (production) <b>$' + (r.rw || 0) + 'K</b> · dynasty (asset) <b>$' + (r.dw || 0) + 'K</b><br>' +
-        'all-play wins: proj <b>' + (r.a50 || 0) + '</b> · ceiling <b>' + (r.a90 || 0) + '</b> · price <b>$' + (r.e || 0) + 'K</b> · gap <b>' + (r._gap > 0 ? '+' : '') + r._gap + 'K</b></div>' : '';
+        'all-play wins: proj <b>' + (r.a50 || 0) + '</b> · ceiling <b>' + (r.a90 || 0) + '</b><br>' + priceLine + '</div>' : '';
       return '<div class="ups-m-fav-card">' + head + detail + '</div>';
     }).join("");
-    return inflStrip + blend + pills + '<div class="ups-m-fav-list">' + (cards || '<div class="ups-m-auc-empty">No players.</div>') + '</div>';
+    return inflStrip + blend + ownToggle + pills + '<div class="ups-m-fav-list">' + (cards || '<div class="ups-m-auc-empty">No players.</div>') + '</div>';
   }
   function wireFaValue() {
     var bl = document.getElementById("ups-m-fav-blend");
@@ -420,7 +455,12 @@
     Array.prototype.forEach.call(document.querySelectorAll("[data-favpos]"), function (b) {
       b.addEventListener("click", function () { state.favPos = this.getAttribute("data-favpos"); paint(); });
     });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-favown]"), function (b) {
+      b.addEventListener("click", function () { state.favOwn = this.getAttribute("data-favown"); paint(); });
+    });
     var tt = document.querySelector("[data-favtiers]"); if (tt) tt.addEventListener("click", function () { state.favTiers = !state.favTiers; paint(); });
+    var hb = document.getElementById("ups-m-fav-help-btn"); if (hb) hb.addEventListener("click", function () { state.favHelp = true; paint(); });
+    var hbk = document.getElementById("ups-m-fav-help-back"); if (hbk) hbk.addEventListener("click", function () { state.favHelp = false; paint(); });
     Array.prototype.forEach.call(document.querySelectorAll(".ups-m-fav-row"), function (b) {
       b.addEventListener("click", function () { var n = this.getAttribute("data-favn"); state.favOpen[n] = !state.favOpen[n]; paint(); });
     });

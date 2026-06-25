@@ -61,6 +61,21 @@ def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
 
+_CRX = {"aav": re.compile(r"AAV\s*([\d.]+)K", re.I), "tcv": re.compile(r"TCV\s*([\d.]+)K", re.I),
+        "cl": re.compile(r"CL\s*(\d+)", re.I)}
+
+
+def parse_contract(info, sal):
+    """MFL contractInfo → {aav_k, tcv_k, cl}. AAV (current annual cost) is the TRADE-TARGET price —
+    they're not in the auction, so what you compare to worth is what their contract costs you."""
+    out = {"aav_k": round((sal or 0) / 1000.0)}
+    for k, rx in _CRX.items():
+        m = rx.search(info or "")
+        if m:
+            out[k + ("_k" if k != "cl" else "")] = (int(m.group(1)) if k == "cl" else round(float(m.group(1))))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--push-d1", action="store_true")
@@ -79,7 +94,7 @@ def main():
     lg = jget(f"https://www48.myfantasyleague.com/{YEAR}/export?TYPE=league&L={LEAGUE}&JSON=1")["league"]
     fid2team = {f["id"]: f.get("name", f["id"]) for f in lg["franchises"]["franchise"]}
 
-    rostered_by_name, team = {}, {}
+    rostered_by_name, team, contract_by_name = {}, {}, {}
     surplus_k = 0.0     # Σ rostered (worth − contract), positive only = locked-cheap value
     for fr in rosters:
         fid = fr["id"]
@@ -91,6 +106,10 @@ def main():
             if nm:
                 rostered_by_name[nkey(nm)] = fid
             sal = int(p.get("salary") or 0)
+            if nm and p.get("status") == "ROSTER":
+                cinf = parse_contract(p.get("contractInfo") or "", sal)
+                cinf["cy"] = int(p.get("contractYear") or 0)   # years remaining (cy=1 = last year)
+                contract_by_name[nkey(nm)] = cinf
             if p.get("status") == "ROSTER":
                 active_sal += sal
             c = by_name.get(nkey(nm or ""))
@@ -211,9 +230,15 @@ def main():
         if owner and (p.get("worth_k") or 0) < TRADE_FLOOR:
             continue
         comp = competition(pos) if (pos in SKILL and not owner) else []
-        fas.append({**p, "own": owner,
-                    "fit_0008": need_label("0008", pos) if pos in SKILL else "—",
-                    "competition": comp})
+        ctr = contract_by_name.get(nm) if owner else None
+        rec = {**p, "own": owner, "contract": ctr,
+               "fit_0008": need_label("0008", pos) if pos in SKILL else "—",
+               "competition": comp}
+        # a trade target isn't in the auction → its "price" is its contract AAV, not the inflated EP.
+        if owner and ctr:
+            rec["aav_k"] = ctr.get("aav_k")
+            rec["trade_gap_k"] = (ctr.get("aav_k") or 0) - (p.get("worth_k") or 0)   # neg = worth > cost = surplus
+        fas.append(rec)
     fas.sort(key=lambda x: -(x.get("worth_k") or 0))
 
     # ---- POSITIONAL TIERS — the worth-vs-price dropoff ("do I need mid RBs, or is the cliff steep?") ----
@@ -272,6 +297,7 @@ def main():
         "fas": [{
             "player": p["player"], "pos": p["pos"], "age": p["age"], "own": p.get("own"),
             "owner_team": (team.get(p["own"], {}).get("team") if p.get("own") else None),
+            "contract": p.get("contract"), "aav_k": p.get("aav_k"), "trade_gap_k": p.get("trade_gap_k"),
             "dyn_sf_rank": p["dyn_sf_rank"], "redraft_rank": p["redraft_rank"], "fp_rank": p.get("fp_rank"),
             "dyn_value": p.get("dyn_value"),
             "win_now": p["win_now"], "asset": p["asset"], "deal_type": p["deal_type"],
@@ -332,10 +358,11 @@ def main():
         lean = {
             "meta": payload["meta"],
             "key": {"n": "player", "p": "pos", "dr": "dyn_sf_rank", "fr": "fp_rank",
-                    "rw": "redraft_worth_k", "dw": "dynasty_worth_k", "e": "ep_k (inflated expected price)",
+                    "rw": "redraft_worth_k", "dw": "dynasty_worth_k", "e": "ep_k (inflated expected price; FA)",
+                    "av": "aav_k (trade target's contract cost = its price; owned only)", "tcv": "tcv_k", "cl": "contract_len", "cy": "years_remaining",
                     "a50": "e_apwe_p50", "a90": "e_apwe_p90", "dt": "deal_type",
                     "f": "fit_0008", "c": "competition_fids", "o": "owner_fid (null=available FA)",
-                    "derived": "worth=blend(rw,dw,dynW); gap=e−worth; value_ratio=worth/e; verdict from value_ratio",
+                    "derived": "worth=blend(rw,dw,dynW); FA gap=e−worth; trade-target gap=av−worth; verdict from worth/price",
                     "_dt": {v: k for k, v in DT.items()},
                     "_f": {"NS": "NEED-STUD", "D": "DEPTH", "N": "NEED", "S": "SURPLUS", "-": "OK"}},
             "teams": {fid: {"team": t["team"], "capspace": t["capspace"],
@@ -345,6 +372,8 @@ def main():
             "fas": [
                 ({"n": p["player"], "p": p["pos"], "dr": p["dyn_sf_rank"], "o": p["own"],
                   "rw": p["redraft_worth_k"], "dw": p["dynasty_worth_k"], "e": p["ep_k"],
+                  "av": (p.get("contract") or {}).get("aav_k"), "tcv": (p.get("contract") or {}).get("tcv_k"),
+                  "cl": (p.get("contract") or {}).get("cl"), "cy": (p.get("contract") or {}).get("cy"),
                   "a50": r1(p["e_apwe_p50"]), "a90": r1(p["e_apwe_p90"])}
                  if p.get("own") else
                  {"n": p["player"], "p": p["pos"], "dr": p["dyn_sf_rank"], "fr": p.get("fp_rank"),

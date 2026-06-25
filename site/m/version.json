@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.24.1",
-  "label": "Auction → 💎 Value (commish): FA worth (production+dynasty blend slider) vs inflation-adjusted expected price + gap, a live auction-inflation gauge, and a 📊 positional-tiers dropoff (worth vs price cliff per position)."
+  "build": "2026.06.24.2",
+  "label": "Auction → 💎 Value: trade targets now priced off their contract AAV vs worth (Available FAs | Trade targets toggle), plus a ? explainer with plain-English how-it-works + worked QB/RB/WR/TE examples."
 }

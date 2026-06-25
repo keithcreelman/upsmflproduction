@@ -199,6 +199,18 @@
   .fav-blend-tag { font-size: 10.5px; font-weight: 700; color: var(--fg); background: var(--panel2); border-radius: 999px; padding: 1px 8px; }
   .fav-blend input[type=range] { width: 100%; margin: 8px 0 4px; accent-color: var(--accent); cursor: pointer; }
   .fav-blend-ends { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+  /* help / explainer */
+  .fav-help-q { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-weight: 800; font-size: 12px; cursor: pointer; vertical-align: middle; margin-left: 4px; }
+  .fav-help-q:hover { background: var(--accent); color: #0a1222; }
+  .fav-help-body { max-width: 760px; }
+  .fav-help-sec { margin: 14px 0; } .fav-help-sec h4 { font-size: 13.5px; margin: 0 0 5px; color: var(--accent); }
+  .fav-help-sec p, .fav-help-sec li { font-size: 13px; line-height: 1.6; color: var(--fg); }
+  .fav-help-sec ul { margin: 5px 0; padding-left: 20px; } .fav-help-sec li { margin-bottom: 5px; }
+  .fav-ex-pos { margin: 12px 0; padding: 10px 12px; background: var(--panel2); border-radius: 10px; } .fav-ex-pos h4 { margin: 0 0 8px; font-size: 13px; }
+  .fav-ex { margin-bottom: 8px; } .fav-ex-h { font-size: 13px; margin-bottom: 3px; }
+  .fav-ex-tag { font-size: 9.5px; font-weight: 800; text-transform: uppercase; background: var(--accent); color: #0a1222; padding: 1px 6px; border-radius: 999px; }
+  .fav-ex-l { margin: 3px 0 0; padding-left: 18px; } .fav-ex-l li { font-size: 12px; line-height: 1.55; color: var(--muted); } .fav-ex-l b { color: var(--fg); }
+  .fav-ex-take { font-size: 12px; line-height: 1.5; color: var(--fg); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
   /* positional tiers */
   .fav-tiers-btn { font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel2); color: var(--fg); cursor: pointer; }
   .fav-tiers-btn.on { background: var(--accent); color: #0a1222; border-color: var(--accent); }
@@ -548,7 +560,7 @@
   }
 
   // ── 💎 FA Value: expected-APW vs price vs roster-fit, per available FA ──
-  var FAV = { pos: "ALL", verdict: "ALL", sort: "worth", needOnly: false, ownership: "available", open: {}, dynW: 0.5, showTiers: false };
+  var FAV = { pos: "ALL", verdict: "ALL", sort: "worth", needOnly: false, ownership: "available", open: {}, dynW: 0.5, showTiers: false, showHelp: false };
   var FAV_FIT = { NS: "NEED-STUD", N: "NEED", D: "DEPTH", S: "SURPLUS", "-": "OK" };
   function favFitLabel(fit, pos, meta) {
     if (!fit) return "OK";
@@ -599,10 +611,21 @@
     if (WR.fav === false) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">FA value not loaded.</div></div>'; return; }
     if (FAV.dynW == null) FAV.dynW = 0.5;
     var d = WR.fav, meta = d.meta || {}, infl = meta.inflation || {}, mine = (d.teams || {})["0008"] || { fit: {} };
+    if (FAV.showHelp) {
+      host.innerHTML = favHelpCard(d);
+      var bk = document.getElementById("fav-help-back"); if (bk) bk.addEventListener("click", function () { FAV.showHelp = false; paintFaValue(host); });
+      return;
+    }
     var rows = (d.fas || []).slice();
     var nAvail = rows.filter(function (r) { return !r.o; }).length, nRost = rows.length - nAvail;
-    // decorate each row with the LIVE-blended worth / gap / verdict (re-derived from rw,dw,e + the slider)
-    rows.forEach(function (r) { r._w = favWorth(r); r._gap = (r.e || 0) - r._w; var v = favVerdict(r._w, r.e, r.a90); r._v = v[1]; r._vlab = v[0]; r._vcls = v[2]; });
+    // decorate each row with the LIVE-blended worth / price / gap / verdict. A trade target isn't in
+    // the auction → its PRICE is its contract AAV (what you take on), not the inflated auction EP.
+    rows.forEach(function (r) {
+      r._w = favWorth(r);
+      r._price = r.o ? (r.av || 0) : (r.e || 0);
+      r._gap = r._price - r._w;
+      var v = favVerdict(r._w, r._price, r.a90); r._v = v[1]; r._vlab = v[0]; r._vcls = v[2];
+    });
     // filters
     if (FAV.ownership === "available") rows = rows.filter(function (r) { return !r.o; });
     else if (FAV.ownership === "rostered") rows = rows.filter(function (r) { return r.o; });
@@ -636,7 +659,7 @@
       return '<span class="fav-fit-w">' + pos + ' · ' + favFitChip(favFitLabel((mine.fit || {})[pos], pos, meta)) + '</span>';
     }).join(" ");
     var pct = Math.round(FAV.dynW * 100);
-    var summary = '<div class="fo-card"><div class="fo-card-head"><h3>💎 FA Value — worth vs expected price vs your roster</h3>' +
+    var summary = '<div class="fo-card"><div class="fo-card-head"><h3>💎 FA Value — worth vs expected price vs your roster <button id="fav-help-btn" class="fav-help-q" title="How does this work? (plain-English + examples)">?</button></h3>' +
       '<span class="fo-sub">' + nAvail + ' available FAs · ' + nRost + ' rostered trade targets · WORTH = production (redraft APWE) blended with dynasty asset value · PRICE = what it clears for (inflated)</span></div>' +
       '<div class="fav-summary"><div><div class="fav-sg-h">Your roster (0008) — stud / depth</div>' + fitChips + '</div>' +
       '<div class="fav-blend"><div class="fav-sg-h">Worth blend &nbsp;<span class="fav-blend-tag">win-now ' + (100 - pct) + ' · dynasty ' + pct + '</span></div>' +
@@ -658,7 +681,8 @@
       '</select></div></div>';
 
     // ── table ──
-    var head = '<tr><th>Player</th><th>Verdict</th><th>All-play wins earned (proj·ceil)</th><th class="num">Worth</th><th class="num">Price (EP)</th><th class="num">Gap</th><th>Fit</th><th>Competition / Owner</th></tr>';
+    var priceHdr = FAV.ownership === "rostered" ? "AAV (cost)" : "Price";
+    var head = '<tr><th>Player</th><th>Verdict</th><th>All-play wins earned (proj·ceil)</th><th class="num">Worth</th><th class="num" title="FAs: auction expected price · trade targets: contract AAV (what you take on)">' + priceHdr + '</th><th class="num">Gap</th><th>Fit</th><th>Competition / Owner</th></tr>';
     var body = rows.map(function (r, i) {
       var owned = !!r.o;
       var gap = r._gap, gapCls = gap <= -3 ? "pos" : (gap >= 3 ? "neg" : "");
@@ -671,8 +695,8 @@
         '<td><span class="fav-v ' + r._vcls + '">' + r._vlab + '</span></td>' +
         '<td>' + favRangeBar(r.a50, r.a90, APWE_SCALE) + '<span class="fav-apw"><b>' + (r.a50 || 0) + '</b> · ' + (r.a90 || 0) + '</span></td>' +
         '<td class="num" title="' + worthTip + '">$' + r._w + 'K</td>' +
-        '<td class="num"><b>$' + (r.e || 0) + 'K</b></td>' +
-        '<td class="num fav-vr ' + gapCls + '">' + (gap > 0 ? '+' : '') + gap + '</td>' +
+        '<td class="num"><b>$' + r._price + 'K</b>' + (owned ? '<span class="fav-rk"> AAV</span>' : '') + '</td>' +
+        '<td class="num fav-vr ' + gapCls + '" title="' + (owned ? 'worth minus contract cost — negative = surplus you\'d acquire' : 'price minus worth — positive = positional premium') + '">' + (gap > 0 ? '+' : '') + gap + '</td>' +
         '<td>' + fitTxt + '</td>' +
         '<td>' + lastCol + '</td></tr>';
       var detail = FAV.open[r.n] ? favDetail(r) : "";
@@ -689,6 +713,7 @@
     var ss = document.getElementById("fav-sort"); if (ss) ss.addEventListener("change", function () { FAV.sort = ss.value; paintFaValue(host); });
     var bl = document.getElementById("fav-blend"); if (bl) bl.addEventListener("input", function () { FAV.dynW = (+bl.value) / 100; paintFaValue(host); });
     var tb = document.getElementById("fav-tiers-btn"); if (tb) tb.addEventListener("click", function () { FAV.showTiers = !FAV.showTiers; paintFaValue(host); });
+    var hb = document.getElementById("fav-help-btn"); if (hb) hb.addEventListener("click", function () { FAV.showHelp = true; paintFaValue(host); });
     $$(".fav-row", host).forEach(function (tr) { tr.addEventListener("click", function () { var nm = rows[parseInt(tr.getAttribute("data-favi"), 10)].n; FAV.open[nm] = !FAV.open[nm]; paintFaValue(host); }); });
   }
   function favTiersCard(meta) {
@@ -716,14 +741,85 @@
       '<span class="fo-sub">how fast value falls vs how fast price falls in the AVAILABLE pool (follows your blend slider). A shallow worth drop next to a steep price drop = the 💡 efficiency tier.</span></div>' +
       (body || '<div class="fo-table-loading">no tier data</div>') + '</div>';
   }
+  // ── the "?" explainer: plain-English how-it-works + 4 live worked examples (top + a mid player per pos) ──
+  function favPickExamples(d) {
+    return ["QB", "RB", "WR", "TE"].map(function (pos) {
+      var pool = (d.fas || []).filter(function (r) { return !r.o && r.p === pos; })
+        .sort(function (a, b) { return ((b.rw || 0) + (b.dw || 0)) - ((a.rw || 0) + (a.dw || 0)); });
+      if (!pool.length) return null;
+      var mid = pool.slice(7, 14).sort(function (a, b) { return ((b.rw || 0) + (b.dw || 0)) - ((a.rw || 0) + (a.dw || 0)); })[0] || pool[Math.min(9, pool.length - 1)];
+      return { pos: pos, top: pool[0], mid: mid };
+    }).filter(Boolean);
+  }
+  function favExampleBlock(r, label) {
+    var rw = r.rw || 0, dw = r.dw || 0, worth = Math.round(0.5 * rw + 0.5 * dw), price = r.e || 0, gap = price - worth;
+    var v = favVerdict(worth, price, r.a90);
+    var read = gap <= -3 ? ('a <b>$' + (-gap) + 'K bargain</b> — his value beats his price')
+      : gap >= 3 ? ('a <b>$' + gap + 'K premium</b> — you pay extra for the position')
+        : 'priced about right';
+    return '<div class="fav-ex"><div class="fav-ex-h"><span class="fav-ex-tag">' + label + '</span> <b>' + esc(r.n) + '</b> ' +
+      '<span class="fav-rk">' + esc(r.dr) + (r.fr ? ' · ' + esc(r.fr) : '') + '</span> <span class="fav-v ' + v[2] + '">' + v[0] + '</span></div>' +
+      '<ul class="fav-ex-l">' +
+      '<li><b>Production</b> (how his scoring wins games): about <b>' + (r.a50 || 0) + ' all-play wins</b> a season → <b>$' + rw + 'K</b>.</li>' +
+      '<li><b>Dynasty</b> (how good an asset he is to own/trade): the KTC-led consensus values him at <b>$' + dw + 'K</b>.</li>' +
+      '<li><b>WORTH</b> = blend them 50/50 → <b>$' + worth + 'K</b>. <span class="fav-rk">(drag the slider to weight win-now vs dynasty)</span></li>' +
+      '<li><b>PRICE</b> = what he clears for at the auction → <b>$' + price + 'K</b>.</li>' +
+      '<li><b>GAP</b> = price − worth = <b>' + (gap > 0 ? '+' : '') + gap + 'K</b> → ' + read + '.</li>' +
+      '</ul></div>';
+  }
+  function favHelpCard(d) {
+    var ex = favPickExamples(d);
+    var exHtml = ex.map(function (e) {
+      var names = { QB: "Quarterbacks", RB: "Running backs", WR: "Receivers", TE: "Tight ends" };
+      return '<div class="fav-ex-pos"><h4>' + names[e.pos] + '</h4>' +
+        favExampleBlock(e.top, "The best") + favExampleBlock(e.mid, "A mid-tier guy") +
+        '<div class="fav-ex-take">👉 Notice the dropoff: the best ' + e.pos + ' is worth <b>$' + Math.round(0.5 * (e.top.rw || 0) + 0.5 * (e.top.dw || 0)) +
+        'K</b>, the mid-tier one only <b>$' + Math.round(0.5 * (e.mid.rw || 0) + 0.5 * (e.mid.dw || 0)) + 'K</b>. That gap is why you decide whether to pay up for a stud or grab the cheaper option.</div></div>';
+    }).join("");
+    return '<div class="fo-card fav-help">' +
+      '<div class="fav-help-top"><button id="fav-help-back" class="fav-tiers-btn on">← Back to the board</button>' +
+      '<h3 style="margin:10px 0 2px">How to read this board</h3>' +
+      '<span class="fo-sub">Every player has two big numbers — what he\'s WORTH, and what he\'ll PRICE at. The difference is your bargain or your overpay.</span></div>' +
+      '<div class="fav-help-body">' +
+      '<div class="fav-help-sec"><h4>1. WORTH — what he\'s actually worth to your team</h4>' +
+      '<p>Worth is built from two things, mixed with the slider at the top:</p>' +
+      '<ul><li><b>Production</b> — imagine his weekly score playing against all 11 other teams. How many would he beat? Stack those up all season and you get his <b>all-play wins</b>. More wins = more worth. This is the "win <i>this</i> year" value.</li>' +
+      '<li><b>Dynasty</b> — how valuable he is to <i>own and trade</i>, from the consensus of KeepTradeCut, FantasyCalc and DynastyProcess. A young star is worth more here than an old one, even at the same scoring.</li></ul>' +
+      '<p>The <b>slider</b> mixes them: drag left for win-now (production), right for dynasty (assets). Everything on the board re-prices instantly.</p></div>' +
+      '<div class="fav-help-sec"><h4>2. PRICE — what he costs</h4>' +
+      '<ul><li><b>Free agents</b>: what he\'ll clear for at the auction — his dynasty value, with a floor (any startable NFL player costs something), nudged by inflation.</li>' +
+      '<li><b>Trade targets</b> (already on a team): their <b>contract cost (AAV)</b> — what you take on if you trade for them. They\'re not in the auction, so their salary <i>is</i> their price.</li></ul></div>' +
+      '<div class="fav-help-sec"><h4>3. GAP — bargain or overpay</h4>' +
+      '<p><b>Gap = price − worth.</b> A <b>negative</b> gap (green) means he\'s worth more than he costs — a bargain. A <b>positive</b> gap (red) means you\'re paying extra, usually because you <i>need</i> the position.</p></div>' +
+      '<div class="fav-help-sec"><h4>4. INFLATION — why prices drift up</h4>' +
+      '<p>Most players sit on cheap contracts, so teams have leftover cap chasing a small pool of free agents. Too many dollars + too few players = prices rise. We <b>track it live</b> in the gauge at the top — and it climbs as the studs get bought.</p></div>' +
+      '<div class="fav-help-sec"><h3 style="margin-bottom:4px">Worked examples — the best vs a mid-tier player at each position</h3>' +
+      '<span class="fo-sub">real numbers from today\'s board, at a 50/50 blend</span>' + exHtml + '</div>' +
+      '</div></div>';
+  }
   function favDetail(r) {
-    var worth = r._w, gap = r._gap, ep = r.e || 0;
+    var worth = r._w, gap = r._gap, price = r._price, owned = !!r.o, c = r.contract || {};
+    // the served (lean) blob carries av/tcv/cl/cy at top level; the full payload nests them under contract.
+    var aav = (c.aav_k != null ? c.aav_k : r.av), tcv = (c.tcv_k != null ? c.tcv_k : r.tcv),
+      cl = (c.cl != null ? c.cl : r.cl), cy = (c.cy != null ? c.cy : r.cy);
     var DTNAME = (WR.fav.key && WR.fav.key._dt) || {};
     var why;
-    if (gap <= -3) why = 'Worth <b>$' + worth + 'K</b> but clears ~<b>$' + ep + 'K</b> → a <b>$' + (-gap) + 'K discount</b>. His production + asset value beat his expected price.';
-    else if (gap >= 3) why = 'Clears ~<b>$' + ep + 'K</b> but worth only <b>$' + worth + 'K</b> → a <b>$' + gap + 'K premium</b> — you pay it for the position/slot, not the production.';
-    else why = 'Worth <b>$' + worth + 'K</b> ≈ price <b>$' + ep + 'K</b> — about fair at the market rate.';
-    var dealLine = r.dt ? 'Deal: <b>' + esc(DTNAME[r.dt] || r.dt) + '</b>' : "";
+    if (owned) {
+      if (gap <= -3) why = 'Worth <b>$' + worth + 'K</b> but his contract costs only <b>$' + price + 'K</b>/yr → <b>$' + (-gap) + 'K of surplus value</b> you\'d acquire in a trade — a buy-low target.';
+      else if (gap >= 3) why = 'Costs <b>$' + price + 'K</b>/yr but worth only <b>$' + worth + 'K</b> → <b>$' + gap + 'K overpaid</b>. His owner may shop him; don\'t take the contract at face.';
+      else why = 'Worth <b>$' + worth + 'K</b> ≈ his <b>$' + price + 'K</b>/yr AAV — fairly priced on his deal.';
+    } else {
+      if (gap <= -3) why = 'Worth <b>$' + worth + 'K</b> but clears ~<b>$' + price + 'K</b> → a <b>$' + (-gap) + 'K discount</b>. His production + asset value beat his expected price.';
+      else if (gap >= 3) why = 'Clears ~<b>$' + price + 'K</b> but worth only <b>$' + worth + 'K</b> → a <b>$' + gap + 'K premium</b> — you pay it for the position/slot, not the production.';
+      else why = 'Worth <b>$' + worth + 'K</b> ≈ price <b>$' + price + 'K</b> — about fair at the market rate.';
+    }
+    var backLoaded = (tcv && cl && Math.round(tcv / cl) > (aav || 0) * 1.4);
+    var priceBlock = owned
+      ? '<div class="fav-dh" style="margin-top:8px">Contract — AAV is the price</div><div class="fav-dmeta">AAV <b>$' + (aav != null ? aav : price) + 'K</b>/yr'
+        + (tcv ? ' · total <b>$' + tcv + 'K</b>' : '') + (cl ? ' over ' + cl + ' yr' + (cl > 1 ? 's' : '') : '') + (cy ? ' · ' + cy + ' left' : '')
+        + (backLoaded ? ' <span class="fav-est">⚠ back-loaded</span> (true avg ~$' + Math.round(tcv / cl) + 'K)' : '') + '</div>'
+      : '<div class="fav-dh" style="margin-top:8px">Expected price</div><div class="fav-dmeta">clears ~<b>$' + price + 'K</b> (inflation-adjusted) · gap <b>' + (gap > 0 ? '+' : '') + gap + 'K</b></div>';
+    var dealLine = (!owned && r.dt) ? 'Deal: <b>' + esc(DTNAME[r.dt] || r.dt) + '</b>' : "";
     var lastCol;
     if (r.o) {
       var ot = (WR.fav.teams || {})[r.o] || {};
@@ -739,7 +835,7 @@
       (dealLine ? '<div class="fav-dmeta">' + dealLine + '</div>' : '') + '</div>' +
       '<div><div class="fav-dh">Worth breakdown</div><div class="fav-dmeta">redraft (production) <b>$' + (r.rw || 0) + 'K</b> · dynasty (asset) <b>$' + (r.dw || 0) + 'K</b> → blended <b>$' + worth + 'K</b><br>' +
       'all-play wins earned: proj <b>' + (r.a50 || 0) + '</b> · ceiling <b>' + (r.a90 || 0) + '</b></div>' +
-      '<div class="fav-dh" style="margin-top:8px">Expected price</div><div class="fav-dmeta">clears ~<b>$' + ep + 'K</b> (inflation-adjusted) · gap <b>' + (gap > 0 ? '+' : '') + gap + 'K</b></div></div>' +
+      priceBlock + '</div>' +
       '<div>' + lastCol + '</div>' +
       '</div></td></tr>';
   }
