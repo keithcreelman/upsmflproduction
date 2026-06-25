@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.24.0",
-  "label": "Auction → 💎 Value (commish): a new FA-auction value board — each free agent's WORTH (production all-play wins blended with dynasty asset value, on a live win-now↔dynasty slider) vs his EXPECTED PRICE (inflation-adjusted) and the GAP. Plus a live auction-inflation gauge (biddable money vs pool value + locked rostered surplus)."
+  "build": "2026.06.24.1",
+  "label": "Auction → 💎 Value (commish): FA worth (production+dynasty blend slider) vs inflation-adjusted expected price + gap, a live auction-inflation gauge, and a 📊 positional-tiers dropoff (worth vs price cliff per position)."
 }

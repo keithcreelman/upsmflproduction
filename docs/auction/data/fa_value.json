@@ -38,6 +38,176 @@
       "live": "recompute as lots clear: biddable & credible-worth both shrink, but studs (low ante/worth ratio) leave faster \u2192 regime climbs \u2192 ANTE_live rises \u2192 remaining mid/depth inflates more.",
       "note": "2026: $785K biddable \u00f7 $782K credible redraft-worth = regime 1.0 \u2192 ANTE $3.7K (SF norm $7K). Board marks up ~1.45\u00d7 over intrinsic worth; 8 mid/depth targets lifted above their floor. $1393K of locked rostered surplus is the fuel \u2014 it climbs LIVE as the 14 studs clear."
     },
+    "tiers": {
+      "QB": [
+        {
+          "label": "Elite",
+          "lo": 1,
+          "hi": 3,
+          "n": 3,
+          "rw": 72,
+          "dw": 63,
+          "ep": 63,
+          "top": "Josh Allen"
+        },
+        {
+          "label": "High",
+          "lo": 4,
+          "hi": 8,
+          "n": 5,
+          "rw": 38,
+          "dw": 30,
+          "ep": 34,
+          "top": "Patrick Mahomes II"
+        },
+        {
+          "label": "Mid",
+          "lo": 9,
+          "hi": 16,
+          "n": 8,
+          "rw": 5,
+          "dw": 10,
+          "ep": 11,
+          "top": "Malik Willis"
+        },
+        {
+          "label": "Streamer",
+          "lo": 17,
+          "hi": 30,
+          "n": 14,
+          "rw": 0,
+          "dw": 2,
+          "ep": 3,
+          "top": "Marcus Mariota"
+        }
+      ],
+      "RB": [
+        {
+          "label": "Elite",
+          "lo": 1,
+          "hi": 4,
+          "n": 4,
+          "rw": 40,
+          "dw": 26,
+          "ep": 33,
+          "top": "Jonathan Taylor"
+        },
+        {
+          "label": "High",
+          "lo": 5,
+          "hi": 12,
+          "n": 8,
+          "rw": 2,
+          "dw": 12,
+          "ep": 12,
+          "top": "Jaylen Warren"
+        },
+        {
+          "label": "Mid",
+          "lo": 13,
+          "hi": 24,
+          "n": 12,
+          "rw": 0,
+          "dw": 5,
+          "ep": 5,
+          "top": "Isiah Pacheco"
+        },
+        {
+          "label": "Depth",
+          "lo": 25,
+          "hi": 42,
+          "n": 18,
+          "rw": 0,
+          "dw": 2,
+          "ep": 2,
+          "top": "Isaac Guerendo"
+        }
+      ],
+      "WR": [
+        {
+          "label": "Elite",
+          "lo": 1,
+          "hi": 6,
+          "n": 6,
+          "rw": 22,
+          "dw": 21,
+          "ep": 22,
+          "top": "DeVonta Smith"
+        },
+        {
+          "label": "High",
+          "lo": 7,
+          "hi": 16,
+          "n": 10,
+          "rw": 0,
+          "dw": 8,
+          "ep": 8,
+          "top": "Romeo Doubs"
+        },
+        {
+          "label": "Mid",
+          "lo": 17,
+          "hi": 30,
+          "n": 14,
+          "rw": 0,
+          "dw": 5,
+          "ep": 5,
+          "top": "John Metchie III"
+        },
+        {
+          "label": "Depth",
+          "lo": 31,
+          "hi": 50,
+          "n": 20,
+          "rw": 0,
+          "dw": 2,
+          "ep": 3,
+          "top": "Luke McCaffrey"
+        }
+      ],
+      "TE": [
+        {
+          "label": "Elite",
+          "lo": 1,
+          "hi": 3,
+          "n": 3,
+          "rw": 7,
+          "dw": 17,
+          "ep": 19,
+          "top": "Kyle Pitts Sr."
+        },
+        {
+          "label": "High",
+          "lo": 4,
+          "hi": 8,
+          "n": 5,
+          "rw": 1,
+          "dw": 10,
+          "ep": 11,
+          "top": "Mark Andrews"
+        },
+        {
+          "label": "Mid",
+          "lo": 9,
+          "hi": 14,
+          "n": 6,
+          "rw": 0,
+          "dw": 6,
+          "ep": 6,
+          "top": "Pat Freiermuth"
+        },
+        {
+          "label": "Streamer",
+          "lo": 15,
+          "hi": 26,
+          "n": 12,
+          "rw": 0,
+          "dw": 3,
+          "ep": 3,
+          "top": "Michael Trigg"
+        }
+      ]
+    },
     "baseline_apw": {
       "QB": 1.65,
       "RB": 0.69,

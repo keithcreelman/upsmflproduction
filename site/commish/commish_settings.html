@@ -199,7 +199,19 @@
   .fav-blend-tag { font-size: 10.5px; font-weight: 700; color: var(--fg); background: var(--panel2); border-radius: 999px; padding: 1px 8px; }
   .fav-blend input[type=range] { width: 100%; margin: 8px 0 4px; accent-color: var(--accent); cursor: pointer; }
   .fav-blend-ends { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
-  @media (max-width: 720px) { .fav-dwrap { grid-template-columns: 1fr; } .fav-infl-grid { grid-template-columns: 1fr; } }
+  /* positional tiers */
+  .fav-tiers-btn { font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel2); color: var(--fg); cursor: pointer; }
+  .fav-tiers-btn.on { background: var(--accent); color: #0a1222; border-color: var(--accent); }
+  .fav-tier-row { display: flex; align-items: stretch; gap: 10px; margin-bottom: 10px; }
+  .fav-tier-pos { flex: 0 0 30px; font-size: 15px; font-weight: 800; color: var(--accent); display: flex; align-items: center; }
+  .fav-tier-cells { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .fav-tier { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-width: 130px; }
+  .fav-tier.sweet { border-color: #34d399; box-shadow: inset 0 0 0 1px rgba(52,211,153,0.35); }
+  .fav-tier-l { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; }
+  .fav-tier-v { font-size: 12px; color: var(--muted); margin: 2px 0; } .fav-tier-v b { color: var(--fg); }
+  .fav-tier-d { font-size: 10px; color: var(--muted); } .fav-tier.sweet .fav-tier-d { color: #34d399; }
+  .fav-tier-arrow { color: var(--muted); font-size: 12px; }
+  @media (max-width: 720px) { .fav-dwrap { grid-template-columns: 1fr; } .fav-infl-grid { grid-template-columns: 1fr; } .fav-tier-cells { flex-direction: column; align-items: stretch; } .fav-tier-arrow { display: none; } }
   @media (max-width: 560px) { .wr-mini-wrap { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -536,7 +548,7 @@
   }
 
   // ── 💎 FA Value: expected-APW vs price vs roster-fit, per available FA ──
-  var FAV = { pos: "ALL", verdict: "ALL", sort: "worth", needOnly: false, ownership: "available", open: {}, dynW: 0.5 };
+  var FAV = { pos: "ALL", verdict: "ALL", sort: "worth", needOnly: false, ownership: "available", open: {}, dynW: 0.5, showTiers: false };
   var FAV_FIT = { NS: "NEED-STUD", N: "NEED", D: "DEPTH", S: "SURPLUS", "-": "OK" };
   function favFitLabel(fit, pos, meta) {
     if (!fit) return "OK";
@@ -640,6 +652,7 @@
       '<div class="fav-cg"><span class="fav-cl">Pos</span><div class="wr-vtabs sm">' + posTabs + '</div></div>' +
       '<div class="fav-cg"><span class="fav-cl">Verdict</span><div class="wr-vtabs sm">' + vTabs + '</div></div>' +
       '<div class="fav-cg"><label class="fav-chk"><input type="checkbox" id="fav-need"' + (FAV.needOnly ? ' checked' : '') + '> my needs only</label></div>' +
+      '<div class="fav-cg"><button id="fav-tiers-btn" class="fav-tiers-btn' + (FAV.showTiers ? ' on' : '') + '">📊 Tiers</button></div>' +
       '<div class="fav-cg"><span class="fav-cl">Sort</span><select id="fav-sort">' +
       ['worth|Worth ($)', 'value|Value (biggest discount)', 'price|Expected price', 'apwe|All-play wins (proj)', 'ceiling|APWE ceiling'].map(function (o) { var kv = o.split("|"); return '<option value="' + kv[0] + '"' + (FAV.sort === kv[0] ? ' selected' : '') + '>' + kv[1] + '</option>'; }).join("") +
       '</select></div></div>';
@@ -667,7 +680,7 @@
     }).join("");
     var table = '<div class="fo-card"><div class="fo-table-scroll"><table class="fo-table fav-table"><thead>' + head + '</thead><tbody>' + (body || '<tr><td colspan="8" class="fo-table-empty">No players match.</td></tr>') + '</tbody></table></div></div>';
 
-    host.innerHTML = inflCard + summary + controls + table;
+    host.innerHTML = inflCard + summary + controls + (FAV.showTiers ? favTiersCard(meta) : "") + table;
     // wire controls
     $$("[data-favown]", host).forEach(function (b) { b.addEventListener("click", function () { FAV.ownership = b.getAttribute("data-favown"); paintFaValue(host); }); });
     $$("[data-favpos]", host).forEach(function (b) { b.addEventListener("click", function () { FAV.pos = b.getAttribute("data-favpos"); paintFaValue(host); }); });
@@ -675,7 +688,33 @@
     var nc = document.getElementById("fav-need"); if (nc) nc.addEventListener("change", function () { FAV.needOnly = nc.checked; paintFaValue(host); });
     var ss = document.getElementById("fav-sort"); if (ss) ss.addEventListener("change", function () { FAV.sort = ss.value; paintFaValue(host); });
     var bl = document.getElementById("fav-blend"); if (bl) bl.addEventListener("input", function () { FAV.dynW = (+bl.value) / 100; paintFaValue(host); });
+    var tb = document.getElementById("fav-tiers-btn"); if (tb) tb.addEventListener("click", function () { FAV.showTiers = !FAV.showTiers; paintFaValue(host); });
     $$(".fav-row", host).forEach(function (tr) { tr.addEventListener("click", function () { var nm = rows[parseInt(tr.getAttribute("data-favi"), 10)].n; FAV.open[nm] = !FAV.open[nm]; paintFaValue(host); }); });
+  }
+  function favTiersCard(meta) {
+    var tiers = meta.tiers || {};
+    var blendW = function (r) { return Math.round((1 - FAV.dynW) * (r.rw || 0) + FAV.dynW * (r.dw || 0)); };
+    var body = ["QB", "RB", "WR", "TE"].filter(function (p) { return tiers[p]; }).map(function (pos) {
+      var rows = tiers[pos];
+      var cells = rows.map(function (r, i) {
+        var worth = blendW(r), prevW = i > 0 ? blendW(rows[i - 1]) : null;
+        var wdrop = (prevW && prevW > 0) ? Math.round(100 * (1 - worth / prevW)) : null;
+        var pdrop = (i > 0 && rows[i - 1].ep > 0) ? Math.round(100 * (1 - r.ep / rows[i - 1].ep)) : null;
+        // a "sweet spot" = worth holds (shallow drop) while price falls hard
+        var sweet = (wdrop != null && pdrop != null && pdrop - wdrop >= 18);
+        return '<div class="fav-tier' + (sweet ? ' sweet' : '') + '">' +
+          '<div class="fav-tier-l">' + r.label + ' <span class="fav-rk">' + pos + r.lo + '–' + r.hi + '</span></div>' +
+          '<div class="fav-tier-v">worth <b>$' + worth + 'K</b> · price <b>$' + r.ep + 'K</b></div>' +
+          (wdrop != null
+            ? '<div class="fav-tier-d">▼ worth −' + wdrop + '% · price −' + (pdrop || 0) + '%' + (sweet ? ' · 💡 value' : '') + '</div>'
+            : '<div class="fav-tier-d">' + esc(r.top) + '</div>') +
+          '</div>';
+      }).join('<span class="fav-tier-arrow">→</span>');
+      return '<div class="fav-tier-row"><div class="fav-tier-pos">' + pos + '</div><div class="fav-tier-cells">' + cells + '</div></div>';
+    }).join("");
+    return '<div class="fo-card fav-tiers"><div class="fo-card-head"><h3>📊 Positional tiers — worth vs price dropoff</h3>' +
+      '<span class="fo-sub">how fast value falls vs how fast price falls in the AVAILABLE pool (follows your blend slider). A shallow worth drop next to a steep price drop = the 💡 efficiency tier.</span></div>' +
+      (body || '<div class="fo-table-loading">no tier data</div>') + '</div>';
   }
   function favDetail(r) {
     var worth = r._w, gap = r._gap, ep = r.e || 0;

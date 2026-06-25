@@ -2120,6 +2120,12 @@ button.ups-m-busy::before,
 .ups-m-fav-w { color: var(--fg-muted); } .ups-m-fav-arrow { color: var(--fg-muted); font-size: 10px; } .ups-m-fav-e { font-weight: 800; }
 .ups-m-fav-gap { font-size: 11px; font-weight: 700; min-width: 26px; text-align: right; } .ups-m-fav-gap.pos { color: #34d399; } .ups-m-fav-gap.neg { color: #ef4444; }
 .ups-m-fav-detail { font-size: 11px; color: var(--fg-muted); line-height: 1.5; margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line); } .ups-m-fav-detail b { color: var(--fg); }
+.ups-m-fav-tiers { margin-top: 2px; }
+.ups-m-fav-tierpos { font-size: 13px; font-weight: 800; color: var(--accent, #5b8dff); margin: 10px 0 4px; }
+.ups-m-fav-tier { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; margin-bottom: 5px; }
+.ups-m-fav-tier.sweet { border-color: #34d399; }
+.ups-m-fav-tier-l { font-size: 11px; font-weight: 700; text-transform: uppercase; } .ups-m-fav-tier-l i { color: var(--fg-muted); font-weight: 500; font-style: normal; }
+.ups-m-fav-tier-v { font-size: 12px; color: var(--fg); white-space: nowrap; } .ups-m-fav-tier-v b { font-size: 10px; color: var(--fg-muted); font-weight: 600; }
 .ups-m-auc-card {
   display: flex;
   align-items: center;

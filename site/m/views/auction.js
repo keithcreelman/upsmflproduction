@@ -21,7 +21,7 @@
   var U = M.util;
 
   // tab: "faa" | "era" (the auction). sub: "summary"|"lots"|"players"|"cadence"|"schedule".
-  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", poolStatus: "all", openThreads: {}, faValue: undefined, favDynW: 0.5, favPos: "ALL", favOwn: "available", favOpen: {} };
+  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", poolStatus: "all", openThreads: {}, faValue: undefined, favDynW: 0.5, favPos: "ALL", favOwn: "available", favOpen: {}, favTiers: false };
   // FA Value board (worth vs expected price + inflation) — commish-only.
   function favIsCommish() { return ["0008", "0000"].indexOf(U.pad4(M.state.viewerFranchiseId || "")) !== -1; }
 
@@ -358,6 +358,23 @@
     if (ep < 15) return ["FAIR", "fair"];
     return vr < 0.6 ? ["OVERPAY", "over"] : ["FAIR", "fair"];
   }
+  function favTiersM(tiers) {
+    var blendW = function (r) { return Math.round((1 - state.favDynW) * (r.rw || 0) + state.favDynW * (r.dw || 0)); };
+    var POS = ["QB", "RB", "WR", "TE"].filter(function (p) { return tiers[p]; });
+    if (!POS.length) return '<div class="ups-m-auc-empty">No tier data.</div>';
+    return '<div class="ups-m-fav-tiers">' + POS.map(function (pos) {
+      var rows = tiers[pos];
+      var cells = rows.map(function (r, i) {
+        var worth = blendW(r), prevW = i > 0 ? blendW(rows[i - 1]) : null;
+        var wdrop = (prevW && prevW > 0) ? Math.round(100 * (1 - worth / prevW)) : null;
+        var pdrop = (i > 0 && rows[i - 1].ep > 0) ? Math.round(100 * (1 - r.ep / rows[i - 1].ep)) : null;
+        var sweet = (wdrop != null && pdrop != null && pdrop - wdrop >= 18);
+        return '<div class="ups-m-fav-tier' + (sweet ? ' sweet' : '') + '"><span class="ups-m-fav-tier-l">' + r.label + ' <i>' + pos + r.lo + '–' + r.hi + '</i></span>' +
+          '<span class="ups-m-fav-tier-v">$' + worth + 'K→$' + r.ep + 'K' + (wdrop != null ? ' <b>▼' + wdrop + '%w·' + (pdrop || 0) + '%p</b>' : '') + (sweet ? ' 💡' : '') + '</span></div>';
+      }).join("");
+      return '<div class="ups-m-fav-tierpos">' + pos + '</div>' + cells;
+    }).join("") + '</div>';
+  }
   function fetchFaValue() {
     state.faValue = null;
     var fid = U.pad4(M.state.viewerFranchiseId || "0008");
@@ -382,7 +399,8 @@
       '<input type="range" id="ups-m-fav-blend" min="0" max="100" step="5" value="' + pct + '"></div>';
     var pills = '<div class="ups-m-fav-pos">' + ["ALL", "QB", "RB", "WR", "TE"].map(function (p) {
       return '<button type="button" class="ups-m-fav-pospill' + (state.favPos === p ? ' active' : '') + '" data-favpos="' + p + '">' + p + '</button>';
-    }).join("") + '</div>';
+    }).join("") + '<button type="button" class="ups-m-fav-pospill' + (state.favTiers ? ' active' : '') + '" data-favtiers="1">📊</button></div>';
+    if (state.favTiers) return inflStrip + blend + pills + favTiersM((d.meta || {}).tiers || {});
     var cards = rows.map(function (r) {
       var gapCls = r._gap <= -3 ? 'pos' : (r._gap >= 3 ? 'neg' : '');
       var head = '<div class="ups-m-fav-row" data-favn="' + U.escapeHtml(r.n) + '">' +
@@ -402,6 +420,7 @@
     Array.prototype.forEach.call(document.querySelectorAll("[data-favpos]"), function (b) {
       b.addEventListener("click", function () { state.favPos = this.getAttribute("data-favpos"); paint(); });
     });
+    var tt = document.querySelector("[data-favtiers]"); if (tt) tt.addEventListener("click", function () { state.favTiers = !state.favTiers; paint(); });
     Array.prototype.forEach.call(document.querySelectorAll(".ups-m-fav-row"), function (b) {
       b.addEventListener("click", function () { var n = this.getAttribute("data-favn"); state.favOpen[n] = !state.favOpen[n]; paint(); });
     });

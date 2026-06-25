@@ -124,10 +124,14 @@ def main():
 
     def inflate(ep_base_k, redraft_worth_k):
         """EP_inflated = max(dynasty/startability anchor, ANTE_live + SLOPE·redraft_worth). Additive
-        over the anchor → never deflates a stud, never double-inflates (the verifier's fix)."""
-        if (redraft_worth_k or 0) < CREDIBLE_WORTH and (ep_base_k or 0) < CREDIBLE_EP:
-            return ep_base_k                                  # true scrub: holds the floor, no ante
-        return max(ep_base_k, round(ante_live + INFL_SLOPE * (redraft_worth_k or 0)))
+        over the anchor → never deflates a stud, never double-inflates (the verifier's fix). The ante
+        ramps in over [0, CREDIBLE_WORTH] so a 1-rank ADP wobble near the cutoff isn't a price cliff."""
+        w = redraft_worth_k or 0
+        if w < CREDIBLE_WORTH and (ep_base_k or 0) < CREDIBLE_EP:
+            ante = ante_live * max(0.0, w / CREDIBLE_WORTH)   # sub-credible: phase the ante in (scrub w=0 → 0)
+        else:
+            ante = ante_live
+        return max(ep_base_k, round(ante + INFL_SLOPE * w))
 
     def re_verdict(ep_k, worth_k, p90):
         vr = round(worth_k / ep_k, 2) if ep_k > 0 else None
@@ -212,6 +216,33 @@ def main():
                     "competition": comp})
     fas.sort(key=lambda x: -(x.get("worth_k") or 0))
 
+    # ---- POSITIONAL TIERS — the worth-vs-price dropoff ("do I need mid RBs, or is the cliff steep?") ----
+    # Per position, the AVAILABLE pool sorted by worth → named tiers → avg redraft/dynasty worth + price.
+    # The View blends rw/dw on the slider and shows the tier-over-tier worth dropoff vs the price dropoff
+    # (a shallow worth drop + steep price drop = the efficiency sweet spot).
+    TIER_DEFS = {
+        "QB": [("Elite", 1, 3), ("High", 4, 8), ("Mid", 9, 16), ("Streamer", 17, 30)],
+        "RB": [("Elite", 1, 4), ("High", 5, 12), ("Mid", 13, 24), ("Depth", 25, 42)],
+        "WR": [("Elite", 1, 6), ("High", 7, 16), ("Mid", 17, 30), ("Depth", 31, 50)],
+        "TE": [("Elite", 1, 3), ("High", 4, 8), ("Mid", 9, 14), ("Streamer", 15, 26)],
+    }
+    tiers = {}
+    for pos in SKILL:
+        pool = sorted([p for p in fas if not p.get("own") and p["pos"] == pos], key=lambda x: -(x.get("worth_k") or 0))
+        rows = []
+        for label, lo, hi in TIER_DEFS[pos]:
+            grp = pool[lo - 1:hi]
+            if not grp:
+                continue
+            n = len(grp)
+            rows.append({"label": label, "lo": lo, "hi": min(hi, lo + n - 1), "n": n,
+                         "rw": round(sum(p["redraft_worth_k"] for p in grp) / n),
+                         "dw": round(sum(p["dynasty_worth_k"] for p in grp) / n),
+                         "ep": round(sum(p["ep_k"] for p in grp) / n),
+                         "top": grp[0]["player"]})
+        if rows:
+            tiers[pos] = rows
+
     # ---- post-auction fill context ----
     c = sqlite3.connect(DB)
     fill = []
@@ -229,6 +260,7 @@ def main():
             "worth_model": {"dollar_per_apwe": 6.5, "default_dyn_weight": 0.5,
                             "note": "WORTH=blend(redraft E[APWE]×$6.5, dynasty cardinal value×$/val); slider blends live"},
             "inflation": inflation,
+            "tiers": tiers,
             "baseline_apw": {pos: round(B[pos], 2) for pos in SKILL},
             "stud_bar": {pos: round(STUD[pos], 2) for pos in SKILL},
             "replacement_rank": REPL_RANK, "starter_slots": SLOTS,
