@@ -457,9 +457,11 @@
     rows.forEach(function (r) {
       // pristine snapshot (once) so an ADP override is reversible without a re-fetch; restore + re-apply each pass.
       if (r._ep0 == null) { r._ep0 = r.e; r._rw0 = r.rw; r._a500 = r.a50; r._a900 = r.a90; }
-      r.e = r._ep0; r.rw = r._rw0; r.a50 = r._a500; r.a90 = r._a900;
-      var ov = favCanOvrM(r, EP) ? state.favRankOvr[r.n] : null;
-      if (ov != null) { var res = epRecomputeM(r.p, ov, r.dw, EP); if (res) { r.rw = res.rw; r.a50 = res.a50; r.a90 = res.a90; r.e = res.ep; } }
+      r.rw = r._rw0; r.a50 = r._a500; r.a90 = r._a900;
+      // override = YOUR read → moves WORTH only; the expected PRICE (r.e) stays at the MARKET's read, so
+      // the widened gap is your edge. r._ovrEP = what he'd cost IF the market agreed with you.
+      var ov = favCanOvrM(r, EP) ? state.favRankOvr[r.n] : null; r._ovrEP = null;
+      if (ov != null) { var res = epRecomputeM(r.p, ov, r.dw, EP); if (res) { r.rw = res.rw; r.a50 = res.a50; r.a90 = res.a90; r._ovrEP = res.ep; } }
       r._ovr = ov;
       r._w = favWorthM(r); r._price = r.o ? (r.av || 0) : (r.e || 0); r._gap = r._price - r._w;
       var v = favVerdictM(r._w, r._price, r.a90); r._vlab = v[0]; r._vcls = v[1];
@@ -505,7 +507,8 @@
       var shape = (sal != null && aav) ? (sal < aav * 0.7 ? ' · ⚠ back-loaded' : (sal > aav * 1.3 ? ' · front-loaded' : '')) : '';
       var priceLine = r.o
         ? 'this yr <b>$' + (sal != null ? sal : r._price) + 'K</b> · AAV <b>$' + (aav != null ? aav : r._price) + 'K</b>/yr' + (tcv ? ' · total $' + tcv + 'K' : '') + (cl ? ' / ' + cl + 'yr' : '') + shape + '<br>worth $' + r._w + 'K vs AAV → ' + (r._gap <= 0 ? '<b>$' + (-r._gap) + 'K surplus</b>' : '<b>$' + r._gap + 'K over</b>')
-        : 'price <b>$' + r._price + 'K</b>' + (r._ovr != null ? ' <i>(your ' + r.p + r._ovr + ' · model ' + U.escapeHtml(r.fr) + ' = $' + r._ep0 + 'K)</i>' : '') + ' · gap <b>' + (r._gap > 0 ? '+' : '') + r._gap + 'K</b>';
+        : 'price <b>$' + r._price + 'K</b> <span style="color:var(--fg-muted)">(market\'s read)</span> · gap <b>' + (r._gap > 0 ? '+' : '') + r._gap + 'K</b>'
+          + (r._ovr != null ? '<br><i>✎ your ' + r.p + r._ovr + ' vs market ' + U.escapeHtml(r.fr) + ': worth $' + r._w + 'K, still clears ~$' + r._price + 'K' + (r._gap < 0 ? ' → $' + (-r._gap) + 'K edge' : '') + (r._ovrEP != null ? ' (if market agreed: ~$' + r._ovrEP + 'K)' : '') + '</i>' : '');
       var detail = state.favOpen[r.n] ? '<div class="ups-m-fav-detail">redraft (production) <b>$' + (r.rw || 0) + 'K</b> · dynasty (asset) <b>$' + (r.dw || 0) + 'K</b><br>' +
         'all-play wins: proj <b>' + (r.a50 || 0) + '</b> · ceiling <b>' + (r.a90 || 0) + '</b><br>' + priceLine + '</div>' : '';
       return '<div class="ups-m-fav-card">' + head + detail + '</div>';
@@ -513,7 +516,7 @@
     var nOvr = Object.keys(state.favRankOvr).length;
     var ovrLine = '<div class="ups-m-fav-ovrline">' + (nOvr
       ? '✎ <b>' + nOvr + '</b> ADP edit' + (nOvr > 1 ? 's' : '') + ' <button type="button" id="ups-m-fav-ovr-reset">reset all</button>'
-      : 'Tap a FA\'s rank (e.g. <b>WR20 ✎</b>) to set your own ADP &amp; re-price him') + '</div>';
+      : 'Tap a FA\'s rank (e.g. <b>WR20 ✎</b>) to set your own ADP — raises his <b>worth</b>; price stays at the market\'s read, so the gap is your edge') + '</div>';
     return inflStrip + blend + ownToggle + pills + ovrLine + '<div class="ups-m-fav-list">' + (cards || '<div class="ups-m-auc-empty">No players.</div>') + '</div>';
   }
   function wireFaValue() {

@@ -672,9 +672,12 @@
     rows.forEach(function (r) {
       // pristine snapshot (captured ONCE) so an ADP override is reversible without a re-fetch.
       if (r._ep0 == null) { r._ep0 = r.e; r._rw0 = r.rw; r._a500 = r.a50; r._a900 = r.a90; }
-      r.e = r._ep0; r.rw = r._rw0; r.a50 = r._a500; r.a90 = r._a900;   // restore pristine, then re-apply any override
-      var ov = favCanOvr(r, EP) ? FAV_RANK_OVR[r.n] : null;
-      if (ov != null) { var res = epRecompute(r.p, ov, r.dw, EP); if (res) { r.rw = res.rw; r.a50 = res.a50; r.a90 = res.a90; r.e = res.ep; nOvr++; } }
+      r.rw = r._rw0; r.a50 = r._a500; r.a90 = r._a900;   // restore pristine, then re-apply any override
+      // ADP override = YOUR private read → moves WORTH only (redraft axis + APWE). The expected PRICE
+      // stays at the MARKET's read (r.e unchanged): if you alone think he's better, you still pay the
+      // market price → the widened gap IS your edge. r._ovrEP = what he'd cost IF the market agreed.
+      var ov = favCanOvr(r, EP) ? FAV_RANK_OVR[r.n] : null; r._ovrEP = null;
+      if (ov != null) { var res = epRecompute(r.p, ov, r.dw, EP); if (res) { r.rw = res.rw; r.a50 = res.a50; r.a90 = res.a90; r._ovrEP = res.ep; nOvr++; } }
       r._ovr = ov;
       r._w = favWorth(r);
       r._price = r.o ? (r.av || 0) : (r.e || 0);
@@ -725,7 +728,7 @@
     var pct = Math.round(FAV.dynW * 100), nOvrAll = Object.keys(FAV_RANK_OVR).length;
     var ovrNote = nOvrAll ? ' · <span class="fav-ovr-note">✎ ' + nOvrAll + ' ADP edit' + (nOvrAll > 1 ? 's' : '') + ' <button id="fav-ovr-reset" class="fav-ovr-reset" title="clear all your ADP overrides">reset all</button></span>' : '';
     var summary = '<div class="fo-card"><div class="fo-card-head"><h3>💎 FA Value — worth vs expected price vs your roster <button id="fav-help-btn" class="fav-help-q" title="How does this work? (plain-English + examples)">?</button></h3>' +
-      '<span class="fo-sub">' + nAvail + ' available FAs · ' + nRost + ' rostered trade targets · click a FA\'s rank (e.g. <b>WR20 ✎</b>) to set your own ADP and re-price him' + ovrNote + '</span></div>' +
+      '<span class="fo-sub">' + nAvail + ' available FAs · ' + nRost + ' rostered trade targets · click a FA\'s rank (e.g. <b>WR20 ✎</b>) to set your own ADP — raises his <b>worth</b> to you; price stays at the market\'s read, so the gap is your edge' + ovrNote + '</span></div>' +
       '<div class="fav-summary"><div><div class="fav-sg-h">Your roster (0008) — stud / depth</div>' + fitChips + '</div>' +
       '<div class="fav-blend"><div class="fav-sg-h">Worth blend &nbsp;<span class="fav-blend-tag">win-now ' + (100 - pct) + ' · dynasty ' + pct + '</span></div>' +
       '<input type="range" id="fav-blend" min="0" max="100" step="5" value="' + pct + '">' +
@@ -756,8 +759,8 @@
         : ((r.c || []).map(function (fid) { return '<span class="fav-comp">' + esc(favTeamName(fid)) + '</span>'; }).join("") || '<span class="fav-rk">—</span>');
       var worthTip = 'redraft (production) $' + (r.rw || 0) + 'K · dynasty (asset) $' + (r.dw || 0) + 'K';
       // live price cell: SOLD (actual vs ORIGINAL model) / 🔨 active bid / live-calibrated EP / model EP.
-      // The ▲/▼ direction chip (FA only) shows current vs the ORIGINAL model price (r._ep0) — your ADP
-      // override and/or the live room factor moving the number up or down.
+      // The ▲/▼ direction chip (FA only) shows the LIVE price vs the ORIGINAL model price (r._ep0) — i.e.
+      // the auction/room factor moving it up or down. (An ADP override does NOT move price, so no arrow then.)
       var priceCell, op = (r._ep0 != null ? r._ep0 : r._price);
       if (r._sold != null) {
         var d2 = r._sold - op, dc = d2 > 2 ? "neg" : (d2 < -2 ? "pos" : "");
@@ -978,7 +981,10 @@
         + (tcv ? ' · total <b>$' + tcv + 'K</b>' : '') + (cl ? ' over ' + cl + ' yr' + (cl > 1 ? 's' : '') : '') + (cy ? ' · ' + cy + ' left' : '')
         + (shape === "back" ? ' <span class="fav-est">⚠ back-loaded</span> — cheap now ($' + sal + 'K), pricier later' : (shape === "front" ? ' <span class="fav-est">front-loaded</span> — pay up now, cheaper later' : ''))
         + '</div><div class="fav-dmeta" style="margin-top:4px">Value read: worth <b>$' + worth + 'K</b> vs <b>$' + (aav != null ? aav : price) + 'K</b> AAV → <b>' + (gap <= 0 ? '$' + (-gap) + 'K surplus' : '$' + gap + 'K over') + '</b> on the deal</div>'
-      : '<div class="fav-dh" style="margin-top:8px">Expected price</div><div class="fav-dmeta">clears ~<b>$' + price + 'K</b> (inflation-adjusted) · gap <b>' + (gap > 0 ? '+' : '') + gap + 'K</b></div>';
+      : '<div class="fav-dh" style="margin-top:8px">Expected price</div><div class="fav-dmeta">clears ~<b>$' + price + 'K</b> (the market\'s read) · gap <b>' + (gap > 0 ? '+' : '') + gap + 'K</b></div>'
+        + (r._ovr != null ? '<div class="fav-dmeta" style="margin-top:4px">✎ <b>Your ADP ' + esc(r.p + r._ovr) + '</b> vs market <b>' + esc(r.fr) + '</b> — you value him <b>$' + worth + 'K</b>, but he still clears ~<b>$' + price + 'K</b> at the market\'s price'
+          + (gap < 0 ? ' → <b>$' + (-gap) + 'K edge</b> (buy-low)' : (gap > 0 ? ' (market already prices him up here)' : ''))
+          + (r._ovrEP != null ? '. If the market agreed with you, he\'d cost ~$' + r._ovrEP + 'K.' : '') + '</div>' : '');
     var dealLine = (!owned && r.dt) ? 'Deal: <b>' + esc(DTNAME[r.dt] || r.dt) + '</b>' : "";
     var lastCol;
     if (r.o) {
