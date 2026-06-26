@@ -296,21 +296,24 @@ def main():
             break
 
     # ---- cohort medians for the cross-year-normalized value index ----
-    base_bid, base_pts = {}, {}
+    # Production is measured as a RATE (PPG), not career total — so a multi-year keep doesn't auto-out-value
+    # a 1-year rental (which made Love's 4-season total dwarf the mostly-1-year QB cohort). Cheap-but-
+    # productive still ranks high; longevity no longer inflates it.
+    base_bid, base_ppg = {}, {}
     by_cohort = {}
     for r in rows:
         by_cohort.setdefault((r["pos"], r["ws"]), []).append(r)
     for (pos, season), rs in by_cohort.items():
         base_bid.setdefault(pos, {})[season] = med([x["bid_k"] for x in rs])
-        base_pts.setdefault(pos, {})[season] = med([x["tot"] for x in rs if x["tot"] > 0])
+        base_ppg.setdefault(pos, {})[season] = med([x["ppg"] for x in rs if x["gp"] > 0])
     for r in rows:
         bb = base_bid.get(r["pos"], {}).get(r["ws"], 0) or 0
-        bp = base_pts.get(r["pos"], {}).get(r["ws"], 0) or 0
+        bp = base_ppg.get(r["pos"], {}).get(r["ws"], 0) or 0
         # price vs that year's positional median, FLOORED at 0.15 so sub-$2 lottery wins (49% of rows pay $1K)
         # don't explode vidx via a near-zero divisor and swamp the "best value" ranking — a genuine elite like
         # Love still tops on production; a 1-week $1 streamer no longer outranks a $5 multi-year star on price alone.
         pvm = max(r["bid_k"] / bb, 0.15) if bb else None
-        pidx = (r["tot"] / bp) if bp else None                      # production vs that year's positional median
+        pidx = (r["ppg"] / bp) if bp else None                      # production RATE (PPG) vs that year's positional median
         r["ppr_real"] = round(r["tot"] / r["realized_k"], 2) if r["realized_k"] else 0.0
         r["ppr_bid"] = round(r["tot"] / r["bid_k"], 2) if r["bid_k"] else 0.0
         r["vidx"] = round(pidx / pvm, 2) if (pvm and pidx is not None and pvm > 0) else None
@@ -329,11 +332,12 @@ def main():
     blob = {
         "meta": {
             "built": int(time.time()), "asof": str(today), "window": f"{WINDOW_START}-{LAST_PLAYED_SEASON}",
-            "n": len(rows), "settings": SETTINGS, "base_bid": base_bid, "base_pts": base_pts, "teams": teams,
+            "n": len(rows), "settings": SETTINGS, "base_bid": base_bid, "base_ppg": base_ppg, "teams": teams,
             "note": "One row per FAA win. realized_k = real cap $ paid across the contract lineage (all teams, "
-                    "incl. extensions/restructures, + committed 2026). vidx = cross-year value index "
-                    "(production-vs-cohort ÷ price-vs-cohort; >1 beat the position×season market). "
-                    "TCV/ext are event-chain-DERIVED (the win-year contract_info is a Year-1 shell).",
+                    "incl. extensions/restructures, + committed 2026). vidx = cross-year value index = "
+                    "(PPG-rate-vs-cohort ÷ price-vs-cohort), per position×season so SF/TEP inflation cancels; "
+                    ">1 beat that year's positional market. RATE-based (not career total) so a long keep doesn't "
+                    "auto-out-value a 1-yr rental. TCV/ext are event-chain-DERIVED (win-year contract_info is a Yr-1 shell).",
             "key": {"n": "player", "ws": "win_season", "wfid": "winning_franchise", "bid_k": "auction winning bid $K (=Yr1 salary)",
                     "tcv_k": "current/last contract TCV $K", "realized_k": "real cap $K paid across lineage",
                     "n_ext": "extensions (derived)", "n_teams": "franchises that held him under this contract",

@@ -537,7 +537,7 @@
   }
   function faaDetail(r, meta) {
     var bb = (meta.base_bid && meta.base_bid[r.pos] && meta.base_bid[r.pos][r.ws]) || null;
-    var bp = (meta.base_pts && meta.base_pts[r.pos] && meta.base_pts[r.pos][r.ws]) || null;
+    var bp = (meta.base_ppg && meta.base_ppg[r.pos] && meta.base_ppg[r.pos][r.ws]) || null;
     var overrun = (r.realized_k > r.tcv_k * 1.5 && r.tcv_k > 0);
     return '<tr class="fav-detail"><td colspan="13"><div class="fav-dwrap">' +
       '<div><div class="fav-dh">Auction vs real dollars</div><div class="fav-dmeta">Won for <b>$' + r.bid_k + 'K</b> in ' + r.ws + ' · current TCV <b>$' + r.tcv_k + 'K</b>/' + (r.cl || 1) + 'yr · ' +
@@ -547,7 +547,7 @@
       'availability <b>' + Math.round((r.gpct || 0) * 100) + '%</b> (' + (r.gp || 0) + '/' + (r.cgames || 0) + ')<br>' +
       'under contract <b>' + (r.lweeks || 0) + '</b> league weeks · <b>' + (r.days || 0) + '</b> days · <b>' + r.n_teams + '</b> team' + (r.n_teams === 1 ? '' : 's') + ' · <b>' + (r.n_ext || 0) + '</b> extension' + (r.n_ext === 1 ? '' : 's') + '</div></div>' +
       '<div><div class="fav-dh">Context (' + r.ws + ')</div><div class="fav-dmeta">' + (r.sf ? 'Superflex' : '1-QB') + (r.tep ? ' · TE-Premium' : '') + (r.qbbump ? ' · pre-SF QB front-run' : '') + ' · QB slots ' + (r.qb || "1") + '<br>' +
-      'that year, the median ' + esc(r.pos) + ' won for <b>$' + (bb || "?") + 'K</b> and produced <b>' + (bp || "?") + '</b> pts → VIDX <b>' + (r.vidx == null ? "—" : r.vidx) + '</b> (' + (r.vlab || "") + ')<br>' +
+      'that year, the median ' + esc(r.pos) + ' won for <b>$' + (bb || "?") + 'K</b> and averaged <b>' + (bp || "?") + '</b> PPG → VIDX <b>' + (r.vidx == null ? "—" : r.vidx) + '</b> (' + (r.vlab || "") + ')<br>' +
       'ended: <b>' + esc(r.end_reason) + '</b>' + (r.end_dt ? ' (' + esc(r.end_dt) + ')' : '') + '<span class="fav-est"> · TCV/ext are event-chain-derived</span></div></div>' +
       '</div></td></tr>';
   }
