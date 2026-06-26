@@ -21,7 +21,10 @@
   var U = M.util;
 
   // tab: "faa" | "era" (the auction). sub: "summary"|"lots"|"players"|"cadence"|"schedule".
-  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", poolStatus: "all", openThreads: {} };
+  var state = { faa: null, era: null, eraPool: null, nom: null, schedule: null, lots: null, bidHistory: null, freeAgents: null, faPool: null, adp: null, loading: false, error: null, loadedFor: "", tab: "", sub: "summary", lotsView: "open", search: "", poolPos: "ALL", poolTeam: "", poolSort: "name", poolStatus: "all", openThreads: {}, faValue: undefined, favDynW: 0.5, favPos: "ALL", favOwn: "available", favOpen: {}, favTiers: false, favHelp: false,
+    favRankOvr: (function () { try { return JSON.parse(localStorage.getItem("ups_fav_rank_ovr") || "{}") || {}; } catch (e) { return {}; } })() };
+  // FA Value board (worth vs expected price + inflation) — commish-only.
+  function favIsCommish() { return ["0008", "0000"].indexOf(U.pad4(M.state.viewerFranchiseId || "")) !== -1; }
 
   function subTabs(active) {
     function tab(href, label, key) {
@@ -266,8 +269,10 @@
   }
   // Same five pills for both auctions. "Tracker" = the per-team nomination view
   // (FAA: full compliance scoreboard; ERA: nomination windows).
-  function subsFor() {
-    return [["summary", "Summary"], ["players", "Players"], ["lots", "Lots"], ["history", "History"], ["tracker", "Tracker"]];
+  function subsFor(tab) {
+    var base = [["summary", "Summary"], ["players", "Players"], ["lots", "Lots"], ["history", "History"], ["tracker", "Tracker"]];
+    if (tab === "faa" && favIsCommish()) base.push(["value", "💎 Value"]);   // commish-only FA value board
+    return base;
   }
 
   function paint() {
@@ -291,6 +296,7 @@
     wireBidButtons();
     wireThreads();
     wirePlayerModal();
+    wireFaValue();
   }
   function wireLotsToggle() {
     Array.prototype.forEach.call(document.querySelectorAll(".ups-m-auc-lottab"), function (b) {
@@ -333,11 +339,226 @@
   function renderSub(tab, sub) {
     var p = (tab === "era" ? state.era : state.faa) || {};
     if (p.ok === false && sub !== "history" && sub !== "lots") return '<div class="ups-m-auc-empty">' + (tab === "era" ? "ERA" : "FAA") + ' board unavailable right now.</div>';
+    if (sub === "value") return renderFaValue();
     if (sub === "players") return tab === "era" ? eraPool() : faaPool();
     if (sub === "lots") return renderLots(tab);
     if (sub === "history") return renderHistory(tab);
     if (sub === "tracker") return renderTracker(tab);
     return renderSummary(tab, p);
+  }
+
+  // ── FA Value board (commish-only): worth (production+dynasty blend) vs expected price + inflation ──
+  function favWorthM(r) { var w = state.favDynW; return Math.round((1 - w) * (r.rw || 0) + w * (r.dw || 0)); }
+  function favVerdictM(worth, ep, a90) {
+    var vr = ep > 0 ? worth / ep : null;
+    if (vr == null) return ["—", "fair"];
+    if (vr >= 1.5 && worth >= 15) return ["SPLURGE", "sp"];
+    if (vr >= 1.2) return ["VALUE", "val"];
+    if (vr >= 0.8) return ["FAIR", "fair"];
+    if (ep <= 4) return (a90 || 0) >= 5 ? ["DART", "dart"] : ["FAIR", "fair"];
+    if (ep < 15) return ["FAIR", "fair"];
+    return vr < 0.6 ? ["OVERPAY", "over"] : ["FAIR", "fair"];
+  }
+  // ── ADP override: re-rank a FA and re-price him. Kernel reproduces build_fa_value.ep_base_k EXACTLY
+  // (meta.model = constants + fpros curves). Only the redraft axis + startability + affine move with rank;
+  // dynasty worth (dw) is rank-independent. Persisted by player name (same localStorage key as desktop). ──
+  function favSaveOvrM() { try { localStorage.setItem("ups_fav_rank_ovr", JSON.stringify(state.favRankOvr)); } catch (e) { } }
+  function pyRound(x) { var r = Math.round(x); if (Math.abs(x - Math.trunc(x) - 0.5) < 1e-9 && (r % 2 !== 0)) r -= (x >= 0 ? 1 : -1); return r; }
+  function epStartFloorM(pos, rank, EP) { var t = EP && EP.startability && EP.startability[pos]; if (!t || !rank) return 0; for (var i = 0; i < t.length; i++) { if (rank <= t[i][0]) return t[i][1]; } return t[t.length - 1][1]; }
+  function favRankIntM(s) { var m = String(s || "").match(/(\d+)/); return m ? +m[1] : null; }
+  function epRecomputeM(pos, rank, dw, EP) {
+    var C = EP && EP.curves && EP.curves[pos]; if (!C || !rank) return null;
+    var idx = Math.min(rank, C.p50.length) - 1, a50f = C.p50[idx];             // FULL 2dp p50 → exact rw
+    var rw = pyRound(a50f * EP.dollar_per_apwe), aff = EP.affine_ante + EP.affine_slope * rw, sf = epStartFloorM(pos, rank, EP);
+    var pw = (EP.pos_dyn_w[pos] != null ? EP.pos_dyn_w[pos] : (EP.pos_dyn_w._default != null ? EP.pos_dyn_w._default : 0.8));
+    return { a50: Math.round(a50f * 10) / 10, a90: Math.round(C.p90[idx] * 10) / 10, rw: rw, ep: pyRound(Math.max(sf, aff, (dw || 0) * pw)) };
+  }
+  function favEPM(d) { return d && d.meta && d.meta.model; }
+  function favCanOvrM(r, EP) { return !r.o && EP && EP.curves && EP.curves[r.p] && r.fr; }
+  function favDirChipM(cur, e0) { if (e0 == null) return ""; var d = cur - e0; if (Math.abs(d) < 1) return ""; var up = d > 0; return '<span class="ups-m-fav-dir ' + (up ? "up" : "down") + '">' + (up ? "▲" : "▼") + Math.abs(d) + '</span>'; }
+  function favTiersM(tiers) {
+    var blendW = function (r) { return Math.round((1 - state.favDynW) * (r.rw || 0) + state.favDynW * (r.dw || 0)); };
+    var POS = ["QB", "RB", "WR", "TE"].filter(function (p) { return tiers[p]; });
+    if (!POS.length) return '<div class="ups-m-auc-empty">No tier data.</div>';
+    return '<div class="ups-m-fav-tiers">' + POS.map(function (pos) {
+      var rows = tiers[pos];
+      var cells = rows.map(function (r, i) {
+        var worth = blendW(r), prevW = i > 0 ? blendW(rows[i - 1]) : null;
+        var wdrop = (prevW && prevW > 0) ? Math.round(100 * (1 - worth / prevW)) : null;
+        var pdrop = (i > 0 && rows[i - 1].ep > 0) ? Math.round(100 * (1 - r.ep / rows[i - 1].ep)) : null;
+        var sweet = (wdrop != null && pdrop != null && pdrop - wdrop >= 18);
+        return '<div class="ups-m-fav-tier' + (sweet ? ' sweet' : '') + '"><span class="ups-m-fav-tier-l">' + r.label + ' <i>' + pos + r.lo + '–' + r.hi + '</i></span>' +
+          '<span class="ups-m-fav-tier-v">$' + worth + 'K→$' + r.ep + 'K' + (wdrop != null ? ' <b>▼' + wdrop + '%w·' + (pdrop || 0) + '%p</b>' : '') + (sweet ? ' 💡' : '') + '</span></div>';
+      }).join("");
+      return '<div class="ups-m-fav-tierpos">' + pos + '</div>' + cells;
+    }).join("") + '</div>';
+  }
+  function fetchFaValue() {
+    state.faValue = null;
+    var fid = U.pad4(M.state.viewerFranchiseId || "0008");
+    M.api.fetchJson(M.api.workerUrl("/api/auction/fa-value?franchise_id=" + fid))
+      .then(function (d) { state.faValue = (d && d.ok) ? d : false; paint(); })
+      .catch(function () { state.faValue = false; paint(); });
+  }
+  function favHelpExM(r, label) {
+    var rw = r.rw || 0, dw = r.dw || 0, worth = Math.round(0.5 * rw + 0.5 * dw), price = r.e || 0, gap = price - worth;
+    var read = gap <= -3 ? ('$' + (-gap) + 'K bargain') : gap >= 3 ? ('$' + gap + 'K premium') : 'about right';
+    return '<div class="ups-m-fav-help-ex"><b>' + label + ':</b> ' + U.escapeHtml(r.n) + ' <span class="ups-m-fav-rk">' + U.escapeHtml(r.dr) + '</span><br>' +
+      'production ' + (r.a50 || 0) + ' wins → $' + rw + 'K · dynasty $' + dw + 'K → <b>worth $' + worth + 'K</b><br>' +
+      'price $' + price + 'K → gap ' + (gap > 0 ? '+' : '') + gap + 'K (' + read + ')</div>';
+  }
+  function favHelpM(d) {
+    var ex = ["QB", "RB", "WR", "TE"].map(function (pos) {
+      var pool = (d.fas || []).filter(function (r) { return !r.o && r.p === pos; }).sort(function (a, b) { return ((b.rw || 0) + (b.dw || 0)) - ((a.rw || 0) + (a.dw || 0)); });
+      if (!pool.length) return "";
+      var mid = pool.slice(7, 14)[0] || pool[Math.min(9, pool.length - 1)];
+      return '<div class="ups-m-fav-help-pos"><h4>' + pos + '</h4>' + favHelpExM(pool[0], "Best") + favHelpExM(mid, "Mid-tier") + '</div>';
+    }).join("");
+    return '<button type="button" id="ups-m-fav-help-back" class="ups-m-fav-pospill active" style="width:100%;margin-bottom:10px">← Back to the board</button>' +
+      '<div class="ups-m-fav-help">' +
+      '<h3>How to read this board</h3>' +
+      '<p>Every player has two numbers: what he\'s <b>WORTH</b> and what he\'ll <b>PRICE</b>. The difference is your bargain or overpay.</p>' +
+      '<h4>WORTH</h4><p><b>Production</b> = how many "all-play wins" his weekly scores would earn (his score vs all 11 teams, all season). <b>Dynasty</b> = how good an asset he is to own/trade (KTC consensus). The <b>slider</b> mixes them.</p>' +
+      '<h4>PRICE</h4><p>Free agents: what they clear for at the auction. Trade targets: their contract <b>AAV</b> (what you take on).</p>' +
+      '<h4>GAP</h4><p>price − worth. Green (negative) = bargain. Red (positive) = you pay extra for the position.</p>' +
+      '<h4>INFLATION</h4><p>Cheap contracts leave leftover cap chasing few players → prices rise. The gauge tracks it live.</p>' +
+      '<h4 style="margin-top:12px">Examples — best vs mid-tier (50/50 blend)</h4>' + ex + '</div>';
+  }
+  function favnk(s) { return String(s || "").toLowerCase().replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim(); }
+  // LIVE auction overlay (mobile): reuse the already-loaded state.lots → sold/active + calibration.
+  function favLiveStateM(d) {
+    var lots = (state.lots && state.lots.lots) || [];
+    if (!Array.isArray(lots)) lots = [];
+    var sold = {}, active = {}, nSold = 0, nActive = 0, cal = [];
+    var epByName = {}; (d.fas || []).forEach(function (p) { if (!p.o) epByName[favnk(p.n)] = p.e || 0; });
+    lots.forEach(function (l) {
+      var nm = favnk(l.player_name || l.player || l.name || ""), st = String(l.status || "").toLowerCase();
+      var price = (l.winning_bid_k != null ? l.winning_bid_k : (l.final_bid_k != null ? l.final_bid_k : l.current_high_bid_k)) || 0;
+      if (st === "won" || st === "closed" || st === "expired") { sold[nm] = price; nSold++; var m = epByName[nm]; if (m && price > 0) cal.push(price / m); }
+      else if (st === "open" || st === "active") { active[nm] = price; nActive++; }
+    });
+    cal.sort(function (a, b) { return a - b; });
+    var factor = cal.length >= 3 ? Math.round(cal[Math.floor(cal.length / 2)] * 100) / 100 : null;
+    var isLive = nActive > 0; if (!isLive) { sold = {}; active = {}; factor = null; }
+    return { live: isLive, sold: sold, active: active, nSold: isLive ? nSold : 0, nActive: nActive, factor: factor };
+  }
+  function renderFaValue() {
+    if (state.faValue === undefined) { fetchFaValue(); return '<div class="ups-m-loading">Loading FA value…</div>'; }
+    if (state.faValue === null) return '<div class="ups-m-loading">Loading FA value…</div>';
+    if (state.faValue === false) return '<div class="ups-m-auc-empty">FA value board unavailable (commish-only).</div>';
+    var d = state.faValue, infl = (d.meta || {}).inflation || {};
+    if (state.favHelp) return favHelpM(d);
+    var live = favLiveStateM(d);
+    var owned = state.favOwn === "rostered";
+    var rows = (d.fas || []).filter(function (r) { return owned ? r.o : !r.o; });
+    if (state.favPos !== "ALL") rows = rows.filter(function (r) { return r.p === state.favPos; });
+    // trade targets price off their contract AAV (not in the auction); FAs price off the inflated EP.
+    var EP = favEPM(d);
+    rows.forEach(function (r) {
+      // pristine snapshot (once) so an ADP override is reversible without a re-fetch; restore + re-apply each pass.
+      if (r._ep0 == null) { r._ep0 = r.e; r._rw0 = r.rw; r._a500 = r.a50; r._a900 = r.a90; }
+      r.rw = r._rw0; r.a50 = r._a500; r.a90 = r._a900;
+      // override = YOUR read → moves WORTH only; the expected PRICE (r.e) stays at the MARKET's read, so
+      // the widened gap is your edge. r._ovrEP = what he'd cost IF the market agreed with you.
+      var ov = favCanOvrM(r, EP) ? state.favRankOvr[r.n] : null; r._ovrEP = null;
+      if (ov != null) { var res = epRecomputeM(r.p, ov, r.dw, EP); if (res) { r.rw = res.rw; r.a50 = res.a50; r.a90 = res.a90; r._ovrEP = res.ep; } }
+      r._ovr = ov;
+      r._w = favWorthM(r); r._price = r.o ? (r.av || 0) : (r.e || 0); r._gap = r._price - r._w;
+      var v = favVerdictM(r._w, r._price, r.a90); r._vlab = v[0]; r._vcls = v[1];
+      if (!r.o) { var nk = favnk(r.n); r._sold = live.sold[nk]; r._active = live.active[nk]; r._liveEP = (live.factor && r._sold == null && r._active == null) ? Math.round((r.e || 0) * live.factor) : null; }
+    });
+    rows.sort(function (a, b) { return (b._w || 0) - (a._w || 0); });
+    rows = rows.slice(0, 60);
+    var pct = Math.round(state.favDynW * 100);
+    var liveLine = live.live
+      ? '<div class="ups-m-fav-liveline on">🔴 LIVE · ' + live.nSold + ' sold · ' + live.nActive + ' active' + (live.factor ? ' · room ' + live.factor.toFixed(2) + '× model' : '') + '</div>'
+      : '<div class="ups-m-fav-liveline">⚪ auction not live — opens late July</div>';
+    var inflStrip = liveLine + '<div class="ups-m-fav-infl"><div class="ups-m-fav-infl-x">' + ((infl.board_markup || 1).toFixed(2)) + '×</div>' +
+      '<div class="ups-m-fav-infl-t"><b>v4 clearing line</b> · $' + (infl.ante || 0) + 'K + ' + (infl.slope || 0) + '·worth<br>biddable $' + (infl.biddable_money_k || 0) + 'K vs pool $' + (infl.credible_value_k || 0) + 'K · locked surplus $' + (infl.surplus_k || 0) + 'K</div>' +
+      '<button type="button" id="ups-m-fav-help-btn" class="ups-m-fav-help-q" title="How does this work?">?</button></div>';
+    var blend = '<div class="ups-m-fav-blend"><div class="ups-m-fav-blend-h">Worth blend — win-now <b>' + (100 - pct) + '</b> / dynasty <b>' + pct + '</b></div>' +
+      '<input type="range" id="ups-m-fav-blend" min="0" max="100" step="5" value="' + pct + '"></div>';
+    var ownToggle = '<div class="ups-m-fav-pos">' + [["available", "Available FAs"], ["rostered", "Trade targets"]].map(function (o) {
+      return '<button type="button" class="ups-m-fav-pospill' + (state.favOwn === o[0] ? ' active' : '') + '" data-favown="' + o[0] + '">' + o[1] + '</button>';
+    }).join("") + '</div>';
+    var pills = '<div class="ups-m-fav-pos">' + ["ALL", "QB", "RB", "WR", "TE"].map(function (p) {
+      return '<button type="button" class="ups-m-fav-pospill' + (state.favPos === p ? ' active' : '') + '" data-favpos="' + p + '">' + p + '</button>';
+    }).join("") + '<button type="button" class="ups-m-fav-pospill' + (state.favTiers ? ' active' : '') + '" data-favtiers="1">📊</button></div>';
+    if (state.favTiers) return inflStrip + blend + ownToggle + pills + favTiersM((d.meta || {}).tiers || {});
+    var cards = rows.map(function (r) {
+      var gapCls = r._gap <= -3 ? 'pos' : (r._gap >= 3 ? 'neg' : '');
+      var rkHtml;
+      if (favCanOvrM(r, EP)) {
+        var shownRk = r._ovr != null ? (r.p + r._ovr) : r.fr;
+        rkHtml = U.escapeHtml(r.dr) + ' · <span class="ups-m-fav-rankchip' + (r._ovr != null ? ' ovr' : '') + '" data-favrankn="' + U.escapeHtml(r.n) + '">' + U.escapeHtml(shownRk) + ' ✎' + (r._ovr != null ? '<span class="ups-m-fav-rankx" data-favrankxn="' + U.escapeHtml(r.n) + '">×</span>' : '') + '</span>';
+      } else { rkHtml = U.escapeHtml(r.dr) + (r.fr ? ' · ' + U.escapeHtml(r.fr) : ''); }
+      var head = '<div class="ups-m-fav-row' + (r._ovr != null ? ' ovr' : '') + '" data-favn="' + U.escapeHtml(r.n) + '">' +
+        '<div class="ups-m-fav-nm"><b>' + U.escapeHtml(r.n) + '</b> <span class="ups-m-fav-rk">' + rkHtml + '</span>' +
+        '<span class="ups-m-fav-v ' + r._vcls + '">' + r._vlab + '</span></div>' +
+        '<div class="ups-m-fav-nums"><span class="ups-m-fav-w">$' + r._w + 'K</span><span class="ups-m-fav-arrow">→</span>' +
+        (r._sold != null ? '<span class="ups-m-fav-e" style="text-decoration:line-through;color:var(--fg-muted)">SOLD $' + r._sold + 'K</span>'
+          : r._active != null ? '<span class="ups-m-fav-e" style="color:#fbbf24">🔨 $' + r._active + 'K</span>'
+            : r._liveEP != null ? '<span class="ups-m-fav-e">$' + r._liveEP + 'K<i> live</i></span>' + favDirChipM(r._liveEP, r._ep0)
+              : '<span class="ups-m-fav-e">$' + r._price + 'K' + (r.o ? '<i> AAV · $' + (r.sl != null ? r.sl : r._price) + 'K now</i>' : '') + '</span>' + (r.o ? '' : favDirChipM(r._price, r._ep0))) +
+        '<span class="ups-m-fav-gap ' + gapCls + '">' + (r._gap > 0 ? '+' : '') + r._gap + '</span></div></div>';
+      var ct = r.contract || {}, aav = (ct.aav_k != null ? ct.aav_k : r.av), sal = (ct.sal_k != null ? ct.sal_k : r.sl),
+        tcv = (ct.tcv_k != null ? ct.tcv_k : r.tcv), cl = (ct.cl != null ? ct.cl : r.cl);
+      // back/front-loaded read off this-year cap hit vs the smoothed AAV (JSN $1K now vs $23K AAV = back-loaded)
+      var shape = (sal != null && aav) ? (sal < aav * 0.7 ? ' · ⚠ back-loaded' : (sal > aav * 1.3 ? ' · front-loaded' : '')) : '';
+      var priceLine = r.o
+        ? 'this yr <b>$' + (sal != null ? sal : r._price) + 'K</b> · AAV <b>$' + (aav != null ? aav : r._price) + 'K</b>/yr' + (tcv ? ' · total $' + tcv + 'K' : '') + (cl ? ' / ' + cl + 'yr' : '') + shape + '<br>worth $' + r._w + 'K vs AAV → ' + (r._gap <= 0 ? '<b>$' + (-r._gap) + 'K surplus</b>' : '<b>$' + r._gap + 'K over</b>')
+        : 'price <b>$' + r._price + 'K</b> <span style="color:var(--fg-muted)">(market\'s read)</span> · gap <b>' + (r._gap > 0 ? '+' : '') + r._gap + 'K</b>'
+          + (r._ovr != null ? '<br><i>✎ your ' + r.p + r._ovr + ' vs market ' + U.escapeHtml(r.fr) + ': worth $' + r._w + 'K, still clears ~$' + r._price + 'K' + (r._gap < 0 ? ' → $' + (-r._gap) + 'K edge' : '') + (r._ovrEP != null ? ' (if market agreed: ~$' + r._ovrEP + 'K)' : '') + '</i>' : '');
+      var detail = state.favOpen[r.n] ? '<div class="ups-m-fav-detail">redraft (production) <b>$' + (r.rw || 0) + 'K</b> · dynasty (asset) <b>$' + (r.dw || 0) + 'K</b><br>' +
+        'all-play wins: proj <b>' + (r.a50 || 0) + '</b> · ceiling <b>' + (r.a90 || 0) + '</b><br>' + priceLine + '</div>' : '';
+      return '<div class="ups-m-fav-card">' + head + detail + '</div>';
+    }).join("");
+    var nOvr = Object.keys(state.favRankOvr).length;
+    var ovrLine = '<div class="ups-m-fav-ovrline">' + (nOvr
+      ? '✎ <b>' + nOvr + '</b> ADP edit' + (nOvr > 1 ? 's' : '') + ' <button type="button" id="ups-m-fav-ovr-reset">reset all</button>'
+      : 'Tap a FA\'s rank (e.g. <b>WR20 ✎</b>) to set your own ADP — raises his <b>worth</b>; price stays at the market\'s read, so the gap is your edge') + '</div>';
+    return inflStrip + blend + ownToggle + pills + ovrLine + '<div class="ups-m-fav-list">' + (cards || '<div class="ups-m-auc-empty">No players.</div>') + '</div>';
+  }
+  function wireFaValue() {
+    var bl = document.getElementById("ups-m-fav-blend");
+    if (bl) bl.addEventListener("change", function () { state.favDynW = (+bl.value) / 100; paint(); });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-favpos]"), function (b) {
+      b.addEventListener("click", function () { state.favPos = this.getAttribute("data-favpos"); paint(); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-favown]"), function (b) {
+      b.addEventListener("click", function () { state.favOwn = this.getAttribute("data-favown"); paint(); });
+    });
+    var tt = document.querySelector("[data-favtiers]"); if (tt) tt.addEventListener("click", function () { state.favTiers = !state.favTiers; paint(); });
+    var hb = document.getElementById("ups-m-fav-help-btn"); if (hb) hb.addEventListener("click", function () { state.favHelp = true; paint(); });
+    var hbk = document.getElementById("ups-m-fav-help-back"); if (hbk) hbk.addEventListener("click", function () { state.favHelp = false; paint(); });
+    // ADP override: tap a rank chip → number input → commit re-prices the FA (stopPropagation so the
+    // card-expand tap below doesn't also fire). Typing the model's own rank clears the override.
+    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-fav-rankchip"), function (chip) {
+      chip.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (chip.querySelector("input")) return;
+        var n = chip.getAttribute("data-favrankn");
+        var rr = ((state.faValue && state.faValue.fas) || []).filter(function (x) { return x.n === n; })[0];
+        var modelRank = rr ? favRankIntM(rr.fr) : null;
+        var cur = state.favRankOvr[n] != null ? state.favRankOvr[n] : modelRank;
+        chip.innerHTML = '<input type="number" inputmode="numeric" min="1" max="80" value="' + (cur || "") + '" class="ups-m-fav-rankin" />';
+        var inp = chip.querySelector("input"); inp.focus(); inp.select();
+        var committed = false;
+        var commit = function (apply) {
+          if (committed) return; committed = true;
+          if (apply) { var v = favRankIntM(inp.value); if (v && v >= 1 && v <= 80) { if (v === modelRank) delete state.favRankOvr[n]; else state.favRankOvr[n] = v; } }
+          favSaveOvrM(); paint();
+        };
+        inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); commit(true); } else if (ev.key === "Escape") { ev.preventDefault(); commit(false); } });
+        inp.addEventListener("blur", function () { commit(true); });
+        inp.addEventListener("click", function (ev) { ev.stopPropagation(); });
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-fav-rankx"), function (x) { x.addEventListener("click", function (e) { e.stopPropagation(); var n = x.getAttribute("data-favrankxn"); delete state.favRankOvr[n]; favSaveOvrM(); paint(); }); });
+    var mra = document.getElementById("ups-m-fav-ovr-reset"); if (mra) mra.addEventListener("click", function () { state.favRankOvr = {}; favSaveOvrM(); paint(); });
+    Array.prototype.forEach.call(document.querySelectorAll(".ups-m-fav-row"), function (b) {
+      b.addEventListener("click", function () { var n = this.getAttribute("data-favn"); state.favOpen[n] = !state.favOpen[n]; paint(); });
+    });
   }
 
   function renderSummary(tab, p) {

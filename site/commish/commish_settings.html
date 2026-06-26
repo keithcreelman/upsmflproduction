@@ -148,8 +148,12 @@
   .fav-fit { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); margin: 0 4px 4px 0; color: var(--muted); }
   .fav-fit.need { color: #fbbf24; border-color: rgba(251,191,36,0.45); background: rgba(251,191,36,0.08); }
   .fav-fit.surp { color: #34d399; border-color: rgba(52,211,153,0.35); }
+  .fav-fit.depth { color: #f59e0b; border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.07); }
   .fav-fit.ok { color: var(--muted); }
   .fav-fit.sm { font-size: 10px; padding: 1px 6px; }
+  .fav-fit-w { display: inline-block; margin: 0 6px 4px 0; font-size: 11px; color: var(--muted); }
+  .fav-comp.own { color: #c084fc; border: 1px solid rgba(192,132,252,0.4); background: rgba(192,132,252,0.08); }
+  .fav-row.owned td:first-child { box-shadow: inset 3px 0 0 rgba(192,132,252,0.55); }
   .fav-rate { display: inline-block; font-size: 11px; font-weight: 600; color: var(--fg); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; margin: 0 4px 4px 0; }
   .fav-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
   .fav-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 12px; }
@@ -180,7 +184,84 @@
   .fav-dwhy { font-size: 12.5px; color: var(--fg); line-height: 1.5; margin-bottom: 8px; }
   .fav-dmeta { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
   .fav-table td { vertical-align: middle; }
-  @media (max-width: 720px) { .fav-dwrap { grid-template-columns: 1fr; } }
+  /* inflation panel */
+  .fav-infl { border-left: 3px solid var(--line); }
+  .fav-infl.hot { border-left-color: var(--danger); } .fav-infl.cool { border-left-color: #5b8dff; }
+  .fav-infl-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; align-items: center; }
+  .fav-infl-big { display: flex; align-items: center; gap: 10px; }
+  .fav-infl-x { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+  .fav-infl.hot .fav-infl-x { color: var(--danger); } .fav-infl.cool .fav-infl-x { color: #5b8dff; }
+  .fav-infl-lab { font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--muted); line-height: 1.35; }
+  .fav-infl-ms { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  .fav-infl-m { font-size: 11.5px; color: var(--muted); } .fav-infl-m b { color: var(--fg); font-size: 13px; margin-left: 5px; }
+  .fav-infl-note { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--line); padding-top: 8px; }
+  /* live auction overlay */
+  .fav-live { font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 4px 0 9px; }
+  .fav-live.on { color: #34d399; } .fav-live.on b { color: #34d399; }
+  .fav-sold { font-weight: 800; color: var(--muted); text-decoration: line-through; }
+  .fav-bid { font-weight: 800; color: #fbbf24; }
+  .fav-cleared { opacity: 0.6; }
+  .fav-rk.pos { color: #34d399; } .fav-rk.neg { color: var(--danger); }
+  /* ADP override: editable rank chip + price direction arrow */
+  .fav-rankchip { font-size: 10.5px; font-weight: 700; color: var(--accent); cursor: pointer; border-bottom: 1px dotted var(--accent); padding-bottom: 1px; white-space: nowrap; }
+  .fav-rankchip:hover { color: var(--fg); border-bottom-color: var(--fg); }
+  .fav-rankchip.ovr { color: #fbbf24; border-bottom-color: #fbbf24; }
+  .fav-rankx { color: var(--danger); font-weight: 800; margin-left: 3px; cursor: pointer; padding: 0 2px; }
+  .fav-rankx:hover { color: #fff; background: var(--danger); border-radius: 3px; }
+  .fav-rankin { width: 44px; font-size: 11px; padding: 1px 3px; border: 1px solid var(--accent); border-radius: 4px; background: var(--panel); color: var(--fg); }
+  .fav-row.fav-ovr td:first-child { box-shadow: inset 3px 0 0 #fbbf24; }
+  .fav-dir { font-size: 10px; font-weight: 800; margin-left: 4px; }
+  .fav-dir.up { color: var(--danger); } .fav-dir.down { color: #34d399; }
+  .fav-ovr-note { color: #fbbf24; font-weight: 700; }
+  .fav-ovr-reset { font-size: 10.5px; font-weight: 700; color: var(--accent); background: none; border: 1px solid var(--accent); border-radius: 5px; padding: 0 6px; margin-left: 4px; cursor: pointer; }
+  .fav-ovr-reset:hover { background: var(--accent); color: #fff; }
+  /* 📊 FAA Report */
+  .faa-ctx .faa-regime { font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .faa-ctx .faa-regime b { color: var(--fg); }
+  .faa-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .faa-cg { display: flex; align-items: center; gap: 6px; }
+  .faa-cl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  .faa-controls select { background: var(--panel2); border: 1px solid var(--line); color: var(--fg); border-radius: 7px; font-size: 12px; padding: 5px 8px; }
+  .faa-preset { background: var(--panel2); border: 1px solid var(--line); color: var(--fg); font-weight: 700; font-size: 11.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; }
+  .faa-preset:hover { border-color: var(--accent); }
+  .faa-chk { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+  .faa-count { margin-left: auto; font-size: 11px; color: var(--muted); }
+  .faa-bdg { font-size: 9px; font-weight: 800; padding: 1px 4px; border-radius: 4px; margin-left: 3px; vertical-align: middle; background: var(--panel2); color: var(--muted); border: 1px solid var(--line); }
+  .faa-bdg.sf { color: #0a1222; background: #5b8dff; border-color: #5b8dff; }
+  .faa-bdg.tep { color: #0a1222; background: #c084fc; border-color: #c084fc; }
+  .faa-bdg.qb { color: #0a1222; background: #fbbf24; border-color: #fbbf24; }
+  .faa-st { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
+  .faa-st.act { color: #0a1222; background: #34d399; } .faa-st.cut { color: #fff; background: #ef4444; } .faa-st.exp { color: var(--muted); border: 1px solid var(--line); }
+  .faa-over { color: #f87171; font-weight: 800; }
+  /* worth blend slider */
+  .fav-blend-tag { font-size: 10.5px; font-weight: 700; color: var(--fg); background: var(--panel2); border-radius: 999px; padding: 1px 8px; }
+  .fav-blend input[type=range] { width: 100%; margin: 8px 0 4px; accent-color: var(--accent); cursor: pointer; }
+  .fav-blend-ends { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+  /* help / explainer */
+  .fav-help-q { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-weight: 800; font-size: 12px; cursor: pointer; vertical-align: middle; margin-left: 4px; }
+  .fav-help-q:hover { background: var(--accent); color: #0a1222; }
+  .fav-help-body { max-width: 760px; }
+  .fav-help-sec { margin: 14px 0; } .fav-help-sec h4 { font-size: 13.5px; margin: 0 0 5px; color: var(--accent); }
+  .fav-help-sec p, .fav-help-sec li { font-size: 13px; line-height: 1.6; color: var(--fg); }
+  .fav-help-sec ul { margin: 5px 0; padding-left: 20px; } .fav-help-sec li { margin-bottom: 5px; }
+  .fav-ex-pos { margin: 12px 0; padding: 10px 12px; background: var(--panel2); border-radius: 10px; } .fav-ex-pos h4 { margin: 0 0 8px; font-size: 13px; }
+  .fav-ex { margin-bottom: 8px; } .fav-ex-h { font-size: 13px; margin-bottom: 3px; }
+  .fav-ex-tag { font-size: 9.5px; font-weight: 800; text-transform: uppercase; background: var(--accent); color: #0a1222; padding: 1px 6px; border-radius: 999px; }
+  .fav-ex-l { margin: 3px 0 0; padding-left: 18px; } .fav-ex-l li { font-size: 12px; line-height: 1.55; color: var(--muted); } .fav-ex-l b { color: var(--fg); }
+  .fav-ex-take { font-size: 12px; line-height: 1.5; color: var(--fg); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+  /* positional tiers */
+  .fav-tiers-btn { font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel2); color: var(--fg); cursor: pointer; }
+  .fav-tiers-btn.on { background: var(--accent); color: #0a1222; border-color: var(--accent); }
+  .fav-tier-row { display: flex; align-items: stretch; gap: 10px; margin-bottom: 10px; }
+  .fav-tier-pos { flex: 0 0 30px; font-size: 15px; font-weight: 800; color: var(--accent); display: flex; align-items: center; }
+  .fav-tier-cells { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .fav-tier { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-width: 130px; }
+  .fav-tier.sweet { border-color: #34d399; box-shadow: inset 0 0 0 1px rgba(52,211,153,0.35); }
+  .fav-tier-l { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; }
+  .fav-tier-v { font-size: 12px; color: var(--muted); margin: 2px 0; } .fav-tier-v b { color: var(--fg); }
+  .fav-tier-d { font-size: 10px; color: var(--muted); } .fav-tier.sweet .fav-tier-d { color: #34d399; }
+  .fav-tier-arrow { color: var(--muted); font-size: 12px; }
+  @media (max-width: 720px) { .fav-dwrap { grid-template-columns: 1fr; } .fav-infl-grid { grid-template-columns: 1fr; } .fav-tier-cells { flex-direction: column; align-items: stretch; } .fav-tier-arrow { display: none; } }
   @media (max-width: 560px) { .wr-mini-wrap { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -316,6 +397,7 @@
       '<div class="wr-vtabs">' +
       '<button data-wrv="scouting"' + (WR.view === "scouting" ? ' class="on"' : '') + '>📋 Scouting Intel</button>' +
       '<button data-wrv="favalue"' + (WR.view === "favalue" ? ' class="on"' : '') + '>💎 FA Value</button>' +
+      '<button data-wrv="faareport"' + (WR.view === "faareport" ? ' class="on"' : '') + '>📊 FAA Report</button>' +
       '<button data-wrv="board"' + (WR.view === "board" ? ' class="on"' : '') + '>🎯 My Board</button>' +
       '<button data-wrv="live"' + (WR.view === "live" ? ' class="on"' : '') + '>📡 Live Board</button>' +
       '</div><div id="wr-body"></div>';
@@ -334,10 +416,141 @@
     if (WR.view === "live") paintLive(b);
     else if (WR.view === "board") paintBoard(b);
     else if (WR.view === "favalue") paintFaValue(b);
+    else if (WR.view === "faareport") paintFaaReport(b);
     else paintScouting(b);
   }
   function wrName(fid) { var o = WR.data.owners[fid]; return o ? (o.owner_name || fid) : fid; }
   function wrTeam(fid) { var o = WR.data.owners[fid]; return o ? (o.team_name || "") : ""; }
+
+  // ── 📊 FAA Report: every FA-auction win since 2020, x-referenced to the contract it became ──
+  var FAA = { team: "ALL", pos: "ALL", yr: "ALL", vlab: "ALL", activeOnly: false, sort: "vidx", open: {} };
+  var FAA_VC = { STEAL: "sp", VALUE: "val", FAIR: "fair", POOR: "dart", BUST: "over" };
+  var FAA_SORTS = {
+    vidx: function (a, b) { return (b.vidx || 0) - (a.vidx || 0); },          // best cross-year value first
+    bid_k: function (a, b) { return (b.bid_k || 0) - (a.bid_k || 0); },        // auction value
+    tcv_k: function (a, b) { return (b.tcv_k || 0) - (a.tcv_k || 0); },        // current TCV
+    realized_k: function (a, b) { return (b.realized_k || 0) - (a.realized_k || 0); },  // real $ spent
+    ppr_real: function (a, b) { return (b.ppr_real || 0) - (a.ppr_real || 0); },
+    ppg: function (a, b) { return (b.ppg || 0) - (a.ppg || 0); },
+    gpct: function (a, b) { return (b.gpct || 0) - (a.gpct || 0); },
+    lweeks: function (a, b) { return (b.lweeks || 0) - (a.lweeks || 0); },
+    days: function (a, b) { return (b.days || 0) - (a.days || 0); },
+    n_teams: function (a, b) { return (b.n_teams || 0) - (a.n_teams || 0); },
+    n_ext: function (a, b) { return (b.n_ext || 0) - (a.n_ext || 0); },
+    worst: function (a, b) { return (a.vidx == null ? 99 : a.vidx) - (b.vidx == null ? 99 : b.vidx); }  // worst builds
+  };
+  function faaTeam(meta, fid) { return (meta.teams && meta.teams[fid]) || fid; }
+  function faaPaintErr(host, msg) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">' + esc(msg) + '</div></div>'; }
+  function paintFaaReport(host) {
+    if (WR.faa === undefined) WR.faa = null;
+    if (!WR.faa) {
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading FAA report…</div></div>';
+      fetchJSON(apiUrl("/api/auction/faa-report") + "?franchise_id=0008").then(function (d) {
+        if (!d || !d.ok) { faaPaintErr(host, (d && d.error) || "FAA report not available — run build_faa_report.py --push-d1"); WR.faa = false; return; }
+        var cols = d.cols || [];
+        d._rows = (d.data || []).map(function (a) { var o = {}; for (var i = 0; i < cols.length; i++) o[cols[i]] = a[i]; return o; });
+        WR.faa = d; if (WR.view === "faareport") paintFaaReport(host);
+      }).catch(function (e) { faaPaintErr(host, "Failed: " + (e.message || String(e))); });
+      return;
+    }
+    if (WR.faa === false) { faaPaintErr(host, "FAA report not loaded."); return; }
+    var d = WR.faa, meta = d.meta || {}, rows = (d._rows || []).slice();
+    // filters
+    if (FAA.team !== "ALL") rows = rows.filter(function (r) { return r.wfid === FAA.team; });
+    if (FAA.pos !== "ALL") rows = rows.filter(function (r) { return r.pos === FAA.pos; });
+    if (FAA.yr !== "ALL") rows = rows.filter(function (r) { return String(r.ws) === FAA.yr; });
+    if (FAA.vlab !== "ALL") rows = rows.filter(function (r) { return r.vlab === FAA.vlab; });
+    if (FAA.activeOnly) rows = rows.filter(function (r) { return r.active; });
+    rows.sort(FAA_SORTS[FAA.sort] || FAA_SORTS.vidx);
+
+    // ── context band: the league-settings regime Keith stressed ──
+    var ctxCard = '<div class="fo-card faa-ctx"><div class="fo-card-head"><h3>📊 FAA Report — every FA-auction win since 2020, x-referenced to the contract it became</h3>' +
+      '<span class="fo-sub">' + (meta.n || rows.length) + ' contracts · ' + esc(meta.window || "") + ' · auction bid vs <b>realized cap</b> (real $ paid across the whole contract lineage) · PPG · availability · tenure · #teams · #extensions · still-active</span></div>' +
+      '<div class="faa-regime">⚙️ <b>Superflex since 2022</b> (QB prices jumped ~2–4×) · <b>TE-Premium since 2025</b> (TE 1.5 PPR) · <b>2021 = pre-SF QB front-run</b> (owners loaded up early — e.g. Dak Prescott $45K, ~5× his ’19 price). ' +
+      'The <b>VIDX</b> value index is cross-year-normalized (judged vs each pick’s own position×season market) so a 2020 win compares fairly to a 2024 one.</div></div>';
+
+    // ── controls ──
+    var teamOpts = ['<option value="ALL">All teams</option>'].concat(
+      Object.keys(meta.teams || {}).sort().map(function (fid) {
+        return '<option value="' + fid + '"' + (FAA.team === fid ? ' selected' : '') + '>' + esc(faaTeam(meta, fid)) + '</option>';
+      })).join("");
+    var posTabs = ["ALL", "QB", "RB", "WR", "TE"].map(function (p) { return '<button data-faapos="' + p + '"' + (FAA.pos === p ? ' class="on"' : '') + '>' + p + '</button>'; }).join("");
+    var yrTabs = ["ALL", "2020", "2021", "2022", "2023", "2024", "2025"].map(function (y) { return '<button data-faayr="' + y + '"' + (FAA.yr === y ? ' class="on"' : '') + '>' + y + '</button>'; }).join("");
+    var sortOpts = [["vidx", "Value index (best→worst)"], ["worst", "Worst builds first"], ["bid_k", "Auction bid"], ["tcv_k", "TCV (current)"],
+      ["realized_k", "Real $ spent"], ["ppr_real", "Pts per real $"], ["ppg", "PPG"], ["gpct", "Availability %"],
+      ["lweeks", "Tenure (weeks)"], ["days", "Tenure (days)"], ["n_teams", "# teams"], ["n_ext", "# extensions"]]
+      .map(function (o) { return '<option value="' + o[0] + '"' + (FAA.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("");
+    var controls = '<div class="fo-card faa-controls">' +
+      '<div class="faa-cg"><span class="faa-cl">Preset</span><button class="faa-preset" data-faasort="vidx">💎 Best values</button><button class="faa-preset" data-faasort="worst">🪨 Worst builds</button></div>' +
+      '<div class="faa-cg"><span class="faa-cl">Team</span><select id="faa-team">' + teamOpts + '</select></div>' +
+      '<div class="faa-cg"><span class="faa-cl">Pos</span><div class="wr-vtabs sm">' + posTabs + '</div></div>' +
+      '<div class="faa-cg"><span class="faa-cl">Year</span><div class="wr-vtabs sm">' + yrTabs + '</div></div>' +
+      '<div class="faa-cg"><span class="faa-cl">Sort</span><select id="faa-sort">' + sortOpts + '</select></div>' +
+      '<div class="faa-cg"><label class="faa-chk"><input type="checkbox" id="faa-active"' + (FAA.activeOnly ? ' checked' : '') + '> active only</label></div>' +
+      '<div class="faa-cg faa-count">' + rows.length + ' shown</div></div>';
+
+    // ── table ──
+    var head = '<tr><th>Player</th><th>Yr</th><th>Won by</th><th class="num" title="auction winning bid (=Year-1 salary)">Bid</th>' +
+      '<th class="num" title="current/last contract TCV">TCV</th><th class="num" title="real cap $ paid across the whole contract lineage (all teams, incl. extensions/restructures + committed 2026)">Real $</th>' +
+      '<th class="num">PPG</th><th class="num" title="games played ÷ (played seasons × league weeks)">Avail</th>' +
+      '<th title="league weeks · raw days under contract">Tenure</th><th class="num" title="franchises that held him under this contract (win + trades)">Tms</th>' +
+      '<th class="num" title="extensions (derived from contract events)">Ext</th><th>Status</th>' +
+      '<th class="num" title="cross-year value index — production vs price, normalized to each pick’s position×season market">VIDX</th></tr>';
+    var body = rows.map(function (r, i) {
+      var badges = (r.sf ? '<span class="faa-bdg sf" title="Superflex year">SF</span>' : '') +
+        (r.tep ? '<span class="faa-bdg tep" title="TE-Premium year">TEP</span>' : '') +
+        (r.qbbump ? '<span class="faa-bdg qb" title="pre-Superflex QB front-run year">QB↑</span>' : '') +
+        (r.forced ? '<span class="faa-bdg" title="forced bid">⚡</span>' : '');
+      var overrun = (r.realized_k > r.tcv_k * 1.5 && r.tcv_k > 0);
+      var statusChip = r.active ? '<span class="faa-st act">✓ active</span>'
+        : '<span class="faa-st ' + (r.end_reason === "cut" ? "cut" : "exp") + '">' + (r.end_reason === "cut" ? "✂ cut" : "expired") + '</span>';
+      var vcls = FAA_VC[r.vlab] || "fair";
+      var vtxt = (r.vidx == null ? "—" : (r.vidx >= 10 ? "10+" : r.vidx));
+      var tr = '<tr class="fav-row faa-row" data-faai="' + i + '">' +
+        '<td><b>' + esc(r.n) + '</b> <span class="fav-rk">' + esc(r.pos) + (r.nfl ? ' · ' + esc(r.nfl) : '') + '</span> ' + badges + '</td>' +
+        '<td class="num">' + r.ws + '</td>' +
+        '<td><span class="fav-rk">' + esc(faaTeam(meta, r.wfid)) + '</span></td>' +
+        '<td class="num">$' + r.bid_k + 'K</td>' +
+        '<td class="num">$' + r.tcv_k + 'K' + (r.cl ? ' <span class="fav-rk">' + r.cl + 'y</span>' : '') + '</td>' +
+        '<td class="num' + (overrun ? ' faa-over' : '') + '" title="' + (overrun ? "realized ≫ TCV — restructure/dead-money overrun" : "") + '">$' + r.realized_k + 'K</td>' +
+        '<td class="num">' + (r.ppg || 0) + '</td>' +
+        '<td class="num">' + Math.round((r.gpct || 0) * 100) + '%</td>' +
+        '<td class="fav-rk">' + (r.lweeks || 0) + 'wk · ' + (r.days || 0) + 'd</td>' +
+        '<td class="num">' + r.n_teams + '</td>' +
+        '<td class="num">' + (r.n_ext || 0) + '</td>' +
+        '<td>' + statusChip + '</td>' +
+        '<td class="num"><span class="fav-v ' + vcls + '" title="' + (r.vlab || "") + '">' + vtxt + '</span></td></tr>';
+      return tr + (FAA.open[r.n + r.ws] ? faaDetail(r, meta) : "");
+    }).join("");
+    var table = '<div class="fo-card"><div class="fo-table-scroll"><table class="fo-table fav-table"><thead>' + head + '</thead><tbody>' +
+      (body || '<tr><td colspan="13" class="fo-table-empty">No contracts match.</td></tr>') + '</tbody></table></div></div>';
+
+    host.innerHTML = ctxCard + controls + table;
+    // wire
+    var ts = document.getElementById("faa-team"); if (ts) ts.addEventListener("change", function () { FAA.team = ts.value; paintFaaReport(host); });
+    var ss = document.getElementById("faa-sort"); if (ss) ss.addEventListener("change", function () { FAA.sort = ss.value; paintFaaReport(host); });
+    var ac = document.getElementById("faa-active"); if (ac) ac.addEventListener("change", function () { FAA.activeOnly = ac.checked; paintFaaReport(host); });
+    $$("[data-faapos]", host).forEach(function (b) { b.addEventListener("click", function () { FAA.pos = b.getAttribute("data-faapos"); paintFaaReport(host); }); });
+    $$("[data-faayr]", host).forEach(function (b) { b.addEventListener("click", function () { FAA.yr = b.getAttribute("data-faayr"); paintFaaReport(host); }); });
+    $$("[data-faasort]", host).forEach(function (b) { b.addEventListener("click", function () { FAA.sort = b.getAttribute("data-faasort"); paintFaaReport(host); }); });
+    $$(".faa-row", host).forEach(function (tr) { tr.addEventListener("click", function () { var r = rows[parseInt(tr.getAttribute("data-faai"), 10)]; if (!r) return; var k = r.n + r.ws; FAA.open[k] = !FAA.open[k]; paintFaaReport(host); }); });
+  }
+  function faaDetail(r, meta) {
+    var bb = (meta.base_bid && meta.base_bid[r.pos] && meta.base_bid[r.pos][r.ws]) || null;
+    var bp = (meta.base_pts && meta.base_pts[r.pos] && meta.base_pts[r.pos][r.ws]) || null;
+    var overrun = (r.realized_k > r.tcv_k * 1.5 && r.tcv_k > 0);
+    return '<tr class="fav-detail"><td colspan="13"><div class="fav-dwrap">' +
+      '<div><div class="fav-dh">Auction vs real dollars</div><div class="fav-dmeta">Won for <b>$' + r.bid_k + 'K</b> in ' + r.ws + ' · current TCV <b>$' + r.tcv_k + 'K</b>/' + (r.cl || 1) + 'yr · ' +
+      'real cap paid across the lineage <b>$' + r.realized_k + 'K</b>' + (overrun ? ' <span class="fav-est">⚠ overrun vs TCV</span>' : '') + '<br>' +
+      'pts per real $: <b>' + (r.ppr_real || 0) + '</b> · pts per bid $: <b>' + (r.ppr_bid || 0) + '</b></div></div>' +
+      '<div><div class="fav-dh">Production & tenure</div><div class="fav-dmeta">' + (r.ppg || 0) + ' PPG (' + (r.ppg_reg || 0) + ' reg) over <b>' + (r.gp || 0) + '</b> games · ' +
+      'availability <b>' + Math.round((r.gpct || 0) * 100) + '%</b> (' + (r.gp || 0) + '/' + (r.cgames || 0) + ')<br>' +
+      'under contract <b>' + (r.lweeks || 0) + '</b> league weeks · <b>' + (r.days || 0) + '</b> days · <b>' + r.n_teams + '</b> team' + (r.n_teams === 1 ? '' : 's') + ' · <b>' + (r.n_ext || 0) + '</b> extension' + (r.n_ext === 1 ? '' : 's') + '</div></div>' +
+      '<div><div class="fav-dh">Context (' + r.ws + ')</div><div class="fav-dmeta">' + (r.sf ? 'Superflex' : '1-QB') + (r.tep ? ' · TE-Premium' : '') + (r.qbbump ? ' · pre-SF QB front-run' : '') + ' · QB slots ' + (r.qb || "1") + '<br>' +
+      'that year, the median ' + esc(r.pos) + ' won for <b>$' + (bb || "?") + 'K</b> and produced <b>' + (bp || "?") + '</b> pts → VIDX <b>' + (r.vidx == null ? "—" : r.vidx) + '</b> (' + (r.vlab || "") + ')<br>' +
+      'ended: <b>' + esc(r.end_reason) + '</b>' + (r.end_dt ? ' (' + esc(r.end_dt) + ')' : '') + '<span class="fav-est"> · TCV/ext are event-chain-derived</span></div></div>' +
+      '</div></td></tr>';
+  }
   function wrSf(fid) { var o = WR.data.owners[fid]; return o && o.by_era ? (o.by_era[WR.era] || o.by_era.sf) : null; }
   function wrThreat(fid) { var c = (WR.data.scouting && WR.data.scouting.cards || []).filter(function (x) { return x.fid === fid; })[0]; return c || null; }
   function heatStrip(hist) {
@@ -433,6 +646,11 @@
   }
   function wrBoardSave() { try { localStorage.setItem("ups_war_room_board_0008", JSON.stringify(WR.board || [])); } catch (e) {} }
   function wrRoomK() { return WR.room != null ? Math.round(WR.room / 1000) : null; }
+  // normalize a player name to match across sources (adp-board ↔ fa-value pricing)
+  function fnk(s) {
+    s = (s || "").toLowerCase().replace(/[.'']/g, "").replace(/-/g, " ").replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "");
+    return s.replace(/\s+/g, " ").trim();
+  }
   function paintBoard(host) {
     wrBoardLoad();
     if (!WR.adp) {
@@ -441,6 +659,15 @@
         .catch(function () { WR.adp = []; if (WR.view === "board") paintBoard(host); });
       return;
     }
+    // load the SAME pricing the FA Value view uses, so a target's $ ties out
+    if (WR.fav === undefined || WR.fav === null) {
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading pricing model…</div></div>';
+      fetchJSON(apiUrl("/api/auction/fa-value") + "?franchise_id=0008").then(function (d) { WR.fav = (d && d.ok) ? d : false; if (WR.view === "board") paintBoard(host); })
+        .catch(function () { WR.fav = false; if (WR.view === "board") paintBoard(host); });
+      return;
+    }
+    var pricByName = {};
+    (WR.fav && WR.fav.fas || []).forEach(function (p) { pricByName[fnk(p.n)] = p; });
     if (WR.room == null) {
       var ro = WR.live && WR.live.rosters;
       if (ro) { var c0 = wrCash(ro).filter(function (x) { return x.fid === "0008"; })[0]; WR.room = c0 ? c0.avail : null; }
@@ -456,11 +683,13 @@
     function tierSum(t) { return WR.board.filter(function (x) { return x.tier === t; }).reduce(function (a, x) { return a + (parseInt(x.max, 10) || 0); }, 0); }
     var t1 = tierSum(1), cum2 = t1 + tierSum(2), cum3 = cum2 + tierSum(3);
     function row(x) {
-      var th = pt[x.pos] || {};
+      var pr = pricByName[fnk(x.name)];
+      var priceTag = pr ? '<span class="small" style="color:var(--muted)" title="FA Value model: low–median–top10 expected price">model $' + pr.lk + '–<b style="color:var(--fg)">' + pr.mk + '</b>–' + pr.tk + 'K · ' + (pr.v || '') + '</span>'
+        : '<span class="small" style="color:var(--muted)">no model price</span>';
       return '<div class="wr-tgt"><span class="nm"><b>' + esc(x.name) + '</b> <span class="small" style="color:var(--muted)">' + esc(x.pos) + (x.team ? "·" + esc(x.team) : "") + (x.posRank ? " " + esc(x.pos) + x.posRank : "") + '</span></span>' +
         '<label class="small">$<input type="number" class="wr-max" data-pid="' + esc(x.pid) + '" value="' + (x.max || 0) + '" min="0" step="1">K</label>' +
         '<select class="wr-tier" data-pid="' + esc(x.pid) + '">' + [1, 2, 3].map(function (t) { return '<option value="' + t + '"' + (x.tier === t ? " selected" : "") + ">T" + t + "</option>"; }).join("") + '</select>' +
-        (th.p90 != null ? '<span class="small" style="color:var(--muted)" title="position SF p50 / p90 (rare) price">p50 $' + th.p50 + ' · p90 $' + th.p90 + '</span>' : "") +
+        priceTag +
         '<button class="wr-rm" data-pid="' + esc(x.pid) + '" title="remove">×</button></div>';
     }
     var groups = [1, 2, 3].map(function (t) {
@@ -485,8 +714,10 @@
       $$(".wr-res", results).forEach(function (el) {
         el.addEventListener("click", function () {
           var p = WR.adp.filter(function (x) { return x.pid === el.getAttribute("data-pid"); })[0]; if (!p) return;
-          var th = pt[p.pos] || {};
-          WR.board.push({ pid: p.pid, name: p.name, pos: p.pos, team: p.team, posRank: p.posRank, tier: 2, max: (th.p75 || th.p50 || 5) });
+          var th = pt[p.pos] || {}, pr = pricByName[fnk(p.name)];
+          // seed the max bid from the SAME FA Value pricing model (median); fall back to the SF threshold
+          var seed = pr ? pr.mk : (th.p75 || th.p50 || 5);
+          WR.board.push({ pid: p.pid, name: p.name, pos: p.pos, team: p.team, posRank: p.posRank, tier: 2, max: seed });
           wrBoardSave(); paintBoard(host);
         });
       });
@@ -499,18 +730,66 @@
   }
 
   // ── 💎 FA Value: expected-APW vs price vs roster-fit, per available FA ──
-  var FAV = { pos: "ALL", verdict: "ALL", sort: "apw", needOnly: false, open: {} };
+  var FAV = { pos: "ALL", verdict: "ALL", sort: "worth", needOnly: false, ownership: "available", open: {}, dynW: 0.5, showTiers: false, showHelp: false };
+  var FAV_FIT = { NS: "NEED-STUD", N: "NEED", D: "DEPTH", S: "SURPLUS", "-": "OK" };
+  // ── ADP override: the user re-ranks a FA (e.g. WR20→WR12) and the board re-prices him. Persisted by
+  // player name so it survives a mid-auction reload (same store key the mobile board uses). ──
+  var FAV_RANK_OVR = {}; try { FAV_RANK_OVR = JSON.parse(localStorage.getItem("ups_fav_rank_ovr") || "{}") || {}; } catch (e) { }
+  function favSaveOvr() { try { localStorage.setItem("ups_fav_rank_ovr", JSON.stringify(FAV_RANK_OVR)); } catch (e) { } }
+  // ── client recompute KERNEL: reproduce build_fa_value.ep_base_k EXACTLY at a different redraft rank.
+  // EP = round(max( startability(pos,rank), ante+slope·round(p50[rank]·$/APWE), dynasty_worth·pos_dyn_w )).
+  // Only the redraft axis + startability + affine move with rank; dynasty worth (dw) is rank-independent. ──
+  function pyRound(x) { var r = Math.round(x); if (Math.abs(x - Math.trunc(x) - 0.5) < 1e-9 && (r % 2 !== 0)) r -= (x >= 0 ? 1 : -1); return r; }  // half-to-even, matches Python round()
+  function epStartFloor(pos, rank, EP) { var t = EP && EP.startability && EP.startability[pos]; if (!t || !rank) return 0; for (var i = 0; i < t.length; i++) { if (rank <= t[i][0]) return t[i][1]; } return t[t.length - 1][1]; }
+  function favRankInt(s) { var m = String(s || "").match(/(\d+)/); return m ? +m[1] : null; }
+  function epRecompute(pos, rank, dw, EP) {
+    var C = EP && EP.curves && EP.curves[pos]; if (!C || !rank) return null;
+    var idx = Math.min(rank, C.p50.length) - 1, a50f = C.p50[idx];             // FULL 2dp p50 → exact rw
+    var rw = pyRound(a50f * EP.dollar_per_apwe);                               // round redraft worth FIRST
+    var aff = EP.affine_ante + EP.affine_slope * rw, sf = epStartFloor(pos, rank, EP);
+    var pw = (EP.pos_dyn_w[pos] != null ? EP.pos_dyn_w[pos] : (EP.pos_dyn_w._default != null ? EP.pos_dyn_w._default : 0.8));
+    // a50/a90 returned at the board's 1dp display convention; rw/ep use full precision.
+    return { a50: Math.round(a50f * 10) / 10, a90: Math.round(C.p90[idx] * 10) / 10, rw: rw, ep: pyRound(Math.max(sf, aff, (dw || 0) * pw)) };
+  }
+  function favEP(meta) { return meta && meta.model; }   // the kernel lives in meta.model (constants + curves)
+  function favCanOvr(r, EP) { return !r.o && EP && EP.curves && EP.curves[r.p] && r.fr; }   // FA + has a curve + a redraft rank
+  function favDirChip(cur, e0) { if (e0 == null) return ""; var d = cur - e0; if (Math.abs(d) < 1) return ""; var up = d > 0; return '<span class="fav-dir ' + (up ? "up" : "down") + '" title="original model price $' + e0 + 'K">' + (up ? "▲" : "▼") + Math.abs(d) + '</span>'; }
+  function favFitLabel(fit, pos, meta) {
+    if (!fit) return "OK";
+    var b = (meta.baseline_apw || {})[pos] || 1, thin = fit.need > 0.4 * b, deep = fit.surplus > 0.8 * b;
+    if (!fit.stud) return thin ? "NEED-STUD" : "DEPTH";
+    if (thin) return "NEED";
+    if (deep) return "SURPLUS";
+    return "OK";
+  }
+  function favFitChip(lab, small) {
+    var cls = lab.indexOf("NEED") === 0 ? "need" : (lab === "SURPLUS" ? "surp" : (lab === "DEPTH" ? "depth" : "ok"));
+    return '<span class="fav-fit ' + cls + (small ? " sm" : "") + '" title="' +
+      (lab === "DEPTH" ? "bodies above replacement but no stud" : (lab === "NEED-STUD" ? "no difference-maker at this position" : "")) +
+      '">' + lab + '</span>';
+  }
   var VMETA = { SPLURGE: ["sp", "SPLURGE"], VALUE: ["val", "VALUE"], FAIR: ["fair", "FAIR"], OVERPAY: ["over", "OVERPAY"], DART: ["dart", "DART"] };
-  var APW_SCALE = 16; // APW is cross-position comparable (β baked in) → one shared scale
-  function favRangeBar(p25, p50, p90, max) {
-    var lo = Math.max(0, Math.min(1, (p25 || 0) / max)) * 100;
+  var APWE_SCALE = 24; // all-play wins EARNED, one shared scale (2024 top ~24)
+  function favRangeBar(p50, p90, max) {
     var hi = Math.max(0, Math.min(1, (p90 || 0) / max)) * 100;
     var mid = Math.max(0, Math.min(1, (p50 || 0) / max)) * 100;
-    return '<div class="fav-bar" title="floor ' + (p25 || 0) + ' · median ' + (p50 || 0) + ' · ceiling ' + (p90 || 0) + ' APW">' +
-      '<span class="fav-bar-fill" style="left:' + lo.toFixed(1) + '%;width:' + Math.max(2, hi - lo).toFixed(1) + '%"></span>' +
+    return '<div class="fav-bar" title="proj ' + (p50 || 0) + ' · ceiling ' + (p90 || 0) + ' all-play wins earned">' +
+      '<span class="fav-bar-fill" style="left:0%;width:' + Math.max(2, hi).toFixed(1) + '%"></span>' +
       '<span class="fav-bar-tick" style="left:' + mid.toFixed(1) + '%"></span></div>';
   }
   function favTeamName(fid) { var t = (WR.fav.teams || {})[fid]; return t ? t.team : fid; }
+  // WORTH = live blend of the two cardinal axes (FAV.dynW = dynasty weight 0..1); slider-driven
+  function favWorth(r) { var w = FAV.dynW; return Math.round((1 - w) * (r.rw || 0) + w * (r.dw || 0)); }
+  function favVerdict(worth, ep, a90) { // mirrors build_roster_fit.re_verdict so view == pipeline
+    var vr = ep > 0 ? worth / ep : null;
+    if (vr == null) return ["—", null, "fair"];
+    if (vr >= 1.5 && worth >= 15) return ["SPLURGE", vr, "sp"];
+    if (vr >= 1.2) return ["VALUE", vr, "val"];
+    if (vr >= 0.8) return ["FAIR", vr, "fair"];
+    if (ep <= 4) return (a90 || 0) >= 5 ? ["DART", vr, "dart"] : ["FAIR", vr, "fair"];
+    if (ep < 15) return ["FAIR", vr, "fair"];
+    return vr < 0.6 ? ["OVERPAY", vr, "over"] : ["FAIR", vr, "fair"];
+  }
   function paintFaValue(host) {
     if (WR.fav === undefined) WR.fav = null;
     if (!WR.fav) {
@@ -522,94 +801,358 @@
       return;
     }
     if (WR.fav === false) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">FA value not loaded.</div></div>'; return; }
-    var d = WR.fav, meta = d.meta || {}, mr = meta.market_rate || {}, mine = (d.teams || {})["0008"] || { fit: {} };
+    if (FAV.dynW == null) FAV.dynW = 0.5;
+    var d = WR.fav, meta = d.meta || {}, infl = meta.inflation || {}, mine = (d.teams || {})["0008"] || { fit: {} };
+    // LIVE auction overlay — as lots clear, recompute from the real board (non-blocking fetch)
+    if (WR.favLive === undefined) {
+      WR.favLive = null;
+      fetchJSON(apiUrl("/api/auction/lots") + "?L=" + encodeURIComponent(L) + "&franchise_id=0008").then(function (r) { WR.favLive = r || { lots: [] }; if (WR.view === "favalue") paintFaValue(host); }).catch(function () { WR.favLive = { lots: [] }; });
+    }
+    var live = favLiveState(d);
+    if (FAV.showHelp) {
+      host.innerHTML = favHelpCard(d);
+      var bk = document.getElementById("fav-help-back"); if (bk) bk.addEventListener("click", function () { FAV.showHelp = false; paintFaValue(host); });
+      return;
+    }
     var rows = (d.fas || []).slice();
+    var nAvail = rows.filter(function (r) { return !r.o; }).length, nRost = rows.length - nAvail;
+    var EP = favEP(meta), nOvr = 0;
+    // decorate each row with the LIVE-blended worth / price / gap / verdict. A trade target isn't in
+    // the auction → its PRICE is its contract AAV (what you take on), not the inflated auction EP.
+    rows.forEach(function (r) {
+      // pristine snapshot (captured ONCE) so an ADP override is reversible without a re-fetch.
+      if (r._ep0 == null) { r._ep0 = r.e; r._rw0 = r.rw; r._a500 = r.a50; r._a900 = r.a90; }
+      r.rw = r._rw0; r.a50 = r._a500; r.a90 = r._a900;   // restore pristine, then re-apply any override
+      // ADP override = YOUR private read → moves WORTH only (redraft axis + APWE). The expected PRICE
+      // stays at the MARKET's read (r.e unchanged): if you alone think he's better, you still pay the
+      // market price → the widened gap IS your edge. r._ovrEP = what he'd cost IF the market agreed.
+      var ov = favCanOvr(r, EP) ? FAV_RANK_OVR[r.n] : null; r._ovrEP = null;
+      if (ov != null) { var res = epRecompute(r.p, ov, r.dw, EP); if (res) { r.rw = res.rw; r.a50 = res.a50; r.a90 = res.a90; r._ovrEP = res.ep; nOvr++; } }
+      r._ovr = ov;
+      r._w = favWorth(r);
+      r._price = r.o ? (r.av || 0) : (r.e || 0);
+      r._gap = r._price - r._w;
+      var v = favVerdict(r._w, r._price, r.a90); r._v = v[1]; r._vlab = v[0]; r._vcls = v[2];
+      // live overlay: sold (actual clear) / active (current bid) / calibrated live-EP for the rest.
+      // r.e already carries any override, so live calibration marks the OVERRIDDEN price to the room.
+      if (!r.o) {
+        var nk = fnk(r.n);
+        r._sold = live.sold[nk]; r._active = live.active[nk];
+        r._liveEP = (live.factor && r._sold == null && r._active == null) ? Math.round((r.e || 0) * live.factor) : null;
+      }
+    });
     // filters
+    if (FAV.ownership === "available") rows = rows.filter(function (r) { return !r.o; });
+    else if (FAV.ownership === "rostered") rows = rows.filter(function (r) { return r.o; });
     if (FAV.pos !== "ALL") rows = rows.filter(function (r) { return r.p === FAV.pos; });
-    if (FAV.verdict !== "ALL") rows = rows.filter(function (r) { return r.v === FAV.verdict; });
-    if (FAV.needOnly) rows = rows.filter(function (r) { return r.f === "N"; });
+    if (FAV.verdict !== "ALL") rows = rows.filter(function (r) { return r._vlab === FAV.verdict; });
+    if (FAV.needOnly) rows = rows.filter(function (r) { return r.f === "N" || r.f === "NS"; });
     // sort
     var SORTS = {
-      apw: function (a, b) { return (b.a50 || 0) - (a.a50 || 0); },
-      value: function (a, b) { return (b.vr || 0) - (a.vr || 0); },
-      price: function (a, b) { return (b.mk || 0) - (a.mk || 0); },
+      worth: function (a, b) { return (b._w || 0) - (a._w || 0); },
+      value: function (a, b) { return (a._gap || 0) - (b._gap || 0); }, // biggest discount (most negative gap) first
+      price: function (a, b) { return (b.e || 0) - (a.e || 0); },
+      apwe: function (a, b) { return (b.a50 || 0) - (a.a50 || 0); },
       ceiling: function (a, b) { return (b.a90 || 0) - (a.a90 || 0); }
     };
-    rows.sort(SORTS[FAV.sort] || SORTS.apw);
+    rows.sort(SORTS[FAV.sort] || SORTS.worth);
 
-    // ── summary band: 0008 fit + market $/APW + fill ──
+    // ── market panel (v4: the affine clearing line is the inflation) + live overlay ──
+    var liveLine = live.live
+      ? '<div class="fav-live on">🔴 LIVE · ' + live.nSold + ' sold · ' + live.nActive + ' active' + (live.factor ? ' · room running <b>' + live.factor.toFixed(2) + '×</b> model → remaining prices recalibrated' : ' · need ≥3 clears to calibrate') + '</div>'
+      : '<div class="fav-live">⚪ Auction not live — opens late July. As lots clear, sold prices recalibrate the remaining board automatically.</div>';
+    var inflCard = '<div class="fo-card fav-infl">' + liveLine + '<div class="fav-infl-grid">' +
+      '<div class="fav-infl-big"><div class="fav-infl-x">' + ((infl.board_markup != null ? infl.board_markup : 1).toFixed(2)) + '×</div>' +
+      '<div class="fav-infl-lab">expected price ÷<br>production worth<br><span class="fav-rk">v4 clearing line</span></div></div>' +
+      '<div class="fav-infl-ms">' +
+      '<div class="fav-infl-m"><span>clearing line</span><b>$' + (infl.ante || 0) + 'K + ' + (infl.slope || 0) + '·worth</b></div>' +
+      '<div class="fav-infl-m"><span>biddable money</span><b>$' + (infl.biddable_money_k || 0) + 'K</b></div>' +
+      '<div class="fav-infl-m"><span>credible pool (worth)</span><b>$' + (infl.credible_value_k || 0) + 'K</b></div>' +
+      '<div class="fav-infl-m"><span>locked rostered surplus</span><b>$' + (infl.surplus_k || 0) + 'K</b></div>' +
+      '</div><div class="fav-infl-note">' + esc(infl.note || '') + '</div></div></div>';
+
+    // ── summary band: 0008 fit + the WORTH BLEND slider ──
     var fitChips = ["QB", "RB", "WR", "TE"].map(function (pos) {
-      var f = (mine.fit || {})[pos] || {}, lab = f.need > 0.4 * (meta.baseline_apw && meta.baseline_apw[pos] || 1) ? "NEED" : (f.surplus > 0.8 * (meta.baseline_apw && meta.baseline_apw[pos] || 1) ? "SURPLUS" : "OK");
-      var cls = lab === "NEED" ? "need" : (lab === "SURPLUS" ? "surp" : "ok");
-      return '<span class="fav-fit ' + cls + '">' + pos + ' · ' + lab + '</span>';
-    }).join("");
-    var rateChips = ["QB", "RB", "WR", "TE"].map(function (pos) {
-      var r = mr[pos] || {}; return '<span class="fav-rate" title="market $ paid per expected-APW (SF era)' + (r.R_conf !== "high" ? " — thin sample, estimate" : "") + '">' + pos + ' $' + (r.R ? Math.round(r.R / 100) / 10 + 'K' : '—') + '/APW' + (r.R_conf !== "high" ? ' ⚠' : '') + '</span>';
-    }).join("");
-    var fill = meta.fill || {};
-    var summary = '<div class="fo-card"><div class="fo-card-head"><h3>💎 FA Value — expected All-Play Wins vs price vs your roster</h3>' +
-      '<span class="fo-sub">' + (d.fas || []).length + ' available FAs · value = APW the slot delivers ÷ what the market pays for it</span></div>' +
-      '<div class="fav-summary"><div><div class="fav-sg-h">Your roster (0008) needs</div>' + fitChips + '</div>' +
-      '<div><div class="fav-sg-h">Market price of an APW (SF)</div>' + rateChips + '</div>' +
-      '<div><div class="fav-sg-h">Auction fill behavior</div><span class="fav-note">teams win ~14–15 at auction, then add <b>' + (fill.avg_post_auction_adds_per_team || '—') + '</b>/team via waivers before Wk 1 → don\'t overpay for depth, it\'s cheaper on waivers</span></div></div></div>';
+      return '<span class="fav-fit-w">' + pos + ' · ' + favFitChip(favFitLabel((mine.fit || {})[pos], pos, meta)) + '</span>';
+    }).join(" ");
+    var pct = Math.round(FAV.dynW * 100), nOvrAll = Object.keys(FAV_RANK_OVR).length;
+    var ovrNote = nOvrAll ? ' · <span class="fav-ovr-note">✎ ' + nOvrAll + ' ADP edit' + (nOvrAll > 1 ? 's' : '') + ' <button id="fav-ovr-reset" class="fav-ovr-reset" title="clear all your ADP overrides">reset all</button></span>' : '';
+    var summary = '<div class="fo-card"><div class="fo-card-head"><h3>💎 FA Value — worth vs expected price vs your roster <button id="fav-help-btn" class="fav-help-q" title="How does this work? (plain-English + examples)">?</button></h3>' +
+      '<span class="fo-sub">' + nAvail + ' available FAs · ' + nRost + ' rostered trade targets · click a FA\'s rank (e.g. <b>WR20 ✎</b>) to set your own ADP — raises his <b>worth</b> to you; price stays at the market\'s read, so the gap is your edge' + ovrNote + '</span></div>' +
+      '<div class="fav-summary"><div><div class="fav-sg-h">Your roster (0008) — stud / depth</div>' + fitChips + '</div>' +
+      '<div class="fav-blend"><div class="fav-sg-h">Worth blend &nbsp;<span class="fav-blend-tag">win-now ' + (100 - pct) + ' · dynasty ' + pct + '</span></div>' +
+      '<input type="range" id="fav-blend" min="0" max="100" step="5" value="' + pct + '">' +
+      '<div class="fav-blend-ends"><span>◀ win-now (production)</span><span>dynasty (asset) ▶</span></div></div></div></div>';
 
     // ── controls ──
+    var ownTabs = [["available", "Available FAs"], ["rostered", "Trade targets"], ["all", "All"]].map(function (o) { return '<button data-favown="' + o[0] + '"' + (FAV.ownership === o[0] ? ' class="on"' : '') + '>' + o[1] + '</button>'; }).join("");
     var posTabs = ["ALL", "QB", "RB", "WR", "TE"].map(function (p) { return '<button data-favpos="' + p + '"' + (FAV.pos === p ? ' class="on"' : '') + '>' + p + '</button>'; }).join("");
     var vTabs = ["ALL", "SPLURGE", "VALUE", "FAIR", "OVERPAY", "DART"].map(function (v) { return '<button data-favv="' + v + '"' + (FAV.verdict === v ? ' class="on"' : '') + '>' + v + '</button>'; }).join("");
     var controls = '<div class="fav-controls">' +
+      '<div class="fav-cg"><span class="fav-cl">Show</span><div class="wr-vtabs sm">' + ownTabs + '</div></div>' +
       '<div class="fav-cg"><span class="fav-cl">Pos</span><div class="wr-vtabs sm">' + posTabs + '</div></div>' +
       '<div class="fav-cg"><span class="fav-cl">Verdict</span><div class="wr-vtabs sm">' + vTabs + '</div></div>' +
       '<div class="fav-cg"><label class="fav-chk"><input type="checkbox" id="fav-need"' + (FAV.needOnly ? ' checked' : '') + '> my needs only</label></div>' +
+      '<div class="fav-cg"><button id="fav-tiers-btn" class="fav-tiers-btn' + (FAV.showTiers ? ' on' : '') + '">📊 Tiers</button></div>' +
       '<div class="fav-cg"><span class="fav-cl">Sort</span><select id="fav-sort">' +
-      ['apw|Expected APW', 'ceiling|APW ceiling (p90)', 'value|Value (cheap per APW)', 'price|Price'].map(function (o) { var kv = o.split("|"); return '<option value="' + kv[0] + '"' + (FAV.sort === kv[0] ? ' selected' : '') + '>' + kv[1] + '</option>'; }).join("") +
+      ['worth|Worth ($)', 'value|Value (biggest discount)', 'price|Expected price', 'apwe|All-play wins (proj)', 'ceiling|APWE ceiling'].map(function (o) { var kv = o.split("|"); return '<option value="' + kv[0] + '"' + (FAV.sort === kv[0] ? ' selected' : '') + '>' + kv[1] + '</option>'; }).join("") +
       '</select></div></div>';
 
     // ── table ──
-    var head = '<tr><th>Player</th><th>Verdict</th><th>Expected APW (floor·med·ceiling)</th><th class="num">$/APW</th><th class="num">Value</th><th class="num">Price</th><th>Fit</th><th>Competition</th></tr>';
+    var priceHdr = FAV.ownership === "rostered" ? "AAV (cost)" : "Price";
+    var head = '<tr><th>Player</th><th>Verdict</th><th>All-play wins earned (proj·ceil)</th><th class="num">Worth</th><th class="num" title="FAs: auction expected price · trade targets: contract AAV (what you take on)">' + priceHdr + '</th><th class="num">Gap</th><th>Fit</th><th>Competition / Owner</th></tr>';
     var body = rows.map(function (r, i) {
-      var vm = VMETA[r.v] || ["fair", r.v], implied = (r.a50 > 0) ? Math.round(r.mk * 1000 / r.a50) : null;
-      var vr = r.vr, vrCls = vr == null ? "" : (vr >= 1.5 ? "pos" : (vr >= 1.15 ? "posL" : (vr >= 0.85 ? "" : "neg")));
-      var fitTxt = r.f === "N" ? '<span class="fav-fit need sm">NEED</span>' : (r.f === "S" ? '<span class="fav-fit surp sm">surplus</span>' : '<span class="fav-fit ok sm">ok</span>');
-      var comp = (r.c || []).map(function (fid) { return '<span class="fav-comp">' + esc(favTeamName(fid)) + '</span>'; }).join("");
-      var conf = r.vc === "e" ? '<span class="fav-est" title="estimate — projected price and/or thin market-rate sample">~</span>' : "";
-      var tr = '<tr class="fav-row" data-favi="' + i + '">' +
-        '<td><b>' + esc(r.n) + '</b> <span class="fav-rk">' + esc(r.dr) + (r.rr ? ' · redr ' + esc(r.rr) : '') + '</span></td>' +
-        '<td><span class="fav-v ' + vm[0] + '">' + vm[1] + '</span>' + conf + '</td>' +
-        '<td>' + favRangeBar(r.a25, r.a50, r.a90, APW_SCALE) + '<span class="fav-apw">' + (r.a25 || 0) + ' · <b>' + (r.a50 || 0) + '</b> · ' + (r.a90 || 0) + '</span></td>' +
-        '<td class="num">' + (implied ? '$' + (implied / 1000).toFixed(1) + 'K' : '—') + '</td>' +
-        '<td class="num fav-vr ' + vrCls + '">' + (vr == null ? '—' : vr.toFixed(2) + '×') + '</td>' +
-        '<td class="num">$' + r.mk + 'K<span class="fav-px">' + r.lk + '–' + r.tk + '</span></td>' +
+      var owned = !!r.o;
+      var gap = r._gap, gapCls = gap <= -3 ? "pos" : (gap >= 3 ? "neg" : "");
+      var fitTxt = favFitChip(FAV_FIT[r.f] || "OK", true);
+      var lastCol = owned ? '<span class="fav-comp own">🔁 ' + esc(favTeamName(r.o)) + '</span>'
+        : ((r.c || []).map(function (fid) { return '<span class="fav-comp">' + esc(favTeamName(fid)) + '</span>'; }).join("") || '<span class="fav-rk">—</span>');
+      var worthTip = 'redraft (production) $' + (r.rw || 0) + 'K · dynasty (asset) $' + (r.dw || 0) + 'K';
+      // live price cell: SOLD (actual vs ORIGINAL model) / 🔨 active bid / live-calibrated EP / model EP.
+      // The ▲/▼ direction chip (FA only) shows the LIVE price vs the ORIGINAL model price (r._ep0) — i.e.
+      // the auction/room factor moving it up or down. (An ADP override does NOT move price, so no arrow then.)
+      var priceCell, op = (r._ep0 != null ? r._ep0 : r._price);
+      if (r._sold != null) {
+        var d2 = r._sold - op, dc = d2 > 2 ? "neg" : (d2 < -2 ? "pos" : "");
+        priceCell = '<span class="fav-sold">SOLD $' + r._sold + 'K</span><span class="fav-rk ' + dc + '"> mdl $' + op + '</span>';
+      } else if (r._active != null) {
+        priceCell = '<span class="fav-bid">🔨 $' + r._active + 'K</span><span class="fav-rk"> mdl $' + op + '</span>';
+      } else if (r._liveEP != null) {
+        priceCell = '<b>$' + r._liveEP + 'K</b><span class="fav-rk"> live</span>' + favDirChip(r._liveEP, r._ep0);
+      } else {
+        priceCell = '<b>$' + r._price + 'K</b>' + (owned ? '<span class="fav-rk"> AAV · $' + (r.sl != null ? r.sl : r._price) + 'K this yr</span>' : favDirChip(r._price, r._ep0));
+      }
+      // rank cell: a FA with a redraft curve gets an editable ADP chip (click → type your rank); others plain.
+      var rankCell;
+      if (favCanOvr(r, EP)) {
+        var shownRk = r._ovr != null ? (r.p + r._ovr) : r.fr;
+        rankCell = '<span class="fav-rk">' + esc(r.dr) + '</span> · <span class="fav-rankchip' + (r._ovr != null ? ' ovr' : '') + '" data-favrank="' + i + '" title="' + (r._ovr != null ? ('your ADP · model has ' + esc(r.fr)) : 'click to set your own ADP') + '">' + esc(shownRk) + ' ✎' + (r._ovr != null ? '<span class="fav-rankx" data-favrankx="' + i + '" title="reset to ' + esc(r.fr) + '">×</span>' : '') + '</span>';
+      } else {
+        rankCell = '<span class="fav-rk">' + esc(r.dr) + (r.fr ? ' · ' + esc(r.fr) : '') + '</span>';
+      }
+      var tr = '<tr class="fav-row' + (owned ? ' owned' : '') + (r._sold != null ? ' fav-cleared' : '') + (r._ovr != null ? ' fav-ovr' : '') + '" data-favi="' + i + '">' +
+        '<td><b>' + esc(r.n) + '</b> ' + rankCell + '</td>' +
+        '<td><span class="fav-v ' + r._vcls + '">' + r._vlab + '</span></td>' +
+        '<td>' + favRangeBar(r.a50, r.a90, APWE_SCALE) + '<span class="fav-apw"><b>' + (r.a50 || 0) + '</b> · ' + (r.a90 || 0) + '</span></td>' +
+        '<td class="num" title="' + worthTip + '">$' + r._w + 'K</td>' +
+        '<td class="num">' + priceCell + '</td>' +
+        '<td class="num fav-vr ' + gapCls + '" title="' + (owned ? 'worth minus contract cost — negative = surplus you\'d acquire' : 'price minus worth — positive = positional premium') + '">' + (gap > 0 ? '+' : '') + gap + '</td>' +
         '<td>' + fitTxt + '</td>' +
-        '<td>' + (comp || '<span class="fav-rk">—</span>') + '</td></tr>';
-      var detail = FAV.open[r.n] ? favDetail(r, mr) : "";
+        '<td>' + lastCol + '</td></tr>';
+      var detail = FAV.open[r.n] ? favDetail(r) : "";
       return tr + detail;
     }).join("");
-    var table = '<div class="fo-card"><div class="fo-table-scroll"><table class="fo-table fav-table"><thead>' + head + '</thead><tbody>' + (body || '<tr><td colspan="8" class="fo-table-empty">No FAs match.</td></tr>') + '</tbody></table></div></div>';
+    var table = '<div class="fo-card"><div class="fo-table-scroll"><table class="fo-table fav-table"><thead>' + head + '</thead><tbody>' + (body || '<tr><td colspan="8" class="fo-table-empty">No players match.</td></tr>') + '</tbody></table></div></div>';
 
-    host.innerHTML = summary + controls + table;
+    host.innerHTML = inflCard + summary + controls + (FAV.showTiers ? favTiersCard(meta) : "") + table;
     // wire controls
+    $$("[data-favown]", host).forEach(function (b) { b.addEventListener("click", function () { FAV.ownership = b.getAttribute("data-favown"); paintFaValue(host); }); });
     $$("[data-favpos]", host).forEach(function (b) { b.addEventListener("click", function () { FAV.pos = b.getAttribute("data-favpos"); paintFaValue(host); }); });
     $$("[data-favv]", host).forEach(function (b) { b.addEventListener("click", function () { FAV.verdict = b.getAttribute("data-favv"); paintFaValue(host); }); });
     var nc = document.getElementById("fav-need"); if (nc) nc.addEventListener("change", function () { FAV.needOnly = nc.checked; paintFaValue(host); });
     var ss = document.getElementById("fav-sort"); if (ss) ss.addEventListener("change", function () { FAV.sort = ss.value; paintFaValue(host); });
-    $$(".fav-row", host).forEach(function (tr) { tr.addEventListener("click", function () { var nm = rows[parseInt(tr.getAttribute("data-favi"), 10)].n; FAV.open[nm] = !FAV.open[nm]; paintFaValue(host); }); });
-  }
-  function favDetail(r, mr) {
-    var R = (mr[r.p] || {}).R, implied = (r.a50 > 0) ? Math.round(r.mk * 1000 / r.a50) : null;
-    var DTNAME = (WR.fav.key && WR.fav.key._dt) || {};
-    var why = "";
-    if (r.vr != null && R && implied) {
-      why = 'At $' + r.mk + 'K for a ' + (r.a50 || 0) + '-APW slot you\'d pay <b>$' + (implied / 1000).toFixed(1) + 'K/APW</b>; the SF market historically paid <b>$' + (R / 1000).toFixed(1) + 'K/APW</b> for ' + r.p + 's → <b>' + r.vr.toFixed(2) + '×</b> ' + (r.vr >= 1.15 ? 'a bargain.' : (r.vr >= 0.85 ? 'about fair.' : 'an overpay.'));
-    } else if ((r.mk || 0) <= 4) {
-      why = 'A cut-free ≤$4K flier: floor ~' + (r.a25 || 0) + ' APW but a real ' + (r.a90 || 0) + '-APW ceiling — zero cap risk (drop anytime).';
+    var bl = document.getElementById("fav-blend");
+    if (bl) {
+      // IN-PLACE re-blend during drag (a full re-render would delete the slider element mid-drag
+      // and break it). Update worth/gap/verdict cells + the tiers card in place; full re-render +
+      // re-sort only on release (change).
+      bl.addEventListener("input", function () {
+        FAV.dynW = (+bl.value) / 100;
+        var pct = Math.round(FAV.dynW * 100), tag = host.querySelector(".fav-blend-tag");
+        if (tag) tag.textContent = "win-now " + (100 - pct) + " · dynasty " + pct;
+        $$(".fav-row", host).forEach(function (tr) {
+          var r = rows[parseInt(tr.getAttribute("data-favi"), 10)]; if (!r) return;
+          r._w = favWorth(r); r._gap = (r._price || 0) - r._w;
+          var vv = favVerdict(r._w, r._price, r.a90); r._vlab = vv[0]; r._vcls = vv[2];
+          var td = tr.children;
+          if (td[1]) td[1].innerHTML = '<span class="fav-v ' + r._vcls + '">' + r._vlab + '</span>';
+          if (td[3]) td[3].textContent = '$' + r._w + 'K';
+          if (td[5]) { var g = r._gap; td[5].className = "num fav-vr " + (g <= -3 ? "pos" : (g >= 3 ? "neg" : "")); td[5].textContent = (g > 0 ? '+' : '') + g; }
+        });
+        var tc = host.querySelector(".fav-tiers");
+        if (tc && FAV.showTiers) { var tmp = document.createElement("div"); tmp.innerHTML = favTiersCard(meta); if (tmp.firstChild) tc.parentNode.replaceChild(tmp.firstChild, tc); }
+      });
+      bl.addEventListener("change", function () { FAV.dynW = (+bl.value) / 100; paintFaValue(host); });
     }
-    var comp = (r.c || []).map(function (fid) { var t = (WR.fav.teams || {})[fid] || {}; return '<span class="fav-comp big">' + esc(t.team || fid) + (t.capspace != null ? ' · $' + Math.round((t.capspace || 0) / 1000) + 'K room' : '') + '</span>'; }).join(" ");
+    var tb = document.getElementById("fav-tiers-btn"); if (tb) tb.addEventListener("click", function () { FAV.showTiers = !FAV.showTiers; paintFaValue(host); });
+    var hb = document.getElementById("fav-help-btn"); if (hb) hb.addEventListener("click", function () { FAV.showHelp = true; paintFaValue(host); });
+    // ADP override: click a rank chip → inline number input → commit re-prices that FA (stopPropagation so
+    // the row-expand click below doesn't also fire). Typing the model's own rank clears the override.
+    $$(".fav-rankchip", host).forEach(function (chip) {
+      chip.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (chip.querySelector("input")) return;
+        var r = rows[parseInt(chip.getAttribute("data-favrank"), 10)]; if (!r) return;
+        var cur = (r._ovr != null) ? r._ovr : favRankInt(r.fr);
+        chip.innerHTML = '<input type="number" min="1" max="80" value="' + (cur || "") + '" class="fav-rankin" />';
+        var inp = chip.querySelector("input"); inp.focus(); inp.select();
+        var commit = function (apply) {
+          if (commit._done) return; commit._done = true;
+          if (apply) { var v = favRankInt(inp.value); if (v && v >= 1 && v <= 80) { if (v === favRankInt(r.fr)) delete FAV_RANK_OVR[r.n]; else FAV_RANK_OVR[r.n] = v; } }
+          favSaveOvr(); paintFaValue(host);
+        };
+        inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); commit(true); } else if (ev.key === "Escape") { ev.preventDefault(); commit(false); } });
+        inp.addEventListener("blur", function () { commit(true); });
+        inp.addEventListener("click", function (ev) { ev.stopPropagation(); });
+      });
+    });
+    $$(".fav-rankx", host).forEach(function (x) { x.addEventListener("click", function (e) { e.stopPropagation(); var r = rows[parseInt(x.getAttribute("data-favrankx"), 10)]; if (!r) return; delete FAV_RANK_OVR[r.n]; favSaveOvr(); paintFaValue(host); }); });
+    var ra = document.getElementById("fav-ovr-reset"); if (ra) ra.addEventListener("click", function () { FAV_RANK_OVR = {}; favSaveOvr(); paintFaValue(host); });
+    $$(".fav-row", host).forEach(function (tr) { tr.addEventListener("click", function () { var nm = rows[parseInt(tr.getAttribute("data-favi"), 10)].n; FAV.open[nm] = !FAV.open[nm]; paintFaValue(host); }); });
+    // while the auction is live, re-pull the board every 45s so it recomputes as lots clear
+    clearTimeout(WR.favPoll);
+    if (live.live) WR.favPoll = setTimeout(function () { if (WR.view === "favalue") { WR.favLive = undefined; paintFaValue(host); } }, 45000);
+  }
+  // Read the live auction board (/api/auction/lots) → who's sold (actual price) + active, and a
+  // LIVE CALIBRATION factor = median(actual ÷ model EP) over cleared lots. Offseason → empty/1.0.
+  function favLiveState(d) {
+    var lots = (WR.favLive && WR.favLive.lots) || [];
+    if (!Array.isArray(lots)) lots = (lots && lots.lots) || [];
+    var sold = {}, active = {}, nSold = 0, nActive = 0, cal = [];
+    var epByName = {}; (d.fas || []).forEach(function (p) { if (!p.o) epByName[fnk(p.n)] = p.e || 0; });
+    lots.forEach(function (l) {
+      var nm = fnk(l.player_name || l.player || l.name || ""), st = String(l.status || "").toLowerCase();
+      var price = (l.winning_bid_k != null ? l.winning_bid_k : (l.final_bid_k != null ? l.final_bid_k : l.current_high_bid_k)) || 0;
+      if (st === "won" || st === "closed" || st === "expired") { sold[nm] = price; nSold++; var m = epByName[nm]; if (m && price > 0) cal.push(price / m); }
+      else if (st === "open" || st === "active") { active[nm] = price; nActive++; }
+    });
+    cal.sort(function (a, b) { return a - b; });
+    var factor = cal.length >= 3 ? Math.round(cal[Math.floor(cal.length / 2)] * 100) / 100 : null;
+    // "live" only when there are OPEN lots (auction in progress). With 0 active, any "sold" lots are
+    // stale/prior-year (the 2026 auction opens late July) → ignore them so they don't leak onto the board.
+    var isLive = nActive > 0;
+    if (!isLive) { sold = {}; active = {}; factor = null; }
+    return { live: isLive, sold: sold, active: active, nSold: isLive ? nSold : 0, nActive: nActive, factor: factor };
+  }
+  function favTiersCard(meta) {
+    var tiers = meta.tiers || {};
+    var blendW = function (r) { return Math.round((1 - FAV.dynW) * (r.rw || 0) + FAV.dynW * (r.dw || 0)); };
+    var body = ["QB", "RB", "WR", "TE"].filter(function (p) { return tiers[p]; }).map(function (pos) {
+      var rows = tiers[pos];
+      var cells = rows.map(function (r, i) {
+        var worth = blendW(r), prevW = i > 0 ? blendW(rows[i - 1]) : null;
+        var wdrop = (prevW && prevW > 0) ? Math.round(100 * (1 - worth / prevW)) : null;
+        var pdrop = (i > 0 && rows[i - 1].ep > 0) ? Math.round(100 * (1 - r.ep / rows[i - 1].ep)) : null;
+        // a "sweet spot" = worth holds (shallow drop) while price falls hard
+        var sweet = (wdrop != null && pdrop != null && pdrop - wdrop >= 18);
+        return '<div class="fav-tier' + (sweet ? ' sweet' : '') + '">' +
+          '<div class="fav-tier-l">' + r.label + ' <span class="fav-rk">' + pos + r.lo + '–' + r.hi + '</span></div>' +
+          '<div class="fav-tier-v">worth <b>$' + worth + 'K</b> · price <b>$' + r.ep + 'K</b></div>' +
+          (wdrop != null
+            ? '<div class="fav-tier-d">▼ worth −' + wdrop + '% · price −' + (pdrop || 0) + '%' + (sweet ? ' · 💡 value' : '') + '</div>'
+            : '<div class="fav-tier-d">' + esc(r.top) + '</div>') +
+          '</div>';
+      }).join('<span class="fav-tier-arrow">→</span>');
+      return '<div class="fav-tier-row"><div class="fav-tier-pos">' + pos + '</div><div class="fav-tier-cells">' + cells + '</div></div>';
+    }).join("");
+    return '<div class="fo-card fav-tiers"><div class="fo-card-head"><h3>📊 Positional tiers — worth vs price dropoff</h3>' +
+      '<span class="fo-sub">how fast value falls vs how fast price falls in the AVAILABLE pool (follows your blend slider). A shallow worth drop next to a steep price drop = the 💡 efficiency tier.</span></div>' +
+      (body || '<div class="fo-table-loading">no tier data</div>') + '</div>';
+  }
+  // ── the "?" explainer: plain-English how-it-works + 4 live worked examples (top + a mid player per pos) ──
+  function favPickExamples(d) {
+    return ["QB", "RB", "WR", "TE"].map(function (pos) {
+      var pool = (d.fas || []).filter(function (r) { return !r.o && r.p === pos; })
+        .sort(function (a, b) { return ((b.rw || 0) + (b.dw || 0)) - ((a.rw || 0) + (a.dw || 0)); });
+      if (!pool.length) return null;
+      var mid = pool.slice(7, 14).sort(function (a, b) { return ((b.rw || 0) + (b.dw || 0)) - ((a.rw || 0) + (a.dw || 0)); })[0] || pool[Math.min(9, pool.length - 1)];
+      return { pos: pos, top: pool[0], mid: mid };
+    }).filter(Boolean);
+  }
+  function favExampleBlock(r, label) {
+    var rw = r.rw || 0, dw = r.dw || 0, worth = Math.round(0.5 * rw + 0.5 * dw), price = r.e || 0, gap = price - worth;
+    var v = favVerdict(worth, price, r.a90);
+    var read = gap <= -3 ? ('a <b>$' + (-gap) + 'K bargain</b> — his value beats his price')
+      : gap >= 3 ? ('a <b>$' + gap + 'K premium</b> — you pay extra for the position')
+        : 'priced about right';
+    return '<div class="fav-ex"><div class="fav-ex-h"><span class="fav-ex-tag">' + label + '</span> <b>' + esc(r.n) + '</b> ' +
+      '<span class="fav-rk">' + esc(r.dr) + (r.fr ? ' · ' + esc(r.fr) : '') + '</span> <span class="fav-v ' + v[2] + '">' + v[0] + '</span></div>' +
+      '<ul class="fav-ex-l">' +
+      '<li><b>Production</b> (how his scoring wins games): about <b>' + (r.a50 || 0) + ' all-play wins</b> a season → <b>$' + rw + 'K</b>.</li>' +
+      '<li><b>Dynasty</b> (how good an asset he is to own/trade): the KTC-led consensus values him at <b>$' + dw + 'K</b>.</li>' +
+      '<li><b>WORTH</b> = blend them 50/50 → <b>$' + worth + 'K</b>. <span class="fav-rk">(drag the slider to weight win-now vs dynasty)</span></li>' +
+      '<li><b>PRICE</b> = what he clears for at the auction → <b>$' + price + 'K</b>.</li>' +
+      '<li><b>GAP</b> = price − worth = <b>' + (gap > 0 ? '+' : '') + gap + 'K</b> → ' + read + '.</li>' +
+      '</ul></div>';
+  }
+  function favHelpCard(d) {
+    var ex = favPickExamples(d);
+    var exHtml = ex.map(function (e) {
+      var names = { QB: "Quarterbacks", RB: "Running backs", WR: "Receivers", TE: "Tight ends" };
+      return '<div class="fav-ex-pos"><h4>' + names[e.pos] + '</h4>' +
+        favExampleBlock(e.top, "The best") + favExampleBlock(e.mid, "A mid-tier guy") +
+        '<div class="fav-ex-take">👉 Notice the dropoff: the best ' + e.pos + ' is worth <b>$' + Math.round(0.5 * (e.top.rw || 0) + 0.5 * (e.top.dw || 0)) +
+        'K</b>, the mid-tier one only <b>$' + Math.round(0.5 * (e.mid.rw || 0) + 0.5 * (e.mid.dw || 0)) + 'K</b>. That gap is why you decide whether to pay up for a stud or grab the cheaper option.</div></div>';
+    }).join("");
+    return '<div class="fo-card fav-help">' +
+      '<div class="fav-help-top"><button id="fav-help-back" class="fav-tiers-btn on">← Back to the board</button>' +
+      '<h3 style="margin:10px 0 2px">How to read this board</h3>' +
+      '<span class="fo-sub">Every player has two big numbers — what he\'s WORTH, and what he\'ll PRICE at. The difference is your bargain or your overpay.</span></div>' +
+      '<div class="fav-help-body">' +
+      '<div class="fav-help-sec"><h4>1. WORTH — what he\'s actually worth to your team</h4>' +
+      '<p>Worth is built from two things, mixed with the slider at the top:</p>' +
+      '<ul><li><b>Production</b> — imagine his weekly score playing against all 11 other teams. How many would he beat? Stack those up all season and you get his <b>all-play wins</b>. More wins = more worth. This is the "win <i>this</i> year" value.</li>' +
+      '<li><b>Dynasty</b> — how valuable he is to <i>own and trade</i>, from the consensus of KeepTradeCut, FantasyCalc and DynastyProcess. A young star is worth more here than an old one, even at the same scoring.</li></ul>' +
+      '<p>The <b>slider</b> mixes them: drag left for win-now (production), right for dynasty (assets). Everything on the board re-prices instantly.</p></div>' +
+      '<div class="fav-help-sec"><h4>2. PRICE — what he costs</h4>' +
+      '<ul><li><b>Free agents</b>: what he\'ll clear for at the auction — his dynasty value, with a floor (any startable NFL player costs something), nudged by inflation.</li>' +
+      '<li><b>Trade targets</b> (already on a team): their <b>contract cost (AAV)</b> — what you take on if you trade for them. They\'re not in the auction, so their salary <i>is</i> their price.</li></ul></div>' +
+      '<div class="fav-help-sec"><h4>3. GAP — bargain or overpay</h4>' +
+      '<p><b>Gap = price − worth.</b> A <b>negative</b> gap (green) means he\'s worth more than he costs — a bargain. A <b>positive</b> gap (red) means you\'re paying extra, usually because you <i>need</i> the position.</p></div>' +
+      '<div class="fav-help-sec"><h4>4. INFLATION — why prices drift up</h4>' +
+      '<p>Most players sit on cheap contracts, so teams have leftover cap chasing a small pool of free agents. Too many dollars + too few players = prices rise. We <b>track it live</b> in the gauge at the top — and it climbs as the studs get bought.</p></div>' +
+      '<div class="fav-help-sec"><h3 style="margin-bottom:4px">Worked examples — the best vs a mid-tier player at each position</h3>' +
+      '<span class="fo-sub">real numbers from today\'s board, at a 50/50 blend</span>' + exHtml + '</div>' +
+      '</div></div>';
+  }
+  function favDetail(r) {
+    var worth = r._w, gap = r._gap, price = r._price, owned = !!r.o, c = r.contract || {};
+    // the served (lean) blob carries av/sl/tcv/cl/cy at top level; the full payload nests them under contract.
+    // av = TRUE AAV (TCV/CL, the smoothed annual = the trade price); sl = this-year cap hit (what you absorb now).
+    var aav = (c.aav_k != null ? c.aav_k : r.av), sal = (c.sal_k != null ? c.sal_k : r.sl),
+      tcv = (c.tcv_k != null ? c.tcv_k : r.tcv), cl = (c.cl != null ? c.cl : r.cl), cy = (c.cy != null ? c.cy : r.cy);
+    var DTNAME = (WR.fav.key && WR.fav.key._dt) || {};
+    var why;
+    if (owned) {
+      if (gap <= -3) why = 'Worth <b>$' + worth + 'K</b> but his <b>AAV is only $' + price + 'K</b>/yr → <b>$' + (-gap) + 'K of surplus value</b> you\'d acquire in a trade — a buy-low target.';
+      else if (gap >= 3) why = 'AAV <b>$' + price + 'K</b>/yr but worth only <b>$' + worth + 'K</b> → <b>$' + gap + 'K overpaid</b> on the deal. His owner may shop him; don\'t take the contract at face.';
+      else why = 'Worth <b>$' + worth + 'K</b> ≈ his <b>$' + price + 'K</b>/yr AAV — fairly priced on his deal.';
+    } else {
+      if (gap <= -3) why = 'Worth <b>$' + worth + 'K</b> but clears ~<b>$' + price + 'K</b> → a <b>$' + (-gap) + 'K discount</b>. His production + asset value beat his expected price.';
+      else if (gap >= 3) why = 'Clears ~<b>$' + price + 'K</b> but worth only <b>$' + worth + 'K</b> → a <b>$' + gap + 'K premium</b> — you pay it for the position/slot, not the production.';
+      else why = 'Worth <b>$' + worth + 'K</b> ≈ price <b>$' + price + 'K</b> — about fair at the market rate.';
+    }
+    // back/front-loaded read off this-year cap hit vs the smoothed AAV (e.g. JSN $1K now vs $23K AAV = back-loaded)
+    var shape = (sal != null && aav) ? (sal < aav * 0.7 ? "back" : (sal > aav * 1.3 ? "front" : "level")) : null;
+    var priceBlock = owned
+      ? '<div class="fav-dh" style="margin-top:8px">Contract — two angles</div><div class="fav-dmeta">'
+        + 'This year <b>$' + (sal != null ? sal : price) + 'K</b> cap hit'
+        + ' · AAV <b>$' + (aav != null ? aav : price) + 'K</b>/yr'
+        + (tcv ? ' · total <b>$' + tcv + 'K</b>' : '') + (cl ? ' over ' + cl + ' yr' + (cl > 1 ? 's' : '') : '') + (cy ? ' · ' + cy + ' left' : '')
+        + (shape === "back" ? ' <span class="fav-est">⚠ back-loaded</span> — cheap now ($' + sal + 'K), pricier later' : (shape === "front" ? ' <span class="fav-est">front-loaded</span> — pay up now, cheaper later' : ''))
+        + '</div><div class="fav-dmeta" style="margin-top:4px">Value read: worth <b>$' + worth + 'K</b> vs <b>$' + (aav != null ? aav : price) + 'K</b> AAV → <b>' + (gap <= 0 ? '$' + (-gap) + 'K surplus' : '$' + gap + 'K over') + '</b> on the deal</div>'
+      : '<div class="fav-dh" style="margin-top:8px">Expected price</div><div class="fav-dmeta">clears ~<b>$' + price + 'K</b> (the market\'s read) · gap <b>' + (gap > 0 ? '+' : '') + gap + 'K</b></div>'
+        + (r._ovr != null ? '<div class="fav-dmeta" style="margin-top:4px">✎ <b>Your ADP ' + esc(r.p + r._ovr) + '</b> vs market <b>' + esc(r.fr) + '</b> — you value him <b>$' + worth + 'K</b>, but he still clears ~<b>$' + price + 'K</b> at the market\'s price'
+          + (gap < 0 ? ' → <b>$' + (-gap) + 'K edge</b> (buy-low)' : (gap > 0 ? ' (market already prices him up here)' : ''))
+          + (r._ovrEP != null ? '. If the market agreed with you, he\'d cost ~$' + r._ovrEP + 'K.' : '') + '</div>' : '');
+    var dealLine = (!owned && r.dt) ? 'Deal: <b>' + esc(DTNAME[r.dt] || r.dt) + '</b>' : "";
+    var lastCol;
+    if (r.o) {
+      var ot = (WR.fav.teams || {})[r.o] || {};
+      lastCol = '<div class="fav-dh">Trade target</div><span class="fav-comp big own">🔁 owned by ' + esc(ot.team || r.o) +
+        (ot.capspace != null ? ' · $' + Math.round((ot.capspace || 0) / 1000) + 'K room' : '') + '</span>' +
+        '<div class="fav-dmeta" style="margin-top:6px">Worth/price shown is open-market value — your read for a trade ask.</div>';
+    } else {
+      var comp = (r.c || []).map(function (fid) { var t = (WR.fav.teams || {})[fid] || {}; return '<span class="fav-comp big">' + esc(t.team || fid) + (t.capspace != null ? ' · $' + Math.round((t.capspace || 0) / 1000) + 'K room' : '') + '</span>'; }).join(" ");
+      lastCol = '<div class="fav-dh">Likely competition</div>' + (comp || '<span class="fav-rk">no other team has a clear need here</span>');
+    }
     return '<tr class="fav-detail"><td colspan="8"><div class="fav-dwrap">' +
-      '<div><div class="fav-dh">Why ' + (VMETA[r.v] || ["", r.v])[1] + '</div><div class="fav-dwhy">' + why + '</div>' +
-      '<div class="fav-dmeta">Deal: <b>' + esc(DTNAME[r.dt] || r.dt) + '</b> · Win-now ' + esc(r.wn || "—") + ' · Asset ' + esc(r.as || "—") + (r.vc === "e" ? ' · <span class="fav-est">estimate</span> (projected price / thin rate)' : '') + '</div></div>' +
-      '<div><div class="fav-dh">Expected APW range</div>' + favRangeBar(r.a25, r.a50, r.a90, APW_SCALE) + '<div class="fav-dmeta">floor ' + (r.a25 || 0) + ' · median ' + (r.a50 || 0) + ' · ceiling ' + (r.a90 || 0) + ' all-play wins</div>' +
-      '<div class="fav-dh" style="margin-top:8px">Price range</div><div class="fav-dmeta">$' + r.lk + 'K (low) · $' + r.mk + 'K (median) · $' + r.tk + 'K (top-10%)</div></div>' +
-      '<div><div class="fav-dh">Likely competition</div>' + (comp || '<span class="fav-rk">no other team has a clear need here</span>') + '</div>' +
+      '<div><div class="fav-dh">Read — ' + r._vlab + '</div><div class="fav-dwhy">' + why + '</div>' +
+      (dealLine ? '<div class="fav-dmeta">' + dealLine + '</div>' : '') + '</div>' +
+      '<div><div class="fav-dh">Worth breakdown</div><div class="fav-dmeta">redraft (production) <b>$' + (r.rw || 0) + 'K</b> · dynasty (asset) <b>$' + (r.dw || 0) + 'K</b> → blended <b>$' + worth + 'K</b><br>' +
+      'all-play wins earned: proj <b>' + (r.a50 || 0) + '</b> · ceiling <b>' + (r.a90 || 0) + '</b></div>' +
+      priceBlock + '</div>' +
+      '<div>' + lastCol + '</div>' +
       '</div></td></tr>';
   }
 

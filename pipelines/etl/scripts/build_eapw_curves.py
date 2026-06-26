@@ -84,50 +84,65 @@ def fit_curve(pairs):
         p50.append(float(np.percentile(sample, 50)))
         p90.append(float(np.percentile(sample, 90)))
     p25 = isotonic_decreasing(p25); p50 = isotonic_decreasing(p50); p90 = isotonic_decreasing(p90)
+    # v4 TAIL FLOOR (audit fix): the empirical p50 hard-zeros deep (QB33/RB39/WR46/TE21),
+    # forcing every startable player past that rank to redraft worth $0 and onto a hand-set
+    # startability table. Replace the hard 0 with a gentle exponential decay so a ranked
+    # player never has exactly $0 production worth (floor 0.9·e^(−rank/40) APWE → ~$2.9 at
+    # rank 33, ~$1.4 at rank 60). Non-increasing by construction; only lifts where p50 hit 0.
+    p50 = [round(max(v, 0.9 * math.exp(-(r) / 40.0)), 2) for r, v in enumerate(p50, 1)]
     return {"b0": round(float(b0), 3), "b1": round(float(b1), 3), "n": len(pairs),
-            "p25": [round(v, 2) for v in p25], "p50": [round(v, 2) for v in p50],
+            "p25": [round(v, 2) for v in p25], "p50": p50,
             "p90": [round(v, 2) for v in p90]}
 
 
 def main():
-    # APW per (season, mfl_id) — pick the player's primary pos_group (max games)
-    apw = {}
+    # per (season, mfl_id): APW (legacy all-play %) AND APWE (all-play wins EARNED = the
+    # value metric). Pick the player's primary pos_group (max games).
+    apw, apwe = {}, {}
     for r in csv.DictReader(open(DATA / "apw_seasonal.csv")):
         key = (int(r["season"]), str(r["player_id"]))
-        gp = int(r["gp"])
+        gp = int(r["gp_started"])
         if key not in apw or gp > apw[key][2]:
-            apw[key] = (r["pos"], float(r["apw"]), gp)
+            apw[key] = (r["pos"], float(r["apw_started"]), gp)
+            apwe[key] = (r["pos"], float(r["apwe_started"]), gp)
 
-    # fp_id → mfl_id crosswalk for the dynasty axis
+    # fp_id → mfl_id crosswalk
     fp2mfl = {}
     for row in d1("SELECT mfl_id, fantasypros_id FROM ff_player_ids WHERE fantasypros_id IS NOT NULL"):
         fp2mfl[str(row["fantasypros_id"])] = str(row["mfl_id"])
 
-    # ---- collect (pos, rank, apw) pairs on each axis ----
-    pairs = {"redraft": {p: [] for p in SKILL}, "dynasty": {p: [] for p in SKILL}}
+    # ---- collect (pos, rank, value) pairs on each axis ----
+    # fpros = FantasyPros REDRAFT rank → APWE (the startability-aware market proxy → earned
+    # all-play wins; THIS is the value expectation Keith wants). redraft/dynasty kept on the
+    # legacy APW for reference.
+    pairs = {"fpros": {p: [] for p in SKILL}, "redraft": {p: [] for p in SKILL}, "dynasty": {p: [] for p in SKILL}}
 
-    for r in csv.DictReader(open(DATA / "adp_history.csv")):           # REDRAFT
+    for r in csv.DictReader(open(DATA / "fpros_adp_history.csv")):     # FANTASYPROS REDRAFT → APWE
+        pos, s = r["pos"], int(r["season"])
+        if pos not in SKILL or s < FIT_FROM[pos] or s < 2022 or s > 2025 or not r["mfl_id"]:
+            continue
+        val = apwe.get((s, str(r["mfl_id"])), (pos, 0.0, 0))[1]         # ranked but no APWE → 0 (didn't produce)
+        pairs["fpros"][pos].append((int(r["fp_pos_rank"]), val))
+
+    for r in csv.DictReader(open(DATA / "adp_history.csv")):           # FFC REDRAFT → APW (legacy)
         pos, s = r["pos"], int(r["season"])
         if pos not in SKILL or s < FIT_FROM[pos] or s < 2020:
             continue
         rk = rank_of(r["pos_rank"])
         if not rk:
             continue
-        val = apw.get((s, str(r["mfl_id"])), (pos, 0.0, 0))[1]          # missing → 0 (bust)
-        pairs["redraft"][pos].append((rk, val))
+        pairs["redraft"][pos].append((rk, apw.get((s, str(r["mfl_id"])), (pos, 0.0, 0))[1]))
 
-    for r in csv.DictReader(open(DATA / "dynasty_adp_history.csv")):   # DYNASTY-SF
+    for r in csv.DictReader(open(DATA / "dynasty_adp_history.csv")):   # DYNASTY-SF → APWE (asset/longevity value)
         pos, s = r["pos"], int(r["season"])
         if pos not in SKILL or s < FIT_FROM[pos]:
             continue
-        rk = rank_of(r["sf_pos_rank"])
-        mid = fp2mfl.get(str(r["fp_id"]))
+        rk = rank_of(r["sf_pos_rank"]); mid = fp2mfl.get(str(r["fp_id"]))
         if not rk or not mid:
             continue
-        val = apw.get((s, mid), (pos, 0.0, 0))[1]
-        pairs["dynasty"][pos].append((rk, val))
+        pairs["dynasty"][pos].append((rk, apwe.get((s, mid), (pos, 0.0, 0))[1]))
 
-    curves = {"redraft": {}, "dynasty": {}}
+    curves = {"fpros": {}, "redraft": {}, "dynasty": {}}
     for axis in curves:
         for pos in SKILL:
             c = fit_curve(pairs[axis][pos])
@@ -135,29 +150,27 @@ def main():
                 curves[axis][pos] = c
 
     out = {"meta": {
-        "method": "E[APW|ADP pos-rank]: log-linear p50 backbone + isotonic-smoothed empirical p25/p50/p90 (±6 rank window, widen if sparse). missing-APW drafted players=0 (bust tail). QB fit SF-only 2022-2025; RB/WR/TE 2020-2025.",
-        "axes": "redraft=production-truth (mfl_id join); dynasty=auction-market (fp_id join)",
+        "method": "E[value|ADP pos-rank]: log-linear p50 backbone + isotonic-smoothed empirical p25/p50/p90. missing→0 (bust). QB fit SF-only 2022-2025; RB/WR/TE 2020-2025.",
+        "axes": "fpros=FantasyPros REDRAFT rank → APWE (all-play wins EARNED, the value expectation); redraft/dynasty → legacy APW%",
         "fit_seasons": FIT_FROM, "max_rank": MAXR,
     }, "curves": curves}
     (DATA / "eapw_curves.json").write_text(json.dumps(out, indent=2))
     print(f"wrote {(DATA / 'eapw_curves.json').relative_to(REPO)}")
 
-    for axis in ("redraft", "dynasty"):
-        print(f"\n=== {axis} axis — E[APW] p50 by pos-rank (validate monotone) ===")
-        print(f"  {'pos':<4}{'b0':>7}{'b1':>7}{'n':>6}   r1    r6   r12   r24   r48")
-        for pos in SKILL:
-            c = curves[axis].get(pos)
-            if not c:
-                print(f"  {pos:<4} (insufficient)"); continue
-            g = lambda r: c["p50"][r - 1]
-            print(f"  {pos:<4}{c['b0']:>7.2f}{c['b1']:>7.2f}{c['n']:>6}"
-                  + "".join(f"{g(r):>6.1f}" for r in (1, 6, 12, 24, 48)))
-    # show the p90 range tail for QB (the boom-dart signal)
-    if curves["dynasty"].get("QB"):
-        q = curves["dynasty"]["QB"]
-        print("\n=== dynasty QB outcome RANGE (p25/p50/p90) — the 'range of outcomes' ===")
-        for r in (1, 4, 8, 16, 28, 40):
-            print(f"  QB{r:<3} p25 {q['p25'][r-1]:>5.1f}  p50 {q['p50'][r-1]:>5.1f}  p90 {q['p90'][r-1]:>5.1f}")
+    print(f"\n=== fpros axis — E[APWE] p50 by REDRAFT pos-rank (the value expectation; validate QB≫TE) ===")
+    print(f"  {'pos':<4}{'n':>6}    r1    r6   r12   r24   r36   r60")
+    for pos in SKILL:
+        c = curves["fpros"].get(pos)
+        if not c:
+            print(f"  {pos:<4} (insufficient)"); continue
+        g = lambda r: c["p50"][min(r, len(c["p50"])) - 1]
+        print(f"  {pos:<4}{c['n']:>6}" + "".join(f"{g(r):>6.1f}" for r in (1, 6, 12, 24, 36, 60)))
+    print("\n=== anchor checks (E[APWE] p25/p50/p90 at the player's 2026 redraft rank) ===")
+    for pos, rk, nm in [("QB", 1, "Allen QB1"), ("QB", 23, "Darnold QB23"), ("TE", 10, "Kelce TE10"), ("RB", 90, "Mixon RB90"), ("WR", 56, "Diggs WR56")]:
+        c = curves["fpros"].get(pos)
+        if c:
+            i = min(rk, len(c["p50"])) - 1
+            print(f"  {nm:<14} p25 {c['p25'][i]:>5.1f}  p50 {c['p50'][i]:>5.1f}  p90 {c['p90'][i]:>5.1f}")
 
 
 if __name__ == "__main__":

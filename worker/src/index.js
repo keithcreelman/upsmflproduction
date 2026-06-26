@@ -2711,6 +2711,7 @@ export default {
         path !== "/api/auction/bid-history" &&
         path !== "/api/auction/intel" &&
         path !== "/api/auction/fa-value" &&
+        path !== "/api/auction/faa-report" &&
         path !== "/api/auction/compliance" &&
         path !== "/api/auction/cut-rebid-blocks" &&
         path !== "/api/auction/nomination-status" &&
@@ -4482,6 +4483,31 @@ export default {
           if (!row || !row.payload) return jsonOut(404, { ok: false, error: "fa-value not loaded — run build_roster_fit.py --push-d1" });
           let parsed; try { parsed = JSON.parse(row.payload); } catch (_) { parsed = {}; }
           return jsonOut(200, { ok: true, updated_at: row.updated_at, ...parsed });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
+      }
+
+      if (path === "/api/auction/faa-report" && request.method === "GET") {
+        // FAA Report (2020+ auction outcomes) — commish-gated, same inline gate as /api/auction/fa-value.
+        // Stored PART-KEYED (blob > D1's 100KB statement cap): concatenate payload ORDER BY part, then parse.
+        const _pad4 = (v) => { const s = safeStr(v).trim(); return /^\d+$/.test(s) ? s.padStart(4, "0") : s; };
+        const reqFid = _pad4(url.searchParams.get("franchise_id") || "");
+        const commishFids = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000")
+          .split(",").map((x) => _pad4(x)).filter(Boolean);
+        if (!reqFid || !commishFids.includes(reqFid)) {
+          return jsonOut(403, { ok: false, error: "Commish-only — pass a commish franchise_id" });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        try {
+          const res = await env.UPS_MFL_DB.prepare(
+            "SELECT payload, updated_at FROM ups_faa_report ORDER BY part"
+          ).all();
+          const parts = (res && res.results) || [];
+          if (!parts.length) return jsonOut(404, { ok: false, error: "faa-report not loaded — run build_faa_report.py --push-d1" });
+          const joined = parts.map((r) => r.payload || "").join("");
+          let parsed; try { parsed = JSON.parse(joined); } catch (_) { return jsonOut(500, { ok: false, error: "faa-report payload corrupt" }); }
+          return jsonOut(200, { ok: true, updated_at: parts[0].updated_at, ...parsed });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e?.message || e) });
         }

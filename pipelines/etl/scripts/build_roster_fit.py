@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
-"""Phase E — league-wide roster fit + competition + finalize the FA value blob.
+"""Phase E — league-wide roster fit + INFLATION + finalize the FA value blob.
 
-1. Pull all 12 live rosters → each team's projected APW by position (rostered
-   players' E[APW]_p50) vs a startable baseline B[pos] (E[APW] at the marginal
-   starter slot given the SF lineup) → per-team NEED / SURPLUS.
-2. Filter the Phase-D value layer to AVAILABLE FAs (unrostered).
-3. Per FA: 0008's fit (NEED/SURPLUS/OK at that position) + a COMPETITION forecast
-   (other teams with a NEED there, ranked by need × cap space).
-4. Post-auction fill context (transactions_adddrop, auction→Week-1 window): do
-   teams fill to 35 at the auction, or lock in fewer and add via waivers?
-5. Write fa_value.json (lean, FAs only) + fa_valuation.csv; --push-d1 upserts the
-   ups_auction_fa_value blob.
+1. Pull all 12 live rosters → each team's production strength by position
+   (rostered players' E[APWE]) vs a startable baseline B[pos] → per-team NEED / SURPLUS.
+2. AUCTION INFLATION (back-tested on SF-era 2022-2025): cheap rostered contracts lock
+   value below worth, leaving leftover cap that chases a small FA pool → prices clear
+   ABOVE intrinsic worth. The clearing line is REGRESSIVE: clear ≈ α + β·worth (a flat
+   ~$7K ante that lifts cheap/mid targets most; studs clear near worth — NOT a flat 1.9×).
+   α scales with the live money/value REGIME (biddable_money ÷ available_value), so the
+   factor tracks as players come off the board.  EP_inflated = max(EP_base, α·regime + β·worth).
+3. Filter to AVAILABLE FAs (unrostered) + rostered TRADE TARGETS (own=fid).
+4. Per FA: 0008's fit + a COMPETITION forecast (teams with a NEED there × cap space).
+5. Write fa_value.json (lean, FAs only) + fa_valuation.csv; --push-d1 upserts the blob.
 """
 from __future__ import annotations
 import argparse, csv, json, re, sqlite3, subprocess, time, urllib.request, collections
 from pathlib import Path
+import build_fa_value as bfv   # reuse the EP constants (POS_DYN_W, STARTABILITY, AFFINE_*, $/APWE) so the
+                              # client recompute-kernel shipped in meta.model can't drift from the pipeline
 
 REPO = Path(__file__).resolve().parents[3]
 DATA = REPO / "docs" / "auction" / "data"
@@ -22,9 +25,28 @@ WORKER = REPO / "worker"
 DB = "/tmp/ups_auction_canon.db"
 LEAGUE = "74598"; YEAR = 2026; CAP = 300000
 SKILL = ["QB", "RB", "WR", "TE"]
-SLOTS = {"QB": 2, "RB": 2, "WR": 2, "TE": 1}        # SF starting demand per team
+MODEL_CURVE_MAXRANK = 48   # client recompute-kernel curves capped here (covers every startable override; saves blob bytes)
+SLOTS = {"QB": 2, "RB": 2, "WR": 2, "TE": 1}          # SF starting demand per team
 REPL_RANK = {"QB": 24, "RB": 31, "WR": 31, "TE": 14}  # replacement (marginal-starter) rank
 SUFFIX = re.compile(r"\b(jr|sr|ii|iii|iv|v)\b")
+
+# ── INFLATION (affine clearing line, back-tested SF-era 2022-2025 + adversarially verified) ──
+# Realized FA prices fit paid$K ≈ ANTE + SLOPE·redraft_worth$K (OLS n≈88, R-fit on WORTH not
+# EP). A flat scarcity ANTE on every credible target + a sub-1 slope → cheap/mid inflate most,
+# studs clear near worth. Applied ADDITIVELY OVER the dynasty/startability anchor:
+#     EP_inflated = max(EP_base, ANTE_live + SLOPE·redraft_worth)
+# so the dynasty anchor (Allen $75K) is never deflated and never double-inflated (the verifier's
+# fix — don't multiply a worth-calibrated factor onto the 1.88×-larger EP_base), while the ante
+# lifts the mid/cheap pool. ANTE scales with the live money÷value regime → it dampens in a deep
+# (stud-heavy) pool and CLIMBS as studs clear (late-board inflation). Mean realized 1.97×;
+# per-year 1.57/1.81/1.89/2.61×; position spread emerges from the worth distribution (TE lowest
+# worth → biggest multiplier, QB highest → smallest).
+INFL_ANTE = 7.0        # SF-era flat scarcity ante $K on a credible target
+INFL_SLOPE = 0.72      # worth pass-through (OLS paid~redraft_worth slope; <1 = stud compression)
+DEPLOY_FRAC = 0.76     # biddable money = 0.76 × Σ(ceiling headroom)  [calibrated SF-era deploy fraction]
+REGIME_BASE = 1.9      # SF-era biddable ÷ credible-redraft-worth (the norm at which ante = $7K)
+CREDIBLE_WORTH = 2     # credible target: redraft worth ≥ $2K …
+CREDIBLE_EP = 5        # … or EP_base ≥ $5K (startable). True scrubs hold the $1K floor (no ante).
 
 
 def jget(u):
@@ -38,6 +60,29 @@ def nkey(s):
     return re.sub(r"\s+", " ", SUFFIX.sub("", s)).strip()
 
 
+def clamp(v, lo, hi):
+    return max(lo, min(hi, v))
+
+
+_CRX = {"aav": re.compile(r"AAV\s*([\d.]+)K", re.I), "tcv": re.compile(r"TCV\s*([\d.]+)K", re.I),
+        "cl": re.compile(r"CL\s*(\d+)", re.I)}
+
+
+def parse_contract(info, sal):
+    """MFL contractInfo → {sal_k, aav_k, tcv_k, cl}. TWO angles for a trade target (Keith): what you
+    pay THIS YEAR (sal_k = the current cap hit) vs the TRUE AAV = TCV ÷ contract-length (the smoothed
+    annual cost over the deal). MFL's own 'AAV' token is just the current year (e.g. JSN 'AAV 1K' is
+    his $1K Y2 of a back-loaded $70K/3yr = real AAV $23K), so we compute AAV from TCV/CL, not that token."""
+    out = {"sal_k": round((sal or 0) / 1000.0)}
+    for k in ("tcv", "cl"):
+        m = _CRX[k].search(info or "")
+        if m:
+            out[k + ("_k" if k == "tcv" else "")] = (int(m.group(1)) if k == "cl" else round(float(m.group(1))))
+    tcv, cl = out.get("tcv_k"), out.get("cl")
+    out["aav_k"] = round(tcv / cl) if (tcv and cl) else out["sal_k"]   # TRUE AAV = TCV/CL, not the current-yr cap hit
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--push-d1", action="store_true")
@@ -45,9 +90,9 @@ def main():
 
     core = json.loads((DATA / "fa_value_core.json").read_text())["players"]
     by_name = {nkey(p["player"]): p for p in core}
-    curve = json.loads((DATA / "eapw_curves.json").read_text())["curves"]["dynasty"]
-    rate = json.loads((DATA / "market_rate.json").read_text())["rate"]
+    curve = json.loads((DATA / "eapw_curves.json").read_text())["curves"]["fpros"]   # redraft E[APWE] by rank
     B = {pos: (curve[pos]["p50"][REPL_RANK[pos] - 1] if pos in curve else 0.0) for pos in SKILL}
+    STUD = {pos: (curve[pos]["p50"][5] if pos in curve and len(curve[pos]["p50"]) > 5 else 6.0) for pos in SKILL}
 
     # ---- live league state ----
     rosters = jget(f"https://www48.myfantasyleague.com/{YEAR}/export?TYPE=rosters&L={LEAGUE}&JSON=1")["rosters"]["franchise"]
@@ -56,55 +101,158 @@ def main():
     lg = jget(f"https://www48.myfantasyleague.com/{YEAR}/export?TYPE=league&L={LEAGUE}&JSON=1")["league"]
     fid2team = {f["id"]: f.get("name", f["id"]) for f in lg["franchises"]["franchise"]}
 
-    rostered_names, team = set(), {}
+    rostered_by_name, team, contract_by_name = {}, {}, {}
+    surplus_k = 0.0     # Σ rostered (worth − contract), positive only = locked-cheap value
     for fr in rosters:
         fid = fr["id"]
         pls = fr.get("player", [])
         if isinstance(pls, dict): pls = [pls]
-        active_sal = 0; apw_by_pos = collections.defaultdict(list)
+        active_sal = 0; apwe_by_pos = collections.defaultdict(list)
         for p in pls:
             nm = id2name.get(str(p.get("id")))
-            if nm: rostered_names.add(nkey(nm))
+            if nm:
+                rostered_by_name[nkey(nm)] = fid
+            sal = int(p.get("salary") or 0)
+            if nm and p.get("status") == "ROSTER":
+                cinf = parse_contract(p.get("contractInfo") or "", sal)
+                cinf["cy"] = int(p.get("contractYear") or 0)   # years remaining (cy=1 = last year)
+                contract_by_name[nkey(nm)] = cinf
             if p.get("status") == "ROSTER":
-                active_sal += int(p.get("salary") or 0)
+                active_sal += sal
             c = by_name.get(nkey(nm or ""))
-            if c and c["pos"] in SKILL and c.get("e_apw_p50") is not None:
-                apw_by_pos[c["pos"]].append(c["e_apw_p50"])
+            if c and c["pos"] in SKILL and c.get("e_apwe_p50") is not None:
+                apwe_by_pos[c["pos"]].append(c["e_apwe_p50"])
+            if c and p.get("status") == "ROSTER" and (c.get("worth_k") or 0) > sal / 1000.0:
+                surplus_k += (c["worth_k"] - sal / 1000.0)
         fit = {}
         for pos in SKILL:
-            vals = sorted(apw_by_pos.get(pos, []), reverse=True)
+            vals = sorted(apwe_by_pos.get(pos, []), reverse=True)
             starters = (vals + [0.0] * SLOTS[pos])[:SLOTS[pos]]
             need = round(sum(max(0.0, B[pos] - v) for v in starters), 2)
             surplus = round(sum(max(0.0, v - B[pos]) for v in vals), 2)
-            fit[pos] = {"need": need, "surplus": surplus, "starters_apw": round(sum(vals[:SLOTS[pos]]), 2)}
+            top = vals[0] if vals else 0.0
+            fit[pos] = {"need": need, "surplus": surplus, "top_apw": round(top, 2),
+                        "has_stud": top >= STUD[pos], "starters_apw": round(sum(vals[:SLOTS[pos]]), 2)}
         team[fid] = {"team": fid2team.get(fid, fid), "capspace": CAP - active_sal,
                      "active_salary": active_sal, "fit": fit}
 
+    # ---- v4 MARKET CONTEXT (the affine clearing line is baked into EP in build_fa_value;
+    #      no separate regime/ante machinery — the audit flagged those as unvalidated knobs) ----
+    DEPLOY_FRAC = 0.76      # ~76% of ceiling headroom becomes real bids (calibrated SF-era)
+    ceiling_headroom_k = sum(t["capspace"] for t in team.values()) / 1000.0
+    biddable_money_k = round(DEPLOY_FRAC * ceiling_headroom_k)
+    credible = [p for p in core if not rostered_by_name.get(nkey(p["player"]))
+                and ((p.get("redraft_worth_k") or 0) >= 3 or (p.get("ep_base_k") or 0) >= 5)]
+    credible_rworth_k = round(sum(p.get("redraft_worth_k") or 0 for p in credible)) or 1
+
+    def re_verdict(ep_k, worth_k, p90):
+        vr = round(worth_k / ep_k, 2) if ep_k > 0 else None
+        if vr is None: return ("—", None)
+        if vr >= 1.5 and worth_k >= 15: return ("SPLURGE", vr)   # real edge, well under price
+        if vr >= 1.2: return ("VALUE", vr)
+        if vr >= 0.8: return ("FAIR", vr)
+        if ep_k <= 4: return ("DART" if (p90 or 0) >= 5 else "FAIR", vr)
+        if ep_k < 15: return ("FAIR", vr)                        # cheap startable = market slot-rent, not an overpay
+        return ("OVERPAY", vr) if vr < 0.6 else ("FAIR", vr)     # real overpay only on a non-trivial price
+
+    # EP is FINAL from build_fa_value (max of affine clearing line ∨ startability floor ∨
+    # position-weighted dynasty anchor). Pass it through + derive gap/verdict.
+    for p in core:
+        ep = p["ep_base_k"]
+        p["ep_k"] = ep; p["median_k"] = ep
+        p["low_k"] = round(ep * 0.78); p["top10_k"] = round(ep * 1.3)
+        p["gap_k"] = ep - p["worth_k"]
+        p["per_apwe"] = round(ep / p["e_apwe_p50"], 1) if (p.get("e_apwe_p50") or 0) > 0 else None
+        v, vr = re_verdict(ep, p["worth_k"], p["e_apwe_p90"])
+        p["verdict"] = v; p["value_ratio"] = vr
+
+    # how far the credible board is priced over intrinsic redraft worth (descriptive only)
+    markup = round(sum(p["ep_k"] for p in credible) / credible_rworth_k, 2) if credible_rworth_k else 1.0
+    inflation = {   # kept key name for View compatibility; v4 = the affine clearing line, not a regime factor
+        "model": "v4-affine", "ante": 2.67, "slope": 0.84, "deploy_frac": DEPLOY_FRAC,
+        "ceiling_headroom_k": round(ceiling_headroom_k), "biddable_money_k": biddable_money_k,
+        "credible_value_k": credible_rworth_k, "n_credible": len(credible),
+        "surplus_k": round(surplus_k), "board_markup": markup,
+        "backtest": {"clearing_line": "paid$K ≈ 2.67 + 0.84·redraft_worth (all clears, MSE 31, n=346)",
+                     "dollar_weighted_inflation": 1.53,
+                     "per_year": {"2022": 1.57, "2023": 1.98, "2024": 1.30, "2025": 1.46}},
+        "note": f"v4 EP = max(startability floor, 2.67 + 0.84·redraft_worth [the harness-fit clearing line], "
+                f"position-weighted dynasty anchor). RB clears win-now (dynasty ×0.55); QB/WR/TE command dynasty. "
+                f"Board prices ~{markup}× intrinsic redraft worth; ${round(surplus_k)}K of locked rostered surplus + "
+                f"${biddable_money_k}K biddable money is the market context. Historical $-weighted markup 1.53×.",
+    }
+
     def need_label(fid, pos):
         f = team[fid]["fit"][pos]; b = B[pos] or 0.01
-        if f["need"] > 0.4 * b: return "NEED"
-        if f["surplus"] > 0.8 * b: return "SURPLUS"
+        thin = f["need"] > 0.4 * b
+        deep = f["surplus"] > 0.8 * b
+        if not f["has_stud"]:
+            return "NEED-STUD" if thin else "DEPTH"
+        if thin: return "NEED"
+        if deep: return "SURPLUS"
         return "OK"
+
+    def comp_score(t, pos):
+        f = t["fit"][pos]
+        return f["need"] + max(0.0, STUD[pos] - f["top_apw"])
 
     def competition(pos):
         cands = []
         for fid, t in team.items():
             if fid == "0008": continue
-            f = t["fit"][pos]; b = B[pos] or 0.01
-            if f["need"] > 0.4 * b:
-                cands.append((f["need"] * max(0.05, t["capspace"] / CAP), fid, t["team"], f["need"], t["capspace"]))
+            cs = comp_score(t, pos)
+            if cs > 0.3 * (B[pos] or 0.01):
+                cands.append((cs * max(0.05, t["capspace"] / CAP), fid, t["team"], round(cs, 2), t["capspace"]))
         cands.sort(reverse=True)
-        return [{"fid": fid, "team": tm, "need": round(nd, 2), "capspace": cs} for _, fid, tm, nd, cs in cands[:3]]
+        return [{"fid": fid, "team": tm, "need": nd, "capspace": cs} for _, fid, tm, nd, cs in cands[:3]]
 
-    # ---- available FAs (unrostered) ----
+    # ---- the board: available FAs (own=None) + rostered trade targets (own=fid) ----
+    TRADE_FLOOR = 2.0   # only rostered players actually worth trading FOR
     fas = []
     for p in core:
-        if nkey(p["player"]) in rostered_names: continue
         pos = p["pos"]
-        comp = competition(pos) if pos in SKILL else []
-        fas.append({**p, "fit_0008": need_label("0008", pos) if pos in SKILL else "—",
-                    "competition": comp})
-    fas.sort(key=lambda x: -(x["e_apw_p50"] or 0))
+        nm = nkey(p["player"])
+        owner = rostered_by_name.get(nm)
+        if owner and (p.get("worth_k") or 0) < TRADE_FLOOR:
+            continue
+        comp = competition(pos) if (pos in SKILL and not owner) else []
+        ctr = contract_by_name.get(nm) if owner else None
+        rec = {**p, "own": owner, "contract": ctr,
+               "fit_0008": need_label("0008", pos) if pos in SKILL else "—",
+               "competition": comp}
+        # a trade target isn't in the auction → its "price" is its contract AAV, not the inflated EP.
+        if owner and ctr:
+            rec["aav_k"] = ctr.get("aav_k"); rec["sal_k"] = ctr.get("sal_k")
+            rec["trade_gap_k"] = (ctr.get("aav_k") or 0) - (p.get("worth_k") or 0)   # vs TRUE AAV; neg = worth > AAV = surplus
+        fas.append(rec)
+    fas.sort(key=lambda x: -(x.get("worth_k") or 0))
+
+    # ---- POSITIONAL TIERS — the worth-vs-price dropoff ("do I need mid RBs, or is the cliff steep?") ----
+    # Per position, the AVAILABLE pool sorted by worth → named tiers → avg redraft/dynasty worth + price.
+    # The View blends rw/dw on the slider and shows the tier-over-tier worth dropoff vs the price dropoff
+    # (a shallow worth drop + steep price drop = the efficiency sweet spot).
+    TIER_DEFS = {
+        "QB": [("Elite", 1, 3), ("High", 4, 8), ("Mid", 9, 16), ("Streamer", 17, 30)],
+        "RB": [("Elite", 1, 4), ("High", 5, 12), ("Mid", 13, 24), ("Depth", 25, 42)],
+        "WR": [("Elite", 1, 6), ("High", 7, 16), ("Mid", 17, 30), ("Depth", 31, 50)],
+        "TE": [("Elite", 1, 3), ("High", 4, 8), ("Mid", 9, 14), ("Streamer", 15, 26)],
+    }
+    tiers = {}
+    for pos in SKILL:
+        pool = sorted([p for p in fas if not p.get("own") and p["pos"] == pos], key=lambda x: -(x.get("worth_k") or 0))
+        rows = []
+        for label, lo, hi in TIER_DEFS[pos]:
+            grp = pool[lo - 1:hi]
+            if not grp:
+                continue
+            n = len(grp)
+            rows.append({"label": label, "lo": lo, "hi": min(hi, lo + n - 1), "n": n,
+                         "rw": round(sum(p["redraft_worth_k"] for p in grp) / n),
+                         "dw": round(sum(p["dynasty_worth_k"] for p in grp) / n),
+                         "ep": round(sum(p["ep_k"] for p in grp) / n),
+                         "top": grp[0]["player"]})
+        if rows:
+            tiers[pos] = rows
 
     # ---- post-auction fill context ----
     c = sqlite3.connect(DB)
@@ -120,23 +268,46 @@ def main():
     payload = {
         "meta": {
             "generated": "build_roster_fit.py", "n_fas": len(fas),
+            "worth_model": {"dollar_per_apwe": 6.5, "default_dyn_weight": 0.5,
+                            "note": "WORTH=blend(redraft E[APWE]×$6.5, dynasty cardinal value×$/val); slider blends live"},
+            # ── client recompute KERNEL (ADP override): everything the View needs to re-derive a player's
+            # E[APWE]/worth/expected-price at a DIFFERENT redraft positional rank, reproducing build_fa_value
+            # EXACTLY. EP = round(max( startability(pos,rank), ante+slope·round(p50[rank]·$/APWE),
+            # dynasty_worth·pos_dyn_w[pos] )). Only the redraft axis + startability floor + affine move with
+            # rank; dynasty_worth (the KTC asset value) does NOT. Curves are fpros E[APWE] by 1-based rank.
+            "model": {
+                "dollar_per_apwe": bfv.DOLLAR_PER_APWE, "affine_ante": bfv.AFFINE_ANTE, "affine_slope": bfv.AFFINE_SLOPE,
+                "pos_dyn_w": bfv.POS_DYN_W, "startability": bfv.STARTABILITY, "curve_max_rank": MODEL_CURVE_MAXRANK,
+                # curves capped at MODEL_CURVE_MAXRANK (every startable override lives well inside this; the client
+                # clamps a higher rank to the last entry). p50 stays at FULL 2-decimal precision — the pipeline
+                # computes redraft_worth = round(p50·$/APWE) off the 2dp value, so the client MUST use 2dp to
+                # reproduce EP exactly. p90 is display/ceiling only (never feeds EP) → integer is plenty.
+                "curves": {pos: {"p50": [round(v, 2) for v in curve[pos]["p50"][:MODEL_CURVE_MAXRANK]],
+                                 "p90": [round(v) for v in curve[pos]["p90"][:MODEL_CURVE_MAXRANK]]} for pos in curve},
+                "note": "ep=round(max(startability(pos,rank), affine_ante+affine_slope*round(p50[r]*$apwe), dyn_worth*pos_dyn_w[pos])); r=min(rank,len)-1",
+            },
+            "inflation": inflation,
+            "tiers": tiers,
             "baseline_apw": {pos: round(B[pos], 2) for pos in SKILL},
+            "stud_bar": {pos: round(STUD[pos], 2) for pos in SKILL},
             "replacement_rank": REPL_RANK, "starter_slots": SLOTS,
-            "market_rate": {pos: {"R": rate[pos]["R"], "R_conf": rate[pos]["R_conf"],
-                                  "preSF": rate[pos]["preSF"]["median"], "SF": rate[pos]["SF"]["median"]} for pos in SKILL},
             "fill": {"by_season": fill, "avg_post_auction_adds_per_team": fill_avg,
                      "note": "adds between auction-end and ~Week 1; high = teams lock in fewer at auction and fill via waivers"},
-            "verdict_legend": "SPLURGE/VALUE/FAIR/OVERPAY/DART by value_ratio=R[pos]/(price/E[APW]); value_conf=solid|estimate",
+            "verdict_legend": "SPLURGE/VALUE/FAIR/OVERPAY/DART by value_ratio=worth/EP_inflated; EP=expected (inflated) price, WORTH=blended value",
         },
         "teams": {fid: {"team": t["team"], "capspace": t["capspace"], "fit": t["fit"]} for fid, t in team.items()},
         "fas": [{
-            "player": p["player"], "pos": p["pos"], "age": p["age"],
-            "dyn_sf_rank": p["dyn_sf_rank"], "redraft_rank": p["redraft_rank"],
+            "player": p["player"], "pos": p["pos"], "age": p["age"], "own": p.get("own"),
+            "owner_team": (team.get(p["own"], {}).get("team") if p.get("own") else None),
+            "contract": p.get("contract"), "aav_k": p.get("aav_k"), "trade_gap_k": p.get("trade_gap_k"),
+            "dyn_sf_rank": p["dyn_sf_rank"], "redraft_rank": p["redraft_rank"], "fp_rank": p.get("fp_rank"),
+            "dyn_value": p.get("dyn_value"),
             "win_now": p["win_now"], "asset": p["asset"], "deal_type": p["deal_type"],
-            "low_k": p["low_k"], "median_k": p["median_k"], "top10_k": p["top10_k"],
-            "e_apw_p25": p["e_apw_p25"], "e_apw_p50": p["e_apw_p50"], "e_apw_p90": p["e_apw_p90"],
-            "implied_apw": p["implied_apw"], "value_ratio": p["value_ratio"],
-            "verdict": p["verdict"], "value_conf": p["value_conf"],
+            "redraft_worth_k": p["redraft_worth_k"], "dynasty_worth_k": p["dynasty_worth_k"],
+            "worth_k": p["worth_k"], "ep_base_k": p["ep_base_k"], "ep_k": p["ep_k"],
+            "low_k": p["low_k"], "median_k": p["median_k"], "top10_k": p["top10_k"], "gap_k": p["gap_k"],
+            "e_apwe_p25": p["e_apwe_p25"], "e_apwe_p50": p["e_apwe_p50"], "e_apwe_p90": p["e_apwe_p90"],
+            "per_apwe": p["per_apwe"], "value_ratio": p["value_ratio"], "verdict": p["verdict"],
             "fit_0008": p["fit_0008"], "competition": p["competition"],
         } for p in fas],
     }
@@ -145,70 +316,90 @@ def main():
     print(f"wrote {(DATA / 'fa_value.json').relative_to(REPO)} ({len(fas)} FAs, blob {blob_len/1024:.1f}KB)")
 
     # ---- CSV ----
-    cols = ["player", "pos", "age", "dyn_sf_rank", "redraft_rank", "win_now", "asset",
-            "low_k", "median_k", "top10_k", "e_apw_p50", "e_apw_p90", "implied_apw",
-            "value_ratio", "verdict", "value_conf", "fit_0008", "deal_type", "top_competitors"]
+    cols = ["player", "pos", "status", "owner", "dyn_sf_rank", "fp_rank",
+            "redraft_worth_k", "dynasty_worth_k", "worth_k", "ep_k", "gap_k",
+            "e_apwe_p50", "e_apwe_p90", "per_apwe", "value_ratio", "verdict", "fit_0008", "deal_type", "top_competitors"]
     with open(DATA / "fa_valuation.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
         w.writeheader()
         for p in fas:
-            w.writerow({**p, "top_competitors": "; ".join(x["team"] for x in p["competition"])})
+            w.writerow({**p, "status": "rostered" if p.get("own") else "FA",
+                        "owner": team.get(p["own"], {}).get("team", "") if p.get("own") else "",
+                        "top_competitors": "; ".join(x["team"] for x in p["competition"])})
     print(f"wrote {(DATA / 'fa_valuation.csv').relative_to(REPO)}")
+    n_avail = sum(1 for p in fas if not p.get("own")); n_rost = len(fas) - n_avail
+    print(f"  ({n_avail} available FAs + {n_rost} rostered trade targets)")
 
     # ---- summaries ----
-    print(f"\n=== startable baseline B[pos] (E[APW] at replacement rank) ===")
-    print("  " + "  ".join(f"{pos}{REPL_RANK[pos]}={B[pos]:.2f}" for pos in SKILL))
-    print(f"\n=== post-auction fill (avg adds/team after auction, pre-Week1) = {fill_avg} ===")
-    for f in fill:
-        print(f"  {f['season']}: won {f['wins_per_team']}/team at auction, +{f['post_auction_adds_per_team']} waiver adds/team after")
-    print(f"\n=== 0008 roster fit (need/surplus by pos) ===")
+    print(f"\n=== v4 MARKET CONTEXT (affine clearing line baked into EP) ===")
+    print(f"  Σ ceiling headroom ${inflation['ceiling_headroom_k']}K → biddable ${biddable_money_k}K (×{DEPLOY_FRAC})")
+    print(f"  credible redraft-worth ${credible_rworth_k}K ({len(credible)} targets) → board prices ~{inflation['board_markup']}× over intrinsic worth")
+    print(f"  locked rostered surplus (worth−cost, positive): ${inflation['surplus_k']}K")
+    print(f"  clearing line: {inflation['backtest']['clearing_line']}")
+    print(f"\n=== a few inflated prices (EP_base → EP_inflated) ===")
+    for nm in ["Joe Mixon", "Stefon Diggs", "Aaron Rodgers", "Sam Darnold", "Travis Kelce", "Ja'Marr Chase"]:
+        p = next((r for r in core if r["player"].startswith(nm)), None)
+        if p: print(f"  {p['player'][:20]:<21}{str(p.get('fp_rank') or '-'):>6}  worth ${p['worth_k']:>3}  EP ${p['ep_base_k']:>3} → ${p['ep_k']:>3}  gap {('+' if p['gap_k']>=0 else '')}{p['gap_k']}  {p['verdict']}")
+    print(f"\n=== 0008 roster fit ===")
     for pos in SKILL:
         ff = team["0008"]["fit"][pos]
         print(f"  {pos}: need {ff['need']:.1f}  surplus {ff['surplus']:.1f}  → {need_label('0008', pos)}")
-    print(f"\n=== top FA targets for 0008 (by E[APW], with fit + competition) ===")
-    print(f"  {'player':<20}{'rk':>5}{'E50':>5}{'$K':>5}{'vr':>5}  {'verdict':<8}{'fit':<8} competition")
-    for p in fas[:14]:
-        print(f"  {p['player'][:19]:<20}{p['dyn_sf_rank']:>5}{(p['e_apw_p50'] or 0):>5.1f}{str(p['median_k']):>5}"
-              f"{str(p['value_ratio'] or '-'):>5}  {p['verdict']:<8}{p['fit_0008']:<8}{', '.join(x['team'] for x in p['competition'][:2])}")
+    print(f"\n=== top FA targets (by worth, inflated price) ===")
+    print(f"  {'player':<20}{'fpRk':>6}{'worth':>6}{'EP':>5}{'gap':>6}  {'verdict':<8}{'fit':<10}competition")
+    for p in [x for x in fas if not x.get("own")][:14]:
+        print(f"  {p['player'][:19]:<20}{str(p.get('fp_rank') or '-'):>6}{p['worth_k']:>6}{p['ep_k']:>5}"
+              f"{(('+' if p['gap_k']>=0 else '')+str(p['gap_k'])):>6}  {p['verdict']:<8}{p['fit_0008']:<10}{', '.join(x['team'] for x in p['competition'][:2])}")
 
     if args.push_d1:
-        # lean/compact payload for D1 (per-statement SQLITE_TOOBIG ~100KB). Short
-        # keys + top-2 competition as fids + rounding; the View maps the keys. The
-        # full readable shape stays in the committed fa_value.json + CSV.
+        # The View RE-DERIVES worth/gap/value_ratio/verdict from (rw, dw, e) + the live blend
+        # slider, so the blob only carries the two worth components + the (fixed) inflated price.
         def r1(v): return round(v, 1) if isinstance(v, (int, float)) else v
         DT = {"cut-free dart": "d", "1-yr rental / flip": "r", "multi-year build": "m",
               "anchor": "a", "1-yr / situational": "s"}
-        VC = {"solid": "s", "estimate": "e"}
-        FT = {"NEED": "N", "SURPLUS": "S", "OK": "-", "—": "-"}
+        FT = {"NEED-STUD": "NS", "DEPTH": "D", "NEED": "N", "SURPLUS": "S", "OK": "-", "—": "-"}
         lean = {
             "meta": payload["meta"],
-            "key": {"n": "player", "p": "pos", "dr": "dyn_sf_rank", "rr": "redraft_rank",
-                    "wn": "win_now", "as": "asset", "dt": "deal_type", "lk": "low_k",
-                    "mk": "median_k", "tk": "top10_k",
-                    "a25": "e_apw_p25", "a50": "e_apw_p50", "a90": "e_apw_p90",
-                    "vr": "value_ratio", "v": "verdict", "vc": "value_conf",
-                    "f": "fit_0008", "c": "competition_fids",
-                    "_dt": {v: k for k, v in DT.items()}, "_vc": {v: k for k, v in VC.items()},
-                    "_f": {"N": "NEED", "S": "SURPLUS", "-": "OK"}},
+            "key": {"n": "player", "p": "pos", "dr": "dyn_sf_rank", "fr": "fp_rank",
+                    "rw": "redraft_worth_k", "dw": "dynasty_worth_k", "e": "ep_k (inflated expected price; FA)",
+                    "av": "aav_k = TRUE AAV = TCV/CL (the smoothed annual = trade-target price; owned only)",
+                    "sl": "sal_k = current-year cap hit (what you pay THIS year; owned only)", "tcv": "tcv_k", "cl": "contract_len", "cy": "years_remaining",
+                    "a50": "e_apwe_p50", "a90": "e_apwe_p90", "dt": "deal_type",
+                    "f": "fit_0008", "c": "competition_fids", "o": "owner_fid (null=available FA)",
+                    "derived": "worth=blend(rw,dw,dynW); FA gap=e−worth; trade-target gap=av−worth; verdict from worth/price",
+                    "_dt": {v: k for k, v in DT.items()},
+                    "_f": {"NS": "NEED-STUD", "D": "DEPTH", "N": "NEED", "S": "SURPLUS", "-": "OK"}},
             "teams": {fid: {"team": t["team"], "capspace": t["capspace"],
-                            "fit": {pos: {"need": t["fit"][pos]["need"], "surplus": t["fit"][pos]["surplus"]} for pos in SKILL}}
+                            "fit": {pos: {"need": t["fit"][pos]["need"], "surplus": t["fit"][pos]["surplus"],
+                                          "stud": t["fit"][pos]["has_stud"]} for pos in SKILL}}
                       for fid, t in team.items()},
-            "fas": [{
-                "n": p["player"], "p": p["pos"], "dr": p["dyn_sf_rank"], "rr": p["redraft_rank"],
-                "wn": p["win_now"], "as": p["asset"], "dt": DT.get(p["deal_type"], "s"),
-                "lk": p["low_k"], "mk": p["median_k"], "tk": p["top10_k"],
-                "a25": r1(p["e_apw_p25"]), "a50": r1(p["e_apw_p50"]), "a90": r1(p["e_apw_p90"]),
-                "vr": p["value_ratio"], "v": p["verdict"], "vc": VC.get(p["value_conf"], "e"),
-                "f": FT.get(p["fit_0008"], "-"), "c": [x["fid"] for x in p["competition"][:2]],
-            } for p in fas],
+            "fas": [
+                ({"n": p["player"], "p": p["pos"], "dr": p["dyn_sf_rank"], "o": p["own"],
+                  "rw": p["redraft_worth_k"], "dw": p["dynasty_worth_k"], "e": p["ep_k"],
+                  "av": (p.get("contract") or {}).get("aav_k"), "sl": (p.get("contract") or {}).get("sal_k"),
+                  "tcv": (p.get("contract") or {}).get("tcv_k"),
+                  "cl": (p.get("contract") or {}).get("cl"), "cy": (p.get("contract") or {}).get("cy"),
+                  "a50": r1(p["e_apwe_p50"]), "a90": r1(p["e_apwe_p90"])}
+                 if p.get("own") else
+                 {"n": p["player"], "p": p["pos"], "dr": p["dyn_sf_rank"], "fr": p.get("fp_rank"),
+                  "dt": DT.get(p["deal_type"], "s"),
+                  "rw": p["redraft_worth_k"], "dw": p["dynasty_worth_k"], "e": p["ep_k"],
+                  "a50": r1(p["e_apwe_p50"]), "a90": r1(p["e_apwe_p90"]),
+                  "f": FT.get(p["fit_0008"], "-"), "c": [x["fid"] for x in p["competition"][:2]]})
+                for p in fas],
         }
         blob = json.dumps(lean, separators=(",", ":")).replace("'", "''")
-        print(f"  (lean D1 blob {len(blob)/1024:.1f}KB)")
+        print(f"\n  (lean D1 blob {len(blob)/1024:.1f}KB)")
         ts = int(time.time())
         tmp = WORKER / ".tmp"; tmp.mkdir(parents=True, exist_ok=True)
         sql_path = tmp / "fa_value_upsert.sql"
-        sql_path.write_text(f"INSERT OR REPLACE INTO ups_auction_fa_value (id, payload, updated_at) VALUES (1, '{blob}', {ts});\n")
-        print(f"\n  pushing fa_value blob to D1 ({len(blob)} bytes) …")
+        stmt = f"INSERT OR REPLACE INTO ups_auction_fa_value (id, payload, updated_at) VALUES (1, '{blob}', {ts});\n"
+        # D1 rejects a single SQL statement over 100,000 bytes (SQLITE_TOOBIG). The recompute-kernel curves
+        # (meta.model) put us close, so fail LOUDLY here with the remedy instead of a cryptic wrangler error.
+        if len(stmt) > 99500:
+            raise SystemExit(f"  ✘ fa_value SQL statement is {len(stmt)} bytes (>99.5KB, near D1's 100KB cap). "
+                             f"Trim the blob: lower MODEL_CURVE_MAXRANK (now {MODEL_CURVE_MAXRANK}) or move meta.model.curves off-blob.")
+        sql_path.write_text(stmt)
+        print(f"  pushing fa_value blob to D1 ({len(blob)} bytes) …")
         subprocess.run(["npx", "--yes", "wrangler@latest", "d1", "execute", "ups-mfl-db", "--remote", "--file", str(sql_path)], cwd=str(WORKER), check=True)
         print("  pushed ups_auction_fa_value")
 
