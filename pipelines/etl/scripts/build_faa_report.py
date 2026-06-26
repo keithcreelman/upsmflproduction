@@ -101,11 +101,19 @@ def main():
         WHERE finalbid_ind = 1 AND auction_type = 'FreeAgent'
         ORDER BY season, player_id
     """)]
-    win_seasons = {}                                  # pid -> sorted [win seasons] (any year, for boundaries)
+    win_seasons = {}                                  # pid -> sorted [FreeAgent win seasons] (these become rows)
     for w in wins:
         win_seasons.setdefault(str(w["player_id"]), []).append(int(w["season"]))
     for pid in win_seasons:
         win_seasons[pid] = sorted(set(win_seasons[pid]))
+
+    # ANY auction win (FreeAgent + Tag + ExpiredRookie + …) ends a prior contract — a re-auction/tag is a
+    # NEW deal. Used to bound a lineage so e.g. Ekeler's '22 FA deal doesn't bleed into his '23 TAG.
+    boundary_seasons = {}                             # pid -> sorted [all auction win seasons]
+    for r in conn.execute("SELECT DISTINCT player_id, season FROM transactions_auction WHERE finalbid_ind = 1"):
+        boundary_seasons.setdefault(str(r["player_id"]), []).append(int(r["season"]))
+    for pid in boundary_seasons:
+        boundary_seasons[pid] = sorted(set(boundary_seasons[pid]))
 
     # ---- 2. per-(pid,season) production + ownership + salary (player_weeklyscoringresults) ----
     season_agg = {}                                  # (pid,season) -> {sal, teams:set, gp, pts, reg_pts, reg_gp, wks:set}
@@ -115,17 +123,19 @@ def main():
         WHERE season BETWEEN ? AND ? AND score IS NOT NULL
     """, (WINDOW_START, LAST_PLAYED_SEASON)):
         k = (str(r["player_id"]), int(r["season"]))
-        a = season_agg.setdefault(k, {"sal": 0, "rostered_by": set(), "gp": 0, "pts": 0.0, "reg_pts": 0.0, "reg_gp": 0, "wks": set()})
+        a = season_agg.setdefault(k, {"rostered_by": set(), "sal_by_fid": {}, "gp": 0, "pts": 0.0, "reg_pts": 0.0, "reg_gp": 0, "wks": set()})
         sc = float(r["score"]); a["gp"] += 1; a["pts"] += sc; a["wks"].add(int(r["week"]))
         if int(r["is_reg"] or 0) == 1:
             a["reg_pts"] += sc; a["reg_gp"] += 1
-        if r["salary"] is not None:
-            a["sal"] = max(a["sal"], int(r["salary"]))
-        # franchises that actually ROSTERED him (ROSTER/IR/TAXI) — NOT free-agent weeks; used to
-        # follow the contract lineage so a cut-then-waiver-churn doesn't bleed into this contract.
+        # franchises that actually ROSTERED him (ROSTER/IR/TAXI) — NOT free-agent weeks; used to follow the
+        # contract lineage AND to read the salary THIS lineage carried (a global MAX would wrongly pick up a
+        # different franchise's contract for the same player in the same year — e.g. Stidham won $1 by 0007
+        # but shown on 0011's $38K deal).
         fid = pad4(r["roster_franchise_id"]) if r["roster_franchise_id"] else ""
         if fid and fid != "FA" and str(r["roster_status"] or "") != "FA":
             a["rostered_by"].add(fid)
+            if r["salary"] is not None:
+                a["sal_by_fid"][fid] = max(a["sal_by_fid"].get(fid, 0), int(r["salary"]))
 
     # ---- 3. wk1 contract_info per (pid,season) for TCV/CL/Ext shape (the lineage's owning team) ----
     ci_map = {}                                      # (pid,season) -> {tcv, cl, ext_token, sal}
@@ -140,6 +150,7 @@ def main():
             "cl": int(cm.group(1)) if cm else None,
             "ext": em.group(1) if em else None,
             "sal": int(r["salary"]) if r["salary"] is not None else None,
+            "cy": int(r["contract_year"]) if r["contract_year"] not in (None, "") and str(r["contract_year"]).lstrip("-").isdigit() else None,
         }
 
     # ---- 4. rosters_current → the CURRENT (2026 upcoming) roster only. rosters_current holds BOTH a
@@ -180,48 +191,64 @@ def main():
         pid = str(w["player_id"]); wfid = pad4(w["franchise_id"])
         won_d = parse_dt(w["date_et"]) or date(ws, 8, 1)
         won_iso = won_d.isoformat()
-        nexts = [s for s in win_seasons.get(pid, []) if s > ws]
-        next_win = min(nexts) if nexts else 9999
+        nexts = [s for s in boundary_seasons.get(pid, []) if s > ws]
+        next_win = min(nexts) if nexts else 9999      # next re-auction/tag of ANY type = hard contract boundary
 
-        # ---- lineage = follow the CONTRACT, not the player. It starts with the winning franchise and
-        # transfers via TRADES; it ENDS when no lineage-owning team rosters him a season (cut → waiver
-        # churn onto other teams is a DIFFERENT contract) or at the next re-auction. This stops a cheap
-        # churned backup (e.g. Dalton $1) from absorbing unrelated later contracts. ----
-        owners = {wfid} | {to for (dt, to) in trades.get(pid, []) if dt and dt >= won_iso}  # win + all post-win trade receivers
+        # ---- lineage = follow the CONTRACT (win franchise + trades), bounded by its LENGTH. The deal runs
+        # cy_win years (the win-year contract_year). An EXTENSION resets the remaining years UP (contract_year
+        # stops decrementing / jumps), continuing the SAME deal. Once the years are spent with no extension the
+        # contract expired — a later roster spot is a NEW deal (re-sign/tag), not this one. Keeps legit
+        # multi-year runs (Love CL-3 + ext) while stopping 1-yr deals (CMC, Ekeler) from bleeding into the next. ----
+        owners = {wfid} | {to for (dt, to) in trades.get(pid, []) if dt and dt >= won_iso}
+        cy_win = (ci_map.get((pid, ws), {}) or {}).get("cy")
+        if not cy_win:                                 # win-year sometimes a shell → infer the length from next season
+            nxt = (ci_map.get((pid, ws + 1), {}) or {})
+            cy_win = (nxt.get("cy", 0) + 1) if (nxt.get("cy") and (ws + 1) < next_win) else 1
         lineage = []
+        remaining = cy_win
         s = ws
         while s < next_win and s <= CURRENT_SEASON:
             if s == CURRENT_SEASON:
                 held = pid in current and current[pid]["fid"] in owners
             else:
                 rb = season_agg.get((pid, s), {}).get("rostered_by", set())
-                # win season always counts (he was won that preseason); later seasons need a lineage team to hold him
                 held = (s == ws) or bool(rb & owners)
             if not held:
                 break
-            lineage.append(s); s += 1
+            if s > ws:
+                if remaining <= 0:
+                    break                              # prior season was the last contracted year → expired
+                cy_s = (ci_map.get((pid, s), {}) or {}).get("cy")
+                if cy_s and cy_s > remaining:
+                    remaining = cy_s                   # mid-contract extension → the deal got longer
+            lineage.append(s)
+            remaining -= 1
+            s += 1
         if not lineage:
-            lineage = [ws]                            # won then never recorded — count the win season
+            lineage = [ws]
 
         played = [s for s in lineage if s <= LAST_PLAYED_SEASON]
-        # realized cap, production, extensions across the lineage
-        realized = 0; gp = tot = reg_pts = 0.0; gp = 0; reg_gp = 0
+        # PAID = real cap charged for seasons already PLAYED. COMMITTED = + future committed years (e.g. the
+        # 2026 salary of an active multi-year deal — owed but not yet played, so it must NOT depress $-per-point).
+        paid = committed = 0; gp = tot = reg_pts = 0.0; gp = 0; reg_gp = 0
         ext_tokens = set(); tcv_seq = []
         for s in lineage:
             if s == CURRENT_SEASON and pid in current:
-                realized += current[pid]["sal"]
+                committed += current[pid]["sal"]       # 2026 = committed, not yet played → excluded from PAID
                 if current[pid]["tcv_k"]: tcv_seq.append((s, current[pid]["tcv_k"]))
                 if current[pid]["ext"]: ext_tokens.add("cur")
                 continue
             a = season_agg.get((pid, s))
             ci = ci_map.get((pid, s))
-            sal_s = (a["sal"] if a and a["sal"] else (ci["sal"] if ci and ci["sal"] else 0))
-            # win year of a SINGLE-year deal: the cap charge is the bid. The archive sometimes stores a $1K
-            # placeholder weekly salary instead of the bid → floor at the bid. (Only for 1-season lineages —
-            # a multi-year deal can legitimately back-load Y1 BELOW the bid, e.g. Henry '24 Y1 $18K vs $34K.)
+            # salary the LINEAGE owners actually carried that season (per-franchise, not a polluted global MAX)
+            sal_s = max([(a.get("sal_by_fid", {}) if a else {}).get(f, 0) for f in owners], default=0)
+            if s == ws and not sal_s:                 # winner not in the scoring table → the bid is the cap charge
+                sal_s = int(w["bid_amount"] or 0)
+            # win year of a SINGLE-year deal: floor at the bid (archive sometimes stores a $1K placeholder).
+            # Only for 1-season lineages — a multi-year deal can back-load Y1 below the bid.
             if s == ws and len(lineage) == 1:
                 sal_s = max(sal_s, int(w["bid_amount"] or 0))
-            realized += sal_s
+            paid += sal_s; committed += sal_s
             if a:
                 gp += a["gp"]; tot += a["pts"]; reg_pts += a["reg_pts"]; reg_gp += a["reg_gp"]
             if ci:
@@ -229,7 +256,8 @@ def main():
                 if ci["tcv"]: tcv_seq.append((s, ci["tcv"]))
 
         bid_k = round(int(w["bid_amount"] or 0) / 1000)
-        realized_k = round(realized / 1000)
+        realized_k = round(paid / 1000)               # headline "real $" = actually PAID (played seasons only)
+        committed_k = round(committed / 1000)         # + future committed (active multi-year deals)
         # TCV-now: structured current tcv if active else last parsed tcv else bid
         tcv_now_k = tcv_seq[-1][1] if tcv_seq else bid_k
         cl = (current[pid]["cl"] if pid in current and current[pid].get("cl") else
@@ -287,7 +315,7 @@ def main():
             "ws": ws, "wfid": wfid, "own": w["owner_name"],
             "sf": st["sf"], "tep": st["tep"], "qbbump": st.get("qbbump", 0), "qb": st["qb"],
             "bid_k": bid_k, "forced": int(w["forced_bid_ind"] or 0), "won_dt": won_d.isoformat(),
-            "tcv_k": tcv_now_k, "cl": cl, "realized_k": realized_k,
+            "tcv_k": tcv_now_k, "cl": cl, "realized_k": realized_k, "committed_k": committed_k,
             "n_ext": n_ext, "n_teams": n_teams, "active": active, "end_reason": end_reason, "end_dt": end_dt,
             "gp": gp, "ppg": ppg, "ppg_reg": ppg_reg, "cgames": cgames, "gpct": gpct,
             "lweeks": lweeks, "days": days, "tot": round(tot, 1),
@@ -314,36 +342,55 @@ def main():
         # Love still tops on production; a 1-week $1 streamer no longer outranks a $5 multi-year star on price alone.
         pvm = max(r["bid_k"] / bb, 0.15) if bb else None
         pidx = (r["ppg"] / bp) if bp else None                      # production RATE (PPG) vs that year's positional median
+        r["prod_idx"] = round(pidx, 2) if pidx is not None else None  # RAW production vs cohort — PRICE-INDEPENDENT
+        r["ptier"] = ("ELITE" if pidx and pidx >= 1.6 else "GOOD" if pidx and pidx >= 1.05
+                      else "AVG" if pidx and pidx >= 0.7 else "LOW")
         r["ppr_real"] = round(r["tot"] / r["realized_k"], 2) if r["realized_k"] else 0.0
         r["ppr_bid"] = round(r["tot"] / r["bid_k"], 2) if r["bid_k"] else 0.0
         r["vidx"] = round(pidx / pvm, 2) if (pvm and pidx is not None and pvm > 0) else None
-        v = r["vidx"]
-        r["vlab"] = ("STEAL" if v is not None and v >= 1.5 else "VALUE" if v is not None and v >= 1.2
-                     else "BUST" if v is not None and v <= 0.6 else "POOR" if v is not None and v <= 0.8 else "FAIR")
+        # verdict combines PRODUCTION and VALUE so an elite-but-expensive stud (CMC: 26 PPG, premium price)
+        # reads "PRICEY", not "BUST". BUST is reserved for who actually FLOPPED (low production).
+        pi, v = pidx, r["vidx"]
+        if pi is None or v is None:
+            r["vlab"] = "—"
+        elif pi < 0.7:
+            r["vlab"] = "BUST"                                       # didn't produce — a real flop, regardless of price
+        elif v >= 1.5:
+            r["vlab"] = "STEAL"
+        elif v >= 1.15:
+            r["vlab"] = "VALUE"
+        elif v >= 0.75:
+            r["vlab"] = "FAIR"
+        else:
+            r["vlab"] = "PRICEY"                                     # produced, but you paid a premium (low surplus)
 
     rows.sort(key=lambda r: (r["vidx"] is None, -(r["vidx"] or 0)))
     print(f"built {len(rows)} FAA contract rows ({WINDOW_START}-{LAST_PLAYED_SEASON})")
 
     # ---- COLUMNAR lean blob (parallel arrays — no repeated keys → fits the 100KB statement cap) ----
     COLS = ["n", "pos", "nfl", "ws", "wfid", "own", "sf", "tep", "qbbump", "qb",
-            "bid_k", "forced", "won_dt", "tcv_k", "cl", "realized_k", "n_ext", "n_teams",
+            "bid_k", "forced", "won_dt", "tcv_k", "cl", "realized_k", "committed_k", "n_ext", "n_teams",
             "active", "end_reason", "end_dt", "gp", "ppg", "ppg_reg", "cgames", "gpct",
-            "lweeks", "days", "tot", "ppr_real", "ppr_bid", "vidx", "vlab"]
+            "lweeks", "days", "tot", "prod_idx", "ptier", "ppr_real", "ppr_bid", "vidx", "vlab"]
     blob = {
         "meta": {
             "built": int(time.time()), "asof": str(today), "window": f"{WINDOW_START}-{LAST_PLAYED_SEASON}",
             "n": len(rows), "settings": SETTINGS, "base_bid": base_bid, "base_ppg": base_ppg, "teams": teams,
-            "note": "One row per FAA win. realized_k = real cap $ paid across the contract lineage (all teams, "
-                    "incl. extensions/restructures, + committed 2026). vidx = cross-year value index = "
-                    "(PPG-rate-vs-cohort ÷ price-vs-cohort), per position×season so SF/TEP inflation cancels; "
-                    ">1 beat that year's positional market. RATE-based (not career total) so a long keep doesn't "
-                    "auto-out-value a 1-yr rental. TCV/ext are event-chain-DERIVED (win-year contract_info is a Yr-1 shell).",
-            "key": {"n": "player", "ws": "win_season", "wfid": "winning_franchise", "bid_k": "auction winning bid $K (=Yr1 salary)",
-                    "tcv_k": "current/last contract TCV $K", "realized_k": "real cap $K paid across lineage",
-                    "n_ext": "extensions (derived)", "n_teams": "franchises that held him under this contract",
-                    "gpct": "games played / (played seasons × league weeks)", "lweeks": "league weeks under contract",
-                    "days": "raw calendar days under contract", "ppr_real": "pts per real $K", "ppr_bid": "pts per bid $K",
-                    "vidx": "cross-year value index (SF/TEP-neutral)", "vlab": "STEAL/VALUE/FAIR/POOR/BUST"},
+            "note": "One row per FAA win. The contract LINEAGE is bounded by its length (contract_year) — a "
+                    "1-yr deal is 1 season (CMC, Ekeler); a multi-yr deal + extensions runs its full span (Love, "
+                    "Henry). realized_k = cap $ actually PAID for seasons already PLAYED; committed_k adds future "
+                    "committed years (e.g. an active deal's 2026) so an unplayed year doesn't depress $-per-point. "
+                    "prod_idx = RAW production (PPG) vs the position×season cohort, PRICE-INDEPENDENT (ptier ELITE/"
+                    "GOOD/AVG/LOW). vidx = prod_idx ÷ price-vs-cohort (the $-value). vlab: BUST=flopped (low prod), "
+                    "PRICEY=produced but premium price, STEAL/VALUE/FAIR otherwise. TCV/ext are event-chain-derived.",
+            "key": {"n": "player", "ws": "win_season", "wfid": "winning_franchise", "bid_k": "auction winning bid $K",
+                    "tcv_k": "current/last contract TCV $K", "realized_k": "real cap $K PAID (played seasons)",
+                    "committed_k": "+ future committed years $K", "n_ext": "extensions (derived)",
+                    "n_teams": "franchises that held him under this contract", "ppg": "MFL points/game",
+                    "prod_idx": "raw production vs cohort (price-independent)", "ptier": "ELITE/GOOD/AVG/LOW production",
+                    "gpct": "games / (played seasons × league weeks)", "lweeks": "league weeks under contract",
+                    "days": "calendar days under contract", "ppr_real": "pts per real $K", "ppr_bid": "pts per bid $K",
+                    "vidx": "$-value index (SF/TEP-neutral)", "vlab": "STEAL/VALUE/FAIR/PRICEY/BUST"},
         },
         "cols": COLS,
         "data": [[r.get(c) for c in COLS] for r in rows],

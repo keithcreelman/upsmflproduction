@@ -233,6 +233,14 @@
   .faa-st { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
   .faa-st.act { color: #0a1222; background: #34d399; } .faa-st.cut { color: #fff; background: #ef4444; } .faa-st.exp { color: var(--muted); border: 1px solid var(--line); }
   .faa-over { color: #f87171; font-weight: 800; }
+  /* raw production: PPG colored by tier + a tier pill */
+  .faa-ppg { font-weight: 800; font-size: 13px; }
+  .faa-pt { font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 4px; margin-left: 2px; vertical-align: middle; }
+  .pt-elite { color: #c084fc; } .faa-pt.pt-elite { color: #0a1222; background: #c084fc; }
+  .pt-good { color: #34d399; } .faa-pt.pt-good { color: #0a1222; background: #34d399; }
+  .pt-avg { color: var(--muted); } .faa-pt.pt-avg { color: var(--muted); border: 1px solid var(--line); }
+  .pt-low { color: #f87171; } .faa-pt.pt-low { color: #fff; background: #ef4444; }
+  .fav-v.faapricey { color: #0a1222; background: #fbbf24; }   /* PRICEY = amber (produced, but paid up) */
   /* worth blend slider */
   .fav-blend-tag { font-size: 10.5px; font-weight: 700; color: var(--fg); background: var(--panel2); border-radius: 999px; padding: 1px 8px; }
   .fav-blend input[type=range] { width: 100%; margin: 8px 0 4px; accent-color: var(--accent); cursor: pointer; }
@@ -424,12 +432,15 @@
 
   // ── 📊 FAA Report: every FA-auction win since 2020, x-referenced to the contract it became ──
   var FAA = { team: "ALL", pos: "ALL", yr: "ALL", vlab: "ALL", activeOnly: false, sort: "vidx", open: {} };
-  var FAA_VC = { STEAL: "sp", VALUE: "val", FAIR: "fair", POOR: "dart", BUST: "over" };
+  var FAA_VC = { STEAL: "sp", VALUE: "val", FAIR: "fair", PRICEY: "faapricey", BUST: "over" };
+  var FAA_PT = { ELITE: "pt-elite", GOOD: "pt-good", AVG: "pt-avg", LOW: "pt-low" };   // production-tier colors
   var FAA_SORTS = {
-    vidx: function (a, b) { return (b.vidx || 0) - (a.vidx || 0); },          // best cross-year value first
+    vidx: function (a, b) { return (b.vidx || 0) - (a.vidx || 0); },          // best $-value first
+    prod_idx: function (a, b) { return (b.prod_idx || 0) - (a.prod_idx || 0); },  // RAW production, price-independent
     bid_k: function (a, b) { return (b.bid_k || 0) - (a.bid_k || 0); },        // auction value
     tcv_k: function (a, b) { return (b.tcv_k || 0) - (a.tcv_k || 0); },        // current TCV
-    realized_k: function (a, b) { return (b.realized_k || 0) - (a.realized_k || 0); },  // real $ spent
+    realized_k: function (a, b) { return (b.realized_k || 0) - (a.realized_k || 0); },  // real $ paid
+    committed_k: function (a, b) { return (b.committed_k || 0) - (a.committed_k || 0); },  // total committed
     ppr_real: function (a, b) { return (b.ppr_real || 0) - (a.ppr_real || 0); },
     ppg: function (a, b) { return (b.ppg || 0) - (a.ppg || 0); },
     gpct: function (a, b) { return (b.gpct || 0) - (a.gpct || 0); },
@@ -465,9 +476,9 @@
 
     // ── context band: the league-settings regime Keith stressed ──
     var ctxCard = '<div class="fo-card faa-ctx"><div class="fo-card-head"><h3>📊 FAA Report — every FA-auction win since 2020, x-referenced to the contract it became</h3>' +
-      '<span class="fo-sub">' + (meta.n || rows.length) + ' contracts · ' + esc(meta.window || "") + ' · auction bid vs <b>realized cap</b> (real $ paid across the whole contract lineage) · PPG · availability · tenure · #teams · #extensions · still-active</span></div>' +
-      '<div class="faa-regime">⚙️ <b>Superflex since 2022</b> (QB prices jumped ~2–4×) · <b>TE-Premium since 2025</b> (TE 1.5 PPR) · <b>2021 = pre-SF QB front-run</b> (owners loaded up early — e.g. Dak Prescott $45K, ~5× his ’19 price). ' +
-      'The <b>VIDX</b> value index is cross-year-normalized (judged vs each pick’s own position×season market) so a 2020 win compares fairly to a 2024 one.</div></div>';
+      '<span class="fo-sub">' + (meta.n || rows.length) + ' contracts · ' + esc(meta.window || "") + ' · auction bid vs <b>real $ paid</b> · <b>raw production</b> (price-independent) · availability · tenure · #teams · #extensions · still-active</span></div>' +
+      '<div class="faa-regime">⚙️ <b>Superflex since 2022</b> (QB prices jumped ~2–4×) · <b>TE-Premium since 2025</b> (TE 1.5 PPR) · <b>2021 = pre-SF QB front-run</b> (Dak $45K, ~5× his ’19 price). ' +
+      '<b>Production</b> = how good he was (PPG vs his position×year cohort), <i>independent of price</i>. <b>Value</b> folds in the price (cross-year-normalized): a stud you paid up for reads <b>PRICEY</b>, not BUST. <b>Real $</b> = cap actually PAID for seasons played (a future committed year shows as +$, so it can’t make an unplayed season look like a bad deal).</div></div>';
 
     // ── controls ──
     var teamOpts = ['<option value="ALL">All teams</option>'].concat(
@@ -476,9 +487,10 @@
       })).join("");
     var posTabs = ["ALL", "QB", "RB", "WR", "TE"].map(function (p) { return '<button data-faapos="' + p + '"' + (FAA.pos === p ? ' class="on"' : '') + '>' + p + '</button>'; }).join("");
     var yrTabs = ["ALL", "2020", "2021", "2022", "2023", "2024", "2025"].map(function (y) { return '<button data-faayr="' + y + '"' + (FAA.yr === y ? ' class="on"' : '') + '>' + y + '</button>'; }).join("");
-    var sortOpts = [["vidx", "Value index (best→worst)"], ["worst", "Worst builds first"], ["bid_k", "Auction bid"], ["tcv_k", "TCV (current)"],
-      ["realized_k", "Real $ spent"], ["ppr_real", "Pts per real $"], ["ppg", "PPG"], ["gpct", "Availability %"],
-      ["lweeks", "Tenure (weeks)"], ["days", "Tenure (days)"], ["n_teams", "# teams"], ["n_ext", "# extensions"]]
+    var sortOpts = [["vidx", "$-Value (best→worst)"], ["worst", "Worst builds first"], ["prod_idx", "Raw production (best)"],
+      ["ppg", "PPG"], ["bid_k", "Auction bid"], ["tcv_k", "TCV (current)"], ["realized_k", "Real $ paid"], ["committed_k", "Total committed $"],
+      ["ppr_real", "Pts per real $"], ["gpct", "Availability %"], ["lweeks", "Tenure (weeks)"], ["days", "Tenure (days)"],
+      ["n_teams", "# teams"], ["n_ext", "# extensions"]]
       .map(function (o) { return '<option value="' + o[0] + '"' + (FAA.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("");
     var controls = '<div class="fo-card faa-controls">' +
       '<div class="faa-cg"><span class="faa-cl">Preset</span><button class="faa-preset" data-faasort="vidx">💎 Best values</button><button class="faa-preset" data-faasort="worst">🪨 Worst builds</button></div>' +
@@ -490,36 +502,39 @@
       '<div class="faa-cg faa-count">' + rows.length + ' shown</div></div>';
 
     // ── table ──
-    var head = '<tr><th>Player</th><th>Yr</th><th>Won by</th><th class="num" title="auction winning bid (=Year-1 salary)">Bid</th>' +
-      '<th class="num" title="current/last contract TCV">TCV</th><th class="num" title="real cap $ paid across the whole contract lineage (all teams, incl. extensions/restructures + committed 2026)">Real $</th>' +
-      '<th class="num">PPG</th><th class="num" title="games played ÷ (played seasons × league weeks)">Avail</th>' +
-      '<th title="league weeks · raw days under contract">Tenure</th><th class="num" title="franchises that held him under this contract (win + trades)">Tms</th>' +
-      '<th class="num" title="extensions (derived from contract events)">Ext</th><th>Status</th>' +
-      '<th class="num" title="cross-year value index — production vs price, normalized to each pick’s position×season market">VIDX</th></tr>';
+    var head = '<tr><th>Player</th><th>Yr</th><th>Won by</th><th class="num" title="auction winning bid">Bid</th>' +
+      '<th class="num" title="real cap $ actually PAID for seasons PLAYED; the small +$ is future committed years owed (e.g. an active deal\'s 2026), which haven\'t been played">Real $</th>' +
+      '<th class="num" title="current/last contract TCV · contract length">TCV</th>' +
+      '<th title="RAW production — PPG and tier vs the position×season cohort. PRICE-INDEPENDENT (how good he was, regardless of what you paid)">Production</th>' +
+      '<th class="num" title="games played ÷ (played seasons × league weeks)">Avail</th>' +
+      '<th title="league weeks · raw days under contract">Tenure</th><th class="num" title="franchises that held him under this contract">Tms</th>' +
+      '<th class="num" title="extensions (derived)">Ext</th><th>Status</th>' +
+      '<th title="$-VALUE: production for the price, vs the position×season market. BUST=flopped · PRICEY=produced but paid up · FAIR/VALUE/STEAL">Value</th></tr>';
     var body = rows.map(function (r, i) {
       var badges = (r.sf ? '<span class="faa-bdg sf" title="Superflex year">SF</span>' : '') +
         (r.tep ? '<span class="faa-bdg tep" title="TE-Premium year">TEP</span>' : '') +
         (r.qbbump ? '<span class="faa-bdg qb" title="pre-Superflex QB front-run year">QB↑</span>' : '') +
         (r.forced ? '<span class="faa-bdg" title="forced bid">⚡</span>' : '');
-      var overrun = (r.realized_k > r.tcv_k * 1.5 && r.tcv_k > 0);
       var statusChip = r.active ? '<span class="faa-st act">✓ active</span>'
         : '<span class="faa-st ' + (r.end_reason === "cut" ? "cut" : "exp") + '">' + (r.end_reason === "cut" ? "✂ cut" : "expired") + '</span>';
+      var pcls = FAA_PT[r.ptier] || "pt-avg";
+      var commHint = (r.committed_k > r.realized_k) ? ' <span class="fav-rk" title="+ future committed (unplayed)">+$' + (r.committed_k - r.realized_k) + 'K</span>' : '';
       var vcls = FAA_VC[r.vlab] || "fair";
-      var vtxt = (r.vidx == null ? "—" : (r.vidx >= 10 ? "10+" : r.vidx));
+      var vtitle = "value index " + (r.vidx == null ? "—" : r.vidx) + " · production " + (r.prod_idx == null ? "—" : r.prod_idx) + "× cohort";
       var tr = '<tr class="fav-row faa-row" data-faai="' + i + '">' +
         '<td><b>' + esc(r.n) + '</b> <span class="fav-rk">' + esc(r.pos) + (r.nfl ? ' · ' + esc(r.nfl) : '') + '</span> ' + badges + '</td>' +
         '<td class="num">' + r.ws + '</td>' +
         '<td><span class="fav-rk">' + esc(faaTeam(meta, r.wfid)) + '</span></td>' +
         '<td class="num">$' + r.bid_k + 'K</td>' +
+        '<td class="num">$' + r.realized_k + 'K' + commHint + '</td>' +
         '<td class="num">$' + r.tcv_k + 'K' + (r.cl ? ' <span class="fav-rk">' + r.cl + 'y</span>' : '') + '</td>' +
-        '<td class="num' + (overrun ? ' faa-over' : '') + '" title="' + (overrun ? "realized ≫ TCV — restructure/dead-money overrun" : "") + '">$' + r.realized_k + 'K</td>' +
-        '<td class="num">' + (r.ppg || 0) + '</td>' +
+        '<td><span class="faa-ppg ' + pcls + '">' + (r.ppg || 0) + '</span> <span class="fav-rk">PPG</span> <span class="faa-pt ' + pcls + '">' + (r.ptier || "") + '</span></td>' +
         '<td class="num">' + Math.round((r.gpct || 0) * 100) + '%</td>' +
         '<td class="fav-rk">' + (r.lweeks || 0) + 'wk · ' + (r.days || 0) + 'd</td>' +
         '<td class="num">' + r.n_teams + '</td>' +
         '<td class="num">' + (r.n_ext || 0) + '</td>' +
         '<td>' + statusChip + '</td>' +
-        '<td class="num"><span class="fav-v ' + vcls + '" title="' + (r.vlab || "") + '">' + vtxt + '</span></td></tr>';
+        '<td><span class="fav-v ' + vcls + '" title="' + vtitle + '">' + (r.vlab || "—") + '</span></td></tr>';
       return tr + (FAA.open[r.n + r.ws] ? faaDetail(r, meta) : "");
     }).join("");
     var table = '<div class="fo-card"><div class="fo-table-scroll"><table class="fo-table fav-table"><thead>' + head + '</thead><tbody>' +
@@ -538,17 +553,16 @@
   function faaDetail(r, meta) {
     var bb = (meta.base_bid && meta.base_bid[r.pos] && meta.base_bid[r.pos][r.ws]) || null;
     var bp = (meta.base_ppg && meta.base_ppg[r.pos] && meta.base_ppg[r.pos][r.ws]) || null;
-    var overrun = (r.realized_k > r.tcv_k * 1.5 && r.tcv_k > 0);
+    var commLine = (r.committed_k > r.realized_k) ? ' (+<b>$' + (r.committed_k - r.realized_k) + 'K</b> committed for unplayed future years)' : '';
     return '<tr class="fav-detail"><td colspan="13"><div class="fav-dwrap">' +
-      '<div><div class="fav-dh">Auction vs real dollars</div><div class="fav-dmeta">Won for <b>$' + r.bid_k + 'K</b> in ' + r.ws + ' · current TCV <b>$' + r.tcv_k + 'K</b>/' + (r.cl || 1) + 'yr · ' +
-      'real cap paid across the lineage <b>$' + r.realized_k + 'K</b>' + (overrun ? ' <span class="fav-est">⚠ overrun vs TCV</span>' : '') + '<br>' +
+      '<div><div class="fav-dh">Raw production (price-independent)</div><div class="fav-dmeta"><b>' + (r.ppg || 0) + ' PPG</b> (' + (r.ppg_reg || 0) + ' reg) over <b>' + (r.gp || 0) + '</b> games → <b>' + (r.prod_idx == null ? "?" : r.prod_idx) + '×</b> the median ' + esc(r.pos) + ' that year (' + (bp || "?") + ' PPG) = <b>' + (r.ptier || "") + '</b><br>' +
+      'availability <b>' + Math.round((r.gpct || 0) * 100) + '%</b> (' + (r.gp || 0) + '/' + (r.cgames || 0) + ' games) · under contract <b>' + (r.lweeks || 0) + '</b> wk / <b>' + (r.days || 0) + '</b> days · <b>' + r.n_teams + '</b> team' + (r.n_teams === 1 ? '' : 's') + ' · <b>' + (r.n_ext || 0) + '</b> ext</div></div>' +
+      '<div><div class="fav-dh">Auction vs real dollars</div><div class="fav-dmeta">Won for <b>$' + r.bid_k + 'K</b> in ' + r.ws + ' · contract TCV <b>$' + r.tcv_k + 'K</b>/' + (r.cl || 1) + 'yr<br>' +
+      'real cap PAID (played seasons) <b>$' + r.realized_k + 'K</b>' + commLine + '<br>' +
       'pts per real $: <b>' + (r.ppr_real || 0) + '</b> · pts per bid $: <b>' + (r.ppr_bid || 0) + '</b></div></div>' +
-      '<div><div class="fav-dh">Production & tenure</div><div class="fav-dmeta">' + (r.ppg || 0) + ' PPG (' + (r.ppg_reg || 0) + ' reg) over <b>' + (r.gp || 0) + '</b> games · ' +
-      'availability <b>' + Math.round((r.gpct || 0) * 100) + '%</b> (' + (r.gp || 0) + '/' + (r.cgames || 0) + ')<br>' +
-      'under contract <b>' + (r.lweeks || 0) + '</b> league weeks · <b>' + (r.days || 0) + '</b> days · <b>' + r.n_teams + '</b> team' + (r.n_teams === 1 ? '' : 's') + ' · <b>' + (r.n_ext || 0) + '</b> extension' + (r.n_ext === 1 ? '' : 's') + '</div></div>' +
-      '<div><div class="fav-dh">Context (' + r.ws + ')</div><div class="fav-dmeta">' + (r.sf ? 'Superflex' : '1-QB') + (r.tep ? ' · TE-Premium' : '') + (r.qbbump ? ' · pre-SF QB front-run' : '') + ' · QB slots ' + (r.qb || "1") + '<br>' +
-      'that year, the median ' + esc(r.pos) + ' won for <b>$' + (bb || "?") + 'K</b> and averaged <b>' + (bp || "?") + '</b> PPG → VIDX <b>' + (r.vidx == null ? "—" : r.vidx) + '</b> (' + (r.vlab || "") + ')<br>' +
-      'ended: <b>' + esc(r.end_reason) + '</b>' + (r.end_dt ? ' (' + esc(r.end_dt) + ')' : '') + '<span class="fav-est"> · TCV/ext are event-chain-derived</span></div></div>' +
+      '<div><div class="fav-dh">Value verdict — ' + (r.vlab || "") + '</div><div class="fav-dmeta">' + (r.sf ? 'Superflex' : '1-QB') + (r.tep ? ' · TE-Premium' : '') + (r.qbbump ? ' · pre-SF QB front-run' : '') + ' year<br>' +
+      'median ' + esc(r.pos) + ' that year cost <b>$' + (bb || "?") + 'K</b> for <b>' + (bp || "?") + '</b> PPG. He was <b>' + (r.prod_idx == null ? "?" : r.prod_idx) + '×</b> the production at <b>' + (bb ? (Math.round((r.bid_k / bb) * 10) / 10) : "?") + '×</b> the price → value index <b>' + (r.vidx == null ? "—" : r.vidx) + '</b><br>' +
+      'ended: <b>' + esc(r.end_reason) + '</b>' + (r.end_dt ? ' (' + esc(r.end_dt) + ')' : '') + '<span class="fav-est"> · contract shape is event-chain-derived</span></div></div>' +
       '</div></td></tr>';
   }
   function wrSf(fid) { var o = WR.data.owners[fid]; return o && o.by_era ? (o.by_era[WR.era] || o.by_era.sf) : null; }
