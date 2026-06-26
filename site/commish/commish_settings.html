@@ -240,7 +240,24 @@
   .pt-good { color: #34d399; } .faa-pt.pt-good { color: #0a1222; background: #34d399; }
   .pt-avg { color: var(--muted); } .faa-pt.pt-avg { color: var(--muted); border: 1px solid var(--line); }
   .pt-low { color: #f87171; } .faa-pt.pt-low { color: #fff; background: #ef4444; }
-  .fav-v.faapricey { color: #0a1222; background: #fbbf24; }   /* PRICEY = amber (produced, but paid up) */
+  .fav-v.faapricey { color: #0a1222; background: #fbbf24; }   /* PRICEY / MISS = amber */
+  .faa-perf { font-size: 10px; font-weight: 700; color: var(--muted); margin-left: 3px; }
+  /* price-tier reference card */
+  .faa-bands .faa-band-row { display: flex; align-items: stretch; gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); }
+  .faa-bands .faa-band-row:first-of-type { border-top: 0; }
+  .faa-band-pos { width: 34px; font-weight: 800; color: var(--accent); display: flex; align-items: center; }
+  .faa-band-cells { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+  .faa-band { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; min-width: 96px; }
+  .faa-band.sweet { border-color: #34d399; background: rgba(52,211,153,0.08); }
+  .faa-band-l { font-size: 9.5px; font-weight: 800; color: var(--muted); letter-spacing: 0.03em; }
+  .faa-band.sweet .faa-band-l { color: #34d399; }
+  .faa-band-v { font-size: 12.5px; color: var(--fg); } .faa-band-v b { color: var(--fg); }
+  .faa-band-n { font-size: 9.5px; color: var(--muted); }
+  .faa-band-arrow { color: var(--muted); font-size: 13px; padding: 0 1px; }
+  /* price-tier tag on the Bid cell */
+  .faa-band-tag { font-size: 8.5px; font-weight: 800; padding: 0 4px; border-radius: 3px; vertical-align: middle; background: var(--panel2); color: var(--muted); border: 1px solid var(--line); }
+  .faa-band-tag.b-PRICEY, .faa-band-tag.b-STUD { color: #0a1222; background: #fbbf24; border-color: #fbbf24; }
+  .faa-band-tag.b-MID { color: var(--fg); }
   /* worth blend slider */
   .fav-blend-tag { font-size: 10.5px; font-weight: 700; color: var(--fg); background: var(--panel2); border-radius: 999px; padding: 1px 8px; }
   .fav-blend input[type=range] { width: 100%; margin: 8px 0 4px; accent-color: var(--accent); cursor: pointer; }
@@ -431,10 +448,13 @@
   function wrTeam(fid) { var o = WR.data.owners[fid]; return o ? (o.team_name || "") : ""; }
 
   // ── 📊 FAA Report: every FA-auction win since 2020, x-referenced to the contract it became ──
-  var FAA = { team: "ALL", pos: "ALL", yr: "ALL", vlab: "ALL", activeOnly: false, sort: "vidx", open: {} };
+  var FAA = { team: "ALL", pos: "ALL", yr: "ALL", band: "ALL", vlab: "ALL", activeOnly: false, sort: "band_perf", showBands: true, open: {} };
   var FAA_VC = { STEAL: "sp", VALUE: "val", FAIR: "fair", PRICEY: "faapricey", BUST: "over" };
   var FAA_PT = { ELITE: "pt-elite", GOOD: "pt-good", AVG: "pt-avg", LOW: "pt-low" };   // production-tier colors
+  var FAA_TC = { "BEAT+": "sp", "BEAT": "val", "MET": "fair", "MISS": "faapricey", "FLOP": "over" };  // vs-tier colors
   var FAA_SORTS = {
+    band_perf: function (a, b) { return (b.band_perf || 0) - (a.band_perf || 0); },  // beat their price tier most
+    tierflop: function (a, b) { return (a.band_perf == null ? 99 : a.band_perf) - (b.band_perf == null ? 99 : b.band_perf); },  // worst vs tier
     vidx: function (a, b) { return (b.vidx || 0) - (a.vidx || 0); },          // best $-value first
     prod_idx: function (a, b) { return (b.prod_idx || 0) - (a.prod_idx || 0); },  // RAW production, price-independent
     bid_k: function (a, b) { return (b.bid_k || 0) - (a.bid_k || 0); },        // auction value
@@ -452,6 +472,29 @@
   };
   function faaTeam(meta, fid) { return (meta.teams && meta.teams[fid]) || fid; }
   function faaPaintErr(host, msg) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">' + esc(msg) + '</div></div>'; }
+  // ── Price-tier reference: what each $ band typically returns (median PPG), per position. The 💡 sweet
+  // spot is the band where production jumps most per dollar over the prior band — the middle ground. ──
+  function faaBandsCard(meta) {
+    var bands = meta.bands || {}, ORDER = ["MIN", "CHEAP", "MID", "PRICEY", "STUD"];
+    var body = ["QB", "RB", "WR", "TE"].filter(function (p) { return bands[p]; }).map(function (pos) {
+      var bs = bands[pos], prev = null, sweet = null, best = -1;
+      ORDER.forEach(function (b) {
+        var x = bs[b]; if (!x) return;
+        if (prev) { var rr = (x.med_ppg - prev.med_ppg) / Math.max(x.med_bid - prev.med_bid, 0.5); if (rr > best) { best = rr; sweet = b; } }
+        prev = x;
+      });
+      var cells = ORDER.filter(function (b) { return bs[b]; }).map(function (b) {
+        var x = bs[b];
+        return '<div class="faa-band' + (b === sweet ? ' sweet' : '') + '"><div class="faa-band-l">' + b + (b === sweet ? ' 💡' : '') + '</div>' +
+          '<div class="faa-band-v">$' + x.med_bid + ' → <b>' + x.med_ppg + '</b> PPG</div>' +
+          '<div class="faa-band-n">n=' + x.n + ' · ' + x.ppg_per_k + ' ppg/$K</div></div>';
+      }).join('<span class="faa-band-arrow">›</span>');
+      return '<div class="faa-band-row"><div class="faa-band-pos">' + pos + '</div><div class="faa-band-cells">' + cells + '</div></div>';
+    }).join("");
+    return '<div class="fo-card faa-bands"><div class="fo-card-head"><h3>📊 Price tiers — what each tier typically returns</h3>' +
+      '<span class="fo-sub">Median PPG by what you paid (players who actually played). <b>💡</b> = the value step where production jumps most per dollar — the middle ground between cheap and studs. Each pick below is judged vs ITS own tier (did he beat or miss the going rate?).</span></div>' +
+      body + '</div>';
+  }
   function paintFaaReport(host) {
     if (WR.faa === undefined) WR.faa = null;
     if (!WR.faa) {
@@ -469,6 +512,7 @@
     // filters
     if (FAA.team !== "ALL") rows = rows.filter(function (r) { return r.wfid === FAA.team; });
     if (FAA.pos !== "ALL") rows = rows.filter(function (r) { return r.pos === FAA.pos; });
+    if (FAA.band !== "ALL") rows = rows.filter(function (r) { return r.band === FAA.band; });
     if (FAA.yr !== "ALL") rows = rows.filter(function (r) { return String(r.ws) === FAA.yr; });
     if (FAA.vlab !== "ALL") rows = rows.filter(function (r) { return r.vlab === FAA.vlab; });
     if (FAA.activeOnly) rows = rows.filter(function (r) { return r.active; });
@@ -486,19 +530,22 @@
         return '<option value="' + fid + '"' + (FAA.team === fid ? ' selected' : '') + '>' + esc(faaTeam(meta, fid)) + '</option>';
       })).join("");
     var posTabs = ["ALL", "QB", "RB", "WR", "TE"].map(function (p) { return '<button data-faapos="' + p + '"' + (FAA.pos === p ? ' class="on"' : '') + '>' + p + '</button>'; }).join("");
+    var bandTabs = ["ALL", "MIN", "CHEAP", "MID", "PRICEY", "STUD"].map(function (b) { return '<button data-faaband="' + b + '"' + (FAA.band === b ? ' class="on"' : '') + '>' + b + '</button>'; }).join("");
     var yrTabs = ["ALL", "2020", "2021", "2022", "2023", "2024", "2025"].map(function (y) { return '<button data-faayr="' + y + '"' + (FAA.yr === y ? ' class="on"' : '') + '>' + y + '</button>'; }).join("");
-    var sortOpts = [["vidx", "$-Value (best→worst)"], ["worst", "Worst builds first"], ["prod_idx", "Raw production (best)"],
-      ["ppg", "PPG"], ["bid_k", "Auction bid"], ["tcv_k", "TCV (current)"], ["realized_k", "Real $ paid"], ["committed_k", "Total committed $"],
-      ["ppr_real", "Pts per real $"], ["gpct", "Availability %"], ["lweeks", "Tenure (weeks)"], ["days", "Tenure (days)"],
-      ["n_teams", "# teams"], ["n_ext", "# extensions"]]
+    var sortOpts = [["band_perf", "Beat their price tier (most)"], ["tierflop", "Worst vs their tier"], ["prod_idx", "Raw production (best)"],
+      ["ppg", "PPG"], ["vidx", "$-Value index"], ["bid_k", "Auction bid"], ["tcv_k", "TCV (current)"], ["realized_k", "Real $ paid"],
+      ["committed_k", "Total committed $"], ["ppr_real", "Pts per real $"], ["gpct", "Availability %"], ["lweeks", "Tenure (weeks)"],
+      ["days", "Tenure (days)"], ["n_teams", "# teams"], ["n_ext", "# extensions"]]
       .map(function (o) { return '<option value="' + o[0] + '"' + (FAA.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("");
     var controls = '<div class="fo-card faa-controls">' +
-      '<div class="faa-cg"><span class="faa-cl">Preset</span><button class="faa-preset" data-faasort="vidx">💎 Best values</button><button class="faa-preset" data-faasort="worst">🪨 Worst builds</button></div>' +
+      '<div class="faa-cg"><span class="faa-cl">Preset</span><button class="faa-preset" data-faasort="band_perf">💎 Beat their tier</button><button class="faa-preset" data-faasort="tierflop">🪨 Tier flops</button></div>' +
       '<div class="faa-cg"><span class="faa-cl">Team</span><select id="faa-team">' + teamOpts + '</select></div>' +
       '<div class="faa-cg"><span class="faa-cl">Pos</span><div class="wr-vtabs sm">' + posTabs + '</div></div>' +
+      '<div class="faa-cg"><span class="faa-cl">Tier</span><div class="wr-vtabs sm">' + bandTabs + '</div></div>' +
       '<div class="faa-cg"><span class="faa-cl">Year</span><div class="wr-vtabs sm">' + yrTabs + '</div></div>' +
       '<div class="faa-cg"><span class="faa-cl">Sort</span><select id="faa-sort">' + sortOpts + '</select></div>' +
       '<div class="faa-cg"><label class="faa-chk"><input type="checkbox" id="faa-active"' + (FAA.activeOnly ? ' checked' : '') + '> active only</label></div>' +
+      '<div class="faa-cg"><button class="faa-preset" id="faa-bands-toggle">' + (FAA.showBands ? "▾" : "▸") + ' Price tiers</button></div>' +
       '<div class="faa-cg faa-count">' + rows.length + ' shown</div></div>';
 
     // ── table ──
@@ -509,7 +556,7 @@
       '<th class="num" title="games played ÷ (played seasons × league weeks)">Avail</th>' +
       '<th title="league weeks · raw days under contract">Tenure</th><th class="num" title="franchises that held him under this contract">Tms</th>' +
       '<th class="num" title="extensions (derived)">Ext</th><th>Status</th>' +
-      '<th title="$-VALUE: production for the price, vs the position×season market. BUST=flopped · PRICEY=produced but paid up · FAIR/VALUE/STEAL">Value</th></tr>';
+      '<th title="vs his PRICE TIER — did he beat or miss what that $ band typically returns? BEAT+ ≫ · BEAT · MET (got the going rate) · MISS · FLOP. Studs are judged vs studs, cheap vs cheap.">vs Tier</th></tr>';
     var body = rows.map(function (r, i) {
       var badges = (r.sf ? '<span class="faa-bdg sf" title="Superflex year">SF</span>' : '') +
         (r.tep ? '<span class="faa-bdg tep" title="TE-Premium year">TEP</span>' : '') +
@@ -519,13 +566,14 @@
         : '<span class="faa-st ' + (r.end_reason === "cut" ? "cut" : "exp") + '">' + (r.end_reason === "cut" ? "✂ cut" : "expired") + '</span>';
       var pcls = FAA_PT[r.ptier] || "pt-avg";
       var commHint = (r.committed_k > r.realized_k) ? ' <span class="fav-rk" title="+ future committed (unplayed)">+$' + (r.committed_k - r.realized_k) + 'K</span>' : '';
-      var vcls = FAA_VC[r.vlab] || "fair";
-      var vtitle = "value index " + (r.vidx == null ? "—" : r.vidx) + " · production " + (r.prod_idx == null ? "—" : r.prod_idx) + "× cohort";
+      var tcls = FAA_TC[r.tier_lab] || "fair";
+      var bandTyp = ((meta.bands && meta.bands[r.pos] && meta.bands[r.pos][r.band]) || {}).med_ppg;
+      var ttitle = (r.band_perf == null) ? "no production to grade" : (r.ppg + " PPG vs " + (bandTyp || "?") + " typical for the " + r.band + " tier = " + r.band_perf + "×");
       var tr = '<tr class="fav-row faa-row" data-faai="' + i + '">' +
         '<td><b>' + esc(r.n) + '</b> <span class="fav-rk">' + esc(r.pos) + (r.nfl ? ' · ' + esc(r.nfl) : '') + '</span> ' + badges + '</td>' +
         '<td class="num">' + r.ws + '</td>' +
         '<td><span class="fav-rk">' + esc(faaTeam(meta, r.wfid)) + '</span></td>' +
-        '<td class="num">$' + r.bid_k + 'K</td>' +
+        '<td class="num">$' + r.bid_k + 'K' + (r.band ? ' <span class="faa-band-tag b-' + r.band + '">' + r.band + '</span>' : '') + '</td>' +
         '<td class="num">$' + r.realized_k + 'K' + commHint + '</td>' +
         '<td class="num">$' + r.tcv_k + 'K' + (r.cl ? ' <span class="fav-rk">' + r.cl + 'y</span>' : '') + '</td>' +
         '<td><span class="faa-ppg ' + pcls + '">' + (r.ppg || 0) + '</span> <span class="fav-rk">PPG</span> <span class="faa-pt ' + pcls + '">' + (r.ptier || "") + '</span></td>' +
@@ -534,18 +582,20 @@
         '<td class="num">' + r.n_teams + '</td>' +
         '<td class="num">' + (r.n_ext || 0) + '</td>' +
         '<td>' + statusChip + '</td>' +
-        '<td><span class="fav-v ' + vcls + '" title="' + vtitle + '">' + (r.vlab || "—") + '</span></td></tr>';
+        '<td><span class="fav-v ' + tcls + '" title="' + ttitle + '">' + (r.tier_lab || "—") + '</span>' + (r.band_perf != null ? ' <span class="faa-perf">' + r.band_perf + '×</span>' : '') + '</td></tr>';
       return tr + (FAA.open[r.n + r.ws] ? faaDetail(r, meta) : "");
     }).join("");
     var table = '<div class="fo-card"><div class="fo-table-scroll"><table class="fo-table fav-table"><thead>' + head + '</thead><tbody>' +
       (body || '<tr><td colspan="13" class="fo-table-empty">No contracts match.</td></tr>') + '</tbody></table></div></div>';
 
-    host.innerHTML = ctxCard + controls + table;
+    host.innerHTML = ctxCard + (FAA.showBands ? faaBandsCard(meta) : "") + controls + table;
     // wire
+    var bt = document.getElementById("faa-bands-toggle"); if (bt) bt.addEventListener("click", function () { FAA.showBands = !FAA.showBands; paintFaaReport(host); });
     var ts = document.getElementById("faa-team"); if (ts) ts.addEventListener("change", function () { FAA.team = ts.value; paintFaaReport(host); });
     var ss = document.getElementById("faa-sort"); if (ss) ss.addEventListener("change", function () { FAA.sort = ss.value; paintFaaReport(host); });
     var ac = document.getElementById("faa-active"); if (ac) ac.addEventListener("change", function () { FAA.activeOnly = ac.checked; paintFaaReport(host); });
     $$("[data-faapos]", host).forEach(function (b) { b.addEventListener("click", function () { FAA.pos = b.getAttribute("data-faapos"); paintFaaReport(host); }); });
+    $$("[data-faaband]", host).forEach(function (b) { b.addEventListener("click", function () { FAA.band = b.getAttribute("data-faaband"); paintFaaReport(host); }); });
     $$("[data-faayr]", host).forEach(function (b) { b.addEventListener("click", function () { FAA.yr = b.getAttribute("data-faayr"); paintFaaReport(host); }); });
     $$("[data-faasort]", host).forEach(function (b) { b.addEventListener("click", function () { FAA.sort = b.getAttribute("data-faasort"); paintFaaReport(host); }); });
     $$(".faa-row", host).forEach(function (tr) { tr.addEventListener("click", function () { var r = rows[parseInt(tr.getAttribute("data-faai"), 10)]; if (!r) return; var k = r.n + r.ws; FAA.open[k] = !FAA.open[k]; paintFaaReport(host); }); });
@@ -560,9 +610,9 @@
       '<div><div class="fav-dh">Auction vs real dollars</div><div class="fav-dmeta">Won for <b>$' + r.bid_k + 'K</b> in ' + r.ws + ' · contract TCV <b>$' + r.tcv_k + 'K</b>/' + (r.cl || 1) + 'yr<br>' +
       'real cap PAID (played seasons) <b>$' + r.realized_k + 'K</b>' + commLine + '<br>' +
       'pts per real $: <b>' + (r.ppr_real || 0) + '</b> · pts per bid $: <b>' + (r.ppr_bid || 0) + '</b></div></div>' +
-      '<div><div class="fav-dh">Value verdict — ' + (r.vlab || "") + '</div><div class="fav-dmeta">' + (r.sf ? 'Superflex' : '1-QB') + (r.tep ? ' · TE-Premium' : '') + (r.qbbump ? ' · pre-SF QB front-run' : '') + ' year<br>' +
-      'median ' + esc(r.pos) + ' that year cost <b>$' + (bb || "?") + 'K</b> for <b>' + (bp || "?") + '</b> PPG. He was <b>' + (r.prod_idx == null ? "?" : r.prod_idx) + '×</b> the production at <b>' + (bb ? (Math.round((r.bid_k / bb) * 10) / 10) : "?") + '×</b> the price → value index <b>' + (r.vidx == null ? "—" : r.vidx) + '</b><br>' +
-      'ended: <b>' + esc(r.end_reason) + '</b>' + (r.end_dt ? ' (' + esc(r.end_dt) + ')' : '') + '<span class="fav-est"> · contract shape is event-chain-derived</span></div></div>' +
+      '<div><div class="fav-dh">vs his price tier — ' + (r.tier_lab || "—") + '</div><div class="fav-dmeta">' +
+      'You paid <b>$' + r.bid_k + 'K</b> → the <b>' + (r.band || "?") + '</b> tier. A ' + (r.band || "") + '-tier ' + esc(r.pos) + ' typically returns <b>' + ((meta.bands && meta.bands[r.pos] && meta.bands[r.pos][r.band] || {}).med_ppg || "?") + '</b> PPG; he gave <b>' + (r.ppg || 0) + '</b> → <b>' + (r.band_perf == null ? "—" : r.band_perf + '×') + '</b> the going rate for that price.<br>' +
+      '<span class="fav-est">' + (r.sf ? 'SF' : '1-QB') + (r.tep ? ' · TEP' : '') + (r.qbbump ? ' · pre-SF QB run' : '') + ' year · cross-year $-value index ' + (r.vidx == null ? "—" : r.vidx) + ' · ended ' + esc(r.end_reason) + (r.end_dt ? ' (' + esc(r.end_dt) + ')' : '') + '</span></div></div>' +
       '</div></td></tr>';
   }
   function wrSf(fid) { var o = WR.data.owners[fid]; return o && o.by_era ? (o.by_era[WR.era] || o.by_era.sf) : null; }

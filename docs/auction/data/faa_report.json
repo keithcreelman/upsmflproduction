@@ -1,6 +1,6 @@
 {
   "meta": {
-    "built": 1782489145,
+    "built": 1782489562,
     "asof": "2026-06-26",
     "window": "2020-2025",
     "n": 1052,
@@ -250,6 +250,187 @@
       "0002": "CBP",
       "0005": "HammerTime \ud83d\udd28 \u23f0"
     },
+    "bands": {
+      "QB": {
+        "MIN": {
+          "lo": 1,
+          "hi": 3,
+          "n": 39,
+          "med_bid": 1,
+          "med_ppg": 9.9,
+          "med_tot": 59.2,
+          "ppg_per_k": 9.9
+        },
+        "CHEAP": {
+          "lo": 4,
+          "hi": 10,
+          "n": 20,
+          "med_bid": 5.0,
+          "med_ppg": 16.45,
+          "med_tot": 254.85,
+          "ppg_per_k": 3.29
+        },
+        "MID": {
+          "lo": 11,
+          "hi": 25,
+          "n": 11,
+          "med_bid": 16,
+          "med_ppg": 17.7,
+          "med_tot": 202.6,
+          "ppg_per_k": 1.11
+        },
+        "PRICEY": {
+          "lo": 26,
+          "hi": 50,
+          "n": 11,
+          "med_bid": 37,
+          "med_ppg": 20.3,
+          "med_tot": 706.1,
+          "ppg_per_k": 0.55
+        },
+        "STUD": {
+          "lo": 51,
+          "hi": null,
+          "n": 2,
+          "med_bid": 58.5,
+          "med_ppg": 22.15,
+          "med_tot": 354.25,
+          "ppg_per_k": 0.38
+        }
+      },
+      "RB": {
+        "MIN": {
+          "lo": 1,
+          "hi": 3,
+          "n": 81,
+          "med_bid": 1,
+          "med_ppg": 5.0,
+          "med_tot": 56.1,
+          "ppg_per_k": 5.0
+        },
+        "CHEAP": {
+          "lo": 4,
+          "hi": 10,
+          "n": 48,
+          "med_bid": 5.0,
+          "med_ppg": 6.9,
+          "med_tot": 86.4,
+          "ppg_per_k": 1.38
+        },
+        "MID": {
+          "lo": 11,
+          "hi": 25,
+          "n": 22,
+          "med_bid": 16.0,
+          "med_ppg": 9.15,
+          "med_tot": 116.6,
+          "ppg_per_k": 0.57
+        },
+        "PRICEY": {
+          "lo": 26,
+          "hi": 50,
+          "n": 7,
+          "med_bid": 37,
+          "med_ppg": 15.0,
+          "med_tot": 245.3,
+          "ppg_per_k": 0.41
+        },
+        "STUD": {
+          "lo": 51,
+          "hi": null,
+          "n": 3,
+          "med_bid": 57,
+          "med_ppg": 22.8,
+          "med_tot": 364.7,
+          "ppg_per_k": 0.4
+        }
+      },
+      "WR": {
+        "MIN": {
+          "lo": 1,
+          "hi": 3,
+          "n": 90,
+          "med_bid": 1.0,
+          "med_ppg": 5.05,
+          "med_tot": 63.2,
+          "ppg_per_k": 5.05
+        },
+        "CHEAP": {
+          "lo": 4,
+          "hi": 10,
+          "n": 45,
+          "med_bid": 5,
+          "med_ppg": 9.3,
+          "med_tot": 119.9,
+          "ppg_per_k": 1.86
+        },
+        "MID": {
+          "lo": 11,
+          "hi": 25,
+          "n": 19,
+          "med_bid": 16,
+          "med_ppg": 10.7,
+          "med_tot": 161.3,
+          "ppg_per_k": 0.67
+        },
+        "PRICEY": {
+          "lo": 26,
+          "hi": 50,
+          "n": 10,
+          "med_bid": 34.5,
+          "med_ppg": 16.2,
+          "med_tot": 376.65,
+          "ppg_per_k": 0.47
+        },
+        "STUD": {
+          "lo": 51,
+          "hi": null,
+          "n": 2,
+          "med_bid": 60.5,
+          "med_ppg": 16.0,
+          "med_tot": 354.1,
+          "ppg_per_k": 0.26
+        }
+      },
+      "TE": {
+        "MIN": {
+          "lo": 1,
+          "hi": 3,
+          "n": 50,
+          "med_bid": 1.0,
+          "med_ppg": 6.1,
+          "med_tot": 87.45,
+          "ppg_per_k": 6.1
+        },
+        "CHEAP": {
+          "lo": 4,
+          "hi": 10,
+          "n": 23,
+          "med_bid": 5,
+          "med_ppg": 6.7,
+          "med_tot": 106.3,
+          "ppg_per_k": 1.34
+        },
+        "MID": {
+          "lo": 11,
+          "hi": 25,
+          "n": 3,
+          "med_bid": 21,
+          "med_ppg": 11.1,
+          "med_tot": 236.8,
+          "ppg_per_k": 0.53
+        },
+        "PRICEY": {
+          "lo": 26,
+          "hi": 50,
+          "n": 3,
+          "med_bid": 29,
+          "med_ppg": 18.1,
+          "med_tot": 189.6,
+          "ppg_per_k": 0.62
+        }
+      }
+    },
     "note": "One row per FAA win. The contract LINEAGE is bounded by its length (contract_year) \u2014 a 1-yr deal is 1 season (CMC, Ekeler); a multi-yr deal + extensions runs its full span (Love, Henry). realized_k = cap $ actually PAID for seasons already PLAYED; committed_k adds future committed years (e.g. an active deal's 2026) so an unplayed year doesn't depress $-per-point. prod_idx = RAW production (PPG) vs the position\u00d7season cohort, PRICE-INDEPENDENT (ptier ELITE/GOOD/AVG/LOW). vidx = prod_idx \u00f7 price-vs-cohort (the $-value). vlab: BUST=flopped (low prod), PRICEY=produced but premium price, STEAL/VALUE/FAIR otherwise. TCV/ext are event-chain-derived.",
     "key": {
       "n": "player",
@@ -270,7 +451,11 @@
       "ppr_real": "pts per real $K",
       "ppr_bid": "pts per bid $K",
       "vidx": "$-value index (SF/TEP-neutral)",
-      "vlab": "STEAL/VALUE/FAIR/PRICEY/BUST"
+      "vlab": "STEAL/VALUE/FAIR/PRICEY/BUST",
+      "band": "price tier MIN/CHEAP/MID/PRICEY/STUD",
+      "band_ppg": "that tier's typical PPG (his pos)",
+      "band_perf": "his PPG \u00f7 his tier's typical PPG (>1 = beat the going rate for the price)",
+      "tier_lab": "BEAT+/BEAT/MET/MISS/FLOP vs his price tier"
     }
   },
   "cols": [
@@ -309,7 +494,10 @@
     "ppr_real",
     "ppr_bid",
     "vidx",
-    "vlab"
+    "vlab",
+    "band",
+    "band_perf",
+    "tier_lab"
   ],
   "data": [
     [
@@ -348,7 +536,10 @@
       177.3,
       177.3,
       8.54,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.22,
+      "BEAT+"
     ],
     [
       "McKinnon, Jerick",
@@ -386,7 +577,10 @@
       94.75,
       189.5,
       8.35,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.36,
+      "BEAT+"
     ],
     [
       "Love, Jordan",
@@ -424,7 +618,10 @@
       41.61,
       998.6,
       7.75,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.06,
+      "BEAT+"
     ],
     [
       "Hunt, Kareem",
@@ -462,7 +659,10 @@
       5.85,
       122.8,
       6.77,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.76,
+      "BEAT+"
     ],
     [
       "Samuel, Curtis",
@@ -500,7 +700,10 @@
       15.61,
       187.3,
       6.66,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.32,
+      "BEAT+"
     ],
     [
       "Heinicke, Taylor",
@@ -538,7 +741,10 @@
       140.6,
       140.6,
       5.93,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.58,
+      "BEAT+"
     ],
     [
       "Dalton, Andy",
@@ -576,7 +782,10 @@
       201.5,
       201.5,
       5.89,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.57,
+      "BEAT+"
     ],
     [
       "Smith, Jonnu",
@@ -614,7 +823,10 @@
       219.4,
       219.4,
       5.87,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.25,
+      "BEAT+"
     ],
     [
       "Williams, Darrel",
@@ -652,7 +864,10 @@
       195.5,
       195.5,
       5.46,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.44,
+      "BEAT+"
     ],
     [
       "Patterson, Cordarrelle",
@@ -690,7 +905,10 @@
       34.86,
       418.3,
       5.11,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      3.07,
+      "BEAT+"
     ],
     [
       "Foreman, D'Onta",
@@ -728,7 +946,10 @@
       90.9,
       90.9,
       5.1,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.28,
+      "BEAT+"
     ],
     [
       "McLaughlin, Jaleel",
@@ -766,7 +987,10 @@
       74.17,
       222.5,
       4.54,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.18,
+      "BEAT"
     ],
     [
       "Beasley, Cole",
@@ -804,7 +1028,10 @@
       195.95,
       391.9,
       4.42,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.59,
+      "BEAT+"
     ],
     [
       "Wilson, Jeffery",
@@ -842,7 +1069,10 @@
       122.7,
       122.7,
       4.35,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.24,
+      "BEAT+"
     ],
     [
       "Jennings, Jauan",
@@ -880,7 +1110,10 @@
       32.07,
       384.9,
       4.35,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.71,
+      "BEAT+"
     ],
     [
       "Booker, Devontae",
@@ -918,7 +1151,10 @@
       142.9,
       142.9,
       4.25,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.9,
+      "BEAT+"
     ],
     [
       "Michel, Sony",
@@ -956,7 +1192,10 @@
       152.1,
       152.1,
       4.25,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.9,
+      "BEAT+"
     ],
     [
       "Murray, Latavius",
@@ -994,7 +1233,10 @@
       87.3,
       87.3,
       4.23,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.1,
+      "MET"
     ],
     [
       "Hill, Justice",
@@ -1032,7 +1274,10 @@
       68.7,
       68.7,
       4.12,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.38,
+      "BEAT+"
     ],
     [
       "Singletary, Devin",
@@ -1070,7 +1315,10 @@
       21.86,
       109.3,
       4.06,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.36,
+      "BEAT+"
     ],
     [
       "Carter, Michael",
@@ -1108,7 +1356,10 @@
       20.1,
       20.1,
       4.0,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.34,
+      "BEAT"
     ],
     [
       "Gibson, Antonio",
@@ -1146,7 +1397,10 @@
       33.6,
       33.6,
       4.0,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.34,
+      "BEAT"
     ],
     [
       "Bernard, Giovani",
@@ -1184,7 +1438,10 @@
       76.5,
       153.0,
       3.96,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.04,
+      "BEAT+"
     ],
     [
       "Bourne, Kendrick",
@@ -1222,7 +1479,10 @@
       184.1,
       184.1,
       3.79,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.28,
+      "BEAT+"
     ],
     [
       "Edwards-Helaire, Clyde",
@@ -1260,7 +1520,10 @@
       68.5,
       68.5,
       3.77,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.98,
+      "MET"
     ],
     [
       "Newton, Cam",
@@ -1298,7 +1561,10 @@
       92.4,
       92.4,
       3.76,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.33,
+      "BEAT"
     ],
     [
       "Huntley, Tyler",
@@ -1336,7 +1602,10 @@
       59.2,
       59.2,
       3.76,
-      "BUST"
+      "BUST",
+      "MIN",
+      1.0,
+      "MET"
     ],
     [
       "Perine, Samaje",
@@ -1374,7 +1643,10 @@
       88.3,
       88.3,
       3.76,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.26,
+      "BEAT"
     ],
     [
       "Turpin, KaVontae",
@@ -1412,7 +1684,10 @@
       132.3,
       132.3,
       3.76,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.88,
+      "BEAT+"
     ],
     [
       "Dalton, Andy",
@@ -1450,7 +1725,10 @@
       91.1,
       91.1,
       3.7,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.31,
+      "BEAT"
     ],
     [
       "Ingram, Mark",
@@ -1488,7 +1766,10 @@
       27.9,
       111.6,
       3.58,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.6,
+      "BEAT+"
     ],
     [
       "Smith, Geno",
@@ -1526,7 +1807,10 @@
       30.98,
       123.92,
       3.54,
-      "STEAL"
+      "STEAL",
+      "CHEAP",
+      1.26,
+      "BEAT"
     ],
     [
       "Bonnafon, Reggie",
@@ -1564,7 +1848,10 @@
       17.7,
       17.7,
       3.42,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.76,
+      "BEAT+"
     ],
     [
       "Johnson, Ty",
@@ -1602,7 +1889,10 @@
       88.7,
       88.7,
       3.28,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.1,
+      "MET"
     ],
     [
       "Patrick, Tim",
@@ -1640,7 +1930,10 @@
       147.7,
       147.7,
       3.23,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.94,
+      "BEAT+"
     ],
     [
       "Winston, Jameis",
@@ -1678,7 +1971,10 @@
       78.0,
       78.0,
       3.17,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.25,
+      "BEAT+"
     ],
     [
       "Samuel, Curtis",
@@ -1716,7 +2012,10 @@
       108.55,
       217.1,
       3.16,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.54,
+      "BEAT+"
     ],
     [
       "Reynolds, Josh",
@@ -1754,7 +2053,10 @@
       125.4,
       125.4,
       3.16,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.54,
+      "BEAT+"
     ],
     [
       "Wilson, Jeffery",
@@ -1792,7 +2094,10 @@
       56.1,
       56.1,
       3.13,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.4,
+      "BEAT+"
     ],
     [
       "Jackson, Justin",
@@ -1830,7 +2135,10 @@
       66.6,
       66.6,
       3.12,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.88,
+      "MET"
     ],
     [
       "Kelley, Joshua",
@@ -1868,7 +2176,10 @@
       64.6,
       64.6,
       3.08,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.8,
+      "MISS"
     ],
     [
       "Dissly, Will",
@@ -1906,7 +2217,10 @@
       19.82,
       99.1,
       3.04,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.16,
+      "BEAT"
     ],
     [
       "Bourne, Kendrick",
@@ -1944,7 +2258,10 @@
       124.1,
       124.1,
       3.0,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.76,
+      "BEAT+"
     ],
     [
       "Garoppolo, Jimmy",
@@ -1982,7 +2299,10 @@
       49.32,
       59.18,
       2.97,
-      "STEAL"
+      "STEAL",
+      "CHEAP",
+      1.06,
+      "MET"
     ],
     [
       "Amendola, Danny",
@@ -2020,7 +2340,10 @@
       112.6,
       112.6,
       2.93,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.72,
+      "BEAT+"
     ],
     [
       "Slayton, Darius",
@@ -2058,7 +2381,10 @@
       93.4,
       93.4,
       2.85,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.43,
+      "BEAT+"
     ],
     [
       "Huntley, Caleb",
@@ -2096,7 +2422,10 @@
       48.1,
       48.1,
       2.83,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.8,
+      "MISS"
     ],
     [
       "Gainwell, Kenneth",
@@ -2134,7 +2463,10 @@
       37.55,
       75.1,
       2.81,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.94,
+      "MET"
     ],
     [
       "Austin III, Calvin",
@@ -2172,7 +2504,10 @@
       140.3,
       140.3,
       2.79,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.74,
+      "BEAT+"
     ],
     [
       "Goff, Jared",
@@ -2210,7 +2545,10 @@
       239.3,
       478.6,
       2.75,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.73,
+      "BEAT+"
     ],
     [
       "Byrd, Damiere",
@@ -2248,7 +2586,10 @@
       30.4,
       121.6,
       2.73,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.6,
+      "BEAT+"
     ],
     [
       "Perine, Samaje",
@@ -2286,7 +2627,10 @@
       56.7,
       56.7,
       2.73,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.42,
+      "BEAT+"
     ],
     [
       "Nailor, Jalen",
@@ -2324,7 +2668,10 @@
       7.87,
       110.2,
       2.73,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.37,
+      "BEAT+"
     ],
     [
       "Freeman, Devonta",
@@ -2362,7 +2709,10 @@
       35.2,
       35.2,
       2.72,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.4,
+      "BEAT+"
     ],
     [
       "Barber, Peyton",
@@ -2400,7 +2750,10 @@
       53.1,
       53.1,
       2.64,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.18,
+      "BEAT"
     ],
     [
       "Perine, Samaje",
@@ -2438,7 +2791,10 @@
       87.8,
       87.8,
       2.64,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.18,
+      "BEAT"
     ],
     [
       "Edmonds, Chase",
@@ -2476,7 +2832,10 @@
       41.1,
       41.1,
       2.62,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.68,
+      "MISS"
     ],
     [
       "Wagner, Bobby",
@@ -2514,7 +2873,10 @@
       157.5,
       157.5,
       2.61,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Davis, Mike",
@@ -2552,7 +2914,10 @@
       16.72,
       100.3,
       2.6,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.68,
+      "BEAT+"
     ],
     [
       "Walker, Tracy",
@@ -2590,7 +2955,10 @@
       122.7,
       122.7,
       2.6,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Moss, Zack",
@@ -2628,7 +2996,10 @@
       43.85,
       43.85,
       2.6,
-      "STEAL"
+      "STEAL",
+      "CHEAP",
+      1.96,
+      "BEAT+"
     ],
     [
       "Demercado, Emari",
@@ -2666,7 +3037,10 @@
       56.3,
       56.3,
       2.57,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.86,
+      "MISS"
     ],
     [
       "Breida, Matt",
@@ -2704,7 +3078,10 @@
       45.3,
       45.3,
       2.55,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.14,
+      "BEAT"
     ],
     [
       "Slayton, Darius",
@@ -2742,7 +3119,10 @@
       120.2,
       120.2,
       2.54,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.58,
+      "BEAT+"
     ],
     [
       "Hill, Taysom",
@@ -2780,7 +3160,10 @@
       114.8,
       114.8,
       2.53,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.44,
+      "BEAT+"
     ],
     [
       "Jack, Myles",
@@ -2818,7 +3201,10 @@
       120.0,
       120.0,
       2.52,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gore, Frank",
@@ -2856,7 +3242,10 @@
       97.6,
       97.6,
       2.52,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.3,
+      "BEAT"
     ],
     [
       "Winston, Jameis",
@@ -2894,7 +3283,10 @@
       169.2,
       169.2,
       2.5,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.42,
+      "BEAT+"
     ],
     [
       "Hill, Taysom",
@@ -2932,7 +3324,10 @@
       60.48,
       302.4,
       2.49,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.66,
+      "BEAT+"
     ],
     [
       "Casey, Jurrell",
@@ -2970,7 +3365,10 @@
       21.0,
       21.0,
       2.46,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Willis, Khari",
@@ -3008,7 +3406,10 @@
       90.8,
       90.8,
       2.46,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Higbee, Tyler",
@@ -3046,7 +3447,10 @@
       11.4,
       11.4,
       2.44,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.93,
+      "MET"
     ],
     [
       "Moore, Elijah",
@@ -3084,7 +3488,10 @@
       4.27,
       123.9,
       2.44,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.52,
+      "BEAT+"
     ],
     [
       "Uzomah, C.J.",
@@ -3122,7 +3529,10 @@
       23.9,
       23.9,
       2.43,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.95,
+      "BEAT+"
     ],
     [
       "Hilliard, Dontrell",
@@ -3160,7 +3570,10 @@
       40.85,
       40.85,
       2.41,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.36,
+      "BEAT+"
     ],
     [
       "Gallup, Michael",
@@ -3198,7 +3611,10 @@
       93.6,
       93.6,
       2.39,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.17,
+      "BEAT"
     ],
     [
       "Robinson, Demarcus",
@@ -3236,7 +3652,10 @@
       24.02,
       120.1,
       2.38,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.49,
+      "BEAT+"
     ],
     [
       "Dortch, Greg",
@@ -3274,7 +3693,10 @@
       86.9,
       86.9,
       2.35,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.15,
+      "BEAT"
     ],
     [
       "Amos, Adrian",
@@ -3312,7 +3734,10 @@
       41.97,
       125.9,
       2.34,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Young, Chase",
@@ -3350,7 +3775,10 @@
       107.0,
       107.0,
       2.33,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Patterson, Cordarrelle",
@@ -3388,7 +3816,10 @@
       39.1,
       39.1,
       2.31,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.6,
+      "MISS"
     ],
     [
       "Breida, Matt",
@@ -3426,7 +3857,10 @@
       48.3,
       48.3,
       2.31,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.6,
+      "MISS"
     ],
     [
       "Greenard, Jonathan",
@@ -3464,7 +3898,10 @@
       143.5,
       143.5,
       2.31,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Owusu-Koramoah, Jeremiah",
@@ -3502,7 +3939,10 @@
       134.0,
       134.0,
       2.29,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Breida, Matt",
@@ -3540,7 +3980,10 @@
       51.9,
       51.9,
       2.27,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.64,
+      "MISS"
     ],
     [
       "Pratt, Germaine",
@@ -3578,7 +4021,10 @@
       32.0,
       128.0,
       2.27,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Walker, Quay",
@@ -3616,7 +4062,10 @@
       119.5,
       119.5,
       2.27,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wilson, Jeffery",
@@ -3654,7 +4103,10 @@
       40.3,
       100.75,
       2.23,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.26,
+      "BEAT"
     ],
     [
       "Jenkins, Malcolm",
@@ -3692,7 +4144,10 @@
       113.1,
       113.1,
       2.22,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Philips, Kyle",
@@ -3730,7 +4185,10 @@
       15.5,
       15.5,
       2.22,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.77,
+      "MISS"
     ],
     [
       "Stidham, Jarrett",
@@ -3768,7 +4226,10 @@
       17.0,
       17.0,
       2.22,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.86,
+      "MISS"
     ],
     [
       "Highsmith, Alex",
@@ -3806,7 +4267,10 @@
       21.5,
       86.0,
       2.21,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ertz, Zach",
@@ -3844,7 +4308,10 @@
       159.4,
       159.4,
       2.19,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.02,
+      "BEAT+"
     ],
     [
       "Vele, Devaughn",
@@ -3882,7 +4349,10 @@
       71.1,
       71.1,
       2.18,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.09,
+      "MET"
     ],
     [
       "Speed, E.J.",
@@ -3920,7 +4390,10 @@
       128.0,
       128.0,
       2.17,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Dowdle, Rico",
@@ -3958,7 +4431,10 @@
       232.6,
       58.15,
       2.16,
-      "STEAL"
+      "STEAL",
+      "CHEAP",
+      2.1,
+      "BEAT+"
     ],
     [
       "Landry, Harold",
@@ -3996,7 +4472,10 @@
       133.0,
       133.0,
       2.13,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Pringle, Byron",
@@ -4034,7 +4513,10 @@
       36.6,
       36.6,
       2.11,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.73,
+      "MISS"
     ],
     [
       "Lloyd, Devin",
@@ -4072,7 +4554,10 @@
       110.5,
       110.5,
       2.11,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Parham, Donald",
@@ -4110,7 +4595,10 @@
       61.6,
       61.6,
       2.1,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.72,
+      "MISS"
     ],
     [
       "Conley, Chris",
@@ -4148,7 +4636,10 @@
       86.2,
       86.2,
       2.09,
-      "BUST"
+      "BUST",
+      "MIN",
+      1.23,
+      "BEAT"
     ],
     [
       "Sanders, Miles",
@@ -4186,7 +4677,10 @@
       13.9,
       13.9,
       2.09,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.4,
+      "BEAT+"
     ],
     [
       "Waller, Darren",
@@ -4224,7 +4718,10 @@
       104.7,
       104.7,
       2.06,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.9,
+      "BEAT+"
     ],
     [
       "Kiser, Micah",
@@ -4262,7 +4759,10 @@
       67.5,
       67.5,
       2.05,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Everett, Gerald",
@@ -4300,7 +4800,10 @@
       60.1,
       60.1,
       2.05,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.41,
+      "BEAT+"
     ],
     [
       "Elliss, Kaden",
@@ -4338,7 +4841,10 @@
       68.75,
       275.0,
       2.05,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Burkhead, Rex",
@@ -4376,7 +4882,10 @@
       10.48,
       52.4,
       2.04,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.1,
+      "BEAT+"
     ],
     [
       "Nailor, Jalen",
@@ -4414,7 +4923,10 @@
       54.5,
       109.0,
       2.03,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.99,
+      "MET"
     ],
     [
       "Davis, Demario",
@@ -4452,7 +4964,10 @@
       121.0,
       121.0,
       2.03,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Graham, Jimmy",
@@ -4490,7 +5005,10 @@
       148.5,
       148.5,
       2.02,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.62,
+      "BEAT+"
     ],
     [
       "Lock, Drew",
@@ -4528,7 +5046,10 @@
       35.3,
       35.3,
       2.02,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.72,
+      "MISS"
     ],
     [
       "Lawrence, Demarcus",
@@ -4566,7 +5087,10 @@
       125.5,
       125.5,
       2.02,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Lawson, Shaq",
@@ -4604,7 +5128,10 @@
       73.5,
       73.5,
       2.0,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ebron, Eric",
@@ -4642,7 +5169,10 @@
       33.9,
       33.9,
       2.0,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.69,
+      "MISS"
     ],
     [
       "Conklin, Tyler",
@@ -4680,7 +5210,10 @@
       129.15,
       258.3,
       2.0,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.33,
+      "BEAT"
     ],
     [
       "Fournette, Leonard",
@@ -4718,7 +5251,10 @@
       2.6,
       2.6,
       2.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.52,
+      "FLOP"
     ],
     [
       "Singletary, Devin",
@@ -4756,7 +5292,10 @@
       41.75,
       41.75,
       2.0,
-      "STEAL"
+      "STEAL",
+      "CHEAP",
+      1.51,
+      "BEAT+"
     ],
     [
       "Luvu, Frankie",
@@ -4794,7 +5333,10 @@
       135.0,
       135.0,
       2.0,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Henley, Daiyan",
@@ -4832,7 +5374,10 @@
       134.0,
       134.0,
       2.0,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "David, Lavonte",
@@ -4870,7 +5415,10 @@
       120.0,
       120.0,
       2.0,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Brissett, Jacoby",
@@ -4908,7 +5456,10 @@
       34.93,
       34.93,
       1.99,
-      "STEAL"
+      "STEAL",
+      "CHEAP",
+      0.85,
+      "MISS"
     ],
     [
       "Reynolds, Josh",
@@ -4946,7 +5497,10 @@
       24.9,
       24.9,
       1.98,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.99,
+      "MET"
     ],
     [
       "Williams, Jamaal",
@@ -4984,7 +5538,10 @@
       43.0,
       43.0,
       1.97,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.66,
+      "MISS"
     ],
     [
       "Barner, AJ",
@@ -5022,7 +5579,10 @@
       177.4,
       177.4,
       1.97,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.82,
+      "BEAT+"
     ],
     [
       "Houston, Justin",
@@ -5060,7 +5620,10 @@
       83.5,
       83.5,
       1.96,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Elliott, Ezekiel",
@@ -5098,7 +5661,10 @@
       40.4,
       40.4,
       1.94,
-      "STEAL"
+      "STEAL",
+      "CHEAP",
+      1.46,
+      "BEAT+"
     ],
     [
       "Rozeboom, Christian",
@@ -5136,7 +5702,10 @@
       33.67,
       101.0,
       1.92,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Chandler, Ty",
@@ -5174,7 +5743,10 @@
       16.15,
       48.45,
       1.91,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.08,
+      "MET"
     ],
     [
       "Foreman, D'Onta",
@@ -5212,7 +5784,10 @@
       32.2,
       32.2,
       1.91,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.64,
+      "MISS"
     ],
     [
       "Gibson, Antonio",
@@ -5250,7 +5825,10 @@
       25.7,
       51.4,
       1.91,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.28,
+      "BEAT"
     ],
     [
       "Minshew, Gardner",
@@ -5288,7 +5866,10 @@
       14.46,
       115.7,
       1.9,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.46,
+      "BEAT+"
     ],
     [
       "Milano, Matt",
@@ -5326,7 +5907,10 @@
       62.5,
       62.5,
       1.89,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gage, Russell",
@@ -5364,7 +5948,10 @@
       84.35,
       84.35,
       1.89,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.22,
+      "BEAT+"
     ],
     [
       "Dunlap, Carlos",
@@ -5402,7 +5989,10 @@
       76.0,
       76.0,
       1.89,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cooper, Jonathon",
@@ -5440,7 +6030,10 @@
       116.5,
       116.5,
       1.87,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Al-Shaair, Azeez",
@@ -5478,7 +6071,10 @@
       104.5,
       104.5,
       1.87,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Queen, Patrick",
@@ -5516,7 +6112,10 @@
       112.0,
       112.0,
       1.87,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Dean, Nakobe",
@@ -5554,7 +6153,10 @@
       23.33,
       70.0,
       1.87,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Lock, Drew",
@@ -5592,7 +6194,10 @@
       73.3,
       73.3,
       1.86,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.06,
+      "MET"
     ],
     [
       "Edwards, Gus",
@@ -5630,7 +6235,10 @@
       14.46,
       65.08,
       1.85,
-      "STEAL"
+      "STEAL",
+      "CHEAP",
+      1.39,
+      "BEAT+"
     ],
     [
       "Strong Jr., Pierre",
@@ -5668,7 +6276,10 @@
       43.6,
       43.6,
       1.85,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.62,
+      "MISS"
     ],
     [
       "Winston, Jameis",
@@ -5706,7 +6317,10 @@
       52.9,
       52.9,
       1.84,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.78,
+      "BEAT+"
     ],
     [
       "Slayton, Darius",
@@ -5744,7 +6358,10 @@
       72.0,
       72.0,
       1.82,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.78,
+      "BEAT+"
     ],
     [
       "Trevathan, Danny",
@@ -5782,7 +6399,10 @@
       99.0,
       99.0,
       1.81,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Greenlaw, Dre",
@@ -5820,7 +6440,10 @@
       86.0,
       86.0,
       1.81,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hudson, Tanner",
@@ -5858,7 +6481,10 @@
       42.2,
       42.2,
       1.8,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.69,
+      "MISS"
     ],
     [
       "Miller, Scott",
@@ -5896,7 +6522,10 @@
       60.45,
       120.9,
       1.79,
-      "BUST"
+      "BUST",
+      "MIN",
+      1.05,
+      "MET"
     ],
     [
       "Hardman, Mecole",
@@ -5934,7 +6563,10 @@
       25.02,
       25.02,
       1.78,
-      "STEAL"
+      "STEAL",
+      "CHEAP",
+      1.34,
+      "BEAT"
     ],
     [
       "Mitchell, Keaton",
@@ -5972,7 +6604,10 @@
       70.4,
       35.2,
       1.76,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.18,
+      "BEAT"
     ],
     [
       "Lewis, Dion",
@@ -6010,7 +6645,10 @@
       67.4,
       67.4,
       1.75,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.9,
+      "MET"
     ],
     [
       "Roethlisberger, Ben",
@@ -6048,7 +6686,10 @@
       162.7,
       162.7,
       1.75,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.19,
+      "BEAT+"
     ],
     [
       "Tannehill, Ryan",
@@ -6086,7 +6727,10 @@
       165.25,
       330.5,
       1.71,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.15,
+      "BEAT+"
     ],
     [
       "Dissly, Will",
@@ -6124,7 +6768,10 @@
       53.3,
       53.3,
       1.71,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.59,
+      "FLOP"
     ],
     [
       "McKenzie, Isaiah",
@@ -6162,7 +6809,10 @@
       42.13,
       42.13,
       1.71,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.78,
+      "BEAT+"
     ],
     [
       "Dortch, Greg",
@@ -6200,7 +6850,10 @@
       85.7,
       85.7,
       1.71,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.07,
+      "MET"
     ],
     [
       "Allen, Jonathan",
@@ -6238,7 +6891,10 @@
       85.0,
       85.0,
       1.7,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Osborn, K.J.",
@@ -6276,7 +6932,10 @@
       63.35,
       63.35,
       1.7,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.66,
+      "BEAT+"
     ],
     [
       "Tolbert, Jalen",
@@ -6314,7 +6973,10 @@
       51.3,
       51.3,
       1.7,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.85,
+      "MISS"
     ],
     [
       "Hubbard, Chuba",
@@ -6352,7 +7014,10 @@
       42.23,
       42.23,
       1.68,
-      "STEAL"
+      "STEAL",
+      "CHEAP",
+      2.45,
+      "BEAT+"
     ],
     [
       "Heyward, Cameron",
@@ -6390,7 +7055,10 @@
       167.5,
       167.5,
       1.67,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Conklin, Tyler",
@@ -6428,7 +7096,10 @@
       58.35,
       58.35,
       1.67,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.28,
+      "BEAT"
     ],
     [
       "Thielen, Adam",
@@ -6466,7 +7137,10 @@
       46.83,
       46.83,
       1.65,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      3.09,
+      "BEAT+"
     ],
     [
       "Samuel, Curtis",
@@ -6504,7 +7178,10 @@
       51.0,
       68.0,
       1.64,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      2.89,
+      "BEAT+"
     ],
     [
       "Evans, Rashaan",
@@ -6542,7 +7219,10 @@
       88.5,
       88.5,
       1.62,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hyde, Carlos",
@@ -6580,7 +7260,10 @@
       41.75,
       41.75,
       1.61,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.66,
+      "BEAT+"
     ],
     [
       "Edwards, Gus",
@@ -6618,7 +7301,10 @@
       30.85,
       61.7,
       1.59,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.64,
+      "BEAT+"
     ],
     [
       "Shavers, Tyrell",
@@ -6656,7 +7342,10 @@
       15.1,
       15.1,
       1.59,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.99,
+      "MET"
     ],
     [
       "Simmons, Jeffery",
@@ -6694,7 +7383,10 @@
       38.58,
       154.3,
       1.59,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bryant, Dez",
@@ -6732,7 +7424,10 @@
       23.3,
       23.3,
       1.58,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.93,
+      "MET"
     ],
     [
       "Watkins, Sammy",
@@ -6770,7 +7465,10 @@
       55.7,
       111.4,
       1.58,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.95,
+      "MET"
     ],
     [
       "Mack, Khalil",
@@ -6808,7 +7506,10 @@
       192.0,
       192.0,
       1.58,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Berrios, Braxton",
@@ -6846,7 +7547,10 @@
       44.35,
       44.35,
       1.57,
-      "BUST"
+      "BUST",
+      "MIN",
+      1.09,
+      "MET"
     ],
     [
       "Burkhead, Rex",
@@ -6884,7 +7588,10 @@
       33.25,
       33.25,
       1.56,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      0.88,
+      "MET"
     ],
     [
       "Simmons, Jeffery",
@@ -6922,7 +7629,10 @@
       64.75,
       129.5,
       1.56,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Thielen, Adam",
@@ -6960,7 +7670,10 @@
       61.2,
       61.2,
       1.55,
-      "STEAL"
+      "STEAL",
+      "CHEAP",
+      1.65,
+      "BEAT+"
     ],
     [
       "Hicks, Jordan",
@@ -6998,7 +7711,10 @@
       77.5,
       77.5,
       1.55,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Luvu, Frankie",
@@ -7036,7 +7752,10 @@
       92.5,
       92.5,
       1.55,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hunter, Danielle",
@@ -7074,7 +7793,10 @@
       187.0,
       187.0,
       1.54,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Buckner, DeForest",
@@ -7112,7 +7834,10 @@
       92.0,
       92.0,
       1.53,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Foreman, D'Onta",
@@ -7150,7 +7875,10 @@
       34.45,
       34.45,
       1.52,
-      "STEAL"
+      "STEAL",
+      "CHEAP",
+      1.25,
+      "BEAT"
     ],
     [
       "Wilkins, Christian",
@@ -7188,7 +7916,10 @@
       153.0,
       153.0,
       1.52,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Edmunds, Tremaine",
@@ -7226,7 +7957,10 @@
       102.0,
       102.0,
       1.52,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mooney, Darnell",
@@ -7264,7 +7998,10 @@
       20.64,
       144.45,
       1.52,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      1.9,
+      "BEAT+"
     ],
     [
       "Mack, Khalil",
@@ -7302,7 +8039,10 @@
       76.0,
       76.0,
       1.51,
-      "STEAL"
+      "STEAL",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jarrett, Grady",
@@ -7340,7 +8080,10 @@
       85.0,
       85.0,
       1.49,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ferguson, Jake",
@@ -7378,7 +8121,10 @@
       39.45,
       512.9,
       1.48,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.87,
+      "BEAT+"
     ],
     [
       "Pringle, Byron",
@@ -7416,7 +8162,10 @@
       71.25,
       71.25,
       1.47,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.76,
+      "BEAT+"
     ],
     [
       "Johnston, Cam",
@@ -7454,7 +8203,10 @@
       163.0,
       163.0,
       1.46,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Moore, Kenny",
@@ -7492,7 +8244,10 @@
       156.3,
       156.3,
       1.46,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Freiermuth, Pat",
@@ -7530,7 +8285,10 @@
       43.7,
       131.1,
       1.46,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.34,
+      "BEAT"
     ],
     [
       "Phillips, Jaelan",
@@ -7568,7 +8326,10 @@
       104.0,
       104.0,
       1.46,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Humphries, Adam",
@@ -7606,7 +8367,10 @@
       30.0,
       30.0,
       1.45,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.7,
+      "BEAT+"
     ],
     [
       "Ross, John",
@@ -7644,7 +8408,10 @@
       44.1,
       44.1,
       1.45,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.87,
+      "MISS"
     ],
     [
       "Fitzpatrick, Dez",
@@ -7682,7 +8449,10 @@
       17.7,
       17.7,
       1.45,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.87,
+      "MISS"
     ],
     [
       "Van Ginkel, Andrew",
@@ -7720,7 +8490,10 @@
       90.5,
       90.5,
       1.45,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Campbell, De'Vondre",
@@ -7758,7 +8531,10 @@
       162.5,
       162.5,
       1.44,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Pacheco, Isiah",
@@ -7796,7 +8572,10 @@
       17.06,
       102.36,
       1.44,
-      "VALUE"
+      "VALUE",
+      "CHEAP",
+      1.48,
+      "BEAT+"
     ],
     [
       "Oweh, Odafe",
@@ -7834,7 +8613,10 @@
       90.0,
       90.0,
       1.44,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Edwards-Helaire, Clyde",
@@ -7872,7 +8654,10 @@
       2.4,
       2.4,
       1.43,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      0.96,
+      "MET"
     ],
     [
       "Engram, Evan",
@@ -7910,7 +8695,10 @@
       91.8,
       91.8,
       1.42,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.89,
+      "BEAT+"
     ],
     [
       "Mostert, Raheem",
@@ -7948,7 +8736,10 @@
       27.77,
       27.77,
       1.42,
-      "VALUE"
+      "VALUE",
+      "CHEAP",
+      2.68,
+      "BEAT+"
     ],
     [
       "Mariota, Marcus",
@@ -7986,7 +8777,10 @@
       149.9,
       149.9,
       1.42,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.37,
+      "BEAT+"
     ],
     [
       "Kendricks, Eric",
@@ -8024,7 +8818,10 @@
       56.75,
       56.75,
       1.41,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Koo, Younghoe",
@@ -8062,7 +8859,10 @@
       163.6,
       163.6,
       1.41,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jones, Brandon",
@@ -8100,7 +8900,10 @@
       167.2,
       167.2,
       1.41,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wicks, Dontayvion",
@@ -8138,7 +8941,10 @@
       69.27,
       103.9,
       1.4,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.37,
+      "BEAT+"
     ],
     [
       "Garoppolo, Jimmy",
@@ -8176,7 +8982,10 @@
       69.28,
       173.2,
       1.39,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.75,
+      "BEAT+"
     ],
     [
       "Mason, Jordan",
@@ -8214,7 +9023,10 @@
       13.95,
       62.77,
       1.39,
-      "VALUE"
+      "VALUE",
+      "CHEAP",
+      1.35,
+      "BEAT"
     ],
     [
       "Cousins, Kirk",
@@ -8252,7 +9064,10 @@
       6.28,
       119.4,
       1.39,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.34,
+      "BEAT"
     ],
     [
       "Jewell, Josey",
@@ -8290,7 +9105,10 @@
       132.5,
       132.5,
       1.38,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Buckner, DeForest",
@@ -8328,7 +9146,10 @@
       151.5,
       151.5,
       1.38,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cooke, Logan",
@@ -8366,7 +9187,10 @@
       79.0,
       158.0,
       1.38,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Thibodeaux, Kayvon",
@@ -8404,7 +9228,10 @@
       29.75,
       59.5,
       1.38,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Odenigbo, Ifeadi",
@@ -8442,7 +9269,10 @@
       58.0,
       58.0,
       1.37,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Takitaki, Sione",
@@ -8480,7 +9310,10 @@
       69.5,
       69.5,
       1.37,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Townsend, Tommy",
@@ -8518,7 +9351,10 @@
       137.0,
       137.0,
       1.37,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Maye, Marcus",
@@ -8556,7 +9392,10 @@
       32.15,
       32.15,
       1.36,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Elliott, DeShon",
@@ -8594,7 +9433,10 @@
       131.3,
       131.3,
       1.35,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "David, Lavonte",
@@ -8632,7 +9474,10 @@
       145.5,
       145.5,
       1.35,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Edwards, T.J.",
@@ -8670,7 +9515,10 @@
       166.5,
       166.5,
       1.35,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Pratt, Germaine",
@@ -8708,7 +9556,10 @@
       73.0,
       73.0,
       1.34,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cole, A.J.",
@@ -8746,7 +9597,10 @@
       141.0,
       141.0,
       1.34,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Stonehouse, Ryan",
@@ -8784,7 +9638,10 @@
       137.9,
       137.9,
       1.34,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Goff, Jared",
@@ -8822,7 +9679,10 @@
       14.99,
       99.95,
       1.33,
-      "VALUE"
+      "VALUE",
+      "MID",
+      1.32,
+      "BEAT"
     ],
     [
       "Williams, Darrel",
@@ -8860,7 +9720,10 @@
       51.1,
       51.1,
       1.32,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.68,
+      "MISS"
     ],
     [
       "Brown, Antonio",
@@ -8898,7 +9761,10 @@
       27.41,
       54.83,
       1.32,
-      "VALUE"
+      "VALUE",
+      "CHEAP",
+      1.69,
+      "BEAT+"
     ],
     [
       "Mathieu, Tyrann",
@@ -8936,7 +9802,10 @@
       66.45,
       66.45,
       1.32,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Brown, Noah",
@@ -8974,7 +9843,10 @@
       45.75,
       45.75,
       1.32,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.64,
+      "BEAT+"
     ],
     [
       "Elliott, DeShon",
@@ -9012,7 +9884,10 @@
       55.4,
       55.4,
       1.32,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Eifert, Tyler",
@@ -9050,7 +9925,10 @@
       90.1,
       90.1,
       1.31,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.05,
+      "MET"
     ],
     [
       "Mayfield, Baker",
@@ -9088,7 +9966,10 @@
       40.04,
       160.14,
       1.31,
-      "VALUE"
+      "VALUE",
+      "CHEAP",
+      1.52,
+      "BEAT+"
     ],
     [
       "Hill, Justice",
@@ -9126,7 +10007,10 @@
       32.88,
       32.88,
       1.31,
-      "VALUE"
+      "VALUE",
+      "CHEAP",
+      1.28,
+      "BEAT"
     ],
     [
       "Atwell, Tutu",
@@ -9164,7 +10048,10 @@
       29.9,
       29.9,
       1.31,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.65,
+      "MISS"
     ],
     [
       "Renfrow, Hunter",
@@ -9202,7 +10089,10 @@
       51.7,
       51.7,
       1.3,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.63,
+      "MISS"
     ],
     [
       "Singleton, Alex",
@@ -9240,7 +10130,10 @@
       160.5,
       160.5,
       1.3,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gillan, Jamie",
@@ -9278,7 +10171,10 @@
       27.5,
       110.0,
       1.29,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Buckner, DeForest",
@@ -9316,7 +10212,10 @@
       60.25,
       60.25,
       1.28,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hardman, Mecole",
@@ -9354,7 +10253,10 @@
       48.4,
       48.4,
       1.27,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.79,
+      "MISS"
     ],
     [
       "Means, Bub",
@@ -9392,7 +10294,10 @@
       28.2,
       28.2,
       1.27,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.79,
+      "MISS"
     ],
     [
       "Way, Tress",
@@ -9430,7 +10335,10 @@
       128.0,
       128.0,
       1.27,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Harty, Deonte",
@@ -9468,7 +10376,10 @@
       46.4,
       46.4,
       1.26,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.61,
+      "MISS"
     ],
     [
       "Gesicki, Mike",
@@ -9506,7 +10417,10 @@
       16.96,
       84.8,
       1.26,
-      "BUST"
+      "BUST",
+      "MIN",
+      1.16,
+      "BEAT"
     ],
     [
       "Jeudy, Jerry",
@@ -9544,7 +10458,10 @@
       47.24,
       125.97,
       1.25,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      2.34,
+      "BEAT+"
     ],
     [
       "Hekker, Johnny",
@@ -9582,7 +10499,10 @@
       57.0,
       114.0,
       1.24,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Way, Tress",
@@ -9620,7 +10540,10 @@
       57.0,
       114.0,
       1.24,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Humphrey, Marlon",
@@ -9658,7 +10581,10 @@
       153.3,
       153.3,
       1.24,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Davis, Corey",
@@ -9696,7 +10622,10 @@
       26.07,
       26.07,
       1.24,
-      "VALUE"
+      "VALUE",
+      "CHEAP",
+      0.94,
+      "MET"
     ],
     [
       "Campbell, De'Vondre",
@@ -9734,7 +10663,10 @@
       68.0,
       68.0,
       1.24,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Thompson, Shaq",
@@ -9772,7 +10704,10 @@
       113.5,
       113.5,
       1.23,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Carlson, Daniel",
@@ -9810,7 +10745,10 @@
       156.1,
       156.1,
       1.23,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Fairbairn, Ka'imi",
@@ -9848,7 +10786,10 @@
       172.7,
       172.7,
       1.23,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Chism, Efton",
@@ -9886,7 +10827,10 @@
       22.0,
       22.0,
       1.23,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.61,
+      "MISS"
     ],
     [
       "Slayton, Darius",
@@ -9924,7 +10868,10 @@
       66.57,
       99.85,
       1.22,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.47,
+      "BEAT+"
     ],
     [
       "Cooks, Brandin",
@@ -9962,7 +10909,10 @@
       34.6,
       34.6,
       1.22,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.52,
+      "BEAT+"
     ],
     [
       "Jefferson, Van",
@@ -10000,7 +10950,10 @@
       61.0,
       61.0,
       1.21,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.75,
+      "MISS"
     ],
     [
       "Chubb, Nick",
@@ -10038,7 +10991,10 @@
       18.18,
       30.3,
       1.21,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.22,
+      "BEAT"
     ],
     [
       "Cashman, Blake",
@@ -10076,7 +11032,10 @@
       54.75,
       54.75,
       1.21,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Dicker, Cameron",
@@ -10114,7 +11073,10 @@
       178.2,
       178.2,
       1.21,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gay, Matt",
@@ -10152,7 +11114,10 @@
       59.7,
       59.7,
       1.2,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Conner, Snoop",
@@ -10190,7 +11155,10 @@
       11.6,
       11.6,
       1.2,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.34,
+      "FLOP"
     ],
     [
       "Dicker, Cameron",
@@ -10228,7 +11196,10 @@
       41.85,
       167.4,
       1.2,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Baker, Jerome",
@@ -10266,7 +11237,10 @@
       65.25,
       65.25,
       1.19,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "McKissic, J.D.",
@@ -10304,7 +11278,10 @@
       13.45,
       13.45,
       1.19,
-      "VALUE"
+      "VALUE",
+      "CHEAP",
+      0.97,
+      "MET"
     ],
     [
       "Sanders, Jason",
@@ -10342,7 +11319,10 @@
       55.57,
       166.7,
       1.19,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Joseph, Kerby",
@@ -10380,7 +11360,10 @@
       150.1,
       150.1,
       1.19,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Smith, Aldon",
@@ -10418,7 +11401,10 @@
       50.25,
       50.25,
       1.18,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Rudolph, Kyle",
@@ -10456,7 +11442,10 @@
       69.6,
       69.6,
       1.18,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      0.95,
+      "MET"
     ],
     [
       "Drake, Kenyan",
@@ -10494,7 +11483,10 @@
       18.24,
       18.24,
       1.18,
-      "VALUE"
+      "VALUE",
+      "CHEAP",
+      1.2,
+      "BEAT"
     ],
     [
       "Hendrickson, Trey",
@@ -10532,7 +11524,10 @@
       144.5,
       144.5,
       1.18,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ogbah, Emmanuel",
@@ -10570,7 +11565,10 @@
       118.5,
       118.5,
       1.17,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Douglas, Rasul",
@@ -10608,7 +11606,10 @@
       143.5,
       143.5,
       1.17,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Edmunds, Tremaine",
@@ -10646,7 +11647,10 @@
       126.0,
       126.0,
       1.17,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Landry, Harold",
@@ -10684,7 +11688,10 @@
       71.25,
       142.5,
       1.17,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Johnston, Cam",
@@ -10722,7 +11729,10 @@
       121.0,
       121.0,
       1.17,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Schobert, Joe",
@@ -10760,7 +11770,10 @@
       84.83,
       127.25,
       1.16,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gay, Matt",
@@ -10798,7 +11811,10 @@
       79.75,
       159.5,
       1.16,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Al-Shaair, Azeez",
@@ -10836,7 +11852,10 @@
       142.0,
       142.0,
       1.16,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wilson, Logan",
@@ -10874,7 +11893,10 @@
       143.0,
       143.0,
       1.16,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Tate, Auden",
@@ -10912,7 +11934,10 @@
       30.8,
       30.8,
       1.15,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.67,
+      "MISS"
     ],
     [
       "Martin, Sam",
@@ -10950,7 +11975,10 @@
       30.0,
       120.0,
       1.15,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wilson, Donovan",
@@ -10988,7 +12016,10 @@
       30.8,
       30.8,
       1.15,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Callaway, Marquez",
@@ -11026,7 +12057,10 @@
       67.2,
       100.8,
       1.15,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      1.39,
+      "BEAT+"
     ],
     [
       "Okereke, Bobby",
@@ -11064,7 +12098,10 @@
       146.5,
       146.5,
       1.15,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ertz, Zach",
@@ -11102,7 +12139,10 @@
       42.75,
       42.75,
       1.15,
-      "VALUE"
+      "VALUE",
+      "CHEAP",
+      1.6,
+      "BEAT+"
     ],
     [
       "McKinney, Xavier",
@@ -11140,7 +12180,10 @@
       145.4,
       290.8,
       1.15,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Henry, Hunter",
@@ -11178,7 +12221,10 @@
       102.85,
       102.85,
       1.15,
-      "VALUE"
+      "VALUE",
+      "MIN",
+      2.11,
+      "BEAT+"
     ],
     [
       "Peppers, Jabrill",
@@ -11216,7 +12262,10 @@
       146.5,
       146.5,
       1.14,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Okereke, Bobby",
@@ -11254,7 +12303,10 @@
       129.0,
       129.0,
       1.14,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Taylor, J.J.",
@@ -11292,7 +12344,10 @@
       14.5,
       14.5,
       1.13,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.58,
+      "FLOP"
     ],
     [
       "Kirksey, Christian",
@@ -11330,7 +12385,10 @@
       95.5,
       95.5,
       1.13,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Folk, Nick",
@@ -11368,7 +12426,10 @@
       143.6,
       143.6,
       1.13,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Thomas, Logan",
@@ -11406,7 +12467,10 @@
       32.7,
       130.8,
       1.13,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.43,
+      "BEAT+"
     ],
     [
       "Myers, Jason",
@@ -11444,7 +12508,10 @@
       155.9,
       155.9,
       1.13,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Elliott, Jake",
@@ -11482,7 +12549,10 @@
       38.98,
       155.9,
       1.13,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Meyers, Jakobi",
@@ -11520,7 +12590,10 @@
       41.84,
       41.84,
       1.13,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.49,
+      "BEAT+"
     ],
     [
       "Mostert, Raheem",
@@ -11558,7 +12631,10 @@
       15.4,
       23.1,
       1.13,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.76,
+      "MISS"
     ],
     [
       "Oluokun, Foyesade",
@@ -11596,7 +12672,10 @@
       67.75,
       67.75,
       1.13,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Carlson, Daniel",
@@ -11634,7 +12713,10 @@
       153.8,
       153.8,
       1.12,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Butker, Harrison",
@@ -11672,7 +12754,10 @@
       153.9,
       153.9,
       1.12,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cole, A.J.",
@@ -11710,7 +12795,10 @@
       128.6,
       128.6,
       1.12,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gillikin, Blake",
@@ -11748,7 +12836,10 @@
       104.0,
       104.0,
       1.12,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hunt, Kareem",
@@ -11786,7 +12877,10 @@
       30.06,
       30.06,
       1.12,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.36,
+      "BEAT+"
     ],
     [
       "Hufanga, Talanoa",
@@ -11824,7 +12918,10 @@
       149.9,
       149.9,
       1.12,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cooke, Logan",
@@ -11862,7 +12959,10 @@
       89.0,
       89.0,
       1.11,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cole, A.J.",
@@ -11900,7 +13000,10 @@
       124.0,
       124.0,
       1.11,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Schultz, Dalton",
@@ -11938,7 +13041,10 @@
       41.42,
       82.85,
       1.11,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.55,
+      "BEAT+"
     ],
     [
       "Spillane, Robert",
@@ -11976,7 +13082,10 @@
       74.75,
       74.75,
       1.11,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Kirk, Christian",
@@ -12014,7 +13123,10 @@
       53.02,
       53.02,
       1.1,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.43,
+      "BEAT+"
     ],
     [
       "Gillan, Jamie",
@@ -12052,7 +13164,10 @@
       123.7,
       123.7,
       1.1,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Curl, Kamren",
@@ -12090,7 +13205,10 @@
       151.5,
       151.5,
       1.1,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bojorquez, Corey",
@@ -12128,7 +13246,10 @@
       101.0,
       101.0,
       1.09,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hurst, Hayden",
@@ -12166,7 +13287,10 @@
       52.7,
       52.7,
       1.09,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.44,
+      "BEAT+"
     ],
     [
       "Perine, Samaje",
@@ -12204,7 +13328,10 @@
       29.3,
       29.3,
       1.09,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.1,
+      "MET"
     ],
     [
       "Ryan, Logan",
@@ -12242,7 +13369,10 @@
       47.93,
       143.8,
       1.08,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Willis, Khari",
@@ -12280,7 +13410,10 @@
       138.0,
       138.0,
       1.08,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Koo, Younghoe",
@@ -12318,7 +13451,10 @@
       137.3,
       137.3,
       1.08,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Sweat, Montez",
@@ -12356,7 +13492,10 @@
       109.5,
       109.5,
       1.08,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Pitre, Jalen",
@@ -12394,7 +13533,10 @@
       102.0,
       102.0,
       1.08,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cole, A.J.",
@@ -12432,7 +13574,10 @@
       108.0,
       108.0,
       1.08,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Reichard, Will",
@@ -12470,7 +13615,10 @@
       158.4,
       158.4,
       1.08,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Smith, Harrison",
@@ -12508,7 +13656,10 @@
       141.7,
       283.4,
       1.07,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Way, Tress",
@@ -12546,7 +13697,10 @@
       105.0,
       105.0,
       1.07,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Berry, Jordan",
@@ -12584,7 +13738,10 @@
       112.0,
       112.0,
       1.07,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Stout, Jordan",
@@ -12622,7 +13779,10 @@
       120.0,
       120.0,
       1.07,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gillan, Jamie",
@@ -12660,7 +13820,10 @@
       147.0,
       147.0,
       1.07,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Zappe, Bailey",
@@ -12698,7 +13861,10 @@
       37.1,
       37.1,
       1.07,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      0.83,
+      "MISS"
     ],
     [
       "Pitre, Jalen",
@@ -12736,7 +13902,10 @@
       116.8,
       116.8,
       1.07,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Olsen, Greg",
@@ -12774,7 +13943,10 @@
       57.1,
       57.1,
       1.06,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      0.85,
+      "MISS"
     ],
     [
       "Jones, Dre'Mont",
@@ -12812,7 +13984,10 @@
       87.5,
       87.5,
       1.06,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Smith, Harrison",
@@ -12850,7 +14025,10 @@
       126.4,
       126.4,
       1.06,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Reid, Justin",
@@ -12888,7 +14066,10 @@
       46.15,
       46.15,
       1.05,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mathieu, Tyrann",
@@ -12926,7 +14107,10 @@
       126.9,
       126.9,
       1.05,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Landry, Jarvis",
@@ -12964,7 +14148,10 @@
       16.62,
       16.62,
       1.05,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      0.8,
+      "MISS"
     ],
     [
       "Williams, Leonard",
@@ -13002,7 +14189,10 @@
       79.5,
       79.5,
       1.05,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Dixon, Riley",
@@ -13040,7 +14230,10 @@
       108.0,
       108.0,
       1.04,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mariota, Marcus",
@@ -13078,7 +14271,10 @@
       15.83,
       15.83,
       1.04,
-      "FAIR"
+      "FAIR",
+      "MID",
+      1.03,
+      "MET"
     ],
     [
       "Njoku, David",
@@ -13116,7 +14312,10 @@
       56.17,
       168.5,
       1.04,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      2.07,
+      "BEAT+"
     ],
     [
       "Dicker, Cameron",
@@ -13154,7 +14353,10 @@
       142.9,
       142.9,
       1.04,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Meyers, Jakobi",
@@ -13192,7 +14394,10 @@
       47.64,
       95.28,
       1.04,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.41,
+      "BEAT+"
     ],
     [
       "Bland, DaRon",
@@ -13230,7 +14435,10 @@
       51.7,
       51.7,
       1.04,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "McLaughlin, Chase",
@@ -13268,7 +14476,10 @@
       152.8,
       152.8,
       1.04,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hill, Brian",
@@ -13306,7 +14517,10 @@
       39.45,
       39.45,
       1.03,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.06,
+      "MET"
     ],
     [
       "Zuerlein, Greg",
@@ -13344,7 +14558,10 @@
       133.2,
       133.2,
       1.03,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hooper, Austin",
@@ -13382,7 +14599,10 @@
       32.7,
       32.7,
       1.03,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.07,
+      "MET"
     ],
     [
       "Jackson, Justin",
@@ -13420,7 +14640,10 @@
       22.32,
       29.77,
       1.03,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.38,
+      "BEAT+"
     ],
     [
       "Meyers, Jakobi",
@@ -13458,7 +14681,10 @@
       45.3,
       90.6,
       1.03,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.34,
+      "BEAT"
     ],
     [
       "Rapp, Taylor",
@@ -13496,7 +14722,10 @@
       116.1,
       116.1,
       1.03,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Williams, Quinnen",
@@ -13534,7 +14763,10 @@
       114.0,
       114.0,
       1.03,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Okereke, Bobby",
@@ -13572,7 +14804,10 @@
       61.5,
       61.5,
       1.03,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Byard, Kevin",
@@ -13610,7 +14845,10 @@
       141.6,
       141.6,
       1.02,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gonzalez, Zane",
@@ -13648,7 +14886,10 @@
       101.5,
       101.5,
       1.02,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Buckner, DeForest",
@@ -13686,7 +14927,10 @@
       134.5,
       134.5,
       1.02,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Judon, Matt",
@@ -13724,7 +14968,10 @@
       131.0,
       131.0,
       1.02,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Maye, Marcus",
@@ -13762,7 +15009,10 @@
       61.6,
       61.6,
       1.02,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Camarda, Jake",
@@ -13800,7 +15050,10 @@
       141.0,
       141.0,
       1.02,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Tucker, Justin",
@@ -13838,7 +15091,10 @@
       142.3,
       142.3,
       1.02,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Araiza, Matt",
@@ -13876,7 +15132,10 @@
       117.0,
       117.0,
       1.02,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Palmer, Trey",
@@ -13914,7 +15173,10 @@
       44.2,
       44.2,
       1.02,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.63,
+      "MISS"
     ],
     [
       "Dickson, Michael",
@@ -13952,7 +15214,10 @@
       102.0,
       102.0,
       1.02,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Strange, Brenton",
@@ -13990,7 +15255,10 @@
       63.05,
       63.05,
       1.02,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.89,
+      "BEAT+"
     ],
     [
       "Pringle, Byron",
@@ -14028,7 +15296,10 @@
       36.3,
       36.3,
       1.01,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.59,
+      "FLOP"
     ],
     [
       "Johnson, Alexander",
@@ -14066,7 +15337,10 @@
       43.5,
       43.5,
       1.01,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "McManus, Brandon",
@@ -14104,7 +15378,10 @@
       127.8,
       127.8,
       1.01,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cooke, Logan",
@@ -14142,7 +15419,10 @@
       113.0,
       113.0,
       1.01,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Barton, Cody",
@@ -14180,7 +15460,10 @@
       130.0,
       130.0,
       1.01,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Koo, Younghoe",
@@ -14218,7 +15501,10 @@
       136.9,
       136.9,
       1.01,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Highsmith, Alex",
@@ -14256,7 +15542,10 @@
       123.5,
       123.5,
       1.01,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bass, Tyler",
@@ -14294,7 +15583,10 @@
       141.3,
       141.3,
       1.01,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Kirk, Christian",
@@ -14332,7 +15624,10 @@
       30.8,
       30.8,
       1.01,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.01,
+      "MET"
     ],
     [
       "Hicks, Jordan",
@@ -14370,7 +15665,10 @@
       55.0,
       55.0,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ngakoue, Yannick",
@@ -14408,7 +15706,10 @@
       44.12,
       88.25,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ertz, Zach",
@@ -14446,7 +15747,10 @@
       8.9,
       69.44,
       1.0,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.57,
+      "BEAT+"
     ],
     [
       "Gregory, Randy",
@@ -14484,7 +15788,10 @@
       69.5,
       69.5,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jones, Chris",
@@ -14522,7 +15829,10 @@
       46.25,
       46.25,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Humphrey, Marlon",
@@ -14560,7 +15870,10 @@
       94.4,
       94.4,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Milano, Matt",
@@ -14598,7 +15911,10 @@
       106.5,
       106.5,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Davis, Carlton",
@@ -14636,7 +15952,10 @@
       71.1,
       71.1,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gould, Robbie",
@@ -14674,7 +15993,10 @@
       102.7,
       102.7,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wise, Deatrich",
@@ -14712,7 +16034,10 @@
       101.0,
       101.0,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Woods, Xavier",
@@ -14750,7 +16075,10 @@
       104.6,
       104.6,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Moore, Kenny",
@@ -14788,7 +16116,10 @@
       92.5,
       92.5,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Whitehead, Jordan",
@@ -14826,7 +16157,10 @@
       120.0,
       120.0,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Way, Tress",
@@ -14864,7 +16198,10 @@
       137.0,
       137.0,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "King, Desmond",
@@ -14902,7 +16239,10 @@
       63.9,
       63.9,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jenkins, Rayshawn",
@@ -14940,7 +16280,10 @@
       137.2,
       137.2,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Payne, Da'Ron",
@@ -14978,7 +16321,10 @@
       111.0,
       111.0,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wilkins, Christian",
@@ -15016,7 +16362,10 @@
       92.5,
       185.0,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Granderson, Carl",
@@ -15054,7 +16403,10 @@
       121.75,
       243.5,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Nwangwu, Kene",
@@ -15092,7 +16444,10 @@
       10.7,
       10.7,
       1.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.26,
+      "FLOP"
     ],
     [
       "Sanders, Miles",
@@ -15130,7 +16485,10 @@
       16.77,
       16.77,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.0,
+      "MET"
     ],
     [
       "Williams, Quinnen",
@@ -15168,7 +16526,10 @@
       83.0,
       83.0,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Taylor-Britt, Cam",
@@ -15206,7 +16567,10 @@
       132.5,
       132.5,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Boswell, Chris",
@@ -15244,7 +16608,10 @@
       147.2,
       147.2,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Williams, Leonard",
@@ -15282,7 +16649,10 @@
       111.0,
       111.0,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Stevenson, Tyrique",
@@ -15320,7 +16690,10 @@
       89.7,
       89.7,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Evans, Ethan",
@@ -15358,7 +16731,10 @@
       101.0,
       101.0,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bates, Jake",
@@ -15396,7 +16772,10 @@
       147.8,
       147.8,
       1.0,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Byard, Kevin",
@@ -15434,7 +16813,10 @@
       53.13,
       53.13,
       0.99,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Roethlisberger, Ben",
@@ -15472,7 +16854,10 @@
       52.0,
       52.0,
       0.99,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.05,
+      "MET"
     ],
     [
       "Jones, Daniel",
@@ -15510,7 +16895,10 @@
       8.03,
       52.17,
       0.99,
-      "FAIR"
+      "FAIR",
+      "MID",
+      1.05,
+      "MET"
     ],
     [
       "Simmons, Jeffery",
@@ -15548,7 +16936,10 @@
       104.95,
       209.9,
       0.99,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "McPherson, Evan",
@@ -15586,7 +16977,10 @@
       136.7,
       136.7,
       0.99,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Koo, Younghoe",
@@ -15624,7 +17018,10 @@
       121.1,
       121.1,
       0.99,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Al-Shaair, Azeez",
@@ -15662,7 +17059,10 @@
       41.5,
       41.5,
       0.99,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Blankenship, Reed",
@@ -15700,7 +17100,10 @@
       117.4,
       117.4,
       0.99,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Palmer, Joshua",
@@ -15738,7 +17141,10 @@
       27.5,
       27.5,
       0.99,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      0.99,
+      "MET"
     ],
     [
       "Fairbairn, Ka'imi",
@@ -15776,7 +17182,10 @@
       120.8,
       120.8,
       0.98,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Succop, Ryan",
@@ -15814,7 +17223,10 @@
       125.2,
       125.2,
       0.98,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Johnston, Cam",
@@ -15852,7 +17264,10 @@
       7.0,
       7.0,
       0.98,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Pinion, Bradley",
@@ -15890,7 +17305,10 @@
       108.0,
       108.0,
       0.97,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Elliott, Jake",
@@ -15928,7 +17346,10 @@
       135.4,
       135.4,
       0.97,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Singleton, Alex",
@@ -15966,7 +17387,10 @@
       24.33,
       24.33,
       0.97,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Stonehouse, Ryan",
@@ -16004,7 +17428,10 @@
       111.0,
       111.0,
       0.97,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "McPherson, Evan",
@@ -16042,7 +17469,10 @@
       141.8,
       141.8,
       0.97,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Thompson, Shaq",
@@ -16080,7 +17510,10 @@
       52.5,
       52.5,
       0.96,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Clark, Chuck",
@@ -16118,7 +17551,10 @@
       132.6,
       132.6,
       0.96,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jones, Chandler",
@@ -16156,7 +17592,10 @@
       98.5,
       197.0,
       0.96,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Williams, Quinnen",
@@ -16194,7 +17633,10 @@
       47.75,
       47.75,
       0.96,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Fox, Jack",
@@ -16232,7 +17674,10 @@
       100.9,
       100.9,
       0.96,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Edmunds, Tremaine",
@@ -16270,7 +17715,10 @@
       92.0,
       92.0,
       0.96,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wagner, Bobby",
@@ -16308,7 +17756,10 @@
       65.0,
       65.0,
       0.96,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Madubuike, Nnamdi",
@@ -16346,7 +17797,10 @@
       85.5,
       85.5,
       0.96,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bishop, Cole",
@@ -16384,7 +17838,10 @@
       65.0,
       130.0,
       0.96,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wishnowsky, Mitch",
@@ -16422,7 +17879,10 @@
       99.6,
       99.6,
       0.95,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mann, Braden",
@@ -16460,7 +17920,10 @@
       55.4,
       55.4,
       0.95,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Woods, Robert",
@@ -16498,7 +17961,10 @@
       32.73,
       32.73,
       0.95,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.39,
+      "BEAT+"
     ],
     [
       "Holcomb, Cole",
@@ -16536,7 +18002,10 @@
       58.5,
       58.5,
       0.95,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Moore, Kenny",
@@ -16574,7 +18043,10 @@
       106.6,
       213.2,
       0.95,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Lambert-Smith, KeAndre",
@@ -16612,7 +18084,10 @@
       21.4,
       21.4,
       0.95,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.48,
+      "FLOP"
     ],
     [
       "Loop, Tyler",
@@ -16650,7 +18125,10 @@
       139.7,
       139.7,
       0.95,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hollister, Jacob",
@@ -16688,7 +18166,10 @@
       68.6,
       68.6,
       0.94,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      0.75,
+      "MISS"
     ],
     [
       "Sims, Steven",
@@ -16726,7 +18207,10 @@
       30.95,
       30.95,
       0.94,
-      "BUST"
+      "BUST",
+      "MIN",
+      1.11,
+      "MET"
     ],
     [
       "Crosby, Mason",
@@ -16764,7 +18248,10 @@
       116.8,
       116.8,
       0.94,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Poyer, Jordan",
@@ -16802,7 +18289,10 @@
       122.0,
       122.0,
       0.94,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bourne, Kendrick",
@@ -16840,7 +18330,10 @@
       32.25,
       32.25,
       0.94,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.17,
+      "BEAT"
     ],
     [
       "Dobbins, J.K.",
@@ -16878,7 +18371,10 @@
       17.24,
       34.49,
       0.94,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      2.04,
+      "BEAT+"
     ],
     [
       "Beckham, Odell",
@@ -16916,7 +18412,10 @@
       11.54,
       23.08,
       0.93,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      0.88,
+      "MET"
     ],
     [
       "Flacco, Joe",
@@ -16954,7 +18453,10 @@
       36.87,
       36.87,
       0.93,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.6,
+      "BEAT+"
     ],
     [
       "Allen, Keenan",
@@ -16992,7 +18494,10 @@
       37.3,
       37.3,
       0.93,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.26,
+      "BEAT"
     ],
     [
       "Henley, Daiyan",
@@ -17030,7 +18535,10 @@
       56.0,
       56.0,
       0.93,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "White, Tre'Davious",
@@ -17068,7 +18576,10 @@
       115.1,
       115.1,
       0.92,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Proche, James",
@@ -17106,7 +18617,10 @@
       38.8,
       38.8,
       0.92,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.55,
+      "FLOP"
     ],
     [
       "Joseph, Greg",
@@ -17144,7 +18658,10 @@
       116.7,
       116.7,
       0.92,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Stout, Jordan",
@@ -17182,7 +18699,10 @@
       127.0,
       127.0,
       0.92,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Butker, Harrison",
@@ -17220,7 +18740,10 @@
       135.7,
       135.7,
       0.92,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Singleton, Alex",
@@ -17258,7 +18781,10 @@
       51.75,
       51.75,
       0.92,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cousins, Kirk",
@@ -17296,7 +18822,10 @@
       85.3,
       170.6,
       0.91,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.38,
+      "BEAT+"
     ],
     [
       "Cole, A.J.",
@@ -17334,7 +18863,10 @@
       84.0,
       84.0,
       0.91,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Lee, Andy",
@@ -17372,7 +18904,10 @@
       84.0,
       84.0,
       0.91,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Huber, Kevin",
@@ -17410,7 +18945,10 @@
       84.0,
       84.0,
       0.91,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Johnson, Ty",
@@ -17448,7 +18986,10 @@
       13.42,
       30.2,
       0.91,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.17,
+      "BEAT"
     ],
     [
       "Crowder, Jamison",
@@ -17486,7 +19027,10 @@
       6.43,
       6.43,
       0.91,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.95,
+      "MET"
     ],
     [
       "Campbell, Parris",
@@ -17524,7 +19068,10 @@
       35.66,
       44.58,
       0.91,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      0.69,
+      "MISS"
     ],
     [
       "Smith, Harrison",
@@ -17562,7 +19109,10 @@
       124.5,
       124.5,
       0.91,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Butker, Harrison",
@@ -17600,7 +19150,10 @@
       96.1,
       96.1,
       0.91,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Paye, Kwity",
@@ -17638,7 +19191,10 @@
       60.0,
       60.0,
       0.91,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bryant, Harrison",
@@ -17676,7 +19232,10 @@
       65.4,
       130.8,
       0.9,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      0.72,
+      "MISS"
     ],
     [
       "Prater, Matt",
@@ -17714,7 +19273,10 @@
       113.1,
       113.1,
       0.9,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cobb, Randall",
@@ -17752,7 +19314,10 @@
       19.56,
       32.6,
       0.9,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.62,
+      "BEAT+"
     ],
     [
       "Kern, Brett",
@@ -17790,7 +19355,10 @@
       77.0,
       77.0,
       0.9,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hunter, Danielle",
@@ -17828,7 +19396,10 @@
       115.5,
       115.5,
       0.9,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Valdes-Scantling, Marquez",
@@ -17866,7 +19437,10 @@
       25.34,
       25.34,
       0.9,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      0.85,
+      "MISS"
     ],
     [
       "Allen, Jonathan",
@@ -17904,7 +19478,10 @@
       99.0,
       99.0,
       0.9,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "McPherson, Evan",
@@ -17942,7 +19519,10 @@
       95.4,
       95.4,
       0.9,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mathieu, Tyrann",
@@ -17980,7 +19560,10 @@
       122.6,
       122.6,
       0.89,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Harry, N'Keal",
@@ -18018,7 +19601,10 @@
       29.8,
       29.8,
       0.89,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.53,
+      "FLOP"
     ],
     [
       "Wentz, Carson",
@@ -18056,7 +19642,10 @@
       8.34,
       8.34,
       0.89,
-      "FAIR"
+      "FAIR",
+      "MID",
+      1.0,
+      "MET"
     ],
     [
       "Bailey, Jake",
@@ -18094,7 +19683,10 @@
       56.0,
       56.0,
       0.89,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Pace, Ivan",
@@ -18132,7 +19724,10 @@
       37.25,
       37.25,
       0.89,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Morstead, Thomas",
@@ -18170,7 +19765,10 @@
       89.0,
       89.0,
       0.89,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cobb, Randall",
@@ -18208,7 +19806,10 @@
       4.75,
       26.15,
       0.88,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.13,
+      "BEAT"
     ],
     [
       "Ford, Dee",
@@ -18246,7 +19847,10 @@
       2.5,
       2.5,
       0.88,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Boyle, Nick",
@@ -18284,7 +19888,10 @@
       38.9,
       38.9,
       0.88,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      0.7,
+      "MISS"
     ],
     [
       "Succop, Ryan",
@@ -18322,7 +19929,10 @@
       121.1,
       121.1,
       0.88,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ingram, Mark",
@@ -18360,7 +19970,10 @@
       12.43,
       12.43,
       0.88,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      0.72,
+      "MISS"
     ],
     [
       "Bernard, Terrel",
@@ -18398,7 +20011,10 @@
       39.5,
       39.5,
       0.88,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Pola-Mao, Isaiah",
@@ -18436,7 +20052,10 @@
       119.0,
       119.0,
       0.88,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jones, Deion",
@@ -18474,7 +20093,10 @@
       47.5,
       47.5,
       0.87,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Williams, Mike",
@@ -18512,7 +20134,10 @@
       17.02,
       79.43,
       0.87,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.71,
+      "BEAT+"
     ],
     [
       "Penny, Rashaad",
@@ -18550,7 +20175,10 @@
       17.38,
       17.38,
       0.87,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.68,
+      "BEAT+"
     ],
     [
       "Dulin, Ashton",
@@ -18588,7 +20216,10 @@
       16.7,
       16.7,
       0.87,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.91,
+      "MET"
     ],
     [
       "Barrett, Shaq",
@@ -18626,7 +20257,10 @@
       99.5,
       99.5,
       0.87,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hopkins, DeAndre",
@@ -18664,7 +20298,10 @@
       35.0,
       35.0,
       0.87,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      0.87,
+      "MISS"
     ],
     [
       "Gould, Robbie",
@@ -18702,7 +20339,10 @@
       106.2,
       106.2,
       0.86,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Nwosu, Uchenna",
@@ -18740,7 +20380,10 @@
       39.0,
       39.0,
       0.86,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mattison, Alexander",
@@ -18778,7 +20421,10 @@
       18.77,
       18.77,
       0.86,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.46,
+      "BEAT+"
     ],
     [
       "Queen, Patrick",
@@ -18816,7 +20462,10 @@
       28.62,
       57.25,
       0.86,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Okonkwo, Chigoziem",
@@ -18854,7 +20503,10 @@
       77.3,
       77.3,
       0.86,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.59,
+      "BEAT+"
     ],
     [
       "Ogunbowale, Dare",
@@ -18892,7 +20544,10 @@
       28.3,
       28.3,
       0.85,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.44,
+      "FLOP"
     ],
     [
       "Hekker, Johnny",
@@ -18930,7 +20585,10 @@
       90.1,
       90.1,
       0.85,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Fuller, Jordan",
@@ -18968,7 +20626,10 @@
       42.87,
       42.87,
       0.85,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jones, Julio",
@@ -19006,7 +20667,10 @@
       14.96,
       14.96,
       0.85,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      0.81,
+      "MISS"
     ],
     [
       "Diggs, Quandre",
@@ -19044,7 +20708,10 @@
       102.1,
       102.1,
       0.85,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Highsmith, Alex",
@@ -19082,7 +20749,10 @@
       109.5,
       109.5,
       0.85,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Poyer, Jordan",
@@ -19120,7 +20790,10 @@
       100.5,
       100.5,
       0.85,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Fuller, Jordan",
@@ -19158,7 +20831,10 @@
       53.8,
       53.8,
       0.85,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gay, Matt",
@@ -19196,7 +20872,10 @@
       93.3,
       93.3,
       0.85,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Kinchens, Kamren",
@@ -19234,7 +20913,10 @@
       114.4,
       114.4,
       0.85,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Dickson, Michael",
@@ -19272,7 +20954,10 @@
       88.0,
       88.0,
       0.84,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Tannehill, Ryan",
@@ -19310,7 +20995,10 @@
       11.81,
       11.81,
       0.84,
-      "FAIR"
+      "FAIR",
+      "MID",
+      0.89,
+      "MET"
     ],
     [
       "Dixon, Riley",
@@ -19348,7 +21036,10 @@
       115.5,
       115.5,
       0.84,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hooper, Austin",
@@ -19386,7 +21077,10 @@
       70.4,
       70.4,
       0.84,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.77,
+      "MISS"
     ],
     [
       "Lutz, Wil",
@@ -19424,7 +21118,10 @@
       123.9,
       123.9,
       0.84,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hines-Allen, Josh",
@@ -19462,7 +21159,10 @@
       55.75,
       55.75,
       0.84,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Reid, Justin",
@@ -19500,7 +21200,10 @@
       99.1,
       99.1,
       0.83,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Heyward, Cameron",
@@ -19538,7 +21241,10 @@
       56.5,
       56.5,
       0.83,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Tranquill, Drue",
@@ -19576,7 +21282,10 @@
       96.0,
       96.0,
       0.83,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Way, Tress",
@@ -19614,7 +21323,10 @@
       95.0,
       95.0,
       0.83,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bryant, Coby",
@@ -19652,7 +21364,10 @@
       104.8,
       104.8,
       0.83,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mills, Jalen",
@@ -19690,7 +21405,10 @@
       112.2,
       112.2,
       0.82,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hubbard, Sam",
@@ -19728,7 +21446,10 @@
       27.83,
       27.83,
       0.82,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Elliott, DeShon",
@@ -19766,7 +21487,10 @@
       112.4,
       112.4,
       0.82,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Shepard, Sterling",
@@ -19804,7 +21528,10 @@
       17.3,
       17.3,
       0.82,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.33,
+      "BEAT"
     ],
     [
       "Sweat, Josh",
@@ -19842,7 +21569,10 @@
       98.5,
       98.5,
       0.82,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Koonce, Malcolm",
@@ -19880,7 +21610,10 @@
       54.0,
       54.0,
       0.82,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Blankenship, Reed",
@@ -19918,7 +21651,10 @@
       110.4,
       110.4,
       0.82,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Davis, Corey",
@@ -19956,7 +21692,10 @@
       26.47,
       52.95,
       0.81,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.55,
+      "BEAT+"
     ],
     [
       "Gage, Russell",
@@ -19994,7 +21733,10 @@
       17.13,
       17.13,
       0.81,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.08,
+      "MET"
     ],
     [
       "Jones, Brandon",
@@ -20032,7 +21774,10 @@
       67.35,
       134.7,
       0.81,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mason, Jordan",
@@ -20070,7 +21815,10 @@
       17.0,
       17.0,
       0.81,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.46,
+      "FLOP"
     ],
     [
       "Carlson, Daniel",
@@ -20108,7 +21856,10 @@
       110.0,
       110.0,
       0.81,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Owens, Jonathan",
@@ -20146,7 +21897,10 @@
       28.1,
       112.4,
       0.81,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Thompson-Robinson, Dorian",
@@ -20184,7 +21938,10 @@
       25.1,
       25.1,
       0.81,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.31,
+      "FLOP"
     ],
     [
       "Mathieu, Tyrann",
@@ -20222,7 +21979,10 @@
       103.0,
       103.0,
       0.81,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mack, Khalil",
@@ -20260,7 +22020,10 @@
       47.0,
       47.0,
       0.81,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Neal, Keanu",
@@ -20298,7 +22061,10 @@
       100.45,
       200.9,
       0.8,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bosa, Joey",
@@ -20336,7 +22102,10 @@
       20.75,
       83.0,
       0.8,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Kirk, Christian",
@@ -20374,7 +22143,10 @@
       13.27,
       54.54,
       0.8,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.35,
+      "BEAT+"
     ],
     [
       "Williams, Marcus",
@@ -20412,7 +22184,10 @@
       68.8,
       68.8,
       0.8,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Joseph, Greg",
@@ -20450,7 +22225,10 @@
       108.5,
       108.5,
       0.8,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cook, Bryan",
@@ -20488,7 +22266,10 @@
       101.4,
       101.4,
       0.8,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Davis, Todd",
@@ -20526,7 +22307,10 @@
       29.0,
       29.0,
       0.79,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wilson, Mack",
@@ -20564,7 +22348,10 @@
       34.5,
       34.5,
       0.79,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Phillips, Adrian",
@@ -20602,7 +22389,10 @@
       42.93,
       42.93,
       0.79,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Littleton, Cory",
@@ -20640,7 +22430,10 @@
       89.0,
       89.0,
       0.79,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Smoot, Dawuane",
@@ -20678,7 +22471,10 @@
       75.0,
       75.0,
       0.79,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Likely, Isaiah",
@@ -20716,7 +22512,10 @@
       49.35,
       148.05,
       0.79,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.05,
+      "MET"
     ],
     [
       "Hekker, Johnny",
@@ -20754,7 +22553,10 @@
       108.2,
       108.2,
       0.79,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Elliott, DeShon",
@@ -20792,7 +22594,10 @@
       95.6,
       95.6,
       0.79,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Long, David",
@@ -20830,7 +22635,10 @@
       98.0,
       98.0,
       0.79,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gipson, Xavier",
@@ -20868,7 +22676,10 @@
       39.3,
       39.3,
       0.79,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.5,
+      "FLOP"
     ],
     [
       "Elliott, Jake",
@@ -20906,7 +22717,10 @@
       116.8,
       116.8,
       0.79,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Westbrook-Ikhine, Nick",
@@ -20944,7 +22758,10 @@
       27.5,
       27.5,
       0.79,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.4,
+      "FLOP"
     ],
     [
       "Joseph, Kerby",
@@ -20982,7 +22799,10 @@
       39.4,
       39.4,
       0.79,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Whelan, Daniel",
@@ -21020,7 +22840,10 @@
       80.0,
       80.0,
       0.79,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ojabo, David",
@@ -21058,7 +22881,10 @@
       21.75,
       43.5,
       0.78,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Dean, Nakobe",
@@ -21096,7 +22922,10 @@
       30.0,
       30.0,
       0.78,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Vaki, Sione",
@@ -21134,7 +22963,10 @@
       6.43,
       19.3,
       0.78,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.26,
+      "FLOP"
     ],
     [
       "Morstead, Thomas",
@@ -21172,7 +23004,10 @@
       90.0,
       90.0,
       0.78,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Davis, Demario",
@@ -21210,7 +23045,10 @@
       31.62,
       42.17,
       0.77,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ryan, Logan",
@@ -21248,7 +23086,10 @@
       36.5,
       36.5,
       0.77,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Mostert, Raheem",
@@ -21286,7 +23127,10 @@
       16.37,
       16.37,
       0.77,
-      "FAIR"
+      "FAIR",
+      "MID",
+      1.31,
+      "BEAT"
     ],
     [
       "Williams, Jamaal",
@@ -21324,7 +23168,10 @@
       12.15,
       12.15,
       0.77,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      0.58,
+      "FLOP"
     ],
     [
       "Clowney, Jadeveon",
@@ -21362,7 +23209,10 @@
       39.0,
       39.0,
       0.77,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hendrickson, Trey",
@@ -21400,7 +23250,10 @@
       47.83,
       47.83,
       0.77,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bellinger, Daniel",
@@ -21438,7 +23291,10 @@
       28.2,
       28.2,
       0.77,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.3,
+      "FLOP"
     ],
     [
       "Camarda, Jake",
@@ -21476,7 +23332,10 @@
       22.0,
       22.0,
       0.77,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "McDougald, Bradley",
@@ -21514,7 +23373,10 @@
       48.8,
       48.8,
       0.76,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Carr, Derek",
@@ -21552,7 +23414,10 @@
       71.33,
       71.33,
       0.76,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.16,
+      "BEAT"
     ],
     [
       "Joseph, Karl",
@@ -21590,7 +23455,10 @@
       90.5,
       90.5,
       0.76,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Oluokun, Foyesade",
@@ -21628,7 +23496,10 @@
       86.75,
       86.75,
       0.76,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Martin, Sam",
@@ -21666,7 +23537,10 @@
       79.0,
       79.0,
       0.76,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Parker, DeVante",
@@ -21704,7 +23578,10 @@
       16.12,
       32.24,
       0.76,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      0.72,
+      "MISS"
     ],
     [
       "Harris, Charles",
@@ -21742,7 +23619,10 @@
       28.5,
       28.5,
       0.76,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gano, Graham",
@@ -21780,7 +23660,10 @@
       51.7,
       51.7,
       0.76,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jones, Aaron",
@@ -21818,7 +23701,10 @@
       17.96,
       35.91,
       0.76,
-      "FAIR"
+      "FAIR",
+      "CHEAP",
+      1.86,
+      "BEAT+"
     ],
     [
       "Sherwood, Jamien",
@@ -21856,7 +23742,10 @@
       45.33,
       45.33,
       0.76,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bernard, Giovani",
@@ -21894,7 +23783,10 @@
       19.83,
       19.83,
       0.75,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      1.0,
+      "MET"
     ],
     [
       "Lawrence, Demarcus",
@@ -21932,7 +23824,10 @@
       28.25,
       28.25,
       0.75,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mack, Khalil",
@@ -21970,7 +23865,10 @@
       95.5,
       95.5,
       0.75,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Adderley, Nasir",
@@ -22008,7 +23906,10 @@
       84.0,
       84.0,
       0.75,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Vander Esch, Leighton",
@@ -22046,7 +23947,10 @@
       34.5,
       34.5,
       0.75,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Patterson, Riley",
@@ -22084,7 +23988,10 @@
       90.1,
       90.1,
       0.75,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gillan, Jamie",
@@ -22122,7 +24029,10 @@
       70.7,
       70.7,
       0.75,
-      "FAIR"
+      "FAIR",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Santos, Cairo",
@@ -22160,7 +24070,10 @@
       102.6,
       102.6,
       0.74,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Blankenship, Rodrigo",
@@ -22198,7 +24111,10 @@
       17.7,
       17.7,
       0.74,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Anger, Bryan",
@@ -22236,7 +24152,10 @@
       103.0,
       103.0,
       0.74,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Santos, Cairo",
@@ -22274,7 +24193,10 @@
       104.8,
       104.8,
       0.74,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Greenard, Jonathan",
@@ -22312,7 +24234,10 @@
       37.25,
       37.25,
       0.74,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Scott, J.K.",
@@ -22350,7 +24275,10 @@
       67.0,
       67.0,
       0.73,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gage, Russell",
@@ -22388,7 +24316,10 @@
       28.92,
       28.92,
       0.73,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.19,
+      "BEAT"
     ],
     [
       "Fant, Noah",
@@ -22426,7 +24357,10 @@
       22.46,
       44.92,
       0.72,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.0,
+      "MET"
     ],
     [
       "Johnson, Theo",
@@ -22464,7 +24398,10 @@
       22.66,
       45.32,
       0.72,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.25,
+      "BEAT"
     ],
     [
       "Darnold, Sam",
@@ -22502,7 +24439,10 @@
       27.37,
       27.37,
       0.71,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.91,
+      "MET"
     ],
     [
       "Simmons, Jeffery",
@@ -22540,7 +24480,10 @@
       40.67,
       40.67,
       0.71,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "David, Lavonte",
@@ -22578,7 +24521,10 @@
       47.67,
       47.67,
       0.71,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Brooks, Jordyn",
@@ -22616,7 +24562,10 @@
       42.62,
       42.62,
       0.71,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Clement, Corey",
@@ -22654,7 +24603,10 @@
       24.9,
       24.9,
       0.7,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.36,
+      "FLOP"
     ],
     [
       "Perry, Malcolm",
@@ -22692,7 +24644,10 @@
       14.2,
       14.2,
       0.7,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.36,
+      "FLOP"
     ],
     [
       "Poyer, Jordan",
@@ -22730,7 +24685,10 @@
       34.99,
       61.23,
       0.7,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Clowney, Jadeveon",
@@ -22768,7 +24726,10 @@
       52.5,
       52.5,
       0.7,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Williams, Jamaal",
@@ -22806,7 +24767,10 @@
       15.72,
       15.72,
       0.7,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.51,
+      "BEAT+"
     ],
     [
       "Mayfield, Baker",
@@ -22844,7 +24808,10 @@
       3.35,
       8.93,
       0.7,
-      "BUST"
+      "BUST",
+      "MID",
+      0.69,
+      "MISS"
     ],
     [
       "Joseph-Day, Sebastian",
@@ -22882,7 +24849,10 @@
       85.0,
       85.0,
       0.7,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Forbes, Emmanuel",
@@ -22920,7 +24890,10 @@
       64.9,
       64.9,
       0.7,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wilson, Logan",
@@ -22958,7 +24931,10 @@
       32.33,
       32.33,
       0.7,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Adams, Tony",
@@ -22996,7 +24972,10 @@
       70.2,
       70.2,
       0.7,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Fuller, Kyle",
@@ -23034,7 +25013,10 @@
       91.3,
       91.3,
       0.69,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jordan, Cameron",
@@ -23072,7 +25054,10 @@
       65.25,
       130.5,
       0.69,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Coleman, Tevin",
@@ -23110,7 +25095,10 @@
       15.6,
       15.6,
       0.69,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.9,
+      "MET"
     ],
     [
       "Buckner, DeForest",
@@ -23148,7 +25136,10 @@
       39.17,
       39.17,
       0.69,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Alie-Cox, Mo",
@@ -23186,7 +25177,10 @@
       44.1,
       44.1,
       0.69,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.46,
+      "FLOP"
     ],
     [
       "Franklin, Zaire",
@@ -23224,7 +25218,10 @@
       79.5,
       79.5,
       0.69,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Dowdle, Rico",
@@ -23262,7 +25259,10 @@
       17.38,
       17.38,
       0.69,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.39,
+      "BEAT+"
     ],
     [
       "Anderson, Robbie",
@@ -23300,7 +25300,10 @@
       19.07,
       19.07,
       0.68,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.71,
+      "MISS"
     ],
     [
       "McKinnon, Jerick",
@@ -23338,7 +25341,10 @@
       10.69,
       10.69,
       0.68,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.03,
+      "MET"
     ],
     [
       "Campbell, De'Vondre",
@@ -23376,7 +25382,10 @@
       63.0,
       63.0,
       0.68,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Foreman, D'Onta",
@@ -23414,7 +25423,10 @@
       5.94,
       7.92,
       0.68,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.16,
+      "BEAT"
     ],
     [
       "Sermon, Trey",
@@ -23452,7 +25464,10 @@
       18.1,
       18.1,
       0.68,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.68,
+      "MISS"
     ],
     [
       "Fairbairn, Ka'imi",
@@ -23490,7 +25505,10 @@
       88.25,
       88.25,
       0.68,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Samuel, Deebo",
@@ -23528,7 +25546,10 @@
       25.76,
       25.76,
       0.68,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.47,
+      "BEAT+"
     ],
     [
       "Jones, Chris",
@@ -23566,7 +25587,10 @@
       31.33,
       31.33,
       0.67,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bell, Vonn",
@@ -23604,7 +25628,10 @@
       36.27,
       36.27,
       0.67,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Gallman, Wayne",
@@ -23642,7 +25669,10 @@
       14.7,
       14.7,
       0.67,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.3,
+      "FLOP"
     ],
     [
       "Whittington, Jordan",
@@ -23680,7 +25710,10 @@
       29.65,
       29.65,
       0.67,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.83,
+      "MISS"
     ],
     [
       "Crawshaw, Jeremy",
@@ -23718,7 +25751,10 @@
       45.17,
       67.75,
       0.67,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Watt, J.J.",
@@ -23756,7 +25792,10 @@
       20.69,
       41.38,
       0.66,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Watt, J.J.",
@@ -23794,7 +25833,10 @@
       62.25,
       62.25,
       0.66,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wagner, Bobby",
@@ -23832,7 +25874,10 @@
       81.5,
       81.5,
       0.66,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gray, Noah",
@@ -23870,7 +25915,10 @@
       79.97,
       239.9,
       0.66,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.84,
+      "MISS"
     ],
     [
       "Crowder, Jamison",
@@ -23908,7 +25956,10 @@
       20.99,
       41.97,
       0.65,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.44,
+      "BEAT+"
     ],
     [
       "Hilton, T.Y.",
@@ -23946,7 +25997,10 @@
       17.75,
       17.75,
       0.65,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.85,
+      "MISS"
     ],
     [
       "Basham, Carlos",
@@ -23984,7 +26038,10 @@
       28.5,
       28.5,
       0.65,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Okereke, Bobby",
@@ -24022,7 +26079,10 @@
       80.25,
       80.25,
       0.65,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Sweat, Montez",
@@ -24060,7 +26120,10 @@
       38.25,
       38.25,
       0.65,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hufanga, Talanoa",
@@ -24098,7 +26161,10 @@
       35.9,
       35.9,
       0.65,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Aubrey, Brandon",
@@ -24136,7 +26202,10 @@
       95.5,
       95.5,
       0.65,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hill, Taysom",
@@ -24174,7 +26243,10 @@
       24.8,
       24.8,
       0.64,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.69,
+      "MISS"
     ],
     [
       "Trubisky, Mitchell",
@@ -24212,7 +26284,10 @@
       5.27,
       5.27,
       0.64,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.72,
+      "MISS"
     ],
     [
       "Thomas, Michael",
@@ -24250,7 +26325,10 @@
       15.83,
       15.83,
       0.64,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.02,
+      "MET"
     ],
     [
       "Krull, Lucas",
@@ -24288,7 +26366,10 @@
       17.8,
       17.8,
       0.64,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.49,
+      "FLOP"
     ],
     [
       "Barrett, Shaq",
@@ -24326,7 +26407,10 @@
       34.5,
       34.5,
       0.63,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mercilus, Whitney",
@@ -24364,7 +26448,10 @@
       39.5,
       39.5,
       0.63,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Clark, Frank",
@@ -24402,7 +26489,10 @@
       56.5,
       56.5,
       0.63,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Baker, Budda",
@@ -24440,7 +26530,10 @@
       73.03,
       146.05,
       0.63,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Johnson, Juwan",
@@ -24478,7 +26571,10 @@
       71.13,
       213.4,
       0.63,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      1.59,
+      "BEAT+"
     ],
     [
       "Collins, Zaven",
@@ -24516,7 +26612,10 @@
       76.5,
       76.5,
       0.63,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gillikin, Blake",
@@ -24554,7 +26653,10 @@
       64.7,
       64.7,
       0.63,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Franklin, Zaire",
@@ -24592,7 +26694,10 @@
       42.5,
       42.5,
       0.63,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Jones, Ernest",
@@ -24630,7 +26735,10 @@
       33.25,
       33.25,
       0.63,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Hurst, Hayden",
@@ -24668,7 +26776,10 @@
       15.7,
       15.7,
       0.62,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.78,
+      "MISS"
     ],
     [
       "Bass, Tyler",
@@ -24706,7 +26817,10 @@
       74.55,
       74.55,
       0.62,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bailey, Dan",
@@ -24744,7 +26858,10 @@
       77.2,
       77.2,
       0.61,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Allen, Josh",
@@ -24782,7 +26899,10 @@
       29.58,
       295.76,
       0.61,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.84,
+      "BEAT+"
     ],
     [
       "Green, A.J.",
@@ -24820,7 +26940,10 @@
       15.1,
       15.1,
       0.61,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.63,
+      "MISS"
     ],
     [
       "Mixon, Joe",
@@ -24858,7 +26981,10 @@
       8.66,
       13.22,
       0.61,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      2.11,
+      "BEAT+"
     ],
     [
       "Darnold, Sam",
@@ -24896,7 +27022,10 @@
       55.29,
       55.29,
       0.61,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.47,
+      "BEAT+"
     ],
     [
       "Murray, Latavius",
@@ -24934,7 +27063,10 @@
       12.47,
       17.46,
       0.6,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.97,
+      "MET"
     ],
     [
       "Engram, Evan",
@@ -24972,7 +27104,10 @@
       17.72,
       17.72,
       0.6,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.13,
+      "BEAT"
     ],
     [
       "Peppers, Jabrill",
@@ -25010,7 +27145,10 @@
       72.5,
       72.5,
       0.6,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Scott, Boston",
@@ -25048,7 +27186,10 @@
       11.9,
       11.9,
       0.6,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.49,
+      "FLOP"
     ],
     [
       "Tagovailoa, Tua",
@@ -25086,7 +27227,10 @@
       6.48,
       38.0,
       0.6,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.0,
+      "MET"
     ],
     [
       "Gillikin, Blake",
@@ -25124,7 +27268,10 @@
       67.5,
       67.5,
       0.6,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Williams, Quincy",
@@ -25162,7 +27309,10 @@
       40.5,
       40.5,
       0.6,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Taylor, Tyrod",
@@ -25200,7 +27350,10 @@
       34.2,
       34.2,
       0.6,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      1.15,
+      "BEAT"
     ],
     [
       "David, Lavonte",
@@ -25238,7 +27391,10 @@
       30.06,
       60.12,
       0.59,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Wentz, Carson",
@@ -25276,7 +27432,10 @@
       51.29,
       102.58,
       0.59,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.11,
+      "MET"
     ],
     [
       "Cole, A.J.",
@@ -25314,7 +27473,10 @@
       81.5,
       81.5,
       0.59,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bosa, Joey",
@@ -25352,7 +27514,10 @@
       30.0,
       30.0,
       0.59,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Belton, Dane",
@@ -25390,7 +27555,10 @@
       74.6,
       74.6,
       0.59,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Tucker, Justin",
@@ -25428,7 +27596,10 @@
       76.28,
       228.85,
       0.58,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mosley, C.J.",
@@ -25466,7 +27637,10 @@
       74.25,
       74.25,
       0.58,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Thompson, Jalen",
@@ -25504,7 +27678,10 @@
       69.55,
       69.55,
       0.58,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Tucker, Justin",
@@ -25542,7 +27719,10 @@
       79.45,
       79.45,
       0.58,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Sutton, Courtland",
@@ -25580,7 +27760,10 @@
       19.19,
       67.16,
       0.58,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.54,
+      "BEAT+"
     ],
     [
       "Zuerlein, Greg",
@@ -25618,7 +27801,10 @@
       70.2,
       70.2,
       0.57,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Queen, Patrick",
@@ -25656,7 +27842,10 @@
       70.75,
       70.75,
       0.57,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Etienne, Travis",
@@ -25694,7 +27883,10 @@
       15.12,
       15.12,
       0.57,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.76,
+      "BEAT+"
     ],
     [
       "Hightower, Dont'a",
@@ -25732,7 +27924,10 @@
       60.5,
       60.5,
       0.56,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Davis, Demario",
@@ -25770,7 +27965,10 @@
       29.88,
       59.75,
       0.56,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Williams, Leonard",
@@ -25808,7 +28006,10 @@
       55.75,
       55.75,
       0.56,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Smith-Marsette, Ihmir",
@@ -25846,7 +28047,10 @@
       11.6,
       11.6,
       0.56,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.34,
+      "FLOP"
     ],
     [
       "Everett, Gerald",
@@ -25884,7 +28088,10 @@
       34.02,
       34.02,
       0.56,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.36,
+      "BEAT+"
     ],
     [
       "Walker, Anthony",
@@ -25922,7 +28129,10 @@
       51.5,
       51.5,
       0.56,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Delpit, Grant",
@@ -25960,7 +28170,10 @@
       62.5,
       62.5,
       0.56,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Williams, Marcus",
@@ -25998,7 +28211,10 @@
       47.9,
       47.9,
       0.56,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Phillips, Adrian",
@@ -26036,7 +28252,10 @@
       75.95,
       75.95,
       0.55,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gordon, Melvin",
@@ -26074,7 +28293,10 @@
       18.29,
       18.29,
       0.55,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.77,
+      "BEAT+"
     ],
     [
       "Peppers, Jabrill",
@@ -26112,7 +28334,10 @@
       11.28,
       11.28,
       0.55,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Firkser, Anthony",
@@ -26150,7 +28375,10 @@
       16.23,
       16.23,
       0.55,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.69,
+      "MISS"
     ],
     [
       "Kendricks, Eric",
@@ -26188,7 +28416,10 @@
       87.67,
       131.5,
       0.55,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bosa, Nick",
@@ -26226,7 +28457,10 @@
       17.1,
       34.2,
       0.55,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Dissly, Will",
@@ -26264,7 +28498,10 @@
       25.1,
       25.1,
       0.55,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.51,
+      "FLOP"
     ],
     [
       "Chinn, Jeremy",
@@ -26302,7 +28539,10 @@
       69.1,
       69.1,
       0.55,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wilson, Logan",
@@ -26340,7 +28580,10 @@
       28.5,
       28.5,
       0.55,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bell, Vonn",
@@ -26378,7 +28621,10 @@
       74.9,
       74.9,
       0.54,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jenkins, Malcolm",
@@ -26416,7 +28662,10 @@
       75.3,
       75.3,
       0.54,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Crosby, Maxx",
@@ -26454,7 +28703,10 @@
       82.75,
       165.5,
       0.54,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bourne, Kendrick",
@@ -26492,7 +28744,10 @@
       14.33,
       14.33,
       0.54,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.61,
+      "MISS"
     ],
     [
       "Brissett, Jacoby",
@@ -26530,7 +28785,10 @@
       6.18,
       6.18,
       0.54,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.63,
+      "MISS"
     ],
     [
       "Hunter, Danielle",
@@ -26568,7 +28826,10 @@
       34.12,
       68.25,
       0.54,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Smith, Roquan",
@@ -26606,7 +28867,10 @@
       23.68,
       65.12,
       0.54,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Cunningham, Zach",
@@ -26644,7 +28908,10 @@
       28.9,
       28.9,
       0.53,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Tate, Golden",
@@ -26682,7 +28949,10 @@
       18.82,
       18.82,
       0.53,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.84,
+      "MISS"
     ],
     [
       "Gregory, Randy",
@@ -26720,7 +28990,10 @@
       25.0,
       25.0,
       0.53,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Simmons, Isaiah",
@@ -26758,7 +29031,10 @@
       65.5,
       65.5,
       0.53,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Sanders, Emmanuel",
@@ -26796,7 +29072,10 @@
       20.91,
       41.83,
       0.52,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.16,
+      "BEAT"
     ],
     [
       "Collins, Jamie",
@@ -26834,7 +29113,10 @@
       40.5,
       40.5,
       0.52,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "David, Lavonte",
@@ -26872,7 +29154,10 @@
       66.25,
       66.25,
       0.52,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hines, Nyheim",
@@ -26910,7 +29195,10 @@
       11.15,
       11.15,
       0.52,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.86,
+      "MISS"
     ],
     [
       "Warner, Fred",
@@ -26948,7 +29236,10 @@
       23.94,
       47.88,
       0.52,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Jordan, Cameron",
@@ -26986,7 +29277,10 @@
       21.7,
       21.7,
       0.51,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Kirksey, Christian",
@@ -27024,7 +29318,10 @@
       18.75,
       18.75,
       0.51,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Fowler, Dante",
@@ -27062,7 +29359,10 @@
       19.0,
       19.0,
       0.51,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "White, James",
@@ -27100,7 +29400,10 @@
       2.19,
       3.4,
       0.51,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.48,
+      "BEAT+"
     ],
     [
       "McKissic, J.D.",
@@ -27138,7 +29441,10 @@
       12.61,
       12.61,
       0.51,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.67,
+      "BEAT+"
     ],
     [
       "Turay, Kemoko",
@@ -27176,7 +29482,10 @@
       41.0,
       41.0,
       0.51,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hyde, Micah",
@@ -27214,7 +29523,10 @@
       7.6,
       7.6,
       0.51,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Winston, Jameis",
@@ -27252,7 +29564,10 @@
       1.91,
       5.42,
       0.51,
-      "BUST"
+      "BUST",
+      "MID",
+      0.41,
+      "FLOP"
     ],
     [
       "Jackson, Eddie",
@@ -27290,7 +29605,10 @@
       48.8,
       48.8,
       0.51,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Okereke, Bobby",
@@ -27328,7 +29646,10 @@
       25.38,
       25.38,
       0.51,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Metellus, Josh",
@@ -27366,7 +29687,10 @@
       80.23,
       120.35,
       0.51,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Williams, Quincy",
@@ -27404,7 +29728,10 @@
       22.75,
       22.75,
       0.51,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Gadsden, Oronde",
@@ -27442,7 +29769,10 @@
       39.88,
       39.88,
       0.51,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.7,
+      "BEAT+"
     ],
     [
       "Martinez, Blake",
@@ -27480,7 +29810,10 @@
       16.4,
       32.8,
       0.5,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Thomas, Daniel",
@@ -27518,7 +29851,10 @@
       24.9,
       24.9,
       0.5,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Sanders, Jason",
@@ -27556,7 +29892,10 @@
       63.25,
       63.25,
       0.5,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Holcomb, Cole",
@@ -27594,7 +29933,10 @@
       28.0,
       28.0,
       0.5,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Milano, Matt",
@@ -27632,7 +29974,10 @@
       19.25,
       19.25,
       0.5,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Valdes-Scantling, Marquez",
@@ -27670,7 +30015,10 @@
       19.77,
       19.77,
       0.5,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.73,
+      "MISS"
     ],
     [
       "Lockett, Tyler",
@@ -27708,7 +30056,10 @@
       40.28,
       50.35,
       0.5,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.68,
+      "MISS"
     ],
     [
       "Reynolds, Josh",
@@ -27746,7 +30097,10 @@
       12.63,
       12.63,
       0.5,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      0.93,
+      "MET"
     ],
     [
       "Chubb, Bradley",
@@ -27784,7 +30138,10 @@
       25.12,
       33.5,
       0.5,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bates, Jessie",
@@ -27822,7 +30179,10 @@
       67.5,
       67.5,
       0.5,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Spillane, Robert",
@@ -27860,7 +30220,10 @@
       24.25,
       24.25,
       0.5,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Love, Julian",
@@ -27898,7 +30261,10 @@
       29.35,
       29.35,
       0.5,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Brate, Cameron",
@@ -27936,7 +30302,10 @@
       20.0,
       20.0,
       0.49,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.66,
+      "MISS"
     ],
     [
       "Gardner, Ahmad",
@@ -27974,7 +30343,10 @@
       60.35,
       60.35,
       0.49,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bass, Tyler",
@@ -28012,7 +30384,10 @@
       33.6,
       67.2,
       0.49,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Edwards, T.J.",
@@ -28050,7 +30425,10 @@
       41.2,
       51.5,
       0.49,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Hendrickson, Trey",
@@ -28088,7 +30466,10 @@
       14.33,
       14.33,
       0.49,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ekeler, Austin",
@@ -28126,7 +30507,10 @@
       1.64,
       1.64,
       0.49,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.94,
+      "MET"
     ],
     [
       "Bojorquez, Corey",
@@ -28164,7 +30548,10 @@
       49.5,
       49.5,
       0.49,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Johnson, John",
@@ -28202,7 +30589,10 @@
       22.8,
       22.8,
       0.48,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Butker, Harrison",
@@ -28240,7 +30630,10 @@
       30.43,
       45.65,
       0.48,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ryan, Matt",
@@ -28278,7 +30671,10 @@
       6.74,
       6.74,
       0.48,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.77,
+      "MISS"
     ],
     [
       "Conner, James",
@@ -28316,7 +30712,10 @@
       7.64,
       15.28,
       0.48,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.76,
+      "BEAT+"
     ],
     [
       "Ekeler, Austin",
@@ -28354,7 +30753,10 @@
       8.86,
       8.86,
       0.48,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.41,
+      "BEAT+"
     ],
     [
       "Rousseau, Gregory",
@@ -28392,7 +30794,10 @@
       31.83,
       31.83,
       0.48,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Boone, Mike",
@@ -28430,7 +30835,10 @@
       18.5,
       18.5,
       0.47,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.24,
+      "FLOP"
     ],
     [
       "Cooks, Brandin",
@@ -28468,7 +30876,10 @@
       19.99,
       59.98,
       0.47,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.39,
+      "BEAT+"
     ],
     [
       "Bailey, Jake",
@@ -28506,7 +30917,10 @@
       50.0,
       50.0,
       0.47,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cousins, Kirk",
@@ -28544,7 +30958,10 @@
       6.96,
       20.89,
       0.47,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.0,
+      "MET"
     ],
     [
       "White, Devin",
@@ -28582,7 +30999,10 @@
       47.75,
       47.75,
       0.47,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Curl, Kamren",
@@ -28620,7 +31040,10 @@
       60.1,
       60.1,
       0.47,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bonitto, Nik",
@@ -28658,7 +31081,10 @@
       31.38,
       31.38,
       0.47,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Cooper, Edgerrin",
@@ -28696,7 +31122,10 @@
       27.88,
       27.88,
       0.47,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Okwara, Romeo",
@@ -28734,7 +31163,10 @@
       11.5,
       11.5,
       0.46,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jewell, Josey",
@@ -28772,7 +31204,10 @@
       53.0,
       53.0,
       0.46,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Davis, Gabriel",
@@ -28810,7 +31245,10 @@
       14.62,
       14.62,
       0.46,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.62,
+      "MISS"
     ],
     [
       "Hendrickson, Trey",
@@ -28848,7 +31286,10 @@
       40.0,
       40.0,
       0.45,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Judon, Matt",
@@ -28886,7 +31327,10 @@
       67.5,
       67.5,
       0.45,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Parkinson, Colby",
@@ -28924,7 +31368,10 @@
       16.95,
       16.95,
       0.45,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.63,
+      "MISS"
     ],
     [
       "Brown, Derrick",
@@ -28962,7 +31409,10 @@
       2.5,
       2.5,
       0.45,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Pollard, Tony",
@@ -29000,7 +31450,10 @@
       11.42,
       22.85,
       0.44,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.37,
+      "BEAT+"
     ],
     [
       "Wagner, Bobby",
@@ -29038,7 +31491,10 @@
       24.58,
       49.17,
       0.43,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Yeboah, Kenny",
@@ -29076,7 +31532,10 @@
       7.0,
       7.0,
       0.43,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.15,
+      "FLOP"
     ],
     [
       "Ryan, Logan",
@@ -29114,7 +31573,10 @@
       28.8,
       28.8,
       0.43,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Kearse, Jayron",
@@ -29152,7 +31614,10 @@
       41.4,
       41.4,
       0.43,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Lazard, Allen",
@@ -29190,7 +31655,10 @@
       9.88,
       29.64,
       0.43,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.85,
+      "MISS"
     ],
     [
       "Hubbard, Sam",
@@ -29228,7 +31696,10 @@
       38.17,
       38.17,
       0.43,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jones, Chris",
@@ -29266,7 +31737,10 @@
       58.83,
       88.25,
       0.43,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Marshall, Terrace",
@@ -29304,7 +31778,10 @@
       8.5,
       8.5,
       0.43,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.45,
+      "FLOP"
     ],
     [
       "Godwin, Chris",
@@ -29342,7 +31819,10 @@
       8.72,
       8.72,
       0.43,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.17,
+      "BEAT"
     ],
     [
       "Campbell, Calais",
@@ -29380,7 +31860,10 @@
       13.1,
       13.1,
       0.42,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Perriman, Breshad",
@@ -29418,7 +31901,10 @@
       6.4,
       6.4,
       0.42,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.55,
+      "FLOP"
     ],
     [
       "Chubb, Bradley",
@@ -29456,7 +31942,10 @@
       21.0,
       21.0,
       0.42,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Williams, Darrel",
@@ -29494,7 +31983,10 @@
       3.65,
       3.65,
       0.42,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.52,
+      "FLOP"
     ],
     [
       "Gregory, Randy",
@@ -29532,7 +32024,10 @@
       48.5,
       48.5,
       0.42,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Newton, Cam",
@@ -29570,7 +32065,10 @@
       35.8,
       35.8,
       0.41,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.93,
+      "MET"
     ],
     [
       "Warner, Fred",
@@ -29608,7 +32106,10 @@
       28.89,
       91.5,
       0.41,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Carr, Derek",
@@ -29646,7 +32147,10 @@
       8.17,
       19.56,
       0.41,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.89,
+      "MET"
     ],
     [
       "Bates, Jessie",
@@ -29684,7 +32188,10 @@
       45.95,
       45.95,
       0.41,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Walker, Tracy",
@@ -29722,7 +32229,10 @@
       9.33,
       9.33,
       0.41,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Brisker, Jaquan",
@@ -29760,7 +32270,10 @@
       55.25,
       55.25,
       0.41,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Fiske, Braden",
@@ -29798,7 +32311,10 @@
       44.0,
       44.0,
       0.41,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Drake, Kenyan",
@@ -29836,7 +32352,10 @@
       7.12,
       10.68,
       0.4,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.29,
+      "BEAT"
     ],
     [
       "Ogbah, Emmanuel",
@@ -29874,7 +32393,10 @@
       22.5,
       22.5,
       0.4,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Grugier-Hill, Kamu",
@@ -29912,7 +32434,10 @@
       45.1,
       45.1,
       0.4,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Minshew, Gardner",
@@ -29950,7 +32475,10 @@
       22.66,
       22.66,
       0.4,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.69,
+      "MISS"
     ],
     [
       "Dugger, Kyle",
@@ -29988,7 +32516,10 @@
       37.73,
       37.73,
       0.4,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Johnston, Cam",
@@ -30026,7 +32557,10 @@
       10.0,
       10.0,
       0.4,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Swift, D'Andre",
@@ -30064,7 +32598,10 @@
       10.18,
       10.18,
       0.4,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.7,
+      "BEAT+"
     ],
     [
       "Felton, Tai",
@@ -30102,7 +32639,10 @@
       16.6,
       16.6,
       0.4,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.2,
+      "FLOP"
     ],
     [
       "Jeffery, Alshon",
@@ -30140,7 +32680,10 @@
       8.17,
       8.17,
       0.39,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.69,
+      "MISS"
     ],
     [
       "Thompson, Chris",
@@ -30178,7 +32721,10 @@
       7.92,
       7.92,
       0.39,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.72,
+      "MISS"
     ],
     [
       "Hewitt, Neville",
@@ -30216,7 +32762,10 @@
       44.5,
       44.5,
       0.39,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Edwards, Gus",
@@ -30254,7 +32803,10 @@
       4.88,
       7.06,
       0.39,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.14,
+      "BEAT"
     ],
     [
       "Byard, Kevin",
@@ -30292,7 +32844,10 @@
       46.97,
       46.97,
       0.39,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ridley, Calvin",
@@ -30330,7 +32885,10 @@
       5.42,
       26.49,
       0.39,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.14,
+      "BEAT"
     ],
     [
       "Greenard, Jonathan",
@@ -30368,7 +32926,10 @@
       17.0,
       17.0,
       0.39,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Harvin, Pressley",
@@ -30406,7 +32967,10 @@
       43.0,
       43.0,
       0.39,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "James, Richie",
@@ -30444,7 +33008,10 @@
       7.5,
       7.5,
       0.39,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.41,
+      "FLOP"
     ],
     [
       "Wilson, Russell",
@@ -30482,7 +33049,10 @@
       22.7,
       35.67,
       0.39,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.95,
+      "MET"
     ],
     [
       "Delpit, Grant",
@@ -30520,7 +33090,10 @@
       46.03,
       46.03,
       0.39,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cross, Nick",
@@ -30558,7 +33131,10 @@
       52.4,
       52.4,
       0.39,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Brown, Malcolm",
@@ -30596,7 +33172,10 @@
       18.54,
       21.63,
       0.38,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.86,
+      "MISS"
     ],
     [
       "Crosby, Maxx",
@@ -30634,7 +33213,10 @@
       16.3,
       16.3,
       0.38,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Pierre-Paul, Jason",
@@ -30672,7 +33254,10 @@
       29.0,
       29.0,
       0.38,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Miller, Von",
@@ -30710,7 +33295,10 @@
       26.17,
       26.17,
       0.38,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Goedert, Dallas",
@@ -30748,7 +33336,10 @@
       32.27,
       32.27,
       0.38,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      2.25,
+      "BEAT+"
     ],
     [
       "Brown, Dyami",
@@ -30786,7 +33377,10 @@
       13.35,
       13.35,
       0.38,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.41,
+      "FLOP"
     ],
     [
       "Ozigbo, Devine",
@@ -30824,7 +33418,10 @@
       6.8,
       6.8,
       0.37,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.38,
+      "FLOP"
     ],
     [
       "Reddick, Haason",
@@ -30862,7 +33459,10 @@
       34.38,
       34.38,
       0.37,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Bell, Vonn",
@@ -30900,7 +33500,10 @@
       41.97,
       41.97,
       0.37,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Tannehill, Ryan",
@@ -30938,7 +33541,10 @@
       12.76,
       12.76,
       0.37,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.43,
+      "FLOP"
     ],
     [
       "Oluokun, Foyesade",
@@ -30976,7 +33582,10 @@
       20.3,
       20.3,
       0.37,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Ford, Jerome",
@@ -31014,7 +33623,10 @@
       8.1,
       8.1,
       0.37,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.54,
+      "FLOP"
     ],
     [
       "Jones, Chandler",
@@ -31052,7 +33664,10 @@
       6.5,
       6.5,
       0.36,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Myers, Jason",
@@ -31090,7 +33705,10 @@
       49.55,
       49.55,
       0.36,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Williams, Mike",
@@ -31128,7 +33746,10 @@
       19.3,
       19.3,
       0.36,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.67,
+      "MISS"
     ],
     [
       "Brown, Marquise",
@@ -31166,7 +33787,10 @@
       9.68,
       19.35,
       0.36,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.98,
+      "MET"
     ],
     [
       "Franklin, Zaire",
@@ -31204,7 +33828,10 @@
       21.5,
       21.5,
       0.36,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Bateman, Rashod",
@@ -31242,7 +33869,10 @@
       11.76,
       11.76,
       0.36,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.48,
+      "FLOP"
     ],
     [
       "Fitzgerald, Larry",
@@ -31280,7 +33910,10 @@
       13.36,
       13.36,
       0.35,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.88,
+      "MET"
     ],
     [
       "Kwiatkoski, Nick",
@@ -31318,7 +33951,10 @@
       20.3,
       20.3,
       0.35,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Davis, Mike",
@@ -31356,7 +33992,10 @@
       4.0,
       4.0,
       0.35,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.1,
+      "FLOP"
     ],
     [
       "White, Kyzir",
@@ -31394,7 +34033,10 @@
       44.75,
       44.75,
       0.35,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hooper, Austin",
@@ -31432,7 +34074,10 @@
       43.3,
       43.3,
       0.35,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.44,
+      "FLOP"
     ],
     [
       "Holland, Jevon",
@@ -31470,7 +34115,10 @@
       38.25,
       38.25,
       0.35,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Bynum, Camryn",
@@ -31508,7 +34156,10 @@
       43.73,
       43.73,
       0.35,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Simmons, Justin",
@@ -31546,7 +34197,10 @@
       56.39,
       131.57,
       0.34,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Littleton, Cory",
@@ -31584,7 +34238,10 @@
       16.12,
       16.12,
       0.34,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Kendricks, Eric",
@@ -31622,7 +34279,10 @@
       38.75,
       38.75,
       0.34,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "McKinney, Benardrick",
@@ -31660,7 +34320,10 @@
       24.0,
       24.0,
       0.34,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Perryman, Denzel",
@@ -31698,7 +34361,10 @@
       33.0,
       33.0,
       0.34,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Fitzpatrick, Minkah",
@@ -31736,7 +34402,10 @@
       35.95,
       35.95,
       0.34,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Blackmon, Julian",
@@ -31774,7 +34443,10 @@
       33.3,
       33.3,
       0.34,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "McPherson, Evan",
@@ -31812,7 +34484,10 @@
       40.0,
       40.0,
       0.34,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mosley, C.J.",
@@ -31850,7 +34525,10 @@
       39.12,
       52.17,
       0.34,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Henry, Derrick",
@@ -31888,7 +34566,10 @@
       9.21,
       18.41,
       0.34,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.31,
+      "BEAT"
     ],
     [
       "Kupp, Cooper",
@@ -31926,7 +34607,10 @@
       13.02,
       13.02,
       0.34,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.84,
+      "MISS"
     ],
     [
       "Johnson, John",
@@ -31964,7 +34648,10 @@
       44.77,
       44.77,
       0.33,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Edmunds, Tremaine",
@@ -32002,7 +34689,10 @@
       33.17,
       33.17,
       0.33,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Granson, Kylen",
@@ -32040,7 +34730,10 @@
       11.2,
       11.2,
       0.33,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.23,
+      "FLOP"
     ],
     [
       "Heyward, Cameron",
@@ -32078,7 +34771,10 @@
       44.0,
       44.0,
       0.33,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Smith, Harrison",
@@ -32116,7 +34812,10 @@
       34.88,
       34.88,
       0.33,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Dickson, Michael",
@@ -32154,7 +34853,10 @@
       36.7,
       73.4,
       0.33,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Gay, Matt",
@@ -32192,7 +34894,10 @@
       41.43,
       41.43,
       0.33,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Kamara, Alvin",
@@ -32230,7 +34935,10 @@
       6.9,
       13.79,
       0.33,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.99,
+      "MET"
     ],
     [
       "Garrett, Myles",
@@ -32268,7 +34976,10 @@
       20.72,
       41.44,
       0.33,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Thompson, Jalen",
@@ -32306,7 +35017,10 @@
       36.47,
       36.47,
       0.33,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Kmet, Cole",
@@ -32344,7 +35058,10 @@
       10.23,
       23.88,
       0.33,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.03,
+      "MET"
     ],
     [
       "Ingram, Melvin",
@@ -32382,7 +35099,10 @@
       6.33,
       6.33,
       0.32,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Washington, DeAndre",
@@ -32420,7 +35140,10 @@
       3.3,
       3.3,
       0.32,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.59,
+      "FLOP"
     ],
     [
       "Green, A.J.",
@@ -32458,7 +35181,10 @@
       14.79,
       14.79,
       0.32,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.01,
+      "MET"
     ],
     [
       "Woods, Robert",
@@ -32496,7 +35222,10 @@
       9.08,
       9.08,
       0.32,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.69,
+      "MISS"
     ],
     [
       "Love, Julian",
@@ -32534,7 +35263,10 @@
       43.45,
       43.45,
       0.32,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Diggs, Stefon",
@@ -32572,7 +35304,10 @@
       8.09,
       8.09,
       0.32,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.51,
+      "BEAT+"
     ],
     [
       "Montgomery, David",
@@ -32610,7 +35345,10 @@
       6.06,
       8.48,
       0.32,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.16,
+      "BEAT"
     ],
     [
       "Jones, Marvin",
@@ -32648,7 +35386,10 @@
       18.1,
       28.96,
       0.31,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.0,
+      "MET"
     ],
     [
       "Jones, Deion",
@@ -32686,7 +35427,10 @@
       33.25,
       33.25,
       0.31,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Smith-Schuster, JuJu",
@@ -32724,7 +35468,10 @@
       18.74,
       21.23,
       0.31,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.77,
+      "MISS"
     ],
     [
       "Brissett, Jacoby",
@@ -32762,7 +35509,10 @@
       14.17,
       14.17,
       0.31,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.54,
+      "FLOP"
     ],
     [
       "McKinnon, Jerick",
@@ -32800,7 +35550,10 @@
       8.03,
       8.03,
       0.3,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.4,
+      "FLOP"
     ],
     [
       "Ahmed, Salvon",
@@ -32838,7 +35591,10 @@
       7.92,
       7.92,
       0.3,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.48,
+      "FLOP"
     ],
     [
       "Hooper, Austin",
@@ -32876,7 +35632,10 @@
       19.08,
       19.08,
       0.3,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.9,
+      "MET"
     ],
     [
       "Engram, Evan",
@@ -32914,7 +35673,10 @@
       24.26,
       16.79,
       0.3,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.82,
+      "MISS"
     ],
     [
       "Jones, Brandon",
@@ -32952,7 +35714,10 @@
       34.97,
       34.97,
       0.3,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Jack, Myles",
@@ -32990,7 +35755,10 @@
       43.25,
       57.67,
       0.29,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Singleton, Alex",
@@ -33028,7 +35796,10 @@
       33.0,
       33.0,
       0.29,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Quinn, Robert",
@@ -33066,7 +35837,10 @@
       21.5,
       21.5,
       0.29,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Conner, James",
@@ -33104,7 +35878,10 @@
       5.08,
       10.16,
       0.29,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.03,
+      "MET"
     ],
     [
       "Michel, Sony",
@@ -33142,7 +35919,10 @@
       4.15,
       4.15,
       0.29,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.36,
+      "FLOP"
     ],
     [
       "Oluokun, Foyesade",
@@ -33180,7 +35960,10 @@
       36.8,
       73.6,
       0.29,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Brady, Tom",
@@ -33218,7 +36001,10 @@
       5.37,
       5.37,
       0.29,
-      "PRICEY"
+      "PRICEY",
+      "STUD",
+      1.0,
+      "MET"
     ],
     [
       "Mixon, Joe",
@@ -33256,7 +36042,10 @@
       5.98,
       5.98,
       0.29,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.02,
+      "MET"
     ],
     [
       "Williams, Trayveon",
@@ -33294,7 +36083,10 @@
       6.08,
       6.08,
       0.29,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.22,
+      "FLOP"
     ],
     [
       "Jones, Zay",
@@ -33332,7 +36124,10 @@
       9.4,
       9.4,
       0.29,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.18,
+      "FLOP"
     ],
     [
       "Crosby, Maxx",
@@ -33370,7 +36165,10 @@
       18.05,
       18.05,
       0.29,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Edelman, Julian",
@@ -33408,7 +36206,10 @@
       3.21,
       4.95,
       0.28,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.0,
+      "MET"
     ],
     [
       "Barrett, Shaq",
@@ -33446,7 +36247,10 @@
       29.5,
       29.5,
       0.28,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Hopkins, DeAndre",
@@ -33484,7 +36288,10 @@
       6.05,
       12.09,
       0.28,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.96,
+      "MET"
     ],
     [
       "Ekeler, Austin",
@@ -33522,7 +36329,10 @@
       6.4,
       6.4,
       0.28,
-      "PRICEY"
+      "PRICEY",
+      "STUD",
+      1.0,
+      "MET"
     ],
     [
       "Gardner-Johnson, Chauncey",
@@ -33560,7 +36370,10 @@
       4.85,
       4.85,
       0.28,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Hopkins, DeAndre",
@@ -33598,7 +36411,10 @@
       14.09,
       14.09,
       0.28,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.91,
+      "MET"
     ],
     [
       "Winfield, Antoine",
@@ -33636,7 +36452,10 @@
       112.0,
       56.0,
       0.28,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Diggs, Stefon",
@@ -33674,7 +36493,10 @@
       11.25,
       11.25,
       0.28,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.32,
+      "BEAT"
     ],
     [
       "McCaffrey, Christian",
@@ -33712,7 +36534,10 @@
       7.42,
       7.42,
       0.28,
-      "PRICEY"
+      "PRICEY",
+      "STUD",
+      1.14,
+      "BEAT"
     ],
     [
       "Milton, Joe",
@@ -33750,7 +36575,10 @@
       8.2,
       8.2,
       0.28,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.27,
+      "FLOP"
     ],
     [
       "Jones, Marvin",
@@ -33788,7 +36616,10 @@
       11.93,
       11.93,
       0.27,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.26,
+      "BEAT"
     ],
     [
       "Perriman, Breshad",
@@ -33826,7 +36657,10 @@
       8.89,
       8.89,
       0.27,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.83,
+      "MISS"
     ],
     [
       "Collins, Landon",
@@ -33864,7 +36698,10 @@
       24.39,
       48.77,
       0.27,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Tranquill, Drue",
@@ -33902,7 +36739,10 @@
       1.0,
       1.0,
       0.27,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Evans, Mike",
@@ -33940,7 +36780,10 @@
       7.22,
       14.44,
       0.27,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.09,
+      "MET"
     ],
     [
       "Fournette, Leonard",
@@ -33978,7 +36821,10 @@
       5.78,
       5.78,
       0.27,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.0,
+      "MET"
     ],
     [
       "Allen, Keenan",
@@ -34016,7 +36862,10 @@
       8.89,
       17.78,
       0.27,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.14,
+      "BEAT"
     ],
     [
       "Luvu, Frankie",
@@ -34054,7 +36903,10 @@
       33.0,
       33.0,
       0.27,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Baker, Budda",
@@ -34092,7 +36944,10 @@
       33.58,
       33.58,
       0.27,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "James, Derwin",
@@ -34130,7 +36985,10 @@
       36.05,
       36.05,
       0.27,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Howard, O.J.",
@@ -34168,7 +37026,10 @@
       8.88,
       8.88,
       0.26,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.33,
+      "FLOP"
     ],
     [
       "Coutee, Keke",
@@ -34206,7 +37067,10 @@
       1.5,
       1.5,
       0.26,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.16,
+      "FLOP"
     ],
     [
       "Baker, Jerome",
@@ -34244,7 +37108,10 @@
       28.12,
       56.25,
       0.26,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Henry, Hunter",
@@ -34282,7 +37149,10 @@
       31.67,
       47.5,
       0.26,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.24,
+      "BEAT"
     ],
     [
       "Martinez, Blake",
@@ -34320,7 +37190,10 @@
       8.5,
       8.5,
       0.26,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Byard, Kevin",
@@ -34358,7 +37231,10 @@
       34.5,
       34.5,
       0.26,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "McLaurin, Terry",
@@ -34396,7 +37272,10 @@
       5.91,
       5.91,
       0.26,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.17,
+      "BEAT"
     ],
     [
       "Rodgers, Aaron",
@@ -34434,7 +37313,10 @@
       37.46,
       37.46,
       0.26,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.06,
+      "MET"
     ],
     [
       "Flacco, Joe",
@@ -34472,7 +37354,10 @@
       30.25,
       30.25,
       0.26,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.92,
+      "MET"
     ],
     [
       "Walker, Tracy",
@@ -34510,7 +37395,10 @@
       32.73,
       32.73,
       0.25,
-      "PRICEY"
+      "PRICEY",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Campbell, De'Vondre",
@@ -34548,7 +37436,10 @@
       23.88,
       23.88,
       0.25,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Hunt, Kareem",
@@ -34586,7 +37477,10 @@
       5.57,
       5.57,
       0.25,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.84,
+      "MISS"
     ],
     [
       "Burns, Brian",
@@ -34624,7 +37518,10 @@
       29.9,
       89.7,
       0.25,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "McIntosh, Kenny",
@@ -34662,7 +37559,10 @@
       4.8,
       6.0,
       0.25,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.19,
+      "FLOP"
     ],
     [
       "Love, Julian",
@@ -34700,7 +37600,10 @@
       31.26,
       31.26,
       0.25,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Robinson, Allen",
@@ -34738,7 +37641,10 @@
       4.26,
       4.26,
       0.24,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.83,
+      "MISS"
     ],
     [
       "Godwin, Chris",
@@ -34776,7 +37682,10 @@
       6.79,
       13.57,
       0.24,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.98,
+      "MET"
     ],
     [
       "Tipton, Mason",
@@ -34814,7 +37723,10 @@
       8.27,
       8.27,
       0.24,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.46,
+      "FLOP"
     ],
     [
       "Mullings, Kalel",
@@ -34852,7 +37764,10 @@
       3.1,
       3.1,
       0.24,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.08,
+      "FLOP"
     ],
     [
       "Miller, Lamar",
@@ -34890,7 +37805,10 @@
       0.6,
       0.6,
       0.23,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.35,
+      "FLOP"
     ],
     [
       "Hilton, T.Y.",
@@ -34928,7 +37846,10 @@
       9.49,
       9.49,
       0.23,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.07,
+      "MET"
     ],
     [
       "Murray, Eric",
@@ -34966,7 +37887,10 @@
       26.7,
       26.7,
       0.23,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Reddick, Haason",
@@ -35004,7 +37928,10 @@
       28.12,
       28.12,
       0.23,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Rice, Monty",
@@ -35042,7 +37969,10 @@
       21.5,
       21.5,
       0.23,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Davis, Malik",
@@ -35080,7 +38010,10 @@
       1.0,
       1.0,
       0.23,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.06,
+      "FLOP"
     ],
     [
       "Thielen, Adam",
@@ -35118,7 +38051,10 @@
       8.53,
       8.53,
       0.23,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.25,
+      "FLOP"
     ],
     [
       "Ross, John",
@@ -35156,7 +38092,10 @@
       1.95,
       1.95,
       0.22,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.26,
+      "FLOP"
     ],
     [
       "Baker, Budda",
@@ -35194,7 +38133,10 @@
       11.49,
       22.98,
       0.22,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      null,
+      "\u2014"
     ],
     [
       "Funk, Jake",
@@ -35232,7 +38174,10 @@
       4.3,
       4.3,
       0.22,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.1,
+      "FLOP"
     ],
     [
       "Fitzpatrick, Minkah",
@@ -35270,7 +38215,10 @@
       24.6,
       49.2,
       0.22,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Evans, Mike",
@@ -35308,7 +38256,10 @@
       6.79,
       13.58,
       0.22,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.52,
+      "BEAT+"
     ],
     [
       "Wilson, Johnny",
@@ -35346,7 +38297,10 @@
       9.8,
       9.8,
       0.22,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.14,
+      "FLOP"
     ],
     [
       "Hunter, Danielle",
@@ -35384,7 +38338,10 @@
       9.25,
       9.25,
       0.21,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Watt, T.J.",
@@ -35422,7 +38379,10 @@
       20.39,
       20.39,
       0.21,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Mack, Marlon",
@@ -35460,7 +38420,10 @@
       2.74,
       2.74,
       0.21,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.33,
+      "FLOP"
     ],
     [
       "Kiser, Micah",
@@ -35498,7 +38461,10 @@
       15.0,
       15.0,
       0.21,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Donald, Aaron",
@@ -35536,7 +38502,10 @@
       23.7,
       23.7,
       0.21,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Elliott, Ezekiel",
@@ -35574,7 +38543,10 @@
       5.36,
       5.36,
       0.21,
-      "BUST"
+      "BUST",
+      "MID",
+      0.43,
+      "FLOP"
     ],
     [
       "Moore, D.J.",
@@ -35612,7 +38584,10 @@
       8.5,
       8.5,
       0.21,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.05,
+      "MET"
     ],
     [
       "Wilson, Russell",
@@ -35650,7 +38625,10 @@
       9.68,
       29.04,
       0.2,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.96,
+      "MET"
     ],
     [
       "Singletary, Devin",
@@ -35688,7 +38666,10 @@
       4.58,
       4.58,
       0.2,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.75,
+      "MISS"
     ],
     [
       "Smith, Jonnu",
@@ -35726,7 +38707,10 @@
       17.48,
       17.48,
       0.2,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.99,
+      "MET"
     ],
     [
       "Peterson, Adrian",
@@ -35764,7 +38748,10 @@
       7.37,
       7.37,
       0.19,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.81,
+      "MISS"
     ],
     [
       "Cross, Nick",
@@ -35802,7 +38789,10 @@
       23.1,
       23.1,
       0.19,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Hurst, Hayden",
@@ -35840,7 +38830,10 @@
       14.93,
       14.93,
       0.19,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.74,
+      "MISS"
     ],
     [
       "Adams, Davante",
@@ -35878,7 +38871,10 @@
       6.79,
       15.85,
       0.19,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.09,
+      "MET"
     ],
     [
       "Johnson, Roschon",
@@ -35916,7 +38912,10 @@
       2.25,
       2.25,
       0.19,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.19,
+      "FLOP"
     ],
     [
       "Woods, Robert",
@@ -35954,7 +38953,10 @@
       8.02,
       8.02,
       0.18,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.02,
+      "MET"
     ],
     [
       "Jarwin, Blake",
@@ -35992,7 +38994,10 @@
       5.9,
       7.08,
       0.18,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.66,
+      "MISS"
     ],
     [
       "Brown, Jayon",
@@ -36030,7 +39035,10 @@
       13.0,
       13.0,
       0.18,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Watt, T.J.",
@@ -36068,7 +39076,10 @@
       20.88,
       62.62,
       0.18,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Leonard, Shaquille",
@@ -36106,7 +39117,10 @@
       17.62,
       17.62,
       0.18,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Mostert, Raheem",
@@ -36144,7 +39158,10 @@
       3.61,
       3.61,
       0.18,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.66,
+      "MISS"
     ],
     [
       "Harris, Najee",
@@ -36182,7 +39199,10 @@
       0.91,
       0.91,
       0.18,
-      "BUST"
+      "BUST",
+      "MID",
+      0.43,
+      "FLOP"
     ],
     [
       "Pickett, Kenny",
@@ -36220,7 +39240,10 @@
       8.7,
       8.7,
       0.18,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.17,
+      "FLOP"
     ],
     [
       "Dissly, Will",
@@ -36258,7 +39281,10 @@
       12.4,
       12.4,
       0.17,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      0.61,
+      "MISS"
     ],
     [
       "Johnson, David",
@@ -36296,7 +39322,10 @@
       4.57,
       4.57,
       0.17,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.67,
+      "MISS"
     ],
     [
       "Rodgers, Aaron",
@@ -36334,7 +39363,10 @@
       9.05,
       18.11,
       0.17,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.12,
+      "BEAT"
     ],
     [
       "Jordan, Cameron",
@@ -36372,7 +39404,10 @@
       20.33,
       20.33,
       0.17,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Drake, Kenyan",
@@ -36410,7 +39445,10 @@
       0.68,
       0.68,
       0.17,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.13,
+      "FLOP"
     ],
     [
       "Prescott, Dak",
@@ -36448,7 +39486,10 @@
       7.67,
       23.02,
       0.16,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.22,
+      "BEAT"
     ],
     [
       "Cunningham, Zach",
@@ -36486,7 +39527,10 @@
       15.1,
       15.1,
       0.16,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Chandler, Ty",
@@ -36524,7 +39568,10 @@
       4.23,
       4.23,
       0.16,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.35,
+      "FLOP"
     ],
     [
       "Stafford, Matthew",
@@ -36562,7 +39609,10 @@
       24.41,
       24.41,
       0.16,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.55,
+      "BEAT+"
     ],
     [
       "Boyd, Tyler",
@@ -36600,7 +39650,10 @@
       9.42,
       28.71,
       0.15,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.9,
+      "MET"
     ],
     [
       "Wilson, Eric",
@@ -36638,7 +39691,10 @@
       13.33,
       13.33,
       0.15,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Smith Jr., Irv",
@@ -36676,7 +39732,10 @@
       4.74,
       11.26,
       0.15,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.7,
+      "MISS"
     ],
     [
       "Burks, Treylon",
@@ -36714,7 +39773,10 @@
       2.4,
       2.4,
       0.15,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.2,
+      "FLOP"
     ],
     [
       "Hubbard, Chuba",
@@ -36752,7 +39814,10 @@
       3.55,
       3.55,
       0.15,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.63,
+      "MISS"
     ],
     [
       "Thomas, Ian",
@@ -36790,7 +39855,10 @@
       10.45,
       10.45,
       0.14,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.42,
+      "FLOP"
     ],
     [
       "Gray, Noah",
@@ -36828,7 +39896,10 @@
       4.5,
       4.5,
       0.14,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.18,
+      "FLOP"
     ],
     [
       "James, Derwin",
@@ -36866,7 +39937,10 @@
       17.87,
       35.73,
       0.14,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Strange, Brenton",
@@ -36904,7 +39978,10 @@
       14.9,
       14.9,
       0.14,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.18,
+      "FLOP"
     ],
     [
       "Woods, Robert",
@@ -36942,7 +40019,10 @@
       2.25,
       3.61,
       0.13,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.02,
+      "MET"
     ],
     [
       "Lockett, Tyler",
@@ -36980,7 +40060,10 @@
       6.07,
       18.21,
       0.13,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.9,
+      "MET"
     ],
     [
       "Wagner, Bobby",
@@ -37018,7 +40101,10 @@
       16.94,
       16.94,
       0.13,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Donald, Aaron",
@@ -37056,7 +40142,10 @@
       12.0,
       12.0,
       0.13,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Davenport, Marcus",
@@ -37094,7 +40183,10 @@
       11.5,
       11.5,
       0.13,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Kelce, Travis",
@@ -37132,7 +40224,10 @@
       11.28,
       11.28,
       0.13,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.33,
+      "BEAT"
     ],
     [
       "Rudolph, Kyle",
@@ -37170,7 +40265,10 @@
       4.2,
       4.2,
       0.12,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.08,
+      "FLOP"
     ],
     [
       "Johnson, D'Ernest",
@@ -37208,7 +40306,10 @@
       2.55,
       2.55,
       0.12,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.1,
+      "FLOP"
     ],
     [
       "Henry, Derrick",
@@ -37246,7 +40347,10 @@
       2.55,
       2.55,
       0.12,
-      "PRICEY"
+      "PRICEY",
+      "STUD",
+      0.66,
+      "MISS"
     ],
     [
       "Kittle, George",
@@ -37284,7 +40388,10 @@
       6.54,
       6.54,
       0.12,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.05,
+      "MET"
     ],
     [
       "White, James",
@@ -37322,7 +40429,10 @@
       3.8,
       3.8,
       0.11,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.51,
+      "FLOP"
     ],
     [
       "Higbee, Tyler",
@@ -37360,7 +40470,10 @@
       12.86,
       12.86,
       0.11,
-      "PRICEY"
+      "PRICEY",
+      "CHEAP",
+      1.15,
+      "BEAT"
     ],
     [
       "Brown, Marquise",
@@ -37398,7 +40511,10 @@
       3.87,
       3.87,
       0.11,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.63,
+      "MISS"
     ],
     [
       "Darnold, Sam",
@@ -37436,7 +40552,10 @@
       16.66,
       16.66,
       0.11,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.06,
+      "MET"
     ],
     [
       "Purdy, Brock",
@@ -37474,7 +40593,10 @@
       5.83,
       8.32,
       0.11,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.43,
+      "BEAT+"
     ],
     [
       "Garrett, Myles",
@@ -37512,7 +40634,10 @@
       11.92,
       11.92,
       0.1,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      null,
+      "\u2014"
     ],
     [
       "Trubisky, Mitchell",
@@ -37550,7 +40675,10 @@
       2.9,
       2.9,
       0.1,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.1,
+      "FLOP"
     ],
     [
       "Jones, Julio",
@@ -37588,7 +40716,10 @@
       2.31,
       4.62,
       0.09,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.79,
+      "MISS"
     ],
     [
       "Allen, Keenan",
@@ -37626,7 +40757,10 @@
       3.44,
       6.88,
       0.09,
-      "PRICEY"
+      "PRICEY",
+      "STUD",
+      1.07,
+      "MET"
     ],
     [
       "Rodgers, Aaron",
@@ -37664,7 +40798,10 @@
       15.67,
       5.64,
       0.09,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.82,
+      "MISS"
     ],
     [
       "Prescott, Dak",
@@ -37702,7 +40839,10 @@
       7.28,
       14.56,
       0.09,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.07,
+      "MET"
     ],
     [
       "Smith, Geno",
@@ -37740,7 +40880,10 @@
       22.51,
       13.51,
       0.09,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.76,
+      "MISS"
     ],
     [
       "Kelce, Travis",
@@ -37778,7 +40921,10 @@
       5.12,
       30.27,
       0.08,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.0,
+      "MET"
     ],
     [
       "Winston, Jameis",
@@ -37816,7 +40962,10 @@
       0.17,
       1.4,
       0.08,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.05,
+      "FLOP"
     ],
     [
       "Smith, Roquan",
@@ -37854,7 +41003,10 @@
       10.65,
       21.3,
       0.08,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      null,
+      "\u2014"
     ],
     [
       "Rush, Cooper",
@@ -37892,7 +41044,10 @@
       2.4,
       2.4,
       0.08,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.03,
+      "FLOP"
     ],
     [
       "Penny, Rashaad",
@@ -37930,7 +41085,10 @@
       0.21,
       0.21,
       0.08,
-      "BUST"
+      "BUST",
+      "MID",
+      0.17,
+      "FLOP"
     ],
     [
       "Hill, Tyreek",
@@ -37968,7 +41126,10 @@
       2.44,
       4.85,
       0.08,
-      "PRICEY"
+      "PRICEY",
+      "STUD",
+      0.93,
+      "MET"
     ],
     [
       "Ingram, Mark",
@@ -38006,7 +41167,10 @@
       1.93,
       1.93,
       0.07,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      0.52,
+      "FLOP"
     ],
     [
       "Mostert, Raheem",
@@ -38044,7 +41208,10 @@
       0.15,
       0.15,
       0.07,
-      "BUST"
+      "BUST",
+      "MID",
+      0.24,
+      "FLOP"
     ],
     [
       "Williams, Damien",
@@ -38082,7 +41249,10 @@
       0.1,
       0.1,
       0.07,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.04,
+      "FLOP"
     ],
     [
       "Goedert, Dallas",
@@ -38120,7 +41290,10 @@
       5.32,
       11.13,
       0.07,
-      "PRICEY"
+      "PRICEY",
+      "MID",
+      1.0,
+      "MET"
     ],
     [
       "Mayfield, Baker",
@@ -38158,7 +41331,10 @@
       8.99,
       10.45,
       0.07,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      1.0,
+      "MET"
     ],
     [
       "Samuel, Curtis",
@@ -38196,7 +41372,10 @@
       0.77,
       0.97,
       0.06,
-      "BUST"
+      "BUST",
+      "MID",
+      0.21,
+      "FLOP"
     ],
     [
       "Njoku, David",
@@ -38234,7 +41413,10 @@
       3.89,
       3.89,
       0.06,
-      "PRICEY"
+      "PRICEY",
+      "PRICEY",
+      0.49,
+      "FLOP"
     ],
     [
       "Coleman, Tevin",
@@ -38272,7 +41454,10 @@
       0.83,
       0.83,
       0.05,
-      "BUST"
+      "BUST",
+      "MID",
+      0.21,
+      "FLOP"
     ],
     [
       "Reyes, Sammis",
@@ -38310,7 +41495,10 @@
       1.0,
       1.0,
       0.05,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.02,
+      "FLOP"
     ],
     [
       "Fitzpatrick, Ryan",
@@ -38348,7 +41536,10 @@
       0.17,
       0.17,
       0.05,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.05,
+      "FLOP"
     ],
     [
       "Hall, Jaren",
@@ -38386,7 +41577,10 @@
       0.7,
       0.7,
       0.05,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.02,
+      "FLOP"
     ],
     [
       "Herbert, Justin",
@@ -38424,7 +41618,10 @@
       5.8,
       6.94,
       0.05,
-      "PRICEY"
+      "PRICEY",
+      "STUD",
+      1.0,
+      "MET"
     ],
     [
       "Kern, Brett",
@@ -38462,7 +41659,10 @@
       1.0,
       1.0,
       0.04,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "White, Mike",
@@ -38500,7 +41700,10 @@
       0.65,
       0.65,
       0.03,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.02,
+      "FLOP"
     ],
     [
       "Ross, Justyn",
@@ -38538,7 +41741,10 @@
       0.52,
       0.52,
       0.02,
-      "BUST"
+      "BUST",
+      "MID",
+      0.08,
+      "FLOP"
     ],
     [
       "Reid, Eric",
@@ -38576,7 +41782,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Foster, Reuben",
@@ -38614,7 +41823,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Evans, Justin",
@@ -38652,7 +41864,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Thomas, Jeff",
@@ -38690,7 +41905,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Moss, Thaddeus",
@@ -38728,7 +41946,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Rohrwasser, Justin",
@@ -38766,7 +41987,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Butler, Malcolm",
@@ -38804,7 +42028,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Lutz, Wil",
@@ -38842,7 +42069,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Lawson, Carl",
@@ -38880,7 +42110,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Cohen, Tarik",
@@ -38918,7 +42151,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.0,
+      "FLOP"
     ],
     [
       "Callaway, Antonio",
@@ -38956,7 +42192,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Fulgham, Travis",
@@ -38994,7 +42233,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.0,
+      "FLOP"
     ],
     [
       "Jones, Xavier",
@@ -39032,7 +42274,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Harris, Jacob",
@@ -39070,7 +42315,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.0,
+      "FLOP"
     ],
     [
       "Doaks, Gerrid",
@@ -39108,7 +42356,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.0,
+      "FLOP"
     ],
     [
       "Lock, Drew",
@@ -39146,7 +42397,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Smith, Abram",
@@ -39184,7 +42438,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Corbin, Jashaun",
@@ -39222,7 +42479,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Brooks, Kennedy",
@@ -39260,7 +42520,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "White, ZaQuandre",
@@ -39298,7 +42561,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ezukanma, Erik",
@@ -39336,7 +42602,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wentz, Carson",
@@ -39374,7 +42643,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.0,
+      "FLOP"
     ],
     [
       "Butler, Hakeem",
@@ -39412,7 +42684,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Prince, Deneric",
@@ -39450,7 +42725,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      0.0,
+      "FLOP"
     ],
     [
       "Dillon, AJ",
@@ -39488,7 +42766,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Wilson, Zach",
@@ -39526,7 +42807,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mitchell, Elijah",
@@ -39564,7 +42848,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Ross, Justyn",
@@ -39602,7 +42889,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      0.0,
+      "FLOP"
     ],
     [
       "Bagent, Tyson",
@@ -39640,7 +42930,10 @@
       -0.03,
       -0.1,
       -0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      -0.0,
+      "FLOP"
     ],
     [
       "Johnson, Dillon",
@@ -39678,7 +42971,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Rees-Zammit, Louis",
@@ -39716,7 +43012,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Watson, Deshaun",
@@ -39754,7 +43053,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Mattison, Alexander",
@@ -39792,7 +43094,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Aiyuk, Brandon",
@@ -39830,7 +43135,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MID",
+      null,
+      "\u2014"
     ],
     [
       "Bass, Tyler",
@@ -39868,7 +43176,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Robinson, Keilan",
@@ -39906,7 +43217,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Martinez, Damien",
@@ -39944,7 +43258,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      null,
+      "\u2014"
     ],
     [
       "Mafah, Phil",
@@ -39982,7 +43299,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Paul, Chris",
@@ -40020,7 +43340,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Miller, Cam",
@@ -40058,7 +43381,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Wohler, Hunter",
@@ -40096,7 +43422,10 @@
       0.0,
       0.0,
       0.0,
-      "BUST"
+      "BUST",
+      "MIN",
+      null,
+      "\u2014"
     ],
     [
       "Stidham, Jarrett",
@@ -40134,7 +43463,10 @@
       -0.2,
       -0.2,
       -0.02,
-      "BUST"
+      "BUST",
+      "MIN",
+      -0.01,
+      "FLOP"
     ],
     [
       "Browning, Jake",
@@ -40172,7 +43504,10 @@
       -0.2,
       -0.2,
       -0.02,
-      "BUST"
+      "BUST",
+      "MIN",
+      -0.01,
+      "FLOP"
     ],
     [
       "Howell, Sam",
@@ -40210,7 +43545,10 @@
       -0.42,
       -0.42,
       -0.03,
-      "BUST"
+      "BUST",
+      "CHEAP",
+      -0.04,
+      "FLOP"
     ],
     [
       "Garoppolo, Jimmy",
@@ -40248,7 +43586,10 @@
       -0.7,
       -0.7,
       -0.03,
-      "BUST"
+      "BUST",
+      "MIN",
+      -0.03,
+      "FLOP"
     ],
     [
       "Eason, Jacob",
@@ -40286,7 +43627,10 @@
       -0.6,
       -0.6,
       -0.17,
-      "BUST"
+      "BUST",
+      "MIN",
+      -0.06,
+      "FLOP"
     ]
   ]
 }

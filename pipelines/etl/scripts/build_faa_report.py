@@ -364,6 +364,39 @@ def main():
         else:
             r["vlab"] = "PRICEY"                                     # produced, but you paid a premium (low surplus)
 
+    # ---- PRICE BANDS: the middle-ground tool. Group wins by what you PAID, learn what each tier typically
+    # returns ("studs cost X & give Y; cheap give Z"), then judge each guy AGAINST HIS OWN BAND — did he beat
+    # or miss the going rate for that price? (Fair to studs: CMC vs other studs, not vs the cheap-dart cohort.) ----
+    BAND_DEFS = [(1, 3, "MIN"), (4, 10, "CHEAP"), (11, 25, "MID"), (26, 50, "PRICEY"), (51, 10 ** 9, "STUD")]
+
+    def band_of(bid):
+        for lo, hi, lab in BAND_DEFS:
+            if lo <= bid <= hi:
+                return lab
+        return "MIN"
+    band_bench = {}                                                  # pos -> band -> {lo,hi,n,med_bid,med_ppg,med_tot,ppg_per_k}
+    for pos in ("QB", "RB", "WR", "TE"):
+        bb = band_bench.setdefault(pos, {})
+        for lo, hi, lab in BAND_DEFS:
+            rs = [r for r in rows if r["pos"] == pos and r["gp"] > 0 and lo <= r["bid_k"] <= hi]
+            if not rs:
+                continue
+            mb, mp = med([r["bid_k"] for r in rs]), med([r["ppg"] for r in rs])
+            bb[lab] = {"lo": lo, "hi": (None if hi > 10 ** 8 else hi), "n": len(rs), "med_bid": mb,
+                       "med_ppg": mp, "med_tot": med([r["tot"] for r in rs]), "ppg_per_k": round(mp / max(mb, 0.5), 2)}
+    for r in rows:
+        b = band_of(r["bid_k"]); r["band"] = b
+        bm = (band_bench.get(r["pos"], {}).get(b, {}) or {}).get("med_ppg")
+        r["band_ppg"] = bm
+        if r["gp"] > 0 and bm:
+            perf = r["ppg"] / bm
+            r["band_perf"] = round(perf, 2)                          # >1 beat the going rate for his price tier
+            r["tier_lab"] = ("BEAT+" if perf >= 1.35 else "BEAT" if perf >= 1.12 else "MET" if perf >= 0.88
+                             else "MISS" if perf >= 0.6 else "FLOP")
+        else:
+            r["band_perf"] = None
+            r["tier_lab"] = "—"
+
     rows.sort(key=lambda r: (r["vidx"] is None, -(r["vidx"] or 0)))
     print(f"built {len(rows)} FAA contract rows ({WINDOW_START}-{LAST_PLAYED_SEASON})")
 
@@ -371,11 +404,13 @@ def main():
     COLS = ["n", "pos", "nfl", "ws", "wfid", "own", "sf", "tep", "qbbump", "qb",
             "bid_k", "forced", "won_dt", "tcv_k", "cl", "realized_k", "committed_k", "n_ext", "n_teams",
             "active", "end_reason", "end_dt", "gp", "ppg", "ppg_reg", "cgames", "gpct",
-            "lweeks", "days", "tot", "prod_idx", "ptier", "ppr_real", "ppr_bid", "vidx", "vlab"]
+            "lweeks", "days", "tot", "prod_idx", "ptier", "ppr_real", "ppr_bid", "vidx", "vlab",
+            "band", "band_perf", "tier_lab"]   # band_ppg omitted — view derives it from meta.bands[pos][band]
     blob = {
         "meta": {
             "built": int(time.time()), "asof": str(today), "window": f"{WINDOW_START}-{LAST_PLAYED_SEASON}",
             "n": len(rows), "settings": SETTINGS, "base_bid": base_bid, "base_ppg": base_ppg, "teams": teams,
+            "bands": band_bench,
             "note": "One row per FAA win. The contract LINEAGE is bounded by its length (contract_year) — a "
                     "1-yr deal is 1 season (CMC, Ekeler); a multi-yr deal + extensions runs its full span (Love, "
                     "Henry). realized_k = cap $ actually PAID for seasons already PLAYED; committed_k adds future "
@@ -390,7 +425,10 @@ def main():
                     "prod_idx": "raw production vs cohort (price-independent)", "ptier": "ELITE/GOOD/AVG/LOW production",
                     "gpct": "games / (played seasons × league weeks)", "lweeks": "league weeks under contract",
                     "days": "calendar days under contract", "ppr_real": "pts per real $K", "ppr_bid": "pts per bid $K",
-                    "vidx": "$-value index (SF/TEP-neutral)", "vlab": "STEAL/VALUE/FAIR/PRICEY/BUST"},
+                    "vidx": "$-value index (SF/TEP-neutral)", "vlab": "STEAL/VALUE/FAIR/PRICEY/BUST",
+                    "band": "price tier MIN/CHEAP/MID/PRICEY/STUD", "band_ppg": "that tier's typical PPG (his pos)",
+                    "band_perf": "his PPG ÷ his tier's typical PPG (>1 = beat the going rate for the price)",
+                    "tier_lab": "BEAT+/BEAT/MET/MISS/FLOP vs his price tier"},
         },
         "cols": COLS,
         "data": [[r.get(c) for c in COLS] for r in rows],
