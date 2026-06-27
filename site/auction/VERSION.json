@@ -1,7 +1,7 @@
 {
-  "version": "0.9.2",
+  "version": "0.9.3",
   "released": "2026-06-26",
-  "label": "v0.9.2 — FA pool: position/NFL-team/name filters; ADP = Stats-workbench multi-source consensus (overall + positional rank); prior-season now shows real per-game PPG AND total points (was labeling the season total as PPG)",
+  "label": "v0.9.3 — FA pool ADP now ranks by REDRAFT value (was dynasty, which buried aging starters like Dak below IDP role players — Dak #153→#30); prior-season points labeled correctly as 'pts' until the per-game PPG pipeline deploys. (v0.9.2: pos/NFL-team/name filters + multi-source consensus ADP + PPG-vs-points fix.)",
   "changes_091": [
     "Tracker rebuilt as a Nominations audit: per-day X/2 compliance for every owner, click an owner to see exactly which players they nominated and when (replaces the catch-all War Room cards).",
     "Players: the Nominate action is hidden (—) when the auction isn't running — browse-only off-season, on both the FA pool and the ERA table.",
@@ -29,6 +29,8 @@
     "league_context_v1.md": ["§6.A1", "§6.A2", "§B1", "§A1", "§A2", "§A3"]
   },
   "changes": [
+    { "version": "0.9.3", "date": "2026-06-26", "type": "fix",
+      "summary": "FA pool ADP fix: was ranking by the adp-board's DYNASTY consensus, which buries aging starters (Dak Prescott showed #153, below IDP role players ranked in the 40s via an over-scaled ECR value). Now ranks by REDRAFT value (FantasyCalc + KTC redraft SF) since the auction is for this season — Dak → #30 QB11, Saquon #194→#28, IDP fall below startable offense (#328+). Also: prior-season points are labeled 'pts' (total) when the worker hasn't yet shipped the per-game split, instead of mislabeling the season total as 'PPG'; flips to '<ppg> PPG · <total> pts' once /api/auction/fa-pool's W=ALL change deploys." },
     { "version": "0.9.2", "date": "2026-06-26", "type": "feat",
       "summary": "FA pool (Available Players): added position chips + NFL-team dropdown + name/ID search (was a deferred item; the ERA tab already had filters). ADP now comes from /api/adp-board — the SAME multi-source consensus (FantasyCalc + KeepTradeCut + DynastyProcess + Sleeper) the Stats workbench uses — shown as overall consensus rank + positional rank, replacing the single-source FantasyCalc overallRank. Prior-season column fixed: it was labeling the full-season TOTAL points as 'PPG'; worker now fetches W=ALL → real games-played → per-game PPG, and the cell shows '<ppg> PPG · <total> pts'." },
     { "version": "0.9.0", "date": "2026-06-20", "type": "feat",

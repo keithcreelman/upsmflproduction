@@ -477,8 +477,8 @@
               <th>Player</th>
               <th>Pos</th>
               <th class="col-md">NFL</th>
-              <th title="Consensus ADP from the Stats workbench (multi-source): overall rank · positional rank">ADP</th>
-              <th title="Prior season: per-game PPG and total points">Prior season</th>
+              <th title="Multi-source REDRAFT consensus (FantasyCalc + KeepTradeCut, SF): overall rank · positional rank. Redraft (not dynasty) since the auction is for this season — so startable players out-rank role/IDP picks.">ADP</th>
+              <th title="Prior season: per-game PPG (and total points once the points pipeline deploys)">Prior season</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -979,18 +979,33 @@
     }).join("");
   }
 
-  // mfl_id → consensus ADP from /api/adp-board (the SAME multi-source board the Stats workbench uses):
-  // overall consensus rank + positional rank. The board comes pre-sorted best→worst.
+  // mfl_id → consensus ADP from /api/adp-board (same multi-source board the Stats workbench uses).
+  // RANK BY REDRAFT value (FantasyCalc + KTC redraft SF), NOT the board's dynasty `value`/`ovr`: an
+  // auction is for THIS season's production, so an aging starter (Dak) must out-rank role IDP players.
+  // (The dynasty rank buries aging QBs and over-scales IDP ECR → Dak fell below LB/DT.) IDP and players
+  // with no redraft value sort below offense, ordered by their dynasty-IDP ECR.
+  function faRedraftVal(r) {
+    var vals = [r.fc && r.fc.rsf, r.ktc && r.ktc.rsf].filter(function (v) { return v != null && v > 0; });
+    return vals.length ? vals.reduce(function (a, b) { return a + b; }, 0) / vals.length : null;
+  }
   function buildFaAdpMap(board) {
     const m = {};
     if (!Array.isArray(board)) return m;
+    const sorted = board.slice().sort(function (a, b) {
+      var av = faRedraftVal(a), bv = faRedraftVal(b);
+      if (av != null && bv != null) return bv - av;
+      if (av != null) return -1;
+      if (bv != null) return 1;
+      var ae = a.fpEcr != null ? a.fpEcr : 9999, be = b.fpEcr != null ? b.fpEcr : 9999;
+      return ae - be || (Number(b.value) || 0) - (Number(a.value) || 0);
+    });
     const posSeen = {};
-    board.forEach((r, i) => {
+    sorted.forEach(function (r, i) {
       const pid = String(r.pid || r.player_id || "");
       if (!pid) return;
       const pos = String(r.pos || "").toUpperCase();
       posSeen[pos] = (posSeen[pos] || 0) + 1;
-      m[pid] = { ovr: r.ovr || r.rank || (i + 1), pos: pos, posRank: posSeen[pos] };
+      m[pid] = { ovr: i + 1, pos: pos, posRank: posSeen[pos] };
     });
     return m;
   }
@@ -1037,8 +1052,12 @@
       const a = adpMap[String(r.player_id)];
       const adpTxt = (a && a.ovr) ? ("#" + a.ovr + (a.posRank ? ' <span class="small" style="color:var(--muted)">' + escapeHtml(a.pos) + a.posRank + "</span>" : ""))
         : (r.adp ? "ADP " + r.adp : "—");
-      const ppg = Number(r.ppg) || 0, pts = Number(r.pts) || 0;
-      const seasonTxt = ppg ? ("<b>" + ppg + "</b> PPG" + (pts ? ' <span class="small" style="color:var(--muted)">· ' + Math.round(pts) + " pts</span>" : "")) : "—";
+      // worker shape: NEW returns gp + per-game ppg + total pts → "<ppg> PPG · <total> pts". OLD returns only
+      // `ppg` that is really the season TOTAL (no gp) → label it "pts", never "PPG" (the bug Keith flagged).
+      const ppg = Number(r.ppg) || 0, pts = Number(r.pts) || 0, hasGp = (r.gp != null);
+      const seasonTxt = hasGp
+        ? (ppg ? ("<b>" + ppg + "</b> PPG" + (pts ? ' <span class="small" style="color:var(--muted)">· ' + Math.round(pts) + " pts</span>" : "")) : "—")
+        : (ppg ? ("<b>" + Math.round(ppg) + "</b> pts") : "—");
       const action = faaLive
         ? `<a href="${mflBidUrl(r.player_id)}" target="_blank" rel="noopener" class="btn small">Nominate ↗</a>`
         : `<span class="small" style="color:var(--muted)">—</span>`;
