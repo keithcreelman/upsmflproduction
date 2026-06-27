@@ -81,6 +81,8 @@
     tab: "faa",                  // FA Auction is the default landing tab
     sub: "summary",
     era_filters: { pos: "ALL", owner: "" },
+    fapool_filters: { pos: "ALL", team: "", q: "" },   // FA-pool: position / NFL team / name search
+    faAdp: {},                   // mfl_id → { ovr, pos, posRank } from /api/adp-board (stats-workbench consensus)
     era_sort: "ppg_weighted",
     era_sort_dir: -1,            // desc
     lots: null,                  // payload from /api/auction/lots
@@ -452,18 +454,36 @@
           <h2>Available Players</h2>
           <span class="small" id="fa-pool-summary">—</span>
         </div>
+        <div class="ah-filters" id="fa-pool-filters">
+          <label>
+            <span>Position</span>
+            <div class="ah-pos-chips" id="fapool-pos-chips">
+              <button type="button" class="ah-pos-chip active" data-pos="ALL">All</button>
+              <button type="button" class="ah-pos-chip" data-pos="QB">QB</button>
+              <button type="button" class="ah-pos-chip" data-pos="RB">RB</button>
+              <button type="button" class="ah-pos-chip" data-pos="WR">WR</button>
+              <button type="button" class="ah-pos-chip" data-pos="TE">TE</button>
+              <button type="button" class="ah-pos-chip" data-pos="PK">PK</button>
+              <button type="button" class="ah-pos-chip" data-pos="PN">PN</button>
+              <button type="button" class="ah-pos-chip" data-pos="IDP">IDP</button>
+            </div>
+          </label>
+          <label><span>NFL Team</span><select id="fapool-team"><option value="">All</option></select></label>
+          <label><span>Search</span><input type="text" id="fapool-search" placeholder="Player name or ID…" autocomplete="off" /></label>
+        </div>
         <table class="ah-table" id="fa-pool-table">
           <thead>
             <tr>
               <th>Player</th>
               <th>Pos</th>
               <th class="col-md">NFL</th>
-              <th>ADP / PPG</th>
+              <th title="Consensus ADP from the Stats workbench (multi-source): overall rank · positional rank">ADP</th>
+              <th title="Prior season: per-game PPG and total points">Prior season</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="fa-pool-tbody">
-            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">Loading free agents…</td></tr>
+            <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Loading free agents…</td></tr>
           </tbody>
         </table>
       </div>`;
@@ -676,6 +696,7 @@
   function fillPlayers(tab) {
     if (tab === "faa") {
       renderFaPool(STATE.faPool || []);
+      setupFaPoolFilters();   // re-wire — the filter controls are new DOM each mount
       return;
     }
     renderEraMeta();        // (re)populates the prior-owner dropdown
@@ -861,12 +882,14 @@
     // the pool comes from /api/auction/fa-pool.
     const poolUrl = apiUrl("/api/auction/fa-pool") + "?L=" + LEAGUE_ID + "&YEAR=" + season;
     try {
-      const [data, pool] = await Promise.all([
+      const [data, pool, adpRes] = await Promise.all([
         fetchJSON(url),
         fetchJSON(poolUrl).catch(() => null),
+        fetchJSON(apiUrl("/api/adp-board")).catch(() => null),   // SAME multi-source consensus as the Stats workbench
       ]);
       STATE.fa = data;
       STATE.faPool = (pool && pool.ok) ? pool.players : [];
+      STATE.faAdp = buildFaAdpMap(adpRes && adpRes.board);
       if (meta) {
         meta.textContent = data && data.ok === false
           ? "FA board unavailable right now."
@@ -956,26 +979,66 @@
     }).join("");
   }
 
+  // mfl_id → consensus ADP from /api/adp-board (the SAME multi-source board the Stats workbench uses):
+  // overall consensus rank + positional rank. The board comes pre-sorted best→worst.
+  function buildFaAdpMap(board) {
+    const m = {};
+    if (!Array.isArray(board)) return m;
+    const posSeen = {};
+    board.forEach((r, i) => {
+      const pid = String(r.pid || r.player_id || "");
+      if (!pid) return;
+      const pos = String(r.pos || "").toUpperCase();
+      posSeen[pos] = (posSeen[pos] || 0) + 1;
+      m[pid] = { ovr: r.ovr || r.rank || (i + 1), pos: pos, posRank: posSeen[pos] };
+    });
+    return m;
+  }
   function renderFaPool(rows) {
     const tbody = $("#fa-pool-tbody");
     const summary = $("#fa-pool-summary");
-    rows = (rows || []).slice().sort(function (a, b) {
-      var ar = a.adp == null ? 1e9 : a.adp, br = b.adp == null ? 1e9 : b.adp;
+    const adpMap = STATE.faAdp || {};
+    rows = (rows || []).slice();
+    // (re)populate the NFL-team dropdown from the pool, preserving the current selection
+    const teamSel = $("#fapool-team");
+    if (teamSel) {
+      const teams = Array.from(new Set(rows.map((r) => String(r.team || r.nfl_team || "").toUpperCase()).filter(Boolean))).sort();
+      const cur = STATE.fapool_filters.team;
+      teamSel.innerHTML = '<option value="">All</option>' + teams.map((t) => `<option value="${t}"${t === cur ? " selected" : ""}>${escapeHtml(t)}</option>`).join("");
+    }
+    // FILTER — position bucket / NFL team / name-or-id search
+    const f = STATE.fapool_filters, q = (f.q || "").trim().toLowerCase();
+    const filtered = rows.filter((r) => {
+      if (f.pos !== "ALL" && posBucket(r.position) !== f.pos) return false;
+      if (f.team && String(r.team || r.nfl_team || "").toUpperCase() !== f.team) return false;
+      if (q) {
+        const nm = String(r.name || r.player_name || "").toLowerCase();
+        if (nm.indexOf(q) < 0 && String(r.player_id).indexOf(q) < 0) return false;
+      }
+      return true;
+    });
+    // SORT by the merged consensus ADP (overall rank), then prior-season PPG
+    filtered.sort((a, b) => {
+      const av = (adpMap[String(a.player_id)] || {}).ovr, bv = (adpMap[String(b.player_id)] || {}).ovr;
+      const ar = av == null ? (a.adp == null ? 1e9 : a.adp) : av;
+      const br = bv == null ? (b.adp == null ? 1e9 : b.adp) : bv;
       return ar - br || (Number(b.ppg) || 0) - (Number(a.ppg) || 0);
     });
-    if (summary) summary.textContent = rows.length + (rows.length === 1 ? " player" : " players") + " · by ADP";
+    if (summary) summary.textContent = filtered.length + (filtered.length === 1 ? " player" : " players") + (filtered.length !== rows.length ? " of " + rows.length : "") + " · by ADP";
     if (!tbody) return;
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">FA pool unavailable right now.</td></tr>`;
+    if (!filtered.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">${rows.length ? "No players match your filters." : "FA pool unavailable right now."}</td></tr>`;
       return;
     }
-    // Nominate is only actionable while the FA auction is live. Off-season the
-    // pool is browse-only (Keith: "if we're not running nominate shouldn't show").
     const faaLive = !!(STATE.lots && STATE.lots.faa_enabled);
     const CAP = 400;
-    tbody.innerHTML = rows.slice(0, CAP).map((r) => {
+    tbody.innerHTML = filtered.slice(0, CAP).map((r) => {
       const name = r.name || r.player_name;
-      const val = (r.adp ? "ADP " + r.adp : "") + (r.adp && r.ppg ? " · " : "") + (r.ppg ? Math.round(r.ppg) + " pts" : "");
+      const a = adpMap[String(r.player_id)];
+      const adpTxt = (a && a.ovr) ? ("#" + a.ovr + (a.posRank ? ' <span class="small" style="color:var(--muted)">' + escapeHtml(a.pos) + a.posRank + "</span>" : ""))
+        : (r.adp ? "ADP " + r.adp : "—");
+      const ppg = Number(r.ppg) || 0, pts = Number(r.pts) || 0;
+      const seasonTxt = ppg ? ("<b>" + ppg + "</b> PPG" + (pts ? ' <span class="small" style="color:var(--muted)">· ' + Math.round(pts) + " pts</span>" : "")) : "—";
       const action = faaLive
         ? `<a href="${mflBidUrl(r.player_id)}" target="_blank" rel="noopener" class="btn small">Nominate ↗</a>`
         : `<span class="small" style="color:var(--muted)">—</span>`;
@@ -983,10 +1046,27 @@
         <td>${playerNameCell(r.player_id, name)}</td>
         <td>${escapeHtml(String(r.position || "").toUpperCase() || "—")}</td>
         <td class="col-md">${escapeHtml(r.team || r.nfl_team || "—")}</td>
-        <td>${val || "—"}</td>
+        <td>${adpTxt}</td>
+        <td>${seasonTxt}</td>
         <td>${action}</td>
       </tr>`;
-    }).join("") + (rows.length > CAP ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px;">Showing top ${CAP} of ${rows.length} by ADP — use the player search for anyone else.</td></tr>` : "");
+    }).join("") + (filtered.length > CAP ? `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:14px;">Showing top ${CAP} of ${filtered.length} — narrow with the filters above.</td></tr>` : "");
+  }
+  function setupFaPoolFilters() {
+    // reflect persisted filter state on the freshly-mounted controls
+    $$("#fapool-pos-chips .ah-pos-chip").forEach((c) => c.classList.toggle("active", (c.dataset.pos || "ALL") === STATE.fapool_filters.pos));
+    const sq0 = $("#fapool-search"); if (sq0 && STATE.fapool_filters.q) sq0.value = STATE.fapool_filters.q;
+    $$("#fapool-pos-chips .ah-pos-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        STATE.fapool_filters.pos = chip.dataset.pos || "ALL";
+        $$("#fapool-pos-chips .ah-pos-chip").forEach((c) => c.classList.toggle("active", c === chip));
+        renderFaPool(STATE.faPool || []);
+      });
+    });
+    const ts = $("#fapool-team");
+    if (ts) ts.addEventListener("change", (e) => { STATE.fapool_filters.team = e.target.value; renderFaPool(STATE.faPool || []); });
+    const sq = $("#fapool-search");
+    if (sq) sq.addEventListener("input", (e) => { STATE.fapool_filters.q = e.target.value; clearTimeout(STATE._faqT); STATE._faqT = setTimeout(() => renderFaPool(STATE.faPool || []), 160); });
   }
 
   // ════════════════════════════════════════════════════════════════════

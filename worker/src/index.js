@@ -9623,7 +9623,7 @@ export default {
             fetch(`${host}/${encodeURIComponent(season)}/export?TYPE=freeAgents&L=${encodeURIComponent(leagueId)}&JSON=1${kqs}`, { cf: { cacheTtl: 900 } }).then((r) => r.json()).catch(() => ({})),
             fetch(`${host}/${encodeURIComponent(season)}/export?TYPE=players&L=${encodeURIComponent(leagueId)}&DETAILS=1&JSON=1${kqs}`, { cf: { cacheTtl: 86400 } }).then((r) => r.json()).catch(() => ({})),
             fetch("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1", { cf: { cacheTtl: 43200 } }).then((r) => r.json()).catch(() => []),
-            fetch(`${host}/${priorYear}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&W=YTD&JSON=1${kqs}`, { cf: { cacheTtl: 86400 } }).then((r) => r.json()).catch(() => ({})),
+            fetch(`${host}/${priorYear}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&W=ALL&JSON=1${kqs}`, { cf: { cacheTtl: 86400 } }).then((r) => r.json()).catch(() => ({})),
           ]);
           // Local array-normalizer — the handler's shared asArray is a const
           // declared later in scope (TDZ if referenced here).
@@ -9635,8 +9635,16 @@ export default {
             const id = safeStr((r.player || {}).mflId);
             if (id && id.toUpperCase() !== "UNK") adpById[id] = Number(r.overallRank) || null;
           }
-          const ppgById = {};
-          for (const s2 of arr(scRes?.playerScores?.playerScore)) if (s2 && s2.id) ppgById[String(s2.id)] = Number(s2.score) || 0;
+          // prior-season TOTAL points + games played (W=ALL → per-week) → a REAL per-game PPG
+          const statById = {};
+          for (const wk of arr(scRes?.playerScoresAllWeeks?.playerScores)) {
+            for (const ps of arr(wk?.playerScore)) {
+              const sid = safeStr(ps && ps.id); if (!sid) continue;
+              const sc = Number(ps.score) || 0;
+              const st = statById[sid] || (statById[sid] = { pts: 0, gp: 0 });
+              st.pts += sc; if (sc !== 0) st.gp += 1;
+            }
+          }
           const flipName = (n) => { n = safeStr(n); const i = n.indexOf(", "); return i > 0 ? (n.slice(i + 2) + " " + n.slice(0, i)) : n; };
           const players = [];
           for (const fa of arr(faRes?.freeAgents?.leagueUnit?.player)) {
@@ -9644,7 +9652,14 @@ export default {
             if (!p || !p.name) continue;
             const pos = safeStr(p.position).toUpperCase();
             if (!pos) continue;
-            players.push({ player_id: id, name: flipName(p.name), position: pos, team: safeStr(p.team), adp: adpById[id] || null, ppg: ppgById[id] || 0 });
+            const st = statById[id] || { pts: 0, gp: 0 };
+            players.push({
+              player_id: id, name: flipName(p.name), position: pos, team: safeStr(p.team),
+              adp: adpById[id] || null,
+              pts: Math.round(st.pts * 10) / 10,                         // prior-season TOTAL points
+              gp: st.gp,                                                 // prior-season games played
+              ppg: st.gp ? Math.round((st.pts / st.gp) * 10) / 10 : 0,   // REAL per-game PPG (was mislabeled total)
+            });
           }
           return jsonOut(200, { ok: true, season, league_id: leagueId, generated_at: new Date().toISOString(), count: players.length, players });
         } catch (e) {
