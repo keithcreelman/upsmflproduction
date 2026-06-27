@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.25.4",
-  "label": "Auction → 💎 Value: ADP override now raises a FA's WORTH only — the price stays at the market's read. If you alone think he's QB13 (market QB24), he still clears at the QB24 price, so the widened gap is your buy-low edge. The ▲/▼ arrow is now live-auction-only (the room moving the price)."
+  "build": "2026.06.26.0",
+  "label": "Faster loads: a service worker now caches the app shell, so opening the app no longer pays ~27 network round-trips against GitHub Pages' 10-minute cache — repeat opens are near-instant and the app works offline. (Updates still prompt a reload banner.)"
 }

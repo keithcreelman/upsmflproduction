@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.06.25.4";
+  var BUILD = "2026.06.26.0";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -1697,7 +1697,16 @@
   }
 
   // ---------- Boot ----------
+  function registerServiceWorker() {
+    // Cache the app shell so opens don't pay 27 network round-trips against GitHub Pages'
+    // 10-min cache. Registered after `load` so it never competes with the first paint.
+    if (!("serviceWorker" in navigator)) return;
+    window.addEventListener("load", function () {
+      try { navigator.serviceWorker.register("./sw.js").catch(function () {}); } catch (_) {}
+    });
+  }
   function boot() {
+    registerServiceWorker();
     detectContext();
     window.addEventListener("ups-cap-penalty-ready", function () { try { renderRoute(); } catch (_) {} });
     window.addEventListener("hashchange", function () {
