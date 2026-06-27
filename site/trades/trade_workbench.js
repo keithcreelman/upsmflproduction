@@ -389,6 +389,59 @@
     return ("0000" + digits).slice(-4);
   }
 
+  // Re-anchor a PREVIEW-sourced pre-trade extension option to the LIVE
+  // current-year salary. The ups_extension_previews snapshot goes stale when a
+  // contract rolls a year forward (Quentin Johnston: snapshot Y1-$8K vs live
+  // $18K), and the desktop Trade War Room prefers preview rows over the live
+  // synthetic builder for eligible players. For a player who still has a year
+  // remaining (case A), the current year (Y1) must equal the live roster salary;
+  // the per-year escalation is canon, so shift EVERY salary in the option (year
+  // tokens + AAV + y1/y2/y3 + AAV fields) by delta = liveCurrent − snapshotCurrent.
+  // A uniform shift re-anchors Y1, preserves the escalation AND any FL/BL shape;
+  // TCV/GTD recompute. No-op for synthetic options (their current already == live)
+  // and for expired rookies (years<=0, a fresh deal). Mirrors the re-anchor in the
+  // FO surfaces. Keith 2026-06-27.
+  function reanchorPreviewExtOption(asset, opt) {
+    if (!opt) return opt;
+    var curYears = asset && asset.years != null ? safeInt(asset.years, 0) : 0;
+    if (curYears < 1) return opt;
+    var liveCur = Math.max(1000, roundToNearestK(safeInt(asset && asset.salary, 0)));
+    var staleCur = safeInt(opt.new_aav_current, 0);
+    if (!(liveCur > 0) || !(staleCur > 0) || liveCur === staleCur) return opt;
+    var delta = liveCur - staleCur;
+    var info = safeStr(opt.preview_contract_info_string);
+    var numYears = (info.match(/Y\d+\s*-/gi) || []).length;
+    var shift = function (m, n) {
+      var token = m.replace(/^Y\d+\s*-\s*/i, "");
+      var d = parseContractMoneyTokenToDollars(token);
+      return d > 0 ? "Y" + n + "-" + formatContractKToken(Math.max(1000, roundToNearestK(d + delta))) : m;
+    };
+    var newTcv = safeInt(opt.new_TCV, 0) + delta * numYears;
+    if (!(newTcv > 0)) newTcv = safeInt(opt.new_TCV, 0);
+    var newGtd = newTcv > 4000 ? Math.round(newTcv * 0.75) : 0;
+    var newInfo = info
+      .replace(/Y(\d+)\s*-\s*[0-9.]+\s*K?/gi, shift)
+      .replace(/AAV\s+[0-9.]+\s*K?(?:\s*,\s*[0-9.]+\s*K?)*/i, function (m) {
+        return m.replace(/[0-9.]+\s*K?/g, function (tok) {
+          var d = parseContractMoneyTokenToDollars(tok);
+          return d > 0 ? formatContractKToken(Math.max(1000, roundToNearestK(d + delta))) : tok;
+        });
+      })
+      .replace(/TCV\s+[0-9.]+\s*K?/i, "TCV " + formatContractKToken(newTcv))
+      .replace(/GTD:\s*[0-9.]+\s*K?/i, "GTD: " + formatContractKToken(newGtd));
+    var shiftYr = function (v) { return v == null ? null : Math.max(1000, roundToNearestK(safeInt(v, 0) + delta)); };
+    var out = clone(opt);
+    out.preview_contract_info_string = newInfo;
+    out.new_aav_current = liveCur;
+    out.new_aav_future = Math.max(1000, roundToNearestK(safeInt(opt.new_aav_future, 0) + delta));
+    out.new_TCV = newTcv;
+    out.y1_salary = shiftYr(opt.y1_salary);
+    out.y2_salary = shiftYr(opt.y2_salary);
+    out.y3_salary = shiftYr(opt.y3_salary);
+    out.reanchored = true;
+    return out;
+  }
+
   function clone(obj) {
     return JSON.parse(JSON.stringify(obj));
   }
@@ -1058,6 +1111,10 @@
     if (!extOptions.length) {
       extOptions = buildSyntheticExtensionOptions(asset);
     }
+    // Re-anchor any preview-sourced option to the LIVE current-year salary so a
+    // stale ups_extension_previews snapshot can't surface a wrong Y1 here the way
+    // it did in the FO surfaces (no-op for synthetic options + expired rookies).
+    extOptions = extOptions.map(function (o) { return reanchorPreviewExtOption(asset, o); });
     asset.extension_options = extOptions;
     asset.extension_eligible = extOptions.length > 0;
 
