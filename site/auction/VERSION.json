@@ -1,7 +1,7 @@
 {
-  "version": "0.9.3",
-  "released": "2026-06-26",
-  "label": "v0.9.3 — FA pool ADP now ranks by REDRAFT value (was dynasty, which buried aging starters like Dak below IDP role players — Dak #153→#30); prior-season points labeled correctly as 'pts' until the per-game PPG pipeline deploys. (v0.9.2: pos/NFL-team/name filters + multi-source consensus ADP + PPG-vs-points fix.)",
+  "version": "0.9.4",
+  "released": "2026-06-27",
+  "label": "v0.9.4 — FA pool ADP unified with the Stats workbench: SPLIT universes (offense ranked by a redraft consensus of FantasyCalc + KeepTradeCut, with FFC + Sleeper reference; IDP ranked INDEPENDENTLY on FantasyPros dynasty ECR — so a startable DL/LB/DB gets a real positional rank instead of being dumped valueless). The ADP cell now LEADS with the positional rank (QB11 / RB8 / DE1) with overall#/ECR as the muted second and an 'N src' chip whose tooltip shows each source's positional rank. (v0.9.3: redraft-not-dynasty so Dak isn't buried.)",
   "changes_091": [
     "Tracker rebuilt as a Nominations audit: per-day X/2 compliance for every owner, click an owner to see exactly which players they nominated and when (replaces the catch-all War Room cards).",
     "Players: the Nominate action is hidden (—) when the auction isn't running — browse-only off-season, on both the FA pool and the ERA table.",

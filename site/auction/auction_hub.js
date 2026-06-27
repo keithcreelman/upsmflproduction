@@ -477,7 +477,7 @@
               <th>Player</th>
               <th>Pos</th>
               <th class="col-md">NFL</th>
-              <th title="Multi-source REDRAFT consensus (FantasyCalc + KeepTradeCut, SF): overall rank · positional rank. Redraft (not dynasty) since the auction is for this season — so startable players out-rank role/IDP picks.">ADP</th>
+              <th title="Multi-source ADP (same board as the Stats workbench). Leads with POSITIONAL rank (QB4 / WR12 / DE7). Offense = redraft consensus of FantasyCalc + KeepTradeCut (SF), with FFC + Sleeper reference; IDP ranked independently on FantasyPros dynasty ECR. Hover the 'N src' chip for each source's positional rank.">ADP</th>
               <th title="Prior season: per-game PPG (and total points once the points pipeline deploys)">Prior season</th>
               <th>Actions</th>
             </tr>
@@ -979,33 +979,92 @@
     }).join("");
   }
 
-  // mfl_id → consensus ADP from /api/adp-board (same multi-source board the Stats workbench uses).
-  // RANK BY REDRAFT value (FantasyCalc + KTC redraft SF), NOT the board's dynasty `value`/`ovr`: an
-  // auction is for THIS season's production, so an aging starter (Dak) must out-rank role IDP players.
-  // (The dynasty rank buries aging QBs and over-scales IDP ECR → Dak fell below LB/DT.) IDP and players
-  // with no redraft value sort below offense, ordered by their dynasty-IDP ECR.
-  function faRedraftVal(r) {
-    var vals = [r.fc && r.fc.rsf, r.ktc && r.ktc.rsf].filter(function (v) { return v != null && v > 0; });
-    return vals.length ? vals.reduce(function (a, b) { return a + b; }, 0) / vals.length : null;
+  // mfl_id → multi-source ADP from /api/adp-board — the SAME board the Stats workbench consumes, and
+  // mirroring its logic: SPLIT UNIVERSES. Offense is ranked by a REDRAFT consensus (FantasyCalc + KTC
+  // redraft SF) — an auction is for THIS season, so an aging starter (Dak) out-ranks role players and
+  // never falls under IDP. IDP is ranked INDEPENDENTLY on FantasyPros dynasty ECR (the only source that
+  // covers IDP — FC/KTC/DP/Sleeper are offense-only), so a startable DL/LB/DB gets a real positional
+  // rank instead of being dumped valueless at the bottom. Each player carries a POSITIONAL rank
+  // (QB4 / WR12 / DE7) as the headline plus per-source positional ranks for a tooltip. Keith 2026-06-27.
+  var _PID = function (r) { return String((r && (r.pid || r.player_id)) || ""); };
+  function faOffVal(r) {   // offense redraft consensus value (higher = better)
+    var v = [r.fc && r.fc.rsf, r.ktc && r.ktc.rsf].filter(function (x) { return x != null && x > 0; });
+    return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null;
+  }
+  function faIdpVal(r) {   // IDP value off FantasyPros ECR (higher = better)
+    if (r.idpVal != null && r.idpVal > 0) return r.idpVal;
+    if (r.fpEcr != null && r.fpEcr > 0) return Math.max(0, 10000 - r.fpEcr * 45);
+    return null;
+  }
+  // Positional rank within a universe by a metric. higherBetter=false ⇒ lower value ranks first (ADP/ECR/search_rank).
+  function faPosRanks(univ, metric, higherBetter) {
+    var byPos = {};
+    univ.forEach(function (r) {
+      var v = metric(r);
+      if (v == null || !(v > 0)) return;
+      var pos = String(r.pos || "").toUpperCase();
+      (byPos[pos] = byPos[pos] || []).push({ pid: _PID(r), v: v });
+    });
+    var out = {};
+    Object.keys(byPos).forEach(function (pos) {
+      byPos[pos].sort(function (a, b) { return higherBetter ? (b.v - a.v) : (a.v - b.v); });
+      byPos[pos].forEach(function (x, i) { if (x.pid) out[x.pid] = i + 1; });
+    });
+    return out;
+  }
+  // Overall rank within a universe by a value (higher = better).
+  function faOvrRanks(univ, valFn) {
+    var out = {};
+    univ.slice().filter(function (r) { return valFn(r) != null; })
+      .sort(function (a, b) { return valFn(b) - valFn(a); })
+      .forEach(function (r, i) { var pid = _PID(r); if (pid) out[pid] = i + 1; });
+    return out;
   }
   function buildFaAdpMap(board) {
-    const m = {};
+    var m = {};
     if (!Array.isArray(board)) return m;
-    const sorted = board.slice().sort(function (a, b) {
-      var av = faRedraftVal(a), bv = faRedraftVal(b);
-      if (av != null && bv != null) return bv - av;
-      if (av != null) return -1;
-      if (bv != null) return 1;
-      var ae = a.fpEcr != null ? a.fpEcr : 9999, be = b.fpEcr != null ? b.fpEcr : 9999;
-      return ae - be || (Number(b.value) || 0) - (Number(a.value) || 0);
+    var offense = board.filter(function (r) { return !r.isIdp; });
+    var idp = board.filter(function (r) { return !!r.isIdp; });
+
+    // OFFENSE — redraft consensus drives the rank; per-source positional ranks for the tooltip.
+    var offConsPos = faPosRanks(offense, faOffVal, true);
+    var offOvr = faOvrRanks(offense, faOffVal);
+    var fcPos = faPosRanks(offense, function (r) { return r.fc && r.fc.rsf; }, true);
+    var ktcPos = faPosRanks(offense, function (r) { return r.ktc && r.ktc.rsf; }, true);
+    var ffcPos = faPosRanks(offense, function (r) { return r.ffcAdp; }, false);  // lower ADP = earlier
+    var slpPos = faPosRanks(offense, function (r) { return r.slp; }, false);     // lower search_rank = better
+    offense.forEach(function (r) {
+      var pid = _PID(r); if (!pid) return;
+      var pos = String(r.pos || "").toUpperCase();
+      var srcs = [];
+      if (fcPos[pid]) srcs.push("FantasyCalc " + pos + fcPos[pid]);
+      if (ktcPos[pid]) srcs.push("KeepTradeCut " + pos + ktcPos[pid]);
+      if (ffcPos[pid]) srcs.push("FFC redraft ADP " + pos + ffcPos[pid]);
+      if (slpPos[pid]) srcs.push("Sleeper " + pos + slpPos[pid]);
+      m[pid] = {
+        isIdp: false, pos: pos,
+        posRank: offConsPos[pid] || null,
+        ovr: offOvr[pid] || null,
+        val: faOffVal(r),
+        srcs: srcs, srcCount: srcs.length,
+      };
     });
-    const posSeen = {};
-    sorted.forEach(function (r, i) {
-      const pid = String(r.pid || r.player_id || "");
-      if (!pid) return;
-      const pos = String(r.pos || "").toUpperCase();
-      posSeen[pos] = (posSeen[pos] || 0) + 1;
-      m[pid] = { ovr: i + 1, pos: pos, posRank: posSeen[pos] };
+
+    // IDP — FantasyPros dynasty ECR only; ranked in its own universe.
+    var idpPos = faPosRanks(idp, faIdpVal, true);
+    var idpOvr = faOvrRanks(idp, faIdpVal);
+    idp.forEach(function (r) {
+      var pid = _PID(r); if (!pid) return;
+      var pos = String(r.pos || "").toUpperCase();
+      m[pid] = {
+        isIdp: true, pos: pos,
+        posRank: idpPos[pid] || null,
+        ovr: idpOvr[pid] || null,
+        ecr: (r.fpEcr != null ? r.fpEcr : null),
+        val: faIdpVal(r),
+        srcs: (r.fpEcr != null ? ["FantasyPros dynasty IDP ECR #" + r.fpEcr] : []),
+        srcCount: (r.fpEcr != null ? 1 : 0),
+      };
     });
     return m;
   }
@@ -1032,11 +1091,16 @@
       }
       return true;
     });
-    // SORT by the merged consensus ADP (overall rank), then prior-season PPG
+    // SORT: startable OFFENSE first (by its redraft-consensus overall rank), then IDP (by its own
+    // FantasyPros-ECR overall rank), then anyone not on the board (raw pool ADP). Each universe is
+    // ranked independently so an IDP role player never out-ranks a startable QB, but IDP is still
+    // properly ordered within its block. Tiebreak on prior-season PPG.
     filtered.sort((a, b) => {
-      const av = (adpMap[String(a.player_id)] || {}).ovr, bv = (adpMap[String(b.player_id)] || {}).ovr;
-      const ar = av == null ? (a.adp == null ? 1e9 : a.adp) : av;
-      const br = bv == null ? (b.adp == null ? 1e9 : b.adp) : bv;
+      const A = adpMap[String(a.player_id)], B = adpMap[String(b.player_id)];
+      const at = A ? (A.isIdp ? 1 : 0) : 2, bt = B ? (B.isIdp ? 1 : 0) : 2;
+      if (at !== bt) return at - bt;
+      const ar = A ? (A.ovr || 1e9) : (a.adp == null ? 1e9 : a.adp);
+      const br = B ? (B.ovr || 1e9) : (b.adp == null ? 1e9 : b.adp);
       return ar - br || (Number(b.ppg) || 0) - (Number(a.ppg) || 0);
     });
     if (summary) summary.textContent = filtered.length + (filtered.length === 1 ? " player" : " players") + (filtered.length !== rows.length ? " of " + rows.length : "") + " · by ADP";
@@ -1050,8 +1114,20 @@
     tbody.innerHTML = filtered.slice(0, CAP).map((r) => {
       const name = r.name || r.player_name;
       const a = adpMap[String(r.player_id)];
-      const adpTxt = (a && a.ovr) ? ("#" + a.ovr + (a.posRank ? ' <span class="small" style="color:var(--muted)">' + escapeHtml(a.pos) + a.posRank + "</span>" : ""))
-        : (r.adp ? "ADP " + r.adp : "—");
+      // ADP cell LEADS with the positional rank (QB4 / WR12 / DE7) per Keith's ask; overall rank
+      // (offense) or FantasyPros ECR (IDP) is the muted second; a "N src" chip carries the per-source
+      // positional ranks in its tooltip so you can see where the consensus comes from.
+      let adpTxt;
+      if (a && a.posRank) {
+        const posLabel = escapeHtml(a.pos) + a.posRank;
+        const second = a.isIdp ? (a.ecr != null ? "ECR " + a.ecr : "") : (a.ovr ? "#" + a.ovr : "");
+        const tip = (a.srcs && a.srcs.length) ? a.srcs.join(" · ") : "";
+        adpTxt = '<b style="color:var(--accent)">' + posLabel + "</b>"
+          + (second ? ' <span class="small" style="color:var(--muted)">' + second + "</span>" : "")
+          + (a.srcCount ? ' <span class="small" title="' + escapeHtml(tip) + '" style="color:var(--muted);cursor:help;border-bottom:1px dotted var(--muted)">' + a.srcCount + " src</span>" : "");
+      } else {
+        adpTxt = r.adp ? "ADP " + r.adp : "—";
+      }
       // worker shape: NEW returns gp + per-game ppg + total pts → "<ppg> PPG · <total> pts". OLD returns only
       // `ppg` that is really the season TOTAL (no gp) → label it "pts", never "PPG" (the bug Keith flagged).
       const ppg = Number(r.ppg) || 0, pts = Number(r.pts) || 0, hasGp = (r.gp != null);

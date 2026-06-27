@@ -24879,6 +24879,35 @@ export default {
           return plan;
         }
 
+        // Stale-current-salary guard (parity with the /commish-contract-update
+        // guard; Keith 2026-06-27 "QJ never again"). For a player who still has a
+        // year remaining LIVE (case A), year-1 of the new contract must equal the
+        // live roster salary — an extension is forward-looking and never reprices
+        // the current year (canon §C4). A mismatch means the request's stored
+        // salary went stale (e.g. a pre-trade extension proposed before a contract
+        // rolled a year forward, committed after). Skip the row (plan.ok stays
+        // false → reported in `skipped[]`) so a stale current-year salary can never
+        // be written through the trade-extension batch path. Expired rookies
+        // (live contractYear <= 0) sign a fresh deal that does reprice year one, so
+        // they are exempt; fail-open when the live salary/contractYear is unknown.
+        const liveCyPlan = parseInt(safeStr(current?.contractYear), 10);
+        const liveSalPlan = safeInt(String(current?.salary || "").replace(/[^\d.]/g, ""), NaN);
+        const roundKPlan = (n) => Math.round((Number(n) || 0) / 1000) * 1000;
+        if (
+          Number.isFinite(liveCyPlan) && liveCyPlan >= 1 &&
+          Number.isFinite(liveSalPlan) && liveSalPlan > 0 &&
+          roundKPlan(finalSalary) !== roundKPlan(liveSalPlan)
+        ) {
+          plan.reason = "stale_current_salary";
+          plan.source = source;
+          plan.confidence = confidence;
+          plan.salary_by_year = salaryByYear;
+          plan.diagnostics.live_roster_salary = roundKPlan(liveSalPlan);
+          plan.diagnostics.submitted_year1_salary = roundKPlan(finalSalary);
+          plan.warnings.push("stale_current_salary_blocked");
+          return plan;
+        }
+
         plan.ok = true;
         plan.source = source;
         plan.confidence = confidence;
@@ -37417,6 +37446,100 @@ export default {
         };
 
         const preCheck = await readPlayer(Date.now() - 1);
+
+        // ── "Never trust a stale client salary" guard (Keith 2026-06-27) ──────
+        // The QJ-class bug: a Front Office extension form built on a months-old
+        // extension_previews snapshot carried a STALE current-year salary
+        // (Quentin Johnston Y1-$8K vs live $18K because his contract had rolled a
+        // year forward), and this route wrote it to MFL verbatim — no client fix
+        // alone can fully prevent that for every present/future surface. preCheck
+        // is the fresh, uncached live TYPE=salaries read for THIS player, so we
+        // validate here on the FO single-player extension write path (mobile +
+        // desktop). The OTHER extension write path — the pre-trade / batch
+        // extension_requests flow — has the parity check in
+        // computeExtensionSalaryPlan, so a stale current-year write is blocked on
+        // both paths.
+        //
+        // Invariant (path-independent): for an extension on a player who still has
+        // a year remaining (live contractYear >= 1 — the case-A "keep the current
+        // year, tack the extension years on" shape), the submitted contract_info
+        // Y1 token MUST equal the live roster salary. The extension is
+        // forward-looking and does not reprice the current year (canon §C4); every
+        // client path (reshape / synthesis / loaded) writes Y1 = current salary.
+        // The raw `salary` field is NOT used here — it legitimately varies by path
+        // (current vs first-extension-year), so only the Y1 token is reliable.
+        // Expired rookies (case B, contractYear <= 0) sign a FRESH deal that does
+        // reprice year one, so they're exempt. Commish override bypasses
+        // (intentional corrections); dry-runs aren't blocked (no write); fail-open
+        // if preCheck is missing so a transient MFL hiccup never blocks a real
+        // extension.
+        // IMPORTANT: the routine commish_override_flag does NOT bypass this check.
+        // The desktop auto-sets commish_override_flag=1 for ANY commish acting on
+        // another team's player (roster_workbench.js: viewerCanManageAnyRoster() &&
+        // !isOwnRosterPlayer) — which is the EXACT QJ scenario (commish 0000
+        // extending an owner's player). Letting override bypass would leave the
+        // very surface that produced the bug unguarded. A salary mismatch on an
+        // extension is never legitimate (extensions don't reprice the current
+        // year), so bypass requires a distinct, deliberate confirm_stale_salary
+        // acknowledgment that no client sets today.
+        const confirmStaleSalary =
+          body.confirm_stale_salary === 1 || body.confirm_stale_salary === "1" ||
+          body.confirm_stale_salary === true || body.force_stale_salary === 1 ||
+          body.force_stale_salary === "1" || body.force_stale_salary === true;
+        if (
+          isExtensionSubmission &&
+          dryRunFlag !== 1 &&
+          !confirmStaleSalary &&
+          preCheck && preCheck.found !== false
+        ) {
+          const liveCy = parseInt(String(preCheck.contractYear || ""), 10);
+          const liveSalDollars = Number(String(preCheck.salary || "").replace(/[^\d.]/g, ""));
+          // Parse the submitted contract_info Y1 token to dollars (handles
+          // "Y1-18K", "Y01-18K", "Y1-18000", "Y1-$18,000"). A bare number < 1000
+          // or a trailing K means thousands.
+          const y1Match = String(contractInfo || "").match(/\bY0*1\s*[-:]\s*\$?([\d,]+(?:\.\d+)?)\s*(K)?/i);
+          let submittedY1 = null;
+          if (y1Match) {
+            let n = Number(String(y1Match[1]).replace(/,/g, ""));
+            if (Number.isFinite(n)) {
+              if (y1Match[2] || n < 1000) n = n * 1000;
+              submittedY1 = Math.round(n);
+            }
+          }
+          const roundK = (n) => Math.round((Number(n) || 0) / 1000) * 1000;
+          if (
+            Number.isFinite(liveCy) && liveCy >= 1 &&
+            Number.isFinite(liveSalDollars) && liveSalDollars > 0 &&
+            submittedY1 != null &&
+            roundK(submittedY1) !== roundK(liveSalDollars)
+          ) {
+            const staleReason =
+              `Extension blocked: the current-year (Y1) salary in this submission ` +
+              `($${roundK(submittedY1).toLocaleString()}) does not match ${String(playerId)}'s ` +
+              `live MFL roster salary ($${roundK(liveSalDollars).toLocaleString()}). The contract ` +
+              `form was built on a stale snapshot — reload the player and re-open the extension so ` +
+              `it re-anchors to the current salary, then resubmit.`;
+            const staleDetails = {
+              reason: staleReason,
+              error: "STALE_CURRENT_SALARY",
+              submitted_current_salary: roundK(submittedY1),
+              live_roster_salary: roundK(liveSalDollars),
+              player_id: String(playerId),
+              live_contract_year: liveCy,
+            };
+            // Shape satisfies BOTH client error pipelines: desktop reads
+            // status==="validation_fail" + details.reason (contractMutationErrorMessage);
+            // mobile reads top-level reason.
+            return jsonOut(409, {
+              ok: false,
+              status: "validation_fail",
+              error: "STALE_CURRENT_SALARY",
+              reason: staleReason,
+              details: staleDetails,
+              ...staleDetails,
+            });
+          }
+        }
 
         // Extension FL/BL suffix normalization (canon §C4.3 + tracker Q2).
         // Defense-in-depth backstop: if the client posted plain `EXT2` but

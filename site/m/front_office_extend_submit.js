@@ -408,8 +408,10 @@
     var payload = buildExtensionPayload(args);
     return postContractUpdate(url, payload).then(function (resp) {
       if (resp.ok) return { ok: true, status: resp.status, body: resp.body, payload: payload };
+      // Prefer the worker's human-readable `reason` (e.g. the STALE_CURRENT_SALARY
+      // guard) over the raw error code so the picker shows "reload the form…".
       return { ok: false, status: resp.status, body: resp.body,
-               error: (resp.body && resp.body.error) || ("HTTP " + resp.status) };
+               error: (resp.body && (resp.body.reason || resp.body.error)) || ("HTTP " + resp.status) };
     });
   }
 
