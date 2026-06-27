@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.26.0",
-  "label": "Faster loads: a service worker now caches the app shell, so opening the app no longer pays ~27 network round-trips against GitHub Pages' 10-minute cache — repeat opens are near-instant and the app works offline. (Updates still prompt a reload banner.)"
+  "build": "2026.06.27.0",
+  "label": "Extension fix: the 'current year' salary in the Extend flow now reads your LIVE 2026 contract instead of a stale February snapshot. Players whose contracts had rolled forward (e.g. Quentin Johnston showing $8K instead of $18K, Josh Downs $14K instead of $12K) now price correctly — the escalated future AAV and TCV re-anchor to the real current salary."
 }

@@ -1516,16 +1516,32 @@
 
       // CASE A — player has 1 year remaining on an existing contract
       // (Montgomery). Y1 of the extended deal must reflect current salary,
-      // Y2+ use the future AAV. Total contract length = 1 + yearsToAdd.
+      // Y2+ use the escalated future AAV. Total contract length = 1 + yearsToAdd.
+      //
+      // The preview's futureAav was baked off the preview's current AAV, which
+      // goes STALE the moment a contract rolls forward (Quentin Johnston: the
+      // Feb snapshot read Y1-8K/Y2-18K, but the 8K year is now earned and his
+      // LIVE current is 18K). The escalation amount is canon (current +
+      // per-position raise), so re-anchor it onto the LIVE current salary and
+      // rewrite the AAV token + currentAav so the displayed current is live,
+      // not stale. Belt-and-suspenders with the previewsAreStale→synthesis
+      // fallback above (covers the case where player.aav is unset so the guard
+      // never fires). Keith 2026-06-27 (QJ 8K→18K, Downs 14K→12K).
       if (yearsRemaining === 1 && currentSalary > 0) {
-        var fixedTcvA = currentSalary + futureAav * yearsToAdd;
+        var staleCurA = safeInt(opt.currentAav, 0);
+        var escalationA = staleCurA > 0 ? (futureAav - staleCurA) : 0;
+        var liveFutureAavA = (staleCurA > 0 && staleCurA !== currentSalary)
+          ? Math.max(1000, roundToK(currentSalary + escalationA))
+          : futureAav;
+        var fixedTcvA = currentSalary + liveFutureAavA * yearsToAdd;
         var yearTokensA = ["Y1-" + formatContractK(currentSalary)];
         for (var y = 0; y < yearsToAdd; y += 1) {
-          yearTokensA.push("Y" + (y + 2) + "-" + formatContractK(futureAav));
+          yearTokensA.push("Y" + (y + 2) + "-" + formatContractK(liveFutureAavA));
         }
         var rebuiltA = originalInfo
           .replace(/CL\s+\d+/i, "CL " + (1 + yearsToAdd))
           .replace(/TCV\s+[\d.]+K?/i, "TCV " + formatContractK(fixedTcvA))
+          .replace(/AAV\s+[\d.]+K?(?:\s*,\s*[\d.]+K?)?/i, "AAV " + formatContractK(currentSalary) + ", " + formatContractK(liveFutureAavA))
           .replace(/Y1-[\d.]+K?/ig, yearTokensA[0])
           .replace(/Y2-[\d.]+K?/ig, yearTokensA[1] || "Y2-0K")
           .replace(/Y3-[\d.]+K?/ig, yearTokensA[2] || "Y3-0K");
@@ -1534,6 +1550,8 @@
         return Object.assign({}, opt, {
           contractLength: 1 + yearsToAdd,
           tcv: fixedTcvA,
+          currentAav: currentSalary,
+          futureAav: liveFutureAavA,
           contractInfo: cleanExtSegment(rebuiltA),
           salaryToSend: currentSalary,
         });
