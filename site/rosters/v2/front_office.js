@@ -1347,6 +1347,61 @@
     const opt2B = synthesizeExtensionOption(p, 2, "BL");         if (opt2B) out.push(opt2B);
     return out;
   }
+  // Re-anchor a stale worker preview to the LIVE current-year salary.
+  // The ups_extension_previews snapshot goes stale when a contract rolls a
+  // year forward (Quentin Johnston: snapshot Y1-$8K while the live roster is
+  // $18K), and FO v2 otherwise trusts it verbatim — so the picker showed $8K
+  // and the worker's stale-salary guard would 409 the submit. For a player who
+  // still has a year remaining (case A), the current year (Y1) must equal the
+  // live roster salary; the per-year escalation is canon, so shift EVERY salary
+  // in the preview (year tokens + AAV) by delta = liveCurrent − snapshotCurrent.
+  // A uniform shift re-anchors Y1 to live, preserves the escalation AND any
+  // FL/BL shape, then we recompute TCV + GTD. Expired rookies (years<=0) sign a
+  // FRESH deal with no current-year carry-over, so they're left as-is.
+  // Keith 2026-06-27 (QJ 8K→18K). Mirrors the re-anchor in roster_workbench.js
+  // + site/m/front_office_extend_submit.js.
+  function reanchorWorkerPreview(p, r, opt) {
+    const curYears = Math.max(0, safeInt(p && p.years, 0));
+    if (curYears < 1) return opt;                                  // case B — fresh deal, no carry-over
+    const liveCur = roundToK(safeInt(p && p.salary, 0));
+    const staleCur = safeInt(r && r.new_aav_current, 0);
+    if (!(liveCur > 0) || !(staleCur > 0) || liveCur === staleCur) return opt;  // nothing stale to fix
+    const delta = liveCur - staleCur;
+    const info = safeStr(opt.contract_info);
+    const yv = parseContractYearValues(info);
+    const yearNums = Object.keys(yv).map(Number).sort(function (a, b) { return a - b; });
+    if (!yearNums.length) return opt;
+    let newTcv = 0;
+    yearNums.forEach(function (n) { newTcv += Math.max(1000, roundToK(yv[n] + delta)); });
+    const cl = safeInt(opt.contractLength, 0) || yearNums.length;
+    const newGtd = guaranteeForContract(newTcv, cl);
+    const shifted = info
+      .replace(/Y(\d+)\s*-\s*[0-9.]+\s*K?/gi, function (m, n) {
+        const base = yv[safeInt(n, 0)];
+        return base > 0 ? "Y" + n + "-" + formatContractK(Math.max(1000, roundToK(base + delta))) : m;
+      })
+      .replace(/AAV\s+[0-9.]+\s*K?(?:\s*,\s*[0-9.]+\s*K?)*/i, function (m) {
+        return m.replace(/[0-9.]+\s*K?/g, function (tok) {
+          const d = parseContractMoneyToken(tok);
+          return d > 0 ? formatContractK(Math.max(1000, roundToK(d + delta))) : tok;
+        });
+      })
+      .replace(/TCV\s+[0-9.]+\s*K?/i, "TCV " + formatContractK(newTcv))
+      .replace(/GTD:\s*[0-9.]+\s*K?/i, "GTD: " + formatContractK(newGtd));
+    const firstExtIdx = curYears + 1;
+    const newSalary = Math.max(1000, roundToK(
+      (yv[firstExtIdx] != null ? yv[firstExtIdx] : safeInt(opt.salary, 0)) + delta
+    ));
+    return Object.assign({}, opt, {
+      contract_info: shifted, contractInfo: shifted, info: shifted,
+      currentAav: liveCur,
+      futureAav: Math.max(1000, roundToK(safeInt(opt.futureAav, 0) + delta)),
+      tcv: newTcv,
+      salary: newSalary,
+      year1_salary: newSalary,
+      reanchored: true,
+    });
+  }
   // Worker preview rows arrive in the shape returned by the
   // ups_extension_previews table (extension_term="1YR"/"2YR",
   // loaded_indicator, new_TCV, new_aav_current/future, etc.). Normalize
@@ -1385,7 +1440,7 @@
       const curYears = Math.max(0, safeInt(p.years, 0));
       const firstExtYearIdx = curYears + 1;
       const salaryToSend = yv[firstExtYearIdx] || safeInt(r.new_aav_future, 0);
-      return {
+      const baseOpt = {
         yearsToAdd: yrs,
         years: yrs,
         loadedIndicator: loading,
@@ -1403,6 +1458,10 @@
         synthesized: false,
         sourceNote: "Worker preview (preview_ts " + safeStr(r.preview_ts) + ")"
       };
+      // Re-anchor the current-year salary to the LIVE roster before returning,
+      // so a stale snapshot (QJ Y1-$8K vs live $18K) never reaches the picker
+      // or the submit. No-op when the snapshot already matches live.
+      return reanchorWorkerPreview(p, r, baseOpt);
     });
   }
 
