@@ -1789,7 +1789,7 @@
     if (!bdate) return 0;
     var d = null, m = bdate.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (m) d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
-    else if (/^\d{9,10}$/.test(bdate)) d = new Date(parseInt(bdate, 10) * (bdate.length === 10 ? 1000 : 1));
+    else if (/^\d{9,10}$/.test(bdate)) d = new Date(parseInt(bdate, 10) * 1000); // MFL birthdates are Unix SECONDS; a 9-digit ts (born before 2001-09) is still seconds — the old `length===10?1000:1` made pre-2001 birthdays land in 1970 → age 56 (e.g. Rashee Rice). Keith 2026-06-28.
     else { var m2 = bdate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m2) d = new Date(Date.UTC(+m2[3], +m2[1] - 1, +m2[2])); }
     if (!d || isNaN(d.getTime())) return 0;
     var now = new Date();

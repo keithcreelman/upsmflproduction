@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.27.0",
-  "label": "Extension fix: the 'current year' salary in the Extend flow now reads your LIVE 2026 contract instead of a stale February snapshot. Players whose contracts had rolled forward (e.g. Quentin Johnston showing $8K instead of $18K, Josh Downs $14K instead of $12K) now price correctly — the escalated future AAV and TCV re-anchor to the real current salary."
+  "build": "2026.06.28.0",
+  "label": "Fixes player ages on the player sheet \u2014 anyone born before Sept 2001 (most veterans, e.g. Rashee Rice) was showing as 56 years old because a 9-digit birthdate was misread as milliseconds."
 }
