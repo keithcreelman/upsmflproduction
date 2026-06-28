@@ -30447,7 +30447,12 @@ export default {
             const gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - salary);
             const yToks = ["Y1-" + fk(salary)];
             for (let i = 0; i < yrs; i += 1) yToks.push("Y" + (i + 2) + "-" + fk(fut));
-            const eh = extHist(row && row.preview_contract_info_string) || extHist(info);
+            // Prior-owner extension history: read it from the LIVE contract_info
+            // FIRST (it carries the full "Gride, Hammer" lineage). The snapshot
+            // row's Ext was rewritten down to the current owner by
+            // remapExtensionPreviewRowsToCurrentOwners, which drops the history —
+            // so it's only a fallback. Keith 2026-06-28 (Jalen Hurts).
+            const eh = extHist(info) || extHist(row && row.preview_contract_info_string);
             const parts = ["CL " + cl, "TCV " + fk(tcv), "AAV " + fk(aav) + ", " + fk(fut), yToks.join(", ")];
             if (eh) parts.push("Ext: " + eh);
             parts.push("GTD: " + fk(gtd));
