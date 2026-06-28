@@ -1458,10 +1458,13 @@
         synthesized: false,
         sourceNote: "Worker preview (preview_ts " + safeStr(r.preview_ts) + ")"
       };
-      // Re-anchor the current-year salary to the LIVE roster before returning,
-      // so a stale snapshot (QJ Y1-$8K vs live $18K) never reaches the picker
-      // or the submit. No-op when the snapshot already matches live.
-      return reanchorWorkerPreview(p, r, baseOpt);
+      // NOTE: the worker preview is used AS-IS. An earlier "re-anchor to live
+      // salary" attempt (2026-06-27) was REVERTED — the snapshot anchors to the
+      // AAV (TCV/CL), which is NOT the loaded current-year salary, so a uniform
+      // shift to player.salary corrupted every back/front-loaded contract (Jalen
+      // Hurts 52K→77K). Stale snapshots (the QJ class) are fixed at the SOURCE by
+      // regenerating ups_extension_previews, not by client surgery.
+      return baseOpt;
     });
   }
 

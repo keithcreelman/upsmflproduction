@@ -1111,10 +1111,10 @@
     if (!extOptions.length) {
       extOptions = buildSyntheticExtensionOptions(asset);
     }
-    // Re-anchor any preview-sourced option to the LIVE current-year salary so a
-    // stale ups_extension_previews snapshot can't surface a wrong Y1 here the way
-    // it did in the FO surfaces (no-op for synthetic options + expired rookies).
-    extOptions = extOptions.map(function (o) { return reanchorPreviewExtOption(asset, o); });
+    // NOTE: preview options used AS-IS. An earlier "re-anchor to live salary"
+    // attempt (2026-06-27) was REVERTED — the snapshot anchors to the AAV, not
+    // the loaded current-year salary, so a uniform shift corrupted loaded
+    // contracts. Stale snapshots are fixed at the source (regenerate previews).
     asset.extension_options = extOptions;
     asset.extension_eligible = extOptions.length > 0;
 

@@ -24881,28 +24881,45 @@ export default {
 
         // Stale-current-salary guard (parity with the /commish-contract-update
         // guard; Keith 2026-06-27 "QJ never again"). For a player who still has a
-        // year remaining LIVE (case A), year-1 of the new contract must equal the
-        // live roster salary — an extension is forward-looking and never reprices
-        // the current year (canon §C4). A mismatch means the request's stored
-        // salary went stale (e.g. a pre-trade extension proposed before a contract
-        // rolled a year forward, committed after). Skip the row (plan.ok stays
-        // false → reported in `skipped[]`) so a stale current-year salary can never
-        // be written through the trade-extension batch path. Expired rookies
-        // (live contractYear <= 0) sign a fresh deal that does reprice year one, so
-        // they are exempt; fail-open when the live salary/contractYear is unknown.
+        // year remaining LIVE (case A), year-1 of the new contract must match the
+        // live roster — anchored to EITHER the live current-year salary (flat
+        // contracts) OR the live AAV = TCV/CL (loaded contracts, where the loaded
+        // current-year salary != AAV; Jalen Hurts: live salary 67K but AAV 42K).
+        // Block ONLY when year-1 matches NEITHER — a genuinely stale request (a
+        // pre-trade extension proposed before a contract rolled, committed after).
+        // Skip the row (plan.ok stays false → reported in `skipped[]`). Expired
+        // rookies (live contractYear <= 0, fresh deal) are exempt; fail-open when
+        // the AAV/salary/contractYear can't be determined.
         const liveCyPlan = parseInt(safeStr(current?.contractYear), 10);
         const liveSalPlan = safeInt(String(current?.salary || "").replace(/[^\d.]/g, ""), NaN);
         const roundKPlan = (n) => Math.round((Number(n) || 0) / 1000) * 1000;
+        let liveAavPlan = null;
+        {
+          const liveInfoPlan = safeStr(current?.contractInfo);
+          const tcvM = liveInfoPlan.match(/TCV\s*\$?([\d,]+(?:\.\d+)?)\s*(K)?/i);
+          const clM = liveInfoPlan.match(/\bCL\s*(\d+)/i);
+          if (tcvM && clM) {
+            let tcv = Number(String(tcvM[1]).replace(/,/g, ""));
+            if (Number.isFinite(tcv) && (tcvM[2] || tcv < 1000)) tcv *= 1000;
+            const cl = parseInt(clM[1], 10);
+            if (Number.isFinite(tcv) && cl > 0) liveAavPlan = Math.round(tcv / cl);
+          }
+        }
+        const planMatchesSal = Number.isFinite(liveSalPlan) && liveSalPlan > 0 &&
+          roundKPlan(finalSalary) === roundKPlan(liveSalPlan);
+        const planMatchesAav = liveAavPlan != null && roundKPlan(finalSalary) === roundKPlan(liveAavPlan);
         if (
           Number.isFinite(liveCyPlan) && liveCyPlan >= 1 &&
+          liveAavPlan != null &&
           Number.isFinite(liveSalPlan) && liveSalPlan > 0 &&
-          roundKPlan(finalSalary) !== roundKPlan(liveSalPlan)
+          !planMatchesSal && !planMatchesAav
         ) {
           plan.reason = "stale_current_salary";
           plan.source = source;
           plan.confidence = confidence;
           plan.salary_by_year = salaryByYear;
           plan.diagnostics.live_roster_salary = roundKPlan(liveSalPlan);
+          plan.diagnostics.live_aav = roundKPlan(liveAavPlan);
           plan.diagnostics.submitted_year1_salary = roundKPlan(finalSalary);
           plan.warnings.push("stale_current_salary_blocked");
           return plan;
@@ -37494,6 +37511,24 @@ export default {
         ) {
           const liveCy = parseInt(String(preCheck.contractYear || ""), 10);
           const liveSalDollars = Number(String(preCheck.salary || "").replace(/[^\d.]/g, ""));
+          // Live AAV = TCV / CL from the live contractInfo. This is the basis the
+          // extension previews use for the current year on LOADED (FL/BL)
+          // contracts, where the loaded current-year salary != the AAV (e.g. Jalen
+          // Hurts: live salary 67K but AAV 84K/2 = 42K, and the correct extension
+          // anchors Y1 to 42K). Comparing only to the raw salary wrongly blocked
+          // every loaded extension.
+          const liveInfo = String(preCheck.contractInfo || "");
+          let liveAav = null;
+          {
+            const tcvM = liveInfo.match(/TCV\s*\$?([\d,]+(?:\.\d+)?)\s*(K)?/i);
+            const clM = liveInfo.match(/\bCL\s*(\d+)/i);
+            if (tcvM && clM) {
+              let tcv = Number(String(tcvM[1]).replace(/,/g, ""));
+              if (Number.isFinite(tcv) && (tcvM[2] || tcv < 1000)) tcv *= 1000;
+              const cl = parseInt(clM[1], 10);
+              if (Number.isFinite(tcv) && cl > 0) liveAav = Math.round(tcv / cl);
+            }
+          }
           // Parse the submitted contract_info Y1 token to dollars (handles
           // "Y1-18K", "Y01-18K", "Y1-18000", "Y1-$18,000"). A bare number < 1000
           // or a trailing K means thousands.
@@ -37507,23 +37542,34 @@ export default {
             }
           }
           const roundK = (n) => Math.round((Number(n) || 0) / 1000) * 1000;
+          // A legitimate extension anchors Y1 to EITHER the live current-year
+          // salary (flat contracts) OR the live AAV (loaded contracts). Block ONLY
+          // when the submitted Y1 matches NEITHER — that's a genuinely stale
+          // snapshot (QJ Y1-$8K while live salary AND AAV are $18K). Require the AAV
+          // to be computable so a parse miss fails OPEN and never blocks a real
+          // extension.
+          const matchesSal = Number.isFinite(liveSalDollars) && liveSalDollars > 0 &&
+            roundK(submittedY1) === roundK(liveSalDollars);
+          const matchesAav = liveAav != null && roundK(submittedY1) === roundK(liveAav);
           if (
             Number.isFinite(liveCy) && liveCy >= 1 &&
-            Number.isFinite(liveSalDollars) && liveSalDollars > 0 &&
             submittedY1 != null &&
-            roundK(submittedY1) !== roundK(liveSalDollars)
+            liveAav != null &&
+            Number.isFinite(liveSalDollars) && liveSalDollars > 0 &&
+            !matchesSal && !matchesAav
           ) {
             const staleReason =
               `Extension blocked: the current-year (Y1) salary in this submission ` +
-              `($${roundK(submittedY1).toLocaleString()}) does not match ${String(playerId)}'s ` +
-              `live MFL roster salary ($${roundK(liveSalDollars).toLocaleString()}). The contract ` +
-              `form was built on a stale snapshot — reload the player and re-open the extension so ` +
-              `it re-anchors to the current salary, then resubmit.`;
+              `($${roundK(submittedY1).toLocaleString()}) matches neither ${String(playerId)}'s ` +
+              `live MFL roster salary ($${roundK(liveSalDollars).toLocaleString()}) nor the live AAV ` +
+              `($${roundK(liveAav).toLocaleString()}). The contract form was built on a stale snapshot — ` +
+              `reload the player and re-open the extension, then resubmit.`;
             const staleDetails = {
               reason: staleReason,
               error: "STALE_CURRENT_SALARY",
               submitted_current_salary: roundK(submittedY1),
               live_roster_salary: roundK(liveSalDollars),
+              live_aav: roundK(liveAav),
               player_id: String(playerId),
               live_contract_year: liveCy,
             };

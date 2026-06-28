@@ -250,32 +250,20 @@
       var originalInfo = safeStr(opt.contractInfo);
 
       // CASE A — cy === 1 with current salary. Y1 = current salary,
-      // Y2+ = the escalated future AAV. Length = 1 + yearsToAdd.
-      //
-      // The precomputed preview's futureAav was baked off the preview's
-      // current AAV, which goes STALE the moment a contract rolls forward
-      // (e.g. Quentin Johnston: the Feb snapshot read Y1-8K/Y2-18K, but the
-      // 8K year is now earned and his LIVE current year is 18K). The
-      // escalation amount itself is canon (current + per-position raise, e.g.
-      // +10K/+20K for a WR 1yr/2yr), so re-anchor it: keep the preview's
-      // escalation but re-add it to the LIVE current salary. Also rewrites the
-      // AAV token + currentAav so the displayed "current" is the live number,
-      // not the stale one. Keith 2026-06-27 (QJ 8K→18K, Downs 14K→12K).
+      // Y2+ = futureAav. Length = 1 + yearsToAdd.
+      // NOTE: an earlier "re-anchor futureAav to live salary" attempt
+      // (2026-06-27) was REVERTED — the snapshot anchors to the AAV, not the
+      // loaded current-year salary, so a uniform shift to player.salary
+      // corrupted loaded contracts. Stale snapshots are fixed at the source.
       if (yearsRemaining === 1 && currentSalary > 0) {
-        var staleCurA = safeInt(opt.currentAav, 0);
-        var escalationA = staleCurA > 0 ? (futureAav - staleCurA) : 0;
-        var liveFutureAavA = (staleCurA > 0 && staleCurA !== currentSalary)
-          ? Math.max(1000, roundToK(currentSalary + escalationA))
-          : futureAav;
-        var fixedTcvA = currentSalary + liveFutureAavA * yearsToAdd;
+        var fixedTcvA = currentSalary + futureAav * yearsToAdd;
         var yearTokensA = ["Y1-" + formatContractK(currentSalary)];
         for (var y = 0; y < yearsToAdd; y += 1) {
-          yearTokensA.push("Y" + (y + 2) + "-" + formatContractK(liveFutureAavA));
+          yearTokensA.push("Y" + (y + 2) + "-" + formatContractK(futureAav));
         }
         var rebuiltA = originalInfo
           .replace(/CL\s+\d+/i, "CL " + (1 + yearsToAdd))
           .replace(/TCV\s+[\d.]+K?/i, "TCV " + formatContractK(fixedTcvA))
-          .replace(/AAV\s+[\d.]+K?(?:\s*,\s*[\d.]+K?)?/i, "AAV " + formatContractK(currentSalary) + ", " + formatContractK(liveFutureAavA))
           .replace(/Y1-[\d.]+K?/ig, yearTokensA[0])
           .replace(/Y2-[\d.]+K?/ig, yearTokensA[1] || "Y2-0K")
           .replace(/Y3-[\d.]+K?/ig, yearTokensA[2] || "Y3-0K");
@@ -284,8 +272,6 @@
         return Object.assign({}, opt, {
           contractLength: 1 + yearsToAdd,
           tcv: fixedTcvA,
-          currentAav: currentSalary,
-          futureAav: liveFutureAavA,
           contractInfo: cleanExtSegment(rebuiltA),
           salaryToSend: currentSalary
         });
