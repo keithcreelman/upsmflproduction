@@ -1,0 +1,66 @@
+name: Refresh Extension Previews JSON
+
+# Materializes the LIVE worker /roster-workbench extension computation (Y1 = live
+# current-year salary; extension years = the player's AAV field + escalator, per
+# canon §C4) into site/trades/extension_previews_<season>.json — the file that
+# mobile-extend and the desktop Trade War Room read. FO v2 is always-live; this
+# keeps those two JSON-reading surfaces fresh as contracts change. Runs hourly but
+# the commit step only fires when the previews actually changed (the file is
+# byte-stable otherwise), so it's near-live without churning history.
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [refresh-extension-previews]
+  schedule:
+    - cron: "20 * * * *"
+
+concurrency:
+  group: refresh-extension-previews
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Regenerate previews JSON from the live worker
+        run: |
+          python pipelines/etl/scripts/refresh_extension_previews_json.py \
+            --season 2026 \
+            --league 74598 \
+            --out site/trades/extension_previews_2026.json
+
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet -- site/trades/extension_previews_2026.json; then
+            echo "No extension-preview changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add site/trades/extension_previews_2026.json
+          git commit -m "Auto-refresh extension previews JSON"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "Push succeeded on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed; retrying..."
+            sleep 2
+          done
+          echo "Failed to push after 3 attempts."
+          exit 1
