@@ -30403,6 +30403,52 @@ export default {
           ...Object.keys(rosterAssetsByFranchise),
         ]);
 
+        // Recompute each extension preview from the player's LIVE contract, per
+        // the canonical §C4 rule (export_extension_previews_json.py): Y1 of the
+        // extended contract = the live current-year SALARY; extension years =
+        // the live AAV (TCV/CL from the contract_info) + the per-position
+        // escalator (Sch1 QB/RB/WR/TE +10K/+20K, Sch2 DL/LB/DB/K/P +3K/+5K);
+        // new_aav_current = the AAV. This makes the served previews live-correct
+        // for EVERY player regardless of how stale the D1 snapshot is — the fix
+        // for the QJ/Downs (stale) AND Hurts (loaded, AAV != current salary)
+        // classes at the source, so no client surgery can get it wrong. Only
+        // case A (1+ year remaining); expired rookies (years<=0) untouched.
+        // Keith 2026-06-28.
+        const recomputeExtPreviewsLive = (rows, live) => {
+          if (!Array.isArray(rows) || !rows.length) return rows || [];
+          const rk = (n) => Math.round((Number(n) || 0) / 1000) * 1000;
+          const fk = (d) => { d = Math.round(Number(d) || 0); if (d <= 0) return "0K"; const t = Math.round((d / 1000) * 10) / 10; return String(t).replace(/\.0$/, "") + "K"; };
+          const liveYears = parseInt(String(live && live.years), 10);
+          if (!(liveYears >= 1)) return rows;
+          const salary = rk(live && live.salary);
+          const info = safeStr(live && live.contractInfo);
+          let aav = 0;
+          { const t = info.match(/TCV\s*\$?([\d.]+)\s*(K)?/i); const c = info.match(/\bCL\s*(\d+)/i);
+            if (t && c) { let tcv = parseFloat(t[1]); if (t[2] || tcv < 1000) tcv *= 1000; const cl = parseInt(c[1], 10); if (cl > 0) aav = rk(tcv / cl); } }
+          if (!(aav > 0)) aav = salary;
+          if (!(salary > 0) || !(aav > 0)) return rows;
+          const sch1 = { QB: 1, RB: 1, WR: 1, TE: 1 };
+          const pos = safeStr(live && live.position).toUpperCase();
+          const rateFor = (yrs) => (sch1[pos] ? (yrs === 1 ? 10000 : 20000) : (yrs === 1 ? 3000 : 5000));
+          const extHist = (s) => { const m = String(s || "").match(/Ext:\s*([^|]*)/i); return m ? m[1].replace(/[^\x20-\x7E]/g, "").replace(/\s{2,}/g, " ").replace(/^[,\s]+|[,\s]+$/g, "") : ""; };
+          return rows.map((row) => {
+            const term = safeStr(row && row.extension_term).toUpperCase();
+            const yrs = term === "1YR" ? 1 : (term === "2YR" ? 2 : 0);
+            if (yrs < 1) return row;
+            const fut = rk(aav + rateFor(yrs));
+            const cl = yrs + 1;
+            const tcv = salary + fut * yrs;
+            const gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - salary);
+            const yToks = ["Y1-" + fk(salary)];
+            for (let i = 0; i < yrs; i += 1) yToks.push("Y" + (i + 2) + "-" + fk(fut));
+            const eh = extHist(row && row.preview_contract_info_string) || extHist(info);
+            const parts = ["CL " + cl, "TCV " + fk(tcv), "AAV " + fk(aav) + ", " + fk(fut), yToks.join(", ")];
+            if (eh) parts.push("Ext: " + eh);
+            parts.push("GTD: " + fk(gtd));
+            return { ...row, new_aav_current: aav, new_aav_future: fut, new_TCV: tcv, new_current_salary: salary, new_contract_length: cl, new_contract_guarantee: gtd, preview_contract_info_string: parts.join("|") };
+          });
+        };
+
         const teams = Array.from(franchiseIds).map((franchiseId) => {
           const meta = franchiseMetaById[franchiseId] || {
             franchise_id: franchiseId,
@@ -30503,7 +30549,10 @@ export default {
                 is_taxi: isTaxi,
                 is_ir: isIr,
                 espn_id: safeStr(pMeta?.espn_id || ""),
-                extension_previews: extensionPreviewsByPlayer[playerId] || [],
+                extension_previews: recomputeExtPreviewsLive(
+                  extensionPreviewsByPlayer[playerId] || [],
+                  { salary, years, contractInfo: specialRaw, position: safeStr(pMeta?.position) }
+                ),
                 taxi_callups_used: taxiCallup ? taxiCallup.used : 0,
                 taxi_callups_pending: taxiCallup ? (taxiCallup.pending || 0) : 0,
                 taxi_callups_max: 3,
