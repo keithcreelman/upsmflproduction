@@ -30422,9 +30422,15 @@ export default {
           if (!(liveYears >= 1)) return rows;
           const salary = rk(live && live.salary);
           const info = safeStr(live && live.contractInfo);
-          let aav = 0;
-          { const t = info.match(/TCV\s*\$?([\d.]+)\s*(K)?/i); const c = info.match(/\bCL\s*(\d+)/i);
-            if (t && c) { let tcv = parseFloat(t[1]); if (t[2] || tcv < 1000) tcv *= 1000; const cl = parseInt(c[1], 10); if (cl > 0) aav = rk(tcv / cl); } }
+          // Escalator base = the player's authoritative AAV field (the worker
+          // already normalizes it — Downs $12K not the $7K math-average dragged
+          // down by his $2K rookie Y1; Hurts $42K not the mislabeled $67K). Only
+          // fall back to TCV/CL, then to the flat salary, if the field is absent.
+          let aav = rk(live && live.aav);
+          if (!(aav > 0)) {
+            const t = info.match(/TCV\s*\$?([\d.]+)\s*(K)?/i); const c = info.match(/\bCL\s*(\d+)/i);
+            if (t && c) { let tcv = parseFloat(t[1]); if (t[2] || tcv < 1000) tcv *= 1000; const cl = parseInt(c[1], 10); if (cl > 0) aav = rk(tcv / cl); }
+          }
           if (!(aav > 0)) aav = salary;
           if (!(salary > 0) || !(aav > 0)) return rows;
           const sch1 = { QB: 1, RB: 1, WR: 1, TE: 1 };
@@ -30551,7 +30557,7 @@ export default {
                 espn_id: safeStr(pMeta?.espn_id || ""),
                 extension_previews: recomputeExtPreviewsLive(
                   extensionPreviewsByPlayer[playerId] || [],
-                  { salary, years, contractInfo: specialRaw, position: safeStr(pMeta?.position) }
+                  { salary, years, contractInfo: specialRaw, position: safeStr(pMeta?.position), aav }
                 ),
                 taxi_callups_used: taxiCallup ? taxiCallup.used : 0,
                 taxi_callups_pending: taxiCallup ? (taxiCallup.pending || 0) : 0,
