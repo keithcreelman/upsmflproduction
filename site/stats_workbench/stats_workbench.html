@@ -459,6 +459,24 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       compute:function(r){ var x=epaRole(r); return x && x.succ != null ? x.succ : null; } },
     epa_vol:             { label:"EPA n",   num:true, title:"EPA sample — QB dropbacks / RB carries / WR-TE targets in the window",
       compute:function(r){ var x=epaRoleRaw(r); return x ? (x.plays != null ? x.plays : x.tgt) : null; } },
+    // Route Separation — PFF Route Separation Score (manual export, side-loaded
+    // by gsis_id). avg_score = separation ABOVE/BELOW expected (route+coverage+
+    // depth adjusted), routes-weighted into MAN / ZONE / overall composites with
+    // within-pool percentiles. Separation (route-volume adjusted) is QB/target-
+    // independent and more predictive of next-season fantasy PPG than YPRR; the
+    // MAN split is the stable, repeatable skill signal (zone is noisier).
+    sep_man_pct:  { label:"vs Man",  num:true, fmt:"pct0", title:"Separation vs MAN coverage — percentile among qualified receivers (≥20 man routes). The stable, repeatable skill signal: man-coverage separation is far more predictive year-to-year than zone. Empty = under the route minimum.",
+      compute:function(r){ var s=sepByGsis[String(r.gsis_id)]; return s && s.man_pct != null ? s.man_pct : null; } },
+    sep_zone_pct: { label:"vs Zone", num:true, fmt:"pct0", title:"Separation vs ZONE coverage — percentile among qualified receivers (≥20 zone routes). Less stable year-to-year than man, but not noise.",
+      compute:function(r){ var s=sepByGsis[String(r.gsis_id)]; return s && s.zone_pct != null ? s.zone_pct : null; } },
+    sep_pct:      { label:"Overall", num:true, fmt:"pct0", title:"Overall route separation percentile among qualified receivers (≥50 contested routes; man + zone, routes-weighted).",
+      compute:function(r){ var s=sepByGsis[String(r.gsis_id)]; return s && s.overall_pct != null ? s.overall_pct : null; } },
+    sep_man:      { label:"Man±", num:true, fmt:"epa", title:"Separation above/below expected vs man coverage (routes-weighted). Positive = gets open more than an average receiver vs that look.",
+      compute:function(r){ var s=sepByGsis[String(r.gsis_id)]; return s && s.man_score != null ? s.man_score : null; } },
+    sep_zone:     { label:"Zone±", num:true, fmt:"epa", title:"Separation above/below expected vs zone coverage (routes-weighted).",
+      compute:function(r){ var s=sepByGsis[String(r.gsis_id)]; return s && s.zone_score != null ? s.zone_score : null; } },
+    sep_rt:       { label:"Sep Rt", num:true, title:"Route sample feeding the separation composite (contested man+zone routes).",
+      compute:function(r){ var s=sepByGsis[String(r.gsis_id)]; return s && s.overall_routes != null ? s.overall_routes : null; } },
     // Usage — offense
     games:               { label:"G",        num:true },
     off_snaps_total:     { label:"Snaps",    num:true, title:"Offensive snaps" },
@@ -761,6 +779,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         { id:"market_share",   label:"Market Share",
           cols:["rush_share","target_share","rec_share",
                 "rz_rush_share","gl_rush_share","rz_target_share","rz_rec_share","ez_target_share"], defaultOn:false },
+        { id:"route_separation", label:"Route Separation (PFF '25)",
+          cols:["sep_man_pct","sep_zone_pct","sep_pct","sep_man","sep_zone","sep_rt"], defaultOn:false },
       ]
     },
     wr: {
@@ -780,6 +800,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         { id:"market_share",   label:"Market Share",
           cols:["target_share","rec_share",
                 "rz_target_share","rz_rec_share","ez_target_share"], defaultOn:false },
+        { id:"route_separation", label:"Route Separation (PFF '25)",
+          cols:["sep_man_pct","sep_zone_pct","sep_pct","sep_man","sep_zone","sep_rt"], defaultOn:false },
       ]
     },
     te: {
@@ -798,6 +820,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         { id:"market_share",   label:"Market Share",
           cols:["target_share","rec_share",
                 "rz_target_share","rz_rec_share","ez_target_share"], defaultOn:false },
+        { id:"route_separation", label:"Route Separation (PFF '25)",
+          cols:["sep_man_pct","sep_zone_pct","sep_pct","sep_man","sep_zone","sep_rt"], defaultOn:false },
       ]
     },
     flex_o: {
@@ -977,6 +1001,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   var sosByGsis = {};
   var consistByGsis = {};   // /api/player-consistency by gsis_id — floor/ceil/consistency/boom/bust/weeks
   var epaByGsis = {};       // /api/player-epa by gsis_id — {pass,rush,rec}.{epa,cpoe,succ,plays/tgt}
+  var sepByGsis = {};       // PFF route-separation by gsis_id — man/zone/overall score+pct+routes (static JSON)
   // Pick the EPA role that matches a row's fantasy position (QB→pass, RB→rush, WR/TE→rec).
   function epaRoleRaw(r){ var e=epaByGsis[String(r.gsis_id)]; if(!e) return null; var pg=String(r.pos_group||r.position||"").toUpperCase(); if(pg==="QB") return e.pass; if(pg==="RB") return e.rush; return e.rec; }
   // Gated to a qualified sample so 1-carry scrubs don't top an EPA sort (rate
@@ -2064,6 +2089,16 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ epaByGsis = (j && j.by_gsis) || {}; })
       .catch(function(){ epaByGsis = {}; });
+    // PFF Route Separation — static 2025 export (Pages JSON), keyed by gsis_id.
+    // Loaded once; only populated for the rows that have a 2025 separation row.
+    var sepFetch = fetch("https://keithcreelman.github.io/upsmflproduction/stats_workbench/pff_separation_2025.json")
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        sepByGsis = {};
+        var arr = (j && j.players) || [];
+        for (var si = 0; si < arr.length; si++){ var p = arr[si]; if (p && p.gsis_id) sepByGsis[String(p.gsis_id)] = p; }
+      })
+      .catch(function(){ sepByGsis = {}; });
     Promise.all([
       fetch(url).then(function(r){
         if (!r.ok) throw new Error("HTTP " + r.status);
@@ -2074,6 +2109,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       sosFetch,
       consistFetch,
       epaFetch,
+      sepFetch,
     ]).then(function(pair){
       var j = pair[0];
       var rows = Array.isArray(j.rows) ? j.rows : [];
