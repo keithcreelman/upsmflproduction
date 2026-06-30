@@ -494,6 +494,27 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; if(!x||x.xfp==null||r.mfl_points==null) return null; return Math.round((r.mfl_points - x.xfp)*10)/10; } },
     xfp_diff_pg:  { label:"±/g", num:true, fmt:"delta", title:"MFL PPG − xFP/g (per game).",
       compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; if(!x||x.xfp==null) return null; var g=(r.games!=null&&r.games>0)?r.games:(x.games||0); if(!(g>0)) return null; var mppg=(r.mfl_ppg!=null)?r.mfl_ppg:(r.mfl_points!=null?r.mfl_points/g:null); return mppg!=null ? Math.round((mppg - x.xfp/g)*100)/100 : null; } },
+    // Skill-vs-luck decomposition of the ± (modeled, scaled to the official ±). The
+    // ± splits into a TD-luck bucket and a yards+receptions skill bucket; Sustain± is
+    // the reliability-weighted, sample-shrunk part projected to carry forward; Luck±
+    // is the rest (regresses). vs Self measures him against his OWN multi-year norm;
+    // Backed is the independent skill support; Call is the synthesized verdict.
+    xfp_td:       { label:"TD±", num:true, fmt:"delta", title:"Points from TOUCHDOWNS over expected (scaled to your official ±). Scoring-event LUCK — TD-over-expected has ~zero year-to-year stability (QB/RB r=0), so this is the part that regresses.",
+      compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; if(!x||x.td_diff==null) return null; return Math.round(x.td_diff*xfpScale(r,x)*10)/10; } },
+    xfp_eff:      { label:"Eff±", num:true, fmt:"delta", title:"Points from YARDS + RECEPTIONS over expected (scaled to your official ±). The skill-leaning bucket — yards/receptions over expected are repeatable (WR/TE reception reliability r=0.8, yards r=0.64).",
+      compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; if(!x||x.eff_diff==null) return null; return Math.round(x.eff_diff*xfpScale(r,x)*10)/10; } },
+    xfp_sustain:  { label:"Sustain±", num:true, fmt:"delta", title:"The part of the ± projected to CARRY FORWARD — each residual component shrunk by its measured year-to-year reliability AND the player's sample size, scaled to your official ±. This is the skill signal.",
+      compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; if(!x||x.sustainable_diff==null) return null; return Math.round(x.sustainable_diff*xfpScale(r,x)*10)/10; } },
+    xfp_luck:     { label:"Luck±", num:true, fmt:"delta", title:"The part of the ± NOT projected to carry forward (official ± minus Sustain±) — expected to mean-revert next season.",
+      compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; var off=xfpOfficial(r,x); if(off==null||!x||x.sustainable_diff==null) return null; return Math.round((off - x.sustainable_diff*xfpScale(r,x))*10)/10; } },
+    xfp_vs_self:  { label:"vs Self", num:true, fmt:"delta", title:"This season's SUSTAINABLE rate vs the player's OWN multi-year baseline (years 1-3 use a UPS draft-slot prior, ramping to their own data). NEGATIVE = below his proven norm (buy lean); POSITIVE = above it. Measures him against himself, not the league — so a perennial over-converter is not flagged a sell just for being good.",
+      compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; if(!x||x.regression_signal_pg==null) return null; var g=(r.games!=null&&r.games>0)?r.games:(x.games||1); return Math.round(x.regression_signal_pg*g*10)/10; } },
+    xfp_corrob:   { label:"Backed", num:true, fmt:"sint", title:"Skill backing: net count of top-tercile minus bottom-tercile finishes on this position's STABLE skills (WR/TE: man-separation, target share, ADOT, YAC, EPA - RB: rush EPA, YAC/att, snap%, carry share - QB: CPOE, EPA, success%). Positive = his underlying skills support beating expectation, so it is likelier real than luck.",
+      titleFn:function(r){ var c=state.xfpBack&&state.xfpBack[String(r.gsis_id)]; return c&&c.reasons&&c.reasons.length?("Skills vs position: "+c.reasons.join(", ")):""; },
+      compute:function(r){ var c=state.xfpBack&&state.xfpBack[String(r.gsis_id)]; return c?c.backed:null; } },
+    xfp_verdict:  { label:"Call", fmt:"verdict", title:"Buy-low / Hold / Sell-high — synthesizes the regression-prone Luck±, the player's skill backing, and where he sits vs his own baseline. BUY = underperformed but skills/track-record say better; SELL = overperformed on luck without skill support; HOLD = in line, or the over-performance is skill-backed.",
+      titleFn:function(r){ var v=xfpVerdictInfo(r); if(!v) return ""; return v.verdict+" - official "+(v.off>=0?"+":"")+v.off.toFixed(0)+" = sustainable "+(v.sustain>=0?"+":"")+v.sustain.toFixed(0)+" + luck "+(v.luck>=0?"+":"")+v.luck.toFixed(0)+"; skill backing "+(v.bk>=0?"+":"")+v.bk+"; vs own baseline "+(v.vsSelf>=0?"+":"")+v.vsSelf.toFixed(0); },
+      compute:function(r){ var v=xfpVerdictInfo(r); return v?v.verdict:null; } },
     // Usage — offense
     games:               { label:"G",        num:true },
     off_snaps_total:     { label:"Snaps",    num:true, title:"Offensive snaps" },
@@ -775,7 +796,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         { id:"qb_red_zone",    label:"Red Zone", cols:["pass_att_i20","pass_att_ez","team_rz_plays","team_rz_pass_rate"], defaultOn:false },
         { id:"qb_rush",        label:"Rushing",  cols:["rush_att","rush_yds","rush_tds"], defaultOn:false },
         { id:"expected_points", label:"Expected Points (xFP '25)",
-          cols:["xfp_tot","xfp_pg","xfp_diff","xfp_diff_pg"], defaultOn:false },
+          cols:["xfp_tot","xfp_pg","xfp_diff","xfp_td","xfp_eff","xfp_sustain","xfp_luck","xfp_vs_self","xfp_corrob","xfp_verdict"], defaultOn:false },
       ]
     },
     rb: {
@@ -801,7 +822,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         { id:"route_separation", label:"Route Separation (PFF '25)",
           cols:["sep_man_pct","sep_zone_pct","sep_pct","sep_man","sep_zone","sep_rt"], defaultOn:false },
         { id:"expected_points", label:"Expected Points (xFP '25)",
-          cols:["xfp_tot","xfp_pg","xfp_diff","xfp_diff_pg"], defaultOn:false },
+          cols:["xfp_tot","xfp_pg","xfp_diff","xfp_td","xfp_eff","xfp_sustain","xfp_luck","xfp_vs_self","xfp_corrob","xfp_verdict"], defaultOn:false },
       ]
     },
     wr: {
@@ -824,7 +845,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         { id:"route_separation", label:"Route Separation (PFF '25)",
           cols:["sep_man_pct","sep_zone_pct","sep_pct","sep_man","sep_zone","sep_rt"], defaultOn:false },
         { id:"expected_points", label:"Expected Points (xFP '25)",
-          cols:["xfp_tot","xfp_pg","xfp_diff","xfp_diff_pg"], defaultOn:false },
+          cols:["xfp_tot","xfp_pg","xfp_diff","xfp_td","xfp_eff","xfp_sustain","xfp_luck","xfp_vs_self","xfp_corrob","xfp_verdict"], defaultOn:false },
       ]
     },
     te: {
@@ -846,7 +867,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         { id:"route_separation", label:"Route Separation (PFF '25)",
           cols:["sep_man_pct","sep_zone_pct","sep_pct","sep_man","sep_zone","sep_rt"], defaultOn:false },
         { id:"expected_points", label:"Expected Points (xFP '25)",
-          cols:["xfp_tot","xfp_pg","xfp_diff","xfp_diff_pg"], defaultOn:false },
+          cols:["xfp_tot","xfp_pg","xfp_diff","xfp_td","xfp_eff","xfp_sustain","xfp_luck","xfp_vs_self","xfp_corrob","xfp_verdict"], defaultOn:false },
       ]
     },
     flex_o: {
@@ -1030,6 +1051,79 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   var xfpByGsis = {};       // Expected Fantasy Points by gsis_id — league-scored xFP + actual + ± (static JSON)
   // Pick the EPA role that matches a row's fantasy position (QB→pass, RB→rush, WR/TE→rec).
   function epaRoleRaw(r){ var e=epaByGsis[String(r.gsis_id)]; if(!e) return null; var pg=String(r.pos_group||r.position||"").toUpperCase(); if(pg==="QB") return e.pass; if(pg==="RB") return e.rush; return e.rec; }
+
+  // ---- Expected Points: skill-vs-luck helpers ----
+  // The decomposition (td_diff/eff_diff/sustainable_diff) is MODELED (ffopp actual −
+  // expected). Scale it to the OFFICIAL ± (MFL points − xFP) so the buckets reconcile
+  // to the ± the user sees; clamp, and fall back to unscaled when the modeled total ≈ 0.
+  function xfpScale(r, x){
+    if (!x || x.xfp == null || r.mfl_points == null || x.modeled_diff == null) return 1;
+    if (Math.abs(x.modeled_diff) < 3) return 1;
+    return Math.max(0.5, Math.min(2.0, (r.mfl_points - x.xfp) / x.modeled_diff));
+  }
+  function xfpOfficial(r, x){ return (r.mfl_points != null && x && x.xfp != null) ? (r.mfl_points - x.xfp) : null; }
+
+  // Stable-skill backing: within each position bucket over the loaded rows, mark each
+  // player top-tercile (+1) / bottom-tercile (−1) on the repeatable skills and net the
+  // signs. Recomputed per render into state.xfpBack (gsis -> {backed, reasons}).
+  function computeSkillBacking(rows){
+    function bucket(r){ var p=String(r.position||r.pos_group||"").toUpperCase(); if(p==="QB")return"QB"; if(p==="RB"||p==="FB"||p==="HB")return"RB"; if(p==="WR"||p==="TE")return"WR_TE"; return null; }
+    var SK = {
+      QB: [["CPOE",function(r){var e=epaByGsis[String(r.gsis_id)];return e&&e.pass?e.pass.cpoe:null;}],
+           ["EPA",function(r){var e=epaByGsis[String(r.gsis_id)];return e&&e.pass?e.pass.epa:null;}],
+           ["Succ",function(r){var e=epaByGsis[String(r.gsis_id)];return e&&e.pass?e.pass.succ:null;}]],
+      RB: [["EPA",function(r){var e=epaByGsis[String(r.gsis_id)];return e&&e.rush?e.rush.epa:null;}],
+           ["YAC/A",function(r){return r.yac_per_a;}],
+           ["Snap%",function(r){return r.off_snap_rate;}],
+           ["Ru%",function(r){return r.rush_share;}]],
+      WR_TE: [["ManSep",function(r){var s=sepByGsis[String(r.gsis_id)];return s?s.man_pct:null;}],
+              ["Tgt%",function(r){return r.target_share;}],
+              ["ADOT",function(r){return r.receiving_adot;}],
+              ["YAC/R",function(r){return r.receiving_yac_per_r;}],
+              ["EPA",function(r){var e=epaByGsis[String(r.gsis_id)];return e&&e.rec?e.rec.epa:null;}]]
+    };
+    var groups = {};
+    rows.forEach(function(r){ var b=bucket(r); if(b)(groups[b]=groups[b]||[]).push(r); });
+    var cache = {};
+    Object.keys(groups).forEach(function(b){
+      var grp = groups[b], skills = SK[b] || [];
+      var tiers = skills.map(function(sk){
+        var vals = grp.map(function(r){ return sk[1](r); }).filter(function(v){ return v != null && !isNaN(v); }).sort(function(a,c){ return a-c; });
+        if (vals.length < 6) return null;
+        return { lo: vals[Math.floor(vals.length/3)], hi: vals[Math.floor(2*vals.length/3)] };
+      });
+      grp.forEach(function(r){
+        var score = 0, reasons = [];
+        skills.forEach(function(sk, i){
+          var t = tiers[i]; if (!t) return; var v = sk[1](r); if (v == null || isNaN(v)) return;
+          if (v >= t.hi){ score++; reasons.push(sk[0]+"↑"); }
+          else if (v <= t.lo){ score--; reasons.push(sk[0]+"↓"); }
+        });
+        cache[String(r.gsis_id)] = { backed: score, reasons: reasons };
+      });
+    });
+    return cache;
+  }
+
+  // Buy / Hold / Sell — synthesize the regression-prone luck, skill backing, and
+  // position vs the player's own baseline. T = points threshold (~0.75/g over a season).
+  function xfpVerdictInfo(r){
+    var x = xfpByGsis[String(r.gsis_id)];
+    if (!x || x.xfp == null || r.mfl_points == null) return null;
+    var scale = xfpScale(r, x);
+    var off = r.mfl_points - x.xfp;
+    var sustain = (x.sustainable_diff || 0) * scale;
+    var luck = off - sustain;
+    var games = r.games || x.games || 1;
+    var vsSelf = (x.regression_signal_pg != null ? x.regression_signal_pg : 0) * games;
+    var bk = (state.xfpBack && state.xfpBack[String(r.gsis_id)]) ? state.xfpBack[String(r.gsis_id)].backed : 0;
+    var T = 12, verdict = "Hold";
+    if (off >= T && luck >= T && bk <= 0) verdict = "Sell";
+    else if (off <= -T && (bk >= 1 || vsSelf <= -T)) verdict = "Buy";
+    else if (vsSelf <= -T && bk >= 1) verdict = "Buy";
+    else if (vsSelf >= T && luck >= T && bk <= 0) verdict = "Sell";
+    return { verdict: verdict, off: off, sustain: sustain, luck: luck, vsSelf: vsSelf, bk: bk };
+  }
   // Gated to a qualified sample so 1-carry scrubs don't top an EPA sort (rate
   // stats only; the raw "EPA n" sample stays visible). Thresholds scale trivially
   // for multi-season windows where everyone clears them.
@@ -1272,6 +1366,17 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       // EPA per play — positive green (efficient), negative red.
       var e = Number(v);
       return '<span class="asw-trend ' + (e > 0 ? "up" : (e < 0 ? "dn" : "")) + '">' + (e > 0 ? "+" : "") + e.toFixed(3) + "</span>";
+    }
+    if (fmt === "sint") {
+      // Signed integer, colored (skill-backing count).
+      var iv = Number(v); if (iv === 0) return "0";
+      return '<span class="asw-trend ' + (iv > 0 ? "up" : "dn") + '">' + (iv > 0 ? "+" : "") + iv.toFixed(0) + "</span>";
+    }
+    if (fmt === "verdict") {
+      // Buy-low / Hold / Sell-high tag.
+      if (v === "Buy")  return '<span class="asw-trend up">Buy</span>';
+      if (v === "Sell") return '<span class="asw-trend dn">Sell</span>';
+      return '<span class="dim">Hold</span>';
     }
     if (fmt === "spark") {
       // Inline weekly-points sparkline (v = ordered array of weekly scores).
@@ -1541,7 +1646,9 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
           if (def.cls) cls.push(def.cls);
           if (bi > 0 && ci === 0) cls.push("group-sep");
           var hc = state.heatOn ? heatClass(k, v) : "";
-          cells += '<td class="'+cls.join(" ")+hc+'">'+fmtCell(v, def.fmt)+'</td>';
+          var tip = def.titleFn ? def.titleFn(r) : "";
+          var tipAttr = tip ? ' title="'+String(tip).replace(/"/g,"&quot;")+'"' : "";
+          cells += '<td class="'+cls.join(" ")+hc+'"'+tipAttr+'>'+fmtCell(v, def.fmt)+'</td>';
         });
       });
       return '<tr>'+cells+'</tr>';
@@ -2183,6 +2290,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       // mobile buildLeaderboardMap (app.js) exactly (bucket by position||pos_group,
       // sort by mfl_ppg desc) so desktop + mobile ranks never disagree.
       state.rankByGsis = computePosRanks(rows);
+      state.xfpBack = computeSkillBacking(rows);   // skill-backing for the xFP verdict, ranked within this position set
       var seasonLabel = seasons.length === 1 ? String(seasons[0])
                       : seasons.length <= 3 ? seasons.sort(function(a,b){return b-a}).join(", ")
                       : seasons.sort(function(a,b){return a-b})[0] + "-" + seasons.sort(function(a,b){return b-a})[0];

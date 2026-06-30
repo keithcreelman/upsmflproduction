@@ -1,0 +1,108 @@
+{
+ "source": "nflverse ffopportunity split-half (odd/even week) per-opportunity residual-rate reliability, Spearman-Brown stepped up; 2006-2025 weeks 1-17",
+ "method": "r = split-half reliability of per-opportunity over-expected rate; k = stabilization opp count (r=0.5); yoy_r = season-to-season Pearson (disclosure).",
+ "qualifiers": {
+  "min_weeks": 8,
+  "min_opp": {
+   "QB": 150,
+   "RB": 60,
+   "WR_TE": 50
+  }
+ },
+ "reliability": {
+  "QB": {
+   "td": {
+    "r": 0.0,
+    "k": 9999.0,
+    "r_half": -0.0607,
+    "yoy_r": 0.1117,
+    "n_pairs": 673,
+    "n_med_opp": 463.0
+   },
+   "yds": {
+    "r": 0.389,
+    "k": 727.2,
+    "r_half": 0.2415,
+    "yoy_r": 0.3066,
+    "n_pairs": 673,
+    "n_med_opp": 463.0
+   },
+   "fd": {
+    "r": 0.3921,
+    "k": 717.8,
+    "r_half": 0.2439,
+    "yoy_r": 0.3114,
+    "n_pairs": 673,
+    "n_med_opp": 463.0
+   }
+  },
+  "RB": {
+   "td": {
+    "r": 0.1006,
+    "k": 1516.0,
+    "r_half": 0.0529,
+    "yoy_r": 0.0611,
+    "n_pairs": 1368,
+    "n_med_opp": 169.5
+   },
+   "yds": {
+    "r": 0.3317,
+    "k": 341.5,
+    "r_half": 0.1988,
+    "yoy_r": 0.2181,
+    "n_pairs": 1368,
+    "n_med_opp": 169.5
+   },
+   "rec": {
+    "r": 0.529,
+    "k": 64.1,
+    "r_half": 0.3596,
+    "yoy_r": 0.3333,
+    "n_pairs": 210,
+    "n_med_opp": 72.0
+   },
+   "fd": {
+    "r": 0.1887,
+    "k": 728.7,
+    "r_half": 0.1042,
+    "yoy_r": 0.1581,
+    "n_pairs": 1368,
+    "n_med_opp": 169.5
+   }
+  },
+  "WR_TE": {
+   "td": {
+    "r": 0.2658,
+    "k": 234.8,
+    "r_half": 0.1533,
+    "yoy_r": 0.2179,
+    "n_pairs": 2094,
+    "n_med_opp": 85.0
+   },
+   "yds": {
+    "r": 0.6371,
+    "k": 48.4,
+    "r_half": 0.4675,
+    "yoy_r": 0.4947,
+    "n_pairs": 2094,
+    "n_med_opp": 85.0
+   },
+   "rec": {
+    "r": 0.7956,
+    "k": 21.6,
+    "r_half": 0.6605,
+    "yoy_r": 0.6127,
+    "n_pairs": 2044,
+    "n_med_opp": 84.0
+   },
+   "fd": {
+    "r": 0.668,
+    "k": 42.3,
+    "r_half": 0.5014,
+    "yoy_r": 0.5189,
+    "n_pairs": 2094,
+    "n_med_opp": 85.0
+   }
+  }
+ }
+}
