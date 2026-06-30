@@ -1,7 +1,7 @@
 {
-  "version": "1.19.0",
+  "version": "1.19.1",
   "released": "2026-06-30",
-  "label": "v1.19.0 \u2014 Expected Points (xFP): a new default-off column group on QB/RB/WR/TE from nflverse ffopportunity, RE-SCORED under our exact league rules. Shows expected fantasy points (total + per game) \u2014 what an average player would score on this player's OPPORTUNITY \u2014 plus the \u00b1 (actual \u2212 expected): negative = underperformed his usage (buy-low / positive-regression lean), positive = outproduced it (sell-high). Opportunity/volume is the most predictive fantasy signal. (v1.18.0: Route Separation from PFF.)",
+  "label": "v1.19.1 \u2014 Expected Points (xFP) tie-out fix: xFP is now summed over WEEKS 1-17 (our fantasy season) instead of 1-18, and the \u00b1 is computed against the OFFICIAL MFL Pts/PPG columns over MFL's game denominator \u2014 so xFP, xFP/g, \u00b1 and \u00b1/g all tie to the MFL numbers next to them (was: \u00b1 used a re-scored actual over a different game count, e.g. CMC showed xFP/g = MFL PPG yet \u00b1 = -20). (v1.19.0: Expected Points group added; v1.18.0: Route Separation from PFF.)",
   "changes_120": [
     "Horizontal scrollbar moved to the TOP of the table (synced two-way); the table now scrolls in a bounded 680px region so the scrollbar + column header stay fixed while the body scrolls (works in the iframe embed, not just standalone).",
     "Pos Rk now ranks within the IDP/offense GROUP (DL/LB/DB/QB/RB/WR/TE/PK) instead of the raw nflverse position \u2014 fixes multiple #1s showing in a single DL/LB/DB."

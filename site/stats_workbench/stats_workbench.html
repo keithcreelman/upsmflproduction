@@ -478,19 +478,22 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     sep_rt:       { label:"Sep Rt", num:true, title:"Route sample feeding the separation composite (contested man+zone routes).",
       compute:function(r){ var s=sepByGsis[String(r.gsis_id)]; return s && s.overall_routes != null ? s.overall_routes : null; } },
     // Expected Fantasy Points — nflverse ffopportunity, RE-SCORED under our league
-    // rules (side-loaded JSON by gsis_id). xFP = league fantasy points an average
-    // player would score given THIS player's OPPORTUNITY (targets, air yards,
-    // carries, red-zone usage) — the most predictive fantasy signal. ± = actual −
-    // expected: NEGATIVE = he left points on the table vs his usage (buy-low /
-    // positive-regression lean); POSITIVE = outproduced his opportunity (sell lean).
-    xfp_tot:      { label:"xFP", num:true, fmt:"dec1", title:"Expected Fantasy Points (2025 REG, league-scored) — total fantasy points an AVERAGE player would score on this player's opportunity (targets / air yards / carries / red-zone). QB/target-independent volume signal — the most predictive fantasy stat.",
+    // rules (side-loaded JSON by gsis_id, weeks 1-17 = our fantasy season). xFP =
+    // league fantasy points an average player would score given THIS player's
+    // OPPORTUNITY (targets, air yards, carries, red-zone) — the most predictive
+    // fantasy signal. The ± is computed against the OFFICIAL MFL actual (the MFL
+    // Pts / MFL PPG columns) over MFL's game denominator, so the four columns tie:
+    //   ± = MFL Pts − xFP ; ±/g = MFL PPG − xFP/g ; xFP/g = xFP ÷ MFL games.
+    // NEGATIVE = left points on the table vs his usage (buy-low / positive-
+    // regression lean); POSITIVE = outproduced his opportunity (sell-high lean).
+    xfp_tot:      { label:"xFP", num:true, fmt:"dec1", title:"Expected Fantasy Points (2025, weeks 1-17, league-scored) — total fantasy points an AVERAGE player would score on this player's opportunity (targets / air yards / carries / red-zone). The most predictive fantasy stat.",
       compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; return x && x.xfp != null ? x.xfp : null; } },
-    xfp_pg:       { label:"xFP/g", num:true, fmt:"dec1", title:"Expected Fantasy Points per game (2025 REG, league-scored).",
-      compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; return x && x.xfp_pg != null ? x.xfp_pg : null; } },
-    xfp_diff:     { label:"±", num:true, fmt:"delta", title:"Actual − Expected fantasy points (2025 REG, league-scored). NEGATIVE (red) = UNDERperformed his opportunity → usage supports more, a buy-low / positive-regression lean; POSITIVE (green) = OUTproduced his opportunity → sell-high lean.",
-      compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; return x && x.diff != null ? x.diff : null; } },
-    xfp_diff_pg:  { label:"±/g", num:true, fmt:"delta", title:"Actual − Expected fantasy points per game.",
-      compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; return x && x.diff_pg != null ? x.diff_pg : null; } },
+    xfp_pg:       { label:"xFP/g", num:true, fmt:"dec1", title:"Expected Fantasy Points per game = xFP ÷ MFL games (same denominator as MFL PPG, so they're directly comparable).",
+      compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; if(!x||x.xfp==null) return null; var g=(r.games!=null&&r.games>0)?r.games:(x.games||0); return g>0 ? Math.round((x.xfp/g)*100)/100 : null; } },
+    xfp_diff:     { label:"±", num:true, fmt:"delta", title:"MFL Pts − xFP (official actual minus expected, weeks 1-17). NEGATIVE (red) = UNDERperformed his opportunity → usage supports more, a buy-low / positive-regression lean; POSITIVE (green) = OUTproduced his opportunity → sell-high lean.",
+      compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; if(!x||x.xfp==null||r.mfl_points==null) return null; return Math.round((r.mfl_points - x.xfp)*10)/10; } },
+    xfp_diff_pg:  { label:"±/g", num:true, fmt:"delta", title:"MFL PPG − xFP/g (per game).",
+      compute:function(r){ var x=xfpByGsis[String(r.gsis_id)]; if(!x||x.xfp==null) return null; var g=(r.games!=null&&r.games>0)?r.games:(x.games||0); if(!(g>0)) return null; var mppg=(r.mfl_ppg!=null)?r.mfl_ppg:(r.mfl_points!=null?r.mfl_points/g:null); return mppg!=null ? Math.round((mppg - x.xfp/g)*100)/100 : null; } },
     // Usage — offense
     games:               { label:"G",        num:true },
     off_snaps_total:     { label:"Snaps",    num:true, title:"Offensive snaps" },

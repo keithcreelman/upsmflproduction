@@ -13,12 +13,18 @@ Source : nflverse ffopportunity via nflreadpy.load_ff_opportunity(stat_type="wee
          cancel in the ± and aren't part of expected-opportunity anyway.)
 
 Output : site/stats_workbench/nfl_xfp_<season>.json — one row per offensive player
-         keyed by gsis_id: total + per-game xFP, league-scored actual, and the
-         ± (actual − expected = the over/under-his-opportunity regression signal).
-         Negative ± = left points on the table vs his usage (positive-regression /
-         buy lean); positive ± = outproduced his opportunity (sell lean).
+         keyed by gsis_id: total expected xFP + role split + opportunity games.
+         The ± (over/under-his-opportunity regression signal) is computed in the
+         WORKBENCH as (official MFL actual − xFP), over MFL's game denominator —
+         that ties the ± to the MFL Pts / MFL PPG columns the user sees, and uses
+         the league's authoritative actual rather than a re-score of ffopportunity's
+         own actual components (which differ from MFL by stat-source by a point or
+         two). Negative ± = left points on the table vs his usage (buy / positive-
+         regression lean); positive ± = outproduced his opportunity (sell lean).
 
-REG season only (week <= 18). Joins to our players by gsis_id, like EPA + Separation.
+Weeks 1-17 only — our FANTASY season (reg + playoffs Wk15-17). NFL week 18 is NOT
+scored by the league, so including it inflated totals and game counts (verified: ≤17
+matches MFL's per-player game count 24/24; ≤18 only 5/24). Joins by gsis_id like EPA.
 """
 from __future__ import annotations
 
@@ -28,7 +34,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-REG_MAX_WEEK = 18
+REG_MAX_WEEK = 17  # our fantasy season is weeks 1-17; NFL week 18 isn't scored
 
 
 def tier(v, ts):
@@ -78,7 +84,7 @@ def main() -> int:
     rows = df.to_dicts() if hasattr(df, "to_dicts") else list(df.iter_rows(named=True))
     print(f"[xfp] {len(rows)} player-weeks for {args.season}", file=sys.stderr)
 
-    agg = defaultdict(lambda: {"xfp": 0.0, "act": 0.0, "g": 0, "name": "", "pos": "",
+    agg = defaultdict(lambda: {"xfp": 0.0, "g": 0, "name": "", "pos": "",
                                "xpass": 0.0, "xrush": 0.0, "xrec": 0.0})
     for r in rows:
         wk = r.get("week")
@@ -96,16 +102,11 @@ def main() -> int:
             v = _r.get(name + "_exp")
             return float(v) if v not in (None, "") else 0.0
 
-        def fact(name, _r=r):
-            v = _r.get(name)
-            return float(v) if v not in (None, "") else 0.0
-
         xfp, xp, xr, xc = score_offense(fexp, pos)
-        act, _, _, _ = score_offense(fact, pos)
         # only count a "game" if there was real opportunity that week
         had = any(fexp(n) for n in ("pass_yards_gained", "rush_yards_gained", "rec_yards_gained", "receptions"))
         a = agg[gid]
-        a["xfp"] += xfp; a["act"] += act; a["xpass"] += xp; a["xrush"] += xr; a["xrec"] += xc
+        a["xfp"] += xfp; a["xpass"] += xp; a["xrush"] += xr; a["xrec"] += xc
         if had:
             a["g"] += 1
         a["name"] = r.get("full_name") or a["name"]
@@ -113,21 +114,18 @@ def main() -> int:
 
     out = []
     for gid, a in agg.items():
-        g = max(1, a["g"])
         out.append({
             "gsis_id": gid, "name": a["name"], "position": (a["pos"] or "").upper(), "season": args.season,
             "games": a["g"],
-            "xfp": round(a["xfp"], 1), "xfp_pg": round(a["xfp"] / g, 2),
-            "actual": round(a["act"], 1), "actual_pg": round(a["act"] / g, 2),
-            "diff": round(a["act"] - a["xfp"], 1), "diff_pg": round((a["act"] - a["xfp"]) / g, 2),
+            "xfp": round(a["xfp"], 1),
             "xfp_pass": round(a["xpass"], 1), "xfp_rush": round(a["xrush"], 1), "xfp_rec": round(a["xrec"], 1),
         })
     out = [r for r in out if r["games"] > 0]
     out.sort(key=lambda r: -r["xfp"])
     payload = {
         "season": args.season,
-        "source": "nflverse ffopportunity (load_ff_opportunity) — re-scored under UPS league rules",
-        "metric": "Expected Fantasy Points: league-scored expected vs actual; diff = actual - expected (regression signal). REG season.",
+        "source": "nflverse ffopportunity (load_ff_opportunity) — expected components re-scored under UPS league rules",
+        "metric": "Expected Fantasy Points (league-scored), weeks 1-17 (fantasy season). The ± vs actual is computed in the workbench against official MFL points.",
         "count": len(out),
         "players": out,
     }
