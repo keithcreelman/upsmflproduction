@@ -1118,10 +1118,14 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     var vsSelf = (x.regression_signal_pg != null ? x.regression_signal_pg : 0) * games;
     var bk = (state.xfpBack && state.xfpBack[String(r.gsis_id)]) ? state.xfpBack[String(r.gsis_id)].backed : 0;
     var T = 12, verdict = "Hold";
-    if (off >= T && luck >= T && bk <= 0) verdict = "Sell";
-    else if (off <= -T && (bk >= 1 || vsSelf <= -T)) verdict = "Buy";
-    else if (vsSelf <= -T && bk >= 1) verdict = "Buy";
-    else if (vsSelf >= T && luck >= T && bk <= 0) verdict = "Sell";
+    // SELL: overperformed and the overage is mostly LUCK — sustainable skill is less than
+    // half of it, so it won't repeat (a skilled back who rode TD variance still sells; a
+    // genuinely sustainable overperformer like a high-Eff± WR does NOT — his sustain holds up).
+    if (off >= T && luck >= T && sustain < 0.5 * luck) verdict = "Sell";
+    // BUY: underperformed and the shortfall is mostly luck (sustainable is not as negative),
+    // or he's sitting below his OWN proven baseline with his skills still intact.
+    else if (off <= -T && (sustain > 0.5 * luck || (vsSelf <= -T && bk >= 0))) verdict = "Buy";
+    else if (off < 0 && vsSelf <= -T && bk >= 0) verdict = "Buy";
     return { verdict: verdict, off: off, sustain: sustain, luck: luck, vsSelf: vsSelf, bk: bk };
   }
   // Gated to a qualified sample so 1-carry scrubs don't top an EPA sort (rate
