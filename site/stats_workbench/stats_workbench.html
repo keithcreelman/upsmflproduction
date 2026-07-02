@@ -1586,6 +1586,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     colsBarEl.querySelectorAll(".asw-view-chip").forEach(function(ch){
       ch.setAttribute("aria-pressed", ch.getAttribute("data-view") === state.viewName ? "true" : "false");
     });
+    var sv = colsBarEl.querySelector(".asw-save-view");
+    if (sv) sv.style.display = state.viewName === "custom" ? "" : "none";
   }
 
   // ---------- Cell formatting ----------
@@ -2346,22 +2348,24 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       });
       colsBarEl.appendChild(chip);
     });
-    if (state.viewName === "custom") {
-      var saveChip = document.createElement("button");
-      saveChip.type = "button";
-      saveChip.className = "asw-chip";
-      saveChip.textContent = "☆ Save view";
-      saveChip.title = "Name and save the current custom column selection as a reusable view for this tab";
-      saveChip.addEventListener("click", function(){
-        var name = (prompt("Name this view:") || "").trim().slice(0, 24);
-        if (!name) return;
-        var list = namedViews().filter(function(x){ return x.name !== name; });
-        list.push({ name: name, groups: Array.from(state.visibleGroups) });
-        setNamedViews(list);
-        renderColsBar();
-      });
-      colsBarEl.appendChild(saveChip);
-    }
+    // Always rendered; visibility toggled by refreshViewChips() so it appears the
+    // moment a popover change flips the state to Custom (the popover deliberately
+    // avoids full colsBar re-renders, which would close it).
+    var saveChip = document.createElement("button");
+    saveChip.type = "button";
+    saveChip.className = "asw-chip asw-save-view";
+    saveChip.textContent = "☆ Save view";
+    saveChip.title = "Name and save the current custom column selection as a reusable view for this tab";
+    saveChip.style.display = state.viewName === "custom" ? "" : "none";
+    saveChip.addEventListener("click", function(){
+      var name = (prompt("Name this view:") || "").trim().slice(0, 24);
+      if (!name) return;
+      var list = namedViews().filter(function(x){ return x.name !== name; });
+      list.push({ name: name, groups: Array.from(state.visibleGroups) });
+      setNamedViews(list);
+      renderColsBar();
+    });
+    colsBarEl.appendChild(saveChip);
 
     // Trigger pill — "Columns · N active" (or short group list if ≤3)
     var trigger = document.createElement("button");
