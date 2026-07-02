@@ -72,7 +72,13 @@
     eepa:  { l: "EPA",   g: function (r) { var x = epaRecM(r); return x && x.epa != null ? x.epa : null; }, f: "epa" },
     ecpoe: { l: "CPOE",  g: function (r) { return epaCpoe(r); }, f: "delta" },
     esucc: { l: "Succ%", g: function (r) { var x = epaRecM(r); return x && x.succ != null ? x.succ : null; }, f: "pct100" },
-    evol:  { l: "EPA n", g: function (r) { var x = epaRawM(r); return x ? (x.plays != null ? x.plays : x.tgt) : null; } }
+    evol:  { l: "EPA n", g: function (r) { var x = epaRawM(r); return x ? (x.plays != null ? x.plays : x.tgt) : null; } },
+    // Market (MFL) — MFL-wide market signals by mfl_pid (/api/mfl-market; mirrors desktop).
+    mown:  { l: "Own%",  g: function (r) { var m = mktRec(r); return m && m.own != null ? m.own : null; }, f: "pct100" },
+    mstart:{ l: "Start%",g: function (r) { var m = mktRec(r); return m && m.start != null ? m.start : null; }, f: "pct100" },
+    madd:  { l: "Add%",  g: function (r) { var m = mktRec(r); return m && m.add != null ? m.add : null; }, f: "pct100" },
+    mdrop: { l: "Cut%",  g: function (r) { var m = mktRec(r); return m && m.drop != null ? m.drop : null; }, f: "pct100" },
+    mrank: { l: "XpertRk", g: function (r) { var m = mktRec(r); return m && m.rank != null ? m.rank : null; } }
   };
 
   // Each tab: alias (worker pos param), group (pos_group values to keep), and
@@ -118,6 +124,8 @@
     if (t.id === "QB") t.sets.push({ l: "EPA", cols: ["eepa", "ecpoe", "esucc", "evol"] });
     else if (t.id === "RB" || t.id === "WR" || t.id === "TE") t.sets.push({ l: "EPA", cols: ["eepa", "esucc", "evol"] });
   });
+  // Market (MFL) set — every position (MFL-wide own/start/add/cut % + expert rank).
+  TABS.forEach(function (t) { t.sets.push({ l: "Market", cols: ["mown", "mstart", "madd", "mdrop", "mrank"] }); });
 
   // scope: "all" | "ros" (rostered) | "fa" (free agents) — Keith 2026-06-20.
   // inner: "players" (the leaderboard) | "fpa" (Fantasy Points Against).
@@ -165,6 +173,18 @@
   function epaRawM(r) { var e = epaMap && epaMap[String(r.gsis_id)]; if (!e) return null; var pg = String(r.pos_group || r.position || "").toUpperCase(); if (pg === "QB") return e.pass; if (pg === "RB") return e.rush; return e.rec; }
   function epaRecM(r) { var x = epaRawM(r); if (!x) return null; var pg = String(r.pos_group || r.position || "").toUpperCase(); var n = (x.plays != null ? x.plays : x.tgt) || 0; var min = pg === "QB" ? 50 : (pg === "RB" ? 25 : 20); return n >= min ? x : null; }
   function epaCpoe(r) { var e = epaMap && epaMap[String(r.gsis_id)]; return (e && e.pass && e.pass.plays >= 50 && e.pass.cpoe != null) ? e.pass.cpoe : null; }
+
+  // MFL-wide market signals by MFL player id — season-independent current
+  // snapshot (own/start/add/cut % + expert rank), read by the "Market" set.
+  var mktMap = null;
+  function loadMarket() {
+    if (mktMap) return Promise.resolve(mktMap);
+    return fetch(API.workerUrl("/api/mfl-market?YEAR=" + new Date().getUTCFullYear()), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { mktMap = (j && j.by_mfl) || {}; return mktMap; })
+      .catch(function () { mktMap = {}; return mktMap; });
+  }
+  function mktRec(r) { return (mktMap && mktMap[String(r.mfl_pid)]) || null; }
 
   function curSeason() {
     if (season) return season;
@@ -884,6 +904,7 @@
     loadSos(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
     loadCons(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
     loadEpa(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
+    loadMarket().then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
     if (cache[tab.alias + "|" + curSeason()]) { paint(mount); return; }
     mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + '<div class="ups-m-loading">Loading stats…</div>';
     bindInner(mount); bindToolbar(mount);

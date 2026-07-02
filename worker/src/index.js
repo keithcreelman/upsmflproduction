@@ -2734,6 +2734,7 @@ export default {
         path !== "/api/player-consistency" &&
         path !== "/api/player-epa" &&
         path !== "/api/team-pace" &&
+        path !== "/api/mfl-market" &&
         path !== "/api/nfl-current-teams" &&
         path !== "/api/data-freshness" &&
         path !== "/api/standings" &&
@@ -5622,7 +5623,7 @@ export default {
           // the cap, so the dropped stats come back. The agg CTE is unchanged
           // (it already SUMs all of these); only the final projection narrows.
           const COL_SHARED = `a.gsis_id,
-                   c.mfl_player_id AS mfl_pid,
+                   COALESCE(c.mfl_player_id, f2.mfl_id) AS mfl_pid,
                    COALESCE(NULLIF(c.full_name, ''), npn.display_name) AS player_name,
                    a.position, a.team, a.pos_group, a.games,
                    ctm.nfl_team AS current_team,
@@ -5648,6 +5649,8 @@ export default {
                    sv.s_rec_yac_per_r AS receiving_yac_per_r, sv.s_rec_drop_pct AS receiving_drop_pct,
                    sv.s_pass_air_yards AS passing_air_yards, sv.s_pass_adot AS passing_adot,
                    sv.s_pass_yac AS passing_yards_after_catch,
+                   a.rec_air_yds,
+                   CAST(a.rec_air_yds AS REAL)  / NULLIF(ta.team_air_yds, 0)         AS air_yds_share,
                    CAST(a.targets AS REAL)      / NULLIF(ta.team_targets, 0)         AS target_share,
                    CAST(a.receptions AS REAL)   / NULLIF(ta.team_rec, 0)             AS rec_share,
                    CAST(a.rush_att AS REAL)     / NULLIF(ta.team_rush_att, 0)        AS rush_share,
@@ -5750,6 +5753,9 @@ export default {
                      SUM(COALESCE(w.receptions,0))        AS receptions,
                      SUM(COALESCE(w.rec_yds,0))           AS rec_yds,
                      SUM(COALESCE(w.rec_tds,0))           AS rec_tds,
+                     -- TRUE weekly air yards (PFR, 2018+; migration 0013). NOT the
+                     -- misnamed sv.s_rec_air_yards (PFR season YBC) kept for back-compat.
+                     SUM(COALESCE(w.receiving_air_yards,0)) AS rec_air_yds,
                      SUM(COALESCE(w.pass_att,0))          AS pass_att,
                      SUM(COALESCE(w.pass_cmp,0))          AS pass_cmp,
                      SUM(COALESCE(w.pass_yds,0))          AS pass_yds,
@@ -5864,13 +5870,15 @@ export default {
               SELECT pw.gsis_id,
                      SUM(twt.team_targets_wk)   AS team_targets,
                      SUM(twt.team_rec_wk)       AS team_rec,
-                     SUM(twt.team_rush_att_wk)  AS team_rush_att
+                     SUM(twt.team_rush_att_wk)  AS team_rush_att,
+                     SUM(twt.team_air_yds_wk)   AS team_air_yds
                 FROM nfl_player_weekly pw
                 JOIN (
                   SELECT season, week, team,
                          SUM(COALESCE(targets,0))    AS team_targets_wk,
                          SUM(COALESCE(receptions,0)) AS team_rec_wk,
-                         SUM(COALESCE(rush_att,0))   AS team_rush_att_wk
+                         SUM(COALESCE(rush_att,0))   AS team_rush_att_wk,
+                         SUM(COALESCE(receiving_air_yards,0)) AS team_air_yds_wk
                     FROM nfl_player_weekly
                    WHERE season IN (${seasonList}) AND ${weekFilter.replace(/w\.week/g, "week")}
                    GROUP BY season, week, team
@@ -5957,10 +5965,22 @@ export default {
                 FROM nfl_player_advstats_season
                WHERE season IN (${seasonList})
                GROUP BY gsis_id
+            ),
+            -- mfl_pid backstop: player_id_crosswalk is current-pool-only, so
+            -- historical players get NULL mfl_pid (breaks the Market/MFL join).
+            -- ff_player_ids is all-eras but NOT unique per gsis (multiple MFL ids
+            -- can share one gsis) — dedupe to the newest MFL id per gsis so the
+            -- LEFT JOIN can't fan out result rows.
+            ff_mfl_map AS (
+              SELECT gsis_id, MAX(CAST(mfl_id AS INTEGER)) AS mfl_id
+                FROM ff_player_ids
+               WHERE gsis_id IS NOT NULL AND gsis_id != ''
+               GROUP BY gsis_id
             )
             SELECT ${projection}
               FROM agg a
               LEFT JOIN player_id_crosswalk c ON c.gsis_id = a.gsis_id
+              LEFT JOIN ff_mfl_map f2         ON f2.gsis_id = a.gsis_id
               LEFT JOIN nfl_player_names npn   ON npn.gsis_id = a.gsis_id
               LEFT JOIN nfl_team_pace ntp      ON ntp.team = a.team AND ntp.season = ${paceSeason}
               LEFT JOIN snap_agg sa           ON sa.gsis_id = a.gsis_id
@@ -10567,6 +10587,81 @@ export default {
             if (id && tm) byId[id] = tm;
           }
           return jsonOut(200, { ok: true, year: yr, count: Object.keys(byId).length, byId });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/mfl-market?YEAR= — MFL-wide market signals per player ──
+      // The market data no nflverse source has: ownership %, start %, weekly
+      // add/drop/trade heat across ALL MFL leagues, FantasySharks expert rank
+      // (+ week-over-week movement), MFL-wide auction values, the NFL injury
+      // report, and this league's scoring-adjusted weekly projection. All keyless
+      // snapshots — live-fetched with per-feed edge caching (NOT D1; TTLs >= 30min
+      // respect MFL's per-hour rate limits on shared worker egress IPs). Keyed by
+      // MFL player id; the workbench joins on r.mfl_pid ("Market (MFL)" group).
+      if (path === "/api/mfl-market" && request.method === "GET") {
+        try {
+          const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+          const lid = String(env.LEAGUE_ID || "74598");
+          const arr = (x) => Array.isArray(x) ? x : (x == null ? [] : [x]);
+          const jf = (u, ttl) => fetch(u, {
+            cf: { cacheTtl: ttl, cacheEverything: true },
+            headers: { "User-Agent": "ups-worker", Accept: "application/json" },
+          }).then((x) => x.ok ? x.json() : null).catch(() => null);
+          const api = (t) => `https://api.myfantasyleague.com/${yr}/export?TYPE=${t}&JSON=1`;
+          const [owns, starters, adds, drops, trades, ranks, aav, inj, proj] = await Promise.all([
+            jf(api("topOwns"), 3600),
+            jf(api("topStarters"), 3600),
+            jf(api("topAdds"), 3600),
+            jf(api("topDrops"), 3600),
+            jf(api("topTrades"), 3600),
+            jf(api("playerRanks"), 21600),                    // overall (superflex-friendly); key = player_ranks
+            jf(api("aav"), 86400),
+            jf(api("injuries"), 1800),
+            jf(`https://www48.myfantasyleague.com/${yr}/export?TYPE=projectedScores&L=${lid}&JSON=1`, 3600), // no W → current week
+          ]);
+          const by_mfl = {};
+          const ent = (id) => (by_mfl[id] = by_mfl[id] || {});
+          const pctOf = (j, key, field) => {
+            for (const p of arr(j && j[key] && j[key].player)) {
+              const id = String(p.id || ""); const v = parseFloat(p.percent);
+              if (id && isFinite(v)) ent(id)[field] = v;
+            }
+          };
+          pctOf(owns, "topOwns", "own");
+          pctOf(starters, "topStarters", "start");
+          pctOf(adds, "topAdds", "add");
+          pctOf(drops, "topDrops", "drop");
+          pctOf(trades, "topTrades", "trade");
+          for (const p of arr(ranks && ranks.player_ranks && ranks.player_ranks.player)) {
+            const id = String(p.id || ""); if (!id) continue;
+            const e = ent(id);
+            e.rank = parseInt(p.rank, 10) || null;
+            const lw = parseInt(p.last_week, 10);
+            e.rank_chg = (e.rank && isFinite(lw) && lw > 0) ? (lw - e.rank) : 0; // + = climbed
+          }
+          for (const p of arr(aav && aav.aav && aav.aav.player)) {
+            const id = String(p.id || ""); if (!id) continue;
+            const e = ent(id);
+            const v = parseFloat(p.averageValue); if (isFinite(v)) e.aav = v;
+            const s = parseInt(p.auctionSelPct, 10); if (isFinite(s)) e.aav_sel = s;
+          }
+          for (const p of arr(inj && inj.injuries && inj.injuries.injury)) {
+            const id = String(p.id || ""); if (!id) continue;
+            const e = ent(id);
+            e.inj = safeStr(p.status || "") || null;
+            e.inj_detail = [safeStr(p.details || ""), p.exp_return ? ("ret: " + safeStr(p.exp_return)) : ""].filter(Boolean).join(" · ") || null;
+          }
+          let week = null;
+          if (proj && proj.projectedScores) {
+            week = parseInt(proj.projectedScores.week, 10) || null;
+            for (const p of arr(proj.projectedScores.playerScore)) {
+              const id = String(p.id || ""); const v = parseFloat(p.score);
+              if (id && isFinite(v)) ent(id).proj = v;
+            }
+          }
+          return jsonOut(200, { ok: true, year: yr, week, count: Object.keys(by_mfl).length, by_mfl });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }

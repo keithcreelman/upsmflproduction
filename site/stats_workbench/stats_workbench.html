@@ -515,6 +515,46 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     xfp_verdict:  { label:"Call", fmt:"verdict", title:"Buy-low / Hold / Sell-high — synthesizes the regression-prone Luck±, the player's skill backing, and where he sits vs his own baseline. BUY = underperformed but skills/track-record say better; SELL = overperformed on luck without skill support; HOLD = in line, or the over-performance is skill-backed.",
       titleFn:function(r){ var v=xfpVerdictInfo(r); if(!v) return ""; return v.verdict+" - official "+(v.off>=0?"+":"")+v.off.toFixed(0)+" = sustainable "+(v.sustain>=0?"+":"")+v.sustain.toFixed(0)+" + luck "+(v.luck>=0?"+":"")+v.luck.toFixed(0)+"; skill backing "+(v.bk>=0?"+":"")+v.bk+"; vs own baseline "+(v.vsSelf>=0?"+":"")+v.vsSelf.toFixed(0); },
       compute:function(r){ var v=xfpVerdictInfo(r); return v?v.verdict:null; } },
+    // Market (MFL) — MFL-wide market signals (/api/mfl-market, joined by mfl_pid).
+    // The behavioral data no stat source has: what thousands of MFL owners are
+    // actually DOING with each player — plus the FantasySharks expert rank MFL
+    // publishes, this league's scoring-adjusted projection, and the injury feed.
+    mkt_own:      { label:"Own%",   num:true, fmt:"pct0", title:"% of ALL MFL leagues where this player is rostered (live, MFL-wide). 100% = universally owned; low % = lottery ticket / deep stash.",
+      compute:function(r){ var m=marketByMfl[String(r.mfl_pid)]; return m && m.own != null ? m.own : null; } },
+    mkt_start:    { label:"Start%", num:true, fmt:"pct0", title:"% of MFL leagues starting him this week (MFL-wide) — the crowd's lineup confidence.",
+      compute:function(r){ var m=marketByMfl[String(r.mfl_pid)]; return m && m.start != null ? m.start : null; } },
+    mkt_add:      { label:"Add%",   num:true, fmt:"pct0", title:"% of MFL leagues that ADDED him this week — the waiver-wire heat signal (who's trending up).",
+      compute:function(r){ var m=marketByMfl[String(r.mfl_pid)]; return m && m.add != null ? m.add : null; } },
+    mkt_drop:     { label:"Cut%",   num:true, fmt:"pct0", invertRank:true, title:"% of MFL leagues that DROPPED (cut) him this week — falling out of favor. (Labeled Cut% to avoid clashing with the PFR dropped-passes Drop%.)",
+      compute:function(r){ var m=marketByMfl[String(r.mfl_pid)]; return m && m.drop != null ? m.drop : null; } },
+    mkt_trade:    { label:"Trade%", num:true, fmt:"pct0", title:"% of MFL leagues where he was traded this week — deal-flow / debate signal.",
+      compute:function(r){ var m=marketByMfl[String(r.mfl_pid)]; return m && m.trade != null ? m.trade : null; } },
+    mkt_rank:     { label:"Xpert Rk", num:true, invertRank:true, title:"MFL's expert overall rank (FantasySharks) — cross-position value, superflex-friendly. Lower = better.",
+      compute:function(r){ var m=marketByMfl[String(r.mfl_pid)]; return m && m.rank != null ? m.rank : null; } },
+    mkt_rank_chg: { label:"Rk Δ",  num:true, fmt:"trend", title:"Expert-rank movement vs last week — ▲ = climbed the board.",
+      compute:function(r){ var m=marketByMfl[String(r.mfl_pid)]; return m && m.rank_chg != null ? m.rank_chg : null; } },
+    mkt_proj:     { label:"Proj",   num:true, fmt:"dec1", title:"MFL weekly projection scored under THIS league's rules (FantasySharks raw stats × our scoring). Current projection week.",
+      compute:function(r){ var m=marketByMfl[String(r.mfl_pid)]; return m && m.proj != null ? m.proj : null; } },
+    mkt_aav:      { label:"MFL AAV$", num:true, fmt:"dec1", title:"MFL-wide average AUCTION value ($ of a standard budget) — market price context vs our salary cap.",
+      compute:function(r){ var m=marketByMfl[String(r.mfl_pid)]; return m && m.aav != null ? m.aav : null; } },
+    mkt_inj:      { label:"Inj",    cls:"dim", title:"Official NFL injury report status (MFL feed). Hover for detail + expected return.",
+      titleFn:function(r){ var m=marketByMfl[String(r.mfl_pid)]; return m && m.inj_detail ? m.inj_detail : ""; },
+      compute:function(r){ var m=marketByMfl[String(r.mfl_pid)]; return m && m.inj ? m.inj : null; } },
+    // Receiving · Air Yards (2018+) — TRUE weekly air yards (PFR via nfl_player_weekly)
+    // + the derived opportunity composites the industry treats as the most
+    // predictive receiver-usage stats: AY share, WOPR, RACR.
+    rec_air_yds:  { label:"Air Yds", num:true, title:"Total air yards on his targets (2018+) — depth-weighted opportunity volume.",
+      compute:function(r){ return r.rec_air_yds ? r.rec_air_yds : null; } },
+    ay_share:     { label:"AY%",    num:true, fmt:"pct", title:"His share of the TEAM's air yards over his active weeks (2018+) — the forward-looking half of WOPR.",
+      compute:function(r){ return r.air_yds_share != null ? r.air_yds_share : null; } },
+    wopr:         { label:"WOPR",   num:true, fmt:"dec2", title:"Weighted Opportunity Rating = 1.5×target share + 0.7×air-yards share (2018+). The standard one-number usage composite; ≥0.60 = elite alpha usage.",
+      compute:function(r){ return (r.target_share != null && r.air_yds_share != null) ? Math.round((1.5*r.target_share + 0.7*r.air_yds_share)*100)/100 : null; } },
+    racr:         { label:"RACR",   num:true, fmt:"dec2", title:"Receiver Air Conversion Ratio = receiving yards ÷ air yards (2018+). >1 = turns his air yards into MORE real yards (YAC creator); <1 = deep-target dependent.",
+      compute:function(r){ return (r.rec_air_yds && r.rec_yds != null) ? Math.round((r.rec_yds / r.rec_air_yds)*100)/100 : null; } },
+    // L4W trend — last-4-weeks form vs season PPG, from the already-loaded
+    // consistency payload (zero extra fetches).
+    l4w_delta:    { label:"L4W Δ", num:true, fmt:"delta", title:"Last-4-weeks average fantasy points MINUS season PPG — the momentum read. Positive (green) = trending up; negative = fading.",
+      compute:function(r){ var c=consistByGsis[String(r.gsis_id)]; if(!c || !c.weeks || c.weeks.length < 5 || c.ppg == null) return null; var w=c.weeks.slice(-4); var a=w.reduce(function(s,v){return s+v;},0)/w.length; return Math.round((a - c.ppg)*10)/10; } },
     // Usage — offense
     games:               { label:"G",        num:true },
     off_snaps_total:     { label:"Snaps",    num:true, title:"Offensive snaps" },
@@ -1000,13 +1040,28 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   (function(){
     Object.keys(TABS).forEach(function(k){
       if (TABS[k] && TABS[k].groups) TABS[k].groups.splice(1, 0,
-        { id:"consistency", label:"Consistency", cols:["cons_floor","cons_ceil","cons_score","cons_boom","cons_bust","cons_spark"], defaultOn:false });
+        { id:"consistency", label:"Consistency", cols:["cons_floor","cons_ceil","cons_score","cons_boom","cons_bust","l4w_delta","cons_spark"], defaultOn:false });
     });
     // Efficiency (EPA) group — skill positions only; QB gets CPOE.
     var epaCols = { qb:["epa_play","epa_cpoe","epa_succ","epa_vol"], rb:["epa_play","epa_succ","epa_vol"], wr:["epa_play","epa_succ","epa_vol"], te:["epa_play","epa_succ","epa_vol"] };
     Object.keys(epaCols).forEach(function(k){
       if (TABS[k] && TABS[k].groups) TABS[k].groups.splice(2, 0,
         { id:"efficiency", label:"Efficiency (EPA)", cols:epaCols[k], defaultOn:false });
+    });
+    // Market (MFL) group — EVERY tab (the MFL-wide feeds cover IDP/PK/PN too).
+    // Own/Start/Add/Drop/Trade % + expert rank (+Δ) + league-scored projection +
+    // MFL-wide auction value + injury status. Joined by mfl_pid.
+    Object.keys(TABS).forEach(function(k){
+      if (TABS[k] && TABS[k].groups) TABS[k].groups.push(
+        { id:"market", label:"Market (MFL)",
+          cols:["mkt_own","mkt_start","mkt_add","mkt_drop","mkt_trade","mkt_rank","mkt_rank_chg","mkt_proj","mkt_aav","mkt_inj"],
+          defaultOn:false });
+    });
+    // Receiving · Air Yards group (2018+) — true air yards + AY share + WOPR + RACR.
+    ["rb","wr","te","flex_o"].forEach(function(k){
+      if (TABS[k] && TABS[k].groups) TABS[k].groups.push(
+        { id:"air_yards", label:"Receiving · Air Yards ('18+)",
+          cols:["rec_air_yds","ay_share","wopr","racr"], defaultOn:false });
     });
   })();
 
@@ -1049,6 +1104,14 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   var epaByGsis = {};       // /api/player-epa by gsis_id — {pass,rush,rec}.{epa,cpoe,succ,plays/tgt}
   var sepByGsis = {};       // PFF route-separation by gsis_id — man/zone/overall score+pct+routes (static JSON)
   var xfpByGsis = {};       // Expected Fantasy Points by gsis_id — league-scored xFP + actual + ± (static JSON)
+  var marketByMfl = {};     // MFL-wide market signals by MFL id — own/start/add/drop/trade % + expert rank + proj + AAV + injury
+  var marketWeek = null;    // the projection week the market payload describes
+  // Season-independent current snapshot → fetch ONCE at boot (worker edge-caches
+  // each upstream MFL feed); joined by r.mfl_pid in the "Market (MFL)" group.
+  var marketReady = fetch(API_BASE + "/api/mfl-market?YEAR=" + THIS_YEAR)
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){ marketByMfl = (j && j.by_mfl) || {}; marketWeek = (j && j.week) || null; })
+    .catch(function(){ marketByMfl = {}; });
   // Pick the EPA role that matches a row's fantasy position (QB→pass, RB→rush, WR/TE→rec).
   function epaRoleRaw(r){ var e=epaByGsis[String(r.gsis_id)]; if(!e) return null; var pg=String(r.pos_group||r.position||"").toUpperCase(); if(pg==="QB") return e.pass; if(pg==="RB") return e.rush; return e.rec; }
 
@@ -1237,6 +1300,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     activeTab:    "qb",
     activeSubTab: "all",   // only relevant for DL/DB
     visibleGroups: new Set(),
+    viewName: "standard",  // preset view: standard | advanced | analytics | custom
     rowsByWorkerPos: {},   // cache keyed by workerPos ("skill"|"qb"|"idp"|"kicker"|"punter")
     sortKey: null, sortDir: "desc",
     lastQuery: null,
@@ -1346,12 +1410,71 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     return n;
   }
 
-  // Default-visible groups for the current tab.
+  // Default-visible groups for the current tab. (= the "Standard" preset view.)
   function resetVisibleGroupsForTab(tabId) {
     var tab = TABS[tabId];
     state.visibleGroups = new Set(
       (tab.groups || []).filter(function(g){ return g.defaultOn; }).map(function(g){ return g.id; })
     );
+    state.viewName = "standard";
+  }
+
+  // ---------- Preset views (Standard | Advanced | Analytics | Custom) ----------
+  // One-table view toggles (the PFR/FantasyPros pattern) layered on the group
+  // picker: Standard = the tab's defaultOn groups (unchanged semantics);
+  // Advanced = every non-analytics group (full traditional + advanced stats);
+  // Analytics = MFL Details + Usage + the modeled/derived families. Any manual
+  // group change flips to Custom. Choice persists per tab in localStorage and
+  // round-trips in the URL hash (view=; groups= only written for custom).
+  var ANA_GROUP_IDS = { consistency:1, efficiency:1, route_separation:1, expected_points:1,
+                        routes:1, ngs_rec:1, ngs_rush:1, ngs_pass:1 };
+  function groupsForView(tab, view) {
+    var gs = tab.groups || [];
+    if (view === "standard")  return new Set(gs.filter(function(g){ return g.defaultOn; }).map(function(g){ return g.id; }));
+    if (view === "advanced")  return new Set(gs.filter(function(g){ return !ANA_GROUP_IDS[g.id]; }).map(function(g){ return g.id; }));
+    if (view === "analytics") return new Set(gs.filter(function(g){ return g.id === "mfl_details" || g.id === "usage" || ANA_GROUP_IDS[g.id]; }).map(function(g){ return g.id; }));
+    return null; // custom — caller keeps current groups
+  }
+  function applyView(tabId, view) {
+    var tab = TABS[tabId];
+    var set = groupsForView(tab, view);
+    if (set) state.visibleGroups = set;
+    state.viewName = set ? view : "custom";
+    persistView(tabId);
+  }
+  function persistView(tabId) {
+    try {
+      localStorage.setItem("asw.view." + tabId, state.viewName);
+      if (state.viewName === "custom") localStorage.setItem("asw.groups." + tabId, Array.from(state.visibleGroups).join(","));
+    } catch (e) { /* private mode */ }
+  }
+  // On tab activation: restore the tab's saved view (falls back to Standard).
+  function restoreViewForTab(tabId) {
+    var saved = null, savedGroups = null;
+    try {
+      saved = localStorage.getItem("asw.view." + tabId);
+      savedGroups = localStorage.getItem("asw.groups." + tabId);
+    } catch (e) { /* private mode */ }
+    if (saved === "custom" && savedGroups) {
+      state.visibleGroups = new Set(savedGroups.split(",").filter(Boolean));
+      state.viewName = "custom";
+    } else if (saved && groupsForView(TABS[tabId], saved)) {
+      state.visibleGroups = groupsForView(TABS[tabId], saved);
+      state.viewName = saved;
+    } else {
+      resetVisibleGroupsForTab(tabId);
+    }
+  }
+  // Mark the current state Custom (manual group change) + sync chips in place.
+  function markViewCustom() {
+    state.viewName = "custom";
+    persistView(state.activeTab);
+    refreshViewChips();
+  }
+  function refreshViewChips() {
+    colsBarEl.querySelectorAll(".asw-view-chip").forEach(function(ch){
+      ch.setAttribute("aria-pressed", ch.getAttribute("data-view") === state.viewName ? "true" : "false");
+    });
   }
 
   // ---------- Cell formatting ----------
@@ -1889,6 +2012,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       cb.addEventListener("change", function(){
         if (cb.checked) state.visibleGroups.add(g.id);
         else state.visibleGroups.delete(g.id);
+        markViewCustom();  // manual group change → Custom view (persists + syncs chips)
         render();
         // Update trigger label + customized style without a full re-render
         var trigger = colsBarEl.querySelector(".asw-cols-trigger");
@@ -1911,7 +2035,9 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     resetBtn.className = "reset-btn";
     resetBtn.textContent = "Reset to defaults";
     resetBtn.addEventListener("click", function(){
-      resetVisibleGroupsForTab(state.activeTab);
+      resetVisibleGroupsForTab(state.activeTab);  // = the Standard preset
+      persistView(state.activeTab);
+      refreshViewChips();
       renderColsPopover(tab, containerEl);
       render();
       var trigger = colsBarEl.querySelector(".asw-cols-trigger");
@@ -1939,6 +2065,40 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     var label = colsBarEl.querySelector(".asw-cols-label");
     colsBarEl.innerHTML = "";
     colsBarEl.appendChild(label);
+
+    // Preset view chips — one-click Standard / Advanced / Analytics (+ Custom
+    // indicator). Clicking a preset swaps the visible group set; any manual
+    // change in the Columns popover flips to Custom.
+    [["standard","Standard","The tab's default column groups — the core box-score view"],
+     ["advanced","Advanced","Everything traditional + advanced (PFR, red zone, shares, market) — no analytics models"],
+     ["analytics","Analytics","MFL Details + Usage + the modeled families (consistency, EPA, xFP skill/luck, separation, routes/NGS)"],
+     ["custom","Custom","Your own group selection (pick via Columns ▾)"]].forEach(function(v){
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "asw-chip asw-view-chip";
+      chip.setAttribute("data-view", v[0]);
+      chip.setAttribute("aria-pressed", state.viewName === v[0] ? "true" : "false");
+      chip.textContent = v[1];
+      chip.title = v[2];
+      chip.addEventListener("click", function(){
+        if (v[0] === "custom") {
+          // Custom is a state, not a preset — just open the picker.
+          var pop = colsBarEl.querySelector(".asw-cols-popover");
+          if (pop) pop.classList.add("open");
+          return;
+        }
+        applyView(state.activeTab, v[0]);
+        refreshViewChips();
+        renderColsPopover(tab, colsBarEl.querySelector(".cols-groups-region"));
+        var trig = colsBarEl.querySelector(".asw-cols-trigger");
+        if (trig) {
+          trig.querySelector(".cols-trigger-label").textContent = buildColsTriggerLabel(tab);
+          trig.classList.toggle("is-customized", isCustomizedFromDefaults(tab));
+        }
+        render();
+      });
+      colsBarEl.appendChild(chip);
+    });
 
     // Trigger pill — "Columns · N active" (or short group list if ≤3)
     var trigger = document.createElement("button");
@@ -2257,6 +2417,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       epaFetch,
       sepFetch,
       xfpFetch,
+      marketReady,
     ]).then(function(pair){
       var j = pair[0];
       var rows = Array.isArray(j.rows) ? j.rows : [];
@@ -2327,7 +2488,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     // across tabs (RuAtt≥150 becomes noise on a DB table). Clear on switch.
     state.filters = {};
     invalidatePredicateCache();
-    resetVisibleGroupsForTab(tabId);
+    restoreViewForTab(tabId);
     tabsEl.querySelectorAll(".asw-tab").forEach(function(btn){
       btn.setAttribute("aria-pressed", btn.getAttribute("data-tab") === tabId ? "true" : "false");
     });
@@ -3183,8 +3344,13 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       if (teams.length && !(teams.length === 1 && teams[0] === "__ALL__")) {
         params.set("teams", teams.join(","));
       }
-      var groups = Array.from(state.visibleGroups).sort();
-      if (groups.length) params.set("groups", groups.join(","));
+      // Preset views: view= names the preset; groups= is only written for
+      // custom (old URLs carrying groups= without view= parse as custom).
+      params.set("view", state.viewName || "standard");
+      if (state.viewName === "custom") {
+        var groups = Array.from(state.visibleGroups).sort();
+        if (groups.length) params.set("groups", groups.join(","));
+      }
       if (state.sortKey) params.set("sort", state.sortKey + "." + state.sortDir);
       if (state.heatOn) params.set("heat", "1");
       if (state.filtersVisible) params.set("fv", "1");
@@ -3264,9 +3430,16 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       touched = true;
     }
 
+    var viewParam = params.get("view");
     var groupsParam = params.get("groups");
-    if (groupsParam) {
+    if (viewParam && viewParam !== "custom" && groupsForView(TABS[state.activeTab], viewParam)) {
+      state.visibleGroups = groupsForView(TABS[state.activeTab], viewParam);
+      state.viewName = viewParam;
+      touched = true;
+    } else if (groupsParam) {
+      // Explicit group list (or legacy pre-view URL) → custom.
       state.visibleGroups = new Set(groupsParam.split(",").filter(Boolean));
+      state.viewName = "custom";
       touched = true;
     }
 
@@ -3289,7 +3462,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   // ---------- Initial load ----------
   var urlApplied = readStateFromUrl();
   if (!urlApplied || state.visibleGroups.size === 0) {
-    resetVisibleGroupsForTab(state.activeTab);
+    restoreViewForTab(state.activeTab);   // saved per-tab view (falls back to Standard)
   }
   // Highlight the active tab (readStateFromUrl doesn't touch aria-pressed on tabs)
   tabsEl.querySelectorAll(".asw-tab").forEach(function(btn){
@@ -3593,10 +3766,41 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       ]).then(function(res){
         var d = res[0]; adp.data = (d && d.board) || []; adp.sources = (d && d.sources) || []; adp.generatedAt = (d && d.generated_at) || null;
         adpFillTeams(); adpPaint();
+        marketReady.then(adpPaintMovers);   // trending board once market data lands
       });
       // Freshness of the nflverse-derived data (one-time); re-paint when ready.
       if (!adp.fresh) fetch(API_BASE + "/api/data-freshness").then(function(r){ return r.json(); })
         .then(function(f){ adp.fresh = f || {}; adpPaint(); }).catch(function(){});
+    }
+    // Trending board — MFL-wide top movers this week (Add% / Drop% from
+    // /api/mfl-market), names resolved from the loaded ADP board (pid → name).
+    function adpPaintMovers(){
+      var el = adpSection.querySelector(".adp-movers");
+      if (!el || !adp.data || !adp.data.length) return;
+      var byPid = {};
+      adp.data.forEach(function(r){ if (r && r.pid) byPid[String(r.pid)] = r; });
+      function movers(field){
+        return Object.keys(marketByMfl)
+          .map(function(id){ var m = marketByMfl[id]; return { id: id, v: m && m[field] != null ? m[field] : null, row: byPid[id] }; })
+          .filter(function(x){ return x.v != null && x.v > 0 && x.row; })   // only players we can name
+          .sort(function(a, b){ return b.v - a.v; })
+          .slice(0, 5);
+      }
+      function chips(list, cls){
+        return list.map(function(x){
+          return '<span class="asw-trend ' + cls + '" style="margin-right:10px;white-space:nowrap">' +
+            esc(x.row.name) + ' <span style="opacity:.65">' + esc(x.row.pos || "") + '</span> ' + x.v.toFixed(1) + '%</span>';
+        }).join("") || '<span style="color:var(--muted)">—</span>';
+      }
+      var adds = movers("add"), drops = movers("drop");
+      if (!adds.length && !drops.length) { el.innerHTML = ""; return; }
+      el.innerHTML =
+        '<div style="display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;padding:8px 12px;margin:6px 0 2px;' +
+          'background:var(--panel-alt);border:1px solid var(--border);border-radius:8px;font-size:12.5px">' +
+          '<span style="font-weight:700;color:var(--muted)" title="Top adds/drops this week across ALL MyFantasyLeague leagues — the market\'s waiver heat">🔥 MFL Movers</span>' +
+          '<span><span style="color:var(--muted);font-weight:600">Adds:</span> ' + chips(adds, "up") + '</span>' +
+          '<span><span style="color:var(--muted);font-weight:600">Drops:</span> ' + chips(drops, "dn") + '</span>' +
+        '</div>';
     }
     function relTime(iso){
       if (!iso) return ""; var t = Date.parse(iso); if (isNaN(t)) return "";
@@ -3631,7 +3835,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
             '<input type="range" class="adp-slider" min="0" max="100" step="5" value="' + Math.round(adp.rdPct*100) + '" style="width:200px;vertical-align:middle;margin-left:8px"/>' +
           '</label>' +
           '<label>Sources<div class="adp-srcs">' + srcToggles + '</div></label>' +
-        '</div><div class="adp-body"></div>';
+        '</div><div class="adp-movers"></div><div class="adp-body"></div>';
       adpFillTeams();
       var tsel = adpSection.querySelector(".adp-team");
       if (tsel) { tsel.value = adp.team; tsel.addEventListener("change", function(){ adp.team = tsel.value; adpPaint(); }); }

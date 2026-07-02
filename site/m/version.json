@@ -1,4 +1,4 @@
 {
-  "build": "2026.06.28.0",
-  "label": "Fixes player ages on the player sheet \u2014 anyone born before Sept 2001 (most veterans, e.g. Rashee Rice) was showing as 56 years old because a 9-digit birthdate was misread as milliseconds."
+  "build": "2026.07.02.0",
+  "label": "Stats: new 'Market' column set on every position (MFL-wide Own% / Start% / Add% / Cut% + expert rank) \u2014 the market signals from all MFL leagues, mirroring the desktop workbench's new Market (MFL) group."
 }
