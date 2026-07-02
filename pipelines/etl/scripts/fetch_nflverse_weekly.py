@@ -105,6 +105,12 @@ PLAYERSTATS_MAP = {
     # so the weekly fetcher populates them from the right source.
     "passing_air_yards":         ["passing_air_yards"],
     "passing_yards_after_catch": ["passing_yards_after_catch"],
+    # receiving_air_yards also lives NATIVELY in nflverse weekly (verified
+    # 2026-07-02 — JJ wk1 2025 = 69). The PFR advstats fetcher nominally owns
+    # this column but PFR's payload has no such field, so it no-oped forever
+    # (COALESCE(NULL, existing)) and the column sat empty in D1. The weekly
+    # fetcher is the real owner; feeds AY-share / WOPR / RACR on the workbench.
+    "receiving_air_yards":       ["receiving_air_yards"],
 
     # IDP
     "def_tackles_solo":  ["def_tackles_solo", "solo_tackles", "tackles_solo"],
