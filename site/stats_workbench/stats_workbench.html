@@ -156,6 +156,11 @@ h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
 /* Bounded scroll region so the sticky header + top scrollbar stay put while the
    body scrolls (works inside the auto-height iframe embed, not just standalone). */
 .asw-table-wrap{overflow:auto;max-height:680px;background:var(--panel);border:1px solid var(--border);border-top:0;border-radius:0 0 8px 8px}
+/* Main leaderboard only: hide the wrap's OWN horizontal scrollbar so the single
+   top bar is the only horizontal scroller (it drives wrap.scrollLeft — overflow-x
+   hidden still scrolls programmatically). Vertical scroll stays. The shared
+   .asw-table-wrap class keeps its native scrollbars for the drawer/FPA tables. */
+#asw-table-wrap{overflow-x:hidden}
 /* Phase E (2026-04-24): bump table to 13px + a touch more row padding.
    12px was dense enough that long sessions strained; 13px reads clean
    without forcing horizontal scroll on reasonable screens. */
@@ -1685,7 +1690,12 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     if (!wrap || !top || !spacer) return;
     var tbl = wrap.querySelector("table");
     var w = tbl ? tbl.scrollWidth : wrap.scrollWidth;
-    spacer.style.width = w + "px";
+    // The wrap has a vertical scrollbar (bounded 680px height) that narrows its
+    // client width; the top bar has none. Pad the spacer by that difference so the
+    // top bar's scroll RANGE matches the wrap's full content — otherwise it stops
+    // short of the last column (Y/A) by the scrollbar width.
+    var vsb = Math.max(0, top.clientWidth - wrap.clientWidth);
+    spacer.style.width = (w + vsb) + "px";
     // Only show the top bar when the table actually overflows horizontally.
     top.style.display = (w > wrap.clientWidth + 1) ? "" : "none";
   }
