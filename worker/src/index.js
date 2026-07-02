@@ -2733,6 +2733,8 @@ export default {
         path !== "/api/sos-adjusted-points" &&
         path !== "/api/player-consistency" &&
         path !== "/api/player-epa" &&
+        path !== "/api/player-routes" &&
+        path !== "/api/player-ngs" &&
         path !== "/api/team-pace" &&
         path !== "/api/mfl-market" &&
         path !== "/api/nfl-current-teams" &&
@@ -10533,6 +10535,76 @@ export default {
               pass: pp ? { plays: pp, epa: rnd(x.pe / pp, 3), cpoe: x.pcn ? rnd(x.pc / x.pcn, 1) : null, succ: rnd(100 * x.psx / pp, 1) } : null,
               rush: rp ? { plays: rp, epa: rnd(x.re / rp, 3), succ: rnd(100 * x.rsx / rp, 1) } : null,
               rec: tt ? { tgt: tt, epa: rnd(x.te / tt, 3), succ: rnd(100 * x.tsx / tt, 1) } : null,
+            };
+          }
+          return jsonOut(200, { ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/player-routes?seasons= — routes run / TPRR / YPRR by gsis_id ──
+      // From nfl_player_routes (participation-derived pass-snap routes, 2016+;
+      // SUMS so multi-season re-agg is exact). TPRR/YPRR are qualified at ≥50
+      // routes so tiny samples don't top a sort; raw routes always returned.
+      // Side-loaded by the workbench "Receiving · Routes" group.
+      if (path === "/api/player-routes" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const seasons = safeStr(url.searchParams.get("seasons") || "")
+            .split(",").map((s) => s.replace(/\D/g, "")).filter((s) => s.length === 4);
+          if (!seasons.length) return jsonOut(400, { ok: false, error: "seasons required (CSV of 4-digit years)" });
+          const seasonList = seasons.map((s) => parseInt(s, 10)).join(",");
+          const r = await db.prepare(
+            "SELECT gsis_id AS gsis, SUM(routes) rt, SUM(team_dropbacks) tdb, SUM(routes_tgt) tg, SUM(routes_rec_yds) ry " +
+            "FROM nfl_player_routes WHERE season IN (" + seasonList + ") GROUP BY gsis_id"
+          ).all();
+          const rnd = (v, d) => v == null ? null : Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
+          const by_gsis = {};
+          for (const x of ((r && r.results) || [])) {
+            const rt = x.rt || 0;
+            by_gsis[x.gsis] = {
+              routes: rt,
+              route_pct: x.tdb ? rnd(100 * rt / x.tdb, 1) : null,
+              tprr: rt >= 50 ? rnd((x.tg || 0) / rt, 3) : null,
+              yprr: rt >= 50 ? rnd((x.ry || 0) / rt, 2) : null,
+            };
+          }
+          return jsonOut(200, { ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/player-ngs?seasons= — Next Gen Stats tracking metrics by gsis_id ──
+      // From nfl_player_ngs (2016+; denominator-weighted SUMS → exact multi-season
+      // re-agg): receiving separation/cushion/xYAC±, rushing RYOE + efficiency +
+      // stacked-box rate, passing time-to-throw + aggressiveness. Qualified at
+      // tgt≥20 / att≥30 / att≥50 like the EPA endpoint. Workbench "NGS" groups.
+      if (path === "/api/player-ngs" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const seasons = safeStr(url.searchParams.get("seasons") || "")
+            .split(",").map((s) => s.replace(/\D/g, "")).filter((s) => s.length === 4);
+          if (!seasons.length) return jsonOut(400, { ok: false, error: "seasons required (CSV of 4-digit years)" });
+          const seasonList = seasons.map((s) => parseInt(s, 10)).join(",");
+          const r = await db.prepare(
+            "SELECT gsis_id AS gsis, " +
+            "SUM(rec_tgt_n) tn, SUM(sep_sum) ss, SUM(cush_sum) cs, SUM(yacoe_sum) ys, " +
+            "SUM(rush_att_n) an, SUM(ryoe_sum) rs, SUM(eff_sum) es, SUM(box8_sum) bs, " +
+            "SUM(pass_att_n) pn, SUM(tt_sum) ts, SUM(agg_sum) ags, SUM(cpae_sum) cps " +
+            "FROM nfl_player_ngs WHERE season IN (" + seasonList + ") GROUP BY gsis_id"
+          ).all();
+          const rnd = (v, d) => v == null ? null : Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
+          const by_gsis = {};
+          for (const x of ((r && r.results) || [])) {
+            const tn = x.tn || 0, an = x.an || 0, pn = x.pn || 0;
+            by_gsis[x.gsis] = {
+              rec: tn >= 20 ? { tgt: tn, sep: rnd(x.ss / tn, 2), cush: rnd(x.cs / tn, 2), yacoe: rnd(x.ys / tn, 2) } : null,
+              rush: an >= 30 ? { att: an, ryoe: rnd(x.rs, 0), ryoe_pa: rnd(x.rs / an, 2), eff: rnd(x.es / an, 2), box8: rnd(x.bs / an, 1) } : null,
+              pass: pn >= 50 ? { att: pn, tt: rnd(x.ts / pn, 2), agg: rnd(x.ags / pn, 1), cpae: rnd(x.cps / pn, 1) } : null,
             };
           }
           return jsonOut(200, { ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });

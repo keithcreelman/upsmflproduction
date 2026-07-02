@@ -551,6 +551,35 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       compute:function(r){ return (r.target_share != null && r.air_yds_share != null) ? Math.round((1.5*r.target_share + 0.7*r.air_yds_share)*100)/100 : null; } },
     racr:         { label:"RACR",   num:true, fmt:"dec2", title:"Receiver Air Conversion Ratio = receiving yards ÷ air yards (2018+). >1 = turns his air yards into MORE real yards (YAC creator); <1 = deep-target dependent.",
       compute:function(r){ return (r.rec_air_yds && r.rec_yds != null) ? Math.round((r.rec_yds / r.rec_air_yds)*100)/100 : null; } },
+    // Receiving · Routes (2016+) — participation-derived routes run + the modern
+    // per-route efficiency stats (/api/player-routes). Route volume is the most
+    // predictive receiver-usage signal; YPRR is the industry's #1 per-route stat.
+    rt_routes:    { label:"Routes", num:true, title:"Pass-snap routes run (2016+; participation-derived — counts pass snaps on the field, so a slight overcount for heavy pass-blockers).",
+      compute:function(r){ var x=routesByGsis[String(r.gsis_id)]; return x && x.routes ? x.routes : null; } },
+    rt_pct:       { label:"Route%", num:true, fmt:"pct0", title:"Routes run as a % of team dropbacks (2016+) — the receiver's true passing-down role, independent of raw snap share.",
+      compute:function(r){ var x=routesByGsis[String(r.gsis_id)]; return x && x.route_pct != null ? x.route_pct : null; } },
+    rt_tprr:      { label:"TPRR",  num:true, fmt:"dec2", title:"Targets per route run (2016+, ≥50 routes). ≥0.25 = alpha target-earner; the stickiest target-volume skill stat.",
+      compute:function(r){ var x=routesByGsis[String(r.gsis_id)]; return x && x.tprr != null ? x.tprr : null; } },
+    rt_yprr:      { label:"YPRR",  num:true, fmt:"dec2", title:"Receiving yards per route run (2016+, ≥50 routes). ≥2.0 = very good, ≥2.5 = elite; the industry's headline per-route efficiency stat.",
+      compute:function(r){ var x=routesByGsis[String(r.gsis_id)]; return x && x.yprr != null ? x.yprr : null; } },
+    // NGS tracking metrics (2016+, /api/player-ngs) — receiving separation/cushion/
+    // xYAC±, rushing RYOE + efficiency + stacked boxes, passing time-to-throw + AGG%.
+    ngs_sep:      { label:"Sep",   num:true, fmt:"dec2", title:"NGS average separation (yds) from the nearest defender AT catch/arrival (2016+, ≥20 tgt). Raw tracking yards — see Route Separation (PFF '25) for the coverage-adjusted percentile lens.",
+      compute:function(r){ var x=ngsByGsis[String(r.gsis_id)]; return x && x.rec ? x.rec.sep : null; } },
+    ngs_cush:     { label:"Cush",  num:true, fmt:"dec2", title:"NGS average cushion (yds) at the snap (2016+) — how far off coverage plays him; low cushion + high separation = true separator.",
+      compute:function(r){ var x=ngsByGsis[String(r.gsis_id)]; return x && x.rec ? x.rec.cush : null; } },
+    ngs_yacoe:    { label:"xYAC±", num:true, fmt:"delta", title:"NGS YAC OVER EXPECTED per reception (2016+) — actual YAC minus the tracking model's expectation given the catch situation. Positive = creates extra yards after the catch (tackle-breaking/burst skill).",
+      compute:function(r){ var x=ngsByGsis[String(r.gsis_id)]; return x && x.rec ? x.rec.yacoe : null; } },
+    ngs_ryoe_pa:  { label:"RYOE/Att", num:true, fmt:"delta", title:"NGS Rush Yards Over Expected per attempt (2016+, ≥30 att) — actual rushing yards vs the tracking model's expectation given blocking/defenders. THE isolate-the-runner-from-his-line stat.",
+      compute:function(r){ var x=ngsByGsis[String(r.gsis_id)]; return x && x.rush ? x.rush.ryoe_pa : null; } },
+    ngs_eff:      { label:"Eff",   num:true, fmt:"dec2", invertRank:true, title:"NGS rushing efficiency (2016+) — yards traveled per yard gained; LOWER = more north-south (better).",
+      compute:function(r){ var x=ngsByGsis[String(r.gsis_id)]; return x && x.rush ? x.rush.eff : null; } },
+    ngs_box8:     { label:"8+Box%", num:true, fmt:"pct0", title:"% of carries facing 8+ defenders in the box (2016+) — run-environment difficulty context for RYOE.",
+      compute:function(r){ var x=ngsByGsis[String(r.gsis_id)]; return x && x.rush ? x.rush.box8 : null; } },
+    ngs_tt:       { label:"TimeThrow", num:true, fmt:"dec2", title:"NGS average time to throw (seconds, 2016+, ≥50 att) — scheme/processing context; quick game vs deep-drop offense.",
+      compute:function(r){ var x=ngsByGsis[String(r.gsis_id)]; return x && x.pass ? x.pass.tt : null; } },
+    ngs_agg:      { label:"AGG%",  num:true, fmt:"pct0", title:"NGS aggressiveness (2016+) — % of throws into tight windows (defender within 1 yd). High = contested-throw profile.",
+      compute:function(r){ var x=ngsByGsis[String(r.gsis_id)]; return x && x.pass ? x.pass.agg : null; } },
     // L4W trend — last-4-weeks form vs season PPG, from the already-loaded
     // consistency payload (zero extra fetches).
     l4w_delta:    { label:"L4W Δ", num:true, fmt:"delta", title:"Last-4-weeks average fantasy points MINUS season PPG — the momentum read. Positive (green) = trending up; negative = fading.",
@@ -1063,6 +1092,23 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         { id:"air_yards", label:"Receiving · Air Yards ('18+)",
           cols:["rec_air_yds","ay_share","wopr","racr"], defaultOn:false });
     });
+    // Routes (2016+) — WR/TE/RB/Flex·O; NGS tracking groups per position.
+    ["rb","wr","te","flex_o"].forEach(function(k){
+      if (TABS[k] && TABS[k].groups) TABS[k].groups.push(
+        { id:"routes", label:"Receiving · Routes ('16+)",
+          cols:["rt_routes","rt_pct","rt_tprr","rt_yprr"], defaultOn:false });
+    });
+    ["wr","te","flex_o"].forEach(function(k){
+      if (TABS[k] && TABS[k].groups) TABS[k].groups.push(
+        { id:"ngs_rec", label:"Receiving · NGS ('16+)",
+          cols:["ngs_sep","ngs_cush","ngs_yacoe"], defaultOn:false });
+    });
+    if (TABS.rb && TABS.rb.groups) TABS.rb.groups.push(
+      { id:"ngs_rush", label:"Rushing · NGS ('16+)",
+        cols:["ngs_ryoe_pa","ngs_eff","ngs_box8"], defaultOn:false });
+    if (TABS.qb && TABS.qb.groups) TABS.qb.groups.push(
+      { id:"ngs_pass", label:"Passing · NGS ('16+)",
+        cols:["ngs_tt","ngs_agg"], defaultOn:false });
   })();
 
   // ---------- DOM refs ----------
@@ -1104,6 +1150,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   var epaByGsis = {};       // /api/player-epa by gsis_id — {pass,rush,rec}.{epa,cpoe,succ,plays/tgt}
   var sepByGsis = {};       // PFF route-separation by gsis_id — man/zone/overall score+pct+routes (static JSON)
   var xfpByGsis = {};       // Expected Fantasy Points by gsis_id — league-scored xFP + actual + ± (static JSON)
+  var routesByGsis = {};    // /api/player-routes by gsis_id — routes / route% / TPRR / YPRR (2016+)
+  var ngsByGsis = {};       // /api/player-ngs by gsis_id — {rec:{sep,cush,yacoe}, rush:{ryoe_pa,eff,box8}, pass:{tt,agg}} (2016+)
   var marketByMfl = {};     // MFL-wide market signals by MFL id — own/start/add/drop/trade % + expert rank + proj + AAV + injury
   var marketWeek = null;    // the projection week the market payload describes
   // Season-independent current snapshot → fetch ONCE at boot (worker edge-caches
@@ -2386,6 +2434,16 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ epaByGsis = (j && j.by_gsis) || {}; })
       .catch(function(){ epaByGsis = {}; });
+    var routesFetch = fetch(API_BASE + "/api/player-routes?seasons=" +
+        encodeURIComponent(seasons.join(",")))
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ routesByGsis = (j && j.by_gsis) || {}; })
+      .catch(function(){ routesByGsis = {}; });
+    var ngsFetch = fetch(API_BASE + "/api/player-ngs?seasons=" +
+        encodeURIComponent(seasons.join(",")))
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ ngsByGsis = (j && j.by_gsis) || {}; })
+      .catch(function(){ ngsByGsis = {}; });
     // PFF Route Separation — static 2025 export (Pages JSON), keyed by gsis_id.
     // Loaded once; only populated for the rows that have a 2025 separation row.
     var sepFetch = fetch("https://keithcreelman.github.io/upsmflproduction/stats_workbench/pff_separation_2025.json")
@@ -2415,6 +2473,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       sosFetch,
       consistFetch,
       epaFetch,
+      routesFetch,
+      ngsFetch,
       sepFetch,
       xfpFetch,
       marketReady,

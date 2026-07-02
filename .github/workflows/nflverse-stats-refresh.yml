@@ -87,6 +87,8 @@ jobs:
           run nflverse_pbp     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_pbp.py --seasons "${SEASONS}" --skip-local
           run nflverse_pace    "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_pace.py --seasons "${SEASONS}"
           run nflverse_epa     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_epa.py --seasons "${SEASONS}" --skip-local
+          run nflverse_routes  "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_routes.py --seasons "${SEASONS}" --skip-local
+          run nflverse_ngs     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_ngs.py --seasons "${SEASONS}" --skip-local
           run pfr_advstats     "${SEASONS}" python3 ../pipelines/etl/scripts/fetch_pfr_advstats.py --seasons "${SEASONS}" --skip-local
           run nfl_player_names "all-eras"   python3 ../pipelines/etl/scripts/fetch_nflverse_player_names.py
           run ff_player_ids    "all"        python3 ../pipelines/etl/scripts/fetch_ff_playerids.py

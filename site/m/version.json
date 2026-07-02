@@ -1,4 +1,4 @@
 {
-  "build": "2026.07.02.0",
-  "label": "Stats: new 'Market' column set on every position (MFL-wide Own% / Start% / Add% / Cut% + expert rank) \u2014 the market signals from all MFL leagues, mirroring the desktop workbench's new Market (MFL) group."
+  "build": "2026.07.02.1",
+  "label": "Stats: Routes set (Routes / Route% / TPRR / YPRR + NGS separation) on WR/TE/RB, NGS set (Time-to-Throw / AGG%) on QB, and the Market set from the earlier build \u2014 2016+ tracking data."
 }

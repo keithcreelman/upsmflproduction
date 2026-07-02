@@ -78,7 +78,16 @@
     mstart:{ l: "Start%",g: function (r) { var m = mktRec(r); return m && m.start != null ? m.start : null; }, f: "pct100" },
     madd:  { l: "Add%",  g: function (r) { var m = mktRec(r); return m && m.add != null ? m.add : null; }, f: "pct100" },
     mdrop: { l: "Cut%",  g: function (r) { var m = mktRec(r); return m && m.drop != null ? m.drop : null; }, f: "pct100" },
-    mrank: { l: "XpertRk", g: function (r) { var m = mktRec(r); return m && m.rank != null ? m.rank : null; } }
+    mrank: { l: "XpertRk", g: function (r) { var m = mktRec(r); return m && m.rank != null ? m.rank : null; } },
+    // Routes + NGS (2016+) — /api/player-routes + /api/player-ngs (mirrors desktop).
+    rtn:   { l: "Routes", g: function (r) { var x = rtRec(r); return x && x.routes ? x.routes : null; } },
+    rtpct: { l: "Route%", g: function (r) { var x = rtRec(r); return x && x.route_pct != null ? x.route_pct : null; }, f: "pct100" },
+    tprr:  { l: "TPRR",  g: function (r) { var x = rtRec(r); return x && x.tprr != null ? x.tprr : null; }, f: "dec2" },
+    yprr:  { l: "YPRR",  g: function (r) { var x = rtRec(r); return x && x.yprr != null ? x.yprr : null; }, f: "dec2" },
+    nsep:  { l: "Sep",   g: function (r) { var x = ngsRecMob(r); return x && x.rec ? x.rec.sep : null; }, f: "dec2" },
+    nryoe: { l: "RYOE/A", g: function (r) { var x = ngsRecMob(r); return x && x.rush ? x.rush.ryoe_pa : null; }, f: "delta" },
+    ntt:   { l: "TmToThrw", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.tt : null; }, f: "dec2" },
+    nagg:  { l: "AGG%",  g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.agg : null; }, f: "pct100" }
   };
 
   // Each tab: alias (worker pos param), group (pos_group values to keep), and
@@ -126,6 +135,12 @@
   });
   // Market (MFL) set — every position (MFL-wide own/start/add/cut % + expert rank).
   TABS.forEach(function (t) { t.sets.push({ l: "Market", cols: ["mown", "mstart", "madd", "mdrop", "mrank"] }); });
+  // Routes/NGS sets (2016+) — WR/TE/RB get routes; RB adds RYOE; QB gets NGS passing.
+  TABS.forEach(function (t) {
+    if (t.id === "WR" || t.id === "TE") t.sets.push({ l: "Routes", cols: ["rtn", "rtpct", "tprr", "yprr", "nsep"] });
+    else if (t.id === "RB") t.sets.push({ l: "Routes", cols: ["rtn", "tprr", "yprr", "nryoe"] });
+    else if (t.id === "QB") t.sets.push({ l: "NGS", cols: ["ntt", "nagg", "ppg"] });
+  });
 
   // scope: "all" | "ros" (rostered) | "fa" (free agents) — Keith 2026-06-20.
   // inner: "players" (the leaderboard) | "fpa" (Fantasy Points Against).
@@ -185,6 +200,27 @@
       .catch(function () { mktMap = {}; return mktMap; });
   }
   function mktRec(r) { return (mktMap && mktMap[String(r.mfl_pid)]) || null; }
+
+  // Routes + NGS by gsis_id — per season (2016+), read by the "Routes"/"NGS" sets.
+  var rtMap = null, rtSeason = 0, ngsMap = null, ngsSeason = 0;
+  function loadRoutes(yr) {
+    if (rtMap && rtSeason === yr) return Promise.resolve(rtMap);
+    rtSeason = yr;
+    return fetch(API.workerUrl("/api/player-routes?seasons=" + encodeURIComponent(yr)), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { rtMap = (j && j.by_gsis) || {}; return rtMap; })
+      .catch(function () { rtMap = {}; return rtMap; });
+  }
+  function loadNgs(yr) {
+    if (ngsMap && ngsSeason === yr) return Promise.resolve(ngsMap);
+    ngsSeason = yr;
+    return fetch(API.workerUrl("/api/player-ngs?seasons=" + encodeURIComponent(yr)), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { ngsMap = (j && j.by_gsis) || {}; return ngsMap; })
+      .catch(function () { ngsMap = {}; return ngsMap; });
+  }
+  function rtRec(r) { return (rtMap && rtMap[String(r.gsis_id)]) || null; }
+  function ngsRecMob(r) { return (ngsMap && ngsMap[String(r.gsis_id)]) || null; }
 
   function curSeason() {
     if (season) return season;
@@ -905,6 +941,8 @@
     loadCons(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
     loadEpa(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
     loadMarket().then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
+    loadRoutes(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
+    loadNgs(curSeason()).then(function () { if (view.inner === "players" && view.tab === tab.id) paint(mount); });
     if (cache[tab.alias + "|" + curSeason()]) { paint(mount); return; }
     mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + '<div class="ups-m-loading">Loading stats…</div>';
     bindInner(mount); bindToolbar(mount);
