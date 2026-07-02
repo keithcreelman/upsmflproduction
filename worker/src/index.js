@@ -2735,6 +2735,8 @@ export default {
         path !== "/api/player-epa" &&
         path !== "/api/player-routes" &&
         path !== "/api/player-ngs" &&
+        path !== "/api/player-ftn" &&
+        path !== "/api/player-splits" &&
         path !== "/api/team-pace" &&
         path !== "/api/mfl-market" &&
         path !== "/api/nfl-current-teams" &&
@@ -10606,6 +10608,68 @@ export default {
               rush: an >= 30 ? { att: an, ryoe: rnd(x.rs, 0), ryoe_pa: rnd(x.rs / an, 2), eff: rnd(x.es / an, 2), box8: rnd(x.bs / an, 1) } : null,
               pass: pn >= 50 ? { att: pn, tt: rnd(x.ts / pn, 2), agg: rnd(x.ags / pn, 1), cpae: rnd(x.cps / pn, 1) } : null,
             };
+          }
+          return jsonOut(200, { ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/player-ftn?seasons= — FTN charting rates by gsis_id (2022+) ──
+      // Play-action / screen / blitz-faced rates for QBs; contested-catch +
+      // catchable-target rates for receivers. SUMS in nfl_player_ftn → rates
+      // computed here after multi-season re-agg. Workbench "Charting (FTN)" groups.
+      if (path === "/api/player-ftn" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const seasons = safeStr(url.searchParams.get("seasons") || "")
+            .split(",").map((s) => s.replace(/\D/g, "")).filter((s) => s.length === 4);
+          if (!seasons.length) return jsonOut(400, { ok: false, error: "seasons required (CSV of 4-digit years)" });
+          const seasonList = seasons.map((s) => parseInt(s, 10)).join(",");
+          const r = await db.prepare(
+            "SELECT gsis_id AS gsis, SUM(dropbacks) db, SUM(pa_dropbacks) pa, SUM(screen_att) sc, SUM(blitz_dropbacks) bl, SUM(throwaways) ta, " +
+            "SUM(tgt_charted) tg, SUM(contested_tgt) ct, SUM(contested_rec) cr, SUM(catchable_tgt) ca, SUM(screen_tgt) st " +
+            "FROM nfl_player_ftn WHERE season IN (" + seasonList + ") GROUP BY gsis_id"
+          ).all();
+          const rnd = (v, d) => v == null ? null : Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
+          const by_gsis = {};
+          for (const x of ((r && r.results) || [])) {
+            const db_ = x.db || 0, tg = x.tg || 0;
+            by_gsis[x.gsis] = {
+              qb: db_ >= 50 ? { db: db_, pa_pct: rnd(100 * (x.pa || 0) / db_, 1), screen_pct: rnd(100 * (x.sc || 0) / db_, 1), blitz_pct: rnd(100 * (x.bl || 0) / db_, 1) } : null,
+              rec: tg >= 20 ? { tgt: tg, contested_tgt: x.ct || 0, contested_pct: (x.ct || 0) >= 5 ? rnd(100 * (x.cr || 0) / x.ct, 1) : null, catchable_pct: rnd(100 * (x.ca || 0) / tg, 1), screen_tgt: x.st || 0 } : null,
+            };
+          }
+          return jsonOut(200, { ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/player-splits?seasons= — game-script + home/road splits by gsis_id ──
+      // Opportunities (targets+carries, or dropbacks for QBs) per game by bucket:
+      // leading (>7) / neutral / trailing (<-7) + home / road. Powers the drawer
+      // "Splits" strip and the Script Δ leaderboard column.
+      if (path === "/api/player-splits" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const seasons = safeStr(url.searchParams.get("seasons") || "")
+            .split(",").map((s) => s.replace(/\D/g, "")).filter((s) => s.length === 4);
+          if (!seasons.length) return jsonOut(400, { ok: false, error: "seasons required (CSV of 4-digit years)" });
+          const seasonList = seasons.map((s) => parseInt(s, 10)).join(",");
+          const r = await db.prepare(
+            "SELECT gsis_id AS gsis, bucket, SUM(games) g, SUM(plays) p, SUM(targets) t, SUM(rec_yds) ry, SUM(rush_att) ra, SUM(rush_yds) ruy, SUM(pass_att) pa, SUM(pass_yds) py " +
+            "FROM nfl_player_splits WHERE season IN (" + seasonList + ") GROUP BY gsis_id, bucket"
+          ).all();
+          const rnd = (v, d) => v == null ? null : Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
+          const by_gsis = {};
+          for (const x of ((r && r.results) || [])) {
+            const e = (by_gsis[x.gsis] = by_gsis[x.gsis] || {});
+            e[x.bucket] = { g: x.g || 0, plays: x.p || 0, tgt: x.t || 0, rec_yds: x.ry || 0,
+                            rush_att: x.ra || 0, rush_yds: x.ruy || 0, pass_att: x.pa || 0, pass_yds: x.py || 0,
+                            opp_pg: (x.g || 0) > 0 ? rnd((x.p || 0) / x.g, 1) : null };
           }
           return jsonOut(200, { ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
         } catch (e) {

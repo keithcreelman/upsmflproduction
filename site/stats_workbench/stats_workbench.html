@@ -580,6 +580,37 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       compute:function(r){ var x=ngsByGsis[String(r.gsis_id)]; return x && x.pass ? x.pass.tt : null; } },
     ngs_agg:      { label:"AGG%",  num:true, fmt:"pct0", title:"NGS aggressiveness (2016+) — % of throws into tight windows (defender within 1 yd). High = contested-throw profile.",
       compute:function(r){ var x=ngsByGsis[String(r.gsis_id)]; return x && x.pass ? x.pass.agg : null; } },
+    // FTN charting (2022+, /api/player-ftn) — play-context rates the box score
+    // can't see: play action / screens / blitzes for QBs, contested + catchable
+    // target quality for receivers.
+    ftn_pa:       { label:"PA%",   num:true, fmt:"pct0", title:"Play-action rate — % of his dropbacks with play action (FTN charting, 2022+, ≥50 db). League ≈ 20-25%.",
+      compute:function(r){ var x=ftnByGsis[String(r.gsis_id)]; return x && x.qb ? x.qb.pa_pct : null; } },
+    ftn_screen:   { label:"Scrn%", num:true, fmt:"pct0", title:"Screen rate — % of dropbacks that were designed screens (FTN, 2022+).",
+      compute:function(r){ var x=ftnByGsis[String(r.gsis_id)]; return x && x.qb ? x.qb.screen_pct : null; } },
+    ftn_blitz:    { label:"Blitz%", num:true, fmt:"pct0", title:"% of dropbacks facing a blitz (≥1 blitzer, FTN 2022+) — pressure environment context.",
+      compute:function(r){ var x=ftnByGsis[String(r.gsis_id)]; return x && x.qb ? x.qb.blitz_pct : null; } },
+    ftn_ct_tgt:   { label:"CtstTgt", num:true, title:"Contested targets (FTN charting, 2022+) — how often his targets are contested-ball situations.",
+      compute:function(r){ var x=ftnByGsis[String(r.gsis_id)]; return x && x.rec ? x.rec.contested_tgt : null; } },
+    ftn_ct_pct:   { label:"Ctst%", num:true, fmt:"pct0", title:"Contested-catch rate — receptions ÷ contested targets (FTN 2022+, ≥5 contested). ≥50% = contested-catch winner.",
+      compute:function(r){ var x=ftnByGsis[String(r.gsis_id)]; return x && x.rec ? x.rec.contested_pct : null; } },
+    ftn_catchable:{ label:"Catchable%", num:true, fmt:"pct0", title:"% of his targets charted CATCHABLE (FTN 2022+) — target-quality context; low = bad QB throws, not bad hands.",
+      compute:function(r){ var x=ftnByGsis[String(r.gsis_id)]; return x && x.rec ? x.rec.catchable_pct : null; } },
+    ftn_scr_tgt:  { label:"ScrnTgt", num:true, title:"Screen targets (FTN 2022+) — manufactured-touch usage.",
+      compute:function(r){ var x=ftnByGsis[String(r.gsis_id)]; return x && x.rec ? x.rec.screen_tgt : null; } },
+    // Game-script sensitivity (from /api/player-splits) — opportunities per game
+    // when trailing minus when leading. The drawer shows the full splits strip.
+    split_script: { label:"Script Δ", num:true, fmt:"delta", title:"Game-script sensitivity: opportunities/game when TRAILING by 7+ minus when LEADING by 7+ (needs ≥3 games each side). Positive = volume rises in comeback scripts (pass-catchers); negative = leading-script player (grinders). Click the player for the full splits.",
+      compute:function(r){ var s=splitsByGsis[String(r.gsis_id)]; if(!s||!s.trail||!s.lead) return null; if((s.trail.g||0)<3||(s.lead.g||0)<3) return null; if(s.trail.opp_pg==null||s.lead.opp_pg==null) return null; return Math.round((s.trail.opp_pg - s.lead.opp_pg)*10)/10; } },
+    // Profile (Dynasty) — static prospect_profile.json: age, NFL draft capital,
+    // combine athleticism. The dynasty context layer.
+    prof_age:     { label:"Age",   num:true, fmt:"dec1", invertRank:true, title:"Current age (years) — the dynasty discount factor. Lower = better for dynasty value.",
+      compute:function(r){ var p=profileByGsis[String(r.gsis_id)]; return p && p.age != null ? p.age : null; } },
+    prof_draft:   { label:"Draft", cls:"dim", title:"NFL draft capital — round.pick-in-round 'entry year (e.g. R1.08 '23). UDFA = undrafted. Draft capital predicts opportunity persistence.",
+      compute:function(r){ var p=profileByGsis[String(r.gsis_id)]; return p && p.draft_cap ? p.draft_cap : null; } },
+    prof_forty:   { label:"40yd",  num:true, fmt:"dec2", invertRank:true, title:"Combine 40-yard dash (seconds). Lower = faster.",
+      compute:function(r){ var p=profileByGsis[String(r.gsis_id)]; return p && p.forty != null ? p.forty : null; } },
+    prof_speed:   { label:"SpdScore", num:true, fmt:"dec1", title:"Speed Score = (weight × 200) ÷ 40-time⁴ (RB/WR/TE) — weight-adjusted speed. ≥110 = elite athlete; all-time freaks ~130+.",
+      compute:function(r){ var p=profileByGsis[String(r.gsis_id)]; return p && p.speed_score != null ? p.speed_score : null; } },
     // L4W trend — last-4-weeks form vs season PPG, from the already-loaded
     // consistency payload (zero extra fetches).
     l4w_delta:    { label:"L4W Δ", num:true, fmt:"delta", title:"Last-4-weeks average fantasy points MINUS season PPG — the momentum read. Positive (green) = trending up; negative = fading.",
@@ -1109,6 +1140,24 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     if (TABS.qb && TABS.qb.groups) TABS.qb.groups.push(
       { id:"ngs_pass", label:"Passing · NGS ('16+)",
         cols:["ngs_tt","ngs_agg"], defaultOn:false });
+    // FTN charting groups (2022+) + game-script sensitivity.
+    if (TABS.qb && TABS.qb.groups) TABS.qb.groups.push(
+      { id:"ftn_qb", label:"Passing · Charting (FTN '22+)",
+        cols:["ftn_pa","ftn_screen","ftn_blitz","split_script"], defaultOn:false });
+    ["wr","te","flex_o"].forEach(function(k){
+      if (TABS[k] && TABS[k].groups) TABS[k].groups.push(
+        { id:"ftn_rec", label:"Receiving · Charting (FTN '22+)",
+          cols:["ftn_ct_tgt","ftn_ct_pct","ftn_catchable","split_script"], defaultOn:false });
+    });
+    if (TABS.rb && TABS.rb.groups) TABS.rb.groups.push(
+      { id:"ftn_rb", label:"Receiving · Charting (FTN '22+)",
+        cols:["ftn_scr_tgt","ftn_catchable","split_script"], defaultOn:false });
+    // Profile (Dynasty) — age / draft capital / athleticism on every tab.
+    Object.keys(TABS).forEach(function(k){
+      if (TABS[k] && TABS[k].groups) TABS[k].groups.push(
+        { id:"profile", label:"Profile (Dynasty)",
+          cols:["prof_age","prof_draft","prof_forty","prof_speed"], defaultOn:false });
+    });
   })();
 
   // ---------- DOM refs ----------
@@ -1152,6 +1201,17 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   var xfpByGsis = {};       // Expected Fantasy Points by gsis_id — league-scored xFP + actual + ± (static JSON)
   var routesByGsis = {};    // /api/player-routes by gsis_id — routes / route% / TPRR / YPRR (2016+)
   var ngsByGsis = {};       // /api/player-ngs by gsis_id — {rec:{sep,cush,yacoe}, rush:{ryoe_pa,eff,box8}, pass:{tt,agg}} (2016+)
+  var ftnByGsis = {};       // /api/player-ftn by gsis_id — {qb:{pa_pct,screen_pct,blitz_pct}, rec:{contested_*,catchable_pct,screen_tgt}} (2022+)
+  var splitsByGsis = {};    // /api/player-splits by gsis_id — {lead,neutral,trail,home,road} opportunity splits
+  var profileByGsis = {};   // static prospect_profile.json by gsis_id — age / draft capital / combine / speed score
+  var profileReady = fetch("https://keithcreelman.github.io/upsmflproduction/stats_workbench/prospect_profile.json")
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){
+      profileByGsis = {};
+      var arr = (j && j.players) || [];
+      for (var pi = 0; pi < arr.length; pi++){ var p = arr[pi]; if (p && p.gsis_id) profileByGsis[String(p.gsis_id)] = p; }
+    })
+    .catch(function(){ profileByGsis = {}; });
   var marketByMfl = {};     // MFL-wide market signals by MFL id — own/start/add/drop/trade % + expert rank + proj + AAV + injury
   var marketWeek = null;    // the projection week the market payload describes
   // Season-independent current snapshot → fetch ONCE at boot (worker edge-caches
@@ -1349,6 +1409,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     activeSubTab: "all",   // only relevant for DL/DB
     visibleGroups: new Set(),
     viewName: "standard",  // preset view: standard | advanced | analytics | custom
+    scatterOn: false,      // scatter discovery view (swaps the table for an SVG scatter)
+    scatterX: null, scatterY: null,   // scatter axes (null → per-tab defaults)
     rowsByWorkerPos: {},   // cache keyed by workerPos ("skill"|"qb"|"idp"|"kicker"|"punter")
     sortKey: null, sortDir: "desc",
     lastQuery: null,
@@ -1475,7 +1537,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   // group change flips to Custom. Choice persists per tab in localStorage and
   // round-trips in the URL hash (view=; groups= only written for custom).
   var ANA_GROUP_IDS = { consistency:1, efficiency:1, route_separation:1, expected_points:1,
-                        routes:1, ngs_rec:1, ngs_rush:1, ngs_pass:1 };
+                        routes:1, ngs_rec:1, ngs_rush:1, ngs_pass:1,
+                        ftn_qb:1, ftn_rec:1, ftn_rb:1 };
   function groupsForView(tab, view) {
     var gs = tab.groups || [];
     if (view === "standard")  return new Set(gs.filter(function(g){ return g.defaultOn; }).map(function(g){ return g.id; }));
@@ -1635,6 +1698,105 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     top.addEventListener("scroll", function () { if (lock) return; lock = true; wrap.scrollLeft = top.scrollLeft; lock = false; });
     wrap.addEventListener("scroll", function () { if (lock) return; lock = true; top.scrollLeft = wrap.scrollLeft; lock = false; });
     window.addEventListener("resize", syncTopScroll);
+  }
+
+  // ---------- Scatter discovery view (Phase 4) ----------
+  // Usage-vs-efficiency scatter over the current filtered rows: spot the
+  // archetypes (volume monsters, efficiency kings, do-everythings, avoids).
+  var SCATTER_DEFAULTS = {
+    qb: ["pass_att","epa_play"], rb: ["rush_share","ngs_ryoe_pa"], wr: ["target_share","rt_yprr"],
+    te: ["target_share","rt_yprr"], flex_o: ["target_share","epa_play"],
+    dl: ["def_snaps_total","def_pressures"], lb: ["def_snaps_total","def_tackles_total"],
+    db: ["def_snaps_total","def_pass_def"], flex_idp: ["def_snaps_total","def_tackles_total"],
+    pk: ["fg_att","fg_pct"], pn: ["punts","punt_net_avg"],
+  };
+  function scatterAxes() {
+    var d = SCATTER_DEFAULTS[state.activeTab] || ["games","mfl_ppg"];
+    var x = state.scatterX && COLS[state.scatterX] ? state.scatterX : d[0];
+    var y = state.scatterY && COLS[state.scatterY] ? state.scatterY : d[1];
+    if (!COLS[x]) x = "games";
+    if (!COLS[y]) y = "mfl_ppg";
+    return [x, y];
+  }
+  function buildScatterHtml(rows) {
+    var tab = TABS[state.activeTab];
+    var ax = scatterAxes(), xKey = ax[0], yKey = ax[1];
+    // axis pickers from the tab's numeric columns, grouped like the chart dropdown
+    function pickerHtml(id, cur) {
+      var opts = (tab.groups || []).map(function(g){
+        var inner = g.cols.filter(function(k){ return COLS[k] && COLS[k].num; }).map(function(k){
+          return '<option value="'+k+'"'+(k===cur?' selected':'')+'>'+escapeHtml(COLS[k].label||k)+'</option>';
+        }).join("");
+        return inner ? '<optgroup label="'+escapeHtml(g.label)+'">'+inner+'</optgroup>' : "";
+      }).filter(Boolean).join("");
+      return '<select id="'+id+'" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;max-width:180px">'+opts+'</select>';
+    }
+    var pts = rows.map(function(r){
+      var x = getVal(r, xKey), y = getVal(r, yKey);
+      if (x == null || y == null || isNaN(x) || isNaN(y)) return null;
+      return { x: Number(x), y: Number(y), r: r };
+    }).filter(Boolean);
+    if (pts.length < 3) {
+      return '<div style="padding:10px 0;display:flex;gap:10px;align-items:center">X ' + pickerHtml("asw-sc-x", xKey) + ' Y ' + pickerHtml("asw-sc-y", yKey) + '</div>' +
+             '<div class="asw-empty">Not enough data points for these axes (pick others — some stats need the Analytics data or 2016+/2018+ seasons).</div>';
+    }
+    var W = 960, H = 560, PL = 56, PR = 16, PT = 14, PB = 40;
+    var xs = pts.map(function(p){ return p.x; }), ys = pts.map(function(p){ return p.y; });
+    var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
+    var yMin = Math.min.apply(null, ys), yMax = Math.max.apply(null, ys);
+    if (xMax === xMin) xMax = xMin + 1;
+    if (yMax === yMin) yMax = yMin + 1;
+    var xPad = (xMax - xMin) * 0.04, yPad = (yMax - yMin) * 0.06;
+    xMin -= xPad; xMax += xPad; yMin -= yPad; yMax += yPad;
+    function sx(v){ return PL + ((v - xMin) / (xMax - xMin)) * (W - PL - PR); }
+    function sy(v){ return H - PB - ((v - yMin) / (yMax - yMin)) * (H - PT - PB); }
+    // median crosshairs → quadrants
+    function med(a){ var s = a.slice().sort(function(p,q){return p-q;}); var m = Math.floor(s.length/2); return s.length%2 ? s[m] : (s[m-1]+s[m])/2; }
+    var mx = med(xs), my = med(ys);
+    var fx = function(v){ return fmtCell(v, COLS[xKey].fmt).replace(/<[^>]*>/g,""); };
+    var fy = function(v){ return fmtCell(v, COLS[yKey].fmt).replace(/<[^>]*>/g,""); };
+    // label the top-N interesting dots (extremes by distance from median)
+    var labeled = pts.slice().sort(function(a,b){
+      function d(p){ return Math.abs(p.x-mx)/(xMax-xMin) + Math.abs(p.y-my)/(yMax-yMin); }
+      return d(b) - d(a);
+    }).slice(0, Math.min(14, pts.length));
+    var labeledSet = new Set(labeled.map(function(p){ return p.r.gsis_id; }));
+    var dots = pts.map(function(p){
+      var nm = p.r.player_name || "";
+      var lbl = labeledSet.has(p.r.gsis_id)
+        ? '<text x="'+(sx(p.x)+6)+'" y="'+(sy(p.y)+3)+'" font-size="9.5" fill="var(--muted)">'+escapeHtml((nm.split(" ").length>1?nm.split(" ").slice(-1)[0]:nm))+'</text>' : "";
+      return '<g class="asw-sc-dot" data-gsis="'+escapeHtml(String(p.r.gsis_id||""))+'" style="cursor:pointer">' +
+        '<circle cx="'+sx(p.x)+'" cy="'+sy(p.y)+'" r="4.2" fill="var(--accent)" fill-opacity="0.75" stroke="var(--bg)" stroke-width="1">' +
+        '<title>'+escapeHtml(nm)+' — '+escapeHtml(COLS[xKey].label)+': '+fx(p.x)+' · '+escapeHtml(COLS[yKey].label)+': '+fy(p.y)+'</title></circle>' + lbl + '</g>';
+    }).join("");
+    var svg =
+      '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;background:var(--panel);border:1px solid var(--border);border-radius:8px">' +
+        '<line x1="'+sx(mx)+'" y1="'+PT+'" x2="'+sx(mx)+'" y2="'+(H-PB)+'" stroke="var(--border)" stroke-dasharray="4 4"/>' +
+        '<line x1="'+PL+'" y1="'+sy(my)+'" x2="'+(W-PR)+'" y2="'+sy(my)+'" stroke="var(--border)" stroke-dasharray="4 4"/>' +
+        '<text x="'+(W-PR-4)+'" y="'+(PT+12)+'" text-anchor="end" font-size="10" fill="var(--muted)">high usage · high efficiency</text>' +
+        '<text x="'+(PL+4)+'" y="'+(H-PB-6)+'" font-size="10" fill="var(--muted)">low usage · low efficiency</text>' +
+        '<text x="'+((PL+W-PR)/2)+'" y="'+(H-8)+'" text-anchor="middle" font-size="11" fill="var(--text)">'+escapeHtml(COLS[xKey].label)+' →</text>' +
+        '<text x="14" y="'+((PT+H-PB)/2)+'" text-anchor="middle" font-size="11" fill="var(--text)" transform="rotate(-90 14 '+((PT+H-PB)/2)+')">'+escapeHtml(COLS[yKey].label)+' →</text>' +
+        dots +
+      '</svg>';
+    return '<div style="padding:8px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+        '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700">Scatter</span>' +
+        'X ' + pickerHtml("asw-sc-x", xKey) + ' Y ' + pickerHtml("asw-sc-y", yKey) +
+        '<span style="color:var(--muted);font-size:11px">' + pts.length + ' players · dashed lines = medians · click a dot for the player drawer</span>' +
+      '</div>' + svg;
+  }
+  function wireScatter(rows) {
+    var xSel = document.getElementById("asw-sc-x"), ySel = document.getElementById("asw-sc-y");
+    if (xSel) xSel.addEventListener("change", function(){ state.scatterX = xSel.value; render(); });
+    if (ySel) ySel.addEventListener("change", function(){ state.scatterY = ySel.value; render(); });
+    var byGsis = {};
+    rows.forEach(function(r){ if (r.gsis_id) byGsis[String(r.gsis_id)] = r; });
+    bodyEl.querySelectorAll(".asw-sc-dot").forEach(function(g){
+      g.addEventListener("click", function(){
+        var r = byGsis[g.getAttribute("data-gsis")];
+        if (r) openDrawer(r);
+      });
+    });
   }
 
   function render() {
@@ -1840,6 +2002,12 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     var theadGroup = state.heatOn
       ? '<tr class="asw-group-row">'+groupRow+'</tr>'
       : "";
+    if (state.scatterOn) {
+      // Scatter discovery view — swaps the table for a usage-vs-efficiency
+      // scatter of the SAME filtered rows. Click a dot → the player drawer.
+      bodyEl.innerHTML = rows.length ? buildScatterHtml(rows) : '<div class="asw-empty">No rows.</div>';
+      wireScatter(rows);
+    } else {
     bodyEl.innerHTML = rows.length || state.filtersVisible
       ? '<table class="asw-table' + (state.heatOn ? ' heat' : '') + '">' +
           '<thead>' +
@@ -1850,6 +2018,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
           '<tbody>'+ (rows.length ? body : '<tr><td colspan="'+(cols.length + 1)+'" class="asw-empty">No rows match filters.</td></tr>') +'</tbody>' +
         '</table>'
       : '<div class="asw-empty">No rows.</div>';
+    }
 
     syncTopScroll();   // size + show the top horizontal scrollbar for this table
 
@@ -2148,6 +2317,52 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       colsBarEl.appendChild(chip);
     });
 
+    // Named saved views — user-defined group sets beyond the presets. Saved per
+    // tab in localStorage; ☆ appears when the current selection is Custom.
+    function namedViews() {
+      try { return JSON.parse(localStorage.getItem("asw.namedViews." + state.activeTab) || "[]"); } catch (e) { return []; }
+    }
+    function setNamedViews(list) {
+      try { localStorage.setItem("asw.namedViews." + state.activeTab, JSON.stringify(list)); } catch (e) { /* private mode */ }
+    }
+    namedViews().forEach(function(v){
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "asw-chip asw-named-view";
+      chip.textContent = v.name + " ×";
+      chip.title = "Apply saved view \"" + v.name + "\" (" + (v.groups || []).length + " groups). Click the × side to delete.";
+      chip.addEventListener("click", function(e){
+        // click on the trailing × (last ~14px) deletes; anywhere else applies
+        var rect = chip.getBoundingClientRect();
+        if (e.clientX > rect.right - 16) {
+          if (confirm('Delete saved view "' + v.name + '"?')) { setNamedViews(namedViews().filter(function(x){ return x.name !== v.name; })); renderColsBar(); }
+          return;
+        }
+        state.visibleGroups = new Set(v.groups || []);
+        state.viewName = "custom";
+        persistView(state.activeTab);
+        refreshViewChips();
+        render();
+      });
+      colsBarEl.appendChild(chip);
+    });
+    if (state.viewName === "custom") {
+      var saveChip = document.createElement("button");
+      saveChip.type = "button";
+      saveChip.className = "asw-chip";
+      saveChip.textContent = "☆ Save view";
+      saveChip.title = "Name and save the current custom column selection as a reusable view for this tab";
+      saveChip.addEventListener("click", function(){
+        var name = (prompt("Name this view:") || "").trim().slice(0, 24);
+        if (!name) return;
+        var list = namedViews().filter(function(x){ return x.name !== name; });
+        list.push({ name: name, groups: Array.from(state.visibleGroups) });
+        setNamedViews(list);
+        renderColsBar();
+      });
+      colsBarEl.appendChild(saveChip);
+    }
+
     // Trigger pill — "Columns · N active" (or short group list if ≤3)
     var trigger = document.createElement("button");
     trigger.type = "button";
@@ -2209,6 +2424,19 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       render();
     });
     colsBarEl.appendChild(_filterToggleBtn);
+
+    var scatterBtn = document.createElement("button");
+    scatterBtn.type = "button";
+    scatterBtn.className = "asw-filter-toggle";
+    scatterBtn.textContent = "⚬ Scatter";
+    scatterBtn.setAttribute("aria-pressed", state.scatterOn ? "true" : "false");
+    scatterBtn.title = "Swap the table for a usage-vs-efficiency scatter of the same filtered rows — spot the archetypes. Pick any X/Y stat; click a dot for the player drawer.";
+    scatterBtn.addEventListener("click", function(){
+      state.scatterOn = !state.scatterOn;
+      scatterBtn.setAttribute("aria-pressed", state.scatterOn ? "true" : "false");
+      render();
+    });
+    colsBarEl.appendChild(scatterBtn);
 
     var heatBtn = document.createElement("button");
     heatBtn.type = "button";
@@ -2444,6 +2672,16 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ ngsByGsis = (j && j.by_gsis) || {}; })
       .catch(function(){ ngsByGsis = {}; });
+    var ftnFetch = fetch(API_BASE + "/api/player-ftn?seasons=" +
+        encodeURIComponent(seasons.join(",")))
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ ftnByGsis = (j && j.by_gsis) || {}; })
+      .catch(function(){ ftnByGsis = {}; });
+    var splitsFetch = fetch(API_BASE + "/api/player-splits?seasons=" +
+        encodeURIComponent(seasons.join(",")))
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ splitsByGsis = (j && j.by_gsis) || {}; })
+      .catch(function(){ splitsByGsis = {}; });
     // PFF Route Separation — static 2025 export (Pages JSON), keyed by gsis_id.
     // Loaded once; only populated for the rows that have a 2025 separation row.
     var sepFetch = fetch("https://keithcreelman.github.io/upsmflproduction/stats_workbench/pff_separation_2025.json")
@@ -2475,9 +2713,12 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       epaFetch,
       routesFetch,
       ngsFetch,
+      ftnFetch,
+      splitsFetch,
       sepFetch,
       xfpFetch,
       marketReady,
+      profileReady,
     ]).then(function(pair){
       var j = pair[0];
       var rows = Array.isArray(j.rows) ? j.rows : [];
@@ -2548,6 +2789,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     // across tabs (RuAtt≥150 becomes noise on a DB table). Clear on switch.
     state.filters = {};
     invalidatePredicateCache();
+    state.scatterX = state.scatterY = null;   // scatter axes reset to the new tab's defaults
     restoreViewForTab(tabId);
     tabsEl.querySelectorAll(".asw-tab").forEach(function(btn){
       btn.setAttribute("aria-pressed", btn.getAttribute("data-tab") === tabId ? "true" : "false");
@@ -3228,6 +3470,94 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
   // Render drawer body: chart + table (week-by-week OR per-season).
   // mode: "weekly" shows (Season, Wk) as leftmost sticky cols.
   // mode: "season" shows (Season) only; each row is one year.
+  // ---- Drawer header blocks: Profile chips + percentile bars + splits strip ----
+  // Percentile bars (the PlayerProfiler card pattern): each signature metric as a
+  // 0-100 positional percentile vs the CURRENTLY LOADED position rows. Uses data
+  // already in memory — no extra fetches.
+  var PCTL_METRICS_BY_TAB = {
+    qb:     ["mfl_ppg","pass_yds","pass_tds","cmp_pct","epa_play","epa_cpoe","xfp_sustain","ftn_pa"],
+    rb:     ["mfl_ppg","rush_yds","y_per_a","rush_share","target_share","ngs_ryoe_pa","epa_play","xfp_sustain"],
+    wr:     ["mfl_ppg","rec_yds","target_share","wopr","rt_yprr","ngs_sep","epa_play","xfp_sustain"],
+    te:     ["mfl_ppg","rec_yds","target_share","wopr","rt_yprr","ngs_sep","epa_play","xfp_sustain"],
+    flex_o: ["mfl_ppg","rec_yds","rush_yds","target_share","wopr","rt_yprr","epa_play","xfp_sustain"],
+    dl:     ["mfl_ppg","def_tackles_total","def_sacks","def_pressures","def_tfl"],
+    lb:     ["mfl_ppg","def_tackles_total","def_sacks","def_pass_def","def_tfl"],
+    db:     ["mfl_ppg","def_tackles_total","def_ints","def_pass_def"],
+    flex_idp: ["mfl_ppg","def_tackles_total","def_sacks","def_ints"],
+    pk:     ["mfl_ppg","fg_made","fg_pct"],
+    pn:     ["mfl_ppg","punts","punt_net_avg","punt_i20_pct"],
+  };
+  function buildDrawerProfileHtml(playerRow) {
+    var html = "";
+    // Profile chips — age / draft capital / athleticism (static JSON).
+    var prof = profileByGsis[String(playerRow.gsis_id)];
+    var chips = [];
+    if (prof) {
+      if (prof.age != null) chips.push("Age " + prof.age);
+      if (prof.draft_cap) chips.push(prof.draft_cap);
+      if (prof.forty != null) chips.push(prof.forty + "s 40yd");
+      if (prof.speed_score != null) chips.push("Speed " + prof.speed_score);
+    }
+    var mkt = marketByMfl[String(playerRow.mfl_pid)];
+    if (mkt) {
+      if (mkt.own != null) chips.push("Own " + mkt.own.toFixed(0) + "%");
+      if (mkt.rank != null) chips.push("Xpert #" + mkt.rank);
+      if (mkt.inj) chips.push("⚕ " + mkt.inj);
+    }
+    if (chips.length) {
+      html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' +
+        chips.map(function(c){ return '<span style="background:var(--panel-alt);border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:11.5px;color:var(--text)">' + escapeHtml(c) + '</span>'; }).join("") +
+        '</div>';
+    }
+    // Percentile bars vs the loaded position rows.
+    var tab = TABS[state.activeTab];
+    var pool = (state.rowsByWorkerPos[tab.workerPos] || []).filter(function(r){
+      return !tab.positionFilter || tab.positionFilter.indexOf(String(r.position || "").toUpperCase()) >= 0;
+    });
+    var keys = (PCTL_METRICS_BY_TAB[state.activeTab] || []).filter(function(k){ return COLS[k]; });
+    if (pool.length >= 8 && keys.length) {
+      var bars = keys.map(function(k){
+        var def = COLS[k];
+        var mine = getVal(playerRow, k);
+        if (mine == null || isNaN(mine)) return "";
+        var below = 0, n = 0;
+        for (var i = 0; i < pool.length; i++) {
+          var v = getVal(pool[i], k);
+          if (v == null || (typeof v === "number" && isNaN(v))) continue;
+          n++;
+          if (v <= mine) below++;
+        }
+        if (n < 8) return "";
+        var pct = Math.round(100 * below / n);
+        if (def.invertRank) pct = 100 - pct;
+        var color = pct >= 80 ? "var(--good, #3fb950)" : pct >= 60 ? "#7bc96f" : pct >= 40 ? "var(--muted)" : pct >= 20 ? "#e0863f" : "var(--bad, #f85149)";
+        return '<div style="display:flex;align-items:center;gap:8px;font-size:11.5px">' +
+          '<span style="width:88px;color:var(--muted);text-align:right;flex:none" title="' + escapeHtml(def.title || "") + '">' + escapeHtml(def.label) + '</span>' +
+          '<span style="flex:1;height:9px;background:var(--panel-alt);border-radius:5px;overflow:hidden"><span style="display:block;height:100%;width:' + pct + '%;background:' + color + ';border-radius:5px"></span></span>' +
+          '<span style="width:56px;flex:none">' + fmtCell(mine, def.fmt) + '</span>' +
+          '<span style="width:34px;flex:none;color:' + color + ';font-weight:700">' + pct + '</span>' +
+        '</div>';
+      }).filter(Boolean).join("");
+      if (bars) {
+        html += '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px" title="Positional percentile vs the currently loaded ' + escapeHtml(tab.label) + ' rows (0-100, higher = better; lower-is-better stats auto-inverted)">' + bars + '</div>';
+      }
+    }
+    // Splits strip — game script + home/road opportunities per game.
+    var sp = splitsByGsis[String(playerRow.gsis_id)];
+    if (sp && (sp.lead || sp.trail || sp.home)) {
+      function cell(lbl, b) {
+        if (!b || !b.g) return "";
+        return '<span style="background:var(--panel-alt);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11.5px"><span style="color:var(--muted)">' + lbl + ':</span> <b>' + (b.opp_pg != null ? b.opp_pg : "—") + '</b> opp/g <span style="color:var(--muted)">(' + b.g + 'g)</span></span>';
+      }
+      var cells = [cell("Leading", sp.lead), cell("Neutral", sp.neutral), cell("Trailing", sp.trail), cell("Home", sp.home), cell("Road", sp.road)].filter(Boolean).join("");
+      if (cells) {
+        html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px" title="Opportunities (targets + carries; dropbacks for QBs) per game by game situation — the game-script read">' +
+          '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;align-self:center">Splits</span>' + cells + '</div>';
+      }
+    }
+    return html ? '<section class="asw-drawer-section"><h3>Profile</h3>' + html + '</section>' : "";
+  }
+
   function renderDrawer(playerRow, rows, mode) {
     var tab = TABS[state.activeTab];
     mode = mode || "weekly";
@@ -3332,6 +3662,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       : 'Week-by-week · ' + rows.length + ' weeks';
 
     drawerBody.innerHTML =
+      buildDrawerProfileHtml(playerRow) +
       '<section class="asw-drawer-section">' +
         '<h3>Trend (' + tab.label + (isSeason ? ' · By Season' : ' · By Week') + ')</h3>' +
         chartsHtml +
