@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-06-20T19:40:16.875Z",
-    "row_count": 47,
+    "updated_at": "2026-07-05T13:24:26.218Z",
+    "row_count": 48,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -8924,6 +8924,114 @@
       "twb_meta": null,
       "mfl_trade_id": "1090",
       "trade_id": "1090",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1092",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-07-05T13:24:26.218Z",
+      "updated_at": "2026-07-05T13:24:26.218Z",
+      "from_franchise_id": "0007",
+      "to_franchise_id": "0012",
+      "from_franchise_name": "Sex Manther",
+      "to_franchise_name": "Hawks",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "13299",
+      "will_receive": "FP_0012_2027_2",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-07-05T13:24:24.198Z",
+        "source": "ups-mobile-trade-builder",
+        "league_id": "74598",
+        "season": "2026",
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0007",
+            "franchise_name": "Sex Manther",
+            "selected_assets": [
+              {
+                "asset_id": "P_13299",
+                "type": "PLAYER",
+                "player_id": "13299",
+                "player_name": "George Kittle",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "SFO",
+                "salary": 29000,
+                "years": 1,
+                "contract_type": "Vet-FAA",
+                "contract_info": "CL 2| TCV 58K| AAV 29K| Y1-29K, Y2-29K| GTD: 43.5K",
+                "contract_length": 2,
+                "already_extended_by_this_franchise": false,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 29000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "selected_assets": [
+              {
+                "asset_id": "FP_0012_2027_2",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 R2",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": null,
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0012_2027_2",
+                "pick_season": 2027,
+                "pick_round": 2,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0007",
+          "right_team_id": "0012"
+        }
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1092",
+      "trade_id": "1092",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
