@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-07-05T13:25:35.686Z",
+    "updated_at": "2026-07-07T22:01:59.697Z",
     "row_count": 48,
     "source": "worker-trade-offers"
   },
@@ -8623,7 +8623,7 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-06-11T21:56:30.681Z",
-      "updated_at": "2026-06-12T14:35:50.877Z",
+      "updated_at": "2026-07-07T22:01:59.697Z",
       "from_franchise_id": "0007",
       "to_franchise_id": "0008",
       "from_franchise_name": "Sex Manther",
@@ -8632,8 +8632,8 @@
       "comment": "",
       "comments": "",
       "raw_comment": "",
-      "will_give_up": "FP_0007_2027_5",
-      "will_receive": "16594",
+      "will_give_up": "13299",
+      "will_receive": "FP_0008_2027_2",
       "source": "trade-workbench-ui",
       "summary": {
         "from_asset_count": 1,
@@ -8644,7 +8644,7 @@
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-06-12T14:35:48.292Z",
+        "generated_at": "2026-07-07T22:01:58.401Z",
         "source": "ups-mobile-trade-builder",
         "league_id": "74598",
         "season": "2026",
@@ -8655,47 +8655,18 @@
             "franchise_name": "Sex Manther",
             "selected_assets": [
               {
-                "asset_id": "FP_0007_2027_5",
-                "type": "PICK",
-                "player_id": null,
-                "player_name": null,
-                "description": "2027 R5",
-                "position": null,
-                "nfl_team": null,
-                "salary": 0,
-                "years": null,
-                "contract_type": null,
-                "contract_info": null,
-                "taxi": false,
-                "pick_key": "FP_0007_2027_5",
-                "pick_season": 2027,
-                "pick_round": 5,
-                "pick_slot": null
-              }
-            ],
-            "traded_salary_adjustment_dollars": 0,
-            "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 999,
-            "selected_non_taxi_salary_dollars": 0
-          },
-          {
-            "role": "right",
-            "franchise_id": "0008",
-            "franchise_name": "Real Deal Creel",
-            "selected_assets": [
-              {
-                "asset_id": "P_16594",
+                "asset_id": "P_13299",
                 "type": "PLAYER",
-                "player_id": "16594",
-                "player_name": "Trey Benson",
+                "player_id": "13299",
+                "player_name": "George Kittle",
                 "description": null,
-                "position": "RB",
-                "nfl_team": "ARI",
-                "salary": 6000,
+                "position": "TE",
+                "nfl_team": "SFO",
+                "salary": 29000,
                 "years": 1,
-                "contract_type": "Rookie-Draft",
-                "contract_info": "CL 3| TCV 18K| AAV 6K| Y1-6K, Y2-6K, Y3-6K| GTD: 13.5K",
-                "contract_length": 3,
+                "contract_type": "Vet-FAA",
+                "contract_info": "CL 2| TCV 58K| AAV 29K| Y1-29K, Y2-29K| GTD: 43.5K",
+                "contract_length": 2,
                 "already_extended_by_this_franchise": false,
                 "taxi": false,
                 "pick_key": null,
@@ -8707,7 +8678,36 @@
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
             "traded_salary_adjustment_max_k": 999,
-            "selected_non_taxi_salary_dollars": 6000
+            "selected_non_taxi_salary_dollars": 29000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "FP_0008_2027_2",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 R2",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": null,
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0008_2027_2",
+                "pick_season": 2027,
+                "pick_round": 2,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
           }
         ],
         "extension_requests": [],
@@ -8720,8 +8720,8 @@
         }
       },
       "twb_meta": null,
-      "mfl_trade_id": "1089",
-      "trade_id": "1089",
+      "mfl_trade_id": "1094",
+      "trade_id": "1094",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
