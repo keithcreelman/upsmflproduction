@@ -1,0 +1,7 @@
+{
+  "encoding": "utf-8",
+  "error": {
+    "$t": "Invalid request. This API request must go to api.myfantasyleague.com"
+  },
+  "version": "1.0"
+}
