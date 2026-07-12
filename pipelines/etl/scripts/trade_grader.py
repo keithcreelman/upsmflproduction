@@ -1164,18 +1164,32 @@ def fetch_weighted_ppg(players) -> dict:
                 for r in rows:
                     mid = str(r.get("mfl_pid") or "")
                     if mid in want and r.get("mfl_ppg"):
-                        per_season.setdefault(mid, {})[season] = float(r["mfl_ppg"])
+                        per_season.setdefault(mid, {})[season] = {
+                            "ppg": float(r["mfl_ppg"]),
+                            "games": int(r.get("games") or 0)}
+        # A 1-3 game injury cameo is noise, not a season: exclude it from the
+        # blend. Weights renormalize over the seasons a player ACTUALLY played,
+        # so a 2nd-year player is judged on his one real season, never
+        # penalized for seasons that predate his career (Keith 2026-07-12).
+        MIN_GAMES = 4
         for mid, by in per_season.items():
+            qual = {s2: v for s2, v in by.items() if v["games"] >= MIN_GAMES}
+            use = qual or by  # if NO season qualifies, thin data beats none
             num = den = 0.0
             for i, season in enumerate(seasons):
-                if season in by:
+                if season in use:
                     w = PPG_SEASON_WEIGHTS[i]
-                    num += w * by[season]; den += w
+                    num += w * use[season]["ppg"]; den += w
             if den > 0:
                 blend = num / den
-                parts = ", ".join(f"{s2}: {by[s2]:.1f}" for s2 in sorted(by, reverse=True))
+                parts = ", ".join(
+                    "{}: {:.1f} ({}G)".format(s2, use[s2]["ppg"], use[s2]["games"])
+                    for s2 in sorted(use, reverse=True))
+                skipped = sorted(set(by) - set(use), reverse=True)
+                note = ("; excluded " + ", ".join(map(str, skipped)) +
+                        " (injury cameo <" + str(MIN_GAMES) + "G)") if skipped else ""
                 out[mid] = {"ppg": round(blend, 1),
-                            "basis": f"3-season weighted ({parts})",
+                            "basis": "weighted over seasons played (" + parts + ")" + note,
                             "by_season": by}
     except Exception as e:
         print(f"[trade_grader] weighted PPG lookup skipped ({e})")
@@ -1183,22 +1197,84 @@ def fetch_weighted_ppg(players) -> dict:
 
 
 def fetch_adp_board() -> dict:
-    """{mfl_player_id: {overall, pos_rank, trend30, sources}} — the site's
-    multi-source consensus ADP board (FantasyCalc/KTC/DynastyProcess/Sleeper/FFC)."""
+    """{mfl_player_id: {overall, pos_rank, pos, trend30, sources}} replicating the
+    SITE'S ADP board math EXACTLY (canon: the board the league actually looks at;
+    verified vs the UI 2026-07-12 — Kittle TE9/#103, Pitts TE6/#77):
+      - Superflex values: per-dimension source means (fc/ktc/dp dsf and rsf
+        averaged separately), blended 65% dynasty / 35% redraft
+      - overall # = blended-value ordering over the NON-IDP universe
+      - posRank = same ordering within position; IDP ranked in its own space
+    Keith 2026-07-12: current ADP is the true market perception."""
+    RD_PCT = 0.35
     out = {}
     try:
         d = _worker_get_json(f"{_worker_base()}/api/adp-board", timeout=25)
-        for p in (d.get("board") or []):
-            pid = str(p.get("pid") or "")
-            if pid and p.get("rank"):
-                out[pid] = {"overall": int(p["rank"]),
-                            "pos_rank": int(p.get("posRank") or 0),
-                            "pos": str(p.get("pos") or ""),
-                            "trend30": int(p.get("trend30") or 0),
-                            "sources": int(p.get("nSources") or 0)}
+        board = d.get("board") or []
+        def blend(p):
+            dyn_vals, rd_vals = [], []
+            for src in ("fc", "ktc", "dp"):
+                blk = p.get(src) or {}
+                if blk.get("dsf") and blk["dsf"] > 0:
+                    dyn_vals.append(float(blk["dsf"]))
+                if blk.get("rsf") and blk["rsf"] > 0:
+                    rd_vals.append(float(blk["rsf"]))
+            dyn_c = sum(dyn_vals) / len(dyn_vals) if dyn_vals else None
+            rd_c = sum(rd_vals) / len(rd_vals) if rd_vals else None
+            if dyn_c is None and rd_c is None:
+                return None
+            if rd_c is None:
+                return dyn_c
+            if dyn_c is None:
+                return rd_c
+            return (1 - RD_PCT) * dyn_c + RD_PCT * rd_c
+        for universe, is_idp in ((False, False), (True, True)):
+            rows = [p for p in board if bool(p.get("isIdp")) == is_idp]
+            scored = []
+            for p in rows:
+                v = p.get("idpVal") if is_idp else blend(p)
+                if v:
+                    scored.append((float(v), p))
+            scored.sort(key=lambda t: -t[0])
+            pos_counter = {}
+            for i, (v, p) in enumerate(scored, 1):
+                pos = str(p.get("pos") or "")
+                pos_counter[pos] = pos_counter.get(pos, 0) + 1
+                pid = str(p.get("pid") or "")
+                if pid:
+                    out[pid] = {"overall": i, "pos_rank": pos_counter[pos], "pos": pos,
+                                "trend30": int(p.get("trend30") or 0),
+                                "sources": int(p.get("nSources") or 0)}
     except Exception as e:
         print(f"[trade_grader] adp-board lookup skipped ({e})")
     return out
+
+
+def adp_implied_ppg(pos: str, pos_rank: int) -> tuple:
+    """(ppg, basis) for players with NO qualifying NFL seasons (rookies): the
+    prior season's actual MFL PPG of the player at the SAME positional rank —
+    i.e. "the market says he's TE4; last year's TE4 scored X". Never returns a
+    punitive 0 for a player who simply hasn't played yet (Keith 2026-07-12)."""
+    try:
+        from datetime import date as _date
+        season = _date.today().year - 1
+        pos = (pos or "").upper()
+        pg = ("qb" if pos == "QB" else "kicker" if pos == "PK" else
+              "punter" if pos == "PN" else
+              "idp" if pos in ("DT","DE","NT","DL","LB","OLB","ILB","MLB","CB","S","SS","FS","DB") else "skill")
+        url = (f"{_worker_base()}/api/advanced-stats-leaderboard"
+               f"?seasons={season}&pos={pg}&limit=500")
+        rows = _worker_get_json(url).get("rows", [])
+        ranked = sorted((r for r in rows
+                         if (r.get("position") or "").upper() == pos
+                         and r.get("mfl_ppg") and int(r.get("games") or 0) >= 6),
+                        key=lambda r: -float(r["mfl_ppg"]))
+        if 0 < pos_rank <= len(ranked):
+            ppg = float(ranked[pos_rank - 1]["mfl_ppg"])
+            return round(ppg, 1), (f"ADP-implied: market ranks him {pos}{pos_rank}; "
+                                   f"{season}'s {pos}{pos_rank} scored {ppg:.1f} PPG")
+    except Exception as e:
+        print(f"[trade_grader] adp-implied ppg skipped ({e})")
+    return 0.0, ""
 
 
 # Back-compat alias (context imports the old name)
@@ -1284,6 +1360,13 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
                     if b_:
                         p.expected_ppg = b_["ppg"]
                         p.ppg_basis = b_["basis"]
+                    elif p.adp_pos_rank:
+                        # No NFL seasons at all (rookie) — value him at what the
+                        # market's rank implies, never at a punitive 0.
+                        ppg_, basis_ = adp_implied_ppg(p.position, p.adp_pos_rank)
+                        if ppg_:
+                            p.expected_ppg = ppg_
+                            p.ppg_basis = basis_
 
     # Symmetric points-based grade math (replaces old asymmetric dollar formulas).
     # Both sides are scored with one function; grades are zero-sum by construction.
