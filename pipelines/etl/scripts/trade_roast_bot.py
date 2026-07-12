@@ -214,7 +214,9 @@ def _post_worker_heartbeat_sync(status: str):
         req = urllib.request.Request(
             WORKER_HEARTBEAT_URL, data=body, method="POST",
             headers={"Content-Type": "application/json",
-                     "Authorization": f"Bearer {ROAST_TRACK_API_KEY}"})
+                     "Authorization": f"Bearer {ROAST_TRACK_API_KEY}",
+                     # Cloudflare 403s the bare python-urllib UA
+                     "User-Agent": "ups-roast-bot-launchd"})
         urllib.request.urlopen(req, timeout=5).read()
     except Exception as e:
         print(f"[{datetime.now()}] worker heartbeat failed (non-fatal): {e}")
