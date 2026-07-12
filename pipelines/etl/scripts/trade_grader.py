@@ -33,6 +33,15 @@ from pick_valuation import (
 from projection import project_player_ppg as _project_ppg
 
 GAMES_PER_SEASON = 17
+
+
+def _safe_int(v) -> int:
+    """MFL salary fields arrive as '', None, '12345', 12345, or '12345.0' —
+    a bare int() crashes on half of those (prod hand-fix 2026-06, now on main)."""
+    try:
+        return int(float(v)) if v not in (None, "") else 0
+    except (ValueError, TypeError):
+        return 0
 # Simple year-over-year production decay (Y1, Y2, Y3+).
 # Conservative: veterans hold PPG ~stably for 2 years, fade after.
 PLAYER_DECAY = [1.00, 0.95, 0.88, 0.80]
@@ -489,10 +498,10 @@ def enrich_player(player: PlayerInfo, rosters: dict, rollover: dict,
     for fid, roster in rosters.items():
         for p in roster:
             if p["id"] == player.player_id:
-                player.salary = int(p.get("salary", 0))
+                player.salary = _safe_int(p.get("salary", 0))
                 player.contract_info = p.get("contractInfo", "")
                 player.contract_status = p.get("contractStatus", "")
-                player.contract_year = int(p.get("contractYear", 0))
+                player.contract_year = _safe_int(p.get("contractYear", 0))
                 player.franchise_id = fid
                 player.franchise_name = franchises.get(fid, "")
                 break
@@ -912,13 +921,20 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             ln(f"      ${side.salary_received:,} salary (BB)")
         ln()
 
-        # Roster context
+        # Roster context — use the adjustment-aware numbers analyze_trade already
+        # computed on the TradeSide (cap = $300K − salaries − MFL salaryAdjustments).
+        # The old naive recompute here (300000 − salaries) is what let the
+        # 2026-07-11 roast claim $41K cap space when the true number was $27.5K
+        # (it ignored $13.5K of cap adjustments) — sexmanther noticed.
         if rosters and players_map and side.franchise_id in rosters:
             roster = rosters[side.franchise_id]
-            total_sal = sum(int(p.get("salary", 0)) for p in roster
-                           if p.get("status") != "TAXI_SQUAD")
-            cap_space = 300000 - total_sal
-            ln(f"    Post-Trade Roster: ${total_sal:,} / $300K cap")
+            total_sal = side.total_roster_salary or sum(
+                _safe_int(p.get("salary", 0)) for p in roster
+                if p.get("status") != "TAXI_SQUAD")
+            adj = side.cap_adjustments or 0
+            cap_space = side.cap_space if side.cap_space else (300000 - total_sal - adj)
+            ln(f"    Post-Trade Roster: ${total_sal:,} / $300K cap"
+               + (f" (incl. ${adj:+,} cap adjustments)" if adj else ""))
             ln(f"    Cap Space: ${cap_space:,}")
 
             # Show their QBs
@@ -926,7 +942,7 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             for rp in roster:
                 pinfo = players_map.get(rp["id"], {})
                 if pinfo.get("position") == "QB" and rp.get("status") != "TAXI_SQUAD":
-                    qbs.append(f"{pinfo['name']} ${int(rp.get('salary',0)):,}")
+                    qbs.append(f"{pinfo['name']} ${_safe_int(rp.get('salary',0)):,}")
             if qbs:
                 ln(f"    QB Room: {', '.join(qbs)}")
         ln()
@@ -1140,7 +1156,7 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
     for side in (side_a, side_b):
         if side.franchise_id in rosters:
             roster = rosters[side.franchise_id]
-            total_sal = sum(int(p.get("salary", 0)) for p in roster
+            total_sal = sum(_safe_int(p.get("salary", 0)) for p in roster
                            if p.get("status") != "TAXI_SQUAD")
             adj = adjustments.get(side.franchise_id, 0)
             side.total_roster_salary = total_sal

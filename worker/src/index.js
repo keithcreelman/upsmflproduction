@@ -2670,6 +2670,7 @@ export default {
         path !== "/api/giphy-search" &&
         path !== "/api/franchise-ownership-history" &&
         path !== "/api/roast-thread/track" &&
+        path !== "/api/roast-heartbeat" &&
         path !== "/admin/reset-fa-contracts" &&
         path !== "/admin/discord/post" &&
         path !== "/admin/deadline-reminders/test-discord" &&
@@ -8075,6 +8076,70 @@ export default {
           return jsonOut(500, { ok: false, error: `D1 insert: ${String(e?.message || e)}` });
         }
         return jsonOut(200, { ok: true, roast_message_id: roastMessageId });
+      }
+
+      // ── /api/roast-heartbeat ─────────────────────────────────────────────────
+      // Proof-of-life for the launchd trade-roast bot. The bot POSTs every poll
+      // tick (~60s throttled); Commish Settings GETs it to render a LIVE status
+      // pill instead of the old hardcoded "PROD" label (which stayed green
+      // through the 2026-07-11 25-hour hang). POST auth = same bearer as
+      // roast-thread/track; GET is public (age of a heartbeat isn't sensitive).
+      if (path === "/api/roast-heartbeat" && request.method === "POST") {
+        const expectedKey = safeStr(env.ROAST_TRACK_API_KEY || "");
+        if (!expectedKey) {
+          return jsonOut(503, { ok: false, error: "ROAST_TRACK_API_KEY not configured" });
+        }
+        const auth = safeStr(request.headers.get("authorization") || "");
+        const provided = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : auth;
+        if (provided !== expectedKey) {
+          return jsonOut(401, { ok: false, error: "auth failed" });
+        }
+        if (!env.UPS_MFL_DB) {
+          return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        }
+        let hb = {};
+        try { hb = await request.json(); } catch (_) { /* tolerate empty body */ }
+        const botName = safeStr(hb?.bot || "trade_roast").slice(0, 64);
+        const status = safeStr(hb?.status || "ok").slice(0, 64);
+        const botEnv = safeStr(hb?.env || "").slice(0, 16);
+        const now = Math.floor(Date.now() / 1000);
+        try {
+          await env.UPS_MFL_DB
+            .prepare(
+              "INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env) VALUES (?,?,?,?) " +
+              "ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, " +
+              " status = excluded.status, env = excluded.env"
+            )
+            .bind(botName, now, status, botEnv)
+            .run();
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: `D1 upsert: ${String(e?.message || e)}` });
+        }
+        return jsonOut(200, { ok: true, bot: botName, ts: now });
+      }
+      if (path === "/api/roast-heartbeat" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) {
+          return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        }
+        const botName = safeStr(url.searchParams.get("bot") || "trade_roast");
+        let row = null;
+        try {
+          row = await env.UPS_MFL_DB
+            .prepare("SELECT bot, last_ts, status, env FROM ups_bot_heartbeat WHERE bot = ?")
+            .bind(botName)
+            .first();
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: `D1 read: ${String(e?.message || e)}` });
+        }
+        if (!row) {
+          return jsonOut(200, { ok: true, bot: botName, last_ts: null, age_seconds: null, status: "never" });
+        }
+        const now = Math.floor(Date.now() / 1000);
+        return jsonOut(200, {
+          ok: true, bot: row.bot, last_ts: row.last_ts,
+          age_seconds: Math.max(0, now - Number(row.last_ts || 0)),
+          status: row.status, env: row.env,
+        });
       }
 
       // ── GET /api/giphy-search?q=<query> ──────────────────────────────────────

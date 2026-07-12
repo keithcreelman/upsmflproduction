@@ -33,10 +33,28 @@ BOT_PROCESS_PATTERN = "trade_roast_bot.py"
 LAUNCH_AGENT_LABEL = "com.keith.mfl.roast-bot"
 DISCORD_API = "https://discord.com/api/v10"
 USER_AGENT = "ups-roast-bot-watchdog/1.0"
+# Heartbeat file the bot writes every poll tick (~5 min). Age > STALE_AFTER with
+# a LIVE process = the bot is HUNG — the failure mode pgrep can't see. The
+# 2026-07-11 incident was a live process frozen 25h on a blocking read; a
+# process-only watchdog would have said "up" the whole time. 20 min tolerates
+# the slowest legitimate roast (analyze+context+Opus timeouts ≈ 10 min total).
+HEARTBEAT_FILE = Path.home() / "Library" / "Application Support" / "ups-roast-bot" / "heartbeat.json"
+STALE_AFTER_SECONDS = 20 * 60
+KICK_COOLDOWN_SECONDS = 20 * 60  # at most one hang-kick per cooldown window
 
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def heartbeat_age_seconds():
+    """Age of the bot's last heartbeat, or None if no heartbeat file exists
+    (pre-heartbeat build / first boot — treated as unknown, never as hung)."""
+    try:
+        data = json.loads(HEARTBEAT_FILE.read_text())
+        return max(0.0, time.time() - float(data.get("ts", 0)))
+    except Exception:
+        return None
 
 
 def read_state():
@@ -167,10 +185,33 @@ def main():
     state = read_state()
     running = bot_is_running()
     prior_status = state.get("status", "unknown")
-    new_status = "up" if running else "down"
+    hb_age = heartbeat_age_seconds()
+    hung = bool(running and hb_age is not None and hb_age > STALE_AFTER_SECONDS)
+    new_status = "hung" if hung else ("up" if running else "down")
 
     state["status"] = new_status
     state["last_checked_at"] = now_iso()
+
+    # HUNG: process alive but heartbeat stale → kick (rate-limited) + DM on
+    # transition. This is the 2026-07-11 failure mode a pgrep check can't see.
+    if hung:
+        last_kick = float(state.get("last_kick_ts") or 0)
+        if time.time() - last_kick >= KICK_COOLDOWN_SECONDS:
+            print(f"[{now_iso()}] bot HUNG — heartbeat {hb_age/60:.1f} min old, process alive. Kicking.")
+            try_restart_via_launchd()
+            state["last_kick_ts"] = time.time()
+        else:
+            print(f"[{now_iso()}] bot still hung (heartbeat {hb_age/60:.1f} min) — kick within cooldown, waiting")
+        if prior_status != "hung":
+            msg = (
+                ":hourglass: **UPS Roast Bot is HUNG** — process alive but no "
+                f"heartbeat for {hb_age/60:.0f} min. Auto-kicking it via launchd. "
+                "Check `/tmp/roast_bot.log` if it doesn't report back online."
+            )
+            if discord_dm(msg):
+                state["last_dm_at"] = now_iso()
+        write_state(state)
+        return
 
     # DM on first detection of outage. ALSO retry if we're still down but
     # never successfully sent a DM (e.g. earlier tick failed because of
@@ -188,7 +229,7 @@ def main():
         if discord_dm(msg):
             state["last_dm_at"] = now_iso()
         try_restart_via_launchd()
-    elif new_status == "up" and prior_status == "down":
+    elif new_status == "up" and prior_status in ("down", "hung"):
         # Transition to up — let the user know it recovered
         msg = (
             ":white_check_mark: **UPS Roast Bot is back online.**\n"

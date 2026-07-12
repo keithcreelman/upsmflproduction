@@ -1,46 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Mirror of the INSTALLED agent at ~/Library/LaunchAgents/ (2026-07-12).
+     The launcher (~/Library/Application Support/ups-roast-bot/run_roast_bot.sh)
+     pulls ANTHROPIC_API_KEY from Keychain and execs the bot with -\-prod from
+     the prod checkout (/Users/keithcreelman/Code/MFL/upsmflproduction, main).
+     KeepAlive restarts crashes; the WATCHDOG agent restarts HANGS (heartbeat
+     age) — KeepAlive can't see a frozen-but-alive process (2026-07-11). -->
 <plist version="1.0">
 <dict>
-  <key>Label</key>
-  <string>com.keith.mfl.roast-bot</string>
-
-  <key>ProgramArguments</key>
-  <array>
-    <string>/Users/keithcreelman/.venvs/ups-roast-bot/bin/python3</string>
-    <string>/Users/keithcreelman/Code/MFL/upsmflproduction/.claude/worktrees/exciting-tharp-235716/pipelines/etl/scripts/trade_roast_bot.py</string>
-  </array>
-
-  <key>WorkingDirectory</key>
-  <string>/Users/keithcreelman/Code/MFL/upsmflproduction/.claude/worktrees/exciting-tharp-235716/pipelines/etl/scripts</string>
-
-  <!-- Keep the bot running. If it crashes or exits, launchd respawns it. -->
-  <key>KeepAlive</key>
-  <true/>
-
-  <!-- Run at login so the bot is always available. -->
-  <key>RunAtLoad</key>
-  <true/>
-
-  <!-- launchd will throttle restarts to at most one every 10 seconds. -->
-  <key>ThrottleInterval</key>
-  <integer>10</integer>
-
-  <!-- COMMISH_DISCORD_USER_ID is the commish's Discord user ID (not a
-       secret — public). The bot token is NOT stored here; it's pulled
-       from macOS Keychain at runtime via:
-         security find-generic-password -a "$USER" -s "discord_bot_token" -w
-       Set it once with `security add-generic-password ...` — see the
-       Keychain section in the README. -->
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>COMMISH_DISCORD_USER_ID</key>
-    <string>621530026831118346,1057654821638897715</string>
-  </dict>
-
-  <key>StandardOutPath</key>
-  <string>/tmp/roast_bot.log</string>
-  <key>StandardErrorPath</key>
-  <string>/tmp/roast_bot.err.log</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>ANTHROPIC_USE_PROXY</key>
+		<string>0</string>
+		<key>COMMISH_DISCORD_USER_ID</key>
+		<string>621530026831118346,1057654821638897715</string>
+		<key>DISCORD_TRADE_CHANNEL_ID</key>
+		<string>1059111651846131833</string>
+		<key>PYTHONUNBUFFERED</key>
+		<string>1</string>
+		<key>ROAST_BOT_ENV</key>
+		<string>prod</string>
+	</dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>com.keith.mfl.roast-bot</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/keithcreelman/Library/Application Support/ups-roast-bot/run_roast_bot.sh</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/tmp/roast_bot.err.log</string>
+	<key>StandardOutPath</key>
+	<string>/tmp/roast_bot.log</string>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/keithcreelman/Code/MFL/upsmflproduction/pipelines/etl/scripts</string>
 </dict>
 </plist>

@@ -8,11 +8,11 @@
   <key>ProgramArguments</key>
   <array>
     <string>/Users/keithcreelman/.venvs/ups-roast-bot/bin/python3</string>
-    <string>/Users/keithcreelman/Code/MFL/upsmflproduction/.claude/worktrees/exciting-tharp-235716/pipelines/etl/scripts/roast_bot_watchdog.py</string>
+    <string>/Users/keithcreelman/Code/MFL/upsmflproduction/pipelines/etl/scripts/roast_bot_watchdog.py</string>
   </array>
 
   <key>WorkingDirectory</key>
-  <string>/Users/keithcreelman/Code/MFL/upsmflproduction/.claude/worktrees/exciting-tharp-235716/pipelines/etl/scripts</string>
+  <string>/Users/keithcreelman/Code/MFL/upsmflproduction/pipelines/etl/scripts</string>
 
   <!-- Run every 5 minutes. -->
   <key>StartInterval</key>

@@ -9,14 +9,42 @@ import json
 import os
 import anthropic
 
-MODEL = "claude-opus-4-6"
+MODEL = "claude-opus-4-8"
 CLIENT = None
+
+# Worker proxy base — lets local scripts use the worker's ANTHROPIC_API_KEY
+# secret (so the key doesn't need to be duplicated on every machine). The
+# worker forwards to api.anthropic.com with the real key. Ported from the
+# prod checkout's uncommitted 2026-06 hand-fix. Override with UPS_WORKER_BASE.
+WORKER_BASE = os.environ.get(
+    "UPS_WORKER_BASE",
+    "https://upsmflproduction.keith-creelman.workers.dev"
+).rstrip("/")
+PROXY_BASE_URL = f"{WORKER_BASE}/api/anthropic-proxy"
 
 
 def get_client() -> anthropic.Anthropic:
     global CLIENT
     if CLIENT is None:
-        CLIENT = anthropic.Anthropic()
+        # Two modes:
+        #   direct (default when a real ANTHROPIC_API_KEY is available, or
+        #     ANTHROPIC_USE_PROXY=0): straight to api.anthropic.com.
+        #   proxy (ANTHROPIC_USE_PROXY=1 with no local key): route through the
+        #     worker, authing with DISCORD_BOT_TOKEN as the shared secret; the
+        #     worker swaps in the real x-api-key server-side.
+        use_proxy = os.environ.get("ANTHROPIC_USE_PROXY", "0") == "1"
+        local_key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+        if local_key and not use_proxy:
+            CLIENT = anthropic.Anthropic(api_key=local_key)
+        elif use_proxy:
+            bot_token = (os.environ.get("DISCORD_BOT_TOKEN") or "").strip()
+            if not bot_token:
+                raise RuntimeError(
+                    "ANTHROPIC_USE_PROXY=1 requires DISCORD_BOT_TOKEN in env "
+                    "(the shared secret the worker proxy validates).")
+            CLIENT = anthropic.Anthropic(api_key=bot_token, base_url=PROXY_BASE_URL)
+        else:
+            CLIENT = anthropic.Anthropic()  # SDK default env resolution
     return CLIENT
 
 

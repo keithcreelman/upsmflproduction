@@ -1601,15 +1601,38 @@
     host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading status…</div></div>';
     Promise.all([
       fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L)).catch(function () { return {}; }),
-      fetchJSON(apiUrl("/admin/d1-status") + "?L=" + encodeURIComponent(L)).catch(function () { return {}; })
+      fetchJSON(apiUrl("/admin/d1-status") + "?L=" + encodeURIComponent(L)).catch(function () { return {}; }),
+      fetchJSON(apiUrl("/api/roast-heartbeat")).catch(function () { return {}; })
     ]).then(function (res) {
       if (CS.tab !== myTab) return;
       var routing = (res[0] || {}).discord_routing || {};
       var d1 = (res[1] || {}).tables || [];
+      var hb = res[2] || {};
       var pill = function (state, txt) {
-        var c = state === "prod" ? "#1f8a4c" : state === "test" ? "#e67e22" : "#7a7a7a";
+        var c = state === "prod" ? "#1f8a4c" : state === "test" ? "#e67e22" :
+                state === "down" ? "#c0392b" : "#7a7a7a";
         return '<span style="background:' + c + ';color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px;white-space:nowrap;">' + esc(txt) + "</span>";
       };
+      // Trade Roast bot — LIVE heartbeat, not a hardcoded label. The bot POSTs a
+      // heartbeat every poll tick (5 min); this row shows its actual age. The old
+      // static "PROD" pill stayed green through the 2026-07-11 25-hour bot hang.
+      var roastRow = (function () {
+        var age = hb && hb.age_seconds != null ? Number(hb.age_seconds) : null;
+        function fmtAge(s) {
+          if (s < 90) return Math.round(s) + "s ago";
+          if (s < 5400) return Math.round(s / 60) + "m ago";
+          if (s < 172800) return (s / 3600).toFixed(1) + "h ago";
+          return Math.round(s / 86400) + "d ago";
+        }
+        if (age == null) return { n: "Trade Roast bot", state: "inactive", label: "NO DATA",
+          note: "No heartbeat ever received — bot not running the heartbeat build yet. Trades post to #transactions when up." };
+        if (age < 720) return { n: "Trade Roast bot", state: "prod", label: "LIVE",
+          note: "Heartbeat " + fmtAge(age) + " (env=" + (hb.env || "?") + "). Trade roasts post to #transactions, always — the Discord Routing toggle does NOT steer it." };
+        if (age < 3600) return { n: "Trade Roast bot", state: "test", label: "STALE",
+          note: "Last heartbeat " + fmtAge(age) + " — bot may be hung or restarting. Watchdog kicks it after 15 min of silence." };
+        return { n: "Trade Roast bot", state: "down", label: "DOWN",
+          note: "Last heartbeat " + fmtAge(age) + " — the bot is not running (or can't reach the worker). Check launchd on the commish Mac." };
+      })();
       var discordRows = [
         { n: "Contract — Extension", k: "extension" },
         { n: "Contract — Auction (FA + MYAC)", k: "myac" },
@@ -1620,10 +1643,10 @@
         { n: "Trade notification", state: "prod" },
         { n: "Auction alerts (live bid/nom)", k: "auctionbidding" },
         { n: "Deadline reminders", state: "prod" },
-        { n: "Trade Roast bot", state: "prod", note: "RUNNING — trade roasts post to #transactions, always. Manually tracked (separate process). The Discord Routing toggle does NOT steer it — trades always go to #transactions." }
+        roastRow
       ].map(function (r) {
         var state = r.k ? String(routing[r.k] || "prod").toLowerCase() : r.state;
-        var label = state === "inactive" ? "INACTIVE" : (state === "test" ? "TEST" : "PROD");
+        var label = r.label || (state === "inactive" ? "INACTIVE" : (state === "test" ? "TEST" : "PROD"));
         return "<tr><td>" + esc(r.n) + "</td><td>" + pill(state, label) + '</td><td class="small" style="color:var(--muted);">' + esc(r.note || (r.k ? "commish-configurable" : "wired")) + "</td></tr>";
       }).join("");
       var cntByTable = {}; d1.forEach(function (t) { cntByTable[t.table] = t; });

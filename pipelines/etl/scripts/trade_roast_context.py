@@ -8,6 +8,7 @@ context payload that Claude can use to generate savage, data-backed roasts.
 
 import csv
 import json
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -31,10 +32,24 @@ CAREER_STATS_PATH = Path(__file__).resolve().parent.parent / "data" / "franchise
 # Rookie-pick historical hit rates by band (smash/hit/contrib/bust).
 # Used to attach expected-value framing to each pick in the roast context.
 ROOKIE_TIERS_PATH = Path(__file__).resolve().parent.parent.parent.parent / "site" / "rookies" / "rookie_draft_tiers.json"
-# Owner/team mapping — JSON in the repo is the canonical source (exported
-# from D1 discord_owners table). CSV is the legacy fallback for old deploys.
-DISCORD_OWNERS_JSON = Path(__file__).resolve().parent.parent / "data" / "discord_owners.json"
-DISCORD_USERS_CSV = Path("/Users/keithcreelman/Documents/mfl/mfl_python/dev/import_discord_info.csv")
+# Owner/team mapping — JSON in the data/ dir is the canonical source (deploy
+# artifact generated from the owners CSV; NOT committed — the repo is public
+# and it carries Discord user ids). CSV fallback order matters: the local
+# Application Support copy comes FIRST and the legacy Documents/iCloud paths
+# LAST — on 2026-07-11 the bot froze for 25h because a synchronous open() of
+# the iCloud copy blocked while macOS tried to materialize it. Env overrides
+# (DISCORD_OWNERS_JSON / DISCORD_USERS_CSV) win over everything.
+DISCORD_OWNERS_JSON = Path(
+    os.environ.get("DISCORD_OWNERS_JSON")
+    or (Path(__file__).resolve().parent.parent / "data" / "discord_owners.json"))
+_CSV_CANDIDATES = [
+    os.environ.get("DISCORD_USERS_CSV", ""),
+    str(Path.home() / "Library" / "Application Support" / "ups-roast-bot" / "import_discord_info.csv"),
+    "/Users/keithcreelman/Documents/mfl/mfl_python/dev/import_discord_info.csv",
+    "/Users/keithcreelman/Library/Mobile Documents/com~apple~CloudDocs/Documents/mfl/mfl_python/dev/import_discord_info.csv",
+]
+DISCORD_USERS_CSV = Path(next((p for p in _CSV_CANDIDATES if p and Path(p).exists()),
+                              _CSV_CANDIDATES[1]))
 
 
 def load_career_stats() -> dict:
@@ -250,23 +265,29 @@ def load_discord_users() -> dict:
       1. discord_owners.json in the repo data/ dir (canonical — D1 export)
       2. Legacy CSV at the hardcoded Documents path (fallback for old deploys)
     """
-    if DISCORD_OWNERS_JSON.exists():
-        with open(DISCORD_OWNERS_JSON) as f:
-            return json.load(f)
     out = {}
-    if not DISCORD_USERS_CSV.exists():
-        return out
-    with open(DISCORD_USERS_CSV) as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            fid = row.get("franchise_id", "").strip().zfill(4)
-            if fid and fid != "0013":  # skip commish entry
-                out[fid] = {
-                    "owner_name": row.get("owner_name", ""),
-                    "discord_username": row.get("discord_username", ""),
-                    "discord_userid": row.get("discord_userid", ""),
-                    "team_name": row.get("team_name", ""),
-                }
+    try:
+        if DISCORD_OWNERS_JSON.exists():
+            with open(DISCORD_OWNERS_JSON) as f:
+                return json.load(f)
+        if not DISCORD_USERS_CSV.exists():
+            return out
+        with open(DISCORD_USERS_CSV) as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                fid = row.get("franchise_id", "").strip().zfill(4)
+                if fid and fid != "0013":  # skip commish entry
+                    out[fid] = {
+                        "owner_name": row.get("owner_name", ""),
+                        "discord_username": row.get("discord_username", ""),
+                        "discord_userid": row.get("discord_userid", ""),
+                        "team_name": row.get("team_name", ""),
+                    }
+    except Exception as e:
+        # Degraded > dead: a roast without owner nicknames beats no roast (and
+        # infinitely beats a frozen event loop). The caller's timeout guards the
+        # blocking-open case; this guards parse/permission errors.
+        print(f"[trade_roast_context] load_discord_users degraded ({e}) — continuing without owner mapping")
     return out
 
 
@@ -356,6 +377,60 @@ def build_franchise_context(franchise_id: str, career_stats: dict,
     }
 
 
+
+WORKER_BASE_URL = os.environ.get(
+    "UPS_WORKER_BASE", "https://upsmflproduction.keith-creelman.workers.dev").rstrip("/")
+
+
+def _fetch_prior_season_ppg(players) -> dict:
+    """{mfl_player_id: {ppg, season}} — last season's ACTUAL MFL PPG from the
+    worker leaderboard, used when projection artifacts are unavailable (their
+    absence is why the 2026-07-12 roast claimed Kittle "posted 0.0 PPG").
+    Best-effort: one GET per position group of the traded players; any failure
+    returns {} and the prompt simply omits PPG."""
+    out = {}
+    try:
+        import urllib.request
+        from datetime import date
+        season = date.today().year - 1
+        pos_groups = set()
+        for p in players:
+            pos = (p.position or "").upper()
+            pos_groups.add("qb" if pos == "QB" else
+                           "kicker" if pos == "PK" else
+                           "punter" if pos == "PN" else
+                           "idp" if pos in ("DT","DE","NT","DL","LB","OLB","ILB","MLB","CB","S","SS","FS","DB") else
+                           "skill")
+        want = {str(p.player_id) for p in players}
+        for pg in pos_groups:
+            url = (f"{WORKER_BASE_URL}/api/advanced-stats-leaderboard"
+                   f"?seasons={season}&pos={pg}&limit=500")
+            req = urllib.request.Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh) ups-roast-bot/1.0"})
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                rows = json.load(resp).get("rows", [])
+            for r in rows:
+                mid = str(r.get("mfl_pid") or "")
+                if mid in want and r.get("mfl_ppg"):
+                    out[mid] = {"ppg": float(r["mfl_ppg"]), "season": season}
+    except Exception as e:
+        print(f"[trade_roast_context] prior-season PPG lookup skipped ({e})")
+    return out
+
+
+
+def _fix_encoding(text: str) -> str:
+    """Repair UTF-8-read-as-latin-1 mojibake from MFL exports ("Iâ\x80\x99ll" -> "I'll")."""
+    if not text:
+        return text or ""
+    try:
+        repaired = text.encode("latin-1").decode("utf-8")
+        # Only keep the repair if it actually removed mojibake markers
+        return repaired if "Ã" not in repaired and "â" not in repaired else text
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return text
+
+
 def build_trade_roast_context(trade_txn: dict,
                                extension_years: int = 0,
                                extension_player_id: str = "") -> dict:
@@ -411,8 +486,21 @@ def build_trade_roast_context(trade_txn: dict,
             except Exception:
                 pass
 
-    # Build player details for context
+    # Build player details for context. expected_ppg comes from projection
+    # artifacts that don't exist on every machine — when it's 0 for a real
+    # player that is a DATA GAP, not a stat (the 2026-07-12 roast told the
+    # league Kittle "posted 0.0 PPG"). Fall back to last season's actual MFL
+    # PPG from the worker; if that also fails, ppg is None and the prompt
+    # builder omits the claim entirely.
+    prior_ppg = _fetch_prior_season_ppg(all_players)
+
     def player_detail(p: PlayerInfo) -> dict:
+        ppg = round(p.expected_ppg, 1) if p.expected_ppg else None
+        ppg_label = "proj"
+        if not ppg:
+            prior = prior_ppg.get(str(p.player_id))
+            if prior:
+                ppg, ppg_label = round(prior["ppg"], 1), f"{prior['season']} actual"
         return {
             "name": display_name(p.name),
             "position": p.position,
@@ -420,7 +508,8 @@ def build_trade_roast_context(trade_txn: dict,
             "salary": p.salary,
             "expected_auction_price": int(p.exp_price) if p.exp_price else int(
                 estimate_production_value(p, auction_pool)),
-            "ppg": round(p.expected_ppg, 1),
+            "ppg": ppg,
+            "ppg_label": ppg_label,
             "trade_value": round(p.trade_value, 1),
             "quality_score": round(p.quality_score, 1),
             "contract_info": p.contract_info,
@@ -585,8 +674,9 @@ def context_to_prompt_text(ctx: dict) -> str:
     for pk in a["picks_given"]:
         ln(render_pick(pk))
     for p in a["players_given"]:
+        ppg_txt = (f", {p['ppg']} PPG ({p.get('ppg_label','proj')})" if p.get('ppg') else "")
         ln(f"  - {p['name']} ({p['position']}) — ${p['salary']:,} salary, "
-           f"expected auction price ${p['expected_auction_price']:,}, {p['ppg']} PPG")
+           f"expected auction price ${p['expected_auction_price']:,}{ppg_txt}")
     if a["salary_given"]:
         ln(f"  - ${a['salary_given']:,} in traded salary")
 
@@ -594,15 +684,16 @@ def context_to_prompt_text(ctx: dict) -> str:
     for pk in b["picks_given"]:
         ln(render_pick(pk))
     for p in b["players_given"]:
+        ppg_txt = (f", {p['ppg']} PPG ({p.get('ppg_label','proj')})" if p.get('ppg') else "")
         ln(f"  - {p['name']} ({p['position']}) — ${p['salary']:,} salary, "
-           f"expected auction price ${p['expected_auction_price']:,}, {p['ppg']} PPG")
+           f"expected auction price ${p['expected_auction_price']:,}{ppg_txt}")
     if b["salary_given"]:
         ln(f"  - ${b['salary_given']:,} in traded salary")
 
     if ctx["effective_cost_note"]:
         ln(f"\nEFFECTIVE COST: {ctx['effective_cost_note']}")
 
-    ln(f"\nTrade comment: \"{t.get('comments', '')}\"")
+    ln(f"\nTrade comment: \"{_fix_encoding(t.get('comments', ''))}\"")
 
     # Grades
     ln(f"\n=== GRADES ===")
@@ -623,12 +714,17 @@ def context_to_prompt_text(ctx: dict) -> str:
             ln(f"  Effective AAV: ${ext['effective_aav']:,}")
 
     # Auction alternatives
-    ln(f"\n=== FREE AGENT AUCTION ALTERNATIVES (cost $0 in picks) ===")
-    for pos, comps in ctx["auction_comparables"].items():
-        ln(f"  {pos}:")
-        for c in comps[:6]:
-            ln(f"    {c['name']:<25} Expected price: ${c['exp_price']:>8,.0f}  "
-               f"PPG: {c.get('exp_ppg', 0):.1f}")
+    # Only render positions that actually have comparables — an empty section
+    # header ("TE:" with nothing under it) confuses the LLM into inventing
+    # market claims (2026-07-12 report shipped a bare "FREE AGENTS" header).
+    _comps = {pos: comps for pos, comps in ctx["auction_comparables"].items() if comps}
+    if _comps:
+        ln(f"\n=== FREE AGENT AUCTION ALTERNATIVES (cost $0 in picks) ===")
+        for pos, comps in _comps.items():
+            ln(f"  {pos}:")
+            for c in comps[:6]:
+                ln(f"    {c['name']:<25} Expected price: ${c['exp_price']:>8,.0f}  "
+                   f"PPG: {c.get('exp_ppg', 0):.1f}")
 
     # Franchise context for each side
     for side_key, label in [("side_a", "TEAM A"), ("side_b", "TEAM B")]:

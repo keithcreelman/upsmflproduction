@@ -12,6 +12,7 @@ Usage:
 
 import argparse
 import asyncio
+import functools
 import json
 import os
 import sys
@@ -55,6 +56,24 @@ POLL_INTERVAL_SECONDS = 300  # 5 minutes
 WORKER_BASE_URL = "https://upsmflproduction.keith-creelman.workers.dev"
 WORKER_GIPHY_PROXY_URL = f"{WORKER_BASE_URL}/api/giphy-search"
 WORKER_ROAST_TRACK_URL = f"{WORKER_BASE_URL}/api/roast-thread/track"
+WORKER_HEARTBEAT_URL = f"{WORKER_BASE_URL}/api/roast-heartbeat"
+
+# Heartbeat — proof-of-life for the watchdog + the Commish Settings status pill.
+# Written locally every poll tick (the watchdog checks its age to catch HANGS,
+# which a pgrep-style check can't see — the 2026-07-11 incident was a live
+# process frozen 25h on a blocking read). Also POSTed to the worker (throttled)
+# so Commish Settings can show "last heartbeat Xm ago" instead of a hardcoded
+# PROD pill.
+SUPPORT_DIR = Path.home() / "Library" / "Application Support" / "ups-roast-bot"
+HEARTBEAT_FILE = SUPPORT_DIR / "heartbeat.json"
+HEARTBEAT_POST_MIN_INTERVAL = 60  # seconds between worker heartbeat POSTs
+_last_hb_post = 0.0
+
+# Per-trade processing attempts — after MAX_TRADE_ATTEMPTS failures the cursor
+# advances anyway (and the commish gets a DM) so one poisoned trade can't wedge
+# the poll loop forever. Success path advances the cursor ONLY after the post.
+MAX_TRADE_ATTEMPTS = 3
+_trade_attempts: dict = {}
 
 # Secrets — preferred location is the macOS Keychain. Store once with:
 #   security add-generic-password -a "$USER" -s "discord_bot_token" -w
@@ -130,6 +149,7 @@ def _save_tracker():
             serializable[str(k)] = {
                 "context_text": v.get("context_text", "")[:8000],  # cap at 8KB
                 "thread_id": v.get("thread_id"),
+                "channel_id": v.get("channel_id"),
                 "announcement_msg_id": v.get("announcement_msg_id"),
                 "roast_msg_id": v.get("roast_msg_id"),
                 "timestamp": v.get("timestamp"),
@@ -154,6 +174,75 @@ def _load_tracker():
         print(f"[{datetime.now()}] Loaded {len(ROAST_TRACKER)} tracked roast entries from {TRACKER_FILE}")
     except Exception as e:
         print(f"[{datetime.now()}] _load_tracker failed: {e}")
+
+
+async def _in_executor(label: str, timeout: float, fn, *args, **kwargs):
+    """Run a sync (potentially blocking) callable off the event loop with a hard
+    timeout. THE lesson of 2026-07-11: one synchronous open() of an iCloud file
+    inside the async flow froze the entire bot — heartbeat, polling, everything —
+    for 25 hours. Every network/file-bound stage now runs in a worker thread and
+    the loop gets its thread back on timeout (the stuck thread can't be killed,
+    but the bot keeps living: polling continues and the failed trade retries)."""
+    loop = asyncio.get_running_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, functools.partial(fn, *args, **kwargs)),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        raise RuntimeError(f"{label} timed out after {timeout:.0f}s (blocking call abandoned)")
+
+
+def _write_local_heartbeat(status: str):
+    try:
+        SUPPORT_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = HEARTBEAT_FILE.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps({"ts": int(time.time()), "status": status,
+                                   "pid": os.getpid(), "env": ROAST_BOT_ENV}))
+        tmp.replace(HEARTBEAT_FILE)
+    except Exception as e:
+        print(f"[{datetime.now()}] heartbeat write failed: {e}")
+
+
+def _post_worker_heartbeat_sync(status: str):
+    """Best-effort POST to the worker so Commish Settings shows live status."""
+    if not ROAST_TRACK_API_KEY:
+        return
+    try:
+        body = json.dumps({"bot": "trade_roast", "status": status,
+                           "env": ROAST_BOT_ENV}).encode()
+        req = urllib.request.Request(
+            WORKER_HEARTBEAT_URL, data=body, method="POST",
+            headers={"Content-Type": "application/json",
+                     "Authorization": f"Bearer {ROAST_TRACK_API_KEY}"})
+        urllib.request.urlopen(req, timeout=5).read()
+    except Exception as e:
+        print(f"[{datetime.now()}] worker heartbeat failed (non-fatal): {e}")
+
+
+async def _heartbeat(status: str = "ok"):
+    """Local file always; worker POST throttled to one per minute."""
+    global _last_hb_post
+    _write_local_heartbeat(status)
+    now = time.time()
+    if now - _last_hb_post >= HEARTBEAT_POST_MIN_INTERVAL:
+        _last_hb_post = now
+        try:
+            await _in_executor("worker heartbeat", 10, _post_worker_heartbeat_sync, status)
+        except Exception:
+            pass
+
+
+async def _dm_commish(text: str):
+    """Best-effort DM to the commish (COMMISH_DISCORD_USER_ID env)."""
+    uid = int(os.environ.get("COMMISH_DISCORD_USER_ID", "0") or 0)
+    if not uid:
+        return
+    try:
+        user = bot.get_user(uid) or await bot.fetch_user(uid)
+        await user.send(text[:1900])
+    except Exception as e:
+        print(f"[{datetime.now()}] commish DM failed: {e}")
 
 
 # Track last seen trade timestamp
@@ -344,6 +433,15 @@ def _extract_gif_query(roast_text: str) -> tuple[str, str]:
     return clean, query
 
 
+async def _track_roast_async(payload: dict) -> bool:
+    """Off-loop wrapper for _track_roast_to_worker — best-effort, never raises."""
+    try:
+        return await _in_executor("roast track", 15, _track_roast_to_worker, payload)
+    except Exception as e:
+        print(f"[{datetime.now()}] roast track skipped: {e}")
+        return False
+
+
 def _track_roast_to_worker(payload: dict) -> bool:
     """Register a roast in D1 via POST /api/roast-thread/track.
 
@@ -438,14 +536,18 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     fr_b = trade_txn.get("franchise2", "")
     print(f"[{datetime.now()}] Analyzing trade: {fr_a} ↔ {fr_b}")
 
-    # 1. Analyze trade
-    franchises = load_franchises()
-    analysis = analyze_trade(
-        trade_txn,
-        load_players_map(), franchises, load_rosters(), load_rollover(),
-        load_auction_pool(), load_team_caps(), load_future_picks(),
-        load_trade_value_model(),
-    )
+    # 1. Analyze trade — every loader hits the MFL API (sync urllib), so the whole
+    # stage runs off-loop with a hard timeout (see _in_executor: 2026-07-11 hang).
+    def _analyze_sync():
+        franchises_ = load_franchises()
+        analysis_ = analyze_trade(
+            trade_txn,
+            load_players_map(), franchises_, load_rosters(), load_rollover(),
+            load_auction_pool(), load_team_caps(), load_future_picks(),
+            load_trade_value_model(),
+        )
+        return franchises_, analysis_
+    franchises, analysis = await _in_executor("analyze_trade", 180, _analyze_sync)
 
     # 2. Build announcement embed
     ts_int = int(trade_txn.get("timestamp", 0))
@@ -465,15 +567,17 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     print(f"[{datetime.now()}] Creating thread '{thread_name}'")
     thread = await announce_msg.create_thread(name=thread_name, auto_archive_duration=1440)
 
-    # 5. Build context + generate roast
-    ctx = build_trade_roast_context(
+    # 5. Build context + generate roast — both sync + blocking (file reads, MFL
+    # fetches, the Anthropic SDK call), so both run off-loop with hard timeouts.
+    ctx = await _in_executor(
+        "build_trade_roast_context", 120, build_trade_roast_context,
         trade_txn,
         extension_years=extension_years,
         extension_player_id=extension_player_id,
     )
     context_text = context_to_prompt_text(ctx)
     print(f"[{datetime.now()}] Context built ({len(context_text)} chars). Calling Claude Opus...")
-    raw_roast = generate_trade_roast(context_text)
+    raw_roast = await _in_executor("generate_trade_roast", 300, generate_trade_roast, context_text)
 
     # 6. Parse GIF tag
     roast_clean, gif_query = _extract_gif_query(raw_roast)
@@ -495,7 +599,12 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
         print(f"[{datetime.now()}] failed to attach Reply view: {e}")
 
     # 8. + 9. Fetch GIF via worker proxy + post in thread (Message 3)
-    gif_url = _fetch_gif_via_worker(gif_query) if gif_query else ""
+    gif_url = ""
+    if gif_query:
+        try:
+            gif_url = await _in_executor("gif fetch", 20, _fetch_gif_via_worker, gif_query)
+        except Exception as e:
+            print(f"[{datetime.now()}] gif fetch skipped: {e}")
     gif_msg = None
     if gif_url:
         gif_embed = discord.Embed(color=0x202225)
@@ -508,6 +617,7 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
         "context_text": context_text,
         "ctx": ctx,
         "thread_id": thread.id,
+        "channel_id": channel.id,   # lets the @mention fallback match in-channel
         "announcement_msg_id": announce_msg.id,
         "roast_msg_id": roast_msg.id,
         "timestamp": time.time(),
@@ -525,7 +635,7 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     #      "tracking expired." Soft fail — bot keeps posting either way.
     fr_a_id = ctx["side_a"]["franchise"]["franchise_id"]
     fr_b_id = ctx["side_b"]["franchise"]["franchise_id"]
-    _track_roast_to_worker({
+    await _track_roast_async({
         "roast_message_id": str(roast_msg.id),
         "thread_id": str(thread.id),
         "channel_id": str(channel.id),
@@ -580,12 +690,39 @@ async def on_message(message: discord.Message):
     if message.author.bot:
         return
 
-    # Check if this is a reply to one of our roasts
-    if message.reference and message.reference.message_id in ROAST_TRACKER:
-        tracked = ROAST_TRACKER[message.reference.message_id]
-        await handle_reply(message, tracked)
+    # Diagnostics (ported from the prod fork — Keith 2026-05-24: when clap back
+    # doesn't fire we need to SEE why: reply target, tracker hit, mentions).
+    ref_id = message.reference.message_id if message.reference else None
+    mentions = [u.id for u in message.mentions]
+    try:
+        print(f"[{datetime.now()}] on_message FIRED: "
+              f"author={message.author.name}(bot={message.author.bot},id={message.author.id}) "
+              f"chan={message.channel.id} reply_to={ref_id} "
+              f"in_tracker={ref_id in ROAST_TRACKER if ref_id else 'n/a'} "
+              f"content_len={len(message.content or '')} mentions={mentions} "
+              f"bot_mentioned={(bot.user.id in mentions) if bot.user else False} "
+              f"content={(message.content or '')[:80]!r}")
+    except Exception as e:
+        print(f"[{datetime.now()}] on_message LOG ERROR: {e}")
+
+    # Trigger 1: explicit reply to any of our tracked roast messages
+    if ref_id and ref_id in ROAST_TRACKER:
+        await handle_reply(message, ROAST_TRACKER[ref_id])
         return
 
+    # Trigger 2: @mention fallback — works in the roast thread OR the channel
+    # even when the reply target isn't tracked (ported from the prod fork).
+    if bot.user and bot.user.id in mentions:
+        chan_id = message.channel.id
+        channel_tracks = [v for v in ROAST_TRACKER.values()
+                          if v.get("thread_id") == chan_id or v.get("channel_id") == chan_id]
+        if channel_tracks:
+            tracked = max(channel_tracks, key=lambda v: v.get("timestamp", 0) or 0)
+            await handle_reply(message, tracked)
+            return
+        print(f"[{datetime.now()}]   → @mention seen but no tracked roast in channel {chan_id}")
+
+    print(f"[{datetime.now()}]   → no match (not a reply to tracked roast, not @mention)")
     await bot.process_commands(message)
 
 
@@ -621,25 +758,29 @@ async def poll_for_trades():
     DISCORD_TRADE_CHANNEL_ID is set, else test channel).
     """
     try:
+        await _heartbeat("ok")
         channel = bot.get_channel(ROAST_CHANNEL_ID)
         if not channel:
             print(f"[{datetime.now()}] Channel {ROAST_CHANNEL_ID} (env={ROAST_BOT_ENV}) not found")
             return
 
-        trades = fetch_trades()
+        trades = await _in_executor("fetch_trades", 60, fetch_trades)
         last_ts = get_last_trade_ts()
 
         # Only trades newer than the marker, oldest-first so the marker advances
-        # monotonically. A trade that fails to post is SKIPPED (marker still
-        # advances) so one bad trade can't block + replay the rest.
+        # monotonically. Cursor advances only after a successful post — but a
+        # trade that keeps failing gets MAX_TRADE_ATTEMPTS tries across polls,
+        # then the cursor advances anyway + the commish gets a DM. So a transient
+        # MFL hiccup no longer silently drops a roast, and a poisoned trade
+        # can't wedge the loop forever.
         new_trades = sorted(
             (t for t in trades if int(t.get("timestamp", 0)) > last_ts),
             key=lambda t: int(t.get("timestamp", 0)),
         )
-        max_ts = last_ts
         for trade in new_trades:
             ts = int(trade.get("timestamp", 0))
             print(f"[{datetime.now()}] New trade detected! ts={ts}")
+            await _heartbeat("processing")   # long analyze ahead — keep the watchdog fed
             try:
                 # Check trade comments for extension hints
                 comments = trade.get("comments", "").lower()
@@ -656,13 +797,36 @@ async def poll_for_trades():
                             break
 
                 await analyze_and_post(channel, trade, ext_years, ext_player)
+                _trade_attempts.pop(ts, None)
+                save_last_trade_ts(ts)
             except Exception as e:
-                print(f"[{datetime.now()}] Failed to post trade ts={ts}: {e} — skipping")
-            max_ts = max(max_ts, ts)
-            save_last_trade_ts(max_ts)
+                n = _trade_attempts.get(ts, 0) + 1
+                _trade_attempts[ts] = n
+                print(f"[{datetime.now()}] Trade ts={ts} attempt {n}/{MAX_TRADE_ATTEMPTS} failed: {e}")
+                if n >= MAX_TRADE_ATTEMPTS:
+                    save_last_trade_ts(ts)
+                    _trade_attempts.pop(ts, None)
+                    await _dm_commish(
+                        f"⚠️ Trade Roast bot: giving up on trade ts={ts} after "
+                        f"{MAX_TRADE_ATTEMPTS} attempts (last error: {e}). "
+                        f"Cursor advanced — no roast was posted for this trade.")
+                break  # retry (or skip) next poll; keep trades in order
 
     except Exception as e:
-        print(f"[{datetime.now()}] Poll error: {e}")
+        msg = str(e)
+        print(f"[{datetime.now()}] Poll error: {msg}")
+        if "429" in msg:
+            # MFL rate-limited us — back off a full minute before the next tick.
+            await asyncio.sleep(60)
+    finally:
+        # Anti-replay: reschedule the next tick relative to NOW. Without this,
+        # discord.ext.tasks "catches up" on every interval missed during a long
+        # iteration — after the 2026-07-11 25h hang it replayed ~3,000 ticks
+        # back-to-back and got the bot 429-limited by MFL for ~15 minutes.
+        try:
+            poll_for_trades.change_interval(seconds=POLL_INTERVAL_SECONDS)
+        except Exception:
+            pass
 
 
 # ── Bot Events ─────────────────────────────────────────────────────────────
@@ -743,7 +907,22 @@ def main():
                         help="Extension years to project")
     parser.add_argument("--ext-player", type=str, default="",
                         help="Player ID for extension projection")
+    parser.add_argument("--prod", action="store_true",
+                        help="Assert prod mode: requires ROAST_BOT_ENV=prod + "
+                             "DISCORD_TRADE_CHANNEL_ID set (the launchd launcher "
+                             "passes this so a misconfigured env fails loudly at "
+                             "startup instead of silently posting to test)")
     args = parser.parse_args()
+
+    if args.prod:
+        if args.test or args.test_ts:
+            raise SystemExit("--prod and --test are mutually exclusive")
+        if ROAST_BOT_ENV != "prod" or not PROD_CHANNEL_ID:
+            raise SystemExit(
+                f"--prod asserted but env resolves to '{ROAST_BOT_ENV}' "
+                f"(prod channel={'set' if PROD_CHANNEL_ID else 'MISSING'}). "
+                "Set ROAST_BOT_ENV=prod and DISCORD_TRADE_CHANNEL_ID.")
+        print(f"[{datetime.now()}] --prod asserted: posting to channel {PROD_CHANNEL_ID}")
 
     if args.test or args.test_ts:
         ts = args.test_ts or HURTS_TRADE_TS
