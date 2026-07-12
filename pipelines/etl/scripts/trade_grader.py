@@ -218,6 +218,11 @@ class PlayerInfo:
     contract_year: int = 0
     normalized_adp: float = 999.0
     expected_ppg: float = 0.0
+    ppg_basis: str = ""            # human label for where expected_ppg came from
+    adp_overall: int = 0           # multi-source consensus overall rank (adp-board)
+    adp_pos_rank: int = 0          # positional rank within pos (adp-board)
+    adp_trend30: int = 0           # 30-day trend (positive = rising)
+    adp_sources: int = 0           # how many sources back the consensus
     expected_points: float = 0.0
     estimated_market_value: float = 0.0  # early projection Exp$
     exp_price: float = 0.0  # trade value model auction_value_50 (the REAL Exp$)
@@ -1109,17 +1114,35 @@ def generate_roast_context(analysis: TradeAnalysis, comparables: dict,
 # ── Main ───────────────────────────────────────────────────────────────────
 
 
-def fetch_prior_season_ppg(players) -> dict:
-    """{mfl_player_id: {ppg, season}} — last season's ACTUAL MFL PPG from the
-    worker leaderboard. Used to backfill expected_ppg when projection artifacts
-    are missing: grading a player at 0.0 PPG values his production at ZERO and
-    blows out the grade (the 2026-07-11 A+/D+ was this bug — Blake was graded
-    as paying a 2nd + $24K for nothing)."""
+def _worker_base() -> str:
+    return os.environ.get("UPS_WORKER_BASE",
+                          "https://upsmflproduction.keith-creelman.workers.dev").rstrip("/")
+
+
+def _worker_get_json(url: str, timeout: int = 20):
+    import urllib.request as _ur
+    req = _ur.Request(url, headers={"User-Agent": "ups-roast-bot-launchd"})
+    with _ur.urlopen(req, timeout=timeout) as resp:
+        return json.load(resp)
+
+
+# KEITH'S STANDING RULE (2026-07-12): NEVER cite current-season numbers before
+# the season has started. Pre-season player value = the prior THREE seasons'
+# actual MFL PPG, weighted toward the most recent (0.60 / 0.25 / 0.15,
+# renormalized over available seasons), plus CURRENT multi-source ADP
+# (/api/adp-board consensus). Enforced here in the DATA LAYER — prompt rules
+# alone demonstrably don't stop the model from misusing 0.0 offseason stats.
+PPG_SEASON_WEIGHTS = (0.60, 0.25, 0.15)
+
+
+def fetch_weighted_ppg(players) -> dict:
+    """{mfl_player_id: {ppg, basis, by_season}} — 3-prior-season weighted MFL PPG
+    from the worker leaderboard (the site's own scoring source of truth)."""
     out = {}
     try:
-        import urllib.request as _ur
         from datetime import date as _date
-        season = _date.today().year - 1
+        cur = _date.today().year
+        seasons = [cur - 1, cur - 2, cur - 3]
         pos_groups = set()
         for p in players:
             pos = (getattr(p, "position", "") or "").upper()
@@ -1129,20 +1152,60 @@ def fetch_prior_season_ppg(players) -> dict:
                            "idp" if pos in ("DT","DE","NT","DL","LB","OLB","ILB","MLB","CB","S","SS","FS","DB") else
                            "skill")
         want = {str(getattr(p, "player_id", "")) for p in players}
-        base = os.environ.get("UPS_WORKER_BASE",
-                              "https://upsmflproduction.keith-creelman.workers.dev").rstrip("/")
-        for pg in pos_groups:
-            url = f"{base}/api/advanced-stats-leaderboard?seasons={season}&pos={pg}&limit=500"
-            req = _ur.Request(url, headers={"User-Agent": "ups-roast-bot-launchd"})
-            with _ur.urlopen(req, timeout=20) as resp:
-                rows = json.load(resp).get("rows", [])
-            for r in rows:
-                mid = str(r.get("mfl_pid") or "")
-                if mid in want and r.get("mfl_ppg"):
-                    out[mid] = {"ppg": float(r["mfl_ppg"]), "season": season}
+        per_season: dict = {}
+        for season in seasons:
+            for pg in pos_groups:
+                url = (f"{_worker_base()}/api/advanced-stats-leaderboard"
+                       f"?seasons={season}&pos={pg}&limit=500")
+                try:
+                    rows = _worker_get_json(url).get("rows", [])
+                except Exception:
+                    continue
+                for r in rows:
+                    mid = str(r.get("mfl_pid") or "")
+                    if mid in want and r.get("mfl_ppg"):
+                        per_season.setdefault(mid, {})[season] = float(r["mfl_ppg"])
+        for mid, by in per_season.items():
+            num = den = 0.0
+            for i, season in enumerate(seasons):
+                if season in by:
+                    w = PPG_SEASON_WEIGHTS[i]
+                    num += w * by[season]; den += w
+            if den > 0:
+                blend = num / den
+                parts = ", ".join(f"{s2}: {by[s2]:.1f}" for s2 in sorted(by, reverse=True))
+                out[mid] = {"ppg": round(blend, 1),
+                            "basis": f"3-season weighted ({parts})",
+                            "by_season": by}
     except Exception as e:
-        print(f"[trade_grader] prior-season PPG lookup skipped ({e})")
+        print(f"[trade_grader] weighted PPG lookup skipped ({e})")
     return out
+
+
+def fetch_adp_board() -> dict:
+    """{mfl_player_id: {overall, pos_rank, trend30, sources}} — the site's
+    multi-source consensus ADP board (FantasyCalc/KTC/DynastyProcess/Sleeper/FFC)."""
+    out = {}
+    try:
+        d = _worker_get_json(f"{_worker_base()}/api/adp-board", timeout=25)
+        for p in (d.get("board") or []):
+            pid = str(p.get("pid") or "")
+            if pid and p.get("rank"):
+                out[pid] = {"overall": int(p["rank"]),
+                            "pos_rank": int(p.get("posRank") or 0),
+                            "pos": str(p.get("pos") or ""),
+                            "trend30": int(p.get("trend30") or 0),
+                            "sources": int(p.get("nSources") or 0)}
+    except Exception as e:
+        print(f"[trade_grader] adp-board lookup skipped ({e})")
+    return out
+
+
+# Back-compat alias (context imports the old name)
+def fetch_prior_season_ppg(players) -> dict:
+    w = fetch_weighted_ppg(players)
+    from datetime import date as _date
+    return {mid: {"ppg": v["ppg"], "season": _date.today().year - 1} for mid, v in w.items()}
 
 
 def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
@@ -1206,13 +1269,21 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
     # player the projection artifacts missed — 0.0 PPG in the grade math values
     # a real player's production at zero and blows out both grades.
     _all_traded = side_a.players_given + side_b.players_given
-    if any((p.expected_ppg or 0) == 0 for p in _all_traded):
-        _prior = fetch_prior_season_ppg(_all_traded)
+    if _all_traded:
+        _adp = fetch_adp_board()
         for p in _all_traded:
-            if (p.expected_ppg or 0) == 0:
-                pr = _prior.get(str(p.player_id))
-                if pr:
-                    p.expected_ppg = pr["ppg"]
+            a_ = _adp.get(str(p.player_id))
+            if a_:
+                p.adp_overall = a_["overall"]; p.adp_pos_rank = a_["pos_rank"]
+                p.adp_trend30 = a_["trend30"]; p.adp_sources = a_["sources"]
+        if any((p.expected_ppg or 0) == 0 for p in _all_traded):
+            _blend = fetch_weighted_ppg(_all_traded)
+            for p in _all_traded:
+                if (p.expected_ppg or 0) == 0:
+                    b_ = _blend.get(str(p.player_id))
+                    if b_:
+                        p.expected_ppg = b_["ppg"]
+                        p.ppg_basis = b_["basis"]
 
     # Symmetric points-based grade math (replaces old asymmetric dollar formulas).
     # Both sides are scored with one function; grades are zero-sum by construction.

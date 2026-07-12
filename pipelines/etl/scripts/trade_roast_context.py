@@ -486,21 +486,15 @@ def build_trade_roast_context(trade_txn: dict,
             except Exception:
                 pass
 
-    # Build player details for context. expected_ppg comes from projection
-    # artifacts that don't exist on every machine — when it's 0 for a real
-    # player that is a DATA GAP, not a stat (the 2026-07-12 roast told the
-    # league Kittle "posted 0.0 PPG"). Fall back to last season's actual MFL
-    # PPG from the worker; if that also fails, ppg is None and the prompt
-    # builder omits the claim entirely.
-    prior_ppg = _fetch_prior_season_ppg(all_players)
-
+    # Player details. KEITH'S STANDING RULE (2026-07-12): pre-season, value
+    # citations = prior-3-season weighted PPG (grader backfills expected_ppg +
+    # ppg_basis from the worker leaderboard) + CURRENT multi-source ADP
+    # (grader attaches adp_* from /api/adp-board). Current-season stats never
+    # enter this payload before the season starts — enforced here, not by
+    # prompt rules.
     def player_detail(p: PlayerInfo) -> dict:
         ppg = round(p.expected_ppg, 1) if p.expected_ppg else None
-        ppg_label = "proj"
-        if not ppg:
-            prior = prior_ppg.get(str(p.player_id))
-            if prior:
-                ppg, ppg_label = round(prior["ppg"], 1), f"{prior['season']} actual"
+        ppg_label = p.ppg_basis or "proj"
         return {
             "name": display_name(p.name),
             "position": p.position,
@@ -510,6 +504,10 @@ def build_trade_roast_context(trade_txn: dict,
                 estimate_production_value(p, auction_pool)),
             "ppg": ppg,
             "ppg_label": ppg_label,
+            "adp_overall": p.adp_overall or None,
+            "adp_pos_rank": p.adp_pos_rank or None,
+            "adp_trend30": p.adp_trend30 or 0,
+            "adp_sources": p.adp_sources or 0,
             "trade_value": round(p.trade_value, 1),
             "quality_score": round(p.quality_score, 1),
             "contract_info": p.contract_info,
@@ -675,8 +673,14 @@ def context_to_prompt_text(ctx: dict) -> str:
         ln(render_pick(pk))
     for p in a["players_given"]:
         ppg_txt = (f", {p['ppg']} PPG ({p.get('ppg_label','proj')})" if p.get('ppg') else "")
+        adp_txt = ""
+        if p.get('adp_overall'):
+            trend = p.get('adp_trend30') or 0
+            trend_txt = f", 30d {'+' if trend > 0 else ''}{trend}" if trend else ""
+            adp_txt = (f", ADP {p['position']}{p['adp_pos_rank']} / #{p['adp_overall']} overall "
+                       f"({p.get('adp_sources', 0)}-source consensus{trend_txt})")
         ln(f"  - {p['name']} ({p['position']}) — ${p['salary']:,} salary, "
-           f"expected auction price ${p['expected_auction_price']:,}{ppg_txt}")
+           f"expected auction price ${p['expected_auction_price']:,}{ppg_txt}{adp_txt}")
     if a["salary_given"]:
         ln(f"  - ${a['salary_given']:,} in traded salary")
 
@@ -685,8 +689,14 @@ def context_to_prompt_text(ctx: dict) -> str:
         ln(render_pick(pk))
     for p in b["players_given"]:
         ppg_txt = (f", {p['ppg']} PPG ({p.get('ppg_label','proj')})" if p.get('ppg') else "")
+        adp_txt = ""
+        if p.get('adp_overall'):
+            trend = p.get('adp_trend30') or 0
+            trend_txt = f", 30d {'+' if trend > 0 else ''}{trend}" if trend else ""
+            adp_txt = (f", ADP {p['position']}{p['adp_pos_rank']} / #{p['adp_overall']} overall "
+                       f"({p.get('adp_sources', 0)}-source consensus{trend_txt})")
         ln(f"  - {p['name']} ({p['position']}) — ${p['salary']:,} salary, "
-           f"expected auction price ${p['expected_auction_price']:,}{ppg_txt}")
+           f"expected auction price ${p['expected_auction_price']:,}{ppg_txt}{adp_txt}")
     if b["salary_given"]:
         ln(f"  - ${b['salary_given']:,} in traded salary")
 
