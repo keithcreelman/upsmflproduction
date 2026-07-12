@@ -1108,6 +1108,43 @@ def generate_roast_context(analysis: TradeAnalysis, comparables: dict,
 
 # ── Main ───────────────────────────────────────────────────────────────────
 
+
+def fetch_prior_season_ppg(players) -> dict:
+    """{mfl_player_id: {ppg, season}} — last season's ACTUAL MFL PPG from the
+    worker leaderboard. Used to backfill expected_ppg when projection artifacts
+    are missing: grading a player at 0.0 PPG values his production at ZERO and
+    blows out the grade (the 2026-07-11 A+/D+ was this bug — Blake was graded
+    as paying a 2nd + $24K for nothing)."""
+    out = {}
+    try:
+        import urllib.request as _ur
+        from datetime import date as _date
+        season = _date.today().year - 1
+        pos_groups = set()
+        for p in players:
+            pos = (getattr(p, "position", "") or "").upper()
+            pos_groups.add("qb" if pos == "QB" else
+                           "kicker" if pos == "PK" else
+                           "punter" if pos == "PN" else
+                           "idp" if pos in ("DT","DE","NT","DL","LB","OLB","ILB","MLB","CB","S","SS","FS","DB") else
+                           "skill")
+        want = {str(getattr(p, "player_id", "")) for p in players}
+        base = os.environ.get("UPS_WORKER_BASE",
+                              "https://upsmflproduction.keith-creelman.workers.dev").rstrip("/")
+        for pg in pos_groups:
+            url = f"{base}/api/advanced-stats-leaderboard?seasons={season}&pos={pg}&limit=500"
+            req = _ur.Request(url, headers={"User-Agent": "ups-roast-bot-launchd"})
+            with _ur.urlopen(req, timeout=20) as resp:
+                rows = json.load(resp).get("rows", [])
+            for r in rows:
+                mid = str(r.get("mfl_pid") or "")
+                if mid in want and r.get("mfl_ppg"):
+                    out[mid] = {"ppg": float(r["mfl_ppg"]), "season": season}
+    except Exception as e:
+        print(f"[trade_grader] prior-season PPG lookup skipped ({e})")
+    return out
+
+
 def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
                   rosters: dict, rollover: dict, auction_pool: dict,
                   team_caps: dict, future_picks: dict,
@@ -1164,6 +1201,18 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
             # MFL convention: positive adj = adds to salary (reduces cap),
             # negative = subtracts from salary (adds cap).
             side.cap_space = 300000 - total_sal - adj
+
+    # Backfill expected_ppg from last season's actual MFL PPG for any traded
+    # player the projection artifacts missed — 0.0 PPG in the grade math values
+    # a real player's production at zero and blows out both grades.
+    _all_traded = side_a.players_given + side_b.players_given
+    if any((p.expected_ppg or 0) == 0 for p in _all_traded):
+        _prior = fetch_prior_season_ppg(_all_traded)
+        for p in _all_traded:
+            if (p.expected_ppg or 0) == 0:
+                pr = _prior.get(str(p.player_id))
+                if pr:
+                    p.expected_ppg = pr["ppg"]
 
     # Symmetric points-based grade math (replaces old asymmetric dollar formulas).
     # Both sides are scored with one function; grades are zero-sum by construction.
