@@ -2671,6 +2671,7 @@ export default {
         path !== "/api/franchise-ownership-history" &&
         path !== "/api/roast-thread/track" &&
         path !== "/api/roast-heartbeat" &&
+        path !== "/api/roast-clapback-selftest" &&
         path !== "/admin/reset-fa-contracts" &&
         path !== "/admin/discord/post" &&
         path !== "/admin/deadline-reminders/test-discord" &&
@@ -8116,6 +8117,40 @@ export default {
           return jsonOut(500, { ok: false, error: `D1 upsert: ${String(e?.message || e)}` });
         }
         return jsonOut(200, { ok: true, bot: botName, ts: now });
+      }
+      // ── GET /api/roast-clapback-selftest ─────────────────────────────────────
+      // Diagnostic: runs the same Anthropic call the clap-back generator makes,
+      // from THIS worker with ITS secret, and returns per-model status — so a
+      // "clap-back service hiccupped" in prod can be root-caused in seconds
+      // without needing a live Discord button click. Bearer-gated like track.
+      if (path === "/api/roast-clapback-selftest" && request.method === "GET") {
+        const expectedKey = safeStr(env.ROAST_TRACK_API_KEY || "");
+        const auth = safeStr(request.headers.get("authorization") || "");
+        const provided = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : auth;
+        if (!expectedKey || provided !== expectedKey) {
+          return jsonOut(401, { ok: false, error: "auth failed" });
+        }
+        const apiKey = safeStr(env.ANTHROPIC_API_KEY || "");
+        if (!apiKey) return jsonOut(200, { ok: false, error: "ANTHROPIC_API_KEY secret is EMPTY" });
+        const results = {};
+        for (const model of ["claude-sonnet-5", "claude-sonnet-4-6"]) {
+          try {
+            const res = await fetch("https://api.anthropic.com/v1/messages", {
+              method: "POST",
+              headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01",
+                         "content-type": "application/json" },
+              body: JSON.stringify({ model, max_tokens: 8,
+                messages: [{ role: "user", content: "Say OK" }] }),
+            });
+            const text = await res.text();
+            results[model] = res.ok
+              ? { ok: true }
+              : { ok: false, status: res.status, body: text.slice(0, 200) };
+          } catch (e) {
+            results[model] = { ok: false, error: String(e?.message || e).slice(0, 200) };
+          }
+        }
+        return jsonOut(200, { ok: true, key_present: true, key_suffix: apiKey.slice(-4), results });
       }
       if (path === "/api/roast-heartbeat" && request.method === "GET") {
         if (!env.UPS_MFL_DB) {
