@@ -44,7 +44,8 @@ const TEXT_INPUT_STYLE = {
 const FLAG_EPHEMERAL = 64;
 
 const CLASSIFY_MODEL = "claude-sonnet-4-6";
-const CLAPBACK_MODEL = "claude-sonnet-4-6";
+const CLAPBACK_MODEL = "claude-sonnet-5";
+const CLAPBACK_FALLBACK_MODEL = "claude-sonnet-4-6";
 
 const CLASSIFY_SYSTEM = `Classify this Discord reply to a fantasy football trade roast into exactly one category.
 
@@ -475,32 +476,47 @@ async function callAnthropic(env, { model, maxTokens, system, userText }) {
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY not configured");
   }
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: "user", content: userText }],
-    }),
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`anthropic ${res.status}: ${text.slice(0, 300)}`);
+  // One retry on transient failures (429/5xx/529/network). The 2026-07-12
+  // "clap-back service hiccupped" faceplant in #transactions was a single
+  // unretried transient error — RyBo got a free W.
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 900));
+    let res, text;
+    try {
+      res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          system,
+          messages: [{ role: "user", content: userText }],
+        }),
+      });
+      text = await res.text();
+    } catch (e) {
+      lastErr = new Error(`anthropic network: ${String(e?.message || e).slice(0, 200)}`);
+      continue;
+    }
+    if (!res.ok) {
+      lastErr = new Error(`anthropic ${res.status}: ${text.slice(0, 300)}`);
+      if ([408, 429, 500, 502, 503, 529].includes(res.status)) continue;
+      throw lastErr; // non-transient (401/400/404) — retrying won't help
+    }
+    let data;
+    try { data = JSON.parse(text); } catch (_) { throw new Error("anthropic non-json"); }
+    return (data?.content || [])
+      .filter((b) => b?.type === "text")
+      .map((b) => String(b.text || ""))
+      .join("\n")
+      .trim();
   }
-  let data;
-  try { data = JSON.parse(text); } catch (_) { throw new Error("anthropic non-json"); }
-  const out = (data?.content || [])
-    .filter((b) => b?.type === "text")
-    .map((b) => String(b.text || ""))
-    .join("\n")
-    .trim();
-  return out;
+  throw lastErr || new Error("anthropic: retries exhausted");
 }
 
 async function classifyReply(env, replyText, contextText) {
@@ -525,21 +541,28 @@ async function classifyReply(env, replyText, contextText) {
 }
 
 async function generateClapBack(env, replyText, contextText, replierContext) {
-  try {
-    return await callAnthropic(env, {
-      model: CLAPBACK_MODEL,
-      maxTokens: 512,
-      system: CLAPBACK_SYSTEM,
-      userText:
-        `Original trade analysis context:\n${contextText.slice(0, 2000)}\n\n` +
-        `Replier's franchise history:\n${replierContext}\n\n` +
-        `Their reply: "${replyText}"\n\n` +
-        `Destroy them.`,
-    });
-  } catch (e) {
-    console.log(`[roast-reply] clap-back failed: ${e?.message || e}`);
-    return "(Clap-back service hiccupped. Take the W for now — we'll be back.)";
+  // 12KB, not 2KB: the tracked context carries a "CLAP-BACK AMMUNITION" section
+  // APPENDED to the trade context (per-member verified facts + standing orders,
+  // e.g. the Keith-built-you counter). The old 2000-char slice cut it off
+  // entirely, so button replies never saw the ammo.
+  const userText =
+    `Original trade analysis context (may include a CLAP-BACK AMMUNITION section — obey it):\n${contextText.slice(0, 12000)}\n\n` +
+    `Replier's franchise history:\n${replierContext}\n\n` +
+    `Their reply: "${replyText}"\n\n` +
+    `Destroy them.`;
+  for (const model of [CLAPBACK_MODEL, CLAPBACK_FALLBACK_MODEL]) {
+    try {
+      return await callAnthropic(env, {
+        model,
+        maxTokens: 512,
+        system: CLAPBACK_SYSTEM,
+        userText,
+      });
+    } catch (e) {
+      console.log(`[roast-reply] clap-back failed on ${model}: ${e?.message || e}`);
+    }
   }
+  return "(Clap-back service hiccupped. Take the W for now — we'll be back.)";
 }
 
 // ── Discord helpers ─────────────────────────────────────────────────────────
