@@ -71,6 +71,7 @@ If they make a MIXED reply (one valid point + one fear/cope), structure your res
 If it's just an emoji, "L", "ratio", or low-effort — one devastating line.
 
 RULES:
+- IDENTITY RULE (load-bearing): obey the IDENTITY block in the user message. If the replier was NOT a trade participant, never pin the trade, its grades, or the participants' stats on them — use their own record.
 - Max 100 words for the clap back. Punchy.
 - Always cite at least one specific number.
 - Never apologize. Never back down unless they have a genuinely good point.
@@ -336,8 +337,12 @@ async function runReplyPipeline({
     postKind = "data_error";
   } else {
     // 3a. COPE → generate clap-back (Sonnet).
-    const replierContext = await buildReplierContext(env, replierUserId);
-    postBody = await generateClapBack(env, replyText, contextText, replierContext);
+    const replier = await buildReplierContext(env, replierUserId);
+    postBody = await generateClapBack(env, replyText, contextText, replier.text, {
+      replierName,
+      replierFid: replier.fid,
+      tradeFranchises: safeStr(thread?.trade_franchises || ""),
+    });
   }
 
   // 4. Post the bot's response to the thread WITH a Reply button so the
@@ -368,7 +373,7 @@ async function runReplyPipeline({
 
 async function buildReplierContext(env, replierUserId) {
   // Lookup the replier's franchise via discord_owners (D1).
-  if (!env.UPS_MFL_DB || !replierUserId) return "";
+  if (!env.UPS_MFL_DB || !replierUserId) return { text: "", fid: "" };
   let fid = "";
   try {
     const { results } = await env.UPS_MFL_DB
@@ -382,7 +387,7 @@ async function buildReplierContext(env, replierUserId) {
   } catch (e) {
     console.log(`[roast-reply] discord_owners lookup failed: ${e?.message || e}`);
   }
-  if (!fid) return "";
+  if (!fid) return { text: "", fid: "" };
 
   // Pull OWNER-attribution career stats from ups_owner_career_stats — this
   // table is the D1 mirror of pipelines/etl/data/franchise_career_stats.json,
@@ -466,7 +471,7 @@ async function buildReplierContext(env, replierUserId) {
     worstFinish ? `Worst finish under this owner: #${worstFinish}` : "",
     franchiseRingLine,
   ].filter(Boolean);
-  return lines.join("\n");
+  return { text: lines.join("\n"), fid };
 }
 
 // ── Anthropic helpers ───────────────────────────────────────────────────────
@@ -540,12 +545,28 @@ async function classifyReply(env, replyText, contextText) {
   }
 }
 
-async function generateClapBack(env, replyText, contextText, replierContext) {
+async function generateClapBack(env, replyText, contextText, replierContext, ident = {}) {
+  // IDENTITY GROUNDING (2026-07-12: the bot ascribed Blake's trade + allplay to
+  // RyBo, who wasn't in the trade — "You've got the wrong guy"). State exactly
+  // who is replying and whether they were a trade participant, as a hard rule.
+  const fids = safeStr(ident.tradeFranchises || "").split(",").map((x) => x.trim()).filter(Boolean);
+  const isParticipant = ident.replierFid && fids.includes(ident.replierFid);
+  const identityBlock =
+    `IDENTITY (LOAD-BEARING — get this wrong and you embarrass yourself again):\n` +
+    `The person replying is ${safeStr(ident.replierName) || "unknown"}` +
+    (ident.replierFid ? ` (franchise ${ident.replierFid})` : "") + `.\n` +
+    (isParticipant
+      ? `They WERE a participant in this trade — their side's numbers apply to them.\n`
+      : `They were NOT part of this trade (participants: ${fids.join(", ") || "unknown"}). ` +
+        `Do NOT attribute the trade, its cost, its grades, or the participants' records ` +
+        `(allplay, cap space, value deltas) to them. Roast them using ONLY the ` +
+        `"Replier's franchise history" section and any CLAP-BACK AMMUNITION orders that name them.\n`);
   // 12KB, not 2KB: the tracked context carries a "CLAP-BACK AMMUNITION" section
   // APPENDED to the trade context (per-member verified facts + standing orders,
   // e.g. the Keith-built-you counter). The old 2000-char slice cut it off
   // entirely, so button replies never saw the ammo.
   const userText =
+    identityBlock + `\n` +
     `Original trade analysis context (may include a CLAP-BACK AMMUNITION section — obey it):\n${contextText.slice(0, 12000)}\n\n` +
     `Replier's franchise history:\n${replierContext}\n\n` +
     `Their reply: "${replyText}"\n\n` +
