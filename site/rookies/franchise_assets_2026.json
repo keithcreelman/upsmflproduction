@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-07-08T11:29:41.440028+00:00",
+    "generated_at_utc": "2026-07-12T10:59:42.279219+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2337,18 +2337,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_13299",
-          "display": "George Kittle",
-          "player_id": "13299",
-          "position": "TE",
-          "nfl_team": "SFO",
-          "salary": 29000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16167",
           "display": "De'Von Achane",
           "player_id": "16167",
@@ -2772,6 +2760,15 @@
           "original_fid": "0007",
           "original_team_name": "Sex Manther",
           "original_owner_name": "Josh Martel"
+        },
+        {
+          "asset_id": "FP_2027_2_0010",
+          "display": "2027 R2  (via Blake Bombers \u00b7 Shawn Blake)",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0010",
+          "original_team_name": "Blake Bombers",
+          "original_owner_name": "Shawn Blake"
         },
         {
           "asset_id": "FP_2027_3_0007",
@@ -3486,6 +3483,18 @@
     "0010": {
       "players": [
         {
+          "asset_id": "P_13299",
+          "display": "George Kittle",
+          "player_id": "13299",
+          "position": "TE",
+          "nfl_team": "SFO",
+          "salary": 29000,
+          "contract_year": 1,
+          "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15698",
           "display": "Brock Purdy",
           "player_id": "15698",
@@ -3518,18 +3527,6 @@
           "salary": 19000,
           "contract_year": 2,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_12616",
-          "display": "Jacoby Brissett",
-          "player_id": "12616",
-          "position": "QB",
-          "nfl_team": "ARI",
-          "salary": 16000,
-          "contract_year": 1,
-          "contract_status": "Tag",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3859,15 +3856,6 @@
         }
       ],
       "future_picks": [
-        {
-          "asset_id": "FP_2027_2_0010",
-          "display": "2027 R2",
-          "year": "2027",
-          "round": "2",
-          "original_fid": "0010",
-          "original_team_name": "Blake Bombers",
-          "original_owner_name": "Shawn Blake"
-        },
         {
           "asset_id": "FP_2027_3_0010",
           "display": "2027 R3",
