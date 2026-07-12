@@ -16,12 +16,6 @@
 		<string>621530026831118346,1057654821638897715</string>
 		<key>DISCORD_TRADE_CHANNEL_ID</key>
 		<string>1059111651846131833</string>
-		<!-- Operational-but-MUTED (Keith 2026-07-12): bot polls/detects/roasts/
-		     dedups but performs ZERO Discord writes. Runtime authority is the
-		     launcher's `export POSTS_DISABLED=1`; declared here as defense-in-
-		     depth. Un-mute: set to 0 in BOTH launcher + plist, kickstart -k. -->
-		<key>POSTS_DISABLED</key>
-		<string>1</string>
 		<key>PYTHONUNBUFFERED</key>
 		<string>1</string>
 		<key>ROAST_BOT_ENV</key>

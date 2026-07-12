@@ -51,17 +51,6 @@ PROD_CHANNEL_ID = int(os.environ.get("DISCORD_TRADE_CHANNEL_ID", "0"))
 ROAST_BOT_ENV = os.environ.get("ROAST_BOT_ENV", "test").strip().lower()
 ROAST_CHANNEL_ID = PROD_CHANNEL_ID if (ROAST_BOT_ENV == "prod" and PROD_CHANNEL_ID) else TEST_CHANNEL_ID
 
-# ── Kill-switch: "operational but muted" (Keith 2026-07-12) ──────────────────
-# When POSTS_DISABLED is truthy the bot stays FULLY operational — polls MFL
-# every tick, detects new trades, builds context, generates the roast (the
-# Claude call still runs), advances the dedup cursor (last_trade_timestamp.txt)
-# and archives — but performs ZERO Discord writes. Every would-be post / reply /
-# clap-back / commish-DM becomes a `POSTS_DISABLED — would have posted: ...` log
-# line instead. Flipping it back off does NOT cascade-post the backlog: the
-# cursor keeps advancing while muted, so nothing reads as "new" on re-enable.
-POSTS_DISABLED = os.environ.get("POSTS_DISABLED", "0").strip().lower() in (
-    "1", "true", "yes", "on")
-
 HURTS_TRADE_TS = 1775772921
 POLL_INTERVAL_SECONDS = 300  # 5 minutes
 WORKER_BASE_URL = "https://upsmflproduction.keith-creelman.workers.dev"
@@ -248,9 +237,6 @@ async def _heartbeat(status: str = "ok"):
 
 async def _dm_commish(text: str):
     """Best-effort DM to the commish (COMMISH_DISCORD_USER_ID env)."""
-    if POSTS_DISABLED:
-        print(f"[{datetime.now()}] POSTS_DISABLED — would have DM'd commish: {text[:400]}")
-        return
     uid = int(os.environ.get("COMMISH_DISCORD_USER_ID", "0") or 0)
     if not uid:
         return
@@ -279,22 +265,6 @@ def get_last_trade_ts() -> int:
 def save_last_trade_ts(ts: int):
     LAST_TRADE_FILE.parent.mkdir(parents=True, exist_ok=True)
     LAST_TRADE_FILE.write_text(str(ts))
-
-
-async def _muted_send(post_destination, content, what, **kwargs):
-    """POSTS_DISABLED gate for a single text Discord write.
-
-    When muted, log EXACTLY what would have been posted and return None
-    instead of hitting Discord. When live, forward to the destination's
-    async .send() (a Channel, Thread, or the _MessageReplyShim). Only used
-    for string sends (clap-backs) — the embed/thread post flow gates itself
-    at the top of analyze_and_post since it needs the returned message ids.
-    """
-    if POSTS_DISABLED:
-        print(f"[{datetime.now()}] POSTS_DISABLED — would have posted {what}: "
-              f"{str(content)[:400]}")
-        return None
-    return await post_destination.send(content, **kwargs)
 
 
 # ── Discord Bot Setup ──────────────────────────────────────────────────────
@@ -338,14 +308,10 @@ class ReplyModal(discord.ui.Modal, title="💬 Reply to the bot"):
         # Echo the user's reply into the thread so others can see it
         thread = interaction.channel
         author = interaction.user
-        if POSTS_DISABLED:
-            print(f"[{datetime.now()}] POSTS_DISABLED — would have echoed reply "
-                  f"from {author.display_name}: {reply_text[:200]}")
-        else:
-            await thread.send(
-                f"**{author.display_name}** says:\n> {reply_text[:1900]}",
-                allowed_mentions=discord.AllowedMentions.none(),
-            )
+        await thread.send(
+            f"**{author.display_name}** says:\n> {reply_text[:1900]}",
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
         # Run the clap-back logic against this reply
         await _run_clap_back(
             reply_text=reply_text,
@@ -416,16 +382,14 @@ async def _run_clap_back(reply_text: str, replier_user_id: int, replier_name: st
 
     if category == "VALUE_SIGNAL":
         log_value_signal(details, reply_text, replier_fid or "")
-        await _muted_send(post_destination, "Interesting take. Logged for model review.",
-                          "clap-back (VALUE_SIGNAL ack)",
-                          allowed_mentions=discord.AllowedMentions.none())
+        await post_destination.send("Interesting take. Logged for model review.",
+                                    allowed_mentions=discord.AllowedMentions.none())
         return
 
     if category == "DATA_ERROR":
         log_data_error(details, reply_text, replier_fid or "")
-        await _muted_send(post_destination, "Noted. We'll verify against the source data.",
-                          "clap-back (DATA_ERROR ack)",
-                          allowed_mentions=discord.AllowedMentions.none())
+        await post_destination.send("Noted. We'll verify against the source data.",
+                                    allowed_mentions=discord.AllowedMentions.none())
         return
 
     # COPE → full clap-back. Use OWNER-tenure stats not franchise stats.
@@ -452,10 +416,8 @@ async def _run_clap_back(reply_text: str, replier_user_id: int, replier_name: st
                 replier_context += f"  {t['season']}: allplay {t['allplay_pct']:.3f}, finish #{t['finish']}\n"
 
     clap_back = generate_clap_back(reply_text, context_text, replier_context)
-    await _muted_send(post_destination, clap_back, "clap-back reply",
-                      allowed_mentions=discord.AllowedMentions.none())
-    if not POSTS_DISABLED:
-        print(f"[{datetime.now()}] Clap back sent: {clap_back[:100]}")
+    await post_destination.send(clap_back, allowed_mentions=discord.AllowedMentions.none())
+    print(f"[{datetime.now()}] Clap back sent: {clap_back[:100]}")
 
 
 # ── Trade Analysis + Posting ───────────────────────────────────────────────
@@ -596,14 +558,19 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     # Convert dict to discord.Embed
     announce_embed = discord.Embed.from_dict(announce_embed_dict)
 
+    # 3. Post announcement (Message 1)
+    print(f"[{datetime.now()}] Posting announcement to #{channel.name}")
+    announce_msg = await channel.send(embed=announce_embed, allowed_mentions=discord.AllowedMentions.none())
+
+    # 4. Create thread
     team_a = franchises.get(analysis.side_a.franchise_id, analysis.side_a.franchise_name or "Team A")
     team_b = franchises.get(analysis.side_b.franchise_id, analysis.side_b.franchise_name or "Team B")
+    thread_name = f"Trade Roast — {team_a} ↔ {team_b}"[:100]
+    print(f"[{datetime.now()}] Creating thread '{thread_name}'")
+    thread = await announce_msg.create_thread(name=thread_name, auto_archive_duration=1440)
 
-    # 3. Build context + generate roast BEFORE any Discord write. Moved ahead of
-    # posting so "operational but muted" (POSTS_DISABLED) still exercises the full
-    # analysis + Claude call and can log exactly what it WOULD have posted. Both
-    # stages are sync + blocking (file reads, MFL fetches, the Anthropic SDK
-    # call), so both run off-loop with hard timeouts.
+    # 5. Build context + generate roast — both sync + blocking (file reads, MFL
+    # fetches, the Anthropic SDK call), so both run off-loop with hard timeouts.
     ctx = await _in_executor(
         "build_trade_roast_context", 120, build_trade_roast_context,
         trade_txn,
@@ -614,68 +581,11 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     print(f"[{datetime.now()}] Context built ({len(context_text)} chars). Calling Claude Opus...")
     raw_roast = await _in_executor("generate_trade_roast", 300, generate_trade_roast, context_text)
 
-    # 4. Parse GIF tag
+    # 6. Parse GIF tag
     roast_clean, gif_query = _extract_gif_query(raw_roast)
     print(f"[{datetime.now()}] Roast generated ({len(roast_clean)} chars). GIF query: {gif_query!r}")
 
-    fr_a_id = ctx["side_a"]["franchise"]["franchise_id"]
-    fr_b_id = ctx["side_b"]["franchise"]["franchise_id"]
-
-    # ── POSTS_DISABLED: operational-but-muted ──────────────────────────────────
-    # Log what we WOULD have posted, archive the roast for the record, and return
-    # cleanly so the caller (poll_for_trades) still advances last_trade_timestamp
-    # .txt — the cascade guard. No Discord writes; no ROAST_TRACKER msg-id entries
-    # (nothing was posted to reply to); no worker roast-track row (no real
-    # roast_message_id to key on).
-    if POSTS_DISABLED:
-        print(f"[{datetime.now()}] POSTS_DISABLED — would have posted announcement: "
-              f"{team_a} ↔ {team_b}")
-        print(f"[{datetime.now()}] POSTS_DISABLED — would have posted roast "
-              f"({len(roast_clean)} chars): {roast_clean[:400]}")
-        if gif_query:
-            print(f"[{datetime.now()}] POSTS_DISABLED — would have posted GIF for query: {gif_query!r}")
-        save_to_archive({
-            "id": f"trade-{trade_txn.get('timestamp', '')}",
-            "type": "trade_roast",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "teams": [fr_a_id, fr_b_id],
-            "discord_announcement_msg_id": None,
-            "discord_thread_id": None,
-            "discord_roast_msg_id": None,
-            "discord_gif_msg_id": None,
-            "channel_id": ROAST_CHANNEL_ID,
-            "env": ROAST_BOT_ENV,
-            "muted": True,
-            "content": {
-                "roast": roast_clean,
-                "gif_query": gif_query,
-                "gif_url": "",
-                "grades": {
-                    fr_a_id: ctx["side_a"]["grade"],
-                    fr_b_id: ctx["side_b"]["grade"],
-                },
-            },
-            "replies": [],
-        })
-        # Touch the reply-tracker file so its mtime keeps moving (no new entries
-        # to add — nothing was posted). Cascade prevention is the timestamp
-        # cursor, advanced by the caller once this returns.
-        _save_tracker()
-        print(f"[{datetime.now()}] POSTS_DISABLED — roast generated + archived, ZERO Discord "
-              f"writes (env={ROAST_BOT_ENV}, trade ts={trade_txn.get('timestamp', '')})")
-        return
-
-    # ── LIVE POSTING ───────────────────────────────────────────────────────────
-    # 5. Post announcement (Message 1)
-    print(f"[{datetime.now()}] Posting announcement to #{channel.name}")
-    announce_msg = await channel.send(embed=announce_embed, allowed_mentions=discord.AllowedMentions.none())
-
-    # 6. Create thread
-    thread_name = f"Trade Roast — {team_a} ↔ {team_b}"[:100]
-    print(f"[{datetime.now()}] Creating thread '{thread_name}'")
-    thread = await announce_msg.create_thread(name=thread_name, auto_archive_duration=1440)
-
-    # 7. Post roast in thread (Message 2) — with a Reply button view attached.
+    # 7. Post roast in thread (Message 2) — with a Reply button view attached
     roast_embed = discord.Embed(
         title="🔥 Roast",
         description=roast_clean[:4096],
@@ -725,6 +635,8 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     #      gateway). The worker reads ups_roast_threads → classify → clap-
     #      back → post to thread. Without this row, the button returns
     #      "tracking expired." Soft fail — bot keeps posting either way.
+    fr_a_id = ctx["side_a"]["franchise"]["franchise_id"]
+    fr_b_id = ctx["side_b"]["franchise"]["franchise_id"]
     await _track_roast_async({
         "roast_message_id": str(roast_msg.id),
         "thread_id": str(thread.id),
@@ -742,7 +654,8 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
         "id": f"trade-{trade_txn.get('timestamp', '')}",
         "type": "trade_roast",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "teams": [fr_a_id, fr_b_id],
+        "teams": [ctx["side_a"]["franchise"]["franchise_id"],
+                  ctx["side_b"]["franchise"]["franchise_id"]],
         "discord_announcement_msg_id": announce_msg.id,
         "discord_thread_id": thread.id,
         "discord_roast_msg_id": roast_msg.id,
@@ -754,8 +667,8 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
             "gif_query": gif_query,
             "gif_url": gif_url,
             "grades": {
-                fr_a_id: ctx["side_a"]["grade"],
-                fr_b_id: ctx["side_b"]["grade"],
+                ctx["side_a"]["franchise"]["franchise_id"]: ctx["side_a"]["grade"],
+                ctx["side_b"]["franchise"]["franchise_id"]: ctx["side_b"]["grade"],
             },
         },
         "replies": [],
@@ -927,11 +840,6 @@ async def on_ready():
     print(f"[{datetime.now()}] Env: ROAST_BOT_ENV={ROAST_BOT_ENV}, "
           f"ROAST_CHANNEL_ID={ROAST_CHANNEL_ID} "
           f"(test={TEST_CHANNEL_ID}, prod={PROD_CHANNEL_ID or 'unset'})")
-    if POSTS_DISABLED:
-        print(f"[{datetime.now()}] *** POSTS_DISABLED=1 — OPERATIONAL BUT MUTED: polling + "
-              f"detecting + roasting + dedup ON, ZERO Discord writes ***")
-    else:
-        print(f"[{datetime.now()}] POSTS_DISABLED=0 — LIVE: roasts + clap-backs WILL post to Discord")
 
     # Restore tracker + re-register persistent Reply buttons so they survive restart.
     _load_tracker()
@@ -1016,8 +924,7 @@ def main():
                 f"--prod asserted but env resolves to '{ROAST_BOT_ENV}' "
                 f"(prod channel={'set' if PROD_CHANNEL_ID else 'MISSING'}). "
                 "Set ROAST_BOT_ENV=prod and DISCORD_TRADE_CHANNEL_ID.")
-        mute_note = " (POSTS_DISABLED=1 — MUTED, will NOT post)" if POSTS_DISABLED else ""
-        print(f"[{datetime.now()}] --prod asserted: posting to channel {PROD_CHANNEL_ID}{mute_note}")
+        print(f"[{datetime.now()}] --prod asserted: posting to channel {PROD_CHANNEL_ID}")
 
     if args.test or args.test_ts:
         ts = args.test_ts or HURTS_TRADE_TS
