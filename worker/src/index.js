@@ -2722,6 +2722,7 @@ export default {
         path !== "/api/auction/intel" &&
         path !== "/api/auction/fa-value" &&
         path !== "/api/auction/faa-report" &&
+        path !== "/api/auction/draft-intel" &&
         path !== "/api/auction/compliance" &&
         path !== "/api/auction/cut-rebid-blocks" &&
         path !== "/api/auction/nomination-status" &&
