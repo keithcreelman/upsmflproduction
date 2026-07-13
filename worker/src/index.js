@@ -8167,7 +8167,9 @@ export default {
         const apiKey = safeStr(env.ANTHROPIC_API_KEY || "");
         if (!apiKey) return jsonOut(200, { ok: false, error: "ANTHROPIC_API_KEY secret is EMPTY" });
         const results = {};
-        for (const model of ["claude-sonnet-5", "claude-sonnet-4-6"]) {
+        // ping the REAL clap-back chain (primary + fallback), not a stale list
+        const { CLAPBACK_MODEL, CLAPBACK_FALLBACK_MODEL } = await import("./discord_roast_reply.js");
+        for (const model of [CLAPBACK_MODEL, CLAPBACK_FALLBACK_MODEL]) {
           try {
             const res = await fetch("https://api.anthropic.com/v1/messages", {
               method: "POST",
