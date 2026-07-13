@@ -44,8 +44,8 @@ const TEXT_INPUT_STYLE = {
 const FLAG_EPHEMERAL = 64;
 
 const CLASSIFY_MODEL = "claude-sonnet-4-6";
-const CLAPBACK_MODEL = "claude-sonnet-5";
-const CLAPBACK_FALLBACK_MODEL = "claude-sonnet-4-6";
+const CLAPBACK_MODEL = "claude-opus-4-8";
+const CLAPBACK_FALLBACK_MODEL = "claude-sonnet-5";
 
 const CLASSIFY_SYSTEM = `Classify this Discord reply to a fantasy football trade roast into exactly one category.
 
