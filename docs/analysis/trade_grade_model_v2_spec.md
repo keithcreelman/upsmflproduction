@@ -32,8 +32,9 @@ Everything converts to PAR over the years actually held.
 ### 2. Salary term (annualized, state-dependent)
 - Charge each held contract year: **(salary − startability_floor[pos]) ÷ $/PAR_marginal** where
   startability floor ≈ $2–4K (canon v13: any startable body costs $2–14K) and
-  **$/PAR_marginal ≈ $600** (calibration constant; recompute annually from auction results:
-  intrinsic $572/PAR × realized 1.97× clearing, sanity-banded).
+  **$/PAR_marginal ≈ $1,216** [CI 1,063-1,422] (Phase-2 calibrated from 1,052 auction lots
+  2020-25 with position-mapping fixed; SUPERSEDES the earlier $572-600 which only reproduces
+  under a missing-position flaw. Recompute annually post-auction.)
 - **Cap-relief credit to the seller: same formula, only for years actually shed, scaled by the
   seller's cap state**: ×1.25 if space < $15K; ×1.0 if < $50K; ×0.8 floor if ≥ $75K (cap is fungible
   with July auction spend — never free, never king). Symmetric multiplier for the buyer's charge.
