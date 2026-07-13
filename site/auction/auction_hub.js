@@ -987,8 +987,46 @@
   // rank instead of being dumped valueless at the bottom. Each player carries a POSITIONAL rank
   // (QB4 / WR12 / DE7) as the headline plus per-source positional ranks for a tooltip. Keith 2026-06-27.
   var _PID = function (r) { return String((r && (r.pid || r.player_id)) || ""); };
-  function faOffVal(r) {   // offense redraft consensus value (higher = better)
+  // Smoothed (ffcAdp -> fc.rsf-scale value) curve, built fresh from the loaded
+  // board every load (no baked constants). KTC rarely publishes a redraft
+  // (rsf) number, so faOffVal was collapsing to just FantasyCalc's single rsf
+  // field, burying real redraft-relevant players (Keith 2026-07-13). Mirror of
+  // adpBuildFfcCurve in stats_workbench.html — keep in sync.
+  function faBuildFfcCurve(board, binSize) {
+    binSize = binSize || 15;
+    var pairs = [];
+    board.forEach(function (p) { var rsf = p.fc && p.fc.rsf; if (p.ffcAdp != null && rsf) pairs.push([Number(p.ffcAdp), Number(rsf)]); });
+    pairs.sort(function (a, b) { return a[0] - b[0]; });
+    if (pairs.length < binSize) return [];
+    var curve = [];
+    for (var i = 0; i < pairs.length; i += binSize) {
+      var chunk = pairs.slice(i, i + binSize);
+      var xs = chunk.map(function (c) { return c[0]; });
+      var ys = chunk.map(function (c) { return c[1]; }).sort(function (a, b) { return a - b; });
+      curve.push([xs.reduce(function (a, b) { return a + b; }, 0) / xs.length, ys[Math.floor(ys.length / 2)]]);
+    }
+    for (var j = 1; j < curve.length; j++) { if (curve[j][1] > curve[j - 1][1]) curve[j][1] = curve[j - 1][1]; }
+    return curve;
+  }
+  function faProjectFromCurve(x, curve) {
+    if (!curve || !curve.length) return null;
+    if (x <= curve[0][0]) return curve[0][1];
+    if (x >= curve[curve.length - 1][0]) return curve[curve.length - 1][1];
+    for (var i = 1; i < curve.length; i++) {
+      if (curve[i][0] >= x) {
+        var x0 = curve[i - 1][0], y0 = curve[i - 1][1], x1 = curve[i][0], y1 = curve[i][1];
+        var f = x1 !== x0 ? (x - x0) / (x1 - x0) : 0;
+        return y0 + (y1 - y0) * f;
+      }
+    }
+    return curve[curve.length - 1][1];
+  }
+  function faOffVal(r, ffcCurve) {   // offense redraft consensus value (higher = better)
     var v = [r.fc && r.fc.rsf, r.ktc && r.ktc.rsf].filter(function (x) { return x != null && x > 0; });
+    if (ffcCurve && r.ffcAdp != null) {
+      var proj = faProjectFromCurve(Number(r.ffcAdp), ffcCurve);
+      if (proj != null) v.push(proj);
+    }
     return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null;
   }
   function faIdpVal(r) {   // IDP value off FantasyPros ECR (higher = better)
@@ -1027,8 +1065,10 @@
     var idp = board.filter(function (r) { return !!r.isIdp; });
 
     // OFFENSE — redraft consensus drives the rank; per-source positional ranks for the tooltip.
-    var offConsPos = faPosRanks(offense, faOffVal, true);
-    var offOvr = faOvrRanks(offense, faOffVal);
+    var ffcCurve = faBuildFfcCurve(offense);
+    var offValFn = function (r) { return faOffVal(r, ffcCurve); };
+    var offConsPos = faPosRanks(offense, offValFn, true);
+    var offOvr = faOvrRanks(offense, offValFn);
     var fcPos = faPosRanks(offense, function (r) { return r.fc && r.fc.rsf; }, true);
     var ktcPos = faPosRanks(offense, function (r) { return r.ktc && r.ktc.rsf; }, true);
     var ffcPos = faPosRanks(offense, function (r) { return r.ffcAdp; }, false);  // lower ADP = earlier
@@ -1045,7 +1085,7 @@
         isIdp: false, pos: pos,
         posRank: offConsPos[pid] || null,
         ovr: offOvr[pid] || null,
-        val: faOffVal(r),
+        val: offValFn(r),
         srcs: srcs, srcCount: srcs.length,
       };
     });

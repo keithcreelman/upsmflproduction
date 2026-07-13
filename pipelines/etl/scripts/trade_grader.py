@@ -1196,20 +1196,79 @@ def fetch_weighted_ppg(players) -> dict:
     return out
 
 
+def _build_ffc_curve(board: list, bin_size: int = 15) -> list:
+    """Smoothed, monotone-non-increasing (ffcAdp -> fc.rsf-scale value) curve,
+    built FRESH from the current board every call (no baked constants — the
+    live source data shifts week to week). ffcAdp is FantasyFootballCalculator's
+    real average draft position from live redraft mock drafts; fc.rsf/ktc.rsf
+    ("redraft steady-state" trade VALUE) is what the existing blend used
+    exclusively. The two are only loosely correlated per-player (raw scatter is
+    noisy — a pick-29 guy can carry a higher single-source rsf than the actual
+    #1 overall), so this bins by ffcAdp (median rsf per ~15-player bin, mean
+    ffcAdp as the bin's x) rather than point-interpolating, then forces the
+    curve non-increasing (pick position can't get worse and imply more value).
+    Median relative error in-sample ~48% — a real but noisy signal, used as an
+    ADDITIONAL average member, not a replacement for direct source data."""
+    pairs = sorted(
+        (float(p["ffcAdp"]), float(p["fc"]["rsf"]))
+        for p in board
+        if p.get("ffcAdp") is not None and (p.get("fc") or {}).get("rsf")
+    )
+    if len(pairs) < bin_size:
+        return []
+    curve = []
+    for i in range(0, len(pairs), bin_size):
+        chunk = pairs[i:i + bin_size]
+        xs = [c[0] for c in chunk]
+        ys = sorted(c[1] for c in chunk)
+        curve.append([sum(xs) / len(xs), ys[len(ys) // 2]])
+    for i in range(1, len(curve)):
+        if curve[i][1] > curve[i - 1][1]:
+            curve[i][1] = curve[i - 1][1]
+    return curve
+
+
+def _project_from_curve(x: float, curve: list):
+    if not curve:
+        return None
+    if x <= curve[0][0]:
+        return curve[0][1]
+    if x >= curve[-1][0]:
+        return curve[-1][1]
+    for i in range(1, len(curve)):
+        if curve[i][0] >= x:
+            x0, y0 = curve[i - 1]
+            x1, y1 = curve[i]
+            f = (x - x0) / (x1 - x0) if x1 != x0 else 0.0
+            return y0 + (y1 - y0) * f
+    return curve[-1][1]
+
+
 def fetch_adp_board() -> dict:
     """{mfl_player_id: {overall, pos_rank, pos, trend30, sources}} replicating the
-    SITE'S ADP board math EXACTLY (canon: the board the league actually looks at;
+    SITE'S ADP board math (canon: the board the league actually looks at;
     verified vs the UI 2026-07-12 — Kittle TE9/#103, Pitts TE6/#77):
       - Superflex values: per-dimension source means (fc/ktc/dp dsf and rsf
         averaged separately), blended 65% dynasty / 35% redraft
       - overall # = blended-value ordering over the NON-IDP universe
       - posRank = same ordering within position; IDP ranked in its own space
-    Keith 2026-07-12: current ADP is the true market perception."""
+    Keith 2026-07-12: current ADP is the true market perception.
+    Keith 2026-07-13: KTC and DynastyProcess never (or rarely) publish a
+    redraft (rsf) number, so the "35% redraft" weight was collapsing to just
+    FantasyCalc's single rsf field — burying real redraft-relevant players
+    (e.g. Parker Washington: real ffcAdp pick ~72, but rd_vals=[fc.rsf=303]
+    alone -> WR91). ffcAdp (FantasyFootballCalculator, real live-draft ADP) now
+    projects an additional rsf-scale redraft value via _build_ffc_curve(), so a
+    thin/anomalous single-source rsf can't lone-handedly bury a player the live
+    redraft market clearly rosters. Sleeper's search_rank was evaluated too but
+    carries suspicious round-number sentinels (many unrelated players share an
+    identical 999) — left out to avoid injecting sentinel noise."""
     RD_PCT = 0.35
     out = {}
     try:
         d = _worker_get_json(f"{_worker_base()}/api/adp-board", timeout=25)
         board = d.get("board") or []
+        ffc_curve = _build_ffc_curve(board)
         def blend(p):
             dyn_vals, rd_vals = [], []
             for src in ("fc", "ktc", "dp"):
@@ -1218,6 +1277,10 @@ def fetch_adp_board() -> dict:
                     dyn_vals.append(float(blk["dsf"]))
                 if blk.get("rsf") and blk["rsf"] > 0:
                     rd_vals.append(float(blk["rsf"]))
+            if p.get("ffcAdp") is not None:
+                proj = _project_from_curve(float(p["ffcAdp"]), ffc_curve)
+                if proj is not None:
+                    rd_vals.append(proj)
             dyn_c = sum(dyn_vals) / len(dyn_vals) if dyn_vals else None
             rd_c = sum(rd_vals) / len(rd_vals) if rd_vals else None
             if dyn_c is None and rd_c is None:
