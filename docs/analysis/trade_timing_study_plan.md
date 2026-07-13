@@ -29,22 +29,21 @@ All feasibility probes are done — archive inspected, worker GET verified live,
   - **Tier C — pick-flow-only, 2012–2025:** 42 / 126. Pick and player-count behavior only; **no salary math** (stamping + missing `rosters_weekly` 2012–2016). 2010–2011 excluded (2010 non-comparable format; 2011 has 10 trades).
 - Sensitivity runs: Top-2 and Top-4 cutoffs; champions-vs-Top-3 overlay to reconcile with the prior 5-sample study.
 
-## 2. Timing buckets
+## 2. Timing buckets (COMMISH-APPROVED structure, 2026-07-12)
 
-Per-season anchors, all derivable:
-- `auction_start_s` = MIN(unix_timestamp) of `transactions_auction` FreeAgent rows; `auction_end_s` = MAX where `finalbid_ind=1`.
-- `week1_s` = first NFL Thursday after Labor Day; `deadline_s` = Thanksgiving Thursday kickoff (canon line 249).
+Keith's directive: "Off-Season (Pre Rookie Draft vs. Pre Auction), then in season
+(Weeks 1-6) and Weeks 7-trade deadline."
 
-| Bucket | Window | Notes |
+| Bucket | Window | Anchor derivation |
 |---|---|---|
-| **W0a** deep offseason | season open → auction_start − 31d | Window opens post-title-game since 2022, March rollover before — use days-to-auction, not calendar dates |
-| **W0b** auction runway | last 30 days before auction_start | **The Kittle zone** (2026-07-11 vs ~Aug 1 auction) |
-| **W1** auction window | auction_start → auction_end | Cap-cash trades observed mid-auction (2025-08-04/07/09) — real phenomenon, keep separate |
-| **W2** post-auction preseason | auction_end → week1 kickoff | Sept contract deadline lives here; auction purchasing power already gone |
-| **W3** early season | Weeks 1–8 | |
-| **W4** deadline window | Week 9 → deadline | |
+| **B1** Pre-Rookie-Draft | season open → rookie draft start | MIN(ts) of that season's rookie draft picks |
+| **B2** Pre-Auction | rookie draft → FA auction start | MIN(ts) of FreeAgent auction rows (the Kittle zone) |
+| **B3** Auction→Kickoff (residual) | auction start → Week 1 | kept so no trade is silently dropped; flagged small-n |
+| **B4** In-season early | Weeks 1–6 | first NFL Thursday after Labor Day |
+| **B5** In-season late | Week 7 → trade deadline | deadline = Thanksgiving kickoff (canon L249, data-confirmed) |
 
-Trade → bucket via MIN(unix_timestamp) of its `trade_group_id`. Verified rough volumes (cap-cash trades 2020–25): pre-auction 34 / auction-window 27 / in-season 69 — thin per bucket-season, pooled across seasons is workable.
+**IR rule (commish 2026-07-12): the 50% IR cap relief is and always has been in effect** —
+question (e) runs across all salary-reliable seasons (2020+) with no rule-start cutoff.
 
 ## 3. Ranked questions (commissioner's order kept; b and d feed the v2 hook most directly)
 
