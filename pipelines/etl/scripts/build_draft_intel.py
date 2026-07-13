@@ -71,6 +71,8 @@ DOLLAR_PER_PAR = 1216
 
 ABSTAIN_POSRANK = {"RB": 60, "WR": 60, "QB": 40, "TE": 30}   # beyond → $1K-dart abstention
 MS_K = {"RB": 6, "WR": 6, "QB": 4, "TE": 4}
+STUD_P50_UPLIFT = 1.10   # 2026: first SF-era auction with legit studs in the pool
+STUD_P90_MULT = 1.30     # — stud bands lifted above the stud-less historical curve
 RD_PCT = 0.35          # site blend: 65% dynasty / 35% redraft (mirror of fetch_adp_board)
 
 NFLVERSE_CSV = ("https://github.com/nflverse/nflverse-data/releases/download/"
@@ -259,6 +261,10 @@ def build_price_model(db_path: str) -> dict:
     by_rank: dict[str, dict[int, list[float]]] = {p: defaultdict(list) for p in POOL_POS}
     per_sp: dict[tuple, list[float]] = defaultdict(list)
     for season, pos, amt in rows:
+        # QB: Superflex-era prices only (2022+) — 2020-21 predate the SF cutover
+        # and drag the top of the QB curve down (Keith 2026-07-13).
+        if pos == "QB" and season < 2022:
+            continue
         k = fnum(amt, 0.0) / 1000.0
         per_sp[(season, pos)].append(k)
     for (season, pos), bids in per_sp.items():
@@ -479,6 +485,17 @@ def main() -> None:
     fas = [e for e in all_entries if e.get("o") is None]
     log(f"  {len(all_entries)} valued players, {len(fas)} available FAs")
 
+    # 2026 stud premium: first SF-era auction with legit studs in the pool
+    # (Allen/Lamar/Burrow at QB) — the historical curve has never priced their
+    # like, so stud bands get an explicit uplift (Keith 2026-07-13: "the studs
+    # go even higher"). Stud test = engine E[APWE] p50 >= the fa-value stud bar.
+    stud_bar = (fa.get("meta") or {}).get("stud_bar") or {}
+
+    def is_stud(e: dict) -> bool:
+        a50 = fnum(e.get("a50"))
+        bar = fnum(stud_bar.get(str(e.get("p") or "").upper()))
+        return a50 is not None and bar is not None and a50 >= bar
+
     # value_rank universe = ALL valued players (owned + FA) so it's comparable
     # to the ADP board's league-wide posRank space.
     value_rank: dict[tuple, int] = {}
@@ -620,7 +637,7 @@ def main() -> None:
     max_rb_others = max(rb_others.values(), default=0.0)
 
     # ---- 8. price model from the auction archive ----
-    log("7/8 price model (2020-25 FA-auction winning bids) …")
+    log("7/8 price model (FA-auction winning bids: QB 2022-25 SF-era, others 2020-25) …")
     price_model = build_price_model(resolve_db(args.db))
     for pos in POOL_POS:
         n = len((price_model.get(pos) or {}).get("points") or [])
@@ -681,6 +698,14 @@ def main() -> None:
                     # deep-rank curve tails collapse to a point ($1K pile) and
                     # the e-shift then claims false certainty — floor the spread.
                     p25, p90 = max(1.0, 0.8 * p50), 1.3 * p50
+                if is_stud(e):
+                    # stud premium: history has never auctioned this caliber in
+                    # the SF era — anchor on the stronger of curve/engine, lift
+                    # p50 10% and give p90 a 30% bidding-war ceiling.
+                    basis = max(p50, eng_e or 0.0)
+                    p50 = STUD_P50_UPLIFT * basis
+                    p90 = max(p90, STUD_P90_MULT * basis, p50)
+                    p25 = max(p25, 0.85 * p50)
                 band = [round(p25, 1), round(p50, 1), round(p90, 1)]
                 ep = round(p50, 1)
 
@@ -832,9 +857,12 @@ def main() -> None:
             "notes": (f"FA-auction pool intel. worth reused from the fa-value engine "
                       f"(dyn_w={dyn_w}); ADP = site consensus (65/35 dyn/rd SF); screens = "
                       f"{STAT_SEASON} REG season only (pre-season standing rule); price bands "
-                      f"fit from 2020-25 FA-auction winning bids by within-season price rank "
-                      f"(NB: 2020-21 predate the SF cutover — QB curve mixes regimes); ep = "
-                      f"band p50 reconciled 50/50 with the engine's e (raw e where no band). "
+                      f"fit from FA-auction winning bids by within-season price rank (QB "
+                      f"2022-25 SF-era only; RB/WR/TE 2020-25); ep = band p50 reconciled "
+                      f"50/50 with the engine's e (raw e where no band). 2026 STUD PREMIUM: "
+                      f"players at/above the fa-value stud bar (E[APWE] p50) get p50 x"
+                      f"{STUD_P50_UPLIFT} and p90 >= {STUD_P90_MULT}x basis — first SF-era "
+                      f"auction with legit studs in the pool (commish 2026-07-13). "
                       f"dfr + TE slot-rate have no D1 source → null."),
         },
         "price_model": price_model,
