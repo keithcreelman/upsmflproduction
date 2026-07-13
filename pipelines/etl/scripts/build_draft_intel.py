@@ -679,13 +679,20 @@ def main() -> None:
         pr = a["pos_rank"] if a else None
         t30 = a["trend30"] if a else None
 
+        # abstain FIRST (darts / deep ranks / no ADP) — it now gates ep/band
+        # too, not just ms/verdict. The engine's affine floor (2.67 + 0.84*worth)
+        # has no "will never be nominated" branch, so every player with any
+        # worth signal floored near $2.7-3K even when zero bids are realistic.
+        # No market score = no price opinion, full stop (Keith 2026-07-13).
+        abstain = (worth < 3.0 or pr is None or pr > ABSTAIN_POSRANK.get(pos, 60))
+
         # band: archive curve at market posRank; p50 reconciled 50/50 with the
         # engine's e, and the curve spread shifted with it (no degenerate clamp).
         # ep = the reconciled p50 when a band exists (with ep == raw engine e the
         # TARGET gate ep<=worth*0.9 can mathematically never fire — e and worth
         # both derive from the same APWE quantities).
-        band, ep = None, eng_e
-        if pr is not None:
+        band, ep = None, None
+        if not abstain and pr is not None:
             raw_band = band_at_rank(price_model, pos, pr)
             if raw_band:
                 p25, p50, p90 = raw_band
@@ -708,10 +715,11 @@ def main() -> None:
                     p25 = max(p25, 0.85 * p50)
                 band = [round(p25, 1), round(p50, 1), round(p90, 1)]
                 ep = round(p50, 1)
+            elif eng_e is not None:
+                ep = round(eng_e, 1)
 
-        # market score + verdict (abstain on darts / deep ranks / no ADP)
+        # market score + verdict
         ms = verdict = None
-        abstain = (worth < 3.0 or pr is None or pr > ABSTAIN_POSRANK.get(pos, 60))
         if not abstain:
             vr = value_rank.get((pos, norm_name(e.get("n"))))
             if vr is not None:
@@ -859,7 +867,10 @@ def main() -> None:
                       f"{STAT_SEASON} REG season only (pre-season standing rule); price bands "
                       f"fit from FA-auction winning bids by within-season price rank (QB "
                       f"2022-25 SF-era only; RB/WR/TE 2020-25); ep = band p50 reconciled "
-                      f"50/50 with the engine's e (raw e where no band). 2026 STUD PREMIUM: "
+                      f"50/50 with the engine's e (raw e where no band). ABSTENTION now nulls "
+                      f"ep+band too, not just ms/verdict — no market score = no price opinion "
+                      f"(Keith 2026-07-13: the engine's affine floor priced every player near "
+                      f"$2.7-3K with no 'never gets nominated' branch). 2026 STUD PREMIUM: "
                       f"players at/above the fa-value stud bar (E[APWE] p50) get p50 x"
                       f"{STUD_P50_UPLIFT} and p90 >= {STUD_P90_MULT}x basis — first SF-era "
                       f"auction with legit studs in the pool (commish 2026-07-13). "
@@ -903,6 +914,9 @@ def main() -> None:
         ok_abstain = p["ms"] is None and (p["worth"] < 3.0 or pr > ABSTAIN_POSRANK.get(p["p"], 60))
         if not (ok_scored or ok_abstain):
             problems.append(f"{p['n']} ({p['p']}{pr}): no band/ms and not a valid abstention")
+        # abstention must null ep/band too (fix #1: no market score = no price opinion)
+        if ok_abstain and (p["ep"] is not None or p["band"] is not None):
+            problems.append(f"{p['n']} ({p['p']}{pr}): abstained but ep/band still set")
     if len(players) < 300:
         problems.append(f"only {len(players)} players (<300)")
     if problems:
