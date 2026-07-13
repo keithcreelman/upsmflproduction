@@ -987,47 +987,57 @@
   // rank instead of being dumped valueless at the bottom. Each player carries a POSITIONAL rank
   // (QB4 / WR12 / DE7) as the headline plus per-source positional ranks for a tooltip. Keith 2026-06-27.
   var _PID = function (r) { return String((r && (r.pid || r.player_id)) || ""); };
-  // Smoothed (ffcAdp -> fc.rsf-scale value) curve, built fresh from the loaded
-  // board every load (no baked constants). KTC rarely publishes a redraft
-  // (rsf) number, so faOffVal was collapsing to just FantasyCalc's single rsf
-  // field, burying real redraft-relevant players (Keith 2026-07-13). Mirror of
-  // adpBuildFfcCurve in stats_workbench.html — keep in sync.
-  function faBuildFfcCurve(board, binSize) {
-    binSize = binSize || 15;
-    var pairs = [];
-    board.forEach(function (p) { var rsf = p.fc && p.fc.rsf; if (p.ffcAdp != null && rsf) pairs.push([Number(p.ffcAdp), Number(rsf)]); });
-    pairs.sort(function (a, b) { return a[0] - b[0]; });
-    if (pairs.length < binSize) return [];
-    var curve = [];
-    for (var i = 0; i < pairs.length; i += binSize) {
-      var chunk = pairs.slice(i, i + binSize);
-      var xs = chunk.map(function (c) { return c[0]; });
-      var ys = chunk.map(function (c) { return c[1]; }).sort(function (a, b) { return a - b; });
-      curve.push([xs.reduce(function (a, b) { return a + b; }, 0) / xs.length, ys[Math.floor(ys.length / 2)]]);
-    }
-    for (var j = 1; j < curve.length; j++) { if (curve[j][1] > curve[j - 1][1]) curve[j][1] = curve[j - 1][1]; }
-    return curve;
+  // RANK-CONSENSUS redraft value (Keith 2026-07-13, mirrors trade_grader.
+  // fetch_adp_board() / adpBuildRankConsensus() in stats_workbench.html — keep
+  // in sync). KTC rarely publishes rsf at all, AND where it DOES, its redraft
+  // $-scale isn't comparable to FC's (a KTC rsf ~4700-4800 can be only KTC's
+  // own ~104th-110th-best redraft player) — faOffVal was averaging raw values
+  // across incompatible scales. Fix: rank each source against only its own
+  // reporting population, average available ranks across {fc.rsf desc,
+  // ktc.rsf desc, ffcAdp asc (real live-draft ADP)}, map the consensus rank
+  // back onto FC's rsf $-scale.
+  function faRankMap(board, keyFn, ascending) {
+    var scored = [];
+    board.forEach(function (p) { var v = keyFn(p); if (v != null) scored.push([v, p]); });
+    scored.sort(function (a, b) { return ascending ? a[0] - b[0] : b[0] - a[0]; });
+    var m = new Map();
+    scored.forEach(function (x, i) { m.set(x[1], i + 1); });
+    return m;
   }
-  function faProjectFromCurve(x, curve) {
+  function faRankToFcValueCurve(board, fcRank) {
+    var pairs = [];
+    board.forEach(function (p) { var r = fcRank.get(p), v = p.fc && p.fc.rsf; if (r && v) pairs.push([r, Number(v)]); });
+    pairs.sort(function (a, b) { return a[0] - b[0]; });
+    return pairs;
+  }
+  function faValueAtRank(r, curve) {
     if (!curve || !curve.length) return null;
-    if (x <= curve[0][0]) return curve[0][1];
-    if (x >= curve[curve.length - 1][0]) return curve[curve.length - 1][1];
+    if (r <= curve[0][0]) return curve[0][1];
+    if (r >= curve[curve.length - 1][0]) return curve[curve.length - 1][1];
     for (var i = 1; i < curve.length; i++) {
-      if (curve[i][0] >= x) {
-        var x0 = curve[i - 1][0], y0 = curve[i - 1][1], x1 = curve[i][0], y1 = curve[i][1];
-        var f = x1 !== x0 ? (x - x0) / (x1 - x0) : 0;
-        return y0 + (y1 - y0) * f;
+      if (curve[i][0] >= r) {
+        var r0 = curve[i - 1][0], v0 = curve[i - 1][1], r1 = curve[i][0], v1 = curve[i][1];
+        var f = r1 !== r0 ? (r - r0) / (r1 - r0) : 0;
+        return v0 + (v1 - v0) * f;
       }
     }
     return curve[curve.length - 1][1];
   }
-  function faOffVal(r, ffcCurve) {   // offense redraft consensus value (higher = better)
-    var v = [r.fc && r.fc.rsf, r.ktc && r.ktc.rsf].filter(function (x) { return x != null && x > 0; });
-    if (ffcCurve && r.ffcAdp != null) {
-      var proj = faProjectFromCurve(Number(r.ffcAdp), ffcCurve);
-      if (proj != null) v.push(proj);
-    }
-    return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null;
+  function faBuildRankConsensus(board) {
+    var fcRank = faRankMap(board, function (p) { return p.fc && p.fc.rsf > 0 ? p.fc.rsf : null; }, false);
+    var ktcRank = faRankMap(board, function (p) { return p.ktc && p.ktc.rsf > 0 ? p.ktc.rsf : null; }, false);
+    var ffcRank = faRankMap(board, function (p) { return p.ffcAdp; }, true);
+    return { fcRank: fcRank, ktcRank: ktcRank, ffcRank: ffcRank, curve: faRankToFcValueCurve(board, fcRank) };
+  }
+  function faOffVal(r, rc) {   // offense redraft consensus value (higher = better)
+    if (!rc) return null;
+    var ranks = [];
+    if (rc.fcRank.has(r)) ranks.push(rc.fcRank.get(r));
+    if (rc.ktcRank.has(r)) ranks.push(rc.ktcRank.get(r));
+    if (rc.ffcRank.has(r)) ranks.push(rc.ffcRank.get(r));
+    if (!ranks.length) return null;
+    var avg = ranks.reduce(function (a, b) { return a + b; }, 0) / ranks.length;
+    return faValueAtRank(avg, rc.curve);
   }
   function faIdpVal(r) {   // IDP value off FantasyPros ECR (higher = better)
     if (r.idpVal != null && r.idpVal > 0) return r.idpVal;
@@ -1065,8 +1075,8 @@
     var idp = board.filter(function (r) { return !!r.isIdp; });
 
     // OFFENSE — redraft consensus drives the rank; per-source positional ranks for the tooltip.
-    var ffcCurve = faBuildFfcCurve(offense);
-    var offValFn = function (r) { return faOffVal(r, ffcCurve); };
+    var rankConsensus = faBuildRankConsensus(offense);
+    var offValFn = function (r) { return faOffVal(r, rankConsensus); };
     var offConsPos = faPosRanks(offense, offValFn, true);
     var offOvr = faOvrRanks(offense, offValFn);
     var fcPos = faPosRanks(offense, function (r) { return r.fc && r.fc.rsf; }, true);
