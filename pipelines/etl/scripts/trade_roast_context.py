@@ -50,6 +50,18 @@ _CSV_CANDIDATES = [
 ]
 DISCORD_USERS_CSV = Path(next((p for p in _CSV_CANDIDATES if p and Path(p).exists()),
                               _CSV_CANDIDATES[1]))
+# Per-owner personality dossiers (voice / roast angles / running gags /
+# sensitivities, every angle source-tagged). LOCAL-ONLY: lives under the
+# gitignored data/ dir because the repo is public and the file contains
+# insults + lore. Env-overridable; graceful no-op when missing.
+OWNER_PROFILES_PATH = Path(
+    os.environ.get("OWNER_PROFILES_JSON")
+    or (Path(__file__).resolve().parent.parent / "data" / "bot" / "owner_profiles.json"))
+# Anti-repetition source channel: the bot's own recent posts get fetched and
+# fed back as a BANNED-verbiage section (data-layer enforcement — prompt
+# rules alone have failed in this repo).
+DISCORD_TRADE_CHANNEL_ID = os.environ.get(
+    "DISCORD_TRADE_CHANNEL_ID", "1059111651846131833")
 
 
 def load_career_stats() -> dict:
@@ -289,6 +301,160 @@ def load_discord_users() -> dict:
         # blocking-open case; this guards parse/permission errors.
         print(f"[trade_roast_context] load_discord_users degraded ({e}) — continuing without owner mapping")
     return out
+
+
+def load_owner_profiles() -> dict:
+    """{fid: profile} from owner_profiles.json — {} if missing/corrupt.
+
+    Read fresh on every call (no module cache): the file is tiny, the bot is
+    a long-running launchd process, and Keith hot-edits profiles between
+    trades. Fail-soft: a roast without dossiers beats no roast.
+    """
+    try:
+        if not OWNER_PROFILES_PATH.exists():
+            return {}
+        with open(OWNER_PROFILES_PATH) as f:
+            data = json.load(f)
+        return data.get("profiles", data) or {}
+    except Exception as e:
+        print(f"[trade_roast_context] owner profiles unavailable ({e}) — continuing without dossiers")
+        return {}
+
+
+def format_owner_dossier(franchise_ids: list, max_angles: int = 4) -> str:
+    """Compact OWNER DOSSIER prompt block for the franchises in a trade.
+
+    Personality AMMO the model may draw from — never a script. Every angle
+    keeps its source tag so the model knows what it may embellish
+    (lore:commish) vs what it must quote accurately (verified:*).
+    Returns "" when no profiles match (missing file, unknown fids).
+    """
+    profiles = load_owner_profiles()
+    if not profiles:
+        return ""
+    blocks = []
+    for fid in franchise_ids:
+        p = profiles.get((fid or "").strip().zfill(4))
+        if not p:
+            continue
+        lines = [f"{p.get('owner', '?')} — {p.get('team_name', '')} "
+                 f"(franchise {p.get('fid', fid)}, discord: {p.get('discord', '?')})"]
+        if p.get("voice"):
+            lines.append(f"  Voice in-channel: {p['voice']}")
+        angles = (p.get("roast_angles") or [])[:max_angles]
+        if angles:
+            lines.append("  Roast angles (each carries its source tag):")
+            for a in angles:
+                src = a.get("source", "unsourced — do not cite stats from this")
+                lines.append(f"    - {a.get('text', '')} [{src}]")
+        gags = p.get("running_gags") or []
+        if gags:
+            lines.append("  Running gags: " + " | ".join(gags))
+        sens = p.get("sensitivities") or []
+        if sens:
+            lines.append("  Handle with care: " + " | ".join(sens))
+        blocks.append("\n".join(lines))
+    if not blocks:
+        return ""
+    header = (
+        "\n=== OWNER DOSSIER (personality ammo — draw from it, don't recite it) ===\n"
+        "Rules: [verified:*] facts must be cited ACCURATELY (numbers verbatim). "
+        "[lore:commish] items are league lore — comedic embellishment allowed, core claim fixed. "
+        "Do not use any stat that lacks a source tag.")
+    return header + "\n" + "\n\n".join(blocks)
+
+
+def _discord_bot_token() -> str:
+    """DISCORD_BOT_TOKEN from env, falling back to the macOS Keychain entry
+    the launchd bot uses (service 'discord_bot_token'). "" on any failure."""
+    tok = (os.environ.get("DISCORD_BOT_TOKEN") or "").strip()
+    if tok:
+        return tok
+    try:
+        import subprocess
+        out = subprocess.run(
+            ["security", "find-generic-password",
+             "-a", os.environ.get("USER", ""),
+             "-s", "discord_bot_token", "-w"],
+            capture_output=True, text=True, timeout=10)
+        return out.stdout.strip() if out.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
+def fetch_recent_bot_posts(limit: int = 12) -> list:
+    """Texts of the bot's last `limit` posts in the trade channel, newest first.
+
+    Read-only Discord REST. Fail-soft to [] on ANY error (no token, network,
+    rate limit, parse) — the roast simply ships without the anti-repetition
+    ban list. NOTE: blocking HTTP — call from build_trade_roast_context
+    (which the bot runs off-loop with a timeout), never directly on the
+    event loop (see the 2026-07-11 frozen-loop incident).
+    """
+    try:
+        token = _discord_bot_token()
+        if not token:
+            return []
+        import urllib.request
+        headers = {"Authorization": f"Bot {token}",
+                   "User-Agent": "ups-roast-bot/1.0"}
+        # Identify the bot's own user id so we filter by author, not username.
+        bot_id = ""
+        try:
+            req = urllib.request.Request(
+                "https://discord.com/api/v10/users/@me", headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                bot_id = str(json.load(resp).get("id", ""))
+        except Exception:
+            pass  # fall back to author.bot flag below
+        req = urllib.request.Request(
+            f"https://discord.com/api/v10/channels/{DISCORD_TRADE_CHANNEL_ID}"
+            f"/messages?limit=100", headers=headers)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            msgs = json.load(resp)
+        out = []
+        for m in msgs:  # Discord returns newest-first
+            au = m.get("author") or {}
+            if bot_id:
+                if str(au.get("id", "")) != bot_id:
+                    continue
+            elif not au.get("bot"):
+                continue
+            text = (m.get("content") or "").strip()
+            if not text:
+                continue  # embed-only posts (announcements) have no content
+            out.append(text)
+            if len(out) >= limit:
+                break
+        return out
+    except Exception as e:
+        print(f"[trade_roast_context] recent-bot-posts fetch skipped ({e})")
+        return []
+
+
+def format_recent_bot_posts_section(posts: list = None, char_cap: int = 2500) -> str:
+    """Render the RECENT BOT POSTS ban-list section (data-layer anti-repetition).
+
+    Pass posts=None to fetch them (blocking — see fetch_recent_bot_posts).
+    Returns "" when there's nothing to ban against.
+    """
+    if posts is None:
+        posts = fetch_recent_bot_posts()
+    if not posts:
+        return ""
+    header = ("\n=== RECENT BOT POSTS — every phrase, joke structure, opener "
+              "and closer below is BANNED for this post ===")
+    lines, used = [], 0
+    for i, t in enumerate(posts, 1):
+        flat = " ".join(t.split())  # trim + flatten whitespace/newlines
+        entry = f"[{i}] {flat[:400]}"
+        if used + len(entry) + 1 > char_cap:
+            break
+        lines.append(entry)
+        used += len(entry) + 1
+    if not lines:
+        return ""
+    return header + "\n" + "\n".join(lines)
 
 
 def get_owner_profile(franchise_id: str, tv_full: dict) -> dict:
@@ -586,6 +752,15 @@ def build_trade_roast_context(trade_txn: dict,
         "auction_comparables": comparables,
         "extension_projections": extensions,
         "effective_cost_note": "",
+        # Owner personality dossiers + anti-repetition ban list — computed HERE
+        # (build runs off-loop with a timeout in trade_roast_bot) because
+        # fetch_recent_bot_posts does blocking HTTP. context_to_prompt_text
+        # renders these, so they ride into BOTH the roast prompt AND the
+        # context_text the bot POSTs to /api/roast-thread/track (the worker's
+        # clap-back context) — same builder, per the D1/data-layer rule.
+        "owner_dossier_text": format_owner_dossier(
+            [a.franchise_id, b.franchise_id]),
+        "recent_bot_posts_text": format_recent_bot_posts_section(),
     }
 
     # Add effective cost note if BB was traded
@@ -797,5 +972,22 @@ def context_to_prompt_text(ctx: dict) -> str:
         ln(f"  {ctx['side_a']['franchise']['franchise_name']} vs "
            f"{ctx['side_b']['franchise']['franchise_name']}: "
            f"{h2h.get('w',0)}-{h2h.get('l',0)} ({h2h.get('games',0)} games)")
+
+    # OWNER DOSSIER — personality ammo for the two franchises in this trade.
+    # Old ctx dicts (tracker payloads reloaded from disk) predate the key;
+    # fall back to building the dossier fresh (pure file read, no network).
+    dossier = ctx.get("owner_dossier_text")
+    if dossier is None:
+        dossier = format_owner_dossier(
+            [fa.get("franchise_id", ""), fb.get("franchise_id", "")])
+    if dossier:
+        ln(dossier)
+
+    # RECENT BOT POSTS ban list — anti-repetition, data-layer. Rendered only
+    # when build_trade_roast_context prefetched it; NO network fallback here
+    # because this formatter runs ON the bot's event loop (2026-07-11 freeze).
+    recent = ctx.get("recent_bot_posts_text") or ""
+    if recent:
+        ln(recent)
 
     return "\n".join(lines)

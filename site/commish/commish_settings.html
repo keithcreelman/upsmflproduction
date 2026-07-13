@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Commish Settings — UPS League</title>
+<!-- build 2026.07.13.1 — +🧠 Draft Intel (4th War Room view) + Live Board tier-depletion cockpit -->
+
 <style>
   :root {
     --bg: #0b0f18; --panel: #141a26; --panel2: #1a2230; --line: #2a3446;
@@ -286,7 +288,28 @@
   .fav-tier-v { font-size: 12px; color: var(--muted); margin: 2px 0; } .fav-tier-v b { color: var(--fg); }
   .fav-tier-d { font-size: 10px; color: var(--muted); } .fav-tier.sweet .fav-tier-d { color: #34d399; }
   .fav-tier-arrow { color: var(--muted); font-size: 12px; }
-  @media (max-width: 720px) { .fav-dwrap { grid-template-columns: 1fr; } .fav-infl-grid { grid-template-columns: 1fr; } .fav-tier-cells { flex-direction: column; align-items: stretch; } .fav-tier-arrow { display: none; } }
+  /* 🧠 Draft Intel */
+  .di-ms { display: inline-block; min-width: 34px; text-align: center; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg); background: var(--panel2); }
+  .di-ms.tgt { color: #0a1222; background: #34d399; border-color: #34d399; }
+  .di-ms.avd { color: #fff; background: var(--danger); border-color: var(--danger); }
+  .di-ms.na { color: var(--muted); background: transparent; }
+  .di-tr { font-size: 10px; font-weight: 800; } .di-tr.up { color: #34d399; } .di-tr.dn { color: var(--danger); }
+  .di-band { font-size: 12px; color: var(--muted); white-space: nowrap; } .di-band b { color: var(--fg); font-size: 13px; }
+  .di-dt { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .di-chip { display: inline-block; font-size: 11.5px; color: var(--fg); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; margin: 0 4px 4px 0; }
+  .di-dwrap { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 16px; padding: 4px 2px; }
+  .di-tier { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; min-width: 88px; }
+  .di-tier-l { font-size: 9.5px; font-weight: 800; color: var(--accent); letter-spacing: 0.02em; }
+  .di-tier-v { font-size: 11.5px; color: var(--muted); }
+  /* Live Board tier-depletion cockpit */
+  .di-tcrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 5px 0; border-top: 1px solid var(--line); }
+  .di-tcrow:first-of-type { border-top: 0; }
+  .di-tcpos { width: 34px; font-weight: 800; color: var(--accent); font-size: 12px; }
+  .di-tc { font-size: 11px; color: var(--muted); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; white-space: nowrap; }
+  .di-tc b { color: var(--fg); }
+  .di-tc.gone { opacity: 0.55; text-decoration: line-through; }
+  .di-drift { font-weight: 800; } .di-drift.up { color: var(--danger); } .di-drift.dn { color: #34d399; }
+  @media (max-width: 720px) { .fav-dwrap { grid-template-columns: 1fr; } .di-dwrap { grid-template-columns: 1fr; } .fav-infl-grid { grid-template-columns: 1fr; } .fav-tier-cells { flex-direction: column; align-items: stretch; } .fav-tier-arrow { display: none; } }
   @media (max-width: 560px) { .wr-mini-wrap { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -424,6 +447,7 @@
       '<button data-wrv="favalue"' + (WR.view === "favalue" ? ' class="on"' : '') + '>💎 FA Value</button>' +
       '<button data-wrv="faareport"' + (WR.view === "faareport" ? ' class="on"' : '') + '>📊 FAA Report</button>' +
       '<button data-wrv="board"' + (WR.view === "board" ? ' class="on"' : '') + '>🎯 My Board</button>' +
+      '<button data-wrv="draft"' + (WR.view === "draft" ? ' class="on"' : '') + '>🧠 Draft Intel</button>' +
       '<button data-wrv="live"' + (WR.view === "live" ? ' class="on"' : '') + '>📡 Live Board</button>' +
       '</div><div id="wr-body"></div>';
     host.querySelector(".wr-vtabs").addEventListener("click", function (e) {
@@ -440,6 +464,7 @@
     stopWrPoll();
     if (WR.view === "live") paintLive(b);
     else if (WR.view === "board") paintBoard(b);
+    else if (WR.view === "draft") paintDraftIntel(b);
     else if (WR.view === "favalue") paintFaValue(b);
     else if (WR.view === "faareport") paintFaaReport(b);
     else paintScouting(b);
@@ -644,8 +669,10 @@
     return h > 0 ? h + "h " + m + "m" : m + "m";
   }
   function wrLoadLive(cb) {
+    // no status filter: the open-lot table filters client-side, and the tier-depletion
+    // cockpit needs the SOLD (won/closed) lots too.
     Promise.all([
-      fetchJSON(apiUrl("/api/auction/lots") + "?L=" + encodeURIComponent(L) + "&franchise_id=0008&status=open").catch(function () { return { lots: [] }; }),
+      fetchJSON(apiUrl("/api/auction/lots") + "?L=" + encodeURIComponent(L) + "&franchise_id=0008").catch(function () { return { lots: [] }; }),
       fetchJSON(apiUrl("/api/mfl-export") + "?TYPE=rosters&L=" + encodeURIComponent(L) + "&YEAR=" + encodeURIComponent(YEAR)).catch(function () { return {}; })
     ]).then(function (r) { WR.live = { lots: r[0], rosters: r[1], at: Date.now() }; cb(); });
   }
@@ -664,7 +691,10 @@
   }
   function paintLive(host) {
     if (!WR.live) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading live board…</div></div>'; wrLoadLive(function () { if (WR.view === "live") paintLive(host); }); return; }
-    var lots = (WR.live.lots && WR.live.lots.lots) || [], faa = WR.live.lots && WR.live.lots.faa_enabled;
+    diLoad();   // lazy-fetch draft intel for the tier cockpit; no-op once loaded/failed
+    var allLots = (WR.live.lots && WR.live.lots.lots) || [], faa = WR.live.lots && WR.live.lots.faa_enabled;
+    if (!Array.isArray(allLots)) allLots = [];
+    var lots = allLots.filter(function (l) { var st = String((l && l.status) || "").toLowerCase(); return st !== "won" && st !== "closed" && st !== "expired"; });
     var pt = (WR.data.league || {}).position_thresholds_sf || {};
     wrBoardLoad();
     var boardByPid = {}; (WR.board || []).forEach(function (x) { boardByPid[String(x.pid)] = x; });
@@ -695,6 +725,7 @@
       cash.map(function (c) { var me = c.fid === "0008"; return '<tr' + (me ? ' style="background:rgba(91,141,255,0.10)"' : "") + '><td>' + (me ? "★ " : "") + esc(c.name) + '</td><td class="num">$' + Math.round(c.committed / 1000) + 'K</td><td class="num"><b>$' + Math.round(c.avail / 1000) + 'K</b></td></tr>'; }).join("") + '</tbody></table></div>';
     host.innerHTML =
       '<div class="fo-card"><div class="fo-card-head"><h3>📡 Live Lots</h3><span class="small" style="color:var(--muted)">' + (lots.length || 0) + ' open · ' + new Date(WR.live.at).toLocaleTimeString() + ' &nbsp;<button class="btn small" id="wr-refresh">↻</button></span></div>' + lotsHtml + '</div>' +
+      diCockpit(allLots) +
       '<div class="fo-card"><div class="fo-card-head"><h3>💰 Remaining cash (room to $300K ceiling)</h3></div>' + cashHtml +
       '<div class="small" style="color:var(--muted);margin-top:8px">Committed = ACTIVE-roster salaries (taxi-squad excluded); room = $300K − committed (grows as teams cut before the auction). Value flags compare the live bid to the position\'s SF p50/p90.</div></div>';
     var rb = document.getElementById("wr-refresh"); if (rb) rb.addEventListener("click", function () { WR.live = null; paintLive(host); });
@@ -791,6 +822,240 @@
     $$(".wr-tier", host).forEach(function (el) { el.addEventListener("change", function () { var x = WR.board.filter(function (b) { return b.pid === el.getAttribute("data-pid"); })[0]; if (x) { x.tier = parseInt(el.value, 10) || 2; wrBoardSave(); paintBoard(host); } }); });
     $$(".wr-rm", host).forEach(function (el) { el.addEventListener("click", function () { WR.board = WR.board.filter(function (b) { return b.pid !== el.getAttribute("data-pid"); }); wrBoardSave(); paintBoard(host); }); });
     var ex = document.getElementById("wr-export"); if (ex) ex.addEventListener("click", function () { try { navigator.clipboard.writeText(JSON.stringify(WR.board || [])); ex.textContent = "Copied!"; setTimeout(function () { ex.textContent = "Export"; }, 1500); } catch (e) {} });
+  }
+
+  // ── 🧠 Draft Intel: market score · worth vs expected price bands · position screens · contract recs ──
+  // Blob served by GET /api/auction/draft-intel (D1 ups_draft_intel, part-keyed, worker concatenates).
+  // Every field is nullable — render "—" for anything missing, never throw.
+  var DI = { pos: "ALL", sort: "ms", targetsOnly: false, open: {} };
+  var DI_DT = { d: "dart", r: "rental", m: "multi-yr", a: "anchor", s: "situational" };
+  var DI_VC = { TARGET: "sp", FAIR: "fair", AVOID: "over" };
+  function diNum(v, dec) { if (v == null) return "—"; var n = Number(v); if (isNaN(n)) return "—"; return dec != null ? n.toFixed(dec) : String(n); }
+  function diUsd(v) { var n = Number(v); return (v == null || isNaN(n)) ? "—" : "$" + n + "K"; }
+  // one shared loader (Draft Intel view + Live Board cockpit): WR.di undefined = never asked,
+  // object = loaded, false = failed (WR.diErr says why). Repaints whichever wr view is showing.
+  function diLoad() {
+    if (WR.di !== undefined || WR.diBusy) return;
+    WR.diBusy = true;
+    fetchJSON(apiUrl("/api/auction/draft-intel") + "?franchise_id=0008").then(function (d) {
+      if (d && d.ok) WR.di = d;
+      else { WR.di = false; WR.diErr = (d && d.error) || "Draft intel not available — run build_draft_intel.py --push-d1"; }
+    }).catch(function (e) {
+      WR.di = false; WR.diErr = "Failed to load: " + ((e && e.message) || String(e));
+    }).then(function () {
+      WR.diBusy = false;
+      if (WR.view === "draft" || WR.view === "live") paintWrView();
+    });
+  }
+  function diAdpCell(r) {
+    var a = r.adp || {}, pos = s(r.p);
+    var ovr = (a.ovr != null) ? "#" + a.ovr : "—";
+    var pr = null, teBand = (pos === "TE" && Array.isArray(r.teband) && r.teband.length >= 2 && r.teband[0] != null);
+    if (teBand) pr = "TE " + r.teband[0] + "–" + r.teband[1];       // TE7–18 uncertainty band, not a point rank
+    else if (a.pr != null) pr = pos + a.pr;
+    var trend = "";
+    var t30 = Number(a.t30);
+    if (a.t30 != null && !isNaN(t30) && t30 !== 0) {
+      var up = t30 > 0;
+      trend = ' <span class="di-tr ' + (up ? "up" : "dn") + '" title="30-day ADP trend">' + (up ? "▲" : "▼") + Math.abs(t30) + '</span>';
+    }
+    return '<b>' + esc(ovr) + '</b>' + (pr ? ' <span class="fav-rk"' + (teBand ? ' title="TE uncertainty band — the model gives a rank RANGE here, not a point"' : '') + '>' + esc(pr) + '</span>' : '') + trend;
+  }
+  function diMsChip(ms) {
+    var n = Number(ms);
+    if (ms == null || isNaN(n)) return '<span class="di-ms na" title="abstention zone — $1K dart tier / outside the modeled universe">—</span>';
+    var cls = n >= 65 ? " tgt" : (n <= 35 ? " avd" : "");
+    return '<span class="di-ms' + cls + '" title="market score 0–100 · ≥65 TARGET · ≤35 AVOID">' + n + '</span>';
+  }
+  function diBandCell(r) {
+    var b = Array.isArray(r.band) ? r.band : null;
+    if (b && b.length >= 3 && b[1] != null) return '<span class="di-band" title="expected winning bid: p25–p50–p90 ($K)">$' + diNum(b[0]) + '–<b>' + diNum(b[1]) + '</b>–' + diNum(b[2]) + 'K</span>';
+    if (r.ep != null) return '<span class="di-band">$<b>' + diNum(r.ep) + '</b>K</span>';
+    return '<span class="fav-rk">—</span>';
+  }
+  function diDetail(r, ncols) {
+    var scr = r.scr || {}, pos = s(r.p), chips = [];
+    function add(t) { chips.push('<span class="di-chip">' + t + '</span>'); }
+    if (pos === "QB" && scr.qb) {
+      var q = scr.qb;
+      if (q.konami) add('🎮 Konami ✅');
+      if (q.bucket) add('🏃 ' + esc(q.bucket) + ' rush-PPG bucket');
+      if (q.rypg != null) add(diNum(q.rypg, 1) + ' rush yd/g');
+      if (q.xtd_flag) add('xTD ' + esc(q.xtd_flag));
+    } else if (pos === "RB" && scr.rb) {
+      var b = scr.rb;
+      if (b.rec_ppg != null) add('recv ' + diNum(b.rec_ppg, 1) + ' PPG');
+      if (b.yprr != null) add('YPRR ' + diNum(b.yprr, 2));
+      if (b.r10 != null) { var r10 = Number(b.r10); add('10+ yd runs ' + (isNaN(r10) ? "—" : ((r10 <= 1 ? Math.round(r10 * 1000) / 10 : r10) + '%'))); }
+      if (b.ambig != null) add('ambiguous backfield ' + diNum(b.ambig) + '/100');
+      if (b.bf) add('backfield: ' + esc(b.bf));
+    } else if (pos === "WR" && scr.wr) {
+      var w = scr.wr, dot = { green: "🟢", yellow: "🟡", red: "🔴" }[w.fdb] || "";
+      if (w.fdrr != null) add('FD/RR ' + diNum(w.fdrr, 1) + '%' + (dot ? ' ' + dot : ''));
+      else if (dot) add('first-down burden ' + dot);
+      if (w.yprr != null) add('YPRR ' + diNum(w.yprr, 1));
+      if (w.tprr != null) add('TPRR ' + diNum(w.tprr, 1) + '%');
+      if (w.dfr != null) add('downfield tgt ' + diNum(w.dfr, 1) + '%');
+      if (w.slump) add('⚠ slump-flag');
+    } else if (pos === "TE" && scr.te) {
+      var te = scr.te, names = { yprr: "YPRR", tprr: "TPRR", fdrr: "FD/RR", slot: "slot rate", rz: "red-zone" };
+      var chk = te.chk || {}, pass = [], fail = [];
+      Object.keys(names).forEach(function (k) { if (chk[k]) pass.push(names[k]); else if (chk[k] === false) fail.push(names[k]); });
+      var nchk = (te.chk_n != null) ? te.chk_n : pass.length;
+      chips.push('<span class="di-chip" title="✅ ' + esc(pass.join(", ") || "none") + (fail.length ? ' · ✗ ' + esc(fail.join(", ")) : '') + '">checklist ' + diNum(nchk) + '/5' + (Number(nchk) >= 4 ? ' ✅' : '') + '</span>');
+      if (te.tddep) add('TD dependence: ' + esc(te.tddep));
+      if (te.wrcomp != null) add('WR-comparable ' + diNum(te.wrcomp) + '/100');
+    }
+    var env = r.env || {}, envChips = [];
+    if (env.pcs != null) envChips.push('<span class="di-chip" title="team pass-catcher environment rank (1 = best of 32)">pass-catcher env #' + diNum(env.pcs) + '/32</span>');
+    if (env.tes != null) envChips.push('<span class="di-chip" title="target-earning score">TES ' + diNum(env.tes) + '/100</span>');
+    var con = r.con || {}, conBits = [];
+    if (con.rec) conBits.push('<span class="di-chip">offer: <b>' + esc(con.rec) + '</b></span>');
+    if (con.dc_note) conBits.push('<span class="di-chip">' + esc(con.dc_note) + '</span>');
+    return '<tr class="fav-detail"><td colspan="' + ncols + '"><div class="di-dwrap">' +
+      '<div><div class="fav-dh">' + esc(pos || "Position") + ' screens</div>' + (chips.join("") || '<span class="fav-rk">— no screen data —</span>') + '</div>' +
+      '<div><div class="fav-dh">Environment</div>' + (envChips.join("") || '<span class="fav-rk">—</span>') + '</div>' +
+      '<div><div class="fav-dh">Contract</div>' + (conBits.join("") || '<span class="fav-rk">—</span>') + '</div>' +
+      '</div></td></tr>';
+  }
+  function diTierPositions(tiers) {
+    var order = ["QB", "RB", "WR", "TE"];
+    return order.filter(function (p) { return Array.isArray(tiers[p]) && tiers[p].length; })
+      .concat(Object.keys(tiers || {}).filter(function (p) { return order.indexOf(p) < 0 && Array.isArray(tiers[p]) && tiers[p].length; }));
+  }
+  function diTiersStrip(tiers) {
+    var keys = diTierPositions(tiers || {});
+    if (!keys.length) return "";
+    var body = keys.map(function (pos) {
+      var cells = tiers[pos].map(function (t) {
+        var usd = (Array.isArray(t.usd) && t.usd.length >= 2 && t.usd[0] != null) ? '$' + t.usd[0] + '–' + t.usd[1] + 'K' : '$—';
+        var ids = Array.isArray(t.ids) ? t.ids : [];
+        return '<div class="di-tier" title="' + esc(ids.join(", ")) + '"><div class="di-tier-l">T' + (t.t != null ? t.t : "?") + (t.label ? ' · ' + esc(t.label) : '') + '</div>' +
+          '<div class="di-tier-v">' + usd + ' · ' + ids.length + '</div></div>';
+      }).join("");
+      return '<div class="faa-band-row"><div class="faa-band-pos">' + esc(pos) + '</div><div class="faa-band-cells">' + cells + '</div></div>';
+    }).join("");
+    return '<div class="fo-card faa-bands"><div class="fo-card-head"><h3>📊 Tiers — $ range · members</h3><span class="fo-sub">hover a tier for its members</span></div>' + body + '</div>';
+  }
+  function paintDraftIntel(host) {
+    if (WR.di === undefined) {
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading draft intel…</div></div>';
+      diLoad();
+      return;
+    }
+    if (WR.di === false) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">' + esc(WR.diErr || "Draft intel not loaded.") + '</div></div>'; return; }
+    var d = WR.di, meta = d.meta || {};
+    var players = Array.isArray(d.players) ? d.players : [];
+    var rows = players.slice();
+    if (DI.pos !== "ALL") rows = rows.filter(function (r) { return s(r.p) === DI.pos; });
+    if (DI.targetsOnly) rows = rows.filter(function (r) { return r.verdict === "TARGET"; });
+    function dnum(v, missing) { var n = Number(v); return (v == null || isNaN(n)) ? missing : n; }
+    var DI_SORTS = {   // nulls sort last in every mode
+      ms: function (a, b) { return dnum(b.ms, -1) - dnum(a.ms, -1); },
+      worth: function (a, b) { return dnum(b.worth, -1e9) - dnum(a.worth, -1e9); },
+      ep: function (a, b) { return dnum(b.ep, -1e9) - dnum(a.ep, -1e9); },
+      adp: function (a, b) { return dnum(a.adp && a.adp.ovr, 1e9) - dnum(b.adp && b.adp.ovr, 1e9); }
+    };
+    rows.sort(DI_SORTS[DI.sort] || DI_SORTS.ms);
+
+    var updTxt = (typeof d.updated_at === "number") ? new Date(d.updated_at * 1000).toLocaleString() : (d.updated_at ? s(d.updated_at) : (meta.asof ? s(meta.asof) : "—"));
+    var hint = '<div class="fo-row-hint">🧠 <b>Draft Intel</b> — the FA-auction draft board: 0–100 market score, worth vs expected price bands (p25–<b>p50</b>–p90 $K), position screens, and contract recs. Click a row for the detail card. ' +
+      players.length + ' players · season ' + esc(s(meta.season) || "—") + ' · $' + (meta.dollar_per_par != null ? esc(s(meta.dollar_per_par)) : "—") + '/PAR · updated ' + esc(updTxt) +
+      (meta.notes ? '<br><span class="small">' + esc(meta.notes) + '</span>' : '') + '</div>';
+
+    var posTabs = ["ALL", "QB", "RB", "WR", "TE"].map(function (p) { return '<button data-dipos="' + p + '"' + (DI.pos === p ? ' class="on"' : '') + '>' + p + '</button>'; }).join("");
+    var sortOpts = [["ms", "Market Score"], ["worth", "Worth"], ["ep", "Expected Price"], ["adp", "ADP"]]
+      .map(function (o) { return '<option value="' + o[0] + '"' + (DI.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("");
+    var controls = '<div class="fo-card faa-controls">' +
+      '<div class="faa-cg"><span class="faa-cl">Pos</span><div class="wr-vtabs sm">' + posTabs + '</div></div>' +
+      '<div class="faa-cg"><span class="faa-cl">Sort</span><select id="di-sort">' + sortOpts + '</select></div>' +
+      '<div class="faa-cg"><label class="faa-chk"><input type="checkbox" id="di-targets"' + (DI.targetsOnly ? ' checked' : '') + '> TARGETS only</label></div>' +
+      '<div class="faa-cg faa-count">' + rows.length + ' shown</div></div>';
+
+    var NCOLS = 8;
+    var head = '<tr><th>Player</th><th title="multi-source ADP — overall · positional rank · 30-day trend">ADP</th>' +
+      '<th class="num" title="prior-3-season weighted PPG (games in tooltip)">PPG·3yr</th>' +
+      '<th class="num" title="worth $K (fa-value engine)">Worth</th>' +
+      '<th title="expected winning bid $K: p25–p50–p90, p50 emphasized">Expected $</th>' +
+      '<th class="num" title="market score 0–100 · ≥65 TARGET (green) · ≤35 AVOID (red) · — = abstention zone">Market</th>' +
+      '<th>Verdict</th><th title="deal type: dart / rental / multi-yr / anchor / situational">Deal</th></tr>';
+    function diKey(r) { return s(r.id != null && r.id !== "" ? r.id : r.n) + "|" + s(r.p); }
+    var body = rows.map(function (r, i) {
+      var vhtml = r.verdict ? '<span class="fav-v ' + (DI_VC[r.verdict] || "fair") + '">' + esc(r.verdict) + '</span>' : '<span class="fav-rk">—</span>';
+      var dt = r.dt ? '<span class="di-dt">' + esc(DI_DT[r.dt] || r.dt) + '</span>' : '<span class="fav-rk">—</span>';
+      var ppgTitle = (r.gp3 != null) ? diNum(r.gp3) + ' games over 3 seasons' : '';
+      var tr = '<tr class="fav-row di-row" data-dii="' + i + '">' +
+        '<td><b>' + esc(r.n || "?") + '</b> <span class="fav-rk">' + esc(s(r.p)) + (r.tm ? ' · ' + esc(r.tm) : '') + '</span></td>' +
+        '<td>' + diAdpCell(r) + '</td>' +
+        '<td class="num" title="' + esc(ppgTitle) + '">' + diNum(r.ppg3, 1) + '</td>' +
+        '<td class="num">' + diUsd(r.worth) + '</td>' +
+        '<td>' + diBandCell(r) + '</td>' +
+        '<td class="num">' + diMsChip(r.ms) + '</td>' +
+        '<td>' + vhtml + '</td>' +
+        '<td>' + dt + '</td></tr>';
+      return tr + (DI.open[diKey(r)] ? diDetail(r, NCOLS) : "");
+    }).join("");
+    var table = '<div class="fo-card"><div class="fo-table-scroll"><table class="fo-table fav-table"><thead>' + head + '</thead><tbody>' +
+      (body || '<tr><td colspan="' + NCOLS + '" class="fo-table-empty">No players match.</td></tr>') + '</tbody></table></div></div>';
+
+    host.innerHTML = hint + diTiersStrip(d.tiers || {}) + controls + table;
+    // wire
+    $$("[data-dipos]", host).forEach(function (b) { b.addEventListener("click", function () { DI.pos = b.getAttribute("data-dipos"); paintDraftIntel(host); }); });
+    var ss = document.getElementById("di-sort"); if (ss) ss.addEventListener("change", function () { DI.sort = ss.value; paintDraftIntel(host); });
+    var tg = document.getElementById("di-targets"); if (tg) tg.addEventListener("change", function () { DI.targetsOnly = tg.checked; paintDraftIntel(host); });
+    $$(".di-row", host).forEach(function (tr) {
+      tr.addEventListener("click", function () {
+        var r = rows[parseInt(tr.getAttribute("data-dii"), 10)]; if (!r) return;
+        var k = diKey(r); DI.open[k] = !DI.open[k]; paintDraftIntel(host);
+      });
+    });
+  }
+  // ── Live Board tier cockpit: per-tier sold/total + realized-vs-expected drift. Degrades to "" until
+  // draft intel is loaded (paintLive lazy-fetches it via diLoad). Sold = a lot with a won/closed state. ──
+  function diCockpit(allLots) {
+    if (!WR.di || WR.di === false) return "";
+    var tiers = WR.di.tiers || {}, players = Array.isArray(WR.di.players) ? WR.di.players : [];
+    var keys = diTierPositions(tiers);
+    if (!keys.length) return "";
+    var p50ByName = {};
+    players.forEach(function (p) {
+      if (!p || !p.n) return;
+      var b = Array.isArray(p.band) && p.band.length >= 2 ? p.band[1] : null;
+      p50ByName[fnk(p.n)] = (b != null ? Number(b) : (p.ep != null ? Number(p.ep) : null));
+    });
+    var sold = {};
+    (allLots || []).forEach(function (l) {
+      if (!l) return;
+      var st = String(l.status || "").toLowerCase();
+      if (st === "won" || st === "closed" || st === "expired") {
+        var price = (l.winning_bid_k != null ? l.winning_bid_k : (l.final_bid_k != null ? l.final_bid_k : l.current_high_bid_k));
+        sold[fnk(l.player_name || l.player || l.name || "")] = (price != null ? Number(price) : 0);
+      }
+    });
+    function median(a) { if (!a.length) return null; var x = a.slice().sort(function (m, n) { return m - n; }); var mid = Math.floor(x.length / 2); return x.length % 2 ? x[mid] : Math.round(((x[mid - 1] + x[mid]) / 2) * 10) / 10; }
+    var rowsH = keys.map(function (pos) {
+      var cells = tiers[pos].map(function (t) {
+        var ids = Array.isArray(t.ids) ? t.ids : [];
+        var soldPrices = [], expP50 = [];
+        ids.forEach(function (nm) {
+          var k = fnk(nm);
+          if (sold[k] != null) { soldPrices.push(sold[k]); var e = p50ByName[k]; if (e != null && !isNaN(e)) expP50.push(e); }
+        });
+        var nSold = soldPrices.length, total = ids.length, drift = "";
+        if (nSold && expP50.length) {
+          var msld = median(soldPrices), mexp = median(expP50);
+          if (msld != null && mexp != null && mexp > 0) {
+            var pct = Math.round((msld / mexp - 1) * 100);
+            drift = ' <span class="di-drift ' + (pct > 0 ? "up" : (pct < 0 ? "dn" : "")) + '" title="median winning bid $' + msld + 'K vs median expected p50 $' + mexp + 'K">' + (pct > 0 ? "+" : "") + pct + '%</span>';
+          }
+        }
+        var gone = total > 0 && nSold >= total;
+        return '<span class="di-tc' + (gone ? " gone" : "") + '" title="' + esc(t.label || "") + (t.label ? ' — ' : '') + esc(ids.join(", ")) + '">T' + (t.t != null ? t.t : "?") + ' <b>' + nSold + '</b>/' + total + drift + '</span>';
+      }).join("");
+      return '<div class="di-tcrow"><span class="di-tcpos">' + esc(pos) + '</span>' + cells + '</div>';
+    }).join("");
+    var note = (WR.di.cockpit && WR.di.cockpit.note) ? '<div class="small" style="color:var(--muted);margin-top:8px">' + esc(WR.di.cockpit.note) + '</div>' : "";
+    return '<div class="fo-card"><div class="fo-card-head"><h3>🧠 Tier depletion</h3><span class="fo-sub">sold / tier size · % = median winning bid vs the tier\'s expected p50 (drift)</span></div>' + rowsH + note + '</div>';
   }
 
   // ── 💎 FA Value: expected-APW vs price vs roster-fit, per available FA ──
