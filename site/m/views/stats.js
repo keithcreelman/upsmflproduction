@@ -497,6 +497,41 @@
   function adpRelTime(iso) { if (!iso) return ""; var t = Date.parse(iso); if (isNaN(t)) return ""; var s = Math.max(0, (Date.now() - t) / 1000); if (s < 90) return "just now"; if (s < 5400) return Math.round(s / 60) + "m ago"; if (s < 172800) return Math.round(s / 3600) + "h ago"; return Math.round(s / 86400) + "d ago"; }
   var ADPB_SRC = [["fc", "FC"], ["ktc", "KTC"], ["dp", "DP"]];
   function adpbKeys() { return { d: "dsf", r: "rsf" }; }   // baked Superflex (UPS league)
+  // Smoothed (ffcAdp -> fc.rsf-scale value) curve, built fresh from the loaded
+  // board every load (no baked constants). KTC/DynastyProcess rarely publish a
+  // redraft (rsf) number, so the "35% redraft" weight was collapsing to just
+  // FantasyCalc's single rsf field, burying real redraft-relevant players
+  // (Keith 2026-07-13). Mirror of adpBuildFfcCurve/adpProjectFromCurve in
+  // stats_workbench.html — keep in sync.
+  function adpbBuildFfcCurve(board, binSize) {
+    binSize = binSize || 15;
+    var pairs = [];
+    board.forEach(function (p) { var rsf = p.fc && p.fc.rsf; if (p.ffcAdp != null && rsf) pairs.push([Number(p.ffcAdp), Number(rsf)]); });
+    pairs.sort(function (a, b) { return a[0] - b[0]; });
+    if (pairs.length < binSize) return [];
+    var curve = [];
+    for (var i = 0; i < pairs.length; i += binSize) {
+      var chunk = pairs.slice(i, i + binSize);
+      var xs = chunk.map(function (c) { return c[0]; });
+      var ys = chunk.map(function (c) { return c[1]; }).sort(function (a, b) { return a - b; });
+      curve.push([xs.reduce(function (a, b) { return a + b; }, 0) / xs.length, ys[Math.floor(ys.length / 2)]]);
+    }
+    for (var j = 1; j < curve.length; j++) { if (curve[j][1] > curve[j - 1][1]) curve[j][1] = curve[j - 1][1]; }
+    return curve;
+  }
+  function adpbProjectFromCurve(x, curve) {
+    if (!curve || !curve.length) return null;
+    if (x <= curve[0][0]) return curve[0][1];
+    if (x >= curve[curve.length - 1][0]) return curve[curve.length - 1][1];
+    for (var i = 1; i < curve.length; i++) {
+      if (curve[i][0] >= x) {
+        var x0 = curve[i - 1][0], y0 = curve[i - 1][1], x1 = curve[i][0], y1 = curve[i][1];
+        var f = x1 !== x0 ? (x - x0) / (x1 - x0) : 0;
+        return y0 + (y1 - y0) * f;
+      }
+    }
+    return curve[curve.length - 1][1];
+  }
   // Per-position tiers via local-cliff detection (matches desktop adpAssignTiers).
   function adpbTiers(arr) {
     var n = arr.length; if (!n) return;
@@ -535,6 +570,10 @@
       if (blk[k.d] != null && blk[k.d] > 0) dynVals.push(blk[k.d]);
       if (blk[k.r] != null && blk[k.r] > 0) rdVals.push(blk[k.r]);
     });
+    if (row.ffcAdp != null) {
+      var ffcProj = adpbProjectFromCurve(Number(row.ffcAdp), adpb._ffcCurve);
+      if (ffcProj != null) rdVals.push(ffcProj);
+    }
     if (!dynVals.length && !rdVals.length) return null;
     var dynC = dynVals.length ? dynVals.reduce(function (a, b) { return a + b; }, 0) / dynVals.length : null;
     var rdC = rdVals.length ? rdVals.reduce(function (a, b) { return a + b; }, 0) / rdVals.length : null;
@@ -546,7 +585,7 @@
     if (adpb.data) return Promise.resolve(adpb.data);
     return fetch(API.workerUrl("/api/adp-board"), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.json(); })
-      .then(function (d) { adpb.data = (d && d.board) || []; adpb.generatedAt = (d && d.generated_at) || null; return adpb.data; })
+      .then(function (d) { adpb.data = (d && d.board) || []; adpb.generatedAt = (d && d.generated_at) || null; adpb._ffcCurve = adpbBuildFfcCurve(adpb.data); return adpb.data; })
       .catch(function () { adpb.data = []; return adpb.data; });
   }
   // UPS ownership (for the ADP Team/FA filter): mfl_id → franchise + franchise list.
