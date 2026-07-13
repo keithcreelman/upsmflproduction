@@ -2203,6 +2203,14 @@ export default {
       // I/O, so it runs whenever SELF + key + D1 are present. Stage 1 = ledger
       // only; per-type Discord posting (taxi/IR/adds) is a later pass.
       try {
+        // Scope fix 2026-07-13: these consts existed only in the drop-tracker's
+        // block, so this ledger crashed with a ReferenceError (swallowed by the
+        // catch below) on EVERY 5-min tick since the refactor — found by the new
+        // eslint no-undef gate, not by any runtime signal.
+        const season = String(env.YEAR || new Date().getUTCFullYear());
+        const leagueId = String(env.LEAGUE_ID || "74598");
+        const origin = "https://self.invalid";
+        const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
         if (commishApiKey && env.UPS_MFL_DB && env.SELF) {
           ctx.waitUntil((async () => {
             try {
@@ -8148,6 +8156,23 @@ export default {
               : { ok: false, status: res.status, body: text.slice(0, 200) };
           } catch (e) {
             results[model] = { ok: false, error: String(e?.message || e).slice(0, 200) };
+          }
+        }
+        // ?full=1 exercises the REAL generateClapBack (argument wiring + identity
+        // block + model chain) — a post-deploy curl catches wiring regressions
+        // the per-model ping cannot (the 2026-07-13 ReferenceError class).
+        if (url.searchParams.get("full") === "1") {
+          try {
+            const { generateClapBack } = await import("./discord_roast_reply.js");
+            const out = await generateClapBack(env, "selftest: your math is bad",
+              "SELFTEST CONTEXT: trade between 0007 and 0010; grades B+/B-.",
+              "SELFTEST replier history: 2 titles, .560 allplay.",
+              { replierName: "selftest", replierFid: "0001", tradeFranchises: "0007,0010" });
+            const hiccup = /hiccupped/i.test(String(out || ""));
+            return jsonOut(200, { ok: !hiccup, key_present: true, mode: "full",
+                                  generated_chars: String(out || "").length, hiccup, results });
+          } catch (e) {
+            return jsonOut(200, { ok: false, mode: "full", error: String(e?.message || e).slice(0, 300), results });
           }
         }
         return jsonOut(200, { ok: true, key_present: true, key_suffix: apiKey.slice(-4), results });

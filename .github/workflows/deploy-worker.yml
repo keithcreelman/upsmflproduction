@@ -46,6 +46,13 @@ jobs:
       - name: Install wrangler + deps
         run: npm ci || npm install
 
+      # GUARDRAIL (2026-07-13): scope/reference errors ship silently otherwise —
+      # the clap-back "eternal thinking" bug and the 5-min transactions-ledger
+      # cron (dead since a refactor) were BOTH no-undef bugs eslint catches
+      # statically. Deploy is blocked until the lint is clean.
+      - name: Lint (no-undef gate)
+        run: npx --yes eslint@9 src/
+
       - name: Deploy to Cloudflare
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

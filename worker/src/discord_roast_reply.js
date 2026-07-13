@@ -207,6 +207,43 @@ function extractTextInput(interaction, customId) {
   return "";
 }
 
+async function runReplyPipelineSafe(args) {
+  // GUARDRAIL (2026-07-13): every throw in the deferred pipeline used to leave
+  // the user staring at "thinking..." forever with zero error surface (the
+  // identity-patch ReferenceError did exactly this). Now: the interaction ALWAYS
+  // resolves, the error is logged, and the commish gets a DM with the message.
+  try {
+    return await runReplyPipeline(args);
+  } catch (e) {
+    const msg = String(e?.stack || e?.message || e).slice(0, 500);
+    console.log(`[roast-reply] PIPELINE CRASH: ${msg}`);
+    try {
+      await followUpInteraction(args.applicationId, args.interactionToken, {
+        content: "⚠️ My reply pipeline crashed mid-thought. The commish has been notified. (Your text wasn't posted — try again in a minute.)",
+        flags: FLAG_EPHEMERAL,
+      });
+    } catch (_) { /* interaction may have expired */ }
+    try {
+      const botToken = safeStr(args.env.DISCORD_BOT_TOKEN || "");
+      const commish = safeStr(args.env.COMMISH_DISCORD_USER_ID || "").split(",")[0];
+      if (botToken && commish) {
+        const ch = await fetch("https://discord.com/api/v10/users/@me/channels", {
+          method: "POST",
+          headers: { Authorization: `Bot ${botToken}`, "content-type": "application/json" },
+          body: JSON.stringify({ recipient_id: commish }),
+        }).then((r) => r.json());
+        if (ch?.id) {
+          await fetch(`https://discord.com/api/v10/channels/${ch.id}/messages`, {
+            method: "POST",
+            headers: { Authorization: `Bot ${botToken}`, "content-type": "application/json" },
+            body: JSON.stringify({ content: `🚨 clap-back pipeline crash (replier ${args.replierName}):\n\`\`\`${msg.slice(0, 1500)}\`\`\`` }),
+          });
+        }
+      }
+    } catch (_) { /* best effort */ }
+  }
+}
+
 export async function handleRoastReplyModal(interaction, env, ctx) {
   const customId = safeStr(interaction?.data?.custom_id || "");
   const roastMsgId = parseRoastMsgIdFromModal(customId);
@@ -242,7 +279,7 @@ export async function handleRoastReplyModal(interaction, env, ctx) {
   //     Anthropic + Discord without holding the connection.
   if (ctx && typeof ctx.waitUntil === "function") {
     ctx.waitUntil(
-      runReplyPipeline({
+      runReplyPipelineSafe({
         env,
         tracked,
         replyText,
@@ -255,7 +292,7 @@ export async function handleRoastReplyModal(interaction, env, ctx) {
     );
   } else {
     // No ctx available — run inline (slower but still completes).
-    await runReplyPipeline({
+    await runReplyPipelineSafe({
       env,
       tracked,
       replyText,
@@ -545,7 +582,7 @@ async function classifyReply(env, replyText, contextText) {
   }
 }
 
-async function generateClapBack(env, replyText, contextText, replierContext, ident = {}) {
+export async function generateClapBack(env, replyText, contextText, replierContext, ident = {}) {
   // IDENTITY GROUNDING (2026-07-12: the bot ascribed Blake's trade + allplay to
   // RyBo, who wasn't in the trade — "You've got the wrong guy"). State exactly
   // who is replying and whether they were a trade participant, as a hard rule.
