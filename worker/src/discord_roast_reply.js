@@ -341,7 +341,7 @@ async function runReplyPipeline({
     postBody = await generateClapBack(env, replyText, contextText, replier.text, {
       replierName,
       replierFid: replier.fid,
-      tradeFranchises: safeStr(thread?.trade_franchises || ""),
+      tradeFranchises: safeStr(tracked?.trade_franchises || ""),
     });
   }
 
