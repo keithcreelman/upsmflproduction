@@ -2722,6 +2722,7 @@ export default {
         path !== "/api/auction/intel" &&
         path !== "/api/auction/fa-value" &&
         path !== "/api/auction/faa-report" &&
+        path !== "/api/auction/draft-intel" &&
         path !== "/api/auction/compliance" &&
         path !== "/api/auction/cut-rebid-blocks" &&
         path !== "/api/auction/nomination-status" &&
@@ -8166,7 +8167,9 @@ export default {
         const apiKey = safeStr(env.ANTHROPIC_API_KEY || "");
         if (!apiKey) return jsonOut(200, { ok: false, error: "ANTHROPIC_API_KEY secret is EMPTY" });
         const results = {};
-        for (const model of ["claude-sonnet-5", "claude-sonnet-4-6"]) {
+        // ping the REAL clap-back chain (primary + fallback), not a stale list
+        const { CLAPBACK_MODEL, CLAPBACK_FALLBACK_MODEL } = await import("./discord_roast_reply.js");
+        for (const model of [CLAPBACK_MODEL, CLAPBACK_FALLBACK_MODEL]) {
           try {
             const res = await fetch("https://api.anthropic.com/v1/messages", {
               method: "POST",
