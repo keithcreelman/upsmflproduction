@@ -71,6 +71,23 @@
     return null;
   }
 
+  // The viewer's MFL session token, injected by the embed loader (which runs on
+  // the MFL page where document.cookie is readable; the hub itself is served from
+  // jsDelivr's origin and cannot read that cookie). Forwarding it lets the worker
+  // read the VIEWER's own proxy off O=43 — same as mobile — so Available Funds and
+  // the YOUR PROXY column match the phone instead of showing the public-current
+  // over-statement. Undefined ⇒ no token ⇒ the worker falls back to public-only.
+  function _mflUserId() {
+    try {
+      var t = window.UPS_AUCTION_HUB_MFL_USER_ID;
+      return t ? String(t) : "";
+    } catch (e) { return ""; }
+  }
+  function _withUserId(url) {
+    var t = _mflUserId();
+    return t ? url + (url.indexOf("?") === -1 ? "?" : "&") + "MFL_USER_ID=" + encodeURIComponent(t) : url;
+  }
+
   // The FA pool + ADP board are large and near-static; the 30s live refresh
   // doesn't need them. Re-pull at most this often (live lots/board still tick
   // every 30s).
@@ -886,6 +903,7 @@
     const hpmFid = (STATE.me && STATE.me.franchise_id) || _hpmFranchiseId();
     let url = apiUrl("/acquisition-hub/free-agent-auction/live") + "?L=" + LEAGUE_ID + "&YEAR=" + season;
     if (hpmFid) url += "&F=" + encodeURIComponent(hpmFid);
+    url = _withUserId(url);   // forward the viewer's token so the worker overlays THEIR proxy
     const meta = $("#fa-context-meta");
     // The live board (budgets/needs/lots) + the full FA nominate pool (every
     // unrostered player, enriched). available_players is empty off-season, so
