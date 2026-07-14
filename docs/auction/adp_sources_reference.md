@@ -50,11 +50,15 @@ philosophies unless it accounts for this.
   the reference scale our rank-consensus maps everything else onto.
 
 ### KeepTradeCut — `keeptradecut.com/dynasty-rankings`, `/fantasy-rankings`
-- **Access: ⚠️ SCRAPE ONLY, and their ToS explicitly and broadly prohibits it**
-  ("web scraping, data mining, bots/crawlers, systematic or automated data
-  collection"). No public API or CSV export exists. **Our worker currently scrapes
-  this (`worker/src/index.js`, `/api/adp-board` handler) — this predates today's
-  session and needs Keith's explicit call on whether to continue, given the ToS.**
+- **Access:** scrape only — no public API or CSV export exists. Their ToS has a
+  broad scraping-prohibition clause ("web scraping, data mining, bots/crawlers,
+  systematic or automated data collection"). **Decision (Keith, 2026-07-13): keep
+  scraping.** That clause is aimed at commercial competitors building a rival
+  product off their data, not a private, non-monetized, single-league tool making
+  one cached request per ~12h TTL with no redistribution or resale of their data.
+  Revisit only if usage pattern or intent changes (e.g. scraping frequency
+  increases materially, or the data ever gets exposed/repackaged beyond this
+  league's own tools).
 - **Type:** VALUE. Methodology is genuinely different from FantasyCalc's — KTC is
   crowdsourced ELO from pairwise Keep/Trade/Cut votes, not a trade-transaction
   optimization model. That independence is valuable (see §4), which is exactly why
@@ -193,28 +197,33 @@ carry equal weight to a well-populated one.
 
 ---
 
-## 4. Open decisions (not mine to make unilaterally)
+## 4. Decided
 
-1. **KeepTradeCut scraping vs. its ToS.** Options: (a) stop scraping KTC and lose its
-   genuinely-independent ELO-vote signal, (b) keep scraping and accept the
-   compliance risk, (c) look for a sanctioned alternative (none found so far — KTC
-   has no API). This predates today's session but surfaced during this research;
-   flagged for Keith's call.
-2. **DynastyProcess's non-independence.** Given it's a deterministic FantasyPros
+- **KeepTradeCut scraping vs. its ToS — RESOLVED, keep scraping (Keith,
+  2026-07-13).** Non-commercial, single-league, ~one request per 12h cache TTL, no
+  redistribution of their data — not the kind of use their scraping clause is
+  written to stop. Don't re-flag this unless the usage pattern changes materially.
+
+## 5. Open decisions (not mine to make unilaterally)
+
+1. **DynastyProcess's non-independence.** Given it's a deterministic FantasyPros
    proxy, should it keep equal weight in the dynasty blend, be down-weighted, or be
    replaced outright by a direct (paid) FantasyPros Dynasty feed if Premium access is
    worth purchasing?
-3. **Whether to add MFL native ADP + CBS** as additional redraft pick-number sources
+2. **Whether to add MFL native ADP + CBS** as additional redraft pick-number sources
    (low integration cost — MFL native already has 3 reference call-sites in this
    repo; CBS needs a scrape). Recommended, given both are free/low-risk and the
    blending-rule design above already accounts for how to fold them in correctly.
-4. **Whether FantasyPros Premium is worth purchasing** — it's the single richest,
+3. **Whether FantasyPros Premium is worth purchasing** — it's the single richest,
    most-defensible source (130+ expert consensus, real dynasty+redraft coverage,
-   proper Borda-style aggregation) but is a real recurring cost.
+   proper Borda-style aggregation) but is a real recurring cost. Given (1) it's a
+   real $$ decision, and (2) this whole exercise isn't a commercial operation, the
+   free-source stack above is very likely sufficient — only worth revisiting if the
+   free sources prove insufficient in practice.
 
 ---
 
-## 5. Regression protection
+## 6. Regression protection
 
 `pipelines/etl/scripts/adp_regression_check.py` re-runs `fetch_adp_board()` and
 checks a small set of hand-verified benchmarks (cross-checked against real external
