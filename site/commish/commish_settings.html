@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Commish Settings — UPS League</title>
 <!-- build 2026.07.13.1 — +🧠 Draft Intel (4th War Room view) + Live Board tier-depletion cockpit -->
+<!-- build 2026.07.13.2 — +🗓️ Auction Dates → MFL panel (commish-editable timeline → MFL calendar push) -->
 
 <style>
   :root {
@@ -386,6 +387,7 @@
   var TABS = [
     { key: "mfl", label: "MFL Settings" },
     { key: "warroom", label: "🔨 Auction War Room" },
+    { key: "auctioncal", label: "🗓️ Auction Dates → MFL" },
     { key: "discord", label: "Discord Routing" },
     { key: "killswitches", label: "Kill Switches" },
     { key: "revert", label: "Contract Revert" },
@@ -413,6 +415,7 @@
 
   function renderTab() {
     if (CS.tab === "warroom") return renderWarRoom();
+    if (CS.tab === "auctioncal") return renderAuctionCalendar();
     if (CS.tab === "discord") return renderDiscordRouting();
     if (CS.tab === "killswitches") return renderKillSwitches();
     if (CS.tab === "revert") return renderContractRevert();
@@ -1728,6 +1731,119 @@
     }).catch(function (e) {
       if (CS.tab !== myTab) return;
       host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + esc(e.message || String(e)) + "</div></div>";
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // AUCTION DATES → MFL — commish-editable FA-auction timeline, pushed to
+  // MFL's league calendar via import?TYPE=calendarEvent. Config lives in D1
+  // (ups_settings 'auction_calendar', read/written through /admin/commish-
+  // settings); the push is POST /admin/auction/push-mfl-calendar.
+  // ════════════════════════════════════════════════════════════════════
+  var AC = { cfg: null, fields: [], pushTarget: "74598", key: "", preview: null };
+  function acEsc(v) { return esc(v == null ? "" : String(v)); }
+  function renderAuctionCalendar() {
+    var host = content();
+    var myTab = CS.tab;
+    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading auction calendar…</div></div>';
+    fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L)).then(function (data) {
+      if (CS.tab !== myTab) return;
+      AC.cfg = (data && data.auction_calendar) || { season: YEAR, faa: {} };
+      AC.fields = (data && data.auction_calendar_fields) || [];
+      if (!AC.cfg.season) AC.cfg.season = YEAR;
+      paintAuctionCalendar(host);
+    }).catch(function (e) {
+      if (CS.tab !== myTab) return;
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + acEsc(e.message || String(e)) + "</div></div>";
+    });
+  }
+
+  function paintAuctionCalendar(host) {
+    var faa = (AC.cfg && AC.cfg.faa) || {};
+    var savedAt = AC.cfg && AC.cfg.updated_at ? new Date(AC.cfg.updated_at).toLocaleString() : "never";
+    var dateRows = AC.fields.map(function (f) {
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--border);">' +
+        '<span style="flex:1;"><strong>' + acEsc(f.label) + '</strong>' +
+        '<br><span class="small" style="color:var(--muted);">' + acEsc(f.help) + '</span></span>' +
+        '<input type="datetime-local" data-acf="' + acEsc(f.key) + '" value="' + acEsc(faa[f.key] || "") +
+        '" style="flex:0 0 auto;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--panel-alt);color:var(--text);font-size:13px;"></div>';
+    }).join("");
+
+    var isTest = AC.pushTarget !== "74598";
+    var targetSeg = [["74598", "Real league (74598)"], ["25625", "Test league (25625)"]].map(function (pair) {
+      var on = AC.pushTarget === pair[0];
+      return '<button type="button" class="ac-target-btn" data-actarget="' + pair[0] + '" style="padding:5px 14px;border:1px solid var(--border);background:' + (on ? (pair[0] === "74598" ? "#1f8a4c" : "#b8860b") : "var(--panel-alt)") + ";color:" + (on ? "#fff" : "var(--text)") + ";cursor:pointer;font-weight:" + (on ? "600" : "400") + ";" + (pair[0] === "74598" ? "border-radius:4px 0 0 4px;" : "border-radius:0 4px 4px 0;border-left:none;") + '">' + pair[1] + "</button>";
+    }).join("");
+
+    var previewHtml = "";
+    if (AC.preview) {
+      var p = AC.preview;
+      if (p.error) {
+        previewHtml = '<div class="fo-card" style="border-color:#c0392b;"><strong style="color:#c0392b;">Preview error:</strong> ' + acEsc(p.error) +
+          (p.missing && p.missing.length ? '<br><span class="small">Missing dates: ' + acEsc(p.missing.join(", ")) + "</span>" : "") + "</div>";
+      } else {
+        var rows = (p.events || p.results || []).map(function (e) {
+          var okCell = (p.dryRun ? '<span class="small" style="color:var(--muted);">will write</span>'
+            : (e.ok ? '<span style="color:#1f8a4c;">✔ written</span>' : '<span style="color:#c0392b;">✗ ' + acEsc(e.error || ("HTTP " + e.status)) + "</span>"));
+          return '<tr><td><strong>' + acEsc(e.event_type) + '</strong><br><span class="small" style="color:var(--muted);">' + acEsc(e.label) + "</span></td>" +
+            "<td>" + acEsc(e.start_at || "") + (e.end_at ? " → " + acEsc(e.end_at) : "") + "</td>" +
+            "<td>" + okCell + "</td></tr>";
+        }).join("");
+        previewHtml = '<div class="fo-card"><div class="fo-card-head"><h3>' + (p.dryRun ? "Preview" : "Push result") + " · " +
+          acEsc(p.league) + " · " + acEsc(p.season) + "</h3></div>" +
+          (p.dryRun ? '<p class="fo-row-hint">These are the exact MFL calendar events that <em>would</em> be written. Nothing has been sent yet.</p>'
+            : '<p class="fo-row-hint">' + (p.ok ? "✅ All events written to MFL." : "⚠️ Some events failed — see below.") + " (" + acEsc(p.written != null ? p.written : 0) + "/" + acEsc(p.total != null ? p.total : (p.results || []).length) + ")</p>") +
+          '<table class="fo-table"><thead><tr><th>MFL event</th><th>When (ET)</th><th>Status</th></tr></thead><tbody>' + rows + "</tbody></table>" +
+          (p.missing && p.missing.length ? '<p class="small" style="color:#b8860b;">Not set (skipped): ' + acEsc(p.missing.join(", ")) + "</p>" : "") + "</div>";
+      }
+    }
+
+    host.innerHTML =
+      '<div class="fo-card"><div class="fo-card-head"><h3>Auction Dates → MFL</h3>' +
+        '<span class="small" style="color:var(--muted);">saved ' + acEsc(savedAt) + "</span></div>" +
+      '<p class="fo-row-hint">💡 Set the FA-Auction timeline once (ET), then push it into MFL\'s league calendar. Dates are the source of truth on the website — this makes MFL match them. <strong>Auction rules</strong> (cap / roster limits / format) can\'t be set via API — see the <a href="https://github.com/keithcreelman/upsmflproduction/blob/main/docs/auction/mfl_auction_setup_runbook.md" target="_blank" rel="noopener">manual runbook</a>.</p>' +
+      '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;"><strong>Season</strong>' +
+        '<input type="text" id="ac-season" value="' + acEsc(AC.cfg.season) + '" style="width:90px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--panel-alt);color:var(--text);"></div>' +
+      dateRows +
+      '<div style="margin-top:14px;"><button type="button" id="ac-save" class="fo-btn" style="padding:8px 20px;">💾 Save dates</button></div></div>' +
+
+      '<div class="fo-card"><div class="fo-card-head"><h3>Push to MFL calendar</h3></div>' +
+      '<p class="fo-row-hint">Target league: <span style="display:inline-flex;vertical-align:middle;">' + targetSeg + '</span>' +
+        (isTest ? ' <span class="small" style="color:#b8860b;">— safe: writes to the test league only.</span>' : ' <span class="small" style="color:#c0392b;">— LIVE: writes to the real league calendar.</span>') + "</p>" +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+        '<button type="button" id="ac-preview" class="fo-btn" style="padding:8px 20px;">🔍 Preview → MFL</button>' +
+        '<button type="button" id="ac-push" class="fo-btn" style="padding:8px 20px;background:' + (isTest ? "#b8860b" : "#c0392b") + ';color:#fff;">📤 Push to MFL' + (isTest ? " (test)" : " (LIVE)") + "</button>" +
+        '<a class="fo-btn" href="https://' + acEsc(HOST) + "/" + acEsc(YEAR) + "/options?L=" + acEsc(AC.pushTarget) + '&O=110" target="_blank" rel="noopener" style="padding:8px 20px;text-decoration:none;">↗ MFL calendar</a>' +
+      "</div></div>" + previewHtml;
+
+    // Save
+    document.getElementById("ac-save").addEventListener("click", function () {
+      var faaUpd = {};
+      $$("[data-acf]", host).forEach(function (inp) { faaUpd[inp.getAttribute("data-acf")] = inp.value || ""; });
+      var season = (document.getElementById("ac-season") || {}).value || YEAR;
+      postJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L), { auction_calendar: { season: season, faa: faaUpd } })
+        .then(function (r) { AC.cfg = (r && r.auction_calendar) || AC.cfg; AC.preview = null; toast("Auction dates saved", "ok"); paintAuctionCalendar(host); })
+        .catch(function (e) { toast("Save failed: " + (e.message || String(e)), "err"); });
+    });
+    // Target toggle
+    $$(".ac-target-btn", host).forEach(function (btn) {
+      btn.addEventListener("click", function () { AC.pushTarget = btn.getAttribute("data-actarget"); AC.preview = null; paintAuctionCalendar(host); });
+    });
+    // Preview (dryRun — no key, writes nothing)
+    document.getElementById("ac-preview").addEventListener("click", function () {
+      var u = apiUrl("/admin/auction/push-mfl-calendar") + "?L=" + encodeURIComponent(AC.pushTarget) + "&YEAR=" + encodeURIComponent(AC.cfg.season || YEAR);
+      postJSON(u, {}).then(function (r) { AC.preview = r; paintAuctionCalendar(host); })
+        .catch(function (e) { AC.preview = { error: e.message || String(e) }; paintAuctionCalendar(host); });
+    });
+    // Push (commit — prompts for the commish API key once per session)
+    document.getElementById("ac-push").addEventListener("click", function () {
+      var live = AC.pushTarget === "74598";
+      if (live && !window.confirm("Write these dates to the REAL league (74598) MFL calendar now? Existing calendar entries for these event types may be affected.")) return;
+      if (!AC.key) { AC.key = window.prompt("Commish API key (COMMISH_API_KEY) — needed to write to MFL:") || ""; }
+      if (!AC.key) { toast("Push cancelled — no key", "err"); return; }
+      var u = apiUrl("/admin/auction/push-mfl-calendar") + "?L=" + encodeURIComponent(AC.pushTarget) + "&YEAR=" + encodeURIComponent(AC.cfg.season || YEAR) + "&commit=1&APIKEY=" + encodeURIComponent(AC.key);
+      postJSON(u, {}).then(function (r) { AC.preview = r; toast(r.ok ? "Pushed to MFL ✔" : "Push had errors", r.ok ? "ok" : "err"); paintAuctionCalendar(host); })
+        .catch(function (e) { if (/403/.test(String(e.message))) AC.key = ""; AC.preview = { error: e.message || String(e) }; toast("Push failed: " + (e.message || String(e)), "err"); paintAuctionCalendar(host); });
     });
   }
 
