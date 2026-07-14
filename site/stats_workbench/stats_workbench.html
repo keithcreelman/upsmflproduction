@@ -4119,46 +4119,69 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
                 srcSel: { fc: true, ktc: true, dp: true }, roster: "sf", rdPct: 0.35, generatedAt: null, fresh: null, team: "__ALL__" };
     var ADP_SRC = [["fc","FantasyCalc"],["ktc","KeepTradeCut"],["dp","DynastyProcess"]];
     function adpKeys(){ return { d: "dsf", r: "rsf" }; }   // baked Superflex
-    // Smoothed (ffcAdp -> fc.rsf-scale value) curve, built fresh from the loaded
-    // board (no baked constants). KTC/DynastyProcess rarely publish a redraft
-    // (rsf) number, so the "35% redraft" weight was collapsing to just
-    // FantasyCalc's single rsf field, burying real redraft-relevant players
-    // (Keith 2026-07-13: Parker Washington real ffcAdp pick ~72, but a lone
-    // fc.rsf=303 buried him at WR91). ffcAdp is FantasyFootballCalculator's
-    // real live-draft ADP; the raw (ffcAdp, fc.rsf) scatter is noisy (loose
-    // correlation), so this bins by ffcAdp (median rsf per ~15-player bin)
-    // rather than point-interpolating, then forces the curve non-increasing.
-    function adpBuildFfcCurve(board, binSize){
-      binSize = binSize || 15;
+    // RANK-CONSENSUS redraft axis (Keith 2026-07-13, mirrors trade_grader.
+    // fetch_adp_board() — keep in sync). The old value-average had two
+    // compounding bugs: (1) KTC/DynastyProcess rarely publish rsf at all, so
+    // "35% redraft" often collapsed to FantasyCalc's single field; (2) where
+    // KTC DOES publish rsf, its redraft $-scale isn't comparable to FC's — a
+    // KTC rsf ~4700-4800 can correspond to only KTC's OWN ~104th-110th-best
+    // redraft player, wildly inflating a mid-tier player the instant KTC is
+    // present. Fix: rank each source against only its own reporting
+    // population (a scale mismatch can never leak in), average the available
+    // ranks across {fc.rsf desc, ktc.rsf desc, ffcAdp asc (FantasyFootball-
+    // Calculator, real live-draft ADP)}, then map the consensus rank back onto
+    // FC's rsf $-scale so it still plugs into the existing dyn/rd blend.
+    // Verified same-day against real external ADP: Parker Washington
+    // WR91->WR42 (FantasyData has him WR39/ADP85); Kyle Pitts TE6->TE7
+    // (FantasyData has him TE8/ADP92 — the OLD "TE6" was itself inflated by
+    // the KTC scale-mismatch bug); Kittle holds exactly TE9 (his three source
+    // ranks already agreed).
+    function adpRankMap(board, keyFn, ascending){
+      var scored = [];
+      board.forEach(function(p){ var v = keyFn(p); if (v != null) scored.push([v, p]); });
+      scored.sort(function(a,b){ return ascending ? a[0]-b[0] : b[0]-a[0]; });
+      var m = new Map();
+      scored.forEach(function(x, i){ m.set(x[1], i+1); });
+      return m;
+    }
+    function adpRankToFcValueCurve(board, fcRank){
       var pairs = [];
       board.forEach(function(p){
-        var rsf = p.fc && p.fc.rsf;
-        if (p.ffcAdp != null && rsf) pairs.push([Number(p.ffcAdp), Number(rsf)]);
+        var r = fcRank.get(p), v = p.fc && p.fc.rsf;
+        if (r && v) pairs.push([r, Number(v)]);
       });
       pairs.sort(function(a,b){ return a[0]-b[0]; });
-      if (pairs.length < binSize) return [];
-      var curve = [];
-      for (var i=0; i<pairs.length; i+=binSize){
-        var chunk = pairs.slice(i, i+binSize);
-        var xs = chunk.map(function(c){ return c[0]; });
-        var ys = chunk.map(function(c){ return c[1]; }).sort(function(a,b){ return a-b; });
-        curve.push([xs.reduce(function(a,b){return a+b;},0)/xs.length, ys[Math.floor(ys.length/2)]]);
-      }
-      for (var j=1; j<curve.length; j++){ if (curve[j][1] > curve[j-1][1]) curve[j][1] = curve[j-1][1]; }
-      return curve;
+      return pairs;
     }
-    function adpProjectFromCurve(x, curve){
+    function adpValueAtRank(r, curve){
       if (!curve || !curve.length) return null;
-      if (x <= curve[0][0]) return curve[0][1];
-      if (x >= curve[curve.length-1][0]) return curve[curve.length-1][1];
+      if (r <= curve[0][0]) return curve[0][1];
+      if (r >= curve[curve.length-1][0]) return curve[curve.length-1][1];
       for (var i=1; i<curve.length; i++){
-        if (curve[i][0] >= x){
-          var x0=curve[i-1][0], y0=curve[i-1][1], x1=curve[i][0], y1=curve[i][1];
-          var f = x1!==x0 ? (x-x0)/(x1-x0) : 0;
-          return y0 + (y1-y0)*f;
+        if (curve[i][0] >= r){
+          var r0=curve[i-1][0], v0=curve[i-1][1], r1=curve[i][0], v1=curve[i][1];
+          var f = r1!==r0 ? (r-r0)/(r1-r0) : 0;
+          return v0 + (v1-v0)*f;
         }
       }
       return curve[curve.length-1][1];
+    }
+    function adpBuildRankConsensus(board){
+      var fcRank = adpRankMap(board, function(p){ return p.fc && p.fc.rsf > 0 ? p.fc.rsf : null; }, false);
+      var ktcRank = adpRankMap(board, function(p){ return p.ktc && p.ktc.rsf > 0 ? p.ktc.rsf : null; }, false);
+      var ffcRank = adpRankMap(board, function(p){ return p.ffcAdp; }, true);
+      return { fcRank: fcRank, ktcRank: ktcRank, ffcRank: ffcRank, curve: adpRankToFcValueCurve(board, fcRank) };
+    }
+    // Consensus REDRAFT value for one row, honoring which sources are toggled on.
+    function adpRedraftConsensus(row, rc){
+      if (!rc) return null;
+      var ranks = [];
+      if (adp.srcSel.fc && rc.fcRank.has(row)) ranks.push(rc.fcRank.get(row));
+      if (adp.srcSel.ktc && rc.ktcRank.has(row)) ranks.push(rc.ktcRank.get(row));
+      if (rc.ffcRank.has(row)) ranks.push(rc.ffcRank.get(row));   // ffcAdp has no UI toggle — always on
+      if (!ranks.length) return null;
+      var avg = ranks.reduce(function(a,b){ return a+b; }, 0) / ranks.length;
+      return adpValueAtRank(avg, rc.curve);
     }
     // One source's displayed value for the chosen skew. At the extremes a
     // dynasty-only source (DP has no redraft value) drops to null instead of
@@ -4178,20 +4201,15 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     // redraft player down at 100% redraft — it simply isn't in the redraft mean.
     function adpBlend(row){
       if (row.isIdp) return row.idpVal != null ? row.idpVal : null;
-      var k = adpKeys(), dynVals = [], rdVals = [];
+      var k = adpKeys(), dynVals = [];
       ADP_SRC.forEach(function(p){
         if (!adp.srcSel[p[0]]) return;
         var blk = row[p[0]]; if (!blk) return;
         if (blk[k.d] != null && blk[k.d] > 0) dynVals.push(blk[k.d]);
-        if (blk[k.r] != null && blk[k.r] > 0) rdVals.push(blk[k.r]);
       });
-      if (row.ffcAdp != null){
-        var ffcProj = adpProjectFromCurve(Number(row.ffcAdp), adp._ffcCurve);
-        if (ffcProj != null) rdVals.push(ffcProj);
-      }
-      if (!dynVals.length && !rdVals.length) return null;
       var dynC = dynVals.length ? dynVals.reduce(function(a,b){ return a + b; }, 0) / dynVals.length : null;
-      var rdC  = rdVals.length  ? rdVals.reduce(function(a,b){ return a + b; }, 0) / rdVals.length  : null;
+      var rdC = adpRedraftConsensus(row, adp._rankConsensus);
+      if (dynC == null && rdC == null) return null;
       if (rdC == null) return Math.round(dynC);
       if (dynC == null) return Math.round(rdC);
       return Math.round((1 - adp.rdPct) * dynC + adp.rdPct * rdC);
@@ -4215,7 +4233,7 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
         leagueStatePromise,
       ]).then(function(res){
         var d = res[0]; adp.data = (d && d.board) || []; adp.sources = (d && d.sources) || []; adp.generatedAt = (d && d.generated_at) || null;
-        adp._ffcCurve = adpBuildFfcCurve(adp.data);
+        adp._rankConsensus = adpBuildRankConsensus(adp.data);
         adpFillTeams(); adpPaint();
         marketReady.then(adpPaintMovers);   // trending board once market data lands
       });
