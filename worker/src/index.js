@@ -8,6 +8,7 @@ import {
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline } from "./trade_dm.js";
 import { create3WayTrade, list3WayForFranchise, cancel3WayTrade } from "./trade_3way.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
+import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents } from "./auction_calendar.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 
 const acquisitionLiveMemoryCache = new Map();
@@ -2735,6 +2736,7 @@ export default {
         path !== "/admin/auction/force-narrate-lot" &&
         path !== "/admin/auction/backfill-era-ppg" &&
         path !== "/admin/auction/finalize-era-contracts" &&
+        path !== "/admin/auction/push-mfl-calendar" &&
         path !== "/api/league-events" &&
         path !== "/api/league-years" &&
         path !== "/api/lineup-matchups" &&
@@ -4090,6 +4092,92 @@ export default {
 
         const result = await finalizeEraContracts(env, yearArg, leagueId, { dryRun });
         return jsonOut(result.status || 200, result.body);
+      }
+
+      // POST /admin/auction/push-mfl-calendar — write the commish-configured FA
+      // Auction dates (ups_settings 'auction_calendar') into MFL's league
+      // calendar via import?TYPE=calendarEvent. Commissioner-authed MFL write
+      // (reuses the MFL_COOKIE pattern from finalizeEraContracts). Dates are the
+      // full §A2 timeline (roster lock / cutdown / open+close). Auction *rules*
+      // (cap/roster/format) are NOT API-settable — see the runbook.
+      //   ?dryRun=1 (DEFAULT) → returns the exact events + payloads, writes nothing.
+      //   ?commit=1           → actually POSTs to MFL.
+      //   ?L=25625            → target the test league (default 74598).
+      if (path === "/admin/auction/push-mfl-calendar" && request.method === "POST") {
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const commit = String(url.searchParams.get("commit") || "") === "1";
+
+        // Preview (dryRun) is frictionless — it writes nothing. The COMMIT is an
+        // irreversible external MFL write, so it requires the commish APIKEY
+        // (same gate as finalize-era-contracts). The UI prompts for it once.
+        if (commit) {
+          const commishKey = String(env.COMMISH_API_KEY || "").trim();
+          const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+          const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+          const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
+          if (!authOk) return jsonOut(403, { ok: false, error: "commit requires COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+        }
+
+        const cfg = await getAuctionCalendar(env);
+        const { events, missing } = buildCalendarEvents(cfg);
+        // Guard: any event with an unparseable date is a hard stop (don't half-write).
+        const badDates = events.filter((e) => e.start_unix == null || (e.end_at && e.end_unix == null));
+        if (!events.length) {
+          return jsonOut(400, { ok: false, error: "no auction dates configured", missing, hint: "Set dates in Commish Settings → Auction Calendar first." });
+        }
+        if (badDates.length) {
+          return jsonOut(400, { ok: false, error: "unparseable date(s)", bad: badDates.map((e) => ({ field: e.field, start_at: e.start_at, end_at: e.end_at })) });
+        }
+
+        const planned = events.map((e) => {
+          const params = new URLSearchParams({ TYPE: "calendarEvent", L: leagueId, EVENT_TYPE: e.event_type, START_TIME: String(e.start_unix) });
+          if (e.end_unix != null) params.set("END_TIME", String(e.end_unix));
+          return {
+            field: e.field, event_type: e.event_type, label: e.label, note: e.note,
+            start_at: e.start_at, end_at: e.end_at,
+            start_unix: e.start_unix, end_unix: e.end_unix,
+            url: `https://www48.myfantasyleague.com/${yearArg}/import?${params.toString()}`,
+          };
+        });
+
+        if (!commit) {
+          return jsonOut(200, { ok: true, dryRun: true, league: leagueId, season: yearArg, missing, count: planned.length, events: planned,
+            note: "DRY RUN — nothing written. Re-call with &commit=1 to push to MFL." });
+        }
+
+        // Live write — commissioner cookie required.
+        const mflCookie = String(env.MFL_COOKIE || "").trim();
+        if (!mflCookie) return jsonOut(500, { ok: false, error: "MFL_COOKIE missing" });
+        const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+        const results = [];
+        for (const p of planned) {
+          let ok = false, status = 0, preview = "", err = null;
+          try {
+            const res = await fetch(p.url, {
+              method: "POST",
+              headers: {
+                Cookie: cookieHeader,
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/xml, text/plain, application/xml, */*",
+                "Accept-Encoding": "identity",
+              },
+              redirect: "follow",
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            status = res.status;
+            const text = await res.text();
+            preview = text.slice(0, 400);
+            // MFL import returns <status>OK</status> on success; some events echo the event id.
+            ok = res.ok && !/<error>/i.test(text);
+            const em = /<error>([^<]+)<\/error>/i.exec(text);
+            if (em) err = em[1];
+          } catch (e) { err = e?.message || String(e); }
+          results.push({ field: p.field, event_type: p.event_type, label: p.label, start_at: p.start_at, end_at: p.end_at, ok, status, error: err, preview });
+        }
+        const allOk = results.every((r) => r.ok);
+        return jsonOut(allOk ? 200 : 502, { ok: allOk, dryRun: false, league: leagueId, season: yearArg, missing, written: results.filter((r) => r.ok).length, total: results.length, results });
       }
 
       if (path === "/admin/auction/narrate-simulate" && request.method === "POST") {
@@ -35658,7 +35746,8 @@ export default {
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
         const routing = await getDiscordRoutingConfig(env);
         const featureFlags = await getAllFeatureFlags(env);
-        return jsonOut(200, { ok: true, discord_routing: routing, defaults: DISCORD_ROUTING_DEFAULTS, mechanisms: Object.keys(DISCORD_ROUTING_DEFAULTS), feature_flags: featureFlags });
+        const auctionCalendar = await getAuctionCalendar(env);
+        return jsonOut(200, { ok: true, discord_routing: routing, defaults: DISCORD_ROUTING_DEFAULTS, mechanisms: Object.keys(DISCORD_ROUTING_DEFAULTS), feature_flags: featureFlags, auction_calendar: auctionCalendar, auction_calendar_fields: AUCTION_CAL_FIELDS });
       }
       if (path === "/admin/commish-settings" && request.method === "POST") {
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
@@ -35671,6 +35760,14 @@ export default {
           const ff = await setFeatureFlags(env, csBody.feature_flags);
           if (!ff.ok) return jsonOut(500, ff);
           return jsonOut(200, { ok: true, feature_flags: await getAllFeatureFlags(env) });
+        }
+        // Auction date config (Commish Settings → Auction Calendar). Persisted via
+        // setAuctionCalendar → ups_settings key 'auction_calendar'. The dates are
+        // pushed to MFL separately by POST /admin/auction/push-mfl-calendar.
+        if (csBody && csBody.auction_calendar && typeof csBody.auction_calendar === "object") {
+          const ac = await setAuctionCalendar(env, csBody.auction_calendar);
+          if (!ac.ok) return jsonOut(500, ac);
+          return jsonOut(200, { ok: true, auction_calendar: await getAuctionCalendar(env) });
         }
         const incoming = (csBody && csBody.discord_routing && typeof csBody.discord_routing === "object") ? csBody.discord_routing : {};
         const merged = { ...(await getDiscordRoutingConfig(env)) };
