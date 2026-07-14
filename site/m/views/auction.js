@@ -60,7 +60,16 @@
 
   function toNum(v) { var n = Number(String(v == null ? "" : v).replace(/[^0-9.\-]/g, "")); return isFinite(n) ? n : 0; }
   function usd(v) { var n = toNum(v); return n > 0 ? "$" + Math.round(n).toLocaleString() : "—"; }
-  function usdK(v) { var n = toNum(v); return n > 0 ? "$" + Math.round(n / 1000) + "k" : "—"; }   // compact for tables
+  // Compact for tables. Cap adjustments land on half-thousands ($27,500), and
+  // rounding that to "$28k" overstates funds by $500 and reads as flat wrong to
+  // an owner who knows his real number — so keep one decimal when it isn't whole.
+  function usdK(v) {
+    var n = toNum(v);
+    if (!(n > 0)) return "—";
+    var k = n / 1000;
+    var whole = Math.abs(k - Math.round(k)) < 0.05;
+    return "$" + (whole ? String(Math.round(k)) : k.toFixed(1)) + "k";
+  }
   // Scraped high-bid value may already be "$5,000" or a bare number.
   function money(v) {
     if (v == null || v === "") return "—";

@@ -7,6 +7,7 @@ All content uses plain English (never "Exp$" or model jargon).
 
 import json
 import os
+import re
 import anthropic
 
 MODEL = "claude-opus-4-8"
@@ -167,12 +168,15 @@ items embellishable but never contradicted.
 CLASSIFY_SYSTEM = """\
 Classify this Discord reply to a fantasy football trade roast into exactly one category.
 
-Return ONLY valid JSON with these fields:
-{"category": "VALUE_SIGNAL" | "DATA_ERROR" | "COPE", "details": "brief explanation", "clap_back_warranted": true | false}
+Return ONLY raw JSON. No markdown code fences, no prose before or after.
+{"category": "VALUE_SIGNAL" | "DATA_ERROR" | "COPE" | "OFF_TOPIC", "details": "brief explanation", "clap_back_warranted": true | false}
 
 VALUE_SIGNAL: Person disagrees with a player's value with reasoning. Extract player + direction.
 DATA_ERROR: Person claims a factual error (salary, contract, pick ownership). Extract what's wrong.
-COPE: Person is salty, scared, deflecting, or offering no substance. Clap back warranted.
+COPE: Person is salty, scared, deflecting about THIS trade, or offering no substance. Clap back warranted.
+OFF_TOPIC: The reply is not about this trade at all — it's about the auction, the
+app, scheduling, or general league chatter that merely happened to mention the bot.
+Set clap_back_warranted=false. Do NOT clap back just because you were mentioned.
 """
 
 
@@ -193,6 +197,30 @@ def generate_trade_roast(context_text: str) -> str:
     return message.content[0].text
 
 
+def _extract_json_object(text: str):
+    """Pull the first JSON object out of a model reply.
+
+    The classifier reliably answers with ```json fenced output, which json.loads
+    cannot read. Strip fences, then fall back to the first {...} span.
+    Returns None when nothing parses so the caller can fail closed.
+    """
+    s = (text or "").strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```[a-zA-Z]*\s*", "", s)
+        s = re.sub(r"\s*```$", "", s).strip()
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
+    match = re.search(r"\{.*\}", s, re.S)
+    if not match:
+        return None
+    try:
+        return json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return None
+
+
 def classify_reply(reply_text: str, original_context: str) -> dict:
     """Classify a Discord reply to a roast."""
     client = get_client()
@@ -208,10 +236,14 @@ def classify_reply(reply_text: str, original_context: str) -> dict:
             ),
         }],
     )
-    try:
-        return json.loads(message.content[0].text)
-    except json.JSONDecodeError:
-        return {"category": "COPE", "details": "unparseable", "clap_back_warranted": True}
+    parsed = _extract_json_object(message.content[0].text)
+    if parsed is None:
+        # Fail CLOSED. The old fallback returned clap_back_warranted=True, so any
+        # parse failure became a guaranteed clap-back — and because the model
+        # wraps its answer in ```json fences, parsing failed 100% of the time.
+        # The classifier was never a gate; it was a rubber stamp.
+        return {"category": "UNKNOWN", "details": "unparseable", "clap_back_warranted": False}
+    return parsed
 
 
 def generate_clap_back(reply_text: str, original_context: str,
