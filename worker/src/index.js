@@ -17025,8 +17025,8 @@ export default {
       // Funds. Returns Map<pid, {current_dollars, my_proxy_dollars|null}>.
       const AUCTION_MONEY_CELL_RE = /^\$\s*([0-9][0-9,]*)\s*(?:\(\s*\$\s*([0-9][0-9,]*)\s*\)\s*)?$/;
       const auctionDollarsFromToken = (t) => safeInt(String(t == null ? "" : t).replace(/,/g, ""), 0);
-      const auctionHeaderBidColumnIndex = (html) => {
-        // Scan EVERY row for the header that carries a "Current Bid" cell — a
+      const auctionHeaderColumnIndex = (html, headerRe) => {
+        // Scan EVERY row for the header row that carries a matching cell — a
         // player-search form/table renders ABOVE the lots table, so the FIRST <tr>
         // is frequently not the lots header. Return -1 only when no row has one.
         const src = String(html || "");
@@ -17034,15 +17034,20 @@ export default {
         let rowMatch;
         while ((rowMatch = rowRe.exec(src))) {
           const cells = [...rowMatch[1].matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((m) => stripHtml(m[1]));
-          const idx = cells.findIndex((c) => /current\s*bid/i.test(c));
+          const idx = cells.findIndex((c) => headerRe.test(c));
           if (idx >= 0) return idx;
         }
         return -1;
       };
+      const auctionHeaderBidColumnIndex = (html) => auctionHeaderColumnIndex(html, /current\s*bid/i);
       const parseAuctionLotCells = (html) => {
         const out = new Map();
         const src = String(html || "");
         const bidColIndex = auctionHeaderBidColumnIndex(src);
+        // "Time Left" is MFL's OWN live countdown (e.g. "17 hours, 27 minutes"). It
+        // is the authoritative lock clock — recomputing from bid timestamps resets
+        // on a forced increase, which MFL does NOT do, so our timer over-stated.
+        const timeColIndex = auctionHeaderColumnIndex(src, /time\s*left/i);
         const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
         let rowMatch;
         while ((rowMatch = rowRe.exec(src))) {
@@ -17068,11 +17073,23 @@ export default {
             if (hits.length === 1) parsed = hits[0];
           }
           if (!parsed) continue;
+          // MFL's own countdown for this lot. Parsed only from the "Time Left"
+          // column (never a date cell); "Locked"/blank/unparseable ⇒ null, so the
+          // caller keeps its own value rather than trusting a bad read.
+          let timeLeftSeconds = null;
+          if (timeColIndex >= 0 && timeColIndex < cells.length) {
+            const raw = cells[timeColIndex];
+            if (/\d/.test(raw)) {
+              const secs = parseDurationSeconds(raw);
+              if (secs != null && secs >= 0) timeLeftSeconds = secs;
+            }
+          }
           out.set(pid, {
             current_dollars: auctionDollarsFromToken(parsed[1]),
             // Proxy absent ⇒ null (viewer doesn't lead), NEVER 0 — 0 would silently
             // understate the viewer's committed funds downstream.
             my_proxy_dollars: parsed[2] != null ? auctionDollarsFromToken(parsed[2]) : null,
+            time_left_seconds: timeLeftSeconds,
           });
         }
         return out;
@@ -18369,6 +18386,17 @@ export default {
                 next.high_bid_amount = hit.current_dollars;
               }
               if (hit.my_proxy_dollars != null) next.your_proxy_bid_amount = hit.my_proxy_dollars;
+              // MFL's own "Time Left" is authoritative — our D1 lock recomputes
+              // from bid timestamps and resets on a forced increase (which MFL
+              // does NOT), so it can over-state. When the page gives a time, use
+              // it verbatim for the countdown + lock.
+              if (hit.time_left_seconds != null) {
+                const nowUnix = Math.floor(Date.now() / 1000);
+                next.timer_seconds = hit.time_left_seconds;
+                next.seconds_remaining = hit.time_left_seconds;
+                next.locks_at_unix = nowUnix + hit.time_left_seconds;
+                if (typeof formatLockCountdown === "function") next.timer_text = formatLockCountdown(hit.time_left_seconds);
+              }
               return next;
             });
           }

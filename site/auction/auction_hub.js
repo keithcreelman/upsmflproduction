@@ -223,7 +223,15 @@
   function openBidModal(opts) {
     if (!_canBidInApp()) { window.open(mflBidUrl(opts.player_id), "_blank", "noopener"); return; }
     const highK = Number(opts.high_k) || 0;
-    const minK = highK + 1;
+    // If YOU already lead this lot, MFL shows you your proxy (max). Submitting a
+    // value at/below that max doesn't out-bid anyone — MFL treats it as a max
+    // REDUCTION and lowers your proxy (this silently dropped a $42K Burrow max to
+    // $7K). So when you lead, the floor is your OWN max + 1: a bid can only ever
+    // RAISE it, never lower it. When you don't lead it's the current high + 1.
+    const _ov = _overlaidLot(opts.player_id);
+    const myProxyK = (_ov && _ov.your_proxy_bid_amount != null) ? Math.round(Number(_ov.your_proxy_bid_amount) / 1000) : 0;
+    const iLead = myProxyK > 0;
+    const minK = iLead ? Math.max(highK + 1, myProxyK + 1) : (highK + 1);
     closeBidModal();
     const deepLink = mflBidUrl(opts.player_id);
     const html =
@@ -233,7 +241,9 @@
             '<div class="ah-bid-title">Bid — ' + escapeHtml(opts.player_name || ("Player #" + opts.player_id)) + '</div>' +
             '<button type="button" class="ah-bid-close" id="ah-bid-close" aria-label="Close">×</button>' +
           '</div>' +
-          '<div class="ah-bid-sub">' + (highK > 0 ? "High " + fmtK(highK) : "No bids yet") + '</div>' +
+          '<div class="ah-bid-sub">' + (iLead
+              ? "You lead · your max " + fmtK(myProxyK) + " — a new bid must raise it (can't lower)"
+              : (highK > 0 ? "High " + fmtK(highK) : "No bids yet")) + '</div>' +
           '<label class="ah-bid-lbl" for="ah-bid-amt">Your max bid ($K)</label>' +
           '<div class="ah-bid-input">' +
             '<button type="button" class="btn small secondary ah-bid-step" data-step="-1" aria-label="Lower bid">−</button>' +
@@ -414,17 +424,37 @@
     ]);
     paint();
 
-    // Auto-refresh the live data every 30s, then repaint the active view.
-    // A commish ERA/FAA flip reflects without a reload (banner + KPIs read
-    // the switch state from STATE.lots).
-    setInterval(async () => {
-      const jobs = [loadLots(), loadFa()];
-      // Self-heal the once-loaded bid history if it failed at boot (its catch
-      // leaves STATE undefined); keep it fresh so the Tracker audit updates.
-      jobs.push(loadBidHistory());
-      await Promise.all(jobs);
-      paint();
-    }, 30000);
+    // Adaptive auto-refresh: normally every 30s, but 15s whenever any open lot is
+    // in its final 15 minutes — "can't have anyone miss out on a timing difference"
+    // (Keith). Self-rescheduling (not setInterval) so the cadence is recomputed
+    // from freshly-loaded lots each tick, and so two refreshes never overlap.
+    const REFRESH_FAST_MS = 15000, REFRESH_SLOW_MS = 30000, FINAL_WINDOW_SEC = 900;
+    function nextRefreshMs() {
+      const lots = (STATE.lots && STATE.lots.lots) || [];
+      let minLeft = Infinity;
+      for (const l of lots) {
+        if (l.status !== "open") continue;
+        // Prefer MFL's overlaid countdown over D1's (which can over-state via a
+        // forced-increase reset) so we speed up when the REAL clock is short.
+        const ov = _overlaidLot(l.player_id);
+        const s = (ov && Number.isFinite(Number(ov.seconds_remaining)))
+          ? Number(ov.seconds_remaining) : Number(l.seconds_remaining);
+        if (isFinite(s) && s > 0 && s < minLeft) minLeft = s;
+      }
+      return minLeft <= FINAL_WINDOW_SEC ? REFRESH_FAST_MS : REFRESH_SLOW_MS;
+    }
+    async function refreshTick() {
+      try {
+        // Self-heal the once-loaded bid history if it failed at boot.
+        await Promise.all([loadLots(), loadFa(), loadBidHistory()]);
+        paint();
+      } catch (e) {
+        console.error("[auction-hub] refresh tick failed:", e);
+      } finally {
+        setTimeout(refreshTick, nextRefreshMs());
+      }
+    }
+    setTimeout(refreshTick, nextRefreshMs());
 
     // And tick the time-remaining countdowns every second.
     setInterval(updateNominationCountdowns, 1000);
@@ -1440,6 +1470,16 @@
     const summary = $("#fa-pool-summary");
     const adpMap = STATE.faAdp || {};
     rows = (rows || []).slice();
+    // Drop players who are ALREADY an open lot — you can't nominate an active
+    // auction, so showing them here with a "Nominate" button is misleading. They
+    // live on the Lots tab (bid there). Recomputed each render so a player
+    // reappears if their lot closes without a winner. Keyed by player_id (string).
+    const openLotIds = new Set(
+      ((STATE.lots && STATE.lots.lots) || [])
+        .filter((l) => l.status === "open")
+        .map((l) => String(l.player_id))
+    );
+    if (openLotIds.size) rows = rows.filter((r) => !openLotIds.has(String(r.player_id || r.id)));
     // (re)populate the NFL-team dropdown from the pool, preserving the current selection
     const teamSel = $("#fapool-team");
     if (teamSel) {
@@ -2362,6 +2402,12 @@
       const freshProxyK = (ov && ov.your_proxy_bid_amount != null)
         ? Math.round(Number(ov.your_proxy_bid_amount) / 1000)
         : (Number(l.your_proxy_bid_k) || 0);
+      // Prefer MFL's own countdown (overlaid from O=43) over D1's lock, which
+      // recomputes from bid timestamps and resets on a forced increase — MFL
+      // doesn't, so D1 can over-state and someone could miss the real lock.
+      const freshSeconds = (ov && Number.isFinite(Number(ov.seconds_remaining)))
+        ? Number(ov.seconds_remaining) : (Number(l.seconds_remaining) || 0);
+      const freshLocksAt = (ov && Number(ov.locks_at_unix)) ? Number(ov.locks_at_unix) : l.locks_at_unix;
       const proxyCell = (viewerFid && freshProxyK)
         ? `${fmtK(freshProxyK)}`
         : `<span class="small" style="color:var(--muted)">—</span>`;
@@ -2384,7 +2430,7 @@
           <td>${escapeHtml(l.current_high_bidder_name || franchiseName(l.current_high_bidder_fid))}</td>
           <td class="num col-md">${l.bid_count}</td>
           <td class="num col-md">${l.unique_bidder_count}</td>
-          <td class="ah-countdown" data-locks-at="${l.locks_at_unix}">${isWon ? "—" : formatCountdown(l.seconds_remaining)}</td>
+          <td class="ah-countdown" data-locks-at="${freshLocksAt}">${isWon ? "—" : formatCountdown(freshSeconds)}</td>
           <td class="col-md num">${proxyCell}</td>
           <td>${actionCell}</td>
         </tr>`;
