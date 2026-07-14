@@ -1413,10 +1413,15 @@ async function resolveFranchiseMentions(env, fids) {
 // and processAuctionPoll's lock recompute self-heals on the next tick).
 // Matched on season only (not league) so test-league replays of real players
 // still classify correctly.
-async function loadEraPlayerIds(env, season, playerIds) {
+// outFlags (optional): if provided, outFlags.ok is set false when the lookup
+// could NOT run (missing DB binding or a query threw). Callers that populate a
+// client-facing is_era_eligible flag use this to emit null (→ let the client
+// fall back to current-pool membership) instead of a misleading false.
+async function loadEraPlayerIds(env, season, playerIds, outFlags) {
   const out = new Set();
   const list = [...new Set((playerIds || []).map((p) => String(p || "").trim()).filter(Boolean))];
-  if (!env?.UPS_MFL_DB || list.length === 0) return out;
+  if (list.length === 0) return out;            // no lots to classify — not a failure
+  if (!env?.UPS_MFL_DB) { if (outFlags) outFlags.ok = false; return out; }
   // D1 caps bound parameters at 100 per query. A poll can carry up to the
   // 100-lot cap, and season eats a slot — so chunk at 90 rather than let the
   // whole lookup throw (which would fail-soft to "every lot is FAA" and put a
@@ -1434,6 +1439,7 @@ async function loadEraPlayerIds(env, season, playerIds) {
         if (pid) out.add(pid);
       }
     } catch (e) {
+      if (outFlags) outFlags.ok = false;
       console.log("[auction-narrator] era-pool lookup failed (assuming FAA):", String(e?.message || e));
     }
   }
@@ -5084,19 +5090,16 @@ export default {
             }
           }
 
-          // Cross-check against ERA-eligible list (rookies with cy=0
-          // on active rosters). Lightweight check via D1 — no need to
-          // re-derive eligibility, just see if any of our lots
-          // intersect with the current rookie pool.
-          // For now: a lot is "era_eligible" if the player has an
-          // active Rookie contract with cy=0 OR has a recent rookie
-          // expiry event. Since deriving that here means re-running
-          // the full era-eligible logic, a cheaper proxy: flag
-          // is_era_eligible=false for any player we have no rookie
-          // history of (will surface "TEST" badge in the UI).
-          // Deferred to a separate cross-reference — for now ALL lots
-          // get is_era_eligible=null (unknown) so the UI shows them
-          // neutrally. Phase 5 can add the proper flag.
+          // ERA classification: membership in ups_era_pool, the SEASON-PERSISTENT
+          // snapshot — a WON ERA player is no longer in the *current* eligible
+          // pool but is still in this table, so won ERA lots classify correctly
+          // (the KPI used to leak them into FAA). One batched D1 lookup
+          // (chunked at 90 inside). playerIds is already deduped above.
+          // eraLookup.ok goes false iff the lookup couldn't run — then we ship
+          // is_era_eligible:null so the client falls back to pool membership
+          // (a false would wrongly pin open ERA lots to FAA).
+          const eraLookup = { ok: true };
+          const eraLotIds = await loadEraPlayerIds(env, year, playerIds, eraLookup);
 
           const enriched = (lots || []).map((l) => {
             const meta = pidMeta[l.player_id] || {};
@@ -5125,9 +5128,10 @@ export default {
               unique_bidder_count: l.unique_bidder_count,
               // Private — only populated when viewer is the bidder.
               your_proxy_bid_k: proxiesByPid[l.player_id] || null,
-              // ERA-eligibility flag: null = unknown (Phase 5 will
-              // populate this from the live era-eligible list).
-              is_era_eligible: null,
+              // ERA-eligibility flag: true iff the player is in ups_era_pool
+              // (season-persistent — includes already-won ERA players). null when
+              // the pool lookup failed, so the client uses its pool fallback.
+              is_era_eligible: eraLookup.ok ? eraLotIds.has(String(l.player_id)) : null,
             };
           });
 
