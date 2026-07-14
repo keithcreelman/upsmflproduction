@@ -9,6 +9,7 @@
 <!-- build 2026.07.13.3 — Auction Dates simplified to roster cut/lock date only (WAIVER_LOCK); commit gated by franchise_id (no key prompt) -->
 <!-- build 2026.07.13.4 — Auction Dates = open + close → one AUCTION_START event (dropped roster cut/waiver lock) -->
 <!-- build 2026.07.14.1 — +cut deadline (CUSTOM marker) alongside auction open + close -->
+<!-- build 2026.07.14.2 — "Update League Calendar": Trade/Rookie/ERA/FAA → MFL (correct types incl WAIVER_NONE) + D1 league_events (mobile sync) -->
 
 <style>
   :root {
@@ -390,7 +391,7 @@
   var TABS = [
     { key: "mfl", label: "MFL Settings" },
     { key: "warroom", label: "🔨 Auction War Room" },
-    { key: "auctioncal", label: "🗓️ Auction Dates → MFL" },
+    { key: "auctioncal", label: "🗓️ Update League Calendar" },
     { key: "discord", label: "Discord Routing" },
     { key: "killswitches", label: "Kill Switches" },
     { key: "revert", label: "Contract Revert" },
@@ -1785,37 +1786,60 @@
         previewHtml = '<div class="fo-card" style="border-color:#c0392b;"><strong style="color:#c0392b;">Preview error:</strong> ' + acEsc(p.error) +
           (p.missing && p.missing.length ? '<br><span class="small">Missing dates: ' + acEsc(p.missing.join(", ")) + "</span>" : "") + "</div>";
       } else {
-        var rows = (p.events || p.results || []).map(function (e) {
-          var okCell = (p.dryRun ? '<span class="small" style="color:var(--muted);">will write</span>'
-            : (e.ok ? '<span style="color:#1f8a4c;">✔ written</span>' : '<span style="color:#c0392b;">✗ ' + acEsc(e.error || ("HTTP " + e.status)) + "</span>"));
+        // MFL calendar rows: dryRun uses p.events (with already_exists); commit uses p.mfl.results.
+        var mflList = p.dryRun ? (p.events || []) : ((p.mfl && p.mfl.results) || []);
+        var mflRows = mflList.map(function (e) {
+          var status = p.dryRun
+            ? (e.already_exists ? '<span class="small" style="color:var(--muted);">already on MFL ✓</span>' : '<span style="color:#1f8a4c;">will add</span>')
+            : (e.skipped ? '<span class="small" style="color:var(--muted);">already there — skipped</span>'
+               : (e.ok ? '<span style="color:#1f8a4c;">✔ written</span>' : '<span style="color:#c0392b;">✗ ' + acEsc(e.error || ("HTTP " + e.status)) + "</span>"));
           return '<tr><td><strong>' + acEsc(e.event_type) + '</strong><br><span class="small" style="color:var(--muted);">' + acEsc(e.label) + "</span></td>" +
-            "<td>" + acEsc(e.start_at || "") + (e.end_at ? " → " + acEsc(e.end_at) : "") + "</td>" +
-            "<td>" + okCell + "</td></tr>";
+            "<td>" + acEsc(e.start_at || "") + (e.end_at ? " → " + acEsc(e.end_at) : "") + "</td><td>" + status + "</td></tr>";
         }).join("");
-        previewHtml = '<div class="fo-card"><div class="fo-card-head"><h3>' + (p.dryRun ? "Preview" : "Push result") + " · " +
-          acEsc(p.league) + " · " + acEsc(p.season) + "</h3></div>" +
-          (p.dryRun ? '<p class="fo-row-hint">These are the exact MFL calendar events that <em>would</em> be written. Nothing has been sent yet.</p>'
-            : '<p class="fo-row-hint">' + (p.ok ? "✅ All events written to MFL." : "⚠️ Some events failed — see below.") + " (" + acEsc(p.written != null ? p.written : 0) + "/" + acEsc(p.total != null ? p.total : (p.results || []).length) + ")</p>") +
-          '<table class="fo-table"><thead><tr><th>MFL event</th><th>When (ET)</th><th>Status</th></tr></thead><tbody>' + rows + "</tbody></table>" +
-          (p.missing && p.missing.length ? '<p class="small" style="color:#b8860b;">Not set (skipped): ' + acEsc(p.missing.join(", ")) + "</p>" : "") + "</div>";
+        // App calendar (D1 league_events) rows.
+        var appList = p.dryRun ? (p.league_events || []) : ((p.app_calendar && p.app_calendar.results) || []);
+        var appRows = appList.map(function (r) {
+          var status = p.dryRun ? '<span style="color:#1f8a4c;">will sync</span>'
+            : (r.ok ? '<span style="color:#1f8a4c;">✔ synced</span>' : '<span style="color:#c0392b;">✗ ' + acEsc(r.error || "") + "</span>");
+          return "<tr><td><strong>" + acEsc(r.event) + "</strong></td><td>" + acEsc(r.date || "") + "</td><td>" + status + "</td></tr>";
+        }).join("");
+        var head = p.dryRun ? "Preview" : "Push result";
+        var okMsg = p.dryRun ? "" : (p.ok ? '<p class="fo-row-hint">✅ Written to MFL + the app calendar (mobile / FO / team ops).</p>' : '<p class="fo-row-hint" style="color:#c0392b;">⚠️ Some writes failed — see below.</p>');
+        var staleHtml = (p.stale && p.stale.length)
+          ? '<div class="fo-card" style="border-color:#b8860b;"><strong style="color:#b8860b;">⚠️ Stale MFL events (' + p.stale.length + ')</strong>' +
+            '<p class="small">MFL\'s API can\'t delete calendar events. These managed-type events sit at dates that no longer match your config — remove them by hand on the ' +
+            '<a href="' + acEsc(p.manage_url || "#") + '" target="_blank" rel="noopener">MFL calendar page</a>:</p>' +
+            '<ul class="small" style="margin:4px 0 0 18px;">' + p.stale.map(function (s) {
+              var d = s.start_unix ? new Date(s.start_unix * 1000).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+              return "<li>" + acEsc(s.event_type) + (s.title ? " — " + acEsc(s.title) : "") + " @ " + acEsc(d) + "</li>";
+            }).join("") + "</ul></div>"
+          : "";
+        previewHtml =
+          '<div class="fo-card"><div class="fo-card-head"><h3>' + head + " · " + acEsc(p.league) + " · " + acEsc(p.season) + "</h3></div>" +
+          okMsg +
+          (mflRows ? '<p class="fo-row-hint" style="margin-bottom:2px;"><strong>MFL calendar</strong></p><table class="fo-table"><thead><tr><th>MFL event</th><th>When (ET)</th><th>Status</th></tr></thead><tbody>' + mflRows + "</tbody></table>" : "") +
+          (appRows ? '<p class="fo-row-hint" style="margin:12px 0 2px;"><strong>App calendar</strong> <span class="small" style="color:var(--muted);">(mobile · FO · team ops — always overwrites cleanly)</span></p><table class="fo-table"><thead><tr><th>Event</th><th>Date</th><th>Status</th></tr></thead><tbody>' + appRows + "</tbody></table>" : "") +
+          (p.missing && p.missing.length ? '<p class="small" style="color:#b8860b;margin-top:8px;">Not set (skipped): ' + acEsc(p.missing.join(", ")) + "</p>" : "") +
+          (p.has_cookie === false ? '<p class="small" style="color:#c0392b;">⚠️ MFL_COOKIE not set on the worker — MFL writes will fail (app calendar still syncs).</p>' : "") +
+          "</div>" + staleHtml;
       }
     }
 
     host.innerHTML =
-      '<div class="fo-card"><div class="fo-card-head"><h3>Auction Dates → MFL</h3>' +
+      '<div class="fo-card"><div class="fo-card-head"><h3>Update League Calendar</h3>' +
         '<span class="small" style="color:var(--muted);">saved ' + acEsc(savedAt) + "</span></div>" +
-      '<p class="fo-row-hint">💡 Set the <strong>cut deadline</strong> + <strong>auction open &amp; close</strong> dates (ET) and push them into MFL — cut deadline is a <code>CUSTOM</code> marker, open+close become one <code>AUCTION_START</code> event (open = START, close = END). <strong>Auction rules</strong> (cap / roster limits / format) can\'t be set via API — see the <a href="https://github.com/keithcreelman/upsmflproduction/blob/main/docs/auction/mfl_auction_setup_runbook.md" target="_blank" rel="noopener">manual runbook</a>.</p>' +
+      '<p class="fo-row-hint">💡 Set the league\'s key dates (ET) once, then push them everywhere. Writes to <strong>MFL\'s calendar</strong> (Trade&nbsp;Deadline, Rookie&nbsp;Draft, ERA + FA&nbsp;Auction as <code>AUCTION_START</code>, and a <code>WAIVER_NONE</code> "No Add/Drops" span over the FA&nbsp;Auction) <strong>and the app calendar</strong> (mobile · Front&nbsp;Office · team&nbsp;ops). <strong>Auction rules</strong> (cap / roster / format) can\'t be set via API — see the <a href="https://github.com/keithcreelman/upsmflproduction/blob/main/docs/auction/mfl_auction_setup_runbook.md" target="_blank" rel="noopener">runbook</a>.</p>' +
       '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;"><strong>Season</strong>' +
         '<input type="text" id="ac-season" value="' + acEsc(AC.cfg.season) + '" style="width:90px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--panel-alt);color:var(--text);"></div>' +
       dateRows +
       '<div style="margin-top:14px;"><button type="button" id="ac-save" class="fo-btn" style="padding:8px 20px;">💾 Save dates</button></div></div>' +
 
-      '<div class="fo-card"><div class="fo-card-head"><h3>Push to MFL calendar</h3></div>' +
+      '<div class="fo-card"><div class="fo-card-head"><h3>Push to MFL + app calendar</h3></div>' +
       '<p class="fo-row-hint">Target league: <span style="display:inline-flex;vertical-align:middle;">' + targetSeg + '</span>' +
         (isTest ? ' <span class="small" style="color:#b8860b;">— safe: writes to the test league only.</span>' : ' <span class="small" style="color:#c0392b;">— LIVE: writes to the real league calendar.</span>') + "</p>" +
       '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
-        '<button type="button" id="ac-preview" class="fo-btn" style="padding:8px 20px;">🔍 Preview → MFL</button>' +
-        '<button type="button" id="ac-push" class="fo-btn" style="padding:8px 20px;background:' + (isTest ? "#b8860b" : "#c0392b") + ';color:#fff;">📤 Push to MFL' + (isTest ? " (test)" : " (LIVE)") + "</button>" +
+        '<button type="button" id="ac-preview" class="fo-btn" style="padding:8px 20px;">🔍 Preview</button>' +
+        '<button type="button" id="ac-push" class="fo-btn" style="padding:8px 20px;background:' + (isTest ? "#b8860b" : "#c0392b") + ';color:#fff;">📤 Push' + (isTest ? " (test)" : " (LIVE)") + "</button>" +
         '<a class="fo-btn" href="https://' + acEsc(HOST) + "/" + acEsc(YEAR) + "/options?L=" + acEsc(AC.pushTarget) + '&O=110" target="_blank" rel="noopener" style="padding:8px 20px;text-decoration:none;">↗ MFL calendar</a>' +
       "</div></div>" + previewHtml;
 
@@ -1825,7 +1849,7 @@
       $$("[data-acf]", host).forEach(function (inp) { faaUpd[inp.getAttribute("data-acf")] = inp.value || ""; });
       var season = (document.getElementById("ac-season") || {}).value || YEAR;
       postJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L), { auction_calendar: { season: season, faa: faaUpd } })
-        .then(function (r) { AC.cfg = (r && r.auction_calendar) || AC.cfg; AC.preview = null; toast("Auction dates saved", "ok"); paintAuctionCalendar(host); })
+        .then(function (r) { AC.cfg = (r && r.auction_calendar) || AC.cfg; AC.preview = null; toast("League dates saved", "ok"); paintAuctionCalendar(host); })
         .catch(function (e) { toast("Save failed: " + (e.message || String(e)), "err"); });
     });
     // Target toggle
@@ -1841,7 +1865,7 @@
     // Push (commit — commish-gated by franchise_id, passed automatically; no key to type)
     document.getElementById("ac-push").addEventListener("click", function () {
       var live = AC.pushTarget === "74598";
-      if (live && !window.confirm("Write the cut deadline + auction open/close dates to the REAL league (74598) MFL calendar now?")) return;
+      if (live && !window.confirm("Write these dates to the REAL league (74598) — MFL calendar + the app calendar — now?")) return;
       var u = apiUrl("/admin/auction/push-mfl-calendar") + "?L=" + encodeURIComponent(AC.pushTarget) + "&YEAR=" + encodeURIComponent(AC.cfg.season || YEAR) + "&commit=1&franchise_id=0008";
       postJSON(u, {}).then(function (r) { AC.preview = r; toast(r.ok ? "Pushed to MFL ✔" : "Push had errors", r.ok ? "ok" : "err"); paintAuctionCalendar(host); })
         .catch(function (e) { AC.preview = { error: e.message || String(e) }; toast("Push failed: " + (e.message || String(e)), "err"); paintAuctionCalendar(host); });

@@ -8,7 +8,7 @@ import {
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline } from "./trade_dm.js";
 import { create3WayTrade, list3WayForFranchise, cancel3WayTrade } from "./trade_3way.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
-import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents } from "./auction_calendar.js";
+import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar } from "./auction_calendar.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 
 const acquisitionLiveMemoryCache = new Map();
@@ -4096,24 +4096,25 @@ export default {
 
       // POST /admin/auction/push-mfl-calendar — write the commish-configured FA
       // Auction dates (ups_settings 'auction_calendar') into MFL's league
-      // calendar via import?TYPE=calendarEvent. Commissioner-authed MFL write
-      // (reuses the MFL_COOKIE pattern from finalizeEraContracts). Dates are the
-      // full §A2 timeline (roster lock / cutdown / open+close). Auction *rules*
-      // (cap/roster/format) are NOT API-settable — see the runbook.
-      //   ?dryRun=1 (DEFAULT) → returns the exact events + payloads, writes nothing.
-      //   ?commit=1           → actually POSTs to MFL.
-      //   ?L=25625            → target the test league (default 74598).
+      // "Update League Calendar" — one commish-editable config (D1 ups_settings
+      // 'auction_calendar') pushed to BOTH (a) MFL's league calendar via
+      // import?TYPE=calendarEvent and (b) our D1 league_events table (what the
+      // mobile app + FO + team_ops read via /api/league-events). Keeps the
+      // calendar in sync everywhere.
+      //   MFL event types: TRADE, DRAFT_START, AUCTION_START (open→close),
+      //     WAIVER_NONE ("No Add/Drops Allowed", FAA open→close).
+      //   ?dryRun (DEFAULT) → returns the plan + before/after, writes nothing.
+      //   ?commit=1         → writes to MFL + D1. Commish-only (?franchise_id=).
+      //   ?L=25625          → target the test league (default 74598).
+      // MFL's API has NO calendar delete/update — the D1 side is idempotent
+      // (upsert); the MFL side skips exact-duplicates and flags stale events
+      // with a manage link (delete is web-UI only).
       if (path === "/admin/auction/push-mfl-calendar" && request.method === "POST") {
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
         const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
         const leagueId = String(url.searchParams.get("L") || "74598");
         const commit = String(url.searchParams.get("commit") || "") === "1";
 
-        // Preview (dryRun) writes nothing. The COMMIT is a commish-only action —
-        // gated by the same soft commish-franchise check the War Room intel
-        // endpoints use (?franchise_id= ∈ commish fids), which the UI passes
-        // automatically. No key to type. (An APIKEY is also accepted for
-        // scripting / the test-sync flow.)
         if (commit) {
           const _pad4 = (v) => { const s = safeStr(v).trim(); return /^\d+$/.test(s) ? s.padStart(4, "0") : s; };
           const reqFid = _pad4(url.searchParams.get("franchise_id") || "");
@@ -4126,95 +4127,117 @@ export default {
 
         const cfg = await getAuctionCalendar(env);
         const { events, missing } = buildCalendarEvents(cfg);
+        const { rows: leagueRows, season: leagueSeason } = buildLeagueEventRows(cfg, yearArg);
+        const MANAGED_TYPES = ["TRADE", "DRAFT_START", "AUCTION_START", "WAIVER_NONE"];
 
-        // Read the CURRENT MFL calendar for before/after + to detect existing
-        // events (MFL's calendarEvent import has no delete/update). Reads go to
-        // the API host (api.myfantasyleague.com), not the www## write shard, and
-        // MFL accepts APIKEY auth (per its error text) — cookie as backup.
-        // Best-effort; on parse failure we surface the raw text for diagnosis.
-        let currentCalendar = null, calDebug = null;
+        // Read the CURRENT MFL calendar (api host, APIKEY + cookie) for before/
+        // after + duplicate detection. Best-effort.
+        let currentCalendar = null;
+        const hasCookie = !!String(env.MFL_COOKIE || "").trim();
+        const hasApiKey = !!String(env.MFL_APIKEY || "").trim();
         {
           const _ck = String(env.MFL_COOKIE || "").trim();
           const _hdr = { "User-Agent": "upsmflproduction-worker", "Accept": "application/json, text/xml, */*" };
           if (_ck) _hdr.Cookie = _ck.includes("=") ? _ck : `MFL_USER_ID=${_ck}`;
           const _qs = new URLSearchParams({ TYPE: "calendar", L: leagueId, JSON: "1", _: String(Date.now()) });
-          const _apiKey = String(env.MFL_APIKEY || "").trim();
-          if (_apiKey) _qs.set("APIKEY", _apiKey);
+          if (hasApiKey) _qs.set("APIKEY", String(env.MFL_APIKEY || "").trim());
           try {
             const calRes = await fetch(`https://api.myfantasyleague.com/${yearArg}/export?${_qs.toString()}`, { headers: _hdr, cf: { cacheTtl: 0, cacheEverything: false } });
             const _txt = await calRes.text();
-            try { currentCalendar = JSON.parse(_txt); } catch (_) { calDebug = { status: calRes.status, preview: _txt.slice(0, 500) }; }
-          } catch (e) { calDebug = { error: String(e?.message || e) }; }
-          // DIAG: fetch the O=110 calendar-management page to learn the Delete/Edit
-          // form (MFL API has no calendar delete — the web form is the only path).
-          if (String(url.searchParams.get("probe_delete") || "") === "1" && _ck) {
-            try {
-              const pg = await fetch(`https://www48.myfantasyleague.com/${yearArg}/options?L=${encodeURIComponent(leagueId)}&O=110`, { headers: _hdr, cf: { cacheTtl: 0, cacheEverything: false } });
-              const html = await pg.text();
-              const hrefs = (html.match(/href=["'][^"']*(?:calendar|O=110|[Dd]elete|[Ee]dit)[^"']*["']/g) || []).slice(0, 20);
-              const forms = (html.match(/<form[^>]*>/gi) || []).slice(0, 6);
-              const delLinks = (html.match(/[^\s"'<>]*(?:elete)[^\s"'<>]*/g) || []).slice(0, 20);
-              calDebug = Object.assign({}, calDebug, { probe_status: pg.status, hrefs, forms, delLinks, html_len: html.length });
-            } catch (e) { calDebug = Object.assign({}, calDebug, { probe_err: String(e?.message || e) }); }
-          }
+            try { currentCalendar = JSON.parse(_txt); } catch (_) { currentCalendar = null; }
+          } catch (_) { currentCalendar = null; }
         }
+        const existing = normalizeMflCalendar(currentCalendar);
+        const matchExisting = (type, startUnix) => existing.find((x) => x.event_type === type && x.start_unix != null && Math.abs(x.start_unix - startUnix) <= 120);
 
-        // Guard: any event with an unparseable date is a hard stop (don't half-write).
         const badDates = events.filter((e) => e.start_unix == null || (e.end_at && e.end_unix == null));
-        if (!events.length) {
-          return jsonOut(400, { ok: false, error: "no auction dates configured", missing, current_calendar: currentCalendar, hint: "Set dates in Commish Settings → Auction Calendar first." });
+        if (!events.length && !leagueRows.length) {
+          return jsonOut(400, { ok: false, error: "no dates configured", missing, hint: "Set dates in Commish Settings → Update League Calendar first." });
         }
         if (badDates.length) {
           return jsonOut(400, { ok: false, error: "unparseable date(s)", bad: badDates.map((e) => ({ field: e.field, start_at: e.start_at, end_at: e.end_at })) });
         }
 
+        // Plan each MFL event; mark whether it already exists (idempotent skip).
         const planned = events.map((e) => {
           const params = new URLSearchParams({ TYPE: "calendarEvent", L: leagueId, EVENT_TYPE: e.event_type, START_TIME: String(e.start_unix) });
           if (e.end_unix != null) params.set("END_TIME", String(e.end_unix));
+          const dup = matchExisting(e.event_type, e.start_unix);
           return {
             field: e.field, event_type: e.event_type, label: e.label, note: e.note,
-            start_at: e.start_at, end_at: e.end_at,
-            start_unix: e.start_unix, end_unix: e.end_unix,
+            start_at: e.start_at, end_at: e.end_at, start_unix: e.start_unix, end_unix: e.end_unix,
+            already_exists: !!dup,
             url: `https://www48.myfantasyleague.com/${yearArg}/import?${params.toString()}`,
           };
         });
+        // Stale = existing managed-type events NOT matching any planned event (a
+        // prior push at an old date). MFL API can't delete them — surface for
+        // manual removal via the calendar page.
+        const plannedKeys = new Set(planned.map((p) => `${p.event_type}:${p.start_unix}`));
+        const stale = existing
+          .filter((x) => MANAGED_TYPES.includes(x.event_type) && x.start_unix != null)
+          .filter((x) => !planned.some((p) => p.event_type === x.event_type && Math.abs(p.start_unix - x.start_unix) <= 120))
+          .map((x) => ({ id: x.id, event_type: x.event_type, title: x.title, start_unix: x.start_unix, end_unix: x.end_unix }));
+        void plannedKeys;
+        const manageUrl = `https://www48.myfantasyleague.com/${yearArg}/options?L=${encodeURIComponent(leagueId)}&O=110`;
 
         if (!commit) {
-          return jsonOut(200, { ok: true, dryRun: true, league: leagueId, season: yearArg, missing, count: planned.length, events: planned, current_calendar: currentCalendar, cal_debug: calDebug,
-            note: "DRY RUN — nothing written. Re-call with &commit=1 to push to MFL." });
+          return jsonOut(200, { ok: true, dryRun: true, league: leagueId, season: yearArg,
+            missing, count: planned.length, events: planned, league_events: leagueRows,
+            existing, stale, manage_url: manageUrl, has_cookie: hasCookie, has_apikey: hasApiKey,
+            note: "DRY RUN — nothing written. Re-call with &commit=1 to write to MFL + the app calendar." });
         }
 
-        // Live write — commissioner cookie required.
+        // ── COMMIT ──
+        // (1) D1 league_events upsert — the app's source of truth (idempotent).
+        const d1Results = [];
+        try {
+          await env.UPS_MFL_DB.prepare(
+            "CREATE TABLE IF NOT EXISTS league_events (event TEXT NOT NULL, date TEXT NOT NULL, nfl_season TEXT NOT NULL, description TEXT, source TEXT DEFAULT 'commish:update-league-calendar', created_at_utc TEXT DEFAULT (datetime('now')), PRIMARY KEY (event, nfl_season))"
+          ).run();
+          for (const r of leagueRows) {
+            try {
+              await env.UPS_MFL_DB.prepare(
+                "INSERT INTO league_events (event, date, nfl_season, description, source) VALUES (?, ?, ?, ?, 'commish:update-league-calendar') ON CONFLICT(event, nfl_season) DO UPDATE SET date=excluded.date, description=excluded.description, source=excluded.source"
+              ).bind(r.event, r.date, r.nfl_season, r.description || null).run();
+              d1Results.push({ event: r.event, date: r.date, ok: true });
+            } catch (e) { d1Results.push({ event: r.event, date: r.date, ok: false, error: String(e?.message || e) }); }
+          }
+        } catch (e) { d1Results.push({ ok: false, error: "table: " + String(e?.message || e) }); }
+
+        // (2) MFL calendar — write only NEW events (skip exact-duplicates).
         const mflCookie = String(env.MFL_COOKIE || "").trim();
-        if (!mflCookie) return jsonOut(500, { ok: false, error: "MFL_COOKIE missing" });
-        const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
-        const results = [];
-        for (const p of planned) {
-          let ok = false, status = 0, preview = "", err = null;
-          try {
-            const res = await fetch(p.url, {
-              method: "POST",
-              headers: {
-                Cookie: cookieHeader,
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "text/xml, text/plain, application/xml, */*",
-                "Accept-Encoding": "identity",
-              },
-              redirect: "follow",
-              cf: { cacheTtl: 0, cacheEverything: false },
-            });
-            status = res.status;
-            const text = await res.text();
-            preview = text.slice(0, 400);
-            // MFL import returns <status>OK</status> on success; some events echo the event id.
-            ok = res.ok && !/<error>/i.test(text);
-            const em = /<error>([^<]+)<\/error>/i.exec(text);
-            if (em) err = em[1];
-          } catch (e) { err = e?.message || String(e); }
-          results.push({ field: p.field, event_type: p.event_type, label: p.label, start_at: p.start_at, end_at: p.end_at, ok, status, error: err, preview });
+        const mflResults = [];
+        if (!mflCookie) {
+          for (const p of planned) mflResults.push({ field: p.field, event_type: p.event_type, label: p.label, start_at: p.start_at, ok: false, skipped: false, error: "MFL_COOKIE missing" });
+        } else {
+          const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+          for (const p of planned) {
+            if (p.already_exists) { mflResults.push({ field: p.field, event_type: p.event_type, label: p.label, start_at: p.start_at, ok: true, skipped: true, note: "already on MFL calendar" }); continue; }
+            let ok = false, status = 0, err = null;
+            try {
+              const res = await fetch(p.url, {
+                method: "POST",
+                headers: { Cookie: cookieHeader, "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", "Accept": "text/xml, text/plain, application/xml, */*", "Accept-Encoding": "identity" },
+                redirect: "follow", cf: { cacheTtl: 0, cacheEverything: false },
+              });
+              status = res.status;
+              const text = await res.text();
+              ok = res.ok && !/<error>/i.test(text);
+              const em = /<error>([^<]+)<\/error>/i.exec(text);
+              if (em) err = em[1];
+            } catch (e) { err = e?.message || String(e); }
+            mflResults.push({ field: p.field, event_type: p.event_type, label: p.label, start_at: p.start_at, end_at: p.end_at, ok, skipped: false, status, error: err });
+          }
         }
-        const allOk = results.every((r) => r.ok);
-        return jsonOut(allOk ? 200 : 502, { ok: allOk, dryRun: false, league: leagueId, season: yearArg, missing, written: results.filter((r) => r.ok).length, total: results.length, results });
+        const mflOk = mflResults.every((r) => r.ok);
+        const d1Ok = d1Results.every((r) => r.ok);
+        return jsonOut(mflOk && d1Ok ? 200 : 502, {
+          ok: mflOk && d1Ok, dryRun: false, league: leagueId, season: yearArg, missing,
+          mfl: { ok: mflOk, written: mflResults.filter((r) => r.ok && !r.skipped).length, skipped: mflResults.filter((r) => r.skipped).length, results: mflResults },
+          app_calendar: { ok: d1Ok, written: d1Results.filter((r) => r.ok).length, results: d1Results, season: leagueSeason },
+          stale, manage_url: manageUrl, has_cookie: hasCookie,
+        });
       }
 
       if (path === "/admin/auction/narrate-simulate" && request.method === "POST") {
