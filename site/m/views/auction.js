@@ -743,11 +743,30 @@
   // Pool list with search + position/team/status filters + sort + clickable
   // names. The list ALWAYS shows (browse anytime). Per-player status (Won/Active/
   // Not-nominated) drives the badge + which CTA (Bid / Nominate / none) appears.
+  // The viewer's own §A2 state for today (FAA only — ERA has no daily cap).
+  // Pre-emptive only: the real gate is server-side in /api/auction/nominate,
+  // which also sees nominations made natively on MFL.
+  function myFaaCap() {
+    var sc = state.schedule || {};
+    if (!sc.ok || !sc.rows) return null;
+    var me = U.pad4(M.state.viewerFranchiseId);
+    if (!me) return null;
+    for (var i = 0; i < sc.rows.length; i++) {
+      if (U.pad4(sc.rows[i].franchise_id) === me) return sc.rows[i];
+    }
+    return null;
+  }
+
   function poolBlock(rows, kind, cfg) {
     var tab = kind === "expired-rookie" ? "era" : "faa";
     var phase = poolPhase(tab);
     var teamKey = cfg.teamKey || "team";
     function teamOf(r) { return String(r.nfl_team || r[teamKey] || r.team || ""); }
+    var myCap = tab === "faa" ? myFaaCap() : null;
+    var nomCapped = !!(myCap && myCap.can_nominate_now === false);
+    var nomCapTitle = nomCapped
+      ? (myCap.noms_used || 0) + ' of ' + (myCap.noms_max || 2) + ' nominations used today — resets at midnight ET.'
+      : '';
     var s = (state.search || "").toLowerCase(), pos = state.poolPos || "ALL", team = state.poolTeam || "", sort = state.poolSort || "name", statusF = state.poolStatus || "all";
     var teamSet = {}; rows.forEach(function (r) { var t = teamOf(r); if (t) teamSet[t] = true; });
     var teamOpts = Object.keys(teamSet).sort();
@@ -801,8 +820,10 @@
         cta = '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="bid" data-pid="' + U.escapeHtml(String(r.player_id || "")) +
           '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="' + (st.high_k || 0) + '">Bid</button>';
       } else if (st.key === "available" && cfg.enabled) {
-        cta = '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="nominate" data-pid="' + U.escapeHtml(String(r.player_id || "")) +
-          '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="0">Nominate</button>';
+        cta = nomCapped
+          ? '<button type="button" class="btn-act myac" disabled title="' + U.escapeHtml(nomCapTitle) + '">Nominate</button>'
+          : '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="nominate" data-pid="' + U.escapeHtml(String(r.player_id || "")) +
+            '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="0">Nominate</button>';
       }
       return '<div class="ups-m-auc-card">' +
         '<div class="ups-m-auc-card-main">' +
@@ -839,20 +860,27 @@
     });
     var ooc = sc.out_of_compliance_count || 0;
     var req = sc.noms_required || 2;
+    var cap = sc.noms_max || 2;
     var head =
       '<div class="ups-m-auc-sec-head">Nomination Tracker <span class="ct">' + ooc + ' owe noms</span></div>' +
-      '<div class="ups-m-auc-note">During the FA Auction every team makes <strong>' + req + ' nominations a day</strong> until it can field a legal lineup. Met the roster requirement? You can stop — but keep nominating daily if you want to keep adding.</div>';
+      '<div class="ups-m-auc-note">During the FA Auction every team nominates <strong>exactly ' + req + ' players a day</strong> (midnight–midnight ET) until it can field a legal lineup. ' + req + ' is the floor <em>and</em> the ceiling — a 3rd nomination in the same day is a rules violation. Once your roster is legal you can stop; you still can\'t go over ' + cap + '.</div>';
     var rowsHtml = rows.map(function (r) {
       var me = U.pad4(r.franchise_id) === viewerFid;
-      var maxed = !r.roster_met && Number(r.noms_remaining) === 0;
+      // Anchored ET day → the reset countdown is meaningful for everyone at
+      // cap, not just teams that still owe.
+      var maxed = Number(r.noms_remaining) === 0;
       var nomsCell = (Number(r.noms_made) || 0) + '/' + (Number(r.noms_required) || req) +
-        (maxed && Number(r.seconds_until_reset) > 0 ? ' <span class="rst">· ' + countdown(r.seconds_until_reset) + '</span>' : '');
-      var status = r.roster_met
-        ? '<span class="rdy">Met ✓</span>'
-        : r.out_of_compliance
-          ? '<span class="bad">Owes ' + (Number(r.noms_remaining) || 0) + '</span>'
-          : '<span class="cd">In window</span>';
-      return '<div class="ups-m-auc-trow' + (me ? ' me' : '') + (r.out_of_compliance ? ' ooc' : '') + '">' +
+        (maxed && !r.over_cap && Number(r.seconds_until_reset) > 0 ? ' <span class="rst">· ' + countdown(r.seconds_until_reset) + '</span>' : '');
+      // over_cap is checked FIRST: a roster-met team over the cap used to
+      // render a green "Met ✓" on top of a live violation.
+      var status = r.over_cap
+        ? '<span class="bad">Over cap ⚠</span>'
+        : r.roster_met
+          ? '<span class="rdy">Met ✓</span>'
+          : r.out_of_compliance
+            ? '<span class="bad">Owes ' + (Number(r.noms_remaining) || 0) + '</span>'
+            : '<span class="cd">In window</span>';
+      return '<div class="ups-m-auc-trow' + (me ? ' me' : '') + (r.out_of_compliance || r.over_cap ? ' ooc' : '') + '">' +
         '<span class="tn">' + U.escapeHtml(r.franchise_name || franchiseName(r.franchise_id)) + '</span>' +
         '<span>' + nomsCell + '</span>' +
         '<span>' + (r.roster_met ? '✓' : (Number(r.total_deficit) || 0)) + '</span>' +
@@ -1014,7 +1042,7 @@
     function rowFid(f) { return U.pad4(f.fid || f.id || f.franchise_id); }
     rows = rows.slice().sort(function (a, b) { return (rowFid(a) === viewerFid ? 0 : 1) - (rowFid(b) === viewerFid ? 0 : 1); });
     var rule = isEra ? "1 nomination per 12-hour window — windows anchored to 6 AM / 6 PM ET."
-                     : "2 nominations per rolling 24-hour window.";
+                     : "2 nominations per day — midnight to midnight ET. 2 is both the minimum and the maximum.";
     return '<div class="ups-m-auc-sec-head">Nomination Windows</div>' +
       '<div class="ups-m-auc-note">' + rule + '</div>' +
       '<div class="ups-m-auc-nom">' + rows.map(function (f) {
@@ -1025,9 +1053,15 @@
             : (era.window_open === false && era.window_reason === "after_close") ? '<span class="cd">Closed</span>'
             : '<span class="cd">Next ' + countdown(era.seconds_until_next) + '</span>';
         } else {
-          status = fa.can_nominate_now
-            ? '<span class="rdy">' + (fa.remaining != null ? fa.remaining : "?") + ' of ' + (fa.max_in_window != null ? fa.max_in_window : "?") + ' left</span>'
-            : '<span class="cd">Next ' + countdown(fa.seconds_until_next) + '</span>';
+          // "used", never "left" — an allowance word reads as an entitlement
+          // to spend and hides that 2 is also an obligation and a ceiling.
+          var faUsed = fa.used_in_window != null ? fa.used_in_window : "?";
+          var faCap = fa.noms_max != null ? fa.noms_max : (fa.max_in_window != null ? fa.max_in_window : "?");
+          status = fa.over_cap
+            ? '<span class="bad">' + faUsed + ' of ' + faCap + ' · OVER CAP ⚠</span>'
+            : fa.can_nominate_now
+              ? '<span class="rdy">' + faUsed + ' of ' + faCap + ' used</span>'
+              : '<span class="cd">' + faUsed + ' of ' + faCap + ' used · resets ' + countdown(fa.seconds_until_next) + '</span>';
         }
         return '<div class="ups-m-auc-nom-row single' + (fid === viewerFid ? ' me' : '') + '">' +
           '<div class="fn">' + U.escapeHtml(f.franchise_name || f.name || franchiseName(fid)) + (fid === viewerFid ? ' <span class="you">you</span>' : '') + '</div>' +

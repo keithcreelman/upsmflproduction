@@ -4,11 +4,14 @@ import {
   processPendingSummaries as processHallPendingSummaries,
   processAutoNudges as processHallAutoNudges,
   processOverdueRoundCloses as processHallOverdueCloses,
+  sendDm as sendDiscordDm,
+  openDmChannel as openDiscordDmChannelForUser,
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline } from "./trade_dm.js";
 import { create3WayTrade, list3WayForFranchise, cancel3WayTrade } from "./trade_3way.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar } from "./auction_calendar.js";
+import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount } from "./auction_windows.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 
 const acquisitionLiveMemoryCache = new Map();
@@ -649,6 +652,10 @@ async function processAuctionPoll(env) {
   const narrateEnabled = String(env.AUCTION_DISCORD_NARRATOR ?? "1").trim() !== "0";
   const narrateQueue = [];
 
+  // Nominations first seen on THIS poll — the §A2 over-cap check only runs for
+  // franchises that just moved, so a quiet poll costs nothing.
+  const freshFaaNoms = [];
+
   // ── Ingest AUCTION_INIT + AUCTION_BID ──
   // Both go into ups_auction_bids. The `note` column tags INIT events
   // as "[nomination]" prepended so downstream queries can identify
@@ -669,6 +676,9 @@ async function processAuctionPoll(env) {
     ).bind(lot_id, season, leagueId, p.player_id, p.fid, p.bid_k, p.bid_at_unix, taggedNote, p.raw_transaction).run();
     if (ins.meta?.changes > 0) {
       newBids++;
+      if (ev.kind === "init") {
+        freshFaaNoms.push({ fid: p.fid, player_id: p.player_id, bid_at_unix: p.bid_at_unix });
+      }
       if (narrateEnabled && p.bid_at_unix >= narrateCutoffUnix) {
         // Extract forcer-franchise NAME from MFL's note. Format:
         //   "Pure Greatness forced bid increase"
@@ -935,6 +945,21 @@ async function processAuctionPoll(env) {
     } catch (e) {
       console.log("[auction-reconcile] deletion purge failed:", String(e?.message || e));
     }
+  }
+
+  // ── §A2 over-cap detection (the MFL bypass backstop) ──
+  // The in-app gate can't see MFL's native O=43 page, so an owner can always
+  // nominate a 3rd player there. This can't PREVENT that — it detects it.
+  // Both app-path and native-path nominations land in ups_auction_bids via
+  // this same poll, so one check covers both.
+  //
+  // Private commish DM by design: the auction narrator posts every nomination
+  // to a public channel, and tagging violations there would be owner-shaming.
+  // Fail-soft — a Discord problem must never break the poll.
+  try {
+    await detectFaaOverCap(env, db, season, leagueId, freshFaaNoms);
+  } catch (e) {
+    console.log("[faa-cap] over-cap detection error:", String(e?.message || e));
   }
 
   // ── Discord narration ──
@@ -1438,6 +1463,323 @@ async function loadEraPlayerIds(env, season, playerIds) {
     }
   }
   return out;
+}
+
+// All three auction-action routes used to rebuild the error body by hand and
+// every one of them dropped `message`, so owners saw the raw slug
+// ("auction_not_live") instead of the sentence performAuctionAction wrote.
+// The quota refusal would have landed the same way.
+function auctionActionErrorBody(actionRes) {
+  const out = {
+    ok: false,
+    error: actionRes.error,
+    message: actionRes.message || "",
+    preview: actionRes.preview || "",
+  };
+  for (const k of [
+    "noms_used", "noms_max", "noms_required", "window_key",
+    "next_window_start_unix", "next_window_start_iso", "stale_count",
+  ]) {
+    if (actionRes[k] !== undefined) out[k] = actionRes[k];
+  }
+  return out;
+}
+
+// ───────────── FAA nomination cap — live count (§A2, Keith 2026-07-14) ─────
+// Reads nominations for one ET calendar day straight from MFL rather than
+// from ups_auction_bids. Two reasons, both load-bearing:
+//
+//   1. ups_auction_bids is written ONLY by the */5 poll, so it trails MFL by
+//      up to 5 minutes. fid 0007's 2nd and 3rd nominations on 2026-07-14 were
+//      12 seconds apart — a D1-backed gate would have read 1 and allowed the
+//      3rd. The lag isn't tunable; it's the cron period.
+//   2. Owners can nominate natively on MFL's O=43 page, which we can't block
+//      (we're a form-scraping proxy and MFL has no nomination-limit setting).
+//      Those still emit AUCTION_INIT, so counting here means a 3rd app
+//      nomination after 2 native ones IS blocked.
+//
+// Returns raw [{fid, pid}] for the day — ERA filtering happens in
+// faaNomsUsedForDay, which folds this together with the other sources so one
+// lookup covers all of them. Throws on fetch/parse failure; the caller
+// degrades to the D1 sources rather than failing the nomination outright.
+async function faaLiveNomsForEtDay(env, season, leagueId, etDay) {
+  const bounds = etDayBounds(etDay);
+  if (!bounds) throw new Error("bad_et_day");
+  const apiKey = String(env.MFL_APIKEY || "").trim();
+  const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+  // Cache-bust + cacheTtl:0 — an edge-cached read silently reintroduces the
+  // exact race this function exists to close.
+  const url =
+    `https://www48.myfantasyleague.com/${season}/export?TYPE=transactions` +
+    `&L=${encodeURIComponent(leagueId)}&TRANS_TYPE=AUCTION_INIT&JSON=1${apiQs}` +
+    `&_=${Date.now()}`;
+  const res = await fetch(url, { cf: { cacheTtl: 0, cacheEverything: false } });
+  if (!res.ok) throw new Error(`auction_init_http_${res.status}`);
+  const data = await res.json();
+  const raw = data?.transactions?.transaction;
+  const txs = Array.isArray(raw) ? raw : raw ? [raw] : [];
+
+  const sameDay = [];
+  for (const tx of txs) {
+    const at = Number(tx?.timestamp || 0);
+    if (!at || at < bounds.start_unix || at >= bounds.end_unix) continue;
+    const fid = String(tx?.franchise || "").padStart(4, "0");
+    const pid = String(tx?.transaction || "").split("|")[0].replace(/\D/g, "");
+    if (!fid || fid === "0000" || !pid) continue;
+    sameDay.push({ fid, pid });
+  }
+  return sameDay;
+}
+
+// How many FAA nominations `fid` has spent on ET day `etDay`, as a Set of
+// player_ids. Unions three sources, all deduped by player_id:
+//
+//   live MFL AUCTION_INIT — authoritative + current, sees native O=43 noms
+//   ups_auction_bids      — up to 5 min stale, but survives an MFL outage
+//   ups_auction_nom_slots — in-flight reservations MFL hasn't published yet
+//
+// Deduping by player_id is what makes the union safe: a player can only be
+// nominated once (after that the lot exists and further offers are bids), so
+// the same nomination appearing in two sources collapses to one entry with no
+// timestamp reconciliation. That also means a live-fetch failure degrades to
+// stale-but-nonzero enforcement instead of no enforcement.
+// Deliberately NOT filtered against ups_era_pool. Pool membership is not
+// nomination provenance: §A3 says the snapshot "persists through the auction
+// so it survives players being dropped to FA", so every expired rookie that
+// went UNSOLD in May's ERA is still in the season's pool AND is an ordinary
+// free agent in July's FAA (/api/auction/fa-pool builds straight off MFL
+// TYPE=freeAgents). Filtering on the pool therefore drops legitimate FAA
+// nominations from the count — which both under-counts the quota and, worse,
+// desynchronises the count from the slot rows it allocates against. The ET-day
+// bound is what actually separates the two auctions (ERA is Memorial Day
+// weekend, FAA the last weekend of July — ~2 months apart, never the same
+// civil day), and detectFaaOverCap is additionally gated on AUCTION_FAA_ENABLED.
+//
+// Returns Map<fid, Set<pid>> for EVERY franchise, so one live fetch serves the
+// whole league. Read surfaces need the same union the write gate enforces on.
+async function faaNomPidsByFidForDay(env, season, leagueId, etDay) {
+  const bounds = etDayBounds(etDay);
+  if (!bounds) return { byFid: new Map(), live_ok: false };
+  const pairs = [];
+  let live_ok = true;
+
+  try {
+    for (const n of await faaLiveNomsForEtDay(env, season, leagueId, etDay)) pairs.push(n);
+  } catch (e) {
+    live_ok = false;
+    console.log("[faa-cap] live AUCTION_INIT read failed, falling back to D1:", String(e?.message || e));
+  }
+
+  try {
+    const rs = await env.UPS_MFL_DB.prepare(
+      `SELECT fid, player_id FROM ups_auction_bids
+        WHERE season = ? AND league_id = ? AND note LIKE '[nomination]%'
+          AND bid_at_unix >= ? AND bid_at_unix < ?`
+    ).bind(String(season), String(leagueId), bounds.start_unix, bounds.end_unix).all();
+    for (const r of (rs?.results || [])) {
+      pairs.push({ fid: String(r.fid || "").padStart(4, "0"), pid: String(r.player_id || "") });
+    }
+  } catch (_) { /* live count already covers the common case */ }
+
+  try {
+    const rs = await env.UPS_MFL_DB.prepare(
+      `SELECT fid, player_id FROM ups_auction_nom_slots
+        WHERE season = ? AND league_id = ? AND et_day = ?`
+    ).bind(String(season), String(leagueId), etDay).all();
+    for (const r of (rs?.results || [])) {
+      pairs.push({ fid: String(r.fid || "").padStart(4, "0"), pid: String(r.player_id || "") });
+    }
+  } catch (_) { /* table missing => migration not applied; live count still gates */ }
+
+  const byFid = new Map();
+  for (const n of pairs) {
+    if (!n.fid || n.fid === "0000" || !n.pid) continue;
+    if (!byFid.has(n.fid)) byFid.set(n.fid, new Set());
+    byFid.get(n.fid).add(n.pid);
+  }
+  return { byFid, live_ok };
+}
+
+async function faaNomsUsedForDay(env, season, leagueId, fid, etDay) {
+  const wanted = String(fid || "").padStart(4, "0");
+  const { byFid, live_ok } = await faaNomPidsByFidForDay(env, season, leagueId, etDay);
+  return { pids: byFid.get(wanted) || new Set(), live_ok };
+}
+
+// Reserve one of `fid`'s 2 slots for today, or refuse. Called BEFORE the O=43
+// POST so a blocked nomination never reaches MFL.
+//
+// Two separate mechanisms, and conflating them is a trap:
+//   • the COUNT (live MFL ∪ D1 bids ∪ slot rows, deduped by player_id) decides
+//     whether the franchise has quota left. It has to include the live feed
+//     because owners can nominate natively on O=43, which we can't block.
+//   • the UNIQUE(season, league_id, fid, et_day, slot_no) index decides who
+//     wins a RACE. The count is check-then-act — two in-flight nominations on
+//     different players both read used=0 and both pass — so the index is what
+//     actually caps concurrent writers.
+//
+// slot_no is therefore allocated by PROBING the slot table for a free index,
+// never as `used + 1`: `used` is a deduped count across three sources and a
+// positional index into one table, and the two diverge the moment a slot row
+// exists that the count doesn't see (or vice versa). When they diverged, the
+// loser of the resulting collision was refused as "quota reached" — locking a
+// franchise out of a nomination the rules REQUIRE it to make (§A2 floor, §F fine).
+async function claimFaaNomSlot(env, season, leagueId, fid, playerId) {
+  const nowUnix = Math.floor(Date.now() / 1000);
+  const etDay = etDayKey(nowUnix);
+  const win = etDayBounds(etDay);
+  if (!env?.UPS_MFL_DB || !win) return { ok: true, slot: null };
+
+  const pid = String(playerId);
+  const { pids, live_ok } = await faaNomsUsedForDay(env, season, leagueId, fid, etDay);
+  const used = pids.size;
+  const refusal = (usedCount) => ({
+    ok: false,
+    slot: null,
+    status: 409,
+    error: "nomination_quota_reached",
+    message:
+      `You've already used ${usedCount === 1 ? "your" : "both of your"} ${usedCount} ` +
+      `nomination${usedCount === 1 ? "" : "s"} for today. The league rule is exactly ` +
+      `${FAA_NOMS_MAX} per day — a minimum and a maximum. Your next ${FAA_NOMS_MAX} open at midnight ET.`,
+    noms_used: usedCount,
+    noms_max: FAA_NOMS_MAX,
+    noms_required: FAA_NOMS_REQUIRED,
+    window_key: etDay,
+    next_window_start_unix: win.end_unix,
+    next_window_start_iso: new Date(win.end_unix * 1000).toISOString(),
+    stale_count: !live_ok,
+  });
+  if (used >= FAA_NOMS_MAX) return refusal(used);
+
+  try {
+    // Retry of a nomination we already reserved (the MFL submit threw before
+    // the release could run): reuse that row instead of burning a 2nd slot.
+    // Safe because a player can only be nominated once — after that the lot
+    // exists and further offers are bids, so (fid, player_id) is idempotent.
+    const prior = await env.UPS_MFL_DB.prepare(
+      `SELECT slot_no FROM ups_auction_nom_slots
+        WHERE season = ? AND league_id = ? AND fid = ? AND et_day = ? AND player_id = ?`
+    ).bind(String(season), String(leagueId), fid, etDay, pid).first();
+    if (prior?.slot_no != null) {
+      return { ok: true, slot: { season: String(season), leagueId: String(leagueId), fid, etDay, slotNo: Number(prior.slot_no) } };
+    }
+
+    for (let slotNo = 1; slotNo <= FAA_NOMS_MAX; slotNo++) {
+      const ins = await env.UPS_MFL_DB.prepare(
+        `INSERT OR IGNORE INTO ups_auction_nom_slots
+           (season, league_id, fid, et_day, slot_no, player_id, claimed_at_unix)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(String(season), String(leagueId), fid, etDay, slotNo, pid, nowUnix).run();
+      if (ins?.meta?.changes > 0) {
+        return { ok: true, slot: { season: String(season), leagueId: String(leagueId), fid, etDay, slotNo } };
+      }
+      // changes === 0 => this index is taken; try the next one rather than
+      // refusing, so a race-loser at slot 1 still gets slot 2.
+    }
+    // Every index taken => genuinely at the cap, whatever the count said.
+    return refusal(FAA_NOMS_MAX);
+  } catch (e) {
+    // Migration not applied yet — the live count still gates the common case.
+    console.log("[faa-cap] slot claim failed, proceeding on count alone:", String(e?.message || e));
+    return { ok: true, slot: null };
+  }
+}
+
+// Hand a reservation back when the MFL submit fails, so a failed POST doesn't
+// burn a nomination. Safe even if MFL did record it: the live AUCTION_INIT
+// count picks it up and the (fid, player_id) union keeps it counted once.
+async function releaseFaaNomSlot(env, slot) {
+  if (!env?.UPS_MFL_DB || !slot) return;
+  try {
+    await env.UPS_MFL_DB.prepare(
+      `DELETE FROM ups_auction_nom_slots
+        WHERE season = ? AND league_id = ? AND fid = ? AND et_day = ? AND slot_no = ?`
+    ).bind(slot.season, slot.leagueId, slot.fid, slot.etDay, slot.slotNo).run();
+  } catch (e) {
+    console.log("[faa-cap] slot release failed:", String(e?.message || e));
+  }
+}
+
+// Called from the auction poll when nominations land. DMs the commish once per
+// (franchise, ET day, count) when a franchise exceeds §A2's 2/day ceiling —
+// which today can only happen via MFL's native O=43 page, since the app gate
+// refuses the 3rd. Informational only: nothing is reversed, no lot is touched.
+async function detectFaaOverCap(env, db, season, leagueId, freshNoms) {
+  if (!freshNoms?.length) return { checked: 0 };
+  // ups_auction_bids has no auction-kind column and '[nomination]' tags both
+  // auctions, so the FAA flag is what scopes this to the right one.
+  if (!(await getFeatureFlag(env, "AUCTION_FAA_ENABLED"))) return { skipped: "faa_off" };
+
+  const commishUserId = String(env.COMMISH_DISCORD_USER_ID || "").replace(/\D/g, "");
+  const days = new Map();
+  for (const n of freshNoms) {
+    const day = etDayKey(n.bid_at_unix);
+    if (!day) continue;
+    if (!days.has(n.fid)) days.set(n.fid, new Set());
+    days.get(n.fid).add(day);
+  }
+
+  let flagged = 0;
+  for (const [fid, dayKeys] of days) {
+    for (const etDay of dayKeys) {
+      const { pids } = await faaNomsUsedForDay(env, season, leagueId, fid, etDay);
+      const used = pids.size;
+      if (used <= FAA_NOMS_MAX) continue;
+      flagged++;
+      // Count is IN the key: a 4th nomination fires once more, but re-polling
+      // the same 3 never re-fires.
+      const eventKey = `faa_nom_over_cap:${fid}:${etDay}:${used}`;
+      if (await _deadlineLockAlreadyFired(db, season, leagueId, eventKey)) continue;
+
+      const bounds = etDayBounds(etDay);
+      let detail = [];
+      try {
+        const rs = await db.prepare(
+          `SELECT player_id, bid_at_unix FROM ups_auction_bids
+            WHERE season = ? AND league_id = ? AND fid = ? AND note LIKE '[nomination]%'
+              AND bid_at_unix >= ? AND bid_at_unix < ?
+            ORDER BY bid_at_unix ASC`
+        ).bind(season, leagueId, fid, bounds.start_unix, bounds.end_unix).all();
+        detail = rs?.results || [];
+      } catch (_) { detail = []; }
+
+      let dm_ok = false;
+      if (commishUserId) {
+        const lines = [
+          `**⚠️ FA Auction — nomination cap exceeded (§A2)**`,
+          `Franchise **${fid}** made **${used}** nominations on **${etDay}** (ET). The cap is ${FAA_NOMS_MAX}/day.`,
+          "",
+          ...detail.map((d, i) =>
+            `${i + 1}. player ${d.player_id} — ${new Date(Number(d.bid_at_unix) * 1000)
+              .toLocaleString("en-US", { timeZone: "America/New_York" })} ET`),
+          "",
+          `The in-app gate refuses a 3rd nomination, so this came in through MFL's native auction page (O=43), which we can't block.`,
+          `_No action taken — informational. Nothing on MFL has been changed._`,
+        ];
+        // sendDiscordDm POSTs to /channels/{id}/messages — it needs a DM
+        // CHANNEL id, and a user snowflake is not one (404 Unknown Channel).
+        // Every other DM path in the worker opens the channel first.
+        const dmChannelId = await openDiscordDmChannelForUser(env, commishUserId);
+        if (!dmChannelId) {
+          console.log("[faa-cap] commish DM channel open failed for user", commishUserId);
+        } else {
+          const r = await sendDiscordDm(env, dmChannelId, {
+            content: lines.join("\n"),
+            allowed_mentions: { parse: [] },
+          });
+          dm_ok = !!(r && r.ok);
+          if (!dm_ok) console.log("[faa-cap] commish DM failed:", r && r.status);
+        }
+      }
+      // Marked even when the DM didn't send: the lock row is also the durable
+      // record that we saw this violation, and detection only runs on the poll
+      // that first ingests the nomination — an unmarked row wouldn't be retried
+      // anyway, it would just lose the audit trail too.
+      await _markDeadlineLockFired(db, season, leagueId, eventKey, { fid, et_day: etDay, noms_used: used, dm_ok });
+    }
+  }
+  return { checked: days.size, flagged };
 }
 
 // ───────────── durable GIF anti-repeat (migration 0095_ups_gif_recent) ─────
@@ -3648,8 +3990,8 @@ export default {
       //       current_bid,            // 0 until ups_auction_lots is wired
       //       current_high_bidder,    // null until lots wired
       //       your_proxy_bid,         // 0 until lots wired
-      //       nominate_blocked,       // false today (gate is in /api/auction/nominate, not here)
-      //       nominate_block_reason
+      //       nominate_blocked,       // always false for ERA — the §A2 daily cap
+      //       nominate_block_reason   // is FAA-only (§A3 has no nomination cap)
       //     }]
       //   }
       if (path === "/api/auction/era-eligible" && request.method === "GET") {
@@ -4044,6 +4386,9 @@ export default {
               current_bid: 0,
               current_high_bidder: null,
               your_proxy_bid: 0,
+              // ERA has no per-window nomination cap to hit (§A3 caps cadence
+              // at 1/12h, and MFL's own page enforces that by hiding the form).
+              // The §A2 daily cap that /api/auction/nominate enforces is FAA-only.
               nominate_blocked: false,
               nominate_block_reason: null,
             });
@@ -5779,16 +6124,21 @@ export default {
       // ---------- Auction Hub: /api/auction/nomination-status ----------
       // Per-franchise nomination cadence tracker. Returns whether each
       // franchise has used its 1 nomination for the current anchored
-      // 12-hour window (ERA) or the rolling 24-hour window (FA Auction).
+      // 12-hour window (ERA) or its 2 for the current ET day (FA Auction).
       //
-      // Cadence rules (league_context_v1.md §A3 / §A1, Keith 2026-05-27):
+      // Cadence rules (league_context_v1.md §A3 / §A2, Keith 2026-05-27):
       //   ERA (§A3):  1 nomination per discrete 12-hour window. Windows
       //               are ANCHORED to 6 AM ET and 6 PM ET — NOT rolling
       //               from the franchise's last nomination. Opens
       //               Memorial Day MONDAY 6 AM ET (= memorial day @ 10:00
       //               UTC during EDT); closes at the end of the Wed
       //               6 PM → Thu 6 AM ET window (6 windows total).
-      //   FA Auction (§A1): 2 nominations / 24-hour rolling window.
+      //   FA Auction (§A2): EXACTLY 2 nominations per ET calendar day
+      //               (midnight → midnight America/New_York). Anchored,
+      //               NOT rolling — and 2 is a floor AND a ceiling
+      //               (Keith 2026-07-14). Day 1 is clipped by the auction
+      //               open (12 PM ET when live); anchoring handles that
+      //               with no special case.
       //
       // Data source: ups_auction_bids WHERE note LIKE '[nomination]%'.
       // The auction-poll cron tags AUCTION_INIT bids that way; this
@@ -5810,8 +6160,6 @@ export default {
         const leagueId = String(url.searchParams.get("L") || "74598");
         const nowUnix = Math.floor(Date.now() / 1000);
         const nowMs = nowUnix * 1000;
-        const FA_WINDOW_SEC    = 24 * 3600;
-        const FA_MAX_IN_WINDOW = 2;
         const ERA_WINDOW_LABELS = [
           "Mon 6 AM – Mon 6 PM ET",
           "Mon 6 PM – Tue 6 AM ET",
@@ -5895,6 +6243,15 @@ export default {
             nomsByFid[fid].push({ at_unix: Number(n.bid_at_unix), player_id: String(n.player_id) });
           }
 
+          // FAA day counts come from the enforcement union (live MFL ∪ D1 bids ∪
+          // in-flight slot claims); ups_auction_bids alone trails the */5 poll and
+          // would disagree with what /api/auction/nominate actually allows. ERA
+          // below still reads `list` — its windows need timestamps, and ERA has no
+          // slot table because §A3 carries no cap to reserve against.
+          const { byFid: faaPidsByFid } = await faaNomPidsByFidForDay(
+            env, String(year), leagueId, etDayKey(nowUnix)
+          );
+
           const franchises = (allFids.length > 0 ? allFids : Object.keys(nomsByFid)).map((fid) => {
             const list = nomsByFid[fid] || [];
             const last = list.length > 0 ? list[list.length - 1] : null;
@@ -5930,18 +6287,8 @@ export default {
               era_seconds_until_next = 0;
             }
 
-            // FA: rolling 24h, max 2 in window
-            const fa_window_start = nowUnix - FA_WINDOW_SEC;
-            const inFaWindow = list.filter((n) => n.at_unix >= fa_window_start);
-            const fa_used = inFaWindow.length;
-            const fa_remaining = Math.max(0, FA_MAX_IN_WINDOW - fa_used);
-            let fa_next_at_unix = nowUnix;
-            if (fa_used >= FA_MAX_IN_WINDOW) {
-              const oldest = inFaWindow[0];
-              fa_next_at_unix = oldest.at_unix + FA_WINDOW_SEC;
-            }
-            const fa_can_nominate_now = fa_remaining > 0;
-            const fa_seconds_remaining = Math.max(0, fa_next_at_unix - nowUnix);
+            // FA (§A2): exactly 2 per ANCHORED ET calendar day — floor and ceiling.
+            const fa = faaWindowStateFromCount((faaPidsByFid.get(fid) || new Set()).size, { nowUnix });
 
             return {
               fid,
@@ -5965,14 +6312,21 @@ export default {
                 seconds_until_next: era_seconds_until_next,
               },
               fa_auction: {
-                window_sec: FA_WINDOW_SEC,
-                max_in_window: FA_MAX_IN_WINDOW,
-                used_in_window: fa_used,
-                remaining: fa_remaining,
-                can_nominate_now: fa_can_nominate_now,
-                next_allowed_at_unix: fa_next_at_unix,
-                next_allowed_at_iso: new Date(fa_next_at_unix * 1000).toISOString(),
-                seconds_until_next: fa_seconds_remaining,
+                // 23h/24h/25h across DST — computed per window, never a constant.
+                window_sec: fa.window_sec,
+                window_key: fa.window_key,
+                window_start_unix: fa.window_start_unix,
+                window_end_unix: fa.window_end_unix,
+                max_in_window: fa.noms_max,
+                noms_max: fa.noms_max,
+                noms_required: fa.noms_required,
+                used_in_window: fa.noms_used,
+                remaining: fa.noms_remaining,
+                can_nominate_now: fa.can_nominate_now,
+                over_cap: fa.over_cap,
+                next_allowed_at_unix: fa.next_window_start_unix,
+                next_allowed_at_iso: new Date(fa.next_window_start_unix * 1000).toISOString(),
+                seconds_until_next: fa.seconds_until_reset,
               },
             };
           });
@@ -5991,7 +6345,7 @@ export default {
             now_unix: nowUnix,
             rules: {
               era: "league_context_v1.md §A3 — 1 nomination per 12-hour ANCHORED window (6 AM / 6 PM ET). Opens Memorial Day Mon 6 AM ET, closes end of Wed 6 PM–Thu 6 AM ET window.",
-              fa_auction: "league_context_v1.md §A1 — 2 nominations per 24-hour rolling window",
+              fa_auction: "league_context_v1.md §A2 — exactly 2 nominations per ANCHORED ET calendar day (midnight–midnight America/New_York). 2 is both a minimum (missed noms are fined until the roster is legal) and a maximum (a 3rd is blocked). Keith 2026-07-14.",
             },
             era_window: eraWindow,
             franchise_count: franchises.length,
@@ -16717,13 +17071,19 @@ export default {
         };
       };
 
+      // auction_kind comes from the ROUTE, never the body. It is the switch that
+      // decides whether the §A2 nomination cap applies (ERA is exempt — §A3 is a
+      // different rule), and it changes nothing else about the O=43 form POST —
+      // so honouring a client-supplied `auction_kind: "expired-rookie"` was a
+      // one-field opt-out of the cap. Same hazard as franchise_id, same answer:
+      // trust the caller the router picked, not the payload the owner sent.
       const normalizeAuctionActionRequest = (body, fallbackKind) => ({
         action: safeStr(body?.action).toLowerCase(),
         player_id: String(body?.player_id || body?.playerId || "").replace(/\D/g, ""),
         amount: safeMoneyInt(body?.amount, null),
         franchise_id: padFranchiseId(body?.franchise_id || body?.franchiseId || body?.franchise || body?.F || ""),
         comment: safeStr(body?.comment || ""),
-        auction_kind: safeStr(body?.auction_kind || fallbackKind || "free-agent").toLowerCase(),
+        auction_kind: safeStr(fallbackKind || "free-agent").toLowerCase(),
       });
 
       const auctionActionFormFromPage = (parsedPage, normalizedAction) => {
@@ -17265,6 +17625,15 @@ export default {
       const resolveViewerFranchiseIdForAcq = async (season, leagueId, requestedFranchiseId) => {
         const explicit = padFranchiseId(requestedFranchiseId);
         if (explicit) return explicit;
+        return await resolveCookieFranchiseIdForAcq(season, leagueId);
+      };
+
+      // Identity from the MFL cookie ONLY — never the request body. Used for
+      // the FAA nomination cap: resolveViewerFranchiseIdForAcq echoes back a
+      // client-supplied franchise_id, so keying a quota on it would let an
+      // owner burn someone else's allowance and dodge their own. This is also
+      // whoever MFL will actually attribute the nomination to.
+      const resolveCookieFranchiseIdForAcq = async (season, leagueId) => {
         const myFrRes = await mflExportJsonWithRetryAsViewer(season, leagueId, "myfranchise", {}, { useCookie: true });
         if (myFrRes.ok) {
           const parsed = parseMyFranchiseId(myFrRes.data);
@@ -17938,42 +18307,33 @@ export default {
       // nomination-status endpoint reads.
       //   roster_met        = total_deficit === 0 (can field a legal lineup)
       //   out_of_compliance = still needs starters AND hasn't used its daily noms
+      // Nomination compliance scoreboard. Windows are ANCHORED ET calendar
+      // days (§A2, Keith 2026-07-14) — not a rolling 24h from now, which is
+      // what this counted until the rule was pinned down. 2 is both the floor
+      // (fined if missed, waived once the roster is legal) and the ceiling
+      // (blocked, never waived), so rows carry both.
       const buildFaScheduleRows = async (season, leagueId) => {
-        const FA_WINDOW_SEC = 24 * 3600;
-        const FA_MAX_IN_WINDOW = 2;
         const nowUnix = Math.floor(Date.now() / 1000);
+        const win = faaWindowAt(nowUnix);
         const teamsSnapshot = await buildLiveTeamsSnapshot(season, leagueId);
         if (!teamsSnapshot || !teamsSnapshot.ok) {
           return { ok: false, error: (teamsSnapshot && teamsSnapshot.error) || "teams_snapshot_failed", generated_at: new Date().toISOString() };
         }
         const needRows = teamNeedRowsFromLive(teamsSnapshot.teams);
-        let noms = [];
-        try {
-          const res = await env.UPS_MFL_DB.prepare(
-            `SELECT fid, bid_at_unix FROM ups_auction_bids
-              WHERE season = ? AND league_id = ?
-                AND note LIKE '[nomination]%'
-              ORDER BY bid_at_unix ASC`
-          ).bind(season, leagueId).all();
-          noms = res?.results || [];
-        } catch (_) { noms = []; }
-        const nomsByFid = {};
-        for (const n of noms) {
-          const fid = String(n.fid || "").padStart(4, "0");
-          if (!fid || fid === "0000") continue;
-          (nomsByFid[fid] = nomsByFid[fid] || []).push(Number(n.bid_at_unix));
-        }
+        // Counted through the SAME union the write gate enforces on, not off
+        // ups_auction_bids alone. That table is written only by the */5 poll, so
+        // a bids-only scoreboard renders "0/2 · Owes 2" for up to five minutes
+        // after an owner has spent both noms — on the exact surface whose CTA
+        // tells them whether they may nominate, for a rule that fines them at
+        // both ends. One live fetch covers all 12 franchises.
+        const { byFid: nomPidsByFid } = await faaNomPidsByFidForDay(
+          env, season, leagueId, win ? win.window_key : etDayKey(nowUnix)
+        );
         const rows = needRows.map((nr) => {
           const fid = String(nr.franchise_id).padStart(4, "0");
-          const list = nomsByFid[fid] || [];
-          const inWin = list.filter((t) => t >= nowUnix - FA_WINDOW_SEC);
-          const used = inWin.length;
-          const remaining = Math.max(0, FA_MAX_IN_WINDOW - used);
-          const nextAt = used >= FA_MAX_IN_WINDOW ? inWin[0] + FA_WINDOW_SEC : nowUnix;
           const total_deficit = Number(nr.total_deficit) || 0;
           const roster_met = total_deficit === 0;
-          // OWES noms = still short of a legal lineup AND hasn't used its 2 today.
-          const out_of_compliance = !roster_met && remaining > 0;
+          const st = faaWindowStateFromCount((nomPidsByFid.get(fid) || new Set()).size, { nowUnix, rosterMet: roster_met });
           return {
             franchise_id: fid,
             franchise_name: nr.franchise_name,
@@ -17981,17 +18341,30 @@ export default {
             total_deficit,
             lineup_deficits: nr.lineup_deficits,
             roster_met,
-            noms_made: used,
-            noms_required: FA_MAX_IN_WINDOW,
-            noms_remaining: remaining,
-            can_nominate_now: remaining > 0,
-            next_reset_unix: nextAt,
-            seconds_until_reset: Math.max(0, nextAt - nowUnix),
-            out_of_compliance,
+            noms_made: st.noms_used,
+            noms_used: st.noms_used,
+            noms_required: st.noms_required,
+            noms_max: st.noms_max,
+            noms_remaining: st.noms_remaining,
+            can_nominate_now: st.can_nominate_now,
+            over_cap: st.over_cap,
+            window_key: st.window_key,
+            window_start_unix: st.window_start_unix,
+            window_end_unix: st.window_end_unix,
+            // Anchored → every franchise resets at the same ET midnight.
+            next_reset_unix: st.next_window_start_unix,
+            seconds_until_reset: st.seconds_until_reset,
+            // OWES noms = still short of a legal lineup AND hasn't used its 2
+            // today. Deliberately NOT overloaded to carry over_cap: this drives
+            // the fine/nudge, and a roster-met team can be over cap while
+            // owing nothing.
+            out_of_compliance: st.owes_noms,
           };
         });
-        // Out-of-compliance first, then biggest roster gap, then fid.
+        // Rule violations first, then out-of-compliance, then biggest roster
+        // gap, then fid.
         rows.sort((a, b) =>
+          (Number(b.over_cap) - Number(a.over_cap)) ||
           (Number(b.out_of_compliance) - Number(a.out_of_compliance)) ||
           (b.total_deficit - a.total_deficit) ||
           a.franchise_id.localeCompare(b.franchise_id));
@@ -18001,9 +18374,16 @@ export default {
           season: safeInt(season, Number(season) || 0),
           generated_at: new Date().toISOString(),
           now_unix: nowUnix,
-          fa_window_sec: FA_WINDOW_SEC,
-          noms_required: FA_MAX_IN_WINDOW,
+          // Computed, not a constant: ET days run 23h/24h/25h across the DST
+          // flips, so there is no fixed window length to hardcode.
+          fa_window_sec: win ? win.end_unix - win.start_unix : 0,
+          window_key: win ? win.window_key : "",
+          window_start_unix: win ? win.start_unix : 0,
+          window_end_unix: win ? win.end_unix : 0,
+          noms_required: FAA_NOMS_REQUIRED,
+          noms_max: FAA_NOMS_MAX,
           out_of_compliance_count: rows.filter((r) => r.out_of_compliance).length,
+          over_cap_count: rows.filter((r) => r.over_cap).length,
           met_count: rows.filter((r) => r.roster_met).length,
           rows,
         };
@@ -18227,39 +18607,75 @@ export default {
         if (!normalized.player_id) return { ok: false, status: 400, error: "player_id_required" };
         if (safeInt(normalized.amount, 0) <= 0) return { ok: false, status: 400, error: "amount_required" };
         const viewerFranchiseId = await resolveViewerFranchiseIdForAcq(season, leagueId, normalized.franchise_id);
-        const pageRes = await fetchAuctionPageForCookie(viewerCookieHeader || cookieHeader, season, leagueId, viewerFranchiseId);
-        if (!pageRes.ok) {
+
+        // §A2 nomination cap (Keith 2026-07-14): exactly 2 per ET calendar
+        // day. Claimed here — after identity resolves, before the O=43 GET and
+        // well before the irreversible POST — so a blocked 3rd nomination
+        // never reaches MFL. Bids have no quota; ERA is a different rule (§A3:
+        // 1 per anchored 12h window, no mandatory-nomination obligation).
+        let nomSlot = null;
+        if (normalized.action === "nominate" && normalized.auction_kind !== "expired-rookie") {
+          const capFid = await resolveCookieFranchiseIdForAcq(season, leagueId);
+          if (capFid) {
+            const claim = await claimFaaNomSlot(env, season, leagueId, capFid, normalized.player_id);
+            if (!claim.ok) {
+              const { ok: _ok, slot: _slot, ...refusal } = claim;
+              return { ...refusal, ok: false };
+            }
+            nomSlot = claim.slot;
+          } else {
+            // No resolvable owner cookie — MFL will reject the submit anyway,
+            // so refusing here would only turn an auth error into a rules error.
+            console.log("[faa-cap] no cookie franchise identity; cap not applied");
+          }
+        }
+
+        // finally, not `if (!result.ok)` after the fact: fetchTextWithCookie does
+        // a bare fetch() with no try/catch, so an MFL network blip THROWS straight
+        // past a post-hoc release and leaks the reservation — burning a nomination
+        // the owner never got to make, on a rule that fines them for missing it.
+        // On a throw `result` stays undefined, which releases (nothing reached MFL).
+        let result;
+        try {
+          result = await (async () => {
+          const pageRes = await fetchAuctionPageForCookie(viewerCookieHeader || cookieHeader, season, leagueId, viewerFranchiseId);
+          if (!pageRes.ok) {
+            return {
+              ok: false,
+              status: 502,
+              error: pageRes.unauthorized ? "auction_auth_required" : "auction_page_unavailable",
+              preview: safeStr(pageRes.html).slice(0, 800),
+              native_link: pageRes.pageUrl,
+            };
+          }
+          const parsedPage = parseAuctionPage(pageRes.html, pageRes.url || pageRes.pageUrl);
+          const preparedForm = auctionActionFormFromPage(parsedPage, normalized);
+          if (!preparedForm) {
+            // Distinguish "no biddable forms at all" (the auction isn't live — the
+            // common case off-season) from "forms exist but none matched this player"
+            // (a real parser miss / MFL form change).
+            const noForms = !Array.isArray(parsedPage?.forms) || parsedPage.forms.length === 0;
+            return {
+              ok: false,
+              status: noForms ? 409 : 422,
+              error: noForms ? "auction_not_live" : "auction_form_contract_not_found",
+              message: noForms
+                ? "No biddable form on MFL's auction page — the auction may not be open right now."
+                : "Couldn't find the bid form for that player on MFL's page.",
+              preview: safeStr(pageRes.html).slice(0, 800),
+              native_link: pageRes.pageUrl,
+            };
+          }
+          const postRes = await postAuctionActionForCookie(viewerCookieHeader || cookieHeader, preparedForm);
           return {
-            ok: false,
-            status: 502,
-            error: pageRes.unauthorized ? "auction_auth_required" : "auction_page_unavailable",
-            preview: safeStr(pageRes.html).slice(0, 800),
+            ...postRes,
             native_link: pageRes.pageUrl,
           };
+          })();
+        } finally {
+          if (nomSlot && !result?.ok) await releaseFaaNomSlot(env, nomSlot);
         }
-        const parsedPage = parseAuctionPage(pageRes.html, pageRes.url || pageRes.pageUrl);
-        const preparedForm = auctionActionFormFromPage(parsedPage, normalized);
-        if (!preparedForm) {
-          // Distinguish "no biddable forms at all" (the auction isn't live — the
-          // common case off-season) from "forms exist but none matched this player"
-          // (a real parser miss / MFL form change).
-          const noForms = !Array.isArray(parsedPage?.forms) || parsedPage.forms.length === 0;
-          return {
-            ok: false,
-            status: noForms ? 409 : 422,
-            error: noForms ? "auction_not_live" : "auction_form_contract_not_found",
-            message: noForms
-              ? "No biddable form on MFL's auction page — the auction may not be open right now."
-              : "Couldn't find the bid form for that player on MFL's page.",
-            preview: safeStr(pageRes.html).slice(0, 800),
-            native_link: pageRes.pageUrl,
-          };
-        }
-        const postRes = await postAuctionActionForCookie(viewerCookieHeader || cookieHeader, preparedForm);
-        return {
-          ...postRes,
-          native_link: pageRes.pageUrl,
-        };
+        return result;
       };
 
       const githubRepoOwner = String(env.GITHUB_REPO_OWNER || "keithcreelman").trim();
@@ -31011,9 +31427,7 @@ export default {
         const actionRes = await performAuctionAction(season, leagueId, body, "free-agent");
         if (!actionRes.ok) {
           return jsonNoStore(actionRes.status >= 400 ? actionRes.status : 502, {
-            ok: false,
-            error: actionRes.error,
-            preview: actionRes.preview || "",
+            ...auctionActionErrorBody(actionRes),
             native_link: actionRes.native_link || "",
           });
         }
@@ -31081,9 +31495,7 @@ export default {
         const actionRes = await performAuctionAction(season, leagueId, body, "expired-rookie");
         if (!actionRes.ok) {
           return jsonNoStore(actionRes.status >= 400 ? actionRes.status : 502, {
-            ok: false,
-            error: actionRes.error,
-            preview: actionRes.preview || "",
+            ...auctionActionErrorBody(actionRes),
             native_link: actionRes.native_link || "",
           });
         }
@@ -31142,9 +31554,7 @@ export default {
         const actionRes = await performAuctionAction(season, leagueId, { ...body, action }, kind);
         if (!actionRes.ok) {
           return jsonNoStore(actionRes.status >= 400 ? actionRes.status : 502, {
-            ok: false,
-            error: actionRes.error,
-            preview: actionRes.preview || "",
+            ...auctionActionErrorBody(actionRes),
             native_link: actionRes.native_link || nativeLink,
           });
         }

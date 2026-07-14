@@ -45,7 +45,7 @@ function buildChannelMessage(data) {
       lines.push(`• **${r.franchise_name}** — ${r.noms_remaining} of ${r.noms_required} noms left · ${r.total_deficit} roster ${plural(r.total_deficit, "gap", "gaps")} to fill`);
     }
     lines.push("");
-    lines.push("_You must make your daily nominations until you can field a legal lineup. Windows roll on a 24-hour clock._");
+    lines.push("_You must make your daily nominations until you can field a legal lineup. Windows are ET calendar days — everyone resets at midnight ET. 2 is the floor AND the ceiling: a 3rd nomination in the same day is a rules violation._");
   }
   if (met.length) {
     lines.push("");
@@ -61,8 +61,8 @@ function buildOwnerDm(row) {
       `**FA Auction nudge — ${row.franchise_name}**\n` +
       `You still need to make **${row.noms_remaining}** of your ${row.noms_required} nominations today, ` +
       `and you have **${row.total_deficit}** roster ${plural(row.total_deficit, "spot", "spots")} to fill before you can field a legal lineup.\n` +
-      `Nominate in the app (FA Auction → Players) or on MFL. Once you've met the roster requirement you can stop — ` +
-      `but you'll need to keep nominating each day if you want to keep adding to your roster.`,
+      `Nominate in the app (FA Auction → Players) or on MFL. Once you've met the roster requirement you can stop. ` +
+      `Either way, ${row.noms_required} per day is the cap — don't nominate a 3rd. Your window resets at midnight ET.`,
     allowed_mentions: { parse: [] },
   };
 }

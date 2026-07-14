@@ -664,13 +664,16 @@
   }
   function trackerSkeleton(tab) {
     const auc = tab === "era" ? "Expired Rookie Auction" : "FA Auction";
+    // ERA is optional participation with no missed-nomination fine (§A3); the
+    // old copy said owners "owe … 2 a day", the exact inverse of canon.
     const cadence = tab === "era"
-      ? "1 nomination per 12-hour window (6 AM / 6 PM ET) — 2 a day (§A3)"
-      : "2 nominations per day (§A1)";
+      ? "at most 1 nomination per 12-hour window (6 AM / 6 PM ET) — participation is optional, no missed-nomination fine (§A3)"
+      : "exactly 2 nominations per ET day — a minimum (missed noms carry escalating fines) and a maximum (a 3rd is a violation) (§A2)";
+    const verb = tab === "era" ? "Each owner may make" : "Each owner owes";
     return `
       <div class="ah-context-banner">
         <strong>Nominations Tracker</strong> — daily nomination compliance + the full audit trail for the
-        ${escapeHtml(auc)}. Each owner owes <strong>${escapeHtml(cadence)}</strong>. Click any owner to see
+        ${escapeHtml(auc)}. ${escapeHtml(verb)} <strong>${escapeHtml(cadence)}</strong>. Click any owner to see
         exactly which players they nominated and when.
         <div class="meta" id="ah-noms-meta">Loading…</div>
       </div>
@@ -745,6 +748,22 @@
       timeZone: "America/New_York", hour: "numeric", minute: "2-digit", hour12: true,
     });
   }
+  // The viewer's FAA nominations on the current ET day (§A2 cap = 2). Counts
+  // client-side off bid history; the authoritative count lives server-side in
+  // /api/auction/nominate, which also sees nominations made natively on MFL.
+  function myFaaNomsToday() {
+    const myFid = STATE.me && STATE.me.franchise_id ? _p4(STATE.me.franchise_id) : null;
+    if (!myFid) return 0;
+    const today = etDayParts(Math.floor(Date.now() / 1000)).key;
+    const eraIds = eraPoolIds();
+    return ((STATE.bidHistory && STATE.bidHistory.bids) || [])
+      .filter((b) => b.is_nomination)
+      .filter((b) => !eraIds.has(String(b.player_id)))
+      .filter((b) => _p4(b.fid) === myFid)
+      .filter((b) => etDayParts(b.bid_at_unix).key === today)
+      .length;
+  }
+
   function renderNominationsAudit(tab) {
     const host = $("#ah-noms-audit");
     if (!host) return;
@@ -784,21 +803,25 @@
       const ownerRows = owners.map((o) => {
         const mine = items.filter((n) => n.fid === o.fid).sort((a, b) => a.unix - b.unix);
         const c = mine.length;
-        const cls = c >= REQ ? "ah-nom-met" : (c > 0 ? "ah-nom-partial" : "ah-nom-zero");
+        // c > REQ is a violation, not a clean day — `c >= REQ` used to paint it
+        // green, which is how a 3-nomination day read as compliant.
+        const cls = c > REQ ? "ah-nom-over" : (c === REQ ? "ah-nom-met" : (c > 0 ? "ah-nom-partial" : "ah-nom-zero"));
         const body = c > 0
           ? `<ul class="ah-nom-players">${mine.map((n) => `<li>${escapeHtml(n.player || "—")} <span class="ah-nom-when">${escapeHtml(etTimeOnly(n.unix))}</span></li>`).join("")}</ul>`
           : `<div class="ah-nom-empty">No nominations this day.</div>`;
         return `<details class="ah-nom-owner ${cls}${o.fid === myFid ? " ah-nom-me" : ""}">
-          <summary><span class="ah-nom-oname">${escapeHtml(o.name)}</span><span class="ah-nom-count">${c}/${REQ}</span></summary>
+          <summary><span class="ah-nom-oname">${escapeHtml(o.name)}</span><span class="ah-nom-count">${c}/${REQ}${c > REQ ? " ⚠" : ""}</span></summary>
           ${body}
         </details>`;
       }).join("");
       const total = items.length;
-      const metCount = owners.filter((o) => items.filter((n) => n.fid === o.fid).length >= REQ).length;
+      // Exactly REQ — an over-cap franchise is not a franchise that "met" it.
+      const metCount = owners.filter((o) => items.filter((n) => n.fid === o.fid).length === REQ).length;
+      const overCount = owners.filter((o) => items.filter((n) => n.fid === o.fid).length > REQ).length;
       return `<details class="ah-card ah-nom-day"${openByDefault ? " open" : ""}>
         <summary class="ah-nom-day-head">
           <strong>${escapeHtml(label)}${isToday ? " · Today" : ""}</strong>
-          <span class="small ah-nom-day-sum">${total} nom${total === 1 ? "" : "s"} · ${metCount}/${owners.length} owners met</span>
+          <span class="small ah-nom-day-sum">${total} nom${total === 1 ? "" : "s"} · ${metCount}/${owners.length} owners met${overCount ? ` · <span class="ah-nom-over-tag">${overCount} over cap ⚠</span>` : ""}</span>
         </summary>
         <div class="ah-nom-grid">${ownerRows}</div>
       </details>`;
@@ -1210,6 +1233,12 @@
       return;
     }
     const faaLive = !!(STATE.lots && STATE.lots.faa_enabled);
+    // Desktop nomination is a deep-link to MFL's O=43 page — there's no worker
+    // call in this path, so disabling the link IS the app-side gate here. It's
+    // a guardrail against an honest mistake, not a wall: MFL itself has no
+    // nomination-limit setting, so the page remains reachable directly.
+    const myNomsToday = myFaaNomsToday();
+    const nomCapped = faaLive && myNomsToday >= 2;
     const CAP = 400;
     tbody.innerHTML = filtered.slice(0, CAP).map((r) => {
       const name = r.name || r.player_name;
@@ -1234,9 +1263,11 @@
       const seasonTxt = hasGp
         ? (ppg ? ("<b>" + ppg + "</b> PPG" + (pts ? ' <span class="small" style="color:var(--muted)">· ' + Math.round(pts) + " pts</span>" : "")) : "—")
         : (ppg ? ("<b>" + Math.round(ppg) + "</b> pts") : "—");
-      const action = faaLive
-        ? `<a href="${mflBidUrl(r.player_id)}" target="_blank" rel="noopener" class="btn small">Nominate ↗</a>`
-        : `<span class="small" style="color:var(--muted)">—</span>`;
+      const action = !faaLive
+        ? `<span class="small" style="color:var(--muted)">—</span>`
+        : nomCapped
+          ? `<button type="button" class="btn small secondary" disabled title="${escapeHtml(myNomsToday + " of 2 nominations used today (resets midnight ET) — a 3rd is a rules violation.")}">Nominate</button>`
+          : `<a href="${mflBidUrl(r.player_id)}" target="_blank" rel="noopener" class="btn small">Nominate ↗</a>`;
       return `<tr>
         <td>${playerNameCell(r.player_id, name)}</td>
         <td>${escapeHtml(String(r.position || "").toUpperCase() || "—")}</td>

@@ -116,6 +116,7 @@ nav.ah-subnav button.active {
   border-left: 3px solid var(--muted);
 }
 .ah-nom-owner.ah-nom-met { border-left-color: var(--ok); }
+.ah-nom-owner.ah-nom-over { border-left-color: var(--err); }
 .ah-nom-owner.ah-nom-partial { border-left-color: var(--warn); }
 .ah-nom-owner.ah-nom-zero { border-left-color: var(--border); opacity: 0.78; }
 .ah-nom-owner.ah-nom-me { box-shadow: inset 0 0 0 1px var(--accent); }
@@ -130,7 +131,9 @@ nav.ah-subnav button.active {
   padding: 1px 8px; border-radius: 999px; background: var(--panel); color: var(--muted);
 }
 .ah-nom-met .ah-nom-count { background: rgba(74, 222, 128, 0.15); color: var(--ok); }
+.ah-nom-over .ah-nom-count { background: rgba(248, 113, 113, 0.15); color: var(--err); }
 .ah-nom-partial .ah-nom-count { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
+.ah-nom-over-tag { color: var(--err); font-weight: 700; }
 .ah-nom-players { margin: 0; padding: 0 11px 9px 26px; list-style: disc; }
 .ah-nom-players li { font-size: 12px; padding: 2px 0; }
 .ah-nom-when { color: var(--muted); font-size: 11px; margin-left: 4px; }
