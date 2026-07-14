@@ -415,19 +415,21 @@
       <div class="ah-card">
         <div class="ah-card-head">
           <h2>Team Budgets</h2>
-          <span class="small">Most you can spend on one player and still afford a legal roster — filling to the 27-man minimum vs a full 35-man roster (§B1).</span>
+          <span class="small">Most you can spend on one player and still afford a legal roster — filling to the 27-man minimum vs a full 35-man roster (§B1). Available Funds is net of cap penalties &amp; traded-salary settlements.</span>
         </div>
+        <div id="fa-budgets-warn" class="small" style="display:none;color:var(--warn,#e0a030);padding:0 0 8px;"></div>
         <table class="ah-table" id="fa-budgets-table">
           <thead>
             <tr>
               <th>Team</th>
+              <th class="num">Cap Penalties</th>
               <th class="num">Available Funds</th>
               <th class="num">Max Bid → 27-man</th>
               <th class="num">Max Bid → 35-man</th>
             </tr>
           </thead>
           <tbody id="fa-budgets-tbody">
-            <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">Loading budgets…</td></tr>
+            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">Loading budgets…</td></tr>
           </tbody>
         </table>
       </div>`;
@@ -972,15 +974,27 @@
     const tbody = $("#fa-budgets-tbody");
     if (!tbody) return;
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">No budget data yet.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">No budget data yet.</td></tr>`;
       return;
+    }
+    // When the adjustments export is down we still show funds, but we say so —
+    // an unflagged number here silently overstates every penalized team.
+    const warn = $("#fa-budgets-warn");
+    if (warn) {
+      const known = STATE.fa ? STATE.fa.adjustments_ok !== false : true;
+      warn.style.display = known ? "none" : "";
+      warn.textContent = known ? "" : "⚠️ Cap penalties couldn't be loaded from MFL — Available Funds below may be overstated.";
     }
     const meFid = (STATE.me && STATE.me.franchise_id) || _hpmFranchiseId();
     const sorted = rows.slice().sort((a, b) => Number(b.available_funds_dollars || 0) - Number(a.available_funds_dollars || 0));
     tbody.innerHTML = sorted.map((r) => {
       const isMe = meFid && String(r.franchise_id).padStart(4, "0") === String(meFid).padStart(4, "0");
+      const adj = r.salary_adjustments_dollars;
+      // Positive = a charge against the cap, so show it as the hit it is (−$14K).
+      const adjCell = adj == null ? "—" : (Number(adj) === 0 ? "$0" : (Number(adj) > 0 ? "−" + usd(adj) : "+" + usd(Math.abs(Number(adj)))));
       return `<tr${isMe ? ' class="ah-row-me"' : ""}>
         <td>${escapeHtml(r.franchise_name || franchiseName(r.franchise_id))}</td>
+        <td class="num"${Number(adj) > 0 ? ' style="color:var(--bad,#d9534f);"' : ""}>${adjCell}</td>
         <td class="num">${usd(r.available_funds_dollars)}</td>
         <td class="num">${usd(r.scenario_27_max_bid)}</td>
         <td class="num">${usd(r.scenario_35_max_bid)}</td>
