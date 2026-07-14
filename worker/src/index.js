@@ -3223,6 +3223,32 @@ export default {
           headers: { "content-type": "application/json", ...corsHeaders },
         });
 
+      // ── Commish-only proof (LRDG-derived analytics) ──────────────────────────
+      // These endpoints used to gate on a caller-supplied ?franchise_id=. That is
+      // a declaration, not proof: verified 2026-07-14 from an unauthenticated
+      // shell, ?franchise_id=0008 returned 669 FA valuation rows with expected-bid
+      // bands, every franchise's cap space and positional needs, and the worth
+      // model — mid-auction, to anyone who typed the number. The repo is public,
+      // so the parameter and the gate logic were published too.
+      //
+      // Locked to the server-held key. A session-token gate (resolve the caller's
+      // franchise from MFL's myfranchise export) is the real answer, but the MFL
+      // helpers and browserCookieValue are declared far below this point in the
+      // handler (TDZ), and the hub + War Room don't forward a token yet — so that
+      // lands with the client plumbing rather than half-built here.
+      const COMMISH_ONLY_403 = {
+        ok: false,
+        error: "commish_only",
+        message:
+          "Commish-only. A franchise_id is no longer accepted as proof — this needs the commish API key.",
+      };
+      const commishKeyProven = () => {
+        const expected = String(env.COMMISH_API_KEY || "").trim();
+        const presented = String(url.searchParams.get("APIKEY") || "").trim();
+        // No key configured => nothing can prove commish. Fail CLOSED.
+        return !!expected && !!presented && presented === expected;
+      };
+
       const MCM_SEED_URL = "https://keithcreelman.github.io/upsmflproduction/site/mcm/mcm_seed.json";
       const MCM_VOTES_URL = "https://keithcreelman.github.io/upsmflproduction/site/mcm/mcm_votes.json";
       const MCM_NOMS_URL = "https://keithcreelman.github.io/upsmflproduction/site/mcm/mcm_nominations.json";
@@ -4471,13 +4497,12 @@ export default {
         const commit = String(url.searchParams.get("commit") || "") === "1";
 
         if (commit) {
-          const _pad4 = (v) => { const s = safeStr(v).trim(); return /^\d+$/.test(s) ? s.padStart(4, "0") : s; };
-          const reqFid = _pad4(url.searchParams.get("franchise_id") || "");
-          const commishFids = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000").split(",").map((x) => _pad4(x)).filter(Boolean);
-          const fidOk = reqFid && commishFids.includes(reqFid);
+          // A caller-declared franchise_id must never authorize a WRITE to the
+          // league's MFL calendar — ?franchise_id=0008&commit=1 was enough for
+          // anyone. Key only.
           const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
           const keyOk = browserKey && (browserKey === String(env.COMMISH_API_KEY || "").trim() || browserKey === String(env.TEST_SYNC_API_KEY || "").trim());
-          if (!fidOk && !keyOk) return jsonOut(403, { ok: false, error: "commit is commish-only — pass a commish franchise_id" });
+          if (!keyOk) return jsonOut(403, { ok: false, error: "commit is commish-only — requires the commish API key" });
         }
 
         const cfg = await getAuctionCalendar(env);
@@ -5158,13 +5183,7 @@ export default {
       if (path === "/api/auction/intel" && request.method === "GET") {
         // Inline commish gate — _rdhPadFid/_rdhCommishFids are declared later in
         // this handler (TDZ), so don't reference them from up here.
-        const _pad4 = (v) => { const s = safeStr(v).trim(); return /^\d+$/.test(s) ? s.padStart(4, "0") : s; };
-        const reqFid = _pad4(url.searchParams.get("franchise_id") || "");
-        const commishFids = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000")
-          .split(",").map((x) => _pad4(x)).filter(Boolean);
-        if (!reqFid || !commishFids.includes(reqFid)) {
-          return jsonOut(403, { ok: false, error: "Commish-only — pass a commish franchise_id" });
-        }
+        if (!commishKeyProven()) return jsonOut(403, COMMISH_ONLY_403);
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         try {
           const row = await env.UPS_MFL_DB.prepare(
@@ -5180,13 +5199,7 @@ export default {
 
       if (path === "/api/auction/fa-value" && request.method === "GET") {
         // FA Value engine — commish-gated (same inline gate as /api/auction/intel).
-        const _pad4 = (v) => { const s = safeStr(v).trim(); return /^\d+$/.test(s) ? s.padStart(4, "0") : s; };
-        const reqFid = _pad4(url.searchParams.get("franchise_id") || "");
-        const commishFids = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000")
-          .split(",").map((x) => _pad4(x)).filter(Boolean);
-        if (!reqFid || !commishFids.includes(reqFid)) {
-          return jsonOut(403, { ok: false, error: "Commish-only — pass a commish franchise_id" });
-        }
+        if (!commishKeyProven()) return jsonOut(403, COMMISH_ONLY_403);
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         try {
           const row = await env.UPS_MFL_DB.prepare(
@@ -5203,13 +5216,7 @@ export default {
       if (path === "/api/auction/faa-report" && request.method === "GET") {
         // FAA Report (2020+ auction outcomes) — commish-gated, same inline gate as /api/auction/fa-value.
         // Stored PART-KEYED (blob > D1's 100KB statement cap): concatenate payload ORDER BY part, then parse.
-        const _pad4 = (v) => { const s = safeStr(v).trim(); return /^\d+$/.test(s) ? s.padStart(4, "0") : s; };
-        const reqFid = _pad4(url.searchParams.get("franchise_id") || "");
-        const commishFids = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000")
-          .split(",").map((x) => _pad4(x)).filter(Boolean);
-        if (!reqFid || !commishFids.includes(reqFid)) {
-          return jsonOut(403, { ok: false, error: "Commish-only — pass a commish franchise_id" });
-        }
+        if (!commishKeyProven()) return jsonOut(403, COMMISH_ONLY_403);
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         try {
           const res = await env.UPS_MFL_DB.prepare(
@@ -5228,13 +5235,7 @@ export default {
       if (path === "/api/auction/draft-intel" && request.method === "GET") {
         // Draft Intel — commish-gated, same inline gate as /api/auction/faa-report.
         // Stored PART-KEYED (blob > D1's 100KB statement cap): concatenate payload ORDER BY part, then parse.
-        const _pad4 = (v) => { const s = safeStr(v).trim(); return /^\d+$/.test(s) ? s.padStart(4, "0") : s; };
-        const reqFid = _pad4(url.searchParams.get("franchise_id") || "");
-        const commishFids = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000")
-          .split(",").map((x) => _pad4(x)).filter(Boolean);
-        if (!reqFid || !commishFids.includes(reqFid)) {
-          return jsonOut(403, { ok: false, error: "Commish-only — pass a commish franchise_id" });
-        }
+        if (!commishKeyProven()) return jsonOut(403, COMMISH_ONLY_403);
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         try {
           const res = await env.UPS_MFL_DB.prepare(
