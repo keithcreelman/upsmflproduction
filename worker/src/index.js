@@ -4127,22 +4127,24 @@ export default {
         const cfg = await getAuctionCalendar(env);
         const { events, missing } = buildCalendarEvents(cfg);
 
-        // Read the CURRENT MFL calendar (commish cookie) — for before/after in the
-        // UI and to detect existing events (MFL's calendarEvent import has no
-        // delete/update, so we surface what's already there). Best-effort.
-        let currentCalendar = null;
+        // Read the CURRENT MFL calendar for before/after + to detect existing
+        // events (MFL's calendarEvent import has no delete/update). Reads go to
+        // the API host (api.myfantasyleague.com), not the www## write shard, and
+        // MFL accepts APIKEY auth (per its error text) — cookie as backup.
+        // Best-effort; on parse failure we surface the raw text for diagnosis.
+        let currentCalendar = null, calDebug = null;
         {
           const _ck = String(env.MFL_COOKIE || "").trim();
-          if (_ck) {
-            const _hdr = _ck.includes("=") ? _ck : `MFL_USER_ID=${_ck}`;
-            try {
-              const calRes = await fetch(`https://www48.myfantasyleague.com/${yearArg}/export?TYPE=calendar&L=${encodeURIComponent(leagueId)}&JSON=1`, {
-                headers: { Cookie: _hdr, "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", "Accept": "application/json, text/xml, */*", "Accept-Encoding": "identity" },
-                cf: { cacheTtl: 0, cacheEverything: false },
-              });
-              currentCalendar = await calRes.json().catch(() => null);
-            } catch (_) { currentCalendar = null; }
-          }
+          const _hdr = { "User-Agent": "upsmflproduction-worker", "Accept": "application/json, text/xml, */*" };
+          if (_ck) _hdr.Cookie = _ck.includes("=") ? _ck : `MFL_USER_ID=${_ck}`;
+          const _qs = new URLSearchParams({ TYPE: "calendar", L: leagueId, JSON: "1", _: String(Date.now()) });
+          const _apiKey = String(env.MFL_APIKEY || "").trim();
+          if (_apiKey) _qs.set("APIKEY", _apiKey);
+          try {
+            const calRes = await fetch(`https://api.myfantasyleague.com/${yearArg}/export?${_qs.toString()}`, { headers: _hdr, cf: { cacheTtl: 0, cacheEverything: false } });
+            const _txt = await calRes.text();
+            try { currentCalendar = JSON.parse(_txt); } catch (_) { calDebug = { status: calRes.status, preview: _txt.slice(0, 500) }; }
+          } catch (e) { calDebug = { error: String(e?.message || e) }; }
         }
 
         // Guard: any event with an unparseable date is a hard stop (don't half-write).
@@ -4166,7 +4168,7 @@ export default {
         });
 
         if (!commit) {
-          return jsonOut(200, { ok: true, dryRun: true, league: leagueId, season: yearArg, missing, count: planned.length, events: planned, current_calendar: currentCalendar,
+          return jsonOut(200, { ok: true, dryRun: true, league: leagueId, season: yearArg, missing, count: planned.length, events: planned, current_calendar: currentCalendar, cal_debug: calDebug,
             note: "DRY RUN — nothing written. Re-call with &commit=1 to push to MFL." });
         }
 
