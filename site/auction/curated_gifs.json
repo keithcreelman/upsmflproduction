@@ -182,6 +182,38 @@
       "label": "Self-nominated win ≥$10K — 'called the shot, got him'",
       "TODO": "6+ called-shot / babe-ruth-pointing GIFs. Search: 'babe ruth called shot', 'called it', 'i told you so'",
       "gifs": []
+    },
+
+    "bump": {
+      "label": "Someone bumped your bid but you're still winning — fist bumps, chest bumps, bumper taps, 'bump it up' energy",
+      "gifs": [
+        { "url": "https://media4.giphy.com/media/28n0CCV6xP8PgUGtqe/giphy.gif?cid=e4832a7a8mhg2qathii8t7pal1fjjc5hoktq6azswh01j9jt&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Fist bump" },
+        { "url": "https://media4.giphy.com/media/MenglW7Bcu89JWTjeD/giphy.gif?cid=e4832a7auq4sqx0trw5a9gmlqdfb3anvz9x43t6jppqpvjcu&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Chest bump" },
+        { "url": "https://media1.giphy.com/media/e0OpCojpLrfqYKxfNl/giphy.gif?cid=e4832a7aokx4kny80taot833q11rh100uop1yixijd9ubf4i&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Fist bump celebration" },
+        { "url": "https://media1.giphy.com/media/jw0X3rtoigcG1zyx5J/giphy.gif?cid=e4832a7a012ovdvrqvu3st133ujye044ag0j5aaqymmd1tlx&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Bump it up" },
+        { "url": "https://media2.giphy.com/media/3o6nV9aT2ZnGatdqH6/giphy.gif?cid=e4832a7avsagpn0swkirymgx9pyj4zwy92wzl26yhzqh20oe&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Car bumper tap" },
+        { "url": "https://media0.giphy.com/media/l0O9y0V8OIDHm0FHO/giphy.gif?cid=e4832a7avj9j0eobajkdgr0cne7y6pzlonnhnerf2qt7m453&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Bumper cars" },
+        { "url": "https://media0.giphy.com/media/26gBjuzDWTqDhLtEA/giphy.gif?cid=e4832a7aeshjb3cm4v7ib6puj12lmtol8f91y98ttmo6yzhh&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Nudge" },
+        { "url": "https://media3.giphy.com/media/XIrKDBPos5IGC5CRdH/giphy.gif?cid=e4832a7aoatuin8hpn6b10jwvmm5zo5mp7p0ja65ny9plfzo&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Brofist" },
+        { "url": "https://media4.giphy.com/media/iMMBGL1yCOHsY/giphy.gif?cid=e4832a7agr4bpuzo7dq9191k9rriq7x2pvrpds1vk4xp1ozx&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Epic fist bump" },
+        { "url": "https://media2.giphy.com/media/ZxWIUYDAKBIuKKkds3/giphy.gif?cid=e4832a7abk6rn7xmijvzuo77jcjdtfvqrix3xnaxatnszv09&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Bump" }
+      ]
+    },
+
+    "cocaine_bump": {
+      "label": "Edgy 'bump' pun pool (Keith-requested, private adult server) — iconic R-rated movie/TV powder moments: Scarface, Wolf of Wall Street, powder-cloud comedy",
+      "gifs": [
+        { "url": "https://media3.giphy.com/media/izztvFoIOI0Cc/giphy.gif?cid=e4832a7aeann8r5qyf0in1vwx2741nekqfe5ay30w3730yw5&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Scarface Tony Montana" },
+        { "url": "https://media1.giphy.com/media/IgYDSGFFNpxN9gWAQ4/giphy.gif?cid=e4832a7av0az3b1uoa0xmajeujafmmw0xtmquysrrubc3vu2&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Scarface desk scene" },
+        { "url": "https://media1.giphy.com/media/1Qiu5tdaHkqt2/giphy.gif?cid=e4832a7af0s7qdblqs3q54b4tkim7xyonuhxee12vt20m5ui&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Wolf of Wall Street sniff" },
+        { "url": "https://media2.giphy.com/media/OuQmhmAAdJFLi/giphy.gif?cid=e4832a7a3uu0zwy0hsmq4dydcxb74dnapxb9ao3bqxvs3fgg&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Wolf of Wall Street Leo laugh" },
+        { "url": "https://media4.giphy.com/media/lniGWwurYsFaqE4HSs/giphy.gif?cid=e4832a7antd8u93afy4lqsrll81fr11hwr6hgkq5tpphhog6&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Powder everywhere" },
+        { "url": "https://media4.giphy.com/media/5mG3EExR4eAsglJuPB/giphy.gif?cid=e4832a7afmkrys80tls8vj6oxwevm8obdi9hr7wr79r6t5k7&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Flour cloud face" },
+        { "url": "https://media3.giphy.com/media/BtQIgWXopk55HMNjaZ/giphy.gif?cid=e4832a7afitfh1kpbkhq08qy1ffda0e1uwcotu5u7bjhj6nu&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Ski powder face" },
+        { "url": "https://media1.giphy.com/media/ZovkYHx6EDs6bshPkZ/giphy.gif?cid=e4832a7avudqxiw60bxaiecf6ooi2lucar1qjbafg7iaq2rk&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Wolf of Wall Street party" },
+        { "url": "https://media2.giphy.com/media/Mw58ezSWk5sQw/giphy.gif?cid=e4832a7al0coxlzy4tiwdwldn4obcddhrj1xgk7yat1g5y69&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Scarface say hello" },
+        { "url": "https://media4.giphy.com/media/EjbTuSrBPCWQ3WPiON/giphy.gif?cid=e4832a7ahpvgnrj9w5ajffkkcnf3fbvcfifq1uercfsk8xbq&ep=v1_gifs_search&rid=giphy.gif&ct=g", "label": "Powdered sugar face" }
+      ]
     }
   },
 

@@ -3,7 +3,9 @@ roast_bot_watchdog.py — health checker for trade_roast_bot.py.
 
 Runs on a launchd timer (every 5 min). Checks if trade_roast_bot.py is
 running. If not, DMs the commissioner via Discord and triggers
-launchctl to wake it back up.
+launchctl to wake it back up. Also checks heartbeat AGE (hang detection)
+and heartbeat COMMIT vs repo HEAD (stale-code detection → auto-restart
+after a 10-min grace window).
 
 State file at /tmp/roast_bot_watchdog_state.json tracks last_status so
 we don't DM every 5 minutes during an extended outage — only on
@@ -41,6 +43,12 @@ USER_AGENT = "ups-roast-bot-watchdog/1.0"
 HEARTBEAT_FILE = Path.home() / "Library" / "Application Support" / "ups-roast-bot" / "heartbeat.json"
 STALE_AFTER_SECONDS = 20 * 60
 KICK_COOLDOWN_SECONDS = 20 * 60  # at most one hang-kick per cooldown window
+# Stale-CODE check: the bot stamps its boot commit into the heartbeat payload
+# ("commit"). If it differs from the repo's current HEAD for longer than the
+# grace window (so mid-pull states don't flap), the watchdog kickstarts the
+# bot so it picks up the new code. One kick+DM per distinct mismatch pair.
+REPO_DIR = Path(__file__).resolve().parent
+STALE_CODE_GRACE_SECONDS = 10 * 60
 
 
 def now_iso():
@@ -55,6 +63,30 @@ def heartbeat_age_seconds():
         return max(0.0, time.time() - float(data.get("ts", 0)))
     except Exception:
         return None
+
+
+def bot_commit_from_heartbeat():
+    """Commit the running bot booted from (heartbeat 'commit' field), or ''.
+    Empty / 'unknown' means the freshness check can't run — never a restart."""
+    try:
+        data = json.loads(HEARTBEAT_FILE.read_text())
+        return str(data.get("commit", "") or "")
+    except Exception:
+        return ""
+
+
+def repo_head_commit():
+    """Current HEAD of the repo the watchdog runs from, or '' on failure."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(REPO_DIR), "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return ""
 
 
 def read_state():
@@ -238,8 +270,71 @@ def main():
         if discord_dm(msg):
             state["last_dm_at"] = now_iso()
 
+    # STALE CODE: bot is up + healthy but running an older commit than the
+    # repo's HEAD (e.g. a pull landed and nothing restarted the launchd agent).
+    # Grace window avoids flapping mid-pull; kick reuses the same launchd +
+    # cooldown machinery as the hang path, with log + commish DM.
+    if new_status == "up":
+        check_code_freshness(state)
+    else:
+        state["code_mismatch_since"] = None
+
     write_state(state)
     print(f"[{now_iso()}] watchdog: status={new_status} prior={prior_status}")
+
+
+def check_code_freshness(state):
+    """Kick the bot if its boot commit trails repo HEAD past the grace window.
+
+    All inputs fail soft: missing heartbeat field, 'unknown' commit (bot
+    booted outside a git checkout), or a git failure just skips the check.
+    """
+    bot_commit = bot_commit_from_heartbeat()
+    head = repo_head_commit()
+    if (not bot_commit or bot_commit == "unknown" or not head
+            or bot_commit == head):
+        state["code_mismatch_since"] = None
+        state["stale_kicked_for"] = None
+        return
+
+    since = float(state.get("code_mismatch_since") or 0)
+    if not since:
+        state["code_mismatch_since"] = time.time()
+        print(f"[{now_iso()}] code mismatch first seen "
+              f"(bot={bot_commit[:8]} head={head[:8]}) — grace window started")
+        return
+    if time.time() - since < STALE_CODE_GRACE_SECONDS:
+        print(f"[{now_iso()}] code mismatch persists "
+              f"(bot={bot_commit[:8]} head={head[:8]}) — within grace window")
+        return
+
+    # One kick + DM per distinct mismatch pair — if a restart doesn't clear
+    # the mismatch (e.g. agent runs a different checkout), don't spam kicks.
+    pair = f"{bot_commit}->{head}"
+    if state.get("stale_kicked_for") == pair:
+        print(f"[{now_iso()}] code still stale ({bot_commit[:8]} vs "
+              f"{head[:8]}) but already kicked for this pair — waiting")
+        return
+    last_kick = float(state.get("last_kick_ts") or 0)
+    if time.time() - last_kick < KICK_COOLDOWN_SECONDS:
+        print(f"[{now_iso()}] code stale ({bot_commit[:8]} vs {head[:8]}) — "
+              f"kick within cooldown, waiting")
+        return
+
+    print(f"[{now_iso()}] bot code STALE — running {bot_commit[:8]}, repo HEAD "
+          f"{head[:8]} for >{STALE_CODE_GRACE_SECONDS // 60} min. Kicking.")
+    try_restart_via_launchd()
+    state["last_kick_ts"] = time.time()
+    state["stale_kicked_for"] = pair
+    msg = (
+        ":arrows_counterclockwise: **UPS Roast Bot code is STALE** — running "
+        f"`{bot_commit[:8]}` but repo HEAD is `{head[:8]}` "
+        f"(>{STALE_CODE_GRACE_SECONDS // 60} min). Auto-restarting via "
+        "launchd so it picks up the new code. Check `/tmp/roast_bot.log` "
+        "if it doesn't report back online."
+    )
+    if discord_dm(msg):
+        state["last_dm_at"] = now_iso()
 
 
 if __name__ == "__main__":

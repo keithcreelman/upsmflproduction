@@ -558,7 +558,10 @@ async function processTagDeadlineSixAmDm(env, season, leagueId, origin, commishA
 // is the MAX(bid_k) — but MFL's AUCTION_BID transactions ARE the high
 // bids (you don't see lower bids that were beaten), so MAX = latest.
 //
-// locks_at_unix = last_bid_at_unix + 36hr per league_context_v1.md §A3.
+// locks_at_unix = last_bid_at_unix + the lot's window, which depends on the
+// auction TYPE (this was hardcoded to 36hr for everything until 2026-07-14):
+//   ERA lot (player in that season's ups_era_pool) → 36hr, league_context §A3
+//   FAA lot (everything else)                      → 24hr, league_context §A2
 async function processAuctionPoll(env) {
   const db = env.UPS_MFL_DB;
   if (!db) {
@@ -703,6 +706,16 @@ async function processAuctionPoll(env) {
       `SELECT DISTINCT lot_id FROM ups_auction_bids
         WHERE season = ? AND league_id = ?`
     ).bind(season, leagueId).all();
+    // Lock window depends on the auction TYPE of the lot: ERA lots run 36h
+    // (league_context §A3), regular FA-auction lots 24h (§A2). This used to be
+    // hardcoded 36h for everything, which pushed every FAA lot's lock 12 hours
+    // late. ONE batched lookup for all lots up front; player_id is the 3rd
+    // segment of lot_id (season|league|player_id). Fail-soft → empty set →
+    // everything treated as FAA.
+    const lotIds = (openLots.results || []).map((r) => String(r.lot_id));
+    const eraLotPids = await loadEraPlayerIds(
+      env, season, lotIds.map((id) => id.split("|")[2] || "")
+    );
     for (const row of (openLots.results || [])) {
       const lot_id = String(row.lot_id);
       // Earliest bid = nomination. Latest bid = current high.
@@ -723,7 +736,8 @@ async function processAuctionPoll(env) {
           WHERE lot_id = ? ORDER BY bid_at_unix DESC, bid_id DESC LIMIT 1`
       ).bind(lot_id).first();
       if (!firstBid || !lastBid) continue;
-      const locks_at_unix = Number(stats.last_bid_at_unix) + 36 * 3600;
+      const isEraLot = eraLotPids.has(String(firstBid.player_id));
+      const locks_at_unix = Number(stats.last_bid_at_unix) + (isEraLot ? 36 : 24) * 3600;
       await db.prepare(
         `INSERT INTO ups_auction_lots
            (lot_id, season, league_id, player_id, nominator_fid,
@@ -1310,11 +1324,177 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
   };
 }
 
+// ─────────────────────── auction narrator: taunt library ───────────────────
+// Fired at the OUTBID owner on every overtake. Tiered by the bid that just
+// beat them — a $2K bump gets a nudge, a $40K bid gets both barrels. Keith
+// 2026-07-14: exactly these 15, no improvising.
+//   {outbid} is replaced with the outbid owner's mention (or **Team Name**
+//   when that franchise has no active Discord link in discord_owners).
+const AUCTION_TAUNTS = {
+  mild: [
+    "{outbid} — bowing out already, or just warming up?",
+    "{outbid} that all you got?",
+    "{outbid} — walking away, or catching your breath?",
+    "{outbid} you good, or was that the whole budget?",
+    "{outbid} — blink twice if you're done.",
+  ],
+  medium: [
+    "{outbid} — backing out, or do you actually want him?",
+    "{outbid} your move — or did the wallet suddenly get shy?",
+    "{outbid} — I can hear your cap space whimpering from here.",
+    "{outbid} you're really gonna let them walk off with YOUR guy?",
+    "{outbid} — fold now and save yourself the embarrassment.",
+  ],
+  savage: [
+    "{outbid} — will you be a bitch and cry to mommy, or are you bidding?",
+    "{outbid} empty the piggy bank or admit you never wanted him.",
+    "{outbid} — this is where the pretenders tap out. That you?",
+    "{outbid} all that trash talk and now you go quiet? Coward.",
+    "{outbid} — wire the money or hand over your man card.",
+  ],
+};
+// Module-scope last-2 rotation so back-to-back overtakes (common: two owners
+// trading blows on one lot inside a single 5-min poll) don't repeat a line.
+// Cold-start resets it; that's fine — the failure mode is one repeat, and
+// unlike GIFs there are only 15 lines so a durable ledger would drain fast.
+const TAUNT_LAST_USED = [];
+function pickAuctionTaunt(bidK, outbidLabel) {
+  const k = Number(bidK || 0);
+  const tier = k >= 30 ? "savage" : (k >= 10 ? "medium" : "mild");
+  const lines = AUCTION_TAUNTS[tier] || AUCTION_TAUNTS.mild;
+  let eligible = lines.filter((t) => !TAUNT_LAST_USED.includes(t));
+  if (eligible.length === 0) eligible = lines;   // tier drained by rotation
+  const pick = eligible[Math.floor(Math.random() * eligible.length)];
+  TAUNT_LAST_USED.unshift(pick);
+  TAUNT_LAST_USED.length = Math.min(TAUNT_LAST_USED.length, 2);
+  return String(pick).replace("{outbid}", String(outbidLabel || "You"));
+}
+
+// ─────────────── auction narrator: fid → Discord mention resolver ──────────
+// ONE batched SELECT for the whole fid set. A franchise CAN have more than one
+// active Discord account (personal + commish) — every one gets pinged, joined
+// by a space, same convention as trade_dm.js:resolveDiscordUserIds.
+// Returns Map<fid(4-pad), string[] user ids>. Fail-soft: on any D1 error the
+// map comes back empty and callers fall back to the bold team name.
+async function resolveFranchiseMentions(env, fids) {
+  const map = new Map();
+  const list = [...new Set(
+    (fids || []).map((f) => String(f == null ? "" : f).replace(/\D/g, "").padStart(4, "0"))
+      .filter((f) => /^\d{4}$/.test(f) && f !== "0000")
+  )];
+  if (!env?.UPS_MFL_DB || list.length === 0) return map;
+  try {
+    const ph = list.map(() => "?").join(",");
+    const rs = await env.UPS_MFL_DB.prepare(
+      `SELECT discord_user_id, franchise_id FROM discord_owners
+        WHERE franchise_id IN (${ph}) AND active_owner = 'Y'
+          AND discord_user_id IS NOT NULL AND discord_user_id != ''`
+    ).bind(...list).all();
+    for (const r of (rs?.results || [])) {
+      const fid = String(r?.franchise_id || "").replace(/\D/g, "").padStart(4, "0");
+      const uid = String(r?.discord_user_id || "").replace(/\D/g, "");
+      if (!fid || !uid) continue;
+      const arr = map.get(fid) || [];
+      if (!arr.includes(uid)) arr.push(uid);
+      map.set(fid, arr);
+    }
+  } catch (e) {
+    console.log("[auction-narrator] discord_owners lookup failed:", String(e?.message || e));
+  }
+  return map;
+}
+
+// ───────────── auction narrator: ERA vs FAA lot classification ─────────────
+// A lot is ERA (Expired Rookie Auction, 36h window per league_context §A3) if
+// its player is in that season's ups_era_pool snapshot; everything else is a
+// regular FA auction lot (FAA, 24h per §A2). ONE batched query for the whole
+// player set. Fail-soft: on error we return an empty set = "assume FAA", which
+// is both the common case and the conservative one (shorter window in copy,
+// and processAuctionPoll's lock recompute self-heals on the next tick).
+// Matched on season only (not league) so test-league replays of real players
+// still classify correctly.
+async function loadEraPlayerIds(env, season, playerIds) {
+  const out = new Set();
+  const list = [...new Set((playerIds || []).map((p) => String(p || "").trim()).filter(Boolean))];
+  if (!env?.UPS_MFL_DB || list.length === 0) return out;
+  // D1 caps bound parameters at 100 per query. A poll can carry up to the
+  // 100-lot cap, and season eats a slot — so chunk at 90 rather than let the
+  // whole lookup throw (which would fail-soft to "every lot is FAA" and put a
+  // 24h lock on ERA lots). Real auctions are ~30-60 lots = one chunk.
+  const CHUNK = 90;
+  for (let i = 0; i < list.length; i += CHUNK) {
+    const slice = list.slice(i, i + CHUNK);
+    try {
+      const ph = slice.map(() => "?").join(",");
+      const rs = await env.UPS_MFL_DB.prepare(
+        `SELECT player_id FROM ups_era_pool WHERE season = ? AND player_id IN (${ph})`
+      ).bind(String(season), ...slice).all();
+      for (const r of (rs?.results || [])) {
+        const pid = String(r?.player_id || "").trim();
+        if (pid) out.add(pid);
+      }
+    } catch (e) {
+      console.log("[auction-narrator] era-pool lookup failed (assuming FAA):", String(e?.message || e));
+    }
+  }
+  return out;
+}
+
+// ───────────── durable GIF anti-repeat (migration 0095_ups_gif_recent) ─────
+// The in-memory POOL_LAST_USED Map dies on every cold start (the auction poll
+// runs every 5 min, so that's most ticks) — which is why the same GIF kept
+// showing up. D1 is the durable layer; POOL_LAST_USED stays as the free
+// first-pass filter. BOTH helpers swallow errors: a D1 hiccup must NEVER
+// block a Discord post.
+//   scope: "pool:<pool_id>" for curated pools, "giphy:<event_kind>" for the
+//   Giphy fallback, so the two never shadow each other.
+async function getRecentGifs(env, scope, limit = 8) {
+  const s = String(scope || "").trim();
+  if (!env?.UPS_MFL_DB || !s) return [];
+  try {
+    const n = Math.max(1, Math.min(50, Number(limit) || 8));
+    const rs = await env.UPS_MFL_DB.prepare(
+      `SELECT gif_url FROM ups_gif_recent
+        WHERE scope = ? ORDER BY used_at_unix DESC LIMIT ?`
+    ).bind(s, n).all();
+    return (rs?.results || []).map((r) => String(r?.gif_url || "")).filter(Boolean);
+  } catch (e) {
+    console.log("[auction-narrator] getRecentGifs failed (no durable filter):", String(e?.message || e));
+    return [];
+  }
+}
+async function recordGifUse(env, scope, url) {
+  const s = String(scope || "").trim();
+  const u = String(url || "").trim();
+  if (!env?.UPS_MFL_DB || !s || !u) return;
+  const now = Math.floor(Date.now() / 1000);
+  try {
+    await env.UPS_MFL_DB.prepare(
+      `INSERT OR REPLACE INTO ups_gif_recent (scope, gif_url, used_at_unix) VALUES (?, ?, ?)`
+    ).bind(s, u, now).run();
+  } catch (e) {
+    console.log("[auction-narrator] recordGifUse failed:", String(e?.message || e));
+    return;
+  }
+  // Opportunistic prune (no cron): drop this scope's rows older than ~14 days.
+  try {
+    await env.UPS_MFL_DB.prepare(
+      `DELETE FROM ups_gif_recent WHERE scope = ? AND used_at_unix < ?`
+    ).bind(s, now - 14 * 86400).run();
+  } catch (e) {
+    console.log("[auction-narrator] gif-recent prune failed:", String(e?.message || e));
+  }
+}
+
 // classify (e.g., narration of orphaned data).
 //
 // Rate limit: ~250ms between posts. Discord allows 5/5s per channel;
 // keeping well under that floor.
-async function narrateAuctionEvents(env, season, leagueId, queue) {
+//
+// channelOverride (default null) forces every post — including the per-lot
+// thread — into one channel. Used ONLY by the ?real=1 test preset so a real
+// end-to-end rehearsal lands in the TEST channel. null = normal routing.
+async function narrateAuctionEvents(env, season, leagueId, queue, channelOverride = null) {
   if (!queue || queue.length === 0) return;
   const botToken = String(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "").trim();
   if (!botToken) {
@@ -1324,10 +1504,11 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
   // Test vs prod channel: the FO "Auction Bidding" Discord-routing toggle (D1)
   // decides; the legacy AUCTION_DISCORD_USE_TEST env var still forces test if set
   // (Keith 2026-06-19 — auction bidding is now routable like the contract types).
-  const routing = await getDiscordRoutingConfig(env);
+  const overrideChannelId = String(channelOverride || "").replace(/\D/g, "");
+  const routing = overrideChannelId ? {} : await getDiscordRoutingConfig(env);
   const useTest = String(routing.auctionbidding) === "test" ||
     String(env.AUCTION_DISCORD_USE_TEST ?? "0").trim() === "1";
-  const channelId = String(
+  const channelId = overrideChannelId || String(
     useTest
       // Hardcoded fallbacks (version-controlled) so a wiped secret can't kill
       // posting — env still wins when present. See contractDiscord* note.
@@ -1358,15 +1539,28 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
 
   let leagueJson = {};
   let playersJson = {};
+  // fid → [discord user id]. Resolved ALONGSIDE the league/players fetch so
+  // mentions cost no extra serial latency. `mentionsQueried` tracks which fids
+  // we've already asked D1 about, so the post-classification top-up (forcer /
+  // outbid fids that weren't in the queue's own fid set) only queries the
+  // genuinely-new ones — and an unmapped franchise isn't re-queried forever.
+  let fidToMentionIds = new Map();
+  const mentionsQueried = new Set([...fidSet].map((f) => String(f).padStart(4, "0")));
+  // player_id set that is ERA (36h window) — everything else is FAA (24h).
+  let eraPids = new Set();
   try {
-    const [lr, pr] = await Promise.all([
+    const [lr, pr, mentionMap, eraSet] = await Promise.all([
       fetch(`https://www48.myfantasyleague.com/${season}/export?TYPE=league&L=${leagueId}&JSON=1${apiQs}`,
         { cf: { cacheTtl: 300, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
       fetch(`https://www48.myfantasyleague.com/${season}/export?TYPE=players&L=${leagueId}&PLAYERS=${encodeURIComponent(pidList)}&JSON=1`,
         { cf: { cacheTtl: 86400, cacheEverything: false } }).then((r) => r.json()).catch(() => ({})),
+      resolveFranchiseMentions(env, [...fidSet]),
+      loadEraPlayerIds(env, season, [...pidSet]),
     ]);
     leagueJson = lr || {};
     playersJson = pr || {};
+    fidToMentionIds = mentionMap || new Map();
+    eraPids = eraSet || new Set();
   } catch (e) {
     console.log("[auction-narrator] meta-fetch failed:", String(e?.message || e));
   }
@@ -1410,6 +1604,52 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
   };
   const fmtFranchise = (fid) => fidToName[fid] || `Team ${fid}`;
   const fmtBid = (k) => `**$${Number(k || 0).toLocaleString("en-US")}K**`;
+  // Bold name only (no POS · TEAM meta) — the non-nom templates already carry
+  // the context, and repeating "(RB · BAL)" on every bump reads like a robot.
+  const fmtPlayerName = (pid) => {
+    const info = pidToInfo[pid];
+    const name = info ? flipName(info.name) : "";
+    return `**${name || `Player ${pid}`}**`;
+  };
+
+  // franchise NAME → fid, for MFL's forced-increase note ("Pure Greatness
+  // forced bid increase" only ever exposes the forcer's NAME, never its id).
+  // Strip to [a-z0-9] — MFL DOUBLE-ENCODES emoji in the transactions note but
+  // NOT in the league export, so "HammerTime 🔨 ⏰" arrives as "HammerTime
+  // ð¨ â°" and a whitespace-only normalizer never matches it (verified at
+  // byte level against data/mfl-snapshots). Dropping non-alphanumerics makes
+  // the two agree: 10/10 real forcer notes resolve, zero collisions across the
+  // 12 franchise names. Also stops the mojibake reaching Discord — once the fid
+  // resolves we render the clean league-export name instead of the raw note.
+  const nameKey = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const nameToFid = {};
+  for (const [id, nm] of Object.entries(fidToName)) {
+    const k = nameKey(nm);
+    if (k) nameToFid[k] = id;
+  }
+
+  const padFid4 = (fid) => String(fid == null ? "" : fid).replace(/\D/g, "").padStart(4, "0");
+  // One batched top-up for fids discovered AFTER the parallel fetch (forcer +
+  // outbid franchises). No-ops when everything's already been asked about.
+  async function ensureMentionsFor(fids) {
+    const missing = [...new Set((fids || []).map(padFid4).filter(Boolean))]
+      .filter((f) => /^\d{4}$/.test(f) && f !== "0000" && !mentionsQueried.has(f));
+    if (missing.length === 0) return;
+    for (const f of missing) mentionsQueried.add(f);
+    const extra = await resolveFranchiseMentions(env, missing);
+    for (const [f, ids] of extra) fidToMentionIds.set(f, ids);
+  }
+  const mentionIdsFor = (fid) => fidToMentionIds.get(padFid4(fid)) || [];
+  // The mention string for a franchise — "<@123> <@456>" when it has active
+  // Discord links (a franchise may have more than one), else the existing
+  // bold team name so an unlinked owner still reads naturally.
+  const fmtMention = (fid) => {
+    const ids = mentionIdsFor(fid);
+    if (ids.length) return ids.map((id) => `<@${id}>`).join(" ");
+    return `**${fmtFranchise(String(fid))}**`;
+  };
+  // ERA lots run a 36-hour window (§A3); FAA lots 24 (§A2).
+  const windowHours = (pid) => (eraPids.has(String(pid)) ? 36 : 24);
 
   // ── Observer-kind classification ──
   // For each non-init, non-won bid event in the queue, determine if it's
@@ -1450,27 +1690,65 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     }
   }
 
-  // Classify each event in-place (mutates queue rows w/ _obs_kind).
+  // Classify each event in-place (mutates queue rows w/ _obs_kind, _prev_fid).
+  //
+  // still-leader vs new-leader — the signal the new copy hangs on:
+  //   forced_increase = MFL walked the CURRENT LEADER's proxy up because a
+  //     challenger bid under their max. MFL writes ONE row, fid = the leader
+  //     being bumped, note = "<Forcer> forced bid increase" (the challenger
+  //     never held the lead, so no row of their own). So the bumped fid is
+  //     STILL the high bidder, and the same-fid-as-prior-bid test below is
+  //     exactly "the leader didn't change".
+  //   overtake = a DIFFERENT fid is now on top; prior fid = the outbid owner.
+  // ev.forcer_name (parsed from MFL's note in processAuctionPoll) is the more
+  // reliable of the two signals — it's MFL stating "this was a forced
+  // increase" rather than us inferring it — so it wins when present. ctx
+  // (target_fid/actor_fid, built later in the post loop) is NOT usable here:
+  // it excludes [nomination] rows, so the first overtake off a nomination has
+  // an empty target_fid, whereas _prev_fid correctly names the nominator.
   for (const ev of queue) {
     const lot = `${season}|${leagueId}|${ev.player_id}`;
+    const priorFid = prevFidByLot.get(lot);
     if (ev.kind === "init") {
       ev._obs_kind = "nom";
     } else if (ev.kind === "won") {
       ev._obs_kind = "won";
+    } else if (ev.forcer_name) {
+      // MFL's own note — authoritative, regardless of what the prior row says.
+      ev._obs_kind = "forced_increase";
+    } else if (priorFid == null) {
+      // No predecessor known — fall back to "bid"
+      ev._obs_kind = "bid";
+    } else if (priorFid === ev.fid) {
+      ev._obs_kind = "forced_increase";
     } else {
-      const priorFid = prevFidByLot.get(lot);
-      if (priorFid == null) {
-        // No predecessor known — fall back to "bid"
-        ev._obs_kind = "bid";
-      } else if (priorFid === ev.fid) {
-        ev._obs_kind = "forced_increase";
-      } else {
-        ev._obs_kind = "overtake";
-      }
+      ev._obs_kind = "overtake";
     }
+    // Who held the lot immediately before this event: the outbid owner on an
+    // overtake. Kept per-event because prevFidByLot is mutated as we walk.
+    ev._prev_fid = priorFid == null ? "" : String(priorFid);
     // Track this event's fid as the new "prior" for the lot (for the next
     // event in the chronologically-sorted queue).
     prevFidByLot.set(lot, ev.fid);
+  }
+
+  // Fids that only surface AFTER classification — the forcer named in MFL's
+  // note, and the outbid owner on an overtake. One batched top-up so their
+  // mentions resolve too.
+  {
+    const extraFids = [];
+    for (const ev of queue) {
+      if (ev._obs_kind === "overtake" && ev._prev_fid) extraFids.push(ev._prev_fid);
+      if (ev._obs_kind === "forced_increase" && ev.forcer_name) {
+        const fFid = nameToFid[nameKey(ev.forcer_name)];
+        if (fFid) extraFids.push(fFid);
+      }
+    }
+    try {
+      await ensureMentionsFor(extraFids);
+    } catch (e) {
+      console.log("[auction-narrator] mention top-up failed:", String(e?.message || e));
+    }
   }
 
   // ── Curated GIF manifest v2 (site/auction/curated_gifs.json) ──
@@ -1514,16 +1792,25 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     }
   }
 
-  function pickFromPool(manifest, poolId) {
-    // Pool dereferencing + last-3-used rotation. Returns GIF url or "".
+  async function pickFromPool(manifest, poolId) {
+    // Pool dereferencing + rotation. Returns GIF url or "".
+    //
+    // Two-layer no-repeat:
+    //   1. POOL_LAST_USED — in-memory last-3, free, but dies on cold start.
+    //   2. ups_gif_recent (D1, migration 0095) — durable last-8 for this pool,
+    //      which is what actually stops repeats across the 5-min poll cycle.
+    // Widening fallbacks so we NEVER return "" just because rotation drained
+    // the pool: (last-3 ∪ recent-8) → last-3 only → the whole pool.
     if (!poolId || !manifest?.pools) return "";
     const pool = manifest.pools[poolId];
     if (!pool || !Array.isArray(pool.gifs) || pool.gifs.length === 0) return "";
     const gifs = pool.gifs.filter((g) => g && g.url);
     if (gifs.length === 0) return "";
+    const scope = `pool:${poolId}`;
     const last = POOL_LAST_USED.get(poolId) || [];
-    // Eligible = pool gifs minus last-3-used (if there are enough left)
-    let eligible = gifs.filter((g) => !last.includes(g.url));
+    const recent = await getRecentGifs(env, scope, 8);
+    let eligible = gifs.filter((g) => !last.includes(g.url) && !recent.includes(g.url));
+    if (eligible.length === 0) eligible = gifs.filter((g) => !last.includes(g.url));
     if (eligible.length === 0) eligible = gifs;  // fallback if rotation drained pool
     // Weighted random pick
     const totalWeight = eligible.reduce((s, g) => s + Number(g.weight || 1), 0);
@@ -1533,9 +1820,10 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
       r -= Number(g.weight || 1);
       if (r <= 0) { pick = g; break; }
     }
-    // Update rotation state
+    // Update rotation state — in-memory first, then the durable ledger.
     const next = [pick.url, ...last].slice(0, 3);
     POOL_LAST_USED.set(poolId, next);
+    await recordGifUse(env, scope, String(pick.url));
     return String(pick.url);
   }
 
@@ -1618,13 +1906,13 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
       if (prob <= 0) continue;
       if (Math.random() * 100 >= prob) continue;
       // Scenario won — try to get a GIF from its pool
-      const primary = pickFromPool(manifest, sc.pool_id);
+      const primary = await pickFromPool(manifest, sc.pool_id);
       if (!primary) {
         // Pool empty — log + fall through to next scenario (do NOT return early)
         console.log(`[auction-narrator] scenario ${sc.id} qualified but pool ${sc.pool_id} empty`);
         continue;
       }
-      const overlay = sc.overlay_pool_id ? pickFromPool(manifest, sc.overlay_pool_id) : "";
+      const overlay = sc.overlay_pool_id ? await pickFromPool(manifest, sc.overlay_pool_id) : "";
       // Player-specific preference (used by caller to decide if a player-
       // specific Giphy search should run as a composite). Two forms:
       //   player_specific: true       → always player-specific
@@ -1659,6 +1947,23 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
   //        that pool stacked on top.
   //   2. If no scenario fires OR pool empty: fall back to Giphy.
   async function pickAuctionGifForPlayer(playerInfo, eventKind, ctx) {
+    // forced_increase is its own lane now (Keith 2026-07-14). The copy flipped
+    // from "ugh, you got bumped" to "someone bumped you and you're STILL
+    // winning", so the old reaction scenarios (routine_forced / high_tension /
+    // day_2_extender — all eye-roll energy) no longer match the words. Pick
+    // straight from the bump pools instead, coin-flip between the two.
+    if (eventKind === "forced_increase") {
+      const manifest = await loadCuratedManifest();
+      if (manifest?.pools) {
+        const order = Math.random() < 0.5 ? ["bump", "cocaine_bump"] : ["cocaine_bump", "bump"];
+        for (const poolId of order) {
+          const u = await pickFromPool(manifest, poolId);   // 2nd pool covers an empty 1st
+          if (u) return { url: u, overlay_url: "" };
+        }
+      }
+      const g = await pickGiphyGif(playerInfo, eventKind);  // "fist bump" / "chest bump celebration"
+      return { url: g || "", overlay_url: "" };
+    }
     const scenario = await pickCuratedScenario(playerInfo, eventKind, ctx);
     if (scenario) {
       let primary = scenario.primary_url;
@@ -1702,9 +2007,9 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
       queries = hasPlayer ? [`${name} celebration`, `${name} touchdown`, `${name} nfl`] : [];
       strictLastNameMatch = true;   // ditto
     } else if (eventKind === "forced_increase") {
-      // Player-specific first, then generic reaction fallbacks
-      queries = (hasPlayer ? [`${name} ugh`, `${name} angry`] : [])
-        .concat(["eye roll reaction", "facepalm reaction", "sigh reaction", "ugh"]);
+      // Fallback for when BOTH bump pools are empty. Bump energy, not player
+      // celebration — the message says "you're still the high bidder".
+      queries = ["fist bump", "chest bump celebration"];
       strictLastNameMatch = false;  // generic reactions are the point
     } else if (eventKind === "overtake") {
       queries = (hasPlayer ? [`${name} reaction`] : [])
@@ -1714,6 +2019,11 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
       return "";
     }
     if (queries.length === 0) return "";
+
+    // Durable no-repeat for the Giphy lane, keyed by event kind (migration
+    // 0095). Fetched ONCE per call, not per query.
+    const scope = `giphy:${eventKind}`;
+    const recent = await getRecentGifs(env, scope, 8);
 
     for (const q of queries) {
       const isPlayerQuery = hasPlayer && q.startsWith(name);
@@ -1741,13 +2051,24 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
             })
           : rows;
         if (matches.length === 0) continue;
-        const pick = matches[Math.floor(Math.random() * matches.length)];
-        const url =
-          pick?.images?.original?.url ||
-          pick?.images?.downsized_large?.url ||
-          pick?.images?.fixed_height?.url ||
-          pick?.url || "";
-        if (url) return String(url);
+        // Resolve urls BEFORE the random pick so the durable filter can act on
+        // the candidate set (excluding after the pick would just bias us into
+        // retries). Fall back to the full set if exclusion empties it — never
+        // post nothing.
+        const urlOf = (row) =>
+          row?.images?.original?.url ||
+          row?.images?.downsized_large?.url ||
+          row?.images?.fixed_height?.url ||
+          row?.url || "";
+        const candidates = [...new Set(matches.map(urlOf).filter(Boolean).map(String))];
+        if (candidates.length === 0) continue;
+        let eligible = candidates.filter((u) => !recent.includes(u));
+        if (eligible.length === 0) eligible = candidates;
+        const url = eligible[Math.floor(Math.random() * eligible.length)];
+        if (url) {
+          await recordGifUse(env, scope, url);
+          return String(url);
+        }
       } catch (e) {
         console.log("[auction-narrator] giphy lookup failed:", e?.message || e);
       }
@@ -1757,44 +2078,75 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
 
   // Build messages — text first; we attach GIFs in the post loop so we
   // can `await` Giphy without serializing the message-building phase.
+  // Mentions, per Discord's rule: NEVER combine parse:["users"] with an
+  // explicit users:[] array (parse wins and the array is ignored). So:
+  //   nomination → {parse:["everyone"], users:[nominator]}  — the @everyone
+  //     ping is the point (the bot HAS MENTION_EVERYONE in #transactions, so
+  //     this really pings the league; that is intentional and nom-only).
+  //   everything else → {users:[...]} with NO parse — only the named owners.
   const messages = queue.map((ev) => {
-    const player = fmtPlayer(ev.player_id);
-    const franchise = `**${fmtFranchise(ev.fid)}**`;
+    const playerFull = fmtPlayer(ev.player_id);      // **Name** (POS · TEAM)
+    const playerName = fmtPlayerName(ev.player_id);  // **Name**
     const bid = fmtBid(ev.bid_k);
+    const hrs = windowHours(ev.player_id);
     let text;
+    let allowedMentions = { parse: [] };
     switch (ev._obs_kind) {
-      case "nom":
-        text = `🆕  ${franchise} **nominated** ${player} — opening at ${bid}`;
+      case "nom": {
+        const nominator = fmtMention(ev.fid);
+        text = `@everyone — ${nominator} has opened up bidding on ${playerFull} for ${bid} — let the ${hrs}-hour window commence 🚀`;
+        allowedMentions = { parse: ["everyone"], users: mentionIdsFor(ev.fid) };
         break;
-      case "won":
-        text = `🏆  ${franchise} **won** ${player} for ${bid}`;
+      }
+      case "won": {
+        const winner = fmtMention(ev.fid);
+        text = `🏆 ${winner} **won** ${playerName} for ${bid} — congrats, now pay the man.`;
+        allowedMentions = { users: mentionIdsFor(ev.fid) };
         break;
-      case "forced_increase":
-        // MFL note exposes the forcer's franchise name (e.g.
-        // "Pure Greatness forced bid increase"). Captured by parseTx
-        // and passed via ev.forcer_name. When present, show the forcer
-        // as the actor ("Pure Greatness forced ... up to $X") instead
-        // of the franchise being bumped — Keith 2026-05-25 readability
-        // fix. Fallback to the old form if the note didn't parse.
-        if (ev.forcer_name) {
-          text = `⬆  **${ev.forcer_name}** forced **${fmtFranchise(ev.fid)}**'s bid up to ${bid} on ${player}`;
+      }
+      case "forced_increase": {
+        // ev.fid is the BUMPED franchise and it is STILL the high bidder —
+        // MFL just walked its proxy up because someone bid under its max.
+        // The forcer only exists as a NAME in MFL's note, so map it back to a
+        // fid for the mention; fall back to the bold name, then to a generic.
+        const bumped = fmtMention(ev.fid);
+        const forcerFid = ev.forcer_name ? nameToFid[nameKey(ev.forcer_name)] : "";
+        const forcer = forcerFid
+          ? fmtMention(forcerFid)
+          : (ev.forcer_name ? `**${ev.forcer_name}**` : "");
+        if (forcer) {
+          text = `${bumped} — ${forcer} bumped you on ${playerName}. You're still the high bidder @ ${bid} 😤`;
         } else {
-          text = `⬆  ${franchise} **Forced Increase** to ${bid} on ${player}`;
+          // No forcer in the note = the leader raised its OWN bid/max. Don't
+          // invent a bumper.
+          text = `${bumped} pushed their own bid up to ${bid} on ${playerName} — still the high bidder 😤`;
         }
+        allowedMentions = { users: [...new Set([...mentionIdsFor(ev.fid), ...mentionIdsFor(forcerFid)])] };
         break;
-      case "overtake":
-        text = `💰  ${franchise} **Overtake** at ${bid} on ${player}`;
+      }
+      case "overtake": {
+        // The leader CHANGED: ev.fid is the new high bidder, ev._prev_fid the
+        // owner who just got outbid — who catches the taunt.
+        const newLeader = fmtMention(ev.fid);
+        const outbidLabel = ev._prev_fid ? fmtMention(ev._prev_fid) : "";
+        text = `${newLeader} is now the new high bidder on ${playerName} @ ${bid} — a new ${hrs}-hour window has begun.`;
+        if (outbidLabel) text += `\n${pickAuctionTaunt(ev.bid_k, outbidLabel)}`;
+        allowedMentions = { users: [...new Set([...mentionIdsFor(ev.fid), ...mentionIdsFor(ev._prev_fid)])] };
         break;
-      default:
-        text = `💰  ${franchise} bid ${bid} on ${player}`;
+      }
+      default: {
+        const bidder = fmtMention(ev.fid);
+        text = `💰 ${bidder} bid ${bid} on ${playerName}`;
+        allowedMentions = { users: mentionIdsFor(ev.fid) };
+      }
     }
     // All four observer-kinds get GIFs:
-    //   nom        → player celebration
-    //   forced_increase → "ugh / eye roll" reaction
-    //   overtake   → "come on man" reaction
-    //   won        → player celebration
+    //   nom             → player celebration
+    //   forced_increase → bump / cocaine_bump pools ("you're still winning")
+    //   overtake        → "come on man" reaction
+    //   won             → player celebration
     const wantGif = ["nom", "forced_increase", "overtake", "won"].includes(ev._obs_kind);
-    return { text, want_gif: wantGif, ev };
+    return { text, want_gif: wantGif, allowed_mentions: allowedMentions, ev };
   });
 
   // ── Per-lot Discord thread routing ──
@@ -1839,8 +2191,11 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
     }
   }
 
-  async function postToDiscord(targetChannelId, content, gifUrl, overlayUrl) {
-    const body = { content, allowed_mentions: { parse: [] } };
+  // allowedMentions defaults to {parse:[]} — the historic hardcoded value —
+  // so any caller that doesn't pass it behaves byte-for-byte as before (no
+  // pings at all). Pass a value ONLY to ping deliberately.
+  async function postToDiscord(targetChannelId, content, gifUrl, overlayUrl, allowedMentions) {
+    const body = { content, allowed_mentions: allowedMentions || { parse: [] } };
     const embeds = [];
     if (gifUrl) embeds.push({ image: { url: gifUrl } });
     if (overlayUrl && overlayUrl !== gifUrl) embeds.push({ image: { url: overlayUrl } });
@@ -2028,7 +2383,7 @@ async function narrateAuctionEvents(env, season, leagueId, queue) {
 
     let postedMessageId = "";
     try {
-      const r = await postToDiscord(targetChannelId, content, gifUrl, overlayUrl);
+      const r = await postToDiscord(targetChannelId, content, gifUrl, overlayUrl, msg.allowed_mentions);
       if (!r.ok) {
         const body = await r.text().catch(() => "");
         console.log(`[auction-narrator] post failed ${r.status} to ${targetChannelId}: ${body.slice(0, 200)}`);
@@ -4254,6 +4609,199 @@ export default {
         ).replace(/\D/g, "");
         if (!channelId) {
           return jsonOut(500, { error: "DISCORD_AUCTION_TEST_CHANNEL_ID (or DISCORD_DRAFT_TEST_CHANNEL_ID) missing" });
+        }
+
+        // ─────────── ?real=1 — REAL-FLOW rehearsal (not the flat previewer) ──
+        // The default previewer below posts hand-written strings straight to
+        // Discord: it proves GIF pools work, but it never touches
+        // narrateAuctionEvents, so copy / mentions / taunts / ERA-vs-FAA
+        // window / threading all go untested. ?real=1 seeds a fake lot + bid
+        // chain in D1 under the TEST league (25625 — hardcoded, so prod
+        // L=74598 views can never see these rows) and runs the REAL narrator
+        // over four queues in sequence: nom → forced_increase → overtake → won.
+        // channelOverride pins every post (thread included) to the TEST
+        // channel. ?cleanup=1 deletes the seeded rows.
+        //
+        //   POST /admin/auction/narrate-simulate?real=1&APIKEY=...
+        //        {"player_id":"13116","nominator_fid":"0008","rival_fid":"0012"}
+        //   POST /admin/auction/narrate-simulate?cleanup=1&APIKEY=...   {...same ids}
+        const realFlow = String(url.searchParams.get("real") || "").trim() === "1";
+        const cleanupOnly = String(url.searchParams.get("cleanup") || "").trim() === "1";
+        if (realFlow || cleanupOnly) {
+          if (!env.UPS_MFL_DB) return jsonOut(500, { error: "UPS_MFL_DB missing" });
+          let rbody = {};
+          try { rbody = (await request.json()) || {}; } catch (_) { rbody = {}; }
+
+          const TEST_LEAGUE_ID = "25625";   // NEVER prod (74598) — hardcoded on purpose
+          const simSeason = safeStr(rbody?.season || url.searchParams.get("YEAR") || YEAR || "");
+          // Default: Patrick Mahomes (MFL 13116) — a real id, so the players
+          // export resolves a real name/POS/team in the rendered copy.
+          const simPid = (safeStr(rbody?.player_id || url.searchParams.get("player_id")) || "13116").replace(/\D/g, "");
+          const pad4 = (v, dflt) => {
+            const s = safeStr(v).replace(/\D/g, "");
+            return (s ? s : dflt).padStart(4, "0");
+          };
+          const nomFid = pad4(rbody?.nominator_fid, "0008");
+          const rivalFid = pad4(rbody?.rival_fid, "0012");
+          if (!simSeason || !simPid) return jsonOut(400, { error: "Need season + player_id" });
+          if (nomFid === rivalFid) {
+            return jsonOut(400, { error: "nominator_fid and rival_fid must differ (overtake needs two franchises)" });
+          }
+          const simLotId = `${simSeason}|${TEST_LEAGUE_ID}|${simPid}`;
+
+          const wipeSeed = async () => {
+            const b = await env.UPS_MFL_DB.prepare(
+              `DELETE FROM ups_auction_bids WHERE lot_id = ?`
+            ).bind(simLotId).run();
+            const l = await env.UPS_MFL_DB.prepare(
+              `DELETE FROM ups_auction_lots WHERE lot_id = ?`
+            ).bind(simLotId).run();
+            return { bids_deleted: b.meta?.changes || 0, lots_deleted: l.meta?.changes || 0 };
+          };
+
+          if (cleanupOnly) {
+            try {
+              return jsonOut(200, { ok: true, lot_id: simLotId, cleaned: await wipeSeed() });
+            } catch (e) {
+              return jsonOut(500, { error: "cleanup failed: " + String(e?.message || e) });
+            }
+          }
+
+          // The forced-increase message needs the FORCER'S FRANCHISE NAME —
+          // that's all MFL's real note carries ("<Name> forced bid increase"),
+          // and the narrator maps it back to a fid for the mention. Pull the
+          // real name from the test league so the round-trip is exercised.
+          let rivalName = `Team ${rivalFid}`;
+          try {
+            const apiKey = String(env.MFL_APIKEY || "").trim();
+            const qs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+            const lr = await fetch(
+              `https://www48.myfantasyleague.com/${simSeason}/export?TYPE=league&L=${TEST_LEAGUE_ID}&JSON=1${qs}`,
+              { cf: { cacheTtl: 300, cacheEverything: false } }
+            ).then((r) => r.json()).catch(() => ({}));
+            const fl = lr?.league?.franchises?.franchise || [];
+            for (const f of (Array.isArray(fl) ? fl : [fl])) {
+              if (String(f?.id || "").padStart(4, "0") === rivalFid && f?.name) rivalName = String(f.name);
+            }
+          } catch (_) { /* name is cosmetic — the seeded note just reads Team NNNN */ }
+
+          // Timeline: nom -60m → forced -40m → overtake -20m → won -1m. The
+          // narrator's prior-bid lookup is `bid_at_unix < <event>` against D1,
+          // so the steps MUST be strictly increasing and each row MUST be
+          // inserted before its narrate call — same order as the real poll
+          // (ingest, then narrate).
+          const nowU = Math.floor(Date.now() / 1000);
+          const tNom = nowU - 3600, tForced = nowU - 2400, tOver = nowU - 1200, tWon = nowU - 60;
+          const kNom = 5, kForced = 8, kOver = 12;
+          // Same ERA-vs-FAA rule the poll uses, so the seeded lot's lock and
+          // the narrated window label agree.
+          const simEra = await loadEraPlayerIds(env, simSeason, [simPid]);
+          const simWindowH = simEra.has(simPid) ? 36 : 24;
+
+          const seedBid = async (fid, bidK, atUnix, note) => {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT OR IGNORE INTO ups_auction_bids
+                 (lot_id, season, league_id, player_id, fid, bid_k, bid_at_unix, note, raw_transaction)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(simLotId, Number(simSeason), TEST_LEAGUE_ID, simPid, fid, bidK, atUnix,
+              note || null, "[narrate-simulate real=1 seed]").run();
+          };
+          const syncLot = async (highFid, highK, lastT, bidCount, uniq) => {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_auction_lots
+                 (lot_id, season, league_id, player_id, nominator_fid, opening_bid_k, opened_at_unix,
+                  current_high_bid_k, current_high_bidder_fid, last_bid_at_unix, locks_at_unix,
+                  status, bid_count, unique_bidder_count, updated_at_utc)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, datetime('now'))
+               ON CONFLICT(lot_id) DO UPDATE SET
+                 current_high_bid_k      = excluded.current_high_bid_k,
+                 current_high_bidder_fid = excluded.current_high_bidder_fid,
+                 last_bid_at_unix        = excluded.last_bid_at_unix,
+                 locks_at_unix           = excluded.locks_at_unix,
+                 bid_count               = excluded.bid_count,
+                 unique_bidder_count     = excluded.unique_bidder_count,
+                 updated_at_utc          = datetime('now')`
+            ).bind(simLotId, Number(simSeason), TEST_LEAGUE_ID, simPid, nomFid, kNom, tNom,
+              highK, highFid, lastT, lastT + simWindowH * 3600, bidCount, uniq).run();
+          };
+
+          const steps = [];
+          const runStep = async (label, queue) => {
+            const t0 = Date.now();
+            try {
+              // channelOverride → TEST channel, so the nom's thread is created
+              // there too and the follow-ups land inside it.
+              await narrateAuctionEvents(env, Number(simSeason), TEST_LEAGUE_ID, queue, channelId);
+              steps.push({ step: label, ok: true, ms: Date.now() - t0, event: queue[0] });
+            } catch (e) {
+              steps.push({ step: label, ok: false, error: String(e?.message || e), event: queue[0] });
+            }
+          };
+
+          try {
+            await wipeSeed();   // idempotent re-runs: fresh lot, fresh thread
+
+            // 1. NOM — lot row FIRST (saveLotDiscord UPDATEs it with the
+            //    thread id; no row = threading silently no-ops).
+            await syncLot(nomFid, kNom, tNom, 1, 1);
+            await seedBid(nomFid, kNom, tNom, "[nomination]");
+            await runStep("nom", [{
+              kind: "init", fid: nomFid, player_id: simPid, bid_k: kNom, bid_at_unix: tNom,
+            }]);
+
+            // 2. FORCED INCREASE — rival bids under nomFid's max, so MFL walks
+            //    nomFid's proxy up: the row's fid is nomFid (STILL leading) and
+            //    the rival only appears in the note.
+            const forcedNote = `${rivalName} forced bid increase`;
+            await seedBid(nomFid, kForced, tForced, forcedNote);
+            await syncLot(nomFid, kForced, tForced, 2, 1);
+            await runStep("forced_increase", [{
+              kind: "bid", fid: nomFid, player_id: simPid, bid_k: kForced, bid_at_unix: tForced,
+              forcer_name: rivalName, note: forcedNote,
+            }]);
+
+            // 3. OVERTAKE — rival takes the lead; nomFid is the outbid owner
+            //    and catches the taunt.
+            await seedBid(rivalFid, kOver, tOver, null);
+            await syncLot(rivalFid, kOver, tOver, 3, 2);
+            await runStep("overtake", [{
+              kind: "bid", fid: rivalFid, player_id: simPid, bid_k: kOver, bid_at_unix: tOver,
+            }]);
+
+            // 4. WON
+            await env.UPS_MFL_DB.prepare(
+              `UPDATE ups_auction_lots
+                  SET status = 'won', winner_fid = ?, won_at_unix = ?, updated_at_utc = datetime('now')
+                WHERE lot_id = ?`
+            ).bind(rivalFid, tWon, simLotId).run();
+            await runStep("won", [{
+              kind: "won", fid: rivalFid, player_id: simPid, bid_k: kOver, bid_at_unix: tWon,
+            }]);
+          } catch (e) {
+            return jsonOut(500, { error: "seed/narrate failed: " + String(e?.message || e), steps });
+          }
+
+          const lotAfter = await env.UPS_MFL_DB.prepare(
+            `SELECT discord_thread_id, discord_message_id, discord_channel_id, locks_at_unix, status
+               FROM ups_auction_lots WHERE lot_id = ?`
+          ).bind(simLotId).first().catch(() => null);
+
+          return jsonOut(200, {
+            ok: steps.every((s) => s.ok),
+            mode: "real",
+            lot_id: simLotId,
+            league_id: TEST_LEAGUE_ID,
+            channel_id: channelId,
+            player_id: simPid,
+            nominator_fid: nomFid,
+            rival_fid: rivalFid,
+            rival_name: rivalName,
+            auction_type: simEra.has(simPid) ? "ERA" : "FAA",
+            window_hours: simWindowH,
+            steps,
+            lot: lotAfter,
+            cleanup: `POST ${path}?cleanup=1&APIKEY=... with the same player_id/season to delete the seeded rows`,
+          });
         }
 
         // Load curated manifest from CDN.

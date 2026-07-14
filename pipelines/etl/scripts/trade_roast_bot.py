@@ -193,12 +193,35 @@ async def _in_executor(label: str, timeout: float, fn, *args, **kwargs):
         raise RuntimeError(f"{label} timed out after {timeout:.0f}s (blocking call abandoned)")
 
 
+def _startup_commit() -> str:
+    """Git commit of the code this process booted from. Fail-soft 'unknown'.
+
+    Computed ONCE at import (never on the event loop). The watchdog compares
+    it against the repo's current HEAD to detect a bot still running stale
+    code after a pull, and kickstarts it.
+    """
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(SCRIPT_DIR), "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+    except Exception:
+        pass
+    return "unknown"
+
+
+BOT_CODE_COMMIT = _startup_commit()
+
+
 def _write_local_heartbeat(status: str):
     try:
         SUPPORT_DIR.mkdir(parents=True, exist_ok=True)
         tmp = HEARTBEAT_FILE.with_suffix(".json.tmp")
         tmp.write_text(json.dumps({"ts": int(time.time()), "status": status,
-                                   "pid": os.getpid(), "env": ROAST_BOT_ENV}))
+                                   "pid": os.getpid(), "env": ROAST_BOT_ENV,
+                                   "commit": BOT_CODE_COMMIT}))
         tmp.replace(HEARTBEAT_FILE)
     except Exception as e:
         print(f"[{datetime.now()}] heartbeat write failed: {e}")
@@ -739,14 +762,79 @@ class _MessageReplyShim:
         return await self._msg.reply(content, **kwargs)
 
 
+async def _resolve_thread(thread_id: int):
+    """Resolve a tracked roast thread: cache first, HTTP fetch fallback.
+
+    fetch_channel is discord.py's async HTTP call (aiohttp) — safe on the
+    event loop, NOT a blocking urllib call. Returns None on any failure
+    (deleted thread, 403/404, network) so callers can fail soft.
+    """
+    try:
+        ch = bot.get_channel(thread_id)
+        if ch is None:
+            ch = await bot.fetch_channel(thread_id)
+        return ch
+    except Exception as e:
+        print(f"[{datetime.now()}] thread {thread_id} resolve failed: {e}")
+        return None
+
+
 async def handle_reply(message: discord.Message, tracked: dict):
-    """Adapter from on_message → core _run_clap_back."""
+    """Adapter from on_message → core _run_clap_back.
+
+    Containment (Keith 2026-07-14): ALL clap-backs live inside the trade's
+    thread. If the trigger message is already in the tracked thread, reply
+    in place (unchanged). If it came from the MAIN channel, echo the user's
+    message into the thread (same format the worker Reply-button path uses,
+    so the thread stays self-contained), clap back THERE, and leave a short
+    pointer reply in the channel so the user knows where the answer went.
+    Sending to an archived thread auto-unarchives it. If the thread can't be
+    resolved or written (deleted / 403 / 404), fail soft to the old
+    in-channel reply so the response is never dropped.
+    """
+    thread_id = tracked.get("thread_id")
+    try:
+        tid = int(thread_id) if thread_id else 0
+    except (TypeError, ValueError):
+        tid = 0
+
+    post_destination = None
+    if tid and message.channel.id != tid:
+        # Main-channel trigger → route to the roast thread.
+        thread = await _resolve_thread(tid)
+        if thread is not None:
+            try:
+                # Echo BEFORE running any LLM call — this send doubles as the
+                # writability probe: if it 403/404s we fall back in-channel
+                # without having burned a classify/clap-back call.
+                echo = (f"**{message.author.display_name}** says:\n"
+                        f"> {(message.content or '')[:1800]}")
+                await thread.send(echo, allowed_mentions=discord.AllowedMentions.none())
+                post_destination = thread
+            except Exception as e:
+                print(f"[{datetime.now()}] thread echo failed ({e}); "
+                      f"falling back to in-channel reply")
+        if post_destination is not None:
+            # Pointer in the main channel (best-effort, before the slow
+            # Opus call so the user gets immediate feedback).
+            guild_id = message.guild.id if message.guild else "@me"
+            jump = f"https://discord.com/channels/{guild_id}/{tid}"
+            try:
+                await message.reply(f"took it to the thread 👉 {jump}",
+                                    allowed_mentions=discord.AllowedMentions.none())
+            except Exception as e:
+                print(f"[{datetime.now()}] pointer reply failed (non-fatal): {e}")
+
+    if post_destination is None:
+        # In-thread trigger, no tracked thread, or thread path failed.
+        post_destination = _MessageReplyShim(message)
+
     await _run_clap_back(
         reply_text=message.content,
         replier_user_id=message.author.id,
         replier_name=message.author.name,
         tracked=tracked,
-        post_destination=_MessageReplyShim(message),
+        post_destination=post_destination,
     )
 
 
