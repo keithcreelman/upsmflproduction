@@ -1,27 +1,25 @@
 # MFL FA-Auction Setup Runbook
 
-**What this covers:** setting up the yearly Free Agent Auction (FAA) on MFL to match
-the dates posted on the website — both the **automated** path (the commish control
-that pushes dates into MFL) and the **manual** fallback, plus the one-time auction
-**rules** that MFL's API can't set.
+**What this covers:** keeping the UPS league calendar in sync — the **automated**
+"Update League Calendar" control (one config → MFL's calendar + the app calendar),
+the **manual** fallback, and the one-time auction **rules** MFL's API can't set.
 
 **Two categories, one API-settable, one not:**
-1. **Cut deadline + auction open & close dates** — **API-settable** via
-   `import?TYPE=calendarEvent` (cut deadline → `CUSTOM` marker; open+close →
-   `AUCTION_START` with START = open, END = close). This is what the commish control
-   automates.
+1. **Key dates** (trade deadline, rookie draft, ERA, FA Auction open/close) —
+   **API-settable** via `import?TYPE=calendarEvent` (see the mapping below). The
+   control also upserts them into D1 `league_events` so mobile · FO · team-ops match.
 2. **Rules** (salary cap / budget, roster max & min, contract format, auction on/off)
    — **NOT** API-settable. MFL exposes these read-only; they're a one-time
    Commissioner-Setup task, and they rarely change year to year.
 
 ---
 
-## Part A — Auction open & close dates (automated, preferred)
+## Part A — Update League Calendar (automated, preferred)
 
-**Commish Settings → 🗓️ Auction Dates → MFL.**
+**Commish Settings → 🗓️ Update League Calendar.**
 
-1. Set the **Cut deadline**, **Auction opens** and **Auction closes** (interpreted as
-   **ET**, DST-handled automatically — enter wall-clock time).
+1. Set the dates (trade deadline, rookie draft, ERA open/close, FA Auction
+   open/close), all **ET**, DST-handled automatically — enter wall-clock time.
 2. **Save dates** (writes to D1 `ups_settings` key `auction_calendar` — reusable next
    year, just change the values).
 3. Pick the **target league**: start with **Test league (25625)** to rehearse.
@@ -32,12 +30,17 @@ that pushes dates into MFL) and the **manual** fallback, plus the one-time aucti
 6. Verify on MFL: **↗ MFL calendar** button (or `options?L=<league>&O=110`).
 7. Repeat step 3–6 with **Real league (74598)** once the test-league run looks right.
 
-**Event mapping:**
+**Event mapping** (Commish Settings → 🗓️ Update League Calendar → Push writes ALL of these to MFL's calendar **and** the app calendar / D1 `league_events` that mobile · FO · team-ops read):
 
-| UPS date | MFL `EVENT_TYPE` | Notes |
-|---|---|---|
-| Cut deadline | `CUSTOM` | Informational deadline marker (not a transaction lock). |
-| Auction opens (+ closes) | `AUCTION_START` | `START_TIME` = open; `END_TIME` = close (one event carries both). |
+| UPS date | MFL `EVENT_TYPE` | App key | Notes |
+|---|---|---|---|
+| Trade deadline | `TRADE` | `trade_deadline` | In-season trade deadline. |
+| Rookie draft | `DRAFT_START` | `ups_rookie_draft` | Rookie draft start. |
+| ERA opens (+closes) | `AUCTION_START` | `ups_expired_rookie_auction` | Expired Rookie Auction window. |
+| FA Auction opens (+closes) | `AUCTION_START` | `ups_free_agent_auction` | START = open; END = close. |
+| FA Auction period | `WAIVER_NONE` | — | "No Add/Drops Allowed" span over the FA Auction (open→close). |
+
+**Idempotency:** the app calendar (D1) always overwrites cleanly (upsert). MFL's API has **no delete/update** — the push skips events already on MFL and flags any *stale* managed-type events (a prior push at an old date) with a link to remove them by hand.
 
 **Auth model:** *Preview* needs nothing (writes nothing). *Push* is commish-gated by
 `franchise_id` (the UI passes it automatically — no key prompt).
