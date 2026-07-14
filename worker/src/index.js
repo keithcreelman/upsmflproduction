@@ -17363,8 +17363,14 @@ export default {
             const status = safeStr(player.roster_status || player.status).toUpperCase();
             return sum + currentCapHitAcq(player.salary, player.years, status.includes("TAXI"), status.includes("IR"));
           }, 0);
-          const rawAvailable = safeMoneyInt(team?.available_salary_dollars, null);
-          const availableFunds = rawAvailable != null ? rawAvailable : Math.max(0, safeInt(salaryCapDollars, 0) - capSpent);
+          // MFL's franchise `salaryCapAmount` is a per-franchise cap OVERRIDE (it
+          // is empty for every UPS team today), NOT remaining funds — reading it
+          // as "available" would hand that team its entire cap. Treat it as the
+          // limit, then net out roster cap hits AND salary adjustments.
+          const franchiseCap = safeMoneyInt(team?.available_salary_dollars, null);
+          const capLimit = franchiseCap != null && franchiseCap > 0 ? franchiseCap : safeInt(salaryCapDollars, 0);
+          const adjustments = safeInt(team?.salary_adjustments_dollars, 0);
+          const availableFunds = Math.max(0, capLimit - capSpent - adjustments);
           const reserve27 = reserveCostForScenario(players, 27);
           const reserve35 = reserveCostForScenario(players, 35);
           const maxBidByPosition = {};
@@ -17381,6 +17387,7 @@ export default {
             franchise_name: team.franchise_name,
             icon_url: team.icon_url || "",
             cap_total_dollars: capSpent,
+            salary_adjustments_dollars: team?.salary_adjustments_dollars == null ? null : adjustments,
             available_funds_dollars: availableFunds,
             scenario_27_max_bid: Math.max(0, availableFunds - safeInt(reserve27.reserve_cost, 0)),
             scenario_35_max_bid: Math.max(0, availableFunds - safeInt(reserve35.reserve_cost, 0)),
@@ -17411,11 +17418,29 @@ export default {
         return out;
       };
 
+      // Salary adjustments (UPS drop penalties, traded-salary settlements) are a
+      // real charge against the cap that MFL keeps OUT of the roster salaries, so
+      // available funds MUST net them out — otherwise every penalized team reads
+      // richer than it is. Positive amount = charge, negative = credit.
+      const sumSalaryAdjustmentsByFid = (data) => {
+        const root = data?.salaryAdjustments || data || {};
+        let rows = root?.salaryAdjustment || root || [];
+        if (!Array.isArray(rows)) rows = [rows];
+        const byFid = {};
+        for (const row of rows) {
+          const fid = padFranchiseId(row?.franchise_id || row?.franchise || "");
+          if (!fid || fid === "0000") continue;
+          byFid[fid] = (byFid[fid] || 0) + safeMoneyInt(row?.amount, 0);
+        }
+        return byFid;
+      };
+
       const buildLiveTeamsSnapshot = async (season, leagueId) => {
-        const [leagueRes, rostersRes, myFrRes] = await Promise.all([
+        const [leagueRes, rostersRes, myFrRes, adjRes] = await Promise.all([
           mflExportJsonWithRetryAsViewer(season, leagueId, "league", {}, { useCookie: true }),
           mflExportJsonWithRetryAsViewer(season, leagueId, "rosters", {}, { useCookie: true }),
           mflExportJsonWithRetryAsViewer(season, leagueId, "myfranchise", {}, { useCookie: true }),
+          mflExportJsonWithRetryAsViewer(season, leagueId, "salaryAdjustments", {}, { useCookie: true }),
         ]);
         if (!leagueRes.ok || !rostersRes.ok) {
           return {
@@ -17428,6 +17453,11 @@ export default {
         }
         const franchises = parseLeagueFranchises(leagueRes.data);
         const franchiseMap = buildFranchiseMap(franchises);
+        // Fail-soft: a flaky adjustments export must not take the whole room down
+        // mid-auction. But the budget panel then has to SAY the penalties are
+        // missing rather than quietly overstate everyone's funds again.
+        const adjustmentsOk = !!adjRes.ok;
+        const adjustmentsByFid = adjustmentsOk ? sumSalaryAdjustmentsByFid(adjRes.data) : {};
         const { rosterAssetsByFranchise, allPlayerIds } = parseRostersExport(rostersRes.data);
         const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds);
         const teams = franchises.map((fr) => {
@@ -17454,6 +17484,7 @@ export default {
             franchise_abbrev: fr.franchise_abbrev,
             icon_url: fr.icon_url,
             available_salary_dollars: fr.available_salary_dollars,
+            salary_adjustments_dollars: adjustmentsOk ? safeInt(adjustmentsByFid[fr.franchise_id], 0) : null,
             players,
           };
         });
@@ -17474,9 +17505,11 @@ export default {
           teams,
           viewerFranchiseId,
           salaryCapDollars,
+          adjustmentsOk,
           leagueRes,
           rostersRes,
           myFrRes,
+          adjRes,
         };
       };
 
@@ -17748,6 +17781,7 @@ export default {
           auction_kind: "free-agent",
           active_auctions: activeAuctions,
           team_budget_rows: budgetRows,
+          adjustments_ok: teamsSnapshot.adjustmentsOk !== false,
           team_need_rows: needRows,
           available_players: availablePlayers,
           fetched_at: new Date().toISOString(),
