@@ -17355,8 +17355,27 @@ export default {
         return list;
       };
 
-      const teamBudgetRowsFromLive = (teams, salaryCapDollars) => {
+      // Money a franchise has tied up as the CURRENT high bidder on open lots.
+      // Deliberately asymmetric, per the commish: you see YOUR proxy (max) bid,
+      // because that is what you are actually on the hook for; everyone else only
+      // ever sees the current bid. Never leak one owner's proxy to another.
+      const allocatedToHighBidsByFid = (activeAuctions, viewerFid) => {
+        const out = {};
+        const viewer = padFranchiseId(viewerFid);
+        for (const lot of asArray(activeAuctions)) {
+          const fid = padFranchiseId(lot?.high_bidder_fid);
+          if (!fid || fid === "0000") continue;
+          const current = safeInt(lot?.high_bid_amount, 0);
+          const proxy = safeInt(lot?.your_proxy_bid_amount, 0);
+          const isViewer = viewer && fid === viewer;
+          out[fid] = (out[fid] || 0) + (isViewer ? Math.max(current, proxy) : current);
+        }
+        return out;
+      };
+
+      const teamBudgetRowsFromLive = (teams, salaryCapDollars, activeAuctions, viewerFid) => {
         const rows = [];
+        const allocatedByFid = allocatedToHighBidsByFid(activeAuctions, viewerFid);
         for (const team of teams || []) {
           const players = Array.isArray(team.players) ? team.players : [];
           const capSpent = players.reduce((sum, player) => {
@@ -17388,6 +17407,10 @@ export default {
             icon_url: team.icon_url || "",
             cap_total_dollars: capSpent,
             salary_adjustments_dollars: team?.salary_adjustments_dollars == null ? null : adjustments,
+            // What the board actually shows: roster salary AND adjustments as one
+            // committed number, then what's tied up leading open lots.
+            salary_plus_adjustments_dollars: capSpent + adjustments,
+            allocated_to_high_bids_dollars: safeInt(allocatedByFid[padFranchiseId(team.franchise_id)], 0),
             available_funds_dollars: availableFunds,
             scenario_27_max_bid: Math.max(0, availableFunds - safeInt(reserve27.reserve_cost, 0)),
             scenario_35_max_bid: Math.max(0, availableFunds - safeInt(reserve35.reserve_cost, 0)),
@@ -17719,6 +17742,102 @@ export default {
         return payload;
       };
 
+      // Live lots come from D1 (ups_auction_lots), NOT from scraping MFL's O=43
+      // page. MFL wraps its ENTIRE lot table in a single <form>, and the scrape
+      // walked <form> elements — so it collapsed every open lot into one garbage
+      // row: empty player_id, high_bidder_label "(", and a high bid 1000x too
+      // large (parseMoneyLoose matched the "k" in "Juszczyk" and multiplied).
+      // That empty player_id is also what threw player_id_required /
+      // auction_form_contract_not_found on every in-app bid, and what let FAA
+      // lots leak into the ERA view through a fail-open filter.
+      //
+      // D1 is written by the */5 auction poll straight from MFL's
+      // AUCTION_INIT/BID/WON transactions and matches MFL exactly (21 nominated
+      // - 14 won = 7 open), so it is the source of truth. Trade-off: lots can be
+      // up to 5 minutes stale, which is the same cadence the Discord narrator
+      // already posts on — so the app and Discord now agree by construction.
+      // "23 hours, 17 minutes" / "45 minutes" / "Locked" — mirrors the wording the
+      // O=43 scrape used to yield, so the UI reads identically.
+      const formatLockCountdown = (secondsLeft) => {
+        const s = Math.max(0, safeInt(secondsLeft, 0));
+        if (s <= 0) return "Locked";
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        if (h > 0) return `${h} hour${h === 1 ? "" : "s"}, ${m} minute${m === 1 ? "" : "s"}`;
+        if (m > 0) return `${m} minute${m === 1 ? "" : "s"}`;
+        return "under a minute";
+      };
+
+      const activeAuctionsFromD1 = async (season, leagueId, viewerFid, franchiseMap) => {
+        if (!env.UPS_MFL_DB) return [];
+        const yearNum = Number(season) || new Date().getUTCFullYear();
+        const leagueKey = String(leagueId);
+        let lots = [];
+        try {
+          const { results } = await env.UPS_MFL_DB.prepare(
+            `SELECT player_id, nominator_fid, opening_bid_k, opened_at_unix,
+                    current_high_bid_k, current_high_bidder_fid, last_bid_at_unix,
+                    locks_at_unix, bid_count, unique_bidder_count
+               FROM ups_auction_lots
+              WHERE season = ? AND league_id = ? AND status = 'open'
+              ORDER BY locks_at_unix ASC`
+          ).bind(yearNum, leagueKey).all();
+          lots = asArray(results);
+        } catch (e) {
+          console.error("[auction/live] D1 lot read failed:", e);
+          return [];
+        }
+        if (!lots.length) return [];
+
+        const pids = [...new Set(lots.map((l) => String(l.player_id || "")).filter(Boolean))];
+        const meta = pids.length ? await fetchPlayersByIdsChunked(season, leagueId, pids) : {};
+
+        // The viewer's own proxy (max) bid — deliberately viewer-scoped: everyone
+        // else only ever sees the CURRENT bid, never what you have allocated.
+        const proxyByPid = {};
+        const fid = padFranchiseId(viewerFid);
+        if (fid && fid !== "0000") {
+          try {
+            const { results } = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, proxy_bid_k FROM ups_auction_proxy_bids
+                WHERE season = ? AND league_id = ? AND fid = ?`
+            ).bind(yearNum, leagueKey, fid).all();
+            for (const p of asArray(results)) proxyByPid[String(p.player_id)] = safeInt(p.proxy_bid_k, 0);
+          } catch (e) {
+            console.error("[auction/live] proxy read failed (non-fatal):", e);
+          }
+        }
+
+        const nowUnix = Math.floor(Date.now() / 1000);
+        return lots.map((lot) => {
+          const pid = String(lot.player_id || "");
+          const m = meta[pid] || {};
+          const bidderFid = padFranchiseId(lot.current_high_bidder_fid);
+          const secondsLeft = Math.max(0, safeInt(lot.locks_at_unix, 0) - nowUnix);
+          const myProxyK = Object.prototype.hasOwnProperty.call(proxyByPid, pid) ? proxyByPid[pid] : null;
+          return {
+            player_id: pid,
+            player_name: safeStr(m.player_name || `Player ${pid}`),
+            position: normalizeAcqPos(m.position || ""),
+            nfl_team: safeStr(m.nfl_team || ""),
+            high_bid_amount: safeInt(lot.current_high_bid_k, 0) * 1000,
+            high_bidder_label: bidderFid
+              ? safeStr((franchiseMap || {})[bidderFid]?.franchise_name) || bidderFid
+              : "",
+            high_bidder_fid: bidderFid,
+            nominator_fid: padFranchiseId(lot.nominator_fid),
+            opening_bid_amount: safeInt(lot.opening_bid_k, 0) * 1000,
+            locks_at_unix: safeInt(lot.locks_at_unix, 0),
+            timer_seconds: secondsLeft,
+            timer_text: formatLockCountdown(secondsLeft),
+            bid_count: safeInt(lot.bid_count, 0),
+            unique_bidder_count: safeInt(lot.unique_bidder_count, 0),
+            // Only ever populated for the requesting franchise.
+            your_proxy_bid_amount: myProxyK == null ? null : myProxyK * 1000,
+          };
+        });
+      };
+
       const buildAuctionLivePayload = async (season, leagueId, requestedFranchiseId, auctionKind) => {
         const [teamsSnapshot, auctionArtifact, expiredArtifact] = await Promise.all([
           buildLiveTeamsSnapshot(season, leagueId),
@@ -17737,18 +17856,32 @@ export default {
         }
         const viewerFranchiseId = await resolveViewerFranchiseIdForAcq(season, leagueId, requestedFranchiseId || teamsSnapshot.viewerFranchiseId);
         const auctionPageRes = await fetchAuctionPageForCookie(viewerCookieHeader || cookieHeader, season, leagueId, viewerFranchiseId);
-        const parsedPage = auctionPageRes.ok ? parseAuctionPage(auctionPageRes.html, auctionPageRes.url || auctionPageRes.pageUrl) : { active_auctions: [], forms: [], available_funds_hint: null };
-        const budgetRows = teamBudgetRowsFromLive(teamsSnapshot.teams, teamsSnapshot.salaryCapDollars);
+        // NOTE: the O=43 page is still fetched (native_link + a cookie/liveness
+        // signal), but it is NO LONGER parsed for lots — see activeAuctionsFromD1.
+        let activeAuctions = await activeAuctionsFromD1(season, leagueId, viewerFranchiseId, teamsSnapshot.franchiseMap);
+        const budgetRows = teamBudgetRowsFromLive(
+          teamsSnapshot.teams, teamsSnapshot.salaryCapDollars, activeAuctions, viewerFranchiseId
+        );
         const needRows = teamNeedRowsFromLive(teamsSnapshot.teams);
         const rosteredIds = [];
         for (const team of teamsSnapshot.teams) {
           for (const player of team.players || []) rosteredIds.push(String(player.player_id || ""));
         }
-        let activeAuctions = asArray(parsedPage.active_auctions);
         if (safeStr(auctionKind).toLowerCase() === "expired-rookie") {
           const eligiblePool = buildExpiredRookieEligiblePool(teamsSnapshot, expiredArtifact.ok ? expiredArtifact.data : {}, activeAuctions);
-          const eligibleIds = new Set(eligiblePool.map((row) => String(row.player_id || "")));
-          activeAuctions = activeAuctions.filter((row) => !row.player_id || eligibleIds.has(String(row.player_id)));
+          // Gate ERA lots on the ups_era_pool SNAPSHOT, not just the live-roster
+          // walk: once the drop deadline passes, ERA players are free agents on
+          // nobody's roster, so that walk returns an empty pool and cannot gate
+          // at all. loadEraPlayerIds returns the subset of these pids in the pool.
+          const eraPoolIds = await loadEraPlayerIds(env, season, activeAuctions.map((row) => row.player_id));
+          const eligibleIds = new Set([
+            ...eligiblePool.map((row) => String(row.player_id || "")),
+            ...[...eraPoolIds].map((v) => String(v)),
+          ].filter(Boolean));
+          // STRICT: an id-less row must NOT pass. The old `!row.player_id ||`
+          // escape hatch failed open, and since the scrape produced an empty
+          // player_id on every row, EVERY FA lot leaked into the ERA view.
+          activeAuctions = activeAuctions.filter((row) => row.player_id && eligibleIds.has(String(row.player_id)));
           return {
             ok: true,
             league_id: leagueId,
@@ -30917,6 +31050,10 @@ export default {
         }
         const payload = await buildAuctionLivePayload(season, leagueId, franchiseId, "expired-rookie");
         payload.enabled = await getFeatureFlag(env, "AUCTION_ERA_ENABLED");   // commish ERA switch
+        // A CLOSED auction has no live lots, full stop. The switch used to be
+        // cosmetic (banner only) while the payload still shipped lots, so the
+        // ERA tab rendered FA lots with a live Bid CTA.
+        if (!payload.enabled) payload.active_auctions = [];
         acqCacheSet(cacheKey, payload);
         return jsonNoStore(payload.ok ? 200 : 502, payload);
       }
