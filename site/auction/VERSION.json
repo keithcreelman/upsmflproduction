@@ -1,7 +1,7 @@
 {
-  "version": "0.9.8",
+  "version": "0.9.9",
   "released": "2026-07-14",
-  "label": "v0.9.8 — FIX: Team Budgets and the Free Agents count no longer blank out (\"No budget data yet\", 0 free agents) when a 30s refresh hiccups. loadFa() overwrote a good board with an ok:false/empty payload; now it preserves last-good, same rule the FA pool already uses.",
+  "label": "v0.9.9 — Desktop now matches mobile: the embed loader forwards your MFL session token into the hub, so the worker reads YOUR real proxy (max) bids off MFL and Available Funds / YOUR PROXY finally reflect them (e.g. a $42K Burrow proxy) instead of the public-current over-statement. Everyone else still sees only your public current bid.",
   "changes_091": [
     "Tracker rebuilt as a Nominations audit: per-day X/2 compliance for every owner, click an owner to see exactly which players they nominated and when (replaces the catch-all War Room cards).",
     "Players: the Nominate action is hidden (—) when the auction isn't running — browse-only off-season, on both the FA pool and the ERA table.",

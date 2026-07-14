@@ -66,6 +66,20 @@
   }
   const IS_COMMISH = detectIsCommish();
 
+  // The viewer's MFL session token. This loader runs ON the MFL page, so
+  // document.cookie carries MFL_USER_ID (same-origin); the hub itself is served
+  // from jsDelivr and cannot read it. Injected into the iframe so the hub can
+  // forward it to the worker, which then reads the VIEWER's own proxy off O=43 —
+  // making desktop Available Funds / YOUR PROXY match mobile. Read-only, and the
+  // token never leaves the worker's cross-origin call (mirrors site/m/app.js).
+  function readMflUserId() {
+    try {
+      const m = String(document.cookie || "").match(/(?:^|;\s*)MFL_USER_ID=([^;]+)/);
+      return m ? decodeURIComponent(m[1]) : "";
+    } catch (e) { return ""; }
+  }
+  const MFL_USER_ID = readMflUserId();
+
   const SHA = safeStr(window.UPS_AUCTION_HUB_RELEASE_SHA || window.UPS_RELEASE_SHA) || "main";
   // Resolve assets through jsDelivr so feature-branch SHAs work without
   // a main merge. GitHub Pages only serves main; jsDelivr serves any
@@ -111,6 +125,7 @@
       'window.UPS_AUCTION_HUB_YEAR=' + JSON.stringify(ctx.year) + ';' +
       'window.UPS_AUCTION_HUB_FRANCHISE_ID=' + JSON.stringify(ctx.franchiseId) + ';' +
       'window.UPS_AUCTION_HUB_IS_COMMISH=' + JSON.stringify(!!ctx.isCommish) + ';' +
+      'window.UPS_AUCTION_HUB_MFL_USER_ID=' + JSON.stringify(ctx.mflUserId || "") + ';' +
       'window.UPS_AUCTION_HUB_RELEASE_SHA=' + JSON.stringify(ctx.sha) + ';' +
       'window.UPS_AUCTION_HUB_API_BASE=' + JSON.stringify(ctx.apiBase) + ';' +
       'window.UPS_AUCTION_HUB_PARENT_URL=' + JSON.stringify(ctx.parentUrl || "") + ';' +
@@ -135,6 +150,7 @@
       const headInject = buildHead(ASSET_BASE, {
         leagueId: L, year: YEAR, franchiseId: FRANCHISE_ID,
         isCommish: IS_COMMISH, sha: SHA, apiBase: API_BASE,
+        mflUserId: MFL_USER_ID,
         parentUrl: safeStr(window.location && window.location.href),
       });
       if (/<head[^>]*>/i.test(html)) {
