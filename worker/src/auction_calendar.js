@@ -17,15 +17,13 @@
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
 
-// The FAA timeline fields the commish fills in (league_context_v1.md §A2).
-// Each value is a wall-clock datetime string "YYYY-MM-DDTHH:mm" interpreted in
-// America/New_York (the league runs on ET) — no stored offset, so it stays
-// correct across DST without the commish thinking about it.
+// The date the commish fills in. Value is a wall-clock datetime string
+// "YYYY-MM-DDTHH:mm" interpreted in America/New_York (the league runs on ET) —
+// no stored offset, so it stays correct across DST without the commish thinking
+// about it. Keith 2026-07-13: only the roster cut / lock date is needed — it
+// locks waivers (MFL WAIVER_LOCK).
 export const AUCTION_CAL_FIELDS = [
-  { key: "roster_lock_at",   label: "Roster lock",   help: "Rosters lock (no cuts). Historically ~3 days before the auction opens." },
-  { key: "cutdown_at",       label: "Cutdown day",   help: "Cutdown / verification day — informational marker (~2 days before open)." },
-  { key: "auction_open_at",  label: "Auction opens", help: "FA Auction opens (Day 1 kickoff). This is the AUCTION_START event." },
-  { key: "auction_close_at", label: "Auction closes", help: "Target close of the FA Auction (~1 week after open)." },
+  { key: "roster_lock_at", label: "Roster cut / lock date", help: "Locks waivers & roster moves (no cuts) from this time. Written to MFL as a WAIVER_LOCK calendar event." },
 ];
 const FIELD_KEYS = AUCTION_CAL_FIELDS.map((f) => f.key);
 
@@ -97,48 +95,24 @@ export function etWallClockToUnix(wall, timeZone = "America/New_York") {
   return Math.round((asUTC - offsetMs) / 1000);
 }
 
-// Map the stored FAA timeline to the MFL calendar events to write. Returns
-// { events: [...], missing: [...fieldKeys with no date] }. Each event:
+// Map the stored roster cut / lock date to the MFL calendar event to write.
+// Returns { events: [...], missing: [...fieldKeys with no date] }. Each event:
 //   { field, event_type, label, start_at (iso in), start_unix, end_unix|null, note }
-// Event choices (see runbook for rationale):
-//   roster_lock_at   -> WAIVER_LOCK    (locks roster moves)
-//   auction_open_at  -> AUCTION_START  (START=open, END=close) + WAIVER_UNLOCK (auto-unlock at open)
-//   cutdown_at       -> CUSTOM         (informational marker)
+//   roster_lock_at -> WAIVER_LOCK (locks waivers & roster moves)
 export function buildCalendarEvents(cfg) {
   const faa = (cfg && cfg.faa) || {};
   const missing = [];
-  const at = (k) => {
-    const v = safeStr(faa[k]);
-    if (!v) { missing.push(k); return null; }
-    return v;
-  };
-  const rosterLock = at("roster_lock_at");
-  const cutdown = at("cutdown_at");
-  const open = at("auction_open_at");
-  const close = safeStr(faa.auction_close_at) || null;   // close is optional (rides as END_TIME)
-  if (!safeStr(faa.auction_close_at)) missing.push("auction_close_at");
-
+  const rosterLock = safeStr(faa.roster_lock_at);
+  if (!rosterLock) missing.push("roster_lock_at");
   const events = [];
-  const push = (field, event_type, startWall, endWall, note) => {
-    const start_unix = etWallClockToUnix(startWall);
-    const end_unix = endWall ? etWallClockToUnix(endWall) : null;
+  if (rosterLock) {
     events.push({
-      field, event_type,
-      label: (AUCTION_CAL_FIELDS.find((f) => f.key === field) || {}).label || field,
-      start_at: startWall, end_at: endWall || null,
-      start_unix, end_unix, note,
+      field: "roster_lock_at", event_type: "WAIVER_LOCK",
+      label: "Roster cut / lock date",
+      start_at: rosterLock, end_at: null,
+      start_unix: etWallClockToUnix(rosterLock), end_unix: null,
+      note: "Locks waivers & roster moves (no cuts) from this time.",
     });
-  };
-
-  if (rosterLock) push("roster_lock_at", "WAIVER_LOCK", rosterLock, null,
-    "Locks roster moves (no cuts) from this time.");
-  if (cutdown) push("cutdown_at", "CUSTOM", cutdown, null,
-    "Cutdown / verification day — informational marker.");
-  if (open) {
-    push("auction_open_at", "AUCTION_START", open, close,
-      close ? "FA Auction window: opens here, END_TIME = close." : "FA Auction opens (no close date set).");
-    push("auction_open_at", "WAIVER_UNLOCK", open, null,
-      "Auto-unlock rosters at auction open (pairs with the roster lock).");
   }
   return { events, missing };
 }

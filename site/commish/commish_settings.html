@@ -6,6 +6,7 @@
 <title>Commish Settings — UPS League</title>
 <!-- build 2026.07.13.1 — +🧠 Draft Intel (4th War Room view) + Live Board tier-depletion cockpit -->
 <!-- build 2026.07.13.2 — +🗓️ Auction Dates → MFL panel (commish-editable timeline → MFL calendar push) -->
+<!-- build 2026.07.13.3 — Auction Dates simplified to roster cut/lock date only (WAIVER_LOCK); commit gated by franchise_id (no key prompt) -->
 
 <style>
   :root {
@@ -1740,7 +1741,7 @@
   // (ups_settings 'auction_calendar', read/written through /admin/commish-
   // settings); the push is POST /admin/auction/push-mfl-calendar.
   // ════════════════════════════════════════════════════════════════════
-  var AC = { cfg: null, fields: [], pushTarget: "74598", key: "", preview: null };
+  var AC = { cfg: null, fields: [], pushTarget: "74598", preview: null };
   function acEsc(v) { return esc(v == null ? "" : String(v)); }
   function renderAuctionCalendar() {
     var host = content();
@@ -1801,7 +1802,7 @@
     host.innerHTML =
       '<div class="fo-card"><div class="fo-card-head"><h3>Auction Dates → MFL</h3>' +
         '<span class="small" style="color:var(--muted);">saved ' + acEsc(savedAt) + "</span></div>" +
-      '<p class="fo-row-hint">💡 Set the FA-Auction timeline once (ET), then push it into MFL\'s league calendar. Dates are the source of truth on the website — this makes MFL match them. <strong>Auction rules</strong> (cap / roster limits / format) can\'t be set via API — see the <a href="https://github.com/keithcreelman/upsmflproduction/blob/main/docs/auction/mfl_auction_setup_runbook.md" target="_blank" rel="noopener">manual runbook</a>.</p>' +
+      '<p class="fo-row-hint">💡 Set the <strong>roster cut / lock date</strong> (ET) and push it into MFL — it writes a <code>WAIVER_LOCK</code> so no cuts/waivers process after that time. <strong>Auction rules</strong> (cap / roster limits / format) can\'t be set via API — see the <a href="https://github.com/keithcreelman/upsmflproduction/blob/main/docs/auction/mfl_auction_setup_runbook.md" target="_blank" rel="noopener">manual runbook</a>.</p>' +
       '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;"><strong>Season</strong>' +
         '<input type="text" id="ac-season" value="' + acEsc(AC.cfg.season) + '" style="width:90px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--panel-alt);color:var(--text);"></div>' +
       dateRows +
@@ -1835,15 +1836,13 @@
       postJSON(u, {}).then(function (r) { AC.preview = r; paintAuctionCalendar(host); })
         .catch(function (e) { AC.preview = { error: e.message || String(e) }; paintAuctionCalendar(host); });
     });
-    // Push (commit — prompts for the commish API key once per session)
+    // Push (commit — commish-gated by franchise_id, passed automatically; no key to type)
     document.getElementById("ac-push").addEventListener("click", function () {
       var live = AC.pushTarget === "74598";
-      if (live && !window.confirm("Write these dates to the REAL league (74598) MFL calendar now? Existing calendar entries for these event types may be affected.")) return;
-      if (!AC.key) { AC.key = window.prompt("Commish API key (COMMISH_API_KEY) — needed to write to MFL:") || ""; }
-      if (!AC.key) { toast("Push cancelled — no key", "err"); return; }
-      var u = apiUrl("/admin/auction/push-mfl-calendar") + "?L=" + encodeURIComponent(AC.pushTarget) + "&YEAR=" + encodeURIComponent(AC.cfg.season || YEAR) + "&commit=1&APIKEY=" + encodeURIComponent(AC.key);
+      if (live && !window.confirm("Write the roster cut / lock date to the REAL league (74598) MFL calendar now?")) return;
+      var u = apiUrl("/admin/auction/push-mfl-calendar") + "?L=" + encodeURIComponent(AC.pushTarget) + "&YEAR=" + encodeURIComponent(AC.cfg.season || YEAR) + "&commit=1&franchise_id=0008";
       postJSON(u, {}).then(function (r) { AC.preview = r; toast(r.ok ? "Pushed to MFL ✔" : "Push had errors", r.ok ? "ok" : "err"); paintAuctionCalendar(host); })
-        .catch(function (e) { if (/403/.test(String(e.message))) AC.key = ""; AC.preview = { error: e.message || String(e) }; toast("Push failed: " + (e.message || String(e)), "err"); paintAuctionCalendar(host); });
+        .catch(function (e) { AC.preview = { error: e.message || String(e) }; toast("Push failed: " + (e.message || String(e)), "err"); paintAuctionCalendar(host); });
     });
   }
 
