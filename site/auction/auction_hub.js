@@ -193,6 +193,15 @@
   function _canBidInApp() {
     return !!_mflUserId();
   }
+  // The live FA payload's active_auctions carry the O=43 overlay (fresh current
+  // bid + the viewer's proxy); the Lots board reads the staler /api/auction/lots.
+  // Look up a lot's overlaid twin by player_id so the board can prefer it.
+  function _overlaidLot(pid) {
+    const arr = (STATE.fa && STATE.fa.active_auctions) || [];
+    const key = String(pid);
+    for (let i = 0; i < arr.length; i++) if (String(arr[i].player_id) === key) return arr[i];
+    return null;
+  }
   // Raw fetch (NOT fetchJSON, which throws on non-2xx and would swallow the 503
   // kill-switch fallback). Mirrors mobile postAuction: returns {status, ok, body}.
   function postAuctionBid(payload) {
@@ -241,6 +250,16 @@
     document.body.insertAdjacentHTML("beforeend", html);
     const amt = document.getElementById("ah-bid-amt");
     const overlay = document.getElementById("ah-bid-overlay");
+    // Place the modal at the clicked row (anchor_y), clamped so it never runs off
+    // the bottom of the document. Ask the parent (which owns the scrollbar) to
+    // bring it into view too — belt and braces for a click near the fold.
+    const modalEl = overlay.querySelector(".ah-bid-modal");
+    if (modalEl) {
+      const y = Number(opts.anchor_y) || 8;
+      const maxTop = Math.max(8, document.documentElement.scrollHeight - modalEl.offsetHeight - 12);
+      modalEl.style.top = Math.min(y, maxTop) + "px";
+      try { parent.postMessage({ type: "auction-hub-scroll-into-view", y: Math.min(y, maxTop) }, "*"); } catch (e) {}
+    }
     document.getElementById("ah-bid-close").addEventListener("click", closeBidModal);
     // Click on the backdrop (not the modal) closes.
     overlay.addEventListener("click", (e) => { if (e.target === overlay) closeBidModal(); });
@@ -324,11 +343,17 @@
       const btn = e.target.closest('[data-action="open-bid-modal"]');
       if (!btn) return;
       e.preventDefault();
+      // Anchor the modal to the clicked row's Y. No internal iframe scroll, so
+      // getBoundingClientRect().top is the button's document Y = where the user
+      // is looking. Nudge up ~24px so the modal opens over the row, not below it.
+      const rect = btn.getBoundingClientRect();
+      const anchorY = Math.max(8, rect.top + (window.scrollY || 0) - 24);
       openBidModal({
         player_id: btn.getAttribute("data-player-id"),
         player_name: btn.getAttribute("data-player-name") || "",
         auction_type: btn.getAttribute("data-auction-type") || "free-agent",
         high_k: Number(btn.getAttribute("data-high-k")) || 0,
+        anchor_y: anchorY,
       });
     });
   }
@@ -1158,10 +1183,11 @@
   function bidActionCell(pid, name, auctionType, highK) {
     const link = `<a href="${mflBidUrl(pid)}" target="_blank" rel="noopener" class="btn small" title="Open MFL auction to bid/raise">Bid ↗</a>`;
     if (!_canBidInApp()) return link;
+    // No row-level "↗" deep-link: clicking Bid opens the modal, which already
+    // carries an "On MFL ↗" option — the extra arrow was redundant noise.
     return `<button type="button" class="btn small" data-action="open-bid-modal" ` +
       `data-player-id="${escapeHtml(String(pid))}" data-player-name="${escapeHtml(String(name || ""))}" ` +
-      `data-auction-type="${escapeHtml(String(auctionType || "free-agent"))}" data-high-k="${Number(highK) || 0}">Bid</button>` +
-      ` <a href="${mflBidUrl(pid)}" target="_blank" rel="noopener" class="btn small secondary" title="Bid on MFL instead" aria-label="Bid on MFL">↗</a>`;
+      `data-auction-type="${escapeHtml(String(auctionType || "free-agent"))}" data-high-k="${Number(highK) || 0}">Bid</button>`;
   }
 
   function renderFaLots(rows) {
@@ -2292,8 +2318,21 @@
       const testBadge = isInEra ? "" : ` <span class="ah-origin Trade" title="Not in ERA-eligible list — likely a test or off-pool auction">TEST</span>`;
       const nflProfileUrl = `https://www.myfantasyleague.com/${new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=04&P=${encodeURIComponent(l.player_id)}`;
       const isWon = l.status === "won";
-      const proxyCell = (viewerFid && l.your_proxy_bid_k)
-        ? `${fmtK(l.your_proxy_bid_k)}`
+      // This board reads /api/auction/lots (D1, up to ~5 min behind the */5
+      // poll). The live FA payload carries the SAME lots with an O=43 overlay
+      // (fresh current bid + the viewer's real proxy), so prefer that when it's
+      // higher — otherwise a lot reads cheaper than it is the moment you open
+      // the bid modal. Keyed by player_id; only ever raises.
+      const ov = _overlaidLot(l.player_id);
+      const freshHighK = Math.max(
+        Number(l.current_high_bid_k) || 0,
+        ov ? Math.round((Number(ov.high_bid_amount) || 0) / 1000) : 0
+      );
+      const freshProxyK = (ov && ov.your_proxy_bid_amount != null)
+        ? Math.round(Number(ov.your_proxy_bid_amount) / 1000)
+        : (Number(l.your_proxy_bid_k) || 0);
+      const proxyCell = (viewerFid && freshProxyK)
+        ? `${fmtK(freshProxyK)}`
         : `<span class="small" style="color:var(--muted)">—</span>`;
       // current_high_bid_k is already $K here (unlike the FAA row's dollars).
       // renderNominations paints BOTH auctions' lots (filtered by the active
@@ -2303,14 +2342,14 @@
       const auctionType = STATE.tab === "era" ? "expired-rookie" : "free-agent";
       const actionCell = isWon
         ? `<span class="ah-origin Rookie">WON by ${escapeHtml(franchiseName(l.winner_fid))}</span>`
-        : bidActionCell(l.player_id, pi.name, auctionType, Number(l.current_high_bid_k) || 0);
+        : bidActionCell(l.player_id, pi.name, auctionType, freshHighK);
       return `
         <tr data-lot-id="${escapeHtml(l.lot_id)}" data-seconds="${l.seconds_remaining}" data-status="${l.status}">
           <td><button type="button" class="ah-player-open player-link" data-action="open-player-modal" data-player-id="${escapeHtml(l.player_id)}">${escapeHtml(pi.name || ("Player #" + l.player_id))}</button>${testBadge}</td>
           <td><span class="ah-pos ${pos}">${escapeHtml(pos)}</span></td>
           <td class="col-md">${escapeHtml(pi.nfl_team || "—")}</td>
           <td>${escapeHtml(l.nominator_name || franchiseName(l.nominator_fid))}</td>
-          <td class="num">${fmtDollarsFromK(l.current_high_bid_k)}</td>
+          <td class="num">${fmtDollarsFromK(freshHighK)}</td>
           <td>${escapeHtml(l.current_high_bidder_name || franchiseName(l.current_high_bidder_fid))}</td>
           <td class="num col-md">${l.bid_count}</td>
           <td class="num col-md">${l.unique_bidder_count}</td>

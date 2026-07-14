@@ -17987,9 +17987,20 @@ export default {
           if (cells.size) {
             activeAuctions = activeAuctions.map((lot) => {
               const hit = cells.get(String(lot.player_id));
-              return hit && hit.my_proxy_dollars != null
-                ? { ...lot, your_proxy_bid_amount: hit.my_proxy_dollars }
-                : lot;
+              if (!hit) return lot;
+              const next = { ...lot };
+              // O=43 is live; D1 lags the */5 poll by up to ~5 min. When the
+              // viewer's page shows a HIGHER current bid than D1, trust the page
+              // — otherwise the board (and the bid modal's "High") shows a lot
+              // cheaper than it really is (the "Lamar looks cheaper when you pop
+              // out" report). Only ever raise, never lower: a stale-high D1 value
+              // is far less likely than a stale-low one, and never regressing
+              // avoids flicker if the parse under-reads.
+              if (hit.current_dollars > safeInt(next.high_bid_amount, 0)) {
+                next.high_bid_amount = hit.current_dollars;
+              }
+              if (hit.my_proxy_dollars != null) next.your_proxy_bid_amount = hit.my_proxy_dollars;
+              return next;
             });
           }
         }
