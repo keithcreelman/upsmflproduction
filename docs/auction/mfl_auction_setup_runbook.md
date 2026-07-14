@@ -6,8 +6,9 @@ that pushes dates into MFL) and the **manual** fallback, plus the one-time aucti
 **rules** that MFL's API can't set.
 
 **Two categories, one API-settable, one not:**
-1. **Auction open & close dates** — **API-settable** via `import?TYPE=calendarEvent`
-   (`AUCTION_START`, START = open, END = close). This is what the commish control
+1. **Cut deadline + auction open & close dates** — **API-settable** via
+   `import?TYPE=calendarEvent` (cut deadline → `CUSTOM` marker; open+close →
+   `AUCTION_START` with START = open, END = close). This is what the commish control
    automates.
 2. **Rules** (salary cap / budget, roster max & min, contract format, auction on/off)
    — **NOT** API-settable. MFL exposes these read-only; they're a one-time
@@ -19,8 +20,8 @@ that pushes dates into MFL) and the **manual** fallback, plus the one-time aucti
 
 **Commish Settings → 🗓️ Auction Dates → MFL.**
 
-1. Set **Auction opens** and **Auction closes** (interpreted as **ET**, DST-handled
-   automatically — enter wall-clock time).
+1. Set the **Cut deadline**, **Auction opens** and **Auction closes** (interpreted as
+   **ET**, DST-handled automatically — enter wall-clock time).
 2. **Save dates** (writes to D1 `ups_settings` key `auction_calendar` — reusable next
    year, just change the values).
 3. Pick the **target league**: start with **Test league (25625)** to rehearse.
@@ -35,6 +36,7 @@ that pushes dates into MFL) and the **manual** fallback, plus the one-time aucti
 
 | UPS date | MFL `EVENT_TYPE` | Notes |
 |---|---|---|
+| Cut deadline | `CUSTOM` | Informational deadline marker (not a transaction lock). |
 | Auction opens (+ closes) | `AUCTION_START` | `START_TIME` = open; `END_TIME` = close (one event carries both). |
 
 **Auth model:** *Preview* needs nothing (writes nothing). *Push* is commish-gated by

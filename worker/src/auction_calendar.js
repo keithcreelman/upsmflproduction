@@ -20,10 +20,12 @@ function safeStr(v) { return String(v == null ? "" : v).trim(); }
 // The dates the commish fills in. Each value is a wall-clock datetime string
 // "YYYY-MM-DDTHH:mm" interpreted in America/New_York (the league runs on ET) —
 // no stored offset, so it stays correct across DST without the commish thinking
-// about it. Keith 2026-07-13: only the auction START and CLOSE are needed (no
-// roster-cut / waiver-lock) — written to MFL as one AUCTION_START event whose
-// START_TIME is the open and END_TIME is the close.
+// about it. Keith 2026-07-13/14: cut deadline + auction start + close. The cut
+// deadline is written as a CUSTOM marker (a deadline reminder, not a transaction
+// lock — Keith didn't want the waiver-lock behavior); open+close become one
+// AUCTION_START event (START=open, END=close).
 export const AUCTION_CAL_FIELDS = [
+  { key: "cut_deadline_at",  label: "Cut deadline",   help: "Deadline for offseason cuts (the cut-then-rebid boundary). Written to MFL as a CUSTOM calendar marker." },
   { key: "auction_open_at",  label: "Auction opens",  help: "FA Auction opens (Day-1 kickoff). Written to MFL as the AUCTION_START event." },
   { key: "auction_close_at", label: "Auction closes", help: "Target close of the FA Auction. Written as the AUCTION_START event's END_TIME." },
 ];
@@ -97,18 +99,30 @@ export function etWallClockToUnix(wall, timeZone = "America/New_York") {
   return Math.round((asUTC - offsetMs) / 1000);
 }
 
-// Map the stored auction open/close to the MFL calendar event to write.
+// Map the stored dates to the MFL calendar events to write.
 // Returns { events: [...], missing: [...fieldKeys with no date] }. Each event:
 //   { field, event_type, label, start_at (iso in), start_unix, end_unix|null, note }
+//   cut_deadline_at -> CUSTOM (informational marker)
 //   auction_open_at (+ auction_close_at) -> AUCTION_START (START=open, END=close)
 export function buildCalendarEvents(cfg) {
   const faa = (cfg && cfg.faa) || {};
   const missing = [];
+  const cutDeadline = safeStr(faa.cut_deadline_at);
   const open = safeStr(faa.auction_open_at);
   const close = safeStr(faa.auction_close_at);
+  if (!cutDeadline) missing.push("cut_deadline_at");
   if (!open) missing.push("auction_open_at");
   if (!close) missing.push("auction_close_at");
   const events = [];
+  if (cutDeadline) {
+    events.push({
+      field: "cut_deadline_at", event_type: "CUSTOM",
+      label: "Cut deadline",
+      start_at: cutDeadline, end_at: null,
+      start_unix: etWallClockToUnix(cutDeadline), end_unix: null,
+      note: "Cut deadline — informational marker (not a transaction lock).",
+    });
+  }
   if (open) {
     events.push({
       field: "auction_open_at", event_type: "AUCTION_START",
