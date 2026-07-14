@@ -395,6 +395,13 @@ async def _run_clap_back(reply_text: str, replier_user_id: int, replier_name: st
     details = classification.get("details", "")
     print(f"[{datetime.now()}] Classified as: {category} — {details}")
 
+    # Actually honour the gate. `clap_back_warranted` was computed and then never
+    # read, so the bot answered everything — including replies the classifier had
+    # explicitly flagged as not worth answering.
+    if not classification.get("clap_back_warranted", False):
+        print(f"[{datetime.now()}]   → clap-back NOT warranted ({category}); staying quiet")
+        return
+
     # Identify replier franchise
     discord_users = load_discord_users()
     replier_fid = None
@@ -735,17 +742,25 @@ async def on_message(message: discord.Message):
         await handle_reply(message, ROAST_TRACKER[ref_id])
         return
 
-    # Trigger 2: @mention fallback — works in the roast thread OR the channel
-    # even when the reply target isn't tracked (ported from the prod fork).
+    # Trigger 2: @mention INSIDE a tracked roast thread. Scoped to threads only
+    # as of 2026-07-14. The old `or v.get("channel_id") == chan_id` disjunct
+    # matched EVERY tracked roast for ANY message in #transactions, then picked
+    # the most recent trade by timestamp. Two things made that explode:
+    #   1. the auction narrator posts as the SAME Discord bot user, so Discord
+    #      adds us to `mentions` on any REPLY to a nomination (replied_user ping)
+    #      even when the human only @-ed another owner;
+    #   2. so a reply to an auction nomination clapped back with a days-old
+    #      trade's context. That is exactly what happened to the commish.
+    # A mention in the open channel is no longer evidence of intent.
     if bot.user and bot.user.id in mentions:
         chan_id = message.channel.id
-        channel_tracks = [v for v in ROAST_TRACKER.values()
-                          if v.get("thread_id") == chan_id or v.get("channel_id") == chan_id]
-        if channel_tracks:
-            tracked = max(channel_tracks, key=lambda v: v.get("timestamp", 0) or 0)
+        thread_tracks = [v for v in ROAST_TRACKER.values()
+                         if v.get("thread_id") and v.get("thread_id") == chan_id]
+        if thread_tracks:
+            tracked = max(thread_tracks, key=lambda v: v.get("timestamp", 0) or 0)
             await handle_reply(message, tracked)
             return
-        print(f"[{datetime.now()}]   → @mention seen but no tracked roast in channel {chan_id}")
+        print(f"[{datetime.now()}]   → @mention outside any tracked roast thread ({chan_id}); ignoring")
 
     print(f"[{datetime.now()}]   → no match (not a reply to tracked roast, not @mention)")
     await bot.process_commands(message)
@@ -826,8 +841,15 @@ async def handle_reply(message: discord.Message, tracked: dict):
                 print(f"[{datetime.now()}] pointer reply failed (non-fatal): {e}")
 
     if post_destination is None:
-        # In-thread trigger, no tracked thread, or thread path failed.
-        post_destination = _MessageReplyShim(message)
+        # Only reply in place when we are ALREADY inside the tracked thread.
+        # Never fall back to a flat in-channel reply: that is how clap-backs
+        # ended up interrupting the auction conversation in #transactions.
+        if tid and message.channel.id == tid:
+            post_destination = _MessageReplyShim(message)
+        else:
+            print(f"[{datetime.now()}] no tracked thread (tid={tid}, chan={message.channel.id}); "
+                  f"skipping clap-back rather than replying in-channel")
+            return
 
     await _run_clap_back(
         reply_text=message.content,

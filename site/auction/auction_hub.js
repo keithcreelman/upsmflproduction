@@ -422,14 +422,15 @@
           <thead>
             <tr>
               <th>Team</th>
-              <th class="num">Cap Penalties</th>
+              <th class="num">Salary + Adjustments</th>
+              <th class="num">Allocated to High Bids</th>
               <th class="num">Available Funds</th>
               <th class="num">Max Bid → 27-man</th>
               <th class="num">Max Bid → 35-man</th>
             </tr>
           </thead>
           <tbody id="fa-budgets-tbody">
-            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">Loading budgets…</td></tr>
+            <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Loading budgets…</td></tr>
           </tbody>
         </table>
       </div>`;
@@ -974,7 +975,7 @@
     const tbody = $("#fa-budgets-tbody");
     if (!tbody) return;
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">No budget data yet.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">No budget data yet.</td></tr>`;
       return;
     }
     // When the adjustments export is down we still show funds, but we say so —
@@ -989,12 +990,16 @@
     const sorted = rows.slice().sort((a, b) => Number(b.available_funds_dollars || 0) - Number(a.available_funds_dollars || 0));
     tbody.innerHTML = sorted.map((r) => {
       const isMe = meFid && String(r.franchise_id).padStart(4, "0") === String(meFid).padStart(4, "0");
-      const adj = r.salary_adjustments_dollars;
-      // Positive = a charge against the cap, so show it as the hit it is (−$14K).
-      const adjCell = adj == null ? "—" : (Number(adj) === 0 ? "$0" : (Number(adj) > 0 ? "−" + usd(adj) : "+" + usd(Math.abs(Number(adj)))));
+      const alloc = Number(r.allocated_to_high_bids_dollars || 0);
+      // Only the viewer's own row reflects their proxy (max) bid — everyone
+      // else's shows the current bid, so no one can read your ceiling.
+      const allocCell = alloc > 0
+        ? `${usd(alloc)}${isMe ? ' <span class="small" style="opacity:.7;">(your max)</span>' : ""}`
+        : "—";
       return `<tr${isMe ? ' class="ah-row-me"' : ""}>
         <td>${escapeHtml(r.franchise_name || franchiseName(r.franchise_id))}</td>
-        <td class="num"${Number(adj) > 0 ? ' style="color:var(--bad,#d9534f);"' : ""}>${adjCell}</td>
+        <td class="num">${usd(r.salary_plus_adjustments_dollars != null ? r.salary_plus_adjustments_dollars : r.cap_total_dollars)}</td>
+        <td class="num">${allocCell}</td>
         <td class="num">${usd(r.available_funds_dollars)}</td>
         <td class="num">${usd(r.scenario_27_max_bid)}</td>
         <td class="num">${usd(r.scenario_35_max_bid)}</td>
