@@ -16732,20 +16732,41 @@ export default {
         const playerId = safeStr(normalizedAction?.player_id).replace(/\D/g, "");
         if (!forms.length) return null;
         if (action === "bid") {
+          // MFL's O=43 bid form has NO player_id field: the bid input's NAME *is*
+          // the player id, paired with CMT_<pid> for the optional comment, and a
+          // single <form> carries an input for EVERY open lot. Confirmed against
+          // the live authenticated page (7 open lots -> 7 pairs, action=auction_bid).
+          //
+          // The old code looked up form.fields.player_id (never existed), then fell
+          // back to a regex over the whole-table blob, then required an "amount"/
+          // "bid"-ish field name — none of which this page has. Every bid 422'd as
+          // auction_form_contract_not_found. Matching on the <pid>/CMT_<pid> pairing
+          // is also index-proof: a player-search form renders above the table and
+          // shifts every form index.
+          if (!playerId) return null;
+          const cmtKey = `CMT_${playerId}`;
           for (const form of forms) {
-            const blob = `${JSON.stringify(form.fields)} ${form.rawHtml}`.toLowerCase();
-            const candidatePlayerId =
-              String(firstTruthy(form.fields.player_id, form.fields.playerid, form.fields.pid, form.fields.player) || "").replace(/\D/g, "") ||
-              deriveAuctionPlayerId(blob);
-            if (!candidatePlayerId || candidatePlayerId !== playerId) continue;
-            const nextFields = { ...form.fields };
-            const amountField = Object.keys(nextFields).find((key) => /amount|bid/i.test(String(key)));
-            if (!amountField) return null;
-            nextFields[amountField] = String(safeInt(normalizedAction.amount, 0));
+            const fields = form.fields || {};
+            const hasBidInput = Object.prototype.hasOwnProperty.call(fields, playerId);
+            const hasCmtInput = Object.keys(fields).some((k) => k.toUpperCase() === cmtKey.toUpperCase());
+            if (!hasBidInput || !hasCmtInput) continue;
+            const nextFields = { ...fields };
+            // Blank every OTHER lot's inputs. The form carries all open lots, so
+            // submitting them as-is would let one bid splash onto lots we never
+            // meant to touch if MFL ever pre-fills them.
+            for (const key of Object.keys(nextFields)) {
+              const isOtherBid = /^\d{3,8}$/.test(key) && key !== playerId;
+              const isOtherCmt = /^CMT_\d{3,8}$/i.test(key) && key.toUpperCase() !== cmtKey.toUpperCase();
+              if (isOtherBid || isOtherCmt) nextFields[key] = "";
+            }
+            // Whole dollars: MFL renders "$1,000" / "($58,000)" against a $300,000
+            // cap, and its +$1K/+$5K/+$10K controls step in thousands of dollars.
+            nextFields[playerId] = String(safeInt(normalizedAction.amount, 0));
             const submit = pickSubmitOption(form, ["bid", "submit", "raise"]);
             if (submit && submit.name) nextFields[submit.name] = safeStr(submit.value || "Submit");
             return { actionUrl: form.actionUrl, method: form.method, fields: nextFields };
           }
+          return null;
         }
         if (action === "nominate") {
           for (const form of forms) {
