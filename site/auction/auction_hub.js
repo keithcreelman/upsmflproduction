@@ -71,6 +71,11 @@
     return null;
   }
 
+  // The FA pool + ADP board are large and near-static; the 30s live refresh
+  // doesn't need them. Re-pull at most this often (live lots/board still tick
+  // every 30s).
+  const FA_POOL_TTL_MS = 5 * 60 * 1000;
+
   const STATE = {
     version: null,
     me: null,
@@ -83,6 +88,8 @@
     era_filters: { pos: "ALL", owner: "" },
     fapool_filters: { pos: "ALL", team: "", q: "" },   // FA-pool: position / NFL team / name search
     faAdp: {},                   // mfl_id → { ovr, pos, posRank } from /api/adp-board (stats-workbench consensus)
+    _faPoolAt: 0,                // last successful fa-pool load (ms) — slow-refresh gate
+    _faAdpAt: 0,                 // last successful adp-board load (ms) — slow-refresh gate
     era_sort: "ppg_weighted",
     era_sort_dir: -1,            // desc
     lots: null,                  // payload from /api/auction/lots
@@ -881,15 +888,39 @@
     // unrostered player, enriched). available_players is empty off-season, so
     // the pool comes from /api/auction/fa-pool.
     const poolUrl = apiUrl("/api/auction/fa-pool") + "?L=" + LEAGUE_ID + "&YEAR=" + season;
+    // The pool (~1800 enriched players) and the ADP board are HEAVY and change
+    // slowly; loadFa() runs on the 30s refresh, so re-pulling them every tick
+    // was both wasteful and the main source of transient failures. Refresh them
+    // on a slow cadence (or whenever we don't have them yet); the 30s tick still
+    // always refreshes the live board (`url`) + lots, which is what moves.
+    const nowMs = Date.now();
+    const havePool = Array.isArray(STATE.faPool) && STATE.faPool.length > 0;
+    const haveAdp = STATE.faAdp && Object.keys(STATE.faAdp).length > 0;
+    const poolStale = !havePool || (nowMs - (STATE._faPoolAt || 0)) > FA_POOL_TTL_MS;
+    const adpStale = !haveAdp || (nowMs - (STATE._faAdpAt || 0)) > FA_POOL_TTL_MS;
     try {
       const [data, pool, adpRes] = await Promise.all([
         fetchJSON(url),
-        fetchJSON(poolUrl).catch(() => null),
-        fetchJSON(apiUrl("/api/adp-board")).catch(() => null),   // SAME multi-source consensus as the Stats workbench
+        poolStale ? fetchJSON(poolUrl).catch(() => null) : Promise.resolve(null),
+        adpStale ? fetchJSON(apiUrl("/api/adp-board")).catch(() => null) : Promise.resolve(null),   // SAME multi-source consensus as the Stats workbench
       ]);
       STATE.fa = data;
-      STATE.faPool = (pool && pool.ok) ? pool.players : [];
-      STATE.faAdp = buildFaAdpMap(adpRes && adpRes.board);
+      // NEVER wipe an already-loaded pool because one refresh hiccuped. A failed
+      // (or empty) fetch used to blow STATE.faPool away to [], so the Players
+      // tab would populate and then go blank ~30s later (Keith 2026-07-14).
+      // Keep last-good; only replace on a genuinely successful, non-empty read.
+      if (pool && pool.ok && Array.isArray(pool.players) && pool.players.length) {
+        STATE.faPool = pool.players;
+        STATE._faPoolAt = nowMs;
+      } else if (!Array.isArray(STATE.faPool)) {
+        STATE.faPool = [];
+      }
+      if (adpRes && adpRes.board) {
+        STATE.faAdp = buildFaAdpMap(adpRes.board);
+        STATE._faAdpAt = nowMs;
+      } else if (!STATE.faAdp) {
+        STATE.faAdp = {};
+      }
       if (meta) {
         meta.textContent = data && data.ok === false
           ? "FA board unavailable right now."
