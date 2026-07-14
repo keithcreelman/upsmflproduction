@@ -132,18 +132,19 @@ export function buildCalendarEvents(cfg) {
 }
 
 // ── D1 league_events rows (what the app reads via /api/league-events) ─────────
-// Keyed by (event, nfl_season) → INSERT OR REPLACE is idempotent. Event keys use
-// the app's EVENT_META vocabulary so labels/icons render nicely on mobile.
+// Keyed by (event, nfl_season) → INSERT OR REPLACE is idempotent. Uses the
+// EXISTING canonical UPS event keys (verified live in league_events) so this
+// UPDATES the rows the app already renders instead of creating duplicates.
 export function buildLeagueEventRows(cfg, seasonOverride) {
   const f = (cfg && cfg.faa) || {};
   const season = safeStr(seasonOverride) || safeStr(cfg && cfg.season) || String(new Date().getUTCFullYear());
   const rows = [];
   const dateOf = (wall) => { const s = safeStr(wall); return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null; };
   const add = (event, wall, description) => { const d = dateOf(wall); if (d) rows.push({ event, date: d, nfl_season: season, description }); };
-  add("trade_deadline", f.trade_deadline_at, "In-season trade deadline");
+  add("ups_trade_deadline", f.trade_deadline_at, "In-season trade deadline");
   add("ups_rookie_draft", f.rookie_draft_at, "Rookie draft");
-  add("ups_expired_rookie_auction", f.era_open_at, "Expired Rookie Auction opens");
-  add("ups_free_agent_auction", f.faa_open_at, "Free Agent Auction opens");
+  add("ups_expired_rookie_auction_start", f.era_open_at, "Expired Rookie Auction opens");
+  add("ups_fa_auction_start", f.faa_open_at, "Free Agent Auction opens");
   return { rows, season };
 }
 

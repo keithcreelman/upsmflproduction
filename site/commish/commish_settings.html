@@ -1805,15 +1805,11 @@
         }).join("");
         var head = p.dryRun ? "Preview" : "Push result";
         var okMsg = p.dryRun ? "" : (p.ok ? '<p class="fo-row-hint">✅ Written to MFL + the app calendar (mobile / FO / team ops).</p>' : '<p class="fo-row-hint" style="color:#c0392b;">⚠️ Some writes failed — see below.</p>');
-        var staleHtml = (p.stale && p.stale.length)
-          ? '<div class="fo-card" style="border-color:#b8860b;"><strong style="color:#b8860b;">⚠️ Stale MFL events (' + p.stale.length + ')</strong>' +
-            '<p class="small">MFL\'s API can\'t delete calendar events. These managed-type events sit at dates that no longer match your config — remove them by hand on the ' +
-            '<a href="' + acEsc(p.manage_url || "#") + '" target="_blank" rel="noopener">MFL calendar page</a>:</p>' +
-            '<ul class="small" style="margin:4px 0 0 18px;">' + p.stale.map(function (s) {
-              var d = s.start_unix ? new Date(s.start_unix * 1000).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
-              return "<li>" + acEsc(s.event_type) + (s.title ? " — " + acEsc(s.title) : "") + " @ " + acEsc(d) + "</li>";
-            }).join("") + "</ul></div>"
-          : "";
+        // MFL's API can't delete/update calendar events, and MFL auto-generates
+        // some of its own (in-season roster locks, etc.) that we must NOT touch.
+        // So we don't flag specific events for deletion — just a soft reminder to
+        // tidy up manually if a date changed.
+        var staleHtml = '<p class="small" style="color:var(--muted);margin-top:8px;">MFL\'s API can\'t remove calendar events. If you <em>changed</em> a date, an older copy may remain — review and remove it on the <a href="' + acEsc(p.manage_url || "#") + '" target="_blank" rel="noopener">MFL calendar</a>. (The app calendar always overwrites cleanly.)</p>';
         previewHtml =
           '<div class="fo-card"><div class="fo-card-head"><h3>' + head + " · " + acEsc(p.league) + " · " + acEsc(p.season) + "</h3></div>" +
           okMsg +
@@ -1821,7 +1817,7 @@
           (appRows ? '<p class="fo-row-hint" style="margin:12px 0 2px;"><strong>App calendar</strong> <span class="small" style="color:var(--muted);">(mobile · FO · team ops — always overwrites cleanly)</span></p><table class="fo-table"><thead><tr><th>Event</th><th>Date</th><th>Status</th></tr></thead><tbody>' + appRows + "</tbody></table>" : "") +
           (p.missing && p.missing.length ? '<p class="small" style="color:#b8860b;margin-top:8px;">Not set (skipped): ' + acEsc(p.missing.join(", ")) + "</p>" : "") +
           (p.has_cookie === false ? '<p class="small" style="color:#c0392b;">⚠️ MFL_COOKIE not set on the worker — MFL writes will fail (app calendar still syncs).</p>' : "") +
-          "</div>" + staleHtml;
+          staleHtml + "</div>";
       }
     }
 
