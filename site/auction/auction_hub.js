@@ -907,7 +907,17 @@
         poolStale ? fetchJSON(poolUrl).catch(() => null) : Promise.resolve(null),
         adpStale ? fetchJSON(apiUrl("/api/adp-board")).catch(() => null) : Promise.resolve(null),   // SAME multi-source consensus as the Stats workbench
       ]);
-      STATE.fa = data;
+      // Preserve last-good, same lesson as the pool below: the live board runs on
+      // the 30s refresh, and a transient failure (worker 502, ok:false, empty)
+      // used to overwrite a good board with {ok:false}, which has no
+      // team_budget_rows — so the Summary tab would flash "No budget data yet"
+      // and the KPIs would drop to 0 mid-auction. Only replace on a genuinely
+      // successful read; otherwise keep what we had.
+      if (data && data.ok !== false) {
+        STATE.fa = data;
+      } else if (!STATE.fa) {
+        STATE.fa = data || { ok: false };
+      }
       // NEVER wipe an already-loaded pool because one refresh hiccuped. A failed
       // (or empty) fetch used to blow STATE.faPool away to [], so the Players
       // tab would populate and then go blank ~30s later (Keith 2026-07-14).
@@ -931,7 +941,9 @@
       }
     } catch (e) {
       console.error("[auction-hub] FA live fetch failed:", e);
-      STATE.fa = { ok: false, error: String(e && e.message || e) };
+      // Same rule on a thrown fetch: don't clobber a good board with an error
+      // object. Only record the error if we never had a board to begin with.
+      if (!STATE.fa) STATE.fa = { ok: false, error: String(e && e.message || e) };
       if (meta) meta.textContent = "Failed to load the FA board: " + (e && e.message || e);
     }
     renderFa();
