@@ -4145,6 +4145,18 @@ export default {
             const _txt = await calRes.text();
             try { currentCalendar = JSON.parse(_txt); } catch (_) { calDebug = { status: calRes.status, preview: _txt.slice(0, 500) }; }
           } catch (e) { calDebug = { error: String(e?.message || e) }; }
+          // DIAG: fetch the O=110 calendar-management page to learn the Delete/Edit
+          // form (MFL API has no calendar delete — the web form is the only path).
+          if (String(url.searchParams.get("probe_delete") || "") === "1" && _ck) {
+            try {
+              const pg = await fetch(`https://www48.myfantasyleague.com/${yearArg}/options?L=${encodeURIComponent(leagueId)}&O=110`, { headers: _hdr, cf: { cacheTtl: 0, cacheEverything: false } });
+              const html = await pg.text();
+              const hrefs = (html.match(/href=["'][^"']*(?:calendar|O=110|[Dd]elete|[Ee]dit)[^"']*["']/g) || []).slice(0, 20);
+              const forms = (html.match(/<form[^>]*>/gi) || []).slice(0, 6);
+              const delLinks = (html.match(/[^\s"'<>]*(?:elete)[^\s"'<>]*/g) || []).slice(0, 20);
+              calDebug = Object.assign({}, calDebug, { probe_status: pg.status, hrefs, forms, delLinks, html_len: html.length });
+            } catch (e) { calDebug = Object.assign({}, calDebug, { probe_err: String(e?.message || e) }); }
+          }
         }
 
         // Guard: any event with an unparseable date is a hard stop (don't half-write).
