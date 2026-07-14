@@ -147,7 +147,13 @@ There are **7 entry paths**. Each creates a different default contract and const
 ### A2. Free Agent Auction (last weekend of July, ~1 week)
 
 - **Format:** eBay proxy bidding. **24-hour** lock window for the FA Auction.
-- **Nominations:** **2 per 24-hour window**. Day 1 starts at 12 PM with a 12-hour kickoff window. Missed nominations escalate fines. Mandatory league event.
+- **Nominations:** **exactly 2 per window — a MINIMUM and a MAXIMUM** (Keith 2026-07-14). Mandatory league event.
+  - **Window = an ET calendar day**, midnight → midnight `America/New_York`. **Anchored, not rolling**: every franchise resets at the same ET midnight, regardless of when it last nominated. (Code counted a rolling 24-hour window from "now" until 2026-07-14; that was never the rule.)
+  - **Minimum — 2:** a franchise must nominate 2 per day until it can field a legal lineup. Missed nominations escalate fines (see §F). Once the roster requirement is met the floor is waived — continuing is optional.
+  - **Maximum — 2:** a **3rd nomination in the same ET day is a rules violation** and is **blocked** by the app (`performAuctionAction` refuses it before submitting to MFL, counting live off MFL's `AUCTION_INIT` feed so nominations made natively on MFL count too). The ceiling is **unconditional** — it applies to every franchise every day, including one that has already met its roster requirement.
+  - **Not blockable everywhere:** MFL has no nomination-limit setting, and our app is a proxy over MFL's own auction page (`O=43`), which owners can always reach directly. An over-cap nomination made there is **detected** (private commish alert from the 5-minute auction poll) but not prevented or reversed.
+  - **Day 1 is clipped by the auction open**, and needs no special rule: anchoring on the ET calendar day handles it. When the auction goes live it opens **12 PM ET**, so Day 1 runs 12 PM → midnight — the quota is still 2, there is simply less of the day in which to spend it. (During pre-auction testing the open is 12 AM ET, so Day 1 is a full day.) The kickoff/Day-1 quota is **2**, same as any other window (Keith 2026-07-14).
+  - **Contrast with ERA (§A3):** ERA is *at most* 1 per anchored 12-hour window and carries **no** mandatory-nomination obligation. FAA is the mandatory one. Do not apply one rule's cadence to the other.
 - **Roster window during auction:**
   - Max roster: **35** during auction
   - Min roster: **27 at CLOSE of auction** (not during — roster floats during)
@@ -191,7 +197,7 @@ There are **7 entry paths**. Each creates a different default contract and const
   | 5 | Wed 6 AM → Wed 6 PM ET | |
   | 6 | Wed 6 PM → Thu 6 AM ET | **Final** nomination window |
 
-  After Thursday 6 AM ET no new lots can be nominated. Existing lots continue bidding with their 36-hour lock windows until everything resolves. Enforcement: worker-side at `/api/auction/nomination-status` via `getEraNominationWindowState()` — computes the current window from "now" and checks if each franchise has used it. UI surfaces "Nominate" CTAs only when `current_window` is open and `used_in_window === 0` for the viewing franchise.
+  After Thursday 6 AM ET no new lots can be nominated. Existing lots continue bidding with their 36-hour lock windows until everything resolves. Enforcement: worker-side at `/api/auction/nomination-status` — an inline `eraWindow` computation in that route handler (there is no `getEraNominationWindowState()` function; the name appears in older notes but was never written) computes the current window from "now" and checks if each franchise has used it. It is ERA-specific: it steps by a fixed 12 hours from a fixed instant, which is only safe because ERA never crosses a DST boundary. **Do not reuse it for FAA** — §A2 windows are civil calendar days (23h/24h/25h long); that math lives in `worker/src/auction_windows.js`. UI surfaces "Nominate" CTAs only when `current_window` is open and `used_in_window === 0` for the viewing franchise.
 
   > **Prior rule (deprecated 2026-05-27):** opened Sat 6 PM ET / closed Tue 6 PM ET (6 windows shifted 60 hours earlier). Code + doc previously matched that; corrected upward after Keith confirmed the league actually started Memorial Day Monday 6 AM ET.
 - **Missed-nomination policy:** **no fine for ERA.** Participation is optional — unlike FA Auction, ERA has no mandatory-nomination obligation. (Asymmetric on purpose: ERA pools are smaller and not every owner has a target.)
@@ -1179,7 +1185,7 @@ The `(TCV × 75%) − Earned` cap penalty formula applies to the cap of one spec
 These are MANDATORY league events. Skipping or failing to engage = penalty risk.
 
 1. **Rookie Draft** (Memorial Day Sunday) — must participate or have proxy
-2. **Free Agent Auction** (last weekend of July) — must nominate 2/day, must be reachable
+2. **Free Agent Auction** (last weekend of July) — must nominate exactly 2/day (ET calendar day; a minimum AND a maximum — see §A2), must be reachable
 3. **Lineup submissions** every fantasy week
 4. **League dues payment** (split: half by FA Auction, half by Thanksgiving)
 
