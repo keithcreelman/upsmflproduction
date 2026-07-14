@@ -1,7 +1,7 @@
 {
-  "version": "0.9.11",
+  "version": "0.9.12",
   "released": "2026-07-14",
-  "label": "v0.9.11 — Desktop bid polish: the bid modal opens at the row you clicked (was centered in the whole tall iframe, off-screen), the redundant row ↗-to-MFL is gone (the modal already has On MFL), and the board/modal now show the LIVE current bid from MFL O=43 instead of the up-to-5-min-stale D1 poll (fixes \"Lamar looks cheaper than he is when you pop out\").",
+  "label": "v0.9.12 — FAA nomination cap: exactly 2 nominations per franchise per ET calendar day (min AND max). A 3rd is blocked before it reaches MFL; the tracker + cadence now count anchored ET days (reset at midnight ET) instead of a rolling 24h.",
   "changes_091": [
     "Tracker rebuilt as a Nominations audit: per-day X/2 compliance for every owner, click an owner to see exactly which players they nominated and when (replaces the catch-all War Room cards).",
     "Players: the Nominate action is hidden (—) when the auction isn't running — browse-only off-season, on both the FA pool and the ERA table.",
