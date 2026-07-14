@@ -16706,12 +16706,25 @@ export default {
           `/options?L=${encodeURIComponent(leagueId)}&O=43` +
           (targetFranchiseId ? `&FRANCHISE=${encodeURIComponent(targetFranchiseId)}` : "");
         const resp = await fetchTextWithCookie(pageUrl, cookieHeaderOverride, { method: "GET" });
-        const unauthorized = /login required|sign in|league login|not logged in/i.test(safeStr(resp.text));
+        const text = safeStr(resp.text);
+        // MFL does NOT say "login required" when a session is stale — it silently
+        // serves its marketing home page with HTTP 200. The old phrase-match missed
+        // that entirely, so an expired token parsed to zero forms and surfaced as
+        // "the auction isn't live", sending owners to debug an auction that was
+        // running fine. The reliable tell is the absence of the auction form itself:
+        // a real O=43 response always carries action="auction_bid" (both the bid and
+        // the nominate form post there).
+        // Deliberately NOT keyed on "the auction form is missing" — a genuinely
+        // closed auction also has no form, and mislabelling that as an auth
+        // problem would just invert the confusion.
+        const phraseUnauthorized = /login required|sign in|league login|not logged in/i.test(text);
+        const bouncedHome = /<title>[^<]*MyFantasyLeague Home Page/i.test(text);
+        const unauthorized = phraseUnauthorized || bouncedHome;
         return {
           ok: resp.status >= 200 && resp.status < 400 && !unauthorized,
           status: resp.status,
           pageUrl,
-          html: safeStr(resp.text),
+          html: text,
           url: resp.url || pageUrl,
           unauthorized,
         };
@@ -18259,10 +18272,18 @@ export default {
         const viewerFranchiseId = await resolveViewerFranchiseIdForAcq(season, leagueId, normalized.franchise_id);
         const pageRes = await fetchAuctionPageForCookie(viewerCookieHeader || cookieHeader, season, leagueId, viewerFranchiseId);
         if (!pageRes.ok) {
+          // 401 (not 502) on a stale session: this is the owner's problem to fix by
+          // signing in again, and 502 reads as "the app is broken". Deliberately not
+          // 503 — mobile treats 503 as "auction off, go to MFL" and silently
+          // window.open()s the native page, which is how an expired token ended up
+          // looking like a dead auction.
           return {
             ok: false,
-            status: 502,
+            status: pageRes.unauthorized ? 401 : 502,
             error: pageRes.unauthorized ? "auction_auth_required" : "auction_page_unavailable",
+            message: pageRes.unauthorized
+              ? "Your MFL session has expired. Open MFL, sign in again, then reload this page."
+              : "MFL's auction page didn't load. Try again in a moment.",
             preview: safeStr(pageRes.html).slice(0, 800),
             native_link: pageRes.pageUrl,
           };
@@ -30886,6 +30907,7 @@ export default {
           return jsonNoStore(actionRes.status >= 400 ? actionRes.status : 502, {
             ok: false,
             error: actionRes.error,
+            message: actionRes.message || "",
             preview: actionRes.preview || "",
             url: actionRes.url || "",
           });
@@ -31043,6 +31065,7 @@ export default {
           return jsonNoStore(actionRes.status >= 400 ? actionRes.status : 502, {
             ok: false,
             error: actionRes.error,
+            message: actionRes.message || "",
             preview: actionRes.preview || "",
             native_link: actionRes.native_link || "",
           });
@@ -31113,6 +31136,7 @@ export default {
           return jsonNoStore(actionRes.status >= 400 ? actionRes.status : 502, {
             ok: false,
             error: actionRes.error,
+            message: actionRes.message || "",
             preview: actionRes.preview || "",
             native_link: actionRes.native_link || "",
           });
@@ -31174,6 +31198,7 @@ export default {
           return jsonNoStore(actionRes.status >= 400 ? actionRes.status : 502, {
             ok: false,
             error: actionRes.error,
+            message: actionRes.message || "",
             preview: actionRes.preview || "",
             native_link: actionRes.native_link || nativeLink,
           });
