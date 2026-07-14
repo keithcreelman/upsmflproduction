@@ -173,7 +173,11 @@
     var amt = document.getElementById("ups-m-auc-bid-amt");
     var errEl = document.getElementById("ups-m-auc-bid-err");
     var amountK = parseInt(amt && amt.value, 10) || 0;
-    if (amountK < minK) { if (errEl) errEl.textContent = "Bid must be at least " + fmtK(minK) + "."; return; }
+    // Effective floor = higher of the sheet-open min and the input's current min
+    // attr (the outbid branch bumps that to the fresh current-high + 1). Reading the
+    // attr — not just the frozen minK — rejects a manual down-edit after an outbid.
+    var floorK = Math.max(minK, parseInt(amt && amt.getAttribute("min"), 10) || minK);
+    if (amountK < floorK) { if (errEl) errEl.textContent = "Bid must be at least " + fmtK(floorK) + "."; return; }
     if (errEl) errEl.textContent = "";
     var label = opts.action === "nominate" ? "Nominate" : "Place bid";
     btn.disabled = true; btn.textContent = "Submitting…";
@@ -191,7 +195,33 @@
         return;
       }
       if (resp.ok && resp.body && resp.body.ok) {
-        M.ui.showToast((opts.action === "nominate" ? "Nominated" : "Bid placed") + " ✓", "ok");
+        // Trust the server's outcome (read from MFL's own page post-submit), not a
+        // hardcoded ✓. high_bid → success; outbid → keep the sheet open pre-stepped
+        // to re-bid; unconfirmed → say so rather than imply a win.
+        var outcome = resp.body.outcome;
+        var msg = resp.body.message || ((opts.action === "nominate" ? "Nominated" : "Bid placed") + " ✓");
+        if (outcome === "outbid") {
+          // Pre-step the input to the fresh current-high + 1 so re-bidding is one tap.
+          // Prefer the server's current_bid_dollars (its post-submit O=43 re-read);
+          // the live board's high_bid_amount is D1-sourced and up to ~5 min stale, so
+          // pre-filling off it could seed a re-bid BELOW the real current high.
+          var freshCur = Number(resp.body.current_bid_dollars) || 0;
+          var newHighK = 0;
+          if (freshCur > 0) {
+            newHighK = Math.round(freshCur / 1000);
+          } else {
+            var lot = null, arr = (resp.body.live && resp.body.live.active_auctions) || [];
+            for (var i = 0; i < arr.length; i++) { if (String(arr[i].player_id) === String(opts.player_id)) { lot = arr[i]; break; } }
+            newHighK = lot ? Math.round((Number(lot.high_bid_amount) || 0) / 1000) : 0;
+          }
+          if (newHighK > 0 && amt) { amt.value = String(newHighK + 1); amt.setAttribute("min", String(newHighK + 1)); }
+          M.ui.showToast(msg, "info");
+          if (errEl) errEl.textContent = msg;
+          btn.disabled = false; btn.textContent = label;
+          state.loadedFor = ""; load().then(paint);   // refresh the High line
+          return;
+        }
+        M.ui.showToast(msg, outcome === "unconfirmed" ? "info" : "ok");
         closeBidSheet();
         state.loadedFor = ""; load().then(paint);   // re-read → verified board
       } else {
