@@ -415,7 +415,7 @@
       <div class="ah-card">
         <div class="ah-card-head">
           <h2>Team Budgets</h2>
-          <span class="small">Most you can spend on one player and still afford a legal roster — filling to the 27-man minimum vs a full 35-man roster (§B1). Available Funds is net of cap penalties &amp; traded-salary settlements.</span>
+          <span class="small">Most you can spend on one player and still afford a legal roster — filling to the 27-man minimum vs a full 35-man roster (§B1). Available Funds is net of cap penalties, traded-salary settlements, and money committed to lots you're leading. Your own row counts your proxy (max) bid; every other team shows only their public current bid.</span>
         </div>
         <div id="fa-budgets-warn" class="small" style="display:none;color:var(--warn,#e0a030);padding:0 0 8px;"></div>
         <table class="ah-table" id="fa-budgets-table">

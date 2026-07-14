@@ -1,7 +1,7 @@
 {
-  "version": "0.9.5",
+  "version": "0.9.7",
   "released": "2026-07-14",
-  "label": "v0.9.5 — FIX: the FA pool no longer vanishes ~30s after loading. loadFa() runs on the 30s refresh and a transient fa-pool failure (.catch(()=>null)) wiped STATE.faPool to [] — the Players tab would populate and then go blank. Now last-good is preserved and only replaced on a successful, non-empty read. The heavy fa-pool + adp-board (~1800 players) are also throttled to a 5-min TTL instead of re-downloading every 30s (the live board/lots still tick every 30s), which removes the main source of those transient failures.",
+  "label": "v0.9.7 — Team Budgets now tells the truth. Available Funds nets out cap penalties & traded-salary settlements (11 of 12 teams were reading high) AND money already committed to lots you're leading. New Salary + Adjustments and Allocated to High Bids columns. The allocation is deliberately asymmetric: your own row counts your proxy (max) bid so you see what you can really still spend, while every other team shows only their public current bid — nobody can infer your ceiling. Live lots now come from our own auction store instead of scraping MFL's page, which was collapsing every open lot into one row.",
   "changes_091": [
     "Tracker rebuilt as a Nominations audit: per-day X/2 compliance for every owner, click an owner to see exactly which players they nominated and when (replaces the catch-all War Room cards).",
     "Players: the Nominate action is hidden (—) when the auction isn't running — browse-only off-season, on both the FA pool and the ERA table.",

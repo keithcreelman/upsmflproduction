@@ -17385,11 +17385,20 @@ export default {
           // MFL's franchise `salaryCapAmount` is a per-franchise cap OVERRIDE (it
           // is empty for every UPS team today), NOT remaining funds — reading it
           // as "available" would hand that team its entire cap. Treat it as the
-          // limit, then net out roster cap hits AND salary adjustments.
+          // limit, then net out roster cap hits, salary adjustments, and money
+          // already committed to lots this franchise is currently leading.
+          //
+          // The allocation is viewer-scoped by construction, which makes this
+          // number deliberately asymmetric: YOUR row nets out your proxy (max)
+          // bid, so you see what you can truly still spend; every other row nets
+          // out only the public current bid, so no one can infer your ceiling
+          // by subtracting. Open lots are not on anyone's roster yet, so there
+          // is no double-count with capSpent.
           const franchiseCap = safeMoneyInt(team?.available_salary_dollars, null);
           const capLimit = franchiseCap != null && franchiseCap > 0 ? franchiseCap : safeInt(salaryCapDollars, 0);
           const adjustments = safeInt(team?.salary_adjustments_dollars, 0);
-          const availableFunds = Math.max(0, capLimit - capSpent - adjustments);
+          const allocated = safeInt(allocatedByFid[padFranchiseId(team.franchise_id)], 0);
+          const availableFunds = Math.max(0, capLimit - capSpent - adjustments - allocated);
           const reserve27 = reserveCostForScenario(players, 27);
           const reserve35 = reserveCostForScenario(players, 35);
           const maxBidByPosition = {};
@@ -17410,7 +17419,7 @@ export default {
             // What the board actually shows: roster salary AND adjustments as one
             // committed number, then what's tied up leading open lots.
             salary_plus_adjustments_dollars: capSpent + adjustments,
-            allocated_to_high_bids_dollars: safeInt(allocatedByFid[padFranchiseId(team.franchise_id)], 0),
+            allocated_to_high_bids_dollars: allocated,
             available_funds_dollars: availableFunds,
             scenario_27_max_bid: Math.max(0, availableFunds - safeInt(reserve27.reserve_cost, 0)),
             scenario_35_max_bid: Math.max(0, availableFunds - safeInt(reserve35.reserve_cost, 0)),
