@@ -160,37 +160,60 @@ def _net_salary_change(side) -> int:
     return salary_in - salary_out + bb_given - bb_received + r1_rookie_in
 
 
+# Discord hard-caps embed field values at 1024 chars — a longer value 400s the
+# whole announcement send (which would abort the roast). Truncate bullet lines
+# to a soft cap below the limit, keeping the cap-credit + net-salary tail.
+FIELD_VALUE_MAX = 1024
+_FIELD_SOFT_CAP = 1000
+
+
 def _build_side_block(side, sender_fid: str, franchises: dict) -> str:
-    """Build the multi-line value for one side's embed field."""
-    lines = []
+    """Build the multi-line value for one side's embed field (≤1024 chars)."""
+    bullets = []
     # Players given (bullets)
     for p in side.players_given:
-        lines.append(_format_player(p))
+        bullets.append(_format_player(p))
     # Picks given (bullets)
     for pk in side.picks_given:
-        lines.append(f"  • {_format_pick_with_sender(pk, sender_fid, franchises)}")
+        bullets.append(f"  • {_format_pick_with_sender(pk, sender_fid, franchises)}")
     # Placeholder if nothing in the gives-up list
-    if not lines:
-        lines.append("  • (nothing)")
+    if not bullets:
+        bullets.append("  • (nothing)")
     # Cap credit lines (Keith 2026-05-22: mirror "Receives" / "Gives" phrasing,
     # NOT a bulleted "$X Budget Bucks" entry).
+    tail = []
     if side.salary_received:
-        lines.append("")
-        lines.append(f"_Receives {_fmt_dollars(side.salary_received)} Cap Credit_")
+        tail.append("")
+        tail.append(f"_Receives {_fmt_dollars(side.salary_received)} Cap Credit_")
     if side.salary_given:
         if not side.salary_received:
-            lines.append("")
-        lines.append(f"_Gives {_fmt_dollars(side.salary_given)} Cap Credit_")
+            tail.append("")
+        tail.append(f"_Gives {_fmt_dollars(side.salary_given)} Cap Credit_")
     # Net salary change
     net = _net_salary_change(side)
-    lines.append("")
+    tail.append("")
     if net > 0:
-        lines.append(f"**Net Salary Change: {_fmt_dollars(net)} commitment**")
+        tail.append(f"**Net Salary Change: {_fmt_dollars(net)} commitment**")
     elif net < 0:
-        lines.append(f"**Net Salary Change: {_fmt_dollars(abs(net))} relief**")
+        tail.append(f"**Net Salary Change: {_fmt_dollars(abs(net))} relief**")
     else:
-        lines.append("**Net Salary Change: $0**")
-    return "\n".join(lines)
+        tail.append("**Net Salary Change: $0**")
+
+    block = "\n".join(bullets + tail)
+    if len(block) <= _FIELD_SOFT_CAP:
+        return block
+
+    # Too long for a Discord field value: drop whole bullet lines from the end
+    # until the block (with an "…and N more" marker) fits, keeping the tail.
+    dropped = 0
+    while bullets:
+        bullets.pop()
+        dropped += 1
+        candidate = "\n".join(bullets + [f"  • …and {dropped} more"] + tail)
+        if len(candidate) <= _FIELD_SOFT_CAP:
+            return candidate
+    # Pathological (a single enormous line / enormous tail) — hard-trim.
+    return "\n".join([f"  • …and {dropped} more"] + tail)[:FIELD_VALUE_MAX]
 
 
 def build_announcement_embed(analysis, franchises: dict, trade_dt_iso: str = "") -> dict:
@@ -219,12 +242,12 @@ def build_announcement_embed(analysis, franchises: dict, trade_dt_iso: str = "")
         "color": 0xc8a24d,  # gold
         "fields": [
             {
-                "name": f"{team_a} gives up",
+                "name": f"{team_a} gives up"[:256],
                 "value": _build_side_block(a, a.franchise_id, franchises),
                 "inline": False,
             },
             {
-                "name": f"{team_b} gives up",
+                "name": f"{team_b} gives up"[:256],
                 "value": _build_side_block(b, b.franchise_id, franchises),
                 "inline": False,
             },
