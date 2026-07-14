@@ -1,7 +1,7 @@
 {
-  "version": "0.9.10",
+  "version": "0.9.11",
   "released": "2026-07-14",
-  "label": "v0.9.9 — Desktop now matches mobile: the embed loader forwards your MFL session token into the hub, so the worker reads YOUR real proxy (max) bids off MFL and Available Funds / YOUR PROXY finally reflect them (e.g. a $42K Burrow proxy) instead of the public-current over-statement. Everyone else still sees only your public current bid.",
+  "label": "v0.9.11 — Desktop bid polish: the bid modal opens at the row you clicked (was centered in the whole tall iframe, off-screen), the redundant row ↗-to-MFL is gone (the modal already has On MFL), and the board/modal now show the LIVE current bid from MFL O=43 instead of the up-to-5-min-stale D1 poll (fixes \"Lamar looks cheaper than he is when you pop out\").",
   "changes_091": [
     "Tracker rebuilt as a Nominations audit: per-day X/2 compliance for every owner, click an owner to see exactly which players they nominated and when (replaces the catch-all War Room cards).",
     "Players: the Nominate action is hidden (—) when the auction isn't running — browse-only off-season, on both the FA pool and the ERA table.",

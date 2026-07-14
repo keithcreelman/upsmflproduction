@@ -755,16 +755,22 @@ a.btn.small {
    document.body so it survives paint()'s content re-render. z-index sits above
    the sticky header (z-index:50). */
 .ah-bid-overlay {
-  position: fixed; inset: 0;
+  /* absolute, not fixed: the hub renders in a content-sized iframe (no internal
+     scroll — the parent MFL page scrolls), so position:fixed anchors to the
+     middle of the whole tall iframe and lands off-screen. Cover the full
+     document instead and place the modal at the clicked row (set inline). */
+  position: absolute; inset: 0;
   background: rgba(0, 0, 0, 0.55);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 200; padding: 16px;
+  z-index: 200;
 }
 .ah-bid-modal {
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  /* top set inline to the clicked button's Y so it opens where the user is looking */
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  width: 100%; max-width: 360px;
+  width: calc(100% - 32px); max-width: 360px;
   padding: 18px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }

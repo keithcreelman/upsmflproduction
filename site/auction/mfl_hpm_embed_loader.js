@@ -169,6 +169,17 @@
     if (ev.data.type === "auction-hub-height") {
       const h = Number(ev.data.height);
       if (h && h > 100) frame.style.minHeight = h + "px";
+    } else if (ev.data.type === "auction-hub-scroll-into-view") {
+      // The hub opened a modal at document-Y `y` INSIDE the iframe. The parent
+      // owns the scrollbar, so scroll the window to center that point (iframe
+      // offset + y) in the viewport — otherwise a bid modal near the fold opens
+      // below the visible area.
+      var y = Number(ev.data.y);
+      if (!isFinite(y)) return;
+      try {
+        var top = frame.getBoundingClientRect().top + (window.scrollY || window.pageYOffset || 0);
+        window.scrollTo({ top: Math.max(0, top + y - (window.innerHeight || 600) / 2 + 120), behavior: "smooth" });
+      } catch (e) {}
     }
   });
 })();
