@@ -15099,6 +15099,12 @@ export default {
       };
       const secretCookieValue = normalizeCookieValue(cookie);
       const browserCookieValue = normalizeCookieValue(browserMflUserId);
+      // The auction-live payload now carries the VIEWER's own proxy (max) bids,
+      // so its in-memory cache must be partitioned per viewer — otherwise one
+      // owner's cached response, proxies and all, could be served to another.
+      // Empty when there's no browser identity (the payload is then proxy-free
+      // and safe to share under the plain franchise key).
+      const acqViewerCacheTag = browserCookieValue ? `u:${browserCookieValue}` : "";
       const sessionByCookie = !!browserCookieValue && browserCookieValue === secretCookieValue;
       const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
       const sessionByApiKey = !!commishApiKey && !!browserApiKey && browserApiKey === commishApiKey;
@@ -16652,6 +16658,68 @@ export default {
         return "";
       };
 
+      // ── O=43 per-lot proxy reader ────────────────────────────────────────
+      // MFL renders "Current Bid (Proxy Bid)" and shows the parenthetical PROXY
+      // ONLY to the owner who set it. So parsing this page with a viewer's own
+      // cookie yields THAT viewer's real max bids and structurally nothing else —
+      // the only source that carries proxies (the API export does not), and the
+      // fix for both the empty "YOUR PROXY" column and the over-stated Available
+      // Funds. Returns Map<pid, {current_dollars, my_proxy_dollars|null}>.
+      const AUCTION_MONEY_CELL_RE = /^\$\s*([0-9][0-9,]*)\s*(?:\(\s*\$\s*([0-9][0-9,]*)\s*\)\s*)?$/;
+      const auctionDollarsFromToken = (t) => safeInt(String(t == null ? "" : t).replace(/,/g, ""), 0);
+      const auctionHeaderBidColumnIndex = (html) => {
+        // Scan EVERY row for the header that carries a "Current Bid" cell — a
+        // player-search form/table renders ABOVE the lots table, so the FIRST <tr>
+        // is frequently not the lots header. Return -1 only when no row has one.
+        const src = String(html || "");
+        const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+        let rowMatch;
+        while ((rowMatch = rowRe.exec(src))) {
+          const cells = [...rowMatch[1].matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((m) => stripHtml(m[1]));
+          const idx = cells.findIndex((c) => /current\s*bid/i.test(c));
+          if (idx >= 0) return idx;
+        }
+        return -1;
+      };
+      const parseAuctionLotCells = (html) => {
+        const out = new Map();
+        const src = String(html || "");
+        const bidColIndex = auctionHeaderBidColumnIndex(src);
+        const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+        let rowMatch;
+        while ((rowMatch = rowRe.exec(src))) {
+          const rowHtml = rowMatch[1];
+          // A row is a lot only if it carries the bid input (named by bare pid) or
+          // its CMT_<pid> partner. Header/Totals/search-decoy rows have neither.
+          const pidM =
+            rowHtml.match(/name\s*=\s*["']?CMT_(\d{3,7})["']?/i) ||
+            rowHtml.match(/<input\b[^>]*\bname\s*=\s*["'](\d{3,7})["']/i);
+          if (!pidM) continue;
+          const pid = pidM[1];
+          const cells = [...rowHtml.matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((m) => stripHtml(m[1]));
+          let parsed = null;
+          if (bidColIndex >= 0 && bidColIndex < cells.length) {
+            parsed = AUCTION_MONEY_CELL_RE.exec(cells[bidColIndex]);
+          }
+          if (!parsed) {
+            // No "Current Bid" header: take the UNIQUE bid-shaped cell. The whole-cell
+            // ^$...$ anchor means the "$ Left" cell ("Team ($137,550)" / "($137,550)")
+            // never matches, so another franchise's committed total can't leak in.
+            // 0 or >1 matches ⇒ yield nothing rather than guess.
+            const hits = cells.map((c) => AUCTION_MONEY_CELL_RE.exec(c)).filter(Boolean);
+            if (hits.length === 1) parsed = hits[0];
+          }
+          if (!parsed) continue;
+          out.set(pid, {
+            current_dollars: auctionDollarsFromToken(parsed[1]),
+            // Proxy absent ⇒ null (viewer doesn't lead), NEVER 0 — 0 would silently
+            // understate the viewer's committed funds downstream.
+            my_proxy_dollars: parsed[2] != null ? auctionDollarsFromToken(parsed[2]) : null,
+          });
+        }
+        return out;
+      };
+
       const parseAuctionPage = (html, pageUrl) => {
         const forms = parseHtmlForms(html, pageUrl);
         const auctions = [];
@@ -17903,6 +17971,24 @@ export default {
         // NOTE: the O=43 page is still fetched (native_link + a cookie/liveness
         // signal), but it is NO LONGER parsed for lots — see activeAuctionsFromD1.
         let activeAuctions = await activeAuctionsFromD1(season, leagueId, viewerFranchiseId, teamsSnapshot.franchiseMap);
+        // Overlay the VIEWER's real proxy (max) bids from the O=43 page we already
+        // fetched — the only source that carries them, and what makes both the
+        // "YOUR PROXY" column and Available Funds correct. HARD-GATED on
+        // browserCookieHeader (never cookieHeader): the fallback cookie is the
+        // COMMISH's own session, so parsing HIS page would serve HIS proxies to
+        // every viewer. No browser identity ⇒ no overlay ⇒ your_proxy_bid_amount
+        // stays null (unknown), which fail-softs to the public-current-only math.
+        if (browserCookieHeader && auctionPageRes.ok) {
+          const cells = parseAuctionLotCells(auctionPageRes.html);
+          if (cells.size) {
+            activeAuctions = activeAuctions.map((lot) => {
+              const hit = cells.get(String(lot.player_id));
+              return hit && hit.my_proxy_dollars != null
+                ? { ...lot, your_proxy_bid_amount: hit.my_proxy_dollars }
+                : lot;
+            });
+          }
+        }
         const budgetRows = teamBudgetRowsFromLive(
           teamsSnapshot.teams, teamsSnapshot.salaryCapDollars, activeAuctions, viewerFranchiseId
         );
@@ -18308,10 +18394,35 @@ export default {
           };
         }
         const postRes = await postAuctionActionForCookie(viewerCookieHeader || cookieHeader, preparedForm);
-        return {
+        const result = {
           ...postRes,
           native_link: pageRes.pageUrl,
         };
+        // Confirm the bid from MFL's OWN page, not D1 (which the */5 poll leaves up
+        // to 5 min stale — the source of the "$1K after a good $2K bid" report). Re-
+        // read O=43 with the browser cookie ONLY (never the commish's), parse this
+        // pid's cell: a parenthetical present ⇒ the viewer now leads (proxy = max);
+        // absent ⇒ the viewer was outbid. No browser cookie / unreadable page ⇒ leave
+        // outcome null so the caller says "submitted, unconfirmed" rather than lying.
+        if (result?.ok && normalized.action === "bid" && browserCookieHeader) {
+          try {
+            const verifyRes = await fetchAuctionPageForCookie(browserCookieHeader, season, leagueId, viewerFranchiseId);
+            if (verifyRes.ok) {
+              const hit = parseAuctionLotCells(verifyRes.html).get(String(normalized.player_id));
+              if (hit) {
+                result.outcome = {
+                  confirmed: true,
+                  leads: hit.my_proxy_dollars != null,
+                  current_bid_dollars: hit.current_dollars,
+                  your_proxy_bid_dollars: hit.my_proxy_dollars,
+                };
+              }
+            }
+          } catch (e) {
+            console.error("[auction/bid] outcome verify failed (non-fatal):", e);
+          }
+        }
+        return result;
       };
 
       const githubRepoOwner = String(env.GITHUB_REPO_OWNER || "keithcreelman").trim();
@@ -30983,7 +31094,7 @@ export default {
         const franchiseId = padFranchiseId(url.searchParams.get("F") || url.searchParams.get("FRANCHISE_ID") || "");
         if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
         const disableCache = safeStr(url.searchParams.get("NO_CACHE")) === "1";
-        const cacheKey = `acq:auction-live:${season}:${leagueId}:free-agent:${franchiseId || "viewer"}`;
+        const cacheKey = `acq:auction-live:${season}:${leagueId}:free-agent:${acqViewerCacheTag || franchiseId || "viewer"}`;
         if (!disableCache) {
           const cached = acqCacheGet(cacheKey, 15000);
           if (cached) {
@@ -31073,7 +31184,7 @@ export default {
         }
         acqCacheBustPrefix(`acq:auction-live:${season}:${leagueId}:free-agent`);
         const live = await buildAuctionLivePayload(season, leagueId, body?.franchise_id || body?.franchiseId || "", "free-agent");
-        acqCacheSet(`acq:auction-live:${season}:${leagueId}:free-agent:${padFranchiseId(body?.franchise_id || body?.franchiseId || "") || "viewer"}`, live);
+        acqCacheSet(`acq:auction-live:${season}:${leagueId}:free-agent:${acqViewerCacheTag || padFranchiseId(body?.franchise_id || body?.franchiseId || "") || "viewer"}`, live);
         return jsonNoStore(200, {
           ok: true,
           message: "Auction action submitted.",
@@ -31092,7 +31203,7 @@ export default {
         const franchiseId = padFranchiseId(url.searchParams.get("F") || url.searchParams.get("FRANCHISE_ID") || "");
         if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
         const disableCache = safeStr(url.searchParams.get("NO_CACHE")) === "1";
-        const cacheKey = `acq:auction-live:${season}:${leagueId}:expired-rookie:${franchiseId || "viewer"}`;
+        const cacheKey = `acq:auction-live:${season}:${leagueId}:expired-rookie:${acqViewerCacheTag || franchiseId || "viewer"}`;
         if (!disableCache) {
           const cached = acqCacheGet(cacheKey, 30000);
           if (cached) {
@@ -31144,7 +31255,7 @@ export default {
         }
         acqCacheBustPrefix(`acq:auction-live:${season}:${leagueId}:expired-rookie`);
         const live = await buildAuctionLivePayload(season, leagueId, body?.franchise_id || body?.franchiseId || "", "expired-rookie");
-        acqCacheSet(`acq:auction-live:${season}:${leagueId}:expired-rookie:${padFranchiseId(body?.franchise_id || body?.franchiseId || "") || "viewer"}`, live);
+        acqCacheSet(`acq:auction-live:${season}:${leagueId}:expired-rookie:${acqViewerCacheTag || padFranchiseId(body?.franchise_id || body?.franchiseId || "") || "viewer"}`, live);
         return jsonNoStore(200, {
           ok: true,
           message: "Expired rookie auction action submitted.",
@@ -31208,10 +31319,44 @@ export default {
         // actually recorded (not just a 200 from the form POST).
         acqCacheBustPrefix(`acq:auction-live:${season}:${leagueId}:${kind}`);
         const live = await buildAuctionLivePayload(season, leagueId, body?.franchise_id || body?.franchiseId || "", kind);
+        // ok:true here means "MFL accepted the form POST" — NOT "you're winning".
+        // The truth comes from actionRes.outcome (this pid's O=43 row, re-read from
+        // MFL after the POST), in the commish's own wording. Never claim success
+        // without that evidence: no outcome ⇒ "submitted, couldn't confirm".
+        const usdK = (d) => "$" + Math.round(safeInt(d, 0) / 1000) + "K";
+        const submittedDollars = safeMoneyInt(body?.amount, 0) || 0;
+        let outcome = "submitted";
+        let message = `Auction ${action} submitted.`;
+        // Fresh current high, straight from the post-submit O=43 re-read (never D1,
+        // which the */5 poll leaves up to ~5 min stale). A discrete field so mobile
+        // can pre-step the re-bid input off the REAL current bid, not the stale board.
+        let currentBidDollars = null;
+        if (action === "bid") {
+          const oc = actionRes.outcome;
+          if (oc && oc.confirmed) currentBidDollars = safeInt(oc.current_bid_dollars, 0) || null;
+          if (oc && oc.confirmed && oc.leads) {
+            outcome = "high_bid";
+            message = `Your bid of ${usdK(submittedDollars)} is the new high bid`;
+          } else if (oc && oc.confirmed) {
+            outcome = "outbid";
+            // Amount only, never the leader's name: the identity lives solely in D1
+            // (stale), and MFL's viewer-scoped re-read exposes only the viewer's own
+            // proxy — naming a rival could attribute the bid to the wrong franchise.
+            const curr = currentBidDollars || 0;
+            message = curr
+              ? `Your bid of ${usdK(submittedDollars)} wasn't enough — new high bid is ${usdK(curr)}`
+              : `Your bid of ${usdK(submittedDollars)} wasn't enough — you were outbid`;
+          } else {
+            outcome = "unconfirmed";
+            message = `Bid of ${usdK(submittedDollars)} submitted — couldn't confirm the result. Check MFL.`;
+          }
+        }
         return jsonNoStore(200, {
           ok: true,
           action,
-          message: `Auction ${action} submitted.`,
+          outcome,
+          message,
+          current_bid_dollars: currentBidDollars,
           action_result: { status: actionRes.status, native_link: actionRes.native_link || nativeLink },
           live,
         });
