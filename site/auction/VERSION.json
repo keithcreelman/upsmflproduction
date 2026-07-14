@@ -1,7 +1,7 @@
 {
-  "version": "0.9.12",
+  "version": "0.9.13",
   "released": "2026-07-14",
-  "label": "v0.9.12 — FAA nomination cap: exactly 2 nominations per franchise per ET calendar day (min AND max). A 3rd is blocked before it reaches MFL; the tracker + cadence now count anchored ET days (reset at midnight ET) instead of a rolling 24h.",
+  "label": "v0.9.13 — Timer now mirrors MFL (was over-stating when a forced increase reset our clock; MFL does not reset), the board polls every 15s once any lot is in its final 15 min, already-nominated players drop off the Players list, and the Bid modal will not let you LOWER your own max (an accidental re-bid dropped a $42K max to $7K).",
   "changes_091": [
     "Tracker rebuilt as a Nominations audit: per-day X/2 compliance for every owner, click an owner to see exactly which players they nominated and when (replaces the catch-all War Room cards).",
     "Players: the Nominate action is hidden (—) when the auction isn't running — browse-only off-season, on both the FA pool and the ERA table.",
