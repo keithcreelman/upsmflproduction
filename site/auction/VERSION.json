@@ -1,5 +1,5 @@
 {
-  "version": "0.9.9",
+  "version": "0.9.10",
   "released": "2026-07-14",
   "label": "v0.9.9 — Desktop now matches mobile: the embed loader forwards your MFL session token into the hub, so the worker reads YOUR real proxy (max) bids off MFL and Available Funds / YOUR PROXY finally reflect them (e.g. a $42K Burrow proxy) instead of the public-current over-statement. Everyone else still sees only your public current bid.",
   "changes_091": [
@@ -20,7 +20,6 @@
       "Eager single-load of all data; 30s refresh repaints; ERA sort/filters re-wire on each mount"
     ],
     "deferred": [
-      "In-app desktop bidding (mobile Phase 1 only today)",
       "FA pool column sort (filters shipped v0.9.2; header sort still pending)",
       "Rules & Calendar tab"
     ]
@@ -36,6 +35,12 @@
     ]
   },
   "changes": [
+    {
+      "version": "0.9.10",
+      "date": "2026-07-14",
+      "type": "feat",
+      "summary": "In-app desktop bidding (parity with mobile): the Lots tables' 'Bid' button opens a modal that POSTs to /api/auction/bid, forwarding the viewer's MFL session token so the bid is attributed to them (not the commish cookie); the server's verified outcome is shown inline (high bid / outbid — pre-steps for a one-click re-bid / unconfirmed) and the board re-loads on success. Kill switches (503) and any ineligible viewer fall back to the MFL 'Bid ↗' deep-link, which stays available as the secondary path. FIX B: Summary/Lots/Nominations KPIs now classify a lot by the server's is_era_eligible flag (from the season-persistent ups_era_pool) instead of current ERA-pool membership, so already-won ERA lots no longer leak into the FA Auction counts."
+    },
     {
       "version": "0.9.5",
       "date": "2026-07-14",

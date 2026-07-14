@@ -166,13 +166,171 @@
     const n = Number(s.replace(/[^0-9.\-]/g, ""));
     return Number.isFinite(n) && n > 0 ? "$" + Math.round(n).toLocaleString("en-US") : escapeHtml(s);
   };
-  // Read-only deep-link to MFL's native auction page (O=43) for a player —
-  // same pattern as the ERA table (the hub never bids in-app; that's mobile-only).
+  // Deep-link to MFL's native auction page (O=43) for a player — kept as the
+  // SECONDARY path ("Bid ↗") alongside in-app bidding (below), and the fallback
+  // whenever the viewer isn't eligible to bid in-app or a kill switch is on.
   function mflBidUrl(pid) {
     const fid = (STATE.me && STATE.me.franchise_id) || _hpmFranchiseId() || "0000";
     const year = new Date().getUTCFullYear();
     return `https://www48.myfantasyleague.com/${year}/options?LEAGUE_ID=${LEAGUE_ID}` +
       `&FRANCHISE=${fid}&O=43&PLAYER_ID=${encodeURIComponent(pid)}`;
+  }
+
+  // ── In-app bidding (desktop parity with mobile submitBid) ─────────────────
+  // The viewer's own franchise (never the "0000" commish fallback that
+  // mflBidUrl tolerates for a read-only deep-link — a real POST attributed to
+  // 0000 would record the bid against the commish).
+  function _viewerFid() {
+    return (STATE.me && STATE.me.franchise_id) || _hpmFranchiseId() || null;
+  }
+  // The session TOKEN is the identity that matters: the worker resolves the
+  // bidding franchise from it server-side (MFL myfranchise), and MFL renders the
+  // O=43 bid form scoped to whoever the token authenticates. The injected
+  // FRANCHISE_ID is unreliable on desktop (commish views resolve as 0000 even
+  // though the token is a real owner), so gating on fid !== "0000" wrongly
+  // locked the commish out of in-app bidding on his own team. Gate on the token
+  // ONLY; without it we can't attribute a bid, so render the deep-link instead.
+  function _canBidInApp() {
+    return !!_mflUserId();
+  }
+  // Raw fetch (NOT fetchJSON, which throws on non-2xx and would swallow the 503
+  // kill-switch fallback). Mirrors mobile postAuction: returns {status, ok, body}.
+  function postAuctionBid(payload) {
+    const url = _withUserId(apiUrl("/api/auction/bid?L=" + LEAGUE_ID + "&YEAR=" + new Date().getUTCFullYear()));
+    return fetch(url, {
+      method: "POST", mode: "cors", credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}),
+    }).then((r) => r.text().then((t) => {
+      let p = null; try { p = t ? JSON.parse(t) : null; } catch (e) {}
+      return { status: r.status, ok: r.ok, body: p || {} };
+    }));
+  }
+  function closeBidModal() {
+    const ov = document.getElementById("ah-bid-overlay");
+    if (ov) ov.remove();
+  }
+  // opts: { player_id, player_name, auction_type, high_k }
+  function openBidModal(opts) {
+    if (!_canBidInApp()) { window.open(mflBidUrl(opts.player_id), "_blank", "noopener"); return; }
+    const highK = Number(opts.high_k) || 0;
+    const minK = highK + 1;
+    closeBidModal();
+    const deepLink = mflBidUrl(opts.player_id);
+    const html =
+      '<div class="ah-bid-overlay" id="ah-bid-overlay" role="dialog" aria-modal="true" aria-label="Place bid">' +
+        '<div class="ah-bid-modal">' +
+          '<div class="ah-bid-head">' +
+            '<div class="ah-bid-title">Bid — ' + escapeHtml(opts.player_name || ("Player #" + opts.player_id)) + '</div>' +
+            '<button type="button" class="ah-bid-close" id="ah-bid-close" aria-label="Close">×</button>' +
+          '</div>' +
+          '<div class="ah-bid-sub">' + (highK > 0 ? "High " + fmtK(highK) : "No bids yet") + '</div>' +
+          '<label class="ah-bid-lbl" for="ah-bid-amt">Your max bid ($K)</label>' +
+          '<div class="ah-bid-input">' +
+            '<button type="button" class="btn small secondary ah-bid-step" data-step="-1" aria-label="Lower bid">−</button>' +
+            '<input type="number" id="ah-bid-amt" min="' + minK + '" step="1" inputmode="numeric" value="' + minK + '" />' +
+            '<button type="button" class="btn small secondary ah-bid-step" data-step="1" aria-label="Raise bid">+</button>' +
+          '</div>' +
+          '<div class="ah-bid-status" id="ah-bid-status" aria-live="polite"></div>' +
+          '<div class="ah-bid-foot">' +
+            '<a class="btn small secondary" href="' + deepLink + '" target="_blank" rel="noopener">On MFL ↗</a>' +
+            '<button type="button" class="btn small" id="ah-bid-submit">Place bid</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.insertAdjacentHTML("beforeend", html);
+    const amt = document.getElementById("ah-bid-amt");
+    const overlay = document.getElementById("ah-bid-overlay");
+    document.getElementById("ah-bid-close").addEventListener("click", closeBidModal);
+    // Click on the backdrop (not the modal) closes.
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeBidModal(); });
+    Array.prototype.forEach.call(overlay.querySelectorAll(".ah-bid-step"), (b) => {
+      b.addEventListener("click", function () {
+        const step = parseInt(this.getAttribute("data-step"), 10) || 0;
+        const floor = parseInt(amt.getAttribute("min"), 10) || minK;
+        amt.value = String(Math.max(floor, (parseInt(amt.value, 10) || floor) + step));
+      });
+    });
+    document.getElementById("ah-bid-submit").addEventListener("click", function () { submitDesktopBid(opts, this, minK); });
+  }
+  function submitDesktopBid(opts, btn, minK) {
+    const amt = document.getElementById("ah-bid-amt");
+    const statusEl = document.getElementById("ah-bid-status");
+    const amountK = parseInt(amt && amt.value, 10) || 0;
+    // Effective floor = higher of the modal-open min and the input's live min
+    // attr (the outbid branch bumps that to the fresh current-high + 1), so a
+    // manual down-edit after an outbid is rejected.
+    const floorK = Math.max(minK, parseInt(amt && amt.getAttribute("min"), 10) || minK);
+    if (amountK < floorK) { if (statusEl) { statusEl.className = "ah-bid-status err"; statusEl.textContent = "Bid must be at least " + fmtK(floorK) + "."; } return; }
+    if (statusEl) { statusEl.className = "ah-bid-status"; statusEl.textContent = ""; }
+    btn.disabled = true; btn.textContent = "Submitting…";
+    postAuctionBid({
+      player_id: String(opts.player_id),
+      amount: amountK * 1000,                          // $K → dollars (MFL form unit)
+      // Deliberately omit franchise_id: the injected desktop fid can be 0000
+      // (commish view), and the worker echoes an explicit franchise_id — sending
+      // 0000 would fetch/POST the wrong franchise's form. With it empty the worker
+      // resolves the bidder from the forwarded MFL_USER_ID token (myfranchise),
+      // which is the same identity MFL scopes the O=43 bid form to. Real fid only.
+      franchise_id: (function () { const f = _viewerFid(); return f && f !== "0000" ? f : ""; })(),
+      auction_type: opts.auction_type || "free-agent",
+    }).then((resp) => {
+      if (resp.status === 503) {                        // auction off / in-app off → fall back to MFL
+        if (statusEl) { statusEl.className = "ah-bid-status"; statusEl.textContent = (resp.body && resp.body.message) || "Use MFL's auction page."; }
+        window.open((resp.body && resp.body.native_link) || mflBidUrl(opts.player_id), "_blank", "noopener");
+        closeBidModal();
+        return;
+      }
+      if (resp.ok && resp.body && resp.body.ok) {
+        // Trust the server's verified outcome (read from MFL's own page
+        // post-submit), not a hardcoded ✓ — same contract mobile consumes.
+        const outcome = resp.body.outcome;
+        const msg = resp.body.message || "Bid placed ✓";
+        if (outcome === "outbid") {
+          // Pre-step to the fresh current-high + 1 so re-bidding is one click.
+          // Prefer the server's current_bid_dollars (its post-submit O=43 re-read)
+          // over the live board's D1-sourced high (up to ~5 min stale).
+          const freshCur = Number(resp.body.current_bid_dollars) || 0;
+          const newHighK = freshCur > 0 ? Math.round(freshCur / 1000) : 0;
+          if (newHighK > 0 && amt) { amt.value = String(newHighK + 1); amt.setAttribute("min", String(newHighK + 1)); }
+          if (statusEl) { statusEl.className = "ah-bid-status err"; statusEl.textContent = msg; }
+          btn.disabled = false; btn.textContent = "Place bid";
+          reloadBoardAfterBid();                         // refresh the High line (modal stays open)
+          return;
+        }
+        closeBidModal();
+        reloadBoardAfterBid();                           // re-read → verified board (funds/proxy)
+      } else {
+        const emsg = (resp.body && (resp.body.message || resp.body.error)) || ("HTTP " + resp.status);
+        if (statusEl) { statusEl.className = "ah-bid-status err"; statusEl.textContent = emsg; }
+        btn.disabled = false; btn.textContent = "Place bid";
+      }
+    }).catch((e) => {
+      const emsg = (e && e.message) || String(e);
+      if (statusEl) { statusEl.className = "ah-bid-status err"; statusEl.textContent = emsg; }
+      btn.disabled = false; btn.textContent = "Place bid";
+    });
+  }
+  // Re-pull the board so proxy/funds/high-bid reflect the just-placed bid (the
+  // worker verifies from MFL — no 5-min lag). Best-effort; a failed refresh
+  // must not surface as a bid error.
+  function reloadBoardAfterBid() {
+    Promise.all([loadFa(), loadLots(), loadBidHistory()]).then(paint).catch(() => paint());
+  }
+  // One delegated listener (bound once in init, like the player-modal one) so
+  // the per-paint re-render of the lots tables doesn't need re-wiring.
+  function setupBidModalDelegation() {
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest('[data-action="open-bid-modal"]');
+      if (!btn) return;
+      e.preventDefault();
+      openBidModal({
+        player_id: btn.getAttribute("data-player-id"),
+        player_name: btn.getAttribute("data-player-name") || "",
+        auction_type: btn.getAttribute("data-auction-type") || "free-agent",
+        high_k: Number(btn.getAttribute("data-high-k")) || 0,
+      });
+    });
   }
 
   // Map MFL position codes to display buckets (matches rookie hub convention)
@@ -206,6 +364,7 @@
     setupTabs();
     setupSubNav();
     setupPlayerModalDelegation();
+    setupBidModalDelegation();
 
     // Version badge — best-effort, doesn't block render
     fetchJSON("VERSION.json?_=" + Date.now()).then((v) => {
@@ -349,6 +508,17 @@
     return s;
   }
 
+  // Classify a lot's auction. Prefer the server flag is_era_eligible
+  // (populated from the SEASON-PERSISTENT ups_era_pool, so a WON ERA player
+  // still reads true); fall back to current-pool membership only when the
+  // flag is absent (older payloads). Without this, a won ERA player drops out
+  // of STATE.era.players and its lot leaks into the FAA KPIs.
+  function lotIsEra(l, eraIds) {
+    if (l && l.is_era_eligible === true) return true;
+    if (l && l.is_era_eligible === false) return false;
+    return eraIds.has(String(l.player_id));
+  }
+
   // ════════════════════════════════════════════════════════════════════
   // PAINT — mount the (tab, sub) skeleton, fill it, re-wire its controls
   // ════════════════════════════════════════════════════════════════════
@@ -398,7 +568,7 @@
     if (!el) return;
     const lots = (STATE.lots && STATE.lots.lots) || [];
     const eraIds = eraPoolIds();
-    const tabLots = lots.filter((l) => eraIds.has(String(l.player_id)) === (tab === "era"));
+    const tabLots = lots.filter((l) => lotIsEra(l, eraIds) === (tab === "era"));
     const open = tabLots.filter((l) => l.status === "open").length;
     const won = tabLots.filter((l) => l.status === "won").length;
     const f = STATE.lots || {};
@@ -981,6 +1151,19 @@
       `data-player-id="${escapeHtml(String(pid))}">${escapeHtml(name || ("Player #" + pid))}</button>`;
   }
 
+  // Bid affordance for a lots row. When the viewer can bid in-app (real fid +
+  // token) we render an in-app "Bid" button (opens the modal) PLUS a small "↗"
+  // deep-link as the secondary path. Otherwise just the MFL deep-link — bidding
+  // always works via MFL even when in-app isn't available. highK is $K.
+  function bidActionCell(pid, name, auctionType, highK) {
+    const link = `<a href="${mflBidUrl(pid)}" target="_blank" rel="noopener" class="btn small" title="Open MFL auction to bid/raise">Bid ↗</a>`;
+    if (!_canBidInApp()) return link;
+    return `<button type="button" class="btn small" data-action="open-bid-modal" ` +
+      `data-player-id="${escapeHtml(String(pid))}" data-player-name="${escapeHtml(String(name || ""))}" ` +
+      `data-auction-type="${escapeHtml(String(auctionType || "free-agent"))}" data-high-k="${Number(highK) || 0}">Bid</button>` +
+      ` <a href="${mflBidUrl(pid)}" target="_blank" rel="noopener" class="btn small secondary" title="Bid on MFL instead" aria-label="Bid on MFL">↗</a>`;
+  }
+
   function renderFaLots(rows) {
     const tbody = $("#fa-lots-tbody");
     const summary = $("#fa-lots-summary");
@@ -990,15 +1173,20 @@
       tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">No open FA lots right now.</td></tr>`;
       return;
     }
-    tbody.innerHTML = rows.map((r) => `<tr>
+    tbody.innerHTML = rows.map((r) => {
+      // high_bid_amount here is DOLLARS (money() renders it; may arrive as a
+      // "$5,000" string from the O=43 scrape) — convert to $K for the modal min.
+      const highK = Math.round((Number(String(r.high_bid_amount == null ? "" : r.high_bid_amount).replace(/[^0-9.\-]/g, "")) || 0) / 1000);
+      return `<tr>
         <td>${playerNameCell(r.player_id, r.player_name)}</td>
         <td>${escapeHtml(String(r.position || "").toUpperCase() || "—")}</td>
         <td class="col-md">${escapeHtml(r.nfl_team || r.team || "—")}</td>
         <td class="num">${money(r.high_bid_amount)}</td>
         <td>${escapeHtml(r.high_bidder_label || "—")}</td>
         <td>${escapeHtml(r.timer_text || "—")}</td>
-        <td><a href="${mflBidUrl(r.player_id)}" target="_blank" rel="noopener" class="btn small">Bid ↗</a></td>
-      </tr>`).join("");
+        <td>${bidActionCell(r.player_id, r.player_name, "free-agent", highK)}</td>
+      </tr>`;
+    }).join("");
   }
 
   function renderFaBudgets(rows) {
@@ -2050,7 +2238,7 @@
     // Per-auction split (lots aren't kind-tagged): a lot belongs to the ERA
     // iff its player is in the ERA-eligible pool, else it's an FA-auction lot.
     const eraIds = eraPoolIds();
-    const lots = allLots.filter((l) => eraIds.has(String(l.player_id)) === (STATE.tab === "era"));
+    const lots = allLots.filter((l) => lotIsEra(l, eraIds) === (STATE.tab === "era"));
     const filtered = lots.filter((l) => {
       if (STATE.nom_filters.status === "all") return true;
       return l.status === STATE.nom_filters.status;
@@ -2103,18 +2291,19 @@
       const isInEra = !!(STATE.era && STATE.era.players && STATE.era.players.some((p) => p.player_id === l.player_id));
       const testBadge = isInEra ? "" : ` <span class="ah-origin Trade" title="Not in ERA-eligible list — likely a test or off-pool auction">TEST</span>`;
       const nflProfileUrl = `https://www.myfantasyleague.com/${new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=04&P=${encodeURIComponent(l.player_id)}`;
-      const viewerFidForMfl = (STATE.me && STATE.me.franchise_id) || "0000";
-      const mflAuctionUrl =
-        `https://www48.myfantasyleague.com/${new Date().getUTCFullYear()}` +
-        `/options?LEAGUE_ID=${LEAGUE_ID}&FRANCHISE=${encodeURIComponent(viewerFidForMfl)}&O=43` +
-        `&PLAYER_ID=${encodeURIComponent(l.player_id)}`;
       const isWon = l.status === "won";
       const proxyCell = (viewerFid && l.your_proxy_bid_k)
         ? `${fmtK(l.your_proxy_bid_k)}`
         : `<span class="small" style="color:var(--muted)">—</span>`;
+      // current_high_bid_k is already $K here (unlike the FAA row's dollars).
+      // renderNominations paints BOTH auctions' lots (filtered by the active
+      // tab), so the bid must be routed to the tab's auction — hardcoding ERA
+      // would POST free-agent bids to the expired-rookie form (wrong auction /
+      // 503 when ERA is off). Mirrors mobile's isEra ? "expired-rookie" : "free-agent".
+      const auctionType = STATE.tab === "era" ? "expired-rookie" : "free-agent";
       const actionCell = isWon
         ? `<span class="ah-origin Rookie">WON by ${escapeHtml(franchiseName(l.winner_fid))}</span>`
-        : `<a href="${mflAuctionUrl}" target="_blank" rel="noopener" class="btn small" title="Open MFL auction to bid/raise">Bid ↗</a>`;
+        : bidActionCell(l.player_id, pi.name, auctionType, Number(l.current_high_bid_k) || 0);
       return `
         <tr data-lot-id="${escapeHtml(l.lot_id)}" data-seconds="${l.seconds_remaining}" data-status="${l.status}">
           <td><button type="button" class="ah-player-open player-link" data-action="open-player-modal" data-player-id="${escapeHtml(l.player_id)}">${escapeHtml(pi.name || ("Player #" + l.player_id))}</button>${testBadge}</td>

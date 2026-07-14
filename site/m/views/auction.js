@@ -680,6 +680,15 @@
     for (var i = 0; i < ps.length; i++) ids[String(ps[i].player_id)] = true;
     return ids;
   }
+  // Prefer the server flag is_era_eligible (from the SEASON-PERSISTENT
+  // ups_era_pool, so a WON ERA player still reads true); fall back to
+  // current-pool membership only when the flag is absent. Keeps mobile in
+  // agreement with the desktop hub — otherwise won ERA lots leak into FAA.
+  function lotIsEra(l, eIds) {
+    if (l && l.is_era_eligible === true) return true;
+    if (l && l.is_era_eligible === false) return false;
+    return !!eIds[String(l.player_id)];
+  }
   // Per-player auction status, from the live board (active) + lots ledger (won).
   function statusIndex() {
     if (state._statusIdx) return state._statusIdx;
@@ -944,7 +953,7 @@
     var eIds = eraPoolIds();
     var completed = ((state.lots && state.lots.lots) || []).filter(function (l) {
       var done = l.status === "won" || l.status === "expired" || l.status === "closed";
-      return done && (!!eIds[String(l.player_id)] === isEra);
+      return done && (lotIsEra(l, eIds) === isEra);
     });
     var view = state.lotsView || "open";
     var toggle = '<div class="ups-m-auc-lotstoggle">' +
