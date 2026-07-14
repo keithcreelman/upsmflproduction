@@ -4126,10 +4126,29 @@ export default {
 
         const cfg = await getAuctionCalendar(env);
         const { events, missing } = buildCalendarEvents(cfg);
+
+        // Read the CURRENT MFL calendar (commish cookie) — for before/after in the
+        // UI and to detect existing events (MFL's calendarEvent import has no
+        // delete/update, so we surface what's already there). Best-effort.
+        let currentCalendar = null;
+        {
+          const _ck = String(env.MFL_COOKIE || "").trim();
+          if (_ck) {
+            const _hdr = _ck.includes("=") ? _ck : `MFL_USER_ID=${_ck}`;
+            try {
+              const calRes = await fetch(`https://www48.myfantasyleague.com/${yearArg}/export?TYPE=calendar&L=${encodeURIComponent(leagueId)}&JSON=1`, {
+                headers: { Cookie: _hdr, "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", "Accept": "application/json, text/xml, */*", "Accept-Encoding": "identity" },
+                cf: { cacheTtl: 0, cacheEverything: false },
+              });
+              currentCalendar = await calRes.json().catch(() => null);
+            } catch (_) { currentCalendar = null; }
+          }
+        }
+
         // Guard: any event with an unparseable date is a hard stop (don't half-write).
         const badDates = events.filter((e) => e.start_unix == null || (e.end_at && e.end_unix == null));
         if (!events.length) {
-          return jsonOut(400, { ok: false, error: "no auction dates configured", missing, hint: "Set dates in Commish Settings → Auction Calendar first." });
+          return jsonOut(400, { ok: false, error: "no auction dates configured", missing, current_calendar: currentCalendar, hint: "Set dates in Commish Settings → Auction Calendar first." });
         }
         if (badDates.length) {
           return jsonOut(400, { ok: false, error: "unparseable date(s)", bad: badDates.map((e) => ({ field: e.field, start_at: e.start_at, end_at: e.end_at })) });
@@ -4147,7 +4166,7 @@ export default {
         });
 
         if (!commit) {
-          return jsonOut(200, { ok: true, dryRun: true, league: leagueId, season: yearArg, missing, count: planned.length, events: planned,
+          return jsonOut(200, { ok: true, dryRun: true, league: leagueId, season: yearArg, missing, count: planned.length, events: planned, current_calendar: currentCalendar,
             note: "DRY RUN — nothing written. Re-call with &commit=1 to push to MFL." });
         }
 
