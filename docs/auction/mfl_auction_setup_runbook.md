@@ -6,76 +6,65 @@ that pushes dates into MFL) and the **manual** fallback, plus the one-time aucti
 **rules** that MFL's API can't set.
 
 **Two categories, one API-settable, one not:**
-1. **Dates** (roster lock, cutdown, auction open, auction close) — **API-settable**
-   via `import?TYPE=calendarEvent`. This is what the commish control automates.
+1. **Roster cut / lock date** — **API-settable** via `import?TYPE=calendarEvent`
+   (`WAIVER_LOCK`). This is what the commish control automates.
 2. **Rules** (salary cap / budget, roster max & min, contract format, auction on/off)
    — **NOT** API-settable. MFL exposes these read-only; they're a one-time
    Commissioner-Setup task, and they rarely change year to year.
 
 ---
 
-## Part A — Dates (automated, preferred)
+## Part A — Roster cut / lock date (automated, preferred)
 
 **Commish Settings → 🗓️ Auction Dates → MFL.**
 
-1. Fill in the four FAA timeline dates (all interpreted as **ET**, DST-handled
-   automatically — enter wall-clock time):
-   - **Roster lock** — when rosters lock (no cuts). Historically ~3 days before open.
-   - **Cutdown day** — cutdown / verification day (~2 days before open). Informational.
-   - **Auction opens** — Day-1 kickoff (the `AUCTION_START` event).
-   - **Auction closes** — target close (~1 week after open).
+1. Set the **Roster cut / lock date** (interpreted as **ET**, DST-handled
+   automatically — enter wall-clock time). This is when rosters lock / no more cuts.
 2. **Save dates** (writes to D1 `ups_settings` key `auction_calendar` — reusable next
-   year, just change the values).
+   year, just change the value).
 3. Pick the **target league**: start with **Test league (25625)** to rehearse.
-4. **Preview → MFL** — shows the exact MFL calendar events that will be written.
-   Nothing is sent. Confirm the event types + ET times look right.
-5. **Push to MFL** — prompts once for the **commish API key** (`COMMISH_API_KEY`),
-   then writes the events. The result table shows ✔/✗ per event.
+4. **Preview → MFL** — shows the exact MFL calendar event that will be written.
+   Nothing is sent. Confirm the ET time looks right.
+5. **Push to MFL** — writes it. No key to type (commish-gated automatically); a
+   confirm prompt guards the real-league write. The result table shows ✔/✗.
 6. Verify on MFL: **↗ MFL calendar** button (or `options?L=<league>&O=110`).
 7. Repeat step 3–6 with **Real league (74598)** once the test-league run looks right.
 
-**Event mapping** (what each date becomes in MFL):
+**Event mapping:**
 
 | UPS date | MFL `EVENT_TYPE` | Notes |
 |---|---|---|
-| Roster lock | `WAIVER_LOCK` | Locks roster moves from that time. |
-| Auction opens | `AUCTION_START` | `START_TIME` = open; `END_TIME` = close (one event carries both). |
-| Auction opens | `WAIVER_UNLOCK` | Auto-unlocks rosters at open (pairs with the lock). |
-| Cutdown day | `CUSTOM` | Informational marker only. |
+| Roster cut / lock date | `WAIVER_LOCK` | Locks waivers & roster moves (no cuts) from that time. |
 
-**Auth model:** *Preview* needs nothing (writes nothing). *Push* requires the commish
-API key, because it's an irreversible external write to MFL.
+**Auth model:** *Preview* needs nothing (writes nothing). *Push* is commish-gated by
+`franchise_id` (the UI passes it automatically — no key prompt).
 
 **Endpoint (for reference / scripting):**
 ```
-# Preview (safe, no write, no key):
+# Preview (safe, no write):
 curl -X POST "https://upsmflproduction.keith-creelman.workers.dev/admin/auction/push-mfl-calendar?L=25625&YEAR=2026"
 
-# Commit to the TEST league:
-curl -X POST "https://upsmflproduction.keith-creelman.workers.dev/admin/auction/push-mfl-calendar?L=25625&YEAR=2026&commit=1&APIKEY=<COMMISH_API_KEY>"
+# Commit to the TEST league (commish franchise gate; APIKEY also accepted for scripts):
+curl -X POST "https://upsmflproduction.keith-creelman.workers.dev/admin/auction/push-mfl-calendar?L=25625&YEAR=2026&commit=1&franchise_id=0008"
 
 # Commit to the REAL league (only after the test run looks right):
-curl -X POST "https://upsmflproduction.keith-creelman.workers.dev/admin/auction/push-mfl-calendar?L=74598&YEAR=2026&commit=1&APIKEY=<COMMISH_API_KEY>"
+curl -X POST "https://upsmflproduction.keith-creelman.workers.dev/admin/auction/push-mfl-calendar?L=74598&YEAR=2026&commit=1&franchise_id=0008"
 ```
 
 ---
 
-## Part B — Dates (manual fallback)
+## Part B — Roster lock (manual fallback)
 
-If the API write ever fails (MFL form change, expired `MFL_COOKIE`, etc.), set the
-calendar by hand:
+If the API write ever fails (MFL form change, expired `MFL_COOKIE`, etc.), set it
+by hand:
 
 1. Log into MFL as the commissioner for the league.
 2. **Commissioner → League Calendar** (`options?L=<league>&O=110`).
-3. Add / edit each event:
-   - **Auction Start** — set the date/time to the posted auction open.
-   - (Optional) a **Custom** event for cutdown day, and **Waiver Lock / Unlock**
-     events at the roster-lock and auction-open times if you want MFL to enforce the
-     roster lock.
-4. Save. Confirm the calendar shows the posted dates.
+3. Add a **Waiver Lock** event at the roster cut / lock date/time.
+4. Save. Confirm the calendar shows it.
 
 > The automated Push does exactly this via the API; the manual path is just the same
-> events entered by hand.
+> event entered by hand.
 
 ---
 

@@ -4109,15 +4109,19 @@ export default {
         const leagueId = String(url.searchParams.get("L") || "74598");
         const commit = String(url.searchParams.get("commit") || "") === "1";
 
-        // Preview (dryRun) is frictionless — it writes nothing. The COMMIT is an
-        // irreversible external MFL write, so it requires the commish APIKEY
-        // (same gate as finalize-era-contracts). The UI prompts for it once.
+        // Preview (dryRun) writes nothing. The COMMIT is a commish-only action —
+        // gated by the same soft commish-franchise check the War Room intel
+        // endpoints use (?franchise_id= ∈ commish fids), which the UI passes
+        // automatically. No key to type. (An APIKEY is also accepted for
+        // scripting / the test-sync flow.)
         if (commit) {
-          const commishKey = String(env.COMMISH_API_KEY || "").trim();
-          const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+          const _pad4 = (v) => { const s = safeStr(v).trim(); return /^\d+$/.test(s) ? s.padStart(4, "0") : s; };
+          const reqFid = _pad4(url.searchParams.get("franchise_id") || "");
+          const commishFids = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000").split(",").map((x) => _pad4(x)).filter(Boolean);
+          const fidOk = reqFid && commishFids.includes(reqFid);
           const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
-          const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
-          if (!authOk) return jsonOut(403, { ok: false, error: "commit requires COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+          const keyOk = browserKey && (browserKey === String(env.COMMISH_API_KEY || "").trim() || browserKey === String(env.TEST_SYNC_API_KEY || "").trim());
+          if (!fidOk && !keyOk) return jsonOut(403, { ok: false, error: "commit is commish-only — pass a commish franchise_id" });
         }
 
         const cfg = await getAuctionCalendar(env);
