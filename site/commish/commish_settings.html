@@ -8,6 +8,7 @@
 <!-- build 2026.07.13.2 — +🗓️ Auction Dates → MFL panel (commish-editable timeline → MFL calendar push) -->
 <!-- build 2026.07.13.3 — Auction Dates simplified to roster cut/lock date only (WAIVER_LOCK); commit gated by franchise_id (no key prompt) -->
 <!-- build 2026.07.13.4 — Auction Dates = open + close → one AUCTION_START event (dropped roster cut/waiver lock) -->
+<!-- build 2026.07.14.1 — +cut deadline (CUSTOM marker) alongside auction open + close -->
 
 <style>
   :root {
@@ -1803,7 +1804,7 @@
     host.innerHTML =
       '<div class="fo-card"><div class="fo-card-head"><h3>Auction Dates → MFL</h3>' +
         '<span class="small" style="color:var(--muted);">saved ' + acEsc(savedAt) + "</span></div>" +
-      '<p class="fo-row-hint">💡 Set the <strong>auction open &amp; close</strong> dates (ET) and push them into MFL — written as one <code>AUCTION_START</code> event (open = START, close = END). <strong>Auction rules</strong> (cap / roster limits / format) can\'t be set via API — see the <a href="https://github.com/keithcreelman/upsmflproduction/blob/main/docs/auction/mfl_auction_setup_runbook.md" target="_blank" rel="noopener">manual runbook</a>.</p>' +
+      '<p class="fo-row-hint">💡 Set the <strong>cut deadline</strong> + <strong>auction open &amp; close</strong> dates (ET) and push them into MFL — cut deadline is a <code>CUSTOM</code> marker, open+close become one <code>AUCTION_START</code> event (open = START, close = END). <strong>Auction rules</strong> (cap / roster limits / format) can\'t be set via API — see the <a href="https://github.com/keithcreelman/upsmflproduction/blob/main/docs/auction/mfl_auction_setup_runbook.md" target="_blank" rel="noopener">manual runbook</a>.</p>' +
       '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;"><strong>Season</strong>' +
         '<input type="text" id="ac-season" value="' + acEsc(AC.cfg.season) + '" style="width:90px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--panel-alt);color:var(--text);"></div>' +
       dateRows +
@@ -1840,7 +1841,7 @@
     // Push (commit — commish-gated by franchise_id, passed automatically; no key to type)
     document.getElementById("ac-push").addEventListener("click", function () {
       var live = AC.pushTarget === "74598";
-      if (live && !window.confirm("Write the auction open & close dates to the REAL league (74598) MFL calendar now?")) return;
+      if (live && !window.confirm("Write the cut deadline + auction open/close dates to the REAL league (74598) MFL calendar now?")) return;
       var u = apiUrl("/admin/auction/push-mfl-calendar") + "?L=" + encodeURIComponent(AC.pushTarget) + "&YEAR=" + encodeURIComponent(AC.cfg.season || YEAR) + "&commit=1&franchise_id=0008";
       postJSON(u, {}).then(function (r) { AC.preview = r; toast(r.ok ? "Pushed to MFL ✔" : "Push had errors", r.ok ? "ok" : "err"); paintAuctionCalendar(host); })
         .catch(function (e) { AC.preview = { error: e.message || String(e) }; toast("Push failed: " + (e.message || String(e)), "err"); paintAuctionCalendar(host); });
