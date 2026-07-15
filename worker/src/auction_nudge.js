@@ -133,10 +133,58 @@ function buildParentMessage(data, mentionsByFid) {
   return L.join("\n");
 }
 
-// ---------- THREAD: open lots + positions matrix ----------
-function buildThreadMessage(data, lots) {
+// ---------- THREAD §1: what closed in the last 24h ----------
+// Suppressed entirely when nothing closed — on Day 1 nothing can, since the
+// first lots don't lock for 24h, and an empty "Players won: 0" table is noise
+// (Keith 2026-07-14). ERA wins are excluded: they're a different auction under
+// §A3 and stay out of FAA counts (PR #705).
+function buildWonSection(won, bidsByPid, capSpaceDollars) {
+  if (!won.length) return null;
+  const capSpentK = won.reduce((n, l) => n + Math.round(Number(l.current_high_bid_k || 0)), 0);
+  const L = [];
+  L.push("**🏆 WON — LAST 24 HOURS**");
+  L.push(
+    `Players won: **${won.length}** · Cap spent: **$${capSpentK}K** · ` +
+    `Available league cap space: **$${Math.round(capSpaceDollars / 1000)}K**`
+  );
+
+  const nameW = Math.max(6, ...won.map((l) => asciiName(l.player_name).length));
+  const byW = Math.max(6, ...won.map((l) => asciiName(l.winner_name || "—").slice(0, 17).length));
+  L.push("```");
+  L.push(`${padEnd("PLAYER", nameW)}  POS  TM   ${padEnd("WON BY", byW)}  ${padStart("SAL", 4)}  TMS   HB  UP FOR`);
+  L.push("─".repeat(nameW + 2 + 3 + 2 + 3 + 3 + byW + 2 + 4 + 2 + 3 + 2 + 3 + 2 + 7));
+  for (const l of won.slice().sort((a, b) => Number(b.won_at_unix || 0) - Number(a.won_at_unix || 0))) {
+    const bids = bidsByPid[String(l.player_id)] || [];
+    // The row's fid is always the LEADER, so distinct fids = distinct high
+    // bidders. A rival who bid into someone's proxy never gets a row of their
+    // own — they exist only as the forcer named in the note — so "teams
+    // involved" is the union of the two.
+    const leaders = new Set(bids.map((b) => asciiName(b.franchise_name)).filter(Boolean));
+    const forcers = new Set(bids.map((b) => asciiName(b.forcer_name || "")).filter(Boolean));
+    const involved = new Set([...leaders, ...forcers]);
+    // Nomination → win. Not a constant: every lead change restarts the clock,
+    // so a contested lot runs well past its nominal window.
+    const upFor = Number(l.won_at_unix || 0) - Number(l.opened_at_unix || 0);
+    L.push(
+      `${padEnd(asciiName(l.player_name), nameW)}  ` +
+      `${padEnd(safeStr(l.position).slice(0, 3), 3)}  ` +
+      `${padEnd(safeStr(l.nfl_team).slice(0, 3), 3)}  ` +
+      `${padEnd(asciiName(l.winner_name || "—").slice(0, 17), byW)}  ` +
+      `${padStart("$" + Math.round(Number(l.current_high_bid_k || 0)) + "K", 4)}  ` +
+      `${padStart(String(involved.size), 3)}  ${padStart(String(leaders.size), 3)}  ` +
+      `${humanDuration(upFor)}`
+    );
+  }
+  L.push("```");
+  L.push("_TMS = teams involved (winner + anyone who nominated or forced an increase) · HB = distinct high bidders · UP FOR = nomination → win._");
+  return L.join("\n");
+}
+
+// ---------- THREAD §2: open lots + positions matrix ----------
+function buildBoardSections(data, lots) {
   const rows = data.rows || [];
   const open = (lots || []).filter((l) => String(l.status) === "open");
+  const out = [];
   const L = [];
 
   if (open.length) {
@@ -155,6 +203,8 @@ function buildThreadMessage(data, lots) {
       );
     }
     L.push("```");
+    out.push(L.join("\n"));
+    L.length = 0;
   }
 
   L.push("**🎯 POSITIONS REMAINING** — what each team still needs for a legal 27");
@@ -189,7 +239,43 @@ function buildThreadMessage(data, lots) {
     "_Offense │ Defense │ Total · `·` = none needed" +
     (hidden.length ? ` · ${hidden.join(", ")} hidden (nobody needs one)` : "") + "._"
   );
-  return L.join("\n");
+  out.push(L.join("\n"));
+  return out;
+}
+
+// Pack whole sections into Discord messages. Sections are NEVER split: a naive
+// slice(0, 2000) can cut inside a ``` fence, which Discord then renders as an
+// unterminated code block that swallows the rest of the thread. A section that
+// exceeds the limit on its own is emitted alone and truncated at a line break
+// with the fence closed, so the worst case is a short table, not a broken one.
+const DISCORD_LIMIT = 2000;
+function packMessages(sections, limit = DISCORD_LIMIT) {
+  const msgs = [];
+  let cur = "";
+  for (const s of sections.filter(Boolean)) {
+    if (s.length > limit) {
+      if (cur) { msgs.push(cur); cur = ""; }
+      msgs.push(truncateKeepingFences(s, limit));
+      continue;
+    }
+    const next = cur ? `${cur}\n${s}` : s;
+    if (next.length > limit) { msgs.push(cur); cur = s; } else { cur = next; }
+  }
+  if (cur) msgs.push(cur);
+  return msgs;
+}
+function truncateKeepingFences(s, limit) {
+  const tail = "\n… (truncated)";
+  const lines = s.split("\n");
+  const out = [];
+  let len = 0;
+  for (const line of lines) {
+    if (len + line.length + 1 > limit - tail.length - 4) break;
+    out.push(line); len += line.length + 1;
+  }
+  // An odd fence count means we stopped inside a code block — close it.
+  if (out.filter((l) => l.trim().startsWith("```")).length % 2 === 1) out.push("```");
+  return out.join("\n") + tail;
 }
 
 async function fetchJson(env, path) {
@@ -237,13 +323,47 @@ export async function runFaNightlyJob(env, opts = {}) {
   } catch (e) { return { ...out, error: "fa_schedule_fetch_failed: " + (e?.message || e) }; }
   if (!data || !data.ok) return { ...out, error: (data && data.error) || "fa_schedule_not_ok" };
 
-  // Lots are the thread's payload only — a lots failure must not sink the
-  // report, so fail soft to an empty board.
-  let lots = [];
+  // Everything below is the thread's payload only — any of it failing must not
+  // sink the report, so each fails soft to an empty section.
+  const qs = `L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`;
+  let lots = [], allLots = [], bids = [], capSpaceDollars = 0;
   try {
-    const lotsRes = await fetchJson(env, `/api/auction/lots?L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}&status=open`);
-    lots = (lotsRes && lotsRes.lots) || [];
+    const lotsRes = await fetchJson(env, `/api/auction/lots?${qs}&status=all`);
+    allLots = (lotsRes && lotsRes.lots) || [];
+    lots = allLots.filter((l) => String(l.status) === "open");
   } catch (e) { out.lots_error = String(e?.message || e); }
+  try {
+    const bhRes = await fetchJson(env, `/api/auction/bid-history?${qs}&limit=1000`);
+    bids = (bhRes && bhRes.bids) || [];
+  } catch (e) { out.bids_error = String(e?.message || e); }
+  try {
+    // Sum of every franchise's available funds. Fetched with NO viewer, which is
+    // exactly right for a public league total: the per-team allocation is
+    // viewer-scoped, so with no cookie it nets out only the PUBLIC current bid
+    // and can never leak anyone's proxy ceiling into the report.
+    const liveRes = await fetchJson(env, `/acquisition-hub/free-agent-auction/live?${qs}`);
+    const budgets = (liveRes && liveRes.team_budget_rows) || [];
+    // adjustments_ok false => the adjustments feed failed and every "available"
+    // is overstated. Publishing that as "the bottom line" would be a lie, so
+    // drop the number rather than print a wrong one.
+    if (liveRes && liveRes.adjustments_ok && budgets.length) {
+      capSpaceDollars = budgets.reduce((n, r) => n + Number(r.available_funds_dollars || 0), 0);
+    } else {
+      out.cap_space_error = "adjustments_unavailable";
+    }
+  } catch (e) { out.cap_space_error = String(e?.message || e); }
+
+  // Wins in the trailing 24h, FAA only.
+  const nowUnix = Math.floor(Date.now() / 1000);
+  const wonRecent = allLots.filter((l) =>
+    String(l.status) === "won" &&
+    !l.is_era_eligible &&
+    Number(l.won_at_unix || 0) > 0 &&
+    (nowUnix - Number(l.won_at_unix)) <= 86400
+  );
+  const bidsByPid = {};
+  for (const b of bids) (bidsByPid[String(b.player_id)] ||= []).push(b);
+  out.won_last_24h = wonRecent.length;
 
   const max = Number(data.noms_max || 2);
   const owing = (data.rows || []).filter((r) => Number(r.noms_used || 0) < max);
@@ -264,7 +384,15 @@ export async function runFaNightlyJob(env, opts = {}) {
   out.owners_tagged = Object.keys(mentionsByFid).length;
 
   out.parent_preview = buildParentMessage(data, mentionsByFid);
-  out.thread_preview = buildThreadMessage(data, lots);
+  // Won first (what closed), then the live board, then what everyone still needs.
+  const threadMessages = packMessages([
+    // Suppressed when nothing closed, and when cap space is unavailable the
+    // headline would be wrong — so it only renders with a real number.
+    out.cap_space_error ? null : buildWonSection(wonRecent, bidsByPid, capSpaceDollars),
+    ...buildBoardSections(data, lots),
+  ]);
+  out.thread_preview = threadMessages.join("\n\n———\n\n");
+  out.thread_message_count = threadMessages.length;
 
   const channelId = safeStr(opts.channelId).replace(/\D/g, "");
   if (!channelId || opts.dryRun) { out.ok = true; return out; }
@@ -288,12 +416,14 @@ export async function runFaNightlyJob(env, opts = {}) {
   if (!thread.ok) { out.thread_error = `thread_create ${thread.status}`; return { ...out, ok: true }; }
 
   const threadId = safeStr(thread.data?.id || "");
-  const body = await sendDm(env, threadId, {
-    content: out.thread_preview.slice(0, 2000),
-    allowed_mentions: { parse: [] },
-  });
-  out.thread_posted = !!(body && body.ok);
-  if (!out.thread_posted) out.thread_error = `discord ${body && body.status}`;
+  let sent = 0;
+  for (const msg of threadMessages) {
+    const body = await sendDm(env, threadId, { content: msg, allowed_mentions: { parse: [] } });
+    if (!(body && body.ok)) { out.thread_error = `discord ${body && body.status} on part ${sent + 1}`; break; }
+    sent += 1;
+  }
+  out.thread_parts_sent = sent;
+  out.thread_posted = sent === threadMessages.length;
 
   out.ok = true;
   return out;
