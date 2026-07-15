@@ -2417,9 +2417,13 @@
         Number(l.current_high_bid_k) || 0,
         ov ? Math.round((Number(ov.high_bid_amount) || 0) / 1000) : 0
       );
+      // The O=43 overlay is the ONLY source of a max: MFL emits no transaction
+      // when you change one, so D1 cannot know it. l.your_proxy_bid_k is always
+      // null by design — no overlay (no MFL session) means we genuinely don't
+      // know your max, and 0 says exactly that.
       const freshProxyK = (ov && ov.your_proxy_bid_amount != null)
         ? Math.round(Number(ov.your_proxy_bid_amount) / 1000)
-        : (Number(l.your_proxy_bid_k) || 0);
+        : 0;
       // Prefer MFL's own countdown (overlaid from O=43) over D1's lock, which
       // recomputes from bid timestamps and resets on a forced increase — MFL
       // doesn't, so D1 can over-state and someone could miss the real lock.

@@ -6,8 +6,11 @@
 //   3rd offense — $15K, ditto  ($25K total each year, cumulative).
 //   4th offense — no fine. It's a conversation about league fit, not a
 //                 transaction. Never automated; the commish is alerted.
-//   Caveat     — a family emergency, or advance notice to a CC member, grants
-//                 immunity. The commish voids the day and no penalty attaches.
+//   Caveat     — a family emergency, or advance notice to THE LEAGUE, grants
+//                 immunity. (Canon quotes "a member of a CC"; the CC no longer
+//                 exists — Keith 2026-07-15 — so notice to the league is the
+//                 standard. A heads-up, not an application.) The commish voids
+//                 the day and no penalty attaches.
 //
 // Two hard rules this module exists to enforce:
 //
@@ -21,6 +24,7 @@
 //      code that decides "missed" without consulting roster_met is broken.
 
 import { getFeatureFlag } from "./feature_flags.js";
+import { etDayBounds } from "./auction_windows.js";
 
 // $K per offense. Index 0 = 1st offense. Beyond this array there is no fine —
 // see the 4th-offense note above.
@@ -60,11 +64,48 @@ export function previousEtDay(etDay) {
   return new Date(noonUtc - 86400000).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
 
+// Nominations each franchise actually made ON `etDay`, counted from the bid
+// ledger the */5 poll has been writing all along.
+//
+// This CANNOT come from /api/auction/fa-schedule. That endpoint reports the
+// CURRENT window, and the 9 AM report runs nine hours after the window it is
+// judging has closed and a new one has reset every counter to zero. Handing it
+// yesterday's date and today's rows records all 12 franchises at 0/2 and fines
+// the entire league, every morning, forever — including the owner who nominated
+// three times. (Caught by previewing the real output on 2026-07-15: six teams
+// had nominated the day before; the report claimed nobody had.)
+//
+// Counting from ups_auction_bids also picks up nominations made natively on
+// MFL's own O=43 page, which is the same reason the §A2 cap counts them there.
+async function nomCountsForDay(env, { season, leagueId, etDay }) {
+  const bounds = etDayBounds(etDay);
+  if (!bounds) return {};
+  const { results } = await env.UPS_MFL_DB.prepare(
+    `SELECT fid, COUNT(DISTINCT player_id) AS n
+       FROM ups_auction_bids
+      WHERE season = ? AND league_id = ?
+        AND note LIKE '[nomination]%'
+        AND bid_at_unix >= ? AND bid_at_unix < ?
+      GROUP BY fid`
+  ).bind(Number(season), String(leagueId), bounds.start_unix, bounds.end_unix).all();
+  const out = {};
+  for (const r of (results || [])) out[padFid(r.fid)] = Number(r.n || 0);
+  return out;
+}
+
 // Close out an ET day: write the immutable per-franchise fact rows, stamp
 // offense numbers, and book the penalties. Idempotent — re-running for the same
 // day is a no-op, because the 9 AM cron can retry and must never double-fine.
 //
-// rows: /api/auction/fa-schedule rows AS OF the close of `etDay`.
+// rows: /api/auction/fa-schedule rows — used ONLY for the franchise list and
+//       roster state. The nomination COUNT comes from the ledger (see above);
+//       fa-schedule's noms_used describes today, not the day being closed.
+//
+// roster_met is read as of NOW rather than as of the close. Rosters only grow,
+// so the only drift is a franchise that became legal overnight being excused
+// for a miss it technically made — lenient, and lenient is the right direction
+// for a rule that ends in a fine.
+//
 // Returns { day, closed, misses: [...], penalties: [...], already_closed }.
 export async function closeEtDay(env, { season, leagueId, etDay, rows }) {
   const db = env.UPS_MFL_DB;
@@ -77,11 +118,13 @@ export async function closeEtDay(env, { season, leagueId, etDay, rows }) {
     return { ok: true, day: etDay, already_closed: true, misses: [], penalties: [] };
   }
 
+  const nomCounts = await nomCountsForDay(env, { season, leagueId, etDay });
+
   const misses = [];
   for (const r of (rows || [])) {
     const fid = padFid(r.franchise_id);
     if (!fid) continue;
-    const used = Number(r.noms_used || 0);
+    const used = Number(nomCounts[fid] || 0);
     const required = Number(r.noms_required || 2);
     const rosterMet = !!r.roster_met;
     // The floor is waived once the roster is legal — §A2. This is the whole

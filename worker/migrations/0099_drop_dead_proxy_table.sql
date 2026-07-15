@@ -1,0 +1,23 @@
+-- 0099 — drop ups_auction_proxy_bids.
+--
+-- Created in 0050, read in two places, WRITTEN IN NONE. It sat empty for its
+-- entire life, so `your_proxy_bid_k` was null on every response ever served —
+-- the app looked blind to a max the owner could plainly see on MFL, and that
+-- silent null is what sent us chasing a phantom "Burrow reset itself" bug
+-- (2026-07-15).
+--
+-- It cannot be filled, and it should not be. A max lives ONLY on MFL: changing
+-- one moves no price, so MFL emits no transaction and the */5 poll has nothing
+-- to ingest. The single source is a live O=43 scrape with the VIEWER'S OWN
+-- cookie — which is also why scrape-only is the safer design. MFL renders the
+-- "($15,000)" parenthetical exclusively to the owner who set it, so
+-- viewer-scoping is STRUCTURAL rather than something we implement and can get
+-- wrong. Copy maxes into D1 and one forgotten `WHERE fid = ?` leaks every
+-- owner's ceiling — the most valuable secret in the auction. Better that the
+-- system cannot know than that it knows and might tell.
+--
+-- Keith 2026-07-15: "yes proxy should always come from the scrape."
+--
+-- Safe: verified empty (SELECT COUNT(*) = 0) before dropping.
+
+DROP TABLE IF EXISTS ups_auction_proxy_bids;

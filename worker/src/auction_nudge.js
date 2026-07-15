@@ -115,12 +115,15 @@ function buildMorningMessage(data, closed, standings, mentionsByFid, penaltiesAr
       L.push(`⚠️ **${m.franchise_name}** — ${m.noms_used}/${m.noms_required}${note}${tag ? ` — ${tag}` : ""}`);
     }
     L.push("");
-    L.push(
-      penaltiesArmed
-        ? "_§F RULE 2 fines applied. The next-season half sits on the ledger and crosses over at the rollover._"
-        : "_⚙️ **Penalties are NOT armed** — nothing was charged. This is what §F RULE 2 **would** have applied._"
-    );
-    L.push("_Emergency or gave a CC member notice ahead of time? Say so — the day gets voided and it won't count._");
+    if (penaltiesArmed) {
+      L.push("_§F RULE 2 fines applied. The next-season half sits on the ledger and crosses over at the rollover._");
+      // Immunity only matters once money is real. The CC no longer exists
+      // (Keith 2026-07-15) — telling the LEAGUE ahead of time is the standard,
+      // and it's a heads-up, not an application.
+      L.push("_Know you'll be out of pocket — travelling, no service, life? Tell the league ahead of time and it won't count against you._");
+    } else {
+      L.push("🧪 _This was only a test — no penalties assessed at this time._");
+    }
   }
   L.push("");
 
@@ -506,9 +509,9 @@ export async function runFaNightlyJob(env, opts = {}) {
   if (mode === "morning" && !opts.dryRun) {
     try {
       const yesterday = previousEtDay(etDayKeyOf(Math.floor(Date.now() / 1000)));
-      // fa-schedule reports the CURRENT window, so it cannot tell us about a
-      // closed day. Anything already recorded stands; otherwise we close from
-      // the ledger the poll has been writing all along.
+      // rows supply the franchise list + roster state ONLY. closeEtDay counts
+      // the day's nominations from the bid ledger — fa-schedule's noms_used
+      // describes the CURRENT window, which at 9 AM has already reset to zero.
       closed = await closeEtDay(env, { season, leagueId, etDay: yesterday, rows: data.rows || [] });
       out.closed_day = closed?.day;
       out.already_closed = !!closed?.already_closed;
