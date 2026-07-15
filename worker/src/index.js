@@ -17341,6 +17341,8 @@ export default {
         // is the authoritative lock clock — recomputing from bid timestamps resets
         // on a forced increase, which MFL does NOT do, so our timer over-stated.
         const timeColIndex = auctionHeaderColumnIndex(src, /time\s*left/i);
+        // Header reads "High Bidder ($ Left)".
+        const bidderColIndex = auctionHeaderColumnIndex(src, /high\s*bidder/i);
         const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
         let rowMatch;
         while ((rowMatch = rowRe.exec(src))) {
@@ -17352,7 +17354,14 @@ export default {
             rowHtml.match(/<input\b[^>]*\bname\s*=\s*["'](\d{3,7})["']/i);
           if (!pidM) continue;
           const pid = pidM[1];
-          const cells = [...rowHtml.matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((m) => stripHtml(m[1]));
+          // Keep the RAW cells too. The High Bidder column renders the leader as a
+          // franchise ICON, so stripHtml leaves only "($55,000)" — the name is
+          // gone and the fid lives in the markup. Reading it is what lets the
+          // board self-heal from MFL when D1 lags (2026-07-15: D1 sat 19h stale
+          // on Josh Allen while the overlay showed MFL's live price beside D1's
+          // dead leader, telling Keith he led a lot he had lost).
+          const rawCells = [...rowHtml.matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((m) => m[1]);
+          const cells = rawCells.map((c) => stripHtml(c));
           let parsed = null;
           if (bidColIndex >= 0 && bidColIndex < cells.length) {
             parsed = AUCTION_MONEY_CELL_RE.exec(cells[bidColIndex]);
@@ -17377,8 +17386,25 @@ export default {
               if (secs != null && secs >= 0) timeLeftSeconds = secs;
             }
           }
+          // Who MFL says leads, straight from the markup. The fid appears FOUR
+          // times in that cell — id="franchiseicon_0004", class="franchise_0004",
+          // the icon filename, and alt="Pure Greatness". Take the structural ones
+          // first (markup MFL generates) and fall back down the list; alt text is
+          // prose and mojibakes on emoji names, so it is never the source.
+          let bidderFid = null;
+          if (bidderColIndex >= 0 && bidderColIndex < rawCells.length) {
+            const bc = rawCells[bidderColIndex];
+            const m =
+              /id\s*=\s*["']franchiseicon_(\d{3,4})["']/i.exec(bc) ||
+              /class\s*=\s*["'][^"']*\bfranchise_(\d{3,4})\b/i.exec(bc) ||
+              /franchise_icon(\d{3,4})\./i.exec(bc);
+            if (m) bidderFid = String(m[1]).padStart(4, "0");
+          }
           out.set(pid, {
             current_dollars: auctionDollarsFromToken(parsed[1]),
+            // null ⇒ we could not read it; the caller keeps whatever it had
+            // rather than blanking a leader we simply failed to parse.
+            high_bidder_fid: bidderFid,
             // Proxy absent ⇒ null (viewer doesn't lead), NEVER 0 — 0 would silently
             // understate the viewer's committed funds downstream.
             my_proxy_dollars: parsed[2] != null ? auctionDollarsFromToken(parsed[2]) : null,
@@ -18689,6 +18715,30 @@ export default {
               // avoids flicker if the parse under-reads.
               if (hit.current_dollars > safeInt(next.high_bid_amount, 0)) {
                 next.high_bid_amount = hit.current_dollars;
+              }
+              // THE LEADER, from MFL. This is the whole ballgame: the overlay
+              // used to raise the price and keep D1's leader, which is the most
+              // dangerous shape available — on 2026-07-15 the board showed Josh
+              // Allen at MFL's live $4,000 beside D1's 19-hour-old leader,
+              // telling Keith he led a lot Pure Greatness had taken at 9:47 AM.
+              // A stale $2K would have been an obvious tell; a fresh price next
+              // to a stale name looks authoritative.
+              //
+              // MFL renders the leader as a team icon, but the fid is in the
+              // markup (id="franchiseicon_0004"), so this is a read, not a guess.
+              // With it the board self-heals: it is correct from MFL even when
+              // the */5 poll is behind — or dead, as it was for two hours today.
+              //
+              // null ⇒ the parse failed ⇒ keep D1's value. Only ever replace on
+              // a positive read.
+              if (hit.high_bidder_fid) {
+                const hf = padFranchiseId(hit.high_bidder_fid);
+                if (hf && hf !== padFranchiseId(next.high_bidder_fid)) {
+                  next.high_bidder_fid = hf;
+                  next.high_bidder_label =
+                    safeStr(teamsSnapshot.franchiseMap?.[hf]?.franchise_name) || hf;
+                  next.high_bidder_from_mfl = true;
+                }
               }
               if (hit.my_proxy_dollars != null) next.your_proxy_bid_amount = hit.my_proxy_dollars;
               // MFL's own "Time Left" is authoritative — our D1 lock recomputes
