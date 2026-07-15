@@ -427,6 +427,7 @@
     { key: "warroom", label: "🔨 Auction War Room" },
     { key: "auctioncal", label: "🗓️ Update League Calendar" },
     { key: "discord", label: "Discord Routing" },
+    { key: "nomfines", label: "⚖️ Missed Nominations" },
     { key: "killswitches", label: "Kill Switches" },
     { key: "revert", label: "Contract Revert" },
     { key: "status", label: "Status" }
@@ -455,6 +456,7 @@
     if (CS.tab === "warroom") return renderWarRoom();
     if (CS.tab === "auctioncal") return renderAuctionCalendar();
     if (CS.tab === "discord") return renderDiscordRouting();
+    if (CS.tab === "nomfines") return renderNomFines();
     if (CS.tab === "killswitches") return renderKillSwitches();
     if (CS.tab === "revert") return renderContractRevert();
     if (CS.tab === "status") return renderStatus();
@@ -1723,6 +1725,110 @@
       if (CS.tab !== myTab) return;
       host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + esc(e.message || String(e)) + "</div></div>";
     });
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // MISSED NOMINATIONS — §F RULE 2 ledger + the immunity override
+  // ════════════════════════════════════════════════════════════════════
+  // Canon T4.3a fines a missed nomination $3K/$7K/$15K, escalating, applied to
+  // BOTH the current season and the next. The caveat is the reason this screen
+  // exists: "if there's some family emergency... let us know and it won't be
+  // held against you. If you let a member of a CC. know ahead of time... you
+  // will also be granted immunity." A fine system with no way to honour that
+  // will eventually fine someone who called first — worse than no system.
+  //
+  // Excusing VOIDS, it does not delete. The row stays as evidence the owner
+  // gave notice, which is exactly what protects them the next time it comes up.
+  function renderNomFines() {
+    var host = content();
+    var myTab = CS.tab;
+    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading missed nominations…</div></div>';
+    fetchJSON(apiUrl("/admin/auction/nom-compliance") + "?L=" + encodeURIComponent(L) + "&YEAR=" + encodeURIComponent(YEAR))
+      .then(function (data) {
+        if (CS.tab !== myTab) return;
+        var days = (data && data.days) || [];
+        var names = (data && data.franchise_names) || {};
+        var armed = !!(data && data.penalties_armed);
+        var nm = function (fid) { return names[fid] || ("Team " + fid); };
+
+        var banner = armed
+          ? '<p class="fo-row-hint" style="border-left:3px solid #c0392b;padding-left:8px;">⚠️ <strong>Fines are ARMED</strong> — these are real cap adjustments. Excusing a day that already posted to MFL needs the salaryAdj reversed by hand; the row below will say so.</p>'
+          : '<p class="fo-row-hint" style="border-left:3px solid #1f8a4c;padding-left:8px;">🌑 <strong>Fines are DARK</strong> — misses are recorded and counted, but no money has moved. Nothing here has been charged.</p>';
+
+        if (!days.length) {
+          host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3>⚖️ Missed Nominations — §F RULE 2</h3></div>' +
+            banner + '<p class="fo-row-hint">No missed nominations recorded this auction. 🎉</p>' +
+            '<p class="fo-row-hint" style="color:var(--muted);">A day is only recorded once it CLOSES (midnight ET) — the 9 AM report is what writes it. Today in progress will never appear here.</p></div>';
+          return;
+        }
+
+        var rows = days.map(function (d) {
+          var pens = (d.penalties || []).filter(function (p) { return !p.voided; });
+          var thisYr = pens.filter(function (p) { return Number(p.applies_to_season) === Number(data.season); });
+          var nextYr = pens.filter(function (p) { return Number(p.applies_to_season) === Number(data.season) + 1; });
+          var posted = (d.penalties || []).some(function (p) { return Number(p.posted_to_mfl) === 1; });
+          var off = (d.penalties || [])[0] ? Number((d.penalties || [])[0].offense_no) : 0;
+          var k = function (arr) { return arr.reduce(function (s, p) { return s + Number(p.amount_k || 0); }, 0); };
+          var voided = Number(d.voided) === 1;
+
+          var money = voided
+            ? '<span style="color:#1f8a4c;font-weight:600;">excused — no fine</span>'
+            : (off > (data.fine_schedule_k || []).length
+                ? '<span style="color:#c0392b;font-weight:600;">league-fit review (no fine)</span>'
+                : '<strong>$' + k(thisYr) + 'K</strong> this season · <strong>$' + k(nextYr) + 'K</strong> next');
+
+          return '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--border);' + (voided ? 'opacity:.6;' : '') + '">' +
+            '<span style="flex:1;">' +
+              '<strong>' + esc(nm(d.fid)) + '</strong> — ' + esc(d.et_day) +
+              (voided ? ' <span style="color:#1f8a4c;">✅ excused</span>' : ' <span style="color:#c0392b;">⚠️ offense #' + off + '</span>') +
+              '<br><span class="small" style="color:var(--muted);">' +
+                'nominated ' + Number(d.noms_used) + '/' + Number(d.noms_required) +
+                ' · ' + Number(d.total_deficit) + ' roster spot(s) still open · ' + money +
+              '</span>' +
+              (voided && d.void_reason ? '<br><span class="small" style="color:var(--muted);opacity:.8;">reason: ' + esc(d.void_reason) + '</span>' : "") +
+              (posted && !voided ? '<br><span class="small" style="color:#c0392b;">posted to MFL — excusing this needs a manual salaryAdj reversal</span>' : "") +
+            '</span>' +
+            '<button type="button" class="fo-void-btn" data-fid="' + esc(d.fid) + '" data-day="' + esc(d.et_day) + '" data-undo="' + (voided ? "1" : "0") + '" ' +
+              'style="flex:0 0 auto;padding:5px 14px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:' + (voided ? "var(--panel-alt)" : "#7a7f87") + ';color:' + (voided ? "var(--text)" : "#fff") + ';">' +
+              (voided ? "Restore fine" : "Excuse") + '</button>' +
+          '</div>';
+        }).join("");
+
+        host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3>⚖️ Missed Nominations — §F RULE 2</h3></div>' +
+          banner +
+          '<p class="fo-row-hint">💡 <strong>Excuse</strong> an owner who had an emergency or gave a CC member notice ahead of time (canon §T4.3a). It voids the day, its fines, and drops it from their offense count — and re-derives what's left, so excusing a 2nd miss makes the 3rd become the 2nd ($7K, not $15K). Re-pricing only ever moves a fine down. Excusing keeps the record; it does not delete it.</p>' +
+          '<p class="fo-row-hint" style="color:var(--muted);">Fines escalate $' + (data.fine_schedule_k || []).join("K → $") + 'K, each applied to this season <em>and</em> next. The next-season half is booked here but does not reach MFL until the rollover.</p>' +
+          rows + "</div>";
+
+        $$(".fo-void-btn", host).forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var fid = btn.getAttribute("data-fid"), day = btn.getAttribute("data-day");
+            var undo = btn.getAttribute("data-undo") === "1";
+            var reason = "";
+            if (!undo) {
+              reason = window.prompt('Excuse ' + nm(fid) + ' for ' + day + '?\n\nWhy? (e.g. "gave notice 7/13", "family emergency") — this is kept on the record.');
+              if (reason === null) return;
+            } else if (!window.confirm("Restore the fine for " + nm(fid) + " on " + day + "?")) {
+              return;
+            }
+            postJSON(apiUrl("/admin/auction/void-nom-day"), {
+              season: YEAR, league_id: L, fid: fid, et_day: day, reason: reason, undo: undo
+            })
+              .then(function (r) {
+                toast(undo ? "Fine restored" : "Excused — no fine", "ok");
+                if (r && r.needs_mfl_reversal) {
+                  window.alert("Heads up: " + r.needs_mfl_reversal + " penalty row(s) had already POSTED to MFL. Voiding here does NOT undo that — reverse the salaryAdj in MFL by hand.");
+                }
+              })
+              .catch(function (e) { toast("Failed: " + (e.message || String(e)), "err"); })
+              .then(function () { renderNomFines(); });
+          });
+        });
+      })
+      .catch(function (e) {
+        if (CS.tab !== myTab) return;
+        host.innerHTML = '<div class="fo-card"><p class="fo-row-hint" style="color:#c0392b;">Failed to load: ' + esc(e.message || String(e)) + "</p></div>";
+      });
   }
 
   // ════════════════════════════════════════════════════════════════════
