@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.keith.mfl.auction-reports</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/keithcreelman/Code/MFL/upsmflproduction/scripts/auction_reports_tick.sh</string>
+  </array>
+
+  <!-- 9:00 AM and 9:00 PM LOCAL. This Mac runs Eastern, which is the league
+       clock, and local time tracks ET through DST automatically — unlike the
+       UTC-pinned CF cron this stands in for, which needs an ET-hour gate. -->
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>21</integer><key>Minute</key><integer>0</integer></dict>
+  </array>
+
+  <!-- NO RunAtLoad. This job POSTS TO THE LEAGUE — it must fire only at its
+       two scheduled times, never at install/login/reboot. (The poll job runs
+       at load because its work is silent ingestion; this one is not silent.) -->
+
+  <key>StandardOutPath</key>
+  <string>/tmp/ups_auction_reports.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/ups_auction_reports.err.log</string>
+</dict>
+</plist>
