@@ -1041,7 +1041,12 @@
       // because someone bid into it). Different franchise = a normal Bid.
       var prevFid = null;
       t.bids.forEach(function (b) {
-        b._cls = b.is_nomination ? "nom" : (prevFid != null && String(prevFid) === String(b.fid) ? "forced" : "bid");
+        // forcer_name (parsed server-side from MFL's "<forcer> forced bid
+        // increase" note) is authoritative. Fall back to the same-fid-as-prior
+        // heuristic only for rows polled before the API carried the field.
+        b._cls = b.is_nomination ? "nom"
+          : (b.forcer_name || b.is_proxy_walk
+              || (prevFid != null && String(prevFid) === String(b.fid))) ? "forced" : "bid";
         prevFid = b.fid;
       });
       t.forcedCount = t.bids.filter(function (b) { return b._cls === "forced"; }).length;
@@ -1053,7 +1058,13 @@
         var kind = b._cls === "nom" ? '<span class="nom">Nom</span>'
           : b._cls === "forced" ? '<span class="forced" title="Forced increase — their proxy was walked up">Forced ↑</span>'
           : '<span class="bid">Bid</span>';
-        return '<div class="thbid">' + kind + ' <strong>' + fmtK(b.bid_k) + '</strong> · ' + U.escapeHtml(b.franchise_name || "—") +
+        // On a forced increase the money is the LEADER's (their hidden max got
+        // walked up) but the actor is the forcer — show "forcer → leader" so the
+        // row credits who actually pushed the price. Normal bid = just the bidder.
+        var who = (b._cls === "forced" && b.forcer_name)
+          ? U.escapeHtml(b.forcer_name) + ' <span class="fwarrow">→</span> ' + U.escapeHtml(b.franchise_name || "—")
+          : U.escapeHtml(b.franchise_name || "—");
+        return '<div class="thbid">' + kind + ' <strong>' + fmtK(b.bid_k) + '</strong> · ' + who +
           '<span class="hw">' + fmtDateTime(b.bid_at_iso) + '</span></div>';
       }).join("") + '</div>' : '';
       return '<div class="ups-m-auc-thread' + (open ? " open" : "") + '">' +

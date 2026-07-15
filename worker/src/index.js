@@ -747,7 +747,25 @@ async function processAuctionPoll(env) {
       ).bind(lot_id).first();
       if (!firstBid || !lastBid) continue;
       const isEraLot = eraLotPids.has(String(firstBid.player_id));
-      const locks_at_unix = Number(stats.last_bid_at_unix) + (isEraLot ? 36 : 24) * 3600;
+      // MFL's lock clock resets on a LEAD CHANGE, not on a proxy walk-up. When a
+      // rival bids into the leader's hidden max, MFL walks the price up and writes
+      // "<rival> forced bid increase" — the leader never changes and MFL's own
+      // "Time Left" keeps counting from the last real lead change. Keying off
+      // MAX(bid_at_unix) counted those walk-ups and pushed the lock later every
+      // time: Lamar Jackson (nominated, then 5 straight walk-ups, never overtaken)
+      // read 23h32m against MFL's ~15h — the "why did Lamar's timer reset?" report.
+      // Excluding walk-ups reproduces MFL on both shapes: lots with genuine bids
+      // are unchanged (they already matched), and a never-overtaken lot correctly
+      // counts from its nomination.
+      //
+      // Fail-soft: a lot always has ≥1 non-walk row (the nomination), but if the
+      // note text ever changes shape, fall back to the old value rather than 0.
+      const leadChange = await db.prepare(
+        `SELECT MAX(bid_at_unix) AS t FROM ups_auction_bids
+          WHERE lot_id = ? AND (note IS NULL OR note NOT LIKE '%forced bid increase%')`
+      ).bind(lot_id).first();
+      const clockFrom = Number(leadChange?.t || 0) || Number(stats.last_bid_at_unix);
+      const locks_at_unix = clockFrom + (isEraLot ? 36 : 24) * 3600;
       await db.prepare(
         `INSERT INTO ups_auction_lots
            (lot_id, season, league_id, player_id, nominator_fid,
@@ -2795,7 +2813,7 @@ export default {
     const isHallSummarySweep = cronTrigger === "*/2 * * * *";
     const isHallNudgeSweep   = cronTrigger === "5 0,12,18 * * *";
     const isAuctionPoll      = cronTrigger === "*/5 * * * *";
-    const isFaNightlyNudge   = cronTrigger === "5 1,2 * * *";
+    const isFaNightlyNudge   = cronTrigger === "30 1,2 * * *";
 
     // ---------- AUCTION POLL + DROP TRACKER (every 5 min) ----------
     // Two cheap I/O-bound jobs share this tick:
@@ -2963,13 +2981,14 @@ export default {
       return; // nudge sweep is the only job on this cron
     }
 
-    // ---------- FA-AUCTION NIGHTLY NUDGE (9 PM ET) ----------
-    // Cron "5 1,2 * * *" fires at 01:05 + 02:05 UTC; the ET-hour gate keeps
-    // only the tick that lands on 9 PM ET (one per night, DST-safe — 01:05 in
-    // EDT, 02:05 in EST). Posts the out-of-compliance summary to the Auction
-    // Bidding channel + DMs owners who still owe nominations. Dark by default
-    // (AUCTION_NIGHTLY_NUDGE_ENABLED) and only while the FA Auction is live
-    // (AUCTION_FAA_ENABLED) — both checked inside runFaNightlyJob.
+    // ---------- FA-AUCTION DAILY REPORT (9:30 PM ET) ----------
+    // Cron "30 1,2 * * *" fires at 01:30 + 02:30 UTC; the ET-hour gate keeps
+    // only the tick that lands on 9:30 PM ET (one per night, DST-safe — 01:30
+    // in EDT, 02:30 in EST). Posts the nomination scoreboard to the Auction
+    // Bidding channel + a detail thread. Dark unless BOTH
+    // AUCTION_NIGHTLY_NUDGE_ENABLED and AUCTION_FAA_ENABLED are on — checked
+    // inside runFaNightlyJob, and read through D1 (a FO override beats the
+    // wrangler.toml default).
     if (isFaNightlyNudge) {
       try {
         const etHourStr = new Intl.DateTimeFormat("en-US", {
@@ -2977,7 +2996,7 @@ export default {
         }).format(new Date());
         const etHour = parseInt(etHourStr, 10);
         if (etHour !== 21) {
-          console.log(`[scheduled fa-nudge] ET hour=${etHour} (not 9 PM) — skipping`);
+          console.log(`[scheduled fa-nudge] ET hour=${etHour} (not 9:30 PM) — skipping`);
           return;
         }
         const season = String(env.YEAR || new Date().getUTCFullYear());
@@ -5699,7 +5718,16 @@ export default {
           const enriched = (bids || []).map((b) => {
             const noteStr = b.note ? String(b.note) : "";
             const isNomination = noteStr.startsWith("[nomination]");
-            const isProxyWalk = /proxy/i.test(noteStr);
+            // MFL writes a forced increase as "<forcer> forced bid increase" — the
+            // word "proxy" never appears, so the old /proxy/i test was ALWAYS false
+            // and every walk-up classified as a plain bid. Match MFL's real wording;
+            // keep /proxy/i as an OR in case MFL ever changes it.
+            const forcedMatch = noteStr.match(/^(.*?)\s+forced\s+bid\s+increase\s*$/i);
+            const isProxyWalk = !!forcedMatch || /proxy/i.test(noteStr);
+            // On a walk-up the row's fid is the LEADER whose hidden max got walked
+            // up — the franchise that CAUSED it appears only in the note. Surface it
+            // so the UI can credit the actor instead of the bystander.
+            const forcerName = forcedMatch ? forcedMatch[1].trim() : null;
             const pInfo = pidToInfo[String(b.player_id)] || {};
             return {
               bid_id: b.bid_id,
@@ -5716,6 +5744,8 @@ export default {
               note: noteStr || null,
               is_nomination: isNomination,
               is_proxy_walk: isProxyWalk,
+              // Who pushed the price up (walk-ups only); null on a normal bid.
+              forcer_name: forcerName,
               kind: isNomination ? "nomination" : (isProxyWalk ? "proxy_walk" : "bid"),
             };
           });
@@ -18474,7 +18504,7 @@ export default {
 
       // FA-Auction compliance scoreboard — per-franchise daily nomination
       // status joined with roster-requirement compliance. Drives the mobile
-      // Schedule view AND the nightly 9 PM Discord nudge (auction_nudge.js via
+      // Schedule view AND the nightly 9:30 PM Discord report (auction_nudge.js via
       // env.SELF.fetch). Light: roster needs come from the teams snapshot (no
       // O=43 scrape); noms come from the same [nomination]-tagged bids the
       // nomination-status endpoint reads.
@@ -31578,7 +31608,7 @@ export default {
       }
 
       // Manual trigger for the nightly FA nudge (lets the commish dry-run it
-      // without waiting for 9 PM or arming the switches). DRY-RUN by default —
+      // without waiting for 9:30 PM or arming the switches). DRY-RUN by default —
       // returns the channel preview + DM counts but sends nothing. ?force=1
       // bypasses the enable/faa gates; ?live=1 actually posts + DMs.
       if (path === "/admin/auction/run-nightly-nudge" && request.method === "POST") {
