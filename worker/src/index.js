@@ -2676,7 +2676,11 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
         if (st.high_bidders) {
           bits.push(`**${st.high_bidders}** high ${st.high_bidders === 1 ? "bidder" : "bidders"}`);
         }
-        text = `@everyone — 🏆 ${winner} **won ${playerName}** for ${bid}`;
+        // playerFull, not playerName: this is an @everyone, and a notification
+        // preview is read OUT of the thread's context — "(RB · SEA)" is the
+        // difference between a headline and a name you have to go look up. The
+        // nomination announces the same way.
+        text = `@everyone — 🏆 ${winner} **won** ${playerFull} for ${bid}`;
         if (bits.length) text += `\n${bits.join(" · ")}`;
         allowedMentions = { parse: ["everyone"], users: mentionIdsFor(ev.fid) };
         break;
