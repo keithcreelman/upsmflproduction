@@ -664,36 +664,46 @@
     // the roster floats below 27 while it runs, so "min to add" is a
     // by-the-end obligation, not a right-now violation. The tooltip has to say
     // that or the number reads as an accusation.
+    // LEAGUE-WIDE, not yours (Keith 2026-07-15). The Summary is the state of the
+    // auction, not of one team — and league-wide these answer the only question
+    // "1833 free agents" pretended to: how much demand is still in the room. MIN
+    // is the floor of players that MUST still be bought before the auction can
+    // close legally; MAX is the ceiling the league can absorb.
+    //
+    // (This shipped viewer-scoped by mistake — the league-wide edit was made but
+    // never made it into the commit that merged as #715.)
     const ROSTER_MIN_AT_CLOSE = 27, ROSTER_MAX_DURING = 35;
-    const viewerFid = STATE.me && STATE.me.franchise_id ? _p4(STATE.me.franchise_id) : "";
-    const myRow = viewerFid
-      ? ((STATE.fa && STATE.fa.team_budget_rows) || []).find((r) => _p4(r.franchise_id) === viewerFid)
-      : null;
+    const budgetRows = (STATE.fa && STATE.fa.team_budget_rows) || [];
 
     let firstTile;
-    if (myRow) {
-      const n = Number(myRow.roster_count) || 0;
-      const minAdd = Math.max(0, ROSTER_MIN_AT_CLOSE - n);
-      const maxAdd = Math.max(0, ROSTER_MAX_DURING - n);
+    if (budgetRows.length) {
+      let rostered = 0, minAdd = 0, maxAdd = 0;
+      for (const r of budgetRows) {
+        const n = Number(r.roster_count) || 0;
+        rostered += n;
+        minAdd += Math.max(0, ROSTER_MIN_AT_CLOSE - n);
+        maxAdd += Math.max(0, ROSTER_MAX_DURING - n);
+      }
+      // Canon §A2: 35 max DURING, 27 min at the CLOSE — rosters float below 27
+      // while it runs, so "min to add" is a by-the-end obligation, not a
+      // violation right now. Say that, or the number reads as an accusation.
       const tip =
-        `Your active roster: ${n}. ` +
-        `You must be at ${ROSTER_MIN_AT_CLOSE} when the auction CLOSES — it can float below while it runs — ` +
-        `so you still need at least ${minAdd}. ` +
-        `${ROSTER_MAX_DURING} is the hard cap during the auction, so you can add at most ${maxAdd}.`;
+        `League-wide across ${budgetRows.length} teams. Rostered: ${rostered}. ` +
+        `Every team must be at ${ROSTER_MIN_AT_CLOSE} when the auction CLOSES — rosters float below while it runs — ` +
+        `so at least ${minAdd} more players must still be bought. ` +
+        `${ROSTER_MAX_DURING} is the hard cap during the auction, so the league can absorb at most ${maxAdd}.`;
       firstTile =
         `<div class="ah-kpi ah-kpi-roster" title="${escapeHtml(tip)}">` +
           `<div class="ah-kpi-triple">` +
-            `<span><b>${n}</b><i>Rostered</i></span>` +
+            `<span><b>${rostered}</b><i>Rostered</i></span>` +
             `<span><b>+${minAdd}</b><i>Min to add</i></span>` +
             `<span><b>+${maxAdd}</b><i>Max to add</i></span>` +
           `</div>` +
         `</div>`;
     } else {
-      // No viewer identity ⇒ we don't know whose roster to report. Say that
-      // rather than invent a number or fall back to a count nobody asked for.
       firstTile =
-        `<div class="ah-kpi" title="Pick your franchise (or open this from MFL while signed in) to see your roster and how many you still need.">` +
-          `<div class="ah-kpi-val">—</div><div class="ah-kpi-label">Your roster</div></div>`;
+        `<div class="ah-kpi" title="Waiting on the live board.">` +
+          `<div class="ah-kpi-val">—</div><div class="ah-kpi-label">Rostered</div></div>`;
     }
 
     const kpis = [
@@ -2491,6 +2501,18 @@
       const freshProxyK = (ov && ov.your_proxy_bid_amount != null)
         ? Math.round(Number(ov.your_proxy_bid_amount) / 1000)
         : 0;
+      // MFL's price is ahead of D1's, so D1's leader belongs to the old price and
+      // the worker blanked it. Say that plainly — a name we know is wrong is far
+      // worse than an admission, because the reader acts on it. (2026-07-15: the
+      // board told Keith he led Josh Allen at $4,000 while Pure Greatness had
+      // actually taken it 26 minutes earlier.)
+      // Prefer MFL's leader over D1's. The overlay reads it off O=43 (the fid is
+      // in the markup), so it is right even when the */5 poll is behind — which
+      // it was by 19 hours on 2026-07-15, showing Keith as the leader of a lot he
+      // had already lost.
+      const freshBidder = (ov && ov.high_bidder_label)
+        ? ov.high_bidder_label
+        : (l.current_high_bidder_name || franchiseName(l.current_high_bidder_fid) || "—");
       // Prefer MFL's own countdown (overlaid from O=43) over D1's lock, which
       // recomputes from bid timestamps and resets on a forced increase — MFL
       // doesn't, so D1 can over-state and someone could miss the real lock.
@@ -2523,7 +2545,7 @@
           <td class="col-md">${escapeHtml(pi.nfl_team || "—")}</td>
           <td>${escapeHtml(l.nominator_name || franchiseName(l.nominator_fid))}</td>
           <td class="num">${fmtDollarsFromK(freshHighK)}</td>
-          <td>${escapeHtml(l.current_high_bidder_name || franchiseName(l.current_high_bidder_fid))}</td>
+          <td>${escapeHtml(freshBidder)}</td>
           <td class="num col-md">${l.bid_count}</td>
           <td class="num col-md">${l.unique_bidder_count}</td>
           <td class="ah-countdown" data-locks-at="${freshLocksAt}">${isWon ? "—" : formatCountdown(freshSeconds)}</td>

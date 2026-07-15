@@ -816,3 +816,8 @@ a.btn.small {
    same glyph as "—" (you genuinely have no max). A broken overlay must announce
    itself, not impersonate valid data. */
 .ah-proxy-blind { color: var(--warn, #d0902f); font-weight: 700; cursor: help; }
+
+
+/* "not synced — check MFL": the price came from MFL live but the bid that moved
+   it hasn't reached D1, so the leader we hold belongs to the OLD price. Naming a
+   franchise here would be a confident lie the reader acts on. */
