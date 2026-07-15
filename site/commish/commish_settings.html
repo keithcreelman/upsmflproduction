@@ -1844,6 +1844,97 @@
   // commish and runs in the test channel — rehearse until comfortable, then
   // flip the switch in Kill Switches. (Keith 2026-07-15.)
   // ════════════════════════════════════════════════════════════════════
+  // ── 🧪 AI Drafting Workbench state + helpers (Rule Proposals phase 2) ──
+  // RD survives tab re-renders; the poll timer is cleared on every re-render
+  // and re-armed only while a turn is in flight.
+  var RD = { sid: null, poll: null, inflight: false, linkedSid: null };
+  function rdStopPoll() { if (RD.poll) { clearInterval(RD.poll); RD.poll = null; } }
+  function rdApi(pathSuffix) {
+    return apiUrl("/admin/rule-proposals/draft" + pathSuffix) + "?L=" + encodeURIComponent(L) + "&YEAR=" + encodeURIComponent(YEAR);
+  }
+  function rdPaintChat(data) {
+    var chat = document.getElementById("rpd-chat");
+    var pane = document.getElementById("rpd-draft");
+    if (!chat || !pane) return;
+    var html = (data.messages || []).map(function (m) {
+      if (m.role === "user") {
+        return '<div style="text-align:right;margin:6px 0;"><span style="display:inline-block;background:rgba(80,140,255,.15);padding:6px 10px;border-radius:10px;max-width:85%;text-align:left;white-space:pre-wrap;">' + esc(m.text) + '</span></div>';
+      }
+      var tools = (m.tools || []).map(function (t) {
+        return '<div style="opacity:.55;font-size:11px;margin:2px 0;">' + esc(t) + '</div>';
+      }).join("");
+      var body = m.text ? '<span style="display:inline-block;background:rgba(128,128,128,.12);padding:6px 10px;border-radius:10px;max-width:92%;white-space:pre-wrap;">' + esc(m.text) + '</span>' : '';
+      return '<div style="margin:6px 0;">' + tools + body + '</div>';
+    }).join("");
+    var busy = data.session && data.session.turn_started_at_utc;
+    if (busy || RD.inflight) {
+      html += '<div id="rpd-status" style="opacity:.7;font-style:italic;margin:6px 0;">🤖 ' + esc((data.session && data.session.status_text) || "thinking…") + '</div>';
+    }
+    chat.innerHTML = html || '<div class="fo-row-hint">Say something to get started.</div>';
+    chat.scrollTop = chat.scrollHeight;
+    var d = data.draft || {};
+    var row = function (label, v) {
+      return '<div style="margin:4px 0;"><strong style="font-size:11px;opacity:.7;">' + label + '</strong><div style="white-space:pre-wrap;font-size:12px;">' + (v ? esc(String(v)) : '<span style="opacity:.4;">—</span>') + '</div></div>';
+    };
+    pane.innerHTML =
+      row("TITLE", d.title) + row("TLDR", d.tldr) + row("RULE TEXT", d.body_md) +
+      row("WHY THIS CAME UP", d.rationale_md) + row("SUPPORTING DATA", d.supporting_data_md) +
+      row("PASSES AT", d.pass_yes_count ? d.pass_yes_count + " YES" : "") + row("DEADLINE", d.deadline_utc) +
+      '<div style="margin-top:8px;"><button type="button" class="fo-btn" id="rpd-loadform">⬇ Load into publish form</button>' +
+      (RD.linkedSid === RD.sid && RD.sid ? ' <span style="color:#1f8a4c;font-size:12px;">linked ✓</span>' : '') + '</div>';
+    var lf = document.getElementById("rpd-loadform");
+    if (lf) lf.addEventListener("click", function () { rdLoadIntoForm(d); });
+  }
+  function rdRefresh() {
+    if (!RD.sid) return Promise.resolve();
+    return fetchJSON(rdApi("/" + RD.sid)).then(function (data) {
+      if (CS.tab !== "ruleprops") return;
+      rdPaintChat(data);
+      return data;
+    }).catch(function () { /* transient poll failure — next tick retries */ });
+  }
+  function rdArmPoll() {
+    rdStopPoll();
+    RD.poll = setInterval(function () {
+      if (CS.tab !== "ruleprops") { rdStopPoll(); return; }
+      rdRefresh();
+    }, 2500);
+  }
+  function rdSend(text) {
+    if (RD.inflight || !RD.sid) return;
+    RD.inflight = true;
+    var chat = document.getElementById("rpd-chat");
+    if (chat) {
+      chat.innerHTML += '<div style="text-align:right;margin:6px 0;"><span style="display:inline-block;background:rgba(80,140,255,.15);padding:6px 10px;border-radius:10px;max-width:85%;text-align:left;white-space:pre-wrap;">' + esc(text) + '</span></div>' +
+        '<div id="rpd-status" style="opacity:.7;font-style:italic;margin:6px 0;">🤖 sending…</div>';
+      chat.scrollTop = chat.scrollHeight;
+    }
+    rdArmPoll();
+    postJSON(rdApi("/" + RD.sid + "/turn"), { text: text })
+      .then(function () { rdStopPoll(); RD.inflight = false; rdRefresh(); })
+      .catch(function (e) {
+        RD.inflight = false;
+        if (String(e.message).indexOf("turn_in_flight") !== -1) return; // poll rides it out
+        rdStopPoll(); toast("Turn failed: " + e.message, "err"); rdRefresh();
+      });
+  }
+  function rdLoadIntoForm(d) {
+    var set = function (id, v) { var el = document.getElementById(id); if (el && v != null && v !== "") el.value = v; };
+    set("rp-title", d.title); set("rp-tldr", d.tldr); set("rp-body", d.body_md);
+    set("rp-rationale", d.rationale_md); set("rp-data", d.supporting_data_md);
+    set("rp-pass", d.pass_yes_count); set("rp-category", d.category);
+    if (d.deadline_utc) {
+      var dt = new Date(d.deadline_utc);
+      if (!isNaN(dt.getTime())) {
+        var p2 = function (n) { return (n < 10 ? "0" : "") + n; };
+        set("rp-deadline", dt.getFullYear() + "-" + p2(dt.getMonth() + 1) + "-" + p2(dt.getDate()) + "T" + p2(dt.getHours()) + ":" + p2(dt.getMinutes()));
+      }
+    }
+    RD.linkedSid = RD.sid;
+    toast("Draft loaded — review, tweak, then Publish. The drafting Q&A will ground the bot.", "ok");
+    rdRefresh();
+  }
+
   function renderRuleProps() {
     var host = content();
     var myTab = CS.tab;
@@ -1862,6 +1953,32 @@
         var defaultDeadline = new Date(Date.now() + 7 * 86400000);
         var dlPad = function (n) { return (n < 10 ? "0" : "") + n; };
         var dlLocal = defaultDeadline.getFullYear() + "-" + dlPad(defaultDeadline.getMonth() + 1) + "-" + dlPad(defaultDeadline.getDate()) + "T21:00";
+
+        var wbCard;
+        if (flags.draft === false) {
+          wbCard = '<div class="fo-card"><div class="fo-card-head"><h3>🧪 Draft with AI</h3></div>' +
+            '<p class="fo-row-hint">Workbench is OFF — flip <strong>Rule proposals — AI drafting workbench</strong> in Kill Switches.</p></div>';
+        } else if (RD.sid) {
+          wbCard = '<div class="fo-card"><div class="fo-card-head"><h3>🧪 Draft with AI <span style="font-weight:400;font-size:12px;opacity:.6;">session ' + esc(RD.sid) + '</span></h3></div>' +
+            '<div style="display:grid;grid-template-columns:minmax(320px,1fr) minmax(260px,380px);gap:12px;">' +
+              '<div>' +
+                '<div id="rpd-chat" style="max-height:420px;overflow-y:auto;border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:8px;font-size:13px;"></div>' +
+                '<div style="display:flex;gap:6px;margin-top:6px;">' +
+                  '<textarea id="rpd-input" rows="2" style="flex:1;" placeholder="Answer, push back, or ask for research…"></textarea>' +
+                  '<button type="button" class="fo-btn" id="rpd-send">Send</button>' +
+                '</div>' +
+                '<p class="fo-row-hint" style="margin-top:4px;">Turns can take up to a minute when it researches — the status line shows what it is doing. <a href="#" id="rpd-exit">exit session</a></p>' +
+              '</div>' +
+              '<div id="rpd-draft" style="border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:8px;max-height:480px;overflow-y:auto;"></div>' +
+            '</div></div>';
+        } else {
+          wbCard = '<div class="fo-card"><div class="fo-card-head"><h3>🧪 Draft with AI</h3></div>' +
+            '<p class="fo-row-hint">Braindump the idea — rough is fine. The bot cleans it up, interrogates you, challenges it against canon, and pulls real league data. Your answers become the bot&#39;s grounding when you publish.</p>' +
+            '<textarea id="rpd-raw" rows="4" style="width:100%;max-width:760px;" placeholder="e.g. thinking we should cap how many QBs a team can roster — feels like hoarding is choking the market…"></textarea>' +
+            '<div style="margin-top:6px;"><button type="button" class="fo-btn" id="rpd-start" style="font-weight:700;">🧪 Start drafting session</button> <span id="rpd-start-status" style="opacity:.7;font-size:12px;"></span></div>' +
+            '<div id="rpd-resume" style="margin-top:8px;"></div>' +
+          '</div>';
+        }
 
         var form =
           '<div class="fo-card"><div class="fo-card-head"><h3>📜 New Rule Proposal</h3></div>' + banner +
@@ -1917,7 +2034,7 @@
           return '<div style="margin:6px 0;font-size:12px;">' + head + ans + '</div>';
         }).join('');
 
-        host.innerHTML = form +
+        host.innerHTML = wbCard + form +
           '<div class="fo-card" style="margin-top:12px;"><div class="fo-card-head"><h3>Proposals</h3></div>' + (rows || '<p class="fo-row-hint">None yet.</p>') + '</div>' +
           '<div class="fo-card" style="margin-top:12px;"><div class="fo-card-head"><h3>Recent discussions (🔒 = private, 📢 = surfaced)</h3></div>' + (qaRows || '<p class="fo-row-hint">No discussions yet.</p>') + '</div>';
 
@@ -1931,6 +2048,7 @@
             deadline_utc: dl ? new Date(dl).toISOString() : '',
             category: val('rp-category') || 'rules',
             test_mode: !!(document.getElementById('rp-testmode') || {}).checked,
+            draft_session_id: RD.linkedSid || undefined,
           };
         };
         document.getElementById('rp-preview-btn').addEventListener('click', function () {
@@ -1985,6 +2103,59 @@
               .catch(function (e) { toast('Failed: ' + e.message, 'err'); });
           });
         });
+
+        // ── workbench wiring ──
+        rdStopPoll();
+        if (RD.sid) {
+          var sendBtn = document.getElementById('rpd-send');
+          var input = document.getElementById('rpd-input');
+          if (sendBtn && input) {
+            sendBtn.addEventListener('click', function () {
+              var t = (input.value || '').trim();
+              if (!t) return;
+              input.value = '';
+              rdSend(t);
+            });
+            input.addEventListener('keydown', function (ev) {
+              if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); sendBtn.click(); }
+            });
+          }
+          var exitLink = document.getElementById('rpd-exit');
+          if (exitLink) exitLink.addEventListener('click', function (ev) {
+            ev.preventDefault(); rdStopPoll(); RD.sid = null; RD.inflight = false; renderRuleProps();
+          });
+          rdRefresh().then(function (d) {
+            // A turn may still be running server-side (page reload mid-turn) —
+            // ride it out with the poll instead of stranding the status line.
+            if (d && d.session && d.session.turn_started_at_utc) rdArmPoll();
+          });
+        } else if (flags.draft !== false) {
+          var startBtn = document.getElementById('rpd-start');
+          if (startBtn) startBtn.addEventListener('click', function () {
+            var raw = ((document.getElementById('rpd-raw') || {}).value || '').trim();
+            if (raw.length < 10) return toast('Give me at least a sentence', 'err');
+            startBtn.disabled = true;
+            var st = document.getElementById('rpd-start-status');
+            if (st) st.textContent = 'starting — first turn can take up to a minute…';
+            postJSON(rdApi('/start').replace('/draft/start', '/draft/start'), { raw_text: raw })
+              .then(function (r) { RD.sid = r.session_id; RD.inflight = false; renderRuleProps(); })
+              .catch(function (e) { startBtn.disabled = false; if (st) st.textContent = ''; toast('Start failed: ' + e.message, 'err'); });
+          });
+          fetchJSON(apiUrl('/admin/rule-proposals/drafts') + '?L=' + encodeURIComponent(L) + '&YEAR=' + encodeURIComponent(YEAR))
+            .then(function (r) {
+              var el = document.getElementById('rpd-resume');
+              if (!el || !r.sessions || !r.sessions.length) return;
+              el.innerHTML = '<strong style="font-size:12px;opacity:.7;">RESUME A SESSION</strong>' +
+                r.sessions.filter(function (x) { return x.status === 'draft'; }).slice(0, 6).map(function (x) {
+                  return '<div style="font-size:12px;margin:3px 0;"><a href="#" data-rpd-resume="' + esc(x.session_id) + '">' + esc(x.title) + '</a> · ' + esc(x.turn_count + ' turns') + ' · ' + esc(x.updated_at_utc || '') + '</div>';
+                }).join('');
+              $$('[data-rpd-resume]', el).forEach(function (a) {
+                a.addEventListener('click', function (ev) {
+                  ev.preventDefault(); RD.sid = a.getAttribute('data-rpd-resume'); renderRuleProps();
+                });
+              });
+            }).catch(function () { /* resume list is optional */ });
+        }
       })
       .catch(function (e) {
         if (CS.tab !== myTab) return;

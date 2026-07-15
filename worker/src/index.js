@@ -38037,9 +38037,10 @@ export default {
                     surfaced, keith_ruling, created_at_utc
                FROM hall_qa_log ORDER BY created_at_utc DESC LIMIT 50`
           ).all();
+          const draftFlag = await getFeatureFlag(env, "RULE_PROPOSALS_DRAFT_ENABLED");
           return jsonOut(200, {
             ok: true,
-            flags: { enabled, live, ai },
+            flags: { enabled, live, ai, draft: draftFlag },
             proposals: (rows || []).map((r) => ({
               ...r,
               thread_url: guildId && r.discord_thread_id
@@ -38119,18 +38120,122 @@ export default {
           ).bind(roundId, safeStr(o.discord_user_id), safeStr(o.franchise_id) || null, safeStr(o.owner_name) || null).run();
         }
 
+        // Drafting-workbench handoff: if this proposal came out of an AI
+        // drafting session, mark the session published and distill its Q&A
+        // into hall_qa_log keith_ruling rows BEFORE the fan-out — so the
+        // grounding exists before any owner can physically press Discuss.
+        // Invalid/missing session id is ignored: publish never fails because
+        // of the workbench.
+        let draftSessionId = "";
+        if (safeStr(rpBody.draft_session_id)) {
+          const ds = await env.UPS_MFL_DB.prepare(
+            `SELECT session_id FROM hall_draft_sessions WHERE session_id = ? AND status = 'draft'`
+          ).bind(safeStr(rpBody.draft_session_id)).first();
+          if (ds) {
+            draftSessionId = ds.session_id;
+            await env.UPS_MFL_DB.prepare(
+              `UPDATE hall_draft_sessions SET status='published', proposal_id=?, updated_at_utc=? WHERE session_id=?`
+            ).bind(proposalId, ts, draftSessionId).run();
+          } else {
+            console.log(`[rule-proposals] draft_session_id ${safeStr(rpBody.draft_session_id)} not found/not draft — ignored`);
+          }
+        }
+
         // Fan-out (thread + buttons + tally + DM cards) in the background —
         // ~10-15s with Discord's rate-limit sleeps; the tab polls the list.
-        ctx.waitUntil(
-          runRuleProposalStartFlow(env, roundId, null, "", "", { dmVoteCards: true, skipDeadlineDerivation: true })
+        ctx.waitUntil((async () => {
+          if (draftSessionId) {
+            try {
+              const { finalizeDraftRulings } = await import("./rule_draft_agent.js");
+              const fr = await finalizeDraftRulings(env, draftSessionId, proposalId);
+              console.log(`[rule-proposals] rulings distilled for ${proposalId}: ${JSON.stringify(fr)}`);
+            } catch (e) {
+              console.log(`[rule-proposals] distillation failed (non-fatal): ${e?.message || e}`);
+            }
+          }
+          return runRuleProposalStartFlow(env, roundId, null, "", "", { dmVoteCards: true, skipDeadlineDerivation: true })
             .then((r) => console.log(`[rule-proposals] published ${roundId}: ${JSON.stringify(r)}`))
-            .catch((e) => console.error(`[rule-proposals] start flow failed for ${roundId}: ${e?.message || e}`))
-        );
+            .catch((e) => console.error(`[rule-proposals] start flow failed for ${roundId}: ${e?.message || e}`));
+        })());
         return jsonOut(200, {
           ok: true, proposal_id: proposalId, round_id: roundId,
           dark, owners: owners.length, pass_yes_count: passYes, deadline_utc: deadlineIso,
           note: dark ? "DARK: DMs only the commish; test channel; passes at 1 YES." : "LIVE: full league fan-out.",
         });
+      }
+
+      // ---- 🧪 AI Drafting Workbench (Rule Proposals phase 2, 2026-07-15) ----
+      // Commish-only pre-publish loop: raw idea → canon-grounded agent that
+      // asks clarifying questions, challenges against canon, and runs
+      // read-only SQL research over D1. Synchronous turns (the 30-60s
+      // integrate-rule route is the precedent); the tab polls status_text
+      // for live progress. All gated on the dedicated DRAFT flag so the
+      // workbench can be killed without touching owner-facing synthesis.
+      if (path === "/admin/rule-proposals/draft/start" && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        if (!(await getFeatureFlag(env, "RULE_PROPOSALS_ENABLED")) || !(await getFeatureFlag(env, "RULE_PROPOSALS_DRAFT_ENABLED"))) {
+          return jsonOut(403, { ok: false, error: "drafting workbench is disabled (Kill Switches)" });
+        }
+        let dBody = {};
+        try { dBody = (await request.json()) || {}; } catch (_) {}
+        const { startDraftSession } = await import("./rule_draft_agent.js");
+        const r = await startDraftSession(env, safeStr(dBody.raw_text));
+        return jsonOut(r.ok ? 200 : (r.status || 500), r);
+      }
+
+      if (path === "/admin/rule-proposals/drafts" && request.method === "GET") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const { listDraftSessions } = await import("./rule_draft_agent.js");
+        return jsonOut(200, { ok: true, sessions: await listDraftSessions(env) });
+      }
+
+      // Guard/executor test harness AND a handy commish data console. This is
+      // where the 13-case adversarial SQL suite runs from curl.
+      if (path === "/admin/rule-proposals/draft/sql-test" && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let qBody = {};
+        try { qBody = (await request.json()) || {}; } catch (_) {}
+        const { runGuardedSql } = await import("./rule_draft_agent.js");
+        const r = await runGuardedSql(env, safeStr(qBody.query));
+        return jsonOut(r.ok ? 200 : 400, r);
+      }
+
+      {
+        const dm = path.match(/^\/admin\/rule-proposals\/draft\/(rds-[a-z0-9-]+)(?:\/(turn|abandon))?$/);
+        if (dm) {
+          const denied = await commishSettingsGate();
+          if (denied) return denied;
+          if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+          const sid = dm[1];
+          const sub = dm[2] || "";
+          const mod = await import("./rule_draft_agent.js");
+          if (!sub && request.method === "GET") {
+            const r = await mod.getDraftSession(env, sid);
+            return jsonOut(r.ok ? 200 : (r.status || 500), r);
+          }
+          if (sub === "turn" && request.method === "POST") {
+            if (!(await getFeatureFlag(env, "RULE_PROPOSALS_ENABLED")) || !(await getFeatureFlag(env, "RULE_PROPOSALS_DRAFT_ENABLED"))) {
+              return jsonOut(403, { ok: false, error: "drafting workbench is disabled (Kill Switches)" });
+            }
+            let tBody = {};
+            try { tBody = (await request.json()) || {}; } catch (_) {}
+            if (!safeStr(tBody.text)) return jsonOut(400, { ok: false, error: "text required" });
+            const r = await mod.runDraftTurn(env, sid, safeStr(tBody.text));
+            return jsonOut(r.ok ? 200 : (r.status || 500), r);
+          }
+          if (sub === "abandon" && request.method === "POST") {
+            await env.UPS_MFL_DB.prepare(
+              `UPDATE hall_draft_sessions SET status='abandoned', updated_at_utc=? WHERE session_id=? AND status='draft'`
+            ).bind(new Date().toISOString().replace(/\.\d{3}Z$/, "Z"), sid).run();
+            return jsonOut(200, { ok: true });
+          }
+        }
       }
 
       if (path.startsWith("/admin/rule-proposals/") && path.endsWith("/verdict") && request.method === "POST") {

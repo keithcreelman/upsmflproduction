@@ -14,7 +14,7 @@ export default [
         console: "readonly", crypto: "readonly", caches: "readonly",
         setTimeout: "readonly", clearTimeout: "readonly", setInterval: "readonly",
         clearInterval: "readonly", atob: "readonly", btoa: "readonly",
-        TextEncoder: "readonly", TextDecoder: "readonly", AbortController: "readonly",
+        TextEncoder: "readonly", TextDecoder: "readonly", AbortController: "readonly", AbortSignal: "readonly",
         ReadableStream: "readonly", addEventListener: "readonly",
         FormData: "readonly", Blob: "readonly", structuredClone: "readonly",
         scheduler: "readonly", WebSocketPair: "readonly", HTMLRewriter: "readonly",
