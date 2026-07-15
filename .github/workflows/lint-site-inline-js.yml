@@ -1,0 +1,37 @@
+name: Lint site inline JS
+
+# The Commish Settings page shipped broken for hours over ONE unescaped
+# apostrophe in a tooltip:
+#
+#   '...told the league ahead of time they'd be out of pocket...'
+#
+# That is a SyntaxError, so the whole IIFE failed to parse, renderShell() never
+# ran, and the page sat on "Loading…" forever. Nothing caught it: eslint lints
+# .js files and never sees inline <script>, and the worker's deploy lint was
+# green because worker/ was fine. site/*.html had no compiler pointed at it at
+# all — prose inside a JS string is a code path, and it was going out unchecked.
+#
+# Cheap to run, and it only fails on a genuine parse error.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "site/**/*.html"
+      - "scripts/check_inline_js.mjs"
+      - ".github/workflows/lint-site-inline-js.yml"
+  push:
+    branches: [main]
+    paths:
+      - "site/**/*.html"
+
+jobs:
+  inline-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax-check every inline <script> in site/
+        run: node scripts/check_inline_js.mjs
