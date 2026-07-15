@@ -561,8 +561,13 @@ async function processTagDeadlineSixAmDm(env, season, leagueId, origin, commishA
 // is the MAX(bid_k) — but MFL's AUCTION_BID transactions ARE the high
 // bids (you don't see lower bids that were beaten), so MAX = latest.
 //
-// locks_at_unix = last_bid_at_unix + the lot's window, which depends on the
-// auction TYPE (this was hardcoded to 36hr for everything until 2026-07-14):
+// locks_at_unix = last LEAD CHANGE + the lot's window. The lead-change clock is
+// MAX(bid_at_unix) EXCLUDING MFL "forced bid increase" proxy walk-ups — it is
+// deliberately NOT the last_bid_at_unix column, which still stores MAX over ALL
+// rows (last activity). MFL's countdown does not reset when a rival bids into
+// the leader's hidden max, so counting walk-ups over-stated the lock by hours
+// (this was MAX over all rows until 2026-07-14). The window depends on the
+// auction TYPE (hardcoded to 36hr for everything until 2026-07-14):
 //   ERA lot (player in that season's ups_era_pool) → 36hr, league_context §A3
 //   FAA lot (everything else)                      → 24hr, league_context §A2
 async function processAuctionPoll(env) {
@@ -5715,6 +5720,17 @@ export default {
             }
           }
 
+          // Forcer note -> fid. MFL's note text is mojibake for any franchise with
+          // an emoji in its name, so a whitespace-only normalizer never matches;
+          // dropping non-alphanumerics makes the two agree (verified: 10/10 real
+          // forcer notes resolve, zero collisions across the 12 names).
+          const bidNameKey = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const nameToFid = {};
+          for (const [id, nm] of Object.entries(fidToName)) {
+            const k = bidNameKey(nm);
+            if (k) nameToFid[k] = id;
+          }
+
           const enriched = (bids || []).map((b) => {
             const noteStr = b.note ? String(b.note) : "";
             const isNomination = noteStr.startsWith("[nomination]");
@@ -5727,7 +5743,15 @@ export default {
             // On a walk-up the row's fid is the LEADER whose hidden max got walked
             // up — the franchise that CAUSED it appears only in the note. Surface it
             // so the UI can credit the actor instead of the bystander.
-            const forcerName = forcedMatch ? forcedMatch[1].trim() : null;
+            //
+            // Never publish the note's raw text: MFL double-encodes emoji in it, so
+            // "HammerTime 🔨 ⏰" arrives as "HammerTime ð\x9f\x94¨ â\x8f°" and would
+            // reach the league-visible Bid History as garbage. Resolve the name back
+            // to its fid and render the clean league-export name — the same trick the
+            // narrator uses (index.js ~1990). Unresolvable ⇒ null rather than mojibake.
+            const rawForcer = forcedMatch ? forcedMatch[1].trim() : null;
+            const forcerFid = rawForcer ? nameToFid[bidNameKey(rawForcer)] : null;
+            const forcerName = forcerFid ? fidToName[forcerFid] : null;
             const pInfo = pidToInfo[String(b.player_id)] || {};
             return {
               bid_id: b.bid_id,

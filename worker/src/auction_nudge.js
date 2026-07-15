@@ -71,19 +71,28 @@ function buildParentMessage(data, mentionsByFid) {
   const max = Number(data.noms_max || 2);
   const used = (r) => Number(r.noms_used || 0);
 
+  // Trust the endpoint's own verdict — do NOT recompute. The rule is
+  // "owes = !roster_met && used < required" (auction_windows.js): the floor is
+  // waived once a franchise can field a legal lineup, so a team that filled its
+  // roster and correctly stopped nominating is COMPLIANT at 0/2. Recomputing as
+  // `used < max` drops the !roster_met term and would publicly tag the one owner
+  // who's actually done. `over` stays local arithmetic — it's a ceiling breach,
+  // which out_of_compliance deliberately doesn't cover.
   const over = rows.filter((r) => used(r) > max);
-  const met = rows.filter((r) => used(r) === max);
-  const owe = rows.filter((r) => used(r) < max);
+  const owe = rows.filter((r) => !!r.out_of_compliance && used(r) <= max);
+  const met = rows.filter((r) => used(r) <= max && !r.out_of_compliance);
   const byName = (a, b) => asciiName(a.franchise_name).localeCompare(asciiName(b.franchise_name));
   const byUsedDesc = (a, b) => (used(b) - used(a)) || byName(a, b);
 
-  // Hours left in the ET nomination day, from the payload's own clock — NOT
-  // hardcoded, so a late/retried cron still states the truth.
-  const secsLeft = Number(
-    rows[0]?.seconds_until_reset ??
-    (Number(data.window_end_unix || 0) - Number(data.now_unix || 0))
-  );
-  const hoursLeft = Math.max(0, Math.round(secsLeft / 3600));
+  // Time left in the ET nomination day, from the payload's own clock — NOT
+  // hardcoded, so a late/retried cron still states the truth. Minute precision,
+  // not rounded hours: at 9:30 PM exactly 2h30m remain, and Math.round would say
+  // "3 hours" — pushing a §A2 deadline (with a §F fine behind it) half an hour
+  // past midnight. Flooring instead reads "0 hours" on a late manual trigger.
+  const timeLeft = humanDuration(Math.max(0,
+    Number(rows[0]?.seconds_until_reset ??
+      (Number(data.window_end_unix || 0) - Number(data.now_unix || 0)))
+  ));
 
   const L = [];
   L.push("# 🧪 TEST REPORT — NOBODY IS REQUIRED TO BID TONIGHT");
@@ -99,7 +108,10 @@ function buildParentMessage(data, mentionsByFid) {
   } else {
     for (const r of [...over, ...met].sort(byUsedDesc)) {
       const isOver = used(r) > max;
-      L.push(`${isOver ? "⚠️" : "✅"} **${r.franchise_name}** — ${used(r)}/${max}${isOver ? " · **over cap**" : ""}`);
+      // "✅ Hawks — 0/2" reads like a mistake without saying why it's fine: the
+      // roster is legal, so the nomination floor no longer applies.
+      const why = !isOver && r.roster_met && used(r) < max ? " · roster set" : "";
+      L.push(`${isOver ? "⚠️" : "✅"} **${r.franchise_name}** — ${used(r)}/${max}${isOver ? " · **over cap**" : why}`);
     }
   }
   L.push("");
@@ -118,16 +130,20 @@ function buildParentMessage(data, mentionsByFid) {
   L.push("");
 
   if (over.length) {
-    const names = over.map((r) => `**${r.franchise_name}**`).join(", ");
+    // Each franchise carries its OWN count — with two over-cap teams the old
+    // copy printed the first one's number for both. No hardcoded "3rd" either:
+    // the overage can be any size, and max is data.
+    const names = over.map((r) => `**${r.franchise_name}** (${used(r)}/${max})`).join(", ");
     L.push(
-      `🛠️ _${names} shows ${used(over[0])}/${max} — that 3rd nomination slipped through before the cap ` +
-      `existed. Fix implemented to prevent 3 nominations except on the final day moving forward._`
+      `🛠️ _${names} — ${over.length === 1 ? "that extra nomination" : "those extra nominations"} slipped ` +
+      `through before the cap existed. Fix implemented to prevent more than ${max} nominations except on ` +
+      `the final day moving forward._`
     );
     L.push("");
   }
 
   if (owe.length) {
-    L.push(`**Out of compliance teams — please submit your nominations within the next ${hoursLeft} ${plural(hoursLeft, "hour")}.**`);
+    L.push(`**Out of compliance teams — please submit your nominations within the next ${timeLeft}.**`);
   }
   L.push("Open lots, leaders + what everyone still needs → **thread** 🧵");
   return L.join("\n");
@@ -221,9 +237,13 @@ function buildBoardSections(data, lots) {
     `${padEnd("TEAM", teamW)} │ ${off.map(([, lbl]) => padStart(lbl, 3)).join(" ")} ` +
     `│ ${def.map(([, lbl]) => padStart(lbl, 3)).join(" ")} │ TOT`
   );
+  // Floor at 0: usedColumns() drops all-zero columns, so once the league needs
+  // no offense (or no defense) at all, the side goes empty and repeat(-1) throws
+  // a RangeError that kills the ENTIRE report — the likeliest night for that is
+  // the end of the auction, when the report matters most.
   L.push(
-    "─".repeat(teamW) + "─┼─" + "─".repeat(off.length * 4 - 1) +
-    "─┼─" + "─".repeat(def.length * 4 - 1) + "─┼────"
+    "─".repeat(teamW) + "─┼─" + "─".repeat(Math.max(0, off.length * 4 - 1)) +
+    "─┼─" + "─".repeat(Math.max(0, def.length * 4 - 1)) + "─┼────"
   );
   for (const r of rows.slice().sort((a, b) => Number(b.total_deficit || 0) - Number(a.total_deficit || 0))) {
     L.push(
@@ -366,7 +386,9 @@ export async function runFaNightlyJob(env, opts = {}) {
   out.won_last_24h = wonRecent.length;
 
   const max = Number(data.noms_max || 2);
-  const owing = (data.rows || []).filter((r) => Number(r.noms_used || 0) < max);
+  // Same predicate as the scoreboard — the endpoint's verdict, not a recompute.
+  // This drives the @-mention allowlist, so getting it wrong pings the wrong owner.
+  const owing = (data.rows || []).filter((r) => !!r.out_of_compliance && Number(r.noms_used || 0) <= max);
   out.owners_owing = owing.length;
 
   // Resolve real Discord ids for the owners who owe. A franchise with no linked
