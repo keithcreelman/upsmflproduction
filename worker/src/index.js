@@ -2669,7 +2669,13 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
         // Everyone who touched it: whoever led at some point, plus the rivals who
         // only ever appear as the name in a "forced bid increase" note.
         if (st.teams_in) bits.push(`**${st.teams_in}** ${st.teams_in === 1 ? "team" : "teams"} in it`);
-        if (st.high_bidders > 1) bits.push(`**${st.high_bidders}** led it`);
+        // ALWAYS shown, including 1 — hiding it destroys the only thing this pair
+        // says. "5 teams in it · 1 high bidder" means four teams pushed the price
+        // and never once led; "5 teams in it" alone is just a number (Keith
+        // 2026-07-15: "charbonnet 1 high bidder as well").
+        if (st.high_bidders) {
+          bits.push(`**${st.high_bidders}** high ${st.high_bidders === 1 ? "bidder" : "bidders"}`);
+        }
         text = `@everyone — 🏆 ${winner} **won ${playerName}** for ${bid}`;
         if (bits.length) text += `\n${bits.join(" · ")}`;
         allowedMentions = { parse: ["everyone"], users: mentionIdsFor(ev.fid) };
