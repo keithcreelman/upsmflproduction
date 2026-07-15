@@ -62,6 +62,12 @@ function humanDuration(sec) {
   return h ? `${h}h ${m}m` : `${m}m`;
 }
 
+// The two run times, in ONE place. The 9 PM header read "9:30 PM ET" for a day
+// after the schedule moved, because the time was a literal buried in the copy.
+// The cron (wrangler.toml "0 1,2,13,14 * * *") + the ET-hour gate (9 || 21) are
+// the source of truth; these labels must track them.
+const REPORT_LABEL = { morning: "9:00 AM ET", evening: "9:00 PM ET" };
+
 // Position columns, split offense | defense to match how owners read a lineup.
 const OFFENSE_COLS = [
   ["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"],
@@ -93,7 +99,7 @@ function buildMorningMessage(data, closed, standings, mentionsByFid, penaltiesAr
   const L = [];
 
   L.push("# 🧪 TEST REPORT — NOBODY IS REQUIRED TO BID");
-  L.push("### 🌅 FA AUCTION — MORNING · 9:00 AM ET");
+  L.push(`### 🌅 FA AUCTION — MORNING · ${REPORT_LABEL.morning}`);
   L.push("_Shaking this down before the real auction. **Numbers are live.**_");
   L.push("");
 
@@ -128,7 +134,7 @@ function buildMorningMessage(data, closed, standings, mentionsByFid, penaltiesAr
   L.push("");
 
   // ---- today: information only, no judgement ----
-  L.push(`**📥 TODAY SO FAR** — nominations as of 9:00 AM · ${max} per team due by midnight ET`);
+  L.push(`**📥 TODAY SO FAR** — nominations as of ${REPORT_LABEL.morning.replace(" ET", "")} · ${max} per team due by midnight ET`);
   const withNoms = rows.filter((r) => used(r) > 0).sort((a, b) => used(b) - used(a));
   if (!withNoms.length) {
     L.push("_Nobody's nominated yet — the day just started._");
@@ -188,7 +194,7 @@ function buildParentMessage(data, mentionsByFid) {
 
   // Time left in the ET nomination day, from the payload's own clock — NOT
   // hardcoded, so a late/retried cron still states the truth. Minute precision,
-  // not rounded hours: at 9:30 PM exactly 2h30m remain, and Math.round would say
+  // not rounded hours: at 9:00 PM exactly 3h remain, and Math.round would say
   // "3 hours" — pushing a §A2 deadline (with a §F fine behind it) half an hour
   // past midnight. Flooring instead reads "0 hours" on a late manual trigger.
   const timeLeft = humanDuration(Math.max(0,
@@ -198,7 +204,7 @@ function buildParentMessage(data, mentionsByFid) {
 
   const L = [];
   L.push("# 🧪 TEST REPORT — NOBODY IS REQUIRED TO BID TONIGHT");
-  L.push("### 🏈 FA AUCTION — DAILY · 9:30 PM ET");
+  L.push(`### 🏈 FA AUCTION — EVENING · ${REPORT_LABEL.evening}`);
   L.push("_Shaking this down before the real auction. **Numbers are live.**_");
   L.push("");
   L.push(`**NOMINATIONS TODAY** — ${max} per team · midnight→midnight ET`);

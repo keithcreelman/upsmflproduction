@@ -17341,7 +17341,15 @@ export default {
         // problem would just invert the confusion.
         const phraseUnauthorized = /login required|sign in|league login|not logged in/i.test(text);
         const bouncedHome = /<title>[^<]*MyFantasyLeague Home Page/i.test(text);
-        const unauthorized = phraseUnauthorized || bouncedHome;
+        // MFL's login page is LEAGUE-BRANDED — "<title>Fantasy Football: UPS
+        // Salary Cap Dynasty Login</title>" — so neither test above fires on it
+        // (verified live 2026-07-15). It sailed through as ok:true, parsed to
+        // zero lots, and the proxy overlay was skipped in SILENCE: the board just
+        // rendered "—" for every max, which reads as "you have no proxy" rather
+        // than "your session expired". Match the title's Login suffix in any
+        // branding.
+        const bouncedLogin = /<title>[^<]*\bLogin\b[^<]*<\/title>/i.test(text);
+        const unauthorized = phraseUnauthorized || bouncedHome || bouncedLogin;
         return {
           ok: resp.status >= 200 && resp.status < 400 && !unauthorized,
           status: resp.status,
@@ -18541,8 +18549,17 @@ export default {
         // COMMISH's own session, so parsing HIS page would serve HIS proxies to
         // every viewer. No browser identity ⇒ no overlay ⇒ your_proxy_bid_amount
         // stays null (unknown), which fail-softs to the public-current-only math.
+        // Every way this can fail is silent — no token, a bounced page, a parse
+        // that finds nothing, or an id that doesn't match a D1 lot — and each one
+        // renders as a bare "—" that looks like "you have no max". Log which.
+        let _ovDiag = { token: !!browserCookieHeader, page_ok: !!auctionPageRes.ok,
+          page_status: auctionPageRes.status, unauthorized: !!auctionPageRes.unauthorized,
+          cells: 0, matched: 0, with_proxy: 0, url: auctionPageRes.pageUrl };
         if (browserCookieHeader && auctionPageRes.ok) {
           const cells = parseAuctionLotCells(auctionPageRes.html);
+          _ovDiag.cells = cells.size;
+          _ovDiag.with_proxy = [...cells.values()].filter((c) => c.my_proxy_dollars != null).length;
+          _ovDiag.matched = activeAuctions.filter((l) => cells.has(String(l.player_id))).length;
           if (cells.size) {
             activeAuctions = activeAuctions.map((lot) => {
               const hit = cells.get(String(lot.player_id));
@@ -18574,6 +18591,7 @@ export default {
             });
           }
         }
+        console.log(`[auction/live] proxy-overlay ${JSON.stringify(_ovDiag)}`);
         const budgetRows = teamBudgetRowsFromLive(
           teamsSnapshot.teams, teamsSnapshot.salaryCapDollars, activeAuctions, viewerFranchiseId
         );
