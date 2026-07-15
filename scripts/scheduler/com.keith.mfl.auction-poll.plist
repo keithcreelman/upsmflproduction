@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.keith.mfl.auction-poll</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/keithcreelman/Code/MFL/upsmflproduction/scripts/auction_poll_tick.sh</string>
+  </array>
+
+  <!-- Every 5 minutes — the same cadence as the dead Cloudflare */5 cron this
+       stands in for. The worker route is idempotent + advisory-locked, so an
+       overlap with a revived cron is harmless (one of the two skips). -->
+  <key>StartInterval</key>
+  <integer>300</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- COMMISH_API_KEY is NOT here — the tick script pulls it from macOS
+       Keychain at runtime (item: ups-commish-api-key), same pattern as the
+       roast-bot watchdog. -->
+
+  <key>StandardOutPath</key>
+  <string>/tmp/ups_auction_poll.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/ups_auction_poll.err.log</string>
+</dict>
+</plist>
