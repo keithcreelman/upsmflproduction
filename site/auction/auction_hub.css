@@ -800,3 +800,19 @@ a.btn.small {
 .ah-bid-status { font-size: 12px; color: var(--muted); min-height: 16px; margin: 12px 0 0; }
 .ah-bid-status.err { color: var(--err); }
 .ah-bid-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+
+/* Roster KPI — three numbers in ONE card (Keith 2026-07-15). Replaces the
+   "1833 free agents" tile, which described the database rather than the reader.
+   The card spans wider than a plain KPI because it carries three values. */
+.ah-kpi-roster { grid-column: span 2; cursor: help; }
+.ah-kpi-triple { display: flex; gap: 18px; align-items: baseline; justify-content: center; }
+.ah-kpi-triple span { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ah-kpi-triple b { font-size: 26px; font-weight: 700; line-height: 1.1; color: var(--fg); }
+.ah-kpi-triple i { font-style: normal; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+@media (max-width: 720px) { .ah-kpi-roster { grid-column: span 1; } .ah-kpi-triple { gap: 10px; } .ah-kpi-triple b { font-size: 20px; } }
+
+/* "?" = we could not READ your max (no live MFL session) — deliberately NOT the
+   same glyph as "—" (you genuinely have no max). A broken overlay must announce
+   itself, not impersonate valid data. */
+.ah-proxy-blind { color: var(--warn, #d0902f); font-weight: 700; cursor: help; }
