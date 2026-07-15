@@ -88,7 +88,7 @@ const IMPACT_PROMPT = [
   "- Use markdown bullets and bold for scanability.",
 ].join("\n");
 
-export async function callExplain(env, { proposalTitle, proposalBody, question }) {
+export async function callExplain(env, { proposalTitle, proposalBody, question, extraContext }) {
   const apiKey = String(env.ANTHROPIC_API_KEY || "").trim();
   if (!apiKey) {
     return {
@@ -119,6 +119,17 @@ export async function callExplain(env, { proposalTitle, proposalBody, question }
           type: "text",
           text: `=== Proposal currently up for vote (this is what's being CHANGED) ===\n\nTitle: ${String(proposalTitle || "")}\n\n${String(proposalBody || "")}`,
         },
+        // Per-proposal memory: prior Q&A + commish rulings. Rulings are the
+        // commissioner's voice and OVERRIDE anything the bot said earlier —
+        // this is what makes the bot "learn" within a proposal. Appended
+        // AFTER the cached rulebook block so it never breaks the prompt
+        // cache; it's a few hundred fresh tokens, not 216KB.
+        ...(String(extraContext || "").trim()
+          ? [{
+              type: "text",
+              text: `=== Prior Q&A + commish rulings on THIS proposal (rulings are AUTHORITATIVE and override any earlier bot answer) ===\n\n${String(extraContext).trim().slice(0, 6000)}`,
+            }]
+          : []),
         {
           type: "text",
           text: `=== Owner question ===\n\n${trimmedQ}\n\nAnswer per the system instructions. The league context above contains the answer to most factual rule questions — find it before hedging or punting to the commish.`,
@@ -263,4 +274,93 @@ export async function callImpactAnalysis(env, { proposalTitle, proposalBody, fin
   const u = data.usage || {};
   console.log(`[impact] OK · in=${u.input_tokens || 0} (cache_read=${u.cache_read_input_tokens || 0}) out=${u.output_tokens || 0}`);
   return { ok: true, text: out.slice(0, 3800) };
+}
+
+// ── Discuss synthesis (Rule Proposals v2) ──────────────────────────────
+// One call does BOTH jobs for a member's DM "Discuss" submission: classify
+// it (answerable question / valid concern / feedback) AND write the reply.
+// Same model + cached-rulebook grounding as callExplain, so cost is pennies
+// and the answer is grounded in actual league rules, not vibes.
+//
+// Output contract: a single JSON object {"category": "...", "reply": "..."}.
+// Parse failure FAILS OPEN to valid_concern with the model's raw text —
+// mirroring classifyReply's fallback — because mislabeling a concern as
+// noise is worse than surfacing a question. The member always gets the
+// Surface button regardless of category (Keith: "no matter what the owner
+// can always surface up to the league").
+const DISCUSS_SYSTEM = `You are the UPS fantasy-football league's rules bot, helping the commissioner run a rule-proposal vote. A league member has replied to a rule proposal via DM. Your job:
+
+1. CLASSIFY their message:
+   - "answerable_question" — a factual question you can answer from the league rules, the proposal text, or the prior Q&A provided.
+   - "valid_concern" — a substantive objection, edge case, unintended consequence, or fairness issue the league should weigh. If you're unsure, choose this.
+   - "feedback" — opinion/preference with no question and no new issue ("I like it", "meh").
+2. WRITE the reply:
+   - For a question: answer it plainly and factually from the provided context. Cite the specific rule/section when one applies. Never invent rules.
+   - For a concern: restate it crisply in 1-3 sentences (this is what the league will see if they surface it), then add one sentence on what the proposal text actually says about it, if anything.
+   - For feedback: acknowledge in one friendly sentence.
+   - If a commish ruling in the prior-Q&A block answers it, the ruling IS the answer — quote it and attribute it to the commish.
+
+Respond with ONLY a JSON object, no fences, no preamble:
+{"category": "answerable_question" | "valid_concern" | "feedback", "reply": "<your reply, max ~1200 chars, plain Discord markdown>"}`;
+
+export async function callDiscussSynthesis(env, { proposalTitle, proposalBody, rationale, memberText, extraContext }) {
+  const apiKey = String(env.ANTHROPIC_API_KEY || "").trim();
+  const raw = String(memberText || "").trim().slice(0, 1500);
+  if (!raw) return { ok: false, category: "feedback", reply: "…got an empty message.", error: "empty" };
+  if (!apiKey) {
+    return { ok: false, category: "valid_concern", reply: raw, error: "missing_anthropic_api_key" };
+  }
+
+  const messages = [{
+    role: "user",
+    content: [
+      { type: "text", text: "=== League context (the comprehensive league rules — your single source of truth for current league mechanics) ===" },
+      { type: "text", text: LEAGUE_CONTEXT_TEXT, cache_control: { type: "ephemeral" } },
+      {
+        type: "text",
+        text: `=== Proposal under discussion ===\n\nTitle: ${String(proposalTitle || "")}\n\n${String(proposalBody || "")}\n\n=== Why the commish brought it up ===\n\n${String(rationale || "(not provided)")}`,
+      },
+      ...(String(extraContext || "").trim()
+        ? [{ type: "text", text: `=== Prior Q&A + commish rulings on THIS proposal (rulings are AUTHORITATIVE) ===\n\n${String(extraContext).trim().slice(0, 6000)}` }]
+        : []),
+      { type: "text", text: `=== Member's message ===\n\n${raw}` },
+    ],
+  }];
+
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 700, system: DISCUSS_SYSTEM, messages }),
+    });
+  } catch (e) {
+    return { ok: false, category: "valid_concern", reply: raw, error: `fetch: ${e?.message || e}` };
+  }
+  const text = await res.text();
+  if (!res.ok) {
+    console.log(`[discuss] HTTP ${res.status}: ${text.slice(0, 400)}`);
+    return { ok: false, category: "valid_concern", reply: raw, error: `http_${res.status}` };
+  }
+  let data;
+  try { data = JSON.parse(text); } catch (_) {
+    return { ok: false, category: "valid_concern", reply: raw, error: "non_json_envelope" };
+  }
+  const out = (data?.content || []).filter((b) => b?.type === "text").map((b) => String(b.text || "")).join("\n").trim();
+  const u = data.usage || {};
+  console.log(`[discuss] OK · tokens in=${u.input_tokens || 0} (cache_read=${u.cache_read_input_tokens || 0}) out=${u.output_tokens || 0}`);
+  // Extract the JSON object — tolerate stray prose around it.
+  try {
+    const m = out.match(/\{[\s\S]*\}/);
+    const parsed = JSON.parse(m ? m[0] : out);
+    const cat = ["answerable_question", "valid_concern", "feedback"].includes(parsed.category)
+      ? parsed.category : "valid_concern";
+    const reply = String(parsed.reply || "").trim().slice(0, 1400);
+    if (!reply) return { ok: false, category: "valid_concern", reply: raw, error: "empty_reply" };
+    return { ok: true, category: cat, reply, classification_json: JSON.stringify({ category: cat }), usage: u };
+  } catch (_) {
+    // Fail open: whatever the model wrote becomes the synthesis, treated as
+    // a concern so the member still gets the Surface path.
+    return { ok: true, category: "valid_concern", reply: out.slice(0, 1400) || raw, classification_json: JSON.stringify({ parse_fail: true }), usage: u };
+  }
 }

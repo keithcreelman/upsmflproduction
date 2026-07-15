@@ -14,6 +14,11 @@ compatibility_date = "2026-02-02"
 # (1059111651846131833) because DISCORD_DROPS_CHANNEL_ID is unset — re-add that
 # secret if a different channel is wanted.
 [vars]
+# Rule Proposals v2 (2026-07-15). LIVE ships OFF — dark-launch: publishes DM
+# only the commish + run in the test channel until he flips it in Kill Switches.
+RULE_PROPOSALS_ENABLED = "1"
+RULE_PROPOSALS_LIVE = "0"
+RULE_PROPOSALS_AI_ENABLED = "1"
 DROP_TRACKER_ENABLED = "1"
 DROP_TRACKER_AUTO_POST = "1"
 DROP_TRACKER_POST_MFL = "1"

@@ -428,6 +428,7 @@
     { key: "auctioncal", label: "🗓️ Update League Calendar" },
     { key: "discord", label: "Discord Routing" },
     { key: "nomfines", label: "⚖️ Missed Nominations" },
+    { key: "ruleprops", label: "📜 Rule Proposals" },
     { key: "killswitches", label: "Kill Switches" },
     { key: "revert", label: "Contract Revert" },
     { key: "status", label: "Status" }
@@ -457,6 +458,7 @@
     if (CS.tab === "auctioncal") return renderAuctionCalendar();
     if (CS.tab === "discord") return renderDiscordRouting();
     if (CS.tab === "nomfines") return renderNomFines();
+    if (CS.tab === "ruleprops") return renderRuleProps();
     if (CS.tab === "killswitches") return renderKillSwitches();
     if (CS.tab === "revert") return renderContractRevert();
     if (CS.tab === "status") return renderStatus();
@@ -1835,6 +1837,161 @@
   // ════════════════════════════════════════════════════════════════════
   // KILL SWITCHES — runtime feature flags (POST /admin/commish-settings)
   // ════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════
+  // RULE PROPOSALS v2 — author a proposal, publish it into the Hall voting
+  // engine (thread + tally + per-owner DM cards with Approve/Decline/Discuss).
+  // DARK LAUNCH: while RULE_PROPOSALS_LIVE is off, every publish DMs only the
+  // commish and runs in the test channel — rehearse until comfortable, then
+  // flip the switch in Kill Switches. (Keith 2026-07-15.)
+  // ════════════════════════════════════════════════════════════════════
+  function renderRuleProps() {
+    var host = content();
+    var myTab = CS.tab;
+    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading rule proposals…</div></div>';
+    fetchJSON(apiUrl("/admin/rule-proposals") + "?L=" + encodeURIComponent(L) + "&YEAR=" + encodeURIComponent(YEAR))
+      .then(function (data) {
+        if (CS.tab !== myTab) return;
+        var flags = (data && data.flags) || {};
+        var props = (data && data.proposals) || [];
+        var qa = (data && data.qa_log) || [];
+
+        var banner = flags.live
+          ? '<p class="fo-row-hint" style="border-left:3px solid #c0392b;padding-left:8px;">🟢 <strong>LIVE</strong> — publishing fans out to EVERY active owner and posts in the Rules channel. Use the test-mode checkbox to rehearse a single proposal.</p>'
+          : '<p class="fo-row-hint" style="border-left:3px solid #1f8a4c;padding-left:8px;">🌑 <strong>DARK</strong> — every publish DMs only YOU and runs in the test channel (passes at 1 YES so you can walk the whole flow solo). Flip <strong>Rule proposals LIVE</strong> in Kill Switches when ready.</p>';
+
+        var defaultDeadline = new Date(Date.now() + 7 * 86400000);
+        var dlPad = function (n) { return (n < 10 ? "0" : "") + n; };
+        var dlLocal = defaultDeadline.getFullYear() + "-" + dlPad(defaultDeadline.getMonth() + 1) + "-" + dlPad(defaultDeadline.getDate()) + "T21:00";
+
+        var form =
+          '<div class="fo-card"><div class="fo-card-head"><h3>📜 New Rule Proposal</h3></div>' + banner +
+          '<div style="display:grid;gap:8px;max-width:760px;">' +
+            '<label>Title<br><input type="text" id="rp-title" maxlength="120" style="width:100%;" placeholder="e.g. Taxi squad: allow one emergency call-up per season"></label>' +
+            '<label>TLDR (one line owners see first)<br><input type="text" id="rp-tldr" maxlength="240" style="width:100%;" placeholder="One sentence: what changes and for whom."></label>' +
+            '<label>The rule, as it would read (markdown)<br><textarea id="rp-body" rows="6" style="width:100%;" placeholder="Exact rule text. This is what the league votes on — verbatim."></textarea></label>' +
+            '<label>Why this came up (markdown)<br><textarea id="rp-rationale" rows="4" style="width:100%;" placeholder="The reasons it was brought up — the story behind the proposal."></textarea></label>' +
+            '<label>Supporting data (markdown, optional)<br><textarea id="rp-data" rows="4" style="width:100%;" placeholder="Numbers, history, examples. Posted as its own message in the thread."></textarea></label>' +
+            '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
+              '<label>Passes at (YES votes) <input type="number" id="rp-pass" min="1" max="12" value="7" style="width:70px;"></label>' +
+              '<label>Deadline <input type="datetime-local" id="rp-deadline" value="' + dlLocal + '"></label>' +
+              '<label>Category <input type="text" id="rp-category" value="rules" style="width:120px;"></label>' +
+              '<label><input type="checkbox" id="rp-testmode"' + (flags.live ? '' : ' checked disabled') + '> test mode (solo + test channel)</label>' +
+            '</div>' +
+            '<div><button type="button" class="fo-btn" id="rp-preview-btn">Preview</button> ' +
+            '<button type="button" class="fo-btn" id="rp-publish-btn" style="font-weight:700;">' + (flags.live ? '🚀 Publish to league' : '🌑 Publish (dark — DMs only you)') + '</button></div>' +
+            '<pre id="rp-preview" style="display:none;white-space:pre-wrap;background:rgba(128,128,128,.08);padding:10px;border-radius:8px;font-size:12px;"></pre>' +
+          '</div></div>';
+
+        var rows = props.map(function (pr) {
+          var tally = '✅ ' + (pr.yes || 0) + ' · ❌ ' + (pr.no || 0) + ' · ➖ ' + (pr.abstain || 0) + ' / needs ' + (pr.pass_yes_count || 7);
+          var st = pr.final_outcome
+            ? (pr.final_outcome === 'passed' ? '✅ PASSED' : pr.final_outcome === 'rejected' ? '❌ REJECTED' : pr.final_outcome.toUpperCase()) + (pr.close_reason === 'commish_ruling' ? ' (ruling)' : '')
+            : (pr.round_status === 'open' ? '🗳 open' : pr.round_status);
+          var testTag = Number(pr.test_only) === 1 ? ' <span style="opacity:.65;">[test]</span>' : '';
+          var link = pr.thread_url ? ' · <a href="' + esc(pr.thread_url) + '" target="_blank" rel="noopener">thread ↗</a>' : '';
+          var controls = '';
+          if (pr.round_status === 'open' && !pr.final_outcome) {
+            controls =
+              '<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">' +
+                '<select data-rpv-outcome="' + esc(pr.proposal_id) + '"><option value="passed">rule: PASSED</option><option value="rejected">rule: REJECTED</option></select>' +
+                '<input type="text" data-rpv-reason="' + esc(pr.proposal_id) + '" placeholder="reason (posted to the league)" style="min-width:240px;">' +
+                '<button type="button" class="fo-btn" data-rpv-btn="' + esc(pr.proposal_id) + '">⚖️ Rule (my voice)</button>' +
+              '</div>';
+          }
+          var ruling =
+            '<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">' +
+              '<input type="text" data-rpr-text="' + esc(pr.proposal_id) + '" placeholder="ruling / authoritative answer for the bot to trust" style="min-width:280px;">' +
+              '<label style="font-size:12px;"><input type="checkbox" data-rpr-post="' + esc(pr.proposal_id) + '" checked> also post to thread</label>' +
+              '<button type="button" class="fo-btn" data-rpr-btn="' + esc(pr.proposal_id) + '">Save ruling</button>' +
+            '</div>';
+          return '<div class="fo-card" style="margin-top:8px;"><strong>' + esc(pr.title) + '</strong>' + testTag +
+            '<div class="fo-row-hint">' + st + ' · ' + tally + ' · 💬 ' + (pr.qa_count || 0) + ' discussions (' + (pr.surfaced_count || 0) + ' surfaced)' + link + '</div>' +
+            controls + ruling + '</div>';
+        }).join('');
+
+        var qaRows = qa.slice(0, 15).map(function (q) {
+          var head = (q.kind === 'keith_ruling' || q.kind === 'commish_verdict')
+            ? '⚖️ RULING [' + esc(q.proposal_id) + ']: ' + esc(q.keith_ruling || '')
+            : (q.surfaced ? '📢 ' : '🔒 ') + esc(q.display_name || 'owner') + ' (' + esc(q.kind) + ') [' + esc(q.proposal_id) + ']: ' + esc(q.question_text || '');
+          var ans = q.bot_answer ? '<div style="opacity:.75;margin-left:12px;">🤖 ' + esc(String(q.bot_answer).slice(0, 240)) + '</div>' : '';
+          return '<div style="margin:6px 0;font-size:12px;">' + head + ans + '</div>';
+        }).join('');
+
+        host.innerHTML = form +
+          '<div class="fo-card" style="margin-top:12px;"><div class="fo-card-head"><h3>Proposals</h3></div>' + (rows || '<p class="fo-row-hint">None yet.</p>') + '</div>' +
+          '<div class="fo-card" style="margin-top:12px;"><div class="fo-card-head"><h3>Recent discussions (🔒 = private, 📢 = surfaced)</h3></div>' + (qaRows || '<p class="fo-row-hint">No discussions yet.</p>') + '</div>';
+
+        var val = function (id) { return (document.getElementById(id) || {}).value || ''; };
+        var buildBody = function () {
+          var dl = val('rp-deadline');
+          return {
+            title: val('rp-title'), tldr: val('rp-tldr'), body_md: val('rp-body'),
+            rationale_md: val('rp-rationale'), supporting_data_md: val('rp-data'),
+            pass_yes_count: parseInt(val('rp-pass'), 10) || 7,
+            deadline_utc: dl ? new Date(dl).toISOString() : '',
+            category: val('rp-category') || 'rules',
+            test_mode: !!(document.getElementById('rp-testmode') || {}).checked,
+          };
+        };
+        document.getElementById('rp-preview-btn').addEventListener('click', function () {
+          var b = buildBody();
+          var pre = document.getElementById('rp-preview');
+          pre.style.display = 'block';
+          pre.textContent =
+            '── DM CARD (every owner gets this) ──\n' +
+            '🏛 RULE PROPOSAL — ' + b.title + '\n\n' + (b.tldr || '') + '\n\n' +
+            'Voting deadline: ' + (b.deadline_utc || '(not set)') + '\nPasses at: ' + b.pass_yes_count + ' YES votes\n' +
+            '[✅ Approve] [❌ Decline] [💬 Discuss]\n\n' +
+            '── THREAD ──\n' + b.title + '\n\n' + b.body_md +
+            (b.rationale_md ? '\n\n📋 Why this came up\n' + b.rationale_md : '') +
+            (b.supporting_data_md ? '\n\n📊 Supporting data\n' + b.supporting_data_md : '');
+        });
+        document.getElementById('rp-publish-btn').addEventListener('click', function () {
+          var b = buildBody();
+          if (!b.title || b.title.length < 4) return toast('Title too short', 'err');
+          if (!b.body_md || b.body_md.length < 10) return toast('Rule text too short', 'err');
+          if (!b.deadline_utc) return toast('Set a deadline', 'err');
+          var darkNow = !flags.live || b.test_mode;
+          var msg = darkNow
+            ? 'Publish DARK? DMs only you, test channel, passes at 1 YES.'
+            : 'Publish LIVE to the whole league? Every active owner gets a DM with vote buttons. This is the real thing.';
+          if (!window.confirm(msg)) return;
+          var hour = new Date().getHours();
+          if (!darkNow && (hour >= 22 || hour < 6) && !window.confirm('It is quiet hours (10 PM–6 AM ET) — owners get pinged NOW. Still publish?')) return;
+          postJSON(apiUrl('/admin/rule-proposals/publish') + '?L=' + encodeURIComponent(L) + '&YEAR=' + encodeURIComponent(YEAR), b)
+            .then(function (r) { toast('Published ' + r.round_id + ' — fan-out running (~15s)', 'ok'); setTimeout(renderRuleProps, 4000); })
+            .catch(function (e) { toast('Publish failed: ' + e.message, 'err'); });
+        });
+        $$('[data-rpv-btn]', host).forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var id = btn.getAttribute('data-rpv-btn');
+            var outcome = (host.querySelector('[data-rpv-outcome="' + id + '"]') || {}).value;
+            var reason = (host.querySelector('[data-rpv-reason="' + id + '"]') || {}).value;
+            if (!reason) return toast('A reason is required — it goes to the league', 'err');
+            if (!window.confirm('Rule ' + id + ' as ' + outcome.toUpperCase() + '? This closes the vote and announces with your reason.')) return;
+            postJSON(apiUrl('/admin/rule-proposals/' + encodeURIComponent(id) + '/verdict') + '?L=' + encodeURIComponent(L) + '&YEAR=' + encodeURIComponent(YEAR), { outcome: outcome, reason: reason })
+              .then(function () { toast('Ruled. Announcement is on its way.', 'ok'); setTimeout(renderRuleProps, 2500); })
+              .catch(function (e) { toast('Refused: ' + e.message, 'err'); });
+          });
+        });
+        $$('[data-rpr-btn]', host).forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var id = btn.getAttribute('data-rpr-btn');
+            var text = (host.querySelector('[data-rpr-text="' + id + '"]') || {}).value;
+            var post = !!(host.querySelector('[data-rpr-post="' + id + '"]') || {}).checked;
+            if (!text) return toast('Type the ruling first', 'err');
+            postJSON(apiUrl('/admin/rule-proposals/' + encodeURIComponent(id) + '/ruling') + '?L=' + encodeURIComponent(L) + '&YEAR=' + encodeURIComponent(YEAR), { text: text, post_to_thread: post })
+              .then(function () { toast('Ruling saved — the bot now treats it as authoritative.', 'ok'); setTimeout(renderRuleProps, 2000); })
+              .catch(function (e) { toast('Failed: ' + e.message, 'err'); });
+          });
+        });
+      })
+      .catch(function (e) {
+        if (CS.tab !== myTab) return;
+        host.innerHTML = '<div class="fo-card"><p class="fo-row-hint">Failed to load: ' + esc(e.message) + '</p></div>';
+      });
+  }
+
   function renderKillSwitches() {
     var host = content();
     var myTab = CS.tab;

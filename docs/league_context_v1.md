@@ -2461,8 +2461,8 @@ The NFL regular season has a fixed structure: 18 weeks (regular season) starting
 
 ### Vote-change grace window after auto-close (Hall bot rule)
 
-- When an item auto-closes (YES count hits the pass threshold, OR NO makes YES mathematically unreachable), owners can still change their vote for **6 hours** after the close timestamp.
-- After the 6-hour grace window, the item is **locked** — further vote changes are rejected with a "this item is locked" message.
+- When an item auto-closes (YES count hits the pass threshold, OR NO makes YES mathematically unreachable), owners who already voted can still change their vote for **5 minutes** after the close timestamp. (Corrected 2026-07-15 to match live behavior — `VOTE_CHANGE_LOCK_MINUTES = 5` in `discord_round.js`; this doc previously said 6 hours, which the code never implemented, and the bot grounds its answers here. Keith chose the code's behavior.)
+- After the 5-minute grace window, the item is **locked** — further vote changes are rejected with a "this item is locked" message. Owners who have NOT yet voted may still cast a late vote (recorded for the tally, cannot change the verdict).
 - Final tally is recomputed at `/rules close` from the latest active votes (not frozen at auto-close moment), so changes made within the grace window do count.
 
 ### Pot splitting — origin and current rule
