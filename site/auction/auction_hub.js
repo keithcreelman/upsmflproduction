@@ -220,6 +220,72 @@
     if (ov) ov.remove();
   }
   // opts: { player_id, player_name, auction_type, high_k }
+  // ── Cap + roster pre-flight (2026-07-15) ────────────────────────────
+  // Mirrors worker auctionEligibility + the mobile sheet. The board already
+  // rendered every number this needs (team_budget_rows: available funds, the
+  // $1K-per-need reserve, per-position max, lineup deficits) and the bid modal
+  // never read them — so a bid the cap can't cover went to MFL and came back as
+  // "auction_post_failed" with no explanation.
+  const AH_MAX_ROSTER = 35;
+  function _myBudgetRow() {
+    const fid = _viewerFid();
+    if (!fid || fid === "0000") return null;
+    const rows = (STATE.fa && STATE.fa.team_budget_rows) || [];
+    const p4 = (v) => String(v == null ? "" : v).replace(/\D/g, "").padStart(4, "0");
+    return rows.find((r) => p4(r.franchise_id) === p4(fid)) || null;
+  }
+  // { maxK, locked, lockMsg, needsMsg } — maxK 0 = unknown ⇒ no clamp.
+  function bidLimits(pos) {
+    const out = { maxK: 0, locked: false, lockMsg: "", needsMsg: "" };
+    const row = _myBudgetRow();
+    if (!row) return out;
+    let P = String(pos || "").toUpperCase();
+    if (P === "K") P = "PK";
+    if (P === "P") P = "PN";
+    const deficits = row.lineup_deficits || {};
+    let totalDeficit = 0;
+    const needList = [];
+    Object.keys(deficits).forEach((k) => {
+      const n = Number(deficits[k]) || 0;
+      if (n > 0) { totalDeficit += n; needList.push(k + "\u00d7" + n); }
+    });
+    const rosterCount = Number(row.roster_count) || 0;
+    if (rosterCount >= AH_MAX_ROSTER) {
+      out.locked = true;
+      out.lockMsg = "Your roster is full (" + rosterCount + "/" + AH_MAX_ROSTER + "). Cut someone first.";
+      return out;
+    }
+    // Slot lock — money is irrelevant when the spots are already spoken for.
+    const deficitAfter = totalDeficit - ((Number(deficits[P]) || 0) > 0 ? 1 : 0);
+    const slotsAfter = AH_MAX_ROSTER - (rosterCount + 1);
+    if (deficitAfter > slotsAfter) {
+      out.locked = true;
+      out.lockMsg = "You can\u2019t add a " + P + " \u2014 every roster spot you have left is owed to a position you still need (" +
+        needList.join(", ") + "). Fill those first.";
+      return out;
+    }
+    const entry = (row.max_bid_by_position || {})[P];
+    const maxDollars = entry ? Number(entry.scenario_27) : Number(row.scenario_27_max_bid);
+    if (maxDollars > 0) out.maxK = Math.floor(maxDollars / 1000);
+    if (needList.length) {
+      out.needsMsg = "still owed " + needList.join(", ") + ", " +
+        fmtK(Math.round((Number(row.reserve_cost_27) || 0) / 1000)) + " held in reserve";
+    }
+    return out;
+  }
+  function _posForPid(pid) {
+    const key = String(pid);
+    const pool = (STATE.faPool || []).concat((STATE.fa && STATE.fa.available_players) || []);
+    for (let i = 0; i < pool.length; i++) {
+      if (String(pool[i].player_id) === key) return pool[i].position || "";
+    }
+    const lots = (STATE.lots && STATE.lots.lots) || [];
+    for (let i = 0; i < lots.length; i++) {
+      if (String(lots[i].player_id) === key) return lots[i].position || "";
+    }
+    return "";
+  }
+
   function openBidModal(opts) {
     if (!_canBidInApp()) { window.open(mflBidUrl(opts.player_id), "_blank", "noopener"); return; }
     const highK = Number(opts.high_k) || 0;
@@ -239,7 +305,17 @@
     const myProxyK = (_ov && _ov.your_proxy_bid_amount != null) ? Math.round(Number(_ov.your_proxy_bid_amount) / 1000) : 0;
     const iLead = myProxyK > 0;
     const minK = highK + 1;
-    const startK = iLead ? Math.max(myProxyK, minK) : minK;
+    let startK = iLead ? Math.max(myProxyK, minK) : minK;
+    // Pre-flight: a locked position never opens a modal, and the ceiling is
+    // clamped before the field is ever rendered.
+    const lim = bidLimits(opts.position || _posForPid(opts.player_id));
+    if (lim.locked) { window.alert(lim.lockMsg); return; }
+    if (lim.maxK > 0 && minK > lim.maxK) {
+      window.alert("You can\u2019t reach the " + fmtK(minK) + " minimum on this player \u2014 your max is " + fmtK(lim.maxK) +
+        (lim.needsMsg ? " (" + lim.needsMsg + ")" : "") + ".");
+      return;
+    }
+    if (lim.maxK > 0 && startK > lim.maxK) startK = lim.maxK;
     closeBidModal();
     const deepLink = mflBidUrl(opts.player_id);
     const html =
@@ -255,7 +331,7 @@
           '<label class="ah-bid-lbl" for="ah-bid-amt">Your max bid ($K)</label>' +
           '<div class="ah-bid-input">' +
             '<button type="button" class="btn small secondary ah-bid-step" data-step="-1" aria-label="Lower bid">−</button>' +
-            '<input type="number" id="ah-bid-amt" min="' + minK + '" step="1" inputmode="numeric" value="' + startK + '" />' +
+            '<input type="number" id="ah-bid-amt" min="' + minK + '"' + (lim.maxK > 0 ? ' max="' + lim.maxK + '"' : '') + ' step="1" inputmode="numeric" value="' + startK + '" />' +
             '<button type="button" class="btn small secondary ah-bid-step" data-step="1" aria-label="Raise bid">+</button>' +
           '</div>' +
           '<div class="ah-bid-status" id="ah-bid-status" aria-live="polite"></div>' +
@@ -307,6 +383,18 @@
     // manual down-edit after an outbid is rejected.
     const floorK = Math.max(minK, parseInt(amt && amt.getAttribute("min"), 10) || minK);
     if (amountK < floorK) { if (statusEl) { statusEl.className = "ah-bid-status err"; statusEl.textContent = "Bid must be at least " + fmtK(floorK) + "."; } return; }
+    // Ceiling. Recomputed rather than closed over — submitDesktopBid is its own
+    // function, so the modal-open `lim` is not in scope here.
+    const ceilK = parseInt(amt && amt.getAttribute("max"), 10) || 0;
+    if (ceilK > 0 && amountK > ceilK) {
+      const lim2 = bidLimits(opts.position || _posForPid(opts.player_id));
+      if (statusEl) {
+        statusEl.className = "ah-bid-status err";
+        statusEl.textContent = "Max " + fmtK(ceilK) + " on this player \u2014 " +
+          (lim2.needsMsg || "the rest of your cap is reserved for the roster spots you still owe") + ".";
+      }
+      return;
+    }
     if (statusEl) { statusEl.className = "ah-bid-status"; statusEl.textContent = ""; }
     btn.disabled = true; btn.textContent = "Submitting…";
     postAuctionBid({
