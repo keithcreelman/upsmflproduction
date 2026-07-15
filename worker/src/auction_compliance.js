@@ -177,15 +177,69 @@ export async function pendingMflPenalties(env, { season, leagueId }) {
   return results || [];
 }
 
-// Commish override (§F RULE 2 caveat). Voids the DAY and every penalty it
-// caused, in one transaction-ish sweep. Voiding is not deleting: the row stays
-// as evidence that the owner called ahead, which is what protects them if it
-// comes up again.
+// Re-derive offense numbers and amounts for one franchise from its surviving
+// (un-voided) missed days, oldest first.
 //
-// Later offenses are NOT renumbered. Their offense_no was stamped from the
-// facts known when they were booked, and re-deriving history to match a later
-// ruling would silently re-price a fine an owner has already been told about.
-// The reports count un-voided days, so the standings read correctly regardless.
+// This MUST run after any void/unvoid. Excusing a day and leaving later fines
+// on their original numbers produces an incoherent schedule: excuse someone's
+// 2nd miss and they'd pay $3K + $15K — third-offense money for a second
+// offense, skipping the $7K tier that exists between them. Canon §T4.3a is
+// explicit that an excused day "won't be held against you", and a day that
+// silently pushes your next miss into a higher tier is being held against you.
+//
+// Re-pricing here can only ever move a fine DOWN or restore it to a number the
+// owner was already told — the schedule is a pure function of how many misses
+// survive, so there is no version of this that surprises someone upward.
+async function recomputeOffenses(env, { season, leagueId, fid }) {
+  const db = env.UPS_MFL_DB;
+  const { results: days } = await db.prepare(
+    `SELECT et_day FROM ups_faa_nom_days
+      WHERE season=? AND league_id=? AND fid=? AND missed=1 AND voided=0
+      ORDER BY et_day ASC`
+  ).bind(Number(season), String(leagueId), fid).all();
+
+  const repriced = [];
+  for (let i = 0; i < (days || []).length; i += 1) {
+    const etDay = days[i].et_day;
+    const offenseNo = i + 1;
+    const amountK = rule2FineK(offenseNo);
+    // Past the fined tiers (4th+) there is no money — drop any rows that exist
+    // so the ledger can't hold a fine the schedule doesn't define.
+    if (amountK <= 0) {
+      await db.prepare(
+        `UPDATE ups_faa_nom_penalties SET voided=1, void_reason='beyond fine schedule (league-fit review)'
+          WHERE season=? AND league_id=? AND fid=? AND et_day=? AND voided=0`
+      ).bind(Number(season), String(leagueId), fid, etDay).run();
+      continue;
+    }
+    for (const applies of [Number(season), Number(season) + 1]) {
+      const id = `${season}|${leagueId}|${fid}|${etDay}|${applies}`;
+      const before = await db.prepare(
+        `SELECT amount_k, posted_to_mfl FROM ups_faa_nom_penalties WHERE penalty_id=?`
+      ).bind(id).first();
+      await db.prepare(
+        `INSERT INTO ups_faa_nom_penalties
+           (penalty_id, season, league_id, fid, et_day, offense_no, amount_k, applies_to_season, voided)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+         ON CONFLICT(penalty_id) DO UPDATE SET
+           offense_no = excluded.offense_no,
+           amount_k   = excluded.amount_k,
+           voided     = 0`
+      ).bind(id, Number(season), String(leagueId), fid, etDay, offenseNo, amountK, applies).run();
+      // A row already posted to MFL whose price just changed needs a human —
+      // the salaryAdj out there is now the wrong number.
+      if (before && Number(before.posted_to_mfl) === 1 && Number(before.amount_k) !== amountK) {
+        repriced.push({ penalty_id: id, was_k: Number(before.amount_k), now_k: amountK });
+      }
+    }
+  }
+  return repriced;
+}
+
+// Commish override (§F RULE 2 caveat). Voids the DAY and every penalty it
+// caused, then re-derives the franchise's remaining offenses so the schedule
+// stays coherent. Voiding is not deleting: the row stays as evidence that the
+// owner called ahead, which is what protects them if it comes up again.
 export async function voidNomDay(env, { season, leagueId, fid, etDay, reason, by }) {
   const db = env.UPS_MFL_DB;
   if (!db) return { ok: false, error: "no_db" };
@@ -203,6 +257,9 @@ export async function voidNomDay(env, { season, leagueId, fid, etDay, reason, by
       WHERE season=? AND league_id=? AND fid=? AND et_day=? AND voided=0`
   ).bind(safeStr(reason) || null, safeStr(by) || null, now,
     Number(season), String(leagueId), f, String(etDay)).run();
+  // Re-derive what's left so an excused day can't push a later miss into a
+  // higher tier — see recomputeOffenses.
+  const repriced = await recomputeOffenses(env, { season, leagueId, fid: f });
   return {
     ok: true,
     days_voided: d.meta?.changes || 0,
@@ -210,6 +267,62 @@ export async function voidNomDay(env, { season, leagueId, fid, etDay, reason, by
     // A penalty already posted to MFL needs its salaryAdj reversed by hand —
     // voiding the row does NOT undo the write.
     needs_mfl_reversal: await postedCount(env, { season, leagueId, fid: f, etDay }),
+    // Already-posted fines whose price moved when the ladder re-derived.
+    repriced_posted: repriced,
+  };
+}
+
+// Undo a void. A mis-click on a fine is not something an owner should have to
+// wait for a SQL session to fix, and the alternative (no undo) quietly pushes
+// the commish toward "just leave it voided" — which is the wrong answer for the
+// league. Restores the day AND its penalties together, so the offense count and
+// the money can never disagree.
+export async function unvoidNomDay(env, { season, leagueId, fid, etDay, by }) {
+  const db = env.UPS_MFL_DB;
+  if (!db) return { ok: false, error: "no_db" };
+  const f = padFid(fid);
+  const note = `restored by ${safeStr(by) || "commish"} at ${new Date().toISOString()}`;
+  const d = await db.prepare(
+    `UPDATE ups_faa_nom_days
+        SET voided=0, void_reason=?, voided_by=NULL, voided_at_utc=NULL
+      WHERE season=? AND league_id=? AND fid=? AND et_day=? AND voided=1`
+  ).bind(note, Number(season), String(leagueId), f, String(etDay)).run();
+  const p = await db.prepare(
+    `UPDATE ups_faa_nom_penalties
+        SET voided=0, void_reason=?, voided_by=NULL, voided_at_utc=NULL
+      WHERE season=? AND league_id=? AND fid=? AND et_day=? AND voided=1`
+  ).bind(note, Number(season), String(leagueId), f, String(etDay)).run();
+  const repriced = await recomputeOffenses(env, { season, leagueId, fid: f });
+  return {
+    ok: true,
+    days_restored: d.meta?.changes || 0,
+    penalties_restored: p.meta?.changes || 0,
+    repriced_posted: repriced,
+  };
+}
+
+// Every recorded day for the auction, newest first, with its penalties attached.
+// Feeds the commish void UI — it must show VOIDED rows too, since the whole
+// point is to see and undo them.
+export async function nomComplianceLedger(env, { season, leagueId }) {
+  const db = env.UPS_MFL_DB;
+  if (!db) return { ok: false, error: "no_db", days: [] };
+  const { results: days } = await db.prepare(
+    `SELECT * FROM ups_faa_nom_days
+      WHERE season=? AND league_id=? AND missed=1
+      ORDER BY et_day DESC, fid ASC`
+  ).bind(Number(season), String(leagueId)).all();
+  const { results: pens } = await db.prepare(
+    `SELECT * FROM ups_faa_nom_penalties WHERE season=? AND league_id=?`
+  ).bind(Number(season), String(leagueId)).all();
+  const byKey = {};
+  for (const p of (pens || [])) (byKey[`${p.fid}|${p.et_day}`] ||= []).push(p);
+  return {
+    ok: true,
+    days: (days || []).map((d) => ({
+      ...d,
+      penalties: byKey[`${d.fid}|${d.et_day}`] || [],
+    })),
   };
 }
 

@@ -13,6 +13,9 @@ import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_f
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar } from "./auction_calendar.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount } from "./auction_windows.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
+import {
+  nomComplianceLedger, voidNomDay, unvoidNomDay, RULE2_FINE_K_BY_OFFENSE,
+} from "./auction_compliance.js";
 
 const acquisitionLiveMemoryCache = new Map();
 const contractDiscordChannelQueues = new Map();
@@ -37440,6 +37443,68 @@ export default {
           ).bind(JSON.stringify(merged), new Date().toISOString()).run();
         } catch (e) { return jsonOut(500, { ok: false, error: e?.message || String(e) }); }
         return jsonOut(200, { ok: true, discord_routing: merged });
+      }
+
+      // ---- §F RULE 2 — missed-nomination ledger + commish override ----
+      // Canon T4.3a: a fine is waived for a family emergency, or when an owner
+      // gives a CC member notice ahead of time. That caveat is load-bearing —
+      // without a way to act on it the machine WILL fine somebody who called
+      // first, which is worse than having no fine system at all. This is that
+      // way. Same gate as commish-settings: MFL-proven identity or the API key.
+      if (path === "/admin/auction/nom-compliance" && request.method === "GET") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear());
+        const leagueId = safeStr(url.searchParams.get("L") || L || env.LEAGUE_ID || "74598");
+        try {
+          const ledger = await nomComplianceLedger(env, { season, leagueId });
+          // Franchise names so the UI reads like the league, not like fids.
+          let names = {};
+          try {
+            const lj = await mflExportJson(season, leagueId, "league", {});
+            const fl = lj?.data?.league?.franchises?.franchise || [];
+            for (const f of (Array.isArray(fl) ? fl : [fl])) {
+              const id = padFranchiseId(f?.id);
+              if (id) names[id] = safeStr(f?.name) || id;
+            }
+          } catch (_) { /* names are cosmetic — never fail the ledger over them */ }
+          return jsonOut(200, {
+            ...ledger,
+            season, league_id: leagueId,
+            franchise_names: names,
+            fine_schedule_k: RULE2_FINE_K_BY_OFFENSE,
+            penalties_armed: await getFeatureFlag(env, "AUCTION_FAA_PENALTIES_ENABLED"),
+          });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
+      }
+
+      // POST /admin/auction/void-nom-day — excuse (or restore) a missed day.
+      // { fid, et_day, reason, undo? }
+      if (path === "/admin/auction/void-nom-day" && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const season = safeStr(body.season || YEAR || new Date().getUTCFullYear());
+        const leagueId = safeStr(body.league_id || L || env.LEAGUE_ID || "74598");
+        const fid = padFranchiseId(body.fid);
+        const etDay = safeStr(body.et_day);
+        if (!fid || !/^\d{4}-\d{2}-\d{2}$/.test(etDay)) {
+          return jsonOut(400, { ok: false, error: "need fid + et_day (YYYY-MM-DD)" });
+        }
+        // Attribute the override to whoever proved they were commish, not to a
+        // name typed into the body — the override is part of the audit trail.
+        const who = (await provenCommish(season, leagueId)).fid || "commish";
+        try {
+          const r = body.undo
+            ? await unvoidNomDay(env, { season, leagueId, fid, etDay, by: who })
+            : await voidNomDay(env, { season, leagueId, fid, etDay, reason: safeStr(body.reason), by: who });
+          return jsonOut(200, { ok: true, undo: !!body.undo, ...r });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
       }
 
       // GET /admin/d1-status — row counts + last-write per ups_* table
