@@ -422,16 +422,36 @@
     try {
       var u = new URL(window.location.href || "");
       var path = safeStr(u.pathname);
+      // URLSearchParams.get() is CASE-SENSITIVE, and MFL is not consistent about
+      // case: /home/<id> and ?L= on most pages, but ?LEAGUE_ID= on every
+      // options?O=NN page (auction O=43, trades O=05, rosters O=07 ...). Asking
+      // for "league_id" on those returned null, leagueId stayed "", and
+      // applyMflTokens then SKIPPED the substitution — shipping a literal
+      // "%LEAGUEID%" into the header's home link: /2026/home/%LEAGUEID%.
+      // %YEAR% still resolved (it falls back to the path), which is why the URL
+      // looked half-correct and the bug hid for so long.
+      var param = function () {
+        for (var i = 0; i < arguments.length; i += 1) {
+          var want = String(arguments[i]).toLowerCase();
+          var it = u.searchParams.entries();
+          for (var e = it.next(); !e.done; e = it.next()) {
+            if (String(e.value[0]).toLowerCase() === want && safeStr(e.value[1])) return safeStr(e.value[1]);
+          }
+        }
+        return "";
+      };
       var season = safeStr(
-        u.searchParams.get("YEAR") ||
-          u.searchParams.get("season") ||
+        param("YEAR", "season") ||
           (path.match(/\/(\d{4})(?:\/|$)/) || [])[1] ||
           ""
       ).replace(/\D/g, "");
+      // window.league_id is set by MFL's own page JS and survives URL shapes we
+      // haven't catalogued — the commish embed loader already leans on it. Last
+      // resort, because the URL is the more explicit signal when present.
       var leagueId = safeStr(
-        u.searchParams.get("L") ||
-          u.searchParams.get("league_id") ||
+        param("L", "LEAGUE_ID", "LEAGUEID") ||
           (path.match(/\/home\/(\d+)(?:\/|$)/i) || [])[1] ||
+          safeStr(window.league_id || window.LEAGUE_ID || "") ||
           ""
       ).replace(/\D/g, "");
       ctx.host = safeStr(u.host || ctx.host);
