@@ -611,6 +611,32 @@ export async function runFaNightlyJob(env, opts = {}) {
     return out;
   }
 
+  // One league post per (mode, ET day), atomically claimed. The report now has
+  // two possible triggers on the same clock — the CF cron and the launchd
+  // stand-in installed during the 2026-07-15 cron outage — and when Cloudflare
+  // revives the cron both would fire at 9:00/21:00 ET. First to claim the slot
+  // posts; the loser exits with already_posted_today. force=1 bypasses (a
+  // deliberate commish re-run). If the post then FAILS, the claim is released
+  // so a retry isn't locked out of the whole day.
+  const postClaimKey = `faa_report:${mode}:${etDayKeyOf(Math.floor(Date.now() / 1000))}`;
+  if (!opts.force && env.UPS_MFL_DB) {
+    try {
+      const claim = await env.UPS_MFL_DB.prepare(
+        `INSERT OR IGNORE INTO ups_bot_heartbeat (bot, last_ts, status, env) VALUES (?, ?, 'posted', '')`
+      ).bind(postClaimKey, Math.floor(Date.now() / 1000)).run();
+      if (!claim?.meta || claim.meta.changes === 0) {
+        out.skipped = "already_posted_today";
+        out.ok = true;
+        return out;
+      }
+    } catch (_) { /* dedupe unavailable → post rather than silently skip */ }
+  }
+  const releasePostClaim = async () => {
+    try {
+      await env.UPS_MFL_DB.prepare(`DELETE FROM ups_bot_heartbeat WHERE bot = ?`).bind(postClaimKey).run();
+    } catch (_) { /* best effort */ }
+  };
+
   // Parent — allowed_mentions is an explicit allowlist of exactly the owners we
   // tagged, so a franchise name that happens to look like a role can't ping the
   // league. These SHOULD notify: the tag is the nudge.
@@ -619,7 +645,11 @@ export async function runFaNightlyJob(env, opts = {}) {
     allowed_mentions: { parse: [], users: mentionIds },
   });
   out.posted = !!(parent && parent.ok);
-  if (!out.posted) { out.post_error = `discord ${parent && parent.status}`; return { ...out, ok: true }; }
+  if (!out.posted) {
+    out.post_error = `discord ${parent && parent.status}`;
+    await releasePostClaim();
+    return { ...out, ok: true };
+  }
 
   const parentId = safeStr(parent.data?.id || "");
   if (!parentId) { out.thread_error = "no_parent_message_id"; return { ...out, ok: true }; }

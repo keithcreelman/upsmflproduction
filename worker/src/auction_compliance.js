@@ -155,6 +155,19 @@ export async function closeEtDay(env, { season, leagueId, etDay, rows }) {
 
   const nomCounts = await nomCountsForDay(env, { season, leagueId, etDay });
 
+  // ── Fines-dark auto-void ────────────────────────────────────────────────
+  // While AUCTION_FAA_PENALTIES_ENABLED is off (test weeks), a close still
+  // records everything — the misses, the day rows, the penalty rows with
+  // their amounts — but writes every missed day and its penalties PRE-VOIDED
+  // (void_reason says why). The report copy is unchanged (it renders from the
+  // returned objects), the void UI shows them as excused evidence, and the
+  // offense ladder ignores them, so the first REAL miss after arming books as
+  // a 1st offense at $3K. Without this, the 2026-07-14 test close banked 20
+  // live penalty rows and every owner's first genuine miss on auction day
+  // would have priced as a 2nd offense at $7K. Keith 2026-07-15: record
+  // nothing (that counts) until fines are armed.
+  const armed = !!(await getFeatureFlag(env, "AUCTION_FAA_PENALTIES_ENABLED"));
+
   const misses = [];
   for (const r of (rows || [])) {
     const fid = padFid(r.franchise_id);
@@ -166,13 +179,16 @@ export async function closeEtDay(env, { season, leagueId, etDay, rows }) {
     // ballgame: judging on `used < required` alone fines the one owner who
     // finished.
     const missed = !rosterMet && used < required;
+    const autoVoid = missed && !armed;
     await db.prepare(
       `INSERT OR IGNORE INTO ups_faa_nom_days
-         (season, league_id, fid, et_day, noms_used, noms_required, roster_met, total_deficit, missed)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         (season, league_id, fid, et_day, noms_used, noms_required, roster_met, total_deficit, missed,
+          voided, void_reason, voided_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       Number(season), String(leagueId), fid, String(etDay),
-      used, required, rosterMet ? 1 : 0, Number(r.total_deficit || 0), missed ? 1 : 0
+      used, required, rosterMet ? 1 : 0, Number(r.total_deficit || 0), missed ? 1 : 0,
+      autoVoid ? 1 : 0, autoVoid ? "auto: fines dark (pre-auction test)" : null, autoVoid ? "system" : null
     ).run();
     if (missed) misses.push({ fid, franchise_name: r.franchise_name, noms_used: used, noms_required: required });
   }
@@ -181,15 +197,15 @@ export async function closeEtDay(env, { season, leagueId, etDay, rows }) {
   // deterministic when several teams miss the same day.
   const penalties = [];
   for (const m of misses.sort((a, b) => a.fid.localeCompare(b.fid))) {
-    const p = await bookPenaltyForMiss(env, { season, leagueId, fid: m.fid, etDay });
+    const p = await bookPenaltyForMiss(env, { season, leagueId, fid: m.fid, etDay, armed });
     if (p) penalties.push({ ...p, franchise_name: m.franchise_name });
   }
-  return { ok: true, day: etDay, closed: true, misses, penalties };
+  return { ok: true, day: etDay, closed: true, misses, penalties, penalties_armed: armed };
 }
 
 // Count PRIOR un-voided misses this auction, stamp the next offense number, and
 // write the two penalty rows (current season + next season).
-async function bookPenaltyForMiss(env, { season, leagueId, fid, etDay }) {
+async function bookPenaltyForMiss(env, { season, leagueId, fid, etDay, armed = true }) {
   const db = env.UPS_MFL_DB;
   const prior = await db.prepare(
     `SELECT COUNT(*) AS n FROM ups_faa_nom_days
@@ -208,11 +224,13 @@ async function bookPenaltyForMiss(env, { season, leagueId, fid, etDay }) {
     const id = `${season}|${leagueId}|${fid}|${etDay}|${applies}`;
     await db.prepare(
       `INSERT OR IGNORE INTO ups_faa_nom_penalties
-         (penalty_id, season, league_id, fid, et_day, offense_no, amount_k, applies_to_season)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(id, Number(season), String(leagueId), fid, String(etDay), offenseNo, amountK, applies).run();
+         (penalty_id, season, league_id, fid, et_day, offense_no, amount_k, applies_to_season,
+          voided, void_reason)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(id, Number(season), String(leagueId), fid, String(etDay), offenseNo, amountK, applies,
+      armed ? 0 : 1, armed ? null : "auto: fines dark (pre-auction test)").run();
   }
-  return { fid, et_day: etDay, offense_no: offenseNo, amount_k: amountK, rows: 2 };
+  return { fid, et_day: etDay, offense_no: offenseNo, amount_k: amountK, rows: 2, voided: !armed };
 }
 
 // Per-franchise standing this auction, for the reports.

@@ -37680,20 +37680,56 @@ export default {
       const provenCommish = async (season, leagueId) => {
         if (commishKeyProven()) return { fid: "apikey", reason: "ok_apikey" };
         if (!browserCookieHeader) return { fid: "", reason: "no_token" };
+        // Capability probe, used only when the identity probe below can't
+        // answer: fetch TYPE=league with the VIEWER's cookie and count owner
+        // emails. MFL shows them all only to a commissioner session — the same
+        // emailCount>1 test getLeagueAdminState has gated FO admin on all
+        // season, and observed working (emailCount=12) on 2026-07-15. This is
+        // the fix for the day-one lockout: TYPE=myfranchise is unreachable by
+        // cookie (the API host bounces sessions to a login page), so the gate
+        // rejected the actual commissioner with mfl_rejected_session. Proving
+        // "can see what only the commish can see" answers the gate's real
+        // question without resolving a franchise id at all. Uses ONLY
+        // browserCookieHeader — the env-cookie fallback would promote every
+        // anonymous request to commissioner.
+        const emailCapabilityProven = async () => {
+          try {
+            const lgUrl = `https://api.myfantasyleague.com/${encodeURIComponent(season)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1&_=${Date.now()}`;
+            const r = await fetch(lgUrl, {
+              headers: { Cookie: browserCookieHeader, "User-Agent": "upsmflproduction-worker" },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            if (!r.ok) return false;
+            const d = await r.json().catch(() => ({}));
+            const fr = d?.league?.franchises?.franchise || [];
+            const arr = Array.isArray(fr) ? fr : [fr].filter(Boolean);
+            const emails = arr.reduce((n, f) => n + ((f && (f.email || f?.owner?.email)) ? 1 : 0), 0);
+            return emails > 1;
+          } catch (_) { return false; }
+        };
         let res;
         try {
           res = await mflExportJsonForCookie(
             browserCookieHeader, season, leagueId, "myfranchise", {}, { useCookie: true }
           );
-        } catch (e) { return { fid: "", reason: "mfl_error" }; }
-        if (!res || !res.ok) return { fid: "", reason: "mfl_rejected_session" };
+        } catch (e) {
+          if (await emailCapabilityProven()) return { fid: "email-capability", reason: "ok_commish_capability" };
+          return { fid: "", reason: "mfl_error" };
+        }
+        if (!res || !res.ok) {
+          if (await emailCapabilityProven()) return { fid: "email-capability", reason: "ok_commish_capability" };
+          return { fid: "", reason: "mfl_rejected_session" };
+        }
         const raw = safeStr(parseMyFranchiseId(res.data));
         // MUST reject a digitless answer BEFORE padding. padFranchiseId("")
         // === "0000", and "0000" is a REAL entry in the commish list (MFL's
         // league-owner pseudo-franchise) — so "", null, or "abc" would
         // otherwise be promoted straight to commissioner. Once MFL has returned
         // at least one digit, padding is safe: only a genuine "0" makes "0000".
-        if (!raw || !/\d/.test(raw)) return { fid: "", reason: "unresolvable_session" };
+        if (!raw || !/\d/.test(raw)) {
+          if (await emailCapabilityProven()) return { fid: "email-capability", reason: "ok_commish_capability" };
+          return { fid: "", reason: "unresolvable_session" };
+        }
         const fid = padFranchiseId(raw);
         const allow = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000")
           .split(/[,\s]+/).map((s) => padFranchiseId(s)).filter(Boolean);
