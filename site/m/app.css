@@ -2405,6 +2405,9 @@ button.ups-m-busy::before,
 .ups-m-auc-thbids .thbid .hw { margin-left: auto; font-size: 10px; color: var(--line-soft); white-space: nowrap; }
 /* "forcer → leader" on a walk-up: the arrow is connective tissue, not content. */
 .ups-m-auc-thbids .thbid .fwarrow { color: var(--line-soft); }
+/* "your max $15K" on a live lot — YOUR number, so it reads as yours. Only ever
+   rendered when the O=43 scrape saw it (i.e. you have an MFL session). */
+.ups-m-auc-mymax { color: var(--accent, #5b8dff); font-weight: 600; }
 .ups-m-auc-thbids .nom, .ups-m-auc-thbids .bid { font-size: 9px; text-transform: uppercase; font-weight: 700; border-radius: 4px; padding: 0 3px; }
 .ups-m-auc-thbids .nom { color: var(--accent); border: 1px solid var(--accent); }
 .ups-m-auc-thbids .bid { color: var(--teal); border: 1px solid var(--teal); }

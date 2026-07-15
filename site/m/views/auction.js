@@ -127,7 +127,19 @@
     if (!M.state.viewerFranchiseId) { M.ui.showToast("Pick your franchise first.", "err"); return; }
     var isNom = opts.action === "nominate";
     var highK = Number(opts.high_k) || 0;
+    // Your existing max on this lot (0 = you don't lead, or we can't see it).
+    var myMaxK = Number(opts.my_max_k) || 0;
+    var iLead = !isNom && myMaxK > 0;
+    // FLOOR = MFL's own minimum, so lowering your max IS allowed — MFL permits
+    // it and we stay consistent with it (Keith 2026-07-14: "if you can do it on
+    // MFL we should keep it consistent").
     var minK = isNom ? 1 : highK + 1;
+    // PRE-FILL = your CURRENT max when you lead, never high+1. Pre-filling high+1
+    // meant tapping Bid without thinking submitted a number BELOW your max, and
+    // MFL reads a lower bid from the leader as a max REDUCTION — that is exactly
+    // how a $42K Burrow max became $7K. Defaulting to your own max makes the
+    // no-op safe; lowering stays possible, but only by typing it.
+    var startK = iLead ? Math.max(myMaxK, minK) : minK;
     var deepLink = mflAuctionUrl(opts.player_id);
     closeBidSheet();
     var html =
@@ -137,13 +149,15 @@
             '<button class="ups-m-drop-close" id="ups-m-auc-bid-close" aria-label="Close">×</button>' +
             '<div class="grip"></div>' +
             '<div class="title">' + (isNom ? "Nominate" : "Bid") + ' — ' + U.escapeHtml(opts.player_name || ("Player #" + opts.player_id)) + '</div>' +
-            '<div class="sub">' + (highK > 0 ? "High " + fmtK(highK) : (isNom ? "Starting bid " + fmtK(1) : "")) + '</div>' +
+            '<div class="sub">' + (iLead
+                ? "You lead · your max " + fmtK(myMaxK) + " — lower it only if you mean to"
+                : (highK > 0 ? "High " + fmtK(highK) : (isNom ? "Starting bid " + fmtK(1) : ""))) + '</div>' +
           '</div>' +
           '<div class="ups-m-drop-body">' +
             '<label class="ups-m-auc-bid-lbl">Your ' + (isNom ? "nominating" : "max") + ' bid ($K)</label>' +
             '<div class="ups-m-auc-bid-input">' +
               '<button type="button" class="ups-m-auc-step" data-step="-1" aria-label="Lower">−</button>' +
-              '<input type="number" id="ups-m-auc-bid-amt" min="' + minK + '" step="1" inputmode="numeric" value="' + minK + '" />' +
+              '<input type="number" id="ups-m-auc-bid-amt" min="' + minK + '" step="1" inputmode="numeric" value="' + startK + '" />' +
               '<button type="button" class="ups-m-auc-step" data-step="1" aria-label="Raise">+</button>' +
             '</div>' +
             '<div class="ups-m-auc-bid-note">Submitted to MFL on your behalf, then confirmed by re-reading the board.</div>' +
@@ -164,10 +178,18 @@
     Array.prototype.forEach.call(document.querySelectorAll("#ups-m-auc-bid-overlay .ups-m-auc-step"), function (b) {
       b.addEventListener("click", function () {
         var step = parseInt(this.getAttribute("data-step"), 10) || 0;
-        amt.value = String(Math.max(minK, (parseInt(amt.value, 10) || minK) + step));
+        amt.value = String(Math.max(minK, (parseInt(amt.value, 10) || startK) + step));
       });
     });
-    document.getElementById("ups-m-auc-bid-submit").addEventListener("click", function () { submitBid(opts, this, minK); });
+    document.getElementById("ups-m-auc-bid-submit").addEventListener("click", function () {
+      // Lowering is allowed, but never silently: MFL treats it as a max REDUCTION
+      // and there is no undo once it lands.
+      var v = parseInt((document.getElementById("ups-m-auc-bid-amt") || {}).value, 10) || 0;
+      if (iLead && v < myMaxK && !window.confirm(
+        "This LOWERS your max on " + (opts.player_name || "this player") + " from " +
+        fmtK(myMaxK) + " to " + fmtK(v) + ".\n\nMFL will reduce your proxy. Continue?")) return;
+      submitBid(opts, this, minK);
+    });
   }
   function submitBid(opts, btn, minK) {
     var amt = document.getElementById("ups-m-auc-bid-amt");
@@ -694,10 +716,19 @@
     if (state._statusIdx) return state._statusIdx;
     var active = {}, done = {};
     ((state.faa && state.faa.active_auctions) || []).concat((state.era && state.era.active_auctions) || []).forEach(function (l) {
-      active[String(l.player_id)] = { high_k: Math.round(toNum(l.high_bid_amount) / 1000) };
+      // Carry your max through: the players-list Bid button opens the same sheet,
+      // and without it that path would still pre-fill high+1 and silently reduce
+      // a proxy you already set.
+      active[String(l.player_id)] = {
+        high_k: Math.round(toNum(l.high_bid_amount) / 1000),
+        my_max_k: (l.your_proxy_bid_amount != null) ? Math.round(toNum(l.your_proxy_bid_amount) / 1000) : 0
+      };
     });
     ((state.lots && state.lots.lots) || []).forEach(function (l) {
-      if (l.status === "open") { if (!active[String(l.player_id)]) active[String(l.player_id)] = { high_k: Number(l.current_high_bid_k) || 0 }; }
+      // No my_max_k here on purpose: this is the D1 ledger, which cannot know a
+      // max (MFL emits no transaction when you change one). 0 => "unknown", and
+      // the sheet then falls back to the MFL minimum.
+      if (l.status === "open") { if (!active[String(l.player_id)]) active[String(l.player_id)] = { high_k: Number(l.current_high_bid_k) || 0, my_max_k: 0 }; }
       else if (l.status === "won" || l.status === "expired" || l.status === "closed") done[String(l.player_id)] = l;
     });
     state._statusIdx = { active: active, done: done };
@@ -761,15 +792,23 @@
       var canBid = !!(p && p.enabled);
       var cta = canBid
         ? '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="bid" data-pid="' + U.escapeHtml(String(r.player_id || "")) +
-            '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="' + highK + '">Bid</button>' +
+            '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="' + highK + '" data-mymax="' + (myMax || 0) + '">Bid</button>' +
           '<a class="ups-m-auc-mfl" href="' + mflAuctionUrl(r.player_id) + '" target="_blank" rel="noopener" title="Bid on MFL">↗</a>'
         : '<a class="ups-m-auc-mfl" href="' + mflAuctionUrl(r.player_id) + '" target="_blank" rel="noopener" title="Open on MFL">↗</a>';
+      // YOUR MAX — the proxy MFL is holding for you on this lot. Same source and
+      // same rule as the desktop hub's YOUR PROXY column: it exists only when the
+      // worker could scrape O=43 with THIS viewer's cookie, because MFL renders
+      // the "($15,000)" parenthetical to the owner who set it and to nobody else.
+      // null ⇒ we genuinely don't know (no MFL session), NOT "you have no max" —
+      // so render nothing rather than imply a zero.
+      var myMax = (r.your_proxy_bid_amount != null) ? Math.round(toNum(r.your_proxy_bid_amount) / 1000) : null;
+      var maxBit = myMax ? ' · <span class="ups-m-auc-mymax">your max ' + fmtK(myMax) + '</span>' : '';
       return '<div class="ups-m-auc-card">' +
         '<div class="ups-m-auc-card-main">' +
           '<div class="ups-m-auc-name">' + posChip(r.position) + pname(r.player_id, r.player_name) + '</div>' +
           '<div class="ups-m-auc-meta">High <strong>' + money(r.high_bid_amount) + '</strong>' +
             (r.high_bidder_label ? ' · ' + U.escapeHtml(r.high_bidder_label) : '') +
-            (r.timer_text ? ' · ' + U.escapeHtml(r.timer_text) : '') + '</div>' +
+            (r.timer_text ? ' · ' + U.escapeHtml(r.timer_text) : '') + maxBit + '</div>' +
         '</div>' +
         '<div class="ups-m-auc-card-cta">' + cta + '</div>' +
       '</div>';
@@ -857,7 +896,8 @@
       var cta = "";
       if (st.key === "active") {
         cta = '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="bid" data-pid="' + U.escapeHtml(String(r.player_id || "")) +
-          '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="' + (st.high_k || 0) + '">Bid</button>';
+          '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="' + (st.high_k || 0) +
+          '" data-mymax="' + (st.my_max_k || 0) + '">Bid</button>';
       } else if (st.key === "available" && cfg.enabled) {
         cta = nomCapped
           ? '<button type="button" class="btn-act myac" disabled title="' + U.escapeHtml(nomCapTitle) + '">Nominate</button>'
@@ -1208,7 +1248,11 @@
           player_id: b.getAttribute("data-pid"),
           player_name: b.getAttribute("data-name"),
           auction_type: b.getAttribute("data-kind"),
-          high_k: Number(b.getAttribute("data-high")) || 0
+          high_k: Number(b.getAttribute("data-high")) || 0,
+          // Your current max on this lot (0 = you don't lead, or no MFL session
+          // so we can't see it). Drives the pre-fill so tapping Bid can't
+          // silently reduce a proxy you already set.
+          my_max_k: Number(b.getAttribute("data-mymax")) || 0
         });
       });
     });
