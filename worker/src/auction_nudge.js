@@ -1,9 +1,19 @@
-// auction_nudge.js — nightly 9:30 PM ET FA-Auction daily report.
+// auction_nudge.js — FA-Auction reports: 9 AM ET + 9 PM ET.
 //
-// Once a night during the live FA Auction this posts ONE parent message to the
-// Auction Bidding channel (the nomination scoreboard, tagging only the owners
-// who still owe) and hangs a thread off it carrying the detail: open lots with
-// their leaders, and the positions-remaining matrix.
+// TWO runs a day doing DIFFERENT jobs, and the split is the point:
+//
+//   9 AM  (mode "morning") — yesterday's ET day is CLOSED, so its verdict is
+//         final and unarguable. This is the ONLY run that names a miss, counts
+//         a §F RULE 2 offense, or books a fine. It shows today's nominations as
+//         information only: "no need to say these teams are out of compliance
+//         it's 9AM" (Keith 2026-07-14).
+//
+//   9 PM  (mode "evening") — a WARNING about the day in progress ("you have N
+//         hours"). It CANNOT judge: the ET day hasn't closed, so nobody has
+//         missed anything yet. Tags whoever still owes.
+//
+// Each posts one parent message plus a thread carrying the detail: wins since
+// the last report, §F RULE 2 standings, open lots, positions remaining.
 //
 // Deliberately NOT a DM job. It used to DM every owner who owed on top of the
 // channel post; with an empty AUCTION_NUDGE_TEST_FRANCHISES that meant 11 DMs a
@@ -18,12 +28,19 @@
 // wrangler.toml default, which is how this fired on 2026-07-14 while the toml
 // still said "0". Check the FO panel, not the toml, to know if it's armed.
 //
+// Fines are gated SEPARATELY behind AUCTION_FAA_PENALTIES_ENABLED. The report
+// runs and names misses either way; only the money is switched.
+//
 // Data comes from /api/auction/fa-schedule + /api/auction/lots via env.SELF.fetch,
 // so the scoreboard owners see in the app is exactly what drives the report.
 
 import { getFeatureFlag } from "./feature_flags.js";
 import { resolveDiscordUserIds } from "./trade_dm.js";
 import { sendDm } from "./discord_round.js";
+import {
+  closeEtDay, complianceStandings, previousEtDay, etDayKeyOf, rule2Label, rule2FineK,
+  RULE2_MAX_FINED_OFFENSE,
+} from "./auction_compliance.js";
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
 function plural(n, one, many) { return Number(n) === 1 ? one : (many || one + "s"); }
@@ -63,7 +80,89 @@ function usedColumns(cols, rows) {
   );
 }
 
-// ---------- PARENT: the nomination scoreboard ----------
+// ---------- 9 AM PARENT: yesterday's verdict ----------
+// The morning report is the ONLY one that judges. At 9 AM the prior ET day is
+// closed and its verdict is final, so this is where a miss gets named, tagged,
+// and counted under §F RULE 2. It deliberately does NOT judge the day in
+// progress — "no need to say these teams are out of compliance it's 9AM"
+// (Keith 2026-07-14) — today's nominations are shown as information only.
+function buildMorningMessage(data, closed, standings, mentionsByFid, penaltiesArmed) {
+  const rows = data.rows || [];
+  const max = Number(data.noms_max || 2);
+  const used = (r) => Number(r.noms_used || 0);
+  const L = [];
+
+  L.push("# 🧪 TEST REPORT — NOBODY IS REQUIRED TO BID");
+  L.push("### 🌅 FA AUCTION — MORNING · 9:00 AM ET");
+  L.push("_Shaking this down before the real auction. **Numbers are live.**_");
+  L.push("");
+
+  // ---- yesterday: the verdict ----
+  const misses = (closed && closed.misses) || [];
+  L.push(`**📋 YESTERDAY (${closed?.day || "—"}) — FINAL**`);
+  if (!closed || !closed.day) {
+    L.push("_No closed day to report yet._");
+  } else if (!misses.length) {
+    L.push("✅ **Everyone who owed a nomination made it.** Clean sheet. 🎉");
+  } else {
+    for (const m of misses) {
+      const st = standings.get(m.fid) || {};
+      const offense = Number(st.offense_no || 0);
+      const tag = (mentionsByFid[m.fid] || []).map((id) => `<@${id}>`).join(" ");
+      const note = offense > RULE2_MAX_FINED_OFFENSE
+        ? " — **league-fit review** (§F RULE 2)"
+        : ` — **${rule2Label(offense)}**`;
+      L.push(`⚠️ **${m.franchise_name}** — ${m.noms_used}/${m.noms_required}${note}${tag ? ` — ${tag}` : ""}`);
+    }
+    L.push("");
+    L.push(
+      penaltiesArmed
+        ? "_§F RULE 2 fines applied. The next-season half sits on the ledger and crosses over at the rollover._"
+        : "_⚙️ **Penalties are NOT armed** — nothing was charged. This is what §F RULE 2 **would** have applied._"
+    );
+    L.push("_Emergency or gave a CC member notice ahead of time? Say so — the day gets voided and it won't count._");
+  }
+  L.push("");
+
+  // ---- today: information only, no judgement ----
+  L.push(`**📥 TODAY SO FAR** — nominations as of 9:00 AM · ${max} per team due by midnight ET`);
+  const withNoms = rows.filter((r) => used(r) > 0).sort((a, b) => used(b) - used(a));
+  if (!withNoms.length) {
+    L.push("_Nobody's nominated yet — the day just started._");
+  } else {
+    for (const r of withNoms) L.push(`• **${r.franchise_name}** — ${used(r)}/${max}`);
+    const yet = rows.length - withNoms.length;
+    if (yet > 0) L.push(`_…and ${yet} ${plural(yet, "team")} yet to nominate today._`);
+  }
+  L.push("");
+  L.push("Recent wins, open lots + what everyone still needs → **thread** 🧵");
+  return L.join("\n");
+}
+
+// §F RULE 2 standings — who's carrying what, this auction.
+function buildStandingsSection(rows, standings) {
+  const fined = rows
+    .map((r) => ({ r, st: standings.get(String(r.franchise_id).padStart(4, "0")) }))
+    .filter((x) => x.st && x.st.offenses > 0);
+  if (!fined.length) return null;
+  const L = [];
+  L.push("**⚖️ §F RULE 2 — MISSED NOMINATIONS THIS AUCTION**");
+  const nameW = Math.max(4, ...fined.map((x) => asciiName(x.r.franchise_name).length));
+  L.push("```");
+  L.push(`${padEnd("TEAM", nameW)}  MISSES  ${padStart("THIS YR", 8)}  ${padStart("NEXT YR", 8)}`);
+  L.push("─".repeat(nameW + 2 + 6 + 2 + 8 + 2 + 8));
+  for (const { r, st } of fined.sort((a, b) => b.st.offenses - a.st.offenses)) {
+    L.push(
+      `${padEnd(asciiName(r.franchise_name), nameW)}  ${padStart(String(st.offenses), 6)}  ` +
+      `${padStart("$" + st.fined_k_this_season + "K", 8)}  ${padStart("$" + st.fined_k_next_season + "K", 8)}`
+    );
+  }
+  L.push("```");
+  L.push("_NEXT YR is booked on the ledger now but does not reach MFL until the rollover._");
+  return L.join("\n");
+}
+
+// ---------- 9 PM PARENT: the nomination scoreboard ----------
 // Tags ONLY the owners who still owe. An over-cap owner is NOT tagged — they
 // don't owe a nomination, they owe one less, and "go nominate" would be wrong.
 function buildParentMessage(data, mentionsByFid) {
@@ -149,7 +248,7 @@ function buildParentMessage(data, mentionsByFid) {
   return L.join("\n");
 }
 
-// ---------- THREAD §1: what closed in the last 24h ----------
+// ---------- THREAD §1: what closed since the last report ----------
 // Suppressed entirely when nothing closed — on Day 1 nothing can, since the
 // first lots don't lock for 24h, and an empty "Players won: 0" table is noise
 // (Keith 2026-07-14). ERA wins are excluded: they're a different auction under
@@ -158,7 +257,7 @@ function buildWonSection(won, bidsByPid, capSpaceDollars) {
   if (!won.length) return null;
   const capSpentK = won.reduce((n, l) => n + Math.round(Number(l.current_high_bid_k || 0)), 0);
   const L = [];
-  L.push("**🏆 WON — LAST 24 HOURS**");
+  L.push("**🏆 WON — SINCE THE LAST REPORT**");
   L.push(
     `Players won: **${won.length}** · Cap spent: **$${capSpentK}K** · ` +
     `Available league cap space: **$${Math.round(capSpaceDollars / 1000)}K**`
@@ -321,14 +420,21 @@ async function createThreadOnMessage(env, channelId, messageId, name) {
   return { ok: res.ok, status: res.status, data: json };
 }
 
-// opts: { leagueId, season, channelId, dryRun, force }
-//   dryRun = build + return the previews but post nothing.
+// opts: { leagueId, season, channelId, dryRun, force, mode }
+//   mode   = "morning" (9 AM — yesterday's verdict) | "evening" (9 PM — today's
+//            warning). Defaults from the ET hour so the cron doesn't have to know.
+//   dryRun = build + return the previews but post nothing, and DO NOT close the
+//            day or book any penalty. A dry run must never move money.
 //   force  = bypass the enable/faa gates (admin test only).
 export async function runFaNightlyJob(env, opts = {}) {
   const leagueId = safeStr(opts.leagueId || env.LEAGUE_ID || "74598");
   const season = safeStr(opts.season || new Date().getUTCFullYear());
+  const etHour = Number(new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", hour: "numeric", hour12: false,
+  }).format(new Date()));
+  const mode = safeStr(opts.mode) || (etHour < 12 ? "morning" : "evening");
   const out = {
-    ok: false, dry_run: !!opts.dryRun, forced: !!opts.force,
+    ok: false, mode, dry_run: !!opts.dryRun, forced: !!opts.force,
     posted: false, thread_posted: false, owners_owing: 0, owners_tagged: 0,
   };
 
@@ -373,22 +479,56 @@ export async function runFaNightlyJob(env, opts = {}) {
     }
   } catch (e) { out.cap_space_error = String(e?.message || e); }
 
-  // Wins in the trailing 24h, FAA only.
+  // Wins SINCE THE LAST REPORT, FAA only. With two reports a day the window is
+  // 12h, not 24 — a 24h window would report the same win twice (Keith: "identify
+  // recent wins since the last report").
+  const REPORT_WINDOW_SEC = 12 * 3600;
   const nowUnix = Math.floor(Date.now() / 1000);
   const wonRecent = allLots.filter((l) =>
     String(l.status) === "won" &&
     !l.is_era_eligible &&
     Number(l.won_at_unix || 0) > 0 &&
-    (nowUnix - Number(l.won_at_unix)) <= 86400
+    (nowUnix - Number(l.won_at_unix)) <= REPORT_WINDOW_SEC
   );
   const bidsByPid = {};
   for (const b of bids) (bidsByPid[String(b.player_id)] ||= []).push(b);
   out.won_last_24h = wonRecent.length;
 
   const max = Number(data.noms_max || 2);
+
+  // ---- MORNING: close yesterday and book §F RULE 2 penalties ----
+  // This is the only place a fine is created, and it happens exactly once per
+  // ET day (closeEtDay is idempotent — the cron may retry and must never
+  // double-fine). A dry run computes nothing and writes nothing.
+  let closed = null;
+  const penaltiesArmed = await getFeatureFlag(env, "AUCTION_FAA_PENALTIES_ENABLED");
+  out.penalties_armed = penaltiesArmed;
+  if (mode === "morning" && !opts.dryRun) {
+    try {
+      const yesterday = previousEtDay(etDayKeyOf(Math.floor(Date.now() / 1000)));
+      // fa-schedule reports the CURRENT window, so it cannot tell us about a
+      // closed day. Anything already recorded stands; otherwise we close from
+      // the ledger the poll has been writing all along.
+      closed = await closeEtDay(env, { season, leagueId, etDay: yesterday, rows: data.rows || [] });
+      out.closed_day = closed?.day;
+      out.already_closed = !!closed?.already_closed;
+      out.misses_yesterday = (closed?.misses || []).length;
+    } catch (e) { out.close_error = String(e?.message || e); }
+  }
+  const standings = await complianceStandings(env, { season, leagueId }).catch(() => new Map());
+  // Stamp each miss with its offense number for the report copy.
+  for (const m of (closed?.misses || [])) {
+    const p = (closed.penalties || []).find((x) => x.fid === m.fid);
+    const st = standings.get(m.fid) || {};
+    standings.set(m.fid, { ...st, offense_no: p?.offense_no || st.offenses || 1 });
+  }
+
   // Same predicate as the scoreboard — the endpoint's verdict, not a recompute.
   // This drives the @-mention allowlist, so getting it wrong pings the wrong owner.
-  const owing = (data.rows || []).filter((r) => !!r.out_of_compliance && Number(r.noms_used || 0) <= max);
+  // Morning tags YESTERDAY's confirmed misses; evening tags who still owes TODAY.
+  const owing = mode === "morning"
+    ? (closed?.misses || []).map((m) => ({ franchise_id: m.fid, franchise_name: m.franchise_name }))
+    : (data.rows || []).filter((r) => !!r.out_of_compliance && Number(r.noms_used || 0) <= max);
   out.owners_owing = owing.length;
 
   // Resolve real Discord ids for the owners who owe. A franchise with no linked
@@ -405,12 +545,16 @@ export async function runFaNightlyJob(env, opts = {}) {
   }
   out.owners_tagged = Object.keys(mentionsByFid).length;
 
-  out.parent_preview = buildParentMessage(data, mentionsByFid);
-  // Won first (what closed), then the live board, then what everyone still needs.
+  out.parent_preview = mode === "morning"
+    ? buildMorningMessage(data, closed, standings, mentionsByFid, penaltiesArmed)
+    : buildParentMessage(data, mentionsByFid);
+  // Won first (what closed), then RULE 2 standings, then the live board, then
+  // what everyone still needs.
   const threadMessages = packMessages([
     // Suppressed when nothing closed, and when cap space is unavailable the
     // headline would be wrong — so it only renders with a real number.
     out.cap_space_error ? null : buildWonSection(wonRecent, bidsByPid, capSpaceDollars),
+    buildStandingsSection(data.rows || [], standings),
     ...buildBoardSections(data, lots),
   ]);
   out.thread_preview = threadMessages.join("\n\n———\n\n");

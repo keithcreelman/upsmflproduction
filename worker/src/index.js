@@ -2818,7 +2818,7 @@ export default {
     const isHallSummarySweep = cronTrigger === "*/2 * * * *";
     const isHallNudgeSweep   = cronTrigger === "5 0,12,18 * * *";
     const isAuctionPoll      = cronTrigger === "*/5 * * * *";
-    const isFaNightlyNudge   = cronTrigger === "30 1,2 * * *";
+    const isFaNightlyNudge   = cronTrigger === "0 1,2,13,14 * * *";
 
     // ---------- AUCTION POLL + DROP TRACKER (every 5 min) ----------
     // Two cheap I/O-bound jobs share this tick:
@@ -2986,39 +2986,48 @@ export default {
       return; // nudge sweep is the only job on this cron
     }
 
-    // ---------- FA-AUCTION DAILY REPORT (9:30 PM ET) ----------
-    // Cron "30 1,2 * * *" fires at 01:30 + 02:30 UTC; the ET-hour gate keeps
-    // only the tick that lands on 9:30 PM ET (one per night, DST-safe — 01:30
-    // in EDT, 02:30 in EST). Posts the nomination scoreboard to the Auction
-    // Bidding channel + a detail thread. Dark unless BOTH
-    // AUCTION_NIGHTLY_NUDGE_ENABLED and AUCTION_FAA_ENABLED are on — checked
-    // inside runFaNightlyJob, and read through D1 (a FO override beats the
-    // wrangler.toml default).
+    // ---------- FA-AUCTION REPORTS (9 AM + 9 PM ET) ----------
+    // Cron "0 1,2,13,14 * * *" fires 4x UTC; the ET-hour gate keeps exactly the
+    // two ticks that land on 9 AM and 9 PM ET, in both DST regimes (see the
+    // table in wrangler.toml).
+    //
+    // The two runs do DIFFERENT jobs, and the difference is the whole design:
+    //   9 AM  — yesterday's ET day is CLOSED, so its verdict is final. This is
+    //           the ONLY run that names a miss, counts a §F RULE 2 offense, or
+    //           books a fine. It does not judge the day in progress.
+    //   9 PM  — a WARNING about today ("you have N hours"). It cannot judge:
+    //           the ET day hasn't closed, so nobody has missed anything yet.
+    //
+    // Dark unless BOTH AUCTION_NIGHTLY_NUDGE_ENABLED and AUCTION_FAA_ENABLED
+    // are on — checked inside runFaNightlyJob, read through D1 (a FO override
+    // beats the wrangler.toml default). The MFL write for a fine is separately
+    // gated behind AUCTION_FAA_PENALTIES_ENABLED.
     if (isFaNightlyNudge) {
       try {
         const etHourStr = new Intl.DateTimeFormat("en-US", {
           timeZone: "America/New_York", hour: "numeric", hour12: false,
         }).format(new Date());
         const etHour = parseInt(etHourStr, 10);
-        if (etHour !== 21) {
-          console.log(`[scheduled fa-nudge] ET hour=${etHour} (not 9:30 PM) — skipping`);
+        if (etHour !== 9 && etHour !== 21) {
+          console.log(`[scheduled fa-report] ET hour=${etHour} (not 9 AM / 9 PM) — skipping`);
           return;
         }
+        const mode = etHour === 9 ? "morning" : "evening";
         const season = String(env.YEAR || new Date().getUTCFullYear());
         const leagueId = String(env.LEAGUE_ID || "74598");
         ctx.waitUntil((async () => {
           try {
             const channelId = await resolveAuctionBiddingChannelId(env);
-            const r = await runFaNightlyJob(env, { leagueId, season, channelId });
-            console.log(`[scheduled fa-nudge] ${JSON.stringify(r)}`);
+            const r = await runFaNightlyJob(env, { leagueId, season, channelId, mode });
+            console.log(`[scheduled fa-report ${mode}] ${JSON.stringify(r)}`);
           } catch (e) {
-            console.error(`[scheduled fa-nudge] failed: ${e && e.message}`);
+            console.error(`[scheduled fa-report ${mode}] failed: ${e && e.message}`);
           }
         })());
       } catch (e) {
-        console.error(`[scheduled fa-nudge] dispatch failed: ${e && e.message}`);
+        console.error(`[scheduled fa-report] dispatch failed: ${e && e.message}`);
       }
-      return; // nightly nudge is the only job on this cron
+      return; // the FA reports are the only job on this cron
     }
 
     // ---------- HOURLY CRON (5 * * * *) ----------
