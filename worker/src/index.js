@@ -586,6 +586,99 @@ async function processAuctionPoll(env) {
   const baseUrl = `https://www48.myfantasyleague.com/${season}/export`;
   const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
 
+  // ── Overlap lock + liveness heartbeat ─────────────────────────────────
+  // The poll now has TWO possible invokers: the */5 cron and the manual
+  // /admin/auction/poll-now lifeline (added when Cloudflare stopped invoking
+  // scheduled() entirely on 2026-07-15 and the ledger sat 3h stale during a
+  // live auction). Serial re-runs are safe — UNIQUE(lot_id,fid,bid_at_unix,
+  // bid_k) gates both the insert and the Discord narration — but two CONCURRENT
+  // runs are not: run A's deleted-transaction purge iterates a stale snapshot
+  // and can delete rows run B just inserted, and the next tick re-inserts them
+  // as "new", re-announcing them. The lock closes that one double-post path.
+  // Atomic via a single upsert on the PK: acquired ⇔ meta.changes > 0. A run
+  // that dies mid-poll leaves the row 'running' and it simply expires (120s),
+  // so there is nothing to clean up.
+  const pollStartUnix = Math.floor(Date.now() / 1000);
+  let prevPollTs = 0;
+  try {
+    const lock = await db.prepare(
+      `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env)
+       VALUES ('auction_poll_lock', ?, 'running', '')
+       ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = 'running'
+       WHERE ups_bot_heartbeat.last_ts < ?`
+    ).bind(pollStartUnix, pollStartUnix - 120).run();
+    if (!lock?.meta || lock.meta.changes === 0) {
+      console.log("[auction-poll] another run holds the lock — skipping");
+      return { skipped: "locked" };
+    }
+    // Previous COMPLETED run, read before this run stamps it — the recovery-DM
+    // gap below is "how long was the poll dead", not "time since tick start".
+    // No heartbeat row yet (first run after this ships) ⇒ fall back to the
+    // poll's own last observable write, which is what dated the 07-15 outage.
+    const hb = await db.prepare(
+      `SELECT last_ts FROM ups_bot_heartbeat WHERE bot = 'auction_poll'`
+    ).first();
+    prevPollTs = Number(hb?.last_ts || 0);
+    if (!prevPollTs) {
+      const lastWrite = await db.prepare(
+        `SELECT CAST(strftime('%s', MAX(updated_at_utc)) AS INTEGER) AS t FROM ups_auction_lots`
+      ).first();
+      prevPollTs = Number(lastWrite?.t || 0);
+    }
+  } catch (e) {
+    // The lock is best-effort protection, not a prerequisite — a D1 hiccup here
+    // must not stop the poll, because a missed tick is the exact failure this
+    // machinery exists to survive.
+    console.log("[auction-poll] lock/heartbeat unavailable:", String(e?.message || e));
+  }
+
+  // Completed-run bookkeeping, shared by the quiet-tick early return and the
+  // full path. Stamps the liveness heartbeat (which closeEtDay's freshness
+  // interlock trusts) and sends the one-shot recovery DM after an outage.
+  // Callers only invoke this when MFL actually ANSWERED — a fetch failure is
+  // caught into {} upstream and must never vouch for the ledger.
+  const finalizePollRun = async (dmBids, dmWins) => {
+    const pollEndUnix = Math.floor(Date.now() / 1000);
+    try {
+      await db.prepare(
+        `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env)
+         VALUES ('auction_poll', ?, 'ok', '')
+         ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = 'ok'`
+      ).bind(pollEndUnix).run();
+    } catch (e) {
+      console.log("[auction-poll] heartbeat stamp failed:", String(e?.message || e));
+    }
+    // Recovery DM to the commish — "ping me in a DM to advise if it's been
+    // fixed" (Keith, 2026-07-15). Fires exactly once per outage: the first
+    // completed run after a >30 min gap. The very next run sees a ~5 min gap
+    // and stays silent. 30 min ≈ six missed */5 ticks — a real outage, never
+    // a slow tick. Failure here must not fail the poll.
+    const gapSec = prevPollTs > 0 ? pollStartUnix - prevPollTs : 0;
+    if (gapSec > 30 * 60) {
+      try {
+        const commishUserId = String(env.COMMISH_DISCORD_USER_ID || "").replace(/\D/g, "");
+        if (commishUserId) {
+          const gapMin = Math.round(gapSec / 60);
+          const since = new Date(prevPollTs * 1000).toISOString().replace("T", " ").slice(0, 16);
+          const dmChannelId = await openDiscordDmChannelForUser(env, commishUserId);
+          if (dmChannelId) {
+            await sendDiscordDm(env, dmChannelId, {
+              content: [
+                `✅ **Auction poll recovered** — first completed run in ~${Math.floor(gapMin / 60)}h ${gapMin % 60}m (dead since ${since} UTC).`,
+                `Ingested this run: **${dmBids}** bid${dmBids === 1 ? "" : "s"}, **${dmWins}** win${dmWins === 1 ? "" : "s"}. Announcements older than 1h are deliberately NOT posted — no catch-up spam in the league channel.`,
+                `If a 9 AM close was skipped as \`ledger_stale\` during the outage, re-run the morning job today — it re-closes the same day once the ledger is fresh.`,
+              ].join("\n"),
+              allowed_mentions: { parse: [] },
+            });
+          }
+        }
+      } catch (e) {
+        console.log("[auction-poll] recovery DM failed:", String(e?.message || e));
+      }
+    }
+    return gapSec;
+  };
+
   // MFL distinguishes three transaction types for an auction:
   //   AUCTION_INIT — nomination event. Records the opening bid +
   //                  nominating franchise. Created once per lot.
@@ -609,6 +702,14 @@ async function processAuctionPoll(env) {
   const bidTxs = asArr(bidsRes?.transactions?.transaction);
   const wonTxs = asArr(winsRes?.transactions?.transaction);
 
+  // Did MFL actually ANSWER? The fetches above catch() into {}, which makes an
+  // MFL outage look exactly like a quiet auction — and only one of those may
+  // vouch for the ledger. The close's nomination counts need INIT ingested and
+  // bid state needs BID, so the heartbeat requires both exports to have
+  // responded (an answered export carries a `transactions` key even when it
+  // holds zero transactions).
+  const mflAnswered = initRes?.transactions !== undefined && bidsRes?.transactions !== undefined;
+
   // Every player_id with CURRENT MFL auction activity. Used at the end to purge
   // D1 lots/bids whose source transactions the commish has since deleted — MFL
   // emits no delete event (verified 2026-05-20), so without this a deleted
@@ -627,7 +728,11 @@ async function processAuctionPoll(env) {
   ];
 
   if (allBidEvents.length === 0 && wonTxs.length === 0) {
-    return { new_bids: 0, new_wins: 0, active_lots: 0 };
+    // A quiet tick is still a completed run — the ledger is verifiably current
+    // — but ONLY when MFL answered; an outage must leave the heartbeat stale
+    // so closeEtDay keeps refusing to judge.
+    if (mflAnswered) await finalizePollRun(0, 0);
+    return { new_bids: 0, new_wins: 0, active_lots: 0, mfl_answered: mflAnswered };
   }
 
   // Parse a transaction string "playerid|bid|note" → { player_id, bid_k, note }.
@@ -1003,6 +1108,14 @@ async function processAuctionPoll(env) {
     `SELECT COUNT(*) AS n FROM ups_auction_lots WHERE season = ? AND league_id = ? AND status = 'open'`
   ).bind(season, leagueId).first();
 
+  // Heartbeat + one-shot recovery DM. Stamped ONLY when MFL answered — a
+  // half-blind run (INIT or BID export down) must not vouch for the ledger
+  // that closeEtDay's freshness interlock trusts for §F RULE 2 verdicts.
+  // (2026-07-15: the close ran 77 min into a dead-cron outage and banked 20
+  // penalty rows from a ledger missing franchise 0006's two nominations —
+  // this stamp + that interlock is what makes that impossible.)
+  const gapSec = mflAnswered ? await finalizePollRun(newBids, newWins) : 0;
+
   return {
     new_bids: newBids,
     new_wins: newWins,
@@ -1010,6 +1123,8 @@ async function processAuctionPoll(env) {
     purged_lots: purgedLots,
     purged_bids: purgedBids,
     active_lots: Number(activeLots?.n || 0),
+    mfl_answered: mflAnswered,
+    poll_gap_sec: gapSec,
   };
 }
 
@@ -3698,6 +3813,7 @@ export default {
         path !== "/admin/auction/force-narrate-lot" &&
         path !== "/admin/auction/backfill-era-ppg" &&
         path !== "/admin/auction/finalize-era-contracts" &&
+        path !== "/admin/auction/poll-now" &&
         path !== "/admin/auction/push-mfl-calendar" &&
         path !== "/api/league-events" &&
         path !== "/api/league-years" &&
@@ -5067,6 +5183,25 @@ export default {
       // = "Vet-ERA" with matching salary — idempotent. Filters to lots
       // whose player_id is in ups_era_pool (excludes test lots like the
       // Rodgers $15K that was nominated outside the official pool).
+      // POST /admin/auction/poll-now — run one auction-poll tick on demand.
+      // The lifeline for dead Cloudflare crons: on 2026-07-15 the platform
+      // stopped invoking scheduled() entirely (registration accepted, zero
+      // invocations across all five crons) and processAuctionPoll had NO other
+      // entry point, so 3h of MFL bids never reached D1 while announcements,
+      // reports, and §F RULE 2 counts all read from it. Safe to call on any
+      // cadence, from launchd or by hand: serial re-runs are idempotent and the
+      // in-poll advisory lock rejects overlap (the one double-post shape).
+      if (path === "/admin/auction/poll-now" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
+        if (!authOk) return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { error: "UPS_MFL_DB missing" });
+        const r = await processAuctionPoll(env);
+        return jsonOut(200, { ok: true, ...r });
+      }
+
       if (path === "/admin/auction/finalize-era-contracts" && request.method === "POST") {
         const commishKey = String(env.COMMISH_API_KEY || "").trim();
         const testKey = String(env.TEST_SYNC_API_KEY || "").trim();

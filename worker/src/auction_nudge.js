@@ -36,7 +36,7 @@
 
 import { getFeatureFlag } from "./feature_flags.js";
 import { resolveDiscordUserIds } from "./trade_dm.js";
-import { sendDm } from "./discord_round.js";
+import { sendDm, openDmChannel } from "./discord_round.js";
 import {
   closeEtDay, complianceStandings, previousEtDay, etDayKeyOf, rule2Label, rule2FineK,
   RULE2_MAX_FINED_OFFENSE,
@@ -519,9 +519,21 @@ export async function runFaNightlyJob(env, opts = {}) {
       // the day's nominations from the bid ledger — fa-schedule's noms_used
       // describes the CURRENT window, which at 9 AM has already reset to zero.
       closed = await closeEtDay(env, { season, leagueId, etDay: yesterday, rows: data.rows || [] });
-      out.closed_day = closed?.day;
-      out.already_closed = !!closed?.already_closed;
-      out.misses_yesterday = (closed?.misses || []).length;
+      if (closed && closed.ok === false && closed.error === "ledger_stale") {
+        // The poll hasn't completed a run since the day ended, so the bid
+        // ledger can't be trusted for a verdict. closed stays null: nothing is
+        // judged, nobody is named, and the league post below is skipped
+        // entirely — a wrong "X missed" in #transactions is exactly the kind
+        // of confidently-stale statement that burned the Josh Allen board.
+        out.close_error = "ledger_stale";
+        out.ledger_stale_day = closed.day;
+        out.poll_last_ts = closed.poll_last_ts;
+        closed = null;
+      } else {
+        out.closed_day = closed?.day;
+        out.already_closed = !!closed?.already_closed;
+        out.misses_yesterday = (closed?.misses || []).length;
+      }
     } catch (e) { out.close_error = String(e?.message || e); }
   }
   const standings = await complianceStandings(env, { season, leagueId }).catch(() => new Map());
@@ -571,6 +583,33 @@ export async function runFaNightlyJob(env, opts = {}) {
 
   const channelId = safeStr(opts.channelId).replace(/\D/g, "");
   if (!channelId || opts.dryRun) { out.ok = true; return out; }
+
+  // A deferred verdict never goes to the league. The morning report's whole
+  // job is yesterday's verdict; posting it built from a stale ledger names the
+  // wrong owners, and posting a "we don't know yet" banner is noise. Skip the
+  // channel, tell the commish privately, and let the re-run post the real one.
+  if (mode === "morning" && out.close_error === "ledger_stale") {
+    try {
+      const commishUserId = safeStr(env.COMMISH_DISCORD_USER_ID || "").replace(/\D/g, "");
+      if (commishUserId) {
+        const dmCh = await openDmChannel(env, commishUserId);
+        if (dmCh) {
+          await sendDm(env, dmCh, {
+            content: [
+              `⏸️ **9 AM report NOT posted — bid ledger is stale.**`,
+              `The auction poll hasn't completed a run since **${out.ledger_stale_day}** (ET) ended, so yesterday can't be judged without risking wrong misses/fines.`,
+              `Fix: run the poll (\`POST /admin/auction/poll-now?APIKEY=…\`), then re-run the morning job (\`POST /admin/auction/run-nightly-nudge\`) — it will close ${out.ledger_stale_day} and post the real report. Nothing was fined, nothing was posted.`,
+            ].join("\n"),
+            allowed_mentions: { parse: [] },
+          });
+          out.commish_dm = true;
+        }
+      }
+    } catch (e) { out.commish_dm_error = String(e?.message || e); }
+    out.skipped = "ledger_stale";
+    out.ok = true;
+    return out;
+  }
 
   // Parent — allowed_mentions is an explicit allowlist of exactly the owners we
   // tagged, so a franchise name that happens to look like a role can't ping the

@@ -118,6 +118,41 @@ export async function closeEtDay(env, { season, leagueId, etDay, rows }) {
     return { ok: true, day: etDay, already_closed: true, misses: [], penalties: [] };
   }
 
+  // ── Ledger-freshness interlock ────────────────────────────────────────
+  // NEVER judge a day the poll hasn't fully ingested. The verdict below reads
+  // nomination counts from ups_auction_bids, which only the auction poll
+  // feeds; if the poll is dead, a franchise that nominated on MFL looks like
+  // a miss here, and this function then writes an immutable missed=1 fact row
+  // and books a real two-season fine. Not hypothetical: on 2026-07-15
+  // Cloudflare stopped invoking the crons at 12:10 UTC, franchise 0006
+  // nominated twice at 12:37/12:38 (meeting §A2), D1 never saw it, and the
+  // next close would have fined them $3K+$3K for a day they completed.
+  //
+  // The guard: the poll must have COMPLETED a run after the day being judged
+  // ended (heartbeat is stamped only on completion). Because MFL timestamps
+  // every bid, a poll that finishes after day-end has necessarily captured
+  // that day in full — late ingestion lands in the correct ET day. +300s
+  // grace covers a run that straddles midnight ET.
+  //
+  // Refusing is always recoverable: the day stays unclosed and the next
+  // morning-job run (cron or manual re-run) closes it once the ledger is
+  // fresh. A wrong close is only recoverable through the commish void UI.
+  const bounds = etDayBounds(etDay);
+  if (bounds) {
+    const hb = await db.prepare(
+      `SELECT last_ts FROM ups_bot_heartbeat WHERE bot = 'auction_poll'`
+    ).first().catch(() => null);
+    const pollTs = Number(hb?.last_ts || 0);
+    const requiredAfter = Number(bounds.end_unix) + 300;
+    if (pollTs < requiredAfter) {
+      return {
+        ok: false, error: "ledger_stale", day: etDay,
+        poll_last_ts: pollTs || null, required_after_unix: requiredAfter,
+        misses: [], penalties: [],
+      };
+    }
+  }
+
   const nomCounts = await nomCountsForDay(env, { season, leagueId, etDay });
 
   const misses = [];
