@@ -1941,11 +1941,20 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
 
   // fid → franchise name
   const fidToName = {};
+  // fid → team logo. MFL calls it `icon` on the league export and the field name
+  // has drifted across their API versions, so mirror the tolerant read used for
+  // the acquisition hub rather than trusting one spelling.
+  const fidToIcon = {};
   const flist = leagueJson?.league?.franchises?.franchise || [];
   const farr = Array.isArray(flist) ? flist : [flist];
   for (const f of farr) {
     const id = String(f.id || "").padStart(4, "0");
-    if (id) fidToName[id] = String(f.name || ("Team " + id));
+    if (!id) continue;
+    fidToName[id] = String(f.name || ("Team " + id));
+    const icon = f.icon || f.iconURL || f.iconUrl || f.franchiseIcon || f.logo || f.logoURL || f.logoUrl || "";
+    // Discord will only render an https image; anything else is dropped rather
+    // than posted as a broken embed.
+    if (/^https:\/\//i.test(String(icon))) fidToIcon[id] = String(icon);
   }
 
   // pid → { name, position, team }
@@ -2368,28 +2377,32 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
     if (!apiKey) return "";
 
     const name = playerInfo && playerInfo.name ? flipName(playerInfo.name) : "";
-    const last = name ? name.split(/\s+/).pop().toLowerCase() : "";
+    const parts = name ? name.toLowerCase().split(/\s+/).filter(Boolean) : [];
+    const last = parts.length ? parts[parts.length - 1] : "";
+    const first = parts.length > 1 ? parts[0] : "";
     const hasPlayer = !!last && last.length >= 3;
 
     // Per-kind query + match strategy
     let queries;
-    let strictLastNameMatch;
+    // The player-specific queries run FIRST and strict — a celebration GIF that
+    // claims to be someone must be that someone. The generic tail only runs when
+    // none matched, and it never claims to be anyone: Giphy simply has no GIF of
+    // most NFL role players, and every curated `won` pool is empty, so without a
+    // tail a $17K win posts bare. Generic-but-honest beats nothing, and both beat
+    // the wrong human.
+    const GENERIC_WIN = ["nfl celebration", "touchdown celebration", "lets go celebration"];
+    const GENERIC_HYPE = ["nfl hype", "lets go hype", "football hype"];
     if (eventKind === "nom") {
-      queries = hasPlayer ? [`${name} touchdown`, `${name} hype`, `${name} nfl`] : [];
-      strictLastNameMatch = true;   // celebration GIFs MUST be the right player
+      queries = (hasPlayer ? [`${name} touchdown`, `${name} hype`, `${name} nfl`] : []).concat(GENERIC_HYPE);
     } else if (eventKind === "won") {
-      queries = hasPlayer ? [`${name} celebration`, `${name} touchdown`, `${name} nfl`] : [];
-      strictLastNameMatch = true;   // ditto
+      queries = (hasPlayer ? [`${name} celebration`, `${name} touchdown`, `${name} nfl`] : []).concat(GENERIC_WIN);
     } else if (eventKind === "forced_increase") {
       // Fallback for when BOTH bump pools are empty. Bump energy, not player
       // celebration — the message says "you're still the high bidder".
       queries = ["fist bump", "chest bump celebration"];
-      strictLastNameMatch = false;  // generic reactions are the point
     } else if (eventKind === "overtake") {
       queries = (hasPlayer ? [`${name} reaction`] : [])
-        .concat(["come on man reaction", "are you kidding me", "really reaction", "stop it reaction"]);
-      strictLastNameMatch = false;
-    } else {
+        .concat(["come on man reaction", "are you kidding me", "really reaction", "stop it reaction"]);} else {
       return "";
     }
     if (queries.length === 0) return "";
@@ -2400,7 +2413,10 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
     const recent = await getRecentGifs(env, scope, 8);
 
     for (const q of queries) {
-      const isPlayerQuery = hasPlayer && q.startsWith(name);
+      // The generic tail is NOT a player query, so the strict name filter must not
+      // apply to it — otherwise it would demand the player's name in a GIF that
+      // was never about him, match nothing, and we'd be back to posting bare.
+      const isPlayerQuery = hasPlayer && q.toLowerCase().startsWith(name.toLowerCase());
       try {
         const u = new URL("https://api.giphy.com/v1/gifs/search");
         u.searchParams.set("api_key", apiKey);
@@ -2417,11 +2433,22 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
         // Filter: if this is a player-specific query AND strict mode,
         // require last-name match in title/slug. For generic reaction
         // queries (forced_increase / overtake fallbacks), any result is OK.
-        const requireMatch = strictLastNameMatch || isPlayerQuery;
+        // Last name ALONE is not identity. "Nate Adkins nfl" matched a TENNIS
+        // player called Adkins and posted him as an NFL nomination (Keith spotted
+        // it 2026-07-15). Giphy's search is fuzzy, so a surname is whoever else
+        // shares it. Require FIRST AND LAST when we have both — that is the
+        // difference between "an Adkins" and "this Adkins".
+        // The ONLY rule that matters: a query that NAMES a player must return
+        // that player. Generic queries name nobody, so nothing to verify.
+        // (This used to also consult strictLastNameMatch, which is false for
+        // overtake — folding it in here silently disarmed overtake's own
+        // "<name> reaction" query and would have posted a random human.)
+        const requireMatch = isPlayerQuery;
         const matches = requireMatch
           ? rows.filter((row) => {
               const hay = String((row?.title || "") + " " + (row?.slug || "")).toLowerCase();
-              return last && hay.includes(last);
+              if (!last || !hay.includes(last)) return false;
+              return first ? hay.includes(first) : true;
             })
           : rows;
         if (matches.length === 0) continue;
@@ -2458,6 +2485,58 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
   //     ping is the point (the bot HAS MENTION_EVERYONE in #transactions, so
   //     this really pings the league; that is intentional and nom-only).
   //   everything else → {users:[...]} with NO parse — only the named owners.
+  // ── WON stats (Keith 2026-07-15) ──
+  // "Time player was at auction, bidders involved, total bids (include
+  // nominations)". All of it is already in D1; nothing new is fetched.
+  //
+  // teams_in vs high_bidders is the interesting pair, and they are NOT the same
+  // number: MFL writes one row per PRICE change, and a rival who bids into the
+  // leader's hidden max never gets a row of their own — they exist only as the
+  // name inside a "<rival> forced bid increase" note. So distinct fids counts
+  // who LED; the union with the note names counts who was actually in the fight.
+  // A lot can draw five teams and have exactly one high bidder.
+  {
+    const wonEvs = queue.filter((ev) => ev._obs_kind === "won");
+    for (const ev of wonEvs) {
+      const lotId = `${season}|${leagueId}|${ev.player_id}`;
+      try {
+        if (!db) continue;
+        const lot = await db.prepare(
+          `SELECT bid_count, opened_at_unix, won_at_unix FROM ups_auction_lots WHERE lot_id = ?`
+        ).bind(lotId).first();
+        const { results: bids } = await db.prepare(
+          `SELECT fid, note FROM ups_auction_bids WHERE lot_id = ?`
+        ).bind(lotId).all();
+        const leaders = new Set();
+        const forcers = new Set();
+        for (const b of (bids || [])) {
+          if (b.fid) leaders.add(String(b.fid).padStart(4, "0"));
+          const m = String(b.note || "").match(/^(.*?)\s+forced\s+bid\s+increase\s*$/i);
+          if (m) { const k = nameKey(m[1]); if (k && nameToFid[k]) forcers.add(nameToFid[k]); }
+        }
+        const start = Number(lot?.opened_at_unix || 0);
+        const end = Number(lot?.won_at_unix || 0) || Number(ev.bid_at_unix || 0);
+        let upFor = "";
+        if (start > 0 && end > start) {
+          const secs = end - start;
+          const h = Math.floor(secs / 3600), m2 = Math.floor((secs % 3600) / 60);
+          upFor = h ? `${h}h ${m2}m` : `${m2}m`;
+        }
+        ev._won_stats = {
+          up_for: upFor,
+          // bid_count is every row on the lot, nomination included — which is
+          // what Keith asked for, so no caveat and no footnote.
+          total_bids: Number(lot?.bid_count || 0),
+          teams_in: new Set([...leaders, ...forcers]).size,
+          high_bidders: leaders.size,
+        };
+      } catch (e) {
+        // Stats are decoration; a win must announce itself regardless.
+        console.log("[auction-narrator] won-stats failed:", String(e?.message || e));
+      }
+    }
+  }
+
   // ── Forced-increase throttle (Keith 2026-07-14) ──
   // One post per 5 minutes per (lot, FORCER) — not per lot. A rival walking the
   // leader's proxy up produces one AUCTION_BID row per step, so five clicks
@@ -2574,9 +2653,26 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
         break;
       }
       case "won": {
+        // The result is the only auction event EVERYONE has a stake in — it moves
+        // a player, a price, and the cap. @everyone is deliberate here, same as
+        // on a nomination (Keith: "im fine with the multiple pings...this is the
+        // auction").
         const winner = fmtMention(ev.fid);
-        text = `🏆 ${winner} **won** ${playerName} for ${bid} — congrats, now pay the man.`;
-        allowedMentions = { users: mentionIdsFor(ev.fid) };
+        const st = ev._won_stats || {};
+        const bits = [];
+        // Time the player was actually up: nomination -> gavel. Not the window
+        // length — a contested lot runs past it, because every lead change
+        // restarts the clock.
+        if (st.up_for) bits.push(`up **${st.up_for}**`);
+        // Total bids INCLUDES the nomination (Keith 2026-07-15, for counting).
+        if (st.total_bids) bits.push(`**${st.total_bids}** ${st.total_bids === 1 ? "bid" : "bids"}`);
+        // Everyone who touched it: whoever led at some point, plus the rivals who
+        // only ever appear as the name in a "forced bid increase" note.
+        if (st.teams_in) bits.push(`**${st.teams_in}** ${st.teams_in === 1 ? "team" : "teams"} in it`);
+        if (st.high_bidders > 1) bits.push(`**${st.high_bidders}** led it`);
+        text = `@everyone — 🏆 ${winner} **won ${playerName}** for ${bid}`;
+        if (bits.length) text += `\n${bits.join(" · ")}`;
+        allowedMentions = { parse: ["everyone"], users: mentionIdsFor(ev.fid) };
         break;
       }
       case "forced_increase": {
@@ -2843,6 +2939,15 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
       const picked = await pickAuctionGifForPlayer(pidToInfo[ev.player_id], ev._obs_kind, ctx);
       gifUrl = picked.url || "";
       overlayUrl = picked.overlay_url || "";
+      // A WIN gets the winner's logo as the second embed — "GIF of Player, big
+      // image of winning team" (Keith 2026-07-15). It REPLACES the curated
+      // overlay rather than competing with it: three images in one post is a
+      // scroll, and on a win the team IS the story. Falls through silently when
+      // MFL has no icon for the franchise.
+      if (ev._obs_kind === "won") {
+        const icon = fidToIcon[String(ev.fid || "").padStart(4, "0")];
+        if (icon) overlayUrl = icon;
+      }
     }
 
     // Resolve target: thread for non-nom events; channel for nom (and
