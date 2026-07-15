@@ -160,7 +160,7 @@ export async function postChannelMessage(env, channelId, payload, opts = {}) {
     allowed_mentions: payload.allowed_mentions || { parse: [] },
   });
 }
-async function editMessage(env, channelId, messageId, payload) {
+export async function editMessage(env, channelId, messageId, payload) {
   return await discordPatch(env, `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}`, payload);
 }
 async function pinMessage(env, channelId, messageId) {

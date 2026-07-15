@@ -85,20 +85,43 @@ export async function dmAll(env, target, payload) {
   const ids = (Array.isArray(target) ? target : String(target || "").split(","))
     .map(digits).filter(Boolean);
   let sent = 0, undeliverable = false, firstMsgId = "";
+  // Every delivery as "channelId:messageId" — the sentinel needs them to EDIT
+  // sent DMs later (void an offer's buttons). bot_message_id only ever held
+  // the first message and was never read; this is its working replacement.
+  const messageRefs = [];
   for (const uid of ids) {
     const chan = await openDmChannel(env, uid);
     if (!chan) continue;
     const dm = await sendDm(env, chan, payload);
-    if (dm.ok) { sent += 1; if (!firstMsgId) firstMsgId = safeStr(dm?.data?.id); }
-    else if (dm.status === 403 || digits(dm?.data?.code) === "50007") undeliverable = true;
+    if (dm.ok) {
+      sent += 1;
+      const mid = safeStr(dm?.data?.id);
+      if (!firstMsgId) firstMsgId = mid;
+      if (mid) messageRefs.push(`${chan}:${mid}`);
+    } else if (dm.status === 403 || digits(dm?.data?.code) === "50007") undeliverable = true;
   }
-  return { sent, undeliverable, firstMsgId };
+  return { sent, undeliverable, firstMsgId, messageRefs };
+}
+
+// Append delivery refs to the row's CSV (write-through after each dmAll).
+async function appendDmRefs(env, tradeId, refs) {
+  if (!refs || !refs.length) return;
+  try {
+    await env.UPS_MFL_DB.prepare(
+      `UPDATE trade_offer_dm
+          SET dm_message_ids = CASE WHEN dm_message_ids IS NULL OR dm_message_ids = ''
+                                    THEN ? ELSE dm_message_ids || ',' || ? END
+        WHERE trade_id = ?`
+    ).bind(refs.join(","), refs.join(","), safeStr(tradeId)).run();
+  } catch (e) {
+    console.log(`[trade-dm] dm ref append failed (non-fatal): ${e?.message || e}`);
+  }
 }
 
 // ─────────────────────────── quiet hours (ET) ──────────────────────────────
 // 22:00–06:00 ET, DST-aware. Load-bearing here: the hourly cron DOES run
 // overnight (unlike the Hall nudge cron), so this guard prevents 3 AM DMs.
-function inQuietHoursEt() {
+export function inQuietHoursEt() {
   try {
     const etHour = parseInt(
       new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", hour12: false }).format(new Date()),
@@ -197,7 +220,9 @@ function buildButtons(env, row, opts = {}) {
 function expiryAdvisory(row, env) {
   const createdMs = Date.parse(row?.created_at_utc);
   if (!Number.isFinite(createdMs)) return "";
-  const days = safeInt(env?.TRADE_DM_EXPIRY_DAYS, 7);
+  // An extended (sentinel re-offered) row lives 14 days — "Expires in 2 days"
+  // on a day-5 extended offer would be a lie the recipient acts on.
+  const days = safeInt(row?.extended, 0) === 1 ? 14 : safeInt(env?.TRADE_DM_EXPIRY_DAYS, 7);
   const expiryMs = createdMs + days * 86400000;
   const remMs = expiryMs - Date.now();
   if (remMs <= 0) return "";
@@ -314,6 +339,7 @@ export async function enqueueTradeOfferDm(env, offer) {
     await env.UPS_MFL_DB.prepare(
       `UPDATE trade_offer_dm SET last_dm_utc=?, dm_count=1, bot_message_id=?, updated_at_utc=? WHERE trade_id=?`
     ).bind(nowIso(), r1.firstMsgId, nowIso(), tradeId).run();
+    await appendDmRefs(env, tradeId, r1.messageRefs);
     console.log(`[trade-dm] day-1 DM sent to ${r1.sent} account(s): trade=${tradeId} to=${toFid}(${toName})`);
     return { sent: true, accounts: r1.sent, trade_id: tradeId };
   } catch (e) {
@@ -349,18 +375,49 @@ export async function processTradeOfferReminders(env) {
   const nowMs = Date.now();
   let sent = 0, resolved = 0, active = 0;
 
-  // 1) Reconcile: resolve rows whose offer is no longer PENDING in the doc.
+  // 1) Reconcile: resolve rows whose offer is no longer PENDING.
+  //
+  // SOURCE PRIORITY (changed for the trade sentinel, 2026-07-15):
+  //   a. ups_trade_offer_watch — the sentinel's live MFL mirror. It sees EVERY
+  //      offer including native-desktop ones (the GitHub doc only ever knew
+  //      about in-app offers, so a sentinel-adopted native offer would have
+  //      been instantly "reconciled" to death here).
+  //   b. the GitHub offers doc — fallback when the mirror is stale (sentinel
+  //      off / broken >2h), in-app rows only, the pre-sentinel behavior.
+  // Rows mid-id-swap (reoffer_pending=1) are NEVER reconciled — between the
+  // sentinel's revoke and re-propose the offer is legitimately absent from
+  // every pending list for a few seconds.
   try {
     const groups = await env.UPS_MFL_DB.prepare(
       `SELECT DISTINCT league_id, season FROM trade_offer_dm WHERE state='active'`
     ).all();
     for (const g of (groups?.results || [])) {
-      const pending = await fetchPendingTradeIds(env, safeStr(g.league_id), safeStr(g.season));
-      if (!pending) continue; // doc unavailable this tick — don't false-resolve
+      let pending = null;
+      let source = "doc";
+      try {
+        const fresh = await env.UPS_MFL_DB.prepare(
+          `SELECT COUNT(*) AS n FROM ups_trade_offer_watch
+            WHERE league_id=? AND season=? AND last_seen_utc >= datetime('now','-2 hours')`
+        ).bind(safeStr(g.league_id), safeStr(g.season)).first();
+        if (Number(fresh?.n || 0) > 0) {
+          const { results: watchRows } = await env.UPS_MFL_DB.prepare(
+            `SELECT trade_id FROM ups_trade_offer_watch
+              WHERE league_id=? AND season=? AND lifecycle IN ('pending','reoffer_in_progress')`
+          ).bind(safeStr(g.league_id), safeStr(g.season)).all();
+          pending = new Set((watchRows || []).map((w) => digits(w.trade_id)));
+          source = "watch";
+        }
+      } catch (_) { /* watch table may predate migration — doc fallback below */ }
+      if (!pending) pending = await fetchPendingTradeIds(env, safeStr(g.league_id), safeStr(g.season));
+      if (!pending) continue; // nothing authoritative this tick — don't false-resolve
       const rows = await env.UPS_MFL_DB.prepare(
-        `SELECT trade_id FROM trade_offer_dm WHERE state='active' AND league_id=? AND season=?`
+        `SELECT trade_id, origin, reoffer_pending FROM trade_offer_dm
+          WHERE state='active' AND league_id=? AND season=?`
       ).bind(safeStr(g.league_id), safeStr(g.season)).all();
       for (const r of (rows?.results || [])) {
+        if (safeInt(r.reoffer_pending, 0) === 1) continue; // mid-swap shield
+        // Doc fallback only knows in-app offers — never judge a discovered row by it.
+        if (source === "doc" && safeStr(r.origin) === "discovered") continue;
         if (!pending.has(digits(r.trade_id))) {
           await env.UPS_MFL_DB.prepare(
             `UPDATE trade_offer_dm SET state='resolved', resolved_reason='not_pending', updated_at_utc=? WHERE trade_id=?`
@@ -372,6 +429,23 @@ export async function processTradeOfferReminders(env) {
   } catch (e) {
     console.error(`[trade-dm] reconcile failed: ${e?.message || e}`);
   }
+
+  // 1b) Deferred death notices — invalidations that landed during quiet hours.
+  try {
+    const { results: pendingDeaths } = await env.UPS_MFL_DB.prepare(
+      `SELECT * FROM trade_offer_dm WHERE death_dm_pending=1 LIMIT 10`
+    ).all();
+    for (const row of (pendingDeaths || [])) {
+      const note = safeStr(row.resolved_reason) === "asset_moved"
+        ? `❌ **This trade offer from ${safeStr(row.from_franchise_name) || "the other team"} is void** — an asset in it was traded elsewhere before you responded. No action needed; the offer has been withdrawn.`
+        : `❌ **This trade offer is no longer valid.** No action needed.`;
+      const rr = await dmAll(env, row.recipient_discord_user_id, { content: note });
+      await env.UPS_MFL_DB.prepare(
+        `UPDATE trade_offer_dm SET death_dm_pending=0, updated_at_utc=? WHERE trade_id=?`
+      ).bind(nowIso(), safeStr(row.trade_id)).run();
+      if (rr.sent) sent++;
+    }
+  } catch (_) { /* column may predate migration */ }
 
   // 2) Send due reminders.
   let rows;
@@ -406,6 +480,7 @@ export async function processTradeOfferReminders(env) {
         continue;
       }
       sent++;
+      await appendDmRefs(env, row.trade_id, rr.messageRefs);
       // Thinking track fires exactly one reminder (day 4), so stage caps at 1.
       const nextStage = decision.advanceThinkStage ? 1 : safeInt(row.think_stage, 0);
       await env.UPS_MFL_DB.prepare(

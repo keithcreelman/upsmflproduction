@@ -29,7 +29,31 @@ export const MAIN_SCHEDULE = [
 // "Think about it" fires one courtesy reminder on this day (creation-anchored).
 export const THINK_REMINDER_DAY = 4;
 
+// Week-2 cadence for EXTENDED offers (the trade sentinel re-offers an expiring
+// offer at ~day 6.5, giving it a 14-day effective life — Keith 2026-07-15:
+// nudges "keep their escalating cadence as if nothing happened at day 7").
+// Deliberately sparser than week 1: the recipient has already heard from us
+// six times.
+export const EXTENDED_TAIL = [
+  { atHours: 192, key: "nudge" },      // day 8
+  { atHours: 240, key: "nudge" },      // day 10
+  { atHours: 312, key: "last_call" },  // day 13 — last call before the day-14 expiry
+];
+
 function expiryDays(env) { return safeInt(env?.TRADE_DM_EXPIRY_DAYS, 7); }
+
+// An extended row lives 14 days; everything else keeps today's behavior
+// exactly. The +144h entry demotes last_call → nudge when extended (day 6 is
+// not the last call of a 14-day offer — that copy would be a lie).
+function effectiveExpiryDays(row, env) {
+  return safeInt(row?.extended, 0) === 1 ? 14 : expiryDays(env);
+}
+function scheduleFor(row) {
+  if (safeInt(row?.extended, 0) !== 1) return MAIN_SCHEDULE;
+  return MAIN_SCHEDULE
+    .map((e) => (e.atHours === 144 ? { atHours: 144, key: "nudge" } : e))
+    .concat(EXTENDED_TAIL);
+}
 
 // Returns {due?, message?, terminal?, reason?, advanceThinkStage?}. Pure — no
 // DB / Discord. nowMs + env injected so it's deterministic/testable.
@@ -39,7 +63,8 @@ export function tradeReminderDecision(row, nowMs, env) {
   const lastMs = row.last_dm_utc ? Date.parse(row.last_dm_utc) : NaN;
 
   // Past MFL expiry → terminal (the offer no longer exists). No final DM.
-  if (nowMs - createdMs >= expiryDays(env) * DAY_MS) return { terminal: true, reason: "expired" };
+  if (nowMs - createdMs >= effectiveExpiryDays(row, env) * DAY_MS) return { terminal: true, reason: "expired" };
+  const schedule = scheduleFor(row);
 
   // Thinking track: suppress reminders before day 4, then resume the normal
   // once-a-day cadence — a "you wanted to sit on it" nudge on day 4, then the
@@ -47,7 +72,7 @@ export function tradeReminderDecision(row, nowMs, env) {
   if (safeStr(row.track) === "thinking") {
     const minHours = THINK_REMINDER_DAY * 24;
     let tdue = null;
-    for (const e of MAIN_SCHEDULE) {
+    for (const e of schedule) {
       if (e.atHours < minHours) continue;
       const entryMs = createdMs + e.atHours * HOUR_MS;
       if (nowMs >= entryMs && (!Number.isFinite(lastMs) || lastMs < entryMs)) tdue = e;
@@ -59,7 +84,7 @@ export function tradeReminderDecision(row, nowMs, env) {
   // Main track: each entry fires once. Pick the LATEST qualifying entry (skip
   // missed catch-ups — send the most current message).
   let due = null;
-  for (const e of MAIN_SCHEDULE) {
+  for (const e of schedule) {
     const entryMs = createdMs + e.atHours * HOUR_MS;
     if (nowMs >= entryMs && (!Number.isFinite(lastMs) || lastMs < entryMs)) due = e;
   }
