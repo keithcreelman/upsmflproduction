@@ -14,7 +14,7 @@ import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalend
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount } from "./auction_windows.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import {
-  nomComplianceLedger, voidNomDay, unvoidNomDay, RULE2_FINE_K_BY_OFFENSE,
+  nomComplianceLedger, voidNomDay, unvoidNomDay, RULE2_FINE_K_BY_OFFENSE, pendingMflPenalties,
 } from "./auction_compliance.js";
 
 const acquisitionLiveMemoryCache = new Map();
@@ -3361,6 +3361,18 @@ export default {
             const channelId = await resolveAuctionBiddingChannelId(env);
             const r = await runFaNightlyJob(env, { leagueId, season, channelId, mode });
             console.log(`[scheduled fa-report ${mode}] ${JSON.stringify(r)}`);
+            // §F RULE 2 MFL half — same hook as the manual route; see the
+            // /admin/auction/post-rule2-fines comment. Inert unless a live
+            // morning close just booked fines with the switch armed.
+            const commishApiKey2 = String(env.COMMISH_API_KEY || "").trim();
+            if (mode === "morning" && env.SELF && commishApiKey2) {
+              const fpRes = await env.SELF.fetch(
+                `https://self.invalid/admin/auction/post-rule2-fines?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey2)}`,
+                { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId }) }
+              );
+              const fp = await fpRes.json().catch(() => null);
+              console.log(`[scheduled fa-report ${mode}] rule2-mfl-post: ${JSON.stringify(fp)}`);
+            }
           } catch (e) {
             console.error(`[scheduled fa-report ${mode}] failed: ${e && e.message}`);
           }
@@ -3814,6 +3826,7 @@ export default {
         path !== "/admin/auction/backfill-era-ppg" &&
         path !== "/admin/auction/finalize-era-contracts" &&
         path !== "/admin/auction/poll-now" &&
+        path !== "/admin/auction/post-rule2-fines" &&
         path !== "/admin/auction/push-mfl-calendar" &&
         path !== "/api/league-events" &&
         path !== "/api/league-years" &&
@@ -32096,7 +32109,24 @@ export default {
         try {
           const channelId = await resolveAuctionBiddingChannelId(env);
           const r = await runFaNightlyJob(env, { leagueId, season, channelId, dryRun, force });
-          return jsonOut(200, { ok: true, channel_id: channelId, ...r });
+          // §F RULE 2, the MFL half: a live morning run that closed a day may
+          // have booked fines; push the current-season halves to MFL now so
+          // "the 9 AM close applies fines" is true on MFL, not just in D1.
+          // Inert whenever there is nothing to do — pendingMflPenalties gates
+          // on the FINES switch and posted_to_mfl, so dark mode, evening runs,
+          // and re-runs all no-op. SELF-fetch so the poster's dedup/verify
+          // pipeline is the only code path that ever writes these.
+          let rule2MflPost = null;
+          if (!dryRun && env.SELF && commishKey) {
+            try {
+              const fpRes = await env.SELF.fetch(
+                `https://self.invalid/admin/auction/post-rule2-fines?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishKey)}`,
+                { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId }) }
+              );
+              rule2MflPost = await fpRes.json().catch(() => null);
+            } catch (e) { rule2MflPost = { ok: false, error: String(e && e.message || e) }; }
+          }
+          return jsonOut(200, { ok: true, channel_id: channelId, ...r, rule2_mfl_post: rule2MflPost });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -34924,6 +34954,154 @@ export default {
             form_keys: importRes && importRes.formFields ? Object.keys(importRes.formFields) : [],
             data_len: dataXml ? dataXml.length : 0,
           },
+        });
+      }
+
+      // POST /admin/auction/post-rule2-fines
+      // Body: { season?, league_id?, dry_run? }
+      //
+      // The MFL half of §F RULE 2 — posts each booked, un-voided,
+      // CURRENT-season fine to MFL as a salaryAdjustment and marks the row
+      // posted. Until 2026-07-15 this half did not exist: fines were "applied"
+      // by the 9 AM close into ups_faa_nom_penalties and no code path ever
+      // touched MFL, so arming the FINES switch on auction day would have
+      // moved no money at all (the kill-switch copy even claimed otherwise).
+      //
+      // Everything mirrors the proven drop-penalty poster directly above:
+      //   - selection is pendingMflPenalties(), which is already gated on
+      //     AUCTION_FAA_PENALTIES_ENABLED (dark ⇒ selects nothing ⇒ this
+      //     route is inert all test week) and already excludes the
+      //     next-season rows, which cross at the rollover, never before
+      //   - MFL's salaryAdj import is ADDITIVE — post ONLY new rows; dedup
+      //     against the live export via the id:<key> explanation suffix
+      //     (penalty_id's pipes are not legal in that charset ⇒ dots)
+      //   - verify against the post-import export before marking posted, so
+      //     posted_to_mfl=1 means "seen in MFL", not "we sent bytes"
+      //   - a row already in MFL is reconciled (marked posted), not re-sent
+      // Idempotent at every step; safe to call on any cadence. The morning
+      // report calls it automatically after a close books penalties.
+      if (path === "/admin/auction/post-rule2-fines" && request.method === "POST") {
+        const r2CommishKey = String(env.COMMISH_API_KEY || "").trim();
+        const r2TestKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const r2BrowserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!r2BrowserKey || (r2BrowserKey !== r2CommishKey && r2BrowserKey !== r2TestKey)) {
+          return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let r2Body = {};
+        try { r2Body = (await request.json()) || {}; } catch (_) { r2Body = {}; }
+        const r2Season = safeStr(r2Body?.season || url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear());
+        const r2League = safeStr(r2Body?.league_id || r2Body?.L || url.searchParams.get("L") || L || "74598");
+        const r2DryRun = !!r2Body?.dry_run || String(url.searchParams.get("dry_run") || "") === "1";
+
+        const pending = await pendingMflPenalties(env, { season: r2Season, leagueId: r2League });
+        // penalty_id "2026|74598|0001|2026-07-14|2026" → MFL-legal dedup key
+        // (the id: suffix charset is [A-Za-z0-9_.:-]; pipes are not in it).
+        const r2Key = (pid) => "ups_rule2_" + safeStr(pid).replace(/\|/g, ".");
+
+        const existingRes = await mflExportJson(r2Season, r2League, "salaryAdjustments", {}, { useCookie: true });
+        const existingRows = existingRes.ok
+          ? collectSalaryAdjustmentExportRows(existingRes.data?.salaryAdjustments || existingRes.data?.salaryadjustments || existingRes.data || {})
+          : [];
+        const existingKeys = new Set();
+        for (const ex of existingRows) {
+          const m = safeStr(ex.explanation).match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+          if (m) existingKeys.add(m[1]);
+        }
+
+        const rowsToPost = [];
+        const reconcile = [];
+        for (const pen of pending) {
+          const fid = padFranchiseId(pen.fid);
+          const amount = safeInt(pen.amount_k, 0) * 1000;
+          if (!fid || amount <= 0) continue;
+          const key = r2Key(pen.penalty_id);
+          if (existingKeys.has(key)) { reconcile.push({ penalty_id: pen.penalty_id, key }); continue; }
+          rowsToPost.push({
+            franchise_id: fid,
+            amount,
+            explanation: `UPS RULE 2 missed nomination ${safeStr(pen.et_day)} offense ${safeInt(pen.offense_no, 0)} id:${key}`,
+            penalty_id: pen.penalty_id,
+            key,
+          });
+        }
+        const r2Plain = (rs) => rs.map((r) => ({ franchise_id: r.franchise_id, amount: r.amount, explanation: r.explanation }));
+
+        if (r2DryRun) {
+          return jsonOut(200, {
+            ok: true, dry_run: true, season: r2Season, league_id: r2League,
+            pending: pending.length, would_post: r2Plain(rowsToPost),
+            already_in_mfl: reconcile.length,
+            xml_preview: buildSalaryAdjXml(r2Plain(rowsToPost)),
+            note: pending.length === 0 ? "Nothing pending — either fines are dark (pendingMflPenalties gates on AUCTION_FAA_PENALTIES_ENABLED) or everything already posted." : "",
+          });
+        }
+
+        // salaryAdj import needs the commissioner cookie — same gate, same
+        // reason as the drop poster.
+        const r2AdminState = await getLeagueAdminState(r2League, r2Season);
+        if (!r2AdminState.ok || !r2AdminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "MFL_COOKIE lacks commissioner privileges for salary adjustments", admin_state: r2AdminState });
+        }
+
+        for (const rec of reconcile) {
+          await env.UPS_MFL_DB.prepare(
+            `UPDATE ups_faa_nom_penalties SET posted_to_mfl=1, posted_at_utc=?, mfl_adj_note=? WHERE penalty_id=?`
+          ).bind(new Date().toISOString(), "reconciled: pre-existing MFL row", rec.penalty_id).run();
+        }
+        if (!rowsToPost.length) {
+          return jsonOut(200, { ok: true, season: r2Season, league_id: r2League, posted: 0, reconciled: reconcile.length, message: "No new RULE 2 fines to post." });
+        }
+
+        const r2DataXml = buildSalaryAdjXml(r2Plain(rowsToPost));
+        // Clean import — /{year}/import, body TYPE/L/DATA only, commish cookie.
+        // The query-param/APIKEY variants silently 200 without applying (see the
+        // drop poster's hard-won comment above).
+        const r2ImportUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(r2Season)}/import`;
+        let r2ImportRes;
+        try {
+          const ir = await fetch(r2ImportUrl, {
+            method: "POST",
+            headers: {
+              Cookie: cookieHeader,
+              "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)",
+              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            },
+            body: new URLSearchParams({ TYPE: "salaryAdj", L: r2League, DATA: r2DataXml }).toString(),
+            redirect: "manual",
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          const irText = await ir.text().catch(() => "");
+          r2ImportRes = { ok: ir.status >= 200 && ir.status < 400, status: ir.status, preview: String(irText).slice(0, 300) };
+        } catch (e) {
+          r2ImportRes = { ok: false, status: 0, preview: "fetch_failed: " + (e && e.message) };
+        }
+
+        // Verify in the post-import export before marking anything posted.
+        const r2VerifyRes = await mflExportJson(r2Season, r2League, "salaryAdjustments", {}, { useCookie: true });
+        const r2VerifyRows = r2VerifyRes.ok
+          ? collectSalaryAdjustmentExportRows(r2VerifyRes.data?.salaryAdjustments || r2VerifyRes.data?.salaryadjustments || r2VerifyRes.data || {})
+          : [];
+        const r2Verified = new Set();
+        for (const ex of r2VerifyRows) {
+          const m = safeStr(ex.explanation).match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+          if (m) r2Verified.add(m[1]);
+        }
+        const r2Posted = [];
+        for (const row of rowsToPost) {
+          if (r2Verified.has(row.key)) {
+            await env.UPS_MFL_DB.prepare(
+              `UPDATE ups_faa_nom_penalties SET posted_to_mfl=1, posted_at_utc=?, mfl_adj_note=? WHERE penalty_id=?`
+            ).bind(new Date().toISOString(), row.explanation, row.penalty_id).run();
+            r2Posted.push({ penalty_id: row.penalty_id, franchise_id: row.franchise_id, amount: row.amount });
+          }
+        }
+        return jsonOut(200, {
+          ok: r2Posted.length === rowsToPost.length,
+          season: r2Season, league_id: r2League,
+          posted: r2Posted.length, attempted: rowsToPost.length, reconciled: reconcile.length,
+          verified: r2Posted,
+          mfl_import: { ok: !!r2ImportRes.ok, status: r2ImportRes.status, preview: r2ImportRes.preview },
         });
       }
 
