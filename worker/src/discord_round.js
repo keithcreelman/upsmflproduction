@@ -78,7 +78,7 @@ function formatDeadlineEt(iso) {
   }
 }
 // Backwards-compat alias — older call sites referenced formatDeadlineUtc.
-const formatDeadlineUtc = formatDeadlineEt;
+export const formatDeadlineUtc = formatDeadlineEt;
 function jsonResponse(payload, status) {
   return new Response(JSON.stringify(payload), {
     status: status || 200,
@@ -152,7 +152,7 @@ export async function sendDm(env, channelId, payload) {
 // announcement — the caller explicitly passes { silent: false } there.
 // DMs (kickoff + nudges) always notify (different helper).
 const MSG_FLAGS_SILENT = 1 << 12;
-async function postChannelMessage(env, channelId, payload, opts = {}) {
+export async function postChannelMessage(env, channelId, payload, opts = {}) {
   const silent = opts.silent !== false; // default true
   return await discordPost(env, `/channels/${encodeURIComponent(channelId)}/messages`, {
     ...payload,
@@ -193,7 +193,7 @@ function rulesChannelId(env) {
 function guildIdFromInteraction(interaction) {
   return safeStr(interaction?.guild_id || "");
 }
-function threadDeepLink(guildId, threadId) {
+export function threadDeepLink(guildId, threadId) {
   if (!guildId || !threadId) return "";
   return `https://discord.com/channels/${guildId}/${threadId}`;
 }
@@ -298,7 +298,8 @@ async function ensureOwnerRow(env, roundId, discordUserId, displayName) {
 }
 async function getRoundItems(env, roundId) {
   const { results } = await env.UPS_MFL_DB.prepare(`
-    SELECT ri.*, p.title, p.tldr, p.body_md, p.type, p.pass_yes_count, p.discussion_only
+    SELECT ri.*, p.title, p.tldr, p.body_md, p.rationale_md, p.supporting_data_md,
+           p.type, p.pass_yes_count, p.discussion_only
     FROM discord_round_items ri
     JOIN hall_proposals p ON p.id = ri.proposal_id
     WHERE ri.round_id = ?
@@ -308,7 +309,8 @@ async function getRoundItems(env, roundId) {
 }
 async function getRoundItemByProposal(env, roundId, proposalId) {
   const { results } = await env.UPS_MFL_DB.prepare(`
-    SELECT ri.*, p.title, p.tldr, p.body_md, p.type, p.pass_yes_count, p.discussion_only
+    SELECT ri.*, p.title, p.tldr, p.body_md, p.rationale_md, p.supporting_data_md,
+           p.type, p.pass_yes_count, p.discussion_only
     FROM discord_round_items ri
     JOIN hall_proposals p ON p.id = ri.proposal_id
     WHERE ri.round_id = ? AND ri.proposal_id = ?
@@ -843,7 +845,13 @@ async function postAnnouncementAndImpact(env, round, item) {
   if (!claim?.meta?.changes) return { ok: true, alreadyPosted: true };
 
   // 1. Cross-channel announcement (DISCORD_ANNOUNCE_CHANNEL_ID, defaults to RULES channel).
-  const annCid = announceChannelId(env);
+  // TEST ROUNDS announce to their own broadcast channel instead — a passing
+  // test proposal must never push-notify Coffee Shop. Without this guard the
+  // Rule Proposals dark-launch rehearsal would @ the whole league.
+  const isTestRound = Number(round.test_only || 0) === 1;
+  const annCid = isTestRound
+    ? safeStr(round.broadcast_channel_id || "")
+    : announceChannelId(env);
   const verdictWord = item.final_outcome === "passed" ? "PASSED"
                     : item.final_outcome === "rejected" ? "REJECTED"
                     : "CLOSED";
@@ -851,9 +859,10 @@ async function postAnnouncementAndImpact(env, round, item) {
                      : item.final_outcome === "rejected" ? "❌" : "🗣";
   const guildId = safeStr(env.DISCORD_GUILD_ID || "");
   const link = guildId ? threadDeepLink(guildId, item.discord_thread_id) : "";
+  const rulingSuffix = item.close_reason === "commish_ruling" ? " (commish ruling)" : "";
   const announceContent = link
-    ? `${verdictEmoji} **Rule ${verdictWord}: ${item.title}** — [click for details](${link})`
-    : `${verdictEmoji} **Rule ${verdictWord}: ${item.title}** — see thread in rules channel.`;
+    ? `${verdictEmoji} **Rule ${verdictWord}: ${item.title}**${rulingSuffix} — [click for details](${link})`
+    : `${verdictEmoji} **Rule ${verdictWord}: ${item.title}**${rulingSuffix} — see thread in rules channel.`;
   let annMsgId = "";
   if (annCid) {
     // Loud: this is the one channel post that's allowed to push-notify
@@ -895,7 +904,7 @@ async function postAnnouncementAndImpact(env, round, item) {
   // detect an existing PR. Network/AI errors here MUST NOT roll back
   // the announcement (which already landed); we just log + retry via
   // the manual /admin/hall/integrate-rule/:id endpoint.
-  if (item.final_outcome === "passed") {
+  if (item.final_outcome === "passed" && !isTestRound) {
     try {
       const { integrateApprovedRule } = await import("./rule_integrator.js");
       // Don't await — keep the sweep snappy. The integrator can take
@@ -1011,7 +1020,7 @@ async function patchDeferredOriginal(env, applicationId, interactionToken, body)
   }
 }
 
-async function runStartFlow(env, roundId, interaction, applicationId, interactionToken) {
+export async function runStartFlow(env, roundId, interaction, applicationId, interactionToken, opts = {}) {
   const ack = (msg) => applicationId && interactionToken
     ? patchDeferredOriginal(env, applicationId, interactionToken, { content: msg.slice(0, 1990) })
     : Promise.resolve();
@@ -1025,7 +1034,13 @@ async function runStartFlow(env, roundId, interaction, applicationId, interactio
   // as a fallback). Voting deadline = rookie draft − 7 days.
   // Wrapped — any failure here MUST NOT crash runStartFlow because the
   // deferred response has to be patched at the bottom of this function.
-  try {
+  //
+  // opts.skipDeadlineDerivation: the Rule Proposals publish path sets an
+  // explicit deadline on the round and MUST NOT have it overwritten — the
+  // derived date is rookie-draft−7d (May), which for a July publish is in
+  // the PAST, and processOverdueRoundCloses would then close the round on
+  // the next hourly cron. Found 2026-07-15 during the v2 design review.
+  if (!opts.skipDeadlineDerivation) try {
     const season = seasonFromRound(round);
     const derived = await deriveVotingDeadlineFromEvents(env, season);
     if (derived) {
@@ -1042,7 +1057,10 @@ async function runStartFlow(env, roundId, interaction, applicationId, interactio
     console.log(`[rules start] deadline derivation failed: ${e?.message || e}; continuing with seeded deadline`);
   }
 
-  const channelId = rulesChannelId(env);
+  // broadcast_channel_id was stored-but-never-read since 0021; it now wins
+  // when set — the Rule Proposals dark/test path points it at the test
+  // channel so a whole round can run without the league seeing anything.
+  const channelId = safeStr(round.broadcast_channel_id || "") || rulesChannelId(env);
   if (!channelId) return await ack("`DISCORD_RULES_CHANNEL_ID` not configured.");
 
   const items = await getRoundItems(env, round.round_id);
@@ -1089,7 +1107,9 @@ async function runStartFlow(env, roundId, interaction, applicationId, interactio
   let createdCount = 0;
   let failedCount = 0;
   for (const it of items) {
-    const threadName = `Item ${it.ordinal}: ${fitToFieldValue(it.title, 80)}`;
+    const threadName = items.length === 1
+      ? fitToFieldValue(it.title, 90)
+      : `Item ${it.ordinal}: ${fitToFieldValue(it.title, 80)}`;
     const tr = await createStandalonePublicThread(env, channelId, threadName);
     if (!tr.ok || !tr.data?.id) {
       console.log(`[rules start] thread create failed for ${it.proposal_id}: status=${tr.status} body=${(tr.text || "").slice(0, 200)}`);
@@ -1109,6 +1129,26 @@ async function runStartFlow(env, roundId, interaction, applicationId, interactio
     const tallyMsgId = tallyMsg.ok ? safeStr(tallyMsg.data?.id || "") : "";
     if (tallyMsgId) await pinMessage(env, threadId, tallyMsgId).catch(() => {});
 
+    // Structured authoring (Rule Proposals v2): the WHY and the DATA are their
+    // own messages so the proposal message keeps its 2000-char budget for the
+    // rule text itself. Both optional; chunked at message-size boundaries.
+    const postLong = async (header, md) => {
+      const bodyText = safeStr(md);
+      if (!bodyText) return;
+      let rest = `${header}\n${bodyText}`;
+      while (rest.length) {
+        let cut = Math.min(1950, rest.length);
+        if (cut < rest.length) {
+          const nl = rest.lastIndexOf("\n", cut);
+          if (nl > 500) cut = nl;
+        }
+        await postChannelMessage(env, threadId, { content: rest.slice(0, cut) });
+        rest = rest.slice(cut);
+      }
+    };
+    await postLong("📋 **Why this came up**", it.rationale_md);
+    await postLong("📊 **Supporting data**", it.supporting_data_md);
+
     await env.UPS_MFL_DB.prepare(`
       UPDATE discord_round_items
       SET discord_thread_id = ?, proposal_message_id = ?, tally_message_id = ?
@@ -1124,7 +1164,11 @@ async function runStartFlow(env, roundId, interaction, applicationId, interactio
     await sleepMs(250);
   }
 
-  // 3. DM each owner with the thread links.
+  // 3. DM each owner. Two shapes:
+  //    - legacy digest: thread links + deadline (batch rounds, /rules start)
+  //    - opts.dmVoteCards (Rule Proposals v2): the interactive card with
+  //      Approve/Decline/Discuss buttons. Approve/Decline carry the same
+  //      t:vote customIds as the thread — one vote pipeline, zero sync code.
   const channelLink = guildId ? `https://discord.com/channels/${guildId}/${channelId}` : "the rules channel";
   const deadlineFormatted = formatDeadlineUtc(round.voting_deadline_utc);
   const dmLines = [
@@ -1140,11 +1184,23 @@ async function runStartFlow(env, roundId, interaction, applicationId, interactio
   }
   dmLines.push(`Vote, comment, or ask the bot to explain.`);
   dmLines.push(`If you don't vote, I'll nudge you here **every 48 hours for the first 6 days, then daily** until you respond or the round closes.`);
+  let dmVoteCardPayload = null;
+  if (opts.dmVoteCards) {
+    // Single-item rounds only (the publish path guarantees this); re-read the
+    // item so the card carries the thread id stamped moments ago.
+    const freshItems = await getRoundItems(env, round.round_id);
+    const it0 = freshItems[0];
+    if (it0) {
+      const { buildDmVoteCard } = await import("./discord_rule_proposal.js");
+      dmVoteCardPayload = buildDmVoteCard(round, it0, guildId);
+    }
+  }
   let dmsSent = 0;
+  const dmFailures = [];
   for (const o of owners) {
     const cid = await openDmChannel(env, o.discord_user_id);
-    if (!cid) continue;
-    const dr = await sendDm(env, cid, { content: dmLines.join("\n").slice(0, 1990) });
+    if (!cid) { dmFailures.push({ discord_user_id: o.discord_user_id, reason: "dm_channel_open_failed" }); continue; }
+    const dr = await sendDm(env, cid, dmVoteCardPayload || { content: dmLines.join("\n").slice(0, 1990) });
     // Stamp last_nudge_utc on successful kickoff DM so the cron treats the
     // kickoff itself as nudge-zero — the first *actual* nudge then waits the
     // full 48h cadence instead of firing on the next sweep.
@@ -1157,6 +1213,7 @@ async function runStartFlow(env, roundId, interaction, applicationId, interactio
       `).bind(cid, stampNow, stampNow, round.round_id, o.discord_user_id).run();
       dmsSent++;
     } else {
+      dmFailures.push({ discord_user_id: o.discord_user_id, reason: `dm_send_${dr.status || "failed"}` });
       await env.UPS_MFL_DB.prepare(`
         UPDATE discord_round_owners SET bot_dm_channel_id = ?, last_active_utc = ?
         WHERE round_id = ? AND discord_user_id = ?
@@ -1167,6 +1224,12 @@ async function runStartFlow(env, roundId, interaction, applicationId, interactio
   await ack(
     `▶ Started **${round.title}** — ${createdCount}/${items.length} threads, ${dmsSent}/${owners.length} kickoff DMs.${failedCount ? ` (${failedCount} thread(s) failed — see logs.)` : ""}`
   );
+  // The publish route (Rule Proposals v2) runs this in waitUntil and reads
+  // nothing, but logs + future callers get the real accounting. A DM failure
+  // is survivable — the thread buttons remain that owner's vote path — but
+  // it must be VISIBLE, not silent (the dmAll 50007 lesson).
+  if (dmFailures.length) console.log(`[rules start] DM failures: ${JSON.stringify(dmFailures)}`);
+  return { ok: true, created: createdCount, dms_sent: dmsSent, dm_failures: dmFailures };
 }
 
 // ---------- Subcommand: /rules status ----------
@@ -1196,7 +1259,7 @@ async function handleStatus(interaction, env) {
 }
 
 // ---------- Internal: close a round (extracted for /rules close + cron deadline-close) ----------
-async function closeRoundInternal(env, round, opts) {
+export async function closeRoundInternal(env, round, opts) {
   const reason = opts?.reason || "manual";
   // Finalize any items that didn't auto-close.
   const items = await getRoundItems(env, round.round_id);
@@ -1592,15 +1655,36 @@ async function handleExplainModalSubmit(env, ctx, round, item, callerId, interac
   const work = async () => {
     let answer;
     try {
+      // Per-proposal memory: prior Q&A + commish rulings ride along so the
+      // bot stops re-answering settled questions and never contradicts a
+      // ruling ("always trust my voice as the determining factor").
+      let grounding = "";
+      try {
+        const { fetchQaGrounding } = await import("./discord_rule_proposal.js");
+        grounding = await fetchQaGrounding(env, item.proposal_id);
+      } catch (_) { /* grounding is additive — never block the answer */ }
       const result = await callExplain(env, {
         proposalTitle: item.title,
         proposalBody: item.body_md,
         question,
+        extraContext: grounding,
       });
       answer = result.ok ? result.answer : (result.answer || "(error)");
     } catch (e) {
       console.log(`[explain] callExplain threw: ${e?.message || e}`);
       answer = "🤖 Something went sideways calling the explain service.";
+    }
+    // Log the exchange — thread Q&A is learning data exactly like DM Discuss.
+    try {
+      await env.UPS_MFL_DB.prepare(`
+        INSERT INTO hall_qa_log
+          (proposal_id, round_id, discord_user_id, display_name, kind,
+           question_text, bot_answer, source, created_at_utc)
+        VALUES (?, ?, ?, ?, 'question', ?, ?, 'thread_explain', ?)
+      `).bind(item.proposal_id, round.round_id, getCallerId(interaction) || null,
+        getCallerName(interaction) || null, question, answer, nowIso()).run();
+    } catch (e) {
+      console.log(`[explain] qa_log insert failed (non-fatal): ${e?.message || e}`);
     }
     const callerName = getCallerName(interaction);
     const lines = [

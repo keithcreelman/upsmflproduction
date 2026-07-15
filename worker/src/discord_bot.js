@@ -198,6 +198,17 @@ export async function handleDiscordInteraction(request, env, ctx) {
         return ephemeralReply(`Trade button failed: ${e && e.message ? e.message : "unknown error"}`);
       }
     }
+    // Rule Proposals v2 buttons ("rp:discuss:...", "rp:surface:<qaId>").
+    // Checked before the Hall fallthrough; can't collide with its strict "t:".
+    if (customId.startsWith("rp:")) {
+      try {
+        const { handleRuleProposalComponent } = await import("./discord_rule_proposal.js");
+        return await handleRuleProposalComponent(interaction, env, ctx);
+      } catch (e) {
+        console.log(`[rp-btn] EXCEPTION: ${e && e.message} ${e && e.stack}`);
+        return ephemeralReply(`Button failed: ${e && e.message ? e.message : "unknown error"}`);
+      }
+    }
     try {
       return await handleComponentInteraction(interaction, env, ctx);
     } catch (e) {
@@ -213,6 +224,15 @@ export async function handleDiscordInteraction(request, env, ctx) {
       } catch (e) {
         console.log(`[roast-modal] EXCEPTION: ${e && e.message} ${e && e.stack}`);
         return ephemeralReply(`Reply modal failed: ${e && e.message ? e.message : "unknown error"}`);
+      }
+    }
+    if (customId.startsWith("rp:")) {
+      try {
+        const { handleRuleProposalModal } = await import("./discord_rule_proposal.js");
+        return await handleRuleProposalModal(interaction, env, ctx);
+      } catch (e) {
+        console.log(`[rp-modal] EXCEPTION: ${e && e.message} ${e && e.stack}`);
+        return ephemeralReply(`Modal failed: ${e && e.message ? e.message : "unknown error"}`);
       }
     }
     try {

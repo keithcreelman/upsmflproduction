@@ -13,6 +13,8 @@ import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_f
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar } from "./auction_calendar.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount } from "./auction_windows.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
+import { commishVerdictOverride } from "./discord_rule_proposal.js";
+import { runStartFlow as runRuleProposalStartFlow } from "./discord_round.js";
 import {
   nomComplianceLedger, voidNomDay, unvoidNomDay, RULE2_FINE_K_BY_OFFENSE, pendingMflPenalties,
 } from "./auction_compliance.js";
@@ -3826,6 +3828,7 @@ export default {
         path !== "/admin/auction/backfill-era-ppg" &&
         path !== "/admin/auction/finalize-era-contracts" &&
         path !== "/admin/auction/poll-now" &&
+        !path.startsWith("/admin/rule-proposals") &&
         path !== "/admin/auction/post-rule2-fines" &&
         path !== "/admin/auction/push-mfl-calendar" &&
         path !== "/api/league-events" &&
@@ -37984,6 +37987,194 @@ export default {
           ).bind(JSON.stringify(merged), new Date().toISOString()).run();
         } catch (e) { return jsonOut(500, { ok: false, error: e?.message || String(e) }); }
         return jsonOut(200, { ok: true, discord_routing: merged });
+      }
+
+      // ---- 📜 Rule Proposals v2 (2026-07-15) ------------------------------
+      // Commish-authored proposals published straight from the Commish
+      // Settings tab into the Hall Gen-2 voting engine: one round per
+      // proposal, per-owner DM cards (Approve/Decline/Discuss), the private
+      // Discuss/Surface loop, and the commish verdict override. Same gate as
+      // commish-settings: MFL-proven identity or the API key.
+      //
+      // DARK LAUNCH: while RULE_PROPOSALS_LIVE is off, EVERY publish is
+      // forced to the commish-only/test-channel shape regardless of the form
+      // — "start by only DMing myself until I feel it's ready" (Keith).
+      if (path === "/admin/rule-proposals" && request.method === "GET") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const enabled = await getFeatureFlag(env, "RULE_PROPOSALS_ENABLED");
+        const live = await getFeatureFlag(env, "RULE_PROPOSALS_LIVE");
+        const ai = await getFeatureFlag(env, "RULE_PROPOSALS_AI_ENABLED");
+        try {
+          const { results: rows } = await env.UPS_MFL_DB.prepare(
+            `SELECT r.round_id, r.status AS round_status, r.test_only, r.voting_deadline_utc,
+                    r.started_at_utc, ri.proposal_id, ri.final_outcome, ri.close_reason,
+                    ri.discord_thread_id, ri.votes_locked_at_utc,
+                    p.title, p.tldr, p.pass_yes_count, p.category,
+                    (SELECT COUNT(*) FROM discord_responses dr WHERE dr.round_id = r.round_id
+                       AND dr.proposal_id = ri.proposal_id AND dr.superseded_at_utc IS NULL
+                       AND dr.value = 'yes') AS yes,
+                    (SELECT COUNT(*) FROM discord_responses dr WHERE dr.round_id = r.round_id
+                       AND dr.proposal_id = ri.proposal_id AND dr.superseded_at_utc IS NULL
+                       AND dr.value = 'no') AS no,
+                    (SELECT COUNT(*) FROM discord_responses dr WHERE dr.round_id = r.round_id
+                       AND dr.proposal_id = ri.proposal_id AND dr.superseded_at_utc IS NULL
+                       AND dr.value = 'abstain') AS abstain,
+                    (SELECT COUNT(*) FROM hall_qa_log q WHERE q.proposal_id = ri.proposal_id
+                       AND q.kind IN ('question','concern','feedback')) AS qa_count,
+                    (SELECT COUNT(*) FROM hall_qa_log q WHERE q.proposal_id = ri.proposal_id
+                       AND q.surfaced = 1) AS surfaced_count
+               FROM discord_rounds r
+               JOIN discord_round_items ri ON ri.round_id = r.round_id
+               JOIN hall_proposals p ON p.id = ri.proposal_id
+              WHERE r.round_id LIKE 'rp-%'
+              ORDER BY r.started_at_utc DESC LIMIT 30`
+          ).all();
+          const guildId = safeStr(env.DISCORD_GUILD_ID || "");
+          const { results: qa } = await env.UPS_MFL_DB.prepare(
+            `SELECT qa_id, proposal_id, display_name, kind, question_text, bot_answer,
+                    surfaced, keith_ruling, created_at_utc
+               FROM hall_qa_log ORDER BY created_at_utc DESC LIMIT 50`
+          ).all();
+          return jsonOut(200, {
+            ok: true,
+            flags: { enabled, live, ai },
+            proposals: (rows || []).map((r) => ({
+              ...r,
+              thread_url: guildId && r.discord_thread_id
+                ? `https://discord.com/channels/${guildId}/${r.discord_thread_id}` : "",
+            })),
+            qa_log: qa || [],
+          });
+        } catch (e) { return jsonOut(500, { ok: false, error: String(e?.message || e) }); }
+      }
+
+      if (path === "/admin/rule-proposals/publish" && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        if (!(await getFeatureFlag(env, "RULE_PROPOSALS_ENABLED"))) {
+          return jsonOut(403, { ok: false, error: "RULE_PROPOSALS_ENABLED is off" });
+        }
+        let rpBody = {};
+        try { rpBody = (await request.json()) || {}; } catch (_) { rpBody = {}; }
+        const title = safeStr(rpBody.title).slice(0, 120);
+        const bodyMd = safeStr(rpBody.body_md);
+        if (title.length < 4) return jsonOut(400, { ok: false, error: "title too short" });
+        if (bodyMd.length < 10) return jsonOut(400, { ok: false, error: "rule text too short" });
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+        if (slug.length < 3) return jsonOut(400, { ok: false, error: "title yields no usable slug" });
+        const proposalId = slug;
+        const roundId = `rp-${slug}`;
+
+        // Deadline: explicit, ISO, in the future. NEVER derived — the
+        // derivation path is May-calendar logic (see runStartFlow trap note).
+        const deadlineMs = Date.parse(safeStr(rpBody.deadline_utc));
+        if (!Number.isFinite(deadlineMs) || deadlineMs < Date.now() + 10 * 60 * 1000) {
+          return jsonOut(400, { ok: false, error: "deadline_utc must be ISO and at least 10 minutes out" });
+        }
+        const deadlineIso = new Date(deadlineMs).toISOString().replace(/\.\d{3}Z$/, "Z");
+
+        // DARK LAUNCH: LIVE off forces the solo/test shape; test_mode opts in
+        // per-proposal even after going live.
+        const liveFlag = await getFeatureFlag(env, "RULE_PROPOSALS_LIVE");
+        const dark = !liveFlag || !!rpBody.test_mode;
+        const passYes = dark ? 1 : Math.min(12, Math.max(1, safeInt(rpBody.pass_yes_count, 7)));
+        const TEST_CHANNEL = "1089538054236160010";
+
+        // Additive, refuse-on-existing — the seeder's wipe semantics must be
+        // unreachable from this path.
+        const existsP = await env.UPS_MFL_DB.prepare(`SELECT id, status FROM hall_proposals WHERE id = ?`).bind(proposalId).first();
+        if (existsP) return jsonOut(409, { ok: false, error: `proposal '${proposalId}' already exists (status ${existsP.status}) — change the title` });
+        const existsR = await env.UPS_MFL_DB.prepare(`SELECT round_id FROM discord_rounds WHERE round_id = ?`).bind(roundId).first();
+        if (existsR) return jsonOut(409, { ok: false, error: `round '${roundId}' already exists — change the title` });
+
+        const owners = dark
+          ? (await env.UPS_MFL_DB.prepare(`SELECT discord_user_id, franchise_id, owner_name FROM discord_owners WHERE franchise_id = '0008' AND active_owner = 'Y'`).all()).results || []
+          : (await env.UPS_MFL_DB.prepare(`SELECT discord_user_id, franchise_id, owner_name FROM discord_owners WHERE active_owner = 'Y'`).all()).results || [];
+        if (!owners.length) return jsonOut(500, { ok: false, error: "no active owners resolved from discord_owners" });
+
+        const ts = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+        await env.UPS_MFL_DB.prepare(
+          `INSERT INTO hall_proposals
+             (id, title, type, status, category, tldr, body_md, rationale_md, supporting_data_md,
+              deadline_utc, quorum_min, pass_yes_count, created_at_utc, created_by)
+           VALUES (?, ?, 'vote', 'open', ?, ?, ?, ?, ?, ?, 8, ?, ?, 'commish-tab')`
+        ).bind(proposalId, title, safeStr(rpBody.category) || "rules", safeStr(rpBody.tldr) || null,
+          bodyMd, safeStr(rpBody.rationale_md) || null, safeStr(rpBody.supporting_data_md) || null,
+          deadlineIso, passYes, ts).run();
+        await env.UPS_MFL_DB.prepare(
+          `INSERT INTO discord_rounds
+             (round_id, title, status, started_at_utc, started_by, voting_deadline_utc, test_only, broadcast_channel_id)
+           VALUES (?, ?, 'open', ?, 'commish-tab', ?, ?, ?)`
+        ).bind(roundId, title, ts, deadlineIso, dark ? 1 : 0, dark ? TEST_CHANNEL : null).run();
+        await env.UPS_MFL_DB.prepare(
+          `INSERT INTO discord_round_items (round_id, proposal_id, ordinal) VALUES (?, ?, 1)`
+        ).bind(roundId, proposalId).run();
+        for (const o of owners) {
+          await env.UPS_MFL_DB.prepare(
+            `INSERT INTO discord_round_owners (round_id, discord_user_id, franchise_id, display_name, state)
+             VALUES (?, ?, ?, ?, 'not_started')`
+          ).bind(roundId, safeStr(o.discord_user_id), safeStr(o.franchise_id) || null, safeStr(o.owner_name) || null).run();
+        }
+
+        // Fan-out (thread + buttons + tally + DM cards) in the background —
+        // ~10-15s with Discord's rate-limit sleeps; the tab polls the list.
+        ctx.waitUntil(
+          runRuleProposalStartFlow(env, roundId, null, "", "", { dmVoteCards: true, skipDeadlineDerivation: true })
+            .then((r) => console.log(`[rule-proposals] published ${roundId}: ${JSON.stringify(r)}`))
+            .catch((e) => console.error(`[rule-proposals] start flow failed for ${roundId}: ${e?.message || e}`))
+        );
+        return jsonOut(200, {
+          ok: true, proposal_id: proposalId, round_id: roundId,
+          dark, owners: owners.length, pass_yes_count: passYes, deadline_utc: deadlineIso,
+          note: dark ? "DARK: DMs only the commish; test channel; passes at 1 YES." : "LIVE: full league fan-out.",
+        });
+      }
+
+      if (path.startsWith("/admin/rule-proposals/") && path.endsWith("/verdict") && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        const proposalId = decodeURIComponent(path.slice("/admin/rule-proposals/".length, -"/verdict".length));
+        let vBody = {};
+        try { vBody = (await request.json()) || {}; } catch (_) {}
+        const r = await commishVerdictOverride(env, {
+          proposalId, outcome: safeStr(vBody.outcome), reason: safeStr(vBody.reason),
+          who: (await provenCommish(YEAR || new Date().getUTCFullYear(), L || "74598")).fid || "commish",
+        });
+        return jsonOut(r.ok ? 200 : 400, r);
+      }
+
+      if (path.startsWith("/admin/rule-proposals/") && path.endsWith("/ruling") && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const proposalId = decodeURIComponent(path.slice("/admin/rule-proposals/".length, -"/ruling".length));
+        let rlBody = {};
+        try { rlBody = (await request.json()) || {}; } catch (_) {}
+        const text = safeStr(rlBody.text);
+        if (!text) return jsonOut(400, { ok: false, error: "ruling text required" });
+        const ts2 = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+        await env.UPS_MFL_DB.prepare(
+          `INSERT INTO hall_qa_log (proposal_id, round_id, display_name, kind, keith_ruling, source, created_at_utc)
+           VALUES (?, (SELECT round_id FROM discord_round_items WHERE proposal_id = ? ORDER BY rowid DESC LIMIT 1),
+                   'commish', 'keith_ruling', ?, 'tab', ?)`
+        ).bind(proposalId, proposalId, text, ts2).run();
+        let posted = false;
+        if (rlBody.post_to_thread) {
+          const item = await env.UPS_MFL_DB.prepare(
+            `SELECT discord_thread_id FROM discord_round_items WHERE proposal_id = ? AND discord_thread_id IS NOT NULL ORDER BY rowid DESC LIMIT 1`
+          ).bind(proposalId).first();
+          if (item?.discord_thread_id) {
+            const { postChannelMessage } = await import("./discord_round.js");
+            const pr = await postChannelMessage(env, item.discord_thread_id, {
+              content: `⚖️ **Commish ruling:** ${text.slice(0, 1800)}`,
+            }, { silent: false });
+            posted = !!pr.ok;
+          }
+        }
+        return jsonOut(200, { ok: true, proposal_id: proposalId, posted_to_thread: posted });
       }
 
       // ---- §F RULE 2 — missed-nomination ledger + commish override ----
