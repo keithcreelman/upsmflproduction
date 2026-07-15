@@ -27,7 +27,7 @@ const contractDiscordChannelLastSendMs = new Map();
 // FA (1-yr auction) folds into `myac` — same auction family (Keith 2026-06-05).
 // `traderoast` = the Trade Roast bot's target channel (the bot must read this to
 // honor it; it's currently disabled). Default test after the 2026-06-01 incident.
-const DISCORD_ROUTING_DEFAULTS = { extension: "prod", myac: "prod", auctionbidding: "prod", restructure: "test", tag: "prod", mym: "prod", traderoast: "test" };
+const DISCORD_ROUTING_DEFAULTS = { extension: "prod", myac: "prod", auctionbidding: "prod", auctionreport: "prod", restructure: "test", tag: "prod", mym: "prod", traderoast: "test" };
 async function getDiscordRoutingConfig(env) {
   try {
     if (!env || !env.UPS_MFL_DB) return { ...DISCORD_ROUTING_DEFAULTS };
@@ -41,6 +41,22 @@ async function getDiscordRoutingConfig(env) {
 // Resolve the "Auction Bidding" Discord channel id (prod vs test) the same way
 // the auction narrator does — honors the `auctionbidding` routing key + the
 // AUCTION_DISCORD_USE_TEST override. Used by the nightly FA nudge.
+// The DAILY REPORTS go to #transactions (1059111651846131833), which is where
+// drops/cap-penalty cards already land — a compliance verdict belongs with the
+// other league bookkeeping, not in the middle of live bidding hype (Keith
+// 2026-07-15). Resolved SEPARATELY from resolveAuctionBiddingChannelId on
+// purpose: that one follows DISCORD_AUCTION_CHANNEL_ID, and inheriting it would
+// silently move the report the day anyone re-points the narrator.
+async function resolveTransactionsChannelId(env) {
+  const routing = await getDiscordRoutingConfig(env);
+  const useTest = String(routing.auctionreport) === "test";
+  return String(
+    useTest
+      ? (env.DISCORD_AUCTION_TEST_CHANNEL_ID || env.DISCORD_DRAFT_TEST_CHANNEL_ID || "1089538054236160010")
+      : (env.DISCORD_TRANSACTIONS_CHANNEL_ID || env.DISCORD_DROPS_CHANNEL_ID || "1059111651846131833")
+  ).replace(/\D/g, "");
+}
+
 async function resolveAuctionBiddingChannelId(env) {
   const routing = await getDiscordRoutingConfig(env);
   const useTest = String(routing.auctionbidding) === "test" ||
@@ -3128,7 +3144,7 @@ export default {
         const leagueId = String(env.LEAGUE_ID || "74598");
         ctx.waitUntil((async () => {
           try {
-            const channelId = await resolveAuctionBiddingChannelId(env);
+            const channelId = await resolveTransactionsChannelId(env);
             const r = await runFaNightlyJob(env, { leagueId, season, channelId, mode });
             console.log(`[scheduled fa-report ${mode}] ${JSON.stringify(r)}`);
           } catch (e) {
@@ -31794,8 +31810,12 @@ export default {
         const dryRun = String(url.searchParams.get("live") || "") !== "1";
         const force = String(url.searchParams.get("force") || "") === "1";
         try {
-          const channelId = await resolveAuctionBiddingChannelId(env);
-          const r = await runFaNightlyJob(env, { leagueId, season, channelId, dryRun, force });
+          const channelId = await resolveTransactionsChannelId(env);
+          // mode: "morning" (yesterday's verdict) | "evening" (today's warning).
+          // Defaults from the ET hour, so a manual run at 10am behaves like the
+          // 9am report unless told otherwise.
+          const mode = safeStr(url.searchParams.get("mode") || "") || undefined;
+          const r = await runFaNightlyJob(env, { leagueId, season, channelId, dryRun, force, mode });
           return jsonOut(200, { ok: true, channel_id: channelId, ...r });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });

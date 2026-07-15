@@ -97,6 +97,20 @@ async function nomCountsForDay(env, { season, leagueId, etDay }) {
 // offense numbers, and book the penalties. Idempotent — re-running for the same
 // day is a no-op, because the 9 AM cron can retry and must never double-fine.
 //
+// `record` (default false) is the difference between a rehearsal and the real
+// thing, and it is NOT the same switch as the money.
+//
+// Offense numbers count MISSED DAYS, not fines — so a "dark" run that still
+// wrote its rows would bank a real 1st offense for every team while the report
+// says "no penalties assessed". Their first GENUINE miss on 2026-07-25 would
+// then land as a 2nd offense at $7K. The test would quietly load the gun and
+// nobody would find out for three weeks (Keith 2026-07-15: record nothing until
+// fines are armed).
+//
+// So when record=false we compute the verdict and return it — the report still
+// names every miss — but write NOTHING. The ledger starts clean the day the
+// auction does.
+//
 // rows: /api/auction/fa-schedule rows — used ONLY for the franchise list and
 //       roster state. The nomination COUNT comes from the ledger (see above);
 //       fa-schedule's noms_used describes today, not the day being closed.
@@ -107,14 +121,18 @@ async function nomCountsForDay(env, { season, leagueId, etDay }) {
 // for a rule that ends in a fine.
 //
 // Returns { day, closed, misses: [...], penalties: [...], already_closed }.
-export async function closeEtDay(env, { season, leagueId, etDay, rows }) {
+export async function closeEtDay(env, { season, leagueId, etDay, rows, record = false }) {
   const db = env.UPS_MFL_DB;
   if (!db) return { ok: false, error: "no_db" };
 
   const existing = await db.prepare(
     `SELECT COUNT(*) AS n FROM ups_faa_nom_days WHERE season=? AND league_id=? AND et_day=?`
   ).bind(Number(season), String(leagueId), String(etDay)).first();
-  if (Number(existing?.n || 0) > 0) {
+  const alreadyClosed = Number(existing?.n || 0) > 0;
+  // Only a RECORDING run short-circuits. A rehearsal must still compute the
+  // verdict every morning, or the report would go blank the day after the
+  // ledger goes live.
+  if (alreadyClosed && record) {
     return { ok: true, day: etDay, already_closed: true, misses: [], penalties: [] };
   }
 
@@ -131,25 +149,37 @@ export async function closeEtDay(env, { season, leagueId, etDay, rows }) {
     // ballgame: judging on `used < required` alone fines the one owner who
     // finished.
     const missed = !rosterMet && used < required;
-    await db.prepare(
-      `INSERT OR IGNORE INTO ups_faa_nom_days
-         (season, league_id, fid, et_day, noms_used, noms_required, roster_met, total_deficit, missed)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(
-      Number(season), String(leagueId), fid, String(etDay),
-      used, required, rosterMet ? 1 : 0, Number(r.total_deficit || 0), missed ? 1 : 0
-    ).run();
+    if (record) {
+      await db.prepare(
+        `INSERT OR IGNORE INTO ups_faa_nom_days
+           (season, league_id, fid, et_day, noms_used, noms_required, roster_met, total_deficit, missed)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        Number(season), String(leagueId), fid, String(etDay),
+        used, required, rosterMet ? 1 : 0, Number(r.total_deficit || 0), missed ? 1 : 0
+      ).run();
+    }
     if (missed) misses.push({ fid, franchise_name: r.franchise_name, noms_used: used, noms_required: required });
   }
 
   // Book penalties for each miss, in a stable order so offense numbers are
   // deterministic when several teams miss the same day.
   const penalties = [];
-  for (const m of misses.sort((a, b) => a.fid.localeCompare(b.fid))) {
-    const p = await bookPenaltyForMiss(env, { season, leagueId, fid: m.fid, etDay });
-    if (p) penalties.push({ ...p, franchise_name: m.franchise_name });
+  if (record) {
+    for (const m of misses.sort((a, b) => a.fid.localeCompare(b.fid))) {
+      const p = await bookPenaltyForMiss(env, { season, leagueId, fid: m.fid, etDay });
+      if (p) penalties.push({ ...p, franchise_name: m.franchise_name });
+    }
+  } else {
+    // Rehearsal: every miss is what it WOULD be if the ledger were live. With
+    // an empty ledger that is a 1st offense — which is exactly what the report
+    // should say during a test.
+    misses.sort((a, b) => a.fid.localeCompare(b.fid));
+    for (const m of misses) {
+      penalties.push({ fid: m.fid, et_day: etDay, offense_no: 1, amount_k: rule2FineK(1), rows: 0, franchise_name: m.franchise_name, simulated: true });
+    }
   }
-  return { ok: true, day: etDay, closed: true, misses, penalties };
+  return { ok: true, day: etDay, closed: true, recorded: !!record, misses, penalties };
 }
 
 // Count PRIOR un-voided misses this auction, stamp the next offense number, and

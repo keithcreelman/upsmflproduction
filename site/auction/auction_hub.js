@@ -664,36 +664,43 @@
     // the roster floats below 27 while it runs, so "min to add" is a
     // by-the-end obligation, not a right-now violation. The tooltip has to say
     // that or the number reads as an accusation.
+    // LEAGUE-WIDE, not yours (Keith 2026-07-15). The Summary is the state of the
+    // auction, not of one team — and league-wide these three answer the only
+    // question the old "1833 free agents" pretended to: how much demand is still
+    // in the room. MIN is the floor of players that MUST still be bought before
+    // the auction can close legally; MAX is the ceiling of what the league can
+    // absorb. The gap between them is the discretionary money.
     const ROSTER_MIN_AT_CLOSE = 27, ROSTER_MAX_DURING = 35;
-    const viewerFid = STATE.me && STATE.me.franchise_id ? _p4(STATE.me.franchise_id) : "";
-    const myRow = viewerFid
-      ? ((STATE.fa && STATE.fa.team_budget_rows) || []).find((r) => _p4(r.franchise_id) === viewerFid)
-      : null;
+    const budgetRows = (STATE.fa && STATE.fa.team_budget_rows) || [];
 
     let firstTile;
-    if (myRow) {
-      const n = Number(myRow.roster_count) || 0;
-      const minAdd = Math.max(0, ROSTER_MIN_AT_CLOSE - n);
-      const maxAdd = Math.max(0, ROSTER_MAX_DURING - n);
+    if (budgetRows.length) {
+      let rostered = 0, minAdd = 0, maxAdd = 0;
+      for (const r of budgetRows) {
+        const n = Number(r.roster_count) || 0;
+        rostered += n;
+        minAdd += Math.max(0, ROSTER_MIN_AT_CLOSE - n);
+        maxAdd += Math.max(0, ROSTER_MAX_DURING - n);
+      }
       const tip =
-        `Your active roster: ${n}. ` +
-        `You must be at ${ROSTER_MIN_AT_CLOSE} when the auction CLOSES — it can float below while it runs — ` +
-        `so you still need at least ${minAdd}. ` +
-        `${ROSTER_MAX_DURING} is the hard cap during the auction, so you can add at most ${maxAdd}.`;
+        `League-wide across ${budgetRows.length} teams. Rostered: ${rostered}. ` +
+        `Every team must be at ${ROSTER_MIN_AT_CLOSE} when the auction CLOSES — rosters float below while it runs — ` +
+        `so at least ${minAdd} more players must still be bought. ` +
+        `${ROSTER_MAX_DURING} is the hard cap during the auction, so the league can absorb at most ${maxAdd}.`;
       firstTile =
         `<div class="ah-kpi ah-kpi-roster" title="${escapeHtml(tip)}">` +
           `<div class="ah-kpi-triple">` +
-            `<span><b>${n}</b><i>Rostered</i></span>` +
+            `<span><b>${rostered}</b><i>Rostered</i></span>` +
             `<span><b>+${minAdd}</b><i>Min to add</i></span>` +
             `<span><b>+${maxAdd}</b><i>Max to add</i></span>` +
           `</div>` +
         `</div>`;
     } else {
-      // No viewer identity ⇒ we don't know whose roster to report. Say that
-      // rather than invent a number or fall back to a count nobody asked for.
+      // No board yet ⇒ no roster counts. Say so rather than print a zero that
+      // reads as "the league needs nobody".
       firstTile =
-        `<div class="ah-kpi" title="Pick your franchise (or open this from MFL while signed in) to see your roster and how many you still need.">` +
-          `<div class="ah-kpi-val">—</div><div class="ah-kpi-label">Your roster</div></div>`;
+        `<div class="ah-kpi" title="Waiting on the live board.">` +
+          `<div class="ah-kpi-val">—</div><div class="ah-kpi-label">Rostered</div></div>`;
     }
 
     const kpis = [

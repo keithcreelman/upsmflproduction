@@ -38,9 +38,9 @@ import { getFeatureFlag } from "./feature_flags.js";
 import { resolveDiscordUserIds } from "./trade_dm.js";
 import { sendDm } from "./discord_round.js";
 import {
-  closeEtDay, complianceStandings, previousEtDay, etDayKeyOf, rule2Label, rule2FineK,
-  RULE2_MAX_FINED_OFFENSE,
+  closeEtDay, complianceStandings, previousEtDay, etDayKeyOf,
 } from "./auction_compliance.js";
+import { buildMorningMessage } from "./auction_morning.js";
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
 function plural(n, one, many) { return Number(n) === 1 ? one : (many || one + "s"); }
@@ -84,68 +84,6 @@ function usedColumns(cols, rows) {
   return cols.filter(([key]) =>
     rows.some((r) => Number((r.lineup_deficits || {})[key] || 0) > 0)
   );
-}
-
-// ---------- 9 AM PARENT: yesterday's verdict ----------
-// The morning report is the ONLY one that judges. At 9 AM the prior ET day is
-// closed and its verdict is final, so this is where a miss gets named, tagged,
-// and counted under §F RULE 2. It deliberately does NOT judge the day in
-// progress — "no need to say these teams are out of compliance it's 9AM"
-// (Keith 2026-07-14) — today's nominations are shown as information only.
-function buildMorningMessage(data, closed, standings, mentionsByFid, penaltiesArmed) {
-  const rows = data.rows || [];
-  const max = Number(data.noms_max || 2);
-  const used = (r) => Number(r.noms_used || 0);
-  const L = [];
-
-  L.push("# 🧪 TEST REPORT — NOBODY IS REQUIRED TO BID");
-  L.push(`### 🌅 FA AUCTION — MORNING · ${REPORT_LABEL.morning}`);
-  L.push("_Shaking this down before the real auction. **Numbers are live.**_");
-  L.push("");
-
-  // ---- yesterday: the verdict ----
-  const misses = (closed && closed.misses) || [];
-  L.push(`**📋 YESTERDAY (${closed?.day || "—"}) — FINAL**`);
-  if (!closed || !closed.day) {
-    L.push("_No closed day to report yet._");
-  } else if (!misses.length) {
-    L.push("✅ **Everyone who owed a nomination made it.** Clean sheet. 🎉");
-  } else {
-    for (const m of misses) {
-      const st = standings.get(m.fid) || {};
-      const offense = Number(st.offense_no || 0);
-      const tag = (mentionsByFid[m.fid] || []).map((id) => `<@${id}>`).join(" ");
-      const note = offense > RULE2_MAX_FINED_OFFENSE
-        ? " — **league-fit review** (§F RULE 2)"
-        : ` — **${rule2Label(offense)}**`;
-      L.push(`⚠️ **${m.franchise_name}** — ${m.noms_used}/${m.noms_required}${note}${tag ? ` — ${tag}` : ""}`);
-    }
-    L.push("");
-    if (penaltiesArmed) {
-      L.push("_§F RULE 2 fines applied. The next-season half sits on the ledger and crosses over at the rollover._");
-      // Immunity only matters once money is real. The CC no longer exists
-      // (Keith 2026-07-15) — telling the LEAGUE ahead of time is the standard,
-      // and it's a heads-up, not an application.
-      L.push("_Know you'll be out of pocket — travelling, no service, life? Tell the league ahead of time and it won't count against you._");
-    } else {
-      L.push("🧪 _This was only a test — no penalties assessed at this time._");
-    }
-  }
-  L.push("");
-
-  // ---- today: information only, no judgement ----
-  L.push(`**📥 TODAY SO FAR** — nominations as of ${REPORT_LABEL.morning.replace(" ET", "")} · ${max} per team due by midnight ET`);
-  const withNoms = rows.filter((r) => used(r) > 0).sort((a, b) => used(b) - used(a));
-  if (!withNoms.length) {
-    L.push("_Nobody's nominated yet — the day just started._");
-  } else {
-    for (const r of withNoms) L.push(`• **${r.franchise_name}** — ${used(r)}/${max}`);
-    const yet = rows.length - withNoms.length;
-    if (yet > 0) L.push(`_…and ${yet} ${plural(yet, "team")} yet to nominate today._`);
-  }
-  L.push("");
-  L.push("Recent wins, open lots + what everyone still needs → **thread** 🧵");
-  return L.join("\n");
 }
 
 // §F RULE 2 standings — who's carrying what, this auction.
@@ -518,7 +456,14 @@ export async function runFaNightlyJob(env, opts = {}) {
       // rows supply the franchise list + roster state ONLY. closeEtDay counts
       // the day's nominations from the bid ledger — fa-schedule's noms_used
       // describes the CURRENT window, which at 9 AM has already reset to zero.
-      closed = await closeEtDay(env, { season, leagueId, etDay: yesterday, rows: data.rows || [] });
+      // record ONLY when fines are armed. Offense numbers count missed DAYS, so
+      // a dark run that still wrote rows would bank a real 1st offense for every
+      // team while the report says "no penalties assessed" — their first genuine
+      // miss on 2026-07-25 would then land as a 2nd at $7K.
+      closed = await closeEtDay(env, {
+        season, leagueId, etDay: yesterday, rows: data.rows || [], record: penaltiesArmed,
+      });
+      out.ledger_recorded = !!closed?.recorded;
       out.closed_day = closed?.day;
       out.already_closed = !!closed?.already_closed;
       out.misses_yesterday = (closed?.misses || []).length;
@@ -555,7 +500,7 @@ export async function runFaNightlyJob(env, opts = {}) {
   out.owners_tagged = Object.keys(mentionsByFid).length;
 
   out.parent_preview = mode === "morning"
-    ? buildMorningMessage(data, closed, standings, mentionsByFid, penaltiesArmed)
+    ? buildMorningMessage(data, closed, standings, mentionsByFid, penaltiesArmed, REPORT_LABEL.morning)
     : buildParentMessage(data, mentionsByFid);
   // Won first (what closed), then RULE 2 standings, then the live board, then
   // what everyone still needs.
