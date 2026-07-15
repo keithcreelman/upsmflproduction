@@ -37331,9 +37331,74 @@ export default {
         return jsonOut(200, { ok: true, season: txSeason, league_id: txLeague, days: txDays, scanned, written, skipped, errors, by_type: byType });
       }
 
+      // ---- Commish identity, PROVEN by MFL ----
+      // Asks MFL "whose session is this?" (TYPE=myfranchise) using the caller's
+      // OWN cookie and trusts MFL's answer. Not a self-declared franchise_id —
+      // that's the bug class already flagged on the /api/trade/process family.
+      //
+      // Deliberately does NOT use mflExportJsonAsViewer or viewerCookieHeader.
+      // Both fall back to the worker's stored COMMISH session when the caller
+      // has no cookie of their own, which would authenticate every anonymous
+      // request on the internet as the commissioner. Only browserCookieHeader
+      // will do, and no cookie ⇒ denied.
+      //
+      // Returns { fid, reason } so a denial can say WHY without leaking
+      // anything: "no_token" (client didn't forward MFL_USER_ID — a SHA/plumbing
+      // problem) is a completely different failure from "not_commish" (it
+      // forwarded fine, you're just not the commish), and guessing between them
+      // while locked out of the settings page is miserable.
+      const provenCommish = async (season, leagueId) => {
+        if (commishKeyProven()) return { fid: "apikey", reason: "ok_apikey" };
+        if (!browserCookieHeader) return { fid: "", reason: "no_token" };
+        let res;
+        try {
+          res = await mflExportJsonForCookie(
+            browserCookieHeader, season, leagueId, "myfranchise", {}, { useCookie: true }
+          );
+        } catch (e) { return { fid: "", reason: "mfl_error" }; }
+        if (!res || !res.ok) return { fid: "", reason: "mfl_rejected_session" };
+        const raw = safeStr(parseMyFranchiseId(res.data));
+        // MUST reject a digitless answer BEFORE padding. padFranchiseId("")
+        // === "0000", and "0000" is a REAL entry in the commish list (MFL's
+        // league-owner pseudo-franchise) — so "", null, or "abc" would
+        // otherwise be promoted straight to commissioner. Once MFL has returned
+        // at least one digit, padding is safe: only a genuine "0" makes "0000".
+        if (!raw || !/\d/.test(raw)) return { fid: "", reason: "unresolvable_session" };
+        const fid = padFranchiseId(raw);
+        const allow = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000")
+          .split(/[,\s]+/).map((s) => padFranchiseId(s)).filter(Boolean);
+        return allow.includes(fid)
+          ? { fid, reason: "ok_mfl_session" }
+          : { fid, reason: "not_commish" };
+      };
+      const commishSettingsGate = async () => {
+        const season = YEAR || new Date().getUTCFullYear();
+        const leagueId = L || env.LEAGUE_ID || "74598";
+        const r = await provenCommish(season, leagueId);
+        if (String(r.reason).startsWith("ok_")) return null;
+        return jsonOut(403, {
+          ok: false,
+          error: "commish_only",
+          reason: r.reason,
+          message:
+            "Commish-only. Open this from the Commish Settings page while signed in to MFL, " +
+            "or pass ?APIKEY=<COMMISH_API_KEY>.",
+        });
+      };
+
       // GET/POST /admin/commish-settings — read/write commish-configurable
       // settings (per-mechanism Discord routing for now). D1 ups_settings.
+      //
+      // GATED (2026-07-14). This route had NO auth on either verb: a bare curl
+      // returned live feature flags, Discord routing, and the auction calendar,
+      // and the POST handed setFeatureFlags whatever JSON it was given — which
+      // includes TRADE_3WAY_EXECUTE, the switch this codebase's own UI labels
+      // "an accepted 3-way actually moves rosters in MFL (can't be undone)".
+      // GET is gated too: the config it returns is the map of what an attacker
+      // would flip.
       if (path === "/admin/commish-settings" && request.method === "GET") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
         const routing = await getDiscordRoutingConfig(env);
         const featureFlags = await getAllFeatureFlags(env);
@@ -37341,6 +37406,8 @@ export default {
         return jsonOut(200, { ok: true, discord_routing: routing, defaults: DISCORD_ROUTING_DEFAULTS, mechanisms: Object.keys(DISCORD_ROUTING_DEFAULTS), feature_flags: featureFlags, auction_calendar: auctionCalendar, auction_calendar_fields: AUCTION_CAL_FIELDS });
       }
       if (path === "/admin/commish-settings" && request.method === "POST") {
+        const deniedPost = await commishSettingsGate();
+        if (deniedPost) return deniedPost;
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
         let csBody = {};
         try { csBody = await request.json(); } catch (_) {}

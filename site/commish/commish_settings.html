@@ -367,7 +367,20 @@
   };
   function fetchJSON(url) {
     return fetch(_withUserId(url), { cache: "no-store", credentials: "omit" }).then(function (r) {
-      if (!r.ok) throw new Error("HTTP " + r.status);
+      if (!r.ok) {
+        // Surface the gate's own reason rather than a bare "HTTP 403".
+        // "no_token" (the page never forwarded MFL_USER_ID — a SHA/plumbing
+        // problem) and "not_commish" (it forwarded fine, wrong franchise) look
+        // identical from a status code, and telling them apart while locked out
+        // of this very page is exactly when you can least afford to guess.
+        return r.text().then(function (t) {
+          var d = null; try { d = t ? JSON.parse(t) : null; } catch (_) {}
+          if (r.status === 403 && d && d.reason) {
+            throw new Error("403 " + d.reason + " — " + (d.message || ""));
+          }
+          throw new Error("HTTP " + r.status);
+        });
+      }
       return r.json();
     });
   }
