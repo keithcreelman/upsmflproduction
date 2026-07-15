@@ -385,14 +385,25 @@
   }
 
   // Map MFL position codes to display buckets (matches rookie hub convention)
+  // MFL emits fine-grained defensive positions (DE/DT/NT, OLB/ILB/MLB, CB/S/FS/SS).
+  // They used to collapse into one "IDP" bucket, which is useless for shopping:
+  // the lineup needs DL, LB and DB SEPARATELY (see the positions matrix), so a
+  // filter that can't tell them apart can't answer "who fills my DL hole".
+  const DL_POS = ["DL", "DE", "DT", "NT", "EDGE"];
+  const LB_POS = ["LB", "OLB", "ILB", "MLB"];
+  const DB_POS = ["DB", "CB", "S", "FS", "SS"];
   function posBucket(p) {
     p = String(p || "").toUpperCase();
     if (["QB", "RB", "WR", "TE"].includes(p)) return p;
     if (p === "K") return "PK";
     if (p === "P") return "PN";
     if (["PK", "PN"].includes(p)) return p;
-    // Everything else (DL, LB, DB, S, CB, DT, DE, ...) collapses to IDP for filtering
-    return "IDP";
+    if (DL_POS.includes(p)) return "DL";
+    if (LB_POS.includes(p)) return "LB";
+    if (DB_POS.includes(p)) return "DB";
+    // An unrecognised code still needs a home — bucket as DL rather than let the
+    // player vanish from every filter. There is no "IDP" bucket any more.
+    return "DL";
   }
 
   // ════════════════════════════════════════════════════════════════════
@@ -644,17 +655,53 @@
     const won = tabLots.filter((l) => l.status === "won").length;
     const f = STATE.lots || {};
     const enabled = tab === "era" ? !!f.era_enabled : !!f.faa_enabled;
-    const poolCount = tab === "era"
-      ? ((STATE.era && STATE.era.players) || []).length
-      : (STATE.faPool || []).length;
-    const poolLabel = tab === "era" ? "Eligible players" : "Free agents";
+    // "1833 free agents" is a fact about the database, not about you — it never
+    // changed what anyone did next (Keith 2026-07-15: "1833 means nothing").
+    // Replaced with YOUR roster and the two numbers that actually bound your
+    // auction: how many you MUST still add, and how many you MAY.
+    //
+    // Canon §A2: max roster 35 DURING the auction; min roster 27 at its CLOSE —
+    // the roster floats below 27 while it runs, so "min to add" is a
+    // by-the-end obligation, not a right-now violation. The tooltip has to say
+    // that or the number reads as an accusation.
+    const ROSTER_MIN_AT_CLOSE = 27, ROSTER_MAX_DURING = 35;
+    const viewerFid = STATE.me && STATE.me.franchise_id ? _p4(STATE.me.franchise_id) : "";
+    const myRow = viewerFid
+      ? ((STATE.fa && STATE.fa.team_budget_rows) || []).find((r) => _p4(r.franchise_id) === viewerFid)
+      : null;
+
+    let firstTile;
+    if (myRow) {
+      const n = Number(myRow.roster_count) || 0;
+      const minAdd = Math.max(0, ROSTER_MIN_AT_CLOSE - n);
+      const maxAdd = Math.max(0, ROSTER_MAX_DURING - n);
+      const tip =
+        `Your active roster: ${n}. ` +
+        `You must be at ${ROSTER_MIN_AT_CLOSE} when the auction CLOSES — it can float below while it runs — ` +
+        `so you still need at least ${minAdd}. ` +
+        `${ROSTER_MAX_DURING} is the hard cap during the auction, so you can add at most ${maxAdd}.`;
+      firstTile =
+        `<div class="ah-kpi ah-kpi-roster" title="${escapeHtml(tip)}">` +
+          `<div class="ah-kpi-triple">` +
+            `<span><b>${n}</b><i>Rostered</i></span>` +
+            `<span><b>+${minAdd}</b><i>Min to add</i></span>` +
+            `<span><b>+${maxAdd}</b><i>Max to add</i></span>` +
+          `</div>` +
+        `</div>`;
+    } else {
+      // No viewer identity ⇒ we don't know whose roster to report. Say that
+      // rather than invent a number or fall back to a count nobody asked for.
+      firstTile =
+        `<div class="ah-kpi" title="Pick your franchise (or open this from MFL while signed in) to see your roster and how many you still need.">` +
+          `<div class="ah-kpi-val">—</div><div class="ah-kpi-label">Your roster</div></div>`;
+    }
+
     const kpis = [
-      [poolLabel, poolCount],
       ["Open lots", open],
       ["Won", won],
       ["Status", enabled ? "LIVE" : "Not running"],
     ];
-    el.innerHTML = kpis.map(([label, val]) =>
+    el.innerHTML = firstTile + kpis.map(([label, val]) =>
       `<div class="ah-kpi"><div class="ah-kpi-val">${escapeHtml(String(val))}</div>` +
       `<div class="ah-kpi-label">${escapeHtml(label)}</div></div>`
     ).join("");
@@ -733,7 +780,9 @@
               <button type="button" class="ah-pos-chip" data-pos="TE">TE</button>
               <button type="button" class="ah-pos-chip" data-pos="PK">PK</button>
               <button type="button" class="ah-pos-chip" data-pos="PN">PN</button>
-              <button type="button" class="ah-pos-chip" data-pos="IDP">IDP</button>
+              <button type="button" class="ah-pos-chip" data-pos="DL">DL</button>
+            <button type="button" class="ah-pos-chip" data-pos="LB">LB</button>
+            <button type="button" class="ah-pos-chip" data-pos="DB">DB</button>
             </div>
           </label>
           <label><span>NFL Team</span><select id="fapool-team"><option value="">All</option></select></label>
@@ -781,7 +830,9 @@
             <button type="button" class="ah-pos-chip" data-pos="TE">TE</button>
             <button type="button" class="ah-pos-chip" data-pos="PK">PK</button>
             <button type="button" class="ah-pos-chip" data-pos="PN">PN</button>
-            <button type="button" class="ah-pos-chip" data-pos="IDP">IDP</button>
+            <button type="button" class="ah-pos-chip" data-pos="DL">DL</button>
+              <button type="button" class="ah-pos-chip" data-pos="LB">LB</button>
+              <button type="button" class="ah-pos-chip" data-pos="DB">DB</button>
           </div>
         </label>
         <label>
@@ -2446,9 +2497,16 @@
       const freshSeconds = (ov && Number.isFinite(Number(ov.seconds_remaining)))
         ? Number(ov.seconds_remaining) : (Number(l.seconds_remaining) || 0);
       const freshLocksAt = (ov && Number(ov.locks_at_unix)) ? Number(ov.locks_at_unix) : l.locks_at_unix;
+      // "—" and "?" are NOT the same claim. "—" asserts you have no max on this
+      // lot; "?" admits we couldn't read it. They rendered identically before, so
+      // a broken overlay looked exactly like valid data and cost a day of chasing
+      // a phantom "Burrow reset itself" bug (2026-07-15).
+      const proxyBlind = !!(STATE.fa && STATE.fa.proxy_overlay_ok === false);
       const proxyCell = (viewerFid && freshProxyK)
         ? `${fmtK(freshProxyK)}`
-        : `<span class="small" style="color:var(--muted)">—</span>`;
+        : (proxyBlind
+            ? `<span class="small ah-proxy-blind" title="Can't read your max — no live MFL session. Open the auction on MFL once to refresh it. This is NOT '$0'; we simply can't see it.">?</span>`
+            : `<span class="small" style="color:var(--muted)" title="No max above the current bid on this lot.">—</span>`);
       // current_high_bid_k is already $K here (unlike the FAA row's dollars).
       // renderNominations paints BOTH auctions' lots (filtered by the active
       // tab), so the bid must be routed to the tab's auction — hardcoding ERA

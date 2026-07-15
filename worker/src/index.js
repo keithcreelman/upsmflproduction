@@ -18592,6 +18592,11 @@ export default {
           }
         }
         console.log(`[auction/live] proxy-overlay ${JSON.stringify(_ovDiag)}`);
+        // Did we actually LOOK? A null your_proxy_bid_amount means two completely
+        // different things — "you have no max" vs "we couldn't read your max" —
+        // and the board rendered both as an identical "—", so a broken overlay
+        // impersonated valid data. Tell the client which, so it can say which.
+        const proxyOverlayOk = !!(_ovDiag.token && _ovDiag.page_ok && _ovDiag.cells > 0);
         const budgetRows = teamBudgetRowsFromLive(
           teamsSnapshot.teams, teamsSnapshot.salaryCapDollars, activeAuctions, viewerFranchiseId
         );
@@ -18648,6 +18653,11 @@ export default {
           active_auctions: activeAuctions,
           team_budget_rows: budgetRows,
           adjustments_ok: teamsSnapshot.adjustmentsOk !== false,
+          // false ⇒ we could NOT read the viewer's maxes off O=43 (no MFL
+          // session, a bounced page, or nothing parsed). Every
+          // your_proxy_bid_amount below is therefore "unknown", NOT "zero" — the
+          // UI must say so rather than render a confident dash.
+          proxy_overlay_ok: proxyOverlayOk,
           team_need_rows: needRows,
           available_players: availablePlayers,
           fetched_at: new Date().toISOString(),
