@@ -122,7 +122,67 @@
     if (ov) ov.remove();
     document.body.style.overflow = "";
   }
-  // opts: { action, player_id, player_name, auction_type, high_k }
+  // ── Cap + roster pre-flight (2026-07-15) ────────────────────────────
+  // The board has always KNOWN each team\u2019s ceiling \u2014 team_budget_rows carries
+  // available funds, the $1K-per-remaining-need reserve, and a per-position max
+  // \u2014 and the bid sheet ignored all of it, so a $33K nomination on $25.5K of
+  // space went to MFL, bounced, and came back as the word "auction_post_failed".
+  // Two checks, mirroring the worker\u2019s auctionEligibility exactly:
+  //   \u2022 slots: if the spots left to 35 can\u2019t cover the positions you still
+  //     owe, this position is locked no matter how much money you have
+  //     (Keith: "if he still needs a punter and only has 1 player he can\u2019t
+  //     draft a QB").
+  //   \u2022 money: max = available \u2212 $1K per need you\u2019d still have after this add
+  //     = max_bid_by_position[pos].scenario_27.
+  // Advisory: unknown position or missing row \u21d2 no clamp (the worker still
+  // enforces). This is here to make the ceiling visible, not to be the law.
+  var FAA_MAX_ROSTER = 35;
+  function myBudgetRow(kind) {
+    var p = (kind === "expired-rookie" || kind === "era") ? state.era : state.faa;
+    var rows = (p && p.team_budget_rows) || [];
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i].franchise_id) === String(M.state.viewerFranchiseId)) return rows[i];
+    }
+    return null;
+  }
+  // Returns { maxK, locked, lockMsg, needsMsg } \u2014 maxK 0 = unknown (no clamp).
+  function bidLimits(pos, kind) {
+    var row = myBudgetRow(kind);
+    var out = { maxK: 0, locked: false, lockMsg: "", needsMsg: "" };
+    if (!row) return out;
+    var P = String(pos || "").toUpperCase();
+    if (P === "K") P = "PK"; if (P === "P") P = "PN";
+    var deficits = row.lineup_deficits || {};
+    var totalDeficit = 0, needList = [];
+    for (var k in deficits) {
+      if (!Object.prototype.hasOwnProperty.call(deficits, k)) continue;
+      var n = Number(deficits[k]) || 0;
+      if (n > 0) { totalDeficit += n; needList.push(k + "\u00d7" + n); }
+    }
+    var rosterCount = Number(row.roster_count) || 0;
+    if (rosterCount >= FAA_MAX_ROSTER) {
+      out.locked = true;
+      out.lockMsg = "Your roster is full (" + rosterCount + "/" + FAA_MAX_ROSTER + "). Cut someone first.";
+      return out;
+    }
+    // Slot lock: does this add still leave room for everything you owe?
+    var deficitAfter = totalDeficit - ((Number(deficits[P]) || 0) > 0 ? 1 : 0);
+    var slotsAfter = FAA_MAX_ROSTER - (rosterCount + 1);
+    if (deficitAfter > slotsAfter) {
+      out.locked = true;
+      out.lockMsg = "You can\u2019t add a " + P + " \u2014 every roster spot you have left is owed to a position you still need (" +
+        needList.join(", ") + "). Fill those first.";
+      return out;
+    }
+    var byPos = row.max_bid_by_position || {};
+    var entry = byPos[P];
+    var maxDollars = entry ? Number(entry.scenario_27) : Number(row.scenario_27_max_bid);
+    if (maxDollars > 0) out.maxK = Math.floor(maxDollars / 1000);
+    if (needList.length) out.needsMsg = "Still owed: " + needList.join(", ") + " \u00b7 " + fmtK(Math.round((Number(row.reserve_cost_27) || 0) / 1000)) + " held in reserve";
+    return out;
+  }
+
+  // opts: { action, player_id, player_name, auction_type, high_k, position }
   function openBidSheet(opts) {
     if (!M.state.viewerFranchiseId) { M.ui.showToast("Pick your franchise first.", "err"); return; }
     var isNom = opts.action === "nominate";
@@ -140,6 +200,15 @@
     // how a $42K Burrow max became $7K. Defaulting to your own max makes the
     // no-op safe; lowering stays possible, but only by typing it.
     var startK = iLead ? Math.max(myMaxK, minK) : minK;
+    // Cap + roster pre-flight. A locked position never opens the sheet at all —
+    // typing a number into a box that cannot succeed is the bug being fixed.
+    var lim = bidLimits(opts.position, opts.auction_type);
+    if (lim.locked) { M.ui.showToast(lim.lockMsg, "err"); return; }
+    if (lim.maxK > 0 && minK > lim.maxK) {
+      M.ui.showToast("You can\u2019t reach the " + fmtK(minK) + " minimum on this one \u2014 your max is " + fmtK(lim.maxK) + ".", "err");
+      return;
+    }
+    if (lim.maxK > 0 && startK > lim.maxK) startK = lim.maxK;
     var deepLink = mflAuctionUrl(opts.player_id);
     closeBidSheet();
     var html =
@@ -157,7 +226,7 @@
             '<label class="ups-m-auc-bid-lbl">Your ' + (isNom ? "nominating" : "max") + ' bid ($K)</label>' +
             '<div class="ups-m-auc-bid-input">' +
               '<button type="button" class="ups-m-auc-step" data-step="-1" aria-label="Lower">−</button>' +
-              '<input type="number" id="ups-m-auc-bid-amt" min="' + minK + '" step="1" inputmode="numeric" value="' + startK + '" />' +
+              '<input type="number" id="ups-m-auc-bid-amt" min="' + minK + '"' + (lim.maxK > 0 ? ' max="' + lim.maxK + '"' : '') + ' step="1" inputmode="numeric" value="' + startK + '" />' +
               '<button type="button" class="ups-m-auc-step" data-step="1" aria-label="Raise">+</button>' +
             '</div>' +
             '<div class="ups-m-auc-bid-note">Submitted to MFL on your behalf, then confirmed by re-reading the board.</div>' +
@@ -200,6 +269,20 @@
     // attr — not just the frozen minK — rejects a manual down-edit after an outbid.
     var floorK = Math.max(minK, parseInt(amt && amt.getAttribute("min"), 10) || minK);
     if (amountK < floorK) { if (errEl) errEl.textContent = "Bid must be at least " + fmtK(floorK) + "."; return; }
+    // The ceiling, checked here too: the stepper caps it, but the field is a
+    // number input and a typed value ignores max. Refusing here is what turns
+    // MFL\u2019s opaque bounce into a sentence you can act on.
+    var ceilK = parseInt(amt && amt.getAttribute("max"), 10) || 0;
+    if (ceilK > 0 && amountK > ceilK) {
+      // Recomputed here, not closed over: submitBid is its own function and the
+      // sheet-open `lim` is not in its scope (a ReferenceError would have
+      // replaced the message with a crash — the exact bug class that took out
+      // Commish Settings in #716).
+      var lim2 = bidLimits(opts.position, opts.auction_type);
+      if (errEl) errEl.textContent = "Max " + fmtK(ceilK) + " on this player \u2014 " +
+        (lim2.needsMsg ? lim2.needsMsg.toLowerCase() : "the rest of your cap is reserved for the roster spots you still owe") + ".";
+      return;
+    }
     if (errEl) errEl.textContent = "";
     var label = opts.action === "nominate" ? "Nominate" : "Place bid";
     btn.disabled = true; btn.textContent = "Submitting…";
@@ -897,12 +980,12 @@
       if (st.key === "active") {
         cta = '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="bid" data-pid="' + U.escapeHtml(String(r.player_id || "")) +
           '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="' + (st.high_k || 0) +
-          '" data-mymax="' + (st.my_max_k || 0) + '">Bid</button>';
+          '" data-mymax="' + (st.my_max_k || 0) + '" data-pos="' + U.escapeHtml(String(r.position || "")) + '">Bid</button>';
       } else if (st.key === "available" && cfg.enabled) {
         cta = nomCapped
           ? '<button type="button" class="btn-act myac" disabled title="' + U.escapeHtml(nomCapTitle) + '">Nominate</button>'
           : '<button type="button" class="btn-act myac ups-m-auc-bid-btn" data-action="nominate" data-pid="' + U.escapeHtml(String(r.player_id || "")) +
-            '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="0">Nominate</button>';
+            '" data-name="' + U.escapeHtml(r.player_name || "") + '" data-kind="' + kind + '" data-high="0" data-pos="' + U.escapeHtml(String(r.position || "")) + '">Nominate</button>';
       }
       return '<div class="ups-m-auc-card">' +
         '<div class="ups-m-auc-card-main">' +
@@ -1252,7 +1335,8 @@
           // Your current max on this lot (0 = you don't lead, or no MFL session
           // so we can't see it). Drives the pre-fill so tapping Bid can't
           // silently reduce a proxy you already set.
-          my_max_k: Number(b.getAttribute("data-mymax")) || 0
+          my_max_k: Number(b.getAttribute("data-mymax")) || 0,
+          position: b.getAttribute("data-pos") || ""
         });
       });
     });

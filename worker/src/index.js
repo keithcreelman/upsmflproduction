@@ -17751,10 +17751,33 @@ export default {
           !lowered.includes("not authorized") &&
           !lowered.includes("login required") &&
           !lowered.includes("invalid");
+        // MFL TELLS US WHY and we used to throw it away: the whole response was
+        // captured in `preview` while the owner got the string
+        // "auction_post_failed" (2026-07-15). Pull the actual sentence out and
+        // hand it back. MFL renders errors as a bare line or inside a small
+        // error/alert block; strip tags, take the first line that reads like a
+        // complaint, and fall back to the code only when nothing is legible.
+        let mflReason = "";
+        if (!ok) {
+          const stripped = text
+            .replace(/<script[\s\S]*?<\/script>/gi, " ")
+            .replace(/<style[\s\S]*?<\/style>/gi, " ")
+            .replace(/<[^>]+>/g, "\n")
+            .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&#39;|&apos;/gi, "\u2019").replace(/&quot;/gi, '"')
+            .split("\n").map((l) => l.trim()).filter(Boolean);
+          const hit = stripped.find((l) =>
+            /(invalid|not authorized|login required|cannot|can't|unable|exceed|insufficient|not enough|too (?:high|low|many)|error|must be|no longer|closed|expired)/i.test(l)
+            && l.length > 8 && l.length < 300);
+          mflReason = safeStr(hit).slice(0, 240);
+        }
         return {
           ok,
           status: resp.status,
           error: ok ? "" : "auction_post_failed",
+          mfl_reason: mflReason,
+          message: ok ? "" : (mflReason
+            ? `MFL rejected it: \u201c${mflReason}\u201d`
+            : `MFL rejected the submission (HTTP ${resp.status}) without saying why. Open it on MFL to see.`),
           preview: text.slice(0, 1200),
           url: resp.url || preparedForm.actionUrl,
         };
@@ -18324,6 +18347,73 @@ export default {
         const list = Array.isArray(players) ? players.slice() : [];
         list.push({ position, roster_status: "ROSTER", status: "ROSTER" });
         return list;
+      };
+
+      // ── Auction eligibility: can THIS franchise add THIS position at THIS price? ──
+      // Two independent constraints, both derived from §A2 (max 35 during the
+      // auction, min 27 + a legal lineup at close) — neither was enforced before
+      // 2026-07-15, when Sex Manther nominated a $33K WR on $25.5K of space and
+      // got back the word "auction_post_failed".
+      //
+      //  1. SLOTS (Keith 2026-07-15: "if he still needs a punter and only has 1
+      //     player he can't draft a QB"). Money is irrelevant here: if the roster
+      //     spots left to 35 can't cover the positions you still owe, the spot is
+      //     already spoken for. Adding the player first and discovering it later
+      //     is how a team ends the auction unable to field a legal lineup.
+      //  2. MONEY. Every remaining need costs at least $1K, so the true ceiling is
+      //     available funds minus a $1K reserve per need you'd STILL have after
+      //     this add — which is exactly max_bid_by_position[pos].scenario_27, the
+      //     number the board has been displaying all along without enforcing.
+      //
+      // Returns { ok, code, message, max_bid_dollars, ... }. Advisory-open: an
+      // unknown position or a missing roster returns ok (MFL is still the
+      // backstop) — this guard exists to explain, never to invent a refusal.
+      const FAA_MAX_ROSTER = 35;
+      const FAA_MIN_ROSTER = 27;
+      const auctionEligibility = ({ players, position, bidDollars, availableFunds }) => {
+        const pos = safeStr(position).toUpperCase();
+        const known = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
+        if (!Array.isArray(players) || !players.length || !known.includes(pos)) {
+          return { ok: true, code: "unchecked" };
+        }
+        const before = computeLineupNeeds(players);
+        const rosterCount = safeInt(before.roster_count, 0);
+        if (rosterCount >= FAA_MAX_ROSTER) {
+          return {
+            ok: false, code: "roster_full",
+            message: `Your roster is full (${rosterCount}/${FAA_MAX_ROSTER}). Cut someone before adding another player.`,
+          };
+        }
+        const after = computeLineupNeeds(rosterCountsAfterHypothetical(players, pos));
+        const slotsAfter = FAA_MAX_ROSTER - (rosterCount + 1);
+        const deficitAfter = safeInt(after.total_deficit, 0);
+        if (deficitAfter > slotsAfter) {
+          const stillNeeds = Object.keys(after.deficits || {})
+            .filter((k) => safeInt(after.deficits[k], 0) > 0)
+            .map((k) => `${k}\u00d7${safeInt(after.deficits[k], 0)}`)
+            .join(", ");
+          return {
+            ok: false, code: "position_locked",
+            message: `You can\u2019t add a ${pos} \u2014 every roster spot you have left is already owed to a position you still need (${stillNeeds || "your lineup minimums"}). Fill those first.`,
+            still_needs: after.deficits, slots_left: slotsAfter,
+          };
+        }
+        const reserveAfter = reserveCostForScenario(rosterCountsAfterHypothetical(players, pos), FAA_MIN_ROSTER);
+        const funds = safeInt(availableFunds, 0);
+        const maxBid = Math.max(0, funds - safeInt(reserveAfter.reserve_cost, 0));
+        const bid = safeInt(bidDollars, 0);
+        if (bid > maxBid) {
+          const reserve = safeInt(reserveAfter.reserve_cost, 0);
+          const usd = (n) => `$${(safeInt(n, 0) / 1000).toLocaleString("en-US")}K`;
+          return {
+            ok: false, code: "over_max_bid",
+            message: reserve > 0
+              ? `Too high. You have ${usd(funds)} available, but must keep ${usd(reserve)} in reserve to fill the ${reserveAfter.reserve_slots} roster spot${reserveAfter.reserve_slots === 1 ? "" : "s"} you still owe \u2014 so your max on this ${pos} is ${usd(maxBid)}.`
+              : `Too high. Your max on this ${pos} is ${usd(maxBid)} (you have ${usd(funds)} available).`,
+            max_bid_dollars: maxBid, available_funds_dollars: funds, reserve_dollars: reserve,
+          };
+        }
+        return { ok: true, code: "eligible", max_bid_dollars: maxBid };
       };
 
       // Money a franchise has tied up as the CURRENT high bidder on open lots.
@@ -19297,6 +19387,54 @@ export default {
         if (!normalized.player_id) return { ok: false, status: 400, error: "player_id_required" };
         if (safeInt(normalized.amount, 0) <= 0) return { ok: false, status: 400, error: "amount_required" };
         const viewerFranchiseId = await resolveViewerFranchiseIdForAcq(season, leagueId, normalized.franchise_id);
+        // ── Eligibility pre-flight (§A2 slots + cap reserve) ──────────────
+        // BEFORE the nomination slot is claimed and before anything reaches MFL:
+        // a bid the roster or the cap can't support is refused here, in English,
+        // instead of bouncing off MFL as "auction_post_failed" (2026-07-15 —
+        // Sex Manther, $33K on Aiyuk with $25.5K available). Advisory-open by
+        // construction: any lookup failure logs and proceeds, because MFL is
+        // still the authority and a guard that invents refusals during a live
+        // auction is worse than one that occasionally lets MFL do the refusing.
+        if (["bid", "nominate"].includes(normalized.action) && normalized.auction_kind !== "expired-rookie") {
+          try {
+            const eligFid = padFranchiseId(viewerFranchiseId || await resolveCookieFranchiseIdForAcq(season, leagueId));
+            if (eligFid) {
+              const snap = await buildLiveTeamsSnapshot(season, leagueId);
+              const myTeam = (snap?.teams || []).find((t) => padFranchiseId(t.franchise_id) === eligFid);
+              const meta = await fetchPlayersByIdsChunked(season, leagueId, [String(normalized.player_id)]);
+              const pos = safeStr(meta?.[String(normalized.player_id)]?.position).toUpperCase();
+              if (myTeam && pos) {
+                // Same math the board displays: funds net of roster, adjustments,
+                // AND money already committed leading open lots — the last one is
+                // why this reads the live lots rather than passing []: skipping it
+                // would hand the owner back exactly the funds they have already
+                // spent leading other lots.
+                const eligLots = await activeAuctionsFromD1(season, leagueId, eligFid, snap.franchiseMap);
+                const rows = teamBudgetRowsFromLive(snap.teams, snap.salaryCapDollars, eligLots, eligFid);
+                const myRow = rows.find((r) => padFranchiseId(r.franchise_id) === eligFid);
+                const elig = auctionEligibility({
+                  players: myTeam.players,
+                  position: pos,
+                  bidDollars: safeInt(normalized.amount, 0),
+                  availableFunds: safeInt(myRow?.available_funds_dollars, 0),
+                });
+                if (!elig.ok) {
+                  console.log(`[auction/${normalized.action}] blocked ${eligFid} pid=${normalized.player_id} pos=${pos} $${normalized.amount}: ${elig.code}`);
+                  return {
+                    ok: false, status: 422, error: elig.code, message: elig.message,
+                    max_bid_dollars: elig.max_bid_dollars,
+                    available_funds_dollars: elig.available_funds_dollars,
+                    still_needs: elig.still_needs,
+                    native_link: `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/options?L=${encodeURIComponent(leagueId)}&O=43&FRANCHISE=${encodeURIComponent(eligFid)}`,
+                  };
+                }
+              }
+            }
+          } catch (e) {
+            console.log(`[auction/${normalized.action}] eligibility pre-flight unavailable (proceeding): ${e?.message || e}`);
+          }
+        }
+
         // §A2 nomination cap (Keith 2026-07-14): EXACTLY 2 nominations per franchise
         // per ET calendar day (min AND max). Claimed after identity resolves but
         // BEFORE the O=43 GET and the irreversible POST, so a blocked 3rd nomination
