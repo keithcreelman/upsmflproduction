@@ -2455,6 +2455,107 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
   //     ping is the point (the bot HAS MENTION_EVERYONE in #transactions, so
   //     this really pings the league; that is intentional and nom-only).
   //   everything else → {users:[...]} with NO parse — only the named owners.
+  // ── Forced-increase throttle (Keith 2026-07-14) ──
+  // One post per 5 minutes per (lot, FORCER) — not per lot. A rival walking the
+  // leader's proxy up produces one AUCTION_BID row per step, so five clicks
+  // became five posts and the channel talked over itself. Two DIFFERENT rivals
+  // bumping the same player are two stories and both get heard.
+  //
+  // Suppressed dollars are never lost: they're folded into the next post, which
+  // then reads "walked you $3K → $11K across 5 bids". Overtakes never come here
+  // — a lead change always posts immediately.
+  // nameKey (defined above for forcer→fid resolution) is the same
+  // drop-non-alphanumerics normalizer, and reusing it keeps the throttle key
+  // and the mention lookup agreeing on what counts as the same franchise —
+  // including MFL's mojibake names, which is the whole reason it exists.
+  const FORCED_THROTTLE_SEC = 300;
+  const forcedKey = (name) => nameKey(name);
+  {
+    // 1) Coalesce within THIS batch: keep the last event per (lot, forcer) and
+    //    hang the run's shape on it. The poll is every 5 min, so a burst usually
+    //    lands in one queue — this alone collapses most of the noise.
+    const runs = new Map();   // `${lot}|${forcerKey}` -> { events: [] }
+    for (const ev of queue) {
+      if (ev._obs_kind !== "forced_increase") continue;
+      const k = `${season}|${leagueId}|${ev.player_id}|${forcedKey(ev.forcer_name)}`;
+      if (!runs.has(k)) runs.set(k, []);
+      runs.get(k).push(ev);
+    }
+    const dropped = new Set();
+    for (const [, evs] of runs) {
+      evs.sort((a, b) => Number(a.bid_at_unix || 0) - Number(b.bid_at_unix || 0));
+      const last = evs[evs.length - 1];
+      // Count only. A "$X → $Y" range would need the price BEFORE the run
+      // started, which is not on the event — the nearest thing (the first
+      // walk-up's own bid_k) is already one step INTO the run, so quoting it as
+      // the floor understates what the rival cost and misreports the story.
+      last._run_count = evs.length;
+      for (let i = 0; i < evs.length - 1; i += 1) dropped.add(evs[i]);
+    }
+
+    // 2) Throttle across batches, and fold anything we suppressed into the
+    //    survivor so no walk-up goes unreported.
+    //
+    //    Measured on the BID clock, not the wall clock. Two reasons: the poll
+    //    fires every 300s, so a wall-clock window of 300s is never satisfied
+    //    across consecutive ticks (300 < 300 is false) and the throttle would
+    //    only ever collapse bursts that happened to land in one batch; and a
+    //    late or retried poll would otherwise change what gets posted. Bid
+    //    times make the decision identical no matter when we run.
+    //
+    //    Inclusive (<=): "only one post per 5 minute" means at most one post in
+    //    any 5-minute span, so bumps exactly 300s apart are the same story.
+    for (const [k, evs] of runs) {
+      const last = evs[evs.length - 1];
+      const evUnix = Number(last.bid_at_unix || Math.floor(Date.now() / 1000));
+      const lotId = `${season}|${leagueId}|${last.player_id}`;
+      const fk = k.split("|")[3] || "";
+      let row = null;
+      try {
+        row = db ? await db.prepare(
+          `SELECT last_post_unix, pending_count
+             FROM ups_auction_forced_throttle WHERE lot_id = ? AND forcer_key = ?`
+        ).bind(lotId, fk).first() : null;
+      } catch (_) { /* throttle state is a nicety — never block narration */ }
+
+      const sinceLast = evUnix - Number(row?.last_post_unix || 0);
+      const pendCount = Number(row?.pending_count || 0);
+
+      if (row && sinceLast <= FORCED_THROTTLE_SEC) {
+        // Inside the window — say nothing, but bank the run for the next post.
+        dropped.add(last);
+        try {
+          await db.prepare(
+            `INSERT INTO ups_auction_forced_throttle (lot_id, forcer_key, last_post_unix, pending_count, updated_at_utc)
+             VALUES (?, ?, ?, ?, datetime('now'))
+             ON CONFLICT(lot_id, forcer_key) DO UPDATE SET
+               pending_count  = pending_count + excluded.pending_count,
+               updated_at_utc = datetime('now')`
+          ).bind(lotId, fk, Number(row.last_post_unix || 0), last._run_count || 1).run();
+        } catch (_) {}
+        continue;
+      }
+
+      // Posting: absorb whatever was banked while we were quiet.
+      last._run_count = (last._run_count || 1) + pendCount;
+      try {
+        await db.prepare(
+          `INSERT INTO ups_auction_forced_throttle (lot_id, forcer_key, last_post_unix, pending_count, updated_at_utc)
+           VALUES (?, ?, ?, 0, datetime('now'))
+           ON CONFLICT(lot_id, forcer_key) DO UPDATE SET
+             last_post_unix = excluded.last_post_unix,
+             pending_count  = 0,
+             updated_at_utc = datetime('now')`
+        ).bind(lotId, fk, evUnix).run();
+      } catch (_) {}
+    }
+    if (dropped.size) {
+      const before = queue.length;
+      queue = queue.filter((ev) => !dropped.has(ev));
+      console.log(`[auction-narrator] forced-increase throttle: ${before - queue.length} walk-up post(s) folded`);
+    }
+  }
+
   const messages = queue.map((ev) => {
     const playerFull = fmtPlayer(ev.player_id);      // **Name** (POS · TEAM)
     const playerName = fmtPlayerName(ev.player_id);  // **Name**
@@ -2485,8 +2586,15 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
         const forcer = forcerFid
           ? fmtMention(forcerFid)
           : (ev.forcer_name ? `**${ev.forcer_name}**` : "");
+        // A throttled run collapses several walk-ups into this one post, so say
+        // what it actually cost rather than only the last step — "$3K → $11K
+        // across 5 bids" is the story; five separate "you got bumped" posts are
+        // the same story shouted five times.
+        const runN = Number(ev._run_count || 1);
         if (forcer) {
-          text = `${bumped} — ${forcer} bumped you on ${playerName}. You're still the high bidder @ ${bid} 😤`;
+          text = runN > 1
+            ? `${bumped} — ${forcer} is leaning on you for ${playerName}: bumped you **${runN}×**, now at ${bid}. Still the high bidder 😤`
+            : `${bumped} — ${forcer} bumped you on ${playerName}. You're still the high bidder @ ${bid} 😤`;
         } else {
           // No forcer in the note = the leader raised its OWN bid/max. Don't
           // invent a bumper.
