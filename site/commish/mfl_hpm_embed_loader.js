@@ -41,8 +41,21 @@
     try { return /(?:^|;\s*)ISMFLCOMMISH\s*=\s*(1|Y|true)/i.test(String(document.cookie || "")); } catch (e) { return false; }
   }
 
+  // The loader runs ON myfantasyleague.com, so document.cookie carries
+  // MFL_USER_ID. The settings page itself is served from the CDN (cross-origin)
+  // and can't read it, so we hand it down and the page forwards it to the
+  // worker, which asks MFL whose session it is. IS_COMMISH above is a
+  // cosmetic client-side hint — this token is what the SERVER verifies.
+  function readMflUserId() {
+    try {
+      var m = String(document.cookie || "").match(/(?:^|;\s*)MFL_USER_ID=([^;]+)/);
+      return m ? decodeURIComponent(m[1]) : "";
+    } catch (e) { return ""; }
+  }
+
   var L = getLeagueId(), YEAR = getYear(), FID = getFranchiseId();
   var IS_COMMISH = detectIsCommish(FID);
+  var MFL_USER_ID = readMflUserId();
   var HOST = safeStr(window.location && window.location.host) || "www48.myfantasyleague.com";
   var SHA = safeStr(window.UPS_RELEASE_SHA) || "main";
   var ASSET_BASE = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + encodeURIComponent(SHA) + "/site/commish/";
@@ -66,6 +79,7 @@
       'window.UPS_COMMISH_YEAR=' + JSON.stringify(ctx.year) + ';' +
       'window.UPS_COMMISH_HOST=' + JSON.stringify(ctx.host) + ';' +
       'window.UPS_COMMISH_IS_COMMISH=' + JSON.stringify(!!ctx.isCommish) + ';' +
+      'window.UPS_COMMISH_MFL_USER_ID=' + JSON.stringify(ctx.mflUserId || "") + ';' +
       '(function(){function post(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);parent.postMessage({type:"commish-settings-height",height:h},"*");}catch(e){}}' +
       'window.addEventListener("load",post);window.addEventListener("resize",post);' +
       'if(typeof ResizeObserver==="function"){try{new ResizeObserver(post).observe(document.documentElement);}catch(e){}}' +
@@ -76,7 +90,7 @@
   fetch(HTML_URL, { cache: "no-store" })
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
     .then(function (html) {
-      var head = buildHead(ASSET_BASE, { leagueId: L, year: YEAR, host: HOST, isCommish: IS_COMMISH });
+      var head = buildHead(ASSET_BASE, { leagueId: L, year: YEAR, host: HOST, isCommish: IS_COMMISH, mflUserId: MFL_USER_ID });
       html = /<head[^>]*>/i.test(html) ? html.replace(/<head([^>]*)>/i, '<head$1>' + head) : head + html;
       frame.srcdoc = html;
     })

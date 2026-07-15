@@ -344,14 +344,35 @@
     return "https://upsmflproduction.keith-creelman.workers.dev";
   })();
   var apiUrl = function (p) { return WORKER_BASE + p; };
+
+  // Forward the viewer's MFL session token on EVERY worker call. This page is
+  // served cross-origin from the CDN, so the browser will not attach MFL's
+  // cookie itself (and `credentials:"omit"` is mandatory anyway — the worker
+  // replies ACAO `*`, which is illegal on a credentialed request). The embed
+  // loader reads MFL_USER_ID on myfantasyleague.com and hands it down; the
+  // worker asks MFL whose session it is and gates on the answer. Without this
+  // the commish's own settings page 403s.
+  //
+  // Applied in the fetch helpers, NOT in apiUrl(): every call site builds its
+  // URL as apiUrl(path) + "?L=" + ..., so appending here is the only way to
+  // land AFTER the query string already exists. Doing it in apiUrl() would emit
+  // "?MFL_USER_ID=x?L=74598" and swallow L into the token value.
+  var _mflUserId = function () {
+    try { return String(window.UPS_COMMISH_MFL_USER_ID || ""); } catch (e) { return ""; }
+  };
+  var _withUserId = function (url) {
+    var t = _mflUserId();
+    if (!t) return url;
+    return url + (url.indexOf("?") < 0 ? "?" : "&") + "MFL_USER_ID=" + encodeURIComponent(t);
+  };
   function fetchJSON(url) {
-    return fetch(url, { cache: "no-store", credentials: "omit" }).then(function (r) {
+    return fetch(_withUserId(url), { cache: "no-store", credentials: "omit" }).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     });
   }
   function postJSON(url, payload) {
-    return fetch(url, { method: "POST", credentials: "omit", cache: "no-store",
+    return fetch(_withUserId(url), { method: "POST", credentials: "omit", cache: "no-store",
       headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload || {}) })
       .then(function (r) { return r.text().then(function (txt) {
         var data; try { data = txt ? JSON.parse(txt) : {}; } catch (_) { data = { raw: txt }; }

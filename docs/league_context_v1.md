@@ -149,7 +149,8 @@ There are **7 entry paths**. Each creates a different default contract and const
 - **Format:** eBay proxy bidding. **24-hour** lock window for the FA Auction.
 - **Nominations:** **exactly 2 per window — a MINIMUM and a MAXIMUM** (Keith 2026-07-14). Mandatory league event.
   - **Window = an ET calendar day**, midnight → midnight `America/New_York`. **Anchored, not rolling**: every franchise resets at the same ET midnight, regardless of when it last nominated. (Code counted a rolling 24-hour window from "now" until 2026-07-14; that was never the rule.)
-  - **Minimum — 2:** a franchise must nominate 2 per day until it can field a legal lineup. Missed nominations escalate fines (see §F). Once the roster requirement is met the floor is waived — continuing is optional.
+  - **Minimum — 2:** a franchise must nominate 2 per day until it can field a legal lineup. Missed nominations escalate fines — **§F RULE 2**, the schedule below. Once the roster requirement is met the floor is waived — continuing is optional. **A franchise sitting at 0/2 with a legal roster has done nothing wrong**; only `!roster_met && used < 2` is a miss.
+  - **A day is judged only once it is CLOSED.** Compliance is an ET-calendar-day question, so "did they miss?" is unanswerable until midnight ET passes. The 9 AM ET report is the first moment the prior day's verdict is final; the 9 PM report can only WARN about the day in progress (Keith 2026-07-14).
   - **Maximum — 2:** a **3rd nomination in the same ET day is a rules violation** and is **blocked** by the app (`performAuctionAction` refuses it before submitting to MFL, counting live off MFL's `AUCTION_INIT` feed so nominations made natively on MFL count too). The ceiling is **unconditional** — it applies to every franchise every day, including one that has already met its roster requirement.
   - **Not blockable everywhere:** MFL has no nomination-limit setting, and our app is a proxy over MFL's own auction page (`O=43`), which owners can always reach directly. An over-cap nomination made there is **detected** (private commish alert from the 5-minute auction poll) but not prevented or reversed.
   - **Day 1 is clipped by the auction open**, and needs no special rule: anchoring on the ET calendar day handles it. When the auction goes live it opens **12 PM ET**, so Day 1 runs 12 PM → midnight — the quota is still 2, there is simply less of the day in which to spend it. (During pre-auction testing the open is 12 AM ET, so Day 1 is a full day.) The kickoff/Day-1 quota is **2**, same as any other window (Keith 2026-07-14).
@@ -819,7 +820,29 @@ These hit cap directly without involving a player transaction.
 - **Source:** Same as T4.2.
 - **Initiator:** Commissioner.
 - **Cap effect:** Negative amount = cap penalty.
-- **Examples:** Late dues fines ($3K/week), drop penalties, missed-nomination fines (escalating from $3K).
+- **Examples:** Late dues fines ($3K/week), drop penalties, missed-nomination fines (**§F RULE 2** — $3K → $7K → $15K, escalating; full schedule in §T4.3a below).
+
+### T4.3a §F RULE 2 — Missed Nomination / Extra Nomination fines (Keith, 2026-07-14)
+
+**Canon status:** §A2 had pointed at "see §F" for a schedule that was never written down — §F was headed "STILL-OPEN QUESTIONS". This is that schedule, in Keith's words, and it is now binding.
+
+> Listen, I understand that life can sometimes get in the way of being 24/7 engaged but this is the friggin auction we're talking about here. Pretty much the best 2 weeks of the year. So asking an owner to log on one time in a 24 hour period is not asking too much especially in today's smart phone world, where you literally have the ability to log on from anywhere. Set a daily recurring reminder on your phone at 8 AM everyday if you need to remind yourself to make a nomination. Needless to say one of the biggest pet peeves over the years has been some owner's inattentiveness during the auction and going a day or days at a time missing nominations.
+
+| Offense | Fine | Applied to |
+|---|---|---|
+| **1st** | **$3K** | current season **and** next season |
+| **2nd** | **$7K** | current + next (**$10K total each year**, cumulative) |
+| **3rd** | **$15K** | current + next (**$25K total each year**, cumulative) |
+| **4th** | **no fine** | league-fit review — see below |
+
+- **Cumulative, not replacing.** The totals in Keith's text (3 → 10 → 25) are running sums: the 2nd offense *adds* $7K on top of the 1st's $3K.
+- **Both years, but not both now.** The current-season fine posts to MFL as a `salaryAdj` when armed. The **next-season fine is ledger-only and must NOT reach MFL until the rollover** — it shows in reporting immediately, crosses over next year (Keith 2026-07-14: *"store the 3K on the ledger for 2027... never pass to MFL until we roll forward next year"*).
+- **4th offense is a conversation, not a transaction.** Keith's words: *"You should reconsider if your a good fit for the league."* The league posts that message to the owner and asks them to make their case; the league then decides. **Never automated.**
+- **CAVEAT — immunity (load-bearing).** Keith: *"Obviously if there's some family emergency that prevents you from making a nomination, let us know and it won't be held against you. If you let a member of a CC. know ahead of time that you need to miss a day for whatever reason you will also be granted immunity."* The commish **voids the day**, which voids its penalties and removes it from the offense count. A penalty system without this will fine somebody who called ahead — worse than no system at all.
+- **Voiding is not deleting.** A voided day stays in `ups_faa_nom_days` as evidence the owner gave notice. Prior offense numbers are **not** renumbered — a fine an owner has already been told about is not silently re-priced.
+- **ERA is exempt** — no missed-nomination fine (§A3, and §A2's "Missed-nomination policy" note). FAA is the mandatory one.
+
+**Implementation:** `worker/src/auction_compliance.js` (`RULE2_FINE_K_BY_OFFENSE = [3, 7, 15]`), ledger `ups_faa_nom_days` + `ups_faa_nom_penalties` (migration 0097). The MFL write is gated behind `AUCTION_FAA_PENALTIES_ENABLED`, **dark by default** so pre-auction test weeks can't manufacture fines.
 
 ### T4.4 Late Dues Fine ($3K/week)
 - **Source:** UPS-custom; tracked as `salary_adjustments`.

@@ -2403,6 +2403,8 @@ button.ups-m-busy::before,
 .ups-m-auc-thbids .thbid { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--fg-muted); padding: 4px 0; border-top: 1px solid var(--line); }
 .ups-m-auc-thbids .thbid strong { color: var(--fg); }
 .ups-m-auc-thbids .thbid .hw { margin-left: auto; font-size: 10px; color: var(--line-soft); white-space: nowrap; }
+/* "forcer → leader" on a walk-up: the arrow is connective tissue, not content. */
+.ups-m-auc-thbids .thbid .fwarrow { color: var(--line-soft); }
 .ups-m-auc-thbids .nom, .ups-m-auc-thbids .bid { font-size: 9px; text-transform: uppercase; font-weight: 700; border-radius: 4px; padding: 0 3px; }
 .ups-m-auc-thbids .nom { color: var(--accent); border: 1px solid var(--accent); }
 .ups-m-auc-thbids .bid { color: var(--teal); border: 1px solid var(--teal); }

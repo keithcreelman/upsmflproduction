@@ -1167,9 +1167,18 @@
     const haveAdp = STATE.faAdp && Object.keys(STATE.faAdp).length > 0;
     const poolStale = !havePool || (nowMs - (STATE._faPoolAt || 0)) > FA_POOL_TTL_MS;
     const adpStale = !haveAdp || (nowMs - (STATE._faAdpAt || 0)) > FA_POOL_TTL_MS;
+    let boardErr = null;
     try {
+      // Each fetch catches its OWN failure. The board used to be unguarded, so a
+      // single 502 from it rejected the whole Promise.all — skipping every
+      // assignment below, including the pool's, EVEN THOUGH the pool request had
+      // succeeded. STATE.faPool stayed undefined and the Players tab read "FA
+      // pool unavailable right now" while /api/auction/fa-pool was serving 1833
+      // players just fine. The live board reaches MFL (O=43), so it is the most
+      // failure-prone of the three; it must not be able to take the other two
+      // down with it (Keith 2026-07-14).
       const [data, pool, adpRes] = await Promise.all([
-        fetchJSON(url),
+        fetchJSON(url).catch((e) => { boardErr = e; return null; }),
         poolStale ? fetchJSON(poolUrl).catch(() => null) : Promise.resolve(null),
         adpStale ? fetchJSON(apiUrl("/api/adp-board")).catch(() => null) : Promise.resolve(null),   // SAME multi-source consensus as the Stats workbench
       ]);
@@ -1200,15 +1209,24 @@
       } else if (!STATE.faAdp) {
         STATE.faAdp = {};
       }
+      // The board failing no longer implies the pool failed — say only what's
+      // actually broken, and keep reporting the pool we DO have.
       if (meta) {
-        meta.textContent = data && data.ok === false
-          ? "FA board unavailable right now."
-          : `${STATE.faPool.length} free agents · ${(data.active_auctions || []).length} live lots · generated ${data.generated_at ? new Date(data.generated_at).toLocaleTimeString() : "—"}`;
+        const poolTxt = `${(STATE.faPool || []).length} free agents`;
+        if (boardErr || (data && data.ok === false)) {
+          meta.textContent = `${poolTxt} · FA board unavailable right now (retrying)`;
+        } else {
+          meta.textContent = `${poolTxt} · ${(data.active_auctions || []).length} live lots · generated ${data.generated_at ? new Date(data.generated_at).toLocaleTimeString() : "—"}`;
+        }
+      }
+      if (boardErr) {
+        console.error("[auction-hub] FA live board failed (pool/ADP unaffected):", boardErr);
+        // Don't clobber a good board with an error object — only record the
+        // error if we never had a board to begin with.
+        if (!STATE.fa) STATE.fa = { ok: false, error: String(boardErr.message || boardErr) };
       }
     } catch (e) {
-      console.error("[auction-hub] FA live fetch failed:", e);
-      // Same rule on a thrown fetch: don't clobber a good board with an error
-      // object. Only record the error if we never had a board to begin with.
+      console.error("[auction-hub] FA render failed:", e);
       if (!STATE.fa) STATE.fa = { ok: false, error: String(e && e.message || e) };
       if (meta) meta.textContent = "Failed to load the FA board: " + (e && e.message || e);
     }
