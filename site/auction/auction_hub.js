@@ -223,15 +223,23 @@
   function openBidModal(opts) {
     if (!_canBidInApp()) { window.open(mflBidUrl(opts.player_id), "_blank", "noopener"); return; }
     const highK = Number(opts.high_k) || 0;
-    // If YOU already lead this lot, MFL shows you your proxy (max). Submitting a
-    // value at/below that max doesn't out-bid anyone — MFL treats it as a max
-    // REDUCTION and lowers your proxy (this silently dropped a $42K Burrow max to
-    // $7K). So when you lead, the floor is your OWN max + 1: a bid can only ever
-    // RAISE it, never lower it. When you don't lead it's the current high + 1.
+    // If YOU already lead, MFL shows you your proxy (max), and submitting BELOW
+    // that max is a max REDUCTION — which is how a $42K Burrow max became $7K.
+    //
+    // The first fix floored at myProxy+1 so a bid could only RAISE. That was
+    // wrong: MFL lets you adjust a max down, and we mirror MFL (Keith 2026-07-14:
+    // "if you can do it on MFL we should keep it consistent"). Forbidding it here
+    // just pushes owners onto MFL's own page to do the same thing.
+    //
+    // So the floor is MFL's minimum (high + 1) and lowering stays possible — but
+    // the PRE-FILL is your current max, not high+1, so the dangerous action can
+    // only happen on purpose. The accident was never that lowering was allowed;
+    // it was that the default value silently did it for you.
     const _ov = _overlaidLot(opts.player_id);
     const myProxyK = (_ov && _ov.your_proxy_bid_amount != null) ? Math.round(Number(_ov.your_proxy_bid_amount) / 1000) : 0;
     const iLead = myProxyK > 0;
-    const minK = iLead ? Math.max(highK + 1, myProxyK + 1) : (highK + 1);
+    const minK = highK + 1;
+    const startK = iLead ? Math.max(myProxyK, minK) : minK;
     closeBidModal();
     const deepLink = mflBidUrl(opts.player_id);
     const html =
@@ -242,12 +250,12 @@
             '<button type="button" class="ah-bid-close" id="ah-bid-close" aria-label="Close">×</button>' +
           '</div>' +
           '<div class="ah-bid-sub">' + (iLead
-              ? "You lead · your max " + fmtK(myProxyK) + " — a new bid must raise it (can't lower)"
+              ? "You lead · your max " + fmtK(myProxyK) + " — lower it only if you mean to"
               : (highK > 0 ? "High " + fmtK(highK) : "No bids yet")) + '</div>' +
           '<label class="ah-bid-lbl" for="ah-bid-amt">Your max bid ($K)</label>' +
           '<div class="ah-bid-input">' +
             '<button type="button" class="btn small secondary ah-bid-step" data-step="-1" aria-label="Lower bid">−</button>' +
-            '<input type="number" id="ah-bid-amt" min="' + minK + '" step="1" inputmode="numeric" value="' + minK + '" />' +
+            '<input type="number" id="ah-bid-amt" min="' + minK + '" step="1" inputmode="numeric" value="' + startK + '" />' +
             '<button type="button" class="btn small secondary ah-bid-step" data-step="1" aria-label="Raise bid">+</button>' +
           '</div>' +
           '<div class="ah-bid-status" id="ah-bid-status" aria-live="polite"></div>' +
@@ -280,7 +288,15 @@
         amt.value = String(Math.max(floor, (parseInt(amt.value, 10) || floor) + step));
       });
     });
-    document.getElementById("ah-bid-submit").addEventListener("click", function () { submitDesktopBid(opts, this, minK); });
+    document.getElementById("ah-bid-submit").addEventListener("click", function () {
+      // Lowering is allowed (MFL allows it) but never silent: MFL reduces your
+      // proxy and there is no undo once it lands.
+      const v = parseInt((document.getElementById("ah-bid-amt") || {}).value, 10) || 0;
+      if (iLead && v < myProxyK && !window.confirm(
+        "This LOWERS your max on " + (opts.player_name || "this player") + " from " +
+        fmtK(myProxyK) + " to " + fmtK(v) + ".\n\nMFL will reduce your proxy. Continue?")) return;
+      submitDesktopBid(opts, this, minK);
+    });
   }
   function submitDesktopBid(opts, btn, minK) {
     const amt = document.getElementById("ah-bid-amt");
@@ -2417,9 +2433,13 @@
         Number(l.current_high_bid_k) || 0,
         ov ? Math.round((Number(ov.high_bid_amount) || 0) / 1000) : 0
       );
+      // The O=43 overlay is the ONLY source of a max: MFL emits no transaction
+      // when you change one, so D1 cannot know it. l.your_proxy_bid_k is always
+      // null by design — no overlay (no MFL session) means we genuinely don't
+      // know your max, and 0 says exactly that.
       const freshProxyK = (ov && ov.your_proxy_bid_amount != null)
         ? Math.round(Number(ov.your_proxy_bid_amount) / 1000)
-        : (Number(l.your_proxy_bid_k) || 0);
+        : 0;
       // Prefer MFL's own countdown (overlaid from O=43) over D1's lock, which
       // recomputes from bid timestamps and resets on a forced increase — MFL
       // doesn't, so D1 can over-state and someone could miss the real lock.

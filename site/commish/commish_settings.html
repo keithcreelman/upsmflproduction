@@ -756,7 +756,6 @@
           if (tgt) { warn.push("⭐ target $" + tgt.max + "K"); if (bid != null && bid < tgt.max) warn.push('<span style="color:var(--ok)">💰 under your max</span>'); }
           if (sf) { if (sf.post_win_pounce_share >= 0.6) warn.push("⚡ pouncer"); if (sf.runner_up_n >= 30) warn.push("🥷 lurker"); }
           if (urgent) warn.push("⏰ closing");
-          if (l.your_proxy_bid_k != null) warn.push("you: $" + l.your_proxy_bid_k + "K");
           return '<tr' + (tgt ? ' style="background:rgba(91,141,255,0.07)"' : "") + '><td>' + (tgt ? "⭐ " : "") + '<b>' + esc(l.player_name || l.player_id) + '</b></td><td>' + esc(pos) + " " + val + '</td>' +
             '<td class="num">$' + (bid != null ? bid : "—") + 'K</td><td>' + esc(lead) + '</td>' +
             '<td class="num"' + (urgent ? ' style="color:var(--danger);font-weight:700"' : "") + '>' + wrFmtTime(l.seconds_remaining) + '</td>' +
@@ -1733,9 +1732,11 @@
   // Canon T4.3a fines a missed nomination $3K/$7K/$15K, escalating, applied to
   // BOTH the current season and the next. The caveat is the reason this screen
   // exists: "if there's some family emergency... let us know and it won't be
-  // held against you. If you let a member of a CC. know ahead of time... you
-  // will also be granted immunity." A fine system with no way to honour that
-  // will eventually fine someone who called first — worse than no system.
+  // held against you." Canon quotes "a member of a CC" — that body no longer
+  // exists (Keith 2026-07-15), so notice to THE LEAGUE is the standard, and it
+  // is a heads-up rather than an application ("in Yellowstone, no service"). A
+  // fine system with no way to honour that will eventually fine someone who
+  // called first — worse than no system.
   //
   // Excusing VOIDS, it does not delete. The row stays as evidence the owner
   // gave notice, which is exactly what protects them the next time it comes up.
@@ -1796,7 +1797,7 @@
 
         host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3>⚖️ Missed Nominations — §F RULE 2</h3></div>' +
           banner +
-          '<p class="fo-row-hint">💡 <strong>Excuse</strong> an owner who had an emergency or gave a CC member notice ahead of time (canon §T4.3a). It voids the day, its fines, and drops it from their offense count — and re-derives what's left, so excusing a 2nd miss makes the 3rd become the 2nd ($7K, not $15K). Re-pricing only ever moves a fine down. Excusing keeps the record; it does not delete it.</p>' +
+          '<p class="fo-row-hint">💡 <strong>Excuse</strong> an owner who had an emergency or told the league ahead of time they'd be out of pocket (canon §T4.3a — the CC no longer exists, so notice to the league is the standard; e.g. "in Yellowstone, no service"). It voids the day, its fines, and drops it from their offense count — and re-derives what's left, so excusing a 2nd miss makes the 3rd become the 2nd ($7K, not $15K). Re-pricing only ever moves a fine down. Excusing keeps the record; it does not delete it.</p>' +
           '<p class="fo-row-hint" style="color:var(--muted);">Fines escalate $' + (data.fine_schedule_k || []).join("K → $") + 'K, each applied to this season <em>and</em> next. The next-season half is booked here but does not reach MFL until the rollover.</p>' +
           rows + "</div>";
 

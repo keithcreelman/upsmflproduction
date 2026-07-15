@@ -5509,16 +5509,17 @@ export default {
           sql += ` ORDER BY locks_at_unix ASC`;
           const { results: lots } = await env.UPS_MFL_DB.prepare(sql).bind(...args).all();
 
-          // Look up requester's proxy bids (if any) — only their own.
-          let proxiesByPid = {};
-          if (viewerFid && viewerFid !== "0000") {
-            const { results: proxies } = await env.UPS_MFL_DB.prepare(
-              `SELECT player_id, proxy_bid_k FROM ups_auction_proxy_bids
-                WHERE season = ? AND league_id = ? AND fid = ?`
-            ).bind(year, leagueId, viewerFid).all();
-            for (const p of (proxies || [])) proxiesByPid[p.player_id] = p.proxy_bid_k;
-          }
-
+          // NO proxy lookup here, deliberately. A max lives ONLY on MFL: changing
+          // it moves no price, so MFL emits no transaction and the */5 poll has
+          // nothing to ingest — we are structurally blind to it. The single
+          // source is a live O=43 scrape with the VIEWER'S OWN cookie, which is
+          // also what makes viewer-scoping structural rather than something we
+          // implement and can get wrong: MFL renders the "($15,000)" parenthetical
+          // only to the owner who set it. Copying maxes into D1 would make one
+          // forgotten `WHERE fid = ?` leak every owner's ceiling — the most
+          // valuable secret in the auction. Better that this endpoint cannot know
+          // than that it knows and might tell. (Keith 2026-07-15: "proxy should
+          // always come from the scrape.")
           // Fid → franchise name lookup from MFL TYPE=league (cached 5 min)
           const apiKey0 = String(env.MFL_APIKEY || "").trim();
           const apiQs0 = apiKey0 ? `&APIKEY=${encodeURIComponent(apiKey0)}` : "";
@@ -5615,8 +5616,11 @@ export default {
               won_at_unix: l.won_at_unix,
               bid_count: l.bid_count,
               unique_bidder_count: l.unique_bidder_count,
-              // Private — only populated when viewer is the bidder.
-              your_proxy_bid_k: proxiesByPid[l.player_id] || null,
+              // Always null — see the note above. The viewer's max reaches the UI
+              // via the O=43 overlay on /acquisition-hub/free-agent-auction/live,
+              // never from D1. Kept in the payload so clients that read the field
+              // get an explicit null rather than undefined.
+              your_proxy_bid_k: null,
               // ERA-eligibility flag: true iff the player is in ups_era_pool
               // (season-persistent — includes already-won ERA players). null when
               // the pool lookup failed, so the client uses its pool fallback.
@@ -18470,19 +18474,14 @@ export default {
 
         // The viewer's own proxy (max) bid — deliberately viewer-scoped: everyone
         // else only ever sees the CURRENT bid, never what you have allocated.
+        // Empty base. The ONLY source of a max is the O=43 overlay further down,
+        // which parses the viewer's own page with the viewer's own cookie. D1
+        // never held these (ups_auction_proxy_bids was read in two places and
+        // written in none, so it sat empty from migration 0050 until it was
+        // dropped in 0099) — this read returned {} on every request for months
+        // and quietly made the app look blind to a max the owner could plainly
+        // see on MFL.
         const proxyByPid = {};
-        const fid = padFranchiseId(viewerFid);
-        if (fid && fid !== "0000") {
-          try {
-            const { results } = await env.UPS_MFL_DB.prepare(
-              `SELECT player_id, proxy_bid_k FROM ups_auction_proxy_bids
-                WHERE season = ? AND league_id = ? AND fid = ?`
-            ).bind(yearNum, leagueKey, fid).all();
-            for (const p of asArray(results)) proxyByPid[String(p.player_id)] = safeInt(p.proxy_bid_k, 0);
-          } catch (e) {
-            console.error("[auction/live] proxy read failed (non-fatal):", e);
-          }
-        }
 
         const nowUnix = Math.floor(Date.now() / 1000);
         return lots.map((lot) => {
@@ -37447,7 +37446,8 @@ export default {
 
       // ---- §F RULE 2 — missed-nomination ledger + commish override ----
       // Canon T4.3a: a fine is waived for a family emergency, or when an owner
-      // gives a CC member notice ahead of time. That caveat is load-bearing —
+      // tells the league ahead of time. (Canon quotes "a CC member"; the CC no
+      // longer exists — Keith 2026-07-15.) That caveat is load-bearing —
       // without a way to act on it the machine WILL fine somebody who called
       // first, which is worse than having no fine system at all. This is that
       // way. Same gate as commish-settings: MFL-proven identity or the API key.
