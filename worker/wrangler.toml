@@ -20,6 +20,13 @@ RULE_PROPOSALS_ENABLED = "1"
 RULE_PROPOSALS_LIVE = "0"
 RULE_PROPOSALS_AI_ENABLED = "1"
 RULE_PROPOSALS_DRAFT_ENABLED = "1"
+# Trade sentinel (2026-07-15): watch every pending offer, kill asset-moved
+# offers, 14-day silent re-offer. ACT ships OFF — dry-run until the L=25625
+# battery + Keith's prod self-test clear it.
+TRADE_SENTINEL_ENABLED = "1"
+TRADE_SENTINEL_ACT_ENABLED = "0"
+TRADE_SENTINEL_ADOPT_NATIVE = "0"
+TRADE_SENTINEL_TEST_FRANCHISES = ""
 DROP_TRACKER_ENABLED = "1"
 DROP_TRACKER_AUTO_POST = "1"
 DROP_TRACKER_POST_MFL = "1"

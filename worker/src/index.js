@@ -7,13 +7,21 @@ import {
   sendDm as sendDiscordDm,
   openDmChannel as openDiscordDmChannelForUser,
 } from "./discord_round.js";
-import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline } from "./trade_dm.js";
+import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours } from "./trade_dm.js";
 import { create3WayTrade, list3WayForFranchise, cancel3WayTrade } from "./trade_3way.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar } from "./auction_calendar.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount } from "./auction_windows.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import { commishVerdictOverride } from "./discord_rule_proposal.js";
+import {
+  findOwnershipViolations as sentinelFindViolations,
+  reofferDue as sentinelReofferDue,
+  pastMaxLife as sentinelPastMaxLife,
+  appendActLog as sentinelActLog,
+  killDmSide as sentinelKillDmSide,
+  MFL_WRITE_CAP_PER_TICK as SENTINEL_WRITE_CAP,
+} from "./trade_sentinel.js";
 import { runStartFlow as runRuleProposalStartFlow } from "./discord_round.js";
 import {
   nomComplianceLedger, voidNomDay, unvoidNomDay, RULE2_FINE_K_BY_OFFENSE, pendingMflPenalties,
@@ -3292,6 +3300,18 @@ export default {
               if (Number(data?.written) > 0) {
                 console.log(`[scheduled */5] transactions-ledger: written=${data.written} scanned=${data.scanned}`);
               }
+              // Sentinel fast path: a NEW executed TRADE is the exact event that
+              // can invalidate a pending offer — check within 5 minutes instead
+              // of waiting for the hourly tick. Zero steady-state MFL load: this
+              // only fires when the ledger actually ingested a TRADE row.
+              if (Number(data?.by_type?.TRADE) > 0 && (await getFeatureFlag(env, "TRADE_SENTINEL_ENABLED"))) {
+                const sres = await env.SELF.fetch(
+                  `${origin}/admin/trade-sentinel/tick?mode=invalidate_only&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  { method: "POST" }
+                );
+                const sd = await sres.json().catch(() => ({}));
+                console.log(`[scheduled */5] trade-sentinel fast path: ${JSON.stringify(sd).slice(0, 300)}`);
+              }
             } catch (e) {
               console.error(`[scheduled */5] transactions-ledger failed: ${e?.message || String(e)}`);
             }
@@ -3454,10 +3474,28 @@ export default {
     // reconciles resolved offers, and caps). Has its OWN quiet-hours guard
     // because the hourly cron runs overnight. Flag-gated (TRADE_DM_ENABLED).
     try {
-      ctx.waitUntil(processTradeOfferReminders(env).then((r) => {
+      // Sentinel full tick FIRST, then the DM sweep — an offer the sentinel
+      // just killed must not receive a nudge in the same tick, and the sweep's
+      // reconcile reads the watch table the tick just refreshed.
+      ctx.waitUntil((async () => {
+        try {
+          const sk = String(env.COMMISH_API_KEY || "").trim();
+          if (sk && env.SELF && (await getFeatureFlag(env, "TRADE_SENTINEL_ENABLED"))) {
+            const tr = await env.SELF.fetch(
+              `https://self.invalid/admin/trade-sentinel/tick?APIKEY=${encodeURIComponent(sk)}`,
+              { method: "POST" }
+            );
+            const td = await tr.json().catch(() => ({}));
+            console.log(`[scheduled hourly] trade-sentinel: ${JSON.stringify(td).slice(0, 400)}`);
+          }
+        } catch (e) {
+          console.error(`[scheduled hourly] trade-sentinel failed: ${e && e.message}`);
+        }
+        return processTradeOfferReminders(env).then((r) => {
         if (r?.sent || r?.resolved) console.log(`[scheduled hourly] trade-dm reminders: sent=${r.sent || 0} resolved=${r.resolved || 0} active=${r.active || 0}`);
         else if (r?.skipped) console.log(`[scheduled hourly] trade-dm reminders skipped: ${r.skipped}`);
-      }).catch((e) => console.error(`[scheduled hourly] trade-dm reminders failed: ${e && e.message}`)));
+      }).catch((e) => console.error(`[scheduled hourly] trade-dm reminders failed: ${e && e.message}`));
+      })());
     } catch (e) {
       console.error(`[scheduled hourly] trade-dm reminders dispatch failed: ${e && e.message}`);
     }
@@ -3793,6 +3831,7 @@ export default {
         path !== "/admin/tag-ingest" &&
         path !== "/admin/mym-ingest" &&
         path !== "/admin/transactions/scan-and-record" &&
+        !path.startsWith("/admin/trade-sentinel") &&
         path !== "/admin/commish-settings" &&
         path !== "/admin/d1-status" &&
         path !== "/admin/discord-channel-config" &&
@@ -23369,6 +23408,9 @@ export default {
           from_franchise_id: fromId,
           to_franchise_id: toId,
           timestamp: ts,
+          // Offer expiry, when MFL exposes it (shape varies; sentinel uses it
+          // for the EXPIRES-honored short-circuit on re-offer day).
+          expires: safeInt(readPendingTradeField(row, ["expires", "expiration", "expires_unix", "expire"]), 0) || null,
           comments: commentsRaw,
           raw_comment: commentsRaw,
           will_give_up: readPendingTradeField(row, [
@@ -29088,6 +29130,353 @@ export default {
         return jsonOut(200, { ok: true, league_id: leagueId, season, pending_trade_ids: ids });
       }
 
+      // ---- 🛡️ Trade-offer sentinel tick (2026-07-15) -----------------------
+      // Watches EVERY pending MFL offer (in-app + native-desktop), mirrors it
+      // into ups_trade_offer_watch, detects offers whose assets moved in some
+      // OTHER executed trade (symmetric — either side), and manages the silent
+      // day-6.5 re-offer that gives offers a 14-day effective life. Dispatched
+      // hourly (full) and from the */5 transactions scan when a new TRADE
+      // landed (invalidate_only — closes the stale-accept window to ≤5 min).
+      // ACT flag off ⇒ dry-run: every would-action is recorded in act_log and
+      // NOTHING touches MFL or Discord.
+      if (path === "/admin/trade-sentinel/tick" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const gotKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!commishKey || gotKey !== commishKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY required" });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        if (!(await getFeatureFlag(env, "TRADE_SENTINEL_ENABLED"))) return jsonOut(200, { ok: true, skipped: "flag_off" });
+        const ACT = await getFeatureFlag(env, "TRADE_SENTINEL_ACT_ENABLED");
+        const allowCsv = safeStr(env.TRADE_SENTINEL_TEST_FRANCHISES || "");
+        const allowSet = new Set(allowCsv.split(",").map((x) => padFranchiseId(x)).filter((x) => x && x !== "0000"));
+        const allowed = (w) => !allowSet.size || allowSet.has(padFranchiseId(w.from_franchise_id)) || allowSet.has(padFranchiseId(w.to_franchise_id));
+        const mode = safeStr(url.searchParams.get("mode") || "full");
+        const season = String(env.YEAR || new Date().getUTCFullYear());
+        const leagueId = String(env.LEAGUE_ID || "74598");
+        const tickNowIso = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+        const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+        const db = env.UPS_MFL_DB;
+        const out = { ok: true, mode, act: ACT, seen: 0, new_rows: 0, gone: 0, violations: 0, revoked: 0, reoffer_due: 0, mfl_writes: 0, errors: [] };
+
+        // Franchise names (death-DM copy) — one league export.
+        const namesByFid = {};
+        try {
+          const lg = await mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true });
+          const fl = lg?.data?.league?.franchises?.franchise || [];
+          for (const f of (Array.isArray(fl) ? fl : [fl])) {
+            const id = padFranchiseId(f?.id);
+            if (id) namesByFid[id] = safeStr(f?.name) || id;
+          }
+        } catch (e) { out.errors.push(`league: ${e?.message || e}`); }
+        const fids = Object.keys(namesByFid);
+
+        // ── STEP A: enumerate every pending offer as commish ──
+        // Each offer appears in BOTH sides' feeds; dedupe by trade id. A fid
+        // whose fetch fails poisons the "gone" sweep (an offer would look
+        // vanished just because we couldn't see it) — track and skip that sweep.
+        let enumOk = fids.length > 0;
+        const pending = new Map();
+        if (mode === "full" || !(await db.prepare(
+          `SELECT COUNT(*) AS n FROM ups_trade_offer_watch WHERE league_id=? AND season=? AND last_seen_utc >= datetime('now','-10 minutes')`
+        ).bind(leagueId, season).first())?.n) {
+          for (const fid of fids) {
+            try {
+              const res = await mflExportJson(season, leagueId, "pendingTrades", { FRANCHISE_ID: fid }, { includeApiKey: true, useCookie: true });
+              const raw = res?.data?.pendingTrades?.pendingTrade ?? res?.data?.pendingtrades?.pendingtrade ?? [];
+              for (const r of (Array.isArray(raw) ? raw : [raw]).filter(Boolean)) {
+                const n = normalizePendingTradeRow(r);
+                const tid = safeStr(n?.trade_id).replace(/\D/g, "");
+                if (tid) pending.set(tid, n);
+              }
+            } catch (e) { enumOk = false; out.errors.push(`pending ${fid}: ${e?.message || e}`); }
+            await sleep(500);
+          }
+          out.seen = pending.size;
+
+          // ── STEP B: mirror ──
+          for (const [tid, n] of pending) {
+            const existing = await db.prepare(`SELECT trade_id FROM ups_trade_offer_watch WHERE trade_id=?`).bind(tid).first();
+            if (existing) {
+              await db.prepare(
+                `UPDATE ups_trade_offer_watch SET last_seen_utc=?, expires_unix=COALESCE(?, expires_unix), updated_at_utc=? WHERE trade_id=?`
+              ).bind(tickNowIso(), n.expires || null, tickNowIso(), tid).run();
+              continue;
+            }
+            const dmRow = await db.prepare(`SELECT trade_id FROM trade_offer_dm WHERE trade_id=?`).bind(tid).first();
+            const origin = dmRow ? "inapp" : "discovered";
+            const anchor = n.timestamp ? new Date(Number(n.timestamp) * 1000).toISOString().replace(/\.\d{3}Z$/, "Z") : tickNowIso();
+            await db.prepare(
+              `INSERT OR IGNORE INTO ups_trade_offer_watch
+                 (trade_id, league_id, season, from_franchise_id, to_franchise_id,
+                  will_give_up, will_receive, comments, mfl_timestamp, expires_unix,
+                  first_seen_utc, last_seen_utc, origin, lifecycle, anchor_utc, updated_at_utc)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
+            ).bind(tid, leagueId, season, padFranchiseId(n.from_franchise_id), padFranchiseId(n.to_franchise_id),
+              safeStr(n.will_give_up) || null, safeStr(n.will_receive) || null, safeStr(n.comments) || null,
+              Number(n.timestamp) || null, n.expires || null,
+              tickNowIso(), tickNowIso(), origin, anchor, tickNowIso()).run();
+            out.new_rows++;
+            if (origin === "discovered") {
+              // Native adoption ships day-3 (TRADE_SENTINEL_ADOPT_NATIVE);
+              // until then just record the candidate so nothing is invisible.
+              await sentinelActLog(env, tid, { would: "adopt_native", from: n.from_franchise_id, to: n.to_franchise_id });
+            }
+          }
+
+          // vanished from pending ⇒ accepted/declined/revoked/expired natively.
+          if (enumOk) {
+            const { results: watchPending } = await db.prepare(
+              `SELECT trade_id, lifecycle FROM ups_trade_offer_watch WHERE league_id=? AND season=? AND lifecycle IN ('pending','reoffer_in_progress')`
+            ).bind(leagueId, season).all();
+            for (const w of (watchPending || [])) {
+              if (pending.has(safeStr(w.trade_id))) continue;
+              if (safeStr(w.lifecycle) === "reoffer_in_progress") continue; // mid-swap: expected to vanish
+              const r = await db.prepare(
+                `UPDATE ups_trade_offer_watch SET lifecycle='gone', updated_at_utc=? WHERE trade_id=? AND lifecycle='pending'`
+              ).bind(tickNowIso(), safeStr(w.trade_id)).run();
+              if (r?.meta?.changes) out.gone++;
+            }
+          }
+        }
+
+        // ── STEP C: invalidation (both modes) ──
+        try {
+          const ownedPlayers = new Map();
+          const rosterRes = await mflExportJson(season, leagueId, "rosters", {}, { includeApiKey: true, useCookie: true });
+          const frs = rosterRes?.data?.rosters?.franchise || [];
+          for (const fr of (Array.isArray(frs) ? frs : [frs]).filter(Boolean)) {
+            const fid = padFranchiseId(fr?.id);
+            const set = new Set();
+            const players = fr?.player || [];
+            for (const pl of (Array.isArray(players) ? players : [players]).filter(Boolean)) {
+              const pid = safeStr(pl?.id).replace(/\D/g, "");
+              if (pid) set.add(pid);
+            }
+            if (fid) ownedPlayers.set(fid, set);
+          }
+          const ownedPicks = new Map();
+          const assetsRes = await mflExportJson(season, leagueId, "assets", {}, { includeApiKey: true, useCookie: true });
+          const byFr = assetsRes.ok ? parseAssetsExportPicks(assetsRes.data) : {};
+          for (const fid of Object.keys(byFr || {})) {
+            const set = new Set();
+            for (const a of asArray(byFr[fid]).filter(Boolean)) {
+              const tok = safeStr(a?.token || a?.id || a?.asset_id).toUpperCase();
+              const m = tok.match(/\b(DP_\d{1,2}_\d{1,2}|FP_\d{4}_\d{4}_\d{1,2})\b/) ||
+                        JSON.stringify(a).toUpperCase().match(/\b(DP_\d{1,2}_\d{1,2}|FP_\d{4}_\d{4}_\d{1,2})\b/);
+              if (m) set.add(m[1]);
+            }
+            ownedPicks.set(padFranchiseId(fid), set);
+          }
+          if (!ownedPlayers.size) throw new Error("rosters export empty — skipping invalidation this tick");
+
+          const { results: liveRows } = await db.prepare(
+            `SELECT * FROM ups_trade_offer_watch WHERE league_id=? AND season=? AND lifecycle='pending'`
+          ).bind(leagueId, season).all();
+          for (const w of (liveRows || [])) {
+            const violations = sentinelFindViolations(w, ownedPlayers, ownedPicks);
+            if (!violations.length) continue;
+            out.violations++;
+            const v = violations[0];
+            // Where did it go? Newest executed TRADE whose gave-up lists carry the token.
+            let destFid = "";
+            try {
+              const tok = safeStr(v.token);
+              const hit = await db.prepare(
+                `SELECT franchise_id, franchise_id2, added_players, dropped_players FROM ups_transactions
+                  WHERE league_id=? AND type='TRADE'
+                    AND (added_players LIKE ? OR dropped_players LIKE ?)
+                  ORDER BY unix_timestamp DESC LIMIT 1`
+              ).bind(leagueId, `%${tok}%`, `%${tok}%`).first();
+              if (hit) {
+                // The destination is whichever side RECEIVED the token.
+                const inAdded = safeStr(hit.added_players).toUpperCase().includes(tok.toUpperCase());
+                destFid = padFranchiseId(inAdded ? hit.franchise_id2 : hit.franchise_id);
+                if (destFid === padFranchiseId(v.owner_fid)) destFid = padFranchiseId(inAdded ? hit.franchise_id : hit.franchise_id2);
+              }
+            } catch (_) { /* destination is cosmetic */ }
+            const assetDesc = v.kind === "pick"
+              ? safeStr(pickDescriptionFromToken(v.token)) || v.token
+              : await (async () => {
+                  try {
+                    const meta = await fetchPlayersByIdsChunked(season, leagueId, [v.token]);
+                    const m = meta?.[v.token];
+                    return m ? `${safeStr(m.name)} (${safeStr(m.position)})` : `player #${v.token}`;
+                  } catch (_) { return `player #${v.token}`; }
+                })();
+
+            if (!ACT || !allowed(w)) {
+              // Dry mode: record ONCE (invalidated_reason doubles as the dedupe).
+              if (!safeStr(w.invalidated_reason)) {
+                await db.prepare(
+                  `UPDATE ups_trade_offer_watch SET invalidated_reason=?, invalidated_asset=?, updated_at_utc=? WHERE trade_id=? AND lifecycle='pending'`
+                ).bind(`DRY:asset_moved:${v.token}:${v.side}:${destFid || "?"}`, v.token, tickNowIso(), safeStr(w.trade_id)).run();
+                await sentinelActLog(env, w.trade_id, { would: "revoke", token: v.token, side: v.side, dest: destFid, desc: assetDesc, dry: true });
+              }
+              continue;
+            }
+            if (out.mfl_writes >= SENTINEL_WRITE_CAP) { out.errors.push("write cap reached — deferring to next tick"); break; }
+            // Claim, then act — a lost race means another path already did.
+            const claim = await db.prepare(
+              `UPDATE ups_trade_offer_watch SET lifecycle='invalidated', invalidated_reason=?, invalidated_asset=?, updated_at_utc=? WHERE trade_id=? AND lifecycle='pending'`
+            ).bind(`asset_moved:${v.token}:${v.side}:${destFid || "?"}`, v.token, tickNowIso(), safeStr(w.trade_id)).run();
+            if (!claim?.meta?.changes) continue;
+            // Revoke as ORIGINATOR — direct postMflImportForm, NEVER the
+            // fallback that strips FRANCHISE_ID (it would attribute the action
+            // to the commish). "Already gone" counts as success.
+            out.mfl_writes++;
+            const rev = await postMflImportForm(season, {
+              TYPE: "tradeResponse", L: leagueId, TRADE_ID: safeStr(w.trade_id),
+              RESPONSE: "revoke", FRANCHISE_ID: padFranchiseId(w.from_franchise_id),
+            });
+            const alreadyGone = !rev.requestOk && /no (such|pending|longer)|not found|already/i.test(safeStr(rev.error) + safeStr(rev.upstreamPreview));
+            if (!rev.requestOk && !alreadyGone) {
+              await db.prepare(`UPDATE ups_trade_offer_watch SET lifecycle='revoke_failed', updated_at_utc=? WHERE trade_id=?`)
+                .bind(tickNowIso(), safeStr(w.trade_id)).run();
+              await sentinelActLog(env, w.trade_id, { did: "revoke_failed", error: safeStr(rev.error).slice(0, 200) });
+              out.errors.push(`revoke ${w.trade_id}: ${safeStr(rev.error).slice(0, 120)}`);
+              continue;
+            }
+            out.revoked++;
+            await sentinelActLog(env, w.trade_id, { did: "revoke", token: v.token, side: v.side, dest: destFid });
+            const kill = await sentinelKillDmSide(env, w.trade_id, {
+              assetDesc, destTeamName: namesByFid[destFid] || "", quietNow: sentinelQuietHours(),
+            });
+            await sentinelActLog(env, w.trade_id, { did: "kill_dm", ...kill });
+          }
+        } catch (e) { out.errors.push(`invalidation: ${e?.message || e}`); }
+
+        // ── STEP D: re-offer due (full mode; ACT path lands after the
+        //           L=25625 battery resolves the EXPIRES branch — dry-log now) ──
+        if (mode === "full") {
+          const { results: dueRows } = await db.prepare(
+            `SELECT * FROM ups_trade_offer_watch WHERE league_id=? AND season=? AND lifecycle='pending'`
+          ).bind(leagueId, season).all();
+          const nowMs = Date.now();
+          for (const w of (dueRows || [])) {
+            if (sentinelPastMaxLife(w, nowMs)) {
+              await db.prepare(`UPDATE ups_trade_offer_watch SET lifecycle='expired', updated_at_utc=? WHERE trade_id=? AND lifecycle='pending'`)
+                .bind(tickNowIso(), safeStr(w.trade_id)).run();
+              continue;
+            }
+            if (!sentinelReofferDue(w, nowMs)) continue;
+            out.reoffer_due++;
+            await sentinelActLog(env, w.trade_id, { would: "reoffer", anchor: w.anchor_utc, dry: true });
+          }
+        }
+        return jsonOut(200, out);
+      }
+
+      // ---- 🛡️ Sentinel empirical battery (TEST LEAGUE ONLY) -----------------
+      // Runs the design's branch-deciding experiments against L=25625 with the
+      // MFLTEST_COMMISHCOOKIE secret. Hard-refuses any other league. Results
+      // pick the re-offer strategy (EXPIRES honored?) and tell us whether MFL
+      // auto-voids offers whose assets moved (T2) — both undocumented.
+      if (path === "/admin/trade-sentinel/test-battery" && request.method === "POST") {
+        const commishKey2 = String(env.COMMISH_API_KEY || "").trim();
+        const gotKey2 = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!commishKey2 || gotKey2 !== commishKey2) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY required" });
+        const TL = "25625"; // the mirrored test league — never prod
+        const tSeason = String(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear());
+        const tCookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || "");
+        if (!tCookieRaw) return jsonOut(500, { ok: false, error: "MFLTEST_COMMISHCOOKIE secret missing" });
+        const tCookie = tCookieRaw.includes("=") ? tCookieRaw : `MFL_USER_ID=${tCookieRaw}`;
+        const sleep2 = (ms) => new Promise((res) => setTimeout(res, ms));
+
+        const testImport = async (fields) => {
+          const qs = new URLSearchParams({ L: TL, JSON: "1", ...fields });
+          const u = `https://www48.myfantasyleague.com/${encodeURIComponent(tSeason)}/import?${qs.toString()}`;
+          const r = await fetch(u, { headers: { Cookie: tCookie, "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)" }, cf: { cacheTtl: 0, cacheEverything: false } });
+          const text = await r.text();
+          return { status: r.status, body: text.slice(0, 500) };
+        };
+        const testPending = async (fid) => {
+          const qs = new URLSearchParams({ TYPE: "pendingTrades", L: TL, JSON: "1" });
+          if (fid) qs.set("FRANCHISE_ID", fid);
+          const u = `https://www48.myfantasyleague.com/${encodeURIComponent(tSeason)}/export?${qs.toString()}`;
+          const r = await fetch(u, { headers: { Cookie: tCookie, "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)" }, cf: { cacheTtl: 0, cacheEverything: false } });
+          let data = null;
+          try { data = JSON.parse(await r.text()); } catch (_) { data = null; }
+          const raw = data?.pendingTrades?.pendingTrade ?? data?.pendingtrades?.pendingtrade ?? [];
+          return (Array.isArray(raw) ? raw : [raw]).filter(Boolean).map((row) => normalizePendingTradeRow(row));
+        };
+
+        const battery = { league: TL, season: tSeason, t1: {}, t2: {}, t3: {}, t5: {}, note: "T4 (MFL emails) is not automatable — observe the test-league mailbox after this run." };
+        try {
+          // Setup: pick three players from three franchises off the live test rosters.
+          const ros = await fetch(`https://www48.myfantasyleague.com/${encodeURIComponent(tSeason)}/export?TYPE=rosters&L=${TL}&JSON=1`, {
+            headers: { Cookie: tCookie }, cf: { cacheTtl: 0 },
+          }).then((r) => r.json());
+          const frs2 = (Array.isArray(ros?.rosters?.franchise) ? ros.rosters.franchise : [ros?.rosters?.franchise]).filter(Boolean);
+          const pick = (fid) => {
+            const fr = frs2.find((f) => padFranchiseId(f?.id) === fid);
+            const pls = (Array.isArray(fr?.player) ? fr.player : [fr?.player]).filter(Boolean);
+            return safeStr(pls[0]?.id).replace(/\D/g, "");
+          };
+          const [fA, fB, fC] = ["0001", "0002", "0003"];
+          const [pA, pB, pC] = [pick(fA), pick(fB), pick(fC)];
+          if (!pA || !pB || !pC) throw new Error(`test rosters missing players: ${pA}/${pB}/${pC}`);
+          battery.setup = { fA, pA, fB, pB, fC, pC };
+
+          // T5 — enumeration shape: FRANCHISE_ID omitted vs 0000 vs per-fid.
+          battery.t5.omitted = (await testPending("")).length;
+          battery.t5.zero = (await testPending("0000")).length;
+          battery.t5.per_fid_0001 = (await testPending(fA)).length;
+
+          // T1 — EXPIRES beyond 7d honored?
+          const expiresWant = Math.floor(Date.now() / 1000) + 10 * 86400;
+          const c1 = await testImport({ TYPE: "tradeProposal", FRANCHISE_ID: fA, OFFEREDTO: fB, WILL_GIVE_UP: pA, WILL_RECEIVE: pB, EXPIRES: String(expiresWant), COMMENTS: "sentinel T1" });
+          await sleep2(1200);
+          const after1 = await testPending(fA);
+          const offer1 = after1.find((o) => safeStr(o.comments).includes("sentinel T1")) || after1[after1.length - 1];
+          battery.t1 = {
+            create: c1, offer_found: !!offer1, trade_id: offer1?.trade_id || "",
+            expires_wanted: expiresWant, expires_readback: offer1?.expires || null,
+            honored: !!(offer1?.expires && Math.abs(Number(offer1.expires) - expiresWant) < 86400),
+            clamped_to_7d: !!(offer1?.expires && Number(offer1.expires) < expiresWant - 86400),
+          };
+
+          // T2 — move pA to fC in a SEPARATE executed trade; is offer1 auto-voided?
+          const c2 = await testImport({ TYPE: "tradeProposal", FRANCHISE_ID: fA, OFFEREDTO: fC, WILL_GIVE_UP: pA, WILL_RECEIVE: pC, COMMENTS: "sentinel T2 mover" });
+          await sleep2(1200);
+          const cPend = await testPending(fC);
+          const mover = cPend.find((o) => safeStr(o.comments).includes("sentinel T2 mover"));
+          let accepted = null;
+          if (mover?.trade_id) {
+            accepted = await testImport({ TYPE: "tradeResponse", TRADE_ID: safeStr(mover.trade_id), RESPONSE: "accept", FRANCHISE_ID: fC });
+            await sleep2(1500);
+          }
+          const after2 = await testPending(fB);
+          const offer1Still = after2.some((o) => safeStr(o.trade_id) === safeStr(offer1?.trade_id));
+          let staleAccept = null;
+          if (offer1Still && offer1?.trade_id) {
+            // The integrity question: does MFL let fB ACCEPT the now-broken offer?
+            staleAccept = await testImport({ TYPE: "tradeResponse", TRADE_ID: safeStr(offer1.trade_id), RESPONSE: "accept", FRANCHISE_ID: fB });
+          }
+          battery.t2 = { mover_create: c2, mover_accept: accepted, offer1_still_pending_after_move: offer1Still, stale_accept_attempt: staleAccept };
+
+          // T3 — revoke-as-originator; then double-revoke for the error text.
+          const c3 = await testImport({ TYPE: "tradeProposal", FRANCHISE_ID: fB, OFFEREDTO: fC, WILL_GIVE_UP: pB, WILL_RECEIVE: pC, COMMENTS: "sentinel T3" });
+          await sleep2(1200);
+          const bPend = await testPending(fB);
+          const offer3 = bPend.find((o) => safeStr(o.comments).includes("sentinel T3"));
+          let rv1 = null, rv2 = null, goneAfter = null;
+          if (offer3?.trade_id) {
+            rv1 = await testImport({ TYPE: "tradeResponse", TRADE_ID: safeStr(offer3.trade_id), RESPONSE: "revoke", FRANCHISE_ID: fB });
+            await sleep2(1200);
+            goneAfter = !(await testPending(fB)).some((o) => safeStr(o.trade_id) === safeStr(offer3.trade_id));
+            rv2 = await testImport({ TYPE: "tradeResponse", TRADE_ID: safeStr(offer3.trade_id), RESPONSE: "revoke", FRANCHISE_ID: fB });
+          }
+          battery.t3 = { create: c3, trade_id: offer3?.trade_id || "", revoke1: rv1, gone_after_revoke: goneAfter, revoke2_error_text: rv2 };
+
+          // Cleanup: revoke anything the battery left pending (offer1 if it survived).
+          if (offer1?.trade_id && !battery.t2.stale_accept_attempt) {
+            battery.cleanup_offer1 = await testImport({ TYPE: "tradeResponse", TRADE_ID: safeStr(offer1.trade_id), RESPONSE: "revoke", FRANCHISE_ID: fA });
+          }
+          return jsonOut(200, { ok: true, battery });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: safeStr(e?.message || e), battery });
+        }
+      }
+
       if (
         (path === "/trade-offers" || path === "/api/trades/proposals") &&
         request.method === "GET"
@@ -29153,7 +29542,10 @@ export default {
                   .filter(Boolean)
               );
               const dmRows = await env.UPS_MFL_DB.prepare(
-                `SELECT trade_id FROM trade_offer_dm WHERE state='active' AND to_franchise_id=? AND league_id=?`
+                // reoffer_pending=1 = the sentinel is mid-id-swap (revoked, about
+                // to re-propose) — the offer is legitimately absent from every
+                // pending list for a few seconds and must not be resolved.
+                `SELECT trade_id FROM trade_offer_dm WHERE state='active' AND to_franchise_id=? AND league_id=? AND COALESCE(reoffer_pending,0)=0`
               ).bind(franchiseId, leagueId).all();
               for (const r of (dmRows?.results || [])) {
                 const tid = String(r.trade_id || "").replace(/\D/g, "");
