@@ -42,6 +42,27 @@
 
   function isFlagOn() { return root.UPS_USE_NATIVE_PLAYER_POPUP === true; }
 
+  var WORKER_BASE =
+    (typeof root.UPS_MOBILE_API_BASE === "string" && root.UPS_MOBILE_API_BASE) ||
+    "https://upsmflproduction.keith-creelman.workers.dev";
+
+  // The viewer's FRANCHISE id, resolved async via /api/me (the definitive
+  // MFL_USER_ID→franchise map — same source the mobile app trusts first). This
+  // is the reliable gate for showing action buttons; the sync cookie/global
+  // sources in pageCtx are the immediate fallback for the very first click
+  // before this resolves (~200ms after load).
+  var __viewerFid = "";
+  function resolveViewerFidAsync() {
+    try {
+      var uid = readCookie("MFL_USER_ID");
+      if (!uid) return;
+      fetch(WORKER_BASE + "/api/me?MFL_USER_ID=" + encodeURIComponent(uid), { mode: "cors", credentials: "omit" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d && d.configured && d.franchise_id) __viewerFid = String(d.franchise_id); })
+        .catch(function () {});
+    } catch (e) {}
+  }
+
   function readCookie(name) {
     var parts = (document.cookie || "").split(";");
     for (var i = 0; i < parts.length; i += 1) {
@@ -65,12 +86,22 @@
     } catch (e) {}
     if (!leagueId && root.league_id) leagueId = String(root.league_id);
     if (!year && root.year) year = String(root.year);
-    var viewerFranchiseId = "";
-    if (root.franchise_id) viewerFranchiseId = String(root.franchise_id);
+    // The VIEWER's franchise id, for the own-vs-not action gate. Resolve the
+    // same way the mobile app does (app.js:894). CRUCIAL: MFL_USER_ID is a
+    // USER id, NOT a franchise id — using it here made the ownership match
+    // always fail (no Actions tab). The franchise id lives in
+    // MFL_LAST_LOGIN_FRANCHISE_ID (set on login) / window.franchise_id / the
+    // F= URL param. Digitless ⇒ leave empty ⇒ fail-safe (FO link, no writes).
+    var viewerFranchiseId = __viewerFid || "";
+    if (!viewerFranchiseId && root.franchise_id) viewerFranchiseId = String(root.franchise_id);
     if (!viewerFranchiseId) {
-      var mflUser = readCookie("MFL_USER_ID");
-      if (mflUser) viewerFranchiseId = mflUser;
+      var lastLogin = readCookie("MFL_LAST_LOGIN_FRANCHISE_ID");
+      if (lastLogin) viewerFranchiseId = lastLogin;
     }
+    if (!viewerFranchiseId) {
+      try { var fq = u.searchParams.get("F") || u.searchParams.get("FRANCHISE_ID"); if (fq) viewerFranchiseId = fq; } catch (e2) {}
+    }
+    if (!/\d/.test(String(viewerFranchiseId))) viewerFranchiseId = "";
     return {
       apiBase: "",
       leagueId: leagueId,
@@ -205,6 +236,14 @@
     var pad4 = function (v) { return String(v || "").replace(/\D/g, "").padStart(4, "0").slice(-4); };
     var ownsPlayer = !!(row && ctx.viewerFranchiseId &&
       pad4(ctx.viewerFranchiseId) === pad4(row.ownerFid));
+    // Diagnostic — tells you exactly why the Actions tab did/didn't show.
+    try {
+      console.log("[UPS][actions] pid=" + pid +
+        " viewerFid=" + (ctx.viewerFranchiseId || "(none)") +
+        " ownerFid=" + ((row && row.ownerFid) || "(no row — cache cold?)") +
+        " owns=" + ownsPlayer +
+        " brain=" + (typeof root.UPS_PLAYER_ACTIONS_NATIVE === "object"));
+    } catch (e) {}
     if (ownsPlayer && typeof root.UPS_PLAYER_ACTIONS_NATIVE === "object" &&
         typeof root.UPS_PLAYER_ACTIONS_NATIVE.prepare === "function") {
       try {
@@ -241,8 +280,10 @@
   // capture=true so we beat TOS's own jQuery handler (TOS binds on document
   // bubble-phase). Returning early without preventDefault when the flag is
   // off lets TOS's handler run unmolested.
-  // Warm the rosters cache on load so the first popup already has the live strip.
+  // Warm the rosters cache + resolve the viewer franchise on load so the first
+  // popup already has the live strip AND can decide own-vs-not for actions.
   try { var __ic = pageCtx(); loadRostersCache(__ic.leagueId, __ic.year || String(new Date().getFullYear())); } catch (e) {}
+  resolveViewerFidAsync();
 
   document.addEventListener("click", onClick, true);
 })(typeof window !== "undefined" ? window : null);
