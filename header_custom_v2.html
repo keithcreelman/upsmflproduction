@@ -8,6 +8,163 @@
 <link rel="shortcut icon" href="https://www.mflscripts.com/ImageDirectory/script-images/favicon.ico" type="image/x-icon">
 
 <script>
+  // ─── UPS BAREBONES GUARD — MUST BE THE FIRST SCRIPT BLOCK ───────────────
+  // Per-user stock-MFL fallback (docs/mfl_native/barebones_mode.md). When ON,
+  // every custom block below early-outs via its UPS_BB_GATE wrap and this
+  // guard disables the skin + custom styles, hides custom homepage modules,
+  // and injects the "Full Site" pill. Survivors: the stage-4 player modal
+  // (contracts still readable/actionable from stock pages) and this guard.
+  // Rescue tiers: ?ups_barebones=0 URL param; MFL-native logout?HIDE_CUST=1
+  // strips EVERYTHING including this guard (restore with HIDE_CUST=0).
+  (function () {
+    var KEY = "ups_barebones_v1";
+    var stored = null;
+    try { stored = window.localStorage.getItem(KEY); } catch (e) {} // private mode → null → OFF
+    var fromUrl = null;
+    try {
+      var u = new URL(window.location.href);
+      var q = u.searchParams.get("ups_barebones");
+      if (q === "1" || q === "0") fromUrl = q;
+      if (fromUrl === null) {
+        var hm = String(u.hash || "").match(/(?:^#|[#&])ups_barebones=(1|0)/);
+        if (hm) fromUrl = hm[1];
+      }
+      if (fromUrl !== null) {
+        try { window.localStorage.setItem(KEY, fromUrl); } catch (e) {}
+        // Strip the param immediately — MFL must never see it on later requests.
+        u.searchParams.delete("ups_barebones");
+        u.hash = String(u.hash || "").replace(/(?:^#|[#&])ups_barebones=(?:1|0)/, "");
+        try { window.history.replaceState(null, "", u.toString()); } catch (e) {}
+      }
+    } catch (e) {}
+    var on = fromUrl !== null ? fromUrl === "1" : stored === "1";
+    window.UPS_BAREBONES = on;
+
+    // Shared setter — the pill, the subnav link, and the mobile drawer row all
+    // call this. Defined in BOTH modes.
+    window.UPS_BAREBONES_SET = function (next) {
+      try { window.localStorage.setItem(KEY, next ? "1" : "0"); }
+      catch (e) {
+        alert("Storage unavailable — append ?ups_barebones=" + (next ? 1 : 0) + " to the URL instead.");
+        return;
+      }
+      window.location.reload();
+    };
+
+    if (!on) {
+      try { console.log("[UPS][barebones] guard v1 installed — OFF (full site)"); } catch (e) {}
+      return;
+    }
+
+    document.documentElement.setAttribute("data-ups-barebones", "1");
+    // Survivor #2: the rich player modal on native pages. The stage-4 default
+    // block is typeof-guarded, so this early assignment wins; the bridge
+    // re-checks the flag per click, so timing is never a race.
+    window.UPS_USE_NATIVE_PLAYER_POPUP = true;
+
+    // (a) Skin: stock look = MFL's own MFLBaseCSS (link#default). Disable only
+    // TOS's light.css (link#custom) — both live in <head>, already parsed.
+    try { var skin = document.getElementById("custom"); if (skin) skin.disabled = true; } catch (e) {}
+
+    // (b) Style/link killer. MFL emits no inline <style> of its own
+    // (mfl_page_html_inventory.md) — the pre-guard snapshot is future-proofing.
+    // Everything custom that parses later is disabled within a microtask.
+    var KEEP_IDS = { "upm-master-styles": 1, "ups-bb-style": 1 };
+    var LINK_KILL = /mflscripts\.com|cdnjs\.cloudflare\.com|keithcreelman\.github\.io/i;
+    var pre = [];
+    try { pre = Array.prototype.slice.call(document.querySelectorAll("style")); } catch (e) {}
+    function kill(n) {
+      try {
+        if (!n || !n.tagName) return;
+        var t = n.tagName.toUpperCase();
+        if (t === "STYLE") {
+          if (!KEEP_IDS[n.id] && pre.indexOf(n) === -1) n.disabled = true;
+        } else if (t === "LINK" && /stylesheet/i.test(n.rel || "") &&
+                   (n.id === "custom" || LINK_KILL.test(n.href || ""))) {
+          n.disabled = true;
+        }
+      } catch (e) {}
+    }
+    function sweep() {
+      try { document.querySelectorAll("style,link").forEach(kill); } catch (e) {}
+    }
+    try {
+      new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var add = muts[i].addedNodes;
+          for (var j = 0; j < add.length; j++) kill(add[j]);
+        }
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    } catch (e) {}
+
+    // (c) The one allowlisted style: hide static custom HTML (can't be
+    // un-parsed, only hidden) — hero, hotlinks, custom footer, app-switch
+    // pill, dev banner, subnav.
+    try {
+      var s = document.createElement("style");
+      s.id = "ups-bb-style";
+      s.textContent =
+        ".ups-hero-shell,.ups-hotlinks-shell,.ups-footer,#ups-switch-app-btn," +
+        "#upsDevBanner,.ups-teamops-subnav{display:none!important}";
+      (document.head || document.documentElement).appendChild(s);
+    } catch (e) {}
+
+    // (d) Hide custom homepage modules (ours carry github.io/worker embeds);
+    // native HPMs — standings, Legacy Links, polls — are untouched.
+    function hideCustomHpms() {
+      try {
+        document.querySelectorAll(".homepagemodule").forEach(function (box) {
+          if (box.getAttribute("data-ups-bb-hidden")) return;
+          if (box.querySelector(
+            'iframe[src*="keithcreelman.github.io"],iframe[src*="upsmflproduction"],' +
+            'script[src*="keithcreelman.github.io"],#cccMount,[id^="ups"][id*="Mount"]')) {
+            box.setAttribute("data-ups-bb-hidden", "1");
+            box.style.display = "none";
+            box.querySelectorAll("iframe").forEach(function (fr) { try { fr.remove(); } catch (e) {} });
+          }
+        });
+      } catch (e) {}
+    }
+
+    // (e) Survivor #1: the pill. Inline styles ONLY; anchored to document.body
+    // ONLY — in barebones no custom DOM exists to anchor to.
+    function injectPill() {
+      try {
+        if (!document.body || document.getElementById("ups-bb-pill")) return;
+        var a = document.createElement("a");
+        a.id = "ups-bb-pill";
+        a.href = "#";
+        a.textContent = "\u26a1 Full Site";
+        a.setAttribute("aria-label", "Switch back to the full custom site");
+        a.style.cssText =
+          "position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));" +
+          "z-index:2147483000;padding:10px 16px;min-height:24px;background:#16253a;color:#fff;" +
+          "border:1px solid #5b8dff;border-radius:999px;font:700 13px/1.2 -apple-system," +
+          "BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-decoration:none;" +
+          "box-shadow:0 4px 12px rgba(0,0,0,.35);cursor:pointer";
+        a.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          window.UPS_BAREBONES_SET(false);
+        });
+        document.body.appendChild(a);
+      } catch (e) {}
+    }
+
+    function onReady() {
+      sweep();
+      hideCustomHpms();
+      injectPill();
+      try {
+        console.log("[UPS][barebones] ON — custom layer disabled; pill bottom-left; rescue: ?ups_barebones=0");
+      } catch (e) {}
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", onReady);
+    else onReady();
+    injectPill(); // best-effort early too (body may already exist mid-parse)
+  })();
+</script>
+
+<script>
   // Legacy global safety guards (custom tabs removed; keep no-op shims to avoid hard crashes).
   (function () {
     function noop() {}
@@ -1604,6 +1761,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
 </style>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   document.title = "UPS Salary Cap Dynasty League";
 
   /* Font size + theme persistence */
@@ -1704,6 +1862,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       htmlClassObs.observe(htmlEl, { attributes: true, attributeFilter: ["class"] });
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <!-------------------------------------->
@@ -1783,6 +1942,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
 </div>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   (function () {
     function updateThemeToggleUi() {
       var mode = typeof window.getUPSMode === "function" ? window.getUPSMode() : "dark";
@@ -1864,9 +2024,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       initOwnerActionsMenu();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // Hero side-panels: recent champions + all-time title leaders.
   (function () {
     var fallbackRecentWinners = [
@@ -2064,9 +2226,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       loadDynamicPanels();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // CCC embed helper for MFL home-page messages:
   // MFL sometimes injects message HTML with innerHTML, which makes <script> tags inert.
   // Loading the CCC embed loader from the header ensures it executes.
@@ -2733,9 +2897,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       setTimeout(recenterUpsHeaderShells, 1200);
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // Front Office (FO v2) / Roster Workbench embed helper.
   //   MESSAGE7  → legacy Roster Workbench (the live "Front Office" page everyone
   //               uses — unchanged, so testing FO doesn't disrupt owners).
@@ -2901,9 +3067,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       loadEmbed();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // Team Operations (HPM11 / MESSAGE11) auto-bootstrap.
   //
   // Header-only mode: the HPM body can be empty (just a comment).
@@ -3000,9 +3168,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       bootIfApplicable();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // UPS Hub Container — generic auto-bootstrap for the shared MFL MESSAGE
   // slot that hosts our newer hubs (Auction Hub etc.). Mirrors the
   // MESSAGE7 / MESSAGE11 pattern: header detects the MODULE + ?hub= param,
@@ -3131,9 +3301,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       bootIfApplicable();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // Team Ops persistent sub-nav.
   //
   // Renders a 5-link strip (Overview / Front Office / Player Stats /
@@ -3298,7 +3470,12 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
             { label: "MFL Dashboard",      href: buildMflPath("/dash") },
             { label: "Log In / Out",       href: buildMflPath("/logout") },
             { label: "Help Center",        href: buildMflPath("/support") },
-            { label: "My Support Tickets", href: buildMflPath("/my_tickets") }
+            { label: "My Support Tickets", href: buildMflPath("/my_tickets") },
+            // Tier-3 break-glass (docs/mfl_native/barebones_mode.md): MFL itself
+            // stops serving ALL custom HTML/CSS/JS — including this menu and the
+            // barebones guard. Restore: same URL with HIDE_CUST=0 (in the doc +
+            // a bookmark; once stock, this menu no longer exists to click).
+            { label: "Stock MFL (break-glass)", href: buildMflPath("/logout?HIDE_CUST=1") }
           ] }
           // Commish links moved to the "Commish Settings" hub (commishOnly nav tab).
         ]
@@ -3498,6 +3675,21 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         if (!asCommish) tog.setAttribute("data-owner-view", "1");
         nav.appendChild(tog);
       }
+      // Barebones toggle — per-user stock-MFL fallback (docs/mfl_native/
+      // barebones_mode.md). Rendered for EVERYONE (unlike BECOME): the whole
+      // point is that any owner can bail out of the custom layer themselves.
+      if (typeof window.UPS_BAREBONES_SET === "function") {
+        var lite = document.createElement("a");
+        lite.className = "ups-teamops-subnav-link ups-lite-toggle";
+        lite.href = "#";
+        lite.textContent = "\ud83d\udd0c Lite Mode";
+        lite.title = "Switch to the no-frills stock-MFL fallback (player popups still work). Toggle back any time with the Full Site pill.";
+        lite.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          window.UPS_BAREBONES_SET(true);
+        });
+        nav.appendChild(lite);
+      }
       // Document-wide click closes any open dropdown.
       document.addEventListener("click", function (e) {
         if (!e || !e.target) return;
@@ -3554,9 +3746,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       try { mo.observe(document.documentElement, { childList: true, subtree: true }); } catch (e) {}
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // Standings v2 (MESSAGE4) auto-bootstrap.
   //
   // Mirrors the pattern used for Front Office (MESSAGE7) / Trade War
@@ -3663,9 +3857,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       loadStandings();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // Trade War Room embed helper for MESSAGE6.
   (function () {
     var TWB_HEADER_BUILD = "2026.03.01.3";
@@ -3780,9 +3976,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       loadTwbLoader();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // Acquisition Hub embed helper for MESSAGE10.
   (function () {
     // ── ARCHIVED 2026-05-12 ─────────────────────────────────────────
@@ -3904,9 +4102,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       loadAcqLoader();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // Team Operations (My Team) embed helper for MESSAGE11.
   (function () {
     var TEAMOPS_HEADER_BUILD = "2026.04.18.1";
@@ -4000,9 +4200,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       loadTeamOps();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // Rookie Draft Hub embed helper for MESSAGE12.
   (function () {
     var DRAFT_HUB_HEADER_BUILD = "2026.04.20.1";
@@ -4230,9 +4432,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       loadStatsWorkbenchLoader();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // Show current franchise identity (icon + team name) in the Hotlinks header.
   (function () {
     function pad4(v) {
@@ -4449,9 +4653,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       attempt(24);
     });
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // Rosters page: prepend franchise icon and keep "icon - franchise name" in caption/header.
   (function () {
     function safeStr(v) {
@@ -4675,10 +4881,12 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       init();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
 /* Franchise Abilities (O=93): if MFL's horizontal/frozen-table wrapper paints over the
    controls under our theme, flatten it back to a plain scrollable table so checkboxes
    remain visible and usable. */
@@ -4883,9 +5091,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     }
   }
 })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
 /* Hide homepage tab menu when only one tab is present. */
 (function () {
   function visibleTabCount() {
@@ -4937,9 +5147,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     }
   }
 })();
+  } // UPS_BB_GATE_END
 </script>
 
 		<script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
 		  // Some MFL skins render light-on-light spans/divs; force readable contrast.
 		  (function () {
 	    function isRelevantPage() {
@@ -5025,6 +5237,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
 	      init();
 	    }
 	  })();
+  } // UPS_BB_GATE_END
 	</script>
 
 <script>
@@ -5109,6 +5322,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   /*
    * Deep-link + roster/popup quick actions for Extension/Restructure.
    * This adds actionable buttons in O=07 rows and player popup cards.
@@ -5542,9 +5756,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       init();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // Rosters page: normalize contract details and add roster filters.
   (function () {
     if (window.__ups_roster_contract_ui_v2) return;
@@ -7147,6 +7363,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       init();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <!-------------------------------------->
@@ -7283,18 +7500,31 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
 </script>
 <script src="https://keithcreelman.github.io/upsmflproduction/shared/cap_math.js?v=2026-05-20-stage4"></script>
 <script src="https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=2026-05-20-stage4"></script>
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_popup_bridge.js?v=2026-05-20-stage4"></script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_popup_bridge.js?v=2026-07-16-barebones"></script>
 
 <!-- Stage 6: small native ports — mobile menu, module collapse, playoff bracket
      polish. Additive; the corresponding TOS toggles (load_mobileMenu_script,
      load_moduleExpand_script) stay true in HPM #20 until Stage 6 cutover
      flips them off. Owner Activity hook was DELETED outright per §5 Q6
      (no #tab202 references in our HPMs). -->
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/mobile_menu.js?v=2026-06-10-legacy-menu"></script>
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/module_collapse.js?v=2026-05-20-stage6"></script>
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/playoff_bracket_polish.js?v=2026-05-20-stage6"></script>
+<script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
+    // Stage-6 native ports — custom layer, dead in barebones. document.write keeps
+    // parser-blocking order identical to the static tags this block replaced.
+    document.write('<script src="https://keithcreelman.github.io/upsmflproduction/shared/mobile_menu.js?v=2026-07-16-barebones"><\/script>');
+    document.write('<script src="https://keithcreelman.github.io/upsmflproduction/shared/module_collapse.js?v=2026-05-20-stage6"><\/script>');
+    document.write('<script src="https://keithcreelman.github.io/upsmflproduction/shared/playoff_bracket_polish.js?v=2026-05-20-stage6"><\/script>');
+  } // UPS_BB_GATE_END
+</script>
 
-<script src="https://www.mflscripts.com/mfl-apps/global/header.js?v=1.60"></script>
+<script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
+    // TOS (theeohiostate) header app, ~585KB — the bulk of the custom layer.
+    // document.write is deliberate: byte-identical sync-loading semantics for a
+    // remote file we can't audit (it may rely on parser-blocking order itself).
+    document.write('<script src="https://www.mflscripts.com/mfl-apps/global/header.js?v=1.60"><\/script>');
+  } // UPS_BB_GATE_END
+</script>
 <style id="ups-marquee-style">
   .ups-marquee-shell {
     max-width: 1148px;
@@ -7407,6 +7637,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
   }
 </style>
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
 (function () {
   var mount = document.getElementById("upsMarquee");
   if (!mount) return;
@@ -7739,8 +7970,10 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     boot();
   }
 })();
+  } // UPS_BB_GATE_END
 </script>
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
 (function () {
   var banner = document.getElementById("upsDevBanner");
   if (!banner) return;
@@ -7777,6 +8010,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
   if (readLeagueId() !== TEST_LEAGUE_ID) return;
   banner.style.display = "flex";
 })();
+  } // UPS_BB_GATE_END
 </script>
 <!-- Stage 8 of tos_removal_plan.md: self-host the franchise-icon layout CSS
      and explicitly link Font Awesome Free (cdnjs) so we don't silently depend
@@ -10460,6 +10694,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
 </style>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // ─── O=43 picker + #locked-msg inline-style painter ────────────────────
   // Last-resort nuclear override: inline element.style.setProperty(..., 'important')
   // beats EVERYTHING in author CSS — no specificity war can win against it.
@@ -10595,6 +10830,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       }
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <style id="ups-picker-drawer-style">
@@ -11026,6 +11262,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
 </style>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // ─── Phase C: Side-mount Player Picker Drawer (O=43) ───────────────────
   // Replaces MFL's inline picker on the auction nomination form with a
   // right-mounted slide-in drawer. Reads available players from the
@@ -11594,9 +11831,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       updateTriggerLabel();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // ─── Auction Bid (O=43) quick-bid buttons — Phase 4.3 ───────────────────
   // Inject +$1K / +$5K / +$10K buttons next to each bid input on MFL's
   // O=43 page. Reads the current high bid from the `onblur="validateBid(
@@ -11667,9 +11906,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     // few seconds so any new bid inputs added dynamically get buttons.
     setInterval(injectButtons, 3000);
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   // ─── UPS menu cleanup (header_custom_v2) ────────────────────────────────
   // Hide MFL menu items that UPS doesn't use OR has replaced with internal
   // hubs (Front Office, Player Stats, Trade War Room, Rookie Draft Hub,
@@ -11772,9 +12013,11 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       runWithRetry();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <script>
+  if (!window.UPS_BAREBONES) { // UPS_BB_GATE
   /* ───────────────────────────────────────────────────────────────────────
    * UPS — O=43 ERA picker filter (Keith 2026-05-22)
    *
@@ -12308,6 +12551,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       init();
     }
   })();
+  } // UPS_BB_GATE_END
 </script>
 
 <div id="container-wrap"><!-- ENTER ALL HPMS AFTER THIS AND CLOSE IN FOOTER -->

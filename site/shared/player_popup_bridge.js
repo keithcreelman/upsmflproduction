@@ -187,8 +187,30 @@
     var row = __rostersCache && __rostersCache[pid];
     if (row) ctx.contractSalary = row;       // live cap strip (TCV/AAV/earned/penalty)
     else loadRostersCache(ctx.leagueId, ctx.year);   // warm for next click
+    // Contract ACTIONS are caller-supplied and normally come from the Roster
+    // Workbench. On native pages (incl. barebones mode) the modal would show
+    // full contract data but no way to act — so pass one deep-link into the
+    // Front Office, where the real submit machinery lives. One hop, no
+    // duplicated eligibility/submit logic here.
+    if (!ctx.bioActionsHtml && ctx.leagueId) {
+      // ups_barebones=0: in barebones mode the FO embed is gate-skipped, so a
+      // plain MESSAGE7 link would land on an empty stock page. This param makes
+      // the guard exit lite mode as part of the SAME navigation — one click
+      // from the modal to the real contract machinery. In full mode the param
+      // just re-affirms OFF and self-strips. Harmless both ways.
+      var foHref = "/" + encodeURIComponent(ctx.year) + "/home/" +
+        encodeURIComponent(ctx.leagueId) + "?MODULE=MESSAGE7&ups_barebones=0";
+      var foLabel = root.UPS_BAREBONES ? "Open in Front Office (full site) \u2192" : "Open in Front Office \u2192";
+      ctx.bioActionsHtml =
+        '<a class="upm-fo-link" href="' + foHref + '">' + foLabel + '</a>';
+    }
     try { root.UPS_openPlayerProfile(pid, ctx); }
-    catch (e) { try { console.warn("[UPS][popup-bridge] open failed", e); } catch (e2) {} }
+    catch (e) {
+      try { console.warn("[UPS][popup-bridge] open failed", e); } catch (e2) {}
+      // preventDefault already fired above — without this fallback a THROWING
+      // modal leaves the click completely inert. Degrade to native navigation.
+      try { if (a && a.href) { root.location.href = a.href; return; } } catch (e3) {}
+    }
   }
 
   // capture=true so we beat TOS's own jQuery handler (TOS binds on document
