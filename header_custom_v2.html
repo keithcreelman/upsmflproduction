@@ -3114,7 +3114,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       var path = String(window.location.pathname || "");
       if (/\/home\/\d+/.test(path)) return true;  // bare home only (MODULE check passed above)
 
-      // Body-id heuristic: MFL sets <body id="body_home"> on bare home.
+      // Body-id heuristic: MFL sets body id "body_home" on bare home.
       if (document.body && /home/i.test(String(document.body.id || ""))) return true;
 
       return false;
@@ -11215,7 +11215,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
   /* Links readable on the dark rows (player names carry MFL position colors). */
   body#body_lineup #lineup a { color: #7ab7ff !important; }
   body#body_lineup #lineup table.report a[class*="position_"] { color: #cfe0f7 !important; }
-  /* Form controls (projection <select>, optional-message <textarea>). */
+  /* Form controls (projection select, optional-message textarea). */
   body#body_lineup #lineup select,
   body#body_lineup #lineup textarea {
     background: var(--ups-surface-alt, #16253f) !important;

@@ -28,6 +28,19 @@
 | `UPS_USE_NATIVE_MINI_BOXSCORE` / `UPS_USE_NATIVE_PLAYER_POPUP` typeof-defaults | must exist; the guard's early `= true` wins over the typeof check |
 | Footer: "Footer config kept intentionally lean" TOS vars | same rationale as the header config block |
 
+## MFL save-time validation gotchas (learned the hard way, 2026-07-16)
+
+MFL's Home Page Message editor runs a **server-side validator on save** that scans the RAW text — it does not parse; it substring-matches. Two rules bit us; both reject the save and silently revert to the last-good content (looks like "my paste won't stick"):
+
+1. **No `<script>`/`</script>` inside a JS string.** `document.write('<script src="…"><\/script>')` fails — MFL sees an unbalanced `<script>` (it doesn't recognize the browser-only `<\/script>` escape as a close). **Fix:** split the keyword so no literal token exists in the source: `document.write('<scr' + 'ipt src="…"></scr' + 'ipt>')`.
+2. **No `<body>`, `<html>`, or `<textarea>` (or their closers) ANYWHERE — including inside comments or strings.** MFL substring-matches, so even `/* …the <textarea> control… */` in a CSS comment or `// MFL sets <body id="…">` in a JS comment is rejected. **Fix:** never write those tag tokens in prose; drop the angle brackets (`the textarea control`, `body id "…"`).
+
+These predate barebones (the live header was grandfathered in before MFL tightened the check) but block ANY fresh save. Scan before every paste:
+```
+grep -noiE "<\s*/?\s*(body|html|textarea)\b" header_custom_v2.html footer_custom_v2.html   # must be empty
+grep -n "document.write('<script"  header_custom_v2.html footer_custom_v2.html                # must be empty
+```
+
 ## Maintenance rule (IMPORTANT)
 
 **Every NEW inline block added to `header_custom_v2.html` / `footer_custom_v2.html` MUST either get the `UPS_BB_GATE` wrap or be added to the allowlist table above with a rationale.** New static `<script src>` tags use the gated `document.write` pattern. New `<style>` blocks/stylesheet links are auto-disabled by the observer (allowlist by id only if they must survive barebones). New homepage embed loaders are auto-hidden by `hideCustomHpms()` (they match the github.io selector).
