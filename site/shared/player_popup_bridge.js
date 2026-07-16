@@ -118,11 +118,16 @@
     if (!a) return false;
     var cls = (a.className || "") + "";
     if (/(?:^|\s)position_[A-Za-z]+_\d+/.test(cls)) return true;
+    // STOCK MFL form (exposed by barebones — no TOS to translate): the player-
+    // name link carries only a bare position color class (position_qb/_wr/_lb)
+    // and links via  player?L=..&P=<digits> . extractPid already reads P=.
+    if (/(?:^|\s)position_[a-z]{1,4}(?:\s|$)/i.test(cls)) return true;
     if (a.hasAttribute && a.hasAttribute("data-player-id")) return true;
     var href = a.getAttribute && a.getAttribute("href");
     if (!href) return false;
     if (/\/playerprofile\?/i.test(href)) return true;
     if (/[?&](PLAYER_ID|PID)=/i.test(href)) return true;
+    if (/[?&]P=\d+(?:&|$)/.test(href)) return true;   // native player?..&P=NNN
     return false;
   }
 
