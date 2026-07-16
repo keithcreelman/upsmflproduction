@@ -965,6 +965,36 @@ async function processAuctionPoll(env) {
     }
   }
 
+  // Auto-finalize Vet-FAA contract on MFL for any newly-won NON-ERA lots
+  // (Keith 2026-07-16 — §A3: "it should automatically be a 1 yr deal unless
+  // they give multiple years"). WHY THE EXTRA SWITCH that ERA doesn't need:
+  // finalizeEraContracts is inherently safe because it INNER-JOINs the CURATED
+  // ups_era_pool — only players the commish dropped at the rookie-extension
+  // deadline can ever match, so a stray/test won lot is filtered out. The FAA
+  // helper is the complement: it finalizes EVERY non-ERA won lot. Because
+  // processAuctionPoll runs against PROD (env.LEAGUE_ID, the real league), an
+  // unswitched FAA auto-path would write real 1-year contracts for every
+  // non-ERA won lot the instant this ships — including any stale/test lots. So
+  // it is DARK by default: it fires only when AUCTION_FAA_FINALIZE_ENABLED=1
+  // (Keith arms it after a dry-run preview). The manual admin route +
+  // dry_run preview work regardless of this switch. Fail-soft, mirrors ERA.
+  if (
+    newlyWonPids.length > 0 &&
+    String(env.AUCTION_FAA_FINALIZE_ENABLED || "") === "1" &&
+    String(env.MFL_COOKIE || "").trim()
+  ) {
+    for (const pid of newlyWonPids) {
+      try {
+        const r = await finalizeFaaContracts(env, season, leagueId, { onlyPid: pid });
+        if (r?.body?.ok === false) {
+          console.warn(`[auction-poll] finalize-faa-contract pid=${pid} not ok:`, r.body.error);
+        }
+      } catch (e) {
+        console.warn(`[auction-poll] finalize-faa-contract pid=${pid} threw:`, e?.message || String(e));
+      }
+    }
+  }
+
   // ── Time-based auto-expiry (hygiene) ──
   // A lot whose lock window passed without a winner (MFL never emitted
   // AUCTION_WON) would otherwise sit `open` forever and surface as a phantom lot
@@ -1486,6 +1516,231 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
       before: r.before,
     };
   });
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      season: String(year),
+      league_id: leagueId,
+      count: rowsToWrite.length,
+      verification,
+      already_final: alreadyFinal,
+    },
+  };
+}
+
+// Finalize a plain FA-Auction (FAA) win into a canonical 1-year Vet-FAA
+// contract — the mirror of finalizeEraContracts for NON-ERA won lots.
+//
+// Why a second function at all? When an auction lot closes MFL adds the won
+// player to the roster but leaves the contract a STUB (contractYear=0, a
+// $1,000 placeholder). finalizeEraContracts only repairs ERA-pool wins
+// (Vet-ERA) because it INNER-JOINs ups_era_pool — a plain FAA winner is
+// filtered out and stays a $1K/0-year stub forever. Keith 2026-07-16: "it
+// should automatically be a 1 yr deal unless they give multiple years." So
+// FAA wins auto-finalize to a 1-year Vet-FAA contract at the won price
+// (owners still convert to 2/3-year via the existing MYAC path).
+//
+// SAFETY — identical to finalizeEraContracts: idempotency skip (never
+// re-writes a row already in canonical state), dry_run early-return,
+// APPEND=1 import (untouched players are never wiped), verify-by-reread, and
+// fail-soft. The ONLY structural differences from the ERA clone are (1) the
+// ERA-EXCLUSION query below and (2) the Vet-FAA labels + the D1 audit write.
+async function finalizeFaaContracts(env, year, leagueId, opts) {
+  opts = opts || {};
+  const dryRun = !!opts.dryRun;
+  const onlyPid = opts.onlyPid ? String(opts.onlyPid) : null;
+  const db = env.UPS_MFL_DB;
+
+  // Pull every won lot that is NOT an ERA-pool lot. This LEFT JOIN + the
+  // `p.player_id IS NULL` filter is the exact complement of
+  // finalizeEraContracts' INNER JOIN on the same keys: a lot matches ERA iff
+  // (player_id, league_id, season) exists in ups_era_pool. Here we keep only
+  // the rows where NO such ERA row exists. The two result sets are therefore
+  // disjoint by construction — an ERA-pool player can NEVER be finalized by
+  // both functions, so there is no double-write. ups_auction_lots has no
+  // player_name column (the ERA function got the name from its pool join), so
+  // the name is cosmetic/blank in this path.
+  const sql = `
+    SELECT l.player_id, l.winner_fid, l.current_high_bid_k
+      FROM ups_auction_lots l
+      LEFT JOIN ups_era_pool p
+        ON p.player_id = l.player_id
+       AND p.league_id = l.league_id
+       AND p.season = CAST(l.season AS TEXT)
+     WHERE l.season = ? AND l.league_id = ? AND l.status = 'won'
+       AND p.player_id IS NULL
+       ${onlyPid ? "AND l.player_id = ?" : ""}`;
+  const params = onlyPid ? [Number(year), leagueId, onlyPid] : [Number(year), leagueId];
+  const { results: lots } = await db.prepare(sql).bind(...params).all();
+  if (!lots || lots.length === 0) {
+    return { status: 200, body: { ok: true, message: "No won FAA lots", count: 0 } };
+  }
+
+  // Fetch current MFL salaries to skip rows already in canonical state
+  // (idempotency).
+  const apiKey = String(env.MFL_APIKEY || "").trim();
+  const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
+  const salRes = await fetch(
+    `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&JSON=1${apiQs}`,
+    { cf: { cacheTtl: 0, cacheEverything: false } }
+  );
+  const salJson = await salRes.json().catch(() => ({}));
+  const salArr = salJson?.salaries?.leagueUnit?.player || [];
+  const mflMap = {};
+  for (const p of (Array.isArray(salArr) ? salArr : [salArr])) {
+    if (p?.id) mflMap[String(p.id)] = p;
+  }
+
+  // Build the rows to import (only those needing change).
+  const rowsToWrite = [];
+  const alreadyFinal = [];
+  for (const l of lots) {
+    const pid = String(l.player_id);
+    const bidK = Number(l.current_high_bid_k || 0);
+    const salaryDollars = String(bidK * 1000);
+    const cStatus = "Vet-FAA";
+    const cYear = "1";
+    const cInfo = `CL 1| TCV ${bidK}K| AAV ${bidK}K`;
+    const cur = mflMap[pid] || {};
+    if (
+      String(cur.salary) === salaryDollars &&
+      String(cur.contractStatus) === cStatus &&
+      String(cur.contractYear) === cYear &&
+      String(cur.contractInfo) === cInfo
+    ) {
+      alreadyFinal.push({ player_id: pid, player_name: "" });
+      continue;
+    }
+    rowsToWrite.push({
+      id: pid,
+      player_name: "",
+      winner_fid: String(l.winner_fid || ""),
+      bid_k: bidK,
+      salary: salaryDollars,
+      contractStatus: cStatus,
+      contractYear: cYear,
+      contractInfo: cInfo,
+      before: {
+        salary: String(cur.salary || ""),
+        contractStatus: String(cur.contractStatus || ""),
+        contractYear: String(cur.contractYear || ""),
+        contractInfo: String(cur.contractInfo || ""),
+      },
+    });
+  }
+
+  if (rowsToWrite.length === 0) {
+    return { status: 200, body: { ok: true, message: "All won FAA lots already finalized", count: 0, already_final: alreadyFinal } };
+  }
+
+  if (dryRun) {
+    return { status: 200, body: { ok: true, dry_run: true, count: rowsToWrite.length, rows: rowsToWrite, already_final: alreadyFinal } };
+  }
+
+  // POST to MFL salaries import (APPEND=1 so untouched players aren't
+  // wiped — matches the safety pattern in /admin/import-salaries).
+  const xmlEsc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const playerXml = rowsToWrite.map((r) =>
+    `<player id="${xmlEsc(r.id)}" salary="${xmlEsc(r.salary)}" contractStatus="${xmlEsc(r.contractStatus)}" contractYear="${xmlEsc(r.contractYear)}" contractInfo="${xmlEsc(r.contractInfo)}" />`
+  ).join("");
+  const dataXml = `<salaries><leagueUnit unit="LEAGUE">${playerXml}</leagueUnit></salaries>`;
+
+  const mflCookie = String(env.MFL_COOKIE || "").trim();
+  const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+  const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}&APPEND=1`;
+  const importRes = await fetch(importUrl, {
+    method: "POST",
+    headers: {
+      Cookie: cookieHeader,
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+      "Accept": "text/xml, text/plain, application/xml, */*",
+      "Accept-Encoding": "identity",
+    },
+    body: new URLSearchParams({ DATA: dataXml }).toString(),
+    redirect: "follow",
+    cf: { cacheTtl: 0, cacheEverything: false },
+  });
+  const importText = await importRes.text();
+  const importOk = importRes.ok && /<status>OK<\/status>/i.test(importText);
+  const errMatch = /<error>([^<]+)<\/error>/i.exec(importText);
+
+  if (!importOk) {
+    return {
+      status: 502,
+      body: {
+        ok: false,
+        error: errMatch ? errMatch[1] : "MFL import did not return <status>OK</status>",
+        upstreamPreview: importText.slice(0, 1500),
+        attempted: rowsToWrite,
+      },
+    };
+  }
+
+  // Verify by re-fetching.
+  const verRes = await fetch(
+    `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&JSON=1${apiQs}`,
+    { cf: { cacheTtl: 0, cacheEverything: false } }
+  );
+  const verJson = await verRes.json().catch(() => ({}));
+  const verArr = verJson?.salaries?.leagueUnit?.player || [];
+  const verMap = {};
+  for (const p of (Array.isArray(verArr) ? verArr : [verArr])) {
+    if (p?.id) verMap[String(p.id)] = p;
+  }
+  const verification = rowsToWrite.map((r) => {
+    const a = verMap[r.id] || {};
+    return {
+      player_id: r.id,
+      player_name: r.player_name,
+      ok: String(a.salary) === r.salary && String(a.contractStatus) === r.contractStatus
+          && String(a.contractYear) === r.contractYear && String(a.contractInfo) === r.contractInfo,
+      after: {
+        salary: String(a.salary || ""),
+        contractStatus: String(a.contractStatus || ""),
+        contractYear: String(a.contractYear || ""),
+        contractInfo: String(a.contractInfo || ""),
+      },
+      before: r.before,
+    };
+  });
+
+  // D1 audit — Keith's rule: EVERYTHING contract-related lands in D1. MFL is
+  // canonical for the salary itself; this table records that WE auto-wrote the
+  // contract, from which won bid, and when — so the finalize is auditable and
+  // idempotent across re-runs. FAIL-SOFT: the MFL write already succeeded, so a
+  // D1 hiccup must NOT fail the finalize — log it and move on. The upsert PK
+  // (player_id, season, league_id, source) makes re-runs update-in-place. Only
+  // rows that VERIFIED on the re-read are audited.
+  const nowUnix = Math.floor(Date.now() / 1000);
+  for (const v of verification) {
+    if (!v.ok) continue;
+    const w = rowsToWrite.find((r) => r.id === v.player_id) || {};
+    try {
+      await db.prepare(
+        `INSERT INTO ups_auction_contract_finalizations
+           (player_id, season, league_id, winner_fid, source, won_bid_k, salary,
+            contract_year, contract_status, contract_info, finalized_at_unix)
+         VALUES (?, ?, ?, ?, 'faa', ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(player_id, season, league_id, source) DO UPDATE SET
+           winner_fid        = excluded.winner_fid,
+           won_bid_k         = excluded.won_bid_k,
+           salary            = excluded.salary,
+           contract_year     = excluded.contract_year,
+           contract_status   = excluded.contract_status,
+           contract_info     = excluded.contract_info,
+           finalized_at_unix = excluded.finalized_at_unix`
+      ).bind(
+        v.player_id, String(year), String(leagueId), String(w.winner_fid || ""),
+        Number(w.bid_k || 0), Number(w.salary || 0), String(w.contractYear || "1"),
+        String(w.contractStatus || "Vet-FAA"), String(w.contractInfo || ""), nowUnix
+      ).run();
+    } catch (e) {
+      console.warn(`[finalize-faa] D1 audit write failed pid=${v.player_id}:`, e?.message || String(e));
+    }
+  }
 
   return {
     status: 200,
@@ -3866,6 +4121,7 @@ export default {
         path !== "/admin/auction/force-narrate-lot" &&
         path !== "/admin/auction/backfill-era-ppg" &&
         path !== "/admin/auction/finalize-era-contracts" &&
+        path !== "/admin/auction/finalize-faa-contracts" &&
         path !== "/admin/auction/poll-now" &&
         !path.startsWith("/admin/rule-proposals") &&
         path !== "/admin/auction/post-rule2-fines" &&
@@ -5272,6 +5528,31 @@ export default {
         const dryRun = (url.searchParams.get("dry_run") || "") === "1";
 
         const result = await finalizeEraContracts(env, yearArg, leagueId, { dryRun });
+        return jsonOut(result.status || 200, result.body);
+      }
+
+      // POST /admin/auction/finalize-faa-contracts?L=...&YEAR=...&APIKEY=...[&dry_run=1]
+      // Manual trigger + dry-run PREVIEW for the FAA auto-finalize path. Mirrors
+      // the ERA route exactly. This works REGARDLESS of the
+      // AUCTION_FAA_FINALIZE_ENABLED switch (that switch only gates the poller's
+      // auto-hook) — so the commish can always preview (dry_run=1) or manually
+      // backfill won FAA lots into 1-year Vet-FAA contracts. ALWAYS run
+      // dry_run=1 against L=25625 first to eyeball the row list before a live run.
+      if (path === "/admin/auction/finalize-faa-contracts" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
+        if (!authOk) return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { error: "UPS_MFL_DB missing" });
+        const mflCookie = String(env.MFL_COOKIE || "").trim();
+        if (!mflCookie) return jsonOut(500, { error: "MFL_COOKIE missing" });
+
+        const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueId = String(url.searchParams.get("L") || "74598");
+        const dryRun = (url.searchParams.get("dry_run") || "") === "1";
+
+        const result = await finalizeFaaContracts(env, yearArg, leagueId, { dryRun });
         return jsonOut(result.status || 200, result.body);
       }
 

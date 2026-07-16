@@ -70,6 +70,16 @@ AUCTION_INAPP_BID_ENABLED = "0"
 AUCTION_ERA_ENABLED = "0"
 AUCTION_FAA_ENABLED = "0"
 
+# FAA auto-finalize (2026-07-16). When an FA-Auction lot closes MFL leaves the
+# contract a $1K/0-year STUB. "1" arms the */5 auction poller to auto-write the
+# real 1-year Vet-FAA contract at the won price (parity with ERA's Vet-ERA;
+# owners still convert to 2/3-year via MYAC). DARK by default: unlike ERA — safe
+# via its curated ups_era_pool INNER JOIN — the FAA path finalizes EVERY non-ERA
+# won lot on PROD (processAuctionPoll runs against the real league), so it stays
+# OFF until Keith flips it. The admin route /admin/auction/finalize-faa-contracts
+# (+ its dry_run=1 preview) works regardless of this switch.
+AUCTION_FAA_FINALIZE_ENABLED = "0"
+
 # Nightly 9:30 PM ET FA-Auction daily report (worker/src/auction_nudge.js).
 # When ON *and* AUCTION_FAA_ENABLED is on, the "30 1,2 * * *" cron posts the
 # nomination scoreboard to the Auction Bidding channel (tagging only the owners

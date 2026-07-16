@@ -990,6 +990,48 @@
     }
   }
 
+  // ── Auction-win display overlay (interim correctness; client-only) ───
+  // When an FA-Auction (or ERA) lot closes, MFL adds the won player to the
+  // roster but leaves the contract a STUB: contractYear=0 + a $1,000
+  // placeholder. Until the worker's auction poller writes the real 1-year
+  // contract (Vet-FAA at the won price — gated behind
+  // AUCTION_FAA_FINALIZE_ENABLED; Vet-ERA already auto-writes), that stub
+  // renders as "EXPIRED $1K" AND — because MYAC eligibility requires
+  // years===1 — HIDES the 2/3-year MYAC buttons. This overlay reconstructs
+  // the won-price 1-year contract from the acquisition-lookup row (label +
+  // "$X,000" detail) so the row reads correctly and MYAC re-enables, BEFORE
+  // any MFL write. ZERO WRITES — purely cosmetic client state.
+  //   GUARDS (all must hold): the acquisition label is an auction win; it is
+  //   NOT the un-auctioned expired-rookie synth case; the win is THIS season;
+  //   and it is still sitting at years<=0. The years<=0 guard is strict so a
+  //   finalized contract (cy>=1, whether written by the poller or a manual
+  //   backfill) is NEVER overwritten.
+  function applyAuctionWinOverlay(teams, season) {
+    if (!teams || !teams.length) return;
+    var seasonStr = String(season);
+    for (var t = 0; t < teams.length; t += 1) {
+      var players = teams[t].players || [];
+      for (var pi = 0; pi < players.length; pi += 1) {
+        var pl = players[pi];
+        if (!pl) continue;
+        var label = safeStr(pl.acquisitionTypeLabel);
+        if (!/auction|faa/i.test(label)) continue;              // auction wins only
+        if (pl.isExpiredRookie) continue;                       // not the un-auctioned expired-rookie synth
+        if (safeStr(pl.acquisitionDate).slice(0, 4) !== seasonStr) continue; // this season only
+        if (safeInt(pl.years, 0) > 0) continue;                 // finalized (cy>=1) → never overwrite
+        var price = parseContractMoneyToken(pl.acquisitionDetail);
+        if (price <= 0) continue;
+        // 'Expired Rookie Auction' → Vet-ERA; 'Free Agent Auction' → Vet-FAA.
+        var isEraWin = /expired\s*rookie|\bera\b/i.test(label);
+        pl.salary = price;
+        pl.aav = price;
+        pl.years = 1;
+        pl.type = isEraWin ? "Vet-ERA" : "Vet-FAA";
+        pl.special = "CL 1| TCV " + fmtK(price) + "| AAV " + fmtK(price);
+      }
+    }
+  }
+
   // ── Rookie draft history loader ──────────────────────────────────────
   // Indexes EVERY UPS rookie pick (2012-2025) by player_id so taxi
   // rookies who lack ups_draft_round can still derive their original
@@ -1647,6 +1689,10 @@
     else if (t.indexOf("EXT") >= 0) sub = fam + "-ext";   // extension
     else if (t.indexOf("WW") >= 0) sub = fam + "-ww";     // waiver
     else if (t.indexOf("MYM") >= 0) sub = fam + "-mym";   // make-your-mark
+    // Auction wins — match the HYPHENATED token so plain "VETERAN" (which
+    // contains the substring "ERA") never trips the ERA branch.
+    else if (t.indexOf("-FAA") >= 0) sub = fam + "-faa";  // FA-auction win
+    else if (t.indexOf("-ERA") >= 0) sub = fam + "-era";  // expired-rookie auction win
     else if (fam === "rk" && t.indexOf("DRAFT") >= 0) sub = "rk-draft";
     return sub ? (fam + " " + sub) : fam;
   }
@@ -1793,6 +1839,12 @@
         loadMflSalaryAdjustments(SEASON)
       ]);
       mergeAcquisitionLookupRows(STATE.teams, acqRows);
+      // Interim client-side fix for fresh auction wins still sitting as $1K/
+      // 0-year MFL stubs (before the poller finalizes them). Must run AFTER
+      // the acquisition lookup (it needs the won-price detail + label) and
+      // BEFORE the taxi repair. Zero writes — display-only. See
+      // applyAuctionWinOverlay for the guards.
+      applyAuctionWinOverlay(STATE.teams, safeInt(SEASON, 0));
       mergeMflSalaryAdjustments(STATE.teams, mflAdj);
       STATE.adjByFid = mflAdj.byFid || {}; // per-team line items for the Cap Alloc popup
 
