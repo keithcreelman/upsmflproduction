@@ -154,7 +154,10 @@
               var pl = pls[j];
               var pid = String((pl && pl.id) || "").replace(/\D/g, "");
               if (pid) out[pid] = { id: pid, salary: pl.salary, contractInfo: pl.contractInfo,
-                                    contractYear: pl.contractYear, contractStatus: pl.contractStatus, status: pl.status };
+                                    contractYear: pl.contractYear, contractStatus: pl.contractStatus, status: pl.status,
+                                    // The OWNING franchise — needed to gate "can I act on YOUR players"
+                                    // before showing write buttons. Was dropped here before.
+                                    ownerFid: String((frs[i] && frs[i].id) || "") };
             }
           }
           __rostersCache = out; __rostersCacheKey = key;
@@ -189,14 +192,31 @@
 
     var ctx = pageCtx();
     if (!ctx.year) ctx.year = String(new Date().getFullYear());
+    ctx.viewerFranchiseId = ctx.viewerFranchise && ctx.viewerFranchise.id ? String(ctx.viewerFranchise.id) : "";
     var row = __rostersCache && __rostersCache[pid];
     if (row) ctx.contractSalary = row;       // live cap strip (TCV/AAV/earned/penalty)
     else loadRostersCache(ctx.leagueId, ctx.year);   // warm for next click
-    // Contract ACTIONS are caller-supplied and normally come from the Roster
-    // Workbench. On native pages (incl. barebones mode) the modal would show
-    // full contract data but no way to act — so pass one deep-link into the
-    // Front Office, where the real submit machinery lives. One hop, no
-    // duplicated eligibility/submit logic here.
+
+    // Real contract ACTIONS in the modal — only for a player the viewer OWNS
+    // (mirrors RWB's isOwnRosterPlayer). player_actions_native.js is the "brain"
+    // that renders the Actions-tab buttons and owns their clicks + submits.
+    // FAIL SAFE: no confident owner match ⇒ no write buttons, just the Front
+    // Office deep-link below.
+    var pad4 = function (v) { return String(v || "").replace(/\D/g, "").padStart(4, "0").slice(-4); };
+    var ownsPlayer = !!(row && ctx.viewerFranchiseId &&
+      pad4(ctx.viewerFranchiseId) === pad4(row.ownerFid));
+    if (ownsPlayer && typeof root.UPS_PLAYER_ACTIONS_NATIVE === "object" &&
+        typeof root.UPS_PLAYER_ACTIONS_NATIVE.prepare === "function") {
+      try {
+        var linkText = (a && (a.textContent || "")).trim();
+        ctx.__playerName = linkText || ("Player #" + pid);
+        ctx.actionsHtml = root.UPS_PLAYER_ACTIONS_NATIVE.prepare(pid, row, ctx);
+        ctx.openTab = "actions";
+      } catch (e) { try { console.warn("[UPS][popup-bridge] actions prepare failed", e); } catch (e2) {} }
+    }
+
+    // Front Office deep-link — the fallback (non-owned players, unknown identity)
+    // AND the hand-off for actions the native brain doesn't do in-modal yet.
     if (!ctx.bioActionsHtml && ctx.leagueId) {
       // ups_barebones=0: in barebones mode the FO embed is gate-skipped, so a
       // plain MESSAGE7 link would land on an empty stock page. This param makes

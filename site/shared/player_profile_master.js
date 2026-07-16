@@ -248,6 +248,17 @@
     /* Contract Options panel content (rendered inside its own tab). */
     '.upm-modal .upm-co-panel { padding: 6px 0; }',
     '.upm-modal .upm-co-panel .upm-co-empty { color: #8a97ad; padding: 30px 0; text-align: center; font-size: 13px; }',
+    '.upm-modal .upm-act-panel { padding: 8px 0; }',
+    '.upm-modal .upm-act-panel .upm-co-empty { color: #8a97ad; padding: 24px 0; text-align: center; font-size: 13px; }',
+    '.upm-modal .upm-act-list { display: flex; flex-direction: column; gap: 10px; }',
+    '.upm-modal .upm-act { display: block; width: 100%; background: #1a2230; color: #e8edf5; border: 1px solid #3a455c; border-radius: 10px; padding: 14px 16px; font-size: 15px; font-weight: 600; cursor: pointer; text-align: center; }',
+    '.upm-modal .upm-act:hover { background: #222c3e; }',
+    '.upm-modal .upm-act:disabled { opacity: 0.5; cursor: not-allowed; }',
+    '.upm-modal .upm-act-danger { border-color: #ef4444; color: #ef4444; }',
+    '.upm-modal .upm-act-danger:hover { background: #2a1a1f; }',
+    '.upm-modal .upm-act-note { color: #8a97ad; font-size: 12px; margin: 14px 2px 4px; line-height: 1.4; }',
+    '.upm-modal .upm-act-more { margin-top: 8px; }',
+    '.upm-modal .upm-act-more .upm-fo-link, .upm-modal .upm-act-note .upm-fo-link { color: #5b8dff; text-decoration: none; }',
 
     /* Stats tab — Raw Stats Columns dropdown (2026-05-13).
        Pattern lifted from Stats Workbench's .asw-cols-popover. */
@@ -1728,6 +1739,20 @@
     return !!(ctx && ctx.contractOptionsHtml && String(ctx.contractOptionsHtml).trim());
   }
 
+  // Actions tab — the barebones "conduct your contracts on the old site" panel.
+  // The caller (player_popup_bridge → player_actions_native.js) supplies the
+  // button HTML in ctx.actionsHtml and owns all clicks; this stays a dumb
+  // renderer. The id is the async-fill target the brain refills once the
+  // penalty module loads (mirrors the async News fill).
+  function buildActionsHtml(ctx) {
+    var html = String(ctx.actionsHtml || "").trim();
+    return '<div class="upm-act-panel" id="upm-actions-panel">' +
+      (html || '<p class="upm-co-empty">Loading actions…</p>') + '</div>';
+  }
+  function hasActions(ctx) {
+    return !!(ctx && ctx.actionsHtml && String(ctx.actionsHtml).trim());
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // NEWS TAB
   //
@@ -2318,11 +2343,13 @@
       // Rookie Draft / Front Office leave it empty → tab hides itself.
       var showContractOptions = hasContractOptions(ctx);
       var contractOptionsHtml = showContractOptions ? buildContractOptionsHtml(ctx) : "";
+      var showActions = hasActions(ctx);
+      var actionsHtml = showActions ? buildActionsHtml(ctx) : "";
 
-      // Initial tab — Bio by default, or ctx.openTab when supplied
-      // (Roster Workbench's news-icon click opens directly to News).
-      var allowedTabs = { bio: 1, stats: 1, gamelog: 1, "contract-options": showContractOptions ? 1 : 0, news: 1 };
-      var openTab = ctx.openTab && allowedTabs[ctx.openTab] ? ctx.openTab : "bio";
+      // Initial tab — Bio by default, Actions first when present (barebones),
+      // or ctx.openTab when supplied (RWB's news-icon click opens to News).
+      var allowedTabs = { actions: showActions ? 1 : 0, bio: 1, stats: 1, gamelog: 1, "contract-options": showContractOptions ? 1 : 0, news: 1 };
+      var openTab = ctx.openTab && allowedTabs[ctx.openTab] ? ctx.openTab : (showActions ? "actions" : "bio");
       function tabAttrs(name) {
         return 'aria-selected="' + (openTab === name ? "true" : "false") + '" data-upm-tab="' + name + '"';
       }
@@ -2332,6 +2359,9 @@
 
       bodyContent.innerHTML = errorBanner
         + '<nav class="upm-view-switch" role="tablist" aria-label="Player profile sections">'
+        + (showActions
+          ? '<button type="button" role="tab" ' + tabAttrs("actions") + '>Actions</button>'
+          : '')
         + '<button type="button" role="tab" ' + tabAttrs("bio") + '>Bio</button>'
         + '<button type="button" role="tab" ' + tabAttrs("stats") + '>Stats</button>'
         + '<button type="button" role="tab" ' + tabAttrs("gamelog") + '>Game Log</button>'
@@ -2340,6 +2370,7 @@
           : '')
         + '<button type="button" role="tab" ' + tabAttrs("news") + '>News</button>'
         + '</nav>'
+        + (showActions ? '<div ' + panelAttrs("actions") + '>' + actionsHtml + '</div>' : '')
         + '<div ' + panelAttrs("bio") + '>' + bioHtml + '</div>'
         + '<div ' + panelAttrs("stats") + '>' + statsHtml + '</div>'
         + '<div ' + panelAttrs("gamelog") + '>' + gameLogHtml + '</div>'
