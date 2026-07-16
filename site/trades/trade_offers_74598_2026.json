@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-07-16T16:37:31.565Z",
+    "updated_at": "2026-07-16T16:39:31.162Z",
     "row_count": 49,
     "source": "worker-trade-offers"
   },
@@ -3721,20 +3721,20 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-04-18T21:15:13.939Z",
-      "updated_at": "2026-07-16T16:37:31.565Z",
+      "updated_at": "2026-07-16T16:39:31.162Z",
       "from_franchise_id": "0001",
       "to_franchise_id": "0006",
       "from_franchise_name": "L.A. Looks",
       "to_franchise_name": "The Long Haulers",
-      "message": "Battle can get 1-3 years at that price, due to the expired rookie auction.",
-      "comment": "Battle can get 1-3 years at that price, due to the expired rookie auction.",
-      "comments": "Battle can get 1-3 years at that price, due to the expired rookie auction.",
-      "raw_comment": "Battle can get 1-3 years at that price, due to the expired rookie auction.",
-      "will_give_up": "16245,FP_0001_2027_5",
+      "message": "Battle eligible for 1-3 years at that price.",
+      "comment": "Battle eligible for 1-3 years at that price.",
+      "comments": "Battle eligible for 1-3 years at that price.",
+      "raw_comment": "Battle eligible for 1-3 years at that price.",
+      "will_give_up": "16630,16245,FP_0001_2027_5",
       "will_receive": "FP_0006_2027_4",
       "source": "trade-workbench-ui",
       "summary": {
-        "from_asset_count": 2,
+        "from_asset_count": 3,
         "to_asset_count": 1,
         "from_trade_salary_k": 0,
         "to_trade_salary_k": 0,
@@ -3742,7 +3742,7 @@
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-07-16T16:37:30.194Z",
+        "generated_at": "2026-07-16T16:39:29.495Z",
         "source": "ups-trade-workbench",
         "league_id": "74598",
         "season": 2026,
@@ -3752,6 +3752,24 @@
             "franchise_id": "0001",
             "franchise_name": "L.A. Looks",
             "selected_assets": [
+              {
+                "asset_id": "player:16630",
+                "type": "PLAYER",
+                "player_id": "16630",
+                "player_name": "Williams, Isaiah",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "NYJ",
+                "salary": 1000,
+                "years": 1,
+                "contract_type": "Vet-MYM",
+                "contract_info": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
               {
                 "asset_id": "player:16245",
                 "type": "PLAYER",
@@ -3792,7 +3810,7 @@
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
             "traded_salary_adjustment_max_k": 2,
-            "selected_non_taxi_salary_dollars": 4000
+            "selected_non_taxi_salary_dollars": 5000
           },
           {
             "role": "right",
@@ -3839,17 +3857,17 @@
             "salary_cap_dollars": 300000,
             "starting_salary_dollars": 170000,
             "salary_adjustment_total_dollars": 12800,
-            "outgoing_dollars": 4000,
+            "outgoing_dollars": 5000,
             "incoming_dollars": 0,
             "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": -4000,
-            "new_salary_dollars": 166000,
+            "net_salary_adjustment_dollars": -5000,
+            "new_salary_dollars": 165000,
             "trade_salary_adjustment_k": 0,
             "trade_salary_adjustment_max_k": 2,
             "net_trade_salary_k": 0,
-            "net_cap_change_dollars": 4000,
+            "net_cap_change_dollars": 5000,
             "available_salary_before_dollars": 117200,
-            "available_salary_after_dollars": 121200,
+            "available_salary_after_dollars": 122200,
             "over_cap_dollars": 0
           },
           "right": {
@@ -3859,17 +3877,17 @@
             "starting_salary_dollars": 299000,
             "salary_adjustment_total_dollars": 3500,
             "outgoing_dollars": 0,
-            "incoming_dollars": 4000,
+            "incoming_dollars": 5000,
             "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": 4000,
-            "new_salary_dollars": 303000,
+            "net_salary_adjustment_dollars": 5000,
+            "new_salary_dollars": 304000,
             "trade_salary_adjustment_k": 0,
             "trade_salary_adjustment_max_k": 0,
             "net_trade_salary_k": 0,
-            "net_cap_change_dollars": -4000,
+            "net_cap_change_dollars": -5000,
             "available_salary_before_dollars": -2500,
-            "available_salary_after_dollars": -6500,
-            "over_cap_dollars": 6500
+            "available_salary_after_dollars": -7500,
+            "over_cap_dollars": 7500
           },
           "has_over_cap": true
         },
@@ -3881,20 +3899,20 @@
             {
               "season": 2026,
               "left_before_dollars": 170000,
-              "left_after_dollars": 166000,
-              "left_change_dollars": -4000,
+              "left_after_dollars": 165000,
+              "left_change_dollars": -5000,
               "right_before_dollars": 299000,
-              "right_after_dollars": 303000,
-              "right_change_dollars": 4000
+              "right_after_dollars": 304000,
+              "right_change_dollars": 5000
             },
             {
               "season": 2027,
               "left_before_dollars": 99000,
-              "left_after_dollars": 99000,
-              "left_change_dollars": 0,
+              "left_after_dollars": 98000,
+              "left_change_dollars": -1000,
               "right_before_dollars": 241000,
-              "right_after_dollars": 241000,
-              "right_change_dollars": 0
+              "right_after_dollars": 242000,
+              "right_change_dollars": 1000
             },
             {
               "season": 2028,
@@ -3911,11 +3929,11 @@
           "status": "ready",
           "issues": []
         },
-        "comment": "Battle can get 1-3 years at that price, due to the expired rookie auction."
+        "comment": "Battle eligible for 1-3 years at that price."
       },
       "twb_meta": null,
-      "mfl_trade_id": "1100",
-      "trade_id": "1100",
+      "mfl_trade_id": "1101",
+      "trade_id": "1101",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
