@@ -249,6 +249,15 @@
       try {
         var linkText = (a && (a.textContent || "")).trim();
         ctx.__playerName = linkText || ("Player #" + pid);
+        // Best-effort position for the brain's contract-write payloads (metadata
+        // only — the worker derives what it needs; tag/untag read the tag-plan
+        // row's position). Stock barebones player links carry a lowercase pos
+        // abbrev color class (position_qb / position_wr / position_lb). The
+        // numeric class scheme (position_07_1234) isn't an abbrev → leave blank.
+        try {
+          var pm = String((a && a.className) || "").match(/(?:^|\s)position_([a-z]{1,3})(?:\s|$)/i);
+          ctx.position = pm && pm[1] && !/^\d/.test(pm[1]) ? pm[1].toUpperCase() : "";
+        } catch (ep) { ctx.position = ""; }
         ctx.actionsHtml = root.UPS_PLAYER_ACTIONS_NATIVE.prepare(pid, row, ctx);
         ctx.openTab = "actions";
       } catch (e) { try { console.warn("[UPS][popup-bridge] actions prepare failed", e); } catch (e2) {} }
