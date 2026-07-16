@@ -259,6 +259,31 @@
     '.upm-modal .upm-act-note { color: #8a97ad; font-size: 12px; margin: 14px 2px 4px; line-height: 1.4; }',
     '.upm-modal .upm-act-more { margin-top: 8px; }',
     '.upm-modal .upm-act-more .upm-fo-link, .upm-modal .upm-act-note .upm-fo-link { color: #5b8dff; text-decoration: none; }',
+    /* Full-parity Actions panel (player_actions_native.js "brain") — Extend /
+       Restructure / MYAC / MYM / Tag pickers + forms + the Add-to-Block note.
+       Reuses the .upm-act button look; adds context strip, 2-col rows, section
+       headers, option rows, free-key form fields and derived-value read-outs. */
+    '.upm-modal .upm-act-ctx { color: #8a97ad; font-size: 12px; margin: 0 2px 10px; font-variant-numeric: tabular-nums; }',
+    '.upm-modal .upm-act-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }',
+    '.upm-modal .upm-act.is-on { border-color: #4ade80; color: #4ade80; }',
+    '.upm-modal .upm-act-sec { font-size: 12px; font-weight: 700; color: #e8edf5; margin: 16px 2px 8px; display: flex; flex-direction: column; gap: 4px; }',
+    '.upm-modal .upm-act-sub { font-size: 11px; font-weight: 400; color: #8a97ad; line-height: 1.45; }',
+    '.upm-modal .upm-act-opt { display: flex; flex-direction: column; gap: 3px; text-align: left; align-items: flex-start; }',
+    '.upm-modal .upm-act-opt-t { font-size: 14px; font-weight: 700; }',
+    '.upm-modal .upm-act-opt-s { font-size: 12px; color: #8a97ad; font-weight: 500; }',
+    '.upm-modal .upm-act-opt-ci { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; opacity: 0.65; }',
+    '.upm-modal .upm-act-back { background: transparent; border: 0; color: #5b8dff; font-size: 13px; font-weight: 600; cursor: pointer; padding: 4px 2px; margin-bottom: 8px; }',
+    '.upm-modal .upm-act-back:hover { text-decoration: underline; }',
+    '.upm-modal .upm-act-field { margin: 10px 0; }',
+    '.upm-modal .upm-act-field label { display: block; font-size: 11px; color: #8a97ad; margin-bottom: 5px; }',
+    '.upm-modal .upm-act-input { width: 100%; box-sizing: border-box; background: #1a2230; color: #e8edf5; border: 1px solid #3a455c; border-radius: 8px; padding: 10px 12px; font-size: 15px; font-variant-numeric: tabular-nums; }',
+    '.upm-modal .upm-act-derived { display: flex; flex-direction: column; gap: 6px; background: #1a2230; border: 1px solid #2a3446; border-radius: 8px; padding: 10px 12px; margin: 10px 0; }',
+    '.upm-modal .upm-act-derived > div { display: flex; justify-content: space-between; font-size: 12px; }',
+    '.upm-modal .upm-act-derived > div span { color: #8a97ad; }',
+    '.upm-modal .upm-act-derived > div b { color: #e8edf5; font-variant-numeric: tabular-nums; }',
+    '.upm-modal .upm-act-note-input { width: 100%; box-sizing: border-box; background: #1a2230; color: #e8edf5; border: 1px solid #3a455c; border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 10px; resize: vertical; font-family: inherit; }',
+    '.upm-modal .upm-act-err { color: #ef4444; font-size: 12px; margin: 6px 2px; }',
+    '.upm-modal .upm-act-ok { color: #4ade80; font-size: 12px; margin: 6px 2px; }',
 
     /* Stats tab — Raw Stats Columns dropdown (2026-05-13).
        Pattern lifted from Stats Workbench's .asw-cols-popover. */
