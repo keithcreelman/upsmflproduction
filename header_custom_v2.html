@@ -105,7 +105,14 @@
       s.id = "ups-bb-style";
       s.textContent =
         ".ups-hero-shell,.ups-hotlinks-shell,.ups-footer,#ups-switch-app-btn," +
-        "#upsDevBanner,.ups-teamops-subnav{display:none!important}";
+        "#upsDevBanner,.ups-teamops-subnav{display:none!important}" +
+        // The native MFL menu (.myfantasyleague_menu) is display:none'd by the
+        // custom CSS on desktop (Legacy Links dropdown replaces it). In
+        // barebones that rule is disabled so the native bar returns — but the
+        // skin that positioned it is gone too, so it floats. Force it into
+        // normal flow at the top, under the player modal (z-index 1 < 10000).
+        "[data-ups-barebones] .myfantasyleague_menu{position:static!important;float:none!important;" +
+        "z-index:1!important;margin:0 0 10px!important;width:100%!important;box-sizing:border-box!important}";
       (document.head || document.documentElement).appendChild(s);
     } catch (e) {}
 
@@ -150,10 +157,28 @@
       } catch (e) {}
     }
 
+    // Pin MFL's native menu to the TOP of the body. CSS position:static can't
+    // fix a bar that "floats down" because it sits low in MFL's own markup — so
+    // physically move the element up (in place, so its dropdown handlers
+    // survive). Idempotent; retried because the menu can render after onReady.
+    function pinNativeMenu() {
+      try {
+        var menu = document.querySelector(".myfantasyleague_menu");
+        if (!menu || menu.getAttribute("data-ups-bb-pinned")) return;
+        menu.setAttribute("data-ups-bb-pinned", "1");
+        if (document.body && menu.parentNode && document.body.firstChild !== menu) {
+          document.body.insertBefore(menu, document.body.firstChild);
+        }
+      } catch (e) {}
+    }
+
     function onReady() {
       sweep();
       hideCustomHpms();
       injectPill();
+      pinNativeMenu();
+      // The menu often renders after DOMContentLoaded — catch late paints.
+      try { setTimeout(pinNativeMenu, 400); setTimeout(pinNativeMenu, 1200); } catch (e) {}
       try {
         console.log("[UPS][barebones] ON — custom layer disabled; pill bottom-left; rescue: ?ups_barebones=0");
       } catch (e) {}
