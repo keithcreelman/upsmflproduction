@@ -29376,8 +29376,13 @@ export default {
         if (!commishKey2 || gotKey2 !== commishKey2) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY required" });
         const TL = "25625"; // the mirrored test league — never prod
         const tSeason = String(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear());
-        const tCookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || "");
-        if (!tCookieRaw) return jsonOut(500, { ok: false, error: "MFLTEST_COMMISHCOOKIE secret missing" });
+        // MFLTEST_COMMISHCOOKIE is NOT configured on this worker (verified
+        // 2026-07-15 — `wrangler secret list` shows 14 secrets, not that one).
+        // Fall back to MFL_COOKIE exactly like /admin/test-sync/prod-rosters
+        // does: an MFL session is ACCOUNT-wide, not league-scoped, and the
+        // same account commissions both 74598 and the 25625 mirror.
+        const tCookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE || "");
+        if (!tCookieRaw) return jsonOut(500, { ok: false, error: "No MFL session secret (MFLTEST_COMMISHCOOKIE or MFL_COOKIE)" });
         const tCookie = tCookieRaw.includes("=") ? tCookieRaw : `MFL_USER_ID=${tCookieRaw}`;
         const sleep2 = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -29466,6 +29471,25 @@ export default {
             rv2 = await testImport({ TYPE: "tradeResponse", TRADE_ID: safeStr(offer3.trade_id), RESPONSE: "revoke", FRANCHISE_ID: fB });
           }
           battery.t3 = { create: c3, trade_id: offer3?.trade_id || "", revoke1: rv1, gone_after_revoke: goneAfter, revoke2_error_text: rv2 };
+
+          // T6 — does MFL REJECT a propose for assets the offerer no longer owns?
+          // pA was moved to fC in T2, so fA proposing pA again must fail if MFL
+          // validates ownership at propose time. This decides whether "lazy
+          // execution" (re-offer only at the moment of acceptance) is safe:
+          // if MFL does NOT validate, WE are the only thing standing between a
+          // stale offer and a broken trade.
+          const t6 = await testImport({ TYPE: "tradeProposal", FRANCHISE_ID: fA, OFFEREDTO: fB, WILL_GIVE_UP: pA, WILL_RECEIVE: pB, COMMENTS: "sentinel T6 unowned" });
+          await sleep2(1200);
+          const t6Pend = await testPending(fA);
+          const t6Offer = t6Pend.find((o) => safeStr(o.comments).includes("sentinel T6 unowned"));
+          battery.t6 = {
+            note: "fA proposes pA which T2 moved to fC — does MFL reject?",
+            propose: t6, offer_created_anyway: !!t6Offer, trade_id: t6Offer?.trade_id || "",
+            mfl_validates_ownership_at_propose: !t6Offer,
+          };
+          if (t6Offer?.trade_id) {
+            battery.t6.cleanup = await testImport({ TYPE: "tradeResponse", TRADE_ID: safeStr(t6Offer.trade_id), RESPONSE: "revoke", FRANCHISE_ID: fA });
+          }
 
           // Cleanup: revoke anything the battery left pending (offer1 if it survived).
           if (offer1?.trade_id && !battery.t2.stale_accept_attempt) {
