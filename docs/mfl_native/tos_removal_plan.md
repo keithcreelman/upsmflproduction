@@ -14,6 +14,12 @@
 
 ## Executive summary
 
+> **2026-07-16 — Barebones Mode interaction:** the per-user stock-MFL fallback
+> (`barebones_mode.md`) gates every TOS tag behind `UPS_BB_GATE` document.write
+> blocks and forces `UPS_USE_NATIVE_PLAYER_POPUP=true` for barebones users —
+> i.e. they run the Stage-4/5 native popup bridge TODAY. Removal stages that
+> touch script tags must preserve the gated-document.write shape.
+
 - **Three TOS dependencies** are loaded today on every MFL page: `header.js?v=1.60` (~585 KB) from HPM #1, `footer.js?v=1.12` (~783 KB) from HPM #20, and `light.css` (264 KB) auto-loaded by MFL as the active skin. Plus `playoffs/standingsColumns.js` and the CDN-hosted `300x50-icons.css` (smaller, less critical). Total TOS surface on every page ≈ **1.6 MB of JS + CSS** plus ~40 unscoped DOM transforms.
 - **Hidden coupling is the blocker, not the scripts.** Commit `c9aa53b` proved that wholesale removal breaks the page immediately. Our HPMs declare ~70+ TOS config globals (footer.js consumes them at load); our header has 4 `void 0 ===` shims (`MFL_customTabs_FakeTabs`, `MFL_customTabs`, `MFLGlobalCache`, `reportNflByeWeeks_ar`) that already paper over expected globals; our O=43 CSS has explicit "TOS-mirror" rules (`.alert.alert-info-body`, `.add-drop-player-row`) styling post-transform DOM. Pull TOS in one swing and all of that collapses.
 - **The right shape of the retirement is "drain, don't yank":** stand up first-party replacements behind feature flags (TOS still loads), flip our pages to read the replacement, then remove the TOS script tag. There are ~12 distinct features bundled in TOS scripts; most of them we either don't need or already have surgical replacements for. The two we DO need — `MFLBoxWrapper` mini-scoreboard and `<module name="…">` notification probes — are small and isolated.

@@ -40,6 +40,8 @@ https://www46.myfantasyleague.com/2023/logout?L=10065&HIDE_CUST=0
 
 (Substitute your league ID and year; the server number can be any MFL host.) — Source: thread [441147 "MFL Site Customization & Custom Scripts"](https://www.fantasysharks.com/forum/viewtopic.php?f=506&t=441147), `theeohiostate` 2023-06-08, the pinned top-of-forum announcement.
 
+**2026-07-16:** HIDE_CUST is now tier 3 of the league's rescue ladder — see `barebones_mode.md` (tier 1 = the per-user Lite Mode toggle, tier 2 = `?ups_barebones=` URL param). A "Stock MFL (break-glass)" entry lives in the Legacy Links ▾ Account menu.
+
 ### Auto-login bookmarklet (handy for sub-account testing)
 
 ```

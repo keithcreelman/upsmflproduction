@@ -169,10 +169,34 @@
     toggle(false);
   }
 
+  // Barebones entry in the mobile drawer (docs/mfl_native/barebones_mode.md).
+  // Guarded on the setter existing so this file stays safe loaded standalone;
+  // in barebones this whole script is gate-skipped and the fixed pill covers
+  // the way back, so this row only ever renders in FULL mode.
+  function injectLiteModeRow() {
+    try {
+      if (typeof root.UPS_BAREBONES_SET !== "function") return;
+      var menu = document.querySelector(".myfantasyleague_menu > ul");
+      if (!menu || menu.querySelector(".ups-mm-lite")) return;
+      var li = document.createElement("li");
+      var a = document.createElement("a");
+      a.className = "ups-mm-lite";
+      a.href = "#";
+      a.textContent = "\ud83d\udd0c Lite Mode (no-frills fallback)";
+      a.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        root.UPS_BAREBONES_SET(true);
+      });
+      li.appendChild(a);
+      menu.appendChild(li);
+    } catch (e) {}
+  }
+
   function init() {
     if (!document.querySelector(".myfantasyleague_menu")) return;
     injectStyle();
     injectButton();
+    injectLiteModeRow();
     document.addEventListener("click", onDocClick, true);
     root.addEventListener("resize", function () {
       if (root.innerWidth > 768) toggle(false);
