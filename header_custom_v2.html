@@ -3114,7 +3114,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       var path = String(window.location.pathname || "");
       if (/\/home\/\d+/.test(path)) return true;  // bare home only (MODULE check passed above)
 
-      // Body-id heuristic: MFL sets <body id="body_home"> on bare home.
+      // Body-id heuristic: MFL sets body id "body_home" on bare home.
       if (document.body && /home/i.test(String(document.body.id || ""))) return true;
 
       return false;
@@ -7511,9 +7511,9 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
   if (!window.UPS_BAREBONES) { // UPS_BB_GATE
     // Stage-6 native ports — custom layer, dead in barebones. document.write keeps
     // parser-blocking order identical to the static tags this block replaced.
-    document.write('<script src="https://keithcreelman.github.io/upsmflproduction/shared/mobile_menu.js?v=2026-07-16-barebones"><\/script>');
-    document.write('<script src="https://keithcreelman.github.io/upsmflproduction/shared/module_collapse.js?v=2026-05-20-stage6"><\/script>');
-    document.write('<script src="https://keithcreelman.github.io/upsmflproduction/shared/playoff_bracket_polish.js?v=2026-05-20-stage6"><\/script>');
+    document.write('<scr' + 'ipt src="https://keithcreelman.github.io/upsmflproduction/shared/mobile_menu.js?v=2026-07-16-barebones"></scr' + 'ipt>');
+    document.write('<scr' + 'ipt src="https://keithcreelman.github.io/upsmflproduction/shared/module_collapse.js?v=2026-05-20-stage6"></scr' + 'ipt>');
+    document.write('<scr' + 'ipt src="https://keithcreelman.github.io/upsmflproduction/shared/playoff_bracket_polish.js?v=2026-05-20-stage6"></scr' + 'ipt>');
   } // UPS_BB_GATE_END
 </script>
 
@@ -7522,7 +7522,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     // TOS (theeohiostate) header app, ~585KB — the bulk of the custom layer.
     // document.write is deliberate: byte-identical sync-loading semantics for a
     // remote file we can't audit (it may rely on parser-blocking order itself).
-    document.write('<script src="https://www.mflscripts.com/mfl-apps/global/header.js?v=1.60"><\/script>');
+    document.write('<scr' + 'ipt src="https://www.mflscripts.com/mfl-apps/global/header.js?v=1.60"></scr' + 'ipt>');
   } // UPS_BB_GATE_END
 </script>
 <style id="ups-marquee-style">
@@ -11215,7 +11215,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
   /* Links readable on the dark rows (player names carry MFL position colors). */
   body#body_lineup #lineup a { color: #7ab7ff !important; }
   body#body_lineup #lineup table.report a[class*="position_"] { color: #cfe0f7 !important; }
-  /* Form controls (projection <select>, optional-message <textarea>). */
+  /* Form controls (projection select, optional-message textarea). */
   body#body_lineup #lineup select,
   body#body_lineup #lineup textarea {
     background: var(--ups-surface-alt, #16253f) !important;
