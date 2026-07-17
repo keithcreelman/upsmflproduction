@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-07-16T11:21:03.935899+00:00",
+    "generated_at_utc": "2026-07-17T11:09:09.597906+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -153,18 +153,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17722",
-          "display": "Brendan Sorsby",
-          "player_id": "17722",
-          "position": "XX",
-          "nfl_team": "FA",
-          "salary": 2000,
-          "contract_year": 3,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17519",
           "display": "Bryce Lance",
           "player_id": "17519",
@@ -292,6 +280,18 @@
           "nfl_team": "NYJ",
           "salary": 2000,
           "contract_year": 1,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17722",
+          "display": "Brendan Sorsby",
+          "player_id": "17722",
+          "position": "XX",
+          "nfl_team": "FA",
+          "salary": 2000,
+          "contract_year": 3,
           "contract_status": "Rookie-Draft",
           "roster_status": "TAXI_SQUAD",
           "taxi": true
@@ -1554,18 +1554,6 @@
           "salary": 17000,
           "contract_year": 1,
           "contract_status": "Vet-Ext1",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_13593",
-          "display": "Lamar Jackson",
-          "player_id": "13593",
-          "position": "QB",
-          "nfl_team": "BAL",
-          "salary": 17000,
-          "contract_year": 0,
-          "contract_status": "",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -2947,18 +2935,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16474",
-          "display": "Nate Adkins",
-          "player_id": "16474",
-          "position": "TE",
-          "nfl_team": "DEN",
-          "salary": 3000,
-          "contract_year": 0,
-          "contract_status": "",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16193",
           "display": "Kayshon Boutte",
           "player_id": "16193",
@@ -2967,18 +2943,6 @@
           "salary": 2000,
           "contract_year": 1,
           "contract_status": "Vet-ERA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17639",
-          "display": "Keith Abney",
-          "player_id": "17639",
-          "position": "CB",
-          "nfl_team": "DET",
-          "salary": 2000,
-          "contract_year": 0,
-          "contract_status": "",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3051,6 +3015,18 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15284",
+          "display": "Jaylen Waddle",
+          "player_id": "15284",
+          "position": "WR",
+          "nfl_team": "DEN",
+          "salary": 1000,
+          "contract_year": 0,
+          "contract_status": "",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3311,18 +3287,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_12155",
-          "display": "Ameer Abdullah",
-          "player_id": "12155",
-          "position": "RB",
-          "nfl_team": "JAC",
-          "salary": 3000,
-          "contract_year": 0,
-          "contract_status": "",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17563",
           "display": "Caleb Downs",
           "player_id": "17563",
@@ -3379,18 +3343,6 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Vet-Ext2-FL",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_11367",
-          "display": "Kyle Juszczyk",
-          "player_id": "11367",
-          "position": "RB",
-          "nfl_team": "SFO",
-          "salary": 1000,
-          "contract_year": 0,
-          "contract_status": "",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3683,18 +3635,6 @@
           "salary": 6000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_13604",
-          "display": "Saquon Barkley",
-          "player_id": "13604",
-          "position": "RB",
-          "nfl_team": "PHI",
-          "salary": 3000,
-          "contract_year": 0,
-          "contract_status": "",
           "roster_status": "ROSTER",
           "taxi": false
         },
