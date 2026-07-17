@@ -1367,6 +1367,54 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
         };
 
 
+// ── AUCTION-DATA TRUTH: MFL's completed-auction results (O=102) ────────────
+// The ONLY reliable "this auction really completed" signal, established on prod
+// 2026-07-17 after three wrong turns:
+//   - the transaction log is APPEND-ONLY — a deleted auction's AUCTION_WON never
+//     leaves it (all 31 still returned, incl. lots D1 had flagged cancelled), so
+//     the poll keeps rebuilding deleted lots as live wins;
+//   - D1's cancelled_at_unix has FALSE POSITIVES — 11 genuine ERA wins carried it
+//     while being real completed auctions, so gating on it drops real wins;
+//   - roster membership has false-NEGATIVES — a won-then-dropped player is still a
+//     real auction (Keith: "dropped doesn't invalidate the auction").
+// O=44 defaults to a per-franchise SUMMARY (no players); O=102 is its "Detailed
+// Results" view, listing every completed-auction player. Verified: O=102 held
+// exactly the 15 real wins (Waddle + 14 ERA) and NONE of the 16 deleted lots.
+// Player ids parse from the ?P=NNNNN links — cross-checked three ways (?P= links,
+// bare 5-digit tokens, TYPE=players name match) to the identical 15-pid set.
+//
+// Returns { ok, pids:Set, url }. ok=FALSE when the page can't be read or parses
+// zero players without even the "Completed Auctions" header — callers MUST treat
+// !ok as "cannot verify" and refuse to finalize, never as "nothing completed".
+// Safe on the poller path: MFL emits AUCTION_WON and lists the player on O=102
+// from the SAME completion event, so a pid the poll just saw won is already here.
+async function fetchCompletedAuctionPids(env, year, leagueId) {
+  const cookieRaw = String(env.MFL_COOKIE || "").trim();
+  const cookie = cookieRaw.includes("=") ? cookieRaw : `MFL_USER_ID=${cookieRaw}`;
+  const probeFid = String(env.AUCTION_RECONCILE_FRANCHISE || "0008");
+  const url = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/options?LEAGUE_ID=${encodeURIComponent(leagueId)}&FRANCHISE=${probeFid}&O=102`;
+  const pids = new Set();
+  let ok = false;
+  try {
+    const res = await fetch(url, {
+      headers: { Cookie: cookie, "User-Agent": "ups-auction-poll" },
+      cf: { cacheTtl: 0, cacheEverything: false },
+    });
+    if (res.ok) {
+      const html = await res.text();
+      const re = /[?&]P=(\d{3,6})\b/g;
+      let m;
+      while ((m = re.exec(html)) !== null) pids.add(m[1]);
+      // Trust the page only if it IS the results view — a login/interstitial
+      // parses to an empty set and must not read as "no auctions completed".
+      ok = pids.size > 0 || /Completed Auctions/i.test(html);
+    }
+  } catch (e) {
+    console.warn("[finalize] O=102 fetch failed:", e?.message || String(e));
+  }
+  return { ok, pids, url };
+}
+
 async function finalizeEraContracts(env, year, leagueId, opts) {
   opts = opts || {};
   const dryRun = !!opts.dryRun;
@@ -1405,9 +1453,26 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
     if (p?.id) mflMap[String(p.id)] = p;
   }
 
+  // AUCTION-DATA TRUTH (O=102) — same guard as the FAA path. ERA's curated
+  // ups_era_pool INNER JOIN already screens out off-pool wins, but a DELETED
+  // ERA auction still lingers as status='won' with its AUCTION_WON in the
+  // append-only log, so it too must be checked against the completed-auction
+  // results. FAIL-CLOSED: an unreadable page is recoverable here — a fresh win
+  // missed on a transient fetch failure is re-caught by the next admin sweep
+  // (finalize-era-contracts finalizes ALL won ERA lots, not just newly-won).
+  const o102 = await fetchCompletedAuctionPids(env, year, leagueId);
+  if (!o102.ok) {
+    return {
+      status: 502,
+      body: { ok: false, error: "Could not read MFL completed-auction results (O=102) — refusing to finalize without auction-data verification", o102_url: o102.url },
+    };
+  }
+  const completedPids = o102.pids;
+
   // Build the rows to import (only those needing change).
   const rowsToWrite = [];
   const alreadyFinal = [];
+  const skipped = [];
   for (const l of lots) {
     const pid = String(l.player_id);
     const bidK = Number(l.current_high_bid_k || 0);
@@ -1423,6 +1488,12 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
       String(cur.contractInfo) === cInfo
     ) {
       alreadyFinal.push({ player_id: pid, player_name: l.player_name });
+      continue;
+    }
+    // Skip a won ERA lot that is NOT on O=102 — a deleted auction whose
+    // AUCTION_WON still lingers in the transaction log.
+    if (!completedPids.has(pid)) {
+      skipped.push({ player_id: pid, player_name: l.player_name, reason: "not_a_completed_auction_o102", winner_fid: String(l.winner_fid || "") });
       continue;
     }
     rowsToWrite.push({
@@ -1443,11 +1514,11 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
   }
 
   if (rowsToWrite.length === 0) {
-    return { status: 200, body: { ok: true, message: "All won lots already finalized", count: 0, already_final: alreadyFinal } };
+    return { status: 200, body: { ok: true, message: "No won ERA lots needed finalizing", count: 0, completed_auction_count: completedPids.size, already_final: alreadyFinal, skipped_count: skipped.length, skipped } };
   }
 
   if (dryRun) {
-    return { status: 200, body: { ok: true, dry_run: true, count: rowsToWrite.length, rows: rowsToWrite, already_final: alreadyFinal } };
+    return { status: 200, body: { ok: true, dry_run: true, count: rowsToWrite.length, completed_auction_count: completedPids.size, rows: rowsToWrite, already_final: alreadyFinal, skipped_count: skipped.length, skipped } };
   }
 
   // POST to MFL salaries import (APPEND=1 so untouched players aren't
@@ -1525,8 +1596,11 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
       season: String(year),
       league_id: leagueId,
       count: rowsToWrite.length,
+      completed_auction_count: completedPids.size,
       verification,
       already_final: alreadyFinal,
+      skipped_count: skipped.length,
+      skipped,
     },
   };
 }
@@ -1594,57 +1668,17 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
     if (p?.id) mflMap[String(p.id)] = p;
   }
 
-  // ── AUCTION-DATA TRUTH: MFL's completed-auction page (O=102) ──────────────
-  // The ONLY reliable "this win is real" signal. Established 2026-07-17 after
-  // three wrong turns:
-  //   - the transaction log is APPEND-ONLY — a deleted auction's AUCTION_WON
-  //     never leaves it (all 31 still return, incl. ones D1 flagged cancelled),
-  //     so the poll keeps rebuilding deleted lots as live wins;
-  //   - D1's cancelled_at_unix has FALSE POSITIVES — 11 genuine ERA wins carry
-  //     it while being real completed auctions, so gating on it drops real wins;
-  //   - roster membership has false-NEGATIVES — a won-then-dropped player is
-  //     still a real auction (Keith: "dropped doesn't invalidate the auction").
-  // O=44 defaults to a per-franchise SUMMARY (no players); O=102 is its
-  // "Detailed Results" view and lists every completed-auction player. Verified
-  // on prod: O=102 contained exactly the 15 real wins (Waddle + 14 ERA) and
-  // NONE of the 16 deleted lots (Lamar, Burrow, Josh Allen, ...). Player ids
-  // parse cleanly from the ?P=NNNNN links — cross-checked three independent ways
-  // (?P= links, bare 5-digit tokens, TYPE=players name match) all yielding the
-  // identical 15-pid set.
-  //
-  // FAIL-CLOSED: if O=102 can't be read, or we have won lots but parse ZERO
-  // completed players (page shape changed / MFL down / logged out), we refuse to
-  // finalize anything rather than write blind.
-  const oCookieRaw = String(env.MFL_COOKIE || "").trim();
-  const oCookie = oCookieRaw.includes("=") ? oCookieRaw : `MFL_USER_ID=${oCookieRaw}`;
-  const probeFid = String(env.AUCTION_RECONCILE_FRANCHISE || "0008");
-  const o102Url = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/options?LEAGUE_ID=${encodeURIComponent(leagueId)}&FRANCHISE=${probeFid}&O=102`;
-  const completedPids = new Set();
-  let o102Ok = false;
-  try {
-    const o102Res = await fetch(o102Url, {
-      headers: { Cookie: oCookie, "User-Agent": "ups-auction-poll" },
-      cf: { cacheTtl: 0, cacheEverything: false },
-    });
-    if (o102Res.ok) {
-      const o102Html = await o102Res.text();
-      const re = /[?&]P=(\d{3,6})\b/g;
-      let m;
-      while ((m = re.exec(o102Html)) !== null) completedPids.add(m[1]);
-      // Only trust the page if it actually looks like the results view — a
-      // login/interstitial would parse to an empty set and must NOT read as
-      // "no auctions completed".
-      o102Ok = completedPids.size > 0 || /Completed Auctions/i.test(o102Html);
-    }
-  } catch (e) {
-    console.warn("[finalize-faa] O=102 fetch failed:", e?.message || String(e));
-  }
-  if (!o102Ok) {
+  // AUCTION-DATA TRUTH: gate on MFL's completed-auction results (O=102). See
+  // fetchCompletedAuctionPids for the full why. FAIL-CLOSED — a page we can't
+  // read must never read as "no auctions completed".
+  const o102 = await fetchCompletedAuctionPids(env, year, leagueId);
+  if (!o102.ok) {
     return {
       status: 502,
-      body: { ok: false, error: "Could not read MFL completed-auction results (O=102) — refusing to finalize without auction-data verification", o102_url: o102Url },
+      body: { ok: false, error: "Could not read MFL completed-auction results (O=102) — refusing to finalize without auction-data verification", o102_url: o102.url },
     };
   }
+  const completedPids = o102.pids;
 
   // Who have we ALREADY finalized this season (D1 audit ledger)? Keyed on
   // (player_id, season) so it is immune to MFL's mutable/stale contract fields.
