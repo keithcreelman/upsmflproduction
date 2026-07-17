@@ -108,11 +108,19 @@
         "#upsDevBanner,.ups-teamops-subnav{display:none!important}" +
         // The native MFL menu (.myfantasyleague_menu) is display:none'd by the
         // custom CSS on desktop (Legacy Links dropdown replaces it). In
-        // barebones that rule is disabled so the native bar returns — but the
-        // skin that positioned it is gone too, so it floats. Force it into
-        // normal flow at the top, under the player modal (z-index 1 < 10000).
-        "[data-ups-barebones] .myfantasyleague_menu{position:static!important;float:none!important;" +
-        "z-index:1!important;margin:0 0 10px!important;width:100%!important;box-sizing:border-box!important}";
+        // barebones that rule is disabled so the native bar returns; pinNative-
+        // Menu() below moves it to the top of <body> so it can't float down.
+        //
+        // DELIBERATELY MINIMAL (fixed 2026-07-17): the first version also set
+        // `position:static` and `z-index:1` here, which BROKE MFL's own
+        // dropdowns — the menu opened but vanished before you could reach an
+        // item. Two causes: (1) z-index:1 makes the bar a STACKING CONTEXT, so
+        // its absolutely-positioned submenu is trapped at level 1 and page
+        // content paints over it; (2) position:static removes the anchor its
+        // submenus position against. MFL's own MFLBaseCSS is still enabled in
+        // barebones and already knows how to lay this menu out — so touch
+        // nothing but the bottom margin, and never re-add position/z-index here.
+        "[data-ups-barebones] .myfantasyleague_menu{margin:0 0 10px!important}";
       (document.head || document.documentElement).appendChild(s);
     } catch (e) {}
 
@@ -768,7 +776,7 @@
   }
 
   /* One nav bar (Keith 2026-06-11): on DESKTOP the native MFL horizontal menu
-     is replaced by the "MFL Legacy Links ▾" dropdown docked in the My Hub
+     is replaced by the "MFL Legacy Links \u25BE" dropdown docked in the My Hub
      strip, so hide it here. Scoped to >=769px so it does NOT touch the mobile
      hamburger drawer — mobile_menu.js owns .myfantasyleague_menu at <=768px. */
   @media (min-width: 769px) {
@@ -3559,7 +3567,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       var arrow = document.createElement("span");
       arrow.className = "ups-teamops-subnav-arrow";
       arrow.setAttribute("aria-hidden", "true");
-      arrow.textContent = "▾";
+      arrow.textContent = "\u25BE";
       btn.appendChild(arrow);
 
       var menu = document.createElement("div");
@@ -3602,7 +3610,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
           var caret = document.createElement("span");
           caret.className = "ups-teamops-subnav-submenu-caret";
           caret.setAttribute("aria-hidden", "true");
-          caret.textContent = "▸"; // ▸ (rotates to ▾ via CSS when open)
+          caret.textContent = "\u25B8"; // \u25B8 (rotates to \u25BE via CSS when open)
           head.appendChild(caret);
 
           var panel = document.createElement("div");
@@ -3695,7 +3703,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         var tog = document.createElement("a");
         tog.className = "ups-teamops-subnav-link ups-commish-toggle";
         tog.href = buildMflPath(asCommish ? "/logout?BECOME=0008" : "/logout?BECOME=0000");
-        tog.textContent = asCommish ? "👤 Become Owner" : "🛠 Become Commish";
+        tog.textContent = asCommish ? "\uD83D\uDC64 Become Owner" : "\uD83D\uDEE0 Become Commish";
         tog.title = asCommish ? "Switch your MFL session to your owner team (Real Deal Creel)" : "Switch your MFL session back to commissioner";
         if (!asCommish) tog.setAttribute("data-owner-view", "1");
         nav.appendChild(tog);
@@ -6750,7 +6758,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       if (rosterUiState.contractTypes && rosterUiState.contractTypes.length) parts.push("Types: " + rosterUiState.contractTypes.length);
       if (rosterUiState.sort && rosterUiState.sort !== "default") parts.push("Sort: " + rosterUiState.sort.replace(/_/g, " "));
       if (rosterUiState.search) parts.push('"' + rosterUiState.search + '"');
-      status.textContent = parts.join(" • ");
+      status.textContent = parts.join(" \u2022 ");
     }
 
     function isFilterActive() {
@@ -6887,7 +6895,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         var caret = document.createElement("span");
         caret.className = "ups-roster-taxi-caret";
         caret.setAttribute("aria-hidden", "true");
-        caret.textContent = "▸";
+        caret.textContent = "\u25B8";
 
         var label = document.createElement("span");
         label.className = "ups-roster-taxi-label";
@@ -7817,7 +7825,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     for (var y = 2010; y <= 2026; y += 1) {
       parts.push(y + ": " + (yearToWinner[y] || "TBD"));
     }
-    return parts.join("  •  ");
+    return parts.join("  \u2022  ");
   }
 
   function buildTopExpiringRookieText(tagTrackingRows) {
@@ -7842,7 +7850,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       best.name +
       " (" +
       best.team +
-      ")  •  " +
+      ")  \u2022  " +
       best.pts.toFixed(1) +
       " pts"
     );
@@ -7872,8 +7880,8 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         return player && team ? player + " (" + team + ")" : player || team;
       })
       .filter(Boolean);
-    var suffix = scoped.length > names.length ? "  •  +" + (scoped.length - names.length) + " more" : "";
-    return maxSeason + " submitted tags (" + scoped.length + "): " + names.join("  •  ") + suffix;
+    var suffix = scoped.length > names.length ? "  \u2022  +" + (scoped.length - names.length) + " more" : "";
+    return maxSeason + " submitted tags (" + scoped.length + "): " + names.join("  \u2022  ") + suffix;
   }
 
   function render(lanes, draftYear) {
@@ -7891,7 +7899,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     mount.innerHTML =
       '<div class="ups-marquee-header">' +
       '<div class="ups-marquee-title">UPS League Pulse</div>' +
-      '<div class="ups-marquee-subtitle">Draft / Champions / Expiring Rookies / Tags • ' + htmlEsc(String(draftYear || "")) + "</div>" +
+      '<div class="ups-marquee-subtitle">Draft / Champions / Expiring Rookies / Tags \u2022 ' + htmlEsc(String(draftYear || "")) + "</div>" +
       "</div>" +
       '<div class="ups-marquee-lanes">' + laneHtml + "</div>";
   }
@@ -7973,7 +7981,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
               var player = p.player || "On the Clock";
               return pickNo + " " + team + " - " + player;
             })
-            .join("  •  ")
+            .join("  \u2022  ")
         : "No rookie draft picks available yet.";
 
       var lanes = [
@@ -11320,7 +11328,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     function initPickerDrawer() {
       // Wait for TOS to render its picker rows. Poll up to 20s.
       var attempts = 0;
-      var maxAttempts = 40;  // 40 × 500ms = 20s
+      var maxAttempts = 40;  // 40 \u00D7 500ms = 20s
       var interval = setInterval(function () {
         attempts += 1;
         var container = document.querySelector(".add-player-container");
@@ -11346,9 +11354,9 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         '<div class="ups-picker-header">' +
           '<div class="ups-picker-header-row">' +
             '<h2 class="ups-picker-title">Select Player to Auction</h2>' +
-            '<button type="button" class="ups-picker-close" aria-label="Close">×</button>' +
+            '<button type="button" class="ups-picker-close" aria-label="Close">\u00D7</button>' +
           '</div>' +
-          '<input type="search" class="ups-picker-search" placeholder="Search by name…" />' +
+          '<input type="search" class="ups-picker-search" placeholder="Search by name\u2026" />' +
           '<div class="ups-picker-sort-row">' +
             '<label class="ups-picker-sort-label">Sort</label>' +
             '<select class="ups-picker-sort" data-sort>' +
@@ -11367,7 +11375,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
           '<div class="ups-picker-chips" data-chip-group="pos">' +
             '<button type="button" class="ups-picker-chip active" data-pos="ALL">All</button>' +
           '</div>' +
-          '<div class="ups-picker-meta" data-meta="count">…</div>' +
+          '<div class="ups-picker-meta" data-meta="count">\u2026</div>' +
         '</div>' +
         '<div class="ups-picker-list" data-list></div>';
 
@@ -11383,7 +11391,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
       trigger.className = "ups-picker-trigger";
       // Initial content set by updateTriggerLabel() after the function is
       // defined below.
-      trigger.innerHTML = '<span data-trigger-content>Loading…</span>';
+      trigger.innerHTML = '<span data-trigger-content>Loading\u2026</span>';
 
       var anchor = document.querySelector(".add-player-container");
       if (anchor && anchor.parentNode) {
@@ -11427,7 +11435,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
           var p = findPlayerByPid(pid);
           var label = p ? p.name : ("Player " + pid);
           triggerContentEl.innerHTML =
-            '<span class="ups-picker-trigger-check">✓</span> ' +
+            '<span class="ups-picker-trigger-check">\u2713</span> ' +
             '<strong>' + escapeText(label) + '</strong>' +
             '<span class="ups-picker-trigger-change">— click to change</span>';
           trigger.classList.add("ups-picker-trigger-selected");
@@ -11456,7 +11464,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
           // abbreviation (e.g. "MIN · Bye: 6 · Rank: 109"). Used for the
           // Team filter dropdown.
           var nflTeam = "";
-          var firstTok = teamMeta.split(/\s*[·•|]\s*/)[0];
+          var firstTok = teamMeta.split(/\s*[\u00B7\u2022|]\s*/)[0];
           if (firstTok && /^[A-Z]{2,4}$/.test(firstTok.trim())) nflTeam = firstTok.trim();
           // Parse Points Rank from the team-meta string. TOS format:
           //   "MIN • Bye: 6 • Rank: 109"
@@ -11607,10 +11615,10 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         });
 
         if (metaEl) {
-          var selBit = selectedPid ? " · 1 selected" : "";
+          var selBit = selectedPid ? " \u00B7 1 selected" : "";
           metaEl.textContent = filtered.length + " of " + players.length + " players" +
             (q ? ' matching "' + q + '"' : '') +
-            (posFilter !== "ALL" ? " · " + posFilter : "") +
+            (posFilter !== "ALL" ? " \u00B7 " + posFilter : "") +
             selBit;
         }
 
@@ -11625,8 +11633,8 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
           // team-meta line so we don't double up with the supmeta below.
           // Keep "TEAM · Bye: X".
           var teamMetaClean = (p.team_meta || "")
-            .replace(/\s*[·•|]\s*(?:points\s*rank|rank|rk)\s*[:#]?\s*\d+\s*/i, "")
-            .replace(/\s*[·•|]\s*$/, "")
+            .replace(/\s*[\u00B7\u2022|]\s*(?:points\s*rank|rank|rk)\s*[:#]?\s*\d+\s*/i, "")
+            .replace(/\s*[\u00B7\u2022|]\s*$/, "")
             .trim();
           // Supplementary meta: ALWAYS shows the numbers. Two ranks:
           //   POS #X = the player's rank WITHIN their position (computed
@@ -11658,7 +11666,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
             );
           }
           var supMeta = supMetaBits.length > 0
-            ? '<div class="ups-picker-row-supmeta">' + supMetaBits.join(" · ") + '</div>'
+            ? '<div class="ups-picker-row-supmeta">' + supMetaBits.join(" \u00B7 ") + '</div>'
             : '';
           return '<div class="ups-picker-row' + (isSelected ? ' ups-picker-row-selected' : '') +
               '" data-picker-pid="' + escapeAttr(p.player_id) + '">' +
@@ -11668,7 +11676,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
             '</div>' +
             '<div class="ups-picker-row-body">' +
               '<div class="ups-picker-row-name">' + escapeText(p.name) +
-                (isSelected ? ' <span class="ups-picker-row-selected-badge">✓ Selected</span>' : '') +
+                (isSelected ? ' <span class="ups-picker-row-selected-badge">\u2713 Selected</span>' : '') +
               '</div>' +
               '<div class="ups-picker-row-meta">' + escapeText(teamMetaClean) + '</div>' +
               supMeta +
@@ -12205,7 +12213,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
             hidden: false,
             text: "⏸ ERA filter idle — eraSet=" +
               (eraSet ? eraSet.size : "null") +
-              " · windowOpen=" + eraWindowOpen +
+              " \u00B7 windowOpen=" + eraWindowOpen +
               " (cycle closed or pool not loaded)",
           });
           return { skipped: "filter_off" };
@@ -12276,7 +12284,7 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
           var metaEl = document.querySelector('.ups-picker-meta[data-meta="count"]');
           if (metaEl && upsKept > 0) {
             metaEl.textContent = upsKept + " of " + eraSet.size +
-              " eligible players · ERA cycle";
+              " eligible players \u00B7 ERA cycle";
           }
         } catch (_) {}
 
@@ -12331,10 +12339,10 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
         ensureBanner({
           hidden: false,
           text: "🔒 ERA Auction active — pool " + eraSet.size +
-            " · MFL " + kept + "/" + (kept + hidden) +
-            " · UPS drawer " + upsKept + "/" + (upsKept + upsHidden) +
-            " · TOS " + tosKept + "/" + (tosKept + tosHidden) +
-            (renderError ? " · render error: " + renderError : "") +
+            " \u00B7 MFL " + kept + "/" + (kept + hidden) +
+            " \u00B7 UPS drawer " + upsKept + "/" + (upsKept + upsHidden) +
+            " \u00B7 TOS " + tosKept + "/" + (tosKept + tosHidden) +
+            (renderError ? " \u00B7 render error: " + renderError : "") +
             " (?era_filter=off to bypass)",
         });
         return {
