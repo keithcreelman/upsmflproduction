@@ -123,7 +123,12 @@
         // submenus position against. MFL's own MFLBaseCSS is still enabled in
         // barebones and already knows how to lay this menu out — so touch
         // nothing but the bottom margin, and never re-add position/z-index here.
-        "[data-ups-barebones] .myfantasyleague_menu{margin:0 0 10px!important}";
+        "[data-ups-barebones] .myfantasyleague_menu{margin:0 0 10px!important}" +
+        // Belt-and-suspenders for the player modal: the modal overlay now sits at
+        // z-index 2147483001 (was 10000, which the native menu painted over), but
+        // also HIDE the native bar entirely while the modal is open so nothing
+        // bleeds through. `.upm-overlay.open` exists only while the modal shows.
+        "html[data-ups-barebones]:has(.upm-overlay.open) .myfantasyleague_menu{display:none!important}";
       (document.head || document.documentElement).appendChild(s);
     } catch (e) {}
 
@@ -7535,8 +7540,8 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
   }
 </script>
 <script src="https://keithcreelman.github.io/upsmflproduction/shared/cap_math.js?v=2026-05-20-stage4"></script>
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=2026-07-16-actions-full"></script>
-<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_popup_bridge.js?v=2026-07-16-actions-full"></script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=2026-07-17-litefix"></script>
+<script src="https://keithcreelman.github.io/upsmflproduction/shared/player_popup_bridge.js?v=2026-07-17-litefix"></script>
 <!-- Actions "brain" for the barebones player modal: FULL PARITY with the mobile
      sheet — Drop/Taxi/IR one-shot writes PLUS Extend/Restructure/MYAC/MYM/Tag/
      Untag/Add-to-Block. The brain lazy-loads the verbatim Front Office mobile
