@@ -103,7 +103,13 @@
     }
     if (!/\d/.test(String(viewerFranchiseId))) viewerFranchiseId = "";
     return {
-      apiBase: "",
+      // Must be the WORKER origin, not "" — this page runs on MFL's own domain
+      // (www48.myfantasyleague.com) in Lite Mode, so an empty base made the
+      // modal fetch a RELATIVE /api/player-bundle → 404 against MFL (which has no
+      // such endpoint), which is why the modal showed "PLAYER #<id>" + the "Live
+      // MFL profile data unavailable" banner. The bundle endpoint itself is fine.
+      // Mirrors desktop RWB's upmResolveApiBase(). (Keith 2026-07-17)
+      apiBase: WORKER_BASE,
       leagueId: leagueId,
       year: year,
       mode: "front_office",

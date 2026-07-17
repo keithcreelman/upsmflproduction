@@ -174,7 +174,7 @@
        MFL pages have a transformed ancestor (transform/filter/perspective)
        which would make position:fixed relative to that ancestor instead of
        the viewport, shrinking the modal. vw/vh sizing dodges that. */
-    '.upm-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.96); display: none; align-items: center; justify-content: center; z-index: 10000; }',
+    '.upm-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.96); display: none; align-items: center; justify-content: center; z-index: 2147483001; }',
     '.upm-overlay.open { display: flex; }',
     '.upm-modal-wrap { position: relative; width: 100%; display: flex; justify-content: center; }',
     /* width uses 96vw so it scales with the viewport even when the parent
@@ -434,7 +434,7 @@
     // "Live MFL profile data unavailable" banner with no hint why. Echo
     // the URL + failure reason to console so future bug reports can pin
     // it down without browser-side guesswork. Keith 2026-05-13.
-    return fetch(url, { cache: "no-store" })
+    return fetch(url, { cache: "no-store", mode: "cors", credentials: "omit" })
       .then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status + " from " + url);
         return r.json();
