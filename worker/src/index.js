@@ -4123,6 +4123,7 @@ export default {
         path !== "/admin/auction/backfill-era-ppg" &&
         path !== "/admin/auction/finalize-era-contracts" &&
         path !== "/admin/auction/finalize-faa-contracts" &&
+        path !== "/admin/auction/probe-o44" &&
         path !== "/admin/auction/poll-now" &&
         !path.startsWith("/admin/rule-proposals") &&
         path !== "/admin/auction/post-rule2-fines" &&
@@ -5555,6 +5556,108 @@ export default {
 
         const result = await finalizeFaaContracts(env, yearArg, leagueId, { dryRun });
         return jsonOut(result.status || 200, result.body);
+      }
+
+      // GET /admin/auction/probe-o44?L=..&YEAR=..&APIKEY=..[&raw=1][&O=44]
+      // READ-ONLY reconnaissance on MFL's COMPLETED-auction page (Keith
+      // 2026-07-17: "o=44 = completed auctions").
+      //
+      // Why this exists: the auction reconcile only ever consulted O=43, which
+      // lists OPEN lots — so a lot already 'won' when the commish deleted it was
+      // invisible, and TYPE=transactions is append-only (a deleted auction's
+      // AUCTION_WON never disappears — verified on prod: all 31 still returned,
+      // including 3 D1 had already flagged cancelled). O=44 is the first surface
+      // that should actually reflect a deletion of a COMPLETED auction.
+      //
+      // This endpoint writes nothing. It dumps what O=44 returns plus several
+      // candidate player-id extractions, so the real parser is written against
+      // MFL's actual markup instead of a guess. Once the shape is known, the
+      // finalizer gates on "won lot still present in O=44" and the roster-truth
+      // heuristic goes away (roster churn != auction invalid: a won-then-dropped
+      // player is still a real auction — Keith 2026-07-17).
+      if (path === "/admin/auction/probe-o44" && (request.method === "GET" || request.method === "POST")) {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const testKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        const authOk = browserKey && (browserKey === commishKey || browserKey === testKey);
+        if (!authOk) return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
+        const mflCookie = String(env.MFL_COOKIE || "").trim();
+        if (!mflCookie) return jsonOut(500, { error: "MFL_COOKIE missing" });
+
+        const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const leagueArg = String(url.searchParams.get("L") || "74598");
+        const oArg = String(url.searchParams.get("O") || "44").replace(/\D/g, "") || "44";
+        const wantRaw = (url.searchParams.get("raw") || "") === "1";
+        const probeFid = String(env.AUCTION_RECONCILE_FRANCHISE || "0008");
+
+        const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+        const oUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(yearArg)}/options?LEAGUE_ID=${encodeURIComponent(leagueArg)}&FRANCHISE=${probeFid}&O=${oArg}`;
+        let res, html = "";
+        try {
+          res = await fetch(oUrl, {
+            headers: { Cookie: cookieHeader, "User-Agent": "ups-auction-poll" },
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          html = await res.text();
+        } catch (e) {
+          return jsonOut(502, { error: "fetch failed", detail: String(e?.message || e), url: oUrl });
+        }
+
+        // Candidate extraction strategies — report ALL so we can see which the
+        // page actually supports before committing the real parser to one.
+        const strat = {};
+        const collect = (name, re) => {
+          const out = new Set();
+          let m;
+          while ((m = re.exec(html)) !== null) out.add(m[1]);
+          strat[name] = Array.from(out);
+        };
+        collect("bid_field_like_O43", /\b(?:BID|BIDDOLLARS|BID_DOLLARS|CMT)_(\d{3,6})\b/g);
+        collect("validateBid_like_O43", /validateBid\s*\(\s*[^,]+,\s*(\d{3,6})\s*\)/g);
+        collect("player_link_P_param", /[?&]P=(\d{3,6})\b/g);
+        collect("player_id_query", /player(?:_id)?=(\d{3,6})\b/g);
+        collect("franchise_icon", /franchiseicon_(\d{3,6})/g);
+        collect("any_5digit_token", /\b(1[0-9]{4})\b/g);
+
+        // Cross-reference against what D1 currently believes is won, so the
+        // answer to "does O=44 reflect Keith's deletions?" is immediate.
+        let d1Won = [];
+        try {
+          const { results } = await env.UPS_MFL_DB.prepare(
+            `SELECT player_id, status, current_high_bid_k, winner_fid,
+                    CASE WHEN cancelled_at_unix IS NULL THEN 0 ELSE 1 END AS cancelled
+               FROM ups_auction_lots
+              WHERE season = ? AND league_id = ? AND status = 'won'`
+          ).bind(Number(yearArg), leagueArg).all();
+          d1Won = results || [];
+        } catch (e) { /* D1 optional for the probe */ }
+
+        const best = Object.entries(strat).sort((a, b) => b[1].length - a[1].length)[0] || ["none", []];
+        const bestSet = new Set(best[1]);
+        const crossRef = d1Won.map((r) => ({
+          player_id: String(r.player_id),
+          bid_k: r.current_high_bid_k,
+          winner_fid: r.winner_fid,
+          d1_cancelled: !!r.cancelled,
+          present_in_o44: bestSet.has(String(r.player_id)),
+        }));
+
+        return jsonOut(200, {
+          ok: true,
+          probe: `O=${oArg}`,
+          url: oUrl,
+          http_status: res.status,
+          html_length: html.length,
+          looks_like_login_wall: /password|sign\s*in|log\s*in to/i.test(html.slice(0, 4000)) && html.length < 20000,
+          title: (/<title[^>]*>([^<]{0,120})/i.exec(html) || [, ""])[1].trim(),
+          strategies: Object.fromEntries(Object.entries(strat).map(([k, v]) => [k, { count: v.length, pids: v.slice(0, 40) }])),
+          best_strategy: { name: best[0], count: best[1].length },
+          d1_won_count: d1Won.length,
+          cross_reference: crossRef,
+          // ?raw=1 returns a markup window so the real parser can be written
+          // against the true shape (tables/rows/links) rather than inferred.
+          raw_sample: wantRaw ? html.slice(0, 12000) : "(pass &raw=1 for a 12KB markup sample)",
+        });
       }
 
       // POST /admin/auction/push-mfl-calendar — write the commish-configured FA
