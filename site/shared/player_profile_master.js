@@ -2350,6 +2350,24 @@
       // Also pick up MFL team for YT/NFL fallback when caller didn't.
       if (!nflTeam && pp && pp.team) nflTeam = pp.team;
 
+      // Update the header <h3> now that the bundle has resolved the real name.
+      // The header was rendered EAGERLY (above) from ctx before the async bundle
+      // fetch — fine on the full site where ctx.playerInfo.name is supplied, but
+      // on the barebones/Lite Mode page ctx has no name, so it stayed the
+      // "Player #<id>" placeholder even after the profile loaded. Re-render it
+      // in place. (Keith 2026-07-17: "still not showing name".)
+      if (!ctx.hideHeader) {
+        try {
+          var hdrEl = (bodyEl && bodyEl.querySelector) ? bodyEl.querySelector("h3") : null;
+          if (hdrEl) {
+            var hdrPos = posCombined(pos);
+            hdrEl.innerHTML = escapeHtml(name)
+              + ' <span class="small muted" style="font-weight:400">' + escapeHtml(hdrPos)
+              + (nflTeam ? ' · ' + escapeHtml(nflTeam) : "") + '</span>';
+          }
+        } catch (_) {}
+      }
+
       var bioHtml = buildBioHtml(bundle, ctx, pid, name, nflTeam);
 
       // Fresh rookies: Bio-only (Stats/Game Log/News are empty noise).
