@@ -109,7 +109,10 @@
         // The native MFL menu (.myfantasyleague_menu) is display:none'd by the
         // custom CSS on desktop (Legacy Links dropdown replaces it). In
         // barebones that rule is disabled so the native bar returns; pinNative-
-        // Menu() below moves it to the top of <body> so it can't float down.
+        // Menu() below moves it to the top of the page body so it can't float
+        // down. (Never write that tag name in angle brackets here — MFL's save
+        // validator substring-scans the raw text and rejects it even inside a
+        // comment. See docs/mfl_native/barebones_mode.md.)
         //
         // DELIBERATELY MINIMAL (fixed 2026-07-17): the first version also set
         // `position:static` and `z-index:1` here, which BROKE MFL's own

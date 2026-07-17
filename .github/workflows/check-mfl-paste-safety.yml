@@ -1,0 +1,47 @@
+name: MFL paste safety
+
+# header_custom_v2.html / footer_custom_v2.html are NOT deployed by CI — Keith
+# pastes them by hand into MFL's Home Page Message fields. So a bad save is only
+# ever discovered by Keith, in the browser, mid-task. Two failure modes have now
+# bitten more than once each:
+#
+#   1. BANNED TAGS. MFL substring-scans the raw text and rejects the save:
+#        "ERROR - MESSAGE CANNOT CONTAIN THESE TAGS: <TEXTAREA>, <BODY>, <HTML>..."
+#      It does not parse HTML, so the token is banned even inside a comment —
+#      which is exactly how it shipped: a JS comment reading "moves it to the top
+#      of <body>". Documented in canon, and still walked into.
+#
+#   2. MOJIBAKE. MFL serves the pasted message as MacRoman, so raw UTF-8 renders
+#      as garbage ("▾" -> "‚ñæ", "👤" -> "üë§"). Verified it is MFL's mangling,
+#      not our clipboard (pbcopy/pbpaste round-trips byte-identical).
+#
+# Neither was covered: check_inline_js.mjs globs site/**/*.html and never looked
+# at the repo-root paste files at all — it reported "0 broken" while the header
+# carried a <body> that MFL flatly refused.
+#
+# Fails only on a real problem, and names the exact fix.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "header_custom_v2.html"
+      - "footer_custom_v2.html"
+      - "scripts/check_mfl_paste_safety.mjs"
+      - ".github/workflows/check-mfl-paste-safety.yml"
+  push:
+    branches: [main]
+    paths:
+      - "header_custom_v2.html"
+      - "footer_custom_v2.html"
+
+jobs:
+  paste-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Banned tags + mojibake check on the manual-paste files
+        run: node scripts/check_mfl_paste_safety.mjs
