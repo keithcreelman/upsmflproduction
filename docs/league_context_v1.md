@@ -169,8 +169,14 @@ There are **7 entry paths**. Each creates a different default contract and const
   - **Cutdown day (Keith v10, future direction):** a 2-day-before-auction "cutdown day" is being added — that day exists to verify everything is set up properly (testing) before auction goes live. Reconciles with the existing 3-day-prior Auction Roster Lock; final mechanism still being settled.
   - **Machine-enforceable rule (Keith 2026-05-18):** block owner from nominating/bidding on player X when ALL of: `cut.season = current_season` AND `cut.prior_contract_years_remaining > 0` AND `cut.timestamp < FA_Auction_Cut_Deadline` AND `cut.prior_contract_type != 'Tag'`. Cuts after the Cut Deadline (pre-auction reset window) and Tag-contract cuts are exempt; cuts after auction close are moot (no live auction). Enforcement lives in `/api/auction/bid` and `/api/auction/nominate`.
 - **Default contract:** **1 year** if no Multi-Year Auction Contract is submitted. Multi-Year option = 2-year or 3-year, Veteran or Loaded.
+- **Default contract written at AUCTION_WON (Keith 2026-07-16 — "it should automatically be a 1 yr deal unless they give multiple years"):** MFL leaves a fresh FA-Auction win as a **$1K / 0-year stub** (contractYear=0, $1,000 placeholder). The worker (`finalizeFaaContracts()` in `worker/src/index.js`, called from the 5-minute auction poll AND surfaceable via `POST /admin/auction/finalize-faa-contracts`) writes a canonical 1-year contract back to MFL so Front Office and every downstream consumer reads the right state immediately — exact parity with ERA's `finalizeEraContracts` (§A3):
+  - `contractStatus = "Vet-FAA"` — parallel to `Vet-ERA`; distinct from plain `Veteran` so a fresh auction win is never treated as a held final-year veteran, and the MYAC path stays available.
+  - `contractYear = 1` (years remaining; owners still convert to 2/3-year via the existing **MYAC** path by the Sept contract deadline).
+  - `salary = winning_bid` (already set by MFL; reinforced).
+  - `contractInfo = "CL 1| TCV {bid}K| AAV {bid}K"`.
+  - **Dark-switched (`AUCTION_FAA_FINALIZE_ENABLED`, default off):** unlike ERA — safe via its curated `ups_era_pool` INNER JOIN — the FAA finalizer targets EVERY non-ERA won lot, and the poller runs against prod, so the auto-hook stays off until the commish arms it. The manual admin route + its `dry_run=1` preview work regardless of the switch.
 - **Bid increments:** **$1K** (always).
-- **Naming note (decided 2026-04-27):** Keep "Veteran" contract type as-is. Rename idea parking-lotted.
+- **Naming note (RATIFIED 2026-07-16 — supersedes the 2026-04-27 parking-lot):** the stored `contractStatus` for a FA-Auction win is **`Vet-FAA`** (parallel to `Vet-ERA`), NOT plain `Veteran`. The earlier "keep Veteran as-is, rename parking-lotted" decision is retired — the auto-finalize needs a distinct label so a fresh auction win is never confused with a held final-year veteran (which the cap-free-cut and extension paths treat differently). Owners still see/convert length via MYAC exactly as before.
 
 ### A3. Expired Rookie Auction (overlaps with Rookie Draft weekend)
 
@@ -593,7 +599,7 @@ For each transaction below: **Source** (MFL TYPE / UPS table) · **Initiator** (
 - **Eligibility:** N/A (system-driven).
 - **Cap effect:** Winning bid amount becomes Year 1 salary; counts vs. cap immediately.
 - **Contract impact:** Creates a new contract for the winning team.
-  - **Default:** 1-year Veteran.
+  - **Default:** 1-year **Vet-FAA** — auto-written at AUCTION_WON by `finalizeFaaContracts()` (see §A2; parity with ERA's Vet-ERA, gated by `AUCTION_FAA_FINALIZE_ENABLED`). MFL's raw stub is $1K / 0-year until then.
   - **If MYAC submitted by Sept contract deadline:** 2 or 3-year Veteran (even split) or Loaded.
 
 ### T1.3 Expired Rookie Auction — bid won (also `AUCTION_WON` with type `TagOrExpiredRookie`)
