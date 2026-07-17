@@ -5656,6 +5656,66 @@ export default {
           cross_reference: crossRef,
           // ?raw=1 returns a markup window so the real parser can be written
           // against the true shape (tables/rows/links) rather than inferred.
+          // ── v2 recon (2026-07-17) ────────────────────────────────────────
+          // The v1 probe proved this IS the right page ("UPS Salary Cap Dynasty
+          // Auction Results", HTTP 200, 34KB, no login wall) but every
+          // player-id strategy returned ZERO — including a bare /\b1[0-9]{4}\b/
+          // scan. Player ids are 5-digit, so if any appeared in the markup that
+          // would have hit. Conclusion: O=44 renders player NAMES, not ids, so
+          // the parser has to match on name and resolve via TYPE=players.
+          // These fields exist to confirm that and expose the row shape.
+          text_content: (() => {
+            const t = html
+              .replace(/<script[\s\S]*?<\/script>/gi, " ")
+              .replace(/<style[\s\S]*?<\/style>/gi, " ")
+              .replace(/<[^>]+>/g, " ")
+              .replace(/&nbsp;/gi, " ")
+              .replace(/\s+/g, " ")
+              .trim();
+            return t.slice(0, 7000);
+          })(),
+          // The results almost certainly live in a table; return their shape so
+          // the row/column parser is written against reality.
+          tables: (() => {
+            const out = [];
+            const re = /<table[\s\S]*?<\/table>/gi;
+            let m;
+            while ((m = re.exec(html)) !== null && out.length < 3) {
+              out.push({ length: m[0].length, sample: m[0].slice(0, 2600) });
+            }
+            return out;
+          })(),
+          // Do the D1 player names appear as literal text? If Lamar/Burrow are
+          // absent but Waddle is present, O=44 reflects the deletions and is the
+          // signal we want — answered without needing the full markup.
+          name_presence: await (async () => {
+            try {
+              const pRes = await fetch(
+                `https://www48.myfantasyleague.com/${encodeURIComponent(yearArg)}/export?TYPE=players&L=${encodeURIComponent(leagueArg)}&JSON=1`,
+                { headers: { "User-Agent": "ups-auction-poll" }, cf: { cacheTtl: 0 } }
+              );
+              const pj = await pRes.json().catch(() => ({}));
+              let arr = pj?.players?.player || [];
+              if (!Array.isArray(arr)) arr = [arr];
+              const nameById = {};
+              for (const p of arr) if (p?.id) nameById[String(p.id)] = String(p.name || "");
+              const flat = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+              return d1Won.map((r) => {
+                const pid = String(r.player_id);
+                const full = nameById[pid] || "";
+                const last = full.split(",")[0].trim();
+                return {
+                  player_id: pid,
+                  name: full,
+                  bid_k: r.current_high_bid_k,
+                  d1_cancelled: !!r.cancelled,
+                  last_name_in_o44: !!(last && flat.includes(last)),
+                };
+              });
+            } catch (e) {
+              return [{ error: String(e?.message || e) }];
+            }
+          })(),
           raw_sample: wantRaw ? html.slice(0, 12000) : "(pass &raw=1 for a 12KB markup sample)",
         });
       }
