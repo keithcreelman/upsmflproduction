@@ -5716,7 +5716,36 @@ export default {
               return [{ error: String(e?.message || e) }];
             }
           })(),
-          raw_sample: wantRaw ? html.slice(0, 12000) : "(pass &raw=1 for a 12KB markup sample)",
+          // v3: the view switcher ("Show: Summary Results | Detailed Results")
+          // sits past the 12KB sample — the first 12KB of O=44 is all nav
+          // chrome. v2's link scan also only ran over that sample, so it never
+          // saw it. Scan the FULL html for the switcher + any options link, and
+          // allow a windowed slice so any region can be inspected without
+          // dumping 34KB.
+          links: (() => {
+            const out = [];
+            const re = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]{0,60}?)<\/a>/gi;
+            let m;
+            while ((m = re.exec(html)) !== null) {
+              const href = m[1];
+              const text = m[2].replace(/<[^>]+>/g, "").replace(/&nbsp;/gi, " ").trim();
+              if (/detail|summary|auction/i.test(href + " " + text)) {
+                out.push({ text, href });
+              }
+            }
+            // de-dupe by href
+            const seen = new Set();
+            return out.filter((l) => (seen.has(l.href) ? false : (seen.add(l.href), true))).slice(0, 25);
+          })(),
+          // Markup window around a search term, e.g. &find=Show:
+          find_window: (() => {
+            const needle = String(url.searchParams.get("find") || "");
+            if (!needle) return "(pass &find=<term> for a markup window around it)";
+            const i = html.indexOf(needle);
+            if (i < 0) return `(not found: ${needle})`;
+            return html.slice(Math.max(0, i - 600), i + 2400);
+          })(),
+          raw_sample: wantRaw ? html.slice(Number(url.searchParams.get("offset") || 0), Number(url.searchParams.get("offset") || 0) + 12000) : "(pass &raw=1 for a 12KB markup sample; &offset=N to window it)",
         });
       }
 
