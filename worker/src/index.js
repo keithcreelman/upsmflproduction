@@ -41357,6 +41357,18 @@ export default {
             const qs = url.searchParams;
             if (truthy(qs.get("silence_discord") || qs.get("SILENCE_DISCORD"))) return true;
           } catch (_) {}
+          // NON-PRODUCTION LEAGUE ⇒ never post to Discord. The contract Discord
+          // dispatch is NOT otherwise league-gated (sendDiscordContractActivity
+          // picks the channel by forceTestOnly/forcePrimaryOnly, not leagueId),
+          // so a successful Extend/MYAC/Tag/MYM/Restructure on the L=25625 test
+          // league would spam the REAL league's channel. Silence any write whose
+          // target league isn't the configured production league. The MFL write
+          // + D1 audit still happen — only the Discord post is suppressed.
+          // (Keith 2026-07-17: "make sure this is not posted to discord".)
+          try {
+            const prodLeagueId = String(env.LEAGUE_ID || "74598").trim();
+            if (String(leagueId).trim() && String(leagueId).trim() !== prodLeagueId) return true;
+          } catch (_) {}
           return false;
         })();
 
