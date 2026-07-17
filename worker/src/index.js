@@ -1607,6 +1607,22 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
     if (p?.id) mflMap[String(p.id)] = p;
   }
 
+  // Who have we ALREADY finalized this season? This is the authoritative
+  // "don't touch again" signal (see the guard in the loop for why MFL's own
+  // contract fields can't serve that role). Fail-soft: if migration 0103 hasn't
+  // been applied the table is missing and the read throws — treat the set as
+  // empty (nobody finalized yet) rather than failing the whole finalize.
+  const auditedPids = new Set();
+  try {
+    const { results: auditRows } = await db.prepare(
+      `SELECT player_id FROM ups_auction_contract_finalizations
+        WHERE season = ? AND league_id = ? AND source = 'faa'`
+    ).bind(String(year), String(leagueId)).all();
+    for (const r of (auditRows || [])) auditedPids.add(String(r.player_id));
+  } catch (e) {
+    console.warn("[finalize-faa] audit-ledger read failed (0103 not migrated?):", e?.message || String(e));
+  }
+
   // Build the rows to import (only those needing change).
   const rowsToWrite = [];
   const alreadyFinal = [];
@@ -1629,32 +1645,31 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
       continue;
     }
 
-    // STUB-ONLY GUARD — never overwrite a real contract.
-    // We may ONLY fill in the blank contract MFL leaves behind when an auction
-    // closes: it sets the winning salary but leaves contractStatus/contractInfo
-    // empty and contractYear ""/"0". Anything else is an established contract
-    // that this function has no business touching.
+    // IDEMPOTENCY VIA OUR OWN LEDGER — never MFL's contract fields.
+    // MFL's contractStatus/contractInfo are NOT a reliable "already handled"
+    // signal: when an auction closes MFL sets the winning salary but leaves the
+    // player's PRIOR contract fields untouched. Keith 2026-07-17, on the Burrow
+    // / Josh Allen rows in the prod dry-run: "those were not real contracts,
+    // that was their contract from last season." Overwriting that stale
+    // prior-season residue is exactly the intent — so we must NOT skip a winner
+    // just because they carry leftover contract text, or the real auction would
+    // silently skip half its winners.
     //
-    // Without this, a stale won lot for a rostered veteran rewrites their real
-    // deal. The 2026-07-17 prod dry-run would have done exactly that to Joe
-    // Burrow ("Veteran", cy=1, "CL 1| TCV 46K| AAV 46K| No Further Extensions"
-    // → Vet-FAA "CL 1| TCV 16K| AAV 16K") and Josh Allen ("No Further Extension
-    // Allowed" → wiped) — destroying both the TCV history AND the extension
-    // restriction, which would silently make them extendable again.
-    const curStatus = String(cur.contractStatus || "").trim();
-    const curInfo = String(cur.contractInfo || "").trim();
-    const curYear = String(cur.contractYear || "").trim();
-    const isFreshAuctionStub = !curStatus && !curInfo && (curYear === "" || curYear === "0");
-    if (!isFreshAuctionStub) {
+    // The trustworthy signal is OUR audit ledger: if we already finalized this
+    // player this season, don't touch them again. That also protects an owner's
+    // MYAC 2/3-year conversion from being reverted to 1yr by a later admin
+    // re-run (the poller only fires per newly-won pid, but the admin route
+    // sweeps every won lot). Fail-soft: if 0103 isn't migrated yet the read
+    // throws, and we treat everyone as not-yet-finalized.
+    if (auditedPids.has(pid)) {
       skipped.push({
         player_id: pid,
-        reason: "existing_contract_not_a_fresh_auction_stub",
-        would_have_written: { salary: salaryDollars, contractStatus: cStatus, contractYear: cYear, contractInfo: cInfo },
+        reason: "already_finalized_this_season_per_d1_audit",
         current: {
           salary: String(cur.salary || ""),
-          contractStatus: curStatus,
-          contractYear: curYear,
-          contractInfo: curInfo,
+          contractStatus: String(cur.contractStatus || ""),
+          contractYear: String(cur.contractYear || ""),
+          contractInfo: String(cur.contractInfo || ""),
         },
       });
       continue;
