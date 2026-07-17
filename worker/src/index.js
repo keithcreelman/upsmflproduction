@@ -1607,6 +1607,52 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
     if (p?.id) mflMap[String(p.id)] = p;
   }
 
+  // ROSTER TRUTH — the only signal that reflects a DELETED auction.
+  //
+  // Verified 2026-07-17 against prod: MFL's transaction log is IMMUTABLE. When
+  // the commish deletes an auction lot, MFL drops it from the auction page and
+  // reverts the roster add, but TYPE=transactions STILL returns its AUCTION_WON
+  // forever. So the poll keeps rebuilding the lot as a live win, and neither
+  // existing mechanism can tell: the cancellation reconcile only inspects
+  // status='open' lots (an already-won lot is never examined), and the
+  // deleted-transaction purge waits for a transaction to vanish — which never
+  // happens. A deleted WON lot is therefore invisible to D1 forever.
+  //
+  // Measured on prod: 13 of 14 "won" FAA lots were auctions Keith had already
+  // deleted (Lamar, Burrow, Josh Allen, ...). EVERY one was absent from the
+  // winning franchise's roster; the single genuine win (Waddle → 0008) was on it.
+  //
+  // So: finalize only when the winner actually HAS the player. That is what a
+  // real win means, it self-corrects the moment an auction is deleted/reverted,
+  // and it also declines to stamp an auction contract on someone since traded.
+  //
+  // Fail-CLOSED: if rosters can't be read we cannot verify ownership, so we
+  // refuse outright rather than write blind. A missed finalize is recoverable
+  // (re-run); a wrong contract on a live roster is not.
+  const rosRes = await fetch(
+    `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1${apiQs}`,
+    { cf: { cacheTtl: 0, cacheEverything: false } }
+  );
+  const rosJson = await rosRes.json().catch(() => ({}));
+  let rosFrs = rosJson?.rosters?.franchise || [];
+  if (!Array.isArray(rosFrs)) rosFrs = [rosFrs];
+  const rosterFidByPid = {};
+  for (const f of rosFrs) {
+    const fid = String(f?.id || "");
+    let pls = f?.player || [];
+    if (!Array.isArray(pls)) pls = [pls];
+    for (const p of pls) {
+      if (p?.id) rosterFidByPid[String(p.id)] = fid;
+    }
+  }
+  if (Object.keys(rosterFidByPid).length === 0) {
+    return {
+      status: 502,
+      body: { ok: false, error: "Could not read MFL rosters — refusing to finalize without ownership verification" },
+    };
+  }
+  const pad4 = (v) => String(v || "").replace(/\D/g, "").padStart(4, "0").slice(-4);
+
   // Who have we ALREADY finalized this season? This is the authoritative
   // "don't touch again" signal (see the guard in the loop for why MFL's own
   // contract fields can't serve that role). Fail-soft: if migration 0103 hasn't
@@ -1671,6 +1717,23 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
           contractYear: String(cur.contractYear || ""),
           contractInfo: String(cur.contractInfo || ""),
         },
+      });
+      continue;
+    }
+
+    // ROSTER-TRUTH GUARD (see the rosters fetch above for the full why).
+    // The winner must actually hold the player. If they don't, this "win" is
+    // an auction the commish deleted — MFL reverted the roster but keeps the
+    // AUCTION_WON transaction forever, so D1 still believes it. Never write a
+    // contract for a player the winning franchise doesn't have.
+    const actualFid = rosterFidByPid[pid];
+    const wonFid = pad4(l.winner_fid);
+    if (!actualFid || pad4(actualFid) !== wonFid) {
+      skipped.push({
+        player_id: pid,
+        reason: actualFid ? "player_on_a_different_roster" : "player_not_rostered_auction_likely_deleted",
+        winner_fid: wonFid,
+        actual_roster_fid: actualFid ? pad4(actualFid) : null,
       });
       continue;
     }
