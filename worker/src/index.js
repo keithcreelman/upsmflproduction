@@ -1594,9 +1594,78 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
     if (p?.id) mflMap[String(p.id)] = p;
   }
 
+  // ── AUCTION-DATA TRUTH: MFL's completed-auction page (O=102) ──────────────
+  // The ONLY reliable "this win is real" signal. Established 2026-07-17 after
+  // three wrong turns:
+  //   - the transaction log is APPEND-ONLY — a deleted auction's AUCTION_WON
+  //     never leaves it (all 31 still return, incl. ones D1 flagged cancelled),
+  //     so the poll keeps rebuilding deleted lots as live wins;
+  //   - D1's cancelled_at_unix has FALSE POSITIVES — 11 genuine ERA wins carry
+  //     it while being real completed auctions, so gating on it drops real wins;
+  //   - roster membership has false-NEGATIVES — a won-then-dropped player is
+  //     still a real auction (Keith: "dropped doesn't invalidate the auction").
+  // O=44 defaults to a per-franchise SUMMARY (no players); O=102 is its
+  // "Detailed Results" view and lists every completed-auction player. Verified
+  // on prod: O=102 contained exactly the 15 real wins (Waddle + 14 ERA) and
+  // NONE of the 16 deleted lots (Lamar, Burrow, Josh Allen, ...). Player ids
+  // parse cleanly from the ?P=NNNNN links — cross-checked three independent ways
+  // (?P= links, bare 5-digit tokens, TYPE=players name match) all yielding the
+  // identical 15-pid set.
+  //
+  // FAIL-CLOSED: if O=102 can't be read, or we have won lots but parse ZERO
+  // completed players (page shape changed / MFL down / logged out), we refuse to
+  // finalize anything rather than write blind.
+  const oCookieRaw = String(env.MFL_COOKIE || "").trim();
+  const oCookie = oCookieRaw.includes("=") ? oCookieRaw : `MFL_USER_ID=${oCookieRaw}`;
+  const probeFid = String(env.AUCTION_RECONCILE_FRANCHISE || "0008");
+  const o102Url = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/options?LEAGUE_ID=${encodeURIComponent(leagueId)}&FRANCHISE=${probeFid}&O=102`;
+  const completedPids = new Set();
+  let o102Ok = false;
+  try {
+    const o102Res = await fetch(o102Url, {
+      headers: { Cookie: oCookie, "User-Agent": "ups-auction-poll" },
+      cf: { cacheTtl: 0, cacheEverything: false },
+    });
+    if (o102Res.ok) {
+      const o102Html = await o102Res.text();
+      const re = /[?&]P=(\d{3,6})\b/g;
+      let m;
+      while ((m = re.exec(o102Html)) !== null) completedPids.add(m[1]);
+      // Only trust the page if it actually looks like the results view — a
+      // login/interstitial would parse to an empty set and must NOT read as
+      // "no auctions completed".
+      o102Ok = completedPids.size > 0 || /Completed Auctions/i.test(o102Html);
+    }
+  } catch (e) {
+    console.warn("[finalize-faa] O=102 fetch failed:", e?.message || String(e));
+  }
+  if (!o102Ok) {
+    return {
+      status: 502,
+      body: { ok: false, error: "Could not read MFL completed-auction results (O=102) — refusing to finalize without auction-data verification", o102_url: o102Url },
+    };
+  }
+
+  // Who have we ALREADY finalized this season (D1 audit ledger)? Keyed on
+  // (player_id, season) so it is immune to MFL's mutable/stale contract fields.
+  // This is what stops a later admin sweep from reverting an owner's MYAC 2/3-yr
+  // conversion back to a 1-yr default. Fail-soft: if migration 0103 isn't applied
+  // the read throws and we treat the set as empty (no MYAC protection until it is).
+  const auditedPids = new Set();
+  try {
+    const { results: auditRows } = await db.prepare(
+      `SELECT player_id FROM ups_auction_contract_finalizations
+        WHERE season = ? AND league_id = ? AND source = 'faa'`
+    ).bind(String(year), String(leagueId)).all();
+    for (const r of (auditRows || [])) auditedPids.add(String(r.player_id));
+  } catch (e) {
+    console.warn("[finalize-faa] audit-ledger read failed (0103 not migrated?):", e?.message || String(e));
+  }
+
   // Build the rows to import (only those needing change).
   const rowsToWrite = [];
   const alreadyFinal = [];
+  const skipped = [];
   for (const l of lots) {
     const pid = String(l.player_id);
     const bidK = Number(l.current_high_bid_k || 0);
@@ -1612,6 +1681,31 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
       String(cur.contractInfo) === cInfo
     ) {
       alreadyFinal.push({ player_id: pid, player_name: "" });
+      continue;
+    }
+
+    // GUARD 1 — real auction? Skip anything not on O=102's completed list. A
+    // deleted auction drops off O=102 immediately even though its AUCTION_WON
+    // lingers in the transaction log, so this is what treats Keith's deletions
+    // as test data. (Won-then-dropped stays on O=102 — still a real win.)
+    if (!completedPids.has(pid)) {
+      skipped.push({ player_id: pid, reason: "not_a_completed_auction_o102", winner_fid: String(l.winner_fid || "") });
+      continue;
+    }
+
+    // GUARD 2 — already finalized this season? Don't re-write (protects a MYAC
+    // 2/3-yr conversion from being reverted to the 1-yr default).
+    if (auditedPids.has(pid)) {
+      skipped.push({
+        player_id: pid,
+        reason: "already_finalized_this_season_per_d1_audit",
+        current: {
+          salary: String(cur.salary || ""),
+          contractStatus: String(cur.contractStatus || ""),
+          contractYear: String(cur.contractYear || ""),
+          contractInfo: String(cur.contractInfo || ""),
+        },
+      });
       continue;
     }
     rowsToWrite.push({
@@ -1633,11 +1727,11 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
   }
 
   if (rowsToWrite.length === 0) {
-    return { status: 200, body: { ok: true, message: "All won FAA lots already finalized", count: 0, already_final: alreadyFinal } };
+    return { status: 200, body: { ok: true, message: "No won FAA lots needed finalizing", count: 0, completed_auction_count: completedPids.size, already_final: alreadyFinal, skipped_count: skipped.length, skipped } };
   }
 
   if (dryRun) {
-    return { status: 200, body: { ok: true, dry_run: true, count: rowsToWrite.length, rows: rowsToWrite, already_final: alreadyFinal } };
+    return { status: 200, body: { ok: true, dry_run: true, count: rowsToWrite.length, completed_auction_count: completedPids.size, rows: rowsToWrite, already_final: alreadyFinal, skipped_count: skipped.length, skipped } };
   }
 
   // POST to MFL salaries import (APPEND=1 so untouched players aren't
@@ -1750,8 +1844,11 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
       season: String(year),
       league_id: leagueId,
       count: rowsToWrite.length,
+      completed_auction_count: completedPids.size,
       verification,
       already_final: alreadyFinal,
+      skipped_count: skipped.length,
+      skipped,
     },
   };
 }
