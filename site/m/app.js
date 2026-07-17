@@ -1774,22 +1774,24 @@
         if (!pid) return false;
         var callup = (state.taxiCallupsByPid || {})[pid];
         if (callup && callup.permanent_promotion) return false;
-        // FAITHFUL MIRROR of the worker's taxi_eligible (worker/src/index.js
-        // ~28470-28476, the value desktop trusts verbatim): use the UPS ROOKIE
-        // DRAFT round/year (NOT the NFL round), R2-5 only, inside the 3-league-
-        // year window. `historicalDraftByPid` (results[15]) is the merged 3-year
-        // UPS draft index keyed by pid — the mobile equivalent of the worker's
-        // `upsDraftByPlayer`. Trey Benson is NFL R3 but UPS R1.10 → R1 NOT
-        // taxi-eligible (§A1); the old NFL-round check wrongly passed him. A
-        // player absent from the index has no UPS rookie-draft record → not
-        // draft-taxi-eligible.
+        // FAITHFUL MIRROR of the worker's taxi_eligible (isTaxiEligible in
+        // worker/src/index.js, the value desktop trusts verbatim): use the UPS
+        // ROOKIE DRAFT round/year (NOT the NFL round), Round 2 OR LATER, inside
+        // the 3-league-year window. `historicalDraftByPid` (results[15]) is the
+        // merged 3-year UPS draft index keyed by pid — the mobile equivalent of
+        // the worker's `upsDraftByPlayer`. Trey Benson is NFL R3 but UPS R1.10 →
+        // R1 NOT taxi-eligible (§A1); the old NFL-round check wrongly passed him.
+        // A player absent from the index has no UPS rookie-draft record → not
+        // draft-taxi-eligible. R6 (IDP-only since 2025) IS eligible — canon §B2
+        // "Round 2 or later" (ratified Keith 2026-07-17; the old `> 5` cap
+        // wrongly benched R6 rookies like A.J. Haulcy).
         var ups = (state.historicalDraftByPid || {})[pid];
         if (!ups) return false;
         var draftYear = parseInt(ups.year, 10);
         var draftRound = parseInt(ups.round, 10);
         var currentSeason = parseInt(state.ctx && state.ctx.year, 10);
         if (!draftYear || !currentSeason) return false;
-        if (!draftRound || draftRound < 2 || draftRound > 5) return false;  // R1 + R6 not taxi-eligible
+        if (!draftRound || draftRound < 2) return false;  // only R1 excluded; R2+ (incl. R6 IDP) taxi-eligible
         return (currentSeason - draftYear) < 3;
       },
       // Optimistic-update helpers — after a successful tag/untag the

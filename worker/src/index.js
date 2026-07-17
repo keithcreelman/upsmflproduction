@@ -88,9 +88,10 @@ async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
   // Fetch MFL DIRECTLY (a worker can't reliably fetch its own hostname). Browser
   // UA so MFL's bot filter doesn't 1010 us. Both exports are public (no APIKEY).
   const UA = { headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" } };
-  // Phase 1 — recent R2-5 UPS draftees are the ONLY players the taxi window can
-  // apply to, so restrict to them (keeps the set to a handful of rookies instead
-  // of flagging every veteran who was merely on an active roster).
+  // Phase 1 — recent R2+ UPS draftees (Round 2 or later — R6 IDP included, only
+  // R1 excluded per §B2) are the ONLY players the taxi window can apply to, so
+  // restrict to them (keeps the set to a handful of rookies instead of flagging
+  // every veteran who was merely on an active roster).
   const recentRookies = new Set();
   for (const y of [cur - 1, cur - 2]) {
     if (y < 2011) continue;
@@ -104,7 +105,7 @@ async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
       for (const pk of picks) {
         const round = parseInt(pk && pk.round, 10);
         const pid = String((pk && pk.player) || "").replace(/\D/g, "");
-        if (pid && round >= 2 && round <= 5) recentRookies.add(pid);
+        if (pid && round >= 2) recentRookies.add(pid);
       }
     } catch (e) { /* skip the draft we couldn't fetch */ }
   }
@@ -33799,8 +33800,14 @@ export default {
               const upsYear = upsDraft ? upsDraft.ups_year : 0;
               const inUpsWindow =
                 upsYear > 0 && currentSeason > 0 && (currentSeason - upsYear) < 3;
+              // Taxi-eligible = UPS Rookie Draft Round 2 OR LATER, inside the
+              // 3-league-year window. Only Round 1 is excluded (§A1 R1 stays
+              // active). Round 6 (IDP-only since 2025) IS taxi-eligible — canon
+              // §B2 "Round 2 or later" / draft_round >= 2 (ratified Keith
+              // 2026-07-17; the old `upsRound <= 5` cap wrongly benched R6
+              // rookies like A.J. Haulcy, a 2026 R6.07 safety).
               const isTaxiEligible =
-                inUpsWindow && upsRound >= 2 && upsRound <= 5;
+                inUpsWindow && upsRound >= 2;
 
               const taxiCallup = taxiCallupsByPlayer[playerId] || null;
               return {
