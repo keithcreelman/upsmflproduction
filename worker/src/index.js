@@ -1375,6 +1375,11 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
 
   // Pull every won ERA-pool lot. INNER JOIN ups_era_pool screens out
   // test/off-pool wins automatically (we never finalize Rodgers etc.).
+  // `cancelled_at_unix IS NULL` (added 2026-07-17): a commish-deleted lot keeps
+  // status='won' — the reconcile only stamps cancelled_at_unix — so without this
+  // a deleted lot still gets a contract written. Found via the FAA dry-run,
+  // which surfaced 3 cancelled lots; ERA shared the same gap. Conservative: it
+  // can only ever finalize FEWER lots, never more.
   const sql = `
     SELECT l.player_id, l.winner_fid, l.current_high_bid_k, p.player_name
       FROM ups_auction_lots l
@@ -1383,6 +1388,7 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
        AND p.league_id = l.league_id
        AND p.season = CAST(l.season AS TEXT)
      WHERE l.season = ? AND l.league_id = ? AND l.status = 'won'
+       AND l.cancelled_at_unix IS NULL
        ${onlyPid ? "AND l.player_id = ?" : ""}`;
   const params = onlyPid ? [Number(year), leagueId, onlyPid] : [Number(year), leagueId];
   const { results: lots } = await db.prepare(sql).bind(...params).all();
@@ -1563,6 +1569,12 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
   // both functions, so there is no double-write. ups_auction_lots has no
   // player_name column (the ERA function got the name from its pool join), so
   // the name is cosmetic/blank in this path.
+  // `cancelled_at_unix IS NULL` is LOAD-BEARING: when the commish deletes an
+  // auction lot MFL emits no transaction, so the poll's reconcile stamps
+  // cancelled_at_unix but LEAVES status='won' (the row is history, not a live
+  // win). Without this guard a deleted lot still gets a real contract written —
+  // caught in the 2026-07-17 prod dry-run, which would have finalized the
+  // Barkley / Kamara / Cyrus Allen lots Keith had explicitly deleted.
   const sql = `
     SELECT l.player_id, l.winner_fid, l.current_high_bid_k
       FROM ups_auction_lots l
@@ -1571,6 +1583,7 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
        AND p.league_id = l.league_id
        AND p.season = CAST(l.season AS TEXT)
      WHERE l.season = ? AND l.league_id = ? AND l.status = 'won'
+       AND l.cancelled_at_unix IS NULL
        AND p.player_id IS NULL
        ${onlyPid ? "AND l.player_id = ?" : ""}`;
   const params = onlyPid ? [Number(year), leagueId, onlyPid] : [Number(year), leagueId];
@@ -1597,6 +1610,7 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
   // Build the rows to import (only those needing change).
   const rowsToWrite = [];
   const alreadyFinal = [];
+  const skipped = [];
   for (const l of lots) {
     const pid = String(l.player_id);
     const bidK = Number(l.current_high_bid_k || 0);
@@ -1612,6 +1626,37 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
       String(cur.contractInfo) === cInfo
     ) {
       alreadyFinal.push({ player_id: pid, player_name: "" });
+      continue;
+    }
+
+    // STUB-ONLY GUARD — never overwrite a real contract.
+    // We may ONLY fill in the blank contract MFL leaves behind when an auction
+    // closes: it sets the winning salary but leaves contractStatus/contractInfo
+    // empty and contractYear ""/"0". Anything else is an established contract
+    // that this function has no business touching.
+    //
+    // Without this, a stale won lot for a rostered veteran rewrites their real
+    // deal. The 2026-07-17 prod dry-run would have done exactly that to Joe
+    // Burrow ("Veteran", cy=1, "CL 1| TCV 46K| AAV 46K| No Further Extensions"
+    // → Vet-FAA "CL 1| TCV 16K| AAV 16K") and Josh Allen ("No Further Extension
+    // Allowed" → wiped) — destroying both the TCV history AND the extension
+    // restriction, which would silently make them extendable again.
+    const curStatus = String(cur.contractStatus || "").trim();
+    const curInfo = String(cur.contractInfo || "").trim();
+    const curYear = String(cur.contractYear || "").trim();
+    const isFreshAuctionStub = !curStatus && !curInfo && (curYear === "" || curYear === "0");
+    if (!isFreshAuctionStub) {
+      skipped.push({
+        player_id: pid,
+        reason: "existing_contract_not_a_fresh_auction_stub",
+        would_have_written: { salary: salaryDollars, contractStatus: cStatus, contractYear: cYear, contractInfo: cInfo },
+        current: {
+          salary: String(cur.salary || ""),
+          contractStatus: curStatus,
+          contractYear: curYear,
+          contractInfo: curInfo,
+        },
+      });
       continue;
     }
     rowsToWrite.push({
@@ -1633,11 +1678,11 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
   }
 
   if (rowsToWrite.length === 0) {
-    return { status: 200, body: { ok: true, message: "All won FAA lots already finalized", count: 0, already_final: alreadyFinal } };
+    return { status: 200, body: { ok: true, message: "No won FAA lots needed finalizing", count: 0, already_final: alreadyFinal, skipped_count: skipped.length, skipped } };
   }
 
   if (dryRun) {
-    return { status: 200, body: { ok: true, dry_run: true, count: rowsToWrite.length, rows: rowsToWrite, already_final: alreadyFinal } };
+    return { status: 200, body: { ok: true, dry_run: true, count: rowsToWrite.length, rows: rowsToWrite, already_final: alreadyFinal, skipped_count: skipped.length, skipped } };
   }
 
   // POST to MFL salaries import (APPEND=1 so untouched players aren't
@@ -1752,6 +1797,8 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
       count: rowsToWrite.length,
       verification,
       already_final: alreadyFinal,
+      skipped_count: skipped.length,
+      skipped,
     },
   };
 }
