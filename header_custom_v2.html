@@ -206,6 +206,38 @@
 </script>
 
 <script>
+  // ─── UPS APP-VIEW BEACON (passive usage tracking, Keith 2026-07-18) ───────
+  // One fire-and-forget page-load ping so the commish can see WHICH OWNERS open
+  // the app (Lite Mode vs full custom site) — not just who takes an action.
+  // navigator.sendBeacon → a "simple" text/plain POST: no CORS preflight, and it
+  // survives the page unloading. Franchise comes from MFL's own window.FRANCHISE_ID
+  // (blank/0000 on commish pages = an unattributed view). Never sends the auth
+  // cookie. Fully wrapped so a failure here can never affect the page.
+  (function () {
+    var WORKER = "https://upsmflproduction.keith-creelman.workers.dev";
+    function ping() {
+      try {
+        if (window.__UPS_VIEW_PINGED) return;
+        window.__UPS_VIEW_PINGED = true;
+        var fid = String(window.FRANCHISE_ID || window.franchise_id || "").replace(/\D/g, "");
+        var lg = String(window.LEAGUE_ID || window.league_id || "").replace(/\D/g, "") || "74598";
+        var surface = window.UPS_BAREBONES ? "lite-mode" : "mfl-custom";
+        var body = JSON.stringify({ franchise_id: fid, league_id: lg, surface: surface, path: location.pathname });
+        var url = WORKER + "/api/app-view";
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(url, new Blob([body], { type: "text/plain" }));
+        } else {
+          fetch(url, { method: "POST", body: body, credentials: "omit", keepalive: true }).catch(function () {});
+        }
+      } catch (e) {}
+    }
+    // Defer to load so MFL's inline FRANCHISE_ID/LEAGUE_ID globals are populated.
+    if (document.readyState === "complete") setTimeout(ping, 0);
+    else window.addEventListener("load", ping);
+  })();
+</script>
+
+<script>
   // Legacy global safety guards (custom tabs removed; keep no-op shims to avoid hard crashes).
   (function () {
     function noop() {}

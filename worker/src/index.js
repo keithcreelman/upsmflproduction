@@ -4154,6 +4154,68 @@ export default {
       const browserMflUserId = String(url.searchParams.get("MFL_USER_ID") || "").trim();
       const browserApiKey = String(url.searchParams.get("APIKEY") || "").trim();
 
+      // ---------- App-view beacon (passive usage tracking, Keith 2026-07-18) ----------
+      // POST /api/app-view — fire-and-forget page-load beacon. Upserts one row per
+      // (franchise, surface, UTC day) into ups_app_views so the commish can see WHO
+      // OPENED the app, not just who took an action. Best-effort: ANY failure still
+      // returns 204 — usage analytics must never break a page load. Handled here,
+      // before the L-required gate below, because the beacon sends league_id in its
+      // body (no ?L=). Trust model: franchise_id is the page's own window.FRANCHISE_ID
+      // (client-provided). Spoofing usage stats is pointless, so we skip an MFL
+      // round-trip to re-verify, and we NEVER store the MFL_USER_ID cookie.
+      if (path === "/api/app-view" && request.method === "POST") {
+        try {
+          const b = await request.json().catch(() => ({}));
+          const fid = String(b.franchise_id || "").replace(/\D/g, "").padStart(4, "0").slice(-4) || "0000";
+          const surface = String(b.surface || "unknown").slice(0, 40);
+          const leagueId = String(b.league_id || L || "74598").replace(/\D/g, "") || "74598";
+          const season = (String(b.season || YEAR).match(/\d{4}/) || [defaultSeason])[0];
+          const day = new Date().toISOString().slice(0, 10);
+          if (env.UPS_MFL_DB) {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_app_views (league_id, season, franchise_id, surface, day, hits, first_seen_utc, last_seen_utc)
+               VALUES (?,?,?,?,?,1,datetime('now'),datetime('now'))
+               ON CONFLICT(league_id, season, franchise_id, surface, day)
+               DO UPDATE SET hits = hits + 1, last_seen_utc = datetime('now')`
+            ).bind(leagueId, season, fid, surface, day).run();
+          }
+        } catch (e) {
+          console.warn("[app-view] beacon failed:", e && e.message);
+        }
+        return new Response(null, { status: 204, headers: corsHeaders });
+      }
+
+      // GET /admin/app-views?APIKEY=...[&L=..][&days=60] — per-owner OPEN summary
+      // (commish-gated). Complements the action-level ups_*_submissions tables.
+      if (path === "/admin/app-views" && request.method === "GET") {
+        const jh = { ...corsHeaders, "content-type": "application/json" };
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        if (!browserApiKey || browserApiKey !== commishKey) {
+          return new Response(JSON.stringify({ error: "Need COMMISH_API_KEY" }), { status: 403, headers: jh });
+        }
+        if (!env.UPS_MFL_DB) {
+          return new Response(JSON.stringify({ error: "UPS_MFL_DB missing" }), { status: 500, headers: jh });
+        }
+        const leagueId = String(L || "74598").replace(/\D/g, "") || "74598";
+        const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get("days") || "60", 10) || 60));
+        const { results } = await env.UPS_MFL_DB.prepare(
+          `SELECT franchise_id,
+                  SUM(hits)              AS hits,
+                  COUNT(DISTINCT day)    AS days_active,
+                  GROUP_CONCAT(DISTINCT surface) AS surfaces,
+                  MIN(first_seen_utc)    AS first_seen,
+                  MAX(last_seen_utc)     AS last_seen
+             FROM ups_app_views
+            WHERE league_id = ? AND day >= date('now', ?)
+            GROUP BY franchise_id
+            ORDER BY last_seen DESC`
+        ).bind(leagueId, `-${days} days`).all();
+        return new Response(
+          JSON.stringify({ league_id: leagueId, window_days: days, owners: results || [] }, null, 2),
+          { headers: jh }
+        );
+      }
+
       if (
         !L &&
         !path.startsWith("/mcm") &&
