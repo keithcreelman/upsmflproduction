@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-07-17T11:09:09.597906+00:00",
+    "generated_at_utc": "2026-07-18T10:48:31.817772+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -93,14 +93,14 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16245",
-          "display": "Jordan Battle",
-          "player_id": "16245",
-          "position": "S",
-          "nfl_team": "CIN",
-          "salary": 4000,
-          "contract_year": 1,
-          "contract_status": "Vet-ERA",
+          "asset_id": "P_17076",
+          "display": "Isaiah Bond",
+          "player_id": "17076",
+          "position": "WR",
+          "nfl_team": "CLE",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Vet-WW-BL",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -259,18 +259,6 @@
           "contract_status": "Rookie-Draft",
           "roster_status": "ROSTER",
           "taxi": false
-        },
-        {
-          "asset_id": "P_16626",
-          "display": "Adonai Mitchell",
-          "player_id": "16626",
-          "position": "WR",
-          "nfl_team": "NYJ",
-          "salary": 5000,
-          "contract_year": 1,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "TAXI_SQUAD",
-          "taxi": true
         },
         {
           "asset_id": "P_16596",
@@ -437,13 +425,13 @@
           "original_owner_name": "Eric Martel"
         },
         {
-          "asset_id": "FP_2027_5_0001",
-          "display": "2027 R5",
+          "asset_id": "FP_2027_4_0006",
+          "display": "2027 R4  (via The Long Haulers \u00b7 Brian Cross)",
           "year": "2027",
-          "round": "5",
-          "original_fid": "0001",
-          "original_team_name": "L.A. Looks",
-          "original_owner_name": "Ryan Bousquet"
+          "round": "4",
+          "original_fid": "0006",
+          "original_team_name": "The Long Haulers",
+          "original_owner_name": "Brian Cross"
         }
       ],
       "current_picks": []
@@ -1988,18 +1976,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17076",
-          "display": "Isaiah Bond",
-          "player_id": "17076",
-          "position": "WR",
-          "nfl_team": "CLE",
-          "salary": 5000,
-          "contract_year": 2,
-          "contract_status": "Vet-WW-BL",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16649",
           "display": "Theo Johnson",
           "player_id": "16649",
@@ -2020,6 +1996,18 @@
           "salary": 5000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16245",
+          "display": "Jordan Battle",
+          "player_id": "16245",
+          "position": "S",
+          "nfl_team": "CIN",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Vet-ERA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -2079,18 +2067,6 @@
           "nfl_team": "PHI",
           "salary": 1000,
           "contract_year": 2,
-          "contract_status": "Vet-MYM",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15484",
-          "display": "Jonathon Cooper",
-          "player_id": "15484",
-          "position": "DE",
-          "nfl_team": "DEN",
-          "salary": 1000,
-          "contract_year": 1,
           "contract_status": "Vet-MYM",
           "roster_status": "ROSTER",
           "taxi": false
@@ -2166,6 +2142,18 @@
           "contract_status": "Vet-ERA",
           "roster_status": "ROSTER",
           "taxi": false
+        },
+        {
+          "asset_id": "P_16626",
+          "display": "Adonai Mitchell",
+          "player_id": "16626",
+          "position": "WR",
+          "nfl_team": "NYJ",
+          "salary": 5000,
+          "contract_year": 1,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17503",
@@ -2274,30 +2262,9 @@
           "contract_status": "Rookie-Draft",
           "roster_status": "TAXI_SQUAD",
           "taxi": true
-        },
-        {
-          "asset_id": "P_16746",
-          "display": "Rasheen Ali",
-          "player_id": "16746",
-          "position": "RB",
-          "nfl_team": "BAL",
-          "salary": 2000,
-          "contract_year": 1,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "TAXI_SQUAD",
-          "taxi": true
         }
       ],
       "future_picks": [
-        {
-          "asset_id": "FP_2027_4_0006",
-          "display": "2027 R4",
-          "year": "2027",
-          "round": "4",
-          "original_fid": "0006",
-          "original_team_name": "The Long Haulers",
-          "original_owner_name": "Brian Cross"
-        },
         {
           "asset_id": "FP_2027_5_0006",
           "display": "2027 R5",
@@ -2306,6 +2273,15 @@
           "original_fid": "0006",
           "original_team_name": "The Long Haulers",
           "original_owner_name": "Brian Cross"
+        },
+        {
+          "asset_id": "FP_2027_5_0001",
+          "display": "2027 R5  (via L.A. Looks \u00b7 Ryan Bousquet)",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0001",
+          "original_team_name": "L.A. Looks",
+          "original_owner_name": "Ryan Bousquet"
         }
       ],
       "current_picks": []
@@ -2823,6 +2799,18 @@
           "salary": 14000,
           "contract_year": 1,
           "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_12616",
+          "display": "Jacoby Brissett",
+          "player_id": "12616",
+          "position": "QB",
+          "nfl_team": "ARI",
+          "salary": 12000,
+          "contract_year": 0,
+          "contract_status": "",
           "roster_status": "ROSTER",
           "taxi": false
         },
