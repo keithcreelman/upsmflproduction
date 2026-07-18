@@ -21,7 +21,12 @@ import leagueContextMd from "../../docs/league_context_v1.md";
 
 const LEAGUE_CONTEXT_TEXT = String(leagueContextMd || "");
 
-export const DRAFT_MODEL = "claude-opus-4-8"; // clapback precedent (discord_roast_reply.js)
+// Sonnet, not Opus (Keith 2026-07-18): the rule-draft agent is an agentic loop
+// of up to MAX_TOOL_ITERATIONS Anthropic calls PER TURN, each carrying growing
+// context — by far the league's biggest Opus sink. Sonnet 5 handles the SQL +
+// rule-drafting reasoning well, at ~1/5 the cost ($3/$15 vs $15/$75). The
+// fallback was already Sonnet 5, so this just promotes it to primary.
+export const DRAFT_MODEL = "claude-sonnet-5";
 export const DRAFT_FALLBACK_MODEL = "claude-sonnet-5"; // transient-failure fallback
 const MAX_TOOL_ITERATIONS = 12; // Anthropic calls per turn, incl. the wrap-up
 const TURN_BUDGET_MS = 100_000; // wall clock per turn
