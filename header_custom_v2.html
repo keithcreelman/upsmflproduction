@@ -8125,9 +8125,12 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
      so this ONLY applies once Team Ops actually mounted (its .tops-shell exists)
      — if Team Ops fails to load, the native home stays as the fallback rather
      than leaving a blank page. In Lite Mode (html[data-ups-barebones]) NOTHING
-     is hidden: you get stock MFL, native home and all. */
+     is hidden: you get stock MFL, native home and all. Also hides the TOS
+     MFL/NFL scoreboard box (#MFLBoxWrapper) — another native sibling under
+     #home that the Team Ops card replaces. */
   html:not([data-ups-barebones]) body:has(#teamOpsMount .tops-shell) .homepagetabcontent,
-  html:not([data-ups-barebones]) body:has(#teamOpsMount .tops-shell) #homepagetabs {
+  html:not([data-ups-barebones]) body:has(#teamOpsMount .tops-shell) #homepagetabs,
+  html:not([data-ups-barebones]) body:has(#teamOpsMount .tops-shell) #MFLBoxWrapper {
     display: none !important;
   }
 
