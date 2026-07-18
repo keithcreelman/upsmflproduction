@@ -324,12 +324,20 @@ function buildChangelogEntry({ proposal, verdict, prNumber, threadUrl, roundId }
     `### Proposal body`,
     proposal.body_md.split("\n").map((l) => `> ${l}`).join("\n"),
     ``,
-    `### Sections affected`,
-    `_To be filled in by the commissioner during PR review (see PR description for the impact-analysis checklist)._`,
-    ``,
-    `### Before → After`,
-    `_To be filled in by the commissioner during PR review._`,
-    ``,
+    ...(proposal.canon_change_md
+      ? [
+          `### Pre-staged canon change (drafted with the proposal)`,
+          proposal.canon_change_md,
+          ``,
+        ]
+      : [
+          `### Sections affected`,
+          `_To be filled in by the commissioner during PR review (see PR description for the impact-analysis checklist)._`,
+          ``,
+          `### Before → After`,
+          `_To be filled in by the commissioner during PR review._`,
+          ``,
+        ]),
     `---`,
     ``,
   ];
@@ -369,7 +377,9 @@ function buildPRDescription({ proposal, verdict, threadUrl, roundId, research })
     threadUrl ? `**Discord thread:** ${threadUrl}` : ``,
     ``,
     `## Goal`,
-    `Integrate this passed rule into \`docs/league_context_v1.md\`. AI has researched the impact surface; the commissioner writes the actual edits.`,
+    proposal.canon_change_md
+      ? `Integrate this passed rule into \`docs/league_context_v1.md\`. The commissioner PRE-STAGED the exact canon edits when the proposal was drafted — see "Pre-staged canon edits" below; apply those. The AI research passes are a cross-check for anything the pre-staged edit missed.`
+      : `Integrate this passed rule into \`docs/league_context_v1.md\`. AI has researched the impact surface; the commissioner writes the actual edits.`,
     ``,
     `**Cannot merge until every checkbox below is ✅ or marked \`[N/A — reviewed]\`.** A separate GitHub Action (\`lint-rule-integration-pr.yml\`) blocks merge if any \`- [ ]\` checkbox remains unchecked.`,
     ``,
@@ -380,6 +390,17 @@ function buildPRDescription({ proposal, verdict, threadUrl, roundId, research })
     ``,
     `---`,
     ``,
+    ...(proposal.canon_change_md
+      ? [
+          `## ✅ Pre-staged canon edits (drafted with the proposal — APPLY THESE)`,
+          `The commissioner staged the exact \`docs/league_context_v1.md\` edits at draft time. Apply them as written; the AI passes below are a backstop, not the source of truth.`,
+          ``,
+          proposal.canon_change_md,
+          ``,
+          `---`,
+          ``,
+        ]
+      : []),
     `## Pass 1 — Direct rule section(s) — MUST_EDIT`,
     research.direct || "_(researcher returned no output)_",
     ``,
@@ -423,7 +444,7 @@ export async function integrateApprovedRule(env, proposalId) {
 
   // 1. Read proposal + verdict from D1.
   const { results: proposalRows } = await env.UPS_MFL_DB.prepare(`
-    SELECT id, title, body_md, type, category, tldr
+    SELECT id, title, body_md, type, category, tldr, canon_change_md
     FROM hall_proposals WHERE id = ?
   `).bind(proposalId).all();
   const proposal = proposalRows?.[0];

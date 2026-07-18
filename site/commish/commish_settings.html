@@ -1988,6 +1988,11 @@
             '<label>The rule, as it would read (markdown)<br><textarea id="rp-body" rows="6" style="width:100%;" placeholder="Exact rule text. This is what the league votes on — verbatim."></textarea></label>' +
             '<label>Why this came up (markdown)<br><textarea id="rp-rationale" rows="4" style="width:100%;" placeholder="The reasons it was brought up — the story behind the proposal."></textarea></label>' +
             '<label>Supporting data (markdown, optional)<br><textarea id="rp-data" rows="4" style="width:100%;" placeholder="Numbers, history, examples. Posted as its own message in the thread."></textarea></label>' +
+            '<div style="margin-top:4px;padding-top:8px;border-top:1px dashed rgba(128,128,128,.45);">' +
+              '<label style="font-weight:700;">🔒 Rule change on approval — canon edits (COMMISH-ONLY, never shown to owners)<br>' +
+                '<textarea id="rp-canon" rows="6" style="width:100%;" placeholder="Paste the Rule-Change ledger (Block 2 from the drafting session): the exact edits to docs/league_context_v1.md to apply IF this passes, plus the changelog entry. Never sent in the owner DM or thread. Stored and logged in the versioned record pass or fail."></textarea></label>' +
+              '<div class="fo-row-hint" style="margin-top:2px;">Owners never see this. It is stored with the proposal and written to the version-controlled changelog when you rule the outcome — pass or fail — and its canon edits are ready to apply on a pass.</div>' +
+            '</div>' +
             '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
               '<label>Passes at (YES votes) <input type="number" id="rp-pass" min="1" max="12" value="7" style="width:70px;"></label>' +
               '<label>Deadline <input type="datetime-local" id="rp-deadline" value="' + dlLocal + '"></label>' +
@@ -2044,6 +2049,7 @@
           return {
             title: val('rp-title'), tldr: val('rp-tldr'), body_md: val('rp-body'),
             rationale_md: val('rp-rationale'), supporting_data_md: val('rp-data'),
+            canon_change_md: val('rp-canon'),
             pass_yes_count: parseInt(val('rp-pass'), 10) || 7,
             deadline_utc: dl ? new Date(dl).toISOString() : '',
             category: val('rp-category') || 'rules',
@@ -2062,7 +2068,10 @@
             '[✅ Approve] [❌ Decline] [💬 Discuss]\n\n' +
             '── THREAD ──\n' + b.title + '\n\n' + b.body_md +
             (b.rationale_md ? '\n\n📋 Why this came up\n' + b.rationale_md : '') +
-            (b.supporting_data_md ? '\n\n📊 Supporting data\n' + b.supporting_data_md : '');
+            (b.supporting_data_md ? '\n\n📊 Supporting data\n' + b.supporting_data_md : '') +
+            (b.canon_change_md
+              ? '\n\n════ 🔒 COMMISH-ONLY — NOT sent to owners (stored + versioned pass/fail) ════\n' + b.canon_change_md
+              : '');
         });
         document.getElementById('rp-publish-btn').addEventListener('click', function () {
           var b = buildBody();

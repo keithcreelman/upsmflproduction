@@ -1,0 +1,15 @@
+-- 0105_rule_proposal_canon_change.sql
+-- Commish-only pre-staged CANON CHANGE for a rule proposal (Keith 2026-07-18).
+--
+-- Captured at intake in the commish rule-proposal form as a SEPARATE block from
+-- the owner-facing proposal. It carries the exact "Canon Change on Approval"
+-- edits (Edit-tool-shaped: verbatim old->new / insert-after-anchor into
+-- docs/league_context_v1.md) drafted alongside the proposal.
+--
+-- It is NEVER shown to owners — not in the vote DM card and not in the thread
+-- (the owner-facing message is built only from title/tldr/body_md/rationale_md/
+-- supporting_data_md). It exists so that (1) whatever the vote outcome the
+-- proposed rule-change is on record, and (2) on a PASS the canon edit is ready
+-- to apply with no re-derivation. Logged into the version-controlled changelog
+-- on the ruling, pass OR fail.
+ALTER TABLE hall_proposals ADD COLUMN canon_change_md TEXT;
