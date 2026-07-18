@@ -1920,8 +1920,17 @@
   }
   function rdLoadIntoForm(d) {
     var set = function (id, v) { var el = document.getElementById(id); if (el && v != null && v !== "") el.value = v; };
-    set("rp-title", d.title); set("rp-tldr", d.tldr); set("rp-body", d.body_md);
-    set("rp-rationale", d.rationale_md); set("rp-data", d.supporting_data_md);
+    // The form is now two paste blocks — reassemble the AI draft's fields into
+    // the Block-1 markdown the parser reads, so the in-app draft handoff still
+    // populates the form (Keith 2026-07-18).
+    var block1 = "# PROPOSAL\n\n" +
+      "**title:** " + (d.title || "") + "\n" +
+      "**tldr:** " + (d.tldr || "") + "\n\n" +
+      "## body_md (votable text)\n" + (d.body_md || "") + "\n\n" +
+      "## rationale_md\n" + (d.rationale_md || "") +
+      (d.supporting_data_md ? "\n\n## supporting_data_md\n" + d.supporting_data_md : "");
+    set("rp-proposal", block1);
+    if (d.canon_change_md) set("rp-canon", d.canon_change_md);
     set("rp-pass", d.pass_yes_count); set("rp-category", d.category);
     if (d.deadline_utc) {
       var dt = new Date(d.deadline_utc);
@@ -1983,14 +1992,12 @@
         var form =
           '<div class="fo-card"><div class="fo-card-head"><h3>📜 New Rule Proposal</h3></div>' + banner +
           '<div style="display:grid;gap:8px;max-width:760px;">' +
-            '<label>Title<br><input type="text" id="rp-title" maxlength="120" style="width:100%;" placeholder="e.g. Taxi squad: allow one emergency call-up per season"></label>' +
-            '<label>TLDR (one line owners see first)<br><input type="text" id="rp-tldr" maxlength="240" style="width:100%;" placeholder="One sentence: what changes and for whom."></label>' +
-            '<label>The rule, as it would read (markdown)<br><textarea id="rp-body" rows="6" style="width:100%;" placeholder="Exact rule text. This is what the league votes on — verbatim."></textarea></label>' +
-            '<label>Why this came up (markdown)<br><textarea id="rp-rationale" rows="4" style="width:100%;" placeholder="The reasons it was brought up — the story behind the proposal."></textarea></label>' +
-            '<label>Supporting data (markdown, optional)<br><textarea id="rp-data" rows="4" style="width:100%;" placeholder="Numbers, history, examples. Posted as its own message in the thread."></textarea></label>' +
-            '<div style="margin-top:4px;padding-top:8px;border-top:1px dashed rgba(128,128,128,.45);">' +
-              '<label style="font-weight:700;">🔒 Rule change on approval — canon edits (COMMISH-ONLY, never shown to owners)<br>' +
-                '<textarea id="rp-canon" rows="6" style="width:100%;" placeholder="Paste the Rule-Change ledger (Block 2 from the drafting session): the exact edits to docs/league_context_v1.md to apply IF this passes, plus the changelog entry. Never sent in the owner DM or thread. Stored and logged in the versioned record pass or fail."></textarea></label>' +
+            '<label style="font-weight:700;">① Proposal — paste the whole owner-facing block (Block 1 from the drafting session)<br>' +
+              '<textarea id="rp-proposal" rows="12" style="width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;" placeholder="Paste the ENTIRE proposal markdown. It is parsed for you into title / tldr / rule text / rationale / supporting data — the fields owners see. Hit Preview to check the parse before publishing."></textarea></label>' +
+            '<div class="fo-row-hint" style="margin-top:-2px;">Auto-parsed: the <b>**title:**</b> and <b>**tldr:**</b> lines, plus the <b>## body_md</b> / <b>## rationale_md</b> / <b>## supporting_data_md</b> sections. Preview shows exactly what was captured.</div>' +
+            '<div style="margin-top:6px;padding-top:8px;border-top:1px dashed rgba(128,128,128,.45);">' +
+              '<label style="font-weight:700;">🔒 ② Rule change on approval — canon edits (Block 2 — COMMISH-ONLY, never shown to owners)<br>' +
+                '<textarea id="rp-canon" rows="8" style="width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;" placeholder="Paste the Rule-Change ledger (Block 2): the exact edits to docs/league_context_v1.md to apply IF this passes, plus the changelog entry. Never sent in the owner DM or thread. Stored and logged in the versioned record pass or fail."></textarea></label>' +
               '<div class="fo-row-hint" style="margin-top:2px;">Owners never see this. It is stored with the proposal and written to the version-controlled changelog when you rule the outcome — pass or fail — and its canon edits are ready to apply on a pass.</div>' +
             '</div>' +
             '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
@@ -2044,24 +2051,64 @@
           '<div class="fo-card" style="margin-top:12px;"><div class="fo-card-head"><h3>Recent discussions (🔒 = private, 📢 = surfaced)</h3></div>' + (qaRows || '<p class="fo-row-hint">No discussions yet.</p>') + '</div>';
 
         var val = function (id) { return (document.getElementById(id) || {}).value || ''; };
+        // Parse the pasted Block 1 (owner-facing proposal) into its fields, so
+        // the commish pastes ONE block instead of typing five. Tolerant of the
+        // drafting session's format: **title:** / **tldr:** lines + ## body_md /
+        // ## rationale_md / ## supporting_data_md sections (### subheads stay
+        // inside their section; the ## Canon Change block, if pasted here by
+        // mistake, is ignored — it belongs in Block 2).
+        function parseProposal(raw) {
+          var t = String(raw || '').replace(/\r/g, '');
+          function inline(label) {
+            var m = t.match(new RegExp('\\*\\*\\s*' + label + '\\s*:?\\s*\\*\\*\\s*:?\\s*(.+)', 'i'));
+            return m ? m[1].trim() : '';
+          }
+          var o = { title: inline('title'), tldr: inline('tldr'), body_md: '', rationale_md: '', supporting_data_md: '', pass: '', category: '' };
+          t.split(/\n(?=##\s)/).forEach(function (sec) {
+            var m = sec.match(/^##\s*([^\n]+)\n?([\s\S]*)$/);
+            if (!m) return;
+            var h = m[1].toLowerCase(), b = (m[2] || '').trim();
+            if (/canon change/.test(h)) return;
+            else if (/body|votable|the rule/.test(h)) o.body_md = b;
+            else if (/rationale|why/.test(h)) o.rationale_md = b;
+            else if (/support|data/.test(h)) o.supporting_data_md = b;
+          });
+          var pm = t.match(/\*\*\s*pass_yes_count\s*:?\s*\*\*\s*:?\s*(\d+)/i); if (pm) o.pass = pm[1];
+          var cm = t.match(/\*\*\s*category\s*:?\s*\*\*\s*:?\s*([A-Za-z0-9_-]+)/i); if (cm) o.category = cm[1];
+          return o;
+        }
         var buildBody = function () {
           var dl = val('rp-deadline');
+          var p = parseProposal(val('rp-proposal'));
           return {
-            title: val('rp-title'), tldr: val('rp-tldr'), body_md: val('rp-body'),
-            rationale_md: val('rp-rationale'), supporting_data_md: val('rp-data'),
+            title: p.title, tldr: p.tldr, body_md: p.body_md,
+            rationale_md: p.rationale_md, supporting_data_md: p.supporting_data_md,
             canon_change_md: val('rp-canon'),
-            pass_yes_count: parseInt(val('rp-pass'), 10) || 7,
+            pass_yes_count: parseInt(val('rp-pass'), 10) || parseInt(p.pass, 10) || 7,
             deadline_utc: dl ? new Date(dl).toISOString() : '',
-            category: val('rp-category') || 'rules',
+            category: val('rp-category') || p.category || 'rules',
             test_mode: !!(document.getElementById('rp-testmode') || {}).checked,
             draft_session_id: RD.linkedSid || undefined,
+            _parsed: p,
           };
         };
         document.getElementById('rp-preview-btn').addEventListener('click', function () {
           var b = buildBody();
           var pre = document.getElementById('rp-preview');
           pre.style.display = 'block';
+          var miss = [];
+          if (!b.title) miss.push('title');
+          if (!b.body_md) miss.push('rule text (## body_md)');
           pre.textContent =
+            '── PARSE CHECK (Block 1) ──\n' +
+            'title: ' + (b.title ? '✅' : '❌ MISSING') +
+            '  ·  tldr: ' + (b.tldr ? '✅' : '⚠️ empty') +
+            '  ·  rule text: ' + (b.body_md ? '✅' : '❌ MISSING') +
+            '  ·  rationale: ' + (b.rationale_md ? '✅' : '⚠️ empty') +
+            '  ·  supporting: ' + (b.supporting_data_md ? '✅' : '— none') +
+            '  ·  canon (Block 2): ' + (b.canon_change_md ? '✅' : '— none') + '\n' +
+            (miss.length ? '⚠️ Could not parse: ' + miss.join(', ') + ' — needs a **title:** line and a ## body_md section.\n' : '') +
+            '\n' +
             '── DM CARD (every owner gets this) ──\n' +
             '🏛 RULE PROPOSAL — ' + b.title + '\n\n' + (b.tldr || '') + '\n\n' +
             'Voting deadline: ' + (b.deadline_utc || '(not set)') + '\nPasses at: ' + b.pass_yes_count + ' YES votes\n' +
