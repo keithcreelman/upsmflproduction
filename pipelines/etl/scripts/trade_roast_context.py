@@ -17,7 +17,7 @@ from trade_grader import (
     load_rosters, load_rollover, load_auction_pool, load_team_caps,
     load_future_picks, load_trade_value_model, fetch_trades, analyze_trade,
     find_comparables, calculate_extension, estimate_production_value,
-    TRADE_VALUE_MODEL,
+    _parse_contract, TRADE_VALUE_MODEL,
 )
 
 
@@ -481,8 +481,14 @@ def get_h2h_record(career_stats: dict, fid_a: str, fid_b: str) -> dict:
 
 
 def build_franchise_context(franchise_id: str, career_stats: dict,
-                            tv_full: dict, discord_users: dict) -> dict:
-    """Build complete context for one franchise."""
+                            tv_full: dict, discord_users: dict,
+                            live_franchise_name: str = "") -> dict:
+    """Build complete context for one franchise.
+
+    live_franchise_name is the CURRENT franchise name as just fetched from the
+    live MFL league export (analyze_trade set it on the TradeSide). It WINS over
+    every cached copy — see the franchise_name note below.
+    """
     cs = career_stats.get(franchise_id, {})
     op = get_owner_profile(franchise_id, tv_full)
     ts = get_team_summary(franchise_id, tv_full)
@@ -493,9 +499,17 @@ def build_franchise_context(franchise_id: str, career_stats: dict,
 
     return {
         "franchise_id": franchise_id,
-        # franchise_name fallback chain: career_stats → owner_profiles → discord_users → ""
-        # discord_users team_name is the load-bearing fallback when career_stats is missing.
-        "franchise_name": cs.get("franchise_name") or op.get("team_name") or du.get("team_name", ""),
+        # franchise_name — the LIVE MFL name WINS (Keith 2026-07-18). Every cached
+        # copy (career_stats → owner_profiles → discord_users) goes STALE the
+        # moment an owner renames his team: franchise 0001 renamed "Ulterior
+        # Warrior" → "L.A. Looks", but the caches still said "Ulterior Warrior",
+        # so a roast addressed a franchise that no longer exists in the league.
+        # analyze_trade already fetched the current name into side.franchise_name;
+        # prefer it and fall back to the caches only when it's somehow blank.
+        "franchise_name": (live_franchise_name or cs.get("franchise_name")
+                           or op.get("team_name") or du.get("team_name", "")),
+        # Upcoming-season year (for the CURRENT YEAR / date-math block in the prompt).
+        "current_year": cs.get("current_year"),
         "owner_name": owner.get("display") or du.get("owner_name", ""),
         "discord_username": du.get("discord_username", ""),
 
@@ -626,9 +640,13 @@ def build_trade_roast_context(trade_txn: dict,
     a = analysis.side_a
     b = analysis.side_b
 
-    # Build franchise contexts
-    ctx_a = build_franchise_context(a.franchise_id, career_stats, tv_full, discord_users)
-    ctx_b = build_franchise_context(b.franchise_id, career_stats, tv_full, discord_users)
+    # Build franchise contexts. Pass the LIVE MFL franchise names (analyze_trade
+    # fetched them from the current league export) so a stale cache can never
+    # resurrect an old team name in the roast (the "Ulterior Warrior" bug).
+    ctx_a = build_franchise_context(a.franchise_id, career_stats, tv_full,
+                                    discord_users, live_franchise_name=a.franchise_name)
+    ctx_b = build_franchise_context(b.franchise_id, career_stats, tv_full,
+                                    discord_users, live_franchise_name=b.franchise_name)
 
     # H2H between the two teams
     h2h = get_h2h_record(career_stats, a.franchise_id, b.franchise_id)
@@ -661,11 +679,21 @@ def build_trade_roast_context(trade_txn: dict,
     def player_detail(p: PlayerInfo) -> dict:
         ppg = round(p.expected_ppg, 1) if p.expected_ppg else None
         ppg_label = p.ppg_basis or "proj"
+        # FIX B (Keith 2026-07-18) — surface the FULL remaining per-year salary,
+        # not just the current-year figure. This is the same _parse_contract the
+        # grade math uses, so what the roast SAYS about salary matches what the
+        # grade COUNTS. Isaiah Bond reads "$5,000 salary" today but is really
+        # $5K (2026) → $14K (2027), a $19K/2yr liability the roast must factor.
+        yrs_remaining, remaining_salaries = _parse_contract(
+            p.contract_info, p.contract_year, p.salary)
         return {
             "name": display_name(p.name),
             "position": p.position,
             "team": p.team,
             "salary": p.salary,
+            "years_remaining": yrs_remaining,
+            "remaining_salaries": remaining_salaries,
+            "salary_remaining_total": sum(remaining_salaries),
             "expected_auction_price": int(p.exp_price) if p.exp_price else int(
                 estimate_production_value(p, auction_pool)),
             "ppg": ppg,
@@ -843,26 +871,28 @@ def context_to_prompt_text(ctx: dict) -> str:
         return (f"  - {pk['year']} Round {pk['round']} pick{slot_str}"
                 f" (est. value ${pk['value']:,}){rates}")
 
-    ln(f"{fa['franchise_name']} gave:")
-    for pk in a["picks_given"]:
-        ln(render_pick(pk))
-    for p in a["players_given"]:
-        ppg_txt = (f", {p['ppg']} PPG ({p.get('ppg_label','proj')})" if p.get('ppg') else "")
-        adp_txt = ""
-        if p.get('adp_overall'):
-            trend = p.get('adp_trend30') or 0
-            trend_txt = f", 30d {'+' if trend > 0 else ''}{trend}" if trend else ""
-            adp_txt = (f", ADP {p['position']}{p['adp_pos_rank']} / #{p['adp_overall']} overall "
-                       f"({p.get('adp_sources', 0)}-source consensus{trend_txt})")
-        ln(f"  - {p['name']} ({p['position']}) — ${p['salary']:,} salary, "
-           f"expected auction price ${p['expected_auction_price']:,}{ppg_txt}{adp_txt}")
-    if a["salary_given"]:
-        ln(f"  - ${a['salary_given']:,} in traded salary")
+    def _money(n: int) -> str:
+        """Compact dollars: $14K when it's a clean thousand, else $14,000."""
+        return f"${n // 1000}K" if n and n % 1000 == 0 else f"${n:,}"
 
-    ln(f"{fb['franchise_name']} gave:")
-    for pk in b["picks_given"]:
-        ln(render_pick(pk))
-    for p in b["players_given"]:
+    def fmt_salary(p: dict) -> str:
+        """Salary text. FIX B (Keith 2026-07-18): spell out the FULL remaining
+        per-year schedule so an escalator like Isaiah Bond's ($5K 2026 → $14K
+        2027) reads as the liability it is, instead of a flat '$5,000 salary'.
+        Flat / single-year contracts stay terse (just the current number)."""
+        rem = p.get("remaining_salaries") or []
+        base = f"${p['salary']:,} salary"
+        if len(rem) <= 1 or len(set(rem)) <= 1:
+            return base  # single year, or every remaining year identical → flat
+        if current_year:
+            years = " → ".join(f"{current_year + i} {_money(s)}"
+                               for i, s in enumerate(rem))
+        else:
+            years = " → ".join(f"yr{i + 1} {_money(s)}" for i, s in enumerate(rem))
+        total = p.get("salary_remaining_total") or sum(rem)
+        return f"{base} ({years}; {_money(total)} remaining over {len(rem)} yrs)"
+
+    def render_player(p: dict) -> str:
         ppg_txt = (f", {p['ppg']} PPG ({p.get('ppg_label','proj')})" if p.get('ppg') else "")
         adp_txt = ""
         if p.get('adp_overall'):
@@ -870,10 +900,61 @@ def context_to_prompt_text(ctx: dict) -> str:
             trend_txt = f", 30d {'+' if trend > 0 else ''}{trend}" if trend else ""
             adp_txt = (f", ADP {p['position']}{p['adp_pos_rank']} / #{p['adp_overall']} overall "
                        f"({p.get('adp_sources', 0)}-source consensus{trend_txt})")
-        ln(f"  - {p['name']} ({p['position']}) — ${p['salary']:,} salary, "
-           f"expected auction price ${p['expected_auction_price']:,}{ppg_txt}{adp_txt}")
+        return (f"  - {p['name']} ({p['position']}) — {fmt_salary(p)}, "
+                f"expected auction price ${p['expected_auction_price']:,}{ppg_txt}{adp_txt}")
+
+    # ASSET DIRECTION LEDGER — one terse line per asset stating exactly where it
+    # ended up. FIX A (Keith 2026-07-18): the 2026-07 roast told Ryan he "turned
+    # Bond into Mitchell" when he RECEIVED Bond and GAVE Mitchell — the model had
+    # to INFER the received side (the text only printed what each team GAVE) and
+    # flipped it. With an explicit ledger AND per-team received-lists below, the
+    # direction can no longer be inferred/reversed.
+    na, nb = fa['franchise_name'], fb['franchise_name']
+    ledger = []
+    for p in a["players_given"]:
+        ledger.append(f"  {p['name']} ({p['position']}): {na} → {nb}")
+    for pk in a["picks_given"]:
+        ledger.append(f"  {pk['year']} R{pk['round']} pick: {na} → {nb}")
+    if a["salary_given"]:
+        ledger.append(f"  ${a['salary_given']:,} budget bucks: {na} → {nb}")
+    for p in b["players_given"]:
+        ledger.append(f"  {p['name']} ({p['position']}): {nb} → {na}")
+    for pk in b["picks_given"]:
+        ledger.append(f"  {pk['year']} R{pk['round']} pick: {nb} → {na}")
     if b["salary_given"]:
-        ln(f"  - ${b['salary_given']:,} in traded salary")
+        ledger.append(f"  ${b['salary_given']:,} budget bucks: {nb} → {na}")
+    if ledger:
+        ln("ASSET DIRECTION LEDGER (who ended up with what — read this, do not infer):")
+        for line in ledger:
+            ln(line)
+        ln("")
+
+    def render_side(side: dict, name: str):
+        """Print BOTH what a team gave AND what it received, same helpers for
+        each, so the model is handed the direction explicitly on both axes."""
+        ln(f"{name} gave:")
+        gave_any = False
+        for pk in side["picks_given"]:
+            ln(render_pick(pk)); gave_any = True
+        for p in side["players_given"]:
+            ln(render_player(p)); gave_any = True
+        if side["salary_given"]:
+            ln(f"  - ${side['salary_given']:,} in traded salary"); gave_any = True
+        if not gave_any:
+            ln("  - (nothing)")
+        ln(f"{name} received:")
+        got_any = False
+        for pk in side["picks_received"]:
+            ln(render_pick(pk)); got_any = True
+        for p in side["players_received"]:
+            ln(render_player(p)); got_any = True
+        if side["salary_received"]:
+            ln(f"  - ${side['salary_received']:,} in traded salary"); got_any = True
+        if not got_any:
+            ln("  - (nothing)")
+
+    render_side(a, fa['franchise_name'])
+    render_side(b, fb['franchise_name'])
 
     if ctx["effective_cost_note"]:
         ln(f"\nEFFECTIVE COST: {ctx['effective_cost_note']}")
