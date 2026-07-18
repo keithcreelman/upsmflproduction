@@ -8116,6 +8116,21 @@ body.ups-tool-page .ups-hero-shell { display: none !important; }
     overflow-x: clip !important;
   }
 
+  /* HIDE THE NATIVE MFL HOME on the custom home page (Keith 2026-07-18).
+     In full (non-barebones) mode the Team Ops "My Franchise" card (#teamOpsMount)
+     IS the home page — but MFL's own native home (Message Board Summary, League
+     Chat, Poll, H2H Matchups, League Standings, Transactions, Weekly Summary)
+     was rendering right underneath it as a separate sibling, which nothing was
+     hiding. Hide the native tab panels + the native tab bar. Guard with :has()
+     so this ONLY applies once Team Ops actually mounted (its .tops-shell exists)
+     — if Team Ops fails to load, the native home stays as the fallback rather
+     than leaving a blank page. In Lite Mode (html[data-ups-barebones]) NOTHING
+     is hidden: you get stock MFL, native home and all. */
+  html:not([data-ups-barebones]) body:has(#teamOpsMount .tops-shell) .homepagetabcontent,
+  html:not([data-ups-barebones]) body:has(#teamOpsMount .tops-shell) #homepagetabs {
+    display: none !important;
+  }
+
   body.ups-home-shell .pagebody,
   body.ups-home-shell #container-wrap {
     width: 100% !important;
