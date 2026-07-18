@@ -206,6 +206,36 @@
 </script>
 
 <script>
+  // ─── UPS RELEASE-SHA AUTO-RESOLVER (Keith 2026-07-18) ─────────────────────
+  // Sets window.UPS_RELEASE_SHA to the LATEST main commit so every jsDelivr
+  // embed (Commish Settings, Front Office v2, CCC, …) loads from an IMMUTABLE
+  // @<sha> URL — always fresh — instead of @main, which jsDelivr caches for up
+  // to ~12h (the "still seeing the old version after a merge" bug). Fully
+  // automatic: reads the SHA from GitHub's API on each load (one lightweight
+  // request; the ".sha" media type returns just the hash). A sessionStorage
+  // seed makes the value available synchronously on a direct hub load so the
+  // loaders never fall back to @main after the first visit; the fetch then
+  // updates it to the newest commit for any embed opened later this session.
+  // Fully guarded — any failure just leaves the previous behavior intact.
+  (function () {
+    try {
+      var SK = "ups_release_sha_v1", c = "";
+      try { c = sessionStorage.getItem(SK) || ""; } catch (e) {}
+      if (/^[0-9a-f]{7,40}$/i.test(c)) window.UPS_RELEASE_SHA = c;
+      fetch("https://api.github.com/repos/keithcreelman/upsmflproduction/commits/main", {
+        headers: { Accept: "application/vnd.github.sha" }, cache: "no-store"
+      }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (sha) {
+        sha = String(sha || "").trim();
+        if (/^[0-9a-f]{7,40}$/i.test(sha)) {
+          window.UPS_RELEASE_SHA = sha;
+          try { sessionStorage.setItem(SK, sha); } catch (e) {}
+        }
+      }).catch(function () {});
+    } catch (e) {}
+  })();
+</script>
+
+<script>
   // ─── UPS APP-VIEW BEACON (passive usage tracking, Keith 2026-07-18) ───────
   // One fire-and-forget page-load ping so the commish can see WHICH OWNERS open
   // the app (Lite Mode vs full custom site) — not just who takes an action.
