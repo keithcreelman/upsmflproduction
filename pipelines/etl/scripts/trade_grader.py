@@ -47,6 +47,12 @@ def _safe_int(v) -> int:
 # Conservative: veterans hold PPG ~stably for 2 years, fade after.
 PLAYER_DECAY = [1.00, 0.95, 0.88, 0.80]
 
+# Defensive (IDP) positions — see _player_production_pts FIX C (Keith 2026-07-18).
+# One canonical set shared by the grade-math neutralization and any future IDP
+# valuation model.
+IDP_POSITIONS = {"DT", "DE", "DL", "EDGE", "NT", "LB", "ILB", "OLB", "MLB",
+                 "CB", "S", "SS", "FS", "DB", "IDP"}
+
 
 def _parse_contract(ci: str, contract_year: int, current_salary: int) -> tuple[int, list[int]]:
     """Return (years_remaining, remaining_salaries) from an MFL contractInfo string.
@@ -66,6 +72,16 @@ def _parse_contract(ci: str, contract_year: int, current_salary: int) -> tuple[i
 
     # Extract Y1-X, Y2-Y, ... values
     yr_pairs = re.findall(r"Y(\d+)\s*-\s*([\d.]+)\s*([KkMm]?)", ci or "")
+    # FIX B (Keith 2026-07-18) — $K SHORTHAND. UPS contractInfo often stamps the
+    # 'K' only on the TCV/AAV tokens and writes the per-year figures bare:
+    #   "CL 3| TCV 24K| AAV 5K| Y1-5, Y2-5, Y3-14"  → the years are 5K, 5K, 14K.
+    # The old parser read bare "14" as $14, silently dropping Isaiah Bond's $14K
+    # 2027 escalator (his 2yr remaining commitment collapsed from $19,000 to $19)
+    # and zeroing a real liability in the grade math. When the line is
+    # K-denominated (a 'K' appears anywhere), treat any UNIT-LESS per-year value
+    # below $1,000 as thousands-shorthand and scale it up. Values that carry an
+    # explicit K/M, or are already >= $1,000, are left untouched (no double-scale).
+    k_shorthand = "k" in (ci or "").lower()
     per_year: dict[int, int] = {}
     for yr_str, val_str, unit in yr_pairs:
         yr = int(yr_str)
@@ -74,6 +90,8 @@ def _parse_contract(ci: str, contract_year: int, current_salary: int) -> tuple[i
             val *= 1000
         elif unit.lower() == "m":
             val *= 1_000_000
+        elif k_shorthand and val < 1000:
+            val *= 1000
         per_year[yr] = int(val)
 
     if per_year and cl:
@@ -92,6 +110,19 @@ def _player_production_pts(player: "PlayerInfo") -> tuple[float, int]:
     Production uses ppg x 17 with a conservative decay across remaining years.
     Salary is the sum of remaining year salaries (parsed from contract_info).
     """
+    # FIX C — IDP NET-NEUTRAL (Keith 2026-07-18). Defensive players carry a
+    # salary but ~no offense-scale PPG, so the old math booked their salary as a
+    # pure COST on the acquirer with zero production credit — dragging the grade
+    # of whoever took on a defensive piece (Jordan Battle, S, is exactly what
+    # dragged The Long Haulers to a phantom D+ blowout). Until a real IDP
+    # production model exists, value every IDP at (0 production, 0 salary): they
+    # contribute NOTHING to received_pts OR given_pts — no cost drag, and no
+    # cap-relief credit either. IDPs are STILL listed in the roast context/
+    # display; only the GRADE MATH neutralizes them.
+    # TODO: full IDP production valuation deferred — for now, unless a superstar
+    # IDP is involved, it's mostly ho-hum.
+    if (player.position or "").upper() in IDP_POSITIONS:
+        return 0.0, 0
     ppg = player.expected_ppg or 0
     years_remaining, remaining_salaries = _parse_contract(
         player.contract_info, player.contract_year, player.salary
