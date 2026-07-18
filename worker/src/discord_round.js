@@ -919,6 +919,20 @@ async function postAnnouncementAndImpact(env, round, item) {
     } catch (e) {
       console.log(`[integrate] dispatch failed for ${item.proposal_id}: ${e?.message || e}`);
     }
+  } else if (item.final_outcome === "rejected" && !isTestRound) {
+    // Symmetric to the passed path (Keith 2026-07-18): a REJECTED proposal
+    // leaves a version-controlled trace too. No canon edits (nothing passed) —
+    // just a changelog-record PR. Fire-and-forget; errors never roll back the
+    // announcement (which already landed).
+    try {
+      const { recordRejectedRule } = await import("./rule_integrator.js");
+      recordRejectedRule(env, item.proposal_id).then((r) => {
+        if (r?.ok) console.log(`[integrate] reject-record for ${item.proposal_id}: ${r.pr_url || r.pr_number || "already"}`);
+        else console.log(`[integrate] reject-record failed for ${item.proposal_id}: ${r?.error || "unknown"}`);
+      }).catch((e) => console.log(`[integrate] reject-record threw for ${item.proposal_id}: ${e?.message || e}`));
+    } catch (e) {
+      console.log(`[integrate] reject-record dispatch failed for ${item.proposal_id}: ${e?.message || e}`);
+    }
   }
 
   return { ok: true, posted: true };

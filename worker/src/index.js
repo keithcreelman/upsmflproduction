@@ -39324,13 +39324,18 @@ export default {
         if (!owners.length) return jsonOut(500, { ok: false, error: "no active owners resolved from discord_owners" });
 
         const ts = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+        // canon_change_md — commish-only pre-staged canon edit (Keith 2026-07-18).
+        // Stored but NEVER surfaced to owners (the DM/thread builders below only
+        // read title/tldr/body_md/rationale_md/supporting_data_md). On the ruling
+        // it feeds the version-controlled changelog + canon PR, pass or fail.
         await env.UPS_MFL_DB.prepare(
           `INSERT INTO hall_proposals
-             (id, title, type, status, category, tldr, body_md, rationale_md, supporting_data_md,
+             (id, title, type, status, category, tldr, body_md, rationale_md, supporting_data_md, canon_change_md,
               deadline_utc, quorum_min, pass_yes_count, created_at_utc, created_by)
-           VALUES (?, ?, 'vote', 'open', ?, ?, ?, ?, ?, ?, 8, ?, ?, 'commish-tab')`
+           VALUES (?, ?, 'vote', 'open', ?, ?, ?, ?, ?, ?, ?, 8, ?, ?, 'commish-tab')`
         ).bind(proposalId, title, safeStr(rpBody.category) || "rules", safeStr(rpBody.tldr) || null,
           bodyMd, safeStr(rpBody.rationale_md) || null, safeStr(rpBody.supporting_data_md) || null,
+          safeStr(rpBody.canon_change_md) || null,
           deadlineIso, passYes, ts).run();
         await env.UPS_MFL_DB.prepare(
           `INSERT INTO discord_rounds
