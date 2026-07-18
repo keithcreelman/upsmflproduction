@@ -551,6 +551,87 @@ export async function integrateApprovedRule(env, proposalId) {
   return { ok: true, pr_number: prNumber, pr_url: prUrl, branch: branchSlug };
 }
 
+// Public entry point for a REJECTED proposal (Keith 2026-07-18: "logged in
+// rules that are versioned pass OR fail"). A rejected rule changes NOTHING in
+// docs/league_context_v1.md — this only appends a version-controlled record to
+// docs/league_context_changelog.md: the proposal, its tally, and the canon
+// edits that were STAGED BUT NOT APPLIED (from hall_proposals.canon_change_md).
+// No AI research, no checklist — a deterministic changelog PR. Idempotent via
+// the same discord_rule_integrations table as the pass path (proposal_id PK).
+export async function recordRejectedRule(env, proposalId) {
+  if (!proposalId) return { ok: false, error: "proposal_id required" };
+  if (!env.GITHUB_PAT) return { ok: false, error: "GITHUB_PAT not configured" };
+
+  const { results: proposalRows } = await env.UPS_MFL_DB.prepare(`
+    SELECT id, title, body_md, type, category, tldr, canon_change_md
+    FROM hall_proposals WHERE id = ?
+  `).bind(proposalId).all();
+  const proposal = proposalRows?.[0];
+  if (!proposal) return { ok: false, error: "proposal_not_found" };
+
+  const { results: itemRows } = await env.UPS_MFL_DB.prepare(`
+    SELECT round_id, proposal_id, final_outcome, final_yes, final_no, final_abstain,
+           votes_locked_at_utc, discord_thread_id
+    FROM discord_round_items WHERE proposal_id = ?
+    ORDER BY (final_outcome IS NULL) ASC, votes_locked_at_utc DESC
+  `).bind(proposalId).all();
+  const item = itemRows?.[0];
+  if (!item) return { ok: false, error: "no_round_item_for_proposal" };
+  if (item.final_outcome !== "rejected") {
+    return { ok: false, error: `outcome_not_rejected (got ${item.final_outcome || "null"})` };
+  }
+
+  // Idempotent — shared tracking table with the pass path.
+  const existingPr = await getExistingPrForProposal(env, proposalId);
+  if (existingPr?.pr_number) {
+    return { ok: true, alreadyOpen: true, pr_number: existingPr.pr_number, pr_url: existingPr.pr_url };
+  }
+
+  const verdict = {
+    outcome: "rejected",
+    yes: item.final_yes || 0,
+    no: item.final_no || 0,
+    abstain: item.final_abstain || 0,
+    locked_at_utc: item.votes_locked_at_utc,
+  };
+  const guildId = safeStr(env.DISCORD_GUILD_ID || "");
+  const threadUrl = guildId && item.discord_thread_id
+    ? `https://discord.com/channels/${guildId}/${item.discord_thread_id}` : "";
+
+  const changelogPath = "docs/league_context_changelog.md";
+  const currentChangelog = await fetchFile(env, changelogPath);
+  const headSha = await getBranchHeadSha(env, DEFAULT_BRANCH);
+  if (!headSha) throw new Error("Failed to read main HEAD sha");
+  const branchSlug = `bot/rule-reject-${slugify(proposalId)}-${Date.now()}`;
+  await createBranch(env, branchSlug, headSha);
+
+  const newEntry = buildChangelogEntry({ proposal, verdict, prNumber: null, threadUrl, roundId: item.round_id });
+  const newChangelogContent = spliceChangelogEntry(currentChangelog.content, newEntry);
+  await commitFile(
+    env, branchSlug, changelogPath, newChangelogContent, currentChangelog.sha,
+    `chore(rules): record rejected proposal — ${proposal.title} (${item.round_id})`
+  );
+
+  const tally = `${verdict.yes}-${verdict.no}-${verdict.abstain}`;
+  const prBody = [
+    `# Rejected proposal — changelog record: ${proposal.title}`,
+    ``,
+    `**Verdict:** REJECTED ${tally}, locked ${verdict.locked_at_utc}`,
+    threadUrl ? `**Discord thread:** ${threadUrl}` : ``,
+    ``,
+    `This proposal did NOT pass, so \`docs/league_context_v1.md\` is UNCHANGED. This PR only appends a version-controlled record to \`docs/league_context_changelog.md\` — the proposal, its tally, and any canon edits that were staged but not applied. No checklist; safe to merge as-is.`,
+  ].filter(Boolean).join("\n");
+  const pr = await openPR(env, branchSlug, `Rejected rule record: ${proposal.title}`, prBody);
+
+  await env.UPS_MFL_DB.prepare(`
+    INSERT INTO discord_rule_integrations
+      (proposal_id, round_id, pr_number, pr_url, branch, created_at_utc, status)
+    VALUES (?, ?, ?, ?, ?, ?, 'rejected_logged')
+  `).bind(proposalId, item.round_id, pr?.number, pr?.html_url, branchSlug, nowIso()).run();
+
+  return { ok: true, pr_number: pr?.number, pr_url: pr?.html_url, branch: branchSlug };
+}
+
 // ---------- Idempotency tracking (auto-creates table on first run) ----------
 
 async function ensureIntegrationsTable(env) {
