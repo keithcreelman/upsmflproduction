@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.keith.mfl.drop-scan</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/keithcreelman/Code/MFL/upsmflproduction/scripts/drop_scan_tick.sh</string>
+  </array>
+  <!-- Every 10 minutes. Stand-in for the dead Cloudflare */5 cron's drop-tracker
+       (the auction poll already has its own launchd stand-in; this covers the
+       drop-penalty scan, which was left uncovered after the 2026-07-15 outage).
+       Every route it calls is idempotent (D1 dedup + discord_posted flag), so an
+       overlap with a revived cron just no-ops. Drops don't need sub-minute
+       latency for a cap charge, so 10 min keeps the machine light. -->
+  <key>StartInterval</key>
+  <integer>600</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <!-- COMMISH_API_KEY is NOT here — drop_scan_tick.sh pulls it from macOS
+       Keychain at runtime (item: ups-commish-api-key), same as auction-poll. -->
+  <key>StandardOutPath</key>
+  <string>/tmp/ups_drop_scan.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/ups_drop_scan.err.log</string>
+</dict>
+</plist>
