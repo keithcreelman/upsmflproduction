@@ -39521,6 +39521,65 @@ export default {
         return jsonOut(200, { ok: true, proposal_id: proposalId, posted_to_thread: posted });
       }
 
+      // Delete a TEST proposal (and its round/votes/discussion). Guarded so a
+      // LIVE proposal can never be removed from the commish Proposals tab.
+      if (path.startsWith("/admin/rule-proposals/") && path.endsWith("/delete") && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const db = env.UPS_MFL_DB;
+        const proposalId = decodeURIComponent(path.slice("/admin/rule-proposals/".length, -"/delete".length));
+        if (!proposalId) return jsonOut(400, { ok: false, error: "proposal id required" });
+
+        // Which round(s) hold this proposal, and are they all test rounds?
+        const { results: itemRows } = await db.prepare(
+          `SELECT ri.round_id, r.test_only
+             FROM discord_round_items ri
+             JOIN discord_rounds r ON r.round_id = ri.round_id
+            WHERE ri.proposal_id = ?`
+        ).bind(proposalId).all();
+
+        if (!itemRows || !itemRows.length) {
+          // No round link — allow deleting an orphaned hall_proposals row only.
+          const p = await db.prepare(`SELECT id FROM hall_proposals WHERE id = ?`).bind(proposalId).first();
+          if (!p) return jsonOut(404, { ok: false, error: "proposal not found" });
+        }
+
+        // SAFETY: refuse unless EVERY round holding this proposal is test_only.
+        const liveRounds = (itemRows || []).filter((r) => Number(r.test_only) !== 1).map((r) => r.round_id);
+        if (liveRounds.length) {
+          return jsonOut(403, {
+            ok: false,
+            error: "Refusing to delete a LIVE proposal — only test proposals can be deleted here.",
+            live_rounds: liveRounds,
+          });
+        }
+        const roundIds = [...new Set((itemRows || []).map((r) => r.round_id))];
+
+        // Proposal-scoped rows first (votes from both the Discord + legacy web
+        // paths, discussions, the draft-intake promotion link, the round item,
+        // then the proposal itself).
+        await db.prepare(`DELETE FROM discord_responses WHERE proposal_id = ?`).bind(proposalId).run();
+        await db.prepare(`DELETE FROM hall_responses WHERE proposal_id = ?`).bind(proposalId).run();
+        await db.prepare(`DELETE FROM hall_qa_log WHERE proposal_id = ?`).bind(proposalId).run();
+        await db.prepare(`UPDATE discord_owner_proposals SET promoted_to_proposal_id = NULL WHERE promoted_to_proposal_id = ?`).bind(proposalId).run();
+        await db.prepare(`DELETE FROM discord_round_items WHERE proposal_id = ?`).bind(proposalId).run();
+        await db.prepare(`DELETE FROM hall_proposals WHERE id = ?`).bind(proposalId).run();
+
+        // Drop any round left with no remaining items (test rounds are solo,
+        // but a multi-item round is left intact if other proposals survive).
+        const deletedRounds = [];
+        for (const rid of roundIds) {
+          const remain = await db.prepare(`SELECT COUNT(*) AS n FROM discord_round_items WHERE round_id = ?`).bind(rid).first();
+          if (!remain || Number(remain.n) === 0) {
+            await db.prepare(`DELETE FROM discord_round_owners WHERE round_id = ?`).bind(rid).run();
+            await db.prepare(`DELETE FROM discord_rounds WHERE round_id = ?`).bind(rid).run();
+            deletedRounds.push(rid);
+          }
+        }
+        return jsonOut(200, { ok: true, deleted_proposal: proposalId, deleted_rounds: deletedRounds });
+      }
+
       // ---- §F RULE 2 — missed-nomination ledger + commish override ----
       // Canon T4.3a: a fine is waived for a family emergency, or when an owner
       // tells the league ahead of time. (Canon quotes "a CC member"; the CC no
