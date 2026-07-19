@@ -1114,7 +1114,11 @@ export async function runStartFlow(env, roundId, interaction, applicationId, int
   // 2. Create one standalone public thread per item (NOT parented to the
   // kickoff message — Discord allows only one thread per parent, and
   // standalone threads show in the channel sidebar just the same).
-  const guildId = safeStr(env.DISCORD_GUILD_ID || guildIdFromInteraction(interaction));
+  // DISCORD_GUILD_ID is not configured and the publish path has no interaction,
+  // so seed guildId from those when present but fall back to the guild_id that
+  // Discord returns on the first thread create (captured in the loop below) —
+  // otherwise every thread deep link (DM card, digest) would be empty.
+  let guildId = safeStr(env.DISCORD_GUILD_ID || guildIdFromInteraction(interaction));
   const threadLinks = [];
   let createdCount = 0;
   let failedCount = 0;
@@ -1131,6 +1135,9 @@ export async function runStartFlow(env, roundId, interaction, applicationId, int
       continue;
     }
     const threadId = tr.data.id;
+    // Discord returns the thread's guild_id — capture it so deep links work even
+    // when DISCORD_GUILD_ID is unset and there's no interaction (publish path).
+    if (!guildId && tr.data.guild_id) guildId = safeStr(tr.data.guild_id);
 
     const proposalMsg = await postChannelMessage(env, threadId, buildProposalMessage(round, it));
     const proposalMsgId = proposalMsg.ok ? safeStr(proposalMsg.data?.id || "") : "";
