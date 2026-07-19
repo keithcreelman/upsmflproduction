@@ -1967,42 +1967,23 @@
         var dlPad = function (n) { return (n < 10 ? "0" : "") + n; };
         var dlLocal = defaultDeadline.getFullYear() + "-" + dlPad(defaultDeadline.getMonth() + 1) + "-" + dlPad(defaultDeadline.getDate()) + "T21:00";
 
-        var wbCard;
-        if (flags.draft === false) {
-          wbCard = '<div class="fo-card"><div class="fo-card-head"><h3>🧪 Draft with AI</h3></div>' +
-            '<p class="fo-row-hint">Workbench is OFF — flip <strong>Rule proposals — AI drafting workbench</strong> in Kill Switches.</p></div>';
-        } else if (RD.sid) {
-          wbCard = '<div class="fo-card"><div class="fo-card-head"><h3>🧪 Draft with AI <span style="font-weight:400;font-size:12px;opacity:.6;">session ' + esc(RD.sid) + '</span></h3></div>' +
-            '<div style="display:grid;grid-template-columns:minmax(320px,1fr) minmax(260px,380px);gap:12px;">' +
-              '<div>' +
-                '<div id="rpd-chat" style="max-height:420px;overflow-y:auto;border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:8px;font-size:13px;"></div>' +
-                '<div style="display:flex;gap:6px;margin-top:6px;">' +
-                  '<textarea id="rpd-input" rows="2" style="flex:1;" placeholder="Answer, push back, or ask for research…"></textarea>' +
-                  '<button type="button" class="fo-btn" id="rpd-send">Send</button>' +
-                '</div>' +
-                '<p class="fo-row-hint" style="margin-top:4px;">Turns can take up to a minute when it researches — the status line shows what it is doing. <a href="#" id="rpd-exit">exit session</a></p>' +
-              '</div>' +
-              '<div id="rpd-draft" style="border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:8px;max-height:480px;overflow-y:auto;"></div>' +
-            '</div></div>';
-        } else {
-          wbCard = '<div class="fo-card"><div class="fo-card-head"><h3>🧪 Draft with AI</h3></div>' +
-            '<p class="fo-row-hint">Braindump the idea — rough is fine. The bot cleans it up, interrogates you, challenges it against canon, and pulls real league data. Your answers become the bot&#39;s grounding when you publish.</p>' +
-            '<textarea id="rpd-raw" rows="4" style="width:100%;max-width:760px;" placeholder="e.g. thinking we should cap how many QBs a team can roster — feels like hoarding is choking the market…"></textarea>' +
-            '<div style="margin-top:6px;"><button type="button" class="fo-btn" id="rpd-start" style="font-weight:700;">🧪 Start drafting session</button> <span id="rpd-start-status" style="opacity:.7;font-size:12px;"></span></div>' +
-            '<div id="rpd-resume" style="margin-top:8px;"></div>' +
-          '</div>';
-        }
+        // In-app AI drafting workbench removed — rule drafting now happens in a
+        // dedicated Claude Code session; the commish pastes the finished block
+        // straight into the New Rule Proposal form below.
+        var wbCard = '';
 
         var form =
           '<div class="fo-card"><div class="fo-card-head"><h3>📜 New Rule Proposal</h3></div>' + banner +
           '<div style="display:grid;gap:8px;max-width:760px;">' +
-            '<label style="font-weight:700;">① Proposal — paste the whole owner-facing block (Block 1 from the drafting session)<br>' +
-              '<textarea id="rp-proposal" rows="12" style="width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;" placeholder="Paste the ENTIRE proposal markdown. It is parsed for you into title / tldr / rule text / rationale / supporting data — the fields owners see. Hit Preview to check the parse before publishing."></textarea></label>' +
-            '<div class="fo-row-hint" style="margin-top:-2px;">Auto-parsed: the <b>**title:**</b> and <b>**tldr:**</b> lines, plus the <b>## body_md</b> / <b>## rationale_md</b> / <b>## supporting_data_md</b> sections. Preview shows exactly what was captured.</div>' +
+            '<label style="font-weight:700;">Round title <span style="font-weight:400;opacity:.65;font-size:12px;">— the batch headline (optional for one rule; used as the announcement title for a multi-rule post)</span><br>' +
+              '<input type="text" id="rp-round-title" style="width:100%;" placeholder="e.g. July Rules Package — QB caps + taxi cleanup"></label>' +
+            '<label style="font-weight:700;">① Proposal(s) — paste the owner-facing block. For MULTIPLE rules in one post, separate each with a line <code>=== NEXT RULE ===</code><br>' +
+              '<textarea id="rp-proposal" rows="12" style="width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;" placeholder="Paste one or more rules. Each is parsed into title / tldr / rule text / rationale / supporting data — the fields owners see. Separate multiple rules with a line:  === NEXT RULE ===  . Hit Preview to check the parse before publishing."></textarea></label>' +
+            '<div class="fo-row-hint" style="margin-top:-2px;">Auto-parsed per rule: the <b>**title:**</b> / <b>**tldr:**</b> lines + <b>## body_md</b> / <b>## rationale_md</b> / <b>## supporting_data_md</b> sections. Split multiple rules with <code>=== NEXT RULE ===</code>; Preview shows every rule captured.</div>' +
             '<div style="margin-top:6px;padding-top:8px;border-top:1px dashed rgba(128,128,128,.45);">' +
               '<label style="font-weight:700;">🔒 ② Rule change on approval — canon edits (Block 2 — COMMISH-ONLY, never shown to owners)<br>' +
-                '<textarea id="rp-canon" rows="8" style="width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;" placeholder="Paste the Rule-Change ledger (Block 2): the exact edits to docs/league_context_v1.md to apply IF this passes, plus the changelog entry. Never sent in the owner DM or thread. Stored and logged in the versioned record pass or fail."></textarea></label>' +
-              '<div class="fo-row-hint" style="margin-top:2px;">Owners never see this. It is stored with the proposal and written to the version-controlled changelog when you rule the outcome — pass or fail — and its canon edits are ready to apply on a pass.</div>' +
+                '<textarea id="rp-canon" rows="8" style="width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;" placeholder="Paste the Rule-Change ledger (Block 2): the exact edits to docs/league_context_v1.md to apply IF this passes, plus the changelog entry. For multiple rules, separate each rule&#39;s canon block with the SAME === NEXT RULE === line, in the same order. Never sent in the owner DM or thread. Stored + logged pass or fail."></textarea></label>' +
+              '<div class="fo-row-hint" style="margin-top:2px;">Owners never see this. One canon block per rule (same <code>=== NEXT RULE ===</code> order); stored with each proposal and written to the version-controlled changelog when you rule the outcome — pass or fail.</div>' +
             '</div>' +
             '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
               '<label>Passes at (YES votes) <input type="number" id="rp-pass" min="1" max="12" value="7" style="width:70px;"></label>' +
@@ -2102,63 +2083,87 @@
           var cm = t.match(/\*\*\s*category\s*:?\s*\*\*\s*:?\s*([A-Za-z0-9_-]+)/i); if (cm) o.category = cm[1];
           return o;
         }
+        // Split Block 1 (and Block 2 canon) into N rules on a "=== NEXT RULE ==="
+        // delimiter line, pair canon blocks by order, and emit an items[] array.
+        // One rule (no delimiter) => items.length 1, round_title defaults to the
+        // rule's own title, so the single-rule round id is unchanged.
+        var RULE_DELIM = /^[ \t]*={2,}[ \t]*NEXT RULE[ \t]*={2,}[ \t]*$/im;
         var buildBody = function () {
           var dl = val('rp-deadline');
-          var p = parseProposal(val('rp-proposal'));
+          var chunks = String(val('rp-proposal') || '').split(RULE_DELIM)
+            .map(function (s) { return s.trim(); }).filter(function (s) { return s.length; });
+          if (!chunks.length) chunks = [''];
+          var canonChunks = String(val('rp-canon') || '').split(RULE_DELIM)
+            .map(function (s) { return s.trim(); });
+          var parsed = chunks.map(function (c) { return parseProposal(c); });
+          var items = parsed.map(function (p, i) {
+            return {
+              title: p.title, tldr: p.tldr, body_md: p.body_md,
+              rationale_md: p.rationale_md, supporting_data_md: p.supporting_data_md,
+              canon_change_md: (canonChunks[i] || '') || undefined,
+            };
+          });
+          var roundTitle = val('rp-round-title').trim();
           return {
-            title: p.title, tldr: p.tldr, body_md: p.body_md,
-            rationale_md: p.rationale_md, supporting_data_md: p.supporting_data_md,
-            canon_change_md: val('rp-canon'),
-            pass_yes_count: parseInt(val('rp-pass'), 10) || parseInt(p.pass, 10) || 7,
+            round_title: roundTitle || (items[0] && items[0].title) || '',
+            items: items,
+            pass_yes_count: parseInt(val('rp-pass'), 10) || parseInt(parsed[0] && parsed[0].pass, 10) || 7,
             deadline_utc: dl ? new Date(dl).toISOString() : '',
-            category: val('rp-category') || p.category || 'rules',
+            category: val('rp-category') || (parsed[0] && parsed[0].category) || 'rules',
             test_mode: !!(document.getElementById('rp-testmode') || {}).checked,
-            draft_session_id: RD.linkedSid || undefined,
-            _parsed: p,
           };
         };
         document.getElementById('rp-preview-btn').addEventListener('click', function () {
           var b = buildBody();
           var pre = document.getElementById('rp-preview');
           pre.style.display = 'block';
-          var miss = [];
-          if (!b.title) miss.push('title');
-          if (!b.body_md) miss.push('rule text (## body_md)');
-          pre.textContent =
-            '── PARSE CHECK (Block 1) ──\n' +
-            'title: ' + (b.title ? '✅' : '❌ MISSING') +
-            '  ·  tldr: ' + (b.tldr ? '✅' : '⚠️ empty') +
-            '  ·  rule text: ' + (b.body_md ? '✅' : '❌ MISSING') +
-            '  ·  rationale: ' + (b.rationale_md ? '✅' : '⚠️ empty') +
-            '  ·  supporting: ' + (b.supporting_data_md ? '✅' : '— none') +
-            '  ·  canon (Block 2): ' + (b.canon_change_md ? '✅' : '— none') + '\n' +
-            (miss.length ? '⚠️ Could not parse: ' + miss.join(', ') + ' — needs a **title:** line and a ## body_md section.\n' : '') +
-            '\n' +
-            '── DM CARD (every owner gets this) ──\n' +
-            '🏛 RULE PROPOSAL — ' + b.title + '\n\n' + (b.tldr || '') + '\n\n' +
-            'Voting deadline: ' + (b.deadline_utc || '(not set)') + '\nPasses at: ' + b.pass_yes_count + ' YES votes\n' +
-            '[✅ Approve] [❌ Decline] [💬 Discuss]\n\n' +
-            '── THREAD ──\n' + b.title + '\n\n' + b.body_md +
-            (b.rationale_md ? '\n\n📋 Why this came up\n' + b.rationale_md : '') +
-            (b.supporting_data_md ? '\n\n📊 Supporting data\n' + b.supporting_data_md : '') +
-            (b.canon_change_md
-              ? '\n\n════ 🔒 COMMISH-ONLY — NOT sent to owners (stored + versioned pass/fail) ════\n' + b.canon_change_md
-              : '');
+          var out = [];
+          out.push('── ROUND ──');
+          out.push('Round title: ' + (b.round_title || '❌ MISSING') + '   ·   Rules in this post: ' + b.items.length);
+          out.push('Deadline: ' + (b.deadline_utc || '(not set)') + '   ·   Passes at: ' + b.pass_yes_count + ' YES' + (b.test_mode || !flags.live ? ' (dark = 1)' : ''));
+          out.push('');
+          b.items.forEach(function (it, i) {
+            var miss = [];
+            if (!it.title) miss.push('title');
+            if (!it.body_md) miss.push('rule text (## body_md)');
+            out.push('── RULE ' + (i + 1) + (it.title ? ': ' + it.title : '') + ' ──');
+            out.push('  title: ' + (it.title ? '✅' : '❌ MISSING') +
+              '  ·  tldr: ' + (it.tldr ? '✅' : '⚠️ empty') +
+              '  ·  rule text: ' + (it.body_md ? '✅' : '❌ MISSING') +
+              '  ·  rationale: ' + (it.rationale_md ? '✅' : '⚠️ empty') +
+              '  ·  supporting: ' + (it.supporting_data_md ? '✅' : '— none') +
+              '  ·  canon: ' + (it.canon_change_md ? '✅' : '— none'));
+            if (miss.length) out.push('  ⚠️ Could not parse: ' + miss.join(', ') + ' — needs a **title:** line and a ## body_md section.');
+          });
+          var it0 = b.items[0] || {};
+          out.push('');
+          out.push('── SAMPLE DM CARD (rule 1 of ' + b.items.length + ', each owner gets one per rule) ──');
+          out.push('🏛 RULE PROPOSAL — ' + (it0.title || ''));
+          out.push('');
+          out.push(it0.tldr || '');
+          out.push('[✅ Approve] [❌ Decline] [💬 Discuss]');
+          pre.textContent = out.join('\n');
         });
         document.getElementById('rp-publish-btn').addEventListener('click', function () {
           var b = buildBody();
-          if (!b.title || b.title.length < 4) return toast('Title too short', 'err');
-          if (!b.body_md || b.body_md.length < 10) return toast('Rule text too short', 'err');
+          if (!b.items.length) return toast('Paste at least one rule', 'err');
+          for (var i = 0; i < b.items.length; i++) {
+            var it = b.items[i];
+            if (!it.title || it.title.length < 4) return toast('Rule ' + (i + 1) + ': title too short', 'err');
+            if (!it.body_md || it.body_md.length < 10) return toast('Rule ' + (i + 1) + ': rule text too short (need a ## body_md section)', 'err');
+          }
+          if (b.items.length > 1 && !b.round_title) return toast('Give the round a title (top field) when posting multiple rules', 'err');
           if (!b.deadline_utc) return toast('Set a deadline', 'err');
           var darkNow = !flags.live || b.test_mode;
+          var n = b.items.length;
           var msg = darkNow
-            ? 'Publish DARK? DMs only you, test channel, passes at 1 YES.'
-            : 'Publish LIVE to the whole league? Every active owner gets a DM with vote buttons. This is the real thing.';
+            ? 'Publish DARK? ' + n + ' rule' + (n > 1 ? 's' : '') + ' — DMs only you, test channel, each passes at 1 YES.'
+            : 'Publish LIVE to the whole league? ' + n + ' rule' + (n > 1 ? 's' : '') + ' — every active owner gets a DM card per rule. This is the real thing.';
           if (!window.confirm(msg)) return;
           var hour = new Date().getHours();
           if (!darkNow && (hour >= 22 || hour < 6) && !window.confirm('It is quiet hours (10 PM–6 AM ET) — owners get pinged NOW. Still publish?')) return;
           postJSON(apiUrl('/admin/rule-proposals/publish') + '?L=' + encodeURIComponent(L) + '&YEAR=' + encodeURIComponent(YEAR), b)
-            .then(function (r) { toast('Published ' + r.round_id + ' — fan-out running (~15s)', 'ok'); setTimeout(renderRuleProps, 4000); })
+            .then(function (r) { toast('Published ' + r.round_id + ' (' + (r.item_count || n) + ' rule' + ((r.item_count || n) > 1 ? 's' : '') + ') — fan-out running (~15s)', 'ok'); setTimeout(renderRuleProps, 4000); })
             .catch(function (e) { toast('Publish failed: ' + e.message, 'err'); });
         });
         $$('[data-rpv-btn]', host).forEach(function (btn) {
@@ -2202,58 +2207,8 @@
           });
         });
 
-        // ── workbench wiring ──
+        // AI drafting workbench removed — stop any stale poll from a prior render.
         rdStopPoll();
-        if (RD.sid) {
-          var sendBtn = document.getElementById('rpd-send');
-          var input = document.getElementById('rpd-input');
-          if (sendBtn && input) {
-            sendBtn.addEventListener('click', function () {
-              var t = (input.value || '').trim();
-              if (!t) return;
-              input.value = '';
-              rdSend(t);
-            });
-            input.addEventListener('keydown', function (ev) {
-              if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); sendBtn.click(); }
-            });
-          }
-          var exitLink = document.getElementById('rpd-exit');
-          if (exitLink) exitLink.addEventListener('click', function (ev) {
-            ev.preventDefault(); rdStopPoll(); RD.sid = null; RD.inflight = false; renderRuleProps();
-          });
-          rdRefresh().then(function (d) {
-            // A turn may still be running server-side (page reload mid-turn) —
-            // ride it out with the poll instead of stranding the status line.
-            if (d && d.session && d.session.turn_started_at_utc) rdArmPoll();
-          });
-        } else if (flags.draft !== false) {
-          var startBtn = document.getElementById('rpd-start');
-          if (startBtn) startBtn.addEventListener('click', function () {
-            var raw = ((document.getElementById('rpd-raw') || {}).value || '').trim();
-            if (raw.length < 10) return toast('Give me at least a sentence', 'err');
-            startBtn.disabled = true;
-            var st = document.getElementById('rpd-start-status');
-            if (st) st.textContent = 'starting — first turn can take up to a minute…';
-            postJSON(rdApi('/start').replace('/draft/start', '/draft/start'), { raw_text: raw })
-              .then(function (r) { RD.sid = r.session_id; RD.inflight = false; renderRuleProps(); })
-              .catch(function (e) { startBtn.disabled = false; if (st) st.textContent = ''; toast('Start failed: ' + e.message, 'err'); });
-          });
-          fetchJSON(apiUrl('/admin/rule-proposals/drafts') + '?L=' + encodeURIComponent(L) + '&YEAR=' + encodeURIComponent(YEAR))
-            .then(function (r) {
-              var el = document.getElementById('rpd-resume');
-              if (!el || !r.sessions || !r.sessions.length) return;
-              el.innerHTML = '<strong style="font-size:12px;opacity:.7;">RESUME A SESSION</strong>' +
-                r.sessions.filter(function (x) { return x.status === 'draft'; }).slice(0, 6).map(function (x) {
-                  return '<div style="font-size:12px;margin:3px 0;"><a href="#" data-rpd-resume="' + esc(x.session_id) + '">' + esc(x.title) + '</a> · ' + esc(x.turn_count + ' turns') + ' · ' + esc(x.updated_at_utc || '') + '</div>';
-                }).join('');
-              $$('[data-rpd-resume]', el).forEach(function (a) {
-                a.addEventListener('click', function (ev) {
-                  ev.preventDefault(); RD.sid = a.getAttribute('data-rpd-resume'); renderRuleProps();
-                });
-              });
-            }).catch(function () { /* resume list is optional */ });
-        }
       })
       .catch(function (e) {
         if (CS.tab !== myTab) return;
