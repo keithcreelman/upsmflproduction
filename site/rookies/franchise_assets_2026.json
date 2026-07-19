@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-07-18T10:48:31.817772+00:00",
+    "generated_at_utc": "2026-07-19T10:59:31.073853+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2803,18 +2803,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_12616",
-          "display": "Jacoby Brissett",
-          "player_id": "12616",
-          "position": "QB",
-          "nfl_team": "ARI",
-          "salary": 12000,
-          "contract_year": 0,
-          "contract_status": "",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17043",
           "display": "TreVeyon Henderson",
           "player_id": "17043",
@@ -2895,18 +2883,6 @@
           "salary": 5000,
           "contract_year": 1,
           "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_14137",
-          "display": "Noah Fant",
-          "player_id": "14137",
-          "position": "TE",
-          "nfl_team": "NOS",
-          "salary": 4000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3003,18 +2979,6 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15284",
-          "display": "Jaylen Waddle",
-          "player_id": "15284",
-          "position": "WR",
-          "nfl_team": "DEN",
-          "salary": 1000,
-          "contract_year": 0,
-          "contract_status": "",
           "roster_status": "ROSTER",
           "taxi": false
         },
