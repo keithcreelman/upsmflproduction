@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-07-19T14:32:43.327Z",
-    "row_count": 50,
+    "updated_at": "2026-07-19T14:55:52.553Z",
+    "row_count": 51,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -9129,6 +9129,156 @@
       "twb_meta": null,
       "mfl_trade_id": "1103",
       "trade_id": "1103",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1109",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-07-19T14:55:52.553Z",
+      "updated_at": "2026-07-19T14:55:52.553Z",
+      "from_franchise_id": "0010",
+      "to_franchise_id": "0011",
+      "from_franchise_name": "Blake Bombers",
+      "to_franchise_name": "Cleon Ca$h",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "16184,13163,17075",
+      "will_receive": "17032",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 3,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-07-19T14:55:51.158Z",
+        "source": "ups-mobile-trade-builder",
+        "league_id": "74598",
+        "season": "2026",
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "selected_assets": [
+              {
+                "asset_id": "P_16184",
+                "type": "PLAYER",
+                "player_id": "16184",
+                "player_name": "Jayden Reed",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "GBP",
+                "salary": 15000,
+                "years": 1,
+                "contract_type": "Vet-Ext1",
+                "contract_info": "CL 1|TCV 15K|AAV 15K|Y1-15K|Ext: Bomb|GTD: 11.3K",
+                "contract_length": 1,
+                "already_extended_by_this_franchise": false,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "P_13163",
+                "type": "PLAYER",
+                "player_id": "13163",
+                "player_name": "Chris Godwin",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "TBB",
+                "salary": 10000,
+                "years": 1,
+                "contract_type": "Vet-FAA",
+                "contract_info": "CL 2| TCV 20K| AAV 10K| Y1-10K, Y2-10K| GTD: 15K",
+                "contract_length": 2,
+                "already_extended_by_this_franchise": false,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "P_17075",
+                "type": "PLAYER",
+                "player_id": "17075",
+                "player_name": "Matthew Golden",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "GBP",
+                "salary": 5000,
+                "years": 2,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K",
+                "contract_length": 3,
+                "already_extended_by_this_franchise": false,
+                "taxi": true,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 25000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "selected_assets": [
+              {
+                "asset_id": "P_17032",
+                "type": "PLAYER",
+                "player_id": "17032",
+                "player_name": "Jaxson Dart",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "NYG",
+                "salary": 9000,
+                "years": 2,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3| TCV 27K| AAV 9K| Y1-9K, Y2-9K, Y3-9K, Y4-14K Option| GTD: 20.3K",
+                "contract_length": 3,
+                "already_extended_by_this_franchise": false,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 9000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0010",
+          "right_team_id": "0011"
+        }
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1109",
+      "trade_id": "1109",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
