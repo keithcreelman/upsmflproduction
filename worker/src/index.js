@@ -39291,7 +39291,14 @@ export default {
         const bodyMd = safeStr(rpBody.body_md);
         if (title.length < 4) return jsonOut(400, { ok: false, error: "title too short" });
         if (bodyMd.length < 10) return jsonOut(400, { ok: false, error: "rule text too short" });
-        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+        // Slug cap = 36 (Keith 2026-07-18). The slug becomes proposalId AND, via
+        // roundId=`rp-<slug>`, the button custom_ids: `t:vote:<roundId>:<proposalId>:<value>`
+        // and `t:vote_modal:...` embed the slug TWICE. Discord rejects any custom_id
+        // over 100 chars ("Invalid Form Body"), which silently killed the DM vote
+        // card for long titles. At 36 the worst case (t:vote_modal + 'abstain') is
+        // 97 chars. The slug is an internal id only — owners see the full `title`
+        // (stored separately below), so shortening it has no user-facing effect.
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 36);
         if (slug.length < 3) return jsonOut(400, { ok: false, error: "title yields no usable slug" });
         const proposalId = slug;
         const roundId = `rp-${slug}`;
