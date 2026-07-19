@@ -532,7 +532,6 @@ function buildTallyContent(item, responses, owners, comments) {
   lines.push(`✅ Yes (${buckets.yes.length}) — ${fmt(yesNames)}`);
   lines.push(`❌ No (${buckets.no.length}) — ${fmt(noNames)}`);
   lines.push(`➖ Abstain (${buckets.abstain.length}) — ${fmt(absNames)}`);
-  lines.push(`💬 Comments — ${comments?.length || 0}`);
   lines.push(`⏳ Not voted (${notVoted.length}) — ${fmt(notVoted)}`);
   lines.push("");
   if (!item.discussion_only) {
@@ -586,7 +585,6 @@ function buildProposalMessage(round, item) {
         type: COMPONENT_TYPE.ACTION_ROW,
         components: [
           { type: COMPONENT_TYPE.BUTTON, style: BUTTON_STYLE.PRIMARY, label: "Questions? 🤖", custom_id: `t:explain:${round.round_id}:${item.proposal_id}` },
-          { type: COMPONENT_TYPE.BUTTON, style: BUTTON_STYLE.SECONDARY, label: "💬 Comment", custom_id: `t:comment:${round.round_id}:${item.proposal_id}` },
         ],
       },
     ],
@@ -1198,28 +1196,52 @@ export async function runStartFlow(env, roundId, interaction, applicationId, int
   }
   dmLines.push(`Vote, comment, or ask the bot to explain.`);
   dmLines.push(`If you don't vote, I'll nudge you here **every 48 hours for the first 6 days, then daily** until you respond or the round closes.`);
-  let dmVoteCardPayload = null;
+  // Rule Proposals v2 DM cards: ONE interactive card per item so a round can
+  // carry N rules (each card's Approve/Decline/Discuss custom_ids embed the
+  // proposal_id, so one vote pipeline serves them all). Single-item rounds send
+  // just the one card (unchanged UX); multi-item rounds lead with a short intro.
+  let dmVoteCardPayloads = null;
   if (opts.dmVoteCards) {
-    // Single-item rounds only (the publish path guarantees this); re-read the
-    // item so the card carries the thread id stamped moments ago.
+    // Re-read items so each card carries the thread id stamped moments ago.
     const freshItems = await getRoundItems(env, round.round_id);
-    const it0 = freshItems[0];
-    if (it0) {
-      const { buildDmVoteCard } = await import("./discord_rule_proposal.js");
-      dmVoteCardPayload = buildDmVoteCard(round, it0, guildId);
-    }
+    const { buildDmVoteCard } = await import("./discord_rule_proposal.js");
+    dmVoteCardPayloads = freshItems.map((it) => buildDmVoteCard(round, it, guildId)).filter(Boolean);
   }
+  const multiCard = !!(dmVoteCardPayloads && dmVoteCardPayloads.length > 1);
+  const cardIntro = multiCard
+    ? [
+        `🏛 **${round.title}** is open — **${dmVoteCardPayloads.length} rules** to vote on this round.`,
+        deadlineFormatted ? `**Deadline:** ${deadlineFormatted}.` : ``,
+        `A card for each rule follows — Approve / Decline / Discuss right here, or open its thread.`,
+      ].filter(Boolean).join("\n").slice(0, 1990)
+    : null;
   let dmsSent = 0;
   const dmFailures = [];
   for (const o of owners) {
     const cid = await openDmChannel(env, o.discord_user_id);
     if (!cid) { dmFailures.push({ discord_user_id: o.discord_user_id, reason: "dm_channel_open_failed" }); continue; }
-    const dr = await sendDm(env, cid, dmVoteCardPayload || { content: dmLines.join("\n").slice(0, 1990) });
-    // Stamp last_nudge_utc on successful kickoff DM so the cron treats the
+    let ok = false;
+    let lastStatus = "failed";
+    if (dmVoteCardPayloads && dmVoteCardPayloads.length) {
+      if (cardIntro) {
+        const introDr = await sendDm(env, cid, { content: cardIntro });
+        if (introDr.ok) ok = true; else lastStatus = introDr.status || "failed";
+        await sleepMs(200);
+      }
+      for (const card of dmVoteCardPayloads) {
+        const cardDr = await sendDm(env, cid, card);
+        if (cardDr.ok) ok = true; else lastStatus = cardDr.status || "failed";
+        await sleepMs(200);
+      }
+    } else {
+      const dr = await sendDm(env, cid, { content: dmLines.join("\n").slice(0, 1990) });
+      if (dr.ok) ok = true; else lastStatus = dr.status || "failed";
+    }
+    // Stamp last_nudge_utc on a successful kickoff DM so the cron treats the
     // kickoff itself as nudge-zero — the first *actual* nudge then waits the
     // full 48h cadence instead of firing on the next sweep.
     const stampNow = nowIso();
-    if (dr.ok) {
+    if (ok) {
       await env.UPS_MFL_DB.prepare(`
         UPDATE discord_round_owners
            SET bot_dm_channel_id = ?, last_active_utc = ?, last_nudge_utc = ?
@@ -1227,7 +1249,7 @@ export async function runStartFlow(env, roundId, interaction, applicationId, int
       `).bind(cid, stampNow, stampNow, round.round_id, o.discord_user_id).run();
       dmsSent++;
     } else {
-      dmFailures.push({ discord_user_id: o.discord_user_id, reason: `dm_send_${dr.status || "failed"}` });
+      dmFailures.push({ discord_user_id: o.discord_user_id, reason: `dm_send_${lastStatus}` });
       await env.UPS_MFL_DB.prepare(`
         UPDATE discord_round_owners SET bot_dm_channel_id = ?, last_active_utc = ?
         WHERE round_id = ? AND discord_user_id = ?

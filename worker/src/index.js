@@ -39287,21 +39287,59 @@ export default {
         }
         let rpBody = {};
         try { rpBody = (await request.json()) || {}; } catch (_) { rpBody = {}; }
-        const title = safeStr(rpBody.title).slice(0, 120);
-        const bodyMd = safeStr(rpBody.body_md);
-        if (title.length < 4) return jsonOut(400, { ok: false, error: "title too short" });
-        if (bodyMd.length < 10) return jsonOut(400, { ok: false, error: "rule text too short" });
-        // Slug cap = 36 (Keith 2026-07-18). The slug becomes proposalId AND, via
-        // roundId=`rp-<slug>`, the button custom_ids: `t:vote:<roundId>:<proposalId>:<value>`
-        // and `t:vote_modal:...` embed the slug TWICE. Discord rejects any custom_id
-        // over 100 chars ("Invalid Form Body"), which silently killed the DM vote
-        // card for long titles. At 36 the worst case (t:vote_modal + 'abstain') is
-        // 97 chars. The slug is an internal id only — owners see the full `title`
-        // (stored separately below), so shortening it has no user-facing effect.
-        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 36);
-        if (slug.length < 3) return jsonOut(400, { ok: false, error: "title yields no usable slug" });
-        const proposalId = slug;
-        const roundId = `rp-${slug}`;
+        // Accept EITHER a single proposal (legacy top-level title/body_md) OR an
+        // items[] array — one round, N rules (the original May batch shape). The
+        // round/item/thread/vote/tally/auto-close machinery is already multi-item;
+        // this route just stopped exercising it. Normalize to an items array.
+        const rawItems = Array.isArray(rpBody.items) && rpBody.items.length
+          ? rpBody.items
+          : [{
+              title: rpBody.title, tldr: rpBody.tldr, body_md: rpBody.body_md,
+              rationale_md: rpBody.rationale_md, supporting_data_md: rpBody.supporting_data_md,
+              canon_change_md: rpBody.canon_change_md, pass_yes_count: rpBody.pass_yes_count,
+            }];
+        if (rawItems.length > 12) return jsonOut(400, { ok: false, error: "too many rules in one round (max 12)" });
+
+        // Slug cap = 36 (Keith 2026-07-18). Both roundId (`rp-<roundSlug>`) AND each
+        // proposalId embed into button custom_ids `t:vote:<roundId>:<proposalId>:<value>`
+        // / `t:vote_modal:...`; Discord rejects custom_ids over 100 chars ("Invalid
+        // Form Body"), which silently kills the DM vote card. Capping BOTH slugs at
+        // 36 keeps the worst case (`t:vote_modal:rp-<36>:<36>:yes`) under 100. Slugs
+        // are internal ids only — owners see the full titles (stored separately).
+        const mkSlug = (s) => safeStr(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 36);
+
+        // Validate + slug each rule, deduping slugs within the round.
+        const items = [];
+        const seenSlugs = new Set();
+        for (let i = 0; i < rawItems.length; i++) {
+          const it = rawItems[i] || {};
+          const t = safeStr(it.title).slice(0, 120);
+          const b = safeStr(it.body_md);
+          if (t.length < 4) return jsonOut(400, { ok: false, error: `rule ${i + 1}: title too short` });
+          if (b.length < 10) return jsonOut(400, { ok: false, error: `rule ${i + 1}: rule text too short` });
+          let s = mkSlug(t);
+          if (s.length < 3) return jsonOut(400, { ok: false, error: `rule ${i + 1}: title yields no usable slug` });
+          if (seenSlugs.has(s)) {
+            let n = 2; const base = s.slice(0, 34);
+            while (seenSlugs.has(`${base}-${n}`)) n++;
+            s = `${base}-${n}`;
+          }
+          seenSlugs.add(s);
+          items.push({
+            proposalId: s, title: t, tldr: safeStr(it.tldr) || null, body_md: b,
+            rationale_md: safeStr(it.rationale_md) || null,
+            supporting_data_md: safeStr(it.supporting_data_md) || null,
+            canon_change_md: safeStr(it.canon_change_md) || null,
+            pass_yes_count: it.pass_yes_count,
+          });
+        }
+
+        // Round identity: round_title when given (multi-rule), else the sole rule's
+        // title (so single-rule roundId/proposalId are byte-identical to before).
+        const roundTitle = safeStr(rpBody.round_title).slice(0, 120) || items[0].title;
+        const roundSlug = mkSlug(roundTitle);
+        if (roundSlug.length < 3) return jsonOut(400, { ok: false, error: "round title yields no usable slug" });
+        const roundId = `rp-${roundSlug}`;
 
         // Deadline: explicit, ISO, in the future. NEVER derived — the
         // derivation path is May-calendar logic (see runStartFlow trap note).
@@ -39315,15 +39353,17 @@ export default {
         // per-proposal even after going live.
         const liveFlag = await getFeatureFlag(env, "RULE_PROPOSALS_LIVE");
         const dark = !liveFlag || !!rpBody.test_mode;
-        const passYes = dark ? 1 : Math.min(12, Math.max(1, safeInt(rpBody.pass_yes_count, 7)));
+        const defaultPassYes = Math.min(12, Math.max(1, safeInt(rpBody.pass_yes_count, 7)));
         const TEST_CHANNEL = "1089538054236160010";
 
         // Additive, refuse-on-existing — the seeder's wipe semantics must be
-        // unreachable from this path.
-        const existsP = await env.UPS_MFL_DB.prepare(`SELECT id, status FROM hall_proposals WHERE id = ?`).bind(proposalId).first();
-        if (existsP) return jsonOut(409, { ok: false, error: `proposal '${proposalId}' already exists (status ${existsP.status}) — change the title` });
+        // unreachable from this path. Check the round AND every proposal id.
         const existsR = await env.UPS_MFL_DB.prepare(`SELECT round_id FROM discord_rounds WHERE round_id = ?`).bind(roundId).first();
-        if (existsR) return jsonOut(409, { ok: false, error: `round '${roundId}' already exists — change the title` });
+        if (existsR) return jsonOut(409, { ok: false, error: `round '${roundId}' already exists — change the round title` });
+        for (const it of items) {
+          const existsP = await env.UPS_MFL_DB.prepare(`SELECT id, status FROM hall_proposals WHERE id = ?`).bind(it.proposalId).first();
+          if (existsP) return jsonOut(409, { ok: false, error: `proposal '${it.proposalId}' already exists (status ${existsP.status}) — change that rule's title` });
+        }
 
         const owners = dark
           ? (await env.UPS_MFL_DB.prepare(`SELECT discord_user_id, franchise_id, owner_name FROM discord_owners WHERE franchise_id = '0008' AND active_owner = 'Y'`).all()).results || []
@@ -39331,27 +39371,33 @@ export default {
         if (!owners.length) return jsonOut(500, { ok: false, error: "no active owners resolved from discord_owners" });
 
         const ts = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-        // canon_change_md — commish-only pre-staged canon edit (Keith 2026-07-18).
-        // Stored but NEVER surfaced to owners (the DM/thread builders below only
+        // canon_change_md — commish-only pre-staged canon edit (Keith 2026-07-18),
+        // per rule. Stored but NEVER surfaced to owners (DM/thread builders only
         // read title/tldr/body_md/rationale_md/supporting_data_md). On the ruling
         // it feeds the version-controlled changelog + canon PR, pass or fail.
-        await env.UPS_MFL_DB.prepare(
-          `INSERT INTO hall_proposals
-             (id, title, type, status, category, tldr, body_md, rationale_md, supporting_data_md, canon_change_md,
-              deadline_utc, quorum_min, pass_yes_count, created_at_utc, created_by)
-           VALUES (?, ?, 'vote', 'open', ?, ?, ?, ?, ?, ?, ?, 8, ?, ?, 'commish-tab')`
-        ).bind(proposalId, title, safeStr(rpBody.category) || "rules", safeStr(rpBody.tldr) || null,
-          bodyMd, safeStr(rpBody.rationale_md) || null, safeStr(rpBody.supporting_data_md) || null,
-          safeStr(rpBody.canon_change_md) || null,
-          deadlineIso, passYes, ts).run();
+        // pass_yes_count is per-rule: dark = 1; else per-item override or the round default.
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i];
+          const itemPassYes = dark ? 1 : Math.min(12, Math.max(1, safeInt(it.pass_yes_count, defaultPassYes)));
+          await env.UPS_MFL_DB.prepare(
+            `INSERT INTO hall_proposals
+               (id, title, type, status, category, tldr, body_md, rationale_md, supporting_data_md, canon_change_md,
+                deadline_utc, quorum_min, pass_yes_count, created_at_utc, created_by)
+             VALUES (?, ?, 'vote', 'open', ?, ?, ?, ?, ?, ?, ?, 8, ?, ?, 'commish-tab')`
+          ).bind(it.proposalId, it.title, safeStr(rpBody.category) || "rules", it.tldr,
+            it.body_md, it.rationale_md, it.supporting_data_md, it.canon_change_md,
+            deadlineIso, itemPassYes, ts).run();
+        }
         await env.UPS_MFL_DB.prepare(
           `INSERT INTO discord_rounds
              (round_id, title, status, started_at_utc, started_by, voting_deadline_utc, test_only, broadcast_channel_id)
            VALUES (?, ?, 'open', ?, 'commish-tab', ?, ?, ?)`
-        ).bind(roundId, title, ts, deadlineIso, dark ? 1 : 0, dark ? TEST_CHANNEL : null).run();
-        await env.UPS_MFL_DB.prepare(
-          `INSERT INTO discord_round_items (round_id, proposal_id, ordinal) VALUES (?, ?, 1)`
-        ).bind(roundId, proposalId).run();
+        ).bind(roundId, roundTitle, ts, deadlineIso, dark ? 1 : 0, dark ? TEST_CHANNEL : null).run();
+        for (let i = 0; i < items.length; i++) {
+          await env.UPS_MFL_DB.prepare(
+            `INSERT INTO discord_round_items (round_id, proposal_id, ordinal) VALUES (?, ?, ?)`
+          ).bind(roundId, items[i].proposalId, i + 1).run();
+        }
         for (const o of owners) {
           await env.UPS_MFL_DB.prepare(
             `INSERT INTO discord_round_owners (round_id, discord_user_id, franchise_id, display_name, state)
@@ -39366,7 +39412,7 @@ export default {
         // Invalid/missing session id is ignored: publish never fails because
         // of the workbench.
         let draftSessionId = "";
-        if (safeStr(rpBody.draft_session_id)) {
+        if (items.length === 1 && safeStr(rpBody.draft_session_id)) {
           const ds = await env.UPS_MFL_DB.prepare(
             `SELECT session_id FROM hall_draft_sessions WHERE session_id = ? AND status = 'draft'`
           ).bind(safeStr(rpBody.draft_session_id)).first();
@@ -39374,7 +39420,7 @@ export default {
             draftSessionId = ds.session_id;
             await env.UPS_MFL_DB.prepare(
               `UPDATE hall_draft_sessions SET status='published', proposal_id=?, updated_at_utc=? WHERE session_id=?`
-            ).bind(proposalId, ts, draftSessionId).run();
+            ).bind(items[0].proposalId, ts, draftSessionId).run();
           } else {
             console.log(`[rule-proposals] draft_session_id ${safeStr(rpBody.draft_session_id)} not found/not draft — ignored`);
           }
@@ -39386,8 +39432,8 @@ export default {
           if (draftSessionId) {
             try {
               const { finalizeDraftRulings } = await import("./rule_draft_agent.js");
-              const fr = await finalizeDraftRulings(env, draftSessionId, proposalId);
-              console.log(`[rule-proposals] rulings distilled for ${proposalId}: ${JSON.stringify(fr)}`);
+              const fr = await finalizeDraftRulings(env, draftSessionId, items[0].proposalId);
+              console.log(`[rule-proposals] rulings distilled for ${items[0].proposalId}: ${JSON.stringify(fr)}`);
             } catch (e) {
               console.log(`[rule-proposals] distillation failed (non-fatal): ${e?.message || e}`);
             }
@@ -39397,9 +39443,14 @@ export default {
             .catch((e) => console.error(`[rule-proposals] start flow failed for ${roundId}: ${e?.message || e}`));
         })());
         return jsonOut(200, {
-          ok: true, proposal_id: proposalId, round_id: roundId,
-          dark, owners: owners.length, pass_yes_count: passYes, deadline_utc: deadlineIso,
-          note: dark ? "DARK: DMs only the commish; test channel; passes at 1 YES." : "LIVE: full league fan-out.",
+          ok: true, round_id: roundId, round_title: roundTitle,
+          proposal_ids: items.map((it) => it.proposalId),
+          proposal_id: items[0].proposalId, // back-compat for single-rule callers
+          item_count: items.length,
+          dark, owners: owners.length, pass_yes_count: dark ? 1 : defaultPassYes, deadline_utc: deadlineIso,
+          note: dark
+            ? `DARK: DMs only the commish; test channel; ${items.length} rule(s); each passes at 1 YES.`
+            : `LIVE: full league fan-out; ${items.length} rule(s).`,
         });
       }
 
