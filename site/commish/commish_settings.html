@@ -1848,6 +1848,10 @@
   // RD survives tab re-renders; the poll timer is cleared on every re-render
   // and re-armed only while a turn is in flight.
   var RD = { sid: null, poll: null, inflight: false, linkedSid: null };
+  // Proposals-list UI state (survives tab re-renders). testOnly=false hides
+  // [test] proposals from the list (default); true shows ONLY tests so they
+  // can be reviewed and deleted.
+  var RPUI = { testOnly: false };
   function rdStopPoll() { if (RD.poll) { clearInterval(RD.poll); RD.poll = null; } }
   function rdApi(pathSuffix) {
     return apiUrl("/admin/rule-proposals/draft" + pathSuffix) + "?L=" + encodeURIComponent(L) + "&YEAR=" + encodeURIComponent(YEAR);
@@ -2011,12 +2015,20 @@
             '<pre id="rp-preview" style="display:none;white-space:pre-wrap;background:rgba(128,128,128,.08);padding:10px;border-radius:8px;font-size:12px;"></pre>' +
           '</div></div>';
 
-        var rows = props.map(function (pr) {
+        var testCount = props.filter(function (pr) { return Number(pr.test_only) === 1; }).length;
+        // Default view HIDES [test] proposals; the Test-only toggle flips to
+        // showing ONLY tests (where the delete buttons live).
+        var visibleProps = props.filter(function (pr) {
+          var isTest = Number(pr.test_only) === 1;
+          return RPUI.testOnly ? isTest : !isTest;
+        });
+        var rows = visibleProps.map(function (pr) {
+          var isTest = Number(pr.test_only) === 1;
           var tally = '✅ ' + (pr.yes || 0) + ' · ❌ ' + (pr.no || 0) + ' · ➖ ' + (pr.abstain || 0) + ' / needs ' + (pr.pass_yes_count || 7);
           var st = pr.final_outcome
             ? (pr.final_outcome === 'passed' ? '✅ PASSED' : pr.final_outcome === 'rejected' ? '❌ REJECTED' : pr.final_outcome.toUpperCase()) + (pr.close_reason === 'commish_ruling' ? ' (ruling)' : '')
             : (pr.round_status === 'open' ? '🗳 open' : pr.round_status);
-          var testTag = Number(pr.test_only) === 1 ? ' <span style="opacity:.65;">[test]</span>' : '';
+          var testTag = isTest ? ' <span style="opacity:.65;">[test]</span>' : '';
           var link = pr.thread_url ? ' · <a href="' + esc(pr.thread_url) + '" target="_blank" rel="noopener">thread ↗</a>' : '';
           var controls = '';
           if (pr.round_status === 'open' && !pr.final_outcome) {
@@ -2033,9 +2045,14 @@
               '<label style="font-size:12px;"><input type="checkbox" data-rpr-post="' + esc(pr.proposal_id) + '" checked> also post to thread</label>' +
               '<button type="button" class="fo-btn" data-rpr-btn="' + esc(pr.proposal_id) + '">Save ruling</button>' +
             '</div>';
+          var delRow = isTest
+            ? '<div style="margin-top:6px;">' +
+                '<button type="button" class="fo-btn" data-rpdel="' + esc(pr.proposal_id) + '" title="Permanently delete this test proposal and its round, votes, and discussion" style="border-color:#a13b3b;color:#e06b6b;font-size:12px;padding:3px 10px;">🗑 Delete test</button>' +
+              '</div>'
+            : '';
           return '<div class="fo-card" style="margin-top:8px;"><strong>' + esc(pr.title) + '</strong>' + testTag +
             '<div class="fo-row-hint">' + st + ' · ' + tally + ' · 💬 ' + (pr.qa_count || 0) + ' discussions (' + (pr.surfaced_count || 0) + ' surfaced)' + link + '</div>' +
-            controls + ruling + '</div>';
+            controls + ruling + delRow + '</div>';
         }).join('');
 
         var qaRows = qa.slice(0, 15).map(function (q) {
@@ -2047,7 +2064,15 @@
         }).join('');
 
         host.innerHTML = wbCard + form +
-          '<div class="fo-card" style="margin-top:12px;"><div class="fo-card-head"><h3>Proposals</h3></div>' + (rows || '<p class="fo-row-hint">None yet.</p>') + '</div>' +
+          '<div class="fo-card" style="margin-top:12px;">' +
+            '<div class="fo-card-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
+              '<h3>Proposals' + (RPUI.testOnly ? ' <span style="font-weight:400;opacity:.6;font-size:13px;">— tests</span>' : '') + '</h3>' +
+              '<label style="font-weight:400;font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;">' +
+                '<input type="checkbox" id="rp-test-only"' + (RPUI.testOnly ? ' checked' : '') + '> 🧪 Test-only (' + testCount + ')' +
+              '</label>' +
+            '</div>' +
+            (rows || '<p class="fo-row-hint">' + (RPUI.testOnly ? 'No test proposals.' : 'None yet.') + '</p>') +
+          '</div>' +
           '<div class="fo-card" style="margin-top:12px;"><div class="fo-card-head"><h3>Recent discussions (🔒 = private, 📢 = surfaced)</h3></div>' + (qaRows || '<p class="fo-row-hint">No discussions yet.</p>') + '</div>';
 
         var val = function (id) { return (document.getElementById(id) || {}).value || ''; };
@@ -2157,6 +2182,23 @@
             postJSON(apiUrl('/admin/rule-proposals/' + encodeURIComponent(id) + '/ruling') + '?L=' + encodeURIComponent(L) + '&YEAR=' + encodeURIComponent(YEAR), { text: text, post_to_thread: post })
               .then(function () { toast('Ruling saved — the bot now treats it as authoritative.', 'ok'); setTimeout(renderRuleProps, 2000); })
               .catch(function (e) { toast('Failed: ' + e.message, 'err'); });
+          });
+        });
+
+        // ── Test-only filter toggle + test-proposal delete ──
+        var testOnlyCb = document.getElementById('rp-test-only');
+        if (testOnlyCb) testOnlyCb.addEventListener('change', function () {
+          RPUI.testOnly = testOnlyCb.checked;
+          renderRuleProps();
+        });
+        $$('[data-rpdel]', host).forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var id = btn.getAttribute('data-rpdel');
+            if (!window.confirm('Permanently delete test proposal “' + id + '”?\n\nThis removes the proposal and its round, votes, and all discussion. Cannot be undone.')) return;
+            btn.disabled = true;
+            postJSON(apiUrl('/admin/rule-proposals/' + encodeURIComponent(id) + '/delete') + '?L=' + encodeURIComponent(L) + '&YEAR=' + encodeURIComponent(YEAR), {})
+              .then(function () { toast('Deleted test ' + id, 'ok'); setTimeout(renderRuleProps, 600); })
+              .catch(function (e) { btn.disabled = false; toast('Delete failed: ' + e.message, 'err'); });
           });
         });
 
