@@ -36,7 +36,7 @@ const nowIso = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 // app state; duplicating three enums beats exporting discord_round internals).
 const RESPONSE_TYPE = { MESSAGE: 4, UPDATE_MESSAGE: 7, MODAL: 9 };
 const COMPONENT_TYPE = { ACTION_ROW: 1, BUTTON: 2, TEXT_INPUT: 4 };
-const BUTTON_STYLE = { PRIMARY: 1, SECONDARY: 2, SUCCESS: 3, DANGER: 4 };
+const BUTTON_STYLE = { PRIMARY: 1, SECONDARY: 2, SUCCESS: 3, DANGER: 4, LINK: 5 };
 const TEXT_INPUT_STYLE = { PARAGRAPH: 2 };
 const EPHEMERAL = 64;
 
@@ -79,21 +79,21 @@ export function buildDmVoteCard(round, item, guildId) {
   L.push("");
   if (deadline) L.push(`**Voting deadline:** ${deadline}`);
   L.push(`**Passes at:** ${Number(item.pass_yes_count || 7)} YES votes`);
-  if (link) L.push(`**Full text, data + discussion:** ${link}`);
   L.push("");
   L.push(`**Approve/Decline records your official vote** — same vote as the thread buttons, and your name + any reason you give appears there. **Discuss** is private: ask me anything or raise a concern, and only you decide if it goes to the league.`);
+  if (link) { L.push(""); L.push(`📄 Full rule text, rationale + data, and discussion are in the thread — tap **For more details** below.`); }
+  // Vote/Discuss buttons, plus a Link button to the full proposal thread when
+  // we have a deep link (guild + thread stamped). Link buttons carry a `url`
+  // and NO custom_id; up to 5 buttons fit in one action row.
+  const row = [
+    { type: COMPONENT_TYPE.BUTTON, style: BUTTON_STYLE.SUCCESS, label: "✅ Approve", custom_id: `t:vote:${round.round_id}:${item.proposal_id}:yes` },
+    { type: COMPONENT_TYPE.BUTTON, style: BUTTON_STYLE.DANGER, label: "❌ Decline", custom_id: `t:vote:${round.round_id}:${item.proposal_id}:no` },
+    { type: COMPONENT_TYPE.BUTTON, style: BUTTON_STYLE.PRIMARY, label: "💬 Discuss", custom_id: `rp:discuss:${round.round_id}:${item.proposal_id}` },
+  ];
+  if (link) row.push({ type: COMPONENT_TYPE.BUTTON, style: BUTTON_STYLE.LINK, label: "📄 For more details", url: link });
   return {
     content: L.join("\n").slice(0, 1990),
-    components: [
-      {
-        type: COMPONENT_TYPE.ACTION_ROW,
-        components: [
-          { type: COMPONENT_TYPE.BUTTON, style: BUTTON_STYLE.SUCCESS, label: "✅ Approve", custom_id: `t:vote:${round.round_id}:${item.proposal_id}:yes` },
-          { type: COMPONENT_TYPE.BUTTON, style: BUTTON_STYLE.DANGER, label: "❌ Decline", custom_id: `t:vote:${round.round_id}:${item.proposal_id}:no` },
-          { type: COMPONENT_TYPE.BUTTON, style: BUTTON_STYLE.PRIMARY, label: "💬 Discuss", custom_id: `rp:discuss:${round.round_id}:${item.proposal_id}` },
-        ],
-      },
-    ],
+    components: [{ type: COMPONENT_TYPE.ACTION_ROW, components: row }],
   };
 }
 
