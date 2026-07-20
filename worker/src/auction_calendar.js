@@ -25,8 +25,10 @@ export const AUCTION_CAL_FIELDS = [
   { key: "rookie_draft_at",   label: "Rookie draft",      help: "Rookie draft start. → MFL DRAFT_START + app calendar." },
   { key: "era_open_at",       label: "ERA opens",         help: "Expired Rookie Auction opens. → MFL AUCTION_START + app calendar." },
   { key: "era_close_at",      label: "ERA closes",        help: "ERA close (optional). → the ERA AUCTION_START END_TIME." },
-  { key: "faa_open_at",       label: "FA Auction opens",  help: "Free Agent Auction opens. → MFL AUCTION_START + a WAIVER_NONE (No Add/Drops) period + app calendar." },
-  { key: "faa_close_at",      label: "FA Auction closes", help: "FA Auction close. → the AUCTION_START & No-Add/Drops END_TIME." },
+  { key: "faa_roster_lock_at", label: "Roster lock (no cuts)", help: "No add/drops from here until the auction ends — e.g. 3 days before open. → MFL WAIVER_NONE start + app 'last day for cuts' (the day before this instant)." },
+  { key: "faa_open_at",       label: "FA Auction opens",  help: "Free Agent Auction opens. → MFL AUCTION_START + app calendar. (The No-Add/Drops period comes from Roster lock, NOT from this date.)" },
+  { key: "faa_nom_deadline_at", label: "Last day to nominate", help: "Final nomination day (its ET day = unlimited noms; after it, no new noms — bidding continues). → app calendar + the in-app nomination gate." },
+  { key: "faa_close_at",      label: "FA Auction ends",   help: "Auction fully resolved; roster lock lifts. → the AUCTION_START & No-Add/Drops END_TIME." },
 ];
 const FIELD_KEYS = AUCTION_CAL_FIELDS.map((f) => f.key);
 
@@ -120,6 +122,7 @@ export function buildCalendarEvents(cfg) {
   const rookie = val("rookie_draft_at", true);
   const eraOpen = val("era_open_at", true);
   const eraClose = val("era_close_at", false);
+  const rosterLock = val("faa_roster_lock_at", false);
   const faaOpen = val("faa_open_at", true);
   const faaClose = val("faa_close_at", true);
 
@@ -127,8 +130,27 @@ export function buildCalendarEvents(cfg) {
   add("rookie_draft_at", "DRAFT_START", rookie, null, "Rookie draft", "Rookie draft start.");
   add("era_open_at", "AUCTION_START", eraOpen, eraClose, "ERA auction", "Expired Rookie Auction window.");
   add("faa_open_at", "AUCTION_START", faaOpen, faaClose, "FA Auction", "Free Agent Auction window.");
-  add("faa_open_at", "WAIVER_NONE", faaOpen, faaClose, "FAA — No Add/Drops", "No add/drops during the FA Auction (start→close).");
+  // The no-add/drops lockout starts at the ROSTER LOCK (e.g. 3 days before the
+  // auction opens — the league rule), not at auction open. Fall back to
+  // faa_open_at only when the lock field is unset, preserving the pre-2026
+  // shape for old configs.
+  add("faa_roster_lock_at", "WAIVER_NONE", rosterLock || faaOpen, faaClose, "FAA — No Add/Drops", "No add/drops from roster lock through auction end.");
   return { events, missing };
+}
+
+// The last CALENDAR DAY on which cuts are still allowed, from the lock wall
+// time: a midnight lock means yesterday was the last day; any intra-day lock
+// means cuts were possible earlier that same day. Pure civil-date arithmetic
+// on the ET wall string — no instants, so DST can't bite.
+function lastCutDayFromLock(lockWall) {
+  const s = safeStr(lockWall);
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return null;
+  if (m[2] !== "00" || m[3] !== "00") return m[1];
+  const d = new Date(m[1] + "T00:00:00Z");
+  if (isNaN(d.getTime())) return null;
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 // ── D1 league_events rows (what the app reads via /api/league-events) ─────────
@@ -145,6 +167,11 @@ export function buildLeagueEventRows(cfg, seasonOverride) {
   add("ups_rookie_draft", f.rookie_draft_at, "Rookie draft");
   add("ups_expired_rookie_auction_start", f.era_open_at, "Expired Rookie Auction opens");
   add("ups_fa_auction_start", f.faa_open_at, "Free Agent Auction opens");
+  add("ups_faa_nom_deadline", f.faa_nom_deadline_at, "Last day to nominate — unlimited noms this day; bidding continues after");
+  // Replaces the migration-0026 hardcoded placeholder: derived from the actual
+  // roster-lock instant, so the app's "Roster Cutdown" chip tracks the config.
+  const lastCut = lastCutDayFromLock(f.faa_roster_lock_at);
+  if (lastCut) rows.push({ event: "ups_last_day_for_cuts", date: lastCut, nfl_season: season, description: "Auction Roster Lock — last day for cuts before the FA Auction" });
   return { rows, season };
 }
 

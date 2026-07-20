@@ -75,6 +75,30 @@ export function faaWindowAt(unixSec) {
   return key ? etDayBounds(key) : null;
 }
 
+// ── Nomination schedule (§A2 + commish 2026-07-20) ─────────────────────────
+// The auction has a LAST DAY TO NOMINATE (2026: Tue 8/3), configured as
+// auction_calendar.faa_nom_deadline_at. Three phases, keyed on ET days:
+//   regular   — before the final day: the 2/day floor+ceiling applies.
+//   final_day — the deadline's own ET day: the CEILING is waived ("the 2
+//               nomination rule gets thrown out the door") so a franchise can
+//               nominate as many as it takes to fill its roster. The floor
+//               (and its fine) still applies to franchises with illegal rosters.
+//   closed    — after the final day: no NEW nominations. Bidding on open lots
+//               continues untouched — an overtaken bidder may re-bid until the
+//               lot's own clock awards it.
+// Unset/invalid deadline ⇒ { configured:false, phase:"regular" } — the
+// pre-2026 behavior, so nothing changes until the commish fills the field.
+export function faaNomSchedule(nomDeadlineWall, nowUnix) {
+  const now = Number.isFinite(Number(nowUnix)) ? Number(nowUnix) : Math.floor(Date.now() / 1000);
+  const dl = etWallClockToUnix(String(nomDeadlineWall || ""));
+  if (dl == null) return { configured: false, phase: "regular", final_day_key: "", deadline_unix: null };
+  const finalKey = etDayKey(dl);
+  const nowKey = etDayKey(now);
+  // "YYYY-MM-DD" compares correctly as a string.
+  const phase = nowKey < finalKey ? "regular" : nowKey === finalKey ? "final_day" : "closed";
+  return { configured: true, phase, final_day_key: finalKey, deadline_unix: dl };
+}
+
 // Per-franchise window state from an already-day-scoped nomination COUNT.
 // `roster_met` waives the FLOOR only — over_cap is unconditional.
 //
@@ -89,6 +113,13 @@ export function faaWindowStateFromCount(usedCount, opts = {}) {
   const win = faaWindowAt(now);
   const used = Math.max(0, Number(usedCount) || 0);
   const roster_met = !!opts.rosterMet;
+  // opts.nomPhase: "regular" (default) | "final_day" | "closed" — from
+  // faaNomSchedule. final_day waives the ceiling; closed blocks nominations
+  // entirely. Numeric fields keep their regular-day values so existing UI
+  // math never sees a null; consumers key off the flags.
+  const phase = opts.nomPhase === "final_day" || opts.nomPhase === "closed" ? opts.nomPhase : "regular";
+  const unlimitedToday = phase === "final_day";
+  const nomsClosed = phase === "closed";
   return {
     window_key: win ? win.window_key : "",
     window_start_unix: win ? win.start_unix : 0,
@@ -98,11 +129,14 @@ export function faaWindowStateFromCount(usedCount, opts = {}) {
     noms_used: used,
     noms_required: FAA_NOMS_REQUIRED,
     noms_max: FAA_NOMS_MAX,
-    noms_remaining: Math.max(0, FAA_NOMS_REQUIRED - used),
+    noms_remaining: nomsClosed ? 0 : Math.max(0, FAA_NOMS_REQUIRED - used),
     // Keys off the CEILING so it stays right if floor and ceiling diverge.
-    can_nominate_now: used < FAA_NOMS_MAX,
-    over_cap: used > FAA_NOMS_MAX,
-    owes_noms: !roster_met && used < FAA_NOMS_REQUIRED,
+    can_nominate_now: nomsClosed ? false : (unlimitedToday || used < FAA_NOMS_MAX),
+    over_cap: !unlimitedToday && !nomsClosed && used > FAA_NOMS_MAX,
+    owes_noms: !nomsClosed && !roster_met && used < FAA_NOMS_REQUIRED,
+    nom_phase: phase,
+    unlimited_today: unlimitedToday,
+    noms_closed: nomsClosed,
     // Anchored: every franchise resets at the same ET midnight.
     next_window_start_unix: win ? win.end_unix : now,
     seconds_until_reset: win ? Math.max(0, win.end_unix - now) : 0,

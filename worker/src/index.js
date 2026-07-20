@@ -11,7 +11,7 @@ import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline
 import { create3WayTrade, list3WayForFranchise, cancel3WayTrade } from "./trade_3way.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar } from "./auction_calendar.js";
-import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount } from "./auction_windows.js";
+import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import { commishVerdictOverride } from "./discord_rule_proposal.js";
 import {
@@ -2174,6 +2174,31 @@ async function claimFaaNomSlot(env, season, leagueId, fid, playerId) {
   const win = etDayBounds(etDay);
   if (!env?.UPS_MFL_DB || !win) return { ok: true, slot: null };
 
+  // Nomination schedule (§A2 + commish 2026-07-20): after the configured
+  // "last day to nominate" no NEW nominations are accepted (bidding on open
+  // lots is untouched — it never routes through here); ON that final ET day
+  // the 2/day ceiling is waived so franchises can fill their rosters.
+  // Unset field ⇒ regular behavior, so nothing changes mid-test.
+  let nomPhase = "regular";
+  try {
+    const calCfg = await getAuctionCalendar(env);
+    nomPhase = faaNomSchedule(calCfg?.faa?.faa_nom_deadline_at, nowUnix).phase;
+  } catch (_) { /* schedule unavailable → regular-day rules, never a block */ }
+  if (nomPhase === "closed") {
+    return {
+      ok: false, slot: null, status: 409, error: "nominations_closed",
+      message:
+        "Nominations are closed — the last day to nominate has passed. " +
+        "Bidding on the lots already open continues until each one's clock runs out " +
+        "(if you're overtaken you can bid again).",
+      window_key: etDay,
+    };
+  }
+  const finalDay = nomPhase === "final_day";
+  // On the final day the ceiling is gone but each claim still needs a slot row
+  // (the audit trail + retry idempotency depend on it), so allow a deep bench.
+  const maxSlots = finalDay ? 40 : FAA_NOMS_MAX;
+
   const pid = String(playerId);
   const { pids, live_ok } = await faaNomsUsedForDay(env, season, leagueId, fid, etDay);
   const used = pids.size;
@@ -2194,7 +2219,7 @@ async function claimFaaNomSlot(env, season, leagueId, fid, playerId) {
     next_window_start_iso: new Date(win.end_unix * 1000).toISOString(),
     stale_count: !live_ok,
   });
-  if (used >= FAA_NOMS_MAX) return refusal(used);
+  if (!finalDay && used >= FAA_NOMS_MAX) return refusal(used);
 
   try {
     // Retry of a nomination we already reserved (the MFL submit threw before
@@ -2209,7 +2234,7 @@ async function claimFaaNomSlot(env, season, leagueId, fid, playerId) {
       return { ok: true, slot: { season: String(season), leagueId: String(leagueId), fid, etDay, slotNo: Number(prior.slot_no) } };
     }
 
-    for (let slotNo = 1; slotNo <= FAA_NOMS_MAX; slotNo++) {
+    for (let slotNo = 1; slotNo <= maxSlots; slotNo++) {
       const ins = await env.UPS_MFL_DB.prepare(
         `INSERT OR IGNORE INTO ups_auction_nom_slots
            (season, league_id, fid, et_day, slot_no, player_id, claimed_at_unix)
@@ -2222,7 +2247,7 @@ async function claimFaaNomSlot(env, season, leagueId, fid, playerId) {
       // refusing, so a race-loser at slot 1 still gets slot 2.
     }
     // Every index taken => genuinely at the cap, whatever the count said.
-    return refusal(FAA_NOMS_MAX);
+    return refusal(finalDay ? used : FAA_NOMS_MAX);
   } catch (e) {
     // Migration not applied yet — the live count still gates the common case.
     console.log("[faa-cap] slot claim failed, proceeding on count alone:", String(e?.message || e));
@@ -7315,6 +7340,10 @@ export default {
         const leagueId = String(url.searchParams.get("L") || "74598");
         const nowUnix = Math.floor(Date.now() / 1000);
         const nowMs = nowUnix * 1000;
+        // Nomination-schedule phase (regular | final_day | closed) — franchise-
+        // independent, computed once; unset deadline ⇒ regular.
+        let faaNomPhase = "regular";
+        try { faaNomPhase = faaNomSchedule((await getAuctionCalendar(env))?.faa?.faa_nom_deadline_at, nowUnix).phase; } catch (_) {}
         const ERA_WINDOW_LABELS = [
           "Mon 6 AM – Mon 6 PM ET",
           "Mon 6 PM – Tue 6 AM ET",
@@ -7443,7 +7472,7 @@ export default {
             }
 
             // FA (§A2): exactly 2 per ANCHORED ET calendar day — floor and ceiling.
-            const fa = faaWindowStateFromCount((faaPidsByFid.get(fid) || new Set()).size, { nowUnix });
+            const fa = faaWindowStateFromCount((faaPidsByFid.get(fid) || new Set()).size, { nowUnix, nomPhase: faaNomPhase });
 
             return {
               fid,
@@ -19801,6 +19830,10 @@ export default {
       const buildFaScheduleRows = async (season, leagueId) => {
         const nowUnix = Math.floor(Date.now() / 1000);
         const win = faaWindowAt(nowUnix);
+        // Nomination-schedule phase for every row (final-day = ceiling waived;
+        // closed = no new noms); unset deadline ⇒ regular.
+        let faNomPhase = "regular";
+        try { faNomPhase = faaNomSchedule((await getAuctionCalendar(env))?.faa?.faa_nom_deadline_at, nowUnix).phase; } catch (_) {}
         const teamsSnapshot = await buildLiveTeamsSnapshot(season, leagueId);
         if (!teamsSnapshot || !teamsSnapshot.ok) {
           return { ok: false, error: (teamsSnapshot && teamsSnapshot.error) || "teams_snapshot_failed", generated_at: new Date().toISOString() };
@@ -19819,7 +19852,7 @@ export default {
           const fid = String(nr.franchise_id).padStart(4, "0");
           const total_deficit = Number(nr.total_deficit) || 0;
           const roster_met = total_deficit === 0;
-          const st = faaWindowStateFromCount((nomPidsByFid.get(fid) || new Set()).size, { nowUnix, rosterMet: roster_met });
+          const st = faaWindowStateFromCount((nomPidsByFid.get(fid) || new Set()).size, { nowUnix, rosterMet: roster_met, nomPhase: faNomPhase });
           return {
             franchise_id: fid,
             franchise_name: nr.franchise_name,
