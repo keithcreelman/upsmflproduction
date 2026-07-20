@@ -1293,6 +1293,50 @@ export async function runStartFlow(env, roundId, interaction, applicationId, int
   return { ok: true, created: createdCount, dms_sent: dmsSent, dm_failures: dmFailures };
 }
 
+// Resume an interrupted kickoff DM fan-out: sends the vote cards ONLY to
+// owners not yet stamped (last_nudge_utc NULL), a few per call so one
+// invocation stays under Cloudflare's subrequest cap (the 2026-07-20 live
+// refire died at 4/12 owners). Caller loops/self-continues until remaining=0.
+export async function resumeDmFanout(env, roundId, opts = {}) {
+  const limit = Math.max(1, Math.min(6, Number(opts.limit) || 4));
+  const round = await getActiveRound(env, roundId);
+  if (!round) return { ok: false, error: `round '${roundId}' not found or not open` };
+  const items = await getRoundItems(env, round.round_id);
+  if (!items.length) return { ok: false, error: "round has no items" };
+  const pending = (await getRoundOwners(env, round.round_id)).filter((o) => !o.last_nudge_utc);
+  if (!pending.length) return { ok: true, sent: 0, failed: [], remaining: 0, note: "everyone already has their cards" };
+  const guildId = safeStr(env.DISCORD_GUILD_ID || "");
+  const { buildDmVoteCard } = await import("./discord_rule_proposal.js");
+  const cards = items.map((it) => buildDmVoteCard(round, it, guildId)).filter(Boolean);
+  const deadlineFormatted = formatDeadlineUtc(round.voting_deadline_utc);
+  const intro = cards.length > 1
+    ? [
+        `🏛 **${round.title}** is open — **${cards.length} rules** to vote on this round.`,
+        deadlineFormatted ? `**Deadline:** ${deadlineFormatted}.` : ``,
+        `A card for each rule follows — Approve / Decline / Discuss right here, or open its thread.`,
+      ].filter(Boolean).join("\n").slice(0, 1990)
+    : null;
+  let sent = 0;
+  const failures = [];
+  for (const o of pending.slice(0, limit)) {
+    const cid = o.bot_dm_channel_id || (await openDmChannel(env, o.discord_user_id));
+    if (!cid) { failures.push(o.discord_user_id); continue; }
+    let ok = false;
+    if (intro) { const r = await sendDm(env, cid, { content: intro }); if (r.ok) ok = true; await sleepMs(200); }
+    for (const c of cards) { const r = await sendDm(env, cid, c); if (r.ok) ok = true; await sleepMs(200); }
+    const stampNow = nowIso();
+    if (ok) {
+      await env.UPS_MFL_DB.prepare(
+        `UPDATE discord_round_owners SET bot_dm_channel_id=?, last_active_utc=?, last_nudge_utc=? WHERE round_id=? AND discord_user_id=?`
+      ).bind(cid, stampNow, stampNow, round.round_id, o.discord_user_id).run();
+      sent++;
+    } else {
+      failures.push(o.discord_user_id);
+    }
+  }
+  return { ok: true, sent, failed: failures, remaining: Math.max(0, pending.length - Math.min(limit, pending.length)) };
+}
+
 // ---------- Subcommand: /rules status ----------
 async function handleStatus(interaction, env) {
   const round = await getActiveRound(env);

@@ -39701,6 +39701,15 @@ export default {
         ).bind(rfRoundId).first();
         if (!rfRound) return jsonOut(404, { ok: false, error: `round '${rfRoundId}' not found` });
         if (rfRound.status !== "open") return jsonOut(409, { ok: false, error: `round is '${rfRound.status}', not open` });
+        // dm_only: resume an interrupted DM fan-out (anchor + threads already
+        // exist) — sends cards to un-stamped owners in small chunks so one
+        // invocation stays under the subrequest cap. Call repeatedly until
+        // remaining=0 (the response tells you).
+        if (String(rfBody.dm_only || url.searchParams.get("dm_only") || "") === "1") {
+          const { resumeDmFanout } = await import("./discord_round.js");
+          const dmRes = await resumeDmFanout(env, rfRoundId, { limit: safeInt(url.searchParams.get("limit"), 4) });
+          return jsonOut(dmRes.ok ? 200 : 400, { round_id: rfRoundId, ...dmRes });
+        }
         if (rfRound.kickoff_anchor_message_id && String(rfBody.force || url.searchParams.get("force") || "") !== "1") {
           return jsonOut(409, { ok: false, error: "round already has a kickoff anchor — re-firing would double-post. Pass force=1 only if you know the prior fan-out is gone." });
         }
