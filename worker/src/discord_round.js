@@ -546,6 +546,16 @@ function round_status_closed(item) {
   return false; // tally-pin-side; the round-level close fact is set on item.discord_round_items.closed_at_utc by /rules close
 }
 
+// Human copy for a round's nudge cadence (per-round override, migration 0106).
+// Used by the kickoff anchor + kickoff DM so the promise matches the sweep.
+function nudgeCadenceCopy(round, { bold = false } = {}) {
+  const h = round && round.nudge_interval_hours == null ? null : Number(round && round.nudge_interval_hours);
+  const b = bold ? "**" : "";
+  if (h === 0) return null; // nudges off — say nothing
+  if (Number.isFinite(h) && h > 0) return `${b}every ${h} hour${h === 1 ? "" : "s"}${b}`;
+  return `${b}every 48 hours for the first 6 days, then daily${b}`;
+}
+
 // ---------- Vote line rendering (one-message-per-voter) ----------
 function voteLineContent(displayName, value, reasoning) {
   const verbal = value === "yes" ? "✅" : value === "no" ? "❌" : "➖";
@@ -1098,7 +1108,12 @@ export async function runStartFlow(env, roundId, interaction, applicationId, int
   ];
   for (const it of items) anchorLines.push(`${it.ordinal}. ${it.title}`);
   anchorLines.push(``);
-  anchorLines.push(`Each item has its own thread below. Vote, comment, or ask the bot to explain. I'll DM nudges to non-voters every 48h for the first 6 days, then daily.`);
+  {
+    const cad = nudgeCadenceCopy(round);
+    anchorLines.push(cad
+      ? `Each item has its own thread below. Vote, comment, or ask the bot to explain. I'll DM nudges to non-voters ${cad}.`
+      : `Each item has its own thread below. Vote, comment, or ask the bot to explain.`);
+  }
   const anchorPost = await postChannelMessage(env, channelId, { content: anchorLines.join("\n").slice(0, 1990) });
   if (!anchorPost.ok || !anchorPost.data?.id) {
     return await ack(`❌ Failed to post kickoff anchor: ${(anchorPost.text || "").slice(0, 300)}`);
@@ -1202,7 +1217,10 @@ export async function runStartFlow(env, roundId, interaction, applicationId, int
     dmLines.push(``);
   }
   dmLines.push(`Vote, comment, or ask the bot to explain.`);
-  dmLines.push(`If you don't vote, I'll nudge you here **every 48 hours for the first 6 days, then daily** until you respond or the round closes.`);
+  {
+    const cad = nudgeCadenceCopy(round, { bold: true });
+    if (cad) dmLines.push(`If you don't vote, I'll nudge you here ${cad} until you respond or the round closes.`);
+  }
   // Rule Proposals v2 DM cards: ONE interactive card per item so a round can
   // carry N rules (each card's Approve/Decline/Discuss custom_ids embed the
   // proposal_id, so one vote pipeline serves them all). Single-item rounds send
@@ -1426,9 +1444,19 @@ export async function processAutoNudges(env) {
 
     const startedAtMs = new Date(round.started_at_utc).getTime();
     const ageMs = Date.now() - startedAtMs;
-    const cadenceMs = ageMs < 6 * 24 * 60 * 60 * 1000
-      ? 48 * 60 * 60 * 1000   // 48h cadence in the first 6 days
-      : 24 * 60 * 60 * 1000;  // daily after day 6
+    // Per-round cadence override (migration 0106): NULL = the default ladder
+    // (48h for the first 6 days, then daily); 0 = nudges OFF for this round;
+    // N>0 = every N hours. Quiet hours above still apply either way.
+    const overrideH = round.nudge_interval_hours == null ? null : Number(round.nudge_interval_hours);
+    if (overrideH === 0) {
+      console.log(`[auto-nudge] round ${round.round_id} has nudges OFF (nudge_interval_hours=0) — skipping`);
+      continue;
+    }
+    const cadenceMs = Number.isFinite(overrideH) && overrideH > 0
+      ? overrideH * 60 * 60 * 1000
+      : ageMs < 6 * 24 * 60 * 60 * 1000
+        ? 48 * 60 * 60 * 1000   // 48h cadence in the first 6 days
+        : 24 * 60 * 60 * 1000;  // daily after day 6
 
     const owners = await getRoundOwners(env, round.round_id);
     const items = await getRoundItems(env, round.round_id);
@@ -1481,7 +1509,9 @@ export async function processAutoNudges(env) {
       }
       lines.push(``);
       lines.push(`Tap a thread to vote, comment, or ask the bot to explain.`);
-      if (ageMs < 6 * 24 * 60 * 60 * 1000) {
+      if (Number.isFinite(overrideH) && overrideH > 0) {
+        lines.push(`*Next nudge: in ~${overrideH} hour${overrideH === 1 ? "" : "s"} unless you vote first.*`);
+      } else if (ageMs < 6 * 24 * 60 * 60 * 1000) {
         lines.push(`*Next nudge: in ~48 hours unless you vote first.*`);
       } else {
         lines.push(`*Next nudge: tomorrow unless you vote first.*`);
@@ -1802,7 +1832,12 @@ export async function refreshRoundDisplays(env, roundId) {
     ];
     for (const it of items) anchorLines.push(`${it.ordinal}. ${it.title}`);
     anchorLines.push(``);
-    anchorLines.push(`Each item has its own thread below. Vote, comment, or ask the bot to explain. I'll DM nudges to non-voters every 48h for the first 6 days, then daily.`);
+    {
+      const cad = nudgeCadenceCopy(round);
+      anchorLines.push(cad
+        ? `Each item has its own thread below. Vote, comment, or ask the bot to explain. I'll DM nudges to non-voters ${cad}.`
+        : `Each item has its own thread below. Vote, comment, or ask the bot to explain.`);
+    }
     const er = await editMessage(env, round.kickoff_channel_id, round.kickoff_anchor_message_id, {
       content: anchorLines.join("\n").slice(0, 1990),
     });
