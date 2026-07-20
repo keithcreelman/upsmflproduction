@@ -35684,6 +35684,12 @@ export default {
         const target = safeStr(body?.target || "test").toLowerCase();
         const limit = Math.max(1, Math.min(50, safeInt(body?.limit, 20)));
         const dryRun = !!body?.dry_run;
+        // Repost/correct mode: given specific event ids, delete their old Discord
+        // message and re-post fresh (marked "Corrected"), regardless of
+        // discord_posted. Used to fix already-posted drops after a display bug.
+        const repostIds = Array.isArray(body?.repost_ids)
+          ? body.repost_ids.map((x) => safeInt(x, 0)).filter(Boolean) : [];
+        const corrected = repostIds.length > 0 || !!body?.corrected;
         if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
 
@@ -35825,19 +35831,25 @@ export default {
         };
 
         // Pull rows that haven't been posted yet.
-        const { results: rows } = await env.UPS_MFL_DB.prepare(
-          `SELECT id, season, league_id, player_id, player_name, position, nfl_team,
+        const dropCols = `id, season, league_id, player_id, player_name, position, nfl_team,
                   franchise_id, franchise_name, dropped_at_unix, dropped_at_iso,
                   pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year,
                   pre_drop_contract_length, pre_drop_contract_info, pre_drop_tcv,
                   pre_drop_years_remaining, pre_drop_taxi,
                   earned_to_date, guaranteed_amount, penalty_amount, penalty_basis,
-                  penalty_exempt, penalty_exempt_reason, ledger_key
-             FROM ups_drop_events
-            WHERE season = ? AND league_id = ? AND discord_posted = 0
-            ORDER BY dropped_at_unix ASC
-            LIMIT ?`
-        ).bind(targetSeason, leagueId, limit).all();
+                  penalty_exempt, penalty_exempt_reason, ledger_key,
+                  discord_message_id, discord_channel_id`;
+        const { results: rows } = repostIds.length
+          ? await env.UPS_MFL_DB.prepare(
+              `SELECT ${dropCols} FROM ups_drop_events
+                WHERE id IN (${repostIds.map(() => "?").join(",")})
+                ORDER BY dropped_at_unix ASC`
+            ).bind(...repostIds).all()
+          : await env.UPS_MFL_DB.prepare(
+              `SELECT ${dropCols} FROM ups_drop_events
+                WHERE season = ? AND league_id = ? AND discord_posted = 0
+                ORDER BY dropped_at_unix ASC LIMIT ?`
+            ).bind(targetSeason, leagueId, limit).all();
 
         if (!rows || rows.length === 0) {
           return jsonOut(200, { ok: true, dry_run: dryRun, posted_count: 0, message: "No unposted drops." });
@@ -35984,7 +35996,7 @@ export default {
           }
           const headerEmbed = {
             title: `Drop: ${safeStr(r.player_name)}`,
-            description: `${penaltyHeading}\n${safeStr(r.franchise_name)} dropped ${safeStr(r.player_name)}.`,
+            description: `${corrected ? "✏️ _Corrected_\n" : ""}${penaltyHeading}\n${safeStr(r.franchise_name)} dropped ${safeStr(r.player_name)}.`,
             color: exempt || penalty === 0 ? 0x25c37d : (penalty >= 16000 ? 0xd9433a : (penalty >= 9000 ? 0xf0a020 : (penalty >= 5000 ? 0xf0c465 : 0x6c7a8a))),
             fields,
           };
@@ -36015,6 +36027,17 @@ export default {
               has_reaction_gif: !!(gifUrl && !exempt && penalty > 0),
             });
             continue;
+          }
+
+          // Repost/correct: delete the stale message (and its thread, if the
+          // thread has no other content it goes with the parent) before posting
+          // the corrected one. Best-effort — a failed delete just leaves a dupe.
+          if (corrected && r.discord_message_id) {
+            const oldCh = safeStr(r.discord_channel_id) || channelId;
+            try {
+              await discordBotRequest(botToken, "DELETE",
+                `/channels/${encodeURIComponent(oldCh)}/messages/${encodeURIComponent(r.discord_message_id)}`, null);
+            } catch (_) { /* stale/already-gone — ignore */ }
           }
 
           let postRes;
