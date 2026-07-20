@@ -36045,7 +36045,10 @@ export default {
             postRes = await discordBotRequest(
               botToken, "POST",
               `/channels/${encodeURIComponent(channelId)}/messages`,
-              { content: "", embeds, allowed_mentions: { parse: [] } }
+              // Corrected reposts carry Discord's SUPPRESS_NOTIFICATIONS flag
+              // (1<<12) so the fix goes up silently — the league already saw the
+              // original drop; the correction shouldn't re-ping the channel.
+              { content: "", embeds, allowed_mentions: { parse: [] }, ...(corrected ? { flags: 4096 } : {}) }
             );
           } catch (e) {
             postRes = { ok: false, status: 0, text: String(e?.message || e) };
@@ -36058,16 +36061,18 @@ export default {
             // and the auction narrator. Best-effort; the message stands alone
             // if the thread create fails.
             let dropThreadId = "";
-            try {
-              const thrName = (`Drop · ${safeStr(r.player_name) || ("Player " + r.player_id)}` +
-                (penalty > 0 && !exempt ? ` · ${fmtK(penalty)}` : "")).slice(0, 100);
-              const thr = await discordBotRequest(
-                botToken, "POST",
-                `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}/threads`,
-                { name: thrName, auto_archive_duration: 4320 }
-              );
-              dropThreadId = safeStr(thr?.data?.id || "");
-            } catch (_) { /* thread is best-effort */ }
+            if (!corrected) {  // corrected reposts stay quiet — no new thread
+              try {
+                const thrName = (`Drop · ${safeStr(r.player_name) || ("Player " + r.player_id)}` +
+                  (penalty > 0 && !exempt ? ` · ${fmtK(penalty)}` : "")).slice(0, 100);
+                const thr = await discordBotRequest(
+                  botToken, "POST",
+                  `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}/threads`,
+                  { name: thrName, auto_archive_duration: 4320 }
+                );
+                dropThreadId = safeStr(thr?.data?.id || "");
+              } catch (_) { /* thread is best-effort */ }
+            }
             try {
               await env.UPS_MFL_DB.prepare(
                 `UPDATE ups_drop_events
