@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-07-19T10:59:31.073853+00:00",
+    "generated_at_utc": "2026-07-20T12:02:35.910478+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -446,7 +446,7 @@
           "nfl_team": "HOU",
           "salary": 47000,
           "contract_year": 2,
-          "contract_status": "Vet-Ext2-BL",
+          "contract_status": "Vet-Ext2",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -2289,18 +2289,6 @@
     "0007": {
       "players": [
         {
-          "asset_id": "P_13130",
-          "display": "Christian McCaffrey",
-          "player_id": "13130",
-          "position": "RB",
-          "nfl_team": "SFO",
-          "salary": 62000,
-          "contract_year": 1,
-          "contract_status": "Tag",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_12801",
           "display": "Tyreek Hill",
           "player_id": "12801",
@@ -2320,7 +2308,7 @@
           "nfl_team": "MIA",
           "salary": 25000,
           "contract_year": 2,
-          "contract_status": "Vet-Ext2-BL",
+          "contract_status": "Vet-Ext2",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -2332,7 +2320,7 @@
           "nfl_team": "KCC",
           "salary": 25000,
           "contract_year": 2,
-          "contract_status": "Vet-Ext2-BL",
+          "contract_status": "Vet-Ext2",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -2525,18 +2513,6 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17269",
-          "display": "Efton Chism",
-          "player_id": "17269",
-          "position": "WR",
-          "nfl_team": "NEP",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Rookie-MYM",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -2772,6 +2748,15 @@
           "original_fid": "0007",
           "original_team_name": "Sex Manther",
           "original_owner_name": "Josh Martel"
+        },
+        {
+          "asset_id": "FP_2027_5_0011",
+          "display": "2027 R5  (via Cleon Ca$h \u00b7 Eric Mannila)",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0011",
+          "original_team_name": "Cleon Ca$h",
+          "original_owner_name": "Eric Mannila"
         }
       ],
       "current_picks": []
@@ -3186,7 +3171,7 @@
           "nfl_team": "ATL",
           "salary": 15000,
           "contract_year": 1,
-          "contract_status": "Vet-Ext2-FL",
+          "contract_status": "Vet-Ext2",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4069,6 +4054,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17269",
+          "display": "Efton Chism",
+          "player_id": "17269",
+          "position": "WR",
+          "nfl_team": "NEP",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie-MYM",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_17584",
           "display": "Gabe Jacas",
           "player_id": "17584",
@@ -4234,15 +4231,6 @@
           "display": "2027 R4",
           "year": "2027",
           "round": "4",
-          "original_fid": "0011",
-          "original_team_name": "Cleon Ca$h",
-          "original_owner_name": "Eric Mannila"
-        },
-        {
-          "asset_id": "FP_2027_5_0011",
-          "display": "2027 R5",
-          "year": "2027",
-          "round": "5",
           "original_fid": "0011",
           "original_team_name": "Cleon Ca$h",
           "original_owner_name": "Eric Mannila"
