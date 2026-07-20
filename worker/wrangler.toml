@@ -20,6 +20,14 @@ RULE_PROPOSALS_ENABLED = "1"
 RULE_PROPOSALS_LIVE = "0"
 RULE_PROPOSALS_AI_ENABLED = "1"
 RULE_PROPOSALS_DRAFT_ENABLED = "1"
+# OTB ("On the Block") announcements (Keith 2026-07-20). These were NEVER set,
+# so every trade-bait save returned {posted:false, reason:"no_channel"} — no
+# OTB announcement has ever reached Discord. The post is thread-based: the
+# announcement lands in the channel and a discussion thread ("OTB · Team ·
+# date") is created off it. LIVE_MODE=1 → the dedicated OTB channel.
+OTB_CHANNEL_ID = "1277369023880757412"
+OTB_TEST_CHANNEL_ID = "1089538054236160010"
+OTB_LIVE_MODE = "1"
 # Trade sentinel (2026-07-15): watch every pending offer, kill asset-moved
 # offers, 14-day silent re-offer. ACT ships OFF — dry-run until the L=25625
 # battery + Keith's prod self-test clear it.
