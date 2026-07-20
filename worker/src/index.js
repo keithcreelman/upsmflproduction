@@ -36023,6 +36023,21 @@ export default {
           const messageId = safeStr(postRes?.data?.id || "");
 
           if (postRes?.ok && messageId) {
+            // Thread-based (Keith 2026-07-20): open a discussion thread off the
+            // drop message so drop chatter stays contained — same idiom as OTB
+            // and the auction narrator. Best-effort; the message stands alone
+            // if the thread create fails.
+            let dropThreadId = "";
+            try {
+              const thrName = (`Drop · ${safeStr(r.player_name) || ("Player " + r.player_id)}` +
+                (penalty > 0 && !exempt ? ` · ${fmtK(penalty)}` : "")).slice(0, 100);
+              const thr = await discordBotRequest(
+                botToken, "POST",
+                `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}/threads`,
+                { name: thrName, auto_archive_duration: 4320 }
+              );
+              dropThreadId = safeStr(thr?.data?.id || "");
+            } catch (_) { /* thread is best-effort */ }
             try {
               await env.UPS_MFL_DB.prepare(
                 `UPDATE ups_drop_events
@@ -36035,6 +36050,7 @@ export default {
             results.push({
               row_id: r.id, player_id: r.player_id, player_name: r.player_name,
               tier, penalty, channel_id: channelId, message_id: messageId,
+              thread_id: dropThreadId,
               embed_count: embeds.length, ok: true,
             });
           } else {
