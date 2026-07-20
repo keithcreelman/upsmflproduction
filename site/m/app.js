@@ -1131,7 +1131,20 @@
         var parsed = null;
         try { parsed = body ? JSON.parse(body) : null; } catch (e) {}
         if (!r.ok) {
-          var msg = (parsed && (parsed.error || parsed.message)) || ("HTTP " + r.status);
+          // Expired/absent app sign-in: the worker can't act as this owner, so
+          // every owner write (drop/taxi/IR/lineup/trade/OTB) 4xx's with
+          // MISSING_VIEWER_COOKIE. Translate that ONE technical error into a
+          // mobile-actionable message — the fix is re-doing "Switch to App
+          // View", not "refresh the page" as the raw worker text says. (Keith
+          // 2026-07-20: HammerTime's drop button "didn't work" = a stale token.)
+          var rawErr = String((parsed && (parsed.error || parsed.message)) || "");
+          if ((parsed && parsed.error_code === "MISSING_VIEWER_COOKIE") ||
+              /missing mfl owner session|forwards your mfl_user_id/i.test(rawErr)) {
+            var authErr = new Error("Your app sign-in expired. Open the MFL site and tap “Switch to App View” to refresh your session, then try again.");
+            authErr.ownerAuthExpired = true;
+            throw authErr;
+          }
+          var msg = rawErr || ("HTTP " + r.status);
           throw new Error(msg);
         }
         return parsed || {};
