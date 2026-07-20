@@ -112,6 +112,9 @@
     lots: null,                  // payload from /api/auction/lots
     nom_filters: { status: "open" },
     nom_sort: "time_remaining",
+    // Test lots (ups_auction_lots.is_test) are hidden by default on the prod
+    // league; this chip reveals them (and the commish delete button).
+    show_test: false,
   };
 
   // Sub-sections (pills) — identical set under both auctions.
@@ -999,6 +1002,13 @@
             <option value="bid_count">Bid count (desc)</option>
             <option value="opened_at_unix">Most recently opened</option>
           </select>
+        </label>
+        <label>
+          <span>Test lots</span>
+          <div class="ah-pos-chips">
+            <button type="button" class="ah-pos-chip" id="nominations-test-toggle" style="display:none;">Show test (0)</button>
+            <button type="button" class="ah-pos-chip" id="nominations-test-delete" style="display:none;color:#e06b5e;" title="Permanently delete ALL test lots + their bids from the board (commish only)">🗑 Delete test lots</button>
+          </div>
         </label>
         <span class="ah-filters-summary" id="nominations-summary">— lots</span>
       </div>
@@ -2471,6 +2481,36 @@
         renderNominations();
       });
     }
+    const testToggle = $("#nominations-test-toggle");
+    if (testToggle) {
+      testToggle.addEventListener("click", () => {
+        STATE.show_test = !STATE.show_test;
+        renderNominations();
+      });
+    }
+    const testDelete = $("#nominations-test-delete");
+    if (testDelete) {
+      testDelete.addEventListener("click", async () => {
+        if (!window.confirm("Permanently delete ALL test lots and their bids from the board?\n\nReal (non-test) lots are untouched. Cannot be undone.")) return;
+        testDelete.disabled = true;
+        try {
+          const url = _withUserId(`${WORKER_BASE}/admin/auction/delete-test-lots?L=${encodeURIComponent(LEAGUE_ID)}&YEAR=${new Date().getUTCFullYear()}`);
+          const r = await fetch(url, { method: "POST", mode: "cors", credentials: "omit", headers: { "Content-Type": "application/json" }, body: "{}" });
+          const j = await r.json().catch(() => ({}));
+          if (r.ok && j.ok) {
+            alert(`Deleted ${j.deleted_lots} test lot(s) + ${j.deleted_bids} bid(s).`);
+            await loadLots();
+          } else {
+            alert(`Delete failed: ${j.error || ("HTTP " + r.status)}`);
+          }
+        } catch (e) {
+          alert("Delete failed: " + e.message);
+        } finally {
+          testDelete.disabled = false;
+          renderNominations();
+        }
+      });
+    }
   }
 
   function formatCountdown(seconds) {
@@ -2519,7 +2559,21 @@
     // iff its player is in the ERA-eligible pool, else it's an FA-auction lot.
     const eraIds = eraPoolIds();
     const lots = allLots.filter((l) => lotIsEra(l, eraIds) === (STATE.tab === "era"));
+    // Test-lot visibility: hidden by default on the prod league. The chip in
+    // the filters row toggles them (its label carries the hidden count).
+    const isTestLeague = LEAGUE_ID !== "74598";
+    const testCount = lots.filter((l) => Number(l.is_test) === 1).length;
+    const showTest = STATE.show_test || isTestLeague;
+    const testToggle = $("#nominations-test-toggle");
+    if (testToggle) {
+      testToggle.textContent = showTest ? `Hide test (${testCount})` : `Show test (${testCount})`;
+      testToggle.classList.toggle("active", showTest);
+      testToggle.style.display = testCount > 0 ? "" : "none";
+    }
+    const delBtn = $("#nominations-test-delete");
+    if (delBtn) delBtn.style.display = showTest && testCount > 0 ? "" : "none";
     const filtered = lots.filter((l) => {
+      if (!showTest && Number(l.is_test) === 1) return false;
       if (STATE.nom_filters.status === "all") return true;
       return l.status === STATE.nom_filters.status;
     });
@@ -2565,11 +2619,12 @@
         nfl_team: l.nfl_team || fromEra.nfl_team,
       };
       const pos = String(pi.position || "").toUpperCase();
-      // Test/TEST badge: lot's player is not in our ERA list — Keith
-      // can test the auction flow with arbitrary FAs without polluting
-      // real ERA reporting.
-      const isInEra = !!(STATE.era && STATE.era.players && STATE.era.players.some((p) => p.player_id === l.player_id));
-      const testBadge = isInEra ? "" : ` <span class="ah-origin Trade" title="Not in ERA-eligible list — likely a test or off-pool auction">TEST</span>`;
+      // TEST badge from the real per-lot flag (ups_auction_lots.is_test).
+      // The old "not in ERA list ⇒ TEST" heuristic would have mislabeled
+      // every genuine FAA win once the real auction opened.
+      const testBadge = Number(l.is_test) === 1
+        ? ` <span class="ah-origin Trade" title="Test lot — hidden by default; commish can delete via the filters row">TEST</span>`
+        : "";
       const nflProfileUrl = `https://www.myfantasyleague.com/${new Date().getUTCFullYear()}/options?L=${LEAGUE_ID}&O=04&P=${encodeURIComponent(l.player_id)}`;
       const isWon = l.status === "won";
       // This board reads /api/auction/lots (D1, up to ~5 min behind the */5
@@ -2624,7 +2679,7 @@
       // 503 when ERA is off). Mirrors mobile's isEra ? "expired-rookie" : "free-agent".
       const auctionType = STATE.tab === "era" ? "expired-rookie" : "free-agent";
       const actionCell = isWon
-        ? `<span class="ah-origin Rookie">WON by ${escapeHtml(franchiseName(l.winner_fid))}</span>`
+        ? `<span class="ah-origin Rookie">WON by ${escapeHtml((l.winner_name && !/^\d{4}$/.test(l.winner_name)) ? l.winner_name : franchiseName(l.winner_fid))}</span>`
         : bidActionCell(l.player_id, pi.name, auctionType, freshHighK);
       return `
         <tr data-lot-id="${escapeHtml(l.lot_id)}" data-seconds="${l.seconds_remaining}" data-status="${l.status}">
