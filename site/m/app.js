@@ -1218,7 +1218,14 @@
     }
     var franchiseName = state.viewerFranchise && state.viewerFranchise.name || "";
     var lookingFor = getMyTradeBaitLookingFor();
-    return postJson(workerUrl("/api/submit-trade-bait"), {
+    // Forward the stored sign-in token — the worker's owner-identity gate
+    // 401s without it ("MFL_USER_ID cookie required"). Every other mobile
+    // write appends this; its absence here is why Add-to-Block always
+    // failed on mobile (Shawn Blake / Puka, 2026-07-20).
+    var otbUrl = workerUrl("/api/submit-trade-bait");
+    var storedTok = getStoredMflUserId();
+    if (storedTok) otbUrl += "?MFL_USER_ID=" + encodeURIComponent(storedTok);
+    return postJson(otbUrl, {
       franchiseId: fid,
       franchiseName: franchiseName,
       willGiveUp: willGiveUp,
