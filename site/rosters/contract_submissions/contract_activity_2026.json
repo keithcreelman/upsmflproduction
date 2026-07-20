@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-20 18:16:11",
+    "generated_at": "2026-07-20 18:39:54",
     "source": "contract-activity-log",
-    "count": 65,
+    "count": 66,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "7f6ab767486e8912f888d6e5",
+      "submission_id": "7f6ab767486e8912f888d6e5",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Restructure",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0009",
+      "franchise_name": "C-Town Chivalry",
+      "player_id": "15715",
+      "player_name": "Cook, James",
+      "position": "RB",
+      "salary": 14000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext1-BL",
+      "contract_info": "CL 2|TCV 64K|AAV 32K|Y1-14K, Y2-50K|GTD: 48K|Restructured 2026",
+      "tcv": 64000,
+      "aav": 32000,
+      "guaranteed": 48000,
+      "submitted_at_utc": "2026-07-20T18:39:37.639Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1528833788254097449",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "64f3502d16eb9d3e6a475e60",
       "submission_id": "64f3502d16eb9d3e6a475e60",
