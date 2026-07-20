@@ -3994,49 +3994,11 @@ export default {
       });
       const importData = await importRes.json().catch(() => ({}));
       const newlyPosted = Array.isArray(importData.posted_rows) ? importData.posted_rows : [];
-      // Step 2: for each franchise that got NEW penalties posted this run,
-      // fire a Discord Cap Penalty Announcement. We group by franchise.
-      // Note: previously this branch did `return;` when no new drops
-      // existed. Don't return — the deadline-reminder sweep below also
-      // needs to run on every hourly cron, not just ones where drops
-      // happened.
-      const byFranchise = {};
-      if (newlyPosted.length === 0) {
-        console.log(`[scheduled ${new Date().toISOString()}] drop-penalty scan: no new drops`);
-      }
-      for (const row of newlyPosted) {
-        const fid = String(row.franchise_id || "").padStart(4, "0");
-        if (!fid) continue;
-        if (!byFranchise[fid]) byFranchise[fid] = { franchise_id: fid, total: 0, lines: [] };
-        const m = String(row.explanation || "").match(/UPS drop penalty\s+([A-Za-z0-9 ,.'’\-]+?)\s+(\d+)\s+id:/);
-        const playerName = m ? m[1].trim() : "Player";
-        const amount = parseInt(row.amount, 10) || 0;
-        byFranchise[fid].total += amount;
-        byFranchise[fid].lines.push(
-          `**${playerName}** dropped — cap penalty **$${amount.toLocaleString("en-US")}**. Applied to ${season}.`
-        );
-      }
-      const capPenaltyChannel = String(env.DISCORD_CAP_PENALTY_CHANNEL_ID || "1066390675207233618");
-      const postUrl = `${origin}/admin/cap-penalty/post?L=${leagueId}&YEAR=${season}`;
-      for (const [fid, team] of Object.entries(byFranchise)) {
-        await fetch(postUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({
-            league_id: leagueId,
-            season,
-            franchise_id: fid,
-            franchise_name: team.franchise_name || "",
-            team_total_dollars: team.total,
-            activity_year_label: `${season} Activity (auto-detected)`,
-            cap_penalty_lines: team.lines,
-            channel_id_override: capPenaltyChannel,
-          }),
-        }).catch((e) => console.error(`[scheduled] discord post failed for ${fid}: ${e.message}`));
-      }
-      console.log(
-        `[scheduled ${new Date().toISOString()}] drop-penalty scan: posted ${newlyPosted.length} penalties across ${Object.keys(byFranchise).length} teams`
-      );
+      // Discord-announcement half REMOVED (Keith 2026-07-20): the */5 drop
+      // tracker's per-drop embeds in the transactions channel already announce
+      // every penalty — richer and faster. Only the MFL-import step above
+      // remains on this hourly cron.
+      console.log(`[scheduled ${new Date().toISOString()}] drop-penalty scan: ${newlyPosted.length} penalties posted to MFL (Discord via drop tracker)`);
     } catch (err) {
       console.error(`[scheduled] drop-penalty cron failed: ${err && err.message}`);
     }
@@ -4289,10 +4251,7 @@ export default {
         path !== "/admin/deadline-reminders/test-discord" &&
         path !== "/admin/deadline-reminders/run" &&
         path !== "/admin/contract-activity/test-discord" &&
-        path !== "/admin/trade-notification/test-discord" &&
-        path !== "/admin/trade-notification/post" &&
         path !== "/admin/cap-penalty/test-discord" &&
-        path !== "/admin/cap-penalty/post" &&
         path !== "/admin/restructure-alert/test-discord" &&
         path !== "/admin/restructure-alert/post" &&
         path !== "/admin/contract-activity/test-discord-batch" &&
@@ -38267,84 +38226,6 @@ export default {
         });
       }
 
-      // POST /admin/trade-notification/test-discord (and /post)
-      // Body: {
-      //   league_id, season,
-      //   trade_date_iso, trade_id?,
-      //   left_franchise_id, left_franchise_name,
-      //   right_franchise_id, right_franchise_name,
-      //   left_receives: [ { kind:'player'|'pick'|'cap', ... } ],
-      //   right_receives: [ ... ],
-      //   cap_adjustments: [ { franchise_name, amount } ],  // optional
-      //   note_text?,                                       // freeform analysis
-      //   featured_player_name?                             // GIF search seed
-      // }
-      if ((path === "/admin/trade-notification/test-discord" || path === "/admin/trade-notification/post") && request.method === "POST") {
-        let body = {};
-        try {
-          body = (await request.json()) || {};
-        } catch (_) {
-          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
-        }
-        const leagueId = safeStr(url.searchParams.get("L") || L || body.league_id || "");
-        const season = safeStr(url.searchParams.get("YEAR") || YEAR || body.season || "");
-        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
-        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
-        const adminState = await getLeagueAdminState(leagueId, season);
-        if (!adminState.ok || !adminState.isAdmin) {
-          return jsonOut(403, { ok: false, error: "Only league admin can send trade notifications" });
-        }
-        const missing = [];
-        if (!body.trade_date_iso) missing.push("trade_date_iso");
-        if (!body.left_franchise_name) missing.push("left_franchise_name");
-        if (!body.right_franchise_name) missing.push("right_franchise_name");
-        if (missing.length) return jsonOut(400, { ok: false, error: "missing_fields", missing });
-        const isTest = path === "/admin/trade-notification/test-discord";
-        const notify = await sendDiscordTradeNotification({
-          leagueId,
-          season,
-          tradeDateIso: body.trade_date_iso,
-          tradeId: body.trade_id,
-          leftFranchiseId: body.left_franchise_id,
-          leftFranchiseName: body.left_franchise_name,
-          rightFranchiseId: body.right_franchise_id,
-          rightFranchiseName: body.right_franchise_name,
-          leftReceives: body.left_receives,
-          rightReceives: body.right_receives,
-          capAdjustments: body.cap_adjustments,
-          noteText: body.note_text,
-          featuredPlayerName: body.featured_player_name,
-          forceTestOnly: isTest,
-          forcePrimaryOnly: !isTest,
-          channelIdOverride: isTest ? "" : (body.channel_id_override || ""),
-        });
-        return jsonOut(notify.ok ? 200 : 502, {
-          ok: !!notify.ok,
-          test_only: isTest,
-          delivery_target: safeStr(notify.delivery_target),
-          notify,
-        });
-      }
-
-      // POST /admin/cap-penalty/test-discord (and /post)
-      // Body: {
-      //   league_id, season,
-      //   franchise_id, franchise_name,
-      //   team_total_dollars,
-      //   activity_year_label,               // e.g. "2025 Activity"
-      //   cap_penalty_lines: string[]        // pre-formatted narrative per drop
-      //   channel_id_override? (for /post)
-      // }
-      // POST /admin/restructure-alert/test-discord (and /post)
-      // Body: {
-      //   league_id, season, franchise_id, franchise_name, player_name,
-      //   years_remaining (int),
-      //   tcv_label (string, e.g. "129K" or "$129,000"),
-      //   guaranteed_label (string, e.g. "96.8K"),
-      //   aav_label (string, e.g. "54K"),  // NEVER recomputed
-      //   usage_text (string, e.g. "Restructure: 1 of 3 - 2 remaining. ..."),
-      //   channel_id_override? (for /post)
-      // }
       if ((path === "/admin/restructure-alert/test-discord" || path === "/admin/restructure-alert/post") && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; }
@@ -38374,46 +38255,6 @@ export default {
           yearlyBreakdown: body.yearly_breakdown,
           usageText: body.usage_text,
           gifUrlOverride: body.gif_url_override,
-          forceTestOnly: isTest,
-          forcePrimaryOnly: !isTest,
-          channelIdOverride: isTest ? "" : (body.channel_id_override || ""),
-        });
-        return jsonOut(notify.ok ? 200 : 502, {
-          ok: !!notify.ok,
-          test_only: isTest,
-          delivery_target: safeStr(notify.delivery_target),
-          notify,
-        });
-      }
-
-      if ((path === "/admin/cap-penalty/test-discord" || path === "/admin/cap-penalty/post") && request.method === "POST") {
-        let body = {};
-        try {
-          body = (await request.json()) || {};
-        } catch (_) {
-          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
-        }
-        const leagueId = safeStr(url.searchParams.get("L") || L || body.league_id || "");
-        const season = safeStr(url.searchParams.get("YEAR") || YEAR || body.season || "");
-        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
-        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
-        const adminState = await getLeagueAdminState(leagueId, season);
-        if (!adminState.ok || !adminState.isAdmin) {
-          return jsonOut(403, { ok: false, error: "Only league admin can send cap penalty announcements" });
-        }
-        const missing = [];
-        if (!body.franchise_name) missing.push("franchise_name");
-        if (!Array.isArray(body.cap_penalty_lines) || !body.cap_penalty_lines.length) missing.push("cap_penalty_lines");
-        if (missing.length) return jsonOut(400, { ok: false, error: "missing_fields", missing });
-        const isTest = path === "/admin/cap-penalty/test-discord";
-        const notify = await sendDiscordCapPenaltyAnnouncement({
-          leagueId,
-          season,
-          franchiseId: body.franchise_id,
-          franchiseName: body.franchise_name,
-          teamTotalDollars: body.team_total_dollars,
-          capPenaltyLines: body.cap_penalty_lines,
-          activityYearLabel: body.activity_year_label,
           forceTestOnly: isTest,
           forcePrimaryOnly: !isTest,
           channelIdOverride: isTest ? "" : (body.channel_id_override || ""),

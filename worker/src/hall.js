@@ -764,16 +764,9 @@ export async function handleHallRequest(request, env, corsHeaders) {
   if (path === "/admin/hall/proposals" && request.method === "POST") {
     return await adminUpsertProposal(request, env, corsHeaders);
   }
-  // POST /admin/hall/proposals/:id/publish
-  m = path.match(/^\/admin\/hall\/proposals\/([a-z0-9][a-z0-9-]*)\/publish$/);
-  if (m && request.method === "POST") {
-    return await adminPublishProposal(request, env, corsHeaders, m[1]);
-  }
-  // POST /admin/hall/proposals/:id/close
-  m = path.match(/^\/admin\/hall\/proposals\/([a-z0-9][a-z0-9-]*)\/close$/);
-  if (m && request.method === "POST") {
-    return await adminCloseProposal(request, env, corsHeaders, m[1]);
-  }
+  // Legacy Phase-1 publish/close routes REMOVED (Keith 2026-07-20) — rule
+  // proposals now run entirely through the v2 round system
+  // (/admin/rule-proposals/publish + Discord threads/DM cards).
   // GET /admin/hall/proposals/:id/responses
   m = path.match(/^\/admin\/hall\/proposals\/([a-z0-9][a-z0-9-]*)\/responses$/);
   if (m && request.method === "GET") {
