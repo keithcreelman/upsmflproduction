@@ -28,6 +28,20 @@ RULE_PROPOSALS_DRAFT_ENABLED = "1"
 OTB_CHANNEL_ID = "1277369023880757412"
 OTB_TEST_CHANNEL_ID = "1089538054236160010"
 OTB_LIVE_MODE = "1"
+
+# Config-health pin (Keith 2026-07-20): these were read with hardcoded `|| "id"`
+# fallbacks, so an unset var "worked" but silently — the exact class that broke
+# GUILD_ID/RULES/OTB in prod. Pinning the current fallback values here makes them
+# explicit + version-controlled (zero behavior change). LEAGUE_ID + the commish
+# Discord ids likewise. NOT pinned (need Keith): DISCORD_APPLICATION_ID (value
+# unknown — slash-command registration only), DISCORD_DRAFT_CHANNEL_ID (the code
+# has TWO conflicting fallbacks 1059… vs 1498… — needs the real draft channel).
+LEAGUE_ID = "74598"
+COMMISH_DISCORD_USER_ID = "621530026831118346,1057654821638897715"
+DISCORD_DRAFT_TEST_CHANNEL_ID = "1089538054236160010"
+DISCORD_PICKS_THREAD_PARENT_CHANNEL_ID = "1059111651846131833"
+DISCORD_REMINDER_CHANNEL_ID = "1087157907419840644"
+DISCORD_DROPS_CHANNEL_ID = "1059111651846131833"
 # Trade sentinel (2026-07-15): watch every pending offer, kill asset-moved
 # offers, 14-day silent re-offer. ACT ships OFF — dry-run until the L=25625
 # battery + Keith's prod self-test clear it.
