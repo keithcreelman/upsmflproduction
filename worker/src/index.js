@@ -979,9 +979,11 @@ async function processAuctionPoll(env) {
   // it is DARK by default: it fires only when AUCTION_FAA_FINALIZE_ENABLED=1
   // (Keith arms it after a dry-run preview). The manual admin route +
   // dry_run preview work regardless of this switch. Fail-soft, mirrors ERA.
+  // Read through getFeatureFlag so the FO Kill Switches D1 override wins over
+  // the wrangler.toml default (no redeploy needed to arm/disarm).
   if (
     newlyWonPids.length > 0 &&
-    String(env.AUCTION_FAA_FINALIZE_ENABLED || "") === "1" &&
+    (await getFeatureFlag(env, "AUCTION_FAA_FINALIZE_ENABLED")) &&
     String(env.MFL_COOKIE || "").trim()
   ) {
     for (const pid of newlyWonPids) {
@@ -3567,6 +3569,25 @@ export default {
   // Announcement for each (batched per-team). MFL's salaryAdjustments export
   // is the dedup ledger — runs are idempotent by ups_drop_penalty:{ledger_key}.
   async scheduled(event, env, ctx) {
+    // ── Cloudflare-cron proof-of-life ──────────────────────────────────────
+    // First thing, EVERY invocation, best-effort: stamp ups_bot_heartbeat
+    // bot='cron_cf' so Commish Settings can tell "CF cron is alive" apart from
+    // "the launchd stand-ins are carrying us" (the 2026-07-15 outage was
+    // invisible precisely because scheduled() dying leaves no trace). status
+    // carries the cron expression that fired. Fully fenced — a D1 hiccup here
+    // must never break the handler.
+    try {
+      if (env.UPS_MFL_DB) {
+        ctx.waitUntil(
+          env.UPS_MFL_DB.prepare(
+            "INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env) VALUES ('cron_cf', ?, ?, '') " +
+            "ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = excluded.status"
+          ).bind(Math.floor(Date.now() / 1000), String(event && event.cron || "manual").slice(0, 64)).run()
+            .catch((e) => console.log("[scheduled] cron_cf heartbeat failed:", String(e && e.message || e)))
+        );
+      }
+    } catch (_) { /* heartbeat is observability only — never fatal */ }
+
     // Two cron schedules dispatch into this handler:
     //   "5 * * * *"   — hourly: cap-penalty drop scan + R2 daily snapshot
     //   "*/2 * * * *" — every 2 min: Hall round sweeps (snappy lock+announce)
@@ -3617,9 +3638,14 @@ export default {
         // service-binding fetches; only the path/query matters.
         const origin = "https://self.invalid";
         const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
-        const dropEnabled = String(env.DROP_TRACKER_ENABLED || "").trim() === "1";
-        const dropAutoPost = String(env.DROP_TRACKER_AUTO_POST || "").trim() === "1";
-        const dropPostMfl = String(env.DROP_TRACKER_POST_MFL || "").trim() === "1";
+        // Effective flag values (FO Kill Switches D1 override > wrangler.toml
+        // default) — one getAllFeatureFlags read covers all three, keeping the
+        // */5 tick's D1 chatter flat instead of 3 separate read-throughs.
+        const dropFlags = await getAllFeatureFlags(env).catch(() => []);
+        const dropFlagOn = (k) => { const f = dropFlags.find((x) => x.key === k); return !!(f && f.value); };
+        const dropEnabled = dropFlagOn("DROP_TRACKER_ENABLED");
+        const dropAutoPost = dropFlagOn("DROP_TRACKER_AUTO_POST");
+        const dropPostMfl = dropFlagOn("DROP_TRACKER_POST_MFL");
         const dropTarget = String(env.DROP_TRACKER_DISCORD_TARGET || "prod").trim().toLowerCase();
         if (dropEnabled && commishApiKey && env.UPS_MFL_DB && env.SELF) {
           ctx.waitUntil((async () => {
@@ -11133,12 +11159,13 @@ export default {
         } catch (_) { return ""; }
       }
       async function postOtbDiscord(envRef, args) {
-        // Channel routing — until env.OTB_LIVE_MODE === "1", all posts
-        // go to env.OTB_TEST_CHANNEL_ID. Once Keith is ready, flip
-        // OTB_LIVE_MODE to "1" (no code change) and posts move to
-        // env.OTB_CHANNEL_ID. Mirrors the draft-hub live/test channel
-        // pattern (DISCORD_DRAFT_CHANNEL_ID + DISCORD_DRAFT_TEST_CHANNEL_ID).
-        const liveMode = String(envRef.OTB_LIVE_MODE || "") === "1";
+        // Channel routing — until OTB_LIVE_MODE is on, all posts go to
+        // env.OTB_TEST_CHANNEL_ID; live mode moves them to env.OTB_CHANNEL_ID.
+        // Read through getFeatureFlag so the FO Kill Switches D1 override wins
+        // over the wrangler.toml default (flip live↔test with no redeploy).
+        // Mirrors the draft-hub live/test channel pattern
+        // (DISCORD_DRAFT_CHANNEL_ID + DISCORD_DRAFT_TEST_CHANNEL_ID).
+        const liveMode = await getFeatureFlag(envRef, "OTB_LIVE_MODE");
         const liveChannel = safeStr(envRef.OTB_CHANNEL_ID || "").replace(/\D/g, "");
         const testChannel = safeStr(envRef.OTB_TEST_CHANNEL_ID || "").replace(/\D/g, "");
         const channelId = liveMode && liveChannel ? liveChannel : (testChannel || liveChannel);
@@ -16614,6 +16641,153 @@ export default {
         ? `MFL_USER_ID=${browserCookieValue}`
         : "";
       const viewerCookieHeader = browserCookieHeader || cookieHeader;
+
+      // ── GET /admin/config-health ───────────────────────────────────────────
+      // Commish-only present/missing audit of the worker's required runtime env
+      // (secrets + [vars]). Names only — NEVER values. The point: catch a wiped
+      // secret BEFORE the feature that needs it fails, and especially the vars
+      // whose consumers fall back to a HARDCODED value when empty
+      // (silent_fallback: true) — those keep "working" while missing, which is
+      // how DISCORD_DROPS_CHANNEL_ID stayed unset for months. Env reads only —
+      // no subrequests beyond the (browser-session) auth lookup.
+      // Auth mirrors /admin/auction/delete-test-lots: commish API key OR a
+      // proven commish MFL session (MFL_USER_ID → franchise 0008). NOTE: this
+      // route must stay AFTER the sessionByApiKey/_rdhDetectFranchise consts —
+      // the route chain is one big if-chain and consts are TDZ before their line.
+      if (path === "/admin/config-health" && request.method === "GET") {
+        let chAuthed = !!sessionByApiKey;
+        if (!chAuthed && browserMflUserId) {
+          const det = await _rdhDetectFranchise(browserMflUserId);
+          chAuthed = !!det && _rdhPadFid(det.franchise_id) === "0008";
+        }
+        if (!chAuthed) return jsonOut(403, { ok: false, error: "commish only (API key or commish MFL session)" });
+        // Manifest of every env var the worker reads that matters operationally.
+        // required:false = referenced but optional (aliases, extra test targets).
+        const REQUIRED_ENV = [
+          // MFL plumbing
+          { key: "MFL_APIKEY",   required: true, category: "mfl" },
+          { key: "MFL_COOKIE",   required: true, category: "mfl" },
+          { key: "LEAGUE_ID",    required: true, category: "mfl", silent_fallback: true },   // || "74598" everywhere
+          // Auth / internal keys
+          { key: "COMMISH_API_KEY",     required: true, category: "auth" },
+          { key: "ROAST_TRACK_API_KEY", required: true, category: "auth" },                  // unset = the 2026-06-01 roast-spam incident
+          { key: "TEST_SYNC_API_KEY",   required: false, category: "auth" },
+          // Third-party APIs
+          { key: "ANTHROPIC_API_KEY", required: true, category: "ai" },
+          { key: "GITHUB_PAT",        required: true, category: "github" },
+          { key: "GIPHY_API_KEY",     required: true, category: "media" },
+          // Discord core (tokens / ids)
+          { key: "DISCORD_BOT_TOKEN",          required: true, category: "discord-core" },
+          { key: "DISCORD_CONTRACT_BOT_TOKEN", required: true, category: "discord-core" },
+          { key: "DISCORD_APPLICATION_ID",     required: true, category: "discord-core" },
+          { key: "DISCORD_PUBLIC_KEY",         required: true, category: "discord-core" },
+          { key: "DISCORD_GUILD_ID",           required: true, category: "discord-core" },
+          { key: "COMMISH_DISCORD_USER_ID",    required: true, category: "discord-core" },
+          { key: "DISCORD_DM_USER_IDS",        required: false, category: "discord-core" },
+          // Discord channels. silent_fallback = consumer has a hardcoded
+          // channel-id fallback (auction/draft ~L60, picks ~L9892, contract
+          // ~L25526, reminder ~L27210, drops ~L35496).
+          { key: "DISCORD_RULES_CHANNEL_ID",               required: true, category: "discord-channels" },
+          { key: "DISCORD_AUCTION_CHANNEL_ID",             required: true, category: "discord-channels", silent_fallback: true },
+          { key: "DISCORD_AUCTION_TEST_CHANNEL_ID",        required: true, category: "discord-channels", silent_fallback: true },
+          { key: "DISCORD_DRAFT_CHANNEL_ID",               required: true, category: "discord-channels", silent_fallback: true },
+          { key: "DISCORD_DRAFT_TEST_CHANNEL_ID",          required: true, category: "discord-channels", silent_fallback: true },
+          { key: "DISCORD_PICKS_THREAD_PARENT_CHANNEL_ID", required: true, category: "discord-channels", silent_fallback: true },
+          { key: "DISCORD_CONTRACT_CHANNEL_ID",            required: true, category: "discord-channels", silent_fallback: true },
+          { key: "DISCORD_CONTRACT_TEST_CHANNEL_ID",       required: true, category: "discord-channels", silent_fallback: true },
+          { key: "DISCORD_CONTRACTS_CHANNEL_ID",           required: false, category: "discord-channels", silent_fallback: true }, // alias of CONTRACT
+          { key: "DISCORD_REMINDER_CHANNEL_ID",            required: true, category: "discord-channels", silent_fallback: true },
+          { key: "DISCORD_REMINDER_TEST_CHANNEL_ID",       required: false, category: "discord-channels" },
+          { key: "DISCORD_DROPS_CHANNEL_ID",               required: true, category: "discord-channels", silent_fallback: true },
+          { key: "DISCORD_DROPS_TEST_CHANNEL_ID",          required: false, category: "discord-channels" },
+          { key: "DISCORD_HALL_CHANNEL_ID",                required: false, category: "discord-channels" }, // falls back to REMINDER channel
+          { key: "DISCORD_ANNOUNCE_CHANNEL_ID",            required: false, category: "discord-channels" }, // falls back to RULES channel
+          { key: "DISCORD_BUG_CHANNEL_ID",                 required: false, category: "discord-channels" },
+          { key: "DISCORD_BUG_TEST_CHANNEL_ID",            required: false, category: "discord-channels" },
+          { key: "OTB_CHANNEL_ID",                         required: true, category: "discord-channels" },
+          { key: "OTB_TEST_CHANNEL_ID",                    required: true, category: "discord-channels" },
+        ];
+        const chHas = (k) => { try { return String(env[k] || "").trim().length > 0; } catch (_) { return false; } };
+        const chMissing = [];
+        let chPresent = 0;
+        for (const m of REQUIRED_ENV) {
+          if (chHas(m.key)) { chPresent++; continue; }
+          if (m.required) chMissing.push({ key: m.key, category: m.category, silent_fallback: !!m.silent_fallback });
+        }
+        return jsonOut(200, { ok: true, checked: REQUIRED_ENV.length, missing: chMissing, present_count: chPresent });
+      }
+
+      // ── GET /admin/health-summary ──────────────────────────────────────────
+      // ONE aggregate call behind the Commish Settings ❤️ Health tab: bot
+      // heartbeats + effective feature flags + test residue + calendar-config
+      // age. Deliberately CHEAP — ~5 D1 statements total — so this route can
+      // never brush the subrequest cap no matter how often the tab refreshes.
+      // (No per-table D1 sweep here for the same reason; generated_at lets the
+      // UI show staleness instead.) Auth: same commish gate as config-health.
+      if (path === "/admin/health-summary" && request.method === "GET") {
+        let hsAuthed = !!sessionByApiKey;
+        if (!hsAuthed && browserMflUserId) {
+          const det = await _rdhDetectFranchise(browserMflUserId);
+          hsAuthed = !!det && _rdhPadFid(det.franchise_id) === "0008";
+        }
+        if (!hsAuthed) return jsonOut(403, { ok: false, error: "commish only (API key or commish MFL session)" });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const hsNow = Math.floor(Date.now() / 1000);
+        const hsErrors = [];
+        // Heartbeats — one query for all three bots. A bot that has never
+        // stamped stays {last_ts:null, age_sec:null} (UI renders DOWN/never).
+        const heartbeats = {
+          auction_poll: { last_ts: null, age_sec: null },
+          trade_roast:  { last_ts: null, age_sec: null },
+          cron_cf:      { last_ts: null, age_sec: null },
+        };
+        try {
+          const { results: hbRows } = await env.UPS_MFL_DB.prepare(
+            "SELECT bot, last_ts, status, env FROM ups_bot_heartbeat WHERE bot IN ('auction_poll','trade_roast','cron_cf')"
+          ).all();
+          for (const r of hbRows || []) {
+            const ts = Number(r.last_ts || 0) || null;
+            heartbeats[String(r.bot)] = {
+              last_ts: ts,
+              age_sec: ts ? Math.max(0, hsNow - ts) : null,
+              status: safeStr(r.status || ""),
+              env: safeStr(r.env || ""),
+            };
+          }
+        } catch (e) { hsErrors.push("heartbeats: " + String(e?.message || e)); }
+        // Effective flags (D1 override > env default), same shape as
+        // /admin/commish-settings so the UI can share its renderer.
+        let hsFlags = [];
+        try { hsFlags = await getAllFeatureFlags(env); } catch (e) { hsErrors.push("flags: " + String(e?.message || e)); }
+        // Test residue — both counts in ONE statement via scalar subselects.
+        const testResidue = { auction_test_lots: 0, test_rule_rounds: 0 };
+        try {
+          const tr = await env.UPS_MFL_DB.prepare(
+            "SELECT (SELECT COUNT(*) FROM ups_auction_lots WHERE is_test = 1) AS auction_test_lots, " +
+            "(SELECT COUNT(*) FROM discord_rounds WHERE test_only = 1 AND round_id LIKE 'rp-%') AS test_rule_rounds"
+          ).first();
+          testResidue.auction_test_lots = Number(tr?.auction_test_lots || 0);
+          testResidue.test_rule_rounds = Number(tr?.test_rule_rounds || 0);
+        } catch (e) { hsErrors.push("test_residue: " + String(e?.message || e)); }
+        // Calendar config age — when the commish last saved Auction Dates.
+        let calendarUpdatedAt = null;
+        try {
+          const calRow = await env.UPS_MFL_DB.prepare(
+            "SELECT updated_at FROM ups_settings WHERE key = 'auction_calendar'"
+          ).first();
+          calendarUpdatedAt = calRow?.updated_at ? safeStr(calRow.updated_at) : null;
+        } catch (e) { hsErrors.push("calendar: " + String(e?.message || e)); }
+        return jsonOut(200, {
+          ok: hsErrors.length === 0,
+          generated_at: new Date(hsNow * 1000).toISOString(),
+          now_unix: hsNow,
+          heartbeats,
+          flags: hsFlags,
+          test_residue: testResidue,
+          calendar_updated_at: calendarUpdatedAt,
+          errors: hsErrors,
+        });
+      }
 
       const getLeagueAdminState = async (leagueId, year) => {
         const mflUrl = `https://api.myfantasyleague.com/${encodeURIComponent(
@@ -38477,7 +38651,6 @@ export default {
       // without a secrets_store binding), and wiped values across the board.
       if (path === "/admin/discord-channel-config" && request.method === "GET") {
         const dig = (s) => safeStr(s || "").replace(/\D/g, "");
-        const flag = (s) => String(s || "").trim() === "1";
         const has = (k) => { try { return String(env[k] || "").length > 0; } catch (_) { return false; } };
         const names = Object.keys(env).filter((k) => /DISCORD|GIPHY|DROP_TRACKER|COMMISH|MFL_COOKIE/i.test(k)).sort();
         const present = {};
@@ -38501,9 +38674,11 @@ export default {
           contract_primary_resolved: !!dig(env.DISCORD_CONTRACT_CHANNEL_ID),
           contract_test_resolved: !!(dig(env.DISCORD_CONTRACT_TEST_CHANNEL_ID) || dig(env.DISCORD_BUG_TEST_CHANNEL_ID)),
           drop_tracker: {
-            enabled: flag(env.DROP_TRACKER_ENABLED),
-            auto_post_discord: flag(env.DROP_TRACKER_AUTO_POST),
-            post_mfl: flag(env.DROP_TRACKER_POST_MFL),
+            // Effective values (D1 override > env default) — matches what the
+            // */5 cron actually does, not just what wrangler.toml says.
+            enabled: await getFeatureFlag(env, "DROP_TRACKER_ENABLED"),
+            auto_post_discord: await getFeatureFlag(env, "DROP_TRACKER_AUTO_POST"),
+            post_mfl: await getFeatureFlag(env, "DROP_TRACKER_POST_MFL"),
             discord_target: String(env.DROP_TRACKER_DISCORD_TARGET || "prod").trim().toLowerCase(),
             commish_api_key_present: has("COMMISH_API_KEY"),
             drops_channel_env_set: has("DISCORD_DROPS_CHANNEL_ID"),

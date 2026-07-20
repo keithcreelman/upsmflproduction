@@ -88,6 +88,10 @@ AUCTION_FAA_ENABLED = "0"
 # (+ its dry_run=1 preview) works regardless of this switch.
 AUCTION_FAA_FINALIZE_ENABLED = "0"
 
+# §F RULE 2 missed-nom fines default OFF (dark/test mode) — the flag was in
+# FEATURE_FLAGS with no env default here, so its baseline lived only in code.
+AUCTION_FAA_PENALTIES_ENABLED = "0"
+
 # Nightly 9:30 PM ET FA-Auction daily report (worker/src/auction_nudge.js).
 # When ON *and* AUCTION_FAA_ENABLED is on, the "30 1,2 * * *" cron posts the
 # nomination scoreboard to the Auction Bidding channel (tagging only the owners
