@@ -35864,7 +35864,14 @@ export default {
           const guaranteed = Number(r.guaranteed_amount) || 0;
           const fmtK = (v) => {
             const n = Number(v) || 0;
-            if (n >= 1000) return `$${Math.round(n / 1000)}K`;
+            // Match the contractInfo K-format (e.g. GTD: 13.5K): show ONE decimal
+            // only when it isn't a whole number of thousands. Rounding each value
+            // to the nearest $1K made 13.5K read "$14K" and 1.5K read "$2K", so a
+            // correct 13.5 − 12 = 1.5 penalty looked like a broken "$14 − $12 = $2".
+            if (n >= 1000) {
+              const k = n / 1000;
+              return `$${Number.isInteger(k) ? k : (Math.round(k * 10) / 10)}K`;
+            }
             return `$${n}`;
           };
 
