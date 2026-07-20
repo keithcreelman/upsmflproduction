@@ -5948,12 +5948,35 @@ export default {
         const commit = String(url.searchParams.get("commit") || "") === "1";
 
         if (commit) {
-          // A caller-declared franchise_id must never authorize a WRITE to the
-          // league's MFL calendar — ?franchise_id=0008&commit=1 was enough for
-          // anyone. Key only.
+          // Commit authorizes a WRITE — a caller-DECLARED franchise_id must
+          // never suffice (?franchise_id=0008 was enough for anyone). Two valid
+          // proofs: (1) the commish API key, or (2) a REAL commish MFL session —
+          // the browser's MFL_USER_ID actually resolving to a commish franchise
+          // in this league (verified server-side against MFL, not self-asserted).
+          // The commish page has the session, not the key, so #2 is what makes
+          // the Push button work without embedding a secret in public JS.
           const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
-          const keyOk = browserKey && (browserKey === String(env.COMMISH_API_KEY || "").trim() || browserKey === String(env.TEST_SYNC_API_KEY || "").trim());
-          if (!keyOk) return jsonOut(403, { ok: false, error: "commit is commish-only — requires the commish API key" });
+          let keyOk = browserKey && (browserKey === String(env.COMMISH_API_KEY || "").trim() || browserKey === String(env.TEST_SYNC_API_KEY || "").trim());
+          if (!keyOk && browserMflUserId) {
+            try {
+              const commishSet = new Set(
+                String(env.COMMISH_FRANCHISE_IDS || "0008").split(",").map((s) => s.trim().replace(/\D/g, "").padStart(4, "0")).filter(Boolean)
+              );
+              const _ckv = browserMflUserId.includes("=") ? browserMflUserId.split("=").pop() : browserMflUserId;
+              const mlr = await fetch(
+                `https://api.myfantasyleague.com/${encodeURIComponent(yearArg)}/export?TYPE=myleagues&JSON=1`,
+                { headers: { Cookie: `MFL_USER_ID=${_ckv}`, "User-Agent": "upsmflproduction-worker" } }
+              );
+              if (mlr.ok) {
+                const mld = await mlr.json().catch(() => ({}));
+                let lgs = mld?.leagues?.league || mld?.myleagues?.league || [];
+                if (!Array.isArray(lgs)) lgs = [lgs];
+                const mine = lgs.find((lg) => String(lg.league_id) === String(leagueId));
+                if (mine && commishSet.has(String(mine.franchise_id).replace(/\D/g, "").padStart(4, "0"))) keyOk = true;
+              }
+            } catch (_) { /* fall through to the 403 */ }
+          }
+          if (!keyOk) return jsonOut(403, { ok: false, error: "commit is commish-only — sign in to MFL as the commissioner (or pass the commish API key)." });
         }
 
         const cfg = await getAuctionCalendar(env);
@@ -39594,6 +39617,34 @@ export default {
           await env.UPS_MFL_DB.prepare(`DELETE FROM ups_auction_lots WHERE lot_id = ? AND is_test = 1`).bind(lid).run();
         }
         return jsonOut(200, { ok: true, deleted_lots: lotIds.length, deleted_bids: bidsDeleted });
+      }
+
+      // Purge test nomination-fine data (ups_faa_nom_days + ups_faa_nom_penalties).
+      // Default scope = every day BEFORE the real FAA opens (auction_calendar
+      // faa_open_at), so the test-week ledger clears but real fines can never be
+      // touched. ?before=YYYY-MM-DD overrides. Same commish auth as delete-test-lots.
+      if (path === "/admin/auction/delete-test-nom-fines" && request.method === "POST") {
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let authed = !!sessionByApiKey;
+        if (!authed && browserMflUserId) {
+          const det = await _rdhDetectFranchise(browserMflUserId);
+          authed = !!det && _rdhPadFid(det.franchise_id) === "0008";
+        }
+        if (!authed) return jsonOut(403, { ok: false, error: "commish only (API key or commish MFL session)" });
+        let nfBody = {};
+        try { nfBody = (await request.json()) || {}; } catch (_) {}
+        let before = safeStr(nfBody.before || url.searchParams.get("before"));
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(before)) {
+          try {
+            const cal = await getAuctionCalendar(env);
+            const open = safeStr(cal?.faa?.faa_open_at);
+            before = open.slice(0, 10) || "";
+          } catch (_) {}
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(before)) return jsonOut(400, { ok: false, error: "no cutoff — set faa_open_at in the League Calendar or pass ?before=YYYY-MM-DD" });
+        const pen = await env.UPS_MFL_DB.prepare(`DELETE FROM ups_faa_nom_penalties WHERE et_day < ?`).bind(before).run().catch(() => ({ meta: { changes: 0 } }));
+        const days = await env.UPS_MFL_DB.prepare(`DELETE FROM ups_faa_nom_days WHERE et_day < ?`).bind(before).run();
+        return jsonOut(200, { ok: true, cutoff: before, deleted_days: Number(days?.meta?.changes || 0), deleted_penalties: Number(pen?.meta?.changes || 0) });
       }
 
       // ---- §F RULE 2 — missed-nomination ledger + commish override ----
