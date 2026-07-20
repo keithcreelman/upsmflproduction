@@ -24,7 +24,8 @@
 //      code that decides "missed" without consulting roster_met is broken.
 
 import { getFeatureFlag } from "./feature_flags.js";
-import { etDayBounds } from "./auction_windows.js";
+import { etDayBounds, faaNomSchedule } from "./auction_windows.js";
+import { getAuctionCalendar } from "./auction_calendar.js";
 
 // $K per offense. Index 0 = 1st offense. Beyond this array there is no fine —
 // see the 4th-offense note above.
@@ -117,6 +118,18 @@ export async function closeEtDay(env, { season, leagueId, etDay, rows }) {
   if (Number(existing?.n || 0) > 0) {
     return { ok: true, day: etDay, already_closed: true, misses: [], penalties: [] };
   }
+
+  // ── Nomination-schedule guard ─────────────────────────────────────────
+  // Days AFTER the configured last-day-to-nominate have no nomination window
+  // at all — nothing to owe, nothing to fine. (The final day itself still
+  // closes normally: the 2-nom FLOOR applies there; only the ceiling was
+  // waived.) Unset deadline ⇒ every day is a window (pre-2026 behavior).
+  try {
+    const sched = faaNomSchedule((await getAuctionCalendar(env))?.faa?.faa_nom_deadline_at, null);
+    if (sched.configured && String(etDay) > sched.final_day_key) {
+      return { ok: true, day: etDay, no_window: true, misses: [], penalties: [] };
+    }
+  } catch (_) { /* schedule unavailable → close normally */ }
 
   // ── Ledger-freshness interlock ────────────────────────────────────────
   // NEVER judge a day the poll hasn't fully ingested. The verdict below reads
