@@ -1987,6 +1987,13 @@
             '</div>' +
             '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
               '<label>Passes at (YES votes) <input type="number" id="rp-pass" min="1" max="12" value="7" style="width:70px;"></label>' +
+              '<label title="How often non-voters get a DM reminder for THIS round. Quiet hours (10 PM–6 AM ET) always apply.">Nudge cadence <select id="rp-nudge">' +
+                '<option value="">Default (48h, then daily after day 6)</option>' +
+                '<option value="24">Every 24h</option>' +
+                '<option value="12">Every 12h</option>' +
+                '<option value="72">Every 3 days</option>' +
+                '<option value="0">Off (no nudges)</option>' +
+              '</select></label>' +
               '<label>Deadline <input type="datetime-local" id="rp-deadline" value="' + dlLocal + '"></label>' +
               '<label>Category <input type="text" id="rp-category" value="rules" style="width:120px;"></label>' +
               '<label><input type="checkbox" id="rp-testmode"' + (flags.live ? '' : ' checked disabled') + '> test mode (solo + test channel)</label>' +
@@ -2108,6 +2115,7 @@
             round_title: roundTitle || (items[0] && items[0].title) || '',
             items: items,
             pass_yes_count: parseInt(val('rp-pass'), 10) || parseInt(parsed[0] && parsed[0].pass, 10) || 7,
+            nudge_interval_hours: val('rp-nudge') === '' ? undefined : parseInt(val('rp-nudge'), 10),
             deadline_utc: dl ? new Date(dl).toISOString() : '',
             category: val('rp-category') || (parsed[0] && parsed[0].category) || 'rules',
             test_mode: !!(document.getElementById('rp-testmode') || {}).checked,

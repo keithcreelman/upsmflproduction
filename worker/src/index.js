@@ -39421,11 +39421,18 @@ export default {
             it.body_md, it.rationale_md, it.supporting_data_md, it.canon_change_md,
             deadlineIso, itemPassYes, ts).run();
         }
+        // Per-round nudge cadence (migration 0106): null = default ladder
+        // (48h → daily), 0 = off, N>0 = every N hours (clamped 1–168).
+        let nudgeIntervalHours = null;
+        if (rpBody.nudge_interval_hours != null && rpBody.nudge_interval_hours !== "") {
+          const n = Number(rpBody.nudge_interval_hours);
+          if (Number.isFinite(n)) nudgeIntervalHours = n <= 0 ? 0 : Math.min(168, Math.max(1, Math.round(n)));
+        }
         await env.UPS_MFL_DB.prepare(
           `INSERT INTO discord_rounds
-             (round_id, title, status, started_at_utc, started_by, voting_deadline_utc, test_only, broadcast_channel_id)
-           VALUES (?, ?, 'open', ?, 'commish-tab', ?, ?, ?)`
-        ).bind(roundId, roundTitle, ts, deadlineIso, dark ? 1 : 0, dark ? TEST_CHANNEL : null).run();
+             (round_id, title, status, started_at_utc, started_by, voting_deadline_utc, test_only, broadcast_channel_id, nudge_interval_hours)
+           VALUES (?, ?, 'open', ?, 'commish-tab', ?, ?, ?, ?)`
+        ).bind(roundId, roundTitle, ts, deadlineIso, dark ? 1 : 0, dark ? TEST_CHANNEL : null, nudgeIntervalHours).run();
         for (let i = 0; i < items.length; i++) {
           await env.UPS_MFL_DB.prepare(
             `INSERT INTO discord_round_items (round_id, proposal_id, ordinal) VALUES (?, ?, ?)`
