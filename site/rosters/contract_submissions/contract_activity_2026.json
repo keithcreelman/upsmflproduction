@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-07 21:53:41",
+    "generated_at": "2026-07-20 18:16:11",
     "source": "contract-activity-log",
-    "count": 64,
+    "count": 65,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "64f3502d16eb9d3e6a475e60",
+      "submission_id": "64f3502d16eb9d3e6a475e60",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0009",
+      "franchise_name": "",
+      "player_id": "15715",
+      "player_name": "Cook, James",
+      "position": "RB",
+      "salary": 37000,
+      "contract_year": 1,
+      "contract_status": "Vet-Ext1",
+      "contract_info": "CL 2|TCV 64K|AAV 27K, 37K|Y1-27K, Y2-37K|Ext: CBP|GTD: 48K",
+      "tcv": 64000,
+      "aav": 0,
+      "guaranteed": 48000,
+      "submitted_at_utc": "2026-07-20T18:15:54.817Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1528827821676560507",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "aaf21547d1da7a7f17e2566c",
       "submission_id": "aaf21547d1da7a7f17e2566c",
