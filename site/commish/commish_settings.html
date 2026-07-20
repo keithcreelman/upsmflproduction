@@ -10,6 +10,7 @@
 <!-- build 2026.07.13.4 — Auction Dates = open + close → one AUCTION_START event (dropped roster cut/waiver lock) -->
 <!-- build 2026.07.14.1 — +cut deadline (CUSTOM marker) alongside auction open + close -->
 <!-- build 2026.07.14.2 — "Update League Calendar": Trade/Rookie/ERA/FAA → MFL (correct types incl WAIVER_NONE) + D1 league_events (mobile sync) -->
+<!-- build 2026.07.20.1 — ❤️ Health landing tab (config audit + heartbeats + flags board + test residue); grouped tab bar (Dashboard/League Config/Live Ops/Controls); Status folded into Health drill-ins; Kill Switches → domain cards with dark→live chains; dead AI-workbench JS removed -->
 
 <style>
   :root {
@@ -28,12 +29,42 @@
   .cs-sub { color: var(--muted); font-size: 12.5px; margin: 0 0 16px; line-height: 1.5; }
   .cs-gate { padding: 40px 20px; text-align: center; color: var(--muted); }
 
-  /* Top tab bar (MFL Settings · Discord Routing · …) */
-  .cs-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+  /* Top tab bar — 4 labeled sections (Dashboard · League Config · Live Ops · Controls) */
+  .cs-tabs { display: flex; gap: 0; flex-wrap: wrap; align-items: flex-end; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+  .cs-tabgrp { display: flex; flex-direction: column; border-right: 1px solid var(--line); padding-right: 10px; margin-right: 10px; }
+  .cs-tabgrp:last-child { border-right: 0; padding-right: 0; margin-right: 0; }
+  .cs-tabgrp-l { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); opacity: 0.8; padding: 0 14px 1px; }
+  .cs-tabgrp-btns { display: flex; flex-wrap: wrap; gap: 4px; }
   .cs-tabs button { background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--muted);
     font-weight: 600; font-size: 13.5px; padding: 9px 14px; cursor: pointer; white-space: nowrap; }
   .cs-tabs button:hover { color: var(--fg); }
   .cs-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ❤️ Health dashboard tiles */
+  .hv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 12px; }
+  .hv-tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .hv-tile.bad { border-color: rgba(248,113,113,0.55); }
+  .hv-tile.wide { grid-column: 1 / -1; }
+  .hv-tile h3 { margin: 0 0 8px; font-size: 13px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .hv-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 6px; }
+  .hv-missing { font-size: 12px; color: var(--danger); margin: 3px 0; }
+  .hv-chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--muted); background: var(--panel2); margin: 0 4px 5px 0; white-space: nowrap; }
+  .hv-chip.on { color: #fff; background: #1f8a4c; border-color: #1f8a4c; }
+  .hv-chip.danger-on { box-shadow: 0 0 0 2px rgba(248,113,113,0.7); }
+  .hv-chip .ov { font-size: 9px; font-weight: 800; text-transform: uppercase; margin-left: 5px; opacity: 0.85; }
+  .hv-flag-grp { margin: 7px 0; }
+  .hv-flag-grp-l { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); margin-bottom: 3px; }
+
+  /* Kill Switches — domain cards; escalation chains indent with ↳ */
+  .ks-chain { padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .ks-chain:last-child { border-bottom: 0; }
+  .ks-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 0; }
+  .ks-row.child { margin-left: 26px; }
+  .ks-arrow { color: var(--muted); font-weight: 700; margin-right: 6px; }
+  .ks-src { display: inline-block; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 1px 7px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+  .ks-src.ov { color: var(--warn); border-color: rgba(251,191,36,0.45); }
 
   /* MFL Settings tab — identity tools + grouped setup cards */
   .cs-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
@@ -418,11 +449,12 @@
   }
 
   // ── Shared state ──────────────────────────────────────────────────────
-  var CS = { tab: "mfl", fmap: null, cr: { subs: [], sel: {} }, statusView: "discord" };
+  var CS = { tab: "health", fmap: null, cr: { subs: [], sel: {} }, statusView: "discord", healthDrill: null };
   var content = function () { return document.getElementById("cs-content"); };
   function $$(sel, host) { return Array.prototype.slice.call((host || document).querySelectorAll(sel)); }
 
   var TABS = [
+    { key: "health", label: "❤️ Health" },
     { key: "mfl", label: "MFL Settings" },
     { key: "warroom", label: "🔨 Auction War Room" },
     { key: "auctioncal", label: "🗓️ Update League Calendar" },
@@ -430,16 +462,30 @@
     { key: "nomfines", label: "⚖️ Missed Nominations" },
     { key: "ruleprops", label: "📜 Rule Proposals" },
     { key: "killswitches", label: "Kill Switches" },
-    { key: "revert", label: "Contract Revert" },
-    { key: "status", label: "Status" }
+    { key: "revert", label: "Contract Revert" }
   ];
+  // Labeled sections for the tab bar. The old "Status" tab is folded into
+  // Health (Discord routing + D1 tables are drill-ins there).
+  var TAB_GROUPS = [
+    { label: "Dashboard", keys: ["health"] },
+    { label: "League Config", keys: ["mfl", "auctioncal", "discord"] },
+    { label: "Live Ops", keys: ["warroom", "nomfines", "ruleprops", "revert"] },
+    { label: "Controls", keys: ["killswitches"] }
+  ];
+  function tabByKey(k) { return TABS.filter(function (t) { return t.key === k; })[0]; }
 
   function renderShell() {
     root.innerHTML =
       '<div class="cs-head"><h1>Commish Settings</h1><span class="cs-badge">Commissioner</span></div>' +
-      '<p class="cs-sub">League ' + esc(L) + ' · ' + esc(YEAR) + '. Your command center — identity, MFL setup, Discord routing, kill switches, contract reverts, and live posting/D1 status.</p>' +
+      '<p class="cs-sub">League ' + esc(L) + ' · ' + esc(YEAR) + '. Your command center — health dashboard, identity, MFL setup, Discord routing, kill switches, and contract reverts.</p>' +
       '<nav class="cs-tabs" id="cs-tabs">' +
-        TABS.map(function (t) { return '<button type="button" data-cstab="' + t.key + '"' + (t.key === CS.tab ? ' class="active"' : '') + '>' + esc(t.label) + '</button>'; }).join("") +
+        TAB_GROUPS.map(function (g) {
+          var btns = g.keys.map(function (k) {
+            var t = tabByKey(k); if (!t) return "";
+            return '<button type="button" data-cstab="' + t.key + '"' + (t.key === CS.tab ? ' class="active"' : '') + '>' + esc(t.label) + '</button>';
+          }).join("");
+          return '<div class="cs-tabgrp"><div class="cs-tabgrp-l">' + esc(g.label) + '</div><div class="cs-tabgrp-btns">' + btns + '</div></div>';
+        }).join("") +
       '</nav>' +
       '<div id="cs-content"></div>';
     document.getElementById("cs-tabs").addEventListener("click", function (e) {
@@ -447,13 +493,20 @@
       if (!b) return;
       var t = b.getAttribute("data-cstab");
       if (!t || t === CS.tab) return;
-      CS.tab = t;
-      $$("#cs-tabs button").forEach(function (x) { x.classList.toggle("active", x.getAttribute("data-cstab") === t); });
-      renderTab();
+      switchTab(t);
     });
   }
 
+  // Programmatic tab switch — keeps the tab bar's active state in sync (used
+  // by the tab bar itself and by cross-links like Health → Rule Proposals).
+  function switchTab(t) {
+    CS.tab = t;
+    $$("#cs-tabs button").forEach(function (x) { x.classList.toggle("active", x.getAttribute("data-cstab") === t); });
+    renderTab();
+  }
+
   function renderTab() {
+    if (CS.tab === "health") return renderHealth();
     if (CS.tab === "warroom") return renderWarRoom();
     if (CS.tab === "auctioncal") return renderAuctionCalendar();
     if (CS.tab === "discord") return renderDiscordRouting();
@@ -461,7 +514,6 @@
     if (CS.tab === "ruleprops") return renderRuleProps();
     if (CS.tab === "killswitches") return renderKillSwitches();
     if (CS.tab === "revert") return renderContractRevert();
-    if (CS.tab === "status") return renderStatus();
     return renderMflSettings();
   }
 
@@ -1844,109 +1896,10 @@
   // commish and runs in the test channel — rehearse until comfortable, then
   // flip the switch in Kill Switches. (Keith 2026-07-15.)
   // ════════════════════════════════════════════════════════════════════
-  // ── 🧪 AI Drafting Workbench state + helpers (Rule Proposals phase 2) ──
-  // RD survives tab re-renders; the poll timer is cleared on every re-render
-  // and re-armed only while a turn is in flight.
-  var RD = { sid: null, poll: null, inflight: false, linkedSid: null };
   // Proposals-list UI state (survives tab re-renders). testOnly=false hides
   // [test] proposals from the list (default); true shows ONLY tests so they
   // can be reviewed and deleted.
   var RPUI = { testOnly: false };
-  function rdStopPoll() { if (RD.poll) { clearInterval(RD.poll); RD.poll = null; } }
-  function rdApi(pathSuffix) {
-    return apiUrl("/admin/rule-proposals/draft" + pathSuffix) + "?L=" + encodeURIComponent(L) + "&YEAR=" + encodeURIComponent(YEAR);
-  }
-  function rdPaintChat(data) {
-    var chat = document.getElementById("rpd-chat");
-    var pane = document.getElementById("rpd-draft");
-    if (!chat || !pane) return;
-    var html = (data.messages || []).map(function (m) {
-      if (m.role === "user") {
-        return '<div style="text-align:right;margin:6px 0;"><span style="display:inline-block;background:rgba(80,140,255,.15);padding:6px 10px;border-radius:10px;max-width:85%;text-align:left;white-space:pre-wrap;">' + esc(m.text) + '</span></div>';
-      }
-      var tools = (m.tools || []).map(function (t) {
-        return '<div style="opacity:.55;font-size:11px;margin:2px 0;">' + esc(t) + '</div>';
-      }).join("");
-      var body = m.text ? '<span style="display:inline-block;background:rgba(128,128,128,.12);padding:6px 10px;border-radius:10px;max-width:92%;white-space:pre-wrap;">' + esc(m.text) + '</span>' : '';
-      return '<div style="margin:6px 0;">' + tools + body + '</div>';
-    }).join("");
-    var busy = data.session && data.session.turn_started_at_utc;
-    if (busy || RD.inflight) {
-      html += '<div id="rpd-status" style="opacity:.7;font-style:italic;margin:6px 0;">🤖 ' + esc((data.session && data.session.status_text) || "thinking…") + '</div>';
-    }
-    chat.innerHTML = html || '<div class="fo-row-hint">Say something to get started.</div>';
-    chat.scrollTop = chat.scrollHeight;
-    var d = data.draft || {};
-    var row = function (label, v) {
-      return '<div style="margin:4px 0;"><strong style="font-size:11px;opacity:.7;">' + label + '</strong><div style="white-space:pre-wrap;font-size:12px;">' + (v ? esc(String(v)) : '<span style="opacity:.4;">—</span>') + '</div></div>';
-    };
-    pane.innerHTML =
-      row("TITLE", d.title) + row("TLDR", d.tldr) + row("RULE TEXT", d.body_md) +
-      row("WHY THIS CAME UP", d.rationale_md) + row("SUPPORTING DATA", d.supporting_data_md) +
-      row("PASSES AT", d.pass_yes_count ? d.pass_yes_count + " YES" : "") + row("DEADLINE", d.deadline_utc) +
-      '<div style="margin-top:8px;"><button type="button" class="fo-btn" id="rpd-loadform">⬇ Load into publish form</button>' +
-      (RD.linkedSid === RD.sid && RD.sid ? ' <span style="color:#1f8a4c;font-size:12px;">linked ✓</span>' : '') + '</div>';
-    var lf = document.getElementById("rpd-loadform");
-    if (lf) lf.addEventListener("click", function () { rdLoadIntoForm(d); });
-  }
-  function rdRefresh() {
-    if (!RD.sid) return Promise.resolve();
-    return fetchJSON(rdApi("/" + RD.sid)).then(function (data) {
-      if (CS.tab !== "ruleprops") return;
-      rdPaintChat(data);
-      return data;
-    }).catch(function () { /* transient poll failure — next tick retries */ });
-  }
-  function rdArmPoll() {
-    rdStopPoll();
-    RD.poll = setInterval(function () {
-      if (CS.tab !== "ruleprops") { rdStopPoll(); return; }
-      rdRefresh();
-    }, 2500);
-  }
-  function rdSend(text) {
-    if (RD.inflight || !RD.sid) return;
-    RD.inflight = true;
-    var chat = document.getElementById("rpd-chat");
-    if (chat) {
-      chat.innerHTML += '<div style="text-align:right;margin:6px 0;"><span style="display:inline-block;background:rgba(80,140,255,.15);padding:6px 10px;border-radius:10px;max-width:85%;text-align:left;white-space:pre-wrap;">' + esc(text) + '</span></div>' +
-        '<div id="rpd-status" style="opacity:.7;font-style:italic;margin:6px 0;">🤖 sending…</div>';
-      chat.scrollTop = chat.scrollHeight;
-    }
-    rdArmPoll();
-    postJSON(rdApi("/" + RD.sid + "/turn"), { text: text })
-      .then(function () { rdStopPoll(); RD.inflight = false; rdRefresh(); })
-      .catch(function (e) {
-        RD.inflight = false;
-        if (String(e.message).indexOf("turn_in_flight") !== -1) return; // poll rides it out
-        rdStopPoll(); toast("Turn failed: " + e.message, "err"); rdRefresh();
-      });
-  }
-  function rdLoadIntoForm(d) {
-    var set = function (id, v) { var el = document.getElementById(id); if (el && v != null && v !== "") el.value = v; };
-    // The form is now two paste blocks — reassemble the AI draft's fields into
-    // the Block-1 markdown the parser reads, so the in-app draft handoff still
-    // populates the form (Keith 2026-07-18).
-    var block1 = "# PROPOSAL\n\n" +
-      "**title:** " + (d.title || "") + "\n" +
-      "**tldr:** " + (d.tldr || "") + "\n\n" +
-      "## body_md (votable text)\n" + (d.body_md || "") + "\n\n" +
-      "## rationale_md\n" + (d.rationale_md || "") +
-      (d.supporting_data_md ? "\n\n## supporting_data_md\n" + d.supporting_data_md : "");
-    set("rp-proposal", block1);
-    if (d.canon_change_md) set("rp-canon", d.canon_change_md);
-    set("rp-pass", d.pass_yes_count); set("rp-category", d.category);
-    if (d.deadline_utc) {
-      var dt = new Date(d.deadline_utc);
-      if (!isNaN(dt.getTime())) {
-        var p2 = function (n) { return (n < 10 ? "0" : "") + n; };
-        set("rp-deadline", dt.getFullYear() + "-" + p2(dt.getMonth() + 1) + "-" + p2(dt.getDate()) + "T" + p2(dt.getHours()) + ":" + p2(dt.getMinutes()));
-      }
-    }
-    RD.linkedSid = RD.sid;
-    toast("Draft loaded — review, tweak, then Publish. The drafting Q&A will ground the bot.", "ok");
-    rdRefresh();
-  }
 
   function renderRuleProps() {
     var host = content();
@@ -2214,15 +2167,41 @@
               .catch(function (e) { btn.disabled = false; toast('Delete failed: ' + e.message, 'err'); });
           });
         });
-
-        // AI drafting workbench removed — stop any stale poll from a prior render.
-        rdStopPoll();
       })
       .catch(function (e) {
         if (CS.tab !== myTab) return;
         host.innerHTML = '<div class="fo-card"><p class="fo-row-hint">Failed to load: ' + esc(e.message) + '</p></div>';
       });
   }
+
+  // Domain cards: each chain is [parent, escalation…] — the parent is the dark
+  // master and every flag after it escalates (dark → live), rendered indented
+  // with ↳ so the pairs read side-by-side. Flags the worker reports that no
+  // card claims land in "Other" so nothing silently disappears.
+  var KS_DOMAINS = [
+    { name: "🤝 Trades", chains: [
+      ["TRADE_DM_ENABLED"],
+      ["TRADE_3WAY_ENABLED", "TRADE_3WAY_EXECUTE"],
+      ["TRADE_SENTINEL_ENABLED", "TRADE_SENTINEL_ACT_ENABLED", "TRADE_SENTINEL_ADOPT_NATIVE"]
+    ] },
+    { name: "🔨 Auction", chains: [
+      ["AUCTION_INAPP_BID_ENABLED"],
+      ["AUCTION_ERA_ENABLED"],
+      ["AUCTION_FAA_ENABLED", "AUCTION_FAA_PENALTIES_ENABLED", "AUCTION_FAA_FINALIZE_ENABLED"],
+      ["AUCTION_NIGHTLY_NUDGE_ENABLED"]
+    ] },
+    { name: "📜 Rule Proposals", chains: [
+      ["RULE_PROPOSALS_ENABLED", "RULE_PROPOSALS_LIVE"],
+      ["RULE_PROPOSALS_DRAFT_ENABLED"],
+      ["RULE_PROPOSALS_AI_ENABLED"]
+    ] },
+    { name: "🪂 Drops", chains: [
+      ["DROP_TRACKER_ENABLED", "DROP_TRACKER_AUTO_POST", "DROP_TRACKER_POST_MFL"]
+    ] },
+    { name: "📢 OTB", chains: [
+      ["OTB_LIVE_MODE"]
+    ] }
+  ];
 
   function renderKillSwitches() {
     var host = content();
@@ -2231,28 +2210,52 @@
     fetchJSON(apiUrl("/admin/commish-settings") + "?L=" + encodeURIComponent(L)).then(function (data) {
       if (CS.tab !== myTab) return;
       var flags = (data && data.feature_flags) || [];
-      var rowHtml = flags.map(function (f) {
+      var byKey = {};
+      flags.forEach(function (f) { byKey[f.key] = f; });
+
+      var flagRow = function (f, isChild) {
         var on = !!f.value;
-        var onColor = "#1f8a4c";
         var seg = [["on", "On"], ["off", "Off"]].map(function (pair) {
           var o = pair[0], isOn = (o === "on") === on;
-          var bg = isOn ? (o === "on" ? onColor : "#7a7f87") : "var(--panel-alt)";
+          var bg = isOn ? (o === "on" ? "#1f8a4c" : "#7a7f87") : "var(--panel-alt)";
           return '<button type="button" class="fo-flag-btn" data-flag="' + esc(f.key) + '" data-val="' + o + '" style="padding:4px 16px;border:1px solid var(--border);background:' + bg + ";color:" + (isOn ? "#fff" : "var(--text)") + ";cursor:pointer;font-weight:" + (isOn ? "600" : "400") + ";" + (o === "on" ? "border-radius:4px 0 0 4px;" : "border-radius:0 4px 4px 0;border-left:none;") + '">' + pair[1] + "</button>";
         }).join("");
-        var src = f.overridden ? "commish override" : "default";
-        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--border);">' +
-          '<span style="flex:1;"><strong>' + esc(f.label) + (f.danger ? ' <span style="color:#c0392b;">⚠️</span>' : "") + '</strong>' +
+        var src = '<span class="ks-src' + (f.overridden ? " ov" : "") + '">' + (f.overridden ? "override" : "env default") + "</span>";
+        return '<div class="ks-row' + (isChild ? " child" : "") + '">' +
+          '<span style="flex:1;">' + (isChild ? '<span class="ks-arrow">↳</span>' : "") +
+          '<strong>' + esc(f.label) + (f.danger ? ' <span style="color:#c0392b;">⚠️</span>' : "") + '</strong> ' + src +
           '<br><span class="small" style="color:var(--muted);">' + esc(f.help) + '</span>' +
-          '<br><span class="small" style="color:var(--muted);opacity:.8;">' + esc(f.key) + " · " + src + "</span></span>" +
+          '<br><span class="small" style="color:var(--muted);opacity:.8;"><code>' + esc(f.key) + '</code></span></span>' +
           '<span style="display:inline-flex;flex:0 0 auto;">' + seg + "</span></div>";
+      };
+
+      var claimed = {};
+      var cards = KS_DOMAINS.map(function (dom) {
+        var chainsHtml = dom.chains.map(function (chain) {
+          var rows = chain.map(function (k, i) {
+            claimed[k] = true;
+            var f = byKey[k];
+            if (!f) return '<div class="ks-row' + (i > 0 ? " child" : "") + '"><span class="small" style="color:var(--muted);">' + (i > 0 ? '<span class="ks-arrow">↳</span>' : "") + '<code>' + esc(k) + '</code> — not reported by the worker (deploy pending?)</span></div>';
+            return flagRow(f, i > 0);
+          }).join("");
+          return '<div class="ks-chain">' + rows + "</div>";
+        }).join("");
+        return '<div class="fo-card"><div class="fo-card-head"><h3>' + esc(dom.name) + '</h3></div>' + chainsHtml + "</div>";
       }).join("");
-      host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3>Kill Switches</h3></div>' +
-        '<p class="fo-row-hint">💡 Flip a feature on/off live — no redeploy. Saved to D1 instantly. A ⚠️ flag is a live action and asks for confirmation before turning On.</p>' +
-        rowHtml + "</div>";
+
+      var leftovers = flags.filter(function (f) { return !claimed[f.key]; });
+      if (leftovers.length) {
+        cards += '<div class="fo-card"><div class="fo-card-head"><h3>Other</h3></div>' +
+          '<div class="ks-chain">' + leftovers.map(function (f) { return flagRow(f, false); }).join("") + "</div></div>";
+      }
+
+      host.innerHTML =
+        '<p class="fo-row-hint">💡 Flip a feature on/off live — no redeploy. Saved to D1 instantly; the D1 <strong>override</strong> beats the wrangler.toml <strong>env default</strong>. Chains read dark → live: a ↳ flag escalates its parent (real MFL writes / league-wide fan-out) and a ⚠️ flag asks for confirmation before turning On.</p>' +
+        cards;
       $$(".fo-flag-btn", host).forEach(function (btn) {
         btn.addEventListener("click", function () {
           var k = btn.getAttribute("data-flag"), v = btn.getAttribute("data-val") === "on";
-          var cur = flags.filter(function (f) { return f.key === k; })[0];
+          var cur = byKey[k];
           if (cur && !!cur.value === v) return;
           if (cur && cur.danger && v && !window.confirm('Turn ON "' + cur.label + '" (live)? ' + (cur.help || "This is a live action that can't be easily undone."))) return;
           var upd = {}; upd[k] = v ? "1" : "0";
@@ -2525,10 +2528,36 @@
   }
 
   // ════════════════════════════════════════════════════════════════════
-  // STATUS — Discord posters (live routing) + D1 writers (live row counts)
+  // STATUS + HEALTH shared helpers — the status pill and the age→verdict
+  // logic (generalized from the old Trade-Roast row so every heartbeat tile
+  // judges the same way).
   // ════════════════════════════════════════════════════════════════════
-  function renderStatus() {
-    var host = content();
+  function csPill(state, txt) {
+    var c = state === "prod" ? "#1f8a4c" : state === "test" ? "#e67e22" :
+            state === "down" ? "#c0392b" : "#7a7a7a";
+    return '<span style="background:' + c + ';color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px;white-space:nowrap;">' + esc(txt) + "</span>";
+  }
+  function fmtAge(sec) {
+    if (sec < 90) return Math.round(sec) + "s ago";
+    if (sec < 5400) return Math.round(sec / 60) + "m ago";
+    if (sec < 172800) return (sec / 3600).toFixed(1) + "h ago";
+    return Math.round(sec / 86400) + "d ago";
+  }
+  // Heartbeat age → LIVE / STALE / DOWN (null age = never seen).
+  function hbVerdict(ageSec, liveMaxSec, staleMaxSec) {
+    if (ageSec == null) return { state: "inactive", label: "NO DATA" };
+    if (ageSec < liveMaxSec) return { state: "prod", label: "LIVE" };
+    if (ageSec < staleMaxSec) return { state: "test", label: "STALE" };
+    return { state: "down", label: "DOWN" };
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // STATUS — Discord posters (live routing) + D1 writers (live row counts).
+  // No longer a top-level tab: it renders inside the ❤️ Health tab's drill-in
+  // area (hostOverride), with renderHealth owning the back link.
+  // ════════════════════════════════════════════════════════════════════
+  function renderStatus(hostOverride) {
+    var host = hostOverride || content();
     var myTab = CS.tab;
     host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading status…</div></div>';
     Promise.all([
@@ -2540,27 +2569,18 @@
       var routing = (res[0] || {}).discord_routing || {};
       var d1 = (res[1] || {}).tables || [];
       var hb = res[2] || {};
-      var pill = function (state, txt) {
-        var c = state === "prod" ? "#1f8a4c" : state === "test" ? "#e67e22" :
-                state === "down" ? "#c0392b" : "#7a7a7a";
-        return '<span style="background:' + c + ';color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px;white-space:nowrap;">' + esc(txt) + "</span>";
-      };
+      var pill = csPill;
       // Trade Roast bot — LIVE heartbeat, not a hardcoded label. The bot POSTs a
       // heartbeat every poll tick (5 min); this row shows its actual age. The old
       // static "PROD" pill stayed green through the 2026-07-11 25-hour bot hang.
       var roastRow = (function () {
         var age = hb && hb.age_seconds != null ? Number(hb.age_seconds) : null;
-        function fmtAge(s) {
-          if (s < 90) return Math.round(s) + "s ago";
-          if (s < 5400) return Math.round(s / 60) + "m ago";
-          if (s < 172800) return (s / 3600).toFixed(1) + "h ago";
-          return Math.round(s / 86400) + "d ago";
-        }
-        if (age == null) return { n: "Trade Roast bot", state: "inactive", label: "NO DATA",
+        var v = hbVerdict(age, 720, 3600);
+        if (v.state === "inactive") return { n: "Trade Roast bot", state: "inactive", label: "NO DATA",
           note: "No heartbeat ever received — bot not running the heartbeat build yet. Trades post to #transactions when up." };
-        if (age < 720) return { n: "Trade Roast bot", state: "prod", label: "LIVE",
+        if (v.state === "prod") return { n: "Trade Roast bot", state: "prod", label: "LIVE",
           note: "Heartbeat " + fmtAge(age) + " (env=" + (hb.env || "?") + "). Trade roasts post to #transactions, always — the Discord Routing toggle does NOT steer it." };
-        if (age < 3600) return { n: "Trade Roast bot", state: "test", label: "STALE",
+        if (v.state === "test") return { n: "Trade Roast bot", state: "test", label: "STALE",
           note: "Last heartbeat " + fmtAge(age) + " — bot may be hung or restarting. Watchdog kicks it after 15 min of silence." };
         return { n: "Trade Roast bot", state: "down", label: "DOWN",
           note: "Last heartbeat " + fmtAge(age) + " — the bot is not running (or can't reach the worker). Check launchd on the commish Mac." };
@@ -2613,7 +2633,168 @@
           '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th>Poster</th><th>Routing</th><th>Notes</th></tr></thead><tbody>' + discordRows + "</tbody></table></div>";
       host.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h3>Status</h3>' +
         '<span style="display:inline-flex;align-items:center;gap:6px;"><span class="small" style="color:var(--muted);">View</span>' + viewSel + "</span></div>" + inner + "</div>";
-      var vs = document.getElementById("cs-status-view"); if (vs) vs.addEventListener("change", function () { CS.statusView = this.value; renderStatus(); });
+      var vs = document.getElementById("cs-status-view"); if (vs) vs.addEventListener("change", function () { CS.statusView = this.value; renderStatus(hostOverride); });
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // ❤️ HEALTH — the landing dashboard. One /admin/health-summary call (bot
+  // heartbeats + effective flags + test residue + calendar age) + one
+  // /admin/config-health call (required-env audit), painted as a tile grid.
+  // The old Status tab's Discord-routing and D1-table views survive as
+  // drill-ins (CS.healthDrill) with a back link.
+  // ════════════════════════════════════════════════════════════════════
+  function renderHealth() {
+    var host = content();
+    var myTab = CS.tab;
+
+    // Drill-in: swap the health content area for one of the old Status views.
+    if (CS.healthDrill) {
+      var which = CS.healthDrill;
+      CS.statusView = which;
+      host.innerHTML =
+        '<p class="fo-row-hint" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+        '<span>' + (which === "d1" ? "🗄️ D1 tables — everything that writes to D1, with live row counts" : "📣 Discord posting — live routing per poster") + '</span>' +
+        '<button type="button" class="btn small" id="hv-back">← Back to Health</button></p>' +
+        '<div id="cs-health-drill"></div>';
+      document.getElementById("hv-back").addEventListener("click", function () { CS.healthDrill = null; renderHealth(); });
+      renderStatus(document.getElementById("cs-health-drill"));
+      return;
+    }
+
+    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Taking vitals…</div></div>';
+    var qs = "?L=" + encodeURIComponent(L) + "&YEAR=" + encodeURIComponent(YEAR);
+    Promise.all([
+      fetchJSON(apiUrl("/admin/health-summary") + qs).catch(function (e) { return { __err: e.message || String(e) }; }),
+      fetchJSON(apiUrl("/admin/config-health") + qs).catch(function (e) { return { __err: e.message || String(e) }; })
+    ]).then(function (res) {
+      if (CS.tab !== myTab || CS.healthDrill) return;
+      var sum = res[0] || {}, cfg = res[1] || {};
+      var hbs = (sum && sum.heartbeats) || {};
+
+      // (a) Config Health — required env vars present?
+      var cfgTile;
+      if (cfg.__err) {
+        cfgTile = '<div class="hv-tile bad"><h3>🔑 Config <span>' + csPill("down", "ERROR") + '</span></h3><div class="hv-note">' + esc(cfg.__err) + '</div></div>';
+      } else if (!(cfg.missing || []).length) {
+        cfgTile = '<div class="hv-tile"><h3>🔑 Config <span>' + csPill("prod", "OK") + '</span></h3>' +
+          '<div class="hv-note">All required vars present · ' + Number(cfg.present_count || 0) + '/' + Number(cfg.checked || 0) + ' of the full manifest set (the rest are optional).</div></div>';
+      } else {
+        cfgTile = '<div class="hv-tile bad"><h3>🔑 Config <span>' + csPill("down", (cfg.missing || []).length + " MISSING") + '</span></h3>' +
+          (cfg.missing || []).map(function (m) {
+            return '<div class="hv-missing"><code>' + esc(m.key) + '</code> · ' + esc(m.category) +
+              (m.silent_fallback ? ' · <strong>silent fallback!</strong>' : '') + '</div>';
+          }).join("") +
+          '<div class="hv-note"><strong>silent fallback!</strong> = the code substitutes a hardcoded value while the var is empty — the feature keeps "working", pointed wherever the fallback says.</div></div>';
+      }
+
+      // (b)(c)(d) Heartbeat tiles — shared LIVE/STALE/DOWN verdicts.
+      var hbTile = function (icon, name, rec, liveMax, staleMax, note) {
+        var age = rec && rec.age_sec != null ? Number(rec.age_sec) : null;
+        var v = hbVerdict(age, liveMax, staleMax);
+        var when = age == null ? "No heartbeat ever recorded." : "Last beat " + fmtAge(age) + ".";
+        return '<div class="hv-tile' + (v.state === "down" ? " bad" : "") + '"><h3>' + icon + ' ' + esc(name) + ' <span>' + csPill(v.state, v.label) + '</span></h3>' +
+          '<div class="hv-note">' + when + (note ? " " + note : "") + '</div></div>';
+      };
+      var pollTile = hbTile("🔨", "Auction poll", hbs.auction_poll, 600, 1800,
+        "Fires every 5 min (*/5 cron or the launchd lifeline) — this is the ledger's freshness.");
+      var roastAge = hbs.trade_roast && hbs.trade_roast.age_sec != null ? Number(hbs.trade_roast.age_sec) : null;
+      var roastTile = hbTile("🔥", "Trade Roast bot", hbs.trade_roast, 720, 3600,
+        (roastAge != null && hbs.trade_roast.env ? "env=" + esc(hbs.trade_roast.env) + ". " : "") +
+        "launchd on the commish Mac; watchdog kicks it after 15 min of silence.");
+      // Scheduler: cron_cf is stamped by the worker's scheduled() handler on
+      // EVERY invocation (the */5 is the fastest guaranteed tick). If CF cron
+      // is dead but the auction poll is fresh, the launchd stand-ins are the
+      // only thing keeping the lights on — say so.
+      var cronAge = hbs.cron_cf && hbs.cron_cf.age_sec != null ? Number(hbs.cron_cf.age_sec) : null;
+      var pollAge = hbs.auction_poll && hbs.auction_poll.age_sec != null ? Number(hbs.auction_poll.age_sec) : null;
+      var cronNote = "Cloudflare cron (scheduled()) — last trigger: <code>" + esc((hbs.cron_cf && hbs.cron_cf.status) || "?") + "</code>.";
+      if ((cronAge == null || cronAge >= 1800) && pollAge != null && pollAge < 600) {
+        cronNote += " ⚠️ <strong>launchd stand-in only</strong> — CF cron is not firing but the poll lifeline is carrying the ledger (2026-07-15 outage mode).";
+      } else if (cronAge != null && cronAge < 600) {
+        cronNote += " CF cron is alive.";
+      }
+      var cronTile = hbTile("⏰", "Scheduler", hbs.cron_cf, 600, 1800, cronNote);
+
+      // (e) Flags board — effective kill-switch states, grouped by prefix.
+      var flags = (sum && sum.flags) || [];
+      var chip = function (f) {
+        var cls = "hv-chip" + (f.value ? " on" : "") + (f.danger && f.value ? " danger-on" : "");
+        return '<span class="' + cls + '" title="' + esc((f.label || f.key) + (f.help ? " — " + f.help : "")) + '">' + esc(f.key) +
+          (f.overridden ? '<span class="ov">override</span>' : '') + '</span>';
+      };
+      var flagGroups = [
+        { l: "Trades", p: "TRADE" }, { l: "Auction", p: "AUCTION" },
+        { l: "Rule Proposals", p: "RULE_PROPOSALS" }, { l: "Drops", p: "DROP_TRACKER" }, { l: "OTB", p: "OTB" }
+      ];
+      var usedFlag = {};
+      var flagHtml = flagGroups.map(function (g) {
+        var fs = flags.filter(function (f) { return String(f.key).indexOf(g.p) === 0; });
+        if (!fs.length) return "";
+        fs.forEach(function (f) { usedFlag[f.key] = true; });
+        return '<div class="hv-flag-grp"><div class="hv-flag-grp-l">' + esc(g.l) + '</div>' + fs.map(chip).join("") + '</div>';
+      }).join("");
+      var otherFlags = flags.filter(function (f) { return !usedFlag[f.key]; });
+      if (otherFlags.length) flagHtml += '<div class="hv-flag-grp"><div class="hv-flag-grp-l">Other</div>' + otherFlags.map(chip).join("") + '</div>';
+      var dangerOn = flags.filter(function (f) { return f.danger && f.value; }).length;
+      var flagsTile = '<div class="hv-tile wide"><h3>🎛 Kill switches <span>' +
+        (dangerOn ? csPill("test", dangerOn + " ⚠️ LIVE") : csPill("prod", "OK")) +
+        ' <button type="button" class="btn small" id="hv-goto-ks">Manage →</button></h3>' +
+        (flagHtml || '<div class="hv-note">No flags reported' + (sum.__err ? " — " + esc(sum.__err) : "") + '.</div>') +
+        '<div class="hv-note">Green = on · grey = off · red ring = a ⚠️ live-action flag is armed · <em>override</em> = D1 override beats the env default.</div></div>';
+
+      // (f) Test residue — leftover test rows that could leak into prod views.
+      var trd = (sum && sum.test_residue) || {};
+      var lots = Number(trd.auction_test_lots || 0), rounds = Number(trd.test_rule_rounds || 0);
+      var residueTile = '<div class="hv-tile"><h3>🧪 Test residue <span>' +
+        csPill(lots || rounds ? "test" : "prod", lots || rounds ? "CLEANUP" : "CLEAN") + '</span></h3>' +
+        '<div class="hv-note">' + lots + ' test auction lot' + (lots === 1 ? "" : "s") + ' · ' + rounds + ' test rule round' + (rounds === 1 ? "" : "s") + '.</div>' +
+        (lots ? '<button type="button" class="btn small warn" id="hv-purge-lots" style="margin-top:6px;">🗑 Purge test auction lots</button> ' : "") +
+        (rounds ? '<button type="button" class="btn small" id="hv-goto-rp" style="margin-top:6px;">Delete via 📜 Rule Proposals →</button>' : "") +
+        '</div>';
+
+      // (g) Calendar config age.
+      var calAt = sum && sum.calendar_updated_at;
+      var calAge = null;
+      if (calAt) { var t = new Date(calAt).getTime(); if (!isNaN(t)) calAge = Math.max(0, (Date.now() - t) / 1000); }
+      var calTile = '<div class="hv-tile"><h3>🗓️ League calendar <span>' +
+        (calAge != null ? csPill("prod", "SAVED") : csPill("inactive", "NEVER")) +
+        ' <button type="button" class="btn small" id="hv-goto-cal">Edit →</button></h3>' +
+        '<div class="hv-note">' + (calAge != null
+          ? "Dates last saved " + fmtAge(calAge) + " (" + esc(String(calAt).replace("T", " ").slice(0, 16)) + " UTC)."
+          : "No auction-calendar config saved yet.") + '</div></div>';
+
+      // Drill-ins — the old Status tab's two views.
+      var drillTile = '<div class="hv-tile"><h3>🔎 Deep status</h3>' +
+        '<div class="hv-note" style="margin:0 0 8px;">The full posting + storage detail behind the tiles.</div>' +
+        '<button type="button" class="btn small" id="hv-drill-discord">📣 Discord routing</button> ' +
+        '<button type="button" class="btn small" id="hv-drill-d1">🗄️ D1 tables</button></div>';
+
+      var genLine = '<p class="fo-row-hint" style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><span>💡 One-glance ops vitals — config, schedulers, kill switches, residue.' +
+        (sum.__err ? ' <strong style="color:var(--danger);">health-summary failed: ' + esc(sum.__err) + '</strong>' : '') +
+        ((sum.errors || []).length ? ' <strong style="color:var(--warn);">partial: ' + esc((sum.errors || []).join("; ")) + '</strong>' : '') +
+        '</span><span style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;"><span class="small" style="color:var(--muted);">' +
+        (sum.generated_at ? "as of " + esc(String(sum.generated_at).replace("T", " ").slice(0, 19)) + " UTC" : "") +
+        '</span><button type="button" class="btn small" id="hv-refresh">↻ Refresh</button></span></p>';
+
+      host.innerHTML = genLine +
+        '<div class="hv-grid">' + cfgTile + pollTile + roastTile + cronTile + residueTile + calTile + drillTile + flagsTile + '</div>';
+
+      var on = function (id, fn) { var el = document.getElementById(id); if (el) el.addEventListener("click", fn); };
+      on("hv-refresh", function () { renderHealth(); });
+      on("hv-goto-ks", function () { switchTab("killswitches"); });
+      on("hv-goto-cal", function () { switchTab("auctioncal"); });
+      on("hv-goto-rp", function () { RPUI.testOnly = true; switchTab("ruleprops"); });
+      on("hv-drill-discord", function () { CS.healthDrill = "discord"; renderHealth(); });
+      on("hv-drill-d1", function () { CS.healthDrill = "d1"; renderHealth(); });
+      on("hv-purge-lots", function () {
+        if (!window.confirm("Delete ALL " + lots + " TEST auction lot(s) (is_test=1) and their bids?\n\nReal lots are untouchable here. Cannot be undone.")) return;
+        var btn = document.getElementById("hv-purge-lots"); if (btn) btn.disabled = true;
+        postJSON(apiUrl("/admin/auction/delete-test-lots") + qs, {})
+          .then(function (r) { toast("Purged " + (r.deleted_lots || 0) + " lot(s), " + (r.deleted_bids || 0) + " bid(s)", "ok"); })
+          .catch(function (e) { toast("Purge failed: " + (e.message || String(e)), "err"); })
+          .then(function () { renderHealth(); });
+      });
     });
   }
 
