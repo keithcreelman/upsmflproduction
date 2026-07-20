@@ -33,11 +33,12 @@ OTB_LIVE_MODE = "1"
 # fallbacks, so an unset var "worked" but silently — the exact class that broke
 # GUILD_ID/RULES/OTB in prod. Pinning the current fallback values here makes them
 # explicit + version-controlled (zero behavior change). LEAGUE_ID + the commish
-# Discord ids likewise. NOT pinned (need Keith): DISCORD_APPLICATION_ID (value
-# unknown — slash-command registration only), DISCORD_DRAFT_CHANNEL_ID (the code
-# has TWO conflicting fallbacks 1059… vs 1498… — needs the real draft channel).
+# Discord ids likewise. Draft posts → transactions (Keith 2026-07-20); pinning
+# DISCORD_DRAFT_CHANNEL_ID also resolves the split-brain (code had two fallbacks,
+# 1059… vs 1498…, so draft posts landed in different channels by code path).
 LEAGUE_ID = "74598"
 COMMISH_DISCORD_USER_ID = "621530026831118346,1057654821638897715"
+DISCORD_DRAFT_CHANNEL_ID = "1059111651846131833"
 DISCORD_DRAFT_TEST_CHANNEL_ID = "1089538054236160010"
 DISCORD_PICKS_THREAD_PARENT_CHANNEL_ID = "1059111651846131833"
 DISCORD_REMINDER_CHANNEL_ID = "1087157907419840644"

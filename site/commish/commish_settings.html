@@ -2750,7 +2750,8 @@
         csPill(lots || rounds ? "test" : "prod", lots || rounds ? "CLEANUP" : "CLEAN") + '</span></h3>' +
         '<div class="hv-note">' + lots + ' test auction lot' + (lots === 1 ? "" : "s") + ' · ' + rounds + ' test rule round' + (rounds === 1 ? "" : "s") + '.</div>' +
         (lots ? '<button type="button" class="btn small warn" id="hv-purge-lots" style="margin-top:6px;">🗑 Purge test auction lots</button> ' : "") +
-        (rounds ? '<button type="button" class="btn small" id="hv-goto-rp" style="margin-top:6px;">Delete via 📜 Rule Proposals →</button>' : "") +
+        (rounds ? '<button type="button" class="btn small" id="hv-goto-rp" style="margin-top:6px;">Delete via 📜 Rule Proposals →</button> ' : "") +
+        '<button type="button" class="btn small warn" id="hv-purge-fines" style="margin-top:6px;">🗑 Purge test nomination fines</button>' +
         '</div>';
 
       // (g) Calendar config age.
@@ -2792,6 +2793,14 @@
         var btn = document.getElementById("hv-purge-lots"); if (btn) btn.disabled = true;
         postJSON(apiUrl("/admin/auction/delete-test-lots") + qs, {})
           .then(function (r) { toast("Purged " + (r.deleted_lots || 0) + " lot(s), " + (r.deleted_bids || 0) + " bid(s)", "ok"); })
+          .catch(function (e) { toast("Purge failed: " + (e.message || String(e)), "err"); })
+          .then(function () { renderHealth(); });
+      });
+      on("hv-purge-fines", function () {
+        if (!window.confirm("Delete the TEST nomination-fine ledger (all days before the real FA Auction opens)?\n\nReal fines are untouchable. Cannot be undone.")) return;
+        var btn = document.getElementById("hv-purge-fines"); if (btn) btn.disabled = true;
+        postJSON(apiUrl("/admin/auction/delete-test-nom-fines") + qs, {})
+          .then(function (r) { toast("Purged " + (r.deleted_days || 0) + " day(s), " + (r.deleted_penalties || 0) + " fine(s)", "ok"); })
           .catch(function (e) { toast("Purge failed: " + (e.message || String(e)), "err"); })
           .then(function () { renderHealth(); });
       });
