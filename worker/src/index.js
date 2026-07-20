@@ -6608,6 +6608,7 @@ export default {
               locks_at_unix: l.locks_at_unix,
               seconds_remaining: Math.max(0, Number(l.locks_at_unix) - Math.floor(Date.now() / 1000)),
               status: l.status,
+              is_test: Number(l.is_test) ? 1 : 0,
               winner_fid: l.winner_fid,
               winner_name: fname(l.winner_fid),
               won_at_unix: l.won_at_unix,
@@ -39721,6 +39722,37 @@ export default {
         }
         const rfRes = await runRuleProposalStartFlow(env, rfRoundId, null, "", "", { dmVoteCards: true, skipDeadlineDerivation: true });
         return jsonOut(rfRes && rfRes.ok !== false ? 200 : 502, { ok: true, round_id: rfRoundId, fanout: rfRes || null });
+      }
+
+      // Delete TEST auction lots (is_test=1 only — real lots are untouchable
+      // here). Auth: commish API key OR a proven commish MFL session
+      // (MFL_USER_ID → franchise 0008), so the Auction Hub's button works
+      // without embedding a key. Optional lot_id narrows to one lot.
+      if (path === "/admin/auction/delete-test-lots" && request.method === "POST") {
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let authed = !!sessionByApiKey;
+        if (!authed && browserMflUserId) {
+          const det = await _rdhDetectFranchise(browserMflUserId);
+          authed = !!det && _rdhPadFid(det.franchise_id) === "0008";
+        }
+        if (!authed) return jsonOut(403, { ok: false, error: "commish only (API key or commish MFL session)" });
+        let dtBody = {};
+        try { dtBody = (await request.json()) || {}; } catch (_) {}
+        const oneLot = safeStr(dtBody.lot_id || url.searchParams.get("lot_id"));
+        const where = oneLot ? "is_test = 1 AND lot_id = ?" : "is_test = 1";
+        const binds = oneLot ? [oneLot] : [];
+        const { results: doomed } = await env.UPS_MFL_DB.prepare(
+          `SELECT lot_id, player_id FROM ups_auction_lots WHERE ${where}`
+        ).bind(...binds).all();
+        if (!doomed || !doomed.length) return jsonOut(200, { ok: true, deleted_lots: 0, deleted_bids: 0, note: "no test lots matched" });
+        const lotIds = doomed.map((d) => d.lot_id);
+        let bidsDeleted = 0;
+        for (const lid of lotIds) {
+          const rb = await env.UPS_MFL_DB.prepare(`DELETE FROM ups_auction_bids WHERE lot_id = ?`).bind(lid).run();
+          bidsDeleted += Number(rb?.meta?.changes || 0);
+          await env.UPS_MFL_DB.prepare(`DELETE FROM ups_auction_lots WHERE lot_id = ? AND is_test = 1`).bind(lid).run();
+        }
+        return jsonOut(200, { ok: true, deleted_lots: lotIds.length, deleted_bids: bidsDeleted });
       }
 
       // ---- §F RULE 2 — missed-nomination ledger + commish override ----
