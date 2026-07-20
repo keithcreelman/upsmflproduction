@@ -5514,7 +5514,7 @@
     els.extModalPreview.textContent = lines.join(" | ");
   }
 
-  function openExtensionModal(teamId, assetId) {
+  function openExtensionModal(teamId, assetId, anchorEl) {
     ensureSelectionMaps(teamId);
     var asset = getAssetById(teamId, assetId);
     if (!asset || asset.type !== "PLAYER") return;
@@ -5553,6 +5553,24 @@
     } else {
       els.extensionModal.setAttribute("open", "open");
     }
+    // Anchor to the clicked button. showModal() centers the dialog in the
+    // iframe's ICB — but the War Room runs in a height-synced iframe expanded
+    // to its full content, so "centered" lands in the middle of the whole page
+    // (off-screen when scrolled). The PARENT scrolls, the iframe doesn't, so the
+    // button's document Y IS its on-screen position: position the dialog there.
+    try {
+      var _d = els.extensionModal;
+      if (anchorEl && anchorEl.getBoundingClientRect) {
+        var _y = anchorEl.getBoundingClientRect().top + (window.scrollY || window.pageYOffset || 0);
+        _d.style.position = "absolute";
+        _d.style.margin = "0 auto";
+        _d.style.bottom = "auto";
+        _d.style.top = Math.max(12, _y - 48) + "px";
+      } else {
+        // No anchor → clear any prior inline positioning, fall back to default.
+        _d.style.position = ""; _d.style.top = ""; _d.style.bottom = ""; _d.style.margin = "";
+      }
+    } catch (e) { /* positioning is best-effort — modal still opens */ }
     window.setTimeout(function () {
       try {
         els.extModalOptionSelect.focus();
@@ -6629,7 +6647,8 @@
         evt.stopPropagation();
         openExtensionModal(
           safeStr(target.getAttribute("data-team-id")),
-          safeStr(target.getAttribute("data-asset-id"))
+          safeStr(target.getAttribute("data-asset-id")),
+          target
         );
       } else if (action === "asset-view") {
         var view = safeStr(target.getAttribute("data-view"));
