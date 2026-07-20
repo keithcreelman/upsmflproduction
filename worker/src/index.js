@@ -39389,6 +39389,18 @@ export default {
         const defaultPassYes = Math.min(12, Math.max(1, safeInt(rpBody.pass_yes_count, 7)));
         const TEST_CHANNEL = "1089538054236160010";
 
+        // LIVE pre-flight: a live round posts its kickoff + threads to
+        // DISCORD_RULES_CHANNEL_ID (dark rounds carry the test channel). If
+        // that secret is unset the fan-out fails silently in waitUntil AFTER
+        // the round is created — which is exactly what happened on the first
+        // live publish (2026-07-20). Fail loudly BEFORE creating anything.
+        if (!dark && !String(env.DISCORD_RULES_CHANNEL_ID || "").replace(/\D/g, "")) {
+          return jsonOut(500, {
+            ok: false,
+            error: "DISCORD_RULES_CHANNEL_ID is not configured — the live kickoff has nowhere to post. Set the secret (npx wrangler secret put DISCORD_RULES_CHANNEL_ID) and publish again.",
+          });
+        }
+
         // Additive, refuse-on-existing — the seeder's wipe semantics must be
         // unreachable from this path. Check the round AND every proposal id.
         const existsR = await env.UPS_MFL_DB.prepare(`SELECT round_id FROM discord_rounds WHERE round_id = ?`).bind(roundId).first();
@@ -39669,6 +39681,37 @@ export default {
           }
         }
         return jsonOut(200, { ok: true, deleted_proposal: proposalId, deleted_rounds: deletedRounds });
+      }
+
+      // Re-fire the Discord fan-out (kickoff anchor + threads + DM vote cards)
+      // for a round whose publish-time fan-out failed — e.g. the 2026-07-20
+      // first live publish, where DISCORD_RULES_CHANNEL_ID was unset and the
+      // waitUntil died before posting anything. Guarded: refuses if the round
+      // already has a kickoff anchor (it would double-post), unless force=1.
+      if (path === "/admin/rule-proposals/refire-fanout" && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let rfBody = {};
+        try { rfBody = (await request.json()) || {}; } catch (_) {}
+        const rfRoundId = safeStr(rfBody.round_id || url.searchParams.get("round_id"));
+        if (!rfRoundId) return jsonOut(400, { ok: false, error: "round_id required" });
+        const rfRound = await env.UPS_MFL_DB.prepare(
+          `SELECT round_id, status, test_only, broadcast_channel_id, kickoff_anchor_message_id FROM discord_rounds WHERE round_id = ?`
+        ).bind(rfRoundId).first();
+        if (!rfRound) return jsonOut(404, { ok: false, error: `round '${rfRoundId}' not found` });
+        if (rfRound.status !== "open") return jsonOut(409, { ok: false, error: `round is '${rfRound.status}', not open` });
+        if (rfRound.kickoff_anchor_message_id && String(rfBody.force || url.searchParams.get("force") || "") !== "1") {
+          return jsonOut(409, { ok: false, error: "round already has a kickoff anchor — re-firing would double-post. Pass force=1 only if you know the prior fan-out is gone." });
+        }
+        // Same channel resolution as the fan-out itself: live rounds need the
+        // rules channel secret; refuse up front rather than half-posting.
+        if (Number(rfRound.test_only) !== 1 && !rfRound.broadcast_channel_id
+            && !String(env.DISCORD_RULES_CHANNEL_ID || "").replace(/\D/g, "")) {
+          return jsonOut(500, { ok: false, error: "DISCORD_RULES_CHANNEL_ID is not configured — set the secret first." });
+        }
+        const rfRes = await runRuleProposalStartFlow(env, rfRoundId, null, "", "", { dmVoteCards: true, skipDeadlineDerivation: true });
+        return jsonOut(rfRes && rfRes.ok !== false ? 200 : 502, { ok: true, round_id: rfRoundId, fanout: rfRes || null });
       }
 
       // ---- §F RULE 2 — missed-nomination ledger + commish override ----
