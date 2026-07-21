@@ -646,7 +646,19 @@
   }
 
   function renderTabs() {
-    $$("#ah-tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === STATE.tab));
+    // The ERA is seasonal (Memorial Day weekend) — during the FAA run its dormant
+    // tab is just clutter, so COLLAPSE it whenever the commish switch is off
+    // (era_enabled rides along on /api/auction/lots, refreshed every 30s). If the
+    // viewer is parked on the ERA tab when the switch flips off, snap back to FAA
+    // (renderTabs runs before renderBanner/renderSub in paint(), so the whole
+    // frame follows). The code path stays intact — ERA returns next Memorial Day
+    // with a flag flip, no redeploy.
+    const eraOn = !!(STATE.lots && STATE.lots.era_enabled);
+    if (!eraOn && STATE.tab === "era") STATE.tab = "faa";
+    $$("#ah-tabs button").forEach((b) => {
+      if (b.dataset.tab === "era") b.style.display = eraOn ? "" : "none";
+      b.classList.toggle("active", b.dataset.tab === STATE.tab);
+    });
   }
   function renderSubNav() {
     const nav = $("#ah-subnav");
