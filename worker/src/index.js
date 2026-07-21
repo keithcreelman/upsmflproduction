@@ -28,6 +28,12 @@ import {
 } from "./auction_compliance.js";
 
 const acquisitionLiveMemoryCache = new Map();
+// Commish session-proof cache (War Room 403 fix, 2026-07-20). Keyed by a hash
+// of the forwarded MFL_USER_ID; isolate-local so the 45s-polling War Room
+// costs ≤1 MFL auth round-trip per TTL instead of 4-8 per poll. Entries:
+// { ts, ok, fid }. Fresh <10 min; on MFL failure a stale entry <30 min is
+// trusted (prevents a mid-auction lockout when MFL rate-limits).
+const commishProofCache = new Map();
 const contractDiscordChannelQueues = new Map();
 const contractDiscordChannelLastSendMs = new Map();
 
@@ -4488,6 +4494,57 @@ export default {
         return !!expected && !!presented && presented === expected;
       };
 
+      // Commish proof for SESSION-authenticated pages (the commish settings /
+      // War Room page forwards MFL_USER_ID, never the API key). Positive
+      // franchise match ONLY — the caller's MFL session must resolve, via
+      // MFL's own myleagues, to a franchise in COMMISH_FRANCHISE_IDS. The
+      // email-count capability heuristic is deliberately NOT accepted here:
+      // these routes serve LRDG-derived data and must never ride a heuristic
+      // that MFL could invalidate. Cached (commishProofCache): fresh 10 min,
+      // stale-honored 30 min when MFL errors, so polling doesn't hammer MFL.
+      const commishSessionProven = async () => {
+        if (commishKeyProven()) return { ok: true, reason: "ok_apikey" };
+        const token = browserMflUserId;
+        if (!token) return { ok: false, reason: "no_token" };
+        // djb2 — cache key hygiene so raw session tokens aren't map keys.
+        let h = 5381;
+        for (let i = 0; i < token.length; i++) h = ((h << 5) + h + token.charCodeAt(i)) | 0;
+        const cacheKey = `cp:${h}`;
+        const nowMs = Date.now();
+        const hit = commishProofCache.get(cacheKey);
+        if (hit && nowMs - hit.ts < 10 * 60 * 1000) return { ok: hit.ok, reason: hit.ok ? "ok_session_cached" : "not_commish_cached" };
+        const leagueIdArg = String(url.searchParams.get("L") || "74598");
+        const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        try {
+          const commishSet = new Set(
+            String(env.COMMISH_FRANCHISE_IDS || "0008").split(",")
+              .map((s) => s.trim().replace(/\D/g, "").padStart(4, "0")).filter(Boolean)
+          );
+          const ckv = token.includes("=") ? token.split("=").pop() : token;
+          const r = await fetch(
+            `https://api.myfantasyleague.com/${encodeURIComponent(yearArg)}/export?TYPE=myleagues&JSON=1`,
+            { headers: { Cookie: `MFL_USER_ID=${ckv}`, "User-Agent": "upsmflproduction-worker" } }
+          );
+          if (!r.ok) throw new Error(`myleagues HTTP ${r.status}`);
+          const data = await r.json().catch(() => ({}));
+          let lgs = data?.leagues?.league || data?.myleagues?.league || [];
+          if (!Array.isArray(lgs)) lgs = [lgs];
+          const mine = lgs.find((lg) => String(lg.league_id) === leagueIdArg);
+          const ok = !!mine && commishSet.has(String(mine.franchise_id).replace(/\D/g, "").padStart(4, "0"));
+          commishProofCache.set(cacheKey, { ts: nowMs, ok });
+          // Opportunistic sweep so the map can't grow unboundedly.
+          if (commishProofCache.size > 200) {
+            for (const [k, v] of commishProofCache) if (nowMs - v.ts > 30 * 60 * 1000) commishProofCache.delete(k);
+          }
+          return { ok, reason: ok ? "ok_session" : "not_commish" };
+        } catch (e) {
+          // MFL unreachable: honor a stale positive within 30 min rather than
+          // locking the commish out mid-auction. Never mint a NEW positive.
+          if (hit && hit.ok && nowMs - hit.ts < 30 * 60 * 1000) return { ok: true, reason: "ok_session_stale" };
+          return { ok: false, reason: "mfl_unreachable" };
+        }
+      };
+
       const MCM_SEED_URL = "https://keithcreelman.github.io/upsmflproduction/site/mcm/mcm_seed.json";
       const MCM_VOTES_URL = "https://keithcreelman.github.io/upsmflproduction/site/mcm/mcm_votes.json";
       const MCM_NOMS_URL = "https://keithcreelman.github.io/upsmflproduction/site/mcm/mcm_nominations.json";
@@ -6680,13 +6737,16 @@ export default {
       // Per-owner FA-auction behavioural profiles (time-of-day rhythm, late-bid
       // / snipe / lurker tendencies, spend signatures) + multi-agent scouting
       // narratives + contender roster benchmark. Built offline by
-      // build_auction_intel.py and pushed to D1 ups_auction_intel. Gated to a
-      // commish franchise (0008/0000) via ?franchise_id= (the same soft
-      // requested_by model the other commish reads use).
+      // build_auction_intel.py and pushed to D1 ups_auction_intel. Gated by
+      // commishSessionProven(): the commish API key OR a cached, positively
+      // franchise-matched MFL session (PR #701 removed self-declared
+      // franchise_id proof; 2026-07-20 restored session access w/o the key).
       if (path === "/api/auction/intel" && request.method === "GET") {
         // Inline commish gate — _rdhPadFid/_rdhCommishFids are declared later in
         // this handler (TDZ), so don't reference them from up here.
-        if (!commishKeyProven()) return jsonOut(403, COMMISH_ONLY_403);
+        { const _cp = await commishSessionProven();
+          if (!_cp.ok) return jsonOut(403, { ...COMMISH_ONLY_403, reason: _cp.reason,
+            message: "Commish-only. Sign in to MFL as the commissioner (session proof) or pass the commish API key." }); }
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         try {
           const row = await env.UPS_MFL_DB.prepare(
@@ -6702,7 +6762,9 @@ export default {
 
       if (path === "/api/auction/fa-value" && request.method === "GET") {
         // FA Value engine — commish-gated (same inline gate as /api/auction/intel).
-        if (!commishKeyProven()) return jsonOut(403, COMMISH_ONLY_403);
+        { const _cp = await commishSessionProven();
+          if (!_cp.ok) return jsonOut(403, { ...COMMISH_ONLY_403, reason: _cp.reason,
+            message: "Commish-only. Sign in to MFL as the commissioner (session proof) or pass the commish API key." }); }
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         try {
           const row = await env.UPS_MFL_DB.prepare(
@@ -6719,7 +6781,9 @@ export default {
       if (path === "/api/auction/faa-report" && request.method === "GET") {
         // FAA Report (2020+ auction outcomes) — commish-gated, same inline gate as /api/auction/fa-value.
         // Stored PART-KEYED (blob > D1's 100KB statement cap): concatenate payload ORDER BY part, then parse.
-        if (!commishKeyProven()) return jsonOut(403, COMMISH_ONLY_403);
+        { const _cp = await commishSessionProven();
+          if (!_cp.ok) return jsonOut(403, { ...COMMISH_ONLY_403, reason: _cp.reason,
+            message: "Commish-only. Sign in to MFL as the commissioner (session proof) or pass the commish API key." }); }
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         try {
           const res = await env.UPS_MFL_DB.prepare(
@@ -6738,7 +6802,9 @@ export default {
       if (path === "/api/auction/draft-intel" && request.method === "GET") {
         // Draft Intel — commish-gated, same inline gate as /api/auction/faa-report.
         // Stored PART-KEYED (blob > D1's 100KB statement cap): concatenate payload ORDER BY part, then parse.
-        if (!commishKeyProven()) return jsonOut(403, COMMISH_ONLY_403);
+        { const _cp = await commishSessionProven();
+          if (!_cp.ok) return jsonOut(403, { ...COMMISH_ONLY_403, reason: _cp.reason,
+            message: "Commish-only. Sign in to MFL as the commissioner (session proof) or pass the commish API key." }); }
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
         try {
           const res = await env.UPS_MFL_DB.prepare(
