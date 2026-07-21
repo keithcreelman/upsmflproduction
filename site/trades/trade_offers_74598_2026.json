@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-07-21T11:37:08.723Z",
+    "updated_at": "2026-07-21T12:40:43.860Z",
     "row_count": 51,
     "source": "worker-trade-offers"
   },
@@ -1690,16 +1690,16 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-03-27T14:54:15.665Z",
-      "updated_at": "2026-07-21T11:37:08.723Z",
+      "updated_at": "2026-07-21T12:40:43.860Z",
       "from_franchise_id": "0007",
       "to_franchise_id": "0010",
       "from_franchise_name": "Sex Manther",
       "to_franchise_name": "Blake Bombers",
-      "message": "As wet as a slip n slide",
-      "comment": "As wet as a slip n slide",
-      "comments": "As wet as a slip n slide",
-      "raw_comment": "As wet as a slip n slide",
-      "will_give_up": "FP_0007_2027_1,FP_0010_2027_1",
+      "message": "I can extend to your liking",
+      "comment": "I can extend to your liking",
+      "comments": "I can extend to your liking",
+      "raw_comment": "I can extend to your liking",
+      "will_give_up": "16616,FP_0007_2027_1",
       "will_receive": "16211",
       "source": "trade-workbench-ui",
       "summary": {
@@ -1707,11 +1707,11 @@
         "to_asset_count": 1,
         "from_trade_salary_k": 0,
         "to_trade_salary_k": 0,
-        "extension_request_count": 0
+        "extension_request_count": 1
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-07-21T11:37:07.197Z",
+        "generated_at": "2026-07-21T12:40:41.385Z",
         "source": "ups-mobile-trade-builder",
         "league_id": "74598",
         "season": "2026",
@@ -1721,6 +1721,26 @@
             "franchise_id": "0007",
             "franchise_name": "Sex Manther",
             "selected_assets": [
+              {
+                "asset_id": "P_16616",
+                "type": "PLAYER",
+                "player_id": "16616",
+                "player_name": "Rome Odunze",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "CHI",
+                "salary": 10000,
+                "years": 1,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3| TCV 30K| AAV 10K| Y1-10K, Y2-10K, Y3-10K| GTD: 22.5K",
+                "contract_length": 3,
+                "already_extended_by_this_franchise": false,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
               {
                 "asset_id": "FP_0007_2027_1",
                 "type": "PICK",
@@ -1738,30 +1758,12 @@
                 "pick_season": 2027,
                 "pick_round": 1,
                 "pick_slot": null
-              },
-              {
-                "asset_id": "FP_0010_2027_1",
-                "type": "PICK",
-                "player_id": null,
-                "player_name": null,
-                "description": "2027 R1  (via Blake Bombers)",
-                "position": null,
-                "nfl_team": null,
-                "salary": 0,
-                "years": null,
-                "contract_type": null,
-                "contract_info": null,
-                "taxi": false,
-                "pick_key": "FP_0010_2027_1",
-                "pick_season": 2027,
-                "pick_round": 1,
-                "pick_slot": null
               }
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
             "traded_salary_adjustment_max_k": 999,
-            "selected_non_taxi_salary_dollars": 0
+            "selected_non_taxi_salary_dollars": 10000
           },
           {
             "role": "right",
@@ -1795,7 +1797,24 @@
             "selected_non_taxi_salary_dollars": 22000
           }
         ],
-        "extension_requests": [],
+        "extension_requests": [
+          {
+            "player_id": "16616",
+            "player_name": "Rome Odunze",
+            "from_franchise_id": "0007",
+            "to_franchise_id": "0010",
+            "applies_to_acquirer": true,
+            "option_key": "1YR|NONE",
+            "extension_term": "1YR",
+            "loaded_indicator": "NONE",
+            "preview_id": null,
+            "preview_contract_info_string": "CL 2| TCV 30K| AAV 10K, 20K| Y1-10K, Y2-20K",
+            "new_contract_status": "EXT1",
+            "new_contract_length": 2,
+            "new_TCV": 30000,
+            "new_aav_future": 20000
+          }
+        ],
         "filters": {
           "search": ""
         },
@@ -1805,8 +1824,8 @@
         }
       },
       "twb_meta": null,
-      "mfl_trade_id": "1111",
-      "trade_id": "1111",
+      "mfl_trade_id": "1112",
+      "trade_id": "1112",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
