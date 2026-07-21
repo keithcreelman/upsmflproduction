@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
-"""Auction value model — predicts winning bids from ADP + scarcity context.
+"""DEPRECATED (2026-07-21) — NOT RUNNABLE from a clean checkout. Do not schedule
+it, and do not treat its numbers as current.
+
+WHY: it reads a SQLite database that does not exist in this repo — `_DEFAULT_DB`
+below points at `/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/
+mfl_database.db`, a file on one machine's Desktop. `MFL_DB_PATH` can override it,
+but nothing in the repo sets that, no workflow invokes this script, and the only
+automated reference is `scripts/smoke_test_operational.sh`, which calls it with
+`--help` purely to prove the CLI wrapper parses — it never executes the model.
+Separately, `docs/league_context_v1.md` (line ~1664) records Keith's standing
+instruction that stale auction models get sunsetted rather than left floating as
+competing sources of truth.
+
+THE FILE IS KEPT so the smoke test keeps passing and the era logic below stays
+readable, but the live auction pricing path is build_fa_value.py →
+build_roster_fit.py → build_ep_v5_calibration.py. Use those. If you want this
+revived, it needs its data source re-pointed at D1 first.
+
+Its 6-line back-compat alias `build_adp_auction_value_model.py` was deleted
+2026-07-21 — it had zero references anywhere in the repo.
+
+── original docstring ───────────────────────────────────────────────────────
+Auction value model — predicts winning bids from ADP + scarcity context.
 
 Single source of truth for UPS MFL auction projections. The previous v1
 (ADP × spend pool) and v2 (compression curves) are gone — neither captured

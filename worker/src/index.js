@@ -11893,14 +11893,75 @@ export default {
       //                  inline `redraftValue` → fills dyn+redraft for SF & 1QB.
       //   KeepTradeCut — /dynasty-rankings + /fantasy-rankings scrapes (embedded
       //                  playersArray, joined by INLINE mflid); adds TE-premium
-      //                  (superflex.tepp) + dynasty ADP.
+      //                  (superflex.tep/tepp/teppp) + dynasty ADP + published tiers.
       //   DynastyProcess — values-players.csv (value_1qb + value_2qb), by name.
-      //   Sleeper      — search_rank reference, by sleeperId.
+      //   Sleeper      — search_rank reference, by sleeperId. POPULARITY ONLY.
       //   FantasyPros  — dynasty-IDP ECR (the only free IDP source), joined
       //                  fantasypros_id → ff_player_ids → mfl_id.
+      //   MFL native   — export?TYPE=aav: REAL auction dollars from ~800 tracked
+      //                  auctions (redraft). Returned to service for 2026.
       // Back-compat keys (consensus/value/rank/fcValue/ktcValue/dpValue/sleeperRank)
       // are kept = the dynasty-SF view so the prior UI survives a split deploy.
+      //
+      // ── ADP_SOURCES: every source's FORMAT SIGNATURE, declared in one place ──
+      // Add a source by adding one entry here (+ its fetch/parse below). `role`
+      // is what the source is actually allowed to influence:
+      //   "value"      — carries weight in the dynasty consensus
+      //   "redraft"    — carries weight in the redraft rank-consensus only
+      //   "popularity" — displayed, NEVER blended (Sleeper's search_rank measures
+      //                  search traffic, not value, and emits 999 sentinels)
+      //   "idp"        — the IDP-only universe
+      // `independent` marks whether the source is its own opinion. DynastyProcess
+      // is a deterministic transform of FantasyPros' dynasty ECR (rho ~0.999 vs its
+      // own ecr column) — it IS the FantasyPros expert panel, so it must never be
+      // counted alongside a second FantasyPros feed on the same axis. The board has
+      // THREE independent valuation panels, not five: KTC (crowd ELO), FantasyCalc
+      // (observed trades), DynastyProcess/FantasyPros (expert consensus).
       if (path === "/api/adp-board" && request.method === "GET") {
+        const ADP_SOURCES = [
+          { key: "fc",  label: "FantasyCalc",    role: "value",      independent: true,  panel: "trades",
+            roster: "sf", te: "standard", horizon: "dynasty", weight: 1, dynKey: "dsf", rdKey: "rsf" },
+          { key: "ktc", label: "KeepTradeCut",   role: "value",      independent: true,  panel: "crowd",
+            roster: "sf", te: "premium",  horizon: "dynasty", weight: 1, dynKey: "dtep", rdKey: "rsf" },
+          { key: "dp",  label: "DynastyProcess", role: "value",      independent: false, panel: "experts",
+            roster: "sf", te: "standard", horizon: "dynasty", weight: 1, dynKey: "dsf", rdKey: null,
+            note: "= FantasyPros dynasty ECR under a fixed exponential curve; one expert panel, not two" },
+          { key: "ffc", label: "FFCalculator",   role: "redraft",    independent: true,  panel: "live drafts",
+            roster: "1qb", te: "standard", horizon: "redraft", weight: 1, dynKey: null, rdKey: "ffcAdp" },
+          // MFL native AAV is REFERENCE-ONLY, not a consensus input. It is the only
+          // source quoting real auction dollars and it IS live again for 2026 (800
+          // tracked auctions, 749 players — it had been returning nothing), but
+          // inspecting the actual pool on 2026-07-21 shows what those auctions are:
+          // the top SIX players by average value are all 2026 rookies (Jeremiyah
+          // Love $57.39, Carnell Tate $37.82, Fernando Mendoza $35.35, Jordyn Tyson,
+          // Jadarian Price, Makai Lemon) with Ja'Marr Chase 7th and Josh Allen 10th.
+          // In July the auctions MFL tracks are overwhelmingly DYNASTY ROOKIE
+          // auctions, not redraft ones. Its ordering is therefore a rookie-draft
+          // ordering, and feeding it into the redraft axis would shove the incoming
+          // class to the top of a board that is supposed to answer "who helps most
+          // this season". Ranking it instead of averaging it protects against the
+          // scale mismatch but NOT against this — the contamination is in the
+          // ordering itself. Displayed per row as `mflAav`; re-evaluate closer to
+          // the NFL season when redraft auctions start dominating the pool.
+          { key: "mfl", label: "MFL native AAV", role: "reference",  independent: true,  panel: "real auctions",
+            roster: "mixed", te: "standard", horizon: "redraft", weight: 0, dynKey: null, rdKey: "mflAav",
+            note: "real auction $, but the 2026 pool is rookie-auction-dominated — display only, weight 0" },
+          { key: "slp", label: "Sleeper",        role: "popularity", independent: true,  panel: "search traffic",
+            roster: "n/a", te: "n/a", horizon: "n/a", weight: 0, dynKey: null, rdKey: null,
+            note: "search_rank is popularity, NOT valuation — weight 0, display only" },
+          { key: "fp",  label: "FantasyPros IDP", role: "idp",       independent: true,  panel: "experts",
+            roster: "n/a", te: "n/a", horizon: "dynasty", weight: 1, dynKey: null, rdKey: null },
+        ];
+        // Our league's TE-premium LEVEL, verified against KTC's own published
+        // definition (their "How TE Premium Works" modal, read 2026-07-21):
+        //   tep   = TE+   "Start 1 TE. A mild/moderate bonus (+.5PPR/.75PPR, or
+        //                  ~1.5–2x the PPR that WRs receive)"     ← UPS
+        //   tepp  = TE++  "Start 2 TEs, OR >1PPR boost / >2x WR PPR"
+        //   teppp = TE+++ "Start 2 TEs AND additional bonuses"
+        // UPS scores TE 1.5 PPR vs WR 1.0 PPR and starts 1 TE ⇒ exactly 1.5x WR,
+        // i.e. TE+. The prior code parsed `tepp` (TE++) — that overshoots this
+        // league by ~10 pts of premium — and then never used it anyway.
+        const KTC_TEP_LEVEL = "tep";
         const posFilter = safeStr(url.searchParams.get("pos") || "").toUpperCase();
         const nkey = (n) => String(n || "").toLowerCase().replace(/[^a-z]/g, "");
         const num = (x) => { const v = Number(x); return (isFinite(v) && v > 0) ? Math.round(v) : null; };
@@ -11912,7 +11973,7 @@ export default {
             ? env.UPS_MFL_DB.prepare("SELECT mfl_id, fantasypros_id, name, position, team FROM ff_player_ids WHERE fantasypros_id IS NOT NULL AND fantasypros_id != ''").all().then((r) => (r && r.results) || []).catch(() => [])
             : Promise.resolve([]);
           const adpYear = new Date().getUTCFullYear();
-          const [fcSf, fc1q, slR, dpTxt, ktcDynTxt, ktcRdTxt, fpIdpTxt, ffcR, ffRows] = await Promise.all([
+          const [fcSf, fc1q, slR, dpTxt, ktcDynTxt, ktcRdTxt, fpIdpTxt, ffcR, mflAavR, ffRows] = await Promise.all([
             getJson("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1", 43200),
             getJson("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&numTeams=12&ppr=1", 43200),
             getJson("https://api.sleeper.app/v1/players/nfl", 86400),
@@ -11926,6 +11987,16 @@ export default {
             getJson("https://fantasyfootballcalculator.com/api/v1/adp/ppr?teams=12&position=all&year=" + adpYear, 21600)
               .then((d) => (d && d.players && d.players.length) ? d
                 : getJson("https://fantasyfootballcalculator.com/api/v1/adp/ppr?teams=12&position=all&year=" + (adpYear + 1), 21600))
+              .catch(() => null),
+            // MFL native AAV — the ONLY source quoting REAL auction dollars, from
+            // MFL's own tracked auction drafts (~800 with PERIOD=ALL for 2026).
+            // Was empty for 2026 earlier in the offseason; re-verified LIVE and
+            // populated on 2026-07-21 (749 players / 137 auctions on the default
+            // period, 800 auctions on PERIOD=ALL). `auctionSelPct` is a genuine
+            // sample-size signal — thin-sample rows are dropped below.
+            getJson("https://api.myfantasyleague.com/" + adpYear + "/export?TYPE=aav&PERIOD=ALL&JSON=1", 21600, CHROME_UA)
+              .then((d) => (d && d.aav && d.aav.player && d.aav.player.length) ? d
+                : getJson("https://api.myfantasyleague.com/" + adpYear + "/export?TYPE=aav&JSON=1", 21600, CHROME_UA))
               .catch(() => null),
             ffP,
           ]);
@@ -11953,7 +12024,8 @@ export default {
           }
 
           // KeepTradeCut: scrape playersArray → keyed by INLINE mflid. Captures 1QB,
-          // SF, TE-premium (superflex.tepp) values + the SF dynasty ADP.
+          // SF, TE-premium (superflex[KTC_TEP_LEVEL]) values + the SF dynasty ADP +
+          // KTC's OWN published positional tiers (used to cross-check ours below).
           const parseKtc = (txt) => {
             const out = {}; if (!txt) return out;
             const m = txt.match(/playersArray\s*=\s*(\[.+?\])\s*;/s); if (!m) return out;
@@ -11962,7 +12034,13 @@ export default {
               for (const p of (Array.isArray(arr) ? arr : [])) {
                 const id = String(p.mflid || "").trim(); if (!id) continue;
                 const oq = p.oneQBValues || {}, sf = p.superflexValues || {};
-                out[id] = { q1: num(oq.value), sf: num(sf.value), tep: num((sf.tepp || {}).value) || num(sf.value), adp: Number(sf.adp) || null };
+                const tp = sf[KTC_TEP_LEVEL] || {};
+                out[id] = {
+                  q1: num(oq.value), sf: num(sf.value),
+                  tep: num(tp.value) || num(sf.value),
+                  tepRank: Number(tp.rank) || null, tepTier: Number(tp.positionalTier) || null,
+                  adp: Number(sf.adp) || null,
+                };
               }
             } catch (e) {}
             return out;
@@ -11984,6 +12062,25 @@ export default {
             } catch (e) {} }
           }
 
+          // MFL native AAV: mfl_id → real auction $ (higher = better) + sample size.
+          // Rows seen in under MIN_AAV_SEL_PCT of tracked auctions are too thin to
+          // trust (the reference doc's Parker-Washington case: rank 213 off a 6%
+          // sample while every other source had him top-90) — dropped, not weighted.
+          const MIN_AAV_SEL_PCT = 10;
+          const mflAavById = {};
+          let mflAavMeta = null;
+          if (mflAavR && mflAavR.aav) {
+            const arr = mflAavR.aav.player || [];
+            mflAavMeta = { auctions: Number(mflAavR.aav.totalAuctions) || null, players: (Array.isArray(arr) ? arr : []).length };
+            for (const p of (Array.isArray(arr) ? arr : [])) {
+              const id = String(p.id || "").trim();
+              const v = parseFloat(p.averageValue), sel = parseFloat(p.auctionSelPct);
+              if (id && isFinite(v) && v > 0 && (!isFinite(sel) || sel >= MIN_AAV_SEL_PCT)) {
+                mflAavById[id] = { aav: Math.round(v * 100) / 100, selPct: isFinite(sel) ? sel : null };
+              }
+            }
+          }
+
           // FantasyFootballCalculator: nkey(name) → real redraft ADP (lower = earlier).
           const ffcByName = {};
           if (ffcR && Array.isArray(ffcR.players)) {
@@ -12002,10 +12099,12 @@ export default {
               age: (p.maybeAge != null ? Math.round(Number(p.maybeAge) * 10) / 10 : null), isIdp: false,
               trend30: Number(r.trend30Day) || 0, posRank: Number(r.positionRank) || null,
               fc:  { dq1: f1.dq1 || null, dsf: num(r.value), rq1: f1.rq1 || null, rsf: num(r.redraftValue) },
-              ktc: { dq1: kd.q1 || null, dsf: kd.sf || null, dtep: kd.tep || null, rq1: kr.q1 || null, rsf: kr.sf || null, rtep: kr.tep || null, adp: kd.adp || null },
+              ktc: { dq1: kd.q1 || null, dsf: kd.sf || null, dtep: kd.tep || null, dtepRank: kd.tepRank || null, dtepTier: kd.tepTier || null, rq1: kr.q1 || null, rsf: kr.sf || null, rtep: kr.tep || null, adp: kd.adp || null },
               dp:  { dq1: dp.dq1 || null, dsf: dp.dsf || null },
               slp: (p.sleeperId && slBySid[String(p.sleeperId)]) || null,
               ffcAdp: ffcByName[nm] || null,
+              mflAav: (mflAavById[pid] || {}).aav || null,
+              mflAavSelPct: (mflAavById[pid] || {}).selPct || null,
             });
           }
           for (const mflId in idpByMfl) {
@@ -12015,19 +12114,260 @@ export default {
               trend30: 0, posRank: null, fc: {}, ktc: {}, dp: {}, slp: null, fpEcr: d.ecr });
           }
 
-          let out = posFilter ? board.filter((r) => (posFilter === "IDP" ? r.isIdp : r.pos === posFilter)) : board;
-          // Back-compat + a default dynasty-SF consensus the prior UI reads. IDP rows
-          // get an ECR-derived value so they sort sensibly within their position.
-          for (const r of out) {
-            const dsfVals = [r.fc && r.fc.dsf, r.ktc && r.ktc.dsf, r.dp && r.dp.dsf].filter((v) => v != null && v > 0);
-            const cons = dsfVals.length ? Math.round(dsfVals.reduce((a, b) => a + b, 0) / dsfVals.length) : null;
-            r.consensus = cons; r.nSources = dsfVals.length;
-            r.fcValue = (r.fc && r.fc.dsf) || null; r.ktcValue = (r.ktc && r.ktc.dsf) || null; r.dpValue = (r.dp && r.dp.dsf) || null; r.sleeperRank = r.slp || null;
+          // ══════════════════════════════════════════════════════════════════
+          //  DYNASTY CONSENSUS — scale-correct blend (replaces raw averaging)
+          // ══════════════════════════════════════════════════════════════════
+          // THE BUG THIS FIXES. The old line was
+          //     mean(fc.dsf, ktc.dsf, dp.dsf)
+          // — a straight average of three sources' RAW dollar values. Those values
+          // are not on comparable scales. Measured live 2026-07-21, fraction of each
+          // source's own top value still retained at its rank 100:
+          //     KTC 35.5%   FantasyCalc 24.1%   DynastyProcess 7.7%
+          // KTC's tail is ~4.6x flatter than DP's, so once you leave the top tier
+          // KTC's number simply outweighs the other two in the sum and the "average"
+          // silently becomes KTC's ordering. Proof it was actually happening: the
+          // shipped consensus correlated MOST with KTC (rho .9846) and LEAST with
+          // FantasyCalc (.9784) — even though KTC is the source that agrees LEAST
+          // with the other two (mean pairwise rho: fc .9746, dp .9714, ktc .9671).
+          // A real centroid must sit CLOSEST to the source nearest the others. The
+          // old blend had that ordering exactly inverted. See `degeneracy` below —
+          // that inversion is now measured and emitted on every response.
+          //
+          // THE METHOD (rank-space blend, generalising the rule already used on the
+          // redraft axis and documented in docs/auction/adp_sources_reference.md §3):
+          //   1. Rank each source against ONLY its own reporting population, then
+          //      convert to a PERCENTILE q = (i + 0.5) / n. Percentile rather than
+          //      raw rank because coverage differs (fc 462, ktc 379, dp 359 today) —
+          //      averaging raw rank 300 across a 359-row and a 462-row population is
+          //      the same class of bug in rank clothing.
+          //   2. Average the available percentiles (source weights from ADP_SOURCES).
+          //   3. Map the mean percentile back onto ONE reference cardinal curve
+          //      (FantasyCalc's SF dynasty distribution) so downstream auction $
+          //      anchoring still gets a cardinal number, not a bare rank.
+          // Only the ORDERING each source publishes is treated as its opinion; its
+          // arbitrary decay curve is not. Ordering is invariant to which source's
+          // curve is used as the reference (verified: FC-ref and a neutral geometric-
+          // mean-ref produce identical rho to 4dp), so the reference choice can never
+          // smuggle in a bias.
+          //
+          // TE-PREMIUM. This league scores TE 1.5 PPR vs WR 1.0 and starts 1 TE.
+          // KTC is the only source that publishes a TE-premium board at all, so the
+          // other two answer the wrong question for TEs. Rather than let KTC's TE
+          // opinion be diluted to 1/3, we learn the premium MULTIPLIER as a function
+          // of TE positional rank from KTC's own paired boards (its tep value vs its
+          // standard value for the same player — live today: 1.107 at TE1 rising to
+          // 1.160 by TE24, i.e. the premium GROWS down the position) and apply that
+          // curve to FantasyCalc's and DynastyProcess's TEs before ranking. This is
+          // the same bridge technique as the 1QB↔SF transforms.
+          const wOf = (k) => { const s = ADP_SOURCES.find((x) => x.key === k); return s ? s.weight : 0; };
+
+          // ── step 0: learn KTC's TE-premium curve (TE pos rank → tep/standard) ──
+          const ktcTes = board
+            .filter((r) => r.pos === "TE" && r.ktc && r.ktc.dsf > 0 && r.ktc.dtep > 0)
+            .sort((a, b) => b.ktc.dsf - a.ktc.dsf)
+            .map((r) => r.ktc.dtep / r.ktc.dsf);
+          const tepMultAt = (rank) => {
+            if (!ktcTes.length) return 1;
+            const i = Math.min(Math.max(Math.round(rank), 1), ktcTes.length) - 1;
+            return ktcTes[i];
+          };
+
+          // ── step 1: per-source TE-premium-corrected value, then percentile ──
+          const VALUE_SRC = ADP_SOURCES.filter((s) => s.role === "value");
+          const pctBySrc = {};   // key → Map(pid → percentile)
+          for (const s of VALUE_SRC) {
+            const vals = {};
+            for (const r of board) {
+              const blk = r[s.key] || {};
+              const v = Number(blk[s.dynKey]) || 0;
+              if (v > 0) vals[r.pid] = v;
+            }
+            if (s.te === "standard") {
+              // bridge this source's TEs onto the league's TE-premium format
+              const tes = board.filter((r) => r.pos === "TE" && vals[r.pid] > 0)
+                .sort((a, b) => vals[b.pid] - vals[a.pid]);
+              tes.forEach((r, i) => { vals[r.pid] = vals[r.pid] * tepMultAt(i + 1); });
+            }
+            const ordered = Object.keys(vals).sort((a, b) => vals[b] - vals[a]);
+            const n = ordered.length, m = {};
+            ordered.forEach((pid, i) => { m[pid] = (i + 0.5) / n; });
+            pctBySrc[s.key] = m;
+          }
+          // ── step 2: reference cardinal curve = FantasyCalc's SF dynasty spread ──
+          const refCurve = board.map((r) => Number((r.fc || {}).dsf) || 0).filter((v) => v > 0).sort((a, b) => b - a);
+          const valueAtPct = (q) => {
+            if (!refCurve.length) return null;
+            const x = Math.max(0, Math.min(1, q)) * (refCurve.length - 1);
+            const i = Math.floor(x), j = Math.min(i + 1, refCurve.length - 1);
+            return refCurve[i] + (refCurve[j] - refCurve[i]) * (x - i);
+          };
+          // ── step 3: per-source NORMALISED value (`ndsf`) on the common scale ──
+          // Emitting the normalised value per source (not just the blended number)
+          // is what makes the client-side source toggles safe: any subset of `ndsf`
+          // can be plainly averaged, because they now share one scale by
+          // construction. The four consensus mirrors (stats_workbench.html,
+          // site/m/views/stats.js, site/auction/auction_hub.js, trade_grader.py)
+          // read `ndsf` and can never reintroduce the raw-average bug.
+          for (const r of board) {
+            let num = 0, den = 0;
+            for (const s of VALUE_SRC) {
+              const q = pctBySrc[s.key][r.pid];
+              if (q == null) { if (r[s.key]) r[s.key].ndsf = null; continue; }
+              const nv = valueAtPct(q);
+              if (r[s.key]) r[s.key].ndsf = Math.round(nv);
+              num += wOf(s.key) * q; den += wOf(s.key);
+            }
+            r._q = den ? num / den : null;
+          }
+
+          // Back-compat + the default dynasty-SF consensus the prior UI reads. IDP
+          // rows get an ECR-derived value so they sort sensibly within their position.
+          // Computed over the WHOLE board (then filtered) so the tiers and the
+          // degeneracy score a ?pos= request reports are the global ones, not a
+          // slice's — a per-position rho would hide a board-wide inversion.
+          for (const r of board) {
+            const nSrc = VALUE_SRC.filter((s) => pctBySrc[s.key][r.pid] != null).length;
+            const cons = r._q != null ? Math.round(valueAtPct(r._q)) : null;
+            r.consensus = cons; r.nSources = nSrc;
+            // Independent PANELS behind that number (DynastyProcess and FantasyPros
+            // are one panel, not two). Surfaced so the UI can stop implying that a
+            // 3-source row is three independent opinions when it is closer to 2.
+            r.nPanels = new Set(VALUE_SRC.filter((s) => pctBySrc[s.key][r.pid] != null).map((s) => s.panel)).size;
+            r.fcValue = (r.fc && r.fc.dsf) || null; r.ktcValue = (r.ktc && r.ktc.dsf) || null; r.dpValue = (r.dp && r.dp.dsf) || null;
+            r.sleeperRank = r.slp || null;   // POPULARITY ONLY — never blended
             r.idpVal = (r.isIdp && r.fpEcr) ? Math.max(0, Math.round(10000 - r.fpEcr * 45)) : null;
             r.value = (cons != null) ? cons : ((r.fc && r.fc.dsf) || r.idpVal || null);
           }
+          let out = posFilter ? board.filter((r) => (posFilter === "IDP" ? r.isIdp : r.pos === posFilter)) : board;
           out.sort((a, b) => (b.value || 0) - (a.value || 0));
           out.forEach((r, i) => { r.rank = i + 1; r.ovr = i + 1; });
+
+          // ══════════════════════════════════════════════════════════════════
+          //  TIERS — 1-D clustering on log(consensus value), per position
+          // ══════════════════════════════════════════════════════════════════
+          // Not fixed buckets: the tier boundary is wherever the position's value
+          // curve actually breaks. Lloyd's algorithm on log(value) (equivalently
+          // Jenks natural breaks, since 1-D k-means minimises the same within-class
+          // deviation), with k chosen as the SMALLEST k reaching a goodness-of-
+          // variance-fit of 0.99 — so a position with genuinely smooth values gets
+          // few tiers and a cliffy one gets many, rather than every position being
+          // forced into the same count. log-space because the meaningful question is
+          // "how much cheaper, proportionally" — a 500-point gap is a tier break at
+          // the bottom of a position and noise at the top.
+          // Cross-checked against KTC's OWN published positionalTier (live
+          // 2026-07-21): 92-100% of our tier boundaries at QB/RB/TE land within one
+          // slot of a KTC boundary, so these breaks are real gaps, not artefacts.
+          const GVF_TARGET = 0.99, TIER_KMAX = 20;
+          const tierize = (vals) => {   // vals sorted DESC; → array of tier numbers
+            const x = vals.map((v) => Math.log(Math.max(v, 1))), n = x.length;
+            if (n < 3) return x.map(() => 1);
+            const mu = x.reduce((a, b) => a + b, 0) / n;
+            const sdam = x.reduce((a, b) => a + (b - mu) * (b - mu), 0);
+            let best = null;
+            for (let k = 2; k <= Math.min(TIER_KMAX, n); k++) {
+              let cent = [];
+              for (let i = 0; i < k; i++) cent.push(x[Math.floor((i + 0.5) * n / k)]);
+              let asg = null;
+              for (let it = 0; it < 80; it++) {
+                asg = x.map((v) => { let bi = 0, bd = Infinity; for (let c = 0; c < k; c++) { const d = Math.abs(v - cent[c]); if (d < bd) { bd = d; bi = c; } } return bi; });
+                const nc = []; let moved = false;
+                for (let c = 0; c < k; c++) {
+                  const mem = x.filter((_v, i) => asg[i] === c);
+                  const nv = mem.length ? mem.reduce((a, b) => a + b, 0) / mem.length : cent[c];
+                  if (Math.abs(nv - cent[c]) > 1e-9) moved = true;
+                  nc.push(nv);
+                }
+                cent = nc; if (!moved) break;
+              }
+              let sdcm = 0;
+              for (let c = 0; c < k; c++) {
+                const mem = x.filter((_v, i) => asg[i] === c);
+                if (!mem.length) continue;
+                const mm = mem.reduce((a, b) => a + b, 0) / mem.length;
+                sdcm += mem.reduce((a, b) => a + (b - mm) * (b - mm), 0);
+              }
+              // relabel to contiguous, descending-value tier numbers
+              const tiers = []; let t = 1;
+              for (let i = 0; i < n; i++) { if (i && asg[i] !== asg[i - 1]) t++; tiers.push(t); }
+              best = tiers;
+              if (sdam <= 0 || 1 - sdcm / sdam >= GVF_TARGET) break;
+            }
+            return best || vals.map(() => 1);
+          };
+          const byPos = {};
+          for (const r of board) { if (r.value > 0 && r.pos) (byPos[r.pos] = byPos[r.pos] || []).push(r); }
+          const tierCheck = {};
+          for (const pos in byPos) {
+            const rows = byPos[pos].sort((a, b) => b.value - a.value);
+            const tiers = tierize(rows.map((r) => r.value));
+            rows.forEach((r, i) => { r.tier = tiers[i]; r.posTierRank = i + 1; });
+            // cross-check our boundaries against KTC's published positional tiers
+            const withKtc = rows.filter((r) => r.ktc && r.ktc.dtepTier);
+            let ours = 0, aligned = 0;
+            for (let i = 1; i < withKtc.length; i++) {
+              if (withKtc[i].tier === withKtc[i - 1].tier) continue;
+              ours++;
+              for (let j = Math.max(1, i - 1); j <= Math.min(withKtc.length - 1, i + 1); j++) {
+                if (withKtc[j].ktc.dtepTier !== withKtc[j - 1].ktc.dtepTier) { aligned++; break; }
+              }
+            }
+            tierCheck[pos] = { tiers: tiers.length ? Math.max.apply(null, tiers) : 0, n: rows.length,
+                               boundaries: ours, ktc_aligned: aligned,
+                               ktc_agreement: ours ? Math.round(aligned / ours * 100) / 100 : null };
+          }
+
+          // ══════════════════════════════════════════════════════════════════
+          //  DEGENERACY — is this board a real consensus, or one source in hats?
+          // ══════════════════════════════════════════════════════════════════
+          // Emitted on EVERY response so a regression can never be silent. Read it
+          // as: `leader` is the source the consensus agrees with most; `expected` is
+          // the source that agrees most with the OTHER sources. For an honest
+          // centroid those must match. When they don't (`inverted: true`) the blend
+          // is being dragged by an outlier source's scale — which is exactly the
+          // condition that shipped before 2026-07-21.
+          const spearman = (pairs) => {
+            const rk = (get) => { const idx = pairs.map((_p, i) => i).sort((a, b) => get(pairs[b]) - get(pairs[a])); const r = []; idx.forEach((ii, i) => { r[ii] = i + 1; }); return r; };
+            const A = rk((p) => p[0]), B = rk((p) => p[1]), n = A.length;
+            if (n < 3) return null;
+            const ma = A.reduce((a, b) => a + b, 0) / n, mb = B.reduce((a, b) => a + b, 0) / n;
+            let cov = 0, va = 0, vb = 0;
+            for (let i = 0; i < n; i++) { cov += (A[i] - ma) * (B[i] - mb); va += (A[i] - ma) ** 2; vb += (B[i] - mb) ** 2; }
+            return (va && vb) ? Math.round(cov / Math.sqrt(va * vb) * 10000) / 10000 : null;
+          };
+          const rawOf = (r, s) => Number((r[s.key] || {})[s.dynKey]) || null;
+          // Always measured over the WHOLE board, never the ?pos= slice — the blend
+          // is cross-positional, so a per-position rho would hide a global inversion.
+          const degUniv = board.filter((r) => !r.isIdp && r._q != null)
+            .map((r) => Object.assign({ _cons: Math.round(valueAtPct(r._q)) }, r));
+          const vsCons = {}, pairwise = {};
+          for (const s of VALUE_SRC) {
+            const pr = degUniv.filter((r) => r._cons && rawOf(r, s)).map((r) => [r._cons, rawOf(r, s)]);
+            vsCons[s.key] = spearman(pr);
+            let tot = 0, cnt = 0;
+            for (const t of VALUE_SRC) {
+              if (t.key === s.key) continue;
+              const p2 = degUniv.filter((r) => rawOf(r, s) && rawOf(r, t)).map((r) => [rawOf(r, s), rawOf(r, t)]);
+              const rho = spearman(p2);
+              if (rho != null) { pairwise[s.key + "|" + t.key] = rho; tot += rho; cnt++; }
+            }
+            vsCons[s.key + "_meanPairwise"] = cnt ? Math.round(tot / cnt * 10000) / 10000 : null;
+          }
+          const keysV = VALUE_SRC.map((s) => s.key).filter((k) => vsCons[k] != null);
+          const leader = keysV.slice().sort((a, b) => vsCons[b] - vsCons[a])[0] || null;
+          const expected = keysV.slice().sort((a, b) => (vsCons[b + "_meanPairwise"] || 0) - (vsCons[a + "_meanPairwise"] || 0))[0] || null;
+          const rhoVals = keysV.map((k) => vsCons[k]);
+          const degeneracy = {
+            note: "rho(consensus, source-alone). leader must equal expected; if not, one source's scale is driving the board.",
+            rho_vs_source: keysV.reduce((o, k) => { o[k] = vsCons[k]; return o; }, {}),
+            mean_pairwise_agreement: keysV.reduce((o, k) => { o[k] = vsCons[k + "_meanPairwise"]; return o; }, {}),
+            inter_source_rho: pairwise,
+            leader: leader, expected_leader: expected,
+            inverted: !!(leader && expected && leader !== expected),
+            spread: rhoVals.length ? Math.round((Math.max.apply(null, rhoVals) - Math.min.apply(null, rhoVals)) * 10000) / 10000 : null,
+            max_rho: rhoVals.length ? Math.max.apply(null, rhoVals) : null,
+            independent_panels: Array.from(new Set(VALUE_SRC.map((s) => s.panel))).length,
+            value_sources: VALUE_SRC.length,
+          };
 
           const sources = [];
           if (fcSf.length) sources.push("fantasycalc");
@@ -12036,7 +12376,20 @@ export default {
           if (Object.keys(slBySid).length) sources.push("sleeper");
           if (Object.keys(ffcByName).length) sources.push("fantasyfootballcalculator");
           if (Object.keys(idpByMfl).length) sources.push("fantasypros_idp");
-          return jsonOut(200, { ok: true, sources: sources, formats: { roster: ["sf", "q1", "tep"], type: ["dynasty", "redraft"] }, generated_at: new Date().toISOString(), count: out.length, board: out });
+          if (Object.keys(mflAavById).length) sources.push("mfl_aav");
+          for (const r of board) delete r._q;   // internal blend state, not payload
+          return jsonOut(200, {
+            ok: true, sources: sources,
+            source_config: ADP_SOURCES.map((s) => ({ key: s.key, label: s.label, role: s.role, panel: s.panel,
+              independent: s.independent, roster: s.roster, te: s.te, horizon: s.horizon, weight: s.weight, note: s.note || null })),
+            formats: { roster: ["sf", "q1", "tep"], type: ["dynasty", "redraft"] },
+            consensus_method: "rank-space: per-source percentile within its own reporting population, TE-premium-bridged for non-TEP sources, weighted-mean percentile mapped onto FantasyCalc's SF dynasty cardinal curve",
+            te_premium: { level: KTC_TEP_LEVEL, meaning: "KTC 'TE+' = start 1 TE, ~1.5x WR PPR — matches UPS TE 1.5 / WR 1.0",
+              multiplier_te1: ktcTes.length ? Math.round(ktcTes[0] * 1000) / 1000 : null,
+              multiplier_te24: ktcTes.length > 23 ? Math.round(ktcTes[23] * 1000) / 1000 : null },
+            degeneracy: degeneracy, tier_check: tierCheck, mfl_aav: mflAavMeta,
+            generated_at: new Date().toISOString(), count: out.length, board: out,
+          });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }

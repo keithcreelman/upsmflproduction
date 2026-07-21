@@ -1293,7 +1293,14 @@ def fetch_adp_board() -> dict:
     exactly TE9 (his three source ranks already agreed, so the correction is a
     no-op for him — the standing regression check). Sleeper's search_rank was
     evaluated too but carries suspicious round-number sentinels (many unrelated
-    players share an identical 999) — left out to avoid injecting noise."""
+    players share an identical 999) — left out to avoid injecting noise.
+    Keith 2026-07-21: the DYNASTY axis had the same class of bug the redraft axis
+    was fixed for in 2026-07-13 — it averaged raw `dsf` across three sources whose
+    value curves decay at wildly different rates (at each source's own rank 100:
+    KTC keeps 35.5% of its top value, FantasyCalc 24.1%, DynastyProcess 7.7%), so
+    KTC's flat tail dominated the sum and the "consensus" was effectively KTC. The
+    worker now emits `ndsf` per source — scale-normalised, TE-premium-corrected —
+    and this reads that. Also adds MFL native AAV to the redraft rank-consensus."""
     RD_PCT = 0.35
     out = {}
     try:
@@ -1302,13 +1309,33 @@ def fetch_adp_board() -> dict:
         fc_rank = _rank_map(board, lambda p: (p.get("fc") or {}).get("rsf") or None, False)
         ktc_rank = _rank_map(board, lambda p: (p.get("ktc") or {}).get("rsf") or None, False)
         ffc_rank = _rank_map(board, lambda p: p.get("ffcAdp"), True)
+        # MFL native AAV is REFERENCE ONLY and deliberately absent from the blend.
+        # It is the only source quoting real auction dollars and it IS live again
+        # for 2026 (800 tracked auctions), but inspected 2026-07-21 the top six
+        # players by average value are all 2026 rookies (Jeremiyah Love $57.39,
+        # Carnell Tate $37.82, ... Ja'Marr Chase 7th, Josh Allen 10th): in July the
+        # auctions MFL tracks are dynasty ROOKIE auctions. That is a rookie-draft
+        # ordering, not a redraft one, and ranking rather than averaging does not
+        # save it — the contamination is in the ordering itself. Re-evaluate once
+        # redraft auctions dominate the pool closer to the season.
         rank_curve = _rank_to_fc_value_curve(board, fc_rank)
         def blend(p):
+            # DYNASTY axis: `ndsf` is the worker's SCALE-NORMALISED dynasty value
+            # (each source ranked inside its own reporting population, TE-premium-
+            # bridged for the non-TEP sources, mapped onto one common cardinal
+            # curve). The old code averaged raw `dsf` across sources — the same
+            # incompatible-scales bug that hit the redraft axis on 2026-07-13, just
+            # on the dynasty side: KTC's value curve is ~4.6x flatter than
+            # DynastyProcess's past rank 100, so the mean quietly became KTC's
+            # board. Measured before the fix: the consensus correlated MOST with
+            # KTC (rho .985) despite KTC agreeing LEAST with the other two — an
+            # inverted centroid. `dsf` fallback is split-deploy safety only.
             dyn_vals = []
             for src in ("fc", "ktc", "dp"):
                 blk = p.get(src) or {}
-                if blk.get("dsf") and blk["dsf"] > 0:
-                    dyn_vals.append(float(blk["dsf"]))
+                v = blk.get("ndsf") or blk.get("dsf")
+                if v and v > 0:
+                    dyn_vals.append(float(v))
             dyn_c = sum(dyn_vals) / len(dyn_vals) if dyn_vals else None
             ranks = [x[id(p)] for x in (fc_rank, ktc_rank, ffc_rank) if id(p) in x]
             rd_c = _value_at_rank(sum(ranks) / len(ranks), rank_curve) if ranks else None
@@ -1335,7 +1362,11 @@ def fetch_adp_board() -> dict:
                 if pid:
                     out[pid] = {"overall": i, "pos_rank": pos_counter[pos], "pos": pos,
                                 "trend30": int(p.get("trend30") or 0),
-                                "sources": int(p.get("nSources") or 0)}
+                                "sources": int(p.get("nSources") or 0),
+                                # independent PANELS behind the number (DynastyProcess
+                                # and FantasyPros are one panel, not two)
+                                "panels": int(p.get("nPanels") or 0),
+                                "tier": p.get("tier")}
     except Exception as e:
         print(f"[trade_grader] adp-board lookup skipped ({e})")
     return out

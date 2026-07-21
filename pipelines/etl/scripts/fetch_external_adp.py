@@ -230,23 +230,57 @@ def fetch_dynasty_process() -> tuple[dict, dict, str]:
 
     Columns: player, pos, team, age, draft_year, ecr_1qb, ecr_2qb, ecr_pos,
              value_1qb, value_2qb, scrape_date, fp_id
+
+    ROOKIE IDENTIFICATION — do NOT filter on draft_year == CURRENT_YEAR.
+    `draft_year` in this file is the year the player HAS ALREADY been drafted in.
+    The INCOMING class has not been drafted yet, so DynastyProcess parks it in an
+    "NA" bucket with an "NA" age — there are ZERO rows with the current year in
+    them, ever. The old `draft_year == "2026"` filter therefore matched nothing and
+    this function had been silently returning an empty dict (verified live
+    2026-07-21: 643 rows, draft_year values {NA: 251, 2025: 75, 2024: 63, ...},
+    and every one of the 251 NA rows is a 2026 prospect — Jeremiyah Love, Carnell
+    Tate, Jordyn Tyson, Fernando Mendoza, ...). `age == NA` is the discriminator
+    that separates "undrafted incoming class" from any other NA case: all 251 NA
+    rows have NA age, and zero non-NA-draft_year rows do.
     """
     url = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-players.csv"
     raw = _http_get(url).decode("utf-8", errors="ignore")
     reader = csv.DictReader(io.StringIO(raw))
     by_mfl: dict = {}
     by_name: dict = {}
-    rookies = [r for r in reader if str(r.get("draft_year") or "").strip() == str(CURRENT_YEAR)]
-    rookies.sort(key=lambda r: float(r.get("ecr_2qb") or 999) or 999)
+
+    def _blank(v) -> bool:
+        return str(v or "").strip().upper() in ("", "NA", "NULL", "NONE")
+
+    def _is_incoming_rookie(r: dict) -> bool:
+        dy = str(r.get("draft_year") or "").strip()
+        if dy == str(CURRENT_YEAR):
+            return True                       # if DP ever starts stamping the year
+        return _blank(dy) and _blank(r.get("age"))
+
+    rows = list(reader)
+    rookies = [r for r in rows if _is_incoming_rookie(r)]
+    if not rookies:
+        print(f"  ! DynastyProcess: no incoming-rookie rows matched out of {len(rows)} "
+              f"(draft_year buckets: {sorted({str(r.get('draft_year') or '').strip() for r in rows})}) "
+              f"— the rookie discriminator needs re-checking against the live CSV")
+    # Every numeric column can hold the literal string "NA" (that is how DP encodes
+    # a missing value from R) — coerce through _f, never float() directly, or the
+    # incoming class blows up on its own NA ages.
+    def _f(v):
+        return None if _blank(v) else float(v)
+
+    rookies.sort(key=lambda r: (_f(r.get("ecr_2qb")) or 999))
     scrape_date = (rookies[0].get("scrape_date") if rookies else "")
     for i, r in enumerate(rookies, start=1):
+        v2 = _f(r.get("value_2qb"))
         rec = {
-            "dp_sf_ecr": float(r.get("ecr_2qb")) if r.get("ecr_2qb") else None,
-            "dp_sf_value": int(float(r.get("value_2qb"))) if r.get("value_2qb") else None,
-            "dp_oneqb_ecr": float(r.get("ecr_1qb")) if r.get("ecr_1qb") else None,
-            "dp_pos_ecr": float(r.get("ecr_pos")) if r.get("ecr_pos") else None,
+            "dp_sf_ecr": _f(r.get("ecr_2qb")),
+            "dp_sf_value": int(v2) if v2 is not None else None,
+            "dp_oneqb_ecr": _f(r.get("ecr_1qb")),
+            "dp_pos_ecr": _f(r.get("ecr_pos")),
             "dp_sf_rookie_rank": i,
-            "dp_age": float(r.get("age")) if r.get("age") else None,
+            "dp_age": _f(r.get("age")),
         }
         # DynastyProcess uses fp_id (FantasyPros), no MFL id. Match by name.
         by_name[_nkey(r.get("player", ""))] = rec

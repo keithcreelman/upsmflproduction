@@ -1,2215 +1,3697 @@
 {
   "meta": {
-    "generated_at_utc": "2026-05-11T01:47:48.142117+00:00",
+    "generated_at_utc": "2026-07-21T17:39:46.068926+00:00",
     "sources": [
       {
         "id": "fantasycalc",
         "label": "FantasyCalc SF",
-        "n_rookies": 70,
-        "as_of": "2026-05-11T01:47:46.295257+00:00"
+        "n_rookies": 66,
+        "as_of": "2026-07-21T17:39:44.065026+00:00"
       },
       {
         "id": "fantasypros",
         "label": "FantasyPros Rookie ADP",
-        "n_rookies": 158,
-        "as_of": "2026-05-11T01:47:46.595095+00:00"
+        "n_rookies": 119,
+        "as_of": "2026-07-21T17:39:44.593142+00:00"
       },
       {
         "id": "ktc",
         "label": "KeepTradeCut SF",
-        "n_rookies": 55,
-        "as_of": "2026-05-11T01:47:47.438225+00:00"
+        "n_rookies": 61,
+        "as_of": "2026-07-21T17:39:45.461288+00:00"
       },
       {
         "id": "dynastyprocess",
         "label": "DynastyProcess SF",
-        "n_rookies": 0,
-        "as_of": ""
+        "n_rookies": 251,
+        "as_of": "2026-07-17"
       },
       {
         "id": "sleeper",
         "label": "Sleeper SF",
         "n_rookies": 152,
-        "as_of": "2026-05-11T01:47:48.142104+00:00"
+        "as_of": "2026-07-21T17:39:46.068910+00:00"
       }
     ]
   },
   "by_mfl_id": {
     "17472": {
-      "fantasycalc_sf_value": 6735,
-      "fantasycalc_sf_overall_rank": 18,
+      "fantasycalc_sf_value": 6941,
+      "fantasycalc_sf_overall_rank": 15,
       "fantasycalc_sf_rookie_rank": 1,
       "fantasycalc_sf_pos_rank": 4,
-      "fantasycalc_sf_trend30": -331
+      "fantasycalc_sf_trend30": 274
     },
     "17497": {
-      "fantasycalc_sf_value": 4354,
+      "fantasycalc_sf_value": 4546,
       "fantasycalc_sf_overall_rank": 36,
       "fantasycalc_sf_rookie_rank": 2,
       "fantasycalc_sf_pos_rank": 12,
-      "fantasycalc_sf_trend30": 178
+      "fantasycalc_sf_trend30": 265
+    },
+    "17462": {
+      "fantasycalc_sf_value": 4099,
+      "fantasycalc_sf_overall_rank": 43,
+      "fantasycalc_sf_rookie_rank": 3,
+      "fantasycalc_sf_pos_rank": 16,
+      "fantasycalc_sf_trend30": -1
     },
     "17498": {
-      "fantasycalc_sf_value": 3944,
-      "fantasycalc_sf_overall_rank": 44,
+      "fantasycalc_sf_value": 3657,
+      "fantasycalc_sf_overall_rank": 54,
       "fantasycalc_sf_rookie_rank": 4,
-      "fantasycalc_sf_pos_rank": 16,
-      "fantasycalc_sf_trend30": 452
+      "fantasycalc_sf_pos_rank": 18,
+      "fantasycalc_sf_trend30": -48
     },
     "17499": {
-      "fantasycalc_sf_value": 3689,
-      "fantasycalc_sf_overall_rank": 54,
+      "fantasycalc_sf_value": 3321,
+      "fantasycalc_sf_overall_rank": 65,
       "fantasycalc_sf_rookie_rank": 5,
-      "fantasycalc_sf_pos_rank": 20,
-      "fantasycalc_sf_trend30": -230
+      "fantasycalc_sf_pos_rank": 25,
+      "fantasycalc_sf_trend30": -46
     },
     "17473": {
-      "fantasycalc_sf_value": 3526,
-      "fantasycalc_sf_overall_rank": 59,
+      "fantasycalc_sf_value": 3029,
+      "fantasycalc_sf_overall_rank": 74,
       "fantasycalc_sf_rookie_rank": 6,
-      "fantasycalc_sf_pos_rank": 15,
-      "fantasycalc_sf_trend30": 1001
-    },
-    "17501": {
-      "fantasycalc_sf_value": 3052,
-      "fantasycalc_sf_overall_rank": 75,
-      "fantasycalc_sf_rookie_rank": 7,
-      "fantasycalc_sf_pos_rank": 29,
-      "fantasycalc_sf_trend30": 297
+      "fantasycalc_sf_pos_rank": 19,
+      "fantasycalc_sf_trend30": -331
     },
     "17543": {
-      "fantasycalc_sf_value": 3033,
-      "fantasycalc_sf_overall_rank": 76,
-      "fantasycalc_sf_rookie_rank": 8,
-      "fantasycalc_sf_pos_rank": 7,
-      "fantasycalc_sf_trend30": -201
+      "fantasycalc_sf_value": 2556,
+      "fantasycalc_sf_overall_rank": 86,
+      "fantasycalc_sf_rookie_rank": 7,
+      "fantasycalc_sf_pos_rank": 9,
+      "fantasycalc_sf_trend30": -254
     },
-    "17502": {
-      "fantasycalc_sf_value": 2659,
+    "17501": {
+      "fantasycalc_sf_value": 2498,
       "fantasycalc_sf_overall_rank": 87,
-      "fantasycalc_sf_rookie_rank": 9,
-      "fantasycalc_sf_pos_rank": 31,
-      "fantasycalc_sf_trend30": 220
+      "fantasycalc_sf_rookie_rank": 8,
+      "fantasycalc_sf_pos_rank": 30,
+      "fantasycalc_sf_trend30": -294
     },
     "17463": {
-      "fantasycalc_sf_value": 2624,
-      "fantasycalc_sf_overall_rank": 89,
-      "fantasycalc_sf_rookie_rank": 10,
-      "fantasycalc_sf_pos_rank": 26,
-      "fantasycalc_sf_trend30": 394
+      "fantasycalc_sf_value": 2275,
+      "fantasycalc_sf_overall_rank": 95,
+      "fantasycalc_sf_rookie_rank": 9,
+      "fantasycalc_sf_pos_rank": 28,
+      "fantasycalc_sf_trend30": 23
     },
     "17544": {
-      "fantasycalc_sf_value": 2586,
-      "fantasycalc_sf_overall_rank": 90,
-      "fantasycalc_sf_rookie_rank": 11,
-      "fantasycalc_sf_pos_rank": 10,
-      "fantasycalc_sf_trend30": 390
-    },
-    "17500": {
-      "fantasycalc_sf_value": 2338,
-      "fantasycalc_sf_overall_rank": 93,
-      "fantasycalc_sf_rookie_rank": 12,
-      "fantasycalc_sf_pos_rank": 32,
-      "fantasycalc_sf_trend30": -63
-    },
-    "17477": {
-      "fantasycalc_sf_value": 2185,
+      "fantasycalc_sf_value": 2101,
       "fantasycalc_sf_overall_rank": 101,
-      "fantasycalc_sf_rookie_rank": 13,
-      "fantasycalc_sf_pos_rank": 26,
-      "fantasycalc_sf_trend30": 36
+      "fantasycalc_sf_rookie_rank": 10,
+      "fantasycalc_sf_pos_rank": 11,
+      "fantasycalc_sf_trend30": -203
     },
-    "17506": {
-      "fantasycalc_sf_value": 2091,
-      "fantasycalc_sf_overall_rank": 105,
-      "fantasycalc_sf_rookie_rank": 14,
-      "fantasycalc_sf_pos_rank": 38,
-      "fantasycalc_sf_trend30": 469
-    },
-    "17512": {
-      "fantasycalc_sf_value": 1889,
-      "fantasycalc_sf_overall_rank": 119,
-      "fantasycalc_sf_rookie_rank": 15,
-      "fantasycalc_sf_pos_rank": 48,
-      "fantasycalc_sf_trend30": 513
-    },
-    "17503": {
-      "fantasycalc_sf_value": 1879,
-      "fantasycalc_sf_overall_rank": 121,
-      "fantasycalc_sf_rookie_rank": 16,
-      "fantasycalc_sf_pos_rank": 49,
-      "fantasycalc_sf_trend30": 376
-    },
-    "17476": {
-      "fantasycalc_sf_value": 1847,
-      "fantasycalc_sf_overall_rank": 124,
-      "fantasycalc_sf_rookie_rank": 17,
-      "fantasycalc_sf_pos_rank": 31,
-      "fantasycalc_sf_trend30": 85
-    },
-    "17474": {
-      "fantasycalc_sf_value": 1688,
-      "fantasycalc_sf_overall_rank": 136,
-      "fantasycalc_sf_rookie_rank": 18,
-      "fantasycalc_sf_pos_rank": 35,
-      "fantasycalc_sf_trend30": -138
-    },
-    "17505": {
-      "fantasycalc_sf_value": 1618,
-      "fantasycalc_sf_overall_rank": 143,
-      "fantasycalc_sf_rookie_rank": 20,
-      "fantasycalc_sf_pos_rank": 61,
-      "fantasycalc_sf_trend30": -80
-    },
-    "17507": {
-      "fantasycalc_sf_value": 1560,
-      "fantasycalc_sf_overall_rank": 150,
-      "fantasycalc_sf_rookie_rank": 22,
-      "fantasycalc_sf_pos_rank": 62,
-      "fantasycalc_sf_trend30": -39
-    },
-    "17478": {
-      "fantasycalc_sf_value": 1537,
-      "fantasycalc_sf_overall_rank": 156,
-      "fantasycalc_sf_rookie_rank": 23,
-      "fantasycalc_sf_pos_rank": 40,
-      "fantasycalc_sf_trend30": 192
-    },
-    "17509": {
-      "fantasycalc_sf_value": 1484,
-      "fantasycalc_sf_overall_rank": 161,
-      "fantasycalc_sf_rookie_rank": 24,
-      "fantasycalc_sf_pos_rank": 65,
-      "fantasycalc_sf_trend30": -148
-    },
-    "17511": {
-      "fantasycalc_sf_value": 1469,
-      "fantasycalc_sf_overall_rank": 163,
-      "fantasycalc_sf_rookie_rank": 25,
-      "fantasycalc_sf_pos_rank": 66,
-      "fantasycalc_sf_trend30": 76
-    },
-    "17520": {
-      "fantasycalc_sf_value": 1465,
-      "fantasycalc_sf_overall_rank": 165,
-      "fantasycalc_sf_rookie_rank": 26,
-      "fantasycalc_sf_pos_rank": 67,
-      "fantasycalc_sf_trend30": 148
-    },
-    "17482": {
-      "fantasycalc_sf_value": 1435,
-      "fantasycalc_sf_overall_rank": 169,
-      "fantasycalc_sf_rookie_rank": 27,
-      "fantasycalc_sf_pos_rank": 44,
-      "fantasycalc_sf_trend30": -524
-    },
-    "17547": {
-      "fantasycalc_sf_value": 1378,
-      "fantasycalc_sf_overall_rank": 172,
-      "fantasycalc_sf_rookie_rank": 28,
-      "fantasycalc_sf_pos_rank": 23,
-      "fantasycalc_sf_trend30": 6
-    },
-    "17508": {
-      "fantasycalc_sf_value": 1342,
-      "fantasycalc_sf_overall_rank": 177,
-      "fantasycalc_sf_rookie_rank": 29,
-      "fantasycalc_sf_pos_rank": 70,
-      "fantasycalc_sf_trend30": 74
-    },
-    "17468": {
-      "fantasycalc_sf_value": 1323,
-      "fantasycalc_sf_overall_rank": 181,
-      "fantasycalc_sf_rookie_rank": 30,
-      "fantasycalc_sf_pos_rank": 37,
-      "fantasycalc_sf_trend30": 306
-    },
-    "17517": {
-      "fantasycalc_sf_value": 1291,
-      "fantasycalc_sf_overall_rank": 187,
-      "fantasycalc_sf_rookie_rank": 31,
-      "fantasycalc_sf_pos_rank": 73,
-      "fantasycalc_sf_trend30": -151
-    },
-    "17481": {
-      "fantasycalc_sf_value": 1231,
-      "fantasycalc_sf_overall_rank": 191,
-      "fantasycalc_sf_rookie_rank": 32,
-      "fantasycalc_sf_pos_rank": 54,
-      "fantasycalc_sf_trend30": -75
-    },
-    "17485": {
-      "fantasycalc_sf_value": 1111,
-      "fantasycalc_sf_overall_rank": 210,
-      "fantasycalc_sf_rookie_rank": 33,
-      "fantasycalc_sf_pos_rank": 62,
-      "fantasycalc_sf_trend30": 1111
-    },
-    "17567": {
-      "fantasycalc_sf_value": 1065,
-      "fantasycalc_sf_overall_rank": 213,
-      "fantasycalc_sf_rookie_rank": 34,
-      "fantasycalc_sf_pos_rank": 28,
-      "fantasycalc_sf_trend30": 122
-    },
-    "17652": {
-      "fantasycalc_sf_value": 1036,
-      "fantasycalc_sf_overall_rank": 216,
-      "fantasycalc_sf_rookie_rank": 35,
-      "fantasycalc_sf_pos_rank": 63,
-      "fantasycalc_sf_trend30": -168
-    },
-    "17607": {
-      "fantasycalc_sf_value": 1011,
-      "fantasycalc_sf_overall_rank": 219,
-      "fantasycalc_sf_rookie_rank": 36,
-      "fantasycalc_sf_pos_rank": 31,
-      "fantasycalc_sf_trend30": 1011
-    },
-    "17467": {
-      "fantasycalc_sf_value": 946,
-      "fantasycalc_sf_overall_rank": 225,
-      "fantasycalc_sf_rookie_rank": 37,
-      "fantasycalc_sf_pos_rank": 43,
-      "fantasycalc_sf_trend30": 50
-    },
-    "17529": {
-      "fantasycalc_sf_value": 929,
-      "fantasycalc_sf_overall_rank": 230,
-      "fantasycalc_sf_rookie_rank": 38,
-      "fantasycalc_sf_pos_rank": 90,
-      "fantasycalc_sf_trend30": -196
-    },
-    "17465": {
-      "fantasycalc_sf_value": 879,
-      "fantasycalc_sf_overall_rank": 233,
-      "fantasycalc_sf_rookie_rank": 40,
-      "fantasycalc_sf_pos_rank": 44,
-      "fantasycalc_sf_trend30": -269
-    },
-    "17528": {
-      "fantasycalc_sf_value": 818,
-      "fantasycalc_sf_overall_rank": 240,
-      "fantasycalc_sf_rookie_rank": 41,
-      "fantasycalc_sf_pos_rank": 96,
-      "fantasycalc_sf_trend30": -21
-    },
-    "17685": {
-      "fantasycalc_sf_value": 807,
-      "fantasycalc_sf_overall_rank": 242,
-      "fantasycalc_sf_rookie_rank": 42,
-      "fantasycalc_sf_pos_rank": 66,
-      "fantasycalc_sf_trend30": 807
-    },
-    "17519": {
-      "fantasycalc_sf_value": 772,
-      "fantasycalc_sf_overall_rank": 246,
-      "fantasycalc_sf_rookie_rank": 43,
-      "fantasycalc_sf_pos_rank": 99,
-      "fantasycalc_sf_trend30": 772
-    },
-    "17546": {
-      "fantasycalc_sf_value": 763,
-      "fantasycalc_sf_overall_rank": 247,
-      "fantasycalc_sf_rookie_rank": 44,
-      "fantasycalc_sf_pos_rank": 37,
-      "fantasycalc_sf_trend30": -318
-    },
-    "17657": {
-      "fantasycalc_sf_value": 720,
-      "fantasycalc_sf_overall_rank": 250,
-      "fantasycalc_sf_rookie_rank": 45,
-      "fantasycalc_sf_pos_rank": 45,
-      "fantasycalc_sf_trend30": -403
-    },
-    "17599": {
-      "fantasycalc_sf_value": 703,
-      "fantasycalc_sf_overall_rank": 253,
-      "fantasycalc_sf_rookie_rank": 46,
-      "fantasycalc_sf_pos_rank": 100,
-      "fantasycalc_sf_trend30": 589
-    },
-    "17510": {
-      "fantasycalc_sf_value": 566,
-      "fantasycalc_sf_overall_rank": 268,
-      "fantasycalc_sf_rookie_rank": 48,
-      "fantasycalc_sf_pos_rank": 103,
-      "fantasycalc_sf_trend30": -573
-    },
-    "17545": {
-      "fantasycalc_sf_value": 543,
-      "fantasycalc_sf_overall_rank": 275,
-      "fantasycalc_sf_rookie_rank": 50,
-      "fantasycalc_sf_pos_rank": 43,
-      "fantasycalc_sf_trend30": -595
-    },
-    "17521": {
-      "fantasycalc_sf_value": 506,
-      "fantasycalc_sf_overall_rank": 279,
-      "fantasycalc_sf_rookie_rank": 52,
-      "fantasycalc_sf_pos_rank": 108,
-      "fantasycalc_sf_trend30": 506
-    },
-    "17475": {
-      "fantasycalc_sf_value": 488,
-      "fantasycalc_sf_overall_rank": 281,
-      "fantasycalc_sf_rookie_rank": 53,
-      "fantasycalc_sf_pos_rank": 80,
-      "fantasycalc_sf_trend30": 488
-    },
-    "17486": {
-      "fantasycalc_sf_value": 441,
-      "fantasycalc_sf_overall_rank": 284,
-      "fantasycalc_sf_rookie_rank": 54,
-      "fantasycalc_sf_pos_rank": 82,
-      "fantasycalc_sf_trend30": -335
-    },
-    "17644": {
-      "fantasycalc_sf_value": 433,
-      "fantasycalc_sf_overall_rank": 286,
-      "fantasycalc_sf_rookie_rank": 55,
-      "fantasycalc_sf_pos_rank": 46,
-      "fantasycalc_sf_trend30": 433
-    },
-    "17605": {
-      "fantasycalc_sf_value": 425,
-      "fantasycalc_sf_overall_rank": 287,
-      "fantasycalc_sf_rookie_rank": 56,
-      "fantasycalc_sf_pos_rank": 47,
-      "fantasycalc_sf_trend30": 425
-    },
-    "17627": {
-      "fantasycalc_sf_value": 366,
-      "fantasycalc_sf_overall_rank": 296,
-      "fantasycalc_sf_rookie_rank": 57,
-      "fantasycalc_sf_pos_rank": 49,
-      "fantasycalc_sf_trend30": 366
-    },
-    "17593": {
-      "fantasycalc_sf_value": 338,
-      "fantasycalc_sf_overall_rank": 302,
-      "fantasycalc_sf_rookie_rank": 58,
-      "fantasycalc_sf_pos_rank": 50,
+    "17502": {
+      "fantasycalc_sf_value": 2047,
+      "fantasycalc_sf_overall_rank": 104,
+      "fantasycalc_sf_rookie_rank": 11,
+      "fantasycalc_sf_pos_rank": 39,
       "fantasycalc_sf_trend30": -433
     },
-    "17483": {
-      "fantasycalc_sf_value": 293,
-      "fantasycalc_sf_overall_rank": 310,
-      "fantasycalc_sf_rookie_rank": 60,
+    "17500": {
+      "fantasycalc_sf_value": 1978,
+      "fantasycalc_sf_overall_rank": 107,
+      "fantasycalc_sf_rookie_rank": 12,
+      "fantasycalc_sf_pos_rank": 41,
+      "fantasycalc_sf_trend30": -235
+    },
+    "17477": {
+      "fantasycalc_sf_value": 1710,
+      "fantasycalc_sf_overall_rank": 130,
+      "fantasycalc_sf_rookie_rank": 13,
+      "fantasycalc_sf_pos_rank": 34,
+      "fantasycalc_sf_trend30": -346
+    },
+    "17476": {
+      "fantasycalc_sf_value": 1645,
+      "fantasycalc_sf_overall_rank": 136,
+      "fantasycalc_sf_rookie_rank": 14,
+      "fantasycalc_sf_pos_rank": 36,
+      "fantasycalc_sf_trend30": -107
+    },
+    "17506": {
+      "fantasycalc_sf_value": 1540,
+      "fantasycalc_sf_overall_rank": 146,
+      "fantasycalc_sf_rookie_rank": 15,
+      "fantasycalc_sf_pos_rank": 55,
+      "fantasycalc_sf_trend30": -67
+    },
+    "17512": {
+      "fantasycalc_sf_value": 1514,
+      "fantasycalc_sf_overall_rank": 149,
+      "fantasycalc_sf_rookie_rank": 16,
+      "fantasycalc_sf_pos_rank": 57,
+      "fantasycalc_sf_trend30": -259
+    },
+    "17514": {
+      "fantasycalc_sf_value": 1391,
+      "fantasycalc_sf_overall_rank": 160,
+      "fantasycalc_sf_rookie_rank": 17,
+      "fantasycalc_sf_pos_rank": 61,
+      "fantasycalc_sf_trend30": -140
+    },
+    "17507": {
+      "fantasycalc_sf_value": 1358,
+      "fantasycalc_sf_overall_rank": 164,
+      "fantasycalc_sf_rookie_rank": 18,
+      "fantasycalc_sf_pos_rank": 63,
+      "fantasycalc_sf_trend30": -93
+    },
+    "17503": {
+      "fantasycalc_sf_value": 1355,
+      "fantasycalc_sf_overall_rank": 165,
+      "fantasycalc_sf_rookie_rank": 19,
+      "fantasycalc_sf_pos_rank": 64,
+      "fantasycalc_sf_trend30": -302
+    },
+    "17505": {
+      "fantasycalc_sf_value": 1240,
+      "fantasycalc_sf_overall_rank": 178,
+      "fantasycalc_sf_rookie_rank": 20,
+      "fantasycalc_sf_pos_rank": 68,
+      "fantasycalc_sf_trend30": -71
+    },
+    "17511": {
+      "fantasycalc_sf_value": 1154,
+      "fantasycalc_sf_overall_rank": 194,
+      "fantasycalc_sf_rookie_rank": 21,
+      "fantasycalc_sf_pos_rank": 74,
+      "fantasycalc_sf_trend30": -277
+    },
+    "17520": {
+      "fantasycalc_sf_value": 1120,
+      "fantasycalc_sf_overall_rank": 198,
+      "fantasycalc_sf_rookie_rank": 22,
+      "fantasycalc_sf_pos_rank": 76,
+      "fantasycalc_sf_trend30": -277
+    },
+    "17474": {
+      "fantasycalc_sf_value": 1097,
+      "fantasycalc_sf_overall_rank": 205,
+      "fantasycalc_sf_rookie_rank": 23,
+      "fantasycalc_sf_pos_rank": 57,
+      "fantasycalc_sf_trend30": -253
+    },
+    "17607": {
+      "fantasycalc_sf_value": 1045,
+      "fantasycalc_sf_overall_rank": 212,
+      "fantasycalc_sf_rookie_rank": 24,
+      "fantasycalc_sf_pos_rank": 31,
+      "fantasycalc_sf_trend30": 79
+    },
+    "17478": {
+      "fantasycalc_sf_value": 1033,
+      "fantasycalc_sf_overall_rank": 214,
+      "fantasycalc_sf_rookie_rank": 25,
+      "fantasycalc_sf_pos_rank": 59,
+      "fantasycalc_sf_trend30": -105
+    },
+    "17482": {
+      "fantasycalc_sf_value": 978,
+      "fantasycalc_sf_overall_rank": 217,
+      "fantasycalc_sf_rookie_rank": 26,
+      "fantasycalc_sf_pos_rank": 61,
+      "fantasycalc_sf_trend30": -183
+    },
+    "17481": {
+      "fantasycalc_sf_value": 974,
+      "fantasycalc_sf_overall_rank": 221,
+      "fantasycalc_sf_rookie_rank": 27,
+      "fantasycalc_sf_pos_rank": 64,
+      "fantasycalc_sf_trend30": -139
+    },
+    "17485": {
+      "fantasycalc_sf_value": 938,
+      "fantasycalc_sf_overall_rank": 224,
+      "fantasycalc_sf_rookie_rank": 28,
+      "fantasycalc_sf_pos_rank": 65,
+      "fantasycalc_sf_trend30": -139
+    },
+    "17508": {
+      "fantasycalc_sf_value": 885,
+      "fantasycalc_sf_overall_rank": 227,
+      "fantasycalc_sf_rookie_rank": 29,
       "fantasycalc_sf_pos_rank": 88,
-      "fantasycalc_sf_trend30": 293
+      "fantasycalc_sf_trend30": -126
     },
-    "17549": {
-      "fantasycalc_sf_value": 278,
-      "fantasycalc_sf_overall_rank": 314,
-      "fantasycalc_sf_rookie_rank": 61,
-      "fantasycalc_sf_pos_rank": 52,
-      "fantasycalc_sf_trend30": -442
+    "17517": {
+      "fantasycalc_sf_value": 881,
+      "fantasycalc_sf_overall_rank": 228,
+      "fantasycalc_sf_rookie_rank": 30,
+      "fantasycalc_sf_pos_rank": 89,
+      "fantasycalc_sf_trend30": -125
     },
-    "17527": {
-      "fantasycalc_sf_value": 245,
-      "fantasycalc_sf_overall_rank": 319,
-      "fantasycalc_sf_rookie_rank": 62,
-      "fantasycalc_sf_pos_rank": 122,
-      "fantasycalc_sf_trend30": -396
+    "17466": {
+      "fantasycalc_sf_value": 871,
+      "fantasycalc_sf_overall_rank": 229,
+      "fantasycalc_sf_rookie_rank": 31,
+      "fantasycalc_sf_pos_rank": 41,
+      "fantasycalc_sf_trend30": -324
     },
-    "17709": {
-      "fantasycalc_sf_value": 218,
-      "fantasycalc_sf_overall_rank": 323,
-      "fantasycalc_sf_rookie_rank": 63,
-      "fantasycalc_sf_pos_rank": 91,
-      "fantasycalc_sf_trend30": 218
+    "17567": {
+      "fantasycalc_sf_value": 834,
+      "fantasycalc_sf_overall_rank": 234,
+      "fantasycalc_sf_rookie_rank": 32,
+      "fantasycalc_sf_pos_rank": 34,
+      "fantasycalc_sf_trend30": -229
+    },
+    "17509": {
+      "fantasycalc_sf_value": 819,
+      "fantasycalc_sf_overall_rank": 237,
+      "fantasycalc_sf_rookie_rank": 33,
+      "fantasycalc_sf_pos_rank": 94,
+      "fantasycalc_sf_trend30": -255
+    },
+    "17547": {
+      "fantasycalc_sf_value": 814,
+      "fantasycalc_sf_overall_rank": 238,
+      "fantasycalc_sf_rookie_rank": 34,
+      "fantasycalc_sf_pos_rank": 35,
+      "fantasycalc_sf_trend30": -89
+    },
+    "17652": {
+      "fantasycalc_sf_value": 785,
+      "fantasycalc_sf_overall_rank": 241,
+      "fantasycalc_sf_rookie_rank": 35,
+      "fantasycalc_sf_pos_rank": 71,
+      "fantasycalc_sf_trend30": -39
+    },
+    "17548": {
+      "fantasycalc_sf_value": 684,
+      "fantasycalc_sf_overall_rank": 246,
+      "fantasycalc_sf_rookie_rank": 36,
+      "fantasycalc_sf_pos_rank": 39,
+      "fantasycalc_sf_trend30": -176
+    },
+    "17599": {
+      "fantasycalc_sf_value": 648,
+      "fantasycalc_sf_overall_rank": 249,
+      "fantasycalc_sf_rookie_rank": 37,
+      "fantasycalc_sf_pos_rank": 97,
+      "fantasycalc_sf_trend30": 19
+    },
+    "17521": {
+      "fantasycalc_sf_value": 646,
+      "fantasycalc_sf_overall_rank": 250,
+      "fantasycalc_sf_rookie_rank": 38,
+      "fantasycalc_sf_pos_rank": 98,
+      "fantasycalc_sf_trend30": -114
+    },
+    "17467": {
+      "fantasycalc_sf_value": 630,
+      "fantasycalc_sf_overall_rank": 253,
+      "fantasycalc_sf_rookie_rank": 39,
+      "fantasycalc_sf_pos_rank": 42,
+      "fantasycalc_sf_trend30": -121
+    },
+    "17468": {
+      "fantasycalc_sf_value": 612,
+      "fantasycalc_sf_overall_rank": 257,
+      "fantasycalc_sf_rookie_rank": 40,
+      "fantasycalc_sf_pos_rank": 44,
+      "fantasycalc_sf_trend30": -406
+    },
+    "17685": {
+      "fantasycalc_sf_value": 546,
+      "fantasycalc_sf_overall_rank": 262,
+      "fantasycalc_sf_rookie_rank": 41,
+      "fantasycalc_sf_pos_rank": 75,
+      "fantasycalc_sf_trend30": -83
+    },
+    "17519": {
+      "fantasycalc_sf_value": 542,
+      "fantasycalc_sf_overall_rank": 263,
+      "fantasycalc_sf_rookie_rank": 42,
+      "fantasycalc_sf_pos_rank": 103,
+      "fantasycalc_sf_trend30": -91
+    },
+    "17475": {
+      "fantasycalc_sf_value": 470,
+      "fantasycalc_sf_overall_rank": 269,
+      "fantasycalc_sf_rookie_rank": 43,
+      "fantasycalc_sf_pos_rank": 78,
+      "fantasycalc_sf_trend30": -46
     },
     "17518": {
-      "fantasycalc_sf_value": 190,
-      "fantasycalc_sf_overall_rank": 329,
-      "fantasycalc_sf_rookie_rank": 64,
-      "fantasycalc_sf_pos_rank": 125,
-      "fantasycalc_sf_trend30": 190
+      "fantasycalc_sf_value": 455,
+      "fantasycalc_sf_overall_rank": 270,
+      "fantasycalc_sf_rookie_rank": 44,
+      "fantasycalc_sf_pos_rank": 105,
+      "fantasycalc_sf_trend30": -150
     },
-    "17681": {
-      "fantasycalc_sf_value": 170,
-      "fantasycalc_sf_overall_rank": 333,
-      "fantasycalc_sf_rookie_rank": 65,
-      "fantasycalc_sf_pos_rank": 57,
-      "fantasycalc_sf_trend30": 170
+    "17657": {
+      "fantasycalc_sf_value": 449,
+      "fantasycalc_sf_overall_rank": 271,
+      "fantasycalc_sf_rookie_rank": 45,
+      "fantasycalc_sf_pos_rank": 45,
+      "fantasycalc_sf_trend30": -63
+    },
+    "17529": {
+      "fantasycalc_sf_value": 428,
+      "fantasycalc_sf_overall_rank": 273,
+      "fantasycalc_sf_rookie_rank": 46,
+      "fantasycalc_sf_pos_rank": 107,
+      "fantasycalc_sf_trend30": -3
+    },
+    "17487": {
+      "fantasycalc_sf_value": 335,
+      "fantasycalc_sf_overall_rank": 286,
+      "fantasycalc_sf_rookie_rank": 47,
+      "fantasycalc_sf_pos_rank": 83,
+      "fantasycalc_sf_trend30": 158
+    },
+    "17465": {
+      "fantasycalc_sf_value": 308,
+      "fantasycalc_sf_overall_rank": 292,
+      "fantasycalc_sf_rookie_rank": 49,
+      "fantasycalc_sf_pos_rank": 49,
+      "fantasycalc_sf_trend30": -108
+    },
+    "17528": {
+      "fantasycalc_sf_value": 269,
+      "fantasycalc_sf_overall_rank": 302,
+      "fantasycalc_sf_rookie_rank": 50,
+      "fantasycalc_sf_pos_rank": 114,
+      "fantasycalc_sf_trend30": -170
+    },
+    "17605": {
+      "fantasycalc_sf_value": 230,
+      "fantasycalc_sf_overall_rank": 309,
+      "fantasycalc_sf_rookie_rank": 51,
+      "fantasycalc_sf_pos_rank": 48,
+      "fantasycalc_sf_trend30": -95
+    },
+    "17510": {
+      "fantasycalc_sf_value": 225,
+      "fantasycalc_sf_overall_rank": 310,
+      "fantasycalc_sf_rookie_rank": 52,
+      "fantasycalc_sf_pos_rank": 119,
+      "fantasycalc_sf_trend30": -70
+    },
+    "17546": {
+      "fantasycalc_sf_value": 220,
+      "fantasycalc_sf_overall_rank": 311,
+      "fantasycalc_sf_rookie_rank": 53,
+      "fantasycalc_sf_pos_rank": 49,
+      "fantasycalc_sf_trend30": -124
+    },
+    "17593": {
+      "fantasycalc_sf_value": 213,
+      "fantasycalc_sf_overall_rank": 313,
+      "fantasycalc_sf_rookie_rank": 54,
+      "fantasycalc_sf_pos_rank": 50,
+      "fantasycalc_sf_trend30": -50
+    },
+    "17545": {
+      "fantasycalc_sf_value": 197,
+      "fantasycalc_sf_overall_rank": 320,
+      "fantasycalc_sf_rookie_rank": 55,
+      "fantasycalc_sf_pos_rank": 52,
+      "fantasycalc_sf_trend30": -106
     },
     "17706": {
-      "fantasycalc_sf_value": 111,
-      "fantasycalc_sf_overall_rank": 350,
-      "fantasycalc_sf_rookie_rank": 67,
-      "fantasycalc_sf_pos_rank": 136,
-      "fantasycalc_sf_trend30": -273
+      "fantasycalc_sf_value": 192,
+      "fantasycalc_sf_overall_rank": 323,
+      "fantasycalc_sf_rookie_rank": 56,
+      "fantasycalc_sf_pos_rank": 127,
+      "fantasycalc_sf_trend30": -127
+    },
+    "17542": {
+      "fantasycalc_sf_value": 189,
+      "fantasycalc_sf_overall_rank": 325,
+      "fantasycalc_sf_rookie_rank": 57,
+      "fantasycalc_sf_pos_rank": 128,
+      "fantasycalc_sf_trend30": -27
+    },
+    "17644": {
+      "fantasycalc_sf_value": 168,
+      "fantasycalc_sf_overall_rank": 328,
+      "fantasycalc_sf_rookie_rank": 58,
+      "fantasycalc_sf_pos_rank": 54,
+      "fantasycalc_sf_trend30": -142
     },
     "17710": {
-      "fantasycalc_sf_value": 105,
-      "fantasycalc_sf_overall_rank": 354,
-      "fantasycalc_sf_rookie_rank": 68,
-      "fantasycalc_sf_pos_rank": 60,
-      "fantasycalc_sf_trend30": -240
+      "fantasycalc_sf_value": 165,
+      "fantasycalc_sf_overall_rank": 330,
+      "fantasycalc_sf_rookie_rank": 59,
+      "fantasycalc_sf_pos_rank": 55,
+      "fantasycalc_sf_trend30": 22
     },
-    "17525": {
-      "fantasycalc_sf_value": 35,
-      "fantasycalc_sf_overall_rank": 386,
-      "fantasycalc_sf_rookie_rank": 70,
-      "fantasycalc_sf_pos_rank": 149,
-      "fantasycalc_sf_trend30": -670
+    "17527": {
+      "fantasycalc_sf_value": 165,
+      "fantasycalc_sf_overall_rank": 331,
+      "fantasycalc_sf_rookie_rank": 60,
+      "fantasycalc_sf_pos_rank": 131,
+      "fantasycalc_sf_trend30": 44
+    },
+    "17486": {
+      "fantasycalc_sf_value": 154,
+      "fantasycalc_sf_overall_rank": 335,
+      "fantasycalc_sf_rookie_rank": 61,
+      "fantasycalc_sf_pos_rank": 92,
+      "fantasycalc_sf_trend30": 68
+    },
+    "17523": {
+      "fantasycalc_sf_value": 126,
+      "fantasycalc_sf_overall_rank": 342,
+      "fantasycalc_sf_rookie_rank": 62,
+      "fantasycalc_sf_pos_rank": 134,
+      "fantasycalc_sf_trend30": -131
+    },
+    "17549": {
+      "fantasycalc_sf_value": 119,
+      "fantasycalc_sf_overall_rank": 345,
+      "fantasycalc_sf_rookie_rank": 63,
+      "fantasycalc_sf_pos_rank": 60,
+      "fantasycalc_sf_trend30": -31
+    },
+    "17480": {
+      "fantasycalc_sf_value": 103,
+      "fantasycalc_sf_overall_rank": 350,
+      "fantasycalc_sf_rookie_rank": 64,
+      "fantasycalc_sf_pos_rank": 96,
+      "fantasycalc_sf_trend30": 103
+    },
+    "17471": {
+      "fantasycalc_sf_value": 101,
+      "fantasycalc_sf_overall_rank": 351,
+      "fantasycalc_sf_rookie_rank": 65,
+      "fantasycalc_sf_pos_rank": 60,
+      "fantasycalc_sf_trend30": 101
+    },
+    "17504": {
+      "fantasycalc_sf_value": 100,
+      "fantasycalc_sf_overall_rank": 352,
+      "fantasycalc_sf_rookie_rank": 66,
+      "fantasycalc_sf_pos_rank": 136,
+      "fantasycalc_sf_trend30": -100
     }
   },
   "by_name": {
-    "fernandomendoza": {
-      "fantasycalc_sf_value": 4310,
-      "fantasycalc_sf_overall_rank": 37,
-      "fantasycalc_sf_rookie_rank": 3,
-      "fantasycalc_sf_pos_rank": 14,
-      "fantasycalc_sf_trend30": 114,
-      "fantasypros_sf_rookie_rank": 2,
-      "fantasypros_sf_rank_ecr": 2,
-      "fantasypros_sf_rank_min": "2",
-      "fantasypros_sf_rank_max": "5",
-      "fantasypros_sf_rank_ave": "2.56",
-      "fantasypros_sf_tier": 1,
-      "fantasypros_id": 28013,
-      "ktc_sf_value": 5672,
-      "ktc_sf_overall_rank": 2,
-      "ktc_sf_rookie_rank": 3,
-      "ktc_sf_pos_rank": 14,
-      "ktc_oneqb_value": 4723
-    },
-    "dezhaunstribling": {
-      "fantasycalc_sf_value": 1650,
-      "fantasycalc_sf_overall_rank": 139,
-      "fantasycalc_sf_rookie_rank": 19,
-      "fantasycalc_sf_pos_rank": 58,
-      "fantasycalc_sf_trend30": 1650,
-      "fantasypros_sf_rookie_rank": 25,
-      "fantasypros_sf_rank_ecr": 25,
-      "fantasypros_sf_rank_min": "12",
-      "fantasypros_sf_rank_max": "66",
-      "fantasypros_sf_rank_ave": "24.38",
-      "fantasypros_sf_tier": 4,
-      "fantasypros_id": 28138,
-      "ktc_sf_value": 1875,
-      "ktc_sf_overall_rank": 447,
-      "ktc_sf_rookie_rank": 29,
-      "ktc_sf_pos_rank": 107,
-      "ktc_oneqb_value": 1826
-    },
-    "carsonbeck": {
-      "fantasycalc_sf_value": 1583,
-      "fantasycalc_sf_overall_rank": 146,
-      "fantasycalc_sf_rookie_rank": 21,
-      "fantasycalc_sf_pos_rank": 32,
-      "fantasycalc_sf_trend30": 321,
-      "fantasypros_sf_rookie_rank": 21,
-      "fantasypros_sf_rank_ecr": 21,
-      "fantasypros_sf_rank_min": "10",
-      "fantasypros_sf_rank_max": "42",
-      "fantasypros_sf_rank_ave": "23.78",
-      "fantasypros_sf_tier": 4,
-      "fantasypros_id": 22953,
-      "ktc_sf_value": 1260,
-      "ktc_sf_overall_rank": 255,
-      "ktc_sf_rookie_rank": 35,
-      "ktc_sf_pos_rank": 55,
-      "ktc_oneqb_value": 102
-    },
-    "justinjoly": {
-      "fantasycalc_sf_value": 903,
-      "fantasycalc_sf_overall_rank": 231,
-      "fantasycalc_sf_rookie_rank": 39,
-      "fantasycalc_sf_pos_rank": 35,
-      "fantasycalc_sf_trend30": 120,
-      "fantasypros_sf_rookie_rank": 37,
-      "fantasypros_sf_rank_ecr": 37,
-      "fantasypros_sf_rank_min": "27",
-      "fantasypros_sf_rank_max": "69",
-      "fantasypros_sf_rank_ave": "39.41",
-      "fantasypros_sf_tier": 5,
-      "fantasypros_id": 28079,
-      "ktc_sf_value": 1308,
-      "ktc_sf_overall_rank": 364,
-      "ktc_sf_rookie_rank": 34,
-      "ktc_sf_pos_rank": 53,
-      "ktc_oneqb_value": 1409
-    },
-    "leveonmoss": {
-      "fantasycalc_sf_value": 593,
-      "fantasycalc_sf_overall_rank": 266,
-      "fantasycalc_sf_rookie_rank": 47,
-      "fantasycalc_sf_pos_rank": 76,
-      "fantasycalc_sf_trend30": -583,
-      "fantasypros_sf_rookie_rank": 54,
-      "fantasypros_sf_rank_ecr": 54,
-      "fantasypros_sf_rank_min": "32",
-      "fantasypros_sf_rank_max": "102",
-      "fantasypros_sf_rank_ave": "54.38",
-      "fantasypros_sf_tier": 6,
-      "fantasypros_id": 27323,
-      "ktc_sf_value": 1000,
-      "ktc_sf_overall_rank": -6,
-      "ktc_sf_rookie_rank": 45,
-      "ktc_sf_pos_rank": 109,
-      "ktc_oneqb_value": 1269
-    },
-    "jmaritaylor": {
-      "fantasycalc_sf_value": 553,
-      "fantasycalc_sf_overall_rank": 272,
-      "fantasycalc_sf_rookie_rank": 49,
-      "fantasycalc_sf_pos_rank": 78,
-      "fantasycalc_sf_trend30": -559,
-      "fantasypros_sf_rookie_rank": 51,
-      "fantasypros_sf_rank_ecr": 51,
-      "fantasypros_sf_rank_min": "26",
-      "fantasypros_sf_rank_max": "82",
-      "fantasypros_sf_rank_ave": "47.77",
-      "fantasypros_sf_tier": 6,
-      "fantasypros_id": 28109,
-      "ktc_sf_value": 712,
-      "ktc_sf_overall_rank": -36,
-      "ktc_sf_rookie_rank": 52,
-      "ktc_sf_pos_rank": 126,
-      "ktc_oneqb_value": 862
-    },
-    "cjdaniels": {
-      "fantasycalc_sf_value": 540,
-      "fantasycalc_sf_overall_rank": 276,
-      "fantasycalc_sf_rookie_rank": 51,
-      "fantasycalc_sf_pos_rank": 107,
-      "fantasycalc_sf_trend30": -417,
-      "fantasypros_sf_rookie_rank": 55,
-      "fantasypros_sf_rank_ecr": 55,
-      "fantasypros_sf_rank_min": "37",
-      "fantasypros_sf_rank_max": "78",
-      "fantasypros_sf_rank_ave": "60.38",
-      "fantasypros_sf_tier": 7,
-      "fantasypros_id": 28125,
-      "ktc_sf_value": 593,
-      "ktc_sf_overall_rank": -18,
-      "ktc_sf_rookie_rank": 53,
-      "ktc_sf_pos_rank": 178,
-      "ktc_oneqb_value": 869
-    },
-    "colepayton": {
-      "fantasycalc_sf_value": 309,
-      "fantasycalc_sf_overall_rank": 307,
-      "fantasycalc_sf_rookie_rank": 59,
-      "fantasycalc_sf_pos_rank": 54,
-      "fantasycalc_sf_trend30": -409,
-      "fantasypros_sf_rookie_rank": 40,
-      "fantasypros_sf_rank_ecr": 40,
-      "fantasypros_sf_rank_min": "20",
-      "fantasypros_sf_rank_max": "59",
-      "fantasypros_sf_rank_ave": "40.21",
-      "fantasypros_sf_tier": 5,
-      "fantasypros_id": 28302,
-      "ktc_sf_value": 714,
-      "ktc_sf_overall_rank": 274,
-      "ktc_sf_rookie_rank": 51,
-      "ktc_sf_pos_rank": 67,
-      "ktc_oneqb_value": 161
-    },
-    "jeffcaldwell": {
-      "fantasycalc_sf_value": 150,
-      "fantasycalc_sf_overall_rank": 336,
-      "fantasycalc_sf_rookie_rank": 66,
-      "fantasycalc_sf_pos_rank": 128,
-      "fantasycalc_sf_trend30": -386,
-      "fantasypros_sf_rookie_rank": 80,
-      "fantasypros_sf_rank_ecr": 80,
-      "fantasypros_sf_rank_min": "64",
-      "fantasypros_sf_rank_max": "99",
-      "fantasypros_sf_rank_ave": "78.05",
+    "matthibner": {
+      "fantasycalc_sf_value": 324,
+      "fantasycalc_sf_overall_rank": 289,
+      "fantasycalc_sf_rookie_rank": 48,
+      "fantasycalc_sf_pos_rank": 46,
+      "fantasycalc_sf_trend30": -258,
+      "fantasypros_sf_rookie_rank": 77,
+      "fantasypros_sf_rank_ecr": 77,
+      "fantasypros_sf_rank_min": "51",
+      "fantasypros_sf_rank_max": "96",
+      "fantasypros_sf_rank_ave": "63.25",
       "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28425
-    },
-    "joefagnano": {
-      "fantasycalc_sf_value": 65,
-      "fantasycalc_sf_overall_rank": 371,
-      "fantasycalc_sf_rookie_rank": 69,
-      "fantasycalc_sf_pos_rank": 67,
-      "fantasycalc_sf_trend30": -509,
-      "fantasypros_sf_rookie_rank": 134,
-      "fantasypros_sf_rank_ecr": 134,
-      "fantasypros_sf_rank_min": "90",
-      "fantasypros_sf_rank_max": "125",
-      "fantasypros_sf_rank_ave": "103.00",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28400
+      "fantasypros_id": 28168,
+      "dp_sf_ecr": 292.3,
+      "dp_sf_value": 11,
+      "dp_oneqb_ecr": 320.0,
+      "dp_pos_ecr": 54.5,
+      "dp_sf_rookie_rank": 55,
+      "dp_age": null
     },
     "jeremiyahlove": {
       "fantasypros_sf_rookie_rank": 1,
       "fantasypros_sf_rank_ecr": 1,
       "fantasypros_sf_rank_min": "1",
-      "fantasypros_sf_rank_max": "2",
-      "fantasypros_sf_rank_ave": "1.02",
+      "fantasypros_sf_rank_max": "1",
+      "fantasypros_sf_rank_ave": "1.00",
       "fantasypros_sf_tier": 1,
       "fantasypros_id": 25403,
-      "ktc_sf_value": 7669,
-      "ktc_sf_overall_rank": 2,
+      "ktc_sf_value": 7543,
+      "ktc_sf_overall_rank": 0,
       "ktc_sf_rookie_rank": 1,
-      "ktc_sf_pos_rank": 3,
-      "ktc_oneqb_value": 7905
+      "ktc_sf_pos_rank": 4,
+      "ktc_oneqb_value": 7743,
+      "dp_sf_ecr": 23.7,
+      "dp_sf_value": 6016,
+      "dp_oneqb_ecr": 12.6,
+      "dp_pos_ecr": 4.8,
+      "dp_sf_rookie_rank": 1,
+      "dp_age": null
+    },
+    "fernandomendoza": {
+      "fantasypros_sf_rookie_rank": 2,
+      "fantasypros_sf_rank_ecr": 2,
+      "fantasypros_sf_rank_min": "2",
+      "fantasypros_sf_rank_max": "5",
+      "fantasypros_sf_rank_ave": "3.13",
+      "fantasypros_sf_tier": 1,
+      "fantasypros_id": 28013,
+      "ktc_sf_value": 5485,
+      "ktc_sf_overall_rank": -2,
+      "ktc_sf_rookie_rank": 3,
+      "ktc_sf_pos_rank": 15,
+      "ktc_oneqb_value": 4728,
+      "dp_sf_ecr": 56.4,
+      "dp_sf_value": 2790,
+      "dp_oneqb_ecr": 113.4,
+      "dp_pos_ecr": 18.5,
+      "dp_sf_rookie_rank": 5,
+      "dp_age": null
     },
     "carnelltate": {
       "fantasypros_sf_rookie_rank": 3,
       "fantasypros_sf_rank_ecr": 3,
       "fantasypros_sf_rank_min": "2",
       "fantasypros_sf_rank_max": "7",
-      "fantasypros_sf_rank_ave": "3.22",
+      "fantasypros_sf_rank_ave": "3.25",
       "fantasypros_sf_tier": 1,
       "fantasypros_id": 26009,
-      "ktc_sf_value": 5825,
-      "ktc_sf_overall_rank": 16,
+      "ktc_sf_value": 5925,
+      "ktc_sf_overall_rank": -1,
       "ktc_sf_rookie_rank": 2,
       "ktc_sf_pos_rank": 12,
-      "ktc_oneqb_value": 6358
+      "ktc_oneqb_value": 6430,
+      "dp_sf_ecr": 39.1,
+      "dp_sf_value": 4189,
+      "dp_oneqb_ecr": 26.6,
+      "dp_pos_ecr": 15.0,
+      "dp_sf_rookie_rank": 2,
+      "dp_age": null
     },
     "jordyntyson": {
       "fantasypros_sf_rookie_rank": 4,
       "fantasypros_sf_rank_ecr": 4,
       "fantasypros_sf_rank_min": "2",
-      "fantasypros_sf_rank_max": "12",
-      "fantasypros_sf_rank_ave": "5.20",
+      "fantasypros_sf_rank_max": "11",
+      "fantasypros_sf_rank_ave": "4.75",
       "fantasypros_sf_tier": 2,
       "fantasypros_id": 26035,
-      "ktc_sf_value": 5329,
-      "ktc_sf_overall_rank": 21,
+      "ktc_sf_value": 5298,
+      "ktc_sf_overall_rank": -3,
       "ktc_sf_rookie_rank": 4,
-      "ktc_sf_pos_rank": 17,
-      "ktc_oneqb_value": 6043
+      "ktc_sf_pos_rank": 19,
+      "ktc_oneqb_value": 6042,
+      "dp_sf_ecr": 49.7,
+      "dp_sf_value": 3266,
+      "dp_oneqb_ecr": 37.0,
+      "dp_pos_ecr": 20.4,
+      "dp_sf_rookie_rank": 3,
+      "dp_age": null
     },
     "makailemon": {
       "fantasypros_sf_rookie_rank": 5,
       "fantasypros_sf_rank_ecr": 5,
       "fantasypros_sf_rank_min": "3",
       "fantasypros_sf_rank_max": "11",
-      "fantasypros_sf_rank_ave": "5.44",
+      "fantasypros_sf_rank_ave": "5.63",
       "fantasypros_sf_tier": 2,
       "fantasypros_id": 25420,
-      "ktc_sf_value": 5027,
-      "ktc_sf_overall_rank": -3,
+      "ktc_sf_value": 4924,
+      "ktc_sf_overall_rank": -10,
       "ktc_sf_rookie_rank": 5,
-      "ktc_sf_pos_rank": 23,
-      "ktc_oneqb_value": 5738
+      "ktc_sf_pos_rank": 25,
+      "ktc_oneqb_value": 5560,
+      "dp_sf_ecr": 54.3,
+      "dp_sf_value": 2931,
+      "dp_oneqb_ecr": 40.4,
+      "dp_pos_ecr": 22.1,
+      "dp_sf_rookie_rank": 4,
+      "dp_age": null
     },
     "jadarianprice": {
       "fantasypros_sf_rookie_rank": 6,
       "fantasypros_sf_rank_ecr": 6,
       "fantasypros_sf_rank_min": "4",
-      "fantasypros_sf_rank_max": "9",
-      "fantasypros_sf_rank_ave": "6.07",
+      "fantasypros_sf_rank_max": "7",
+      "fantasypros_sf_rank_ave": "5.63",
       "fantasypros_sf_tier": 2,
       "fantasypros_id": 27329,
-      "ktc_sf_value": 4710,
-      "ktc_sf_overall_rank": 72,
+      "ktc_sf_value": 4768,
+      "ktc_sf_overall_rank": -4,
       "ktc_sf_rookie_rank": 6,
       "ktc_sf_pos_rank": 18,
-      "ktc_oneqb_value": 5495
+      "ktc_oneqb_value": 5494,
+      "dp_sf_ecr": 81.9,
+      "dp_sf_value": 1532,
+      "dp_oneqb_ecr": 69.7,
+      "dp_pos_ecr": 18.9,
+      "dp_sf_rookie_rank": 7,
+      "dp_age": null
     },
-    "kcconcepcion": {
+    "tysimpson": {
       "fantasypros_sf_rookie_rank": 7,
       "fantasypros_sf_rank_ecr": 7,
       "fantasypros_sf_rank_min": "5",
-      "fantasypros_sf_rank_max": "16",
-      "fantasypros_sf_rank_ave": "8.46",
-      "fantasypros_sf_tier": 2,
-      "fantasypros_id": 27331,
-      "ktc_sf_value": 4478,
-      "ktc_sf_overall_rank": 14,
-      "ktc_sf_rookie_rank": 7,
-      "ktc_sf_pos_rank": 30,
-      "ktc_oneqb_value": 5264
-    },
-    "tysimpson": {
-      "fantasypros_sf_rookie_rank": 8,
-      "fantasypros_sf_rank_ecr": 8,
-      "fantasypros_sf_rank_min": "5",
-      "fantasypros_sf_rank_max": "15",
-      "fantasypros_sf_rank_ave": "8.76",
+      "fantasypros_sf_rank_max": "13",
+      "fantasypros_sf_rank_ave": "7.88",
       "fantasypros_sf_tier": 2,
       "fantasypros_id": 25368,
-      "ktc_sf_value": 3660,
-      "ktc_sf_overall_rank": 38,
+      "ktc_sf_value": 3556,
+      "ktc_sf_overall_rank": 3,
       "ktc_sf_rookie_rank": 10,
       "ktc_sf_pos_rank": 28,
-      "ktc_oneqb_value": 3203
+      "ktc_oneqb_value": 3242,
+      "dp_sf_ecr": 110.3,
+      "dp_sf_value": 786,
+      "dp_oneqb_ecr": 157.7,
+      "dp_pos_ecr": 28.1,
+      "dp_sf_rookie_rank": 11,
+      "dp_age": null
     },
     "kenyonsadiq": {
-      "fantasypros_sf_rookie_rank": 9,
-      "fantasypros_sf_rank_ecr": 9,
-      "fantasypros_sf_rank_min": "7",
-      "fantasypros_sf_rank_max": "17",
-      "fantasypros_sf_rank_ave": "9.68",
+      "fantasypros_sf_rookie_rank": 8,
+      "fantasypros_sf_rank_ecr": 8,
+      "fantasypros_sf_rank_min": "8",
+      "fantasypros_sf_rank_max": "10",
+      "fantasypros_sf_rank_ave": "8.50",
       "fantasypros_sf_tier": 2,
       "fantasypros_id": 26055,
-      "ktc_sf_value": 4132,
-      "ktc_sf_overall_rank": -1,
+      "ktc_sf_value": 4010,
+      "ktc_sf_overall_rank": -3,
       "ktc_sf_rookie_rank": 8,
       "ktc_sf_pos_rank": 9,
-      "ktc_oneqb_value": 4796
+      "ktc_oneqb_value": 4736,
+      "dp_sf_ecr": 89.2,
+      "dp_sf_value": 1291,
+      "dp_oneqb_ecr": 78.3,
+      "dp_pos_ecr": 10.2,
+      "dp_sf_rookie_rank": 8,
+      "dp_age": null
     },
-    "omarcooperjr": {
-      "fantasypros_sf_rookie_rank": 10,
-      "fantasypros_sf_rank_ecr": 10,
-      "fantasypros_sf_rank_min": "7",
-      "fantasypros_sf_rank_max": "17",
-      "fantasypros_sf_rank_ave": "10.54",
-      "fantasypros_sf_tier": 3,
-      "fantasypros_id": 28127,
-      "ktc_sf_value": 3877,
-      "ktc_sf_overall_rank": 19,
-      "ktc_sf_rookie_rank": 9,
-      "ktc_sf_pos_rank": 33,
-      "ktc_oneqb_value": 4726
+    "kcconcepcion": {
+      "fantasypros_sf_rookie_rank": 9,
+      "fantasypros_sf_rank_ecr": 9,
+      "fantasypros_sf_rank_min": "6",
+      "fantasypros_sf_rank_max": "12",
+      "fantasypros_sf_rank_ave": "9.25",
+      "fantasypros_sf_tier": 2,
+      "fantasypros_id": 27331,
+      "ktc_sf_value": 4380,
+      "ktc_sf_overall_rank": -1,
+      "ktc_sf_rookie_rank": 7,
+      "ktc_sf_pos_rank": 30,
+      "ktc_oneqb_value": 5207,
+      "dp_sf_ecr": 79.0,
+      "dp_sf_value": 1640,
+      "dp_oneqb_ecr": 67.2,
+      "dp_pos_ecr": 31.5,
+      "dp_sf_rookie_rank": 6,
+      "dp_age": null
     },
     "elistowers": {
-      "fantasypros_sf_rookie_rank": 11,
-      "fantasypros_sf_rank_ecr": 11,
+      "fantasypros_sf_rookie_rank": 10,
+      "fantasypros_sf_rank_ecr": 10,
       "fantasypros_sf_rank_min": "8",
-      "fantasypros_sf_rank_max": "24",
-      "fantasypros_sf_rank_ave": "11.34",
+      "fantasypros_sf_rank_max": "15",
+      "fantasypros_sf_rank_ave": "10.88",
       "fantasypros_sf_tier": 3,
       "fantasypros_id": 23144,
-      "ktc_sf_value": 3539,
-      "ktc_sf_overall_rank": 83,
+      "ktc_sf_value": 3446,
+      "ktc_sf_overall_rank": -8,
       "ktc_sf_rookie_rank": 11,
       "ktc_sf_pos_rank": 11,
-      "ktc_oneqb_value": 4339
+      "ktc_oneqb_value": 4261,
+      "dp_sf_ecr": 101.3,
+      "dp_sf_value": 971,
+      "dp_oneqb_ecr": 90.7,
+      "dp_pos_ecr": 12.2,
+      "dp_sf_rookie_rank": 10,
+      "dp_age": null
     },
-    "denzelboston": {
-      "fantasypros_sf_rookie_rank": 12,
-      "fantasypros_sf_rank_ecr": 12,
-      "fantasypros_sf_rank_min": "8",
-      "fantasypros_sf_rank_max": "19",
-      "fantasypros_sf_rank_ave": "13.32",
+    "omarcooperjr": {
+      "fantasypros_sf_rookie_rank": 11,
+      "fantasypros_sf_rank_ecr": 11,
+      "fantasypros_sf_rank_min": "10",
+      "fantasypros_sf_rank_max": "13",
+      "fantasypros_sf_rank_ave": "11.25",
       "fantasypros_sf_tier": 3,
-      "fantasypros_id": 27339,
-      "ktc_sf_value": 3445,
-      "ktc_sf_overall_rank": 7,
-      "ktc_sf_rookie_rank": 12,
-      "ktc_sf_pos_rank": 45,
-      "ktc_oneqb_value": 4299
+      "fantasypros_id": 28127,
+      "ktc_sf_value": 3594,
+      "ktc_sf_overall_rank": -2,
+      "ktc_sf_rookie_rank": 9,
+      "ktc_sf_pos_rank": 35,
+      "ktc_oneqb_value": 4503,
+      "dp_sf_ecr": 98.5,
+      "dp_sf_value": 1037,
+      "dp_oneqb_ecr": 85.9,
+      "dp_pos_ecr": 39.2,
+      "dp_sf_rookie_rank": 9,
+      "dp_age": null
     },
     "jonahcoleman": {
-      "fantasypros_sf_rookie_rank": 13,
-      "fantasypros_sf_rank_ecr": 13,
+      "fantasypros_sf_rookie_rank": 12,
+      "fantasypros_sf_rank_ecr": 12,
       "fantasypros_sf_rank_min": "6",
-      "fantasypros_sf_rank_max": "25",
-      "fantasypros_sf_rank_ave": "14.10",
+      "fantasypros_sf_rank_max": "18",
+      "fantasypros_sf_rank_ave": "12.00",
       "fantasypros_sf_tier": 3,
       "fantasypros_id": 27320,
-      "ktc_sf_value": 3049,
-      "ktc_sf_overall_rank": 28,
+      "ktc_sf_value": 3176,
+      "ktc_sf_overall_rank": -2,
       "ktc_sf_rookie_rank": 13,
-      "ktc_sf_pos_rank": 35,
-      "ktc_oneqb_value": 3783
+      "ktc_sf_pos_rank": 34,
+      "ktc_oneqb_value": 3891,
+      "dp_sf_ecr": 151.1,
+      "dp_sf_value": 301,
+      "dp_oneqb_ecr": 142.3,
+      "dp_pos_ecr": 37.3,
+      "dp_sf_rookie_rank": 15,
+      "dp_age": null
     },
-    "antoniowilliams": {
+    "denzelboston": {
+      "fantasypros_sf_rookie_rank": 13,
+      "fantasypros_sf_rank_ecr": 13,
+      "fantasypros_sf_rank_min": "11",
+      "fantasypros_sf_rank_max": "17",
+      "fantasypros_sf_rank_ave": "13.50",
+      "fantasypros_sf_tier": 3,
+      "fantasypros_id": 27339,
+      "ktc_sf_value": 3419,
+      "ktc_sf_overall_rank": -5,
+      "ktc_sf_rookie_rank": 12,
+      "ktc_sf_pos_rank": 45,
+      "ktc_oneqb_value": 4258,
+      "dp_sf_ecr": 114.2,
+      "dp_sf_value": 717,
+      "dp_oneqb_ecr": 102.2,
+      "dp_pos_ecr": 46.8,
+      "dp_sf_rookie_rank": 12,
+      "dp_age": null
+    },
+    "nicholassingleton": {
       "fantasypros_sf_rookie_rank": 14,
       "fantasypros_sf_rank_ecr": 14,
-      "fantasypros_sf_rank_min": "11",
-      "fantasypros_sf_rank_max": "36",
-      "fantasypros_sf_rank_ave": "16.76",
-      "fantasypros_sf_tier": 3,
-      "fantasypros_id": 25418,
-      "ktc_sf_value": 2652,
-      "ktc_sf_overall_rank": 183,
-      "ktc_sf_rookie_rank": 18,
-      "ktc_sf_pos_rank": 72,
-      "ktc_oneqb_value": 2941
-    },
-    "chrisbell": {
-      "fantasypros_sf_rookie_rank": 15,
-      "fantasypros_sf_rank_ecr": 15,
-      "fantasypros_sf_rank_min": "12",
-      "fantasypros_sf_rank_max": "31",
-      "fantasypros_sf_rank_ave": "18.17",
-      "fantasypros_sf_tier": 3,
-      "fantasypros_id": 26038,
-      "ktc_sf_value": 2987,
-      "ktc_sf_overall_rank": 122,
-      "ktc_sf_rookie_rank": 14,
-      "ktc_sf_pos_rank": 59,
-      "ktc_oneqb_value": 3595
-    },
-    "nicksingleton": {
-      "fantasypros_sf_rookie_rank": 16,
-      "fantasypros_sf_rank_ecr": 16,
       "fantasypros_sf_rank_min": "6",
-      "fantasypros_sf_rank_max": "38",
-      "fantasypros_sf_rank_ave": "18.61",
+      "fantasypros_sf_rank_max": "23",
+      "fantasypros_sf_rank_ave": "14.75",
       "fantasypros_sf_tier": 3,
-      "fantasypros_id": 24343
+      "fantasypros_id": 24343,
+      "ktc_sf_value": 2820,
+      "ktc_sf_overall_rank": -5,
+      "ktc_sf_rookie_rank": 18,
+      "ktc_sf_pos_rank": 42,
+      "ktc_oneqb_value": 3537,
+      "dp_sf_ecr": 180.5,
+      "dp_sf_value": 151,
+      "dp_oneqb_ecr": 175.5,
+      "dp_pos_ecr": 47.5,
+      "dp_sf_rookie_rank": 21,
+      "dp_age": null
     },
     "germiebernard": {
+      "fantasypros_sf_rookie_rank": 15,
+      "fantasypros_sf_rank_ecr": 15,
+      "fantasypros_sf_rank_min": "13",
+      "fantasypros_sf_rank_max": "21",
+      "fantasypros_sf_rank_ave": "16.25",
+      "fantasypros_sf_tier": 3,
+      "fantasypros_id": 26039,
+      "ktc_sf_value": 2928,
+      "ktc_sf_overall_rank": -3,
+      "ktc_sf_rookie_rank": 16,
+      "ktc_sf_pos_rank": 61,
+      "ktc_oneqb_value": 3556,
+      "dp_sf_ecr": 154.4,
+      "dp_sf_value": 279,
+      "dp_oneqb_ecr": 146.2,
+      "dp_pos_ecr": 64.7,
+      "dp_sf_rookie_rank": 16,
+      "dp_age": null
+    },
+    "antoniowilliams": {
+      "fantasypros_sf_rookie_rank": 16,
+      "fantasypros_sf_rank_ecr": 16,
+      "fantasypros_sf_rank_min": "14",
+      "fantasypros_sf_rank_max": "23",
+      "fantasypros_sf_rank_ave": "17.88",
+      "fantasypros_sf_tier": 4,
+      "fantasypros_id": 25418,
+      "ktc_sf_value": 3076,
+      "ktc_sf_overall_rank": 4,
+      "ktc_sf_rookie_rank": 14,
+      "ktc_sf_pos_rank": 56,
+      "ktc_oneqb_value": 3628,
+      "dp_sf_ecr": 134.2,
+      "dp_sf_value": 448,
+      "dp_oneqb_ecr": 123.3,
+      "dp_pos_ecr": 56.1,
+      "dp_sf_rookie_rank": 13,
+      "dp_age": null
+    },
+    "chrisbell": {
       "fantasypros_sf_rookie_rank": 17,
       "fantasypros_sf_rank_ecr": 17,
-      "fantasypros_sf_rank_min": "12",
-      "fantasypros_sf_rank_max": "31",
-      "fantasypros_sf_rank_ave": "19.44",
+      "fantasypros_sf_rank_min": "13",
+      "fantasypros_sf_rank_max": "24",
+      "fantasypros_sf_rank_ave": "18.38",
       "fantasypros_sf_tier": 4,
-      "fantasypros_id": 26039,
-      "ktc_sf_value": 2924,
-      "ktc_sf_overall_rank": 148,
+      "fantasypros_id": 26038,
+      "ktc_sf_value": 3004,
+      "ktc_sf_overall_rank": -3,
       "ktc_sf_rookie_rank": 15,
-      "ktc_sf_pos_rank": 62,
-      "ktc_oneqb_value": 3477
-    },
-    "kaytronallen": {
-      "fantasypros_sf_rookie_rank": 18,
-      "fantasypros_sf_rank_ecr": 18,
-      "fantasypros_sf_rank_min": "9",
-      "fantasypros_sf_rank_max": "36",
-      "fantasypros_sf_rank_ave": "22.51",
-      "fantasypros_sf_tier": 4,
-      "fantasypros_id": 24362,
-      "ktc_sf_value": 2411,
-      "ktc_sf_overall_rank": 73,
-      "ktc_sf_rookie_rank": 25,
-      "ktc_sf_pos_rank": 54,
-      "ktc_oneqb_value": 2893
+      "ktc_sf_pos_rank": 59,
+      "ktc_oneqb_value": 3699,
+      "dp_sf_ecr": 139.9,
+      "dp_sf_value": 392,
+      "dp_oneqb_ecr": 130.0,
+      "dp_pos_ecr": 59.4,
+      "dp_sf_rookie_rank": 14,
+      "dp_age": null
     },
     "emmettjohnson": {
-      "fantasypros_sf_rookie_rank": 19,
-      "fantasypros_sf_rank_ecr": 19,
-      "fantasypros_sf_rank_min": "9",
-      "fantasypros_sf_rank_max": "36",
-      "fantasypros_sf_rank_ave": "22.51",
+      "fantasypros_sf_rookie_rank": 18,
+      "fantasypros_sf_rank_ecr": 18,
+      "fantasypros_sf_rank_min": "14",
+      "fantasypros_sf_rank_max": "24",
+      "fantasypros_sf_rank_ave": "18.50",
       "fantasypros_sf_tier": 4,
       "fantasypros_id": 28107,
-      "ktc_sf_value": 2455,
-      "ktc_sf_overall_rank": 40,
-      "ktc_sf_rookie_rank": 22,
-      "ktc_sf_pos_rank": 52,
-      "ktc_oneqb_value": 3065
+      "ktc_sf_value": 2579,
+      "ktc_sf_overall_rank": 3,
+      "ktc_sf_rookie_rank": 23,
+      "ktc_sf_pos_rank": 51,
+      "ktc_oneqb_value": 3205,
+      "dp_sf_ecr": 189.7,
+      "dp_sf_value": 122,
+      "dp_oneqb_ecr": 186.0,
+      "dp_pos_ecr": 52.1,
+      "dp_sf_rookie_rank": 27,
+      "dp_age": null
     },
-    "chrisbrazzellii": {
+    "kaytronallen": {
+      "fantasypros_sf_rookie_rank": 19,
+      "fantasypros_sf_rank_ecr": 19,
+      "fantasypros_sf_rank_min": "19",
+      "fantasypros_sf_rank_max": "27",
+      "fantasypros_sf_rank_ave": "21.75",
+      "fantasypros_sf_tier": 4,
+      "fantasypros_id": 24362,
+      "ktc_sf_value": 2526,
+      "ktc_sf_overall_rank": -8,
+      "ktc_sf_rookie_rank": 25,
+      "ktc_sf_pos_rank": 54,
+      "ktc_oneqb_value": 3166,
+      "dp_sf_ecr": 199.5,
+      "dp_sf_value": 97,
+      "dp_oneqb_ecr": 197.2,
+      "dp_pos_ecr": 56.0,
+      "dp_sf_rookie_rank": 30,
+      "dp_age": null
+    },
+    "carsonbeck": {
       "fantasypros_sf_rookie_rank": 20,
       "fantasypros_sf_rank_ecr": 20,
-      "fantasypros_sf_rank_min": "14",
-      "fantasypros_sf_rank_max": "39",
-      "fantasypros_sf_rank_ave": "23.37",
+      "fantasypros_sf_rank_min": "10",
+      "fantasypros_sf_rank_max": "38",
+      "fantasypros_sf_rank_ave": "22.50",
+      "fantasypros_sf_tier": 4,
+      "fantasypros_id": 22953,
+      "ktc_sf_value": 2527,
+      "ktc_sf_overall_rank": 52,
+      "ktc_sf_rookie_rank": 24,
+      "ktc_sf_pos_rank": 35,
+      "ktc_oneqb_value": 130,
+      "dp_sf_ecr": 174.8,
+      "dp_sf_value": 173,
+      "dp_oneqb_ecr": 245.6,
+      "dp_pos_ecr": 40.2,
+      "dp_sf_rookie_rank": 20,
+      "dp_age": null
+    },
+    "chrisbrazzellii": {
+      "fantasypros_sf_rookie_rank": 21,
+      "fantasypros_sf_rank_ecr": 21,
+      "fantasypros_sf_rank_min": "18",
+      "fantasypros_sf_rank_max": "28",
+      "fantasypros_sf_rank_ave": "23.75",
       "fantasypros_sf_tier": 4,
       "fantasypros_id": 28047,
-      "ktc_sf_value": 2629,
-      "ktc_sf_overall_rank": 50,
-      "ktc_sf_rookie_rank": 19,
-      "ktc_sf_pos_rank": 74,
-      "ktc_oneqb_value": 3142
+      "ktc_sf_value": 2502,
+      "ktc_sf_overall_rank": -6,
+      "ktc_sf_rookie_rank": 26,
+      "ktc_sf_pos_rank": 79,
+      "ktc_oneqb_value": 3094,
+      "dp_sf_ecr": 182.9,
+      "dp_sf_value": 143,
+      "dp_oneqb_ecr": 175.1,
+      "dp_pos_ecr": 77.3,
+      "dp_sf_rookie_rank": 22,
+      "dp_age": null
     },
-    "zachariahbranch": {
+    "elijahsarratt": {
       "fantasypros_sf_rookie_rank": 22,
       "fantasypros_sf_rank_ecr": 22,
-      "fantasypros_sf_rank_min": "15",
-      "fantasypros_sf_rank_max": "47",
-      "fantasypros_sf_rank_ave": "24.24",
+      "fantasypros_sf_rank_min": "18",
+      "fantasypros_sf_rank_max": "35",
+      "fantasypros_sf_rank_ave": "23.88",
       "fantasypros_sf_tier": 4,
-      "fantasypros_id": 25419,
-      "ktc_sf_value": 2602,
-      "ktc_sf_overall_rank": 69,
+      "fantasypros_id": 27463,
+      "ktc_sf_value": 2706,
+      "ktc_sf_overall_rank": -9,
       "ktc_sf_rookie_rank": 20,
-      "ktc_sf_pos_rank": 76,
-      "ktc_oneqb_value": 3215
+      "ktc_sf_pos_rank": 68,
+      "ktc_oneqb_value": 3290,
+      "dp_sf_ecr": 174.3,
+      "dp_sf_value": 175,
+      "dp_oneqb_ecr": 166.9,
+      "dp_pos_ecr": 72.7,
+      "dp_sf_rookie_rank": 19,
+      "dp_age": null
     },
-    "mikewashingtonjr": {
+    "dezhaunstribling": {
       "fantasypros_sf_rookie_rank": 23,
       "fantasypros_sf_rank_ecr": 23,
       "fantasypros_sf_rank_min": "14",
-      "fantasypros_sf_rank_max": "44",
-      "fantasypros_sf_rank_ave": "25.93",
+      "fantasypros_sf_rank_max": "36",
+      "fantasypros_sf_rank_ave": "24.25",
       "fantasypros_sf_tier": 4,
-      "fantasypros_id": 28108,
-      "ktc_sf_value": 2450,
-      "ktc_sf_overall_rank": 21,
-      "ktc_sf_rookie_rank": 23,
-      "ktc_sf_pos_rank": 53,
-      "ktc_oneqb_value": 3001
-    },
-    "elijahsarratt": {
-      "fantasypros_sf_rookie_rank": 24,
-      "fantasypros_sf_rank_ecr": 24,
-      "fantasypros_sf_rank_min": "17",
-      "fantasypros_sf_rank_max": "51",
-      "fantasypros_sf_rank_ave": "26.83",
-      "fantasypros_sf_tier": 4,
-      "fantasypros_id": 27463,
-      "ktc_sf_value": 2769,
-      "ktc_sf_overall_rank": 44,
+      "fantasypros_id": 28138,
+      "ktc_sf_value": 2830,
+      "ktc_sf_overall_rank": 20,
       "ktc_sf_rookie_rank": 17,
-      "ktc_sf_pos_rank": 66,
-      "ktc_oneqb_value": 3367
-    },
-    "tedhurst": {
-      "fantasypros_sf_rookie_rank": 26,
-      "fantasypros_sf_rank_ecr": 26,
-      "fantasypros_sf_rank_min": "16",
-      "fantasypros_sf_rank_max": "50",
-      "fantasypros_sf_rank_ave": "27.37",
-      "fantasypros_sf_tier": 4,
-      "fantasypros_id": 28130,
-      "ktc_sf_value": 1978,
-      "ktc_sf_overall_rank": 151,
-      "ktc_sf_rookie_rank": 28,
-      "ktc_sf_pos_rank": 102,
-      "ktc_oneqb_value": 2215
+      "ktc_sf_pos_rank": 63,
+      "ktc_oneqb_value": 3134,
+      "dp_sf_ecr": 162.5,
+      "dp_sf_value": 231,
+      "dp_oneqb_ecr": 154.5,
+      "dp_pos_ecr": 67.6,
+      "dp_sf_rookie_rank": 17,
+      "dp_age": null
     },
     "malachifields": {
-      "fantasypros_sf_rookie_rank": 27,
-      "fantasypros_sf_rank_ecr": 27,
-      "fantasypros_sf_rank_min": "15",
-      "fantasypros_sf_rank_max": "47",
-      "fantasypros_sf_rank_ave": "29.32",
+      "fantasypros_sf_rookie_rank": 24,
+      "fantasypros_sf_rank_ecr": 24,
+      "fantasypros_sf_rank_min": "20",
+      "fantasypros_sf_rank_max": "31",
+      "fantasypros_sf_rank_ave": "26.50",
       "fantasypros_sf_tier": 4,
       "fantasypros_id": 27994,
-      "ktc_sf_value": 2590,
-      "ktc_sf_overall_rank": 85,
+      "ktc_sf_value": 2624,
+      "ktc_sf_overall_rank": -13,
       "ktc_sf_rookie_rank": 21,
-      "ktc_sf_pos_rank": 77,
-      "ktc_oneqb_value": 3090
+      "ktc_sf_pos_rank": 72,
+      "ktc_oneqb_value": 3267,
+      "dp_sf_ecr": 191.9,
+      "dp_sf_value": 116,
+      "dp_oneqb_ecr": 188.4,
+      "dp_pos_ecr": 82.2,
+      "dp_sf_rookie_rank": 28,
+      "dp_age": null
     },
-    "drewallar": {
-      "fantasypros_sf_rookie_rank": 28,
-      "fantasypros_sf_rank_ecr": 28,
-      "fantasypros_sf_rank_min": "16",
-      "fantasypros_sf_rank_max": "52",
-      "fantasypros_sf_rank_ave": "29.93",
-      "fantasypros_sf_tier": 5,
-      "fantasypros_id": 24345,
-      "ktc_sf_value": 1190,
-      "ktc_sf_overall_rank": 236,
-      "ktc_sf_rookie_rank": 37,
+    "mikewashingtonjr": {
+      "fantasypros_sf_rookie_rank": 25,
+      "fantasypros_sf_rank_ecr": 25,
+      "fantasypros_sf_rank_min": "22",
+      "fantasypros_sf_rank_max": "31",
+      "fantasypros_sf_rank_ave": "26.88",
+      "fantasypros_sf_tier": 4,
+      "fantasypros_id": 28108,
+      "ktc_sf_value": 2308,
+      "ktc_sf_overall_rank": 1,
+      "ktc_sf_rookie_rank": 30,
       "ktc_sf_pos_rank": 58,
-      "ktc_oneqb_value": 137
+      "ktc_oneqb_value": 2860,
+      "dp_sf_ecr": 204.8,
+      "dp_sf_value": 85,
+      "dp_oneqb_ecr": 201.3,
+      "dp_pos_ecr": 56.1,
+      "dp_sf_rookie_rank": 32,
+      "dp_age": null
+    },
+    "zachariahbranch": {
+      "fantasypros_sf_rookie_rank": 26,
+      "fantasypros_sf_rank_ecr": 26,
+      "fantasypros_sf_rank_min": "17",
+      "fantasypros_sf_rank_max": "41",
+      "fantasypros_sf_rank_ave": "27.75",
+      "fantasypros_sf_tier": 5,
+      "fantasypros_id": 25419,
+      "ktc_sf_value": 2764,
+      "ktc_sf_overall_rank": 9,
+      "ktc_sf_rookie_rank": 19,
+      "ktc_sf_pos_rank": 66,
+      "ktc_oneqb_value": 3327,
+      "dp_sf_ecr": 193.6,
+      "dp_sf_value": 111,
+      "dp_oneqb_ecr": 191.0,
+      "dp_pos_ecr": 81.3,
+      "dp_sf_rookie_rank": 29,
+      "dp_age": null
     },
     "demondclaiborne": {
-      "fantasypros_sf_rookie_rank": 29,
-      "fantasypros_sf_rank_ecr": 29,
-      "fantasypros_sf_rank_min": "16",
-      "fantasypros_sf_rank_max": "52",
-      "fantasypros_sf_rank_ave": "31.12",
+      "fantasypros_sf_rookie_rank": 27,
+      "fantasypros_sf_rank_ecr": 27,
+      "fantasypros_sf_rank_min": "23",
+      "fantasypros_sf_rank_max": "38",
+      "fantasypros_sf_rank_ave": "28.13",
       "fantasypros_sf_tier": 5,
       "fantasypros_id": 28084,
-      "ktc_sf_value": 1600,
-      "ktc_sf_overall_rank": 80,
-      "ktc_sf_rookie_rank": 33,
-      "ktc_sf_pos_rank": 83,
-      "ktc_oneqb_value": 1887
-    },
-    "maxklare": {
-      "fantasypros_sf_rookie_rank": 30,
-      "fantasypros_sf_rank_ecr": 30,
-      "fantasypros_sf_rank_min": "19",
-      "fantasypros_sf_rank_max": "48",
-      "fantasypros_sf_rank_ave": "31.15",
-      "fantasypros_sf_tier": 5,
-      "fantasypros_id": 27993,
-      "ktc_sf_value": 2037,
-      "ktc_sf_overall_rank": 99,
-      "ktc_sf_rookie_rank": 27,
-      "ktc_sf_pos_rank": 37,
-      "ktc_oneqb_value": 2312
-    },
-    "skylerbell": {
-      "fantasypros_sf_rookie_rank": 31,
-      "fantasypros_sf_rank_ecr": 31,
-      "fantasypros_sf_rank_min": "18",
-      "fantasypros_sf_rank_max": "56",
-      "fantasypros_sf_rank_ave": "31.76",
-      "fantasypros_sf_tier": 5,
-      "fantasypros_id": 28126,
-      "ktc_sf_value": 2447,
-      "ktc_sf_overall_rank": 147,
-      "ktc_sf_rookie_rank": 24,
-      "ktc_sf_pos_rank": 84,
-      "ktc_oneqb_value": 2853
+      "ktc_sf_value": 2104,
+      "ktc_sf_overall_rank": 32,
+      "ktc_sf_rookie_rank": 31,
+      "ktc_sf_pos_rank": 68,
+      "ktc_oneqb_value": 2426,
+      "dp_sf_ecr": 231.4,
+      "dp_sf_value": 46,
+      "dp_oneqb_ecr": 237.7,
+      "dp_pos_ecr": 67.3,
+      "dp_sf_rookie_rank": 36,
+      "dp_age": null
     },
     "jakobilane": {
-      "fantasypros_sf_rookie_rank": 32,
-      "fantasypros_sf_rank_ecr": 32,
-      "fantasypros_sf_rank_min": "20",
-      "fantasypros_sf_rank_max": "56",
-      "fantasypros_sf_rank_ave": "32.24",
+      "fantasypros_sf_rookie_rank": 28,
+      "fantasypros_sf_rank_ecr": 28,
+      "fantasypros_sf_rank_min": "21",
+      "fantasypros_sf_rank_max": "45",
+      "fantasypros_sf_rank_ave": "30.63",
       "fantasypros_sf_tier": 5,
       "fantasypros_id": 27337,
-      "ktc_sf_value": 2348,
-      "ktc_sf_overall_rank": 83,
-      "ktc_sf_rookie_rank": 26,
-      "ktc_sf_pos_rank": 89,
-      "ktc_oneqb_value": 2799
+      "ktc_sf_value": 2365,
+      "ktc_sf_overall_rank": 0,
+      "ktc_sf_rookie_rank": 28,
+      "ktc_sf_pos_rank": 90,
+      "ktc_oneqb_value": 2848,
+      "dp_sf_ecr": 204.4,
+      "dp_sf_value": 86,
+      "dp_oneqb_ecr": 204.1,
+      "dp_pos_ecr": 89.6,
+      "dp_sf_rookie_rank": 31,
+      "dp_age": null
+    },
+    "oscardelp": {
+      "fantasypros_sf_rookie_rank": 29,
+      "fantasypros_sf_rank_ecr": 29,
+      "fantasypros_sf_rank_min": "27",
+      "fantasypros_sf_rank_max": "34",
+      "fantasypros_sf_rank_ave": "30.63",
+      "fantasypros_sf_tier": 5,
+      "fantasypros_id": 25430,
+      "ktc_sf_value": 2012,
+      "ktc_sf_overall_rank": 60,
+      "ktc_sf_rookie_rank": 35,
+      "ktc_sf_pos_rank": 39,
+      "ktc_oneqb_value": 2038,
+      "dp_sf_ecr": 185.2,
+      "dp_sf_value": 135,
+      "dp_oneqb_ecr": 179.6,
+      "dp_pos_ecr": 27.5,
+      "dp_sf_rookie_rank": 24,
+      "dp_age": null
+    },
+    "tedhurstiii": {
+      "fantasypros_sf_rookie_rank": 30,
+      "fantasypros_sf_rank_ecr": 30,
+      "fantasypros_sf_rank_min": "20",
+      "fantasypros_sf_rank_max": "41",
+      "fantasypros_sf_rank_ave": "31.13",
+      "fantasypros_sf_tier": 5,
+      "fantasypros_id": 28130,
+      "dp_sf_ecr": 169.1,
+      "dp_sf_value": 197,
+      "dp_oneqb_ecr": 162.4,
+      "dp_pos_ecr": 71.1,
+      "dp_sf_rookie_rank": 18,
+      "dp_age": null
+    },
+    "kaelonblack": {
+      "fantasypros_sf_rookie_rank": 31,
+      "fantasypros_sf_rank_ecr": 31,
+      "fantasypros_sf_rank_min": "15",
+      "fantasypros_sf_rank_max": "61",
+      "fantasypros_sf_rank_ave": "31.25",
+      "fantasypros_sf_tier": 5,
+      "fantasypros_id": 28401,
+      "ktc_sf_value": 2074,
+      "ktc_sf_overall_rank": 47,
+      "ktc_sf_rookie_rank": 32,
+      "ktc_sf_pos_rank": 69,
+      "ktc_oneqb_value": 2264,
+      "dp_sf_ecr": 232.4,
+      "dp_sf_value": 45,
+      "dp_oneqb_ecr": 235.4,
+      "dp_pos_ecr": 68.3,
+      "dp_sf_rookie_rank": 37,
+      "dp_age": null
+    },
+    "eliraridon": {
+      "fantasypros_sf_rookie_rank": 32,
+      "fantasypros_sf_rank_ecr": 32,
+      "fantasypros_sf_rank_min": "25",
+      "fantasypros_sf_rank_max": "35",
+      "fantasypros_sf_rank_ave": "31.63",
+      "fantasypros_sf_tier": 5,
+      "fantasypros_id": 28154,
+      "ktc_sf_value": 2046,
+      "ktc_sf_overall_rank": 81,
+      "ktc_sf_rookie_rank": 34,
+      "ktc_sf_pos_rank": 38,
+      "ktc_oneqb_value": 2194,
+      "dp_sf_ecr": 183.9,
+      "dp_sf_value": 139,
+      "dp_oneqb_ecr": 178.7,
+      "dp_pos_ecr": 29.8,
+      "dp_sf_rookie_rank": 23,
+      "dp_age": null
     },
     "adamrandall": {
       "fantasypros_sf_rookie_rank": 33,
       "fantasypros_sf_rank_ecr": 33,
       "fantasypros_sf_rank_min": "23",
-      "fantasypros_sf_rank_max": "49",
-      "fantasypros_sf_rank_ave": "34.76",
+      "fantasypros_sf_rank_max": "41",
+      "fantasypros_sf_rank_ave": "32.50",
       "fantasypros_sf_tier": 5,
       "fantasypros_id": 24367,
-      "ktc_sf_value": 823,
-      "ktc_sf_overall_rank": 281,
-      "ktc_sf_rookie_rank": 48,
-      "ktc_sf_pos_rank": 121,
-      "ktc_oneqb_value": 792
+      "ktc_sf_value": 1434,
+      "ktc_sf_overall_rank": 44,
+      "ktc_sf_rookie_rank": 45,
+      "ktc_sf_pos_rank": 90,
+      "ktc_oneqb_value": 1543,
+      "dp_sf_ecr": 253.0,
+      "dp_sf_value": 27,
+      "dp_oneqb_ecr": 267.6,
+      "dp_pos_ecr": 74.9,
+      "dp_sf_rookie_rank": 42,
+      "dp_age": null
     },
-    "kaelonblack": {
+    "drewallar": {
       "fantasypros_sf_rookie_rank": 34,
       "fantasypros_sf_rank_ecr": 34,
-      "fantasypros_sf_rank_min": "14",
-      "fantasypros_sf_rank_max": "70",
-      "fantasypros_sf_rank_ave": "32.49",
+      "fantasypros_sf_rank_min": "22",
+      "fantasypros_sf_rank_max": "43",
+      "fantasypros_sf_rank_ave": "33.63",
       "fantasypros_sf_tier": 5,
-      "fantasypros_id": 28401,
-      "ktc_sf_value": 1169,
-      "ktc_sf_overall_rank": 338,
-      "ktc_sf_rookie_rank": 39,
-      "ktc_sf_pos_rank": 100,
-      "ktc_oneqb_value": 1282
+      "fantasypros_id": 24345,
+      "ktc_sf_value": 1951,
+      "ktc_sf_overall_rank": 12,
+      "ktc_sf_rookie_rank": 36,
+      "ktc_sf_pos_rank": 42,
+      "ktc_oneqb_value": 180,
+      "dp_sf_ecr": 220.7,
+      "dp_sf_value": 59,
+      "dp_oneqb_ecr": 275.7,
+      "dp_pos_ecr": 46.2,
+      "dp_sf_rookie_rank": 34,
+      "dp_age": null
     },
-    "oscardelp": {
+    "maxklare": {
       "fantasypros_sf_rookie_rank": 35,
       "fantasypros_sf_rank_ecr": 35,
-      "fantasypros_sf_rank_min": "15",
-      "fantasypros_sf_rank_max": "72",
-      "fantasypros_sf_rank_ave": "37.44",
+      "fantasypros_sf_rank_min": "29",
+      "fantasypros_sf_rank_max": "38",
+      "fantasypros_sf_rank_ave": "34.00",
       "fantasypros_sf_tier": 5,
-      "fantasypros_id": 25430,
-      "ktc_sf_value": 1015,
-      "ktc_sf_overall_rank": 306,
-      "ktc_sf_rookie_rank": 43,
-      "ktc_sf_pos_rank": 63,
-      "ktc_oneqb_value": 1029
-    },
-    "sethmcgowan": {
-      "fantasypros_sf_rookie_rank": 36,
-      "fantasypros_sf_rank_ecr": 36,
-      "fantasypros_sf_rank_min": "23",
-      "fantasypros_sf_rank_max": "57",
-      "fantasypros_sf_rank_ave": "38.12",
-      "fantasypros_sf_tier": 5,
-      "fantasypros_id": 23079,
-      "ktc_sf_value": 797,
-      "ktc_sf_overall_rank": -25,
-      "ktc_sf_rookie_rank": 49,
-      "ktc_sf_pos_rank": 123,
-      "ktc_oneqb_value": 1010
-    },
-    "brycelance": {
-      "fantasypros_sf_rookie_rank": 38,
-      "fantasypros_sf_rank_ecr": 38,
-      "fantasypros_sf_rank_min": "19",
-      "fantasypros_sf_rank_max": "70",
-      "fantasypros_sf_rank_ave": "39.66",
-      "fantasypros_sf_tier": 5,
-      "fantasypros_id": 28129,
-      "ktc_sf_value": 1052,
-      "ktc_sf_overall_rank": 303,
-      "ktc_sf_rookie_rank": 41,
-      "ktc_sf_pos_rank": 158,
-      "ktc_oneqb_value": 1139
+      "fantasypros_id": 27993,
+      "ktc_sf_value": 2355,
+      "ktc_sf_overall_rank": 7,
+      "ktc_sf_rookie_rank": 29,
+      "ktc_sf_pos_rank": 27,
+      "ktc_oneqb_value": 2784,
+      "dp_sf_ecr": 186.6,
+      "dp_sf_value": 131,
+      "dp_oneqb_ecr": 180.6,
+      "dp_pos_ecr": 29.7,
+      "dp_sf_rookie_rank": 25,
+      "dp_age": null
     },
     "cadeklubnik": {
-      "fantasypros_sf_rookie_rank": 39,
-      "fantasypros_sf_rank_ecr": 39,
+      "fantasypros_sf_rookie_rank": 36,
+      "fantasypros_sf_rank_ecr": 36,
       "fantasypros_sf_rank_min": "20",
-      "fantasypros_sf_rank_max": "56",
-      "fantasypros_sf_rank_ave": "40.37",
+      "fantasypros_sf_rank_max": "45",
+      "fantasypros_sf_rank_ave": "36.00",
       "fantasypros_sf_tier": 5,
       "fantasypros_id": 24361,
-      "ktc_sf_value": 1677,
-      "ktc_sf_overall_rank": 112,
-      "ktc_sf_rookie_rank": 32,
-      "ktc_sf_pos_rank": 48,
-      "ktc_oneqb_value": 1145
-    },
-    "eliraridon": {
-      "fantasypros_sf_rookie_rank": 41,
-      "fantasypros_sf_rank_ecr": 41,
-      "fantasypros_sf_rank_min": "18",
-      "fantasypros_sf_rank_max": "96",
-      "fantasypros_sf_rank_ave": "40.89",
-      "fantasypros_sf_tier": 6,
-      "fantasypros_id": 28154,
-      "ktc_sf_value": 1050,
-      "ktc_sf_overall_rank": 321,
-      "ktc_sf_rookie_rank": 42,
-      "ktc_sf_pos_rank": 61,
-      "ktc_oneqb_value": 1194
-    },
-    "garrettnussmeier": {
-      "fantasypros_sf_rookie_rank": 42,
-      "fantasypros_sf_rank_ecr": 42,
-      "fantasypros_sf_rank_min": "10",
-      "fantasypros_sf_rank_max": "75",
-      "fantasypros_sf_rank_ave": "42.03",
-      "fantasypros_sf_tier": 6,
-      "fantasypros_id": 22998,
-      "ktc_sf_value": 1716,
-      "ktc_sf_overall_rank": -41,
-      "ktc_sf_rookie_rank": 30,
-      "ktc_sf_pos_rank": 45,
-      "ktc_oneqb_value": 1668
-    },
-    "taylengreen": {
-      "fantasypros_sf_rookie_rank": 43,
-      "fantasypros_sf_rank_ecr": 43,
-      "fantasypros_sf_rank_min": "20",
-      "fantasypros_sf_rank_max": "85",
-      "fantasypros_sf_rank_ave": "42.58",
-      "fantasypros_sf_tier": 6,
-      "fantasypros_id": 28094
-    },
-    "kevincolemanjr": {
-      "fantasypros_sf_rookie_rank": 44,
-      "fantasypros_sf_rank_ecr": 44,
-      "fantasypros_sf_rank_min": "31",
-      "fantasypros_sf_rank_max": "74",
-      "fantasypros_sf_rank_ave": "49.10",
-      "fantasypros_sf_tier": 6,
-      "fantasypros_id": 28067
+      "ktc_sf_value": 1868,
+      "ktc_sf_overall_rank": 1,
+      "ktc_sf_rookie_rank": 37,
+      "ktc_sf_pos_rank": 43,
+      "ktc_oneqb_value": 1205,
+      "dp_sf_ecr": 243.0,
+      "dp_sf_value": 35,
+      "dp_oneqb_ecr": 269.0,
+      "dp_pos_ecr": 45.6,
+      "dp_sf_rookie_rank": 40,
+      "dp_age": null
     },
     "eliheidenreich": {
-      "fantasypros_sf_rookie_rank": 45,
-      "fantasypros_sf_rank_ecr": 45,
-      "fantasypros_sf_rank_min": "25",
-      "fantasypros_sf_rank_max": "69",
-      "fantasypros_sf_rank_ave": "43.37",
-      "fantasypros_sf_tier": 6,
+      "fantasypros_sf_rookie_rank": 37,
+      "fantasypros_sf_rank_ecr": 37,
+      "fantasypros_sf_rank_min": "29",
+      "fantasypros_sf_rank_max": "50",
+      "fantasypros_sf_rank_ave": "37.88",
+      "fantasypros_sf_tier": 5,
       "fantasypros_id": 28297,
-      "ktc_sf_value": 857,
-      "ktc_sf_overall_rank": 287,
-      "ktc_sf_rookie_rank": 46,
-      "ktc_sf_pos_rank": 118,
-      "ktc_oneqb_value": 948
+      "ktc_sf_value": 1582,
+      "ktc_sf_overall_rank": 44,
+      "ktc_sf_rookie_rank": 43,
+      "ktc_sf_pos_rank": 83,
+      "ktc_oneqb_value": 1745,
+      "dp_sf_ecr": 258.1,
+      "dp_sf_value": 24,
+      "dp_oneqb_ecr": 268.2,
+      "dp_pos_ecr": 82.9,
+      "dp_sf_rookie_rank": 44,
+      "dp_age": null
+    },
+    "colepayton": {
+      "fantasypros_sf_rookie_rank": 38,
+      "fantasypros_sf_rank_ecr": 38,
+      "fantasypros_sf_rank_min": "33",
+      "fantasypros_sf_rank_max": "44",
+      "fantasypros_sf_rank_ave": "38.75",
+      "fantasypros_sf_tier": 5,
+      "fantasypros_id": 28302,
+      "ktc_sf_value": 853,
+      "ktc_sf_overall_rank": 3,
+      "ktc_sf_rookie_rank": 55,
+      "ktc_sf_pos_rank": 67,
+      "ktc_oneqb_value": 164,
+      "dp_sf_ecr": 268.7,
+      "dp_sf_value": 19,
+      "dp_oneqb_ecr": 268.6,
+      "dp_pos_ecr": 43.1,
+      "dp_sf_rookie_rank": 48,
+      "dp_age": null
+    },
+    "sethmcgowan": {
+      "fantasypros_sf_rookie_rank": 39,
+      "fantasypros_sf_rank_ecr": 39,
+      "fantasypros_sf_rank_min": "26",
+      "fantasypros_sf_rank_max": "47",
+      "fantasypros_sf_rank_ave": "38.88",
+      "fantasypros_sf_tier": 5,
+      "fantasypros_id": 23079,
+      "ktc_sf_value": 1183,
+      "ktc_sf_overall_rank": 33,
+      "ktc_sf_rookie_rank": 47,
+      "ktc_sf_pos_rank": 103,
+      "ktc_oneqb_value": 1398,
+      "dp_sf_ecr": 265.2,
+      "dp_sf_value": 21,
+      "dp_oneqb_ecr": 286.7,
+      "dp_pos_ecr": 81.2,
+      "dp_sf_rookie_rank": 47,
+      "dp_age": null
+    },
+    "skylerbell": {
+      "fantasypros_sf_rookie_rank": 40,
+      "fantasypros_sf_rank_ecr": 40,
+      "fantasypros_sf_rank_min": "28",
+      "fantasypros_sf_rank_max": "50",
+      "fantasypros_sf_rank_ave": "39.00",
+      "fantasypros_sf_tier": 5,
+      "fantasypros_id": 28126,
+      "ktc_sf_value": 2466,
+      "ktc_sf_overall_rank": -6,
+      "ktc_sf_rookie_rank": 27,
+      "ktc_sf_pos_rank": 85,
+      "ktc_oneqb_value": 3025,
+      "dp_sf_ecr": 188.0,
+      "dp_sf_value": 127,
+      "dp_oneqb_ecr": 182.9,
+      "dp_pos_ecr": 76.8,
+      "dp_sf_rookie_rank": 26,
+      "dp_age": null
+    },
+    "brycelance": {
+      "fantasypros_sf_rookie_rank": 41,
+      "fantasypros_sf_rank_ecr": 41,
+      "fantasypros_sf_rank_min": "31",
+      "fantasypros_sf_rank_max": "47",
+      "fantasypros_sf_rank_ave": "40.25",
+      "fantasypros_sf_tier": 6,
+      "fantasypros_id": 28129,
+      "ktc_sf_value": 1691,
+      "ktc_sf_overall_rank": 51,
+      "ktc_sf_rookie_rank": 40,
+      "ktc_sf_pos_rank": 114,
+      "ktc_oneqb_value": 1846,
+      "dp_sf_ecr": 213.4,
+      "dp_sf_value": 70,
+      "dp_oneqb_ecr": 207.7,
+      "dp_pos_ecr": 89.4,
+      "dp_sf_rookie_rank": 33,
+      "dp_age": null
+    },
+    "justinjoly": {
+      "fantasypros_sf_rookie_rank": 42,
+      "fantasypros_sf_rank_ecr": 42,
+      "fantasypros_sf_rank_min": "33",
+      "fantasypros_sf_rank_max": "48",
+      "fantasypros_sf_rank_ave": "42.88",
+      "fantasypros_sf_tier": 6,
+      "fantasypros_id": 28079,
+      "ktc_sf_value": 1858,
+      "ktc_sf_overall_rank": 18,
+      "ktc_sf_rookie_rank": 38,
+      "ktc_sf_pos_rank": 44,
+      "ktc_oneqb_value": 1932,
+      "dp_sf_ecr": 221.0,
+      "dp_sf_value": 58,
+      "dp_oneqb_ecr": 224.6,
+      "dp_pos_ecr": 39.6,
+      "dp_sf_rookie_rank": 35,
+      "dp_age": null
     },
     "brenenthompson": {
-      "fantasypros_sf_rookie_rank": 46,
-      "fantasypros_sf_rank_ecr": 46,
-      "fantasypros_sf_rank_min": "29",
-      "fantasypros_sf_rank_max": "72",
-      "fantasypros_sf_rank_ave": "49.71",
+      "fantasypros_sf_rookie_rank": 43,
+      "fantasypros_sf_rank_ecr": 43,
+      "fantasypros_sf_rank_min": "35",
+      "fantasypros_sf_rank_max": "50",
+      "fantasypros_sf_rank_ave": "43.13",
       "fantasypros_sf_tier": 6,
       "fantasypros_id": 28133,
-      "ktc_sf_value": 1221,
-      "ktc_sf_overall_rank": 351,
-      "ktc_sf_rookie_rank": 36,
-      "ktc_sf_pos_rank": 146,
-      "ktc_oneqb_value": 1343
-    },
-    "calebdouglas": {
-      "fantasypros_sf_rookie_rank": 47,
-      "fantasypros_sf_rank_ecr": 47,
-      "fantasypros_sf_rank_min": "28",
-      "fantasypros_sf_rank_max": "90",
-      "fantasypros_sf_rank_ave": "50.58",
-      "fantasypros_sf_tier": 6,
-      "fantasypros_id": 28135,
-      "ktc_sf_value": 825,
-      "ktc_sf_overall_rank": 285,
-      "ktc_sf_rookie_rank": 47,
-      "ktc_sf_pos_rank": 174,
-      "ktc_oneqb_value": 904
+      "ktc_sf_value": 1646,
+      "ktc_sf_overall_rank": 25,
+      "ktc_sf_rookie_rank": 41,
+      "ktc_sf_pos_rank": 117,
+      "ktc_oneqb_value": 1855,
+      "dp_sf_ecr": 237.9,
+      "dp_sf_value": 39,
+      "dp_oneqb_ecr": 234.4,
+      "dp_pos_ecr": 98.6,
+      "dp_sf_rookie_rank": 39,
+      "dp_age": null
     },
     "jammiller": {
-      "fantasypros_sf_rookie_rank": 48,
-      "fantasypros_sf_rank_ecr": 48,
+      "fantasypros_sf_rookie_rank": 44,
+      "fantasypros_sf_rank_ecr": 44,
       "fantasypros_sf_rank_min": "33",
-      "fantasypros_sf_rank_max": "86",
-      "fantasypros_sf_rank_ave": "49.62",
+      "fantasypros_sf_rank_max": "53",
+      "fantasypros_sf_rank_ave": "46.38",
       "fantasypros_sf_tier": 6,
       "fantasypros_id": 27326,
-      "ktc_sf_value": 758,
-      "ktc_sf_overall_rank": -34,
-      "ktc_sf_rookie_rank": 50,
-      "ktc_sf_pos_rank": 125,
-      "ktc_oneqb_value": 969
+      "ktc_sf_value": 804,
+      "ktc_sf_overall_rank": -2,
+      "ktc_sf_rookie_rank": 57,
+      "ktc_sf_pos_rank": 121,
+      "ktc_oneqb_value": 996,
+      "dp_sf_ecr": 294.0,
+      "dp_sf_value": 10,
+      "dp_oneqb_ecr": 330.2,
+      "dp_pos_ecr": 89.8,
+      "dp_sf_rookie_rank": 57,
+      "dp_age": null
     },
-    "deionburks": {
-      "fantasypros_sf_rookie_rank": 49,
-      "fantasypros_sf_rank_ecr": 49,
-      "fantasypros_sf_rank_min": "31",
-      "fantasypros_sf_rank_max": "70",
-      "fantasypros_sf_rank_ave": "52.97",
+    "kevincolemanjr": {
+      "fantasypros_sf_rookie_rank": 45,
+      "fantasypros_sf_rank_ecr": 45,
+      "fantasypros_sf_rank_min": "38",
+      "fantasypros_sf_rank_max": "60",
+      "fantasypros_sf_rank_ave": "49.50",
       "fantasypros_sf_tier": 6,
-      "fantasypros_id": 27093,
-      "ktc_sf_value": 1005,
-      "ktc_sf_overall_rank": 21,
-      "ktc_sf_rookie_rank": 44,
-      "ktc_sf_pos_rank": 163,
-      "ktc_oneqb_value": 1175
+      "fantasypros_id": 28067,
+      "dp_sf_ecr": 236.1,
+      "dp_sf_value": 41,
+      "dp_oneqb_ecr": 232.1,
+      "dp_pos_ecr": 98.1,
+      "dp_sf_rookie_rank": 38,
+      "dp_age": null
+    },
+    "taylengreen": {
+      "fantasypros_sf_rookie_rank": 46,
+      "fantasypros_sf_rank_ecr": 46,
+      "fantasypros_sf_rank_min": "40",
+      "fantasypros_sf_rank_max": "50",
+      "fantasypros_sf_rank_ave": "43.43",
+      "fantasypros_sf_tier": 6,
+      "fantasypros_id": 28094,
+      "ktc_sf_value": 1155,
+      "ktc_sf_overall_rank": 25,
+      "ktc_sf_rookie_rank": 49,
+      "ktc_sf_pos_rank": 60,
+      "ktc_oneqb_value": 168,
+      "dp_sf_ecr": 256.3,
+      "dp_sf_value": 25,
+      "dp_oneqb_ecr": 273.3,
+      "dp_pos_ecr": 46.1,
+      "dp_sf_rookie_rank": 43,
+      "dp_age": null
+    },
+    "marlinklein": {
+      "fantasypros_sf_rookie_rank": 47,
+      "fantasypros_sf_rank_ecr": 47,
+      "fantasypros_sf_rank_min": "39",
+      "fantasypros_sf_rank_max": "72",
+      "fantasypros_sf_rank_ave": "51.38",
+      "fantasypros_sf_tier": 6,
+      "fantasypros_id": 28157,
+      "dp_sf_ecr": 280.9,
+      "dp_sf_value": 14,
+      "dp_oneqb_ecr": 308.3,
+      "dp_pos_ecr": 48.7,
+      "dp_sf_rookie_rank": 50,
+      "dp_age": null
     },
     "samroush": {
-      "fantasypros_sf_rookie_rank": 50,
-      "fantasypros_sf_rank_ecr": 50,
-      "fantasypros_sf_rank_min": "30",
-      "fantasypros_sf_rank_max": "80",
-      "fantasypros_sf_rank_ave": "51.92",
+      "fantasypros_sf_rookie_rank": 48,
+      "fantasypros_sf_rank_ecr": 48,
+      "fantasypros_sf_rank_min": "44",
+      "fantasypros_sf_rank_max": "58",
+      "fantasypros_sf_rank_ave": "52.25",
       "fantasypros_sf_tier": 6,
       "fantasypros_id": 28161,
-      "ktc_sf_value": 368,
-      "ktc_sf_overall_rank": 184,
-      "ktc_sf_rookie_rank": 55,
-      "ktc_sf_pos_rank": 83,
-      "ktc_oneqb_value": 411
+      "ktc_sf_value": 850,
+      "ktc_sf_overall_rank": -5,
+      "ktc_sf_rookie_rank": 56,
+      "ktc_sf_pos_rank": 68,
+      "ktc_oneqb_value": 969,
+      "dp_sf_ecr": 264.1,
+      "dp_sf_value": 21,
+      "dp_oneqb_ecr": 274.4,
+      "dp_pos_ecr": 46.3,
+      "dp_sf_rookie_rank": 46,
+      "dp_age": null
     },
-    "jaydnott": {
+    "jmaritaylor": {
+      "fantasypros_sf_rookie_rank": 49,
+      "fantasypros_sf_rank_ecr": 49,
+      "fantasypros_sf_rank_min": "45",
+      "fantasypros_sf_rank_max": "61",
+      "fantasypros_sf_rank_ave": "52.63",
+      "fantasypros_sf_tier": 6,
+      "fantasypros_id": 28109,
+      "ktc_sf_value": 953,
+      "ktc_sf_overall_rank": 11,
+      "ktc_sf_rookie_rank": 52,
+      "ktc_sf_pos_rank": 112,
+      "ktc_oneqb_value": 1129,
+      "dp_sf_ecr": 297.6,
+      "dp_sf_value": 10,
+      "dp_oneqb_ecr": 336.6,
+      "dp_pos_ecr": 92.0,
+      "dp_sf_rookie_rank": 58,
+      "dp_age": null
+    },
+    "garrettnussmeier": {
+      "fantasypros_sf_rookie_rank": 50,
+      "fantasypros_sf_rank_ecr": 50,
+      "fantasypros_sf_rank_min": "42",
+      "fantasypros_sf_rank_max": "57",
+      "fantasypros_sf_rank_ave": "47.86",
+      "fantasypros_sf_tier": 6,
+      "fantasypros_id": 22998,
+      "ktc_sf_value": 1548,
+      "ktc_sf_overall_rank": -10,
+      "ktc_sf_rookie_rank": 44,
+      "ktc_sf_pos_rank": 50,
+      "ktc_oneqb_value": 1536,
+      "dp_sf_ecr": 249.7,
+      "dp_sf_value": 30,
+      "dp_oneqb_ecr": 298.3,
+      "dp_pos_ecr": 52.2,
+      "dp_sf_rookie_rank": 41,
+      "dp_age": null
+    },
+    "zavionthomas": {
+      "fantasypros_sf_rookie_rank": 51,
+      "fantasypros_sf_rank_ecr": 51,
+      "fantasypros_sf_rank_min": "35",
+      "fantasypros_sf_rank_max": "80",
+      "fantasypros_sf_rank_ave": "55.13",
+      "fantasypros_sf_tier": 6,
+      "fantasypros_id": 28132,
+      "ktc_sf_value": 1599,
+      "ktc_sf_overall_rank": 36,
+      "ktc_sf_rookie_rank": 42,
+      "ktc_sf_pos_rank": 121,
+      "ktc_oneqb_value": 1731,
+      "dp_sf_ecr": 303.2,
+      "dp_sf_value": 8,
+      "dp_oneqb_ecr": 344.8,
+      "dp_pos_ecr": 125.3,
+      "dp_sf_rookie_rank": 63,
+      "dp_age": null
+    },
+    "calebdouglas": {
       "fantasypros_sf_rookie_rank": 52,
       "fantasypros_sf_rank_ecr": 52,
-      "fantasypros_sf_rank_min": "36",
-      "fantasypros_sf_rank_max": "103",
-      "fantasypros_sf_rank_ave": "52.76",
-      "fantasypros_sf_tier": 6,
-      "fantasypros_id": 25394
+      "fantasypros_sf_rank_min": "32",
+      "fantasypros_sf_rank_max": "67",
+      "fantasypros_sf_rank_ave": "58.00",
+      "fantasypros_sf_tier": 7,
+      "fantasypros_id": 28135,
+      "ktc_sf_value": 1795,
+      "ktc_sf_overall_rank": 69,
+      "ktc_sf_rookie_rank": 39,
+      "ktc_sf_pos_rank": 108,
+      "ktc_oneqb_value": 1932,
+      "dp_sf_ecr": 259.2,
+      "dp_sf_value": 24,
+      "dp_oneqb_ecr": 272.0,
+      "dp_pos_ecr": 109.9,
+      "dp_sf_rookie_rank": 45,
+      "dp_age": null
     },
     "tannerkoziol": {
       "fantasypros_sf_rookie_rank": 53,
       "fantasypros_sf_rank_ecr": 53,
-      "fantasypros_sf_rank_min": "36",
-      "fantasypros_sf_rank_max": "103",
-      "fantasypros_sf_rank_ave": "57.82",
-      "fantasypros_sf_tier": 6,
-      "fantasypros_id": 27499
+      "fantasypros_sf_rank_min": "37",
+      "fantasypros_sf_rank_max": "90",
+      "fantasypros_sf_rank_ave": "59.38",
+      "fantasypros_sf_tier": 7,
+      "fantasypros_id": 27499,
+      "dp_sf_ecr": 282.1,
+      "dp_sf_value": 14,
+      "dp_oneqb_ecr": 310.7,
+      "dp_pos_ecr": 53.0,
+      "dp_sf_rookie_rank": 51,
+      "dp_age": null
     },
     "romanhemby": {
-      "fantasypros_sf_rookie_rank": 56,
-      "fantasypros_sf_rank_ecr": 56,
-      "fantasypros_sf_rank_min": "29",
-      "fantasypros_sf_rank_max": "97",
-      "fantasypros_sf_rank_ave": "54.00",
+      "fantasypros_sf_rookie_rank": 54,
+      "fantasypros_sf_rank_ecr": 54,
+      "fantasypros_sf_rank_min": "46",
+      "fantasypros_sf_rank_max": "63",
+      "fantasypros_sf_rank_ave": "54.86",
       "fantasypros_sf_tier": 7,
-      "fantasypros_id": 25387
+      "fantasypros_id": 25387,
+      "dp_sf_ecr": 292.7,
+      "dp_sf_value": 11,
+      "dp_oneqb_ecr": 315.2,
+      "dp_pos_ecr": 94.7,
+      "dp_sf_rookie_rank": 56,
+      "dp_age": null
     },
     "barionbrown": {
+      "fantasypros_sf_rookie_rank": 55,
+      "fantasypros_sf_rank_ecr": 55,
+      "fantasypros_sf_rank_min": "49",
+      "fantasypros_sf_rank_max": "71",
+      "fantasypros_sf_rank_ave": "61.13",
+      "fantasypros_sf_tier": 7,
+      "fantasypros_id": 25416,
+      "ktc_sf_value": 783,
+      "ktc_sf_overall_rank": 7,
+      "ktc_sf_rookie_rank": 58,
+      "ktc_sf_pos_rank": 177,
+      "ktc_oneqb_value": 1015,
+      "dp_sf_ecr": 318.2,
+      "dp_sf_value": 6,
+      "dp_oneqb_ecr": 320.6,
+      "dp_pos_ecr": 133.4,
+      "dp_sf_rookie_rank": 68,
+      "dp_age": null
+    },
+    "jaydnott": {
+      "fantasypros_sf_rookie_rank": 56,
+      "fantasypros_sf_rank_ecr": 56,
+      "fantasypros_sf_rank_min": "46",
+      "fantasypros_sf_rank_max": "69",
+      "fantasypros_sf_rank_ave": "56.00",
+      "fantasypros_sf_tier": 7,
+      "fantasypros_id": 25394,
+      "dp_sf_ecr": 339.8,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 339.8,
+      "dp_pos_ecr": 110.6,
+      "dp_sf_rookie_rank": 87,
+      "dp_age": null
+    },
+    "deionburks": {
       "fantasypros_sf_rookie_rank": 57,
       "fantasypros_sf_rank_ecr": 57,
-      "fantasypros_sf_rank_min": "44",
-      "fantasypros_sf_rank_max": "94",
-      "fantasypros_sf_rank_ave": "61.53",
+      "fantasypros_sf_rank_min": "52",
+      "fantasypros_sf_rank_max": "70",
+      "fantasypros_sf_rank_ave": "62.88",
       "fantasypros_sf_tier": 7,
-      "fantasypros_id": 25416
-    },
-    "jackendries": {
-      "fantasypros_sf_rookie_rank": 58,
-      "fantasypros_sf_rank_ecr": 58,
-      "fantasypros_sf_rank_min": "37",
-      "fantasypros_sf_rank_max": "96",
-      "fantasypros_sf_rank_ave": "60.45",
-      "fantasypros_sf_tier": 7,
-      "fantasypros_id": 27501,
-      "ktc_sf_value": 563,
-      "ktc_sf_overall_rank": -15,
-      "ktc_sf_rookie_rank": 54,
-      "ktc_sf_pos_rank": 70,
-      "ktc_oneqb_value": 821
-    },
-    "marlinklein": {
-      "fantasypros_sf_rookie_rank": 59,
-      "fantasypros_sf_rank_ecr": 59,
-      "fantasypros_sf_rank_min": "33",
-      "fantasypros_sf_rank_max": "117",
-      "fantasypros_sf_rank_ave": "54.59",
-      "fantasypros_sf_tier": 7,
-      "fantasypros_id": 28157
+      "fantasypros_id": 27093,
+      "ktc_sf_value": 1190,
+      "ktc_sf_overall_rank": 2,
+      "ktc_sf_rookie_rank": 46,
+      "ktc_sf_pos_rank": 149,
+      "ktc_oneqb_value": 1293,
+      "dp_sf_ecr": 279.2,
+      "dp_sf_value": 15,
+      "dp_oneqb_ecr": 303.8,
+      "dp_pos_ecr": 122.4,
+      "dp_sf_rookie_rank": 49,
+      "dp_age": null
     },
     "cyrusallen": {
-      "fantasypros_sf_rookie_rank": 60,
-      "fantasypros_sf_rank_ecr": 60,
-      "fantasypros_sf_rank_min": "41",
-      "fantasypros_sf_rank_max": "87",
-      "fantasypros_sf_rank_ave": "62.66",
+      "fantasypros_sf_rookie_rank": 58,
+      "fantasypros_sf_rank_ecr": 58,
+      "fantasypros_sf_rank_min": "44",
+      "fantasypros_sf_rank_max": "77",
+      "fantasypros_sf_rank_ave": "63.25",
       "fantasypros_sf_tier": 7,
-      "fantasypros_id": 28424
-    },
-    "reggievirgil": {
-      "fantasypros_sf_rookie_rank": 61,
-      "fantasypros_sf_rank_ecr": 61,
-      "fantasypros_sf_rank_min": "39",
-      "fantasypros_sf_rank_max": "80",
-      "fantasypros_sf_rank_ave": "62.78",
-      "fantasypros_sf_tier": 7,
-      "fantasypros_id": 28141
+      "fantasypros_id": 28424,
+      "ktc_sf_value": 1063,
+      "ktc_sf_overall_rank": 43,
+      "ktc_sf_rookie_rank": 50,
+      "ktc_sf_pos_rank": 158,
+      "ktc_oneqb_value": 1161,
+      "dp_sf_ecr": 299.3,
+      "dp_sf_value": 9,
+      "dp_oneqb_ecr": 333.0,
+      "dp_pos_ecr": 124.5,
+      "dp_sf_rookie_rank": 59,
+      "dp_age": null
     },
     "roberthenryjr": {
+      "fantasypros_sf_rookie_rank": 59,
+      "fantasypros_sf_rank_ecr": 59,
+      "fantasypros_sf_rank_min": "51",
+      "fantasypros_sf_rank_max": "73",
+      "fantasypros_sf_rank_ave": "58.86",
+      "fantasypros_sf_tier": 7,
+      "fantasypros_id": 28404,
+      "dp_sf_ecr": 302.8,
+      "dp_sf_value": 9,
+      "dp_oneqb_ecr": 309.4,
+      "dp_pos_ecr": 99.0,
+      "dp_sf_rookie_rank": 62,
+      "dp_age": null
+    },
+    "cjdaniels": {
+      "fantasypros_sf_rookie_rank": 60,
+      "fantasypros_sf_rank_ecr": 60,
+      "fantasypros_sf_rank_min": "55",
+      "fantasypros_sf_rank_max": "75",
+      "fantasypros_sf_rank_ave": "65.13",
+      "fantasypros_sf_tier": 7,
+      "fantasypros_id": 28125,
+      "ktc_sf_value": 1048,
+      "ktc_sf_overall_rank": 28,
+      "ktc_sf_rookie_rank": 51,
+      "ktc_sf_pos_rank": 159,
+      "ktc_oneqb_value": 1270,
+      "dp_sf_ecr": 291.5,
+      "dp_sf_value": 11,
+      "dp_oneqb_ecr": 317.7,
+      "dp_pos_ecr": 125.4,
+      "dp_sf_rookie_rank": 53,
+      "dp_age": null
+    },
+    "malikbenson": {
+      "fantasypros_sf_rookie_rank": 61,
+      "fantasypros_sf_rank_ecr": 61,
+      "fantasypros_sf_rank_min": "52",
+      "fantasypros_sf_rank_max": "76",
+      "fantasypros_sf_rank_ave": "65.75",
+      "fantasypros_sf_tier": 7,
+      "fantasypros_id": 26012,
+      "dp_sf_ecr": 290.4,
+      "dp_sf_value": 11,
+      "dp_oneqb_ecr": 307.4,
+      "dp_pos_ecr": 121.2,
+      "dp_sf_rookie_rank": 52,
+      "dp_age": null
+    },
+    "reggievirgil": {
       "fantasypros_sf_rookie_rank": 62,
       "fantasypros_sf_rank_ecr": 62,
-      "fantasypros_sf_rank_min": "43",
-      "fantasypros_sf_rank_max": "73",
-      "fantasypros_sf_rank_ave": "57.79",
+      "fantasypros_sf_rank_min": "57",
+      "fantasypros_sf_rank_max": "78",
+      "fantasypros_sf_rank_ave": "68.38",
       "fantasypros_sf_tier": 7,
-      "fantasypros_id": 28404
+      "fantasypros_id": 28141,
+      "dp_sf_ecr": 342.0,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 332.8,
+      "dp_pos_ecr": 145.6,
+      "dp_sf_rookie_rank": 91,
+      "dp_age": null
     },
-    "zavionthomas": {
+    "jackendries": {
       "fantasypros_sf_rookie_rank": 63,
       "fantasypros_sf_rank_ecr": 63,
-      "fantasypros_sf_rank_min": "29",
-      "fantasypros_sf_rank_max": "102",
-      "fantasypros_sf_rank_ave": "60.93",
+      "fantasypros_sf_rank_min": "55",
+      "fantasypros_sf_rank_max": "73",
+      "fantasypros_sf_rank_ave": "67.29",
       "fantasypros_sf_tier": 7,
-      "fantasypros_id": 28132,
-      "ktc_sf_value": 1157,
-      "ktc_sf_overall_rank": 332,
-      "ktc_sf_rookie_rank": 40,
-      "ktc_sf_pos_rank": 151,
-      "ktc_oneqb_value": 1205
+      "fantasypros_id": 27501,
+      "ktc_sf_value": 703,
+      "ktc_sf_overall_rank": 0,
+      "ktc_sf_rookie_rank": 59,
+      "ktc_sf_pos_rank": 70,
+      "ktc_oneqb_value": 823,
+      "dp_sf_ecr": 291.9,
+      "dp_sf_value": 11,
+      "dp_oneqb_ecr": 322.7,
+      "dp_pos_ecr": 56.6,
+      "dp_sf_rookie_rank": 54,
+      "dp_age": null
     },
-    "joeroyer": {
+    "deanconnors": {
       "fantasypros_sf_rookie_rank": 64,
       "fantasypros_sf_rank_ecr": 64,
-      "fantasypros_sf_rank_min": "38",
-      "fantasypros_sf_rank_max": "105",
-      "fantasypros_sf_rank_ave": "67.25",
+      "fantasypros_sf_rank_min": "55",
+      "fantasypros_sf_rank_max": "87",
+      "fantasypros_sf_rank_ave": "67.71",
       "fantasypros_sf_tier": 7,
-      "fantasypros_id": 27312
-    },
-    "michaeltrigg": {
-      "fantasypros_sf_rookie_rank": 65,
-      "fantasypros_sf_rank_ecr": 65,
-      "fantasypros_sf_rank_min": "34",
-      "fantasypros_sf_rank_max": "98",
-      "fantasypros_sf_rank_ave": "59.21",
-      "fantasypros_sf_tier": 7,
-      "fantasypros_id": 23167,
-      "ktc_sf_value": 1188,
-      "ktc_sf_overall_rank": -2,
-      "ktc_sf_rookie_rank": 38,
-      "ktc_sf_pos_rank": 57,
-      "ktc_oneqb_value": 1562
+      "fantasypros_id": 28113,
+      "dp_sf_ecr": 331.2,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 331.2,
+      "dp_pos_ecr": 102.0,
+      "dp_sf_rookie_rank": 75,
+      "dp_age": null
     },
     "joshcameron": {
+      "fantasypros_sf_rookie_rank": 65,
+      "fantasypros_sf_rank_ecr": 65,
+      "fantasypros_sf_rank_min": "58",
+      "fantasypros_sf_rank_max": "82",
+      "fantasypros_sf_rank_ave": "69.29",
+      "fantasypros_sf_tier": 7,
+      "fantasypros_id": 28137,
+      "dp_sf_ecr": 305.2,
+      "dp_sf_value": 8,
+      "dp_oneqb_ecr": 340.4,
+      "dp_pos_ecr": 126.2,
+      "dp_sf_rookie_rank": 65,
+      "dp_age": null
+    },
+    "terionstewart": {
       "fantasypros_sf_rookie_rank": 66,
       "fantasypros_sf_rank_ecr": 66,
       "fantasypros_sf_rank_min": "51",
-      "fantasypros_sf_rank_max": "97",
-      "fantasypros_sf_rank_ave": "69.88",
+      "fantasypros_sf_rank_max": "66",
+      "fantasypros_sf_rank_ave": "57.80",
       "fantasypros_sf_tier": 7,
-      "fantasypros_id": 28137
+      "fantasypros_id": 28111,
+      "ktc_sf_value": 495,
+      "ktc_sf_overall_rank": 30,
+      "ktc_sf_rookie_rank": 60,
+      "ktc_sf_pos_rank": 131,
+      "ktc_oneqb_value": 853,
+      "dp_sf_ecr": 325.0,
+      "dp_sf_value": 5,
+      "dp_oneqb_ecr": 328.7,
+      "dp_pos_ecr": 106.2,
+      "dp_sf_rookie_rank": 71,
+      "dp_age": null
     },
-    "ericmcalister": {
+    "nateboerkircher": {
       "fantasypros_sf_rookie_rank": 67,
       "fantasypros_sf_rank_ecr": 67,
-      "fantasypros_sf_rank_min": "46",
-      "fantasypros_sf_rank_max": "103",
-      "fantasypros_sf_rank_ave": "65.21",
+      "fantasypros_sf_rank_min": "53",
+      "fantasypros_sf_rank_max": "86",
+      "fantasypros_sf_rank_ave": "66.33",
       "fantasypros_sf_tier": 7,
-      "fantasypros_id": 28134
+      "fantasypros_id": 28427,
+      "dp_sf_ecr": 327.6,
+      "dp_sf_value": 5,
+      "dp_oneqb_ecr": 330.2,
+      "dp_pos_ecr": 59.2,
+      "dp_sf_rookie_rank": 73,
+      "dp_age": null
     },
     "desmondreid": {
       "fantasypros_sf_rookie_rank": 68,
       "fantasypros_sf_rank_ecr": 68,
-      "fantasypros_sf_rank_min": "51",
-      "fantasypros_sf_rank_max": "88",
-      "fantasypros_sf_rank_ave": "65.33",
+      "fantasypros_sf_rank_min": "57",
+      "fantasypros_sf_rank_max": "78",
+      "fantasypros_sf_rank_ave": "66.50",
       "fantasypros_sf_tier": 7,
-      "fantasypros_id": 28110
-    },
-    "malikbenson": {
-      "fantasypros_sf_rookie_rank": 69,
-      "fantasypros_sf_rank_ecr": 69,
-      "fantasypros_sf_rank_min": "49",
-      "fantasypros_sf_rank_max": "94",
-      "fantasypros_sf_rank_ave": "67.92",
-      "fantasypros_sf_tier": 7,
-      "fantasypros_id": 26012
-    },
-    "diegopavia": {
-      "fantasypros_sf_rookie_rank": 70,
-      "fantasypros_sf_rank_ecr": 70,
-      "fantasypros_sf_rank_min": "42",
-      "fantasypros_sf_rank_max": "94",
-      "fantasypros_sf_rank_ave": "64.19",
-      "fantasypros_sf_tier": 7,
-      "fantasypros_id": 28082
-    },
-    "terionstewart": {
-      "fantasypros_sf_rookie_rank": 71,
-      "fantasypros_sf_rank_ecr": 71,
-      "fantasypros_sf_rank_min": "51",
-      "fantasypros_sf_rank_max": "92",
-      "fantasypros_sf_rank_ave": "64.29",
-      "fantasypros_sf_tier": 7,
-      "fantasypros_id": 28111
-    },
-    "kendricklaw": {
-      "fantasypros_sf_rookie_rank": 72,
-      "fantasypros_sf_rank_ecr": 72,
-      "fantasypros_sf_rank_min": "52",
-      "fantasypros_sf_rank_max": "100",
-      "fantasypros_sf_rank_ave": "73.43",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 26044
-    },
-    "deanconnors": {
-      "fantasypros_sf_rookie_rank": 73,
-      "fantasypros_sf_rank_ecr": 73,
-      "fantasypros_sf_rank_min": "52",
-      "fantasypros_sf_rank_max": "81",
-      "fantasypros_sf_rank_ave": "65.95",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28113
-    },
-    "noahwhittington": {
-      "fantasypros_sf_rookie_rank": 74,
-      "fantasypros_sf_rank_ecr": 74,
-      "fantasypros_sf_rank_min": "54",
-      "fantasypros_sf_rank_max": "95",
-      "fantasypros_sf_rank_ave": "68.45",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28115
-    },
-    "sawyerrobertson": {
-      "fantasypros_sf_rookie_rank": 75,
-      "fantasypros_sf_rank_ecr": 75,
-      "fantasypros_sf_rank_min": "43",
-      "fantasypros_sf_rank_max": "91",
-      "fantasypros_sf_rank_ave": "63.94",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 23035
-    },
-    "lewisbond": {
-      "fantasypros_sf_rookie_rank": 76,
-      "fantasypros_sf_rank_ecr": 76,
-      "fantasypros_sf_rank_min": "60",
-      "fantasypros_sf_rank_max": "95",
-      "fantasypros_sf_rank_ave": "79.13",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28144
-    },
-    "ericrivers": {
-      "fantasypros_sf_rookie_rank": 77,
-      "fantasypros_sf_rank_ecr": 77,
-      "fantasypros_sf_rank_min": "67",
-      "fantasypros_sf_rank_max": "98",
-      "fantasypros_sf_rank_ave": "75.62",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28128
-    },
-    "tyrenmontgomery": {
-      "fantasypros_sf_rookie_rank": 78,
-      "fantasypros_sf_rank_ecr": 78,
-      "fantasypros_sf_rank_min": "49",
-      "fantasypros_sf_rank_max": "98",
-      "fantasypros_sf_rank_ave": "78.81",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28423
-    },
-    "matthewhibner": {
-      "fantasypros_sf_rookie_rank": 79,
-      "fantasypros_sf_rank_ecr": 79,
-      "fantasypros_sf_rank_min": "35",
-      "fantasypros_sf_rank_max": "81",
-      "fantasypros_sf_rank_ave": "60.80",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28168
-    },
-    "lukealtmyer": {
-      "fantasypros_sf_rookie_rank": 81,
-      "fantasypros_sf_rank_ecr": 81,
-      "fantasypros_sf_rank_min": "44",
-      "fantasypros_sf_rank_max": "101",
-      "fantasypros_sf_rank_ave": "80.50",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28093
-    },
-    "jalondaniels": {
-      "fantasypros_sf_rookie_rank": 82,
-      "fantasypros_sf_rank_ecr": 82,
-      "fantasypros_sf_rank_min": "56",
-      "fantasypros_sf_rank_max": "99",
-      "fantasypros_sf_rank_ave": "78.00",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 26060
-    },
-    "aaronanderson": {
-      "fantasypros_sf_rookie_rank": 83,
-      "fantasypros_sf_rank_ecr": 83,
-      "fantasypros_sf_rank_min": "66",
-      "fantasypros_sf_rank_max": "99",
-      "fantasypros_sf_rank_ave": "81.05",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 27500,
-      "sleeper_sf_rookie_rank": 111,
-      "sleeper_overall_rank": 999,
-      "sleeper_id": "13309"
-    },
-    "willkacmarek": {
-      "fantasypros_sf_rookie_rank": 84,
-      "fantasypros_sf_rank_ecr": 84,
-      "fantasypros_sf_rank_min": "40",
-      "fantasypros_sf_rank_max": "102",
-      "fantasypros_sf_rank_ave": "73.59",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28403
-    },
-    "dallenbentley": {
-      "fantasypros_sf_rookie_rank": 85,
-      "fantasypros_sf_rank_ecr": 85,
-      "fantasypros_sf_rank_min": "48",
-      "fantasypros_sf_rank_max": "127",
-      "fantasypros_sf_rank_ave": "79.53",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28352
+      "fantasypros_id": 28110,
+      "dp_sf_ecr": 345.7,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 345.7,
+      "dp_pos_ecr": 116.5,
+      "dp_sf_rookie_rank": 96,
+      "dp_age": null
     },
     "colbieyoung": {
-      "fantasypros_sf_rookie_rank": 86,
-      "fantasypros_sf_rank_ecr": 86,
-      "fantasypros_sf_rank_min": "50",
-      "fantasypros_sf_rank_max": "94",
-      "fantasypros_sf_rank_ave": "70.56",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 26037
+      "fantasypros_sf_rookie_rank": 69,
+      "fantasypros_sf_rank_ecr": 69,
+      "fantasypros_sf_rank_min": "60",
+      "fantasypros_sf_rank_max": "88",
+      "fantasypros_sf_rank_ave": "75.75",
+      "fantasypros_sf_tier": 7,
+      "fantasypros_id": 26037,
+      "dp_sf_ecr": 343.0,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 327.9,
+      "dp_pos_ecr": 140.7,
+      "dp_sf_rookie_rank": 93,
+      "dp_age": null
     },
-    "nateboerkircher": {
-      "fantasypros_sf_rookie_rank": 87,
-      "fantasypros_sf_rank_ecr": 87,
-      "fantasypros_sf_rank_min": "48",
-      "fantasypros_sf_rank_max": "101",
-      "fantasypros_sf_rank_ave": "67.80",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28427
+    "jamalhaynes": {
+      "fantasypros_sf_rookie_rank": 70,
+      "fantasypros_sf_rank_ecr": 70,
+      "fantasypros_sf_rank_min": "33",
+      "fantasypros_sf_rank_max": "87",
+      "fantasypros_sf_rank_ave": "61.80",
+      "fantasypros_sf_tier": 7,
+      "fantasypros_id": 27328
     },
-    "danekey": {
-      "fantasypros_sf_rookie_rank": 88,
-      "fantasypros_sf_rank_ecr": 88,
-      "fantasypros_sf_rank_min": "59",
-      "fantasypros_sf_rank_max": "114",
+    "noahwhittington": {
+      "fantasypros_sf_rookie_rank": 71,
+      "fantasypros_sf_rank_ecr": 71,
+      "fantasypros_sf_rank_min": "55",
+      "fantasypros_sf_rank_max": "73",
+      "fantasypros_sf_rank_ave": "62.40",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 28115,
+      "dp_sf_ecr": 345.2,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 345.2,
+      "dp_pos_ecr": 116.0,
+      "dp_sf_rookie_rank": 95,
+      "dp_age": null
+    },
+    "cjdonaldson": {
+      "fantasypros_sf_rookie_rank": 72,
+      "fantasypros_sf_rank_ecr": 72,
+      "fantasypros_sf_rank_min": "63",
+      "fantasypros_sf_rank_max": "77",
+      "fantasypros_sf_rank_ave": "69.33",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 25396,
+      "dp_sf_ecr": 348.7,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 348.7,
+      "dp_pos_ecr": 119.5,
+      "dp_sf_rookie_rank": 106,
+      "dp_age": null
+    },
+    "kendricklaw": {
+      "fantasypros_sf_rookie_rank": 73,
+      "fantasypros_sf_rank_ecr": 73,
+      "fantasypros_sf_rank_min": "61",
+      "fantasypros_sf_rank_max": "84",
+      "fantasypros_sf_rank_ave": "74.86",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 26044,
+      "dp_sf_ecr": 320.0,
+      "dp_sf_value": 6,
+      "dp_oneqb_ecr": 321.9,
+      "dp_pos_ecr": 134.7,
+      "dp_sf_rookie_rank": 69,
+      "dp_age": null
+    },
+    "jeffcaldwell": {
+      "fantasypros_sf_rookie_rank": 74,
+      "fantasypros_sf_rank_ecr": 74,
+      "fantasypros_sf_rank_min": "69",
+      "fantasypros_sf_rank_max": "83",
+      "fantasypros_sf_rank_ave": "76.14",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 28425,
+      "dp_sf_ecr": 322.0,
+      "dp_sf_value": 5,
+      "dp_oneqb_ecr": 321.2,
+      "dp_pos_ecr": 134.0,
+      "dp_sf_rookie_rank": 70,
+      "dp_age": null
+    },
+    "chiptrayanum": {
+      "fantasypros_sf_rookie_rank": 75,
+      "fantasypros_sf_rank_ecr": 75,
+      "fantasypros_sf_rank_min": "62",
+      "fantasypros_sf_rank_max": "79",
+      "fantasypros_sf_rank_ave": "68.00",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 28114,
+      "dp_sf_ecr": 346.2,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 346.2,
+      "dp_pos_ecr": 117.0,
+      "dp_sf_rookie_rank": 100,
+      "dp_age": null
+    },
+    "brendansorsby": {
+      "fantasypros_sf_rookie_rank": 76,
+      "fantasypros_sf_rank_ecr": 76,
+      "fantasypros_sf_rank_min": "43",
+      "fantasypros_sf_rank_max": "54",
+      "fantasypros_sf_rank_ave": "49.00",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 28083,
+      "ktc_sf_value": 493,
+      "ktc_sf_overall_rank": 43,
+      "ktc_sf_rookie_rank": 61,
+      "ktc_sf_pos_rank": 72,
+      "ktc_oneqb_value": 123
+    },
+    "diegopavia": {
+      "fantasypros_sf_rookie_rank": 78,
+      "fantasypros_sf_rank_ecr": 78,
+      "fantasypros_sf_rank_min": "43",
+      "fantasypros_sf_rank_max": "90",
+      "fantasypros_sf_rank_ave": "71.00",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 28082
+    },
+    "ericriversjr": {
+      "fantasypros_sf_rookie_rank": 79,
+      "fantasypros_sf_rank_ecr": 79,
+      "fantasypros_sf_rank_min": "75",
+      "fantasypros_sf_rank_max": "84",
+      "fantasypros_sf_rank_ave": "80.00",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 28128,
+      "dp_sf_ecr": 315.5,
+      "dp_sf_value": 6,
+      "dp_oneqb_ecr": 326.5,
+      "dp_pos_ecr": 133.8,
+      "dp_sf_rookie_rank": 66,
+      "dp_age": null
+    },
+    "michaeltrigg": {
+      "fantasypros_sf_rookie_rank": 80,
+      "fantasypros_sf_rank_ecr": 80,
+      "fantasypros_sf_rank_min": "68",
+      "fantasypros_sf_rank_max": "96",
       "fantasypros_sf_rank_ave": "78.00",
       "fantasypros_sf_tier": 8,
-      "fantasypros_id": 26015
+      "fantasypros_id": 23167,
+      "ktc_sf_value": 1174,
+      "ktc_sf_overall_rank": -1,
+      "ktc_sf_rookie_rank": 48,
+      "ktc_sf_pos_rank": 57,
+      "ktc_oneqb_value": 1491,
+      "dp_sf_ecr": 300.8,
+      "dp_sf_value": 9,
+      "dp_oneqb_ecr": 331.7,
+      "dp_pos_ecr": 61.2,
+      "dp_sf_rookie_rank": 61,
+      "dp_age": null
+    },
+    "tyrenmontgomery": {
+      "fantasypros_sf_rookie_rank": 81,
+      "fantasypros_sf_rank_ecr": 81,
+      "fantasypros_sf_rank_min": "74",
+      "fantasypros_sf_rank_max": "87",
+      "fantasypros_sf_rank_ave": "78.20",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 28423,
+      "dp_sf_ecr": 329.4,
+      "dp_sf_value": 5,
+      "dp_oneqb_ecr": 324.6,
+      "dp_pos_ecr": 137.4,
+      "dp_sf_rookie_rank": 74,
+      "dp_age": null
+    },
+    "tjharden": {
+      "fantasypros_sf_rookie_rank": 82,
+      "fantasypros_sf_rank_ecr": 82,
+      "fantasypros_sf_rank_min": "55",
+      "fantasypros_sf_rank_max": "82",
+      "fantasypros_sf_rank_ave": "72.75",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 25992
+    },
+    "kadenwetjen": {
+      "fantasypros_sf_rookie_rank": 83,
+      "fantasypros_sf_rank_ecr": 83,
+      "fantasypros_sf_rank_min": "72",
+      "fantasypros_sf_rank_max": "87",
+      "fantasypros_sf_rank_ave": "80.40",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 28435,
+      "dp_sf_ecr": 332.9,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 332.9,
+      "dp_pos_ecr": 145.7,
+      "dp_sf_rookie_rank": 76,
+      "dp_age": null
     },
     "rahsulfaison": {
-      "fantasypros_sf_rookie_rank": 89,
-      "fantasypros_sf_rank_ecr": 89,
-      "fantasypros_sf_rank_min": "61",
-      "fantasypros_sf_rank_max": "102",
-      "fantasypros_sf_rank_ave": "71.73",
+      "fantasypros_sf_rookie_rank": 84,
+      "fantasypros_sf_rank_ecr": 84,
+      "fantasypros_sf_rank_min": "63",
+      "fantasypros_sf_rank_max": "98",
+      "fantasypros_sf_rank_ave": "80.60",
       "fantasypros_sf_tier": 8,
       "fantasypros_id": 28112
     },
-    "athankaliakmanis": {
+    "lukealtmyer": {
+      "fantasypros_sf_rookie_rank": 85,
+      "fantasypros_sf_rank_ecr": 85,
+      "fantasypros_sf_rank_min": "76",
+      "fantasypros_sf_rank_max": "88",
+      "fantasypros_sf_rank_ave": "81.00",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 28093,
+      "dp_sf_ecr": 369.8,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 358.5,
+      "dp_pos_ecr": 73.5,
+      "dp_sf_rookie_rank": 154,
+      "dp_age": null
+    },
+    "ericmcalister": {
+      "fantasypros_sf_rookie_rank": 86,
+      "fantasypros_sf_rank_ecr": 86,
+      "fantasypros_sf_rank_min": "70",
+      "fantasypros_sf_rank_max": "89",
+      "fantasypros_sf_rank_ave": "81.40",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 28134,
+      "dp_sf_ecr": 318.0,
+      "dp_sf_value": 6,
+      "dp_oneqb_ecr": 302.5,
+      "dp_pos_ecr": 147.8,
+      "dp_sf_rookie_rank": 67,
+      "dp_age": null
+    },
+    "aaronanderson": {
+      "fantasypros_sf_rookie_rank": 87,
+      "fantasypros_sf_rank_ecr": 87,
+      "fantasypros_sf_rank_min": "74",
+      "fantasypros_sf_rank_max": "92",
+      "fantasypros_sf_rank_ave": "84.67",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 27500,
+      "dp_sf_ecr": 305.0,
+      "dp_sf_value": 8,
+      "dp_oneqb_ecr": 304.5,
+      "dp_pos_ecr": 142.4,
+      "dp_sf_rookie_rank": 64,
+      "dp_age": null
+    },
+    "millermoss": {
+      "fantasypros_sf_rookie_rank": 88,
+      "fantasypros_sf_rank_ecr": 88,
+      "fantasypros_sf_rank_min": "65",
+      "fantasypros_sf_rank_max": "89",
+      "fantasypros_sf_rank_ave": "81.60",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 23165
+    },
+    "danekey": {
+      "fantasypros_sf_rookie_rank": 89,
+      "fantasypros_sf_rank_ecr": 89,
+      "fantasypros_sf_rank_min": "73",
+      "fantasypros_sf_rank_max": "94",
+      "fantasypros_sf_rank_ave": "82.40",
+      "fantasypros_sf_tier": 8,
+      "fantasypros_id": 26015,
+      "dp_sf_ecr": 352.2,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 352.2,
+      "dp_pos_ecr": 165.0,
+      "dp_sf_rookie_rank": 117,
+      "dp_age": null
+    },
+    "joeyaguilar": {
       "fantasypros_sf_rookie_rank": 90,
       "fantasypros_sf_rank_ecr": 90,
-      "fantasypros_sf_rank_min": "44",
-      "fantasypros_sf_rank_max": "98",
-      "fantasypros_sf_rank_ave": "71.64",
+      "fantasypros_sf_rank_min": "65",
+      "fantasypros_sf_rank_max": "92",
+      "fantasypros_sf_rank_ave": "78.50",
       "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28098
+      "fantasypros_id": 28299,
+      "dp_sf_ecr": 364.3,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 353.0,
+      "dp_pos_ecr": 68.0,
+      "dp_sf_rookie_rank": 140,
+      "dp_age": null
     },
-    "chiptrayanum": {
+    "joeroyer": {
       "fantasypros_sf_rookie_rank": 91,
       "fantasypros_sf_rank_ecr": 91,
-      "fantasypros_sf_rank_min": "63",
-      "fantasypros_sf_rank_max": "91",
-      "fantasypros_sf_rank_ave": "76.40",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28114
+      "fantasypros_sf_rank_min": "70",
+      "fantasypros_sf_rank_max": "96",
+      "fantasypros_sf_rank_ave": "85.00",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 27312,
+      "dp_sf_ecr": 325.0,
+      "dp_sf_value": 5,
+      "dp_oneqb_ecr": 331.2,
+      "dp_pos_ecr": 60.2,
+      "dp_sf_rookie_rank": 72,
+      "dp_age": null
     },
-    "haynesking": {
+    "athankaliakmanis": {
       "fantasypros_sf_rookie_rank": 92,
       "fantasypros_sf_rank_ecr": 92,
-      "fantasypros_sf_rank_min": "43",
-      "fantasypros_sf_rank_max": "91",
-      "fantasypros_sf_rank_ave": "73.86",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 23141
+      "fantasypros_sf_rank_min": "64",
+      "fantasypros_sf_rank_max": "95",
+      "fantasypros_sf_rank_ave": "86.40",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28098
     },
-    "jmichaelsturdivant": {
+    "noahthomas": {
       "fantasypros_sf_rookie_rank": 93,
       "fantasypros_sf_rank_ecr": 93,
-      "fantasypros_sf_rank_min": "63",
-      "fantasypros_sf_rank_max": "116",
-      "fantasypros_sf_rank_ave": "83.65",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 26139
+      "fantasypros_sf_rank_min": "71",
+      "fantasypros_sf_rank_max": "99",
+      "fantasypros_sf_rank_ave": "86.60",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28136,
+      "dp_sf_ecr": 354.2,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 354.2,
+      "dp_pos_ecr": 167.0,
+      "dp_sf_rookie_rank": 123,
+      "dp_age": null
     },
-    "jamalhaynes": {
+    "jalondaniels": {
       "fantasypros_sf_rookie_rank": 94,
       "fantasypros_sf_rank_ecr": 94,
-      "fantasypros_sf_rank_min": "61",
-      "fantasypros_sf_rank_max": "96",
-      "fantasypros_sf_rank_ave": "75.43",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 27328
+      "fantasypros_sf_rank_min": "54",
+      "fantasypros_sf_rank_max": "90",
+      "fantasypros_sf_rank_ave": "77.33",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 26060
     },
-    "cjdonaldson": {
+    "willkacmarek": {
       "fantasypros_sf_rookie_rank": 95,
       "fantasypros_sf_rank_ecr": 95,
-      "fantasypros_sf_rank_min": "51",
-      "fantasypros_sf_rank_max": "103",
-      "fantasypros_sf_rank_ave": "79.40",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 25396
+      "fantasypros_sf_rank_min": "56",
+      "fantasypros_sf_rank_max": "92",
+      "fantasypros_sf_rank_ave": "77.67",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28403,
+      "dp_sf_ecr": 334.0,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 339.2,
+      "dp_pos_ecr": 68.2,
+      "dp_sf_rookie_rank": 77,
+      "dp_age": null
     },
-    "chaseroberts": {
+    "haynesking": {
       "fantasypros_sf_rookie_rank": 96,
       "fantasypros_sf_rank_ecr": 96,
-      "fantasypros_sf_rank_min": "69",
-      "fantasypros_sf_rank_max": "102",
-      "fantasypros_sf_rank_ave": "83.47",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28131
+      "fantasypros_sf_rank_min": "65",
+      "fantasypros_sf_rank_max": "85",
+      "fantasypros_sf_rank_ave": "78.00",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 23141,
+      "dp_sf_ecr": 360.8,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 349.5,
+      "dp_pos_ecr": 64.5,
+      "dp_sf_rookie_rank": 129,
+      "dp_age": null
     },
-    "daequanwright": {
+    "lewisbond": {
       "fantasypros_sf_rookie_rank": 97,
       "fantasypros_sf_rank_ecr": 97,
-      "fantasypros_sf_rank_min": "59",
-      "fantasypros_sf_rank_max": "106",
-      "fantasypros_sf_rank_ave": "82.29",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28159
+      "fantasypros_sf_rank_min": "79",
+      "fantasypros_sf_rank_max": "94",
+      "fantasypros_sf_rank_ave": "88.20",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28144
     },
-    "kadenwetjen": {
+    "joshcuevas": {
       "fantasypros_sf_rookie_rank": 98,
       "fantasypros_sf_rank_ecr": 98,
-      "fantasypros_sf_rank_min": "60",
-      "fantasypros_sf_rank_max": "111",
-      "fantasypros_sf_rank_ave": "78.85",
-      "fantasypros_sf_tier": 8,
-      "fantasypros_id": 28435
+      "fantasypros_sf_rank_min": "67",
+      "fantasypros_sf_rank_max": "98",
+      "fantasypros_sf_rank_ave": "80.00",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28155,
+      "dp_sf_ecr": 347.3,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 338.0,
+      "dp_pos_ecr": 67.0,
+      "dp_sf_rookie_rank": 102,
+      "dp_age": null
     },
-    "behrenmorton": {
+    "connerweigman": {
       "fantasypros_sf_rookie_rank": 99,
       "fantasypros_sf_rank_ecr": 99,
       "fantasypros_sf_rank_min": "43",
-      "fantasypros_sf_rank_max": "109",
-      "fantasypros_sf_rank_ave": "76.50",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 23146
-    },
-    "joshcuevas": {
-      "fantasypros_sf_rookie_rank": 100,
-      "fantasypros_sf_rank_ecr": 100,
-      "fantasypros_sf_rank_min": "62",
-      "fantasypros_sf_rank_max": "100",
-      "fantasypros_sf_rank_ave": "81.15",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 28155
-    },
-    "tjharden": {
-      "fantasypros_sf_rookie_rank": 101,
-      "fantasypros_sf_rank_ecr": 101,
-      "fantasypros_sf_rank_min": "52",
-      "fantasypros_sf_rank_max": "104",
-      "fantasypros_sf_rank_ave": "72.73",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 25992
-    },
-    "harrisonwallaceiii": {
-      "fantasypros_sf_rookie_rank": 102,
-      "fantasypros_sf_rank_ecr": 102,
-      "fantasypros_sf_rank_min": "84",
-      "fantasypros_sf_rank_max": "114",
-      "fantasypros_sf_rank_ave": "92.76",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 28143
-    },
-    "millermoss": {
-      "fantasypros_sf_rookie_rank": 103,
-      "fantasypros_sf_rank_ecr": 103,
-      "fantasypros_sf_rank_min": "43",
-      "fantasypros_sf_rank_max": "101",
-      "fantasypros_sf_rank_ave": "81.25",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 23165
-    },
-    "emmanuelhendersonjr": {
-      "fantasypros_sf_rookie_rank": 104,
-      "fantasypros_sf_rank_ecr": 104,
-      "fantasypros_sf_rank_min": "68",
-      "fantasypros_sf_rank_max": "118",
-      "fantasypros_sf_rank_ave": "83.25",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 24379
-    },
-    "rileynowakowski": {
-      "fantasypros_sf_rookie_rank": 105,
-      "fantasypros_sf_rank_ecr": 105,
-      "fantasypros_sf_rank_min": "56",
-      "fantasypros_sf_rank_max": "121",
-      "fantasypros_sf_rank_ave": "84.80",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 28437
-    },
-    "rjmaryland": {
-      "fantasypros_sf_rookie_rank": 106,
-      "fantasypros_sf_rank_ecr": 106,
-      "fantasypros_sf_rank_min": "60",
-      "fantasypros_sf_rank_max": "124",
-      "fantasypros_sf_rank_ave": "91.36",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 27341
-    },
-    "treborpena": {
-      "fantasypros_sf_rookie_rank": 107,
-      "fantasypros_sf_rank_ecr": 107,
-      "fantasypros_sf_rank_min": "81",
-      "fantasypros_sf_rank_max": "122",
-      "fantasypros_sf_rank_ave": "96.33",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 28139
-    },
-    "connerweigman": {
-      "fantasypros_sf_rookie_rank": 108,
-      "fantasypros_sf_rank_ecr": 108,
-      "fantasypros_sf_rank_min": "45",
-      "fantasypros_sf_rank_max": "95",
-      "fantasypros_sf_rank_ave": "80.25",
+      "fantasypros_sf_rank_max": "43",
+      "fantasypros_sf_rank_ave": "43.00",
       "fantasypros_sf_tier": 9,
       "fantasypros_id": 25369
     },
-    "maxbredeson": {
+    "treborpena": {
+      "fantasypros_sf_rookie_rank": 100,
+      "fantasypros_sf_rank_ecr": 100,
+      "fantasypros_sf_rank_min": "78",
+      "fantasypros_sf_rank_max": "100",
+      "fantasypros_sf_rank_ave": "90.00",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28139,
+      "dp_sf_ecr": 357.7,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 357.7,
+      "dp_pos_ecr": 170.5,
+      "dp_sf_rookie_rank": 125,
+      "dp_age": null
+    },
+    "rileynowakowski": {
+      "fantasypros_sf_rookie_rank": 101,
+      "fantasypros_sf_rank_ecr": 101,
+      "fantasypros_sf_rank_min": "62",
+      "fantasypros_sf_rank_max": "89",
+      "fantasypros_sf_rank_ave": "75.50",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28437,
+      "dp_sf_ecr": 335.3,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 332.0,
+      "dp_pos_ecr": 61.0,
+      "dp_sf_rookie_rank": 80,
+      "dp_age": null
+    },
+    "kentrelbullock": {
+      "fantasypros_sf_rookie_rank": 102,
+      "fantasypros_sf_rank_ecr": 102,
+      "fantasypros_sf_rank_min": "74",
+      "fantasypros_sf_rank_max": "90",
+      "fantasypros_sf_rank_ave": "84.33",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28122
+    },
+    "jmichaelsturdivant": {
+      "fantasypros_sf_rookie_rank": 103,
+      "fantasypros_sf_rank_ecr": 103,
+      "fantasypros_sf_rank_min": "75",
+      "fantasypros_sf_rank_max": "98",
+      "fantasypros_sf_rank_ave": "89.25",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 26139,
+      "dp_sf_ecr": 345.7,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 345.7,
+      "dp_pos_ecr": 158.5,
+      "dp_sf_rookie_rank": 97,
+      "dp_age": null
+    },
+    "johnmichaelgyllenborg": {
+      "fantasypros_sf_rookie_rank": 104,
+      "fantasypros_sf_rank_ecr": 104,
+      "fantasypros_sf_rank_min": "76",
+      "fantasypros_sf_rank_max": "97",
+      "fantasypros_sf_rank_ave": "86.00",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28158,
+      "dp_sf_ecr": 348.6,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 349.8,
+      "dp_pos_ecr": 78.8,
+      "dp_sf_rookie_rank": 105,
+      "dp_age": null
+    },
+    "behrenmorton": {
+      "fantasypros_sf_rookie_rank": 105,
+      "fantasypros_sf_rank_ecr": 105,
+      "fantasypros_sf_rank_min": "71",
+      "fantasypros_sf_rank_max": "96",
+      "fantasypros_sf_rank_ave": "86.33",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 23146
+    },
+    "ruebenowensii": {
+      "fantasypros_sf_rookie_rank": 106,
+      "fantasypros_sf_rank_ecr": 106,
+      "fantasypros_sf_rank_min": "79",
+      "fantasypros_sf_rank_max": "93",
+      "fantasypros_sf_rank_ave": "88.33",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 25402
+    },
+    "archmanning": {
+      "fantasypros_sf_rookie_rank": 107,
+      "fantasypros_sf_rank_ecr": 107,
+      "fantasypros_sf_rank_min": "65",
+      "fantasypros_sf_rank_max": "65",
+      "fantasypros_sf_rank_ave": "65.00",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 25378
+    },
+    "daequanwright": {
+      "fantasypros_sf_rookie_rank": 108,
+      "fantasypros_sf_rank_ecr": 108,
+      "fantasypros_sf_rank_min": "72",
+      "fantasypros_sf_rank_max": "95",
+      "fantasypros_sf_rank_ave": "83.50",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28159,
+      "dp_sf_ecr": 341.7,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 340.0,
+      "dp_pos_ecr": 69.0,
+      "dp_sf_rookie_rank": 90,
+      "dp_age": null
+    },
+    "joefagnano": {
       "fantasypros_sf_rookie_rank": 109,
       "fantasypros_sf_rank_ecr": 109,
-      "fantasypros_sf_rank_min": "52",
-      "fantasypros_sf_rank_max": "110",
-      "fantasypros_sf_rank_ave": "75.86",
+      "fantasypros_sf_rank_min": "80",
+      "fantasypros_sf_rank_max": "88",
+      "fantasypros_sf_rank_ave": "84.00",
       "fantasypros_sf_tier": 9,
-      "fantasypros_id": 28434
+      "fantasypros_id": 28400
     },
-    "noahthomas": {
+    "dallenbentley": {
       "fantasypros_sf_rookie_rank": 110,
       "fantasypros_sf_rank_ecr": 110,
-      "fantasypros_sf_rank_min": "74",
-      "fantasypros_sf_rank_max": "115",
-      "fantasypros_sf_rank_ave": "95.55",
+      "fantasypros_sf_rank_min": "86",
+      "fantasypros_sf_rank_max": "93",
+      "fantasypros_sf_rank_ave": "90.67",
       "fantasypros_sf_tier": 9,
-      "fantasypros_id": 28136
+      "fantasypros_id": 28352,
+      "dp_sf_ecr": 339.0,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 337.0,
+      "dp_pos_ecr": 66.0,
+      "dp_sf_rookie_rank": 83,
+      "dp_age": null
     },
-    "joeyaguilar": {
+    "harrisonwallaceiii": {
       "fantasypros_sf_rookie_rank": 111,
       "fantasypros_sf_rank_ecr": 111,
-      "fantasypros_sf_rank_min": "73",
-      "fantasypros_sf_rank_max": "117",
-      "fantasypros_sf_rank_ave": "89.89",
+      "fantasypros_sf_rank_min": "87",
+      "fantasypros_sf_rank_max": "99",
+      "fantasypros_sf_rank_ave": "93.50",
       "fantasypros_sf_tier": 9,
-      "fantasypros_id": 28299
+      "fantasypros_id": 28143
     },
-    "ruebenowens": {
+    "malachinelson": {
       "fantasypros_sf_rookie_rank": 112,
       "fantasypros_sf_rank_ecr": 112,
       "fantasypros_sf_rank_min": "74",
-      "fantasypros_sf_rank_max": "104",
-      "fantasypros_sf_rank_ave": "86.50",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 27322
-    },
-    "johnmichaelgyllenborg": {
-      "fantasypros_sf_rookie_rank": 113,
-      "fantasypros_sf_rank_ecr": 113,
-      "fantasypros_sf_rank_min": "54",
-      "fantasypros_sf_rank_max": "125",
-      "fantasypros_sf_rank_ave": "91.56",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 28158
-    },
-    "malachinelson": {
-      "fantasypros_sf_rookie_rank": 114,
-      "fantasypros_sf_rank_ecr": 114,
-      "fantasypros_sf_rank_min": "60",
-      "fantasypros_sf_rank_max": "100",
-      "fantasypros_sf_rank_ave": "81.00",
+      "fantasypros_sf_rank_max": "74",
+      "fantasypros_sf_rank_ave": "74.00",
       "fantasypros_sf_tier": 9,
       "fantasypros_id": 25379
     },
-    "jarenkanak": {
+    "chaseroberts": {
+      "fantasypros_sf_rookie_rank": 113,
+      "fantasypros_sf_rank_ecr": 113,
+      "fantasypros_sf_rank_min": "83",
+      "fantasypros_sf_rank_max": "100",
+      "fantasypros_sf_rank_ave": "92.67",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28131,
+      "dp_sf_ecr": 334.2,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 334.2,
+      "dp_pos_ecr": 147.0,
+      "dp_sf_rookie_rank": 78,
+      "dp_age": null
+    },
+    "maxbredeson": {
+      "fantasypros_sf_rookie_rank": 114,
+      "fantasypros_sf_rank_ecr": 114,
+      "fantasypros_sf_rank_min": "89",
+      "fantasypros_sf_rank_max": "97",
+      "fantasypros_sf_rank_ave": "93.00",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28434
+    },
+    "sawyerrobertson": {
       "fantasypros_sf_rookie_rank": 115,
       "fantasypros_sf_rank_ecr": 115,
-      "fantasypros_sf_rank_min": "57",
-      "fantasypros_sf_rank_max": "120",
-      "fantasypros_sf_rank_ave": "81.71",
+      "fantasypros_sf_rank_min": "83",
+      "fantasypros_sf_rank_max": "83",
+      "fantasypros_sf_rank_ave": "83.00",
       "fantasypros_sf_tier": 9,
-      "fantasypros_id": 28160
+      "fantasypros_id": 23035
     },
-    "dillonbell": {
+    "vinnyanthonyii": {
       "fantasypros_sf_rookie_rank": 116,
       "fantasypros_sf_rank_ecr": 116,
-      "fantasypros_sf_rank_min": "84",
-      "fantasypros_sf_rank_max": "150",
-      "fantasypros_sf_rank_ave": "103.33",
+      "fantasypros_sf_rank_min": "92",
+      "fantasypros_sf_rank_max": "94",
+      "fantasypros_sf_rank_ave": "93.00",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28150,
+      "dp_sf_ecr": 365.2,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 365.2,
+      "dp_pos_ecr": 178.0,
+      "dp_sf_rookie_rank": 147,
+      "dp_age": null
+    },
+    "hankbeatty": {
+      "fantasypros_sf_rookie_rank": 117,
+      "fantasypros_sf_rank_ecr": 117,
+      "fantasypros_sf_rank_min": "91",
+      "fantasypros_sf_rank_max": "91",
+      "fantasypros_sf_rank_ave": "91.00",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 28142
+    },
+    "chrishiltonjr": {
+      "fantasypros_sf_rookie_rank": 118,
+      "fantasypros_sf_rank_ecr": 118,
+      "fantasypros_sf_rank_min": "93",
+      "fantasypros_sf_rank_max": "93",
+      "fantasypros_sf_rank_ave": "93.00",
+      "fantasypros_sf_tier": 9,
+      "fantasypros_id": 22995,
+      "dp_sf_ecr": 351.7,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 351.7,
+      "dp_pos_ecr": 164.5,
+      "dp_sf_rookie_rank": 115,
+      "dp_age": null
+    },
+    "dillonbell": {
+      "fantasypros_sf_rookie_rank": 119,
+      "fantasypros_sf_rank_ecr": 119,
+      "fantasypros_sf_rank_min": "94",
+      "fantasypros_sf_rank_max": "94",
+      "fantasypros_sf_rank_ave": "94.00",
       "fantasypros_sf_tier": 9,
       "fantasypros_id": 28140
     },
-    "anthonysmith": {
-      "fantasypros_sf_rookie_rank": 117,
-      "fantasypros_sf_rank_ecr": 117,
-      "fantasypros_sf_rank_min": "74",
-      "fantasypros_sf_rank_max": "99",
-      "fantasypros_sf_rank_ave": "85.00",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 28500
-    },
-    "nyckharbor": {
-      "fantasypros_sf_rookie_rank": 118,
-      "fantasypros_sf_rank_ecr": 118,
-      "fantasypros_sf_rank_min": "77",
-      "fantasypros_sf_rank_max": "117",
-      "fantasypros_sf_rank_ave": "94.88",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 27336
-    },
-    "markgronowski": {
-      "fantasypros_sf_rookie_rank": 119,
-      "fantasypros_sf_rank_ecr": 119,
-      "fantasypros_sf_rank_min": "45",
-      "fantasypros_sf_rank_max": "121",
-      "fantasypros_sf_rank_ave": "78.40",
-      "fantasypros_sf_tier": 9,
-      "fantasypros_id": 28100
-    },
-    "vinnyanthonyii": {
-      "fantasypros_sf_rookie_rank": 120,
-      "fantasypros_sf_rank_ecr": 120,
-      "fantasypros_sf_rank_min": "94",
-      "fantasypros_sf_rank_max": "146",
-      "fantasypros_sf_rank_ave": "103.67",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28150
-    },
-    "seydoutraore": {
-      "fantasypros_sf_rookie_rank": 121,
-      "fantasypros_sf_rank_ecr": 121,
-      "fantasypros_sf_rank_min": "43",
-      "fantasypros_sf_rank_max": "126",
-      "fantasypros_sf_rank_ave": "81.40",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28163
-    },
-    "malikrutherford": {
-      "fantasypros_sf_rookie_rank": 122,
-      "fantasypros_sf_rank_ecr": 122,
-      "fantasypros_sf_rank_min": "87",
-      "fantasypros_sf_rank_max": "147",
-      "fantasypros_sf_rank_ave": "101.88",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28147
-    },
-    "archmanning": {
-      "fantasypros_sf_rookie_rank": 123,
-      "fantasypros_sf_rank_ecr": 123,
-      "fantasypros_sf_rank_min": "65",
-      "fantasypros_sf_rank_max": "105",
-      "fantasypros_sf_rank_ave": "83.00",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 25378
-    },
-    "jackvelling": {
-      "fantasypros_sf_rookie_rank": 124,
-      "fantasypros_sf_rank_ecr": 124,
-      "fantasypros_sf_rank_min": "58",
-      "fantasypros_sf_rank_max": "123",
-      "fantasypros_sf_rank_ave": "95.67",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 26008
-    },
-    "jakeretzlaff": {
-      "fantasypros_sf_rookie_rank": 125,
-      "fantasypros_sf_rank_ecr": 125,
-      "fantasypros_sf_rank_min": "54",
-      "fantasypros_sf_rank_max": "120",
-      "fantasypros_sf_rank_ave": "89.20",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28096
-    },
-    "kejonowens": {
-      "fantasypros_sf_rookie_rank": 126,
-      "fantasypros_sf_rank_ecr": 126,
-      "fantasypros_sf_rank_min": "55",
-      "fantasypros_sf_rank_max": "126",
-      "fantasypros_sf_rank_ave": "90.00",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28431
-    },
-    "ljmartin": {
-      "fantasypros_sf_rookie_rank": 127,
-      "fantasypros_sf_rank_ecr": 127,
-      "fantasypros_sf_rank_min": "62",
-      "fantasypros_sf_rank_max": "116",
-      "fantasypros_sf_rank_ave": "90.00",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28106
-    },
-    "aljayhenderson": {
-      "fantasypros_sf_rookie_rank": 128,
-      "fantasypros_sf_rank_ecr": 128,
-      "fantasypros_sf_rank_min": "80",
-      "fantasypros_sf_rank_max": "124",
-      "fantasypros_sf_rank_ave": "97.60",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28118
-    },
-    "djrogers": {
-      "fantasypros_sf_rookie_rank": 129,
-      "fantasypros_sf_rank_ecr": 129,
-      "fantasypros_sf_rank_min": "76",
-      "fantasypros_sf_rank_max": "143",
-      "fantasypros_sf_rank_ave": "94.25",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28348
-    },
-    "cashjones": {
-      "fantasypros_sf_rookie_rank": 130,
-      "fantasypros_sf_rank_ecr": 130,
-      "fantasypros_sf_rank_min": "57",
-      "fantasypros_sf_rank_max": "115",
-      "fantasypros_sf_rank_ave": "78.33",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28124
-    },
-    "davonbooth": {
-      "fantasypros_sf_rookie_rank": 131,
-      "fantasypros_sf_rank_ecr": 131,
-      "fantasypros_sf_rank_min": "74",
-      "fantasypros_sf_rank_max": "123",
-      "fantasypros_sf_rank_ave": "99.20",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28121
-    },
-    "carsenryan": {
-      "fantasypros_sf_rookie_rank": 132,
-      "fantasypros_sf_rank_ecr": 132,
-      "fantasypros_sf_rank_min": "69",
-      "fantasypros_sf_rank_max": "139",
-      "fantasypros_sf_rank_ave": "94.75",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28399
-    },
-    "jadennixon": {
-      "fantasypros_sf_rookie_rank": 133,
-      "fantasypros_sf_rank_ecr": 133,
-      "fantasypros_sf_rank_min": "68",
-      "fantasypros_sf_rank_max": "128",
-      "fantasypros_sf_rank_ave": "99.60",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28429
-    },
-    "kaidonsalter": {
-      "fantasypros_sf_rookie_rank": 135,
-      "fantasypros_sf_rank_ecr": 135,
-      "fantasypros_sf_rank_min": "68",
-      "fantasypros_sf_rank_max": "119",
-      "fantasypros_sf_rank_ave": "87.33",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 27504
-    },
-    "malachicoleman": {
-      "fantasypros_sf_rookie_rank": 136,
-      "fantasypros_sf_rank_ecr": 136,
-      "fantasypros_sf_rank_min": "59",
-      "fantasypros_sf_rank_max": "129",
-      "fantasypros_sf_rank_ave": "98.50",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 26042
-    },
-    "chrishiltonjr": {
-      "fantasypros_sf_rookie_rank": 137,
-      "fantasypros_sf_rank_ecr": 137,
-      "fantasypros_sf_rank_min": "96",
-      "fantasypros_sf_rank_max": "152",
-      "fantasypros_sf_rank_ave": "112.83",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 22995
-    },
-    "jalenwalthall": {
-      "fantasypros_sf_rookie_rank": 138,
-      "fantasypros_sf_rank_ecr": 138,
-      "fantasypros_sf_rank_min": "64",
-      "fantasypros_sf_rank_max": "134",
-      "fantasypros_sf_rank_ave": "106.60",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28148
-    },
-    "hankbeatty": {
-      "fantasypros_sf_rookie_rank": 139,
-      "fantasypros_sf_rank_ecr": 139,
-      "fantasypros_sf_rank_min": "97",
-      "fantasypros_sf_rank_max": "151",
-      "fantasypros_sf_rank_ave": "110.00",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28142
-    },
-    "jordanhudson": {
-      "fantasypros_sf_rookie_rank": 140,
-      "fantasypros_sf_rank_ecr": 140,
-      "fantasypros_sf_rank_min": "96",
-      "fantasypros_sf_rank_max": "148",
-      "fantasypros_sf_rank_ave": "112.83",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28426
-    },
-    "bauersharp": {
-      "fantasypros_sf_rookie_rank": 141,
-      "fantasypros_sf_rank_ecr": 141,
-      "fantasypros_sf_rank_min": "66",
-      "fantasypros_sf_rank_max": "136",
-      "fantasypros_sf_rank_ave": "102.25",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28165
-    },
-    "lakemcree": {
-      "fantasypros_sf_rookie_rank": 142,
-      "fantasypros_sf_rank_ecr": 142,
-      "fantasypros_sf_rank_min": "56",
-      "fantasypros_sf_rank_max": "127",
-      "fantasypros_sf_rank_ave": "104.50",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28164
-    },
-    "kentrelbullock": {
-      "fantasypros_sf_rookie_rank": 143,
-      "fantasypros_sf_rank_ecr": 143,
-      "fantasypros_sf_rank_min": "92",
-      "fantasypros_sf_rank_max": "145",
-      "fantasypros_sf_rank_ave": "109.25",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28122
-    },
-    "lancemason": {
-      "fantasypros_sf_rookie_rank": 144,
-      "fantasypros_sf_rank_ecr": 144,
-      "fantasypros_sf_rank_min": "67",
-      "fantasypros_sf_rank_max": "137",
-      "fantasypros_sf_rank_ave": "101.33",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28279
-    },
-    "maxtomczak": {
-      "fantasypros_sf_rookie_rank": 145,
-      "fantasypros_sf_rank_ecr": 145,
-      "fantasypros_sf_rank_min": "60",
-      "fantasypros_sf_rank_max": "130",
-      "fantasypros_sf_rank_ave": "106.50",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28151
-    },
-    "caullinlacy": {
-      "fantasypros_sf_rookie_rank": 146,
-      "fantasypros_sf_rank_ecr": 146,
-      "fantasypros_sf_rank_min": "99",
-      "fantasypros_sf_rank_max": "149",
-      "fantasypros_sf_rank_ave": "117.80",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 27311
-    },
-    "ljjohnsonjr": {
-      "fantasypros_sf_rookie_rank": 147,
-      "fantasypros_sf_rank_ecr": 147,
-      "fantasypros_sf_rank_min": "62",
-      "fantasypros_sf_rank_max": "131",
-      "fantasypros_sf_rank_ave": "96.50",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 25384
-    },
-    "barikakpeenu": {
-      "fantasypros_sf_rookie_rank": 148,
-      "fantasypros_sf_rank_ecr": 148,
-      "fantasypros_sf_rank_min": "63",
-      "fantasypros_sf_rank_max": "132",
-      "fantasypros_sf_rank_ave": "97.50",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28430
-    },
-    "kyrondrones": {
-      "fantasypros_sf_rookie_rank": 149,
-      "fantasypros_sf_rank_ecr": 149,
-      "fantasypros_sf_rank_min": "73",
-      "fantasypros_sf_rank_max": "141",
-      "fantasypros_sf_rank_ave": "111.00",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28097
-    },
-    "romellobrinson": {
-      "fantasypros_sf_rookie_rank": 150,
-      "fantasypros_sf_rank_ecr": 150,
-      "fantasypros_sf_rank_min": "94",
-      "fantasypros_sf_rank_max": "133",
-      "fantasypros_sf_rank_ave": "114.00",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28152
-    },
-    "devonteross": {
-      "fantasypros_sf_rookie_rank": 151,
-      "fantasypros_sf_rank_ecr": 151,
-      "fantasypros_sf_rank_min": "87",
-      "fantasypros_sf_rank_max": "108",
-      "fantasypros_sf_rank_ave": "97.50",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28145
-    },
-    "logandiggs": {
-      "fantasypros_sf_rookie_rank": 152,
-      "fantasypros_sf_rank_ecr": 152,
-      "fantasypros_sf_rank_min": "66",
-      "fantasypros_sf_rank_max": "135",
-      "fantasypros_sf_rank_ave": "100.50",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28117
-    },
-    "melbrown": {
-      "fantasypros_sf_rookie_rank": 153,
-      "fantasypros_sf_rank_ecr": 153,
-      "fantasypros_sf_rank_min": "69",
-      "fantasypros_sf_rank_max": "138",
-      "fantasypros_sf_rank_ave": "103.50",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28116
-    },
-    "mileskitselman": {
-      "fantasypros_sf_rookie_rank": 154,
-      "fantasypros_sf_rank_ecr": 154,
-      "fantasypros_sf_rank_min": "72",
-      "fantasypros_sf_rank_max": "140",
-      "fantasypros_sf_rank_ave": "106.00",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28156
-    },
-    "tommycastellanos": {
-      "fantasypros_sf_rookie_rank": 155,
-      "fantasypros_sf_rank_ecr": 155,
-      "fantasypros_sf_rank_min": "74",
-      "fantasypros_sf_rank_max": "142",
-      "fantasypros_sf_rank_ave": "108.00",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28095
-    },
-    "cjwilliams": {
-      "fantasypros_sf_rookie_rank": 156,
-      "fantasypros_sf_rank_ecr": 156,
-      "fantasypros_sf_rank_min": "84",
-      "fantasypros_sf_rank_max": "84",
-      "fantasypros_sf_rank_ave": "84.00",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 24366
-    },
-    "carsontowt": {
-      "fantasypros_sf_rookie_rank": 157,
-      "fantasypros_sf_rank_ecr": 157,
-      "fantasypros_sf_rank_min": "85",
-      "fantasypros_sf_rank_max": "144",
-      "fantasypros_sf_rank_ave": "114.50",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 28448
-    },
-    "rileywilliams": {
-      "fantasypros_sf_rookie_rank": 158,
-      "fantasypros_sf_rank_ecr": 158,
-      "fantasypros_sf_rank_min": "128",
-      "fantasypros_sf_rank_max": "128",
-      "fantasypros_sf_rank_ave": "128.00",
-      "fantasypros_sf_tier": 10,
-      "fantasypros_id": 25431
-    },
-    "nicholassingleton": {
-      "ktc_sf_value": 2913,
-      "ktc_sf_overall_rank": 57,
-      "ktc_sf_rookie_rank": 16,
-      "ktc_sf_pos_rank": 39,
-      "ktc_oneqb_value": 3559
+    "tedhurst": {
+      "ktc_sf_value": 2616,
+      "ktc_sf_overall_rank": 18,
+      "ktc_sf_rookie_rank": 22,
+      "ktc_sf_pos_rank": 73,
+      "ktc_oneqb_value": 3108
     },
     "kevincoleman": {
-      "ktc_sf_value": 1685,
-      "ktc_sf_overall_rank": 77,
-      "ktc_sf_rookie_rank": 31,
-      "ktc_sf_pos_rank": 118,
-      "ktc_oneqb_value": 2017
+      "ktc_sf_value": 2053,
+      "ktc_sf_overall_rank": 28,
+      "ktc_sf_rookie_rank": 33,
+      "ktc_sf_pos_rank": 95,
+      "ktc_oneqb_value": 2347
+    },
+    "leveonmoss": {
+      "ktc_sf_value": 946,
+      "ktc_sf_overall_rank": 10,
+      "ktc_sf_rookie_rank": 53,
+      "ktc_sf_pos_rank": 114,
+      "ktc_oneqb_value": 1122
+    },
+    "matthewhibner": {
+      "ktc_sf_value": 854,
+      "ktc_sf_overall_rank": 11,
+      "ktc_sf_rookie_rank": 54,
+      "ktc_sf_pos_rank": 67,
+      "ktc_oneqb_value": 894
+    },
+    "darrenwaller": {
+      "dp_sf_ecr": 300.7,
+      "dp_sf_value": 9,
+      "dp_oneqb_ecr": 316.3,
+      "dp_pos_ecr": 62.8,
+      "dp_sf_rookie_rank": 60,
+      "dp_age": null
+    },
+    "seydoutraore": {
+      "dp_sf_ecr": 334.8,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 336.0,
+      "dp_pos_ecr": 65.0,
+      "dp_sf_rookie_rank": 79,
+      "dp_age": null
+    },
+    "curtissamuel": {
+      "dp_sf_ecr": 336.5,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 346.5,
+      "dp_pos_ecr": 156.7,
+      "dp_sf_rookie_rank": 81,
+      "dp_age": null
+    },
+    "antoniogibson": {
+      "dp_sf_ecr": 337.4,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 337.4,
+      "dp_pos_ecr": 108.2,
+      "dp_sf_rookie_rank": 82,
+      "dp_age": null
+    },
+    "austinekeler": {
+      "dp_sf_ecr": 339.0,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 339.0,
+      "dp_pos_ecr": 109.8,
+      "dp_sf_rookie_rank": 84,
+      "dp_age": null
+    },
+    "jarenkanak": {
+      "dp_sf_ecr": 339.7,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 341.0,
+      "dp_pos_ecr": 70.0,
+      "dp_sf_rookie_rank": 85,
+      "dp_age": null
+    },
+    "jeremymcnichols": {
+      "dp_sf_ecr": 339.8,
+      "dp_sf_value": 4,
+      "dp_oneqb_ecr": 339.8,
+      "dp_pos_ecr": 110.6,
+      "dp_sf_rookie_rank": 86,
+      "dp_age": null
+    },
+    "taysomhill": {
+      "dp_sf_ecr": 341.0,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 342.2,
+      "dp_pos_ecr": 71.2,
+      "dp_sf_rookie_rank": 88,
+      "dp_age": null
+    },
+    "deandrehopkins": {
+      "dp_sf_ecr": 341.0,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 342.6,
+      "dp_pos_ecr": 155.4,
+      "dp_sf_rookie_rank": 89,
+      "dp_age": null
+    },
+    "adamtrautman": {
+      "dp_sf_ecr": 342.0,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 336.3,
+      "dp_pos_ecr": 65.3,
+      "dp_sf_rookie_rank": 92,
+      "dp_age": null
+    },
+    "milessanders": {
+      "dp_sf_ecr": 344.8,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 344.8,
+      "dp_pos_ecr": 115.6,
+      "dp_sf_rookie_rank": 94,
+      "dp_age": null
+    },
+    "austinhooper": {
+      "dp_sf_ecr": 345.7,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 348.8,
+      "dp_pos_ecr": 77.8,
+      "dp_sf_rookie_rank": 98,
+      "dp_age": null
+    },
+    "josholiver": {
+      "dp_sf_ecr": 346.0,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 351.2,
+      "dp_pos_ecr": 80.2,
+      "dp_sf_rookie_rank": 99,
+      "dp_age": null
+    },
+    "jahdaewalker": {
+      "dp_sf_ecr": 347.2,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 347.2,
+      "dp_pos_ecr": 160.0,
+      "dp_sf_rookie_rank": 101,
+      "dp_age": null
+    },
+    "tylerlockett": {
+      "dp_sf_ecr": 347.7,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 347.7,
+      "dp_pos_ecr": 160.5,
+      "dp_sf_rookie_rank": 103,
+      "dp_age": null
+    },
+    "raheemmostert": {
+      "dp_sf_ecr": 348.4,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 348.4,
+      "dp_pos_ecr": 119.2,
+      "dp_sf_rookie_rank": 104,
+      "dp_age": null
+    },
+    "brandincooks": {
+      "dp_sf_ecr": 348.7,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 348.7,
+      "dp_pos_ecr": 161.5,
+      "dp_sf_rookie_rank": 107,
+      "dp_age": null
+    },
+    "rjmaryland": {
+      "dp_sf_ecr": 348.8,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 344.5,
+      "dp_pos_ecr": 79.0,
+      "dp_sf_rookie_rank": 108,
+      "dp_age": null
+    },
+    "fostermoreau": {
+      "dp_sf_ecr": 349.2,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 350.4,
+      "dp_pos_ecr": 79.4,
+      "dp_sf_rookie_rank": 109,
+      "dp_age": null
+    },
+    "carsenryan": {
+      "dp_sf_ecr": 349.7,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 336.7,
+      "dp_pos_ecr": 65.7,
+      "dp_sf_rookie_rank": 110,
+      "dp_age": null
+    },
+    "jacksonhawes": {
+      "dp_sf_ecr": 351.0,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 352.2,
+      "dp_pos_ecr": 81.2,
+      "dp_sf_rookie_rank": 111,
+      "dp_age": null
+    },
+    "romanwilson": {
+      "dp_sf_ecr": 351.2,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 351.2,
+      "dp_pos_ecr": 164.0,
+      "dp_sf_rookie_rank": 112,
+      "dp_age": null
+    },
+    "mitchtinsley": {
+      "dp_sf_ecr": 351.2,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 351.2,
+      "dp_pos_ecr": 164.0,
+      "dp_sf_rookie_rank": 113,
+      "dp_age": null
+    },
+    "khalilherbert": {
+      "dp_sf_ecr": 351.5,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 351.5,
+      "dp_pos_ecr": 122.3,
+      "dp_sf_rookie_rank": 114,
+      "dp_age": null
+    },
+    "dylanlaube": {
+      "dp_sf_ecr": 352.0,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 352.0,
+      "dp_pos_ecr": 122.8,
+      "dp_sf_rookie_rank": 116,
+      "dp_age": null
+    },
+    "hunterlong": {
+      "dp_sf_ecr": 352.8,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 354.0,
+      "dp_pos_ecr": 83.0,
+      "dp_sf_rookie_rank": 118,
+      "dp_age": null
+    },
+    "dariuscooper": {
+      "dp_sf_ecr": 352.9,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 352.9,
+      "dp_pos_ecr": 165.7,
+      "dp_sf_rookie_rank": 119,
+      "dp_age": null
+    },
+    "zackmoss": {
+      "dp_sf_ecr": 353.2,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 353.2,
+      "dp_pos_ecr": 124.0,
+      "dp_sf_rookie_rank": 120,
+      "dp_age": null
+    },
+    "zamirwhite": {
+      "dp_sf_ecr": 353.2,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 353.2,
+      "dp_pos_ecr": 124.0,
+      "dp_sf_rookie_rank": 121,
+      "dp_age": null
+    },
+    "theoweasejr": {
+      "dp_sf_ecr": 353.2,
+      "dp_sf_value": 3,
+      "dp_oneqb_ecr": 353.2,
+      "dp_pos_ecr": 166.0,
+      "dp_sf_rookie_rank": 122,
+      "dp_age": null
+    },
+    "stonesmartt": {
+      "dp_sf_ecr": 355.2,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 356.4,
+      "dp_pos_ecr": 85.4,
+      "dp_sf_rookie_rank": 124,
+      "dp_age": null
+    },
+    "jaheimbell": {
+      "dp_sf_ecr": 358.5,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 359.7,
+      "dp_pos_ecr": 88.7,
+      "dp_sf_rookie_rank": 126,
+      "dp_age": null
+    },
+    "carsonwentz": {
+      "dp_sf_ecr": 359.7,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 325.5,
+      "dp_pos_ecr": 63.4,
+      "dp_sf_rookie_rank": 127,
+      "dp_age": null
+    },
+    "jimmygaroppolo": {
+      "dp_sf_ecr": 360.6,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 349.3,
+      "dp_pos_ecr": 64.3,
+      "dp_sf_rookie_rank": 128,
+      "dp_age": null
+    },
+    "tannerhudson": {
+      "dp_sf_ecr": 360.8,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 362.0,
+      "dp_pos_ecr": 91.0,
+      "dp_sf_rookie_rank": 130,
+      "dp_age": null
+    },
+    "ericgray": {
+      "dp_sf_ecr": 360.9,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 360.9,
+      "dp_pos_ecr": 131.7,
+      "dp_sf_rookie_rank": 131,
+      "dp_age": null
+    },
+    "jujusmithschuster": {
+      "dp_sf_ecr": 360.9,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 360.9,
+      "dp_pos_ecr": 173.7,
+      "dp_sf_rookie_rank": 132,
+      "dp_age": null
+    },
+    "jelaniwoods": {
+      "dp_sf_ecr": 361.1,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 362.3,
+      "dp_pos_ecr": 91.3,
+      "dp_sf_rookie_rank": 133,
+      "dp_age": null
+    },
+    "camakers": {
+      "dp_sf_ecr": 361.2,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 361.2,
+      "dp_pos_ecr": 132.0,
+      "dp_sf_rookie_rank": 134,
+      "dp_age": null
+    },
+    "kylengranson": {
+      "dp_sf_ecr": 361.3,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 362.5,
+      "dp_pos_ecr": 91.5,
+      "dp_sf_rookie_rank": 135,
+      "dp_age": null
+    },
+    "ameerabdullah": {
+      "dp_sf_ecr": 362.7,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 362.7,
+      "dp_pos_ecr": 133.5,
+      "dp_sf_rookie_rank": 136,
+      "dp_age": null
+    },
+    "diontaejohnson": {
+      "dp_sf_ecr": 363.7,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 363.7,
+      "dp_pos_ecr": 176.5,
+      "dp_sf_rookie_rank": 137,
+      "dp_age": null
+    },
+    "jakebriningstool": {
+      "dp_sf_ecr": 364.1,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 365.3,
+      "dp_pos_ecr": 94.3,
+      "dp_sf_rookie_rank": 138,
+      "dp_age": null
+    },
+    "marquezvaldesscantling": {
+      "dp_sf_ecr": 364.2,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 364.2,
+      "dp_pos_ecr": 177.0,
+      "dp_sf_rookie_rank": 139,
+      "dp_age": null
+    },
+    "evanhull": {
+      "dp_sf_ecr": 364.4,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 364.4,
+      "dp_pos_ecr": 135.2,
+      "dp_sf_rookie_rank": 141,
+      "dp_age": null
+    },
+    "johnbates": {
+      "dp_sf_ecr": 364.5,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 365.7,
+      "dp_pos_ecr": 94.7,
+      "dp_sf_rookie_rank": 142,
+      "dp_age": null
+    },
+    "sinceremccormick": {
+      "dp_sf_ecr": 364.7,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 364.7,
+      "dp_pos_ecr": 135.5,
+      "dp_sf_rookie_rank": 143,
+      "dp_age": null
+    },
+    "noahbrown": {
+      "dp_sf_ecr": 364.7,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 364.7,
+      "dp_pos_ecr": 177.5,
+      "dp_sf_rookie_rank": 144,
+      "dp_age": null
+    },
+    "jarrettstidham": {
+      "dp_sf_ecr": 365.1,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 353.8,
+      "dp_pos_ecr": 68.8,
+      "dp_sf_rookie_rank": 145,
+      "dp_age": null
+    },
+    "tyrodtaylor": {
+      "dp_sf_ecr": 365.1,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 353.8,
+      "dp_pos_ecr": 68.8,
+      "dp_sf_rookie_rank": 146,
+      "dp_age": null
+    },
+    "willdissly": {
+      "dp_sf_ecr": 365.3,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 366.5,
+      "dp_pos_ecr": 95.5,
+      "dp_sf_rookie_rank": 148,
+      "dp_age": null
+    },
+    "joshreynolds": {
+      "dp_sf_ecr": 366.2,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 366.2,
+      "dp_pos_ecr": 179.0,
+      "dp_sf_rookie_rank": 149,
+      "dp_age": null
+    },
+    "jermaineburton": {
+      "dp_sf_ecr": 366.2,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 366.2,
+      "dp_pos_ecr": 179.0,
+      "dp_sf_rookie_rank": 150,
+      "dp_age": null
+    },
+    "sterlingshepard": {
+      "dp_sf_ecr": 366.7,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 366.7,
+      "dp_pos_ecr": 179.5,
+      "dp_sf_rookie_rank": 151,
+      "dp_age": null
+    },
+    "mitchelltrubisky": {
+      "dp_sf_ecr": 367.5,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 356.2,
+      "dp_pos_ecr": 71.2,
+      "dp_sf_rookie_rank": 152,
+      "dp_age": null
+    },
+    "treysermon": {
+      "dp_sf_ecr": 368.5,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 368.5,
+      "dp_pos_ecr": 139.3,
+      "dp_sf_rookie_rank": 153,
+      "dp_age": null
+    },
+    "bradycook": {
+      "dp_sf_ecr": 370.0,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 358.7,
+      "dp_pos_ecr": 73.7,
+      "dp_sf_rookie_rank": 155,
+      "dp_age": null
+    },
+    "nicknash": {
+      "dp_sf_ecr": 370.5,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 370.5,
+      "dp_pos_ecr": 183.3,
+      "dp_sf_rookie_rank": 156,
+      "dp_age": null
+    },
+    "dareogunbowale": {
+      "dp_sf_ecr": 371.2,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 371.2,
+      "dp_pos_ecr": 142.0,
+      "dp_sf_rookie_rank": 157,
+      "dp_age": null
+    },
+    "zayjones": {
+      "dp_sf_ecr": 371.5,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 371.5,
+      "dp_pos_ecr": 184.3,
+      "dp_sf_rookie_rank": 158,
+      "dp_age": null
+    },
+    "andydalton": {
+      "dp_sf_ecr": 372.1,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 360.8,
+      "dp_pos_ecr": 75.8,
+      "dp_sf_rookie_rank": 159,
+      "dp_age": null
+    },
+    "lukefarrell": {
+      "dp_sf_ecr": 372.3,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 373.5,
+      "dp_pos_ecr": 102.5,
+      "dp_sf_rookie_rank": 160,
+      "dp_age": null
+    },
+    "joshwhyle": {
+      "dp_sf_ecr": 372.8,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 374.0,
+      "dp_pos_ecr": 103.0,
+      "dp_sf_rookie_rank": 161,
+      "dp_age": null
+    },
+    "nickmullens": {
+      "dp_sf_ecr": 373.3,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 362.0,
+      "dp_pos_ecr": 77.0,
+      "dp_sf_rookie_rank": 162,
+      "dp_age": null
+    },
+    "tipreiman": {
+      "dp_sf_ecr": 373.3,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 374.5,
+      "dp_pos_ecr": 103.5,
+      "dp_sf_rookie_rank": 163,
+      "dp_age": null
+    },
+    "ashtondulin": {
+      "dp_sf_ecr": 374.7,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 374.7,
+      "dp_pos_ecr": 187.5,
+      "dp_sf_rookie_rank": 164,
+      "dp_age": null
+    },
+    "hendonhooker": {
+      "dp_sf_ecr": 374.8,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 363.5,
+      "dp_pos_ecr": 78.5,
+      "dp_sf_rookie_rank": 165,
+      "dp_age": null
+    },
+    "timpatrick": {
+      "dp_sf_ecr": 375.2,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 375.2,
+      "dp_pos_ecr": 188.0,
+      "dp_sf_rookie_rank": 166,
+      "dp_age": null
+    },
+    "stetsonbennettiv": {
+      "dp_sf_ecr": 375.3,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 364.0,
+      "dp_pos_ecr": 79.0,
+      "dp_sf_rookie_rank": 167,
+      "dp_age": null
+    },
+    "julianhill": {
+      "dp_sf_ecr": 375.3,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 376.5,
+      "dp_pos_ecr": 105.5,
+      "dp_sf_rookie_rank": 168,
+      "dp_age": null
+    },
+    "maxbrosmer": {
+      "dp_sf_ecr": 376.6,
+      "dp_sf_value": 2,
+      "dp_oneqb_ecr": 365.3,
+      "dp_pos_ecr": 80.3,
+      "dp_sf_rookie_rank": 169,
+      "dp_age": null
+    },
+    "devinculp": {
+      "dp_sf_ecr": 376.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 378.0,
+      "dp_pos_ecr": 107.0,
+      "dp_sf_rookie_rank": 170,
+      "dp_age": null
+    },
+    "tylanwallace": {
+      "dp_sf_ecr": 377.5,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 377.5,
+      "dp_pos_ecr": 190.3,
+      "dp_sf_rookie_rank": 171,
+      "dp_age": null
+    },
+    "jalinconyers": {
+      "dp_sf_ecr": 377.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 379.0,
+      "dp_pos_ecr": 108.0,
+      "dp_sf_rookie_rank": 172,
+      "dp_age": null
+    },
+    "deejaydallas": {
+      "dp_sf_ecr": 377.9,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 377.9,
+      "dp_pos_ecr": 148.7,
+      "dp_sf_rookie_rank": 173,
+      "dp_age": null
+    },
+    "kurtisrourke": {
+      "dp_sf_ecr": 378.0,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 366.7,
+      "dp_pos_ecr": 81.7,
+      "dp_sf_rookie_rank": 174,
+      "dp_age": null
+    },
+    "kyleallen": {
+      "dp_sf_ecr": 378.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 367.0,
+      "dp_pos_ecr": 82.0,
+      "dp_sf_rookie_rank": 175,
+      "dp_age": null
+    },
+    "lucaskrull": {
+      "dp_sf_ecr": 378.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 379.5,
+      "dp_pos_ecr": 108.5,
+      "dp_sf_rookie_rank": 176,
+      "dp_age": null
+    },
+    "craigreynolds": {
+      "dp_sf_ecr": 378.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 378.7,
+      "dp_pos_ecr": 149.5,
+      "dp_sf_rookie_rank": 177,
+      "dp_age": null
+    },
+    "molikimatavao": {
+      "dp_sf_ecr": 378.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 380.0,
+      "dp_pos_ecr": 109.0,
+      "dp_sf_rookie_rank": 178,
+      "dp_age": null
+    },
+    "gusedwards": {
+      "dp_sf_ecr": 379.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 379.2,
+      "dp_pos_ecr": 150.0,
+      "dp_sf_rookie_rank": 179,
+      "dp_age": null
+    },
+    "willmallory": {
+      "dp_sf_ecr": 380.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 381.5,
+      "dp_pos_ecr": 110.5,
+      "dp_sf_rookie_rank": 180,
+      "dp_age": null
+    },
+    "drewogletree": {
+      "dp_sf_ecr": 381.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 382.5,
+      "dp_pos_ecr": 111.5,
+      "dp_sf_rookie_rank": 181,
+      "dp_age": null
+    },
+    "jaretpatterson": {
+      "dp_sf_ecr": 381.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 381.7,
+      "dp_pos_ecr": 152.5,
+      "dp_sf_rookie_rank": 182,
+      "dp_age": null
+    },
+    "johnnymundt": {
+      "dp_sf_ecr": 381.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 383.0,
+      "dp_pos_ecr": 112.0,
+      "dp_sf_rookie_rank": 183,
+      "dp_age": null
+    },
+    "baileyzappe": {
+      "dp_sf_ecr": 382.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 371.0,
+      "dp_pos_ecr": 86.0,
+      "dp_sf_rookie_rank": 184,
+      "dp_age": null
+    },
+    "desmondridder": {
+      "dp_sf_ecr": 382.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 371.0,
+      "dp_pos_ecr": 86.0,
+      "dp_sf_rookie_rank": 185,
+      "dp_age": null
+    },
+    "paynedurham": {
+      "dp_sf_ecr": 382.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 384.0,
+      "dp_pos_ecr": 113.0,
+      "dp_sf_rookie_rank": 186,
+      "dp_age": null
+    },
+    "marcusyarns": {
+      "dp_sf_ecr": 383.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 383.2,
+      "dp_pos_ecr": 154.0,
+      "dp_sf_rookie_rank": 187,
+      "dp_age": null
+    },
+    "carsonsteele": {
+      "dp_sf_ecr": 383.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 383.2,
+      "dp_pos_ecr": 154.0,
+      "dp_sf_rookie_rank": 188,
+      "dp_age": null
+    },
+    "henryruggsiii": {
+      "dp_sf_ecr": 384.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 384.7,
+      "dp_pos_ecr": 197.5,
+      "dp_sf_rookie_rank": 189,
+      "dp_age": null
+    },
+    "samehlinger": {
+      "dp_sf_ecr": 385.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 374.0,
+      "dp_pos_ecr": 89.0,
+      "dp_sf_rookie_rank": 190,
+      "dp_age": null
+    },
+    "drewsample": {
+      "dp_sf_ecr": 385.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 386.5,
+      "dp_pos_ecr": 115.5,
+      "dp_sf_rookie_rank": 191,
+      "dp_age": null
+    },
+    "skylarthompson": {
+      "dp_sf_ecr": 386.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 375.5,
+      "dp_pos_ecr": 90.5,
+      "dp_sf_rookie_rank": 192,
+      "dp_age": null
+    },
+    "brevynspannford": {
+      "dp_sf_ecr": 387.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 388.5,
+      "dp_pos_ecr": 117.5,
+      "dp_sf_rookie_rank": 193,
+      "dp_age": null
+    },
+    "moaliecox": {
+      "dp_sf_ecr": 387.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 388.5,
+      "dp_pos_ecr": 117.5,
+      "dp_sf_rookie_rank": 194,
+      "dp_age": null
+    },
+    "chaseedmonds": {
+      "dp_sf_ecr": 388.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 388.2,
+      "dp_pos_ecr": 159.0,
+      "dp_sf_rookie_rank": 195,
+      "dp_age": null
+    },
+    "codyschrader": {
+      "dp_sf_ecr": 388.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 388.7,
+      "dp_pos_ecr": 159.5,
+      "dp_sf_rookie_rank": 196,
+      "dp_age": null
+    },
+    "atperry": {
+      "dp_sf_ecr": 388.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 388.7,
+      "dp_pos_ecr": 201.5,
+      "dp_sf_rookie_rank": 197,
+      "dp_age": null
+    },
+    "davidmoore": {
+      "dp_sf_ecr": 388.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 388.7,
+      "dp_pos_ecr": 201.5,
+      "dp_sf_rookie_rank": 198,
+      "dp_age": null
+    },
+    "ericsaubert": {
+      "dp_sf_ecr": 388.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 390.0,
+      "dp_pos_ecr": 119.0,
+      "dp_sf_rookie_rank": 199,
+      "dp_age": null
+    },
+    "clydeedwardshelaire": {
+      "dp_sf_ecr": 389.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 389.2,
+      "dp_pos_ecr": 160.0,
+      "dp_sf_rookie_rank": 200,
+      "dp_age": null
+    },
+    "joshjohnson": {
+      "dp_sf_ecr": 389.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 378.5,
+      "dp_pos_ecr": 93.5,
+      "dp_sf_rookie_rank": 201,
+      "dp_age": null
+    },
+    "jackstoll": {
+      "dp_sf_ecr": 390.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 391.5,
+      "dp_pos_ecr": 120.5,
+      "dp_sf_rookie_rank": 202,
+      "dp_age": null
+    },
+    "cordarrellepatterson": {
+      "dp_sf_ecr": 391.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 391.2,
+      "dp_pos_ecr": 162.0,
+      "dp_sf_rookie_rank": 203,
+      "dp_age": null
+    },
+    "tommydevito": {
+      "dp_sf_ecr": 391.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 380.0,
+      "dp_pos_ecr": 95.0,
+      "dp_sf_rookie_rank": 204,
+      "dp_age": null
+    },
+    "allenlazard": {
+      "dp_sf_ecr": 391.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 391.7,
+      "dp_pos_ecr": 204.5,
+      "dp_sf_rookie_rank": 205,
+      "dp_age": null
+    },
+    "keaontayingram": {
+      "dp_sf_ecr": 392.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 392.2,
+      "dp_pos_ecr": 163.0,
+      "dp_sf_rookie_rank": 206,
+      "dp_age": null
+    },
+    "denericprince": {
+      "dp_sf_ecr": 392.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 392.2,
+      "dp_pos_ecr": 163.0,
+      "dp_sf_rookie_rank": 207,
+      "dp_age": null
+    },
+    "durhamsmythe": {
+      "dp_sf_ecr": 392.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 393.5,
+      "dp_pos_ecr": 122.5,
+      "dp_sf_rookie_rank": 208,
+      "dp_age": null
+    },
+    "terracemarshalljr": {
+      "dp_sf_ecr": 392.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 392.7,
+      "dp_pos_ecr": 205.5,
+      "dp_sf_rookie_rank": 209,
+      "dp_age": null
+    },
+    "casekeenum": {
+      "dp_sf_ecr": 393.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 382.0,
+      "dp_pos_ecr": 97.0,
+      "dp_sf_rookie_rank": 210,
+      "dp_age": null
+    },
+    "dominiclovett": {
+      "dp_sf_ecr": 393.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 393.7,
+      "dp_pos_ecr": 206.5,
+      "dp_sf_rookie_rank": 211,
+      "dp_age": null
+    },
+    "jamesmitchell": {
+      "dp_sf_ecr": 394.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 395.5,
+      "dp_pos_ecr": 124.5,
+      "dp_sf_rookie_rank": 212,
+      "dp_age": null
+    },
+    "pierrestrongjr": {
+      "dp_sf_ecr": 394.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 394.7,
+      "dp_pos_ecr": 165.5,
+      "dp_sf_rookie_rank": 213,
+      "dp_age": null
+    },
+    "rayraymccloudiii": {
+      "dp_sf_ecr": 394.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 394.7,
+      "dp_pos_ecr": 207.5,
+      "dp_sf_rookie_rank": 214,
+      "dp_age": null
+    },
+    "blakewatson": {
+      "dp_sf_ecr": 395.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 395.2,
+      "dp_pos_ecr": 166.0,
+      "dp_sf_rookie_rank": 215,
+      "dp_age": null
+    },
+    "connorheyward": {
+      "dp_sf_ecr": 395.3,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 396.5,
+      "dp_pos_ecr": 125.5,
+      "dp_sf_rookie_rank": 216,
+      "dp_age": null
+    },
+    "donaldparhamjr": {
+      "dp_sf_ecr": 395.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 397.0,
+      "dp_pos_ecr": 126.0,
+      "dp_sf_rookie_rank": 217,
+      "dp_age": null
+    },
+    "shanezylstra": {
+      "dp_sf_ecr": 396.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 398.0,
+      "dp_pos_ecr": 127.0,
+      "dp_sf_rookie_rank": 218,
+      "dp_age": null
+    },
+    "cedrickwilsonjr": {
+      "dp_sf_ecr": 397.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 397.2,
+      "dp_pos_ecr": 210.0,
+      "dp_sf_rookie_rank": 219,
+      "dp_age": null
+    },
+    "charliejones": {
+      "dp_sf_ecr": 397.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 397.7,
+      "dp_pos_ecr": 210.5,
+      "dp_sf_rookie_rank": 220,
+      "dp_age": null
+    },
+    "ianthomas": {
+      "dp_sf_ecr": 397.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 399.0,
+      "dp_pos_ecr": 128.0,
+      "dp_sf_rookie_rank": 221,
+      "dp_age": null
+    },
+    "seanclifford": {
+      "dp_sf_ecr": 398.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 387.5,
+      "dp_pos_ecr": 102.5,
+      "dp_sf_rookie_rank": 222,
+      "dp_age": null
+    },
+    "teaganquitoriano": {
+      "dp_sf_ecr": 398.8,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 400.0,
+      "dp_pos_ecr": 129.0,
+      "dp_sf_rookie_rank": 223,
+      "dp_age": null
+    },
+    "salvonahmed": {
+      "dp_sf_ecr": 399.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 399.2,
+      "dp_pos_ecr": 170.0,
+      "dp_sf_rookie_rank": 224,
+      "dp_age": null
+    },
+    "ronnierivers": {
+      "dp_sf_ecr": 401.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 401.2,
+      "dp_pos_ecr": 172.0,
+      "dp_sf_rookie_rank": 225,
+      "dp_age": null
+    },
+    "juliuschestnut": {
+      "dp_sf_ecr": 401.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 401.7,
+      "dp_pos_ecr": 172.5,
+      "dp_sf_rookie_rank": 226,
+      "dp_age": null
+    },
+    "keilanrobinson": {
+      "dp_sf_ecr": 402.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 402.7,
+      "dp_pos_ecr": 173.5,
+      "dp_sf_rookie_rank": 227,
+      "dp_age": null
+    },
+    "kenenwangwu": {
+      "dp_sf_ecr": 403.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 403.7,
+      "dp_pos_ecr": 174.5,
+      "dp_sf_rookie_rank": 228,
+      "dp_age": null
+    },
+    "jeffwilsonjr": {
+      "dp_sf_ecr": 403.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 403.7,
+      "dp_pos_ecr": 174.5,
+      "dp_sf_rookie_rank": 229,
+      "dp_age": null
+    },
+    "dernestjohnson": {
+      "dp_sf_ecr": 403.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 403.7,
+      "dp_pos_ecr": 174.5,
+      "dp_sf_rookie_rank": 230,
+      "dp_age": null
+    },
+    "benskowronek": {
+      "dp_sf_ecr": 404.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 404.2,
+      "dp_pos_ecr": 217.0,
+      "dp_sf_rookie_rank": 231,
+      "dp_age": null
+    },
+    "hunterrenfrow": {
+      "dp_sf_ecr": 404.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 404.7,
+      "dp_pos_ecr": 217.5,
+      "dp_sf_rookie_rank": 232,
+      "dp_age": null
+    },
+    "justinwatson": {
+      "dp_sf_ecr": 404.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 404.7,
+      "dp_pos_ecr": 217.5,
+      "dp_sf_rookie_rank": 233,
+      "dp_age": null
+    },
+    "scottymiller": {
+      "dp_sf_ecr": 404.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 404.7,
+      "dp_pos_ecr": 217.5,
+      "dp_sf_rookie_rank": 234,
+      "dp_age": null
+    },
+    "travishomer": {
+      "dp_sf_ecr": 408.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 408.2,
+      "dp_pos_ecr": 179.0,
+      "dp_sf_rookie_rank": 235,
+      "dp_age": null
+    },
+    "braxtonberrios": {
+      "dp_sf_ecr": 408.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 408.7,
+      "dp_pos_ecr": 221.5,
+      "dp_sf_rookie_rank": 236,
+      "dp_age": null
+    },
+    "kjosborn": {
+      "dp_sf_ecr": 408.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 408.7,
+      "dp_pos_ecr": 221.5,
+      "dp_sf_rookie_rank": 237,
+      "dp_age": null
+    },
+    "darryntonevans": {
+      "dp_sf_ecr": 409.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 409.2,
+      "dp_pos_ecr": 180.0,
+      "dp_sf_rookie_rank": 238,
+      "dp_age": null
+    },
+    "velusjonesjr": {
+      "dp_sf_ecr": 412.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 412.2,
+      "dp_pos_ecr": 225.0,
+      "dp_sf_rookie_rank": 239,
+      "dp_age": null
+    },
+    "nyheimmillerhines": {
+      "dp_sf_ecr": 414.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 414.7,
+      "dp_pos_ecr": 185.5,
+      "dp_sf_rookie_rank": 240,
+      "dp_age": null
+    },
+    "jamycalhasty": {
+      "dp_sf_ecr": 416.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 416.2,
+      "dp_pos_ecr": 187.0,
+      "dp_sf_rookie_rank": 241,
+      "dp_age": null
+    },
+    "michaelwiley": {
+      "dp_sf_ecr": 416.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 416.7,
+      "dp_pos_ecr": 187.5,
+      "dp_sf_rookie_rank": 242,
+      "dp_age": null
+    },
+    "garybrightwell": {
+      "dp_sf_ecr": 417.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 417.2,
+      "dp_pos_ecr": 188.0,
+      "dp_sf_rookie_rank": 243,
+      "dp_age": null
+    },
+    "mecolehardmanjr": {
+      "dp_sf_ecr": 418.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 418.2,
+      "dp_pos_ecr": 231.0,
+      "dp_sf_rookie_rank": 244,
+      "dp_age": null
+    },
+    "quezwatkins": {
+      "dp_sf_ecr": 418.2,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 418.2,
+      "dp_pos_ecr": 231.0,
+      "dp_sf_rookie_rank": 245,
+      "dp_age": null
+    },
+    "trayveonwilliams": {
+      "dp_sf_ecr": 418.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 418.7,
+      "dp_pos_ecr": 189.5,
+      "dp_sf_rookie_rank": 246,
+      "dp_age": null
+    },
+    "jasonbrownlee": {
+      "dp_sf_ecr": 418.7,
+      "dp_sf_value": 1,
+      "dp_oneqb_ecr": 418.7,
+      "dp_pos_ecr": 231.5,
+      "dp_sf_rookie_rank": 247,
+      "dp_age": null
+    },
+    "tejhaunpalmer": {
+      "dp_sf_ecr": 424.2,
+      "dp_sf_value": 0,
+      "dp_oneqb_ecr": 424.2,
+      "dp_pos_ecr": 237.0,
+      "dp_sf_rookie_rank": 248,
+      "dp_age": null
+    },
+    "dannygray": {
+      "dp_sf_ecr": 425.7,
+      "dp_sf_value": 0,
+      "dp_oneqb_ecr": 425.7,
+      "dp_pos_ecr": 238.5,
+      "dp_sf_rookie_rank": 249,
+      "dp_age": null
+    },
+    "lewnicholsiii": {
+      "dp_sf_ecr": 426.2,
+      "dp_sf_value": 0,
+      "dp_oneqb_ecr": 426.2,
+      "dp_pos_ecr": 197.0,
+      "dp_sf_rookie_rank": 250,
+      "dp_age": null
+    },
+    "jashauncorbin": {
+      "dp_sf_ecr": 428.2,
+      "dp_sf_value": 0,
+      "dp_oneqb_ecr": 428.2,
+      "dp_pos_ecr": 199.0,
+      "dp_sf_rookie_rank": 251,
+      "dp_age": null
     },
     "anthonylucas": {
       "sleeper_sf_rookie_rank": 59,
@@ -2248,20 +3730,20 @@
       "sleeper_overall_rank": 61,
       "sleeper_id": "13279"
     },
-    "19233": {
+    "19299": {
       "sleeper_sf_rookie_rank": 4,
-      "sleeper_overall_rank": 70,
+      "sleeper_overall_rank": 63,
+      "sleeper_id": "13286"
+    },
+    "19233": {
+      "sleeper_sf_rookie_rank": 5,
+      "sleeper_overall_rank": 69,
       "sleeper_id": "13281"
     },
     "19231": {
-      "sleeper_sf_rookie_rank": 5,
+      "sleeper_sf_rookie_rank": 6,
       "sleeper_overall_rank": 77,
       "sleeper_id": "13294"
-    },
-    "19299": {
-      "sleeper_sf_rookie_rank": 6,
-      "sleeper_overall_rank": 101,
-      "sleeper_id": "13286"
     },
     "19279": {
       "sleeper_sf_rookie_rank": 7,
@@ -2273,15 +3755,15 @@
       "sleeper_overall_rank": 113,
       "sleeper_id": "13337"
     },
-    "19241": {
+    "19242": {
       "sleeper_sf_rookie_rank": 9,
+      "sleeper_overall_rank": 116,
+      "sleeper_id": "13298"
+    },
+    "19241": {
+      "sleeper_sf_rookie_rank": 10,
       "sleeper_overall_rank": 118,
       "sleeper_id": "13345"
-    },
-    "19242": {
-      "sleeper_sf_rookie_rank": 10,
-      "sleeper_overall_rank": 129,
-      "sleeper_id": "13298"
     },
     "19273": {
       "sleeper_sf_rookie_rank": 11,
@@ -2303,25 +3785,25 @@
       "sleeper_overall_rank": 141,
       "sleeper_id": "13275"
     },
-    "19394": {
+    "19298": {
       "sleeper_sf_rookie_rank": 15,
+      "sleeper_overall_rank": 144,
+      "sleeper_id": "13346"
+    },
+    "19394": {
+      "sleeper_sf_rookie_rank": 16,
       "sleeper_overall_rank": 145,
       "sleeper_id": "13375"
     },
     "19314": {
-      "sleeper_sf_rookie_rank": 16,
-      "sleeper_overall_rank": 151,
+      "sleeper_sf_rookie_rank": 17,
+      "sleeper_overall_rank": 146,
       "sleeper_id": "13276"
     },
     "19395": {
-      "sleeper_sf_rookie_rank": 17,
+      "sleeper_sf_rookie_rank": 18,
       "sleeper_overall_rank": 152,
       "sleeper_id": "13340"
-    },
-    "19298": {
-      "sleeper_sf_rookie_rank": 18,
-      "sleeper_overall_rank": 153,
-      "sleeper_id": "13346"
     },
     "19237": {
       "sleeper_sf_rookie_rank": 19,
@@ -2363,30 +3845,30 @@
       "sleeper_overall_rank": 176,
       "sleeper_id": "13347"
     },
-    "19410": {
+    "19262": {
       "sleeper_sf_rookie_rank": 27,
+      "sleeper_overall_rank": 180,
+      "sleeper_id": "13320"
+    },
+    "19410": {
+      "sleeper_sf_rookie_rank": 28,
       "sleeper_overall_rank": 180,
       "sleeper_id": "13371"
     },
     "19256": {
-      "sleeper_sf_rookie_rank": 28,
+      "sleeper_sf_rookie_rank": 29,
       "sleeper_overall_rank": 181,
       "sleeper_id": "13379"
     },
     "19393": {
-      "sleeper_sf_rookie_rank": 29,
+      "sleeper_sf_rookie_rank": 30,
       "sleeper_overall_rank": 182,
       "sleeper_id": "13363"
     },
     "19230": {
-      "sleeper_sf_rookie_rank": 30,
+      "sleeper_sf_rookie_rank": 31,
       "sleeper_overall_rank": 182,
       "sleeper_id": "13293"
-    },
-    "19262": {
-      "sleeper_sf_rookie_rank": 31,
-      "sleeper_overall_rank": 185,
-      "sleeper_id": "13320"
     },
     "19572": {
       "sleeper_sf_rookie_rank": 32,
@@ -2438,45 +3920,45 @@
       "sleeper_overall_rank": 201,
       "sleeper_id": "13268"
     },
-    "19239": {
+    "19330": {
       "sleeper_sf_rookie_rank": 42,
+      "sleeper_overall_rank": 202,
+      "sleeper_id": "13417"
+    },
+    "19239": {
+      "sleeper_sf_rookie_rank": 43,
       "sleeper_overall_rank": 202,
       "sleeper_id": "13353"
     },
     "19309": {
-      "sleeper_sf_rookie_rank": 43,
+      "sleeper_sf_rookie_rank": 44,
       "sleeper_overall_rank": 203,
       "sleeper_id": "13311"
     },
     "19313": {
-      "sleeper_sf_rookie_rank": 44,
+      "sleeper_sf_rookie_rank": 45,
       "sleeper_overall_rank": 210,
       "sleeper_id": "13285"
     },
     "19415": {
-      "sleeper_sf_rookie_rank": 45,
+      "sleeper_sf_rookie_rank": 46,
       "sleeper_overall_rank": 211,
       "sleeper_id": "13390"
     },
     "19398": {
-      "sleeper_sf_rookie_rank": 46,
+      "sleeper_sf_rookie_rank": 47,
       "sleeper_overall_rank": 212,
       "sleeper_id": "13385"
     },
     "19346": {
-      "sleeper_sf_rookie_rank": 47,
+      "sleeper_sf_rookie_rank": 48,
       "sleeper_overall_rank": 212,
       "sleeper_id": "13401"
     },
     "19278": {
-      "sleeper_sf_rookie_rank": 48,
+      "sleeper_sf_rookie_rank": 49,
       "sleeper_overall_rank": 212,
       "sleeper_id": "13278"
-    },
-    "19330": {
-      "sleeper_sf_rookie_rank": 49,
-      "sleeper_overall_rank": 214,
-      "sleeper_id": "13417"
     },
     "19266": {
       "sleeper_sf_rookie_rank": 50,
@@ -2762,6 +4244,11 @@
       "sleeper_sf_rookie_rank": 110,
       "sleeper_overall_rank": 999,
       "sleeper_id": "13339"
+    },
+    "19324": {
+      "sleeper_sf_rookie_rank": 111,
+      "sleeper_overall_rank": 999,
+      "sleeper_id": "13309"
     },
     "19304": {
       "sleeper_sf_rookie_rank": 112,

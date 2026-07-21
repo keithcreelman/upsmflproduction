@@ -1579,7 +1579,17 @@
     var fcRank = faRankMap(board, function (p) { return p.fc && p.fc.rsf > 0 ? p.fc.rsf : null; }, false);
     var ktcRank = faRankMap(board, function (p) { return p.ktc && p.ktc.rsf > 0 ? p.ktc.rsf : null; }, false);
     var ffcRank = faRankMap(board, function (p) { return p.ffcAdp; }, true);
-    return { fcRank: fcRank, ktcRank: ktcRank, ffcRank: ffcRank, curve: faRankToFcValueCurve(board, fcRank) };
+    // MFL native AAV — the ONLY source quoting real auction dollars, and it IS
+    // live again for 2026 (800 tracked auctions). REFERENCE ONLY, deliberately NOT
+    // in the consensus: inspected 2026-07-21, the top six players by average value
+    // are all 2026 rookies (Jeremiyah Love $57.39 ... Ja'Marr Chase only 7th,
+    // Josh Allen 10th) because the auctions MFL tracks in July are dynasty ROOKIE
+    // auctions. That is a rookie-draft ordering, not a redraft one, and ranking it
+    // rather than averaging it does not help — the contamination is in the order
+    // itself. The rank map is built so the column can be displayed and so this is
+    // one uncomment away if the pool shifts once redraft auctions ramp up.
+    var mflRank = faRankMap(board, function (p) { return p.mflAav > 0 ? p.mflAav : null; }, false);
+    return { fcRank: fcRank, ktcRank: ktcRank, ffcRank: ffcRank, mflRank: mflRank, curve: faRankToFcValueCurve(board, fcRank) };
   }
   function faOffVal(r, rc) {   // offense redraft consensus value (higher = better)
     if (!rc) return null;
