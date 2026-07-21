@@ -1601,9 +1601,17 @@
     var avg = ranks.reduce(function (a, b) { return a + b; }, 0) / ranks.length;
     return faValueAtRank(avg, rc.curve);
   }
-  function faIdpVal(r) {   // IDP value off FantasyPros ECR (higher = better)
+  // IDP value (higher = better). The worker computes idpVal on an
+  // AUCTION-ANCHORED scale — 1152 * idpRank^-0.3358, fit on UPS preseason
+  // FA-auction winning bids 2022-2025 — so it sits on the same dollar-backed
+  // scale as offense. The old fallback here was a hand-made linear ramp
+  // (10000 - ecr*45) that overvalued defenders by roughly 9x at the top and
+  // 25x in the middle; it is gone. If the worker sent no idpVal, mirror its
+  // curve off the ECR rank rather than inventing a second scale.
+  function faIdpVal(r) {
     if (r.idpVal != null && r.idpVal > 0) return r.idpVal;
-    if (r.fpEcr != null && r.fpEcr > 0) return Math.max(0, 10000 - r.fpEcr * 45);
+    var rk = (r.idpRank != null && r.idpRank > 0) ? r.idpRank : r.fpEcr;
+    if (rk != null && rk > 0) return Math.max(1, Math.round(1152 * Math.pow(rk, -0.3358)));
     return null;
   }
   // Positional rank within a universe by a metric. higherBetter=false ⇒ lower value ranks first (ADP/ECR/search_rank).
@@ -1662,20 +1670,30 @@
       };
     });
 
-    // IDP — FantasyPros dynasty ECR only; ranked in its own universe.
+    // IDP — ranked in its own universe off UPS-SCORED projections (see the
+    // worker's IDP block). FantasyPros ECR is shown for reference but does NOT
+    // drive the ordering: it is ~uncorrelated (ρ≈0.03-0.08) with what actually
+    // scores points under this league's IDP rules.
     var idpPos = faPosRanks(idp, faIdpVal, true);
     var idpOvr = faOvrRanks(idp, faIdpVal);
     idp.forEach(function (r) {
       var pid = _PID(r); if (!pid) return;
       var pos = String(r.pos || "").toUpperCase();
+      var srcs = [];
+      if (r.fsIdpPts != null) srcs.push("FantasySharks " + r.fsIdpPts + " UPS pts");
+      if (r.slIdpPts != null) srcs.push("RotoWire " + r.slIdpPts + " UPS pts");
+      if (r.idpVorp != null) srcs.push("VORP " + (r.idpVorp > 0 ? "+" : "") + r.idpVorp + " vs " + (r.idpGrp || "?") + " repl");
+      if (r.fpEcr != null) srcs.push("FantasyPros dyn IDP ECR #" + r.fpEcr + " (ref only)");
       m[pid] = {
         isIdp: true, pos: pos,
         posRank: idpPos[pid] || null,
         ovr: idpOvr[pid] || null,
         ecr: (r.fpEcr != null ? r.fpEcr : null),
+        proj: (r.idpProj != null ? r.idpProj : null),
+        vorp: (r.idpVorp != null ? r.idpVorp : null),
         val: faIdpVal(r),
-        srcs: (r.fpEcr != null ? ["FantasyPros dynasty IDP ECR #" + r.fpEcr] : []),
-        srcCount: (r.fpEcr != null ? 1 : 0),
+        srcs: srcs,
+        srcCount: (r.idpSources || 0),
       };
     });
     return m;
