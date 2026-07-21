@@ -844,20 +844,34 @@
   // player name so it survives a mid-auction reload (same store key the mobile board uses). ──
   var FAV_RANK_OVR = {}; try { FAV_RANK_OVR = JSON.parse(localStorage.getItem("ups_fav_rank_ovr") || "{}") || {}; } catch (e) { }
   function favSaveOvr() { try { localStorage.setItem("ups_fav_rank_ovr", JSON.stringify(FAV_RANK_OVR)); } catch (e) { } }
-  // ── client recompute KERNEL: reproduce build_fa_value.ep_base_k EXACTLY at a different redraft rank.
-  // EP = round(max( startability(pos,rank), ante+slope·round(p50[rank]·$/APWE), dynasty_worth·pos_dyn_w )).
-  // Only the redraft axis + startability + affine move with rank; dynasty worth (dw) is rank-independent. ──
+  // ── client recompute KERNEL: reproduce the pipeline's served EP EXACTLY at a different redraft rank.
+  // EP = round(max( startability(pos,rank), max(ante+slope·round(p50[rank]·$/APWE), dyn_worth·pos_dyn_w)
+  //                                          · m_money · m_pos[pos] · m_elite )).
+  // Only the redraft axis + startability + affine move with rank; dynasty worth (dw) is rank-independent.
+  // The three v5 regime factors ALL DEFAULT TO 1, so a blob built before v5 (or with --ep-model v4)
+  // reduces to the old max() exactly — old blobs behave identically. The startability floor is never
+  // scaled: slot rent is a roster rule, not a market opinion. ──
   function pyRound(x) { var r = Math.round(x); if (Math.abs(x - Math.trunc(x) - 0.5) < 1e-9 && (r % 2 !== 0)) r -= (x >= 0 ? 1 : -1); return r; }  // half-to-even, matches Python round()
   function epStartFloor(pos, rank, EP) { var t = EP && EP.startability && EP.startability[pos]; if (!t || !rank) return 0; for (var i = 0; i < t.length; i++) { if (rank <= t[i][0]) return t[i][1]; } return t[t.length - 1][1]; }
   function favRankInt(s) { var m = String(s || "").match(/(\d+)/); return m ? +m[1] : null; }
-  function epRecompute(pos, rank, dw, EP) {
+  function epFactors(pos, name, EP) {   // the three v5 regime factors; every one defaults to 1
+    var mm = (EP && EP.m_money != null) ? EP.m_money : 1;
+    var mp = (EP && EP.m_pos && EP.m_pos[pos] != null) ? EP.m_pos[pos] : 1;
+    var me = 1;
+    if (EP && EP.m_elite != null && EP.elite_players && name) {
+      for (var i = 0; i < EP.elite_players.length; i++) { if (EP.elite_players[i] === name) { me = EP.m_elite; break; } }
+    }
+    return mm * mp * me;
+  }
+  function epRecompute(pos, rank, dw, EP, name) {
     var C = EP && EP.curves && EP.curves[pos]; if (!C || !rank) return null;
     var idx = Math.min(rank, C.p50.length) - 1, a50f = C.p50[idx];             // FULL 2dp p50 → exact rw
     var rw = pyRound(a50f * EP.dollar_per_apwe);                               // round redraft worth FIRST
     var aff = EP.affine_ante + EP.affine_slope * rw, sf = epStartFloor(pos, rank, EP);
     var pw = (EP.pos_dyn_w[pos] != null ? EP.pos_dyn_w[pos] : (EP.pos_dyn_w._default != null ? EP.pos_dyn_w._default : 0.8));
+    var mkt = Math.max(aff, (dw || 0) * pw) * epFactors(pos, name, EP);        // only the MARKET arms scale
     // a50/a90 returned at the board's 1dp display convention; rw/ep use full precision.
-    return { a50: Math.round(a50f * 10) / 10, a90: Math.round(C.p90[idx] * 10) / 10, rw: rw, ep: pyRound(Math.max(sf, aff, (dw || 0) * pw)) };
+    return { a50: Math.round(a50f * 10) / 10, a90: Math.round(C.p90[idx] * 10) / 10, rw: rw, ep: pyRound(Math.max(sf, mkt)) };
   }
   function favEP(meta) { return meta && meta.model; }   // the kernel lives in meta.model (constants + curves)
   function favCanOvr(r, EP) { return !r.o && EP && EP.curves && EP.curves[r.p] && r.fr; }   // FA + has a curve + a redraft rank
@@ -926,7 +940,7 @@
     var nAvail = rows.filter(function (r) { return !r.o; }).length, nRost = rows.length - nAvail;
     var EP = favEP(meta), nOvr = 0;
     // decorate each row with the LIVE-blended worth / price / gap / verdict. A trade target isn't in
-    // the auction → its PRICE is its contract AAV (what you take on), not the inflated auction EP.
+    // the auction → its PRICE is its contract AAV (what you take on), not the expected auction EP.
     rows.forEach(function (r) {
       // pristine snapshot (captured ONCE) so an ADP override is reversible without a re-fetch.
       if (r._ep0 == null) { r._ep0 = r.e; r._rw0 = r.rw; r._a500 = r.a50; r._a900 = r.a90; }
@@ -935,7 +949,7 @@
       // stays at the MARKET's read (r.e unchanged): if you alone think he's better, you still pay the
       // market price → the widened gap IS your edge. r._ovrEP = what he'd cost IF the market agreed.
       var ov = favCanOvr(r, EP) ? FAV_RANK_OVR[r.n] : null; r._ovrEP = null;
-      if (ov != null) { var res = epRecompute(r.p, ov, r.dw, EP); if (res) { r.rw = res.rw; r.a50 = res.a50; r.a90 = res.a90; r._ovrEP = res.ep; nOvr++; } }
+      if (ov != null) { var res = epRecompute(r.p, ov, r.dw, EP, r.n); if (res) { r.rw = res.rw; r.a50 = res.a50; r.a90 = res.a90; r._ovrEP = res.ep; nOvr++; } }
       r._ovr = ov;
       r._w = favWorth(r);
       r._price = r.o ? (r.av || 0) : (r.e || 0);

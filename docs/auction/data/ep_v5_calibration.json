@@ -1,0 +1,688 @@
+{
+  "schema": "ep_v5_calibration/1",
+  "generated_by": "pipelines/etl/scripts/build_ep_v5_calibration.py",
+  "source_db": "/tmp/ups_auction_canon.db",
+  "years": [
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "ship_gate": true,
+  "ship_gate_detail": {
+    "rule": "v5 must beat v4 on LOYO dollar-weighted MAE of the SERVED number AND keep plain MAE within 2%",
+    "v4": {
+      "mae": 5.595,
+      "dw_mae": 9.984,
+      "bias": 0.214,
+      "n": 126
+    },
+    "v5": {
+      "mae": 5.421,
+      "dw_mae": 9.453,
+      "bias": -0.071,
+      "n": 126
+    },
+    "beats_dollar_weighted_mae": true,
+    "mae_within_2pct": true,
+    "folds_improved_dw_mae": 3,
+    "folds": 4,
+    "on_failure": "build_roster_fit serves v4 unchanged; only the transparency columns ship.",
+    "power_warning": "The gate is a 4-point leave-one-year-out on 137 credible clears. \u03bb is identified almost entirely by one outlier season, \u03b3 is sign-guarded to 0 (M_pos inert), and at least one fold regresses. Treat v5 as a modest, honestly-measured improvement in dollar-weighted error \u2014 not as a validated market model. --ep-model v4 remains a one-flag rollback."
+  },
+  "constants": {
+    "lambda": 0.47699,
+    "gamma": 0.0,
+    "lambda_raw": 0.47699,
+    "gamma_raw": -0.23941,
+    "gamma_sign_guarded": true,
+    "lambda_leverage": {
+      "season": 2023,
+      "share_of_lambda_leverage": 0.6437
+    },
+    "n_gamma_cells": 15,
+    "R_bar": 2.56783,
+    "R_observed_range": [
+      2.0689,
+      3.5695
+    ],
+    "z_bar": {
+      "QB": 2.36845,
+      "RB": 7.41812,
+      "WR": 3.1352,
+      "TE": 0.75577
+    },
+    "elite_factor": 1.0,
+    "elite_enabled": false,
+    "elite_top_n": 3,
+    "m_money_clamp": [
+      0.8,
+      1.6
+    ],
+    "m_pos_clamp": [
+      0.85,
+      1.35
+    ],
+    "credible_rw": 3,
+    "credible_ep": 5,
+    "formula": "ep_v5 = round(max(floor, max(affine, dyn_anchor) \u00b7 M_money \u00b7 M_pos \u00b7 elite)); M_money = clamp(1+\u03bb\u00b7(R/R\u0304\u22121)); M_pos = clamp(1+\u03b3\u00b7((D/S)/z\u0304[pos]\u22121)); R = (\u03a3capspace \u2212 \u03a3reserve)/\u03a3rw(credible pool); D = \u03a3 comp_score (NO capspace weighting)",
+    "sign_guard": "\u03bb,\u03b3 clamped \u2265 0 \u2014 a scarcer/richer market cannot make prices cheaper",
+    "tunables_not_fitted": [
+      "m_money_clamp",
+      "m_pos_clamp",
+      "elite_top_n",
+      "POS_DYN_W (build_fa_value)",
+      "STARTABILITY (build_fa_value)",
+      "DYN_ANCHOR_K=$75K (build_fa_value)"
+    ]
+  },
+  "regime_by_year": [
+    {
+      "season": 2022,
+      "auction_start": "2022-07-30",
+      "auction_end": "2022-08-08",
+      "n_teams": 12,
+      "sum_capspace_k": 1346.0,
+      "sum_reserve_k": 132.0,
+      "realized_idp_spend_k": 139.0,
+      "n_pool": 288,
+      "n_credible": 42,
+      "credible_rw_k": 553,
+      "R": 2.1953,
+      "supply_definition": "unrostered pre-auction skill players with a FantasyPros rank (symmetric with build_roster_fit)",
+      "diagnostic_nominated_pool": {
+        "n_pool": 94,
+        "n_credible": 45,
+        "credible_rw_k": 606,
+        "R": 2.0033,
+        "note": "the supply that actually drew an opening bid \u2014 carried to show the unrostered substitution does not move \u03a3rw materially"
+      },
+      "demand": {
+        "QB": 26.2,
+        "RB": 21.29,
+        "WR": 36.08,
+        "TE": 6.02
+      },
+      "supply": {
+        "QB": 13,
+        "RB": 4,
+        "WR": 12,
+        "TE": 13
+      },
+      "z": {
+        "QB": 2.0154,
+        "RB": 5.3225,
+        "WR": 3.0067,
+        "TE": 0.4631
+      }
+    },
+    {
+      "season": 2023,
+      "auction_start": "2023-07-29",
+      "auction_end": "2023-08-08",
+      "n_teams": 12,
+      "sum_capspace_k": 1168.0,
+      "sum_reserve_k": 115.0,
+      "realized_idp_spend_k": 142.0,
+      "n_pool": 103,
+      "n_credible": 28,
+      "credible_rw_k": 295,
+      "R": 3.5695,
+      "supply_definition": "unrostered pre-auction skill players with a FantasyPros rank (symmetric with build_roster_fit)",
+      "diagnostic_nominated_pool": {
+        "n_pool": 72,
+        "n_credible": 17,
+        "credible_rw_k": 266,
+        "R": 3.9586,
+        "note": "the supply that actually drew an opening bid \u2014 carried to show the unrostered substitution does not move \u03a3rw materially"
+      },
+      "demand": {
+        "QB": 16.73,
+        "RB": 34.05,
+        "WR": 34.5,
+        "TE": 9.28
+      },
+      "supply": {
+        "QB": 11,
+        "RB": 2,
+        "WR": 7,
+        "TE": 8
+      },
+      "z": {
+        "QB": 1.5209,
+        "RB": 17.025,
+        "WR": 4.9286,
+        "TE": 1.16
+      }
+    },
+    {
+      "season": 2024,
+      "auction_start": "2024-07-27",
+      "auction_end": "2024-08-07",
+      "n_teams": 12,
+      "sum_capspace_k": 1112.0,
+      "sum_reserve_k": 121.0,
+      "realized_idp_spend_k": 171.0,
+      "n_pool": 162,
+      "n_credible": 40,
+      "credible_rw_k": 479,
+      "R": 2.0689,
+      "supply_definition": "unrostered pre-auction skill players with a FantasyPros rank (symmetric with build_roster_fit)",
+      "diagnostic_nominated_pool": {
+        "n_pool": 96,
+        "n_credible": 36,
+        "credible_rw_k": 509,
+        "R": 1.947,
+        "note": "the supply that actually drew an opening bid \u2014 carried to show the unrostered substitution does not move \u03a3rw materially"
+      },
+      "demand": {
+        "QB": 28.3,
+        "RB": 29.04,
+        "WR": 31.11,
+        "TE": 8.99
+      },
+      "supply": {
+        "QB": 8,
+        "RB": 8,
+        "WR": 12,
+        "TE": 12
+      },
+      "z": {
+        "QB": 3.5375,
+        "RB": 3.63,
+        "WR": 2.5925,
+        "TE": 0.7492
+      }
+    },
+    {
+      "season": 2025,
+      "auction_start": "2025-08-03",
+      "auction_end": "2025-08-13",
+      "n_teams": 12,
+      "sum_capspace_k": 1145.0,
+      "sum_reserve_k": 109.0,
+      "realized_idp_spend_k": 133.0,
+      "n_pool": 153,
+      "n_credible": 37,
+      "credible_rw_k": 425,
+      "R": 2.4376,
+      "supply_definition": "unrostered pre-auction skill players with a FantasyPros rank (symmetric with build_roster_fit)",
+      "diagnostic_nominated_pool": {
+        "n_pool": 84,
+        "n_credible": 39,
+        "credible_rw_k": 482,
+        "R": 2.1494,
+        "note": "the supply that actually drew an opening bid \u2014 carried to show the unrostered substitution does not move \u03a3rw materially"
+      },
+      "demand": {
+        "QB": 26.4,
+        "RB": 14.78,
+        "WR": 20.13,
+        "TE": 7.81
+      },
+      "supply": {
+        "QB": 11,
+        "RB": 4,
+        "WR": 10,
+        "TE": 12
+      },
+      "z": {
+        "QB": 2.4,
+        "RB": 3.695,
+        "WR": 2.013,
+        "TE": 0.6508
+      }
+    }
+  ],
+  "per_year_markup_vs_served_v4": {
+    "2022": 1.0721,
+    "2023": 1.2118,
+    "2024": 0.804,
+    "2025": 0.9412
+  },
+  "arm_truth": {
+    "all_clears": {
+      "label": "all skill FA clears 2022-25",
+      "n": 346,
+      "arms": {
+        "floor": {
+          "n": 51,
+          "binding_share": 0.1474,
+          "paid_share": 0.167,
+          "mae": 3.294,
+          "dw_mae": 4.695,
+          "bias": -0.431
+        },
+        "affine": {
+          "n": 291,
+          "binding_share": 0.841,
+          "paid_share": 0.7989,
+          "mae": 3.564,
+          "dw_mae": 8.92,
+          "bias": 0.828
+        },
+        "dyn_anchor": {
+          "n": 4,
+          "binding_share": 0.0116,
+          "paid_share": 0.0342,
+          "mae": 6.75,
+          "dw_mae": 6.644,
+          "bias": -2.75
+        }
+      },
+      "served": {
+        "mae": 3.561,
+        "dw_mae": 8.137,
+        "bias": 0.601,
+        "n": 346
+      },
+      "affine_arm_only_advertised": {
+        "mae": 3.547,
+        "mse": 31.6
+      }
+    },
+    "credible": {
+      "label": "credible pool (rw\u22653 or ep\u22655)",
+      "n": 126,
+      "arms": {
+        "floor": {
+          "n": 47,
+          "binding_share": 0.373,
+          "paid_share": 0.2238,
+          "mae": 3.426,
+          "dw_mae": 4.869,
+          "bias": -0.489
+        },
+        "affine": {
+          "n": 76,
+          "binding_share": 0.6032,
+          "paid_share": 0.7371,
+          "mae": 7.0,
+          "dw_mae": 11.824,
+          "bias": 0.605
+        },
+        "dyn_anchor": {
+          "n": 3,
+          "binding_share": 0.0238,
+          "paid_share": 0.039,
+          "mae": 4.0,
+          "dw_mae": 4.556,
+          "bias": 1.333
+        }
+      },
+      "served": {
+        "mae": 5.595,
+        "dw_mae": 9.984,
+        "bias": 0.214,
+        "n": 126
+      },
+      "affine_arm_only_advertised": {
+        "mae": 5.847,
+        "mse": 70.5
+      }
+    },
+    "credible_by_year": {
+      "2022": {
+        "label": "credible 2022",
+        "n": 39,
+        "arms": {
+          "floor": {
+            "n": 13,
+            "binding_share": 0.3333,
+            "paid_share": 0.1951,
+            "mae": 2.846,
+            "dw_mae": 4.21,
+            "bias": -2.077
+          },
+          "affine": {
+            "n": 26,
+            "binding_share": 0.6667,
+            "paid_share": 0.8049,
+            "mae": 5.846,
+            "dw_mae": 9.045,
+            "bias": -0.538
+          },
+          "dyn_anchor": {
+            "n": 0,
+            "binding_share": 0.0
+          }
+        },
+        "served": {
+          "mae": 4.846,
+          "dw_mae": 8.102,
+          "bias": -1.051,
+          "n": 39
+        },
+        "affine_arm_only_advertised": {
+          "mae": 5.332,
+          "mse": 51.5
+        }
+      },
+      "2023": {
+        "label": "credible 2023",
+        "n": 17,
+        "arms": {
+          "floor": {
+            "n": 6,
+            "binding_share": 0.3529,
+            "paid_share": 0.1347,
+            "mae": 3.0,
+            "dw_mae": 2.638,
+            "bias": 2.0
+          },
+          "affine": {
+            "n": 11,
+            "binding_share": 0.6471,
+            "paid_share": 0.8653,
+            "mae": 10.091,
+            "dw_mae": 20.189,
+            "bias": -6.636
+          },
+          "dyn_anchor": {
+            "n": 0,
+            "binding_share": 0.0
+          }
+        },
+        "served": {
+          "mae": 7.588,
+          "dw_mae": 17.825,
+          "bias": -3.588,
+          "n": 17
+        },
+        "affine_arm_only_advertised": {
+          "mae": 7.234,
+          "mse": 155.3
+        }
+      },
+      "2024": {
+        "label": "credible 2024",
+        "n": 34,
+        "arms": {
+          "floor": {
+            "n": 15,
+            "binding_share": 0.4412,
+            "paid_share": 0.2562,
+            "mae": 3.267,
+            "dw_mae": 4.904,
+            "bias": 0.467
+          },
+          "affine": {
+            "n": 19,
+            "binding_share": 0.5588,
+            "paid_share": 0.7438,
+            "mae": 6.526,
+            "dw_mae": 8.96,
+            "bias": 4.842
+          },
+          "dyn_anchor": {
+            "n": 0,
+            "binding_share": 0.0
+          }
+        },
+        "served": {
+          "mae": 5.088,
+          "dw_mae": 7.921,
+          "bias": 2.912,
+          "n": 34
+        },
+        "affine_arm_only_advertised": {
+          "mae": 4.861,
+          "mse": 46.2
+        }
+      },
+      "2025": {
+        "label": "credible 2025",
+        "n": 36,
+        "arms": {
+          "floor": {
+            "n": 13,
+            "binding_share": 0.3611,
+            "paid_share": 0.2979,
+            "mae": 4.385,
+            "dw_mae": 6.126,
+            "bias": -1.154
+          },
+          "affine": {
+            "n": 20,
+            "binding_share": 0.5556,
+            "paid_share": 0.5521,
+            "mae": 7.25,
+            "dw_mae": 10.706,
+            "bias": 2.05
+          },
+          "dyn_anchor": {
+            "n": 3,
+            "binding_share": 0.0833,
+            "paid_share": 0.15,
+            "mae": 4.0,
+            "dw_mae": 4.556,
+            "bias": 1.333
+          }
+        },
+        "served": {
+          "mae": 5.944,
+          "dw_mae": 8.419,
+          "bias": 0.833,
+          "n": 36
+        },
+        "affine_arm_only_advertised": {
+          "mae": 6.683,
+          "mse": 74.0
+        }
+      }
+    },
+    "shipped_board_binding_2026": {
+      "all": {
+        "dyn_anchor": 249,
+        "affine": 424,
+        "floor": 11
+      },
+      "credible": {
+        "dyn_anchor": 197,
+        "affine": 62,
+        "floor": 11
+      },
+      "credible_dyn_anchor_share": 0.7296
+    },
+    "coverage_warning": "The dynasty-anchor arm binds 73% of the CREDIBLE 2026 board but only 2.4% of credible historical clears (n=3). This is structural, not a sampling accident: franchises do not release high-dynasty players into the FA auction, so the arm that prices most of today's board is essentially UNVALIDATABLE from the archive. POS_DYN_W remains a Keith-tunable judgement call, and the advertised MSE-31/MAE-$3.5K describes the affine arm on ALL clears \u2014 a set dominated by $1-2K scrubs \u2014 not the number the tool serves on the players you actually bid on."
+  },
+  "backtest_loyo": {
+    "folds": [
+      {
+        "held_out": 2022,
+        "n": 39,
+        "lambda": 0.7159,
+        "gamma": 0.0,
+        "lambda_raw": 0.7159,
+        "gamma_raw": -0.229,
+        "R_bar": 2.692,
+        "elite": 1.0,
+        "R_heldout": 2.1953,
+        "m_money": 0.8679,
+        "v4": {
+          "mae": 4.846,
+          "dw_mae": 8.102,
+          "bias": -1.051,
+          "n": 39
+        },
+        "v5": {
+          "mae": 5.154,
+          "dw_mae": 9.787,
+          "bias": -2.538,
+          "n": 39
+        },
+        "v4_elite": {
+          "mae": 6.75,
+          "dw_mae": 9.038,
+          "bias": -1.75,
+          "n": 12
+        },
+        "v5_elite": {
+          "mae": 8.25,
+          "dw_mae": 11.932,
+          "bias": -5.583,
+          "n": 12
+        }
+      },
+      {
+        "held_out": 2023,
+        "n": 17,
+        "lambda": 0.3985,
+        "gamma": 0.0,
+        "lambda_raw": 0.3985,
+        "gamma_raw": -0.1746,
+        "R_bar": 2.2339,
+        "elite": 1.0,
+        "R_heldout": 3.5695,
+        "m_money": 1.2382,
+        "v4": {
+          "mae": 7.588,
+          "dw_mae": 17.825,
+          "bias": -3.588,
+          "n": 17
+        },
+        "v5": {
+          "mae": 6.882,
+          "dw_mae": 14.092,
+          "bias": -0.412,
+          "n": 17
+        },
+        "v4_elite": {
+          "mae": 10.636,
+          "dw_mae": 19.253,
+          "bias": -5.727,
+          "n": 11
+        },
+        "v5_elite": {
+          "mae": 9.455,
+          "dw_mae": 15.2,
+          "bias": -1.091,
+          "n": 11
+        }
+      },
+      {
+        "held_out": 2024,
+        "n": 34,
+        "lambda": 0.2743,
+        "gamma": 0.0,
+        "lambda_raw": 0.2743,
+        "gamma_raw": -0.3073,
+        "R_bar": 2.7341,
+        "elite": 1.0,
+        "R_heldout": 2.0689,
+        "m_money": 0.9333,
+        "v4": {
+          "mae": 5.088,
+          "dw_mae": 7.921,
+          "bias": 2.912,
+          "n": 34
+        },
+        "v5": {
+          "mae": 4.529,
+          "dw_mae": 6.488,
+          "bias": 2.235,
+          "n": 34
+        },
+        "v4_elite": {
+          "mae": 6.583,
+          "dw_mae": 8.879,
+          "bias": 6.083,
+          "n": 12
+        },
+        "v5_elite": {
+          "mae": 5.333,
+          "dw_mae": 6.713,
+          "bias": 4.667,
+          "n": 12
+        }
+      },
+      {
+        "held_out": 2025,
+        "n": 36,
+        "lambda": 0.4583,
+        "gamma": 0.0,
+        "lambda_raw": 0.4583,
+        "gamma_raw": -0.0911,
+        "R_bar": 2.6112,
+        "elite": 1.0,
+        "R_heldout": 2.4376,
+        "m_money": 0.9695,
+        "v4": {
+          "mae": 5.944,
+          "dw_mae": 8.419,
+          "bias": 0.833,
+          "n": 36
+        },
+        "v5": {
+          "mae": 5.861,
+          "dw_mae": 8.162,
+          "bias": 0.583,
+          "n": 36
+        },
+        "v4_elite": {
+          "mae": 9.917,
+          "dw_mae": 10.146,
+          "bias": 1.917,
+          "n": 12
+        },
+        "v5_elite": {
+          "mae": 9.583,
+          "dw_mae": 9.698,
+          "bias": 1.25,
+          "n": 12
+        }
+      }
+    ],
+    "pooled": {
+      "v4": {
+        "mae": 5.595,
+        "dw_mae": 9.984,
+        "bias": 0.214,
+        "n": 126
+      },
+      "v5": {
+        "mae": 5.421,
+        "dw_mae": 9.453,
+        "bias": -0.071,
+        "n": 126
+      }
+    },
+    "elite_sub_gate": {
+      "folds_improved": 1,
+      "required": 3,
+      "passed": false
+    }
+  },
+  "reconstruction_gaps": [
+    {
+      "gap": "dead_cap_not_reconstructed",
+      "detail": "Pre-auction cap space is rebuilt by removing each team's auction wins and post-auction adds from its week-1 ROSTER. Cap PENALTIES from players cut before or during the auction window never appear in a week-1 roster row, so reconstructed capspace is BIASED HIGH by the league's live dead-cap load.",
+      "direction": "R overstated (unknown magnitude, same sign every year \u2192 largely absorbed by R\u0304)"
+    },
+    {
+      "gap": "winners_traded_or_cut_before_week1",
+      "detail": "~24% of FA-auction winners are off the winning roster by week 1 (2024: 141 of 185 remain). Those player-ids are still excluded from the pre-auction sum by id, so the reconstruction holds, but their post-auction churn is invisible.",
+      "direction": "neutral for capspace, understates realized IDP spend"
+    },
+    {
+      "gap": "post_auction_add_prices",
+      "detail": "Post-auction adds are excluded by player-id from week-1 salaries rather than by a $1K assumption, so no synthetic price is injected. The BBID amount itself is not read back, so the realized-IDP-spend cross-check undercounts multi-$K waiver claims.",
+      "direction": "realized_idp_spend_k is a LOWER bound"
+    },
+    {
+      "gap": "censored_non_clears",
+      "detail": "Supply is the NOMINATED pool (players with an opening bid). Nomination is near-complete \u2014 2023 is the only season with non-clears (3 of 166) \u2014 but the deeper censoring is structural: high-dynasty players are never released into the FA auction at all, so the historical pool cannot exercise the dynasty-anchor arm.",
+      "direction": "dyn_anchor arm is UNVALIDATABLE from this archive (see arm_truth.coverage_warning)"
+    },
+    {
+      "gap": "idp_reserve_asymmetry",
+      "detail": "Historical reserve is the worker's reserve_cost engine run on the RECONSTRUCTED pre-auction roster (symmetric with how build_roster_fit computes it live). realized_idp_spend_k is carried alongside as an independent cross-check; the two measure different things (money that must be held vs money actually spent).",
+      "direction": "documented, not corrected"
+    },
+    {
+      "gap": "fpros_rank_coverage",
+      "detail": "2023 has the thinnest FantasyPros history (309 rows vs 527 in 2022). Rostered players without a rank contribute 0 to positional demand, so D is understated most in 2023.",
+      "direction": "z_2023 biased low"
+    }
+  ]
+}
