@@ -11883,6 +11883,95 @@ export default {
         }
       }
 
+      // ── SOURCE REGISTRY for /api/adp-board ────────────────────────────────
+      // Every value source declares its FORMAT SIGNATURE here. `independent`
+      // is the load-bearing field: a source that merely republishes or
+      // transforms another panel is a SECOND VOTE FOR THE SAME OPINION and
+      // manufactures false confidence if blended. Derivatives are kept at
+      // weight 0 (display/provenance only) and MUST declare independent:false.
+      //
+      // Measured 2026-07-21 against the live feeds (Spearman, offense, n≈380-475):
+      //   ktc ↔ fc 0.970 · ktc ↔ dp 0.963 · fc ↔ dp 0.977
+      //     → the three incumbent dynasty panels are already near-collinear.
+      //   dp ↔ FantasyPros dynasty-SF ECR 0.986 (Pearson 0.973 on raw ECR)
+      //     → DynastyProcess IS the FantasyPros expert panel. Never blend both.
+      //   fantasysharks ↔ every dynasty panel 0.79-0.80  ← LOWEST of any source
+      //     → a statistical PROJECTION, not a market. Genuinely new information.
+      //   ffcSf (FFC 2QB live drafts) ↔ dynasty panels 0.83-0.86 — real
+      //     superflex draft BEHAVIOR, but redraft-horizon and thin (156 players).
+      //   sleeper_rotowire adp_dynasty_2qb ↔ dynasty panels 0.966-0.968.
+      //
+      // `blend` is the axis a source actually feeds. Only role:"value" +
+      // horizon:"dynasty" + roster:"sf" sources feed the cardinal dynasty-SF
+      // `consensus`; everything else is a SEPARATE AXIS on the row, never
+      // averaged into it. A redraft projection is SUPPOSED to disagree with a
+      // dynasty value — folding it in would corrupt both, not corroborate.
+      //
+      // MEASURED IMPACT of the additions on the dynasty-SF consensus
+      // (2026-07-21, n=587 offense): adding Sleeper's dynasty-SF ADP — the only
+      // new source on that same axis — moves it essentially not at all:
+      // Spearman 0.9928, top-100 membership overlap 98/100, median rank shift
+      // 1. The dynasty consensus is SATURATED; more dynasty panels buy nothing.
+      // The additions earn their place on the OTHER axes, where they disagree
+      // usefully: KTC prices Ted Hurst / Brian Robinson / Travis Hunter at
+      // 2,300-3,300 dynasty value while FantasySharks projects 31-45 points for
+      // 2026. For a cap auction buying THIS season, that gap is the signal.
+      const ADP_SOURCES = {
+        keeptradecut:   { label: "KeepTradeCut",        side: "offense", roster: ["q1", "sf", "tep"], te: "premium", horizon: "dynasty", role: "value",      panel: "crowd-elo",         cardinal: true,  independent: true,  weight: 1, blend: "dynasty-sf" },
+        fantasycalc:    { label: "FantasyCalc",         side: "offense", roster: ["q1", "sf"],        te: "standard", horizon: "both",   role: "value",      panel: "observed-trades",   cardinal: true,  independent: true,  weight: 1, blend: "dynasty-sf" },
+        dynastyprocess: { label: "DynastyProcess",      side: "offense", roster: ["q1", "sf"],        te: "standard", horizon: "dynasty", role: "value",      panel: "expert-ecr",        cardinal: true,  independent: true,  weight: 1, blend: "dynasty-sf",
+                          note: "Deterministic transform of FantasyPros dynasty ECR. It IS the FantasyPros panel — do not blend a second FantasyPros feed on this axis." },
+        fantasysharks:  { label: "FantasySharks",       side: "both",    roster: ["q1"],              te: "standard", horizon: "redraft", role: "projection", panel: "statistical",       cardinal: true,  independent: true,  weight: 1, blend: "projection-2026",
+                          note: "Season stat projections carrying NATIVE MFL player ids. Lowest correlation to the dynasty panels of any source (ρ≈0.80) — the only genuinely orthogonal offense signal found. Also the ONLY deep IDP feed (753 defenders vs FantasyPros' 174)." },
+        ffcSf:          { label: "FFC 2QB ADP",         side: "offense", roster: ["sf"],              te: "standard", horizon: "redraft", role: "adp",        panel: "live-drafts",       cardinal: false, independent: true,  weight: 1, blend: "redraft-sf-adp",
+                          note: "Superflex live-draft ADP (952 drafts, trailing 30d). Thin coverage (~156) — blended only where present." },
+        ffcalculator:   { label: "FFCalculator PPR",    side: "offense", roster: ["q1"],              te: "standard", horizon: "redraft", role: "adp",        panel: "live-drafts",       cardinal: false, independent: true,  weight: 1, blend: "redraft-1qb-adp" },
+        sleeper_rotowire: { label: "Sleeper / RotoWire", side: "both",   roster: ["sf", "q1"],        te: "standard", horizon: "both",    role: "projection", panel: "statistical",       cardinal: true,  independent: true,  weight: 1, blend: "projection-2026",
+                          note: "Sleeper's projections endpoint, every record stamped company:'rotowire' — RotoWire's own projection set, NOT a FantasyPros re-derivation and NOT Sleeper search_rank. Carries raw idp_* stat lines (re-scored under UPS rules) plus genuine dynasty-superflex ADP. Endpoint is UNDOCUMENTED: parse defensively and watch `last_modified` for staleness. Caveat: RotoWire also contributes to some FantasyPros consensus products, so treat independence as strong, not absolute." },
+        fantasypros_sf: { label: "FantasyPros dyn SF",  side: "offense", roster: ["sf"],              te: "standard", horizon: "dynasty", role: "rank",       panel: "expert-ecr",        cardinal: false, independent: false, weight: 0,
+                          derivativeOf: "dynastyprocess", note: "ρ=0.986 vs DynastyProcess — same panel. Display only." },
+        fantasypros_ov: { label: "FantasyPros dyn OVR", side: "offense", roster: ["q1"],              te: "standard", horizon: "dynasty", role: "rank",       panel: "expert-ecr",        cardinal: false, independent: false, weight: 0,
+                          derivativeOf: "dynastyprocess", note: "ρ=0.977 vs DynastyProcess — same panel. Display only." },
+        fantasypros_idp:{ label: "FantasyPros dyn IDP", side: "defense", roster: ["q1"],              te: "n/a",      horizon: "dynasty", role: "rank",       panel: "expert-ecr",        cardinal: false, independent: false, weight: 0, blend: null,
+                          note: "REFERENCE ONLY as of 2026-07-21. Only ~174 defenders ranked, of which just 69 are in the live 2026 FA pool of 673. Kept, but cannot carry the board alone." },
+        sleeper:        { label: "Sleeper search_rank", side: "offense", roster: ["q1"],              te: "standard", horizon: "n/a",     role: "popularity", panel: "search-traffic",    cardinal: false, independent: false, weight: 0,
+                          note: "Search TRAFFIC, not value. Emits 999 sentinels. NEVER blended." },
+        mfl_adp:        { label: "MFL native ADP",      side: "offense", roster: ["q1"],              te: "standard", horizon: "dynasty", role: "adp",        panel: "live-drafts",       cardinal: false, independent: true,  weight: 0,
+                          note: "Only 80 players across 26 tracked drafts, and the top of the board is all 2026 rookies — it is a ROOKIE-DRAFT ordering in July, not a value board. Parsed for provenance, weight 0. Revisit closer to the season." },
+      };
+
+      // ── IDP VALUE SCALE — anchored on REALIZED UPS auction prices ─────────
+      // The prior scale was a hand-made linear ramp, idpVal = 10000 - rank*45.
+      // It was not on the same scale as offense in either LEVEL or SHAPE: it
+      // paid 5,500 at IDP rank 100 while offense retains ~3,639 at rank 100,
+      // i.e. it valued a replacement-level defender ABOVE a startable skill
+      // player, and it decayed linearly where offense decays convexly.
+      //
+      // Replaced with a curve derived from what IDP ACTUALLY SOLD FOR in this
+      // league. Three power laws, each fit on its own data, then composed:
+      //   1. realized IDP price      $ =  17,324 * idpRank^-0.409   (r=-0.976)
+      //   2. realized offense price  $ = 526,034 * poolRank^-0.909  (r=-0.945)
+      //   3. live 2026 offense pool  V =  19,048 * poolRank^-0.747  (r=-0.991)
+      // Fits use UPS preseason FA-auction lots 2022-2025 (n=290 IDP / 480
+      // offense, MFL AUCTION_WON) restricted to bids above $2,000 — the league
+      // minimum bid is $1,000, so below ~$2K there is no price signal, only
+      // floor. Curve 3 is today's FA pool (332 offense free agents) so it
+      // carries no historical value drift.
+      //
+      // Composition: an IDP at rank r commands $d; find the offensive free
+      // agent who costs the same $d; that player's board value IS the IDP's
+      // value. A dollar is a dollar under one shared cap, so this puts IDP on
+      // genuinely the same scale as offense rather than a parallel invented one.
+      // The composition collapses exactly to a single power law:
+      const IDP_VALUE_AT_RANK = (rank) => {
+        const r = Number(rank);
+        if (!isFinite(r) || r < 1) return null;
+        return Math.max(1, Math.round(1152 * Math.pow(r, -0.3358)));
+      };
+      // Sanity anchor: the best available IDP (~$15K realized) prices out at
+      // offense FA-pool rank ~43 → value 1,152. The old ramp said 9,955, i.e.
+      // it overvalued the top defender ~9x and mid-tier defenders ~25x.
+
       // ── GET /api/adp-board?pos= — the MULTI-SOURCE, MULTI-FORMAT value board (Stats → ADP) ──
       // Returns a per-player MATRIX of values across [dynasty|redraft] × [1QB|SF|
       // TE-premium], so the client can let the owner pick which sources to include,
@@ -11909,10 +11998,15 @@ export default {
         const getText = (u, ttl, ua) => fetch(u, { cf: { cacheTtl: ttl, cacheEverything: true }, headers: ua ? { "User-Agent": ua } : {} }).then((r) => r.ok ? r.text() : null).catch(() => null);
         try {
           const ffP = env.UPS_MFL_DB
-            ? env.UPS_MFL_DB.prepare("SELECT mfl_id, fantasypros_id, name, position, team FROM ff_player_ids WHERE fantasypros_id IS NOT NULL AND fantasypros_id != ''").all().then((r) => (r && r.results) || []).catch(() => [])
+            // sleeper_id is pulled too — it is the join key for the Sleeper /
+            // RotoWire projection feeds (defenders are absent from FantasyCalc,
+            // so its inline sleeperId cannot cover them). Rows now qualify on
+            // EITHER id being present, so IDP-only players are not filtered out.
+            ? env.UPS_MFL_DB.prepare("SELECT mfl_id, fantasypros_id, sleeper_id, name, position, team FROM ff_player_ids WHERE (fantasypros_id IS NOT NULL AND fantasypros_id != '') OR (sleeper_id IS NOT NULL AND sleeper_id != '')").all().then((r) => (r && r.results) || []).catch(() => [])
             : Promise.resolve([]);
           const adpYear = new Date().getUTCFullYear();
-          const [fcSf, fc1q, slR, dpTxt, ktcDynTxt, ktcRdTxt, fpIdpTxt, ffcR, ffRows] = await Promise.all([
+          const [fcSf, fc1q, slR, dpTxt, ktcDynTxt, ktcRdTxt, fpIdpTxt, ffcR, ffRows,
+                 fsOffR, fsIdpR, ffcSfR, fpSfTxt, fpOvrTxt, mflAdpR, slIdpR, slOffR] = await Promise.all([
             getJson("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1", 43200),
             getJson("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&numTeams=12&ppr=1", 43200),
             getJson("https://api.sleeper.app/v1/players/nfl", 86400),
@@ -11928,6 +12022,37 @@ export default {
                 : getJson("https://fantasyfootballcalculator.com/api/v1/adp/ppr?teams=12&position=all&year=" + (adpYear + 1), 21600))
               .catch(() => null),
             ffP,
+            // ── NEW SOURCES (see ADP_SOURCES) ──
+            // FantasySharks season projections. Native MFL ids + raw projected
+            // stat lines. Offense feed carries FantasyPoints; the IDP feed
+            // carries the component stats so we can re-score under UPS's OWN
+            // IDP rules (see fsIdpUps below) instead of trusting a generic
+            // scoring profile. No robots.txt on the host; public JSON feed.
+            getJson("https://www.fantasysharks.com/apps/Projections/SeasonProjections.php?pos=ALL&format=json", 21600, CHROME_UA),
+            getJson("https://www.fantasysharks.com/apps/Projections/SeasonProjections.php?pos=ALLIDP&format=json", 21600, CHROME_UA),
+            // FFC 2QB — genuine SUPERFLEX live-draft ADP (the existing ffc call
+            // is 1QB PPR). Thin but independent; this league is superflex.
+            getJson("https://fantasyfootballcalculator.com/api/v1/adp/2qb?teams=12&year=" + adpYear, 21600)
+              .then((d) => (d && d.players && d.players.length) ? d
+                : getJson("https://fantasyfootballcalculator.com/api/v1/adp/2qb?teams=12&year=" + (adpYear + 1), 21600))
+              .catch(() => null),
+            // FantasyPros dynasty SF + overall ECR — DERIVATIVES of
+            // DynastyProcess (ρ=0.986 / 0.977). Display + provenance only,
+            // weight 0. robots.txt allows /nfl/rankings/*.php (crawl-delay 5);
+            // the disallowed /api/ + /json/ paths are NOT used.
+            getText("https://www.fantasypros.com/nfl/rankings/dynasty-superflex.php", 43200, CHROME_UA),
+            getText("https://www.fantasypros.com/nfl/rankings/dynasty-overall.php", 43200, CHROME_UA),
+            // MFL native ADP — weight 0, rookie-skewed in July (see registry).
+            getJson("https://api.myfantasyleague.com/" + adpYear + "/export?TYPE=adp&PERIOD=DRAFT&IS_PPR=1&IS_KEEPER=K&IS_MOCK=-1&JSON=1", 21600, CHROME_UA),
+            // Sleeper PROJECTIONS (undocumented but stable) — this is RotoWire's
+            // proprietary projection set served free as JSON; every record is
+            // stamped company:"rotowire". Distinct from Sleeper's search_rank.
+            // Two calls: defense carries raw idp_* stat lines (re-scored under
+            // UPS rules below), offense carries real dynasty-superflex ADP.
+            // NOTE: pts_std/pts_ppr are OFFENSE scoring and are meaningless for
+            // IDP rows — never read them for defenders.
+            getJson("https://api.sleeper.com/projections/nfl/" + adpYear + "?season_type=regular&position[]=DL&position[]=LB&position[]=DB&order_by=pts_std", 21600, CHROME_UA),
+            getJson("https://api.sleeper.com/projections/nfl/" + adpYear + "?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&order_by=pts_std", 21600, CHROME_UA),
           ]);
           if (!Array.isArray(fcSf)) return jsonOut(502, { ok: false, error: "fantasycalc_unavailable" });
 
@@ -11989,6 +12114,106 @@ export default {
           if (ffcR && Array.isArray(ffcR.players)) {
             for (const p of ffcR.players) { const nm = nkey(p.name); const a = parseFloat(p.adp); if (nm && isFinite(a) && a > 0) ffcByName[nm] = Math.round(a * 10) / 10; }
           }
+          // FFC 2QB — SUPERFLEX live-draft ADP, same shape, separate axis.
+          const ffcSfByName = {};
+          if (ffcSfR && Array.isArray(ffcSfR.players)) {
+            for (const p of ffcSfR.players) { const nm = nkey(p.name); const a = parseFloat(p.adp); if (nm && isFinite(a) && a > 0) ffcSfByName[nm] = Math.round(a * 10) / 10; }
+          }
+
+          // ── FantasySharks — native MFL ids, no name-join needed ──
+          const fsByMfl = {};
+          for (const r of (Array.isArray(fsOffR) ? fsOffR : [])) {
+            const id = String(r.ID || "").trim(); if (!id) continue;
+            fsByMfl[id] = { pts: num(r.FantasyPoints), adp: (Number(r.ADP) > 0 ? Number(r.ADP) : null) };
+          }
+          // IDP: re-score the projected stat line under UPS's OWN scoring rules
+          // (MFL TYPE=rules, season 2025). UPS boosted DB and DL tackles in 2018
+          // but left LB at the base rate, so a generic IDP scoring profile
+          // mis-orders this league badly. Weights below are verbatim from the
+          // rules export:
+          //   CB|S  → TK *1.3, AS *0.8, TKL(cap 25) *1.5
+          //   DT|DE → TK *1.5, AS *0.5, TKL(cap 25) *1.5
+          //   LB    → TK *1.0, AS *0.5, TKL(cap 25) *1.0   (base rate, NOT boosted)
+          //   all   → SK *3, IC *4, PD *1.5, FF *2, QH *0.5, TD *6
+          // Validated against UPS's realized 2024 season scores (nflverse stat
+          // lines → this formula vs report_player_scoring_summary_v1):
+          // Pearson r = 0.949, n = 974. The residual +15.7 bias is a level
+          // offset that cancels under ranking, which is all this is used for.
+          const IDP_W = { CB: [1.3, 0.8, 1.5], S: [1.3, 0.8, 1.5], DT: [1.5, 0.5, 1.5], DE: [1.5, 0.5, 1.5], LB: [1.0, 0.5, 1.0] };
+          const fsIdpByMfl = {};
+          for (const r of (Array.isArray(fsIdpR) ? fsIdpR : [])) {
+            const id = String(r.ID || "").trim(); const pos = safeStr(r.Pos).toUpperCase();
+            const w = IDP_W[pos]; if (!id || !w) continue;
+            const f = (v) => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+            const tk = f(r.Tackles), as = f(r.Assists);
+            const pts = tk * w[0] + as * w[1] + Math.min(tk + as, 25) * w[2]
+              + f(r.Sacks) * 3 + f(r.Int) * 4 + f(r.PassDef) * 1.5
+              + f(r.FumForced) * 2 + f(r.FumRecovered) * 2 + f(r.TD) * 6;
+            fsIdpByMfl[id] = { pts: Math.round(pts * 10) / 10, pos: pos, name: safeStr(r.Name), team: safeStr(r.Team).toUpperCase() };
+          }
+
+          // ── Sleeper / RotoWire projections ──
+          // Join sleeperId → mfl_id. FantasyCalc already carries both ids for
+          // offense; for defenders (absent from FantasyCalc) fall back to the
+          // ff_player_ids sleeper_id column.
+          const sl2mfl = {};
+          for (const r of (Array.isArray(fcSf) ? fcSf : [])) {
+            const p = r.player || {}; const s = String(p.sleeperId || "").trim(), mi = String(p.mflId || "").trim();
+            if (s && mi) sl2mfl[s] = mi;
+          }
+          for (const row of (ffRows || [])) {
+            const s = String(row.sleeper_id || "").trim(); const mi = String(row.mfl_id || "").trim();
+            if (s && mi && !sl2mfl[s]) sl2mfl[s] = mi;
+          }
+          const slIdpByMfl = {}, slOffByMfl = {};
+          const NO999 = (v) => { const n = Number(v); return (isFinite(n) && n > 0 && n < 999) ? n : null; };
+          for (const r of (Array.isArray(slIdpR) ? slIdpR : [])) {
+            const st = r.stats || {}; let isIdp = false;
+            for (const k in st) { if (k.indexOf("idp_") === 0) { isIdp = true; break; } }
+            if (!isIdp) continue;
+            const mflId = sl2mfl[String(r.player_id || "").trim()]; if (!mflId) continue;
+            const pl = r.player || {}, pos = safeStr(pl.position).toUpperCase();
+            const w = IDP_W[pos] || IDP_W[({ DL: "DE", NT: "DT", DB: "S", SS: "S", FS: "S" })[pos]];
+            if (!w) continue;
+            const f = (k) => { const n = parseFloat(st[k]); return isFinite(n) ? n : 0; };
+            let solo = f("idp_tkl_solo"), ast = f("idp_tkl_ast");
+            if (solo + ast === 0) solo = f("idp_tkl");
+            const pts = solo * w[0] + ast * w[1] + Math.min(solo + ast, 25) * w[2]
+              + f("idp_sack") * 3 + f("idp_int") * 4 + f("idp_ff") * 2 + f("idp_fum_rec") * 2 + f("idp_def_td") * 6;
+            slIdpByMfl[mflId] = { pts: Math.round(pts * 10) / 10, pos: pos,
+              name: safeStr((pl.first_name || "") + " " + (pl.last_name || "")).trim(),
+              team: safeStr(pl.team_abbr).toUpperCase(), adp: NO999(st.adp_idp) };
+          }
+          for (const r of (Array.isArray(slOffR) ? slOffR : [])) {
+            const mflId = sl2mfl[String(r.player_id || "").trim()]; if (!mflId) continue;
+            const st = r.stats || {};
+            slOffByMfl[mflId] = { dynSfAdp: NO999(st.adp_dynasty_2qb), sfAdp: NO999(st.adp_2qb), pts: NO999(st.pts_ppr) };
+          }
+
+          // FantasyPros dynasty SF / overall ECR — DERIVATIVE feeds (weight 0).
+          const fpEcrPage = (txt) => {
+            const out = {}; if (!txt) return out;
+            const m = txt.match(/var ecrData\s*=\s*(\{.+?\});/s); if (!m) return out;
+            try {
+              for (const p of (JSON.parse(m[1]).players || [])) {
+                const ff = ffByFpid[String(p.player_id || "").trim()];
+                const id = (ff && ff.mflId) || null; if (!id) continue;
+                const rk = Number(p.rank_ecr); if (rk > 0) out[id] = rk;
+              }
+            } catch (e) {}
+            return out;
+          };
+          const fpSfByMfl = fpEcrPage(fpSfTxt), fpOvrByMfl = fpEcrPage(fpOvrTxt);
+
+          // MFL native ADP — weight 0 (rookie-skewed in July).
+          const mflAdpByMfl = {};
+          try {
+            const arr = (mflAdpR && mflAdpR.adp && mflAdpR.adp.player) || [];
+            for (const p of (Array.isArray(arr) ? arr : [arr])) {
+              const id = String(p.id || "").trim(); const a = parseFloat(p.averagePick);
+              if (id && isFinite(a) && a > 0) mflAdpByMfl[id] = Math.round(a * 100) / 100;
+            }
+          } catch (e) {}
 
           // ---- merge: offense backbone = FantasyCalc SF; then append IDP players ----
           const board = [], seen = {};
@@ -12006,37 +12231,120 @@ export default {
               dp:  { dq1: dp.dq1 || null, dsf: dp.dsf || null },
               slp: (p.sleeperId && slBySid[String(p.sleeperId)]) || null,
               ffcAdp: ffcByName[nm] || null,
+              ffcSfAdp: ffcSfByName[nm] || null,
+              fsPts: (fsByMfl[pid] && fsByMfl[pid].pts) || null,
+              fsAdp: (fsByMfl[pid] && fsByMfl[pid].adp) || null,
+              fpSfEcr: fpSfByMfl[pid] || null,
+              fpOvrEcr: fpOvrByMfl[pid] || null,
+              mflAdp: mflAdpByMfl[pid] || null,
             });
           }
-          for (const mflId in idpByMfl) {
+          // ── DEFENSE ──────────────────────────────────────────────────────
+          // Union of BOTH IDP feeds, not just FantasyPros. FantasyPros ranks
+          // ~174 defenders, of which only 69 are in the live 2026 FA pool of
+          // 673 — it prices 10% of the players actually up for auction.
+          // FantasySharks covers 672 of those 673.
+          const idpIds = {};
+          for (const id in idpByMfl) idpIds[id] = 1;
+          for (const id in fsIdpByMfl) idpIds[id] = 1;
+          for (const id in slIdpByMfl) idpIds[id] = 1;
+          for (const mflId in idpIds) {
             if (seen[mflId]) continue;
-            const d = idpByMfl[mflId];
-            board.push({ pid: mflId, name: safeStr(d.name), pos: d.pos, team: d.team, age: d.age, isIdp: true,
-              trend30: 0, posRank: null, fc: {}, ktc: {}, dp: {}, slp: null, fpEcr: d.ecr });
+            const d = idpByMfl[mflId] || {}, fs = fsIdpByMfl[mflId] || {}, sp = slIdpByMfl[mflId] || {};
+            board.push({ pid: mflId, name: safeStr(d.name || fs.name || sp.name), pos: safeStr(d.pos || fs.pos || sp.pos).toUpperCase(),
+              team: safeStr(d.team || fs.team || sp.team).toUpperCase(), age: d.age || null, isIdp: true,
+              trend30: 0, posRank: null, fc: {}, ktc: {}, dp: {}, slp: null,
+              fpEcr: d.ecr || null,
+              fsIdpPts: (fs.pts != null ? fs.pts : null),
+              slIdpPts: (sp.pts != null ? sp.pts : null),
+              slIdpAdp: sp.adp || null });
           }
 
           let out = posFilter ? board.filter((r) => (posFilter === "IDP" ? r.isIdp : r.pos === posFilter)) : board;
           // Back-compat + a default dynasty-SF consensus the prior UI reads. IDP rows
           // get an ECR-derived value so they sort sensibly within their position.
+          // ── IDP ORDERING: scarcity-adjusted VORP on UPS-SCORED projections ──
+          // FantasyPros dynasty-IDP ECR is deliberately NOT used to order this.
+          // Measured 2026-07-21: the two independent projection houses agree
+          // with each other (ρ=0.756 FantasySharks ↔ Sleeper/RotoWire, both
+          // re-scored under UPS rules) but BOTH are essentially UNCORRELATED
+          // with FantasyPros dynasty-IDP ECR (ρ=0.031 and 0.078). FantasyPros
+          // is not wrong — it ranks for a generic IDP scoring profile, while
+          // UPS boosts DB/DL tackles and leaves LB at base rate, which reorders
+          // the position groups completely. Ordering off ECR was ranking a
+          // different game. ECR is retained on the row for display only.
+          //
+          // Cross-position comparability comes from VORP against a per-group
+          // replacement level, because the lineup requires 2-3 from EACH of
+          // DL / LB / DB (§ starters: 2-3 DT+DE, 2-3 LB, 2-3 CB+S). 12 teams x
+          // ~2.33 starters = 28 rostered starters per group.
+          const IDP_GRP = { DT: "DL", DE: "DL", DL: "DL", NT: "DL", LB: "LB", CB: "DB", S: "DB", SS: "DB", FS: "DB", DB: "DB" };
+          const IDP_REPL_N = 28;
+          const idpRows = out.filter((r) => r.isIdp);
+          for (const r of idpRows) {
+            const p = [r.fsIdpPts, r.slIdpPts].filter((v) => v != null && v > 0);
+            r.idpProj = p.length ? Math.round((p.reduce((a, b) => a + b, 0) / p.length) * 10) / 10 : null;
+            r.idpSources = p.length;
+            r.idpGrp = IDP_GRP[r.pos] || null;
+          }
+          const byGrp = {};
+          for (const r of idpRows) if (r.idpProj != null && r.idpGrp) (byGrp[r.idpGrp] = byGrp[r.idpGrp] || []).push(r.idpProj);
+          const repl = {};
+          for (const g in byGrp) { const s = byGrp[g].slice().sort((a, b) => b - a); repl[g] = s[Math.min(IDP_REPL_N, s.length) - 1]; }
+          // Reliability shrink: a player carried by ONE feed gets his VORP
+          // pulled 15% toward replacement, so a single house's outlier cannot
+          // top the board on its own. VORP is already replacement-relative, so
+          // scaling it IS shrinkage toward replacement. Most single-source rows
+          // are 2026 rookies the sleeper_id crosswalk has not ingested yet
+          // (a join gap, not a disagreement) — 15% is deliberately mild.
+          const IDP_SOLO_SHRINK = 0.85;
+          const ranked = idpRows.filter((r) => r.idpProj != null && repl[r.idpGrp] != null);
+          for (const r of ranked) {
+            const raw = r.idpProj - repl[r.idpGrp];
+            r.idpVorp = Math.round((raw * (r.idpSources >= 2 ? 1 : IDP_SOLO_SHRINK)) * 10) / 10;
+          }
+          ranked.sort((a, b) => b.idpVorp - a.idpVorp);
+          ranked.forEach((r, i) => { r.idpRank = i + 1; });
+
           for (const r of out) {
             const dsfVals = [r.fc && r.fc.dsf, r.ktc && r.ktc.dsf, r.dp && r.dp.dsf].filter((v) => v != null && v > 0);
             const cons = dsfVals.length ? Math.round(dsfVals.reduce((a, b) => a + b, 0) / dsfVals.length) : null;
             r.consensus = cons; r.nSources = dsfVals.length;
             r.fcValue = (r.fc && r.fc.dsf) || null; r.ktcValue = (r.ktc && r.ktc.dsf) || null; r.dpValue = (r.dp && r.dp.dsf) || null; r.sleeperRank = r.slp || null;
-            r.idpVal = (r.isIdp && r.fpEcr) ? Math.max(0, Math.round(10000 - r.fpEcr * 45)) : null;
+            // Auction-anchored IDP scale (see IDP_VALUE_AT_RANK). Falls back to
+            // the FantasyPros ECR rank ONLY when no projection covers the
+            // player — same curve either way, so the scale never mixes.
+            r.idpVal = r.isIdp ? IDP_VALUE_AT_RANK(r.idpRank != null ? r.idpRank : r.fpEcr) : null;
             r.value = (cons != null) ? cons : ((r.fc && r.fc.dsf) || r.idpVal || null);
           }
           out.sort((a, b) => (b.value || 0) - (a.value || 0));
           out.forEach((r, i) => { r.rank = i + 1; r.ovr = i + 1; });
 
-          const sources = [];
-          if (fcSf.length) sources.push("fantasycalc");
-          if (Object.keys(ktcDyn).length) sources.push("keeptradecut");
-          if (Object.keys(dpByName).length) sources.push("dynastyprocess");
-          if (Object.keys(slBySid).length) sources.push("sleeper");
-          if (Object.keys(ffcByName).length) sources.push("fantasyfootballcalculator");
-          if (Object.keys(idpByMfl).length) sources.push("fantasypros_idp");
-          return jsonOut(200, { ok: true, sources: sources, formats: { roster: ["sf", "q1", "tep"], type: ["dynasty", "redraft"] }, generated_at: new Date().toISOString(), count: out.length, board: out });
+          // Report which sources actually resolved this request, alongside the
+          // declared format signature + independence flag for each, so the UI
+          // can show provenance and never present a derivative as corroboration.
+          const live = {
+            fantasycalc: Object.keys(fc1ById).length || (fcSf || []).length,
+            keeptradecut: Object.keys(ktcDyn).length,
+            dynastyprocess: Object.keys(dpByName).length,
+            fantasysharks: Object.keys(fsByMfl).length + Object.keys(fsIdpByMfl).length,
+            sleeper_rotowire: Object.keys(slOffByMfl).length + Object.keys(slIdpByMfl).length,
+            ffcSf: Object.keys(ffcSfByName).length,
+            ffcalculator: Object.keys(ffcByName).length,
+            fantasypros_sf: Object.keys(fpSfByMfl).length,
+            fantasypros_ov: Object.keys(fpOvrByMfl).length,
+            fantasypros_idp: Object.keys(idpByMfl).length,
+            sleeper: Object.keys(slBySid).length,
+            mfl_adp: Object.keys(mflAdpByMfl).length,
+          };
+          const sources = Object.keys(live).filter((k) => live[k] > 0);
+          return jsonOut(200, { ok: true, sources: sources, sourceCounts: live, sourceMeta: ADP_SOURCES,
+            idpScale: { method: "auction-anchored power law", formula: "1152 * idpRank^-0.3358",
+              anchor: "UPS preseason FA-auction winning bids 2022-2025 (n=290 IDP / 480 offense, bids >$2K)",
+              ordering: "scarcity-adjusted VORP on UPS-scored FantasySharks + Sleeper/RotoWire projections",
+              replacementPerGroup: repl },
+            formats: { roster: ["sf", "q1", "tep"], type: ["dynasty", "redraft"] },
+            generated_at: new Date().toISOString(), count: out.length, board: out });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
