@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-07-20T12:02:35.910478+00:00",
+    "generated_at_utc": "2026-07-21T11:28:49.594345+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1266,18 +1266,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_11247",
-          "display": "Zach Ertz",
-          "player_id": "11247",
-          "position": "TE",
-          "nfl_team": "FA",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-MYM",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17599",
           "display": "Caleb Douglas",
           "player_id": "17599",
@@ -1650,18 +1638,6 @@
           "salary": 5000,
           "contract_year": 2,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16619",
-          "display": "Troy Franklin",
-          "player_id": "16619",
-          "position": "WR",
-          "nfl_team": "DEN",
-          "salary": 5000,
-          "contract_year": 1,
-          "contract_status": "Rookie-Draft",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -2848,18 +2824,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16594",
-          "display": "Trey Benson",
-          "player_id": "16594",
-          "position": "RB",
-          "nfl_team": "ARI",
-          "salary": 6000,
-          "contract_year": 1,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16617",
           "display": "Keon Coleman",
           "player_id": "16617",
@@ -3128,18 +3092,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15715",
-          "display": "James Cook",
-          "player_id": "15715",
-          "position": "RB",
-          "nfl_team": "BUF",
-          "salary": 27000,
-          "contract_year": 1,
-          "contract_status": "Vet-Ext2",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_14085",
           "display": "Tony Pollard",
           "player_id": "14085",
@@ -3172,6 +3124,18 @@
           "salary": 15000,
           "contract_year": 1,
           "contract_status": "Vet-Ext2",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15715",
+          "display": "James Cook",
+          "player_id": "15715",
+          "position": "RB",
+          "nfl_team": "BUF",
+          "salary": 14000,
+          "contract_year": 2,
+          "contract_status": "Vet-Ext1-BL",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3224,18 +3188,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17563",
-          "display": "Caleb Downs",
-          "player_id": "17563",
-          "position": "S",
-          "nfl_team": "DAL",
-          "salary": 2000,
-          "contract_year": 3,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16747",
           "display": "Tyrone Tracy",
           "player_id": "16747",
@@ -3256,18 +3208,6 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Vet-ERA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17571",
-          "display": "Jake Golday",
-          "player_id": "17571",
-          "position": "LB",
-          "nfl_team": "MIN",
-          "salary": 1000,
-          "contract_year": 3,
-          "contract_status": "Rookie-Draft",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3344,6 +3284,18 @@
           "taxi": true
         },
         {
+          "asset_id": "P_17563",
+          "display": "Caleb Downs",
+          "player_id": "17563",
+          "position": "S",
+          "nfl_team": "DAL",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
           "asset_id": "P_17073",
           "display": "Elic Ayomanor",
           "player_id": "17073",
@@ -3375,6 +3327,18 @@
           "nfl_team": "NOS",
           "salary": 1000,
           "contract_year": 2,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17571",
+          "display": "Jake Golday",
+          "player_id": "17571",
+          "position": "LB",
+          "nfl_team": "MIN",
+          "salary": 1000,
+          "contract_year": 3,
           "contract_status": "Rookie-Draft",
           "roster_status": "TAXI_SQUAD",
           "taxi": true
