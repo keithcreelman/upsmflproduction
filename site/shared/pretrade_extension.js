@@ -227,9 +227,26 @@
     var currentSalary = Math.max(1000, roundToNearestK(asset.salary));
     if (currentSalary <= 0) return [];
 
+    // Escalator base = the contract's TRUE AAV (TCV ÷ CL), NOT the current-year
+    // salary. For a LOADED contract (front- or back-loaded) the current-year
+    // salary is not the AAV, so escalating off it inflates the extension. Canon
+    // §C4.3: the AAV escalator applies to the AAV. Flat contracts have
+    // salary == AAV, so this leaves them unchanged. (Keith 2026-07-20: Drake
+    // London, backloaded [14K,52K], was extending off his loaded $52K instead of
+    // his $33K AAV → +1yr read $62K when it should be $43K.) Falls back to the
+    // current salary when no year schedule is parseable (pre-2020 shapes).
+    var extSummary = parseContractInfoSummary(asset && asset.contract_info);
+    var extCl = safeInt(asset && asset.contract_length, 0) || safeInt(extSummary.contract_length, 0) || Math.max(1, currentYears);
+    var extTcv = 0;
+    var extYByYear = extSummary.y_by_year_dollars || {};
+    for (var _yk in extYByYear) {
+      if (Object.prototype.hasOwnProperty.call(extYByYear, _yk)) extTcv += safeInt(extYByYear[_yk], 0);
+    }
+    var aavBase = (extCl > 0 && extTcv > 0) ? roundToNearestK(extTcv / extCl) : currentSalary;
+
     var out = [];
     for (var yearsToAdd = 1; yearsToAdd <= 2; yearsToAdd += 1) {
-      var futureSalary = Math.max(1000, roundToNearestK(currentSalary + tradeExtensionRaiseForAsset(asset, yearsToAdd)));
+      var futureSalary = Math.max(1000, roundToNearestK(aavBase + tradeExtensionRaiseForAsset(asset, yearsToAdd)));
       var totalLength = currentYears + yearsToAdd;
       var yearParts = [];
       for (var yearIdx = 1; yearIdx <= totalLength; yearIdx += 1) {
