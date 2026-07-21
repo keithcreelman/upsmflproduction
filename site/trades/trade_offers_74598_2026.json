@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-07-21T12:40:43.860Z",
-    "row_count": 51,
+    "updated_at": "2026-07-21T16:17:29.098Z",
+    "row_count": 52,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -9238,6 +9238,156 @@
       "twb_meta": null,
       "mfl_trade_id": "1109",
       "trade_id": "1109",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1113",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-07-21T16:17:29.098Z",
+      "updated_at": "2026-07-21T16:17:29.098Z",
+      "from_franchise_id": "0003",
+      "to_franchise_id": "0001",
+      "from_franchise_name": "Gride",
+      "to_franchise_name": "L.A. Looks",
+      "message": "I can extend Darnold 1 or 2 years for you",
+      "comment": "I can extend Darnold 1 or 2 years for you",
+      "comments": "I can extend Darnold 1 or 2 years for you",
+      "raw_comment": "I can extend Darnold 1 or 2 years for you",
+      "will_give_up": "13592,17474",
+      "will_receive": "15287,17031,BB_10000",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 2,
+        "to_asset_count": 2,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 10,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-07-21T16:17:27.374Z",
+        "source": "ups-mobile-trade-builder",
+        "league_id": "74598",
+        "season": "2026",
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "selected_assets": [
+              {
+                "asset_id": "P_13592",
+                "type": "PLAYER",
+                "player_id": "13592",
+                "player_name": "Sam Darnold",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "SEA",
+                "salary": 18000,
+                "years": 1,
+                "contract_type": "Vet-FAA",
+                "contract_info": "CL 2| TCV 36K| AAV 18K| Y1-18K, Y2-18K| GTD: 27K",
+                "contract_length": 2,
+                "already_extended_by_this_franchise": false,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "P_17474",
+                "type": "PLAYER",
+                "player_id": "17474",
+                "player_name": "Emmett Johnson",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "KCC",
+                "salary": 5000,
+                "years": 3,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3|TCV 15K|AAV 5K|Y1-5K, Y2-5K, Y3-5K|GTD: 11.3K",
+                "contract_length": 3,
+                "already_extended_by_this_franchise": false,
+                "taxi": true,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 18000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "selected_assets": [
+              {
+                "asset_id": "P_15287",
+                "type": "PLAYER",
+                "player_id": "15287",
+                "player_name": "Amon-Ra St. Brown",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "DET",
+                "salary": 51000,
+                "years": 1,
+                "contract_type": "Tag",
+                "contract_info": "CL 1| TCV 51K| AAV 51K| GTD: 38.3K| Tag| Tier 1| Formula: Avg Top 1-6 WR AAV",
+                "contract_length": 1,
+                "already_extended_by_this_franchise": false,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "P_17031",
+                "type": "PLAYER",
+                "player_id": "17031",
+                "player_name": "Shedeur Sanders",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "CLE",
+                "salary": 2000,
+                "years": 2,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
+                "contract_length": 3,
+                "already_extended_by_this_franchise": false,
+                "taxi": true,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 10000,
+            "traded_salary_adjustment_k": 10,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 51000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0003",
+          "right_team_id": "0001"
+        }
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1113",
+      "trade_id": "1113",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
