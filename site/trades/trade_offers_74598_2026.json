@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-07-19T14:55:52.553Z",
+    "updated_at": "2026-07-21T02:21:36.214Z",
     "row_count": 51,
     "source": "worker-trade-offers"
   },
@@ -1690,7 +1690,7 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-03-27T14:54:15.665Z",
-      "updated_at": "2026-07-19T14:32:12.669Z",
+      "updated_at": "2026-07-21T02:21:36.214Z",
       "from_franchise_id": "0007",
       "to_franchise_id": "0010",
       "from_franchise_name": "Sex Manther",
@@ -1699,11 +1699,11 @@
       "comment": "",
       "comments": "",
       "raw_comment": "",
-      "will_give_up": "17269",
-      "will_receive": "FP_0010_2027_5",
+      "will_give_up": "17083,FP_0007_2027_1,FP_0007_2027_2",
+      "will_receive": "16211",
       "source": "trade-workbench-ui",
       "summary": {
-        "from_asset_count": 1,
+        "from_asset_count": 3,
         "to_asset_count": 1,
         "from_trade_salary_k": 0,
         "to_trade_salary_k": 0,
@@ -1711,10 +1711,10 @@
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-07-19T14:32:11.192Z",
-        "source": "ups-trade-workbench",
+        "generated_at": "2026-07-21T02:21:34.901Z",
+        "source": "ups-mobile-trade-builder",
         "league_id": "74598",
-        "season": 2026,
+        "season": "2026",
         "teams": [
           {
             "role": "left",
@@ -1722,17 +1722,86 @@
             "franchise_name": "Sex Manther",
             "selected_assets": [
               {
-                "asset_id": "player:17269",
+                "asset_id": "P_17083",
                 "type": "PLAYER",
-                "player_id": "17269",
-                "player_name": "Chism, Efton",
+                "player_id": "17083",
+                "player_name": "Jayden Higgins",
                 "description": null,
                 "position": "WR",
-                "nfl_team": "NEP",
-                "salary": 1000,
-                "years": 1,
-                "contract_type": "Rookie-MYM",
-                "contract_info": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+                "nfl_team": "HOU",
+                "salary": 5000,
+                "years": 2,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K",
+                "contract_length": 3,
+                "already_extended_by_this_franchise": false,
+                "taxi": true,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "FP_0007_2027_1",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 R1",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": null,
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0007_2027_1",
+                "pick_season": 2027,
+                "pick_round": 1,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "FP_0007_2027_2",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 R2",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": null,
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0007_2027_2",
+                "pick_season": 2027,
+                "pick_round": 2,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "selected_assets": [
+              {
+                "asset_id": "P_16211",
+                "type": "PLAYER",
+                "player_id": "16211",
+                "player_name": "Puka Nacua",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "LAR",
+                "salary": 22000,
+                "years": 2,
+                "contract_type": "Vet-Ext2",
+                "contract_info": "CL 2|TCV 44K|AAV 22K|Y1-22K, Y2-22K|Ext: Bomb|GTD: 33K",
+                "contract_length": 2,
+                "already_extended_by_this_franchise": false,
                 "taxi": false,
                 "pick_key": null,
                 "pick_season": null,
@@ -1742,37 +1811,8 @@
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 0,
-            "selected_non_taxi_salary_dollars": 1000
-          },
-          {
-            "role": "right",
-            "franchise_id": "0010",
-            "franchise_name": "Blake Bombers",
-            "selected_assets": [
-              {
-                "asset_id": "pick:FP_0010_2027_5",
-                "type": "PICK",
-                "player_id": null,
-                "player_name": null,
-                "description": "2027 5th",
-                "position": null,
-                "nfl_team": null,
-                "salary": 0,
-                "years": null,
-                "contract_type": "Pick",
-                "contract_info": null,
-                "taxi": false,
-                "pick_key": "FP_0010_2027_5",
-                "pick_season": 2027,
-                "pick_round": 5,
-                "pick_slot": null
-              }
-            ],
-            "traded_salary_adjustment_dollars": 0,
-            "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 0,
-            "selected_non_taxi_salary_dollars": 0
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 22000
           }
         ],
         "extension_requests": [],
@@ -1782,91 +1822,11 @@
         "ui": {
           "left_team_id": "0007",
           "right_team_id": "0010"
-        },
-        "salary_reconciliation": {
-          "left": {
-            "franchise_id": "0007",
-            "franchise_name": "Sex Manther",
-            "salary_cap_dollars": 300000,
-            "starting_salary_dollars": 197000,
-            "salary_adjustment_total_dollars": 8250,
-            "outgoing_dollars": 1000,
-            "incoming_dollars": 0,
-            "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": -1000,
-            "new_salary_dollars": 196000,
-            "trade_salary_adjustment_k": 0,
-            "trade_salary_adjustment_max_k": 0,
-            "net_trade_salary_k": 0,
-            "net_cap_change_dollars": 1000,
-            "available_salary_before_dollars": 94750,
-            "available_salary_after_dollars": 95750,
-            "over_cap_dollars": 0
-          },
-          "right": {
-            "franchise_id": "0010",
-            "franchise_name": "Blake Bombers",
-            "salary_cap_dollars": 300000,
-            "starting_salary_dollars": 187000,
-            "salary_adjustment_total_dollars": 6250,
-            "outgoing_dollars": 0,
-            "incoming_dollars": 1000,
-            "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": 1000,
-            "new_salary_dollars": 188000,
-            "trade_salary_adjustment_k": 0,
-            "trade_salary_adjustment_max_k": 0,
-            "net_trade_salary_k": 0,
-            "net_cap_change_dollars": -1000,
-            "available_salary_before_dollars": 106750,
-            "available_salary_after_dollars": 105750,
-            "over_cap_dollars": 0
-          },
-          "has_over_cap": false
-        },
-        "multi_year_salary_impact": {
-          "current_season": 2026,
-          "left_franchise_name": "Sex Manther",
-          "right_franchise_name": "Blake Bombers",
-          "rows": [
-            {
-              "season": 2026,
-              "left_before_dollars": 197000,
-              "left_after_dollars": 196000,
-              "left_change_dollars": -1000,
-              "right_before_dollars": 187000,
-              "right_after_dollars": 188000,
-              "right_change_dollars": 1000
-            },
-            {
-              "season": 2027,
-              "left_before_dollars": 193000,
-              "left_after_dollars": 192000,
-              "left_change_dollars": -1000,
-              "right_before_dollars": 170000,
-              "right_after_dollars": 171000,
-              "right_change_dollars": 1000
-            },
-            {
-              "season": 2028,
-              "left_before_dollars": 92000,
-              "left_after_dollars": 92000,
-              "left_change_dollars": 0,
-              "right_before_dollars": 90000,
-              "right_after_dollars": 90000,
-              "right_change_dollars": 0
-            }
-          ]
-        },
-        "validation": {
-          "status": "ready",
-          "issues": []
-        },
-        "comment": ""
+        }
       },
       "twb_meta": null,
-      "mfl_trade_id": "1107",
-      "trade_id": "1107",
+      "mfl_trade_id": "1110",
+      "trade_id": "1110",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
