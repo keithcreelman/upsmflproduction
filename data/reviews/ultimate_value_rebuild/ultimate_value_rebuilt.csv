@@ -1,0 +1,237 @@
+pid,name,pos,owner,status,cy,cl,salary,tcv,canon_aav,extended,rem_cash,dyn_raw,ep,entry_type,tier,cohort,coh_n,elapsed,exp_ext_years,E_total_years,ext_ann_cost,cur_ultimate,reb_ultimate,delta,opt_band
+16185,Jaxon Smith-Njigba,WR,C-Town Chivalry,Vet-Ext2-FL,2,3,1000,70000.0,1000.0,True,1|55,67,63,ROOKIE,T3,rookie WR T3,57,3,3.02,5.02,11000,138.4,214.8,76.4,24.7
+16580,Drake Maye,QB,Pure Greatness,Rookie-Draft,1,3,8000,24000.0,8000,False,8,61,61,ROOKIE,T2,rookie QB top-tier(T1-3 pooled),44,2,2.78,3.78,18000,114.0,197.3,83.3,32.6
+16211,Puka Nacua,WR,Blake Bombers,Vet-Ext2,2,2,22000,44000.0,22000.0,True,22|22,62,70,ROOKIE,T4,rookie WR T4,84,3,1.43,3.43,32000,148.8,175.1,26.3,37.8
+16581,Jayden Daniels,QB,C-Town Chivalry,Rookie-Draft,1,3,12000,36000.0,12000,False,12,55,56,ROOKIE,T2,rookie QB top-tier(T1-3 pooled),44,2,2.78,3.78,22000,99.0,163.4,64.4,25.0
+16579,Caleb Williams,QB,Sex Manther,Rookie-Draft,1,3,15000,45000.0,15000,False,15,57,57,ROOKIE,T2,rookie QB top-tier(T1-3 pooled),44,2,2.78,3.78,25000,99.0,158.8,59.8,23.1
+17032,Jaxson Dart,QB,Cleon Ca$h,Rookie-Draft,2,3,9000,27000.0,9000,False,9|9,44,44,ROOKIE,T2,rookie QB top-tier(T1-3 pooled),44,1,2.78,4.78,19000,108.9,147.9,39.0,15.0
+16582,Bo Nix,QB,L.A. Looks,Rookie-Draft,1,3,5000,15000.0,5000,False,5,41,41,ROOKIE,T3,rookie QB T3,13,2,4.0,5.0,15000,77.0,145.9,68.9,0.0
+15281,Ja'Marr Chase,WR,HammerTime 🔨 ⏰,Vet-Ext2-BL,2,2,26000,129000.0,26000.0,True,26|103,71,72,ROOKIE,T3,rookie WR T3,57,5,4.0,6.0,36000,80.7,141.9,61.1,0.0
+17042,Ashton Jeanty,RB,Pure Greatness,Rookie-Draft,2,3,15000,45000.0,15000,False,15|15,53,52,ROOKIE,T1,rookie RB top-tier(T1-3 pooled),34,1,1.81,3.81,25000,117.7,132.3,14.6,10.8
+17044,Omarion Hampton,RB,Blake Bombers,Rookie-Draft,2,3,13000,39000.0,13000,False,13|13,44,49,ROOKIE,T2,rookie RB top-tier(T1-3 pooled),34,1,1.81,3.81,23000,107.1,121.6,14.5,11.0
+17071,Tetairoa McMillan,WR,Real Deal Creel,Rookie-Draft,2,3,7000,21000.0,7000,False,7|7,41,37,ROOKIE,T2,rookie WR top-tier(T1-3 pooled),57,1,2.3,4.3,17000,95.7,115.9,20.2,13.4
+16641,Brock Bowers,TE,C-Town Chivalry,Rookie-Draft,1,3,9000,27000.0,9000,False,9,50,45,ROOKIE,T2,rookie TE top-tier(T1-3 pooled),28,2,1.75,2.75,19000,86.0,115.8,29.8,31.9
+16615,Malik Nabers,WR,Cleon Ca$h,Rookie-Draft,1,3,13000,39000.0,13000,False,13,50,45,ROOKIE,T2,rookie WR top-tier(T1-3 pooled),57,2,2.3,3.3,23000,82.0,110.0,28.0,18.5
+17081,Emeka Egbuka,WR,CBP,Rookie-Draft,2,3,5000,15000.0,5000,False,5|5,37,33,ROOKIE,T3,rookie WR T3,57,1,2.3,4.3,15000,88.1,106.4,18.3,12.1
+16162,Jahmyr Gibbs,RB,Pure Greatness,Vet-Ext2,2,3,31000,73000.0,31000.0,True,31|31,67,53,ROOKIE,T2,rookie RB top-tier(T1-3 pooled),34,3,2.4,4.4,41000,115.7,103.1,-12.6,0.0
+17104,Colston Loveland,TE,Cleon Ca$h,Rookie-Draft,2,3,5000,15000.0,5000,False,5|5,36,32,ROOKIE,T2,rookie TE top-tier(T1-3 pooled),28,1,1.75,3.75,15000,85.6,100.6,15.0,15.8
+17070,Luther Burden III,WR,HammerTime 🔨 ⏰,Rookie-Draft,2,3,5000,15000.0,5000,False,5|5,34,31,ROOKIE,T3,rookie WR T3,57,1,2.3,4.3,15000,81.4,97.2,15.7,10.3
+16161,Bijan Robinson,RB,Cleon Ca$h,Vet-Ext2,2,2,35000,70000.0,35000.0,True,35|35,69,52,ROOKIE,T1,rookie RB top-tier(T1-3 pooled),34,3,2.4,4.4,45000,95.7,95.7,0.0,0.0
+15754,Chris Olave,WR,Pure Greatness,Vet-Ext2-FL,1,2,11000,62000.0,11000.0,True,11,34,39,ROOKIE,T3,rookie WR T3,57,4,3.02,4.02,21000,42.0,90.7,48.7,8.2
+17102,Tyler Warren,TE,The Long Haulers,Rookie-Draft,2,3,5000,15000.0,5000,False,5|5,32,29,ROOKIE,T1,rookie TE top-tier(T1-3 pooled),28,1,1.75,3.75,15000,76.0,87.8,11.8,12.2
+16167,De'Von Achane,RB,Sex Manther,Vet-Ext2,2,3,25000,55000.0,25000.0,True,25|25,44,48,ROOKIE,T4,rookie RB T4,85,3,1.33,3.33,35000,95.2,83.1,-12.1,1.2
+17103,Harold Fannin Jr.,TE,Sex Manther,Rookie-Draft,2,3,5000,15000.0,5000,False,5|5,31,28,ROOKIE,T3,rookie TE T3,23,1,1.11,3.11,15000,73.2,80.8,7.6,14.1
+16627,Ladd McConkey,WR,HammerTime 🔨 ⏰,Rookie-Draft,1,3,5000,15000.0,5000,False,5,32,31,ROOKIE,T3,rookie WR T3,57,2,2.3,3.3,15000,58.0,78.8,20.8,13.8
+17039,Tyler Shough,QB,CBP,Rookie-Draft,2,3,5000,15000.0,5000,False,5|5,25,25,ROOKIE,T2,rookie QB top-tier(T1-3 pooled),44,1,2.78,4.78,15000,62.1,75.9,13.8,5.2
+17030,Cam Ward,QB,Blake Bombers,Rookie-Draft,2,3,10000,30000.0,10000,False,10|10,29,29,ROOKIE,T2,rookie QB top-tier(T1-3 pooled),44,1,2.78,4.78,20000,64.1,74.9,10.9,3.9
+15698,Brock Purdy,QB,Blake Bombers,Vet-FAA-FL,2,3,22000,84000.0,28000,False,22|22,39,39,FAA,T3,QB T3,39,1,2.27,4.27,38000,58.5,69.9,11.4,0.0
+15715,James Cook III,RB,C-Town Chivalry,Vet-Ext2,1,3,27000,61000.0,27000.0,True,27,41,52,ROOKIE,T4,rookie RB T4,85,4,1.33,2.33,37000,72.7,69.5,-3.2,7.0
+15287,Amon-Ra St. Brown,WR,L.A. Looks,Tag,1,1,51000,51000.0,51000,False,51,57,63,ROOKIE,T4,rookie WR T4,84,5,1.33,2.33,61000,69.0,69.0,0.0,0.0
+16618,Brian Thomas Jr.,WR,Pure Greatness,Rookie-Draft,1,3,5000,15000.0,5000,False,5,30,27,ROOKIE,T3,rookie WR T3,57,2,2.3,3.3,15000,52.0,66.6,14.6,9.5
+14782,Jordan Love,QB,CBP,Vet-Ext2,1,3,21000,43000.0,21000.0,True,21,37,37,FAA,T3,QB T3,39,4,4.0,5.0,31000,59.7,61.1,1.5,0.0
+15789,Christian Watson,WR,Real Deal Creel,Vet-WW,2,3,1000,3000.0,1000,False,1|1,18,21,ERA,T4,WR T4,294,1,1.24,3.24,11000,54.7,60.1,5.4,9.9
+16181,Chase Brown,RB,L.A. Looks,Vet-Ext2,2,2,22000,44000.0,22000.0,True,22|22,30,40,ROOKIE,T4,rookie RB T4,85,3,1.33,3.33,32000,59.9,59.9,0.0,0.0
+16194,Rashee Rice,WR,Sex Manther,Vet-Ext2,2,3,25000,55000.0,18333,False,25|25,28,40,ROOKIE,T4,rookie WR T4,84,3,1.43,3.43,28333,66.6,58.5,-8.1,4.4
+17045,Cam Skattebo,RB,Gride,Rookie-Draft,2,3,5000,15000.0,5000,False,5|5,24,22,ROOKIE,T3,rookie RB T3,34,1,1.81,3.81,15000,53.9,55.2,1.3,0.4
+15751,Drake London,WR,C-Town Chivalry,Vet-Ext2-BL,1,2,52000,66000.0,52000.0,True,52,46,57,ROOKIE,T3,rookie WR T3,57,4,3.02,4.02,62000,70.0,51.0,-19.0,0.0
+15711,Kenneth Walker III,RB,HammerTime 🔨 ⏰,Vet-Ext1-BL,2,2,15000,74000.0,15000.0,True,15|59,35,43,ROOKIE,T3,rookie RB T3,34,4,2.67,4.67,25000,41.8,50.9,9.1,3.5
+16190,Zay Flowers,WR,Pure Greatness,Vet-Ext2,2,3,25000,55000.0,25000.0,True,25|18,28,35,ROOKIE,T3,rookie WR T3,57,3,3.02,5.02,35000,57.5,50.8,-6.7,0.0
+15794,Trey McBride,TE,HammerTime 🔨 ⏰,Vet-Ext2-BL,1,2,35000,44000.0,35000.0,True,35,45,40,ROOKIE,T2,rookie TE top-tier(T1-3 pooled),28,4,2.69,3.69,45000,63.0,50.0,-13.0,0.0
+16616,Rome Odunze,WR,Sex Manther,Rookie-Draft,1,3,10000,30000.0,10000,False,10,29,26,ROOKIE,T3,rookie WR T3,57,2,2.3,3.3,20000,45.0,49.2,4.2,2.3
+14779,Justin Herbert,QB,Cleon Ca$h,Vet-FAA-FL,2,3,51000,153000.0,51000,False,51|51,51,51,FAA,T3,QB T3,39,1,2.27,4.27,61000,49.2,49.2,0.0,0.0
+15237,Trevor Lawrence,QB,The Long Haulers,Tag,1,1,37000,37000.0,37000,False,37,43,43,ROOKIE,T2,rookie QB top-tier(T1-3 pooled),44,5,2.78,3.78,47000,49.0,49.0,0.0,0.0
+14832,CeeDee Lamb,WR,Cleon Ca$h,Vet-Ext2,1,3,64000,172000.0,64000.0,True,64,53,60,ROOKIE,T3,rookie WR T3,57,6,4.0,5.0,74000,55.7,49.0,-6.7,0.0
+17099,Oronde Gadsden II,TE,Sex Manther,Rookie-FAA,2,3,4000,12000.0,4000,False,4|4,20,18,FAA,T3,TE T3,97,1,1.06,3.06,14000,45.6,46.7,1.0,1.2
+16614,Marvin Harrison Jr.,WR,Real Deal Creel,Rookie-Draft,1,3,14000,42000.0,14000,False,14,30,27,ROOKIE,T1,rookie WR top-tier(T1-3 pooled),57,2,2.3,3.3,24000,43.0,43.7,0.7,0.3
+14836,Justin Jefferson,WR,Pure Greatness,Vet-Ext2-BL,1,2,71000,96000.0,71000.0,True,71,56,58,ROOKIE,T3,rookie WR T3,57,6,4.0,5.0,81000,66.0,43.0,-23.0,0.0
+17051,Quinshon Judkins,RB,Blake Bombers,Rookie-Draft,2,3,8000,24000.0,8000,False,8|8,29,16,ROOKIE,T3,rookie RB T3,34,1,1.81,3.81,18000,42.5,42.5,0.0,0.0
+15290,Nico Collins,WR,CBP,Vet-Ext2,2,3,47000,110000.0,47000.0,True,47|47,36,52,ROOKIE,T4,rookie WR T4,84,5,4.0,6.0,57000,61.9,42.2,-19.6,0.0
+15253,Travis Etienne Jr.,RB,Real Deal Creel,Tag,1,1,19000,19000.0,19000,False,19,27,33,FAA,T4,RB T4,336,1,1.31,2.31,29000,41.0,41.0,0.0,0.0
+17043,TreVeyon Henderson,RB,Real Deal Creel,Rookie-Draft,2,3,12000,36000.0,12000,False,12|12,28,19,ROOKIE,T2,rookie RB top-tier(T1-3 pooled),34,1,1.81,3.81,22000,39.2,39.2,0.0,0.0
+16150,C.J. Stroud,QB,HammerTime 🔨 ⏰,Vet-Ext1,1,1,22000,22000.0,22000.0,True,22,30,30,ROOKIE,T2,rookie QB top-tier(T1-3 pooled),44,3,2.98,3.98,32000,38.0,38.0,0.0,0.0
+14835,Tee Higgins,WR,C-Town Chivalry,Vet-Ext1,1,2,24000,48000.0,24000.0,True,24,27,35,ROOKIE,T3,rookie WR T3,57,6,4.0,5.0,34000,38.0,38.0,0.0,0.0
+15768,Alec Pierce,WR,L.A. Looks,Vet-FAA,1,2,2000,4000.0,2000,False,2,19,17,ERA,T4,WR T4,294,1,1.28,2.28,12000,34.0,37.1,3.1,4.2
+16222,Tucker Kraft,TE,Cleon Ca$h,Vet-Ext1,1,1,12000,12000.0,12000.0,True,12,26,23,ROOKIE,T3,rookie TE T3,23,3,0.67,1.67,22000,37.0,37.0,0.0,0.0
+16598,Bucky Irving,RB,Pure Greatness,Rookie-Draft,1,3,2000,6000.0,2000,False,2,24,14,ROOKIE,T4,rookie RB T4,85,2,0.97,1.97,12000,36.0,36.1,0.1,0.2
+14109,Terry McLaurin,WR,Blake Bombers,Vet-FAA,2,3,19000,57000.0,19000,False,19|19,17,30,FAA,T3,WR T3,309,1,1.88,3.88,29000,36.0,36.0,0.0,0.0
+15710,Kyren Williams,RB,Hawks,Vet-Ext2,1,2,22000,44000.0,22000.0,True,22,25,33,ROOKIE,T4,rookie RB T4,85,4,1.33,2.33,32000,36.0,36.0,0.0,0.0
+15762,George Pickens,WR,C-Town Chivalry,Tag,1,1,51000,51000.0,51000,False,51,38,48,ROOKIE,T4,rookie WR T4,84,4,1.43,2.43,61000,35.0,35.0,0.0,0.0
+16583,Michael Penix Jr.,QB,HammerTime 🔨 ⏰,Rookie-Draft,1,3,5000,15000.0,5000,False,5,18,18,ROOKIE,T2,rookie QB top-tier(T1-3 pooled),44,2,2.78,3.78,15000,31.0,34.3,3.3,0.9
+16206,Michael Wilson,WR,Hawks,Vet-MYM,2,3,5000,15000.0,5000,False,5|5,16,14,WAIVER,T4,WR T4,294,1,1.24,3.24,15000,32.2,32.2,0.0,0.0
+14783,Jalen Hurts,QB,The Long Haulers,Vet-Ext2-BL,1,2,67000,84000.0,67000.0,True,67,48,51,ROOKIE,T3,rookie QB T3,13,6,4.0,5.0,77000,57.0,32.0,-25.0,0.0
+15708,Breece Hall,RB,C-Town Chivalry,Vet-Ext2,1,2,35000,70000.0,35000.0,True,35,34,33,ROOKIE,T3,rookie RB T3,34,4,2.4,3.4,45000,32.0,32.0,0.0,0.0
+14104,A.J. Brown,WR,The Long Haulers,Vet-Ext1,1,2,56000,129000.0,56000.0,True,56,31,56,ROOKIE,T3,rookie WR T3,57,7,4.0,5.0,66000,22.5,31.0,8.5,0.0
+13113,Deshaun Watson,QB,Real Deal Creel,Vet-FAA,2,3,1000,3000.0,1000,False,1|1,9,12,FAA,T4,QB T4,71,1,4.0,6.0,11000,29.5,29.5,0.0,0.0
+16269,Brenton Strange,TE,Blake Bombers,Vet-FAA,2,3,2000,6000.0,2000,False,2|2,12,11,FAA,T4,TE T4,162,1,1.03,3.03,12000,28.5,28.5,0.0,0.0
+13592,Sam Darnold,QB,Gride,Vet-FAA,1,2,18000,36000.0,18000,False,18,23,23,FAA,T4,QB T4,71,1,0.89,1.89,28000,28.0,28.0,0.0,0.0
+13590,Baker Mayfield,QB,Pure Greatness,Vet-FAA-FL,1,2,26000,62000.0,31000,False,26,27,27,FAA,T2,QB T2,122,1,1.19,2.19,41000,23.0,28.0,5.0,0.0
+16622,Ricky Pearsall,WR,CBP,Rookie-Draft,1,3,5000,15000.0,5000,False,5,15,14,ROOKIE,T3,rookie WR T3,57,2,2.3,3.3,15000,24.0,24.0,0.0,0.0
+15753,Garrett Wilson,WR,CBP,Vet-Ext2-BL,1,2,44000,68000.0,44000.0,True,44,36,32,ROOKIE,T4,rookie WR T4,84,4,1.43,2.43,54000,34.0,24.0,-10.0,0.0
+16620,Xavier Worthy,WR,Hawks,Rookie-Draft,1,3,5000,15000.0,5000,False,5,15,14,ROOKIE,T3,rookie WR T3,57,2,2.3,3.3,15000,24.0,24.0,0.0,0.0
+16214,Sam LaPorta,TE,C-Town Chivalry,Vet-Ext2-BL,2,2,10000,50000.0,10000.0,True,10|40,26,23,ROOKIE,T4,rookie TE T4,14,3,4.0,6.0,20000,21.0,22.7,1.8,0.0
+16809,Jalen Coker,WR,Gride,Rookie-MYM,1,3,1000,3000.0,1000,False,1,12,11,WAIVER,T4,WR T4,294,2,1.24,2.24,11000,22.0,22.0,0.0,0.0
+13163,Chris Godwin Jr.,WR,Blake Bombers,Vet-FAA,1,2,10000,20000.0,10000,False,10,17,15,FAA,T4,WR T4,294,1,1.28,2.28,20000,22.0,22.0,0.0,0.0
+16204,Tank Dell,WR,Sex Manther,Vet-MYM,2,3,1000,3000.0,1000,False,1|1,9,8,WAIVER,T4,WR T4,294,1,1.24,3.24,11000,21.8,21.8,0.0,0.0
+15256,Javonte Williams,RB,HammerTime 🔨 ⏰,Tag,1,1,30000,30000.0,30000,False,30,23,28,ROOKIE,T3,rookie RB T3,34,5,2.67,3.67,40000,21.0,21.0,0.0,0.0
+16747,Tyrone Tracy Jr.,RB,C-Town Chivalry,Rookie-Draft,1,3,2000,6000.0,2000,False,2,15,8,ROOKIE,T4,rookie RB T4,85,2,0.97,1.97,12000,21.0,21.0,0.0,0.0
+14127,Jakobi Meyers,WR,Hawks,Vet-FAA,1,3,4000,12000.0,4000,False,4,13,12,FAA,T4,WR T4,294,2,1.24,2.24,14000,21.0,21.0,0.0,0.0
+11671,Mike Evans,WR,Hawks,Vet-FAA,1,3,24000,72000.0,24000,False,24,15,30,FAA,T3,WR T3,309,2,1.88,2.88,34000,21.0,21.0,0.0,0.0
+17256,Jacory Croskey-Merritt,RB,Sex Manther,Rookie-Draft,2,3,2000,6000.0,2000,False,2|2,12,7,ROOKIE,T4,rookie RB T4,85,1,0.97,2.97,12000,20.7,20.7,0.0,0.0
+16723,AJ Barner,TE,Blake Bombers,Vet-FAA,1,2,1000,2000.0,1000,False,1,11,10,FAA,T4,TE T4,162,1,1.06,2.06,11000,20.0,20.0,0.0,0.0
+16195,Dontayvion Wicks,WR,The Long Haulers,Vet-MYM,2,3,1000,3000.0,1000,False,1|1,8,7,WAIVER,T4,WR T4,294,1,1.24,3.24,11000,19.0,19.0,0.0,0.0
+16174,Chris Rodriguez Jr.,RB,Real Deal Creel,Vet-ERA,1,1,3000,3000.0,3000,False,3,14,8,ROOKIE,T4,rookie RB T4,85,3,1.4,2.4,13000,19.0,19.0,0.0,0.0
+16165,Tyjae Spears,RB,The Long Haulers,Vet-ERA,3,3,1000,3000.0,1000,False,1|1|1,9,5,ROOKIE,T4,rookie RB T4,85,3,4.0,7.0,11000,18.4,18.4,0.0,0.0
+14833,Jerry Jeudy,WR,Cleon Ca$h,Vet-FAA-FL,1,3,1000,9000.0,3000,False,1,10,9,FAA,T4,WR T4,294,2,1.24,2.24,13000,16.0,18.0,2.0,0.0
+17106,Mason Taylor,TE,HammerTime 🔨 ⏰,Rookie-Draft,2,3,2000,6000.0,2000,False,2|2,8,7,ROOKIE,T3,rookie TE T3,23,1,1.11,3.11,12000,17.1,17.1,0.0,0.0
+13635,DJ Moore,WR,Gride,Vet-FAA,1,2,21000,42000.0,21000,False,21,17,21,FAA,T3,WR T3,309,1,1.53,2.53,31000,17.0,17.0,0.0,0.0
+16186,Jordan Addison,WR,HammerTime 🔨 ⏰,Vet-Ext1,1,2,17000,24000.0,17000.0,True,17,18,16,ROOKIE,T3,rookie WR T3,57,3,3.04,4.04,27000,22.0,17.0,-5.0,0.0
+12626,Derrick Henry,RB,The Long Haulers,Vet-Ext1,1,2,44000,94000.0,44000.0,True,44,21,40,FAA,T3,RB T3,272,2,1.18,2.18,54000,14.0,17.0,3.0,0.0
+17053,Woody Marks,RB,The Long Haulers,Rookie-Draft,2,3,2000,6000.0,2000,False,2|2,10,6,ROOKIE,T4,rookie RB T4,85,1,0.97,2.97,12000,17.0,17.0,0.0,0.0
+16187,Josh Downs,WR,The Long Haulers,Vet-Ext1,1,2,12000,14000.0,12000.0,True,12,15,14,ROOKIE,T3,rookie WR T3,57,3,3.04,4.04,22000,22.0,17.0,-5.0,0.0
+16178,Keaton Mitchell,RB,CBP,Vet-WW,2,3,1000,3000.0,1000,False,1|1,9,5,FAA,T4,RB T4,336,1,1.12,3.12,11000,16.1,16.1,0.0,0.0
+16080,Rashid Shaheed,WR,Blake Bombers,Vet-ERA,2,3,7000,21000.0,7000,False,7|7,11,10,ERA,T4,WR T4,294,1,1.24,3.24,17000,16.1,16.1,0.0,0.0
+16189,Marvin Mims Jr.,WR,L.A. Looks,Vet-ERA,1,1,1000,1000.0,1000,False,1,9,8,ROOKIE,T4,rookie WR T4,84,3,1.61,2.61,11000,16.0,16.0,0.0,0.0
+11675,Davante Adams,WR,Pure Greatness,Vet-FAA-FL,1,3,20000,90000.0,30000,False,20,15,21,FAA,T2,WR T2,79,2,0.9,1.9,40000,6.0,16.0,10.0,0.0
+16287,Tre Tucker,WR,The Long Haulers,Vet-WW,1,3,1000,3000.0,1000,False,1,9,8,WAIVER,T4,WR T4,294,2,1.24,2.24,11000,16.0,16.0,0.0,0.0
+16169,Zach Charbonnet,RB,L.A. Looks,Vet-ERA,1,1,7000,7000.0,7000,False,7,14,8,ROOKIE,T3,rookie RB T3,34,3,1.67,2.67,17000,15.0,15.0,0.0,0.0
+16193,Kayshon Boutte,WR,Real Deal Creel,Vet-ERA,1,1,2000,2000.0,2000,False,2,9,8,ROOKIE,T4,rookie WR T4,84,3,1.61,2.61,12000,15.0,15.0,0.0,0.0
+13674,Dallas Goedert,TE,Real Deal Creel,Vet-FAA,1,2,7000,14000.0,7000,False,7,11,10,FAA,T4,TE T4,162,1,1.06,2.06,17000,14.0,14.0,0.0,0.0
+16152,Anthony Richardson Sr.,QB,HammerTime 🔨 ⏰,Vet-WW,2,3,11000,33000.0,11000,False,11|11,12,12,WAIVER,T4,QB T4,71,1,4.0,6.0,21000,13.5,13.5,0.0,0.0
+16643,Ja'Tavion Sanders,TE,Real Deal Creel,Vet-MYM,2,3,1000,3000.0,1000,False,1|1,6,5,WAIVER,T4,TE T4,162,1,1.03,3.03,11000,13.3,13.3,0.0,0.0
+13630,Courtland Sutton,WR,L.A. Looks,Vet-Ext1,1,2,15000,30000.0,15000.0,True,15,14,14,FAA,T4,WR T4,294,3,1.91,2.91,25000,13.0,13.0,0.0,0.0
+16597,Jonathon Brooks,RB,Sex Manther,Rookie-Draft,1,3,7000,21000.0,7000,False,7,13,7,ROOKIE,T3,rookie RB T3,34,2,1.81,2.81,17000,13.0,13.0,0.0,0.0
+16584,J.J. McCarthy,QB,Cleon Ca$h,Rookie-Draft,1,3,11000,33000.0,11000,False,11,12,12,ROOKIE,T1,rookie QB top-tier(T1-3 pooled),44,2,2.78,3.78,21000,13.0,13.0,0.0,0.0
+14071,David Montgomery,RB,HammerTime 🔨 ⏰,Vet-Ext1,2,2,12000,42000.0,12000.0,True,12|30,16,20,FAA,T4,RB T4,336,1,1.12,3.12,22000,11.9,12.8,0.9,0.0
+16164,Tank Bigsby,RB,L.A. Looks,Vet-ERA,1,1,4000,4000.0,4000,False,4,10,6,ROOKIE,T4,rookie RB T4,85,3,1.4,2.4,14000,12.0,12.0,0.0,0.0
+16619,Troy Franklin,WR,HammerTime 🔨 ⏰,Rookie-Draft,1,3,5000,15000.0,5000,False,5,9,8,ROOKIE,T3,rookie WR T3,57,2,2.3,3.3,15000,12.0,12.0,0.0,0.0
+16617,Keon Coleman,WR,Real Deal Creel,Rookie-Draft,1,3,5000,15000.0,5000,False,5,9,8,ROOKIE,T3,rookie WR T3,57,2,2.3,3.3,15000,12.0,12.0,0.0,0.0
+16184,Jayden Reed,WR,Blake Bombers,Vet-Ext1,1,1,15000,15000.0,15000.0,True,15,14,13,ROOKIE,T4,rookie WR T4,84,3,1.61,2.61,25000,12.0,12.0,0.0,0.0
+15802,Cade Otton,TE,The Long Haulers,Vet-FAA,2,3,5000,15000.0,5000,False,5|5,8,7,ERA,T4,TE T4,162,1,1.03,3.03,15000,11.4,11.4,0.0,0.0
+17134,Kyle Williams,WR,Sex Manther,Rookie-Draft,2,3,5000,15000.0,5000,False,5|5,8,7,ROOKIE,T3,rookie WR T3,57,1,2.3,4.3,15000,11.4,11.4,0.0,0.0
+17171,Chimere Dike,WR,Hawks,Rookie-MYM,2,3,5000,15000.0,5000,False,5|5,8,7,WAIVER,T4,WR T4,294,1,1.24,3.24,15000,11.4,11.4,0.0,0.0
+14136,Deebo Samuel Sr.,WR,Gride,Vet-FAA,2,3,8000,24000.0,8000,False,8|8,10,9,FAA,T4,WR T4,294,1,1.24,3.24,18000,11.3,11.3,0.0,0.0
+17074,Travis Hunter,WR,Sex Manther,Rookie-Draft,2,3,14000,42000.0,14000,False,14|14,14,13,ROOKIE,T2,rookie WR top-tier(T1-3 pooled),57,1,2.3,4.3,24000,11.3,11.3,0.0,0.0
+13772,Dalton Schultz,TE,Pure Greatness,Vet-FAA,1,3,4000,12000.0,4000,False,4,8,7,FAA,T4,TE T4,162,2,1.03,2.03,14000,11.0,11.0,0.0,0.0
+16188,Quentin Johnston,WR,The Long Haulers,Vet-Ext1,1,1,18000,18000.0,18000.0,True,18,15,14,ROOKIE,T3,rookie WR T3,57,3,3.04,4.04,28000,11.0,11.0,0.0,0.0
+16212,Michael Mayer,TE,Real Deal Creel,Vet-ERA,1,1,2000,2000.0,2000,False,2,7,6,ROOKIE,T3,rookie TE T3,23,3,0.67,1.67,12000,11.0,11.0,0.0,0.0
+14778,Tua Tagovailoa,QB,C-Town Chivalry,Vet-Ext2,1,3,15000,116000.0,15000.0,True,15,13,13,FAA,T3,QB T3,39,4,4.0,5.0,25000,-12.7,11.0,23.7,0.0
+15787,Tyquan Thornton,WR,Real Deal Creel,Vet-MYM,2,3,1000,3000.0,1000,False,1|1,5,4,WAIVER,,WR pooled,743,1,1.38,3.38,11000,10.4,10.4,0.0,0.0
+16752,Isaiah Davis,RB,C-Town Chivalry,Vet-ERA,2,3,1000,3000.0,1000,False,1|1,5,4,ERA,T3,RB T3,272,1,1.18,3.18,11000,10.3,10.3,0.0,0.0
+14871,Colby Parkinson,TE,L.A. Looks,Vet-MYM,1,2,1000,2000.0,1000,False,1,6,5,WAIVER,,TE pooled,319,1,1.24,2.24,11000,10.0,10.0,0.0,0.0
+14800,J.K. Dobbins,RB,Hawks,Vet-FAA,1,3,9000,27000.0,9000,False,9,12,7,FAA,T4,RB T4,336,2,1.12,2.12,19000,10.0,10.0,0.0,0.0
+17046,Devin Neal,RB,Gride,Rookie-Draft,2,3,2000,6000.0,2000,False,2|2,6,4,ROOKIE,T3,rookie RB T3,34,1,1.81,3.81,12000,9.4,9.4,0.0,0.0
+17205,KeAndre Lambert-Smith,WR,The Long Haulers,Rookie-MYM,2,3,1000,3000.0,1000,False,1|1,4,4,FAA,T4,WR T4,294,1,1.24,3.24,11000,9.4,9.4,0.0,0.0
+16757,Kimani Vidal,RB,Gride,Rookie-Draft,1,3,2000,6000.0,2000,False,2,7,4,ROOKIE,T4,rookie RB T4,85,2,0.97,1.97,12000,9.0,9.0,0.0,0.0
+16639,Xavier Legette,WR,Pure Greatness,Rookie-Draft,1,3,2000,6000.0,2000,False,2,6,5,ROOKIE,T4,rookie WR T4,84,2,1.22,2.22,12000,9.0,9.0,0.0,0.0
+14823,Rico Dowdle,RB,Blake Bombers,Vet-Ext1,1,2,11000,12000.0,11000.0,True,11,13,7,FAA,T4,RB T4,336,1,1.31,2.31,21000,14.0,9.0,-5.0,0.0
+14138,T.J. Hockenson,TE,HammerTime 🔨 ⏰,Vet-MYM,2,3,11000,33000.0,11000,False,11|11,11,10,WAIVER,T3,TE T3,97,1,1.06,3.06,21000,8.6,8.6,0.0,0.0
+17058,Tahj Brooks,RB,Sex Manther,Rookie-Draft,2,3,2000,6000.0,2000,False,2|2,5,4,ROOKIE,T4,rookie RB T4,85,1,0.97,2.97,12000,8.4,8.4,0.0,0.0
+17068,RJ Harvey,RB,Hawks,Rookie-Draft,2,3,11000,33000.0,11000,False,11|11,15,8,ROOKIE,T3,rookie RB T3,34,1,1.81,3.81,21000,8.4,8.4,0.0,0.0
+15799,Jake Ferguson,TE,L.A. Looks,Vet-Ext1,1,2,21000,32000.0,21000.0,True,21,15,14,FAA,T4,TE T4,162,3,1.88,2.88,31000,13.0,8.0,-5.0,0.0
+16649,Theo Johnson,TE,The Long Haulers,Rookie-Draft,1,3,5000,15000.0,5000,False,5,7,6,FAA,T4,TE T4,162,2,1.03,2.03,15000,8.0,8.0,0.0,0.0
+16432,Emanuel Wilson,RB,Blake Bombers,Vet-ERA,1,1,2000,2000.0,2000,False,2,6,4,WAIVER,,RB pooled,687,3,1.14,2.14,12000,8.0,8.0,0.0,0.0
+16384,Tyson Bagent,QB,Sex Manther,Vet-MYM,1,2,1000,2000.0,1000,False,1,4,4,WAIVER,T4,QB T4,71,1,0.89,1.89,11000,7.0,7.0,0.0,0.0
+16166,Sean Tucker,RB,Sex Manther,Vet-ERA,1,1,4000,4000.0,4000,False,4,7,4,ROOKIE,T4,rookie RB T4,85,3,1.4,2.4,14000,7.0,7.0,0.0,0.0
+16171,Kendre Miller,RB,Real Deal Creel,Vet-ERA,1,1,1000,1000.0,1000,False,1,5,3,ROOKIE,T4,rookie RB T4,85,3,1.4,2.4,11000,7.0,7.0,0.0,0.0
+15757,Wan'Dale Robinson,WR,Cleon Ca$h,Vet-Ext1,1,2,22000,34000.0,22000.0,True,22,15,14,ROOKIE,T4,rookie WR T4,84,4,1.43,2.43,32000,12.0,7.0,-5.0,0.0
+15702,Tanner McKee,QB,Sex Manther,Vet-WW,2,3,1000,3000.0,1000,False,1|1,3,3,WAIVER,T4,QB T4,71,1,4.0,6.0,11000,6.7,6.7,0.0,0.0
+17048,Kaleb Johnson,RB,Hawks,Rookie-Draft,2,3,6000,18000.0,6000,False,6|6,9,5,ROOKIE,T3,rookie RB T3,34,1,1.81,3.81,16000,6.6,6.6,0.0,0.0
+16586,Spencer Rattler,QB,CBP,Rookie-Draft,1,3,2000,6000.0,2000,False,2,4,4,ROOKIE,T3,rookie QB T3,13,2,4.0,5.0,12000,6.0,6.0,0.0,0.0
+16594,Trey Benson,RB,Real Deal Creel,Rookie-Draft,1,3,6000,18000.0,6000,False,6,8,4,ROOKIE,T3,rookie RB T3,34,2,1.81,2.81,16000,6.0,6.0,0.0,0.0
+15293,Rashod Bateman,WR,HammerTime 🔨 ⏰,Vet-FAA,2,3,5000,15000.0,5000,False,5|5,6,5,FAA,T4,WR T4,294,1,1.24,3.24,15000,5.7,5.7,0.0,0.0
+17254,Konata Mumpfield,WR,The Long Haulers,Rookie-MYM,2,3,1000,3000.0,1000,False,1|1,0,4,WAIVER,,WR pooled,743,1,1.38,3.38,11000,5.4,5.4,0.0,0.0
+16149,Will Levis,QB,The Long Haulers,Vet-ERA,3,3,1000,3000.0,1000,False,1|1|1,0,3,ROOKIE,T2,rookie QB top-tier(T1-3 pooled),44,3,2.78,5.78,11000,5.1,5.1,0.0,0.0
+14867,Cole Kmet,TE,CBP,Vet-FAA-FL,1,3,6000,27000.0,9000,False,6,6,5,FAA,T4,TE T4,162,2,1.03,2.03,19000,2.0,5.0,3.0,0.0
+11247,Zach Ertz,TE,Pure Greatness,Vet-MYM,1,2,1000,2000.0,1000,False,1,2,3,FAA,T4,TE T4,162,1,1.06,2.06,11000,4.0,4.0,0.0,0.0
+16630,Isaiah Williams,WR,L.A. Looks,Vet-MYM,1,2,1000,2000.0,1000,False,1,0,4,WAIVER,,WR pooled,743,1,1.29,2.29,11000,3.0,3.0,0.0,0.0
+17076,Isaiah Bond,WR,L.A. Looks,Vet-WW-BL,2,3,5000,24000.0,8000,False,5|8,6,5,WAIVER,T4,WR T4,294,1,1.24,3.24,18000,-0.0,3.0,3.0,0.0
+17269,Efton Chism III,WR,Cleon Ca$h,Rookie-MYM,1,2,1000,2000.0,1000,False,1,0,4,FAA,T4,WR T4,294,1,1.28,2.28,11000,3.0,3.0,0.0,0.0
+12610,Carson Wentz,QB,L.A. Looks,Vet-MYM,1,2,1000,2000.0,1000,False,1,0,3,WAIVER,T4,QB T4,71,1,0.89,1.89,11000,2.0,2.0,0.0,0.0
+11150,Geno Smith,QB,HammerTime 🔨 ⏰,Vet-FAA-BL,2,3,1000,45000.0,15000,False,1|35,10,12,FAA,T4,QB T4,71,1,4.0,6.0,25000,3.9,-0.1,-4.0,0.0
+13806,DeShon Elliott,S,L.A. Looks,Vet-MYM,1,2,1000,2000.0,1000,False,1,,,FAA,IDP/K,global fallback,0,1,1.0,2.0,4000,-1.0,-1.0,0.0,0.0
+16653,Jared Verse,DE,CBP,Rookie-Draft,1,3,1000,3000.0,1000,False,1,,,ROOKIE,IDP/K,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+16716,Payton Wilson,LB,Gride,Rookie-Draft,1,3,1000,3000.0,1000,False,1,,,ROOKIE,IDP/K,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+13193,Jonnu Smith,TE,HammerTime 🔨 ⏰,Vet-FAA,2,3,6000,18000.0,6000,False,6|6,3,4,FAA,T4,TE T4,162,1,1.03,3.03,16000,-1.0,-1.0,0.0,0.0
+16667,Cedric Gray,LB,HammerTime 🔨 ⏰,Rookie-Draft,1,3,1000,3000.0,1000,False,1,,,ROOKIE,IDP/K,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+15418,Camryn Bynum,S,The Long Haulers,Vet-MYM,1,3,1000,3000.0,1000,False,1,,,FAA,IDP/K,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+14179,Julian Love,S,Sex Manther,Vet-MYM,1,2,1000,2000.0,1000,False,1,,,FAA,IDP/K,global fallback,0,1,1.0,2.0,4000,-1.0,-1.0,0.0,0.0
+16252,Will McDonald,DE,Real Deal Creel,Vet-ERA,1,1,1000,1000.0,1000,False,1,,,ROOKIE,IDP/K,global fallback,0,3,1.5,2.5,4000,-1.0,-1.0,0.0,0.0
+16724,Tory Taylor,PN,C-Town Chivalry,Rookie-Draft,1,3,1000,3000.0,1000,False,1,,,ROOKIE,,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+14908,Xavier McKinney,S,C-Town Chivalry,Vet-FAA,1,3,1000,3000.0,1000,False,1,,,FAA,IDP/K,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+15923,Quentin Lake,S,C-Town Chivalry,Vet-MYM,1,3,1000,3000.0,1000,False,1,,,WAIVER,,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+16223,Will Anderson,DE,Blake Bombers,Vet-MYM,1,3,1000,3000.0,1000,False,1,,,WAIVER,,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+15846,Quay Walker,LB,Blake Bombers,Vet-MYM,1,2,1000,2000.0,1000,False,1,,,FAA,IDP/K,global fallback,0,1,1.0,2.0,4000,-1.0,-1.0,0.0,0.0
+13696,Roquan Smith,LB,Cleon Ca$h,Vet-FAA-FL,1,3,1000,12000.0,4000,False,1,,,FAA,IDP/K,global fallback,0,2,1.15,2.15,7000,-4.0,-1.0,3.0,0.0
+15815,Travon Walker,DE,Cleon Ca$h,Vet-MYM,1,3,1000,3000.0,1000,False,1,,,WAIVER,,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+16652,Bralen Trice,DE,Cleon Ca$h,Rookie-Draft,1,3,1000,3000.0,1000,False,1,,,ROOKIE,,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+15868,Marcus Jones,CB,Hawks,Vet-MYM,1,3,1000,3000.0,1000,False,1,,,WAIVER,,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+16677,Javon Bullard,S,Hawks,Rookie-Draft,1,3,1000,3000.0,1000,False,1,,,ROOKIE,IDP/K,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+15351,Jeremiah Owusu-Koramoah,LB,Hawks,Vet-FAA,1,3,1000,3000.0,1000,False,1,,,FAA,IDP/K,global fallback,0,2,1.15,2.15,4000,-1.0,-1.0,0.0,0.0
+17144,Nick Emmanwori,S,L.A. Looks,Rookie-Draft,2,3,1000,3000.0,1000,False,1|1,,,ROOKIE,IDP/K,global fallback,0,1,1.15,3.15,4000,-1.9,-1.9,0.0,0.0
+17147,Carson Schwesinger,LB,Sex Manther,Rookie-Draft,2,3,1000,3000.0,1000,False,1|1,,,ROOKIE,IDP/K,global fallback,0,1,1.15,3.15,4000,-1.9,-1.9,0.0,0.0
+15808,George Karlaftis,DE,Real Deal Creel,Vet-FAA,2,3,1000,3000.0,1000,False,1|1,,,ERA,IDP/K,global fallback,0,1,1.15,3.15,4000,-1.9,-1.9,0.0,0.0
+17115,James Pearce,DE,Real Deal Creel,Rookie-Draft,2,3,1000,3000.0,1000,False,1|1,,,ROOKIE,IDP/K,global fallback,0,1,1.15,3.15,4000,-1.9,-1.9,0.0,0.0
+17131,Xavier Watts,S,Blake Bombers,Rookie-MYM,2,3,1000,3000.0,1000,False,1|1,,,WAIVER,IDP/K,global fallback,0,1,1.15,3.15,4000,-1.9,-1.9,0.0,0.0
+16414,Brandon Aubrey,PK,L.A. Looks,Vet-FAA,1,2,2000,4000.0,2000,False,2,,,FAA,IDP/K,global fallback,0,1,1.0,2.0,5000,-2.0,-2.0,0.0,0.0
+14860,Jauan Jennings,WR,L.A. Looks,Vet-Ext1,1,2,21000,32000.0,21000.0,True,21,10,9,FAA,T3,WR T3,309,2,1.88,2.88,31000,3.0,-2.0,-5.0,0.0
+16651,Laiatu Latu,DE,L.A. Looks,Rookie-Draft,1,3,2000,6000.0,2000,False,2,,,ROOKIE,IDP/K,global fallback,0,2,1.15,2.15,5000,-2.0,-2.0,0.0,0.0
+16280,Daiyan Henley,LB,Blake Bombers,Vet-FAA,1,2,2000,4000.0,2000,False,2,,,FAA,IDP/K,global fallback,0,1,1.0,2.0,5000,-2.0,-2.0,0.0,0.0
+16655,Chop Robinson,DE,Hawks,Rookie-Draft,1,3,2000,6000.0,2000,False,2,,,ROOKIE,IDP/K,global fallback,0,2,1.15,2.15,5000,-2.0,-2.0,0.0,0.0
+16175,Roschon Johnson,RB,The Long Haulers,Vet-FAA,2,3,4000,12000.0,4000,False,4|4,0,3,FAA,T4,RB T4,336,1,1.12,3.12,14000,-2.2,-2.2,0.0,0.0
+17668,17668,,Gride,Rookie-Draft,3,3,1000,3000.0,1000,False,1|1|1,,,ROOKIE,,global fallback,0,1,1.5,4.5,4000,-2.7,-2.7,0.0,0.0
+17553,17553,,The Long Haulers,Rookie-Draft,3,3,1000,3000.0,1000,False,1|1|1,,,ROOKIE,,global fallback,0,1,1.5,4.5,4000,-2.7,-2.7,0.0,0.0
+17601,17601,,Sex Manther,Rookie-Draft,3,3,1000,3000.0,1000,False,1|1|1,,,ROOKIE,,global fallback,0,1,1.5,4.5,4000,-2.7,-2.7,0.0,0.0
+17571,17571,,C-Town Chivalry,Rookie-Draft,3,3,1000,3000.0,1000,False,1|1|1,,,ROOKIE,,global fallback,0,1,1.5,4.5,4000,-2.7,-2.7,0.0,0.0
+17584,17584,,Cleon Ca$h,Rookie-Draft,3,3,1000,3000.0,1000,False,1|1|1,,,ROOKIE,,global fallback,0,1,1.5,4.5,4000,-2.7,-2.7,0.0,0.0
+17562,17562,,Hawks,Rookie-Draft,3,3,1000,3000.0,1000,False,1|1|1,,,ROOKIE,,global fallback,0,1,1.5,4.5,4000,-2.7,-2.7,0.0,0.0
+16239,Jack Campbell,LB,HammerTime 🔨 ⏰,Vet-MYM,1,3,3000,9000.0,3000,False,3,,,WAIVER,,global fallback,0,2,1.15,2.15,6000,-3.0,-3.0,0.0,0.0
+16241,Devon Witherspoon,CB,The Long Haulers,Tag,1,1,3000,3000.0,3000,False,3,,,ROOKIE,IDP/K,global fallback,0,3,1.5,2.5,6000,-3.0,-3.0,0.0,0.0
+13284,Trey Hendrickson,DE,Blake Bombers,Vet-FAA,1,2,3000,6000.0,3000,False,3,,,FAA,IDP/K,global fallback,0,1,1.0,2.0,6000,-3.0,-3.0,0.0,0.0
+17132,Malaki Starks,S,Cleon Ca$h,Rookie-Draft,2,3,2000,6000.0,2000,False,2|2,,,ROOKIE,IDP/K,global fallback,0,1,1.15,3.15,5000,-3.8,-3.8,0.0,0.0
+17112,Abdul Carter,DE,Hawks,Rookie-Draft,2,3,2000,6000.0,2000,False,2|2,,,ROOKIE,IDP/K,global fallback,0,1,1.15,3.15,5000,-3.8,-3.8,0.0,0.0
+15001,Kamren Curl,S,L.A. Looks,Tag,1,1,4000,4000.0,4000,False,4,,,WAIVER,,global fallback,0,1,1.0,2.0,7000,-4.0,-4.0,0.0,0.0
+16708,Tykee Smith,S,Pure Greatness,Vet-Ext1,1,2,4000,5000.0,4000.0,True,4,,,WAIVER,,global fallback,0,1,1.0,2.0,7000,-2.5,-4.0,-1.5,0.0
+16245,Jordan Battle,S,The Long Haulers,Vet-ERA,1,1,4000,4000.0,4000,False,4,,,ROOKIE,IDP/K,global fallback,0,3,1.5,2.5,7000,-4.0,-4.0,0.0,0.0
+16266,Tuli Tuipulotu,DE,Sex Manther,Vet-MYM,1,3,4000,12000.0,4000,False,4,,,WAIVER,,global fallback,0,2,1.15,2.15,7000,-4.0,-4.0,0.0,0.0
+16244,Brian Branch,S,C-Town Chivalry,Vet-ERA,1,1,4000,4000.0,4000,False,4,,,ROOKIE,IDP/K,global fallback,0,3,1.5,2.5,7000,-4.0,-4.0,0.0,0.0
+14105,Hollywood Brown,WR,Hawks,Vet-FAA,1,3,8000,24000.0,8000,False,8,0,4,FAA,T4,WR T4,294,2,1.24,2.24,18000,-4.0,-4.0,0.0,0.0
+13743,Fred Warner,LB,Hawks,Vet-FAA,1,3,4000,12000.0,4000,False,4,,,FAA,IDP/K,global fallback,0,2,1.15,2.15,7000,-4.0,-4.0,0.0,0.0
+14147,Nick Bosa,DE,Pure Greatness,Vet-FAA,1,3,5000,15000.0,5000,False,5,,,FAA,IDP/K,global fallback,0,2,1.15,2.15,8000,-5.0,-5.0,0.0,0.0
+14085,Tony Pollard,RB,C-Town Chivalry,Vet-Ext1,1,2,27000,54000.0,27000.0,True,27,12,10,FAA,T3,RB T3,272,2,1.18,2.18,37000,-5.0,-5.0,0.0,0.0
+17519,17519,,L.A. Looks,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17551,17551,,L.A. Looks,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+16148,Bryce Young,QB,Gride,Vet-Ext2,2,2,33000,66000.0,33000.0,True,33|33,20,20,ROOKIE,T2,rookie QB top-tier(T1-3 pooled),44,3,2.56,4.56,43000,-5.4,-5.4,0.0,0.0
+17509,17509,,Gride,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17560,17560,,Gride,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17548,17548,,Gride,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17550,17550,,Sex Manther,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17586,17586,,Sex Manther,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17576,17576,,Sex Manther,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17563,17563,,C-Town Chivalry,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17685,17685,,Blake Bombers,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17556,17556,,Cleon Ca$h,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17507,17507,,Cleon Ca$h,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17657,17657,,Cleon Ca$h,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17486,17486,,Cleon Ca$h,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+17558,17558,,Hawks,Rookie-Draft,3,3,2000,6000.0,2000,False,2|2|2,,,ROOKIE,,global fallback,0,1,1.5,4.5,5000,-5.4,-5.4,0.0,0.0
+14842,Michael Pittman Jr.,WR,Gride,Vet-Ext2,1,3,45000,115000.0,45000.0,True,45,20,18,ROOKIE,T4,rookie WR T4,84,6,4.0,5.0,55000,-0.3,-7.0,-6.7,0.0
+15972,Jordan Mason,RB,The Long Haulers,Vet-Ext2-FL,2,3,14000,52000.0,14000.0,True,14|17,10,6,FAA,T4,RB T4,336,2,1.29,3.29,24000,-12.2,-8.8,3.3,0.0
+15761,Khalil Shakir,WR,Cleon Ca$h,Vet-ERA-BL,2,3,25000,57000.0,19000,False,25|18,12,11,ERA,T4,WR T4,294,1,1.24,3.24,29000,-3.9,-9.0,-5.1,0.0
+13192,David Njoku,TE,Gride,Vet-FAA,1,2,27000,54000.0,27000,False,27,9,8,FAA,T4,TE T4,162,1,1.06,2.06,37000,-10.0,-10.0,0.0,0.0
+13198,Myles Garrett,DE,Pure Greatness,Tag,1,1,10000,10000.0,10000,False,10,,,FAA,IDP/K,global fallback,0,2,1.15,2.15,13000,-10.0,-10.0,0.0,0.0
+16213,Dalton Kincaid,TE,Hawks,Vet-Ext2,2,3,29000,67000.0,29000.0,True,29|29,16,14,ROOKIE,T3,rookie TE T3,23,3,1.0,3.0,39000,-0.6,-13.3,-12.7,0.0
+17544,17544,,CBP,Rookie-Draft,3,3,5000,15000.0,5000,False,5|5|5,,,ROOKIE,,global fallback,0,1,1.5,4.5,8000,-13.6,-13.6,0.0,0.0
+17512,17512,,Gride,Rookie-Draft,3,3,5000,15000.0,5000,False,5|5|5,,,ROOKIE,,global fallback,0,1,1.5,4.5,8000,-13.6,-13.6,0.0,0.0
+17476,17476,,Cleon Ca$h,Rookie-Draft,3,3,5000,15000.0,5000,False,5|5|5,,,ROOKIE,,global fallback,0,1,1.5,4.5,8000,-13.6,-13.6,0.0,0.0
+17500,17500,,Blake Bombers,Rookie-Draft,3,3,6000,18000.0,6000,False,6|6|6,,,ROOKIE,,global fallback,0,1,1.5,4.5,9000,-16.3,-16.3,0.0,0.0
+17502,17502,,Real Deal Creel,Rookie-Draft,3,3,7000,21000.0,7000,False,7|7|7,,,ROOKIE,,global fallback,0,1,1.5,4.5,10000,-19.0,-19.0,0.0,0.0
+17543,17543,,CBP,Rookie-Draft,3,3,8000,24000.0,8000,False,8|8|8,,,ROOKIE,,global fallback,0,1,1.5,4.5,11000,-21.7,-21.7,0.0,0.0
+17501,17501,,Real Deal Creel,Rookie-Draft,3,3,9000,27000.0,9000,False,9|9|9,,,ROOKIE,,global fallback,0,1,1.5,4.5,12000,-24.4,-24.4,0.0,0.0
+17499,17499,,Hawks,Rookie-Draft,3,3,10000,30000.0,10000,False,10|10|10,,,ROOKIE,,global fallback,0,1,1.5,4.5,13000,-27.1,-27.1,0.0,0.0
+17498,17498,,Gride,Rookie-Draft,3,3,11000,33000.0,11000,False,11|11|11,,,ROOKIE,,global fallback,0,1,1.5,4.5,14000,-29.8,-29.8,0.0,0.0
+17473,17473,,Gride,Rookie-Draft,3,3,12000,36000.0,12000,False,12|12|12,,,ROOKIE,,global fallback,0,1,1.5,4.5,15000,-32.5,-32.5,0.0,0.0
+17462,17462,,The Long Haulers,Rookie-Draft,3,3,13000,39000.0,13000,False,13|13|13,,,ROOKIE,,global fallback,0,1,1.5,4.5,16000,-35.2,-35.2,0.0,0.0
+17497,17497,,Hawks,Rookie-Draft,3,3,14000,42000.0,14000,False,14|14|14,,,ROOKIE,,global fallback,0,1,1.5,4.5,17000,-37.9,-37.9,0.0,0.0
+17472,17472,,Cleon Ca$h,Rookie-Draft,3,3,15000,45000.0,15000,False,15|15|15,,,ROOKIE,,global fallback,0,1,1.5,4.5,18000,-40.6,-40.6,0.0,0.0
+12801,Tyreek Hill,WR,Sex Manther,Vet-FAA,1,2,62000,142000.0,71000,False,62,8,7,FAA,T1,WR T1,61,2,0.62,1.62,81000,-56.0,-47.0,9.0,0.0
+13299,George Kittle,TE,Blake Bombers,Vet-FAA,1,2,29000,58000.0,29000,False,29,15,14,FAA,T2,TE T2,33,1,1.6,2.6,39000,0.0,0.0,0.0,0.0
