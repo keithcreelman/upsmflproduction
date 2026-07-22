@@ -1359,19 +1359,26 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           if (ctx.cl === 1 && ctx.tcv > 0 && ctx.tcv <= 4000) {
             return { ...ctx, penalty: 0, basis: "one_year_under_5k_exempt", exempt: true, exempt_reason: "1-year original contract under $5K (§D2)." };
           }
-          // TCV ≤ $4K — sub-5K rule (Keith 2026-05-22, updated canon §D2):
-          //   yrs_remaining ≥ 2 → fixed $1K
-          //   yrs_remaining ≤ 1 → $0 (final-year drop is cap-free, regardless
-          //                            of the standard formula result)
-          // This OVERRIDES the standard guaranteed-minus-earned formula
-          // entirely for sub-$5K TCV contracts. Replaces the prior
-          // pipeline behavior which applied the $1K floor on top of any
-          // positive standard-formula result.
+          // TCV ≤ $4K — sub-5K rule (Keith 2026-05-22 / guarantee mechanics
+          // clarified 2026-07-22). The guarantee on a MULTI-YEAR sub-$5K deal
+          // ACCRUES $1K per year, capped at (CL−1)×$1K — computed AS YOU GO:
+          //   guarantee while in year Y (years_played = Y−1) = min(years_played+1, CL−1) × $1K
+          //   penalty = max(0, guarantee − earned)
+          // Worked (CL 3, $1K/yr):
+          //   yr 1 cut (played 0): g = min(1,2)=1 → $1K; earned $0 → penalty $1K
+          //   yr 2 cut (played 1): g = min(2,2)=2 → $2K; earned $1K → penalty $1K   (Tanner McKee)
+          //   yr 3 cut (played 2): g = min(3,2)=2 → $2K; earned $2K → penalty $0    (final year, cap-free)
+          // Same $1K/$0 penalties as the old fixed rule, but the GUARANTEE is now
+          // logged correctly (progressive, not floor(TCV×0.75)).
           if (ctx.tcv > 0 && ctx.tcv <= 4000) {
-            if (ctx.yearsRemaining >= 2) {
-              return { ...ctx, guaranteed: Math.floor(ctx.tcv * 0.75), penalty: 1000, basis: "tcv_under_5k_fixed_1k", exempt: false, exempt_reason: "" };
+            const capUnits = Math.max(0, (ctx.cl || 1) - 1);
+            const gUnits = Math.max(0, Math.min(ctx.yearsPlayed + 1, capUnits));
+            const subGuar = gUnits * 1000;
+            const subPen = Math.max(0, subGuar - ctx.earned);
+            if (subPen <= 0) {
+              return { ...ctx, guaranteed: subGuar, penalty: 0, basis: "tcv_under_5k_final_year_exempt", exempt: true, exempt_reason: `Sub-5K TCV: earned ($${ctx.earned}) ≥ accrued guarantee ($${subGuar} = min(played+1, CL−1)×$1K) — cap-free (§D2).` };
             }
-            return { ...ctx, guaranteed: Math.floor(ctx.tcv * 0.75), penalty: 0, basis: "tcv_under_5k_final_year_exempt", exempt: true, exempt_reason: "Sub-5K TCV with ≤ 1 year remaining (§D2 — Keith 2026-05-22)." };
+            return { ...ctx, guaranteed: subGuar, penalty: subPen, basis: "tcv_under_5k_guarantee", exempt: false, exempt_reason: "" };
           }
           // Standard formula for TCV > $4K
           const guaranteed = Math.floor(ctx.tcv * 0.75);

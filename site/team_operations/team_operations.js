@@ -1439,6 +1439,7 @@
 
   var TXN_TAG = {
     TRADE:       { label: "Trade", cls: "" },
+    THREE_WAY:   { label: "3 Way", cls: "" },
     BBID_WAIVER: { label: "Waiver", cls: "tops-tag--add" },
     FREE_AGENT:  { label: "FA", cls: "tops-tag--add" },
     AUCTION_DRAFT: { label: "Auction", cls: "tops-tag--add" },
@@ -1506,17 +1507,67 @@
       + '</li>';
   }
 
+  // A commish-processed 3-way executes as 3 separate MFL TRADE legs (MFL is
+  // 2-party only), each carrying a "[Commish-processed: 3-way] <uuid>" comment.
+  // Return the shared uuid so the pulse can collapse the legs into one row.
+  function threeWayUuid(t) {
+    if (safeStr(t && t.type).toUpperCase() !== "TRADE") return "";
+    var c = safeStr(t && t.comments);
+    if (!/commish-processed/i.test(c) || !/3-way/i.test(c)) return "";
+    var m = c.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    return m ? m[0].toLowerCase() : "";
+  }
+
+  // One combined "3 Way" pulse row from all legs of a single 3-way: the three
+  // participating franchises + the notable assets that moved, deduped.
+  function threeWayRowHtml(legs) {
+    if (!legs || !legs.length) return "";
+    var when = new Date(Number(legs[0].timestamp || 0) * 1000);
+    var dateStr = isNaN(when.getTime()) ? "" : when.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    var seenFid = {}, teams = [];
+    legs.forEach(function (t) {
+      [t.franchise, t.franchise2].forEach(function (f) {
+        var p = pad4(f);
+        if (p && !seenFid[p]) { seenFid[p] = 1; teams.push(franchiseDisplayName(p)); }
+      });
+    });
+    var seenA = {}, notable = [];
+    legs.forEach(function (t) {
+      decodeAssetTokens(t.franchise1_gave_up).concat(decodeAssetTokens(t.franchise2_gave_up)).forEach(function (a) {
+        if (!a || /\bBB\b|\$/.test(a)) return;          // skip cap ($..BB) tokens for brevity
+        if (seenA[a]) return; seenA[a] = 1; notable.push(a);
+      });
+    });
+    var body = '<b>' + teams.map(escapeHtml).join(" &harr; ") + '</b>'
+      + (notable.length ? ' <span class="tops-feed-who">' + escapeHtml(notable.slice(0, 4).join(", ")) + '</span>' : '');
+    return '<li>'
+      + '<span class="tops-feed-w">' + escapeHtml(dateStr) + '</span>'
+      + '<span class="tops-feed-b">' + body + '</span>'
+      + '<span class="tops-feed-tag ' + TXN_TAG.THREE_WAY.cls + '">' + escapeHtml(TXN_TAG.THREE_WAY.label) + '</span>'
+      + '</li>';
+  }
+
   function pulseHtml() {
     var txns = asArray(state.transactions && state.transactions.transactions && state.transactions.transactions.transaction);
     // League-wide, newest first — the hub's job is "what happened in the
     // league", not "what did I do" (my own moves are in Front Office). Fill up
     // to 8 rows AFTER dropping contentless ones, so skipped taxi/IR rows don't
-    // eat a visible slot.
+    // eat a visible slot. A commish-processed 3-way's 3 legs collapse into ONE
+    // "3 Way" row (rendered at the newest leg's slot; the other legs skipped).
     var sorted = txns.slice().sort(function (a, b) {
       return Number(b.timestamp || 0) - Number(a.timestamp || 0);
     });
-    var rows = [];
+    var rows = [], handledUuid = {};
     for (var i = 0; i < sorted.length && rows.length < 8; i++) {
+      var uuid = threeWayUuid(sorted[i]);
+      if (uuid) {
+        if (handledUuid[uuid]) continue;               // a leg of an already-rendered 3-way
+        handledUuid[uuid] = 1;
+        var legs = sorted.filter(function (x) { return threeWayUuid(x) === uuid; });
+        var rh = threeWayRowHtml(legs);
+        if (rh) rows.push(rh);
+        continue;
+      }
       var rowHtml = pulseRowHtml(sorted[i]);
       if (rowHtml) rows.push(rowHtml);
     }
