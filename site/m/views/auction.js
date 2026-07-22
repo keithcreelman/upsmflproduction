@@ -512,14 +512,62 @@
   function pyRound(x) { var r = Math.round(x); if (Math.abs(x - Math.trunc(x) - 0.5) < 1e-9 && (r % 2 !== 0)) r -= (x >= 0 ? 1 : -1); return r; }
   function epStartFloorM(pos, rank, EP) { var t = EP && EP.startability && EP.startability[pos]; if (!t || !rank) return 0; for (var i = 0; i < t.length; i++) { if (rank <= t[i][0]) return t[i][1]; } return t[t.length - 1][1]; }
   function favRankIntM(s) { var m = String(s || "").match(/(\d+)/); return m ? +m[1] : null; }
-  function epFactorsM(pos, name, EP) {   // the three v5 regime factors; every one defaults to 1
+  // LIVE per-position reprice (mirrors desktop): FAV_LIVE_M defaults to 1 (empty) → identical to the static
+  // model when the flag is off or there's no live board. Kill-switch: localStorage ups_live_reprice_off="1".
+  var FAV_LIVE_M = {}, FAV_LIVE_INFO = null;
+  function favLiveRepriceOffM() { try { return localStorage.getItem("ups_live_reprice_off") === "1"; } catch (e) { return false; } }
+  function epFactorsM(pos, name, EP) {   // the three static v5 regime factors × the LIVE reprice; all default to 1
     var mm = (EP && EP.m_money != null) ? EP.m_money : 1;
     var mp = (EP && EP.m_pos && EP.m_pos[pos] != null) ? EP.m_pos[pos] : 1;
     var me = 1;
     if (EP && EP.m_elite != null && EP.elite_players && name) {
       for (var i = 0; i < EP.elite_players.length; i++) { if (EP.elite_players[i] === name) { me = EP.m_elite; break; } }
     }
-    return mm * mp * me;
+    var ml = (FAV_LIVE_M && FAV_LIVE_M[pos] != null) ? FAV_LIVE_M[pos] : 1;
+    return mm * mp * me * ml;
+  }
+  // Recompute the per-position live multiplier from the board (same math as desktop favComputeLiveReprice):
+  // surviving rival bidders ÷ the build-time census, applied to the market arms. Fails open to 1.0.
+  function favComputeLiveRepriceM(d, live) {
+    FAV_LIVE_M = {}; FAV_LIVE_INFO = null;
+    var meta = (d && d.meta) || {}, cfg = meta.live_reprice;
+    if (!cfg || !cfg.enabled || favLiveRepriceOffM() || !live || !live.live) return;
+    var budgets = (state.faa && state.faa.team_budget_rows) || null;
+    var lots = (state.lots && state.lots.lots) || [];
+    var floorK = cfg.floor_k != null ? cfg.floor_k : 3, elast = cfg.elast != null ? cfg.elast : 0.5;
+    var k = cfg.shrink != null ? cfg.shrink : 1, lo = cfg.lo != null ? cfg.lo : 0.70, hi = cfg.hi != null ? cfg.hi : 1.15;
+    var wonByFidPos = {};
+    lots.forEach(function (l) {
+      var st = String(l.status || "").toLowerCase();
+      if (st !== "won" && st !== "closed") return;
+      var w = U.pad4(l.winner_fid || l.winner || ""), p = String(l.position || l.pos || "").toUpperCase();
+      if (!w || !p) return; wonByFidPos[w + "|" + p] = (wonByFidPos[w + "|" + p] || 0) + 1;
+    });
+    var budgetByFid = {};
+    if (budgets) budgets.forEach(function (b) { budgetByFid[U.pad4(b.franchise_id)] = b; });
+    function affordsK(fid, pos) {
+      var b = budgetByFid[fid]; if (!b) return null;
+      var mbp = b.max_bid_by_position && b.max_bid_by_position[pos];
+      var dollars = mbp ? (mbp.scenario_27 != null ? mbp.scenario_27 : mbp.scenario_35)
+        : (b.available_funds_dollars != null ? b.available_funds_dollars : null);
+      return dollars == null ? null : dollars / 1000;
+    }
+    var info = {};
+    ["QB", "RB", "WR", "TE"].forEach(function (pos) {
+      var base = ((cfg.base_comp_fids || {})[pos] || []).map(U.pad4);
+      if (!base.length) return;
+      var survive = 0, filled = 0, tapped = 0;
+      base.forEach(function (fid) {
+        if ((wonByFidPos[fid + "|" + pos] || 0) > 0) { filled++; return; }
+        var af = affordsK(fid, pos);
+        if (af != null && af < floorK) { tapped++; return; }
+        survive++;
+      });
+      var m = Math.max(lo, Math.min(hi, Math.pow((survive + k) / (base.length + k), elast)));
+      FAV_LIVE_M[pos] = Math.round(m * 1000) / 1000;
+      info[pos] = { base: base.length, survive: survive, filled: filled, tapped: tapped, m: FAV_LIVE_M[pos] };
+    });
+    FAV_LIVE_INFO = Object.keys(info).length ? info : null;
   }
   function epRecomputeM(pos, rank, dw, EP, name) {
     var C = EP && EP.curves && EP.curves[pos]; if (!C || !rank) return null;
@@ -605,6 +653,7 @@
     var d = state.faValue, infl = (d.meta || {}).inflation || {};
     if (state.favHelp) return favHelpM(d);
     var live = favLiveStateM(d);
+    favComputeLiveRepriceM(d, live);   // sets FAV_LIVE_M (per-pos live multiplier); no-op when flag off / not live
     var owned = state.favOwn === "rostered";
     var rows = (d.fas || []).filter(function (r) { return owned ? r.o : !r.o; });
     if (state.favPos !== "ALL") rows = rows.filter(function (r) { return r.p === state.favPos; });
@@ -621,13 +670,28 @@
       r._ovr = ov;
       r._w = favWorthM(r); r._price = r.o ? (r.av || 0) : (r.e || 0); r._gap = r._price - r._w;
       var v = favVerdictM(r._w, r._price, r.a90); r._vlab = v[0]; r._vcls = v[1];
-      if (!r.o) { var nk = favnk(r.n); r._sold = live.sold[nk]; r._active = live.active[nk]; r._liveEP = (live.factor && r._sold == null && r._active == null) ? Math.round((r.e || 0) * live.factor) : null; }
+      if (!r.o) {
+        var nk = favnk(r.n); r._sold = live.sold[nk]; r._active = live.active[nk];
+        if (r._sold != null || r._active != null) {
+          r._liveEP = null;
+        } else if (FAV_LIVE_M && FAV_LIVE_M[r.p] != null) {
+          // recompute at the model rank so the live multiplier hits the market arm and the startability
+          // floor is preserved (never scale a slot's rent). Supersedes the old global factor.
+          var rr = favCanOvrM(r, EP) ? epRecomputeM(r.p, favRankIntM(r.fr), r.dw, EP, r.n) : null;
+          r._liveEP = (rr && rr.ep !== r.e) ? rr.ep : null;
+        } else {
+          r._liveEP = (live.factor) ? Math.round((r.e || 0) * live.factor) : null;
+        }
+      }
     });
     rows.sort(function (a, b) { return (b._w || 0) - (a._w || 0); });
     rows = rows.slice(0, 60);
     var pct = Math.round(state.favDynW * 100);
+    var repChips = FAV_LIVE_INFO ? ' · ' + ["QB", "RB", "WR", "TE"].filter(function (p) { return FAV_LIVE_INFO[p]; }).map(function (p) {
+      return p + ' ' + FAV_LIVE_INFO[p].m.toFixed(2) + '×';
+    }).join(" ") : "";
     var liveLine = live.live
-      ? '<div class="ups-m-fav-liveline on">🔴 LIVE · ' + live.nSold + ' sold · ' + live.nActive + ' active' + (live.factor ? ' · room ' + live.factor.toFixed(2) + '× model' : '') + '</div>'
+      ? '<div class="ups-m-fav-liveline on">🔴 LIVE · ' + live.nSold + ' sold · ' + live.nActive + ' active' + (FAV_LIVE_INFO ? ' · reprice' + repChips : (live.factor ? ' · room ' + live.factor.toFixed(2) + '× model' : '')) + '</div>'
       : '<div class="ups-m-fav-liveline">⚪ auction not live — opens late July</div>';
     var inflStrip = liveLine + '<div class="ups-m-fav-infl"><div class="ups-m-fav-infl-x">' + ((infl.board_markup || 1).toFixed(2)) + '×</div>' +
       '<div class="ups-m-fav-infl-t"><b>v4 clearing line</b> · $' + (infl.ante || 0) + 'K + ' + (infl.slope || 0) + '·worth<br>biddable $' + (infl.biddable_money_k || 0) + 'K vs pool $' + (infl.credible_value_k || 0) + 'K · locked surplus $' + (infl.surplus_k || 0) + 'K</div>' +

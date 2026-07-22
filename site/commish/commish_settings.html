@@ -236,6 +236,8 @@
   /* live auction overlay */
   .fav-live { font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 4px 0 9px; }
   .fav-live.on { color: #34d399; } .fav-live.on b { color: #34d399; }
+  .fav-reprice b { font-weight: 800; margin-left: 3px; }
+  .fav-reprice-dn { color: #f87171 !important; } .fav-reprice-up { color: #34d399 !important; } .fav-reprice-flat { color: var(--muted) !important; }
   .fav-sold { font-weight: 800; color: var(--muted); text-decoration: line-through; }
   .fav-bid { font-weight: 800; color: #fbbf24; }
   .fav-cleared { opacity: 0.6; }
@@ -840,6 +842,14 @@
   // ── 💎 FA Value: expected-APW vs price vs roster-fit, per available FA ──
   var FAV = { pos: "ALL", verdict: "ALL", sort: "worth", needOnly: false, ownership: "available", open: {}, dynW: 0.5, showTiers: false, showHelp: false };
   var FAV_FIT = { NS: "NEED-STUD", N: "NEED", D: "DEPTH", S: "SURPLUS", "-": "OK" };
+  // ── LIVE REPRICE (Keith's "the market needs to change as players go off the board"): a per-position
+  // multiplier recomputed from the live board each poll — surviving rival competition ÷ the build-time
+  // census. FAV_LIVE_M[pos] defaults to 1 (empty), so with the flag off or no live board the kernel is
+  // byte-identical to the static model. Set by favComputeLiveReprice(); read by epFactors() + the _liveEP
+  // path so BOTH the served price and an ADP-override recompute reflect it. A user kill-switch
+  // (localStorage ups_live_reprice_off = "1") forces it back off regardless of the blob flag. ──
+  var FAV_LIVE_M = {}, FAV_LIVE_INFO = null;
+  function favLiveRepriceOff() { try { return localStorage.getItem("ups_live_reprice_off") === "1"; } catch (e) { return false; } }
   // ── ADP override: the user re-ranks a FA (e.g. WR20→WR12) and the board re-prices him. Persisted by
   // player name so it survives a mid-auction reload (same store key the mobile board uses). ──
   var FAV_RANK_OVR = {}; try { FAV_RANK_OVR = JSON.parse(localStorage.getItem("ups_fav_rank_ovr") || "{}") || {}; } catch (e) { }
@@ -854,14 +864,15 @@
   function pyRound(x) { var r = Math.round(x); if (Math.abs(x - Math.trunc(x) - 0.5) < 1e-9 && (r % 2 !== 0)) r -= (x >= 0 ? 1 : -1); return r; }  // half-to-even, matches Python round()
   function epStartFloor(pos, rank, EP) { var t = EP && EP.startability && EP.startability[pos]; if (!t || !rank) return 0; for (var i = 0; i < t.length; i++) { if (rank <= t[i][0]) return t[i][1]; } return t[t.length - 1][1]; }
   function favRankInt(s) { var m = String(s || "").match(/(\d+)/); return m ? +m[1] : null; }
-  function epFactors(pos, name, EP) {   // the three v5 regime factors; every one defaults to 1
+  function epFactors(pos, name, EP) {   // the three static v5 regime factors × the LIVE reprice; all default to 1
     var mm = (EP && EP.m_money != null) ? EP.m_money : 1;
     var mp = (EP && EP.m_pos && EP.m_pos[pos] != null) ? EP.m_pos[pos] : 1;
     var me = 1;
     if (EP && EP.m_elite != null && EP.elite_players && name) {
       for (var i = 0; i < EP.elite_players.length; i++) { if (EP.elite_players[i] === name) { me = EP.m_elite; break; } }
     }
-    return mm * mp * me;
+    var ml = (FAV_LIVE_M && FAV_LIVE_M[pos] != null) ? FAV_LIVE_M[pos] : 1;   // live per-position reprice (1 when off/no board)
+    return mm * mp * me * ml;
   }
   function epRecompute(pos, rank, dw, EP, name) {
     var C = EP && EP.curves && EP.curves[pos]; if (!C || !rank) return null;
@@ -930,7 +941,13 @@
       WR.favLive = null;
       fetchJSON(apiUrl("/api/auction/lots") + "?L=" + encodeURIComponent(L) + "&franchise_id=0008").then(function (r) { WR.favLive = r || { lots: [] }; if (WR.view === "favalue") paintFaValue(host); }).catch(function () { WR.favLive = { lots: [] }; });
     }
+    // live budget rows feed the per-position reprice (who can still afford each spot). Fail-open: null → static.
+    if ((meta.live_reprice && meta.live_reprice.enabled) && WR.favBudgets === undefined) {
+      WR.favBudgets = null;
+      fetchJSON(wrLiveBudgetUrl()).then(function (r) { WR.favBudgets = { rows: (r && r.team_budget_rows) || [] }; if (WR.view === "favalue") paintFaValue(host); }).catch(function () { WR.favBudgets = { rows: [] }; });
+    }
     var live = favLiveState(d);
+    favComputeLiveReprice(d, live);   // sets FAV_LIVE_M (per-pos live multiplier); no-op when flag off / not live
     if (FAV.showHelp) {
       host.innerHTML = favHelpCard(d);
       var bk = document.getElementById("fav-help-back"); if (bk) bk.addEventListener("click", function () { FAV.showHelp = false; paintFaValue(host); });
@@ -955,12 +972,23 @@
       r._price = r.o ? (r.av || 0) : (r.e || 0);
       r._gap = r._price - r._w;
       var v = favVerdict(r._w, r._price, r.a90); r._v = v[1]; r._vlab = v[0]; r._vcls = v[2];
-      // live overlay: sold (actual clear) / active (current bid) / calibrated live-EP for the rest.
-      // r.e already carries any override, so live calibration marks the OVERRIDDEN price to the room.
+      // live overlay: sold (actual clear) / active (current bid) / live-repriced EP for the rest.
       if (!r.o) {
         var nk = fnk(r.n);
         r._sold = live.sold[nk]; r._active = live.active[nk];
-        r._liveEP = (live.factor && r._sold == null && r._active == null) ? Math.round((r.e || 0) * live.factor) : null;
+        if (r._sold != null || r._active != null) {
+          r._liveEP = null;
+        } else if (FAV_LIVE_M && FAV_LIVE_M[r.p] != null) {
+          // per-position LIVE reprice is active for this spot. Recompute at the player's MODEL rank so the
+          // multiplier lands on the market arm and the startability floor is preserved (a slot's rent is a
+          // rule, never scaled — this also fixes the old bug where r.e·factor pushed floor players below rent).
+          // Supersedes the single global factor: QB3 falls because QB rivals filled/tapped, not a room-wide scalar.
+          var rr = favCanOvr(r, EP) ? epRecompute(r.p, favRankInt(r.fr), r.dw, EP, r.n) : null;
+          r._liveEP = (rr && rr.ep !== r.e) ? rr.ep : null;
+        } else {
+          // reprice off/absent → the original global calibration overlay, unchanged.
+          r._liveEP = (live.factor) ? Math.round((r.e || 0) * live.factor) : null;
+        }
       }
     });
     // filters
@@ -980,8 +1008,19 @@
     rows.sort(SORTS[FAV.sort] || SORTS.worth);
 
     // ── market panel (v4: the affine clearing line is the inflation) + live overlay ──
+    // per-position live-reprice chips: how the market for each spot has moved as rivals fill/tap out.
+    var repChips = "";
+    if (FAV_LIVE_INFO) {
+      repChips = ' · <span class="fav-reprice">' + ["QB", "RB", "WR", "TE"].filter(function (p) { return FAV_LIVE_INFO[p]; }).map(function (p) {
+        var x = FAV_LIVE_INFO[p], pct = Math.round((x.m - 1) * 100), cls = x.m < 0.995 ? "dn" : (x.m > 1.005 ? "up" : "");
+        return '<b class="fav-reprice-' + (cls || "flat") + '" title="' + x.survive + ' of ' + x.base + ' rival bidders left · ' + x.filled + ' filled the slot · ' + x.tapped + ' out of money">' +
+          p + ' ' + x.m.toFixed(2) + '×</b>';
+      }).join(" ") + '</span>';
+    }
     var liveLine = live.live
-      ? '<div class="fav-live on">🔴 LIVE · ' + live.nSold + ' sold · ' + live.nActive + ' active' + (live.factor ? ' · room running <b>' + live.factor.toFixed(2) + '×</b> model → remaining prices recalibrated' : ' · need ≥3 clears to calibrate') + '</div>'
+      ? '<div class="fav-live on">🔴 LIVE · ' + live.nSold + ' sold · ' + live.nActive + ' active'
+      + (FAV_LIVE_INFO ? ' · <b>per-position reprice</b>' + repChips
+        : (live.factor ? ' · room running <b>' + live.factor.toFixed(2) + '×</b> model → remaining prices recalibrated' : ' · need ≥3 clears to calibrate')) + '</div>'
       : '<div class="fav-live">⚪ Auction not live — opens late July. As lots clear, sold prices recalibrate the remaining board automatically.</div>';
     var inflCard = '<div class="fo-card fav-infl">' + liveLine + '<div class="fav-infl-grid">' +
       '<div class="fav-infl-big"><div class="fav-infl-x">' + ((infl.board_markup != null ? infl.board_markup : 1).toFixed(2)) + '×</div>' +
@@ -1123,7 +1162,7 @@
     $$(".fav-row", host).forEach(function (tr) { tr.addEventListener("click", function () { var nm = rows[parseInt(tr.getAttribute("data-favi"), 10)].n; FAV.open[nm] = !FAV.open[nm]; if (FAV.open[nm]) diLoad(); paintFaValue(host); }); });
     // while the auction is live, re-pull the board every 45s so it recomputes as lots clear
     clearTimeout(WR.favPoll);
-    if (live.live) WR.favPoll = setTimeout(function () { if (WR.view === "favalue") { WR.favLive = undefined; paintFaValue(host); } }, 45000);
+    if (live.live) WR.favPoll = setTimeout(function () { if (WR.view === "favalue") { WR.favLive = undefined; WR.favBudgets = undefined; paintFaValue(host); } }, 45000);
   }
   // Read the live auction board (/api/auction/lots) → who's sold (actual price) + active, and a
   // LIVE CALIBRATION factor = median(actual ÷ model EP) over cleared lots. Offseason → empty/1.0.
@@ -1145,6 +1184,59 @@
     var isLive = nActive > 0;
     if (!isLive) { sold = {}; active = {}; factor = null; }
     return { live: isLive, sold: sold, active: active, nSold: isLive ? nSold : 0, nActive: nActive, factor: factor };
+  }
+  // ── LIVE per-position reprice (Keith's QB3 scenario, computed from the real board) ──
+  // For each position: of the rival franchises the model flagged as credible bidders at build time
+  // (meta.live_reprice.base_comp_fids[pos]), how many are STILL in the market? A rival drops out when
+  // he (a) has already WON a player at that position (slot filled — "he's got his QB, he's out on QB3")
+  // or (b) can no longer afford the floor rent there (his live max-bid < floor_k, read from the auction
+  // board's per-franchise budget rows). M_live = clamp(((surviving+k)/(base+k))^elast, lo, hi), applied to
+  // the market arms only. Sets FAV_LIVE_M (read by epFactors + the _liveEP path) and returns a per-position
+  // breakdown for the banner. Fails OPEN: any missing input leaves that position at 1.0 (the static price).
+  function favComputeLiveReprice(d, live) {
+    FAV_LIVE_M = {}; FAV_LIVE_INFO = null;
+    var meta = (d && d.meta) || {}, cfg = meta.live_reprice;
+    if (!cfg || !cfg.enabled || favLiveRepriceOff() || !live || !live.live) return;   // flag off / kill-switch / not live
+    var budgets = (WR.favBudgets && WR.favBudgets.rows) || null;                       // team_budget_rows (may be null → fail open)
+    var lots = (WR.favLive && WR.favLive.lots && WR.favLive.lots.lots) || [];
+    var floorK = cfg.floor_k != null ? cfg.floor_k : 3, elast = cfg.elast != null ? cfg.elast : 0.5;
+    var k = cfg.shrink != null ? cfg.shrink : 1, lo = cfg.lo != null ? cfg.lo : 0.70, hi = cfg.hi != null ? cfg.hi : 1.15;
+    // per-franchise wins by position (a WON lot's winner filled a slot there)
+    var wonByFidPos = {};
+    lots.forEach(function (l) {
+      var st = String(l.status || "").toLowerCase();
+      if (st !== "won" && st !== "closed") return;
+      var w = pad4(l.winner_fid || l.winner || ""), p = String(l.position || l.pos || "").toUpperCase();
+      if (!w || !p) return; wonByFidPos[w + "|" + p] = (wonByFidPos[w + "|" + p] || 0) + 1;
+    });
+    // per-franchise live max-bid at a position (dollars → $K); null when budgets unavailable → fail open
+    var budgetByFid = {};
+    if (budgets) budgets.forEach(function (b) { budgetByFid[pad4(b.franchise_id)] = b; });
+    function affordsK(fid, pos) {
+      var b = budgetByFid[fid]; if (!b) return null;                                   // unknown → caller treats as "still in"
+      var mbp = b.max_bid_by_position && b.max_bid_by_position[pos];
+      var dollars = mbp ? (mbp.scenario_27 != null ? mbp.scenario_27 : mbp.scenario_35)
+        : (b.available_funds_dollars != null ? b.available_funds_dollars : null);
+      return dollars == null ? null : dollars / 1000;
+    }
+    var info = {};
+    ["QB", "RB", "WR", "TE"].forEach(function (pos) {
+      var base = ((cfg.base_comp_fids || {})[pos] || []).map(pad4);
+      if (!base.length) return;                                                        // no census → leave at 1.0
+      var survive = 0, filled = 0, tapped = 0;
+      base.forEach(function (fid) {
+        if ((wonByFidPos[fid + "|" + pos] || 0) > 0) { filled++; return; }             // got his guy at pos → out
+        var af = affordsK(fid, pos);
+        if (af != null && af < floorK) { tapped++; return; }                           // can't afford the floor → out
+        survive++;                                                                     // still a live rival (or unknown budget → assume in)
+      });
+      var ratio = (survive + k) / (base.length + k);
+      var m = Math.pow(ratio, elast);
+      m = Math.max(lo, Math.min(hi, m));
+      FAV_LIVE_M[pos] = Math.round(m * 1000) / 1000;
+      info[pos] = { base: base.length, survive: survive, filled: filled, tapped: tapped, m: FAV_LIVE_M[pos] };
+    });
+    FAV_LIVE_INFO = Object.keys(info).length ? info : null;
   }
   function favTiersCard(meta) {
     var tiers = meta.tiers || {};

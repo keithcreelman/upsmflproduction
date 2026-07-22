@@ -121,6 +121,12 @@ def main():
                     help="auto = ep_v5_calibration.json's ship_gate decides (default); "
                          "v4 = force the unmodified v4 max() (KILL SWITCH, bit-identical to pre-v5); "
                          "v5 = demand v5 and fail if the gate did not pass")
+    ap.add_argument("--live-reprice", action="store_true",
+                    help="Emit meta.live_reprice (the per-position LIVE-competition repricer). Off by "
+                         "default: the blob is unchanged and the client applies no live multiplier. When "
+                         "on, the client scales each position's market price by how many rival franchises "
+                         "can STILL afford AND still need that position, read live from the auction board "
+                         "(fails OPEN to the static price whenever the live budget/lots feed is absent).")
     args = ap.parse_args()
 
     # ---- v5 calibration (fitted constants + the ship gate) ----
@@ -357,6 +363,35 @@ def main():
         fas.append(rec)
     fas.sort(key=lambda x: -(x.get("worth_k") or 0))
 
+    # ── LIVE-REPRICE BASELINE (the per-position competition census, frozen at build time) ──
+    # Keith's scenario: "if a bunch of teams have 2 QBs you might not have much competition for a
+    # lower-priced QB3." The auction almost never SELLS 24 QBs (teams walk in already holding their
+    # starters on dynasty contracts), so the demand that collapses is a ROSTER + AFFORDABILITY fact,
+    # not an auction-clear fact — see docs/auction/live_reprice.md for the backtest that establishes this.
+    # We freeze WHO the credible rivals are per position now (same membership test as competition():
+    # comp_score > 0.3·B[pos], excluding 0008). The client counts how many of them are STILL live
+    # (haven't filled the slot via a win AND can still afford the floor rent) and marks the position's
+    # price down toward that surviving-competition ratio. Purely a census here — no price effect until
+    # the client sees --live-reprice AND a live board.
+    base_comp_fids = {pos: sorted([fid for fid, t in team.items()
+                                   if fid != "0008" and comp_score(t, pos) > 0.3 * (B[pos] or 0.01)])
+                      for pos in SKILL}
+    live_reprice = {
+        "enabled": bool(args.live_reprice),
+        "base_comp_fids": base_comp_fids,                 # rival franchises credibly in the market per pos (build-time)
+        "base_comp": {pos: len(v) for pos, v in base_comp_fids.items()},
+        "slots": SLOTS,                                    # SF starting demand per team (QB/RB/WR 2, TE 1)
+        # tunables (NOT fitted — this is a forward-looking demand census, not a price regression):
+        "elast": 0.5,         # M = (surviving/base)^elast; 0.5 = sqrt → gentle, a halving → ~0.71×
+        "floor_k": 3,         # a rival with < $3K max-bid at the pos can no longer credibly contest it
+        "shrink": 1,          # Laplace k on the ratio so small rival counts don't swing violently
+        "lo": 0.70, "hi": 1.15,   # demand can collapse (0.70) more than it can spike (1.15) mid-auction
+        "note": "client: for each pos, surviving = #base rivals that (a) have won 0 at pos AND "
+                "(b) still afford ≥ floor_k (from the live budget rows). M_live = clamp(((surviving+k)/"
+                "(base+k))^elast, lo, hi). Applied to the MARKET arms only (never the startability floor), "
+                "on top of the static m_money·m_pos. Missing budgets/lots → M_live = 1 (static price).",
+    }
+
     # ---- POSITIONAL TIERS — the worth-vs-price dropoff ("do I need mid RBs, or is the cliff steep?") ----
     # Per position, the AVAILABLE pool sorted by worth → named tiers → avg redraft/dynasty worth + price.
     # The View blends rw/dw on the slider and shows the tier-over-tier worth dropoff vs the price dropoff
@@ -429,6 +464,7 @@ def main():
             "baseline_apw": {pos: round(B[pos], 2) for pos in SKILL},
             "stud_bar": {pos: round(STUD[pos], 2) for pos in SKILL},
             "replacement_rank": REPL_RANK, "starter_slots": SLOTS,
+            "live_reprice": live_reprice,
             "fill": {"by_season": fill, "avg_post_auction_adds_per_team": fill_avg,
                      "note": "adds between auction-end and ~Week 1; high = teams lock in fewer at auction and fill via waivers"},
             "verdict_legend": "SPLURGE/VALUE/FAIR/OVERPAY/DART by value_ratio=worth/EP; EP=expected clearing price, WORTH=blended value",
