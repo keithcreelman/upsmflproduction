@@ -8,7 +8,7 @@ import {
   openDmChannel as openDiscordDmChannelForUser,
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours } from "./trade_dm.js";
-import { create3WayTrade, list3WayForFranchise, cancel3WayTrade } from "./trade_3way.js";
+import { create3WayTrade, list3WayForFranchise, cancel3WayTrade, execute3Way } from "./trade_3way.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar } from "./auction_calendar.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
@@ -30748,6 +30748,31 @@ export default {
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e?.message || e) });
         }
+      }
+
+      // Commish RETRY of a failed 3-way — re-run execute3Way from the saved D1
+      // row (legs + extensions preserved), no rebuild. Use after clearing the
+      // MFL commissioner lockout: toggle lockout OFF in MFL → hit this → toggle
+      // it back ON. Only 'failed' rows with NOTHING moved yet are retryable —
+      // a PARTIAL failure (some legs landed) needs manual reconciliation, so it
+      // is refused here to avoid double-executing a landed leg.
+      if (path === "/admin/3way/retry" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!commishKey || browserKey !== commishKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        let body = null;
+        try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
+        const id = safeStr(body?.id);
+        if (!id) return jsonOut(400, { ok: false, error: "Missing id." });
+        const rowNow = await env.UPS_MFL_DB.prepare("SELECT status, failure_reason, mfl_trade_ids FROM ups_3way_trades WHERE id=?").bind(id).first();
+        if (!rowNow) return jsonOut(404, { ok: false, error: "3-way not found." });
+        if (safeStr(rowNow.status) !== "failed") return jsonOut(400, { ok: false, error: `Not retryable — status is '${safeStr(rowNow.status)}', expected 'failed'.` });
+        if (safeStr(rowNow.mfl_trade_ids)) return jsonOut(409, { ok: false, error: `PARTIAL — some legs already landed (${safeStr(rowNow.mfl_trade_ids)}). Manual reconciliation needed; not auto-retrying to avoid double execution.` });
+        // Flip back to 'executing' so execute3Way (which no-ops unless executing) runs.
+        await env.UPS_MFL_DB.prepare("UPDATE ups_3way_trades SET status='executing', failure_reason=NULL, updated_at_utc=? WHERE id=?").bind(new Date().toISOString(), id).run();
+        const out = await execute3Way(env, id);
+        return jsonOut(out && out.ok ? 200 : 400, { ok: !!(out && out.ok), result: out });
       }
 
       // Cancel a pending 3-way (initiator only).
