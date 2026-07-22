@@ -34899,6 +34899,35 @@ export default {
       // after an extension) doesn't reach it until the next sync. This lets a
       // commish patch specific fields for a player+season now. Only the whitelisted
       // contract columns; UPDATE only (never inserts a phantom season row).
+      // Commish correction for a ups_extension_submissions row (the Ledger source).
+      // The 3-way pre-trade-extension backfill can only write the NEW state; this
+      // patches the PRIOR side + any field so the ledger renders "prior → new"
+      // like a normal extension. UPDATE-only, whitelisted columns, target by id
+      // or (player_id, season, source). Commish-gated.
+      if (path === "/admin/fix-extension-submission" && request.method === "POST") {
+        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        let eb = {};
+        try { eb = (await request.json()) || {}; } catch (_) { eb = {}; }
+        const COLS = ["prior_contract_status", "prior_salary", "prior_contract_year", "prior_contract_info",
+                      "new_contract_status", "new_salary", "new_contract_year", "new_contract_info",
+                      "extension_term_years", "new_tcv", "new_aav", "new_gtd"];
+        const fields = eb?.fields && typeof eb.fields === "object" ? eb.fields : {};
+        const setCols = [], binds = [];
+        for (const c of COLS) { if (Object.prototype.hasOwnProperty.call(fields, c)) { setCols.push(`${c} = ?`); binds.push(fields[c]); } }
+        if (!setCols.length) return jsonOut(400, { ok: false, error: "fields{} with at least one whitelisted column required" });
+        let where = "", wbinds = [];
+        if (eb?.id != null) { where = "id = ?"; wbinds = [safeInt(eb.id, 0)]; }
+        else if (eb?.player_id && eb?.season) { where = "player_id = ? AND season = ?" + (eb?.source ? " AND source = ?" : ""); wbinds = eb?.source ? [safeStr(eb.player_id), safeStr(eb.season), safeStr(eb.source)] : [safeStr(eb.player_id), safeStr(eb.season)]; }
+        else return jsonOut(400, { ok: false, error: "target by id, or (player_id + season [+ source])" });
+        const before = await env.UPS_MFL_DB.prepare(`SELECT id, player_name, prior_contract_status, prior_salary, prior_contract_year, new_contract_status, new_contract_year, new_tcv FROM ups_extension_submissions WHERE ${where}`).bind(...wbinds).all();
+        if (!before.results || !before.results.length) return jsonOut(404, { ok: false, error: "no matching row" });
+        if (eb?.dry_run) return jsonOut(200, { ok: true, dry_run: true, would_set: fields, matched: before.results });
+        await env.UPS_MFL_DB.prepare(`UPDATE ups_extension_submissions SET ${setCols.join(", ")} WHERE ${where}`).bind(...binds, ...wbinds).run();
+        const after = await env.UPS_MFL_DB.prepare(`SELECT id, player_name, prior_contract_status, prior_salary, prior_contract_year, new_contract_status, new_contract_year, new_tcv FROM ups_extension_submissions WHERE ${where}`).bind(...wbinds).all();
+        return jsonOut(200, { ok: true, before: before.results, after: after.results });
+      }
+
       if (path === "/admin/fix-src-contract" && request.method === "POST") {
         if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
