@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.14.apikey-auth";
+  var BUILD = "2026.07.21.home-hub";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -13,6 +13,19 @@
   if (!document.getElementById("teamOpsMount")) {
     return;
   }
+
+  // ==========================================================================
+  // UPS Home Hub — 5-zone spine (redesign approved 2026-07-21)
+  //
+  //   identity bar → Zone 1 "Needs You" (the only above-the-fold CTA, and the
+  //   ONLY place gold is used) → Zone 2 team-state strip → Zone 3 lineup /
+  //   roster-shape against the real 18 slots → Zone 4 League Pulse + Calendar
+  //   → Zone 5 demoted nav pills → footer.
+  //
+  // Authoring surfaces (roster table, trade bait, news search) are demoted to
+  // disclosure panels behind Zone 5 pills or linked out to Front Office; the
+  // hub itself stays a read-and-decide page.
+  // ==========================================================================
 
   // ---------- Helpers ----------
 
@@ -29,18 +42,17 @@
   function fmtUsd(n) {
     var x = Number(n || 0);
     if (!isFinite(x)) return "$0";
-    if (Math.abs(x) >= 1000) return "$" + Math.round(x / 1000) + "K";
-    return "$" + Math.round(x);
-  }
-  function fmtInt(n) {
-    var x = Number(n || 0);
-    return isFinite(x) ? String(Math.round(x)) : "0";
+    var sign = x < 0 ? "-" : "";
+    var a = Math.abs(x);
+    if (a >= 1000) return sign + "$" + Math.round(a / 1000) + "K";
+    return sign + "$" + Math.round(a);
   }
   function asArray(v) {
     if (Array.isArray(v)) return v;
     if (v == null || v === "") return [];
     return [v];
   }
+  function plural(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
   function daysUntil(iso) {
     if (!iso) return null;
     try {
@@ -50,6 +62,37 @@
       return Math.ceil(ms / (1000 * 60 * 60 * 24));
     } catch (e) { return null; }
   }
+  // "in 4 days" / "tomorrow" / "today" / "3 days ago"
+  function whenLabel(d) {
+    if (d == null) return "";
+    if (d < 0) return Math.abs(d) + "d ago";
+    if (d === 0) return "today";
+    if (d === 1) return "tomorrow";
+    return "in " + d + " days";
+  }
+  // MFL stores "Last, First". Team defenses come as "Bills, Buffalo".
+  function prettyPlayerName(raw) {
+    var s = safeStr(raw);
+    if (!s) return "";
+    var m = s.match(/^([^,]+),\s*(.+)$/);
+    return m ? (m[2].trim() + " " + m[1].trim()) : s;
+  }
+  // "Daniels, Jayden" → "J. Daniels" (fits the lineup chips).
+  function shortName(raw) {
+    var s = safeStr(raw);
+    if (!s) return "";
+    var m = s.match(/^([^,]+),\s*(.+)$/);
+    if (!m) return s;
+    var last = m[1].trim();
+    var first = m[2].trim();
+    return first ? (first.charAt(0) + ". " + last) : last;
+  }
+  // Franchise name → up-to-3-letter monogram for the identity mark.
+  function monogram(name) {
+    var words = safeStr(name).split(/\s+/).filter(Boolean);
+    if (!words.length) return "UPS";
+    return words.slice(0, 3).map(function (w) { return w.charAt(0).toUpperCase(); }).join("");
+  }
 
   // ---------- State ----------
 
@@ -57,6 +100,7 @@
     ctx: null,
     league: null,
     franchises: [],
+    rosterLimit: 0,
     viewerFranchiseId: "",
     viewerFranchise: null,
     salaries: null,
@@ -66,13 +110,11 @@
     tradeBait: null,
     futureDraftPicks: null,
     schedule: null,
-    nflByeWeeks: null,
-    liveScoring: null,
-    calendar: null,
+    leagueStandings: null,
     players: null,
     injuries: null,
-    playerNews: null,
     salaryAdjustments: null,
+    leagueEvents: null,
     capAmount: 0,
     loadErrors: [],
     lastLoaded: null,
@@ -80,27 +122,22 @@
     // the Cloudflare worker. Same endpoint Draft Hub + Front Office use,
     // so once any hub primes a player, all three benefit (worker edge cache).
     playerBundles: {},
-    teamNewsItems: null,
-    teamNewsLoading: false,
-    // Lineup builder draft (Set of player IDs currently picked as starters).
-    // Mutated as the user toggles checkboxes in the roster card; cleared
-    // on successful submit. Phase 2 — Keith 2026-05-15.
-    lineupDraft: null,         // Set<string> | null
+    // Lineup builder draft — SLOT MAP { slotId: pid } against LINEUP_SLOTS
+    // below. (Was a flat Set<string> under the old, wrong 14-starter model.)
+    lineupDraft: null,         // { [slotId]: pid } | null
     lineupSubmitting: false,
-    lineupMessage: null,       // { kind: "ok"|"err", text: string } | null
-    // Roster card mode toggle: "lineup" (default, edit starting lineup) or
-    // "tradeBait" (mark players available for trade + a "what I'm looking
-    // for" comment). Keith 2026-05-15 phase 3.
-    rosterMode: "lineup",
+    lineupMessage: null,       // { kind: "ok"|"err"|"info", text: string } | null
+    // Zone 5 disclosure panels — lazily rendered on first open so a collapsed
+    // panel never costs a worker round-trip.
+    openPanel: "",             // "" | "news" | "bait"
     tradeBaitDraft: null,      // Set<string> | null — pid -> available
     tradeBaitLookingFor: "",   // free text submitted as WILL_TAKE_TEXT
     tradeBaitSubmitting: false,
     tradeBaitMessage: null,
     // Per-player notes — pid → "free text". UPS-side only; persisted in
-    // D1 via /api/submit-trade-bait + read via /api/trade-bait-notes on
-    // first render of the trade bait tab.
+    // D1 via /api/submit-trade-bait + read via /api/trade-bait-notes.
     tradeBaitNotes: null,      // { [pid]: string } | null
-    tradeBaitNotesLoaded: false,
+    tradeBaitNotesLoaded: false
   };
 
   // Cloudflare worker base for /api/player-bundle calls. Override via
@@ -172,6 +209,27 @@
     return url;
   }
 
+  // Native-MFL link builders. Everything the hub links out to is either a
+  // MESSAGEnn hub module (our custom pages) or a stock MFL report page.
+  // Targets are `_top` because the hub renders inside a height-synced iframe.
+  function mflSiteBase() {
+    var host = "";
+    try { host = window.location.host || ""; } catch (e) {}
+    if (!/myfantasyleague\.com$/i.test(host)) host = "www48.myfantasyleague.com";
+    return "//" + host + "/" + encodeURIComponent((state.ctx && state.ctx.year) || "");
+  }
+  // module strings carry their own "=" / "&" (e.g. "MESSAGE6=N",
+  // "MESSAGE19&hub=auction-hub") so they are deliberately NOT encoded.
+  function mflModuleUrl(module) {
+    var lid = (state.ctx && state.ctx.leagueId) || "";
+    return mflSiteBase() + "/home/" + encodeURIComponent(lid) + "?MODULE=" + module;
+  }
+  function mflPageUrl(path) {
+    var lid = (state.ctx && state.ctx.leagueId) || "";
+    var sep = path.indexOf("?") === -1 ? "?" : "&";
+    return mflSiteBase() + path + sep + "L=" + encodeURIComponent(lid);
+  }
+
   function fetchJson(url) {
     var controller = ("AbortController" in window) ? new AbortController() : null;
     var timeout = setTimeout(function () { if (controller) controller.abort(); }, 7000);
@@ -214,7 +272,7 @@
       // commish adjustments. Signed integers — positive amounts INCREASE
       // effective cap usage. Front Office shows these explicitly in its
       // Cap Summary; we just need the viewer's franchise total here so
-      // the Cap Used / Cap Room cards display the same number FO shows.
+      // the cap tile displays the same number FO shows.
       ["salaryAdjustments", fetchJson(mflExportUrl("salaryAdjustments")).catch(function () { return null; })],
       ["players", fetchJson(mflExportUrl("players", { DETAILS: "1" }))],
       ["transactions", fetchJson(mflExportUrl("transactions", { DAYS: 14 }))],
@@ -222,9 +280,11 @@
       ["tradeBait", fetchJson(mflExportUrl("tradeBait"))],
       ["futureDraftPicks", fetchJson(mflExportUrl("futureDraftPicks"))],
       ["schedule", fetchJson(mflExportUrl("schedule"))],
-      ["nflByeWeeks", fetchJson(mflExportUrl("nflByeWeeks"))],
+      // leagueStandings powers the identity bar record + the in-season
+      // Record / All-Play tiles. Replaced the two exports nothing read
+      // (nflByeWeeks, calendar) — net one FEWER round trip per load.
+      ["leagueStandings", fetchJson(mflExportUrl("leagueStandings")).catch(function () { return null; })],
       ["injuries", fetchJson(mflExportUrl("injuries"))],
-      ["calendar", fetchJson(mflExportUrl("calendar"))],
       // myfranchise — authoritative user-identity lookup via APIKEY.
       // MFL exposes window._apiKey_ on authenticated pages; we pass
       // that key as ?APIKEY=... and route through the worker proxy to
@@ -240,7 +300,7 @@
       })()],
       // UPS deadline calendar from our own D1 (league_events). 404s
       // gracefully when the worker doesn't have the endpoint yet —
-      // renderEvents handles missing data.
+      // the Calendar zone handles missing data.
       ["leagueEvents", fetchJson(workerUrl("/api/league-events?season=" + encodeURIComponent(ctx.year) + "&from=today&limit=10")).catch(function () { return null; })]
     ];
 
@@ -257,6 +317,7 @@
     if (!state.league || !state.league.league) return;
     var lg = state.league.league;
     state.capAmount = Number((lg.salaryCapAmount || 0)) || 0;
+    state.rosterLimit = Number(lg.rosterLimit || 0) || 0;
     state.franchises = asArray(lg.franchises && lg.franchises.franchise).map(function (f) {
       return {
         id: pad4(f.id),
@@ -343,15 +404,42 @@
     } catch (e) { return ""; }
   }
 
+  // Read a cookie value WITHOUT decodeURIComponent — needed for forwarding
+  // MFL session tokens that contain literal %-escaped bytes in storage
+  // (e.g. aRBv1sCXvrLtj1DnZQifOg%3D%3D). MFL stores + sends the cookie
+  // with literal %3D%3D and rejects sessions that come back decoded.
+  function readCookieRaw(name) {
+    try {
+      var m = document.cookie.match(new RegExp("(?:^|;\\s*)" + name + "=([^;]+)"));
+      return m ? m[1] : "";
+    } catch (e) { return ""; }
+  }
+
+  // Append MFL_USER_ID as a query param. encodeURIComponent re-escapes the
+  // raw cookie value (so any literal % in the stored value becomes %25),
+  // the worker URLSearchParams unwraps one layer, and the final Cookie
+  // header to MFL carries the SAME bytes the browser had stored.
+  function withMflUserParam(url) {
+    var uid = readCookieRaw("MFL_USER_ID");
+    if (!uid) return url;
+    return url + (url.indexOf("?") === -1 ? "?" : "&") + "MFL_USER_ID=" + encodeURIComponent(uid);
+  }
+
   // ---------- Data shaping ----------
 
+  // pid -> MFL player record. Indexed once: the zone renderers each walk the
+  // roster, and a linear scan of ~2,500 players per lookup added up fast.
+  // state.players never changes after load, so the cache never needs busting.
+  var _playerByIdCache = null;
   function playerById(id) {
     if (!state.players || !state.players.players) return null;
-    var list = asArray(state.players.players.player);
-    for (var i = 0; i < list.length; i++) {
-      if (String(list[i].id) === String(id)) return list[i];
+    if (!_playerByIdCache) {
+      _playerByIdCache = {};
+      asArray(state.players.players.player).forEach(function (p) {
+        if (p && p.id != null) _playerByIdCache[String(p.id)] = p;
+      });
     }
-    return null;
+    return _playerByIdCache[String(id)] || null;
   }
 
   function getMyRoster() {
@@ -374,21 +462,22 @@
   // Sum of salaryAdjustments for the viewer's franchise. Signed integer
   // — positive means INCREASES effective cap usage (the standard MFL
   // convention; Front Office uses the same sum in calculateCapSpace).
-  // Returns 0 when no adjustments / no viewer franchise resolved.
   function getMyAdjustmentTotal() {
-    var fid = pad4(state.viewerFranchiseId || (state.viewerFranchise && state.viewerFranchise.id) || "");
-    if (!fid) return 0;
+    return getAdjustmentTotals()[pad4(state.viewerFranchiseId || "")] || 0;
+  }
+  // { fid -> signed adjustment total } for every franchise. Used by both the
+  // viewer's cap tile and the league-wide cap-room ranking.
+  function getAdjustmentTotals() {
+    var out = {};
     var root = state.salaryAdjustments && state.salaryAdjustments.salaryAdjustments;
-    if (!root) return 0;
-    var rows = asArray(root.salaryAdjustment || root.adjustment);
-    var total = 0;
-    rows.forEach(function (row) {
+    if (!root) return out;
+    asArray(root.salaryAdjustment || root.adjustment).forEach(function (row) {
       if (!row) return;
       var rowFid = pad4(row.franchise_id || row.franchise || row.id || "");
-      if (rowFid !== fid) return;
-      total += Number(row.amount || 0);
+      if (!rowFid) return;
+      out[rowFid] = (out[rowFid] || 0) + Number(row.amount || 0);
     });
-    return total;
+    return out;
   }
 
   function getMySalaries() {
@@ -431,1296 +520,291 @@
     return null;
   }
 
-  // ---------- Rendering ----------
-
-  function tpl(strings) {
-    return strings.join("");
-  }
-
-  // Inner-page tabs: Overview (default = the cards) · Front Office (iframes
-  // roster_workbench) · Player Stats (iframes stats_workbench). The hub URLs
-  // resolve relative to /upsmflproduction/site/ since both target hubs live
-  // there. iframes are lazy: src is set the first time the tab activates.
-  // Iframe URLs use GitHub Pages — serves HTML with correct text/html
-  // content-type (jsDelivr forces text/plain on HTML by policy, and 403s
-  // when the repo exceeds 50MB). Pages has no size limit and a much
-  // shorter cache TTL than jsDelivr (~10 min vs ~12hr). See #88.
-  //
-  // Pages artifact root = site/ (see .github/workflows/pages-deploy.yml),
-  // so paths DROP the "/site/" prefix and live directly under the repo's
-  // Pages root.
-  //
-  // Falls back to the /api/repo-html worker proxy if Pages is unreachable.
-  // Wiring deferred until staged rollout PR 3.
-  function hubUrl(relPath) {
-    return "https://keithcreelman.github.io/upsmflproduction/" + relPath;
-  }
-  function hubUrlFallback(relPath) {
-    var ref = (window.UPS_RELEASE_SHA && String(window.UPS_RELEASE_SHA).trim()) || "main";
-    return workerUrl("/api/repo-html?ref=" + encodeURIComponent(ref) + "&path=" + encodeURIComponent("site/" + relPath));
-  }
-  // Tab definitions:
-  //   iframe  — the URL the embedded iframe loads (Pages so content-type
-  //             headers stay correct and assets cache cleanly).
-  //   message — the MFL MESSAGEnn module the "Open in new tab" link
-  //             routes to, so owners pop out to the league's own hosted
-  //             page (with header chrome, hotlinks, etc.) instead of
-  //             a bare Pages URL.
-  var TAB_DEFS = [
-    { id: "overview",     label: "Overview" },
-    { id: "front-office", label: "Front Office",   iframe: hubUrl("rosters/roster_workbench.html"),     message: "MESSAGE7" },
-    { id: "player-stats", label: "Stats",          iframe: hubUrl("stats_workbench/stats_workbench.html"), message: "MESSAGE13" },
-    { id: "trade-room",   label: "Trade War Room", iframe: hubUrl("trades/trade_workbench.html"),       message: "MESSAGE6=N" },
-    // Standings v2 — the new Playoff Preview + Division Race +
-    // H2H matrix module promoted via 0913829. Legacy non-v2 file
-    // (mfl_hpm_standings.html) stays in repo for now in case anything
-    // links to it externally, but Team Ops uses v2.
-    { id: "standings",    label: "Standings",      iframe: hubUrl("standings/mfl_hpm_standings_v2.html"), message: "MESSAGE4" }
-  ];
-
-  // Build the MFL-hosted MESSAGEnn URL for the given tab def. Falls back
-  // to the iframe URL when we're not on MFL (e.g., local dev preview)
-  // because the MFL host/path heuristics won't resolve.
-  function popOutUrlForTab(def) {
-    if (!def || !def.message) return def && def.iframe || "";
-    var host = "";
-    try { host = window.location.host || ""; } catch (e) {}
-    if (!/myfantasyleague\.com$/i.test(host)) {
-      // Not on MFL — best we can do is the bare Pages iframe URL.
-      return def.iframe || "";
-    }
-    var leagueId = state.ctx && state.ctx.leagueId;
-    var year = (state.ctx && state.ctx.year) || String(new Date().getFullYear());
-    if (!leagueId) return def.iframe || "";
-    return "//" + host + "/" + encodeURIComponent(year) +
-      "/home/" + encodeURIComponent(leagueId) + "?MODULE=" + def.message;
-  }
-
-  function readActiveTab() {
-    try {
-      var m = String(window.location.hash || "").match(/tab=([a-z0-9-]+)/i);
-      if (m && TAB_DEFS.some(function (t) { return t.id === m[1]; })) return m[1];
-    } catch (e) {}
-    return "overview";
-  }
-
-  function switchTab(id) {
-    if (!els.tabPanels) return;
-    Object.keys(els.tabPanels).forEach(function (k) {
-      var on = (k === id);
-      var panel = els.tabPanels[k];
-      var btn = els.tabBtns && els.tabBtns[k];
-      panel.setAttribute("data-active", on ? "1" : "0");
-      if (btn) btn.setAttribute("data-active", on ? "1" : "0");
-      // Lazy-load iframe src on first activation.
-      var ifrm = panel.querySelector("iframe[data-lazysrc]");
-      if (on && ifrm && !ifrm.getAttribute("src")) {
-        ifrm.setAttribute("src", ifrm.getAttribute("data-lazysrc"));
-      }
-    });
-    // Reflect in URL hash (no scroll jump).
-    try {
-      var u = new URL(window.location.href);
-      u.hash = "tab=" + id;
-      window.history.replaceState(null, "", u.toString());
-    } catch (e) {}
-  }
-
-  function renderShell() {
-    var mount = document.getElementById("teamOpsMount");
-    if (!mount) return;
-
-    var viewerName = state.viewerFranchise ? state.viewerFranchise.name : "My Team";
-    var viewerIcon = state.viewerFranchise ? state.viewerFranchise.icon : "";
-
-    // Iframe context-forwarding: pass L, YEAR, FRANCHISE_ID through.
-    var ctxQs = "?L=" + encodeURIComponent(state.ctx.leagueId)
-              + "&YEAR=" + encodeURIComponent(state.ctx.year)
-              + (state.viewerFranchiseId ? "&FRANCHISE_ID=" + encodeURIComponent(state.viewerFranchiseId) : "");
-
-    // Trade War Room needs api= + APIKEY= to load the live trade payload
-    // (worker /trade-workbench endpoint with all 12 franchises). Without
-    // these the workbench falls back to its bundled sample which only
-    // ships 3 teams — that's why the partner picker only listed
-    // LA Looks + Ulterior Warrior. mfl_hpm_embed_loader does this for
-    // the standalone HPM mount; team-ops needs to do it inline since
-    // we skip that loader.
-    var twbApiKey = "";
-    try { twbApiKey = String(window._apiKey_ || "").trim(); } catch (e) {}
-    var twbExtraQs = "&api=" + encodeURIComponent("https://upsmflproduction.keith-creelman.workers.dev/trade-workbench")
-                   + "&embed=1"
-                   + (twbApiKey ? "&APIKEY=" + encodeURIComponent(twbApiKey) : "");
-
-    var activeTab = readActiveTab();
-    // Tabs:
-    //   • In-page tab (Overview): rendered as <button data-tab>.
-    //   • External tab (has .message): rendered as <a href> hyperlink
-    //     to the MFL MESSAGE page. Clicking navigates same-window.
-    //     No iframe rendered — Keith 2026-05-14, ditched embeds since
-    //     each target module is already a polished standalone page
-    //     and embedding made modals + scroll behavior awkward.
-    var tabsHtml = '<nav class="tops-tabs" role="tablist">'
-      + TAB_DEFS.map(function (t) {
-          var on = (t.id === activeTab) ? '1' : '0';
-          if (t.message) {
-            var href = popOutUrlForTab(t);
-            return '<a class="tops-tab tops-tab-link" href="' + escapeHtml(href || "#") + '" role="tab" data-tab-link="' + t.id + '" rel="noopener">'
-              + escapeHtml(t.label) + ' <span class="tops-tab-link-arrow" aria-hidden="true">↗</span></a>';
-          }
-          return '<button type="button" class="tops-tab" data-tab="' + t.id + '" data-active="' + on + '" role="tab">' + escapeHtml(t.label) + '</button>';
-        }).join("")
-      + '</nav>';
-
-    var overviewPanelHtml = ''
-      + '<div class="tops-wip-banner" role="status">'
-      +   '<strong>Heads up:</strong> this page and the Team Ops module are actively being built.'
-      +   ' Expect rough edges, missing data, and frequent changes — not a finished product yet.'
-      +   ' <span class="tops-wip-subline">Historical data (standings, contract history, player stints) is still being reviewed for accuracy and may not be fully correct yet.</span>'
-      + '</div>'
-      + '<main class="tops-grid">'
-      // Next Decision pinned at top, full-width — most important card.
-      + '  <section data-card="nextDecision" class="tops-card tops-card-highlight tops-card-wide"></section>'
-      + '  <section data-card="summary" class="tops-card tops-card-summary"></section>'
-      + '  <section data-card="matchup" class="tops-card"></section>'
-      // Lineup + roster merged into a single position-grouped card (Keith
-      // 2026-05-15). The old standalone lineup stub is gone; the new
-      // roster card carries the Submit Lineup CTA + position group view.
-      + '  <section data-card="roster" class="tops-card tops-card-wide"></section>'
-      + '  <section data-card="allPlayerNews" class="tops-card tops-card-wide"></section>'
-      + '  <section data-card="pendingTrades" class="tops-card"></section>'
-      + '  <section data-card="waivers" class="tops-card"></section>'
-      + '  <section data-card="transactions" class="tops-card"></section>'
-      + '  <section data-card="futurePicks" class="tops-card"></section>'
-      + '  <section data-card="schedule" class="tops-card"></section>'
-      + '  <section data-card="calendar" class="tops-card"></section>'
-      + '</main>';
-
-    // hubPanels intentionally empty — external tabs (Front Office,
-    // Player Stats, Trade War Room, Standings) are now hyperlinks in
-    // the tab strip above, not embedded iframes (Keith 2026-05-14).
-    // Overview is the only real panel rendered below.
-    var hubPanels = "";
-
-    mount.innerHTML = [
-      '<div class="tops-shell">',
-      '  <header class="tops-header">',
-      '    <div class="tops-header-identity">',
-      viewerIcon ? '<img class="tops-logo" src="' + escapeHtml(viewerIcon) + '" alt="">' : '',
-      '      <div class="tops-title-block">',
-      '        <div class="tops-title">My Team</div>',
-      '        <div class="tops-subtitle">' + escapeHtml(viewerName) + '</div>',
-      '      </div>',
-      '    </div>',
-      '  </header>',
-      // Inner Team Ops tab strip removed — the header's "My Hub" sub-nav
-      // (Overview / Front Office / Trade War Room / Rookie Hub /
-      // Standings / Player Stats / Player Acquisition / Game Day)
-      // already covers this navigation across every page, so the
-      // duplicate strip just added clutter (Keith 2026-05-15).
-      '  <section class="tops-tab-panel" data-tab-panel="overview" data-active="1" role="tabpanel">',
-           overviewPanelHtml,
-      '  </section>',
-      '  <footer class="tops-footer">',
-      '    <span class="tops-meta">Build ' + BUILD + '</span>',
-      '    <span class="tops-meta">' + (state.lastLoaded ? 'Refreshed ' + state.lastLoaded.toLocaleTimeString() : 'Loading…') + '</span>',
-      '    ' + (state.loadErrors.length ? '<span class="tops-meta tops-meta-error">' + state.loadErrors.length + ' endpoint issue(s)</span>' : ''),
-      '  </footer>',
-      '</div>'
-    ].join("\n");
-
-    els.mount = mount;
-    els.cards = {};
-    mount.querySelectorAll("[data-card]").forEach(function (node) {
-      els.cards[node.getAttribute("data-card")] = node;
-    });
-    els.tabPanels = {};
-    els.tabBtns = {};
-    mount.querySelectorAll("[data-tab-panel]").forEach(function (n) { els.tabPanels[n.getAttribute("data-tab-panel")] = n; });
-    mount.querySelectorAll("[data-tab]").forEach(function (n) {
-      els.tabBtns[n.getAttribute("data-tab")] = n;
-      n.addEventListener("click", function () { switchTab(n.getAttribute("data-tab")); });
-    });
-    // React to back/forward navigation that changes the hash.
-    window.addEventListener("hashchange", function () { switchTab(readActiveTab()); });
-  }
-
-  // ----- Card: Franchise Summary -----
-  function renderSummary() {
-    var el = els.cards.summary;
-    if (!el) return;
-
-    var salaries = getMySalaries();
-    var roster = getMyRoster();
-    // Index roster status by player_id so we can flag taxi salaries.
-    var statusById = {};
-    roster.forEach(function (r) { statusById[r.id] = safeStr(r.status); });
-
-    // Cap hit rules (must match Roster Workbench's currentCapHit):
-    //   • Expired contract (contractYear <= 0): 0% — player is on roster
-    //     awaiting Expired Rookie Auction / cut, but contract has lapsed
-    //     so no cap charge. (Roster Workbench: `if (y <= 0) return 0;`.)
-    //   • Taxi: 0% — taxi salary is real money but DOES NOT count vs cap.
-    //   • IR:   50% — half of salary counts toward cap.
-    //   • All other roster states: 100%.
-    //
-    // Without the cy<=0 rule, Team Ops Cap Used ran higher than Front
-    // Office Cap Summary by the sum of any expired-contract salaries on
-    // roster (Keith 2026-05-15: Long Haulers, Will Levis cy=0 / $6K).
-    // Without IR 50%, same kind of mismatch for any team with IR players.
-    var playerSalaryUsed = 0;     // active + IR×0.5 (cap-charging player salary)
-    var taxiSalary = 0;           // off-cap
-    var irSalaryFull = 0;         // raw IR salary before 50% factor, for transparency
-    var expiredSalary = 0;        // raw cy<=0 salary, off-cap, for transparency
-    salaries.forEach(function (s) {
-      var amt = Number(s.salary || 0);
-      var status = statusById[s.id] || "";
-      var cy = parseInt(s.contractYear, 10);
-      if (cy === 0) {
-        // Expired contract — keep raw amount for transparency, charge $0.
-        expiredSalary += amt;
-      } else if (/taxi/i.test(status)) {
-        taxiSalary += amt;
-      } else if (/ir|injured/i.test(status)) {
-        irSalaryFull += amt;
-        playerSalaryUsed += Math.round(amt * 0.5);
-      } else {
-        playerSalaryUsed += amt;
-      }
-    });
-    // Salary adjustments — cap penalties (positive = cap-charging, e.g.
-    // drop penalties; negative = cap credit). Folded into the headline
-    // total so Team Ops matches Front Office.
-    var adjustmentTotal = getMyAdjustmentTotal();
-    var cap = state.capAmount;
-
-    // Round each component to the nearest $1K, then derive Cap Total
-    // and Cap Room from those rounded values so all four displayed
-    // numbers add up consistently:
-    //   displayed salary + displayed adj   = displayed cap total
-    //   displayed cap     − displayed total = displayed cap room
-    // Without this, $272.5K used + $27.5K free both round UP to
-    // $273K + $28K = $301K, breaking the tie (Keith 2026-05-14).
-    function roundToK(n) { return Math.round(Number(n || 0) / 1000) * 1000; }
-    var playerSalaryUsedR = roundToK(playerSalaryUsed);
-    var adjustmentTotalR  = roundToK(adjustmentTotal);
-    var capTotalR         = playerSalaryUsedR + adjustmentTotalR;
-    var remainR           = cap - capTotalR;
-    var pct = cap > 0 ? Math.min(100, Math.round((capTotalR / cap) * 100)) : 0;
-
-    var rosterCount = roster.length;
-    var irCount = roster.filter(function (p) { return /ir/i.test(p.status); }).length;
-    var taxiCount = roster.filter(function (p) { return /taxi/i.test(p.status); }).length;
-    var activeCount = rosterCount - irCount - taxiCount;
-
-    // Card 1 explicit split (Keith 2026-05-14): Salary + Adjustments = big
-    // total. Color-code the adjustments line so positive (cap-charging)
-    // reads warm, negative (cap credit) reads green.
-    var adjClass = adjustmentTotalR > 0 ? 'tops-kv-split-warn'
-                  : adjustmentTotalR < 0 ? 'tops-kv-split-ok'
-                  : 'tops-kv-split-zero';
-    var adjPrefix = adjustmentTotalR > 0 ? "+" : (adjustmentTotalR < 0 ? "−" : "");
-    var adjAmtR = Math.abs(adjustmentTotalR);
-
-    el.innerHTML = [
-      '<div class="tops-card-title">Franchise Summary</div>',
-      '<div class="tops-summary-grid">',
-      '  <div class="tops-kv">',
-      '    <div class="tops-kv-label">Cap Total</div>',
-      '    <div class="tops-kv-value">' + fmtUsd(capTotalR) + '</div>',
-      '    <div class="tops-kv-split">',
-      '      <span class="tops-kv-split-line"><span class="tops-kv-split-k">Salary</span><span class="tops-kv-split-v">' + fmtUsd(playerSalaryUsedR) + '</span></span>',
-      '      <span class="tops-kv-split-line ' + adjClass + '">',
-      '        <span class="tops-kv-split-k">Adjustments</span>',
-      '        <span class="tops-kv-split-v">' + adjPrefix + fmtUsd(adjAmtR) + '</span>',
-      '      </span>',
-      '    </div>',
-      '    <div class="tops-kv-note">' + pct + '% of ' + fmtUsd(cap) +
-        (irSalaryFull > 0 ? ' · <span style="opacity:0.75;">IR ' + fmtUsd(irSalaryFull) + ' @ 50%</span>' : '') +
-        (taxiSalary > 0 ? ' · <span style="opacity:0.75;">+ ' + fmtUsd(taxiSalary) + ' taxi (off-cap)</span>' : '') +
-        '</div>',
-      '    <div class="tops-bar"><div class="tops-bar-fill" style="width:' + pct + '%"></div></div>',
-      '  </div>',
-      '  <div class="tops-kv">',
-      '    <div class="tops-kv-label">Cap Room</div>',
-      '    <div class="tops-kv-value">' + fmtUsd(remainR) + '</div>',
-      '    <div class="tops-kv-note">' + fmtUsd(cap) + ' cap − ' + fmtUsd(playerSalaryUsedR) + ' salary' +
-        (adjustmentTotalR !== 0 ? ' − ' + adjPrefix + fmtUsd(adjAmtR) + ' adj' : '') +
-        '</div>',
-      '  </div>',
-      '  <div class="tops-kv">',
-      '    <div class="tops-kv-label">Roster</div>',
-      '    <div class="tops-kv-value">' + rosterCount + '</div>',
-      '    <div class="tops-kv-note">' + activeCount + ' active · ' + taxiCount + ' taxi · ' + irCount + ' IR</div>',
-      '  </div>',
-      '</div>'
-    ].join("");
-  }
-
-  // ----- Card: Matchup -----
-  function renderMatchup() {
-    var el = els.cards.matchup;
-    if (!el) return;
-
-    // UPS pod format: each franchise plays 2 (Divisional) or 3 (Intra-pod)
-    // matchups per week. Surface ALL of them — same logic as renderSchedule.
-    var week = "—";
-    var opponents = [];      // array of franchise names
-    var weekType = "";       // "Divisional" | "Intra" | ""
-    if (state.schedule && state.schedule.schedule) {
-      var weeks = asArray(state.schedule.schedule.weeklySchedule);
-      var upcoming = weeks.find(function (w) {
-        var matchups = asArray(w.matchup);
-        return matchups.some(function (m) {
-          return asArray(m.franchise).some(function (f) { return pad4(f.id) === state.viewerFranchiseId; });
-        });
-      });
-      if (upcoming) {
-        week = upcoming.week;
-        asArray(upcoming.matchup).forEach(function (m) {
-          var frs = asArray(m.franchise).map(function (f) { return pad4(f.id); });
-          if (frs.indexOf(state.viewerFranchiseId) === -1) return;
-          var other = frs.find(function (id) { return id !== state.viewerFranchiseId; });
-          var opp = state.franchises.find(function (f) { return f.id === other; });
-          opponents.push(opp ? opp.name : ("F" + other));
-        });
-        weekType = opponents.length === 3 ? "Intra" : (opponents.length === 2 ? "Divisional" : "");
-      }
-    }
-
-    var typeBadge = weekType
-      ? '<span class="tops-sched-type tops-sched-type--' + weekType.toLowerCase() + '">' + escapeHtml(weekType) + '</span>'
-      : '';
-
-    // "vs A & B" (2 opps) or "vs A, B & C" (3 opps).
-    var oppHtml;
-    if (!opponents.length) {
-      oppHtml = '<strong>—</strong>';
-    } else if (opponents.length === 1) {
-      oppHtml = '<strong>' + escapeHtml(opponents[0]) + '</strong>';
-    } else if (opponents.length === 2) {
-      oppHtml = '<strong>' + escapeHtml(opponents[0]) + '</strong> &amp; <strong>' + escapeHtml(opponents[1]) + '</strong>';
-    } else {
-      var head = opponents.slice(0, -1).map(function (n) { return '<strong>' + escapeHtml(n) + '</strong>'; }).join(", ");
-      oppHtml = head + ' &amp; <strong>' + escapeHtml(opponents[opponents.length - 1]) + '</strong>';
-    }
-
-    el.innerHTML = [
-      '<div class="tops-card-title">This Week</div>',
-      '<div class="tops-matchup">',
-      '  <div class="tops-matchup-week">Week ' + escapeHtml(week) + ' ' + typeBadge + '</div>',
-      '  <div class="tops-matchup-vs">vs ' + oppHtml + '</div>',
-      '  <div class="tops-matchup-hint">' +
-            (opponents.length > 1 ? opponents.length + ' games this week · ' : '') +
-            'Live scores will appear here on game day' +
-      '  </div>',
-      '</div>'
-    ].join("");
-  }
-
-  // ----- Card: Lineup stub (deprecated 2026-05-15) -----
-  // Replaced by the merged roster-by-position card below. Keeping the
-  // function as a no-op so any straggler callers in renderAll don't crash.
-  function renderLineup() { /* merged into renderRoster */ }
-
-  // League starting-lineup formation (per /api/league config; verified
-  // 2026-05-15 against 2026 league data — see TYPE=league for L=74598).
-  // Each group: required starting slots (min, max) + label + ordered list
-  // of MFL position codes that count. Order matches the on-screen render.
-  var LINEUP_GROUPS = [
-    { key: "QB", label: "QB",   min: 1, max: 1, positions: ["QB"] },
-    { key: "RB", label: "RB",   min: 1, max: 3, positions: ["RB"] },
-    { key: "WR", label: "WR",   min: 2, max: 4, positions: ["WR"] },
-    { key: "TE", label: "TE",   min: 1, max: 3, positions: ["TE"] },
-    { key: "PK", label: "PK",   min: 1, max: 1, positions: ["PK"] },
-    { key: "PN", label: "PN",   min: 1, max: 1, positions: ["PN"] },
-    { key: "DL", label: "DT/DE",min: 1, max: 3, positions: ["DT", "DE"] },
-    { key: "LB", label: "LB",   min: 1, max: 3, positions: ["LB"] },
-    { key: "DB", label: "CB/S", min: 1, max: 3, positions: ["CB", "S"] },
-    // Catch-all bucket — anything else that ended up on roster.
-    { key: "OTH", label: "Other", min: 0, max: 0, positions: [] }
-  ];
-  function lineupGroupForPos(pos) {
-    var p = safeStr(pos).toUpperCase();
-    for (var i = 0; i < LINEUP_GROUPS.length - 1; i += 1) {
-      if (LINEUP_GROUPS[i].positions.indexOf(p) !== -1) return LINEUP_GROUPS[i];
-    }
-    return LINEUP_GROUPS[LINEUP_GROUPS.length - 1];
-  }
-
-  // Lineup builder helpers.
-  // - lineupEligibleRow(r): row is a valid candidate for "start" (not
-  //   taxi, not IR, not expired-contract, has a known position group).
-  // - lineupValidate(draftSet, rowsByPid): aggregate per-group counts vs
-  //   LINEUP_GROUPS min/max + total = 14. Returns { ok, total, byGroup,
-  //   errors[] }.
-  function lineupEligibleRow(r) {
-    if (!r) return false;
-    if (r.isTaxi || r.isIr || r.isExpired) return false;
-    if (!r.group || !r.group.positions || !r.group.positions.length) return false;
-    return true;
-  }
-  function lineupValidate(draftSet, rowsByPid) {
-    var byGroup = {};
-    LINEUP_GROUPS.forEach(function (g) { byGroup[g.key] = { count: 0, min: g.min, max: g.max, label: g.label }; });
-    var total = 0;
-    var ineligibleCount = 0;
-    draftSet.forEach(function (pid) {
-      var r = rowsByPid[pid];
-      if (!r || !lineupEligibleRow(r)) { ineligibleCount += 1; return; }
-      byGroup[r.group.key].count += 1;
-      total += 1;
-    });
-    var errors = [];
-    Object.keys(byGroup).forEach(function (k) {
-      var g = byGroup[k];
-      if (!g.max && !g.min) return;
-      if (g.count < g.min) errors.push(g.label + " needs " + (g.min - g.count) + " more");
-      else if (g.count > g.max) errors.push(g.label + " over by " + (g.count - g.max));
-    });
-    if (ineligibleCount) errors.push(ineligibleCount + " ineligible (taxi/IR/expired) selected");
-    if (total !== 14) errors.push(total < 14 ? "Need " + (14 - total) + " more starter(s)" : (total - 14) + " over 14");
-    return { ok: errors.length === 0, total: total, byGroup: byGroup, errors: errors };
-  }
-
-  // Extract the most specific MFL error message we can from a worker
-  // response. Order of preference:
-  //   1. resp.body.error                                   (worker's structured error)
-  //   2. resp.body.mfl_response.error.$t                   (MFL wrapped JSON error)
-  //   3. resp.body.mfl_response.error                      (MFL plain-string error)
-  //   4. resp.body.mfl_response (if string, first 200 chars)
-  //   5. fallback "<msg> (HTTP <status>)"
-  // The "(HTTP X)" suffix gets appended when we have anything else, so
-  // we still log the status code for diagnostics without burying it.
-  function extractMflError(resp, fallbackMsg) {
-    var body = resp && resp.body;
-    var stat = resp && resp.status;
-    var statSfx = stat ? " (HTTP " + stat + ")" : "";
-    if (body) {
-      if (body.error) return String(body.error) + statSfx;
-      var mr = body.mfl_response;
-      if (mr) {
-        if (mr.error) {
-          if (typeof mr.error === "object" && mr.error.$t) return String(mr.error.$t) + statSfx;
-          if (typeof mr.error === "string") return mr.error + statSfx;
-        }
-        if (typeof mr === "string" && mr.length) return mr.slice(0, 200) + statSfx;
-      }
-    }
-    return fallbackMsg + statSfx;
-  }
-
-  // Read a cookie value WITHOUT decodeURIComponent — needed for forwarding
-  // MFL session tokens that contain literal %-escaped bytes in storage
-  // (e.g. aRBv1sCXvrLtj1DnZQifOg%3D%3D). MFL stores + sends the cookie
-  // with literal %3D%3D and rejects sessions that come back decoded.
-  // Keith 2026-05-15: with the round-trip decode, MFL returned
-  // "not a member of league 74598" because we were forwarding the
-  // wrong-encoded value.
-  function readCookieRaw(name) {
-    try {
-      var m = document.cookie.match(new RegExp("(?:^|;\\s*)" + name + "=([^;]+)"));
-      return m ? m[1] : "";
-    } catch (e) { return ""; }
-  }
-
-  // Append MFL_USER_ID as a query param. encodeURIComponent re-escapes the
-  // raw cookie value (so any literal % in the stored value becomes %25),
-  // the worker URLSearchParams unwraps one layer, and the final Cookie
-  // header to MFL carries the SAME bytes the browser had stored.
-  function withMflUserParam(url) {
-    var uid = readCookieRaw("MFL_USER_ID");
-    if (!uid) return url;
-    return url + (url.indexOf("?") === -1 ? "?" : "&") + "MFL_USER_ID=" + encodeURIComponent(uid);
-  }
-
-  // POST the lineup draft to the worker. Allow saving incomplete lineups
-  // (Keith 2026-05-15) — MFL accepts partial lineups; in-app validation
-  // remains informational. Worker validates caller via MFL_USER_ID param.
-  function submitLineupDraft() {
-    if (state.lineupSubmitting) return;
-    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
-    if (!fid) return;
-    var starters = state.lineupDraft ? Array.from(state.lineupDraft) : [];
-    state.lineupSubmitting = true;
-    state.lineupMessage = { kind: "info", text: "Submitting lineup to MFL…" };
-    renderRoster();
-    fetch(withMflUserParam(workerBase() + "/api/submit-lineup"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ franchiseId: fid, starters: starters }),
-    })
-      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
-      .then(function (resp) {
-        if (resp.body && resp.body.ok) {
-          state.lineupMessage = { kind: "ok", text: "Lineup saved to MFL ✓" };
-        } else {
-          var err = extractMflError(resp, "MFL rejected lineup");
-          state.lineupMessage = { kind: "err", text: String(err) };
-        }
-      })
-      .catch(function (e) {
-        state.lineupMessage = { kind: "err", text: "Submit failed: " + (e && e.message || e) };
-      })
-      .then(function () {
-        state.lineupSubmitting = false;
-        renderRoster();
-      });
-  }
-
-  // Load this franchise's persisted per-player trade-bait notes from D1.
-  // Idempotent: only fires once per page load. Used to pre-fill the per-
-  // row notes inputs when the user lands on the Trade Bait tab.
-  function loadTradeBaitNotes() {
-    if (state.tradeBaitNotesLoaded) return;
-    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
-    if (!fid) return;
-    state.tradeBaitNotesLoaded = true;
-    fetch(workerBase() + "/api/trade-bait-notes?franchiseId=" + encodeURIComponent(fid))
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        if (!j || !j.ok) return;
-        var notes = {};
-        (j.notes || []).forEach(function (n) { notes[String(n.player_id)] = String(n.note || ""); });
-        state.tradeBaitNotes = notes;
-        // Seed the bait set with players that have notes — owner cared
-        // enough to annotate them, so they're presumed still available.
-        if (!state.tradeBaitDraft) state.tradeBaitDraft = new Set();
-        Object.keys(notes).forEach(function (pid) { state.tradeBaitDraft.add(pid); });
-        if (state.rosterMode === "tradeBait") renderRoster();
-      })
-      .catch(function () { /* non-fatal — UI just shows blank notes */ });
-  }
-
-  // POST the trade bait draft to the worker. Worker validates caller via
-  // cookie and relays to MFL import?TYPE=tradeBait. WILL_GIVE_UP is the
-  // CSV of player IDs marked available; WILL_TAKE_TEXT is the free-text
-  // "what I'm looking for" comment. notes={} is persisted in D1.
-  function submitTradeBaitDraft() {
-    if (state.tradeBaitSubmitting) return;
-    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
-    if (!fid) return;
-    var willGiveUp = state.tradeBaitDraft ? Array.from(state.tradeBaitDraft) : [];
-    var lookingForRaw = String(state.tradeBaitLookingFor || "").trim();
-    // Only send notes for currently-checked players. Unchecking a player
-    // prunes their note via the worker's delete-then-insert pattern.
-    var notesPayload = {};
-    if (state.tradeBaitNotes) {
-      Object.keys(state.tradeBaitNotes).forEach(function (pid) {
-        if (state.tradeBaitDraft && state.tradeBaitDraft.has(pid)) {
-          notesPayload[pid] = state.tradeBaitNotes[pid];
-        }
-      });
-    }
-    // Build playerNames map for the worker — used for both MFL comment
-    // concat AND the OTB Discord announcement. Send raw inputs; worker
-    // does MFL truncation + Discord formatting.
-    var roster = getMyRoster();
-    var playerNames = {};
-    roster.forEach(function (r) {
-      var p = playerById(r.id) || {};
-      playerNames[String(r.id)] = safeStr(p.name) || String(r.id);
-    });
-    var franchiseName = state.viewerFranchise && state.viewerFranchise.name
-      || (state.ctx && state.ctx.franchiseName)
-      || "";
-
-    state.tradeBaitSubmitting = true;
-    state.tradeBaitMessage = { kind: "info", text: "Submitting trade bait to MFL…" };
-    renderRoster();
-    fetch(withMflUserParam(workerBase() + "/api/submit-trade-bait"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        franchiseId: fid,
-        franchiseName: franchiseName,
-        willGiveUp: willGiveUp,
-        lookingFor: lookingForRaw,    // raw "what I'm looking for" — worker does MFL concat + truncate
-        notes: notesPayload,
-        playerNames: playerNames,
-      }),
-    })
-      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
-      .then(function (resp) {
-        if (resp.body && resp.body.ok) {
-          state.tradeBaitMessage = { kind: "ok", text: "Trade bait saved to MFL ✓" };
-        } else {
-          var err = extractMflError(resp, "MFL rejected trade bait");
-          state.tradeBaitMessage = { kind: "err", text: String(err) };
-        }
-      })
-      .catch(function (e) {
-        state.tradeBaitMessage = { kind: "err", text: "Submit failed: " + (e && e.message || e) };
-      })
-      .then(function () {
-        state.tradeBaitSubmitting = false;
-        renderRoster();
-      });
-  }
-
-  // ----- Card: My Roster + Lineup (position-grouped, with submit CTA) -----
-  function renderRoster() {
-    var el = els.cards.roster;
-    if (!el) return;
-
-    var roster = getMyRoster();
-    var salaryMap = {};
-    getMySalaries().forEach(function (s) { salaryMap[s.id] = s; });
-
-    var rows = roster.map(function (r) {
-      var p = playerById(r.id) || {};
-      var sal = salaryMap[r.id] || r;
-      var injury = getInjuryFor(r.id);
-      var injuryBadge = injury
-        ? '<span class="tops-inj tops-inj-' + escapeHtml(injury.status || "?") + '" title="' + escapeHtml(injury.details || "") + '">' + escapeHtml(injury.status || "") + '</span>'
-        : '';
-      var pos = safeStr(p.position);
-      var cy = parseInt(sal.contractYear, 10);
-      return {
-        id: String(r.id),
-        pos: pos,
-        group: lineupGroupForPos(pos),
-        name: safeStr(p.name) || r.id,
-        team: safeStr(p.team),
-        salary: Number(sal.salary || 0),
-        status: r.status,
-        isTaxi: /taxi/i.test(safeStr(r.status)),
-        isIr: /ir/i.test(safeStr(r.status)),
-        isExpired: cy === 0,
-        contract: safeStr(sal.contractInfo || sal.contractStatus),
-        injuryBadge: injuryBadge
-      };
-    });
-
-    if (!rows.length) {
-      el.innerHTML = '<div class="tops-card-title">My Roster + Lineup</div><div class="tops-empty">No roster data loaded yet.</div>';
-      return;
-    }
-
-    // Group rows by lineup position. Within each group, sort eligible
-    // starters (active, not taxi/IR/expired) by salary desc — top of the
-    // depth chart up top. Taxi / IR / expired / non-position go to the
-    // bottom of their group (or into "Other").
-    var byGroup = {};
-    LINEUP_GROUPS.forEach(function (g) { byGroup[g.key] = []; });
-    rows.forEach(function (r) { byGroup[r.group.key].push(r); });
-    Object.keys(byGroup).forEach(function (k) {
-      byGroup[k].sort(function (a, b) {
-        var aSidelined = a.isTaxi || a.isIr || a.isExpired;
-        var bSidelined = b.isTaxi || b.isIr || b.isExpired;
-        if (aSidelined !== bSidelined) return aSidelined ? 1 : -1;
-        return b.salary - a.salary;
-      });
-    });
-
-    // Lineup builder state — index rows by pid for O(1) eligibility lookup.
-    var rowsByPid = {};
-    rows.forEach(function (r) { rowsByPid[r.id] = r; });
-    // Initialize draft once: seed with the salary-desc top picks per group
-    // up to each group's `min` so the user starts with a sane baseline.
-    // Future iteration: fetch the franchise's current lineup from MFL and
-    // seed from that instead. For now this matches what an owner would
-    // pick if they did nothing — top of the depth chart by salary.
-    if (!state.lineupDraft) {
-      var seed = new Set();
-      LINEUP_GROUPS.forEach(function (g) {
-        if (!g.min) return;
-        var picks = (byGroup[g.key] || []).filter(lineupEligibleRow).slice(0, g.min);
-        picks.forEach(function (r) { seed.add(r.id); });
-      });
-      state.lineupDraft = seed;
-    }
-    var validation = lineupValidate(state.lineupDraft, rowsByPid);
-
-    // Active mode (Lineup vs Trade Bait) — drives which checkbox state
-    // each row binds to + which Save button renders in the card title.
-    // Native MFL deep link CTA was removed (Keith 2026-05-15) since the
-    // in-app Save button handles submission directly.
-    var mode = state.rosterMode === "tradeBait" ? "tradeBait" : "lineup";
-    if (!state.tradeBaitDraft) state.tradeBaitDraft = new Set();
-    if (!state.tradeBaitNotes)  state.tradeBaitNotes  = {};
-    // Lazily fetch persisted notes the first time we render so the per-
-    // row note inputs land pre-populated on the Trade Bait tab.
-    if (!state.tradeBaitNotesLoaded) loadTradeBaitNotes();
-
-    // Per-group section HTML.
-    var sections = LINEUP_GROUPS.map(function (g) {
-      var groupRows = byGroup[g.key] || [];
-      if (!groupRows.length) return "";
-      var slotHint = g.min === 0
-        ? ""
-        : (g.min === g.max
-            ? '<span class="tops-roster-slot-hint">Start ' + g.min + '</span>'
-            : '<span class="tops-roster-slot-hint">Start ' + g.min + '–' + g.max + '</span>');
-      var groupValidation = validation.byGroup[g.key] || { count: 0, min: g.min, max: g.max };
-      var groupOver  = g.max > 0 && groupValidation.count > g.max;
-      var groupUnder = g.min > 0 && groupValidation.count < g.min;
-      var groupStatusClass = groupOver ? "is-over" : (groupUnder ? "is-under" : (groupValidation.count > 0 ? "is-ok" : ""));
-      // Trade bait mode shows "N available" per group; lineup mode shows
-      // the original starter-count + min/max status colors.
-      var groupCountHud;
-      if (mode === "tradeBait") {
-        var groupBaitCount = groupRows.reduce(function (acc, r) {
-          return acc + ((state.tradeBaitDraft && state.tradeBaitDraft.has(r.id)) ? 1 : 0);
-        }, 0);
-        groupCountHud = groupBaitCount > 0
-          ? '<span class="tops-roster-group-status is-ok">' + groupBaitCount + ' available</span>'
-          : "";
-      } else {
-        groupCountHud = g.min === 0
-          ? ""
-          : '<span class="tops-roster-group-status ' + groupStatusClass + '">'
-              + groupValidation.count + ' starting</span>';
-      }
-      var bodyRows = groupRows.map(function (r) {
-        var taxiBadge = r.isTaxi ? '<span class="taxi-pill" title="Taxi — off-cap, real for trade math">TAXI</span>' : '';
-        var expiredBadge = r.isExpired ? '<span class="taxi-pill" style="background:rgba(239,68,68,0.18); color:#ef4444; border-color:rgba(239,68,68,0.45);" title="Contract expired (cy=0) — awaiting Expired Rookie Auction">EXP</span>' : '';
-        var statusLabel = r.isTaxi ? 'TAXI' : (r.isIr ? 'IR' : (r.isExpired ? 'EXPIRED' : (r.status || 'ACTIVE')));
-        var salaryCell = r.isTaxi
-          ? '<span style="color:var(--warn,#fbbf24); opacity:0.9;">' + fmtUsd(r.salary) + '</span>'
-          : (r.salary > 0 ? fmtUsd(r.salary) : '—');
-        var lineupEligible = lineupEligibleRow(r);
-        var lineupChecked  = state.lineupDraft && state.lineupDraft.has(r.id);
-        var baitChecked    = state.tradeBaitDraft && state.tradeBaitDraft.has(r.id);
-        // Trade bait eligibility: any rostered player not on taxi (taxi
-        // players can't be traded). IR + expired CAN still be marked
-        // available — owners may shop expiring rookies before ERA.
-        // Trade bait eligibility — taxi NOW allowed (Keith 2026-05-15:
-        // taxi players are tradeable; MFL's tradeBait accepts them).
-        // Only ineligible state today is no-player-id (shouldn't happen).
-        var baitEligible = true;
-        var checkboxCell;
-        if (mode === "tradeBait") {
-          checkboxCell = baitEligible
-            ? '<td class="tops-roster-check"><input type="checkbox" class="tops-bait-cbx" data-pid="' + escapeHtml(r.id) + '"' + (baitChecked ? ' checked' : '') + ' aria-label="Mark ' + escapeHtml(r.name) + ' available for trade"></td>'
-            : '<td class="tops-roster-check"><span class="tops-lineup-cbx-disabled" title="Taxi — can\'t trade">—</span></td>';
-        } else {
-          checkboxCell = lineupEligible
-            ? '<td class="tops-roster-check"><input type="checkbox" class="tops-lineup-cbx" data-pid="' + escapeHtml(r.id) + '"' + (lineupChecked ? ' checked' : '') + ' aria-label="Start ' + escapeHtml(r.name) + '"></td>'
-            : '<td class="tops-roster-check"><span class="tops-lineup-cbx-disabled" title="' + (r.isTaxi ? "Taxi — can\'t start" : r.isIr ? "On IR — can\'t start" : "Expired contract — can\'t start") + '">—</span></td>';
-        }
-        var rowChecked = mode === "tradeBait" ? baitChecked : lineupChecked;
-        var modeStateClass = mode === "tradeBait"
-          ? (baitChecked ? ' is-trade-bait' : '')
-          : (lineupChecked ? ' is-starting' : '');
-        var mainRow = '<tr class="tops-roster-row' + (r.isTaxi ? ' is-taxi' : '') + (r.isIr ? ' is-ir' : '') + (r.isExpired ? ' is-expired' : '') + modeStateClass + '" data-pid="' + escapeHtml(r.id) + '">' +
-          checkboxCell +
-          '<td><span class="tops-pos tops-pos-' + escapeHtml(r.pos) + '">' + escapeHtml(r.pos) + '</span></td>' +
-          '<td><span class="tops-roster-name" tabindex="0" role="button" aria-label="Open ' + escapeHtml(r.name) + ' profile" data-action="profile">' + escapeHtml(r.name) + '</span> ' + r.injuryBadge + taxiBadge + expiredBadge + '</td>' +
-          '<td>' + escapeHtml(r.team) + '</td>' +
-          '<td class="num">' + salaryCell + '</td>' +
-          '<td>' + escapeHtml(r.contract) + '</td>' +
-          '<td>' + escapeHtml(statusLabel) + '</td>' +
-          '</tr>';
-        // In Trade Bait mode, append a per-player note row underneath
-        // when the player is checked. Hidden when unchecked to keep the
-        // table compact; the note persists in state and is re-shown on
-        // re-check (and on D1 reload).
-        if (mode === "tradeBait" && baitChecked && baitEligible) {
-          var noteVal = state.tradeBaitNotes && state.tradeBaitNotes[r.id] || "";
-          var noteRow = '<tr class="tops-roster-note-row" data-pid="' + escapeHtml(r.id) + '">' +
-            '<td colspan="7" class="tops-roster-note-cell">' +
-              '<label class="tops-bait-note-label">Note for ' + escapeHtml(r.name) + ':</label>' +
-              '<input type="text" class="tops-bait-note-input" data-pid="' + escapeHtml(r.id) + '" maxlength="500" placeholder="why available · floor price · package piece · etc." value="' + escapeHtml(noteVal) + '">' +
-            '</td>' +
-            '</tr>';
-          return mainRow + noteRow;
-        }
-        return mainRow;
-      }).join("");
-      return '<div class="tops-roster-group">'
-        + '<div class="tops-roster-group-head">'
-        +   '<span class="tops-roster-group-label">' + escapeHtml(g.label) + '</span>'
-        +   '<span class="tops-roster-group-count">' + groupRows.length + ' player' + (groupRows.length === 1 ? '' : 's') + '</span>'
-        +   slotHint
-        +   groupCountHud
-        + '</div>'
-        + '<table class="tops-roster-table">'
-        +   '<thead><tr><th aria-label="Start"></th><th>Pos</th><th>Player</th><th>Team</th><th class="num">Salary</th><th>Contract</th><th>Status</th></tr></thead>'
-        +   '<tbody>' + bodyRows + '</tbody>'
-        + '</table>'
-        + '</div>';
-    }).join("");
-
-    // Validation HUD + Save button. Save is no longer gated on full
-    // validation (Keith 2026-05-15) — MFL accepts partial lineups, and
-    // owners may want to save mid-edit. The HUD stays informational so
-    // it's still obvious how far from a complete lineup the draft is.
-    var hudStatusClass = validation.ok ? "is-ok" : (validation.total === 0 ? "" : "is-warn");
-    var hudMessage = validation.ok
-      ? '<strong>14 / 14</strong> starters · ready to submit'
-      : '<strong>' + validation.total + ' / 14</strong> · ' + (validation.errors.length ? escapeHtml(validation.errors.join(" · ")) : "draft in progress");
-    var baitCount = state.tradeBaitDraft ? state.tradeBaitDraft.size : 0;
-    var baitHud = baitCount + " player" + (baitCount === 1 ? "" : "s") + " marked available";
-    var lineupSaveBtn = '<button type="button" class="tops-link-pill tops-lineup-save"'
-      + (state.lineupSubmitting ? " disabled" : "")
-      + '>' + (state.lineupSubmitting ? "Submitting…" : "Save Lineup") + '</button>';
-    var baitSaveBtn = '<button type="button" class="tops-link-pill tops-bait-save"'
-      + (state.tradeBaitSubmitting ? " disabled" : "")
-      + '>' + (state.tradeBaitSubmitting ? "Submitting…" : "Save Trade Bait") + '</button>';
-
-    function modeMsgHtml(kind, msg) {
-      if (!msg) return "";
-      var cls = msg.kind === "ok" ? "is-ok" : msg.kind === "err" ? "is-err" : "";
-      return '<div class="tops-lineup-msg ' + cls + '">' + escapeHtml(msg.text) + '</div>';
-    }
-    var msgHtml = mode === "tradeBait"
-      ? modeMsgHtml("bait", state.tradeBaitMessage)
-      : modeMsgHtml("lineup", state.lineupMessage);
-
-    // Mode tabs.
-    var tabsHtml = '<div class="tops-roster-tabs" role="tablist">'
-      + '<button type="button" class="tops-roster-tab' + (mode === "lineup" ? " is-active" : "") + '" data-mode="lineup" role="tab" aria-selected="' + (mode === "lineup" ? "true" : "false") + '">Lineup</button>'
-      + '<button type="button" class="tops-roster-tab' + (mode === "tradeBait" ? " is-active" : "") + '" data-mode="tradeBait" role="tab" aria-selected="' + (mode === "tradeBait" ? "true" : "false") + '">Trade Bait</button>'
-      + '</div>';
-
-    // Active mode HUD + Save button.
-    var modeHudHtml, modeSaveBtn, modeHint;
-    if (mode === "tradeBait") {
-      modeHudHtml = '<div class="tops-lineup-hud">' + baitHud + '</div>';
-      modeSaveBtn = baitSaveBtn;
-      modeHint = 'mark players available · per-player notes get published with your "looking for" line · save anytime';
-    } else {
-      modeHudHtml = '<div class="tops-lineup-hud ' + hudStatusClass + '">' + hudMessage + '</div>';
-      modeSaveBtn = lineupSaveBtn;
-      modeHint = 'grouped by position · check starters · save any time (incomplete OK)';
-    }
-
-    // Trade Bait "what I'm looking for" textarea — only renders in bait mode.
-    var lookingForHtml = mode === "tradeBait"
-      ? '<div class="tops-bait-comment-wrap">'
-        + '<label class="tops-bait-comment-label" for="topsBaitLookingFor">What I\'m looking for</label>'
-        + '<textarea id="topsBaitLookingFor" class="tops-bait-comment" rows="2" placeholder="e.g. WR2 with starter upside, 2027 1st rd pick, anything at TE…">'
-        +   escapeHtml(state.tradeBaitLookingFor || "")
-        + '</textarea>'
-        + '</div>'
-      : "";
-
-    el.innerHTML = [
-      '<div class="tops-card-title">My Roster + Lineup '
-        + '<span class="tops-count">' + rows.length + '</span> '
-        + '<span class="tops-card-hint">' + escapeHtml(modeHint) + '</span>'
-        + '<span class="tops-card-actions">' + modeSaveBtn + '</span>'
-      + '</div>',
-      tabsHtml,
-      modeHudHtml,
-      msgHtml,
-      lookingForHtml,
-      '<div class="tops-roster-grouped">',
-      sections,
-      '</div>'
-    ].join("");
-
-    // Wire mode tabs.
-    el.querySelectorAll(".tops-roster-tab").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var next = btn.getAttribute("data-mode");
-        if (next !== state.rosterMode) {
-          state.rosterMode = next;
-          renderRoster();
-        }
-      });
-    });
-
-    // Wire lineup checkboxes.
-    el.querySelectorAll(".tops-lineup-cbx").forEach(function (cbx) {
-      cbx.addEventListener("change", function () {
-        var pid = cbx.getAttribute("data-pid");
-        if (!state.lineupDraft) state.lineupDraft = new Set();
-        if (cbx.checked) state.lineupDraft.add(pid);
-        else state.lineupDraft.delete(pid);
-        state.lineupMessage = null;
-        renderRoster();
-      });
-    });
-    // Wire trade bait checkboxes.
-    el.querySelectorAll(".tops-bait-cbx").forEach(function (cbx) {
-      cbx.addEventListener("change", function () {
-        var pid = cbx.getAttribute("data-pid");
-        if (!state.tradeBaitDraft) state.tradeBaitDraft = new Set();
-        if (cbx.checked) state.tradeBaitDraft.add(pid);
-        else state.tradeBaitDraft.delete(pid);
-        state.tradeBaitMessage = null;
-        renderRoster();
-      });
-    });
-    // Wire "What I'm looking for" textarea — persist on input without
-    // re-rendering (so the cursor doesn't jump on each keystroke).
-    var lookingForEl = el.querySelector("#topsBaitLookingFor");
-    if (lookingForEl) {
-      lookingForEl.addEventListener("input", function () {
-        state.tradeBaitLookingFor = lookingForEl.value;
-        state.tradeBaitMessage = null;
-      });
-    }
-    // Per-player note inputs — same no-re-render-on-input pattern as the
-    // looking-for textarea. Notes ride along on the next Save Trade Bait.
-    el.querySelectorAll(".tops-bait-note-input").forEach(function (inp) {
-      inp.addEventListener("input", function () {
-        var pid = inp.getAttribute("data-pid");
-        if (!pid) return;
-        if (!state.tradeBaitNotes) state.tradeBaitNotes = {};
-        state.tradeBaitNotes[pid] = inp.value;
-        state.tradeBaitMessage = null;
-      });
-    });
-    // Save buttons.
-    var saveLineupEl = el.querySelector(".tops-lineup-save");
-    if (saveLineupEl) saveLineupEl.addEventListener("click", function () {
-      if (saveLineupEl.hasAttribute("disabled")) return;
-      submitLineupDraft();
-    });
-    var saveBaitEl = el.querySelector(".tops-bait-save");
-    if (saveBaitEl) saveBaitEl.addEventListener("click", function () {
-      if (saveBaitEl.hasAttribute("disabled")) return;
-      submitTradeBaitDraft();
-    });
-    // Player name click → profile modal. Keyboard actionable.
-    el.querySelectorAll('[data-action="profile"]').forEach(function (node) {
-      var row = node.closest(".tops-roster-row");
-      var pid = row && row.getAttribute("data-pid");
-      if (!pid) return;
-      node.addEventListener("click", function (e) { e.stopPropagation(); openPlayerProfileModal(pid); });
-      node.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlayerProfileModal(pid); }
-      });
-    });
-  }
-
-  // ----- Card: News (skeleton) -----
-  // Old injury-only renderNews removed in v1.7.36. The full news-feed
-  // implementation lives further down (uses /api/player-bundle for real
-  // headlines, not just injury statuses) and is wired through renderAll
-  // via the same name. Search for "News Feed for owned players".
-
-  // ----- Differentiator cards (skeletons) -----
-  function renderNextDecision() {
-    var el = els.cards.nextDecision;
-    if (!el) return;
-    // Pull real upcoming events from /api/league-events when present (state.leagueEvents).
-    // Falls back to a hardcoded preview row when the endpoint isn't deployed
-    // yet so the card still telegraphs its purpose.
-    var events = (state.leagueEvents && state.leagueEvents.ok && Array.isArray(state.leagueEvents.events))
-      ? state.leagueEvents.events.slice(0, 4)
-      : [];
-
-    var itemsHtml;
-    if (events.length) {
-      itemsHtml = events.map(function (ev, i) {
-        var d = daysUntil(ev.date);
-        var label = (typeof eventLabel === "function") ? eventLabel(ev.event) : String(ev.event || "");
-        var dateLbl = (typeof fmtEventDate === "function") ? fmtEventDate(ev.date) : ev.date;
-        var soon = (d != null && d <= 14);
-        var nextChip = (i === 0) ? ' <span class="tops-nd-next">NEXT</span>' : '';
-        var when = (d == null) ? '' : (d <= 0 ? 'today' : (d === 1 ? 'tomorrow' : 'in ' + d + ' days'));
-        return '<li' + (soon ? ' class="tops-nd-soon"' : '') + '>'
-          + '<div class="tops-nd-main">'
-          +   '<span class="tops-nd-label">' + escapeHtml(label) + '</span>' + nextChip
-          +   '<span class="tops-nd-sub">' + escapeHtml(dateLbl) + '</span>'
-          + '</div>'
-          + (when ? '<span class="tops-nd-when">' + escapeHtml(when) + '</span>' : '')
-          + '</li>';
-      }).join("");
-    } else {
-      itemsHtml = '<li class="tops-nd-pending"><div class="tops-nd-main"><span class="tops-nd-label muted">Calendar loading…</span></div>'
-        + '<div class="tops-nd-sub">If this persists, the <code>/api/league-events</code> worker endpoint hasn\'t deployed yet.</div></li>';
-    }
-
-    el.innerHTML = [
-      '<div class="tops-card-title">Next Decision</div>',
-      '<ul class="tops-nd-list">',
-      itemsHtml,
-      '</ul>'
-    ].join("");
-  }
-
-  function renderRiskHeatmap() {
-    var el = els.cards.riskHeatmap;
-    if (!el) return;
-    var roster = getMyRoster();
-    var positions = {};
-    roster.forEach(function (r) {
-      var p = playerById(r.id) || {};
-      var pos = p.position || "?";
-      positions[pos] = (positions[pos] || 0) + 1;
-    });
-    var posList = Object.keys(positions).sort();
-
-    el.innerHTML = [
-      '<div class="tops-card-title">Roster Risk Heatmap</div>',
-      '<div class="tops-heatmap-hint">Preview — scoring wires up in Phase 1b</div>',
-      '<div class="tops-heatmap">',
-      posList.map(function (pos) {
-        return '<div class="tops-heat-cell"><div class="tops-heat-pos">' + escapeHtml(pos) + '</div><div class="tops-heat-count">' + positions[pos] + '</div></div>';
-      }).join(""),
-      '</div>'
-    ].join("");
-  }
-
-  function renderCapTrajectory() {
-    var el = els.cards.capTrajectory;
-    if (!el) return;
-    el.innerHTML = [
-      '<div class="tops-card-title">Cap Trajectory</div>',
-      '<div class="tops-empty">Phase 1b will plot year-by-year obligations from CCC contract data, with what-if overlays for extend/tag/drop.</div>'
-    ].join("");
-  }
-
-  // ----- MFL-parity cards (skeleton + real data where simple) -----
-  //
-  // Trade War Room URL builder — drops the reader into MFL MESSAGE6
-  // (our trade_workbench iframe) with FRANCHISE_ID pre-selected so they
-  // can directly propose a trade to that team. Used for both "ID Trade
-  // Offers" links AND each OTB row.
-  function tradeWarRoomUrlForFranchise(fid) {
-    var year = (state.ctx && state.ctx.year) || "";
-    var leagueId = (state.ctx && state.ctx.leagueId) || "";
-    var f = pad4(fid);
-    if (!year || !leagueId || !f) return "";
-    return "//www.myfantasyleague.com/" + encodeURIComponent(year)
-      + "/home/" + encodeURIComponent(leagueId)
-      + "?MODULE=MESSAGE6=N&FRANCHISE_ID=" + encodeURIComponent(f);
-  }
   function franchiseDisplayName(fid) {
     var f = pad4(fid);
     var fr = (state.franchises || []).find(function (x) { return pad4(x.id) === f; });
     return (fr && fr.name) || ("Franchise " + f);
   }
 
-  function renderPendingTrades() {
-    var el = els.cards.pendingTrades;
-    if (!el) return;
-    var trades = (state.pendingTrades && state.pendingTrades.pendingTrades && asArray(state.pendingTrades.pendingTrades.pendingTrade)) || [];
-    var mine = trades.filter(function (t) {
-      return pad4(t.offeredTo) === state.viewerFranchiseId || pad4(t.offeringFranchise) === state.viewerFranchiseId;
+  // ---------- Cap math ----------
+  //
+  // Cap hit rules (must match Roster Workbench's currentCapHit):
+  //   • Expired contract (contractYear <= 0): 0% — player is on roster
+  //     awaiting Expired Rookie Auction / cut, but contract has lapsed
+  //     so no cap charge. (Roster Workbench: `if (y <= 0) return 0;`.)
+  //   • Taxi: 0% — taxi salary is real money but DOES NOT count vs cap.
+  //   • IR:   50% — half of salary counts toward cap.
+  //   • All other roster states: 100%.
+  function roundToK(n) { return Math.round(Number(n || 0) / 1000) * 1000; }
+
+  function playerCapCharge(salary, status, contractYear) {
+    var amt = Number(salary || 0);
+    var cy = parseInt(contractYear, 10);
+    var st = safeStr(status);
+    if (cy === 0) return 0;                       // expired — off-cap
+    if (/taxi/i.test(st)) return 0;               // taxi — off-cap
+    if (/ir|injured/i.test(st)) return Math.round(amt * 0.5);
+    return amt;
+  }
+
+  function capSummary() {
+    var salaries = getMySalaries();
+    var roster = getMyRoster();
+    var statusById = {};
+    roster.forEach(function (r) { statusById[r.id] = safeStr(r.status); });
+
+    var playerSalaryUsed = 0;   // active + IR×0.5 (cap-charging player salary)
+    var taxiSalary = 0;         // off-cap
+    var irSalaryFull = 0;       // raw IR salary before the 50% factor
+    var expiredSalary = 0;      // raw cy<=0 salary, off-cap
+    var expiredCount = 0;
+    salaries.forEach(function (s) {
+      var amt = Number(s.salary || 0);
+      var status = statusById[s.id] || "";
+      var cy = parseInt(s.contractYear, 10);
+      if (cy === 0) { expiredSalary += amt; expiredCount += 1; return; }
+      if (/taxi/i.test(status)) { taxiSalary += amt; return; }
+      if (/ir|injured/i.test(status)) { irSalaryFull += amt; }
+      playerSalaryUsed += playerCapCharge(amt, status, cy);
     });
-    var bait = (state.tradeBait && state.tradeBait.tradeBaits && asArray(state.tradeBait.tradeBaits.tradeBait)) || [];
 
-    // Resolve a comma-separated PID/draft-pick list into readable labels
-    // (uses existing playerById helper). Falls back to raw id if unknown.
-    function labelAssets(csv) {
-      var ids = String(csv || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
-      return ids.map(function (id) {
-        var p = playerById(id);
-        if (p && p.name) return safeStr(p.name);
-        if (/^DP_/i.test(id)) return id;  // draft pick id; keep raw for now
-        return id;
+    var adjustmentTotal = getMyAdjustmentTotal();
+    var cap = state.capAmount;
+
+    // Round each component to the nearest $1K, then derive the total and the
+    // room from those rounded values so all displayed numbers add up:
+    //   displayed salary + displayed adj    = displayed cap total
+    //   displayed cap    − displayed total  = displayed cap room
+    // Without this, $272.5K used + $27.5K free both round UP to $273K + $28K
+    // = $301K, breaking the tie (Keith 2026-05-14).
+    var salaryR = roundToK(playerSalaryUsed);
+    var adjR = roundToK(adjustmentTotal);
+    var totalR = salaryR + adjR;
+    var remainR = cap - totalR;
+
+    var irCount = roster.filter(function (p) { return /ir|injured/i.test(p.status); }).length;
+    var taxiCount = roster.filter(function (p) { return /taxi/i.test(p.status); }).length;
+
+    return {
+      cap: cap,
+      salary: salaryR,
+      adj: adjR,
+      total: totalR,
+      remain: remainR,
+      pct: cap > 0 ? Math.min(100, Math.round((totalR / cap) * 100)) : 0,
+      taxiSalary: taxiSalary,
+      irSalary: irSalaryFull,
+      expiredSalary: expiredSalary,
+      expiredCount: expiredCount,
+      rosterCount: roster.length,
+      taxiCount: taxiCount,
+      irCount: irCount,
+      activeCount: roster.length - taxiCount - irCount
+    };
+  }
+
+  // Where the viewer's cap room ranks league-wide. Derived from the rosters
+  // export (which carries per-franchise salaries) using the SAME cap rules as
+  // capSummary, so the ranking can't disagree with the headline number.
+  function capRoomRank() {
+    var frs = asArray(state.rosters && state.rosters.rosters && state.rosters.rosters.franchise);
+    if (frs.length < 2 || !state.capAmount) return null;
+    var adj = getAdjustmentTotals();
+    var rows = frs.map(function (f) {
+      var fid = pad4(f.id);
+      var used = 0;
+      asArray(f.player).forEach(function (p) {
+        used += playerCapCharge(p.salary, p.status, p.contractYear);
       });
-    }
-
-    // Pending trades involving me — each row clickable → Trade War Room
-    // with the OTHER franchise pre-selected.
-    var pendingRows = mine.length ? mine.map(function (t) {
-      var fromFid = pad4(t.offeringFranchise);
-      var toFid = pad4(t.offeredTo);
-      var iAmFrom = fromFid === state.viewerFranchiseId;
-      var otherFid = iAmFrom ? toFid : fromFid;
-      var url = tradeWarRoomUrlForFranchise(otherFid);
-      var direction = iAmFrom ? "→ " : "← ";
-      var role = iAmFrom ? "offered" : "incoming";
-      return '<a class="tops-trade-row" href="' + escapeHtml(url) + '" target="_top">'
-        + '<span class="tops-trade-dir">' + direction + '</span>'
-        + '<span class="tops-trade-team">' + escapeHtml(franchiseDisplayName(otherFid)) + '</span>'
-        + '<span class="tops-trade-role">' + role + '</span>'
-        + '</a>';
-    }).join("") : '<div class="tops-empty tops-empty--inline">No pending offers.</div>';
-
-    // Whole-league OTB list grouped by franchise.
-    var baitRows = bait.length ? bait.map(function (b) {
-      var fid = pad4(b.franchise_id);
-      var url = tradeWarRoomUrlForFranchise(fid);
-      var assets = labelAssets(b.willGiveUp);
-      var comment = safeStr(b.inExchangeFor).trim();
-      return '<a class="tops-otb-row" href="' + escapeHtml(url) + '" target="_top">'
-        + '<div class="tops-otb-team">' + escapeHtml(franchiseDisplayName(fid)) + '</div>'
-        + '<div class="tops-otb-assets">' + assets.map(function (a) { return escapeHtml(a); }).join(" · ") + '</div>'
-        + (comment ? '<div class="tops-otb-comment">' + escapeHtml(comment) + '</div>' : "")
-        + '</a>';
-    }).join("") : '<div class="tops-empty tops-empty--inline">Nobody on the block right now.</div>';
-
-    el.innerHTML = [
-      '<div class="tops-card-title">Trades '
-        + '<span class="tops-count">' + mine.length + ' pending</span> '
-        + '<span class="tops-count">' + bait.length + ' OTB</span>'
-      + '</div>',
-      '<div class="tops-trade-subsection">',
-      '  <div class="tops-trade-subhead">ID Trade Offers</div>',
-      '  <div class="tops-trade-list">' + pendingRows + '</div>',
-      '</div>',
-      '<div class="tops-trade-subsection">',
-      '  <div class="tops-trade-subhead">OTB · League-wide Trade Bait</div>',
-      '  <div class="tops-otb-list">' + baitRows + '</div>',
-      '</div>'
-    ].join("");
-  }
-
-  function renderWaivers() {
-    var el = els.cards.waivers;
-    if (!el) return;
-    el.innerHTML = [
-      '<div class="tops-card-title">Waivers / Blind Bids</div>',
-      '<div class="tops-empty">Pulls in Phase 1b. Requires <code>TYPE=pendingWaivers</code> with franchise auth.</div>',
-      '<a class="tops-link" href="//www.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/add_drop?L=' + escapeHtml(state.ctx.leagueId) + '">Open Add/Drop →</a>'
-    ].join("");
-  }
-
-  // Resolve a comma-separated MFL transaction asset string into readable
-  // labels. Token formats observed in the UPS league:
-  //   12345                 → player_id (look up name+pos via playerById)
-  //   DP_<round>_<pick>     → current-year draft pick
-  //   FP_<fid>_<year>_<rd>  → future draft pick (round from franchise <fid>)
-  //   BB_<amount>           → blind-bid amount in BBID transactions
-  function decodeAssetTokens(raw) {
-    var tokens = String(raw || "").split(",").map(function (t) { return t.trim(); }).filter(Boolean);
-    return tokens.map(function (tok) {
-      var m;
-      if (/^\d+$/.test(tok)) {
-        var p = playerById(tok);
-        if (p) {
-          var pos = p.position ? " (" + p.position + ")" : "";
-          return safeStr(p.name).replace(/^([^,]+),\s*(.+)$/, "$2 $1") + pos;
-        }
-        return "Player #" + tok;
-      }
-      if ((m = tok.match(/^DP_(\d+)_(\d+)$/))) {
-        return state.ctx.year + " R" + m[1] + ".P" + m[2];
-      }
-      if ((m = tok.match(/^FP_(\d{4})_(\d+)_(\d+)$/))) {
-        var fr = state.franchises.find(function (f) { return f.id === pad4(m[1]); });
-        return m[2] + " R" + m[3] + (fr ? " (from " + fr.name + ")" : "");
-      }
-      if ((m = tok.match(/^BB_(\d+)$/))) {
-        return "$" + Number(m[1]).toLocaleString() + " BB";
-      }
-      return tok;
+      return { id: fid, room: state.capAmount - roundToK(used) - roundToK(adj[fid] || 0) };
     });
-  }
-
-  function renderTransactions() {
-    var el = els.cards.transactions;
-    if (!el) return;
-    var txns = (state.transactions && state.transactions.transactions && asArray(state.transactions.transactions.transaction)) || [];
-    // Include transactions where viewer is either side of a TRADE.
-    var mine = txns.filter(function (t) {
-      var fa = pad4(t.franchise);
-      var fb = pad4(t.franchise2);
-      return fa === state.viewerFranchiseId || fb === state.viewerFranchiseId;
-    }).slice(0, 10);
-
-    el.innerHTML = [
-      '<div class="tops-card-title">Recent Transactions <span class="tops-count">' + mine.length + '</span></div>',
-      mine.length
-        ? '<ul class="tops-txn-list">' + mine.map(function (t) {
-            var when = new Date(Number(t.timestamp || 0) * 1000);
-            var dateStr = when.toLocaleDateString();
-            var typ = String(t.type || "").toUpperCase();
-            var lines = [];
-
-            if (typ === "TRADE") {
-              var fa = pad4(t.franchise);
-              var fb = pad4(t.franchise2);
-              var iAmFa = (fa === state.viewerFranchiseId);
-              var counterFid = iAmFa ? fb : fa;
-              var counter = state.franchises.find(function (f) { return f.id === counterFid; });
-              var myAssetsRaw = iAmFa ? t.franchise1_gave_up : t.franchise2_gave_up;
-              var theirAssetsRaw = iAmFa ? t.franchise2_gave_up : t.franchise1_gave_up;
-              var gave = decodeAssetTokens(myAssetsRaw);
-              var got  = decodeAssetTokens(theirAssetsRaw);
-              lines.push('<div class="tops-txn-line"><span class="tops-txn-arrow">vs</span> ' + escapeHtml(counter ? counter.name : ("F" + counterFid)) + '</div>');
-              if (gave.length)  lines.push('<div class="tops-txn-line"><span class="tops-txn-arrow tops-txn-arrow--gave">▶</span> ' + gave.map(escapeHtml).join(", ") + '</div>');
-              if (got.length)   lines.push('<div class="tops-txn-line"><span class="tops-txn-arrow tops-txn-arrow--got">◀</span> '   + got.map(escapeHtml).join(", ") + '</div>');
-            } else if (typ === "BBID_WAIVER" || typ === "FREE_AGENT") {
-              // Add/drop tokens: t.transaction is "ADD:pid|DROP:pid|..." or
-              // similar — print whatever players are referenced if possible.
-              var raw = safeStr(t.transaction);
-              var pidsAdded = (raw.match(/\d+/g) || []).slice(0, 4);
-              var labels = decodeAssetTokens(pidsAdded.join(","));
-              if (labels.length) lines.push('<div class="tops-txn-line">' + labels.map(escapeHtml).join(", ") + '</div>');
-              if (t.salary)      lines.push('<div class="tops-txn-line tops-txn-sub">Salary $' + Number(t.salary).toLocaleString() + '</div>');
-            }
-            if (t.comments) lines.push('<div class="tops-txn-line tops-txn-sub">' + escapeHtml(t.comments) + '</div>');
-
-            return '<li>'
-              + '<div class="tops-txn-head">'
-              +   '<span class="tops-txn-type">' + escapeHtml(typ) + '</span>'
-              +   '<span class="tops-txn-when">' + escapeHtml(dateStr) + '</span>'
-              + '</div>'
-              + lines.join("")
-              + '</li>';
-          }).join("") + '</ul>'
-        : '<div class="tops-empty">No transactions in the last 14 days.</div>'
-    ].join("");
-  }
-
-  function renderFuturePicks() {
-    var el = els.cards.futurePicks;
-    if (!el) return;
-    var picks = (state.futureDraftPicks && state.futureDraftPicks.futureDraftPicks && asArray(state.futureDraftPicks.futureDraftPicks.franchise)) || [];
-    var mine = picks.find(function (p) { return pad4(p.id) === state.viewerFranchiseId; });
-    var items = mine ? asArray(mine.futureDraftPick) : [];
-
-    function originLabel(p) {
-      // originalPickFor is the franchise_id that ORIGINALLY held this pick.
-      // If it's still our own, hide the "(from)" suffix — redundant noise.
-      // Otherwise resolve the id → team name via state.franchises so the
-      // user sees "(from C-Town Chivalry)" not "(from 0005)".
-      var fid = pad4(p.originalPickFor);
-      if (!fid || fid === state.viewerFranchiseId) return "";
-      var fr = state.franchises.find(function (f) { return f.id === fid; });
-      return ' <span class="tops-pick-origin">(from ' + escapeHtml(fr ? fr.name : ("F" + fid)) + ')</span>';
+    rows.sort(function (a, b) { return b.room - a.room; });
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].id === state.viewerFranchiseId) return { rank: i + 1, of: rows.length };
     }
-
-    el.innerHTML = [
-      '<div class="tops-card-title">Future Draft Picks <span class="tops-count">' + items.length + '</span></div>',
-      items.length
-        ? '<ul class="tops-picks-list">' + items.slice(0, 10).map(function (p) {
-            return '<li><strong>' + escapeHtml(p.year) + '</strong> Rd ' + escapeHtml(p.round) + originLabel(p) + '</li>';
-          }).join("") + '</ul>'
-        : '<div class="tops-empty">No future picks data available.</div>'
-    ].join("");
+    return null;
   }
 
-  function renderSchedule() {
-    var el = els.cards.schedule;
-    if (!el) return;
-    var weeks = (state.schedule && state.schedule.schedule && asArray(state.schedule.schedule.weeklySchedule)) || [];
-    // UPS pod format: each franchise plays 2 or 3 matchups per week.
-    // Divisional weeks = 2 games (vs each pod-mate). Intra-pod weeks = 3 games.
-    // Filter (not find) so all of viewer's matchups for the week surface.
-    var mine = weeks.map(function (w) {
-      var matchups = asArray(w.matchup);
-      var myMatches = matchups.filter(function (m) {
-        return asArray(m.franchise).some(function (f) { return pad4(f.id) === state.viewerFranchiseId; });
+  // ---------- The 18-starter slot model ----------
+  //
+  // The 18 starting slots, in display order (MFL L=74598, verified against
+  // export?TYPE=league `starters`). `accepts` = canonical position groups that
+  // may fill the slot; `flex` flags multi-position slots; `note` is the
+  // eligibility hint shown under flex labels.
+  // Offense 11 = 1 QB, 2 RB, 2 WR, 1 TE, 2 O-Flex, 1 SuperFlex, 1 K, 1 P
+  // Defense  7 = 2 DL, 2 LB, 2 DB, 1 D-Flex
+  //
+  // Mirrors site/m/front_office_lineup.js (lines 46-65) and the copy in
+  // site/gameday/gameday.html — keep all three in sync.
+  var LINEUP_SLOTS = [
+    { id: "QB1", label: "QB",        side: "O", accepts: ["QB"] },
+    { id: "RB1", label: "RB",        side: "O", accepts: ["RB"] },
+    { id: "RB2", label: "RB",        side: "O", accepts: ["RB"] },
+    { id: "WR1", label: "WR",        side: "O", accepts: ["WR"] },
+    { id: "WR2", label: "WR",        side: "O", accepts: ["WR"] },
+    { id: "TE1", label: "TE",        side: "O", accepts: ["TE"] },
+    { id: "OF1", label: "Flex",      side: "O", accepts: ["RB", "WR", "TE"],       flex: true, note: "RB/WR/TE" },
+    { id: "OF2", label: "Flex",      side: "O", accepts: ["RB", "WR", "TE"],       flex: true, note: "RB/WR/TE" },
+    { id: "SF1", label: "SuperFlex", side: "O", accepts: ["QB", "RB", "WR", "TE"], flex: true, note: "QB/RB/WR/TE" },
+    { id: "PK1", label: "K",         side: "O", accepts: ["PK"] },
+    { id: "PN1", label: "P",         side: "O", accepts: ["PN"] },
+    { id: "DL1", label: "DL",        side: "D", accepts: ["DL"], note: "DT/DE" },
+    { id: "DL2", label: "DL",        side: "D", accepts: ["DL"], note: "DT/DE" },
+    { id: "LB1", label: "LB",        side: "D", accepts: ["LB"] },
+    { id: "LB2", label: "LB",        side: "D", accepts: ["LB"] },
+    { id: "DB1", label: "DB",        side: "D", accepts: ["DB"], note: "CB/S" },
+    { id: "DB2", label: "DB",        side: "D", accepts: ["DB"], note: "CB/S" },
+    { id: "DF1", label: "Flex",      side: "D", accepts: ["DL", "LB", "DB"],       flex: true, note: "DL/LB/DB" }
+  ];
+
+  var TOTAL_STARTERS = 18;
+  var OFFENSE_STARTERS = 11;
+  var DEFENSE_STARTERS = 7;
+
+  // Raw MFL/nflverse position -> canonical lineup group. Required companion:
+  // the slot model keys off these groups, NOT off raw MFL position codes.
+  function posGroup(pos) {
+    var p = safeStr(pos).toUpperCase();
+    if (p === "QB") return "QB";
+    if (p === "RB" || p === "FB" || p === "HB") return "RB";
+    if (p === "WR") return "WR";
+    if (p === "TE") return "TE";
+    if (p === "PK" || p === "K") return "PK";
+    if (p === "PN" || p === "P") return "PN";
+    if (p === "DT" || p === "DE" || p === "NT" || p === "DL") return "DL";
+    if (p === "LB" || p === "OLB" || p === "ILB" || p === "MLB") return "LB";
+    if (p === "CB" || p === "S" || p === "FS" || p === "SS" || p === "DB") return "DB";
+    return "OTH";
+  }
+
+  function slotAccepts(slot, group) {
+    return !!slot && slot.accepts.indexOf(group) !== -1;
+  }
+
+  function lineupEligibleRow(r) {
+    if (!r) return false;
+    if (r.isTaxi || r.isIr || r.isExpired) return false;
+    return posGroup(r.pos) !== "OTH";
+  }
+
+  // Greedy seed — fill the FIXED slots first (best by `scoreFn`), then the
+  // flex slots from the best remaining eligible player. Fixed-first matters:
+  // otherwise a flex slot grabs the only TE before the TE slot can claim it.
+  // Returns { slotId: pid }.
+  function autoFillSlots(rows, scoreFn) {
+    var score = (typeof scoreFn === "function") ? scoreFn : function (r) { return r.salary || 0; };
+    var byGroup = {};
+    rows.forEach(function (r) {
+      if (!lineupEligibleRow(r)) return;
+      var g = posGroup(r.pos);
+      (byGroup[g] = byGroup[g] || []).push(r);
+    });
+    Object.keys(byGroup).forEach(function (g) {
+      byGroup[g].sort(function (a, b) { return score(b) - score(a); });
+    });
+    var used = {}, draft = {};
+    function take(accepts) {
+      var best = null;
+      accepts.forEach(function (g) {
+        (byGroup[g] || []).forEach(function (r) {
+          if (!used[r.id] && (!best || score(r) > score(best))) best = r;
+        });
       });
-      if (!myMatches.length) return null;
-      var opps = myMatches.map(function (m) {
-        var oppId = asArray(m.franchise).map(function (f) { return pad4(f.id); })
-                      .find(function (id) { return id !== state.viewerFranchiseId; });
-        var opp = state.franchises.find(function (f) { return f.id === oppId; });
-        return opp ? opp.name : "—";
-      });
+      if (best) { used[best.id] = 1; return best.id; }
+      return "";
+    }
+    LINEUP_SLOTS.forEach(function (s) { if (!s.flex) draft[s.id] = take(s.accepts); });
+    LINEUP_SLOTS.forEach(function (s) { if (s.flex) draft[s.id] = take(s.accepts); });
+    return draft;
+  }
+
+  // Validate a slot draft ({ slotId: pid }).
+  // `problems` = blocking issues. An INCOMPLETE lineup is not a problem —
+  // MFL accepts a valid partial save (bye/injury weeks can leave a slot
+  // unfillable), so the UI allows it and just says so.
+  function validateSlots(draft, rowsByPid) {
+    draft = draft || {};
+    rowsByPid = rowsByPid || {};
+    var filled = 0, dupes = 0, ineligible = 0, mismatch = 0, seen = {};
+    var bySide = { O: 0, D: 0 };
+    var emptySlots = [];
+    LINEUP_SLOTS.forEach(function (s) {
+      var pid = draft[s.id];
+      if (!pid) { emptySlots.push(s); return; }
+      filled += 1;
+      bySide[s.side] += 1;
+      if (seen[pid]) dupes += 1; else seen[pid] = 1;
+      var r = rowsByPid[pid];
+      if (!r || r.isTaxi || r.isIr || r.isExpired) { ineligible += 1; return; }
+      if (!slotAccepts(s, posGroup(r.pos))) mismatch += 1;
+    });
+    var errors = [];
+    if (filled < TOTAL_STARTERS) {
+      var need = TOTAL_STARTERS - filled;
+      errors.push("Fill " + plural(need, "more slot"));
+    }
+    if (dupes) errors.push(plural(dupes, "player") + " used in two slots");
+    if (ineligible) errors.push(ineligible + " ineligible (taxi/IR/expired) selected");
+    if (mismatch) errors.push(plural(mismatch, "player") + " in the wrong slot");
+    var problems = dupes + ineligible + mismatch;
+    return {
+      ok: problems === 0 && filled === TOTAL_STARTERS,
+      complete: filled === TOTAL_STARTERS,
+      problems: problems,
+      filled: filled,
+      total: TOTAL_STARTERS,
+      bySide: bySide,
+      emptySlots: emptySlots,
+      errors: errors
+    };
+  }
+
+  // Roster rows in the shape the slot model expects.
+  function buildLineupRows() {
+    var salaryMap = {};
+    getMySalaries().forEach(function (s) { salaryMap[s.id] = s; });
+    return getMyRoster().map(function (r) {
+      var p = playerById(r.id) || {};
+      var sal = salaryMap[r.id] || r;
+      var cy = parseInt(sal.contractYear, 10);
+      var inj = getInjuryFor(r.id);
+      var pos = safeStr(p.position).toUpperCase();
       return {
-        week: w.week,
-        opps: opps,
-        type: opps.length === 3 ? "Intra" : (opps.length === 2 ? "Divisional" : "")
+        id: String(r.id),
+        pos: pos,
+        group: posGroup(pos),
+        name: prettyPlayerName(p.name) || ("Player #" + r.id),
+        short: shortName(p.name) || ("#" + r.id),
+        team: safeStr(p.team),
+        salary: Number(sal.salary || 0),
+        contract: safeStr(sal.contractStatus || sal.contractInfo),
+        contractYear: isFinite(cy) ? cy : null,
+        status: safeStr(r.status),
+        isTaxi: /taxi/i.test(safeStr(r.status)),
+        isIr: /ir|injured/i.test(safeStr(r.status)),
+        isExpired: cy === 0,
+        injStatus: inj ? safeStr(inj.status) : ""
       };
-    }).filter(Boolean).slice(0, 4);
-
-    el.innerHTML = [
-      '<div class="tops-card-title">Upcoming Schedule</div>',
-      mine.length
-        ? '<ul class="tops-sched-list">' + mine.map(function (w) {
-            var typeBadge = w.type
-              ? '<span class="tops-sched-type tops-sched-type--' + w.type.toLowerCase() + '">' + escapeHtml(w.type) + '</span>'
-              : '';
-            return '<li>'
-              + '<span class="tops-sched-wk">Wk ' + escapeHtml(w.week) + '</span> '
-              + typeBadge
-              + '<span class="tops-sched-opps"> vs ' + w.opps.map(escapeHtml).join(' &amp; ') + '</span>'
-              + '</li>';
-          }).join("") + '</ul>'
-        : '<div class="tops-empty">Schedule not yet published.</div>'
-    ].join("");
+    });
   }
+
+  // Everything Zone 3 (and the attention queue) needs about the lineup.
+  // The draft is seeded ONCE per page load by autoFillSlots so the owner
+  // opens on a legal-as-possible baseline instead of an empty board.
+  function lineupState() {
+    var rows = buildLineupRows();
+    var byPid = {};
+    rows.forEach(function (r) { byPid[r.id] = r; });
+    if (!state.lineupDraft) state.lineupDraft = autoFillSlots(rows, null);
+    return {
+      rows: rows,
+      byPid: byPid,
+      draft: state.lineupDraft,
+      validation: validateSlots(state.lineupDraft, byPid)
+    };
+  }
+
+  // ---------- Season phase / schedule ----------
 
   // Map raw league_events.event tokens to human-readable labels.
   var EVENT_LABEL = {
@@ -1740,7 +824,6 @@
   function eventLabel(ev) {
     if (!ev) return "—";
     if (EVENT_LABEL[ev]) return EVENT_LABEL[ev];
-    // Fallback: snake_case → Title Case
     return String(ev).replace(/_/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
   }
   function fmtEventDate(iso) {
@@ -1749,128 +832,1239 @@
     if (!m) return iso;
     var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
     if (isNaN(d.getTime())) return iso;
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   }
 
-  function renderEvents() {
-    var el = els.cards.calendar;
-    if (!el) return;
+  function upcomingEvents() {
     var src = (state.leagueEvents && state.leagueEvents.ok && Array.isArray(state.leagueEvents.events))
-      ? state.leagueEvents.events
-      : [];
+      ? state.leagueEvents.events : [];
+    return src.map(function (ev) {
+      return {
+        event: safeStr(ev.event),
+        date: safeStr(ev.date),
+        label: eventLabel(ev.event),
+        days: daysUntil(ev.date)
+      };
+    }).filter(function (e) { return !!e.date; });
+  }
+  function findEvent(tokens) {
+    var list = upcomingEvents();
+    for (var i = 0; i < list.length; i++) {
+      if (tokens.indexOf(list[i].event) !== -1) return list[i];
+    }
+    return null;
+  }
 
-    var listHtml;
-    if (!src.length) {
-      // Endpoint not deployed yet or no upcoming events — explicit empty state.
-      listHtml = '<div class="tops-empty">No upcoming events. <span style="opacity:0.7;">(Calendar source: <code>league_events</code> D1 table.)</span></div>';
+  // "in" = NFL regular season underway, "pre" = offseason / preseason.
+  // MFL exposes no reliable current-week field on any export we already
+  // fetch, so derive it from the calendar: while /api/league-events still
+  // lists an UPCOMING nfl_kickoff we are before the season; once kickoff
+  // drops off the upcoming list, fall back to the NFL calendar window.
+  function seasonPhase() {
+    if (findEvent(["nfl_kickoff"])) return "pre";
+    var now = new Date();
+    var m = now.getMonth();
+    if (m >= 8) return "in";                          // Sep–Dec
+    if (m === 0 && now.getDate() <= 15) return "in";  // through the UPS final
+    return "pre";
+  }
+
+  // First week with no scores posted = the week currently being played /
+  // set. Falls back to the last scheduled week.
+  function currentWeek() {
+    var weeks = asArray(state.schedule && state.schedule.schedule && state.schedule.schedule.weeklySchedule);
+    for (var i = 0; i < weeks.length; i++) {
+      var scored = false;
+      asArray(weeks[i].matchup).forEach(function (m) {
+        asArray(m.franchise).forEach(function (f) {
+          if (Number(f.score || 0) > 0) scored = true;
+        });
+      });
+      if (!scored) return safeStr(weeks[i].week);
+    }
+    return weeks.length ? safeStr(weeks[weeks.length - 1].week) : "";
+  }
+
+  // UPS pod format: each franchise plays 2 (Divisional) or 3 (Intra-pod)
+  // matchups per week, so this returns a LIST of opponents.
+  function opponentsForWeek(week) {
+    var weeks = asArray(state.schedule && state.schedule.schedule && state.schedule.schedule.weeklySchedule);
+    var out = [];
+    weeks.forEach(function (w) {
+      if (safeStr(w.week) !== safeStr(week)) return;
+      asArray(w.matchup).forEach(function (m) {
+        var ids = asArray(m.franchise).map(function (f) { return pad4(f.id); });
+        if (ids.indexOf(state.viewerFranchiseId) === -1) return;
+        ids.forEach(function (id) {
+          if (id !== state.viewerFranchiseId) out.push(franchiseDisplayName(id));
+        });
+      });
+    });
+    return out;
+  }
+
+  function myStandings() {
+    var root = state.leagueStandings && state.leagueStandings.leagueStandings;
+    if (!root) return null;
+    var list = asArray(root.franchise);
+    if (!list.length) return null;
+    for (var i = 0; i < list.length; i++) {
+      if (pad4(list[i].id) !== state.viewerFranchiseId) continue;
+      var f = list[i];
+      return {
+        place: i + 1,
+        of: list.length,
+        w: Number(f.h2hw || 0), l: Number(f.h2hl || 0), t: Number(f.h2ht || 0),
+        pf: Number(f.pf || 0),
+        allW: Number(f.all_play_w || 0),
+        allL: Number(f.all_play_l || 0),
+        allT: Number(f.all_play_t || 0)
+      };
+    }
+    return null;
+  }
+
+  function ordinal(n) {
+    var v = Number(n || 0);
+    var s = ["th", "st", "nd", "rd"];
+    var m = v % 100;
+    return v + (s[(m - 20) % 10] || s[m] || s[0]);
+  }
+  function recordLabel(w, l, t) {
+    return t ? (w + "-" + l + "-" + t) : (w + "-" + l);
+  }
+
+  // ---------- Roster size rule (UPS canon) ----------
+  //
+  // MFL's league export carries no usable roster cap for us — rosterSize:"50"
+  // is offseason trading headroom, NOT the real rule — so state.rosterLimit
+  // came back 0 and every consumer fell back to a hardcoded 26, flagging legal
+  // rosters as "over the limit". The authoritative UPS rule (Keith): a roster
+  // holds a MIN of 27 and a MAX of 35 through the Sep 6 Contract Deadline, then
+  // a MAX of 30 after it. Under the min you ADD; over the max you CUT.
+  function rosterCaps() {
+    var MIN = 27;
+    // The Contract Deadline (canonically Sep 6) drops the ceiling 35 → 30.
+    // Prefer the league calendar's own deadline; fall back to the fixed Sep 6
+    // boundary (month index 8 = September) when it isn't published.
+    var dl = findEvent(["ups_contract_deadline"]);
+    var afterDeadline;
+    if (dl && dl.days != null) {
+      afterDeadline = dl.days < 0;
     } else {
-      listHtml = '<ul class="tops-cal-list">' + src.map(function (ev, i) {
-        var d = daysUntil(ev.date);
-        var soon = (d != null && d <= 14);
-        var nextBadge = (i === 0) ? '<span class="tops-cal-next">NEXT</span>' : '';
-        var inDays = (d == null) ? '' : (d === 0 ? 'today' : (d === 1 ? 'tomorrow' : (d + ' days')));
-        return '<li' + (soon ? ' class="tops-cal-soon"' : '') + '>'
-          + '<span class="tops-cal-date">' + escapeHtml(fmtEventDate(ev.date)) + '</span>'
-          + '<span class="tops-cal-lbl">' + escapeHtml(eventLabel(ev.event)) + nextBadge + '</span>'
-          + (inDays ? '<span class="tops-cal-when">' + escapeHtml(inDays) + '</span>' : '')
+      var now = new Date();
+      afterDeadline = (now.getMonth() > 8) || (now.getMonth() === 8 && now.getDate() >= 6);
+    }
+    return { min: MIN, max: afterDeadline ? 30 : 35 };
+  }
+
+  // ---------- Zone 1: the attention queue ----------
+  //
+  // Rows are only produced when something is ACTUALLY actionable. If the list
+  // comes back empty the whole zone is omitted from the page — an empty gold
+  // box that says "nothing to do" is just noise.
+  function buildAttentionRows() {
+    var rows = [];
+    var phase = seasonPhase();
+    var cap = capSummary();
+    var ls = lineupState();
+    var caps = rosterCaps();
+
+    // 1 — FA / Expired-Rookie auction. The auction hub had no link anywhere
+    //     on this page before the redesign; during auction season it is the
+    //     single most time-critical thing an owner can be doing.
+    var auction = findEvent(["ups_fa_auction_start", "ups_expired_rookie_auction_start"]);
+    if (auction && auction.days != null && auction.days <= 45) {
+      rows.push({
+        tone: auction.days <= 7 ? "bad" : "warn",
+        title: auction.label + (auction.days <= 0 ? " is open" : " opens " + whenLabel(auction.days)),
+        sub: fmtEventDate(auction.date) + " · " + fmtUsd(cap.remain) + " of cap room to bid with",
+        when: whenLabel(auction.days),
+        whenSub: fmtEventDate(auction.date),
+        cta: "Auction Hub",
+        href: mflModuleUrl("MESSAGE19&hub=auction-hub"),
+        primary: true
+      });
+    }
+
+    // 2 — Over the cap. Hard-blocking; MFL will reject roster moves.
+    if (cap.cap > 0 && cap.remain < 0) {
+      rows.push({
+        tone: "bad",
+        title: "You are " + fmtUsd(Math.abs(cap.remain)) + " over the cap",
+        sub: fmtUsd(cap.total) + " committed against a " + fmtUsd(cap.cap) + " cap",
+        cta: "Front Office",
+        href: mflModuleUrl("MESSAGE7")
+      });
+    }
+
+    // 3 — Roster size outside the legal window (min 27, max 35 pre-deadline /
+    //     30 after). OVER the max is a real cut alarm. UNDER the min means ADD,
+    //     not cut — the old hardcoded 26 told a 22-man roster to "cut 4".
+    if (cap.rosterCount > caps.max) {
+      var over = cap.rosterCount - caps.max;
+      rows.push({
+        tone: "warn",
+        title: "Cut " + plural(over, "player") + " to reach the " + caps.max + " max",
+        sub: cap.expiredCount
+          ? plural(cap.expiredCount, "expired contract") +
+            (cap.expiredCount === 1 ? " charges" : " charge") + " $0 but still hold roster spots"
+          : plural(cap.rosterCount, "player") + " on roster",
+        cta: "Manage roster",
+        href: mflModuleUrl("MESSAGE7")
+      });
+    } else if (cap.rosterCount < caps.min) {
+      var under = caps.min - cap.rosterCount;
+      rows.push({
+        tone: "warn",
+        title: "Add " + plural(under, "player") + " to reach the " + caps.min + " minimum",
+        sub: cap.rosterCount + " on roster · league minimum is " + caps.min,
+        cta: "Add players",
+        href: mflModuleUrl("MESSAGE7")
+      });
+    }
+
+    // 4 — Can't field a legal 18. Same computation in both phases; only the
+    //     framing and the destination change (no lineup CTA in the offseason).
+    if (!ls.validation.complete) {
+      var short = TOTAL_STARTERS - ls.validation.filled;
+      var gaps = ls.validation.emptySlots.map(function (s) { return s.label + (s.note ? " (" + s.note + ")" : ""); });
+      if (phase === "in") {
+        rows.push({
+          tone: "bad",
+          title: "Lineup is " + short + " short — " + ls.validation.filled + " of " + TOTAL_STARTERS + " fillable",
+          sub: "Unfilled: " + gaps.join(" · ") + " · empty slots score 0",
+          cta: "Finish lineup",
+          action: "focusLineup",
+          primary: true
+        });
+      } else {
+        rows.push({
+          tone: "warn",
+          title: "Roster can't field a legal 18 yet",
+          sub: "Short at " + gaps.join(" · ") + " — auction targets",
+          cta: "Auction Hub",
+          href: mflModuleUrl("MESSAGE19&hub=auction-hub")
+        });
+      }
+    }
+
+    // 5 — Incoming trade offers (only INCOMING is actionable; offers you sent
+    //     are waiting on somebody else).
+    var pending = asArray(state.pendingTrades && state.pendingTrades.pendingTrades && state.pendingTrades.pendingTrades.pendingTrade);
+    var incoming = pending.filter(function (t) { return pad4(t.offeredTo) === state.viewerFranchiseId; });
+    if (incoming.length) {
+      rows.push({
+        tone: "warn",
+        title: incoming.length === 1
+          ? "Trade offer from " + franchiseDisplayName(incoming[0].offeringFranchise)
+          : incoming.length + " trade offers waiting on you",
+        sub: incoming.map(function (t) { return franchiseDisplayName(t.offeringFranchise); }).join(" · "),
+        cta: "Review offers",
+        href: mflModuleUrl("MESSAGE6=N")
+      });
+    }
+
+    // 6 — Injured players inside the projected starting 18 (in-season only —
+    //     an offseason injury designation isn't something you act on today).
+    if (phase === "in") {
+      var hurt = [];
+      LINEUP_SLOTS.forEach(function (s) {
+        var r = ls.byPid[ls.draft[s.id]];
+        if (r && r.injStatus) hurt.push(r);
+      });
+      if (hurt.length) {
+        rows.push({
+          tone: "warn",
+          title: plural(hurt.length, "starter") + " carrying an injury designation",
+          sub: hurt.map(function (r) { return r.short + " (" + r.injStatus + ")"; }).join(" · "),
+          cta: "Finish lineup",
+          action: "focusLineup"
+        });
+      }
+    }
+
+    // 7 — Any other deadline inside a week that we haven't already surfaced.
+    upcomingEvents().forEach(function (ev) {
+      if (ev.days == null || ev.days > 7) return;
+      if (auction && ev.event === auction.event) return;
+      rows.push({
+        tone: ev.days <= 2 ? "bad" : "ok",
+        title: ev.label,
+        sub: fmtEventDate(ev.date),
+        when: whenLabel(ev.days),
+        whenSub: fmtEventDate(ev.date),
+        cta: "Front Office",
+        href: mflModuleUrl("MESSAGE7")
+      });
+    });
+
+    return rows;
+  }
+
+  function attentionHtml() {
+    var rows = buildAttentionRows();
+    if (!rows.length) return "";
+    var items = rows.map(function (r) {
+      var whenHtml = r.when
+        ? '<div class="tops-attn-when num">' + escapeHtml(r.when) +
+          (r.whenSub ? '<span>' + escapeHtml(r.whenSub) + '</span>' : '') + '</div>'
+        : '';
+      var ctaCls = "tops-cta" + (r.primary ? "" : " tops-cta--ghost");
+      var cta = r.href
+        ? '<a class="' + ctaCls + '" href="' + escapeHtml(r.href) + '" target="_top">' + escapeHtml(r.cta) + '</a>'
+        : '<button type="button" class="' + ctaCls + '" data-attn-action="' + escapeHtml(r.action || "") + '">' + escapeHtml(r.cta) + '</button>';
+      return '<li>'
+        + '<span class="tops-dot tops-dot--' + escapeHtml(r.tone) + '"></span>'
+        + '<div class="tops-attn-txt">'
+        +   '<div class="tops-attn-t">' + escapeHtml(r.title) + '</div>'
+        +   '<div class="tops-attn-s">' + escapeHtml(r.sub) + '</div>'
+        + '</div>'
+        + whenHtml
+        + cta
+        + '</li>';
+    }).join("");
+    return '<section class="tops-attn" id="topsZone1" aria-label="Needs you">'
+      + '<div class="tops-attn-h">Needs you <span class="tops-attn-cnt">· ' + rows.length + ' open</span></div>'
+      + '<ul>' + items + '</ul>'
+      + '</section>';
+  }
+
+  // ---------- Zone 2: team-state strip ----------
+
+  function stripHtml() {
+    var phase = seasonPhase();
+    var cap = capSummary();
+    var caps = rosterCaps();
+    var ls = lineupState();
+    var st = myStandings();
+    var rank = capRoomRank();
+
+    function tile(k, v, note, noteFlag, bar) {
+      return '<div>'
+        + '<div class="tops-st-k">' + escapeHtml(k) + '</div>'
+        + '<div class="tops-st-v num">' + escapeHtml(v) + '</div>'
+        + (note ? '<div class="tops-st-n' + (noteFlag ? ' is-flag' : '') + '">' + note + '</div>' : '')
+        + (bar || '')
+        + '</div>';
+    }
+
+    var capBar = '<div class="tops-st-bar"><i class="' + (cap.pct >= 90 ? 'is-hot' : '') +
+      '" style="width:' + Math.max(0, Math.min(100, cap.pct)) + '%"></i></div>';
+    var capTile = tile("Cap room", fmtUsd(cap.remain),
+      escapeHtml(fmtUsd(cap.total) + " of " + fmtUsd(cap.cap) + " used"),
+      cap.remain < 0, capBar);
+
+    var rosterNote;
+    if (phase === "in") {
+      rosterNote = escapeHtml(cap.activeCount + " active · " + cap.taxiCount + " taxi · " + cap.irCount + " IR");
+    } else if (cap.rosterCount > caps.max) {
+      rosterNote = escapeHtml((cap.rosterCount - caps.max) + " over the " + caps.max + " max");
+    } else if (cap.rosterCount < caps.min) {
+      rosterNote = escapeHtml((caps.min - cap.rosterCount) + " under the " + caps.min + " min");
+    } else {
+      var openToMax = caps.max - cap.rosterCount;
+      rosterNote = escapeHtml(openToMax + " spot" + (openToMax === 1 ? "" : "s") + " to the " + caps.max + " max");
+    }
+    var rosterOff = cap.rosterCount > caps.max || cap.rosterCount < caps.min;
+    var rosterTile = tile("Roster", String(cap.rosterCount), rosterNote, rosterOff);
+
+    var tiles;
+    if (phase === "in") {
+      var week = currentWeek();
+      var opps = opponentsForWeek(week);
+      tiles = [
+        st ? tile("Record", recordLabel(st.w, st.l, st.t),
+                  escapeHtml(ordinal(st.place) + " of " + st.of))
+           : tile("Record", "—", "standings unavailable"),
+        capTile,
+        rosterTile,
+        tile("Week " + (week || "—"), String(opps.length || "—"),
+             opps.length ? escapeHtml(opps.join(" · ")) : "schedule not published"),
+        st ? tile("All-play", recordLabel(st.allW, st.allL, st.allT),
+                  escapeHtml(Math.round(st.pf).toLocaleString() + " points for"))
+           : tile("All-play", "—", "standings unavailable")
+      ];
+    } else {
+      var picks = myFuturePicks();
+      var pickNote = picks.length
+        ? escapeHtml(picks.slice(0, 5).map(function (p) { return p.year + " R" + p.round; }).join(", "))
+        : "none on the books";
+      tiles = [
+        capTile,
+        tile("Committed", fmtUsd(cap.total),
+             escapeHtml(fmtUsd(cap.salary) + " salary" + (cap.adj ? " · " + fmtUsd(cap.adj) + " adj" : ""))),
+        rosterTile,
+        tile("Auction room", fmtUsd(cap.remain),
+             rank ? escapeHtml(ordinal(rank.rank) + " of " + rank.of + " in room") : "league room unavailable"),
+        tile("Lineup-ready", ls.validation.filled + " / " + TOTAL_STARTERS,
+             ls.validation.complete ? "can field a legal 18" : "short of a legal 18",
+             !ls.validation.complete)
+      ];
+    }
+
+    return '<section class="tops-strip" aria-label="Team state">' + tiles.join("") + '</section>';
+  }
+
+  function myFuturePicks() {
+    var picks = asArray(state.futureDraftPicks && state.futureDraftPicks.futureDraftPicks && state.futureDraftPicks.futureDraftPicks.franchise);
+    var mine = picks.find(function (p) { return pad4(p.id) === state.viewerFranchiseId; });
+    return mine ? asArray(mine.futureDraftPick).map(function (p) {
+      return { year: safeStr(p.year), round: safeStr(p.round), from: pad4(p.originalPickFor) };
+    }) : [];
+  }
+
+  // ---------- Zone 3: lineup / roster shape ----------
+
+  // The chip's second line. NFL team already rides along in the select label
+  // (it's the disambiguator between same-surname players), so the meta line
+  // carries the contract instead of repeating it.
+  function slotMetaFor(row) {
+    if (!row) return "";
+    var bits = [];
+    if (row.salary > 0) bits.push(fmtUsd(row.salary));
+    if (row.contractYear === 0) bits.push("expired");
+    else if (row.contractYear != null && row.contractYear > 0) bits.push("cy " + row.contractYear);
+    if (!bits.length && row.contract) bits.push(row.contract);
+    return bits.join(" · ");
+  }
+
+  function slotOptionsHtml(slot, ls) {
+    var used = {};
+    LINEUP_SLOTS.forEach(function (s) {
+      var pid = ls.draft[s.id];
+      if (pid && s.id !== slot.id) used[pid] = true;
+    });
+    var cur = ls.draft[slot.id] || "";
+    var cands = ls.rows.filter(function (r) {
+      if (!lineupEligibleRow(r)) return false;
+      if (!slotAccepts(slot, r.group)) return false;
+      return !used[r.id] || r.id === cur;
+    }).sort(function (a, b) { return b.salary - a.salary; });
+    var html = '<option value="">— empty —</option>';
+    cands.forEach(function (r) {
+      var lbl = r.short + (r.team ? " · " + r.team : "") + (r.injStatus ? " (" + r.injStatus + ")" : "");
+      html += '<option value="' + escapeHtml(r.id) + '"' + (r.id === cur ? ' selected' : '') + '>' + escapeHtml(lbl) + '</option>';
+    });
+    return html;
+  }
+
+  function bankHtml(side, ls, phase) {
+    var slots = LINEUP_SLOTS.filter(function (s) { return s.side === side; });
+    var target = side === "O" ? OFFENSE_STARTERS : DEFENSE_STARTERS;
+    var filled = 0;
+    var chips = slots.map(function (s) {
+      var pid = ls.draft[s.id];
+      var row = pid ? ls.byPid[pid] : null;
+      if (row) filled += 1;
+      var cls = "tops-slot"
+        + (row ? "" : " is-empty")
+        + (row && row.injStatus ? " has-inj" : "")
+        + (phase === "in" ? "" : " is-proj");
+      var key = '<div class="tops-slot-k">' + escapeHtml(s.label)
+        + (s.note ? ' <span class="tops-slot-fx">' + escapeHtml(s.note) + '</span>' : '')
+        + '</div>';
+      var body;
+      if (phase === "in") {
+        body = '<select class="tops-slot-sel" data-slot="' + escapeHtml(s.id) + '" aria-label="' + escapeHtml(s.label) + ' starter">'
+          + slotOptionsHtml(s, ls) + '</select>';
+      } else {
+        body = '<div class="tops-slot-n">' + escapeHtml(row ? row.short : "No " + s.label) + '</div>';
+      }
+      var meta = row
+        ? slotMetaFor(row)
+        : (phase === "in" ? "nobody eligible on the bench" : "roster gap");
+      return '<div class="' + cls + '" data-slot-chip="' + escapeHtml(s.id) + '">'
+        + key + body
+        + '<div class="tops-slot-m">' + escapeHtml(meta) + '</div>'
+        + (row && row.injStatus ? '<span class="tops-slot-inj" title="Injury designation">' + escapeHtml(row.injStatus) + '</span>' : '')
+        + '</div>';
+    }).join("");
+
+    // Bench depth: eligible players for this side who aren't in a slot.
+    var inUse = {};
+    LINEUP_SLOTS.forEach(function (s) { if (ls.draft[s.id]) inUse[ls.draft[s.id]] = true; });
+    var sideGroups = {};
+    slots.forEach(function (s) { s.accepts.forEach(function (g) { sideGroups[g] = true; }); });
+    var bench = ls.rows.filter(function (r) {
+      return lineupEligibleRow(r) && sideGroups[r.group] && !inUse[r.id];
+    }).length;
+
+    return '<div class="tops-bank">'
+      + '<div class="tops-bank-h">' + (side === "O" ? "Offense" : "Defense")
+      +   ' <em>' + filled + ' of ' + target + (bench ? ' · ' + bench + ' deep on the bench' : '') + '</em>'
+      + '</div>'
+      + '<div class="tops-slots">' + chips + '</div>'
+      + '</div>';
+  }
+
+  function lineupZoneHtml() {
+    var phase = seasonPhase();
+    var ls = lineupState();
+    var v = ls.validation;
+
+    var pillCls = v.ok ? "tops-pill is-ok" : (v.problems ? "tops-pill is-bad" : "tops-pill is-warn");
+    var pillTxt = phase === "in"
+      ? (v.complete ? TOTAL_STARTERS + " / " + TOTAL_STARTERS + " set" : v.filled + " / " + TOTAL_STARTERS + " · not legal")
+      : (v.complete ? TOTAL_STARTERS + " / " + TOTAL_STARTERS + " fillable" : v.filled + " / " + TOTAL_STARTERS + " fillable");
+
+    var title, sub, headCta;
+    if (phase === "in") {
+      var wk = currentWeek();
+      title = "Starting Lineup";
+      sub = (wk ? "Week " + wk + " · " : "") + "seeded from your depth chart — review, then save to MFL";
+      headCta = '<a class="tops-cta tops-cta--ghost" href="' + escapeHtml(mflModuleUrl("MESSAGE19&hub=gameday")) + '" target="_top">Game Day</a>';
+    } else {
+      title = "Roster shape vs the 18-slot lineup";
+      sub = "projected Week 1 · lineups open at kickoff";
+      headCta = '<a class="tops-cta tops-cta--ghost" href="' + escapeHtml(mflModuleUrl("MESSAGE7")) + '" target="_top">Front Office</a>';
+    }
+
+    var msgHtml = "";
+    if (state.lineupMessage) {
+      var kind = state.lineupMessage.kind === "ok" ? "is-ok" : (state.lineupMessage.kind === "err" ? "is-err" : "");
+      msgHtml = '<div class="tops-lineup-msg ' + kind + '">' + escapeHtml(state.lineupMessage.text) + '</div>';
+    }
+
+    // D — no lineup submit affordance in the offseason. MFL will not accept a
+    // lineup before the season opens, and offering the button implies it will.
+    var foot;
+    if (phase === "in") {
+      foot = '<div class="tops-lineup-foot">'
+        + '<span class="tops-note">MFL accepts a partial lineup — but <b>' +
+            (v.complete ? "every slot is filled" : plural(TOTAL_STARTERS - v.filled, "empty slot") + " score 0") +
+          '</b>. Taxi, IR and expired-contract players can\'t start.</span>'
+        + '<button type="button" class="tops-cta tops-cta--ghost" id="topsLineupAuto">Auto-fill best available</button>'
+        + '<button type="button" class="tops-cta" id="topsLineupSave"' + (state.lineupSubmitting ? ' disabled' : '') + '>'
+        +   (state.lineupSubmitting ? "Saving…" : "Save lineup to MFL")
+        + '</button>'
+        + '</div>';
+    } else {
+      foot = '<div class="tops-lineup-foot">'
+        + '<span class="tops-note">' + (v.complete
+            ? 'Your roster can field a legal 18 today.'
+            : 'You can\'t field a legal 18 today — <b>' + escapeHtml(v.emptySlots.map(function (s) { return s.label; }).join(", ")) + '</b> ' +
+              (v.emptySlots.length === 1 ? 'has' : 'have') + ' nobody eligible.')
+        + ' Lineups can\'t be submitted until the season opens.</span>'
+        + '</div>';
+    }
+
+    return '<section class="tops-card" id="topsZone3" aria-label="' + escapeHtml(title) + '">'
+      + '<div class="tops-card-h">'
+      +   '<span class="tops-card-t">' + escapeHtml(title) + '</span>'
+      +   '<span class="tops-card-sub">' + escapeHtml(sub) + '</span>'
+      +   '<span class="tops-grow"></span>'
+      +   '<span class="' + pillCls + ' num">' + escapeHtml(pillTxt) + '</span>'
+      +   headCta
+      + '</div>'
+      + msgHtml
+      + bankHtml("O", ls, phase)
+      + bankHtml("D", ls, phase)
+      + foot
+      + '</section>';
+  }
+
+  function renderLineupZone() {
+    var node = document.getElementById("topsZone3");
+    if (!node || !node.parentNode) return;
+    var holder = document.createElement("div");
+    holder.innerHTML = lineupZoneHtml();
+    var next = holder.firstChild;
+    node.parentNode.replaceChild(next, node);
+    wireLineupZone();
+  }
+
+  function wireLineupZone() {
+    var zone = document.getElementById("topsZone3");
+    if (!zone) return;
+    zone.querySelectorAll(".tops-slot-sel").forEach(function (sel) {
+      sel.addEventListener("change", function () {
+        var slotId = sel.getAttribute("data-slot");
+        var pid = sel.value;
+        if (!state.lineupDraft) state.lineupDraft = {};
+        if (pid) state.lineupDraft[slotId] = pid;
+        else delete state.lineupDraft[slotId];
+        state.lineupMessage = null;
+        renderLineupZone();
+        renderAttentionZone();
+      });
+    });
+    var auto = document.getElementById("topsLineupAuto");
+    if (auto) auto.addEventListener("click", function () {
+      state.lineupDraft = autoFillSlots(buildLineupRows(), null);
+      state.lineupMessage = null;
+      renderLineupZone();
+      renderAttentionZone();
+    });
+    var save = document.getElementById("topsLineupSave");
+    if (save) save.addEventListener("click", function () {
+      if (save.hasAttribute("disabled")) return;
+      submitLineupDraft();
+    });
+  }
+
+  // ---------- Zone 4: League Pulse + Calendar ----------
+
+  // Resolve a comma-separated MFL transaction asset string into readable
+  // labels. Token formats observed in the UPS league:
+  //   12345                 → player_id (look up name+pos via playerById)
+  //   DP_<round>_<pick>     → current-year draft pick
+  //   FP_<fid>_<year>_<rd>  → future draft pick (round from franchise <fid>)
+  //   BB_<amount>           → blind-bid amount in BBID transactions
+  function decodeAssetTokens(raw) {
+    var tokens = String(raw || "").split(",").map(function (t) { return t.trim(); }).filter(Boolean);
+    return tokens.map(function (tok) {
+      var m;
+      if (/^\d+$/.test(tok)) {
+        var p = playerById(tok);
+        if (p) {
+          var pos = p.position ? " (" + p.position + ")" : "";
+          return prettyPlayerName(p.name) + pos;
+        }
+        return "Player #" + tok;
+      }
+      if ((m = tok.match(/^DP_(\d+)_(\d+)$/))) {
+        return state.ctx.year + " R" + m[1] + ".P" + m[2];
+      }
+      if ((m = tok.match(/^FP_(\d{4})_(\d+)_(\d+)$/))) {
+        var fr = state.franchises.find(function (f) { return f.id === pad4(m[1]); });
+        return m[2] + " R" + m[3] + (fr ? " (from " + fr.name + ")" : "");
+      }
+      if ((m = tok.match(/^BB_(\d+)$/))) {
+        return "$" + Number(m[1]).toLocaleString() + " BB";
+      }
+      return tok;
+    });
+  }
+
+  var TXN_TAG = {
+    TRADE:       { label: "Trade", cls: "" },
+    BBID_WAIVER: { label: "Waiver", cls: "tops-tag--add" },
+    FREE_AGENT:  { label: "FA", cls: "tops-tag--add" },
+    AUCTION_DRAFT: { label: "Auction", cls: "tops-tag--add" },
+    IR:          { label: "IR", cls: "" },
+    TAXI:        { label: "Taxi", cls: "" }
+  };
+
+  // One League Pulse row. Returns "" for a transaction with nothing to show:
+  // TAXI / IR / lock rows carry an EMPTY `transaction` string, which used to
+  // render as a bare franchise name plus a dead tag. The caller skips "".
+  function pulseRowHtml(t) {
+    var typ = safeStr(t.type).toUpperCase();
+    var tag = TXN_TAG[typ] || { label: typ.replace(/_/g, " "), cls: "" };
+    var when = new Date(Number(t.timestamp || 0) * 1000);
+    var dateStr = isNaN(when.getTime()) ? "" : when.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    var salaryHtml = t.salary
+      ? ' <span class="tops-feed-who">· $' + escapeHtml(Number(t.salary).toLocaleString()) + '</span>'
+      : '';
+    var body;
+
+    if (typ === "TRADE") {
+      var a = franchiseDisplayName(t.franchise);
+      var b = franchiseDisplayName(t.franchise2);
+      var gave = decodeAssetTokens(t.franchise1_gave_up).slice(0, 3);
+      var got = decodeAssetTokens(t.franchise2_gave_up).slice(0, 3);
+      body = '<b>' + escapeHtml(a) + '</b> &harr; <b>' + escapeHtml(b) + '</b>'
+        + (gave.length || got.length
+            ? ' <span class="tops-feed-who">' + escapeHtml(gave.join(", ")) + ' for ' + escapeHtml(got.join(", ")) + '</span>'
+            : '');
+    } else if (typ === "FREE_AGENT" || typ === "BBID_WAIVER" || typ === "WAIVER") {
+      // MFL's free-agent / waiver `transaction` string is `added|dropped`
+      // (pipe-separated, each side a comma list of player ids). A pure DROP has
+      // an empty added side — e.g. "|17049," — so the old `\d{3,}` match, which
+      // ignored the pipe, rendered a drop identically to a signing under a green
+      // "FA" tag. Split on the pipe and label the two sides distinctly.
+      // (Auction strings are `pid|price|note`, NOT added|dropped, so they are
+      // deliberately excluded here and stay on the neutral path below.)
+      var sides = safeStr(t.transaction).split("|");
+      var addedNames = decodeAssetTokens((String(sides[0] || "").match(/\d{3,}/g) || []).slice(0, 3).join(","));
+      var droppedNames = decodeAssetTokens((String(sides[1] || "").match(/\d{3,}/g) || []).slice(0, 3).join(","));
+      if (!addedNames.length && !droppedNames.length) return "";
+      // A pure drop must not wear the green "add" tag.
+      if (!addedNames.length && droppedNames.length) tag = { label: "Drop", cls: "tops-tag--drop" };
+      var segs = [];
+      if (addedNames.length) segs.push('<span class="tops-feed-add">+ ' + escapeHtml(addedNames.join(", ")) + '</span>');
+      if (droppedNames.length) segs.push('<span class="tops-feed-drop">− ' + escapeHtml(droppedNames.join(", ")) + '</span>');
+      body = '<b>' + escapeHtml(franchiseDisplayName(t.franchise)) + '</b> ' + segs.join(' ') + salaryHtml;
+    } else {
+      var who = franchiseDisplayName(t.franchise);
+      var raw = safeStr(t.transaction);
+      var pids = (raw.match(/\d{3,}/g) || []).slice(0, 3);
+      var names = decodeAssetTokens(pids.join(","));
+      // Empty TAXI / IR / lock rows have no player and no salary — a franchise
+      // name with a lone tag is a dead row, so drop it entirely.
+      if (!names.length && !t.salary) return "";
+      body = '<b>' + escapeHtml(who) + '</b>'
+        + (names.length ? ' <span class="tops-feed-who">' + escapeHtml(names.join(", ")) + '</span>' : '')
+        + salaryHtml;
+    }
+
+    return '<li>'
+      + '<span class="tops-feed-w">' + escapeHtml(dateStr) + '</span>'
+      + '<span class="tops-feed-b">' + body + '</span>'
+      + '<span class="tops-feed-tag ' + tag.cls + '">' + escapeHtml(tag.label) + '</span>'
+      + '</li>';
+  }
+
+  function pulseHtml() {
+    var txns = asArray(state.transactions && state.transactions.transactions && state.transactions.transactions.transaction);
+    // League-wide, newest first — the hub's job is "what happened in the
+    // league", not "what did I do" (my own moves are in Front Office). Fill up
+    // to 8 rows AFTER dropping contentless ones, so skipped taxi/IR rows don't
+    // eat a visible slot.
+    var sorted = txns.slice().sort(function (a, b) {
+      return Number(b.timestamp || 0) - Number(a.timestamp || 0);
+    });
+    var rows = [];
+    for (var i = 0; i < sorted.length && rows.length < 8; i++) {
+      var rowHtml = pulseRowHtml(sorted[i]);
+      if (rowHtml) rows.push(rowHtml);
+    }
+
+    var listHtml = rows.length
+      ? '<ul class="tops-feed">' + rows.join("") + '</ul>'
+      : '<div class="tops-empty">No league transactions in the last 14 days.</div>';
+
+    return '<section class="tops-card">'
+      + '<div class="tops-card-h">'
+      +   '<span class="tops-card-t">League Pulse</span>'
+      +   '<span class="tops-card-sub">last 14 days · all franchises</span>'
+      +   '<span class="tops-grow"></span>'
+      +   '<a class="tops-card-link" href="' + escapeHtml(mflPageUrl("/options?O=03")) + '" target="_top">All transactions &rsaquo;</a>'
+      + '</div>'
+      + listHtml
+      + '</section>';
+  }
+
+  function calendarHtml() {
+    var events = upcomingEvents();
+    var listHtml;
+    if (!events.length) {
+      listHtml = '<div class="tops-empty">No upcoming events on the UPS calendar.</div>';
+    } else {
+      listHtml = '<ul class="tops-cal">' + events.slice(0, 7).map(function (ev, i) {
+        return '<li' + (i === 0 ? ' class="is-next"' : '') + '>'
+          + '<span class="tops-cal-d">' + escapeHtml(fmtEventDate(ev.date)) + '</span>'
+          + '<span class="tops-cal-l"><b>' + escapeHtml(ev.label) + '</b></span>'
+          + '<span class="tops-cal-in num">' + escapeHtml(ev.days == null ? "" : (ev.days <= 0 ? "today" : ev.days + " d")) + '</span>'
           + '</li>';
       }).join("") + '</ul>';
     }
+    return '<section class="tops-card">'
+      + '<div class="tops-card-h">'
+      +   '<span class="tops-card-t">Calendar</span>'
+      +   '<span class="tops-grow"></span>'
+      +   '<span class="tops-pill is-mute">next ' + Math.min(events.length, 7) + '</span>'
+      + '</div>'
+      + listHtml
+      + '</section>';
+  }
 
-    el.innerHTML = '<div class="tops-card-title">Events &amp; Deadlines</div>' + listHtml;
+  // ---------- Zone 5: demoted nav ----------
+
+  function navHtml() {
+    var pending = asArray(state.pendingTrades && state.pendingTrades.pendingTrades && state.pendingTrades.pendingTrades.pendingTrade)
+      .filter(function (t) { return pad4(t.offeredTo) === state.viewerFranchiseId; }).length;
+
+    var roster = getMyRoster();
+    var rosterIds = {};
+    roster.forEach(function (r) { rosterIds[String(r.id)] = true; });
+    var injCount = asArray(state.injuries && state.injuries.injuries && state.injuries.injuries.injury)
+      .filter(function (i) { return rosterIds[String(i.id)]; }).length;
+
+    // On The Block is the VIEWER's own shopping list, so the badge counts only
+    // the viewer's players on the block — not every franchise's tradeBait entry
+    // (which counted up to 12 and made the badge meaningless). MFL returns one
+    // tradeBait entry per franchise with a comma-separated `willGiveUp` pid
+    // list, so scope to the viewer's franchise and count its listed players.
+    var baitCount = asArray(state.tradeBait && state.tradeBait.tradeBaits && state.tradeBait.tradeBaits.tradeBait)
+      .filter(function (b) { return pad4(b.franchise_id) === state.viewerFranchiseId; })
+      .reduce(function (n, b) {
+        return n + (String(b.willGiveUp || "").match(/\d{3,}/g) || []).length;
+      }, 0);
+
+    // C — the Auction Hub had no link on this page at all before the
+    // redesign. It gets a permanent nav pill, plus a countdown badge (and an
+    // attention row above) whenever an auction is on the calendar.
+    var auction = findEvent(["ups_fa_auction_start", "ups_expired_rookie_auction_start"]);
+    var auctionBadge = (auction && auction.days != null && auction.days <= 45)
+      ? (auction.days <= 0 ? "OPEN" : auction.days + "d")
+      : "";
+
+    var links = [
+      { label: "Front Office", href: mflModuleUrl("MESSAGE7") },
+      { label: "Trade War Room", href: mflModuleUrl("MESSAGE6=N"), badge: pending ? String(pending) : "", warn: true },
+      { label: "Auction Hub", href: mflModuleUrl("MESSAGE19&hub=auction-hub"), badge: auctionBadge, warn: true },
+      { label: "Game Day", href: mflModuleUrl("MESSAGE19&hub=gameday") },
+      { label: "Stats", href: mflModuleUrl("MESSAGE13") },
+      { label: "Standings", href: mflModuleUrl("MESSAGE4") },
+      { label: "Rookie Draft Hub", href: mflModuleUrl("MESSAGE12") },
+      { label: "Add / Drop", href: mflPageUrl("/add_drop") }
+    ];
+
+    var linkHtml = links.map(function (l) {
+      return '<a href="' + escapeHtml(l.href) + '" target="_top">' + escapeHtml(l.label)
+        + (l.badge ? '<span class="tops-badge' + (l.warn ? ' is-warn' : '') + '">' + escapeHtml(l.badge) + '</span>' : '')
+        + '</a>';
+    }).join("");
+
+    // Two in-hub disclosure panels. These keep the authoring / search
+    // surfaces reachable without putting them above the fold.
+    var panelHtml = ''
+      + '<button type="button" class="tops-nav-toggle" data-panel="news" aria-expanded="false">Player News'
+      +   (injCount ? '<span class="tops-badge is-warn">' + injCount + '</span>' : '')
+      + '</button>'
+      + '<button type="button" class="tops-nav-toggle" data-panel="bait" aria-expanded="false">On The Block'
+      +   (baitCount ? '<span class="tops-badge">' + baitCount + '</span>' : '')
+      + '</button>';
+
+    return '<nav class="tops-nav" aria-label="Everything else">' + linkHtml + panelHtml + '</nav>'
+      + '<section class="tops-panel" id="topsNewsPanel" hidden><div data-card="allPlayerNews"></div></section>'
+      + '<section class="tops-panel" id="topsBaitPanel" hidden><div id="topsBaitBody"></div></section>';
+  }
+
+  // ---------- Shell ----------
+
+  function identityHtml() {
+    var f = state.viewerFranchise || {};
+    var st = myStandings();
+    var phase = seasonPhase();
+    var mark = f.icon
+      ? '<img class="tops-idmark tops-idmark--img" src="' + escapeHtml(f.icon) + '" alt="">'
+      : '<div class="tops-idmark">' + escapeHtml(monogram(f.name)) + '</div>';
+
+    var metaTop, metaSub;
+    if (phase === "in") {
+      var wk = currentWeek();
+      metaTop = state.ctx.year + (st ? " · " + recordLabel(st.w, st.l, st.t) + " · " + ordinal(st.place) : "");
+      var opps = opponentsForWeek(wk);
+      metaSub = (wk ? "Week " + wk : "In season") + (opps.length ? " · " + opps.length + "-game pod week" : "");
+    } else {
+      var next = upcomingEvents()[0];
+      metaTop = state.ctx.year + " offseason";
+      metaSub = next ? ("Next: " + next.label + " " + whenLabel(next.days)) : "No deadlines on the calendar";
+    }
+
+    return '<header class="tops-idbar">'
+      + mark
+      + '<div>'
+      +   '<div class="tops-idname">' + escapeHtml(f.name || "My Team") + '</div>'
+      +   '<div class="tops-idsub">' + escapeHtml([f.owner, "Franchise " + state.viewerFranchiseId].filter(Boolean).join(" · ")) + '</div>'
+      + '</div>'
+      + '<div class="tops-idspacer"></div>'
+      + '<div class="tops-idmeta"><b>' + escapeHtml(metaTop) + '</b><br>' + escapeHtml(metaSub) + '</div>'
+      + '</header>';
+  }
+
+  function footerHtml() {
+    return '<div class="tops-foot">'
+      + '<span>Build ' + escapeHtml(BUILD) + '</span>'
+      + '<span>' + (state.lastLoaded ? 'Refreshed ' + escapeHtml(state.lastLoaded.toLocaleTimeString()) : 'Loading…') + '</span>'
+      + '<span>MFL L=' + escapeHtml(state.ctx.leagueId) + ' · franchise ' + escapeHtml(state.viewerFranchiseId) + '</span>'
+      + (state.loadErrors.length ? '<span class="is-err">' + state.loadErrors.length + ' endpoint issue(s)</span>' : '')
+      + '</div>';
+  }
+
+  function renderHub() {
+    var mount = document.getElementById("teamOpsMount");
+    if (!mount) return;
+    mount.innerHTML = '<div class="tops-shell">'
+      + identityHtml()
+      + '<div id="topsZone1Mount">' + attentionHtml() + '</div>'
+      + stripHtml()
+      + lineupZoneHtml()
+      + '<div class="tops-two">' + pulseHtml() + calendarHtml() + '</div>'
+      + navHtml()
+      + footerHtml()
+      + '</div>';
+
+    els.mount = mount;
+    els.cards = {};
+    mount.querySelectorAll("[data-card]").forEach(function (node) {
+      els.cards[node.getAttribute("data-card")] = node;
+    });
+
+    wireLineupZone();
+    wireAttentionZone();
+    wireNav();
+  }
+
+  function renderAttentionZone() {
+    var holder = document.getElementById("topsZone1Mount");
+    if (!holder) return;
+    holder.innerHTML = attentionHtml();
+    wireAttentionZone();
+  }
+
+  function wireAttentionZone() {
+    var zone = document.getElementById("topsZone1");
+    if (!zone) return;
+    zone.querySelectorAll("[data-attn-action]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.getAttribute("data-attn-action") !== "focusLineup") return;
+        var ls = lineupState();
+        var firstEmpty = null;
+        for (var i = 0; i < LINEUP_SLOTS.length; i++) {
+          if (!ls.draft[LINEUP_SLOTS[i].id]) { firstEmpty = LINEUP_SLOTS[i].id; break; }
+        }
+        var target = firstEmpty
+          ? document.querySelector('.tops-slot-sel[data-slot="' + firstEmpty + '"]')
+          : document.getElementById("topsZone3");
+        if (!target) return;
+        // The hub renders in a height-synced, cross-origin iframe, so a
+        // programmatic scroll of the PARENT document isn't available to us.
+        // focus() is the reliable in-frame affordance; scrollIntoView is a
+        // best-effort extra that silently no-ops when the frame can't scroll.
+        try { target.scrollIntoView({ block: "center" }); } catch (e) {}
+        if (target.focus) target.focus();
+      });
+    });
+  }
+
+  function wireNav() {
+    var mount = els.mount;
+    if (!mount) return;
+    mount.querySelectorAll(".tops-nav-toggle").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var which = btn.getAttribute("data-panel");
+        var next = (state.openPanel === which) ? "" : which;
+        state.openPanel = next;
+        mount.querySelectorAll(".tops-nav-toggle").forEach(function (b) {
+          b.setAttribute("aria-expanded", b.getAttribute("data-panel") === next ? "true" : "false");
+        });
+        var newsPanel = document.getElementById("topsNewsPanel");
+        var baitPanel = document.getElementById("topsBaitPanel");
+        if (newsPanel) newsPanel.hidden = (next !== "news");
+        if (baitPanel) baitPanel.hidden = (next !== "bait");
+        // Lazy first render — a collapsed panel never costs a worker call.
+        if (next === "news") renderAllPlayerNews();
+        if (next === "bait") renderTradeBaitPanel();
+      });
+    });
+  }
+
+  // ---------- Worker writes ----------
+
+  // Extract the most specific MFL error message we can from a worker
+  // response. Order of preference:
+  //   1. resp.body.error                                   (worker's structured error)
+  //   2. resp.body.mfl_response.error.$t                   (MFL wrapped JSON error)
+  //   3. resp.body.mfl_response.error                      (MFL plain-string error)
+  //   4. resp.body.mfl_response (if string, first 200 chars)
+  //   5. fallback "<msg> (HTTP <status>)"
+  function extractMflError(resp, fallbackMsg) {
+    var body = resp && resp.body;
+    var stat = resp && resp.status;
+    var statSfx = stat ? " (HTTP " + stat + ")" : "";
+    if (body) {
+      if (body.error) return String(body.error) + statSfx;
+      var mr = body.mfl_response;
+      if (mr) {
+        if (mr.error) {
+          if (typeof mr.error === "object" && mr.error.$t) return String(mr.error.$t) + statSfx;
+          if (typeof mr.error === "string") return mr.error + statSfx;
+        }
+        if (typeof mr === "string" && mr.length) return mr.slice(0, 200) + statSfx;
+      }
+    }
+    return fallbackMsg + statSfx;
+  }
+
+  // POST the lineup draft to the worker.
+  //
+  // SIDE EFFECT — WRITES REAL MFL DATA. The worker verifies the forwarded
+  // MFL_USER_ID cookie resolves to this franchise (403 otherwise), then POSTs
+  // import?TYPE=lineup to MFL with STARTERS=<csv>, overwriting the franchise's
+  // real starting lineup for MFL's CURRENT scoring week (no week param is
+  // sent). No Discord post, no D1 write on this path.
+  //
+  // Wire format is unchanged: a FLAT array of player IDs. MFL re-slots by
+  // position server-side; the named slots are a client-side aid. Only the
+  // client state shape changed (flat Set → { slotId: pid }), so we walk
+  // LINEUP_SLOTS in order and dedupe — same approach as gameday.html.
+  function submitLineupDraft() {
+    if (state.lineupSubmitting) return;
+    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    if (!fid) return;
+    var draft = state.lineupDraft || {};
+    var seen = {}, starters = [];
+    LINEUP_SLOTS.forEach(function (s) {
+      var pid = draft[s.id];
+      if (pid && !seen[pid]) { seen[pid] = 1; starters.push(pid); }
+    });
+    state.lineupSubmitting = true;
+    state.lineupMessage = { kind: "info", text: "Submitting lineup to MFL…" };
+    renderLineupZone();
+    fetch(withMflUserParam(workerBase() + "/api/submit-lineup"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ franchiseId: fid, starters: starters }),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (resp) {
+        if (resp.body && resp.body.ok) {
+          state.lineupMessage = { kind: "ok", text: "Lineup saved to MFL ✓" };
+        } else {
+          state.lineupMessage = { kind: "err", text: String(extractMflError(resp, "MFL rejected lineup")) };
+        }
+      })
+      .catch(function (e) {
+        state.lineupMessage = { kind: "err", text: "Submit failed: " + (e && e.message || e) };
+      })
+      .then(function () {
+        state.lineupSubmitting = false;
+        renderLineupZone();
+      });
+  }
+
+  // Load this franchise's persisted per-player trade-bait notes from D1.
+  // Idempotent: only fires once per page load, and only when the On The
+  // Block panel is actually opened.
+  function loadTradeBaitNotes() {
+    if (state.tradeBaitNotesLoaded) return;
+    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    if (!fid) return;
+    state.tradeBaitNotesLoaded = true;
+    fetch(workerBase() + "/api/trade-bait-notes?franchiseId=" + encodeURIComponent(fid))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok) return;
+        var notes = {};
+        (j.notes || []).forEach(function (n) { notes[String(n.player_id)] = String(n.note || ""); });
+        state.tradeBaitNotes = notes;
+        // Seed the bait set with players that have notes — the owner cared
+        // enough to annotate them, so they're presumed still available.
+        if (!state.tradeBaitDraft) state.tradeBaitDraft = new Set();
+        Object.keys(notes).forEach(function (pid) { state.tradeBaitDraft.add(pid); });
+        if (state.openPanel === "bait") renderTradeBaitPanel();
+      })
+      .catch(function () { /* non-fatal — UI just shows blank notes */ });
+  }
+
+  // POST the trade bait draft to the worker.
+  //
+  // SIDE EFFECT — THIS IS THE LOUD ONE. Three real-world writes per save:
+  //   1. MFL import?TYPE=tradeBait with WILL_GIVE_UP + IN_EXCHANGE_FOR, using
+  //      the owner's forwarded MFL_USER_ID cookie — publicly changes this
+  //      franchise's On-The-Block listing league-wide.
+  //   2. DELETE-then-INSERT of D1 ups_trade_bait_notes for
+  //      (league, season, franchise) — blank notes prune rows.
+  //   3. postOtbDiscord() — a formatted announcement (with a Giphy GIF) to the
+  //      real OTB Discord channel, PLUS a discussion thread named
+  //      "OTB · <franchise> · <date>". Every save re-announces to the league.
+  // The worker's dryRun flag skips 1 and 2 but STILL fires 3; this file never
+  // sends dryRun, so a save from here is fully live on all three.
+  function submitTradeBaitDraft() {
+    if (state.tradeBaitSubmitting) return;
+    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    if (!fid) return;
+    var willGiveUp = state.tradeBaitDraft ? Array.from(state.tradeBaitDraft) : [];
+    var lookingForRaw = String(state.tradeBaitLookingFor || "").trim();
+    // Only send notes for currently-checked players. Unchecking a player
+    // prunes their note via the worker's delete-then-insert pattern.
+    var notesPayload = {};
+    if (state.tradeBaitNotes) {
+      Object.keys(state.tradeBaitNotes).forEach(function (pid) {
+        if (state.tradeBaitDraft && state.tradeBaitDraft.has(pid)) {
+          notesPayload[pid] = state.tradeBaitNotes[pid];
+        }
+      });
+    }
+    // Build playerNames map for the worker — used for both the MFL comment
+    // concat AND the OTB Discord announcement. Send raw inputs; the worker
+    // does MFL truncation + Discord formatting.
+    var playerNames = {};
+    getMyRoster().forEach(function (r) {
+      var p = playerById(r.id) || {};
+      playerNames[String(r.id)] = safeStr(p.name) || String(r.id);
+    });
+    var franchiseName = (state.viewerFranchise && state.viewerFranchise.name)
+      || (state.ctx && state.ctx.franchiseName)
+      || "";
+
+    state.tradeBaitSubmitting = true;
+    state.tradeBaitMessage = { kind: "info", text: "Submitting trade bait to MFL…" };
+    renderTradeBaitPanel();
+    fetch(withMflUserParam(workerBase() + "/api/submit-trade-bait"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        franchiseId: fid,
+        franchiseName: franchiseName,
+        willGiveUp: willGiveUp,
+        lookingFor: lookingForRaw,    // raw — worker does MFL concat + truncate
+        notes: notesPayload,
+        playerNames: playerNames,
+      }),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (resp) {
+        if (resp.body && resp.body.ok) {
+          state.tradeBaitMessage = { kind: "ok", text: "Trade bait saved + announced ✓" };
+        } else {
+          state.tradeBaitMessage = { kind: "err", text: String(extractMflError(resp, "MFL rejected trade bait")) };
+        }
+      })
+      .catch(function (e) {
+        state.tradeBaitMessage = { kind: "err", text: "Submit failed: " + (e && e.message || e) };
+      })
+      .then(function () {
+        state.tradeBaitSubmitting = false;
+        renderTradeBaitPanel();
+      });
+  }
+
+  // ---------- On The Block panel (position-grouped roster) ----------
+  //
+  // The trade-bait authoring surface, demoted out of the hub spine into a
+  // Zone 5 disclosure panel. Position-grouped (NOT slot-based — slots are a
+  // lineup concept and mean nothing here).
+  var BAIT_GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB", "OTH"];
+  var BAIT_GROUP_LABEL = {
+    QB: "QB", RB: "RB", WR: "WR", TE: "TE", PK: "K", PN: "P",
+    DL: "DL (DT/DE)", LB: "LB", DB: "DB (CB/S)", OTH: "Other"
+  };
+
+  function renderTradeBaitPanel() {
+    var el = document.getElementById("topsBaitBody");
+    if (!el) return;
+    if (!state.tradeBaitDraft) state.tradeBaitDraft = new Set();
+    if (!state.tradeBaitNotes) state.tradeBaitNotes = {};
+    if (!state.tradeBaitNotesLoaded) loadTradeBaitNotes();
+
+    var rows = buildLineupRows();
+    if (!rows.length) {
+      el.innerHTML = '<div class="tops-empty">No roster data loaded yet.</div>';
+      return;
+    }
+
+    var byGroup = {};
+    BAIT_GROUP_ORDER.forEach(function (g) { byGroup[g] = []; });
+    rows.forEach(function (r) { (byGroup[r.group] || byGroup.OTH).push(r); });
+    Object.keys(byGroup).forEach(function (k) {
+      byGroup[k].sort(function (a, b) { return b.salary - a.salary; });
+    });
+
+    var sections = BAIT_GROUP_ORDER.map(function (g) {
+      var groupRows = byGroup[g] || [];
+      if (!groupRows.length) return "";
+      var marked = groupRows.reduce(function (acc, r) {
+        return acc + (state.tradeBaitDraft.has(r.id) ? 1 : 0);
+      }, 0);
+      var body = groupRows.map(function (r) {
+        var checked = state.tradeBaitDraft.has(r.id);
+        var badges = (r.isTaxi ? '<span class="tops-tag-mini">TAXI</span>' : '')
+          + (r.isIr ? '<span class="tops-tag-mini">IR</span>' : '')
+          + (r.isExpired ? '<span class="tops-tag-mini is-bad">EXP</span>' : '')
+          + (r.injStatus ? '<span class="tops-tag-mini is-warn">' + escapeHtml(r.injStatus) + '</span>' : '');
+        // Taxi players ARE tradeable (Keith 2026-05-15) — MFL's tradeBait
+        // accepts them, so every rostered player is bait-eligible.
+        var main = '<tr class="tops-bait-row' + (checked ? ' is-marked' : '') + '" data-pid="' + escapeHtml(r.id) + '">'
+          + '<td class="tops-bait-check"><input type="checkbox" class="tops-bait-cbx" data-pid="' + escapeHtml(r.id) + '"'
+          +   (checked ? ' checked' : '') + ' aria-label="Mark ' + escapeHtml(r.name) + ' available for trade"></td>'
+          + '<td><span class="tops-pos">' + escapeHtml(r.pos) + '</span></td>'
+          + '<td><span class="tops-bait-name" tabindex="0" role="button" data-action="profile">' + escapeHtml(r.name) + '</span> ' + badges + '</td>'
+          + '<td>' + escapeHtml(r.team) + '</td>'
+          + '<td class="num">' + (r.salary > 0 ? escapeHtml(fmtUsd(r.salary)) : '—') + '</td>'
+          + '<td>' + escapeHtml(r.contract) + '</td>'
+          + '</tr>';
+        if (!checked) return main;
+        var noteVal = state.tradeBaitNotes[r.id] || "";
+        return main + '<tr class="tops-bait-note-row"><td colspan="6">'
+          + '<label class="tops-bait-note-label">Note for ' + escapeHtml(r.short) + '</label>'
+          + '<input type="text" class="tops-bait-note-input" data-pid="' + escapeHtml(r.id) + '" maxlength="500"'
+          +   ' placeholder="why available · floor price · package piece" value="' + escapeHtml(noteVal) + '">'
+          + '</td></tr>';
+      }).join("");
+      return '<div class="tops-bait-group">'
+        + '<div class="tops-bait-group-h">' + escapeHtml(BAIT_GROUP_LABEL[g] || g)
+        +   '<span class="tops-bait-group-n">' + plural(groupRows.length, "player") + '</span>'
+        +   (marked ? '<span class="tops-pill is-ok">' + marked + ' available</span>' : '')
+        + '</div>'
+        + '<table class="tops-bait-table">'
+        +   '<thead><tr><th aria-label="Available"></th><th>Pos</th><th>Player</th><th>Team</th><th class="num">Salary</th><th>Contract</th></tr></thead>'
+        +   '<tbody>' + body + '</tbody>'
+        + '</table>'
+        + '</div>';
+    }).join("");
+
+    var msgHtml = "";
+    if (state.tradeBaitMessage) {
+      var kind = state.tradeBaitMessage.kind === "ok" ? "is-ok" : (state.tradeBaitMessage.kind === "err" ? "is-err" : "");
+      msgHtml = '<div class="tops-lineup-msg ' + kind + '">' + escapeHtml(state.tradeBaitMessage.text) + '</div>';
+    }
+
+    el.innerHTML = ''
+      + '<div class="tops-card-h">'
+      +   '<span class="tops-card-t">On The Block</span>'
+      +   '<span class="tops-card-sub">' + escapeHtml(plural(state.tradeBaitDraft.size, "player") + " marked available") + '</span>'
+      +   '<span class="tops-grow"></span>'
+      +   '<a class="tops-card-link" href="' + escapeHtml(mflPageUrl("/options?O=133")) + '" target="_top">League trade block &rsaquo;</a>'
+      +   '<button type="button" class="tops-cta" id="topsBaitSave"' + (state.tradeBaitSubmitting ? ' disabled' : '') + '>'
+      +     (state.tradeBaitSubmitting ? "Saving…" : "Save + announce")
+      +   '</button>'
+      + '</div>'
+      + '<div class="tops-note tops-note--warn">Saving publishes your block league-wide in MFL <b>and</b> posts an announcement to Discord.</div>'
+      + msgHtml
+      + '<div class="tops-bait-comment">'
+      +   '<label for="topsBaitLookingFor">What I\'m looking for</label>'
+      +   '<textarea id="topsBaitLookingFor" rows="2" placeholder="e.g. WR2 with starter upside, 2027 1st, anything at TE…">'
+      +     escapeHtml(state.tradeBaitLookingFor || "")
+      +   '</textarea>'
+      + '</div>'
+      + sections;
+
+    el.querySelectorAll(".tops-bait-cbx").forEach(function (cbx) {
+      cbx.addEventListener("change", function () {
+        var pid = cbx.getAttribute("data-pid");
+        if (cbx.checked) state.tradeBaitDraft.add(pid);
+        else state.tradeBaitDraft.delete(pid);
+        state.tradeBaitMessage = null;
+        renderTradeBaitPanel();
+      });
+    });
+    // Free-text inputs persist on input WITHOUT a re-render so the caret
+    // doesn't jump on every keystroke.
+    var lookingFor = el.querySelector("#topsBaitLookingFor");
+    if (lookingFor) lookingFor.addEventListener("input", function () {
+      state.tradeBaitLookingFor = lookingFor.value;
+      state.tradeBaitMessage = null;
+    });
+    el.querySelectorAll(".tops-bait-note-input").forEach(function (inp) {
+      inp.addEventListener("input", function () {
+        var pid = inp.getAttribute("data-pid");
+        if (!pid) return;
+        state.tradeBaitNotes[pid] = inp.value;
+        state.tradeBaitMessage = null;
+      });
+    });
+    var save = document.getElementById("topsBaitSave");
+    if (save) save.addEventListener("click", function () {
+      if (save.hasAttribute("disabled")) return;
+      submitTradeBaitDraft();
+    });
+    el.querySelectorAll('[data-action="profile"]').forEach(function (node) {
+      var row = node.closest(".tops-bait-row");
+      var pid = row && row.getAttribute("data-pid");
+      if (!pid) return;
+      node.addEventListener("click", function (e) { e.stopPropagation(); openPlayerProfileModal(pid); });
+      node.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlayerProfileModal(pid); }
+      });
+    });
   }
 
   function renderAll() {
-    renderShell();
-    // If we couldn't figure out who the viewer is, render a clear "pick
-    // your franchise" empty state rather than silently zeroing every
-    // card. Common causes: HPM mounted on a page MFL doesn't inject
-    // FRANCHISE_ID for; cross-origin local testing where MFL fetches
-    // are CORS-blocked; user not logged in.
+    // If we couldn't figure out who the viewer is, render a clear "pick your
+    // franchise" empty state rather than silently zeroing every zone. Common
+    // causes: HPM mounted on a page MFL doesn't inject FRANCHISE_ID for;
+    // cross-origin local testing where MFL fetches are CORS-blocked; user
+    // not logged in.
     if (!state.viewerFranchiseId || !state.viewerFranchise) {
       renderViewerEmptyState();
       return;
     }
-    renderSummary();
-    renderMatchup();
-    renderLineup();
-    renderRoster();
-    renderNextDecision();
-    // renderRiskHeatmap + renderCapTrajectory removed in v1.7.32 — were
-    // placeholder cards. Functions kept below as no-ops in case anything
-    // else still calls them; safe to delete in a future cleanup pass.
-    renderPendingTrades();
-    renderWaivers();
-    renderTransactions();
-    renderFuturePicks();
-    renderSchedule();
-    renderEvents();
-    renderAllPlayerNews();
-    wireCollapsible();
-  }
-
-  // ── Collapsible cards (Wave 2b) ────────────────────────────────────────
-  // Adds a chevron button to each opt-in card's title; clicking toggles
-  // `data-collapsed` on the card. State persists in sessionStorage so a
-  // reload keeps the user's preference. Cards opted in below have
-  // long, secondary, or scrollable content; always-on operational cards
-  // (Summary / Matchup / Lineup) are excluded so the headline data stays
-  // visible.
-  var COLLAPSIBLE_CARDS = [
-    "allPlayerNews", "transactions", "pendingTrades", "waivers",
-    "futurePicks", "schedule", "calendar"
-  ];
-  var COLLAPSE_STORAGE_PREFIX = "ups_teamops_collapsed_";
-
-  function setCardCollapsed(node, collapsed, persist) {
-    node.setAttribute("data-collapsed", collapsed ? "1" : "0");
-    var btn = node.querySelector(".tops-collapse-btn");
-    if (btn) {
-      btn.textContent = collapsed ? "▸" : "▾";
-      btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
-    }
-    if (persist !== false) {
-      try {
-        var key = COLLAPSE_STORAGE_PREFIX + node.getAttribute("data-card");
-        window.sessionStorage.setItem(key, collapsed ? "1" : "0");
-      } catch (e) {}
-    }
-  }
-
-  function wireCollapsible() {
-    if (!els.cards) return;
-    COLLAPSIBLE_CARDS.forEach(function (id) {
-      var node = els.cards[id];
-      if (!node) return;
-      var title = node.querySelector(".tops-card-title");
-      if (!title) return;
-      // Idempotency — skip if already wired (renderers may re-run without
-      // a full renderShell when only sub-cards refresh).
-      if (title.querySelector(".tops-collapse-btn")) return;
-
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "tops-collapse-btn";
-      btn.setAttribute("aria-expanded", "true");
-      btn.setAttribute("aria-controls", "card-" + id);
-      btn.title = "Collapse / expand";
-      btn.textContent = "▾";
-      title.appendChild(btn);
-      // Make title click-to-toggle for an easier hit-target, but ignore
-      // clicks on real interactive children (links, inputs).
-      title.style.cursor = "pointer";
-      title.addEventListener("click", function (ev) {
-        if (ev.target && ev.target.closest("a,input,select,button:not(.tops-collapse-btn)")) return;
-        var isCollapsed = node.getAttribute("data-collapsed") === "1";
-        setCardCollapsed(node, !isCollapsed, true);
-      });
-
-      // Restore persisted state.
-      try {
-        var saved = window.sessionStorage.getItem(COLLAPSE_STORAGE_PREFIX + id);
-        if (saved === "1") setCardCollapsed(node, true, false);
-      } catch (e) {}
-    });
+    renderHub();
   }
 
   // ── Player Bundle (worker /api/player-bundle) ──
@@ -1891,27 +2085,20 @@
       .catch(function () { return null; });
   }
 
-  // ── Player Profile Modal (click any player to open) ──
-  // Uses /api/player-bundle for live MFL data (career stats, news, injury,
-  // headshot URL). Mirrors the Bio + News surfaces from the Front Office
-  // profile but is intentionally lighter than Front Office's 4-tab modal —
-  // owners on My Team need quick context, not the full editing surface.
-  // For anything more, the modal links out to the Front Office page.
   // ── Contract helpers — delegate to the shared cap-math module
   //    (site/shared/cap_math.js, loaded by mfl_hpm_embed_loader.js).
-  //    Issue #244 Phase 2B: previously inline; the inline regex bug
-  //    that produced Coleman's wrong $11K cap-penalty was fixed in
-  //    PR #240, but kept drifting from the Front Office canonical.
-  //    Now there's one source of truth; the inline copies here are
-  //    just thin wrappers preserving the tops_* names.
+  //    Issue #244 Phase 2B: previously inline; the inline regex bug that
+  //    produced Coleman's wrong $11K cap-penalty was fixed in PR #240, but
+  //    kept drifting from the Front Office canonical. Now there's one source
+  //    of truth; the copies here are thin wrappers preserving the tops_* names.
   function tops_capMath() {
     return (typeof window !== "undefined" && window.UPS_CAP_MATH) || null;
   }
   function tops_parseContractInfo(info) {
     var m = tops_capMath();
     if (m) return m.parseContractInfo(info);
-    // Fail-soft if cap_math.js failed to load: return an empty shape
-    // so callers don't NPE. The UI degrades to "—" rather than wrong.
+    // Fail-soft if cap_math.js failed to load: return an empty shape so
+    // callers don't NPE. The UI degrades to "—" rather than wrong.
     return { tcv: 0, length: 0, yearVals: {}, aav: 0, gtd: 0 };
   }
   function tops_yearsRemain(sal) {
@@ -1932,22 +2119,18 @@
   }
   function tops_findAcquisition(pid) {
     // Walk transactions for the most recent acquisition of this player by
-    // the viewer. Returns { date: ISO, method: humanized, amount } or null.
+    // the viewer. Returns { ts, type, method } or null.
     var pidStr = String(pid);
-    var txns = (state.transactions && state.transactions.transactions && asArray(state.transactions.transactions.transaction)) || [];
+    var txns = asArray(state.transactions && state.transactions.transactions && state.transactions.transactions.transaction);
     var fid = state.viewerFranchiseId;
     var found = null;
     txns.forEach(function (t) {
       if (pad4(t.franchise) !== fid) return;
       var typ = safeStr(t.type).toUpperCase();
-      // FREE_AGENT, AUCTION_DRAFT, BBID_AUCTION, TAXI_PROMOTION, IR, TRADE etc.
-      // The transaction structure varies; check several fields for the pid.
       var hits = [t.transaction, t.added, t.player_added, t.promoted, t.activated, t.demoted];
       for (var i = 0; i < hits.length; i++) {
         var raw = safeStr(hits[i]);
         if (!raw) continue;
-        // Some MFL fields are comma-separated player IDs; others have
-        // pipe-separated `id,salary,etc` tuples per player.
         if (raw.indexOf(pidStr) === -1) continue;
         var ts = Number(t.timestamp) || 0;
         if (!found || ts > found.ts) {
@@ -1963,13 +2146,12 @@
     return found;
   }
 
+  // ── Player Profile Modal (click any player to open) ──
+  // Uses /api/player-bundle for live MFL data. Delegates to the unified
+  // master modal when available (v1.7.43+) and only falls through to the
+  // legacy in-file implementation if the master script didn't load.
   function openPlayerProfileModal(pid) {
     if (!pid) return;
-    // Delegate to the unified master modal when available (v1.7.43+).
-    // The master handles its own overlay; we just hand it the Front Office
-    // context so the cap-math strip, transactions lookup, and viewer-
-    // franchise filter all work. Fall through to the legacy in-file
-    // implementation only if the master script didn't load.
     if (typeof window.UPS_openPlayerProfile === "function") {
       try {
         var pInfo0 = playerById(pid) || {};
@@ -1990,13 +2172,12 @@
         });
         return;
       } catch (e) {
-        // fall through to legacy modal
         if (window.console) console.warn("[tops] master profile modal failed, falling back:", e);
       }
     }
     closePlayerProfileModal();  // collapse any prior open
     var pInfo = playerById(pid) || {};
-    var name = safeStr(pInfo.name) || ("Player #" + pid);
+    var name = prettyPlayerName(pInfo.name) || ("Player #" + pid);
     var pos = safeStr(pInfo.position);
     var team = safeStr(pInfo.team);
     var headshotUrl = "https://www55.myfantasyleague.com/fflnetdynamic" +
@@ -2042,7 +2223,6 @@
     overlay.querySelector(".tops-profile-close").addEventListener("click", closePlayerProfileModal);
     document.addEventListener("keydown", _topsProfileEsc);
 
-    // Tab switcher.
     overlay.querySelectorAll(".tops-profile-tab").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var tab = btn.getAttribute("data-topstab");
@@ -2068,8 +2248,8 @@
       if (newsEl)  newsEl.innerHTML  = renderProfileNews(bundle, pid);
     });
   }
+
   function renderProfileBio(pid) {
-    var pInfo = playerById(pid) || {};
     var sal = (getMySalaries() || []).find(function (s) { return String(s.id) === String(pid); }) || {};
     var info = tops_parseContractInfo(sal.contractInfo);
     var tcv = info.tcv || (function () {
@@ -2103,10 +2283,10 @@
       '</div>'
     ].join("");
   }
-  function renderProfileStats(bundle, pid) {
+
+  function renderProfileStats(bundle) {
     // Bundle uses UPS-flavored career_summary[] — season-by-season fantasy
-    // performance with UPS-specific ranks (win_chunks, elite_pct, dud_pct).
-    // Most recent season first.
+    // performance with UPS-specific ranks. Most recent season first.
     var rows = asArray(bundle && bundle.career_summary).slice().sort(function (a, b) {
       return Number(b.season || 0) - Number(a.season || 0);
     });
@@ -2131,10 +2311,10 @@
       '<th class="num">Elite</th><th class="num">Dud</th>' +
       '</tr></thead><tbody>' + html + '</tbody></table>';
   }
-  function renderProfileGameLog(bundle, pid) {
-    // Bundle stores weekly_by_season as an object keyed by year. Flatten
-    // to a list, newest season first, all weeks within. Cap at 24 rows
-    // so the modal stays readable.
+
+  function renderProfileGameLog(bundle) {
+    // Bundle stores weekly_by_season keyed by year. Flatten newest-first and
+    // cap at 24 rows so the modal stays readable.
     var byYear = (bundle && bundle.weekly_by_season) || {};
     var years = Object.keys(byYear).sort(function (a, b) { return Number(b) - Number(a); });
     var games = [];
@@ -2145,14 +2325,13 @@
       return '<div class="tops-empty">No weekly results on file for this player.</div>';
     }
     var rows = games.slice(0, 24).map(function (g) {
-      var rosterFid = safeStr(g.roster_franchise_name || g.status);
       return '<tr>' +
         '<td>' + escapeHtml(safeStr(g.season)) + '</td>' +
         '<td class="num">' + escapeHtml(safeStr(g.week)) + '</td>' +
         '<td class="num">' + escapeHtml(safeStr(g.score)) + '</td>' +
         '<td class="num">' + (g.pos_rank != null ? '#' + escapeHtml(safeStr(g.pos_rank)) : '—') + '</td>' +
         '<td>' + escapeHtml(safeStr(g.week_tier || g.status)) + '</td>' +
-        '<td>' + escapeHtml(rosterFid) + '</td>' +
+        '<td>' + escapeHtml(safeStr(g.roster_franchise_name || g.status)) + '</td>' +
         '</tr>';
     }).join("");
     return '<table class="tops-profile-table"><thead><tr>' +
@@ -2160,13 +2339,12 @@
       '<th class="num">Pos #</th><th>Tier</th><th>Roster</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table>';
   }
-  // News tab now uses the worker's /api/player-news multi-source aggregator
+
+  // News tab uses the worker's /api/player-news multi-source aggregator
   // (Sleeper structured info + ESPN team articles fuzzy-matched to player
   // last name). The MFL playerProfile.news bundle field is deprecated and
   // returns empty for everyone — that was the v1.7.36 mistake.
   function renderProfileNews(bundle, pid) {
-    // Render a placeholder + lazy fetch from /api/player-news.
-    // Using a stable id on the container so we can target it after fetch.
     var nid = "topsProfileNewsBody-" + pid;
     setTimeout(function () { _topsLoadProfileNews(pid, nid); }, 0);
     return '<div id="' + nid + '"><div class="tops-empty">Loading news…</div></div>';
@@ -2207,7 +2385,7 @@
       })
       .catch(function () {
         var el = document.getElementById(containerId);
-        if (el) el.innerHTML = '<div class="tops-empty" style="color:var(--tops-bad,#7de8d9); font-weight:700;">News fetch failed. Refresh to retry.</div>';
+        if (el) el.innerHTML = '<div class="tops-empty is-err">News fetch failed. Refresh to retry.</div>';
       });
   }
   function closePlayerProfileModal() {
@@ -2217,75 +2395,10 @@
   }
   function _topsProfileEsc(e) { if (e.key === "Escape") closePlayerProfileModal(); }
 
-  function renderProfileBundle(bundle, pid) {
-    var profile = (bundle && bundle.profile && bundle.profile.playerProfile) || {};
-    var player = profile.player || {};
-    var name = safeStr(player.name || profile.name || "Player #" + pid);
-    var pos = safeStr(player.position || "");
-    var team = safeStr(player.team || "");
-    var jersey = safeStr(player.jersey || player.jersey_number || "");
-    var hgt = safeStr(player.height || "");
-    var wgt = safeStr(player.weight || "");
-    var dob = safeStr(player.birthdate || "");
-    var college = safeStr(player.college || "");
-    var newsItems = asArray(bundle && bundle.news);
-    if (!newsItems.length && bundle && bundle.profile && bundle.profile.playerProfile) {
-      newsItems = asArray(bundle.profile.playerProfile.news);
-    }
-    // Sort newest first (timestamp may be unix seconds string).
-    newsItems = newsItems.slice().sort(function (a, b) {
-      return Number(b.timestamp || 0) - Number(a.timestamp || 0);
-    });
-    // Injury overlay
-    var inj = getInjuryFor(String(pid));
-    var injHtml = inj
-      ? '<div class="tops-profile-injury"><strong>' + escapeHtml(inj.status || "") + '</strong> — ' + escapeHtml(safeStr(inj.details) || "no detail") + '</div>'
-      : "";
-    var bioBits = [];
-    if (jersey) bioBits.push("#" + jersey);
-    if (pos) bioBits.push(pos);
-    if (team) bioBits.push(team);
-    if (hgt) bioBits.push(hgt);
-    if (wgt) bioBits.push(wgt + " lbs");
-    if (college) bioBits.push(college);
-    if (dob) bioBits.push("DOB " + dob);
-    var fullProfileHref = "https://www.myfantasyleague.com/" + encodeURIComponent(state.ctx.year) +
-      "/options?L=" + encodeURIComponent(state.ctx.leagueId) +
-      "&O=04&P=" + encodeURIComponent(pid);
-    var newsHtml = newsItems.length
-      ? '<ul class="tops-profile-news">' + newsItems.slice(0, 12).map(function (n) {
-          var when = n.timestamp ? new Date(Number(n.timestamp) * 1000).toLocaleDateString() : "";
-          var src = safeStr(n.source) || safeStr(n.author);
-          var headline = safeStr(n.headline) || safeStr(n.title);
-          var body = safeStr(n.story) || safeStr(n.body);
-          return '<li class="tops-profile-news-item">' +
-            '<div class="tops-profile-news-meta">' + escapeHtml(when) + (src ? ' · ' + escapeHtml(src) : '') + '</div>' +
-            (headline ? '<div class="tops-profile-news-head">' + escapeHtml(headline) + '</div>' : '') +
-            (body ? '<div class="tops-profile-news-body">' + escapeHtml(body.slice(0, 600)) + '</div>' : '') +
-            '</li>';
-        }).join("") + '</ul>'
-      : '<div class="tops-empty">No recent news for this player.</div>';
-    return [
-      '<div class="tops-profile-head">',
-      '  <h3 class="tops-profile-name">' + escapeHtml(name) + '</h3>',
-      bioBits.length ? '  <div class="tops-profile-bio">' + escapeHtml(bioBits.join(" · ")) + '</div>' : '',
-      injHtml,
-      '</div>',
-      '<div class="tops-profile-section-title">Recent News</div>',
-      newsHtml,
-      '<div class="tops-profile-actions">',
-      '  <a class="tops-link-pill" href="' + fullProfileHref + '" target="_top">Open in MFL →</a>',
-      '</div>'
-    ].join("");
-  }
-
-  // ── News Feed for owned players (LAZY — don't auto-fetch) ──
-  // Default state: list MFL injury designations (free — already in
-  // state.injuries from the initial load). News headlines are LAZY:
-  // user clicks "Load news feed" to trigger ~25 parallel
-  // /api/player-bundle calls. Avoids slowing every page load when
-  // most owners just want to see their roster + cap.
-  // ── News helpers (shared with All-Player News card) ───────────────────
+  // ── Player News panel (Zone 5 disclosure) ─────────────────────────────
+  // League-wide news search. Filters: name (substring) · position pills ·
+  // NFL team dropdown. Resolves the filter into a list of player IDs (max 50,
+  // the /api/player-news batch limit) and calls the news endpoint.
   var NEWS_PAGE_SIZE = 12;
   var NEWS_SORT_KEY = "ups_teamops_news_sort"; // 'newest' (default) or 'oldest'
 
@@ -2301,7 +2414,6 @@
   }
 
   // Unix-seconds → "5m ago" / "3h ago" / "2d ago" / "Mar 5" / "Mar 5, 2023".
-  // Falls back to ISO date when timestamp is missing or in the future.
   function relativeTime(secs) {
     var t = Number(secs || 0);
     if (!t || !isFinite(t)) return "";
@@ -2312,7 +2424,6 @@
     if (diff < 3600) return Math.floor(diff / 60) + "m ago";
     if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
     if (diff < 7 * 86400) return Math.floor(diff / 86400) + "d ago";
-    // Older — show absolute date; include year if not current year.
     var d = new Date(t * 1000);
     var sameYear = d.getFullYear() === new Date().getFullYear();
     return d.toLocaleDateString("en-US",
@@ -2320,28 +2431,22 @@
                : { month: "short", day: "numeric", year: "numeric" });
   }
 
-  // Articles get matched to multiple players by the news handler (e.g., an
-  // SFO team article matches every SFO team-pseudo: TMWR / TMRB / Def / ST
-  // / etc.). Without dedup we render the same headline 10+ times.
-  // Strategy: collapse rows that share (headline + first 80 chars of body),
-  // keeping the first occurrence (after sort, that's the newest representative).
-  // Per-player STATUS / DEPTH entries are NOT deduped across players — each
-  // player legitimately has their own status row even if the headline is "Q".
+  // Articles get matched to multiple players by the news handler (e.g. an SFO
+  // team article matches every SFO team-pseudo). Without dedup we render the
+  // same headline 10+ times. Collapse rows sharing (headline + first 80 chars
+  // of body). Per-player STATUS / DEPTH entries are NOT deduped — each player
+  // legitimately has their own status row.
   function dedupeNewsItems(items) {
     var seen = {};
     var out = [];
     for (var i = 0; i < items.length; i++) {
       var n = items[i];
       var typ = String(n.type || "").toLowerCase();
-      // Keep per-player rows for status/depth — those are legitimate per-player.
-      if (typ === "status" || typ === "depth") {
-        out.push(n);
-        continue;
-      }
+      if (typ === "status" || typ === "depth") { out.push(n); continue; }
       var hk = (n.headline || "").trim();
       var bk = (n.body || "").trim().slice(0, 80);
       var key = hk + "||" + bk;
-      if (!hk && !bk) { out.push(n); continue; }   // nothing to key on
+      if (!hk && !bk) { out.push(n); continue; }
       if (seen[key]) continue;
       seen[key] = true;
       out.push(n);
@@ -2363,20 +2468,9 @@
     return dedupeNewsItems(filtered);
   }
 
-  // Format MFL's "Last, First" player names as "First Last" — easier to
-  // scan. Team defenses come as "Bills, Buffalo" → render "Buffalo Bills".
-  function prettyPlayerName(raw) {
-    var s = safeStr(raw);
-    if (!s) return "";
-    var m = s.match(/^([^,]+),\s*(.+)$/);
-    return m ? (m[2].trim() + " " + m[1].trim()) : s;
-  }
-
-  // Lookup an active injury status for a player (Q/D/O/IR/etc.) so news
-  // rows can flash a small badge inline next to the name.
   function newsInjStatusForPid(pid) {
     if (!pid) return "";
-    var inj = (typeof getInjuryFor === "function") ? getInjuryFor(pid) : null;
+    var inj = getInjuryFor(pid);
     return inj && inj.status ? String(inj.status).trim() : "";
   }
 
@@ -2388,20 +2482,12 @@
                  : '';
     var when = relativeTime(n.when);
     var bodyTrim = n.body ? escapeHtml(n.body.slice(0, 220)) + (n.body.length > 220 ? '…' : '') : "";
-
-    // Inline injury badge: small Q/D/O chip next to the name when the
-    // player has an active designation. Uses the same .tops-inj-* palette
-    // as the always-on Injuries panel for visual consistency.
     var injStatus = newsInjStatusForPid(pid);
     var injMini = injStatus
-      ? '<span class="tops-news-inj-mini tops-inj tops-inj-' + escapeHtml(injStatus) + '" title="Injury status: ' + escapeHtml(injStatus) + '">' + escapeHtml(injStatus) + '</span>'
+      ? '<span class="tops-inj tops-inj-' + escapeHtml(injStatus) + '" title="Injury status: ' + escapeHtml(injStatus) + '">' + escapeHtml(injStatus) + '</span>'
       : '';
+    var nameLink = '<button type="button" class="tops-news-player-link" data-pid="' + escapeHtml(pid) + '" title="Open player profile">' + escapeHtml(prettyPlayerName(n.player)) + '</button>';
 
-    // Player name = its own click target → opens master profile modal.
-    var displayName = prettyPlayerName(n.player);
-    var nameLink = '<button type="button" class="tops-news-player-link" data-pid="' + escapeHtml(pid) + '" title="Open player profile">' + escapeHtml(displayName) + '</button>';
-
-    // Headline + body wrap in an <a> ONLY if we have an article URL.
     var headBodyInner =
       (n.headline ? '<div class="tops-news-head">' + escapeHtml(n.headline) + '</div>' : '') +
       (bodyTrim ? '<div class="tops-news-body">' + bodyTrim + '</div>' : '');
@@ -2412,25 +2498,21 @@
         : '<div class="tops-news-article-static">' + headBodyInner + '</div>';
     }
 
-    return '<li class="tops-news-item' + (n.url ? ' has-article' : '') + '">' +
+    return '<li class="tops-news-item">' +
       '<div class="tops-news-row1">' +
         typeBadge +
         injMini +
         nameLink +
         (n.position ? '<span class="tops-news-pos">' + escapeHtml(n.position) + '</span>' : '') +
         (n.team ? '<span class="tops-news-team">' + escapeHtml(n.team) + '</span>' : '') +
-        (when ? '<span class="tops-news-when" title="' + escapeHtml(new Date(Number(n.when || 0) * 1000).toISOString()) + '">' + escapeHtml(when) + '</span>' : '') +
+        (when ? '<span class="tops-news-when">' + escapeHtml(when) + '</span>' : '') +
       '</div>' +
       headBody +
       '</li>';
   }
 
-  // Renders just the dynamic list portion of the news card. Called on
-  // every search/sort/show-more so the controls (input/sort toggle) above
-  // it don't get re-built and lose focus.
   // Only the player-name button opens the master profile modal. The
-  // headline/body region is its own <a> (article link, when present) and
-  // handles its own navigation. Re-binds after list re-renders.
+  // headline/body region is its own <a> and handles its own navigation.
   function rewireNewsItemClicks(rootEl) {
     rootEl.querySelectorAll(".tops-news-player-link").forEach(function (btn) {
       if (btn.__topsBound) return; // idempotent
@@ -2442,20 +2524,11 @@
     });
   }
 
-  // ── All-Player News (Wave 3b) ──────────────────────────────────────────
-  // League-wide news search. Filters: name (substring) · position pills
-  // (QB/RB/WR/TE/K/DEF) · NFL team dropdown. Resolves the filter into a
-  // list of player IDs (max 50, /api/player-news batch limit) and calls the
-  // same news endpoint the per-roster card uses. Shares the sort
-  // preference with the team news card (newest/oldest).
-  // Offensive skill + kicker + team-defense + IDP. UPS-confirmed player
-  // positions (live count from MFL): WR/LB/CB/RB/DT/DE/S/TE/QB/PK/PN/Def.
-  // IDP grouping mirrors the MFL position values directly.
+  // UPS-confirmed player positions (live count from MFL):
+  // WR/LB/CB/RB/DT/DE/S/TE/QB/PK/PN/Def. IDP grouping mirrors MFL directly.
   var ALL_NEWS_POSITIONS = ["QB", "RB", "WR", "TE", "PK", "Def", "DT", "DE", "LB", "CB", "S"];
   var ALL_NEWS_MAX_PIDS = 50;
 
-  // Lazily build a player index { pid → {name, position, team} } from the
-  // already-loaded TYPE=players export. Cached for the session.
   var _allPlayerIndexCache = null;
   function getAllPlayerIndex() {
     if (_allPlayerIndexCache) return _allPlayerIndexCache;
@@ -2464,12 +2537,7 @@
       asArray(state.players.players.player).forEach(function (p) {
         var pid = String(p.id || "");
         if (!pid) return;
-        var rec = {
-          pid: pid,
-          name: safeStr(p.name),
-          position: safeStr(p.position),
-          team: safeStr(p.team)
-        };
+        var rec = { pid: pid, name: safeStr(p.name), position: safeStr(p.position), team: safeStr(p.team) };
         out.byPid[pid] = rec;
         if (rec.team) out.teams[rec.team] = (out.teams[rec.team] || 0) + 1;
         if (rec.position) out.posCounts[rec.position] = (out.posCounts[rec.position] || 0) + 1;
@@ -2479,12 +2547,9 @@
     return out;
   }
 
-  // Build the candidate player pool based on scope + filters.
-  //   scope === "myteam"  → starts from viewer's roster (the old per-roster
-  //                          News card behavior, with no /api/player-news
-  //                          batch cap since rosters are ≤25 players).
-  //   scope === "all"      → starts from the full NFL player index.
-  // Position / NFL team / name filters then narrow the result.
+  //   scope === "myteam" → starts from the viewer's roster (no batch cap
+  //                        needed; rosters are ≤ 30 players).
+  //   scope === "all"    → starts from the full NFL player index.
   function resolveAllPlayerNewsCandidates() {
     var f = state.allPlayerNewsFilters || {};
     var scope = (f.scope === "all") ? "all" : "myteam";
@@ -2495,8 +2560,7 @@
 
     var pool;
     if (scope === "myteam") {
-      var roster = getMyRoster();
-      pool = roster.map(function (r) {
+      pool = getMyRoster().map(function (r) {
         return idx.byPid[r.id] || { pid: r.id, name: "Player #" + r.id, position: "", team: "" };
       });
     } else {
@@ -2504,14 +2568,12 @@
     }
 
     var out = pool.filter(function (r) {
-      if (pos  && r.position !== pos)  return false;
+      if (pos && r.position !== pos) return false;
       if (team && String(r.team || "").toUpperCase() !== team) return false;
       if (name && r.name.toLowerCase().indexOf(name) === -1) return false;
       return true;
     });
 
-    // For All scope, order NFL-active first then alphabetic; for My Team
-    // keep roster order (which is already meaningful — starters first etc).
     if (scope === "all") {
       out.sort(function (a, b) {
         var aFA = !a.team || a.team === "FA";
@@ -2531,16 +2593,12 @@
     }
     if (!state.allPlayerNewsItems) {
       var scope = (state.allPlayerNewsFilters && state.allPlayerNewsFilters.scope) || "myteam";
-      var hint = (scope === "myteam")
-        ? 'Loading your team\'s news automatically…'
-        : 'Pick a position / team / name above, then <strong>Find News</strong>.';
-      container.innerHTML = '<div class="tops-empty" style="font-size:11px; padding:6px 0;">' + hint + '</div>';
+      container.innerHTML = '<div class="tops-empty">' + (scope === "myteam"
+        ? 'Loading your team\'s news…'
+        : 'Pick a position / team / name above, then <strong>Find News</strong>.') + '</div>';
       return;
     }
-    var sortOrder = getNewsSortPref();
-    var sorted = filterAndSortNews(state.allPlayerNewsItems, "", sortOrder);
-    // Client-side type filter (Injury / Depth / News / All). Maps to the
-    // worker's type field: status / depth / headline.
+    var sorted = filterAndSortNews(state.allPlayerNewsItems, "", getNewsSortPref());
     var itype = (state.allPlayerNewsFilters && state.allPlayerNewsFilters.itemType) || "";
     if (itype) {
       sorted = sorted.filter(function (n) { return String(n.type || "") === itype; });
@@ -2548,135 +2606,110 @@
     var showN = Math.min(sorted.length, state.allPlayerNewsShowN || NEWS_PAGE_SIZE);
     var visible = sorted.slice(0, showN);
     if (!visible.length) {
-      var emptyMsg = itype
+      container.innerHTML = '<div class="tops-empty">' + (itype
         ? 'No "' + (itype === "status" ? "Injury" : itype === "depth" ? "Depth" : "News") + '" items for these filters.'
-        : 'No news for these filters in the last few weeks.';
-      container.innerHTML = '<div class="tops-empty" style="font-size:11px; padding:6px 0;">' + emptyMsg + '</div>';
+        : 'No news for these filters in the last few weeks.') + '</div>';
       return;
     }
     var more = sorted.length > showN
-      ? '<button class="tops-news-more" data-news-card="all">Show ' + Math.min(NEWS_PAGE_SIZE, sorted.length - showN) + ' more <span class="muted">(' + (sorted.length - showN) + ' remaining)</span></button>'
+      ? '<button type="button" class="tops-news-more" data-news-card="all">Show ' + Math.min(NEWS_PAGE_SIZE, sorted.length - showN) + ' more (' + (sorted.length - showN) + ' remaining)</button>'
       : '';
     container.innerHTML = '<ul class="tops-news-list">' + visible.map(newsItemHtml).join("") + '</ul>' + more;
   }
 
   function renderAllPlayerNews() {
-    var el = els.cards.allPlayerNews;
+    var el = els.cards && els.cards.allPlayerNews;
     if (!el) return;
     if (!state.players || !state.players.players) {
-      el.innerHTML = '<div class="tops-card-title">Player News & Injuries</div><div class="tops-empty">Player index still loading…</div>';
+      el.innerHTML = '<div class="tops-card-h"><span class="tops-card-t">Player News &amp; Injuries</span></div><div class="tops-empty">Player index still loading…</div>';
       return;
     }
-    // Default scope is My Team — opens straight to the user's roster news
-    // with no extra clicks. Other pills switch to League-wide scope.
     state.allPlayerNewsFilters = state.allPlayerNewsFilters || { scope: "myteam", name: "", position: "", team: "", itemType: "" };
     if (!state.allPlayerNewsFilters.scope) state.allPlayerNewsFilters.scope = "myteam";
     if (state.allPlayerNewsFilters.itemType == null) state.allPlayerNewsFilters.itemType = "";
-    state.allPlayerNewsShowN   = state.allPlayerNewsShowN   || NEWS_PAGE_SIZE;
+    state.allPlayerNewsShowN = state.allPlayerNewsShowN || NEWS_PAGE_SIZE;
     var f = state.allPlayerNewsFilters;
-    var sortOrder = getNewsSortPref();
     var idx = getAllPlayerIndex();
 
-    // Always-on injuries panel (cheap — already loaded). Only shown when
-    // the viewer is looking at their own team (scope=myteam), since
-    // injuries are filtered to roster players.
+    // Always-on injuries block (free — already loaded). Roster-scoped only.
     var injHtml = "";
     var myInjsCount = 0;
     if (f.scope === "myteam") {
-      var roster = getMyRoster();
-      var injs = (state.injuries && asArray(state.injuries.injuries && state.injuries.injuries.injury)) || [];
       var rosterIds = {};
-      roster.forEach(function (r) { rosterIds[String(r.id)] = true; });
-      var myInjs = injs.filter(function (i) { return rosterIds[String(i.id)]; });
+      getMyRoster().forEach(function (r) { rosterIds[String(r.id)] = true; });
+      var myInjs = asArray(state.injuries && state.injuries.injuries && state.injuries.injuries.injury)
+        .filter(function (i) { return rosterIds[String(i.id)]; });
       myInjsCount = myInjs.length;
-      injHtml = myInjs.length
-        ? '<div class="tops-news-section-title">Active Injuries</div>'
+      if (myInjs.length) {
+        injHtml = '<div class="tops-news-section-title">Active injuries</div>'
           + '<ul class="tops-news-list">' + myInjs.slice(0, 8).map(function (i) {
             var p = playerById(i.id) || {};
-            var name = prettyPlayerName(p.name) || ("Player #" + i.id);
             var stat = String(i.status || "?");
             return '<li class="tops-news-item">'
               + '<div class="tops-news-row1">'
-              +   '<span class="tops-news-inj-mini tops-inj tops-inj-' + escapeHtml(stat) + '" title="' + escapeHtml(stat) + '">' + escapeHtml(stat) + '</span>'
-              +   '<button type="button" class="tops-news-player-link" data-pid="' + escapeHtml(String(i.id)) + '" title="Open player profile">' + escapeHtml(name) + '</button>'
+              +   '<span class="tops-inj tops-inj-' + escapeHtml(stat) + '" title="' + escapeHtml(stat) + '">' + escapeHtml(stat) + '</span>'
+              +   '<button type="button" class="tops-news-player-link" data-pid="' + escapeHtml(String(i.id)) + '">' + escapeHtml(prettyPlayerName(p.name) || ("Player #" + i.id)) + '</button>'
               +   (p.position ? '<span class="tops-news-pos">' + escapeHtml(p.position) + '</span>' : '')
               +   (p.team ? '<span class="tops-news-team">' + escapeHtml(p.team) + '</span>' : '')
               + '</div>'
               + (i.details ? '<div class="tops-news-body">' + escapeHtml(i.details) + '</div>' : '')
               + '</li>';
-          }).join("") + '</ul>'
-          + '<div class="tops-news-divider"></div>'
-        : '';
+          }).join("") + '</ul>';
+      }
     }
 
-    // Build NFL team dropdown options — alphabetized, with FA last.
     var teams = Object.keys(idx.teams).filter(function (t) { return t && t !== "FA"; }).sort();
     var teamOptions = '<option value="">All NFL teams</option>'
       + teams.map(function (t) { return '<option value="' + escapeHtml(t) + '"' + (t === f.team ? ' selected' : '') + '>' + escapeHtml(t) + ' (' + idx.teams[t] + ')</option>'; }).join("")
       + '<option value="FA"' + (f.team === "FA" ? ' selected' : '') + '>Free Agents</option>';
 
-    // Pill bar: My Team is a "scope" pill (yellow accent), followed by a
-    // divider, then position pills (All / QB / RB / WR / TE / PK / Def +
-    // IDP DT/DE/LB/CB/S). Clicking My Team → scope=myteam, clears position
-    // filter. Clicking any position pill → scope=all + sets position.
-    var myTeamOn = (f.scope === "myteam") ? "1" : "0";
     var pillBar = '<div class="tops-pos-pills">'
-      + '<button type="button" class="tops-pos-pill tops-pos-pill--scope" data-scope="myteam" data-active="' + myTeamOn + '">My Team</button>'
+      + '<button type="button" class="tops-pos-pill" data-scope="myteam" data-active="' + (f.scope === "myteam" ? "1" : "0") + '">My Team</button>'
       + '<span class="tops-pill-divider" aria-hidden="true"></span>'
       + '<button type="button" class="tops-pos-pill" data-pos="" data-active="' + ((f.scope === "all" && !f.position) ? "1" : "0") + '">All</button>'
       + ALL_NEWS_POSITIONS.map(function (p) {
-          var on = (f.scope === "all" && f.position === p) ? "1" : "0";
-          return '<button type="button" class="tops-pos-pill" data-pos="' + escapeHtml(p) + '" data-active="' + on + '">' + escapeHtml(p) + '</button>';
+          return '<button type="button" class="tops-pos-pill" data-pos="' + escapeHtml(p) + '" data-active="' + ((f.scope === "all" && f.position === p) ? "1" : "0") + '">' + escapeHtml(p) + '</button>';
         }).join("")
       + '</div>';
 
-    // Item-type pills (client-side display filter on already-loaded items —
-    // no refetch). All / Injury / Depth / News map to the news handler's
-    // type field: status / depth / headline.
     var ITYPES = [
-      { id: "",         label: "All" },
-      { id: "status",   label: "Injury" },
-      { id: "depth",    label: "Depth" },
+      { id: "", label: "All" },
+      { id: "status", label: "Injury" },
+      { id: "depth", label: "Depth" },
       { id: "headline", label: "News" }
     ];
-    var typeBar = '<div class="tops-pos-pills tops-itype-pills">'
+    var typeBar = '<div class="tops-pos-pills">'
       + '<span class="tops-itype-label">Type</span>'
       + ITYPES.map(function (t) {
-          var on = (f.itemType === t.id) ? "1" : "0";
-          return '<button type="button" class="tops-pos-pill" data-itype="' + escapeHtml(t.id) + '" data-active="' + on + '">' + escapeHtml(t.label) + '</button>';
+          return '<button type="button" class="tops-pos-pill" data-itype="' + escapeHtml(t.id) + '" data-active="' + (f.itemType === t.id ? "1" : "0") + '">' + escapeHtml(t.label) + '</button>';
         }).join("")
       + '</div>';
 
     var candidates = resolveAllPlayerNewsCandidates();
     var candCount = candidates.length;
-    var capped = Math.min(candCount, ALL_NEWS_MAX_PIDS);
     var statusLine;
     if (f.scope === "myteam") {
-      statusLine = candCount + ' player' + (candCount === 1 ? '' : 's') + ' on your roster' +
-        (f.position ? ' (' + escapeHtml(f.position) + ')' : '') +
-        (f.team ? ' on ' + escapeHtml(f.team) : '') +
-        (f.name ? ' matching "' + escapeHtml(f.name) + '"' : '') + '.';
+      statusLine = plural(candCount, "player") + ' on your roster.';
     } else if (candCount === 0) {
       statusLine = 'No players match these filters.';
     } else if (candCount > ALL_NEWS_MAX_PIDS) {
-      statusLine = candCount + ' matches — narrowing to top <strong>' + capped + '</strong> (alphabetical, NFL-active first).';
+      statusLine = candCount + ' matches — narrowing to the top ' + ALL_NEWS_MAX_PIDS + ' (alphabetical, NFL-active first).';
     } else {
-      statusLine = candCount + ' matching player' + (candCount === 1 ? '' : 's') + '.';
+      statusLine = plural(candCount, "matching player") + '.';
     }
 
-    var titleCount = (f.scope === "myteam" && myInjsCount > 0)
-      ? ' <span class="tops-count">' + myInjsCount + '</span>'
-      : '';
-
     el.innerHTML = [
-      '<div class="tops-card-title">Player News & Injuries' + titleCount + '</div>',
+      '<div class="tops-card-h">',
+      '  <span class="tops-card-t">Player News &amp; Injuries</span>',
+      myInjsCount ? '  <span class="tops-pill is-warn">' + myInjsCount + ' injured</span>' : '',
+      '</div>',
       injHtml,
       '<div class="tops-allnews-controls">',
       pillBar,
       '  <select class="tops-allnews-team">' + teamOptions + '</select>',
       '  <input type="text" class="tops-allnews-name" placeholder="Search player name…" value="' + escapeHtml(f.name) + '">',
       '  <button type="button" class="tops-allnews-go" data-disabled="' + (candCount === 0 ? "1" : "0") + '">Find News</button>',
-      '  <button type="button" class="tops-news-sort" data-allnews-sort title="Toggle sort order">' + (sortOrder === "newest" ? '↓ Newest' : '↑ Oldest') + '</button>',
+      '  <button type="button" class="tops-news-sort" data-allnews-sort>' + (getNewsSortPref() === "newest" ? '↓ Newest' : '↑ Oldest') + '</button>',
       '</div>',
       typeBar,
       '<div class="tops-allnews-status">' + statusLine + '</div>',
@@ -2686,8 +2719,6 @@
     var listMount = el.querySelector(".tops-allnews-list-mount");
     renderAllPlayerNewsList(listMount);
 
-    // ── Wire interactions ──
-    // My Team scope pill — switches to roster-scoped view.
     el.querySelectorAll("[data-scope]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         state.allPlayerNewsFilters.scope = "myteam";
@@ -2695,19 +2726,16 @@
         state.allPlayerNewsItems = null;
         state.allPlayerNewsShowN = NEWS_PAGE_SIZE;
         renderAllPlayerNews();
-        // Auto-fetch since roster pool is small.
-        setTimeout(doAllPlayerNewsSearch, 0);
+        setTimeout(doAllPlayerNewsSearch, 0);   // roster pool is small
       });
     });
 
-    // Item-type pills (Injury / Depth / News / All) — purely client-side
-    // display filter, no refetch. Just re-renders the list mount.
+    // Item-type pills are a pure client-side display filter — no refetch, and
+    // no full re-render so the search input keeps focus.
     el.querySelectorAll("[data-itype]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         state.allPlayerNewsFilters.itemType = btn.getAttribute("data-itype");
-        state.allPlayerNewsShowN = NEWS_PAGE_SIZE; // reset pagination
-        // Update the pill-active state without a full re-render so the
-        // search input keeps focus.
+        state.allPlayerNewsShowN = NEWS_PAGE_SIZE;
         el.querySelectorAll("[data-itype]").forEach(function (b) {
           b.setAttribute("data-active", b === btn ? "1" : "0");
         });
@@ -2716,8 +2744,6 @@
       });
     });
 
-    // Position pills — flip scope to "all" since position-filter implies
-    // league-wide search.
     el.querySelectorAll("[data-pos]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         state.allPlayerNewsFilters.scope = "all";
@@ -2728,7 +2754,6 @@
       });
     });
 
-    // Team dropdown
     var teamSel = el.querySelector(".tops-allnews-team");
     if (teamSel) teamSel.addEventListener("change", function () {
       state.allPlayerNewsFilters.team = teamSel.value || "";
@@ -2737,7 +2762,6 @@
       renderAllPlayerNews();
     });
 
-    // Name input — debounced
     var nameInput = el.querySelector(".tops-allnews-name");
     if (nameInput) {
       var deb = null;
@@ -2759,16 +2783,12 @@
       });
     }
 
-    // Find News button
     var goBtn = el.querySelector(".tops-allnews-go");
-    if (goBtn) {
-      goBtn.addEventListener("click", function () {
-        if (goBtn.getAttribute("data-disabled") === "1") return;
-        doAllPlayerNewsSearch();
-      });
-    }
+    if (goBtn) goBtn.addEventListener("click", function () {
+      if (goBtn.getAttribute("data-disabled") === "1") return;
+      doAllPlayerNewsSearch();
+    });
 
-    // Sort toggle
     var sortBtn = el.querySelector("[data-allnews-sort]");
     if (sortBtn) sortBtn.addEventListener("click", function () {
       var next = getNewsSortPref() === "newest" ? "oldest" : "newest";
@@ -2778,9 +2798,8 @@
       rewireNewsItemClicks(el);
     });
 
-    // Show-more (delegated)
     el.addEventListener("click", function (ev) {
-      var more = ev.target.closest('.tops-news-more[data-news-card="all"]');
+      var more = ev.target.closest && ev.target.closest('.tops-news-more[data-news-card="all"]');
       if (!more) return;
       state.allPlayerNewsShowN = (state.allPlayerNewsShowN || NEWS_PAGE_SIZE) + NEWS_PAGE_SIZE;
       renderAllPlayerNewsList(listMount);
@@ -2789,7 +2808,6 @@
 
     rewireNewsItemClicks(el);
 
-    // Auto-fetch for My Team scope on first render when no items loaded yet.
     if (f.scope === "myteam" && !state.allPlayerNewsItems && !state.allPlayerNewsLoading) {
       setTimeout(doAllPlayerNewsSearch, 0);
     }
@@ -2800,8 +2818,6 @@
     if (!el) return;
     var candidates = resolveAllPlayerNewsCandidates();
     if (!candidates.length) return;
-    // My Team scope: send the full roster pool (rosters are small, well
-    // under the 50 cap). All scope: respect the cap.
     var scope = (state.allPlayerNewsFilters && state.allPlayerNewsFilters.scope) || "myteam";
     var capped = (scope === "myteam") ? candidates : candidates.slice(0, ALL_NEWS_MAX_PIDS);
     state.allPlayerNewsLoading = true;
@@ -2847,20 +2863,14 @@
       });
   }
 
-  // [v1.7.40 cleanup] The old openMflPlayerProfile redirect-to-MFL
-  // function previously lived here. v1.7.38's global rename
-  // accidentally renamed it to openPlayerProfileModal, creating a
-  // duplicate that overrode the new 4-tab modal — JavaScript takes the
-  // last declaration so clicks went to window.open(...) instead of the
-  // modal. Function removed entirely.
+  // ---------- Empty / loading / error states ----------
 
   // Friendly empty state when no franchise could be resolved. Surfaces a
   // dropdown of league franchises so the viewer can pick manually rather
-  // than staring at all zeros. Selection is persisted to localStorage
-  // so future loads remember.
+  // than staring at all zeros. Selection is persisted to localStorage.
   function renderViewerEmptyState() {
-    var summaryEl = els.cards.summary;
-    if (!summaryEl) return;
+    var mount = document.getElementById("teamOpsMount");
+    if (!mount) return;
     var franchises = (state.franchises || []).slice().sort(function (a, b) {
       return safeStr(a.name).localeCompare(safeStr(b.name));
     });
@@ -2873,27 +2883,23 @@
     var optsHtml = franchises.map(function (f) {
       return '<option value="' + escapeHtml(f.id) + '">' + escapeHtml(f.name) + '</option>';
     }).join("");
-    var diagHtml = diagnostics.length
-      ? '<div class="tops-empty" style="margin-top:8px; color:var(--tops-bad,#7de8d9); font-weight:700;">' +
-        '⚠ ' + escapeHtml(diagnostics.join(" · ")) + '</div>'
-      : "";
-    summaryEl.innerHTML = [
-      '<div class="tops-card-title">Pick Your Franchise</div>',
-      '<div class="tops-empty" style="margin-bottom:10px; line-height:1.5;">',
-      "  We couldn't figure out which franchise is yours from this page.",
-      "  Pick from the list below — we'll remember it for next time.",
-      '</div>',
-      franchises.length
-        ? '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">' +
-          '  <select id="topsViewerPicker" style="flex:1; min-width:180px; padding:8px 10px; font-size:14px; background:#0f1116; color:#fff; border:1px solid rgba(255,255,255,0.15); border-radius:6px;">' +
-          '    <option value="">— Pick franchise —</option>' +
-          optsHtml +
-          '  </select>' +
-          '  <button id="topsViewerPickerSave" class="tops-link-pill" style="cursor:pointer; border:none; font-size:13px;">Use this</button>' +
-          '</div>'
-        : '<div class="tops-empty">League data hasn\'t loaded — refresh to retry.</div>',
-      diagHtml,
-    ].join("");
+
+    mount.innerHTML = '<div class="tops-shell">'
+      + '<section class="tops-card">'
+      +   '<div class="tops-card-h"><span class="tops-card-t">Pick your franchise</span></div>'
+      +   '<div class="tops-empty">We couldn\'t work out which franchise is yours from this page.'
+      +     ' Pick from the list below — we\'ll remember it next time.</div>'
+      +   (franchises.length
+            ? '<div class="tops-picker">'
+              + '<select id="topsViewerPicker"><option value="">— Pick franchise —</option>' + optsHtml + '</select>'
+              + '<button type="button" class="tops-cta" id="topsViewerPickerSave">Use this</button>'
+              + '</div>'
+            : '<div class="tops-empty">League data hasn\'t loaded — refresh to retry.</div>')
+      +   (diagnostics.length ? '<div class="tops-empty is-err">⚠ ' + escapeHtml(diagnostics.join(" · ")) + '</div>' : '')
+      + '</section>'
+      + footerHtml()
+      + '</div>';
+
     var btn = document.getElementById("topsViewerPickerSave");
     if (btn) {
       btn.addEventListener("click", function () {
@@ -2903,15 +2909,10 @@
         try { window.localStorage && window.localStorage.setItem("rdh_my_fid", pickedFid); } catch (e) {}
         state.viewerFranchiseId = pickedFid;
         state.viewerFranchise = state.franchises.find(function (f) { return f.id === pickedFid; }) || null;
+        state.lineupDraft = null;   // reseed against the newly-picked roster
         renderAll();
       });
     }
-    // Blank out the rest of the cards so the page doesn't look broken.
-    Object.keys(els.cards).forEach(function (k) {
-      if (k === "summary") return;
-      var el = els.cards[k];
-      if (el) el.innerHTML = '<div class="tops-empty">Pick your franchise above to populate.</div>';
-    });
   }
 
   function renderLoadingShell() {
