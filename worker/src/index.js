@@ -35819,6 +35819,23 @@ export default {
       //                   || env.DISCORD_CONTRACT_TEST_CHANNEL_ID
       //                   || env.DISCORD_BUG_TEST_CHANNEL_ID
       //   target="prod" → env.DISCORD_DROPS_CHANNEL_ID || 1059111651846131833
+      // Commish inspect — recent drop events (id, name, season, penalty, posted
+      // message id) so a correction can target the exact row.
+      if (path === "/admin/drops/inspect" && request.method === "GET") {
+        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        try {
+          const nameQ = safeStr(url.searchParams.get("player_name") || "").trim();
+          const lim = Math.max(1, Math.min(30, safeInt(url.searchParams.get("limit"), 12)));
+          const q = nameQ
+            ? "SELECT id, season, league_id, player_name, franchise_name, pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year, pre_drop_contract_length, pre_drop_tcv, pre_drop_contract_info, penalty_amount, penalty_exempt, penalty_basis, discord_posted, discord_message_id, discord_channel_id, dropped_at_iso FROM ups_drop_events WHERE player_name LIKE ? ORDER BY dropped_at_unix DESC LIMIT ?"
+            : "SELECT id, season, league_id, player_name, franchise_name, pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year, pre_drop_contract_length, pre_drop_tcv, pre_drop_contract_info, penalty_amount, penalty_exempt, penalty_basis, discord_posted, discord_message_id, discord_channel_id, dropped_at_iso FROM ups_drop_events ORDER BY dropped_at_unix DESC LIMIT ?";
+          const stmt = nameQ ? env.UPS_MFL_DB.prepare(q).bind(`%${nameQ}%`, lim) : env.UPS_MFL_DB.prepare(q).bind(lim);
+          const { results } = await stmt.all();
+          return jsonOut(200, { ok: true, rows: results || [] });
+        } catch (e) { return jsonOut(500, { ok: false, error: String(e?.message || e) }); }
+      }
+
       if (path === "/admin/drops/post-discord" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
