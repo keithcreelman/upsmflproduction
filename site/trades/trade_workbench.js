@@ -7106,10 +7106,32 @@
   function open3WayBuilder() {
     if (!state.data || !((state.data.teams || []).length)) return;
     tw3 = tw3Fresh();
-    tw3.aFid = pad4(state.leftTeamId || getActiveFranchiseId() || (state.data.teams[0] && state.data.teams[0].franchise_id) || "");
+    // Slot A is WHO IS MAKING THE OFFER, so it is the viewer's OWN franchise —
+    // resolved via /api/me, exactly like the outbox (tw3ResolveViewerFid).
+    //
+    // It used to be seeded from state.leftTeamId — the team currently being
+    // *analysed*, which anyone can re-point at any team in the league — on top
+    // of a free "Your team" dropdown that could then be set to a third team
+    // again. The worker stamped whatever came back as initiator_fid while the
+    // outbox lists by the /api/me viewer fid, so building a 3-way as a team you
+    // don't own created a live, DM'd trade that never appeared in your outbox
+    // and had no desktop Cancel path at all — tw3LoadOutbox(true) on the
+    // submit-success path just silently refreshed into an empty list. The
+    // worker now 403s that mismatch outright; this stops the UI from ever
+    // building one, and slot A renders as a fixed label (tw3SlotAHtml).
+    tw3.aFid = pad4(tw3Box.fid);
     render3WayPanel();
     tw3SetVisible(true);
     try { window.scrollTo(0, 0); } catch (e) {}
+    // Normally warm already (tw3LoadOutbox runs at init). If not, resolve now
+    // and re-render — every selection lives on `tw3`, so nothing is lost.
+    if (!tw3.aFid) {
+      tw3ResolveViewerFid().then(function (fid) {
+        if (!tw3) return; // builder closed while /api/me was in flight
+        tw3.aFid = pad4(fid);
+        render3WayPanel();
+      });
+    }
   }
   function close3WayBuilder() {
     tw3SetVisible(false);
@@ -7130,6 +7152,18 @@
       opts.push('<option value="' + escapeHtml(fid) + '"' + (fid === pad4(current) ? " selected" : "") + ">" + escapeHtml(t.franchise_name || ("Franchise " + fid)) + "</option>");
     });
     return '<select class="twb-3w-teamsel" data-3w-slot="' + slot + '">' + opts.join("") + "</select>";
+  }
+  // Slot A is fixed, not a picker: you can only offer YOUR OWN assets, so the
+  // offering team is whoever /api/me says the viewer is (see open3WayBuilder).
+  // When identity can't be resolved this renders the reason instead — and since
+  // tw3State().allIn requires every slot to be truthy, an unresolved slot A
+  // already leaves "Send 3-way" disabled.
+  function tw3SlotAHtml() {
+    if (!tw3.aFid) {
+      return '<div class="twb-3w-teamfixed is-unset">' +
+        escapeHtml(tw3Box.fidError || "Working out which team is yours…") + "</div>";
+    }
+    return '<div class="twb-3w-teamfixed">' + escapeHtml(tw3NameOf(tw3.aFid)) + "</div>";
   }
   function tw3DestChooserHtml(giver, aid) {
     var cur = pad4((tw3.give[giver] || {})[aid]);
@@ -7199,7 +7233,13 @@
     var fid = pad4(tw3[slot + "Fid"]);
     var placeholder = slot === "a" ? "Your team" : (slot === "b" ? "Partner 1" : "Partner 2");
     if (!fid) {
-      return '<div class="twb-3w-col is-empty"><div class="twb-3w-colhead">' + placeholder + '</div><div class="twb-3w-colempty">Pick a team above.</div></div>';
+      // Slot A isn't pickable (it's the viewer's own franchise), so "Pick a team
+      // above" would be a dead end there — say what's actually missing.
+      var hint = slot === "a"
+        ? (tw3Box.fidError || "Working out which team is yours…")
+        : "Pick a team above.";
+      return '<div class="twb-3w-col is-empty"><div class="twb-3w-colhead">' + placeholder +
+        '</div><div class="twb-3w-colempty">' + escapeHtml(hint) + "</div></div>";
     }
     var label = slot === "a" ? "You send" : (tw3NameOf(fid) + " sends");
     var rows = tw3TeamAssets(fid).map(function (a) { return tw3AssetRowHtml(fid, a); }).join("");
@@ -7246,7 +7286,7 @@
     var bothPartners = tw3.bFid && tw3.cFid;
     body.innerHTML =
       '<div class="twb-3w-teams">' +
-        '<label class="twb-field"><span>Your team</span>' + tw3TeamSelectHtml("a", tw3.aFid) + "</label>" +
+        '<label class="twb-field"><span>Your team</span>' + tw3SlotAHtml() + "</label>" +
         '<label class="twb-field"><span>Partner 1</span>' + tw3TeamSelectHtml("b", tw3.bFid) + "</label>" +
         '<label class="twb-field"><span>Partner 2</span>' + tw3TeamSelectHtml("c", tw3.cFid) + "</label>" +
       "</div>" +
@@ -7459,6 +7499,8 @@
       if (resp.ok && resp.body && resp.body.ok !== false) {
         tw3SetStatus("3-way sent — both partners have been DM'd to Accept or Decline. ✓", "good");
         render3WayPanel();
+        // The deal is now pending — pull it into the outbox so it's cancellable.
+        tw3LoadOutbox(true);
         setTimeout(function () { if (tw3 && !tw3.submitting) close3WayBuilder(); }, 1600);
       } else {
         tw3SetStatus("Couldn't send: " + ((resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status)), "bad");
@@ -7470,11 +7512,332 @@
       render3WayPanel();
     });
   }
+  // ═════════════════════ 3-WAY OUTBOX (pending + cancel) ══════════════════════
+  // The desktop twin of the mobile outbox (site/m/views/trade.js): lists the
+  // 3-way trades this viewer is actually in, and lets the INITIATOR call one
+  // off. Without this the desktop could CREATE a 3-way and then never see or
+  // stop it — the builder's "Cancel" button only closes the panel.
+  // Rendered as a third <details> in .twb-hero-actions, immediately after the
+  // "3-Way Trade" button that creates these and beside "Trades Offered" /
+  // "Trades Received" — same idiom, same row, where pending trades already live.
+  //   list: null = never loaded / unavailable, [] = loaded-and-empty (distinct).
+  var tw3Box = {
+    list: null,
+    loading: false,
+    error: "",        // the list fetch itself failed
+    fid: "",          // the VIEWER's franchise id (see tw3ResolveViewerFid)
+    fidError: "",     // couldn't work out who the viewer is
+    busyId: "",       // id currently being cancelled
+    status: "",
+    statusTone: ""
+  };
+
+  // /api/me — the definitive MFL user→franchise map. Derived from the 3-way base
+  // so it inherits the same worker origin + MFL_USER_ID/APIKEY session params.
+  function tw3ResolveMeApiUrl() {
+    try {
+      var u = new URL(resolve3WayApiUrl(), window.location.href);
+      // Set the path outright rather than string-replacing the 3-way one: the
+      // base can be overridden via window.UPS_TRADE_3WAY_API, and a replace
+      // that silently no-ops would leave us POSTing identity at the wrong route.
+      u.pathname = "/api/me";
+      // /api/me short-circuits on ?franchise_id= and simply echoes it back. If
+      // the page URL carried one we'd "resolve" that instead of the real viewer,
+      // so strip every franchise-ish param and force the cookie path.
+      u.searchParams.delete("franchise_id");
+      u.searchParams.delete("FRANCHISE_ID");
+      u.searchParams.delete("F");
+      return u.toString();
+    } catch (e) {
+      return "";
+    }
+  }
+
+  // The VIEWER's franchise id. Deliberately NOT getActiveFranchiseId(): that
+  // resolves the team currently SELECTED in the workbench (it falls back to
+  // state.leftTeamId and finally teams[0]), so it happily returns a team the
+  // viewer doesn't own — which here would list someone else's 3-ways and hand
+  // them a Cancel button. This is an identity question, so it takes the road
+  // the barebones bridge proved (site/shared/player_popup_bridge.js, #734):
+  // /api/me resolves the MFL_USER_ID cookie through MFL's user→franchise map.
+  // CRUCIAL: MFL_USER_ID is a USER id, NOT a franchise id — using it directly
+  // as franchise_id is the exact bug #734 was filed to fix. There is no guessy
+  // fallback on purpose: unresolved ⇒ no list and no Cancel button.
+  // The session params ride along from resolve3WayApiUrl, APIKEY included: the
+  // 3-way write routes accept the commish key, so /api/me now resolves it too
+  // (worker/src/index.js, the commish branch of the handler). Without that a
+  // commish-key session could send 3-ways it could never list — /api/me answered
+  // {configured:false} at HTTP 200, which fetchJsonRequest does NOT treat as an
+  // error (no ok:false), so this landed on the sign-in message below forever.
+  function tw3ResolveViewerFid() {
+    if (tw3Box.fid) return Promise.resolve(tw3Box.fid);
+    var meUrl = tw3ResolveMeApiUrl();
+    if (!meUrl) {
+      tw3Box.fidError = "Couldn't build the sign-in lookup.";
+      return Promise.resolve("");
+    }
+    return fetchJsonRequest(meUrl).then(function (data) {
+      var fid = pad4(data && data.franchise_id);
+      if (!fid) {
+        tw3Box.fidError = "Sign in to MFL to see your 3-way trades.";
+        return "";
+      }
+      tw3Box.fid = fid;
+      tw3Box.fidError = "";
+      return fid;
+    }).catch(function (err) {
+      tw3Box.fidError = "Couldn't confirm which team is yours: " +
+        ((err && err.message) || "lookup failed");
+      return "";
+    });
+  }
+
+  function tw3LoadOutbox(force) {
+    if (tw3Box.loading) return Promise.resolve();
+    if (!force && tw3Box.list) return Promise.resolve();
+    tw3Box.loading = true;
+    tw3Box.error = "";
+    tw3RenderOutbox();
+    return tw3ResolveViewerFid().then(function (fid) {
+      // No identity ⇒ leave list null so the render shows the sign-in state
+      // rather than a misleading "no 3-way trades".
+      if (!fid) return null;
+      var url = resolve3WayApiUrl();
+      try {
+        var u = new URL(url, window.location.href);
+        u.searchParams.set("franchise_id", fid);
+        url = u.toString();
+      } catch (e) {}
+      return fetchJsonRequest(url);
+    }).then(function (data) {
+      if (data) {
+        tw3Box.list = Array.isArray(data.three_way) ? data.three_way : [];
+        tw3Box.error = "";
+      }
+      tw3Box.loading = false;
+      tw3RenderOutbox();
+    }).catch(function (err) {
+      tw3Box.loading = false;
+      tw3Box.list = null;
+      tw3Box.error = (err && err.message) || "Load failed.";
+      tw3RenderOutbox();
+    });
+  }
+
+  // Build the dropdown once and hang it off the hero actions row.
+  function tw3EnsureOutboxDom() {
+    var listEl = document.getElementById("twb3wOutboxList");
+    if (listEl) return listEl;
+    var openBtn = document.getElementById("twb3wOpenBtn");
+    var host = (openBtn && openBtn.parentNode) || document.querySelector(".twb-hero-actions");
+    if (!host) return null;
+    var box = document.createElement("details");
+    box.className = "twb-banner-offers";
+    box.id = "twb3wOutboxDropdown";
+    box.innerHTML =
+      '<summary class="twb-banner-offers-summary">' +
+        '3-Way Trades <span id="twb3wOutboxCount" class="twb-banner-offers-count">0</span>' +
+      '</summary>' +
+      '<div id="twb3wOutboxList" class="twb-banner-offers-list"></div>';
+    if (openBtn && openBtn.nextSibling) host.insertBefore(box, openBtn.nextSibling);
+    else host.appendChild(box);
+    // Opening/closing a <details> changes page height — the embed iframe is
+    // height-synced, so the parent has to be told.
+    box.addEventListener("toggle", function () { tw3Reflow(); });
+    return document.getElementById("twb3wOutboxList");
+  }
+
+  function tw3BoxStatusLabel(t) {
+    var status = safeStr(t && t.status);
+    if (status === "executing") return "Processing…";
+    if (status === "collecting") {
+      var waiting = (t && t.waiting_on) || [];
+      return waiting.length ? ("Waiting on " + waiting.join(" & ")) : "Both accepted";
+    }
+    return status || "Pending";
+  }
+
+  function tw3OutboxCardHtml(t) {
+    var teams = [t.initiator_name, t.team_b_name, t.team_c_name]
+      .map(function (n) { return safeStr(n); })
+      .filter(Boolean)
+      .join(" · ");
+    var movements = Array.isArray(t.movements) ? t.movements : [];
+    var movs = movements.map(function (m) {
+      // summary is player/pick names only — cap money rides in cap_k, so it
+      // has to be surfaced separately or the card understates the deal.
+      var capK = safeInt(m && m.cap_k, 0);
+      // NOT escapeHtml()'d: capK is already an integer from safeInt, and
+      // escapeHtml() runs safeStr() which TRIMS — that ate the leading space
+      // and rendered "2027 1st+ $5K cap".
+      var cap = capK > 0 ? (" + $" + capK + "K cap") : "";
+      return '<div class="twb-banner-offer-meta">' +
+        escapeHtml(safeStr(m && m.from_name)) + " → " + escapeHtml(safeStr(m && m.to_name)) + ": " +
+        escapeHtml(safeStr(m && m.summary)) + cap +
+      '</div>';
+    }).join("");
+    var notes = safeStr(t.notes)
+      ? '<div class="twb-banner-offer-meta">💬 ' + escapeHtml(safeStr(t.notes)) + "</div>"
+      : "";
+    var role = safeStr(t.role) === "initiator" ? "You started this" : "You're a partner";
+    var tradeId = safeStr(t.id);
+    var busy = tw3Box.busyId === tradeId;
+    var actions;
+    if (t.can_cancel) {
+      actions = '<div class="twb-banner-offer-actions">' +
+        '<button type="button" class="twb-banner-offer-action-btn is-bad" data-3w-cancel="' +
+          escapeHtml(tradeId) + '"' + (busy || tw3Box.busyId ? " disabled" : "") + ">" +
+          (busy ? "Calling it off…" : "Cancel 3-Way") +
+        "</button></div>";
+    } else if (safeStr(t.status) === "collecting") {
+      // The worker is initiator-only (cancel3WayTrade → only_initiator_can_cancel),
+      // so render the reason instead of a button that would just 400.
+      actions = '<div class="twb-banner-offer-meta">Only ' +
+        escapeHtml(safeStr(t.initiator_name) || "the team that started it") +
+        " can call this off.</div>";
+    } else {
+      actions = '<div class="twb-banner-offer-meta">Too far along to cancel.</div>';
+    }
+    return '<div class="twb-banner-offer-item">' +
+      '<div class="twb-banner-offer-title">' + escapeHtml(teams) + "</div>" +
+      '<div class="twb-banner-offer-meta">' + escapeHtml(tw3BoxStatusLabel(t)) +
+        " · " + escapeHtml(role) + "</div>" +
+      movs + notes + actions +
+    "</div>";
+  }
+
+  function tw3RenderOutbox() {
+    var listEl = tw3EnsureOutboxDom();
+    if (!listEl) return;
+    var countEl = document.getElementById("twb3wOutboxCount");
+    var list = Array.isArray(tw3Box.list) ? tw3Box.list : [];
+    // Loading, sign-in, error and empty are four DIFFERENT states — a failed
+    // fetch must never read as "you have no 3-way trades". list === null means
+    // "never loaded", which reads as loading too, so the first paint (before
+    // tw3LoadOutbox runs) doesn't flash a false "no 3-way trades".
+    var neverLoaded = !Array.isArray(tw3Box.list) && !tw3Box.fidError && !tw3Box.error;
+    var pending = tw3Box.loading || neverLoaded;
+    if (countEl) {
+      // The dropdown is collapsed by default, so the badge is all most people
+      // ever see. A failed load must not render as "0" — that is exactly the
+      // empty state, and it would quietly tell an owner they have no pending
+      // 3-ways when we simply couldn't find out. Same for the not-yet-loaded
+      // first paint, which would otherwise flash "0" before the fetch lands.
+      var badgeFailed = !pending && (tw3Box.error || tw3Box.fidError);
+      countEl.textContent = pending ? "…" : (badgeFailed ? "!" : String(list.length));
+      countEl.title = badgeFailed
+        ? "Couldn't load your 3-way trades — open for details."
+        : "";
+    }
+
+    var html = "";
+    if (tw3Box.status) {
+      var tone = tw3Box.statusTone === "good" ? "var(--twb-good)" :
+        (tw3Box.statusTone === "bad" ? "var(--twb-bad)" : "var(--twb-text-dim)");
+      html += '<div class="twb-banner-offers-empty" style="color:' + tone + '">' +
+        escapeHtml(tw3Box.status) + "</div>";
+    }
+
+    if (pending) {
+      html += '<div class="twb-banner-offers-empty">Loading your 3-way trades…</div>';
+    } else if (tw3Box.fidError) {
+      html += '<div class="twb-banner-offers-empty">' + escapeHtml(tw3Box.fidError) + "</div>" +
+        '<div class="twb-banner-offer-actions">' +
+          '<button type="button" class="twb-banner-offer-action-btn" data-3w-outbox-retry="1">Try again</button>' +
+        "</div>";
+    } else if (tw3Box.error) {
+      html += '<div class="twb-banner-offers-empty">Couldn\'t load your 3-way trades: ' +
+          escapeHtml(tw3Box.error) + "</div>" +
+        '<div class="twb-banner-offer-actions">' +
+          '<button type="button" class="twb-banner-offer-action-btn" data-3w-outbox-retry="1">Try again</button>' +
+        "</div>";
+    } else if (!list.length) {
+      html += '<div class="twb-banner-offers-empty">No 3-way trades in flight.</div>';
+    } else {
+      html += list.map(tw3OutboxCardHtml).join("");
+    }
+    listEl.innerHTML = html;
+
+    var cancelBtns = listEl.querySelectorAll("[data-3w-cancel]");
+    var i;
+    for (i = 0; i < cancelBtns.length; i += 1) {
+      cancelBtns[i].addEventListener("click", function () {
+        tw3CancelOutbox(this.getAttribute("data-3w-cancel"));
+      });
+    }
+    var retryBtns = listEl.querySelectorAll("[data-3w-outbox-retry]");
+    for (i = 0; i < retryBtns.length; i += 1) {
+      retryBtns[i].addEventListener("click", function () {
+        tw3Box.fidError = "";
+        tw3Box.error = "";
+        tw3Box.status = "";
+        tw3LoadOutbox(true);
+      });
+    }
+    tw3Reflow();
+  }
+
+  function tw3CancelErrorText(err) {
+    var raw = safeStr((err && err.message) || "");
+    if (/only_initiator_can_cancel/i.test(raw)) {
+      return "Only the team that started this 3-way can call it off.";
+    }
+    if (/^cannot_cancel_/i.test(raw)) {
+      return "Too far along to cancel — it's already " +
+        raw.replace(/^cannot_cancel_/i, "") + ".";
+    }
+    if (/not_found/i.test(raw)) return "That 3-way trade no longer exists.";
+    if (/no_db/i.test(raw)) return "Trade storage is unavailable right now.";
+    if (/Sign in/i.test(raw)) return raw;
+    return raw || "Couldn't cancel.";
+  }
+
+  function tw3CancelOutbox(id) {
+    var tradeId = safeStr(id);
+    if (!tradeId || tw3Box.busyId) return;
+    if (!window.confirm("Call off this 3-way trade? The other two teams will be told it's off.")) return;
+    var cancelUrl = resolve3WayApiUrl();
+    try {
+      var u = new URL(cancelUrl, window.location.href);
+      // Append to whatever the 3-way base path is, so an overridden
+      // window.UPS_TRADE_3WAY_API still lands on its own /cancel.
+      u.pathname = String(u.pathname || "").replace(/\/+$/, "") + "/cancel";
+      cancelUrl = u.toString();
+    } catch (e) {}
+    var ctx = getLeagueContext();
+    tw3Box.busyId = tradeId;
+    tw3Box.status = "";
+    tw3Box.statusTone = "";
+    tw3RenderOutbox();
+    fetchJsonRequest(cancelUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: tradeId,
+        franchise_id: pad4(tw3Box.fid),
+        league_id: ctx.leagueId
+      })
+    }).then(function () {
+      tw3Box.busyId = "";
+      tw3Box.status = "3-way called off — both partners have been told. ✓";
+      tw3Box.statusTone = "good";
+      return tw3LoadOutbox(true);
+    }).catch(function (err) {
+      tw3Box.busyId = "";
+      // Surface what the worker actually said; never fail silently.
+      tw3Box.status = "Couldn't cancel: " + tw3CancelErrorText(err);
+      tw3Box.statusTone = "bad";
+      try { console.error("[TWB][3way] cancel failed", err); } catch (e2) {}
+      tw3RenderOutbox();
+    });
+  }
+
   function init3WayTrade() {
     var openBtn = document.getElementById("twb3wOpenBtn");
     if (openBtn && !openBtn.__tw3Wired) { openBtn.__tw3Wired = true; openBtn.addEventListener("click", open3WayBuilder); }
     var closeBtn = document.getElementById("twb3wCloseBtn");
     if (closeBtn && !closeBtn.__tw3Wired) { closeBtn.__tw3Wired = true; closeBtn.addEventListener("click", close3WayBuilder); }
+    tw3RenderOutbox();
   }
 
   async function boot() {
@@ -7513,6 +7876,10 @@
       state.uiReady = true;
       rerender();
       await refreshBannerOffers(true);
+      // Pending 3-ways load in the background: the count badge should be live
+      // without the user opening the dropdown, but a slow/failed identity
+      // lookup must never hold up the board.
+      tw3LoadOutbox(true);
       await hydrateOfferFromUrlIfNeeded();
 
       window.upsTradeWorkbench = {

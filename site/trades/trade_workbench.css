@@ -2283,6 +2283,20 @@ summary:focus-visible {
   background: var(--twb-surface); padding: 1rem; display: grid; gap: 1rem;
 }
 .twb-3w-teams { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+/* Slot A ("Your team") is the viewer's own franchise and is NOT selectable —
+   you can only offer your own assets. Matched to the sibling Partner selects
+   (same box metrics as the base input/select rule) so the row still reads as
+   three fields, minus the affordance to change this one. */
+.twb-3w-teamfixed {
+  background: rgba(10, 19, 35, 0.95);
+  color: var(--twb-text);
+  border: 1px solid var(--twb-border-strong);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.twb-3w-teamfixed.is-unset { color: var(--twb-text-dim); font-weight: 600; white-space: normal; }
 .twb-3w-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
 .twb-3w-col {
   border: 1px solid var(--twb-border); border-radius: var(--twb-radius-md);

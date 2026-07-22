@@ -10590,6 +10590,25 @@ export default {
             franchise_name = det.franchise_name;
           }
         }
+        // COMMISH_API_KEY is a server-side secret, so holding it IS an identity.
+        // Resolve it to the commish's own franchise instead of reporting "not
+        // signed in": the owner write routes already accept the key (e.g. POST
+        // /api/trades/3way), so without this an APIKEY-authed surface could
+        // create records that every "who am I?" read then refused to identify —
+        // the desktop 3-way outbox could send trades it could never list or
+        // cancel, showing a permanent "Sign in to MFL" instead.
+        // Last resort only: an explicit ?franchise_id= and a real MFL owner
+        // session both still win.
+        if (!franchise_id) {
+          const commishKey = String(env.COMMISH_API_KEY || "").trim();
+          if (commishKey && browserApiKey === commishKey) {
+            // 0000 is MFL's league-owner pseudo-franchise (no roster, so it can
+            // never be a trade participant) — prefer the first real franchise.
+            const cfids = _rdhCommishFids();
+            franchise_id = cfids.find((f) => f && f !== "0000") || cfids[0] || "";
+            if (franchise_id) franchise_name = await _rdhFranchiseName(franchise_id);
+          }
+        }
         if (!franchise_id) return jsonOut(200, { configured: false });
         const commishFids = _rdhCommishFids();
         return jsonOut(200, {
@@ -31658,25 +31677,82 @@ export default {
         });
       }
 
+      // ── 3-way route authz ───────────────────────────────────────────────────
+      // WHO is acting is never read off the request body. Two identities count:
+      //
+      //   • COMMISH_API_KEY — a server-side secret, so holding it is full
+      //     authority: the commish may act for any franchise and the body's
+      //     franchise id is honoured (the on-behalf-of path).
+      //   • an MFL owner session — MFL_USER_ID, cookie first, then the query
+      //     param the embedded/mobile surfaces forward. That value is only
+      //     "authentication" because MFL itself validates it, so we hand it to
+      //     MFL's own user→league map (_rdhDetectFranchise — the identical call
+      //     GET /api/me makes) and the franchise that comes back is the ONLY
+      //     franchise this caller may act as. A forged or expired id resolves
+      //     to nothing and fails closed with 403.
+      //
+      // Before this, "auth" was `MFL_USER_ID is a non-empty string` and the
+      // acting franchise was taken verbatim from the JSON body, so
+      //   curl -X POST '…/api/trades/3way/cancel?MFL_USER_ID=anything' \
+      //        -d '{"id":"<id>","franchise_id":"<initiator fid>"}'
+      // cancelled a stranger's pending 3-way and fired its Discord DMs — using
+      // an initiator fid the GET list hands to every participant of the trade.
+      // Client-side can_cancel gating was cosmetic; this is the real check.
+      //
+      // Deliberately keyed on the COMMISH KEY, not on "is this fid on the
+      // commish allowlist": acting as another franchise should take a
+      // deliberate act (putting the secret in the URL), not merely being signed
+      // in as the commish in a normal browser session. That keeps slot A honest
+      // in the desktop builder for the commish too.
+      const tw3ResolveActor = async (bodyFid) => {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (commishKey && browserKey === commishKey) {
+          return { ok: true, fid: padFranchiseId(bodyFid || ""), viaCommishKey: true };
+        }
+        const cookieMatch = String(request.headers.get("Cookie") || "").match(/MFL_USER_ID=([^;]+)/i);
+        const mflUserId = (cookieMatch && cookieMatch[1]) || browserMflUserId || "";
+        if (!mflUserId) {
+          return { ok: false, status: 401, error: "Sign in (MFL_USER_ID) or pass APIKEY." };
+        }
+        const det = await _rdhDetectFranchise(mflUserId);
+        const fid = padFranchiseId(det?.franchise_id || "");
+        if (!fid) {
+          return {
+            ok: false,
+            status: 403,
+            error: `Couldn't confirm which franchise your MFL session owns${det?.error ? ` (${det.error})` : ""}.`,
+          };
+        }
+        return { ok: true, fid, viaCommishKey: false };
+      };
+
       // 3-way (ring) trade create. The initiator's builder (mobile/desktop)
       // POSTs the ring spec; the engine DMs the two partners to accept, then
       // the commish executes the chained 2-party trades (worker/src/trade_3way.js).
-      // v1 auth: a logged-in owner session (MFL_USER_ID) OR the commish key. The
-      // TRADE_3WAY_* flags + TRADE_DM_TEST_FRANCHISES allowlist bound the blast
-      // radius during the test rollout — tighten (verify viewer == initiator)
-      // before go-live.
+      // Auth: an MFL owner session resolved to a franchise, OR the commish key
+      // (see tw3ResolveActor). The TRADE_3WAY_* flags + TRADE_DM_TEST_FRANCHISES
+      // allowlist bound the blast radius during the test rollout.
       if (path === "/api/trades/3way" && request.method === "POST") {
         let body = null;
         try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
-        const commishKey = String(env.COMMISH_API_KEY || "").trim();
-        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
-        if (!browserMflUserId && (!commishKey || browserKey !== commishKey)) {
-          return jsonOut(401, { ok: false, error: "Sign in (MFL_USER_ID) or pass APIKEY." });
+        const actor = await tw3ResolveActor(body?.initiator?.fid);
+        if (!actor.ok) return jsonOut(actor.status, { ok: false, error: actor.error });
+        // viewer == initiator — the tightening this route's own comment asked
+        // for before go-live. A 3-way gives away slot A's assets, so slot A has
+        // to be the caller's own franchise. Naming someone else both proposed
+        // trading assets the caller doesn't own AND stamped an initiator_fid
+        // that the caller's outbox (which lists by the /api/me fid) could never
+        // list or cancel. An absent body fid is simply filled in from the
+        // session; a present one has to match.
+        const initiatorFid = padFranchiseId(body?.initiator?.fid || "");
+        if (!actor.viaCommishKey && initiatorFid && initiatorFid !== actor.fid) {
+          return jsonOut(403, { ok: false, error: "You can only start a 3-way trade as your own franchise." });
         }
         const out = await create3WayTrade(env, ctx, {
           leagueId: safeStr(body?.league_id || L || ""),
           season: safeStr(body?.season || YEAR || ""),
-          initiator: body?.initiator,
+          initiator: { ...(body?.initiator || {}), fid: actor.viaCommishKey ? initiatorFid : actor.fid },
           teamB: body?.team_b,
           teamC: body?.team_c,
           movements: body?.movements,
@@ -31699,12 +31775,15 @@ export default {
       if (path === "/api/trades/3way/cancel" && request.method === "POST") {
         let body = null;
         try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
-        const commishKey = String(env.COMMISH_API_KEY || "").trim();
-        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
-        if (!browserMflUserId && (!commishKey || browserKey !== commishKey)) {
-          return jsonOut(401, { ok: false, error: "Sign in (MFL_USER_ID) or pass APIKEY." });
-        }
-        const out = await cancel3WayTrade(env, ctx, safeStr(body?.id), padFranchiseId(body?.franchise_id || ""));
+        const actor = await tw3ResolveActor(body?.franchise_id);
+        if (!actor.ok) return jsonOut(actor.status, { ok: false, error: actor.error });
+        // Pass the SESSION-resolved fid, never body.franchise_id — this value is
+        // the whole authorization check: cancel3WayTrade (trade_3way.js) compares
+        // it against row.initiator_fid and, on a match, cancels the trade and DMs
+        // both partners. The initiator fid is not a secret (the GET list returns
+        // it to every participant), so trusting the body let any caller with any
+        // non-empty MFL_USER_ID string call off anyone's trade.
+        const out = await cancel3WayTrade(env, ctx, safeStr(body?.id), actor.fid);
         return jsonOut(out.ok ? 200 : 400, out);
       }
 
