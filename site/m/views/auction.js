@@ -574,7 +574,8 @@
     var idx = Math.min(rank, C.p50.length) - 1, a50f = C.p50[idx];             // FULL 2dp p50 → exact rw
     var rw = pyRound(a50f * EP.dollar_per_apwe), aff = EP.affine_ante + EP.affine_slope * rw, sf = epStartFloorM(pos, rank, EP);
     var pw = (EP.pos_dyn_w[pos] != null ? EP.pos_dyn_w[pos] : (EP.pos_dyn_w._default != null ? EP.pos_dyn_w._default : 0.8));
-    var mkt = Math.max(aff, (dw || 0) * pw) * epFactorsM(pos, name, EP);       // only the MARKET arms scale
+    var bs = (typeof EP.budget_scale === "number") ? EP.budget_scale : (EP.budget_scale && EP.budget_scale[pos] != null ? EP.budget_scale[pos] : 1);  // budget-normalized board scales the MARKET arms (not the floor); absent/1 = identity
+    var mkt = Math.max(aff * bs, (dw || 0) * pw * bs) * epFactorsM(pos, name, EP);  // MARKET arms scaled by budget_scale AND m_money·m_pos·m_elite·m_live (epFactorsM); floor never scaled
     return { a50: Math.round(a50f * 10) / 10, a90: Math.round(C.p90[idx] * 10) / 10, rw: rw, ep: pyRound(Math.max(sf, mkt)) };
   }
   function favEPM(d) { return d && d.meta && d.meta.model; }

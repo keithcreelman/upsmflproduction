@@ -204,6 +204,24 @@ def main():
                 and ((p.get("redraft_worth_k") or 0) >= CRED_RW or (p.get("ep_base_k") or 0) >= CRED_EP)]
     credible_rworth_k = round(sum(p.get("redraft_worth_k") or 0 for p in credible)) or 1
 
+    # ── BUDGET-CONSTRAINT COHERENCE (offense) — the accounting identity behind the shopping board ──
+    # biddable_money above is a total-dollar CONTEXT number that was only ever displayed. Here we
+    # actually CHECK the board against it: is the OFFENSE predicted clearing set (top-N per bucket by
+    # price) within the money that will be spent? IDP/K/P are priced off the realized ladder elsewhere
+    # (already coherent), so this offense check is the one the EP model can violate.
+    committed_k = CAP * len(team) / 1000.0 - ceiling_headroom_k
+    projected_spend_k, spend_parts = bfv.project_auction_spend(ceiling_headroom_k, committed_k)
+    off_vals = collections.defaultdict(list)
+    for p in core:
+        if not rostered_by_name.get(nkey(p["player"])) and p.get("pos") in SKILL:
+            off_vals[p["pos"]].append(p.get("ep_base_k") or 0)
+    off_target_k = projected_spend_k * (sum(bfv.AUCTION_BUCKET_SPEND_K[b] for b in SKILL)
+                                        / sum(bfv.AUCTION_BUCKET_SPEND_K.values()))
+    coherence = bfv.coherence_check(off_vals, off_target_k)
+    # budget_scale ships to the client kernels so a normalized board's OVERRIDE recompute stays
+    # consistent. Default = 1.0 (off): the served EP is per-player and the check above is a diagnostic.
+    budget_scale = 1.0
+
     def re_verdict(ep_k, worth_k, p90):
         vr = round(worth_k / ep_k, 2) if ep_k > 0 else None
         if vr is None: return ("—", None)
@@ -306,6 +324,10 @@ def main():
         "reserve_total_k": round(reserve_total_k), "credible_value_k": credible_rworth_k,
         "n_credible": len(credible), "surplus_k": round(surplus_k), "board_markup": markup,
         "binding_arm_mix_credible": dict(arms),
+        "coherence": {**coherence, "projected_spend_parts": spend_parts, "budget_scale": budget_scale,
+                      "note": "OFFENSE predicted-clearing-set (top-N per bucket by price) vs projected offense "
+                              "spend. status=FAIL usually means a value-inflated FA pool (pre-roster-lock snapshot); "
+                              "2022-25 boards sit 0.66-0.97. Enforcement hurts winner MAE, so budget_scale defaults 1.0."},
         "regime": {"R_now": R_now, "R_bar": Rbar, "R_observed_range": R_range,
                    "demand": demand, "supply": supply, "z_now": z_now, "z_bar": zbar,
                    "m_money": round(m_money, 4), "m_money_raw": round(m_money_raw, 4),
@@ -443,6 +465,10 @@ def main():
             "model": {
                 "dollar_per_apwe": bfv.DOLLAR_PER_APWE, "affine_ante": bfv.AFFINE_ANTE, "affine_slope": bfv.AFFINE_SLOPE,
                 "pos_dyn_w": bfv.POS_DYN_W, "startability": bfv.STARTABILITY, "curve_max_rank": MODEL_CURVE_MAXRANK,
+                # budget_scale: OPTIONAL per-position (or scalar) market-arm multiplier for a budget-normalized
+                # board. Default 1.0 = identity (no change). The client kernels multiply the market arm by it so
+                # an ADP-override recompute matches a normalized board. Absent/1.0 → kernels behave exactly as before.
+                "budget_scale": budget_scale,
                 # curves capped at MODEL_CURVE_MAXRANK (every startable override lives well inside this; the client
                 # clamps a higher rank to the last entry). p50 stays at FULL 2-decimal precision — the pipeline
                 # computes redraft_worth = round(p50·$/APWE) off the 2dp value, so the client MUST use 2dp to
@@ -527,6 +553,11 @@ def main():
           f"mandatory K/P/IDP starters → biddable ${biddable_money_k}K (deploy ×{DEPLOY_FRAC}, descriptive)")
     print(f"  credible redraft-worth ${credible_rworth_k}K ({len(credible)} targets) → board prices ~{market['board_markup']}× over intrinsic worth")
     print(f"  locked rostered surplus (worth−cost, positive): ${market['surplus_k']}K")
+    print(f"  BUDGET COHERENCE (offense): predicted clearing ${coherence['predicted_clearing_k']}K / "
+          f"projected offense spend ${coherence['projected_spend_k']}K = ratio {coherence['ratio']} "
+          f"[band {coherence['band'][0]}-{coherence['band'][1]}] status={coherence['status']}"
+          + (f"  *** {coherence['n_contract_star_fa']} FA >= ${coherence['contract_star_threshold_k']}K — check for a pre-roster-lock pool ***"
+             if coherence['status'] == 'FAIL' else ""))
     print(f"  credible-pool binding arms: {dict(arms)}")
     if cal:
         print(f"  regime: R_now {R_now} vs R̄ {Rbar} → M_money {round(m_money,3)} · "
