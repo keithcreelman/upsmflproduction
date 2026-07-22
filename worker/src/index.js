@@ -35836,7 +35836,13 @@ export default {
         // discord_posted. Used to fix already-posted drops after a display bug.
         const repostIds = Array.isArray(body?.repost_ids)
           ? body.repost_ids.map((x) => safeInt(x, 0)).filter(Boolean) : [];
-        const corrected = repostIds.length > 0 || !!body?.corrected;
+        // recompute: re-run _computeDropPenalty on the row's stored pre-drop
+        // contract fields (fixes rows recorded under an old buggy penalty calc,
+        // e.g. the multi-year sub-$4K WW that wrongly stored $0). player_name
+        // lets a repost target a drop by name when the event id isn't handy.
+        const recompute = !!body?.recompute;
+        const playerNameFilter = safeStr(body?.player_name || "").trim();
+        const corrected = repostIds.length > 0 || !!playerNameFilter || !!body?.corrected;
         if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
 
@@ -35992,6 +35998,12 @@ export default {
                 WHERE id IN (${repostIds.map(() => "?").join(",")})
                 ORDER BY dropped_at_unix ASC`
             ).bind(...repostIds).all()
+          : playerNameFilter
+          ? await env.UPS_MFL_DB.prepare(
+              `SELECT ${dropCols} FROM ups_drop_events
+                WHERE season = ? AND league_id = ? AND player_name LIKE ?
+                ORDER BY dropped_at_unix DESC LIMIT ?`
+            ).bind(targetSeason, leagueId, `%${playerNameFilter}%`, limit).all()
           : await env.UPS_MFL_DB.prepare(
               `SELECT ${dropCols} FROM ups_drop_events
                 WHERE season = ? AND league_id = ? AND discord_posted = 0
@@ -36004,6 +36016,30 @@ export default {
 
         const results = [];
         for (const r of rows) {
+          // recompute the penalty from stored pre-drop contract fields using the
+          // CURRENT calc, and persist the correction, before building the embed.
+          if (recompute) {
+            try {
+              const rc = _computeDropPenalty({
+                contractStatus: r.pre_drop_contract_status,
+                salary: r.pre_drop_salary,
+                contractInfo: r.pre_drop_contract_info,
+                contractYear: r.pre_drop_contract_year,
+                isTaxi: Number(r.pre_drop_taxi) === 1,
+              }, { season: targetSeason, dropDateIso: r.dropped_at_iso });
+              r.penalty_amount = Number(rc.penalty) || 0;
+              r.penalty_exempt = rc.exempt ? 1 : 0;
+              r.penalty_exempt_reason = safeStr(rc.exempt_reason);
+              r.penalty_basis = safeStr(rc.basis);
+              r.guaranteed_amount = Number(rc.guaranteed) || Number(r.guaranteed_amount) || 0;
+              r.earned_to_date = Number(rc.earned) != null ? (Number(rc.earned) || 0) : (Number(r.earned_to_date) || 0);
+              if (!dryRun) {
+                await env.UPS_MFL_DB.prepare(
+                  `UPDATE ups_drop_events SET penalty_amount=?, penalty_exempt=?, penalty_exempt_reason=?, penalty_basis=?, guaranteed_amount=? WHERE id=?`
+                ).bind(r.penalty_amount, r.penalty_exempt, r.penalty_exempt_reason, r.penalty_basis, r.guaranteed_amount, r.id).run();
+              }
+            } catch (e) { console.error(`[drops recompute] id=${r.id}: ${e?.message || e}`); }
+          }
           const penalty = Number(r.penalty_amount) || 0;
           const exempt = Number(r.penalty_exempt) === 1;
           const tier = exempt ? null : pickTier(penalty);
