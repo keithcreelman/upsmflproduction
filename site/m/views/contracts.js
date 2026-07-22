@@ -544,21 +544,28 @@
     if (!m) return "";
     return LEDGER_MONTHS[(Number(m[2]) || 1) - 1] + " " + Number(m[3]);
   }
-  // AAV can carry a half-thousand (e.g. TCV 95K / CL 2 = $47.5K); U.fmtUsd
-  // rounds to whole $K and would flatten it to $48K. Show one decimal, trim ".0".
+  // AAV display. Only TRUST a raw-dollar AAV (>= $1,000) — the ups_extension
+  // submissions column is mixed-unit: most rows store aav in $K (e.g. 33 for
+  // $33K, == salary/1000, so falling back to salary renders the same number),
+  // while the pre-trade-3way flow stores true raw-dollar AAVs (e.g. 33000 /
+  // 43000 for London's dual AAV). Sub-$1K values are $K-units or garbage —
+  // return null so the caller falls back to the loaded salary unchanged.
+  // Renders one decimal (e.g. $47.5K) and trims a trailing ".0".
   function ledgerAav(n) {
     var x = Number(n || 0);
-    if (!isFinite(x)) return "$0";
+    if (!isFinite(x) || x < 1000) return null;
     return "$" + (Math.round(x / 100) / 10) + "K";
   }
   function ledgerChange(s) {
     function leg(side) {
       side = side || {};
       var yr = side.contract_year != null ? (side.contract_year + "yr") : null;
-      // Prefer the true averaged AAV over the loaded year-1 salary — a
-      // backloaded/frontloaded deal's Y1 salary misrepresents the contract.
-      var sal = side.aav != null ? ledgerAav(side.aav)
-              : (side.salary != null ? U.fmtUsd(side.salary) : null);
+      // Prefer a real (raw-dollar) AAV over the loaded year-1 salary — a
+      // backloaded/escalating deal's Y1 salary misrepresents the contract
+      // (London: current-year AAV $33K → extension-year AAV $43K, not the
+      // loaded $52K). K-unit/garbage aav falls through to salary.
+      var aavStr = side.aav != null ? ledgerAav(side.aav) : null;
+      var sal = aavStr || (side.salary != null ? U.fmtUsd(side.salary) : null);
       return [yr, sal].filter(Boolean).join(" ");
     }
     var a = leg(s.prior), b = leg(s.new);
