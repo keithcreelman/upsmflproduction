@@ -36516,6 +36516,52 @@ export default {
         return jsonOut(200, { ok: true, season: rSeason, league_id: rLeague, posted: rowsToPost.length, rows: rowsToPost, franchises });
       }
 
+      // Commish: post arbitrary salary adjustments to MFL (ADDITIVE — MFL's
+      // salaryAdj import ADDS the posted rows to existing ones, so we post ONLY
+      // the new rows and never touch the other 42). Used to settle a 3-way's
+      // traded cap the same way a normal 2-party trade does (the 3-way engine
+      // wrongly moved it as blind-bid dollars instead of a salary settlement).
+      // Requires the commish MFL_COOKIE (salaryAdj import is cookie-gated).
+      if (path === "/admin/add-salary-adjustment" && request.method === "POST") {
+        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        let asBody = {};
+        try { asBody = (await request.json()) || {}; } catch (_) { asBody = {}; }
+        const asSeason = safeStr(asBody?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const asLeague = safeStr(asBody?.league_id || url.searchParams.get("L") || L || "74598");
+        const asRows = Array.isArray(asBody?.rows) ? asBody.rows : [];
+        const asDry = !!asBody?.dry_run;
+        if (!asRows.length) return jsonOut(400, { ok: false, error: "rows[] required (each { franchise_id, amount (dollars, +/-), explanation })" });
+        const clean = [];
+        for (const r of asRows) {
+          const fid = padFranchiseId(r?.franchise_id);
+          const amt = safeInt(r?.amount, 0);
+          if (!fid || !amt) { clean.push({ error: "missing franchise_id/amount", row: r }); continue; }
+          clean.push({ franchise_id: fid, amount: amt, explanation: safeStr(r?.explanation || "") });
+        }
+        const postable = clean.filter((r) => !r.error);
+        const dataXml = buildSalaryAdjXml(postable);
+        if (!dataXml) return jsonOut(400, { ok: false, error: "no valid rows", rows: clean });
+        if (asDry) return jsonOut(200, { ok: true, dry_run: true, would_post: postable, data_xml: dataXml });
+        const mflCookie = String(env.MFL_COOKIE || "").trim();
+        if (!mflCookie) return jsonOut(403, { ok: false, error: "MFL_COOKIE missing (salaryAdj import is cookie-gated)." });
+        const asCookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+        const asImportUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(asSeason)}/import`;
+        const asImportBody = new URLSearchParams({ TYPE: "salaryAdj", L: asLeague, DATA: dataXml }).toString();
+        let asRes;
+        try {
+          const ir = await fetch(asImportUrl, {
+            method: "POST",
+            headers: { Cookie: asCookieHeader, "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)", "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body: asImportBody, redirect: "manual", cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          asRes = { ok: ir.status >= 200 && ir.status < 400, status: ir.status, preview: String(await ir.text().catch(() => "")).slice(0, 300) };
+        } catch (e) { asRes = { ok: false, status: 0, preview: "", error: "fetch_failed: " + (e && e.message) }; }
+        // Verify against the post-import export.
+        const asVerify = await mflExportJson(asSeason, asLeague, "salaryAdjustments", {}, { useCookie: true });
+        const asVerifyRows = asVerify.ok ? collectSalaryAdjustmentExportRows(asVerify.data?.salaryAdjustments || asVerify.data?.salaryadjustments || asVerify.data || {}) : [];
+        return jsonOut(asRes.ok ? 200 : 502, { ok: asRes.ok, import: asRes, posted: postable, total_adjustments_now: asVerifyRows.length });
+      }
+
       if (path === "/admin/drops/post-mfl" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
