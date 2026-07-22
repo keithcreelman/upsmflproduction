@@ -34893,6 +34893,45 @@ export default {
       // }
       // Posts a <salaries>... XML to MFL's TYPE=salaries import endpoint.
       // Requires commissioner auth via MFL_COOKIE secret.
+      // Commish correction for the D1 src_contracts snapshot (what the Contract
+      // History modal reads). src_contracts is a BATCH-synced mirror of MFL and
+      // has no live writer, so a fix made in MFL (e.g. a corrected contract_year
+      // after an extension) doesn't reach it until the next sync. This lets a
+      // commish patch specific fields for a player+season now. Only the whitelisted
+      // contract columns; UPDATE only (never inserts a phantom season row).
+      if (path === "/admin/fix-src-contract" && request.method === "POST") {
+        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        let b = {};
+        try { b = (await request.json()) || {}; } catch (_) { b = {}; }
+        const rowsIn = Array.isArray(b?.rows) ? b.rows : [];
+        if (!rowsIn.length) return jsonOut(400, { ok: false, error: "rows[] required (each { player_id, season, ...fields })" });
+        const COLS = ["contract_status", "contract_length", "contract_year", "tcv", "aav", "contract_info", "extension_flag"];
+        const dry = !!b?.dry_run;
+        const out = [];
+        for (const r of rowsIn) {
+          const pid = safeStr(r?.player_id || r?.id);
+          const season = safeStr(r?.season);
+          if (!pid || !season) { out.push({ error: "missing player_id/season", row: r }); continue; }
+          const before = await env.UPS_MFL_DB.prepare(
+            "SELECT contract_status, contract_length, contract_year, tcv, aav, contract_info FROM src_contracts WHERE player_id = ? AND season = ?"
+          ).bind(pid, season).first();
+          if (!before) { out.push({ player_id: pid, season, error: "no src_contracts row (UPDATE-only, refusing to insert)" }); continue; }
+          const setCols = [], binds = [];
+          for (const c of COLS) { if (Object.prototype.hasOwnProperty.call(r, c)) { setCols.push(`${c} = ?`); binds.push(r[c]); } }
+          if (!setCols.length) { out.push({ player_id: pid, season, error: "no whitelisted fields to update", before }); continue; }
+          if (!dry) {
+            binds.push(pid, season);
+            await env.UPS_MFL_DB.prepare(`UPDATE src_contracts SET ${setCols.join(", ")} WHERE player_id = ? AND season = ?`).bind(...binds).run();
+          }
+          const after = dry ? null : await env.UPS_MFL_DB.prepare(
+            "SELECT contract_status, contract_length, contract_year, tcv, aav, contract_info FROM src_contracts WHERE player_id = ? AND season = ?"
+          ).bind(pid, season).first();
+          out.push({ player_id: pid, season, before, after, updated: setCols.map((s) => s.split(" ")[0]) });
+        }
+        return jsonOut(200, { ok: true, dry_run: dry, results: out });
+      }
+
       if (path === "/admin/import-salaries" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
