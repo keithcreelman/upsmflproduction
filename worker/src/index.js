@@ -30721,10 +30721,30 @@ export default {
           const rows = (results || []).map((r) => ({
             id: r.id, status: r.status, failure_reason: r.failure_reason,
             initiator_fid: r.initiator_fid, team_b_fid: r.team_b_fid, team_c_fid: r.team_c_fid,
-            movements: r.movements, extension_requests: r.extension_requests,
+            legs_json: r.legs_json, extension_requests_json: r.extension_requests_json,
             mfl_trade_ids: r.mfl_trade_ids, updated_at_utc: r.updated_at_utc, created_at_utc: r.created_at_utc,
           }));
-          return jsonOut(200, { ok: true, rows });
+          // Optional: also dump live MFL pendingTrades for the three franchises
+          // (needs the worker's MFL_APIKEY) so a failed extract_trade_id can be
+          // told apart — orphaned-proposal-exists (parsing bug) vs no-proposal
+          // (MFL rejected the propose). Pass &pending=1.
+          let pending = undefined;
+          if (String(url.searchParams.get("pending") || "") === "1" && rows[0]) {
+            const mflKey = String(env.MFL_APIKEY || "").trim();
+            const yr = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+            const lg = String(L || "74598");
+            pending = {};
+            for (const fid of [rows[0].initiator_fid, rows[0].team_b_fid, rows[0].team_c_fid]) {
+              const f = padFranchiseId(fid || "");
+              if (!f) continue;
+              try {
+                const pr = await fetch(`https://www48.myfantasyleague.com/${yr}/export?TYPE=pendingTrades&L=${lg}&FRANCHISE_ID=${f}&APIKEY=${encodeURIComponent(mflKey)}&JSON=1`,
+                  { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
+                pending[f] = { status: pr.status, body: (await pr.text()).slice(0, 1500) };
+              } catch (e) { pending[f] = { error: String(e?.message || e) }; }
+            }
+          }
+          return jsonOut(200, { ok: true, rows, pending });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e?.message || e) });
         }
