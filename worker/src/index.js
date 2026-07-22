@@ -30702,6 +30702,34 @@ export default {
         return jsonOut(200, { ok: true, three_way: rows });
       }
 
+      // Commish inspect — recent 3-way rows of ANY status (incl. failed) with
+      // the failure_reason, so a failed execution is diagnosable without D1
+      // access. The owner-facing list route only returns collecting/executing.
+      if (path === "/admin/3way/inspect" && request.method === "GET") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!commishKey || browserKey !== commishKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        try {
+          const fidQ = padFranchiseId(url.searchParams.get("franchise_id") || "");
+          const idQ = String(url.searchParams.get("id") || "").trim();
+          let q, binds;
+          if (idQ) { q = "SELECT * FROM ups_3way_trades WHERE id = ? LIMIT 1"; binds = [idQ]; }
+          else if (fidQ) { q = "SELECT * FROM ups_3way_trades WHERE initiator_fid=? OR team_b_fid=? OR team_c_fid=? ORDER BY updated_at_utc DESC LIMIT 5"; binds = [fidQ, fidQ, fidQ]; }
+          else { q = "SELECT * FROM ups_3way_trades ORDER BY updated_at_utc DESC LIMIT 5"; binds = []; }
+          const { results } = await env.UPS_MFL_DB.prepare(q).bind(...binds).all();
+          const rows = (results || []).map((r) => ({
+            id: r.id, status: r.status, failure_reason: r.failure_reason,
+            initiator_fid: r.initiator_fid, team_b_fid: r.team_b_fid, team_c_fid: r.team_c_fid,
+            movements: r.movements, extension_requests: r.extension_requests,
+            mfl_trade_ids: r.mfl_trade_ids, updated_at_utc: r.updated_at_utc, created_at_utc: r.created_at_utc,
+          }));
+          return jsonOut(200, { ok: true, rows });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
+      }
+
       // Cancel a pending 3-way (initiator only).
       if (path === "/api/trades/3way/cancel" && request.method === "POST") {
         let body = null;
