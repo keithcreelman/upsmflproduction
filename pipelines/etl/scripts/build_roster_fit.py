@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
-"""Phase E — league-wide roster fit + INFLATION + finalize the FA value blob.
+"""Phase E — league-wide roster fit + the v5 regime multipliers + finalize the FA value blob.
 
 1. Pull all 12 live rosters → each team's production strength by position
-   (rostered players' E[APWE]) vs a startable baseline B[pos] → per-team NEED / SURPLUS.
-2. AUCTION INFLATION (back-tested on SF-era 2022-2025): cheap rostered contracts lock
-   value below worth, leaving leftover cap that chases a small FA pool → prices clear
-   ABOVE intrinsic worth. The clearing line is REGRESSIVE: clear ≈ α + β·worth (a flat
-   ~$7K ante that lifts cheap/mid targets most; studs clear near worth — NOT a flat 1.9×).
-   α scales with the live money/value REGIME (biddable_money ÷ available_value), so the
-   factor tracks as players come off the board.  EP_inflated = max(EP_base, α·regime + β·worth).
+   (rostered players' E[APWE]) vs a startable baseline B[pos] → per-team NEED / SURPLUS,
+   plus each team's per-team IDP/K/P RESERVE (the worker's reserve_cost engine, ported).
+2. EXPECTED PRICE. build_fa_value emits three arms (startability floor ∨ affine clearing line ∨
+   position-weighted dynasty anchor) and the arm that bound. This phase optionally applies the
+   v5 REGIME MULTIPLIERS on top:
+       ep_v5 = max(floor, max(affine, dyn_anchor) · M_money · M_pos · elite)
+       M_money = clamp(1 + λ·(R_now/R̄ − 1), 0.80, 1.60)   R = (Σcapspace − Σreserve) / Σrw(pool)
+       M_pos   = clamp(1 + γ·((D/S)/z̄[pos] − 1), 0.85, 1.35)   D = Σ comp_score ONLY
+   λ, γ, R̄, z̄ and the elite factor are FITTED, never hand-set — build_ep_v5_calibration.py
+   regenerates them from the archive, runs leave-one-year-out on 2022-25, and writes
+   ep_v5_calibration.json with a ship_gate boolean. v5 applies ONLY when that gate passed.
+   `--ep-model v4` forces the unmodified v4 max() (bit-identical to the pre-v5 pipeline);
+   `--ep-model v5` demands v5 and fails loudly if the gate did not pass. Default: gate decides.
+   NOTE: capspace influences price ONLY through M_money. It is deliberately absent from D —
+   weighting demand by cap space too would square the money signal.
 3. Filter to AVAILABLE FAs (unrostered) + rostered TRADE TARGETS (own=fid).
 4. Per FA: 0008's fit + a COMPETITION forecast (teams with a NEED there × cap space).
 5. Write fa_value.json (lean, FAs only) + fa_valuation.csv; --push-d1 upserts the blob.
@@ -30,23 +38,46 @@ SLOTS = {"QB": 2, "RB": 2, "WR": 2, "TE": 1}          # SF starting demand per t
 REPL_RANK = {"QB": 24, "RB": 31, "WR": 31, "TE": 14}  # replacement (marginal-starter) rank
 SUFFIX = re.compile(r"\b(jr|sr|ii|iii|iv|v)\b")
 
-# ── INFLATION (affine clearing line, back-tested SF-era 2022-2025 + adversarially verified) ──
-# Realized FA prices fit paid$K ≈ ANTE + SLOPE·redraft_worth$K (OLS n≈88, R-fit on WORTH not
-# EP). A flat scarcity ANTE on every credible target + a sub-1 slope → cheap/mid inflate most,
-# studs clear near worth. Applied ADDITIVELY OVER the dynasty/startability anchor:
-#     EP_inflated = max(EP_base, ANTE_live + SLOPE·redraft_worth)
-# so the dynasty anchor (Allen $75K) is never deflated and never double-inflated (the verifier's
-# fix — don't multiply a worth-calibrated factor onto the 1.88×-larger EP_base), while the ante
-# lifts the mid/cheap pool. ANTE scales with the live money÷value regime → it dampens in a deep
-# (stud-heavy) pool and CLIMBS as studs clear (late-board inflation). Mean realized 1.97×;
-# per-year 1.57/1.81/1.89/2.61×; position spread emerges from the worth distribution (TE lowest
-# worth → biggest multiplier, QB highest → smallest).
-INFL_ANTE = 7.0        # SF-era flat scarcity ante $K on a credible target
-INFL_SLOPE = 0.72      # worth pass-through (OLS paid~redraft_worth slope; <1 = stud compression)
-DEPLOY_FRAC = 0.76     # biddable money = 0.76 × Σ(ceiling headroom)  [calibrated SF-era deploy fraction]
-REGIME_BASE = 1.9      # SF-era biddable ÷ credible-redraft-worth (the norm at which ante = $7K)
-CREDIBLE_WORTH = 2     # credible target: redraft worth ≥ $2K …
-CREDIBLE_EP = 5        # … or EP_base ≥ $5K (startable). True scrubs hold the $1K floor (no ante).
+CALIBRATION = DATA / "ep_v5_calibration.json"   # written by build_ep_v5_calibration.py
+DEPLOY_FRAC = 0.76     # descriptive only: ~76% of ceiling headroom historically becomes real bids.
+                       # Reported in the market-context block; it does NOT enter any price.
+
+# ── PER-TEAM IDP/K/P RESERVE (a straight port of the worker's reserveCostForScenario /
+# computeLineupNeeds, worker/src/index.js ~19243-19302) ──
+# Mandatory starters (K, P, DL×2, LB×2, DB×2) are entirely unpriced by the worth model, but every
+# team must still hold money back to fill them. That reserve is PER-TEAM — a team already carrying
+# its kicker holds back less — so it must never be a flat league constant. build_ep_v5_calibration
+# imports these to reconstruct historical regimes with exactly the same engine.
+MIN_ROSTER = 27        # the reserve engine's target roster count (worker: scenario_27)
+POS_BUCKET = {"QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE", "PK": "PK", "PN": "PN",
+              "DE": "DL", "DT": "DL", "DL": "DL", "LB": "LB", "S": "DB", "CB": "DB", "DB": "DB"}
+
+
+def reserve_slots(players):
+    """players = [{pos, status}] → number of $1K slots the team must hold in reserve."""
+    counts = collections.Counter()
+    roster_count = 0
+    for p in players:
+        st = (p.get("status") or "").upper()
+        taxi, ir = "TAXI" in st, ("IR" in st or "INJURED" in st)
+        if not taxi:
+            roster_count += 1
+        if taxi or ir:
+            continue
+        b = POS_BUCKET.get(p.get("pos"))
+        if b:
+            counts[b] += 1
+    base = {"QB": max(0, 1 - counts["QB"]), "RB": max(0, 2 - counts["RB"]),
+            "WR": max(0, 2 - counts["WR"]), "TE": max(0, 1 - counts["TE"]),
+            "PK": max(0, 1 - counts["PK"]), "PN": max(0, 1 - counts["PN"]),
+            "DL": max(0, 2 - counts["DL"]), "LB": max(0, 2 - counts["LB"]),
+            "DB": max(0, 2 - counts["DB"])}
+    flex_pool = max(0, counts["RB"] - 2) + max(0, counts["WR"] - 2) + max(0, counts["TE"] - 1)
+    flex = max(0, 2 - flex_pool)
+    sflex = max(0, 1 - (max(0, counts["QB"] - 1) + max(0, flex_pool - 2)))
+    dflex = max(0, 1 - (max(0, counts["DL"] - 2) + max(0, counts["LB"] - 2) + max(0, counts["DB"] - 2)))
+    deficit = sum(base.values()) + flex + sflex + dflex
+    return max(max(0, MIN_ROSTER - roster_count), deficit)
 
 
 def jget(u):
@@ -86,7 +117,23 @@ def parse_contract(info, sal):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--push-d1", action="store_true")
+    ap.add_argument("--ep-model", choices=["auto", "v4", "v5"], default="auto",
+                    help="auto = ep_v5_calibration.json's ship_gate decides (default); "
+                         "v4 = force the unmodified v4 max() (KILL SWITCH, bit-identical to pre-v5); "
+                         "v5 = demand v5 and fail if the gate did not pass")
     args = ap.parse_args()
+
+    # ---- v5 calibration (fitted constants + the ship gate) ----
+    cal = json.loads(CALIBRATION.read_text()) if CALIBRATION.exists() else None
+    if args.ep_model == "v5":
+        if not cal:
+            raise SystemExit(f"  ✘ --ep-model v5 but {CALIBRATION.name} is missing. "
+                             f"Run: python3 build_ep_v5_calibration.py")
+        if not cal.get("ship_gate"):
+            raise SystemExit(f"  ✘ --ep-model v5 but ship_gate=false in {CALIBRATION.name}. "
+                             f"v5 did NOT beat v4 on the leave-one-year-out gate; re-run the "
+                             f"calibration or serve v4. Refusing to ship an unearned model.")
+    use_v5 = bool(cal and cal.get("ship_gate")) if args.ep_model == "auto" else (args.ep_model == "v5")
 
     core = json.loads((DATA / "fa_value_core.json").read_text())["players"]
     by_name = {nkey(p["player"]): p for p in core}
@@ -98,6 +145,7 @@ def main():
     rosters = jget(f"https://www48.myfantasyleague.com/{YEAR}/export?TYPE=rosters&L={LEAGUE}&JSON=1")["rosters"]["franchise"]
     players = jget(f"https://www48.myfantasyleague.com/{YEAR}/export?TYPE=players&L={LEAGUE}&JSON=1")["players"]["player"]
     id2name = {str(p["id"]): p.get("name") for p in players}
+    id2pos = {str(p["id"]): p.get("position") for p in players}   # raw MFL pos (PK/PN/DE/S/…) for the reserve engine
     lg = jget(f"https://www48.myfantasyleague.com/{YEAR}/export?TYPE=league&L={LEAGUE}&JSON=1")["league"]
     fid2team = {f["id"]: f.get("name", f["id"]) for f in lg["franchises"]["franchise"]}
 
@@ -107,9 +155,10 @@ def main():
         fid = fr["id"]
         pls = fr.get("player", [])
         if isinstance(pls, dict): pls = [pls]
-        active_sal = 0; apwe_by_pos = collections.defaultdict(list)
+        active_sal = 0; apwe_by_pos = collections.defaultdict(list); slots = []
         for p in pls:
             nm = id2name.get(str(p.get("id")))
+            slots.append({"pos": id2pos.get(str(p.get("id"))), "status": p.get("status")})
             if nm:
                 rostered_by_name[nkey(nm)] = fid
             sal = int(p.get("salary") or 0)
@@ -134,15 +183,19 @@ def main():
             fit[pos] = {"need": need, "surplus": surplus, "top_apw": round(top, 2),
                         "has_stud": top >= STUD[pos], "starters_apw": round(sum(vals[:SLOTS[pos]]), 2)}
         team[fid] = {"team": fid2team.get(fid, fid), "capspace": CAP - active_sal,
-                     "active_salary": active_sal, "fit": fit}
+                     "active_salary": active_sal, "fit": fit,
+                     # money this team MUST hold back for its mandatory K/P/DL/LB/DB starters +
+                     # open roster slots. Per-team by construction — never a flat league constant.
+                     "reserve_k": float(reserve_slots(slots))}
 
-    # ---- v4 MARKET CONTEXT (the affine clearing line is baked into EP in build_fa_value;
-    #      no separate regime/ante machinery — the audit flagged those as unvalidated knobs) ----
-    DEPLOY_FRAC = 0.76      # ~76% of ceiling headroom becomes real bids (calibrated SF-era)
+    # ---- MARKET CONTEXT ----
     ceiling_headroom_k = sum(t["capspace"] for t in team.values()) / 1000.0
-    biddable_money_k = round(DEPLOY_FRAC * ceiling_headroom_k)
+    biddable_money_k = round(DEPLOY_FRAC * ceiling_headroom_k)   # descriptive only — feeds no price
+    reserve_total_k = sum(t["reserve_k"] for t in team.values())
+    CRED_RW = (cal or {}).get("constants", {}).get("credible_rw", 3)
+    CRED_EP = (cal or {}).get("constants", {}).get("credible_ep", 5)
     credible = [p for p in core if not rostered_by_name.get(nkey(p["player"]))
-                and ((p.get("redraft_worth_k") or 0) >= 3 or (p.get("ep_base_k") or 0) >= 5)]
+                and ((p.get("redraft_worth_k") or 0) >= CRED_RW or (p.get("ep_base_k") or 0) >= CRED_EP)]
     credible_rworth_k = round(sum(p.get("redraft_worth_k") or 0 for p in credible)) or 1
 
     def re_verdict(ep_k, worth_k, p90):
@@ -154,33 +207,6 @@ def main():
         if ep_k <= 4: return ("DART" if (p90 or 0) >= 5 else "FAIR", vr)
         if ep_k < 15: return ("FAIR", vr)                        # cheap startable = market slot-rent, not an overpay
         return ("OVERPAY", vr) if vr < 0.6 else ("FAIR", vr)     # real overpay only on a non-trivial price
-
-    # EP is FINAL from build_fa_value (max of affine clearing line ∨ startability floor ∨
-    # position-weighted dynasty anchor). Pass it through + derive gap/verdict.
-    for p in core:
-        ep = p["ep_base_k"]
-        p["ep_k"] = ep; p["median_k"] = ep
-        p["low_k"] = round(ep * 0.78); p["top10_k"] = round(ep * 1.3)
-        p["gap_k"] = ep - p["worth_k"]
-        p["per_apwe"] = round(ep / p["e_apwe_p50"], 1) if (p.get("e_apwe_p50") or 0) > 0 else None
-        v, vr = re_verdict(ep, p["worth_k"], p["e_apwe_p90"])
-        p["verdict"] = v; p["value_ratio"] = vr
-
-    # how far the credible board is priced over intrinsic redraft worth (descriptive only)
-    markup = round(sum(p["ep_k"] for p in credible) / credible_rworth_k, 2) if credible_rworth_k else 1.0
-    inflation = {   # kept key name for View compatibility; v4 = the affine clearing line, not a regime factor
-        "model": "v4-affine", "ante": 2.67, "slope": 0.84, "deploy_frac": DEPLOY_FRAC,
-        "ceiling_headroom_k": round(ceiling_headroom_k), "biddable_money_k": biddable_money_k,
-        "credible_value_k": credible_rworth_k, "n_credible": len(credible),
-        "surplus_k": round(surplus_k), "board_markup": markup,
-        "backtest": {"clearing_line": "paid$K ≈ 2.67 + 0.84·redraft_worth (all clears, MSE 31, n=346)",
-                     "dollar_weighted_inflation": 1.53,
-                     "per_year": {"2022": 1.57, "2023": 1.98, "2024": 1.30, "2025": 1.46}},
-        "note": f"v4 EP = max(startability floor, 2.67 + 0.84·redraft_worth [the harness-fit clearing line], "
-                f"position-weighted dynasty anchor). RB clears win-now (dynasty ×0.55); QB/WR/TE command dynasty. "
-                f"Board prices ~{markup}× intrinsic redraft worth; ${round(surplus_k)}K of locked rostered surplus + "
-                f"${biddable_money_k}K biddable money is the market context. Historical $-weighted markup 1.53×.",
-    }
 
     def need_label(fid, pos):
         f = team[fid]["fit"][pos]; b = B[pos] or 0.01
@@ -206,6 +232,110 @@ def main():
         cands.sort(reverse=True)
         return [{"fid": fid, "team": tm, "need": nd, "capspace": cs} for _, fid, tm, nd, cs in cands[:3]]
 
+    # ---- LIVE REGIME (the v5 inputs; computed and REPORTED whether or not v5 is applied) ----
+    # R = biddable value ÷ available value. Money is Σcapspace MINUS the per-team mandatory-starter
+    # reserve — the cash that genuinely cannot chase a skill player. Value is Σ redraft worth of the
+    # credible pool. Both halves are reconstructed identically for 2022-25 by build_ep_v5_calibration.
+    R_now = round((ceiling_headroom_k - reserve_total_k) / credible_rworth_k, 4)
+    # D = Σ comp_score ONLY. Cap space is deliberately absent: it already drives M_money, and
+    # weighting demand by it as well would square the money signal (the double-count fix).
+    demand = {pos: round(sum(comp_score(t, pos) for t in team.values()), 3) for pos in SKILL}
+    supply = {pos: sum(1 for p in credible if p["pos"] == pos) for pos in SKILL}
+    z_now = {pos: (round(demand[pos] / supply[pos], 4) if supply[pos] else None) for pos in SKILL}
+
+    K = (cal or {}).get("constants", {})
+    lam, gam = K.get("lambda", 0.0), K.get("gamma", 0.0)
+    Rbar, zbar = K.get("R_bar"), K.get("z_bar", {}) or {}
+    mm_lo, mm_hi = K.get("m_money_clamp", [0.80, 1.60])
+    mp_lo, mp_hi = K.get("m_pos_clamp", [0.85, 1.35])
+    elite_f = K.get("elite_factor", 1.0) if K.get("elite_enabled") else 1.0
+    elite_n = K.get("elite_top_n", 3)
+
+    m_money_raw = (1 + lam * (R_now / Rbar - 1)) if Rbar else 1.0
+    m_money = clamp(m_money_raw, mm_lo, mm_hi) if (use_v5 and Rbar) else 1.0
+    # EXTRAPOLATION GUARD. λ was fitted over a narrow band of R; outside it the multiplier is being
+    # set by the clamp, not by anything measured. Say so loudly rather than serve a confident number.
+    R_range = K.get("R_observed_range")
+    extrapolating = bool(R_range and not (R_range[0] <= R_now <= R_range[1]))
+    clamped = bool(use_v5 and abs(m_money - m_money_raw) > 1e-9)
+    m_pos = {pos: (clamp(1 + gam * (z_now[pos] / zbar[pos] - 1), mp_lo, mp_hi)
+                   if (use_v5 and z_now.get(pos) and zbar.get(pos)) else 1.0) for pos in SKILL}
+    elite_names, elite_display = set(), []
+    if use_v5 and K.get("elite_enabled"):
+        for pos in SKILL:
+            for p in sorted([x for x in credible if x["pos"] == pos],
+                            key=lambda x: -(x.get("redraft_worth_k") or 0))[:elite_n]:
+                elite_names.add(nkey(p["player"]))
+                elite_display.append(p["player"])   # DISPLAY names for the client kernels — the
+                                                    # blob must not require a JS port of nkey()
+
+    # ---- EXPECTED PRICE ----
+    # v4: EP is FINAL from build_fa_value — max(startability floor ∨ affine ∨ dynasty anchor).
+    # v5: the two MARKET arms are scaled by the regime; the startability floor is NOT (a slot's rent
+    #     is a rule of the roster, not a market opinion), which is why the floor sits outside.
+    for p in core:
+        fl = p.get("ep_arm_floor_k", 0)
+        mkt = max(p.get("ep_arm_affine_k", 0), p.get("ep_arm_dyn_anchor_k", 0))
+        mp_p = m_pos.get(p["pos"], 1.0)
+        el = elite_f if nkey(p["player"]) in elite_names else 1.0
+        ep = round(max(fl, mkt * m_money * mp_p * el)) if use_v5 else p["ep_base_k"]
+        p["ep_v4_k"] = p["ep_base_k"]
+        p["ep_v5_k"] = round(max(fl, mkt * m_money * mp_p * el))
+        p["m_money"] = round(m_money, 4); p["m_pos"] = round(mp_p, 4); p["m_elite"] = round(el, 4)
+        p["ep_k"] = ep; p["median_k"] = ep
+        p["low_k"] = round(ep * 0.78); p["top10_k"] = round(ep * 1.3)
+        p["gap_k"] = ep - p["worth_k"]
+        p["per_apwe"] = round(ep / p["e_apwe_p50"], 1) if (p.get("e_apwe_p50") or 0) > 0 else None
+        v, vr = re_verdict(ep, p["worth_k"], p["e_apwe_p90"])
+        p["verdict"] = v; p["value_ratio"] = vr
+
+    # how far the credible board is priced over intrinsic redraft worth (descriptive only)
+    markup = round(sum(p["ep_k"] for p in credible) / credible_rworth_k, 2) if credible_rworth_k else 1.0
+    gate = (cal or {}).get("ship_gate_detail", {})
+    arms = collections.Counter(p.get("ep_arm") for p in credible)
+    market = {   # key stays "inflation" in meta for View back-compat; nothing here is a hand-set knob
+        "model": ("v5-regime" if use_v5 else "v4-affine"), "ep_model_flag": args.ep_model,
+        "ante": bfv.AFFINE_ANTE, "slope": bfv.AFFINE_SLOPE, "deploy_frac": DEPLOY_FRAC,
+        "ceiling_headroom_k": round(ceiling_headroom_k), "biddable_money_k": biddable_money_k,
+        "reserve_total_k": round(reserve_total_k), "credible_value_k": credible_rworth_k,
+        "n_credible": len(credible), "surplus_k": round(surplus_k), "board_markup": markup,
+        "binding_arm_mix_credible": dict(arms),
+        "regime": {"R_now": R_now, "R_bar": Rbar, "R_observed_range": R_range,
+                   "demand": demand, "supply": supply, "z_now": z_now, "z_bar": zbar,
+                   "m_money": round(m_money, 4), "m_money_raw": round(m_money_raw, 4),
+                   "m_money_clamped": clamped, "extrapolating": extrapolating,
+                   "m_pos": {k: round(v, 4) for k, v in m_pos.items()},
+                   "elite_factor": elite_f, "n_elite": len(elite_names),
+                   "lambda": lam, "gamma": gam,
+                   "warning": (None if not (extrapolating or clamped) else
+                               f"LIVE R {R_now} is outside the fitted range {R_range}. M_money "
+                               f"{'is pinned to its clamp' if clamped else 'is extrapolated'} "
+                               f"(raw {round(m_money_raw,3)} → served {round(m_money,3)}): the board-wide "
+                               f"markdown is being set by a Keith-tunable bound, NOT by a measured "
+                               f"relationship. 2026 carries far more unrostered credible worth "
+                               f"(${credible_rworth_k}K) than any fitted season, so the money/value "
+                               f"regime is genuinely off the end of the training data. Sanity-check the "
+                               f"board against v4 (--ep-model v4) before trusting the level.")},
+        "calibration": None if not cal else {
+            "ship_gate": cal.get("ship_gate"), "applied": use_v5,
+            "loyo": gate.get("v4") and {"v4": gate["v4"], "v5": gate["v5"]},
+            "power_warning": gate.get("power_warning"),
+            "gamma_sign_guarded": K.get("gamma_sign_guarded"),
+            "arm_truth_credible": (cal.get("arm_truth", {}).get("credible", {}) or {}).get("arms"),
+            "coverage_warning": cal.get("arm_truth", {}).get("coverage_warning"),
+        },
+        "note": (f"EP = max(startability floor, affine {bfv.AFFINE_ANTE}+{bfv.AFFINE_SLOPE}·redraft_worth, "
+                 f"position-weighted dynasty anchor)"
+                 + (f", with the two MARKET arms scaled by M_money {round(m_money,3)} × M_pos "
+                    f"{ {k: round(v,2) for k, v in m_pos.items()} } (v5, fitted by "
+                    f"build_ep_v5_calibration.py and past its leave-one-year-out ship gate)."
+                    if use_v5 else " (v4 — v5 regime multipliers NOT applied).")
+                 + f" Board prices ~{markup}× intrinsic redraft worth; ${round(surplus_k)}K of locked "
+                   f"rostered surplus, ${round(reserve_total_k)}K held league-wide for mandatory "
+                   f"K/P/IDP starters. Credible-pool binding arms: {dict(arms)}."),
+    }
+    inflation = market   # legacy alias — the View reads meta.inflation
+
     # ---- the board: available FAs (own=None) + rostered trade targets (own=fid) ----
     TRADE_FLOOR = 2.0   # only rostered players actually worth trading FOR
     fas = []
@@ -220,7 +350,7 @@ def main():
         rec = {**p, "own": owner, "contract": ctr,
                "fit_0008": need_label("0008", pos) if pos in SKILL else "—",
                "competition": comp}
-        # a trade target isn't in the auction → its "price" is its contract AAV, not the inflated EP.
+        # a trade target isn't in the auction → its "price" is its contract AAV, not the auction EP.
         if owner and ctr:
             rec["aav_k"] = ctr.get("aav_k"); rec["sal_k"] = ctr.get("sal_k")
             rec["trade_gap_k"] = (ctr.get("aav_k") or 0) - (p.get("worth_k") or 0)   # vs TRUE AAV; neg = worth > AAV = surplus
@@ -284,7 +414,15 @@ def main():
                 # reproduce EP exactly. p90 is display/ceiling only (never feeds EP) → integer is plenty.
                 "curves": {pos: {"p50": [round(v, 2) for v in curve[pos]["p50"][:MODEL_CURVE_MAXRANK]],
                                  "p90": [round(v) for v in curve[pos]["p90"][:MODEL_CURVE_MAXRANK]]} for pos in curve},
-                "note": "ep=round(max(startability(pos,rank), affine_ante+affine_slope*round(p50[r]*$apwe), dyn_worth*pos_dyn_w[pos])); r=min(rank,len)-1",
+                # v5 regime factors. ALL DEFAULT TO 1 — a client reading an older blob (or a blob built
+                # with --ep-model v4) computes exactly the v4 number, so the kernels are back-compatible
+                # by construction. m_pos is per-position; m_elite applies to the named elite set only.
+                "m_money": round(m_money, 4),
+                "m_pos": {k: round(v, 4) for k, v in m_pos.items()},
+                "m_elite": elite_f, "elite_players": sorted(elite_display),
+                "note": "ep=round(max(startability(pos,rank), (affine_ante+affine_slope*round(p50[r]*$apwe)) "
+                        "∨ dyn_worth*pos_dyn_w[pos] scaled by m_money*m_pos[pos]*m_elite)); r=min(rank,len)-1; "
+                        "the startability floor is NOT scaled (slot rent is a roster rule, not a market opinion)",
             },
             "inflation": inflation,
             "tiers": tiers,
@@ -293,7 +431,7 @@ def main():
             "replacement_rank": REPL_RANK, "starter_slots": SLOTS,
             "fill": {"by_season": fill, "avg_post_auction_adds_per_team": fill_avg,
                      "note": "adds between auction-end and ~Week 1; high = teams lock in fewer at auction and fill via waivers"},
-            "verdict_legend": "SPLURGE/VALUE/FAIR/OVERPAY/DART by value_ratio=worth/EP_inflated; EP=expected (inflated) price, WORTH=blended value",
+            "verdict_legend": "SPLURGE/VALUE/FAIR/OVERPAY/DART by value_ratio=worth/EP; EP=expected clearing price, WORTH=blended value",
         },
         "teams": {fid: {"team": t["team"], "capspace": t["capspace"], "fit": t["fit"]} for fid, t in team.items()},
         "fas": [{
@@ -305,6 +443,10 @@ def main():
             "win_now": p["win_now"], "asset": p["asset"], "deal_type": p["deal_type"],
             "redraft_worth_k": p["redraft_worth_k"], "dynasty_worth_k": p["dynasty_worth_k"],
             "worth_k": p["worth_k"], "ep_base_k": p["ep_base_k"], "ep_k": p["ep_k"],
+            "ep_v4_k": p["ep_v4_k"], "ep_v5_k": p["ep_v5_k"],
+            "ep_arm": p.get("ep_arm"), "ep_arm_floor_k": p.get("ep_arm_floor_k"),
+            "ep_arm_affine_k": p.get("ep_arm_affine_k"), "ep_arm_dyn_anchor_k": p.get("ep_arm_dyn_anchor_k"),
+            "m_money": p["m_money"], "m_pos": p["m_pos"], "m_elite": p["m_elite"],
             "low_k": p["low_k"], "median_k": p["median_k"], "top10_k": p["top10_k"], "gap_k": p["gap_k"],
             "e_apwe_p25": p["e_apwe_p25"], "e_apwe_p50": p["e_apwe_p50"], "e_apwe_p90": p["e_apwe_p90"],
             "per_apwe": p["per_apwe"], "value_ratio": p["value_ratio"], "verdict": p["verdict"],
@@ -315,11 +457,24 @@ def main():
     blob_len = len(json.dumps(payload))
     print(f"wrote {(DATA / 'fa_value.json').relative_to(REPO)} ({len(fas)} FAs, blob {blob_len/1024:.1f}KB)")
 
-    # ---- CSV ----
+    # ---- CSV (the audit trail: every number on one line is reconstructable by hand) ----
     cols = ["player", "pos", "status", "owner", "dyn_sf_rank", "fp_rank",
-            "redraft_worth_k", "dynasty_worth_k", "worth_k", "ep_k", "gap_k",
+            "redraft_worth_k", "dynasty_worth_k", "worth_k",
+            "ep_arm_floor_k", "ep_arm_affine_k", "ep_arm_dyn_anchor_k", "ep_arm",
+            "m_money", "m_pos", "m_elite", "ep_v4_k", "ep_v5_k", "ep_k", "gap_k",
             "e_apwe_p50", "e_apwe_p90", "per_apwe", "value_ratio", "verdict", "fit_0008", "deal_type", "top_competitors"]
     with open(DATA / "fa_valuation.csv", "w", newline="") as f:
+        f.write(f"# EP_MODEL,{market['model']},flag={args.ep_model},ship_gate={(cal or {}).get('ship_gate')}\n")
+        f.write(f"# ARMS,ep=max(floor, affine, dyn_anchor); v5 scales max(affine,dyn_anchor) by "
+                f"m_money*m_pos*m_elite (floor never scaled)\n")
+        f.write(f"# REGIME,R_now={R_now},R_bar={Rbar},lambda={lam},gamma={gam},"
+                f"m_money={round(m_money,4)},m_pos={ {k: round(v,3) for k, v in m_pos.items()} }\n")
+        f.write(f"# TUNABLES (NOT fitted),m_money_clamp={[mm_lo, mm_hi]},m_pos_clamp={[mp_lo, mp_hi]},"
+                f"POS_DYN_W={bfv.POS_DYN_W},dyn_anchor_$75K,startability_floor_table\n")
+        f.write(f"# BACKTEST (LOYO 2022-25, credible clears),v4={gate.get('v4')},v5={gate.get('v5')}\n")
+        f.write(f"# ARM_TRUTH (credible historical clears),"
+                f"{(cal or {}).get('arm_truth', {}).get('credible', {}).get('arms')}\n")
+        f.write(f"# WARNING,{(cal or {}).get('arm_truth', {}).get('coverage_warning', '')}\n")
         w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
         w.writeheader()
         for p in fas:
@@ -331,20 +486,33 @@ def main():
     print(f"  ({n_avail} available FAs + {n_rost} rostered trade targets)")
 
     # ---- summaries ----
-    print(f"\n=== v4 MARKET CONTEXT (affine clearing line baked into EP) ===")
-    print(f"  Σ ceiling headroom ${inflation['ceiling_headroom_k']}K → biddable ${biddable_money_k}K (×{DEPLOY_FRAC})")
-    print(f"  credible redraft-worth ${credible_rworth_k}K ({len(credible)} targets) → board prices ~{inflation['board_markup']}× over intrinsic worth")
-    print(f"  locked rostered surplus (worth−cost, positive): ${inflation['surplus_k']}K")
-    print(f"  clearing line: {inflation['backtest']['clearing_line']}")
-    print(f"\n=== a few inflated prices (EP_base → EP_inflated) ===")
+    print(f"\n=== MARKET CONTEXT ({market['model']}, --ep-model {args.ep_model}) ===")
+    print(f"  Σ ceiling headroom ${market['ceiling_headroom_k']}K · ${round(reserve_total_k)}K held for "
+          f"mandatory K/P/IDP starters → biddable ${biddable_money_k}K (deploy ×{DEPLOY_FRAC}, descriptive)")
+    print(f"  credible redraft-worth ${credible_rworth_k}K ({len(credible)} targets) → board prices ~{market['board_markup']}× over intrinsic worth")
+    print(f"  locked rostered surplus (worth−cost, positive): ${market['surplus_k']}K")
+    print(f"  credible-pool binding arms: {dict(arms)}")
+    if cal:
+        print(f"  regime: R_now {R_now} vs R̄ {Rbar} → M_money {round(m_money,3)} · "
+              f"M_pos {{{', '.join(f'{k} {v:.2f}' for k, v in m_pos.items())}}} "
+              f"(λ {lam}, γ {gam}{' [sign-guarded to 0]' if K.get('gamma_sign_guarded') else ''})")
+        print(f"  ship_gate {cal.get('ship_gate')} → v5 {'APPLIED' if use_v5 else 'NOT applied'}"
+              f" | LOYO $wMAE v4 ${(gate.get('v4') or {}).get('dw_mae')}K → v5 ${(gate.get('v5') or {}).get('dw_mae')}K")
+        if market["regime"]["warning"]:
+            print(f"  ⚠ EXTRAPOLATION: {market['regime']['warning']}")
+    else:
+        print(f"  ⚠ {CALIBRATION.name} missing — serving v4. Run build_ep_v5_calibration.py.")
+    print(f"\n=== EP by arm (v4 → served) ===")
     for nm in ["Joe Mixon", "Stefon Diggs", "Aaron Rodgers", "Sam Darnold", "Travis Kelce", "Ja'Marr Chase"]:
         p = next((r for r in core if r["player"].startswith(nm)), None)
-        if p: print(f"  {p['player'][:20]:<21}{str(p.get('fp_rank') or '-'):>6}  worth ${p['worth_k']:>3}  EP ${p['ep_base_k']:>3} → ${p['ep_k']:>3}  gap {('+' if p['gap_k']>=0 else '')}{p['gap_k']}  {p['verdict']}")
+        if p: print(f"  {p['player'][:20]:<21}{str(p.get('fp_rank') or '-'):>6}  worth ${p['worth_k']:>3}  "
+                    f"floor ${p['ep_arm_floor_k']:>3} aff ${p['ep_arm_affine_k']:>6.1f} dyn ${p['ep_arm_dyn_anchor_k']:>6.1f} "
+                    f"[{p['ep_arm']:<10}]  v4 ${p['ep_v4_k']:>3} → ${p['ep_k']:>3}  gap {('+' if p['gap_k']>=0 else '')}{p['gap_k']}  {p['verdict']}")
     print(f"\n=== 0008 roster fit ===")
     for pos in SKILL:
         ff = team["0008"]["fit"][pos]
         print(f"  {pos}: need {ff['need']:.1f}  surplus {ff['surplus']:.1f}  → {need_label('0008', pos)}")
-    print(f"\n=== top FA targets (by worth, inflated price) ===")
+    print(f"\n=== top FA targets (by worth, expected clearing price) ===")
     print(f"  {'player':<20}{'fpRk':>6}{'worth':>6}{'EP':>5}{'gap':>6}  {'verdict':<8}{'fit':<10}competition")
     for p in [x for x in fas if not x.get("own")][:14]:
         print(f"  {p['player'][:19]:<20}{str(p.get('fp_rank') or '-'):>6}{p['worth_k']:>6}{p['ep_k']:>5}"
@@ -352,7 +520,7 @@ def main():
 
     if args.push_d1:
         # The View RE-DERIVES worth/gap/value_ratio/verdict from (rw, dw, e) + the live blend
-        # slider, so the blob only carries the two worth components + the (fixed) inflated price.
+        # slider, so the blob only carries the two worth components + the served expected price.
         def r1(v): return round(v, 1) if isinstance(v, (int, float)) else v
         DT = {"cut-free dart": "d", "1-yr rental / flip": "r", "multi-year build": "m",
               "anchor": "a", "1-yr / situational": "s"}
@@ -360,7 +528,7 @@ def main():
         lean = {
             "meta": payload["meta"],
             "key": {"n": "player", "p": "pos", "dr": "dyn_sf_rank", "fr": "fp_rank",
-                    "rw": "redraft_worth_k", "dw": "dynasty_worth_k", "e": "ep_k (inflated expected price; FA)",
+                    "rw": "redraft_worth_k", "dw": "dynasty_worth_k", "e": "ep_k (served expected clearing price; FA)",
                     "av": "aav_k = TRUE AAV = TCV/CL (the smoothed annual = trade-target price; owned only)",
                     "sl": "sal_k = current-year cap hit (what you pay THIS year; owned only)", "tcv": "tcv_k", "cl": "contract_len", "cy": "years_remaining",
                     "a50": "e_apwe_p50", "a90": "e_apwe_p90", "dt": "deal_type",

@@ -503,19 +503,31 @@
     if (ep < 15) return ["FAIR", "fair"];
     return vr < 0.6 ? ["OVERPAY", "over"] : ["FAIR", "fair"];
   }
-  // ── ADP override: re-rank a FA and re-price him. Kernel reproduces build_fa_value.ep_base_k EXACTLY
-  // (meta.model = constants + fpros curves). Only the redraft axis + startability + affine move with rank;
-  // dynasty worth (dw) is rank-independent. Persisted by player name (same localStorage key as desktop). ──
+  // ── ADP override: re-rank a FA and re-price him. Kernel reproduces the pipeline's served EP EXACTLY
+  // (meta.model = constants + fpros curves + the v5 regime factors). Only the redraft axis + startability
+  // + affine move with rank; dynasty worth (dw) is rank-independent. The three v5 factors ALL DEFAULT TO 1,
+  // so a pre-v5 blob (or one built with --ep-model v4) reduces to the old max() exactly. The startability
+  // floor is never scaled. Persisted by player name (same localStorage key as desktop). ──
   function favSaveOvrM() { try { localStorage.setItem("ups_fav_rank_ovr", JSON.stringify(state.favRankOvr)); } catch (e) { } }
   function pyRound(x) { var r = Math.round(x); if (Math.abs(x - Math.trunc(x) - 0.5) < 1e-9 && (r % 2 !== 0)) r -= (x >= 0 ? 1 : -1); return r; }
   function epStartFloorM(pos, rank, EP) { var t = EP && EP.startability && EP.startability[pos]; if (!t || !rank) return 0; for (var i = 0; i < t.length; i++) { if (rank <= t[i][0]) return t[i][1]; } return t[t.length - 1][1]; }
   function favRankIntM(s) { var m = String(s || "").match(/(\d+)/); return m ? +m[1] : null; }
-  function epRecomputeM(pos, rank, dw, EP) {
+  function epFactorsM(pos, name, EP) {   // the three v5 regime factors; every one defaults to 1
+    var mm = (EP && EP.m_money != null) ? EP.m_money : 1;
+    var mp = (EP && EP.m_pos && EP.m_pos[pos] != null) ? EP.m_pos[pos] : 1;
+    var me = 1;
+    if (EP && EP.m_elite != null && EP.elite_players && name) {
+      for (var i = 0; i < EP.elite_players.length; i++) { if (EP.elite_players[i] === name) { me = EP.m_elite; break; } }
+    }
+    return mm * mp * me;
+  }
+  function epRecomputeM(pos, rank, dw, EP, name) {
     var C = EP && EP.curves && EP.curves[pos]; if (!C || !rank) return null;
     var idx = Math.min(rank, C.p50.length) - 1, a50f = C.p50[idx];             // FULL 2dp p50 → exact rw
     var rw = pyRound(a50f * EP.dollar_per_apwe), aff = EP.affine_ante + EP.affine_slope * rw, sf = epStartFloorM(pos, rank, EP);
     var pw = (EP.pos_dyn_w[pos] != null ? EP.pos_dyn_w[pos] : (EP.pos_dyn_w._default != null ? EP.pos_dyn_w._default : 0.8));
-    return { a50: Math.round(a50f * 10) / 10, a90: Math.round(C.p90[idx] * 10) / 10, rw: rw, ep: pyRound(Math.max(sf, aff, (dw || 0) * pw)) };
+    var mkt = Math.max(aff, (dw || 0) * pw) * epFactorsM(pos, name, EP);       // only the MARKET arms scale
+    return { a50: Math.round(a50f * 10) / 10, a90: Math.round(C.p90[idx] * 10) / 10, rw: rw, ep: pyRound(Math.max(sf, mkt)) };
   }
   function favEPM(d) { return d && d.meta && d.meta.model; }
   function favCanOvrM(r, EP) { return !r.o && EP && EP.curves && EP.curves[r.p] && r.fr; }
@@ -596,7 +608,7 @@
     var owned = state.favOwn === "rostered";
     var rows = (d.fas || []).filter(function (r) { return owned ? r.o : !r.o; });
     if (state.favPos !== "ALL") rows = rows.filter(function (r) { return r.p === state.favPos; });
-    // trade targets price off their contract AAV (not in the auction); FAs price off the inflated EP.
+    // trade targets price off their contract AAV (not in the auction); FAs price off the expected auction EP.
     var EP = favEPM(d);
     rows.forEach(function (r) {
       // pristine snapshot (once) so an ADP override is reversible without a re-fetch; restore + re-apply each pass.
@@ -605,7 +617,7 @@
       // override = YOUR read → moves WORTH only; the expected PRICE (r.e) stays at the MARKET's read, so
       // the widened gap is your edge. r._ovrEP = what he'd cost IF the market agreed with you.
       var ov = favCanOvrM(r, EP) ? state.favRankOvr[r.n] : null; r._ovrEP = null;
-      if (ov != null) { var res = epRecomputeM(r.p, ov, r.dw, EP); if (res) { r.rw = res.rw; r.a50 = res.a50; r.a90 = res.a90; r._ovrEP = res.ep; } }
+      if (ov != null) { var res = epRecomputeM(r.p, ov, r.dw, EP, r.n); if (res) { r.rw = res.rw; r.a50 = res.a50; r.a90 = res.a90; r._ovrEP = res.ep; } }
       r._ovr = ov;
       r._w = favWorthM(r); r._price = r.o ? (r.av || 0) : (r.e || 0); r._gap = r._price - r._w;
       var v = favVerdictM(r._w, r._price, r.a90); r._vlab = v[0]; r._vcls = v[1];

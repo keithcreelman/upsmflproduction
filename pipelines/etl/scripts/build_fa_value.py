@@ -13,15 +13,18 @@ THREE numbers, all surfaced (the engine Keith specified):
     The View blends them on a live redraft↔dynasty SLIDER; we carry BOTH components +
     a default 50/50 blend.
 
-  EP (price) = max(dynasty_worth, startability slot-rent) — what a player CLEARS for.
-    A startable NFL player commands the slot rent regardless of production; a stud
-    clears near his dynasty asset value. INFLATION (Phase E, league-level) multiplies
-    this above the floor.
+  EP (price) = max of THREE ARMS — what a player CLEARS for:
+      startability slot-rent  ∨  affine clearing line  ∨  position-weighted dynasty anchor
+    A startable NFL player commands the slot rent regardless of production; a stud clears
+    near his dynasty asset value. All three arms AND the arm that bound are emitted per
+    player (ep_arm_*), so the CSV shows why a price is what it is. Phase E (build_roster_fit)
+    may scale the max(affine, dyn_anchor) by the v5 regime multipliers — see
+    build_ep_v5_calibration.py, and read the accuracy warning above AFFINE_ANTE first.
 
   GAP = EP − WORTH (recomputed live as the slider moves) — pay the premium or pass.
 
-Writes fa_value_core.json; Phase E (build_roster_fit) adds FA filter + roster fit +
-the inflation factor + pushes the D1 blob.
+Writes fa_value_core.json; Phase E (build_roster_fit) adds the FA filter + roster fit +
+the v5 regime multipliers + pushes the D1 blob.
 """
 from __future__ import annotations
 import csv, json, re, collections
@@ -38,13 +41,22 @@ PER_VALUE = DYN_ANCHOR_K / DYN_ANCHOR_VALUE
 DEFAULT_DYN_W = 0.5        # default blend weight on the dynasty axis (the View slider overrides live)
 # ── v4 EXPECTED-PRICE model (harness-fit + thread findings) ──
 # The auction clearing line, re-fit on ALL clears (build_auction_backtest.py): paid$K ≈
-# 3.53 + 0.82·redraft_worth (MSE 31 vs the v13 selection-biased 7.28+0.72/MSE 89). This is the
-# empirically-best price predictor (MAE $3.5K). EP = the max of three anchors:
+# 2.67 + 0.84·redraft_worth (MSE 31 vs the v13 selection-biased 7.28+0.72/MSE 89). EP = the max of
+# three anchors ("arms"):
 #   • the affine clearing line on REDRAFT (win-now) worth — the data-grounded predictor,
 #   • the startability slot-rent floor (a startable NFL player costs ≥ the rent), and
 #   • a POSITION-WEIGHTED dynasty anchor — RB clears win-now (dynasty heavily discounted: an
 #     expensive RB is a 1-yr rental, dynasty over-prices its age), while QB/WR/TE command their
 #     dynasty value (durable, locked multi-year, extensions hold ~80% — the thread's finding).
+#
+# ⚠ HONEST ACCURACY (build_ep_v5_calibration.py, measured 2022-25 vs actual paid — read this before
+# quoting a number): the famous "MSE 31 / MAE $3.5K" measures the AFFINE ARM ONLY, on ALL clears —
+# a set 60% composed of $1-2K scrubs. The number this file SERVES is the max(), and on the CREDIBLE
+# pool (the players you actually bid on) it is MAE $5.49K / dollar-weighted MAE $9.43K. Per arm on
+# that pool: floor binds 37% (MAE $3.29K), affine 61% ($6.89K), dyn_anchor 2.2% ($4.00K, n=3).
+# The dyn_anchor arm binds 73% of the CREDIBLE 2026 BOARD but only 2.2% of historical clears —
+# franchises never release high-dynasty players into the FA auction, so the arm that prices most of
+# today's board is UNVALIDATABLE from the archive. POS_DYN_W below stays a judgement call.
 AFFINE_ANTE = 2.67
 AFFINE_SLOPE = 0.84
 POS_DYN_W = {"QB": 1.0, "WR": 0.9, "TE": 0.9, "RB": 0.55}   # how much of dynasty value the auction will pay, by pos
@@ -137,6 +149,10 @@ def main():
         affine_k = AFFINE_ANTE + AFFINE_SLOPE * redraft_worth_k
         dyn_anchor_k = dynasty_worth_k * POS_DYN_W.get(pos, 0.8)
         ep_base_k = round(max(sf_floor, affine_k, dyn_anchor_k))
+        # WHICH ARM BOUND — carried downstream so the CSV audit trail shows why a price is what it
+        # is, and so per-arm accuracy is never again inferred from the affine arm alone.
+        ep_arm = ("floor" if (sf_floor >= affine_k and sf_floor >= dyn_anchor_k)
+                  else ("affine" if affine_k >= dyn_anchor_k else "dyn_anchor"))
         gap_k = ep_base_k - worth_k                          # +premium / −discount (vs the default blend; View recomputes live)
         per_apwe = round(ep_base_k / a50, 1) if a50 > 0 else None
         vr = round(worth_k / ep_base_k, 2) if ep_base_k > 0 else None
@@ -149,6 +165,8 @@ def main():
             "dyn_value": dyn_value,
             "redraft_worth_k": redraft_worth_k, "dynasty_worth_k": dynasty_worth_k,
             "worth_k": worth_k, "ep_base_k": ep_base_k, "gap_k": gap_k,
+            "ep_arm_floor_k": sf_floor, "ep_arm_affine_k": round(affine_k, 2),
+            "ep_arm_dyn_anchor_k": round(dyn_anchor_k, 2), "ep_arm": ep_arm,
             "low_k": round(ep_base_k * 0.78), "median_k": ep_base_k, "top10_k": round(ep_base_k * 1.3),
             "e_apwe_p25": a25, "e_apwe_p50": a50, "e_apwe_p90": a90,
             "per_apwe": per_apwe, "value_ratio": vr, "verdict": v,
@@ -158,13 +176,19 @@ def main():
         {"meta": {"dollar_per_apwe": DOLLAR_PER_APWE, "per_value": round(PER_VALUE, 5),
                   "dyn_anchor": {"value": DYN_ANCHOR_VALUE, "k": DYN_ANCHOR_K},
                   "default_dyn_weight": DEFAULT_DYN_W, "startability": STARTABILITY,
-                  "note": "WORTH=blend(redraft E[APWE]×$6.5, dynasty cardinal value×$/val); EP_base=max(dynasty$,startability); "
-                          "inflation (Phase E) multiplies EP above floor; GAP=EP−WORTH recomputed live on the View blend slider"},
+                  "affine": {"ante": AFFINE_ANTE, "slope": AFFINE_SLOPE}, "pos_dyn_w": POS_DYN_W,
+                  "note": "WORTH=blend(redraft E[APWE]×$6.5, dynasty cardinal value×$/val); "
+                          "EP_base=max(startability floor, affine, pos-weighted dynasty anchor) — all three arms + "
+                          "the binding arm are emitted per player (ep_arm_*); GAP=EP−WORTH recomputed live on the "
+                          "View blend slider. Per-arm accuracy: build_ep_v5_calibration.py"},
          "players": out}, indent=2))
     print(f"wrote {(DATA / 'fa_value_core.json').relative_to(REPO)} ({len(out)} players)")
 
     vc = collections.Counter(p["verdict"] for p in out)
     print("\nverdict mix:", dict(vc))
+    ac = collections.Counter(p["ep_arm"] for p in out)
+    acc = collections.Counter(p["ep_arm"] for p in out if p["redraft_worth_k"] >= 3 or p["ep_base_k"] >= 5)
+    print("EP binding arm — all:", dict(ac), "| credible:", dict(acc))
     print(f"\n=== worth (50/50) vs EP_base (pre-inflation) — sample ===")
     print(f"  {'player':<20}{'fpRk':>6}{'redrW':>6}{'dynW':>6}{'worth':>6}{'EP':>5}{'gap':>6}{'vr':>5}  verdict")
     for nm in ["Josh Allen", "Patrick Mahomes", "Sam Darnold", "Joe Flacco", "Aaron Rodgers",
