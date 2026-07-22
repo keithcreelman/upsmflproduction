@@ -113,11 +113,19 @@ async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid, toFid
   if (/impersonate[^.]*lockout|lockout[^.]*impersonate/i.test(proposeResp)) {
     return { ok: false, step: "lockout", error: "MFL commissioner lockout is ON — the bot can't act on a franchise's behalf while it's on. Turn lockout OFF in MFL, then retry; turn it back on after.", mfl_status: proposeStatus };
   }
-  if (!(proposeStatus >= 200 && proposeStatus < 300 && !/error/i.test(proposeResp))) {
+  // IDEMPOTENCY: MFL rejects an identical re-propose with "Duplicate trade
+  // offer" — which means the offer ALREADY EXISTS (e.g. a prior run created it
+  // but couldn't read the id back because the pendingTrades lookup was blocked
+  // by lockout, orphaning it). Don't fail: fall through to the pendingTrades
+  // lookup below, find the existing offer, and accept it. This makes a retry
+  // safe — it picks up its own orphan instead of stacking duplicates.
+  const proposeDuplicate = /duplicate trade offer/i.test(proposeResp);
+  if (!proposeDuplicate && !(proposeStatus >= 200 && proposeStatus < 300 && !/error/i.test(proposeResp))) {
     return { ok: false, step: "propose", error: safeStr(proposeResp).slice(0, 300), mfl_status: proposeStatus };
   }
 
-  // Extract trade_id (from the response, else pendingTrades for fromFid)
+  // Extract trade_id (from the response, else pendingTrades for fromFid). On a
+  // duplicate the response has no id, so the pendingTrades lookup is the path.
   let tradeId = "";
   for (const re of [/TradeID[^\d]*(\d{4,})/i, /trade[_ -]?id[^\d]*(\d{4,})/i, /"id"\s*:\s*"?(\d{4,})"?/i, /\bid\s*=\s*"?(\d{4,})"?/i]) {
     const m = proposeResp.match(re); if (m && m[1]) { tradeId = m[1]; break; }
