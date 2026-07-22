@@ -34907,9 +34907,20 @@ export default {
       if (path === "/admin/fix-extension-submission" && request.method === "POST") {
         if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        // Prior-side AAV backfill column — the 0034 schema only shipped
+        // new_aav; the Ledger now shows AAV on BOTH legs, so a commish may need
+        // to correct the pre-extension AAV too (e.g. a backloaded prior deal
+        // whose year-1 salary misrepresents the true TCV/CL average). Defensive
+        // ADD COLUMN (own try/catch — "duplicate column" is expected once added).
+        try { await env.UPS_MFL_DB.prepare("ALTER TABLE ups_extension_submissions ADD COLUMN prior_aav INTEGER").run(); } catch (_) {}
         let eb = {};
         try { eb = (await request.json()) || {}; } catch (_) { eb = {}; }
-        const COLS = ["prior_contract_status", "prior_salary", "prior_contract_year", "prior_contract_info",
+        // franchise_id: a 3-way pre-trade extension is credited to the team that
+        // APPLIED it (RULE-EXT-003 — the trading-away team extends), which is not
+        // necessarily the franchise the player lands on. prior_aav/new_aav: true
+        // averaged AAV (TCV/CL), independent of the loaded year-1 salary.
+        const COLS = ["franchise_id",
+                      "prior_contract_status", "prior_salary", "prior_contract_year", "prior_contract_info", "prior_aav",
                       "new_contract_status", "new_salary", "new_contract_year", "new_contract_info",
                       "extension_term_years", "new_tcv", "new_aav", "new_gtd"];
         const fields = eb?.fields && typeof eb.fields === "object" ? eb.fields : {};
@@ -34920,11 +34931,12 @@ export default {
         if (eb?.id != null) { where = "id = ?"; wbinds = [safeInt(eb.id, 0)]; }
         else if (eb?.player_id && eb?.season) { where = "player_id = ? AND season = ?" + (eb?.source ? " AND source = ?" : ""); wbinds = eb?.source ? [safeStr(eb.player_id), safeStr(eb.season), safeStr(eb.source)] : [safeStr(eb.player_id), safeStr(eb.season)]; }
         else return jsonOut(400, { ok: false, error: "target by id, or (player_id + season [+ source])" });
-        const before = await env.UPS_MFL_DB.prepare(`SELECT id, player_name, prior_contract_status, prior_salary, prior_contract_year, new_contract_status, new_contract_year, new_tcv FROM ups_extension_submissions WHERE ${where}`).bind(...wbinds).all();
+        const SEL = "SELECT id, player_name, franchise_id, prior_contract_status, prior_salary, prior_contract_year, prior_aav, new_contract_status, new_contract_year, new_tcv, new_aav FROM ups_extension_submissions WHERE " + where;
+        const before = await env.UPS_MFL_DB.prepare(SEL).bind(...wbinds).all();
         if (!before.results || !before.results.length) return jsonOut(404, { ok: false, error: "no matching row" });
         if (eb?.dry_run) return jsonOut(200, { ok: true, dry_run: true, would_set: fields, matched: before.results });
         await env.UPS_MFL_DB.prepare(`UPDATE ups_extension_submissions SET ${setCols.join(", ")} WHERE ${where}`).bind(...binds, ...wbinds).run();
-        const after = await env.UPS_MFL_DB.prepare(`SELECT id, player_name, prior_contract_status, prior_salary, prior_contract_year, new_contract_status, new_contract_year, new_tcv FROM ups_extension_submissions WHERE ${where}`).bind(...wbinds).all();
+        const after = await env.UPS_MFL_DB.prepare(SEL).bind(...wbinds).all();
         return jsonOut(200, { ok: true, before: before.results, after: after.results });
       }
 
@@ -39103,11 +39115,15 @@ export default {
           franchise_id: safeStr(r.franchise_id), source: safeStr(r.source), submitted_at_utc: safeStr(r.submitted_at_utc),
           prior: prior, new: newer,
         });
+        // prior_aav is a late-added column (see /admin/fix-extension-submission);
+        // own try/catch so a "duplicate column" on already-migrated DBs never
+        // aborts the SELECT below.
+        try { await env.UPS_MFL_DB.prepare("ALTER TABLE ups_extension_submissions ADD COLUMN prior_aav INTEGER").run(); } catch (_) {}
         try {
           const ext = await env.UPS_MFL_DB.prepare(
             `SELECT id, player_id, player_name, position, franchise_id, source, submitted_at_utc,
-                    prior_contract_status, prior_salary, prior_contract_year, prior_contract_info,
-                    new_contract_status, new_salary, new_contract_year, new_contract_info
+                    prior_contract_status, prior_salary, prior_contract_year, prior_contract_info, prior_aav,
+                    new_contract_status, new_salary, new_contract_year, new_contract_info, new_aav
                FROM ups_extension_submissions WHERE season = ? AND COALESCE(dry_run,0) = 0`
           ).bind(csSeason).all();
           for (const r of (ext.results || [])) {
@@ -39115,8 +39131,10 @@ export default {
               kind: /myac/i.test(safeStr(r.source)) ? "myac" : "extension",
               player_id: safeStr(r.player_id), player_name: safeStr(r.player_name), position: safeStr(r.position),
               franchise_id: safeStr(r.franchise_id), source: safeStr(r.source), submitted_at_utc: safeStr(r.submitted_at_utc),
-              prior: { contract_status: r.prior_contract_status, salary: r.prior_salary, contract_year: r.prior_contract_year, contract_info: r.prior_contract_info },
-              new: { contract_status: r.new_contract_status, salary: r.new_salary, contract_year: r.new_contract_year, contract_info: r.new_contract_info },
+              // aav = true averaged AAV (TCV/CL). Ledger prefers it over the
+              // loaded year-1 salary so backloaded/frontloaded deals read right.
+              prior: { contract_status: r.prior_contract_status, salary: r.prior_salary, contract_year: r.prior_contract_year, contract_info: r.prior_contract_info, aav: r.prior_aav },
+              new: { contract_status: r.new_contract_status, salary: r.new_salary, contract_year: r.new_contract_year, contract_info: r.new_contract_info, aav: r.new_aav },
               revertable: r.prior_contract_status != null || r.prior_salary != null || r.prior_contract_year != null };
             out.push(o);
           }

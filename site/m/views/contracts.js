@@ -544,11 +544,21 @@
     if (!m) return "";
     return LEDGER_MONTHS[(Number(m[2]) || 1) - 1] + " " + Number(m[3]);
   }
+  // AAV can carry a half-thousand (e.g. TCV 95K / CL 2 = $47.5K); U.fmtUsd
+  // rounds to whole $K and would flatten it to $48K. Show one decimal, trim ".0".
+  function ledgerAav(n) {
+    var x = Number(n || 0);
+    if (!isFinite(x)) return "$0";
+    return "$" + (Math.round(x / 100) / 10) + "K";
+  }
   function ledgerChange(s) {
     function leg(side) {
       side = side || {};
       var yr = side.contract_year != null ? (side.contract_year + "yr") : null;
-      var sal = side.salary != null ? U.fmtUsd(side.salary) : null;
+      // Prefer the true averaged AAV over the loaded year-1 salary — a
+      // backloaded/frontloaded deal's Y1 salary misrepresents the contract.
+      var sal = side.aav != null ? ledgerAav(side.aav)
+              : (side.salary != null ? U.fmtUsd(side.salary) : null);
       return [yr, sal].filter(Boolean).join(" ");
     }
     var a = leg(s.prior), b = leg(s.new);
