@@ -371,12 +371,20 @@
     return "";
   };
   var _withUserId = function (url) {
-    var sep = url.indexOf("?") < 0 ? "?" : "&";
+    // Forward BOTH the MFL session token AND the commish API key when available.
+    // The worker's commish gates check the API key FIRST, so a stored key wins
+    // even when a session token is present. The old code returned early on the
+    // session token and never forwarded the key — so when the embedded session
+    // resolved to a NON-commish franchise (e.g. the commish is viewing via the
+    // BECOME toggle, or the embed captured a non-commish session), every gate
+    // 403'd `not_commish` and the key that would have worked was never sent.
+    var out = url;
+    var add = function (kv) { out += (out.indexOf("?") < 0 ? "?" : "&") + kv; };
     var t = _mflUserId();
-    if (t) return url + sep + "MFL_USER_ID=" + encodeURIComponent(t);
+    if (t) add("MFL_USER_ID=" + encodeURIComponent(t));
     var k = _commishApiKey();
-    if (k) return url + sep + "APIKEY=" + encodeURIComponent(k);
-    return url;
+    if (k) add("APIKEY=" + encodeURIComponent(k));
+    return out;
   };
   function fetchJSON(url) {
     return fetch(_withUserId(url), { cache: "no-store", credentials: "omit" }).then(function (r) {
