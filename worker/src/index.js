@@ -26811,6 +26811,7 @@ export default {
         yearlyBreakdown,  // e.g. "2026: $26K, 2027: $103K"
         usageText,
         gifUrl,
+        titleOverride,    // e.g. "Contract Extension" — defaults to "Restructure Alert"
       }) => {
         const team = safeStr(franchiseName) || "Unknown Team";
         const player = safeStr(playerName) || "Unknown Player";
@@ -26821,7 +26822,7 @@ export default {
         if (safeStr(guaranteedLabel)) descParts.push(`${safeStr(guaranteedLabel)} Guaranteed`);
         if (safeStr(aavLabel)) descParts.push(`with ${safeStr(aavLabel)} AAV`);
         const embed = {
-          title: "Restructure Alert",
+          title: safeStr(titleOverride) || "Restructure Alert",
           color: 0x103a71,
           description: descParts.join(", "),
           fields: [
@@ -26856,6 +26857,7 @@ export default {
         forceTestOnly,
         forcePrimaryOnly,
         channelIdOverride,
+        titleOverride,
       }) => {
         const botToken = contractDiscordBotToken();
         const overrideChannelId = safeStr(channelIdOverride).replace(/\D/g, "");
@@ -26883,6 +26885,7 @@ export default {
           ? { gif_url: safeStr(gifUrlOverride), query: "override" }
           : await pickContractActivityGifUrl({ activityType: "restructure", playerName });
         const embed = buildRestructureAlertEmbed({
+          titleOverride,
           franchiseName: franchiseName || franchiseMeta.franchise_name,
           franchiseIconUrl: franchiseMeta.icon_url,
           playerName,
@@ -38709,6 +38712,7 @@ export default {
           aavLabel: body.aav_label,
           yearlyBreakdown: body.yearly_breakdown,
           usageText: body.usage_text,
+          titleOverride: body.title_override,
           gifUrlOverride: body.gif_url_override,
           forceTestOnly: isTest,
           forcePrimaryOnly: !isTest,
