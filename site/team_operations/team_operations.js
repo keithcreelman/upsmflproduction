@@ -301,7 +301,12 @@
       // UPS deadline calendar from our own D1 (league_events). 404s
       // gracefully when the worker doesn't have the endpoint yet —
       // the Calendar zone handles missing data.
-      ["leagueEvents", fetchJson(workerUrl("/api/league-events?season=" + encodeURIComponent(ctx.year) + "&from=today&limit=10")).catch(function () { return null; })]
+      ["leagueEvents", fetchJson(workerUrl("/api/league-events?season=" + encodeURIComponent(ctx.year) + "&from=today&limit=10")).catch(function () { return null; })],
+      // contractSubs (D1, read-only, browser-side — no APIKEY) — used only to
+      // annotate a commish-processed 3-way pulse row with any pre-trade
+      // extension bundled into it (matched by the 3-way uuid in the
+      // submission's `source`). Graceful null so a miss never blocks the hub.
+      ["contractSubs", fetchJson(workerUrl("/admin/contract-submissions?L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year))).catch(function () { return null; })]
     ];
 
     return Promise.all(calls.map(function (pair) { return pair[1]; })).then(function (results) {
@@ -1518,9 +1523,36 @@
     return m ? m[0].toLowerCase() : "";
   }
 
-  // One combined "3 Way" pulse row from all legs of a single 3-way: the three
-  // participating franchises + the notable assets that moved, deduped.
-  function threeWayRowHtml(legs) {
+  // Pre-trade extensions bundled into a 3-way, matched by the 3-way uuid in the
+  // submission `source` (e.g. "trade-workbench-pre-trade-3way-72cea017").
+  // Returns short "<LastName> ext" notes. Reads the read-only contractSubs feed.
+  function threeWayExtNotes(uuid) {
+    var short8 = String(uuid || "").slice(0, 8).toLowerCase();
+    if (!short8) return [];
+    var subs = (state.contractSubs && state.contractSubs.submissions) || [];
+    var seen = {}, out = [];
+    subs.forEach(function (s) {
+      var src = safeStr(s && s.source).toLowerCase();
+      var kind = safeStr(s && s.kind).toLowerCase();
+      if (src.indexOf(short8) === -1) return;
+      if (kind !== "extension" && kind !== "myac") return;
+      var nm = safeStr(s.player_name);
+      var base = nm.indexOf(",") >= 0 ? nm.split(",")[0] : nm;   // "Robinson, Bijan" -> "Robinson"
+      var parts = base.trim().split(/\s+/).filter(function (w) { return !/^(jr|sr|ii|iii|iv|v)\.?$/i.test(w); });
+      var last = parts.length ? parts[parts.length - 1] : nm;    // "Drake London" -> "London"
+      if (!last || seen[last]) return; seen[last] = 1;
+      out.push(last + " ext");
+    });
+    return out;
+  }
+
+  // One combined "3 Way" pulse row from all legs of a single 3-way. MFL is
+  // 2-party only, so a 3-way lands as 3 legs; this collapses them into one row
+  // that captures the WHOLE deal: all three franchises, EVERY player/pick that
+  // moved (deduped — never truncated, or a headline player like Puka gets
+  // dropped), the traded cap ($..BB tokens summed as "+$NK cap"), and any
+  // pre-trade extension bundled in ("<Player> ext").
+  function threeWayRowHtml(legs, uuid) {
     if (!legs || !legs.length) return "";
     var when = new Date(Number(legs[0].timestamp || 0) * 1000);
     var dateStr = isNaN(when.getTime()) ? "" : when.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -1531,15 +1563,23 @@
         if (p && !seenFid[p]) { seenFid[p] = 1; teams.push(franchiseDisplayName(p)); }
       });
     });
-    var seenA = {}, notable = [];
+    var seenA = {}, notable = [], capTotal = 0;
     legs.forEach(function (t) {
       decodeAssetTokens(t.franchise1_gave_up).concat(decodeAssetTokens(t.franchise2_gave_up)).forEach(function (a) {
-        if (!a || /\bBB\b|\$/.test(a)) return;          // skip cap ($..BB) tokens for brevity
+        if (!a) return;
+        // decodeAssetTokens renders BB_19000 -> "$19,000 BB": sum, don't drop.
+        var bb = a.match(/^\$([\d,]+)\s*BB$/);
+        if (bb) { capTotal += Number(bb[1].replace(/,/g, "")) || 0; return; }
         if (seenA[a]) return; seenA[a] = 1; notable.push(a);
       });
     });
+    var extras = [];
+    if (capTotal > 0) extras.push("+$" + Math.round(capTotal / 1000) + "K cap");
+    var extNotes = threeWayExtNotes(uuid);
+    if (extNotes.length) extras.push(extNotes.join(", "));
     var body = '<b>' + teams.map(escapeHtml).join(" &harr; ") + '</b>'
-      + (notable.length ? ' <span class="tops-feed-who">' + escapeHtml(notable.slice(0, 4).join(", ")) + '</span>' : '');
+      + (notable.length ? ' <span class="tops-feed-who">' + escapeHtml(notable.join(", ")) + '</span>' : '')
+      + (extras.length ? ' <span class="tops-feed-who">· ' + escapeHtml(extras.join(" · ")) + '</span>' : '');
     return '<li>'
       + '<span class="tops-feed-w">' + escapeHtml(dateStr) + '</span>'
       + '<span class="tops-feed-b">' + body + '</span>'
@@ -1564,7 +1604,7 @@
         if (handledUuid[uuid]) continue;               // a leg of an already-rendered 3-way
         handledUuid[uuid] = 1;
         var legs = sorted.filter(function (x) { return threeWayUuid(x) === uuid; });
-        var rh = threeWayRowHtml(legs);
+        var rh = threeWayRowHtml(legs, uuid);
         if (rh) rows.push(rh);
         continue;
       }
