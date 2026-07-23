@@ -322,6 +322,38 @@ def main():
         v, vr = re_verdict(ep, p["worth_k"], p["e_apwe_p90"])
         p["verdict"] = v; p["value_ratio"] = vr
 
+    # ---- BOARD-PRICE SYNC (Keith 2026-07-23: contracts/prices must be the same throughout) ----
+    # build_three_value_board.py --budget-normalize tail reshapes FA prices to this league's
+    # REALIZED auction curve (studs up to the historical top-10 dollar share, non-clearing tail
+    # pinned to $1K) and is the priced surface Keith reviews. When its fresh CSV is present,
+    # serve the SAME price here so the FA Value tab can never disagree with the 3-Value board.
+    # (Verdicts/gaps re-derive from the synced price; worth is untouched.)
+    _board_csv = DATA / "three_value_board.csv"
+    if _board_csv.exists():
+        import csv as _csv
+        _bp = {}
+        with open(_board_csv) as _fh:
+            for _r in _csv.DictReader(x for x in _fh if not x.startswith("#")):
+                if _r.get("status") == "FA" and _r.get("fa_value_k"):
+                    try:
+                        _bp[nkey(_r["player"])] = float(_r["fa_value_k"])
+                    except ValueError:
+                        pass
+        _synced = 0
+        for p in core:
+            bpv = _bp.get(nkey(p["player"]))
+            if bpv is None or abs(bpv - p["ep_k"]) < 0.5:
+                continue
+            ep = round(bpv)
+            p["ep_k"] = ep; p["median_k"] = ep
+            p["low_k"] = round(ep * 0.78); p["top10_k"] = round(ep * 1.3)
+            p["gap_k"] = ep - p["worth_k"]
+            p["per_apwe"] = round(ep / p["e_apwe_p50"], 1) if (p.get("e_apwe_p50") or 0) > 0 else None
+            v, vr = re_verdict(ep, p["worth_k"], p["e_apwe_p90"])
+            p["verdict"] = v; p["value_ratio"] = vr
+            _synced += 1
+        print(f"  board-price sync: {_synced} FA prices aligned to three_value_board.csv (tail-reshaped)")
+
     # how far the credible board is priced over intrinsic redraft worth (descriptive only)
     markup = round(sum(p["ep_k"] for p in credible) / credible_rworth_k, 2) if credible_rworth_k else 1.0
     gate = (cal or {}).get("ship_gate_detail", {})

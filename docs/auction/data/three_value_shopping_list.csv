@@ -1,5 +1,5 @@
 # UPS THREE-VALUE BOARD — every line beginning with '#' is metadata; skip them to parse the CSV.
-# generated: 2026-07-23T07:17:44-04:00   league: L=74598 2026   cap: $300K   viewer: 0008 (Real Deal Creel)
+# generated: 2026-07-23T07:30:30-04:00   league: L=74598 2026   cap: $300K   viewer: 0008 (Real Deal Creel)
 # rows: 1468  (FA 1147 / rostered 321)
 #
 # ── THE THREE VALUES (they do NOT sum; each answers a different question) ──
@@ -27,26 +27,26 @@
 # calibration: ep_v5_calibration.json ship_gate=True   lambda=0.47699  R_bar=2.56783
 # gamma=0.0 (sign-guarded=True) -> M_pos is INERT (identically 1.0).
 # elite factor 1.0 enabled=False -> inert.
-# LIVE REGIME: R_now = (sum capspace $1426K - sum reserve $105K) / credible redraft-worth $954K = 1.3847
-# M_money raw = 0.7802  ->  SERVED 0.8000
+# LIVE REGIME: R_now = (sum capspace $1446K - sum reserve $105K) / credible redraft-worth $954K = 1.4057
+# M_money raw = 0.7841  ->  SERVED 0.8000
 # *** M_money IS PINNED TO ITS CLAMP FLOOR 0.8. THE 20% MARKDOWN IS A CHOSEN
-# *** FLOOR, NOT A MEASURED QUANTITY. The fitted model wanted 0.7802; the clamp overrode it.
+# *** FLOOR, NOT A MEASURED QUANTITY. The fitted model wanted 0.7841; the clamp overrode it.
 # *** The clamp [0.8, 1.6] is a Keith-tunable guardrail, never fitted to data.
-# *** R_now 1.385 is OUTSIDE the fitted range [2.0689, 3.5695]. M_money is an extrapolation.
+# *** R_now 1.406 is OUTSIDE the fitted range [2.0689, 3.5695]. M_money is an extrapolation.
 #
 # ── BUDGET-CONSTRAINT COHERENCE (the accounting identity, checked at BUILD time) ──
-# PROJECTED SPEND = clamp(deploy_frac 0.714 x available $1426K,  mandatory floor $946K,  available) = $1018K.
+# PROJECTED SPEND = clamp(deploy_frac 0.714 x available $1446K,  mandatory floor $966K,  available) = $1032K.
 #   deploy_frac is the SF-era mean (spend / pre-auction available; 2022-25 = 0.75/0.64/0.75/0.72).
-#   mandatory floor = 12 x $260K committed (league_context_v1.md:161) - $2174K committed today.
+#   mandatory floor = 12 x $260K committed (league_context_v1.md:161) - $2154K committed today.
 # PREDICTED CLEARING SET = sum of fa_value over the top-N per bucket (N = this league's historical
 #   mean clears: QB16 RB30 WR28 TE13 | DL20 LB24 DB23 PK12 PN11, total ~176). NOT sum-of-all-rows.
 # CONSTRAINT: predicted clearing set  ==  projected spend.
-#   predicted $1061.8K  /  projected $1018K  =  RATIO 1.043   [band 0.6-1.15]   status=OK
-#   per-bucket predicted-clearing $K: QB:356  RB:255  WR:200  TE:88  DL:44  LB:52  DB:40  PK:15  PN:13
+#   predicted $1106.8K  /  projected $1032K  =  RATIO 1.072   [band 0.6-1.15]   status=OK
+#   per-bucket predicted-clearing $K: QB:402  RB:274  WR:191  TE:77  DL:44  LB:52  DB:40  PK:15  PN:13
 # BUDGET NORMALIZE = tail: reshaped to the SF-era realized curve (measured from the archive):
-#   $1K-share 49%  top10-share 42%  top25-share 62%
-#   segment scales: top-10 x1.009  ranks 11-25 x0.774  rest x0.586
-#   (before 1.142 -> after 1.043; studs UP to the historical dollar share, tail toward $1K)
+#   $1K-share 49%  top10-share 51%  top25-share 67%
+#   segment scales: top-10 x1.24  ranks 11-25 x0.634  rest x0.426
+#   (before 1.126 -> after 1.072; studs UP to the historical dollar share, tail toward $1K)
 #   Applied to OFFENSE FA prices only; IDP/K/P ladder already clears at realized $ (untouched).
 #
 # ── PER-ARM BINDING COUNTS (FA offense rows) ──

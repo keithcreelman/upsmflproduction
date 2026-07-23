@@ -302,6 +302,11 @@ def main():
                          "$1K-share / top-10-share / top-25-share from the auction archive (--db) and applies "
                          "a 3-segment floor-preserving reshape: studs UP to the historical share, mid down, "
                          "tail toward $1K. Same total envelope as global.")
+    ap.add_argument("--tail-shares", choices=["mean", "talent"], default="mean",
+                    help="with --budget-normalize tail: 'mean' = SF-era average top-10/25 dollar shares "
+                         "(0.42/0.62); 'talent' = the most top-heavy REALIZED season's pair (2023: 0.51/0.67) "
+                         "— for years whose top-of-pool is unprecedented (Keith 2026-07-23: stars get bid up "
+                         "MORE, lesser players drop to $1K even harder). Measured precedent either way.")
     ap.add_argument("--strict", action="store_true",
                     help="exit nonzero if the coherence ratio lands OUTSIDE the band (for CI / a guarded regen).")
     ap.add_argument("--push-d1", action="store_true",
@@ -646,18 +651,27 @@ def main():
                     "AND bid_amount IS NOT NULL AND season >= 2020"):
                 _by[_s].append(_b)
             _hc.close()
-            _f1, _t10, _t25 = [], [], []
+            _f1, _pairs = [], []
             for _s, _bids in _by.items():
                 if len(_bids) < 20:
                     continue
                 _bids = sorted(_bids, reverse=True)
                 _tot = sum(_bids) or 1
                 _f1.append(sum(1 for x in _bids if x <= 1000) / len(_bids))
-                _t10.append(sum(_bids[:10]) / _tot)
-                _t25.append(sum(_bids[:25]) / _tot)
+                _pairs.append((sum(_bids[:10]) / _tot, sum(_bids[:25]) / _tot, _s))
             f_1k = sum(_f1) / len(_f1)
-            top10_share = sum(_t10) / len(_t10)
-            top25_share = sum(_t25) / len(_t25)
+            if args.tail_shares == "talent":
+                # Keith 2026-07-23: an unprecedented top-of-pool (this year: Allen/Lamar/
+                # Burrow/Mahomes all FA) skews spend MORE top-heavy — and the archive agrees:
+                # the most talent-rich prior year (2023) realized top10=0.510 / top25=0.670 vs
+                # the 0.42/0.62 means. Serve the MOST top-heavy REALIZED season's pair (both
+                # shares from the same year — still measured precedent, never a hand-set knob).
+                top10_share, top25_share, _yr = max(_pairs)
+                print(f"  tail-shares=talent: using realized {_yr} shape "
+                      f"(top10 {top10_share:.3f} / top25 {top25_share:.3f})")
+            else:
+                top10_share = sum(p[0] for p in _pairs) / len(_pairs)
+                top25_share = sum(p[1] for p in _pairs) / len(_pairs)
         except Exception as e:
             raise SystemExit(f"  ✘ --budget-normalize tail needs the auction archive at {args.db}: {e}")
 
@@ -684,15 +698,29 @@ def main():
             seg_scale[id(r)] = (t10_target / s10 if i < 10 else
                                 t25_target / s25 if i < 25 else
                                 rest_target / srest)
+        in_clearing = set(seg_scale.keys())
+        pinned_tail = 0
         for r in rows:
             sc = seg_scale.get(id(r))
-            if sc is None:
+            if sc is not None:
+                new_ep = round(max(r["_floor"], 1.0, r["fa_value_k"] * sc))
+                r["fa_value_k"] = new_ep
+                r["ep_equiv_k"] = round(float(new_ep), 1)
                 continue
-            new_ep = round(max(r["_floor"], 1.0, r["fa_value_k"] * sc))
-            r["fa_value_k"] = new_ep
-            r["ep_equiv_k"] = round(float(new_ep), 1)
+            # Beyond the clearing set (~175 players clear per auction, 2020-2025:
+            # 163-187) precedent is unambiguous — a nomination goes for the $1K
+            # minimum (Keith 2026-07-23: "guys ranked 115-175 should be 1K").
+            # Leaving these at their model price double-counted money the room
+            # doesn't have (top-175 summed $1168K vs $1018K spendable).
+            if (r["status"] == "FA" and r["_bucket"] in SKILL
+                    and isinstance(r.get("fa_value_k"), (int, float))
+                    and id(r) not in in_clearing and r["fa_value_k"] > 1.0):
+                r["fa_value_k"] = 1.0
+                r["ep_equiv_k"] = 1.0
+                pinned_tail += 1
         tail_shape = {"f_1k": round(f_1k, 3), "top10_share": round(top10_share, 3),
-                      "top25_share": round(top25_share, 3),
+                      "top25_share": round(top25_share, 3), "shares_mode": args.tail_shares,
+                      "pinned_tail_to_1k": pinned_tail,
                       "scales": {"top10": round(t10_target / s10, 3),
                                  "r11_25": round(t25_target / s25, 3),
                                  "rest": round(rest_target / srest, 3)}}
