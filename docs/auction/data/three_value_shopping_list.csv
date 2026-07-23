@@ -1,6 +1,6 @@
 # UPS THREE-VALUE BOARD — every line beginning with '#' is metadata; skip them to parse the CSV.
-# generated: 2026-07-22T11:53:35-04:00   league: L=74598 2026   cap: $300K   viewer: 0008 (Real Deal Creel)
-# rows: 1467  (FA 1142 / rostered 325)
+# generated: 2026-07-23T00:47:23-04:00   league: L=74598 2026   cap: $300K   viewer: 0008 (Real Deal Creel)
+# rows: 1468  (FA 1147 / rostered 321)
 #
 # ── THE THREE VALUES (they do NOT sum; each answers a different question) ──
 # current_season_value_k = worth for 2026 only. Offense: E[APWE] at the FantasyPros redraft
@@ -27,38 +27,33 @@
 # calibration: ep_v5_calibration.json ship_gate=True   lambda=0.47699  R_bar=2.56783
 # gamma=0.0 (sign-guarded=True) -> M_pos is INERT (identically 1.0).
 # elite factor 1.0 enabled=False -> inert.
-# LIVE REGIME: R_now = (sum capspace $1213K - sum reserve $96K) / credible redraft-worth $893K = 1.2508
-# M_money raw = 0.7554  ->  SERVED 0.8000
+# LIVE REGIME: R_now = (sum capspace $1426K - sum reserve $105K) / credible redraft-worth $954K = 1.3847
+# M_money raw = 0.7802  ->  SERVED 0.8000
 # *** M_money IS PINNED TO ITS CLAMP FLOOR 0.8. THE 20% MARKDOWN IS A CHOSEN
-# *** FLOOR, NOT A MEASURED QUANTITY. The fitted model wanted 0.7554; the clamp overrode it.
+# *** FLOOR, NOT A MEASURED QUANTITY. The fitted model wanted 0.7802; the clamp overrode it.
 # *** The clamp [0.8, 1.6] is a Keith-tunable guardrail, never fitted to data.
-# *** R_now 1.251 is OUTSIDE the fitted range [2.0689, 3.5695]. M_money is an extrapolation.
+# *** R_now 1.385 is OUTSIDE the fitted range [2.0689, 3.5695]. M_money is an extrapolation.
 #
 # ── BUDGET-CONSTRAINT COHERENCE (the accounting identity, checked at BUILD time) ──
-# PROJECTED SPEND = clamp(deploy_frac 0.714 x available $1213K,  mandatory floor $733K,  available) = $866K.
+# PROJECTED SPEND = clamp(deploy_frac 0.714 x available $1426K,  mandatory floor $946K,  available) = $1018K.
 #   deploy_frac is the SF-era mean (spend / pre-auction available; 2022-25 = 0.75/0.64/0.75/0.72).
-#   mandatory floor = 12 x $260K committed (league_context_v1.md:161) - $2387K committed today.
+#   mandatory floor = 12 x $260K committed (league_context_v1.md:161) - $2174K committed today.
 # PREDICTED CLEARING SET = sum of fa_value over the top-N per bucket (N = this league's historical
 #   mean clears: QB16 RB30 WR28 TE13 | DL20 LB24 DB23 PK12 PN11, total ~176). NOT sum-of-all-rows.
 # CONSTRAINT: predicted clearing set  ==  projected spend.
-#   predicted $1111.8K  /  projected $866K  =  RATIO 1.284   [band 0.6-1.15]   status=FAIL
-#   per-bucket predicted-clearing $K: QB:379  RB:265  WR:192  TE:113  DL:44  LB:52  DB:40  PK:15  PN:13
-# *** COHERENCE FAIL — the board's top-N is priced at 1.284x the money that will be spent.
-# *** 10 FA are priced >= $25K. In a dynasty league
-# *** that is the FINGERPRINT OF A PRE-ROSTER-LOCK SNAPSHOT: contract-caliber players (Josh Allen,
-# *** Mahomes, CMC ...) transiently coded as FREE AGENTS inflate both the board top AND R_now.
-# *** ACTION: regenerate AFTER Thursday's roster lock. The 2022-25 boards all land 0.66-0.97 here;
-# *** removing ~12 mis-coded stars from this pool drops the ratio from ~1.5x back into the band.
-# *** This is a DATA-STATE artifact, not a pricing defect — see build_ep_v5_calibration budget_constraint.
-# BUDGET NORMALIZE = off (default). Prices are per-player; the check above is a diagnostic. Enable with
-#   --budget-normalize global to force offense coherence (backtest: it costs ~$0.4K winner MAE).
+#   predicted $976.8K  /  projected $1018K  =  RATIO 0.959   [band 0.6-1.15]   status=OK
+#   per-bucket predicted-clearing $K: QB:305  RB:235  WR:180  TE:94  DL:44  LB:52  DB:40  PK:15  PN:13
+# BUDGET NORMALIZE = global: offense market arms x 0.7616 (before 1.142 -> after 0.959).
+#   Applied to OFFENSE FA prices only; IDP/K/P ladder already clears at realized $ (untouched). Floor
+#   preserved (nothing below startability), ordering preserved. NOTE: the 2022-25 backtest shows hard
+#   normalization RAISES winner MAE ($3.61K->$4.02K) — coherence here costs accuracy. Prefer a roster-lock regen.
 #
 # ── PER-ARM BINDING COUNTS (FA offense rows) ──
-# credible branch rw>=3 (n=36): floor=8  affine=17  dyn_anchor=11
-# ep>=5-only branch (n=18): floor=3  affine=0  dyn_anchor=15
+# credible branch rw>=3 (n=38): floor=9  affine=18  dyn_anchor=11
+# ep>=5-only branch (n=20): floor=3  affine=0  dyn_anchor=17
 # The ep>=5-only branch is POLLUTED for 2026: dynasty_adp_history.csv has no 2026 rows, so it
 # falls back to a KTC board carrying only the top ~396 players. Trust the rw>=3 branch.
-# Union of both branches = 54 credible rows, of which 26 bind on the dynasty anchor.
+# Union of both branches = 58 credible rows, of which 28 bind on the dynasty anchor.
 # NOTE ON ATTRIBUTION: the arm is recorded AFTER M_money scales the two market arms, so a row
 #   whose scaled market arm drops below the startability floor is credited to 'floor' here even
 #   though it would read 'dyn_anchor' pre-scaling. That accounts for ~2 rows of drift vs a
@@ -115,7 +110,7 @@
 # DYN_ANCHOR_K=$75K  POS_DYN_W={'QB': 1.0, 'WR': 0.9, 'TE': 0.9, 'RB': 0.55}  AFFINE=2.67+0.84*rw
 #
 # ── SHOPPING LIST — the positions 0008 MUST fill Saturday ──
-# 0008 currently rosters: QB=1  RB=4  WR=9  TE=3  DL=4  LB=1  DB=0  PK=0  PN=0
+# 0008 currently rosters: QB=1  RB=3  WR=7  TE=3  DL=4  LB=1  DB=0  PK=0  PN=0
 # Starting requirement: 2 DL, 2 LB, 2 DB, 1 D-Flex, 1 K, 1 P (7 defense + K + P of 18 starters).
 # FA rows only, positions DL/LB/DB/PK/PN, sorted by fa_value_k desc within position.
 # Read fa_value_k as the expected clearing price from THIS league's own archive, not a projection.
@@ -132,7 +127,7 @@ Dexter Lawrence,DT,CIN,28.7,FA,,,,,,,2.2,2.1,2.2,2.1,0.0,n/a - auction win = 1yr
 Quinnen Williams,DT,DAL,28.6,FA,,,,,,,1.8,1.7,1.8,1.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.8,idp-linear-1source,1.8,1.8,54.3
 Zach Allen,DT,DEN,28.9,FA,,,,,,,1.8,1.7,1.8,1.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.8,idp-linear-1source,1.8,1.8,52.0
 Micah Parsons,DE,GBP,27.2,FA,,,,,,,1.2,1.2,1.2,1.2,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.2,idp-linear-1source,1.2,1.2,50.4
-DeForest Buckner,DT,IND,32.3,FA,,,,,,,1.2,1.1,1.2,1.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.2,idp-linear-1source,1.2,1.2,49.7
+DeForest Buckner,DT,IND,32.4,FA,,,,,,,1.2,1.0,1.2,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.2,idp-linear-1source,1.2,1.2,49.7
 Brian Burns,DE,NYG,28.2,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.0,idp-linear-1source,1.0,1.0,48.4
 Nik Bonitto,DE,DEN,26.8,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,2.0,idp-linear-1source,1.0,1.0,48.0
 Calijah Kancey,DT,TBB,25.4,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,1,,idp-linear-1source,1.0,1.0,47.4
