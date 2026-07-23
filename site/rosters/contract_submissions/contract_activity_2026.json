@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-23 00:23:53",
+    "generated_at": "2026-07-23 02:23:24",
     "source": "contract-activity-log",
-    "count": 71,
+    "count": 72,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "993c820063b0d95ad58ae290",
+      "submission_id": "993c820063b0d95ad58ae290",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0006",
+      "franchise_name": "",
+      "player_id": "14783",
+      "player_name": "Hurts, Jalen",
+      "position": "QB",
+      "salary": 52000,
+      "contract_year": 1,
+      "contract_status": "Vet-Ext1",
+      "contract_info": "CL 2|TCV 119K|AAV 42K, 52K|Y1-67K, Y2-52K|Ext: Gride, Hammer|GTD: 89.3K",
+      "tcv": 119000,
+      "aav": 0,
+      "guaranteed": 89300,
+      "submitted_at_utc": "2026-07-23T02:23:07.019Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1529675209991262369",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "a36c32905a152b3d0e679b82",
       "submission_id": "a36c32905a152b3d0e679b82",
