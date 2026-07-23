@@ -37,7 +37,7 @@ POINTS_HISTORY = Path(
 LEAGUE_ID = "74598"
 MFL_HOST = "https://www48.myfantasyleague.com"
 API_HOST = "https://api.myfantasyleague.com"
-MFL_APIKEY = "aRBv1sCXvuWpx0OmP13EaDoeFbox"
+MFL_APIKEY = os.environ.get("UPS_COMMISH_API_KEY") or os.environ.get("MFL_APIKEY", "")
 YEARS = range(2017, 2026)  # 2017..2025 inclusive
 WEEKS = range(1, 18)       # NFL regular season + playoff weeks; week 18 skipped historically
 

@@ -22,6 +22,7 @@ CLI:
 from __future__ import annotations
 import argparse
 import json
+import os
 import sys
 from dataclasses import dataclass
 from typing import Optional
@@ -31,7 +32,7 @@ from urllib.error import HTTPError
 
 LEAGUE_ID = "74598"
 MFL_HOST = "https://www48.myfantasyleague.com"
-MFL_APIKEY = "aRBv1sCXvuWpx0OmP13EaDoeFbox"
+MFL_APIKEY = os.environ.get("UPS_COMMISH_API_KEY") or os.environ.get("MFL_APIKEY", "")
 CURRENT_YEAR = 2026
 
 
