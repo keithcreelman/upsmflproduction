@@ -6707,12 +6707,27 @@ export default {
             };
           });
 
+          // Drop pre-auction PHANTOM FA wins. A prior TEST auction left
+          // AUCTION_WON rows in MFL's APPEND-ONLY transaction log, which the
+          // 5-min poller re-ingests every cycle — so a D1 purge never sticks.
+          // These are wins timestamped BEFORE the FA auction opens AND flagged
+          // explicitly non-ERA (is_era_eligible === false). Real FA wins are
+          // always at/after faa_open; real ERA wins carry is_era_eligible=true;
+          // a failed pool lookup yields null and is left untouched (fail-safe).
+          const faaOpenAt = (await getAuctionCalendar(env))?.faa?.faa_open_at || null;
+          const faaOpenUnix = faaOpenAt
+            ? Math.floor(Date.parse(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(faaOpenAt) ? faaOpenAt + ":00-04:00" : faaOpenAt) / 1000)
+            : 0;
+          const served = faaOpenUnix
+            ? enriched.filter((l) => !(l.status === "won" && l.is_era_eligible === false && Number(l.won_at_unix || 0) < faaOpenUnix))
+            : enriched;
+
           return jsonOut(200, {
             season: year,
             league_id: leagueId,
             generated_at: new Date().toISOString(),
             viewer_franchise_id: viewerFid || null,
-            count: enriched.length,
+            count: served.length,
             // Drives the mobile CTA: when off, the board deep-links to MFL (no
             // in-app sheet) — zero-regression default. Flip on in FO to bid in-app.
             inapp_bid_enabled: await getFeatureFlag(env, "AUCTION_INAPP_BID_ENABLED"),
@@ -6721,7 +6736,10 @@ export default {
             // board and a read-only "not running" banner without a reload.
             era_enabled: await getFeatureFlag(env, "AUCTION_ERA_ENABLED"),
             faa_enabled: await getFeatureFlag(env, "AUCTION_FAA_ENABLED"),
-            lots: enriched,
+            // The FA auction's scheduled open (ET) — the hub shows "Scheduled"
+            // instead of "LIVE" before it, and gates the FAA Won count by it.
+            faa_open_at: faaOpenAt,
+            lots: served,
           });
         } catch (e) {
           console.error("[auction/lots] failed:", e);

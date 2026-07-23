@@ -704,6 +704,32 @@
     return eraIds.has(String(l.player_id));
   }
 
+  // FA-auction scheduled open (ET) as a unix ts. faa_open_at is a bare ET
+  // wall-clock ("2026-07-25T12:00"); July is EDT (UTC-4), so pin the offset
+  // when it arrives in the bare form. Used to (a) show "Scheduled" before the
+  // auction opens and (b) gate the FAA Won count so pre-auction AUCTION_WON
+  // rows (a prior test auction + ERA wins that re-ingest from MFL's append-only
+  // log) never leak into the FA tab.
+  function faaOpenUnix() {
+    var s = String((STATE.lots && STATE.lots.faa_open_at) || "");
+    if (!s) return 0;
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) s += ":00-04:00";
+    var t = Date.parse(s);
+    return isFinite(t) ? Math.floor(t / 1000) : 0;
+  }
+  // A won lot counts for the FAA tab ONLY if it was won at/after the auction
+  // opened. faaOpen=0 (ERA tab, or open time unknown) → no gate.
+  function isFaaCountableWin(l, faaOpen) {
+    if (l.status !== "won") return false;
+    return !faaOpen || Number(l.won_at_unix || 0) >= faaOpen;
+  }
+  function auctionStatusLabel(tab, enabled, open, faaOpen) {
+    if (!enabled) return "Not running";
+    if (open > 0) return "LIVE";
+    if (tab !== "era" && faaOpen && Math.floor(Date.now() / 1000) < faaOpen) return "Scheduled";
+    return "Open";
+  }
+
   // ════════════════════════════════════════════════════════════════════
   // PAINT — mount the (tab, sub) skeleton, fill it, re-wire its controls
   // ════════════════════════════════════════════════════════════════════
@@ -755,7 +781,8 @@
     const eraIds = eraPoolIds();
     const tabLots = lots.filter((l) => lotIsEra(l, eraIds) === (tab === "era"));
     const open = tabLots.filter((l) => l.status === "open").length;
-    const won = tabLots.filter((l) => l.status === "won").length;
+    const faaOpen = tab === "era" ? 0 : faaOpenUnix();
+    const won = tabLots.filter((l) => isFaaCountableWin(l, faaOpen)).length;
     const f = STATE.lots || {};
     const enabled = tab === "era" ? !!f.era_enabled : !!f.faa_enabled;
     // "1833 free agents" is a fact about the database, not about you — it never
@@ -812,7 +839,7 @@
     const kpis = [
       ["Open lots", open],
       ["Won", won],
-      ["Status", enabled ? "LIVE" : "Not running"],
+      ["Status", auctionStatusLabel(tab, enabled, open, faaOpen)],
     ];
     el.innerHTML = firstTile + kpis.map(([label, val]) =>
       `<div class="ah-kpi"><div class="ah-kpi-val">${escapeHtml(String(val))}</div>` +
