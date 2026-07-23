@@ -59,7 +59,7 @@ Regenerate (e.g. Thursday after the roster lock):
     python3 pipelines/etl/scripts/build_three_value_board.py --refresh
 """
 from __future__ import annotations
-import argparse, collections, csv, datetime, itertools, json, re, sqlite3, statistics, sys, time, urllib.request
+import argparse, collections, csv, datetime, itertools, json, re, sqlite3, statistics, subprocess, sys, time, urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -67,6 +67,7 @@ import build_fa_value as bfv          # EP arms: AFFINE_*, POS_DYN_W, STARTABILI
 
 REPO = Path(__file__).resolve().parents[3]
 DATA = REPO / "docs" / "auction" / "data"
+WORKER_DIR = REPO / "worker"                 # wrangler cwd for the --push-d1 D1 upsert
 OUT = DATA / "three_value_board.csv"
 OUT_SHOP = DATA / "three_value_shopping_list.csv"
 CANON = Path("/tmp/ups_auction_canon.db")
@@ -297,6 +298,12 @@ def main():
                          "projected spend with one floor-preserving market-arm scale (never marks up).")
     ap.add_argument("--strict", action="store_true",
                     help="exit nonzero if the coherence ratio lands OUTSIDE the band (for CI / a guarded regen).")
+    ap.add_argument("--push-d1", action="store_true",
+                    help="part-keyed upsert of the board + shopping list to D1 ups_auction_three_value "
+                         "(served commish-gated by GET /api/auction/three-value).")
+    ap.add_argument("--push-d1-local", action="store_true",
+                    help="same as --push-d1 but writes the LOCAL wrangler D1 (miniflare) instead of --remote; "
+                         "for local verification without touching prod.")
     args = ap.parse_args()
 
     gen_ts = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
@@ -836,6 +843,103 @@ def main():
         shop += grp[:SHOP_DEPTH.get(b, 20)]
     write(args.shopping_out, shop, extra=shop_note)
     print(f"wrote {args.shopping_out}  ({len(shop)} rows)")
+
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    # D1 PUSH — the War Room reads this blob at GET /api/auction/three-value (commish-gated).
+    # Mirrors build_faa_report.py / build_draft_intel.py: a lean JSON string, part-keyed (<90KB
+    # chunks) into ups_auction_three_value because the full board (~1,470 rows) blows past D1's
+    # 100KB single-statement cap. The view re-derives nothing — every dollar column is served.
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    if args.push_d1 or args.push_d1_local:
+        def nz(v):
+            if v is None or v == "":
+                return None
+            if isinstance(v, str):
+                try:
+                    return int(v) if float(v).is_integer() else float(v)
+                except ValueError:
+                    return v
+            return v
+
+        def proj(r):
+            o = {"n": r["player"], "p": r["pos"], "tm": r.get("nfl_team") or None,
+                 "ag": nz(r.get("age")), "s": ("F" if r["status"] == "FA" else "r")}
+            if r["status"] != "FA":
+                o["o"] = r.get("owner") or None
+            for src, k in (("salary_k", "sl"), ("years_remaining", "yr"), ("contract_type", "ct"),
+                           ("aav_k", "av"), ("tcv_k", "tcv"),
+                           ("current_season_value_k", "csv"), ("ultimate_value_k", "uv"),
+                           ("fa_value_k", "fv"), ("dynasty_value_raw_k", "dvr"),
+                           ("contract_surplus_k", "surp"), ("option_band", "ob"),
+                           ("ep_arm_bound", "arm"), ("tier", "tr"), ("scale_trust", "st"),
+                           ("current_season_market_k", "csm"), ("ep_equiv_k", "ee"),
+                           ("idp_ramp_value_k", "ir")):
+                val = nz(r.get(src))
+                if val is not None:
+                    o[k] = val
+            return o
+
+        lean = {
+            "meta": {
+                "generated": gen_ts, "league": LEAGUE, "year": YEAR, "cap_k": CAP_K, "viewer": ME,
+                "model": "v5" if use_v5 else "v4",
+                "regime": {
+                    "R_now": round(R_now, 4), "R_range": list(R_range) if R_range else None,
+                    "m_money_raw": round(m_raw, 4), "m_money": round(m_money, 4),
+                    "m_clamped": bool(m_clamped), "m_money_clamp": [mm_lo, mm_hi],
+                    "extrapolating": bool(extrapolating),
+                    "lambda": K.get("lambda"), "R_bar": K.get("R_bar"),
+                    "gamma_sign_guarded": K.get("gamma_sign_guarded"),
+                    "m_pos_inert": True, "elite_inert": True,
+                    "ship_gate": (calib.get("ship_gate") if calib else None),
+                },
+                "coherence": {
+                    "projected_spend_k": coh["projected_spend_k"],
+                    "predicted_clearing_k": coh["predicted_clearing_k"],
+                    "ratio": coh["ratio"], "band": list(coh["band"]), "status": coh["status"],
+                    "n_contract_star_fa": coh.get("n_contract_star_fa"),
+                },
+                "arms": {"rw3": dict(arms_rw), "ep5": dict(arms_ep)},
+                "counts": {"total": len(rows),
+                           "fa": sum(1 for r in rows if r["status"] == "FA"),
+                           "rostered": sum(1 for r in rows if r["status"] == "rostered"),
+                           "shopping": len(shop)},
+                "dollar_per_apwe": bfv.DOLLAR_PER_APWE,
+                "key": {"n": "player", "p": "pos", "tm": "nfl_team", "ag": "age",
+                        "s": "status (F=free agent / r=rostered)", "o": "owner_fid (rostered only)",
+                        "sl": "salary_k (this-year cap hit; rostered)", "yr": "years_remaining",
+                        "ct": "contract_type", "av": "aav_k (TCV/CL; rostered)", "tcv": "tcv_k",
+                        "csv": "current_season_value_k (2026-only worth, PRODUCTION $/APWE scale — NOT a bid)",
+                        "uv": "ultimate_value_k = dynasty_value_raw_k + contract_surplus_k",
+                        "fv": "fa_value_k (expected auction price; FA rows only)",
+                        "dvr": "dynasty_value_raw_k", "surp": "contract_surplus_k",
+                        "ob": "option_band (extension/tag label)", "arm": "ep_arm_bound (floor/affine/dyn_anchor)",
+                        "tr": "tier", "st": "scale_trust",
+                        "csm": "current_season_market_k (2026 worth restated in REALIZED auction $ — compare fv to THIS)",
+                        "ee": "ep_equiv_k", "ir": "idp_ramp_value_k (echo of the retired 10000-rank*45 ramp)"},
+            },
+            "board": [proj(r) for r in rows],
+            "shopping": [proj(r) for r in shop],
+        }
+        blob = json.dumps(lean, separators=(",", ":"))
+        remote = not args.push_d1_local
+        ts = int(time.time()); CHUNK = 85000
+        tmp = WORKER_DIR / ".tmp"; tmp.mkdir(parents=True, exist_ok=True)
+        parts = [blob[i:i + CHUNK] for i in range(0, len(blob), CHUNK)]
+        sql = ["DELETE FROM ups_auction_three_value;"]
+        for i, ch in enumerate(parts):
+            stmt = (f"INSERT INTO ups_auction_three_value (part, payload, updated_at) "
+                    f"VALUES ({i}, '{ch.replace(chr(39), chr(39) * 2)}', {ts});")
+            if len(stmt) > 99500:
+                raise SystemExit(f"  ✘ part {i} statement {len(stmt)} bytes > 99.5KB — lower CHUNK.")
+            sql.append(stmt)
+        sql_path = tmp / "three_value_upsert.sql"; sql_path.write_text("\n".join(sql) + "\n")
+        print(f"\n  pushing three_value blob to D1 ({'remote' if remote else 'LOCAL'}, "
+              f"{len(parts)} parts, {len(blob)/1024:.1f}KB total) …")
+        cmd = ["npx", "--yes", "wrangler@latest", "d1", "execute", "ups-mfl-db",
+               ("--remote" if remote else "--local"), "--file", str(sql_path)]
+        subprocess.run(cmd, cwd=str(WORKER_DIR), check=True)
+        print(f"  pushed ups_auction_three_value ({len(parts)} parts)")
 
     # ---- console summary ----
     print(f"\n=== REGIME ===  R_now {R_now:.4f}  (fitted range {R_range})   M_money raw {m_raw:.4f} → served {m_money:.4f}"

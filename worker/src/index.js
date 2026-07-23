@@ -4332,6 +4332,7 @@ export default {
         path !== "/api/auction/bid-history" &&
         path !== "/api/auction/intel" &&
         path !== "/api/auction/fa-value" &&
+        path !== "/api/auction/three-value" &&
         path !== "/api/auction/faa-report" &&
         path !== "/api/auction/draft-intel" &&
         path !== "/api/auction/compliance" &&
@@ -6808,6 +6809,30 @@ export default {
           if (!parts.length) return jsonOut(404, { ok: false, error: "faa-report not loaded — run build_faa_report.py --push-d1" });
           const joined = parts.map((r) => r.payload || "").join("");
           let parsed; try { parsed = JSON.parse(joined); } catch (_) { return jsonOut(500, { ok: false, error: "faa-report payload corrupt" }); }
+          return jsonOut(200, { ok: true, updated_at: parts[0].updated_at, ...parsed });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
+      }
+
+      if (path === "/api/auction/three-value" && request.method === "GET") {
+        // Three-Value Board (EP v5) — commish-gated, same inline gate as /api/auction/faa-report.
+        // Carries current_season_value_k / ultimate_value_k / fa_value_k + contract_surplus,
+        // option_band, scale_trust, the served M_money regime markdown, plus the Saturday
+        // shopping list (IDP/K/P must-fills). Stored PART-KEYED (blob > D1's 100KB statement
+        // cap): concatenate payload ORDER BY part, then parse. Built by build_three_value_board.py.
+        { const _cp = await commishSessionProven();
+          if (!_cp.ok) return jsonOut(403, { ...COMMISH_ONLY_403, reason: _cp.reason,
+            message: "Commish-only. Sign in to MFL as the commissioner (session proof) or pass the commish API key." }); }
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        try {
+          const res = await env.UPS_MFL_DB.prepare(
+            "SELECT payload, updated_at FROM ups_auction_three_value ORDER BY part"
+          ).all();
+          const parts = (res && res.results) || [];
+          if (!parts.length) return jsonOut(404, { ok: false, error: "three-value board not loaded — run build_three_value_board.py --push-d1" });
+          const joined = parts.map((r) => r.payload || "").join("");
+          let parsed; try { parsed = JSON.parse(joined); } catch (_) { return jsonOut(500, { ok: false, error: "three-value payload corrupt" }); }
           return jsonOut(200, { ok: true, updated_at: parts[0].updated_at, ...parsed });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e?.message || e) });
