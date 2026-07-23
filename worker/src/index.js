@@ -27330,6 +27330,7 @@ export default {
         // the channel stays clean). Same best-effort pattern as the drops path:
         // the announcement stands alone if the thread create fails.
         let threadId = "";
+        let threadError = "";
         if (res.ok && messageId) {
           try {
             const kindLabel = safeStr(activityType || "Contract")
@@ -27342,7 +27343,8 @@ export default {
               { name: thrName, auto_archive_duration: 4320 }
             );
             threadId = safeStr(thr?.data?.id || "");
-          } catch (_) { /* thread is best-effort */ }
+            if (!threadId) threadError = safeStr(thr?.text || `HTTP ${thr?.status}`).slice(0, 300);
+          } catch (e) { threadError = safeStr(e?.message || String(e)).slice(0, 300); }
         }
         return {
           ok: !!res.ok,
@@ -27353,6 +27355,7 @@ export default {
           delivery_target: safeStr(target.deliveryTarget || ""),
           message_id: messageId,
           thread_id: threadId,
+          thread_error: threadError,
           gif_url: safeStr(gif.gif_url || ""),
           gif_query: safeStr(gif.query || ""),
           franchise_icon_url: safeStr(franchiseMeta.icon_url || ""),
