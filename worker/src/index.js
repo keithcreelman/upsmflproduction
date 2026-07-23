@@ -26463,15 +26463,21 @@ export default {
         const gtd = kind === "tag"
           ? Math.round(Math.max(0, resolvedAav) * 0.75)
           : parseContractGuaranteeValue(contractInfo);
-        // Per-year salary list for the AAV display on multi-year contracts.
-        // Keith 2026-05-16: Trey Benson Ext showed "11K AAV" (TCV÷years) but
-        // should show "6K, 16K AAV" — the per-year breakdown. The single
-        // mathematical-average AAV is misleading for loaded contracts; the
-        // comma list matches how the mobile app + roster workbench label it.
-        // Tags stay single-value (always 1 year).
-        const perYearAavDisplay = (kind !== "tag" && summary.pairs.length > 1)
-          ? summary.pairs.map((p) => formatContractK(safeInt(p.salary, 0))).join(", ")
-          : formatContractK(resolvedAav);
+        // AAV display — the contractInfo AAV token VERBATIM when present.
+        // Keith 2026-07-23 (Contract Change Gate, CHANGE_PLAYBOOK §0): the AAV
+        // token is ground truth to PRESERVE, never recompute. Hurts (Vet-Ext1,
+        // Y1-67K, Y2-52K, token "AAV 42K, 52K") rendered "67K, 52K AAV" here
+        // because this joined the Y-SALARY pairs — salaries are NOT the AAV
+        // (canon §C4: escalator applies to extension years only; dual AAV =
+        // "cur, cur+bump" and rolls forward as years are played).
+        // Fallback ONLY when the token is missing: per-year salary join
+        // (Keith 2026-05-16, Trey Benson — better than a misleading TCV÷years
+        // average), else single resolvedAav. Tags stay single-value (1 year).
+        const perYearAavDisplay = rawAavLabel
+          ? rawAavLabel
+          : (kind !== "tag" && summary.pairs.length > 1)
+            ? summary.pairs.map((p) => formatContractK(safeInt(p.salary, 0))).join(", ")
+            : formatContractK(resolvedAav);
         // Restructures show "Remaining Salary Owed" instead of "TCV" (Keith
         // 2026-06-05) — for a restructure the per-year salaries ARE the
         // remaining years, so resolvedTcv (their sum) is exactly what's still
