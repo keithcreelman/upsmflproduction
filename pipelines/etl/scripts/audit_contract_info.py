@@ -182,10 +182,13 @@ def main():
 
     # ledger: latest restructure per player (evidence for RESTRUCTURE_TOKEN)
     restr_ledger = set()
-    if not a.no_ledger:
+    key = os.environ.get("UPS_COMMISH_API_KEY") or os.environ.get("MFL_APIKEY")
+    if not a.no_ledger and not key:
+        print("(warn) UPS_COMMISH_API_KEY not set — skipping ledger RESTRUCTURE_TOKEN cross-check "
+              "(the MFL-native checks still run keylessly)", file=sys.stderr)
+    if not a.no_ledger and key:
         try:
             import urllib.request as u
-            key = "aRBv1sCXvuWpx0OmP13EaDoeFbox"
             led = json.load(u.urlopen(u.Request(f"{WORKER}/admin/contract-submissions?L={LEAGUE}&YEAR={a.year}&APIKEY={key}", headers={"User-Agent": "Mozilla/5.0"}), timeout=45))
             for s in led.get("submissions", []):
                 if s.get("kind") == "restructure":
