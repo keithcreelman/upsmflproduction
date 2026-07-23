@@ -862,8 +862,17 @@ def main():
             return v
 
         def proj(r):
-            o = {"n": r["player"], "p": r["pos"], "tm": r.get("nfl_team") or None,
+            # p = the LEAGUE bucket (QB/RB/WR/TE/DL/LB/DB/PK/PN) — the War Room's
+            # position tabs and the shopping-list groups filter on these, so raw
+            # MFL codes (DE/DT/S/CB) here made the DL and DB groups render EMPTY
+            # (Keith 2026-07-23: "there are no DL in the FA List"). Raw code kept
+            # as rp for display.
+            raw_pos = r["pos"]
+            bucket = POS_BUCKET.get(raw_pos, raw_pos)
+            o = {"n": r["player"], "p": bucket, "tm": r.get("nfl_team") or None,
                  "ag": nz(r.get("age")), "s": ("F" if r["status"] == "FA" else "r")}
+            if raw_pos != bucket:
+                o["rp"] = raw_pos
             if r["status"] != "FA":
                 o["o"] = r.get("owner") or None
             for src, k in (("salary_k", "sl"), ("years_remaining", "yr"), ("contract_type", "ct"),
