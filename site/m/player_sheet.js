@@ -1084,7 +1084,12 @@
       years: years,
       tcv: baseline.tcv,
       y1: baseline.y1,
-      y2: years === 2 ? (baseline.tcv - baseline.y1) : baseline.y2
+      y2: years === 2 ? (baseline.tcv - baseline.y1) : baseline.y2,
+      // Prior-contract context so restructureCalc can PRESERVE the AAV token
+      // verbatim and derive the -FL/-BL suffix from the money-movement direction.
+      special: U.safeStr(adapted && adapted.special),
+      priorStatus: U.safeStr(rosterRow && rosterRow.contractStatus),
+      priorSalary: U.safeInt(rosterRow && rosterRow.salary, 0)
     };
     renderRestructureSheet();
   }
@@ -1168,7 +1173,10 @@
       var FOR = window.UPS_FRONT_OFFICE_RSTR;
       var calc = FOR.restructureCalc({
         years: restructureState.years, tcv: restructureState.tcv,
-        y1: restructureState.y1, y2: restructureState.y2
+        y1: restructureState.y1, y2: restructureState.y2,
+        priorContractInfo: restructureState.special,
+        priorContractStatus: restructureState.priorStatus,
+        priorSalary: restructureState.priorSalary
       });
       if (calc.ok) confirmAndSubmitRestructure(calc);
     });
@@ -1178,7 +1186,12 @@
   function updateRestructurePreview() {
     var FOR = window.UPS_FRONT_OFFICE_RSTR;
     var s = restructureState;
-    var calc = FOR.restructureCalc({ years: s.years, tcv: s.tcv, y1: s.y1, y2: s.y2 });
+    var calc = FOR.restructureCalc({
+      years: s.years, tcv: s.tcv, y1: s.y1, y2: s.y2,
+      priorContractInfo: s.special,
+      priorContractStatus: s.priorStatus,
+      priorSalary: s.priorSalary
+    });
     function setText(id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; }
     if (s.years === 2) setText("ups-m-rstr-y2auto", U.fmtUsd(s.tcv - s.y1));
     else setText("ups-m-rstr-y3auto", U.fmtUsd(s.tcv - s.y1 - s.y2));

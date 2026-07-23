@@ -107,6 +107,16 @@
       return parseContractMoneyToken(moneyMatch ? moneyMatch[0] : "");
     }).filter(function (a) { return a > 0; });
   }
+  // Extract the raw AAV token string VERBATIM (e.g. "42K, 52K") so a restructure
+  // preserves the extension's dual AAV byte-for-byte instead of re-averaging
+  // TCV/CL (the Cook/London bug). Returns "" when no AAV token is present.
+  function parseContractAavRawToken(contractInfo) {
+    var info = safeStr(contractInfo);
+    if (!info) return "";
+    var match = info.match(/(?:^|\|)\s*AAV\s+([^|]+)/i);
+    if (!match) return "";
+    return safeStr(match[1]).replace(/\bY\d+\s*-[^|]*$/i, "").trim();
+  }
   function currentAavForContractInfo(contractInfo) {
     var values = parseContractAavValues(contractInfo);
     return values.length ? safeInt(values[0], 0) : 0;
@@ -205,7 +215,17 @@
     inputs = inputs || {};
     var yearsInt = safeInt(inputs.years, 2) >= 3 ? 3 : 2;
     var tcv = Math.max(0, safeInt(inputs.tcv, 0));
-    var aav = yearsInt > 0 ? Math.round((tcv / yearsInt) * 10) / 10 : 0;
+    // PRESERVE the prior AAV token VERBATIM — a restructure re-slots the year
+    // salaries + TCV + GTD but must NOT recompute the AAV (the extension's dual
+    // AAV stays fixed; TCV/CL re-averaging was the Cook/London bug). The numeric
+    // `aav` (display + D1 ledger) is the current-year tier; fall back to the naive
+    // average ONLY when the prior contract carries no AAV token.
+    var priorInfo = safeStr(inputs.priorContractInfo);
+    var priorAavToken = parseContractAavRawToken(priorInfo);
+    var priorAavValues = parseContractAavValues(priorInfo);
+    var aav = priorAavValues.length
+      ? safeInt(priorAavValues[0], 0)
+      : (yearsInt > 0 ? Math.round((tcv / yearsInt) * 10) / 10 : 0);
     var y1 = safeInt(inputs.y1, 0);
     var y2Input = safeInt(inputs.y2, 0);
     var extSuffix = safeStr(inputs.extSuffix);
@@ -235,17 +255,34 @@
     var gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - y1);
     var yearParts = ["Y1-" + formatContractK(y1), "Y2-" + formatContractK(y2)];
     if (yearsInt === 3) yearParts.push("Y3-" + formatContractK(y3));
+    // AAV segment = the prior token VERBATIM (dual preserved); fall back to the
+    // naive average only when no prior AAV token existed.
+    var aavSegment = priorAavToken || formatContractK(aav);
     var infoParts = [
       "CL " + yearsInt,
       "TCV " + formatContractK(tcv),
-      "AAV " + formatContractK(aav),
+      "AAV " + aavSegment,
       yearParts.join(", "),
       "GTD: " + formatContractK(gtd)
     ];
     if (extSuffix) infoParts.push(extSuffix);
+    infoParts.push("Restructured " + new Date().getFullYear());
+    // §C5 / T3.4: the -FL / -BL suffix on a RESTRUCTURE follows which way the money
+    // MOVED — new current-year (Y1) salary vs the PRE-restructure current-year
+    // salary: LOWERED → -BL (pushed back), RAISED → -FL (pulled forward). 🔒 Keith
+    // ruling 2026-07-23 — do NOT use "Y1 vs AAV" (breaks on escalated dual-AAV
+    // deals: Hurts 67→47 is -BL even though Y1-47 > AAV-42). Strip any existing
+    // suffix; equal = flat = no suffix. Empty base = leave for the payload's
+    // prior-status fallback.
+    var priorCurrentSalary = safeInt(parseContractYearValues(priorInfo)[1], 0) ||
+                             Math.max(0, restructureRoundToK(safeInt(inputs.priorSalary, 0)));
+    var baseType = safeStr(inputs.priorContractStatus).replace(/-(FL|BL)$/i, "");
+    var loadSuffix = (priorCurrentSalary > 0 && y1 > priorCurrentSalary) ? "-FL"
+                   : ((priorCurrentSalary > 0 && y1 < priorCurrentSalary) ? "-BL" : "");
     return {
       ok: true, years: yearsInt, tcv: tcv, y1: y1, y2: y2, y3: y3, aav: aav, gtd: gtd,
-      contractInfo: infoParts.join("| ")
+      contractInfo: infoParts.join("| "),
+      contractStatus: baseType ? (baseType + loadSuffix) : ""
     };
   }
 
@@ -307,7 +344,9 @@
       position: safeStr(args.position),
       salary: safeInt(calc.y1, 0),
       contract_year: safeInt(calc.years, 0),
-      contract_status: safeStr(args.priorContractStatus),  // preserve existing sub-type; worker fills from preCheck if empty
+      // -FL/-BL re-derived from the restructure's money-movement direction
+      // (calc.contractStatus); fall back to the prior sub-type if unresolved.
+      contract_status: safeStr(calc.contractStatus) || safeStr(args.priorContractStatus),
       contract_info: safeStr(calc.contractInfo),
       tcv: safeInt(calc.tcv, 0),
       aav: safeInt(calc.aav, 0),
