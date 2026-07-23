@@ -45,7 +45,7 @@ Emits `data/misc_data/contract_audit_<date>.csv` (--csv) in the review format:
 
 MFL-API-native; no writes to MFL / D1 / Discord.
 """
-import argparse, csv, datetime, json, re, sys, urllib.request
+import argparse, csv, datetime, json, os, re, sys, urllib.request
 
 LEAGUE, SERVER = "74598", "https://www48.myfantasyleague.com"
 WORKER = "https://upsmflproduction.keith-creelman.workers.dev"
