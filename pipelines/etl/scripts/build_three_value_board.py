@@ -292,10 +292,16 @@ def main():
     ap.add_argument("--db", default=str(CANON), help="UPS auction archive sqlite")
     ap.add_argument("--out", default=str(OUT))
     ap.add_argument("--shopping-out", default=str(OUT_SHOP))
-    ap.add_argument("--budget-normalize", choices=["off", "global"], default="off",
+    ap.add_argument("--budget-normalize", choices=["off", "global", "tail"], default="off",
                     help="off (default, safe): price each FA independently — the coherence check is a "
                          "DIAGNOSTIC only. global: additionally pull the OFFENSE clearing set down to the "
-                         "projected spend with one floor-preserving market-arm scale (never marks up).")
+                         "projected spend with one floor-preserving market-arm scale (never marks up). "
+                         "tail: reshape to THIS league's realized auction curve (Keith 2026-07-23: ~49%% of "
+                         "SF-era clears go for exactly $1K, top-10 players take ~42%% of ALL dollars — a flat "
+                         "scale taxes the studs to pay for a tail that actually costs $1K a head). Measures "
+                         "$1K-share / top-10-share / top-25-share from the auction archive (--db) and applies "
+                         "a 3-segment floor-preserving reshape: studs UP to the historical share, mid down, "
+                         "tail toward $1K. Same total envelope as global.")
     ap.add_argument("--strict", action="store_true",
                     help="exit nonzero if the coherence ratio lands OUTSIDE the band (for CI / a guarded regen).")
     ap.add_argument("--push-d1", action="store_true",
@@ -619,6 +625,77 @@ def main():
 
     coh_before = bfv.coherence_check(_fa_vals_by_bucket(), projected_spend_k)
     budget_scale = 1.0
+    tail_shape = None
+    if args.budget_normalize == "tail":
+        # ── Historical-curve reshape (Keith 2026-07-23) ────────────────────────────────────
+        # Measured from THIS league's SF-era (2020+) FreeAgent auction clears — every constant
+        # comes from the archive, none is hand-chosen:
+        #   f_1k        ≈ 0.49  — share of all wins at exactly $1K (the tail is CHEAP)
+        #   top10_share ≈ 0.42  — share of ALL auction dollars taken by the top 10 players
+        #   top25_share ≈ 0.62  — … by the top 25
+        # A flat scale (mode=global) under-prices the studs (#1 has cleared $50-94K every
+        # season; global put Josh Allen at $46K). Reshape instead: boost ranks 1-10 to the
+        # historical top-10 dollar share, fit 11-25 to (top25-top10), and compress the rest
+        # toward the $1K tail — same overall envelope as global, correct SHAPE.
+        try:
+            _hc = sqlite3.connect(args.db)
+            _by = collections.defaultdict(list)
+            for _s, _b in _hc.execute(
+                    "SELECT season, bid_amount FROM transactions_auction "
+                    "WHERE auction_event_type='WON' AND auction_type='FreeAgent' "
+                    "AND bid_amount IS NOT NULL AND season >= 2020"):
+                _by[_s].append(_b)
+            _hc.close()
+            _f1, _t10, _t25 = [], [], []
+            for _s, _bids in _by.items():
+                if len(_bids) < 20:
+                    continue
+                _bids = sorted(_bids, reverse=True)
+                _tot = sum(_bids) or 1
+                _f1.append(sum(1 for x in _bids if x <= 1000) / len(_bids))
+                _t10.append(sum(_bids[:10]) / _tot)
+                _t25.append(sum(_bids[:25]) / _tot)
+            f_1k = sum(_f1) / len(_f1)
+            top10_share = sum(_t10) / len(_t10)
+            top25_share = sum(_t25) / len(_t25)
+        except Exception as e:
+            raise SystemExit(f"  ✘ --budget-normalize tail needs the auction archive at {args.db}: {e}")
+
+        off_target = projected_spend_k * (sum(bfv.AUCTION_BUCKET_SPEND_K[b] for b in SKILL)
+                                          / sum(bfv.AUCTION_BUCKET_SPEND_K.values()))
+        # the offense clearing set, ranked by current price (IDP/K stay on the realized ladder)
+        clearing = []
+        for b in SKILL:
+            grp = sorted((r for r in rows if r["status"] == "FA" and r["_bucket"] == b
+                          and isinstance(r.get("fa_value_k"), (int, float))),
+                         key=lambda r: -(r["fa_value_k"]))
+            clearing.extend(grp[:int(round(bfv.AUCTION_CLEAR_COUNT[b]))])
+        clearing.sort(key=lambda r: -(r["fa_value_k"]))
+        s10 = sum(r["fa_value_k"] for r in clearing[:10]) or 1
+        s25 = sum(r["fa_value_k"] for r in clearing[10:25]) or 1
+        srest = sum(r["fa_value_k"] for r in clearing[25:]) or 1
+        # dollar targets (historical shares are of TOTAL spend; no IDP has ever cracked the
+        # top-25 — the DL ladder tops out ~$15K — so the top segments are offense)
+        t10_target = top10_share * projected_spend_k
+        t25_target = (top25_share - top10_share) * projected_spend_k
+        rest_target = max(0.0, off_target - t10_target - t25_target)
+        seg_scale = {}
+        for i, r in enumerate(clearing):
+            seg_scale[id(r)] = (t10_target / s10 if i < 10 else
+                                t25_target / s25 if i < 25 else
+                                rest_target / srest)
+        for r in rows:
+            sc = seg_scale.get(id(r))
+            if sc is None:
+                continue
+            new_ep = round(max(r["_floor"], 1.0, r["fa_value_k"] * sc))
+            r["fa_value_k"] = new_ep
+            r["ep_equiv_k"] = round(float(new_ep), 1)
+        tail_shape = {"f_1k": round(f_1k, 3), "top10_share": round(top10_share, 3),
+                      "top25_share": round(top25_share, 3),
+                      "scales": {"top10": round(t10_target / s10, 3),
+                                 "r11_25": round(t25_target / s25, 3),
+                                 "rest": round(rest_target / srest, 3)}}
     if args.budget_normalize == "global":
         # Fix WHERE it is: the IDP/K/P ladder already clears at realized dollars (ratio ≈ 1.0), so
         # normalize the OFFENSE market arms ONLY. One global scale respects the model's relative
@@ -730,7 +807,13 @@ def main():
             A(f"# *** ACTION: regenerate AFTER Thursday's roster lock. The 2022-25 boards all land 0.66-0.97 here;")
             A(f"# *** removing ~12 mis-coded stars from this pool drops the ratio from ~1.5x back into the band.")
             A(f"# *** This is a DATA-STATE artifact, not a pricing defect — see build_ep_v5_calibration budget_constraint.")
-        if args.budget_normalize == "global":
+        if args.budget_normalize == "tail" and tail_shape:
+            A(f"# BUDGET NORMALIZE = tail: reshaped to the SF-era realized curve (measured from the archive):")
+            A(f"#   $1K-share {tail_shape['f_1k']:.0%}  top10-share {tail_shape['top10_share']:.0%}  top25-share {tail_shape['top25_share']:.0%}")
+            A(f"#   segment scales: top-10 x{tail_shape['scales']['top10']}  ranks 11-25 x{tail_shape['scales']['r11_25']}  rest x{tail_shape['scales']['rest']}")
+            A(f"#   (before {coh_before['ratio']} -> after {coh['ratio']}; studs UP to the historical dollar share, tail toward $1K)")
+            A(f"#   Applied to OFFENSE FA prices only; IDP/K/P ladder already clears at realized $ (untouched).")
+        elif args.budget_normalize == "global":
             if budget_scale < 1.0:
                 A(f"# BUDGET NORMALIZE = global: offense market arms x {budget_scale} (before {coh_before['ratio']} -> after {coh['ratio']}).")
                 A(f"#   Applied to OFFENSE FA prices only; IDP/K/P ladder already clears at realized $ (untouched). Floor")
@@ -907,6 +990,8 @@ def main():
                     "predicted_clearing_k": coh["predicted_clearing_k"],
                     "ratio": coh["ratio"], "band": list(coh["band"]), "status": coh["status"],
                     "n_contract_star_fa": coh.get("n_contract_star_fa"),
+                    "normalize_mode": args.budget_normalize,
+                    "tail_shape": tail_shape,
                 },
                 "arms": {"rw3": dict(arms_rw), "ep5": dict(arms_ep)},
                 "counts": {"total": len(rows),

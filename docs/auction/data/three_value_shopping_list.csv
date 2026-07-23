@@ -1,5 +1,5 @@
 # UPS THREE-VALUE BOARD — every line beginning with '#' is metadata; skip them to parse the CSV.
-# generated: 2026-07-23T00:47:23-04:00   league: L=74598 2026   cap: $300K   viewer: 0008 (Real Deal Creel)
+# generated: 2026-07-23T07:17:44-04:00   league: L=74598 2026   cap: $300K   viewer: 0008 (Real Deal Creel)
 # rows: 1468  (FA 1147 / rostered 321)
 #
 # ── THE THREE VALUES (they do NOT sum; each answers a different question) ──
@@ -41,12 +41,13 @@
 # PREDICTED CLEARING SET = sum of fa_value over the top-N per bucket (N = this league's historical
 #   mean clears: QB16 RB30 WR28 TE13 | DL20 LB24 DB23 PK12 PN11, total ~176). NOT sum-of-all-rows.
 # CONSTRAINT: predicted clearing set  ==  projected spend.
-#   predicted $976.8K  /  projected $1018K  =  RATIO 0.959   [band 0.6-1.15]   status=OK
-#   per-bucket predicted-clearing $K: QB:305  RB:235  WR:180  TE:94  DL:44  LB:52  DB:40  PK:15  PN:13
-# BUDGET NORMALIZE = global: offense market arms x 0.7616 (before 1.142 -> after 0.959).
-#   Applied to OFFENSE FA prices only; IDP/K/P ladder already clears at realized $ (untouched). Floor
-#   preserved (nothing below startability), ordering preserved. NOTE: the 2022-25 backtest shows hard
-#   normalization RAISES winner MAE ($3.61K->$4.02K) — coherence here costs accuracy. Prefer a roster-lock regen.
+#   predicted $1061.8K  /  projected $1018K  =  RATIO 1.043   [band 0.6-1.15]   status=OK
+#   per-bucket predicted-clearing $K: QB:356  RB:255  WR:200  TE:88  DL:44  LB:52  DB:40  PK:15  PN:13
+# BUDGET NORMALIZE = tail: reshaped to the SF-era realized curve (measured from the archive):
+#   $1K-share 49%  top10-share 42%  top25-share 62%
+#   segment scales: top-10 x1.009  ranks 11-25 x0.774  rest x0.586
+#   (before 1.142 -> after 1.043; studs UP to the historical dollar share, tail toward $1K)
+#   Applied to OFFENSE FA prices only; IDP/K/P ladder already clears at realized $ (untouched).
 #
 # ── PER-ARM BINDING COUNTS (FA offense rows) ──
 # credible branch rw>=3 (n=38): floor=9  affine=18  dyn_anchor=11
