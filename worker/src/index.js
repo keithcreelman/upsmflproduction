@@ -27325,6 +27325,25 @@ export default {
             messageId,
           });
         }
+        // Thread per transaction (Keith 2026-07-23: contract posts must match the
+        // auction + drops convention — discussion/corrections live in-thread and
+        // the channel stays clean). Same best-effort pattern as the drops path:
+        // the announcement stands alone if the thread create fails.
+        let threadId = "";
+        if (res.ok && messageId) {
+          try {
+            const kindLabel = safeStr(activityType || "Contract")
+              .replace(/[_-]+/g, " ")
+              .replace(/^\w/, (c) => c.toUpperCase());
+            const thrName = `${kindLabel} · ${safeStr(playerName) || "Player"}`.slice(0, 100);
+            const thr = await discordBotRequest(
+              botToken, "POST",
+              `/channels/${encodeURIComponent(target.channelId)}/messages/${encodeURIComponent(messageId)}/threads`,
+              { name: thrName, auto_archive_duration: 4320 }
+            );
+            threadId = safeStr(thr?.data?.id || "");
+          } catch (_) { /* thread is best-effort */ }
+        }
         return {
           ok: !!res.ok,
           skipped: false,
@@ -27333,6 +27352,7 @@ export default {
           channel_id: safeStr(target.channelId),
           delivery_target: safeStr(target.deliveryTarget || ""),
           message_id: messageId,
+          thread_id: threadId,
           gif_url: safeStr(gif.gif_url || ""),
           gif_query: safeStr(gif.query || ""),
           franchise_icon_url: safeStr(franchiseMeta.icon_url || ""),
