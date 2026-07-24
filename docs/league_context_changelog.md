@@ -46,6 +46,62 @@ Each entry follows this structure:
      point. New entries push older ones further down so reverse-chronological
      order is preserved. -->
 
+## 2026-07-24 — Mid-Year Multi (2B) — No Cheap Multi-Year Reset for Contracted Players Dropped After the Trade Deadline (REJECTED 5-5-0)
+
+**Round:** rp-qb-starter-cap-4-nfl-starters-at-the · **Locked:** 2026-07-24T17:05:04.167Z
+**Discord thread:** https://discord.com/channels/1057655884475531324/1528806469732925630
+**Integration PR:** _pending_
+
+### Proposal body
+> ### Mid-Year Multi & Extension — Post-Trade-Deadline Drops (effective 2026)
+> 
+> **1. Who this covers.** Any player who was (a) under contract at the Auction Roster Cutdown date, (b) still on a roster at the trade deadline (NFL Thanksgiving-week kickoff), and (c) dropped after the trade deadline. Roster status is irrelevant — a player on IR is covered. There is no salary threshold; timing is the only test.
+> 
+> **2. No MYM or extension.** For the remainder of that league year, a player covered by clause 1 may not receive a Mid-Year Multi or a contract extension from any franchise, regardless of when or by whom he is reacquired.
+> 
+> **3. Tag is the only multi-year path, at original cost.** Such a player may be retained on a multi-year basis only by Franchise Tag, under the normal tag rules (standard tag eligibility and the one-offense / one-defense tag budget). The tag is priced off his AAV as of that season's September contract deadline (his original contract) — never his post-drop reacquisition salary. That original-contract AAV remains his tag cost basis even after the annual roll-forward.
+> 
+> **4. Dropped before the deadline = not covered.** A player dropped before the trade deadline is unaffected: because he did not remain under that contract through the deadline, he is fully MYM- and extension-eligible as normal if later reacquired.
+
+### Pre-staged canon change (drafted with the proposal)
+# RULE-CHANGE LEDGER — Mid-Year Multi & Extension: Post-Trade-Deadline Drops (2B)
+Base canon: v16 (git b6b0436, 2026-07-17)
+
+## A) Canon Change on Approval  (apply ONLY if it passes)
+
+### Edit 1 — body — §C3. Mid-Year Multi (MYM) ▸ Eligibility
+Operation: INSERT after this exact anchor line:
+  - In-season WW or FCFS pickup → **14-day MYM window** from acquisition. **The 14-day clock does NOT reset on trade.** Example: pickup 10/1 → MYM eligible until 10/14. If traded on 10/20 → no MYM possible (clock already expired). The acquiring team via trade does NOT inherit a fresh MYM window.
+New text:
+  - **Post-trade-deadline drop of a contracted player (2026):** a player who was under contract at the Auction Roster Cutdown date, still rostered at the trade deadline (Thanksgiving-week kickoff), and then dropped AFTER the trade deadline is NOT MYM-eligible for the remainder of that league year, by any franchise, regardless of reacquisition timing or roster/IR status. No salary threshold — timing only. Dropped BEFORE the deadline → unaffected. Multi-year retention only via Franchise Tag at his original-contract AAV (see §C8); extension likewise barred (see §C4).
+
+### Edit 2 — body — §C4. Extension ▸ Eligibility
+Operation: INSERT after this exact anchor line:
+  - **In-season trade-acquired final-year player:** extend within 4 weeks of acquisition.
+New text:
+  - **Post-trade-deadline drop of a contracted player (2026):** a player under contract at the Auction Roster Cutdown date, kept through the trade deadline, then dropped after it is NOT extension-eligible for the remainder of that league year, by any franchise (parallel to the §C3 MYM bar). Dropped before the deadline → unaffected.
+
+### Edit 3 — body — §C8. Tags — original-contract cost basis
+Operation: INSERT after this exact anchor line:
+- **Tag salary fallback (unranked players):** `max(lowest-tier salary for the position, prior-season AAV × 1.10 rounded up to $1K)`.
+New text:
+- **Post-trade-deadline drop cost basis (2026):** a player barred from MYM/extension under §C3/§C4 (under contract at cutdown, kept through the trade deadline, dropped after it) may still be Franchise-Tagged under normal tag eligibility and the normal tag budget, but his tag salary uses his AAV as of that season's September contract deadline (his original contract) as the prior-AAV input — NOT his cheap post-drop reacquisition salary. This original-contract AAV persists as his tag cost basis through the annual roll-forward, and overrides the usual WW-contract exclusion from prior_aav for this specific case.
+
+### Edit 4 — header — 🔖 Document Status & Versioning ▸ Version log highlights
+Operation: INSERT after this exact anchor line:
+  See `docs/league_context_changelog.md` for proposal text + vote tally + before/after snippets per rule.
+New text:
+- <date>: ✅ Post-deadline drop rule passed (<tally>) — a contracted player kept through the trade deadline then dropped can't be MYM'd/extended that year; multi-year retention only via Franchise Tag at his original-deadline AAV (§C3, §C4, §C8).
+
+## B) Changelog entry — append to docs/league_context_changelog.md  (log PASS OR FAIL)
+## <date> — Mid-Year Multi & Extension: post-trade-deadline drops — [PASSED <tally> → applied to canon | FAILED <tally> → not applied]
+Base canon: v16 (b6b0436).
+Before: a contracted player dropped late could be reacquired cheap and MYM'd/extended, resetting his cost.
+After (if passed): under contract at cutdown + kept through the trade deadline + dropped after → no MYM or extension by anyone that year; multi-year retention only via Franchise Tag priced off his original-deadline AAV, persisting through rollover. Dropped before the deadline = unaffected.
+Body: <paste rule ③ body_md>.
+
+---
+
 ## 2026-05-08 — Realignment — captain-based division draft (PASSED 7-0-0)
 
 **Round:** May2026 · **Locked:** 2026-05-08 (post-vote, locked at threshold + 5 min grace)
