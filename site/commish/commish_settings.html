@@ -293,6 +293,21 @@
   .di-drift { font-weight: 800; } .di-drift.up { color: var(--danger); } .di-drift.dn { color: #34d399; }
   @media (max-width: 720px) { .fav-dwrap { grid-template-columns: 1fr; } .fav-infl-grid { grid-template-columns: 1fr; } .fav-tier-cells { flex-direction: column; align-items: stretch; } .fav-tier-arrow { display: none; } }
   @media (max-width: 560px) { .wr-mini-wrap { grid-template-columns: 1fr; } }
+  /* Rebuilt War Room launcher (→ private combined-hub artifact) */
+  .wr2-launch { max-width: 900px; margin: 8px auto; }
+  .wr2-hero { background: linear-gradient(160deg, var(--panel), var(--panel2)); border: 1px solid var(--line); border-radius: 16px; padding: 28px 26px; }
+  .wr2-eyebrow { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .wr2-hero h2 { font-size: 26px; margin: .2em 0 .35em; font-weight: 800; color: var(--fg); letter-spacing: -.01em; }
+  .wr2-hero p { color: var(--muted); font-size: 14.5px; line-height: 1.55; max-width: 66ch; margin: 0 0 18px; }
+  .wr2-hero p b { color: var(--fg); }
+  .wr2-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #0a1222; font-weight: 800; font-size: 15px; padding: 12px 22px; border-radius: 11px; text-decoration: none; transition: .12s; }
+  .wr2-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .wr2-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 24px 0 6px; }
+  .wr2-c { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 13px; display: flex; flex-direction: column; gap: 4px; }
+  .wr2-c b { color: var(--fg); font-size: 13.5px; }
+  .wr2-c span { color: var(--muted); font-size: 12px; line-height: 1.4; }
+  .wr2-foot { font-size: 12.5px; color: var(--muted); margin-top: 16px; }
+  .wr2-foot b { color: var(--fg); }
 </style>
 </head>
 <body>
@@ -337,10 +352,46 @@
   var _mflUserId = function () {
     try { return String(window.UPS_COMMISH_MFL_USER_ID || ""); } catch (e) { return ""; }
   };
+  // Commish API-key FALLBACK. The intended auth is the forwarded MFL session
+  // (set by mfl_hpm_embed_loader.js when this page runs INSIDE the MFL site).
+  // Loaded any other way — a direct link, a bookmarked tab — there is no session
+  // token, so every intel route 403s with reason "no_token". The worker also
+  // accepts the commish APIKEY (proven), so mirror the Roster Workbench pattern:
+  // read a key from the usual globals / MFL_APIKEY cookie / localStorage, or
+  // ONCE from a ?APIKEY= URL param which we persist to localStorage and strip
+  // from the visible URL (so it isn't left in history). Session is preferred;
+  // the key is the fallback. Paste the War Room link with ?APIKEY=<key> once and
+  // it sticks. (Commish-only tool; key is not treated as high-sensitivity here.)
+  var _commishApiKey = function () {
+    try {
+      var u = new URL(window.location.href);
+      var fromUrl = u.searchParams.get("APIKEY");
+      if (fromUrl) {
+        try { localStorage.setItem("ups_commish_apikey", fromUrl); } catch (e) {}
+        try { u.searchParams.delete("APIKEY"); window.history.replaceState(null, "", u.toString()); } catch (e) {}
+        return fromUrl;
+      }
+    } catch (e) {}
+    var cands = [];
+    try { cands.push(window.UPS_MFL_APIKEY, window.MFL_APIKEY, window.APIKEY); } catch (e) {}
+    try { cands.push(localStorage.getItem("ups_commish_apikey")); } catch (e) {}
+    try {
+      var m = String(document.cookie || "").match(/(?:^|;\s*)MFL_APIKEY=([^;]+)/);
+      if (m) cands.push(decodeURIComponent(m[1]));
+    } catch (e) {}
+    for (var i = 0; i < cands.length; i += 1) {
+      var k = cands[i] ? String(cands[i]) : "";
+      if (k) return k;
+    }
+    return "";
+  };
   var _withUserId = function (url) {
+    var sep = url.indexOf("?") < 0 ? "?" : "&";
     var t = _mflUserId();
-    if (!t) return url;
-    return url + (url.indexOf("?") < 0 ? "?" : "&") + "MFL_USER_ID=" + encodeURIComponent(t);
+    if (t) return url + sep + "MFL_USER_ID=" + encodeURIComponent(t);
+    var k = _commishApiKey();
+    if (k) return url + sep + "APIKEY=" + encodeURIComponent(k);
+    return url;
   };
   function fetchJSON(url) {
     return fetch(_withUserId(url), { cache: "no-store", credentials: "omit" }).then(function (r) {
@@ -352,6 +403,9 @@
         // of this very page is exactly when you can least afford to guess.
         return r.text().then(function (t) {
           var d = null; try { d = t ? JSON.parse(t) : null; } catch (_) {}
+          if (r.status === 403 && d && d.reason === "no_token") {
+            throw new Error("403 no_token — this page didn't send an auth token. Open the War Room from inside the MFL site (Commish Settings hub), OR append ?APIKEY=<commish key> to this page's URL once (it's saved after).");
+          }
           if (r.status === 403 && d && d.reason) {
             throw new Error("403 " + d.reason + " — " + (d.message || ""));
           }
@@ -467,20 +521,27 @@
   // AUCTION WAR ROOM — commish-only FA-auction opponent intel (franchise 0008)
   // ════════════════════════════════════════════════════════════════════
   var WR = { data: null, view: "scouting", live: null, pollTimer: null };
+  // Rebuilt 2026-07-24: the old Scouting/My Board/Live Board/Draft Intel views are replaced
+  // by the combined War Room dashboard, hosted as a PRIVATE Claude artifact (account-gated —
+  // only the commish can open it), so opponent intel never lands in this public repo. Live
+  // lots + bidding stay in the untouched Auction Hub. Old paint* fns below are now dead code.
+  var WARROOM_URL = "https://claude.ai/code/artifact/435b41fd-3249-4afd-8226-8d4e3efda7b5";
   function renderWarRoom() {
     var host = content();
-    if (WR.data) { renderWrFrame(host); return; }
-    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading FA-auction intel…</div></div>';
-    fetchJSON(apiUrl("/api/auction/intel") + "?franchise_id=0008").then(function (d) {
-      if (!d || !d.ok) {
-        host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">' +
-          (d && d.error ? esc(d.error) : "Intel not available.") + '</div></div>';
-        return;
-      }
-      WR.data = d; renderWrFrame(host);
-    }).catch(function (e) {
-      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + esc(e.message || String(e)) + '</div></div>';
-    });
+    host.innerHTML =
+      '<div class="wr2-launch"><div class="wr2-hero">' +
+        '<div class="wr2-eyebrow">Auction War Room · rebuilt</div>' +
+        '<h2>Your combined War Room lives here.</h2>' +
+        '<p>Battle Plan, FA Board (value-differentiated pricing + who-to-fear), Team Intel (every rival’s roster holes × cap × how they bid), and the historical Class Explorer — one dashboard. It’s a <b>private Claude artifact</b> (only you can open it), so opponent intel stays commish-only and never touches this public repo.</p>' +
+        '<a class="wr2-btn" href="' + WARROOM_URL + '" target="_blank" rel="noopener">🎯 Open the War Room →</a>' +
+        '<div class="wr2-cards">' +
+          '<div class="wr2-c"><b>📋 Battle Plan</b><span>One-screen game plan: your hand, the squeeze, shopping list, the lanes nobody contests.</span></div>' +
+          '<div class="wr2-c"><b>🏈 FA Board</b><span>What each player should cost + who to fear, cap-aware and re-priced live as wins land.</span></div>' +
+          '<div class="wr2-c"><b>🎯 Team Intel</b><span>Every rival’s roster holes, live cap, and spending fingerprint. Click a position → who to fear.</span></div>' +
+          '<div class="wr2-c"><b>📊 Class Explorer</b><span>What every FA class sold for; IDP on real draft-market rank vs. finish.</span></div>' +
+        '</div>' +
+        '<p class="wr2-foot">Live lots &amp; bidding stay in the <b>Auction Hub</b> — this is the prep &amp; intel layer. Snapshot as of 7/24; rosters/cap read live from MFL inside the board.</p>' +
+      '</div></div>';
   }
   function stopWrPoll() { if (WR.pollTimer) { clearInterval(WR.pollTimer); WR.pollTimer = null; } }
   function renderWrFrame(host) {
