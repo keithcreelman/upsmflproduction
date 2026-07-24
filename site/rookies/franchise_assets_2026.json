@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-07-23T11:31:24.024169+00:00",
+    "generated_at_utc": "2026-07-24T11:23:41.171426+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -851,18 +851,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17509",
-          "display": "Chris Brazzell II",
-          "player_id": "17509",
-          "position": "WR",
-          "nfl_team": "CAR",
-          "salary": 2000,
-          "contract_year": 3,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17046",
           "display": "Devin Neal",
           "player_id": "17046",
@@ -966,6 +954,18 @@
           "nfl_team": "GBP",
           "salary": 2000,
           "contract_year": 1,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17509",
+          "display": "Chris Brazzell II",
+          "player_id": "17509",
+          "position": "WR",
+          "nfl_team": "CAR",
+          "salary": 2000,
+          "contract_year": 3,
           "contract_status": "Rookie-Draft",
           "roster_status": "TAXI_SQUAD",
           "taxi": true
@@ -1958,7 +1958,7 @@
           "position": "S",
           "nfl_team": "CIN",
           "salary": 4000,
-          "contract_year": 1,
+          "contract_year": 2,
           "contract_status": "Vet-ERA",
           "roster_status": "ROSTER",
           "taxi": false
@@ -3011,6 +3011,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_16185",
+          "display": "Jaxon Smith-Njigba",
+          "player_id": "16185",
+          "position": "WR",
+          "nfl_team": "SEA",
+          "salary": 14000,
+          "contract_year": 3,
+          "contract_status": "Vet-Ext2-FL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16581",
           "display": "Jayden Daniels",
           "player_id": "16581",
@@ -3091,18 +3103,6 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Vet-ERA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16185",
-          "display": "Jaxon Smith-Njigba",
-          "player_id": "16185",
-          "position": "WR",
-          "nfl_team": "SEA",
-          "salary": 1000,
-          "contract_year": 2,
-          "contract_status": "Vet-Ext2-FL",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3838,6 +3838,30 @@
           "taxi": false
         },
         {
+          "asset_id": "P_13696",
+          "display": "Roquan Smith",
+          "player_id": "13696",
+          "position": "LB",
+          "nfl_team": "BAL",
+          "salary": 8000,
+          "contract_year": 3,
+          "contract_status": "Vet-FAA-FL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_14833",
+          "display": "Jerry Jeudy",
+          "player_id": "14833",
+          "position": "WR",
+          "nfl_team": "CLE",
+          "salary": 7000,
+          "contract_year": 3,
+          "contract_status": "Vet-FAA-FL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_17104",
           "display": "Colston Loveland",
           "player_id": "17104",
@@ -3906,30 +3930,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Rookie-MYM",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_14833",
-          "display": "Jerry Jeudy",
-          "player_id": "14833",
-          "position": "WR",
-          "nfl_team": "CLE",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA-FL",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_13696",
-          "display": "Roquan Smith",
-          "player_id": "13696",
-          "position": "LB",
-          "nfl_team": "BAL",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA-FL",
           "roster_status": "ROSTER",
           "taxi": false
         },
