@@ -1,0 +1,664 @@
+year,pid,player,pos,posgroup,win_k,win_dollars,sf_ecr,overall_rank,rank_used,rank_src,par,dollars_per_par,skill_tier,idp_par_rank,idp_tier,tier,total_bids,forced,overtakes,duration_hrs,nominator,winner,self_nom
+2019,11975,"Gabriel, Taylor",WR,SKILL,3.0,3000.0,,396.0,396.0,redraft_ovr,,,T7_150+,,,T7_150+,3,1,1,48.54,Real Deal Creel,The Long Haulers,False
+2019,12164,"Davis, Mike",RB,SKILL,2.0,2000.0,,336.0,336.0,redraft_ovr,,,T7_150+,,,T7_150+,2,1,0,24.01,The Long Haulers,The Long Haulers,True
+2019,11293,"Ogletree, Alec",LB,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,3,1,1,40.55,C-Town Chivalry,Sex Manther,False
+2019,13868,Mike Boone,RB,SKILL,2.0,2000.0,,,,,,,unranked,,,unranked,2,0,1,24.58,Blake Bombers,The Long Haulers,False
+2019,12295,"Geathers, Clayton",S,IDP,2.0,2000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,2,1,0,24.33,Blake Bombers,Blake Bombers,True
+2019,12386,"Brown, Malcolm",RB,SKILL,4.0,4000.0,,332.0,332.0,redraft_ovr,,,T7_150+,,,T7_150+,4,2,1,42.77,Sex Manther,C-Town Chivalry,False
+2019,11323,"Reid, Eric",S,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,3,0,2,24.65,Cleon Ca$h,Cleon Ca$h,True
+2019,12616,Jacoby Brissett,QB,SKILL,4.0,4000.0,,284.0,284.0,redraft_ovr,,,T7_150+,,,T7_150+,3,1,1,38.17,C-Town Chivalry,Hawks,False
+2019,11517,"McDougald, Bradley",S,IDP,4.0,4000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,4,0,3,47.32,Blake Bombers,Gride,False
+2019,9861,Kareem Jackson,S,IDP,2.0,2000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,2,0,1,42.13,Pure Greatness,Hawks,False
+2019,13412,"Cole, Keelan",WR,SKILL,3.0,3000.0,,402.0,402.0,redraft_ovr,,,T7_150+,,,T7_150+,3,0,2,32.34,Pure Greatness,Pure Greatness,True
+2019,12154,"Ajayi, Jay",RB,SKILL,4.0,4000.0,,387.0,387.0,redraft_ovr,,,T7_150+,,,T7_150+,3,1,1,34.04,Real Deal Creel,CBP,False
+2019,11308,"Alonso, Kiko",LB,IDP,2.0,2000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,2,0,1,43.93,Real Deal Creel,L.A. Looks,False
+2019,14096,"Ozigbo, Devine",RB,SKILL,4.0,4000.0,,207.0,207.0,redraft_ovr,,,T7_150+,,,T7_150+,4,2,1,33.17,L.A. Looks,C-Town Chivalry,False
+2019,14098,"Crockett, Damarea",RB,SKILL,4.0,4000.0,,285.0,285.0,redraft_ovr,,,T7_150+,,,T7_150+,3,2,0,24.18,Sex Manther,Sex Manther,True
+2019,12443,"Kumerow, Jake",WR,SKILL,3.0,3000.0,,393.0,393.0,redraft_ovr,,,T7_150+,,,T7_150+,2,0,1,30.43,Sex Manther,The Long Haulers,False
+2019,13221,"Davis, Jarrad",LB,IDP,2.0,2000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,2,0,1,26.81,Real Deal Creel,Gride,False
+2019,14162,Christian Wilkins,DT,IDP,2.0,2000.0,,123.0,123.0,redraft_ovr,,,,,idp_unranked_par,idp_unranked_par,2,0,1,34.23,Cleon Ca$h,Gride,False
+2019,11250,"Eifert, Tyler",TE,SKILL,4.0,4000.0,,297.0,297.0,redraft_ovr,,,T7_150+,,,T7_150+,3,1,1,39.33,C-Town Chivalry,Hawks,False
+2019,13850,Gus Edwards,RB,SKILL,3.0,3000.0,,343.0,343.0,redraft_ovr,,,T7_150+,,,T7_150+,3,1,1,29.03,Gride,Pure Greatness,False
+2019,12205,"Funchess, Devin",WR,SKILL,6.0,6000.0,,273.0,273.0,redraft_ovr,,,T7_150+,,,T7_150+,2,0,1,30.61,The Long Haulers,C-Town Chivalry,False
+2019,13304,"Brown, Jayon",LB,IDP,2.0,2000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,2,1,0,24.04,Gride,Gride,True
+2019,13136,"Clement, Corey",RB,SKILL,2.0,2000.0,,415.0,415.0,redraft_ovr,,,T7_150+,,,T7_150+,2,1,0,24.0,L.A. Looks,L.A. Looks,True
+2019,7877,"Gore, Frank",RB,SKILL,3.0,3000.0,,360.0,360.0,redraft_ovr,,,T7_150+,,,T7_150+,3,2,0,24.04,L.A. Looks,L.A. Looks,True
+2019,8687,"Olsen, Greg",TE,SKILL,3.0,3000.0,,224.0,224.0,redraft_ovr,,,T7_150+,,,T7_150+,3,2,0,24.31,Sex Manther,Sex Manther,True
+2019,9833,Jason Pierre-Paul,DE,IDP,4.0,4000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,4,3,0,24.0,The Long Haulers,The Long Haulers,True
+2019,8673,"Ginn Jr., Ted",WR,SKILL,3.0,3000.0,,303.0,303.0,redraft_ovr,,,T7_150+,,,T7_150+,3,0,2,38.23,CBP,Pure Greatness,False
+2019,12912,"Richard, Jalen",RB,SKILL,5.0,5000.0,,329.0,329.0,redraft_ovr,,,T7_150+,,,T7_150+,5,1,3,35.87,CBP,The Long Haulers,False
+2019,13684,Sam Hubbard,DE,IDP,4.0,4000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,4,1,2,38.4,Cleon Ca$h,Cleon Ca$h,True
+2019,13026,"Onwuasor, Patrick",LB,IDP,2.0,2000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,2,0,1,25.67,Cleon Ca$h,Blake Bombers,False
+2019,13231,Jabrill Peppers,S,IDP,2.0,2000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,2,1,0,24.02,C-Town Chivalry,C-Town Chivalry,True
+2019,11516,"Doyle, Jack",TE,SKILL,6.0,6000.0,,283.0,283.0,redraft_ovr,,,T7_150+,,,T7_150+,4,1,2,27.82,Blake Bombers,Blake Bombers,True
+2019,12274,"Tartt, Jaquiski",S,IDP,4.0,4000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,4,1,2,27.84,Blake Bombers,Blake Bombers,True
+2019,12762,Nick Vigil,LB,IDP,2.0,2000.0,,244.0,244.0,redraft_ovr,,,,,idp_unranked_par,idp_unranked_par,2,0,1,26.22,Pure Greatness,Blake Bombers,False
+2019,10266,Cameron Heyward,DT,IDP,2.0,2000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,2,0,1,30.77,Real Deal Creel,C-Town Chivalry,False
+2019,10823,"Hicks, Akiem",DE,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,3,0,2,66.25,Real Deal Creel,Gride,False
+2019,13201,Derek Barnett,DE,IDP,5.0,5000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,4,2,1,45.44,Gride,Sex Manther,False
+2019,10783,Harrison Smith,S,IDP,2.0,2000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,2,0,1,24.33,Hawks,Real Deal Creel,False
+2019,14267,Juwann Winfree,WR,SKILL,5.0,5000.0,,,,,,,unranked,,,unranked,4,2,1,48.04,L.A. Looks,Sex Manther,False
+2019,11711,"Ford, Dee",DE,IDP,2.0,2000.0,,240.0,240.0,redraft_ovr,,,,,idp_unranked_par,idp_unranked_par,2,1,0,24.04,L.A. Looks,L.A. Looks,True
+2019,10973,"Beasley, Cole",WR,SKILL,3.0,3000.0,,359.0,359.0,redraft_ovr,,,T7_150+,,,T7_150+,3,2,0,24.02,Sex Manther,Sex Manther,True
+2019,13715,Ronnie Harrison,S,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,3,2,0,24.04,Sex Manther,Sex Manther,True
+2019,14159,Dexter Lawrence,DT,IDP,4.0,4000.0,,195.0,195.0,redraft_ovr,,,,,idp_unranked_par,idp_unranked_par,4,1,2,42.65,HammerTime 🔨 ⏰,CBP,False
+2019,11761,Jerick McKinnon,RB,SKILL,10.0,10000.0,,272.0,272.0,redraft_ovr,,,T7_150+,,,T7_150+,5,2,2,32.46,Hawks,Hawks,True
+2019,10699,"Foles, Nick",QB,SKILL,2.0,2000.0,,237.0,237.0,redraft_ovr,,,T7_150+,,,T7_150+,2,1,0,24.02,Gride,Gride,True
+2019,7422,"Watson, Ben",TE,SKILL,2.0,2000.0,,379.0,379.0,redraft_ovr,,,T7_150+,,,T7_150+,2,1,0,24.0,CBP,CBP,True
+2019,11850,"Enunwa, Quincy",WR,SKILL,7.0,7000.0,,356.0,356.0,redraft_ovr,,,T7_150+,,,T7_150+,4,0,3,38.72,CBP,Hawks,False
+2019,13216,Zach Cunningham,LB,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,2,1,0,24.02,Cleon Ca$h,Cleon Ca$h,True
+2019,9427,"Crabtree, Michael",WR,SKILL,4.0,4000.0,,372.0,372.0,redraft_ovr,,,T7_150+,,,T7_150+,4,2,1,39.44,HammerTime 🔨 ⏰,L.A. Looks,False
+2019,12233,Kwon Alexander,LB,IDP,5.0,5000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,4,2,1,39.85,The Long Haulers,Hawks,False
+2019,12656,"Higgins, Rashard",WR,SKILL,5.0,5000.0,,364.0,364.0,redraft_ovr,,,T7_150+,,,T7_150+,4,3,0,24.02,The Long Haulers,The Long Haulers,True
+2019,9829,"Thomas, Earl",S,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,3,1,1,39.89,C-Town Chivalry,Hawks,False
+2019,12222,"Flowers, Trey",DE,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,3,1,1,32.08,C-Town Chivalry,Hawks,False
+2019,12088,"Phillips, Adrian",S,IDP,6.0,6000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,4,0,3,37.64,Blake Bombers,The Long Haulers,False
+2019,13148,Dare Ogunbowale,RB,SKILL,3.0,3000.0,,290.0,290.0,redraft_ovr,,,T7_150+,,,T7_150+,2,1,0,24.02,Blake Bombers,Blake Bombers,True
+2019,11772,"Kirksey, Christian",LB,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,3,1,1,24.87,Real Deal Creel,C-Town Chivalry,False
+2019,13229,Eddie Jackson,S,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,3,0,2,48.29,Pure Greatness,Pure Greatness,True
+2019,10267,Von Miller,DE,IDP,4.0,4000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,4,2,1,47.94,L.A. Looks,Hawks,False
+2019,9902,"Gronkowski, Rob",TE,SKILL,4.0,4000.0,,373.0,373.0,redraft_ovr,,,T7_150+,,,T7_150+,2,1,0,24.18,L.A. Looks,L.A. Looks,True
+2019,12596,"LaCosse, Matt",TE,SKILL,2.0,2000.0,,358.0,358.0,redraft_ovr,,,T7_150+,,,T7_150+,2,1,0,24.2,Sex Manther,Sex Manther,True
+2019,11330,"Williams, Shawn",S,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,3,2,0,24.08,The Long Haulers,The Long Haulers,True
+2019,12261,"Montgomery, Ty",RB,SKILL,2.0,2000.0,,333.0,333.0,redraft_ovr,,,T7_150+,,,T7_150+,2,1,0,24.0,Sex Manther,Sex Manther,True
+2019,10312,"Rudolph, Kyle",TE,SKILL,8.0,8000.0,,197.0,197.0,redraft_ovr,,,T7_150+,,,T7_150+,5,1,3,55.97,Gride,Gride,True
+2019,10389,"Lewis, Dion",RB,SKILL,7.0,7000.0,,235.0,235.0,redraft_ovr,,,T7_150+,,,T7_150+,6,2,3,37.56,CBP,Real Deal Creel,False
+2019,12280,"Clark, Frank",DE,IDP,6.0,6000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,6,5,0,24.02,CBP,CBP,True
+2019,9075,"Jackson, DeSean",WR,SKILL,7.0,7000.0,,226.0,226.0,redraft_ovr,,,T7_150+,,,T7_150+,6,5,0,24.0,The Long Haulers,The Long Haulers,True
+2019,8448,"Bethea, Antoine",S,IDP,3.0,3000.0,,255.0,255.0,redraft_ovr,,,,,idp_unranked_par,idp_unranked_par,3,0,2,31.25,HammerTime 🔨 ⏰,L.A. Looks,False
+2019,12773,Chris Moore,WR,SKILL,3.0,3000.0,,263.0,263.0,redraft_ovr,,,T7_150+,,,T7_150+,3,0,2,36.55,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2019,11644,Derek Carr,QB,SKILL,2.0,2000.0,,241.0,241.0,redraft_ovr,,,T7_150+,,,T7_150+,2,0,1,29.13,Blake Bombers,CBP,False
+2019,10749,"Ingram, Melvin",DE,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,3,1,1,24.8,Real Deal Creel,Pure Greatness,False
+2019,12176,"Parker, DeVante",WR,SKILL,4.0,4000.0,,267.0,267.0,redraft_ovr,,,T7_150+,,,T7_150+,3,1,1,29.65,Real Deal Creel,CBP,False
+2019,9925,"Graham, Jimmy",TE,SKILL,5.0,5000.0,,252.0,252.0,redraft_ovr,,,T7_150+,,,T7_150+,3,0,2,31.29,Pure Greatness,Pure Greatness,True
+2019,10847,"Whitehead, Tahir",LB,IDP,4.0,4000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,4,0,3,68.12,Pure Greatness,Hawks,False
+2019,13844,Logan Cooke,PN,KP,2.0,2000.0,,,,,,,,,,kp,2,0,1,42.42,Hawks,HammerTime 🔨 ⏰,False
+2019,12741,Chris Jones,DT,IDP,14.0,14000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,11,4,6,94.73,Gride,The Long Haulers,False
+2019,11313,Tyrann Mathieu,S,IDP,3.0,3000.0,,231.0,231.0,redraft_ovr,,,,,idp_unranked_par,idp_unranked_par,3,1,1,35.62,Sex Manther,Cleon Ca$h,False
+2019,10700,Kirk Cousins,QB,SKILL,6.0,6000.0,,191.0,191.0,redraft_ovr,,,T7_150+,,,T7_150+,5,0,4,37.03,Hawks,CBP,False
+2019,6997,"Witten, Jason",TE,SKILL,3.0,3000.0,,256.0,256.0,redraft_ovr,,,T7_150+,,,T7_150+,3,0,2,43.9,Hawks,Hawks,True
+2019,7393,"Fitzgerald, Larry",WR,SKILL,12.0,12000.0,,141.0,141.0,redraft_ovr,,,T6_101-150,,,T6_101-150,7,2,4,61.76,Pure Greatness,L.A. Looks,False
+2019,10723,"Sanu, Mohamed",WR,SKILL,6.0,6000.0,,274.0,274.0,redraft_ovr,,,T7_150+,,,T7_150+,5,1,3,58.58,HammerTime 🔨 ⏰,The Long Haulers,False
+2019,11740,"Clinton-Dix, Ha Ha",S,IDP,5.0,5000.0,,234.0,234.0,redraft_ovr,,,,,idp_unranked_par,idp_unranked_par,3,0,2,46.11,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2019,14124,"Johnson, KeeSean",WR,SKILL,5.0,5000.0,,220.0,220.0,redraft_ovr,,,T7_150+,,,T7_150+,4,1,2,26.98,C-Town Chivalry,HammerTime 🔨 ⏰,False
+2019,13251,Budda Baker,S,IDP,11.0,11000.0,,212.0,212.0,redraft_ovr,,,,,idp_unranked_par,idp_unranked_par,9,2,6,70.78,C-Town Chivalry,Cleon Ca$h,False
+2019,10292,Cameron Jordan,DT,IDP,6.0,6000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,5,2,2,47.35,CBP,Cleon Ca$h,False
+2019,11657,"Hyde, Carlos",RB,SKILL,2.0,2000.0,,264.0,264.0,redraft_ovr,,,T7_150+,,,T7_150+,2,0,1,25.37,Blake Bombers,Pure Greatness,False
+2019,14256,Jake Bailey,PN,KP,3.0,3000.0,,,,,,,,,,kp,3,0,2,51.99,Real Deal Creel,The Long Haulers,False
+2019,13871,"Hilliard, Dontrell",RB,SKILL,4.0,4000.0,,309.0,309.0,redraft_ovr,,,T7_150+,,,T7_150+,3,1,1,44.69,Blake Bombers,L.A. Looks,False
+2019,11795,"Hitchens, Anthony",LB,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,3,0,2,35.91,Pure Greatness,Pure Greatness,True
+2019,12287,Jordan Hicks,LB,IDP,3.0,3000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,3,0,2,28.93,Pure Greatness,Blake Bombers,False
+2019,10308,"Cobb, Randall",WR,SKILL,4.0,4000.0,,363.0,363.0,redraft_ovr,,,T7_150+,,,T7_150+,4,1,2,50.77,Cleon Ca$h,Hawks,False
+2019,12956,Wil Lutz,PK,KP,2.0,2000.0,,248.0,248.0,redraft_ovr,,,,,,kp,2,1,0,24.05,CBP,CBP,True
+2019,8359,"Gostkowski, Stephen",PK,KP,3.0,3000.0,,262.0,262.0,redraft_ovr,,,,,,kp,3,2,0,24.07,Cleon Ca$h,Cleon Ca$h,True
+2019,14127,Jakobi Meyers,WR,SKILL,7.0,7000.0,,239.0,239.0,redraft_ovr,,,T7_150+,,,T7_150+,6,2,3,29.83,Real Deal Creel,The Long Haulers,False
+2019,13354,Harrison Butker,PK,KP,2.0,2000.0,,232.0,232.0,redraft_ovr,,,,,,kp,2,1,0,24.01,Gride,Gride,True
+2019,11769,Demarcus Lawrence,DE,IDP,6.0,6000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,4,3,0,24.01,The Long Haulers,The Long Haulers,True
+2019,10768,Lavonte David,LB,IDP,7.0,7000.0,,186.0,186.0,redraft_ovr,,,,,idp_unranked_par,idp_unranked_par,5,2,2,35.27,Gride,Sex Manther,False
+2019,12263,Darren Waller,TE,SKILL,6.0,6000.0,,238.0,238.0,redraft_ovr,,,T7_150+,,,T7_150+,5,4,0,24.1,The Long Haulers,The Long Haulers,True
+2019,9099,"Ryan, Matt",QB,SKILL,10.0,10000.0,,63.0,63.0,redraft_ovr,,,T4_51-75,,,T4_51-75,4,2,1,24.14,Hawks,CBP,False
+2019,10868,Greg Zuerlein,PK,KP,4.0,4000.0,,192.0,192.0,redraft_ovr,,,,,,kp,4,2,1,24.05,Sex Manther,The Long Haulers,False
+2019,9884,"Thomas, Demaryius",WR,SKILL,6.0,6000.0,,362.0,362.0,redraft_ovr,,,T7_150+,,,T7_150+,4,0,3,72.43,Sex Manther,Cleon Ca$h,False
+2019,11728,C.J. Mosley,LB,IDP,7.0,7000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,5,1,3,47.59,Cleon Ca$h,Cleon Ca$h,True
+2019,13274,John Johnson,S,IDP,5.0,5000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,4,1,2,39.2,Gride,Gride,True
+2019,8416,"Walker, Delanie",TE,SKILL,9.0,9000.0,,187.0,187.0,redraft_ovr,,,T7_150+,,,T7_150+,4,2,1,24.75,Gride,CBP,False
+2019,9918,"Sanders, Emmanuel",WR,SKILL,18.0,18000.0,,144.0,144.0,redraft_ovr,,,T6_101-150,,,T6_101-150,11,5,5,48.43,The Long Haulers,Pure Greatness,False
+2019,10976,Justin Tucker,PK,KP,2.0,2000.0,,214.0,214.0,redraft_ovr,,,,,,kp,2,1,0,24.0,C-Town Chivalry,C-Town Chivalry,True
+2019,12985,"Littleton, Cory",LB,IDP,7.0,7000.0,,170.0,170.0,redraft_ovr,,,,,idp_unranked_par,idp_unranked_par,5,4,0,24.01,C-Town Chivalry,C-Town Chivalry,True
+2019,12620,Dak Prescott,QB,SKILL,9.0,9000.0,,167.0,167.0,redraft_ovr,,,T7_150+,,,T7_150+,7,2,4,72.21,Blake Bombers,Sex Manther,False
+2019,11695,"Ebron, Eric",TE,SKILL,8.0,8000.0,,116.0,116.0,redraft_ovr,,,T6_101-150,,,T6_101-150,5,2,2,40.51,Blake Bombers,Gride,False
+2019,11677,"Moncrief, Donte",WR,SKILL,11.0,11000.0,,203.0,203.0,redraft_ovr,,,T7_150+,,,T7_150+,4,1,2,42.14,CBP,The Long Haulers,False
+2019,9448,"McCoy, LeSean",RB,SKILL,11.0,11000.0,,165.0,165.0,redraft_ovr,,,T7_150+,,,T7_150+,7,3,3,40.88,Real Deal Creel,HammerTime 🔨 ⏰,False
+2019,11390,Latavius Murray,RB,SKILL,19.0,19000.0,,147.0,147.0,redraft_ovr,,,T6_101-150,,,T6_101-150,8,6,1,24.97,Real Deal Creel,CBP,False
+2019,12702,"Jack, Myles",LB,IDP,5.0,5000.0,,172.0,172.0,redraft_ovr,,,,,idp_unranked_par,idp_unranked_par,4,2,1,26.98,Pure Greatness,Blake Bombers,False
+2019,11706,Jadeveon Clowney,DE,IDP,7.0,7000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,5,2,2,27.55,Pure Greatness,Pure Greatness,True
+2019,11670,"Watkins, Sammy",WR,SKILL,15.0,15000.0,,112.0,112.0,redraft_ovr,,,T6_101-150,,,T6_101-150,6,2,3,33.26,L.A. Looks,C-Town Chivalry,False
+2019,12658,Sterling Shepard,WR,SKILL,25.0,25000.0,,99.0,99.0,redraft_ovr,,,T5_76-100,,,T5_76-100,8,4,3,46.49,The Long Haulers,Gride,False
+2019,8658,"Peterson, Adrian",RB,SKILL,8.0,8000.0,,215.0,215.0,redraft_ovr,,,T7_150+,,,T7_150+,7,2,4,92.41,Hawks,Gride,False
+2019,11257,"McDonald, Vance",TE,SKILL,16.0,16000.0,,124.0,124.0,redraft_ovr,,,T6_101-150,,,T6_101-150,8,2,5,69.42,Sex Manther,The Long Haulers,False
+2019,13404,Austin Ekeler,RB,SKILL,21.0,21000.0,,92.0,92.0,redraft_ovr,,,T5_76-100,,,T5_76-100,6,5,0,24.05,Sex Manther,Sex Manther,True
+2019,11985,Tress Way,PN,KP,2.0,2000.0,,,,,,,,,,kp,2,1,0,24.14,Gride,Gride,True
+2019,12665,"Allison, Geronimo",WR,SKILL,9.0,9000.0,,178.0,178.0,redraft_ovr,,,T7_150+,,,T7_150+,5,4,0,24.02,Gride,Gride,True
+2019,11680,Jarvis Landry,WR,SKILL,33.0,33000.0,,65.0,65.0,redraft_ovr,,,T4_51-75,,,T4_51-75,14,7,6,92.9,The Long Haulers,Cleon Ca$h,False
+2019,10722,"Jeffery, Alshon",WR,SKILL,26.0,26000.0,,71.0,71.0,redraft_ovr,,,T4_51-75,,,T4_51-75,7,2,4,68.78,The Long Haulers,Cleon Ca$h,False
+2019,10708,"Miller, Lamar",RB,SKILL,11.0,11000.0,,120.0,120.0,redraft_ovr,,,T6_101-150,,,T6_101-150,8,7,0,24.11,L.A. Looks,L.A. Looks,True
+2019,10276,"Ingram, Mark",RB,SKILL,50.0,50000.0,,48.0,48.0,redraft_ovr,,,T3_26-50,,,T3_26-50,22,12,9,117.7,L.A. Looks,Cleon Ca$h,False
+2019,10775,Bobby Wagner,LB,IDP,14.0,14000.0,,107.0,107.0,redraft_ovr,,,,,idp_unranked_par,idp_unranked_par,8,3,4,39.52,Blake Bombers,The Long Haulers,False
+2019,12860,Ka'imi Fairbairn,PK,KP,3.0,3000.0,,279.0,279.0,redraft_ovr,,,,,,kp,3,2,0,24.23,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2019,12187,Tyler Lockett,WR,SKILL,46.0,46000.0,,46.0,46.0,redraft_ovr,,,T3_26-50,,,T3_26-50,15,6,8,46.09,HammerTime 🔨 ⏰,CBP,False
+2019,10816,Demario Davis,LB,IDP,5.0,5000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,5,1,3,71.45,Pure Greatness,Pure Greatness,True
+2019,11757,"Donald, Aaron",DT,IDP,20.0,20000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,12,8,3,35.92,C-Town Chivalry,Sex Manther,False
+2019,10960,"Gordon, Josh",WR,SKILL,16.0,16000.0,,150.0,150.0,redraft_ovr,,,T6_101-150,,,T6_101-150,6,4,1,27.61,C-Town Chivalry,Cleon Ca$h,False
+2019,7836,Aaron Rodgers,QB,SKILL,18.0,18000.0,,42.0,42.0,redraft_ovr,,,T3_26-50,,,T3_26-50,7,4,2,26.24,Real Deal Creel,Pure Greatness,False
+2019,10703,Russell Wilson,QB,SKILL,15.0,15000.0,,77.0,77.0,redraft_ovr,,,T5_76-100,,,T5_76-100,7,2,4,41.62,Real Deal Creel,C-Town Chivalry,False
+2019,11886,"Williams, Damien",RB,SKILL,50.0,50000.0,,25.0,25.0,redraft_ovr,,,T2_13-25,,,T2_13-25,9,7,1,28.67,CBP,Real Deal Creel,False
+2019,14059,Daniel Jones,QB,SKILL,3.0,3000.0,,119.0,119.0,redraft_ovr,,,T6_101-150,,,T6_101-150,3,0,2,44.54,Cleon Ca$h,HammerTime 🔨 ⏰,False
+2019,9988,"Brown, Antonio",WR,SKILL,79.0,79000.0,,,,,,,unranked,,,unranked,10,9,0,24.0,CBP,CBP,True
+2019,5848,Tom Brady,QB,SKILL,20.0,20000.0,,168.0,168.0,redraft_ovr,,,T7_150+,,,T7_150+,16,10,5,69.53,Cleon Ca$h,Hawks,False
+2020,12164,"Davis, Mike",RB,SKILL,2.0,2000.0,,,,,63.0,31.7,unranked,,,unranked,2,0,1,26.27,Sex Manther,Real Deal Creel,False
+2020,12741,Chris Jones,DT,IDP,3.0,3000.0,,,,,54.0,55.6,,24,IDP3_13-24,IDP3_13-24,3,0,2,49.08,Sex Manther,Gride,False
+2020,12386,"Brown, Malcolm",RB,SKILL,6.0,6000.0,,320.0,320.0,redraft_ovr,5.0,1200.0,T7_150+,,,T7_150+,6,2,3,54.78,Gride,Hawks,False
+2020,13850,Gus Edwards,RB,SKILL,2.0,2000.0,,378.0,378.0,redraft_ovr,0.2,10000.0,T7_150+,,,T7_150+,2,1,0,24.3,Blake Bombers,Blake Bombers,True
+2020,13216,Zach Cunningham,LB,IDP,5.0,5000.0,,,,,114.0,43.9,,6,IDP1_1-6,IDP1_1-6,4,0,3,27.24,L.A. Looks,Pure Greatness,False
+2020,13809,Russell Gage,WR,SKILL,2.0,2000.0,,349.0,349.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,0,1,27.62,C-Town Chivalry,Real Deal Creel,False
+2020,9051,Calais Campbell,DT,IDP,5.0,5000.0,,,,,37.0,135.1,,27,IDP4_25+,IDP4_25+,4,0,3,33.09,Cleon Ca$h,Pure Greatness,False
+2020,14096,"Ozigbo, Devine",RB,SKILL,2.0,2000.0,,336.0,336.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,1,0,24.01,L.A. Looks,L.A. Looks,True
+2020,12505,"Humphries, Adam",WR,SKILL,2.0,2000.0,,407.0,407.0,redraft_ovr,15.1,132.5,T7_150+,,,T7_150+,2,0,1,48.12,Hawks,Gride,False
+2020,11644,Derek Carr,QB,SKILL,4.0,4000.0,,210.0,210.0,redraft_ovr,-7.1,,T7_150+,,,T7_150+,4,1,2,26.69,HammerTime 🔨 ⏰,Hawks,False
+2020,10308,"Cobb, Randall",WR,SKILL,4.0,4000.0,,328.0,328.0,redraft_ovr,-8.6,,T7_150+,,,T7_150+,3,2,0,24.09,Sex Manther,Sex Manther,True
+2020,11772,"Kirksey, Christian",LB,IDP,4.0,4000.0,,,,,45.5,87.9,,26,IDP4_25+,IDP4_25+,4,2,1,43.56,Sex Manther,Pure Greatness,False
+2020,10749,"Ingram, Melvin",DE,IDP,3.0,3000.0,,,,,8.5,352.9,,33,IDP4_25+,IDP4_25+,3,0,2,48.14,The Long Haulers,C-Town Chivalry,False
+2020,13684,Sam Hubbard,DE,IDP,3.0,3000.0,,,,,30.5,98.4,,29,IDP4_25+,IDP4_25+,3,2,0,24.21,L.A. Looks,L.A. Looks,True
+2020,12217,Dante Fowler,DE,IDP,2.0,2000.0,,,,,0.0,,,34,IDP4_25+,IDP4_25+,2,0,1,41.76,Real Deal Creel,L.A. Looks,False
+2020,11186,"Thompson, Chris",RB,SKILL,5.0,5000.0,,243.0,243.0,redraft_ovr,-0.3,,T7_150+,,,T7_150+,3,0,2,39.79,C-Town Chivalry,Hawks,False
+2020,12239,Eric Kendricks,LB,IDP,2.0,2000.0,,,,,113.5,17.6,,7,IDP2_7-12,IDP2_7-12,2,0,1,46.33,CBP,Hawks,False
+2020,11182,"Burkhead, Rex",RB,SKILL,2.0,2000.0,,364.0,364.0,redraft_ovr,2.7,740.7,T7_150+,,,T7_150+,2,1,0,24.01,L.A. Looks,L.A. Looks,True
+2020,10274,"Smith, Aldon",DE,IDP,2.0,2000.0,,,,,62.0,32.3,,22,IDP3_13-24,IDP3_13-24,2,1,0,24.03,Cleon Ca$h,Cleon Ca$h,True
+2020,7401,"Roethlisberger, Ben",QB,SKILL,2.0,2000.0,,185.0,185.0,redraft_ovr,20.6,97.1,T7_150+,,,T7_150+,2,1,0,24.06,Sex Manther,Sex Manther,True
+2020,10700,Kirk Cousins,QB,SKILL,4.0,4000.0,,184.0,184.0,redraft_ovr,13.9,287.8,T7_150+,,,T7_150+,2,0,1,24.66,Cleon Ca$h,Pure Greatness,False
+2020,10722,"Jeffery, Alshon",WR,SKILL,3.0,3000.0,,297.0,297.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,3,2,0,24.16,C-Town Chivalry,C-Town Chivalry,True
+2020,9430,"Jenkins, Malcolm",S,IDP,2.0,2000.0,,,,,79.8,25.1,,15,IDP3_13-24,IDP3_13-24,2,1,0,24.41,Pure Greatness,Pure Greatness,True
+2020,14225,Maxx Crosby,DE,IDP,5.0,5000.0,,,,,34.0,147.1,,28,IDP4_25+,IDP4_25+,5,2,2,37.58,Pure Greatness,Pure Greatness,True
+2020,13153,"Davis, Corey",WR,SKILL,6.0,6000.0,,292.0,292.0,redraft_ovr,65.8,91.2,T7_150+,,,T7_150+,4,1,2,46.08,Real Deal Creel,Gride,False
+2020,14613,Steven Sims,WR,SKILL,2.0,2000.0,,321.0,321.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,1,0,24.03,Gride,Gride,True
+2020,12231,Shaq Thompson,LB,IDP,2.0,2000.0,,,,,61.5,32.5,,23,IDP3_13-24,IDP3_13-24,2,1,0,24.06,Gride,Gride,True
+2020,13157,Curtis Samuel,WR,SKILL,3.0,3000.0,,236.0,236.0,redraft_ovr,30.9,97.1,T7_150+,,,T7_150+,3,2,0,24.03,The Long Haulers,The Long Haulers,True
+2020,10697,Ryan Tannehill,QB,SKILL,2.0,2000.0,,188.0,188.0,redraft_ovr,31.3,63.9,T7_150+,,,T7_150+,2,1,0,24.01,Blake Bombers,Blake Bombers,True
+2020,12287,Jordan Hicks,LB,IDP,2.0,2000.0,,,,,50.5,39.6,,25,IDP4_25+,IDP4_25+,2,0,1,24.58,CBP,Pure Greatness,False
+2020,13274,John Johnson,S,IDP,3.0,3000.0,,,,,113.4,26.5,,8,IDP2_7-12,IDP2_7-12,2,0,1,24.19,Sex Manther,Pure Greatness,False
+2020,11760,Jimmy Garoppolo,QB,SKILL,2.0,2000.0,,189.0,189.0,redraft_ovr,5.0,400.0,T7_150+,,,T7_150+,2,1,0,24.09,Cleon Ca$h,Cleon Ca$h,True
+2020,13706,Jerome Baker,LB,IDP,2.0,2000.0,,,,,78.5,25.5,,16,IDP3_13-24,IDP3_13-24,2,1,0,24.13,C-Town Chivalry,C-Town Chivalry,True
+2020,10816,Demario Davis,LB,IDP,3.0,3000.0,,,,,78.5,38.2,,17,IDP3_13-24,IDP3_13-24,3,2,0,24.15,C-Town Chivalry,C-Town Chivalry,True
+2020,12745,Deion Jones,LB,IDP,3.0,3000.0,,,,,74.5,40.3,,18,IDP3_13-24,IDP3_13-24,3,1,1,42.34,Cleon Ca$h,The Long Haulers,False
+2020,13257,"Evans, Justin",S,IDP,2.0,2000.0,,,,,,,,,idp_unranked_par,idp_unranked_par,2,0,1,27.37,Pure Greatness,C-Town Chivalry,False
+2020,13155,John Ross,WR,SKILL,2.0,2000.0,,333.0,333.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,1,0,24.28,Real Deal Creel,Real Deal Creel,True
+2020,12768,"Schobert, Joe",LB,IDP,2.0,2000.0,,,,,109.5,18.3,,9,IDP2_7-12,IDP2_7-12,2,1,0,24.05,Gride,Gride,True
+2020,12718,Vonn Bell,S,IDP,2.0,2000.0,,,,,103.1,19.4,,10,IDP2_7-12,IDP2_7-12,2,1,0,24.13,Gride,Gride,True
+2020,12250,"Collins, Landon",S,IDP,4.0,4000.0,,,,,63.3,63.2,,21,IDP3_13-24,IDP3_13-24,3,2,0,24.2,Blake Bombers,Blake Bombers,True
+2020,8658,"Peterson, Adrian",RB,SKILL,15.0,15000.0,,252.0,252.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,12,7,4,78.36,Blake Bombers,Pure Greatness,False
+2020,13678,Ian Thomas,TE,SKILL,4.0,4000.0,,240.0,240.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,1,0,24.0,The Long Haulers,The Long Haulers,True
+2020,12088,"Phillips, Adrian",S,IDP,2.0,2000.0,,,,,96.4,20.7,,11,IDP2_7-12,IDP2_7-12,2,0,1,32.84,Sex Manther,Blake Bombers,False
+2020,12075,Shaq Barrett,DE,IDP,3.0,3000.0,,,,,82.5,36.4,,13,IDP3_13-24,IDP3_13-24,3,2,0,24.01,Cleon Ca$h,Cleon Ca$h,True
+2020,12688,DeForest Buckner,DT,IDP,2.0,2000.0,,,,,74.0,27.0,,19,IDP3_13-24,IDP3_13-24,2,0,1,30.6,L.A. Looks,Sex Manther,False
+2020,10292,Cameron Jordan,DT,IDP,5.0,5000.0,,,,,80.5,62.1,,14,IDP3_13-24,IDP3_13-24,5,4,0,24.05,L.A. Looks,L.A. Looks,True
+2020,12857,"Washington, DeAndre",RB,SKILL,5.0,5000.0,,340.0,340.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,4,2,1,46.13,The Long Haulers,Hawks,False
+2020,12610,Carson Wentz,QB,SKILL,5.0,5000.0,,101.0,101.0,redraft_ovr,11.4,438.6,T6_101-150,,,T6_101-150,4,1,2,33.91,Gride,C-Town Chivalry,False
+2020,12767,Justin Simmons,S,IDP,3.0,3000.0,,,,,124.3,24.1,,1,IDP1_1-6,IDP1_1-6,3,0,2,35.89,Hawks,Hawks,True
+2020,14965,"Rohrwasser, Justin",PK,KP,2.0,2000.0,,215.0,215.0,redraft_ovr,,,,,,kp,2,0,1,38.8,Sex Manther,Hawks,False
+2020,10868,Greg Zuerlein,PK,KP,2.0,2000.0,,229.0,229.0,redraft_ovr,24.7,81.0,,,,kp,2,1,0,24.02,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2020,10272,"Watt, J.J.",DE,IDP,4.0,4000.0,,,,,116.5,34.3,,3,IDP1_1-6,IDP1_1-6,3,1,1,26.49,C-Town Chivalry,Blake Bombers,False
+2020,10738,"Jones, Marvin",WR,SKILL,17.0,17000.0,,150.0,150.0,redraft_ovr,42.6,399.1,T6_101-150,,,T6_101-150,5,3,1,25.55,Real Deal Creel,HammerTime 🔨 ⏰,False
+2020,13763,Will Dissly,TE,SKILL,5.0,5000.0,,309.0,309.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,4,0,3,51.12,Real Deal Creel,Hawks,False
+2020,9831,"Tate, Golden",WR,SKILL,5.0,5000.0,,191.0,191.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,3,0,2,26.58,Pure Greatness,Pure Greatness,True
+2020,12756,Yannick Ngakoue,DE,IDP,2.0,2000.0,,,,,21.5,93.0,,30,IDP4_25+,IDP4_25+,2,0,1,26.26,Pure Greatness,HammerTime 🔨 ⏰,False
+2020,10976,Justin Tucker,PK,KP,2.0,2000.0,,186.0,186.0,redraft_ovr,114.2,17.5,,,,kp,2,1,0,24.48,Cleon Ca$h,Cleon Ca$h,True
+2020,13240,"Hill, Brian",RB,SKILL,2.0,2000.0,,347.0,347.0,redraft_ovr,-2.6,,T7_150+,,,T7_150+,2,1,0,24.29,Blake Bombers,Blake Bombers,True
+2020,13722,"Jarwin, Blake",TE,SKILL,5.0,5000.0,,197.0,197.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,4,3,0,24.0,CBP,CBP,True
+2020,9988,"Brown, Antonio",WR,SKILL,4.0,4000.0,,306.0,306.0,redraft_ovr,-3.5,,T7_150+,,,T7_150+,3,1,1,31.57,CBP,Real Deal Creel,False
+2020,12152,"Coleman, Tevin",RB,SKILL,16.0,16000.0,,205.0,205.0,redraft_ovr,-6.1,,T7_150+,,,T7_150+,15,8,6,94.32,L.A. Looks,Hawks,False
+2020,12197,"Perriman, Breshad",WR,SKILL,11.0,11000.0,,227.0,227.0,redraft_ovr,3.7,2973.0,T7_150+,,,T7_150+,10,1,8,75.38,Hawks,Gride,False
+2020,13747,Tracy Walker,S,IDP,3.0,3000.0,,,,,71.1,42.2,,20,IDP3_13-24,IDP3_13-24,3,1,1,24.09,Pure Greatness,The Long Haulers,False
+2020,10775,Bobby Wagner,LB,IDP,6.0,6000.0,,,,,116.0,51.7,,4,IDP1_1-6,IDP1_1-6,4,3,0,24.04,The Long Haulers,The Long Haulers,True
+2020,10729,"Hilton, T.Y.",WR,SKILL,17.0,17000.0,,84.0,84.0,redraft_ovr,11.5,1478.3,T5_76-100,,,T5_76-100,10,6,3,43.97,The Long Haulers,Blake Bombers,False
+2020,12788,"Martinez, Blake",LB,IDP,5.0,5000.0,,,,,121.0,41.3,,2,IDP1_1-6,IDP1_1-6,5,2,2,48.91,Sex Manther,Blake Bombers,False
+2020,12985,"Littleton, Cory",LB,IDP,4.0,4000.0,,,,,17.5,228.6,,31,IDP4_25+,IDP4_25+,3,2,0,24.02,Sex Manther,Sex Manther,True
+2020,11657,"Hyde, Carlos",RB,SKILL,2.0,2000.0,,313.0,313.0,redraft_ovr,9.4,212.8,T7_150+,,,T7_150+,2,1,0,24.02,Gride,Gride,True
+2020,13743,Fred Warner,LB,IDP,6.0,6000.0,,,,,96.0,62.5,,12,IDP2_7-12,IDP2_7-12,4,1,2,24.65,Gride,Sex Manther,False
+2020,11747,"White, James",RB,SKILL,26.0,26000.0,,121.0,121.0,redraft_ovr,-1.0,,T6_101-150,,,T6_101-150,17,10,6,71.98,Hawks,HammerTime 🔨 ⏰,False
+2020,9662,"Edelman, Julian",WR,SKILL,13.0,13000.0,,120.0,120.0,redraft_ovr,-0.8,,T6_101-150,,,T6_101-150,8,3,4,71.31,Cleon Ca$h,Blake Bombers,False
+2020,10708,"Miller, Lamar",RB,SKILL,4.0,4000.0,,382.0,382.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,3,0,2,28.57,Cleon Ca$h,Real Deal Creel,False
+2020,10768,Lavonte David,LB,IDP,4.0,4000.0,,,,,116.0,34.5,,5,IDP1_1-6,IDP1_1-6,3,1,1,27.79,C-Town Chivalry,Blake Bombers,False
+2020,10273,"Newton, Cam",QB,SKILL,6.0,6000.0,,183.0,183.0,redraft_ovr,-14.9,,T7_150+,,,T7_150+,4,1,2,62.65,C-Town Chivalry,The Long Haulers,False
+2020,10753,"Jones, Chandler",LB,IDP,3.0,3000.0,,,,,15.5,193.5,,32,IDP4_25+,IDP4_25+,2,0,1,29.9,Pure Greatness,L.A. Looks,False
+2020,10271,Julio Jones,WR,SKILL,50.0,50000.0,,21.0,21.0,redraft_ovr,74.0,675.7,T2_13-25,,,T2_13-25,5,4,0,24.0,Blake Bombers,Blake Bombers,True
+2020,13589,Josh Allen,QB,SKILL,8.0,8000.0,,75.0,75.0,redraft_ovr,124.8,64.1,T4_51-75,,,T4_51-75,6,2,3,52.21,Blake Bombers,CBP,False
+2020,11228,Robert Woods,WR,SKILL,31.0,31000.0,,56.0,56.0,redraft_ovr,59.8,518.4,T4_51-75,,,T4_51-75,14,5,8,90.47,Real Deal Creel,The Long Haulers,False
+2020,11244,Travis Kelce,TE,SKILL,46.0,46000.0,,15.0,15.0,redraft_ovr,168.1,273.6,T2_13-25,,,T2_13-25,10,6,3,28.29,Real Deal Creel,Sex Manther,False
+2020,10276,"Ingram, Mark",RB,SKILL,25.0,25000.0,,66.0,66.0,redraft_ovr,-5.1,,T4_51-75,,,T4_51-75,10,1,8,77.81,CBP,Cleon Ca$h,False
+2020,7393,"Fitzgerald, Larry",WR,SKILL,8.0,8000.0,,295.0,295.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,6,2,3,58.76,CBP,Gride,False
+2020,12184,Jamison Crowder,WR,SKILL,7.0,7000.0,,178.0,178.0,redraft_ovr,52.3,133.8,T7_150+,,,T7_150+,5,4,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2020,9918,"Sanders, Emmanuel",WR,SKILL,7.0,7000.0,,176.0,176.0,redraft_ovr,20.4,343.1,T7_150+,,,T7_150+,3,2,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2021,15419,Kylen Granson,TE,SKILL,2.0,2000.0,,148.0,148.0,redraft_ovr,0.0,,T6_101-150,,,T6_101-150,2,0,1,39.22,Gride,Pure Greatness,False
+2021,14095,Ty Johnson,RB,SKILL,4.0,4000.0,,335.0,335.0,redraft_ovr,-9.4,,T7_150+,,,T7_150+,4,1,2,47.85,Real Deal Creel,Real Deal Creel,True
+2021,13863,Byron Pringle,WR,SKILL,2.0,2000.0,,352.0,352.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,1,0,30.45,The Long Haulers,The Long Haulers,True
+2021,15337,Noah Gray,TE,SKILL,4.0,4000.0,,175.0,175.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,3,1,1,26.59,Sex Manther,Real Deal Creel,False
+2021,14157,Quinnen Williams,DT,IDP,2.0,2000.0,,,,,53.0,37.7,,26,IDP4_25+,IDP4_25+,2,1,0,24.01,L.A. Looks,L.A. Looks,True
+2021,13236,Gerald Everett,TE,SKILL,2.0,2000.0,,268.0,268.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,1,0,24.39,The Long Haulers,The Long Haulers,True
+2021,12741,Chris Jones,DT,IDP,2.0,2000.0,,,,,31.5,63.5,,28,IDP4_25+,IDP4_25+,2,0,1,30.74,Real Deal Creel,Blake Bombers,False
+2021,13620,"Jackson, Justin",RB,SKILL,3.0,3000.0,,309.0,309.0,redraft_ovr,24.6,122.0,T7_150+,,,T7_150+,3,0,2,25.94,Pure Greatness,Pure Greatness,True
+2021,13202,Carl Lawson,DE,IDP,3.0,3000.0,,,,,0.0,,,37,IDP4_25+,IDP4_25+,3,0,2,34.78,Gride,Gride,True
+2021,15034,Marquez Callaway,WR,SKILL,2.0,2000.0,,205.0,205.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,0,1,29.31,C-Town Chivalry,The Long Haulers,False
+2021,13633,Christian Kirk,WR,SKILL,4.0,4000.0,,291.0,291.0,redraft_ovr,7.3,547.9,T7_150+,,,T7_150+,4,1,2,49.79,Blake Bombers,Sex Manther,False
+2021,14818,"Jones, Xavier",RB,SKILL,3.0,3000.0,,266.0,266.0,redraft_ovr,,,T7_150+,,,T7_150+,3,2,0,24.26,Sex Manther,Sex Manther,True
+2021,12658,Sterling Shepard,WR,SKILL,5.0,5000.0,,241.0,241.0,redraft_ovr,24.0,208.3,T7_150+,,,T7_150+,3,1,1,38.07,L.A. Looks,Hawks,False
+2021,14122,Darius Slayton,WR,SKILL,2.0,2000.0,,322.0,322.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,0,1,24.8,CBP,Real Deal Creel,False
+2021,13188,"Howard, O.J.",TE,SKILL,4.0,4000.0,,346.0,346.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,1,0,24.01,Cleon Ca$h,Cleon Ca$h,True
+2021,14163,Jeffery Simmons,DT,IDP,3.0,3000.0,,,,,60.5,49.6,,23,IDP3_13-24,IDP3_13-24,3,0,2,45.27,Cleon Ca$h,Cleon Ca$h,True
+2021,11193,"Bernard, Giovani",RB,SKILL,3.0,3000.0,,273.0,273.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,1,0,24.01,Sex Manther,Sex Manther,True
+2021,12225,Leonard Williams,DT,IDP,2.0,2000.0,,,,,98.0,20.4,,15,IDP3_13-24,IDP3_13-24,2,1,0,24.09,The Long Haulers,The Long Haulers,True
+2021,13717,Justin Reid,S,IDP,2.0,2000.0,,,,,21.6,92.6,,31,IDP4_25+,IDP4_25+,2,1,0,24.06,C-Town Chivalry,C-Town Chivalry,True
+2021,14225,Maxx Crosby,DE,IDP,3.0,3000.0,,,,,59.0,50.8,,24,IDP3_13-24,IDP3_13-24,3,0,2,55.48,Real Deal Creel,Cleon Ca$h,False
+2021,11761,Jerick McKinnon,RB,SKILL,3.0,3000.0,,357.0,357.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,3,1,1,44.35,Real Deal Creel,L.A. Looks,False
+2021,12702,"Jack, Myles",LB,IDP,3.0,3000.0,,,,,65.0,46.2,,20,IDP3_13-24,IDP3_13-24,2,0,1,31.23,Gride,C-Town Chivalry,False
+2021,14265,"Fulgham, Travis",WR,SKILL,2.0,2000.0,,,,,,,unranked,,,unranked,2,1,0,24.01,L.A. Looks,L.A. Looks,True
+2021,14811,Salvon Ahmed,RB,SKILL,5.0,5000.0,,345.0,345.0,redraft_ovr,-6.9,,T7_150+,,,T7_150+,3,1,1,47.66,L.A. Looks,Hawks,False
+2021,13680,Hayden Hurst,TE,SKILL,4.0,4000.0,,340.0,340.0,redraft_ovr,-6.1,,T7_150+,,,T7_150+,3,2,0,24.3,Sex Manther,Sex Manther,True
+2021,12152,"Coleman, Tevin",RB,SKILL,4.0,4000.0,,265.0,265.0,redraft_ovr,-2.1,,T7_150+,,,T7_150+,4,1,2,31.5,Hawks,Hawks,True
+2021,13304,"Brown, Jayon",LB,IDP,4.0,4000.0,,,,,16.0,250.0,,32,IDP4_25+,IDP4_25+,3,2,0,24.28,Cleon Ca$h,Cleon Ca$h,True
+2021,14991,Jordan Fuller,S,IDP,3.0,3000.0,,,,,115.8,25.9,,10,IDP2_7-12,IDP2_7-12,3,1,1,27.51,CBP,Sex Manther,False
+2021,12197,"Perriman, Breshad",WR,SKILL,4.0,4000.0,,308.0,308.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,3,0,2,35.66,CBP,Hawks,False
+2021,13608,Rashaad Penny,RB,SKILL,6.0,6000.0,,290.0,290.0,redraft_ovr,54.8,109.5,T7_150+,,,T7_150+,5,3,1,46.42,The Long Haulers,C-Town Chivalry,False
+2021,13447,Eric Wilson,LB,IDP,3.0,3000.0,,,,,31.5,95.2,,29,IDP4_25+,IDP4_25+,2,0,1,43.98,The Long Haulers,Gride,False
+2021,11317,Jordan Poyer,S,IDP,4.0,4000.0,,,,,149.2,26.8,,4,IDP1_1-6,IDP1_1-6,3,0,2,26.49,C-Town Chivalry,CBP,False
+2021,14127,Jakobi Meyers,WR,SKILL,4.0,4000.0,,242.0,242.0,redraft_ovr,9.1,439.6,T7_150+,,,T7_150+,4,2,1,25.57,Blake Bombers,The Long Haulers,False
+2021,13234,Marlon Mack,RB,SKILL,5.0,5000.0,,301.0,301.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,5,3,1,38.61,Real Deal Creel,C-Town Chivalry,False
+2021,10261,"Green, A.J.",WR,SKILL,11.0,11000.0,,283.0,283.0,redraft_ovr,11.7,940.2,T7_150+,,,T7_150+,6,2,3,40.39,Real Deal Creel,Hawks,False
+2021,12088,"Phillips, Adrian",S,IDP,3.0,3000.0,,,,,13.0,230.8,,34,IDP4_25+,IDP4_25+,3,1,1,47.45,Gride,The Long Haulers,False
+2021,12718,Vonn Bell,S,IDP,4.0,4000.0,,,,,137.3,29.1,,8,IDP2_7-12,IDP2_7-12,4,3,0,24.02,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2021,13252,Marcus Maye,S,IDP,2.0,2000.0,,,,,64.3,31.1,,21,IDP3_13-24,IDP3_13-24,2,1,0,24.32,Sex Manther,Sex Manther,True
+2021,13245,Haason Reddick,DE,IDP,4.0,4000.0,,,,,137.5,29.1,,7,IDP2_7-12,IDP2_7-12,4,1,2,38.61,L.A. Looks,CBP,False
+2021,14412,Alex Singleton,LB,IDP,4.0,4000.0,,,,,86.0,46.5,,17,IDP3_13-24,IDP3_13-24,4,1,2,47.66,Sex Manther,Sex Manther,True
+2021,12688,DeForest Buckner,DT,IDP,3.0,3000.0,,,,,117.5,25.5,,9,IDP2_7-12,IDP2_7-12,3,0,2,41.85,Cleon Ca$h,Sex Manther,False
+2021,13640,"Callaway, Antonio",WR,SKILL,2.0,2000.0,,,,,,,unranked,,,unranked,2,0,1,30.3,Cleon Ca$h,Hawks,False
+2021,10308,"Cobb, Randall",WR,SKILL,3.0,3000.0,,296.0,296.0,redraft_ovr,8.6,348.8,T7_150+,,,T7_150+,3,2,0,24.1,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2021,10292,Cameron Jordan,DT,IDP,2.0,2000.0,,,,,108.0,18.5,,12,IDP2_7-12,IDP2_7-12,2,1,0,24.09,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2021,13813,Foyesade Oluokun,LB,IDP,2.0,2000.0,,,,,173.5,11.5,,2,IDP1_1-6,IDP1_1-6,2,1,0,24.0,The Long Haulers,The Long Haulers,True
+2021,11747,"White, James",RB,SKILL,9.0,9000.0,,251.0,251.0,redraft_ovr,-6.3,,T7_150+,,,T7_150+,6,2,3,41.06,The Long Haulers,Real Deal Creel,False
+2021,11390,Latavius Murray,RB,SKILL,5.0,5000.0,,247.0,247.0,redraft_ovr,-11.5,,T7_150+,,,T7_150+,4,1,2,46.78,CBP,Pure Greatness,False
+2021,12752,Kevin Byard,S,IDP,3.0,3000.0,,,,,113.7,26.4,,11,IDP2_7-12,IDP2_7-12,2,1,0,24.04,CBP,CBP,True
+2021,7401,"Roethlisberger, Ben",QB,SKILL,5.0,5000.0,,224.0,224.0,redraft_ovr,-13.5,,T7_150+,,,T7_150+,5,1,3,59.32,Gride,Pure Greatness,False
+2021,13154,Mike Williams,WR,SKILL,6.0,6000.0,,209.0,209.0,redraft_ovr,58.9,101.9,T7_150+,,,T7_150+,5,4,0,24.05,Blake Bombers,Blake Bombers,True
+2021,8062,"Fitzpatrick, Ryan",QB,SKILL,3.0,3000.0,,236.0,236.0,redraft_ovr,-21.2,,T7_150+,,,T7_150+,2,0,1,39.44,Blake Bombers,L.A. Looks,False
+2021,11769,Demarcus Lawrence,DE,IDP,2.0,2000.0,,,,,56.5,35.4,,25,IDP4_25+,IDP4_25+,2,1,0,24.08,C-Town Chivalry,C-Town Chivalry,True
+2021,12437,Jason Myers,PK,KP,2.0,2000.0,,302.0,302.0,redraft_ovr,4.0,500.0,,,,kp,2,0,1,40.86,Pure Greatness,L.A. Looks,False
+2021,13108,"McKissic, J.D.",RB,SKILL,10.0,10000.0,,219.0,219.0,redraft_ovr,22.6,442.5,T7_150+,,,T7_150+,8,3,4,62.56,Real Deal Creel,C-Town Chivalry,False
+2021,12221,Danielle Hunter,DE,IDP,8.0,8000.0,,,,,74.0,108.1,,19,IDP3_13-24,IDP3_13-24,6,3,2,46.7,Hawks,Sex Manther,False
+2021,13850,Gus Edwards,RB,SKILL,9.0,9000.0,,152.0,152.0,redraft_ovr,,,T7_150+,,,T7_150+,8,5,2,47.06,The Long Haulers,L.A. Looks,False
+2021,12745,Deion Jones,LB,IDP,4.0,4000.0,,,,,105.5,37.9,,14,IDP3_13-24,IDP3_13-24,2,1,0,24.01,Cleon Ca$h,Cleon Ca$h,True
+2021,12239,Eric Kendricks,LB,IDP,4.0,4000.0,,,,,155.0,25.8,,3,IDP1_1-6,IDP1_1-6,2,1,0,24.03,CBP,CBP,True
+2021,13809,Russell Gage,WR,SKILL,5.0,5000.0,,202.0,202.0,redraft_ovr,-17.0,,T7_150+,,,T7_150+,3,0,2,28.07,Blake Bombers,HammerTime 🔨 ⏰,False
+2021,13697,Tremaine Edmunds,LB,IDP,3.0,3000.0,,,,,28.5,105.3,,30,IDP4_25+,IDP4_25+,3,1,1,34.69,Blake Bombers,L.A. Looks,False
+2021,10816,Demario Davis,LB,IDP,2.0,2000.0,,,,,95.5,20.9,,16,IDP3_13-24,IDP3_13-24,2,0,1,35.19,Pure Greatness,L.A. Looks,False
+2021,9833,Jason Pierre-Paul,DE,IDP,2.0,2000.0,,,,,44.5,44.9,,27,IDP4_25+,IDP4_25+,2,1,0,24.06,L.A. Looks,L.A. Looks,True
+2021,11674,Brandin Cooks,WR,SKILL,9.0,9000.0,,136.0,136.0,redraft_ovr,94.4,95.3,T6_101-150,,,T6_101-150,7,5,1,34.14,L.A. Looks,Pure Greatness,False
+2021,11316,"Ryan, Logan",S,IDP,4.0,4000.0,,,,,146.0,27.4,,5,IDP1_1-6,IDP1_1-6,2,0,1,45.81,Sex Manther,HammerTime 🔨 ⏰,False
+2021,13231,Jabrill Peppers,S,IDP,4.0,4000.0,,,,,13.7,292.0,,33,IDP4_25+,IDP4_25+,3,2,0,24.2,Pure Greatness,Pure Greatness,True
+2021,13274,John Johnson,S,IDP,4.0,4000.0,,,,,12.5,320.0,,35,IDP4_25+,IDP4_25+,2,0,1,30.59,Sex Manther,HammerTime 🔨 ⏰,False
+2021,10729,"Hilton, T.Y.",WR,SKILL,4.0,4000.0,,255.0,255.0,redraft_ovr,-0.7,,T7_150+,,,T7_150+,2,0,1,32.02,C-Town Chivalry,HammerTime 🔨 ⏰,False
+2021,12630,"Drake, Kenyan",RB,SKILL,10.0,10000.0,,197.0,197.0,redraft_ovr,3.7,2702.7,T7_150+,,,T7_150+,5,2,2,43.46,The Long Haulers,HammerTime 🔨 ⏰,False
+2021,13214,T.J. Watt,DE,IDP,9.0,9000.0,,,,,183.5,49.0,,1,IDP1_1-6,IDP1_1-6,6,2,3,43.68,Gride,Pure Greatness,False
+2021,12677,Austin Hooper,TE,SKILL,3.0,3000.0,,263.0,263.0,redraft_ovr,6.9,434.8,T7_150+,,,T7_150+,3,2,0,24.03,Real Deal Creel,Real Deal Creel,True
+2021,12140,Jameis Winston,QB,SKILL,2.0,2000.0,,235.0,235.0,redraft_ovr,5.9,339.0,T7_150+,,,T7_150+,2,0,1,39.77,Real Deal Creel,HammerTime 🔨 ⏰,False
+2021,13251,Budda Baker,S,IDP,13.0,13000.0,,,,,145.3,89.5,,6,IDP1_1-6,IDP1_1-6,9,6,2,59.39,HammerTime 🔨 ⏰,Pure Greatness,False
+2021,11247,Zach Ertz,TE,SKILL,5.0,5000.0,,227.0,227.0,redraft_ovr,12.0,416.7,T7_150+,,,T7_150+,5,4,0,24.0,Gride,Gride,True
+2021,13157,Curtis Samuel,WR,SKILL,12.0,12000.0,,201.0,201.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,6,4,1,25.78,Gride,L.A. Looks,False
+2021,13592,Sam Darnold,QB,SKILL,6.0,6000.0,,238.0,238.0,redraft_ovr,-26.6,,T7_150+,,,T7_150+,5,1,3,58.4,Cleon Ca$h,HammerTime 🔨 ⏰,False
+2021,10738,"Jones, Marvin",WR,SKILL,10.0,10000.0,,208.0,208.0,redraft_ovr,31.4,318.5,T7_150+,,,T7_150+,4,1,2,41.74,Cleon Ca$h,HammerTime 🔨 ⏰,False
+2021,14256,Jake Bailey,PN,KP,2.0,2000.0,,,,,50.0,40.0,,,,kp,2,0,1,25.37,Sex Manther,L.A. Looks,False
+2021,12650,Tyler Boyd,WR,SKILL,21.0,21000.0,,131.0,131.0,redraft_ovr,50.3,417.5,T6_101-150,,,T6_101-150,5,1,3,50.34,The Long Haulers,Real Deal Creel,False
+2021,11228,Robert Woods,WR,SKILL,41.0,41000.0,,43.0,43.0,redraft_ovr,29.6,1385.1,T3_26-50,,,T3_26-50,11,6,4,74.1,The Long Haulers,The Long Haulers,True
+2021,13216,Zach Cunningham,LB,IDP,5.0,5000.0,,,,,6.5,769.2,,36,IDP4_25+,IDP4_25+,3,0,2,24.32,Pure Greatness,Pure Greatness,True
+2021,12171,"Johnson, David",RB,SKILL,16.0,16000.0,,211.0,211.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,8,3,4,52.23,Pure Greatness,Hawks,False
+2021,12447,Raheem Mostert,RB,SKILL,15.0,15000.0,,83.0,83.0,redraft_ovr,-7.2,,T5_76-100,,,T5_76-100,9,4,4,43.0,Hawks,Sex Manther,False
+2021,13189,Evan Engram,TE,SKILL,6.0,6000.0,,229.0,229.0,redraft_ovr,-6.7,,T7_150+,,,T7_150+,5,1,3,49.56,Hawks,Gride,False
+2021,12075,Shaq Barrett,DE,IDP,4.0,4000.0,,,,,63.5,63.0,,22,IDP3_13-24,IDP3_13-24,4,1,2,45.13,L.A. Looks,CBP,False
+2021,11313,Tyrann Mathieu,S,IDP,2.0,2000.0,,,,,106.6,18.8,,13,IDP3_13-24,IDP3_13-24,2,0,1,25.4,L.A. Looks,Pure Greatness,False
+2021,7836,Aaron Rodgers,QB,SKILL,39.0,39000.0,,54.0,54.0,redraft_ovr,94.9,411.0,T4_51-75,,,T4_51-75,10,4,5,85.87,Sex Manther,Cleon Ca$h,False
+2021,13919,Anthony Firkser,TE,SKILL,4.0,4000.0,,239.0,239.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,3,1,1,24.31,Blake Bombers,L.A. Looks,False
+2021,12151,Melvin Gordon,RB,SKILL,10.0,10000.0,,117.0,117.0,redraft_ovr,13.9,719.4,T6_101-150,,,T6_101-150,6,4,1,24.47,Blake Bombers,L.A. Looks,False
+2021,13424,Taysom Hill,TE,SKILL,5.0,5000.0,,264.0,264.0,redraft_ovr,-1.4,,T7_150+,,,T7_150+,2,1,0,24.04,Real Deal Creel,Real Deal Creel,True
+2021,10703,Russell Wilson,QB,SKILL,28.0,28000.0,,48.0,48.0,redraft_ovr,0.0,,T3_26-50,,,T3_26-50,7,3,3,25.71,Real Deal Creel,Real Deal Creel,True
+2021,13782,Michael Dickson,PN,KP,2.0,2000.0,,,,,176.0,11.4,,,,kp,2,0,1,24.38,CBP,The Long Haulers,False
+2021,13706,Jerome Baker,LB,IDP,4.0,4000.0,,,,,86.0,46.5,,18,IDP3_13-24,IDP3_13-24,4,1,2,44.64,C-Town Chivalry,Cleon Ca$h,False
+2021,12187,Tyler Lockett,WR,SKILL,37.0,37000.0,,63.0,63.0,redraft_ovr,108.8,340.1,T4_51-75,,,T4_51-75,8,6,1,47.99,HammerTime 🔨 ⏰,Gride,False
+2021,11222,Keenan Allen,WR,SKILL,60.0,60000.0,,27.0,27.0,redraft_ovr,141.2,424.9,T3_26-50,,,T3_26-50,11,10,0,24.0,CBP,CBP,True
+2021,12620,Dak Prescott,QB,SKILL,45.0,45000.0,,52.0,52.0,redraft_ovr,59.5,756.3,T4_51-75,,,T4_51-75,7,6,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,14331,D'Ernest Johnson,RB,SKILL,4.0,4000.0,203.3,346.0,203.3,sf_ecr,0.0,,T7_150+,,,T7_150+,3,1,1,34.01,Real Deal Creel,The Long Haulers,False
+2022,13762,Kyzir White,LB,IDP,2.0,2000.0,,,,,12.0,166.7,,24,IDP3_13-24,IDP3_13-24,2,0,1,31.92,C-Town Chivalry,Gride,False
+2022,15972,Jordan Mason,RB,SKILL,2.0,2000.0,,,,,0.0,,unranked,,,unranked,2,1,0,25.33,The Long Haulers,The Long Haulers,True
+2022,14017,Jeffery Wilson,RB,SKILL,2.0,2000.0,259.3,321.0,259.3,sf_ecr,0.0,,T7_150+,,,T7_150+,2,0,1,28.37,Sex Manther,CBP,False
+2022,15723,Ty Chandler,RB,SKILL,2.0,2000.0,275.0,139.0,275.0,sf_ecr,0.0,,T7_150+,,,T7_150+,2,0,1,33.96,Sex Manther,Real Deal Creel,False
+2022,13814,Boston Scott,RB,SKILL,4.0,4000.0,267.2,347.0,267.2,sf_ecr,0.0,,T7_150+,,,T7_150+,2,1,0,24.12,CBP,CBP,True
+2022,12184,Jamison Crowder,WR,SKILL,3.0,3000.0,237.2,332.0,237.2,sf_ecr,0.0,,T7_150+,,,T7_150+,3,2,0,24.01,The Long Haulers,The Long Haulers,True
+2022,14315,Ashton Dulin,WR,SKILL,3.0,3000.0,328.4,,328.4,sf_ecr,0.0,,T7_150+,,,T7_150+,2,0,1,28.19,The Long Haulers,Real Deal Creel,False
+2022,12110,"Brate, Cameron",TE,SKILL,2.0,2000.0,276.2,223.0,276.2,sf_ecr,0.0,,T7_150+,,,T7_150+,2,0,1,27.36,Hawks,L.A. Looks,False
+2022,11728,C.J. Mosley,LB,IDP,2.0,2000.0,,,,,148.5,13.5,,3,IDP1_1-6,IDP1_1-6,2,1,0,24.19,Gride,Gride,True
+2022,10261,"Green, A.J.",WR,SKILL,3.0,3000.0,290.2,314.0,290.2,sf_ecr,-5.8,,T7_150+,,,T7_150+,3,1,1,39.57,HammerTime 🔨 ⏰,Hawks,False
+2022,13153,"Davis, Corey",WR,SKILL,4.0,4000.0,190.2,249.0,190.2,sf_ecr,-3.2,,T7_150+,,,T7_150+,3,2,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,14933,Julian Blackmon,S,IDP,2.0,2000.0,,,,,1.3,1538.5,,29,IDP4_25+,IDP4_25+,2,0,1,25.51,Pure Greatness,Sex Manther,False
+2022,11316,"Ryan, Logan",S,IDP,2.0,2000.0,,,,,11.9,168.1,,25,IDP4_25+,IDP4_25+,2,1,0,24.08,Sex Manther,Sex Manther,True
+2022,12788,"Martinez, Blake",LB,IDP,2.0,2000.0,,,,,0.0,,,30,IDP4_25+,IDP4_25+,2,1,0,24.07,Blake Bombers,Blake Bombers,True
+2022,14882,Jonathan Greenard,DE,IDP,2.0,2000.0,,,,,24.0,83.3,,22,IDP3_13-24,IDP3_13-24,2,1,0,24.0,Blake Bombers,Blake Bombers,True
+2022,13638,Braxton Berrios,WR,SKILL,2.0,2000.0,265.0,355.0,265.0,sf_ecr,0.0,,T7_150+,,,T7_150+,2,1,0,24.01,Cleon Ca$h,Cleon Ca$h,True
+2022,12930,Robbie Chosen,WR,SKILL,3.0,3000.0,235.0,286.0,235.0,sf_ecr,-8.7,,T7_150+,,,T7_150+,2,1,0,24.0,CBP,CBP,True
+2022,12238,Denzel Perryman,LB,IDP,3.0,3000.0,,,,,3.5,857.1,,28,IDP4_25+,IDP4_25+,2,0,1,24.26,Gride,The Long Haulers,False
+2022,12720,Jayron Kearse,S,IDP,3.0,3000.0,,,,,79.1,37.9,,14,IDP3_13-24,IDP3_13-24,3,1,1,39.18,C-Town Chivalry,Blake Bombers,False
+2022,14260,Cole Holcomb,LB,IDP,2.0,2000.0,,,,,17.0,117.6,,23,IDP3_13-24,IDP3_13-24,2,1,0,24.07,Sex Manther,Sex Manther,True
+2022,13871,"Hilliard, Dontrell",RB,SKILL,2.0,2000.0,295.6,313.0,295.6,sf_ecr,0.0,,T7_150+,,,T7_150+,2,0,1,42.4,Pure Greatness,The Long Haulers,False
+2022,13607,"Michel, Sony",RB,SKILL,6.0,6000.0,199.8,324.0,199.8,sf_ecr,0.0,,T7_150+,,,T7_150+,5,0,4,56.35,Cleon Ca$h,Cleon Ca$h,True
+2022,14057,Drew Lock,QB,SKILL,3.0,3000.0,186.9,341.0,186.9,sf_ecr,,,T7_150+,,,T7_150+,2,1,0,24.27,Blake Bombers,Blake Bombers,True
+2022,12239,Eric Kendricks,LB,IDP,2.0,2000.0,,,,,141.5,14.1,,5,IDP1_1-6,IDP1_1-6,2,1,0,24.28,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,13629,Calvin Ridley,WR,SKILL,18.0,18000.0,,262.0,262.0,redraft_ovr,,,T7_150+,,,T7_150+,5,4,0,24.09,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,11182,"Burkhead, Rex",RB,SKILL,2.0,2000.0,301.4,302.0,301.4,sf_ecr,-6.0,,T7_150+,,,T7_150+,2,1,0,24.0,The Long Haulers,The Long Haulers,True
+2022,13189,Evan Engram,TE,SKILL,2.0,2000.0,183.1,290.0,183.1,sf_ecr,37.9,52.8,T7_150+,,,T7_150+,2,0,1,28.5,Hawks,Blake Bombers,False
+2022,15499,Blake Gillikin,PN,KP,2.0,2000.0,,,,,59.0,33.9,,,,kp,2,0,1,48.07,The Long Haulers,Real Deal Creel,False
+2022,15496,"Harvin, Pressley",PN,KP,2.0,2000.0,,,,,24.0,83.3,,,,kp,2,0,1,48.0,CBP,Real Deal Creel,False
+2022,13623,"Williams, Darrel",RB,SKILL,6.0,6000.0,206.8,270.0,206.8,sf_ecr,0.0,,T7_150+,,,T7_150+,4,1,2,68.09,CBP,Gride,False
+2022,13236,Gerald Everett,TE,SKILL,4.0,4000.0,191.3,273.0,191.3,sf_ecr,8.3,481.9,T7_150+,,,T7_150+,4,2,1,47.56,Real Deal Creel,The Long Haulers,False
+2022,11886,"Williams, Damien",RB,SKILL,2.0,2000.0,281.7,349.0,281.7,sf_ecr,0.0,,T7_150+,,,T7_150+,2,1,0,24.02,L.A. Looks,L.A. Looks,True
+2022,13793,Marquez Valdes-Scantling,WR,SKILL,5.0,5000.0,194.0,226.0,194.0,sf_ecr,-28.5,,T7_150+,,,T7_150+,5,4,0,24.04,Cleon Ca$h,Cleon Ca$h,True
+2022,11150,Geno Smith,QB,SKILL,5.0,5000.0,226.9,254.0,226.9,sf_ecr,71.1,70.3,T7_150+,,,T7_150+,5,1,3,51.14,Gride,Gride,True
+2022,15833,Sauce Gardner,CB,IDP,2.0,2000.0,,160.0,160.0,redraft_ovr,84.4,23.7,,13,IDP3_13-24,IDP3_13-24,2,1,0,24.01,Gride,Gride,True
+2022,13139,Jamaal Williams,RB,SKILL,14.0,14000.0,200.4,255.0,200.4,sf_ecr,30.6,457.5,T7_150+,,,T7_150+,10,2,7,53.08,The Long Haulers,Pure Greatness,False
+2022,13622,Nyheim Hines,RB,SKILL,8.0,8000.0,178.5,207.0,178.5,sf_ecr,-18.0,,T7_150+,,,T7_150+,6,5,0,24.08,Sex Manther,Sex Manther,True
+2022,10272,"Watt, J.J.",DE,IDP,2.0,2000.0,,,,,34.5,58.0,,20,IDP3_13-24,IDP3_13-24,2,1,0,24.0,C-Town Chivalry,C-Town Chivalry,True
+2022,12718,Vonn Bell,S,IDP,3.0,3000.0,,,,,97.3,30.8,,10,IDP2_7-12,IDP2_7-12,3,1,1,28.48,Pure Greatness,The Long Haulers,False
+2022,12630,"Drake, Kenyan",RB,SKILL,5.0,5000.0,229.4,334.0,229.4,sf_ecr,-11.4,,T7_150+,,,T7_150+,4,1,2,31.96,Pure Greatness,Pure Greatness,True
+2022,10775,Bobby Wagner,LB,IDP,9.0,9000.0,,,,,118.0,76.3,,8,IDP2_7-12,IDP2_7-12,4,0,3,32.11,Hawks,L.A. Looks,False
+2022,10267,Von Miller,DE,IDP,3.0,3000.0,,,,,78.5,38.2,,15,IDP3_13-24,IDP3_13-24,3,0,2,46.66,Hawks,Hawks,True
+2022,15798,Isaiah Likely,TE,SKILL,2.0,2000.0,279.3,204.0,279.3,sf_ecr,-6.1,,T7_150+,,,T7_150+,2,0,1,31.21,Blake Bombers,Sex Manther,False
+2022,13313,Isaiah McKenzie,WR,SKILL,3.0,3000.0,281.0,259.0,281.0,sf_ecr,-5.7,,T7_150+,,,T7_150+,3,2,0,24.0,Blake Bombers,Blake Bombers,True
+2022,13284,Trey Hendrickson,DE,IDP,2.0,2000.0,,,,,78.5,25.5,,16,IDP3_13-24,IDP3_13-24,2,1,0,24.02,CBP,CBP,True
+2022,13809,Russell Gage,WR,SKILL,7.0,7000.0,153.7,236.0,153.7,sf_ecr,-2.4,,T7_150+,,,T7_150+,3,1,1,32.29,Real Deal Creel,L.A. Looks,False
+2022,11760,Jimmy Garoppolo,QB,SKILL,5.0,5000.0,162.9,337.0,162.9,sf_ecr,6.5,769.2,T7_150+,,,T7_150+,3,2,0,24.04,Real Deal Creel,Real Deal Creel,True
+2022,13688,Marcus Davenport,DE,IDP,3.0,3000.0,,,,,5.0,600.0,,27,IDP4_25+,IDP4_25+,3,0,2,63.21,L.A. Looks,Sex Manther,False
+2022,12676,Hunter Henry,TE,SKILL,8.0,8000.0,156.0,225.0,156.0,sf_ecr,-2.9,,T7_150+,,,T7_150+,5,2,2,68.15,Cleon Ca$h,Cleon Ca$h,True
+2022,13418,Kendrick Bourne,WR,SKILL,6.0,6000.0,214.4,284.0,214.4,sf_ecr,-5.6,,T7_150+,,,T7_150+,5,4,0,24.03,Cleon Ca$h,Cleon Ca$h,True
+2022,12616,Jacoby Brissett,QB,SKILL,6.0,6000.0,227.1,312.0,227.1,sf_ecr,4.9,1224.5,T7_150+,,,T7_150+,4,3,0,24.05,L.A. Looks,L.A. Looks,True
+2022,12677,Austin Hooper,TE,SKILL,5.0,5000.0,217.1,308.0,217.1,sf_ecr,-1.4,,T7_150+,,,T7_150+,5,2,2,46.99,Hawks,Hawks,True
+2022,13813,Foyesade Oluokun,LB,IDP,5.0,5000.0,,,,,181.5,27.5,,1,IDP1_1-6,IDP1_1-6,5,3,1,47.5,The Long Haulers,Pure Greatness,False
+2022,13134,D'Onta Foreman,RB,SKILL,4.0,4000.0,203.7,303.0,203.7,sf_ecr,0.6,6666.7,T7_150+,,,T7_150+,3,1,1,37.9,The Long Haulers,L.A. Looks,False
+2022,11679,Odell Beckham,WR,SKILL,5.0,5000.0,179.5,333.0,179.5,sf_ecr,,,T7_150+,,,T7_150+,4,3,0,24.0,CBP,CBP,True
+2022,14518,Jalen Thompson,S,IDP,2.0,2000.0,,,,,139.1,14.4,,7,IDP2_7-12,IDP2_7-12,2,1,0,24.03,CBP,CBP,True
+2022,14244,Matt Gay,PK,KP,3.0,3000.0,,264.0,264.0,redraft_ovr,71.2,42.1,,,,kp,3,0,2,46.93,Sex Manther,Real Deal Creel,False
+2022,13747,Tracy Walker,S,IDP,3.0,3000.0,,,,,28.0,107.1,,21,IDP3_13-24,IDP3_13-24,3,1,1,26.18,C-Town Chivalry,HammerTime 🔨 ⏰,False
+2022,13832,Jason Sanders,PK,KP,2.0,2000.0,,323.0,323.0,redraft_ovr,0.0,,,,,kp,2,0,1,29.51,C-Town Chivalry,CBP,False
+2022,10783,Harrison Smith,S,IDP,4.0,4000.0,,,,,139.5,28.7,,6,IDP1_1-6,IDP1_1-6,4,2,1,26.57,Pure Greatness,HammerTime 🔨 ⏰,False
+2022,12779,De'Vondre Campbell,LB,IDP,4.0,4000.0,,,,,51.0,78.4,,19,IDP3_13-24,IDP3_13-24,2,1,0,24.01,Pure Greatness,Pure Greatness,True
+2022,13590,Baker Mayfield,QB,SKILL,15.0,15000.0,127.0,252.0,127.0,sf_ecr,8.4,1785.7,T6_101-150,,,T6_101-150,10,4,5,29.29,Blake Bombers,C-Town Chivalry,False
+2022,13737,Jessie Bates,S,IDP,2.0,2000.0,,,,,9.7,206.2,,26,IDP4_25+,IDP4_25+,2,1,0,24.09,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,14983,Tyler Bass,PK,KP,2.0,2000.0,,256.0,256.0,redraft_ovr,146.8,13.6,,,,kp,2,1,0,24.1,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,12141,Marcus Mariota,QB,SKILL,15.0,15000.0,164.6,235.0,164.6,sf_ecr,23.3,643.8,T7_150+,,,T7_150+,9,3,5,35.41,Gride,Pure Greatness,False
+2022,13713,Minkah Fitzpatrick,S,IDP,4.0,4000.0,,,,,143.8,27.8,,4,IDP1_1-6,IDP1_1-6,4,2,1,47.26,Gride,L.A. Looks,False
+2022,15736,"Brooks, Kennedy",RB,SKILL,3.0,3000.0,313.7,131.0,313.7,sf_ecr,,,T7_150+,,,T7_150+,3,2,0,24.01,Sex Manther,Sex Manther,True
+2022,13115,Mitchell Trubisky,QB,SKILL,17.0,17000.0,165.6,258.0,165.6,sf_ecr,-13.1,,T7_150+,,,T7_150+,9,4,4,59.66,Real Deal Creel,C-Town Chivalry,False
+2022,12752,Kevin Byard,S,IDP,3.0,3000.0,,,,,72.8,41.2,,17,IDP3_13-24,IDP3_13-24,3,2,0,24.08,L.A. Looks,L.A. Looks,True
+2022,10266,Cameron Heyward,DT,IDP,3.0,3000.0,,,,,53.0,56.6,,18,IDP3_13-24,IDP3_13-24,3,2,0,24.1,L.A. Looks,L.A. Looks,True
+2022,14141,Irv Smith,TE,SKILL,8.0,8000.0,149.0,242.0,149.0,sf_ecr,2.3,3478.3,T6_101-150,,,T6_101-150,6,4,1,45.89,The Long Haulers,Real Deal Creel,False
+2022,13108,"McKissic, J.D.",RB,SKILL,4.0,4000.0,192.0,231.0,192.0,sf_ecr,0.0,,T7_150+,,,T7_150+,4,3,0,24.09,The Long Haulers,The Long Haulers,True
+2022,13354,Harrison Butker,PK,KP,2.0,2000.0,,272.0,272.0,redraft_ovr,76.8,26.0,,,,kp,2,0,1,34.98,C-Town Chivalry,L.A. Looks,False
+2022,15368,Evan McPherson,PK,KP,3.0,3000.0,,237.0,237.0,redraft_ovr,65.3,45.9,,,,kp,3,2,0,24.2,Pure Greatness,Pure Greatness,True
+2022,15749,Isiah Pacheco,RB,SKILL,5.0,5000.0,276.0,194.0,276.0,sf_ecr,15.1,331.1,T7_150+,,,T7_150+,5,2,2,52.97,Blake Bombers,Hawks,False
+2022,14059,Daniel Jones,QB,SKILL,16.0,16000.0,126.7,250.0,126.7,sf_ecr,119.4,134.0,T6_101-150,,,T6_101-150,11,10,0,24.01,Blake Bombers,Blake Bombers,True
+2022,12447,Raheem Mostert,RB,SKILL,11.0,11000.0,221.4,257.0,221.4,sf_ecr,8.3,1325.3,T7_150+,,,T7_150+,9,3,5,49.99,Cleon Ca$h,HammerTime 🔨 ⏰,False
+2022,12611,Jared Goff,QB,SKILL,15.0,15000.0,138.7,244.0,138.7,sf_ecr,141.0,106.4,T6_101-150,,,T6_101-150,8,5,2,36.23,Cleon Ca$h,CBP,False
+2022,13680,Hayden Hurst,TE,SKILL,2.0,2000.0,243.7,267.0,243.7,sf_ecr,9.1,219.8,T7_150+,,,T7_150+,2,1,0,24.43,Gride,Gride,True
+2022,15728,"Smith, Abram",RB,SKILL,4.0,4000.0,,150.0,150.0,redraft_ovr,,,T6_101-150,,,T6_101-150,4,2,1,43.5,Sex Manther,Blake Bombers,False
+2022,13633,Christian Kirk,WR,SKILL,9.0,9000.0,125.3,175.0,125.3,sf_ecr,82.5,109.1,T6_101-150,,,T6_101-150,6,1,4,50.42,Sex Manther,Gride,False
+2022,13192,David Njoku,TE,SKILL,3.0,3000.0,158.7,227.0,158.7,sf_ecr,21.0,142.9,T7_150+,,,T7_150+,3,2,0,24.02,CBP,CBP,True
+2022,11680,Jarvis Landry,WR,SKILL,4.0,4000.0,192.4,248.0,192.4,sf_ecr,-2.8,,T7_150+,,,T7_150+,3,2,0,24.03,CBP,CBP,True
+2022,14112,Parris Campbell,WR,SKILL,4.0,4000.0,236.5,315.0,236.5,sf_ecr,-16.4,,T7_150+,,,T7_150+,2,0,1,30.51,Real Deal Creel,Blake Bombers,False
+2022,14113,Mecole Hardman,WR,SKILL,4.0,4000.0,213.3,232.0,213.3,sf_ecr,0.0,,T7_150+,,,T7_150+,3,2,0,24.03,Real Deal Creel,Real Deal Creel,True
+2022,13696,Roquan Smith,LB,IDP,15.0,15000.0,,,,,168.5,89.0,,2,IDP1_1-6,IDP1_1-6,12,5,6,79.27,HammerTime 🔨 ⏰,Cleon Ca$h,False
+2022,10276,"Ingram, Mark",RB,SKILL,4.0,4000.0,282.0,276.0,282.0,sf_ecr,0.0,,T7_150+,,,T7_150+,4,3,0,24.01,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,10768,Lavonte David,LB,IDP,2.0,2000.0,,,,,95.5,20.9,,12,IDP2_7-12,IDP2_7-12,2,1,0,24.01,Sex Manther,Sex Manther,True
+2022,10697,Ryan Tannehill,QB,SKILL,16.0,16000.0,106.1,222.0,106.1,sf_ecr,33.4,479.0,T6_101-150,,,T6_101-150,9,2,6,74.37,Sex Manther,Hawks,False
+2022,13782,Michael Dickson,PN,KP,3.0,3000.0,,,,,35.0,85.7,,,,kp,2,0,1,24.92,The Long Haulers,Sex Manther,False
+2022,10271,Julio Jones,WR,SKILL,5.0,5000.0,228.9,243.0,228.9,sf_ecr,0.0,,T7_150+,,,T7_150+,4,1,2,24.85,The Long Haulers,CBP,False
+2022,13156,JuJu Smith-Schuster,WR,SKILL,15.0,15000.0,102.9,71.0,102.9,sf_ecr,48.4,309.9,T6_101-150,,,T6_101-150,5,2,2,26.54,Hawks,Real Deal Creel,False
+2022,12610,Carson Wentz,QB,SKILL,17.0,17000.0,133.5,251.0,133.5,sf_ecr,44.9,378.6,T6_101-150,,,T6_101-150,10,3,6,51.88,Hawks,Cleon Ca$h,False
+2022,11678,Allen Robinson,WR,SKILL,21.0,21000.0,104.3,63.0,104.3,sf_ecr,-12.6,,T6_101-150,,,T6_101-150,12,8,3,42.84,L.A. Looks,C-Town Chivalry,False
+2022,11757,"Donald, Aaron",DT,IDP,8.0,8000.0,,,,,96.0,83.3,,11,IDP2_7-12,IDP2_7-12,7,2,4,41.67,L.A. Looks,Pure Greatness,False
+2022,11232,DeAndre Hopkins,WR,SKILL,32.0,32000.0,95.1,163.0,95.1,sf_ecr,77.6,412.4,T5_76-100,,,T5_76-100,12,8,3,67.32,Real Deal Creel,CBP,False
+2022,12140,Jameis Winston,QB,SKILL,12.0,12000.0,108.3,217.0,108.3,sf_ecr,9.6,1250.0,T6_101-150,,,T6_101-150,5,3,1,24.24,Real Deal Creel,CBP,False
+2022,13138,Kareem Hunt,RB,SKILL,22.0,22000.0,109.7,166.0,109.7,sf_ecr,-2.9,,T6_101-150,,,T6_101-150,8,3,4,42.03,Cleon Ca$h,The Long Haulers,False
+2022,13632,Allen Lazard,WR,SKILL,12.0,12000.0,157.4,125.0,157.4,sf_ecr,34.0,352.9,T7_150+,,,T7_150+,7,6,0,24.0,Cleon Ca$h,Cleon Ca$h,True
+2022,13129,Leonard Fournette,RB,SKILL,39.0,39000.0,77.1,25.0,77.1,sf_ecr,63.3,616.1,T5_76-100,,,T5_76-100,9,3,5,65.81,C-Town Chivalry,C-Town Chivalry,True
+2022,13684,Sam Hubbard,DE,IDP,3.0,3000.0,,,,,114.5,26.2,,9,IDP2_7-12,IDP2_7-12,2,0,1,24.2,C-Town Chivalry,Blake Bombers,False
+2022,11671,Mike Evans,WR,SKILL,38.0,38000.0,53.1,26.0,53.1,sf_ecr,110.8,343.0,T4_51-75,,,T4_51-75,11,5,5,91.48,Gride,Blake Bombers,False
+2022,5848,Tom Brady,QB,SKILL,66.0,66000.0,89.1,109.0,89.1,sf_ecr,147.1,448.7,T5_76-100,,,T5_76-100,11,3,7,33.52,Gride,Sex Manther,False
+2022,11228,Robert Woods,WR,SKILL,13.0,13000.0,156.1,189.0,156.1,sf_ecr,-12.6,,T7_150+,,,T7_150+,4,2,1,24.83,CBP,L.A. Looks,False
+2022,11644,Derek Carr,QB,SKILL,38.0,38000.0,59.8,183.0,59.8,sf_ecr,67.2,565.5,T4_51-75,,,T4_51-75,9,7,1,25.17,CBP,L.A. Looks,False
+2022,10700,Kirk Cousins,QB,SKILL,37.0,37000.0,73.1,192.0,73.1,sf_ecr,127.7,289.7,T4_51-75,,,T4_51-75,12,8,3,25.48,Pure Greatness,Gride,False
+2022,13146,James Conner,RB,SKILL,38.0,38000.0,84.9,30.0,84.9,sf_ecr,81.9,464.0,T5_76-100,,,T5_76-100,9,8,0,24.01,Blake Bombers,Blake Bombers,True
+2022,13404,Austin Ekeler,RB,SKILL,57.0,57000.0,25.2,4.0,25.2,sf_ecr,212.9,267.7,T3_26-50,,,T3_26-50,9,3,5,28.52,Pure Greatness,C-Town Chivalry,False
+2022,9099,"Ryan, Matt",QB,SKILL,28.0,28000.0,119.7,215.0,119.7,sf_ecr,5.8,4827.6,T6_101-150,,,T6_101-150,10,9,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,14778,Tua Tagovailoa,QB,SKILL,29.0,29000.0,63.6,206.0,63.6,sf_ecr,137.4,211.1,T4_51-75,,,T4_51-75,8,7,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2022,12176,"Parker, DeVante",WR,SKILL,5.0,5000.0,205.2,199.0,205.2,sf_ecr,-18.7,,T7_150+,,,T7_150+,4,0,3,37.56,Blake Bombers,Hawks,False
+2023,12630,"Drake, Kenyan",RB,SKILL,4.0,4000.0,,,,,0.0,,unranked,,,unranked,4,1,2,47.44,Real Deal Creel,CBP,False
+2023,13598,Mike White,QB,SKILL,2.0,2000.0,263.4,376.0,263.4,sf_ecr,0.0,,T7_150+,,,T7_150+,2,0,1,25.99,Sex Manther,Real Deal Creel,False
+2023,16380,Deneric Prince,RB,SKILL,5.0,5000.0,,176.0,176.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,3,1,1,39.33,Real Deal Creel,CBP,False
+2023,16195,Dontayvion Wicks,WR,SKILL,2.0,2000.0,,189.0,189.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,0,1,40.86,Pure Greatness,C-Town Chivalry,False
+2023,13724,"James, Richie",WR,SKILL,4.0,4000.0,309.7,363.0,309.7,sf_ecr,0.0,,T7_150+,,,T7_150+,4,3,0,24.27,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2023,13850,Gus Edwards,RB,SKILL,4.0,4000.0,244.5,326.0,244.5,sf_ecr,0.0,,T7_150+,,,T7_150+,4,1,2,30.93,Real Deal Creel,HammerTime 🔨 ⏰,False
+2023,14977,K.J. Osborn,WR,SKILL,2.0,2000.0,206.6,291.0,206.6,sf_ecr,-12.8,,T7_150+,,,T7_150+,2,0,1,36.56,Hawks,C-Town Chivalry,False
+2023,15763,Justyn Ross,WR,SKILL,15.0,15000.0,276.7,317.0,276.7,sf_ecr,0.0,,T7_150+,,,T7_150+,9,4,4,52.41,Cleon Ca$h,Cleon Ca$h,True
+2023,12616,Jacoby Brissett,QB,SKILL,5.0,5000.0,,387.0,387.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,4,0,3,41.96,Blake Bombers,C-Town Chivalry,False
+2023,14122,Darius Slayton,WR,SKILL,2.0,2000.0,237.3,342.0,237.3,sf_ecr,10.9,183.5,T7_150+,,,T7_150+,2,0,1,31.84,Gride,Hawks,False
+2023,12741,Chris Jones,DT,IDP,2.0,2000.0,,,,,51.5,38.8,,17,IDP3_13-24,IDP3_13-24,2,0,1,41.02,Pure Greatness,Blake Bombers,False
+2023,13793,Marquez Valdes-Scantling,WR,SKILL,3.0,3000.0,244.8,256.0,244.8,sf_ecr,-10.9,,T7_150+,,,T7_150+,3,0,2,33.8,Hawks,Hawks,True
+2023,14168,Devin White,LB,IDP,2.0,2000.0,,,,,74.5,26.8,,13,IDP3_13-24,IDP3_13-24,2,1,0,24.79,Cleon Ca$h,Cleon Ca$h,True
+2023,14067,Gardner Minshew,QB,SKILL,2.0,2000.0,,373.0,373.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,0,1,24.32,The Long Haulers,HammerTime 🔨 ⏰,False
+2023,15308,Terrace Marshall,WR,SKILL,4.0,4000.0,197.8,374.0,197.8,sf_ecr,0.0,,T7_150+,,,T7_150+,3,2,0,24.08,Sex Manther,Sex Manther,True
+2023,16170,Kenny McIntosh,RB,SKILL,4.0,4000.0,,186.0,186.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,4,3,0,24.11,Sex Manther,Sex Manther,True
+2023,14907,Grant Delpit,S,IDP,2.0,2000.0,,,,,125.0,16.0,,10,IDP2_7-12,IDP2_7-12,2,1,0,24.02,Real Deal Creel,Real Deal Creel,True
+2023,11938,Adam Thielen,WR,SKILL,4.0,4000.0,218.3,254.0,218.3,sf_ecr,17.4,229.9,T7_150+,,,T7_150+,2,0,1,24.65,CBP,HammerTime 🔨 ⏰,False
+2023,15696,Bailey Zappe,QB,SKILL,2.0,2000.0,,,,,-4.1,,unranked,,,unranked,2,0,1,30.19,Cleon Ca$h,Gride,False
+2023,14896,Patrick Queen,LB,IDP,2.0,2000.0,,,,,141.5,14.1,,8,IDP2_7-12,IDP2_7-12,2,0,1,41.28,Cleon Ca$h,Hawks,False
+2023,14218,Bobby Okereke,LB,IDP,2.0,2000.0,,,,,149.0,13.4,,5,IDP1_1-6,IDP1_1-6,2,0,1,29.52,Hawks,HammerTime 🔨 ⏰,False
+2023,11228,Robert Woods,WR,SKILL,3.0,3000.0,264.6,360.0,264.6,sf_ecr,-7.7,,T7_150+,,,T7_150+,2,0,1,27.83,CBP,HammerTime 🔨 ⏰,False
+2023,14080,Devin Singletary,RB,SKILL,4.0,4000.0,172.6,269.0,172.6,sf_ecr,17.7,226.0,T7_150+,,,T7_150+,4,2,1,46.75,CBP,Gride,False
+2023,14076,Trayveon Williams,RB,SKILL,4.0,4000.0,,297.0,297.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,4,0,3,49.47,The Long Haulers,Pure Greatness,False
+2023,13134,D'Onta Foreman,RB,SKILL,12.0,12000.0,185.0,296.0,185.0,sf_ecr,-22.6,,T7_150+,,,T7_150+,7,2,4,52.69,Gride,Pure Greatness,False
+2023,12447,Raheem Mostert,RB,SKILL,10.0,10000.0,226.5,198.0,226.5,sf_ecr,85.7,116.7,T7_150+,,,T7_150+,10,2,7,71.04,Sex Manther,Blake Bombers,False
+2023,13608,Rashaad Penny,RB,SKILL,15.0,15000.0,153.9,230.0,153.9,sf_ecr,0.0,,T7_150+,,,T7_150+,9,6,2,49.01,Sex Manther,HammerTime 🔨 ⏰,False
+2023,13251,Budda Baker,S,IDP,2.0,2000.0,,,,,84.1,23.8,,12,IDP2_7-12,IDP2_7-12,2,0,1,24.49,C-Town Chivalry,Blake Bombers,False
+2023,14224,Chauncey Gardner-Johnson,S,IDP,4.0,4000.0,,226.0,226.0,redraft_ovr,19.4,206.2,,22,IDP3_13-24,IDP3_13-24,3,1,1,24.54,Real Deal Creel,Sex Manther,False
+2023,13702,Josey Jewell,LB,IDP,2.0,2000.0,,,,,16.0,125.0,,23,IDP3_13-24,IDP3_13-24,2,0,1,33.23,Pure Greatness,Blake Bombers,False
+2023,13307,Matt Milano,LB,IDP,2.0,2000.0,,218.0,218.0,redraft_ovr,38.5,51.9,,20,IDP3_13-24,IDP3_13-24,2,0,1,28.88,Real Deal Creel,The Long Haulers,False
+2023,13952,Frankie Luvu,LB,IDP,4.0,4000.0,,,,,72.0,55.6,,14,IDP3_13-24,IDP3_13-24,4,2,1,33.79,Blake Bombers,Pure Greatness,False
+2023,14171,Brian Burns,DE,IDP,5.0,5000.0,,,,,59.0,84.7,,16,IDP3_13-24,IDP3_13-24,4,3,0,24.04,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2023,13733,Shaquille Leonard,LB,IDP,4.0,4000.0,,,,,3.5,1142.9,,24,IDP3_13-24,IDP3_13-24,2,0,1,28.53,Blake Bombers,HammerTime 🔨 ⏰,False
+2023,13245,Haason Reddick,DE,IDP,4.0,4000.0,,194.0,194.0,redraft_ovr,47.5,84.2,,18,IDP3_13-24,IDP3_13-24,2,1,0,24.0,L.A. Looks,L.A. Looks,True
+2023,14630,A.J. Cole,PN,KP,2.0,2000.0,,,,,163.0,12.3,,,,kp,2,0,1,31.95,L.A. Looks,The Long Haulers,False
+2023,14798,Zack Moss,RB,SKILL,4.0,4000.0,292.3,322.0,292.3,sf_ecr,14.1,283.7,T7_150+,,,T7_150+,4,2,1,35.69,CBP,Real Deal Creel,False
+2023,13680,Hayden Hurst,TE,SKILL,3.0,3000.0,236.5,343.0,236.5,sf_ecr,0.0,,T7_150+,,,T7_150+,3,1,1,47.41,The Long Haulers,L.A. Looks,False
+2023,11757,"Donald, Aaron",DT,IDP,5.0,5000.0,,,,,97.0,51.5,,11,IDP2_7-12,IDP2_7-12,4,0,3,53.87,The Long Haulers,Cleon Ca$h,False
+2023,14861,Juwan Johnson,TE,SKILL,2.0,2000.0,184.7,219.0,184.7,sf_ecr,0.0,,T7_150+,,,T7_150+,2,0,1,31.51,Hawks,Gride,False
+2023,12678,Tyler Higbee,TE,SKILL,9.0,9000.0,223.5,231.0,223.5,sf_ecr,-43.9,,T7_150+,,,T7_150+,5,2,2,28.11,Hawks,Hawks,True
+2023,11728,C.J. Mosley,LB,IDP,3.0,3000.0,,,,,133.0,22.6,,9,IDP2_7-12,IDP2_7-12,3,0,2,52.85,Pure Greatness,Pure Greatness,True
+2023,12795,Matt Judon,DE,IDP,2.0,2000.0,,,,,42.5,47.1,,19,IDP3_13-24,IDP3_13-24,2,0,1,29.49,Blake Bombers,Hawks,False
+2023,14105,Marquise Brown,WR,SKILL,37.0,37000.0,79.6,140.0,79.6,sf_ecr,4.3,8604.7,T5_76-100,,,T5_76-100,15,2,12,101.35,Blake Bombers,Cleon Ca$h,False
+2023,13837,Zaire Franklin,LB,IDP,2.0,2000.0,,,,,143.5,13.9,,7,IDP2_7-12,IDP2_7-12,2,1,0,24.01,Gride,Gride,True
+2023,13133,Samaje Perine,RB,SKILL,2.0,2000.0,174.9,204.0,174.9,sf_ecr,-9.4,,T7_150+,,,T7_150+,2,1,0,24.06,Real Deal Creel,Real Deal Creel,True
+2023,10292,Cameron Jordan,DT,IDP,3.0,3000.0,,,,,20.0,150.0,,21,IDP3_13-24,IDP3_13-24,2,0,1,48.5,Pure Greatness,Blake Bombers,False
+2023,13139,Jamaal Williams,RB,SKILL,4.0,4000.0,145.0,192.0,145.0,sf_ecr,-38.7,,T6_101-150,,,T6_101-150,4,2,1,24.37,Sex Manther,HammerTime 🔨 ⏰,False
+2023,10697,Ryan Tannehill,QB,SKILL,5.0,5000.0,165.7,260.0,165.7,sf_ecr,-29.6,,T7_150+,,,T7_150+,2,0,1,39.55,Sex Manther,Blake Bombers,False
+2023,14983,Tyler Bass,PK,KP,2.0,2000.0,,268.0,268.0,redraft_ovr,111.0,18.0,,,,kp,2,1,0,24.46,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2023,13713,Minkah Fitzpatrick,S,IDP,4.0,4000.0,,,,,66.4,60.2,,15,IDP3_13-24,IDP3_13-24,3,1,1,25.17,Cleon Ca$h,HammerTime 🔨 ⏰,False
+2023,12652,Michael Thomas,WR,SKILL,6.0,6000.0,180.0,183.0,180.0,sf_ecr,-11.9,,T7_150+,,,T7_150+,3,1,1,25.69,L.A. Looks,Hawks,False
+2023,11761,Jerick McKinnon,RB,SKILL,8.0,8000.0,225.2,202.0,225.2,sf_ecr,-7.2,,T7_150+,,,T7_150+,4,0,3,33.71,L.A. Looks,L.A. Looks,True
+2023,10775,Bobby Wagner,LB,IDP,2.0,2000.0,,,,,163.0,12.3,,4,IDP1_1-6,IDP1_1-6,2,0,1,46.88,C-Town Chivalry,L.A. Looks,False
+2023,13674,Dallas Goedert,TE,SKILL,22.0,22000.0,81.2,84.0,81.2,sf_ecr,12.0,1833.3,T5_76-100,,,T5_76-100,7,2,4,24.93,Pure Greatness,Pure Greatness,True
+2023,13630,Courtland Sutton,WR,SKILL,10.0,10000.0,131.0,159.0,131.0,sf_ecr,19.4,515.5,T6_101-150,,,T6_101-150,7,5,1,48.07,CBP,L.A. Looks,False
+2023,13163,Chris Godwin,WR,SKILL,27.0,27000.0,62.6,61.0,62.6,sf_ecr,27.2,992.6,T4_51-75,,,T4_51-75,12,4,7,74.79,CBP,Gride,False
+2023,11222,Keenan Allen,WR,SKILL,28.0,28000.0,110.9,39.0,110.9,sf_ecr,167.7,167.0,T6_101-150,,,T6_101-150,11,9,1,24.74,Blake Bombers,Pure Greatness,False
+2023,13590,Baker Mayfield,QB,SKILL,5.0,5000.0,170.7,259.0,170.7,sf_ecr,105.9,47.2,T7_150+,,,T7_150+,5,2,2,33.17,Hawks,The Long Haulers,False
+2023,14127,Jakobi Meyers,WR,SKILL,5.0,5000.0,140.4,213.0,140.4,sf_ecr,29.5,169.5,T6_101-150,,,T6_101-150,3,0,2,32.69,Hawks,Hawks,True
+2023,13198,Myles Garrett,DE,IDP,13.0,13000.0,,,,,144.0,90.3,,6,IDP1_1-6,IDP1_1-6,11,4,6,116.49,Sex Manther,Sex Manther,True
+2023,10976,Justin Tucker,PK,KP,2.0,2000.0,,209.0,209.0,redraft_ovr,132.9,15.0,,,,kp,2,1,0,24.02,Sex Manther,Sex Manther,True
+2023,14179,Julian Love,S,IDP,4.0,4000.0,,,,,173.8,23.0,,2,IDP1_1-6,IDP1_1-6,4,2,1,48.04,Gride,Sex Manther,False
+2023,13131,Joe Mixon,RB,SKILL,41.0,41000.0,92.3,33.0,92.3,sf_ecr,22.5,1822.2,T5_76-100,,,T5_76-100,12,6,5,50.07,Gride,HammerTime 🔨 ⏰,False
+2023,7836,Aaron Rodgers,QB,SKILL,50.0,50000.0,101.2,173.0,101.2,sf_ecr,-15.7,,T6_101-150,,,T6_101-150,9,6,2,42.3,Real Deal Creel,Cleon Ca$h,False
+2023,13714,Derwin James,S,IDP,9.0,9000.0,,,,,170.6,52.8,,3,IDP1_1-6,IDP1_1-6,4,1,2,47.54,HammerTime 🔨 ⏰,Real Deal Creel,False
+2023,13214,T.J. Watt,DE,IDP,8.0,8000.0,,,,,206.0,38.8,,1,IDP1_1-6,IDP1_1-6,6,3,2,48.48,HammerTime 🔨 ⏰,Sex Manther,False
+2023,12626,Derrick Henry,RB,SKILL,94.0,94000.0,71.2,21.0,71.2,sf_ecr,53.8,1747.2,T4_51-75,,,T4_51-75,30,14,15,144.9,Real Deal Creel,Real Deal Creel,True
+2024,13168,Josh Reynolds,WR,SKILL,3.0,3000.0,263.9,,263.9,sf_ecr,1.3,2307.7,T7_150+,,,T7_150+,3,0,2,54.29,The Long Haulers,Sex Manther,False
+2024,15970,Lucas Krull,TE,SKILL,2.0,2000.0,,,,,0.0,,unranked,,,unranked,2,0,1,24.28,Sex Manther,Gride,False
+2024,9064,Joe Flacco,QB,SKILL,3.0,3000.0,359.9,372.0,359.9,sf_ecr,19.3,155.4,T7_150+,,,T7_150+,3,0,2,57.91,Real Deal Creel,Gride,False
+2024,14974,Darnell Mooney,WR,SKILL,2.0,2000.0,198.4,278.0,198.4,sf_ecr,57.1,35.0,T7_150+,,,T7_150+,2,1,0,28.97,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2024,15257,Trey Sermon,RB,SKILL,3.0,3000.0,261.4,325.0,261.4,sf_ecr,8.5,352.9,T7_150+,,,T7_150+,3,1,1,46.18,L.A. Looks,Real Deal Creel,False
+2024,11706,Jadeveon Clowney,DE,IDP,2.0,2000.0,,,,,0.5,4000.0,,30,IDP4_25+,IDP4_25+,2,0,1,26.02,The Long Haulers,Hawks,False
+2024,15693,Sam Howell,QB,SKILL,4.0,4000.0,156.2,371.0,156.2,sf_ecr,0.0,,T7_150+,,,T7_150+,3,1,1,24.87,Gride,Sex Manther,False
+2024,16858,Mason Tipton,WR,SKILL,3.0,3000.0,,,,,-15.0,,unranked,,,unranked,3,1,1,47.63,Gride,Real Deal Creel,False
+2024,14137,Noah Fant,TE,SKILL,4.0,4000.0,176.5,289.0,176.5,sf_ecr,0.0,,T7_150+,,,T7_150+,3,0,2,48.21,Real Deal Creel,Real Deal Creel,True
+2024,14079,Miles Sanders,RB,SKILL,3.0,3000.0,237.2,363.0,237.2,sf_ecr,-5.5,,T7_150+,,,T7_150+,3,0,2,60.08,The Long Haulers,Hawks,False
+2024,16633,Jordan Whittington,WR,SKILL,2.0,2000.0,336.3,211.0,336.3,sf_ecr,-9.7,,T7_150+,,,T7_150+,2,0,1,26.28,C-Town Chivalry,The Long Haulers,False
+2024,13154,Mike Williams,WR,SKILL,3.0,3000.0,177.5,255.0,177.5,sf_ecr,-1.4,,T7_150+,,,T7_150+,3,1,1,46.29,Gride,L.A. Looks,False
+2024,14086,Justice Hill,RB,SKILL,4.0,4000.0,263.2,297.0,263.2,sf_ecr,-5.0,,T7_150+,,,T7_150+,4,2,1,44.54,Gride,Blake Bombers,False
+2024,15752,Treylon Burks,WR,SKILL,4.0,4000.0,209.7,375.0,209.7,sf_ecr,0.0,,T7_150+,,,T7_150+,4,1,2,39.61,Blake Bombers,Blake Bombers,True
+2024,13987,Robert Spillane,LB,IDP,2.0,2000.0,,,,,123.5,16.2,,12,IDP2_7-12,IDP2_7-12,2,0,1,46.98,Real Deal Creel,L.A. Looks,False
+2024,15263,Elijah Mitchell,RB,SKILL,3.0,3000.0,,323.0,323.0,redraft_ovr,,,T7_150+,,,T7_150+,2,1,0,24.0,Real Deal Creel,Real Deal Creel,True
+2024,14221,Quincy Williams,LB,IDP,3.0,3000.0,,,,,90.5,33.1,,18,IDP3_13-24,IDP3_13-24,3,1,1,44.18,L.A. Looks,Sex Manther,False
+2024,15972,Jordan Mason,RB,SKILL,4.0,4000.0,290.9,257.0,290.9,sf_ecr,18.5,216.2,T7_150+,,,T7_150+,4,3,0,24.04,L.A. Looks,L.A. Looks,True
+2024,14223,Alexander Mattison,RB,SKILL,7.0,7000.0,230.8,335.0,230.8,sf_ecr,-4.0,,T7_150+,,,T7_150+,7,1,5,64.23,The Long Haulers,Gride,False
+2024,13592,Sam Darnold,QB,SKILL,7.0,7000.0,166.2,226.0,166.2,sf_ecr,118.5,59.1,T7_150+,,,T7_150+,6,2,3,67.49,Gride,Cleon Ca$h,False
+2024,16649,Theo Johnson,TE,SKILL,5.0,5000.0,212.0,121.0,212.0,sf_ecr,0.0,,T7_150+,,,T7_150+,4,2,1,29.52,HammerTime 🔨 ⏰,Sex Manther,False
+2024,15001,Kamren Curl,S,IDP,2.0,2000.0,,,,,41.2,48.5,,25,IDP4_25+,IDP4_25+,2,0,1,25.21,HammerTime 🔨 ⏰,Blake Bombers,False
+2024,14803,Clyde Edwards-Helaire,RB,SKILL,2.0,2000.0,249.5,353.0,249.5,sf_ecr,,,T7_150+,,,T7_150+,2,0,1,24.84,Blake Bombers,Pure Greatness,False
+2024,14322,T.J. Edwards,LB,IDP,4.0,4000.0,,,,,138.0,29.0,,7,IDP2_7-12,IDP2_7-12,4,0,3,52.81,Blake Bombers,CBP,False
+2024,13675,Tyler Conklin,TE,SKILL,2.0,2000.0,242.4,259.0,242.4,sf_ecr,-1.6,,T7_150+,,,T7_150+,2,1,0,24.45,Pure Greatness,Pure Greatness,True
+2024,14896,Patrick Queen,LB,IDP,2.0,2000.0,,,,,50.5,39.6,,22,IDP3_13-24,IDP3_13-24,2,1,0,24.01,Gride,Gride,True
+2024,14995,Josh Metellus,S,IDP,2.0,2000.0,,,,,28.0,71.4,,28,IDP4_25+,IDP4_25+,2,0,1,30.77,Real Deal Creel,Blake Bombers,False
+2024,10768,Lavonte David,LB,IDP,3.0,3000.0,,,,,143.0,21.0,,6,IDP1_1-6,IDP1_1-6,3,1,1,47.38,L.A. Looks,Hawks,False
+2024,14907,Grant Delpit,S,IDP,3.0,3000.0,,,,,104.9,28.6,,13,IDP3_13-24,IDP3_13-24,3,0,2,48.12,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2024,15366,Jevon Holland,S,IDP,2.0,2000.0,,,,,0.0,,,31,IDP4_25+,IDP4_25+,2,0,1,24.21,HammerTime 🔨 ⏰,C-Town Chivalry,False
+2024,14823,Rico Dowdle,RB,SKILL,11.0,11000.0,204.7,208.0,204.7,sf_ecr,20.9,526.3,T7_150+,,,T7_150+,9,7,1,30.18,Blake Bombers,L.A. Looks,False
+2024,14590,Azeez Al-Shaair,LB,IDP,2.0,2000.0,,,,,45.5,44.0,,24,IDP3_13-24,IDP3_13-24,2,1,0,24.0,C-Town Chivalry,C-Town Chivalry,True
+2024,14179,Julian Love,S,IDP,5.0,5000.0,,,,,156.3,32.0,,3,IDP1_1-6,IDP1_1-6,5,0,4,35.27,Cleon Ca$h,Cleon Ca$h,True
+2024,14805,AJ Dillon,RB,SKILL,4.0,4000.0,,319.0,319.0,redraft_ovr,,,T7_150+,,,T7_150+,4,0,3,51.76,The Long Haulers,Pure Greatness,False
+2024,14928,Logan Wilson,LB,IDP,3.0,3000.0,,,,,97.0,30.9,,15,IDP3_13-24,IDP3_13-24,3,0,2,29.38,The Long Haulers,C-Town Chivalry,False
+2024,14800,J.K. Dobbins,RB,SKILL,9.0,9000.0,205.9,221.0,205.9,sf_ecr,38.8,232.0,T7_150+,,,T7_150+,7,2,4,70.47,Hawks,Hawks,True
+2024,14852,Antonio Gibson,RB,SKILL,2.0,2000.0,182.7,254.0,182.7,sf_ecr,-2.6,,T7_150+,,,T7_150+,2,0,1,30.7,Real Deal Creel,Blake Bombers,False
+2024,13172,Noah Brown,WR,SKILL,2.0,2000.0,253.8,,253.8,sf_ecr,2.2,909.1,T7_150+,,,T7_150+,2,0,1,47.11,L.A. Looks,Real Deal Creel,False
+2024,16383,Ivan Pace,LB,IDP,2.0,2000.0,,,,,50.0,40.0,,23,IDP3_13-24,IDP3_13-24,2,0,1,32.7,L.A. Looks,The Long Haulers,False
+2024,14871,Colby Parkinson,TE,SKILL,4.0,4000.0,259.8,282.0,259.8,sf_ecr,0.0,,T7_150+,,,T7_150+,3,2,0,24.05,Sex Manther,Sex Manther,True
+2024,15723,Ty Chandler,RB,SKILL,9.0,9000.0,200.1,246.0,200.1,sf_ecr,-16.2,,T7_150+,,,T7_150+,5,3,1,46.09,Sex Manther,Real Deal Creel,False
+2024,14412,Alex Singleton,LB,IDP,3.0,3000.0,,,,,31.0,96.8,,26,IDP4_25+,IDP4_25+,3,2,0,24.1,CBP,CBP,True
+2024,14518,Jalen Thompson,S,IDP,3.0,3000.0,,,,,91.9,32.6,,17,IDP3_13-24,IDP3_13-24,3,2,0,24.17,Cleon Ca$h,Cleon Ca$h,True
+2024,11247,Zach Ertz,TE,SKILL,4.0,4000.0,282.4,295.0,282.4,sf_ecr,21.1,189.6,T7_150+,,,T7_150+,4,1,2,36.81,Hawks,Hawks,True
+2024,13418,Kendrick Bourne,WR,SKILL,2.0,2000.0,235.4,365.0,235.4,sf_ecr,-15.7,,T7_150+,,,T7_150+,2,0,1,47.25,Hawks,The Long Haulers,False
+2024,13681,Bradley Chubb,DE,IDP,3.0,3000.0,,,,,0.0,,,32,IDP4_25+,IDP4_25+,3,1,1,42.8,Gride,L.A. Looks,False
+2024,13133,Samaje Perine,RB,SKILL,3.0,3000.0,263.3,271.0,263.3,sf_ecr,0.0,,T7_150+,,,T7_150+,3,1,1,46.91,The Long Haulers,Blake Bombers,False
+2024,13837,Zaire Franklin,LB,IDP,4.0,4000.0,,,,,148.0,27.0,,4,IDP1_1-6,IDP1_1-6,3,1,1,24.1,C-Town Chivalry,Pure Greatness,False
+2024,12187,Tyler Lockett,WR,SKILL,4.0,4000.0,162.0,228.0,162.0,sf_ecr,3.7,1081.1,T7_150+,,,T7_150+,3,1,1,38.26,Blake Bombers,Hawks,False
+2024,10775,Bobby Wagner,LB,IDP,2.0,2000.0,,,,,130.0,15.4,,10,IDP2_7-12,IDP2_7-12,2,0,1,34.68,Blake Bombers,The Long Haulers,False
+2024,14147,Nick Bosa,DE,IDP,5.0,5000.0,,,,,132.0,37.9,,9,IDP2_7-12,IDP2_7-12,5,4,0,24.01,Pure Greatness,Pure Greatness,True
+2024,12625,Ezekiel Elliott,RB,SKILL,11.0,11000.0,195.8,201.0,195.8,sf_ecr,-3.9,,T7_150+,,,T7_150+,9,3,5,48.98,Real Deal Creel,HammerTime 🔨 ⏰,False
+2024,11674,Brandin Cooks,WR,SKILL,2.0,2000.0,190.4,229.0,190.4,sf_ecr,-12.3,,T7_150+,,,T7_150+,2,1,0,24.04,Real Deal Creel,Real Deal Creel,True
+2024,14218,Bobby Okereke,LB,IDP,4.0,4000.0,,,,,101.5,39.4,,14,IDP3_13-24,IDP3_13-24,3,2,0,24.07,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2024,14867,Cole Kmet,TE,SKILL,9.0,9000.0,136.6,203.0,136.6,sf_ecr,33.8,266.3,T6_101-150,,,T6_101-150,9,1,7,73.1,L.A. Looks,L.A. Looks,True
+2024,15261,Chuba Hubbard,RB,SKILL,6.0,6000.0,174.4,209.0,174.4,sf_ecr,95.3,63.0,T7_150+,,,T7_150+,6,5,0,24.05,Sex Manther,Sex Manther,True
+2024,14080,Devin Singletary,RB,SKILL,21.0,21000.0,136.9,151.0,136.9,sf_ecr,-9.2,,T6_101-150,,,T6_101-150,13,6,6,84.75,The Long Haulers,Gride,False
+2024,14105,Marquise Brown,WR,SKILL,8.0,8000.0,115.7,199.0,115.7,sf_ecr,,,T6_101-150,,,T6_101-150,6,2,3,36.15,Hawks,Hawks,True
+2024,14127,Jakobi Meyers,WR,SKILL,4.0,4000.0,146.2,200.0,146.2,sf_ecr,32.5,123.1,T6_101-150,,,T6_101-150,4,1,2,36.4,Hawks,L.A. Looks,False
+2024,11938,Adam Thielen,WR,SKILL,3.0,3000.0,206.9,222.0,206.9,sf_ecr,62.7,47.8,T7_150+,,,T7_150+,3,2,0,24.09,CBP,CBP,True
+2024,13146,James Conner,RB,SKILL,20.0,20000.0,129.9,70.0,129.9,sf_ecr,118.4,168.9,T6_101-150,,,T6_101-150,10,7,2,55.78,CBP,Sex Manther,False
+2024,12686,Joey Bosa,DE,IDP,2.0,2000.0,,,,,30.5,65.6,,27,IDP4_25+,IDP4_25+,2,1,0,24.01,Blake Bombers,Blake Bombers,True
+2024,13404,Austin Ekeler,RB,SKILL,16.0,16000.0,148.4,159.0,148.4,sf_ecr,26.1,613.0,T6_101-150,,,T6_101-150,9,4,4,57.04,Blake Bombers,Pure Greatness,False
+2024,14833,Jerry Jeudy,WR,SKILL,3.0,3000.0,145.0,249.0,145.0,sf_ecr,72.7,41.3,T6_101-150,,,T6_101-150,3,2,0,24.13,Cleon Ca$h,Cleon Ca$h,True
+2024,14148,Montez Sweat,DE,IDP,2.0,2000.0,,,,,3.0,666.7,,29,IDP4_25+,IDP4_25+,2,1,0,24.35,C-Town Chivalry,C-Town Chivalry,True
+2024,13284,Trey Hendrickson,DE,IDP,3.0,3000.0,,,,,143.5,20.9,,5,IDP1_1-6,IDP1_1-6,3,2,0,24.39,C-Town Chivalry,C-Town Chivalry,True
+2024,13696,Roquan Smith,LB,IDP,4.0,4000.0,,,,,128.5,31.1,,11,IDP2_7-12,IDP2_7-12,3,1,1,28.84,Pure Greatness,Cleon Ca$h,False
+2024,13198,Myles Garrett,DE,IDP,9.0,9000.0,,,,,161.5,55.7,,2,IDP1_1-6,IDP1_1-6,7,4,2,58.62,Pure Greatness,Pure Greatness,True
+2024,14249,Andrew Van Ginkel,DE,IDP,2.0,2000.0,,,,,181.0,11.0,,1,IDP1_1-6,IDP1_1-6,2,1,0,26.87,Gride,Gride,True
+2024,13743,Fred Warner,LB,IDP,4.0,4000.0,,,,,137.5,29.1,,8,IDP2_7-12,IDP2_7-12,3,1,1,42.93,Gride,Hawks,False
+2024,13813,Foyesade Oluokun,LB,IDP,5.0,5000.0,,,,,94.0,53.2,,16,IDP3_13-24,IDP3_13-24,4,2,1,46.19,HammerTime 🔨 ⏰,L.A. Looks,False
+2024,14067,Gardner Minshew,QB,SKILL,5.0,5000.0,161.5,260.0,161.5,sf_ecr,-28.2,,T7_150+,,,T7_150+,5,1,3,62.22,The Long Haulers,Cleon Ca$h,False
+2024,12616,Jacoby Brissett,QB,SKILL,3.0,3000.0,165.4,285.0,165.4,sf_ecr,0.0,,T7_150+,,,T7_150+,2,1,0,24.02,Real Deal Creel,Real Deal Creel,True
+2024,11721,Khalil Mack,DE,IDP,2.0,2000.0,,,,,88.5,22.6,,20,IDP3_13-24,IDP3_13-24,2,1,0,24.15,CBP,CBP,True
+2024,11232,DeAndre Hopkins,WR,SKILL,11.0,11000.0,130.9,189.0,130.9,sf_ecr,-0.0,,T6_101-150,,,T6_101-150,4,2,1,43.54,CBP,Real Deal Creel,False
+2024,13189,Evan Engram,TE,SKILL,13.0,13000.0,98.2,84.0,98.2,sf_ecr,23.3,557.9,T5_76-100,,,T5_76-100,7,3,3,56.65,Sex Manther,L.A. Looks,False
+2024,11671,Mike Evans,WR,SKILL,24.0,24000.0,81.8,34.0,81.8,sf_ecr,119.9,200.2,T5_76-100,,,T5_76-100,11,3,7,56.98,Sex Manther,Hawks,False
+2024,14085,Tony Pollard,RB,SKILL,17.0,17000.0,94.4,115.0,94.4,sf_ecr,50.2,338.6,T5_76-100,,,T5_76-100,10,4,5,78.84,C-Town Chivalry,C-Town Chivalry,True
+2024,12186,Stefon Diggs,WR,SKILL,16.0,16000.0,88.9,43.0,88.9,sf_ecr,56.0,285.7,T5_76-100,,,T5_76-100,5,1,3,42.23,Pure Greatness,Cleon Ca$h,False
+2024,10703,Russell Wilson,QB,SKILL,7.0,7000.0,139.7,256.0,139.7,sf_ecr,-2.2,,T6_101-150,,,T6_101-150,6,3,2,24.33,The Long Haulers,Pure Greatness,False
+2024,13132,Alvin Kamara,RB,SKILL,27.0,27000.0,96.3,42.0,96.3,sf_ecr,137.6,196.2,T5_76-100,,,T5_76-100,17,5,11,92.86,The Long Haulers,CBP,False
+2024,14845,Gabriel Davis,WR,SKILL,4.0,4000.0,167.0,288.0,167.0,sf_ecr,-0.9,,T7_150+,,,T7_150+,3,2,0,24.01,Real Deal Creel,Real Deal Creel,True
+2024,12447,Raheem Mostert,RB,SKILL,20.0,20000.0,156.6,107.0,156.6,sf_ecr,-6.8,,T7_150+,,,T7_150+,11,9,1,24.1,Blake Bombers,HammerTime 🔨 ⏰,False
+2024,13319,Aaron Jones,RB,SKILL,10.0,10000.0,118.4,89.0,118.4,sf_ecr,72.4,138.1,T6_101-150,,,T6_101-150,6,4,1,33.89,Blake Bombers,L.A. Looks,False
+2024,11675,Davante Adams,WR,SKILL,30.0,30000.0,76.3,20.0,76.3,sf_ecr,120.1,249.8,T5_76-100,,,T5_76-100,7,5,1,33.78,Cleon Ca$h,Pure Greatness,False
+2024,14909,Antoine Winfield,S,IDP,4.0,4000.0,,,,,90.5,44.2,,19,IDP3_13-24,IDP3_13-24,3,2,0,24.03,Gride,Gride,True
+2024,12801,Tyreek Hill,WR,SKILL,61.0,61000.0,31.6,3.0,31.6,sf_ecr,88.7,687.7,T3_26-50,,,T3_26-50,7,4,2,33.69,Cleon Ca$h,Sex Manther,False
+2024,15418,Camryn Bynum,S,IDP,3.0,3000.0,,,,,82.0,36.6,,21,IDP3_13-24,IDP3_13-24,3,2,0,24.06,Gride,Gride,True
+2025,12447,Raheem Mostert,RB,SKILL,2.0,2000.0,271.1,345.0,271.1,sf_ecr,0.0,,T7_150+,,,T7_150+,2,0,1,38.26,Real Deal Creel,Pure Greatness,False
+2025,10413,Tyrod Taylor,QB,SKILL,2.0,2000.0,345.9,,345.9,sf_ecr,0.0,,T7_150+,,,T7_150+,2,1,0,25.17,Sex Manther,Sex Manther,True
+2025,15889,Chigoziem Okonkwo,TE,SKILL,2.0,2000.0,206.1,296.0,206.1,sf_ecr,-7.7,,T7_150+,,,T7_150+,2,0,1,48.19,L.A. Looks,Real Deal Creel,False
+2025,15292,Dyami Brown,WR,SKILL,4.0,4000.0,241.4,353.0,241.4,sf_ecr,0.0,,T7_150+,,,T7_150+,3,1,1,28.89,C-Town Chivalry,Sex Manther,False
+2025,11232,DeAndre Hopkins,WR,SKILL,2.0,2000.0,204.5,341.0,204.5,sf_ecr,0.0,,T7_150+,,,T7_150+,2,1,0,24.06,Pure Greatness,Pure Greatness,True
+2025,14167,Josh Hines-Allen,DE,IDP,2.0,2000.0,,,,,17.5,114.3,,27,IDP4_25+,IDP4_25+,2,0,1,41.92,Cleon Ca$h,L.A. Looks,False
+2025,11222,Keenan Allen,WR,SKILL,5.0,5000.0,210.6,252.0,210.6,sf_ecr,42.6,117.4,T7_150+,,,T7_150+,4,1,2,41.55,Gride,Hawks,False
+2025,14910,Brandon Jones,S,IDP,3.0,3000.0,,,,,94.0,31.9,,12,IDP2_7-12,IDP2_7-12,2,0,1,24.25,L.A. Looks,Blake Bombers,False
+2025,15319,Joshua Palmer,WR,SKILL,2.0,2000.0,186.1,302.0,186.1,sf_ecr,0.0,,T7_150+,,,T7_150+,2,0,1,24.31,Hawks,Real Deal Creel,False
+2025,16175,Roschon Johnson,RB,SKILL,4.0,4000.0,212.9,317.0,212.9,sf_ecr,0.0,,T7_150+,,,T7_150+,3,1,1,37.07,Gride,HammerTime 🔨 ⏰,False
+2025,11938,Adam Thielen,WR,SKILL,4.0,4000.0,210.4,262.0,210.4,sf_ecr,0.0,,T7_150+,,,T7_150+,3,1,1,47.78,CBP,HammerTime 🔨 ⏰,False
+2025,14223,Alexander Mattison,RB,SKILL,4.0,4000.0,,,,,,,unranked,,,unranked,3,2,0,24.01,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2025,14079,Miles Sanders,RB,SKILL,2.0,2000.0,253.7,348.0,253.7,sf_ecr,0.0,,T7_150+,,,T7_150+,2,1,0,24.17,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2025,17054,Damien Martinez,RB,SKILL,5.0,5000.0,244.1,145.0,244.1,sf_ecr,,,T7_150+,,,T7_150+,5,3,1,39.84,Sex Manther,The Long Haulers,False
+2025,13138,Kareem Hunt,RB,SKILL,5.0,5000.0,265.0,276.0,265.0,sf_ecr,4.3,1162.8,T7_150+,,,T7_150+,5,2,2,49.17,Pure Greatness,Pure Greatness,True
+2025,12752,Kevin Byard,S,IDP,4.0,4000.0,,,,,138.0,29.0,,5,IDP1_1-6,IDP1_1-6,3,1,1,39.85,Real Deal Creel,Blake Bombers,False
+2025,15869,Terrel Bernard,LB,IDP,2.0,2000.0,,,,,34.5,58.0,,24,IDP3_13-24,IDP3_13-24,2,0,1,33.26,Real Deal Creel,Blake Bombers,False
+2025,15404,Ernest Jones,LB,IDP,4.0,4000.0,,,,,119.5,33.5,,7,IDP2_7-12,IDP2_7-12,4,1,2,33.6,Cleon Ca$h,Cleon Ca$h,True
+2025,14221,Quincy Williams,LB,IDP,4.0,4000.0,,,,,22.5,177.8,,26,IDP4_25+,IDP4_25+,4,1,2,40.7,Cleon Ca$h,Cleon Ca$h,True
+2025,17099,Oronde Gadsden,TE,SKILL,4.0,4000.0,223.2,124.0,223.2,sf_ecr,-11.1,,T7_150+,,,T7_150+,4,0,3,38.41,Blake Bombers,Sex Manther,False
+2025,14251,Blake Cashman,LB,IDP,2.0,2000.0,,,,,88.0,22.7,,14,IDP3_13-24,IDP3_13-24,2,1,0,24.02,L.A. Looks,L.A. Looks,True
+2025,14823,Rico Dowdle,RB,SKILL,4.0,4000.0,195.7,273.0,195.7,sf_ecr,104.0,38.5,T7_150+,,,T7_150+,3,2,0,24.04,L.A. Looks,L.A. Looks,True
+2025,16269,Brenton Strange,TE,SKILL,2.0,2000.0,179.6,259.0,179.6,sf_ecr,-4.7,,T7_150+,,,T7_150+,2,1,0,24.04,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2025,14927,Jeremy Chinn,S,IDP,2.0,2000.0,,,,,114.8,17.4,,8,IDP2_7-12,IDP2_7-12,2,1,0,24.1,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2025,13284,Trey Hendrickson,DE,IDP,3.0,3000.0,,,,,43.0,69.8,,21,IDP3_13-24,IDP3_13-24,3,2,0,24.06,Blake Bombers,Blake Bombers,True
+2025,13737,Jessie Bates,S,IDP,2.0,2000.0,,,,,39.2,51.0,,22,IDP3_13-24,IDP3_13-24,2,1,0,24.0,Real Deal Creel,Real Deal Creel,True
+2025,12860,Ka'imi Fairbairn,PK,KP,2.0,2000.0,,283.0,283.0,redraft_ovr,79.9,25.0,,,,kp,2,0,1,36.64,The Long Haulers,Pure Greatness,False
+2025,13714,Derwin James,S,IDP,4.0,4000.0,,,,,143.7,27.8,,4,IDP1_1-6,IDP1_1-6,4,1,2,26.18,Pure Greatness,Pure Greatness,True
+2025,15293,Rashod Bateman,WR,SKILL,5.0,5000.0,152.1,231.0,152.1,sf_ecr,0.0,,T7_150+,,,T7_150+,3,1,1,47.17,L.A. Looks,HammerTime 🔨 ⏰,False
+2025,13251,Budda Baker,S,IDP,4.0,4000.0,,,,,113.0,35.4,,9,IDP2_7-12,IDP2_7-12,3,0,2,27.62,L.A. Looks,Sex Manther,False
+2025,9064,Joe Flacco,QB,SKILL,6.0,6000.0,184.0,286.0,184.0,sf_ecr,40.4,148.5,T7_150+,,,T7_150+,3,0,2,47.61,Sex Manther,The Long Haulers,False
+2025,13193,Jonnu Smith,TE,SKILL,6.0,6000.0,147.8,266.0,147.8,sf_ecr,4.0,1500.0,T6_101-150,,,T6_101-150,5,3,1,25.99,Hawks,HammerTime 🔨 ⏰,False
+2025,15713,Jerome Ford,RB,SKILL,6.0,6000.0,208.7,234.0,208.7,sf_ecr,0.0,,T7_150+,,,T7_150+,4,3,0,24.0,Sex Manther,Sex Manther,True
+2025,12676,Hunter Henry,TE,SKILL,2.0,2000.0,178.3,244.0,178.3,sf_ecr,12.1,165.3,T7_150+,,,T7_150+,2,1,0,24.21,Cleon Ca$h,Cleon Ca$h,True
+2025,15861,Nik Bonitto,DE,IDP,4.0,4000.0,,,,,105.5,37.9,,10,IDP2_7-12,IDP2_7-12,4,1,2,59.82,C-Town Chivalry,Sex Manther,False
+2025,15428,Jamien Sherwood,LB,IDP,3.0,3000.0,,,,,91.0,33.0,,13,IDP3_13-24,IDP3_13-24,3,1,1,38.18,C-Town Chivalry,Pure Greatness,False
+2025,17241,Jeremy Crawshaw,PN,KP,2.0,2000.0,,,,,135.5,14.8,,,,kp,2,0,1,24.96,Real Deal Creel,Blake Bombers,False
+2025,14892,Jordyn Brooks,LB,IDP,4.0,4000.0,,,,,170.5,23.5,,2,IDP1_1-6,IDP1_1-6,4,1,2,42.04,The Long Haulers,The Long Haulers,True
+2025,13987,Robert Spillane,LB,IDP,4.0,4000.0,,,,,97.0,41.2,,11,IDP2_7-12,IDP2_7-12,4,1,2,42.24,The Long Haulers,The Long Haulers,True
+2025,14840,Brandon Aiyuk,WR,SKILL,11.0,11000.0,68.5,239.0,68.5,sf_ecr,,,T4_51-75,,,T4_51-75,7,1,5,34.84,Pure Greatness,Pure Greatness,True
+2025,14412,Alex Singleton,LB,IDP,2.0,2000.0,,,,,62.0,32.3,,17,IDP3_13-24,IDP3_13-24,2,1,0,24.11,Pure Greatness,Pure Greatness,True
+2025,15254,Najee Harris,RB,SKILL,13.0,13000.0,138.9,232.0,138.9,sf_ecr,0.0,,T6_101-150,,,T6_101-150,8,5,2,47.62,Cleon Ca$h,The Long Haulers,False
+2025,13610,Nick Chubb,RB,SKILL,3.0,3000.0,225.2,222.0,225.2,sf_ecr,4.6,652.2,T7_150+,,,T7_150+,3,1,1,41.51,Blake Bombers,Real Deal Creel,False
+2025,14225,Maxx Crosby,DE,IDP,10.0,10000.0,,,,,180.5,55.4,,1,IDP1_1-6,IDP1_1-6,5,3,1,30.48,Blake Bombers,Cleon Ca$h,False
+2025,15835,Jaquan Brisker,S,IDP,2.0,2000.0,,,,,25.8,77.5,,25,IDP4_25+,IDP4_25+,2,1,0,24.01,Sex Manther,Sex Manther,True
+2025,14882,Jonathan Greenard,DE,IDP,2.0,2000.0,,,,,47.5,42.1,,19,IDP3_13-24,IDP3_13-24,2,1,0,24.06,L.A. Looks,L.A. Looks,True
+2025,13674,Dallas Goedert,TE,SKILL,7.0,7000.0,139.2,228.0,139.2,sf_ecr,51.1,137.0,T6_101-150,,,T6_101-150,5,4,0,24.01,L.A. Looks,L.A. Looks,True
+2025,14136,Deebo Samuel,WR,SKILL,8.0,8000.0,122.9,169.0,122.9,sf_ecr,78.9,101.4,T6_101-150,,,T6_101-150,5,2,2,29.46,CBP,Gride,False
+2025,14109,Terry McLaurin,WR,SKILL,19.0,19000.0,62.0,55.0,62.0,sf_ecr,17.1,1111.1,T4_51-75,,,T4_51-75,5,3,1,26.28,CBP,Blake Bombers,False
+2025,7836,Aaron Rodgers,QB,SKILL,7.0,7000.0,143.9,238.0,143.9,sf_ecr,-11.4,,T6_101-150,,,T6_101-150,4,2,1,33.46,CBP,Pure Greatness,False
+2025,14179,Julian Love,S,IDP,2.0,2000.0,,,,,44.7,44.7,,20,IDP3_13-24,IDP3_13-24,2,1,0,24.02,CBP,CBP,True
+2025,13813,Foyesade Oluokun,LB,IDP,2.0,2000.0,,,,,121.5,16.5,,6,IDP1_1-6,IDP1_1-6,2,1,0,24.0,C-Town Chivalry,C-Town Chivalry,True
+2025,16178,Keaton Mitchell,RB,SKILL,2.0,2000.0,257.0,326.0,257.0,sf_ecr,1.7,1176.5,T7_150+,,,T7_150+,2,1,0,24.01,The Long Haulers,The Long Haulers,True
+2025,13633,Christian Kirk,WR,SKILL,2.0,2000.0,152.9,255.0,152.9,sf_ecr,-3.3,,T7_150+,,,T7_150+,2,1,0,24.01,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2025,16414,Brandon Aubrey,PK,KP,2.0,2000.0,,219.0,219.0,redraft_ovr,191.0,10.5,,,,kp,2,0,1,25.84,Real Deal Creel,L.A. Looks,False
+2025,15346,Gregory Rousseau,DE,IDP,3.0,3000.0,,,,,0.0,,,28,IDP4_25+,IDP4_25+,3,0,2,47.03,Real Deal Creel,HammerTime 🔨 ⏰,False
+2025,14218,Bobby Okereke,LB,IDP,2.0,2000.0,,,,,58.0,34.5,,18,IDP3_13-24,IDP3_13-24,2,1,0,24.0,HammerTime 🔨 ⏰,HammerTime 🔨 ⏰,True
+2025,13869,Corey Bojorquez,PN,KP,2.0,2000.0,,,,,74.0,27.0,,,,kp,2,0,1,26.64,Pure Greatness,L.A. Looks,False
+2025,9431,Matthew Stafford,QB,SKILL,18.0,18000.0,112.0,220.0,112.0,sf_ecr,160.7,112.0,T6_101-150,,,T6_101-150,7,3,3,36.11,Pure Greatness,L.A. Looks,False
+2025,13837,Zaire Franklin,LB,IDP,5.0,5000.0,,,,,62.5,80.0,,16,IDP3_13-24,IDP3_13-24,4,2,1,42.44,Gride,HammerTime 🔨 ⏰,False
+2025,13192,David Njoku,TE,SKILL,27.0,27000.0,90.5,156.0,90.5,sf_ecr,-13.4,,T5_76-100,,,T5_76-100,12,3,8,106.35,Blake Bombers,Gride,False
+2025,16280,Daiyan Henley,LB,IDP,2.0,2000.0,,,,,72.0,27.8,,15,IDP3_13-24,IDP3_13-24,2,1,0,24.01,Blake Bombers,Blake Bombers,True
+2025,13635,D.J. Moore,WR,SKILL,21.0,21000.0,60.9,77.0,60.9,sf_ecr,42.9,489.5,T4_51-75,,,T4_51-75,8,6,1,41.18,L.A. Looks,Gride,False
+2025,15261,Chuba Hubbard,RB,SKILL,37.0,37000.0,87.8,67.0,87.8,sf_ecr,16.9,2189.3,T5_76-100,,,T5_76-100,13,8,4,82.66,L.A. Looks,Real Deal Creel,False
+2025,15839,Nick Cross,S,IDP,3.0,3000.0,,,,,157.2,19.1,,3,IDP1_1-6,IDP1_1-6,3,1,1,25.11,Sex Manther,Pure Greatness,False
+2025,13404,Austin Ekeler,RB,SKILL,8.0,8000.0,,205.0,205.0,redraft_ovr,0.0,,T7_150+,,,T7_150+,2,1,0,24.0,Real Deal Creel,Real Deal Creel,True
+2025,14071,David Montgomery,RB,SKILL,20.0,20000.0,95.0,113.0,95.0,sf_ecr,31.6,632.9,T5_76-100,,,T5_76-100,6,2,3,52.95,Real Deal Creel,L.A. Looks,False
+2025,11150,Geno Smith,QB,SKILL,15.0,15000.0,99.2,227.0,99.2,sf_ecr,11.9,1260.5,T5_76-100,,,T5_76-100,4,2,1,25.67,Pure Greatness,HammerTime 🔨 ⏰,False
+2025,13163,Chris Godwin,WR,SKILL,10.0,10000.0,102.5,203.0,102.5,sf_ecr,-2.3,,T6_101-150,,,T6_101-150,6,5,0,24.01,Blake Bombers,Blake Bombers,True
+2025,12186,Stefon Diggs,WR,SKILL,20.0,20000.0,135.9,172.0,135.9,sf_ecr,44.8,446.4,T6_101-150,,,T6_101-150,11,4,6,75.59,Hawks,L.A. Looks,False
+2025,15253,Travis Etienne,RB,SKILL,17.0,17000.0,98.6,166.0,98.6,sf_ecr,119.8,141.9,T5_76-100,,,T5_76-100,8,4,3,78.89,Gride,Gride,True
+2025,13592,Sam Darnold,QB,SKILL,18.0,18000.0,90.7,229.0,90.7,sf_ecr,53.8,334.6,T5_76-100,,,T5_76-100,8,7,0,24.04,Gride,Gride,True
+2025,13590,Baker Mayfield,QB,SKILL,31.0,31000.0,29.3,58.0,29.3,sf_ecr,82.2,377.1,T3_26-50,,,T3_26-50,7,4,2,24.43,Pure Greatness,Pure Greatness,True
+2025,13130,Christian McCaffrey,RB,SKILL,56.0,56000.0,48.7,12.0,48.7,sf_ecr,278.3,201.2,T3_26-50,,,T3_26-50,11,3,7,43.47,Cleon Ca$h,Pure Greatness,False
+2025,14797,D'Andre Swift,RB,SKILL,23.0,23000.0,112.6,99.0,112.6,sf_ecr,97.6,235.7,T6_101-150,,,T6_101-150,7,3,3,47.79,The Long Haulers,Blake Bombers,False
+2025,13164,Cooper Kupp,WR,SKILL,9.0,9000.0,140.2,184.0,140.2,sf_ecr,4.3,2093.0,T6_101-150,,,T6_101-150,4,3,0,24.01,The Long Haulers,The Long Haulers,True
+2025,14928,Logan Wilson,LB,IDP,2.0,2000.0,,,,,39.0,51.3,,23,IDP3_13-24,IDP3_13-24,2,1,0,24.01,C-Town Chivalry,C-Town Chivalry,True
+2025,11244,Travis Kelce,TE,SKILL,21.0,21000.0,123.3,123.0,123.3,sf_ecr,53.1,395.5,T6_101-150,,,T6_101-150,14,5,8,123.32,C-Town Chivalry,Pure Greatness,False
+2025,13299,George Kittle,TE,SKILL,29.0,29000.0,69.7,53.0,69.7,sf_ecr,75.7,383.1,T4_51-75,,,T4_51-75,8,4,3,27.66,HammerTime 🔨 ⏰,Sex Manther,False
+2025,14779,Justin Herbert,QB,SKILL,51.0,51000.0,14.1,149.0,14.1,sf_ecr,112.4,453.7,T2_13-25,,,T2_13-25,5,2,2,24.31,HammerTime 🔨 ⏰,Cleon Ca$h,False
+2025,15698,Brock Purdy,QB,SKILL,28.0,28000.0,28.3,120.0,28.3,sf_ecr,112.2,249.6,T3_26-50,,,T3_26-50,4,3,0,24.0,Blake Bombers,Blake Bombers,True
