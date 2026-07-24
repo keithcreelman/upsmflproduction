@@ -35012,6 +35012,37 @@ export default {
         return jsonOut(200, { ok: true, before: before.results, after: after.results });
       }
 
+      if (path === "/admin/fix-restructure-submission" && request.method === "POST") {
+        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        // Mirror of /admin/fix-extension-submission for ups_restructure_submissions.
+        // The restructure ledger shipped with an INSERT-or-SKIP ingest and no UPDATE
+        // path, so corrected AAV / suffix / Restructured-token values could never be
+        // synced back into the log. Whitelisted UPDATE by id (or player_id+season).
+        // NOTE: new_aav is stored in RAW DOLLARS in this table (43000 = 43K).
+        let rb = {};
+        try { rb = (await request.json()) || {}; } catch (_) { rb = {}; }
+        const COLS = ["franchise_id",
+                      "prior_contract_status", "prior_salary", "prior_contract_year", "prior_contract_info",
+                      "new_contract_status", "new_salary", "new_contract_year", "new_contract_info",
+                      "new_aav", "tcv_usd"];
+        const fields = rb?.fields && typeof rb.fields === "object" ? rb.fields : {};
+        const setCols = [], binds = [];
+        for (const c of COLS) { if (Object.prototype.hasOwnProperty.call(fields, c)) { setCols.push(`${c} = ?`); binds.push(fields[c]); } }
+        if (!setCols.length) return jsonOut(400, { ok: false, error: "fields{} with at least one whitelisted column required" });
+        let where = "", wbinds = [];
+        if (rb?.id != null) { where = "id = ?"; wbinds = [safeInt(rb.id, 0)]; }
+        else if (rb?.player_id && rb?.season) { where = "player_id = ? AND season = ?" + (rb?.source ? " AND source = ?" : ""); wbinds = rb?.source ? [safeStr(rb.player_id), safeStr(rb.season), safeStr(rb.source)] : [safeStr(rb.player_id), safeStr(rb.season)]; }
+        else return jsonOut(400, { ok: false, error: "target by id, or (player_id + season [+ source])" });
+        const SEL = "SELECT id, player_name, franchise_id, new_contract_status, new_salary, new_contract_year, new_contract_info, new_aav, tcv_usd FROM ups_restructure_submissions WHERE " + where;
+        const before = await env.UPS_MFL_DB.prepare(SEL).bind(...wbinds).all();
+        if (!before.results || !before.results.length) return jsonOut(404, { ok: false, error: "no matching row" });
+        if (rb?.dry_run) return jsonOut(200, { ok: true, dry_run: true, would_set: fields, matched: before.results });
+        await env.UPS_MFL_DB.prepare(`UPDATE ups_restructure_submissions SET ${setCols.join(", ")} WHERE ${where}`).bind(...binds, ...wbinds).run();
+        const after = await env.UPS_MFL_DB.prepare(SEL).bind(...wbinds).all();
+        return jsonOut(200, { ok: true, before: before.results, after: after.results });
+      }
+
       if (path === "/admin/fix-src-contract" && request.method === "POST") {
         if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
