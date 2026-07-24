@@ -259,6 +259,17 @@ def main() -> None:
                 late[f"under{int(th)}h"] = round(
                     sum(1 for b in timed if b["t_remaining_h"] <= th) / len(timed), 3) if timed else 0.0
             overtakes = [b for b in ebids if b["is_overtake"]]
+            # PRESSURE / aggression. Forced-bid events are attributed to the FORCER
+            # (enriched actor_fid = franchise_forcing_id on forced rows, line ~188),
+            # so a franchise's ebids already contain every bid it forced someone up on.
+            # overtake_rate below counts ONLY successful manual lead-changes and
+            # silently drops these force attempts, understating heavy forcers who
+            # bump opponents but rarely take the lead themselves (a lurker reads as
+            # "passive" on overtake_rate). pressure_rate = forces per lot entered
+            # surfaces that. A forcing-only participation still counts the lot, since
+            # the forced row itself is the forcer's participation record.
+            forces = [b for b in ebids if b["forced"]]
+            elots = set((b["season"], b["player_id"]) for b in ebids)
             # post-win snipe: after each win, an action on ANOTHER lot within the window
             acts = sorted(actions_by_fid.get(fid, []), key=lambda a: a["ts"])
             pounced, followups = 0, 0
@@ -283,6 +294,10 @@ def main() -> None:
                 "late_bid_share": late,
                 "overtake_rate": round(len(overtakes) / n_bids, 3) if n_bids else 0.0,
                 "late_overtake_n": sum(1 for b in overtakes if b["t_remaining_h"] is not None and b["t_remaining_h"] <= 8.0),
+                "lots_entered": len(elots),
+                "force_attempts": len(forces),
+                "pressure_rate": round(len(forces) / len(elots), 3) if elots else 0.0,
+                "late_force_n": sum(1 for b in forces if b["t_remaining_h"] is not None and b["t_remaining_h"] <= 8.0),
                 "runner_up_n": len(erunner),
                 "lurk_win_n": sum(1 for w in ewins if w["winner_late"]),
                 "post_win_pounce_share": round(pounced / len(ewins), 3) if ewins else 0.0,
