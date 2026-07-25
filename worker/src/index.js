@@ -18780,32 +18780,30 @@ export default {
           body: params.toString(),
         });
         const text = safeStr(resp.text);
-        const lowered = text.toLowerCase();
-        const ok =
-          resp.status >= 200 &&
-          resp.status < 400 &&
-          !lowered.includes("not authorized") &&
-          !lowered.includes("login required") &&
-          !lowered.includes("invalid");
+        // Judge the response by its VISIBLE text, never by a substring scan of the
+        // raw HTML. The old check failed a submission whenever the word "invalid"
+        // appeared anywhere in the document — and MFL's auction page ships it in
+        // its own form-validation JS/CSS, so a perfectly good nomination came back
+        // as "MFL rejected the submission (HTTP 200) without saying why" while the
+        // lot was in fact created (Keith 2026-07-25, live during the FAA).
+        // Strip scripts/styles/tags first, then look for an actual complaint line.
+        const visibleLines = text
+          .replace(/<script[\s\S]*?<\/script>/gi, " ")
+          .replace(/<style[\s\S]*?<\/style>/gi, " ")
+          .replace(/<[^>]+>/g, "\n")
+          .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&#39;|&apos;/gi, "’").replace(/&quot;/gi, '"')
+          .split("\n").map((l) => l.trim()).filter(Boolean);
+        const complaintLine = visibleLines.find((l) =>
+          /(invalid|not authorized|login required|cannot|can't|unable|exceed|insufficient|enough|denied|rejected|failed|too (?:high|low|many)|error|must be|no longer|closed|expired)/i.test(l)
+          && l.length > 8 && l.length < 300) || "";
+        const ok = resp.status >= 200 && resp.status < 400 && !complaintLine;
         // MFL TELLS US WHY and we used to throw it away: the whole response was
         // captured in `preview` while the owner got the string
         // "auction_post_failed" (2026-07-15). Pull the actual sentence out and
         // hand it back. MFL renders errors as a bare line or inside a small
         // error/alert block; strip tags, take the first line that reads like a
         // complaint, and fall back to the code only when nothing is legible.
-        let mflReason = "";
-        if (!ok) {
-          const stripped = text
-            .replace(/<script[\s\S]*?<\/script>/gi, " ")
-            .replace(/<style[\s\S]*?<\/style>/gi, " ")
-            .replace(/<[^>]+>/g, "\n")
-            .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&#39;|&apos;/gi, "\u2019").replace(/&quot;/gi, '"')
-            .split("\n").map((l) => l.trim()).filter(Boolean);
-          const hit = stripped.find((l) =>
-            /(invalid|not authorized|login required|cannot|can't|unable|exceed|insufficient|not enough|too (?:high|low|many)|error|must be|no longer|closed|expired)/i.test(l)
-            && l.length > 8 && l.length < 300);
-          mflReason = safeStr(hit).slice(0, 240);
-        }
+        const mflReason = ok ? "" : safeStr(complaintLine).slice(0, 240);
         return {
           ok,
           status: resp.status,
