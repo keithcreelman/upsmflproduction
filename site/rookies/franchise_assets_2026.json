@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-07-24T11:23:41.171426+00:00",
+    "generated_at_utc": "2026-07-25T10:55:34.282207+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -451,18 +451,6 @@
     "0002": {
       "players": [
         {
-          "asset_id": "P_15290",
-          "display": "Nico Collins",
-          "player_id": "15290",
-          "position": "WR",
-          "nfl_team": "HOU",
-          "salary": 47000,
-          "contract_year": 2,
-          "contract_status": "Vet-Ext2",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_15753",
           "display": "Garrett Wilson",
           "player_id": "15753",
@@ -471,6 +459,18 @@
           "salary": 44000,
           "contract_year": 1,
           "contract_status": "Vet-Ext2-BL",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15290",
+          "display": "Nico Collins",
+          "player_id": "15290",
+          "position": "WR",
+          "nfl_team": "HOU",
+          "salary": 30000,
+          "contract_year": 2,
+          "contract_status": "Vet-Ext2",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3742,18 +3742,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16161",
-          "display": "Bijan Robinson",
-          "player_id": "16161",
-          "position": "RB",
-          "nfl_team": "ATL",
-          "salary": 35000,
-          "contract_year": 2,
-          "contract_status": "Vet-Ext2",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_15761",
           "display": "Khalil Shakir",
           "player_id": "15761",
@@ -3786,6 +3774,18 @@
           "salary": 15000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16161",
+          "display": "Bijan Robinson",
+          "player_id": "16161",
+          "position": "RB",
+          "nfl_team": "ATL",
+          "salary": 14000,
+          "contract_year": 2,
+          "contract_status": "Vet-Ext2-BL",
           "roster_status": "ROSTER",
           "taxi": false
         },
