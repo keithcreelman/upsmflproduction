@@ -57,9 +57,35 @@
     var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
     if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
     return fetch(url, { mode: "cors", credentials: "omit" })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (data) {
-        state.offers = data || { incoming: [], outgoing: [] };
+      // A failed fetch must NOT read as "you have no offers". The worker returns
+      // 401 when the MFL owner session is missing/expired, and the old code
+      // mapped that to null -> empty arrays, so a signed-out owner was shown a
+      // confident "0 incoming / 0 outgoing" (Keith 2026-07-25: Pure Greatness
+      // couldn't see a real offer from Blake and we spent the morning hunting a
+      // phantom submit bug). Carry the status through and surface it instead.
+      .then(function (r) {
+        return r.json().catch(function () { return null; }).then(function (body) {
+          return { status: r.status, ok: r.ok, body: body };
+        });
+      })
+      .then(function (res) {
+        var body = res.body;
+        var failed = !res.ok || (body && body.ok === false);
+        if (failed) {
+          var isAuth = res.status === 401 || res.status === 403 ||
+            /MFL_USER_ID|owner session|missing_owner_session/i.test(
+              (body && (body.error || body.reason)) || "");
+          state.error = isAuth
+            ? "Signed out of MFL — re-open this from inside the MFL site to see your trade offers."
+            : "Couldn't load trade offers" +
+              ((body && (body.error || body.reason)) ? ": " + (body.error || body.reason) : " (HTTP " + res.status + ")");
+          // Keep whatever we last had rather than asserting an empty inbox.
+          if (!state.offers) state.offers = { incoming: [], outgoing: [] };
+          state.loading = false;
+          return;
+        }
+        state.error = null;
+        state.offers = body || { incoming: [], outgoing: [] };
         state.loading = false;
       })
       .catch(function (err) {
