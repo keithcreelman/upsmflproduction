@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-07-24T12:28:05.453Z",
-    "row_count": 55,
+    "updated_at": "2026-07-25T11:16:10.942Z",
+    "row_count": 56,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -9770,6 +9770,228 @@
       "twb_meta": null,
       "mfl_trade_id": "1126",
       "trade_id": "1126",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1127",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-07-25T11:16:10.942Z",
+      "updated_at": "2026-07-25T11:16:10.942Z",
+      "from_franchise_id": "0002",
+      "to_franchise_id": "0012",
+      "from_franchise_name": "CBP",
+      "to_franchise_name": "Hawks",
+      "message": "I will extend Pearsall 1 or 2 whatever you are looking to do. Any interest in moving RB's?",
+      "comment": "I will extend Pearsall 1 or 2 whatever you are looking to do. Any interest in moving RB's?",
+      "comments": "I will extend Pearsall 1 or 2 whatever you are looking to do. Any interest in moving RB's?",
+      "raw_comment": "I will extend Pearsall 1 or 2 whatever you are looking to do. Any interest in moving RB's?",
+      "will_give_up": "14867,16622",
+      "will_receive": "17068,14800",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 2,
+        "to_asset_count": 2,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-07-25T11:16:09.356Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0002",
+            "franchise_name": "CBP",
+            "selected_assets": [
+              {
+                "asset_id": "player:14867",
+                "type": "PLAYER",
+                "player_id": "14867",
+                "player_name": "Kmet, Cole",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "CHI",
+                "salary": 6000,
+                "years": 1,
+                "contract_type": "Vet-FAA-FL",
+                "contract_info": "CL 3| TCV 27K| AAV 9K| Y1-20, Y2-1, Y3-6| GTD: 20.3K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "player:16622",
+                "type": "PLAYER",
+                "player_id": "16622",
+                "player_name": "Pearsall, Ricky",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "SFO",
+                "salary": 5000,
+                "years": 1,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 5,
+            "selected_non_taxi_salary_dollars": 11000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "selected_assets": [
+              {
+                "asset_id": "player:17068",
+                "type": "PLAYER",
+                "player_id": "17068",
+                "player_name": "Harvey, RJ",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "DEN",
+                "salary": 11000,
+                "years": 2,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3| TCV 33K| AAV 11K| Y1-11K, Y2-11K, Y3-11K, Y4-16K Option| GTD: 24.8K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "player:14800",
+                "type": "PLAYER",
+                "player_id": "14800",
+                "player_name": "Dobbins, J.K.",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "DEN",
+                "salary": 9000,
+                "years": 1,
+                "contract_type": "Vet-FAA",
+                "contract_info": "CL 3| TCV 27K| AAV 9K| Y1-9, Y2-9, Y3-9| GTD: 20.3K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 10,
+            "selected_non_taxi_salary_dollars": 20000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0002",
+          "right_team_id": "0012"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0002",
+            "franchise_name": "CBP",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 133000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 11000,
+            "incoming_dollars": 20000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 9000,
+            "new_salary_dollars": 142000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 5,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -9000,
+            "available_salary_before_dollars": 163000,
+            "available_salary_after_dollars": 154000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 166000,
+            "salary_adjustment_total_dollars": 6500,
+            "outgoing_dollars": 20000,
+            "incoming_dollars": 11000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -9000,
+            "new_salary_dollars": 157000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 10,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 9000,
+            "available_salary_before_dollars": 127500,
+            "available_salary_after_dollars": 136500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "CBP",
+          "right_franchise_name": "Hawks",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 133000,
+              "left_after_dollars": 142000,
+              "left_change_dollars": 9000,
+              "right_before_dollars": 166000,
+              "right_after_dollars": 157000,
+              "right_change_dollars": -9000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 167000,
+              "left_after_dollars": 176000,
+              "left_change_dollars": 9000,
+              "right_before_dollars": 166000,
+              "right_after_dollars": 157000,
+              "right_change_dollars": -9000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 24000,
+              "left_after_dollars": 35000,
+              "left_change_dollars": 11000,
+              "right_before_dollars": 85000,
+              "right_after_dollars": 74000,
+              "right_change_dollars": -11000
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "I will extend Pearsall 1 or 2 whatever you are looking to do. Any interest in moving RB's?"
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1127",
+      "trade_id": "1127",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
