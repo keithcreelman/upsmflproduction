@@ -2448,7 +2448,10 @@ async function recordGifUse(env, scope, url) {
 // channelOverride (default null) forces every post — including the per-lot
 // thread — into one channel. Used ONLY by the ?real=1 test preset so a real
 // end-to-end rehearsal lands in the TEST channel. null = normal routing.
-async function narrateAuctionEvents(env, season, leagueId, queue, channelOverride = null) {
+async function narrateAuctionEvents(env, season, leagueId, queue, channelOverride = null, opts = {}) {
+  // opts.silent — suppress @everyone/user pings. Used by backfills and replays:
+  // re-narrating a lot that has been live for hours must not re-ping the league.
+  const SILENT_NARRATION = !!(opts && opts.silent);
   if (!queue || queue.length === 0) return;
   const botToken = String(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "").trim();
   if (!botToken) {
@@ -3353,7 +3356,10 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
                 discord_channel_id = COALESCE(discord_channel_id, ?),
                 updated_at_utc = datetime('now')
           WHERE lot_id = ?`
-      ).bind(threadId, messageId, postedChannelId, lotId).run();
+      // Empty strings must go in as NULL: COALESCE treats "" as a real value, so
+      // an anchor-only save (thread creation failed) would otherwise pin
+      // discord_thread_id to "" and block the real id from ever landing.
+      ).bind(threadId || null, messageId || null, postedChannelId || null, lotId).run();
     } catch (e) {
       console.log("[auction-narrator] saveLotDiscord failed:", e?.message || e);
     }
@@ -3362,6 +3368,29 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
   // allowedMentions defaults to {parse:[]} — the historic hardcoded value —
   // so any caller that doesn't pass it behaves byte-for-byte as before (no
   // pings at all). Pass a value ONLY to ping deliberately.
+  // Discord rate-limits hard on a burst, and the FAA opens with one — 12 owners
+  // nominating inside the first minute. A 429 used to be logged and dropped: the
+  // nomination post never landed, so there was no message to anchor a thread to,
+  // so EVERY later bid on that lot fell back to the main channel. That is exactly
+  // what happened to the first two lots of the 2026 FAA (McCaffrey + Pickens,
+  // 16:03/16:04 UTC — 12 loose bid messages between them). Honor Retry-After.
+  async function discordFetchWithRetry(url, init, attempts = 3) {
+    let resp = null;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      resp = await fetch(url, init);
+      if (resp.status !== 429) return resp;
+      let waitMs = 1000 * (attempt + 1);
+      try {
+        const hdr = resp.headers.get("retry-after");
+        const j = await resp.clone().json().catch(() => null);
+        const secs = Number((j && j.retry_after) || hdr || 0);
+        if (Number.isFinite(secs) && secs > 0) waitMs = Math.min(5000, Math.ceil(secs * 1000) + 100);
+      } catch (_) { /* fall back to the linear backoff above */ }
+      console.log(`[auction-narrator] Discord 429 — retry ${attempt + 1}/${attempts - 1} in ${waitMs}ms`);
+      if (attempt < attempts - 1) await new Promise((r) => setTimeout(r, waitMs));
+    }
+    return resp;
+  }
   async function postToDiscord(targetChannelId, content, gifUrl, overlayUrl, allowedMentions) {
     const body = { content, allowed_mentions: allowedMentions || { parse: [] } };
     const embeds = [];
@@ -3369,7 +3398,7 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
     if (overlayUrl && overlayUrl !== gifUrl) embeds.push({ image: { url: overlayUrl } });
     // Discord allows up to 10 embeds per message; 2 max here.
     if (embeds.length) body.embeds = embeds;
-    return fetch(
+    return discordFetchWithRetry(
       `https://discord.com/api/v10/channels/${encodeURIComponent(targetChannelId)}/messages`,
       {
         method: "POST",
@@ -3379,7 +3408,7 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
     );
   }
   async function createThreadOnMessage(parentChannelId, messageId, name) {
-    return fetch(
+    return discordFetchWithRetry(
       `https://discord.com/api/v10/channels/${encodeURIComponent(parentChannelId)}/messages/${encodeURIComponent(messageId)}/threads`,
       {
         method: "POST",
@@ -3552,6 +3581,33 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
       const existing = await getLotDiscord(lotId);
       if (existing && existing.discord_thread_id) {
         targetChannelId = String(existing.discord_thread_id);
+      } else if (existing && existing.discord_message_id) {
+        // SELF-HEAL: the nomination posted but its thread never got created
+        // (Discord 429 on the open burst, or a transient failure). Without this
+        // the lot is orphaned for life — every later bid falls back to the main
+        // channel, which is what buried McCaffrey's and Pickens' bids in the
+        // 2026 FAA. Build the thread off the saved anchor message and adopt it.
+        try {
+          const pInfo = pidToInfo[ev.player_id];
+          const nm = pInfo ? flipName(pInfo.name) : `Player ${ev.player_id}`;
+          const meta = pInfo ? [pInfo.position, pInfo.team].filter(Boolean).join(" · ") : "";
+          const tr = await createThreadOnMessage(
+            String(existing.discord_channel_id || channelId),
+            String(existing.discord_message_id),
+            meta ? `Auction · ${nm} (${meta})` : `Auction · ${nm}`
+          );
+          if (tr.ok) {
+            const tj = await tr.json().catch(() => ({}));
+            const tid = String(tj?.id || "");
+            if (tid) {
+              await saveLotDiscord(lotId, tid, String(existing.discord_message_id), String(existing.discord_channel_id || channelId));
+              targetChannelId = tid;
+              console.log(`[auction-narrator] self-healed thread for ${lotId}`);
+            }
+          }
+        } catch (e) {
+          console.log("[auction-narrator] self-heal thread failed:", String(e?.message || e));
+        }
       } else {
         // No thread yet (catch-up narration); post to channel as fallback.
         targetChannelId = channelId;
@@ -3560,7 +3616,9 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
 
     let postedMessageId = "";
     try {
-      const r = await postToDiscord(targetChannelId, content, gifUrl, overlayUrl, msg.allowed_mentions);
+      const mentions = SILENT_NARRATION ? { parse: [] } : msg.allowed_mentions;
+      if (SILENT_NARRATION) content = content.replace(/@everyone\s*—\s*/g, "").replace(/@everyone/g, "the league");
+      const r = await postToDiscord(targetChannelId, content, gifUrl, overlayUrl, mentions);
       if (!r.ok) {
         const body = await r.text().catch(() => "");
         console.log(`[auction-narrator] post failed ${r.status} to ${targetChannelId}: ${body.slice(0, 200)}`);
@@ -3591,9 +3649,13 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
         } else {
           const body = await tr.text().catch(() => "");
           console.log(`[auction-narrator] thread create failed ${tr.status}: ${body.slice(0, 200)}`);
+          // Persist the anchor anyway so the self-heal above can build the
+          // thread on the next event instead of orphaning the lot forever.
+          await saveLotDiscord(lotId, "", postedMessageId, channelId);
         }
       } catch (e) {
         console.log("[auction-narrator] thread create threw:", String(e?.message || e));
+        try { await saveLotDiscord(lotId, "", postedMessageId, channelId); } catch (_) {}
       }
     }
 
@@ -5636,7 +5698,9 @@ export default {
 
         // Run the narrator with the synthesized queue.
         try {
-          await narrateAuctionEvents(env, Number(targetSeason), leagueId, queue);
+          const silent = String(body?.silent ?? url.searchParams.get("silent") ?? "") === "1" ||
+            body?.silent === true;
+          await narrateAuctionEvents(env, Number(targetSeason), leagueId, queue, null, { silent });
           return jsonOut(200, {
             ok: true,
             lot_id,
