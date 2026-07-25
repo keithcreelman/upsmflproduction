@@ -715,9 +715,29 @@ async function processAuctionPoll(env) {
   ]);
 
   const asArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
-  const initTxs = asArr(initRes?.transactions?.transaction);
-  const bidTxs = asArr(bidsRes?.transactions?.transaction);
-  const wonTxs = asArr(winsRes?.transactions?.transaction);
+  // ── July-2026 TEST-auction residue filter ──────────────────────────────
+  // Keith ran a deliberate test auction 7/15–7/17 2026 (18 lots: Burrow, Lamar,
+  // Josh Allen, Barkley, Kamara…). MFL's AUCTION_* transaction log is
+  // append-only and emits no delete event, so those rows come back on EVERY
+  // poll — a plain D1 DELETE is silently re-ingested inside 5 minutes (proven
+  // 2026-07-25). Dropping them at INGEST is the only durable fix: the pids then
+  // fall out of liveTxnPids below and the deleted-transaction purge clears
+  // their D1 lots/bids on its own, so the board/history/finalize all stay clean
+  // and a real re-nomination of those players gets a fresh lot.
+  // The window is bounded on BOTH sides so it can never touch the legitimate
+  // May ERA auction (ends 2026-05-29) or any real FAA activity (opens 7/25
+  // 12:00 ET). Observed: ERA 1779854507–1780065941, test 1784127821–1784305186.
+  const FAA_TEST_RESIDUE_FROM = 1782921600; // 2026-07-01 — after ERA, before the test
+  const FAA_TEST_RESIDUE_TO = 1784995200;   // 2026-07-25 12:00 ET — FAA open
+  const isFaaTestResidue = (tx) => {
+    const ts = Number(tx?.timestamp || 0);
+    return ts >= FAA_TEST_RESIDUE_FROM && ts < FAA_TEST_RESIDUE_TO;
+  };
+  const dropTestResidue = (rows) => rows.filter((tx) => !isFaaTestResidue(tx));
+
+  const initTxs = dropTestResidue(asArr(initRes?.transactions?.transaction));
+  const bidTxs = dropTestResidue(asArr(bidsRes?.transactions?.transaction));
+  const wonTxs = dropTestResidue(asArr(winsRes?.transactions?.transaction));
 
   // Did MFL actually ANSWER? The fetches above catch() into {}, which makes an
   // MFL outage look exactly like a quiet auction — and only one of those may
