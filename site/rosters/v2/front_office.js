@@ -4907,7 +4907,14 @@
     const posFiltered = !!(filters.pos && filters.pos !== "ALL");
     const s = team.summary || {};
     out.posFiltered = posFiltered;
-    out.dropPen   = posFiltered ? 0 : safeInt(s.adj_cut, 0);
+    // Drop penalties round to the nearest $1K by TEAM TOTAL (canon §6) — same
+    // roundToK() the adjustments popup applies at :2647. loadMflSalaryAdjustments
+    // deliberately skips MFL's posted `id:ups_drop_rounding_*` true-up rows (:722)
+    // so they aren't double-counted, which means adj_cut is the RAW un-rounded sum
+    // and this row must re-apply the rounding itself. Without it the summary
+    // disagreed with both the popup and MFL's own cap page by up to ±$500/team
+    // (8 of 12 teams on 2026-07-25, e.g. C-Town $15,500 vs the true $16,000).
+    out.dropPen   = posFiltered ? 0 : roundToK(safeInt(s.adj_cut, 0));
     out.tradeSal  = posFiltered ? 0 : safeInt(s.adj_trade, 0);
     out.otherAdj  = posFiltered ? 0 : safeInt(s.adj_other, 0);
     out.totalCap  = out.totalSalary + out.dropPen + out.tradeSal + out.otherAdj;
