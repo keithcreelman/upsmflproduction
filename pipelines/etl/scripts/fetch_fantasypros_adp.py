@@ -11,7 +11,7 @@ and maps fp-id → mfl_id via the D1 crosswalk.
 Output: docs/auction/data/fpros_adp_history.csv (season, mfl_id, name, pos, fp_pos_rank, fp_id).
 """
 from __future__ import annotations
-import csv, json, re, subprocess, time, urllib.request
+import csv, json, re, subprocess, sys, time, urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
@@ -61,11 +61,32 @@ def main():
                             "pos": pos.upper(), "fp_pos_rank": i, "fp_id": fp})
             print(f"  {year} {pos.upper()}: {len(rows)} players", flush=True)
             time.sleep(0.4)
-    with open(DATA / "fpros_adp_history.csv", "w", newline="") as f:
+    # ── DESTRUCTIVE-WRITE GUARD (added 2026-07-21) ────────────────────────────
+    # This script used to overwrite fpros_adp_history.csv unconditionally. The
+    # FantasyPros ADP pages are now JS-rendered/paywalled and the ROW regex above
+    # matches NOTHING (verified 2026-07-21: 0 rows for every year × position), so a
+    # routine re-run silently replaced 2,000 rows of historical calibration data
+    # with a bare header. A fetcher must never be able to delete history because a
+    # scrape target changed its markup. Refuse to shrink the file by more than
+    # SHRINK_TOL; pass --force to overwrite deliberately.
+    dest = DATA / "fpros_adp_history.csv"
+    SHRINK_TOL = 0.5
+    prior = 0
+    if dest.exists():
+        with open(dest, newline="") as f:
+            prior = max(0, sum(1 for _ in f) - 1)
+    if prior and len(out) < prior * SHRINK_TOL and "--force" not in sys.argv:
+        print(f"\nREFUSING TO WRITE: scrape produced {len(out)} rows but "
+              f"{dest.name} already holds {prior}. The FantasyPros scrape is very "
+              f"likely broken (their ADP pages are JS-rendered/paywalled — see "
+              f"docs/auction/adp_sources_reference.md §2). Existing history left "
+              f"untouched. Re-run with --force only if the shrink is intended.")
+        return 1
+    with open(dest, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["season", "mfl_id", "name", "pos", "fp_pos_rank", "fp_id"])
         w.writeheader(); w.writerows(out)
     matched = sum(1 for r in out if r["mfl_id"])
-    print(f"\nwrote {(DATA / 'fpros_adp_history.csv').relative_to(REPO)} ({len(out)} rows, {matched} matched to mfl_id)")
+    print(f"\nwrote {dest.relative_to(REPO)} ({len(out)} rows, {matched} matched to mfl_id)")
 
     print("\n=== validate (2025 QB ranks) ===")
     for nm in ["Josh Allen", "Lamar Jackson", "Sam Darnold", "Aaron Rodgers", "Joe Flacco", "Geno Smith"]:
@@ -75,7 +96,8 @@ def main():
     for pos in ["QB", "RB", "WR", "TE"]:
         n = sum(1 for x in out if x["season"] == 2026 and x["pos"] == pos)
         print(f"  {pos}: {n} players")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

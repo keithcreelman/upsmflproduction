@@ -1,5 +1,25 @@
 #!/usr/bin/env python3
-"""Phase C — market willingness-to-pay: $ per expected-APW.
+"""DEPRECATED (2026-07-21) — produces an artifact nothing reads. Do not wire this
+into a schedule; either revive it deliberately or delete it with its output.
+
+WHY IT IS FLAGGED: `docs/auction/data/market_rate.json` has ZERO code consumers.
+Verified by repo-wide search — the only references outside this file are prose
+mentions in `analysis_v11_fa_value.md` / `analysis_v12_fa_value.md` under "source
+artifacts". The live FA pricing chain (build_fa_value.py → build_roster_fit.py →
+build_ep_v5_calibration.py) does not read it. The committed market_rate.json is a
+snapshot of a one-off analysis, not a pipeline output; re-running this changes
+nothing downstream.
+
+KEPT RATHER THAN DELETED because the v11/v12 analyses cite the artifact by name —
+the file is evidence for a published writeup. If those analyses are superseded,
+delete this script and docs/auction/data/market_rate.json together.
+
+ALSO: this hits D1 via `wrangler d1 execute --remote` and builds a local /tmp
+SQLite. Read-only against D1, but not free — another reason not to schedule it
+while nothing consumes the result.
+
+── original docstring ───────────────────────────────────────────────────────
+Phase C — market willingness-to-pay: $ per expected-APW.
 
 For every historical FA auction win, look up the winner-season's DYNASTY-SF rank
 for that player → E[APW] p50 from the dynasty curve (Phase B) → $/E[APW]. This is

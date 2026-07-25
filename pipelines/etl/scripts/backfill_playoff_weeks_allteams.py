@@ -24,7 +24,7 @@ DB = os.environ.get(
     "MFL_DB_PATH",
     "/Users/keithcreelman/Documents/mfl/Development/pipelines/etl/data/mfl_database.db",
 )
-APIKEY = os.environ.get("MFL_APIKEY", "aRBv1sCXvuWpx0OmP13EaDoeFbox")
+APIKEY = os.environ.get("MFL_APIKEY", "")
 
 PLAYOFF_WEEKS = {
     **{yr: (14, 15, 16) for yr in range(2010, 2021)},

@@ -1,0 +1,217 @@
+# UPS THREE-VALUE BOARD — every line beginning with '#' is metadata; skip them to parse the CSV.
+# generated: 2026-07-23T07:30:30-04:00   league: L=74598 2026   cap: $300K   viewer: 0008 (Real Deal Creel)
+# rows: 1468  (FA 1147 / rostered 321)
+#
+# ── THE THREE VALUES (they do NOT sum; each answers a different question) ──
+# current_season_value_k = worth for 2026 only. Offense: E[APWE] at the FantasyPros redraft
+#     slot x $6.5/APWE. IDP/K/P: the UPS auction order-statistic ladder (see IDP CAVEAT).
+# ultimate_value_k = dynasty_value_raw_k + contract_surplus_k. NOT a triple sum; option value is
+#     NOT folded in (see option_band) because it would double-count the surplus already priced.
+#     contract_surplus = SUM over t=0..cy-1 of 0.9^t * (ep_equiv_k * DECAY[pos]^t - aav_k)
+#     DECAY = {'QB': 0.95, 'RB': 0.8, 'WR': 0.93, 'TE': 0.93, 'DL': 0.92, 'LB': 0.92, 'DB': 0.92, 'PK': 0.97, 'PN': 0.97}
+#     A free agent's surplus is 0 by construction: an auction win becomes a 1-yr Vet-FAA at the
+#     price paid, so there is no contract edge at the moment of purchase.
+# fa_value_k = expected auction price, auction-eligible (unrostered) rows ONLY; blank if rostered.
+#
+# ── !! THE TWO VALUE COLUMNS ARE ON DIFFERENT DOLLAR SCALES — READ THIS BEFORE COMPARING !! ──
+# current_season_value_k is denominated at $6.5/APWE, which the backtest says runs ~1.6-1.9x
+# HOT vs realized auction dollars. fa_value_k is in realized auction dollars. Comparing them
+# directly makes every player look like a bargain. THAT COMPARISON IS INVALID.
+# current_season_market_k restates the SAME 2026-only value in realized auction dollars, using the
+#   fitted clearing line (2.67 + 0.84*redraft_worth) x M_money. No new constant.
+#   >>> To ask 'is this 2026 price fair?', compare fa_value_k against current_season_market_k. <<<
+#   >>> current_season_value_k is the production measure; it is NOT a dollar you would bid. <<<
+#
+# ── EP MODEL SERVED ──
+# model: v5   ep = round(max(floor, max(affine, dyn_anchor) * M_money))
+# calibration: ep_v5_calibration.json ship_gate=True   lambda=0.47699  R_bar=2.56783
+# gamma=0.0 (sign-guarded=True) -> M_pos is INERT (identically 1.0).
+# elite factor 1.0 enabled=False -> inert.
+# LIVE REGIME: R_now = (sum capspace $1446K - sum reserve $105K) / credible redraft-worth $954K = 1.4057
+# M_money raw = 0.7841  ->  SERVED 0.8000
+# *** M_money IS PINNED TO ITS CLAMP FLOOR 0.8. THE 20% MARKDOWN IS A CHOSEN
+# *** FLOOR, NOT A MEASURED QUANTITY. The fitted model wanted 0.7841; the clamp overrode it.
+# *** The clamp [0.8, 1.6] is a Keith-tunable guardrail, never fitted to data.
+# *** R_now 1.406 is OUTSIDE the fitted range [2.0689, 3.5695]. M_money is an extrapolation.
+#
+# ── BUDGET-CONSTRAINT COHERENCE (the accounting identity, checked at BUILD time) ──
+# PROJECTED SPEND = clamp(deploy_frac 0.714 x available $1446K,  mandatory floor $966K,  available) = $1032K.
+#   deploy_frac is the SF-era mean (spend / pre-auction available; 2022-25 = 0.75/0.64/0.75/0.72).
+#   mandatory floor = 12 x $260K committed (league_context_v1.md:161) - $2154K committed today.
+# PREDICTED CLEARING SET = sum of fa_value over the top-N per bucket (N = this league's historical
+#   mean clears: QB16 RB30 WR28 TE13 | DL20 LB24 DB23 PK12 PN11, total ~176). NOT sum-of-all-rows.
+# CONSTRAINT: predicted clearing set  ==  projected spend.
+#   predicted $1106.8K  /  projected $1032K  =  RATIO 1.072   [band 0.6-1.15]   status=OK
+#   per-bucket predicted-clearing $K: QB:402  RB:274  WR:191  TE:77  DL:44  LB:52  DB:40  PK:15  PN:13
+# BUDGET NORMALIZE = tail: reshaped to the SF-era realized curve (measured from the archive):
+#   $1K-share 49%  top10-share 51%  top25-share 67%
+#   segment scales: top-10 x1.24  ranks 11-25 x0.634  rest x0.426
+#   (before 1.126 -> after 1.072; studs UP to the historical dollar share, tail toward $1K)
+#   Applied to OFFENSE FA prices only; IDP/K/P ladder already clears at realized $ (untouched).
+#
+# ── PER-ARM BINDING COUNTS (FA offense rows) ──
+# credible branch rw>=3 (n=38): floor=9  affine=18  dyn_anchor=11
+# ep>=5-only branch (n=20): floor=3  affine=0  dyn_anchor=17
+# The ep>=5-only branch is POLLUTED for 2026: dynasty_adp_history.csv has no 2026 rows, so it
+# falls back to a KTC board carrying only the top ~396 players. Trust the rw>=3 branch.
+# Union of both branches = 58 credible rows, of which 28 bind on the dynasty anchor.
+# NOTE ON ATTRIBUTION: the arm is recorded AFTER M_money scales the two market arms, so a row
+#   whose scaled market arm drops below the startability floor is credited to 'floor' here even
+#   though it would read 'dyn_anchor' pre-scaling. That accounts for ~2 rows of drift vs a
+#   pre-scaling census. M_money never reorders affine vs dyn_anchor (it scales both equally).
+# dyn_anchor_hit=TRUE on 164 rows: the $75K top-asset anchor is a HAND-PIN
+#   and sits ABOVE 3 of the last 4 season maxima ($66K/$94K/$61K/$56K). Every TRUE row is a judgement call.
+#
+# ── IDP / K / P CAVEAT (READ THIS) ──
+# IDP, K and P are MANDATORY STARTERS (2 DL, 2 LB, 2 DB, 1 D-Flex, 1 K, 1 P) and are NOT on the
+# offense scale. Offense = 3 independent cardinal panels. IDP = ONE source (FantasyPros dynasty-IDP
+# ECR) through a hand-made LINEAR ramp idpVal = 10000 - rank*45. At the offense $/value-unit that
+# ramp claims IDP1 ~= $74K and rank-100 ~= $41K. THE UPS LEAGUE HAS NEVER PAID
+# MORE THAN $15K FOR AN IDP and the median clear is $1-2K. The ramp is off by 10-40x mid-board.
+# THIS BOARD DOES NOT USE THE RAMP. IDP/K/P price off the UPS auction order-statistic ladder:
+# for each bucket, the k-th most expensive clear per season, averaged 2022-25. The raw ramp value
+# is echoed in idp_ramp_value_k so the distortion stays visible.
+# *** For IDP/K/P the VALUE axis and the PRICE axis are THE SAME MEASUREMENT. There is no
+# *** independent value signal, so do NOT read a value-vs-price surplus verdict off those rows.
+# IDP source_count/dispersion mean something DIFFERENT than on offense: they count independent
+#   ORDERINGS (FantasyPros dynasty-IDP ECR vs MFL week-1 league-scoring projection), not cardinal
+#   panels, and dispersion is the $K gap between the price each ordering implies. The two disagree
+#   hard on pass rushers - ECR is an OVERALL IDP list where tackle-volume LBs crowd out DL, so it
+#   ranks Micah Parsons ~9th among DL while MFL scoring has him top-3. A large dispersion here
+#   means the RANKING is contested, not that the dollar is volatile. Order matters more than
+#   price on this shopping list: every rung past ~6 is $1-2K anyway.
+# K and P have NO dynasty source anywhere in the pipeline -> scale_trust=none. In 2024 every
+# single K and P cleared at exactly $1K. Budget $1-2K each and buy them last.
+#   ladder[DL]: n=81 clears  median $1.0K  max $13.0K  top rungs [10.0, 5.0, 3.8, 3.5, 3.0, 2.2]
+#   ladder[LB]: n=97 clears  median $2.0K  max $15.0K  top rungs [7.2, 5.2, 4.0, 3.5, 3.2, 3.0]
+#   ladder[DB]: n=90 clears  median $1.0K  max $9.0K  top rungs [5.5, 4.0, 3.5, 3.2, 2.8, 2.5]
+#   ladder[PK]: n=48 clears  median $1.0K  max $3.0K  top rungs [2.0, 2.0, 1.2, 1.2, 1.2, 1.0]
+#   ladder[PN]: n=44 clears  median $1.0K  max $3.0K  top rungs [2.0, 1.5, 1.2, 1.0, 1.0, 1.0]
+#
+# ── OTHER MODEL CAVEATS ──
+# $/APWE = $6.5 is ~1.6-1.9x hot vs the realized market. It CANCELS out of the price ratio
+#   but it BIASES any value-vs-price verdict, so no verdict column is shipped here.
+# e_apwe_p90 is OMITTED: a p50 tail adjustment in build_eapw_curves.py:92 inflates p50 above p90 on
+#   126 rows, which would be an impossible ceiling. Rather than ship it wrong, it is not shipped.
+# option_band is a LABEL. Extension strikes: Schedule 1 (QB/RB/WR/TE) +$10K/1yr, +$20K/2yr;
+#   Schedule 2 (DL/LB/DB/PK/PN) +$3K/1yr, +$5K/2yr. Tag = max(positional tier, 1.10 x prior AAV).
+#
+# ── TIERS ──
+# Cut where the drop from the player above is >=20% of his value AND >=$1.0K absolute.
+# Computed separately for FA and rostered, so the FA ladder answers 'what is the next BUYABLE body
+# worth?'. Both guards are required: relative-only splits the $1-2K fodder on rounding noise;
+# absolute-only gives every elite QB his own private tier (the gaps up there are $9-16K).
+# unpriced rows: 1 rostered skill player(s) carry no source ranking at all and ship with
+#   every dollar column BLANK (scale_trust=unpriced-no-source) rather than a confident zero.
+#
+# ── TUNABLES (judgement calls, not fits) ──
+# DISC=0.9  MIN_ROSTER=27  TIER_GAP_REL=0.2  TIER_GAP_ABS=1.0
+# IDP_AGE_PIVOT=27.0  IDP_AGE_SLOPE=0.03  TAG_MULT=1.1
+# m_money_clamp=[0.8, 1.6]  m_pos_clamp=[0.85, 1.35]  (both Keith-tunable guardrails)
+# DYN_ANCHOR_K=$75K  POS_DYN_W={'QB': 1.0, 'WR': 0.9, 'TE': 0.9, 'RB': 0.55}  AFFINE=2.67+0.84*rw
+#
+# ── SHOPPING LIST — the positions 0008 MUST fill Saturday ──
+# 0008 currently rosters: QB=1  RB=3  WR=7  TE=3  DL=4  LB=1  DB=0  PK=0  PN=0
+# Starting requirement: 2 DL, 2 LB, 2 DB, 1 D-Flex, 1 K, 1 P (7 defense + K + P of 18 starters).
+# FA rows only, positions DL/LB/DB/PK/PN, sorted by fa_value_k desc within position.
+# Read fa_value_k as the expected clearing price from THIS league's own archive, not a projection.
+# Truncated to the top {'DL': 24, 'LB': 24, 'DB': 24, 'PK': 12, 'PN': 12} per bucket: past those rungs the ladder is flat at the $1K
+# minimum bid, so deeper rows carry no information. The full pool is in three_value_board.csv.
+#
+player,pos,nfl_team,age,status,owner,salary_k,years_remaining,contract_type,aav_k,tcv_k,current_season_value_k,ultimate_value_k,fa_value_k,dynasty_value_raw_k,contract_surplus_k,option_band,ep_arm_bound,dyn_anchor_hit,tier,source_count,dispersion,scale_trust,current_season_market_k,ep_equiv_k,idp_ramp_value_k
+Aidan Hutchinson,DE,DET,26.0,FA,,,,,,,10.0,10.3,10.0,10.3,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T1,2,7.8,idp-linear-1source,10.0,10.0,73.7
+Maxx Crosby,DE,LVR,28.9,FA,,,,,,,5.0,4.7,5.0,4.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T2,2,0.0,idp-linear-1source,5.0,5.0,60.7
+Jalen Carter,DT,PHI,25.3,FA,,,,,,,3.8,3.9,3.8,3.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T2,2,2.8,idp-linear-1source,3.8,3.8,57.7
+Jeffery Simmons,DT,TEN,29.0,FA,,,,,,,3.5,3.3,3.5,3.3,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T2,2,2.5,idp-linear-1source,3.5,3.5,56.7
+Gregory Rousseau,DE,BUF,26.3,FA,,,,,,,3.0,3.1,3.0,3.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T2,2,2.0,idp-linear-1source,3.0,3.0,56.3
+Dexter Lawrence,DT,CIN,28.7,FA,,,,,,,2.2,2.1,2.2,2.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,1.2,idp-linear-1source,2.2,2.2,55.3
+Quinnen Williams,DT,DAL,28.6,FA,,,,,,,1.8,1.7,1.8,1.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.8,idp-linear-1source,1.8,1.8,54.3
+Zach Allen,DT,DEN,28.9,FA,,,,,,,1.8,1.7,1.8,1.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.8,idp-linear-1source,1.8,1.8,52.0
+Micah Parsons,DE,GBP,27.2,FA,,,,,,,1.2,1.2,1.2,1.2,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.2,idp-linear-1source,1.2,1.2,50.4
+DeForest Buckner,DT,IND,32.4,FA,,,,,,,1.2,1.0,1.2,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.2,idp-linear-1source,1.2,1.2,49.7
+Brian Burns,DE,NYG,28.2,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.0,idp-linear-1source,1.0,1.0,48.4
+Nik Bonitto,DE,DEN,26.8,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,2.0,idp-linear-1source,1.0,1.0,48.0
+Calijah Kancey,DT,TBB,25.4,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,1,,idp-linear-1source,1.0,1.0,47.4
+Kobie Turner,DT,LAR,27.2,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.0,idp-linear-1source,1.0,1.0,45.7
+Byron Young,DE,LAR,28.4,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.0,idp-linear-1source,1.0,1.0,42.4
+T.J. Watt,DE,PIT,31.8,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,2.8,idp-linear-1source,1.0,1.0,42.0
+Alex Highsmith,DE,PIT,29.0,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.8,idp-linear-1source,1.0,1.0,40.7
+Montez Sweat,DE,CHI,29.9,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.0,idp-linear-1source,1.0,1.0,40.4
+Josh Hines-Allen,DE,JAC,29.0,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.0,idp-linear-1source,1.0,1.0,40.0
+Jermaine Johnson,DE,TEN,27.5,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.0,idp-linear-1source,1.0,1.0,38.7
+Danielle Hunter,DE,HOU,31.7,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.0,idp-linear-1source,1.0,1.0,38.4
+Chris Jones,DT,KCC,32.1,FA,,,,,,,1.0,0.8,1.0,0.8,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.0,idp-linear-1source,1.0,1.0,37.7
+Derrick Brown,DT,CAR,28.3,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,2,0.0,idp-linear-1source,1.0,1.0,37.4
+Chase Young,DE,NOS,27.3,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DL-T3,1,,idp-linear-1source,1.0,1.0,
+Jordyn Brooks,LB,MIA,28.8,FA,,,,,,,7.2,6.9,7.2,6.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T1,2,3.2,idp-linear-1source,7.2,7.2,72.0
+Foyesade Oluokun,LB,JAC,31.0,FA,,,,,,,5.2,4.6,5.2,4.6,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,3.8,idp-linear-1source,5.2,5.2,71.3
+Nick Bolton,LB,KCC,26.4,FA,,,,,,,4.0,4.1,4.0,4.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,1.8,idp-linear-1source,4.0,4.0,71.0
+Edgerrin Cooper,LB,GBP,24.7,FA,,,,,,,3.5,3.7,3.5,3.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,2.5,idp-linear-1source,3.5,3.5,70.3
+T.J. Edwards,LB,CHI,29.9,FA,,,,,,,3.2,3.0,3.2,3.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,2.2,idp-linear-1source,3.2,3.2,70.0
+Zaire Franklin,LB,GBP,30.1,FA,,,,,,,3.0,2.7,3.0,2.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.8,idp-linear-1source,3.0,3.0,69.7
+Zack Baun,LB,PHI,29.6,FA,,,,,,,2.5,2.3,2.5,2.3,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.8,idp-linear-1source,2.5,2.5,69.3
+Jamien Sherwood,LB,NYJ,26.5,FA,,,,,,,2.2,2.3,2.2,2.3,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.0,idp-linear-1source,2.2,2.2,68.7
+Ernest Jones,LB,SEA,26.7,FA,,,,,,,2.2,2.3,2.2,2.3,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,5.0,idp-linear-1source,2.2,2.2,68.3
+Blake Cashman,LB,MIN,30.2,FA,,,,,,,2.2,2.0,2.2,2.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,1.0,idp-linear-1source,2.2,2.2,68.0
+Nate Landman,LB,LAR,27.7,FA,,,,,,,1.8,1.7,1.8,1.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,1.2,idp-linear-1source,1.8,1.8,67.7
+Tremaine Edmunds,LB,NYG,28.2,FA,,,,,,,1.5,1.4,1.5,1.4,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,2.0,idp-linear-1source,1.5,1.5,67.0
+Nakobe Dean,LB,LVR,25.6,FA,,,,,,,1.5,1.6,1.5,1.6,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.5,idp-linear-1source,1.5,1.5,66.7
+Quincy Williams,LB,CLE,29.9,FA,,,,,,,1.5,1.4,1.5,1.4,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.5,idp-linear-1source,1.5,1.5,66.0
+Dre Greenlaw,LB,SFO,29.2,FA,,,,,,,1.2,1.2,1.2,1.2,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.2,idp-linear-1source,1.2,1.2,65.7
+Azeez Al-Shaair,LB,HOU,29.0,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.0,idp-linear-1source,1.0,1.0,64.7
+DeMarvion Overshown,LB,DAL,25.9,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.0,idp-linear-1source,1.0,1.0,64.0
+Alex Singleton,LB,DEN,32.6,FA,,,,,,,1.0,0.8,1.0,0.8,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.0,idp-linear-1source,1.0,1.0,63.0
+Robert Spillane,LB,NEP,30.6,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.0,idp-linear-1source,1.0,1.0,62.3
+Barrett Carter,LB,CIN,23.7,FA,,,,,,,1.0,1.1,1.0,1.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.0,idp-linear-1source,1.0,1.0,61.3
+Devin Bush,LB,CHI,28.0,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.0,idp-linear-1source,1.0,1.0,59.3
+Demetrius Knight,LB,CIN,26.5,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.0,idp-linear-1source,1.0,1.0,59.0
+Divine Deablo,LB,ATL,27.9,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.0,idp-linear-1source,1.0,1.0,58.7
+Devin Lloyd,LB,CAR,27.8,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,LB-T2,2,0.5,idp-linear-1source,1.0,1.0,52.4
+Kyle Hamilton,S,BAL,25.4,FA,,,,,,,5.5,5.8,5.5,5.8,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T1,2,4.5,idp-linear-1source,5.5,5.5,65.3
+Derwin James,S,LAC,30.0,FA,,,,,,,4.0,3.6,4.0,3.6,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,3.0,idp-linear-1source,4.0,4.0,61.7
+Budda Baker,S,ARI,30.5,FA,,,,,,,3.5,3.1,3.5,3.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,2.0,idp-linear-1source,3.5,3.5,60.0
+Tyler Nubin,S,NYG,25.1,FA,,,,,,,3.2,3.4,3.2,3.4,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,2.2,idp-linear-1source,3.2,3.2,55.7
+Jessie Bates,S,ATL,29.4,FA,,,,,,,2.8,2.6,2.8,2.6,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,1.8,idp-linear-1source,2.8,2.8,55.0
+Nick Cross,S,WAS,24.9,FA,,,,,,,2.5,2.7,2.5,2.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,1.5,idp-linear-1source,2.5,2.5,53.7
+Antoine Winfield,S,TBB,27.9,FA,,,,,,,1.8,1.7,1.8,1.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,0.5,idp-linear-1source,1.8,1.8,52.7
+Josh Metellus,S,MIN,28.5,FA,,,,,,,1.8,1.7,1.8,1.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,0.8,idp-linear-1source,1.8,1.8,49.4
+Malachi Moore,S,NYJ,24.9,FA,,,,,,,1.8,1.9,1.8,1.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,0.8,idp-linear-1source,1.8,1.8,49.0
+Trevon Moehrig,S,CAR,27.1,FA,,,,,,,1.2,1.2,1.2,1.2,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,0.2,idp-linear-1source,1.2,1.2,48.7
+Talanoa Hufanga,S,DEN,26.5,FA,,,,,,,1.2,1.3,1.2,1.3,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,0.2,idp-linear-1source,1.2,1.2,47.0
+Brandon Jones,S,DEN,28.3,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,0.0,idp-linear-1source,1.0,1.0,46.7
+Chamarri Conner,S,KCC,26.0,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,0.0,idp-linear-1source,1.0,1.0,45.4
+Kevin Winston,S,TEN,22.6,FA,,,,,,,1.0,1.1,1.0,1.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,0.0,idp-linear-1source,1.0,1.0,44.4
+Jeremy Chinn,S,LVR,28.4,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,0.0,idp-linear-1source,1.0,1.0,43.4
+Jaquan Brisker,S,PIT,27.3,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,2,0.0,idp-linear-1source,1.0,1.0,39.0
+Kevin Byard,S,NEP,32.9,FA,,,,,,,1.0,0.8,1.0,0.8,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,1,,idp-linear-1source,1.0,1.0,
+Jevon Holland,S,NYG,26.4,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,1,,idp-linear-1source,1.0,1.0,
+Alohi Gilman,S,KCC,28.8,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,1,,idp-linear-1source,1.0,1.0,
+Andrew Mukuba,S,PHI,23.6,FA,,,,,,,1.0,1.1,1.0,1.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,1,,idp-linear-1source,1.0,1.0,
+Minkah Fitzpatrick,S,NYJ,29.7,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,1,,idp-linear-1source,1.0,1.0,
+Kerby Joseph,S,DET,25.7,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,1,,idp-linear-1source,1.0,1.0,
+Theo Jackson,S,MIN,27.8,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,1,,idp-linear-1source,1.0,1.0,
+Coby Bryant,S,CHI,27.3,FA,,,,,,,1.0,1.0,1.0,1.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,DB-T2,1,,idp-linear-1source,1.0,1.0,
+Jake Bates,PK,DET,27.4,FA,,,,,,,2.0,2.0,2.0,2.0,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PK-T1,1,,none,2.0,2.0,
+Harrison Mevis,PK,LAR,24.3,FA,,,,,,,2.0,2.2,2.0,2.2,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PK-T1,1,,none,2.0,2.0,
+Tyler Loop,PK,BAL,25.0,FA,,,,,,,1.2,1.3,1.2,1.3,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PK-T1,1,,none,1.2,1.2,
+Wil Lutz,PK,DEN,32.0,FA,,,,,,,1.2,1.1,1.2,1.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PK-T1,1,,none,1.2,1.2,
+Evan McPherson,PK,CIN,27.0,FA,,,,,,,1.2,1.2,1.2,1.2,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PK-T1,1,,none,1.2,1.2,
+Cairo Santos,PK,CHI,34.7,FA,,,,,,,1.0,0.8,1.0,0.8,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PK-T1,1,,none,1.0,1.0,
+Tyler Bass,PK,BUF,29.4,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PK-T1,1,,none,1.0,1.0,
+Andres Borregales,PK,NEP,24.6,FA,,,,,,,1.0,1.1,1.0,1.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PK-T1,1,,none,1.0,1.0,
+Jason Myers,PK,SEA,35.2,FA,,,,,,,1.0,0.8,1.0,0.8,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PK-T1,1,,none,1.0,1.0,
+Chris Boswell,PK,PIT,35.4,FA,,,,,,,1.0,0.7,1.0,0.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PK-T1,1,,none,1.0,1.0,
+Cam Little,PK,JAC,22.9,FA,,,,,,,1.0,1.1,1.0,1.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PK-T1,1,,none,1.0,1.0,
+Jake Elliott,PK,PHI,31.5,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PK-T1,1,,none,1.0,1.0,
+Michael Dickson,PN,SEA,30.5,FA,,,,,,,2.0,1.8,2.0,1.8,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PN-T1,1,,none,2.0,2.0,
+Austin McNamara,PN,NYJ,25.4,FA,,,,,,,1.5,1.6,1.5,1.6,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PN-T1,1,,none,1.5,1.5,
+Ryan Rehkow,PN,CIN,27.9,FA,,,,,,,1.2,1.2,1.2,1.2,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PN-T1,1,,none,1.2,1.2,
+Tommy Townsend,PN,TEN,29.7,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PN-T1,1,,none,1.0,1.0,
+Logan Cooke,PN,JAC,31.0,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PN-T1,1,,none,1.0,1.0,
+Jeremy Crawshaw,PN,DEN,25.2,FA,,,,,,,1.0,1.1,1.0,1.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PN-T1,1,,none,1.0,1.0,
+Ethan Evans,PN,LAR,25.0,FA,,,,,,,1.0,1.1,1.0,1.1,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PN-T1,1,,none,1.0,1.0,
+Bradley Pinion,PN,MIA,32.1,FA,,,,,,,1.0,0.8,1.0,0.8,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PN-T1,1,,none,1.0,1.0,
+J.K. Scott,PN,LAC,30.7,FA,,,,,,,1.0,0.9,1.0,0.9,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PN-T1,1,,none,1.0,1.0,
+Tress Way,PN,WAS,36.3,FA,,,,,,,1.0,0.7,1.0,0.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PN-T1,1,,none,1.0,1.0,
+Riley Dixon,PN,TBB,32.9,FA,,,,,,,1.0,0.8,1.0,0.8,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PN-T1,1,,none,1.0,1.0,
+Sam Martin,PN,CAR,36.4,FA,,,,,,,1.0,0.7,1.0,0.7,0.0,n/a - auction win = 1yr Vet-FAA at price paid,ups-auction-ladder,FALSE,PN-T1,1,,none,1.0,1.0,

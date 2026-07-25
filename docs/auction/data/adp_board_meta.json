@@ -1,0 +1,173 @@
+{
+  "generated_at": "2026-07-21T17:48:01.785Z",
+  "sources": [
+    "fantasycalc",
+    "keeptradecut",
+    "dynastyprocess",
+    "sleeper",
+    "fantasyfootballcalculator",
+    "mfl_aav"
+  ],
+  "source_config": [
+    {
+      "key": "fc",
+      "label": "FantasyCalc",
+      "role": "value",
+      "panel": "trades",
+      "independent": true,
+      "roster": "sf",
+      "te": "standard",
+      "horizon": "dynasty",
+      "weight": 1,
+      "note": null
+    },
+    {
+      "key": "ktc",
+      "label": "KeepTradeCut",
+      "role": "value",
+      "panel": "crowd",
+      "independent": true,
+      "roster": "sf",
+      "te": "premium",
+      "horizon": "dynasty",
+      "weight": 1,
+      "note": null
+    },
+    {
+      "key": "dp",
+      "label": "DynastyProcess",
+      "role": "value",
+      "panel": "experts",
+      "independent": false,
+      "roster": "sf",
+      "te": "standard",
+      "horizon": "dynasty",
+      "weight": 1,
+      "note": "= FantasyPros dynasty ECR under a fixed exponential curve; one expert panel, not two"
+    },
+    {
+      "key": "ffc",
+      "label": "FFCalculator",
+      "role": "redraft",
+      "panel": "live drafts",
+      "independent": true,
+      "roster": "1qb",
+      "te": "standard",
+      "horizon": "redraft",
+      "weight": 1,
+      "note": null
+    },
+    {
+      "key": "mfl",
+      "label": "MFL native AAV",
+      "role": "reference",
+      "panel": "real auctions",
+      "independent": true,
+      "roster": "mixed",
+      "te": "standard",
+      "horizon": "redraft",
+      "weight": 0,
+      "note": "real auction $, but the 2026 pool is rookie-auction-dominated \u2014 display only, weight 0"
+    },
+    {
+      "key": "slp",
+      "label": "Sleeper",
+      "role": "popularity",
+      "panel": "search traffic",
+      "independent": true,
+      "roster": "n/a",
+      "te": "n/a",
+      "horizon": "n/a",
+      "weight": 0,
+      "note": "search_rank is popularity, NOT valuation \u2014 weight 0, display only"
+    },
+    {
+      "key": "fp",
+      "label": "FantasyPros IDP",
+      "role": "idp",
+      "panel": "experts",
+      "independent": true,
+      "roster": "n/a",
+      "te": "n/a",
+      "horizon": "dynasty",
+      "weight": 1,
+      "note": null
+    }
+  ],
+  "consensus_method": "rank-space: per-source percentile within its own reporting population, TE-premium-bridged for non-TEP sources, weighted-mean percentile mapped onto FantasyCalc's SF dynasty cardinal curve",
+  "te_premium": {
+    "level": "tep",
+    "meaning": "KTC 'TE+' = start 1 TE, ~1.5x WR PPR \u2014 matches UPS TE 1.5 / WR 1.0",
+    "multiplier_te1": 1.107,
+    "multiplier_te24": 1.159
+  },
+  "degeneracy": {
+    "note": "rho(consensus, source-alone). leader must equal expected; if not, one source's scale is driving the board.",
+    "rho_vs_source": {
+      "fc": 0.991,
+      "ktc": 0.9865,
+      "dp": 0.989
+    },
+    "mean_pairwise_agreement": {
+      "fc": 0.9716,
+      "ktc": 0.9619,
+      "dp": 0.9692
+    },
+    "inter_source_rho": {
+      "fc|ktc": 0.9643,
+      "fc|dp": 0.9789,
+      "ktc|fc": 0.9643,
+      "ktc|dp": 0.9595,
+      "dp|fc": 0.9789,
+      "dp|ktc": 0.9595
+    },
+    "leader": "fc",
+    "expected_leader": "fc",
+    "inverted": false,
+    "spread": 0.0045,
+    "max_rho": 0.991,
+    "independent_panels": 3,
+    "value_sources": 3
+  },
+  "tier_check": {
+    "QB": {
+      "tiers": 10,
+      "n": 68,
+      "boundaries": 9,
+      "ktc_aligned": 9,
+      "ktc_agreement": 1
+    },
+    "RB": {
+      "tiers": 13,
+      "n": 108,
+      "boundaries": 12,
+      "ktc_aligned": 11,
+      "ktc_agreement": 0.92
+    },
+    "WR": {
+      "tiers": 17,
+      "n": 157,
+      "boundaries": 16,
+      "ktc_aligned": 11,
+      "ktc_agreement": 0.69
+    },
+    "TE": {
+      "tiers": 11,
+      "n": 65,
+      "boundaries": 9,
+      "ktc_aligned": 8,
+      "ktc_agreement": 0.89
+    },
+    "PICK": {
+      "tiers": 17,
+      "n": 64,
+      "boundaries": 0,
+      "ktc_aligned": 0,
+      "ktc_agreement": null
+    }
+  },
+  "mfl_aav": {
+    "auctions": 800,
+    "players": 799
+  }
+}

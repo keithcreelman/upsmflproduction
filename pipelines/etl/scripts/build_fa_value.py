@@ -83,6 +83,140 @@ def startability_floor(pos, fp_rank):
     return tiers[-1][1]
 
 
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+# BUDGET-CONSTRAINT COHERENCE  (shared by build_three_value_board, build_roster_fit, the backtest)
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+# The board prices every free agent independently. That is correct per-player (the served price is
+# calibrated on realized clears, MAE ~$3.6K), but the SUM of independent prices is NOT bounded by
+# the money that exists. A hard accounting identity DOES bound it: whatever the pool looks like, the
+# 12 teams collectively can only SPEND what they collectively HAVE. This section states that identity
+# so any board can check itself against it at BUILD time.
+#
+# Every number below is MEASURED from THIS league's own 2022-25 FA auctions (transactions_auction in
+# the canon DB), not assumed. See build_ep_v5_calibration.py "budget_constraint" for the regenerator;
+# these are the frozen defaults so build_fa_value has no DB dependency.
+#
+#   • CLEAR COUNT — how many lots actually resolve with a winning bid, per season:
+#         2022:187  2023:163  2024:185  2025:171   → mean 176.5  (tight band 163-187)
+#     Split offense/defense (avg/yr):  OFFENSE 86.5  ·  IDP+K+P 90.0
+#   • SPEND — total FA-auction dollars, per season:  2022:$1048K 2023:$670K 2024:$776K 2025:$798K
+#         → mean $823K.  OFFENSE $659K (80%) · IDP+K+P $164K (20%).
+#   • DEPLOY FRACTION — spend ÷ (reconstructed pre-auction available cap). TWO independent
+#         reconstructions bracket it: week-1-minus-winners gives 0.75/0.64/0.75/0.72 → mean 0.714
+#         (frozen here); build_ep_v5_calibration's fuller capspace reconstruction gives
+#         0.71/0.57/0.68/0.66 → 0.655 (it self-flags as slightly OVERSTATING available, so 0.655 is a
+#         floor). Honest range 0.66-0.71; build_roster_fit historically used 0.76 on a "ceiling
+#         headroom" basis. All three put 2026 projected spend at ~$750-870K and leave the board FAILing.
+#   • CAP FLOOR (league_context_v1.md:161) — every team must have $260K COMMITTED at some point in
+#         the auction. 12×$260K = $3,120K is a MANDATORY commitment floor; the gap to today's
+#         committed cap is a floor on how much MUST be deployed.
+AUCTION_ARCHIVE_YEARS = (2022, 2023, 2024, 2025)
+AUCTION_CLEAR_COUNT = {                       # avg winning lots per season, by position bucket
+    "QB": 16.3, "RB": 29.5, "WR": 27.8, "TE": 13.0,
+    "DL": 20.3, "LB": 24.3, "DB": 22.5, "PK": 12.0, "PN": 11.0}
+AUCTION_BUCKET_SPEND_K = {                    # avg winning $K per season, by position bucket
+    "QB": 171.5, "RB": 245.5, "WR": 181.8, "TE": 60.0,
+    "DL": 43.8, "LB": 52.3, "DB": 40.8, "PK": 14.8, "PN": 12.8}
+AUCTION_SKILL_BUCKETS = ("QB", "RB", "WR", "TE")
+AUCTION_DEPLOY_FRAC = 0.714                   # spend ÷ pre-auction available cap (SF-era mean)
+CAP_FLOOR_PER_TEAM_K = 260                    # league_context_v1.md:161 — committed floor per team
+N_TEAMS = 12
+# Coherence band on the (predicted-clearing-set ÷ projected-spend) ratio. Historical boards land at
+# 0.66-0.97 at M_money=1.0, so a board inside [0.60, 1.15] is normal. OUTSIDE the band is a loud fail:
+# the classic cause is a value-inflated FA pool (e.g. contract-caliber players transiently coded FA
+# before the roster lock), which pushes the ratio well over 1.15.
+COHERENCE_BAND = (0.60, 1.15)
+# A FA priced at or above this is almost never a genuine free agent in a dynasty league — it is the
+# fingerprint of a pre-roster-lock snapshot. Counted and surfaced by the diagnostic.
+CONTRACT_STAR_EP_K = 25
+
+
+def project_auction_spend(available_k, committed_k, deploy_frac=AUCTION_DEPLOY_FRAC):
+    """Projected total FA-auction spend, from the LIVE league state.
+
+    available_k = Σ(cap − committed) across the 12 teams (the biddable ceiling headroom).
+    committed_k = Σ committed cap today (roster salary; taxi $0, IR 50%).
+
+    spend = clamp( deploy_frac · available ,  mandatory_floor ,  available )
+      • deploy_frac·available   — the historical behaviour (~71% of headroom becomes bids),
+      • mandatory_floor         — 12·$260K − committed, the cap-floor rule forces AT LEAST this much
+                                  new commitment during the auction,
+      • available               — you cannot spend more than exists.
+    Returns (spend_k, {parts}) so callers can show the derivation."""
+    mandatory = max(0.0, N_TEAMS * CAP_FLOOR_PER_TEAM_K - committed_k)
+    deploy = deploy_frac * available_k
+    spend = min(available_k, max(deploy, mandatory))
+    return spend, {"deploy_frac": deploy_frac, "deploy_estimate_k": round(deploy),
+                   "mandatory_floor_k": round(mandatory), "available_k": round(available_k),
+                   "committed_k": round(committed_k), "projected_spend_k": round(spend)}
+
+
+def clearing_set_sum(values_by_bucket, clear_count=None):
+    """values_by_bucket = {bucket: [fa_value_k, ...]} (ALL priced FAs in each bucket).
+    Returns (overall_sum, {bucket: sum}) over the top-N_bucket by price — the model's predicted
+    clearing set, where N_bucket is the historical mean clear count for that bucket. This is the
+    ONLY defensible way to sum a shopping board: only ~176 lots clear, so summing all rows (or a
+    naive global top-N that ignores position) is not a quantity the auction can produce."""
+    clear_count = clear_count or AUCTION_CLEAR_COUNT
+    per, total = {}, 0.0
+    for b, vals in values_by_bucket.items():
+        n = int(round(clear_count.get(b, 0)))
+        top = sorted((v for v in vals if v is not None), reverse=True)[:n]
+        per[b] = round(sum(top), 1)
+        total += per[b]
+    return round(total, 1), per
+
+
+def coherence_check(values_by_bucket, projected_spend_k, band=COHERENCE_BAND, clear_count=None):
+    """The first-class budget-constraint check. Compares the predicted clearing-set sum against the
+    money that will actually be spent and returns a structured verdict. status ∈ {OK, WARN, FAIL}."""
+    pred, per = clearing_set_sum(values_by_bucket, clear_count)
+    ratio = round(pred / projected_spend_k, 3) if projected_spend_k else None
+    lo, hi = band
+    status = "OK" if (ratio is not None and lo <= ratio <= hi) else ("FAIL" if ratio is not None else "NODATA")
+    n_stars = sum(1 for vals in values_by_bucket.values() for v in vals
+                  if v is not None and v >= CONTRACT_STAR_EP_K)
+    return {"predicted_clearing_k": pred, "projected_spend_k": round(projected_spend_k),
+            "ratio": ratio, "status": status, "band": list(band),
+            "per_bucket_pred_k": per, "n_contract_star_fa": n_stars,
+            "contract_star_threshold_k": CONTRACT_STAR_EP_K}
+
+
+def budget_scale_factor(items, target_k, lo=0.50, hi=1.0):
+    """OPT-IN normalization. Solve one market-arm scale s so the served clearing set hits target_k.
+    items = [{"floor":, "market":}] (market = max(affine, dyn_anchor), pre-M_money). Bisects s in
+    [lo, hi]; NEVER marks up (hi=1.0) and NEVER below lo, so it can only gently pull an over-budget
+    board down and can never destroy the floor-protected structure. Returns s.
+
+        served(s) = round(max(floor, market · s))   — monotone ↑ in s, floor-preserving.
+
+    Returns hi when the board is already at/under target (no scale-down needed)."""
+    def total(s):
+        return sum(round(max(it["floor"], it["market"] * s)) for it in items)
+    if not items or total(hi) <= target_k:
+        return hi
+    if total(lo) >= target_k:            # even at the floor the set over-consumes — clamp, flag upstream
+        return lo
+    a, b = lo, hi
+    for _ in range(64):
+        m = (a + b) / 2
+        if total(m) > target_k:
+            b = m
+        else:
+            a = m
+    return round((a + b) / 2, 4)
+
+
+def binding_arm(sf_floor, affine_k, dyn_anchor_k):
+    """Which of the three EP arms sets the served price (tie-break: affine > dyn_anchor > floor).
+    Shared with build_ep_v5_calibration.py so the backtest and the pipeline can't disagree."""
+    if affine_k >= dyn_anchor_k and affine_k >= sf_floor:
+        return "affine"
+    if dyn_anchor_k >= sf_floor:
+        return "dyn_anchor"
+    return "floor"
+
+
 def nkey(s):
     s = (s or "").strip().lower()
     if "," in s: a, b = s.split(",", 1); s = b.strip() + " " + a.strip()

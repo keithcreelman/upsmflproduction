@@ -45,9 +45,61 @@ BENCHMARKS = [
 ]
 
 
+def check_degeneracy(problems: list) -> None:
+    """Is the board a real consensus, or one source wearing three hats?
+
+    The worker computes this on every /api/adp-board response. Read it as:
+    `leader` (the source the consensus agrees with most) must equal
+    `expected_leader` (the source that agrees most with the OTHER sources) — a
+    genuine centroid always lands closest to the least-outlying source. Until
+    2026-07-21 it did not: the shipped raw-value average had leader=KTC while
+    expected=FantasyCalc, because KTC's value curve is ~4.6x flatter than
+    DynastyProcess's past rank 100 and so dominated the sum. That inversion IS
+    the degeneracy, and it is the thing this check exists to catch.
+
+    Note the naive test — "rho(consensus, KTC) > 0.985" — does NOT work here.
+    Every source pair already correlates 0.960-0.979, so a 3-source centroid
+    correlates ~0.99 with all three BY CONSTRUCTION. A high rho is normal; the
+    ORDERING of those rhos is the signal.
+    """
+    import json as _json
+    import urllib.request as _ur
+    import os as _os
+    base = _os.environ.get("UPS_WORKER_BASE",
+                           "https://upsmflproduction.keith-creelman.workers.dev").rstrip("/")
+    try:
+        req = _ur.Request(base + "/api/adp-board",
+                          headers={"User-Agent": "ups-adp-regression", "Accept": "application/json"})
+        d = _json.loads(_ur.urlopen(req, timeout=60).read())
+    except Exception as e:
+        print(f"[SKIP] degeneracy check — board fetch failed ({e})")
+        return
+    dg = d.get("degeneracy")
+    if not dg:
+        problems.append("board response carries no `degeneracy` block — the blend "
+                        "must emit one so a regression can never be silent")
+        return
+    status = "FAIL" if dg.get("inverted") else "OK"
+    print(f"[{status}] degeneracy: leader={dg.get('leader')} expected={dg.get('expected_leader')} "
+          f"spread={dg.get('spread')} max_rho={dg.get('max_rho')} "
+          f"panels={dg.get('independent_panels')}/{dg.get('value_sources')}")
+    print(f"        rho vs source: {dg.get('rho_vs_source')}")
+    print(f"        mean pairwise: {dg.get('mean_pairwise_agreement')}")
+    if dg.get("inverted"):
+        problems.append(
+            f"degeneracy INVERTED — consensus is closest to '{dg.get('leader')}', but "
+            f"'{dg.get('expected_leader')}' agrees most with the other sources. One "
+            f"source's value scale is driving the board.")
+    if (dg.get("independent_panels") or 0) < 2:
+        problems.append("fewer than 2 independent panels behind the consensus — "
+                        "the board is effectively single-source")
+
+
 def main() -> int:
     adp = fetch_adp_board()
     problems = []
+    check_degeneracy(problems)
+    print()
     for name, pos, mfl_id, expected, tol, note in BENCHMARKS:
         row = adp.get(mfl_id)
         if row is None:

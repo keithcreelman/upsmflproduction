@@ -141,12 +141,16 @@
     return parts.join(" | ");
   }
   function extensionSalaryToSendFromPreview(contractInfo, contractLength, fallbackFutureAav, fallbackCurrentAav) {
-    var idx = Math.max(0, safeInt(contractLength, 0));
+    // MFL `salary` = the CURRENT-year salary = the Y1 token (the preview schedule
+    // is 1-indexed from the season being played now). Reading yearValues[
+    // contractLength] shipped the LAST/extension-year salary (Hurts: 52K instead
+    // of the live 67K). Prefer Y1; fall back to the current-year AAV, then future.
+    // NEVER anchor to player.salary. (contractLength kept for signature stability.)
     var yearValues = parseContractYearValues(contractInfo);
-    if (idx > 0 && yearValues[idx] > 0) return safeInt(yearValues[idx], 0);
-    var future = safeInt(fallbackFutureAav, 0);
-    if (future > 0) return future;
-    return Math.max(0, safeInt(fallbackCurrentAav, 0));
+    if (yearValues[1] > 0) return safeInt(yearValues[1], 0);
+    var current = safeInt(fallbackCurrentAav, 0);
+    if (current > 0) return current;
+    return Math.max(0, safeInt(fallbackFutureAav, 0));
   }
   function normalizeExtensionPreviewRow(row) {
     var yearsToAdd = safeInt(row && row.yearsToAdd, 0);
@@ -476,7 +480,9 @@
       "|GTD: " + fmtKbare(gtd);
     return {
       optionKey: "ext2-loaded", yearsToAdd: 2, contractLength: 3,
-      salaryToSend: y2, contractStatus: status, contractInfo: contractInfo,
+      // MFL salary = the CURRENT-year (Y1, locked) salary — NOT the first
+      // extension year (y2). Y1 stays at `cur` on a loaded extension.
+      salaryToSend: cur, contractStatus: status, contractInfo: contractInfo,
       tcv: tcv, gtd: gtd, futureAav: futureAav, yrs: [cur, y2, y3], status: status, loaded: true
     };
   }

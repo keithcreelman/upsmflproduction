@@ -8,7 +8,7 @@ import {
   openDmChannel as openDiscordDmChannelForUser,
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours } from "./trade_dm.js";
-import { create3WayTrade, list3WayForFranchise, cancel3WayTrade } from "./trade_3way.js";
+import { create3WayTrade, list3WayForFranchise, cancel3WayTrade, execute3Way } from "./trade_3way.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar } from "./auction_calendar.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
@@ -1343,27 +1343,42 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
               return { ...ctx, penalty: 0, basis: "tag_pre_auction_exempt", exempt: true, exempt_reason: "Tagged player dropped before the FA Auction drop deadline — cap-free (§C8)." };
             }
           }
-          // 2. WW pickup at ≤ $4K → cap-free (§D2 + Bot Grounding appendix).
-          if (/(^|-)WW($|-)/i.test(_s(contractStatus)) && Number(salary) <= 4000) {
-            return { ...ctx, penalty: 0, basis: "ww_under_5k_exempt", exempt: true, exempt_reason: "WW pickup salary ≤ $4K (§D2)." };
+          // 2. WW pickup at ≤ $4K IN ITS FINAL YEAR → cap-free (§D2). A
+          //    MULTI-YEAR WW (yrs_remaining ≥ 2) is NOT exempt — it falls
+          //    through to the sub-$5K TCV rule below, which is a fixed $1K
+          //    (canon §D2 line 472; line 490: the $0 cap-free cut is for
+          //    1-year-original / final-year drops only — a 2-year sub-$5K deal
+          //    can still incur penalty). BUG FIX: this previously fired for ANY
+          //    WW ≤ $4K regardless of years remaining, so a 2-yr-left Vet-WW
+          //    (Tanner McKee: CL 3 / TCV $3K / 2 yr) wrongly showed $0 instead
+          //    of the correct $1K.
+          if (/(^|-)WW($|-)/i.test(_s(contractStatus)) && Number(salary) <= 4000 && ctx.yearsRemaining <= 1) {
+            return { ...ctx, penalty: 0, basis: "ww_under_5k_exempt", exempt: true, exempt_reason: "WW pickup salary ≤ $4K, final year (§D2)." };
           }
           // 3. 1-year original-length contract with TCV ≤ $4K — cap-free (§D2).
           if (ctx.cl === 1 && ctx.tcv > 0 && ctx.tcv <= 4000) {
             return { ...ctx, penalty: 0, basis: "one_year_under_5k_exempt", exempt: true, exempt_reason: "1-year original contract under $5K (§D2)." };
           }
-          // TCV ≤ $4K — sub-5K rule (Keith 2026-05-22, updated canon §D2):
-          //   yrs_remaining ≥ 2 → fixed $1K
-          //   yrs_remaining ≤ 1 → $0 (final-year drop is cap-free, regardless
-          //                            of the standard formula result)
-          // This OVERRIDES the standard guaranteed-minus-earned formula
-          // entirely for sub-$5K TCV contracts. Replaces the prior
-          // pipeline behavior which applied the $1K floor on top of any
-          // positive standard-formula result.
+          // TCV ≤ $4K — sub-5K rule (Keith 2026-05-22 / guarantee mechanics
+          // clarified 2026-07-22). The guarantee on a MULTI-YEAR sub-$5K deal
+          // ACCRUES $1K per year, capped at (CL−1)×$1K — computed AS YOU GO:
+          //   guarantee while in year Y (years_played = Y−1) = min(years_played+1, CL−1) × $1K
+          //   penalty = max(0, guarantee − earned)
+          // Worked (CL 3, $1K/yr):
+          //   yr 1 cut (played 0): g = min(1,2)=1 → $1K; earned $0 → penalty $1K
+          //   yr 2 cut (played 1): g = min(2,2)=2 → $2K; earned $1K → penalty $1K   (Tanner McKee)
+          //   yr 3 cut (played 2): g = min(3,2)=2 → $2K; earned $2K → penalty $0    (final year, cap-free)
+          // Same $1K/$0 penalties as the old fixed rule, but the GUARANTEE is now
+          // logged correctly (progressive, not floor(TCV×0.75)).
           if (ctx.tcv > 0 && ctx.tcv <= 4000) {
-            if (ctx.yearsRemaining >= 2) {
-              return { ...ctx, guaranteed: Math.floor(ctx.tcv * 0.75), penalty: 1000, basis: "tcv_under_5k_fixed_1k", exempt: false, exempt_reason: "" };
+            const capUnits = Math.max(0, (ctx.cl || 1) - 1);
+            const gUnits = Math.max(0, Math.min(ctx.yearsPlayed + 1, capUnits));
+            const subGuar = gUnits * 1000;
+            const subPen = Math.max(0, subGuar - ctx.earned);
+            if (subPen <= 0) {
+              return { ...ctx, guaranteed: subGuar, penalty: 0, basis: "tcv_under_5k_final_year_exempt", exempt: true, exempt_reason: `Sub-5K TCV: earned ($${ctx.earned}) ≥ accrued guarantee ($${subGuar} = min(played+1, CL−1)×$1K) — cap-free (§D2).` };
             }
-            return { ...ctx, guaranteed: Math.floor(ctx.tcv * 0.75), penalty: 0, basis: "tcv_under_5k_final_year_exempt", exempt: true, exempt_reason: "Sub-5K TCV with ≤ 1 year remaining (§D2 — Keith 2026-05-22)." };
+            return { ...ctx, guaranteed: subGuar, penalty: subPen, basis: "tcv_under_5k_guarantee", exempt: false, exempt_reason: "" };
           }
           // Standard formula for TCV > $4K
           const guaranteed = Math.floor(ctx.tcv * 0.75);
@@ -4317,6 +4332,7 @@ export default {
         path !== "/api/auction/bid-history" &&
         path !== "/api/auction/intel" &&
         path !== "/api/auction/fa-value" &&
+        path !== "/api/auction/three-value" &&
         path !== "/api/auction/faa-report" &&
         path !== "/api/auction/draft-intel" &&
         path !== "/api/auction/compliance" &&
@@ -6691,12 +6707,27 @@ export default {
             };
           });
 
+          // Drop pre-auction PHANTOM FA wins. A prior TEST auction left
+          // AUCTION_WON rows in MFL's APPEND-ONLY transaction log, which the
+          // 5-min poller re-ingests every cycle — so a D1 purge never sticks.
+          // These are wins timestamped BEFORE the FA auction opens AND flagged
+          // explicitly non-ERA (is_era_eligible === false). Real FA wins are
+          // always at/after faa_open; real ERA wins carry is_era_eligible=true;
+          // a failed pool lookup yields null and is left untouched (fail-safe).
+          const faaOpenAt = (await getAuctionCalendar(env))?.faa?.faa_open_at || null;
+          const faaOpenUnix = faaOpenAt
+            ? Math.floor(Date.parse(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(faaOpenAt) ? faaOpenAt + ":00-04:00" : faaOpenAt) / 1000)
+            : 0;
+          const served = faaOpenUnix
+            ? enriched.filter((l) => !(l.status === "won" && l.is_era_eligible === false && Number(l.won_at_unix || 0) < faaOpenUnix))
+            : enriched;
+
           return jsonOut(200, {
             season: year,
             league_id: leagueId,
             generated_at: new Date().toISOString(),
             viewer_franchise_id: viewerFid || null,
-            count: enriched.length,
+            count: served.length,
             // Drives the mobile CTA: when off, the board deep-links to MFL (no
             // in-app sheet) — zero-regression default. Flip on in FO to bid in-app.
             inapp_bid_enabled: await getFeatureFlag(env, "AUCTION_INAPP_BID_ENABLED"),
@@ -6705,7 +6736,10 @@ export default {
             // board and a read-only "not running" banner without a reload.
             era_enabled: await getFeatureFlag(env, "AUCTION_ERA_ENABLED"),
             faa_enabled: await getFeatureFlag(env, "AUCTION_FAA_ENABLED"),
-            lots: enriched,
+            // The FA auction's scheduled open (ET) — the hub shows "Scheduled"
+            // instead of "LIVE" before it, and gates the FAA Won count by it.
+            faa_open_at: faaOpenAt,
+            lots: served,
           });
         } catch (e) {
           console.error("[auction/lots] failed:", e);
@@ -6793,6 +6827,30 @@ export default {
           if (!parts.length) return jsonOut(404, { ok: false, error: "faa-report not loaded — run build_faa_report.py --push-d1" });
           const joined = parts.map((r) => r.payload || "").join("");
           let parsed; try { parsed = JSON.parse(joined); } catch (_) { return jsonOut(500, { ok: false, error: "faa-report payload corrupt" }); }
+          return jsonOut(200, { ok: true, updated_at: parts[0].updated_at, ...parsed });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
+      }
+
+      if (path === "/api/auction/three-value" && request.method === "GET") {
+        // Three-Value Board (EP v5) — commish-gated, same inline gate as /api/auction/faa-report.
+        // Carries current_season_value_k / ultimate_value_k / fa_value_k + contract_surplus,
+        // option_band, scale_trust, the served M_money regime markdown, plus the Saturday
+        // shopping list (IDP/K/P must-fills). Stored PART-KEYED (blob > D1's 100KB statement
+        // cap): concatenate payload ORDER BY part, then parse. Built by build_three_value_board.py.
+        { const _cp = await commishSessionProven();
+          if (!_cp.ok) return jsonOut(403, { ...COMMISH_ONLY_403, reason: _cp.reason,
+            message: "Commish-only. Sign in to MFL as the commissioner (session proof) or pass the commish API key." }); }
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        try {
+          const res = await env.UPS_MFL_DB.prepare(
+            "SELECT payload, updated_at FROM ups_auction_three_value ORDER BY part"
+          ).all();
+          const parts = (res && res.results) || [];
+          if (!parts.length) return jsonOut(404, { ok: false, error: "three-value board not loaded — run build_three_value_board.py --push-d1" });
+          const joined = parts.map((r) => r.payload || "").join("");
+          let parsed; try { parsed = JSON.parse(joined); } catch (_) { return jsonOut(500, { ok: false, error: "three-value payload corrupt" }); }
           return jsonOut(200, { ok: true, updated_at: parts[0].updated_at, ...parsed });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e?.message || e) });
@@ -26405,15 +26463,21 @@ export default {
         const gtd = kind === "tag"
           ? Math.round(Math.max(0, resolvedAav) * 0.75)
           : parseContractGuaranteeValue(contractInfo);
-        // Per-year salary list for the AAV display on multi-year contracts.
-        // Keith 2026-05-16: Trey Benson Ext showed "11K AAV" (TCV÷years) but
-        // should show "6K, 16K AAV" — the per-year breakdown. The single
-        // mathematical-average AAV is misleading for loaded contracts; the
-        // comma list matches how the mobile app + roster workbench label it.
-        // Tags stay single-value (always 1 year).
-        const perYearAavDisplay = (kind !== "tag" && summary.pairs.length > 1)
-          ? summary.pairs.map((p) => formatContractK(safeInt(p.salary, 0))).join(", ")
-          : formatContractK(resolvedAav);
+        // AAV display — the contractInfo AAV token VERBATIM when present.
+        // Keith 2026-07-23 (Contract Change Gate, CHANGE_PLAYBOOK §0): the AAV
+        // token is ground truth to PRESERVE, never recompute. Hurts (Vet-Ext1,
+        // Y1-67K, Y2-52K, token "AAV 42K, 52K") rendered "67K, 52K AAV" here
+        // because this joined the Y-SALARY pairs — salaries are NOT the AAV
+        // (canon §C4: escalator applies to extension years only; dual AAV =
+        // "cur, cur+bump" and rolls forward as years are played).
+        // Fallback ONLY when the token is missing: per-year salary join
+        // (Keith 2026-05-16, Trey Benson — better than a misleading TCV÷years
+        // average), else single resolvedAav. Tags stay single-value (1 year).
+        const perYearAavDisplay = rawAavLabel
+          ? rawAavLabel
+          : (kind !== "tag" && summary.pairs.length > 1)
+            ? summary.pairs.map((p) => formatContractK(safeInt(p.salary, 0))).join(", ")
+            : formatContractK(resolvedAav);
         // Restructures show "Remaining Salary Owed" instead of "TCV" (Keith
         // 2026-06-05) — for a restructure the per-year salaries ARE the
         // remaining years, so resolvedTcv (their sum) is exactly what's still
@@ -26796,6 +26860,7 @@ export default {
         yearlyBreakdown,  // e.g. "2026: $26K, 2027: $103K"
         usageText,
         gifUrl,
+        titleOverride,    // e.g. "Contract Extension" — defaults to "Restructure Alert"
       }) => {
         const team = safeStr(franchiseName) || "Unknown Team";
         const player = safeStr(playerName) || "Unknown Player";
@@ -26806,7 +26871,7 @@ export default {
         if (safeStr(guaranteedLabel)) descParts.push(`${safeStr(guaranteedLabel)} Guaranteed`);
         if (safeStr(aavLabel)) descParts.push(`with ${safeStr(aavLabel)} AAV`);
         const embed = {
-          title: "Restructure Alert",
+          title: safeStr(titleOverride) || "Restructure Alert",
           color: 0x103a71,
           description: descParts.join(", "),
           fields: [
@@ -26841,6 +26906,7 @@ export default {
         forceTestOnly,
         forcePrimaryOnly,
         channelIdOverride,
+        titleOverride,
       }) => {
         const botToken = contractDiscordBotToken();
         const overrideChannelId = safeStr(channelIdOverride).replace(/\D/g, "");
@@ -26868,6 +26934,7 @@ export default {
           ? { gif_url: safeStr(gifUrlOverride), query: "override" }
           : await pickContractActivityGifUrl({ activityType: "restructure", playerName });
         const embed = buildRestructureAlertEmbed({
+          titleOverride,
           franchiseName: franchiseName || franchiseMeta.franchise_name,
           franchiseIconUrl: franchiseMeta.icon_url,
           playerName,
@@ -27258,6 +27325,27 @@ export default {
             messageId,
           });
         }
+        // Thread per transaction (Keith 2026-07-23: contract posts must match the
+        // auction + drops convention — discussion/corrections live in-thread and
+        // the channel stays clean). Same best-effort pattern as the drops path:
+        // the announcement stands alone if the thread create fails.
+        let threadId = "";
+        let threadError = "";
+        if (res.ok && messageId) {
+          try {
+            const kindLabel = safeStr(activityType || "Contract")
+              .replace(/[_-]+/g, " ")
+              .replace(/^\w/, (c) => c.toUpperCase());
+            const thrName = `${kindLabel} · ${safeStr(playerName) || "Player"}`.slice(0, 100);
+            const thr = await discordBotRequest(
+              botToken, "POST",
+              `/channels/${encodeURIComponent(target.channelId)}/messages/${encodeURIComponent(messageId)}/threads`,
+              { name: thrName, auto_archive_duration: 4320 }
+            );
+            threadId = safeStr(thr?.data?.id || "");
+            if (!threadId) threadError = safeStr(thr?.text || `HTTP ${thr?.status}`).slice(0, 300);
+          } catch (e) { threadError = safeStr(e?.message || String(e)).slice(0, 300); }
+        }
         return {
           ok: !!res.ok,
           skipped: false,
@@ -27266,6 +27354,8 @@ export default {
           channel_id: safeStr(target.channelId),
           delivery_target: safeStr(target.deliveryTarget || ""),
           message_id: messageId,
+          thread_id: threadId,
+          thread_error: threadError,
           gif_url: safeStr(gif.gif_url || ""),
           gif_query: safeStr(gif.query || ""),
           franchise_icon_url: safeStr(franchiseMeta.icon_url || ""),
@@ -30692,6 +30782,79 @@ export default {
         if (!fid) return jsonOut(400, { ok: false, error: "Missing franchise_id." });
         const rows = await list3WayForFranchise(env, safeStr(L || ""), fid);
         return jsonOut(200, { ok: true, three_way: rows });
+      }
+
+      // Commish inspect — recent 3-way rows of ANY status (incl. failed) with
+      // the failure_reason, so a failed execution is diagnosable without D1
+      // access. The owner-facing list route only returns collecting/executing.
+      if (path === "/admin/3way/inspect" && request.method === "GET") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!commishKey || browserKey !== commishKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        try {
+          const fidQ = padFranchiseId(url.searchParams.get("franchise_id") || "");
+          const idQ = String(url.searchParams.get("id") || "").trim();
+          let q, binds;
+          if (idQ) { q = "SELECT * FROM ups_3way_trades WHERE id = ? LIMIT 1"; binds = [idQ]; }
+          else if (fidQ) { q = "SELECT * FROM ups_3way_trades WHERE initiator_fid=? OR team_b_fid=? OR team_c_fid=? ORDER BY updated_at_utc DESC LIMIT 5"; binds = [fidQ, fidQ, fidQ]; }
+          else { q = "SELECT * FROM ups_3way_trades ORDER BY updated_at_utc DESC LIMIT 5"; binds = []; }
+          const { results } = await env.UPS_MFL_DB.prepare(q).bind(...binds).all();
+          const rows = (results || []).map((r) => ({
+            id: r.id, status: r.status, failure_reason: r.failure_reason,
+            initiator_fid: r.initiator_fid, team_b_fid: r.team_b_fid, team_c_fid: r.team_c_fid,
+            legs_json: r.legs_json, extension_requests_json: r.extension_requests_json,
+            mfl_trade_ids: r.mfl_trade_ids, updated_at_utc: r.updated_at_utc, created_at_utc: r.created_at_utc,
+          }));
+          // Optional: also dump live MFL pendingTrades for the three franchises
+          // (needs the worker's MFL_APIKEY) so a failed extract_trade_id can be
+          // told apart — orphaned-proposal-exists (parsing bug) vs no-proposal
+          // (MFL rejected the propose). Pass &pending=1.
+          let pending = undefined;
+          if (String(url.searchParams.get("pending") || "") === "1" && rows[0]) {
+            const mflKey = String(env.MFL_APIKEY || "").trim();
+            const yr = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+            const lg = String(L || "74598");
+            pending = {};
+            for (const fid of [rows[0].initiator_fid, rows[0].team_b_fid, rows[0].team_c_fid]) {
+              const f = padFranchiseId(fid || "");
+              if (!f) continue;
+              try {
+                const pr = await fetch(`https://www48.myfantasyleague.com/${yr}/export?TYPE=pendingTrades&L=${lg}&FRANCHISE_ID=${f}&APIKEY=${encodeURIComponent(mflKey)}&JSON=1`,
+                  { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
+                pending[f] = { status: pr.status, body: (await pr.text()).slice(0, 1500) };
+              } catch (e) { pending[f] = { error: String(e?.message || e) }; }
+            }
+          }
+          return jsonOut(200, { ok: true, rows, pending });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
+      }
+
+      // Commish RETRY of a failed 3-way — re-run execute3Way from the saved D1
+      // row (legs + extensions preserved), no rebuild. Use after clearing the
+      // MFL commissioner lockout: toggle lockout OFF in MFL → hit this → toggle
+      // it back ON. Only 'failed' rows with NOTHING moved yet are retryable —
+      // a PARTIAL failure (some legs landed) needs manual reconciliation, so it
+      // is refused here to avoid double-executing a landed leg.
+      if (path === "/admin/3way/retry" && request.method === "POST") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!commishKey || browserKey !== commishKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        let body = null;
+        try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
+        const id = safeStr(body?.id);
+        if (!id) return jsonOut(400, { ok: false, error: "Missing id." });
+        const rowNow = await env.UPS_MFL_DB.prepare("SELECT status, failure_reason, mfl_trade_ids FROM ups_3way_trades WHERE id=?").bind(id).first();
+        if (!rowNow) return jsonOut(404, { ok: false, error: "3-way not found." });
+        if (safeStr(rowNow.status) !== "failed") return jsonOut(400, { ok: false, error: `Not retryable — status is '${safeStr(rowNow.status)}', expected 'failed'.` });
+        if (safeStr(rowNow.mfl_trade_ids)) return jsonOut(409, { ok: false, error: `PARTIAL — some legs already landed (${safeStr(rowNow.mfl_trade_ids)}). Manual reconciliation needed; not auto-retrying to avoid double execution.` });
+        // Flip back to 'executing' so execute3Way (which no-ops unless executing) runs.
+        await env.UPS_MFL_DB.prepare("UPDATE ups_3way_trades SET status='executing', failure_reason=NULL, updated_at_utc=? WHERE id=?").bind(new Date().toISOString(), id).run();
+        const out = await execute3Way(env, id);
+        return jsonOut(out && out.ok ? 200 : 400, { ok: !!(out && out.ok), result: out });
       }
 
       // Cancel a pending 3-way (initiator only).
@@ -34802,6 +34965,117 @@ export default {
       // }
       // Posts a <salaries>... XML to MFL's TYPE=salaries import endpoint.
       // Requires commissioner auth via MFL_COOKIE secret.
+      // Commish correction for the D1 src_contracts snapshot (what the Contract
+      // History modal reads). src_contracts is a BATCH-synced mirror of MFL and
+      // has no live writer, so a fix made in MFL (e.g. a corrected contract_year
+      // after an extension) doesn't reach it until the next sync. This lets a
+      // commish patch specific fields for a player+season now. Only the whitelisted
+      // contract columns; UPDATE only (never inserts a phantom season row).
+      // Commish correction for a ups_extension_submissions row (the Ledger source).
+      // The 3-way pre-trade-extension backfill can only write the NEW state; this
+      // patches the PRIOR side + any field so the ledger renders "prior → new"
+      // like a normal extension. UPDATE-only, whitelisted columns, target by id
+      // or (player_id, season, source). Commish-gated.
+      if (path === "/admin/fix-extension-submission" && request.method === "POST") {
+        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        // Prior-side AAV backfill column — the 0034 schema only shipped
+        // new_aav; the Ledger now shows AAV on BOTH legs, so a commish may need
+        // to correct the pre-extension AAV too (e.g. a backloaded prior deal
+        // whose year-1 salary misrepresents the true TCV/CL average). Defensive
+        // ADD COLUMN (own try/catch — "duplicate column" is expected once added).
+        try { await env.UPS_MFL_DB.prepare("ALTER TABLE ups_extension_submissions ADD COLUMN prior_aav INTEGER").run(); } catch (_) {}
+        let eb = {};
+        try { eb = (await request.json()) || {}; } catch (_) { eb = {}; }
+        // franchise_id: a 3-way pre-trade extension is credited to the team that
+        // APPLIED it (RULE-EXT-003 — the trading-away team extends), which is not
+        // necessarily the franchise the player lands on. prior_aav/new_aav: true
+        // averaged AAV (TCV/CL), independent of the loaded year-1 salary.
+        const COLS = ["franchise_id",
+                      "prior_contract_status", "prior_salary", "prior_contract_year", "prior_contract_info", "prior_aav",
+                      "new_contract_status", "new_salary", "new_contract_year", "new_contract_info",
+                      "extension_term_years", "new_tcv", "new_aav", "new_gtd"];
+        const fields = eb?.fields && typeof eb.fields === "object" ? eb.fields : {};
+        const setCols = [], binds = [];
+        for (const c of COLS) { if (Object.prototype.hasOwnProperty.call(fields, c)) { setCols.push(`${c} = ?`); binds.push(fields[c]); } }
+        if (!setCols.length) return jsonOut(400, { ok: false, error: "fields{} with at least one whitelisted column required" });
+        let where = "", wbinds = [];
+        if (eb?.id != null) { where = "id = ?"; wbinds = [safeInt(eb.id, 0)]; }
+        else if (eb?.player_id && eb?.season) { where = "player_id = ? AND season = ?" + (eb?.source ? " AND source = ?" : ""); wbinds = eb?.source ? [safeStr(eb.player_id), safeStr(eb.season), safeStr(eb.source)] : [safeStr(eb.player_id), safeStr(eb.season)]; }
+        else return jsonOut(400, { ok: false, error: "target by id, or (player_id + season [+ source])" });
+        const SEL = "SELECT id, player_name, franchise_id, prior_contract_status, prior_salary, prior_contract_year, prior_aav, new_contract_status, new_contract_year, new_tcv, new_aav FROM ups_extension_submissions WHERE " + where;
+        const before = await env.UPS_MFL_DB.prepare(SEL).bind(...wbinds).all();
+        if (!before.results || !before.results.length) return jsonOut(404, { ok: false, error: "no matching row" });
+        if (eb?.dry_run) return jsonOut(200, { ok: true, dry_run: true, would_set: fields, matched: before.results });
+        await env.UPS_MFL_DB.prepare(`UPDATE ups_extension_submissions SET ${setCols.join(", ")} WHERE ${where}`).bind(...binds, ...wbinds).run();
+        const after = await env.UPS_MFL_DB.prepare(SEL).bind(...wbinds).all();
+        return jsonOut(200, { ok: true, before: before.results, after: after.results });
+      }
+
+      if (path === "/admin/fix-restructure-submission" && request.method === "POST") {
+        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        // Mirror of /admin/fix-extension-submission for ups_restructure_submissions.
+        // The restructure ledger shipped with an INSERT-or-SKIP ingest and no UPDATE
+        // path, so corrected AAV / suffix / Restructured-token values could never be
+        // synced back into the log. Whitelisted UPDATE by id (or player_id+season).
+        // NOTE: new_aav is stored in RAW DOLLARS in this table (43000 = 43K).
+        let rb = {};
+        try { rb = (await request.json()) || {}; } catch (_) { rb = {}; }
+        const COLS = ["franchise_id",
+                      "prior_contract_status", "prior_salary", "prior_contract_year", "prior_contract_info",
+                      "new_contract_status", "new_salary", "new_contract_year", "new_contract_info",
+                      "new_aav", "tcv_usd"];
+        const fields = rb?.fields && typeof rb.fields === "object" ? rb.fields : {};
+        const setCols = [], binds = [];
+        for (const c of COLS) { if (Object.prototype.hasOwnProperty.call(fields, c)) { setCols.push(`${c} = ?`); binds.push(fields[c]); } }
+        if (!setCols.length) return jsonOut(400, { ok: false, error: "fields{} with at least one whitelisted column required" });
+        let where = "", wbinds = [];
+        if (rb?.id != null) { where = "id = ?"; wbinds = [safeInt(rb.id, 0)]; }
+        else if (rb?.player_id && rb?.season) { where = "player_id = ? AND season = ?" + (rb?.source ? " AND source = ?" : ""); wbinds = rb?.source ? [safeStr(rb.player_id), safeStr(rb.season), safeStr(rb.source)] : [safeStr(rb.player_id), safeStr(rb.season)]; }
+        else return jsonOut(400, { ok: false, error: "target by id, or (player_id + season [+ source])" });
+        const SEL = "SELECT id, player_name, franchise_id, new_contract_status, new_salary, new_contract_year, new_contract_info, new_aav, tcv_usd FROM ups_restructure_submissions WHERE " + where;
+        const before = await env.UPS_MFL_DB.prepare(SEL).bind(...wbinds).all();
+        if (!before.results || !before.results.length) return jsonOut(404, { ok: false, error: "no matching row" });
+        if (rb?.dry_run) return jsonOut(200, { ok: true, dry_run: true, would_set: fields, matched: before.results });
+        await env.UPS_MFL_DB.prepare(`UPDATE ups_restructure_submissions SET ${setCols.join(", ")} WHERE ${where}`).bind(...binds, ...wbinds).run();
+        const after = await env.UPS_MFL_DB.prepare(SEL).bind(...wbinds).all();
+        return jsonOut(200, { ok: true, before: before.results, after: after.results });
+      }
+
+      if (path === "/admin/fix-src-contract" && request.method === "POST") {
+        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        let b = {};
+        try { b = (await request.json()) || {}; } catch (_) { b = {}; }
+        const rowsIn = Array.isArray(b?.rows) ? b.rows : [];
+        if (!rowsIn.length) return jsonOut(400, { ok: false, error: "rows[] required (each { player_id, season, ...fields })" });
+        const COLS = ["contract_status", "contract_length", "contract_year", "tcv", "aav", "contract_info", "extension_flag"];
+        const dry = !!b?.dry_run;
+        const out = [];
+        for (const r of rowsIn) {
+          const pid = safeStr(r?.player_id || r?.id);
+          const season = safeStr(r?.season);
+          if (!pid || !season) { out.push({ error: "missing player_id/season", row: r }); continue; }
+          const before = await env.UPS_MFL_DB.prepare(
+            "SELECT contract_status, contract_length, contract_year, tcv, aav, contract_info FROM src_contracts WHERE player_id = ? AND season = ?"
+          ).bind(pid, season).first();
+          if (!before) { out.push({ player_id: pid, season, error: "no src_contracts row (UPDATE-only, refusing to insert)" }); continue; }
+          const setCols = [], binds = [];
+          for (const c of COLS) { if (Object.prototype.hasOwnProperty.call(r, c)) { setCols.push(`${c} = ?`); binds.push(r[c]); } }
+          if (!setCols.length) { out.push({ player_id: pid, season, error: "no whitelisted fields to update", before }); continue; }
+          if (!dry) {
+            binds.push(pid, season);
+            await env.UPS_MFL_DB.prepare(`UPDATE src_contracts SET ${setCols.join(", ")} WHERE player_id = ? AND season = ?`).bind(...binds).run();
+          }
+          const after = dry ? null : await env.UPS_MFL_DB.prepare(
+            "SELECT contract_status, contract_length, contract_year, tcv, aav, contract_info FROM src_contracts WHERE player_id = ? AND season = ?"
+          ).bind(pid, season).first();
+          out.push({ player_id: pid, season, before, after, updated: setCols.map((s) => s.split(" ")[0]) });
+        }
+        return jsonOut(200, { ok: true, dry_run: dry, results: out });
+      }
+
       if (path === "/admin/import-salaries" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
@@ -35738,6 +36012,23 @@ export default {
       //                   || env.DISCORD_CONTRACT_TEST_CHANNEL_ID
       //                   || env.DISCORD_BUG_TEST_CHANNEL_ID
       //   target="prod" → env.DISCORD_DROPS_CHANNEL_ID || 1059111651846131833
+      // Commish inspect — recent drop events (id, name, season, penalty, posted
+      // message id) so a correction can target the exact row.
+      if (path === "/admin/drops/inspect" && request.method === "GET") {
+        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { ok: false, error: "D1 not bound" });
+        try {
+          const nameQ = safeStr(url.searchParams.get("player_name") || "").trim();
+          const lim = Math.max(1, Math.min(30, safeInt(url.searchParams.get("limit"), 12)));
+          const q = nameQ
+            ? "SELECT id, season, league_id, player_name, franchise_name, pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year, pre_drop_contract_length, pre_drop_tcv, pre_drop_contract_info, penalty_amount, penalty_exempt, penalty_basis, discord_posted, discord_message_id, discord_channel_id, dropped_at_iso FROM ups_drop_events WHERE player_name LIKE ? ORDER BY dropped_at_unix DESC LIMIT ?"
+            : "SELECT id, season, league_id, player_name, franchise_name, pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year, pre_drop_contract_length, pre_drop_tcv, pre_drop_contract_info, penalty_amount, penalty_exempt, penalty_basis, discord_posted, discord_message_id, discord_channel_id, dropped_at_iso FROM ups_drop_events ORDER BY dropped_at_unix DESC LIMIT ?";
+          const stmt = nameQ ? env.UPS_MFL_DB.prepare(q).bind(`%${nameQ}%`, lim) : env.UPS_MFL_DB.prepare(q).bind(lim);
+          const { results } = await stmt.all();
+          return jsonOut(200, { ok: true, rows: results || [] });
+        } catch (e) { return jsonOut(500, { ok: false, error: String(e?.message || e) }); }
+      }
+
       if (path === "/admin/drops/post-discord" && request.method === "POST") {
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
@@ -35755,7 +36046,13 @@ export default {
         // discord_posted. Used to fix already-posted drops after a display bug.
         const repostIds = Array.isArray(body?.repost_ids)
           ? body.repost_ids.map((x) => safeInt(x, 0)).filter(Boolean) : [];
-        const corrected = repostIds.length > 0 || !!body?.corrected;
+        // recompute: re-run _computeDropPenalty on the row's stored pre-drop
+        // contract fields (fixes rows recorded under an old buggy penalty calc,
+        // e.g. the multi-year sub-$4K WW that wrongly stored $0). player_name
+        // lets a repost target a drop by name when the event id isn't handy.
+        const recompute = !!body?.recompute;
+        const playerNameFilter = safeStr(body?.player_name || "").trim();
+        const corrected = repostIds.length > 0 || !!playerNameFilter || !!body?.corrected;
         if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
 
@@ -35911,6 +36208,12 @@ export default {
                 WHERE id IN (${repostIds.map(() => "?").join(",")})
                 ORDER BY dropped_at_unix ASC`
             ).bind(...repostIds).all()
+          : playerNameFilter
+          ? await env.UPS_MFL_DB.prepare(
+              `SELECT ${dropCols} FROM ups_drop_events
+                WHERE season = ? AND league_id = ? AND player_name LIKE ?
+                ORDER BY dropped_at_unix DESC LIMIT ?`
+            ).bind(targetSeason, leagueId, `%${playerNameFilter}%`, limit).all()
           : await env.UPS_MFL_DB.prepare(
               `SELECT ${dropCols} FROM ups_drop_events
                 WHERE season = ? AND league_id = ? AND discord_posted = 0
@@ -35923,6 +36226,30 @@ export default {
 
         const results = [];
         for (const r of rows) {
+          // recompute the penalty from stored pre-drop contract fields using the
+          // CURRENT calc, and persist the correction, before building the embed.
+          if (recompute) {
+            try {
+              const rc = _computeDropPenalty({
+                contractStatus: r.pre_drop_contract_status,
+                salary: r.pre_drop_salary,
+                contractInfo: r.pre_drop_contract_info,
+                contractYear: r.pre_drop_contract_year,
+                isTaxi: Number(r.pre_drop_taxi) === 1,
+              }, { season: targetSeason, dropDateIso: r.dropped_at_iso });
+              r.penalty_amount = Number(rc.penalty) || 0;
+              r.penalty_exempt = rc.exempt ? 1 : 0;
+              r.penalty_exempt_reason = safeStr(rc.exempt_reason);
+              r.penalty_basis = safeStr(rc.basis);
+              r.guaranteed_amount = Number(rc.guaranteed) || Number(r.guaranteed_amount) || 0;
+              r.earned_to_date = Number(rc.earned) != null ? (Number(rc.earned) || 0) : (Number(r.earned_to_date) || 0);
+              if (!dryRun) {
+                await env.UPS_MFL_DB.prepare(
+                  `UPDATE ups_drop_events SET penalty_amount=?, penalty_exempt=?, penalty_exempt_reason=?, penalty_basis=?, guaranteed_amount=? WHERE id=?`
+                ).bind(r.penalty_amount, r.penalty_exempt, r.penalty_exempt_reason, r.penalty_basis, r.guaranteed_amount, r.id).run();
+              }
+            } catch (e) { console.error(`[drops recompute] id=${r.id}: ${e?.message || e}`); }
+          }
           const penalty = Number(r.penalty_amount) || 0;
           const exempt = Number(r.penalty_exempt) === 1;
           const tier = exempt ? null : pickTier(penalty);
@@ -36331,6 +36658,52 @@ export default {
         }
         await _markDeadlineLockFired(env.UPS_MFL_DB, rSeason, rLeague, "drop_rounding_reconciliation", JSON.stringify({ posted: rowsToPost.length }));
         return jsonOut(200, { ok: true, season: rSeason, league_id: rLeague, posted: rowsToPost.length, rows: rowsToPost, franchises });
+      }
+
+      // Commish: post arbitrary salary adjustments to MFL (ADDITIVE — MFL's
+      // salaryAdj import ADDS the posted rows to existing ones, so we post ONLY
+      // the new rows and never touch the other 42). Used to settle a 3-way's
+      // traded cap the same way a normal 2-party trade does (the 3-way engine
+      // wrongly moved it as blind-bid dollars instead of a salary settlement).
+      // Requires the commish MFL_COOKIE (salaryAdj import is cookie-gated).
+      if (path === "/admin/add-salary-adjustment" && request.method === "POST") {
+        if (!!commishApiKey && !sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        let asBody = {};
+        try { asBody = (await request.json()) || {}; } catch (_) { asBody = {}; }
+        const asSeason = safeStr(asBody?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const asLeague = safeStr(asBody?.league_id || url.searchParams.get("L") || L || "74598");
+        const asRows = Array.isArray(asBody?.rows) ? asBody.rows : [];
+        const asDry = !!asBody?.dry_run;
+        if (!asRows.length) return jsonOut(400, { ok: false, error: "rows[] required (each { franchise_id, amount (dollars, +/-), explanation })" });
+        const clean = [];
+        for (const r of asRows) {
+          const fid = padFranchiseId(r?.franchise_id);
+          const amt = safeInt(r?.amount, 0);
+          if (!fid || !amt) { clean.push({ error: "missing franchise_id/amount", row: r }); continue; }
+          clean.push({ franchise_id: fid, amount: amt, explanation: safeStr(r?.explanation || "") });
+        }
+        const postable = clean.filter((r) => !r.error);
+        const dataXml = buildSalaryAdjXml(postable);
+        if (!dataXml) return jsonOut(400, { ok: false, error: "no valid rows", rows: clean });
+        if (asDry) return jsonOut(200, { ok: true, dry_run: true, would_post: postable, data_xml: dataXml });
+        const mflCookie = String(env.MFL_COOKIE || "").trim();
+        if (!mflCookie) return jsonOut(403, { ok: false, error: "MFL_COOKIE missing (salaryAdj import is cookie-gated)." });
+        const asCookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+        const asImportUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(asSeason)}/import`;
+        const asImportBody = new URLSearchParams({ TYPE: "salaryAdj", L: asLeague, DATA: dataXml }).toString();
+        let asRes;
+        try {
+          const ir = await fetch(asImportUrl, {
+            method: "POST",
+            headers: { Cookie: asCookieHeader, "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)", "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body: asImportBody, redirect: "manual", cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          asRes = { ok: ir.status >= 200 && ir.status < 400, status: ir.status, preview: String(await ir.text().catch(() => "")).slice(0, 300) };
+        } catch (e) { asRes = { ok: false, status: 0, preview: "", error: "fetch_failed: " + (e && e.message) }; }
+        // Verify against the post-import export.
+        const asVerify = await mflExportJson(asSeason, asLeague, "salaryAdjustments", {}, { useCookie: true });
+        const asVerifyRows = asVerify.ok ? collectSalaryAdjustmentExportRows(asVerify.data?.salaryAdjustments || asVerify.data?.salaryadjustments || asVerify.data || {}) : [];
+        return jsonOut(asRes.ok ? 200 : 502, { ok: asRes.ok, import: asRes, posted: postable, total_adjustments_now: asVerifyRows.length });
       }
 
       if (path === "/admin/drops/post-mfl" && request.method === "POST") {
@@ -38568,6 +38941,7 @@ export default {
           aavLabel: body.aav_label,
           yearlyBreakdown: body.yearly_breakdown,
           usageText: body.usage_text,
+          titleOverride: body.title_override,
           gifUrlOverride: body.gif_url_override,
           forceTestOnly: isTest,
           forcePrimaryOnly: !isTest,
@@ -38844,11 +39218,15 @@ export default {
           franchise_id: safeStr(r.franchise_id), source: safeStr(r.source), submitted_at_utc: safeStr(r.submitted_at_utc),
           prior: prior, new: newer,
         });
+        // prior_aav is a late-added column (see /admin/fix-extension-submission);
+        // own try/catch so a "duplicate column" on already-migrated DBs never
+        // aborts the SELECT below.
+        try { await env.UPS_MFL_DB.prepare("ALTER TABLE ups_extension_submissions ADD COLUMN prior_aav INTEGER").run(); } catch (_) {}
         try {
           const ext = await env.UPS_MFL_DB.prepare(
             `SELECT id, player_id, player_name, position, franchise_id, source, submitted_at_utc,
-                    prior_contract_status, prior_salary, prior_contract_year, prior_contract_info,
-                    new_contract_status, new_salary, new_contract_year, new_contract_info
+                    prior_contract_status, prior_salary, prior_contract_year, prior_contract_info, prior_aav,
+                    new_contract_status, new_salary, new_contract_year, new_contract_info, new_aav
                FROM ups_extension_submissions WHERE season = ? AND COALESCE(dry_run,0) = 0`
           ).bind(csSeason).all();
           for (const r of (ext.results || [])) {
@@ -38856,8 +39234,10 @@ export default {
               kind: /myac/i.test(safeStr(r.source)) ? "myac" : "extension",
               player_id: safeStr(r.player_id), player_name: safeStr(r.player_name), position: safeStr(r.position),
               franchise_id: safeStr(r.franchise_id), source: safeStr(r.source), submitted_at_utc: safeStr(r.submitted_at_utc),
-              prior: { contract_status: r.prior_contract_status, salary: r.prior_salary, contract_year: r.prior_contract_year, contract_info: r.prior_contract_info },
-              new: { contract_status: r.new_contract_status, salary: r.new_salary, contract_year: r.new_contract_year, contract_info: r.new_contract_info },
+              // aav = true averaged AAV (TCV/CL). Ledger prefers it over the
+              // loaded year-1 salary so backloaded/frontloaded deals read right.
+              prior: { contract_status: r.prior_contract_status, salary: r.prior_salary, contract_year: r.prior_contract_year, contract_info: r.prior_contract_info, aav: r.prior_aav },
+              new: { contract_status: r.new_contract_status, salary: r.new_salary, contract_year: r.new_contract_year, contract_info: r.new_contract_info, aav: r.new_aav },
               revertable: r.prior_contract_status != null || r.prior_salary != null || r.prior_contract_year != null };
             out.push(o);
           }

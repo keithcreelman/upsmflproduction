@@ -339,9 +339,25 @@
     var currentSalary = Math.max(1000, roundToNearestK(asset.salary));
     if (currentSalary <= 0) return [];
 
+    // Escalator base = the contract's TRUE AAV (TCV ÷ CL), NOT the loaded
+    // current-year salary. This is the PR #780 fix — it shipped in the shared
+    // site/shared/pretrade_extension.js but this desktop duplicate never got it,
+    // so a back-loaded deal escalated off its high loaded year. Drake London
+    // (TCV 66K / CL 2 = $33K true AAV, loaded $52K current year): a +1yr
+    // extension is 33+10 = $43K, NOT the wrong 52+10 = $62K. The current YEARS
+    // still carry currentSalary; only the extension years use aavBase+raise.
+    var extSummary = parseContractInfoSummary(asset && asset.contract_info);
+    var extCl = safeInt(asset && asset.contract_length, 0) || safeInt(extSummary.contract_length, 0) || Math.max(1, currentYears);
+    var extTcv = 0;
+    var extYByYear = (extSummary && extSummary.y_by_year_dollars) || {};
+    for (var _yk in extYByYear) {
+      if (Object.prototype.hasOwnProperty.call(extYByYear, _yk)) extTcv += safeInt(extYByYear[_yk], 0);
+    }
+    var aavBase = (extCl > 0 && extTcv > 0) ? roundToNearestK(extTcv / extCl) : currentSalary;
+
     var out = [];
     for (var yearsToAdd = 1; yearsToAdd <= 2; yearsToAdd += 1) {
-      var futureSalary = Math.max(1000, roundToNearestK(currentSalary + tradeExtensionRaiseForAsset(asset, yearsToAdd)));
+      var futureSalary = Math.max(1000, roundToNearestK(aavBase + tradeExtensionRaiseForAsset(asset, yearsToAdd)));
       var totalLength = currentYears + yearsToAdd;
       var yearParts = [];
       for (var yearIdx = 1; yearIdx <= totalLength; yearIdx += 1) {

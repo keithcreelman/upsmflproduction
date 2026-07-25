@@ -390,6 +390,16 @@
       return parseContractMoneyToken(m ? m[0] : "");
     }).filter(function (a) { return a > 0; });
   }
+  // Extract the raw AAV token string VERBATIM (e.g. "42K, 52K") so a restructure
+  // can preserve the extension's dual AAV byte-for-byte instead of re-averaging
+  // TCV/CL (the Cook/London bug). Returns "" when no AAV token is present.
+  function parseContractAavRawToken(contractInfo) {
+    var info = safeStr(contractInfo);
+    if (!info) return "";
+    var match = info.match(/(?:^|\|)\s*AAV\s+([^|]+)/i);
+    if (!match) return "";
+    return safeStr(match[1]).replace(/\bY\d+\s*-[^|]*$/i, "").trim();
+  }
   function parseContractGuaranteeValue(contractInfo) {
     var info = safeStr(contractInfo);
     if (!info) return 0;
@@ -1358,12 +1368,18 @@
       "|GTD: " + formatContractK(gtd);
     if (existingOwners.length) contractInfo += "|Ext: " + existingOwners.join(", ");
 
-    const salaryToSend = extYearSalaries[0] || futureSalary;
+    // MFL `salary` = the CURRENT-year salary. A held player (currentYears≥1)
+    // keeps his current-year salary as Y1..Y_currentYears carry `currentSalary`;
+    // an expired rookie (currentYears=0) signs a fresh deal whose Y1 IS the first
+    // extension year. NEVER ship the extension-year salary as the current salary
+    // (that shipped Hurts' 52K instead of his live 67K).
+    const salaryToSend = currentYears >= 1 ? currentSalary : (extYearSalaries[0] || futureSalary);
     return {
       yearsToAdd: years,
       years: years,                 // alias for legacy preview readers
+      years_added: years,           // unambiguous: years ADDED (not full length)
       loadedIndicator: loading,
-      contractLength: totalLength,
+      contractLength: totalLength,  // FULL new length (current remaining + added)
       contract_status: contractStatus,
       contractStatus: contractStatus,
       contract_info: contractInfo,
@@ -1480,11 +1496,19 @@
       // salary out of the contract_info Y-tokens to use as salaryToSend.
       const yv = parseContractYearValues(info);
       const curYears = Math.max(0, safeInt(p.years, 0));
-      const firstExtYearIdx = curYears + 1;
-      const salaryToSend = yv[firstExtYearIdx] || safeInt(r.new_aav_future, 0);
+      // MFL `salary` = the CURRENT-year salary — the Y-token for the season being
+      // played now, NOT the extension-year salary. curYears is 1 (held final-year
+      // player → Y1 is current) or 0 (expired rookie → fresh deal, Y1 is current)
+      // for any extension-eligible player, so the current-year token is Y1. Sending
+      // yv[curYears+1] shipped the extension year (Hurts: 52K instead of 67K). Read
+      // the preview's OWN Y-tokens — NEVER player.salary (a 2026-06-27 re-anchor to
+      // player.salary corrupted every loaded contract; see the NOTE below).
+      const curYearIdx = Math.max(1, curYears);
+      const salaryToSend = yv[curYearIdx] || safeInt(r.new_aav_current, 0);
       const baseOpt = {
         yearsToAdd: yrs,
         years: yrs,
+        years_added: yrs,             // unambiguous: years ADDED (not full length)
         loadedIndicator: loading,
         contractLength:  safeInt(r.new_contract_length, 0),
         contract_status: safeStr(r.new_contract_status),
@@ -4083,7 +4107,7 @@
       player_id: p.id, player_name: p.name,
       franchise_id: p.fid, franchise_name: p.franchise,
       position: p.positionGroup || p.position,
-      salary: y2,                        // Y2 is the first extension year's $$
+      salary: currentSalary,             // MFL salary = CURRENT-year (Y1, locked), NOT the first extension year
       contract_year: 3,                  // full new length (Y1 + Y2 + Y3)
       contract_status: status,
       contract_info: contractInfo,
@@ -4167,7 +4191,14 @@
     const btn = $("#fo-ext-submit");
     btn.disabled = true; btn.textContent = "Submitting…";
 
-    const yrs = safeInt(opt.years, 0) || safeInt(opt.years_added, 0) || safeInt(opt.length, 0);
+    const yrs = safeInt(opt.years_added, 0) || safeInt(opt.years, 0) || safeInt(opt.length, 0);   // years ADDED (1 or 2)
+    // contract_year (MFL cy = years remaining) is the FULL new contract length,
+    // NOT the years added. `yrs` above is the ADDED count (used for the status
+    // fallback + toast); the full length is carried on opt.contractLength (fallback
+    // = current years remaining + added). Sending `yrs` shipped cy=1 for a
+    // 1yr→2yr extension (Hurts must be cy 2, not 1).
+    const fullLength = safeInt(opt.contractLength, 0) || safeInt(opt.contract_length, 0) ||
+                       (Math.max(0, safeInt(p.years, 0)) + yrs);
     const salary = roundToK(safeInt(opt.salary, 0) || safeInt(opt.year1_salary, 0));  // whole $1,000s
     const status = safeStr(opt.contract_status || opt.status || ("Vet-Ext" + yrs));
     const info   = safeStr(opt.contract_info || opt.info || "");
@@ -4184,7 +4215,7 @@
       player_name: p.name,                // store the name so the revert list isn't a bare id
       position: p.positionGroup || p.position,
       salary: salary,
-      contract_year: yrs,                 // full length, post-LaPorta
+      contract_year: fullLength,          // FULL new length (MFL cy = years remaining), post-LaPorta
       contract_status: status,
       contract_info: info,
       prior_salary: p.salary,
@@ -5589,6 +5620,7 @@
     const years = safeInt(p.years, 0);
     const minY1 = Math.max(1000, Math.ceil(tcv * 0.20 / 1000) * 1000);
     const aav = Math.round(tcv / Math.max(1, years) / 1000) * 1000;
+    const priorAavToken = parseContractAavRawToken(p.special);  // preserved verbatim on submit
     const is3 = years >= 3;                       // 3-yr → Y1+Y2 input, Y3 auto; else Y1 input, Y2 auto
     const inStyle = "background:var(--panel-alt); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:4px; width:120px;";
     const body = $("#fo-slideover-body");
@@ -5596,8 +5628,8 @@
       <div class="fo-form">
         <h3 style="margin:0 0 4px;">Restructure ${escapeHtml(p.name)}</h3>
         <div class="fo-form-note">
-          TCV ${fmtUSD(tcv)} · Years remaining ${years} · AAV ${fmtUSD(aav)} · Y1 ≥ ${fmtUSD(minY1)} (20% TCV) · whole $1,000s, no $0 year.
-          The last year auto-fills so Σ = TCV. FL if Y1 &gt; AAV, BL if Y1 &lt; AAV.
+          TCV ${fmtUSD(tcv)} · Years remaining ${years} · AAV ${escapeHtml(priorAavToken || fmtUSD(aav))} · Y1 ≥ ${fmtUSD(minY1)} (20% TCV) · whole $1,000s, no $0 year.
+          The last year auto-fills so Σ = TCV. The AAV token is preserved from the current contract. FL if Y1 raises the current-year salary, BL if it lowers it.
         </div>
         <div class="fo-form-row"><span class="lbl">Year 1 ($)</span>
           <input type="number" id="fo-rs-y1" step="1000" min="${minY1}" value="${minY1}" class="num" style="${inStyle}">
@@ -5664,14 +5696,29 @@
       flashToast("Y1 must be ≥ 20% of TCV (" + fmtUSD(Math.round(tcv * 0.20 / 1000) * 1000) + ").", "err");
       return;
     }
-    const aav = Math.round(tcv / Math.max(1, years));
+    // PRESERVE the prior AAV token VERBATIM — a restructure re-slots the year
+    // salaries + TCV + GTD but must NOT recompute the AAV. The AAV is set forward-
+    // looking at the EXTENSION (a dual "cur, cur+bump") and stays fixed; re-
+    // averaging TCV/CL was the Cook/London bug (Keith 2026-07-22/23). The numeric
+    // `aav` (D1 ledger + confirm display) is the current-year tier; fall back to
+    // the naive average ONLY when the prior contract carries no AAV token.
+    const priorAavToken = parseContractAavRawToken(p.special);
+    const priorAavValues = parseContractAavValues(p.special);
+    const aav = priorAavValues.length ? safeInt(priorAavValues[0], 0)
+                                      : Math.round(tcv / Math.max(1, years));
     const gtd = guaranteeForContract(tcv, years);        // §D1 sub-$5K rule (restructure)
-    // §C5 / T3.4: a restructure that creates a loaded shape must carry the
-    // -FL / -BL suffix so it's typed correctly AND counts toward the 5-loaded
-    // roster cap (isLoadedRow keys off the suffix). Strip any existing suffix,
-    // re-derive from the new Y1-vs-AAV split (flat = no suffix).
+    // §C5 / T3.4: the -FL / -BL suffix on a RESTRUCTURE follows which way the money
+    // MOVED — new current-year (Y1) salary vs the PRE-restructure current-year
+    // salary: LOWERED → -BL (pushed back), RAISED → -FL (pulled forward). 🔒 Keith
+    // ruling 2026-07-23 — do NOT use "Y1 vs AAV" (it breaks on escalated dual-AAV
+    // deals: Hurts 67→47 is -BL even though Y1-47 > AAV-42). Strip any existing
+    // suffix first; equal = flat = no suffix. The suffix also drives the 5-loaded
+    // roster cap (isLoadedRow keys off it).
+    const priorCurrentSalary = safeInt(parseContractYearValues(p.special)[1], 0) ||
+                               roundToK(safeInt(p.salary, 0));
     const baseType = String(p.type || "Veteran").replace(/-(FL|BL)$/i, "");
-    const loadSuffix = y1 > aav ? "-FL" : (y1 < aav ? "-BL" : "");
+    const loadSuffix = (priorCurrentSalary > 0 && y1 > priorCurrentSalary) ? "-FL"
+                     : ((priorCurrentSalary > 0 && y1 < priorCurrentSalary) ? "-BL" : "");
     const newStatus = baseType + loadSuffix;
     // §C2.356 / §C5: hard-block a restructure that would create a NEW loaded
     // contract once the team is at the 5-loaded roster cap. Re-shaping an
@@ -5683,13 +5730,16 @@
     }
     const yearTokens = ["Y1-" + fmtK(y1).replace(/\$/, ""), "Y2-" + fmtK(y2).replace(/\$/, "")];
     if (years >= 3) yearTokens.push("Y3-" + fmtK(y3).replace(/\$/, ""));
+    // AAV segment = the prior token VERBATIM (dual preserved); fall back to the
+    // naive average only when no prior AAV token existed.
+    const aavSegment = priorAavToken || fmtK(aav).replace(/\$/, "");
     const info = "CL " + years + "|TCV " + fmtK(tcv).replace(/\$/, "") +
-                 "|AAV " + fmtK(aav).replace(/\$/, "") + "|" + yearTokens.join(", ") +
+                 "|AAV " + aavSegment + "|" + yearTokens.join(", ") +
                  "|GTD: " + fmtK(gtd).replace(/\$/, "") + "|Restructured " + new Date().getFullYear();
     const confirmLines = ["Confirm restructure for " + p.name + "?", "",
       "Y1: " + fmtUSD(y1), "Y2: " + fmtUSD(y2)];
     if (years >= 3) confirmLines.push("Y3: " + fmtUSD(y3));
-    confirmLines.push("TCV: " + fmtUSD(tcv), "AAV: " + fmtUSD(aav), "GTD: " + fmtUSD(gtd),
+    confirmLines.push("TCV: " + fmtUSD(tcv), "AAV: " + (priorAavToken || fmtUSD(aav)), "GTD: " + fmtUSD(gtd),
       "New type: " + newStatus + (loadSuffix ? (loadSuffix === "-FL" ? " (front-loaded)" : " (back-loaded)") : " (flat)"));
     if (!window.confirm(confirmLines.join("\n"))) return;
 

@@ -704,6 +704,32 @@
     return eraIds.has(String(l.player_id));
   }
 
+  // FA-auction scheduled open (ET) as a unix ts. faa_open_at is a bare ET
+  // wall-clock ("2026-07-25T12:00"); July is EDT (UTC-4), so pin the offset
+  // when it arrives in the bare form. Used to (a) show "Scheduled" before the
+  // auction opens and (b) gate the FAA Won count so pre-auction AUCTION_WON
+  // rows (a prior test auction + ERA wins that re-ingest from MFL's append-only
+  // log) never leak into the FA tab.
+  function faaOpenUnix() {
+    var s = String((STATE.lots && STATE.lots.faa_open_at) || "");
+    if (!s) return 0;
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) s += ":00-04:00";
+    var t = Date.parse(s);
+    return isFinite(t) ? Math.floor(t / 1000) : 0;
+  }
+  // A won lot counts for the FAA tab ONLY if it was won at/after the auction
+  // opened. faaOpen=0 (ERA tab, or open time unknown) → no gate.
+  function isFaaCountableWin(l, faaOpen) {
+    if (l.status !== "won") return false;
+    return !faaOpen || Number(l.won_at_unix || 0) >= faaOpen;
+  }
+  function auctionStatusLabel(tab, enabled, open, faaOpen) {
+    if (!enabled) return "Not running";
+    if (open > 0) return "LIVE";
+    if (tab !== "era" && faaOpen && Math.floor(Date.now() / 1000) < faaOpen) return "Scheduled";
+    return "Open";
+  }
+
   // ════════════════════════════════════════════════════════════════════
   // PAINT — mount the (tab, sub) skeleton, fill it, re-wire its controls
   // ════════════════════════════════════════════════════════════════════
@@ -755,7 +781,8 @@
     const eraIds = eraPoolIds();
     const tabLots = lots.filter((l) => lotIsEra(l, eraIds) === (tab === "era"));
     const open = tabLots.filter((l) => l.status === "open").length;
-    const won = tabLots.filter((l) => l.status === "won").length;
+    const faaOpen = tab === "era" ? 0 : faaOpenUnix();
+    const won = tabLots.filter((l) => isFaaCountableWin(l, faaOpen)).length;
     const f = STATE.lots || {};
     const enabled = tab === "era" ? !!f.era_enabled : !!f.faa_enabled;
     // "1833 free agents" is a fact about the database, not about you — it never
@@ -812,7 +839,7 @@
     const kpis = [
       ["Open lots", open],
       ["Won", won],
-      ["Status", enabled ? "LIVE" : "Not running"],
+      ["Status", auctionStatusLabel(tab, enabled, open, faaOpen)],
     ];
     el.innerHTML = firstTile + kpis.map(([label, val]) =>
       `<div class="ah-kpi"><div class="ah-kpi-val">${escapeHtml(String(val))}</div>` +
@@ -1579,7 +1606,17 @@
     var fcRank = faRankMap(board, function (p) { return p.fc && p.fc.rsf > 0 ? p.fc.rsf : null; }, false);
     var ktcRank = faRankMap(board, function (p) { return p.ktc && p.ktc.rsf > 0 ? p.ktc.rsf : null; }, false);
     var ffcRank = faRankMap(board, function (p) { return p.ffcAdp; }, true);
-    return { fcRank: fcRank, ktcRank: ktcRank, ffcRank: ffcRank, curve: faRankToFcValueCurve(board, fcRank) };
+    // MFL native AAV — the ONLY source quoting real auction dollars, and it IS
+    // live again for 2026 (800 tracked auctions). REFERENCE ONLY, deliberately NOT
+    // in the consensus: inspected 2026-07-21, the top six players by average value
+    // are all 2026 rookies (Jeremiyah Love $57.39 ... Ja'Marr Chase only 7th,
+    // Josh Allen 10th) because the auctions MFL tracks in July are dynasty ROOKIE
+    // auctions. That is a rookie-draft ordering, not a redraft one, and ranking it
+    // rather than averaging it does not help — the contamination is in the order
+    // itself. The rank map is built so the column can be displayed and so this is
+    // one uncomment away if the pool shifts once redraft auctions ramp up.
+    var mflRank = faRankMap(board, function (p) { return p.mflAav > 0 ? p.mflAav : null; }, false);
+    return { fcRank: fcRank, ktcRank: ktcRank, ffcRank: ffcRank, mflRank: mflRank, curve: faRankToFcValueCurve(board, fcRank) };
   }
   function faOffVal(r, rc) {   // offense redraft consensus value (higher = better)
     if (!rc) return null;
@@ -1591,9 +1628,17 @@
     var avg = ranks.reduce(function (a, b) { return a + b; }, 0) / ranks.length;
     return faValueAtRank(avg, rc.curve);
   }
-  function faIdpVal(r) {   // IDP value off FantasyPros ECR (higher = better)
+  // IDP value (higher = better). The worker computes idpVal on an
+  // AUCTION-ANCHORED scale — 1152 * idpRank^-0.3358, fit on UPS preseason
+  // FA-auction winning bids 2022-2025 — so it sits on the same dollar-backed
+  // scale as offense. The old fallback here was a hand-made linear ramp
+  // (10000 - ecr*45) that overvalued defenders by roughly 9x at the top and
+  // 25x in the middle; it is gone. If the worker sent no idpVal, mirror its
+  // curve off the ECR rank rather than inventing a second scale.
+  function faIdpVal(r) {
     if (r.idpVal != null && r.idpVal > 0) return r.idpVal;
-    if (r.fpEcr != null && r.fpEcr > 0) return Math.max(0, 10000 - r.fpEcr * 45);
+    var rk = (r.idpRank != null && r.idpRank > 0) ? r.idpRank : r.fpEcr;
+    if (rk != null && rk > 0) return Math.max(1, Math.round(1152 * Math.pow(rk, -0.3358)));
     return null;
   }
   // Positional rank within a universe by a metric. higherBetter=false ⇒ lower value ranks first (ADP/ECR/search_rank).
@@ -1652,20 +1697,30 @@
       };
     });
 
-    // IDP — FantasyPros dynasty ECR only; ranked in its own universe.
+    // IDP — ranked in its own universe off UPS-SCORED projections (see the
+    // worker's IDP block). FantasyPros ECR is shown for reference but does NOT
+    // drive the ordering: it is ~uncorrelated (ρ≈0.03-0.08) with what actually
+    // scores points under this league's IDP rules.
     var idpPos = faPosRanks(idp, faIdpVal, true);
     var idpOvr = faOvrRanks(idp, faIdpVal);
     idp.forEach(function (r) {
       var pid = _PID(r); if (!pid) return;
       var pos = String(r.pos || "").toUpperCase();
+      var srcs = [];
+      if (r.fsIdpPts != null) srcs.push("FantasySharks " + r.fsIdpPts + " UPS pts");
+      if (r.slIdpPts != null) srcs.push("RotoWire " + r.slIdpPts + " UPS pts");
+      if (r.idpVorp != null) srcs.push("VORP " + (r.idpVorp > 0 ? "+" : "") + r.idpVorp + " vs " + (r.idpGrp || "?") + " repl");
+      if (r.fpEcr != null) srcs.push("FantasyPros dyn IDP ECR #" + r.fpEcr + " (ref only)");
       m[pid] = {
         isIdp: true, pos: pos,
         posRank: idpPos[pid] || null,
         ovr: idpOvr[pid] || null,
         ecr: (r.fpEcr != null ? r.fpEcr : null),
+        proj: (r.idpProj != null ? r.idpProj : null),
+        vorp: (r.idpVorp != null ? r.idpVorp : null),
         val: faIdpVal(r),
-        srcs: (r.fpEcr != null ? ["FantasyPros dynasty IDP ECR #" + r.fpEcr] : []),
-        srcCount: (r.fpEcr != null ? 1 : 0),
+        srcs: srcs,
+        srcCount: (r.idpSources || 0),
       };
     });
     return m;

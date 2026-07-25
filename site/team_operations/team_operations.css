@@ -1,1574 +1,934 @@
 /* ==========================================================================
-   Team Operations Workspace (My Team) — styles
-   Build: 2026.04.18.01
-   Inherits UPS theme variables from header_custom_v2.html when available.
+   UPS Home Hub (My Team) — styles
+   Build: 2026.07.21.home-hub
+
+   Rewritten for the approved 5-zone redesign. Everything is scoped to
+   #teamOpsMount; the file and site/team_operations/team_operations.js are a
+   single unit — every .tops-* class the JS emits is defined here, and nothing
+   else is.
+
+   ACCENT BUDGET (enforced, not aspirational):
+     • --gold  → the Zone 1 attention queue ONLY. Nowhere else.
+     • --teal  → interactive only (links, CTAs, focus rings, active pills).
+     • --ok / --warn / --bad → status only (never decoration).
+   Type is a 7-step scale; spacing is a 4px rhythm. Both live in the token
+   block below — don't hand-roll a font-size or a padding outside them.
    ========================================================================== */
 
 #teamOpsMount {
-  --tops-bg: #0b1628;
-  --tops-card-bg: linear-gradient(180deg, #0f1d34 0%, #0d1930 100%);
-  --tops-card-border: #28466f;
-  --tops-ink: #e8f1ff;
-  --tops-ink-dim: #9fb3d1;
-  --tops-accent: #f3b61f;
-  --tops-accent-2: #7de8d9;
-  /* "Bad" / error accent — red was unreadable against the dark gradient,
-     so swapped to bold teal (matches --tops-accent-2 below). Used by
-     .tops-meta-error, .tops-error, and inline error-state messages. */
-  --tops-bad: #7de8d9;
-  --tops-warn: #f5a623;
-  --tops-ok: #4caf82;
+  /* --- surfaces ---------------------------------------------------------- */
+  --bg:        #0b1628;
+  --panel:     #101e35;
+  --panel-2:   #16274180;
+  --panel-3:   #142440;
+  --line:      #23405f;
+  --hair:      rgba(92, 129, 173, 0.16);
+
+  /* --- ink: 3 steps ------------------------------------------------------ */
+  --ink:       #e8f1ff;
+  --ink-2:     #a8bcd8;
+  --ink-3:     #70879f;
+
+  /* --- accents: 2 brand + 3 semantic ------------------------------------- */
+  --gold:      #f3b61f;   /* attention zone ONLY */
+  --teal:      #7de8d9;   /* interactive ONLY */
+  --ok:        #4ade80;
+  --warn:      #fbbf24;
+  /* Was aliased to the teal accent, which made every error state read as a
+     link. Restored to a real red. */
+  --bad:       #f87171;
+
+  /* --- type scale: 7 steps ----------------------------------------------- */
+  --t-micro:   10px;
+  --t-meta:    11px;
+  --t-sm:      12px;
+  --t-body:    13px;
+  --t-lead:    15px;
+  --t-num:     20px;
+  --t-hero:    30px;
+
+  /* --- spacing rhythm: 4px base ------------------------------------------ */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
 
   margin: 1rem auto;
-  /* Match the UPS HOTLINKS banner sizing (see header_custom_v2.html
-     .ups-hotlinks-shell). Previously capped at 1200px which read as
-     visibly narrower than the banner above. */
+  /* Match the UPS HOTLINKS banner sizing (header_custom_v2.html
+     .ups-hotlinks-shell) so the hub doesn't read narrower than the banner. */
   max-width: min(98rem, calc(100% - 0.7rem));
   width: 100%;
   padding: 0 0.75rem;
-  color: var(--tops-ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font-size: var(--t-body);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
 }
 
-#teamOpsMount * { box-sizing: border-box; }
+#teamOpsMount *,
+#teamOpsMount *::before,
+#teamOpsMount *::after { box-sizing: border-box; }
 
+#teamOpsMount h1,
+#teamOpsMount h2,
+#teamOpsMount h3,
+#teamOpsMount p,
+#teamOpsMount ul,
+#teamOpsMount ol { margin: 0; }
+#teamOpsMount ul { list-style: none; padding: 0; }
+#teamOpsMount a { color: inherit; text-decoration: none; }
+#teamOpsMount .num { font-variant-numeric: tabular-nums; }
+
+/* ── shell ──────────────────────────────────────────────────────────────── */
 .tops-shell {
-  background: var(--tops-bg);
-  border: 1px solid var(--tops-card-border);
-  border-radius: 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
   /* Big bottom padding so MFL's UPS-champion footer image doesn't overlap
-     the last card / footer text (was 5rem, screenshots showed the build
-     string getting clipped by the champion section underneath). Also
-     adds bottom margin so the parent .ups-footer has visible separation
-     from the team_ops card edge. */
-  padding: 0.9rem 1rem 7rem;
+     the footer text, plus margin so the parent .ups-footer separates. */
+  padding: var(--s4) var(--s4) 7rem;
   margin-bottom: 2.5rem;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
 }
 
-/* Header ------------------------------------------------------------------ */
-.tops-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  padding-bottom: 0.85rem;
-  border-bottom: 1px solid rgba(92, 129, 173, 0.35);
-  margin-bottom: 0.9rem;
-  flex-wrap: wrap;
-}
-
-.tops-header-identity {
+/* ── identity bar ───────────────────────────────────────────────────────── */
+.tops-idbar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-}
-
-.tops-logo {
-  /* Wider, same height — most franchise logos in UPS are landscape banners
-     (e.g. Real Deal Creel) so a 1:1 box squashed them. Aspect-ratio
-     intentionally letterboxes if the image is taller than wide. */
-  width: 110px;
-  height: 52px;
-  border-radius: 8px;
-  object-fit: contain;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: #000;
-  flex-shrink: 0;
-}
-
-.tops-title {
-  font-size: 0.82rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--tops-accent);
-  font-weight: 900;
-}
-
-.tops-subtitle {
-  font-size: 1.25rem;
-  font-weight: 900;
-  line-height: 1.15;
-  color: var(--tops-ink);
-}
-
-.tops-header-actions {
-  display: flex;
-  gap: 0.4rem;
+  gap: var(--s3);
+  padding-bottom: var(--s3);
+  margin-bottom: var(--s4);
+  border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
 }
-
-/* Work-in-progress banner — sits at the top of the Overview tab so
-   it doesn't follow the user into Front Office / Stats / Trade
-   War Room (those are mature modules with their own state). */
-.tops-wip-banner {
-  margin: 0 0 0.9rem;
-  padding: 0.7rem 0.95rem;
-  background: linear-gradient(180deg, rgba(243, 182, 31, 0.18), rgba(243, 182, 31, 0.08));
-  border: 1px solid rgba(243, 182, 31, 0.55);
-  border-left: 4px solid var(--tops-accent);
-  border-radius: 8px;
-  color: var(--tops-ink);
-  font-size: 0.85rem;
-  line-height: 1.45;
-}
-
-.tops-wip-banner strong {
-  color: var(--tops-accent);
-  margin-right: 0.25em;
-}
-
-/* Secondary line within the WIP banner — slightly dimmer so the primary
-   "Heads up" stays the lead. Used for the historical-data accuracy
-   note (Keith 2026-05-14). */
-.tops-wip-subline {
-  display: block;
-  margin-top: 0.35rem;
-  font-size: 0.78rem;
-  color: var(--tops-ink-dim);
-  opacity: 0.95;
-}
-
-.tops-link-pill {
-  /* Keith 2026-05-15: teal across the board, consistent with the rest
-     of the UI accent system. Was gold (#f3b61f) — visually clashed with
-     the teal links elsewhere. */
-  background: linear-gradient(180deg, #7de8d9 0%, #4cc7b8 100%);
-  color: #0a1a18;
-  font-weight: 800;
-  text-decoration: none;
-  padding: 0.4rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.82rem;
+.tops-idmark {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  flex: 0 0 auto;
+  background: linear-gradient(145deg, #1d3a63, #0e1b30);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  font-size: var(--t-lead);
+  font-weight: 900;
   letter-spacing: 0.02em;
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  transition: transform 0.12s ease, filter 0.12s ease;
+  color: var(--ink-2);
 }
-.tops-link-pill:hover { filter: brightness(1.08); transform: translateY(-1px); }
-.tops-link-pill:visited { color: #0a1a18; }
-
-/* Grid -------------------------------------------------------------------- */
-.tops-grid {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 0.85rem;
+/* Most UPS franchise logos are landscape banners, so the image variant is
+   wider and letterboxes rather than squashing. */
+.tops-idmark--img {
+  width: 96px;
+  height: 44px;
+  object-fit: contain;
+  background: #000;
+  display: block;
 }
-
-.tops-card {
-  grid-column: span 6;
-  background: var(--tops-card-bg);
-  border: 1px solid var(--tops-card-border);
-  border-radius: 12px;
-  /* Roomier internal padding so list rows + dividers don't kiss the
-     border. Bumped 0.85/0.95 → 1.0/1.15 + overflow:hidden in case a
-     nested element's border-bottom extends to the edge. */
-  padding: 1rem 1.15rem;
-  overflow: hidden;
-  min-height: 110px;
+.tops-idname {
+  font-size: var(--t-num);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
 }
-
-.tops-card-wide { grid-column: span 12; }
-.tops-card-summary { grid-column: span 12; }
-.tops-card-highlight {
-  border-color: var(--tops-accent);
-  background: linear-gradient(180deg, #1a2444 0%, #0f1a35 100%);
-  box-shadow: 0 0 0 1px rgba(243, 182, 31, 0.12) inset;
+.tops-idsub {
+  font-size: var(--t-meta);
+  color: var(--ink-3);
+  margin-top: 2px;
 }
-
-@media (max-width: 960px) {
-  .tops-card { grid-column: span 12; }
+.tops-idspacer { flex: 1 1 auto; }
+.tops-idmeta {
+  font-size: var(--t-meta);
+  color: var(--ink-3);
+  text-align: right;
 }
+.tops-idmeta b { color: var(--ink-2); font-weight: 600; }
 
-.tops-card-title {
-  font-size: 0.76rem;
-  letter-spacing: 0.1em;
+/* ── ZONE 1 — Needs You (the only gold on the page) ─────────────────────── */
+.tops-attn {
+  border: 1px solid rgba(243, 182, 31, 0.30);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--r-md);
+  background:
+    linear-gradient(180deg, rgba(243, 182, 31, 0.07), rgba(243, 182, 31, 0.015) 60%),
+    var(--panel);
+  padding: var(--s3) var(--s4) var(--s2);
+  margin-bottom: var(--s4);
+}
+.tops-attn-h {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--tops-accent);
-  font-weight: 900;
-  margin-bottom: 0.55rem;
+  color: var(--gold);
+  margin-bottom: var(--s1);
+}
+.tops-attn-cnt {
+  color: var(--ink-3);
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.tops-attn li {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--s3);
+  padding: var(--s3) 0;
+  border-top: 1px solid rgba(243, 182, 31, 0.13);
 }
-
-.tops-count {
-  background: rgba(125, 232, 217, 0.15);
-  color: var(--tops-accent-2);
-  border-radius: 999px;
-  padding: 0.1rem 0.5rem;
-  font-size: 0.68rem;
-  font-weight: 800;
-}
-
-.tops-empty {
-  color: var(--tops-ink-dim);
-  font-size: 0.85rem;
-  line-height: 1.45;
-}
-
-.tops-empty code {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 0.08rem 0.3rem;
-  border-radius: 4px;
-  font-size: 0.78rem;
-}
-
-/* Summary card ------------------------------------------------------------ */
-.tops-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
-}
-@media (max-width: 720px) {
-  .tops-summary-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-.tops-kv {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(92, 129, 173, 0.25);
-  border-radius: 10px;
-  padding: 0.65rem 0.7rem;
-}
-.tops-kv-label {
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--tops-ink-dim);
+.tops-attn li:first-child { border-top: 0; }
+.tops-attn-txt { flex: 1 1 240px; min-width: 0; }
+.tops-attn-t {
+  font-size: var(--t-lead);
   font-weight: 700;
-}
-.tops-kv-value {
-  font-size: 1.45rem;
-  font-weight: 900;
-  color: var(--tops-ink);
-  line-height: 1.1;
-  margin-top: 0.1rem;
-}
-.tops-kv-note {
-  font-size: 0.72rem;
-  color: var(--tops-ink-dim);
-  margin-top: 0.2rem;
-}
-/* Split rows under the big Cap Total number — "Salary" + "Adjustments". */
-.tops-kv-split {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 0.4rem;
-  padding: 0.35rem 0;
-  border-top: 1px solid rgba(92, 129, 173, 0.18);
-  border-bottom: 1px solid rgba(92, 129, 173, 0.18);
-}
-.tops-kv-split-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: 0.78rem;
   line-height: 1.25;
 }
-.tops-kv-split-k {
-  color: var(--tops-ink-dim);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-size: 0.66rem;
-  font-weight: 700;
+.tops-attn-s {
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+  margin-top: 2px;
 }
-.tops-kv-split-v {
-  color: var(--tops-ink);
+.tops-attn-when {
+  flex: 0 0 auto;
+  text-align: right;
+  font-size: var(--t-sm);
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.tops-kv-split-line.tops-kv-split-warn .tops-kv-split-v { color: var(--tops-warn); }
-.tops-kv-split-line.tops-kv-split-ok .tops-kv-split-v { color: var(--tops-ok); }
-.tops-kv-split-line.tops-kv-split-zero .tops-kv-split-v { color: var(--tops-ink-dim); }
-
-/* Sub-note: secondary breakdown line under the main note. Used by the
-   Cap Used card to show salary + adjustments split without crowding
-   the primary "% of cap" line. */
-.tops-kv-subnote {
-  font-size: 0.7rem;
-  color: var(--tops-ink-dim);
-  margin-top: 0.15rem;
-  opacity: 0.85;
+  color: var(--ink);
   letter-spacing: 0.01em;
 }
+.tops-attn-when span {
+  display: block;
+  font-size: var(--t-micro);
+  font-weight: 500;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
 
-.tops-bar {
-  margin-top: 0.45rem;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.08);
+.tops-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.tops-dot--bad  { background: var(--bad);  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.14); }
+.tops-dot--warn { background: var(--warn); box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.14); }
+.tops-dot--ok   { background: var(--ok);   box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.12); }
+
+/* ── shared interactive: CTA (teal, and only teal) ──────────────────────── */
+.tops-cta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  background: var(--teal);
+  color: #08201d;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  padding: 7px 14px;
   border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.12s ease, transform 0.12s ease;
+}
+.tops-cta:hover { filter: brightness(1.07); transform: translateY(-1px); }
+.tops-cta:visited { color: #08201d; }
+.tops-cta[disabled] { opacity: 0.55; cursor: default; transform: none; }
+.tops-cta--ghost {
+  background: transparent;
+  color: var(--teal);
+  border: 1px solid rgba(125, 232, 217, 0.4);
+}
+.tops-cta--ghost:visited { color: var(--teal); }
+
+#teamOpsMount :focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+/* ── ZONE 2 — team state strip (one surface, hairline separators) ────────── */
+.tops-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  margin-bottom: var(--s4);
+}
+.tops-strip > div {
+  padding: var(--s3) var(--s4);
+  border-left: 1px solid var(--hair);
+  min-width: 0;
+}
+.tops-strip > div:first-child { border-left: 0; }
+.tops-st-k {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.tops-st-v {
+  font-size: var(--t-num);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-top: 2px;
+  line-height: 1.1;
+}
+.tops-st-n {
+  font-size: var(--t-meta);
+  color: var(--ink-3);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tops-st-n.is-flag { color: var(--warn); }
+.tops-st-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  margin-top: var(--s2);
   overflow: hidden;
 }
-.tops-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--tops-accent-2), var(--tops-accent));
-  transition: width 0.5s ease;
+.tops-st-bar i { display: block; height: 100%; background: var(--teal); }
+.tops-st-bar i.is-hot { background: var(--warn); }
+
+/* ── cards (Zones 3 + 4 + panels) ───────────────────────────────────────── */
+.tops-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--s3) var(--s4) var(--s4);
+  margin-bottom: var(--s4);
+}
+.tops-card-h {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+  flex-wrap: wrap;
+}
+.tops-card-t {
+  font-size: var(--t-body);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+.tops-card-sub { font-size: var(--t-meta); color: var(--ink-3); }
+.tops-card-link { font-size: var(--t-meta); color: var(--teal); font-weight: 600; }
+.tops-card-link:hover { text-decoration: underline; }
+.tops-grow { flex: 1 1 auto; }
+
+.tops-pill {
+  font-size: var(--t-meta);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.tops-pill.is-warn { color: var(--warn); background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.32); }
+.tops-pill.is-bad  { color: var(--bad);  background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.32); }
+.tops-pill.is-ok   { color: var(--ok);   background: rgba(74, 222, 128, 0.12);  border-color: rgba(74, 222, 128, 0.30); }
+.tops-pill.is-mute { color: var(--ink-3); background: rgba(255, 255, 255, 0.04); border-color: var(--hair); }
+
+.tops-note {
+  font-size: var(--t-meta);
+  color: var(--ink-3);
+  flex: 1 1 220px;
+  line-height: 1.5;
+}
+.tops-note b { color: var(--warn); font-weight: 700; }
+.tops-note--warn {
+  display: block;
+  flex: none;
+  margin-bottom: var(--s2);
+  color: var(--warn);
+}
+.tops-note--warn b { color: var(--warn); }
+
+.tops-empty {
+  color: var(--ink-3);
+  font-size: var(--t-sm);
+  line-height: 1.5;
+  padding: var(--s2) 0;
+}
+.tops-empty.is-err { color: var(--bad); font-weight: 700; }
+.tops-empty code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: var(--t-meta);
 }
 
-/* Matchup ----------------------------------------------------------------- */
-.tops-matchup-week {
-  font-size: 0.72rem;
-  color: var(--tops-ink-dim);
+/* ── ZONE 3 — the 18 slots, two banks ───────────────────────────────────── */
+.tops-bank { margin-top: var(--s3); }
+.tops-bank-h {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  padding-bottom: var(--s1);
+  margin-bottom: var(--s2);
+  border-bottom: 1px solid var(--hair);
+}
+.tops-bank-h em {
+  font-style: normal;
+  color: var(--ink-2);
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.tops-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: var(--s2);
+}
+.tops-slot {
+  background: var(--panel-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  padding: 6px 9px 7px;
+  min-width: 0;
+  position: relative;
+}
+.tops-slot-k {
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.tops-slot-fx { color: var(--teal); opacity: 0.85; letter-spacing: 0.04em; }
+.tops-slot-n {
+  font-size: var(--t-body);
+  font-weight: 700;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tops-slot-m {
+  font-size: var(--t-micro);
+  color: var(--ink-3);
+  margin-top: 1px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Per-slot dropdown, styled to read as the player name rather than a form
+   control — the chip is the affordance, the caret is the hint. */
+.tops-slot-sel {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  margin-top: 1px;
+  padding: 0 14px 0 0;
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-body);
+  font-weight: 700;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%),
+                    linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
+  background-position: right 4px top 8px, right 0 top 8px;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+.tops-slot-sel option { background: var(--panel-3); color: var(--ink); }
+.tops-slot.is-empty {
+  border: 1px dashed rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.05);
+}
+.tops-slot.is-empty .tops-slot-n,
+.tops-slot.is-empty .tops-slot-sel { color: var(--bad); font-weight: 800; }
+.tops-slot.is-proj { opacity: 0.82; }
+.tops-slot-inj {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  font-size: 9px;
+  font-weight: 900;
+  color: var(--warn);
+  background: rgba(251, 191, 36, 0.16);
+  border-radius: 3px;
+  padding: 0 4px;
+  line-height: 14px;
+}
+.tops-slot.has-inj .tops-slot-sel { padding-right: 32px; }
+
+.tops-lineup-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-top: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--hair);
+  flex-wrap: wrap;
+}
+.tops-lineup-msg {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  border-radius: var(--r-sm);
+  padding: var(--s2) var(--s3);
+  margin-bottom: var(--s2);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--hair);
+}
+.tops-lineup-msg.is-ok  { color: var(--ok);  border-color: rgba(74, 222, 128, 0.35);  background: rgba(74, 222, 128, 0.08); }
+.tops-lineup-msg.is-err { color: var(--bad); border-color: rgba(248, 113, 113, 0.35); background: rgba(248, 113, 113, 0.08); }
+
+/* ── ZONE 4 — two-column secondary ──────────────────────────────────────── */
+.tops-two {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: var(--s4);
+  margin-bottom: var(--s4);
+}
+.tops-two .tops-card { margin-bottom: 0; }
+
+.tops-feed li {
+  display: flex;
+  gap: var(--s3);
+  align-items: baseline;
+  padding: 7px 0;
+  border-top: 1px solid var(--hair);
+  font-size: var(--t-sm);
+}
+.tops-feed li:first-child { border-top: 0; }
+.tops-feed-w {
+  flex: 0 0 46px;
+  font-size: var(--t-micro);
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   font-weight: 700;
 }
-.tops-matchup-vs {
-  font-size: 1.15rem;
+.tops-feed-b { flex: 1 1 auto; color: var(--ink-2); min-width: 0; }
+.tops-feed-b b { color: var(--ink); font-weight: 600; }
+.tops-feed-who { color: var(--ink-3); }
+/* Added vs dropped in a free-agent / waiver row read as distinct colours so a
+   drop can never be mistaken for a signing (both used to render identical). */
+.tops-feed-add { color: var(--ok); font-weight: 600; }
+.tops-feed-drop { color: var(--bad); font-weight: 600; }
+.tops-feed-tag {
+  flex: 0 0 auto;
+  font-size: 9px;
   font-weight: 800;
-  margin-top: 0.3rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  border: 1px solid var(--hair);
+  border-radius: 3px;
+  padding: 1px 5px;
 }
-.tops-matchup-hint {
-  font-size: 0.72rem;
-  color: var(--tops-ink-dim);
-  margin-top: 0.5rem;
-}
+.tops-feed-tag.tops-tag--add { color: var(--ok); border-color: rgba(74, 222, 128, 0.28); }
+.tops-feed-tag.tops-tag--drop { color: var(--bad); border-color: rgba(248, 113, 113, 0.28); }
 
-/* Roster table ------------------------------------------------------------ */
-.tops-roster-table-wrap {
-  overflow-x: auto;
+.tops-cal li {
+  display: flex;
+  gap: var(--s3);
+  align-items: baseline;
+  padding: 7px 0;
+  border-top: 1px solid var(--hair);
+  font-size: var(--t-sm);
 }
-.tops-roster-table {
+.tops-cal li:first-child { border-top: 0; }
+.tops-cal-d {
+  flex: 0 0 74px;
+  font-size: var(--t-meta);
+  font-weight: 700;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+}
+.tops-cal-l { flex: 1 1 auto; color: var(--ink-2); min-width: 0; }
+.tops-cal-l b { color: var(--ink); font-weight: 600; }
+.tops-cal-in {
+  flex: 0 0 auto;
+  font-size: var(--t-meta);
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.tops-cal li.is-next .tops-cal-l b,
+.tops-cal li.is-next .tops-cal-in { color: var(--gold); }
+
+/* ── ZONE 5 — demoted nav + disclosure panels ───────────────────────────── */
+.tops-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+.tops-nav a,
+.tops-nav-toggle {
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  background: var(--panel-3);
+  border: 1px solid var(--hair);
+  padding: 6px 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.tops-nav a:hover,
+.tops-nav-toggle:hover {
+  color: var(--teal);
+  border-color: rgba(125, 232, 217, 0.4);
+}
+.tops-nav-toggle[aria-expanded="true"] {
+  color: var(--teal);
+  border-color: rgba(125, 232, 217, 0.55);
+  background: rgba(125, 232, 217, 0.08);
+}
+.tops-badge {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  background: var(--teal);
+  color: #08201d;
+  border-radius: 999px;
+  padding: 0 5px;
+  line-height: 14px;
+}
+.tops-badge.is-warn { background: var(--warn); color: #241a00; }
+
+.tops-panel {
+  margin-top: var(--s3);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--s3) var(--s4) var(--s4);
+}
+.tops-panel[hidden] { display: none; }
+
+/* ── footer ─────────────────────────────────────────────────────────────── */
+.tops-foot {
+  margin-top: var(--s4);
+  display: flex;
+  gap: var(--s4);
+  flex-wrap: wrap;
+  font-size: var(--t-micro);
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+.tops-foot .is-err { color: var(--bad); font-weight: 700; }
+
+/* ── On The Block panel ─────────────────────────────────────────────────── */
+.tops-bait-comment { margin-bottom: var(--s3); }
+.tops-bait-comment label {
+  display: block;
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: var(--s1);
+}
+.tops-bait-comment textarea,
+.tops-bait-note-input {
+  width: 100%;
+  background: var(--panel-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-sm);
+  padding: var(--s2);
+  resize: vertical;
+}
+.tops-bait-comment textarea::placeholder,
+.tops-bait-note-input::placeholder { color: var(--ink-3); }
+
+.tops-bait-group { margin-top: var(--s3); }
+.tops-bait-group-h {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding-bottom: var(--s1);
+  border-bottom: 1px solid var(--hair);
+}
+.tops-bait-group-n {
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  color: var(--ink-2);
+  text-transform: none;
+  font-size: var(--t-meta);
+}
+.tops-bait-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: var(--t-sm);
 }
-.tops-roster-table th,
-.tops-roster-table td {
-  padding: 0.35rem 0.55rem;
+.tops-bait-table th {
   text-align: left;
-  border-bottom: 1px solid rgba(92, 129, 173, 0.2);
-}
-.tops-roster-table th {
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--tops-ink-dim);
+  font-size: var(--t-micro);
   font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: var(--s2) var(--s2) var(--s1);
 }
-.tops-roster-table td.num,
-.tops-roster-table th.num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+.tops-bait-table td {
+  padding: 6px var(--s2);
+  border-top: 1px solid var(--hair);
+  color: var(--ink-2);
 }
-.tops-roster-table tr:hover td {
-  background: rgba(125, 232, 217, 0.05);
+.tops-bait-table td.num,
+.tops-bait-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tops-bait-check { width: 32px; }
+.tops-bait-row.is-marked td { background: rgba(125, 232, 217, 0.06); }
+.tops-bait-name {
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 1px dotted var(--hair);
+}
+.tops-bait-name:hover { color: var(--teal); border-bottom-color: var(--teal); }
+.tops-bait-note-row td { background: rgba(255, 255, 255, 0.02); }
+.tops-bait-note-label {
+  display: block;
+  font-size: var(--t-micro);
+  color: var(--ink-3);
+  margin-bottom: var(--s1);
+  letter-spacing: 0.04em;
 }
 
 .tops-pos {
   display: inline-block;
-  font-size: 0.68rem;
-  font-weight: 900;
-  padding: 0.08rem 0.4rem;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--tops-ink);
-  letter-spacing: 0.04em;
-}
-.tops-pos-QB { background: rgba(255, 107, 107, 0.2); color: #ffb4b4; }
-.tops-pos-RB { background: rgba(76, 175, 130, 0.2); color: #9be3c0; }
-.tops-pos-WR { background: rgba(125, 232, 217, 0.2); color: var(--tops-accent-2); }
-.tops-pos-TE { background: rgba(243, 182, 31, 0.2); color: #f7cf6f; }
-.tops-pos-PK { background: rgba(150, 150, 150, 0.2); color: #d0d0d0; }
-
-/* Injury badges ----------------------------------------------------------- */
-.tops-inj {
-  display: inline-block;
-  font-size: 0.66rem;
-  font-weight: 900;
-  padding: 0.06rem 0.36rem;
-  border-radius: 4px;
-  letter-spacing: 0.04em;
-  vertical-align: middle;
-}
-.tops-inj-O, .tops-inj-IR { background: #7a1d1d; color: #ffbdbd; }
-.tops-inj-D { background: #7a4b1d; color: #ffd5a0; }
-.tops-inj-Q { background: #7a6f1d; color: #fff3a3; }
-.tops-inj-PUP, .tops-inj-NFI, .tops-inj-SUS { background: #4a4a4a; color: #d0d0d0; }
-
-/* News list --------------------------------------------------------------- */
-.tops-news-list,
-.tops-cal-list,
-.tops-sched-list,
-.tops-picks-list,
-.tops-txn-list,
-.tops-changes,
-.tops-bullets {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.35rem;
-}
-
-.tops-news-item,
-.tops-txn-list li,
-.tops-cal-list li,
-.tops-sched-list li,
-.tops-picks-list li,
-.tops-changes li,
-.tops-bullets li {
-  font-size: 0.85rem;
-  padding: 0.38rem 0.5rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(92, 129, 173, 0.18);
-  border-radius: 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.tops-bullets li { display: block; }
-.tops-bullets li strong { color: var(--tops-accent); }
-
-.tops-txn-type,
-.tops-change-type,
-.tops-sched-wk,
-.tops-cal-date {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--tops-accent-2);
-}
-.tops-txn-when,
-.tops-change-when,
-.tops-cal-lbl { color: var(--tops-ink-dim); font-size: 0.78rem; }
-
-/* Schedule game-type badge: Divisional (2 games) vs Intra-pod (3 games) */
-.tops-sched-type {
-  display: inline-block;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 1px 6px;
-  border-radius: 3px;
-  margin: 0 6px 0 4px;
-  vertical-align: middle;
-}
-.tops-sched-type--divisional { background: rgba(91,141,255,0.18); color: #5b8dff; }
-.tops-sched-type--intra      { background: rgba(251,191,36,0.18); color: #fbbf24; }
-.tops-sched-opps { color: var(--tops-ink); }
-
-/* Events / Deadlines card */
-.tops-cal-list li {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 4px 0;
-}
-.tops-cal-when {
-  margin-left: auto;
-  font-size: 0.74rem;
-  color: var(--tops-ink-dim);
-  font-variant-numeric: tabular-nums;
-}
-.tops-cal-next {
-  display: inline-block;
-  margin-left: 6px;
-  background: rgba(74,222,128,0.18);
-  color: #4ade80;
-  font-size: 0.6rem;
+  min-width: 30px;
+  text-align: center;
+  font-size: var(--t-micro);
   font-weight: 800;
   letter-spacing: 0.06em;
-  padding: 1px 5px;
+  color: var(--ink-3);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--hair);
   border-radius: 3px;
-  vertical-align: middle;
+  padding: 1px 4px;
 }
-.tops-cal-soon .tops-cal-date { color: #fbbf24; }
-.tops-cal-soon .tops-cal-when { color: #fbbf24; }
-
-/* Transactions — multi-line detail */
-.tops-txn-list li { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
-.tops-txn-list li:last-child { border-bottom: 0; }
-.tops-txn-head { display: flex; gap: 0.5rem; align-items: baseline; margin-bottom: 2px; }
-.tops-txn-line { font-size: 0.82rem; line-height: 1.3; color: var(--tops-ink); margin: 1px 0 0 4px; }
-.tops-txn-sub  { color: var(--tops-ink-dim); font-style: italic; font-size: 0.78rem; }
-.tops-txn-arrow {
+.tops-tag-mini {
   display: inline-block;
-  width: 1.4em;
-  font-size: 0.7rem;
-  color: var(--tops-ink-dim);
-  font-weight: 700;
-}
-.tops-txn-arrow--gave { color: #fbbf24; }
-.tops-txn-arrow--got  { color: #4ade80; }
-
-/* ─── Inner-page tabs (Wave 2a) ────────────────────────────────────────── */
-.tops-tabs {
-  display: flex;
-  gap: 0.4rem;
-  margin: 0.4rem 0 0.75rem;
-  border-bottom: 1px solid var(--tops-card-border);
-}
-.tops-tab {
-  background: transparent;
-  border: 0;
-  color: var(--tops-ink-dim);
-  font: inherit;
-  font-weight: 600;
-  font-size: 0.92rem;
-  padding: 0.55rem 0.9rem;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: color 0.12s, border-color 0.12s;
-  border-radius: 6px 6px 0 0;
-}
-.tops-tab:hover { color: var(--tops-ink); }
-.tops-tab[data-active="1"] {
-  color: var(--tops-accent);
-  border-bottom-color: var(--tops-accent);
-}
-
-/* External-link tabs (Front Office, Player Stats, Trade War Room,
-   Standings) navigate to MFL MESSAGE pages — styled like in-page
-   tabs but with a small arrow glyph to signal "leaves this page". */
-a.tops-tab.tops-tab-link,
-a.tops-tab.tops-tab-link:link,
-a.tops-tab.tops-tab-link:visited,
-a.tops-tab.tops-tab-link:hover,
-a.tops-tab.tops-tab-link:active {
-  color: var(--tops-ink-dim) !important;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35em;
-}
-a.tops-tab.tops-tab-link:hover {
-  color: var(--tops-accent-2, #7de8d9) !important;
-  border-bottom-color: var(--tops-accent-2, #7de8d9);
-}
-.tops-tab-link-arrow {
-  font-size: 0.8em;
-  opacity: 0.7;
-}
-.tops-tab-panel { display: none; }
-.tops-tab-panel[data-active="1"] { display: block; }
-.tops-tab-panel--iframe {
-  /* Hubs (roster_workbench, stats_workbench, trade_workbench) are full-page
-     apps with their own theme. Match the UPS hotlinks-shell width so the
-     embedded views feel as roomy as the rest of the page chrome.
-     Hotlinks: max-width: min(98rem, calc(100% - 0.7rem)).
-     #teamOpsMount caps at 1200px; we break out via viewport-relative
-     positioning to reach 98rem. */
-  background: var(--tops-bg);
-  width: min(98rem, calc(100vw - 0.7rem));
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-  margin: 0;
-  overflow: visible;
-}
-.tops-iframe-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  padding: 6px 14px;
-  background: rgba(0, 0, 0, 0.25);
-  border-top: 1px solid var(--tops-card-border);
-  border-bottom: 1px solid var(--tops-card-border);
-  font-size: 0.78rem;
-  color: var(--tops-ink-dim);
-}
-/* `a.` prefix + :link/:visited/:hover/:active selectors with !important
-   so MFL's host stylesheet (which applies `a:visited { color: red }`
-   globally) can't repaint the pill red. Same reason the Front Office
-   pills did this in roster_workbench.css. */
-a.tops-iframe-pop,
-a.tops-iframe-pop:link,
-a.tops-iframe-pop:visited,
-a.tops-iframe-pop:hover,
-a.tops-iframe-pop:active {
-  color: var(--tops-accent-2, #7de8d9) !important;
-  text-decoration: none;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(125, 232, 217, 0.35);
-  transition: background 100ms, border-color 100ms;
-}
-a.tops-iframe-pop:hover {
-  background: rgba(125, 232, 217, 0.1);
-  border-color: rgba(125, 232, 217, 0.7);
-}
-.tops-iframe {
-  /* Tall enough that nested scrollbars rarely show. calc subtracts the
-     hub-shell chrome (header, tab strip, footer, toolbar) so the iframe
-     fills the remaining viewport. min-height fallback for short screens. */
-  width: 100%;
-  height: calc(100vh - 240px);
-  min-height: 720px;
-  border: 0;
-  display: block;
-  background: var(--tops-bg);
-  color-scheme: dark;
-}
-
-/* ─── Collapsible cards (Wave 2b) ──────────────────────────────────────── */
-.tops-card[data-collapsed] .tops-card-title {
-  /* Title row stays visible; gives the chevron a clickable feel */
-  user-select: none;
-}
-.tops-card .tops-collapse-btn {
-  float: right;
-  margin-left: 0.5rem;
-  background: transparent;
-  border: 0;
-  color: var(--tops-ink-dim);
-  font-size: 0.85rem;
-  font-weight: 700;
-  cursor: pointer;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--hair);
+  border-radius: 3px;
   padding: 0 4px;
-  line-height: 1;
-  transition: color 0.12s, transform 0.12s;
+  margin-left: 3px;
 }
-.tops-card .tops-collapse-btn:hover { color: var(--tops-ink); }
-/* When collapsed: hide all children of the card except the title itself. */
-.tops-card[data-collapsed="1"] > *:not(.tops-card-title) { display: none !important; }
-.tops-card[data-collapsed="1"] .tops-card-title {
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
+.tops-tag-mini.is-bad  { color: var(--bad);  border-color: rgba(248, 113, 113, 0.4); background: rgba(248, 113, 113, 0.10); }
+.tops-tag-mini.is-warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.4);  background: rgba(251, 191, 36, 0.10); }
 
-.tops-pick-origin { color: var(--tops-ink-dim); font-weight: 600; font-size: 0.75rem; }
-
-/* Stat row ---------------------------------------------------------------- */
-.tops-stat-row {
-  display: flex;
-  gap: 0.75rem;
-  margin-bottom: 0.6rem;
-}
-.tops-stat {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(92, 129, 173, 0.2);
-  border-radius: 10px;
-  padding: 0.5rem 0.65rem;
-  text-align: center;
-}
-.tops-stat-num {
-  display: block;
-  font-size: 1.4rem;
-  font-weight: 900;
-  color: var(--tops-accent);
-}
-.tops-stat-lbl {
-  display: block;
-  font-size: 0.7rem;
-  color: var(--tops-ink-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-/* Trades card — pending offers + league-wide OTB list */
-.tops-trade-subsection { margin-top: 0.7rem; }
-.tops-trade-subsection:first-of-type { margin-top: 0.3rem; }
-.tops-trade-subhead {
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--tops-accent-2);
-  font-weight: 700;
-  margin-bottom: 0.35rem;
-}
-.tops-empty--inline {
-  padding: 0.45rem 0.6rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px dashed rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  font-size: 0.78rem;
-  font-style: italic;
-}
-.tops-trade-list, .tops-otb-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.tops-trade-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(92, 129, 173, 0.18);
-  border-radius: 6px;
-  text-decoration: none;
-  color: var(--tops-ink);
-  font-size: 0.85rem;
-  transition: background 80ms ease, border-color 80ms ease;
-}
-.tops-trade-row:hover {
-  background: rgba(125, 232, 217, 0.08);
-  border-color: rgba(125, 232, 217, 0.4);
-}
-.tops-trade-dir {
-  font-weight: 700;
-  color: var(--tops-accent-2);
-  flex-shrink: 0;
-}
-.tops-trade-team { flex: 1; font-weight: 600; }
-.tops-trade-role {
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--tops-ink-dim);
-}
-.tops-otb-row {
-  display: block;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(92, 129, 173, 0.18);
-  border-radius: 6px;
-  text-decoration: none;
-  color: var(--tops-ink);
-  font-size: 0.85rem;
-  transition: background 80ms ease, border-color 80ms ease;
-}
-.tops-otb-row:hover {
-  background: rgba(125, 232, 217, 0.08);
-  border-color: rgba(125, 232, 217, 0.4);
-}
-.tops-otb-team {
-  font-weight: 700;
-  font-size: 0.82rem;
-  color: var(--tops-accent-2);
-  margin-bottom: 2px;
-}
-.tops-otb-assets {
-  color: var(--tops-ink);
-  font-size: 0.8rem;
-  line-height: 1.3;
-}
-.tops-otb-comment {
-  color: var(--tops-ink-dim);
-  font-size: 0.75rem;
-  margin-top: 3px;
-  font-style: italic;
-}
-
-.tops-link,
-#teamOpsMount a.tops-link {
-  /* !important + #teamOpsMount scope: MFL's parent-page stylesheet
-     defines a default amber link color that wins on specificity alone.
-     Force teal here so internal "Open Trade Room →" / "Open Add/Drop →"
-     links stay visually distinct from MFL chrome. */
-  display: inline-block;
-  margin-top: 0.4rem;
-  color: var(--tops-accent-2) !important;
-  font-weight: 700;
-  text-decoration: none !important;
-  font-size: 0.82rem;
-}
-.tops-link:hover,
-#teamOpsMount a.tops-link:hover { text-decoration: underline !important; }
-
-/* Heatmap ----------------------------------------------------------------- */
-.tops-heatmap-hint {
-  font-size: 0.72rem;
-  color: var(--tops-ink-dim);
-  margin-bottom: 0.45rem;
-}
-.tops-heatmap {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-  gap: 0.45rem;
-}
-.tops-heat-cell {
-  background: rgba(125, 232, 217, 0.08);
-  border: 1px solid rgba(125, 232, 217, 0.25);
-  border-radius: 8px;
-  padding: 0.4rem 0.3rem;
-  text-align: center;
-}
-.tops-heat-pos {
-  font-size: 0.68rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  color: var(--tops-accent-2);
-}
-.tops-heat-count {
-  font-size: 1.2rem;
-  font-weight: 900;
-  color: var(--tops-ink);
-}
-
-/* Footer / meta ----------------------------------------------------------- */
-.tops-footer {
-  margin-top: 0.9rem;
-  /* Solid background + roomy padding so even if something below the shell
-     visually overlaps, the footer text stays readable. */
-  background: rgba(0, 0, 0, 0.35);
-  border-radius: 6px;
-  padding: 0.8rem 0.85rem;
-  border-top: 1px solid rgba(92, 129, 173, 0.35);
-  display: flex;
-  justify-content: space-between;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  font-size: 0.78rem;
-}
-.tops-meta {
-  font-size: 0.72rem;
-  color: var(--tops-ink-dim);
-}
-.tops-meta-error { color: var(--tops-bad); font-weight: 700; }
-
-/* Loading / error --------------------------------------------------------- */
-.tops-loading {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 2rem;
-  justify-content: center;
-  color: var(--tops-ink-dim);
-}
-.tops-spinner {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  border-top-color: var(--tops-accent);
-  animation: tops-spin 0.8s linear infinite;
-}
-@keyframes tops-spin { to { transform: rotate(360deg); } }
-
-.tops-error {
-  color: var(--tops-bad);
-  font-weight: 700;
-  background: rgba(125, 232, 217, 0.08);
-  border: 1px solid rgba(125, 232, 217, 0.35);
-  padding: 0.75rem 0.9rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
-}
-
-/* Universal TAXI pill — same convention as Draft Hub + Front Office.
-   Yellow-tinted 9px badge that signals "salary doesn't count vs cap,
-   but real money for trade math". Surfaces next to player names in
-   the My Team Roster card. */
-.taxi-pill {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  background: rgba(251, 191, 36, 0.18);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.45);
-  vertical-align: middle;
-  text-transform: uppercase;
-  font-variant-numeric: tabular-nums;
-}
-.tops-roster-table tr.is-taxi { background: rgba(251, 191, 36, 0.04); }
-
-/* Roster row click affordance — feels like a tap target. */
-.tops-roster-table tr.tops-roster-row { cursor: pointer; transition: background 80ms ease; }
-.tops-roster-table tr.tops-roster-row:hover { background: rgba(255, 255, 255, 0.04); }
-.tops-roster-table tr.tops-roster-row.is-taxi:hover { background: rgba(251, 191, 36, 0.10); }
-.tops-roster-table tr.tops-roster-row:focus-visible {
-  outline: 2px solid var(--tops-accent, #fbbf24);
-  outline-offset: -2px;
-}
-.tops-card-hint {
-  font-size: 11px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.45);
-  margin-left: 8px;
-}
-
-/* Submit Lineup CTA + position-grouped roster (Keith 2026-05-15). */
-.tops-card-actions {
-  float: right;
-  font-weight: 400;
-  font-size: 12px;
-}
-.tops-roster-grouped {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 8px;
-}
-.tops-roster-group {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.015);
-}
-.tops-roster-group-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: rgba(91, 141, 255, 0.06);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 12px;
-}
-.tops-roster-group-label {
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  color: var(--text, #e8edf5);
-  font-size: 12px;
-}
-.tops-roster-group-count {
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-.tops-roster-slot-hint {
-  margin-left: auto;
-  font-size: 11px;
-  color: rgba(91, 141, 255, 0.85);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-.tops-roster-group .tops-roster-table { margin: 0; }
-.tops-roster-table tr.is-expired { background: rgba(239, 68, 68, 0.05); }
-.tops-roster-table tr.is-ir { background: rgba(91, 141, 255, 0.04); }
-.tops-roster-table tr.is-starting { background: rgba(125, 232, 217, 0.07); }
-.tops-roster-table tr.is-starting td { font-weight: 600; }
-
-/* Lineup builder — per-group count chip + global HUD + Save button. */
-.tops-roster-group-status {
-  margin-left: auto;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.55);
-  font-variant-numeric: tabular-nums;
-}
-.tops-roster-group-status.is-ok    { background: rgba(125, 232, 217, 0.15); color: #7de8d9; }
-.tops-roster-group-status.is-under { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
-.tops-roster-group-status.is-over  { background: rgba(239, 68, 68, 0.18);  color: #ef4444; }
-.tops-roster-slot-hint + .tops-roster-group-status { margin-left: 8px; }
-.tops-roster-check {
-  width: 1.4rem;
-  text-align: center;
-  padding: 0;
-}
-.tops-lineup-cbx {
-  width: 16px; height: 16px;
-  accent-color: #7de8d9;
-  cursor: pointer;
-}
-.tops-lineup-cbx-disabled {
-  color: rgba(255, 255, 255, 0.2);
-  font-size: 14px;
-}
-.tops-lineup-hud {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  margin: 6px 0 0;
-  border-radius: 8px;
-  font-size: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-.tops-lineup-hud.is-ok   { background: rgba(125, 232, 217, 0.08); border-color: rgba(125, 232, 217, 0.3); color: #c9f8f1; }
-.tops-lineup-hud.is-warn { background: rgba(251, 191, 36, 0.08); border-color: rgba(251, 191, 36, 0.3); color: #fbe9a3; }
-.tops-lineup-hud.is-err  { background: rgba(239, 68, 68, 0.06); border-color: rgba(239, 68, 68, 0.25); color: #ffb4b4; }
-
-/* Mode tabs (Lineup | Trade Bait) — sit between the card title and the
-   validation HUD. Visually mirror the rosters/standings/etc. tab strip
-   so behaviour is predictable. Keith 2026-05-15 phase 3. */
-.tops-roster-tabs {
-  display: flex;
-  gap: 4px;
-  margin: 8px 0 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-.tops-roster-tab {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: rgba(255, 255, 255, 0.55);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-size: 11px;
-  padding: 8px 14px;
-  cursor: pointer;
-  transition: color 80ms, border-color 80ms;
-}
-.tops-roster-tab:hover { color: #c9f8f1; }
-.tops-roster-tab.is-active {
-  color: #7de8d9;
-  border-bottom-color: #7de8d9;
-}
-
-/* Trade-bait selected row tinting — warm amber, distinct from the teal
-   "is-starting" lineup tint. */
-.tops-roster-table tr.is-trade-bait    { background: rgba(251, 191, 36, 0.08); }
-.tops-roster-table tr.is-trade-bait td { font-weight: 600; }
-
-/* "What I'm looking for" textarea — fits inline above the position groups
-   when in trade-bait mode. */
-.tops-bait-comment-wrap {
-  margin: 8px 0 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.tops-bait-comment-label {
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
-  font-weight: 700;
-}
-.tops-bait-comment {
-  width: 100%;
-  resize: vertical;
-  min-height: 48px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: #e8edf5;
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1.4;
-}
-.tops-bait-comment:focus {
-  outline: none;
-  border-color: #7de8d9;
-  background: rgba(125, 232, 217, 0.05);
-}
-
-/* Per-player note row — slips in under a checked Trade Bait row so the
-   owner can drop a one-line annotation per player. Phase 4 — Keith
-   2026-05-15. */
-.tops-roster-note-row { background: rgba(251, 191, 36, 0.04); }
-.tops-roster-note-cell {
-  padding: 6px 12px 10px !important;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.tops-bait-note-label {
-  font-size: 11px;
-  color: rgba(251, 191, 36, 0.9);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.tops-bait-note-input {
-  flex: 1;
-  padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  color: #e8edf5;
-  font-family: inherit;
-  font-size: 12px;
-  line-height: 1.3;
-}
-.tops-bait-note-input:focus {
-  outline: none;
-  border-color: #fbbf24;
-  background: rgba(251, 191, 36, 0.05);
-}
-.tops-lineup-msg {
-  margin: 6px 0 0;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  background: rgba(255, 255, 255, 0.04);
-}
-.tops-lineup-msg.is-ok  { background: rgba(125, 232, 217, 0.12); color: #c9f8f1; }
-.tops-lineup-msg.is-err { background: rgba(239, 68, 68, 0.10);   color: #ffb4b4; }
-.tops-lineup-save[disabled] {
-  opacity: 0.45;
-  cursor: not-allowed;
-  filter: grayscale(0.5);
-}
-.tops-roster-name {
-  cursor: pointer;
-  border-bottom: 1px dashed rgba(125, 232, 217, 0.35);
-}
-.tops-roster-name:hover { color: #7de8d9; }
-.tops-roster-name:focus-visible { outline: 2px solid #7de8d9; outline-offset: 2px; border-radius: 2px; }
-
-/* News feed — same tap pattern as roster rows so any news item opens
-   the player profile modal. */
-.tops-news-list { list-style: none; padding: 0; margin: 0; }
-.tops-news-item {
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  /* Whole row is no longer clickable — name button + article link own their
-     own targets. Cursor is default; sub-elements set their own. */
-  cursor: default;
-  transition: background 80ms ease;
-}
-.tops-news-item:hover { background: rgba(255, 255, 255, 0.02); }
-.tops-news-row1 {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-/* Player-name button: plain bold text that quietly hints "clickable" on
-   hover — no pill, no border, no white background. Functions as a link. */
-.tops-news-player-link {
-  background: none;
-  border: 0;
-  padding: 0;
-  margin: 0;
-  font: inherit;
-  font-weight: 700;
-  font-size: 13px;
-  color: #e8f1ff;
-  cursor: pointer;
-  text-align: left;
-  text-decoration: none;
-  line-height: 1.2;
-  border-bottom: 1px dotted transparent;
-  transition: color 100ms, border-color 100ms;
-}
-.tops-news-player-link:hover {
-  color: var(--tops-accent, #f3b61f);
-  border-bottom-color: rgba(243, 182, 31, 0.7);
-}
-.tops-news-player-link:focus-visible {
-  outline: 2px solid var(--tops-accent, #f3b61f);
-  outline-offset: 2px;
-  border-radius: 2px;
-}
-
-/* Article wrapper: anchor when URL exists, plain div otherwise. The whole
-   block (headline + body) is one click target, but styling is restrained —
-   no persistent underline / no bright-blue scream. */
-.tops-news-article-link {
-  display: block;
-  text-decoration: none;
-  color: inherit;
-  cursor: pointer;
-  border-radius: 4px;
-  padding: 4px 6px;
-  margin: 2px -6px 0;
-  transition: background 100ms;
-}
-.tops-news-article-link:hover {
-  background: rgba(125, 232, 217, 0.06);
-}
-.tops-news-article-link:hover .tops-news-head {
-  color: var(--tops-accent-2, #7de8d9);
-  text-decoration: underline;
-  text-decoration-color: rgba(125, 232, 217, 0.5);
-  text-underline-offset: 2px;
-}
-.tops-news-article-link:focus-visible {
-  outline: 2px solid var(--tops-accent-2, #7de8d9);
-  outline-offset: 0;
-}
-.tops-news-article-static { cursor: default; padding: 2px 0; }
-
-/* Subtle "external link" arrow only on hover — no permanent visual noise. */
-.tops-news-item.has-article .tops-news-article-link:hover .tops-news-head::after {
-  content: " ↗";
-  font-size: 0.78em;
-  color: var(--tops-accent-2, #7de8d9);
-  vertical-align: super;
-  font-weight: 400;
-  opacity: 0.7;
-}
-
-/* Legacy span (left for static rows that aren't clickable). */
-.tops-news-player { font-weight: 700; font-size: 13px; color: #e8f1ff; }
-
-/* Inline injury badge shown next to the name in a news row when the
-   player has an active injury (Q/D/O/IR). Smaller than the dedicated
-   Injuries-panel badge so it doesn't overpower the name. Reuses the
-   .tops-inj-* color palette already defined above. */
-.tops-news-inj-mini {
-  display: inline-block;
-  padding: 0 5px;
-  margin-right: 6px;
-  border-radius: 3px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  vertical-align: middle;
-  line-height: 1.5;
-  text-transform: uppercase;
-}
-.tops-news-pos {
-  font-size: 10px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.55);
-  letter-spacing: 0.5px;
-}
-.tops-news-when {
-  margin-left: auto;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.45);
-  font-variant-numeric: tabular-nums;
-}
-.tops-news-head {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 600;
-  margin-bottom: 2px;
-}
-.tops-news-body {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.65);
-  line-height: 1.45;
-}
-.tops-news-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.06);
-  margin: 12px 0 8px;
-}
-.tops-news-section-title {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: rgba(255, 255, 255, 0.5);
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-/* ─── News card controls (Wave 3a) ───────────────────────────────────── */
-.tops-news-controls {
-  display: flex;
-  gap: 0.4rem;
-  align-items: center;
-  margin: 4px 0 8px;
-}
-.tops-news-search {
-  flex: 1 1 auto;
-  min-width: 0;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--tops-card-border);
-  border-radius: 6px;
-  color: var(--tops-ink);
-  padding: 5px 10px;
-  font-size: 0.84rem;
-  font: inherit;
-  font-size: 0.84rem;
-  outline: none;
-  transition: border-color 0.12s, background 0.12s;
-}
-.tops-news-search:focus {
-  border-color: var(--tops-accent);
-  background: rgba(0, 0, 0, 0.4);
-}
-.tops-news-search::placeholder { color: var(--tops-ink-dim); }
-.tops-news-sort {
-  flex: 0 0 auto;
-  background: transparent;
-  border: 1px solid var(--tops-card-border);
-  border-radius: 6px;
-  color: var(--tops-ink-dim);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 5px 9px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 0.12s, border-color 0.12s;
-}
-.tops-news-sort:hover {
-  color: var(--tops-ink);
-  border-color: var(--tops-accent);
-}
-
-/* Show-more button (pagination) */
-.tops-news-more {
-  display: block;
-  width: 100%;
-  margin: 6px 0 0;
-  background: rgba(91, 141, 255, 0.08);
-  border: 1px dashed rgba(91, 141, 255, 0.3);
-  border-radius: 6px;
-  color: var(--tops-ink);
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  padding: 7px 10px;
-  cursor: pointer;
-  text-align: center;
-  transition: background 0.12s, border-color 0.12s;
-}
-.tops-news-more:hover {
-  background: rgba(91, 141, 255, 0.18);
-  border-color: rgba(91, 141, 255, 0.6);
-}
-.tops-news-more .muted { color: var(--tops-ink-dim); font-weight: 400; margin-left: 4px; }
-
-/* Team-name pill in news rows */
-.tops-news-team {
-  display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--tops-ink-dim);
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 3px;
-  padding: 1px 5px;
-  margin-left: 4px;
-}
-
-/* ─── All-Player News card (Wave 3b) ─────────────────────────────────── */
+/* ── Player News panel ──────────────────────────────────────────────────── */
 .tops-allnews-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
   align-items: center;
-  margin: 6px 0 6px;
-}
-.tops-pos-pills { display: flex; gap: 4px; flex-wrap: wrap; }
-.tops-pos-pill {
-  background: transparent;
-  border: 1px solid var(--tops-card-border);
-  border-radius: 999px;
-  color: var(--tops-ink-dim);
-  font: inherit;
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 3px 9px;
-  cursor: pointer;
-  transition: color 0.12s, border-color 0.12s, background 0.12s;
-}
-.tops-pos-pill:hover {
-  color: var(--tops-ink);
-  border-color: var(--tops-accent);
-}
-.tops-pos-pill[data-active="1"] {
-  color: var(--tops-bg);
-  background: var(--tops-accent);
-  border-color: var(--tops-accent);
-}
-
-/* "My Team" scope pill — sits before the divider, slightly heavier weight
-   to distinguish it from the position pills. */
-.tops-pos-pill--scope {
-  font-weight: 800;
-  letter-spacing: 0.06em;
-}
-.tops-pos-pill--scope[data-active="1"] {
-  background: var(--tops-accent);
-  color: var(--tops-bg);
-  box-shadow: 0 0 0 2px rgba(243, 182, 31, 0.25);
-}
-.tops-pill-divider {
-  display: inline-block;
-  width: 1px;
-  height: 16px;
-  background: var(--tops-card-border);
-  margin: 0 4px;
-  vertical-align: middle;
-}
-
-/* Type-filter row (All / Injury / Depth / News). Lives on its own line
-   below the position pills so the bar isn't claustrophobic. */
-.tops-itype-pills {
-  margin-top: 6px;
-  align-items: center;
-}
-.tops-itype-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--tops-ink-dim);
-  margin-right: 6px;
+  gap: var(--s2);
+  margin: var(--s2) 0;
 }
 .tops-allnews-team,
 .tops-allnews-name {
-  flex: 0 1 auto;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--tops-card-border);
-  border-radius: 6px;
-  color: var(--tops-ink);
-  padding: 5px 9px;
+  background: var(--panel-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  color: var(--ink);
   font: inherit;
-  font-size: 0.84rem;
-  outline: none;
+  font-size: var(--t-sm);
+  padding: 5px var(--s2);
 }
-.tops-allnews-name { min-width: 0; flex: 1 1 160px; }
-.tops-allnews-team:focus,
-.tops-allnews-name:focus {
-  border-color: var(--tops-accent);
-  background: rgba(0, 0, 0, 0.4);
-}
-.tops-allnews-go {
-  background: rgba(91, 141, 255, 0.18);
-  border: 1px solid rgba(91, 141, 255, 0.5);
-  color: var(--tops-ink);
+.tops-allnews-name { flex: 1 1 180px; min-width: 140px; }
+.tops-allnews-name::placeholder { color: var(--ink-3); }
+.tops-allnews-go,
+.tops-news-sort,
+.tops-news-more {
   font: inherit;
-  font-size: 0.82rem;
+  font-size: var(--t-sm);
   font-weight: 700;
+  color: var(--teal);
+  background: transparent;
+  border: 1px solid rgba(125, 232, 217, 0.4);
+  border-radius: 999px;
   padding: 5px 12px;
-  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
 }
-.tops-allnews-go:hover {
-  background: rgba(91, 141, 255, 0.3);
-  border-color: rgba(91, 141, 255, 0.8);
-}
-.tops-allnews-go[data-disabled="1"] { opacity: 0.4; cursor: not-allowed; }
+.tops-allnews-go[data-disabled="1"] { opacity: 0.45; cursor: default; }
+.tops-news-more { margin-top: var(--s2); }
 .tops-allnews-status {
-  font-size: 0.74rem;
-  color: var(--tops-ink-dim);
-  margin: 0 0 6px;
-  padding: 0 2px;
-}
-.tops-allnews-status strong { color: var(--tops-ink); }
-
-/* ─── Next Decision (promoted to top, full-width) ──────────────────────── */
-/* Toned down 2026-05-13 (per Keith): the prior grid-of-cards layout had
-   bordered cells with vertical seams that made the section visually
-   shouty. Reverting to a calm bullet-list flow — same spirit as the
-   original Wave 1a "Phase 1b will hydrate this…" preview but now
-   sourced from real league_events data. */
-.tops-card-highlight {
-  background: linear-gradient(180deg, rgba(243,182,31,0.04) 0%, rgba(15,29,52,1) 100%);
-  border-color: rgba(243,182,31,0.28);
-}
-.tops-nd-list {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0 0 0.35rem;  /* extra bottom padding so the last row doesn't kiss the card border */
-}
-.tops-nd-list li {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  padding: 6px 0;
-  font-size: 0.88rem;
-  color: var(--tops-ink);
-}
-.tops-nd-list li + li {
-  border-top: 1px solid rgba(255,255,255,0.04);
-}
-.tops-nd-list li:last-child { padding-bottom: 8px; }
-.tops-nd-main {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  min-width: 0;
-}
-.tops-nd-label {
-  font-weight: 700;
-  color: var(--tops-ink);
-}
-.tops-nd-label.muted { color: var(--tops-ink-dim); font-weight: 500; }
-.tops-nd-when {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--tops-accent);
-  font-variant-numeric: tabular-nums;
-  flex: 0 0 auto;
-}
-.tops-nd-soon .tops-nd-when { color: #fbbf24; }
-.tops-nd-sub {
-  font-size: 0.74rem;
-  color: var(--tops-ink-dim);
-  margin-left: 0.5rem;
-}
-.tops-nd-next {
-  display: inline-block;
-  background: rgba(74,222,128,0.18);
-  color: #4ade80;
-  font-size: 0.58rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  padding: 1px 5px;
-  border-radius: 3px;
-  vertical-align: middle;
-}
-.tops-nd-pending .tops-nd-sub code {
-  background: rgba(0,0,0,0.25);
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-size: 0.72rem;
+  font-size: var(--t-meta);
+  color: var(--ink-3);
+  margin-bottom: var(--s2);
 }
 
-/* News-item type badges — color-coded so the eye picks out structured
-   Sleeper data vs. ESPN article headlines. Each carries a small leading
-   glyph: INJURY ⚕ (medical cross-ish), DEPTH ⇅ (chart movement), NEWS 📰. */
-.tops-news-type-badge {
-  display: inline-flex;
+.tops-pos-pills {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 3px;
-  padding: 2px 6px;
-  margin-right: 6px;
-  border-radius: 3px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  vertical-align: middle;
-  text-transform: uppercase;
-  line-height: 1;
+  gap: var(--s1);
 }
-.tops-news-type-badge.is-status {
-  background: rgba(248, 113, 113, 0.22);
-  color: #fecaca;
-  border: 1px solid rgba(248, 113, 113, 0.55);
-}
-.tops-news-type-badge.is-status::before {
-  content: "✚";
-  font-size: 11px;
-  line-height: 1;
-  font-weight: 900;
-  color: #fca5a5;
-}
-.tops-news-type-badge.is-depth {
-  background: rgba(96, 165, 250, 0.22);
-  color: #bfdbfe;
-  border: 1px solid rgba(96, 165, 250, 0.55);
-}
-.tops-news-type-badge.is-depth::before {
-  content: "⇅";
-  font-size: 11px;
-  line-height: 1;
+.tops-pos-pill {
+  font: inherit;
+  font-size: var(--t-meta);
   font-weight: 700;
-  color: #93c5fd;
+  color: var(--ink-3);
+  background: var(--panel-3);
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
 }
-.tops-news-type-badge.is-headline {
-  background: rgba(125, 232, 217, 0.16);
-  color: #bef0e6;
-  border: 1px solid rgba(125, 232, 217, 0.45);
+.tops-pos-pill[data-active="1"] {
+  color: #08201d;
+  background: var(--teal);
+  border-color: var(--teal);
 }
-.tops-news-type-badge.is-headline::before {
-  content: "▰";
-  font-size: 10px;
-  line-height: 1;
-  color: var(--tops-accent-2, #7de8d9);
+.tops-pill-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--hair);
+  margin: 0 var(--s1);
 }
-.tops-profile-news-link {
-  display: inline-block;
-  margin-top: 6px;
-  font-size: 11px;
-  color: #fbbf24;
-  text-decoration: none;
+.tops-itype-label {
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-right: var(--s1);
 }
-.tops-profile-news-link:hover { text-decoration: underline; }
-.tops-profile-news-item.is-status { background: rgba(248, 113, 113, 0.04); padding-left: 8px; border-left: 2px solid rgba(248, 113, 113, 0.35); }
-.tops-profile-news-item.is-depth  { background: rgba(96, 165, 250, 0.04); padding-left: 8px; border-left: 2px solid rgba(96, 165, 250, 0.35); }
 
-/* Player profile modal — full-screen dim, centered card. Mobile sheet
-   is full-screen (max-width:none). Esc / backdrop click both close. */
+.tops-news-section-title {
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: var(--s2) 0 var(--s1);
+}
+.tops-news-item {
+  padding: var(--s2) 0;
+  border-top: 1px solid var(--hair);
+}
+.tops-news-list > .tops-news-item:first-child { border-top: 0; }
+.tops-news-row1 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-meta);
+}
+.tops-news-player-link {
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.tops-news-player-link:hover { color: var(--teal); }
+.tops-news-pos,
+.tops-news-team,
+.tops-news-when { color: var(--ink-3); }
+.tops-news-type-badge {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  border: 1px solid var(--hair);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.tops-news-type-badge.is-status   { color: var(--bad);  border-color: rgba(248, 113, 113, 0.4); }
+.tops-news-type-badge.is-depth    { color: var(--teal); border-color: rgba(125, 232, 217, 0.4); }
+.tops-news-type-badge.is-headline { color: var(--ink-2); }
+.tops-news-head {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: 3px;
+}
+.tops-news-body {
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+.tops-news-article-link { display: block; }
+.tops-news-article-link:hover .tops-news-head { color: var(--teal); }
+
+/* Injury designation chips — status colour only. */
+.tops-inj {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  border-radius: 3px;
+  padding: 0 4px;
+  line-height: 14px;
+  color: var(--ink-3);
+  background: rgba(255, 255, 255, 0.06);
+}
+.tops-inj-Q,
+.tops-inj-QUESTIONABLE { color: var(--warn); background: rgba(251, 191, 36, 0.16); }
+.tops-inj-D,
+.tops-inj-DOUBTFUL     { color: #fb923c;     background: rgba(251, 146, 60, 0.16); }
+.tops-inj-O,
+.tops-inj-OUT,
+.tops-inj-IR           { color: var(--bad);  background: rgba(248, 113, 113, 0.16); }
+.tops-inj-P,
+.tops-inj-PROBABLE     { color: var(--ok);   background: rgba(74, 222, 128, 0.14); }
+
+/* ── Player profile modal ───────────────────────────────────────────────────
+   NOTE: the overlay is appended to <body>, OUTSIDE #teamOpsMount, so none of
+   the scoped resets above reach it. It has to re-declare its own. */
+.tops-profile-overlay *,
+.tops-profile-overlay *::before,
+.tops-profile-overlay *::after { box-sizing: border-box; }
+.tops-profile-overlay h3,
+.tops-profile-overlay p,
+.tops-profile-overlay ul { margin: 0; }
+.tops-profile-overlay ul { list-style: none; padding: 0; }
+.tops-profile-overlay a { color: inherit; text-decoration: none; }
+.tops-profile-overlay table { border-collapse: collapse; }
+
 .tops-profile-overlay {
   position: fixed;
   inset: 0;
@@ -1578,12 +938,14 @@ a.tops-iframe-pop:hover {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 32px 16px;
+  padding: var(--s6, 32px) var(--s4, 16px);
   overflow-y: auto;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #e8f1ff;
 }
 .tops-profile-modal {
-  background: #14161c;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: #101e35;
+  border: 1px solid #23405f;
   border-radius: 12px;
   max-width: 620px;
   width: 100%;
@@ -1594,144 +956,91 @@ a.tops-iframe-pop:hover {
 }
 @keyframes tops-profile-fade {
   from { transform: translateY(8px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  to   { transform: translateY(0);   opacity: 1; }
 }
 .tops-profile-close {
   position: absolute;
-  top: 8px;
-  right: 10px;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.65);
+  top: 10px;
+  right: 12px;
+  background: none;
+  border: 0;
+  color: #70879f;
   font-size: 22px;
+  line-height: 1;
   cursor: pointer;
-  border-radius: 6px;
 }
-.tops-profile-close:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
-.tops-profile-head { margin-bottom: 14px; padding-right: 36px; }
-.tops-profile-name { font-size: 20px; margin: 0 0 4px; color: #fff; }
-.tops-profile-bio { font-size: 12px; color: rgba(255, 255, 255, 0.65); }
-.tops-profile-injury {
-  margin-top: 8px;
-  padding: 6px 10px;
-  background: rgba(255, 107, 107, 0.10);
-  border: 1px solid rgba(255, 107, 107, 0.35);
-  color: #ffb3b3;
-  font-size: 12px;
-  border-radius: 6px;
-}
-.tops-profile-section-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: rgba(255, 255, 255, 0.55);
-  margin: 14px 0 8px;
-  font-weight: 700;
-}
-.tops-profile-news { list-style: none; padding: 0; margin: 0; }
-.tops-profile-news-item {
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-.tops-profile-news-item:last-child { border-bottom: none; }
-.tops-profile-news-meta {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.45);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  margin-bottom: 3px;
-}
-.tops-profile-news-head {
-  font-size: 13px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 4px;
-}
-.tops-profile-news-body {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.75);
-  line-height: 1.5;
-}
-.tops-profile-actions {
-  margin-top: 16px;
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-top: 12px;
-}
-
-/* 4-tab profile (matches Front Office aesthetic — Bio / Stats / Game Log / News) */
+.tops-profile-close:hover { color: #7de8d9; }
 .tops-profile-header {
   display: flex;
   gap: 14px;
   align-items: center;
-  margin-bottom: 14px;
-  padding-right: 36px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(92, 129, 173, 0.16);
 }
 .tops-profile-photo {
-  width: 64px;
-  height: 64px;
+  width: 58px;
+  height: 58px;
   border-radius: 8px;
   object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: #1a1d24;
-  flex-shrink: 0;
+  background: #000;
+  flex: 0 0 auto;
 }
-.tops-profile-id { flex: 1; min-width: 0; }
-.tops-profile-pos-row { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.tops-profile-id { min-width: 0; }
+.tops-profile-pos-row { display: flex; align-items: center; gap: 8px; }
 .tops-profile-pos-pill {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  background: rgba(96, 165, 250, 0.18);
-  color: #93c5fd;
-  border: 1px solid rgba(96, 165, 250, 0.4);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #70879f;
+  border: 1px solid rgba(92, 129, 173, 0.35);
+  border-radius: 3px;
+  padding: 1px 5px;
 }
-.tops-profile-sub { font-size: 12px; color: rgba(255, 255, 255, 0.55); }
+.tops-profile-name { font-size: 18px; font-weight: 800; }
+.tops-profile-sub { font-size: 11px; color: #70879f; margin-top: 2px; }
+.tops-profile-injury {
+  font-size: 12px;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
 .tops-profile-tabs {
   display: flex;
-  gap: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-  margin: 0 -22px 14px;
-  padding: 0 22px;
+  gap: 4px;
+  margin: 12px 0;
+  flex-wrap: wrap;
 }
 .tops-profile-tab {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: rgba(255, 255, 255, 0.55);
-  padding: 10px 14px;
+  font: inherit;
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #70879f;
+  background: #142440;
+  border: 1px solid rgba(92, 129, 173, 0.16);
+  border-radius: 999px;
+  padding: 4px 12px;
   cursor: pointer;
 }
-.tops-profile-tab.is-active {
-  color: #fbbf24;
-  border-bottom-color: #fbbf24;
-}
-.tops-profile-tab:hover { color: rgba(255, 255, 255, 0.85); }
+.tops-profile-tab.is-active { color: #08201d; background: #7de8d9; border-color: #7de8d9; }
 .tops-profile-panels { min-height: 240px; }
 .tops-profile-panel { animation: tops-tab-fade 120ms ease; }
-@keyframes tops-tab-fade { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes tops-tab-fade {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 .tops-profile-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   margin-top: 6px;
 }
-@media (max-width: 600px) {
-  .tops-profile-grid { grid-template-columns: repeat(2, 1fr); }
-}
 .tops-profile-metric {
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(92, 129, 173, 0.16);
   border-radius: 6px;
   padding: 10px;
 }
@@ -1739,28 +1048,120 @@ a.tops-iframe-pop:hover {
   display: block;
   font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.06em;
+  color: #70879f;
   margin-bottom: 4px;
 }
 .tops-profile-metric strong {
   display: block;
   font-size: 16px;
   font-weight: 700;
-  color: #fff;
+  color: #e8f1ff;
   font-variant-numeric: tabular-nums;
 }
 .tops-profile-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 4px; }
 .tops-profile-table th,
 .tops-profile-table td {
   padding: 6px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(92, 129, 173, 0.16);
   text-align: left;
 }
-.tops-profile-table th { color: rgba(255, 255, 255, 0.55); font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+.tops-profile-table th {
+  color: #70879f;
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .tops-profile-table td.num,
 .tops-profile-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tops-profile-news { margin-top: 4px; }
+.tops-profile-news-item {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(92, 129, 173, 0.16);
+}
+.tops-profile-news-item.is-status { background: rgba(248, 113, 113, 0.04); padding-left: 8px; border-left: 2px solid rgba(248, 113, 113, 0.35); }
+.tops-profile-news-item.is-depth  { background: rgba(125, 232, 217, 0.04); padding-left: 8px; border-left: 2px solid rgba(125, 232, 217, 0.35); }
+.tops-profile-news-meta { font-size: 10px; color: #70879f; display: flex; gap: 6px; align-items: center; }
+.tops-profile-news-head { font-size: 13px; font-weight: 700; margin-top: 3px; }
+.tops-profile-news-body { font-size: 12px; color: #a8bcd8; margin-top: 3px; line-height: 1.5; }
+.tops-profile-news-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #7de8d9;
+}
+.tops-profile-news-link:hover { text-decoration: underline; }
+.tops-profile-panel .tops-empty { color: #70879f; }
 
+/* ── loading / error / franchise picker ─────────────────────────────────── */
+.tops-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s6) var(--s4);
+  color: var(--ink-3);
+  font-size: var(--t-sm);
+}
+.tops-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--hair);
+  border-top-color: var(--teal);
+  animation: tops-spin 700ms linear infinite;
+}
+@keyframes tops-spin { to { transform: rotate(360deg); } }
+.tops-error {
+  padding: var(--s4);
+  color: var(--bad);
+  font-size: var(--t-sm);
+  line-height: 1.6;
+}
+.tops-picker {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: var(--s2);
+}
+.tops-picker select {
+  flex: 1 1 200px;
+  min-width: 180px;
+  background: var(--panel-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-sm);
+  padding: 7px var(--s2);
+}
+
+/* ── responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .tops-strip { grid-template-columns: repeat(3, 1fr); }
+  .tops-strip > div:nth-child(4) { border-left: 0; }
+  .tops-strip > div:nth-child(n+4) { border-top: 1px solid var(--hair); }
+}
+@media (max-width: 820px) {
+  .tops-two { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .tops-profile-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .tops-attn li { flex-wrap: wrap; }
+  .tops-attn-when { text-align: left; }
+  .tops-idname { font-size: var(--t-lead); }
+  .tops-idmeta { text-align: left; width: 100%; }
+}
+@media (max-width: 560px) {
+  .tops-strip { grid-template-columns: repeat(2, 1fr); }
+  .tops-strip > div:nth-child(odd) { border-left: 0; }
+  .tops-strip > div:nth-child(n+3) { border-top: 1px solid var(--hair); }
+  .tops-shell { padding: var(--s3) var(--s3) 6rem; }
+  .tops-slots { grid-template-columns: repeat(auto-fill, minmax(138px, 1fr)); }
+}
 @media (max-width: 768px) {
   .tops-profile-overlay { padding: 0; align-items: stretch; }
   .tops-profile-modal {
@@ -1769,21 +1170,4 @@ a.tops-iframe-pop:hover {
     min-height: 100dvh;
     padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
   }
-}
-
-/* Sticky header on mobile — franchise name + Submit Lineup / Full
-   Rosters / Trade Room shortcuts stay reachable while scrolling. */
-@media (max-width: 768px) {
-  .tops-header {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    background: var(--tops-bg, #0f1116);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(8px);
-    padding: 8px 12px;
-  }
-  .tops-title { font-size: 14px; }
-  .tops-subtitle { font-size: 11px; }
-  .tops-link-pill { font-size: 11px; padding: 6px 10px; }
 }

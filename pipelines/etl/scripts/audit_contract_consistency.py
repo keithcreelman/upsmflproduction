@@ -14,6 +14,8 @@ What this checks (self-contained — does not need prior-year data):
   4. For rookie/auction contracts (no Ext, no front/back-
      load): AAV * CL should approximately equal TCV        -> AAV_TCV_RATIO
   5. Warn if >1 AAV value is stored but years don't vary   -> MULTI_AAV_FLAT_YEARS
+  6. GTD follows canon: 75%xTCV (TCV>=$5K) / progressive
+     (CL-1)x$1K (TCV<=$4K) / none (CL1 sub-$5K)             -> GTD_OFF/MISSING/UNEXPECTED
 
 Output: writes results to table `player_contract_audit` and emits a CSV to
 `reports/contract_audit_<season>.csv` for review.
@@ -185,6 +187,30 @@ def audit_row(row: dict) -> dict:
             "code": "MULTI_AAV_FLAT_YEARS",
             "detail": f"Multiple AAV values {aav_vals} but year salaries are flat",
         })
+
+    # Check 6: GTD per canon (docs/league_context_v1.md §6/§D1) — the documented
+    # gap this script previously left open. TCV>=$5K -> 75%xTCV (half-up to $100);
+    # TCV<=$4K -> progressive (CL-1)x$1K ($1K CL2 / $2K CL3+); CL1 sub-$5K -> none.
+    if tcv and cl:
+        import decimal
+        if tcv >= 5000:
+            want_gtd = int(decimal.Decimal(str(tcv * 0.75)).quantize(decimal.Decimal("100"), rounding=decimal.ROUND_HALF_UP))
+        elif cl <= 1:
+            want_gtd = None
+        else:
+            want_gtd = 1000 if cl == 2 else 2000
+        gtd = parsed["gtd"]
+        if want_gtd is None and gtd:
+            issues.append({"code": "GTD_UNEXPECTED",
+                           "detail": f"GTD {gtd} but rule says no GTD (CL{cl} sub-$5K)"})
+        elif want_gtd is not None and not gtd:
+            issues.append({"code": "GTD_MISSING",
+                           "detail": f"no GTD but rule wants {want_gtd}",
+                           "fix_hint": f"GTD should be {want_gtd}"})
+        elif want_gtd is not None and gtd and abs(gtd - want_gtd) > 50:
+            issues.append({"code": "GTD_OFF",
+                           "detail": f"GTD {gtd} != canon {want_gtd}",
+                           "fix_hint": f"GTD should be {want_gtd}"})
 
     # Build recommended fix for the most common issue (AAV_EXT_MISMATCH):
     recommendation = None

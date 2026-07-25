@@ -8,6 +8,57 @@ This doc exists because Keith's biggest pain point is that fixing one thing regr
 
 ---
 
+## 0. 🔒 CONTRACT CHANGE GATE — STANDING RULE (Keith 2026-07-23, NO EXCEPTIONS)
+
+**Applies to ANY contract change** — code that computes/renders/submits contract fields
+(salary, contractYear, contractInfo tokens: `CL`, `TCV`, `AAV`, `Y1..Yn`, `GTD`, `Ext`,
+`Restructured YYYY`, `-FL`/`-BL` suffixes) AND any live contract-data edit
+(`/admin/import-salaries`, D1 `ups_*` ledger writes, Discord contract-activity edits).
+
+Adopted after four contract bugs in two days (2026-07-21/22), all caused by
+re-deriving contract math instead of reading canon: restructures re-averaging AAV
+(TCV÷CL) and dropping `-BL`, the Discord embed deriving AAV from year salaries
+(Hurts rendered "67K, 52K AAV" when the token says **42K, 52K**), the FO extension
+submit sending the extension-year salary as MFL's current salary, and
+`contract_year` sent as years-added instead of full contract length.
+
+**The gate — every contract change, every time:**
+
+1. **READ CANON FIRST.** The relevant `docs/league_context_v1.md` section:
+   §C4 Extension (AAV escalator, FL/BL, forward-looking TCV), §C5 Restructure
+   (re-slot years, TCV preserved), §C7 Annual Roll-Forward, §D1 Cut/GTD
+   (75% guarantee, sub-$5K rules). Never re-derive a rule from memory or from
+   code — the code has ~30 drifted copies (two AAV schools, five GTD formulas).
+2. **Dry-run.** `/admin/import-salaries` with `dry_run`, or the client submit's
+   preview path, or the validator (`pipelines/etl/scripts/audit_contract_info.py`).
+   Never a blind write.
+3. **Show Keith before/after.** CSV or inline table with evidence + confidence,
+   per contract.
+4. **Wait for Keith's confirm.** Per-row APPROVE — not blanket, not implied.
+5. **Commit + record the ruling.** Append to session memory AND
+   `docs/league_context_changelog.md`; if the ruling is a new general rule,
+   amend `docs/league_context_v1.md` with Keith's sign-off.
+
+**Operating corollaries:**
+- contractInfo tokens are ground truth to **PRESERVE**, not recompute. When a
+  displayed number disagrees with the token, the renderer is wrong until proven
+  otherwise.
+- **AAV ≠ TCV/CL. Never average.** AAV is set forward-looking at the extension
+  (dual `cur, cur+bump`; escalator applies to extension years only) and is
+  preserved verbatim through restructures. Dual AAV **rolls**: the leading tier
+  drops once its year is played (Mason `4,24` → `24`).
+- A restructure re-slots year salaries + TCV + GTD, preserves the AAV token
+  verbatim, re-derives `-FL`/`-BL` (Y1 vs the leading AAV tier), and appends
+  `|Restructured YYYY`.
+- MFL `salary` = **current-year** salary; `contractYear` = **years remaining**.
+- Verified reference fixtures: Hurts 14783 (sal 67K · cy 2 · `AAV 42K, 52K`),
+  London 15751 (`Vet-Ext1-BL` · `AAV 33K, 43K` · Restructured 2026),
+  Mason 15972 (rolled `AAV 24K`).
+
+This section is **not** recommend-only. It is a standing rule.
+
+---
+
 ## 1. Pre-change checklist (the one habit that prevents 80% of regressions)
 
 Before you (or your AI assistant) start coding on the MFL repo, answer all 5:

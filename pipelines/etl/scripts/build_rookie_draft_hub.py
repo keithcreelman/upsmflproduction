@@ -24,6 +24,7 @@ Run:
 from __future__ import annotations
 import argparse
 import json
+import os
 import sqlite3
 import sys
 import time
@@ -52,7 +53,7 @@ LEGACY_HISTORY = Path(
 # ── MFL API ────────────────────────────────────────────────────────────────
 LEAGUE_ID = "74598"
 MFL_HOST = "https://www48.myfantasyleague.com"
-MFL_APIKEY = "aRBv1sCXvuWpx0OmP13EaDoeFbox"
+MFL_APIKEY = os.environ.get("UPS_COMMISH_API_KEY") or os.environ.get("MFL_APIKEY", "")
 CURRENT_YEAR = 2026
 
 OFFENSE_POS = {"QB", "RB", "WR", "TE"}

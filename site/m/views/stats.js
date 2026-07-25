@@ -536,7 +536,17 @@
     var fcRank = adpbRankMap(board, function (p) { return p.fc && p.fc.rsf > 0 ? p.fc.rsf : null; }, false);
     var ktcRank = adpbRankMap(board, function (p) { return p.ktc && p.ktc.rsf > 0 ? p.ktc.rsf : null; }, false);
     var ffcRank = adpbRankMap(board, function (p) { return p.ffcAdp; }, true);
-    return { fcRank: fcRank, ktcRank: ktcRank, ffcRank: ffcRank, curve: adpbRankToFcValueCurve(board, fcRank) };
+    // MFL native AAV — the ONLY source quoting real auction dollars, and it IS
+    // live again for 2026 (800 tracked auctions). REFERENCE ONLY, deliberately NOT
+    // in the consensus: inspected 2026-07-21, the top six players by average value
+    // are all 2026 rookies (Jeremiyah Love $57.39 ... Ja'Marr Chase only 7th,
+    // Josh Allen 10th) because the auctions MFL tracks in July are dynasty ROOKIE
+    // auctions. That is a rookie-draft ordering, not a redraft one, and ranking it
+    // rather than averaging it does not help — the contamination is in the order
+    // itself. The rank map is built so the column can be displayed and so this is
+    // one uncomment away if the pool shifts once redraft auctions ramp up.
+    var mflRank = adpbRankMap(board, function (p) { return p.mflAav > 0 ? p.mflAav : null; }, false);
+    return { fcRank: fcRank, ktcRank: ktcRank, ffcRank: ffcRank, mflRank: mflRank, curve: adpbRankToFcValueCurve(board, fcRank) };
   }
   function adpbRedraftConsensus(row, rc) {
     if (!rc) return null;
@@ -567,9 +577,20 @@
     }
   }
   // Dynasty-only sources (DP) drop to null at the redraft extreme (show "—").
+  // DYNASTY value of one source's block. Prefer the worker's SCALE-NORMALISED
+  // `ndsf` (each source ranked inside its own reporting population, TE-premium-
+  // bridged for the non-TEP sources, mapped onto one common cardinal curve).
+  // Averaging raw `dsf` across sources is the 2026-07-13 bug in its dynasty-axis
+  // form — KTC's curve is ~4.6x flatter than DynastyProcess's past rank 100, so a
+  // raw mean silently becomes KTC's board. `dsf` fallback = split-deploy safety.
+  function adpbDynVal(blk, k) {
+    if (!blk) return null;
+    if (blk.ndsf != null && blk.ndsf > 0) return blk.ndsf;
+    return blk[(k || adpbKeys()).d];
+  }
   function adpbSrcBlend(row, src) {
     var blk = row[src]; if (!blk) return null;
-    var k = adpbKeys(), dyn = blk[k.d], rd = blk[k.r];
+    var k = adpbKeys(), dyn = adpbDynVal(blk, k), rd = blk[k.r];
     if (dyn == null && rd == null) return null;
     if (adpb.rdPct >= 0.999) return (rd != null && rd > 0) ? rd : null;
     if (adpb.rdPct <= 0.001) return (dyn != null && dyn > 0) ? dyn : null;
@@ -583,7 +604,8 @@
     ADPB_SRC.forEach(function (p) {
       if (!adpb.srcSel[p[0]]) return;
       var blk = row[p[0]]; if (!blk) return;
-      if (blk[k.d] != null && blk[k.d] > 0) dynVals.push(blk[k.d]);
+      var v = adpbDynVal(blk, k);
+      if (v != null && v > 0) dynVals.push(v);
     });
     var dynC = dynVals.length ? dynVals.reduce(function (a, b) { return a + b; }, 0) / dynVals.length : null;
     var rdC = adpbRedraftConsensus(row, adpb._rankConsensus);

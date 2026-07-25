@@ -4170,7 +4170,17 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       var fcRank = adpRankMap(board, function(p){ return p.fc && p.fc.rsf > 0 ? p.fc.rsf : null; }, false);
       var ktcRank = adpRankMap(board, function(p){ return p.ktc && p.ktc.rsf > 0 ? p.ktc.rsf : null; }, false);
       var ffcRank = adpRankMap(board, function(p){ return p.ffcAdp; }, true);
-      return { fcRank: fcRank, ktcRank: ktcRank, ffcRank: ffcRank, curve: adpRankToFcValueCurve(board, fcRank) };
+      // MFL native AAV — the ONLY source quoting real auction dollars, and it IS
+      // live again for 2026 (800 tracked auctions). REFERENCE ONLY, deliberately NOT
+      // in the consensus: inspected 2026-07-21, the top six players by average value
+      // are all 2026 rookies (Jeremiyah Love $57.39 ... Ja'Marr Chase only 7th,
+      // Josh Allen 10th) because the auctions MFL tracks in July are dynasty ROOKIE
+      // auctions. That is a rookie-draft ordering, not a redraft one, and ranking it
+      // rather than averaging it does not help — the contamination is in the order
+      // itself. The rank map is built so the column can be displayed and so this is
+      // one uncomment away if the pool shifts once redraft auctions ramp up.
+      var mflRank = adpRankMap(board, function(p){ return p.mflAav > 0 ? p.mflAav : null; }, false);
+      return { fcRank: fcRank, ktcRank: ktcRank, ffcRank: ffcRank, mflRank: mflRank, curve: adpRankToFcValueCurve(board, fcRank) };
     }
     // Consensus REDRAFT value for one row, honoring which sources are toggled on.
     function adpRedraftConsensus(row, rc){
@@ -4186,9 +4196,23 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
     // One source's displayed value for the chosen skew. At the extremes a
     // dynasty-only source (DP has no redraft value) drops to null instead of
     // falling back to the other dimension — so DP shows "—" at 100% redraft.
+    // The DYNASTY value of one source's block. Prefer `ndsf` — the worker's
+    // SCALE-NORMALISED dynasty value (each source ranked within its own reporting
+    // population, TE-premium-bridged for the non-TEP sources, mapped onto one
+    // common cardinal curve). Averaging raw `dsf` across sources is the 2026-07-13
+    // bug in its dynasty-axis form: KTC's value curve is ~4.6x flatter than
+    // DynastyProcess's past rank 100, so a raw mean silently becomes KTC's board.
+    // With `ndsf` every source shares one scale, so ANY subset the user toggles on
+    // can be plainly averaged and stay correct. `dsf` fallback is split-deploy
+    // safety only (site ships before the worker) — see worker /api/adp-board.
+    function adpDynVal(blk, k){
+      if (!blk) return null;
+      if (blk.ndsf != null && blk.ndsf > 0) return blk.ndsf;
+      return blk[(k || adpKeys()).d];
+    }
     function adpSrcBlend(row, src){
       var blk = row[src]; if (!blk) return null;
-      var k = adpKeys(), dyn = blk[k.d], rd = blk[k.r];
+      var k = adpKeys(), dyn = adpDynVal(blk, k), rd = blk[k.r];
       if (dyn == null && rd == null) return null;
       if (adp.rdPct >= 0.999) return (rd != null && rd > 0) ? rd : null;
       if (adp.rdPct <= 0.001) return (dyn != null && dyn > 0) ? dyn : null;
@@ -4205,7 +4229,8 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
       ADP_SRC.forEach(function(p){
         if (!adp.srcSel[p[0]]) return;
         var blk = row[p[0]]; if (!blk) return;
-        if (blk[k.d] != null && blk[k.d] > 0) dynVals.push(blk[k.d]);
+        var v = adpDynVal(blk, k);
+        if (v != null && v > 0) dynVals.push(v);
       });
       var dynC = dynVals.length ? dynVals.reduce(function(a,b){ return a + b; }, 0) / dynVals.length : null;
       var rdC = adpRedraftConsensus(row, adp._rankConsensus);

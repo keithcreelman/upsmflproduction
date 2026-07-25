@@ -33,7 +33,9 @@ WORKER = REPO / "worker"
 DB = "/tmp/ups_auction_canon.db"
 LEAGUE = "74598"; YEAR = 2026; CAP = 300000
 SKILL = ["QB", "RB", "WR", "TE"]
-MODEL_CURVE_MAXRANK = 48   # client recompute-kernel curves capped here (covers every startable override; saves blob bytes)
+MODEL_CURVE_MAXRANK = 40   # client recompute-kernel curves capped here (covers every startable override; saves blob bytes).
+                           # 48 → 40 on 2026-07-23: the v5 meta grew the lean blob past D1's 100KB SQL-statement cap
+                           # (101.8KB); ADP-override repricing never reaches rank 40+ at any position.
 SLOTS = {"QB": 2, "RB": 2, "WR": 2, "TE": 1}          # SF starting demand per team
 REPL_RANK = {"QB": 24, "RB": 31, "WR": 31, "TE": 14}  # replacement (marginal-starter) rank
 SUFFIX = re.compile(r"\b(jr|sr|ii|iii|iv|v)\b")
@@ -121,6 +123,12 @@ def main():
                     help="auto = ep_v5_calibration.json's ship_gate decides (default); "
                          "v4 = force the unmodified v4 max() (KILL SWITCH, bit-identical to pre-v5); "
                          "v5 = demand v5 and fail if the gate did not pass")
+    ap.add_argument("--live-reprice", action="store_true",
+                    help="Emit meta.live_reprice (the per-position LIVE-competition repricer). Off by "
+                         "default: the blob is unchanged and the client applies no live multiplier. When "
+                         "on, the client scales each position's market price by how many rival franchises "
+                         "can STILL afford AND still need that position, read live from the auction board "
+                         "(fails OPEN to the static price whenever the live budget/lots feed is absent).")
     args = ap.parse_args()
 
     # ---- v5 calibration (fitted constants + the ship gate) ----
@@ -198,6 +206,24 @@ def main():
                 and ((p.get("redraft_worth_k") or 0) >= CRED_RW or (p.get("ep_base_k") or 0) >= CRED_EP)]
     credible_rworth_k = round(sum(p.get("redraft_worth_k") or 0 for p in credible)) or 1
 
+    # ── BUDGET-CONSTRAINT COHERENCE (offense) — the accounting identity behind the shopping board ──
+    # biddable_money above is a total-dollar CONTEXT number that was only ever displayed. Here we
+    # actually CHECK the board against it: is the OFFENSE predicted clearing set (top-N per bucket by
+    # price) within the money that will be spent? IDP/K/P are priced off the realized ladder elsewhere
+    # (already coherent), so this offense check is the one the EP model can violate.
+    committed_k = CAP * len(team) / 1000.0 - ceiling_headroom_k
+    projected_spend_k, spend_parts = bfv.project_auction_spend(ceiling_headroom_k, committed_k)
+    off_vals = collections.defaultdict(list)
+    for p in core:
+        if not rostered_by_name.get(nkey(p["player"])) and p.get("pos") in SKILL:
+            off_vals[p["pos"]].append(p.get("ep_base_k") or 0)
+    off_target_k = projected_spend_k * (sum(bfv.AUCTION_BUCKET_SPEND_K[b] for b in SKILL)
+                                        / sum(bfv.AUCTION_BUCKET_SPEND_K.values()))
+    coherence = bfv.coherence_check(off_vals, off_target_k)
+    # budget_scale ships to the client kernels so a normalized board's OVERRIDE recompute stays
+    # consistent. Default = 1.0 (off): the served EP is per-player and the check above is a diagnostic.
+    budget_scale = 1.0
+
     def re_verdict(ep_k, worth_k, p90):
         vr = round(worth_k / ep_k, 2) if ep_k > 0 else None
         if vr is None: return ("—", None)
@@ -226,8 +252,15 @@ def main():
         cands = []
         for fid, t in team.items():
             if fid == "0008": continue
+            f = t["fit"][pos]
             cs = comp_score(t, pos)
-            if cs > 0.3 * (B[pos] or 0.01):
+            # Keith 2026-07-23: quality, not just quantity. A room full of cheap
+            # sub-stud starters (e.g. QB12 + QB18 on $1-4K deals) does NOT take a
+            # team out of the market for a top FA at that position — expect them
+            # in on the studs. So a no-stud room ALWAYS qualifies as competition
+            # (capspace weighting still ranks who can actually pay); the score
+            # gate only screens teams that genuinely have the position covered.
+            if cs > 0.3 * (B[pos] or 0.01) or not f["has_stud"]:
                 cands.append((cs * max(0.05, t["capspace"] / CAP), fid, t["team"], round(cs, 2), t["capspace"]))
         cands.sort(reverse=True)
         return [{"fid": fid, "team": tm, "need": nd, "capspace": cs} for _, fid, tm, nd, cs in cands[:3]]
@@ -289,6 +322,38 @@ def main():
         v, vr = re_verdict(ep, p["worth_k"], p["e_apwe_p90"])
         p["verdict"] = v; p["value_ratio"] = vr
 
+    # ---- BOARD-PRICE SYNC (Keith 2026-07-23: contracts/prices must be the same throughout) ----
+    # build_three_value_board.py --budget-normalize tail reshapes FA prices to this league's
+    # REALIZED auction curve (studs up to the historical top-10 dollar share, non-clearing tail
+    # pinned to $1K) and is the priced surface Keith reviews. When its fresh CSV is present,
+    # serve the SAME price here so the FA Value tab can never disagree with the 3-Value board.
+    # (Verdicts/gaps re-derive from the synced price; worth is untouched.)
+    _board_csv = DATA / "three_value_board.csv"
+    if _board_csv.exists():
+        import csv as _csv
+        _bp = {}
+        with open(_board_csv) as _fh:
+            for _r in _csv.DictReader(x for x in _fh if not x.startswith("#")):
+                if _r.get("status") == "FA" and _r.get("fa_value_k"):
+                    try:
+                        _bp[nkey(_r["player"])] = float(_r["fa_value_k"])
+                    except ValueError:
+                        pass
+        _synced = 0
+        for p in core:
+            bpv = _bp.get(nkey(p["player"]))
+            if bpv is None or abs(bpv - p["ep_k"]) < 0.5:
+                continue
+            ep = round(bpv)
+            p["ep_k"] = ep; p["median_k"] = ep
+            p["low_k"] = round(ep * 0.78); p["top10_k"] = round(ep * 1.3)
+            p["gap_k"] = ep - p["worth_k"]
+            p["per_apwe"] = round(ep / p["e_apwe_p50"], 1) if (p.get("e_apwe_p50") or 0) > 0 else None
+            v, vr = re_verdict(ep, p["worth_k"], p["e_apwe_p90"])
+            p["verdict"] = v; p["value_ratio"] = vr
+            _synced += 1
+        print(f"  board-price sync: {_synced} FA prices aligned to three_value_board.csv (tail-reshaped)")
+
     # how far the credible board is priced over intrinsic redraft worth (descriptive only)
     markup = round(sum(p["ep_k"] for p in credible) / credible_rworth_k, 2) if credible_rworth_k else 1.0
     gate = (cal or {}).get("ship_gate_detail", {})
@@ -300,6 +365,10 @@ def main():
         "reserve_total_k": round(reserve_total_k), "credible_value_k": credible_rworth_k,
         "n_credible": len(credible), "surplus_k": round(surplus_k), "board_markup": markup,
         "binding_arm_mix_credible": dict(arms),
+        "coherence": {**coherence, "projected_spend_parts": spend_parts, "budget_scale": budget_scale,
+                      "note": "OFFENSE predicted-clearing-set (top-N per bucket by price) vs projected offense "
+                              "spend. status=FAIL usually means a value-inflated FA pool (pre-roster-lock snapshot); "
+                              "2022-25 boards sit 0.66-0.97. Enforcement hurts winner MAE, so budget_scale defaults 1.0."},
         "regime": {"R_now": R_now, "R_bar": Rbar, "R_observed_range": R_range,
                    "demand": demand, "supply": supply, "z_now": z_now, "z_bar": zbar,
                    "m_money": round(m_money, 4), "m_money_raw": round(m_money_raw, 4),
@@ -357,6 +426,35 @@ def main():
         fas.append(rec)
     fas.sort(key=lambda x: -(x.get("worth_k") or 0))
 
+    # ── LIVE-REPRICE BASELINE (the per-position competition census, frozen at build time) ──
+    # Keith's scenario: "if a bunch of teams have 2 QBs you might not have much competition for a
+    # lower-priced QB3." The auction almost never SELLS 24 QBs (teams walk in already holding their
+    # starters on dynasty contracts), so the demand that collapses is a ROSTER + AFFORDABILITY fact,
+    # not an auction-clear fact — see docs/auction/live_reprice.md for the backtest that establishes this.
+    # We freeze WHO the credible rivals are per position now (same membership test as competition():
+    # comp_score > 0.3·B[pos], excluding 0008). The client counts how many of them are STILL live
+    # (haven't filled the slot via a win AND can still afford the floor rent) and marks the position's
+    # price down toward that surviving-competition ratio. Purely a census here — no price effect until
+    # the client sees --live-reprice AND a live board.
+    base_comp_fids = {pos: sorted([fid for fid, t in team.items()
+                                   if fid != "0008" and comp_score(t, pos) > 0.3 * (B[pos] or 0.01)])
+                      for pos in SKILL}
+    live_reprice = {
+        "enabled": bool(args.live_reprice),
+        "base_comp_fids": base_comp_fids,                 # rival franchises credibly in the market per pos (build-time)
+        "base_comp": {pos: len(v) for pos, v in base_comp_fids.items()},
+        "slots": SLOTS,                                    # SF starting demand per team (QB/RB/WR 2, TE 1)
+        # tunables (NOT fitted — this is a forward-looking demand census, not a price regression):
+        "elast": 0.5,         # M = (surviving/base)^elast; 0.5 = sqrt → gentle, a halving → ~0.71×
+        "floor_k": 3,         # a rival with < $3K max-bid at the pos can no longer credibly contest it
+        "shrink": 1,          # Laplace k on the ratio so small rival counts don't swing violently
+        "lo": 0.70, "hi": 1.15,   # demand can collapse (0.70) more than it can spike (1.15) mid-auction
+        "note": "client: for each pos, surviving = #base rivals that (a) have won 0 at pos AND "
+                "(b) still afford ≥ floor_k (from the live budget rows). M_live = clamp(((surviving+k)/"
+                "(base+k))^elast, lo, hi). Applied to the MARKET arms only (never the startability floor), "
+                "on top of the static m_money·m_pos. Missing budgets/lots → M_live = 1 (static price).",
+    }
+
     # ---- POSITIONAL TIERS — the worth-vs-price dropoff ("do I need mid RBs, or is the cliff steep?") ----
     # Per position, the AVAILABLE pool sorted by worth → named tiers → avg redraft/dynasty worth + price.
     # The View blends rw/dw on the slider and shows the tier-over-tier worth dropoff vs the price dropoff
@@ -408,6 +506,10 @@ def main():
             "model": {
                 "dollar_per_apwe": bfv.DOLLAR_PER_APWE, "affine_ante": bfv.AFFINE_ANTE, "affine_slope": bfv.AFFINE_SLOPE,
                 "pos_dyn_w": bfv.POS_DYN_W, "startability": bfv.STARTABILITY, "curve_max_rank": MODEL_CURVE_MAXRANK,
+                # budget_scale: OPTIONAL per-position (or scalar) market-arm multiplier for a budget-normalized
+                # board. Default 1.0 = identity (no change). The client kernels multiply the market arm by it so
+                # an ADP-override recompute matches a normalized board. Absent/1.0 → kernels behave exactly as before.
+                "budget_scale": budget_scale,
                 # curves capped at MODEL_CURVE_MAXRANK (every startable override lives well inside this; the client
                 # clamps a higher rank to the last entry). p50 stays at FULL 2-decimal precision — the pipeline
                 # computes redraft_worth = round(p50·$/APWE) off the 2dp value, so the client MUST use 2dp to
@@ -429,6 +531,7 @@ def main():
             "baseline_apw": {pos: round(B[pos], 2) for pos in SKILL},
             "stud_bar": {pos: round(STUD[pos], 2) for pos in SKILL},
             "replacement_rank": REPL_RANK, "starter_slots": SLOTS,
+            "live_reprice": live_reprice,
             "fill": {"by_season": fill, "avg_post_auction_adds_per_team": fill_avg,
                      "note": "adds between auction-end and ~Week 1; high = teams lock in fewer at auction and fill via waivers"},
             "verdict_legend": "SPLURGE/VALUE/FAIR/OVERPAY/DART by value_ratio=worth/EP; EP=expected clearing price, WORTH=blended value",
@@ -491,6 +594,11 @@ def main():
           f"mandatory K/P/IDP starters → biddable ${biddable_money_k}K (deploy ×{DEPLOY_FRAC}, descriptive)")
     print(f"  credible redraft-worth ${credible_rworth_k}K ({len(credible)} targets) → board prices ~{market['board_markup']}× over intrinsic worth")
     print(f"  locked rostered surplus (worth−cost, positive): ${market['surplus_k']}K")
+    print(f"  BUDGET COHERENCE (offense): predicted clearing ${coherence['predicted_clearing_k']}K / "
+          f"projected offense spend ${coherence['projected_spend_k']}K = ratio {coherence['ratio']} "
+          f"[band {coherence['band'][0]}-{coherence['band'][1]}] status={coherence['status']}"
+          + (f"  *** {coherence['n_contract_star_fa']} FA >= ${coherence['contract_star_threshold_k']}K — check for a pre-roster-lock pool ***"
+             if coherence['status'] == 'FAIL' else ""))
     print(f"  credible-pool binding arms: {dict(arms)}")
     if cal:
         print(f"  regime: R_now {R_now} vs R̄ {Rbar} → M_money {round(m_money,3)} · "
@@ -552,7 +660,7 @@ def main():
                   "dt": DT.get(p["deal_type"], "s"),
                   "rw": p["redraft_worth_k"], "dw": p["dynasty_worth_k"], "e": p["ep_k"],
                   "a50": r1(p["e_apwe_p50"]), "a90": r1(p["e_apwe_p90"]),
-                  "f": FT.get(p["fit_0008"], "-"), "c": [x["fid"] for x in p["competition"][:2]]})
+                  "f": FT.get(p["fit_0008"], "-"), "c": [x["fid"] for x in p["competition"][:3]]})
                 for p in fas],
         }
         blob = json.dumps(lean, separators=(",", ":")).replace("'", "''")
@@ -560,14 +668,25 @@ def main():
         ts = int(time.time())
         tmp = WORKER / ".tmp"; tmp.mkdir(parents=True, exist_ok=True)
         sql_path = tmp / "fa_value_upsert.sql"
-        stmt = f"INSERT OR REPLACE INTO ups_auction_fa_value (id, payload, updated_at) VALUES (1, '{blob}', {ts});\n"
-        # D1 rejects a single SQL statement over 100,000 bytes (SQLITE_TOOBIG). The recompute-kernel curves
-        # (meta.model) put us close, so fail LOUDLY here with the remedy instead of a cryptic wrangler error.
-        if len(stmt) > 99500:
-            raise SystemExit(f"  ✘ fa_value SQL statement is {len(stmt)} bytes (>99.5KB, near D1's 100KB cap). "
-                             f"Trim the blob: lower MODEL_CURVE_MAXRANK (now {MODEL_CURVE_MAXRANK}) or move meta.model.curves off-blob.")
-        sql_path.write_text(stmt)
-        print(f"  pushing fa_value blob to D1 ({len(blob)} bytes) …")
+        # D1 rejects a single SQL statement over 100,000 bytes (SQLITE_TOOBIG), and the v5
+        # meta pushed the single-INSERT form past it (2026-07-23). Write the blob as an
+        # INSERT of the first chunk + string-append UPDATEs for the rest — every statement
+        # stays well under the cap, the table/worker/View stay unchanged (still one row,
+        # one payload), and this scales however large the blob grows. NOTE: chunk on the
+        # ESCAPED string; never split between the two quotes of an escaped '' pair.
+        CHUNK = 90_000
+        chunks = []
+        i = 0
+        while i < len(blob):
+            end = min(i + CHUNK, len(blob))
+            if end < len(blob) and blob[end - 1] == "'" and blob[end] == "'":
+                end -= 1                       # don't split an escaped quote pair
+            chunks.append(blob[i:end]); i = end
+        stmts = [f"INSERT OR REPLACE INTO ups_auction_fa_value (id, payload, updated_at) VALUES (1, '{chunks[0]}', {ts});\n"]
+        for c in chunks[1:]:
+            stmts.append(f"UPDATE ups_auction_fa_value SET payload = payload || '{c}' WHERE id = 1;\n")
+        sql_path.write_text("".join(stmts))
+        print(f"  pushing fa_value blob to D1 ({len(blob)} bytes, {len(chunks)} chunk{'s' if len(chunks) > 1 else ''}) …")
         subprocess.run(["npx", "--yes", "wrangler@latest", "d1", "execute", "ups-mfl-db", "--remote", "--file", str(sql_path)], cwd=str(WORKER), check=True)
         print("  pushed ups_auction_fa_value")
 

@@ -269,6 +269,7 @@ def reconstruct_season(con, season, ep4, curve, fp):
         "demand": demand, "supply": supply,
         "z": {pos: round(demand[pos] / supply[pos], 4) if supply[pos] else None for pos in SKILL},
         "_credible_ids": {p["pid"] for p in credible},
+        "_credible_pool": credible,   # full credible-pool objects (floor/affine/dyn_anchor) for the coherence backtest
         "_wins": wins,
     }
 
@@ -417,6 +418,99 @@ RECONSTRUCTION_GAPS = [
                "in 2023.",
      "direction": "z_2023 biased low"},
 ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BUDGET-CONSTRAINT COHERENCE BACKTEST  (grafted from the budget-coherence agent onto this
+# harness's own reconstruction — see build_fa_value.py "BUDGET-CONSTRAINT COHERENCE").
+# ─────────────────────────────────────────────────────────────────────────────
+def budget_constraint_backtest(con, regimes, all_clears):
+    """Was the board (as it would have been built) internally coherent with the money, and does
+    forcing coherence help or hurt winner accuracy? For each 2022-25 season: price the reconstructed
+    credible SKILL pool with the served v4 price (M=1.0), take the top-N by price (N = that year's
+    OFFENSE clear count), and compare that predicted clearing set against the year's ACTUAL offense
+    spend (ratio ≈ 1 = coherent). Then re-price the ACTUAL winners OFF (v4) vs GLOBAL (one offense
+    market-scale that forces the top-N pool sum == actual offense spend) and compare MAE. Also freezes
+    the per-bucket clear counts / spend / deploy fraction that build_fa_value's constants mirror.
+    Reads the same archive; DIAGNOSTIC/PROVENANCE ONLY — adds no unmeasured constant to the served EP."""
+    def served(it, s=1.0):
+        return round(max(it["floor"], max(it["affine"], it["dyn_anchor"]) * s))
+
+    def solve(items, target, lo=0.50, hi=1.5):
+        f = lambda s: sum(served(it, s) for it in items)
+        if not items or f(hi) <= target:
+            return hi
+        if f(lo) >= target:
+            return lo
+        a, b = lo, hi
+        for _ in range(60):
+            m = (a + b) / 2
+            (a, b) = (m, b) if f(m) <= target else (a, m)
+        return round((a + b) / 2, 4)
+
+    POSB = {"QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE", "DE": "DL", "DT": "DL", "DL": "DL",
+            "LB": "LB", "CB": "DB", "S": "DB", "DB": "DB", "PK": "PK", "PN": "PN"}
+    reg_by_year = {r["season"]: r for r in regimes}
+    clears_by_year = collections.defaultdict(list)
+    for o in all_clears:
+        clears_by_year[o["season"]].append(o)
+    bkt_n, bkt_spend = collections.defaultdict(list), collections.defaultdict(list)
+    per_year, off_off, off_glob = {}, [], []
+    for y in YEARS:
+        rows = con.execute("SELECT position, bid_amount FROM transactions_auction "
+                           "WHERE season=? AND auction_type='FreeAgent' AND finalbid_ind=1", (y,)).fetchall()
+        yb_n, yb_s = collections.Counter(), collections.defaultdict(float)
+        for pos, bid in rows:
+            b = POSB.get((pos or "").upper())
+            if b:
+                yb_n[b] += 1
+                yb_s[b] += (bid or 0) / 1000.0
+        for b in yb_n:
+            bkt_n[b].append(yb_n[b])
+            bkt_spend[b].append(yb_s[b])
+        total_spend = sum((bid or 0) for _p, bid in rows) / 1000.0
+        lots = clears_by_year.get(y, [])                 # skill clears (all_clears is skill-only)
+        off_spend = sum(o["paid"] for o in lots)
+        n_off_clear = len(lots)
+        avail = reg_by_year[y]["sum_capspace_k"]
+        pool = reg_by_year[y].get("_credible_pool", [])
+        priced = sorted(pool, key=lambda p: -served(p))[:n_off_clear]
+        pred_clearing = sum(served(p) for p in priced)
+        s_glob = solve([{"floor": p["floor"], "affine": p["affine"], "dyn_anchor": p["dyn_anchor"]}
+                        for p in priced], off_spend)
+        for o in lots:
+            off_off.append((o["paid"], served(o, 1.0)))
+            off_glob.append((o["paid"], served(o, s_glob)))
+        per_year[y] = {"available_k": round(avail), "total_spend_k": round(total_spend),
+                       "offense_spend_k": round(off_spend), "n_offense_clears": n_off_clear,
+                       "deploy_frac": round(total_spend / avail, 4) if avail else None,
+                       "coherence_ratio_v4": round(pred_clearing / off_spend, 3) if off_spend else None,
+                       "global_offense_scale": round(s_glob, 3)}
+
+    def mae(pairs):
+        errs_ = [abs(p - e) for p, e in pairs]
+        tp = sum(p for p, _ in pairs) or 1
+        return {"mae": round(statistics.mean(errs_), 2) if errs_ else None,
+                "dw_mae": round(sum(abs(p - e) * p for p, e in pairs) / tp, 2), "n": len(pairs)}
+
+    deploy_fracs = [per_year[y]["deploy_frac"] for y in YEARS if per_year[y]["deploy_frac"]]
+    return {
+        "note": "Budget-constraint coherence: predicted clearing set (top-N pool by served price) vs "
+                "actual spend. Historical boards are coherent (ratio 0.66-0.97 at M=1.0); a ratio >>1 "
+                "means the LIVE pool is value-inflated (classically a pre-roster-lock snapshot). "
+                "DIAGNOSTIC/PROVENANCE ONLY — does NOT feed the served EP; build_fa_value freezes these.",
+        "clear_count_by_bucket": {b: round(statistics.mean(v), 1) for b, v in sorted(bkt_n.items())},
+        "spend_k_by_bucket": {b: round(statistics.mean(v), 1) for b, v in sorted(bkt_spend.items())},
+        "deploy_frac_mean": round(statistics.mean(deploy_fracs), 3) if deploy_fracs else None,
+        "deploy_frac_by_year": {y: per_year[y]["deploy_frac"] for y in YEARS},
+        "coherence_band_recommended": [0.60, 1.15],
+        "per_year": per_year,
+        "accuracy_cost_of_enforcement": {
+            "off_v4": mae(off_off), "global_forced_coherence": mae(off_glob),
+            "verdict": ("enforcement HURTS winner accuracy — default OFF (diagnostic only)"
+                        if (mae(off_glob)["mae"] or 0) > (mae(off_off)["mae"] or 0) else
+                        "enforcement does not hurt plain MAE")},
+    }
 
 
 def main():
@@ -610,6 +704,16 @@ def main():
     print(f"  per-year markup vs SERVED EP_v4: " +
           "  ".join(f"{y} {fin['year_m'].get(y, float('nan')):.3f}" for y in YEARS))
 
+    # ── BUDGET-CONSTRAINT COHERENCE BACKTEST (diagnostic/provenance; freezes build_fa_value's constants) ──
+    budget = budget_constraint_backtest(con, regimes, all_clears)
+    print(f"\n=== BUDGET-CONSTRAINT COHERENCE (predicted clearing set vs actual spend, M=1.0) ===")
+    for y in YEARS:
+        pb = budget["per_year"][y]
+        print(f"  {y}: avail ${pb['available_k']}K · spend ${pb['total_spend_k']}K (deploy {pb['deploy_frac']}) · "
+              f"offense ${pb['offense_spend_k']}K · coherence ratio {pb['coherence_ratio_v4']}")
+    print(f"  deploy_frac mean {budget['deploy_frac_mean']} · band {budget['coherence_band_recommended']} · "
+          f"{budget['accuracy_cost_of_enforcement']['verdict']}")
+
     payload = {
         "schema": "ep_v5_calibration/1",
         "generated_by": "pipelines/etl/scripts/build_ep_v5_calibration.py",
@@ -659,6 +763,7 @@ def main():
         "backtest_loyo": {"folds": folds, "pooled": {"v4": v4o, "v5": v5o},
                           "elite_sub_gate": {"folds_improved": elite_wins, "required": 3, "passed": elite_gate}},
         "reconstruction_gaps": RECONSTRUCTION_GAPS,
+        "budget_constraint": budget,
     }
 
     if args.print_only:

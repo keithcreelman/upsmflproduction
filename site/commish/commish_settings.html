@@ -281,6 +281,29 @@
   .fav-tier-v { font-size: 12px; color: var(--muted); margin: 2px 0; } .fav-tier-v b { color: var(--fg); }
   .fav-tier-d { font-size: 10px; color: var(--muted); } .fav-tier.sweet .fav-tier-d { color: #34d399; }
   .fav-tier-arrow { color: var(--muted); font-size: 12px; }
+  /* ── 📊 3-Value Board view (EP v5 served numbers) ── */
+  .tv-regime { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 10px; font-size: 12px; }
+  .tv-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel2); color: var(--fg); letter-spacing: 0.02em; }
+  .tv-badge.v5 { color: #34d399; border-color: rgba(52,211,153,0.45); background: rgba(52,211,153,0.08); }
+  .tv-badge.v4 { color: #fbbf24; border-color: rgba(251,191,36,0.45); background: rgba(251,191,36,0.08); }
+  .tv-badge.clamp { color: #f59e0b; border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.09); }
+  .tv-badge.warn { color: #f87171; border-color: rgba(248,113,113,0.5); background: rgba(248,113,113,0.09); }
+  .tv-mm { font-size: 12px; color: var(--muted); } .tv-mm b { color: var(--fg); }
+  .tv-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin: 4px 0 12px; }
+  .tv-note b { color: var(--fg); }
+  .tv-scale { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .tv-scale-c { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; }
+  .tv-scale-h { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; color: var(--accent); margin-bottom: 3px; }
+  .tv-scale-d { font-size: 11px; color: var(--muted); line-height: 1.45; }
+  .tv-pos { font-size: 10.5px; color: var(--muted); } .tv-team { font-size: 10px; color: var(--muted); }
+  .tv-own { display: inline-block; font-size: 10px; font-weight: 700; color: #c084fc; }
+  .tv-surp.pos { color: #34d399; font-weight: 700; } .tv-surp.neg { color: #f87171; font-weight: 700; }
+  .tv-ob { font-size: 10.5px; color: var(--muted); }
+  .tv-trust { font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+  .tv-trust.cardinal { color: #34d399; border-color: rgba(52,211,153,0.35); }
+  .tv-trust.ladder { color: #60a5fa; border-color: rgba(96,165,250,0.35); }
+  .tv-trust.none, .tv-trust.unpriced { color: #f59e0b; border-color: rgba(245,158,11,0.35); }
+  .tv-shop-grp { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; color: var(--accent); margin: 14px 0 4px; }
   /* draft-intel trait-screen chips (FA Value detail card) */
   .di-chip { display: inline-block; font-size: 11.5px; color: var(--fg); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; margin: 0 4px 4px 0; }
   /* Live Board tier-depletion cockpit */
@@ -386,13 +409,26 @@
     return "";
   };
   var _withUserId = function (url) {
-    var sep = url.indexOf("?") < 0 ? "?" : "&";
+    // Forward BOTH the MFL session token AND the commish API key when available.
+    // The worker's commish gates check the API key FIRST, so a stored key wins
+    // even when a session token is present. The old code returned early on the
+    // session token and never forwarded the key — so when the embedded session
+    // resolved to a NON-commish franchise (e.g. the commish is viewing via the
+    // BECOME toggle, or the embed captured a non-commish session), every gate
+    // 403'd `not_commish` and the key that would have worked was never sent.
+    var out = url;
+    var add = function (kv) { out += (out.indexOf("?") < 0 ? "?" : "&") + kv; };
     var t = _mflUserId();
-    if (t) return url + sep + "MFL_USER_ID=" + encodeURIComponent(t);
+    if (t) add("MFL_USER_ID=" + encodeURIComponent(t));
     var k = _commishApiKey();
-    if (k) return url + sep + "APIKEY=" + encodeURIComponent(k);
-    return url;
+    if (k) add("APIKEY=" + encodeURIComponent(k));
+    return out;
   };
+  // Capture ?APIKEY= at LOAD time — even when no view fires a request — so the
+  // one-time direct-link key setup (…/commish_settings.html?APIKEY=…) ALWAYS
+  // persists to localStorage and self-strips from the URL. Without this the key
+  // only lands if some fetch happens to run, which isn't guaranteed on a hub.
+  try { _commishApiKey(); } catch (e) {}
   function fetchJSON(url) {
     return fetch(_withUserId(url), { cache: "no-store", credentials: "omit" }).then(function (r) {
       if (!r.ok) {
@@ -403,6 +439,9 @@
         // of this very page is exactly when you can least afford to guess.
         return r.text().then(function (t) {
           var d = null; try { d = t ? JSON.parse(t) : null; } catch (_) {}
+          if (r.status === 403 && d && (d.reason === "no_token" || d.reason === "not_commish" || d.reason === "not_commish_cached")) {
+            _commishKeyBanner("Commish auth failed (" + d.reason + ").");
+          }
           if (r.status === 403 && d && d.reason === "no_token") {
             throw new Error("403 no_token — this page didn't send an auth token. Open the War Room from inside the MFL site (Commish Settings hub), OR append ?APIKEY=<commish key> to this page's URL once (it's saved after).");
           }
@@ -420,7 +459,12 @@
       headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload || {}) })
       .then(function (r) { return r.text().then(function (txt) {
         var data; try { data = txt ? JSON.parse(txt) : {}; } catch (_) { data = { raw: txt }; }
-        if (!r.ok) throw new Error((data && data.error) || ("HTTP " + r.status));
+        if (!r.ok) {
+          if (r.status === 403 && /commish-only|not_commish|no_token/i.test(String((data && (data.error || data.reason)) || ""))) {
+            _commishKeyBanner("Commish auth failed.");
+          }
+          throw new Error((data && data.error) || ("HTTP " + r.status));
+        }
         return data;
       }); });
   }
@@ -431,6 +475,46 @@
     el.textContent = msg; el.className = (kind || "") + " show";
     if (_toastT) clearTimeout(_toastT);
     _toastT = setTimeout(function () { el.className = el.className.replace("show", "").trim(); }, 2600);
+  }
+  // Self-heal: when a commish gate rejects us (no_token / not_commish / commit
+  // commish-only), drop an inline key bar so the commish can paste the API key
+  // WITHOUT any URL surgery. Save → localStorage → reload (the reloaded page
+  // forwards the stored key via _withUserId and the gate passes on the key,
+  // which the worker checks first). Idempotent; only reloads on an explicit
+  // click, so it can never infinite-loop.
+  var _keyBarShown = false;
+  function _commishKeyBanner(reason) {
+    try {
+      if (_keyBarShown || document.getElementById("cs-keybar")) return;
+      _keyBarShown = true;
+      var bar = document.createElement("div");
+      bar.id = "cs-keybar";
+      bar.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:2147483000;background:#7a1f1f;color:#fff;padding:10px 14px;font:13px/1.45 system-ui,-apple-system,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.4);display:flex;gap:10px;align-items:center;flex-wrap:wrap;";
+      var msg = document.createElement("span");
+      msg.textContent = "🔑 " + (reason || "Commish auth failed.") + " Paste your commish API key to continue:";
+      msg.style.cssText = "flex:1 1 260px;";
+      var inp = document.createElement("input");
+      inp.type = "password"; inp.autocomplete = "off"; inp.placeholder = "commish API key";
+      inp.style.cssText = "flex:1 1 220px;min-width:180px;padding:6px 9px;border-radius:4px;border:1px solid #ccc;color:#000;font-size:13px;";
+      var btn = document.createElement("button");
+      btn.type = "button"; btn.textContent = "Save & reload";
+      btn.style.cssText = "padding:6px 14px;border-radius:4px;border:0;background:#28c76f;color:#fff;font-weight:600;cursor:pointer;font-size:13px;";
+      var dismiss = document.createElement("button");
+      dismiss.type = "button"; dismiss.textContent = "✕"; dismiss.title = "Dismiss";
+      dismiss.style.cssText = "padding:6px 10px;border-radius:4px;border:0;background:transparent;color:#fff;cursor:pointer;font-size:15px;";
+      var save = function () {
+        var v = (inp.value || "").trim();
+        if (!v) { try { inp.focus(); } catch (e) {} return; }
+        try { localStorage.setItem("ups_commish_apikey", v); } catch (e) {}
+        location.reload();
+      };
+      btn.addEventListener("click", save);
+      inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); save(); } });
+      dismiss.addEventListener("click", function () { try { bar.remove(); } catch (e) {} });
+      bar.appendChild(msg); bar.appendChild(inp); bar.appendChild(btn); bar.appendChild(dismiss);
+      (document.body || document.documentElement).appendChild(bar);
+      try { inp.focus(); } catch (e) {}
+    } catch (e) {}
   }
 
   var root = document.getElementById("cs-root");
@@ -520,7 +604,7 @@
   // ════════════════════════════════════════════════════════════════════
   // AUCTION WAR ROOM — commish-only FA-auction opponent intel (franchise 0008)
   // ════════════════════════════════════════════════════════════════════
-  var WR = { data: null, view: "scouting", live: null, pollTimer: null };
+  var WR = { data: null, view: "hub", live: null, pollTimer: null };
   // Rebuilt 2026-07-24: the old Scouting/My Board/Live Board/Draft Intel views are replaced
   // by the combined War Room dashboard, hosted as a PRIVATE Claude artifact (account-gated —
   // only the commish can open it), so opponent intel never lands in this public repo. Live
@@ -528,6 +612,10 @@
   var WARROOM_URL = "https://claude.ai/code/artifact/435b41fd-3249-4afd-8226-8d4e3efda7b5";
   function renderWarRoom() {
     var host = content();
+    renderWrFrame(host);
+  }
+  // The rebuilt landing view: launcher into the private combined dashboard.
+  function paintHubLaunch(host) {
     host.innerHTML =
       '<div class="wr2-launch"><div class="wr2-hero">' +
         '<div class="wr2-eyebrow">Auction War Room · rebuilt</div>' +
@@ -547,9 +635,9 @@
   function renderWrFrame(host) {
     host.innerHTML =
       '<div class="wr-vtabs">' +
-      '<button data-wrv="scouting"' + (WR.view === "scouting" ? ' class="on"' : '') + '>📋 Scouting Intel</button>' +
+      '<button data-wrv="hub"' + (WR.view === "hub" ? ' class="on"' : '') + '>🎯 War Room</button>' +
+      '<button data-wrv="threevalue"' + (WR.view === "threevalue" ? ' class="on"' : '') + '>📊 3-Value</button>' +
       '<button data-wrv="favalue"' + (WR.view === "favalue" ? ' class="on"' : '') + '>💎 FA Value</button>' +
-      '<button data-wrv="board"' + (WR.view === "board" ? ' class="on"' : '') + '>🎯 My Board</button>' +
       '<button data-wrv="live"' + (WR.view === "live" ? ' class="on"' : '') + '>📡 Live Board</button>' +
       '</div><div id="wr-body"></div>';
     host.querySelector(".wr-vtabs").addEventListener("click", function (e) {
@@ -564,10 +652,28 @@
   function paintWrView() {
     var b = document.getElementById("wr-body"); if (!b) return;
     stopWrPoll();
+    // paintLive reads WR.data (league thresholds + owner names). The rebuilt landing
+    // view no longer pre-fetches intel, so load it on demand the first time Live Board
+    // is opened — otherwise WR.data is null and the view throws.
+    if (WR.view === "live" && !WR.data) {
+      b.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading FA-auction intel…</div></div>';
+      fetchJSON(apiUrl("/api/auction/intel") + "?franchise_id=0008").then(function (d) {
+        if (!d || !d.ok) {
+          b.innerHTML = '<div class="fo-card"><div class="fo-table-loading">' + (d && d.error ? esc(d.error) : "Intel not available.") + '</div></div>';
+          return;
+        }
+        WR.data = d;
+        if (WR.view === "live") paintWrView();
+      }).catch(function (e) {
+        b.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + esc(e.message || String(e)) + '</div></div>';
+      });
+      return;
+    }
     if (WR.view === "live") paintLive(b);
     else if (WR.view === "board") paintBoard(b);
+    else if (WR.view === "threevalue") paintThreeValue(b);
     else if (WR.view === "favalue") paintFaValue(b);
-    else paintScouting(b);
+    else paintHubLaunch(b);
   }
   function wrName(fid) { var o = WR.data.owners[fid]; return o ? (o.owner_name || fid) : fid; }
   function wrTeam(fid) { var o = WR.data.owners[fid]; return o ? (o.team_name || "") : ""; }
@@ -896,6 +1002,149 @@
     }).join("");
     var note = (WR.di.cockpit && WR.di.cockpit.note) ? '<div class="small" style="color:var(--muted);margin-top:8px">' + esc(WR.di.cockpit.note) + '</div>' : "";
     return '<div class="fo-card"><div class="fo-card-head"><h3>🧠 Tier depletion</h3><span class="fo-sub">sold / tier size · % = median winning bid vs the tier\'s expected p50 (drift)</span></div>' + rowsH + note + '</div>';
+  }
+
+  // ── 📊 3-Value Board: the EP v5 served numbers (current-season / ultimate / FA price) ──
+  // Reads GET /api/auction/three-value (D1 ups_auction_three_value, part-keyed, commish-gated).
+  // Pure reader — every dollar column is served by build_three_value_board.py; nothing is recomputed.
+  var TV = { tab: "board", pos: "ALL", show: "available", sort: "fv" };
+  function tvK(v) { return (v == null || v === "") ? '<span style="color:var(--muted)">—</span>' : '$' + v + 'K'; }
+  function tvTrustCls(st) {
+    st = String(st || "");
+    if (st.indexOf("cardinal") === 0) return "cardinal";
+    if (st.indexOf("ladder") >= 0 || st.indexOf("idp") === 0) return "ladder";
+    if (st === "none" || st.indexOf("unpriced") === 0) return st.indexOf("unpriced") === 0 ? "unpriced" : "none";
+    return "";
+  }
+  function paintThreeValue(host) {
+    if (WR.tv === undefined) WR.tv = null;
+    if (!WR.tv) {
+      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading 3-value board…</div></div>';
+      fetchJSON(apiUrl("/api/auction/three-value") + "?franchise_id=0008").then(function (d) {
+        if (!d || !d.ok) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">' + esc((d && d.error) || "3-value board not loaded — run build_three_value_board.py --push-d1") + '</div></div>'; WR.tv = false; return; }
+        WR.tv = d; if (WR.view === "threevalue") paintThreeValue(host);
+      }).catch(function (e) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed: ' + esc(e.message || String(e)) + '</div></div>'; });
+      return;
+    }
+    if (WR.tv === false) { host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">3-value board not loaded.</div></div>'; return; }
+    var d = WR.tv, meta = d.meta || {}, rg = meta.regime || {}, coh = meta.coherence || {};
+    var isV5 = meta.model === "v5";
+
+    // ── regime banner: the served M_money markdown + coherence status ──
+    var mmPct = Math.round((1 - (rg.m_money != null ? rg.m_money : 1)) * 100);
+    var modelBadge = '<span class="tv-badge ' + (isV5 ? 'v5' : 'v4') + '">' + (isV5 ? '✓ EP v5 model' : '⚠ v4 (M_money=1.0)') + '</span>';
+    var mmBadge = '<span class="tv-badge' + (rg.m_clamped ? ' clamp' : '') + '">M_money ' + (rg.m_money != null ? rg.m_money.toFixed(2) : '1.00') + '× · −' + mmPct + '% market</span>';
+    var clampNote = rg.m_clamped
+      ? '<span class="tv-mm">raw fit wanted <b>' + (rg.m_money_raw != null ? rg.m_money_raw.toFixed(3) : '?') + '</b>, <b>PINNED to clamp floor ' + ((rg.m_money_clamp && rg.m_money_clamp[0]) || 0.8) + '</b> — a chosen markdown, not a measured one</span>'
+      : '<span class="tv-mm">R_now <b>' + (rg.R_now != null ? rg.R_now.toFixed(2) : '?') + '</b> · raw <b>' + (rg.m_money_raw != null ? rg.m_money_raw.toFixed(3) : '?') + '</b></span>';
+    var extraBadge = rg.extrapolating ? '<span class="tv-badge warn">R_now outside fitted range ' + (rg.R_range ? rg.R_range.map(function (x) { return x == null ? '?' : (+x).toFixed(1); }).join('–') : '?') + ' → extrapolation</span>' : '';
+    var cohCls = coh.status === "FAIL" ? " warn" : "";
+    var cohBadge = coh.ratio != null ? '<span class="tv-badge' + cohCls + '">budget coherence ' + coh.ratio + '× · ' + (coh.status || '') + '</span>' : '';
+    var mPosBadge = '<span class="tv-badge">M_pos / elite: inert</span>';
+    var banner = '<div class="tv-regime">' + modelBadge + mmBadge + extraBadge + cohBadge + mPosBadge + clampNote + '</div>';
+    var cohNote = coh.status === "FAIL"
+      ? '<div class="tv-note"><b>Coherence FAIL (' + coh.ratio + '×):</b> the top-N board is priced above the money that will be spent — the fingerprint of a <b>pre-roster-lock snapshot</b> (' + (coh.n_contract_star_fa || '?') + ' contract stars transiently coded as FREE AGENTS). Regenerate <b>after Thursday\'s roster lock</b>; historical boards land 0.66–0.97. Prices are still per-player valid.</div>'
+      : '';
+
+    // ── the three value axes, in plain English (they do NOT sum) ──
+    var scale = '<div class="tv-scale">' +
+      '<div class="tv-scale-c"><div class="tv-scale-h">Current-season value</div><div class="tv-scale-d">2026-only worth, on the <b>production</b> $' + (meta.dollar_per_apwe || 6.5) + '/APWE scale (~1.6–1.9× hot vs cash). NOT a dollar you would bid — compare FA price to <b>2026 market $</b> instead.</div></div>' +
+      '<div class="tv-scale-c"><div class="tv-scale-h">Ultimate value</div><div class="tv-scale-d">dynasty asset value + <b>contract surplus</b> (the multi-year edge of a below-market deal). A FA\'s surplus is 0 by construction — an auction win is a 1-yr Vet-FAA at the price paid.</div></div>' +
+      '<div class="tv-scale-c"><div class="tv-scale-h">FA price</div><div class="tv-scale-d">expected auction clearing price in <b>realized</b> dollars (M_money applied). IDP/K/P price off this league\'s own auction order-statistic ladder, not the retired 10000−rank·45 ramp.</div></div>' +
+      '</div>';
+
+    // ── sub-tabs: Board | Shopping List ──
+    var subTabs = '<div class="wr-vtabs sm" id="tv-subtabs" style="margin-bottom:12px">' +
+      '<button data-tvtab="board"' + (TV.tab === "board" ? ' class="on"' : '') + '>Full board</button>' +
+      '<button data-tvtab="shopping"' + (TV.tab === "shopping" ? ' class="on"' : '') + '>🛒 Shopping list (IDP/K/P)</button>' +
+      '</div>';
+
+    var head = '<div class="fo-card"><div class="fo-card-head"><h3>📊 3-Value Board <span class="fo-sub">' + (meta.counts ? meta.counts.fa + ' FA · ' + meta.counts.rostered + ' rostered' : '') + ' · L=' + esc(meta.league || '') + ' ' + esc(String(meta.year || '')) + ' · updated ' + (d.updated_at ? new Date(d.updated_at * 1000).toLocaleString() : '?') + '</span></h3></div>' + banner + cohNote + scale + subTabs + '<div id="tv-body"></div></div>';
+    host.innerHTML = head;
+
+    var body = document.getElementById("tv-body");
+    if (TV.tab === "shopping") tvPaintShopping(body, d);
+    else tvPaintBoard(body, d);
+
+    var st = document.getElementById("tv-subtabs");
+    if (st) st.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("button[data-tvtab]"); if (!b) return;
+      var t = b.getAttribute("data-tvtab"); if (t === TV.tab) return; TV.tab = t; paintThreeValue(host);
+    });
+  }
+  function tvPaintBoard(host, d) {
+    var rows = (d.board || []).slice();
+    if (TV.show === "available") rows = rows.filter(function (r) { return r.s === "F"; });
+    else if (TV.show === "rostered") rows = rows.filter(function (r) { return r.s === "r"; });
+    if (TV.pos !== "ALL") rows = rows.filter(function (r) { return r.p === TV.pos; });
+    var SORTS = {
+      fv: function (a, b) { return (b.fv || 0) - (a.fv || 0); },
+      csv: function (a, b) { return (b.csv || 0) - (a.csv || 0); },
+      uv: function (a, b) { return (b.uv || 0) - (a.uv || 0); },
+      surp: function (a, b) { return (b.surp || 0) - (a.surp || 0); }
+    };
+    rows.sort(SORTS[TV.sort] || SORTS.fv);
+
+    var showTabs = [["available", "Available FAs"], ["rostered", "Rostered"], ["all", "All"]].map(function (o) { return '<button data-tvshow="' + o[0] + '"' + (TV.show === o[0] ? ' class="on"' : '') + '>' + o[1] + '</button>'; }).join("");
+    var posTabs = ["ALL", "QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"].map(function (p) { return '<button data-tvpos="' + p + '"' + (TV.pos === p ? ' class="on"' : '') + '>' + p + '</button>'; }).join("");
+    var controls = '<div class="fav-controls" id="tv-controls">' +
+      '<div class="fav-cg"><span class="fav-cl">Show</span><div class="wr-vtabs sm">' + showTabs + '</div></div>' +
+      '<div class="fav-cg"><span class="fav-cl">Pos</span><div class="wr-vtabs sm">' + posTabs + '</div></div>' +
+      '<div class="fav-cg"><span class="fav-cl">Sort</span><select id="tv-sort">' +
+      ['fv|FA price', 'csv|Current-season value', 'uv|Ultimate value', 'surp|Contract surplus'].map(function (o) { var kv = o.split("|"); return '<option value="' + kv[0] + '"' + (TV.sort === kv[0] ? ' selected' : '') + '>' + kv[1] + '</option>'; }).join("") +
+      '</select></div></div>';
+
+    var headRow = '<tr><th>Player</th><th>Pos</th><th class="num" title="2026-only production worth ($/APWE scale — NOT a bid)">2026 val</th><th class="num" title="2026 worth restated in realized auction $ — compare FA price to THIS">2026 mkt$</th><th class="num" title="expected auction clearing price (M_money applied)">FA price</th><th class="num" title="TCV ÷ CL — the smoothed per-year cost of holding this contract (a trade-target price). NOT the AAV token: an escalated deal carries a dual AAV (e.g. Hurts 42/52) while this column smooths to 60.">Cost/yr</th><th class="num" title="dynasty asset value + contract surplus">Ultimate</th><th class="num" title="multi-year edge of a below-market contract">Surplus</th><th title="extension / tag option">Option</th><th title="how trustworthy the value scale is for this row">Trust</th></tr>';
+    var bodyRows = rows.slice(0, 400).map(function (r) {
+      var owned = r.s === "r";
+      var surpCls = r.surp > 0 ? "pos" : (r.surp < 0 ? "neg" : "");
+      var arm = r.arm ? '<span class="fav-rk"> · ' + esc(r.arm) + '</span>' : '';
+      return '<tr' + (owned ? ' class="fav-row owned"' : '') + '>' +
+        '<td><b>' + esc(r.n) + '</b>' + (r.ag ? ' <span class="tv-team">· ' + r.ag + 'y</span>' : '') + (owned && r.o ? ' <span class="tv-own">' + esc(r.o) + '</span>' : '') + '</td>' +
+        '<td><span class="tv-pos">' + esc(r.p) + '</span>' + (r.tm ? ' <span class="tv-team">' + esc(r.tm) + '</span>' : '') + (r.tr != null ? ' <span class="fav-rk">T' + esc(r.tr) + '</span>' : '') + '</td>' +
+        '<td class="num">' + tvK(r.csv) + '</td>' +
+        '<td class="num">' + tvK(r.csm) + '</td>' +
+        '<td class="num"><b>' + tvK(r.fv) + '</b>' + arm + '</td>' +
+        '<td class="num">' + tvK(r.av) + '</td>' +
+        '<td class="num">' + tvK(r.uv) + '</td>' +
+        '<td class="num"><span class="tv-surp ' + surpCls + '">' + (r.surp != null ? (r.surp > 0 ? '+' : '') + '$' + r.surp + 'K' : '<span style="color:var(--muted)">—</span>') + '</span></td>' +
+        '<td><span class="tv-ob">' + esc(r.ob || '—') + '</span></td>' +
+        '<td><span class="tv-trust ' + tvTrustCls(r.st) + '">' + esc(r.st || '—') + '</span></td>' +
+        '</tr>';
+    }).join("");
+    var truncNote = rows.length > 400 ? '<div class="tv-note">Showing top 400 of ' + rows.length + ' rows (by ' + TV.sort + ').</div>' : '';
+    host.innerHTML = controls +
+      '<div class="fo-table-scroll"><table class="fo-table fav-table"><thead>' + headRow + '</thead><tbody>' +
+      (bodyRows || '<tr><td colspan="10" class="fo-table-empty">No players match.</td></tr>') + '</tbody></table></div>' + truncNote;
+
+    var ctl = document.getElementById("tv-controls");
+    if (ctl) ctl.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("button[data-tvshow], button[data-tvpos]"); if (!b) return;
+      if (b.hasAttribute("data-tvshow")) TV.show = b.getAttribute("data-tvshow");
+      else TV.pos = b.getAttribute("data-tvpos");
+      tvPaintBoard(host, d);
+    });
+    var sel = document.getElementById("tv-sort");
+    if (sel) sel.addEventListener("change", function () { TV.sort = sel.value; tvPaintBoard(host, d); });
+  }
+  function tvPaintShopping(host, d) {
+    var shop = (d.shopping || []).slice();
+    var order = ["DL", "LB", "DB", "PK", "PN"], groups = {};
+    shop.forEach(function (r) { (groups[r.p] = groups[r.p] || []).push(r); });
+    var html = '<div class="tv-note">The mandatory-starter positions 0008 must fill Saturday (2 DL · 2 LB · 2 DB · 1 D-Flex · 1 K · 1 P). <b>FA price</b> is the expected clearing price from this league\'s own auction archive — not a projection. Order matters more than the dollar: past ~6 deep every rung is $1–2K.</div>';
+    order.forEach(function (pos) {
+      var g = groups[pos]; if (!g || !g.length) return;
+      g.sort(function (a, b) { return (b.fv || 0) - (a.fv || 0); });
+      html += '<div class="tv-shop-grp">' + pos + ' · ' + g.length + ' targets</div>' +
+        '<div class="fo-table-scroll"><table class="fo-table"><thead><tr><th class="num">#</th><th>Player</th><th class="num">FA price</th><th class="num">2026 val</th><th>Tier</th><th>Trust</th></tr></thead><tbody>' +
+        g.map(function (r, i) {
+          return '<tr><td class="num">' + (i + 1) + '</td><td><b>' + esc(r.n) + '</b>' + (r.tm ? ' <span class="tv-team">' + esc(r.tm) + '</span>' : '') + (r.ag ? ' <span class="tv-team">· ' + r.ag + 'y</span>' : '') + '</td>' +
+            '<td class="num"><b>' + tvK(r.fv) + '</b></td><td class="num">' + tvK(r.csv) + '</td>' +
+            '<td>' + (r.tr != null ? 'T' + esc(r.tr) : '—') + '</td>' +
+            '<td><span class="tv-trust ' + tvTrustCls(r.st) + '">' + esc(r.st || '—') + '</span></td></tr>';
+        }).join("") + '</tbody></table></div>';
+    });
+    host.innerHTML = html;
   }
 
   // ── 💎 FA Value: expected-APW vs price vs roster-fit, per available FA ──
@@ -2090,7 +2339,7 @@
     if (AC.preview) {
       var p = AC.preview;
       if (p.error) {
-        previewHtml = '<div class="fo-card" style="border-color:#c0392b;"><strong style="color:#c0392b;">Preview error:</strong> ' + acEsc(p.error) +
+        previewHtml = '<div class="fo-card" style="border-color:#c0392b;"><strong style="color:#c0392b;">' + (p._push ? "Push error:" : "Preview error:") + '</strong> ' + acEsc(p.error) +
           (p.missing && p.missing.length ? '<br><span class="small">Missing dates: ' + acEsc(p.missing.join(", ")) + "</span>" : "") + "</div>";
       } else {
         // MFL calendar rows: dryRun uses p.events (with already_exists); commit uses p.mfl.results.
@@ -2171,7 +2420,7 @@
       if (live && !window.confirm("Write these dates to the REAL league (74598) — MFL calendar + the app calendar — now?")) return;
       var u = apiUrl("/admin/auction/push-mfl-calendar") + "?L=" + encodeURIComponent(AC.pushTarget) + "&YEAR=" + encodeURIComponent(AC.cfg.season || YEAR) + "&commit=1&franchise_id=0008";
       postJSON(u, {}).then(function (r) { AC.preview = r; toast(r.ok ? "Pushed to MFL ✔" : "Push had errors", r.ok ? "ok" : "err"); paintAuctionCalendar(host); })
-        .catch(function (e) { AC.preview = { error: e.message || String(e) }; toast("Push failed: " + (e.message || String(e)), "err"); paintAuctionCalendar(host); });
+        .catch(function (e) { AC.preview = { error: e.message || String(e), _push: true }; toast("Push failed: " + (e.message || String(e)), "err"); paintAuctionCalendar(host); });
     });
   }
 
