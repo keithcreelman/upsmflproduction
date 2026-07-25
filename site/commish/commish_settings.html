@@ -316,6 +316,21 @@
   .di-drift { font-weight: 800; } .di-drift.up { color: var(--danger); } .di-drift.dn { color: #34d399; }
   @media (max-width: 720px) { .fav-dwrap { grid-template-columns: 1fr; } .fav-infl-grid { grid-template-columns: 1fr; } .fav-tier-cells { flex-direction: column; align-items: stretch; } .fav-tier-arrow { display: none; } }
   @media (max-width: 560px) { .wr-mini-wrap { grid-template-columns: 1fr; } }
+  /* Rebuilt War Room launcher (→ private combined-hub artifact) */
+  .wr2-launch { max-width: 900px; margin: 8px auto; }
+  .wr2-hero { background: linear-gradient(160deg, var(--panel), var(--panel2)); border: 1px solid var(--line); border-radius: 16px; padding: 28px 26px; }
+  .wr2-eyebrow { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .wr2-hero h2 { font-size: 26px; margin: .2em 0 .35em; font-weight: 800; color: var(--fg); letter-spacing: -.01em; }
+  .wr2-hero p { color: var(--muted); font-size: 14.5px; line-height: 1.55; max-width: 66ch; margin: 0 0 18px; }
+  .wr2-hero p b { color: var(--fg); }
+  .wr2-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #0a1222; font-weight: 800; font-size: 15px; padding: 12px 22px; border-radius: 11px; text-decoration: none; transition: .12s; }
+  .wr2-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .wr2-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 24px 0 6px; }
+  .wr2-c { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 13px; display: flex; flex-direction: column; gap: 4px; }
+  .wr2-c b { color: var(--fg); font-size: 13.5px; }
+  .wr2-c span { color: var(--muted); font-size: 12px; line-height: 1.4; }
+  .wr2-foot { font-size: 12.5px; color: var(--muted); margin-top: 16px; }
+  .wr2-foot b { color: var(--fg); }
 </style>
 </head>
 <body>
@@ -589,30 +604,40 @@
   // ════════════════════════════════════════════════════════════════════
   // AUCTION WAR ROOM — commish-only FA-auction opponent intel (franchise 0008)
   // ════════════════════════════════════════════════════════════════════
-  var WR = { data: null, view: "scouting", live: null, pollTimer: null };
+  var WR = { data: null, view: "hub", live: null, pollTimer: null };
+  // Rebuilt 2026-07-24: the old Scouting/My Board/Live Board/Draft Intel views are replaced
+  // by the combined War Room dashboard, hosted as a PRIVATE Claude artifact (account-gated —
+  // only the commish can open it), so opponent intel never lands in this public repo. Live
+  // lots + bidding stay in the untouched Auction Hub. Old paint* fns below are now dead code.
+  var WARROOM_URL = "https://claude.ai/code/artifact/435b41fd-3249-4afd-8226-8d4e3efda7b5";
   function renderWarRoom() {
     var host = content();
-    if (WR.data) { renderWrFrame(host); return; }
-    host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading FA-auction intel…</div></div>';
-    fetchJSON(apiUrl("/api/auction/intel") + "?franchise_id=0008").then(function (d) {
-      if (!d || !d.ok) {
-        host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">' +
-          (d && d.error ? esc(d.error) : "Intel not available.") + '</div></div>';
-        return;
-      }
-      WR.data = d; renderWrFrame(host);
-    }).catch(function (e) {
-      host.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + esc(e.message || String(e)) + '</div></div>';
-    });
+    renderWrFrame(host);
+  }
+  // The rebuilt landing view: launcher into the private combined dashboard.
+  function paintHubLaunch(host) {
+    host.innerHTML =
+      '<div class="wr2-launch"><div class="wr2-hero">' +
+        '<div class="wr2-eyebrow">Auction War Room · rebuilt</div>' +
+        '<h2>Your combined War Room lives here.</h2>' +
+        '<p>Battle Plan, FA Board (value-differentiated pricing + who-to-fear), Team Intel (every rival’s roster holes × cap × how they bid), and the historical Class Explorer — one dashboard. It’s a <b>private Claude artifact</b> (only you can open it), so opponent intel stays commish-only and never touches this public repo.</p>' +
+        '<a class="wr2-btn" href="' + WARROOM_URL + '" target="_blank" rel="noopener">🎯 Open the War Room →</a>' +
+        '<div class="wr2-cards">' +
+          '<div class="wr2-c"><b>📋 Battle Plan</b><span>One-screen game plan: your hand, the squeeze, shopping list, the lanes nobody contests.</span></div>' +
+          '<div class="wr2-c"><b>🏈 FA Board</b><span>What each player should cost + who to fear, cap-aware and re-priced live as wins land.</span></div>' +
+          '<div class="wr2-c"><b>🎯 Team Intel</b><span>Every rival’s roster holes, live cap, and spending fingerprint. Click a position → who to fear.</span></div>' +
+          '<div class="wr2-c"><b>📊 Class Explorer</b><span>What every FA class sold for; IDP on real draft-market rank vs. finish.</span></div>' +
+        '</div>' +
+        '<p class="wr2-foot">Live lots &amp; bidding stay in the <b>Auction Hub</b> — this is the prep &amp; intel layer. Snapshot as of 7/24; rosters/cap read live from MFL inside the board.</p>' +
+      '</div></div>';
   }
   function stopWrPoll() { if (WR.pollTimer) { clearInterval(WR.pollTimer); WR.pollTimer = null; } }
   function renderWrFrame(host) {
     host.innerHTML =
       '<div class="wr-vtabs">' +
-      '<button data-wrv="scouting"' + (WR.view === "scouting" ? ' class="on"' : '') + '>📋 Scouting Intel</button>' +
-      '<button data-wrv="favalue"' + (WR.view === "favalue" ? ' class="on"' : '') + '>💎 FA Value</button>' +
-      '<button data-wrv="board"' + (WR.view === "board" ? ' class="on"' : '') + '>🎯 My Board</button>' +
+      '<button data-wrv="hub"' + (WR.view === "hub" ? ' class="on"' : '') + '>🎯 War Room</button>' +
       '<button data-wrv="threevalue"' + (WR.view === "threevalue" ? ' class="on"' : '') + '>📊 3-Value</button>' +
+      '<button data-wrv="favalue"' + (WR.view === "favalue" ? ' class="on"' : '') + '>💎 FA Value</button>' +
       '<button data-wrv="live"' + (WR.view === "live" ? ' class="on"' : '') + '>📡 Live Board</button>' +
       '</div><div id="wr-body"></div>';
     host.querySelector(".wr-vtabs").addEventListener("click", function (e) {
@@ -627,11 +652,28 @@
   function paintWrView() {
     var b = document.getElementById("wr-body"); if (!b) return;
     stopWrPoll();
+    // paintLive reads WR.data (league thresholds + owner names). The rebuilt landing
+    // view no longer pre-fetches intel, so load it on demand the first time Live Board
+    // is opened — otherwise WR.data is null and the view throws.
+    if (WR.view === "live" && !WR.data) {
+      b.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Loading FA-auction intel…</div></div>';
+      fetchJSON(apiUrl("/api/auction/intel") + "?franchise_id=0008").then(function (d) {
+        if (!d || !d.ok) {
+          b.innerHTML = '<div class="fo-card"><div class="fo-table-loading">' + (d && d.error ? esc(d.error) : "Intel not available.") + '</div></div>';
+          return;
+        }
+        WR.data = d;
+        if (WR.view === "live") paintWrView();
+      }).catch(function (e) {
+        b.innerHTML = '<div class="fo-card"><div class="fo-table-loading">Failed to load: ' + esc(e.message || String(e)) + '</div></div>';
+      });
+      return;
+    }
     if (WR.view === "live") paintLive(b);
     else if (WR.view === "board") paintBoard(b);
     else if (WR.view === "threevalue") paintThreeValue(b);
     else if (WR.view === "favalue") paintFaValue(b);
-    else paintScouting(b);
+    else paintHubLaunch(b);
   }
   function wrName(fid) { var o = WR.data.owners[fid]; return o ? (o.owner_name || fid) : fid; }
   function wrTeam(fid) { var o = WR.data.owners[fid]; return o ? (o.team_name || "") : ""; }
