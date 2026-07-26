@@ -1544,6 +1544,28 @@
     return synthesizedExtensionOptionsForPlayer(p);
   }
 
+  // ── Auction month rule (Keith 2026-07-26) ────────────────────────────
+  // "if month = july or august and acquisition type = auction then FAA;
+  //  if auction before july and acquisition type = auction then era."
+  // Matches canon §C1: the ERA runs late May, the FA Auction late July / early
+  // August. Used below as the MYAC window's LOWER bound.
+  //
+  // WHY a lower bound is needed: the upper bound (isPastContractDeadlineFO)
+  // FAILS OPEN when the season's contract_deadline event hasn't loaded. SEASON
+  // rolls to the new year on Jan 1, but MFL only clears contractYear on ITS
+  // league-year rollover weeks later — so every un-converted Vet-FAA sits at
+  // cy=1 / CL 1 through that gap and would be re-offered MYAC on an already
+  // dead contract. Requiring July-or-later closes that window.
+  function currentEtMonthFO() {
+    try {
+      return safeInt(new Date().toLocaleString("en-US", { timeZone: "America/New_York", month: "numeric" }), 0);
+    } catch (_) { return new Date().getMonth() + 1; }
+  }
+  function inAuctionMyacMonthWindowFO(kind) {
+    var m = currentEtMonthFO();
+    return kind === "era" ? m >= 5 : m >= 7;
+  }
+
   function rosterContractEligibility(p) {
     var years = Math.max(0, safeInt(p && p.years, 0));
     var salary = safeInt(p && p.salary, 0);
@@ -1565,7 +1587,26 @@
     var isFreshAuction = !isEra && /auction|faa/.test(acqLabel) &&
                          acqLabel.indexOf("expired") === -1 && acqLabel.indexOf("rookie") === -1 &&
                          acqYr === String(SEASON) && !rookieLikeContractStatus(status) && status.indexOf("tag") === -1;
-    var myacEligible = (isEra || isFreshAuction) && years === 1 && !isPastContractDeadlineFO();
+    // FAA read straight off contractStatus, exactly like ERA one line up.
+    // Canon (§A3, line 174) created Vet-FAA "so a fresh auction win is never
+    // treated as a held final-year veteran, and the MYAC path stays available" —
+    // but only ERA ever got a contractStatus test. FAA rode entirely on
+    // acquisitionTypeLabel, which is stamped from the COMMISH-MAINTAINED static
+    // site/rosters/player_acquisition_lookup_<yr>.json (last regenerated
+    // 2026-03-10). A player won minutes ago is not in that file, so acqLabel
+    // was "" -> isFreshAuction false -> MYAC hidden and Extension wrongly
+    // offered instead. Verified against all 7 finalized 2026 FAA winners.
+    //
+    // CL is the ORIGINAL contract length and never decays (a converted MYAC
+    // writes "CL 2"/"CL 3" and keeps status Vet-FAA), so CL===1 is canon C2's
+    // "currently on 1-year default". FAILS CLOSED on an unreadable CL: a hidden
+    // button is recoverable, an irreversible multi-year MFL write is not.
+    var isFreshFaaStatus = status.indexOf("-faa") !== -1 &&
+                           parseContractLengthValue(p && p.special) === 1 &&
+                           !rookieLikeContractStatus(status) && status.indexOf("tag") === -1 &&
+                           inAuctionMyacMonthWindowFO("faa");
+    var myacEligible = (isEra || isFreshAuction || isFreshFaaStatus) &&
+                       years === 1 && !isPastContractDeadlineFO();
     // MYM (Mid-Year Multi, §C3): an in-season WW/FCFS/waiver pickup can convert
     // to a FLAT 2- or 3-year deal within 14 days of acquisition. Distinct from
     // MYAC (auction wins) and Extension. Best-effort from the acquisition

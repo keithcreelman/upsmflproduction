@@ -49,7 +49,7 @@
     "https://upsmflproduction.keith-creelman.workers.dev";
   var GH_BASE = "https://keithcreelman.github.io/upsmflproduction";
   // Version stamp for the lazy-loaded FO modules. Bump when the mirrors change.
-  var MOD_V = "2026-07-16-barebones-actions";
+  var MOD_V = "2026-07-26-myac-faa";
 
   // ── small helpers ──────────────────────────────────────────────────────
   function safeStr(v) { return v == null ? "" : String(v).trim(); }

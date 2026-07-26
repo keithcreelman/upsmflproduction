@@ -127,6 +127,33 @@
     try { return new Date() > new Date(d + "T23:59:59-04:00"); } catch (_) { return false; }
   }
 
+  // Contract LENGTH ("CL n") off contractInfo. Mirror of v2/front_office.js
+  // parseContractLengthValue (:300) — mobile had no CL parser at all, and the
+  // MYAC gate below needs one to tell a fresh 1-year auction win (CL 1) from
+  // the final year of an already-converted multi-year deal (CL 2 / CL 3).
+  function parseContractLengthValueFO(contractInfo) {
+    var info = safeStr(contractInfo);
+    if (!info) return 0;
+    var match = info.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i);
+    return match && safeStr(match[1]) ? Math.max(0, safeInt(match[1], 0)) : 0;
+  }
+
+  // Auction month rule (Keith 2026-07-26) — mirror of v2/front_office.js
+  // currentEtMonthFO / inAuctionMyacMonthWindowFO. "july or august + auction =
+  // FAA; before july + auction = ERA" (canon §C1: ERA late May, FAA late July /
+  // early August). Serves as the MYAC window's LOWER bound, because
+  // isPastContractDeadlineFO fails OPEN and would otherwise re-offer MYAC on a
+  // stale un-converted Vet-FAA in the Jan-Mar gap before MFL's league rollover.
+  function currentEtMonthFO() {
+    try {
+      return safeInt(new Date().toLocaleString("en-US", { timeZone: "America/New_York", month: "numeric" }), 0);
+    } catch (_) { return new Date().getMonth() + 1; }
+  }
+  function inAuctionMyacMonthWindowFO(kind) {
+    var m = currentEtMonthFO();
+    return kind === "era" ? m >= 5 : m >= 7;
+  }
+
   function rosterContractEligibility(player) {
     var years = Math.max(0, safeInt(player && player.years, 0));
     var salary = safeInt(player && player.salary, 0);
@@ -157,7 +184,18 @@
     var isFreshAuction = !isEra && /auction|faa/.test(acqLabel) &&
                          acqLabel.indexOf("expired") === -1 && acqLabel.indexOf("rookie") === -1 &&
                          acqYr === currentSeasonFO() && !rookieLikeContractStatus(status) && status.indexOf("tag") === -1;
-    var myacEligible = (isEra || isFreshAuction) && years === 1 && !isPastContractDeadlineFO();
+    // FAA off contractStatus, exactly like ERA above — verbatim mirror of
+    // v2/front_office.js. acquisitionTypeLabel comes from the commish-maintained
+    // static player_acquisition_lookup_<yr>.json, which cannot contain a player
+    // won minutes ago, so the acqLabel path left every fresh FA-Auction winner
+    // with Extension as their only option. CL===1 = still on the 1-year default
+    // (canon §C2); fails CLOSED on an unreadable CL.
+    var isFreshFaaStatus = status.indexOf("-faa") !== -1 &&
+                           parseContractLengthValueFO(player && player.special) === 1 &&
+                           !rookieLikeContractStatus(status) && status.indexOf("tag") === -1 &&
+                           inAuctionMyacMonthWindowFO("faa");
+    var myacEligible = (isEra || isFreshAuction || isFreshFaaStatus) &&
+                       years === 1 && !isPastContractDeadlineFO();
 
     // ── MYM (Mid-Year Multi, §C3) — verbatim mirror of v2/front_office.js
     // rosterContractEligibility (1441-1456). An IN-SEASON WW/FCFS/waiver pickup

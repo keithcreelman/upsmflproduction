@@ -95,14 +95,27 @@
 
   // Derive the full contract from a per-year salary array — the pre-confirm
   // half of submitMyacContract (3122-3130). TCV = Σ years, AAV = round(TCV/N),
-  // FL/BL suffix auto-derived from the shape, GTD = 75% TCV above $4K else $0,
-  // and the canonical contract_info string (byte-identical to desktop).
+  // FL/BL suffix auto-derived from the shape, GTD per guaranteeForMyacContract
+  // below, and the canonical contract_info string (byte-identical to desktop).
+  //
+  // GTD mirror of desktop guaranteeForContract (v2/front_office.js:477-481).
+  // This file previously hardcoded `tcv > 4000 ? 0.75*tcv : 0`, which DROPPED
+  // desktop's sub-$5K 2/3-year $1,000 floor (canon §D1) — so the same player
+  // and the same button wrote "GTD: 0" on mobile and "GTD: 1K" on desktop.
+  // Concretely wrong for cheap auction wins: Zaire Franklin ($1K -> TCV 2K on
+  // a 2-yr) and Blake Cashman ($2K -> TCV 4K on a 2-yr) both land in the gap.
+  function guaranteeForMyacContract(tcv, yearsRemaining) {
+    var t = safeInt(tcv, 0);
+    if (t > 4000) return Math.round(t * 0.75);
+    return safeInt(yearsRemaining, 0) >= 2 ? 1000 : 0;
+  }
+
   function buildMyacContract(totalYears, yrs, statusBase) {
     var tcv = yrs.reduce(function (a, b) { return a + b; }, 0);
     var aav = Math.round(tcv / totalYears);
     var loaded = yrs.some(function (v) { return v !== yrs[0]; });
     var status = statusBase + (loaded ? (yrs[0] > aav ? "-FL" : "-BL") : "");
-    var gtd = tcv > 4000 ? Math.round(tcv * 0.75) : 0;
+    var gtd = guaranteeForMyacContract(tcv, totalYears);
     var contractInfo = "CL " + totalYears +
       "|TCV " + fmtKbare(tcv) +
       "|AAV " + fmtKbare(aav) +
