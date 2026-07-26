@@ -2487,6 +2487,10 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
   // opts.silent — suppress @everyone/user pings. Used by backfills and replays:
   // re-narrating a lot that has been live for hours must not re-ping the league.
   const SILENT_NARRATION = !!(opts && opts.silent);
+  // Caller-supplied collector: each Discord post records where it went and what
+  // Discord answered, so an operator can tell 'posted into the thread' from
+  // 'Discord refused' instead of guessing (the whole FAA was spent guessing).
+  const NARRATE_LOG = (opts && Array.isArray(opts.collect)) ? opts.collect : [];
   if (!queue || queue.length === 0) return;
   const botToken = String(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "").trim();
   if (!botToken) {
@@ -3687,8 +3691,11 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
       const mentions = SILENT_NARRATION ? { parse: [] } : msg.allowed_mentions;
       if (SILENT_NARRATION) content = content.replace(/@everyone\s*—\s*/g, "").replace(/@everyone/g, "the league");
       const r = await postToDiscord(targetChannelId, content, gifUrl, overlayUrl, mentions);
+      NARRATE_LOG.push({ kind: ev._obs_kind, player_id: ev.player_id, posted_to: String(targetChannelId),
+                         into_thread: String(targetChannelId) !== String(channelId), status: r.status, ok: r.ok });
       if (!r.ok) {
         const body = await r.text().catch(() => "");
+        NARRATE_LOG[NARRATE_LOG.length - 1].error = body.slice(0, 160);
         console.log(`[auction-narrator] post failed ${r.status} to ${targetChannelId}: ${body.slice(0, 200)}`);
       } else {
         const j = await r.json().catch(() => ({}));
@@ -5840,9 +5847,11 @@ export default {
         try {
           const silent = String(body?.silent ?? url.searchParams.get("silent") ?? "") === "1" ||
             body?.silent === true;
-          await narrateAuctionEvents(env, Number(targetSeason), leagueId, queue, null, { silent });
+          const narrateLog = [];
+          await narrateAuctionEvents(env, Number(targetSeason), leagueId, queue, null, { silent, collect: narrateLog });
           return jsonOut(200, {
             ok: true,
+            discord: narrateLog,
             lot_id,
             kind,
             queued_event: queue[0],
