@@ -3818,7 +3818,10 @@ export default {
             `SELECT last_ts FROM ups_bot_heartbeat WHERE bot = 'auction_poll'`
           ).first();
           const ageSec = Math.floor(Date.now() / 1000) - Number(hb?.last_ts || 0);
-          if (!Number.isFinite(ageSec) || ageSec < 900) return;   // 15 min grace
+          // Tightened from 15 -> 8 min (Keith caught a 2nd stall the same day
+          // as the first) so a stall gets flagged closer to one missed tick,
+          // not four or five.
+          if (!Number.isFinite(ageSec) || ageSec < 480) return;   // 8 min grace
           // one alert per stall, re-armed once the poll recovers
           const seen = await db.prepare(
             `SELECT last_ts FROM ups_bot_heartbeat WHERE bot = 'auction_poll_alert'`
