@@ -98,7 +98,6 @@ function buildMorningMessage(data, closed, standings, mentionsByFid, penaltiesAr
   const used = (r) => Number(r.noms_used || 0);
   const L = [];
 
-  L.push("# 🧪 TEST REPORT — NOBODY IS REQUIRED TO BID");
   L.push(`### 🌅 FA AUCTION — MORNING · ${REPORT_LABEL.morning}`);
   L.push("");
 
@@ -202,7 +201,6 @@ function buildParentMessage(data, mentionsByFid) {
   ));
 
   const L = [];
-  L.push("# 🧪 TEST REPORT — NOBODY IS REQUIRED TO BID TONIGHT");
   L.push(`### 🏈 FA AUCTION — EVENING · ${REPORT_LABEL.evening}`);
   L.push("");
   L.push(`**NOMINATIONS TODAY** — ${max} per team · midnight→midnight ET`);
