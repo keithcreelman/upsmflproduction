@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-26 20:48:21",
+    "generated_at": "2026-07-26 21:03:26",
     "source": "contract-activity-log",
-    "count": 77,
+    "count": 78,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "55c99e4f287d699e45e86a67",
+      "submission_id": "55c99e4f287d699e45e86a67",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0002",
+      "franchise_name": "",
+      "player_id": "14782",
+      "player_name": "Love, Jordan",
+      "position": "QB",
+      "salary": 21000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext1",
+      "contract_info": "CL 2|TCV 52K|AAV 21K, 31K|Y1-21K, Y2-31K|Ext: PG|GTD: 39K",
+      "tcv": 52000,
+      "aav": 0,
+      "guaranteed": 39000,
+      "submitted_at_utc": "2026-07-26T21:03:05.331Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1531044221983785193",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "ac999bac7c02df659276838c",
       "submission_id": "ac999bac7c02df659276838c",
