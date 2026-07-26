@@ -735,9 +735,18 @@ async function processAuctionPoll(env) {
   };
   const dropTestResidue = (rows) => rows.filter((tx) => !isFaaTestResidue(tx));
 
-  const initTxs = dropTestResidue(asArr(initRes?.transactions?.transaction));
-  const bidTxs = dropTestResidue(asArr(bidsRes?.transactions?.transaction));
-  const wonTxs = dropTestResidue(asArr(winsRes?.transactions?.transaction));
+  // Voided nominations (rule-illegal) are stripped here too: MFL's log is
+  // append-only, so this is the only way a voided lot stops being re-ingested
+  // every 5 minutes. The pid then falls out of liveTxnPids and the existing
+  // deleted-transaction purge clears its D1 lot + bids on its own.
+  const voidedNoms = await loadVoidedNoms(env, season, leagueId);
+  const dropVoided = (rows) => (voidedNoms.size
+    ? rows.filter((tx) => !voidedNoms.has(String(tx?.transaction || "").split("|")[0].replace(/\D/g, "")))
+    : rows);
+
+  const initTxs = dropVoided(dropTestResidue(asArr(initRes?.transactions?.transaction)));
+  const bidTxs = dropVoided(dropTestResidue(asArr(bidsRes?.transactions?.transaction)));
+  const wonTxs = dropVoided(dropTestResidue(asArr(winsRes?.transactions?.transaction)));
 
   // Did MFL actually ANSWER? The fetches above catch() into {}, which makes an
   // MFL outage look exactly like a quiet auction — and only one of those may
@@ -2089,6 +2098,28 @@ function auctionActionErrorBody(actionRes) {
 // faaNomsUsedForDay, which folds this together with the other sources so one
 // lookup covers all of them. Throws on fetch/parse failure; the caller
 // degrades to the D1 sources rather than failing the nomination outright.
+// ── Voided nominations ────────────────────────────────────────────────────
+// A nomination can be ILLEGAL under league rules (e.g. §F: you may not nominate
+// or bid on a player you dropped while under contract). MFL's AUCTION_* log is
+// APPEND-ONLY — deleting the auction lot in MFL does NOT remove the
+// AUCTION_INIT transaction (verified 2026-07-26 with Tony Pollard), so the
+// nomination keeps counting against the owner's 2/day and the lot keeps being
+// re-ingested on every poll. Voiding has to live on our side.
+// A void row makes the nomination vanish from BOTH the daily count and the
+// board, while keeping its Discord thread so the history isn't lost.
+async function loadVoidedNoms(env, season, leagueId) {
+  const out = new Map();
+  if (!env?.UPS_MFL_DB) return out;
+  try {
+    const rs = await env.UPS_MFL_DB.prepare(
+      `SELECT player_id, franchise_id, discord_thread_id, discord_message_id, discord_channel_id
+         FROM ups_auction_void_noms WHERE season = ? AND league_id = ?`
+    ).bind(String(season), String(leagueId)).all();
+    for (const r of (rs?.results || [])) out.set(String(r.player_id), r);
+  } catch (_) { /* table absent => nothing voided */ }
+  return out;
+}
+
 async function faaLiveNomsForEtDay(env, season, leagueId, etDay) {
   const bounds = etDayBounds(etDay);
   if (!bounds) throw new Error("bad_et_day");
@@ -2178,9 +2209,13 @@ async function faaNomPidsByFidForDay(env, season, leagueId, etDay) {
     }
   } catch (_) { /* table missing => migration not applied; live count still gates */ }
 
+  // Voided (rule-illegal) nominations never counted — drop them before tallying
+  // so the owner gets the slot back and can re-nominate.
+  const voided = await loadVoidedNoms(env, season, leagueId);
   const byFid = new Map();
   for (const n of pairs) {
     if (!n.fid || n.fid === "0000" || !n.pid) continue;
+    if (voided.has(n.pid)) continue;
     if (!byFid.has(n.fid)) byFid.set(n.fid, new Set());
     byFid.get(n.fid).add(n.pid);
   }
