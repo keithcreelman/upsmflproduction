@@ -1171,28 +1171,45 @@ async function processAuctionPoll(env) {
     console.log("[faa-cap] over-cap detection error:", String(e?.message || e));
   }
 
-  // ── Discord narration ──
-  // Fires AFTER all DB writes so messages reflect canonical state.
-  // Fail-soft: any error here is logged but doesn't break the poll.
-  if (narrateQueue.length > 0) {
-    try {
-      await narrateAuctionEvents(env, season, leagueId, narrateQueue);
-    } catch (e) {
-      console.log("[auction-narrator] error:", String(e?.message || e));
-    }
-  }
-
   const activeLots = await db.prepare(
     `SELECT COUNT(*) AS n FROM ups_auction_lots WHERE season = ? AND league_id = ? AND status = 'open'`
   ).bind(season, leagueId).first();
 
-  // Heartbeat + one-shot recovery DM. Stamped ONLY when MFL answered — a
-  // half-blind run (INIT or BID export down) must not vouch for the ledger
-  // that closeEtDay's freshness interlock trusts for §F RULE 2 verdicts.
-  // (2026-07-15: the close ran 77 min into a dead-cron outage and banked 20
-  // penalty rows from a ledger missing franchise 0006's two nominations —
-  // this stamp + that interlock is what makes that impossible.)
+  // ── Heartbeat FIRST, narration SECOND — this ORDER is load-bearing ──
+  // Every price / winner / cancellation / purge write above has committed, so
+  // the ledger is fully canonical HERE. Narration is cosmetic Discord output
+  // that writes nothing to the price ledger. It used to run BEFORE this stamp,
+  // and that was the stall: a heavy tick (a bid burst → a dozen serial Discord
+  // posts + GIF fetches, none individually slow but unbounded in aggregate)
+  // blew Cloudflare's ~30s scheduled-invocation budget and got KILLED
+  // (outcome=exceededCpu) with the `auction_poll` heartbeat never stamped — so
+  // the watchdog cried "poll stalled" even though the mirror was correct. Live
+  // capture 2026-07-26: the */5 tick died at wallTime 26.9s mid-narration.
+  // Fix: stamp liveness the instant the ledger is durable, THEN narrate.
+  //
+  // Stamped ONLY when MFL answered — a half-blind run (INIT or BID export down)
+  // must not vouch for the ledger that closeEtDay's freshness interlock trusts
+  // for §F RULE 2 verdicts. (2026-07-15: the close ran 77 min into a dead-cron
+  // outage and banked 20 penalty rows from a ledger missing franchise 0006's
+  // two nominations — this stamp + that interlock is what makes that impossible.)
   const gapSec = mflAnswered ? await finalizePollRun(newBids, newWins) : 0;
+
+  // ── Discord narration — AFTER the liveness stamp ──
+  // Reflects the now-canonical state. Hard wall-clock cap so a slow Discord /
+  // GIF burst can never drag the invocation past Cloudflare's limit: the
+  // heartbeat is already safe, so an over-budget narration is abandoned (its
+  // in-flight posts finish under waitUntil; lots left without a thread anchor
+  // are picked up by the narrator's existing self-heal on the next tick)
+  // instead of force-killing the whole tick. Fail-soft either way.
+  if (narrateQueue.length > 0) {
+    const NARRATE_WALLCLOCK_MS = 15000;
+    const narratePromise = narrateAuctionEvents(env, season, leagueId, narrateQueue)
+      .catch((e) => console.log("[auction-narrator] error:", String(e?.message || e)));
+    await Promise.race([
+      narratePromise,
+      new Promise((resolve) => setTimeout(resolve, NARRATE_WALLCLOCK_MS)),
+    ]);
+  }
 
   return {
     new_bids: newBids,
