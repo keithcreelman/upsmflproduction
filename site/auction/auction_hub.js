@@ -222,6 +222,28 @@
     const ov = document.getElementById("ah-bid-overlay");
     if (ov) ov.remove();
   }
+  // A submit's outcome (high_bid / unconfirmed / submitted) was computed
+  // server-side but never shown on desktop — the modal closed immediately, so
+  // a bid that just became the new high bid looked identical to one that did
+  // nothing (Keith 2026-07-26: "it just submits" with no confirmation). The
+  // "outbid" branch already surfaces its message inline because the modal
+  // stays open for a re-bid; this covers every other outcome, which closes
+  // the modal before the caller can see anything.
+  function showAhToast(text, kind) {
+    if (!text) return;
+    const old = document.getElementById("ah-toast");
+    if (old) old.remove();
+    const el = document.createElement("div");
+    el.id = "ah-toast";
+    el.className = "ah-toast " + (kind || "ok");
+    el.textContent = text;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add("show"));
+    setTimeout(() => {
+      el.classList.remove("show");
+      setTimeout(() => el.remove(), 300);
+    }, 4200);
+  }
   // opts: { player_id, player_name, auction_type, high_k }
   // ── Cap + roster pre-flight (2026-07-15) ────────────────────────────
   // Mirrors worker auctionEligibility + the mobile sheet. The board already
@@ -434,6 +456,9 @@
           reloadBoardAfterBid();                         // refresh the High line (modal stays open)
           return;
         }
+        // outcome here is "high_bid" (won the lead), "unconfirmed" (MFL accepted
+        // the form but the re-read couldn't confirm), or the "submitted" fallback.
+        showAhToast(msg, outcome === "high_bid" ? "ok" : "warn");
         closeBidModal();
         reloadBoardAfterBid();                           // re-read → verified board (funds/proxy)
       } else {

@@ -800,6 +800,16 @@ a.btn.small {
 .ah-bid-status { font-size: 12px; color: var(--muted); min-height: 16px; margin: 12px 0 0; }
 .ah-bid-status.err { color: var(--err); }
 .ah-bid-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.ah-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translate(-50%, 12px);
+  max-width: min(92vw, 480px); padding: 12px 16px; border-radius: 10px;
+  font-size: 13px; font-weight: 600; line-height: 1.4; z-index: 9999;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35); opacity: 0; transition: opacity .2s, transform .2s;
+  background: var(--panel, #161d26); border: 1px solid var(--line2, #374556); color: var(--ink, #e9eef4);
+}
+.ah-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.ah-toast.ok { border-color: var(--good, #54b58a); }
+.ah-toast.warn { border-color: var(--warn, #f2a63b); }
 
 
 /* Roster KPI — three numbers in ONE card (Keith 2026-07-15). Replaces the
