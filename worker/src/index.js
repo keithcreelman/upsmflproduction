@@ -3442,6 +3442,28 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
       }
     );
   }
+  // Standalone thread, no anchor message. This is the safety net for when the
+  // nomination POST to the channel fails: without it the lot has no message to
+  // hang a thread on, self-heal can't run (it needs an anchor), and every later
+  // bid falls back to the main channel for the life of the auction. Seen live
+  // on 5 lots in the 2026 FAA (Simmons, Myers, Fairbairn, Stevenson, Hubbard)
+  // even after the 429 retry shipped — the posts were failing intermittently
+  // for reasons the retry didn't cover, so stop depending on them.
+  async function createStandaloneThread(parentChannelId, name) {
+    return discordFetchWithRetry(
+      `https://discord.com/api/v10/channels/${encodeURIComponent(parentChannelId)}/threads`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: String(name || "Lot").slice(0, 100),
+          auto_archive_duration: 1440,
+          type: 11,          // public thread, no message anchor
+          invitable: true,
+        }),
+      }
+    );
+  }
   async function createThreadOnMessage(parentChannelId, messageId, name) {
     return discordFetchWithRetry(
       `https://discord.com/api/v10/channels/${encodeURIComponent(parentChannelId)}/messages/${encodeURIComponent(messageId)}/threads`,
@@ -3616,7 +3638,7 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
       const existing = await getLotDiscord(lotId);
       if (existing && existing.discord_thread_id) {
         targetChannelId = String(existing.discord_thread_id);
-      } else if (existing && existing.discord_message_id) {
+      } else if (existing && (existing.discord_message_id || existing.discord_channel_id)) {
         // SELF-HEAL: the nomination posted but its thread never got created
         // (Discord 429 on the open burst, or a transient failure). Without this
         // the lot is orphaned for life — every later bid falls back to the main
@@ -3626,16 +3648,16 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
           const pInfo = pidToInfo[ev.player_id];
           const nm = pInfo ? flipName(pInfo.name) : `Player ${ev.player_id}`;
           const meta = pInfo ? [pInfo.position, pInfo.team].filter(Boolean).join(" · ") : "";
-          const tr = await createThreadOnMessage(
-            String(existing.discord_channel_id || channelId),
-            String(existing.discord_message_id),
-            meta ? `Auction · ${nm} (${meta})` : `Auction · ${nm}`
-          );
+          const thName = meta ? `Auction · ${nm} (${meta})` : `Auction · ${nm}`;
+          const parentCh = String(existing.discord_channel_id || channelId);
+          const tr = existing.discord_message_id
+            ? await createThreadOnMessage(parentCh, String(existing.discord_message_id), thName)
+            : await createStandaloneThread(parentCh, thName);
           if (tr.ok) {
             const tj = await tr.json().catch(() => ({}));
             const tid = String(tj?.id || "");
             if (tid) {
-              await saveLotDiscord(lotId, tid, String(existing.discord_message_id), String(existing.discord_channel_id || channelId));
+              await saveLotDiscord(lotId, tid, String(existing.discord_message_id || ""), parentCh);
               targetChannelId = tid;
               console.log(`[auction-narrator] self-healed thread for ${lotId}`);
             }
@@ -3663,6 +3685,29 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
       }
     } catch (e) {
       console.log("[auction-narrator] post threw:", String(e?.message || e));
+    }
+
+    // If the nomination post itself failed there is no anchor — create a
+    // standalone thread anyway so the lot is never orphaned.
+    if (createThreadAfter && !postedMessageId) {
+      try {
+        const pI = pidToInfo[ev.player_id];
+        const nm2 = pI ? flipName(pI.name) : `Player ${ev.player_id}`;
+        const mt = pI ? [pI.position, pI.team].filter(Boolean).join(" · ") : "";
+        const tr2 = await createStandaloneThread(channelId, mt ? `Auction · ${nm2} (${mt})` : `Auction · ${nm2}`);
+        if (tr2.ok) {
+          const tj2 = await tr2.json().catch(() => ({}));
+          const tid2 = String(tj2?.id || "");
+          if (tid2) {
+            await saveLotDiscord(lotId, tid2, "", channelId);
+            // put the narration into the new thread so the lot still reads right
+            try { await postToDiscord(tid2, content, "", "", { parse: [] }); } catch (_) {}
+            console.log(`[auction-narrator] anchorless thread created for ${lotId}`);
+          }
+        }
+      } catch (e) {
+        console.log("[auction-narrator] anchorless thread failed:", String(e?.message || e));
+      }
     }
 
     // If this was a nomination, create the per-lot thread now and save it.
