@@ -603,6 +603,40 @@ async function processAuctionPoll(env) {
   const baseUrl = `https://www48.myfantasyleague.com/${season}/export`;
   const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
 
+  // Gate an expensive, self-heal-only step to run at most once per
+  // intervalSec, reusing ups_bot_heartbeat as the shared clock (Keith
+  // 2026-07-26 — "it needs to stop dying on me"). Root cause: several
+  // full-history/full-page steps below ran UNCONDITIONALLY on every 5-min
+  // tick with cost scaling in the TOTAL size of the auction (transactions
+  // ever placed, lots ever nominated) rather than what changed THIS tick —
+  // fine on day 1, but by day 2 (300+ transactions, 80+ lots) that was
+  // hundreds of sequential D1 round trips every 5 minutes, forever growing,
+  // which is what finally started tripping the Workers CPU-time ceiling
+  // (confirmed via wrangler tail: exceededCpu on this route earlier in the
+  // auction, already-attempted cpu_ms raise rejected outright on the Free
+  // plan). Fail-open on a D1 hiccup — skipping a self-heal pass once is
+  // cheap; silently never running it again is not.
+  async function throttledOnce(key, intervalSec) {
+    try {
+      const row = await db.prepare(
+        `SELECT last_ts FROM ups_bot_heartbeat WHERE bot = ?`
+      ).bind(key).first();
+      const last = Number(row?.last_ts || 0);
+      const due = !last || (Math.floor(Date.now() / 1000) - last) >= intervalSec;
+      if (due) {
+        await db.prepare(
+          `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env)
+           VALUES (?, ?, 'ok', '')
+           ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts`
+        ).bind(key, Math.floor(Date.now() / 1000)).run();
+      }
+      return due;
+    } catch (e) {
+      console.log(`[auction-poll] throttle check failed for ${key} (running anyway):`, String(e?.message || e));
+      return true;
+    }
+  }
+
   // ── Overlap lock + liveness heartbeat ─────────────────────────────────
   // The poll now has TWO possible invokers: the */5 cron and the manual
   // /admin/auction/poll-now lifeline (added when Cloudflare stopped invoking
@@ -820,6 +854,17 @@ async function processAuctionPoll(env) {
   // as "[nomination]" prepended so downstream queries can identify
   // them. UNIQUE constraint on (lot_id, fid, bid_at, bid_k) dedupes
   // re-polls.
+  //
+  // BATCHED (Keith 2026-07-26): allBidEvents is MFL's FULL transaction
+  // history for the auction, refetched every tick — no server-side time
+  // filter exists. One await-per-row here meant 250-300+ sequential D1
+  // round trips per 5-min tick once the auction reached day 2, almost all
+  // of them no-op re-polls of already-ingested rows. db.batch() sends a
+  // whole chunk as ONE round trip; per-statement meta.changes still tells
+  // us which rows were actually new, so the visible behavior — newBids
+  // count, freshFaaNoms, narrateQueue — is byte-identical to the old loop.
+  const touchedLotIds = new Set();
+  const bidCandidates = [];
   for (const ev of allBidEvents) {
     const p = parseTx(ev.tx);
     if (!p.player_id || !p.fid || !p.bid_at_unix) continue;
@@ -827,18 +872,35 @@ async function processAuctionPoll(env) {
     const taggedNote = ev.kind === "init"
       ? (p.note ? `[nomination] ${p.note}` : "[nomination]")
       : p.note;
-
-    const ins = await db.prepare(
+    bidCandidates.push({ ev, p, lot_id, taggedNote });
+  }
+  const INGEST_BATCH_SIZE = 50;
+  for (let bi = 0; bi < bidCandidates.length; bi += INGEST_BATCH_SIZE) {
+    const chunk = bidCandidates.slice(bi, bi + INGEST_BATCH_SIZE);
+    const stmts = chunk.map((c) => db.prepare(
       `INSERT OR IGNORE INTO ups_auction_bids
          (lot_id, season, league_id, player_id, fid, bid_k, bid_at_unix, note, raw_transaction)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(lot_id, season, leagueId, p.player_id, p.fid, p.bid_k, p.bid_at_unix, taggedNote, p.raw_transaction).run();
-    if (ins.meta?.changes > 0) {
-      newBids++;
-      if (ev.kind === "init") {
-        freshFaaNoms.push({ fid: p.fid, player_id: p.player_id, bid_at_unix: p.bid_at_unix });
+    ).bind(c.lot_id, season, leagueId, c.p.player_id, c.p.fid, c.p.bid_k, c.p.bid_at_unix, c.taggedNote, c.p.raw_transaction));
+    let results;
+    try {
+      results = await db.batch(stmts);
+    } catch (e) {
+      console.log("[auction-poll] ingest batch failed, falling back to per-row:", String(e?.message || e));
+      results = [];
+      for (const s of stmts) {
+        try { results.push(await s.run()); } catch (e2) { results.push(null); }
       }
-      if (narrateEnabled && p.bid_at_unix >= narrateCutoffUnix) {
+    }
+    for (let j = 0; j < chunk.length; j += 1) {
+      const c = chunk[j];
+      if (!(results[j]?.meta?.changes > 0)) continue;
+      newBids++;
+      touchedLotIds.add(c.lot_id);
+      if (c.ev.kind === "init") {
+        freshFaaNoms.push({ fid: c.p.fid, player_id: c.p.player_id, bid_at_unix: c.p.bid_at_unix });
+      }
+      if (narrateEnabled && c.p.bid_at_unix >= narrateCutoffUnix) {
         // Extract forcer-franchise NAME from MFL's note. Format:
         //   "Pure Greatness forced bid increase"
         // The franchise name precedes " forced bid increase". Captured
@@ -846,15 +908,15 @@ async function processAuctionPoll(env) {
         // "Pure Greatness forced L.A. Looks's bid up to $2K" instead of
         // the confusing "L.A. Looks Forced Increase to $2K".
         var forcerName = null;
-        var noteText = String(p.note || "");
+        var noteText = String(c.p.note || "");
         var fm = noteText.match(/^(.*?)\s+forced\s+bid\s+increase\s*$/i);
         if (fm) forcerName = fm[1].trim();
         narrateQueue.push({
-          kind: ev.kind,               // "init" | "bid"
-          fid: p.fid,
-          player_id: p.player_id,
-          bid_k: p.bid_k,
-          bid_at_unix: p.bid_at_unix,
+          kind: c.ev.kind,               // "init" | "bid"
+          fid: c.p.fid,
+          player_id: c.p.player_id,
+          bid_k: c.p.bid_k,
+          bid_at_unix: c.p.bid_at_unix,
           forcer_name: forcerName,
           note: noteText,
         });
@@ -863,48 +925,56 @@ async function processAuctionPoll(env) {
   }
 
   // ── Recompute lot state from accumulated bids ──
-  // Recompute EVERY poll, not just when newBids > 0. Reason: schema
-  // evolutions (e.g. adding AUCTION_INIT polling later) can leave
-  // existing lot rows with stale nominator_fid/opening_bid_k. Letting
-  // the recompute fire unconditionally self-heals those rows on the
-  // next tick. Cost is small (~30 lots × handful of queries each).
-  if (true) {
-    // Find lots touched in this poll: any lot with a bid_at_unix >= earliest new bid.
-    // Simpler: just rebuild every OPEN lot for this season+league. Cap at 100 — auction has ~30-60 lots max.
+  // ALWAYS recompute lots that got a fresh bid THIS tick — that's what keeps
+  // current_high_bid_k/locks_at_unix/bid_count correct and narration timely,
+  // non-negotiable every 5 minutes. The FULL sweep over every lot EVER bid
+  // on this season (self-healing stale nominator_fid/opening_bid_k after a
+  // schema change — a rare, not time-critical need) used to also run
+  // unconditionally, at ~5 sequential D1 round trips PER LOT: with 80+ lots
+  // nominated by day 2, that's 400+ round trips every tick, forever growing
+  // — the dominant half of what was tripping the CPU-time ceiling and
+  // silently killing the poll (Keith 2026-07-26). Now throttled to once per
+  // 20 minutes; a quiet tick with no fresh bids and no sweep due does zero
+  // per-lot work.
+  {
     const openLots = await db.prepare(
       `SELECT DISTINCT lot_id FROM ups_auction_bids
         WHERE season = ? AND league_id = ?`
     ).bind(season, leagueId).all();
+    let lotIds = (openLots.results || []).map((r) => String(r.lot_id));
+    const runFullSweep = await throttledOnce("auction_poll_lot_sweep", 1200);
+    if (!runFullSweep) {
+      lotIds = lotIds.filter((id) => touchedLotIds.has(id));
+    }
     // Lock window depends on the auction TYPE of the lot: ERA lots run 36h
     // (league_context §A3), regular FA-auction lots 24h (§A2). This used to be
     // hardcoded 36h for everything, which pushed every FAA lot's lock 12 hours
     // late. ONE batched lookup for all lots up front; player_id is the 3rd
     // segment of lot_id (season|league|player_id). Fail-soft → empty set →
     // everything treated as FAA.
-    const lotIds = (openLots.results || []).map((r) => String(r.lot_id));
     const eraLotPids = await loadEraPlayerIds(
       env, season, lotIds.map((id) => id.split("|")[2] || "")
     );
-    for (const row of (openLots.results || [])) {
-      const lot_id = String(row.lot_id);
-      // Earliest bid = nomination. Latest bid = current high.
-      const stats = await db.prepare(
-        `SELECT
-           MIN(bid_at_unix)    AS opened_at_unix,
-           MAX(bid_at_unix)    AS last_bid_at_unix,
-           COUNT(*)            AS bid_count,
-           COUNT(DISTINCT fid) AS unique_bidder_count
-         FROM ups_auction_bids WHERE lot_id = ?`
-      ).bind(lot_id).first();
-      const firstBid = await db.prepare(
-        `SELECT fid, bid_k, player_id FROM ups_auction_bids
-          WHERE lot_id = ? ORDER BY bid_at_unix ASC, bid_id ASC LIMIT 1`
-      ).bind(lot_id).first();
-      const lastBid = await db.prepare(
-        `SELECT fid, bid_k FROM ups_auction_bids
-          WHERE lot_id = ? ORDER BY bid_at_unix DESC, bid_id DESC LIMIT 1`
-      ).bind(lot_id).first();
-      if (!firstBid || !lastBid) continue;
+    for (const lot_id of lotIds) {
+      // ONE round trip per lot instead of four (Keith 2026-07-26 — see the
+      // "recompute lot state" note above): fetch every bid row for this lot
+      // and compute stats/first/last/lead-change in JS. Same table, same
+      // lot_id filter, same ORDER — the four SELECTs below were four
+      // separate views of data this single fetch already contains.
+      const bidRows = await db.prepare(
+        `SELECT fid, bid_k, bid_at_unix, note, player_id FROM ups_auction_bids
+          WHERE lot_id = ? ORDER BY bid_at_unix ASC, bid_id ASC`
+      ).bind(lot_id).all();
+      const rows = bidRows.results || [];
+      if (!rows.length) continue;
+      const firstBid = rows[0];
+      const lastBid = rows[rows.length - 1];
+      const stats = {
+        opened_at_unix: Number(firstBid.bid_at_unix || 0),
+        last_bid_at_unix: Number(lastBid.bid_at_unix || 0),
+        bid_count: rows.length,
+        unique_bidder_count: new Set(rows.map((r) => String(r.fid))).size,
+      };
       const isEraLot = eraLotPids.has(String(firstBid.player_id));
       // MFL's lock clock resets on a LEAD CHANGE, not on a proxy walk-up. When a
       // rival bids into the leader's hidden max, MFL walks the price up and writes
@@ -919,11 +989,13 @@ async function processAuctionPoll(env) {
       //
       // Fail-soft: a lot always has ≥1 non-walk row (the nomination), but if the
       // note text ever changes shape, fall back to the old value rather than 0.
-      const leadChange = await db.prepare(
-        `SELECT MAX(bid_at_unix) AS t FROM ups_auction_bids
-          WHERE lot_id = ? AND (note IS NULL OR note NOT LIKE '%forced bid increase%')`
-      ).bind(lot_id).first();
-      const clockFrom = Number(leadChange?.t || 0) || Number(stats.last_bid_at_unix);
+      let leadChangeT = 0;
+      for (const r of rows) {
+        if (!String(r.note || "").includes("forced bid increase")) {
+          leadChangeT = Math.max(leadChangeT, Number(r.bid_at_unix || 0));
+        }
+      }
+      const clockFrom = leadChangeT || Number(stats.last_bid_at_unix);
       const locks_at_unix = clockFrom + (isEraLot ? 36 : 24) * 3600;
       await db.prepare(
         `INSERT INTO ups_auction_lots
@@ -1066,10 +1138,17 @@ async function processAuctionPoll(env) {
   //
   // Fail-soft: if MFL_COOKIE missing or fetch fails, skip reconciliation
   // (don't accidentally cancel lots that we couldn't verify).
+  //
+  // Throttled to once per 10 minutes (Keith 2026-07-26): a commish deletion
+  // is rare and not time-critical to catch, but this step fetches the FULL
+  // live O=43 auction page and runs two global regexes over the whole HTML
+  // body on EVERY tick — cost that scales with the page's lot count and was
+  // running unconditionally, forever, alongside the other unthrottled
+  // full-history work that was tripping the CPU-time ceiling.
   let newCancellations = 0;
   try {
     const mflCookie = String(env.MFL_COOKIE || "").trim();
-    if (mflCookie) {
+    if (mflCookie && (await throttledOnce("auction_poll_o43_reconcile", 600))) {
       const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
       // FRANCHISE=0000 returns the franchise-select interstitial which
       // doesn't list open lots, so we hit with a real franchise id.
