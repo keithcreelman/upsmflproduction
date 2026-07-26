@@ -2756,6 +2756,45 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
     }
   }
 
+  // ── Sidelined-bidder pings on forced_increase (Keith 2026-07-26) ──
+  // A forced_increase only pings the CURRENT leader ("you're still winning") —
+  // anyone who bid earlier and got overtaken hears nothing for the rest of the
+  // lot unless they check manually. That silence is exactly what "why am I not
+  // getting updates on Pickens" was: Keith got outbid hours earlier, the price
+  // kept climbing via forced increases, and every one of those pinged only the
+  // new leader. Ping up to 2 most-recently-active past (non-nomination)
+  // bidders too, so anyone still deciding whether to jump back in sees the
+  // price move. Capped small + throttled upstream (FORCED_THROTTLE_SEC) so
+  // this can't turn into a flood on a deep lot.
+  const sidelinedByLot = new Map(); // lot_id -> [{fid, t}] desc by recency
+  {
+    const lotsWithForced = [...new Set(
+      queue.filter((ev) => ev._obs_kind === "forced_increase")
+        .map((ev) => `${season}|${leagueId}|${ev.player_id}`)
+    )];
+    if (db && lotsWithForced.length > 0) {
+      for (const lot of lotsWithForced) {
+        try {
+          const rs = await db.prepare(
+            `SELECT fid, MAX(bid_at_unix) AS t FROM ups_auction_bids
+              WHERE lot_id = ? AND (note IS NULL OR note NOT LIKE '[nomination]%')
+              GROUP BY fid ORDER BY t DESC LIMIT 6`
+          ).bind(lot).all();
+          sidelinedByLot.set(lot, (rs?.results || []).map((r) => ({ fid: String(r.fid), t: Number(r.t || 0) })));
+        } catch (e) {
+          console.log("[auction-narrator] sidelined-bidder lookup failed for", lot, e?.message || e);
+        }
+      }
+    }
+    const extra2 = [];
+    for (const [, rows] of sidelinedByLot) for (const r of rows) extra2.push(r.fid);
+    try {
+      await ensureMentionsFor(extra2);
+    } catch (e) {
+      console.log("[auction-narrator] sidelined mention top-up failed:", String(e?.message || e));
+    }
+  }
+
   // ── Curated GIF manifest v2 (site/auction/curated_gifs.json) ──
   // Pool-based. Scenarios reference pools by id. Worker rotates within
   // each pool (last-3 used) to keep GIFs fresh. Position-percentile
@@ -3331,7 +3370,27 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
           // invent a bumper.
           text = `${bumped} pushed their own bid up to ${bid} on ${playerName} — still the high bidder 😤`;
         }
-        allowedMentions = { users: [...new Set([...mentionIdsFor(ev.fid), ...mentionIdsFor(forcerFid)])] };
+        // Ping past bidders who are no longer leading — see sidelinedByLot note above.
+        const lotKeyForSidelined = `${season}|${leagueId}|${ev.player_id}`;
+        const excludeFids = new Set([String(ev.fid || ""), forcerFid ? String(forcerFid) : ""]);
+        const sidelinedFids = [...new Set(
+          (sidelinedByLot.get(lotKeyForSidelined) || [])
+            .map((r) => r.fid)
+            .filter((f) => f && !excludeFids.has(f))
+        )].slice(0, 2);
+        if (sidelinedFids.length) {
+          const sidelinedText = sidelinedFids.map((f) => fmtMention(f)).filter(Boolean).join(" ");
+          if (sidelinedText) text += `\n_Still watching:_ ${sidelinedText}`;
+        }
+        allowedMentions = {
+          users: [
+            ...new Set([
+              ...mentionIdsFor(ev.fid),
+              ...mentionIdsFor(forcerFid),
+              ...sidelinedFids.flatMap((f) => mentionIdsFor(f)),
+            ]),
+          ],
+        };
         break;
       }
       case "overtake": {
