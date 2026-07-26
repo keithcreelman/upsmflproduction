@@ -2,15 +2,12 @@ name = "upsmflproduction"
 main = "src/index.js"
 compatibility_date = "2026-02-02"
 
-# Explicit CPU ceiling (was unset -> account default). The */5 auction poll has
-# died mid-run twice during the live 2026-07-26 FAA with a captured
-# "Worker exceeded CPU time limit." outcome nearby in the same window — its
-# per-tick cost scales with total auction volume (bids/lots/narration
-# coalescing), so it plausibly tips over a low default as the auction grows,
-# even on ticks with nothing unusual in the code path. Raising this is
-# purely additive and cannot make anything slower or riskier.
-[limits]
-cpu_ms = 30000
+# NOTE 2026-07-26: attempted an explicit [limits] cpu_ms=30000 block here to
+# cover a recurring auction-poll CPU-time crash. Cloudflare REJECTS this on
+# the Free plan ("CPU limits are not supported for the Free plan") and blocks
+# the ENTIRE deploy — reverted. The account is confirmed on Free (10ms CPU/req
+# default), which is the real root cause; see reference_cloudflare_free_plan_cpu_limit
+# memory / chat for the writeup. Fix requires a plan upgrade, not a config line.
 
 # Drop-tracker cron flags (Keith 2026-06-03: "All 3 — full auto"). Kept in
 # version control — NOT dashboard secrets — so they can't silently vanish the
