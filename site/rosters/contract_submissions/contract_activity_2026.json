@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-25 07:10:14",
+    "generated_at": "2026-07-26 20:48:21",
     "source": "contract-activity-log",
-    "count": 76,
+    "count": 77,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "ac999bac7c02df659276838c",
+      "submission_id": "ac999bac7c02df659276838c",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0005",
+      "franchise_name": "HammerTime \ud83d\udd28 \u23f0",
+      "player_id": "14073",
+      "player_name": "Jacobs, Josh",
+      "position": "RB",
+      "salary": 18000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA-BL",
+      "contract_info": "CL 3|TCV 90K|AAV 30K|Y1-18K, Y2-36K, Y3-36K|GTD: 67.5K",
+      "tcv": 90000,
+      "aav": 30000,
+      "guaranteed": 67500,
+      "submitted_at_utc": "2026-07-26T20:48:04.374Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1531040445721743481",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "bcd6a0e88b778b00ce203d43",
       "submission_id": "bcd6a0e88b778b00ce203d43",
