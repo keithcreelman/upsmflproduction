@@ -19786,13 +19786,14 @@ export default {
             salary_plus_adjustments_dollars: capSpent + adjustments,
             allocated_to_high_bids_dollars: allocated,
             available_funds_dollars: availableFunds,
-            // MFL's own "no more than $X on any one player" is the same
-            // roster-fill math these columns approximate — when the page gives
-            // it, it wins for the viewer's row (it already accounts for the
-            // hidden proxies our reconstruction can't see).
-            scenario_27_max_bid: (isViewerRow && viewerFinancials && viewerFinancials.max_bid_one_player_dollars != null)
-              ? viewerFinancials.max_bid_one_player_dollars
-              : Math.max(0, availableFunds - safeInt(reserve27.reserve_cost, 0)),
+            // MFL's hint reads "to COMPLETELY FILL your roster, you may bid no
+            // more than $X" — that is the FULL-roster (35-man) scenario, so it
+            // wins for 35-man only. Applying it to both made the two columns
+            // identical ($30k/$30k), which is wrong: the 27-man minimum
+            // reserves less, so it must be the HIGHER number. 27-man still
+            // derives from our own reserve math, but now off MFL's authoritative
+            // availableFunds rather than our under-counted sum.
+            scenario_27_max_bid: Math.max(0, availableFunds - safeInt(reserve27.reserve_cost, 0)),
             scenario_35_max_bid: (isViewerRow && viewerFinancials && viewerFinancials.max_bid_one_player_dollars != null)
               ? viewerFinancials.max_bid_one_player_dollars
               : Math.max(0, availableFunds - safeInt(reserve35.reserve_cost, 0)),
