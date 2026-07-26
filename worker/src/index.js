@@ -3409,20 +3409,31 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
   // so EVERY later bid on that lot fell back to the main channel. That is exactly
   // what happened to the first two lots of the 2026 FAA (McCaffrey + Pickens,
   // 16:03/16:04 UTC — 12 loose bid messages between them). Honor Retry-After.
-  async function discordFetchWithRetry(url, init, attempts = 3) {
+  // Retry 429s, but on a HARD BUDGET. The scheduled poll runs inside
+  // ctx.waitUntil, which Cloudflare will kill; the first version of this
+  // slept up to 5s x 2 per message, and with a dozen messages that starved
+  // the whole tick — the poll took its lock, never finished, and the auction
+  // mirror silently froze for 25 minutes mid-FAA on 2026-07-26 while MFL kept
+  // taking bids. Narration is never worth stalling the mirror, so the total
+  // sleep across ALL Discord calls in one run is capped and then abandoned.
+  let discordSleepBudgetMs = 4000;
+  async function discordFetchWithRetry(url, init, attempts = 2) {
     let resp = null;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       resp = await fetch(url, init);
       if (resp.status !== 429) return resp;
-      let waitMs = 1000 * (attempt + 1);
+      if (attempt >= attempts - 1 || discordSleepBudgetMs <= 0) return resp;
+      let waitMs = 800;
       try {
         const hdr = resp.headers.get("retry-after");
         const j = await resp.clone().json().catch(() => null);
         const secs = Number((j && j.retry_after) || hdr || 0);
-        if (Number.isFinite(secs) && secs > 0) waitMs = Math.min(5000, Math.ceil(secs * 1000) + 100);
-      } catch (_) { /* fall back to the linear backoff above */ }
-      console.log(`[auction-narrator] Discord 429 — retry ${attempt + 1}/${attempts - 1} in ${waitMs}ms`);
-      if (attempt < attempts - 1) await new Promise((r) => setTimeout(r, waitMs));
+        if (Number.isFinite(secs) && secs > 0) waitMs = Math.ceil(secs * 1000) + 50;
+      } catch (_) { /* keep the default */ }
+      waitMs = Math.min(waitMs, discordSleepBudgetMs, 1500);
+      discordSleepBudgetMs -= waitMs;
+      console.log(`[auction-narrator] Discord 429 — one retry in ${waitMs}ms (budget ${discordSleepBudgetMs}ms left)`);
+      await new Promise((r) => setTimeout(r, waitMs));
     }
     return resp;
   }
@@ -3782,6 +3793,55 @@ export default {
     // Job isolation by cron expression. Each cron does ONE thing so that
     // one expensive sweep (e.g. Anthropic impact analysis) can't starve
     // the others for CPU. See wrangler.toml triggers comment.
+    // ── AUCTION-POLL WATCHDOG (rides the */2 tick, NOT the auction cron) ──
+    // The poll can take its 120s lock and then die without ever stamping its
+    // completion heartbeat — that is exactly what happened mid-FAA on
+    // 2026-07-26: cron_cf and auction_poll_lock were both fresh while
+    // auction_poll sat 23 minutes stale, so D1 froze at $69k while MFL had
+    // already moved to $73k and Discord narrated nothing. Nothing alerted.
+    // This check MUST live on a different cron than the poll, or a dead poll
+    // takes its own alarm down with it.
+    if (cronTrigger === "*/2 * * * *") {
+      ctx.waitUntil((async () => {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return;
+          if (!(await getFeatureFlag(env, "AUCTION_FAA_ENABLED"))) return;
+          const hb = await db.prepare(
+            `SELECT last_ts FROM ups_bot_heartbeat WHERE bot = 'auction_poll'`
+          ).first();
+          const ageSec = Math.floor(Date.now() / 1000) - Number(hb?.last_ts || 0);
+          if (!Number.isFinite(ageSec) || ageSec < 900) return;   // 15 min grace
+          // one alert per stall, re-armed once the poll recovers
+          const seen = await db.prepare(
+            `SELECT last_ts FROM ups_bot_heartbeat WHERE bot = 'auction_poll_alert'`
+          ).first();
+          const lastAlert = Number(seen?.last_ts || 0);
+          if (Math.floor(Date.now() / 1000) - lastAlert < 1800) return;  // 30 min re-alert
+          await db.prepare(
+            `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env)
+             VALUES ('auction_poll_alert', ?, 'fired', '')
+             ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = 'fired'`
+          ).bind(Math.floor(Date.now() / 1000)).run();
+          const mins = Math.floor(ageSec / 60);
+          const msg =
+            `🚨 **AUCTION POLL STALLED — ${mins} min since the last successful run.**\n` +
+            `MFL is still taking bids; D1, the board and the Discord threads are all FROZEN and ` +
+            `showing stale prices. Lead changes are NOT being narrated.\n` +
+            `Fix: \`POST /admin/auction/poll-now?APIKEY=…&L=74598\` (wait ~2 min if it answers ` +
+            `\`skipped: locked\`), then confirm \`auction_poll\` goes fresh.`;
+          const commishUserId = String(env.COMMISH_DISCORD_USER_ID || "").replace(/\D/g, "");
+          if (commishUserId) {
+            const dmCh = await openDiscordDmChannelForUser(env, commishUserId);
+            if (dmCh) await sendDiscordDm(env, dmCh, { content: msg, allowed_mentions: { parse: [] } });
+          }
+          console.log(`[auction-watchdog] ALERTED: auction_poll stale ${mins}m`);
+        } catch (e) {
+          console.log("[auction-watchdog] failed:", String(e?.message || e));
+        }
+      })());
+    }
+
     const isHallSummarySweep = cronTrigger === "*/2 * * * *";
     const isHallNudgeSweep   = cronTrigger === "5 0,12,18 * * *";
     const isAuctionPoll      = cronTrigger === "*/5 * * * *";
