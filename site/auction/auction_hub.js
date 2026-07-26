@@ -1547,8 +1547,16 @@
       const alloc = Number(r.allocated_to_high_bids_dollars || 0);
       // Only the viewer's own row reflects their proxy (max) bid — everyone
       // else's shows the current bid, so no one can read your ceiling.
+      // from_mfl: this row's money came straight off MFL's own "YOUR FINANCIAL
+      // STATUS" block (viewer's cookie, so it can only ever be the viewer's own
+      // row). That figure reserves your true hidden proxy per lot, which a
+      // public-bid sum can't see — label it so a reconstructed number is never
+      // mistaken for the authoritative one.
+      const fromMfl = !!r.from_mfl;
       const allocCell = alloc > 0
-        ? `${usd(alloc)}${isMe ? ' <span class="small" style="opacity:.7;">(your max)</span>' : ""}`
+        ? `${usd(alloc)}${isMe ? (fromMfl
+            ? ' <span class="small" style="opacity:.7;" title="Straight from MFL — reserves your real max (proxy) bid on every lot you lead.">(your max · from MFL)</span>'
+            : ' <span class="small" style="opacity:.7;" title="Estimated from public bids — your hidden proxy maxes could not be read, so this may be LOW. Open the auction on MFL to refresh your session.">(est — may be low)</span>') : ""}`
         : "—";
       return `<tr${isMe ? ' class="ah-row-me"' : ""}>
         <td>${escapeHtml(r.franchise_name || franchiseName(r.franchise_id))}</td>

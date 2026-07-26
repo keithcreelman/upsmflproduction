@@ -18735,6 +18735,43 @@ export default {
         }
         return -1;
       };
+      // ── O=43 "YOUR FINANCIAL STATUS" reader ──────────────────────────────
+      // MFL states the viewer's OWN budget on the same page, already correct:
+      //   Funds Spent / Funds Allocated On High Bids / Funds Available, plus a
+      //   hint carrying the max legal bid on one player.
+      // Summing it ourselves cannot match. "Allocated" reserves the viewer's
+      // true PROXY max on every lot they lead, and a proxy only walks up as far
+      // as it must — so a lot showing $1k publicly can be sitting on a $20k max
+      // with nothing visible to reveal it. On 2026-07-26 MFL said $154,000
+      // allocated / $42,000 available while our per-lot sum said $129,000 /
+      // $67,000, because four of Keith's six leads had hidden maxes.
+      // These figures are viewer-scoped BY CONSTRUCTION: the page is fetched
+      // with the viewer's own cookie, so it can only ever expose that viewer's
+      // maxes — never another franchise's. That is exactly the asymmetry we
+      // want (you see your ceiling; nobody else can infer it).
+      const parseAuctionFinancialStatus = (html) => {
+        const txt = stripHtml(String(html || "")).replace(/\s+/g, " ");
+        const money = (re) => {
+          const m = txt.match(re);
+          return m ? safeInt(String(m[1]).replace(/,/g, ""), 0) : null;
+        };
+        const num = (re) => {
+          const m = txt.match(re);
+          return m ? safeInt(m[1], 0) : null;
+        };
+        return {
+          funds_spent_dollars: money(/Funds\s*Spent:?\s*\$\s*([0-9][0-9,]*)/i),
+          funds_allocated_dollars: money(/Funds\s*Allocated\s*On\s*High\s*Bids:?\s*\$\s*([0-9][0-9,]*)/i),
+          funds_available_dollars: money(/Funds\s*Available:?\s*\$\s*([0-9][0-9,]*)/i),
+          // "you may bid no more than $30,000 on any one player" — MFL's own
+          // roster-fill math, which is precisely what our 27/35-man columns try
+          // to reproduce. When present it WINS over our reconstruction.
+          max_bid_one_player_dollars: money(/no\s*more\s*than\s*\$\s*([0-9][0-9,]*)\s*on\s*any\s*one\s*player/i),
+          roster_count: num(/Number\s*Of\s*Players\s*On\s*Roster:?\s*([0-9]+)/i),
+          high_bidder_on: num(/High\s*Bidder\s*On:?\s*([0-9]+)/i),
+          can_bid_additional: num(/Can\s*Bid\s*On\s*An\s*Additional:?\s*([0-9]+)/i),
+        };
+      };
       const auctionHeaderBidColumnIndex = (html) => auctionHeaderColumnIndex(html, /current\s*bid/i);
       const parseAuctionLotCells = (html) => {
         const out = new Map();
@@ -19684,9 +19721,10 @@ export default {
         return out;
       };
 
-      const teamBudgetRowsFromLive = (teams, salaryCapDollars, activeAuctions, viewerFid) => {
+      const teamBudgetRowsFromLive = (teams, salaryCapDollars, activeAuctions, viewerFid, viewerFinancials) => {
         const rows = [];
         const allocatedByFid = allocatedToHighBidsByFid(activeAuctions, viewerFid);
+        const viewerPad = padFranchiseId(viewerFid);
         for (const team of teams || []) {
           const players = Array.isArray(team.players) ? team.players : [];
           const capSpent = players.reduce((sum, player) => {
@@ -19708,8 +19746,24 @@ export default {
           const franchiseCap = safeMoneyInt(team?.available_salary_dollars, null);
           const capLimit = franchiseCap != null && franchiseCap > 0 ? franchiseCap : safeInt(salaryCapDollars, 0);
           const adjustments = safeInt(team?.salary_adjustments_dollars, 0);
-          const allocated = safeInt(allocatedByFid[padFranchiseId(team.franchise_id)], 0);
-          const availableFunds = Math.max(0, capLimit - capSpent - adjustments - allocated);
+          const thisPad = padFranchiseId(team.franchise_id);
+          // For the VIEWER's own row, MFL's page beats anything we reconstruct:
+          // its "Allocated" reserves the viewer's true proxy max per lot, which
+          // a public-bid sum structurally cannot see. Only ever applied to the
+          // viewer's row (the page is fetched with their cookie), so no other
+          // franchise's ceiling is exposed. Falls back to our sum when the
+          // overlay is unavailable.
+          const isViewerRow = !!viewerPad && thisPad === viewerPad;
+          const mflAlloc = isViewerRow && viewerFinancials
+            ? viewerFinancials.funds_allocated_dollars : null;
+          const mflAvail = isViewerRow && viewerFinancials
+            ? viewerFinancials.funds_available_dollars : null;
+          const allocated = mflAlloc != null
+            ? mflAlloc
+            : safeInt(allocatedByFid[thisPad], 0);
+          const availableFunds = mflAvail != null
+            ? Math.max(0, mflAvail)
+            : Math.max(0, capLimit - capSpent - adjustments - allocated);
           const reserve27 = reserveCostForScenario(players, 27);
           const reserve35 = reserveCostForScenario(players, 35);
           const maxBidByPosition = {};
@@ -19732,8 +19786,18 @@ export default {
             salary_plus_adjustments_dollars: capSpent + adjustments,
             allocated_to_high_bids_dollars: allocated,
             available_funds_dollars: availableFunds,
-            scenario_27_max_bid: Math.max(0, availableFunds - safeInt(reserve27.reserve_cost, 0)),
-            scenario_35_max_bid: Math.max(0, availableFunds - safeInt(reserve35.reserve_cost, 0)),
+            // MFL's own "no more than $X on any one player" is the same
+            // roster-fill math these columns approximate — when the page gives
+            // it, it wins for the viewer's row (it already accounts for the
+            // hidden proxies our reconstruction can't see).
+            scenario_27_max_bid: (isViewerRow && viewerFinancials && viewerFinancials.max_bid_one_player_dollars != null)
+              ? viewerFinancials.max_bid_one_player_dollars
+              : Math.max(0, availableFunds - safeInt(reserve27.reserve_cost, 0)),
+            scenario_35_max_bid: (isViewerRow && viewerFinancials && viewerFinancials.max_bid_one_player_dollars != null)
+              ? viewerFinancials.max_bid_one_player_dollars
+              : Math.max(0, availableFunds - safeInt(reserve35.reserve_cost, 0)),
+            // Flag so the UI can say WHERE the number came from.
+            from_mfl: isViewerRow && !!(viewerFinancials && viewerFinancials.funds_available_dollars != null),
             reserve_cost_27: safeInt(reserve27.reserve_cost, 0),
             reserve_cost_35: safeInt(reserve35.reserve_cost, 0),
             lineup_deficits: reserve27.deficits,
@@ -20187,6 +20251,14 @@ export default {
         let _ovDiag = { token: !!browserCookieHeader, page_ok: !!auctionPageRes.ok,
           page_status: auctionPageRes.status, unauthorized: !!auctionPageRes.unauthorized,
           cells: 0, matched: 0, with_proxy: 0, url: auctionPageRes.pageUrl };
+        // MFL's own budget block for THIS viewer. Same hard gate as the proxy
+        // overlay: browserCookieHeader only, never the commish fallback cookie,
+        // or we would serve the commish's finances to every viewer.
+        let viewerFinancials = null;
+        if (browserCookieHeader && auctionPageRes.ok) {
+          viewerFinancials = parseAuctionFinancialStatus(auctionPageRes.html);
+          _ovDiag.financials = viewerFinancials && viewerFinancials.funds_available_dollars != null;
+        }
         if (browserCookieHeader && auctionPageRes.ok) {
           const cells = parseAuctionLotCells(auctionPageRes.html);
           _ovDiag.cells = cells.size;
@@ -20254,7 +20326,8 @@ export default {
         // impersonated valid data. Tell the client which, so it can say which.
         const proxyOverlayOk = !!(_ovDiag.token && _ovDiag.page_ok && _ovDiag.cells > 0);
         const budgetRows = teamBudgetRowsFromLive(
-          teamsSnapshot.teams, teamsSnapshot.salaryCapDollars, activeAuctions, viewerFranchiseId
+          teamsSnapshot.teams, teamsSnapshot.salaryCapDollars, activeAuctions, viewerFranchiseId,
+          viewerFinancials
         );
         const needRows = teamNeedRowsFromLive(teamsSnapshot.teams);
         const rosteredIds = [];
