@@ -674,6 +674,35 @@ async function processAuctionPoll(env) {
     }
   }
 
+  // Stage checkpoints (Keith 2026-07-27 — "auction poll stalled" recurrence
+  // after yesterday's CPU-exceeded fix). throttledOnce() stamps its heartbeat
+  // the INSTANT it decides a sweep is due, before the sweep runs — so
+  // "auction_poll_lot_sweep is fresh" only ever proved a tick ENTERED that
+  // block, never that it finished. When the 15:41-15:51 UTC stall happened,
+  // that ambiguity was the whole reason the root cause couldn't be pinned to
+  // a specific block (the still-unbatched lot-sweep loop, the O=43
+  // reconciliation fetch+regex, or the new orphan-repair sweep's untimed-out
+  // external calls) — all three were live suspects and the evidence couldn't
+  // rule any of them out after the fact.
+  //
+  // stampStage writes AFTER a block completes, to a SEPARATE key from
+  // throttledOnce's own (auction_poll_stage, not auction_poll_lot_sweep etc.)
+  // so the two questions — "was this due" vs "did this finish" — never share
+  // a timestamp. Next stall: SELECT status FROM ups_bot_heartbeat WHERE
+  // bot='auction_poll_stage' tells you the LAST stage a tick completed;
+  // whatever comes after that stage in the list below is where it died.
+  // Cheap by construction — one D1 write on a path that already executes,
+  // no new loop, no new external call.
+  async function stampStage(name) {
+    try {
+      await db.prepare(
+        `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env)
+         VALUES ('auction_poll_stage', ?, ?, '')
+         ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = excluded.status`
+      ).bind(Math.floor(Date.now() / 1000), String(name).slice(0, 64)).run();
+    } catch (_) { /* diagnostics only — never worth failing the poll over */ }
+  }
+
   // ── Overlap lock + liveness heartbeat ─────────────────────────────────
   // The poll now has TWO possible invokers: the */5 cron and the manual
   // /admin/auction/poll-now lifeline (added when Cloudflare stopped invoking
@@ -1095,6 +1124,8 @@ async function processAuctionPoll(env) {
     }
   }
 
+  await stampStage("lot_sweep_done");
+
   // ── Ingest AUCTION_WON ──
   const newlyWonPids = [];
   for (const tx of wonTxs) {
@@ -1191,6 +1222,8 @@ async function processAuctionPoll(env) {
     console.warn("[auction-poll] auto-expiry failed:", e?.message || String(e));
   }
 
+  await stampStage("won_ingest_done");
+
   // ── Cancellation reconciliation ──
   // MFL doesn't emit a transaction when commish deletes an auction lot
   // (verified 2026-05-20: only AUCTION_INIT + AUCTION_BID + AUCTION_WON
@@ -1271,6 +1304,8 @@ async function processAuctionPoll(env) {
     console.log("[auction-reconcile] error:", String(e?.message || e));
   }
 
+  await stampStage("o43_reconcile_done");
+
   // ── Deleted-transaction purge ──
   // If a player has D1 lots/bids but NO current MFL auction transaction, the
   // commish deleted it in MFL → drop the stale rows (lots + bids), incl. WON
@@ -1326,6 +1361,8 @@ async function processAuctionPoll(env) {
     }
   }
 
+  await stampStage("narration_done");
+
   // ── Orphaned-thread repair + backfill (Keith 2026-07-27) ──
   // Throttled to once per 15 min — see repairOrphanedAuctionThreads for why
   // this is a separate sweep rather than hooked into the live narration path
@@ -1340,9 +1377,13 @@ async function processAuctionPoll(env) {
     }
   }
 
+  await stampStage("orphan_repair_done");
+
   const activeLots = await db.prepare(
     `SELECT COUNT(*) AS n FROM ups_auction_lots WHERE season = ? AND league_id = ? AND status = 'open'`
   ).bind(season, leagueId).first();
+
+  await stampStage("pre_finalize");
 
   // Heartbeat + one-shot recovery DM. Stamped ONLY when MFL answered — a
   // half-blind run (INIT or BID export down) must not vouch for the ledger
@@ -2246,9 +2287,26 @@ async function repairOrphanedAuctionThreads(env, db, season, leagueId) {
   const rows = orphans?.results || [];
   if (!rows.length) return { repaired: 0 };
 
+  // Bounded fetch (Keith 2026-07-27, same stall investigation as stampStage
+  // above): this sweep is the newest code in the poll and, unlike everything
+  // else in processAuctionPoll, its Discord/MFL calls had no timeout at all —
+  // a slow response on any of up to 10 orphaned lots x 2 external services
+  // could hold the whole tick open indefinitely. 5s is generous for a single
+  // JSON response; on abort this returns the SAME shape as a normal failure
+  // (ok:false), so every existing fail-soft caller below needs no changes.
+  const fetchBounded = async (url, init) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      return await fetch(url, { ...init, signal: ctrl.signal });
+    } finally {
+      clearTimeout(t);
+    }
+  };
+
   const bot = async (method, path, body) => {
     try {
-      const r = await fetch(`https://discord.com/api/v10${path}`, {
+      const r = await fetchBounded(`https://discord.com/api/v10${path}`, {
         method,
         headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
         body: body == null ? undefined : JSON.stringify(body),
@@ -2296,7 +2354,7 @@ async function repairOrphanedAuctionThreads(env, db, season, leagueId) {
     let playerLabel = `Player ${pid}`;
     try {
       const apiKey = String(env.MFL_APIKEY || "").trim();
-      const pr = await fetch(
+      const pr = await fetchBounded(
         `https://www48.myfantasyleague.com/${season}/export?TYPE=players&L=${leagueId}&PLAYERS=${encodeURIComponent(pid)}&JSON=1${apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : ""}`,
         { cf: { cacheTtl: 86400, cacheEverything: false } }
       ).then((r) => r.json()).catch(() => null);
@@ -2312,7 +2370,7 @@ async function repairOrphanedAuctionThreads(env, db, season, leagueId) {
     let fidToName = {};
     try {
       const apiKey = String(env.MFL_APIKEY || "").trim();
-      const lr = await fetch(
+      const lr = await fetchBounded(
         `https://www48.myfantasyleague.com/${season}/export?TYPE=league&L=${leagueId}&JSON=1${apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : ""}`,
         { cf: { cacheTtl: 300, cacheEverything: false } }
       ).then((r) => r.json()).catch(() => null);
