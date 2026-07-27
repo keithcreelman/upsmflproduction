@@ -800,17 +800,52 @@ async function processAuctionPoll(env) {
   const dropTestResidue = (rows) => rows.filter((tx) => !isFaaTestResidue(tx));
 
   // Voided nominations (rule-illegal) are stripped here too: MFL's log is
-  // append-only, so this is the only way a voided lot stops being re-ingested
-  // every 5 minutes. The pid then falls out of liveTxnPids and the existing
-  // deleted-transaction purge clears its D1 lot + bids on its own.
-  const voidedNoms = await loadVoidedNoms(env, season, leagueId);
-  const dropVoided = (rows) => (voidedNoms.size
-    ? rows.filter((tx) => !voidedNoms.has(String(tx?.transaction || "").split("|")[0].replace(/\D/g, "")))
+  // append-only, so this is the only way a voided nomination stops being
+  // re-ingested every 5 minutes.
+  //
+  // Scoped to (player_id, franchise_id) — see loadVoidedNoms. Voiding one
+  // franchise's illegal nomination must NOT erase another franchise's
+  // legitimate nomination of the same player, which is exactly what the old
+  // player-only key did to Pure Greatness on Tony Pollard.
+  const { byPair: voidedPairs } = await loadVoidedNoms(env, season, leagueId);
+  const txPid = (tx) => String(tx?.transaction || "").split("|")[0].replace(/\D/g, "");
+  const txFid = (tx) => String(tx?.franchise || "").replace(/\D/g, "").padStart(4, "0");
+  const dropVoided = (rows) => (voidedPairs.size
+    ? rows.filter((tx) => !voidedPairs.has(`${txPid(tx)}|${txFid(tx)}`))
     : rows);
 
-  const initTxs = dropVoided(dropTestResidue(asArr(initRes?.transactions?.transaction)));
-  const bidTxs = dropVoided(dropTestResidue(asArr(bidsRes?.transactions?.transaction)));
-  const wonTxs = dropVoided(dropTestResidue(asArr(winsRes?.transactions?.transaction)));
+  let initTxs = dropVoided(dropTestResidue(asArr(initRes?.transactions?.transaction)));
+  let bidTxs = dropVoided(dropTestResidue(asArr(bidsRes?.transactions?.transaction)));
+  let wonTxs = dropVoided(dropTestResidue(asArr(winsRes?.transactions?.transaction)));
+
+  // Orphaned-bid guard. Dropping only the voided franchise's INIT can leave
+  // BIDS that were placed on the voided lot, before whoever re-nominated the
+  // player legitimately. Those bids belong to the dead lot: keeping them makes
+  // MIN(bid_at_unix) — which the recompute treats as the nomination — land on
+  // a bid instead of the real opener, so the lot would show the wrong nominator
+  // and opening price. So for any player that has a void on record, drop every
+  // row older than that player's EARLIEST SURVIVING nomination. No-op when a
+  // player has no void (the common case) or when nothing precedes the opener
+  // (Pollard today: PG opened 13:58, both bids came after).
+  if (voidedPairs.size) {
+    const voidedPids = new Set([...voidedPairs.keys()].map((k) => k.split("|")[0]));
+    const earliestNom = new Map();
+    for (const tx of initTxs) {
+      const pid = txPid(tx);
+      if (!voidedPids.has(pid)) continue;
+      const ts = Number(tx?.timestamp || 0);
+      if (!earliestNom.has(pid) || ts < earliestNom.get(pid)) earliestNom.set(pid, ts);
+    }
+    const dropPreOpener = (rows) => rows.filter((tx) => {
+      const pid = txPid(tx);
+      if (!voidedPids.has(pid)) return true;
+      const open = earliestNom.get(pid);
+      if (open == null) return false;              // no surviving nomination => lot is dead
+      return Number(tx?.timestamp || 0) >= open;
+    });
+    bidTxs = dropPreOpener(bidTxs);
+    wonTxs = dropPreOpener(wonTxs);
+  }
 
   // Did MFL actually ANSWER? The fetches above catch() into {}, which makes an
   // MFL outage look exactly like a quiet auction — and only one of those may
@@ -2436,17 +2471,39 @@ function auctionActionErrorBody(actionRes) {
 // re-ingested on every poll. Voiding has to live on our side.
 // A void row makes the nomination vanish from BOTH the daily count and the
 // board, while keeping its Discord thread so the history isn't lost.
+// Voided (rule-illegal) nominations, keyed BY (player_id, franchise_id).
+//
+// Keyed on player_id ALONE until 2026-07-27, and that was a real bug with real
+// money on it. A void marks ONE FRANCHISE'S nomination illegal — it does not
+// make the player un-nominatable by anyone else. Tony Pollard (14085) is the
+// proof: C-Town nominated him 07-26 08:32 while barred (they'd dropped him
+// under contract), that nomination was voided, and Pure Greatness then
+// LEGITIMATELY nominated the same player at 13:58. The player-only key ate
+// PG's nomination too — so PG read 1/2 instead of 2/2 for the day and would
+// have been fined $3K this season + $3K next on the next 9 AM close, and the
+// live lot (L.A. Looks $4K, CBP $9K) was purged from D1 entirely while MFL
+// kept taking bids on it.
+//
+// Returns { byPair: Map<"pid|fid", row>, byPid: Map<pid, row> }. byPid is kept
+// only so the Discord thread of a voided lot can still be found for reuse; it
+// must never be used to decide what to drop.
 async function loadVoidedNoms(env, season, leagueId) {
-  const out = new Map();
-  if (!env?.UPS_MFL_DB) return out;
+  const byPair = new Map();
+  const byPid = new Map();
+  if (!env?.UPS_MFL_DB) return { byPair, byPid };
   try {
     const rs = await env.UPS_MFL_DB.prepare(
       `SELECT player_id, franchise_id, discord_thread_id, discord_message_id, discord_channel_id
          FROM ups_auction_void_noms WHERE season = ? AND league_id = ?`
     ).bind(String(season), String(leagueId)).all();
-    for (const r of (rs?.results || [])) out.set(String(r.player_id), r);
+    for (const r of (rs?.results || [])) {
+      const pid = String(r.player_id).replace(/\D/g, "");
+      const fid = String(r.franchise_id || "").replace(/\D/g, "").padStart(4, "0");
+      byPair.set(`${pid}|${fid}`, r);
+      if (!byPid.has(pid)) byPid.set(pid, r);
+    }
   } catch (_) { /* table absent => nothing voided */ }
-  return out;
+  return { byPair, byPid };
 }
 
 async function faaLiveNomsForEtDay(env, season, leagueId, etDay) {
@@ -2539,12 +2596,15 @@ async function faaNomPidsByFidForDay(env, season, leagueId, etDay) {
   } catch (_) { /* table missing => migration not applied; live count still gates */ }
 
   // Voided (rule-illegal) nominations never counted — drop them before tallying
-  // so the owner gets the slot back and can re-nominate.
-  const voided = await loadVoidedNoms(env, season, leagueId);
+  // so the owner gets the slot back and can re-nominate. Matched on
+  // (player_id, franchise_id): a void belongs to the franchise that made the
+  // illegal nomination, and must not consume anyone ELSE'S slot for the same
+  // player (the Pollard/Pure-Greatness bug — see loadVoidedNoms).
+  const { byPair: voidedPairs } = await loadVoidedNoms(env, season, leagueId);
   const byFid = new Map();
   for (const n of pairs) {
     if (!n.fid || n.fid === "0000" || !n.pid) continue;
-    if (voided.has(n.pid)) continue;
+    if (voidedPairs.has(`${String(n.pid).replace(/\D/g, "")}|${n.fid}`)) continue;
     if (!byFid.has(n.fid)) byFid.set(n.fid, new Set());
     byFid.get(n.fid).add(n.pid);
   }
