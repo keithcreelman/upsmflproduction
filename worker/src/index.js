@@ -693,6 +693,58 @@ async function processAuctionPoll(env) {
   // whatever comes after that stage in the list below is where it died.
   // Cheap by construction — one D1 write on a path that already executes,
   // no new loop, no new external call.
+  // ── Sweep scheduling (Keith 2026-07-27) ────────────────────────────────
+  // The three expensive self-heal sweeps — full lot recompute (20 min), O=43
+  // cancellation reconciliation (10 min), orphan-thread repair (15 min) —
+  // were each independently throttled, which meant nothing stopped all three
+  // from landing on the SAME tick as bid ingestion and narration. Three
+  // coprime-ish intervals guarantee they periodically collide, and that
+  // compounding is the shape behind all three stalls today (11:51, 12:21,
+  // and the 15:41-15:51 gap). Throttling bounded how OFTEN each ran; it
+  // never bounded what a single tick could be asked to do.
+  //
+  // Two rules now:
+  //   1. AT MOST ONE sweep per invocation. Worst-case tick cost is now
+  //      (ingest + one sweep) instead of (ingest + all three).
+  //   2. Sweeps YIELD to real work. On a tick that actually ingested new
+  //      bids, sweeps defer — bid processing and narration are what owners
+  //      see; self-heal is not. The escape hatch: a sweep overdue by 3x its
+  //      interval runs anyway, so a permanently busy auction can't starve it.
+  //
+  // Split into peek/claim (rather than throttledOnce's stamp-on-due) so a
+  // deferred sweep does NOT consume its window — it stays due and gets first
+  // refusal next tick.
+  let sweepUsedThisTick = false;
+  async function sweepReady(key, intervalSec, tickIsBusy) {
+    if (sweepUsedThisTick) return false;
+    let last = 0;
+    try {
+      const row = await db.prepare(
+        `SELECT last_ts FROM ups_bot_heartbeat WHERE bot = ?`
+      ).bind(key).first();
+      last = Number(row?.last_ts || 0);
+    } catch (e) {
+      console.log(`[auction-poll] sweep check failed for ${key} (running anyway):`, String(e?.message || e));
+    }
+    const age = Math.floor(Date.now() / 1000) - last;
+    const due = !last || age >= intervalSec;
+    if (!due) return false;
+    const overdue = !last || age >= intervalSec * 3;
+    if (tickIsBusy && !overdue) {
+      console.log(`[auction-poll] deferring ${key} — busy tick (age ${age}s)`);
+      return false;
+    }
+    sweepUsedThisTick = true;
+    try {
+      await db.prepare(
+        `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env)
+         VALUES (?, ?, 'ok', '')
+         ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts`
+      ).bind(key, Math.floor(Date.now() / 1000)).run();
+    } catch (_) { /* claim is best-effort; worst case it reruns next tick */ }
+    return true;
+  }
+
   async function stampStage(name) {
     try {
       await db.prepare(
@@ -994,27 +1046,64 @@ async function processAuctionPoll(env) {
       if (c.ev.kind === "init") {
         freshFaaNoms.push({ fid: c.p.fid, player_id: c.p.player_id, bid_at_unix: c.p.bid_at_unix });
       }
-      if (narrateEnabled && c.p.bid_at_unix >= narrateCutoffUnix) {
+    }
+  }
+
+  // ── Narration queue: DURABLE, not fire-once (Keith 2026-07-27) ──
+  // Built from the LEDGER, not from "what this tick happened to insert".
+  //
+  // The old queue was populated inside the ingest loop above, so an event got
+  // exactly one chance to reach Discord: if the post failed (429 on a burst,
+  // a tick killed mid-narration by the CPU ceiling, a transient Discord 5xx)
+  // the code logged it and moved on, and that event was never spoken of
+  // again. That is how 37 real events — McCaffrey 8, Goff 6, Pickens 5 —
+  // silently never posted during the 2026 FAA while their prices moved on
+  // MFL the whole time.
+  //
+  // Now: ups_auction_bids.narrated_at_unix is stamped ONLY after Discord
+  // confirms the post (see the stamp block after narrateAuctionEvents
+  // below). Anything still NULL inside the lookback window is picked up
+  // here, so a failed post simply retries on the next tick until it lands.
+  // Newly-ingested rows are NULL by definition, so this one query covers
+  // both the fresh events and the previously-failed ones — no dedupe needed
+  // and no second code path to drift.
+  //
+  // Migration 0111 backfills every pre-existing row as already-narrated, so
+  // shipping this cannot re-announce an hour of history into a live channel.
+  // LIMIT 40 bounds a catch-up burst; the rest come on the following tick.
+  if (narrateEnabled) {
+    try {
+      const pending = await db.prepare(
+        `SELECT player_id, fid, bid_k, bid_at_unix, note FROM ups_auction_bids
+          WHERE season = ? AND league_id = ?
+            AND narrated_at_unix IS NULL
+            AND bid_at_unix >= ?
+          ORDER BY bid_at_unix ASC, bid_id ASC
+          LIMIT 40`
+      ).bind(season, leagueId, narrateCutoffUnix).all();
+      for (const r of (pending.results || [])) {
+        const noteText = String(r.note || "");
         // Extract forcer-franchise NAME from MFL's note. Format:
         //   "Pure Greatness forced bid increase"
         // The franchise name precedes " forced bid increase". Captured
         // here and passed to the narrator so messages can say
         // "Pure Greatness forced L.A. Looks's bid up to $2K" instead of
         // the confusing "L.A. Looks Forced Increase to $2K".
-        var forcerName = null;
-        var noteText = String(c.p.note || "");
-        var fm = noteText.match(/^(.*?)\s+forced\s+bid\s+increase\s*$/i);
+        let forcerName = null;
+        const fm = noteText.match(/^(.*?)\s+forced\s+bid\s+increase\s*$/i);
         if (fm) forcerName = fm[1].trim();
         narrateQueue.push({
-          kind: c.ev.kind,               // "init" | "bid"
-          fid: c.p.fid,
-          player_id: c.p.player_id,
-          bid_k: c.p.bid_k,
-          bid_at_unix: c.p.bid_at_unix,
+          kind: noteText.startsWith("[nomination]") ? "init" : "bid",
+          fid: String(r.fid),
+          player_id: String(r.player_id),
+          bid_k: Number(r.bid_k || 0),
+          bid_at_unix: Number(r.bid_at_unix || 0),
           forcer_name: forcerName,
           note: noteText,
         });
       }
+    } catch (e) {
+      console.log("[auction-poll] pending-narration read failed:", String(e?.message || e));
     }
   }
 
@@ -1036,7 +1125,9 @@ async function processAuctionPoll(env) {
         WHERE season = ? AND league_id = ?`
     ).bind(season, leagueId).all();
     let lotIds = (openLots.results || []).map((r) => String(r.lot_id));
-    const runFullSweep = await throttledOnce("auction_poll_lot_sweep", 1200);
+    // Touched lots ALWAYS recompute below regardless of this flag — only the
+    // full self-heal pass over every other lot is what defers.
+    const runFullSweep = await sweepReady("auction_poll_lot_sweep", 1200, newBids > 0);
     if (!runFullSweep) {
       lotIds = lotIds.filter((id) => touchedLotIds.has(id));
     }
@@ -1282,7 +1373,7 @@ async function processAuctionPoll(env) {
   let newCancellations = 0;
   try {
     const mflCookie = String(env.MFL_COOKIE || "").trim();
-    if (mflCookie && (await throttledOnce("auction_poll_o43_reconcile", 600))) {
+    if (mflCookie && (await sweepReady("auction_poll_o43_reconcile", 600, newBids > 0 || newWins > 0))) {
       const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
       // FRANCHISE=0000 returns the franchise-select interstitial which
       // doesn't list open lots, so we hit with a real franchise id.
@@ -1390,10 +1481,37 @@ async function processAuctionPoll(env) {
   // Fires AFTER all DB writes so messages reflect canonical state.
   // Fail-soft: any error here is logged but doesn't break the poll.
   if (narrateQueue.length > 0) {
+    const narrateLog = [];
     try {
-      await narrateAuctionEvents(env, season, leagueId, narrateQueue);
+      await narrateAuctionEvents(env, season, leagueId, narrateQueue, null, { collect: narrateLog });
     } catch (e) {
       console.log("[auction-narrator] error:", String(e?.message || e));
+    }
+    // Stamp ONLY what Discord confirmed. Anything that failed — or that the
+    // narrator never reached because the tick died mid-loop — stays NULL and
+    // is re-queued by the pending-narration read on the next tick. This is
+    // the half that makes narration durable; without it the queue builder
+    // above would just re-send everything forever.
+    //
+    // Deliberately keyed on the full (player_id, fid, bid_at_unix) triple:
+    // a lot can have several rows from the same franchise (proxy walk-ups),
+    // so anything looser would stamp rows that never actually posted.
+    try {
+      const posted = narrateLog.filter((e) => e && e.ok && e.bid_at_unix && e.fid);
+      if (posted.length) {
+        const nowUnix = Math.floor(Date.now() / 1000);
+        const stmts = posted.map((e) => db.prepare(
+          `UPDATE ups_auction_bids SET narrated_at_unix = ?
+            WHERE season = ? AND league_id = ? AND player_id = ? AND fid = ? AND bid_at_unix = ?`
+        ).bind(nowUnix, season, leagueId, String(e.player_id), String(e.fid), Number(e.bid_at_unix)));
+        await db.batch(stmts);
+        const failed = narrateLog.length - posted.length;
+        if (failed > 0) console.log(`[auction-narrator] ${posted.length} posted, ${failed} failed — failures retry next tick`);
+      }
+    } catch (e) {
+      // A stamp failure only costs a duplicate post next tick, never a lost
+      // one — strictly the safer direction to fail in.
+      console.log("[auction-narrator] narrated stamp failed:", String(e?.message || e));
     }
   }
 
@@ -1404,7 +1522,7 @@ async function processAuctionPoll(env) {
   // this is a separate sweep rather than hooked into the live narration path
   // above. Fully awaited inside this already-awaited poll, not a fire-and-
   // forget tail — never blocks/breaks the poll either way.
-  if (await throttledOnce("auction_discord_orphan_repair", 900)) {
+  if (await sweepReady("auction_discord_orphan_repair", 900, newBids > 0 || newWins > 0)) {
     try {
       const r = await repairOrphanedAuctionThreads(env, db, season, leagueId);
       if (r.repaired > 0) console.log(`[auction-repair] repaired ${r.repaired}/${r.scanned} orphaned lot thread(s)`);
@@ -4223,7 +4341,11 @@ async function narrateAuctionEvents(env, season, leagueId, queue, channelOverrid
       const mentions = SILENT_NARRATION ? { parse: [] } : msg.allowed_mentions;
       if (SILENT_NARRATION) content = content.replace(/@everyone\s*—\s*/g, "").replace(/@everyone/g, "the league");
       const r = await postToDiscord(targetChannelId, content, gifUrl, overlayUrl, mentions);
-      NARRATE_LOG.push({ kind: ev._obs_kind, player_id: ev.player_id, posted_to: String(targetChannelId),
+      // fid + bid_at_unix identify the exact ups_auction_bids row so the
+      // caller can stamp narrated_at_unix on ONLY what actually posted
+      // (durable-narration retry — see the queue builder in processAuctionPoll).
+      NARRATE_LOG.push({ kind: ev._obs_kind, player_id: ev.player_id, fid: ev.fid,
+                         bid_at_unix: ev.bid_at_unix, posted_to: String(targetChannelId),
                          into_thread: String(targetChannelId) !== String(channelId), status: r.status, ok: r.ok });
       if (!r.ok) {
         const body = await r.text().catch(() => "");
