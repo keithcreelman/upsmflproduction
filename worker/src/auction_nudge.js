@@ -655,6 +655,21 @@ export async function runFaNightlyJob(env, opts = {}) {
     return { ...out, ok: true };
   }
 
+  // Liveness heartbeat for THIS report (Keith 2026-07-27). Nothing watched the
+  // 9 AM / 9 PM reports until now: on 2026-07-27 the morning report simply
+  // never posted — Cloudflare didn't fire the "0 1,2,13,14 * * *" cron — and
+  // there was no alert, no log, no trace. It was found only because Keith
+  // happened to ask. Stamped ONLY on a confirmed parent post, so a report that
+  // silently didn't run leaves this stale and the off-platform watchdog
+  // (scripts/cron_liveness_tick.sh) can see the gap and say so.
+  try {
+    await env.UPS_MFL_DB.prepare(
+      `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env)
+       VALUES (?, ?, 'ok', '')
+       ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = 'ok'`
+    ).bind(`fa_report_${mode}`, Math.floor(Date.now() / 1000)).run();
+  } catch (_) { /* observability only — never fail a posted report over it */ }
+
   const parentId = safeStr(parent.data?.id || "");
   if (!parentId) { out.thread_error = "no_parent_message_id"; return { ...out, ok: true }; }
 

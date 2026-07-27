@@ -17776,7 +17776,11 @@ export default {
         };
         try {
           const { results: hbRows } = await env.UPS_MFL_DB.prepare(
-            "SELECT bot, last_ts, status, env FROM ups_bot_heartbeat WHERE bot IN ('auction_poll','trade_roast','cron_cf')"
+            // fa_report_* added 2026-07-27 so the off-platform watchdog
+            // (scripts/cron_liveness_tick.sh) can see a scheduled report that
+            // never posted — the 9 AM no-show that day was invisible because
+            // nothing recorded, or looked at, whether it had run.
+            "SELECT bot, last_ts, status, env FROM ups_bot_heartbeat WHERE bot IN ('auction_poll','trade_roast','cron_cf','fa_report_morning','fa_report_evening')"
           ).all();
           for (const r of hbRows || []) {
             const ts = Number(r.last_ts || 0) || null;
