@@ -1049,17 +1049,39 @@ async function processAuctionPoll(env) {
     const eraLotPids = await loadEraPlayerIds(
       env, season, lotIds.map((id) => id.split("|")[2] || "")
     );
+
+    // BATCHED (Keith 2026-07-27 — third stall in under two hours, live
+    // mid-auction, no more waiting on this one). This was the last unbatched
+    // O(lots) cost left in the poll: yesterday's fix cut it from 4 round
+    // trips/lot to 1, but "1 per lot" was still ~158 sequential round trips
+    // at today's 79 lots whenever the 20-min full-sweep window landed — and
+    // per-invocation heartbeat writes (throttledOnce fires BEFORE the loop
+    // runs, not after) meant a tick dying partway through this exact loop
+    // was structurally invisible after the fact once a later tick recovered
+    // and overwrote the same heartbeat row. Rather than keep guessing at
+    // which of three suspects was the culprit, this removes the biggest
+    // suspect's cost shape entirely.
+    //
+    // Same restructuring as the AUCTION_INIT/BID ingest step above: ONE
+    // query for every lot's bids instead of one query PER lot (lotIds.length
+    // round trips -> 1), grouped by lot_id in JS, then the writes go through
+    // db.batch() in chunks of 50 instead of one sequential await per lot.
+    // All the per-lot math (stats/first/last/lead-change) is UNCHANGED —
+    // only where the source rows come from and how the writes are sent.
+    const allBidRowsRs = await db.prepare(
+      `SELECT lot_id, fid, bid_k, bid_at_unix, note, player_id FROM ups_auction_bids
+        WHERE season = ? AND league_id = ? ORDER BY lot_id, bid_at_unix ASC, bid_id ASC`
+    ).bind(season, leagueId).all();
+    const rowsByLot = new Map();
+    for (const r of (allBidRowsRs.results || [])) {
+      const key = String(r.lot_id);
+      if (!rowsByLot.has(key)) rowsByLot.set(key, []);
+      rowsByLot.get(key).push(r);
+    }
+
+    const lotUpdates = [];
     for (const lot_id of lotIds) {
-      // ONE round trip per lot instead of four (Keith 2026-07-26 — see the
-      // "recompute lot state" note above): fetch every bid row for this lot
-      // and compute stats/first/last/lead-change in JS. Same table, same
-      // lot_id filter, same ORDER — the four SELECTs below were four
-      // separate views of data this single fetch already contains.
-      const bidRows = await db.prepare(
-        `SELECT fid, bid_k, bid_at_unix, note, player_id FROM ups_auction_bids
-          WHERE lot_id = ? ORDER BY bid_at_unix ASC, bid_id ASC`
-      ).bind(lot_id).all();
-      const rows = bidRows.results || [];
+      const rows = rowsByLot.get(lot_id) || [];
       if (!rows.length) continue;
       const firstBid = rows[0];
       const lastBid = rows[rows.length - 1];
@@ -1091,7 +1113,13 @@ async function processAuctionPoll(env) {
       }
       const clockFrom = leadChangeT || Number(stats.last_bid_at_unix);
       const locks_at_unix = clockFrom + (isEraLot ? 36 : 24) * 3600;
-      await db.prepare(
+      lotUpdates.push({ lot_id, firstBid, lastBid, stats, locks_at_unix });
+    }
+
+    const LOT_UPSERT_BATCH_SIZE = 50;
+    for (let bi = 0; bi < lotUpdates.length; bi += LOT_UPSERT_BATCH_SIZE) {
+      const chunk = lotUpdates.slice(bi, bi + LOT_UPSERT_BATCH_SIZE);
+      const stmts = chunk.map((u) => db.prepare(
         `INSERT INTO ups_auction_lots
            (lot_id, season, league_id, player_id, nominator_fid,
             opening_bid_k, opened_at_unix,
@@ -1115,12 +1143,20 @@ async function processAuctionPoll(env) {
            unique_bidder_count     = excluded.unique_bidder_count,
            updated_at_utc          = datetime('now')`
       ).bind(
-        lot_id, season, leagueId, firstBid.player_id, firstBid.fid,
-        firstBid.bid_k, stats.opened_at_unix,
-        lastBid.bid_k, lastBid.fid,
-        stats.last_bid_at_unix, locks_at_unix,
-        stats.bid_count, stats.unique_bidder_count
-      ).run();
+        u.lot_id, season, leagueId, u.firstBid.player_id, u.firstBid.fid,
+        u.firstBid.bid_k, u.stats.opened_at_unix,
+        u.lastBid.bid_k, u.lastBid.fid,
+        u.stats.last_bid_at_unix, u.locks_at_unix,
+        u.stats.bid_count, u.stats.unique_bidder_count
+      ));
+      try {
+        await db.batch(stmts);
+      } catch (e) {
+        console.log("[auction-poll] lot-sweep batch failed, falling back to per-row:", String(e?.message || e));
+        for (const s of stmts) {
+          try { await s.run(); } catch (e2) { console.log("[auction-poll] lot-sweep per-row fallback failed:", String(e2?.message || e2)); }
+        }
+      }
     }
   }
 
