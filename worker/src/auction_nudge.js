@@ -586,20 +586,28 @@ export async function runFaNightlyJob(env, opts = {}) {
   // channel, tell the commish privately, and let the re-run post the real one.
   if (mode === "morning" && out.close_error === "ledger_stale") {
     try {
-      const commishUserId = safeStr(env.COMMISH_DISCORD_USER_ID || "").replace(/\D/g, "");
-      if (commishUserId) {
-        const dmCh = await openDmChannel(env, commishUserId);
-        if (dmCh) {
-          await sendDm(env, dmCh, {
-            content: [
-              `⏸️ **9 AM report NOT posted — bid ledger is stale.**`,
-              `The auction poll hasn't completed a run since **${out.ledger_stale_day}** (ET) ended, so yesterday can't be judged without risking wrong misses/fines.`,
-              `Fix: run the poll (\`POST /admin/auction/poll-now?APIKEY=…\`), then re-run the morning job (\`POST /admin/auction/run-nightly-nudge\`) — it will close ${out.ledger_stale_day} and post the real report. Nothing was fined, nothing was posted.`,
-            ].join("\n"),
-            allowed_mentions: { parse: [] },
-          });
-          out.commish_dm = true;
-        }
+      // COMMISH_DISCORD_USER_ID is a COMMA-SEPARATED LIST. The old
+      // .replace(/\D/g,"") stripped the comma and glued the two ids into one
+      // impossible 37-digit snowflake, so this "we skipped the 9 AM report"
+      // notice silently went nowhere — the failure mode was invisible by
+      // construction. Split, and DM each configured commish (Keith 2026-07-27).
+      const ids = safeStr(env.COMMISH_DISCORD_USER_ID || "")
+        .split(",")
+        .map((s) => s.replace(/\D/g, "").trim())
+        .filter((s) => /^\d{15,20}$/.test(s));
+      const content = [
+        `⏸️ **9 AM report NOT posted — bid ledger is stale.**`,
+        `The auction poll hasn't completed a run since **${out.ledger_stale_day}** (ET) ended, so yesterday can't be judged without risking wrong misses/fines.`,
+        `Fix: run the poll (\`POST /admin/auction/poll-now?APIKEY=…\`), then re-run the morning job (\`POST /admin/auction/run-nightly-nudge\`) — it will close ${out.ledger_stale_day} and post the real report. Nothing was fined, nothing was posted.`,
+      ].join("\n");
+      for (const uid of ids) {
+        try {
+          const dmCh = await openDmChannel(env, uid);
+          if (dmCh) {
+            await sendDm(env, dmCh, { content, allowed_mentions: { parse: [] } });
+            out.commish_dm = true;
+          }
+        } catch (_) { /* one bad recipient must not block the others */ }
       }
     } catch (e) { out.commish_dm_error = String(e?.message || e); }
     out.skipped = "ledger_stale";

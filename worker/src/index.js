@@ -408,6 +408,43 @@ async function processTagDeadlineMidnightLock(env, season, leagueId, origin, com
   return { fired: true, ok: failed.length === 0, dropped: dropped.length, failed: failed.length, candidates: candidates.length };
 }
 
+// ───────────────── commish DM recipients (Keith 2026-07-27) ────────────────
+// COMMISH_DISCORD_USER_ID is a COMMA-SEPARATED LIST in wrangler.toml
+// ("621530026831118346,1057654821638897715" — Keith's two accounts). Every
+// caller used to do String(env.COMMISH_DISCORD_USER_ID).replace(/\D/g, ""),
+// which strips the comma too and CONCATENATES the ids into a single 37-digit
+// snowflake that cannot exist. Discord answers "unknown user", the DM never
+// opens, and the caller just logs and moves on — so EVERY commish alert has
+// been silently going nowhere: the auction-poll stall alerts (which stamped
+// 'fired' twice on 2026-07-26 and were never received), the poll-recovery
+// notice, and the 9 AM report's ledger_stale explanation.
+//
+// Returns the parsed id list, always an array. Callers loop and DM each.
+function commishDiscordUserIds(env) {
+  return String(env?.COMMISH_DISCORD_USER_ID || "")
+    .split(",")
+    .map((s) => s.replace(/\D/g, "").trim())
+    .filter((s) => /^\d{15,20}$/.test(s));
+}
+
+// DM every configured commish account. Fail-soft per recipient: one bad id
+// must not stop the others. Returns how many DMs actually landed.
+async function dmCommish(env, content) {
+  let sent = 0;
+  for (const uid of commishDiscordUserIds(env)) {
+    try {
+      const ch = await openDiscordDmChannelForUser(env, uid);
+      if (!ch) continue;
+      await sendDiscordDm(env, ch, { content, allowed_mentions: { parse: [] } });
+      sent += 1;
+    } catch (e) {
+      console.log(`[commish-dm] send failed for ${uid}:`, String(e?.message || e));
+    }
+  }
+  if (!sent) console.log("[commish-dm] no commish DM landed — check COMMISH_DISCORD_USER_ID");
+  return sent;
+}
+
 async function processTagDeadlineSixAmDm(env, season, leagueId, origin, commishApiKey) {
   const eventKey = "tag_deadline_six_am_dm";
   const db = env.UPS_MFL_DB;
@@ -420,7 +457,7 @@ async function processTagDeadlineSixAmDm(env, season, leagueId, origin, commishA
     return { fired: false, reason: "already_fired" };
   }
 
-  const commishUserId = String(env.COMMISH_DISCORD_USER_ID || "").trim();
+  const commishUserId = commishDiscordUserIds(env)[0] || "";   // list-safe: first configured commish
   const botToken = String(
     env.DISCORD_CONTRACT_BOT_TOKEN || env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || ""
   ).trim();
@@ -707,21 +744,14 @@ async function processAuctionPoll(env) {
     const gapSec = prevPollTs > 0 ? pollStartUnix - prevPollTs : 0;
     if (gapSec > 30 * 60) {
       try {
-        const commishUserId = String(env.COMMISH_DISCORD_USER_ID || "").replace(/\D/g, "");
-        if (commishUserId) {
+        {
           const gapMin = Math.round(gapSec / 60);
           const since = new Date(prevPollTs * 1000).toISOString().replace("T", " ").slice(0, 16);
-          const dmChannelId = await openDiscordDmChannelForUser(env, commishUserId);
-          if (dmChannelId) {
-            await sendDiscordDm(env, dmChannelId, {
-              content: [
-                `✅ **Auction poll recovered** — first completed run in ~${Math.floor(gapMin / 60)}h ${gapMin % 60}m (dead since ${since} UTC).`,
-                `Ingested this run: **${dmBids}** bid${dmBids === 1 ? "" : "s"}, **${dmWins}** win${dmWins === 1 ? "" : "s"}. Announcements older than 1h are deliberately NOT posted — no catch-up spam in the league channel.`,
-                `If a 9 AM close was skipped as \`ledger_stale\` during the outage, re-run the morning job today — it re-closes the same day once the ledger is fresh.`,
-              ].join("\n"),
-              allowed_mentions: { parse: [] },
-            });
-          }
+          await dmCommish(env, [
+            `✅ **Auction poll recovered** — first completed run in ~${Math.floor(gapMin / 60)}h ${gapMin % 60}m (dead since ${since} UTC).`,
+            `Ingested this run: **${dmBids}** bid${dmBids === 1 ? "" : "s"}, **${dmWins}** win${dmWins === 1 ? "" : "s"}. Announcements older than 1h are deliberately NOT posted — no catch-up spam in the league channel.`,
+            `If a 9 AM close was skipped as \`ledger_stale\` during the outage, re-run the morning job today — it re-closes the same day once the ledger is fresh.`,
+          ].join("\n"));
         }
       } catch (e) {
         console.log("[auction-poll] recovery DM failed:", String(e?.message || e));
@@ -2657,7 +2687,6 @@ async function detectFaaOverCap(env, db, season, leagueId, freshNoms) {
   // auctions, so the FAA flag is what scopes this to the right one.
   if (!(await getFeatureFlag(env, "AUCTION_FAA_ENABLED"))) return { skipped: "faa_off" };
 
-  const commishUserId = String(env.COMMISH_DISCORD_USER_ID || "").replace(/\D/g, "");
   const days = new Map();
   for (const n of freshNoms) {
     const day = etDayKey(n.bid_at_unix);
@@ -2691,7 +2720,7 @@ async function detectFaaOverCap(env, db, season, leagueId, freshNoms) {
       } catch (_) { detail = []; }
 
       let dm_ok = false;
-      if (commishUserId) {
+      {
         const lines = [
           `**⚠️ FA Auction — nomination cap exceeded (§A2)**`,
           `Franchise **${fid}** made **${used}** nominations on **${etDay}** (ET). The cap is ${FAA_NOMS_MAX}/day.`,
@@ -2703,20 +2732,11 @@ async function detectFaaOverCap(env, db, season, leagueId, freshNoms) {
           `The in-app gate refuses a 3rd nomination, so this came in through MFL's native auction page (O=43), which we can't block.`,
           `_No action taken — informational. Nothing on MFL has been changed._`,
         ];
-        // sendDiscordDm POSTs to /channels/{id}/messages — it needs a DM
-        // CHANNEL id, and a user snowflake is not one (404 Unknown Channel).
-        // Every other DM path in the worker opens the channel first.
-        const dmChannelId = await openDiscordDmChannelForUser(env, commishUserId);
-        if (!dmChannelId) {
-          console.log("[faa-cap] commish DM channel open failed for user", commishUserId);
-        } else {
-          const r = await sendDiscordDm(env, dmChannelId, {
-            content: lines.join("\n"),
-            allowed_mentions: { parse: [] },
-          });
-          dm_ok = !!(r && r.ok);
-          if (!dm_ok) console.log("[faa-cap] commish DM failed:", r && r.status);
-        }
+        // dmCommish opens the DM channel per recipient (sendDiscordDm POSTs to
+        // /channels/{id}/messages and needs a CHANNEL id, not a user snowflake)
+        // and handles COMMISH_DISCORD_USER_ID being a comma-separated list.
+        dm_ok = (await dmCommish(env, lines.join("\n"))) > 0;
+        if (!dm_ok) console.log("[faa-cap] commish DM failed");
       }
       // Marked even when the DM didn't send: the lock row is also the durable
       // record that we saw this violation, and detection only runs on the poll
@@ -4198,12 +4218,8 @@ export default {
             `showing stale prices. Lead changes are NOT being narrated.\n` +
             `Fix: \`POST /admin/auction/poll-now?APIKEY=…&L=74598\` (wait ~2 min if it answers ` +
             `\`skipped: locked\`), then confirm \`auction_poll\` goes fresh.`;
-          const commishUserId = String(env.COMMISH_DISCORD_USER_ID || "").replace(/\D/g, "");
-          if (commishUserId) {
-            const dmCh = await openDiscordDmChannelForUser(env, commishUserId);
-            if (dmCh) await sendDiscordDm(env, dmCh, { content: msg, allowed_mentions: { parse: [] } });
-          }
-          console.log(`[auction-watchdog] ALERTED: auction_poll stale ${mins}m`);
+          const dmSent = await dmCommish(env, msg);
+          console.log(`[auction-watchdog] ALERTED: auction_poll stale ${mins}m (${dmSent} DM(s) delivered)`);
         } catch (e) {
           console.log("[auction-watchdog] failed:", String(e?.message || e));
         }
@@ -36483,7 +36499,7 @@ export default {
         if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
 
-        const commishUserId = safeStr(env.COMMISH_DISCORD_USER_ID || "").replace(/\D/g, "");
+        const commishUserId = commishDiscordUserIds(env)[0] || "";   // list-safe: first configured commish
         const botToken = contractDiscordBotToken();
         if (!commishUserId) return jsonOut(400, { ok: false, error: "missing_COMMISH_DISCORD_USER_ID" });
         if (!botToken) return jsonOut(400, { ok: false, error: "missing_contract_bot_token" });
