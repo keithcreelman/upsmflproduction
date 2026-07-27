@@ -1328,6 +1328,33 @@ async function processAuctionPoll(env) {
     }
   }
 
+  // Catch-up sweep for the one-shot finalize above (Keith 2026-07-27: Lamar
+  // Jackson and one other win never got a contract — the per-pid call above
+  // only ever fires on the single tick a lot flips open->won, and if that one
+  // attempt fails for any reason (MFL fetch hiccup, O=102 completed-auction
+  // lag, etc.) nothing ever retries it). finalizeFaaContracts is already
+  // fully idempotent (already-final skip + audited-ledger guard), so calling
+  // it with no onlyPid just re-checks every won lot and only writes the ones
+  // still missing a contract — safe to run broadly. Throttled like the other
+  // sweeps: skip on ticks that are busy ingesting bids/wins, with a 3x-overdue
+  // escape hatch so it can't starve during a long busy stretch.
+  if (
+    (await getFeatureFlag(env, "AUCTION_FAA_FINALIZE_ENABLED")) &&
+    String(env.MFL_COOKIE || "").trim() &&
+    (await sweepReady("auction_poll_faa_finalize_catchup", 900, newBids > 0 || newWins > 0))
+  ) {
+    try {
+      const r = await finalizeFaaContracts(env, season, leagueId, {});
+      if (r?.body?.ok && r.body.count > 0) {
+        console.log(`[auction-poll] faa-finalize catch-up: fixed ${r.body.count} lot(s) missed by the one-shot hook`);
+      } else if (r?.body?.ok === false) {
+        console.warn("[auction-poll] faa-finalize catch-up not ok:", r.body.error);
+      }
+    } catch (e) {
+      console.warn("[auction-poll] faa-finalize catch-up threw:", e?.message || String(e));
+    }
+  }
+
   // ── Time-based auto-expiry (hygiene) ──
   // A lot whose lock window passed without a winner (MFL never emitted
   // AUCTION_WON) would otherwise sit `open` forever and surface as a phantom lot
