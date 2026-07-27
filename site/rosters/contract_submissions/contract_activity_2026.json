@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-27 22:41:29",
+    "generated_at": "2026-07-27 22:55:09",
     "source": "contract-activity-log",
-    "count": 83,
+    "count": 84,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "afc6327b6f225b46ae825e11",
+      "submission_id": "afc6327b6f225b46ae825e11",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0005",
+      "franchise_name": "HammerTime \ud83d\udd28 \u23f0",
+      "player_id": "15805",
+      "player_name": "Hutchinson, Aidan",
+      "position": "DL",
+      "salary": 8000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 3|TCV 24K|AAV 8K|Y1-8K, Y2-8K, Y3-8K|GTD: 18K",
+      "tcv": 24000,
+      "aav": 8000,
+      "guaranteed": 18000,
+      "submitted_at_utc": "2026-07-27T22:54:47.364Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1531434718350803007",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "4e0adfc34ce2fbc790a0f633",
       "submission_id": "4e0adfc34ce2fbc790a0f633",
