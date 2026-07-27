@@ -1261,6 +1261,20 @@ async function processAuctionPoll(env) {
     }
   }
 
+  // ── Orphaned-thread repair + backfill (Keith 2026-07-27) ──
+  // Throttled to once per 15 min — see repairOrphanedAuctionThreads for why
+  // this is a separate sweep rather than hooked into the live narration path
+  // above. Fully awaited inside this already-awaited poll, not a fire-and-
+  // forget tail — never blocks/breaks the poll either way.
+  if (await throttledOnce("auction_discord_orphan_repair", 900)) {
+    try {
+      const r = await repairOrphanedAuctionThreads(env, db, season, leagueId);
+      if (r.repaired > 0) console.log(`[auction-repair] repaired ${r.repaired}/${r.scanned} orphaned lot thread(s)`);
+    } catch (e) {
+      console.log("[auction-repair] sweep error:", String(e?.message || e));
+    }
+  }
+
   const activeLots = await db.prepare(
     `SELECT COUNT(*) AS n FROM ups_auction_lots WHERE season = ? AND league_id = ? AND status = 'open'`
   ).bind(season, leagueId).first();
@@ -2096,6 +2110,212 @@ async function resolveFranchiseMentions(env, fids) {
     console.log("[auction-narrator] discord_owners lookup failed:", String(e?.message || e));
   }
   return map;
+}
+
+// ───────────── auction narrator: orphaned-thread repair + backfill ─────────
+// Keith 2026-07-27: "the next time a player that gets bid where we missed the
+// initial opening bid... re-sync up the thread, apply the historical bids to
+// the thread... only do it if the thread wasn't created but it should've
+// been." Confirmed live case: 8 currently-open 2026 FAA lots (e.g. DK
+// Metcalf, Derwin James) where discord_thread_id, discord_message_id AND
+// discord_channel_id are ALL NULL — the nomination POST itself never landed
+// anywhere (or landed but nothing persisted), so narrateAuctionEvents' inline
+// self-heal (which requires discord_message_id OR discord_channel_id to
+// already be set) can structurally never fire for them. They stay orphaned
+// forever, no matter how many future bids land, falling into the bare
+// main-channel-post fallback every time.
+//
+// Deliberately NOT wired into narrateAuctionEvents' inline self-heal path —
+// that stays untouched. This is an independent, THROTTLED sweep (called from
+// processAuctionPoll, see auction_discord_orphan_repair) so it:
+//   - never fires on a healthy thread (WHERE discord_thread_id IS NULL is a
+//     structural guarantee: saveLotDiscord's COALESCE never clears a set
+//     column, so a lot that ever gets a real thread — via the clean
+//     nomination path OR inline self-heal — permanently stops matching and
+//     can never be touched here again);
+//   - posts exactly ONE consolidated, silent summary message per orphaned
+//     lot (the full bid ladder, not a blow-by-blow replay) — bounded to 2
+//     Discord calls per lot (create thread + one post), not O(bid count).
+//     A per-message replay through narrateAuctionEvents was considered and
+//     rejected: it has no bounded latency budget (250ms/message pacing +
+//     per-message GIF lookups, uncapped for N historical bids) and would
+//     pollute the live forced-increase throttle table with backdated
+//     timestamps — exactly the "unconditional work scaling with history"
+//     shape this worker was fixed for today;
+//   - runs fully inside processAuctionPoll's own already-awaited body (same
+//     ctx.waitUntil the scheduled() handler already wraps the whole poll in,
+//     or the same synchronous await the /admin/auction/poll-now route
+//     already uses) — no new fire-and-forget promise, no orphaned async tail
+//     that Cloudflare can kill mid-flight;
+//   - claims each lot (discord_backfilled_at_utc, set BEFORE any Discord
+//     call) so a crash mid-run leaves it silently un-fixed rather than
+//     double-posted — safe to just re-run the sweep on the next tick.
+async function repairOrphanedAuctionThreads(env, db, season, leagueId) {
+  if (!db) return { repaired: 0 };
+  const botToken = String(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "").trim();
+  if (!botToken) return { repaired: 0 };
+  const routing = await getDiscordRoutingConfig(env);
+  const useTest = String(routing.auctionbidding) === "test" ||
+    String(env.AUCTION_DISCORD_USE_TEST ?? "0").trim() === "1";
+  const channelId = String(
+    useTest
+      ? (env.DISCORD_AUCTION_TEST_CHANNEL_ID || env.DISCORD_DRAFT_TEST_CHANNEL_ID || "1089538054236160010")
+      : (env.DISCORD_AUCTION_CHANNEL_ID || env.DISCORD_DRAFT_CHANNEL_ID || "1059111651846131833")
+  ).replace(/\D/g, "");
+  if (!channelId) return { repaired: 0 };
+
+  let orphans;
+  try {
+    orphans = await db.prepare(
+      `SELECT lot_id, player_id, discord_message_id, discord_channel_id
+         FROM ups_auction_lots
+        WHERE season = ? AND league_id = ? AND status IN ('open', 'won')
+          AND discord_thread_id IS NULL
+        ORDER BY opened_at_unix ASC
+        LIMIT 10`
+    ).bind(season, leagueId).all();
+  } catch (e) {
+    console.log("[auction-repair] orphan scan failed:", String(e?.message || e));
+    return { repaired: 0 };
+  }
+  const rows = orphans?.results || [];
+  if (!rows.length) return { repaired: 0 };
+
+  const bot = async (method, path, body) => {
+    try {
+      const r = await fetch(`https://discord.com/api/v10${path}`, {
+        method,
+        headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+        body: body == null ? undefined : JSON.stringify(body),
+      });
+      const j = await r.json().catch(() => null);
+      return { ok: r.ok, status: r.status, json: j };
+    } catch (e) {
+      return { ok: false, status: 0, json: null, error: String(e?.message || e) };
+    }
+  };
+  const flipName = (n) => { const s = String(n || ""); const i = s.indexOf(", "); return i > 0 ? (s.slice(i + 2) + " " + s.slice(0, i)) : s; };
+
+  let repaired = 0;
+  for (const row of rows) {
+    const lotId = String(row.lot_id);
+    const pid = String(row.player_id || "");
+
+    // Claim BEFORE any Discord call — at-most-once, never re-run a partial repair.
+    let claim;
+    try {
+      claim = await db.prepare(
+        `UPDATE ups_auction_lots SET discord_backfilled_at_utc = datetime('now')
+          WHERE lot_id = ? AND discord_backfilled_at_utc IS NULL`
+      ).bind(lotId).run();
+    } catch (e) {
+      console.log(`[auction-repair] claim failed for ${lotId}:`, String(e?.message || e));
+      continue;
+    }
+    if (!(claim.meta?.changes > 0)) continue;
+
+    let bidRows;
+    try {
+      bidRows = await db.prepare(
+        `SELECT fid, bid_k, note, bid_at_unix FROM ups_auction_bids
+          WHERE lot_id = ? ORDER BY bid_at_unix ASC, bid_id ASC`
+      ).bind(lotId).all();
+    } catch (e) {
+      console.log(`[auction-repair] bid history read failed for ${lotId}:`, String(e?.message || e));
+      continue;
+    }
+    const bids = bidRows?.results || [];
+    if (!bids.length) continue;
+
+    // Player name/pos/team — best-effort, falls back to a bare pid label.
+    let playerLabel = `Player ${pid}`;
+    try {
+      const apiKey = String(env.MFL_APIKEY || "").trim();
+      const pr = await fetch(
+        `https://www48.myfantasyleague.com/${season}/export?TYPE=players&L=${leagueId}&PLAYERS=${encodeURIComponent(pid)}&JSON=1${apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : ""}`,
+        { cf: { cacheTtl: 86400, cacheEverything: false } }
+      ).then((r) => r.json()).catch(() => null);
+      const p = pr?.players?.player;
+      const info = Array.isArray(p) ? p[0] : p;
+      if (info?.name) {
+        const meta = [info.position, info.team].filter(Boolean).join(" · ");
+        playerLabel = flipName(info.name) + (meta ? ` (${meta})` : "");
+      }
+    } catch (_) { /* fall back to bare label */ }
+
+    // Franchise names for the bid ladder — one league fetch, reused for every fid.
+    let fidToName = {};
+    try {
+      const apiKey = String(env.MFL_APIKEY || "").trim();
+      const lr = await fetch(
+        `https://www48.myfantasyleague.com/${season}/export?TYPE=league&L=${leagueId}&JSON=1${apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : ""}`,
+        { cf: { cacheTtl: 300, cacheEverything: false } }
+      ).then((r) => r.json()).catch(() => null);
+      const flist = lr?.league?.franchises?.franchise || [];
+      for (const f of (Array.isArray(flist) ? flist : [flist])) {
+        const id = String(f.id || "").padStart(4, "0");
+        if (id) fidToName[id] = String(f.name || `Team ${id}`);
+      }
+    } catch (_) { /* fall back to raw fid below */ }
+    const teamName = (fid) => fidToName[String(fid).padStart(4, "0")] || `Team ${fid}`;
+
+    // Create the thread — same anchored-vs-standalone choice as the inline
+    // self-heal, using whatever was actually saved for this lot (usually
+    // nothing at all, hence "orphaned").
+    const threadName = `Auction · ${playerLabel}`.slice(0, 100);
+    let threadRes;
+    if (row.discord_message_id) {
+      threadRes = await bot("POST", `/channels/${encodeURIComponent(String(row.discord_channel_id || channelId))}/messages/${encodeURIComponent(row.discord_message_id)}/threads`,
+        { name: threadName, auto_archive_duration: 1440 });
+    } else {
+      threadRes = await bot("POST", `/channels/${encodeURIComponent(String(row.discord_channel_id || channelId))}/threads`,
+        { name: threadName, auto_archive_duration: 1440, type: 11, invitable: true });
+    }
+    const threadId = String(threadRes?.json?.id || "");
+    if (!threadRes.ok || !threadId) {
+      console.log(`[auction-repair] thread create failed for ${lotId}: ${threadRes.status} ${JSON.stringify(threadRes.json || threadRes.error || {}).slice(0, 200)}`);
+      continue;   // stays claimed — won't retry; matches the documented "silently un-fixed, not double-posted" tradeoff
+    }
+    try {
+      await db.prepare(
+        `UPDATE ups_auction_lots
+            SET discord_thread_id = COALESCE(discord_thread_id, ?),
+                discord_message_id = COALESCE(discord_message_id, ?),
+                discord_channel_id = COALESCE(discord_channel_id, ?),
+                updated_at_utc = datetime('now')
+          WHERE lot_id = ?`
+      ).bind(threadId, row.discord_message_id || null, String(row.discord_channel_id || channelId), lotId).run();
+    } catch (e) {
+      console.log(`[auction-repair] saveLotDiscord failed for ${lotId}:`, String(e?.message || e));
+    }
+
+    // ONE consolidated, silent summary — the full bid ladder, not a replay of
+    // individual narration messages. No @mentions (bold team names only) so
+    // this can never ping anyone about hours/days-old activity.
+    const lines = bids.map((b) => {
+      const isNom = String(b.note || "").startsWith("[nomination]");
+      const forced = /forced bid increase/i.test(String(b.note || ""));
+      const bid = `$${Number(b.bid_k || 0).toLocaleString("en-US")}K`;
+      const who = teamName(b.fid);
+      if (isNom) return `${bid} — opened by **${who}**`;
+      return `${bid} — **${who}**${forced ? " (forced bid increase)" : ""}`;
+    });
+    const lastBid = bids[bids.length - 1];
+    const content = [
+      `🧵 Catching this thread up — Discord missed how **${playerLabel}** opened.`,
+      lines.join("\n"),
+      `Currently **$${Number(lastBid.bid_k || 0).toLocaleString("en-US")}K**, **${teamName(lastBid.fid)}**.`,
+    ].join("\n").slice(0, 1900);
+    const postRes = await bot("POST", `/channels/${encodeURIComponent(threadId)}/messages`,
+      { content, allowed_mentions: { parse: [] } });
+    if (!postRes.ok) {
+      console.log(`[auction-repair] backfill post failed for ${lotId}: ${postRes.status}`);
+      continue;   // thread exists now (good), summary just didn't land — acceptable partial repair
+    }
+    repaired += 1;
+    console.log(`[auction-repair] repaired ${lotId} (${playerLabel}) — thread ${threadId}, ${bids.length} bids backfilled`);
+  }
+  return { repaired, scanned: rows.length };
 }
 
 // ───────────── auction narrator: ERA vs FAA lot classification ─────────────
