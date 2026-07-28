@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-07-25T11:16:10.942Z",
-    "row_count": 56,
+    "updated_at": "2026-07-28T20:35:32.409Z",
+    "row_count": 57,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -9992,6 +9992,192 @@
       "twb_meta": null,
       "mfl_trade_id": "1127",
       "trade_id": "1127",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1130",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-07-28T20:35:32.409Z",
+      "updated_at": "2026-07-28T20:35:32.409Z",
+      "from_franchise_id": "0002",
+      "to_franchise_id": "0003",
+      "from_franchise_name": "CBP",
+      "to_franchise_name": "Gride",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "17037",
+      "will_receive": "17060",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-07-28T20:35:29.680Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0002",
+            "franchise_name": "CBP",
+            "selected_assets": [
+              {
+                "asset_id": "player:17037",
+                "type": "PLAYER",
+                "player_id": "17037",
+                "player_name": "Gabriel, Dillon",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "CLE",
+                "salary": 2000,
+                "years": 2,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
+                "taxi": true,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "selected_assets": [
+              {
+                "asset_id": "player:17060",
+                "type": "PLAYER",
+                "player_id": "17060",
+                "player_name": "Giddens, DJ",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "IND",
+                "salary": 2000,
+                "years": 2,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
+                "taxi": true,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0002",
+          "right_team_id": "0003"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0002",
+            "franchise_name": "CBP",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 234000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 234000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 62000,
+            "available_salary_after_dollars": 62000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0003",
+            "franchise_name": "Gride",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 213000,
+            "salary_adjustment_total_dollars": 4000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 213000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 83000,
+            "available_salary_after_dollars": 83000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "CBP",
+          "right_franchise_name": "Gride",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 234000,
+              "left_after_dollars": 234000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 213000,
+              "right_after_dollars": 213000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 187000,
+              "left_after_dollars": 187000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 190000,
+              "right_after_dollars": 190000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 24000,
+              "left_after_dollars": 24000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 106000,
+              "right_after_dollars": 106000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1130",
+      "trade_id": "1130",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
