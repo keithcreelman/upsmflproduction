@@ -1254,27 +1254,60 @@ async function processAuctionPoll(env) {
   await stampStage("lot_sweep_done");
 
   // ── Ingest AUCTION_WON ──
+  // wonTxs is MFL's FULL append-only AUCTION_WON log — unlike the other two
+  // transaction fetches above, it carries no date window, so it only grows
+  // across the auction's whole run (54 rows and climbing as of 2026-07-28).
+  // This used to be one sequential, awaited D1 UPDATE per transaction, every
+  // tick, forever — the exact same anti-pattern that caused the lot-sweep
+  // stall fixed earlier tonight, just in a different loop that fix didn't
+  // touch. It finally crossed the line into reproducibly stalling every
+  // single poll attempt (Keith 2026-07-28, "auction poll is stale" — 3
+  // consecutive runs died at this exact point, none reaching won_ingest_done).
+  // Batched the same way: one db.batch() per chunk instead of N round trips,
+  // with a per-row fallback if the batch call itself throws.
   const newlyWonPids = [];
+  const wonCandidates = [];
   for (const tx of wonTxs) {
     const p = parseTx(tx);
     if (!p.player_id || !p.fid) continue;
-    const lot_id = `${season}|${leagueId}|${p.player_id}`;
-    const res = await db.prepare(
+    wonCandidates.push({ p, lot_id: `${season}|${leagueId}|${p.player_id}` });
+  }
+  const WON_INGEST_BATCH_SIZE = 50;
+  for (let bi = 0; bi < wonCandidates.length; bi += WON_INGEST_BATCH_SIZE) {
+    const chunk = wonCandidates.slice(bi, bi + WON_INGEST_BATCH_SIZE);
+    const stmts = chunk.map(({ p, lot_id }) => db.prepare(
       `UPDATE ups_auction_lots
           SET status = 'won', winner_fid = ?, won_at_unix = ?, updated_at_utc = datetime('now')
         WHERE lot_id = ? AND status != 'won'`
-    ).bind(p.fid, p.bid_at_unix, lot_id).run();
-    if (res.meta?.changes > 0) {
-      newWins++;
-      newlyWonPids.push(String(p.player_id));
-      if (narrateEnabled && p.bid_at_unix >= narrateCutoffUnix) {
-        narrateQueue.push({
-          kind: "won",
-          fid: p.fid,
-          player_id: p.player_id,
-          bid_k: p.bid_k,
-          bid_at_unix: p.bid_at_unix,
-        });
+    ).bind(p.fid, p.bid_at_unix, lot_id));
+    let results;
+    try {
+      results = await db.batch(stmts);
+    } catch (e) {
+      console.log("[auction-poll] won-ingest batch failed, falling back to per-row:", String(e?.message || e));
+      results = [];
+      for (const s of stmts) {
+        try { results.push(await s.run()); } catch (e2) {
+          results.push(null);
+          console.log("[auction-poll] won-ingest per-row fallback failed:", String(e2?.message || e2));
+        }
+      }
+    }
+    for (let i = 0; i < chunk.length; i += 1) {
+      const res = results[i];
+      if (res?.meta?.changes > 0) {
+        const { p } = chunk[i];
+        newWins++;
+        newlyWonPids.push(String(p.player_id));
+        if (narrateEnabled && p.bid_at_unix >= narrateCutoffUnix) {
+          narrateQueue.push({
+            kind: "won",
+            fid: p.fid,
+            player_id: p.player_id,
+            bid_k: p.bid_k,
+            bid_at_unix: p.bid_at_unix,
+          });
+        }
       }
     }
   }
