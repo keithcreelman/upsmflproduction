@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-27 22:55:09",
+    "generated_at": "2026-07-28 02:17:20",
     "source": "contract-activity-log",
-    "count": 84,
+    "count": 85,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "6023ca3ec3193a361e64fc25",
+      "submission_id": "6023ca3ec3193a361e64fc25",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0009",
+      "franchise_name": "C-Town Chivalry",
+      "player_id": "14777",
+      "player_name": "Burrow, Joe",
+      "position": "QB",
+      "salary": 28000,
+      "contract_year": 2,
+      "contract_status": "Vet-FAA-BL",
+      "contract_info": "CL 2|TCV 116K|AAV 58K|Y1-28K, Y2-88K|GTD: 87K",
+      "tcv": 116000,
+      "aav": 58000,
+      "guaranteed": 87000,
+      "submitted_at_utc": "2026-07-28T02:17:03.244Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1531485620231213097",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "afc6327b6f225b46ae825e11",
       "submission_id": "afc6327b6f225b46ae825e11",
