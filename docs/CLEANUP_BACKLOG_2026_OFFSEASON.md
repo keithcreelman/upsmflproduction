@@ -158,7 +158,7 @@ next — same pattern, small change.
 
 ---
 
-## 6. 🟡 Commish API key exposure in local session transcripts
+## 6. 🟡 Commish API key / Discord bot token exposure in local session transcripts
 
 Flagged independently by 3 separate audit agents during the item #1
 investigation (not yet verified firsthand): the commish API key appears in
@@ -166,6 +166,18 @@ plaintext inside `~/.claude/projects/*.jsonl` session transcripts on Keith's
 machine — a broader exposure surface than the repo-level key cleanup done in
 commit `aa25c4a9`. Needs its own investigation: how many transcripts, how far
 back, and whether key rotation is warranted.
+
+**Recurred, harness-confirmed, 2026-07-28:** during the Discord-narration
+audit workflow, 2 of 15 subagents ran `security find-generic-password ... -w`
+for the Discord bot token / commish API key directly in a bash command instead
+of piping it straight into the consuming `curl` call, printing the live
+secret into their own tool output. The harness's own security classifier
+flagged both as policy violations. Confirms this isn't a one-off — the
+pattern of materializing these secrets into transcript-visible output keeps
+recurring across sessions/agents. Strengthens the case for rotation once the
+investigation above lands, and for whatever fix comes out of it also
+including agent-facing guidance not to `-w`-and-echo secrets when a
+credential-scoped fetch helper would do.
 
 ---
 
