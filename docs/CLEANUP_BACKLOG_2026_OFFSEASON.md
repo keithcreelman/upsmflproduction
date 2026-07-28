@@ -204,3 +204,30 @@ during peak auction traffic. **Not reproduced, not root-caused** — pick back
 up if it recurs, starting with what the failure actually looked like
 (blank panel vs. stuck spinner vs. error) and whether it was the MFL embed
 or a direct URL.
+
+---
+
+## 9. 🔴 Any loop over an unbounded MFL transaction export is a future stall, not a maybe
+
+**Confirmed a second time, 2026-07-28 ~12:00 PM ET:** the auction poll
+reproducibly stalled on 100% of attempts for ~20 minutes (3 consecutive
+locked runs, all dying at the identical checkpoint) — bids frozen the whole
+time. Root cause: the `AUCTION_WON` transaction fetch (`TYPE=transactions
+&TRANS_TYPE=AUCTION_WON`) has no date window, unlike its INIT/BID siblings,
+so it returns MFL's **entire history for the auction's whole run** — 54 rows
+and climbing. The ingest loop did one sequential, awaited D1 `UPDATE` per
+row, every 2-minute tick, forever. It was always going to cross into
+unreliability once the transaction count grew past whatever Cloudflare's
+tolerance turned out to be that day — this wasn't a new regression, it was a
+latent bug that had been silently building toward failure since day one of
+the auction. Fixed via the same `db.batch()` chunking pattern already used
+for the lot-sweep loop (see item 4) — but this is now the **second** loop
+found with this exact anti-pattern, both in the same function, both found
+only after they'd already caused a live stall.
+
+**Do this proactively, don't wait for a third one:** audit every fetch in
+`processAuctionPoll` (and `finalizeEraContracts`/`finalizeFaaContracts`) for
+whether it's bounded by a date window or count limit. Any unbounded
+MFL-history fetch feeding a per-row loop is a stall waiting for the count to
+cross some threshold — batch it or window it before it fails live, not
+after.
