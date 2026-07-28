@@ -1820,6 +1820,28 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
 // !ok as "cannot verify" and refuse to finalize, never as "nothing completed".
 // Safe on the poller path: MFL emits AUCTION_WON and lists the player on O=102
 // from the SAME completion event, so a pid the poll just saw won is already here.
+// Bounded fetch (Keith 2026-07-27 night: the FAA-finalize catch-up sweep
+// added earlier tonight held the auction-poll lock for ~9 min and froze the
+// live auction — root cause was these exact functions' external fetch()
+// calls having NO timeout, same disease as the orphan-repair sweep's local
+// fetchBounded above. finalizeEraContracts/finalizeFaaContracts/
+// fetchCompletedAuctionPids each make 2-4 unbounded calls to MFL (salaries
+// export, O=102, the import POST, a verify re-fetch) and any one of them
+// hanging holds the whole poll open — a much bigger blast radius than the
+// orphan-repair sweep since finalize now runs on EVERY win tick AND on a
+// periodic catch-up sweep. 8s is generous for a single MFL response; on
+// abort this returns the SAME shape as a normal network failure, so every
+// existing fail-soft caller needs no changes.
+async function fetchBounded(url, init, timeoutMs) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs || 8000);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function fetchCompletedAuctionPids(env, year, leagueId) {
   const cookieRaw = String(env.MFL_COOKIE || "").trim();
   const cookie = cookieRaw.includes("=") ? cookieRaw : `MFL_USER_ID=${cookieRaw}`;
@@ -1828,7 +1850,7 @@ async function fetchCompletedAuctionPids(env, year, leagueId) {
   const pids = new Set();
   let ok = false;
   try {
-    const res = await fetch(url, {
+    const res = await fetchBounded(url, {
       headers: { Cookie: cookie, "User-Agent": "ups-auction-poll" },
       cf: { cacheTtl: 0, cacheEverything: false },
     });
@@ -1874,7 +1896,7 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
   // (idempotency).
   const apiKey = String(env.MFL_APIKEY || "").trim();
   const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
-  const salRes = await fetch(
+  const salRes = await fetchBounded(
     `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&JSON=1${apiQs}`,
     { cf: { cacheTtl: 0, cacheEverything: false } }
   );
@@ -1964,7 +1986,7 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
   const mflCookie = String(env.MFL_COOKIE || "").trim();
   const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
   const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}&APPEND=1`;
-  const importRes = await fetch(importUrl, {
+  const importRes = await fetchBounded(importUrl, {
     method: "POST",
     headers: {
       Cookie: cookieHeader,
@@ -1994,7 +2016,7 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
   }
 
   // Verify by re-fetching.
-  const verRes = await fetch(
+  const verRes = await fetchBounded(
     `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&JSON=1${apiQs}`,
     { cf: { cacheTtl: 0, cacheEverything: false } }
   );
@@ -2089,7 +2111,7 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
   // (idempotency).
   const apiKey = String(env.MFL_APIKEY || "").trim();
   const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
-  const salRes = await fetch(
+  const salRes = await fetchBounded(
     `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&JSON=1${apiQs}`,
     { cf: { cacheTtl: 0, cacheEverything: false } }
   );
@@ -2211,7 +2233,7 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
   const mflCookie = String(env.MFL_COOKIE || "").trim();
   const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
   const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}&APPEND=1`;
-  const importRes = await fetch(importUrl, {
+  const importRes = await fetchBounded(importUrl, {
     method: "POST",
     headers: {
       Cookie: cookieHeader,
@@ -2241,7 +2263,7 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
   }
 
   // Verify by re-fetching.
-  const verRes = await fetch(
+  const verRes = await fetchBounded(
     `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=salaries&L=${encodeURIComponent(leagueId)}&JSON=1${apiQs}`,
     { cf: { cacheTtl: 0, cacheEverything: false } }
   );
