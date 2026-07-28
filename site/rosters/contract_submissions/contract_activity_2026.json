@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-28 02:51:04",
+    "generated_at": "2026-07-28 02:51:23",
     "source": "contract-activity-log",
-    "count": 86,
+    "count": 87,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "fee112edda27bf95a699d91e",
+      "submission_id": "fee112edda27bf95a699d91e",
+      "activity_scope": "contract_mutation",
+      "activity_type": "FA Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0009",
+      "franchise_name": "",
+      "player_id": "16185",
+      "player_name": "",
+      "position": "",
+      "salary": 1000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext2-FL",
+      "contract_info": "CL 3| TCV 70K| AAV 30K| Y1-14K, Y2-1K, Y3-55K| GTD: 52.5K| Ext: C-Town| restructure: 2025",
+      "tcv": 70000,
+      "aav": 30000,
+      "guaranteed": 52500,
+      "submitted_at_utc": "2026-07-28T02:51:06.321Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "silenced",
+      "discord_channel_id": "",
+      "discord_message_id": "",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "45fa3e7438fc2c06f5227cee",
       "submission_id": "45fa3e7438fc2c06f5227cee",
