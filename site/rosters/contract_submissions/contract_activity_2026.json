@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-28 10:25:51",
+    "generated_at": "2026-07-28 21:39:15",
     "source": "contract-activity-log",
-    "count": 88,
+    "count": 89,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "8f387006c9454b078d6fa86d",
+      "submission_id": "8f387006c9454b078d6fa86d",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "player_id": "13593",
+      "player_name": "Jackson, Lamar",
+      "position": "QB",
+      "salary": 38000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA-BL",
+      "contract_info": "CL 3|TCV 186K|AAV 62K|Y1-38K, Y2-62K, Y3-86K|GTD: 139.5K",
+      "tcv": 186000,
+      "aav": 62000,
+      "guaranteed": 139500,
+      "submitted_at_utc": "2026-07-28T21:39:00.372Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1531778035248926741",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "e5b8c4d68bf8089a819ff4fb",
       "submission_id": "e5b8c4d68bf8089a819ff4fb",
