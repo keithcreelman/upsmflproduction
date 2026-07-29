@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-29 02:37:57",
+    "generated_at": "2026-07-29 02:40:39",
     "source": "contract-activity-log",
-    "count": 91,
+    "count": 92,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "eddf821e22f4fb0da4eddd29",
+      "submission_id": "eddf821e22f4fb0da4eddd29",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0012",
+      "franchise_name": "Hawks",
+      "player_id": "9431",
+      "player_name": "Stafford, Matthew",
+      "position": "QB",
+      "salary": 33000,
+      "contract_year": 2,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 2|TCV 66K|AAV 33K|Y1-33K, Y2-33K|GTD: 49.5K",
+      "tcv": 66000,
+      "aav": 33000,
+      "guaranteed": 49500,
+      "submitted_at_utc": "2026-07-29T02:40:18.926Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1531853860451385526",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "06ea8d367b7bd7dd9fcb8636",
       "submission_id": "06ea8d367b7bd7dd9fcb8636",
