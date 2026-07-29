@@ -34,6 +34,10 @@ def txload(season, t):
     return json.load(open(p)) if os.path.exists(p) else []
 
 
+def month(ts):
+    return datetime.datetime.fromtimestamp(ts, datetime.UTC).month
+
+
 def parse_tx(tx, kind):
     parts = str(tx.get("transaction") or "").split("|")
     try:
@@ -65,7 +69,16 @@ for season in range(2012, 2027):
         prev = 0
         for w in sorted(wl, key=lambda r: r["ts"]):
             end = w["ts"]
-            cyc = [e for e in evs if prev < e["ts"] <= end]
+            # ── CYCLE SCOPING (load-bearing; this bug has bitten twice) ──
+            # A player can be nominated in the May ERA *and* the Jul/Aug FAA in
+            # the same season. Scoping only on "after the previous win" lets a
+            # May ERA nomination anchor a July FAA win -> Derrick Henry 2024
+            # reported as a 1,835-hour (76-day) auction. Restrict the cycle to
+            # the month window matching THIS win's auction kind.
+            emo = month(end)
+            win_months = (7, 8, 9) if emo >= 7 else (5, 6)
+            cyc = [e for e in evs
+                   if prev < e["ts"] <= end and month(e["ts"]) in win_months]
             inits = [e for e in cyc if e["kind"] == "init"]
             bids = [e for e in cyc if e["kind"] == "bid"]
             holders = ([inits[0]["fid"]] if inits else []) + [b["fid"] for b in bids]
