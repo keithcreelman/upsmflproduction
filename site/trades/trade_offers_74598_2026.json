@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-07-28T20:35:32.409Z",
+    "updated_at": "2026-07-29T23:48:48.761Z",
     "row_count": 57,
     "source": "worker-trade-offers"
   },
@@ -224,23 +224,23 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-02-27T16:59:11.188Z",
-      "updated_at": "2026-02-27T16:59:11.188Z",
+      "updated_at": "2026-07-29T23:48:48.761Z",
       "from_franchise_id": "0008",
       "to_franchise_id": "0011",
       "from_franchise_name": "Real Deal Creel",
       "to_franchise_name": "Cleon Ca$h",
-      "message": "You extend Robinson, Bijan 2 years, new AAV $35K, TCV $85K, contract info CL 3|TCV 85K|AAV 15K, 35K|Y1-15K, Y2-35K, Y3-35K|Ext: Cash|GTD: 64K",
+      "message": "",
       "source": "trade-workbench-ui",
       "summary": {
-        "from_asset_count": 2,
+        "from_asset_count": 1,
         "to_asset_count": 1,
-        "from_trade_salary_k": 0,
+        "from_trade_salary_k": 1,
         "to_trade_salary_k": 0,
-        "extension_request_count": 1
+        "extension_request_count": 0
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-02-27T16:59:10.834Z",
+        "generated_at": "2026-07-29T23:48:47.350Z",
         "source": "ups-trade-workbench",
         "league_id": "74598",
         "season": 2026,
@@ -251,38 +251,28 @@
             "franchise_name": "Real Deal Creel",
             "selected_assets": [
               {
-                "asset_id": "player:16594",
+                "asset_id": "player:14167",
                 "type": "PLAYER",
-                "player_id": "16594",
-                "player_name": "Benson, Trey",
+                "player_id": "14167",
+                "player_name": "Hines-Allen, Josh",
                 "description": null,
-                "position": "RB",
-                "nfl_team": "ARI",
-                "salary": 6000,
+                "position": "DE",
+                "nfl_team": "JAC",
+                "salary": 4000,
                 "years": 1,
-                "contract_type": "Rookie",
-                "contract_info": "CL 3| TCV 18K| AAV 6K",
-                "taxi": false
-              },
-              {
-                "asset_id": "pick:DP_0_8",
-                "type": "PICK",
-                "player_id": null,
-                "player_name": null,
-                "description": "Year 2026 Draft Pick 1.09",
-                "position": null,
-                "nfl_team": null,
-                "salary": 0,
-                "years": null,
-                "contract_type": "Pick",
-                "contract_info": null,
-                "taxi": false
+                "contract_type": "Vet-FAA",
+                "contract_info": "CL 1| TCV 4K| AAV 4K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
               }
             ],
-            "traded_salary_adjustment_dollars": 0,
-            "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 3,
-            "selected_non_taxi_salary_dollars": 6000
+            "traded_salary_adjustment_dollars": 1000,
+            "traded_salary_adjustment_k": 1,
+            "traded_salary_adjustment_max_k": 2,
+            "selected_non_taxi_salary_dollars": 4000
           },
           {
             "role": "right",
@@ -290,61 +280,129 @@
             "franchise_name": "Cleon Ca$h",
             "selected_assets": [
               {
-                "asset_id": "player:16161",
+                "asset_id": "player:17657",
                 "type": "PLAYER",
-                "player_id": "16161",
-                "player_name": "Robinson, Bijan",
+                "player_id": "17657",
+                "player_name": "Green, Taylen",
                 "description": null,
-                "position": "RB",
-                "nfl_team": "ATL",
-                "salary": 15000,
-                "years": 2,
+                "position": "QB",
+                "nfl_team": "CLE",
+                "salary": 2000,
+                "years": null,
                 "contract_type": "Rookie",
-                "contract_info": "CL 3| TCV 55K| AAV 15K",
-                "taxi": false
+                "contract_info": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K",
+                "taxi": true,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
               }
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 7,
-            "selected_non_taxi_salary_dollars": 15000
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
           }
         ],
-        "extension_requests": [
-          {
-            "player_id": "16161",
-            "player_name": "Robinson, Bijan",
-            "from_franchise_id": "0011",
-            "to_franchise_id": "0008",
-            "applies_to_acquirer": true,
-            "option_key": "2YR|NONE",
-            "extension_term": "2YR",
-            "loaded_indicator": "NONE",
-            "preview_id": 1118,
-            "preview_contract_info_string": "CL 3|TCV 85K|AAV 15K, 35K|Y1-15K, Y2-35K, Y3-35K|Ext: Cash|GTD: 64K",
-            "new_contract_status": "EXT2",
-            "new_TCV": 85000,
-            "new_aav_future": 35000
-          }
-        ],
+        "extension_requests": [],
         "filters": {
-          "search": "",
-          "activeContractTypes": {},
-          "yearsMin": "",
-          "yearsMax": "",
-          "showTaxi": true,
-          "showPicks": true,
-          "onlyExtensionEligible": false
+          "search": ""
         },
         "ui": {
           "left_team_id": "0008",
           "right_team_id": "0011"
         },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 247000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 4000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 1000,
+            "net_salary_adjustment_dollars": -3000,
+            "new_salary_dollars": 244000,
+            "trade_salary_adjustment_k": 1,
+            "trade_salary_adjustment_max_k": 2,
+            "net_trade_salary_k": 1,
+            "net_cap_change_dollars": 3000,
+            "available_salary_before_dollars": 47550,
+            "available_salary_after_dollars": 50550,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 256000,
+            "salary_adjustment_total_dollars": 2100,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 4000,
+            "salary_trade_adjustment_dollars": -1000,
+            "net_salary_adjustment_dollars": 3000,
+            "new_salary_dollars": 259000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": -1,
+            "net_cap_change_dollars": -3000,
+            "available_salary_before_dollars": 41900,
+            "available_salary_after_dollars": 38900,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Real Deal Creel",
+          "right_franchise_name": "Cleon Ca$h",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 247000,
+              "left_after_dollars": 244000,
+              "left_change_dollars": -3000,
+              "right_before_dollars": 256000,
+              "right_after_dollars": 259000,
+              "right_change_dollars": 3000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 84000,
+              "left_after_dollars": 84000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 283000,
+              "right_after_dollars": 283000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 28000,
+              "left_after_dollars": 28000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 92000,
+              "right_after_dollars": 92000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
         "validation": {
           "status": "ready",
           "issues": []
-        }
-      }
+        },
+        "comment": ""
+      },
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "14167,BB_1000",
+      "will_receive": "17657",
+      "twb_meta": null,
+      "mfl_trade_id": "1134",
+      "trade_id": "1134",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
     },
     {
       "id": "TWB-c78a4d7f-1d80-46f7-ae51-cc2fda17bd1f",
