@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-29 02:34:00",
+    "generated_at": "2026-07-29 02:37:57",
     "source": "contract-activity-log",
-    "count": 90,
+    "count": 91,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "06ea8d367b7bd7dd9fcb8636",
+      "submission_id": "06ea8d367b7bd7dd9fcb8636",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0012",
+      "franchise_name": "Hawks",
+      "player_id": "12611",
+      "player_name": "Goff, Jared",
+      "position": "QB",
+      "salary": 38000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 3|TCV 114K|AAV 38K|Y1-38K, Y2-38K, Y3-38K|GTD: 85.5K",
+      "tcv": 114000,
+      "aav": 38000,
+      "guaranteed": 85500,
+      "submitted_at_utc": "2026-07-29T02:37:42.444Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1531853207867887799",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "616a52e50ff2aea1cbc52db3",
       "submission_id": "616a52e50ff2aea1cbc52db3",
