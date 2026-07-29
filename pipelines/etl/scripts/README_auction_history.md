@@ -62,6 +62,18 @@ tracker is ~47 behind and applying it corrupts contracts).
    2014–2018 are accurate, not approximate.
 6. **Retired players don't resolve from MFL.** `TYPE=players` returns nothing
    for e.g. 7877 / 9448 / 10302. Use D1 `src_players` for names.
+7. **An abandoned bid cluster can sit in the log ahead of the real auction,
+   even in the same month** — MFL's transaction log is append-only, so a
+   nomination/bid that was cancelled or never followed up leaves no deletion
+   marker. DeAndre Levy 2015: an orphaned $5,000 bid landed Aug 8, four days
+   before the real Aug 12–14 bidding war that actually won him; naive
+   "previous win → this win" scoping (even with gotcha #3's month filter,
+   since both are August) reported a 145.6h auction instead of the real
+   52.78h. Fix: trust O=102's own reported `started_unix` as the cycle floor
+   whenever MFL gave us a valid one for that (season, player) — its own
+   report already excludes cruft like this — and fall back to the
+   previous-win/month-window logic only when O=102's start is missing or was
+   rejected as the epoch sentinel (gotcha #2).
 
 ## Known data limits (don't paper over these in reports)
 

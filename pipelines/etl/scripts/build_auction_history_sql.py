@@ -38,6 +38,14 @@ def month(ts):
     return datetime.datetime.fromtimestamp(ts, datetime.UTC).month
 
 
+# (season, pid) -> O=102's own reported auction start, when MFL gave us a
+# real one (not the 2016 epoch-0 sentinel, already filtered out by parse_dt).
+o102_start_by_pid = {}
+for r in o102:
+    if r["started_unix"]:
+        o102_start_by_pid[(r["season"], r["player_id"])] = r["started_unix"]
+
+
 def parse_tx(tx, kind):
     parts = str(tx.get("transaction") or "").split("|")
     try:
@@ -67,9 +75,10 @@ for season in range(2012, 2027):
     for pid, wl in wins_by_pid.items():
         evs = sorted(evs_by_pid.get(pid, []), key=lambda r: r["ts"])
         prev = 0
+        o102_floor = o102_start_by_pid.get((season, pid))
         for w in sorted(wl, key=lambda r: r["ts"]):
             end = w["ts"]
-            # ── CYCLE SCOPING (load-bearing; this bug has bitten twice) ──
+            # ── CYCLE SCOPING (load-bearing; this bug has bitten three times) ──
             # A player can be nominated in the May ERA *and* the Jul/Aug FAA in
             # the same season. Scoping only on "after the previous win" lets a
             # May ERA nomination anchor a July FAA win -> Derrick Henry 2024
@@ -77,8 +86,21 @@ for season in range(2012, 2027):
             # the month window matching THIS win's auction kind.
             emo = month(end)
             win_months = (7, 8, 9) if emo >= 7 else (5, 6)
+            # Even within the same month window, an abandoned/orphaned bid
+            # cluster can sit in MFL's append-only log ahead of the real
+            # auction, with no win to show it was abandoned -> DeAndre Levy
+            # 2015 had an orphaned $5,000 bid on Aug 8 that never led anywhere,
+            # 4 days before the real Aug 12-14 bidding war that won him,
+            # reported as a 145.6h auction instead of the real ~29h. Trust
+            # O=102's OWN reported start as the floor when MFL gave us a valid
+            # one for this (season, pid) and it falls inside this win's cycle
+            # -- MFL's own report already excludes cruft like this. Buffer 90s
+            # for O=102's minute-only precision vs. the tx log's exact second.
+            floor = prev
+            if o102_floor and prev < o102_floor <= end:
+                floor = max(prev, o102_floor - 90)
             cyc = [e for e in evs
-                   if prev < e["ts"] <= end and month(e["ts"]) in win_months]
+                   if floor < e["ts"] <= end and month(e["ts"]) in win_months]
             inits = [e for e in cyc if e["kind"] == "init"]
             bids = [e for e in cyc if e["kind"] == "bid"]
             holders = ([inits[0]["fid"]] if inits else []) + [b["fid"] for b in bids]
