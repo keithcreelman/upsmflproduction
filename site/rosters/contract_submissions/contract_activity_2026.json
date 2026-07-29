@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-29 10:47:57",
+    "generated_at": "2026-07-29 15:06:01",
     "source": "contract-activity-log",
-    "count": 93,
+    "count": 94,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "758d10fb0d40edf81d9e43c6",
+      "submission_id": "758d10fb0d40edf81d9e43c6",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Restructure",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0002",
+      "franchise_name": "CBP",
+      "player_id": "15290",
+      "player_name": "Collins, Nico",
+      "position": "WR",
+      "salary": 19000,
+      "contract_year": 2,
+      "contract_status": "Vet-Ext2-BL",
+      "contract_info": "CL 2|TCV 94K|AAV 42K|Y1-19K, Y2-75K|GTD: 70.5K|Restructured 2026",
+      "tcv": 94000,
+      "aav": 42000,
+      "guaranteed": 70500,
+      "submitted_at_utc": "2026-07-29T15:05:34.859Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1532041419567403192",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "79dadb70d73ffc43909b79f4",
       "submission_id": "79dadb70d73ffc43909b79f4",
