@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-29 02:40:39",
+    "generated_at": "2026-07-29 10:47:57",
     "source": "contract-activity-log",
-    "count": 92,
+    "count": 93,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "79dadb70d73ffc43909b79f4",
+      "submission_id": "79dadb70d73ffc43909b79f4",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0005",
+      "franchise_name": "HammerTime \ud83d\udd28 \u23f0",
+      "player_id": "15404",
+      "player_name": "Jones, Ernest",
+      "position": "LB",
+      "salary": 5000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 3|TCV 15K|AAV 5K|Y1-5K, Y2-5K, Y3-5K|GTD: 11.3K",
+      "tcv": 15000,
+      "aav": 5000,
+      "guaranteed": 11300,
+      "submitted_at_utc": "2026-07-29T10:47:29.551Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1531976468630863955",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "eddf821e22f4fb0da4eddd29",
       "submission_id": "eddf821e22f4fb0da4eddd29",
