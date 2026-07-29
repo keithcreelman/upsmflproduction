@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-28 21:39:15",
+    "generated_at": "2026-07-29 02:34:00",
     "source": "contract-activity-log",
-    "count": 89,
+    "count": 90,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "616a52e50ff2aea1cbc52db3",
+      "submission_id": "616a52e50ff2aea1cbc52db3",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0012",
+      "franchise_name": "Hawks",
+      "player_id": "15259",
+      "player_name": "Stevenson, Rhamondre",
+      "position": "RB",
+      "salary": 9000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 3|TCV 27K|AAV 9K|Y1-9K, Y2-9K, Y3-9K|GTD: 20.3K",
+      "tcv": 27000,
+      "aav": 9000,
+      "guaranteed": 20300,
+      "submitted_at_utc": "2026-07-29T02:33:40.895Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1531852195862024203",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "8f387006c9454b078d6fa86d",
       "submission_id": "8f387006c9454b078d6fa86d",
