@@ -39265,7 +39265,8 @@ export default {
         let tlBody = {};
         try { tlBody = (await request.json()) || {}; } catch (_) { tlBody = {}; }
         const TL_TEST_LEAGUE = "25625";
-        const tlKind = safeStr(tlBody.kind || "export").toLowerCase() === "import" ? "import" : "export";
+        const tlKindRaw = safeStr(tlBody.kind || "export").toLowerCase();
+        const tlKind = tlKindRaw === "import" ? "import" : (tlKindRaw === "page" ? "page" : "export");
         const tlParams = (tlBody.params && typeof tlBody.params === "object") ? tlBody.params : {};
         if (safeStr(tlParams.L) && safeStr(tlParams.L) !== TL_TEST_LEAGUE) {
           return jsonOut(403, { ok: false, error: "test_league_only", message: "Hard-scoped to L=25625; refusing any other league." });
@@ -39280,8 +39281,20 @@ export default {
           tlQp.set(k, String(v));
         }
         tlQp.set("L", TL_TEST_LEAGUE);
-        tlQp.set("JSON", "1");
-        const tlBase = `https://www48.myfantasyleague.com/${encodeURIComponent(tlSeason)}/${tlKind}`;
+        // "page" mode: fetch an arbitrary test-league PAGE (HTML, e.g. the
+        // commish calendar editor, whose delete action has no API) — same
+        // cookie, same forced L=25625. path must be a bare page name.
+        let tlBase;
+        if (tlKind === "page") {
+          const tlPath = safeStr(tlBody.path || "options").replace(/^\/+/, "");
+          if (!/^[A-Za-z0-9_]+$/.test(tlPath)) {
+            return jsonOut(400, { ok: false, error: "bad_path", message: "path must be a bare page name like 'options' or 'csetup'." });
+          }
+          tlBase = `https://www48.myfantasyleague.com/${encodeURIComponent(tlSeason)}/${tlPath}`;
+        } else {
+          tlQp.set("JSON", "1");
+          tlBase = `https://www48.myfantasyleague.com/${encodeURIComponent(tlSeason)}/${tlKind}`;
+        }
         const tlMethod = safeStr(tlBody.method || "GET").toUpperCase() === "POST" ? "POST" : "GET";
         let tlRes, tlText = "";
         try {
