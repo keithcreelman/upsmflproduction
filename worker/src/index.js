@@ -35867,7 +35867,19 @@ export default {
         }
         let parsed = null;
         try { parsed = text ? JSON.parse(text) : null; } catch (_) { parsed = null; }
-        const payloadErr = parsed ? mflErrorFromJsonPayload(parsed) : "";
+        // MFL answers import errors with an XML <error> body EVEN WHEN JSON=1 is
+        // requested, so JSON.parse throws and mflErrorFromJsonPayload never sees
+        // them. Checking only the JSON form classified an explicit, quotable
+        // refusal ("According to the League Calendar You May Not Do Add/Drops At
+        // This Time.") as merely ambiguous — which then fell through to the
+        // verification branch and told the owner "MFL accepted the request but
+        // your roster is unchanged. Safe to try again." That is the opposite of
+        // what happened, and it hides the one sentence that says how to fix it.
+        const xmlErr = (() => {
+          const m = safeStr(text).match(/<error[^>]*>([\s\S]*?)<\/error>/i);
+          return m ? safeStr(m[1]) : "";
+        })();
+        const payloadErr = (parsed ? mflErrorFromJsonPayload(parsed) : "") || xmlErr;
         const ok = isLikelyMflImportSuccess(res, text) && !payloadErr;
         return {
           ok,
