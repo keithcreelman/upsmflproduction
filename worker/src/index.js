@@ -39313,11 +39313,12 @@ export default {
         } catch (e) {
           return jsonOut(502, { ok: false, error: "fetch_failed: " + String(e && e.message) });
         }
+        const tlMax = Math.min(Math.max(safeInt(tlBody.max_chars, 20000), 1000), 250000);
         return jsonOut(200, {
           ok: tlRes.status >= 200 && tlRes.status < 400 && !/<error>/i.test(tlText),
           status: tlRes.status,
           kind: tlKind, method: tlMethod, season: tlSeason,
-          body_text: String(tlText).slice(0, 20000),
+          body_text: String(tlText).slice(0, tlMax),
         });
       }
 
