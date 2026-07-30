@@ -1300,12 +1300,31 @@
           : "") +
         ". MFL enforces the roster limit when the add lands.";
     }
+    // "No drop" stays SELECTABLE (MFL is the authority on the roster limit,
+    // not our arithmetic) — but it must not PROMISE an open spot that MFL's own
+    // numbers say does not exist. Keith 2026-07-30: "Can't have false statements
+    // of add none if it's not possible." So the label states what we actually
+    // know: MFL's own rosterSize (limits.roster_size, read live from its league
+    // export) against the active count with IR/taxi excluded. When either number
+    // is unknown we say nothing rather than guess in either direction.
+    var lim = waiverLimits();
+    var rosterMax = lim && lim.roster_size ? Number(lim.roster_size) : 0;
+    var activeNow = (cap && cap.rosterCount > 0 && cap.activeCount != null) ? Number(cap.activeCount) : null;
+    var noneSub;
+    if (rosterMax && activeNow != null && activeNow >= rosterMax) {
+      noneSub = "Your active roster is full (" + activeNow + "/" + rosterMax +
+        ") — MFL will refuse an add without a drop.";
+    } else if (rosterMax && activeNow != null) {
+      noneSub = "Add into an open spot (" + activeNow + "/" + rosterMax + " active).";
+    } else {
+      noneSub = "Add without dropping anyone. MFL enforces the roster limit.";
+    }
     openDropPicker({
       title: "Drop a player? (optional)",
       sub: 'Adding <strong>' + U.escapeHtml(nameForPid(pid)) + '</strong> — $1K, 1-year WW.' +
         (headroom ? '<br>' + U.escapeHtml(headroom) : ''),
       allowNone: true,
-      noneSub: "Add straight into an open roster spot.",
+      noneSub: noneSub,
       addPid: pid,
       onPick: function (dropPid) {
         confirmFcfsAdd(pid, dropPid ? [dropPid] : []);
