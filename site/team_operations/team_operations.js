@@ -129,7 +129,7 @@
     lineupMessage: null,       // { kind: "ok"|"err"|"info", text: string } | null
     // Zone 5 disclosure panels — lazily rendered on first open so a collapsed
     // panel never costs a worker round-trip.
-    openPanel: "",             // "" | "news" | "bait"
+    openPanel: "",             // "" | "news" | "bait" | "waivers"
     tradeBaitDraft: null,      // Set<string> | null — pid -> available
     tradeBaitLookingFor: "",   // free text submitted as WILL_TAKE_TEXT
     tradeBaitSubmitting: false,
@@ -137,7 +137,37 @@
     // Per-player notes — pid → "free text". UPS-side only; persisted in
     // D1 via /api/submit-trade-bait + read via /api/trade-bait-notes.
     tradeBaitNotes: null,      // { [pid]: string } | null
-    tradeBaitNotesLoaded: false
+    tradeBaitNotesLoaded: false,
+    // ── Waivers panel ──
+    // Everything here is MIRRORED from the worker's /api/waivers/* contract.
+    // The hub never re-derives a waiver window from MFL's calendar itself.
+    waiverState: null,          // GET /api/waivers/state payload
+    waiverStateFetchedAt: 0,    // browser unix at the moment state landed
+    waiverStateLoading: false,
+    waiverStateError: "",
+    // Only ever holds a payload we actually READ from MFL (known:true). A
+    // known:false answer is left OUT of here — see waiverPendingKnown.
+    waiverPending: null,        // GET /api/waivers/pending payload
+    waiverPendingKnown: false,  // contract v2 §1: did we really read MFL?
+    waiverPendingLoading: false,
+    waiverPendingError: "",
+    // The editable plan. Same shape the contract uses both ways:
+    //   [{ round:int, picks:[{ add_pid, bid_dollars, drop_pid|null }] }]
+    // Contract v2 §2: a round present with an EMPTY picks[] is an explicit
+    // request to CLEAR that round; a round ABSENT is left untouched at MFL.
+    waiverPlan: null,
+    waiverPlanDirty: false,     // true once the owner edits; blocks re-seeding
+    waiverCompose: null,        // the "add a claim" row being composed
+    waiverSearch: "",           // free-agent search box text
+    waiverSubmitting: false,
+    waiverMessage: null,        // { kind: "ok"|"err"|"info", text: string }
+    waiverWarnings: [],         // non-fatal [{code,message}] from the last save
+    waiverWouldWrite: null,     // dry-run preview { rounds:[], cleared_rounds:[] }
+    waiverFcfs: null,           // { addPid, addName, dropPids:[pid] }
+    waiverFcfsSearch: "",
+    waiverFcfsSubmitting: false,
+    waiverFcfsMessage: null,
+    waiverNativeLink: ""        // set when a write returns 503 + native_link
   };
 
   // Cloudflare worker base for /api/player-bundle calls. Override via
@@ -428,6 +458,54 @@
     var uid = readCookieRaw("MFL_USER_ID");
     if (!uid) return url;
     return url + (url.indexOf("?") === -1 ? "?" : "&") + "MFL_USER_ID=" + encodeURIComponent(uid);
+  }
+
+  // Forward the viewer's MFL session on worker calls that must act AS THE
+  // OWNER rather than as the worker's stored commish cookie. Mirrors
+  // site/rosters/roster_workbench.js appendViewerSessionQuery(): BOTH
+  // MFL_USER_ID and APIKEY ride the query string.
+  //
+  // Why both: MFL_USER_ID is the owner-cookie path (lineup, waivers, add/drop
+  // — anything MFL scopes to the logged-in franchise); APIKEY is what the
+  // worker checks for commish-only reads. Sending an owner-restricted import
+  // WITHOUT MFL_USER_ID makes the worker fall back to the commish cookie, and
+  // MFL answers a commish cookie on an owner import with HTTP 200 and NO
+  // change — a silent no-op, never an error. Always append.
+  //
+  // ENCODING (load-bearing — do NOT "simplify" this to a decoded cookie read):
+  // MFL_USER_ID is read RAW (see readCookieRaw above), so the wire value is
+  // double-escaped — stored `abc%3D%3D` goes out as `abc%253D%253D`. One layer
+  // of URLSearchParams decoding on the worker then lands back on the EXACT
+  // bytes the browser stored. That matters because worker routes consume the
+  // param two different ways: some normalize it with decodeURIComponent (where
+  // raw and decoded converge), but others do a bare
+  // `raw.includes("=") ? raw : "MFL_USER_ID=" + raw` — and a DECODED token ends
+  // in a literal "==", which that branch mistakes for a whole cookie header and
+  // sends malformed. Raw is correct for both.
+  function resolveViewerApiKey() {
+    var candidates = [
+      window.UPS_MFL_APIKEY,
+      window.MFL_APIKEY,
+      window.APIKEY,
+      readCookie("MFL_APIKEY")
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var k = safeStr(candidates[i]);
+      if (k) return k;
+    }
+    return "";
+  }
+  function appendViewerSessionQuery(url) {
+    try {
+      var next = new URL(String(url), window.location.href);
+      var mflUserId = readCookieRaw("MFL_USER_ID");
+      var apiKey = resolveViewerApiKey();
+      if (mflUserId) next.searchParams.set("MFL_USER_ID", mflUserId);
+      if (apiKey) next.searchParams.set("APIKEY", apiKey);
+      return next.toString();
+    } catch (e) {
+      return String(url);
+    }
   }
 
   // ---------- Data shaping ----------
@@ -1689,8 +1767,10 @@
       { label: "Game Day", href: mflModuleUrl("MESSAGE19&hub=gameday") },
       { label: "Stats", href: mflModuleUrl("MESSAGE13") },
       { label: "Standings", href: mflModuleUrl("MESSAGE4") },
-      { label: "Rookie Draft Hub", href: mflModuleUrl("MESSAGE12") },
-      { label: "Add / Drop", href: mflPageUrl("/add_drop") }
+      { label: "Rookie Draft Hub", href: mflModuleUrl("MESSAGE12") }
+      // "Add / Drop" used to live here as a bare link out to MFL's native
+      // page. It's now the Waivers disclosure panel below (which keeps an
+      // "Open on MFL" escape hatch in its own header).
     ];
 
     var linkHtml = links.map(function (l) {
@@ -1699,19 +1779,31 @@
         + '</a>';
     }).join("");
 
-    // Two in-hub disclosure panels. These keep the authoring / search
-    // surfaces reachable without putting them above the fold.
-    var panelHtml = ''
-      + '<button type="button" class="tops-nav-toggle" data-panel="news" aria-expanded="false">Player News'
-      +   (injCount ? '<span class="tops-badge is-warn">' + injCount + '</span>' : '')
-      + '</button>'
-      + '<button type="button" class="tops-nav-toggle" data-panel="bait" aria-expanded="false">On The Block'
-      +   (baitCount ? '<span class="tops-badge">' + baitCount + '</span>' : '')
-      + '</button>';
+    // Three in-hub disclosure panels. These keep the authoring / search
+    // surfaces reachable without putting them above the fold. Which one is
+    // open is read from state so a re-render (e.g. the roster reload after an
+    // FCFS add) doesn't collapse the panel the owner was working in.
+    var waiverCount = waiverNavBadgeCount();
+    function toggleHtml(key, label, badge, warnBadge) {
+      var open = state.openPanel === key;
+      return '<button type="button" class="tops-nav-toggle" data-panel="' + key + '"'
+        + ' aria-expanded="' + (open ? "true" : "false") + '">' + escapeHtml(label)
+        + (badge ? '<span class="tops-badge' + (warnBadge ? ' is-warn' : '') + '">' + escapeHtml(String(badge)) + '</span>' : '')
+        + '</button>';
+    }
+    var panelHtml = toggleHtml("news", "Player News", injCount, true)
+      + toggleHtml("bait", "On The Block", baitCount, false)
+      + toggleHtml("waivers", "Waivers", waiverCount, false);
+
+    function panelSection(key, id, inner) {
+      return '<section class="tops-panel" id="' + id + '"'
+        + (state.openPanel === key ? '' : ' hidden') + '>' + inner + '</section>';
+    }
 
     return '<nav class="tops-nav" aria-label="Everything else">' + linkHtml + panelHtml + '</nav>'
-      + '<section class="tops-panel" id="topsNewsPanel" hidden><div data-card="allPlayerNews"></div></section>'
-      + '<section class="tops-panel" id="topsBaitPanel" hidden><div id="topsBaitBody"></div></section>';
+      + panelSection("news", "topsNewsPanel", '<div data-card="allPlayerNews"></div>')
+      + panelSection("bait", "topsBaitPanel", '<div id="topsBaitBody"></div>')
+      + panelSection("waivers", "topsWaiversPanel", '<div id="topsWaiversBody"></div>');
   }
 
   // ---------- Shell ----------
@@ -1778,6 +1870,9 @@
     wireLineupZone();
     wireAttentionZone();
     wireNav();
+    // A re-render (post-write roster reload, refresh) must not collapse the
+    // panel the owner was working in — navHtml already emits it un-hidden.
+    renderOpenPanel();
   }
 
   function renderAttentionZone() {
@@ -1812,6 +1907,19 @@
     });
   }
 
+  // Zone 5 disclosure panels. One table so adding a panel is one row, not
+  // three edits scattered through navHtml + wireNav.
+  var TOPS_PANELS = [
+    { key: "news",    el: "topsNewsPanel",    render: function () { renderAllPlayerNews(); } },
+    { key: "bait",    el: "topsBaitPanel",    render: function () { renderTradeBaitPanel(); } },
+    { key: "waivers", el: "topsWaiversPanel", render: function () { openWaiversPanel(); } }
+  ];
+  function renderOpenPanel() {
+    for (var i = 0; i < TOPS_PANELS.length; i += 1) {
+      if (TOPS_PANELS[i].key === state.openPanel) { TOPS_PANELS[i].render(); return; }
+    }
+  }
+
   function wireNav() {
     var mount = els.mount;
     if (!mount) return;
@@ -1823,13 +1931,12 @@
         mount.querySelectorAll(".tops-nav-toggle").forEach(function (b) {
           b.setAttribute("aria-expanded", b.getAttribute("data-panel") === next ? "true" : "false");
         });
-        var newsPanel = document.getElementById("topsNewsPanel");
-        var baitPanel = document.getElementById("topsBaitPanel");
-        if (newsPanel) newsPanel.hidden = (next !== "news");
-        if (baitPanel) baitPanel.hidden = (next !== "bait");
+        TOPS_PANELS.forEach(function (p) {
+          var node = document.getElementById(p.el);
+          if (node) node.hidden = (p.key !== next);
+        });
         // Lazy first render — a collapsed panel never costs a worker call.
-        if (next === "news") renderAllPlayerNews();
-        if (next === "bait") renderTradeBaitPanel();
+        renderOpenPanel();
       });
     });
   }
@@ -2145,6 +2252,1556 @@
     });
   }
 
+  // ---------- Waivers panel (Zone 5) ----------
+  //
+  // Replaces the old "Add / Drop" nav pill — which was a bare link out to
+  // MFL's native page — with a real in-app surface over the worker's waiver
+  // contract:
+  //
+  //   GET  /api/waivers/state      window + limits + MFL's WAIVER_* calendar
+  //   GET  /api/waivers/pending    the viewer's live claims, grouped by round
+  //   POST /api/waivers/bbid-plan  writes the rounds it is GIVEN (see below)
+  //   POST /api/waivers/fcfs       a direct first-come-first-served add
+  //
+  // CONTRACT v2 — the four rules this panel is built on:
+  //  1. "empty" is never "unknown". Every claim read carries { known, rounds }.
+  //     known:false + rounds:null means MFL went unread; the panel KEEPS the
+  //     owner's local draft and says so. Adopting a known:false answer would
+  //     wipe live, cap-spending claims off the screen.
+  //  2. Clearing a round is EXPLICIT. A round in the payload with picks:[] is
+  //     cleared at MFL; a round absent from the payload is left alone. So the
+  //     save writes only what is on screen and never mass-clears by omission.
+  //  3. A dry run writes nothing, so it verifies nothing: it returns
+  //     would_write (a preview) and never touches the local plan.
+  //  4. window.mode is decided by the WORKER — "bbid" | "fcfs" | "blackout" |
+  //     "closed" — and rendered verbatim. This file never re-derives the mode
+  //     from next_bbid_run_unix (a future BBID run exists all through the FCFS
+  //     window, so any local guess is wrong).
+  //  5. write_enabled mirrors WAIVERS_INAPP_ENABLED. When it is false there is
+  //     no submit control at all — never a button whose only outcome is a 503.
+  //  6. Cap room and roster headroom are ADVISORY. Nothing we compute locally
+  //     ever disables a submit; MFL enforces the real limits at award time.
+  //
+  // The league runs MFL waiver type BBID_FCFS with conditional blind bidding.
+  // EVERY window fact rendered here is mirrored from that payload: this file
+  // never re-derives a waiver schedule, never invents a rejection reason (MFL's
+  // own sentence is surfaced verbatim), and never writes salary or contract
+  // fields — MFL's league-default salary row already stamps a waiver add as a
+  // 1-year "WW" contract at the winning bid.
+  //
+  // AWARDED claims are deliberately NOT rendered here. They already land in
+  // the League Pulse feed as BBID_WAIVER rows with their BB_<amount> token
+  // decoded (TXN_TAG / decodeAssetTokens above) — one feed, one truth.
+  //
+  // The native page stays one click away in the panel header; when a write
+  // comes back 503 waivers_inapp_disabled we surface the worker's native_link.
+
+  // MFL's live league export is the only authority on the bid rules. These
+  // numbers exist ONLY so a number input never renders with min="0"/step="0";
+  // they are never shown as fact and never gate a plan. When `known` is false
+  // the bid editor is suppressed instead (see waiverLimits below) — an owner
+  // must not compose a plan against constants we invented.
+  var WAIVER_FALLBACK = { min: 1000, step: 1000, maxRounds: 8 };
+  var WAIVER_SEARCH_MAX = 25;
+  var WAIVER_NATIVE_PATH = "/add_drop";
+
+  function waiverLimits() {
+    var lim = (state.waiverState && state.waiverState.limits) || {};
+    var min = Number(lim.bbid_minimum);
+    var step = Number(lim.bbid_increment);
+    var rounds = Number(lim.max_rounds);
+    // `limits.known` is the WORKER's own answer to "did MFL's league export
+    // actually give us these three numbers?" — grep-verified in
+    // /api/waivers/state, where every unread limit is now NULL rather than a
+    // plausible default. It is the only honest source: a local min>0 && step>0
+    // test cannot tell a value MFL reported from one the server invented, which
+    // is precisely how this surface used to render a bid editor built on
+    // constants nobody read. STRICT true, and the shape must still hold.
+    var known = lim.known === true && min > 0 && step > 0 && rounds > 0;
+    return {
+      known: known,
+      min: known ? min : WAIVER_FALLBACK.min,
+      step: known ? step : WAIVER_FALLBACK.step,
+      maxRounds: known ? rounds : WAIVER_FALLBACK.maxRounds,
+      // MFL not saying whether conditional bidding is on is NOT the same as it
+      // being off, so the flag is only rendered when it was actually read.
+      conditional: lim.conditional === true,
+      conditionalKnown: lim.conditional === true || lim.conditional === false
+    };
+  }
+  // MFL's league waiver TYPE, shown only when MFL actually reported it. The
+  // worker sends waiver_type:null + waiver_type_known:false when its league
+  // export didn't answer — it used to hardcode "BBID_FCFS" — so defaulting to
+  // that string here would just move the guess onto our side of the wire.
+  function waiverTypeLabel() {
+    var s = state.waiverState;
+    if (!s) return "Waiver type unread";
+    if (s.waiver_type_known === true && safeStr(s.waiver_type)) return safeStr(s.waiver_type);
+    // Back-compat with a worker that predates waiver_type_known: there, the
+    // top-level `mode` really was the league's type.
+    if (s.waiver_type_known === undefined && safeStr(s.mode)) return safeStr(s.mode);
+    return "Waiver type unread";
+  }
+  function waiverWindow() {
+    return (state.waiverState && state.waiverState.window) || {};
+  }
+  // Contract v2 §4 — the SERVER decides the mode; we only render it. "" means
+  // /state has not answered (or answered with something we don't recognise),
+  // and an unknown mode offers no write control at all.
+  function waiverMode() {
+    var m = safeStr(waiverWindow().mode).toLowerCase();
+    return (m === "bbid" || m === "fcfs" || m === "blackout" || m === "closed") ? m : "";
+  }
+  // Contract v2 §5 — the live value of WAIVERS_INAPP_ENABLED. Anything other
+  // than an explicit true is read as "off", so a stale worker that doesn't send
+  // the field degrades to the read-only view rather than to guaranteed 503s.
+  function waiverWriteEnabled() {
+    return !!(state.waiverState && state.waiverState.write_enabled === true);
+  }
+  function waiverCanBid() {
+    return waiverWriteEnabled() && waiverMode() === "bbid" && waiverLimits().known;
+  }
+  function waiverCanFcfs() {
+    return waiverWriteEnabled() && waiverMode() === "fcfs";
+  }
+  // Why a write surface is NOT on screen, in one plain sentence. Returns "" when
+  // the surface is available. `which` is "bbid" or "fcfs".
+  function waiverGateNote(which) {
+    if (!state.waiverState) return "Couldn’t read the waiver window from MFL, so nothing can be sent from here. Reload to try again.";
+    if (!waiverWriteEnabled()) return "In-app waiver writes are switched off right now. Use MFL’s own waiver page (link above).";
+    var mode = waiverMode();
+    if (mode === "blackout") return "MFL’s calendar has add/drops blacked out right now — nothing can be sent until the blackout lifts.";
+    if (mode === "closed") return "Waivers are not open on MFL’s calendar yet.";
+    if (which === "bbid") {
+      if (mode === "fcfs") return "Waivers are in first-come-first-served mode — MFL is not taking blind bids. Use the direct add below.";
+      if (mode !== "bbid") return "Couldn’t read the waiver window from MFL, so nothing can be sent from here. Reload to try again.";
+      if (!waiverLimits().known) return "Couldn’t read the league’s bid minimum, increment and round count from MFL, so the bid editor is off. Reload to try again.";
+      return "";
+    }
+    if (mode === "bbid") return "The blind-bid window is open — claims go through the plan above. Direct adds come back when waivers clear.";
+    if (mode !== "fcfs") return "Couldn’t read the waiver window from MFL, so nothing can be sent from here. Reload to try again.";
+    return "";
+  }
+  function waiverNativeLink() {
+    return state.waiverNativeLink || mflPageUrl(WAIVER_NATIVE_PATH);
+  }
+
+  // Prefer the WORKER's clock (state.now_unix) over the browser's so a skewed
+  // local clock can't make a live run read as expired. Advance it by the wall
+  // time elapsed since the payload landed.
+  function waiverNowUnix() {
+    var browserNow = Math.floor(Date.now() / 1000);
+    var s = state.waiverState;
+    if (!s || !Number(s.now_unix)) return browserNow;
+    var drift = state.waiverStateFetchedAt ? (browserNow - state.waiverStateFetchedAt) : 0;
+    return Number(s.now_unix) + Math.max(0, drift);
+  }
+  // Waiver runs are scheduled in Eastern and owners are spread across time
+  // zones, so every stamp we format ourselves is pinned to ET. (The NEXT run
+  // uses the worker's own next_bbid_run_label when it sends one.)
+  function fmtEtStamp(unix) {
+    var n = Number(unix || 0);
+    if (!isFinite(n) || n <= 0) return "—";
+    var d = new Date(n * 1000);
+    if (isNaN(d.getTime())) return "—";
+    try {
+      return d.toLocaleString("en-US", {
+        timeZone: "America/New_York",
+        weekday: "short", month: "short", day: "numeric",
+        hour: "numeric", minute: "2-digit"
+      }) + " ET";
+    } catch (e) {
+      return d.toLocaleString();
+    }
+  }
+  function waiverCountdown(unix) {
+    var secs = Number(unix || 0) - waiverNowUnix();
+    if (!isFinite(secs)) return "";
+    if (secs <= 0) return "now";
+    var d = Math.floor(secs / 86400);
+    var h = Math.floor((secs % 86400) / 3600);
+    var m = Math.floor((secs % 3600) / 60);
+    if (d > 0) return "in " + d + "d " + h + "h";
+    if (h > 0) return "in " + h + "h " + m + "m";
+    return "in " + Math.max(1, m) + "m";
+  }
+
+  // MFL's own words win. The worker's 502 shape puts a machine code in
+  // `error` ("mfl_reject" / "verify_mismatch") and MFL's actual sentence in
+  // `mfl_response` — e.g. "According to the League Calendar You May Not Do
+  // Add/Drops At This Time." Prefer the latter, verbatim; never paraphrase.
+  function waiverErrorText(resp, fallback) {
+    var body = resp && resp.body;
+    var mr = body && body.mfl_response;
+    if (mr) {
+      if (typeof mr === "string" && mr.trim()) return stripMflErrorMarkup(mr);
+      if (typeof mr === "object") {
+        if (mr.error && typeof mr.error === "object" && mr.error.$t) return String(mr.error.$t);
+        if (typeof mr.error === "string" && mr.error.trim()) return mr.error;
+      }
+    }
+    return extractMflError(resp, fallback);
+  }
+  function stripMflErrorMarkup(s) {
+    return String(s)
+      .replace(/<\/?error>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 300);
+  }
+
+  // WHY a claim read came back unknown, in the worker's own words.
+  //
+  // The normalizer raises a shape complaint when MFL answers with a populated
+  // payload it cannot read, and the reader raises its own when the export
+  // doesn't answer at all. FIELD NAMES, grep-verified against the worker:
+  //   /api/waivers/pending  → `normalize_warning` (canonical) + `warning` (alias)
+  //   /api/waivers/state    → viewer.`normalize_warning` (canonical)
+  //                           + viewer.`pending_warning` (alias)
+  // All three carry the identical string, so reading them in order works on
+  // either route and survives whichever alias a future worker retires. That
+  // explanation is the entire point of the warning: without it the owner is
+  // told "couldn't read your claims" and nothing else. `mfl_status` /
+  // `mfl_response` are the fallback when the export itself blew up and there
+  // is no normalizer complaint to quote.
+  function waiverUnknownWhy(body) {
+    if (!body) return "";
+    var why = safeStr(body.normalize_warning) || safeStr(body.warning) || safeStr(body.pending_warning);
+    if (why) return why;
+    var mr = body.mfl_response;
+    if (typeof mr === "string" && mr.trim()) return stripMflErrorMarkup(mr);
+    var st = Number(body.mfl_status || 0);
+    if (st) return "MFL answered HTTP " + st + ".";
+    return "";
+  }
+  function waiverUnknownText(body) {
+    var why = waiverUnknownWhy(body);
+    return "Couldn’t read your claims from MFL — showing your local draft."
+      + (why ? " " + why : "");
+  }
+
+  // ── plan model ──
+  function waiverPlanRounds() {
+    if (!Array.isArray(state.waiverPlan)) state.waiverPlan = [];
+    return state.waiverPlan;
+  }
+  function waiverPlanRound(n, create) {
+    var rounds = waiverPlanRounds();
+    for (var i = 0; i < rounds.length; i += 1) {
+      if (Number(rounds[i].round) === Number(n)) return rounds[i];
+    }
+    if (!create) return null;
+    var fresh = { round: Number(n), picks: [] };
+    rounds.push(fresh);
+    rounds.sort(function (a, b) { return a.round - b.round; });
+    return fresh;
+  }
+  // Any structural or value edit invalidates the last dry-run preview — it
+  // described a payload that no longer exists. Drop the node too, because the
+  // bid input deliberately edits state WITHOUT a re-render.
+  function waiverPlanTouched() {
+    state.waiverPlanDirty = true;
+    state.waiverWouldWrite = null;
+    var node = document.getElementById("topsWaiverPreview");
+    if (node && node.parentNode) node.parentNode.removeChild(node);
+  }
+  // The rounds MFL is actually holding, per the last KNOWN read. Empty when we
+  // have not read MFL — never confuse the two.
+  function waiverPendingRounds() {
+    if (!state.waiverPendingKnown || !state.waiverPending) return [];
+    return waiverRoundsFrom(state.waiverPending.rounds);
+  }
+  // Deep copy into the contract's own shape. Used to seed the editor from a
+  // KNOWN /pending read and to re-seed it from a save's `verified` block when
+  // that block reports known:true, so an edit can never mutate the
+  // last-known-good server response.
+  function waiverRoundsFrom(src) {
+    return asArray(src).map(function (r) {
+      return {
+        round: Number(r && r.round) || 0,
+        picks: asArray(r && r.picks).map(function (p) {
+          return {
+            add_pid: String((p && p.add_pid) || ""),
+            bid_dollars: Number((p && p.bid_dollars) || 0),
+            drop_pid: (p && p.drop_pid) ? String(p.drop_pid) : null
+          };
+        })
+      };
+    }).filter(function (r) { return r.round > 0; })
+      .sort(function (a, b) { return a.round - b.round; });
+  }
+
+  // ── free-agent index (no extra round trip) ──
+  // Free agent = a player in MFL's index that no franchise rosters. Built
+  // lazily off data the hub already loaded (players + rosters). Invalidated
+  // after a successful FCFS add so the added player leaves the pool.
+  var _waiverFaCache = null;
+  function waiverFreeAgents() {
+    if (_waiverFaCache) return _waiverFaCache;
+    var rostered = {};
+    asArray(state.rosters && state.rosters.rosters && state.rosters.rosters.franchise).forEach(function (f) {
+      asArray(f.player).forEach(function (p) { rostered[String(p.id)] = true; });
+    });
+    var idx = getAllPlayerIndex();
+    var out = [];
+    Object.keys(idx.byPid).forEach(function (pid) {
+      if (rostered[pid]) return;
+      var r = idx.byPid[pid];
+      out.push({
+        pid: pid,
+        name: prettyPlayerName(r.name) || ("Player #" + pid),
+        pos: safeStr(r.position).toUpperCase(),
+        team: safeStr(r.team).toUpperCase()
+      });
+    });
+    out.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    _waiverFaCache = out;
+    return out;
+  }
+  function waiverSearchHits(q) {
+    var needle = safeStr(q).toLowerCase();
+    if (needle.length < 2) return [];
+    var pool = waiverFreeAgents();
+    var out = [];
+    for (var i = 0; i < pool.length && out.length < WAIVER_SEARCH_MAX; i += 1) {
+      var r = pool[i];
+      if (r.name.toLowerCase().indexOf(needle) !== -1
+        || r.pos.toLowerCase() === needle
+        || r.team.toLowerCase() === needle) out.push(r);
+    }
+    return out;
+  }
+  // A claim can name a player who is NOT a free agent right now (he was when
+  // the claim was filed, or he's mid-waiver), so resolve labels from the full
+  // player index rather than the FA pool.
+  function waiverPlayerLabel(pid) {
+    if (!pid) return "—";
+    var p = playerById(pid);
+    if (!p) return "Player #" + pid;
+    var bits = [safeStr(p.position).toUpperCase(), safeStr(p.team).toUpperCase()].filter(Boolean);
+    return prettyPlayerName(p.name) + (bits.length ? " (" + bits.join(" · ") + ")" : "");
+  }
+
+  // ── reads ──
+  function waiverApiUrl(path) {
+    var ctx = state.ctx || {};
+    return appendViewerSessionQuery(
+      workerUrl(path)
+      + "?L=" + encodeURIComponent(ctx.leagueId)
+      + "&YEAR=" + encodeURIComponent(ctx.year)
+    );
+  }
+  function waiverFetchJson(url, opts) {
+    return fetch(url, opts).then(function (r) {
+      return r.json()
+        .then(function (j) { return { status: r.status, body: j }; })
+        .catch(function () { return { status: r.status, body: null }; });
+    });
+  }
+
+  function loadWaiverState(force) {
+    if (state.waiverStateLoading) return;
+    if (state.waiverState && !force) return;
+    state.waiverStateLoading = true;
+    waiverFetchJson(waiverApiUrl("/api/waivers/state"), { cache: "no-store" })
+      .then(function (resp) {
+        if (resp.body && resp.body.ok) {
+          state.waiverState = resp.body;
+          state.waiverStateFetchedAt = Math.floor(Date.now() / 1000);
+          state.waiverStateError = "";
+        } else {
+          state.waiverStateError = waiverErrorText(resp, "Could not read the waiver window");
+        }
+      })
+      .catch(function (e) {
+        state.waiverStateError = "Waiver window unavailable: " + (e && e.message ? e.message : String(e));
+      })
+      .then(function () {
+        state.waiverStateLoading = false;
+        refreshWaiverNavBadge();
+        if (state.openPanel === "waivers") renderWaiversPanel();
+      });
+  }
+
+  function loadWaiverPending(force) {
+    if (state.waiverPendingLoading) return;
+    if (state.waiverPending && !force) return;
+    state.waiverPendingLoading = true;
+    waiverFetchJson(waiverApiUrl("/api/waivers/pending"), { cache: "no-store" })
+      .then(function (resp) {
+        var body = resp && resp.body;
+        // Contract v2 §1. `known:true` is the ONLY answer we adopt: it means the
+        // export was read and parsed, so rounds:[] genuinely is "no claims".
+        // `known:false` means MFL went unread — adopting it would blank a live,
+        // cap-spending plan off the owner's screen. Keep the local draft, and
+        // let the panel say plainly that nothing on it is confirmed.
+        if (body && body.ok && body.known === true && Array.isArray(body.rounds)) {
+          state.waiverPending = body;
+          state.waiverPendingKnown = true;
+          state.waiverPendingError = "";
+          // Seed the editor from what is LIVE at MFL — but never clobber
+          // edits the owner has already made in this session.
+          if (!state.waiverPlanDirty) state.waiverPlan = waiverRoundsFrom(body.rounds);
+        } else if (body && body.ok) {
+          // known:false. The worker sent its own explanation on `warning` —
+          // surface it verbatim instead of the generic sentence, because that
+          // text is the only thing telling the owner WHAT went wrong.
+          state.waiverPending = null;
+          state.waiverPendingKnown = false;
+          state.waiverPendingError = waiverUnknownText(body);
+        } else if (resp && resp.status === 401) {
+          state.waiverPending = null;
+          state.waiverPendingKnown = false;
+          state.waiverPendingError = "Sign in to MFL to see and edit your claims.";
+        } else {
+          state.waiverPending = null;
+          state.waiverPendingKnown = false;
+          state.waiverPendingError = waiverErrorText(resp, "Could not read your pending claims");
+        }
+      })
+      .catch(function (e) {
+        state.waiverPending = null;
+        state.waiverPendingKnown = false;
+        state.waiverPendingError = "Pending claims unavailable: " + (e && e.message ? e.message : String(e));
+      })
+      .then(function () {
+        state.waiverPendingLoading = false;
+        refreshWaiverNavBadge();
+        if (state.openPanel === "waivers") renderWaiversPanel();
+      });
+  }
+
+  // ── nav badge ──
+  // Targeted DOM poke rather than a full renderHub, so loading the waiver
+  // state can't blow away whatever panel the owner has open.
+  //
+  // Counts only what we have actually READ from MFL (contract v2 §1). An
+  // unknown read shows NO badge — never a confident zero, never a stale count.
+  // Two possible sources, in this order:
+  //   1. our own /api/waivers/pending read (state.waiverPendingKnown), which is
+  //      re-seeded from `verified` after every save and is therefore the fresher
+  //      of the two;
+  //   2. the /api/waivers/state envelope's per-owner `viewer` block.
+  // The viewer flag is `pending_known` — NOT `known`. Reading the wrong name
+  // made this guard dead code: `undefined !== false` is always true, so an
+  // unknown count would have been rendered as fact the moment the worker sent
+  // one. STRICT true only, on the name the worker actually emits.
+  function waiverNavBadgeCount() {
+    if (state.waiverPendingKnown) {
+      return waiverPendingRounds().reduce(function (n, r) { return n + r.picks.length; }, 0);
+    }
+    var v = state.waiverState && state.waiverState.viewer;
+    if (v && v.pending_known === true && Number(v.pending_pick_count) > 0) {
+      return Number(v.pending_pick_count);
+    }
+    return 0;
+  }
+  function refreshWaiverNavBadge() {
+    var btn = document.querySelector('.tops-nav-toggle[data-panel="waivers"]');
+    if (!btn) return;
+    var n = waiverNavBadgeCount();
+    var badge = btn.querySelector(".tops-badge");
+    if (!n) {
+      if (badge && badge.parentNode) badge.parentNode.removeChild(badge);
+      return;
+    }
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "tops-badge";
+      btn.appendChild(badge);
+    }
+    badge.textContent = String(n);
+  }
+
+  // ── writes ──
+  //
+  // SIDE EFFECT — WRITES REAL MFL DATA. submitWaiverPlan POSTs the rounds that
+  // are ON SCREEN and nothing else (contract v2 §2): a round carrying claims is
+  // replaced at MFL, a round carrying an EMPTY picks[] is cleared at MFL, and a
+  // round we don't send is left exactly as MFL has it. The worker replays them
+  // in order and reads MFL back; we re-render from its `verified` block only
+  // when that read-back actually succeeded (verified.known === true).
+  //
+  // No cap check gates this. MFL enforces the $300K cap natively at award
+  // time; the cap line in the panel is advisory only.
+  function submitWaiverPlan(dryRun) {
+    if (state.waiverSubmitting) return;
+    // A live save needs a KNOWN picture of what MFL holds — otherwise we can't
+    // honestly tell the owner what the write will change (contract v2 §1/§2).
+    // Dry runs write nothing, so they stay available.
+    if (!dryRun && (!waiverCanBid() || !state.waiverPendingKnown)) return;
+    if (dryRun && !waiverCanBid()) return;
+    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    if (!fid) return;
+    var rounds = waiverPlanRounds().map(function (r) {
+      return {
+        round: Number(r.round),
+        picks: asArray(r.picks).map(function (p) {
+          return {
+            add_pid: String(p.add_pid),
+            bid_dollars: Number(p.bid_dollars || 0),
+            drop_pid: p.drop_pid ? String(p.drop_pid) : null
+          };
+        })
+      };
+    });
+    state.waiverSubmitting = true;
+    state.waiverWarnings = [];
+    state.waiverMessage = { kind: "info", text: dryRun ? "Dry-running the plan…" : "Writing the plan to MFL…" };
+    renderWaiversPanel();
+
+    waiverFetchJson(waiverApiUrl("/api/waivers/bbid-plan"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ franchise_id: fid, rounds: rounds, dry_run: !!dryRun })
+    })
+      .then(function (resp) { applyWaiverPlanResponse(resp, !!dryRun); })
+      .catch(function (e) {
+        state.waiverMessage = { kind: "err", text: "Submit failed: " + (e && e.message ? e.message : String(e)) };
+      })
+      .then(function () {
+        state.waiverSubmitting = false;
+        renderWaiversPanel();
+        refreshWaiverNavBadge();
+      });
+  }
+
+  // ── dry-run preview (contract v2 §3) ──
+  // `would_write` echoes exactly what a LIVE run would send: the rounds it
+  // would replace, and the rounds it would clear. Nothing here is server truth
+  // and none of it touches state.waiverPlan.
+  function waiverWouldWriteFrom(src) {
+    if (!src) return null;
+    return {
+      rounds: waiverRoundsFrom(src.rounds),
+      cleared_rounds: asArray(src.cleared_rounds)
+        .map(Number)
+        .filter(function (n) { return n > 0; })
+        .sort(function (a, b) { return a - b; })
+    };
+  }
+  function waiverWouldWriteSummary(w) {
+    if (!w) return "MFL sent no preview back.";
+    var bits = [];
+    if (w.rounds.length) {
+      bits.push("replace round" + (w.rounds.length > 1 ? "s" : "") + " "
+        + w.rounds.map(function (r) { return r.round; }).join(", "));
+    }
+    if (w.cleared_rounds.length) {
+      bits.push("clear round" + (w.cleared_rounds.length > 1 ? "s" : "") + " " + w.cleared_rounds.join(", "));
+    }
+    if (!bits.length) return "A live save would change nothing.";
+    return "A live save would " + bits.join(" and ") + " — every other round untouched.";
+  }
+  function waiverWouldWriteHtml() {
+    var w = state.waiverWouldWrite;
+    if (!w) return "";
+    var rows = w.rounds.map(function (r) {
+      var what = r.picks.length
+        ? r.picks.map(function (p) {
+            return escapeHtml(waiverPlayerLabel(p.add_pid)) + " " + escapeHtml(fmtUsd(Number(p.bid_dollars || 0)))
+              + (p.drop_pid ? " / drop " + escapeHtml(waiverPlayerLabel(p.drop_pid)) : "");
+          }).join(", ")
+        : "cleared at MFL";
+      return '<li><b>Round ' + r.round + '</b> — ' + what + '</li>';
+    });
+    w.cleared_rounds.forEach(function (n) {
+      rows.push('<li><b>Round ' + n + '</b> — cleared at MFL</li>');
+    });
+    return '<div class="tops-wv-preview" id="topsWaiverPreview">'
+      + '<div class="tops-wv-preview-h">Dry run — nothing was written</div>'
+      + (rows.length
+          ? '<ul class="tops-wv-preview-list">' + rows.join("") + '</ul>'
+          : '<div class="tops-note">A live save would change nothing.</div>')
+      + '<div class="tops-note">This is what a live save would send. Rounds not listed stay exactly as MFL has them.</div>'
+      + '</div>';
+  }
+
+  function applyWaiverPlanResponse(resp, dryRun) {
+    var body = resp && resp.body;
+    if (body && body.ok) {
+      state.waiverWarnings = asArray(body.warnings);
+
+      // Contract v2 §3 — a dry run wrote NOTHING, so it verifies nothing. It
+      // must never touch the local plan: the v1 bug adopted `verified`, which
+      // on a dry run is MFL's PRE-write state, so hitting "Dry run" replaced
+      // the owner's composed plan with whatever MFL already held. The preview
+      // comes from `would_write`, which echoes what a live run would send.
+      if (dryRun || body.dry_run) {
+        state.waiverWouldWrite = waiverWouldWriteFrom(body.would_write);
+        state.waiverMessage = {
+          kind: "info",
+          text: "[DRY RUN] Nothing was written to MFL. " + waiverWouldWriteSummary(state.waiverWouldWrite)
+        };
+        return;
+      }
+
+      state.waiverWouldWrite = null;
+      var verified = body.verified || {};
+      var bits = [];
+      var written = asArray(body.rounds_written);
+      var cleared = asArray(body.rounds_cleared);
+      if (written.length) bits.push("round" + (written.length > 1 ? "s" : "") + " " + written.join(", ") + " written");
+      if (cleared.length) bits.push("round" + (cleared.length > 1 ? "s" : "") + " " + cleared.join(", ") + " cleared");
+
+      if (verified.known === true && Array.isArray(verified.rounds)) {
+        // Re-render from MFL's read-back, not from the draft we sent.
+        state.waiverPlan = waiverRoundsFrom(verified.rounds);
+        state.waiverPending = {
+          ok: true,
+          known: true,
+          franchise_id: body.franchise_id || (state.waiverPending && state.waiverPending.franchise_id) || "",
+          rounds: waiverRoundsFrom(verified.rounds)
+        };
+        state.waiverPendingKnown = true;
+        state.waiverPendingError = "";
+        state.waiverPlanDirty = false;
+        bits.push(plural(Number(body.picks_total || 0), "claim") + " live");
+        state.waiverMessage = { kind: "ok", text: "Plan saved — " + bits.join(" · ") };
+        return;
+      }
+
+      // The write went through but MFL could not be read back. Keep the local
+      // plan (§1) and never present it as confirmed.
+      state.waiverPendingKnown = false;
+      state.waiverPendingError = "Couldn’t read your claims back from MFL after the save — showing your local draft.";
+      state.waiverMessage = {
+        kind: "info",
+        text: "Plan sent" + (bits.length ? " — " + bits.join(" · ") : "")
+          + ". MFL could not be read back, so nothing on screen is confirmed — re-read, or check MFL’s own waiver page."
+      };
+      return;
+    }
+
+    state.waiverWarnings = [];
+    state.waiverWouldWrite = null;
+    if (resp && resp.status === 503) {
+      state.waiverNativeLink = safeStr(body && body.native_link) || mflPageUrl(WAIVER_NATIVE_PATH);
+      state.waiverMessage = { kind: "err", text: "In-app waiver writes are switched off. Use MFL's own waiver page (link above)." };
+      return;
+    }
+    if (resp && resp.status === 401) {
+      state.waiverMessage = { kind: "err", text: "Sign in to MFL first — the worker never saw your session cookie." };
+      return;
+    }
+    if (resp && resp.status === 403) {
+      state.waiverMessage = {
+        kind: "err",
+        text: "MFL says this session is franchise " + safeStr(body && body.detected_franchise) + ", not " + state.viewerFranchiseId + "."
+      };
+      return;
+    }
+    if (resp && resp.status === 400 && body && Array.isArray(body.details) && body.details.length) {
+      state.waiverMessage = {
+        kind: "err",
+        text: body.details.map(function (d) {
+          var where = (d && d.round) ? ("R" + d.round + (d.add_pid ? " " + waiverPlayerLabel(d.add_pid) : "") + ": ") : "";
+          return where + safeStr(d && (d.message || d.code));
+        }).join(" · ")
+      };
+      return;
+    }
+    // "The write failed" and "we could not confirm the write" are different
+    // facts and demand opposite reactions from the owner.
+    //   mfl_reject      → MFL refused the import. Nothing landed; retrying is
+    //                     the right move, and MFL's own sentence says why.
+    //   verify_mismatch → MFL ACCEPTED every write and the read-back disagreed
+    //                     with what we sent. Those claims are live at MFL in
+    //                     some form, so a resend is how an owner ends up with a
+    //                     plan they never composed. Never call this a rejection
+    //                     and never invite a retry.
+    // Whether re-sending is safe is the WORKER's call, not ours — it is the only
+    // side that knows what actually landed. `retry_safe` is grep-verified on
+    // this envelope; a plan write is idempotent (every round goes out with
+    // REPLACE=1), so it is true here, but we read the flag rather than assume it.
+    if (resp && resp.status === 502 && body && body.error === "verify_mismatch") {
+      state.waiverMessage = {
+        kind: "err",
+        text: "MFL accepted the write, but reading your claims back showed something different from what was sent. "
+          + (body.retry_safe === true
+              ? "Each round is written with REPLACE, so saving again is safe — check MFL’s waiver page first, then “Re-read from MFL”."
+              : "Do NOT re-save — your claims are live at MFL in some form. Check MFL’s waiver page, then “Re-read from MFL”.")
+      };
+      return;
+    }
+    // A 502 mfl_reject can still be a PARTIAL apply. Rounds post one at a time,
+    // so a refusal on round 3 leaves rounds 1-2 live at MFL as real, cap-spending
+    // claims; the worker names them in rounds_written / rounds_cleared. Those
+    // keys were previously read only inside the ok branch above, so this path
+    // dropped them and reported a flat rejection — inviting a re-save on top of
+    // claims that already exist.
+    var partWrote = asArray(body && body.rounds_written);
+    var partCleared = asArray(body && body.rounds_cleared);
+    var partAll = partWrote.concat(partCleared).sort(function (a, b) { return a - b; });
+    if (partAll.length) {
+      state.waiverMessage = {
+        kind: "err",
+        text: "Partly saved. Round" + (partAll.length > 1 ? "s " : " ") + partAll.join(", ")
+          + " already went through at MFL"
+          + (body.failed_round ? " before round " + body.failed_round + " was refused" : "")
+          + ": " + waiverErrorText(resp, "MFL rejected the rest of the plan")
+          + " Do NOT re-save — check MFL’s waiver page, then “Re-read from MFL”."
+      };
+      return;
+    }
+    // Everything else — a clean rejection with nothing written — gets MFL's own sentence.
+    state.waiverMessage = { kind: "err", text: waiverErrorText(resp, "MFL rejected the plan") };
+  }
+
+  // SIDE EFFECT — WRITES REAL MFL DATA. A first-come-first-served add. The
+  // add lands as MFL's league-default 1-year "WW" contract at $1K, so there
+  // is no contract work to do on our side; the worker returns its own
+  // contract_note and we show it verbatim.
+  function submitWaiverFcfs(dryRun) {
+    if (state.waiverFcfsSubmitting) return;
+    // The direct-add controls only exist in the FCFS window (contract v2 §4/§5);
+    // belt and braces so a stale DOM node can't fire a guaranteed rejection.
+    if (!waiverCanFcfs()) return;
+    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    var draft = state.waiverFcfs || {};
+    if (!fid || !draft.addPid) return;
+    state.waiverFcfsSubmitting = true;
+    state.waiverFcfsMessage = { kind: "info", text: dryRun ? "Dry-running the add…" : "Sending the add to MFL…" };
+    renderWaiversPanel();
+
+    waiverFetchJson(waiverApiUrl("/api/waivers/fcfs"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({
+        franchise_id: fid,
+        add_pid: String(draft.addPid),
+        drop_pids: asArray(draft.dropPids).map(String).filter(Boolean),
+        dry_run: !!dryRun
+      })
+    })
+      .then(function (resp) {
+        var body = resp && resp.body;
+        if (body && body.ok) {
+          var note = safeStr(body.contract_note);
+          var isDry = dryRun || body.dry_run;
+          // P2 — "submitted" and "confirmed" are different facts, and this route
+          // now says which one you have. A LIVE 200 with verified:false means
+          // MFL accepted the write but the roster read-back that confirms it
+          // failed (`verified` / `verify_known` / `retry_safe:false` —
+          // grep-verified in /api/waivers/fcfs). Reporting that as "Added ✓"
+          // claims a check we never completed; worse, an owner who doubts it
+          // sends the add again, and an add/cut is not idempotent.
+          // `roster_verified` is the worker's retained alias for `verified`.
+          var confirmed = body.verified === true || body.roster_verified === true;
+          if (!isDry && !confirmed) {
+            state.waiverNativeLink = safeStr(body.native_link) || state.waiverNativeLink;
+            state.waiverFcfsMessage = {
+              kind: "err",
+              text: safeStr(body.message)
+                || "MFL accepted the move but it could not be confirmed on your roster. "
+                   + "Check MFL’s add/drop page before doing anything else — do not send it again."
+            };
+          } else {
+            state.waiverFcfsMessage = {
+              kind: "ok",
+              text: (isDry ? "[DRY RUN] " : "")
+                + "Added " + waiverPlayerLabel(body.added || draft.addPid)
+                + (asArray(body.dropped).length ? " · dropped " + asArray(body.dropped).map(waiverPlayerLabel).join(", ") : "")
+                + (note ? " — " + note : "")
+            };
+          }
+          if (!dryRun && !body.dry_run) {
+            // Cleared on the UNCONFIRMED path too, and deliberately: the add may
+            // well have landed, so the selection must not sit there with a live
+            // "Add now" button inviting a second, duplicating send.
+            state.waiverFcfs = null;
+            state.waiverFcfsSearch = "";
+            // Roster + free-agent pool both moved. Reload MFL's exports so the
+            // cap tiles, roster shape and FA search all agree again. The panel
+            // survives the re-render (renderHub → renderOpenPanel).
+            _waiverFaCache = null;
+            loadAllData()
+              .then(function () { _waiverFaCache = null; renderAll(); })
+              .catch(function () { renderWaiversPanel(); });
+          }
+          return;
+        }
+        if (resp && resp.status === 503) {
+          state.waiverNativeLink = safeStr(body && body.native_link) || mflPageUrl(WAIVER_NATIVE_PATH);
+          state.waiverFcfsMessage = { kind: "err", text: "In-app adds are switched off. Use MFL's own add/drop page (link above)." };
+          return;
+        }
+        if (resp && resp.status === 401) {
+          state.waiverFcfsMessage = { kind: "err", text: "Sign in to MFL first — the worker never saw your session cookie." };
+          return;
+        }
+        if (resp && resp.status === 400 && body && Array.isArray(body.details) && body.details.length) {
+          state.waiverFcfsMessage = {
+            kind: "err",
+            text: body.details.map(function (d) { return safeStr(d && (d.message || d.code)); }).join(" · ")
+          };
+          return;
+        }
+        // Same split as the plan save, and it matters more here: an add is NOT
+        // idempotent. `verify_mismatch` means MFL accepted the import and the
+        // roster read-back disagrees; only the worker knows whether any of it
+        // landed, and it says so in `retry_safe` (+ `partial`) with an
+        // owner-facing `message` — all grep-verified on this envelope. We quote
+        // it rather than deciding for ourselves, and we default to the cautious
+        // reading when the flag is absent.
+        if (resp && resp.status === 502 && body && body.error === "verify_mismatch") {
+          state.waiverNativeLink = safeStr(body.native_link) || state.waiverNativeLink;
+          state.waiverFcfsMessage = {
+            kind: "err",
+            text: safeStr(body.message)
+              || (body.retry_safe === true
+                    ? "MFL accepted the add but your roster is unchanged, so nothing took effect. Safe to try again."
+                    : "Part of this move landed at MFL and part did not. Do NOT send it again — "
+                      + "open MFL’s add/drop page (link above) and finish it there.")
+          };
+          return;
+        }
+        state.waiverFcfsMessage = { kind: "err", text: waiverErrorText(resp, "MFL rejected the add") };
+      })
+      .catch(function (e) {
+        state.waiverFcfsMessage = { kind: "err", text: "Add failed: " + (e && e.message ? e.message : String(e)) };
+      })
+      .then(function () {
+        state.waiverFcfsSubmitting = false;
+        if (state.openPanel === "waivers") renderWaiversPanel();
+      });
+  }
+
+  // ── render ──
+  function waiverMsgHtml(msg) {
+    if (!msg) return "";
+    var kind = msg.kind === "ok" ? "is-ok" : (msg.kind === "err" ? "is-err" : "");
+    return '<div class="tops-lineup-msg ' + kind + '">' + escapeHtml(msg.text) + '</div>';
+  }
+
+  // Cap room vs the worst case this plan could cost. ADVISORY ONLY — it never
+  // gates a submit. Conditional bidding means a round can award more than one
+  // claim, so the worst case for a round is the SUM of its bids. Drops and
+  // their cap penalties are deliberately NOT modelled: MFL is the authority
+  // and it enforces the cap natively at award time.
+  function waiverAdvisoryHtml() {
+    var cap = capSummary();
+    var worst = 0, worstRound = 0;
+    waiverPlanRounds().forEach(function (r) {
+      var sum = asArray(r.picks).reduce(function (n, p) { return n + Number(p.bid_dollars || 0); }, 0);
+      if (sum > worst) { worst = sum; worstRound = Number(r.round); }
+    });
+    var over = worst > cap.remain;
+    return '<div class="tops-note' + (over ? ' tops-note--warn' : '') + '" id="topsWaiverAdvisory">'
+      + 'Cap room <b>' + escapeHtml(fmtUsd(cap.remain)) + '</b>. '
+      + (worst > 0
+          ? 'Worst case this plan spends ' + escapeHtml(fmtUsd(worst)) + ' in round ' + worstRound + '. '
+          : 'No bids in the plan yet. ')
+      + (over ? 'That is more than your room — ' : '')
+      + 'Advisory only: MFL enforces the cap and the roster max at award time, and drops are not modelled here.'
+      + '</div>';
+  }
+  function updateWaiverAdvisory() {
+    var node = document.getElementById("topsWaiverAdvisory");
+    if (!node || !node.parentNode) return;
+    var holder = document.createElement("div");
+    holder.innerHTML = waiverAdvisoryHtml();
+    node.parentNode.replaceChild(holder.firstChild, node);
+  }
+
+  function waiverWindowStripHtml() {
+    var w = waiverWindow();
+    var lim = waiverLimits();
+    var cap = capSummary();
+
+    var nextUnix = Number(w.next_bbid_run_unix || 0);
+    var nextLabel = safeStr(w.next_bbid_run_label) || (nextUnix ? fmtEtStamp(nextUnix) : "");
+    var upcoming = asArray(w.bbid_runs_upcoming).map(Number).filter(function (n) { return n > 0; });
+
+    var allowed = w.add_drop_allowed !== false;
+    var blackout = w.blackout && w.blackout.active ? w.blackout : null;
+    var openNow = !!w.waivers_open;
+    // Contract v2 §4 — the worker's own word on what the window is doing.
+    var mode = waiverMode();
+    var MODE_LABEL = { bbid: "Blind bids", fcfs: "First come", blackout: "Blackout", closed: "Closed" };
+    var MODE_NOTE = {
+      bbid: "MFL is taking blind-bid claims",
+      fcfs: "MFL is taking direct adds",
+      blackout: "MFL is taking nothing right now",
+      closed: "Waivers have not opened"
+    };
+
+    return '<div class="tops-strip tops-wv-strip">'
+      + '<div><div class="tops-st-k">Next BBID run</div>'
+      +   '<div class="tops-st-v">' + escapeHtml(nextUnix ? waiverCountdown(nextUnix) : "—") + '</div>'
+      +   '<div class="tops-st-n">' + escapeHtml(nextLabel || "None on MFL’s calendar") + '</div></div>'
+      + '<div><div class="tops-st-k">Window</div>'
+      +   '<div class="tops-st-v">' + escapeHtml(MODE_LABEL[mode] || "Unknown") + '</div>'
+      +   '<div class="tops-st-n' + (mode === "bbid" || mode === "fcfs" ? '' : ' is-flag') + '">'
+      +     escapeHtml(MODE_NOTE[mode] || "Couldn’t read the window from MFL") + '</div></div>'
+      + '<div><div class="tops-st-k">Waivers</div>'
+      +   '<div class="tops-st-v">' + (openNow ? "Open" : "Not yet") + '</div>'
+      +   '<div class="tops-st-n">' + escapeHtml(openNow
+            ? "Bidding is live"
+            : (w.waivers_open_at_unix ? "First run " + fmtEtStamp(w.waivers_open_at_unix) : "First run not scheduled")) + '</div></div>'
+      + '<div><div class="tops-st-k">Add / drops</div>'
+      +   '<div class="tops-st-v">' + (allowed ? "Allowed" : "Blocked") + '</div>'
+      +   '<div class="tops-st-n' + (allowed ? '' : ' is-flag') + '">' + escapeHtml(blackout
+            ? ("Blackout " + fmtEtStamp(blackout.start_unix) + " → " + fmtEtStamp(blackout.end_unix))
+            : "No blackout in force") + '</div></div>'
+      // Never show a guessed bid rule as fact — if MFL's league export didn't
+      // land, say so (contract v2 §1, same rule as the claim read).
+      + '<div><div class="tops-st-k">Bid rules</div>'
+      +   '<div class="tops-st-v">' + escapeHtml(lim.known ? fmtUsd(lim.min) : "—") + '</div>'
+      +   '<div class="tops-st-n' + (lim.known ? '' : ' is-flag') + '">' + escapeHtml(lim.known
+            ? (fmtUsd(lim.step) + " steps · " + lim.maxRounds + " rounds" + (lim.conditional ? " · conditional" : ""))
+            : "Unread — MFL’s league export didn’t answer") + '</div></div>'
+      // BOTH SIDES OF THIS COMPARISON MUST BE THE SAME BASIS. rosterCaps().max
+      // is the ACTIVE ceiling — canon excludes IR and demoted taxi players from
+      // it — so it can only be read against capSummary().activeCount (roster
+      // minus taxi minus IR). Quoting cap.rosterCount here (which counts taxi
+      // and IR) told an owner with 28 active + 3 IR + 7 taxi "38 rostered ·
+      // max 30": eight over a limit they are two under. Advisory either way.
+      + '<div><div class="tops-st-k">Cap room</div>'
+      +   '<div class="tops-st-v">' + escapeHtml(fmtUsd(cap.remain)) + '</div>'
+      +   '<div class="tops-st-n">' + escapeHtml(cap.activeCount + " active · max " + rosterCaps().max
+            + " (taxi & IR excluded · advisory)") + '</div></div>'
+      + '</div>'
+      + (upcoming.length > 1
+          ? '<div class="tops-note">Runs after this one: '
+            + upcoming.slice(1).map(function (u) { return escapeHtml(fmtEtStamp(u)); }).join(" &middot; ")
+            + '</div>'
+          : '');
+  }
+
+  function waiverCalendarHtml() {
+    var evs = asArray(state.waiverState && state.waiverState.calendar_events)
+      .filter(function (e) { return e && e.type; });
+    if (!evs.length) return "";
+    var now = waiverNowUnix();
+    var future = evs.filter(function (e) {
+      return Number(e.end_unix || e.start_unix || 0) >= now;
+    }).slice(0, 6);
+    if (!future.length) return "";
+    return '<div class="tops-wv-cal">'
+      + '<div class="tops-wv-sub">MFL waiver calendar</div>'
+      + '<ul class="tops-wv-cal-list">'
+      + future.map(function (e) {
+          var span = Number(e.end_unix || 0) > 0
+            ? fmtEtStamp(e.start_unix) + " → " + fmtEtStamp(e.end_unix)
+            : fmtEtStamp(e.start_unix);
+          return '<li><span class="tops-tag-mini">' + escapeHtml(String(e.type).replace(/^WAIVER_/, "")) + '</span> '
+            + escapeHtml(span) + '</li>';
+        }).join("")
+      + '</ul></div>';
+  }
+
+  function waiverDropOptionsHtml(selectedPid) {
+    return buildLineupRows()
+      .slice()
+      .sort(function (a, b) { return a.name.localeCompare(b.name); })
+      .map(function (r) {
+        var label = r.name + " · " + (r.pos || "?") + " · " + fmtUsd(r.salary)
+          + (r.isTaxi ? " · TAXI" : "") + (r.isIr ? " · IR" : "");
+        return '<option value="' + escapeHtml(r.id) + '"'
+          + (String(selectedPid || "") === r.id ? ' selected' : '') + '>'
+          + escapeHtml(label) + '</option>';
+      }).join("");
+  }
+
+  // `editable` is false whenever a save is impossible (writes off, wrong
+  // window, unread bid rules) — the rounds still render, read-only, so the
+  // owner can SEE their live claims instead of an empty box.
+  function waiverPlanHtml(editable) {
+    var lim = waiverLimits();
+    var rounds = waiverPlanRounds();
+    if (!rounds.length) {
+      return '<div class="tops-empty">' + (editable
+        ? 'No claims in the plan. Build one below — nothing reaches MFL until you save.'
+        : 'No claims on file.') + '</div>';
+    }
+    return rounds.map(function (r) {
+      var picks = asArray(r.picks);
+      var body = picks.length
+        ? picks.map(function (p, i) {
+            var label = waiverPlayerLabel(p.add_pid);
+            return '<tr>'
+              + '<td class="tops-wv-ord">' + (i + 1) + '</td>'
+              + '<td><span class="tops-wv-name" tabindex="0" role="button" data-wv-profile="' + escapeHtml(p.add_pid) + '">'
+              +   escapeHtml(label) + '</span></td>'
+              + '<td class="num">' + (editable
+                  ? '<input type="number" class="tops-wv-bid" data-wv-round="' + r.round + '" data-wv-idx="' + i + '"'
+                    + ' min="' + lim.min + '" step="' + lim.step + '" value="' + escapeHtml(String(Number(p.bid_dollars || 0))) + '"'
+                    + ' aria-label="Bid for ' + escapeHtml(label) + '">'
+                  : escapeHtml(fmtUsd(Number(p.bid_dollars || 0)))) + '</td>'
+              + '<td>' + (editable
+                  ? '<select class="tops-wv-drop" data-wv-round="' + r.round + '" data-wv-idx="' + i + '"'
+                    + ' aria-label="Conditional drop"><option value="">No drop</option>'
+                    + waiverDropOptionsHtml(p.drop_pid) + '</select>'
+                  : escapeHtml(p.drop_pid ? waiverPlayerLabel(p.drop_pid) : "No drop")) + '</td>'
+              + '<td class="tops-wv-acts">' + (editable
+                  ? '<button type="button" class="tops-wv-mini" data-wv-move="up" data-wv-round="' + r.round + '" data-wv-idx="' + i + '"'
+                    + (i === 0 ? ' disabled' : '') + ' aria-label="Move up">↑</button>'
+                    + '<button type="button" class="tops-wv-mini" data-wv-move="down" data-wv-round="' + r.round + '" data-wv-idx="' + i + '"'
+                    + (i === picks.length - 1 ? ' disabled' : '') + ' aria-label="Move down">↓</button>'
+                    + '<button type="button" class="tops-wv-mini is-bad" data-wv-remove="1" data-wv-round="' + r.round + '" data-wv-idx="' + i + '"'
+                    + ' aria-label="Remove claim">✕</button>'
+                  : '') + '</td>'
+              + '</tr>';
+          }).join("")
+        // An empty round only exists in the plan because the owner asked for it
+        // to be cleared — contract v2 §2 makes that the ONLY way a round gets
+        // cleared, so say so plainly.
+        : '<tr><td colspan="5" class="tops-wv-cleared">' + (editable
+            ? 'Staged to clear — saving wipes round ' + r.round + ' at MFL.'
+            : 'No claims in round ' + r.round + '.') + '</td></tr>';
+
+      return '<div class="tops-wv-round">'
+        + '<div class="tops-wv-round-h">Round ' + r.round
+        +   '<span class="tops-wv-round-n">' + escapeHtml(picks.length ? plural(picks.length, "claim") : "staged to clear") + '</span>'
+        +   '<span class="tops-grow"></span>'
+        // Each button does EXACTLY what its label says, and they are exact
+        // inverses of each other:
+        //   "Clear round at MFL" — keep the round in the payload with picks:[],
+        //     the one explicit instruction that clears it at MFL (§2).
+        //   "Don't clear"        — take the round back OUT of the payload. An
+        //     absent round is one the save never mentions, so MFL's copy is
+        //     left byte-for-byte alone. It is NOT re-seeded with MFL's live
+        //     picks: that would put the round back in the payload and make the
+        //     save perform a REPLACE write on the round we just promised not to
+        //     touch. Those claims stay visible in the "Live at MFL · not in
+        //     this plan" block below instead.
+        +   (!editable ? ''
+              : picks.length
+                ? '<button type="button" class="tops-wv-mini is-bad" data-wv-clear="' + r.round + '"'
+                  + ' title="Send round ' + r.round + ' with no claims, which clears it at MFL">Clear round at MFL</button>'
+                : '<button type="button" class="tops-wv-mini" data-wv-drop-round="' + r.round + '"'
+                  + ' title="Leave MFL’s round ' + r.round + ' exactly as it is">Don’t clear</button>')
+        + '</div>'
+        + '<table class="tops-wv-table">'
+        +   '<thead><tr><th>#</th><th>Add</th><th class="num">Bid</th><th>Conditional drop</th><th></th></tr></thead>'
+        +   '<tbody>' + body + '</tbody>'
+        + '</table>'
+        + '</div>';
+    }).join("");
+  }
+
+  // Rounds MFL is holding that the plan does NOT carry.
+  //
+  // Under contract v2 §2 those rounds are absent from the payload, so a save
+  // leaves them exactly as they are — but the owner still has to SEE them,
+  // otherwise "Don't clear" would look like it deleted the very claims it just
+  // protected. Built ONLY from a KNOWN pending read (§1); when MFL went unread
+  // this is empty, because we will not draw claims we cannot vouch for.
+  function waiverUntouchedRounds() {
+    var planned = {};
+    waiverPlanRounds().forEach(function (r) { planned[Number(r.round)] = true; });
+    return waiverPendingRounds().filter(function (r) {
+      return !planned[Number(r.round)] && r.picks.length;
+    });
+  }
+  // Read-only, with one control: staging the round for an explicit clear. That
+  // is the inverse of "Don't clear", so an owner who backs out of a withdrawal
+  // can still get back to it without reloading.
+  function waiverUntouchedHtml(editable) {
+    var rounds = waiverUntouchedRounds();
+    if (!rounds.length) return "";
+    return '<div class="tops-wv-untouched">'
+      + '<div class="tops-wv-sub">Live at MFL · not in this plan</div>'
+      + '<div class="tops-note">Saving does not touch these rounds — they stay exactly as MFL has them.</div>'
+      + rounds.map(function (r) {
+          return '<div class="tops-wv-round is-untouched">'
+            + '<div class="tops-wv-round-h">Round ' + r.round
+            +   '<span class="tops-wv-round-n">' + escapeHtml(plural(r.picks.length, "claim") + " live at MFL") + '</span>'
+            +   '<span class="tops-grow"></span>'
+            +   (editable
+                  ? '<button type="button" class="tops-wv-mini is-bad" data-wv-stage-clear="' + r.round + '"'
+                    + ' title="Stage round ' + r.round + ' to be cleared at MFL on the next save">Clear round at MFL</button>'
+                  : '')
+            + '</div>'
+            + '<table class="tops-wv-table">'
+            +   '<thead><tr><th>#</th><th>Add</th><th class="num">Bid</th><th>Conditional drop</th></tr></thead>'
+            +   '<tbody>' + r.picks.map(function (p, i) {
+                  return '<tr>'
+                    + '<td class="tops-wv-ord">' + (i + 1) + '</td>'
+                    + '<td><span class="tops-wv-name" tabindex="0" role="button" data-wv-profile="' + escapeHtml(p.add_pid) + '">'
+                    +   escapeHtml(waiverPlayerLabel(p.add_pid)) + '</span></td>'
+                    + '<td class="num">' + escapeHtml(fmtUsd(Number(p.bid_dollars || 0))) + '</td>'
+                    + '<td>' + escapeHtml(p.drop_pid ? waiverPlayerLabel(p.drop_pid) : "No drop") + '</td>'
+                    + '</tr>';
+                }).join("") + '</tbody>'
+            + '</table>'
+            + '</div>';
+        }).join("")
+      + '</div>';
+  }
+
+  function waiverComposeHtml() {
+    var lim = waiverLimits();
+    var c = state.waiverCompose || {};
+    var roundOpts = "";
+    for (var n = 1; n <= lim.maxRounds; n += 1) {
+      roundOpts += '<option value="' + n + '"' + (Number(c.round || 1) === n ? ' selected' : '') + '>Round ' + n + '</option>';
+    }
+    return '<div class="tops-wv-compose">'
+      + '<div class="tops-wv-sub">Add a claim</div>'
+      + '<div class="tops-wv-compose-row">'
+      +   '<label class="tops-wv-field tops-wv-field--wide">Free agent'
+      +     '<input type="text" id="topsWaiverSearch" autocomplete="off" placeholder="Search by name, position or NFL team…"'
+      +       ' value="' + escapeHtml(state.waiverSearch || "") + '">'
+      +   '</label>'
+      +   '<label class="tops-wv-field">Bid'
+      +     '<input type="number" id="topsWaiverBid" min="' + lim.min + '" step="' + lim.step + '"'
+      +       ' value="' + escapeHtml(String(Number(c.bid || lim.min))) + '">'
+      +   '</label>'
+      +   '<label class="tops-wv-field">Conditional drop'
+      +     '<select id="topsWaiverDrop"><option value="">No drop</option>' + waiverDropOptionsHtml(c.dropPid) + '</select>'
+      +   '</label>'
+      +   '<label class="tops-wv-field">Round'
+      +     '<select id="topsWaiverRound">' + roundOpts + '</select>'
+      +   '</label>'
+      +   '<button type="button" class="tops-cta" id="topsWaiverAddPick"' + (c.addPid ? '' : ' disabled') + '>Add claim</button>'
+      + '</div>'
+      + '<div class="tops-wv-picked">' + (c.addPid
+          ? 'Selected: <b>' + escapeHtml(c.addName || waiverPlayerLabel(c.addPid)) + '</b>'
+            + ' <button type="button" class="tops-wv-mini" id="topsWaiverClearPick">change</button>'
+          : 'Pick a player from the search results below.') + '</div>'
+      + '<div id="topsWaiverSearchResults" class="tops-wv-results">' + waiverSearchResultsHtml(state.waiverSearch, "plan") + '</div>'
+      + '</div>';
+  }
+
+  function waiverSearchResultsHtml(q, which) {
+    var needle = safeStr(q);
+    if (needle.length < 2) return "";
+    var hits = waiverSearchHits(needle);
+    if (!hits.length) {
+      return '<div class="tops-empty">No free agent matches “' + escapeHtml(needle) + '”.</div>';
+    }
+    return hits.map(function (r) {
+      return '<button type="button" class="tops-wv-hit" data-wv-pick="' + escapeHtml(r.pid) + '" data-wv-which="' + escapeHtml(which) + '">'
+        + '<span class="tops-pos">' + escapeHtml(r.pos || "?") + '</span> '
+        + escapeHtml(r.name)
+        + (r.team ? ' <span class="tops-wv-hit-team">' + escapeHtml(r.team) + '</span>' : '')
+        + '</button>';
+    }).join("");
+  }
+
+  function waiverFcfsHtml() {
+    var f = state.waiverFcfs || {};
+    // Contract v2 §4/§5 + the house rule against dead buttons: the add controls
+    // exist ONLY in the window the worker says takes direct adds. In a blackout,
+    // before waivers open, or with in-app writes switched off, the owner gets
+    // the reason and MFL's own page instead of a button that can only 503/reject.
+    if (!waiverCanFcfs()) {
+      return '<div class="tops-wv-fcfs">'
+        + '<div class="tops-wv-sub">Direct add (first come, first served)</div>'
+        + '<div class="tops-note tops-note--warn">' + escapeHtml(waiverGateNote("fcfs")) + '</div>'
+        + '<a class="tops-card-link" href="' + escapeHtml(waiverNativeLink()) + '" target="_top">Add / drop on MFL &rsaquo;</a>'
+        + waiverMsgHtml(state.waiverFcfsMessage)
+        + '</div>';
+    }
+    return '<div class="tops-wv-fcfs">'
+      + '<div class="tops-wv-sub">Direct add (first come, first served)</div>'
+      + '<div class="tops-note">Only works for a player who is NOT on waivers. If he is, MFL rejects it and you’ll need a blind bid above — the exact wording MFL sends back is shown here.</div>'
+      + '<div class="tops-wv-compose-row">'
+      +   '<label class="tops-wv-field tops-wv-field--wide">Free agent'
+      +     '<input type="text" id="topsWaiverFcfsSearch" autocomplete="off" placeholder="Search free agents…"'
+      +       ' value="' + escapeHtml(state.waiverFcfsSearch || "") + '">'
+      +   '</label>'
+      +   '<label class="tops-wv-field tops-wv-field--wide">Drop (optional)'
+      +     '<select id="topsWaiverFcfsDrop" multiple size="4">' + waiverFcfsDropOptionsHtml(f.dropPids) + '</select>'
+      +   '</label>'
+      +   '<button type="button" class="tops-cta tops-cta--ghost" id="topsWaiverFcfsDry"'
+      +     ((f.addPid && !state.waiverFcfsSubmitting) ? '' : ' disabled') + '>Dry run</button>'
+      +   '<button type="button" class="tops-cta" id="topsWaiverFcfsGo"'
+      +     ((f.addPid && !state.waiverFcfsSubmitting) ? '' : ' disabled') + '>'
+      +     (state.waiverFcfsSubmitting ? "Sending…" : "Add now") + '</button>'
+      + '</div>'
+      + '<div class="tops-wv-picked">' + (f.addPid
+          ? 'Adding: <b>' + escapeHtml(f.addName || waiverPlayerLabel(f.addPid)) + '</b>'
+            + ' <button type="button" class="tops-wv-mini" id="topsWaiverFcfsClear">change</button>'
+          : 'Pick a player from the search results below.') + '</div>'
+      + '<div id="topsWaiverFcfsResults" class="tops-wv-results">' + waiverSearchResultsHtml(state.waiverFcfsSearch, "fcfs") + '</div>'
+      + waiverMsgHtml(state.waiverFcfsMessage)
+      + '</div>';
+  }
+  function waiverFcfsDropOptionsHtml(selected) {
+    var picked = {};
+    asArray(selected).forEach(function (p) { picked[String(p)] = true; });
+    return buildLineupRows()
+      .slice()
+      .sort(function (a, b) { return a.name.localeCompare(b.name); })
+      .map(function (r) {
+        var label = r.name + " · " + (r.pos || "?") + " · " + fmtUsd(r.salary);
+        return '<option value="' + escapeHtml(r.id) + '"' + (picked[r.id] ? ' selected' : '') + '>'
+          + escapeHtml(label) + '</option>';
+      }).join("");
+  }
+
+  function renderWaiversPanel() {
+    var el = document.getElementById("topsWaiversBody");
+    if (!el) return;
+
+    if (state.waiverStateLoading && !state.waiverState) {
+      el.innerHTML = '<div class="tops-card-h"><span class="tops-card-t">Waivers</span></div>'
+        + '<div class="tops-empty">Reading the waiver window…</div>';
+      return;
+    }
+
+    var lim = waiverLimits();
+    var pendingCount = waiverNavBadgeCount();
+    var planHasRounds = waiverPlanRounds().length > 0;
+    var canBid = waiverCanBid();                          // window + kill switch + real limits
+    var canSave = canBid && state.waiverPendingKnown;     // …and we know what MFL holds
+    var bidGate = waiverGateNote("bbid");
+    var warnHtml = asArray(state.waiverWarnings).length
+      ? '<div class="tops-note tops-note--warn">' + asArray(state.waiverWarnings).map(function (w) {
+          return escapeHtml(safeStr(w && (w.message || w.code)));
+        }).join("<br>") + '</div>'
+      : "";
+
+    // Contract v2 §1 — an unread claim list is never silently rendered as "no
+    // claims". Say what happened, keep the local draft on screen, and offer a
+    // re-read rather than a save we can't describe honestly.
+    var pendingHtml = "";
+    if (state.waiverPendingLoading && !state.waiverPending) {
+      pendingHtml = '<div class="tops-empty">Reading your pending claims…</div>';
+    } else if (!state.waiverPendingKnown) {
+      // The worker's explanation, wherever it reached us from: /pending's
+      // `warning` (already folded into waiverPendingError) or, if /pending never
+      // ran, the /state viewer block's `pending_warning`.
+      var unreadWhy = state.waiverPendingError
+        || waiverUnknownText(state.waiverState && state.waiverState.viewer);
+      pendingHtml = '<div class="tops-note tops-note--warn">'
+        + escapeHtml(unreadWhy)
+        + ' Nothing below is confirmed, and saving stays off until MFL answers. '
+        + '<button type="button" class="tops-wv-mini" id="topsWaiverReread">Re-read from MFL</button>'
+        + '</div>';
+    }
+
+    var actionsHtml;
+    if (canBid) {
+      // Both buttons are disabled ONLY when there is nothing in the payload or
+      // a write is already in flight — never on cap room or a roster count we
+      // computed ourselves (contract v2 §6). Save additionally needs a known
+      // pending read, and when it doesn't have one it is not rendered at all.
+      actionsHtml = '<div class="tops-wv-actions">'
+        + '<button type="button" class="tops-cta tops-cta--ghost" id="topsWaiverDry"'
+        +   ((state.waiverSubmitting || !planHasRounds) ? ' disabled' : '') + '>Dry run</button>'
+        + (canSave
+            ? '<button type="button" class="tops-cta" id="topsWaiverSave"'
+              + ((state.waiverSubmitting || !planHasRounds) ? ' disabled' : '') + '>'
+              + (state.waiverSubmitting ? "Saving…" : "Save plan to MFL") + '</button>'
+            : '')
+        + (canSave
+            ? '<span class="tops-note">Saving sends <b>only</b> the rounds above: one with claims replaces that round at MFL, '
+              + 'an empty one clears it. Any round not shown is left exactly as MFL has it.</span>'
+            : '<span class="tops-note tops-note--warn">Saving is off until your live claims can be read back from MFL — '
+              + 'a dry run still works and writes nothing.</span>')
+        + '</div>';
+    } else {
+      actionsHtml = '<div class="tops-wv-actions">'
+        + '<span class="tops-note tops-note--warn">' + escapeHtml(bidGate) + '</span>'
+        + '<a class="tops-card-link" href="' + escapeHtml(waiverNativeLink()) + '" target="_top">Open on MFL &rsaquo;</a>'
+        + '</div>';
+    }
+
+    el.innerHTML = ''
+      + '<div class="tops-card-h">'
+      +   '<span class="tops-card-t">Waivers</span>'
+      +   '<span class="tops-card-sub">' + escapeHtml(waiverTypeLabel())
+      +     escapeHtml(lim.conditionalKnown && lim.conditional ? " · conditional blind bidding" : "") + '</span>'
+      +   (pendingCount ? '<span class="tops-pill is-ok">' + pendingCount + ' live</span>' : '')
+      +   ((state.waiverPendingKnown || state.waiverPendingLoading) ? '' : '<span class="tops-pill is-warn">unread</span>')
+      +   (state.waiverPlanDirty ? '<span class="tops-pill is-warn">unsaved</span>' : '')
+      +   '<span class="tops-grow"></span>'
+      +   '<a class="tops-card-link" href="' + escapeHtml(waiverNativeLink()) + '" target="_top">Open on MFL &rsaquo;</a>'
+      + '</div>'
+      + (state.waiverStateError ? '<div class="tops-empty is-err">' + escapeHtml(state.waiverStateError) + '</div>' : '')
+      + waiverWindowStripHtml()
+      + waiverCalendarHtml()
+      + '<div class="tops-wv-sub">Your blind-bid plan</div>'
+      + pendingHtml
+      + waiverPlanHtml(canBid)
+      + waiverUntouchedHtml(canBid)
+      + waiverAdvisoryHtml()
+      + warnHtml
+      + waiverWouldWriteHtml()
+      + waiverMsgHtml(state.waiverMessage)
+      + actionsHtml
+      // No composer when nothing can be saved — a claim builder that leads
+      // nowhere is worse than the reason it isn't there.
+      + (canBid ? waiverComposeHtml() : "")
+      + waiverFcfsHtml();
+
+    wireWaiversPanel(el);
+  }
+
+  function wireWaiversPanel(el) {
+    // ── plan rows ──
+    // Bid + drop edits mutate state WITHOUT a re-render so the caret never
+    // jumps mid-keystroke (same convention as the On The Block notes). Only
+    // structural changes — add / remove / reorder / clear — re-render.
+    el.querySelectorAll(".tops-wv-bid").forEach(function (inp) {
+      inp.addEventListener("input", function () {
+        var r = waiverPlanRound(inp.getAttribute("data-wv-round"), false);
+        var i = parseInt(inp.getAttribute("data-wv-idx"), 10);
+        if (!r || !r.picks[i]) return;
+        r.picks[i].bid_dollars = Number(inp.value || 0);
+        waiverPlanTouched();
+        updateWaiverAdvisory();
+      });
+    });
+    el.querySelectorAll(".tops-wv-drop").forEach(function (sel) {
+      sel.addEventListener("change", function () {
+        var r = waiverPlanRound(sel.getAttribute("data-wv-round"), false);
+        var i = parseInt(sel.getAttribute("data-wv-idx"), 10);
+        if (!r || !r.picks[i]) return;
+        r.picks[i].drop_pid = sel.value || null;
+        waiverPlanTouched();
+      });
+    });
+    el.querySelectorAll("[data-wv-move]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.hasAttribute("disabled")) return;
+        var r = waiverPlanRound(btn.getAttribute("data-wv-round"), false);
+        var i = parseInt(btn.getAttribute("data-wv-idx"), 10);
+        var j = btn.getAttribute("data-wv-move") === "up" ? i - 1 : i + 1;
+        if (!r || !r.picks[i] || !r.picks[j]) return;
+        var tmp = r.picks[i];
+        r.picks[i] = r.picks[j];
+        r.picks[j] = tmp;
+        waiverPlanTouched();
+        renderWaiversPanel();
+      });
+    });
+    el.querySelectorAll("[data-wv-remove]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var r = waiverPlanRound(btn.getAttribute("data-wv-round"), false);
+        var i = parseInt(btn.getAttribute("data-wv-idx"), 10);
+        if (!r || !r.picks[i]) return;
+        r.picks.splice(i, 1);
+        waiverPlanTouched();
+        renderWaiversPanel();
+      });
+    });
+    // Contract v2 §2, and each button does exactly what its label says:
+    //   "Clear round at MFL" keeps the round in the payload with an EMPTY
+    //   picks[] — the one and only instruction that clears it at MFL.
+    //   "Don't clear" takes the round back OUT of the payload, which means
+    //   "leave MFL's copy alone" (under v1 it meant the opposite: an absent
+    //   round was cleared, so the button wiped the very claims it promised to
+    //   leave).
+    el.querySelectorAll("[data-wv-clear]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var n = Number(btn.getAttribute("data-wv-clear"));
+        var r = waiverPlanRound(n, false);
+        if (!r) return;
+        if (!window.confirm("Clear round " + n + " at MFL?\n\n"
+          + plural(asArray(r.picks).length, "claim") + " will be withdrawn when you save. "
+          + "No other round is touched.")) return;
+        r.picks = [];
+        waiverPlanTouched();
+        renderWaiversPanel();
+      });
+    });
+    el.querySelectorAll("[data-wv-drop-round]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var n = Number(btn.getAttribute("data-wv-drop-round"));
+        // REMOVE the round from the payload — nothing else. The tooltip promises
+        // "leave MFL's round N exactly as it is", and under §2 the only way to
+        // keep that promise is for the round to be absent from the save.
+        //
+        // This used to re-seed the round from MFL's live picks whenever a KNOWN
+        // pending read had any, which left it IN the payload: the save then did
+        // a REPLACE write against the one round the owner had just been told
+        // would not be touched. Those live claims are still shown — read-only —
+        // by waiverUntouchedHtml(), which is where they belong: on screen, but
+        // out of the payload.
+        state.waiverPlan = waiverPlanRounds().filter(function (r) { return Number(r.round) !== n; });
+        waiverPlanTouched();
+        renderWaiversPanel();
+      });
+    });
+    // The inverse: stage a round that is live at MFL but absent from the plan
+    // for an explicit clear. Same confirm wording as the in-plan Clear button —
+    // this is the destructive direction, so it is always the one that asks.
+    el.querySelectorAll("[data-wv-stage-clear]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var n = Number(btn.getAttribute("data-wv-stage-clear"));
+        if (!n) return;
+        var live = waiverPendingRounds().filter(function (r) { return Number(r.round) === n; })[0];
+        if (!window.confirm("Clear round " + n + " at MFL?\n\n"
+          + plural(live ? asArray(live.picks).length : 0, "claim") + " will be withdrawn when you save. "
+          + "No other round is touched.")) return;
+        waiverPlanRound(n, true).picks = [];
+        waiverPlanTouched();
+        renderWaiversPanel();
+      });
+    });
+    var reread = document.getElementById("topsWaiverReread");
+    if (reread) reread.addEventListener("click", function () {
+      state.waiverPendingError = "";
+      loadWaiverState(true);
+      loadWaiverPending(true);
+      renderWaiversPanel();
+    });
+    el.querySelectorAll("[data-wv-profile]").forEach(function (node) {
+      var pid = node.getAttribute("data-wv-profile");
+      if (!pid) return;
+      node.addEventListener("click", function () { openPlayerProfileModal(pid); });
+      node.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlayerProfileModal(pid); }
+      });
+    });
+
+    // ── plan-level actions ──
+    var dry = document.getElementById("topsWaiverDry");
+    if (dry) dry.addEventListener("click", function () {
+      if (!dry.hasAttribute("disabled")) submitWaiverPlan(true);
+    });
+    var save = document.getElementById("topsWaiverSave");
+    if (save) save.addEventListener("click", function () {
+      if (save.hasAttribute("disabled")) return;
+      // Name the rounds, not a count: the owner should be able to read this box
+      // and know exactly which rounds get replaced, which get wiped, and that
+      // everything else is left alone (contract v2 §2).
+      var rounds = waiverPlanRounds();
+      var writes = rounds.filter(function (r) { return asArray(r.picks).length; });
+      var clears = rounds.filter(function (r) { return !asArray(r.picks).length; });
+      var lines = ["Write this plan to MFL?", ""];
+      lines.push(writes.length
+        ? "REPLACE at MFL: " + writes.map(function (r) {
+            return "round " + r.round + " (" + plural(asArray(r.picks).length, "claim") + ")";
+          }).join(", ")
+        : "REPLACE at MFL: nothing");
+      lines.push(clears.length
+        ? "CLEAR at MFL: " + clears.map(function (r) { return "round " + r.round; }).join(", ")
+        : "CLEAR at MFL: nothing");
+      lines.push("");
+      lines.push("Every other round stays exactly as MFL has it.");
+      if (!window.confirm(lines.join("\n"))) return;
+      submitWaiverPlan(false);
+    });
+
+    // ── composer ──
+    var search = document.getElementById("topsWaiverSearch");
+    if (search) search.addEventListener("input", function () {
+      state.waiverSearch = search.value;
+      var res = document.getElementById("topsWaiverSearchResults");
+      if (res) {
+        res.innerHTML = waiverSearchResultsHtml(state.waiverSearch, "plan");
+        wireWaiverHits(res);
+      }
+    });
+    var bid = document.getElementById("topsWaiverBid");
+    if (bid) bid.addEventListener("input", function () {
+      state.waiverCompose = state.waiverCompose || {};
+      state.waiverCompose.bid = Number(bid.value || 0);
+    });
+    var dropSel = document.getElementById("topsWaiverDrop");
+    if (dropSel) dropSel.addEventListener("change", function () {
+      state.waiverCompose = state.waiverCompose || {};
+      state.waiverCompose.dropPid = dropSel.value || null;
+    });
+    var roundSel = document.getElementById("topsWaiverRound");
+    if (roundSel) roundSel.addEventListener("change", function () {
+      state.waiverCompose = state.waiverCompose || {};
+      state.waiverCompose.round = Number(roundSel.value || 1);
+    });
+    var clearPick = document.getElementById("topsWaiverClearPick");
+    if (clearPick) clearPick.addEventListener("click", function () {
+      if (state.waiverCompose) { state.waiverCompose.addPid = ""; state.waiverCompose.addName = ""; }
+      renderWaiversPanel();
+    });
+    var addPick = document.getElementById("topsWaiverAddPick");
+    if (addPick) addPick.addEventListener("click", function () {
+      if (addPick.hasAttribute("disabled")) return;
+      var c = state.waiverCompose || {};
+      if (!c.addPid) return;
+      var lim = waiverLimits();
+      var round = waiverPlanRound(Number(c.round || 1), true);
+      round.picks.push({
+        add_pid: String(c.addPid),
+        bid_dollars: Number(c.bid || lim.min),
+        drop_pid: c.dropPid ? String(c.dropPid) : null
+      });
+      waiverPlanTouched();
+      state.waiverCompose = { round: Number(c.round || 1), bid: Number(c.bid || lim.min), dropPid: null, addPid: "", addName: "" };
+      state.waiverSearch = "";
+      state.waiverMessage = null;
+      renderWaiversPanel();
+    });
+
+    // ── FCFS ──
+    var fSearch = document.getElementById("topsWaiverFcfsSearch");
+    if (fSearch) fSearch.addEventListener("input", function () {
+      state.waiverFcfsSearch = fSearch.value;
+      var res = document.getElementById("topsWaiverFcfsResults");
+      if (res) {
+        res.innerHTML = waiverSearchResultsHtml(state.waiverFcfsSearch, "fcfs");
+        wireWaiverHits(res);
+      }
+    });
+    var fDrop = document.getElementById("topsWaiverFcfsDrop");
+    if (fDrop) fDrop.addEventListener("change", function () {
+      state.waiverFcfs = state.waiverFcfs || {};
+      state.waiverFcfs.dropPids = Array.prototype.slice.call(fDrop.selectedOptions || [])
+        .map(function (o) { return o.value; }).filter(Boolean);
+    });
+    var fClear = document.getElementById("topsWaiverFcfsClear");
+    if (fClear) fClear.addEventListener("click", function () {
+      if (state.waiverFcfs) { state.waiverFcfs.addPid = ""; state.waiverFcfs.addName = ""; }
+      renderWaiversPanel();
+    });
+    var fDry = document.getElementById("topsWaiverFcfsDry");
+    if (fDry) fDry.addEventListener("click", function () {
+      if (!fDry.hasAttribute("disabled")) submitWaiverFcfs(true);
+    });
+    var fGo = document.getElementById("topsWaiverFcfsGo");
+    if (fGo) fGo.addEventListener("click", function () {
+      if (fGo.hasAttribute("disabled")) return;
+      var f = state.waiverFcfs || {};
+      var drops = asArray(f.dropPids);
+      var msg = "Add " + waiverPlayerLabel(f.addPid) + " to your roster now?"
+        + (drops.length ? "\n\nDropping: " + drops.map(waiverPlayerLabel).join(", ") : "")
+        + "\n\nThis is a REAL MFL add/drop.";
+      if (!window.confirm(msg)) return;
+      submitWaiverFcfs(false);
+    });
+
+    wireWaiverHits(el);
+  }
+
+  function wireWaiverHits(root) {
+    if (!root) return;
+    root.querySelectorAll("[data-wv-pick]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var pid = btn.getAttribute("data-wv-pick");
+        var which = btn.getAttribute("data-wv-which");
+        var label = waiverPlayerLabel(pid);
+        if (which === "fcfs") {
+          state.waiverFcfs = state.waiverFcfs || {};
+          state.waiverFcfs.addPid = pid;
+          state.waiverFcfs.addName = label;
+          state.waiverFcfsSearch = "";
+          state.waiverFcfsMessage = null;
+        } else {
+          state.waiverCompose = state.waiverCompose || {};
+          state.waiverCompose.addPid = pid;
+          state.waiverCompose.addName = label;
+          state.waiverSearch = "";
+          state.waiverMessage = null;
+        }
+        renderWaiversPanel();
+      });
+    });
+  }
+
+  function openWaiversPanel() {
+    loadWaiverState();
+    loadWaiverPending();
+    renderWaiversPanel();
+  }
+
   function renderAll() {
     // If we couldn't figure out who the viewer is, render a clear "pick your
     // franchise" empty state rather than silently zeroing every zone. Common
@@ -2156,6 +3813,10 @@
       return;
     }
     renderHub();
+    // One cheap public GET so the Waivers nav pill can carry a real
+    // pending-claim badge without the owner having to open the panel first.
+    // Idempotent — it no-ops once the payload is in hand.
+    loadWaiverState();
   }
 
   // ── Player Bundle (worker /api/player-bundle) ──

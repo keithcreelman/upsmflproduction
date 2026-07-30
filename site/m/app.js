@@ -194,6 +194,21 @@
     acquisitionByKey: null,    // { "fid:pid": { label, date } } from player_acquisition_lookup_<year>.json — gates the MYAC fresh-FA-auction branch (desktop mergeAcquisitionLookupRows)
     injuriesByPid: null,       // { pid: "IR"|"OUT"|"PUP"|"SUSPENDED"|... } from MFL injuries export — IR view §B3 "eligible to option down" bucket
     capAmount: 0,
+    // ── Waivers (in-app BBID / FCFS) ──────────────────────────────────────
+    // MFL runs this league as BBID_FCFS. The worker mirrors MFL's own
+    // calendar (WAIVER_BBID runs / WAIVER_NONE blackout spans) — we never
+    // re-derive waiver timing locally, we only read /api/waivers/state.
+    waiverState: null,          // GET /api/waivers/state payload (whole envelope)
+    waiverStateAt: 0,           // ms epoch of the last successful state fetch
+    waiverStatePromise: null,   // in-flight guard so tab-focus can't stampede
+    waiverPending: null,        // GET /api/waivers/pending — { known, rounds }.
+                                // `known:false` means we could NOT read MFL;
+                                // it is never the same as "no claims".
+    waiverPlan: null,           // LOCAL staged plan:
+                                //   [{round, picks:[{add_pid,bid_dollars,drop_pid}], clear}]
+                                // clear:true + picks:[] = "clear this round at MFL"
+    waiverPlanVerified: "",     // signature of the last plan the server verified
+    capPenaltyByPid: null,      // /api/cap-penalty/preview BATCH — authoritative drop penalties
     loaded: false,
     loadingPromise: null,
     loadingPromiseFid: "",  // fid active when current loadAllData started; race guard
@@ -522,6 +537,26 @@
     }).catch(function () { return {}; });
   }
 
+  // Authoritative drop cap-penalties — /api/cap-penalty/preview in BATCH mode
+  // (no player_id) returns { players: { "<pid>": { penalty, guaranteed, earned,
+  // exempt, exempt_reason, ... } } } for every rostered player in the league,
+  // computed by the SAME _computeDropPenalty the drop-penalty cron uses to post
+  // real charges. This is the SSOT for every penalty number mobile shows —
+  // the drop picker, the player-sheet Drop label, the waiver conditional-drop
+  // list. site/m/front_office_penalty.js reads state.capPenaltyByPid first and
+  // only falls back to its local estimate when this hasn't landed (offline /
+  // worker down). Fetched once per load; fail-open to {} so a worker blip never
+  // blocks boot. (Keith: the owner-facing preview must equal the actual charge.)
+  function fetchCapPenaltyPreview() {
+    var url = workerUrl("/api/cap-penalty/preview") +
+      "?L=" + encodeURIComponent(state.ctx.leagueId) +
+      "&YEAR=" + encodeURIComponent(state.ctx.year);
+    return fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return (j && j.ok && j.players) ? j.players : {}; })
+      .catch(function () { return {}; });
+  }
+
   function buildLeaderboardMap(perAliasArrays) {
     // Each alias response (skill / idp) returns multiple positions
     // (RB+WR+TE, or DB+LB+DL etc.). Bucket by row.position FIRST so a WR's
@@ -746,7 +781,13 @@
       // unknown-deadline / ERA-only behavior).
       fetchContractDeadline(state.ctx.year),
       fetchAcquisitionLookup(state.ctx.year),
-      fetchInjuries()
+      fetchInjuries(),
+      // [20] authoritative drop cap-penalties (batch). [21] waiver window —
+      // both READ-only and fail-open; the waiver READ routes stay live even
+      // when the WAIVERS_INAPP_ENABLED write flag is dark, so the UI can
+      // always tell the owner what window they're in.
+      fetchCapPenaltyPreview(),
+      fetchWaiverState(true).catch(function () { return null; })
     ]).then(function (results) {
       state.league = results[0];
       state.rosters = results[1];
@@ -806,6 +847,10 @@
       state.contractDeadline = results[17] || "";
       state.acquisitionByKey = results[18] || {};
       state.injuriesByPid = results[19] || {};
+      state.capPenaltyByPid = results[20] || {};
+      // Repaint anything already on screen that was showing a fallback
+      // penalty estimate before the authoritative batch landed.
+      try { window.dispatchEvent(new Event("ups-cap-penalty-ready")); } catch (_) {}
       parseLeague();
       resolveViewerFranchise(results[14]);
       // Now that we know the viewer franchise, fetch their UPS-side trade
@@ -951,6 +996,17 @@
     if (!rosterRow) return null;
     if (!window.UPS_FRONT_OFFICE || !window.UPS_FRONT_OFFICE.dropPenaltyFor) return null;
     return window.UPS_FRONT_OFFICE.dropPenaltyFor(rosterRow, season);
+  }
+
+  // Authoritative penalty row for one player straight from the cached
+  // /api/cap-penalty/preview batch, or null if the batch hasn't landed.
+  // Callers that just need "is this number trustworthy?" check truthiness;
+  // dropPenaltyFor() already prefers this internally and only falls back to
+  // the local estimate when it's null.
+  function capPenaltyFor(playerId) {
+    var map = state.capPenaltyByPid;
+    if (!map) return null;
+    return map[String(playerId).replace(/\D/g, "")] || null;
   }
 
   // ---------- Trade Bait helpers ----------
@@ -1252,6 +1308,470 @@
       state.busyActionKey = "";
       throw e;
     });
+  }
+
+  // ---------- Waivers: in-app BBID claims + FCFS adds ----------
+  // Contract: worker owns ALL waiver truth. We never re-derive run times,
+  // blackout spans, bid minimums or round counts — they come from
+  // GET /api/waivers/state, which itself mirrors MFL's league calendar.
+  //
+  // Auth: owner identity is the stored MFL_USER_ID forwarded as a query param,
+  // exactly like submitDrop. Mobile never uses an APIKEY. Every fetch is
+  // credentials:"omit" — the worker answers with ACAO `*`, which the browser
+  // rejects outright on a credentialed cross-origin request.
+  function waiverUrl(path) {
+    var url = workerUrl(path) +
+      "?L=" + encodeURIComponent(state.ctx.leagueId) +
+      "&YEAR=" + encodeURIComponent(state.ctx.year);
+    var stored = getStoredMflUserId();
+    // /state is public but returns the `viewer` block when it can identify us;
+    // /pending and the two writes REQUIRE it.
+    if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
+    return url;
+  }
+
+  var WAIVER_STATE_TTL_MS = 60 * 1000;
+
+  // GET /api/waivers/state — window + limits + raw WAIVER_* calendar events.
+  // Cached for a minute; refreshed on tab focus (see boot). Fail-open: on
+  // error we keep whatever we had, and a null state means "unknown", which
+  // renders as NO action button at all (never a dead one).
+  function fetchWaiverState(force) {
+    if (!force && state.waiverState && (Date.now() - state.waiverStateAt) < WAIVER_STATE_TTL_MS) {
+      return Promise.resolve(state.waiverState);
+    }
+    if (state.waiverStatePromise) return state.waiverStatePromise;
+    var p = fetch(waiverUrl("/api/waivers/state"), { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        state.waiverStatePromise = null;
+        if (j && j.ok) {
+          state.waiverState = j;
+          state.waiverStateAt = Date.now();
+        }
+        return state.waiverState;
+      })
+      .catch(function () { state.waiverStatePromise = null; return state.waiverState; });
+    state.waiverStatePromise = p;
+    return p;
+  }
+
+  // GET /api/waivers/pending — the claims MFL currently holds for this owner.
+  //
+  // CONTRACT v2 §1 — "empty" and "unknown" are DIFFERENT values:
+  //   { known:true,  rounds:[...] }  we read and parsed MFL. `[]` here really
+  //                                  does mean "no claims on file".
+  //   { known:false, rounds:null  }  the export failed / came back in a shape
+  //                                  the normalizer couldn't read. NOTHING in
+  //                                  here may be adopted as truth.
+  // The v1 client took `rounds:[]` as gospel either way, which silently wiped
+  // owners' live, cap-spending claims off the Claims screen. Never again.
+  function fetchPendingClaims() {
+    return fetch(waiverUrl("/api/waivers/pending"), { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) {
+        return r.text().then(function (body) {
+          var j = null;
+          try { j = body ? JSON.parse(body) : null; } catch (e) {}
+          if (!r.ok || !j || !j.ok) {
+            var err = new Error(waiverErrorMessage(r.status, j));
+            err.status = r.status;
+            err.body = j || {};
+            err.ownerAuthExpired = !!(j && j.error === "MISSING_VIEWER_COOKIE");
+            throw err;
+          }
+          // Belt and braces: `known` is true only when the server SAYS true and
+          // actually handed us an array. A degraded/older worker that omits the
+          // flag therefore reads as unknown — never as "you have no claims".
+          j.known = (j.known === true) && Array.isArray(j.rounds);
+          if (!j.known) j.rounds = null;
+          state.waiverPending = j;
+          return j;
+        });
+      });
+  }
+
+  // Turn a waiver-route error envelope into owner-readable text.
+  // MFL's own rejection string (e.g. the WAIVER_NONE blackout message) is
+  // authoritative and is surfaced VERBATIM — we never paraphrase or invent
+  // a reason of our own.
+  function waiverErrorMessage(status, parsed) {
+    if (!parsed) return "HTTP " + status;
+    // ORDER IS LOAD-BEARING (P2). `mfl_response` used to be read first, but on a
+    // `verify_mismatch` the write was ACCEPTED — so that field holds MFL's raw
+    // SUCCESS body, which we would have shown the owner as the reason their move
+    // "failed". Worse, it hid the one sentence that says whether a resend is
+    // safe. The worker's own `message` (grep-verified on the fcfs
+    // verify_mismatch envelope and the 401) now outranks MFL's raw body; MFL's
+    // verbatim words still win for a genuine mfl_reject, which carries no
+    // `message` and is the only envelope that means "nothing landed, try again".
+    if (parsed.error === "MISSING_VIEWER_COOKIE") {
+      return "Your app sign-in expired. Open the MFL site and tap “Switch to App View” to refresh your session, then try again.";
+    }
+    if (parsed.error === "waivers_inapp_disabled") {
+      return "In-app waiver claims are switched off right now.";
+    }
+    if (parsed.error === "FRANCHISE_MISMATCH") {
+      return "That claim belongs to a different franchise" +
+        (parsed.detected_franchise ? " (" + parsed.detected_franchise + ")" : "") + ".";
+    }
+    if (parsed.error === "validation" && parsed.details && parsed.details.length) {
+      return parsed.details.map(function (d) { return safeStr(d && (d.message || d.code)); })
+        .filter(function (x) { return !!x; }).join(" · ");
+    }
+    // The worker's own owner-facing sentence — the only text that knows whether
+    // a resend is safe (it distinguishes "nothing took effect" from "part of it
+    // landed, do NOT resend").
+    if (parsed.message) return safeStr(parsed.message);
+    if (parsed.error === "verify_mismatch") {
+      return "MFL accepted the write but the read-back didn't match. Check MFL before sending it again.";
+    }
+    // MFL's own words, verbatim — an mfl_reject means nothing landed.
+    if (parsed.mfl_response) {
+      return safeStr(String(parsed.mfl_response).replace(/<\/?error>/gi, "")) ||
+             ("MFL rejected the request (HTTP " + (parsed.mfl_status || status) + ").");
+    }
+    return safeStr(parsed.error) || ("HTTP " + status);
+  }
+
+  // Waiver writes need the FULL error envelope surfaced (MFL's verbatim reject
+  // text in `mfl_response`; a 503's `native_link` fallback), so they use their
+  // own poster instead of postJson's message-only throw.
+  function postWaiverJson(path, payload) {
+    return fetch(waiverUrl(path), {
+      method: "POST",
+      mode: "cors",
+      credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {})
+    }).then(function (r) {
+      return r.text().then(function (body) {
+        var parsed = null;
+        try { parsed = body ? JSON.parse(body) : null; } catch (e) {}
+        if (r.ok && parsed && parsed.ok) return parsed;
+        var err = new Error(waiverErrorMessage(r.status, parsed));
+        err.status = r.status;
+        err.body = parsed || {};
+        err.nativeLink = safeStr(parsed && parsed.native_link);
+        err.ownerAuthExpired = !!(parsed && parsed.error === "MISSING_VIEWER_COOKIE");
+        throw err;
+      });
+    });
+  }
+
+  // POST /api/waivers/bbid-plan — CONTRACT v2 §2. This is NOT a full replace:
+  //   round present with picks [...]  → written at MFL
+  //   round present with picks []     → EXPLICITLY cleared at MFL
+  //   round absent from `rounds`      → left exactly as it is
+  // So `rounds: []` means "change nothing", and withdrawing a claim means
+  // sending that round back with an empty picks list (see withdrawAllPlan).
+  // v1's "absent means clear" turned every incomplete client view into a
+  // silent mass-withdrawal.
+  function submitWaiverPlan(plan, opts) {
+    opts = opts || {};
+    var fid = state.viewerFranchiseId;
+    if (!fid) return Promise.reject(new Error("No franchise"));
+    // Empty groups are KEPT — they ARE the clear instruction. The local-only
+    // `clear` marker is not part of the wire shape.
+    var rounds = (plan || []).filter(function (g) {
+      return g && safeInt(g.round, 0) > 0;
+    }).map(function (g) {
+      return { round: safeInt(g.round, 0), picks: (g.picks || []) };
+    });
+    return postWaiverJson("/api/waivers/bbid-plan", {
+      franchise_id: fid,
+      rounds: rounds,
+      dry_run: !!opts.dryRun
+    });
+  }
+
+  // POST /api/waivers/fcfs — one-shot add (+ optional drops). $1K / 1-yr WW
+  // comes from MFL's own league default salary row; we never write salary.
+  function submitFcfs(payload) {
+    payload = payload || {};
+    var fid = state.viewerFranchiseId;
+    if (!fid) return Promise.reject(new Error("No franchise"));
+    return postWaiverJson("/api/waivers/fcfs", {
+      franchise_id: fid,
+      add_pid: String(payload.addPid || payload.add_pid || ""),
+      drop_pids: payload.dropPids || payload.drop_pids || [],
+      dry_run: !!payload.dryRun
+    });
+  }
+
+  // ── The kill switch, straight from the server ─────────────────────────
+  // CONTRACT v2 §5: /api/waivers/state carries `write_enabled` — the live
+  // value of WAIVERS_INAPP_ENABLED. STRICT true: false, missing, or "we never
+  // loaded state" all resolve to read-only, because the only thing a submit
+  // button can produce in those cases is a 503.
+  function waiverWriteEnabled() {
+    return !!(state.waiverState && state.waiverState.write_enabled === true);
+  }
+
+  // MFL's own add/drop page — the escape hatch every read-only waiver surface
+  // links to. The worker hands the same URL back as `native_link` on a dark
+  // 503; we mirror it so a surface can offer the way out WITHOUT having to
+  // fail a write first.
+  function waiverNativeLink() {
+    var st = state.waiverState;
+    var fromServer = safeStr(st && st.native_link);
+    if (fromServer) return fromServer;
+    return "https://www48.myfantasyleague.com/" + encodeURIComponent(state.ctx.year) +
+      "/add_drop?L=" + encodeURIComponent(state.ctx.leagueId);
+  }
+
+  // ── Which acquisition CTA is legal right now? ──────────────────────────
+  // CONTRACT v2 §4: the SERVER decides the mode. `window.mode` is exactly one
+  // of "bbid" | "fcfs" | "blackout" | "closed", mirrored from MFL's own
+  // calendar. We render off that string and infer NOTHING locally.
+  //
+  // v1 derived the mode here and got it wrong: it returned "bbid" whenever a
+  // future blind-bid run existed — which is ALWAYS true during the real FCFS
+  // window (after one run, before the next) — so the FCFS branch was
+  // unreachable and the league's immediate-add window was never offered.
+  // That derivation is deleted, not patched.
+  //
+  //   bbid     → a Bid button (claim goes into the next blind-bid run)
+  //   fcfs     → an Add button (immediate, one-shot)
+  //   blackout / closed / unknown → NO button, context line only.
+  // A mode we don't recognise, or a state we never loaded, is "unknown": a
+  // dead button is worse than no button (docs/ups_v2/.../add_action_rule.md).
+  //
+  // Returns { mode, label, detail, writeEnabled, nativeLink }. `writeEnabled`
+  // is the §5 gate: even in a live bbid/fcfs window, a dark flag means the
+  // surfaces render read-only with the MFL link and no submit CTA at all.
+  function waiverMode() {
+    var st = state.waiverState;
+    var w = st && st.window;
+    var link = waiverNativeLink();
+    var out = { mode: "unknown", label: "", detail: "Waiver window unavailable.",
+                writeEnabled: false, nativeLink: link };
+    if (!st || !w) return out;
+
+    var mode = safeStr(w.mode);
+    if (mode === "bbid") {
+      out.mode = "bbid";
+      out.label = "Bid";
+      out.detail = "Blind bids run " +
+        (w.next_bbid_run_label || waiverWhen(w.next_bbid_run_unix) || "at MFL's next scheduled run");
+    } else if (mode === "fcfs") {
+      out.mode = "fcfs";
+      out.label = "Add";
+      out.detail = "First come, first served — adds are immediate.";
+    } else if (mode === "blackout") {
+      out.mode = "blackout";
+      var until = (w.blackout && w.blackout.end_unix) ? waiverWhen(w.blackout.end_unix) : "";
+      out.detail = "No add/drops right now" + (until ? " — league blackout until " + until : "") + ".";
+    } else if (mode === "closed") {
+      out.mode = "closed";
+      var opensAt = w.next_bbid_run_label ||
+        (w.waivers_open_at_unix ? waiverWhen(w.waivers_open_at_unix) : "");
+      out.detail = opensAt ? ("Waivers open " + opensAt) : "Waivers haven't opened yet.";
+    } else {
+      // Server sent a mode we don't know (or none at all) — stay silent
+      // rather than guessing our way back into the v1 bug.
+      return out;
+    }
+
+    var acquisitionWindow = (out.mode === "bbid" || out.mode === "fcfs");
+    out.writeEnabled = acquisitionWindow && waiverWriteEnabled();
+    if (acquisitionWindow && !out.writeEnabled) {
+      out.label = "";
+      out.detail += " In-app waiver moves are switched off — use MFL's own add/drop page.";
+    }
+    return out;
+  }
+
+  function waiverLimits() {
+    var lim = state.waiverState && state.waiverState.limits;
+    if (!lim) return null;
+    // `limits.known` is the server's own answer to "did MFL's league export
+    // actually give us these numbers?" — grep-verified in /api/waivers/state,
+    // where every unread limit is NULL rather than a plausible default. The
+    // numbers alone can't distinguish read from invented, so the flag is the
+    // gate: known:false → null → NO bid UI (never a hardcoded minimum).
+    if (lim.known !== true) return null;
+    var min = safeInt(lim.bbid_minimum, 0);
+    var step = safeInt(lim.bbid_increment, 0);
+    var rounds = safeInt(lim.max_rounds, 0);
+    // Belt and braces on the shape: a missing/zero limit means we can't build a
+    // legal bid — callers treat null as "no bid UI".
+    if (min <= 0 || step <= 0 || rounds <= 0) return null;
+    // `conditional` is null when MFL did not say, which is not "off": pass the
+    // tri-state through so a surface can stay quiet instead of asserting.
+    return {
+      min: min, step: step, maxRounds: rounds,
+      conditional: lim.conditional === true,
+      conditionalKnown: lim.conditional === true || lim.conditional === false
+    };
+  }
+
+  var WAIVER_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  // Absolute label for a unix second. Only used when the worker didn't hand us
+  // a pre-formatted label (it owns ET formatting; we don't guess a timezone).
+  function waiverWhen(unixSec) {
+    var n = safeInt(unixSec, 0);
+    if (!n) return "";
+    var d = new Date(n * 1000);
+    if (isNaN(d.getTime())) return "";
+    var h = d.getHours();
+    var ampm = h >= 12 ? "PM" : "AM";
+    var h12 = h % 12; if (h12 === 0) h12 = 12;
+    var mm = d.getMinutes();
+    return WAIVER_MONTHS[d.getMonth()] + " " + d.getDate() + ", " + h12 +
+      (mm ? ":" + (mm < 10 ? "0" + mm : mm) : ":00") + " " + ampm;
+  }
+  // Relative countdown, anchored to the SERVER clock (now_unix) so a skewed
+  // phone clock can't show "in -3h".
+  function waiverCountdown(unixSec) {
+    var target = safeInt(unixSec, 0);
+    if (!target) return "";
+    var st = state.waiverState;
+    var serverNow = safeInt(st && st.now_unix, 0);
+    var base = serverNow || Math.floor(Date.now() / 1000);
+    var drift = serverNow ? Math.floor((Date.now() - state.waiverStateAt) / 1000) : 0;
+    var secs = target - (base + Math.max(0, drift));
+    if (secs <= 0) return "now";
+    var days = Math.floor(secs / 86400);
+    var hours = Math.floor((secs % 86400) / 3600);
+    var mins = Math.floor((secs % 3600) / 60);
+    if (days > 0) return "in " + days + "d " + hours + "h";
+    if (hours > 0) return "in " + hours + "h " + mins + "m";
+    return "in " + Math.max(1, mins) + "m";
+  }
+
+  // ── Local staged plan ─────────────────────────────────────────────────
+  // Picks are staged locally first (the Bid sheet never writes), then the
+  // Claims screen submits the whole plan in one POST. Persisted per
+  // league+season+franchise so closing the PWA doesn't lose staged work.
+  function waiverPlanKey() {
+    return "ups_waiver_plan_" + state.ctx.leagueId + "_" + state.ctx.year + "_" +
+      (state.viewerFranchiseId || "none");
+  }
+  function planSignature(plan) {
+    // Order-sensitive: reordering picks inside a group IS a real change
+    // (MFL honours claim order within a round). A pending CLEAR is part of the
+    // signature too — "withdraw group 2" is an unsubmitted edit like any other.
+    return JSON.stringify((plan || []).map(function (g) {
+      return [safeInt(g.round, 0), g.clear ? 1 : 0, (g.picks || []).map(function (p) {
+        return [String(p.add_pid || ""), safeInt(p.bid_dollars, 0), String(p.drop_pid || "")];
+      })];
+    }));
+  }
+  // The in-memory copy is keyed so a team switch (or a season/league change)
+  // can never surface the previous franchise's staged claims.
+  var _waiverPlanCacheKey = "";
+  function getWaiverPlan() {
+    var key = waiverPlanKey();
+    if (state.waiverPlan && _waiverPlanCacheKey === key) return state.waiverPlan;
+    var stored = null;
+    try {
+      var raw = window.localStorage && window.localStorage.getItem(key);
+      if (raw) stored = JSON.parse(raw);
+    } catch (e) { stored = null; }
+    state.waiverPlan = Array.isArray(stored) ? stored : [];
+    _waiverPlanCacheKey = key;
+    // A plan loaded from storage was never echoed back by the server in THIS
+    // session, so it reads as "edited — not submitted" until a submit or a
+    // /pending fetch establishes a clean baseline. That's the safe default:
+    // better to prompt a redundant submit than to imply MFL has claims it
+    // doesn't.
+    return state.waiverPlan;
+  }
+  // A group in the plan is one of two things:
+  //   picks:[...]              → claims to write for that round
+  //   picks:[] + clear:true    → an EXPLICIT "clear this round at MFL"
+  // The second kind MUST survive here. v1 filtered every empty group out, so
+  // an owner who deleted their only claim produced a plan the round was simply
+  // ABSENT from — which under contract v2 §2 means "leave it alone", i.e. the
+  // claim they just withdrew would quietly stay live and keep spending cap.
+  function setWaiverPlan(plan) {
+    _waiverPlanCacheKey = waiverPlanKey();
+    state.waiverPlan = (Array.isArray(plan) ? plan : []).filter(function (g) {
+      if (!g || safeInt(g.round, 0) <= 0) return false;
+      if (g.picks && g.picks.length) return true;
+      return g.clear === true;
+    }).map(function (g) {
+      var picks = (g.picks || []);
+      return { round: safeInt(g.round, 0), picks: picks, clear: !picks.length };
+    });
+    try {
+      if (window.localStorage) {
+        window.localStorage.setItem(waiverPlanKey(), JSON.stringify(state.waiverPlan));
+      }
+    } catch (e) {}
+    return state.waiverPlan;
+  }
+  function waiverPickCount() {
+    return getWaiverPlan().reduce(function (n, g) { return n + ((g.picks || []).length); }, 0);
+  }
+  // How many rounds are staged for an explicit clear (a pending withdrawal).
+  // These carry no picks, so pickCount() can't see them — but they ARE
+  // submittable work, and the Submit CTA has to know that.
+  function waiverClearCount() {
+    return getWaiverPlan().filter(function (g) {
+      return g.clear && !(g.picks && g.picks.length);
+    }).length;
+  }
+  // The payload that withdraws EVERYTHING: every round we have reason to think
+  // is live, sent with picks:[] (contract v2 §2 — clearing is explicit, never
+  // implied by absence). Prefers the rounds MFL actually reported; when the
+  // pending read is UNKNOWN we fall back to every legal round, so nothing can
+  // hide behind a failed read.
+  function waiverWithdrawAllPlan() {
+    var seen = {};
+    var pend = state.waiverPending;
+    if (pend && pend.known === true && Array.isArray(pend.rounds)) {
+      pend.rounds.forEach(function (g) {
+        var r = safeInt(g.round, 0);
+        if (r > 0 && (g.picks || []).length) seen[r] = true;
+      });
+    } else {
+      var lim = waiverLimits();
+      var max = lim ? lim.maxRounds : 0;
+      for (var i = 1; i <= max; i++) seen[i] = true;
+    }
+    getWaiverPlan().forEach(function (g) {
+      var r = safeInt(g.round, 0);
+      if (r > 0) seen[r] = true;
+    });
+    return Object.keys(seen).map(function (k) { return safeInt(k, 0); })
+      .sort(function (a, b) { return a - b; })
+      .map(function (r) { return { round: r, picks: [], clear: true }; });
+  }
+  // "edited — not submitted": the staged plan differs from whatever the server
+  // last echoed back in its `verified` block.
+  function waiverPlanDirty() {
+    return planSignature(getWaiverPlan()) !== state.waiverPlanVerified;
+  }
+  // Adopt the server's block as both the local plan and the clean baseline.
+  //
+  // CONTRACT v2 §1/§3 — takes the WHOLE block, `{ known, rounds }`, never a
+  // bare array, and adopts ONLY when `known === true`:
+  //   known:false (failed or unparseable MFL read)  → keep the local plan,
+  //                                                   caller shows a warning
+  //   dry runs (verified is always known:false)     → nothing to adopt; the
+  //                                                   caller renders would_write
+  // v1 called this with `resp.verified.rounds || []` and treated the resulting
+  // `[]` as truth — so one unreadable MFL response erased an owner's live
+  // claims from their screen. Returns true only when the plan was replaced.
+  function adoptVerifiedPlan(block) {
+    if (!block || block.known !== true || !Array.isArray(block.rounds)) return false;
+    var rounds = block.rounds;
+    var normalized = (rounds || []).map(function (g) {
+      return {
+        round: safeInt(g.round, 0),
+        picks: (g.picks || []).map(function (p) {
+          return {
+            add_pid: String(p.add_pid || ""),
+            bid_dollars: safeInt(p.bid_dollars, 0),
+            drop_pid: p.drop_pid ? String(p.drop_pid) : null
+          };
+        })
+      };
+    }).filter(function (g) { return g.round > 0 && g.picks.length; });
+    setWaiverPlan(normalized);
+    state.waiverPlanVerified = planSignature(state.waiverPlan);
+    return true;
   }
 
   // ---------- Data shaping (mirror team_operations.js) ----------
@@ -1733,6 +2253,18 @@
       renderRoute();
       updateNavBadges();
     });
+    // Waiver windows move on their own (a 9:00 AM BBID run flips the CTA from
+    // Bid to Add; a WAIVER_NONE span opens/closes). Re-check whenever the PWA
+    // comes back to the foreground, and repaint if anything actually changed
+    // so nobody taps a button the league no longer allows.
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState !== "visible") return;
+      var before = JSON.stringify((state.waiverState && state.waiverState.window) || null);
+      fetchWaiverState(true).then(function (st) {
+        var after = JSON.stringify((st && st.window) || null);
+        if (before !== after) { try { renderRoute(); } catch (_) {} }
+      });
+    });
     renderRoute();
     installPullToRefresh();
     setTimeout(updateNavBadges, 0);
@@ -1835,6 +2367,8 @@
       // Callers that need contract math should use UPS_FRONT_OFFICE.* directly
       // so we don't fork copies of the formulas across the mobile codebase.
       dropPenaltyFor: dropPenaltyFor,
+      // Authoritative /api/cap-penalty/preview row for one pid (or null).
+      capPenaltyFor: capPenaltyFor,
       getMyTradeBaitIds: getMyTradeBaitIds,
       getMyTradeBaitLookingFor: getMyTradeBaitLookingFor,
       getMyTradeBaitNoteFor: getMyTradeBaitNoteFor,
@@ -1867,6 +2401,33 @@
       submitDrop: submitDrop,
       submitOTBToggle: submitOTBToggle,
       reloadData: reloadData
+    },
+    // Waiver plumbing — read state/pending, submit a BBID plan or an FCFS
+    // add, plus the shared window/limit/plan helpers every waiver surface
+    // (Market rows, player sheet, Claims screen, Home card) reads from.
+    waivers: {
+      fetchState: fetchWaiverState,
+      fetchPending: fetchPendingClaims,
+      submitPlan: submitWaiverPlan,
+      submitFcfs: submitFcfs,
+      mode: waiverMode,
+      // §5 kill switch + the read-only escape hatch every surface links to.
+      writeEnabled: waiverWriteEnabled,
+      nativeLink: waiverNativeLink,
+      limits: waiverLimits,
+      when: waiverWhen,
+      countdown: waiverCountdown,
+      getPlan: getWaiverPlan,
+      setPlan: setWaiverPlan,
+      pickCount: waiverPickCount,
+      clearCount: waiverClearCount,
+      withdrawAllPlan: waiverWithdrawAllPlan,
+      // Last /pending envelope, `{ known, rounds }` — read `known` before
+      // treating `rounds` as anything (contract v2 §1).
+      getPending: function () { return state.waiverPending; },
+      isDirty: waiverPlanDirty,
+      adoptVerified: adoptVerifiedPlan,
+      errorMessage: waiverErrorMessage
     },
     route: {
       registerView: registerView,

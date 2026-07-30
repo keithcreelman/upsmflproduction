@@ -168,6 +168,52 @@
       '<span class="ups-m-launch-sub">' + U.escapeHtml(t.sub || "") + '</span>' +
     '</a>';
   }
+  // ── Waivers tile ──
+  // Status comes straight from GET /api/waivers/state via M.waivers (app.js).
+  // The mode is the SERVER's `window.mode` (contract v2 §4) — nothing about
+  // the waiver cadence is derived here. Subtitle answers the two things an
+  // owner actually wants from the home screen: when does the next blind-bid
+  // run fire, and how many claims do I have queued.
+  //   returns { sub, badge, dot, href }
+  function waiverTileInfo() {
+    var W = M.waivers;
+    if (!W || !W.mode) return { sub: "Waivers", badge: null, dot: false, href: "#players" };
+    var info = W.mode();
+    var w = (M.state.waiverState && M.state.waiverState.window) || null;
+    var staged = (W.pickCount ? W.pickCount() : 0) + (W.clearCount ? W.clearCount() : 0);
+    var viewer = M.state.waiverState && M.state.waiverState.viewer;
+    // §1: a pending count is only a number when the server could READ MFL.
+    // `pending_known === false` means UNKNOWN — showing 0 there would tell an
+    // owner they have no claims when we simply couldn't ask.
+    var pending = (viewer && viewer.pending_known !== false && viewer.pending_pick_count != null)
+      ? U.safeInt(viewer.pending_pick_count, 0) : 0;
+    var count = staged || pending;
+    var claimsTxt = count ? (count + (count === 1 ? " claim" : " claims")) : "";
+    // §5: while the write flag is dark the tile still opens (claims are
+    // readable) but it says so, and never nudges toward a submit that can't
+    // happen in-app.
+    var readOnlyTxt = info.writeEnabled ? "" : " · read-only";
+    var sub;
+    if (info.mode === "bbid") {
+      var cd = (w && w.next_bbid_run_unix && W.countdown) ? W.countdown(w.next_bbid_run_unix) : "";
+      var runTxt = (w && w.next_bbid_run_label) ? ("Runs " + w.next_bbid_run_label) : "Blind bids open";
+      sub = (cd ? runTxt + " · " + cd : runTxt) + (claimsTxt ? " · " + claimsTxt : "") + readOnlyTxt;
+    } else if (info.mode === "fcfs") {
+      sub = "First come, first served" + (claimsTxt ? " · " + claimsTxt : "") + readOnlyTxt;
+    } else {
+      // blackout / closed / unknown — the detail line IS the answer.
+      sub = info.detail || "Waivers";
+    }
+    return {
+      sub: sub,
+      badge: count > 0 ? count : null,
+      // Nudge when a run is imminent AND there is something staged to lose —
+      // only meaningful when the owner can actually still submit it.
+      dot: info.mode === "bbid" && info.writeEnabled && staged > 0 && W.isDirty && W.isDirty(),
+      href: "#players/claims"
+    };
+  }
+
   function buildTiles(ctx) {
     var cap = ctx.cap;
     var rosterSub = cap ? (cap.rosterCount + "/30" + (cap.taxiCount ? " · " + cap.taxiCount + " taxi" : "")) : "—";
@@ -177,11 +223,13 @@
       : (ctx.outgoing ? (ctx.outgoing + " out") : "No offers");
     var taxiIrSub = cap ? ((cap.taxiCount || 0) + " taxi · " + (cap.irCount || 0) + " IR") : "Moves";
     var eventsSub = ctx.next ? (eventMeta(ctx.next).label + " " + whenLabel(ctx.next.date)) : "No windows";
+    var wv = waiverTileInfo();
     return [
       { label: "My Roster", icon: "clipboard-list", tone: "field",  href: "#myteam/roster",    sub: rosterSub },
       { label: "Standings", icon: "list-checks", tone: "violet", href: "#league/standings", sub: "Standings & playoff race" },
       // Live Scoring + Contracts intentionally omitted here — both are in the bottom nav.
       { label: "Trades",    icon: "repeat",         tone: "ember",  href: "#league/trade",     sub: tradesSub, badge: ctx.incoming > 0 ? ctx.incoming : null },
+      { label: "Waivers",   icon: "gavel",          tone: "sky",    href: wv.href,             sub: wv.sub, badge: wv.badge, dot: wv.dot },
       { label: "Market",    icon: "tag",            tone: "sky",    href: "#players",          sub: "Browse — filter by team/FA" },
       { label: "Stats", icon: "bar-chart",   tone: "mint",   href: "#league/stats",     sub: "Leaderboards + points against" },
       { label: "Taxi & IR", icon: "shield",         tone: "violet", href: "#myteam/taxi",      sub: taxiIrSub },

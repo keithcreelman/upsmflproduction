@@ -3236,3 +3236,523 @@ button.ups-m-busy::before,
 
 .ups-m-sb-actions { margin: 14px 0 4px; text-align: center; }
 .ups-m-sb-actions a { color: var(--accent); text-decoration: none; font-size: 12.5px; font-weight: 600; }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   In-app waivers (2026-07-30) — Market CTAs, bid sheet, claims screen.
+   Layering: player sheet 100 < claims 104 < bid 108 < drop picker 110
+   (the drop picker is opened FROM the bid sheet, which is opened FROM the
+   claims screen, so each must sit above its parent). Toasts stay on top.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* ----- Window context strip (sits under the Market toolbar) ----- */
+.ups-m-waiver-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-elev);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+.ups-m-waiver-strip .txt { flex: 1 1 auto; min-width: 0; }
+.ups-m-waiver-strip.bbid { border-left: 3px solid var(--accent); }
+.ups-m-waiver-strip.fcfs { border-left: 3px solid var(--teal); }
+.ups-m-waiver-strip.blackout,
+.ups-m-waiver-strip.closed { border-left: 3px solid var(--warn); color: var(--warn); }
+/* write_enabled:false — a live window we can't write to. Read-only styling +
+   the link out to MFL replaces the CTA that would only have 503'd. */
+.ups-m-waiver-strip.readonly { border-left-color: var(--warn); }
+.ups-m-waiver-native {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ups-m-waiver-claims-chip {
+  flex: 0 0 auto;
+  background: rgba(91, 141, 255, 0.16);
+  color: var(--accent);
+  border: 1px solid rgba(91, 141, 255, 0.4);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 32px;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-waiver-claims-chip.dirty {
+  background: rgba(255, 184, 107, 0.16);
+  color: var(--warn);
+  border-color: rgba(255, 184, 107, 0.45);
+}
+
+/* ----- Row CTA: Bid (accent) reuses the Add button's box ----- */
+.ups-m-fa-add.bid { background: var(--accent); color: #08122b; }
+.ups-m-fa-add.bid.staged {
+  background: rgba(91, 141, 255, 0.18);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(91, 141, 255, 0.5);
+}
+
+/* ----- Drop picker additions (selected row / "No drop" / estimate note) ----- */
+.ups-m-drop-row.on { box-shadow: inset 3px 0 0 var(--accent); background: var(--bg-elev2); }
+.ups-m-drop-row.none .name { color: var(--accent); }
+.ups-m-drop-foot {
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+/* ----- Bid sheet ----- */
+.ups-m-bid-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 108;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-bid-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  max-height: 92vh;
+  background: var(--bg-elev);
+  color: var(--fg);
+  border-radius: 16px 16px 0 0;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: ups-m-sheet-in 200ms ease-out;
+}
+.ups-m-bid-head { padding: 14px 48px 12px 16px; border-bottom: 1px solid var(--line); }
+.ups-m-bid-head .title { font-size: 16px; font-weight: 700; }
+.ups-m-bid-head .sub { font-size: 12px; color: var(--fg-muted); margin-top: 2px; }
+.ups-m-bid-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  border: 0;
+  color: var(--fg-muted);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ups-m-bid-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px 4px;
+}
+.ups-m-bid-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 14px 0 6px;
+}
+.ups-m-bid-body .ups-m-bid-label:first-child { margin-top: 0; }
+.ups-m-bid-stepper {
+  display: grid;
+  grid-template-columns: 56px 1fr 56px;
+  gap: 10px;
+  align-items: center;
+}
+.ups-m-bid-stepper .step {
+  height: 48px;
+  border-radius: 10px;
+  border: 1px solid var(--line-soft);
+  background: var(--bg-elev2);
+  color: var(--fg);
+  font-size: 24px;
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-bid-stepper .step:active { background: var(--line); }
+.ups-m-bid-stepper .amt {
+  text-align: center;
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.ups-m-bid-hint { font-size: 11px; color: var(--fg-muted); margin-top: 6px; line-height: 1.45; }
+.ups-m-bid-advisory {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-elev2);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+.ups-m-bid-advisory strong { color: var(--fg); }
+.ups-m-bid-advisory.warn { border-color: rgba(255, 184, 107, 0.45); color: var(--warn); }
+.ups-m-bid-advisory.warn strong { color: var(--warn); }
+.ups-m-bid-rounds { display: flex; flex-wrap: wrap; gap: 6px; }
+.ups-m-bid-round {
+  position: relative;
+  min-width: 44px;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--line-soft);
+  background: var(--bg-elev2);
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-bid-round.on { background: var(--accent); color: #08122b; border-color: var(--accent); }
+.ups-m-bid-round .n {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--teal);
+  color: #08251f;
+  font-size: 10px;
+  line-height: 16px;
+}
+.ups-m-bid-droppick {
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--line-soft);
+  background: var(--bg-elev2);
+  color: var(--fg);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 44px;
+}
+.ups-m-bid-foot {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px calc(12px + var(--safe-bot));
+  border-top: 1px solid var(--line);
+  background: var(--bg-elev);
+}
+.ups-m-bid-btn {
+  flex: 1 1 0;
+  min-height: 46px;
+  border-radius: 10px;
+  border: 1px solid var(--line-soft);
+  background: var(--bg-elev2);
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-bid-btn.primary { background: var(--accent); color: #08122b; border-color: var(--accent); }
+.ups-m-bid-btn.ghost { flex: 0 0 auto; padding: 0 16px; }
+.ups-m-bid-btn[disabled] { opacity: 0.55; cursor: default; }
+
+/* ----- Claims screen (full-screen overlay) ----- */
+.ups-m-claims-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 104;
+  display: flex;
+  flex-direction: column;
+}
+.ups-m-claims-screen { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.ups-m-claims-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: calc(10px + var(--safe-top)) 12px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-elev);
+}
+.ups-m-claims-back {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  color: var(--fg);
+  font-size: 28px;
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+}
+.ups-m-claims-head .ttl { min-width: 0; }
+.ups-m-claims-head .t { font-size: 16px; font-weight: 700; }
+.ups-m-claims-head .s { font-size: 11px; color: var(--fg-muted); }
+.ups-m-claims-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 12px;
+}
+.ups-m-claims-status { padding: 10px 14px 0; }
+.ups-m-claims-dirty {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 184, 107, 0.16);
+  color: var(--warn);
+  font-size: 11px;
+  font-weight: 700;
+}
+.ups-m-claims-clean {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(139, 229, 139, 0.14);
+  color: var(--ok);
+  font-size: 11px;
+  font-weight: 700;
+}
+.ups-m-claims-empty { padding: 40px 24px; text-align: center; }
+.ups-m-claims-empty .t { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.ups-m-claims-empty .s { font-size: 12.5px; color: var(--fg-muted); line-height: 1.5; }
+.ups-m-claim-group { margin-top: 14px; }
+.ups-m-claim-group h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 0 14px 6px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.ups-m-claim-group h3 .n { font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--line-soft); }
+.ups-m-claim-row {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  grid-template-areas: "ord body ctl" ".  ctl2 ctl2";
+  gap: 6px 10px;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-elev);
+  border-top: 1px solid var(--line);
+}
+.ups-m-claim-row .ord {
+  grid-area: ord;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  text-align: center;
+}
+.ups-m-claim-row .body { grid-area: body; min-width: 0; }
+.ups-m-claim-row .name { font-size: 14px; font-weight: 600; }
+.ups-m-claim-row .sub { font-size: 11px; color: var(--fg-muted); margin-top: 2px; }
+.ups-m-claim-row .sub strong { color: var(--accent); }
+.ups-m-claim-row .ctl { grid-area: ctl; display: flex; flex-direction: column; gap: 4px; }
+.ups-m-claim-row .mv {
+  width: 40px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--line-soft);
+  background: var(--bg-elev2);
+  color: var(--fg);
+  font-size: 11px;
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-claim-row .mv[disabled] { opacity: 0.3; cursor: default; }
+.ups-m-claim-row .ctl2 {
+  grid-area: ctl2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ups-m-claim-move {
+  background: var(--bg-elev2);
+  color: var(--fg);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  padding: 5px 6px;
+  font-size: 11px;
+  font-family: inherit;
+  min-height: 32px;
+}
+.ups-m-claim-row .lnk {
+  background: transparent;
+  border: 0;
+  padding: 6px 2px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 32px;
+}
+.ups-m-claim-row .lnk.danger { color: var(--danger); }
+.ups-m-claims-foot {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px calc(12px + var(--safe-bot));
+  border-top: 1px solid var(--line);
+  background: var(--bg-elev);
+}
+/* The MFL escape hatch renders as an <a> in the footer when write_enabled is
+   false, so it has to sit in the .ups-m-bid-btn box like the buttons do. */
+a.ups-m-bid-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* ----- Contract v2: unknown-state banner, clears, dry-run preview ----- */
+/* Sticky, NOT a toast: when the server couldn't read our claims the owner has
+   to keep seeing that this screen is their local draft, not MFL's truth. */
+.ups-m-claims-notice {
+  margin: 10px 14px 0;
+  padding: 9px 11px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  background: var(--bg-elev2);
+  border-left: 3px solid var(--warn);
+  color: var(--warn);
+}
+.ups-m-claims-notice.ok { border-left-color: var(--ok); color: var(--ok); }
+.ups-m-claims-notice a { color: inherit; font-weight: 700; }
+/* A round staged for an explicit clear (picks:[] → "clear this at MFL"). */
+.ups-m-claim-group.cleared h3 .n { color: var(--danger); }
+.ups-m-claim-clearrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-elev);
+  border-top: 1px solid var(--line);
+  border-left: 3px solid var(--danger);
+}
+.ups-m-claim-clearrow .body { flex: 1 1 auto; min-width: 0; }
+.ups-m-claim-clearrow .name { font-size: 14px; font-weight: 600; color: var(--danger); }
+.ups-m-claim-clearrow .sub { font-size: 11px; color: var(--fg-muted); margin-top: 2px; }
+.ups-m-claim-clearrow .lnk {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  padding: 6px 2px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 32px;
+}
+/* Per-group clear, parked at the end of the group heading. */
+.ups-m-claim-group h3 .gclear {
+  margin-left: auto;
+  background: transparent;
+  border: 0;
+  padding: 2px 0 2px 8px;
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 28px;
+}
+/* Withdraw-everything: the explicit, user-asked-for destructive action. */
+.ups-m-claims-withdraw {
+  margin: 18px 14px 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.ups-m-claims-withdraw .lnk {
+  background: transparent;
+  border: 1px solid rgba(255, 107, 107, 0.45);
+  border-radius: 8px;
+  padding: 9px 14px;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 40px;
+}
+.ups-m-claims-withdraw .lnk[disabled] { opacity: 0.5; cursor: default; }
+.ups-m-claims-withdraw .s { font-size: 11px; color: var(--fg-muted); margin-top: 6px; line-height: 1.45; }
+/* Dry run: a PREVIEW of what a live submit would send. Deliberately styled as
+   a note, not as state — nothing here has been written to MFL. */
+.ups-m-claims-preview {
+  margin: 10px 14px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--bg-elev2);
+  border: 1px dashed var(--line-soft);
+}
+.ups-m-claims-preview .t { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+.ups-m-claims-preview .s { font-size: 11px; color: var(--fg-muted); margin-top: 6px; line-height: 1.45; }
+.ups-m-claims-preview ul { margin: 0; padding-left: 18px; }
+.ups-m-claims-preview li { font-size: 12px; color: var(--fg-muted); line-height: 1.6; }
+
+/* ----- Player-sheet acquisition block ----- */
+.ups-m-sheet-acq { margin-bottom: 10px; }
+.ups-m-acq-note {
+  font-size: 12px;
+  color: var(--fg-muted);
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: var(--bg-elev2);
+  border-left: 3px solid var(--warn);
+}
+.ups-m-acq-note.staged { border-left-color: var(--accent); color: var(--fg); }
+.ups-m-acq-note .lnk {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+/* Sheet-level MFL escape hatch (write_enabled:false). Sized like the sheet's
+   own action buttons so the read-only state doesn't look broken. */
+.ups-m-acq-native {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid var(--line-soft);
+  background: var(--bg-elev2);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}

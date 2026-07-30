@@ -232,20 +232,68 @@
     return false;
   }
 
+  // Acquisition block for an UNROSTERED player — the sheet's answer to
+  // "can I get this guy right now?". Resolved by M.waiverUI.cta
+  // (views/players.js) off GET /api/waivers/state — the mode is the SERVER's
+  // `window.mode`, never re-derived here (contract v2 §4):
+  //   blind-bid window → a Bid button   ·   FCFS window → an Add button
+  //   blackout / not-open / unknown → context text, NO button.
+  // docs/ups_v2/.../add_action_rule.md is explicit that a disabled Add is
+  // worse than no Add, so we never render one.
+  //
+  // Contract v2 §5: when the server reports write_enabled:false there is no
+  // button at all — the sheet shows the context line plus a link to MFL's own
+  // add/drop page. A CTA whose only possible outcome is a 503 is not a CTA.
+  function renderAcquisitionBlock(pid) {
+    var WUI = window.UPS_MOBILE.waiverUI;
+    if (!WUI) return "";
+    var cta = WUI.cta(pid, { longLabel: true });
+    var info = WUI.modeInfo();
+    var staged = WUI.stagedRoundsFor(pid);
+    var parts = [];
+    if (staged.length) {
+      parts.push('<div class="ups-m-acq-note staged">Claimed in ' +
+        (staged.length > 1 ? "groups " : "group ") + U.escapeHtml(staged.join(", ")) +
+        ' · <button class="lnk" data-act="waiver-claims">Review claims</button></div>');
+    }
+    if (info.detail) {
+      parts.push('<div class="ups-m-acq-note">' + U.escapeHtml(info.detail) + '</div>');
+    }
+    if (cta.html) {
+      parts.push('<div class="ups-m-sheet-actions">' + cta.html + '</div>');
+    } else if (cta.readOnly && info.nativeLink &&
+               (info.mode === "bbid" || info.mode === "fcfs")) {
+      parts.push('<div class="ups-m-sheet-actions">' +
+        '<a class="ups-m-acq-native" href="' + U.escapeHtml(info.nativeLink) +
+        '" target="_blank" rel="noopener">Add/drop on MFL</a></div>');
+    }
+    if (!parts.length) return "";
+    return '<div class="ups-m-sheet-acq">' + parts.join("") + '</div>';
+  }
+
   function renderActionsFooter(pid, rosterRow, ownsPlayer, opts) {
     opts = opts || {};
     if (!ownsPlayer) {
-      return '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
+      // No rosterRow at all = free agent → offer the live acquisition path.
+      // A rosterRow owned by someone ELSE = trade territory, which lives in
+      // the Market row / Trades view, so that case still just gets Close.
+      var acq = rosterRow ? "" : renderAcquisitionBlock(pid);
+      return acq + '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
     }
     var s = window.UPS_MOBILE.state;
     var otbIds = DATA.getMyTradeBaitIds();
     var onBlock = otbIds.has(String(pid));
     var existingNote = DATA.getMyTradeBaitNoteFor(pid);
+    // Penalty comes from the worker's /api/cap-penalty/preview batch (the same
+    // _computeDropPenalty the cron uses to post the real charge). When that
+    // hasn't landed, dropPenaltyFor falls back to local math — say "est." so
+    // the number is never mistaken for the authoritative charge.
     var penalty = DATA.dropPenaltyFor(rosterRow, s.ctx.year);
     var penaltyLabel = "";
     if (penalty && typeof penalty.amount === "number") {
+      var estTag = penalty.authoritative ? "" : "est. ";
       penaltyLabel = penalty.amount > 0
-        ? ' <span class="pn">(' + U.fmtUsd(penalty.amount) + ' penalty)</span>'
+        ? ' <span class="pn">(' + estTag + U.fmtUsd(penalty.amount) + ' penalty)</span>'
         : ' <span class="pn ok">(no penalty)</span>';
     } else {
       penaltyLabel = ' <span class="pn">(penalty TBD)</span>';
@@ -527,6 +575,24 @@
     if (remove) remove.addEventListener("click", function () { handleOTBRemove(remove); });
     if (drop) drop.addEventListener("click", function () { handleDrop(footerState.pid, footerState.name, footerState.rosterRow, drop); });
     gateEraRetentionDrop(foot, drop);
+    // Waiver acquisition (unrostered players). The flows live in
+    // views/players.js (M.waiverUI) so the Market tab and this sheet can
+    // never disagree about what window we're in. Close the sheet first —
+    // the bid/drop/claims overlays stack above it and it would just be a
+    // dead layer underneath.
+    var waiverBtns = foot.querySelectorAll('[data-act="waiver-bid"],[data-act="waiver-add"],[data-act="waiver-claims"]');
+    for (var wi = 0; wi < waiverBtns.length; wi++) {
+      waiverBtns[wi].addEventListener("click", function () {
+        var WUI = window.UPS_MOBILE.waiverUI;
+        if (!WUI) return;
+        var act = this.getAttribute("data-act");
+        var wpid = this.getAttribute("data-pid") || footerState.pid;
+        window.UPS_MOBILE.sheet.close();
+        if (act === "waiver-bid") WUI.openBid(wpid);
+        else if (act === "waiver-add") WUI.startFcfs(wpid);
+        else WUI.openClaims();
+      });
+    }
     var unloadCleanup = foot.querySelector('[data-act="unload-cleanup"]');
     if (unloadCleanup) unloadCleanup.addEventListener("click", function () {
       handleUnloadCleanup(unloadCleanup);

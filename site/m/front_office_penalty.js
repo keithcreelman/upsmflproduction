@@ -24,6 +24,16 @@
  *
  * The only mobile-specific glue is at the bottom (`adaptRosterRow` and the
  * `window.UPS_FRONT_OFFICE` export). The functions otherwise match desktop.
+ *
+ * INTENTIONAL DIVERGENCE (2026-07-30, in-app waivers):
+ *   dropPenaltyEstimate no longer carries the flat 35%-of-salary WW branch.
+ *   That rule was retired by league_context_v1.md §D1.4 on 2026-05-08 and the
+ *   worker has never used it. Everything an owner actually sees now comes from
+ *   /api/cap-penalty/preview (state.capPenaltyByPid) anyway; this local math is
+ *   an OFFLINE FALLBACK only, and it should not quote a number the worker would
+ *   never charge. Desktop roster_workbench.js still has the 35% branch in its
+ *   own fallback — see memory project_ww_penalty_prorate_migration.md — so if
+ *   you are syncing this file from desktop, do NOT copy that branch back.
  */
 (function () {
   "use strict";
@@ -316,18 +326,45 @@
     if (now.getFullYear() > yr) return false;
     return now < new Date(yr, 7, 1, 0, 0, 0, 0);
   }
-  // ── Cap-penalty SSOT cache (mirrors desktop roster_workbench.js) ──────────
-  // Authoritative penalty from the worker's /api/cap-penalty/preview (the SAME
-  // _computeDropPenalty the cron uses for real charges). Fetched once per season
-  // into __mCapCache; read synchronously below. Falls back to the inline estimate
-  // until it arrives, then dispatches "ups-cap-penalty-ready" so app.js repaints.
+  // ── Cap-penalty SSOT (mirrors desktop roster_workbench.js) ────────────────
+  // The ONLY authoritative penalty is the worker's /api/cap-penalty/preview —
+  // the SAME _computeDropPenalty the hourly cron uses to post real charges
+  // (canon §6/§D2: 75% guarantee minus per-week pro-rated earnings; WW ≤ $4K,
+  // taxi, and 1-yr-under-$5K are exempt). app.js fetches the BATCH once per
+  // load into state.capPenaltyByPid; we read it synchronously here so every
+  // mobile surface (drop picker, player-sheet Drop label, waiver conditional
+  // drops) shows the number the owner will actually be charged.
+  //
+  // __mCapCache is a self-heal for the case where this file is used without
+  // app.js having populated state yet; it dispatches "ups-cap-penalty-ready"
+  // so the router repaints once the real numbers land.
   var __mCapCache = null, __mCapKey = "", __mCapLoading = false;
+  function mobileCtx() {
+    var s = window.UPS_MOBILE && window.UPS_MOBILE.state;
+    return (s && s.ctx) || null;
+  }
+  // Authoritative batch, app-owned first, then this file's own fetch.
+  function authoritativeCapRow(pid) {
+    if (!pid) return null;
+    var s = window.UPS_MOBILE && window.UPS_MOBILE.state;
+    if (s && s.capPenaltyByPid && s.capPenaltyByPid[pid]) return s.capPenaltyByPid[pid];
+    if (__mCapCache && __mCapCache[pid]) return __mCapCache[pid];
+    return null;
+  }
   function loadMobileCapCache(season) {
     var seasonStr = String(season || "").replace(/\D/g, "");
     if (!seasonStr || __mCapLoading) return;
     if (__mCapCache && __mCapKey === seasonStr) return;
+    // If app.js already owns the batch for this season there's nothing to do.
+    var s = window.UPS_MOBILE && window.UPS_MOBILE.state;
+    if (s && s.capPenaltyByPid) return;
     __mCapLoading = true;
-    var url = "https://upsmflproduction.keith-creelman.workers.dev/api/cap-penalty/preview?L=74598&YEAR=" + encodeURIComponent(seasonStr);
+    // League id comes from the live app context — hardcoding 74598 broke the
+    // preview for any other league (test league L=25625 included).
+    var ctx = mobileCtx();
+    var leagueId = String((ctx && ctx.leagueId) || "74598").replace(/\D/g, "") || "74598";
+    var url = "https://upsmflproduction.keith-creelman.workers.dev/api/cap-penalty/preview?L=" +
+      encodeURIComponent(leagueId) + "&YEAR=" + encodeURIComponent(seasonStr);
     fetch(url, { credentials: "omit", cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (payload) {
@@ -343,8 +380,9 @@
   function dropPenaltyEstimate(player, season) {
     // SSOT: prefer the worker's authoritative penalty (cached batch).
     var __mPid = safeStr(player && player.id).replace(/\D/g, "");
-    if (__mCapCache && __mPid && __mCapCache[__mPid]) {
-      var __mc = __mCapCache[__mPid];
+    var __mAuth = authoritativeCapRow(__mPid);
+    if (__mAuth) {
+      var __mc = __mAuth;
       var __me = safeInt(__mc.earned, 0);
       return {
         amount: safeInt(__mc.penalty, 0),
@@ -406,25 +444,19 @@
         accrued: accrued, earned: earned
       };
     }
-    // !!! TABLED CROSS-CODEBASE MIGRATION — DO NOT FIX MOBILE-ONLY !!!
-    // Canonical rule (league_context_v1.md §D1.4, effective 2026-05-08)
-    // RETIRED the flat 35% WW rule. WW $5K+ pickups now use the same
-    // 75% × TCV − earned formula as auction contracts, with per-week
-    // pro-rated earning anchored to the acquisition week.
-    // This 35% short-circuit is LEGACY, matching roster_workbench.js:1896
-    // verbatim. The worker uses canonical math; this is preview-only drift.
-    // Tabled by Keith per memory project_ww_penalty_prorate_migration.md.
-    // Mobile must not diverge from desktop — fix cross-codebase or skip.
-    if (isLikelyWaiverPickup(player) && contractLength === 1 && currentYearSalary >= 5000) {
-      var waiverAmount = Math.round(currentYearSalary * 0.35);
-      return {
-        amount: waiverAmount,
-        note: "Waiver pickup rule: 35% of current-year salary (" + money(currentYearSalary) + " x 35%).",
-        tcv: totalContractValue, guaranteed: guaranteed,
-        currentYearSalary: currentYearSalary, priorEarned: priorEarned,
-        accrued: accrued, earned: earned
-      };
-    }
+    // The flat 35%-of-salary WW short-circuit that used to live here has been
+    // REMOVED (2026-07-30, in-app waivers). league_context_v1.md §D1.4
+    // (effective 2026-05-08) retired that rule: a WW pickup at $5K+ earns the
+    // same treatment as any other contract — 75% × TCV minus per-week
+    // pro-rated earnings — which is exactly what `guaranteed - earned` below
+    // computes, and exactly what the worker's _computeDropPenalty (and the
+    // cron that posts the real charge) does. Keeping 35% here meant an owner
+    // could be quoted $3,500 on a $10K waiver claim and then be charged
+    // $7,500. The cheap-WW exemption is unaffected — it is handled by the
+    // 1-yr-under-$5K branch above (canon: a WW deal ≤ $4K is a cap-free cut).
+    // isLikelyWaiverPickup() is deliberately left in place: this file is a
+    // verbatim mirror of roster_workbench.js and dropping the helper would
+    // make the next diff against desktop harder to read. It is now unused.
     var penalty = Math.max(0, guaranteed - earned);
     var guaranteeLabel = explicitGuarantee > 0
       ? "contract guarantee"

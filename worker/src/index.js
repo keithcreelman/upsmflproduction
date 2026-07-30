@@ -10,7 +10,7 @@ import {
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours } from "./trade_dm.js";
 import { create3WayTrade, list3WayForFranchise, cancel3WayTrade, execute3Way } from "./trade_3way.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
-import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar } from "./auction_calendar.js";
+import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix } from "./auction_calendar.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import { commishVerdictOverride } from "./discord_rule_proposal.js";
@@ -4695,6 +4695,53 @@ export default {
         } else if (dropEnabled && !env.SELF) {
           console.error("[scheduled */5] drop-tracker skipped: env.SELF service binding missing (check wrangler.toml [[services]])");
         }
+
+        // Add tracker — the mirror image of the drop chain above (2026-07-30).
+        // Reuses the SAME getAllFeatureFlags read (dropFlags) so the tick's D1
+        // chatter stays flat, and the same season/leagueId/origin/commishApiKey
+        // consts. Each half is behind its own flag; the contract annotator is a
+        // real MFL write and is COSMETIC ONLY (contractInfo, never salary).
+        const addEnabled = dropFlagOn("ADD_TRACKER_ENABLED");
+        const addAutoPost = dropFlagOn("ADD_TRACKER_AUTO_POST");
+        const addAnnotate = dropFlagOn("WW_CONTRACT_ANNOTATE_ENABLED");
+        const addTarget = String(env.ADD_TRACKER_DISCORD_TARGET || "test").trim().toLowerCase();
+        if (addEnabled && commishApiKey && env.UPS_MFL_DB && env.SELF) {
+          ctx.waitUntil((async () => {
+            try {
+              const addScanRes = await env.SELF.fetch(
+                `${origin}/admin/adds/scan-and-record?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId, days: 2 }) }
+              );
+              const addScanData = await addScanRes.json().catch(() => ({}));
+              const addsWritten = Number(addScanData?.written_count) || 0;
+              let addsAnnotated = 0;
+              if (addAnnotate) {
+                const annRes = await env.SELF.fetch(
+                  `${origin}/admin/adds/annotate-contracts?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId, limit: 20 }) }
+                );
+                const annData = await annRes.json().catch(() => ({}));
+                addsAnnotated = Number(annData?.annotated) || 0;
+              }
+              let addsPosted = 0;
+              if (addAutoPost) {
+                const apRes = await env.SELF.fetch(
+                  `${origin}/admin/adds/post-discord?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId, target: addTarget, limit: 20 }) }
+                );
+                const apData = await apRes.json().catch(() => ({}));
+                addsPosted = Number(apData?.posted_count) || 0;
+              }
+              if (addsWritten || addsPosted || addsAnnotated) {
+                console.log(`[scheduled */5] add-tracker: new_adds=${addsWritten} discord_posted=${addsPosted} annotated=${addsAnnotated} auto_post=${addAutoPost ? "1" : "0"} annotate=${addAnnotate ? "1" : "0"} target=${addTarget}`);
+              }
+            } catch (e) {
+              console.error(`[scheduled */5] add-tracker failed: ${e?.message || String(e)}`);
+            }
+          })());
+        } else if (addEnabled && !env.SELF) {
+          console.error("[scheduled */5] add-tracker skipped: env.SELF service binding missing (check wrangler.toml [[services]])");
+        }
       } catch (e) {
         console.error(`[scheduled */5] drop-tracker dispatch failed: ${e?.message || String(e)}`);
       }
@@ -5253,6 +5300,12 @@ export default {
         path !== "/admin/drops/post-mfl" &&
         path !== "/admin/drops/reconciliation" &&
         path !== "/admin/drops/reconcile-post" &&
+        // Waiver wire (2026-07-30). The owner-facing /api/waivers/* routes are
+        // called from mobile with only ?MFL_USER_ID=, and the /admin/adds/*
+        // routes are fired by the */5 cron without an L — miss this list and
+        // they 400 "Missing L param" before the handler ever runs.
+        !path.startsWith("/api/waivers/") &&
+        !path.startsWith("/admin/adds/") &&
         path !== "/api/giphy-search" &&
         path !== "/api/franchise-ownership-history" &&
         path !== "/api/roast-thread/track" &&
@@ -23958,6 +24011,36 @@ export default {
         return parts.join("\n");
       };
 
+      // contractInfo-ONLY salaries import (Keith 2026-07-30).
+      //
+      // Deliberately NOT a flag on buildSalaryImportXmlFromRows: that builder is
+      // the money path (it always emits salary + contractYear) and other callers
+      // depend on exactly that. This one exists for /admin/adds/annotate-contracts,
+      // whose entire remit is cosmetic — appending "TCV nK| AAV nK" to a WW
+      // contractInfo — and which is forbidden to move a dollar. MFL sets
+      // salary = the winning bid natively on a waiver award; re-sending salary
+      // from a snapshot read minutes earlier is a stale read-modify-write that
+      // can only ever clobber. So we do not send it at all.
+      //
+      // MFL's own import doc shows player elements with different attribute
+      // sets — `<player id="8670" salary="7.56" contractYear="2" contractInfo="…" />`
+      // omits contractStatus — so a partial attribute list is legal. The caller
+      // still verifies the untouched fields after the write and stops dead if
+      // MFL turns out to blank omitted attributes.
+      const buildContractInfoOnlyImportXml = (rows) => {
+        const parts = ["<salaries>", '  <leagueUnit unit="LEAGUE">'];
+        for (const row of rows || []) {
+          const pid = String(row?.player_id || "").replace(/\D/g, "");
+          if (!pid) continue;
+          parts.push(
+            `    <player id="${xmlAttrEscape(pid)}" contractInfo="${xmlAttrEscape(safeStr(row?.contract_info || ""))}" />`
+          );
+        }
+        parts.push("  </leagueUnit>");
+        parts.push("</salaries>");
+        return parts.join("\n");
+      };
+
       const compareRosterState = (sourceByFranchise, targetByFranchise) => {
         const mismatches = [];
         const franchiseIds = Array.from(new Set([...Object.keys(sourceByFranchise || {}), ...Object.keys(targetByFranchise || {})])).sort();
@@ -35032,6 +35115,2273 @@ export default {
         });
       }
 
+      // ══════════════════════════════════════════════════════════════════════
+      // WAIVER WIRE — in-app BBID plan + FCFS add (Keith 2026-07-30)
+      // ══════════════════════════════════════════════════════════════════════
+      // League waiver type is MFL's BBID_FCFS with conditional blind bidding on.
+      // Everything below MIRRORS MFL instead of re-deriving it: the run schedule
+      // and the blackout spans come from MFL's own calendar (WAIVER_BBID /
+      // WAIVER_LOCK / WAIVER_UNLOCK / WAIVER_NONE), the bid floor / step / round
+      // cap are read live from TYPE=league, and MFL natively enforces the $300K
+      // cap and the roster max at award time. We add identity, validation and an
+      // audit trail — never a second rulebook.
+      //
+      // WHY THERE IS NO CONTRACT WRITE ANYWHERE IN HERE: MFL's league default
+      // salary row (export?TYPE=salaries, player id `0000`) is ALREADY the
+      // canonical UPS waiver contract — salary 1000 / contractStatus "WW" /
+      // contractInfo "CL 1|" / contractYear 1. An FCFS $1K add therefore needs
+      // zero contract work, and a BBID award gets salary = the winning bid
+      // NATIVELY from MFL. We must NEVER write salary for a waiver add. The one
+      // gap is cosmetic (contractInfo carries no TCV/AAV tokens) and is verified
+      // not to affect penalty math — _parseContractData falls back to salary as
+      // TCV. The optional backfill lives in /admin/adds/annotate-contracts and
+      // touches contractInfo only.
+
+      const _wvTruthy = (v) => {
+        const s = String(v == null ? "" : v).trim().toLowerCase();
+        return s === "1" || s === "true" || s === "yes" || s === "y";
+      };
+      const _wvSeason = () => safeStr(YEAR || env.YEAR || new Date().getUTCFullYear());
+      const _wvLeague = () => safeStr(L || env.LEAGUE_ID || "74598");
+
+      // The in-app write switch is per-LEAGUE, not global.
+      //
+      // WAIVERS_INAPP_ENABLED is one flag for the whole worker, so arming it to
+      // rehearse on the test league would simultaneously arm the real one. That
+      // makes the flag useless for its actual purpose: the rehearsal has to
+      // happen somewhere that cannot touch real rosters or real cap money.
+      //
+      // So production (74598) obeys the flag and ships dark, while any other
+      // league — in practice only the 25625 rehearsal mirror, which
+      // /admin/test-sync/prod-rosters keeps roster-identical to prod — is armed
+      // on its own. Writes there still require the caller's own MFL owner
+      // cookie and are still adjudicated by MFL, so this widens what can be
+      // rehearsed, never who may act. Mirrors the guardrail on
+      // /admin/test-sync/prod-rosters, which hard-refuses a 74598 target.
+      const WV_PROD_LEAGUE_ID = "74598";
+      const _wvWriteArmed = async (leagueId) => {
+        if (safeStr(leagueId) !== WV_PROD_LEAGUE_ID) {
+          return { armed: true, source: "non_production_league" };
+        }
+        return { armed: !!(await getFeatureFlag(env, "WAIVERS_INAPP_ENABLED")), source: "WAIVERS_INAPP_ENABLED" };
+      };
+
+      // MFL's own Add/Drop page — the fallback handed back whenever the in-app
+      // write path is dark or refuses, so nobody is ever stranded by our switch.
+      const _wvNativeAddDropLink = (season, leagueId) =>
+        `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/add_drop?L=${encodeURIComponent(String(leagueId))}`;
+
+      // Owner identity for waiver WRITES. Deliberately does NOT reuse
+      // `viewerCookieHeader` (defined above), which falls back to the commish
+      // cookie env.MFL_COOKIE. Posting an owner-restricted MFL import with the
+      // commish cookie makes MFL return 200 and DO NOTHING — the silent no-op
+      // that ate the tradeBait and taxi/IR writes until /roster-workbench/action
+      // started hard-401ing (MISSING_VIEWER_COOKIE). Every waiver write below
+      // does the same: no owner cookie, no write, loud 401.
+      const _wvViewerMflUserId = (() => {
+        if (browserMflUserId) return browserMflUserId;                       // mobile: ?MFL_USER_ID=
+        const m = String(request.headers.get("Cookie") || "").match(/MFL_USER_ID=([^;]+)/i);
+        return (m && m[1]) ? m[1] : "";                                      // desktop: real cookie
+      })();
+      const _wvOwnerCookieHeader = _wvViewerMflUserId
+        ? `MFL_USER_ID=${_rdhMflCookieValue(_wvViewerMflUserId)}`
+        : "";
+
+      // ── ERA forced-retention gate (league_context_v1.md §A3) ───────────────
+      // Extracted 2026-07-30 from /roster-workbench/action (which now calls this
+      // instead of inlining it) so the waiver routes enforce the identical rule:
+      // a WON waiver claim executes a real CUT, so the drop side has to clear the
+      // same gate the Front Office's Drop button does.
+      //
+      // Authoritative signal = a 'won' lot in ups_auction_lots for THIS season
+      // joined to ups_era_pool. That excludes FA pickups (not won via ERA) and
+      // prior-cycle ERA vets traded in (their won lot is a different season), so
+      // ONLY current-year ERA winners are protected. Fail-OPEN on any lookup
+      // error, matching the other roster gates — a flaky D1 read must not strand
+      // an owner mid-waiver-run.
+      //
+      // WHERE THE LIFT TIME COMES FROM (fixed 2026-07-30): the ONLY source used
+      // to be env.FA_AUCTION_CLOSE_AT, which is set nowhere in this repo — not
+      // in wrangler.toml, not in any secret — so `faCloseUnix` was always null
+      // and retention NEVER lifted. The authoritative close instant is the
+      // commish-maintained `faa_close_at` in the auction calendar config
+      // (ups_settings 'auction_calendar'; see auction_calendar.js), which is the
+      // same value pushed to MFL as the AUCTION_START / WAIVER_NONE END_TIME.
+      // env.FA_AUCTION_CLOSE_AT is kept as an OPTIONAL override (unix seconds or
+      // anything Date.parse understands) for a break-glass shift.
+      //
+      // `unknownCloseBlocks` decides what happens when NEITHER source resolves:
+      //   true  (default) — stay blocked. This preserves /roster-workbench/action's
+      //                     existing Drop-button behavior byte for byte.
+      //   false           — fail OPEN. Used by the waiver routes: canon opens
+      //                     waivers only AFTER the FA Auction has completed, so
+      //                     this rule should essentially never bind on a waiver
+      //                     claim, and an unset calendar field must not silently
+      //                     freeze an owner's roster mid-waiver-run.
+      //
+      // SEASON-SCOPED ON PURPOSE. The auction calendar lives in a single
+      // ups_settings row keyed 'auction_calendar' with NO season predicate, and
+      // setAuctionCalendar merges rather than replaces — so last cycle's
+      // faa_close_at survives into the next season. A season-blind read would
+      // therefore resolve a close time already in the past for THIS season's ERA
+      // winners and report "fa_auction_closed", silently switching §A3 forced
+      // retention off a year later. That is a fail-OPEN regression in
+      // /roster-workbench/action, which fails CLOSED for an unresolvable close.
+      // So a resolved close time is only trusted when it actually falls inside
+      // the season being evaluated; otherwise it is treated as unresolved and
+      // each caller applies its own policy (roster-workbench blocks, waivers
+      // fail open).
+      const _eraFaCloseUnix = async (season) => {
+        const seasonNum = Number(season) || 0;
+        // An FA Auction closes in its own calendar year (late July / August),
+        // so require the timestamp to land in that year. Generous bounds — this
+        // is a staleness guard, not a schedule validator.
+        const inSeason = (unix) => {
+          if (!seasonNum) return true;   // no season context ⇒ cannot validate
+          const y = new Date(unix * 1000).getUTCFullYear();
+          return y === seasonNum;
+        };
+        const ovRaw = String((env && env.FA_AUCTION_CLOSE_AT) || "").trim();
+        if (ovRaw) {
+          const ov = /^\d+$/.test(ovRaw)
+            ? Number(ovRaw)
+            : (Number.isFinite(Date.parse(ovRaw)) ? Math.floor(Date.parse(ovRaw) / 1000) : null);
+          // The env override is a deliberate break-glass value — honored as-is,
+          // but still reported as stale rather than silently trusted.
+          if (ov && ov > 0) {
+            return inSeason(ov)
+              ? { unix: ov, source: "env.FA_AUCTION_CLOSE_AT" }
+              : { unix: null, source: "env.FA_AUCTION_CLOSE_AT_wrong_season", stale_unix: ov };
+          }
+        }
+        try {
+          const cal = await getAuctionCalendar(env);
+          const wall = String((cal && cal.faa && cal.faa.faa_close_at) || "").trim();
+          const unix = wall ? etWallClockToUnix(wall) : null;
+          if (unix && unix > 0) {
+            if (inSeason(unix)) return { unix, source: "auction_calendar.faa_close_at", wall };
+            console.warn(`[era-retention] auction_calendar.faa_close_at (${wall}) is not in season ${seasonNum} — treating as unresolved so the gate cannot silently lift.`);
+            return { unix: null, source: "auction_calendar_stale_season", stale_unix: unix, wall };
+          }
+        } catch (calErr) {
+          console.warn("[era-retention] auction calendar read failed:", calErr && calErr.message ? calErr.message : String(calErr));
+        }
+        return { unix: null, source: "unresolved" };
+      };
+      const _eraRetentionBlocked = async (season, leagueId, playerId, opts = {}) => {
+        const unknownCloseBlocks = opts.unknownCloseBlocks !== false;
+        const pid = String(playerId == null ? "" : playerId).replace(/\D/g, "");
+        if (!pid) return { blocked: false, reason: "no_player_id" };
+        if (!env || !env.UPS_MFL_DB) return { blocked: false, reason: "unchecked" };
+        try {
+          const wonRow = await env.UPS_MFL_DB.prepare(
+            `SELECT 1
+               FROM ups_auction_lots l
+               INNER JOIN ups_era_pool p
+                 ON p.player_id = l.player_id AND p.league_id = l.league_id
+                AND p.season = CAST(l.season AS TEXT)
+              WHERE l.season = ? AND l.league_id = ? AND l.status = 'won' AND l.player_id = ?
+              LIMIT 1`
+          ).bind(Number(season), String(leagueId), pid).first();
+          if (!wonRow) return { blocked: false, reason: "not_a_current_era_winner" };
+          const close = await _eraFaCloseUnix(season);
+          const nowUnix = Math.floor(Date.now() / 1000);
+          if (close.unix && nowUnix >= close.unix) {
+            return { blocked: false, reason: "fa_auction_closed", close_at_unix: close.unix, close_source: close.source };
+          }
+          if (!close.unix) {
+            return unknownCloseBlocks
+              ? { blocked: true, reason: "era_forced_retention_close_unknown", close_at_unix: null, close_source: close.source }
+              : { blocked: false, reason: "fa_close_unknown_fail_open", close_at_unix: null, close_source: close.source };
+          }
+          return { blocked: true, reason: "era_forced_retention", close_at_unix: close.unix, close_source: close.source };
+        } catch (eraErr) {
+          console.warn("[era-retention] gate failed (fail-open):", eraErr && eraErr.message ? eraErr.message : String(eraErr));
+          return { blocked: false, reason: "gate_error" };
+        }
+      };
+
+      // MFL's rejection text, VERBATIM. Inside a WAIVER_NONE blackout MFL answers
+      // exactly:
+      //   <error>According to the League Calendar You May Not Do Add/Drops At This Time.</error>
+      // Show the owner THAT sentence — MFL is the thing that actually decides, and
+      // a reason we invented would eventually disagree with it.
+      const _wvMflErrorText = (res) => {
+        const raw = safeStr(res && (res.text || res.upstreamPreview));
+        const xml = raw.match(/<error[^>]*>([\s\S]*?)<\/error>/i);
+        if (xml && safeStr(xml[1])) return safeStr(xml[1]);
+        try {
+          const je = mflErrorFromJsonPayload(JSON.parse(raw));
+          if (je) return je;
+        } catch (_) { /* not JSON — fall through */ }
+        return safeStr(res && res.error) || raw.slice(0, 400);
+      };
+
+      // "Thu Aug 13, 9:00 AM ET". DST-correct by construction — America/New_York
+      // resolves EDT vs EST for us; the trailing "ET" is just the league's label.
+      const _wvEtLabel = (unixSec) => {
+        const n = Number(unixSec) || 0;
+        if (!n) return "";
+        try {
+          const s = new Date(n * 1000).toLocaleString("en-US", {
+            timeZone: "America/New_York",
+            weekday: "short", month: "short", day: "numeric",
+            hour: "numeric", minute: "2-digit", hour12: true,
+          });
+          // en-US renders "Thu, Aug 13, 9:00 AM" — drop the comma after the
+          // weekday so it reads the way the league's own calendar posts do.
+          return `${s.replace(/^(\w{3}),\s*/, "$1 ")} ET`;
+        } catch (_) { return ""; }
+      };
+
+      // Bid floor / step / round cap read LIVE from MFL. NOT hardcoded and NOT
+      // defaulted: the commish can change any of these in MFL's setup, and a
+      // silent fallback lets our validation drift out from under him — which in
+      // practice means rejecting an owner's LEGAL bid against a number we made
+      // up, the single worst outcome this route has.
+      //
+      // F12 (2026-07-30): v1 substituted 1000 / 1000 / 8 / true whenever a field
+      // was absent — and, because BOTH call sites pass
+      // `lgRes && lgRes.ok ? lgRes.data : null`, it did so unconditionally when
+      // the whole TYPE=league export FAILED. Owners composed plans against
+      // invented numbers and validation ran on them too. Now:
+      //   known:true  — the export was read AND every numeric limit came from it.
+      //   known:false — the export failed, or MFL omitted a limit. Every field we
+      //                 could not read is NULL. Callers must suppress bid inputs
+      //                 and must NOT enforce a bound they cannot justify.
+      const _wvWaiverLimits = (leaguePayload) => {
+        // `null` is exactly what both call sites pass when the export failed, so
+        // "did we read MFL at all" is decidable here and is never conflated with
+        // "MFL answered and omitted a field".
+        const readable = !!(leaguePayload && typeof leaguePayload === "object");
+        const root = (readable && (leaguePayload.league || leaguePayload)) || {};
+        // Look at the league root first, then one level of nested plain objects.
+        // MFL has moved settings under sub-objects before, and silently falling
+        // back to our hardcoded defaults would let real validation drift without
+        // anyone noticing.
+        const pick = (...keys) => {
+          for (const k of keys) {
+            const v = root[k];
+            if (v != null && typeof v !== "object" && String(v).trim() !== "") return v;
+          }
+          for (const child of Object.values(root)) {
+            if (!child || typeof child !== "object" || Array.isArray(child)) continue;
+            for (const k of keys) {
+              const v = child[k];
+              if (v != null && typeof v !== "object" && String(v).trim() !== "") return v;
+            }
+          }
+          return null;
+        };
+        const min = readable ? safeMoneyInt(pick("bbidMinimum", "bbid_minimum", "bbidMin"), null) : null;
+        const inc = readable ? safeMoneyInt(pick("bbidIncrement", "bbid_increment", "bbidInc"), null) : null;
+        const rounds = readable ? safeInt(pick("maxWaiverRounds", "max_waiver_rounds", "waiverRounds"), 0) : 0;
+        const condRaw = readable ? safeStr(pick("bbidConditional", "bbid_conditional", "conditionalBbid")).toLowerCase() : "";
+        // N5 (2026-07-30): MFL's league export names this `currentWaiverType`,
+        // at the ROOT — confirmed in data/mfl-snapshots/2026-07-30/league.json
+        // ("currentWaiverType": "BBID_FCFS"). v1 looked for "waiverType" /
+        // "waiver_type", NEITHER of which MFL emits, so the "BBID_FCFS" fallback
+        // was what shipped 100% of the time while the comment claimed the value
+        // was read live. It also feeds _wvWaiverWindow's no-calendar-events
+        // branch, i.e. a hardcode was deciding whether to offer a WRITE.
+        const typeRaw = readable
+          ? safeStr(pick("currentWaiverType", "waiverType", "waiver_type", "current_waiver_type")).toUpperCase()
+          : "";
+        const bbidMinimum = min != null && min > 0 ? min : null;
+        const bbidIncrement = inc != null && inc > 0 ? inc : null;
+        const maxRounds = rounds > 0 ? rounds : null;
+        return {
+          // The promise clients gate their bid inputs on. TRUE only when MFL
+          // actually told us all three numbers.
+          known: !!(readable && bbidMinimum && bbidIncrement && maxRounds),
+          league_readable: readable,
+          bbid_minimum: bbidMinimum,
+          bbid_increment: bbidIncrement,
+          max_rounds: maxRounds,
+          // null = MFL did not say. `true` used to be assumed, which told owners
+          // conditional bidding was on in a league where it might not be.
+          conditional: condRaw ? (condRaw === "1" || condRaw === "yes" || condRaw === "true") : null,
+          waiver_type: typeRaw || null,
+          waiver_type_known: !!typeRaw,
+          from_mfl: {
+            bbidMinimum: min, bbidIncrement: inc,
+            maxWaiverRounds: rounds || null, bbidConditional: condRaw || null,
+            currentWaiverType: typeRaw || null,
+          },
+        };
+      };
+
+      // The window block, computed ONLY from MFL's WAIVER_* calendar events.
+      //
+      // window.mode (Contract v2 §4) is decided HERE, server-side, and is
+      // exactly one of "bbid" | "fcfs" | "blackout" | "closed". Clients render
+      // purely off it and must NOT re-derive the mode from next_bbid_run_unix or
+      // any other field: during the FCFS stretch a future BBID run always
+      // exists, so "a run is scheduled ⇒ we are in BBID" made the FCFS branch
+      // unreachable in v1.
+      //
+      // MFL's own vocabulary (docs/MFL_IMPORT_EXPORT_DETAILED.md, calendarEvent):
+      //   WAIVER_LOCK    — waivers lock; blind bids collect for the next run
+      //   WAIVER_BBID    — the blind-bid run instant; after it, adds are FCFS
+      //   WAIVER_UNLOCK  — waivers unlock; FCFS adds resume
+      //   WAIVER_NONE    — a start→end blackout SPAN ("No Add/Drops Allowed")
+      // So the phase is whatever the MOST RECENT boundary at-or-before now says,
+      // which is the same walk MFL's own add/drop page does. This league runs
+      // Thu-lock → Sun 9 AM run → FCFS-until-Thu, and that cycle falls straight
+      // out of the walk instead of being hardcoded here.
+      const _wvWaiverWindow = (calendarRows, nowUnix, opts = {}) => {
+        const events = (calendarRows || [])
+          .map((e) => ({
+            type: safeStr(e && e.event_type).toUpperCase(),
+            start_unix: Number(e && e.start_unix) || null,
+            end_unix: Number(e && e.end_unix) || null,
+          }))
+          .filter((e) => e.type.indexOf("WAIVER_") === 0 && e.start_unix)
+          .sort((a, b) => a.start_unix - b.start_unix);
+        // WAIVER_NONE is a blackout SPAN (start_time + end_time) — MFL uses it to
+        // shut off add/drops over e.g. the FA Auction. A WAIVER_NONE with no
+        // end_time is not a span we can reason about, so it is passed through in
+        // calendar_events but never treated as an active blackout; inventing an
+        // end date would be us writing a rule MFL never stated.
+        let blackout = null;
+        for (const e of events) {
+          if (e.type !== "WAIVER_NONE" || !e.end_unix) continue;
+          if (nowUnix >= e.start_unix && nowUnix < e.end_unix) {
+            blackout = { active: true, start_unix: e.start_unix, end_unix: e.end_unix };
+            break;
+          }
+        }
+        const runs = events.filter((e) => e.type === "WAIVER_BBID").map((e) => e.start_unix);
+        const upcoming = runs.filter((t) => t > nowUnix);
+        const firstRun = runs.length ? runs[0] : null;
+
+        // ── window.mode ──
+        // Phase boundaries, in time order. LOCK opens the blind-bid window; a
+        // BBID run and an UNLOCK both end it.
+        const PHASE_BY_TYPE = { WAIVER_LOCK: "bbid", WAIVER_BBID: "fcfs", WAIVER_UNLOCK: "fcfs" };
+        const boundaries = events.filter((e) => PHASE_BY_TYPE[e.type]);
+        let mode = "";
+        let modeReason = "";
+        if (opts.calendar_unavailable) {
+          // We could not read MFL's calendar, so we cannot rule out an active
+          // WAIVER_NONE blackout. Report "closed" — the read-only view plus the
+          // MFL native link — rather than offering a write we cannot justify.
+          mode = "closed";
+          modeReason = "calendar_unavailable";
+        } else if (blackout) {
+          mode = "blackout";
+          modeReason = "waiver_none_span_active";
+        } else if (!boundaries.length) {
+          // MFL's calendar carries no waiver phase events at all. Fall back to
+          // the league's own waiver TYPE: a BBID league takes blind bids
+          // continuously (MFL's add/drop page shows the bid form), anything else
+          // is a straight FCFS add. Reported in mode_reason so the first live
+          // run tells us whether this branch is ever actually hit.
+          //
+          // N5: if the TYPE is unknown too we have nothing left to reason from,
+          // and picking between "bbid" and "fcfs" would be a coin flip that
+          // ENABLES a write surface. Report "closed" — read-only plus MFL's own
+          // page — rather than guess. (v1 could not reach this: waiver_type was
+          // always the hardcoded "BBID_FCFS", so this always resolved "bbid".)
+          const wtRaw = String(opts.waiver_type || "").toUpperCase();
+          if (!wtRaw) {
+            mode = "closed";
+            modeReason = "no_waiver_calendar_events_and_unknown_waiver_type";
+          } else {
+            mode = /BBID/.test(wtRaw) ? "bbid" : "fcfs";
+            modeReason = "no_waiver_calendar_events";
+          }
+        } else {
+          let current = null;
+          for (const e of boundaries) {
+            if (e.start_unix <= nowUnix) current = e; else break;   // events are sorted ascending
+          }
+          if (!current) {
+            mode = "closed";
+            modeReason = "before_first_waiver_event";
+          } else {
+            mode = PHASE_BY_TYPE[current.type];
+            modeReason = `after_${current.type.toLowerCase()}`;
+          }
+        }
+        return {
+          events,
+          mode,
+          mode_reason: modeReason,
+          add_drop_allowed: !blackout,
+          blackout,
+          next_bbid_run_unix: upcoming.length ? upcoming[0] : null,
+          next_bbid_run_label: upcoming.length ? _wvEtLabel(upcoming[0]) : "",
+          bbid_runs_upcoming: upcoming.slice(0, 4),
+          waivers_open: !!(firstRun && nowUnix >= firstRun),
+          waivers_open_at_unix: firstRun,
+        };
+      };
+
+      // Defensive pendingWaivers normalizer.
+      //
+      // ── CONTRACT v2 §1: never conflate "empty" with "unknown" ──
+      // Returns { known, rounds }:
+      //   known:true  + rounds:[…]  — we read AND parsed MFL. `[]` here really
+      //                               does mean "this owner has no claims".
+      //   known:false + rounds:null — the export failed, was not JSON, carried
+      //                               no pendingWaivers block, or was populated
+      //                               in a shape we cannot confidently parse.
+      // It must NEVER return [] in the second case: clients adopt `rounds` as
+      // truth, so an empty array on a failed read wipes an owner's live,
+      // cap-spending claims off their screen. That was the v1 data-loss bug.
+      //
+      // MFL's EMPTY response is `{"pendingWaivers":{}}` (verified 2026-07-30) —
+      // that IS a known empty. The POPULATED shape is undocumented and we have
+      // never seen one, so this walks the payload looking for pick-shaped
+      // objects instead of trusting a guessed path, and console.warns the raw
+      // JSON when it cannot, so the real shape can be pinned down from the logs
+      // on first contact. It NEVER throws — an unknown shape must not take the
+      // route down.
+      const _wvNormalizePendingWaivers = (payload) => {
+        // One raw dump per call, whatever the outcome. The populated shape has
+        // never been observed live, so the FIRST owner with real claims is our
+        // only chance to read it — logging only on failure would mean a parse
+        // that happened to succeed (or to succeed WRONGLY) left no trace.
+        let logged = false;
+        const logPayload = (tag) => {
+          if (logged) return;
+          logged = true;
+          try { console.warn(`[waivers] pendingWaivers ${tag}:`, JSON.stringify(payload).slice(0, 4000)); } catch (_) {}
+        };
+        const unknown = (why, warning) => {
+          logPayload(`unreadable (${why})`);
+          return {
+            known: false,
+            rounds: null,
+            populated: true,
+            unknown_reason: why,
+            warning: warning || "MFL returned a pendingWaivers payload this worker could not read — the untouched payload is in `raw` and has been logged. Your pending claims are NOT reflected here; nothing was assumed about them.",
+          };
+        };
+        const empty = { known: true, rounds: [], warning: "", populated: false, unknown_reason: "" };
+        // A non-object body means MFL answered with something that is not the
+        // JSON we asked for. That is UNKNOWN, not empty.
+        if (!payload || typeof payload !== "object") return unknown("non_object_payload");
+        const root = payload.pendingWaivers || payload.pendingwaivers || payload.pending_waivers;
+        // JSON without a pendingWaivers block is likewise not evidence of "no
+        // claims" — it is evidence we are looking at some other response.
+        if (root == null) return unknown("no_pendingWaivers_block");
+        if (typeof root === "object" && !Array.isArray(root) && Object.keys(root).length === 0) return empty;
+
+        const pid = (v) => String(v == null ? "" : v).replace(/\D/g, "");
+        const money = (v) => {
+          const n = safeMoneyInt(v, null);
+          return n != null && n >= 0 ? n : null;
+        };
+        const byRound = new Map();
+        let sawPick = false;
+
+        // A "pick" must name a player. `id` alone is not enough (a franchise
+        // container has an id too), so `id` only counts when a bid or a drop
+        // rides along with it.
+        const asPick = (o) => {
+          if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+          const bid = money(o.amount != null ? o.amount : (o.bid != null ? o.bid : (o.bidAmount != null ? o.bidAmount : o.price)));
+          const drop = pid(o.drop || o.dropPlayer || o.drop_player || o.dropPlayerId || o.droppedPlayer || o.dropped);
+          const explicit = pid(o.player || o.player_id || o.playerId || o.add || o.addPlayer || o.add_player);
+          const add = explicit || ((bid != null || drop) ? pid(o.id) : "");
+          if (!add) return null;
+          return { add_pid: add, bid_dollars: bid, drop_pid: drop || null };
+        };
+
+        // A round number we are willing to stand behind. MFL waiver rounds are
+        // small ordinals (this league runs 8); anything outside 1..99 is some
+        // other id that happens to be numeric, not a round.
+        const asRoundNo = (v) => {
+          if (v == null || typeof v === "object") return 0;
+          const s = String(v).trim();
+          if (!/^\d{1,2}$/.test(s)) return 0;      // "0001234" is a player id, not a round
+          const n = safeInt(s, 0);
+          return n >= 1 && n <= 99 ? n : 0;
+        };
+        // Does this value hold pick-shaped things? Used to decide whether a
+        // container's `id` (or a numeric key) is safely readable as a round
+        // number. Checks the value itself, and one level in — MFL wraps lists in
+        // a named key ({"waiverPick":[…]}), so a round container's picks are
+        // usually a child of a child.
+        const holdsPicksDirect = (v) => {
+          if (Array.isArray(v)) return v.some((x) => !!asPick(x));
+          return !!asPick(v);
+        };
+        const holdsPicks = (v) => {
+          if (holdsPicksDirect(v)) return true;
+          if (!v || typeof v !== "object" || Array.isArray(v)) return false;
+          return Object.values(v).some((x) => x && typeof x === "object" && holdsPicksDirect(x));
+        };
+        // The round number a CONTAINER declares, or 0 for "not confidently known".
+        const containerRound = (node) => {
+          // Explicit, unambiguous round keys first.
+          for (const k of ["round", "ROUND", "waiverRound", "waiver_round", "roundNumber", "round_number"]) {
+            const n = asRoundNo(node[k]);
+            if (n) return n;
+          }
+          // N1: MFL's populated shape is undocumented, and the plausible one is
+          // `{"round":[{"id":"1","waiverPick":[…]},{"id":"2",…}]}` — the round
+          // number arrives as the CONTAINER's `id`. v1 did not recognise that,
+          // so the walk descended with roundHint 0 and filed every pick from
+          // every round into round 1, then returned it as known:true. That
+          // silently rewrote the owner's priority order, which is the entire
+          // point of conditional bidding.
+          //
+          // `id` is only a round number on a node that (a) is not itself a pick
+          // and (b) directly holds picks — a franchise wrapper or a player row
+          // has an `id` too, and reading either as a round would be the same
+          // class of guess we are removing.
+          if (!asPick(node)) {
+            const n = asRoundNo(node.id != null ? node.id : node.ID);
+            if (n && Object.keys(node).some((k) => k !== "id" && k !== "ID" && holdsPicks(node[k]))) return n;
+          }
+          return 0;
+        };
+
+        // Set when a pick is reached with NO confidently-discovered round. One
+        // such pick poisons the whole read: we cannot report the rest as truth
+        // while silently dropping (or inventing a home for) that one.
+        let roundlessPick = false;
+        // Same rule, applied to the MONEY. This is a blind-bid league: every
+        // pending claim carries a bid, so a pick whose amount we could not read
+        // means MFL named it with a key we do not recognize — not that the bid
+        // is zero. Reporting it as known lets a null flow to the clients, where
+        // `Number(null || 0)` renders a confident "$0" beside a green "live"
+        // pill. The owner then sees a $0 claim on a player they bid real cap
+        // money for, and has no signal that anything is wrong.
+        let bidlessPick = false;
+
+        const walk = (node, roundHint, depth) => {
+          if (node == null || depth > 6) return;
+          if (Array.isArray(node)) {
+            for (const it of node) walk(it, roundHint, depth + 1);
+            return;
+          }
+          if (typeof node !== "object") return;
+          const rNum = containerRound(node);
+          const nextHint = rNum > 0 ? rNum : roundHint;
+          const p = asPick(node);
+          if (p) {
+            sawPick = true;
+            if (p.bid_dollars == null) bidlessPick = true;
+            // NEVER invent a round. An unplaceable pick makes the read unknown.
+            if (nextHint > 0) {
+              if (!byRound.has(nextHint)) byRound.set(nextHint, []);
+              byRound.get(nextHint).push(p);
+            } else {
+              roundlessPick = true;
+            }
+          }
+          for (const k of Object.keys(node)) {
+            const v = node[k];
+            if (!v || typeof v !== "object") continue;
+            // A key that is itself a round ordinal — `{"1":{…},"2":{…}}` — is
+            // the other shape MFL could plausibly emit. Only honoured when the
+            // value actually holds picks, so a numeric key on some unrelated
+            // map cannot masquerade as a round.
+            const keyRound = asRoundNo(k);
+            walk(v, (keyRound && holdsPicks(v)) ? keyRound : nextHint, depth + 1);
+          }
+        };
+        try { walk(root, 0, 0); } catch (_) { /* normalizer must never throw */ }
+
+        if (!sawPick) return unknown("populated_but_unrecognized");
+        if (roundlessPick) {
+          // P1: a plausible-looking answer here is strictly worse than "unknown"
+          // — clients adopt known:true wholesale, so a guessed round order
+          // destroys real claims in a way the owner cannot see.
+          return unknown(
+            "pick_without_round",
+            "MFL returned pending claims this worker could not assign to waiver rounds, so it will not show you a priority order it had to guess at. " +
+            "The untouched payload is in `raw` and has been logged. Check your claims on MFL's waiver page."
+          );
+        }
+        if (bidlessPick) {
+          // Same P1 reasoning as roundlessPick, for the bid amount.
+          return unknown(
+            "pick_without_bid",
+            "MFL returned pending claims whose bid amounts this worker could not read, so it will not show you dollar figures it had to guess at. " +
+            "The untouched payload is in `raw` and has been logged. Check your claims on MFL's waiver page."
+          );
+        }
+        const rounds = Array.from(byRound.keys()).sort((a, b) => a - b).map((rd) => ({
+          round: rd,
+          picks: byRound.get(rd),
+        }));
+        logPayload(`populated and parsed (${rounds.length} round(s))`);
+        return { known: true, rounds, warning: "", populated: true, unknown_reason: "" };
+      };
+
+      // Read + normalize in one place, so no caller can accidentally turn a
+      // failed export into a known-empty by passing `null` into the normalizer.
+      // Returns { known, rounds, warning, unknown_reason, raw, mfl_status,
+      // mfl_response }. `unknown_reason` is a stable machine token ("export_failed",
+      // "non_object_payload", "no_pendingWaivers_block", "populated_but_unrecognized",
+      // "pick_without_round") — "" when known.
+      const _wvReadPendingWaivers = async (cookieHeader, season, leagueId) => {
+        const res = await mflExportJsonForCookie(
+          cookieHeader, season, leagueId, "pendingWaivers", {}, { useCookie: true }
+        );
+        if (!res || !res.ok) {
+          return {
+            known: false,
+            rounds: null,
+            warning: "MFL did not answer the pendingWaivers export, so your pending claims are unknown right now. Nothing has been assumed about them.",
+            unknown_reason: "export_failed",
+            raw: (res && res.data) || null,
+            mfl_status: safeInt(res && res.status, 0),
+            mfl_response: safeStr(res && (res.error || res.textPreview)),
+          };
+        }
+        const norm = _wvNormalizePendingWaivers(res.data);
+        return {
+          known: !!norm.known,
+          rounds: norm.known ? norm.rounds : null,
+          warning: safeStr(norm.warning),
+          unknown_reason: norm.known ? "" : safeStr(norm.unknown_reason),
+          raw: res.data,
+          mfl_status: safeInt(res.status, 200),
+          mfl_response: "",
+        };
+      };
+
+      // The caller's roster straight from MFL. One export serves three needs:
+      // drop-must-be-on-your-roster validation, the roster-headroom warning, and
+      // the cap-room warning.
+      const _wvLoadFranchiseRoster = async (season, leagueId, franchiseId) => {
+        const target = padFranchiseId(franchiseId);
+        // total_count   — every player MFL lists for the franchise.
+        // active_count  — the CAP basis: everything except TAXI_SQUAD (validated
+        //                 ±$450 against MFL's own cap page; IR DOES count).
+        // slot_count    — the ROSTER-SLOT basis: excludes TAXI_SQUAD *and* IR,
+        //                 because neither occupies an active roster spot. This
+        //                 is the only count the headroom advisory may use.
+        const out = { ok: false, unknown_reason: "", pids: [], by_pid: new Map(), total_count: 0, active_count: 0, slot_count: 0, taxi_count: 0, ir_count: 0, salary_total: 0 };
+        const res = await mflExportJson(season, leagueId, "rosters", { FRANCHISE: target }, { useCookie: true });
+        if (!res || !res.ok) { out.unknown_reason = "export_failed"; return out; }
+        let frs = res.data?.rosters?.franchise || [];
+        if (!Array.isArray(frs)) frs = frs ? [frs] : [];
+        const row = frs.find((f) => padFranchiseId(f && f.id) === target) || (frs.length === 1 ? frs[0] : null);
+        // `ok` means "we UNDERSTOOD MFL's answer", not "the HTTP call worked".
+        // A 200 whose payload carries no matching franchise block is unknown,
+        // not an empty roster — same empty-vs-unknown conflation that
+        // _wvNormalizePendingWaivers was rewritten to eliminate. This matters
+        // because out.ok is the sole source of verify_known on the FCFS route:
+        // reporting a shape we could not parse as a known-empty roster turns
+        // "we could not confirm your add" into "your add did not happen", and
+        // that tells an owner to retry a non-idempotent add/cut.
+        if (!row) { out.unknown_reason = "no_franchise_row"; return out; }
+        let players = row.player || [];
+        if (!Array.isArray(players)) players = players ? [players] : [];
+        out.ok = true;
+        for (const p of players) {
+          const id = safeStr(p && p.id).replace(/\D/g, "");
+          if (!id) continue;
+          const status = safeStr(p && p.status).toUpperCase();
+          const salary = safeMoneyInt(p && p.salary, 0) || 0;
+          const isTaxi = status.indexOf("TAXI") !== -1;
+          const isIr = status === "IR" || status.indexOf("INJURED") !== -1;
+          out.pids.push(id);
+          out.by_pid.set(id, { status, salary, taxi: isTaxi, ir: isIr });
+          out.total_count += 1;
+          if (isTaxi) out.taxi_count += 1;
+          if (isIr) out.ir_count += 1;
+          // MFL's cap accounting excludes TAXI_SQUAD (validated ±$450 against
+          // MFL's own official cap page — reference_mfl_cap_accounting_formula).
+          if (!isTaxi) { out.active_count += 1; out.salary_total += salary; }
+          if (!isTaxi && !isIr) out.slot_count += 1;
+        }
+        return out;
+      };
+
+      // The active-roster ceiling, read from MFL's own league setup rather than
+      // hardcoded.
+      //
+      // v1 hardcoded 35. Canon (league_context_v1.md): 35 is the AUCTION-window
+      // max, and it drops to 30 at the September contract deadline (2026-09-06)
+      // — which is BEFORE waivers ever run, so 35 was wrong for the entire
+      // window this code operates in. Canon also says IR players do not count
+      // against the active roster max (§ IR) and taxi players do not count while
+      // demoted, so counting them was wrong too.
+      //
+      // Rather than re-encode a date-dependent number we would then have to keep
+      // in sync, mirror MFL — the commish maintains the ceiling there and MFL is
+      // what actually enforces it at award time. Returns null when MFL does not
+      // report it, and the caller then softens its wording instead of stating a
+      // number it cannot stand behind. Advisory either way (Contract v2 §6).
+      const _wvRosterLimit = (leaguePayload) => {
+        const root = (leaguePayload && (leaguePayload.league || leaguePayload)) || {};
+        const cand = firstTruthy(
+          root.rosterSize, root.roster_size, root.maxRosterSize, root.activeRosterSize, root.rosterLimit
+        );
+        const n = safeInt(cand, 0);
+        return n > 0 ? n : null;
+      };
+
+      // Owner-cookie MFL import poster for the waiver forms.
+      //
+      // Deliberately NOT postMflImportFormForCookie: that helper drops any field
+      // whose value is the empty string (`if (!s) continue`), and an EMPTY
+      // `PICKS` is precisely how a waiver round gets cleared. Losing it would
+      // turn "clear round 3" into "leave round 3 alone" — silently, which is the
+      // worst kind of bug for a feature that spends real cap money.
+      //
+      // URL carries TYPE + L (+ JSON=1) and the body carries the import-specific
+      // fields: the exact shape /api/submit-lineup uses and the only one proven
+      // to land an owner-scoped write here. Target www48 (the league's home
+      // server) directly — the api. subdomain 302-redirects league-specific
+      // calls. redirect:"manual" is LOAD-BEARING: Cloudflare's fetch follows a
+      // 302 by converting POST→GET, which drops the body and makes the write a
+      // silent no-op that still reads as 200 (Keith 2026-05-15, tradeBait).
+      const _wvPostOwnerImport = async (cookieHeaderOverride, season, leagueId, type, bodyFields) => {
+        const importUrl =
+          `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/import` +
+          `?TYPE=${encodeURIComponent(String(type))}&L=${encodeURIComponent(String(leagueId))}&JSON=1`;
+        const form = new URLSearchParams();
+        for (const [k, v] of Object.entries(bodyFields || {})) {
+          if (v == null) continue;
+          form.set(k, String(v));   // empty string PRESERVED on purpose — see above
+        }
+        let res = null;
+        let text = "";
+        try {
+          res = await fetch(importUrl, {
+            method: "POST",
+            redirect: "manual",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+              "User-Agent": "upsmflproduction-worker",
+              Cookie: cookieHeaderOverride,
+            },
+            body: form.toString(),
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          text = await res.text();
+        } catch (e) {
+          // AMBIGUOUS, not a refusal: the throw can happen while reading the
+          // response body — i.e. AFTER MFL already processed the write. Callers
+          // must not treat this as evidence the write failed.
+          return { ok: false, definite_reject: false, status: 0, text: "", error: `fetch_failed: ${e?.message || String(e)}`, sent: Object.fromEntries(form.entries()) };
+        }
+        let parsed = null;
+        try { parsed = text ? JSON.parse(text) : null; } catch (_) { parsed = null; }
+        const payloadErr = parsed ? mflErrorFromJsonPayload(parsed) : "";
+        const ok = isLikelyMflImportSuccess(res, text) && !payloadErr;
+        return {
+          ok,
+          // Did MFL EXPLICITLY refuse, in its own words? Only an error payload
+          // proves that. `ok:false` on its own does not: isLikelyMflImportSuccess
+          // is a heuristic, and a transport/5xx failure can occur after MFL has
+          // already applied the write. Callers use this to decide whether they
+          // may tell an owner "rejected — try again" (safe) versus "submitted
+          // but unconfirmed — check MFL, do not resend" (the honest answer when
+          // we hold no evidence either way). Retrying a non-idempotent add/cut
+          // on a guess is how you double-cut a player.
+          definite_reject: !!payloadErr,
+          status: res.status,
+          text,
+          upstreamPreview: String(text || "").slice(0, 1200),
+          error: ok ? "" : (payloadErr || `MFL import failed (HTTP ${res.status})`),
+          sent: Object.fromEntries(form.entries()),
+        };
+      };
+
+      // ── GET /api/waivers/state ────────────────────────────────────────────
+      // Public. Everything the UI needs to decide what to show and when: the
+      // window (mirrored from MFL's calendar, INCLUDING the authoritative
+      // window.mode — Contract v2 §4), the kill-switch state (write_enabled —
+      // §5), the live bid limits, the raw WAIVER_* events, and — only when a
+      // cookie is present — a small viewer block with the caller's
+      // pending-claim counts under the same known/rounds contract as §1.
+      if (path === "/api/waivers/state" && request.method === "GET") {
+        const wvSeason = _wvSeason();
+        const wvLeagueId = _wvLeague();
+        const nowUnix = Math.floor(Date.now() / 1000);
+        // Edge-cache the PUBLIC payload only. The viewer block is per-owner, so
+        // caching a response that carries it could serve one owner's pending
+        // claims to another — the exact partitioning bug the auction-live cache
+        // had to fix (see acqViewerCacheTag above).
+        const wvCacheKey = new Request(
+          `https://upsmfl-waivers.local/state?L=${encodeURIComponent(wvLeagueId)}&YEAR=${encodeURIComponent(wvSeason)}`,
+          { method: "GET" }
+        );
+        if (!_wvOwnerCookieHeader) {
+          try {
+            const hit = await caches.default.match(wvCacheKey);
+            if (hit) return hit;
+          } catch (_) {}
+        }
+        const [calRes, lgRes, wvWriteArm] = await Promise.all([
+          mflExportJson(wvSeason, wvLeagueId, "calendar", {}, { useCookie: true }),
+          mflExportJson(wvSeason, wvLeagueId, "league", {}, { useCookie: true }),
+          // Contract v2 §5: the kill switch has to be VISIBLE. Without it the UI
+          // renders submit buttons whose only possible outcome is a 503.
+          // Per-LEAGUE, so the rehearsal mirror reports armed while prod is dark.
+          _wvWriteArmed(wvLeagueId),
+        ]);
+        const limits = _wvWaiverLimits(lgRes && lgRes.ok ? lgRes.data : null);
+        const calOk = !!(calRes && calRes.ok);
+        const win = _wvWaiverWindow(
+          calOk ? normalizeMflCalendar(calRes.data) : [],
+          nowUnix,
+          // null when MFL's league export failed or omitted currentWaiverType —
+          // the window helper then reports "closed" instead of guessing a mode.
+          { calendar_unavailable: !calOk, waiver_type: limits.waiver_type || "" }
+        );
+
+        // PUBLIC payload — provably free of owner data, and the only thing that
+        // is ever written to the edge cache.
+        const wvPublicPayload = {
+          ok: true,
+          league_id: wvLeagueId,
+          season: wvSeason,
+          now_unix: nowUnix,
+          // Top-level `mode` remains MFL's league waiver TYPE ("BBID_FCFS") —
+          // the key name is unchanged because existing clients read it. The
+          // decision clients render off is window.mode below.
+          //
+          // N5: this is now the value MFL actually reported (currentWaiverType),
+          // and it is "" when MFL did not report one. It used to be the string
+          // "BBID_FCFS" every single time, read from a key MFL never emits.
+          // `waiver_type_known` says which of those two you are looking at.
+          mode: limits.waiver_type || "",
+          waiver_type: limits.waiver_type,
+          waiver_type_known: limits.waiver_type_known,
+          write_enabled: !!(wvWriteArm && wvWriteArm.armed),
+          // Why writes are (or aren't) armed here: "WAIVERS_INAPP_ENABLED" on
+          // production, "non_production_league" on the rehearsal mirror. Lets
+          // the UI say which league it is actually about to write to.
+          write_enabled_source: safeStr(wvWriteArm && wvWriteArm.source),
+          native_link: _wvNativeAddDropLink(wvSeason, wvLeagueId),
+          window: {
+            // Contract v2 §4 — exactly one of "bbid" | "fcfs" | "blackout" |
+            // "closed", decided here. Clients render purely off this and must
+            // NOT infer the mode from next_bbid_run_unix (a future run always
+            // exists during the FCFS stretch, which is what made the FCFS branch
+            // unreachable in v1).
+            mode: win.mode,
+            mode_reason: win.mode_reason,
+            add_drop_allowed: win.add_drop_allowed,
+            blackout: win.blackout,
+            next_bbid_run_unix: win.next_bbid_run_unix,
+            next_bbid_run_label: win.next_bbid_run_label,
+            bbid_runs_upcoming: win.bbid_runs_upcoming,
+            waivers_open: win.waivers_open,
+            waivers_open_at_unix: win.waivers_open_at_unix,
+          },
+          limits: {
+            // F12 — `known:false` means MFL's league export failed or omitted a
+            // limit, and every field below it that we could not read is NULL.
+            // Clients MUST suppress bid inputs on known:false rather than
+            // composing a plan against numbers nobody read.
+            known: limits.known,
+            league_readable: limits.league_readable,
+            bbid_minimum: limits.bbid_minimum,       // null when unknown
+            bbid_increment: limits.bbid_increment,   // null when unknown
+            max_rounds: limits.max_rounds,           // null when unknown
+            conditional: limits.conditional,         // null when MFL did not say
+            waiver_type: limits.waiver_type,         // null when unknown
+            waiver_type_known: limits.waiver_type_known,
+            roster_size: _wvRosterLimit(lgRes && lgRes.ok ? lgRes.data : null),
+          },
+          calendar_events: win.events.map((e) => ({ type: e.type, start_unix: e.start_unix, end_unix: e.end_unix })),
+          viewer: null,
+        };
+
+        let viewer = null;
+        if (_wvOwnerCookieHeader) {
+          try {
+            const det = await _rdhDetectFranchise(_wvViewerMflUserId);
+            const fid = padFranchiseId(det && det.franchise_id);
+            if (fid) {
+              const pend = await _wvReadPendingWaivers(_wvOwnerCookieHeader, wvSeason, wvLeagueId);
+              // Same known/rounds contract as §1: when we could not read MFL the
+              // counts are NULL, never 0. A 0 here would read as "you have no
+              // claims" and let a client blank a live board.
+              //
+              // F15/N4 — FIELD NAMES. This block shipped `pending_known` +
+              // `pending_warning` while the mobile client read `known` and
+              // `normalize_warning`, so the guard could never fire. Rather than
+              // pick one and break whichever side is deployed first, BOTH names
+              // are emitted for each value and they are always identical. `known`
+              // and `normalize_warning` are canonical; `pending_known` /
+              // `pending_warning` are retained aliases. Same value, same type —
+              // a client reading either name is correct.
+              const pendPickCount = pend.known
+                ? pend.rounds.reduce((n, r) => n + (r.picks ? r.picks.length : 0), 0)
+                : null;
+              viewer = {
+                franchise_id: fid,
+                known: !!pend.known,               // canonical
+                pending_known: !!pend.known,       // alias — identical value
+                pending_round_count: pend.known ? pend.rounds.length : null,
+                pending_pick_count: pendPickCount,
+                ...(pend.known ? {} : {
+                  normalize_warning: pend.warning, // canonical
+                  pending_warning: pend.warning,   // alias — identical value
+                  unknown_reason: pend.unknown_reason,
+                }),
+              };
+            }
+          } catch (_) { viewer = null; }
+        }
+
+        // A payload carrying the viewer block is per-cookie and must never be
+        // stored or served from the shared edge cache.
+        if (viewer) return jsonNoStore(200, { ...wvPublicPayload, viewer });
+        const wvResp = jsonOut(200, wvPublicPayload);
+        wvResp.headers.set("Cache-Control", "public, max-age=60");
+        // Only cache a payload built from BOTH exports actually succeeding — a
+        // degraded window (calendar unreadable → mode "closed") must not be
+        // pinned at the edge for a minute. Note write_enabled rides along, so a
+        // kill-switch flip can take up to 60s to reach an anonymous viewer; the
+        // WRITE routes themselves re-read the flag on every request, so the
+        // switch is never actually stale where it matters.
+        if (calOk && lgRes && lgRes.ok) {
+          try { ctx.waitUntil(caches.default.put(wvCacheKey, wvResp.clone())); } catch (_) {}
+        }
+        return wvResp;
+      }
+
+      // ── GET /api/waivers/pending ──────────────────────────────────────────
+      // Owner cookie REQUIRED. Thin proxy over MFL's pendingWaivers export with
+      // the defensive normalizer in front. `raw` is always the untouched MFL
+      // payload so the client (and a future us) can see what MFL actually said.
+      //
+      // Contract v2 §1 — the top level is { known, rounds }:
+      //   known:true  + rounds:[…]  → adopt it; [] really is "no claims".
+      //   known:false + rounds:null → DO NOT adopt. Keep the local draft and
+      //                               warn ("Couldn't read your claims from MFL").
+      // An unreadable MFL answers HTTP 200 with known:false ON PURPOSE. A 502
+      // sends most fetch wrappers down a generic catch, where "unknown" and
+      // "empty" become the same thing again — which is the bug this contract
+      // exists to kill. mfl_status / mfl_response carry the real upstream detail.
+      if (path === "/api/waivers/pending" && request.method === "GET") {
+        const wvSeason = _wvSeason();
+        const wvLeagueId = _wvLeague();
+        if (!_wvOwnerCookieHeader) {
+          return jsonNoStore(401, {
+            ok: false,
+            error: "MISSING_VIEWER_COOKIE",
+            message: "Sign in to MFL (or refresh so the client forwards your MFL_USER_ID) to see your pending claims.",
+          });
+        }
+        const det = await _rdhDetectFranchise(_wvViewerMflUserId);
+        const fid = padFranchiseId(det && det.franchise_id);
+        if (!fid) {
+          return jsonNoStore(401, { ok: false, error: "MISSING_VIEWER_COOKIE", detail: safeStr(det && det.error) });
+        }
+        const pend = await _wvReadPendingWaivers(_wvOwnerCookieHeader, wvSeason, wvLeagueId);
+        const wvPendingOut = {
+          ok: true,
+          franchise_id: fid,
+          known: pend.known,
+          rounds: pend.known ? pend.rounds : null,
+          raw: pend.raw,
+        };
+        if (!pend.known) {
+          // F15/N4 — FIELD NAMES. This route emitted `warning`; the mobile
+          // client reads `normalize_warning` (views/players.js unknownClaimsText),
+          // so the owner-facing explanation was silently dropped every time.
+          // Emit BOTH, always identical, `normalize_warning` canonical.
+          wvPendingOut.normalize_warning = pend.warning;   // canonical
+          wvPendingOut.warning = pend.warning;             // alias — identical value
+          wvPendingOut.unknown_reason = pend.unknown_reason;
+          wvPendingOut.mfl_status = pend.mfl_status;
+          wvPendingOut.mfl_response = pend.mfl_response;
+        }
+        return jsonNoStore(200, wvPendingOut);
+      }
+
+      // ── POST /api/waivers/bbid-plan ───────────────────────────────────────
+      // Per-round sync. Sequential by design — MFL is not something to hammer in
+      // parallel with mutating writes.
+      //
+      // ── CONTRACT v2 §2: CLEARING IS EXPLICIT, NEVER IMPLIED BY ABSENCE ──
+      //   round present with picks:[…]  → written with REPLACE=1
+      //   round present with picks:[]   → CLEARED at MFL (empty PICKS)
+      //   round ABSENT from the body    → LEFT ALONE. Not read, not written.
+      // So `rounds: []` means "change nothing", not "clear everything", and
+      // withdrawing everything is expressed by sending every pending round with
+      // picks:[] — the destructive operation is now the one the owner literally
+      // asked for.
+      //
+      // v1 derived the clear list from a pre-write pendingWaivers read: any
+      // round pending at MFL but missing from the body got wiped. That turned
+      // every incomplete client view — a failed read, a half-rendered board, a
+      // stale tab — into silent destruction of live, cap-spending claims. The
+      // pre-read is still taken, but ONLY to report `pending_before` and to name
+      // the rounds we deliberately left untouched. It can no longer cause a
+      // write, which is also why §2's "refuse to clear on an unknown pre-read"
+      // holds trivially here: nothing but an explicit picks:[] ever clears.
+      //
+      // Body: { franchise_id, rounds:[{round,picks:[{add_pid,bid_dollars,drop_pid}]}], dry_run? }
+      if (path === "/api/waivers/bbid-plan" && request.method === "POST") {
+        const wvSeason = _wvSeason();
+        const wvLeagueId = _wvLeague();
+        let wbody = {};
+        try { wbody = (await request.json()) || {}; } catch (_) { wbody = {}; }
+        const wvDryRun = _wvTruthy(wbody.dry_run) || _wvTruthy(wbody.dryRun) || _wvTruthy(url.searchParams.get("dry_run"));
+        const wvArm = await _wvWriteArmed(wvLeagueId);
+        const wvArmed = wvArm.armed;
+        // Kill switch. Dry-run is deliberately still allowed while dark so the
+        // whole path (identity, validation, the exact PICKS strings) can be
+        // rehearsed before the flag is ever flipped — nothing here touches MFL.
+        // A LIVE write while dark is a hard 503 with MFL's own page as the out.
+        if (!wvArmed && !wvDryRun) {
+          return jsonNoStore(503, {
+            ok: false,
+            error: "waivers_inapp_disabled",
+            native_link: _wvNativeAddDropLink(wvSeason, wvLeagueId),
+          });
+        }
+        if (!_wvOwnerCookieHeader) {
+          return jsonNoStore(401, {
+            ok: false,
+            error: "MISSING_VIEWER_COOKIE",
+            message: "Missing MFL owner session — refresh the page so the client forwards your MFL_USER_ID, then retry.",
+          });
+        }
+        const det = await _rdhDetectFranchise(_wvViewerMflUserId);
+        const detFid = padFranchiseId(det && det.franchise_id);
+        if (!detFid) {
+          return jsonNoStore(401, { ok: false, error: "MISSING_VIEWER_COOKIE", detail: safeStr(det && det.error) });
+        }
+        const reqFid = padFranchiseId(wbody.franchise_id || wbody.franchiseId || "");
+        if (reqFid && reqFid !== detFid) {
+          return jsonNoStore(403, { ok: false, error: "FRANCHISE_MISMATCH", detected_franchise: detFid });
+        }
+        const wvFid = detFid;
+
+        if (!Array.isArray(wbody.rounds)) {
+          return jsonNoStore(400, {
+            ok: false,
+            error: "validation",
+            details: [{
+              code: "NO_ROUNDS",
+              message: "rounds[] is required. A round with picks:[] clears that round; rounds you do not send are left untouched; [] therefore changes nothing. To withdraw everything, send every pending round with picks:[].",
+            }],
+          });
+        }
+
+        const [lgRes, wvRoster, beforeRead] = await Promise.all([
+          mflExportJson(wvSeason, wvLeagueId, "league", {}, { useCookie: true }),
+          _wvLoadFranchiseRoster(wvSeason, wvLeagueId, wvFid),
+          // Advisory only — see the §2 note above. Nothing this read returns can
+          // cause a write, so a failed/unparseable read (known:false) costs the
+          // owner nothing beyond a less informative response.
+          _wvReadPendingWaivers(_wvOwnerCookieHeader, wvSeason, wvLeagueId),
+        ]);
+        let wvLimits = _wvWaiverLimits(lgRes && lgRes.ok ? lgRes.data : null);
+        // F12: an owner's LEGAL bid must never be rejected because WE could not
+        // read the league config. MFL's exports are flaky under load, so take one
+        // more swing at it before giving up on the bounds entirely.
+        if (!wvLimits.known) {
+          try {
+            const lgRetry = await mflExportJson(wvSeason, wvLeagueId, "league", {}, { useCookie: true });
+            const retried = _wvWaiverLimits(lgRetry && lgRetry.ok ? lgRetry.data : null);
+            if (retried.known || (retried.league_readable && !wvLimits.league_readable)) wvLimits = retried;
+          } catch (limErr) {
+            console.warn("[waivers] league limits re-fetch failed:", limErr && limErr.message ? limErr.message : String(limErr));
+          }
+        }
+        // Each bound is enforced ONLY if MFL actually told us what it is. When it
+        // did not, the check is SKIPPED and MFL adjudicates at write time — its
+        // rejection comes back verbatim in mfl_response, which is the only
+        // authority that was ever real. v1 enforced 1000/1000/8 here whether or
+        // not anyone had read them.
+        const wvMinKnown = wvLimits.bbid_minimum;      // null ⇒ not checked
+        const wvIncKnown = wvLimits.bbid_increment;    // null ⇒ not checked
+        const wvMaxRounds = wvLimits.max_rounds;       // null ⇒ upper bound not checked
+        const wvPendingBefore = { known: beforeRead.known, rounds: beforeRead.known ? beforeRead.rounds : null };
+        const usd = (n) => `$${Number(n || 0).toLocaleString("en-US")}`;
+
+        // ── Validation (hard 400) ──
+        const details = [];
+        const plan = [];
+        const seenRounds = new Set();
+        for (const r of wbody.rounds) {
+          const roundNo = safeInt(r && (r.round != null ? r.round : r.ROUND), 0);
+          // Rounds start at 1 — that is arithmetic, not a league setting, so it
+          // is always enforced. The UPPER bound is MFL's and is only enforced
+          // when MFL told us what it is (F12).
+          if (roundNo < 1 || (wvMaxRounds && roundNo > wvMaxRounds)) {
+            details.push({
+              code: "ROUND_OUT_OF_RANGE",
+              message: wvMaxRounds
+                ? `Round ${roundNo || "?"} is outside MFL's 1–${wvMaxRounds} waiver rounds.`
+                : `Round ${roundNo || "?"} is not a valid round number — rounds start at 1. MFL did not report how many waiver rounds this league runs, so the upper limit was not checked here; MFL enforces it.`,
+              round: roundNo || null,
+            });
+            continue;
+          }
+          if (seenRounds.has(roundNo)) {
+            details.push({ code: "DUPLICATE_ROUND", message: `Round ${roundNo} appears twice in the plan.`, round: roundNo });
+            continue;
+          }
+          seenRounds.add(roundNo);
+          // `picks` must be a literal array. Under §2 an empty picks[] CLEARS
+          // the round at MFL, so a missing/malformed key must not be silently
+          // coerced into "" — `{round:3}` would then destroy round 3 because a
+          // client forgot a field. Destructive intent has to be spelled out.
+          if (!Array.isArray(r && r.picks)) {
+            details.push({
+              code: "MISSING_PICKS",
+              message: `Round ${roundNo} has no picks[] array. Send picks with the claims you want, or an explicit picks:[] to clear the round. Omit the round entirely to leave it untouched.`,
+              round: roundNo,
+            });
+            continue;
+          }
+          const rawPicks = r.picks;
+          const picks = [];
+          const seenInRound = new Set();
+          for (const p of rawPicks) {
+            const addPid = String((p && (p.add_pid || p.addPid || p.player_id || p.player)) || "").replace(/\D/g, "");
+            const dropPid = String((p && (p.drop_pid || p.dropPid || p.drop)) || "").replace(/\D/g, "");
+            const bid = safeMoneyInt(p && (p.bid_dollars != null ? p.bid_dollars : (p.bidDollars != null ? p.bidDollars : (p.bid != null ? p.bid : p.amount))), null);
+            if (!addPid) {
+              details.push({ code: "MISSING_ADD_PID", message: "Every pick needs an add_pid.", round: roundNo });
+              continue;
+            }
+            if (bid == null) {
+              details.push({ code: "MISSING_BID", message: `Pick ${addPid} has no bid_dollars.`, round: roundNo, add_pid: addPid });
+              continue;
+            }
+            // Arithmetic, not a league setting — always enforced.
+            if (bid <= 0) {
+              details.push({ code: "BID_NOT_POSITIVE", message: `Pick ${addPid} has a bid of ${usd(bid)}. A blind bid has to be a positive dollar amount.`, round: roundNo, add_pid: addPid });
+              continue;
+            }
+            // F12: MFL's bounds, enforced ONLY when MFL reported them. Skipping
+            // beats rejecting a legal bid against a number we invented — MFL
+            // adjudicates and its refusal is surfaced verbatim.
+            if (wvMinKnown && bid < wvMinKnown) {
+              details.push({ code: "BID_BELOW_MINIMUM", message: `${usd(bid)} is under MFL's ${usd(wvMinKnown)} minimum bid.`, round: roundNo, add_pid: addPid });
+              continue;
+            }
+            if (wvIncKnown && bid % wvIncKnown !== 0) {
+              details.push({ code: "BID_NOT_MULTIPLE", message: `${usd(bid)} is not a multiple of the ${usd(wvIncKnown)} bid increment.`, round: roundNo, add_pid: addPid });
+              continue;
+            }
+            if (dropPid && wvRoster.ok && !wvRoster.by_pid.has(dropPid)) {
+              details.push({ code: "DROP_NOT_ON_ROSTER", message: `Player ${dropPid} is not on your roster, so it cannot be the drop for this claim.`, round: roundNo, add_pid: addPid, drop_pid: dropPid });
+              continue;
+            }
+            if (seenInRound.has(addPid)) {
+              details.push({ code: "DUPLICATE_PICK_IN_ROUND", message: `Player ${addPid} is listed twice in round ${roundNo}.`, round: roundNo, add_pid: addPid });
+              continue;
+            }
+            seenInRound.add(addPid);
+            picks.push({ add_pid: addPid, bid_dollars: bid, drop_pid: dropPid || null });
+          }
+          // NOTE (Keith 2026-07-30, explicit): the SAME player in DIFFERENT
+          // rounds is ALLOWED and is not a mistake — with conditional bidding
+          // that is exactly how you chase a guy at one price in round 1 and a
+          // higher one in round 3. We mirror MFL; only a duplicate WITHIN a
+          // single round is nonsense, and that is caught above.
+          plan.push({ round: roundNo, picks });
+        }
+
+        // A won claim executes a real CUT, so every drop_pid clears the same ERA
+        // forced-retention gate as the Front Office's Drop button.
+        for (const rd of plan) {
+          for (const p of rd.picks) {
+            if (!p.drop_pid) continue;
+            // unknownCloseBlocks:false — waivers only open AFTER the FA Auction
+            // completes, so an unresolvable close time must not freeze a claim.
+            const gate = await _eraRetentionBlocked(wvSeason, wvLeagueId, p.drop_pid, { unknownCloseBlocks: false });
+            if (gate.blocked) {
+              details.push({
+                code: "ERA_FORCED_RETENTION",
+                message: `Player ${p.drop_pid} was won in the ${wvSeason} Expired Rookie Auction and is under forced retention — they cannot be dropped until the FA Auction closes (league_context_v1.md §A3).`,
+                round: rd.round, add_pid: p.add_pid, drop_pid: p.drop_pid,
+              });
+            }
+          }
+        }
+        // DELIBERATELY ABSENT: the FA-auction "you cut him, you can't re-bid on
+        // him" prohibition. That rule is FA-AUCTION-scoped only — there is NO
+        // in-season cut-then-rebid ban in this league. Do not add one here.
+        if (details.length) {
+          return jsonNoStore(400, { ok: false, error: "validation", details });
+        }
+
+        // ── Warnings (ADVISORY ONLY — Contract v2 §6, never block) ──
+        // MFL enforces the cap and the roster max natively at award time; these
+        // exist so an owner is not surprised when a claim quietly loses to "no
+        // room". Cap math here is an ESTIMATE — it excludes salaryAdjustments.
+        // Nothing here may ever disable a submit or remove the no-drop option:
+        // our arithmetic is the thing most likely to be wrong.
+        const warnings = [];
+        // F12: say plainly which checks did NOT run, so "it validated" is never
+        // mistaken for "it is legal". Advisory — this never blocks a submit.
+        if (!wvLimits.known) {
+          warnings.push({
+            code: "LIMITS_UNKNOWN",
+            message: "MFL did not report this league's minimum bid, bid increment and waiver round count, so those bounds were not checked here. Your bids were passed to MFL as entered — MFL enforces its own limits and will say so if one is off.",
+            limits_known: false,
+            bbid_minimum: wvLimits.bbid_minimum,
+            bbid_increment: wvLimits.bbid_increment,
+            max_rounds: wvLimits.max_rounds,
+          });
+        }
+        const wvLeagueRoot = (lgRes && lgRes.data && lgRes.data.league) || {};
+        const wvCapDollars = safeMoneyInt(
+          firstTruthy(wvLeagueRoot.auctionStartAmount, wvLeagueRoot.salaryCapAmount, wvLeagueRoot.salary_cap_amount),
+          0
+        ) || 0;
+        // v1 hardcoded 35 and counted taxi + IR. Both were wrong: the ceiling
+        // drops to 30 at the September contract deadline — i.e. before waivers
+        // ever run — and taxi/IR players do not occupy active roster spots. Read
+        // the ceiling from MFL, count only slot-occupying players, and when MFL
+        // does not tell us the ceiling, say so instead of inventing a number.
+        const WV_ROSTER_MAX = _wvRosterLimit(lgRes && lgRes.ok ? lgRes.data : null);
+        if (wvRoster.ok) {
+          for (const rd of plan) {
+            if (!rd.picks.length) continue;
+            const adds = rd.picks.length;
+            const drops = rd.picks.filter((p) => p.drop_pid).length;
+            const projected = wvRoster.slot_count + adds - drops;
+            if (WV_ROSTER_MAX && projected > WV_ROSTER_MAX) {
+              warnings.push({
+                code: "ROSTER_HEADROOM",
+                message: `Round ${rd.round}: winning all ${adds} claim${adds === 1 ? "" : "s"} would put you at ${projected} active players (MFL's limit is ${WV_ROSTER_MAX}; taxi and IR are not counted). Heads-up only — MFL decides at award time.`,
+                projected_active: projected,
+                roster_size_limit: WV_ROSTER_MAX,
+              });
+            } else if (!WV_ROSTER_MAX && adds > drops) {
+              warnings.push({
+                code: "ROSTER_HEADROOM_UNKNOWN",
+                message: `Round ${rd.round}: winning all ${adds} claim${adds === 1 ? "" : "s"} would add ${adds - drops} to your active roster (you have ${wvRoster.slot_count}, excluding taxi and IR). MFL did not report its roster limit, so we can't tell you how close that is — MFL enforces it at award time.`,
+                projected_active: projected,
+                roster_size_limit: null,
+              });
+            }
+            if (wvCapDollars > 0) {
+              const addMoney = rd.picks.reduce((n, p) => n + (p.bid_dollars || 0), 0);
+              const dropMoney = rd.picks.reduce((n, p) => {
+                const row = p.drop_pid ? wvRoster.by_pid.get(p.drop_pid) : null;
+                return n + (row ? row.salary : 0);
+              }, 0);
+              const projectedCap = wvRoster.salary_total + addMoney - dropMoney;
+              if (projectedCap > wvCapDollars) {
+                warnings.push({
+                  code: "CAP_ROOM",
+                  message: `Round ${rd.round}: winning every claim would put you roughly ${usd(projectedCap - wvCapDollars)} over the ${usd(wvCapDollars)} cap (estimate — excludes salary adjustments). MFL enforces the cap at award time.`,
+                });
+              }
+            }
+          }
+        }
+
+        // ── Build the exact MFL writes ──
+        // PICKS is a comma list of `pid_amount_droppid`, with `0000` standing in
+        // for "no drop". REPLACE=1 makes each write authoritative for ITS ROUND
+        // — and only its round, which is exactly why absence can mean "leave it
+        // alone": a round we never POST is a round MFL never hears about.
+        //
+        // §2: the write set is EXACTLY the rounds in the body. A round with
+        // picks is a "write"; a round with picks:[] is an explicit "clear". No
+        // round is derived from the pre-read, so there is no path by which a
+        // failed read, a stale tab, or a half-rendered board can wipe a claim.
+        const WV_NO_DROP = "0000";
+        const pickString = (picks) =>
+          (picks || []).map((p) => `${p.add_pid}_${p.bid_dollars}_${p.drop_pid || WV_NO_DROP}`).join(",");
+        const submittedRounds = new Set(plan.map((r) => r.round));
+        const wvWrites = plan
+          .map((rd) => ({ round: rd.round, picks: pickString(rd.picks), pick_count: rd.picks.length, kind: rd.picks.length ? "write" : "clear" }))
+          .sort((a, b) => a.round - b.round);
+        const wvTouched = new Set(wvWrites.map((w) => w.round));
+        const wouldSend = wvWrites.map((w) => ({
+          url: `https://www48.myfantasyleague.com/${wvSeason}/import?TYPE=blindBidWaiverRequest&L=${wvLeagueId}&JSON=1`,
+          body: { ROUND: String(w.round), PICKS: w.picks, REPLACE: "1" },
+        }));
+        const roundsWritten = wvWrites.filter((w) => w.kind === "write").map((w) => w.round);
+        const roundsCleared = wvWrites.filter((w) => w.kind === "clear").map((w) => w.round);
+        const picksTotal = wvWrites.reduce((n, w) => n + w.pick_count, 0);
+        // Rounds MFL currently holds that this request deliberately did NOT
+        // touch, so the UI can say "round 3 is still pending and was left alone"
+        // instead of the owner discovering it later. null when the pre-read was
+        // unknown — we will not guess at what is out there.
+        const roundsUntouched = wvPendingBefore.known
+          ? wvPendingBefore.rounds
+              .map((r) => safeInt(r.round, 0))
+              .filter((n) => n >= 1 && !submittedRounds.has(n))
+              .sort((a, b) => a - b)
+          : null;
+        // The full echo of what a live run sends, shared by the dry-run preview
+        // and (for auditability) the live response.
+        const wouldWrite = {
+          rounds: wvWrites
+            .filter((w) => w.kind === "write")
+            .map((w) => {
+              const rd = plan.find((r) => r.round === w.round);
+              return { round: w.round, picks: (rd && rd.picks) || [], picks_string: w.picks };
+            }),
+          cleared_rounds: roundsCleared,
+          untouched_rounds: roundsUntouched,
+        };
+
+        if (wvDryRun) {
+          // Contract v2 §3 — a dry run must never look like server truth.
+          // NOTHING was written, so nothing is verified: `verified` is
+          // {known:false, rounds:null} and `would_write` carries the preview.
+          // v1 returned the PRE-write MFL state in `verified`, which the desktop
+          // client adopted — destroying the plan the owner had just composed
+          // the moment they hit "preview". Clients MUST render would_write as a
+          // preview and MUST NOT touch their local plan on a dry run.
+          return jsonNoStore(200, {
+            ok: true,
+            dry_run: true,
+            waivers_inapp_enabled: !!wvArmed,
+            franchise_id: wvFid,
+            rounds_written: roundsWritten,
+            rounds_cleared: roundsCleared,
+            picks_total: picksTotal,
+            warnings,
+            would_send: wouldSend,
+            would_write: wouldWrite,
+            limits: {
+              known: wvLimits.known,          // F12 — false ⇒ the fields below are null
+              bbid_minimum: wvLimits.bbid_minimum,
+              bbid_increment: wvLimits.bbid_increment,
+              max_rounds: wvLimits.max_rounds,
+              conditional: wvLimits.conditional,
+              waiver_type: wvLimits.waiver_type,
+              waiver_type_known: wvLimits.waiver_type_known,
+            },
+            verified: { known: false, rounds: null },
+            verify_known: false,
+            // MFL's CURRENT state, clearly labelled as "before" so it can be
+            // shown side by side with the preview and never mistaken for the
+            // post-write result.
+            pending_before: wvPendingBefore,
+            ...(wvArmed ? {} : { native_link: _wvNativeAddDropLink(wvSeason, wvLeagueId) }),
+          });
+        }
+
+        // ── Live, sequential ──
+        for (const w of wvWrites) {
+          const res = await _wvPostOwnerImport(_wvOwnerCookieHeader, wvSeason, wvLeagueId, "blindBidWaiverRequest", {
+            ROUND: String(w.round),
+            PICKS: w.picks,
+            REPLACE: "1",
+          });
+          if (!res.ok) {
+            return jsonNoStore(502, {
+              ok: false,
+              error: "mfl_reject",
+              mfl_status: safeInt(res.status, 0),
+              // MFL's own words, verbatim — including the WAIVER_NONE blackout
+              // sentence. Never paraphrase; MFL is what actually decides.
+              mfl_response: _wvMflErrorText(res),
+              failed_round: w.round,
+              rounds_written: roundsWritten.filter((n) => n < w.round),
+              rounds_cleared: roundsCleared.filter((n) => n < w.round),
+              // We stopped mid-sequence, so MFL's state is a partial apply we
+              // have not read back. Nothing here is verified — §1 shape so a
+              // client cannot mistake this for truth and adopt it.
+              verified: { known: false, rounds: null },
+              verify_known: false,
+              // P2: MFL itself refused this round, so this IS a failed write and
+              // a retry is the right next step. Each round is posted with
+              // REPLACE=1, which makes re-sending the whole plan idempotent.
+              retry_safe: true,
+            });
+          }
+        }
+
+        // ── Verify ──
+        // MFL answering 200 is NOT proof: an owner-restricted import posted with
+        // the wrong session returns 200 and does nothing. Re-read and diff.
+        const afterRead = await _wvReadPendingWaivers(_wvOwnerCookieHeader, wvSeason, wvLeagueId);
+        // Contract v2 §1 — an unreadable verification read is UNKNOWN, not
+        // empty. v1 mapped a non-ok export to [], so a brief MFL hiccup returned
+        // ok:true + verified:{rounds:[]} and clients wiped the owner's board.
+        // Here the writes all succeeded, so report success and say plainly that
+        // we could not confirm; the client keeps its plan and re-reads.
+        if (!afterRead.known) {
+          return jsonNoStore(200, {
+            ok: true,
+            dry_run: false,
+            franchise_id: wvFid,
+            rounds_written: roundsWritten,
+            rounds_cleared: roundsCleared,
+            rounds_untouched: roundsUntouched,
+            picks_total: picksTotal,
+            warnings: warnings.concat([{
+              code: "VERIFY_UNKNOWN",
+              message: `MFL accepted every write, but the read-back to confirm them ${afterRead.mfl_status ? `failed (HTTP ${afterRead.mfl_status})` : "failed"}. Your claims were most likely saved — check MFL's waiver page to be sure.`,
+            }]),
+            verified: { known: false, rounds: null, raw: afterRead.raw },
+            // P2 — the WRITES succeeded; only the confirming READ did not. This
+            // is "unconfirmed", not "failed".
+            verify_known: false,
+            verify_unknown_reason: afterRead.unknown_reason,
+            would_write: wouldWrite,
+          });
+        }
+        // Only the rounds THIS request touched may be graded. Rounds we
+        // deliberately left alone are still pending at MFL and would otherwise
+        // read as an "unexpected" diff — which under §2 is now the normal case.
+        const inTouched = (rounds) => (rounds || []).filter((r) => wvTouched.has(safeInt(r.round, 0)));
+        const diffKey = (rounds) => (rounds || [])
+          .filter((r) => Array.isArray(r.picks) && r.picks.length)
+          .map((r) => `${safeInt(r.round, 0)}:${pickString(r.picks)}`)
+          .sort()
+          .join("|");
+        // Player-level key — round + who is added + who is dropped, no money.
+        // Used to grade the severity of a diff (see below).
+        const rosterKey = (rounds) => (rounds || [])
+          .filter((r) => Array.isArray(r.picks) && r.picks.length)
+          .map((r) => `${safeInt(r.round, 0)}:${r.picks.map((p) => `${p.add_pid}>${p.drop_pid || WV_NO_DROP}`).join(",")}`)
+          .sort()
+          .join("|");
+        const afterTouched = inTouched(afterRead.rounds);
+        const expectedKey = diffKey(plan);
+        const actualKey = diffKey(afterTouched);
+        if (expectedKey !== actualKey) {
+          // Severity split. If the CLAIMS match (same rounds, same add/drop
+          // players) and only the dollar figures read differently, the far more
+          // likely cause is MFL echoing the bid in a format we have never seen
+          // than MFL storing a number we did not send — and 502-ing a write that
+          // actually landed invites a resubmit loop. Warn loudly, log it, and let
+          // the first real run tell us the true format.
+          if (rosterKey(plan) === rosterKey(afterTouched)) {
+            try { console.warn("[waivers] bbid verify bid-format mismatch:", JSON.stringify({ expected: plan, actual: afterTouched }).slice(0, 4000)); } catch (_) {}
+            return jsonNoStore(200, {
+              ok: true,
+              dry_run: false,
+              franchise_id: wvFid,
+              rounds_written: roundsWritten,
+              rounds_cleared: roundsCleared,
+              rounds_untouched: roundsUntouched,
+              picks_total: picksTotal,
+              warnings: warnings.concat([{
+                code: "VERIFY_BID_MISMATCH",
+                message: "Every claim landed on the right round with the right add/drop, but MFL reported the bid amounts differently than we sent them. Check the amounts on MFL's waiver page.",
+              }]),
+              verified: { known: true, rounds: afterRead.rounds },
+              verify_known: true,
+              expected: plan,
+            });
+          }
+          return jsonNoStore(502, {
+            ok: false,
+            error: "verify_mismatch",
+            mfl_status: afterRead.mfl_status,
+            mfl_response: afterRead.mfl_response,
+            expected: plan,
+            actual: afterTouched,
+            verified: { known: true, rounds: afterRead.rounds },
+            // We READ MFL back successfully and it genuinely disagrees — this is
+            // a confirmed mismatch, not an unconfirmed write. Re-sending is safe
+            // (every round goes out with REPLACE=1), which is why this one may
+            // still invite a retry.
+            verify_known: true,
+            retry_safe: true,
+          });
+        }
+        return jsonNoStore(200, {
+          ok: true,
+          dry_run: false,
+          franchise_id: wvFid,
+          rounds_written: roundsWritten,
+          rounds_cleared: roundsCleared,
+          rounds_untouched: roundsUntouched,
+          picks_total: picksTotal,
+          warnings,
+          // The FULL post-write state from MFL, known-good. This is the one
+          // response a client may adopt wholesale.
+          verified: { known: true, rounds: afterRead.rounds },
+          verify_known: true,
+        });
+      }
+
+      // ── POST /api/waivers/fcfs ────────────────────────────────────────────
+      // First-come-first-served add (plus optional drops), for when waivers are
+      // not locked. No contract write: MFL's league default row makes this a
+      // $1K / 1-year "WW" contract on its own.
+      //
+      // Body: { franchise_id, add_pid, drop_pids?:[pid], dry_run? }
+      if (path === "/api/waivers/fcfs" && request.method === "POST") {
+        const wvSeason = _wvSeason();
+        const wvLeagueId = _wvLeague();
+        let fbody = {};
+        try { fbody = (await request.json()) || {}; } catch (_) { fbody = {}; }
+        const fcfsDryRun = _wvTruthy(fbody.dry_run) || _wvTruthy(fbody.dryRun) || _wvTruthy(url.searchParams.get("dry_run"));
+        const fcfsArm = await _wvWriteArmed(wvLeagueId);
+        const fcfsArmed = fcfsArm.armed;
+        if (!fcfsArmed && !fcfsDryRun) {
+          return jsonNoStore(503, {
+            ok: false,
+            error: "waivers_inapp_disabled",
+            native_link: _wvNativeAddDropLink(wvSeason, wvLeagueId),
+          });
+        }
+        if (!_wvOwnerCookieHeader) {
+          return jsonNoStore(401, {
+            ok: false,
+            error: "MISSING_VIEWER_COOKIE",
+            message: "Missing MFL owner session — refresh the page so the client forwards your MFL_USER_ID, then retry.",
+          });
+        }
+        const fdet = await _rdhDetectFranchise(_wvViewerMflUserId);
+        const fcfsDetFid = padFranchiseId(fdet && fdet.franchise_id);
+        if (!fcfsDetFid) {
+          return jsonNoStore(401, { ok: false, error: "MISSING_VIEWER_COOKIE", detail: safeStr(fdet && fdet.error) });
+        }
+        const fcfsReqFid = padFranchiseId(fbody.franchise_id || fbody.franchiseId || "");
+        if (fcfsReqFid && fcfsReqFid !== fcfsDetFid) {
+          return jsonNoStore(403, { ok: false, error: "FRANCHISE_MISMATCH", detected_franchise: fcfsDetFid });
+        }
+        const fcfsFid = fcfsDetFid;
+        const addPid = String(fbody.add_pid || fbody.addPid || fbody.player_id || "").replace(/\D/g, "");
+        const dropPids = (Array.isArray(fbody.drop_pids) ? fbody.drop_pids : (Array.isArray(fbody.dropPids) ? fbody.dropPids : []))
+          .map((x) => String(x || "").replace(/\D/g, ""))
+          .filter(Boolean);
+
+        const fcfsDetails = [];
+        if (!addPid) fcfsDetails.push({ code: "MISSING_ADD_PID", message: "add_pid is required." });
+        const fcfsRoster = await _wvLoadFranchiseRoster(wvSeason, wvLeagueId, fcfsFid);
+        // `preKnown` is load-bearing for the verification below (N2): knowing the
+        // player was NOT on the roster before the write is what lets a post-write
+        // roster read PROVE the add landed. Without it, "he's on the roster now"
+        // is ambiguous with "he was already there".
+        const fcfsPreKnown = !!fcfsRoster.ok;
+        if (addPid && fcfsPreKnown && fcfsRoster.by_pid.has(addPid)) {
+          fcfsDetails.push({
+            code: "ADD_ALREADY_ON_ROSTER",
+            message: `Player ${addPid} is already on your roster, so there is nothing to add.`,
+            add_pid: addPid,
+          });
+        }
+        if (addPid && dropPids.indexOf(addPid) !== -1) {
+          fcfsDetails.push({
+            code: "ADD_IS_ALSO_DROP",
+            message: `Player ${addPid} is listed as both the add and a drop.`,
+            add_pid: addPid,
+          });
+        }
+        for (const d of dropPids) {
+          if (fcfsRoster.ok && !fcfsRoster.by_pid.has(d)) {
+            fcfsDetails.push({ code: "DROP_NOT_ON_ROSTER", message: `Player ${d} is not on your roster.`, drop_pid: d });
+            continue;
+          }
+          // unknownCloseBlocks:false — see the note on the bbid-plan gate above.
+          const gate = await _eraRetentionBlocked(wvSeason, wvLeagueId, d, { unknownCloseBlocks: false });
+          if (gate.blocked) {
+            fcfsDetails.push({
+              code: "ERA_FORCED_RETENTION",
+              message: `Player ${d} was won in the ${wvSeason} Expired Rookie Auction and is under forced retention — they cannot be dropped until the FA Auction closes (league_context_v1.md §A3).`,
+              drop_pid: d,
+            });
+          }
+        }
+        // Same note as bbid-plan: there is NO in-season cut-then-rebid ban in
+        // this league. The prohibition is FA-AUCTION-scoped only. Do not add it.
+        if (fcfsDetails.length) {
+          return jsonNoStore(400, { ok: false, error: "validation", details: fcfsDetails });
+        }
+
+        const fcfsContractNote =
+          "1-yr WW contract at MFL's league default ($1K, contractStatus WW, CL 1) — no contract write needed; " +
+          "a WW salary of $4K or less is a cap-free cut.";
+        if (fcfsDryRun) {
+          return jsonNoStore(200, {
+            ok: true,
+            dry_run: true,
+            waivers_inapp_enabled: !!fcfsArmed,
+            franchise_id: fcfsFid,
+            added: addPid,
+            dropped: dropPids,
+            // Nothing was written, so nothing is verified — same §3 rule as
+            // bbid-plan's dry run. A dry run must never look like server truth.
+            verified: false,
+            verify_known: false,
+            roster_verified: false,      // retained alias of `verified`
+            contract_note: fcfsContractNote,
+            would_send: {
+              url: `https://www48.myfantasyleague.com/${wvSeason}/import?TYPE=fcfsWaiver&L=${wvLeagueId}&JSON=1`,
+              body: { ADD: addPid, DROP: dropPids.join(",") },
+            },
+            ...(fcfsArmed ? {} : { native_link: _wvNativeAddDropLink(wvSeason, wvLeagueId) }),
+          });
+        }
+
+        const fcfsRes = await _wvPostOwnerImport(_wvOwnerCookieHeader, wvSeason, wvLeagueId, "fcfsWaiver", {
+          ADD: addPid,
+          DROP: dropPids.join(","),
+        });
+
+        // ── Verify (N2 / P2) ──────────────────────────────────────────────────
+        // Verify against the ROSTER, not against MFL's response body — the
+        // response is advisory, the roster is the fact. This also means a noisy
+        // but successful import still reports the truth.
+        //
+        // THE BUG THIS REPLACES: `landed` was false whenever `vRoster.ok` was
+        // false, so a transient MFL hiccup on the VERIFICATION READ returned
+        // 502 verify_mismatch — after MFL had really added the player and really
+        // cut the drop. Clients then said "Add failed" and offered a retry, which
+        // on a non-idempotent add/cut is the worst possible next action: it
+        // re-cuts a second player or double-charges the owner.
+        //
+        // A failed READ is never evidence that the WRITE failed. The three
+        // outcomes are now distinct, and only one of them invites a retry:
+        //   (a) MFL rejected the write            → 502 mfl_reject,   retry_safe:true
+        //   (b) write accepted AND confirmed      → 200 verified:true
+        //   (c) write accepted, read unreadable   → 200 verified:false,
+        //                                           verify_known:false, retry_safe:false
+        const vRoster = await _wvLoadFranchiseRoster(wvSeason, wvLeagueId, fcfsFid);
+        const verifyKnown = !!vRoster.ok;
+        const landed = verifyKnown ? vRoster.by_pid.has(addPid) : null;
+        const stillThere = verifyKnown ? dropPids.filter((d) => vRoster.by_pid.has(d)) : [];
+        const expected = { added: addPid, dropped: dropPids };
+        const nativeLink = _wvNativeAddDropLink(wvSeason, wvLeagueId);
+
+        // (b) The roster PROVES the move landed in full. This outranks a noisy
+        // response body: `isLikelyMflImportSuccess` is a heuristic, the roster is
+        // not. Only trusted over an explicit MFL reject when the pre-write read
+        // succeeded — that is what rules out "he was already on the roster", and
+        // validation above has already rejected that case outright.
+        if (verifyKnown && landed && !stillThere.length && (fcfsRes.ok || fcfsPreKnown)) {
+          return jsonNoStore(200, {
+            ok: true,
+            dry_run: false,
+            franchise_id: fcfsFid,
+            added: addPid,
+            dropped: dropPids,
+            verified: true,
+            verify_known: true,
+            roster_verified: true,      // retained alias of `verified`
+            contract_note: fcfsContractNote,
+            ...(fcfsRes.ok ? {} : {
+              // MFL's body did not read as success but the roster says otherwise.
+              // Report the truth and log the body so the heuristic can be fixed.
+              warnings: [{
+                code: "MFL_RESPONSE_UNEXPECTED",
+                message: "MFL's reply didn't read as a success, but your roster confirms the move went through.",
+                mfl_status: safeInt(fcfsRes.status, 0),
+                mfl_response: _wvMflErrorText(fcfsRes),
+              }],
+            }),
+          });
+        }
+
+        // (a) MFL EXPLICITLY refused, in its own words. Nothing was written, so
+        // a retry is the right next step — and this is the ONLY branch that says
+        // so.
+        //
+        // Gated on `definite_reject`, NOT on `!fcfsRes.ok`. A bare ok:false can
+        // also mean "the connection dropped while we were reading MFL's reply"
+        // (status 0) or "our success heuristic didn't recognize the body" — in
+        // neither case do we know MFL's state. If that ambiguity coincides with
+        // an unreadable verification read we hold ZERO evidence, and the honest
+        // answer is outcome (c) below, which explicitly tells the owner NOT to
+        // resend. Asserting "rejected, retry" there is how an owner double-adds
+        // a player and re-cuts someone who was already gone.
+        //
+        // Also requires that the roster NOT contradict the refusal: if we could
+        // read it and something did land, MFL's "no" was partial, and the
+        // partial-aware branch below owns that case (it computes retry_safe
+        // correctly; this branch would hand back an unsafe retry_safe:true).
+        const wvNothingLanded = verifyKnown && !landed && stillThere.length === dropPids.length;
+        if (!fcfsRes.ok && fcfsRes.definite_reject && (!verifyKnown || wvNothingLanded)) {
+          try { console.warn("[waivers] fcfs rejected by MFL:", JSON.stringify({ expected, status: fcfsRes.status, body: fcfsRes.upstreamPreview }).slice(0, 2000)); } catch (_) {}
+          return jsonNoStore(502, {
+            ok: false,
+            error: "mfl_reject",
+            mfl_status: safeInt(fcfsRes.status, 0),
+            mfl_response: _wvMflErrorText(fcfsRes),
+            expected,
+            actual: verifyKnown ? { added: landed ? addPid : null, still_on_roster: stillThere } : null,
+            verified: false,
+            verify_known: verifyKnown,
+            roster_verified: false,
+            retry_safe: true,
+            native_link: nativeLink,
+          });
+        }
+
+        // Write accepted, read succeeded, and the roster disagrees. This is a
+        // CONFIRMED mismatch — we know what MFL's state is.
+        if (verifyKnown) {
+          const partial = !!landed || stillThere.length < dropPids.length;
+          try { console.warn("[waivers] fcfs verify mismatch:", JSON.stringify({ expected, landed, still_on_roster: stillThere }).slice(0, 2000)); } catch (_) {}
+          return jsonNoStore(502, {
+            ok: false,
+            error: "verify_mismatch",
+            mfl_status: safeInt(fcfsRes.status, 0),
+            mfl_response: _wvMflErrorText(fcfsRes),
+            expected,
+            actual: { added: landed ? addPid : null, still_on_roster: stillThere },
+            verified: false,
+            verify_known: true,
+            roster_verified: false,
+            // Nothing at all took effect ⇒ resending is safe. Anything landed
+            // ⇒ it is NOT: re-running a partially-applied add/cut double-cuts.
+            retry_safe: !partial,
+            partial,
+            message: partial
+              ? "Part of this move went through at MFL and part did not. Do NOT resend it — open MFL's add/drop page and finish it there."
+              : "MFL accepted the request but your roster is unchanged, so nothing took effect. Safe to try again.",
+            native_link: nativeLink,
+          });
+        }
+
+        // (c) UNCONFIRMED — the confirming READ failed, so we cannot say what
+        // MFL's state is. Two ways to land here:
+        //   - the write was accepted and only the read-back failed, or
+        //   - the write signal itself was ambiguous (transport drop / body we
+        //     couldn't classify) AND the read failed, so we hold no evidence.
+        // Either way this is NOT a failure, so it is a 200, and it must never
+        // invite a retry: re-running a non-idempotent add/cut can double-add or
+        // re-cut. The message distinguishes the two so the owner knows what to
+        // look for on MFL.
+        try { console.warn("[waivers] fcfs unconfirmed:", JSON.stringify({ expected, franchise: fcfsFid, write_ok: !!fcfsRes.ok, mfl_status: fcfsRes.status, mfl_error: safeStr(fcfsRes.error).slice(0, 200) }).slice(0, 2000)); } catch (_) {}
+        return jsonNoStore(200, {
+          ok: true,
+          dry_run: false,
+          franchise_id: fcfsFid,
+          added: addPid,
+          dropped: dropPids,
+          verified: false,
+          verify_known: false,
+          write_acknowledged: !!fcfsRes.ok,
+          roster_verified: false,
+          retry_safe: false,
+          contract_note: fcfsContractNote,
+          message: fcfsRes.ok
+            ? "Your move was submitted to MFL, but we couldn't read your roster back to confirm it. Check MFL's add/drop page before doing anything else — do not resend it, or you may add or cut a second player."
+            : "We lost contact with MFL mid-request and couldn't read your roster back, so we don't know whether this move went through. Check MFL's add/drop page before doing anything else — do not resend it, or you may add or cut a second player.",
+          warnings: [{
+            code: "VERIFY_UNKNOWN",
+            message: "MFL accepted the add, but the roster read-back that confirms it failed. Check MFL's add/drop page before retrying.",
+          }],
+          native_link: nativeLink,
+        });
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // ADD TRACKER — the mirror image of the drop tracker (ups_drop_events).
+      // ══════════════════════════════════════════════════════════════════════
+
+      // POST /admin/adds/scan-and-record
+      // Commish-gated. Scans BBID_WAIVER + FREE_AGENT transactions for the last
+      // N days (default 2, matching the */5 cron's window) and records the ADDED
+      // side to ups_add_events. INSERT OR IGNORE on the UNIQUE key, so re-scans
+      // are free and the cron can overlap itself harmlessly.
+      if (path === "/admin/adds/scan-and-record" && request.method === "POST") {
+        let abody = {};
+        try { abody = (await request.json()) || {}; } catch (_) { abody = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const addSeason = safeStr(abody?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const addLeagueId = safeStr(abody?.league_id || abody?.L || url.searchParams.get("L") || L || "74598");
+        const addDays = Math.max(1, Math.min(90, safeInt(abody?.days, 2)));
+        const addDryRun = !!abody?.dry_run;
+        if (!addSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!addLeagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+
+        const [bbidRes, faRes, playersRes, leagueRes] = await Promise.all([
+          mflExportJson(addSeason, addLeagueId, "transactions", { TRANS_TYPE: "BBID_WAIVER", DAYS: String(addDays) }, { useCookie: true }),
+          mflExportJson(addSeason, addLeagueId, "transactions", { TRANS_TYPE: "FREE_AGENT", DAYS: String(addDays) }, { useCookie: true }),
+          mflExportJson(addSeason, addLeagueId, "players", {}, { useCookie: true }),
+          mflExportJson(addSeason, addLeagueId, "league", {}, { useCookie: true }),
+        ]);
+        const addFidToName = {};
+        let addFlist = leagueRes.data?.league?.franchises?.franchise || [];
+        if (!Array.isArray(addFlist)) addFlist = addFlist ? [addFlist] : [];
+        for (const f of addFlist) addFidToName[padFranchiseId(f.id)] = safeStr(f.name || `Team ${f.id}`);
+        const addPidMeta = new Map();
+        let addPall = playersRes.data?.players?.player || [];
+        if (!Array.isArray(addPall)) addPall = addPall ? [addPall] : [];
+        for (const p of addPall) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          let nm = safeStr(p?.name);
+          if (nm.includes(",")) nm = nm.split(",").reverse().map((s) => s.trim()).join(" ");
+          addPidMeta.set(pid, { name: nm, position: safeStr(p?.position).toUpperCase(), team: safeStr(p?.team).toUpperCase() });
+        }
+
+        // Transaction formats, confirmed against 941 real rows (2026-07-30):
+        //   BBID_WAIVER : `added_pids,|bid|dropped_pids,`   e.g. "16759,|4000|15890,"
+        //                 bid is RAW DOLLARS. "14179,|1000|" = add, no drop.
+        //   FREE_AGENT  : `added_pids,|dropped_pids,`       (2 fields, NO bid)
+        // We take ONLY the added side here. The dropped side belongs to
+        // /admin/drops/scan-and-record + ups_drop_events; recording it twice
+        // would double-count the cap penalty.
+        const addRows = [];
+        const collect = (payload, source) => {
+          let txs = payload?.transactions?.transaction || [];
+          if (!Array.isArray(txs)) txs = txs ? [txs] : [];
+          for (const tx of txs) {
+            const fid = padFranchiseId(tx?.franchise || "");
+            const ts = Number(tx?.timestamp) || 0;
+            if (!fid || !ts) continue;
+            const parts = safeStr(tx?.transaction).split("|");
+            const addedPids = safeStr(parts[0]).match(/\d{3,6}/g) || [];
+            if (!addedPids.length) continue;
+            // Only BBID carries a bid; FREE_AGENT's field 2 is the DROP list, so
+            // reading a bid there would invent money that does not exist. FCFS
+            // bid_dollars stays NULL — the real salary is read live downstream.
+            let bid = null;
+            if (source === "bbid") {
+              const b = safeMoneyInt(parts[1], null);
+              bid = b != null && b > 0 ? b : null;
+            }
+            for (const pid of addedPids) addRows.push({ pid, fid, ts, bid, source, raw: tx });
+          }
+        };
+        collect(bbidRes.data, "bbid");
+        collect(faRes.data, "fcfs");
+
+        const addWritten = [];
+        const addSkipped = [];
+        const addNowIso = new Date().toISOString();
+        for (const row of addRows) {
+          try {
+            const meta = addPidMeta.get(row.pid) || {};
+            const iso = new Date(row.ts * 1000).toISOString();
+            const week = _nflWeekForUnix(row.ts, addSeason);
+            if (addDryRun) {
+              addWritten.push({ pid: row.pid, name: meta.name, fid: row.fid, source: row.source, bid_dollars: row.bid, acquired_at_iso: iso, acquisition_week: week });
+              continue;
+            }
+            // Explicit existence check, same idiom as the drop tracker. The
+            // INSERT OR IGNORE below is the real guarantee; this is only so
+            // written/skipped counts are accurate without depending on D1's
+            // meta.changes being populated (it isn't, on every binding version).
+            const already = await env.UPS_MFL_DB.prepare(
+              `SELECT id FROM ups_add_events
+                WHERE season=? AND league_id=? AND player_id=? AND franchise_id=? AND acquired_at_unix=? LIMIT 1`
+            ).bind(addSeason, addLeagueId, row.pid, row.fid, row.ts).first();
+            if (already) {
+              addSkipped.push({ pid: row.pid, fid: row.fid, ts: row.ts, reason: "already_recorded" });
+              continue;
+            }
+            await env.UPS_MFL_DB.prepare(
+              `INSERT OR IGNORE INTO ups_add_events (
+                 season, league_id, player_id, player_name, position, nfl_team,
+                 franchise_id, franchise_name, acquired_at_unix, acquired_at_iso,
+                 source, bid_dollars, acquisition_week,
+                 contract_annotated, discord_posted,
+                 raw_transaction_json, detected_at_utc
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)`
+            ).bind(
+              addSeason, addLeagueId, row.pid,
+              safeStr(meta.name) || `Player ${row.pid}`,
+              safeStr(meta.position) || null,
+              safeStr(meta.team) || null,
+              row.fid, addFidToName[row.fid] || null,
+              row.ts, iso,
+              row.source, row.bid != null ? row.bid : null, week,
+              JSON.stringify(row.raw), addNowIso
+            ).run();
+            addWritten.push({ pid: row.pid, name: meta.name, fid: row.fid, source: row.source, bid_dollars: row.bid, acquired_at_iso: iso, acquisition_week: week });
+          } catch (e) {
+            addSkipped.push({ pid: row.pid, fid: row.fid, ts: row.ts, reason: "insert_failed", error: String(e?.message || e) });
+          }
+        }
+        return jsonOut(200, {
+          ok: true,
+          dry_run: addDryRun,
+          season: addSeason,
+          league_id: addLeagueId,
+          window_days: addDays,
+          transactions_seen: addRows.length,
+          written_count: addWritten.length,
+          skipped_count: addSkipped.length,
+          written: addWritten,
+          skipped: addSkipped,
+        });
+      }
+
+      // POST /admin/adds/annotate-contracts
+      // Commish-gated, flag WW_CONTRACT_ANNOTATE_ENABLED, dry_run supported.
+      //
+      // ⚠️ COSMETIC ONLY — THIS ROUTE MUST NEVER CHANGE SALARY. ⚠️
+      // MFL already sets salary = the winning bid natively, and its league
+      // default row makes an FCFS add a $1K / 1-year "WW" contract with zero
+      // work from us. The ONLY thing missing is the "TCV nK| AAV nK" tokens the
+      // rest of the app renders, and their absence is verified NOT to affect
+      // penalty math (_parseContractData falls back to salary as TCV). So this
+      // is presentation, not money.
+      //
+      // HOW IT AVOIDS TOUCHING MONEY (rewritten 2026-07-30):
+      //   1. The import emits contractInfo and NOTHING else
+      //      (buildContractInfoOnlyImportXml). v1 used the shared salaries
+      //      builder, which unconditionally emits salary= and contractYear=, and
+      //      fed it values from a full-league snapshot read ONCE before a long
+      //      sequential loop of up to 50 rows × ~4 MFL round-trips. That is a
+      //      stale read-modify-write: anything that moved a salary mid-loop
+      //      (an owner's MYM, a commish edit, another job) got clobbered with
+      //      the old number. We simply do not send the field.
+      //   2. The default-contractInfo check now runs against a FRESH per-player
+      //      salaries read taken immediately before the write, not the batch
+      //      snapshot. The snapshot survives only as a cheap pre-filter.
+      //   3. After each write we re-read and compare salary / contractStatus /
+      //      contractYear against that fresh pre-write row. If MFL turns out to
+      //      blank attributes omitted from the import, the loop STOPS on the
+      //      first row instead of doing it 49 more times.
+      //
+      // If contractInfo is anything other than MFL's bare league default, the
+      // row is SKIPPED and marked 2 — an owner may have converted the contract
+      // via MYM/extension, or the commish may have hand-edited it. We never
+      // revert someone else's contract to make our display tidier.
+      if (path === "/admin/adds/annotate-contracts" && request.method === "POST") {
+        let nbody = {};
+        try { nbody = (await request.json()) || {}; } catch (_) { nbody = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const annSeason = safeStr(nbody?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const annLeagueId = safeStr(nbody?.league_id || nbody?.L || url.searchParams.get("L") || L || "74598");
+        const annLimit = Math.max(1, Math.min(50, safeInt(nbody?.limit, 20)));
+        const annDryRun = !!nbody?.dry_run;
+        if (!annSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!(await getFeatureFlag(env, "WW_CONTRACT_ANNOTATE_ENABLED")) && !annDryRun) {
+          return jsonOut(503, { ok: false, error: "ww_contract_annotate_disabled" });
+        }
+
+        const { results: annRows } = await env.UPS_MFL_DB.prepare(
+          `SELECT id, player_id, player_name, franchise_id, source, bid_dollars
+             FROM ups_add_events
+            WHERE season = ? AND league_id = ? AND contract_annotated = 0
+            ORDER BY acquired_at_unix ASC LIMIT ?`
+        ).bind(annSeason, annLeagueId, annLimit).all();
+        if (!annRows || !annRows.length) {
+          return jsonOut(200, { ok: true, dry_run: annDryRun, annotated: 0, message: "No un-annotated adds." });
+        }
+
+        const annSalRow = (payload, pid) => {
+          for (const r of asArray(payload?.salaries?.leagueUnit?.player || payload?.salaries?.leagueunit?.player)) {
+            if (safeStr(r?.id).replace(/\D/g, "") !== pid) continue;
+            return {
+              salary: safeStr(r?.salary || ""),
+              contract_status: safeStr(r?.contractStatus || ""),
+              contract_year: safeStr(r?.contractYear || ""),
+              contract_info: safeStr(r?.contractInfo || ""),
+            };
+          }
+          return null;
+        };
+
+        // Batch snapshot — PRE-FILTER ONLY. It decides which rows are worth a
+        // per-player round-trip; it is never the basis for a write. See the
+        // stale read-modify-write note in the route header.
+        const annSalRes = await mflExportJson(annSeason, annLeagueId, "salaries", {}, { useCookie: true });
+        if (!annSalRes.ok) {
+          return jsonOut(502, { ok: false, error: "salaries_export_failed", details: safeStr(annSalRes.error) });
+        }
+        const salaryRowByPid = new Map();
+        for (const r of asArray(annSalRes.data?.salaries?.leagueUnit?.player || annSalRes.data?.salaries?.leagueunit?.player)) {
+          const pid = safeStr(r?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          salaryRowByPid.set(pid, {
+            salary: safeStr(r?.salary || ""),
+            contract_status: safeStr(r?.contractStatus || ""),
+            contract_year: safeStr(r?.contractYear || ""),
+            contract_info: safeStr(r?.contractInfo || ""),
+          });
+        }
+        // MFL's league default row (player id `0000`) IS the canonical WW
+        // contract; anything matching it (or empty) is ours to decorate.
+        const isBareDefault = (ci) => {
+          const s = safeStr(ci).replace(/\s+/g, " ").trim();
+          return s === "" || /^CL\s*1\s*\|?$/i.test(s);
+        };
+        const kFmt = (dollars) => {
+          const k = (Number(dollars) || 0) / 1000;
+          return Number.isInteger(k) ? String(k) : String(Math.round(k * 10) / 10);
+        };
+
+        const annResults = [];
+        const annNowIso = new Date().toISOString();
+        let annAborted = "";
+        for (const r of annRows) {
+          const pid = safeStr(r.player_id);
+          const snap = salaryRowByPid.get(pid);
+          if (!snap) {
+            annResults.push({ id: r.id, player_id: pid, outcome: "needs_review", reason: "no_salary_row" });
+            if (!annDryRun) {
+              await env.UPS_MFL_DB.prepare("UPDATE ups_add_events SET contract_annotated=3, annotated_at_utc=?, notes=? WHERE id=?")
+                .bind(annNowIso, "no salaries row for player at annotate time", r.id).run();
+            }
+            continue;
+          }
+          if (!isBareDefault(snap.contract_info)) {
+            annResults.push({ id: r.id, player_id: pid, outcome: "skipped_not_default", contract_info: snap.contract_info });
+            if (!annDryRun) {
+              await env.UPS_MFL_DB.prepare("UPDATE ups_add_events SET contract_annotated=2, annotated_at_utc=?, pre_annotate_contract_info=? WHERE id=?")
+                .bind(annNowIso, snap.contract_info, r.id).run();
+            }
+            continue;
+          }
+          if (annDryRun) {
+            const previewSalary = safeMoneyInt(snap.salary, 0) || 0;
+            annResults.push({
+              id: r.id, player_id: pid, outcome: "would_write",
+              from: snap.contract_info,
+              to: `CL 1| TCV ${kFmt(previewSalary)}K| AAV ${kFmt(previewSalary)}K`,
+              salary_untouched: snap.salary,
+              note: "preview from the batch snapshot; the live run re-reads this player immediately before writing",
+            });
+            continue;
+          }
+
+          // FRESH read, immediately before the write. The batch snapshot above
+          // may be many MFL round-trips old by now.
+          const freshRes = await mflExportJson(annSeason, annLeagueId, "salaries", { PLAYERS: pid }, { useCookie: true });
+          const cur = freshRes.ok ? annSalRow(freshRes.data, pid) : null;
+          if (!cur) {
+            annResults.push({ id: r.id, player_id: pid, outcome: "needs_review", reason: "fresh_read_failed", mfl_status: safeInt(freshRes.status, 0) });
+            await env.UPS_MFL_DB.prepare("UPDATE ups_add_events SET contract_annotated=3, annotated_at_utc=?, notes=? WHERE id=?")
+              .bind(annNowIso, "could not re-read the player's salaries row immediately before annotating; nothing written", r.id).run();
+            continue;
+          }
+          // Re-check against the FRESH row: someone may have converted or
+          // hand-edited this contract since the snapshot. We never revert a
+          // non-default contractInfo.
+          if (!isBareDefault(cur.contract_info)) {
+            annResults.push({ id: r.id, player_id: pid, outcome: "skipped_not_default", contract_info: cur.contract_info, reason: "changed_since_snapshot" });
+            await env.UPS_MFL_DB.prepare("UPDATE ups_add_events SET contract_annotated=2, annotated_at_utc=?, pre_annotate_contract_info=? WHERE id=?")
+              .bind(annNowIso, cur.contract_info, r.id).run();
+            continue;
+          }
+          const salaryDollars = safeMoneyInt(cur.salary, 0) || 0;
+          const nextInfo = `CL 1| TCV ${kFmt(salaryDollars)}K| AAV ${kFmt(salaryDollars)}K`;
+          // contractInfo and nothing else. salary / contractStatus /
+          // contractYear are not in the payload at all, so this write cannot
+          // move them even if our copy of them were stale.
+          const xml = buildContractInfoOnlyImportXml([{ player_id: pid, contract_info: nextInfo }]);
+          const annCookie = await establishCommishCookieHeader(cookieHeader, annSeason, annLeagueId);
+          const impRes = await postMflImportFormForCookie(
+            annCookie, annSeason,
+            { TYPE: "salaries", L: annLeagueId, APPEND: "1", DATA: xml },
+            { TYPE: "salaries", L: annLeagueId, APPEND: "1" }
+          );
+          let verified = false;
+          let collateral = "";
+          if (impRes.requestOk) {
+            const vRes = await mflExportJson(annSeason, annLeagueId, "salaries", { PLAYERS: pid }, { useCookie: true });
+            const after = vRes.ok ? annSalRow(vRes.data, pid) : null;
+            if (after) {
+              // The money fields must be BYTE-IDENTICAL to what we read a moment
+              // ago. If MFL blanks attributes omitted from an APPEND import, this
+              // is where we find out — on row 1, not row 50.
+              const moved = [];
+              if (after.salary !== cur.salary) moved.push(`salary ${cur.salary || "(empty)"}→${after.salary || "(empty)"}`);
+              if (after.contract_status !== cur.contract_status) moved.push(`contractStatus ${cur.contract_status || "(empty)"}→${after.contract_status || "(empty)"}`);
+              if (after.contract_year !== cur.contract_year) moved.push(`contractYear ${cur.contract_year || "(empty)"}→${after.contract_year || "(empty)"}`);
+              if (moved.length) collateral = moved.join("; ");
+              verified = !collateral && after.contract_info === nextInfo;
+            }
+          }
+          if (collateral) {
+            // Circuit breaker. A cosmetic route just moved a money field —
+            // stop the batch immediately and make it impossible to miss.
+            try { console.error("[adds-annotate] ABORT — contractInfo-only import changed a money field:", JSON.stringify({ player_id: pid, moved: collateral })); } catch (_) {}
+            annAborted = `player ${pid}: ${collateral}`;
+          }
+          await env.UPS_MFL_DB.prepare(
+            "UPDATE ups_add_events SET contract_annotated=?, annotated_at_utc=?, pre_annotate_contract_info=?, notes=? WHERE id=?"
+          ).bind(
+            verified ? 1 : 3, annNowIso, cur.contract_info,
+            verified
+              ? null
+              : (collateral
+                ? `ABORT: contractInfo-only import also changed ${collateral} — MFL blanks omitted attributes; do NOT re-run until this is understood`
+                : `annotate not verified (import status ${impRes.status})`),
+            r.id
+          ).run();
+          annResults.push({
+            id: r.id, player_id: pid,
+            outcome: collateral ? "aborted_money_moved" : (verified ? "written" : "needs_review"),
+            to: nextInfo, mfl_status: impRes.status,
+            ...(collateral ? { money_moved: collateral } : {}),
+          });
+          if (annAborted) break;
+        }
+        return jsonOut(200, {
+          ok: true,
+          dry_run: annDryRun,
+          season: annSeason,
+          league_id: annLeagueId,
+          considered: annRows.length,
+          annotated: annResults.filter((x) => x.outcome === "written").length,
+          skipped_not_default: annResults.filter((x) => x.outcome === "skipped_not_default").length,
+          needs_review: annResults.filter((x) => x.outcome === "needs_review").length,
+          ...(annAborted ? {
+            aborted: true,
+            aborted_reason: `A contractInfo-only salaries import changed a money field (${annAborted}). MFL appears to blank attributes omitted from an APPEND import. The batch stopped after that one row — investigate before re-running.`,
+          } : {}),
+          results: annResults,
+        });
+      }
+
+      // POST /admin/adds/post-discord
+      // Commish-gated. Posts un-posted ups_add_events rows to the same
+      // Transactions channel the drop tracker uses, so adds and drops read as
+      // one feed. Dedup via discord_posted.
+      if (path === "/admin/adds/post-discord" && request.method === "POST") {
+        let pbody = {};
+        try { pbody = (await request.json()) || {}; } catch (_) { pbody = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const apSeason = safeStr(pbody?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const apLeagueId = safeStr(pbody?.league_id || pbody?.L || url.searchParams.get("L") || L || "74598");
+        const apTarget = safeStr(pbody?.target || env.ADD_TRACKER_DISCORD_TARGET || "test").toLowerCase();
+        const apLimit = Math.max(1, Math.min(50, safeInt(pbody?.limit, 20)));
+        const apDryRun = !!pbody?.dry_run;
+        if (!apSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+
+        const apBotToken = contractDiscordBotToken();
+        if (!apBotToken) return jsonOut(400, { ok: false, error: "missing_contract_bot_token" });
+        // Same channel pair as the drop tracker — adds and drops belong in one
+        // transactions feed, not two.
+        const AP_PROD_CHANNEL = safeStr(env.DISCORD_DROPS_CHANNEL_ID || "1059111651846131833").replace(/\D/g, "");
+        const AP_TEST_CHANNEL = safeStr(
+          env.DISCORD_DROPS_TEST_CHANNEL_ID || env.DISCORD_CONTRACT_TEST_CHANNEL_ID || env.DISCORD_BUG_TEST_CHANNEL_ID || ""
+        ).replace(/\D/g, "");
+        const apChannelId = apTarget === "prod" ? AP_PROD_CHANNEL : AP_TEST_CHANNEL;
+        if (!apChannelId) {
+          return jsonOut(400, {
+            ok: false,
+            error: apTarget === "prod"
+              ? "missing DISCORD_DROPS_CHANNEL_ID"
+              : "missing DISCORD_DROPS_TEST_CHANNEL_ID (or fallback DISCORD_CONTRACT_TEST_CHANNEL_ID / DISCORD_BUG_TEST_CHANNEL_ID)",
+          });
+        }
+
+        const { results: apRows } = await env.UPS_MFL_DB.prepare(
+          `SELECT id, season, league_id, player_id, player_name, position, nfl_team,
+                  franchise_id, franchise_name, acquired_at_unix, acquired_at_iso,
+                  source, bid_dollars, acquisition_week
+             FROM ups_add_events
+            WHERE season = ? AND league_id = ? AND discord_posted = 0
+            ORDER BY acquired_at_unix ASC LIMIT ?`
+        ).bind(apSeason, apLeagueId, apLimit).all();
+        if (!apRows || !apRows.length) {
+          return jsonOut(200, { ok: true, dry_run: apDryRun, posted_count: 0, message: "No unposted adds." });
+        }
+
+        // One salaries export covers the whole batch: it gives us the REAL
+        // salary MFL landed (the bid for a BBID award, the $1K league default
+        // for FCFS), so nothing here has to infer a dollar figure.
+        const apSalRes = await mflExportJson(apSeason, apLeagueId, "salaries", {}, { useCookie: true });
+        const apSalaryByPid = new Map();
+        for (const r of asArray(apSalRes.data?.salaries?.leagueUnit?.player || apSalRes.data?.salaries?.leagueunit?.player)) {
+          const pid = safeStr(r?.id).replace(/\D/g, "");
+          if (pid) apSalaryByPid.set(pid, safeMoneyInt(r?.salary, 0) || 0);
+        }
+        const apFmtK = (v) => {
+          const n = Number(v) || 0;
+          if (n >= 1000) {
+            const k = n / 1000;
+            return `$${Number.isInteger(k) ? k : Math.round(k * 10) / 10}K`;
+          }
+          return `$${n}`;
+        };
+        const apFmtEastern = (iso) => {
+          if (!iso) return "";
+          try {
+            const d = new Date(iso);
+            if (Number.isNaN(d.getTime())) return safeStr(iso);
+            return d.toLocaleString("en-US", {
+              timeZone: "America/New_York",
+              year: "numeric", month: "short", day: "numeric",
+              hour: "numeric", minute: "2-digit", second: "2-digit",
+              hour12: true, timeZoneName: "short",
+            });
+          } catch (_) { return safeStr(iso); }
+        };
+
+        const apResults = [];
+        for (const r of apRows) {
+          const isBbid = safeStr(r.source) === "bbid";
+          const salary = apSalaryByPid.has(safeStr(r.player_id))
+            ? apSalaryByPid.get(safeStr(r.player_id))
+            : (safeMoneyInt(r.bid_dollars, 0) || 0);
+          const acquisitionLine = isBbid
+            ? `Waiver claim — ${apFmtK(safeMoneyInt(r.bid_dollars, salary) || salary)} bid`
+            : `FCFS add — ${apFmtK(salary || 1000)}`;
+          // The resulting contract is MFL's league default, unedited by us.
+          const contractLine = [
+            `1 yr · **WW** · ${apFmtK(salary)}`,
+            salary > 0 && salary <= 4000 ? "cap-free cut at $4K or less" : null,
+          ].filter(Boolean).join(" · ");
+
+          const apFranchiseMeta = await loadContractDiscordFranchiseMeta({
+            season: apSeason,
+            leagueId: apLeagueId,
+            franchiseId: padFranchiseId(r.franchise_id),
+          });
+          const apFields = [
+            { name: "Team", value: safeStr(r.franchise_name) || `Team ${r.franchise_id}`, inline: true },
+            { name: "Player", value: safeStr(r.player_name) || `Player ${r.player_id}`, inline: true },
+            { name: "Position", value: safeStr(r.position) + (r.nfl_team ? ` · ${r.nfl_team}` : ""), inline: true },
+            { name: "Acquisition", value: acquisitionLine, inline: false },
+            { name: "Contract", value: contractLine, inline: false },
+            { name: "Heads up", value: "MYM-eligible for 14 days.", inline: false },
+          ];
+          const acquiredET = apFmtEastern(r.acquired_at_iso);
+          if (acquiredET) apFields.push({ name: "Acquired", value: acquiredET, inline: false });
+
+          const apEmbed = {
+            title: `Add: ${safeStr(r.player_name)}`,
+            description: `# ${isBbid ? "🎯 Waiver Claim" : "⚡ FCFS Add"}\n${safeStr(r.franchise_name)} added ${safeStr(r.player_name)}.`,
+            color: isBbid ? 0x3f8ae0 : 0x25c37d,
+            fields: apFields,
+          };
+          if (apFranchiseMeta?.icon_url) apEmbed.thumbnail = { url: apFranchiseMeta.icon_url };
+
+          if (apDryRun) {
+            apResults.push({ row_id: r.id, player_id: r.player_id, player_name: r.player_name, channel_id: apChannelId, acquisition: acquisitionLine, contract: contractLine });
+            continue;
+          }
+          let apPostRes;
+          try {
+            apPostRes = await discordBotRequest(
+              apBotToken, "POST",
+              `/channels/${encodeURIComponent(apChannelId)}/messages`,
+              { content: "", embeds: [apEmbed], allowed_mentions: { parse: [] } }
+            );
+          } catch (e) {
+            apPostRes = { ok: false, status: 0, text: String(e?.message || e) };
+          }
+          const apMessageId = safeStr(apPostRes?.data?.id || "");
+          if (apPostRes?.ok && apMessageId) {
+            try {
+              await env.UPS_MFL_DB.prepare(
+                "UPDATE ups_add_events SET discord_posted = 1, discord_channel_id = ?, discord_message_id = ? WHERE id = ?"
+              ).bind(apChannelId, apMessageId, r.id).run();
+            } catch (_) {}
+            apResults.push({ row_id: r.id, player_id: r.player_id, player_name: r.player_name, channel_id: apChannelId, message_id: apMessageId, ok: true });
+          } else {
+            apResults.push({ row_id: r.id, player_id: r.player_id, player_name: r.player_name, ok: false, error: safeStr(apPostRes?.text).slice(0, 300) });
+          }
+          // Polite pacing, same as the drop tracker.
+          await new Promise((res) => setTimeout(res, 500));
+        }
+        return jsonOut(200, {
+          ok: apResults.every((x) => x.ok !== false),
+          dry_run: apDryRun,
+          target: apTarget,
+          channel_id: apChannelId,
+          posted_count: apResults.filter((x) => x.ok !== false).length,
+          failed_count: apResults.filter((x) => x.ok === false).length,
+          results: apResults,
+        });
+      }
+
       if (path === "/acquisition-hub/admin/refresh" && request.method === "POST") {
         const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
         const leagueId = safeStr(url.searchParams.get("L") || L || "");
@@ -42068,50 +44418,25 @@ export default {
 
         // ERA forced-retention guard (league_context_v1.md §A3): a player won in
         // the current cycle's Expired Rookie Auction cannot be cut until the FA
-        // Auction closes ("you bid, you hold through auction"). Authoritative
-        // signal = a 'won' lot in ups_auction_lots for THIS season joined to
-        // ups_era_pool — this excludes FA pickups (not won via ERA) and
-        // prior-cycle ERA vets traded in (their won lot is a different season),
-        // so ONLY the current-year ERA winners are protected. Runs before the
+        // Auction closes ("you bid, you hold through auction"). Runs before the
         // dry-run short-circuit so the Front Office can preview the block and so
-        // it is testable without touching MFL. Fail-open on any lookup error
-        // (consistent with the other roster-action gates). Commish (APIKEY
-        // session) may override with body.override_era_retention=true.
+        // it is testable without touching MFL. Commish (APIKEY session) may
+        // override with body.override_era_retention=true.
+        //
+        // The lookup itself moved to _eraRetentionBlocked (defined with the
+        // waiver routes above) on 2026-07-30 — the waiver claim/FCFS paths cut
+        // players too, and two copies of a rule this consequential is exactly
+        // how the two halves drift apart.
+        //
+        // No opts here ON PURPOSE: the default is unknownCloseBlocks:true, which
+        // keeps this route's behavior exactly as it was — if we cannot resolve
+        // the FA Auction close instant, an ERA winner stays un-cuttable and the
+        // commish overrides. (What DID change, for both callers, is that the
+        // close instant now actually resolves: it comes from the auction
+        // calendar's faa_close_at, so retention finally lifts. It previously
+        // read only env.FA_AUCTION_CLOSE_AT, which is set nowhere.)
         if (action === "drop_player") {
-          let eraGate = { blocked: false, reason: "unchecked" };
-          try {
-            if (env && env.UPS_MFL_DB) {
-              const wonRow = await env.UPS_MFL_DB.prepare(
-                `SELECT 1
-                   FROM ups_auction_lots l
-                   INNER JOIN ups_era_pool p
-                     ON p.player_id = l.player_id AND p.league_id = l.league_id
-                    AND p.season = CAST(l.season AS TEXT)
-                  WHERE l.season = ? AND l.league_id = ? AND l.status = 'won' AND l.player_id = ?
-                  LIMIT 1`
-              ).bind(Number(season), String(leagueId), String(playerId)).first();
-              if (!wonRow) {
-                eraGate = { blocked: false, reason: "not_a_current_era_winner" };
-              } else {
-                // Retention lifts when the FA Auction closes. Source the close
-                // time from env.FA_AUCTION_CLOSE_AT (unix seconds or ISO 8601);
-                // when unset we are still inside the retention window (the FA
-                // Auction has not happened yet), so retention stays active.
-                const faRaw = String(env.FA_AUCTION_CLOSE_AT || "").trim();
-                let faCloseUnix = null;
-                if (faRaw) faCloseUnix = /^\d+$/.test(faRaw) ? Number(faRaw) : (Number.isFinite(Date.parse(faRaw)) ? Math.floor(Date.parse(faRaw) / 1000) : null);
-                const nowUnix = Math.floor(Date.now() / 1000);
-                if (faCloseUnix && nowUnix >= faCloseUnix) {
-                  eraGate = { blocked: false, reason: "fa_auction_closed", close_at_unix: faCloseUnix };
-                } else {
-                  eraGate = { blocked: true, reason: "era_forced_retention", close_at_unix: faCloseUnix };
-                }
-              }
-            }
-          } catch (eraErr) {
-            console.warn("[era-retention] gate failed (fail-open):", eraErr && eraErr.message ? eraErr.message : String(eraErr));
-            eraGate = { blocked: false, reason: "gate_error" };
-          }
+          const eraGate = await _eraRetentionBlocked(season, leagueId, playerId);
           const ovRaw = String((body && body.override_era_retention) != null ? body.override_era_retention : "").toLowerCase();
           const overrideOk = sessionByApiKey && (ovRaw === "true" || ovRaw === "1" || ovRaw === "yes");
           if (eraGate.blocked && !overrideOk) {

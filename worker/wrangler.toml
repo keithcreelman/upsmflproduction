@@ -62,6 +62,39 @@ DROP_TRACKER_AUTO_POST = "1"
 DROP_TRACKER_POST_MFL = "1"
 DROP_TRACKER_DISCORD_TARGET = "prod"
 
+# In-app Waiver Wire (2026-07-30). ALL FOUR SHIP DARK — nothing here has ever
+# run against prod. Same pinning rationale as the drop-tracker block above:
+# version-controlled so they can't silently vanish, and the FO Kill Switches
+# panel (ups_settings override) beats these defaults at runtime.
+#   WAIVERS_INAPP_ENABLED        → arms POST /api/waivers/bbid-plan + /api/waivers/fcfs
+#                                  (real owner-cookie MFL writes; a won claim CUTS a
+#                                  player). OFF = both 503 with a native MFL link.
+#                                  The READ routes (state/pending) ignore this flag.
+#   ADD_TRACKER_ENABLED          → */5 BBID_WAIVER + FREE_AGENT add scan → ups_add_events
+#   ADD_TRACKER_AUTO_POST        → post each new add to the transactions channel
+#   WW_CONTRACT_ANNOTATE_ENABLED → cosmetic contractInfo TCV/AAV backfill. NEVER
+#                                  writes salary (MFL sets salary = bid natively);
+#                                  its import emits contractInfo and nothing else.
+# Add announcements share DISCORD_DROPS_CHANNEL_ID; ADD_TRACKER_DISCORD_TARGET
+# picks prod vs test exactly like DROP_TRACKER_DISCORD_TARGET.
+#
+# WAIVERS_INAPP_ENABLED is surfaced to clients as `write_enabled` on
+# GET /api/waivers/state, so the UI renders the read-only view instead of a
+# submit button whose only possible outcome is a 503.
+#
+# NOT SET HERE (deliberately): FA_AUCTION_CLOSE_AT. The ERA forced-retention
+# gate resolves the FA Auction close instant from the commish-maintained auction
+# calendar (ups_settings 'auction_calendar' → faa.faa_close_at). FA_AUCTION_CLOSE_AT
+# exists only as a break-glass OVERRIDE (unix seconds or an ISO 8601 instant) —
+# leave it unset so the calendar stays the single source of truth. Setting it to
+# a stale value would either freeze ERA winners on rosters or lift retention
+# early.
+WAIVERS_INAPP_ENABLED = "0"
+ADD_TRACKER_ENABLED = "0"
+ADD_TRACKER_AUTO_POST = "0"
+WW_CONTRACT_ANNOTATE_ENABLED = "0"
+ADD_TRACKER_DISCORD_TARGET = "test"
+
 # Trade-offer Discord DMs (worker/src/trade_dm.js). When a recipient gets a
 # trade offer through our app (mobile builder OR desktop War Room), DM them the
 # offer + buttons, then remind on the cadence below until it resolves.

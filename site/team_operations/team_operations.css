@@ -754,6 +754,248 @@
 .tops-tag-mini.is-bad  { color: var(--bad);  border-color: rgba(248, 113, 113, 0.4); background: rgba(248, 113, 113, 0.10); }
 .tops-tag-mini.is-warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.4);  background: rgba(251, 191, 36, 0.10); }
 
+/* ── Waivers panel ──────────────────────────────────────────────────────────
+   Desktop pane, not a mobile sheet: the plan is a real table (one row per
+   claim, inline bid + conditional-drop controls) and the composer is a single
+   horizontal row. Reuses .tops-strip for the window summary so the waiver
+   status reads with the same weight as Zone 2, and .tops-cta for the two
+   write buttons — no new accent colours (gold stays Zone 1's alone).
+   ────────────────────────────────────────────────────────────────────────── */
+.tops-wv-strip { margin-bottom: var(--s3); }
+
+.tops-wv-sub {
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: var(--s4) 0 var(--s2);
+  padding-bottom: var(--s1);
+  border-bottom: 1px solid var(--hair);
+}
+
+.tops-wv-cal { margin-bottom: var(--s2); }
+.tops-wv-cal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s4);
+  font-size: var(--t-meta);
+  color: var(--ink-3);
+}
+.tops-wv-cal-list li { display: flex; align-items: center; gap: var(--s1); }
+
+.tops-wv-round {
+  margin-bottom: var(--s3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.tops-wv-round-h {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  background: var(--panel-3);
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.tops-wv-round-n {
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  text-transform: none;
+  font-size: var(--t-meta);
+  color: var(--ink-3);
+}
+
+.tops-wv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+.tops-wv-table th {
+  text-align: left;
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: var(--s2) var(--s2) var(--s1);
+}
+.tops-wv-table td {
+  padding: 6px var(--s2);
+  border-top: 1px solid var(--hair);
+  color: var(--ink-2);
+  vertical-align: middle;
+}
+.tops-wv-table td.num,
+.tops-wv-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tops-wv-ord {
+  width: 28px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.tops-wv-name {
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 1px dotted var(--hair);
+}
+.tops-wv-name:hover { color: var(--teal); border-bottom-color: var(--teal); }
+.tops-wv-cleared {
+  color: var(--warn);
+  font-size: var(--t-meta);
+  font-style: italic;
+}
+
+/* Rounds MFL is holding that the plan does NOT carry. Under contract v2 §2 a
+   round absent from the payload is one the save never mentions, so these are
+   context — not editable state, not rows a save is about to write. They read
+   one step back from the plan: dashed edge, no header fill, muted label. */
+.tops-wv-untouched { margin-top: var(--s3); }
+.tops-wv-round.is-untouched { border-style: dashed; }
+.tops-wv-round.is-untouched .tops-wv-round-h {
+  background: transparent;
+  color: var(--ink-3);
+}
+
+/* Inputs share one skin with the On The Block note fields. */
+.tops-wv-bid,
+.tops-wv-drop,
+.tops-wv-field input,
+.tops-wv-field select {
+  background: var(--panel-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-sm);
+  padding: 5px var(--s2);
+  max-width: 100%;
+}
+.tops-wv-bid {
+  width: 96px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tops-wv-drop { max-width: 240px; }
+.tops-wv-field input::placeholder { color: var(--ink-3); }
+
+.tops-wv-acts { white-space: nowrap; text-align: right; width: 96px; }
+.tops-wv-mini {
+  font: inherit;
+  font-size: var(--t-meta);
+  font-weight: 700;
+  color: var(--ink-2);
+  background: var(--panel-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  padding: 2px 7px;
+  margin-left: 3px;
+  cursor: pointer;
+}
+.tops-wv-mini:hover { color: var(--teal); border-color: rgba(125, 232, 217, 0.4); }
+.tops-wv-mini[disabled] { opacity: 0.35; cursor: default; }
+.tops-wv-mini.is-bad:hover { color: var(--bad); border-color: rgba(248, 113, 113, 0.4); }
+
+.tops-wv-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  margin-top: var(--s3);
+}
+
+/* Dry-run preview — what a LIVE save WOULD send. Deliberately reads as a
+   proposal, not as state: dashed edge, no fill, and never the ok/green skin a
+   confirmed write gets. */
+.tops-wv-preview {
+  margin-top: var(--s2);
+  padding: var(--s2) var(--s3);
+  border: 1px dashed var(--hair);
+  border-radius: var(--r-sm);
+}
+.tops-wv-preview-h {
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: var(--s1);
+}
+.tops-wv-preview-list {
+  list-style: none;
+  margin: 0 0 var(--s1);
+  padding: 0;
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+.tops-wv-preview-list b { color: var(--ink); font-weight: 700; }
+
+.tops-wv-compose,
+.tops-wv-fcfs {
+  margin-top: var(--s4);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line);
+}
+.tops-wv-compose-row {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+  margin-bottom: var(--s2);
+}
+.tops-wv-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  min-width: 120px;
+}
+.tops-wv-field--wide { flex: 1 1 240px; min-width: 200px; }
+.tops-wv-field select[multiple] { padding: 3px; }
+
+.tops-wv-picked {
+  font-size: var(--t-meta);
+  color: var(--ink-3);
+  margin-bottom: var(--s2);
+}
+.tops-wv-picked b { color: var(--ink); font-weight: 700; }
+
+.tops-wv-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  max-height: 168px;
+  overflow-y: auto;
+}
+.tops-wv-results:not(:empty) { margin-bottom: var(--s2); }
+.tops-wv-hit {
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+  background: var(--panel-3);
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tops-wv-hit:hover { color: var(--teal); border-color: rgba(125, 232, 217, 0.4); }
+.tops-wv-hit-team { color: var(--ink-3); font-size: var(--t-meta); }
+
 /* ── Player News panel ──────────────────────────────────────────────────── */
 .tops-allnews-controls {
   display: flex;
@@ -1148,6 +1390,11 @@
 }
 @media (max-width: 720px) {
   .tops-profile-grid { grid-template-columns: repeat(2, 1fr); }
+  /* The waiver plan is a desktop table; below this it has to scroll rather
+     than force the whole hub to scroll horizontally. */
+  .tops-wv-round { overflow-x: auto; }
+  .tops-wv-table { min-width: 520px; }
+  .tops-wv-field { min-width: 100%; }
 }
 @media (max-width: 640px) {
   .tops-attn li { flex-wrap: wrap; }

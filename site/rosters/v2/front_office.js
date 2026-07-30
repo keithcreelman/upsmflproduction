@@ -126,6 +126,45 @@
     return hits[0].franchiseId;
   }
 
+  // ── Viewer session forwarding ───────────────────────────────────────
+  // Ported from roster_workbench.js appendViewerSessionQuery(). FO v2 shipped
+  // WITHOUT it, and the failure mode was invisible: with no MFL_USER_ID the
+  // worker falls back to its stored commish MFL_COOKIE, and MFL answers an
+  // owner-scoped import (drop / IR / taxi) sent under a commish cookie with
+  // HTTP 200 and NO state change. So FO v2's Drop button "succeeded" every
+  // time and never dropped anybody, while Roster Workbench and mobile — both
+  // of which forward the session — worked. Every /roster-workbench/action POST
+  // must go through appendViewerSessionQuery().
+  function readCookieValue(name) {
+    try {
+      const m = getCookieString().match(new RegExp("(?:^|;\\s*)" + name + "=([^;]+)"));
+      return m ? decodeURIComponent(m[1]) : "";
+    } catch (e) { return ""; }
+  }
+  function resolveApiKey() {
+    const candidates = [
+      window.UPS_MFL_APIKEY,
+      window.MFL_APIKEY,
+      window.APIKEY,
+      readCookieValue("MFL_APIKEY")
+    ];
+    for (let i = 0; i < candidates.length; i += 1) {
+      const k = safeStr(candidates[i]);
+      if (k) return k;
+    }
+    return "";
+  }
+  function appendViewerSessionQuery(url) {
+    try {
+      const next = new URL(String(url), window.location.href);
+      const mflUserId = readCookieValue("MFL_USER_ID");
+      const apiKey = resolveApiKey();
+      if (mflUserId) next.searchParams.set("MFL_USER_ID", mflUserId);
+      if (apiKey) next.searchParams.set("APIKEY", apiKey);
+      return next.toString();
+    } catch (e) { return String(url); }
+  }
+
   const apiUrl = (p) => WORKER_BASE + p;
 
   // Mirror roster_workbench.js endpoint resolvers (byte-for-byte targets).
@@ -3756,7 +3795,11 @@
     var status = String((p && p.type) || "").toLowerCase();
     if (status.indexOf("-era") === -1) return;
     if (!body.querySelector("[data-action='drop']")) return;
-    var url = EP_ROSTER_ACTION() + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
+    // Viewer session required — without it the worker answers under the
+    // commish cookie and the dry-run gate is evaluated for the wrong identity.
+    var url = appendViewerSessionQuery(
+      EP_ROSTER_ACTION() + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON)
+    );
     fetch(url, {
       method: "POST", credentials: "omit", cache: "no-store",
       headers: { "Content-Type": "application/json" },
@@ -5544,9 +5587,16 @@
   // drop_player / activate_ir / promote_taxi). Same credentials:"omit"
   // pattern. Returns the parsed JSON or throws.
   async function postRosterAction(action, fid, pid, extra) {
-    const url = EP_ROSTER_ACTION() +
+    // appendViewerSessionQuery is MANDATORY here. drop_player / activate_ir /
+    // promote_taxi are owner-scoped MFL imports; forwarded without the viewer's
+    // MFL_USER_ID the worker signs them with the commish cookie and MFL returns
+    // 200 while changing nothing — the silent no-op that made FO v2's Drop
+    // button do nothing at all.
+    const url = appendViewerSessionQuery(
+      EP_ROSTER_ACTION() +
       "?L=" + encodeURIComponent(LEAGUE_ID) +
-      "&YEAR=" + encodeURIComponent(SEASON);
+      "&YEAR=" + encodeURIComponent(SEASON)
+    );
     const body = Object.assign({
       action: action,
       league_id: LEAGUE_ID,
