@@ -437,9 +437,19 @@
       pendingN = U.safeInt(viewer.pending_pick_count, 0);
     }
     var chipN = n || pendingN;
+    // Keith 2026-07-30: this was a small outlined chip and he missed it — the
+    // one control that actually sends claims to MFL has to read as THE action
+    // on this screen, and be on screen the moment it loads (the strip sits
+    // above the list, so no scrolling to find it). Says what it does rather
+    // than just counting: "Finalize" while there are unsent edits, "Edit"
+    // once everything is submitted.
+    var dirty = planIsDirty() && n;
     var chip = (info.mode === "bbid" || chipN > 0)
-      ? '<button class="ups-m-waiver-claims-chip' + (planIsDirty() && n ? " dirty" : "") +
-          '" data-act="open-claims">Claims' + (chipN ? " (" + chipN + ")" : "") + '</button>'
+      ? '<button class="ups-m-waiver-claims-cta' + (dirty ? " dirty" : "") +
+          '" data-act="open-claims">' +
+          (dirty ? "Finalize claims" : "Edit claims") +
+          (chipN ? ' <span class="n">' + chipN + '</span>' : "") +
+        '</button>'
       : "";
     // §5: when writes are dark in an otherwise-live window, the link out to
     // MFL replaces the CTA that would only have 503'd.
@@ -1186,12 +1196,19 @@
     '</div>';
   }
 
-  function renderClaimsScreen() {
+  // opts.keepScroll — preserve the body's scroll position across this repaint.
+  // Default is to snap back to the TOP (Keith 2026-07-30: "don't scroll on this
+  // screen always render the top"). With groups tabbed, the whole point is that
+  // the status, the tab strip and the group you picked are all on screen at
+  // once; restoring a stale offset from the previous tab dropped you into the
+  // middle of a different group. Only the in-place list edits (reorder, remove)
+  // ask to keep it, since those should not yank the page under your thumb.
+  function renderClaimsScreen(opts) {
     var existing = document.getElementById("ups-m-claims-overlay");
     var scrollTop = 0;
     if (existing) {
       var b = document.getElementById("ups-m-claims-body");
-      scrollTop = b ? b.scrollTop : 0;
+      scrollTop = (opts && opts.keepScroll && b) ? b.scrollTop : 0;
       existing.remove();
     }
     var mount = document.getElementById("ups-m-app");
@@ -1319,16 +1336,16 @@
       var a = group.picks.splice(ref.index, 1)[0];
       group.picks.splice(ref.index - 1, 0, a);
       commitPlan(plan);
-      renderClaimsScreen();
+      renderClaimsScreen({ keepScroll: true });
     } else if (act === "claim-down" && ref.index < group.picks.length - 1) {
       var b = group.picks.splice(ref.index, 1)[0];
       group.picks.splice(ref.index + 1, 0, b);
       commitPlan(plan);
-      renderClaimsScreen();
+      renderClaimsScreen({ keepScroll: true });
     } else if (act === "claim-remove") {
       group.picks.splice(ref.index, 1);
       commitPlan(plan);
-      renderClaimsScreen();
+      renderClaimsScreen({ keepScroll: true });
     } else if (act === "claim-edit") {
       openBidSheet(group.picks[ref.index].add_pid, ref);
     }
