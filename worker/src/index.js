@@ -39248,6 +39248,66 @@ export default {
         });
       }
 
+      // POST /admin/test-league/mfl-call — commish-gated raw MFL passthrough,
+      // HARD-SCOPED to the test league (L=25625). Built as the Phase-0 probe
+      // tool for the waiver-wire feature (pendingWaivers response shape,
+      // blindBidWaiverRequest semantics, post-add contract stubs — none of
+      // which MFL documents) and kept for future test-league experiments.
+      // The prod MFL APIKEY does NOT authenticate on the test league (MFL
+      // API keys are per-league), so probing needs the user-level cookie
+      // secret this worker already holds. Refuses any other league id so it
+      // can never touch prod. Body: { kind: "export"|"import",
+      // params: {TYPE, ...}, method?: "GET"|"POST", season? }
+      if (path === "/admin/test-league/mfl-call" && request.method === "POST") {
+        const tlTestKey = String(env.TEST_SYNC_API_KEY || "").trim();
+        const tlKeyOk = sessionByApiKey || (!!tlTestKey && !!browserApiKey && browserApiKey === tlTestKey);
+        if (!tlKeyOk) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY or TEST_SYNC_API_KEY required." });
+        let tlBody = {};
+        try { tlBody = (await request.json()) || {}; } catch (_) { tlBody = {}; }
+        const TL_TEST_LEAGUE = "25625";
+        const tlKind = safeStr(tlBody.kind || "export").toLowerCase() === "import" ? "import" : "export";
+        const tlParams = (tlBody.params && typeof tlBody.params === "object") ? tlBody.params : {};
+        if (safeStr(tlParams.L) && safeStr(tlParams.L) !== TL_TEST_LEAGUE) {
+          return jsonOut(403, { ok: false, error: "test_league_only", message: "Hard-scoped to L=25625; refusing any other league." });
+        }
+        const tlSeason = safeStr(tlBody.season || YEAR || "2026");
+        const tlCookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE || "");
+        const tlCookie = tlCookieRaw ? (tlCookieRaw.includes("=") ? tlCookieRaw : `MFL_USER_ID=${tlCookieRaw}`) : "";
+        if (!tlCookie) return jsonOut(500, { ok: false, error: "Missing MFLTEST_COMMISHCOOKIE / MFL_COOKIE secret." });
+        const tlQp = new URLSearchParams();
+        for (const [k, v] of Object.entries(tlParams)) {
+          if (v == null) continue;
+          tlQp.set(k, String(v));
+        }
+        tlQp.set("L", TL_TEST_LEAGUE);
+        tlQp.set("JSON", "1");
+        const tlBase = `https://www48.myfantasyleague.com/${encodeURIComponent(tlSeason)}/${tlKind}`;
+        const tlMethod = safeStr(tlBody.method || "GET").toUpperCase() === "POST" ? "POST" : "GET";
+        let tlRes, tlText = "";
+        try {
+          tlRes = await fetch(tlMethod === "GET" ? `${tlBase}?${tlQp.toString()}` : tlBase, {
+            method: tlMethod,
+            headers: {
+              Cookie: tlCookie,
+              "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)",
+              ...(tlMethod === "POST" ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" } : {}),
+            },
+            body: tlMethod === "POST" ? tlQp.toString() : undefined,
+            redirect: "manual",
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          tlText = await tlRes.text();
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: "fetch_failed: " + String(e && e.message) });
+        }
+        return jsonOut(200, {
+          ok: tlRes.status >= 200 && tlRes.status < 400 && !/<error>/i.test(tlText),
+          status: tlRes.status,
+          kind: tlKind, method: tlMethod, season: tlSeason,
+          body_text: String(tlText).slice(0, 20000),
+        });
+      }
+
       if (path === "/admin/test-sync/prod-rosters" && request.method === "POST") {
         let body = {};
         try {
