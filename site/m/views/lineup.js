@@ -81,24 +81,41 @@
     return out;
   }
   // Per-window cache so the detail can show recent-vs-season without re-fetching.
-  function loadMatchups() {
+  // `keys` = the window keys this caller needs; season (0) is always fetched.
+  // The Players/FA picker asks for its own window via M.lineupIntel.load, so
+  // both views share ONE cache and one fetch path.
+  function loadMatchups(keys) {
     var qp; try { qp = new URLSearchParams(location.search); } catch (e) { qp = { get: function () { return null; } }; }
     var myr = qp.get("mYEAR") || M.state.ctx.year;
     var mwk = qp.get("mW") || M.state.lineupWeek || "";
     if (!M.state.lineupMuCache) M.state.lineupMuCache = {};
-    if (!mwk) { if (!M.state.lineupMuCache["0"]) M.state.lineupMuCache["0"] = { empty: true }; return; }   // offseason
-    [muWindow(), 0].forEach(function (key) {
-      var k = String(key);
-      if (M.state.lineupMuCache[k] || M.state._muLoading === ("k" + k)) return;
-      M.state._muLoading = "k" + k;
-      fetch(API.workerUrl("/api/lineup-matchups?YEAR=" + encodeURIComponent(myr) + "&W=" + encodeURIComponent(mwk) + (key ? "&last=" + key : "")), { mode: "cors", credentials: "omit" })
+    if (!M.state._muLoading || typeof M.state._muLoading !== "object") M.state._muLoading = {};
+    // No scoring week yet. That is "offseason" ONLY once projectedScores has
+    // actually come back without one — the week is set in loadProjections'
+    // .then, so the first render always lands here while that fetch is still
+    // open. Marking the cache empty then poisoned key "0" for the rest of the
+    // session (the guard below sees a cache entry and never fetches), which
+    // silently killed matchup intel in-season. Wait for the answer first.
+    if (!mwk) {
+      var settled = !!(M.state.lineupProj && M.state.lineupProj.loaded);
+      if (settled && !M.state.lineupMuCache["0"]) M.state.lineupMuCache["0"] = { empty: true };
+      return;
+    }
+    [0].concat(keys == null ? [muWindow()] : keys).forEach(function (key) {
+      var k = String(parseInt(key, 10) || 0);
+      // In-flight flag is PER KEY: with a second view requesting its own
+      // window, one shared flag let a re-render re-fire a fetch that was
+      // still open (every keystroke in the FA search box re-renders).
+      if (M.state.lineupMuCache[k] || M.state._muLoading[k]) return;
+      M.state._muLoading[k] = 1;
+      fetch(API.workerUrl("/api/lineup-matchups?YEAR=" + encodeURIComponent(myr) + "&W=" + encodeURIComponent(mwk) + (k !== "0" ? "&last=" + k : "")), { mode: "cors", credentials: "omit" })
         .then(function (r) { return r.json(); })
         .then(function (d) {
           M.state.lineupMuCache[k] = { matchups: (d && d.matchups) || {}, defRatings: (d && d.defRatings) || {},
             playerWindow: (d && d.playerWindow) || {}, horizon: (d && d.horizon) || {}, weather: (d && d.weather) || {},
             weeksAvailable: (d && d.weeksAvailable) || 0, priorSeason: !!(d && d.priorSeason) };
-          M.state._muLoading = null; renderRoute();
-        }).catch(function () { M.state.lineupMuCache[k] = { empty: true }; M.state._muLoading = null; });
+          delete M.state._muLoading[k]; renderRoute();
+        }).catch(function () { M.state.lineupMuCache[k] = { empty: true }; delete M.state._muLoading[k]; });
     });
   }
   function muData(key) { return (M.state.lineupMuCache || {})[String(key)] || null; }
@@ -111,10 +128,13 @@
     } catch (e) { return ""; }
   }
   function rankCls(r) { return r == null ? "" : (r <= 10 ? "good" : (r >= 23 ? "tough" : "")); }
-  function matchupFor(pid) {
+  // `winKey` (optional) reads a specific cached window — the FA picker keeps
+  // its own selection, so it can't share M.state.lineupMuWindow. Defaults to
+  // this view's window, which is what every in-file caller wants.
+  function matchupFor(pid, winKey) {
     var pl = DATA.playerById(pid); if (!pl) return null;
     var team = U.safeStr(pl.team).toUpperCase(), grp = FO.posGroup(pl.position);
-    var act = muData(muWindow()), seas = muData(0);
+    var act = muData(winKey == null ? muWindow() : winKey), seas = muData(0);
     if (!act || !act.matchups) return null;
     var m = act.matchups[team]; if (!m) return null;
     var dr = (act.defRatings || {})[m.opp], rk = dr && dr[grp] ? dr[grp] : null;
@@ -520,4 +540,32 @@
   }
 
   M.lineupView = { render: render };
+
+  // ── Shared matchup/projection intel ────────────────────────────────────
+  // views/players.js (the FA picker) needs the same projection + opponent +
+  // defense-vs-position join this view already does. It reads it from here
+  // rather than re-implementing it: same endpoint, same per-window cache,
+  // same rank semantics (rank 1 = most generous defense = easiest matchup).
+  //   load(winKey)      lazy fetch of projections + the season/`winKey` windows.
+  //                     Both fetches are fire-and-forget with their own catch,
+  //                     so a dead worker never blocks a caller's render.
+  //   matchupFor(pid,k) the join. Null when there's no data / no game.
+  //   muData(k)         raw cached window ({ playerWindow, defRatings, … }).
+  M.lineupIntel = {
+    load: function (winKey) {
+      loadProjections();
+      loadMatchups(winKey == null ? [] : [winKey]);
+    },
+    projLoaded: projLoaded,
+    projFor: projFor,
+    fmtProj: fmtProj,
+    matchupFor: matchupFor,
+    slotMatchupHtml: slotMatchupHtml,
+    rankCls: rankCls,
+    muData: muData,
+    // Completed weeks of the CURRENT season (0 ⇒ the ratings fell back to the
+    // prior season ⇒ no recent-form window can differ from season-to-date).
+    weeksAvailable: function () { var s = muData(0); return s ? (s.weeksAvailable || 0) : 0; },
+    priorSeason: function () { var s = muData(0); return !!(s && s.priorSeason); }
+  };
 })();

@@ -1228,6 +1228,16 @@ button.ups-m-busy::before,
   flex-wrap: wrap;
   gap: 8px;
 }
+/* Second sub-line on an FA row: proj · opponent · opponent's rank vs this
+   position. Rendered only when there's real data (views/players.js
+   faIntelHtml), so this never reserves empty space. The rank chip itself
+   reuses .ups-m-mu-rank / .good / .tough from the Lineup view. */
+.ups-m-fa-row .ups-m-fa-mu {
+  font-size: 11px;
+  color: var(--fg-muted);
+  margin-top: 3px;
+  line-height: 1.35;
+}
 .ups-m-fa-add {
   background: var(--teal);
   color: #08251f;
@@ -3511,7 +3521,69 @@ button.ups-m-busy::before,
   -webkit-overflow-scrolling: touch;
   padding-bottom: 12px;
 }
-.ups-m-claims-status { padding: 10px 14px 0; }
+/* Lives in the pinned header now, not the scrolling body, so the
+   "Edited — not submitted" state can't scroll out of sight while editing. */
+.ups-m-claims-status { flex: 0 0 auto; margin-left: auto; padding-left: 8px; }
+
+/* Tabbed groups — one group on screen at a time instead of an 8-round scroll.
+   The strip sticks to the top of the scrolling body so switching groups is
+   always one tap away. */
+.ups-m-claim-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.ups-m-claim-tabs::-webkit-scrollbar { display: none; }
+.ups-m-claim-tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.ups-m-claim-tab .n {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: .75;
+}
+.ups-m-claim-tab.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.ups-m-claim-tab.cleared { border-style: dashed; }
+
+/* Copy-group row, at the foot of the open group. */
+.ups-m-claim-copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px 2px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+.ups-m-claim-copysel {
+  background: var(--bg-elev);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+}
 .ups-m-claims-dirty {
   display: inline-block;
   padding: 4px 10px;

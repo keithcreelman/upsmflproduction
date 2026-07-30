@@ -39,12 +39,24 @@
   var U = M.util;
   var DATA = M.data;
 
+  var FO = window.UPS_FRONT_OFFICE_LINEUP;
+
   var POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
   var POS_GROUP = {
     DT: "DL", DE: "DL",
     LB: "LB",
     CB: "DB", S: "DB"
   };
+  // Canonical group for the matchup/window lookups. POS_GROUP above only
+  // knows DT/DE and CB/S — it misses FS/SS/NT/OLB/ILB/MLB/HB/FB/K/P, and the
+  // worker's defRatings are keyed QB/RB/WR/TE/PK/PN/DL/LB/DB, so a raw
+  // position would silently miss the rating (or read the wrong one). FO owns
+  // the full vocabulary. Falls back to the local map only if front_office_
+  // lineup.js somehow didn't load, in which case the miss renders nothing.
+  function posGrp(pos) {
+    var p = U.safeStr(pos).toUpperCase();
+    return FO ? FO.posGroup(p) : (POS_GROUP[p] || p);
+  }
   var REGULAR_SEASON_WEEKS = 17;
 
   // Volatile UI state — survives between renders within one session.
@@ -53,7 +65,8 @@
     pos: "ALL",
     scope: "fa",    // "fa" (default) | "all" — Keith 2026-06-08: allow browsing ALL players
     teamFilter: "", // "" = none | franchise id — filter list to one team (Keith 2026-06-10)
-    sort: "ppg",    // "ppg" | "pts"
+    sort: "ppg",    // "ppg" | "pts" | "proj"
+    window: 0,      // 0 = YTD (season) | 2 | 4 | 6 = last-N weeks
     debounceTimer: null,
     dropSheetFor: null   // pid of player being added (drop-sheet open)
   };
@@ -161,6 +174,10 @@
         name: nameFor(p) || ("Player " + pid),
         pos: pos,
         group: group,
+        // `group` drives the position chips + the YTD rank label (unchanged).
+        // `grp` is the canonical group the worker's defRatings / window ranks
+        // are keyed by — see posGrp().
+        grp: posGrp(pos),
         team: U.safeStr(p.team),
         ytdPts: pts,
         ppg: ppg,
@@ -170,6 +187,83 @@
     }
     return out;
   }
+
+  // ══ Decision-support intel (window stats + upcoming matchup) ═══════════
+  // Everything here is READ from views/lineup.js's M.lineupIntel — the same
+  // /api/lineup-matchups call, the same per-window cache, the same join. This
+  // file adds no endpoint and re-implements no lookup. If the intel module or
+  // its data is missing, every helper below returns "nothing" and the list
+  // renders exactly as it did before this feature existed.
+  function intel() { return M.lineupIntel || null; }
+  function winKey() { return view.window || 0; }
+  function winData() { var I = intel(); return I ? I.muData(winKey()) : null; }
+
+  // Which window toggles are meaningful. A last-N window can only differ from
+  // season-to-date once MORE than N weeks have been played — before that it IS
+  // the season, so offering it is a dead control (same rule as the Lineup
+  // view's availWindows()). Preseason ⇒ weeksAvailable 0 ⇒ YTD only ⇒ the
+  // toggle row doesn't render at all.
+  function availWindows() {
+    var I = intel(), wa = I ? I.weeksAvailable() : 0, out = [[0, "YTD"]];
+    if (wa > 2) out.push([2, "L2"]);
+    if (wa > 4) out.push([4, "L4"]);
+    if (wa > 6) out.push([6, "L6"]);
+    return out;
+  }
+  // Keep the selected controls inside what's actually offerable, so we never
+  // sort by (or label with) a basis whose buttons aren't on screen.
+  function clampControls() {
+    var ok = availWindows().some(function (o) { return o[0] === winKey(); });
+    if (!ok) view.window = 0;
+    if (view.sort === "proj" && !projReady()) view.sort = "ppg";
+  }
+
+  // Positional rank INSIDE the selected window: bucket by position group,
+  // sort by average, assign rank — the same approach buildLeaderboardMap
+  // (app.js) uses for the YTD ranks. Cached per window so it isn't rebuilt on
+  // every keystroke of the search box.
+  var winRankCache = { key: null, map: null };
+  function winRankMap() {
+    var k = winKey(), d = winData();
+    if (!k || !d || !d.playerWindow) return {};
+    if (winRankCache.key === k && winRankCache.map) return winRankCache.map;
+    var pw = d.playerWindow, buckets = {};
+    Object.keys(pw).forEach(function (pid) {
+      var f = pw[pid];
+      if (!f || !f.games) return;
+      var pl = DATA.playerById(pid);
+      var g = posGrp(pl && pl.position);
+      if (!g || g === "OTH") return;
+      (buckets[g] = buckets[g] || []).push({ pid: pid, avg: Number(f.avg) || 0 });
+    });
+    var map = {};
+    Object.keys(buckets).forEach(function (g) {
+      buckets[g].sort(function (a, b) { return b.avg - a.avg; });
+      buckets[g].forEach(function (x, i) { map[x.pid] = { rank: i + 1, group: g }; });
+    });
+    winRankCache = { key: k, map: map };
+    return map;
+  }
+
+  // Total / PPG / positional rank for the selected window. YTD keeps today's
+  // source verbatim (advanced-stats map + its posRank). A last-N window with
+  // no row for this player is NOT zero — it's unknown, so `have:false` and the
+  // row prints nothing rather than a fake 0.0.
+  function statsFor(r) {
+    if (!winKey()) {
+      return { have: true, label: "YTD", pts: r.ytdPts, ppg: r.ppg, rank: r.posRank, group: r.group };
+    }
+    var d = winData();
+    var f = (d && d.playerWindow) ? d.playerWindow[String(r.id)] : null;
+    if (!f || !f.games) return { have: false, label: "L" + winKey() };
+    var rk = winRankMap()[String(r.id)];
+    return { have: true, label: "L" + winKey(), pts: Number(f.total) || 0, ppg: Number(f.avg) || 0,
+      rank: rk ? rk.rank : 0, group: rk ? rk.group : r.grp };
+  }
+  function projFor(pid) { var I = intel(); return I ? I.projFor(pid) : null; }
+  // Projections only exist once MFL publishes them for the upcoming week —
+  // no projections ⇒ the Proj sort button is not offered.
+  function projReady() { var I = intel(); return !!(I && I.projLoaded()); }
 
   function filterAndSort(all) {
     var q = view.query.trim().toLowerCase();
@@ -183,10 +277,28 @@
       }
       return true;
     });
-    if (view.sort === "pts") {
-      filtered.sort(function (a, b) { return b.ytdPts - a.ytdPts; });
+    // Annotate once, then sort — statsFor does map lookups and a comparator
+    // would repeat them O(n log n) times.
+    filtered.forEach(function (r) { r.win = statsFor(r); });
+    // Rows we have no number for always sort LAST, by partition rather than by
+    // a sentinel value: fantasy scores (and so window totals) can be negative,
+    // so "unknown = -1" would rank a real -3.5 below a blank.
+    function by(valOf, haveOf) {
+      return function (a, b) {
+        var ha = haveOf(a), hb = haveOf(b);
+        if (ha !== hb) return ha ? -1 : 1;
+        if (!ha) return 0;
+        return valOf(b) - valOf(a);
+      };
+    }
+    function winHave(r) { return !!r.win.have; }
+    if (view.sort === "proj" && projReady()) {
+      filtered.sort(by(function (r) { return projFor(r.id); },
+                      function (r) { return projFor(r.id) != null; }));
+    } else if (view.sort === "pts") {
+      filtered.sort(by(function (r) { return r.win.pts; }, winHave));
     } else {
-      filtered.sort(function (a, b) { return b.ppg - a.ppg; });
+      filtered.sort(by(function (r) { return r.win.ppg; }, winHave));
     }
     return filtered;
   }
@@ -361,17 +473,77 @@
       '<option value="all"' + (view.scope === "all" && !view.teamFilter ? ' selected' : '') + '>All Players</option>' +
       '<optgroup label="By team">' + teamOpts + '</optgroup>' +
     '</select>';
+    // Stat window — YTD · L2 · L4 · L6. Only rendered when a last-N window can
+    // actually differ from season-to-date (availWindows), so in the preseason
+    // this row is absent and the list is YTD exactly as before.
+    var wins = availWindows();
+    var winRow = wins.length > 1
+      ? '<div class="ups-m-sort-row" role="group" aria-label="Stat window">' + wins.map(function (o) {
+          return '<button class="ups-m-sort-btn' + (winKey() === o[0] ? " on" : "") +
+            '" data-win="' + o[0] + '" title="' + (o[0] ? "Last " + o[0] + " weeks" : "Season to date") + '">' +
+            o[1] + '</button>';
+        }).join("") + '</div>'
+      : '';
+    // The Pts sort follows the window, so its label has to as well.
+    var ptsLabel = winKey() ? ("L" + winKey() + " Pts") : "YTD Pts";
+    var projBtn = projReady()
+      ? '<button class="ups-m-sort-btn' + (view.sort === "proj" ? " on" : "") +
+          '" data-sort="proj" title="Projected points for the upcoming week">Proj</button>'
+      : '';
     return '<div class="ups-m-players-toolbar">' +
       scopeToggle +
       '<input type="search" class="ups-m-players-search" id="ups-m-players-search" ' +
         'placeholder="' + (view.scope === "all" ? "Search all players…" : "Search free agents…") + '" autocomplete="off" autocorrect="off" ' +
         'value="' + U.escapeHtml(view.query) + '" />' +
       '<div class="ups-m-pos-chips">' + chips + '</div>' +
+      winRow +
       '<div class="ups-m-sort-row">' +
         '<button class="ups-m-sort-btn' + (view.sort === "ppg" ? " on" : "") + '" data-sort="ppg">PPG</button>' +
-        '<button class="ups-m-sort-btn' + (view.sort === "pts" ? " on" : "") + '" data-sort="pts">YTD Pts</button>' +
+        '<button class="ups-m-sort-btn' + (view.sort === "pts" ? " on" : "") + '" data-sort="pts">' + U.escapeHtml(ptsLabel) + '</button>' +
+        projBtn +
       '</div>' +
     '</div>' + renderWaiverStrip();
+  }
+
+  function fmt1(v) { return (Math.round((Number(v) || 0) * 10) / 10).toFixed(1); }
+
+  // Total / PPG / positional rank, scoped to the selected window. When the
+  // window has no row for this player we say so instead of printing 0.0 —
+  // "he scored nothing" and "we have no number" are different claims.
+  function statChipsHtml(r) {
+    var w = r.win || statsFor(r);
+    if (!w.have) return '<span>no ' + U.escapeHtml(w.label) + ' data</span>';
+    return '<span>' + U.escapeHtml(w.label) + ' ' + fmt1(w.pts) + '</span>' +
+      '<span>PPG ' + fmt1(w.ppg) + '</span>' +
+      (w.rank > 0 ? '<span>#' + w.rank + ' ' + U.escapeHtml(w.group) + '</span>' : '');
+  }
+
+  // The decision line: projected points for the upcoming week · who they play ·
+  // that opponent's rank against this player's position (rank 1 = MOST
+  // generous = easiest matchup). The player → NFL team → this week's game →
+  // defRatings[opp][group] join is M.lineupIntel.matchupFor (views/lineup.js),
+  // not re-derived here. Whatever we don't have is left out — a bye, an
+  // unscheduled week, the preseason, or a cold/failed cache produces no line
+  // at all rather than "— proj" or "#0".
+  function faIntelHtml(r) {
+    var I = intel();
+    if (!I) return "";
+    var bits = [];
+    var p = I.projFor(r.id);
+    if (p != null) bits.push(U.escapeHtml(I.fmtProj(p)) + " proj");
+    var mu = I.matchupFor(r.id, winKey());
+    if (mu && mu.opp) {
+      bits.push(U.escapeHtml((mu.isHome ? "vs " : "@ ") + mu.opp));
+      if (mu.rank != null) {
+        var basis = I.priorSeason() ? "last season"
+          : (winKey() ? "last " + winKey() + " weeks" : "season to date");
+        bits.push('<span class="ups-m-mu-rank ' + I.rankCls(mu.rank) +
+          '" title="Opponent-adjusted defense vs ' + U.escapeHtml(mu.grp) +
+          ', rank 1 = most generous (' + U.escapeHtml(basis) + ')">' +
+          U.escapeHtml(mu.opp) + ' #' + mu.rank + ' to ' + U.escapeHtml(mu.grp) + '</span>');
+      }
+    }
+    return bits.length ? '<div class="ups-m-fa-mu">' + bits.join(" · ") + '</div>' : "";
   }
 
   function renderRows(rows) {
@@ -406,10 +578,9 @@
           '<div class="sub">' +
             ownerTag +
             (r.team ? '<span>' + U.escapeHtml(r.team) + '</span>' : '') +
-            '<span>YTD ' + (Math.round(r.ytdPts * 10) / 10).toFixed(1) + '</span>' +
-            '<span>PPG ' + (Math.round(r.ppg * 10) / 10).toFixed(1) + '</span>' +
-            (r.posRank > 0 ? '<span>#' + r.posRank + ' ' + U.escapeHtml(r.group) + '</span>' : '') +
+            statChipsHtml(r) +
           '</div>' +
+          faIntelHtml(r) +
         '</div>' +
         actionBtn +
       '</div>';
@@ -803,6 +974,8 @@
   // is their LOCAL draft, not MFL's truth — a toast that fades away is not
   // good enough for that. { tone:"warn"|"ok", text }.
   var claimsNotice = null;
+  // Which group tab is showing. View state only — never part of the payload.
+  var claimsTab = 1;
   // Dry-run result: `would_write` from the server, rendered as a preview.
   // Never adopted into the plan (contract v2 §3).
   var claimsPreview = null;
@@ -832,7 +1005,26 @@
         '<div class="s">' + emptySub + '</div>' +
       '</div>';
     } else {
-      body = plan.map(function (g) {
+      // TABBED GROUPS (Keith 2026-07-30: "make the groups tab based rather than
+      // scroll based"). Conditional bidding runs up to 8 rounds; stacking them
+      // vertically buried the submit affordance under a long scroll. One group
+      // at a time, with the tab strip pinned under the header.
+      var tabRounds = plan.map(function (g) { return U.safeInt(g.round, 0); })
+        .filter(function (n) { return n > 0; })
+        .sort(function (a, b) { return a - b; });
+      if (tabRounds.indexOf(claimsTab) === -1) claimsTab = tabRounds[0] || 1;
+      var tabs = '<div class="ups-m-claim-tabs" role="tablist">' +
+        tabRounds.map(function (rd) {
+          var gg = plan.filter(function (g) { return U.safeInt(g.round, 0) === rd; })[0] || {};
+          var cnt = (gg.picks || []).length;
+          return '<button class="ups-m-claim-tab' + (rd === claimsTab ? " on" : "") +
+            (cnt ? "" : " cleared") + '" role="tab" data-act="claim-tab" data-round="' + rd + '">' +
+            'G' + rd + '<span class="n">' + (cnt ? cnt : "clr") + '</span></button>';
+        }).join("") +
+      '</div>';
+      body = tabs + plan.filter(function (g) {
+        return U.safeInt(g.round, 0) === claimsTab;
+      }).map(function (g) {
         // A cleared round: no picks, an explicit "withdraw everything in this
         // group" that gets sent as picks:[]. Rendered as its own row so the
         // destructive thing on the screen is the thing the owner asked for.
@@ -875,6 +1067,16 @@
             '</div>' +
           '</div>';
         }).join("");
+        // Copy-group target list: every round EXCEPT this one. The common real
+        // move is "same targets, higher bids in the next round", which is
+        // copy-then-edit rather than re-entering six players by hand.
+        var copyOpts = "";
+        if (lim) {
+          for (var crd = 1; crd <= lim.maxRounds; crd++) {
+            if (crd === g.round) continue;
+            copyOpts += '<option value="' + crd + '">Group ' + crd + '</option>';
+          }
+        }
         return '<section class="ups-m-claim-group">' +
           '<h3>Group ' + g.round + '<span class="n">' + g.picks.length +
             (g.picks.length === 1 ? " claim" : " claims") + '</span>' +
@@ -882,6 +1084,14 @@
               '">Clear group</button>' +
           '</h3>' +
           picks +
+          (copyOpts
+            ? '<div class="ups-m-claim-copy">' +
+                '<span>Copy these ' + g.picks.length +
+                  (g.picks.length === 1 ? " claim to" : " claims to") + '</span>' +
+                '<select class="ups-m-claim-copysel" aria-label="Copy to group">' + copyOpts + '</select>' +
+                '<button class="lnk" data-act="claim-copy-group" data-round="' + g.round + '">Copy</button>' +
+              '</div>'
+            : "") +
         '</section>';
       }).join("");
     }
@@ -959,9 +1169,13 @@
           '<button class="ups-m-claims-back" data-act="claims-close" aria-label="Back">‹</button>' +
           '<div class="ttl"><div class="t">Waiver claims</div>' +
             '<div class="s">' + U.escapeHtml(info.detail || "") + '</div></div>' +
+          // Keith 2026-07-30: the dirty/clean pill has to stay put — it lived in
+          // the scrolling body, so "Edited — not submitted" disappeared the
+          // moment you scrolled to the group you were editing, which is exactly
+          // when you need to know the plan is unsent. Pinned in the header now.
+          (status ? '<div class="ups-m-claims-status">' + status + '</div>' : '') +
         '</header>' +
         '<div class="ups-m-claims-body" id="ups-m-claims-body">' +
-          (status ? '<div class="ups-m-claims-status">' + status + '</div>' : '') +
           notice +
           preview +
           body +
@@ -1051,6 +1265,39 @@
     // Explicit clears (contract v2 §2). "Clear group" stages the round with
     // picks:[]; "Undo" takes the round back out of the payload entirely, which
     // leaves whatever MFL holds for it untouched.
+    // Tab switch — pure view state, never touches the plan.
+    if (act === "claim-tab") {
+      var tabRd = U.safeInt(t.getAttribute("data-round"), 0);
+      if (tabRd) { claimsTab = tabRd; renderClaimsScreen(); }
+      return;
+    }
+    // Copy a whole group's picks into another round. Bids and conditional drops
+    // ride along; the owner then edits the copies. Appends rather than
+    // replaces, so an existing target group is never silently destroyed.
+    if (act === "claim-copy-group") {
+      var srcRd = U.safeInt(t.getAttribute("data-round"), 0);
+      var sel = t.parentNode ? t.parentNode.querySelector(".ups-m-claim-copysel") : null;
+      var dstRd = sel ? U.safeInt(sel.value, 0) : 0;
+      if (!srcRd || !dstRd || srcRd === dstRd) return;
+      var cpPlan = clonePlan();
+      var srcG = cpPlan.filter(function (g) { return U.safeInt(g.round, 0) === srcRd; })[0];
+      if (!srcG || !(srcG.picks || []).length) return;
+      var dstG = cpPlan.filter(function (g) { return U.safeInt(g.round, 0) === dstRd; })[0];
+      if (!dstG) { dstG = { round: dstRd, picks: [] }; cpPlan.push(dstG); }
+      // A cleared group being copied INTO stops being a clear — the owner is
+      // putting claims back in it.
+      if (dstG.clear) delete dstG.clear;
+      if (!dstG.picks) dstG.picks = [];
+      srcG.picks.forEach(function (p) {
+        dstG.picks.push({ add_pid: p.add_pid, bid_dollars: p.bid_dollars, drop_pid: p.drop_pid || null });
+      });
+      commitPlan(cpPlan);
+      claimsPreview = null;
+      claimsTab = dstRd;
+      renderClaimsScreen();
+      M.ui.showToast("Copied " + srcG.picks.length + " to Group " + dstRd, "ok");
+      return;
+    }
     if (act === "claim-clear-group" || act === "claim-unclear") {
       var roundAttr = U.safeInt(t.getAttribute("data-round"), 0);
       if (!roundAttr) return;
@@ -1446,10 +1693,20 @@
         renderRoute();
       });
     }
-    var sortBtns = mount.querySelectorAll(".ups-m-sort-btn");
+    // NOTE: the window row reuses .ups-m-sort-btn for its styling, so both
+    // selectors below must stay attribute-scoped or one steals the other's
+    // clicks (and sets view.sort to null).
+    var sortBtns = mount.querySelectorAll(".ups-m-sort-btn[data-sort]");
     for (var j = 0; j < sortBtns.length; j++) {
       sortBtns[j].addEventListener("click", function () {
         view.sort = this.getAttribute("data-sort");
+        renderRoute();
+      });
+    }
+    var winBtns = mount.querySelectorAll(".ups-m-sort-btn[data-win]");
+    for (var wj = 0; wj < winBtns.length; wj++) {
+      winBtns[wj].addEventListener("click", function () {
+        view.window = parseInt(this.getAttribute("data-win"), 10) || 0;
         renderRoute();
       });
     }
@@ -1497,10 +1754,39 @@
   function renderRoute() { M.route.renderRoute(); }
 
   function render(mount, parts) {
+    // Lazy + cached: projections and the season/selected windows are fetched
+    // once each and re-render when they land. Both fetches carry their own
+    // .catch inside M.lineupIntel, so nothing here is gated on them — a dead
+    // worker just means no extra line and no window toggles.
+    clampControls();   // a window/sort that lost its data (or was never available) → YTD/PPG
+    if (M.lineupIntel) M.lineupIntel.load(winKey());
     var all = buildFreeAgents();
     var filtered = filterAndSort(all);
+    // Those fetches re-render this view when they land, which can be mid-typing
+    // — carry the search box's focus + caret across the rebuild so a stat load
+    // doesn't eat a keystroke.
+    // The input is re-emitted with value="{view.query}", but view.query only
+    // catches up 250ms after the last keypress — so restoring focus+caret alone
+    // silently reverts whatever is still in flight. Type "jefferson", let a
+    // stat fetch land at ~1s, and the box snaps back to "" while staying
+    // focused; the next keystroke then clears the pending debounce and the list
+    // filters on the tail of the word. Carry the LIVE value across the rebuild
+    // too, and only trust the caret if the value survived unchanged.
+    var prevSearch = document.getElementById("ups-m-players-search");
+    var hadFocus = !!(prevSearch && document.activeElement === prevSearch);
+    var liveVal = prevSearch ? prevSearch.value : null;
+    var caret = null;
+    if (hadFocus) { try { caret = prevSearch.selectionStart; } catch (e) { caret = null; } }
     mount.innerHTML = renderToolbar() + renderRows(filtered);
     bind(mount);
+    var nextSearch = document.getElementById("ups-m-players-search");
+    if (nextSearch && liveVal != null && nextSearch.value !== liveVal) {
+      nextSearch.value = liveVal;
+    }
+    if (hadFocus && nextSearch) {
+      nextSearch.focus();
+      if (caret != null) { try { nextSearch.setSelectionRange(caret, caret); } catch (e) {} }
+    }
     // #players/claims — deep link from the Home waiver card.
     if (parts && parts[0] === "claims" && !document.getElementById("ups-m-claims-overlay")) {
       openClaimsScreen();
