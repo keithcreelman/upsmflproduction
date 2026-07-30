@@ -11,6 +11,17 @@
 //                 exists — Keith 2026-07-15 — so notice to the league is the
 //                 standard. A heads-up, not an application.) The commish voids
 //                 the day and no penalty attaches.
+//   Re-engagement forfeit (Keith 2026-07-29) — the roster-legal floor waiver
+//                 is not a license to keep actively bidding while skipping
+//                 nominations. After a missed day, staying excused requires
+//                 either going fully passive (no new bids/noms at all) or
+//                 letting only already-open lots resolve. Placing any NEW bid
+//                 or nomination without having cured forfeits the waiver — the
+//                 missed day counts for real, same as non-compliance. This is
+//                 judgment, not a formula (same reason the 4th-offense
+//                 "league fit" call and the immunity caveat are commish-driven,
+//                 not automatic) — see flagReengagementMiss(), the mirror
+//                 image of voidNomDay().
 //
 // Two hard rules this module exists to enforce:
 //
@@ -22,6 +33,8 @@
 //   2. The floor is WAIVED once a franchise can field a legal lineup (§A2). A
 //      team sitting at 0/2 with a complete roster has done nothing wrong. Any
 //      code that decides "missed" without consulting roster_met is broken.
+//      (The re-engagement forfeit above is the commish-driven exception to
+//      this — it never runs automatically inside closeEtDay/nomCountsForDay.)
 
 import { getFeatureFlag } from "./feature_flags.js";
 import { etDayBounds, faaNomSchedule } from "./auction_windows.js";
@@ -408,6 +421,73 @@ export async function unvoidNomDay(env, { season, leagueId, fid, etDay, by }) {
     penalties_restored: p.meta?.changes || 0,
     repriced_posted: repriced,
   };
+}
+
+// Commish override — the MIRROR IMAGE of voidNomDay. §F RULE 2 clarification
+// (Keith 2026-07-29, Hawks/Beckham incident): the roster-legal floor waiver is
+// not a license to keep actively bidding while skipping nominations. A
+// franchise that misses a nomination day must either go fully passive (no new
+// bids/noms at all) or let only its already-open lots resolve; the moment it
+// places a NEW bid or nomination without having cured, the waiver is
+// forfeited and the missed day counts for real.
+//
+// Deliberately NOT automatic — same reasoning as the 4th-offense "league fit"
+// review and the immunity caveat: whether a franchise "jumped back in" in the
+// spirit this rule means is a judgment call, not a formula closeEtDay can
+// derive from roster_met/noms_used alone. The commish decides; this function
+// books the consequence once they have.
+//
+// Handles two starting states:
+//   - Day already closed as a waived miss (missed=0) -> flips it to missed=1.
+//   - Day was never closed at all (e.g. the ledger-freshness guard in
+//     closeEtDay refused to judge it) -> creates the row directly as
+//     missed=1. No fictitious "waived" state is ever written in between.
+// Idempotent: a day already missed=1 is a no-op, so this can never double-fine
+// on a retry.
+export async function flagReengagementMiss(env, {
+  season, leagueId, fid, etDay, reason, by,
+  noms_used = 0, noms_required = 2, roster_met = true, total_deficit = 0,
+}) {
+  const db = env.UPS_MFL_DB;
+  if (!db) return { ok: false, error: "no_db" };
+  const f = padFid(fid);
+  if (!f || !/^\d{4}-\d{2}-\d{2}$/.test(String(etDay))) {
+    return { ok: false, error: "need fid + et_day (YYYY-MM-DD)" };
+  }
+  const now = new Date().toISOString();
+  const overrideReason = safeStr(reason) || "re-engagement forfeit (§F RULE 2, Keith 2026-07-29)";
+  const overrideBy = safeStr(by) || "commish";
+
+  const existing = await db.prepare(
+    `SELECT missed, voided FROM ups_faa_nom_days WHERE season=? AND league_id=? AND fid=? AND et_day=?`
+  ).bind(Number(season), String(leagueId), f, String(etDay)).first();
+
+  if (existing && Number(existing.missed) === 1 && Number(existing.voided) === 0) {
+    return { ok: true, already_missed: true, fid: f, et_day: etDay };
+  }
+
+  if (existing) {
+    await db.prepare(
+      `UPDATE ups_faa_nom_days
+          SET missed=1, override_reason=?, override_by=?, override_at_utc=?
+        WHERE season=? AND league_id=? AND fid=? AND et_day=?`
+    ).bind(overrideReason, overrideBy, now, Number(season), String(leagueId), f, String(etDay)).run();
+  } else {
+    await db.prepare(
+      `INSERT INTO ups_faa_nom_days
+         (season, league_id, fid, et_day, noms_used, noms_required, roster_met, total_deficit, missed,
+          voided, override_reason, override_by, override_at_utc)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)`
+    ).bind(
+      Number(season), String(leagueId), f, String(etDay),
+      Number(noms_used || 0), Number(noms_required || 2), roster_met ? 1 : 0, Number(total_deficit || 0),
+      overrideReason, overrideBy, now
+    ).run();
+  }
+
+  const armed = !!(await getFeatureFlag(env, "AUCTION_FAA_PENALTIES_ENABLED"));
+  const penalty = await bookPenaltyForMiss(env, { season, leagueId, fid: f, etDay, armed });
+  return { ok: true, fid: f, et_day: etDay, override_reason: overrideReason, penalty };
 }
 
 // Every recorded day for the auction, newest first, with its penalties attached.

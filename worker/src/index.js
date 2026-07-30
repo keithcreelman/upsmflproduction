@@ -25,6 +25,7 @@ import {
 import { runStartFlow as runRuleProposalStartFlow } from "./discord_round.js";
 import {
   nomComplianceLedger, voidNomDay, unvoidNomDay, RULE2_FINE_K_BY_OFFENSE, pendingMflPenalties,
+  flagReengagementMiss, rule2FineK,
 } from "./auction_compliance.js";
 
 const acquisitionLiveMemoryCache = new Map();
@@ -41421,6 +41422,55 @@ export default {
             ? await unvoidNomDay(env, { season, leagueId, fid, etDay, by: who })
             : await voidNomDay(env, { season, leagueId, fid, etDay, reason: safeStr(body.reason), by: who });
           return jsonOut(200, { ok: true, undo: !!body.undo, ...r });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
+      }
+
+      // POST /admin/auction/flag-reengagement-miss — §F RULE 2 clarification
+      // (Keith 2026-07-29): a franchise that missed a nomination day forfeits
+      // the roster-legal floor waiver if it places a NEW bid/nomination
+      // without having cured first — the mirror image of void-nom-day. Books
+      // the offense + penalty rows the same way a real close would.
+      // Body: { fid, et_day, reason?, dry_run? }. Dry-run previews the
+      // resulting offense number/amount without writing anything.
+      if (path === "/admin/auction/flag-reengagement-miss" && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const season = safeStr(body.season || YEAR || new Date().getUTCFullYear());
+        const leagueId = safeStr(body.league_id || L || env.LEAGUE_ID || "74598");
+        const fid = padFranchiseId(body.fid);
+        const etDay = safeStr(body.et_day);
+        if (!fid || !/^\d{4}-\d{2}-\d{2}$/.test(etDay)) {
+          return jsonOut(400, { ok: false, error: "need fid + et_day (YYYY-MM-DD)" });
+        }
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        if (body.dry_run) {
+          const existing = await env.UPS_MFL_DB.prepare(
+            `SELECT missed, voided FROM ups_faa_nom_days WHERE season=? AND league_id=? AND fid=? AND et_day=?`
+          ).bind(Number(season), String(leagueId), fid, String(etDay)).first();
+          const prior = await env.UPS_MFL_DB.prepare(
+            `SELECT COUNT(*) AS n FROM ups_faa_nom_days
+              WHERE season=? AND league_id=? AND fid=? AND missed=1 AND voided=0 AND et_day < ?`
+          ).bind(Number(season), String(leagueId), fid, String(etDay)).first();
+          const alreadyMissed = !!existing && Number(existing.missed) === 1 && Number(existing.voided) === 0;
+          const offenseNo = Number(prior?.n || 0) + 1;
+          return jsonOut(200, {
+            ok: true, dry_run: true, fid, et_day: etDay,
+            day_exists: !!existing, already_missed: alreadyMissed,
+            would_be_offense_no: alreadyMissed ? null : offenseNo,
+            would_be_amount_k: alreadyMissed ? null : rule2FineK(offenseNo),
+            note: alreadyMissed ? "already missed=1 — this call would be a no-op" : "",
+          });
+        }
+        const who = (await provenCommish(season, leagueId)).fid || "commish";
+        try {
+          const r = await flagReengagementMiss(env, {
+            season, leagueId, fid, etDay, reason: safeStr(body.reason), by: who,
+          });
+          return jsonOut(200, r);
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e?.message || e) });
         }
