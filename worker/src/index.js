@@ -39314,11 +39314,16 @@ export default {
           return jsonOut(502, { ok: false, error: "fetch_failed: " + String(e && e.message) });
         }
         const tlMax = Math.min(Math.max(safeInt(tlBody.max_chars, 20000), 1000), 250000);
+        let tlOut = String(tlText);
+        // MFL pages carry the league's enormous custom-header <script> blocks;
+        // strip_scripts drops them so the actual page markup fits in max_chars.
+        if (tlBody.strip_scripts) tlOut = tlOut.replace(/<script[\s\S]*?<\/script>/gi, "");
         return jsonOut(200, {
           ok: tlRes.status >= 200 && tlRes.status < 400 && !/<error>/i.test(tlText),
           status: tlRes.status,
           kind: tlKind, method: tlMethod, season: tlSeason,
-          body_text: String(tlText).slice(0, tlMax),
+          full_length: tlOut.length,
+          body_text: tlOut.slice(0, tlMax),
         });
       }
 
