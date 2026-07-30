@@ -35570,6 +35570,7 @@ export default {
         if (typeof root === "object" && !Array.isArray(root) && Object.keys(root).length === 0) return empty;
 
         const pid = (v) => String(v == null ? "" : v).replace(/\D/g, "");
+
         const money = (v) => {
           const n = safeMoneyInt(v, null);
           return n != null && n >= 0 ? n : null;
@@ -35600,6 +35601,50 @@ export default {
           const n = safeInt(s, 0);
           return n >= 1 && n <= 99 ? n : 0;
         };
+
+        // ── MFL's ACTUAL populated shape (observed live 2026-07-30) ──────────
+        // Until a real claim existed there was nothing to observe, so the walk
+        // below was written defensively against several guessed shapes. None of
+        // them was right: MFL hands each round's picks back as ONE STRING, in
+        // exactly the `pid_bid_drop` format we POST, with `0000` for "no drop":
+        //
+        //   {"pendingWaivers":{"blindBidWaiverRequest":[
+        //      {"round":"1","addsDrops":"15756_7000_17514,9064_1000_17514",
+        //       "comments":"","timestamp":"1785436268"}, … ]}}
+        //
+        // The object-walk finds no pick-shaped objects here, so it correctly
+        // reported "populated_but_unrecognized" rather than inventing data —
+        // which is what surfaced the real shape. Parse it explicitly and first.
+        const bbwrRaw = root.blindBidWaiverRequest || root.blindbidwaiverrequest;
+        if (bbwrRaw != null) {
+          const bbwr = Array.isArray(bbwrRaw) ? bbwrRaw : [bbwrRaw];
+          const out = [];
+          for (const r of bbwr) {
+            if (!r || typeof r !== "object") return unknown("bbwr_entry_not_object");
+            const rd = asRoundNo(r.round != null ? r.round : r.ROUND);
+            if (!rd) return unknown("bbwr_entry_without_round");
+            const picks = [];
+            for (const tok of safeStr(r.addsDrops || r.addsdrops || r.adds_drops).split(",")) {
+              const t = safeStr(tok);
+              if (!t) continue;
+              // add_bid_drop — drop is optional and `0000` means "no drop".
+              const parts = t.split("_");
+              const addPid = pid(parts[0]);
+              const bid = money(parts[1]);
+              const dropPid = pid(parts[2]);
+              // Same P1 rule as everywhere else: a token we cannot fully read
+              // makes the WHOLE read unknown rather than a partial truth.
+              if (!addPid || bid == null) return unknown("bbwr_unparsable_token");
+              picks.push({ add_pid: addPid, bid_dollars: bid, drop_pid: (dropPid && dropPid !== "0000") ? dropPid : null });
+            }
+            // A round present with an empty addsDrops is a genuinely empty
+            // round, not a parse failure — keep it out of the result rather
+            // than emitting a round with zero picks.
+            if (picks.length) out.push({ round: rd, picks });
+          }
+          logPayload(`populated blindBidWaiverRequest (${out.length} round(s))`);
+          return { known: true, rounds: out.sort((a, b) => a.round - b.round), warning: "", populated: true, unknown_reason: "" };
+        }
         // Does this value hold pick-shaped things? Used to decide whether a
         // container's `id` (or a numeric key) is safely readable as a round
         // number. Checks the value itself, and one level in — MFL wraps lists in
