@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-31 10:25:47",
+    "generated_at": "2026-07-31 16:12:44",
     "source": "contract-activity-log",
-    "count": 95,
+    "count": 96,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "f74cb0f2b180282e0051db9d",
+      "submission_id": "f74cb0f2b180282e0051db9d",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0011",
+      "franchise_name": "Cleon Ca$h",
+      "player_id": "15779",
+      "player_name": "Doubs, Romeo",
+      "position": "WR",
+      "salary": 15000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 3|TCV 45K|AAV 15K|Y1-15K, Y2-15K, Y3-15K|GTD: 33.8K",
+      "tcv": 45000,
+      "aav": 15000,
+      "guaranteed": 33800,
+      "submitted_at_utc": "2026-07-31T16:12:18.212Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1532782983721910435",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "0477d6b2f09b4f7e8e38e8da",
       "submission_id": "0477d6b2f09b4f7e8e38e8da",
