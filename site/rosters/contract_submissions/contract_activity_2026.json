@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-07-29 15:06:01",
+    "generated_at": "2026-07-31 10:25:47",
     "source": "contract-activity-log",
-    "count": 94,
+    "count": 95,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "0477d6b2f09b4f7e8e38e8da",
+      "submission_id": "0477d6b2f09b4f7e8e38e8da",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Multi-Year Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "player_id": "15756",
+      "player_name": "Williams, Jameson",
+      "position": "WR",
+      "salary": 16000,
+      "contract_year": 3,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 3|TCV 48K|AAV 16K|Y1-16K, Y2-16K, Y3-16K|GTD: 36K",
+      "tcv": 48000,
+      "aav": 16000,
+      "guaranteed": 36000,
+      "submitted_at_utc": "2026-07-31T10:25:21.857Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1532695669201043497",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "758d10fb0d40edf81d9e43c6",
       "submission_id": "758d10fb0d40edf81d9e43c6",
