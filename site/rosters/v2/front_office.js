@@ -2666,6 +2666,11 @@
       var evs = (data && data.events) || [];
       var cd = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("contract_deadline") >= 0; });
       if (cd && cd.date) STATE.contractDeadline = String(cd.date).slice(0, 10);
+      // §D1 cut-penalty timing: a penalty incurred from AUCTION START through
+      // the end of the season lands on the FOLLOWING season's cap, not this
+      // one. Same feed, one more event.
+      var fa = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("fa_auction_start") >= 0; });
+      if (fa && fa.date) STATE.faAuctionStart = String(fa.date).slice(0, 10);
     } catch (e) {}
   }
   function renderContractSummary() {
@@ -5353,6 +5358,19 @@
   // same team read +$9,200 on one screen and +$9,000 on the other, and only
   // the rounded one matched MFL. One definition now — the rule cannot drift
   // again because there is nowhere for it to drift to.
+  // §D1 — which season a NEW cut's dead cap lands on. Before the Auction Roster
+  // Lock it hits the current season; from auction start through season end it
+  // hits the FOLLOWING one (canon: "Penalty incurred from auction start through
+  // end of season → applies to following season cap"). Keith 2026-08-01, once
+  // the 2026 auction opened. Unknown date ⇒ current season, matching the old
+  // behavior rather than silently moving money on a missing lookup.
+  function dropPenaltyLandsNextSeason() {
+    var d = safeStr(STATE.faAuctionStart);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+    var today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    return today >= d;
+  }
+
   function capAdjDropPen(s) { return roundToK(safeInt(s && s.adj_cut, 0)); }
   function capAdjTotal(s) {
     return capAdjDropPen(s) + safeInt(s && s.adj_trade, 0) + safeInt(s && s.adj_other, 0);
@@ -5652,20 +5670,30 @@
     // hidden) when a filter is active, consistent with the Summary %.
     const _adj = team.summary || {};
     const adjTotal = anyFilter ? 0 : capAdjTotal(_adj);
-    // Previewed-drop dead-cap — a "drop" preview's penalty is a CAP ADJUSTMENT
-    // (current-year dead cap), NOT a salary line (Keith 2026-06-07). The dropped
-    // player already contributes $0 to totals.cy (projectedPlayerCapForOffset).
+    // Previewed-drop dead-cap — a "drop" preview's penalty is a CAP ADJUSTMENT,
+    // NOT a salary line (Keith 2026-06-07). The dropped player already
+    // contributes $0 to totals.cy (projectedPlayerCapForOffset).
+    //
+    // WHICH SEASON it lands on is §D1: before the Auction Roster Lock it hits
+    // the current season; from AUCTION START through end of season it hits the
+    // FOLLOWING one. The 2026 auction opened 2026-07-25, so a cut previewed now
+    // is next year's money — showing it against this year overstated the current
+    // cap and understated the next (Keith 2026-08-01).
     const previewDropPen = players.reduce(function (s, p) {
       return STATE.capPreviews[p.id + ":" + p.fid] === "drop" ? s + safeInt(dropPenaltyEstimate(p).amount, 0) : s;
     }, 0);
-    const adjustedCy = totals.cy + adjTotal + previewDropPen;
+    const penNextSeason = dropPenaltyLandsNextSeason();
+    const penCy = penNextSeason ? 0 : previewDropPen;
+    const penNy = penNextSeason ? previewDropPen : 0;
+    const adjustedCy = totals.cy + adjTotal + penCy;
+    const adjustedNy = totals.ny + penNy;
     const rows = players.map(function (p) { return renderCapDetailRow(p, team); }).join("")
       || '<tr><td colspan="9" class="fo-table-empty">No players match the current filters.</td></tr>';
     const sort = STATE.capDetailSort;
     const arrow = (key) => sort.key === key ? (sort.dir > 0 ? " ▲" : " ▼") : "";
     return `
       <p class="fo-row-hint">
-        💡 Click <strong>Ext1 / Ext2 / MYAC2 / MYAC3 / MYAC2-L / MYAC3-L / Drop / Promote / Restr</strong> on any row to preview the impact on team totals (toggle off by clicking again). <strong>MYAC2 / MYAC3</strong> are flat (even-split) auction contracts. <strong>MYAC2-L / MYAC3-L</strong> open an inline editor for a <em>loaded</em> auction contract — the same TCV split front- or back-loaded, so ${yr0} moves too. <strong>Restr</strong> opens an inline editor to re-slot the same contract total across the remaining years. Either editor moves the year totals above as you type, and Commit hands the draft to the real submit. Taxi players show here too (Promote to preview activating them). Row click opens the slide-over. Click any column header to sort.
+        💡 Click <strong>Ext1 / Ext2 / MYAC2 / MYAC3 / MYAC2-L / MYAC3-L / Drop / Promote / Restr</strong> on any row to preview the impact on team totals (toggle off by clicking again). <strong>MYAC2 / MYAC3</strong> are flat (even-split) auction contracts. <strong>MYAC2-L / MYAC3-L</strong> open an inline editor for a <em>loaded</em> auction contract — the same TCV split front- or back-loaded, so ${yr0} moves too. <strong>Restr</strong> opens an inline editor to re-slot the same contract total across the remaining years. Either editor moves the year totals above as you type — this screen is <strong>planning only</strong> and never writes to MFL; apply a contract on the <strong>Contracts</strong> tab. Taxi players show here too (Promote to preview activating them). Row click opens the slide-over. Click any column header to sort.
       </p>
       <div class="fo-cap-totals">
         <div><span class="lbl">${yr0} salary</span><span class="val">${fmtUSD(totals.cy)}</span></div>
@@ -5676,8 +5704,11 @@
       <div class="fo-cap-adj-callout">
         <div class="fo-cap-adj-row"><span class="lbl">${yr0} salary</span><span class="val">${fmtUSD(totals.cy)}</span></div>
         ${adjTotal !== 0 ? `<div class="fo-cap-adj-row"><span class="lbl">+ cap adjustments (drop pen · traded $ · other)</span><span class="val">${adjTotal > 0 ? "+" : "−"}${fmtUSD(Math.abs(adjTotal))}</span></div>` : ""}
-        ${previewDropPen !== 0 ? `<div class="fo-cap-adj-row"><span class="lbl">+ previewed drop dead-cap</span><span class="val">+${fmtUSD(previewDropPen)}</span></div>` : ""}
+        ${(previewDropPen !== 0 && !penNextSeason) ? `<div class="fo-cap-adj-row"><span class="lbl">+ previewed drop dead-cap</span><span class="val">+${fmtUSD(previewDropPen)}</span></div>` : ""}
         <div class="fo-cap-adj-row fo-cap-adj-strong"><span class="lbl">= ${yr0} adjusted cap</span><span class="val">${fmtUSD(adjustedCy)}</span></div>
+        ${(previewDropPen !== 0 && penNextSeason) ? `
+        <div class="fo-cap-adj-row fo-cap-adj-next"><span class="lbl">+ previewed drop dead-cap → <strong>${yr0 + 1}</strong> <span class="fo-cap-adj-why">(§D1 — cuts from auction start hit next season)</span></span><span class="val">+${fmtUSD(previewDropPen)}</span></div>
+        <div class="fo-cap-adj-row fo-cap-adj-strong"><span class="lbl">= ${yr0 + 1} adjusted cap</span><span class="val">${fmtUSD(adjustedNy)}</span></div>` : ""}
       </div>` : ""}
       ${filteredNote ? `<div style="margin:6px 0 0;">${filteredNote}</div>` : ""}
       <table class="fo-table">
@@ -5809,7 +5840,7 @@
     // Y+0 cell annotation when dropping — "(penalty)" makes the cap charge
     // unmistakable vs a salary.
     const y0Cell = active === "drop"
-      ? `<span class="fo-cap-pen">${fmtUSD(0)}</span> <span class="small" style="color:var(--err); font-style:italic;">(cut · +${fmtUSD(safeInt(dropPenaltyEstimate(p).amount, 0))} dead cap → adj)</span>`
+      ? `<span class="fo-cap-pen">${fmtUSD(0)}</span> <span class="small" style="color:var(--err); font-style:italic;">(cut · +${fmtUSD(safeInt(dropPenaltyEstimate(p).amount, 0))} dead cap → ${dropPenaltyLandsNextSeason() ? String(safeInt(SEASON, 0) + 1) + " adj" : "adj"})</span>`
       : draftMoneyCell(0, cy);
 
     const statusKls = active === "drop" ? "drop-preview"

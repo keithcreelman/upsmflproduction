@@ -882,3 +882,9 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
   font-size: 11px;
 }
 .fo-root .fo-cap-planonly strong { color: var(--text); font-weight: 600; }
+
+/* §D1: from auction start, a cut's dead cap lands on NEXT season's books. The
+   callout shows that line under a separate next-year total so the two seasons
+   are never conflated. */
+.fo-root .fo-cap-adj-row.fo-cap-adj-next { border-top: 1px dashed var(--border); margin-top: 4px; padding-top: 6px; }
+.fo-root .fo-cap-adj-why { color: var(--muted); font-weight: 400; font-size: 10px; }
