@@ -27,9 +27,11 @@ LEAGUE_ID="74598"
 STATE_DIR="${HOME}/.ups_cron_liveness"
 mkdir -p "$STATE_DIR"
 
-# Alert de-dup: one alert per condition per 30 min, so a multi-hour outage
-# doesn't turn into a DM every 5 minutes.
-REALERT_SEC=1800
+# Alert de-dup: ONE DM per episode, plus one when it clears (Keith 2026-08-01 —
+# a single missed 9 AM report produced a DM every 30 minutes all day). A key
+# stays "open" while its stamp file exists; the resolve pass at the bottom
+# closes it and says so. There is deliberately no periodic re-alert: a problem
+# that is still open just stays open silently until it clears.
 
 APIKEY="$(security find-generic-password -a "$USER" -s ups-commish-api-key -w 2>/dev/null || true)"
 BOT_TOKEN="$(security find-generic-password -a "$USER" -s discord_bot_token -w 2>/dev/null || true)"
@@ -48,11 +50,12 @@ fi
 notify() {
   local key="$1" msg="$2"
   local stamp_file="${STATE_DIR}/${key}.last"
-  local now last
+  local now
   now="$(date +%s)"
-  last="$(cat "$stamp_file" 2>/dev/null || echo 0)"
-  if [ $((now - last)) -lt "$REALERT_SEC" ]; then
-    log "suppressed ${key} (alerted $((now - last))s ago)"
+  # Already open ⇒ say nothing. The episode was announced once; the next DM
+  # about this key will be the "resolved" one.
+  if [ -f "$stamp_file" ]; then
+    log "suppressed ${key} (already open since $(cat "$stamp_file" 2>/dev/null))"
     return 0
   fi
   for uid in $COMMISH_IDS; do
@@ -70,13 +73,54 @@ notify() {
   log "ALERTED ${key}"
 }
 
+# The other half of the contract: an alert that never clears is just noise you
+# learn to ignore. Fires once, when a previously-open key stops being reported.
+resolve() {
+  local key="$1" what="$2"
+  local stamp_file="${STATE_DIR}/${key}.last"
+  [ -f "$stamp_file" ] || return 0            # was never open
+  local opened now mins
+  opened="$(cat "$stamp_file" 2>/dev/null || echo 0)"
+  now="$(date +%s)"
+  mins=$(( (now - opened) / 60 ))
+  local msg="✅ **Resolved — ${what}.** Back to normal after ${mins} min. No action needed."
+  for uid in $COMMISH_IDS; do
+    ch="$(curl -sS -m 15 -X POST "https://discord.com/api/v10/users/@me/channels" \
+      -H "Authorization: Bot ${BOT_TOKEN}" -H "Content-Type: application/json" \
+      -d "{\"recipient_id\":\"${uid}\"}" 2>/dev/null \
+      | python3 -c 'import json,sys; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)"
+    [ -z "$ch" ] && continue
+    curl -sS -m 15 -X POST "https://discord.com/api/v10/channels/${ch}/messages" \
+      -H "Authorization: Bot ${BOT_TOKEN}" -H "Content-Type: application/json" \
+      -d "$(python3 -c 'import json,sys; print(json.dumps({"content": sys.argv[1], "allowed_mentions": {"parse": []}}))' "$msg")" \
+      >/dev/null 2>&1 || true
+  done
+  rm -f "$stamp_file"
+  log "RESOLVED ${key} (open ${mins}m)"
+}
+
+# Human label per key, for the resolved DM.
+label_for() {
+  case "$1" in
+    worker_unreachable) echo "the worker is reachable again" ;;
+    cron_dead)          echo "Cloudflare crons are firing again" ;;
+    report_morning)     echo "the 9 AM FA report posted" ;;
+    report_evening)     echo "the 9 PM FA report posted" ;;
+    *)                  echo "$1" ;;
+  esac
+}
+
 RESP="$(curl -sS -m 25 "${WORKER_BASE}/admin/health-summary?L=${LEAGUE_ID}&APIKEY=${APIKEY}" 2>/dev/null || true)"
 
 if [ -z "$RESP" ] || ! echo "$RESP" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
   notify "worker_unreachable" "🚨 **UPS worker unreachable** — \`/admin/health-summary\` returned nothing usable from Keith's Mac. Cloudflare may be down or the worker is erroring on every request. The auction poll, the board, and all Discord narration depend on it."
   log "worker unreachable"
+  # Deliberately does NOT resolve the report/cron keys: with no health-summary
+  # we cannot tell whether those are fine, and silently declaring them fixed
+  # would be worse than staying quiet. They clear on the next good tick.
   exit 0
 fi
+resolve "worker_unreachable" "$(label_for worker_unreachable)"
 
 # Evaluate cron liveness + scheduled-report freshness. The evaluator is a
 # separate file, NOT a heredoc: a heredoc takes over stdin, so the piped JSON
@@ -84,12 +128,29 @@ fi
 EVAL_PY="$(cd "$(dirname "$0")" && pwd)/cron_liveness_eval.py"
 EVAL="$(echo "$RESP" | python3 "$EVAL_PY" "$(date +%s)" 2>/dev/null || true)"
 
-if [ -z "$EVAL" ]; then
-  log "ok — crons alive, reports current"
-  exit 0
+# Everything the evaluator is flagging RIGHT NOW. Anything currently open that
+# is absent from this set has recovered.
+FIRING=""
+if [ -n "$EVAL" ]; then
+  while IFS=$'\t' read -r key msg; do
+    [ -z "$key" ] && continue
+    FIRING="${FIRING} ${key}"
+    notify "$key" "$msg"
+  done <<< "$EVAL"
 fi
 
-while IFS=$'\t' read -r key msg; do
-  [ -z "$key" ] && continue
-  notify "$key" "$msg"
-done <<< "$EVAL"
+# Resolve pass — close any open key the evaluator no longer reports. Driven off
+# the stamp files rather than a hardcoded list, so a new problem key added to
+# the evaluator gets recovery DMs for free.
+for stamp in "${STATE_DIR}"/*.last; do
+  [ -e "$stamp" ] || continue
+  k="$(basename "$stamp" .last)"
+  [ "$k" = "worker_unreachable" ] && continue      # handled above
+  case " ${FIRING} " in
+    *" ${k} "*) : ;;                               # still firing — leave open
+    *) resolve "$k" "$(label_for "$k")" ;;
+  esac
+done
+
+[ -z "$EVAL" ] && log "ok — crons alive, reports current"
+exit 0
