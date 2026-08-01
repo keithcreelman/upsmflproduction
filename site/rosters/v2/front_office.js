@@ -4900,11 +4900,24 @@
     try { ledger = await fetchJSON("../contract_submissions/restructure_manual_" + encodeURIComponent(SEASON) + ".json") || ledger; } catch (e) {}
     const excluded = {};
     (ledger.exclusions || []).forEach(function (e) { excluded[pad4(e.franchise_id) + "|" + safeStr(e.player_id)] = true; });
-    const add = function (fid, pid, name) {
+    // Keyed per EVENT, not per player. Canon §C5 limits a team to 3
+    // RESTRUCTURES per season — restructuring the same player twice is two of
+    // them. Keying on player_id alone made the second one overwrite the first,
+    // so CBP (Jordan Love once, Nico Collins on Jul 25 AND Jul 29) displayed
+    // 2/3 while actually being at the 3/3 limit. The dedupe still has to work,
+    // because the same submission arrives from D1 AND the activity-log
+    // fallback — so the key is player + submission instant, which is identical
+    // across both sources (verified to the millisecond on all 12 overlapping
+    // records) while still separating two real restructures of one player.
+    // No timestamp at all (hand-written ledger rows) falls back to the player
+    // id, which preserves the old collapse-to-one behavior for those only.
+    const add = function (fid, pid, name, atUtc) {
       fid = pad4(fid); pid = safeStr(pid);
       if (!fid || !pid) return;
       if (excluded[fid + "|" + pid]) return;            // skip flagged test/invalid records
-      (out.byFid[fid] = out.byFid[fid] || {})[pid] = safeStr(name) || pid;
+      const at = safeStr(atUtc);
+      const key = at ? (pid + "@" + at) : pid;
+      (out.byFid[fid] = out.byFid[fid] || {})[key] = safeStr(name) || pid;
     };
     // PRIMARY: D1 ups_restructure_submissions (canon — D1 is the single source
     // of truth; the restructure-ingest endpoint + action keep it complete).
@@ -4912,7 +4925,7 @@
       const d1 = await fetchJSON(apiUrl("/admin/contract-submissions") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON));
       (d1 && d1.submissions || []).forEach(function (s) {
         if (String(s.kind || "").toLowerCase() !== "restructure") return;
-        add(s.franchise_id, s.player_id, s.player_name);
+        add(s.franchise_id, s.player_id, s.player_name, s.submitted_at_utc);
       });
     } catch (e) { /* D1 unreachable → fall back to the files below */ }
     // FALLBACK (transition): worker contract-activity log (real prod only) + the
@@ -4923,10 +4936,10 @@
         if (String(a.activity_type || "").toLowerCase() !== "restructure") return;
         if (String(a.delivery_target || "") === "test") return;
         if (/^\s*\[dry run\]/i.test(safeStr(a.player_name))) return;
-        add(a.franchise_id, a.player_id, a.player_name);
+        add(a.franchise_id, a.player_id, a.player_name, a.submitted_at_utc);
       });
     } catch (e) { /* no log file */ }
-    (ledger.restructures || []).forEach(function (r) { add(r.franchise_id, r.player_id, r.player_name); });
+    (ledger.restructures || []).forEach(function (r) { add(r.franchise_id, r.player_id, r.player_name, r.submitted_at_utc); });
     STATE.restructureUsage = out;
     return out;
   }
@@ -5051,8 +5064,23 @@
         usedFids.map(function (fid) {
           const team = (STATE.teams || []).find(function (t) { return pad4(t.fid) === fid; });
           const nm = (team && team.name) || fid;
-          const players = Object.keys(usage.byFid[fid]).map(function (pid) { return usage.byFid[fid][pid]; });
-          const n = players.length;
+          // Keys are per-EVENT now, so a player restructured twice appears
+          // twice. Collapse to "Nico Collins x2" rather than repeating the name
+          // — and flip "Last, First" to "First Last", because comma-joining
+          // "Love, Jordan, Collins, Nico" read as four players when it was two.
+          const evKeys = Object.keys(usage.byFid[fid]);
+          const n = evKeys.length;
+          const perName = {};
+          evKeys.forEach(function (k) {
+            const raw = safeStr(usage.byFid[fid][k]);
+            const nice = raw.indexOf(",") > -1
+              ? raw.split(",").slice(1).join(",").trim() + " " + raw.split(",")[0].trim()
+              : raw;
+            perName[nice] = (perName[nice] || 0) + 1;
+          });
+          const players = Object.keys(perName).map(function (nm) {
+            return perName[nm] > 1 ? nm + " \u00d7" + perName[nm] : nm;
+          });
           return '<span style="display:inline-block;margin:2px 12px 2px 0;color:' + (n >= RESTRUCTURE_LIMIT ? "var(--err)" : "var(--text)") + ';"><strong>' + escapeHtml(nm) + '</strong> ' + n + '/' + RESTRUCTURE_LIMIT + ' <span class="small" style="color:var(--muted);">(' + escapeHtml(players.join(", ")) + ')</span></span>';
         }).join("") + '</div>'
       : (STATE.restructureUsage ? '<div class="small" style="color:var(--muted);margin:6px 0;">No restructures recorded this season yet.</div>' : "");
