@@ -37606,6 +37606,39 @@ export default {
             )
           );
           if (!currentYears || priorYears !== currentYears + 1) return info;
+          // …and it must actually BE the same contract. The year-counter test
+          // above is a coincidence test, not an identity test: an expired deal
+          // and a brand-new one satisfy `priorYears === currentYears + 1` by
+          // accident all the time. Michael Pittman's 2025 deal (TCV 115K, CL 3,
+          // contract_year 2) and the 1-year $5K contract CBP won him on in the
+          // 2026 auction (TCV 5K, CL 1, contract_year 1) matched it, so this
+          // function overwrote MFL's correct "AAV 5K" with "AAV 45K" and
+          // appended "Y1-25K, Y2-45K, Y3-45K" — a three-year shape on a
+          // one-year contract, summing to 115K against a stated TCV of 5K. That
+          // put him in Cap Planning at $45,000 instead of $5,000.
+          //
+          // TCV and CL are what make it the same deal rolling forward. Both
+          // survive a roll-forward untouched; either changing means MFL is
+          // describing a DIFFERENT contract and last year's tokens must not be
+          // spliced onto it. Verified against the live roster: all 7 genuine
+          // repairs (Jefferson, Olave, Tua, Higgins, G. Wilson, McBride,
+          // Sutton) match on both and keep working; all 5 false ones (Pittman,
+          // Pollard, Burns, Crosby, Franklin) differ on both and now pass MFL's
+          // own value straight through.
+          const curIdent = parseContractInfoValues(info);
+          const priorIdentInfo = safeStr(
+            priorContract?.special || priorContract?.contractInfo || priorContract?.contract_info || ""
+          );
+          const priorIdent = parseContractInfoValues(priorIdentInfo);
+          const priorTcvForId = safeInt(priorContract?.tcv ?? priorContract?.TCV ?? 0, 0) || priorIdent.tcv;
+          const priorClForId = safeInt(
+            priorContract?.contract_length ?? priorContract?.contractLength ?? 0, 0
+          ) || priorIdent.contract_length;
+          // Compare only when BOTH sides are known — a missing value is not
+          // evidence of a mismatch, and this repair exists precisely because
+          // tokens go missing.
+          if (priorTcvForId > 0 && curIdent.tcv > 0 && priorTcvForId !== curIdent.tcv) return info;
+          if (priorClForId > 0 && curIdent.contract_length > 0 && priorClForId !== curIdent.contract_length) return info;
           const priorInfo = safeStr(
             priorContract?.special ||
             priorContract?.contractInfo ||
