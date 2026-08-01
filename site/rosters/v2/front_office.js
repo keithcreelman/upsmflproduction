@@ -4031,10 +4031,21 @@
   }
 
   // Count a team's loaded (FL/BL) contracts on the active roster (taxi $0/exempt).
+  // §C2 loaded count — taxi rows are NOT excluded. Keith 2026-08-01: "taxi
+  // contracts can't be loaded because all rookie contracts are flat" (§B2 puts
+  // only rookies on the taxi squad, and §A1 rookie deals are flat), so a loaded
+  // taxi row cannot legitimately exist — verified across 104 taxi players and
+  // 34 loaded contracts league-wide: zero overlap. The old `!q.isTaxi` filter
+  // therefore changed nothing in practice, but it made this function disagree
+  // with the hub counter (which includes taxi) on the same screen, and it
+  // failed OPEN: if a bad row ever did appear, the function that GATES real
+  // writes (openMyacLoadedForm, submitRestructure) would not count it and would
+  // let a team past 5. Counting every loaded row is both consistent and the
+  // safe direction for a write gate.
   function loadedContractCountForTeam(fid) {
     const team = (STATE.teams || []).find(function (t) { return t.fid === fid; });
     if (!team) return 0;
-    return (team.players || []).filter(function (q) { return !q.isTaxi && isLoadedRow(q); }).length;
+    return (team.players || []).filter(function (q) { return isLoadedRow(q); }).length;
   }
   // ── Loaded-MYAC basis + floors — THE one place these numbers come from ──
   //

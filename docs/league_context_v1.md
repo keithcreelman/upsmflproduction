@@ -367,6 +367,7 @@ These are transactions you can do TO a player who's already on your roster. Defi
   - **Front-loaded:** Year 1 salary > AAV. Total split must equal TCV.
   - **Back-loaded:** Year 1 salary < AAV. Min 20% of TCV in Year 1. **Same constraints as front-loaded** (TCV preserved, valid distribution).
   - **Loaded contracts cap: MAX 5 LOADED CONTRACTS PER ROSTER** (combined front-loaded + back-loaded). Earlier "3" was a confusion with the restructure limit — the LOADED cap is 5.
+    - **A taxi contract can never be loaded** (Keith 2026-08-01): §B2 puts only rookies on the taxi squad and §A1 rookie deals are flat, so there is no such thing as a loaded taxi contract. Counting toward the 5 therefore does not need a taxi carve-out — and code must not add one, because a filter that skips taxi rows fails OPEN if a bad row ever appears, letting a roster past 5. Verified 2026-08-01 across 104 taxi players and 34 loaded contracts league-wide: zero overlap.
   - **Enforcement timing (Keith 2026-05-18):** check is at **contract-load time** — system hard-blocks selecting Front-Load or Back-Load contract shape (on MYAC submit, ERA win, FA Auction win, restructure submit, or 2-year extension) if the owner already has 5 loaded contracts on roster. No "warn at 4/5" UI — hard reject at 6. Trading away or cutting a loaded player **reopens the slot** in real time; the next loaded contract submission becomes available immediately.
   - Total 3-year contracts: 6 max (excludes rookie 3-year deals).
 
