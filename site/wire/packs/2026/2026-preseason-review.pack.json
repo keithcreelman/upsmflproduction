@@ -1,0 +1,2071 @@
+{
+  "schema": 1,
+  "packId": "2026-preseason-review",
+  "title": "The 2026 Pre-Season Review",
+  "generatedAtUtc": "2026-08-01T14:29:20Z",
+  "season": 2026,
+  "week": null,
+  "sources": [
+    {
+      "name": "GET /api/auction/compliance",
+      "asof": "2026-08-01T14:29:17.143Z",
+      "rows": 12,
+      "note": "cap spent/room, roster counts, live warnings"
+    },
+    {
+      "name": "GET /api/auction/lots",
+      "asof": "live",
+      "rows": 177,
+      "note": "167 won, 10 still open"
+    },
+    {
+      "name": "contract_activity_2026.json",
+      "asof": "2026-08-01",
+      "rows": 75,
+      "note": "102 submissions collapsed to 75 contract outcomes; extensions, multi-year, MYM, restructures, tags, FA contracts; read from origin/main (local checkout is behind)"
+    },
+    {
+      "name": "data/mfl-snapshots/2026-04-21/rosters.json",
+      "asof": "2026-04-21",
+      "rows": 284,
+      "note": "earliest snapshot available; active-roster salary only"
+    },
+    {
+      "name": "src_draft_picks",
+      "asof": "2026",
+      "rows": 72,
+      "note": "rookie draft"
+    },
+    {
+      "name": "src_franchises",
+      "asof": "2026 season",
+      "rows": 12,
+      "note": "authoritative (season, franchise_id) -> owner map; verified against /api/standings on all 4 contested seasons"
+    },
+    {
+      "name": "ups_auction_contract_finalizations",
+      "asof": "live",
+      "rows": 153,
+      "note": "faa=153"
+    },
+    {
+      "name": "ups_drop_events",
+      "asof": "2026",
+      "rows": 28,
+      "note": "cuts and their cap penalties"
+    },
+    {
+      "name": "ups_transactions",
+      "asof": "2026",
+      "rows": 17,
+      "note": "type=TRADE only; src_trades stops at 2025"
+    }
+  ],
+  "coverage": {
+    "seasonsComplete": [
+      2010,
+      2025
+    ],
+    "currentSeason": 2026,
+    "currentSeasonPartial": true,
+    "auctionComplete": false,
+    "openingSnapshot": "2026-04-21"
+  },
+  "warnings": [
+    "The off-season opened around 2026-03-10 (first contract activity) but the earliest daily snapshot is 2026-04-21, so 'starting point' means 2026-04-21, not the true start of the off-season.",
+    "Opening cap figures are active-roster salary only. The daily snapshot does not capture salaryAdjustments, so they are not comparable to the live compliance numbers, which do include them. Do not subtract one from the other.",
+    "THE AUCTION IS NOT FINISHED. 10 lot(s) are still open; the last one locks at 2026-08-02 11:07 UTC. Every auction figure here is a mid-flight snapshot and must be presented as of a timestamp, not as a final result.",
+    "167 lots are marked won but only 153 finalized contracts exist (delta 14). Auction spend and contract counts will not reconcile; prefer the lot ledger for prices and say so.",
+    "No ERA-sourced finalizations exist, though ups_era_pool has members. The expired-rookie auction is not represented in the finalization ledger.",
+    "The contract log records SUBMISSIONS, not contracts: 102 rows collapse to 75 distinct player-contract outcomes. Owners who revise a deal in the Front Office write a row per attempt, so a raw row count overstates how active the heaviest tool users were. Move counts here are outcomes.",
+    "This pack was built from a checkout 44 commit(s) behind origin/main. Repo-tracked sources (the contract-activity log, the daily snapshots) are auto-committed to main, so the contract log was read from origin/main directly; the daily snapshots were NOT and may lag by a few days.",
+    "19 of 75 contract outcomes have a blank franchise_name and player_name. The ids are present, so names are resolved from src_franchises rather than rendered blank.",
+    "Nearly every src_* history table stops at 2025 (src_standings, src_trades, src_adddrop, src_contracts). All 2026 figures here come from ups_* tables, the live worker API, and the daily snapshots instead."
+  ],
+  "entities": {
+    "owners": [
+      {
+        "key": "owner:bear-dunn",
+        "display": "Bear Dunn"
+      },
+      {
+        "key": "owner:brian-cross",
+        "display": "Brian Cross"
+      },
+      {
+        "key": "owner:brian-cutting",
+        "display": "Brian Cutting"
+      },
+      {
+        "key": "owner:chris-klingenberg",
+        "display": "Chris Klingenberg"
+      },
+      {
+        "key": "owner:derrick-whitman",
+        "display": "Derrick Whitman"
+      },
+      {
+        "key": "owner:eric-mannila",
+        "display": "Eric Mannila"
+      },
+      {
+        "key": "owner:eric-martel",
+        "display": "Eric Martel"
+      },
+      {
+        "key": "owner:josh-martel",
+        "display": "Josh Martel"
+      },
+      {
+        "key": "owner:keith-creelman",
+        "display": "Keith Creelman"
+      },
+      {
+        "key": "owner:matt-gerardi",
+        "display": "Matt Gerardi"
+      },
+      {
+        "key": "owner:ryan-bousquet",
+        "display": "Ryan Bousquet"
+      },
+      {
+        "key": "owner:shawn-blake",
+        "display": "Shawn Blake"
+      }
+    ],
+    "franchises": [
+      {
+        "season": 2026,
+        "franchiseId": "0001",
+        "ownerKey": "owner:ryan-bousquet",
+        "name": "L.A. Looks",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0002",
+        "ownerKey": "owner:derrick-whitman",
+        "name": "CBP",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0003",
+        "ownerKey": "owner:matt-gerardi",
+        "name": "Gride",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0004",
+        "ownerKey": "owner:brian-cutting",
+        "name": "Pure Greatness",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0005",
+        "ownerKey": "owner:eric-martel",
+        "name": "HammerTime 🔨 ⏰",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0006",
+        "ownerKey": "owner:brian-cross",
+        "name": "The Long Haulers",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0007",
+        "ownerKey": "owner:josh-martel",
+        "name": "Sex Manther",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0008",
+        "ownerKey": "owner:keith-creelman",
+        "name": "Real Deal Creel",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0009",
+        "ownerKey": "owner:bear-dunn",
+        "name": "C-Town Chivalry",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0010",
+        "ownerKey": "owner:shawn-blake",
+        "name": "Blake Bombers",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0011",
+        "ownerKey": "owner:eric-mannila",
+        "name": "Cleon Ca$h",
+        "attributionSource": "src_franchises"
+      },
+      {
+        "season": 2026,
+        "franchiseId": "0012",
+        "ownerKey": "owner:chris-klingenberg",
+        "name": "Hawks",
+        "attributionSource": "src_franchises"
+      }
+    ]
+  },
+  "facts": [
+    {
+      "id": "f.auction.contested_lots",
+      "label": "Lots with more than one bidder",
+      "value": 67,
+      "unit": "count",
+      "fmt": "67",
+      "source": "GET /api/auction/lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.auction.finalized_contracts",
+      "label": "Finalized auction contracts",
+      "value": 153,
+      "unit": "count",
+      "fmt": "153",
+      "source": "ups_auction_contract_finalizations",
+      "asof": "live"
+    },
+    {
+      "id": "f.auction.lots_open",
+      "label": "Lots still open",
+      "value": 10,
+      "unit": "count",
+      "fmt": "10",
+      "source": "GET /api/auction/lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.auction.lots_won",
+      "label": "Lots won so far",
+      "value": 167,
+      "unit": "count",
+      "fmt": "167",
+      "source": "GET /api/auction/lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.auction.median_price",
+      "label": "Median winning bid",
+      "value": 2000,
+      "unit": "usd",
+      "fmt": "$2,000",
+      "source": "GET /api/auction/lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.auction.min_price_lots",
+      "label": "Lots won at the $1K opening bid",
+      "value": 76,
+      "unit": "count",
+      "fmt": "76",
+      "source": "GET /api/auction/lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.auction.top_price",
+      "label": "Highest winning bid",
+      "value": 88000,
+      "unit": "usd",
+      "fmt": "$88,000",
+      "source": "GET /api/auction/lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.auction.total_bids",
+      "label": "Bids placed",
+      "value": 547,
+      "unit": "count",
+      "fmt": "547",
+      "source": "GET /api/auction/lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.auction.total_spend",
+      "label": "Total auction spend",
+      "value": 1315000,
+      "unit": "usd",
+      "fmt": "$1,315,000",
+      "source": "GET /api/auction/lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.cap.median_room",
+      "label": "Median cap room",
+      "value": 18000,
+      "unit": "usd",
+      "fmt": "$18,000",
+      "source": "GET /api/auction/compliance",
+      "asof": "live"
+    },
+    {
+      "id": "f.cap.most_room",
+      "label": "Most cap room",
+      "value": 30000,
+      "unit": "usd",
+      "fmt": "$30,000",
+      "source": "GET /api/auction/compliance",
+      "asof": "live"
+    },
+    {
+      "id": "f.cap.tightest_room",
+      "label": "Least cap room",
+      "value": 3000,
+      "unit": "usd",
+      "fmt": "$3,000",
+      "source": "GET /api/auction/compliance",
+      "asof": "live"
+    },
+    {
+      "id": "f.cap.total_committed",
+      "label": "League-wide cap committed",
+      "value": 3405000,
+      "unit": "usd",
+      "fmt": "$3,405,000",
+      "source": "GET /api/auction/compliance",
+      "asof": "live"
+    },
+    {
+      "id": "f.draft.picks",
+      "label": "Rookie draft picks made",
+      "value": 72,
+      "unit": "count",
+      "fmt": "72",
+      "source": "src_draft_picks",
+      "asof": "2026"
+    },
+    {
+      "id": "f.drops.count",
+      "label": "Players cut",
+      "value": 28,
+      "unit": "count",
+      "fmt": "28",
+      "source": "ups_drop_events",
+      "asof": "2026"
+    },
+    {
+      "id": "f.moves.back_loaded",
+      "label": "Back-loaded contracts",
+      "value": 15,
+      "unit": "count",
+      "fmt": "15",
+      "source": "contract_activity_2026.json",
+      "asof": "live"
+    },
+    {
+      "id": "f.moves.extension",
+      "label": "Extension count",
+      "value": 20,
+      "unit": "count",
+      "fmt": "20",
+      "source": "contract_activity_2026.json",
+      "asof": "live"
+    },
+    {
+      "id": "f.moves.fa_contract",
+      "label": "FA Contract count",
+      "value": 11,
+      "unit": "count",
+      "fmt": "11",
+      "source": "contract_activity_2026.json",
+      "asof": "live"
+    },
+    {
+      "id": "f.moves.front_loaded",
+      "label": "Front-loaded contracts",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4",
+      "source": "contract_activity_2026.json",
+      "asof": "live"
+    },
+    {
+      "id": "f.moves.multi_year_contract",
+      "label": "Multi-Year Contract count",
+      "value": 24,
+      "unit": "count",
+      "fmt": "24",
+      "source": "contract_activity_2026.json",
+      "asof": "live"
+    },
+    {
+      "id": "f.moves.mym",
+      "label": "MYM count",
+      "value": 1,
+      "unit": "count",
+      "fmt": "1",
+      "source": "contract_activity_2026.json",
+      "asof": "live"
+    },
+    {
+      "id": "f.moves.restructure",
+      "label": "Restructure count",
+      "value": 13,
+      "unit": "count",
+      "fmt": "13",
+      "source": "contract_activity_2026.json",
+      "asof": "live"
+    },
+    {
+      "id": "f.moves.submissions",
+      "label": "Contract submissions logged (includes revisions)",
+      "value": 102,
+      "unit": "count",
+      "fmt": "102",
+      "source": "contract_activity_2026.json",
+      "asof": "live"
+    },
+    {
+      "id": "f.moves.tag",
+      "label": "Tag count",
+      "value": 6,
+      "unit": "count",
+      "fmt": "6",
+      "source": "contract_activity_2026.json",
+      "asof": "live"
+    },
+    {
+      "id": "f.moves.total",
+      "label": "Distinct contract outcomes",
+      "value": 75,
+      "unit": "count",
+      "fmt": "75",
+      "source": "contract_activity_2026.json",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0001.active",
+      "label": "Ryan Bousquet -- active roster size",
+      "value": 35,
+      "unit": "count",
+      "fmt": "35",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0001.auction_spend",
+      "label": "Ryan Bousquet -- auction spend",
+      "value": 139000,
+      "unit": "usd",
+      "fmt": "$139,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0001.cap_room",
+      "label": "Ryan Bousquet -- cap room",
+      "value": 27000,
+      "unit": "usd",
+      "fmt": "$27,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0001.cap_spent",
+      "label": "Ryan Bousquet -- cap committed",
+      "value": 273000,
+      "unit": "usd",
+      "fmt": "$273,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0001.lots_won",
+      "label": "Ryan Bousquet -- lots won",
+      "value": 18,
+      "unit": "count",
+      "fmt": "18",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0001.moves",
+      "label": "Ryan Bousquet -- contract moves",
+      "value": 3,
+      "unit": "count",
+      "fmt": "3",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0002.active",
+      "label": "Derrick Whitman -- active roster size",
+      "value": 25,
+      "unit": "count",
+      "fmt": "25",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0002.auction_spend",
+      "label": "Derrick Whitman -- auction spend",
+      "value": 162000,
+      "unit": "usd",
+      "fmt": "$162,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0002.cap_room",
+      "label": "Derrick Whitman -- cap room",
+      "value": 22000,
+      "unit": "usd",
+      "fmt": "$22,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0002.cap_spent",
+      "label": "Derrick Whitman -- cap committed",
+      "value": 278000,
+      "unit": "usd",
+      "fmt": "$278,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0002.lots_won",
+      "label": "Derrick Whitman -- lots won",
+      "value": 13,
+      "unit": "count",
+      "fmt": "13",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0002.moves",
+      "label": "Derrick Whitman -- contract moves",
+      "value": 3,
+      "unit": "count",
+      "fmt": "3",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0003.active",
+      "label": "Matt Gerardi -- active roster size",
+      "value": 25,
+      "unit": "count",
+      "fmt": "25",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0003.auction_spend",
+      "label": "Matt Gerardi -- auction spend",
+      "value": 95000,
+      "unit": "usd",
+      "fmt": "$95,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0003.cap_room",
+      "label": "Matt Gerardi -- cap room",
+      "value": 22000,
+      "unit": "usd",
+      "fmt": "$22,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0003.cap_spent",
+      "label": "Matt Gerardi -- cap committed",
+      "value": 278000,
+      "unit": "usd",
+      "fmt": "$278,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0003.lots_won",
+      "label": "Matt Gerardi -- lots won",
+      "value": 10,
+      "unit": "count",
+      "fmt": "10",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0003.moves",
+      "label": "Matt Gerardi -- contract moves",
+      "value": 5,
+      "unit": "count",
+      "fmt": "5",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0004.active",
+      "label": "Brian Cutting -- active roster size",
+      "value": 28,
+      "unit": "count",
+      "fmt": "28",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0004.auction_spend",
+      "label": "Brian Cutting -- auction spend",
+      "value": 46000,
+      "unit": "usd",
+      "fmt": "$46,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0004.cap_room",
+      "label": "Brian Cutting -- cap room",
+      "value": 14000,
+      "unit": "usd",
+      "fmt": "$14,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0004.cap_spent",
+      "label": "Brian Cutting -- cap committed",
+      "value": 286000,
+      "unit": "usd",
+      "fmt": "$286,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0004.lots_won",
+      "label": "Brian Cutting -- lots won",
+      "value": 13,
+      "unit": "count",
+      "fmt": "13",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0004.moves",
+      "label": "Brian Cutting -- contract moves",
+      "value": 3,
+      "unit": "count",
+      "fmt": "3",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0005.active",
+      "label": "Eric Martel -- active roster size",
+      "value": 31,
+      "unit": "count",
+      "fmt": "31",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0005.auction_spend",
+      "label": "Eric Martel -- auction spend",
+      "value": 66000,
+      "unit": "usd",
+      "fmt": "$66,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0005.cap_room",
+      "label": "Eric Martel -- cap room",
+      "value": 3000,
+      "unit": "usd",
+      "fmt": "$3,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0005.cap_spent",
+      "label": "Eric Martel -- cap committed",
+      "value": 297000,
+      "unit": "usd",
+      "fmt": "$297,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0005.lots_won",
+      "label": "Eric Martel -- lots won",
+      "value": 13,
+      "unit": "count",
+      "fmt": "13",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0005.moves",
+      "label": "Eric Martel -- contract moves",
+      "value": 5,
+      "unit": "count",
+      "fmt": "5",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0006.active",
+      "label": "Brian Cross -- active roster size",
+      "value": 35,
+      "unit": "count",
+      "fmt": "35",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0006.auction_spend",
+      "label": "Brian Cross -- auction spend",
+      "value": 39000,
+      "unit": "usd",
+      "fmt": "$39,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0006.cap_room",
+      "label": "Brian Cross -- cap room",
+      "value": 5000,
+      "unit": "usd",
+      "fmt": "$5,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0006.cap_spent",
+      "label": "Brian Cross -- cap committed",
+      "value": 295000,
+      "unit": "usd",
+      "fmt": "$295,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0006.lots_won",
+      "label": "Brian Cross -- lots won",
+      "value": 15,
+      "unit": "count",
+      "fmt": "15",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0006.moves",
+      "label": "Brian Cross -- contract moves",
+      "value": 11,
+      "unit": "count",
+      "fmt": "11",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0007.active",
+      "label": "Josh Martel -- active roster size",
+      "value": 35,
+      "unit": "count",
+      "fmt": "35",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0007.auction_spend",
+      "label": "Josh Martel -- auction spend",
+      "value": 154000,
+      "unit": "usd",
+      "fmt": "$154,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0007.cap_room",
+      "label": "Josh Martel -- cap room",
+      "value": 30000,
+      "unit": "usd",
+      "fmt": "$30,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0007.cap_spent",
+      "label": "Josh Martel -- cap committed",
+      "value": 270000,
+      "unit": "usd",
+      "fmt": "$270,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0007.lots_won",
+      "label": "Josh Martel -- lots won",
+      "value": 15,
+      "unit": "count",
+      "fmt": "15",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0007.moves",
+      "label": "Josh Martel -- contract moves",
+      "value": 7,
+      "unit": "count",
+      "fmt": "7",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0008.active",
+      "label": "Keith Creelman -- active roster size",
+      "value": 32,
+      "unit": "count",
+      "fmt": "32",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0008.auction_spend",
+      "label": "Keith Creelman -- auction spend",
+      "value": 195000,
+      "unit": "usd",
+      "fmt": "$195,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0008.cap_room",
+      "label": "Keith Creelman -- cap room",
+      "value": 23000,
+      "unit": "usd",
+      "fmt": "$23,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0008.cap_spent",
+      "label": "Keith Creelman -- cap committed",
+      "value": 277000,
+      "unit": "usd",
+      "fmt": "$277,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0008.lots_won",
+      "label": "Keith Creelman -- lots won",
+      "value": 21,
+      "unit": "count",
+      "fmt": "21",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0008.moves",
+      "label": "Keith Creelman -- contract moves",
+      "value": 17,
+      "unit": "count",
+      "fmt": "17",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0009.active",
+      "label": "Bear Dunn -- active roster size",
+      "value": 32,
+      "unit": "count",
+      "fmt": "32",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0009.auction_spend",
+      "label": "Bear Dunn -- auction spend",
+      "value": 154000,
+      "unit": "usd",
+      "fmt": "$154,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0009.cap_room",
+      "label": "Bear Dunn -- cap room",
+      "value": 8000,
+      "unit": "usd",
+      "fmt": "$8,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0009.cap_spent",
+      "label": "Bear Dunn -- cap committed",
+      "value": 292000,
+      "unit": "usd",
+      "fmt": "$292,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0009.lots_won",
+      "label": "Bear Dunn -- lots won",
+      "value": 18,
+      "unit": "count",
+      "fmt": "18",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0009.moves",
+      "label": "Bear Dunn -- contract moves",
+      "value": 6,
+      "unit": "count",
+      "fmt": "6",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0010.active",
+      "label": "Shawn Blake -- active roster size",
+      "value": 35,
+      "unit": "count",
+      "fmt": "35",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0010.auction_spend",
+      "label": "Shawn Blake -- auction spend",
+      "value": 131000,
+      "unit": "usd",
+      "fmt": "$131,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0010.cap_room",
+      "label": "Shawn Blake -- cap room",
+      "value": 6000,
+      "unit": "usd",
+      "fmt": "$6,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0010.cap_spent",
+      "label": "Shawn Blake -- cap committed",
+      "value": 294000,
+      "unit": "usd",
+      "fmt": "$294,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0010.lots_won",
+      "label": "Shawn Blake -- lots won",
+      "value": 13,
+      "unit": "count",
+      "fmt": "13",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0010.moves",
+      "label": "Shawn Blake -- contract moves",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0011.active",
+      "label": "Eric Mannila -- active roster size",
+      "value": 26,
+      "unit": "count",
+      "fmt": "26",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0011.auction_spend",
+      "label": "Eric Mannila -- auction spend",
+      "value": 28000,
+      "unit": "usd",
+      "fmt": "$28,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0011.cap_room",
+      "label": "Eric Mannila -- cap room",
+      "value": 17000,
+      "unit": "usd",
+      "fmt": "$17,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0011.cap_spent",
+      "label": "Eric Mannila -- cap committed",
+      "value": 283000,
+      "unit": "usd",
+      "fmt": "$283,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0011.lots_won",
+      "label": "Eric Mannila -- lots won",
+      "value": 7,
+      "unit": "count",
+      "fmt": "7",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0011.moves",
+      "label": "Eric Mannila -- contract moves",
+      "value": 7,
+      "unit": "count",
+      "fmt": "7",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0012.active",
+      "label": "Chris Klingenberg -- active roster size",
+      "value": 32,
+      "unit": "count",
+      "fmt": "32",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0012.auction_spend",
+      "label": "Chris Klingenberg -- auction spend",
+      "value": 106000,
+      "unit": "usd",
+      "fmt": "$106,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0012.cap_room",
+      "label": "Chris Klingenberg -- cap room",
+      "value": 18000,
+      "unit": "usd",
+      "fmt": "$18,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0012.cap_spent",
+      "label": "Chris Klingenberg -- cap committed",
+      "value": 282000,
+      "unit": "usd",
+      "fmt": "$282,000",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0012.lots_won",
+      "label": "Chris Klingenberg -- lots won",
+      "value": 11,
+      "unit": "count",
+      "fmt": "11",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.team.0012.moves",
+      "label": "Chris Klingenberg -- contract moves",
+      "value": 4,
+      "unit": "count",
+      "fmt": "4",
+      "source": "GET /api/auction/compliance + lots",
+      "asof": "live"
+    },
+    {
+      "id": "f.trades.count",
+      "label": "Trades completed",
+      "value": 17,
+      "unit": "count",
+      "fmt": "17",
+      "source": "ups_transactions",
+      "asof": "2026"
+    }
+  ],
+  "tables": [
+    {
+      "id": "t.auction_by_team",
+      "title": "Auction spend by owner",
+      "columns": [
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "lots",
+          "label": "Lots won",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "spend",
+          "label": "Spent",
+          "type": "usd",
+          "align": "right"
+        },
+        {
+          "key": "top",
+          "label": "Top buy",
+          "type": "usd",
+          "align": "right"
+        },
+        {
+          "key": "avg",
+          "label": "Average",
+          "type": "usd",
+          "align": "right"
+        }
+      ],
+      "rows": [
+        [
+          "Keith Creelman",
+          21,
+          195000,
+          63000,
+          9285
+        ],
+        [
+          "Derrick Whitman",
+          13,
+          162000,
+          55000,
+          12461
+        ],
+        [
+          "Josh Martel",
+          15,
+          154000,
+          62000,
+          10266
+        ],
+        [
+          "Bear Dunn",
+          18,
+          154000,
+          63000,
+          8555
+        ],
+        [
+          "Ryan Bousquet",
+          18,
+          139000,
+          48000,
+          7722
+        ],
+        [
+          "Shawn Blake",
+          13,
+          131000,
+          88000,
+          10076
+        ],
+        [
+          "Chris Klingenberg",
+          11,
+          106000,
+          38000,
+          9636
+        ],
+        [
+          "Matt Gerardi",
+          10,
+          95000,
+          48000,
+          9500
+        ],
+        [
+          "Eric Martel",
+          13,
+          66000,
+          30000,
+          5076
+        ],
+        [
+          "Brian Cutting",
+          13,
+          46000,
+          14000,
+          3538
+        ],
+        [
+          "Brian Cross",
+          15,
+          39000,
+          8000,
+          2600
+        ],
+        [
+          "Eric Mannila",
+          7,
+          28000,
+          15000,
+          4000
+        ]
+      ],
+      "note": null
+    },
+    {
+      "id": "t.cap_sheet",
+      "title": "Where the twelve stand",
+      "columns": [
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "team",
+          "label": "Team",
+          "type": "text"
+        },
+        {
+          "key": "open_salary",
+          "label": "Roster salary 2026-04-21",
+          "type": "usd",
+          "align": "right"
+        },
+        {
+          "key": "cap_spent",
+          "label": "Cap committed now",
+          "type": "usd",
+          "align": "right"
+        },
+        {
+          "key": "cap_room",
+          "label": "Room",
+          "type": "usd",
+          "align": "right"
+        },
+        {
+          "key": "active",
+          "label": "Active",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "taxi",
+          "label": "Taxi",
+          "type": "count",
+          "align": "right"
+        }
+      ],
+      "rows": [
+        [
+          "Eric Martel",
+          "HammerTime 🔨 ⏰",
+          219000,
+          297000,
+          3000,
+          31,
+          10
+        ],
+        [
+          "Brian Cross",
+          "The Long Haulers",
+          270000,
+          295000,
+          5000,
+          35,
+          10
+        ],
+        [
+          "Shawn Blake",
+          "Blake Bombers",
+          134000,
+          294000,
+          6000,
+          35,
+          10
+        ],
+        [
+          "Bear Dunn",
+          "C-Town Chivalry",
+          215000,
+          292000,
+          8000,
+          32,
+          7
+        ],
+        [
+          "Brian Cutting",
+          "Pure Greatness",
+          236000,
+          286000,
+          14000,
+          28,
+          10
+        ],
+        [
+          "Eric Mannila",
+          "Cleon Ca$h",
+          231000,
+          283000,
+          17000,
+          26,
+          10
+        ],
+        [
+          "Chris Klingenberg",
+          "Hawks",
+          142000,
+          282000,
+          18000,
+          32,
+          7
+        ],
+        [
+          "Derrick Whitman",
+          "CBP",
+          132000,
+          278000,
+          22000,
+          25,
+          7
+        ],
+        [
+          "Matt Gerardi",
+          "Gride",
+          154000,
+          278000,
+          22000,
+          25,
+          10
+        ],
+        [
+          "Keith Creelman",
+          "Real Deal Creel",
+          62000,
+          277000,
+          23000,
+          32,
+          3
+        ],
+        [
+          "Ryan Bousquet",
+          "L.A. Looks",
+          84000,
+          273000,
+          27000,
+          35,
+          10
+        ],
+        [
+          "Josh Martel",
+          "Sex Manther",
+          277000,
+          270000,
+          30000,
+          35,
+          10
+        ]
+      ],
+      "note": "Opening column is active-roster salary only and excludes salaryAdjustments."
+    },
+    {
+      "id": "t.moves_by_team",
+      "title": "What each team actually did",
+      "columns": [
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "text"
+        },
+        {
+          "key": "Extension",
+          "label": "Extension",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "Multi-Year Contract",
+          "label": "Multi-Year Contract",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "MYM",
+          "label": "MYM",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "Restructure",
+          "label": "Restructure",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "Tag",
+          "label": "Tag",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "FA Contract",
+          "label": "FA Contract",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "fl",
+          "label": "FL",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "bl",
+          "label": "BL",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "picks",
+          "label": "Picks",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "drops",
+          "label": "Cuts",
+          "type": "count",
+          "align": "right"
+        }
+      ],
+      "rows": [
+        [
+          "Keith Creelman",
+          6,
+          4,
+          0,
+          2,
+          1,
+          4,
+          0,
+          4,
+          5,
+          4
+        ],
+        [
+          "Brian Cross",
+          1,
+          8,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          7,
+          7
+        ],
+        [
+          "Josh Martel",
+          2,
+          2,
+          0,
+          2,
+          1,
+          0,
+          1,
+          2,
+          7,
+          3
+        ],
+        [
+          "Eric Mannila",
+          2,
+          2,
+          0,
+          2,
+          0,
+          1,
+          1,
+          1,
+          7,
+          1
+        ],
+        [
+          "Bear Dunn",
+          2,
+          1,
+          0,
+          1,
+          0,
+          2,
+          1,
+          2,
+          2,
+          4
+        ],
+        [
+          "Matt Gerardi",
+          2,
+          1,
+          0,
+          1,
+          1,
+          0,
+          1,
+          0,
+          10,
+          1
+        ],
+        [
+          "Eric Martel",
+          1,
+          3,
+          0,
+          0,
+          1,
+          0,
+          0,
+          1,
+          4,
+          1
+        ],
+        [
+          "Shawn Blake",
+          2,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          6,
+          4
+        ],
+        [
+          "Chris Klingenberg",
+          0,
+          3,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          7,
+          1
+        ],
+        [
+          "Ryan Bousquet",
+          1,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          6,
+          0
+        ],
+        [
+          "Derrick Whitman",
+          1,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          2,
+          6,
+          0
+        ],
+        [
+          "Brian Cutting",
+          0,
+          0,
+          1,
+          0,
+          1,
+          1,
+          0,
+          2,
+          5,
+          2
+        ]
+      ],
+      "note": null
+    },
+    {
+      "id": "t.top_buys",
+      "title": "The fifteen most expensive players",
+      "columns": [
+        {
+          "key": "player",
+          "label": "Player",
+          "type": "text"
+        },
+        {
+          "key": "pos",
+          "label": "Pos",
+          "type": "text"
+        },
+        {
+          "key": "owner",
+          "label": "Won by",
+          "type": "text"
+        },
+        {
+          "key": "price",
+          "label": "Price",
+          "type": "usd",
+          "align": "right"
+        },
+        {
+          "key": "bids",
+          "label": "Bids",
+          "type": "count",
+          "align": "right"
+        },
+        {
+          "key": "bidders",
+          "label": "Bidders",
+          "type": "count",
+          "align": "right"
+        }
+      ],
+      "rows": [
+        [
+          "Josh Allen",
+          "QB",
+          "Shawn Blake",
+          88000,
+          15,
+          5
+        ],
+        [
+          "Dak Prescott",
+          "QB",
+          "Keith Creelman",
+          63000,
+          15,
+          4
+        ],
+        [
+          "Christian McCaffrey",
+          "RB",
+          "Bear Dunn",
+          63000,
+          17,
+          5
+        ],
+        [
+          "Lamar Jackson",
+          "QB",
+          "Josh Martel",
+          62000,
+          12,
+          4
+        ],
+        [
+          "Joe Burrow",
+          "QB",
+          "Bear Dunn",
+          58000,
+          11,
+          5
+        ],
+        [
+          "Jonathan Taylor",
+          "RB",
+          "Derrick Whitman",
+          55000,
+          12,
+          5
+        ],
+        [
+          "George Pickens",
+          "WR",
+          "Ryan Bousquet",
+          48000,
+          11,
+          2
+        ],
+        [
+          "Patrick Mahomes",
+          "QB",
+          "Matt Gerardi",
+          48000,
+          8,
+          4
+        ],
+        [
+          "Saquon Barkley",
+          "RB",
+          "Keith Creelman",
+          45000,
+          10,
+          4
+        ],
+        [
+          "Malik Willis",
+          "QB",
+          "Matt Gerardi",
+          39000,
+          14,
+          5
+        ],
+        [
+          "Jared Goff",
+          "QB",
+          "Chris Klingenberg",
+          38000,
+          12,
+          5
+        ],
+        [
+          "Matthew Stafford",
+          "QB",
+          "Chris Klingenberg",
+          33000,
+          6,
+          3
+        ],
+        [
+          "Kyler Murray",
+          "QB",
+          "Keith Creelman",
+          32000,
+          9,
+          5
+        ],
+        [
+          "Josh Jacobs",
+          "RB",
+          "Eric Martel",
+          30000,
+          8,
+          3
+        ],
+        [
+          "Jaylen Waddle",
+          "WR",
+          "Josh Martel",
+          30000,
+          6,
+          1
+        ]
+      ],
+      "note": null
+    }
+  ],
+  "charts": [
+    {
+      "id": "c.auction_spend",
+      "kind": "hbar",
+      "title": "Auction spend by owner",
+      "series": [
+        {
+          "label": "Keith Creelman",
+          "value": 195000,
+          "accent": "gold"
+        },
+        {
+          "label": "Derrick Whitman",
+          "value": 162000,
+          "accent": null
+        },
+        {
+          "label": "Josh Martel",
+          "value": 154000,
+          "accent": null
+        },
+        {
+          "label": "Bear Dunn",
+          "value": 154000,
+          "accent": null
+        },
+        {
+          "label": "Ryan Bousquet",
+          "value": 139000,
+          "accent": null
+        },
+        {
+          "label": "Shawn Blake",
+          "value": 131000,
+          "accent": null
+        },
+        {
+          "label": "Chris Klingenberg",
+          "value": 106000,
+          "accent": null
+        },
+        {
+          "label": "Matt Gerardi",
+          "value": 95000,
+          "accent": null
+        },
+        {
+          "label": "Eric Martel",
+          "value": 66000,
+          "accent": null
+        },
+        {
+          "label": "Brian Cutting",
+          "value": 46000,
+          "accent": null
+        },
+        {
+          "label": "Brian Cross",
+          "value": 39000,
+          "accent": null
+        },
+        {
+          "label": "Eric Mannila",
+          "value": 28000,
+          "accent": null
+        }
+      ],
+      "axis": {
+        "unit": "usd",
+        "max": 195000
+      },
+      "altText": "Horizontal bars of auction spend by owner, highest first. Top spender Keith Creelman at $195,000; lowest Eric Mannila at $28,000."
+    },
+    {
+      "id": "c.cap_room",
+      "kind": "hbar",
+      "title": "Cap room remaining",
+      "series": [
+        {
+          "label": "Josh Martel",
+          "value": 30000
+        },
+        {
+          "label": "Ryan Bousquet",
+          "value": 27000
+        },
+        {
+          "label": "Keith Creelman",
+          "value": 23000
+        },
+        {
+          "label": "Derrick Whitman",
+          "value": 22000
+        },
+        {
+          "label": "Matt Gerardi",
+          "value": 22000
+        },
+        {
+          "label": "Chris Klingenberg",
+          "value": 18000
+        },
+        {
+          "label": "Eric Mannila",
+          "value": 17000
+        },
+        {
+          "label": "Brian Cutting",
+          "value": 14000
+        },
+        {
+          "label": "Bear Dunn",
+          "value": 8000
+        },
+        {
+          "label": "Shawn Blake",
+          "value": 6000
+        },
+        {
+          "label": "Brian Cross",
+          "value": 5000
+        },
+        {
+          "label": "Eric Martel",
+          "value": 3000
+        }
+      ],
+      "axis": {
+        "unit": "usd",
+        "max": 30000
+      },
+      "altText": "Horizontal bars of remaining cap room by owner, most first."
+    }
+  ],
+  "sections": [
+    {
+      "id": "s1",
+      "title": "The Cap Sheet",
+      "brief": "Where the twelve teams stand on money right now, and how that compares with the earliest snapshot of the off-season. Name the extremes; do not imply the two columns are subtractable.",
+      "factIds": [
+        "f.cap.median_room",
+        "f.cap.most_room",
+        "f.cap.tightest_room",
+        "f.cap.total_committed"
+      ],
+      "tableIds": [
+        "t.cap_sheet"
+      ],
+      "chartIds": [
+        "c.cap_room"
+      ]
+    },
+    {
+      "id": "s2",
+      "title": "The Auction",
+      "brief": "The comprehensive auction breakdown: what went for what, who spent, which lots were contested and which went at the floor. State plainly that it is not over.",
+      "factIds": [
+        "f.auction.contested_lots",
+        "f.auction.finalized_contracts",
+        "f.auction.lots_open",
+        "f.auction.lots_won",
+        "f.auction.median_price",
+        "f.auction.min_price_lots",
+        "f.auction.top_price",
+        "f.auction.total_bids",
+        "f.auction.total_spend"
+      ],
+      "tableIds": [
+        "t.auction_by_team",
+        "t.top_buys"
+      ],
+      "chartIds": [
+        "c.auction_spend"
+      ]
+    },
+    {
+      "id": "s3",
+      "title": "Twelve Verdicts",
+      "brief": "One card per owner: where they started, what they did, where they landed. Every number cited must be a per-team fact token.",
+      "factIds": [
+        "f.team.0001.active",
+        "f.team.0001.auction_spend",
+        "f.team.0001.cap_room",
+        "f.team.0001.cap_spent",
+        "f.team.0001.lots_won",
+        "f.team.0001.moves",
+        "f.team.0002.active",
+        "f.team.0002.auction_spend",
+        "f.team.0002.cap_room",
+        "f.team.0002.cap_spent",
+        "f.team.0002.lots_won",
+        "f.team.0002.moves",
+        "f.team.0003.active",
+        "f.team.0003.auction_spend",
+        "f.team.0003.cap_room",
+        "f.team.0003.cap_spent",
+        "f.team.0003.lots_won",
+        "f.team.0003.moves",
+        "f.team.0004.active",
+        "f.team.0004.auction_spend",
+        "f.team.0004.cap_room",
+        "f.team.0004.cap_spent",
+        "f.team.0004.lots_won",
+        "f.team.0004.moves",
+        "f.team.0005.active",
+        "f.team.0005.auction_spend",
+        "f.team.0005.cap_room",
+        "f.team.0005.cap_spent",
+        "f.team.0005.lots_won",
+        "f.team.0005.moves",
+        "f.team.0006.active",
+        "f.team.0006.auction_spend",
+        "f.team.0006.cap_room",
+        "f.team.0006.cap_spent",
+        "f.team.0006.lots_won",
+        "f.team.0006.moves",
+        "f.team.0007.active",
+        "f.team.0007.auction_spend",
+        "f.team.0007.cap_room",
+        "f.team.0007.cap_spent",
+        "f.team.0007.lots_won",
+        "f.team.0007.moves",
+        "f.team.0008.active",
+        "f.team.0008.auction_spend",
+        "f.team.0008.cap_room",
+        "f.team.0008.cap_spent",
+        "f.team.0008.lots_won",
+        "f.team.0008.moves",
+        "f.team.0009.active",
+        "f.team.0009.auction_spend",
+        "f.team.0009.cap_room",
+        "f.team.0009.cap_spent",
+        "f.team.0009.lots_won",
+        "f.team.0009.moves",
+        "f.team.0010.active",
+        "f.team.0010.auction_spend",
+        "f.team.0010.cap_room",
+        "f.team.0010.cap_spent",
+        "f.team.0010.lots_won",
+        "f.team.0010.moves",
+        "f.team.0011.active",
+        "f.team.0011.auction_spend",
+        "f.team.0011.cap_room",
+        "f.team.0011.cap_spent",
+        "f.team.0011.lots_won",
+        "f.team.0011.moves",
+        "f.team.0012.active",
+        "f.team.0012.auction_spend",
+        "f.team.0012.cap_room",
+        "f.team.0012.cap_spent",
+        "f.team.0012.lots_won",
+        "f.team.0012.moves"
+      ],
+      "tableIds": [
+        "t.moves_by_team"
+      ],
+      "chartIds": []
+    },
+    {
+      "id": "s4",
+      "title": "The Off-Season in Aggregate",
+      "brief": "League-wide move counts: extensions, multi-year deals, restructures, tags, front- and back-loading, the draft, trades and cuts.",
+      "factIds": [
+        "f.draft.picks",
+        "f.drops.count",
+        "f.moves.back_loaded",
+        "f.moves.extension",
+        "f.moves.fa_contract",
+        "f.moves.front_loaded",
+        "f.moves.multi_year_contract",
+        "f.moves.mym",
+        "f.moves.restructure",
+        "f.moves.submissions",
+        "f.moves.tag",
+        "f.moves.total",
+        "f.trades.count"
+      ],
+      "tableIds": [
+        "t.moves_by_team"
+      ],
+      "chartIds": []
+    },
+    {
+      "id": "s5",
+      "title": "What Does Not Fit",
+      "brief": "The honest limits: the open auction lots, the won-versus-finalized gap, the snapshot start date, and the 2026 history-table cliff. Render warnings[] here.",
+      "factIds": [],
+      "tableIds": [],
+      "chartIds": []
+    }
+  ]
+}

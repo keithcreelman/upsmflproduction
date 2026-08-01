@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPECIMEN: Pre-Season Review — UPS Wire</title>
+<!--wire-meta
+  Everything index.json needs that the markup cannot express.
+  Lives in the article so metadata travels with the file to all three surfaces.
+  Rebuild the index with: python pipelines/etl/wire/wire.py index
+  familyId: season-review
+  season: 2026
+  week: 
+  status: live
+  publishedAt: 2026-07-28T00:00:00Z
+  tags: specimen, auction, cap
+  heroValue: 12
+  heroLabel: verdicts
+-->
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-c743ec11">
+/* GENERATED - do not edit here.
+   Source: site/wire/wire_tokens.css + site/wire/wire_article.css
+   data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
+   recomputes it and fails any article whose stamp has gone stale.
+   Regenerate: python pipelines/etl/wire/wire.py restyle */
+/* UPS Wire — design tokens. SINGLE SOURCE OF TRUTH for the almanac look.
+ *
+ * Ported from docs/design/ups_nfl_comps_reference.html (lines 4-49) — the
+ * piece Keith signed off on. Deliberately NOT the standard hub palette
+ * (#0b0f18 / #5b8dff) that auction/gameday/commish use.
+ *
+ * This file + wire_article.css are INLINED into every article at build time
+ * so an article stays self-contained (it renders inside MFL, at its own Pages
+ * URL, and as a Claude Artifact with no network access). Keep this file small
+ * and stable — every byte here is paid for once per article.
+ *
+ * RULES (see site/wire/README.md):
+ *   - No vh/svh/dvh units. Inside an auto-sized iframe 100vh equals the height
+ *     we just set, so the frame grows on every beacon tick, forever. vw is fine.
+ *   - No webfonts. System stack only.
+ *
+ * Both the prefers-color-scheme media query AND the [data-theme] overrides are
+ * load-bearing: standalone honors the OS, but embedded in MFL we force dark via
+ * data-theme (a cream article inside a dark MFL page looks broken).
+ */
+
+:root {
+  --ground: #0C1310;
+  --surface: #141C18;
+  --surface-2: #1B241F;
+  --line: #2A352E;
+  --ink: #E8EDE9;
+  --ink-dim: #A3AFA8;
+  --ink-mute: #75837B;
+  --gold: #D6A24A;
+  --gold-dim: #8A6A31;
+  --brick: #C4574A;
+  --cool: #6E9C8A;
+
+  --display: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Arial Narrow", Arial, sans-serif;
+  --body: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --maxw: 62rem;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ground: #F2F1EC;
+    --surface: #FFFFFF;
+    --surface-2: #F7F6F1;
+    --line: #DCDAD1;
+    --ink: #16201A;
+    --ink-dim: #4A5750;
+    --ink-mute: #6E7A73;
+    --gold: #8A6212;
+    --gold-dim: #C6A66A;
+    --brick: #9E3A2E;
+    --cool: #3D6B58;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #0C1310; --surface: #141C18; --surface-2: #1B241F; --line: #2A352E;
+  --ink: #E8EDE9; --ink-dim: #A3AFA8; --ink-mute: #75837B;
+  --gold: #D6A24A; --gold-dim: #8A6A31; --brick: #C4574A; --cool: #6E9C8A;
+}
+
+:root[data-theme="light"] {
+  --ground: #F2F1EC; --surface: #FFFFFF; --surface-2: #F7F6F1; --line: #DCDAD1;
+  --ink: #16201A; --ink-dim: #4A5750; --ink-mute: #6E7A73;
+  --gold: #8A6212; --gold-dim: #C6A66A; --brick: #9E3A2E; --cool: #3D6B58;
+}
+
+/* The reference put min-height:100vh on .page. Dropped deliberately (see the
+   vh rule above); this fills the viewport standalone without the feedback loop. */
+html { background: var(--ground); }
+
+* { box-sizing: border-box; }
+
+/* UPS Wire — article components.
+ *
+ * Ported from docs/design/ups_nfl_comps_reference.html (lines 51-195), class
+ * names prefixed .wire- so nothing collides with MFL's own stylesheet or with
+ * another hub. Everything is scoped under .wire-page: this file is loaded by
+ * the shell too, and bare `table`/`ul`/`footer` selectors would leak into it.
+ *
+ * INLINED into every article at build time alongside wire_tokens.css. Same
+ * rules apply: no vh/svh/dvh units (vw is fine), no webfonts.
+ *
+ * The .wire-sec / .wire-paged / .wire-rail / .wire-topbar blocks at the bottom
+ * are new — they are the "flip through, don't jam it all on a page" machinery
+ * and the embedded-only Back bar. Everything above them is the reference.
+ */
+
+/* ---------- page frame ---------- */
+.wire-page {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--body);
+  line-height: 1.6;
+  padding: clamp(1rem, 4vw, 3rem) clamp(1rem, 5vw, 2rem) 5rem;
+}
+.wire-wrap { max-width: var(--maxw); margin: 0 auto; display: flex; flex-direction: column; gap: 2.5rem; }
+
+/* ---------- hero ---------- */
+.wire-hero { display: flex; flex-direction: column; gap: 0.9rem; }
+.wire-eyebrow {
+  font-family: var(--display);
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--gold);
+}
+.wire-page h1 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(2rem, 7vw, 3.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  margin: 0;
+}
+.wire-dek {
+  font-size: clamp(1rem, 2.4vw, 1.15rem);
+  color: var(--ink-dim);
+  max-width: 46ch;
+  margin: 0;
+}
+
+/* ---------- method / "how this was built" panel ---------- */
+.wire-method {
+  border-left: 3px solid var(--gold-dim);
+  background: var(--surface);
+  padding: 1rem 1.15rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+  font-size: 0.92rem;
+  color: var(--ink-dim);
+}
+.wire-method b { color: var(--ink); font-weight: 700; }
+.wire-method .wire-mh {
+  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
+}
+
+/* Collapsed by default. The caveat list grows with every data source added --
+   at nine notes it filled the first screen and buried the headline. Nothing is
+   hidden or paraphrased away; it is one click, and it prints expanded. */
+.wire-method summary.wire-mh { cursor: pointer; list-style: none; }
+.wire-method summary.wire-mh::-webkit-details-marker { display: none; }
+.wire-method summary.wire-mh::before {
+  content: "\25B8"; display: inline-block; margin-right: 0.45rem;
+  transition: transform 0.12s ease;
+}
+.wire-method details[open] > summary.wire-mh::before { transform: rotate(90deg); }
+.wire-method summary.wire-mh:hover { color: var(--ink); }
+.wire-method-count { color: var(--ink-mute); font-weight: 400; letter-spacing: 0.08em; }
+.wire-method-body {
+  display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.7rem;
+}
+
+@media print {
+  /* Force the disclosure open on paper -- a caveat nobody can click to is a
+     caveat nobody reads. */
+  .wire-method details > *:not(summary) { display: block !important; }
+  .wire-method-body { display: flex !important; }
+}
+
+/* ---------- tables ---------- */
+.wire-tablewrap { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
+.wire-page table { border-collapse: collapse; width: 100%; min-width: 44rem; }
+.wire-page th, .wire-page td { padding: 0.62rem 0.8rem; text-align: left; border-bottom: 1px solid var(--line); }
+.wire-page th {
+  font-family: var(--display); font-size: 0.65rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-mute); background: var(--surface-2);
+  position: sticky; top: 0;
+}
+.wire-page tbody tr:last-child td { border-bottom: none; }
+.wire-page td.wire-num, .wire-page th.wire-num {
+  font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem;
+}
+.wire-page td.wire-owner { font-weight: 700; font-family: var(--display); letter-spacing: -0.01em; }
+.wire-page td.wire-comp {
+  font-family: var(--display); font-weight: 700; font-size: 0.8rem;
+  letter-spacing: 0.02em; text-transform: uppercase; color: var(--cool);
+}
+.wire-page td.wire-rings { font-family: var(--mono); color: var(--gold); letter-spacing: 0.1em; text-align: center; }
+.wire-zero { color: var(--ink-mute); }
+
+/* ---------- section headers ---------- */
+.wire-sechead {
+  font-family: var(--display);
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--gold);
+  padding-bottom: 0.5rem; border-bottom: 1px solid var(--line);
+  margin: 0 0 1.25rem;
+}
+
+/* ---------- cards ---------- */
+.wire-cards { display: flex; flex-direction: column; gap: 1rem; }
+.wire-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 1.15rem clamp(1rem, 3vw, 1.5rem) 1.3rem;
+  display: flex; flex-direction: column; gap: 0.8rem;
+}
+.wire-chead { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.wire-rank {
+  font-family: var(--mono); font-size: 0.95rem; font-weight: 700;
+  color: var(--ink-mute); font-variant-numeric: tabular-nums;
+}
+.wire-cname {
+  font-family: var(--display); font-weight: 800;
+  font-size: clamp(1.15rem, 3.4vw, 1.5rem);
+  letter-spacing: -0.015em; text-transform: uppercase; margin: 0;
+}
+.wire-badge {
+  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ground); background: var(--cool);
+  padding: 0.22rem 0.55rem; white-space: nowrap;
+}
+
+/* ---------- stat strip ---------- */
+.wire-strip { display: flex; flex-wrap: wrap; gap: 1.1rem; padding: 0.55rem 0; border-block: 1px solid var(--line); }
+.wire-stat { display: flex; flex-direction: column; gap: 0.1rem; }
+.wire-slabel {
+  font-family: var(--display); font-size: 0.58rem; font-weight: 700;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-mute);
+}
+.wire-sval { font-family: var(--mono); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+.wire-sval.wire-gold { color: var(--gold); }
+.wire-sval.wire-bad { color: var(--brick); }
+
+/* ---------- meter bar (pure CSS, no SVG) ---------- */
+.wire-apbar { flex: 1 1 9rem; min-width: 8rem; display: flex; flex-direction: column; gap: 0.28rem; justify-content: center; }
+.wire-track { height: 5px; background: var(--surface-2); border: 1px solid var(--line); position: relative; }
+.wire-fill { position: absolute; inset: 0 auto 0 0; background: var(--cool); }
+
+/* ---------- prose ---------- */
+.wire-page ul { margin: 0; padding-left: 1.05rem; display: flex; flex-direction: column; gap: 0.42rem; }
+.wire-page li { font-size: 0.95rem; }
+.wire-page li b { color: var(--ink); }
+.wire-page p { margin: 0; }
+.wire-flag { color: var(--brick); font-weight: 700; }
+
+.wire-page blockquote {
+  margin: 0; padding: 0.55rem 0 0.55rem 0.9rem;
+  border-left: 2px solid var(--gold-dim);
+  color: var(--ink-dim); font-style: italic; font-size: 0.93rem;
+}
+.wire-page blockquote span { color: var(--ink-mute); font-style: normal; font-size: 0.85rem; }
+
+/* ---------- superlatives ---------- */
+.wire-supers { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; }
+.wire-super { background: var(--surface); border: 1px solid var(--line); border-top: 2px solid var(--gold); padding: 1rem 1.1rem; }
+.wire-super h3 {
+  font-family: var(--display); font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--gold);
+  margin: 0 0 0.45rem;
+}
+.wire-super p { margin: 0; font-size: 0.92rem; color: var(--ink-dim); }
+.wire-super p b { color: var(--ink); }
+
+.wire-page footer { color: var(--ink-mute); font-size: 0.82rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+
+/* ---------- NEW: figures (inline SVG charts land here in P4) ---------- */
+.wire-fig { margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.wire-fig svg { width: 100%; height: auto; display: block; }
+.wire-fig figcaption { font-size: 0.85rem; color: var(--ink-mute); }
+.wire-fig details { font-size: 0.85rem; color: var(--ink-dim); }
+.wire-fig summary { cursor: pointer; color: var(--gold); font-family: var(--display); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; }
+
+/* ---------- NEW: section paging ("flip through") ---------- */
+/* Default state is every section visible — that IS the graceful degradation.
+   The runtime adds .wire-paged to <html> only once it has booted, so printing,
+   a JS-less Artifact sandbox, or a broken script all read as one long scroll. */
+.wire-sec { display: block; }
+.wire-paged .wire-sec { display: none; }
+.wire-paged .wire-sec.wire-on { display: block; }
+
+/* .wire-js gates the rail, .wire-paged gates section visibility. Two classes,
+   not one, so "Read all" can drop paging without hiding the control that turns
+   it back on. */
+.wire-rail { display: none; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--line); }
+.wire-js .wire-rail { display: flex; }
+.wire-rail-pill,
+.wire-rail-nav,
+.wire-rail-all {
+  font-family: var(--display); font-size: 0.66rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-dim); background: var(--surface);
+  border: 1px solid var(--line); padding: 0.34rem 0.6rem;
+  cursor: pointer; line-height: 1;
+}
+.wire-rail-pill:hover, .wire-rail-nav:hover, .wire-rail-all:hover { color: var(--ink); border-color: var(--gold-dim); }
+.wire-rail-pill[aria-current="true"] { color: var(--ground); background: var(--gold); border-color: var(--gold); }
+.wire-rail-nav[disabled] { opacity: 0.35; cursor: default; }
+.wire-rail-nav[disabled]:hover { color: var(--ink-dim); border-color: var(--line); }
+.wire-rail-all { margin-left: auto; color: var(--gold); }
+.wire-rail-count { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+
+/* ---------- NEW: Back bar. Hidden unless the runtime says we are embedded. ---------- */
+.wire-topbar { display: none; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+.wire-embedded .wire-topbar { display: flex; }
+.wire-back {
+  font-family: var(--display); font-size: 0.66rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--gold); background: none; border: 1px solid var(--gold-dim);
+  padding: 0.34rem 0.7rem; cursor: pointer; line-height: 1;
+}
+.wire-back:hover { color: var(--ground); background: var(--gold); }
+.wire-topbar-title { font-family: var(--display); font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute); }
+
+@media (max-width: 34rem) {
+  .wire-strip { gap: 0.85rem; }
+  .wire-apbar { flex-basis: 100%; }
+  .wire-rail-all { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+
+<div class="wire-page">
+<div class="wire-wrap">
+
+  <div class="wire-topbar">
+    <button class="wire-back" data-wire-back type="button">All stories</button>
+    <span class="wire-topbar-title">UPS Wire</span>
+  </div>
+
+  <header class="wire-hero">
+    <div class="wire-eyebrow">Specimen &middot; Season Reviews &middot; Layout proof</div>
+    <h1>Specimen: Pre-Season Review</h1>
+    <p class="wire-dek">A layout proof for the season-review family. Every name, number and verdict on this page is invented. Nothing here came from the league database.</p>
+  </header>
+
+  <div class="wire-method">
+    <details>
+      <summary class="wire-mh">This is a specimen <span class="wire-method-count">&mdash; 2 notes</span></summary>
+      <div class="wire-method-body">
+        <div><b>Not real content.</b> This article exists to prove the UPS Wire frame end to end: section paging, tables, stat strips, meter bars, the chapter rail, deep links, and the back bar. Teams are named Alpha through Lima. The dollar figures are made up.</div>
+    <div><b>What it proves.</b> Five sections in the rail; a wide table that scrolls horizontally without the page scrolling; cards with stat strips; a meter bar; a footer that stays put across page turns.</div>
+      </div>
+    </details>
+  </div>
+
+  <nav class="wire-rail" data-wire-rail aria-label="Sections"></nav>
+
+  <section class="wire-sec" id="s1" data-title="The Cap Sheet">
+    <h2 class="wire-sechead">The Cap Sheet</h2>
+    <p>Where the twelve teams stood when the off-season opened, and where they stand now. In the real article this table is generated from the data pack, and every figure carries an as-of date.</p>
+    <div class="wire-tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Team</th><th>Posture</th>
+            <th class="wire-num">Opening</th><th class="wire-num">Spent</th>
+            <th class="wire-num">Room</th><th class="wire-num">Roster</th><th class="wire-num">Moves</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="wire-owner">Team Alpha</td><td class="wire-comp">All In</td><td class="wire-num">$300,000</td><td class="wire-num">$291,400</td><td class="wire-num">$8,600</td><td class="wire-num">24</td><td class="wire-num">19</td></tr>
+          <tr><td class="wire-owner">Team Bravo</td><td class="wire-comp">All In</td><td class="wire-num">$300,000</td><td class="wire-num">$288,150</td><td class="wire-num">$11,850</td><td class="wire-num">23</td><td class="wire-num">14</td></tr>
+          <tr><td class="wire-owner">Team Charlie</td><td class="wire-comp">Steady</td><td class="wire-num">$300,000</td><td class="wire-num">$271,000</td><td class="wire-num">$29,000</td><td class="wire-num">22</td><td class="wire-num">9</td></tr>
+          <tr><td class="wire-owner">Team Delta</td><td class="wire-comp">Steady</td><td class="wire-num">$300,000</td><td class="wire-num">$264,900</td><td class="wire-num">$35,100</td><td class="wire-num">24</td><td class="wire-num">11</td></tr>
+          <tr><td class="wire-owner">Team Echo</td><td class="wire-comp">Retooling</td><td class="wire-num">$300,000</td><td class="wire-num">$248,300</td><td class="wire-num">$51,700</td><td class="wire-num">21</td><td class="wire-num">17</td></tr>
+          <tr><td class="wire-owner">Team Foxtrot</td><td class="wire-comp">Retooling</td><td class="wire-num">$300,000</td><td class="wire-num">$243,750</td><td class="wire-num">$56,250</td><td class="wire-num">22</td><td class="wire-num">8</td></tr>
+          <tr><td class="wire-owner">Team Golf</td><td class="wire-comp">Rebuilding</td><td class="wire-num">$300,000</td><td class="wire-num">$226,100</td><td class="wire-num">$73,900</td><td class="wire-num">20</td><td class="wire-num">21</td></tr>
+          <tr><td class="wire-owner">Team Hotel</td><td class="wire-comp">Rebuilding</td><td class="wire-num">$300,000</td><td class="wire-num">$219,400</td><td class="wire-num">$80,600</td><td class="wire-num">19</td><td class="wire-num">12</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color:var(--ink-mute); font-size:0.85rem; margin-top:0.7rem;">Specimen figures. The real table is built from the compliance route and stamped with the timestamp it was pulled.</p>
+  </section>
+
+  <section class="wire-sec" id="s2" data-title="The Auction">
+    <h2 class="wire-sechead">The Auction</h2>
+    <p>The comprehensive auction breakdown lives here: what went for what, who bid against whom, which positions ran hot, and which lots nobody wanted.</p>
+    <div class="wire-strip">
+      <div class="wire-stat"><span class="wire-slabel">Lots closed</span><span class="wire-sval wire-gold">71</span></div>
+      <div class="wire-stat"><span class="wire-slabel">Still open</span><span class="wire-sval">32</span></div>
+      <div class="wire-stat"><span class="wire-slabel">Total bids</span><span class="wire-sval">413</span></div>
+      <div class="wire-stat"><span class="wire-slabel">Top price</span><span class="wire-sval wire-gold">$61,000</span></div>
+      <div class="wire-stat"><span class="wire-slabel">Went for $1K</span><span class="wire-sval wire-bad">14</span></div>
+      <div class="wire-apbar"><span class="wire-slabel">Cap committed league-wide &middot; 84%</span><div class="wire-track"><div class="wire-fill" style="width:84%"></div></div></div>
+    </div>
+    <p>Note the counts above: this specimen deliberately uses the real shape of a mid-auction snapshot, where lots are still open. A review published in that state has to say so on its face rather than implying the auction finished.</p>
+    <blockquote>
+      Specimen quote. In the real article this is a verbatim line from a Discord thread or a trade note.
+      <span>&mdash; a real owner, some real date</span>
+    </blockquote>
+  </section>
+
+  <section class="wire-sec" id="s3" data-title="Twelve Verdicts">
+    <h2 class="wire-sechead">Twelve Verdicts</h2>
+    <p>One card per team: where they started, what they did, where they landed. Two shown here.</p>
+    <div class="wire-cards">
+
+      <article class="wire-card">
+        <div class="wire-chead"><span class="wire-rank">01</span><h2 class="wire-cname">Team Alpha</h2><span class="wire-badge">All In</span></div>
+        <div class="wire-strip">
+          <div class="wire-stat"><span class="wire-slabel">Cap room</span><span class="wire-sval wire-bad">$8,600</span></div>
+          <div class="wire-stat"><span class="wire-slabel">Auction wins</span><span class="wire-sval">7</span></div>
+          <div class="wire-stat"><span class="wire-slabel">Trades</span><span class="wire-sval">4</span></div>
+          <div class="wire-stat"><span class="wire-slabel">Extensions</span><span class="wire-sval">3</span></div>
+          <div class="wire-apbar"><span class="wire-slabel">Cap used &middot; 97.1%</span><div class="wire-track"><div class="wire-fill" style="width:97.1%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>Spent to the wall.</b> Specimen bullet demonstrating the tight punchy style the real reports use.</li>
+          <li>Second bullet, shorter. <span class="wire-flag">Flagged items</span> render in brick.</li>
+          <li><b>Verdict:</b> a one-line judgment that does not hedge.</li>
+        </ul>
+      </article>
+
+      <article class="wire-card">
+        <div class="wire-chead"><span class="wire-rank">02</span><h2 class="wire-cname">Team Golf</h2><span class="wire-badge">Rebuilding</span></div>
+        <div class="wire-strip">
+          <div class="wire-stat"><span class="wire-slabel">Cap room</span><span class="wire-sval wire-gold">$73,900</span></div>
+          <div class="wire-stat"><span class="wire-slabel">Auction wins</span><span class="wire-sval">2</span></div>
+          <div class="wire-stat"><span class="wire-slabel">Trades</span><span class="wire-sval">9</span></div>
+          <div class="wire-stat"><span class="wire-slabel">Extensions</span><span class="wire-sval">0</span></div>
+          <div class="wire-apbar"><span class="wire-slabel">Cap used &middot; 75.4%</span><div class="wire-track"><div class="wire-fill" style="width:75.4%"></div></div></div>
+        </div>
+        <ul>
+          <li><b>Sold everything not nailed down.</b> Specimen bullet.</li>
+          <li>Another specimen bullet, to show two-line wrapping behaves.</li>
+          <li><b>Verdict:</b> another one-line judgment.</li>
+        </ul>
+      </article>
+
+    </div>
+  </section>
+
+  <section class="wire-sec" id="s4" data-title="Superlatives">
+    <h2 class="wire-sechead">Superlatives</h2>
+    <div class="wire-supers">
+      <div class="wire-super">
+        <h3>Best value</h3>
+        <p><b>Specimen Player</b> at $4,000. The grid auto-fits, so this block reflows from three columns to one without a media query.</p>
+      </div>
+      <div class="wire-super">
+        <h3>Worst overpay</h3>
+        <p><b>Specimen Player</b> at $61,000. Accent color is reserved for the one thing that actually matters on a page.</p>
+      </div>
+      <div class="wire-super">
+        <h3>Quietest off-season</h3>
+        <p><b>Team Foxtrot</b>, eight moves. Short paragraphs only; no walls of text.</p>
+      </div>
+      <div class="wire-super">
+        <h3>Busiest</h3>
+        <p><b>Team Golf</b>, twenty-one moves, and nine of them were trades.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wire-sec" id="s5" data-title="What Does Not Fit">
+    <h2 class="wire-sechead">What Does Not Fit</h2>
+    <p>The reference piece Keith liked was explicit about its own limits, and that honesty is part of the house style. This section is where a real review says what it could not determine.</p>
+    <ul>
+      <li><b>The auction was still running.</b> Thirty-two lots open at the time of writing, so the cap figures are a mid-flight snapshot, not a final one.</li>
+      <li><b>Names were missing on some rows.</b> Resolved from ids rather than rendered blank, but worth stating.</li>
+      <li><b>Nothing here is a projection.</b> Where a number is a projection it says so next to the number.</li>
+    </ul>
+  </section>
+
+  <footer>
+    UPS Wire &middot; SPECIMEN, not real content &middot; league 74598
+  </footer>
+
+</div>
+</div>
+
+<script data-wire-runtime>
+/* UPS Wire -- article runtime. CANONICAL SOURCE.
+ *
+ * This file is INLINED verbatim into every article by the builder. It is
+ * byte-identical across every article and contains ZERO article prose -- that
+ * is deliberate and load-bearing:
+ *
+ *   scripts/check_inline_js.mjs syntax-checks every inline <script> under
+ *   site/**\/*.html. It exists because one unescaped apostrophe in a tooltip
+ *   string shipped Commish Settings broken for hours. A hub full of league
+ *   prose is exactly the thing that breaks it. So: prose lives in markup and
+ *   in index.json, never in a JS string. Section titles are read from
+ *   data-title attributes and written with textContent, never concatenated
+ *   into HTML.
+ *
+ * Non-ASCII is written as \u escapes (same convention as header_custom_v2.html)
+ * because jsDelivr serves .html as text/plain and the charset round-trip
+ * through fetch() -> srcdoc is not worth trusting. See docs: MFL mojibake.
+ *
+ * Responsibilities (four, and only these):
+ *   1. Flag embedded vs standalone, and apply the theme the loader chose.
+ *   2. Wire the Back bar (embedded: postMessage; standalone: navigate).
+ *   3. Build the chapter rail and page between sections.
+ *   4. Report section changes upward so the MFL hash tracks what you're reading.
+ *
+ * The height beacon is NOT here -- the loader injects one beacon that serves
+ * both the shell and articles, so there is a single implementation.
+ *
+ * Graceful degradation is the default state, not a fallback: without JS every
+ * section is display:block and the article reads as one continuous scroll.
+ * That covers printing, a locked-down Artifact sandbox, and a failed fetch.
+ */
+(function () {
+  "use strict";
+
+  var docEl = document.documentElement;
+
+  var embedded = false;
+  try { embedded = window.parent !== window; } catch (e) { embedded = true; }
+
+  function post(msg) {
+    if (!embedded) return;
+    try { window.parent.postMessage(msg, "*"); } catch (e) {}
+  }
+
+  // 1. Theme -- FALLBACK ONLY. When embedded, the loader already stamped
+  //    data-theme into the injected head, because it has to cover the index
+  //    shell too and the shell does not run this file. This line matters only
+  //    if some other host sets UPS_WIRE_THEME without stamping the attribute.
+  //    Standalone, UPS_WIRE_THEME is absent and prefers-color-scheme wins.
+  var theme = String(window.UPS_WIRE_THEME || "");
+  if (theme === "dark" || theme === "light") docEl.setAttribute("data-theme", theme);
+  if (embedded) docEl.classList.add("wire-embedded");
+
+  // 2. Back bar. Only visible when embedded (CSS: .wire-embedded .wire-topbar).
+  var back = document.querySelector("[data-wire-back]");
+  if (back) {
+    back.addEventListener("click", function () {
+      if (embedded) { post({ type: "wire-route", route: "/" }); return; }
+      // Standalone: UPS_WIRE_PAGES_BASE is the one place the Pages path shape
+      // is written down. The relative fallback covers an Artifact or any host
+      // that never set it.
+      window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
+    });
+  }
+
+  // 3. Paging.
+  var secs = [].slice.call(document.querySelectorAll(".wire-sec"));
+  var rail = document.querySelector("[data-wire-rail]");
+  if (secs.length < 2 || !rail) return;
+
+  function mk(tag, cls, text) {
+    var el = document.createElement(tag);
+    el.className = cls;
+    if (text != null) el.textContent = text;
+    return el;
+  }
+
+  var pills = [];
+  var idx = 0;
+
+  var prevBtn = mk("button", "wire-rail-nav", "\u2039 Prev");
+  var nextBtn = mk("button", "wire-rail-nav", "Next \u203A");
+  var count = mk("span", "wire-rail-count", "");
+  var allBtn = mk("button", "wire-rail-all", "Read all");
+
+  rail.appendChild(prevBtn);
+  secs.forEach(function (sec, i) {
+    // textContent, not innerHTML -- a section title is prose and may contain
+    // anything. Falls back to a number so a missing data-title is visible
+    // rather than silently blank.
+    var label = sec.getAttribute("data-title") || ("Section " + (i + 1));
+    var pill = mk("button", "wire-rail-pill", (i + 1) + ". " + label);
+    pill.setAttribute("type", "button");
+    pill.addEventListener("click", function () { show(i, true); });
+    pills.push(pill);
+    rail.appendChild(pill);
+  });
+  rail.appendChild(nextBtn);
+  rail.appendChild(count);
+  rail.appendChild(allBtn);
+
+  [prevBtn, nextBtn, allBtn].forEach(function (b) { b.setAttribute("type", "button"); });
+
+  prevBtn.addEventListener("click", function () { show(idx - 1, true); });
+  nextBtn.addEventListener("click", function () { show(idx + 1, true); });
+
+  allBtn.addEventListener("click", function () {
+    var nowPaged = docEl.classList.toggle("wire-paged");
+    allBtn.textContent = nowPaged ? "Read all" : "Page it";
+    if (!nowPaged) return;
+    show(idx, false);
+  });
+
+  function show(i, userInitiated) {
+    if (i < 0 || i >= secs.length) return;
+    idx = i;
+    secs.forEach(function (sec, n) { sec.classList.toggle("wire-on", n === i); });
+    pills.forEach(function (p, n) {
+      if (n === i) p.setAttribute("aria-current", "true");
+      else p.removeAttribute("aria-current");
+    });
+    count.textContent = (i + 1) + " / " + secs.length;
+    prevBtn.disabled = i === 0;
+    nextBtn.disabled = i === secs.length - 1;
+
+    if (!userInitiated) return;
+
+    var id = secs[i].id || "";
+    // 4. Report upward so the MFL address bar tracks the section. The loader
+    //    composes the full route because it is the thing that knows which
+    //    article is loaded -- the article does not need to know its own id.
+    if (embedded) { post({ type: "wire-section", sectionId: id }); }
+    else if (id) {
+      try { history.replaceState(null, "", "#" + id); } catch (e) {}
+    }
+    // Paging is a page turn; land at the top of the new section.
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+
+  docEl.classList.add("wire-js");
+  docEl.classList.add("wire-paged");
+
+  // Initial section: the loader's choice when embedded, the URL hash when
+  // standalone, first section otherwise. One resolution path, no special cases.
+  var wanted = embedded
+    ? String(window.UPS_WIRE_SECTION || "")
+    : String(window.location.hash || "").replace(/^#/, "");
+
+  // STANDALONE DEEP LINK: take the fragment OFF the URL before the browser can
+  // act on it, then resolve the section ourselves.
+  //
+  // Why not just scroll back to the top: the browser native-scrolls to the
+  // fragment while every section is still visible -- i.e. deep into a very long
+  // document. Paging then collapses that document and the reader is parked in
+  // dead space, looking at a blank page. Chasing it with scrollTo does not work;
+  // the scroll is re-applied asynchronously after load and after layout settles,
+  // so we lost that race repeatedly (landing at 1104px, then 10039px).
+  //
+  // Removing the fragment removes the race entirely: no fragment, no native
+  // scroll. The hash is restored on load via replaceState -- which, unlike
+  // assigning location.hash, never scrolls -- so the address bar still holds a
+  // copyable deep link.
+  var restoreHash = "";
+  if (!embedded && wanted) {
+    restoreHash = "#" + wanted;
+    try {
+      if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    } catch (e) { restoreHash = ""; }
+  }
+
+  var start = 0;
+  for (var n = 0; n < secs.length; n++) { if (secs[n].id && secs[n].id === wanted) { start = n; break; } }
+  show(start, false);
+
+  if (restoreHash) {
+    window.addEventListener("load", function () {
+      try {
+        window.scrollTo(0, 0);
+        history.replaceState(null, "", window.location.pathname + window.location.search + restoreHash);
+      } catch (e) {}
+    });
+  }
+})();
+</script>
+</body>
+</html>
